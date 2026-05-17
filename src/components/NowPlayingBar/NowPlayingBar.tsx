@@ -13,6 +13,7 @@ import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { RepeatMode } from "../../types/track";
 import { AudioVisualizer } from "../AudioVisualizer/AudioVisualizer";
+import { ScrollingText } from "../ScrollingText/ScrollingText";
 import { TrackListModal } from "../TrackListModal/TrackListModal";
 import {
   IconAlbumPlaceholder,
@@ -295,12 +296,14 @@ export function NowPlayingBar({
           </button>
 
           <div className="now-playing-bar__track-text">
-            <span className="now-playing-bar__title">
-              {currentTrack?.title ?? "No track selected"}
-            </span>
-            <span className="now-playing-bar__subtitle">
-              {subtitle ?? "Unknown artist"}
-            </span>
+            <ScrollingText
+              className="now-playing-bar__title"
+              text={currentTrack?.title ?? "No track selected"}
+            />
+            <ScrollingText
+              className="now-playing-bar__subtitle"
+              text={subtitle ?? "Unknown artist"}
+            />
           </div>
 
           <div className="now-playing-bar__progress-row">

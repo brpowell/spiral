@@ -1,0 +1,27 @@
+.scrolling-text {
+  overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
+}
+
+.scrolling-text--active {
+  text-align: left;
+}
+
+.scrolling-text__inner {
+  display: inline-block;
+  white-space: nowrap;
+  max-width: none;
+}
+
+.scrolling-text--truncated {
+  text-overflow: ellipsis;
+}
+
+.scrolling-text--truncated .scrolling-text__inner {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}

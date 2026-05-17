@@ -237,20 +237,12 @@
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
   line-height: 1.25;
 }
 
 .now-playing-bar__subtitle {
   font-size: 0.68rem;
   color: var(--color-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
   line-height: 1.25;
 }
 
