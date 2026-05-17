@@ -19,7 +19,7 @@ function LibraryTableRow({
   index: number;
   isSelected: boolean;
   isPlaying: boolean;
-  onSelect: () => void;
+  onSelect: (e: React.MouseEvent) => void;
   onPlay: () => void;
 }) {
   const { onContextMenu, openEditor, contextMenu, removeDialog } =
@@ -122,8 +122,8 @@ function matchesSearch(track: Track, query: string): boolean {
 export function LibraryView({ tracks }: LibraryViewProps) {
   const playTracks = usePlayerStore((s) => s.playTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
-  const selectedTrackId = usePlayerStore((s) => s.selectedTrackId);
-  const selectTrack = usePlayerStore((s) => s.selectTrack);
+  const selectedTrackIds = usePlayerStore((s) => s.selectedTrackIds);
+  const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
 
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>("title");
@@ -134,6 +134,11 @@ export function LibraryView({ tracks }: LibraryViewProps) {
     return [...filtered].sort((a, b) => compareTracks(a, b, sortField, sortDir));
   }, [tracks, search, sortField, sortDir]);
 
+  const sortedTrackIds = useMemo(
+    () => sortedTracks.map((t) => t.id),
+    [sortedTracks],
+  );
+
   const handleSort = (field: SortField) => {
     if (field === sortField) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -143,13 +148,15 @@ export function LibraryView({ tracks }: LibraryViewProps) {
     }
   };
 
-  const handleSelectRow = (track: Track) => {
-    selectTrack(track.id);
+  const handleSelectRow = (track: Track, e: React.MouseEvent) => {
+    selectTracksInList(track.id, sortedTrackIds, {
+      shiftKey: e.shiftKey,
+      metaKey: e.metaKey || e.ctrlKey,
+    });
   };
 
   const handlePlayRow = (track: Track) => {
-    const ids = sortedTracks.map((t) => t.id);
-    void playTracks(ids, track.id);
+    void playTracks(sortedTrackIds, track.id);
   };
 
   const sortIndicator = (field: SortField) => {
@@ -223,9 +230,9 @@ export function LibraryView({ tracks }: LibraryViewProps) {
                     key={track.id}
                     track={track}
                     index={index}
-                    isSelected={track.id === selectedTrackId}
+                    isSelected={selectedTrackIds.includes(track.id)}
                     isPlaying={track.id === currentTrackId}
-                    onSelect={() => handleSelectRow(track)}
+                    onSelect={(e) => handleSelectRow(track, e)}
                     onPlay={() => handlePlayRow(track)}
                   />
                 ))

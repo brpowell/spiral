@@ -1,7 +1,12 @@
 import { create } from "zustand";
 import * as audio from "../lib/audio";
+import { buildPlaybackOrder } from "../lib/activeTrackList";
 import { startLibraryImport } from "../lib/libraryImport";
 import { getLibrary, pickLibraryPaths, removeTrack } from "../lib/tauri";
+import {
+  applyTrackSelection,
+  type TrackSelectionModifiers,
+} from "../lib/trackSelection";
 import {
   cycleRepeatMode,
   getAutoplayNextId,
@@ -14,9 +19,11 @@ import type { PlaybackState, RepeatMode, Track } from "../types/track";
 
 interface PlayerState {
   library: Track[];
-  queue: number[];
+  playContextIds: number[];
+  manualQueueIds: number[];
   currentTrackId: number | null;
-  selectedTrackId: number | null;
+  selectedTrackIds: number[];
+  selectionAnchorId: number | null;
   playbackState: PlaybackState;
   positionSeconds: number;
   volume: number;
@@ -31,7 +38,12 @@ interface PlayerState {
   importFromPaths: (paths: string[]) => void;
   playTrack: (id: number) => Promise<void>;
   playTracks: (ids: number[], startId: number) => Promise<void>;
-  selectTrack: (id: number | null) => void;
+  selectTracksInList: (
+    id: number,
+    orderedIds: number[],
+    modifiers: TrackSelectionModifiers,
+  ) => void;
+  clearSelection: () => void;
   pause: () => void;
   resume: () => void;
   togglePlayPause: () => void;
@@ -41,7 +53,8 @@ interface PlayerState {
   nextTrack: () => void;
   setVolume: (volume: number) => void;
   toggleMute: () => void;
-  setQueue: (ids: number[]) => void;
+  addToQueue: (ids: number[]) => void;
+  removeFromQueue: (id: number) => void;
   cycleRepeat: () => void;
   toggleShuffle: () => void;
   clearImportError: () => void;
@@ -49,16 +62,24 @@ interface PlayerState {
   closeTrackEditor: () => void;
   updateTrackInLibrary: (track: Track) => void;
   removeTrackFromLibrary: (id: number, deleteFromDisk: boolean) => Promise<void>;
+  removeTracksFromLibrary: (
+    ids: number[],
+    deleteFromDisk: boolean,
+  ) => Promise<void>;
 }
 
-function ensureQueue(set: (partial: Partial<PlayerState>) => void, get: () => PlayerState): number[] {
-  const { queue, library } = get();
-  if (queue.length > 0) return queue;
-  const ids = library.map((t) => t.id);
-  if (ids.length > 0) {
-    set({ queue: ids });
-  }
-  return ids;
+function getPlaybackOrder(get: () => PlayerState): number[] {
+  const { manualQueueIds, playContextIds, library, currentTrackId } = get();
+  return buildPlaybackOrder(
+    manualQueueIds,
+    playContextIds,
+    library,
+    currentTrackId,
+  );
+}
+
+function pruneIdsMany(ids: number[], removed: Set<number>): number[] {
+  return ids.filter((id) => !removed.has(id));
 }
 
 let positionInterval: ReturnType<typeof setInterval> | null = null;
@@ -88,8 +109,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       return;
     }
 
-    const queue = ensureQueue(set, get);
-    const nextId = getAutoplayNextId(queue, currentTrackId, repeatMode);
+    const order = getPlaybackOrder(get);
+    const nextId = getAutoplayNextId(order, currentTrackId, repeatMode);
     if (nextId !== null) {
       void get().playTrack(nextId);
       return;
@@ -101,9 +122,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
   return {
     library: [],
-    queue: [],
+    playContextIds: [],
+    manualQueueIds: [],
     currentTrackId: null,
-    selectedTrackId: null,
+    selectedTrackIds: [],
+    selectionAnchorId: null,
     playbackState: "stopped",
     positionSeconds: 0,
     volume: 1,
@@ -140,7 +163,23 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }
     },
 
-    selectTrack: (id) => set({ selectedTrackId: id }),
+    selectTracksInList: (id, orderedIds, modifiers) => {
+      const { selectedTrackIds, selectionAnchorId } = get();
+      const result = applyTrackSelection(
+        id,
+        orderedIds,
+        selectedTrackIds,
+        selectionAnchorId,
+        modifiers,
+      );
+      set({
+        selectedTrackIds: result.selectedIds,
+        selectionAnchorId: result.anchorId,
+      });
+    },
+
+    clearSelection: () =>
+      set({ selectedTrackIds: [], selectionAnchorId: null }),
 
     playTracks: async (ids, startId) => {
       if (ids.length === 0) return;
@@ -148,7 +187,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const ordered = get().shuffle
         ? shuffleNewTrackList(ids, startId)
         : ids;
-      set({ queue: ordered, selectedTrackId: startId });
+      set({
+        playContextIds: ordered,
+        selectedTrackIds: [startId],
+        selectionAnchorId: startId,
+      });
       await get().playTrack(startId);
     },
 
@@ -156,21 +199,27 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const track = get().library.find((t) => t.id === id);
       if (!track) return;
 
-      const hadQueue = get().queue.length > 0;
-      ensureQueue(set, get);
-      if (!hadQueue && get().shuffle && get().queue.length > 1) {
-        set({ queue: shuffleTrackList(get().queue, id) });
+      const hadContext = get().playContextIds.length > 0;
+      if (!hadContext && get().library.length > 0) {
+        const libraryIds = get().library.map((t) => t.id);
+        set({ playContextIds: libraryIds });
       }
+      if (!hadContext && get().shuffle && get().playContextIds.length > 1) {
+        set({ playContextIds: shuffleTrackList(get().playContextIds, id) });
+      }
+
       set({ importError: null });
       try {
         await audio.load(track.filePath);
         audio.play();
-        set({
+        set((state) => ({
           currentTrackId: id,
-          selectedTrackId: id,
+          selectedTrackIds: [id],
+          selectionAnchorId: id,
           playbackState: "playing",
           positionSeconds: 0,
-        });
+          manualQueueIds: state.manualQueueIds.filter((trackId) => trackId !== id),
+        }));
         startPositionPoll(set);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -222,17 +271,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     previousTrack: () => {
       const { currentTrackId, repeatMode } = get();
-      const queue = ensureQueue(set, get);
-      if (!currentTrackId || queue.length === 0) return;
-      const prevId = getManualPreviousId(queue, currentTrackId, repeatMode);
+      const order = getPlaybackOrder(get);
+      if (!currentTrackId || order.length === 0) return;
+      const prevId = getManualPreviousId(order, currentTrackId, repeatMode);
       if (prevId !== null) void get().playTrack(prevId);
     },
 
     nextTrack: () => {
       const { currentTrackId, repeatMode } = get();
-      const queue = ensureQueue(set, get);
-      if (!currentTrackId || queue.length === 0) return;
-      const nextId = getManualNextId(queue, currentTrackId, repeatMode);
+      const order = getPlaybackOrder(get);
+      if (!currentTrackId || order.length === 0) return;
+      const nextId = getManualNextId(order, currentTrackId, repeatMode);
       if (nextId !== null) void get().playTrack(nextId);
     },
 
@@ -260,9 +309,27 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       set({ muted });
     },
 
-    setQueue: (ids) => set({ queue: ids }),
+    addToQueue: (ids) => {
+      const libraryIds = new Set(get().library.map((t) => t.id));
+      const valid = ids.filter((id) => libraryIds.has(id));
+      if (valid.length === 0) return;
+      set((state) => {
+        const existing = new Set(state.manualQueueIds);
+        const toAdd = valid.filter((id) => !existing.has(id));
+        if (toAdd.length === 0) return state;
+        return { manualQueueIds: [...state.manualQueueIds, ...toAdd] };
+      });
+    },
+
+    removeFromQueue: (id) => {
+      set((state) => ({
+        manualQueueIds: state.manualQueueIds.filter((trackId) => trackId !== id),
+      }));
+    },
+
     cycleRepeat: () =>
       set((state) => ({ repeatMode: cycleRepeatMode(state.repeatMode) })),
+
     toggleShuffle: () => {
       const state = get();
       const next = !state.shuffle;
@@ -270,41 +337,70 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         set({ shuffle: false });
         return;
       }
-      if (state.queue.length === 0) {
+      if (state.playContextIds.length === 0) {
         set({ shuffle: true });
         return;
       }
       set({
         shuffle: true,
-        queue: shuffleTrackList(state.queue, state.currentTrackId),
+        playContextIds: shuffleTrackList(
+          state.playContextIds,
+          state.currentTrackId,
+        ),
       });
     },
+
     clearImportError: () => set({ importError: null }),
 
     openTrackEditor: (id) => set({ editingTrackId: id }),
     closeTrackEditor: () => set({ editingTrackId: null }),
     updateTrackInLibrary: (track) =>
-      set((state) => ({
-        library: state.library.map((t) => (t.id === track.id ? track : t)),
+      set((s) => ({
+        library: s.library.map((t) => (t.id === track.id ? track : t)),
       })),
 
     removeTrackFromLibrary: async (id, deleteFromDisk) => {
-      await removeTrack(id, deleteFromDisk);
+      await get().removeTracksFromLibrary([id], deleteFromDisk);
+    },
+
+    removeTracksFromLibrary: async (ids, deleteFromDisk) => {
+      const unique = [...new Set(ids)];
+      if (unique.length === 0) return;
+
+      for (const id of unique) {
+        await removeTrack(id, deleteFromDisk);
+      }
+
       const state = get();
-      const wasCurrent = state.currentTrackId === id;
+      const removed = new Set(unique);
+      const wasCurrent =
+        state.currentTrackId !== null && removed.has(state.currentTrackId);
+
       if (wasCurrent) {
         audio.unload();
         stopPositionPoll();
       }
+
       set({
-        library: state.library.filter((t) => t.id !== id),
-        queue: state.queue.filter((trackId) => trackId !== id),
-        currentTrackId: wasCurrent ? null : state.currentTrackId,
-        selectedTrackId:
-          state.selectedTrackId === id ? null : state.selectedTrackId,
+        library: state.library.filter((t) => !removed.has(t.id)),
+        playContextIds: pruneIdsMany(state.playContextIds, removed),
+        manualQueueIds: pruneIdsMany(state.manualQueueIds, removed),
+        currentTrackId:
+          state.currentTrackId !== null && removed.has(state.currentTrackId)
+            ? null
+            : state.currentTrackId,
+        selectedTrackIds: pruneIdsMany(state.selectedTrackIds, removed),
+        selectionAnchorId:
+          state.selectionAnchorId !== null &&
+          removed.has(state.selectionAnchorId)
+            ? null
+            : state.selectionAnchorId,
         playbackState: wasCurrent ? "stopped" : state.playbackState,
         positionSeconds: wasCurrent ? 0 : state.positionSeconds,
-        editingTrackId: state.editingTrackId === id ? null : state.editingTrackId,
+        editingTrackId:
+          state.editingTrackId !== null && removed.has(state.editingTrackId)
+            ? null
+            : state.editingTrackId,
       });
     },
   };

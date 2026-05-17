@@ -103,17 +103,10 @@
 }
 
 .track-list-modal__row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto;
-  gap: 0.1rem 0.75rem;
-  width: 100%;
-  padding: 0.5rem;
-  border: none;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   border-radius: var(--radius-sm);
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
   transition: background 0.12s ease;
 }
 
@@ -127,6 +120,43 @@
 
 .track-list-modal__row--playing .track-list-modal__row-title {
   color: var(--color-accent);
+}
+
+.track-list-modal__row--queued .track-list-modal__row-title::before {
+  content: "▸ ";
+  color: var(--color-accent);
+}
+
+.track-list-modal__row-main {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 0.1rem 0.75rem;
+  padding: 0.5rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.track-list-modal__row-remove {
+  flex-shrink: 0;
+  margin-right: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.track-list-modal__row-remove:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
 }
 
 .track-list-modal__row-title {

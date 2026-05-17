@@ -7,14 +7,14 @@ import "./RemoveTrackDialog.css";
 
 interface RemoveTrackDialogProps {
   open: boolean;
-  track: Track;
+  tracks: Track[];
   onClose: () => void;
   onRemove: (deleteFromDisk: boolean) => Promise<void>;
 }
 
 export function RemoveTrackDialog({
   open,
-  track,
+  tracks,
   onClose,
   onRemove,
 }: RemoveTrackDialogProps) {
@@ -46,7 +46,11 @@ export function RemoveTrackDialog({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  const subtitle = [track.artist, track.album].filter(Boolean).join(" · ");
+  const count = tracks.length;
+  const heading =
+    count === 1
+      ? "Remove from library?"
+      : `Remove ${count} tracks from library?`;
 
   return (
     <AnimatedModal
@@ -58,12 +62,22 @@ export function RemoveTrackDialog({
       onBackdropClick={onClose}
     >
       <h2 id="remove-track-title" className="remove-track-dialog__heading">
-        Remove from library?
+        {heading}
       </h2>
-      <p className="remove-track-dialog__track">
-        <strong>{track.title}</strong>
-        {subtitle ? <span>{subtitle}</span> : null}
-      </p>
+
+      <ul className="remove-track-dialog__list">
+        {tracks.map((track) => {
+          const subtitle = [track.artist, track.album]
+            .filter(Boolean)
+            .join(" · ");
+          return (
+            <li key={track.id} className="remove-track-dialog__track">
+              <strong>{track.title}</strong>
+              {subtitle ? <span>{subtitle}</span> : null}
+            </li>
+          );
+        })}
+      </ul>
 
       <ModalFooter onCancel={onClose}>
         <button
@@ -78,7 +92,7 @@ export function RemoveTrackDialog({
           className="modal-footer__btn modal-footer__btn--danger"
           onClick={() => void handleRemove(true)}
         >
-          Remove and delete file
+          Remove and delete file{count > 1 ? "s" : ""}
         </button>
       </ModalFooter>
     </AnimatedModal>

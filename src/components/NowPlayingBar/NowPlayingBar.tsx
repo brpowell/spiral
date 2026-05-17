@@ -2,7 +2,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { albumKey } from "../../lib/albums";
-import { getActiveTrackIds } from "../../lib/activeTrackList";
+import { buildPlaybackOrder } from "../../lib/activeTrackList";
 import * as audio from "../../lib/audio";
 import { formatRemainingTime, formatTime } from "../../lib/format";
 import {
@@ -42,7 +42,8 @@ export function NowPlayingBar({
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
   const positionSeconds = usePlayerStore((s) => s.positionSeconds);
-  const queue = usePlayerStore((s) => s.queue);
+  const playContextIds = usePlayerStore((s) => s.playContextIds);
+  const manualQueueIds = usePlayerStore((s) => s.manualQueueIds);
   const repeatMode = usePlayerStore((s) => s.repeatMode);
   const shuffle = usePlayerStore((s) => s.shuffle);
   const volume = usePlayerStore((s) => s.volume);
@@ -71,8 +72,14 @@ export function NowPlayingBar({
     currentTrack?.durationSeconds ?? audio.getDurationSeconds();
 
   const activeQueue = useMemo(
-    () => getActiveTrackIds(queue, library),
-    [queue, library],
+    () =>
+      buildPlaybackOrder(
+        manualQueueIds,
+        playContextIds,
+        library,
+        currentTrackId,
+      ),
+    [manualQueueIds, playContextIds, library, currentTrackId],
   );
 
   const canGoPrevious =

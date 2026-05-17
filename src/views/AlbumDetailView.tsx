@@ -18,8 +18,8 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
   const closeAlbum = useNavigationStore((s) => s.closeAlbum);
   const playTracks = usePlayerStore((s) => s.playTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
-  const selectedTrackId = usePlayerStore((s) => s.selectedTrackId);
-  const selectTrack = usePlayerStore((s) => s.selectTrack);
+  const selectedTrackIds = usePlayerStore((s) => s.selectedTrackIds);
+  const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
 
   const album = getAlbumByKey(albums, albumKey);
 
@@ -43,8 +43,11 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
     if (first) void playTracks(trackIds, first.id);
   };
 
-  const handleSelectTrack = (track: Track) => {
-    selectTrack(track.id);
+  const handleSelectTrack = (track: Track, e: React.MouseEvent) => {
+    selectTracksInList(track.id, trackIds, {
+      shiftKey: e.shiftKey,
+      metaKey: e.metaKey || e.ctrlKey,
+    });
   };
 
   const handlePlayTrack = (track: Track) => {
@@ -98,12 +101,13 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
                 tabIndex={0}
                 className={[
                   "album-track-row",
-                  track.id === selectedTrackId && "album-track-row--selected",
+                  selectedTrackIds.includes(track.id) &&
+                    "album-track-row--selected",
                   track.id === currentTrackId && "album-track-row--playing",
                 ]
                   .filter(Boolean)
                   .join(" ")}
-                onClick={() => handleSelectTrack(track)}
+                onClick={(e) => handleSelectTrack(track, e)}
                 onDoubleClick={() => handlePlayTrack(track)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handlePlayTrack(track);
