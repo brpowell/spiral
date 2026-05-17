@@ -2,6 +2,7 @@ import { create } from "zustand";
 import * as audio from "../lib/audio";
 import { buildPlaybackOrder } from "../lib/activeTrackList";
 import { startLibraryImport } from "../lib/libraryImport";
+import { showQueueAddedToast } from "../lib/queueToast";
 import { parseRepeatMode, prunePlaybackSession } from "../lib/playbackSession";
 import { getLibrary, getPlaybackSession, pickLibraryPaths, removeTrack } from "../lib/tauri";
 import {
@@ -380,12 +381,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const libraryIds = new Set(get().library.map((t) => t.id));
       const valid = ids.filter((id) => libraryIds.has(id));
       if (valid.length === 0) return;
+
+      let addedIds: number[] = [];
       set((state) => {
         const existing = new Set(state.manualQueueIds);
         const toAdd = valid.filter((id) => !existing.has(id));
         if (toAdd.length === 0) return state;
+        addedIds = toAdd;
         return { manualQueueIds: [...state.manualQueueIds, ...toAdd] };
       });
+
+      if (addedIds.length > 0) {
+        showQueueAddedToast(addedIds, get().library);
+      }
     },
 
     removeFromQueue: (id) => {

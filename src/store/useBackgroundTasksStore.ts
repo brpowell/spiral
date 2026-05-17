@@ -26,13 +26,35 @@ interface RunInBackgroundOptions {
   run: (ctx: BackgroundTaskRunContext) => Promise<void>;
 }
 
+interface ShowToastOptions {
+  label: string;
+  detail?: string;
+  /** Replaces any existing toast with the same key. */
+  key?: string;
+  dismissMs?: number;
+}
+
 interface BackgroundTasksState {
   tasks: BackgroundTask[];
   runInBackground: (options: RunInBackgroundOptions) => string;
+  showToast: (options: ShowToastOptions) => string;
   dismissTask: (id: string) => void;
 }
 
 const SUCCESS_DISMISS_MS = 5000;
+const BRIEF_TOAST_DISMISS_MS = 2000;
+
+function scheduleSuccessDismiss(
+  get: () => BackgroundTasksState,
+  id: string,
+  ms: number,
+): void {
+  window.setTimeout(() => {
+    if (get().tasks.some((t) => t.id === id && t.status === "success")) {
+      get().dismissTask(id);
+    }
+  }, ms);
+}
 
 function patchTask(
   tasks: BackgroundTask[],
@@ -103,11 +125,7 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>((set, get) =
             progress: undefined,
           }),
         }));
-        window.setTimeout(() => {
-          if (get().tasks.some((t) => t.id === id && t.status === "success")) {
-            get().dismissTask(id);
-          }
-        }, SUCCESS_DISMISS_MS);
+        scheduleSuccessDismiss(get, id, SUCCESS_DISMISS_MS);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         set((state) => ({
@@ -120,6 +138,28 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>((set, get) =
       }
     })();
 
+    return id;
+  },
+
+  showToast: ({ label, detail, key, dismissMs = BRIEF_TOAST_DISMISS_MS }) => {
+    const id = crypto.randomUUID();
+    const task: BackgroundTask = {
+      id,
+      key,
+      label,
+      detail,
+      status: "success",
+      createdAt: Date.now(),
+    };
+
+    set((state) => ({
+      tasks: [
+        ...(key ? state.tasks.filter((t) => t.key !== key) : state.tasks),
+        task,
+      ],
+    }));
+
+    scheduleSuccessDismiss(get, id, dismissMs);
     return id;
   },
 
