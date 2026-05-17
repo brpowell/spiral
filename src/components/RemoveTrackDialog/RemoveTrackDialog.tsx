@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { Track } from "../../types/track";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
+import { ModalFooter } from "../ModalFooter/ModalFooter";
 import "./RemoveTrackDialog.css";
 
 interface RemoveTrackDialogProps {
@@ -56,28 +57,30 @@ export function RemoveTrackDialog({
       labelledBy="remove-track-title"
       onBackdropClick={onClose}
     >
-        <h2 id="remove-track-title" className="remove-track-dialog__heading">
-          Remove from library?
-        </h2>
-        <p className="remove-track-dialog__track">
-          <strong>{track.title}</strong>
-          {subtitle ? <span>{subtitle}</span> : null}
-        </p>
-        <div className="remove-track-dialog__actions">
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" onClick={() => void handleRemove(false)}>
-            Remove from library
-          </button>
-          <button
-            type="button"
-            className="remove-track-dialog__delete"
-            onClick={() => void handleRemove(true)}
-          >
-            Remove and delete file
-          </button>
-        </div>
+      <h2 id="remove-track-title" className="remove-track-dialog__heading">
+        Remove from library?
+      </h2>
+      <p className="remove-track-dialog__track">
+        <strong>{track.title}</strong>
+        {subtitle ? <span>{subtitle}</span> : null}
+      </p>
+
+      <ModalFooter onCancel={onClose}>
+        <button
+          type="button"
+          className="modal-footer__btn"
+          onClick={() => void handleRemove(false)}
+        >
+          Remove from library
+        </button>
+        <button
+          type="button"
+          className="modal-footer__btn modal-footer__btn--danger"
+          onClick={() => void handleRemove(true)}
+        >
+          Remove and delete file
+        </button>
+      </ModalFooter>
     </AnimatedModal>
   );
 }

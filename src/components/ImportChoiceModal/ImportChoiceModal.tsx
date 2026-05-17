@@ -2,6 +2,7 @@ import { useId, useRef, useState } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
+import { ModalFooter } from "../ModalFooter/ModalFooter";
 import "./ImportChoiceModal.css";
 
 export function ImportChoiceModal() {
@@ -29,47 +30,41 @@ export function ImportChoiceModal() {
       labelledBy={titleId}
       onBackdropClick={cancelImportChoice}
     >
-      <h2 id={titleId} className="import-choice__title">
-        Add to library
-      </h2>
-      <p className="import-choice__hint">
-        Do you want to copy these files into your Spiral media folder, or keep them at their current
-        location?
-      </p>
+      <div className="import-choice__body">
+        <h2 id={titleId} className="import-choice__title">
+          Add to library
+        </h2>
+        <p className="import-choice__hint">
+          Do you want to copy these files into your Spiral media folder, or keep
+          them at their current location?
+        </p>
 
-      <div className="import-choice__actions">
+        <label className="import-choice__remember">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+          />
+          Don&apos;t ask again
+        </label>
+      </div>
+
+      <ModalFooter onCancel={cancelImportChoice}>
         <button
           type="button"
-          className="import-choice__primary"
-          onClick={() => handleChoice("copy")}
-        >
-          Copy to library
-        </button>
-        <button
-          type="button"
-          className="import-choice__secondary"
+          className="modal-footer__btn"
           onClick={() => handleChoice("reference")}
         >
           Keep original location
         </button>
-      </div>
-
-      <label className="import-choice__remember">
-        <input
-          type="checkbox"
-          checked={remember}
-          onChange={(e) => setRemember(e.target.checked)}
-        />
-        Don&apos;t ask again
-      </label>
-
-      <button
-        type="button"
-        className="import-choice__cancel"
-        onClick={cancelImportChoice}
-      >
-        Cancel
-      </button>
+        <button
+          type="button"
+          className="modal-footer__btn modal-footer__btn--primary"
+          onClick={() => handleChoice("copy")}
+        >
+          Copy to library
+        </button>
+      </ModalFooter>
     </AnimatedModal>
   );
 }

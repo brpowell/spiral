@@ -1,0 +1,100 @@
+.modal-footer {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding-bottom: 1.25rem;
+}
+
+.modal-footer--padded {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-bottom: 1.25rem;
+}
+
+.modal-footer__start {
+  flex-shrink: 0;
+}
+
+.modal-footer__end {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+/* Shared footer control sizing */
+.modal-footer__cancel,
+.modal-footer__btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-button);
+}
+
+.modal-footer__cancel {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+}
+
+.modal-footer__cancel:hover:not(:disabled) {
+  color: var(--color-text);
+  border-color: transparent;
+}
+
+.modal-footer__cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal-footer__btn {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.modal-footer__btn:hover:not(:disabled) {
+  border-color: var(--color-accent-muted);
+  color: var(--color-accent);
+}
+
+.modal-footer__btn--primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-text, #fff);
+}
+
+.modal-footer__btn--primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  color: var(--color-accent-text, #fff);
+  border-color: var(--color-accent);
+}
+
+.modal-footer__btn--primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.modal-footer__btn--danger {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border-color: color-mix(in srgb, var(--color-danger) 35%, var(--color-border));
+}
+
+.modal-footer__btn--danger:hover:not(:disabled) {
+  filter: brightness(1.05);
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 50%, var(--color-border));
+}

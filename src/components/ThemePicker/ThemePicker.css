@@ -193,26 +193,3 @@
   height: 0.85rem;
 }
 
-.theme-picker__footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-  padding: 0.85rem 1.25rem 1.1rem;
-  border-top: 1px solid var(--color-border);
-}
-
-.theme-picker__link {
-  margin-left: auto;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--color-accent);
-  font-size: 0.85rem;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.theme-picker__link:hover {
-  color: var(--color-text-primary);
-}

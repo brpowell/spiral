@@ -5,6 +5,7 @@ import { useThemeStore } from "../../store/useThemeStore";
 import { THEME_SCHEMA_EXAMPLE, type Theme } from "../../types/theme";
 import { IconCheck, IconClose, IconHelp } from "../icons";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
+import { ModalFooter } from "../ModalFooter/ModalFooter";
 import "./ThemePicker.css";
 
 function ThemeSwatch({
@@ -150,18 +151,22 @@ export function ThemePicker() {
           ))}
         </div>
 
-        <footer className="theme-picker__footer">
-          <button type="button" onClick={() => void importTheme()}>
+        <ModalFooter padded>
+          <button
+            type="button"
+            className="modal-footer__btn"
+            onClick={() => void importTheme()}
+          >
             Add theme…
           </button>
           <button
             type="button"
-            className="theme-picker__link"
+            className="modal-footer__btn"
             onClick={() => void openThemesFolder()}
           >
             Open themes folder
           </button>
-        </footer>
+        </ModalFooter>
     </AnimatedModal>
   );
 }

@@ -5,6 +5,7 @@ import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import type { ImportMode, LibrarySettings } from "../../types/library";
 import { IconClose } from "../icons";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
+import { ModalFooter } from "../ModalFooter/ModalFooter";
 import "./PreferencesModal.css";
 
 const IMPORT_MODE_OPTIONS: { value: ImportMode; label: string }[] = [
@@ -198,21 +199,23 @@ export function PreferencesModal() {
         </p>
       )}
 
-      <footer className="preferences__footer">
-        <button type="button" onClick={() => setOpen(false)} disabled={saving}>
-          {restartHint ? "Close" : "Cancel"}
-        </button>
+      <ModalFooter
+        padded
+        cancelLabel={restartHint ? "Close" : "Cancel"}
+        onCancel={() => setOpen(false)}
+        cancelDisabled={saving}
+      >
         {!restartHint && (
           <button
             type="button"
-            className="preferences__save"
+            className="modal-footer__btn modal-footer__btn--primary"
             onClick={() => void handleSave()}
             disabled={saving}
           >
             {saving ? "Saving…" : "Save"}
           </button>
         )}
-      </footer>
+      </ModalFooter>
     </AnimatedModal>
   );
 }

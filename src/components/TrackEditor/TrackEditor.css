@@ -154,27 +154,3 @@
   border-radius: var(--radius-sm);
 }
 
-.track-editor__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--color-border);
-}
-
-.track-editor__save {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: #fff;
-  font-weight: 600;
-}
-
-.track-editor__save:hover:not(:disabled) {
-  filter: brightness(1.08);
-}
-
-.track-editor__save:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}

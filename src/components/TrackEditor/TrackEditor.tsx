@@ -13,6 +13,7 @@ import type { TrackMetadataUpdate } from "../../types/metadata";
 import type { Track } from "../../types/track";
 import { AlbumArt } from "../AlbumArt/AlbumArt";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
+import { ModalFooter } from "../ModalFooter/ModalFooter";
 import "./TrackEditor.css";
 
 interface EditorForm {
@@ -374,19 +375,16 @@ export function TrackEditor() {
           </p>
         )}
 
-        <div className="track-editor__footer">
+        <ModalFooter onCancel={handleCancel} cancelDisabled={saving}>
           <button
             type="button"
-            className="track-editor__save"
+            className="modal-footer__btn modal-footer__btn--primary"
             onClick={() => void handleSave()}
             disabled={!hasChanges || saving}
           >
             {saving ? "Saving…" : "Save"}
           </button>
-          <button type="button" onClick={handleCancel} disabled={saving}>
-            Cancel
-          </button>
-        </div>
+        </ModalFooter>
         </>
       )}
     </AnimatedModal>
