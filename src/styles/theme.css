@@ -16,7 +16,7 @@
   --radius-md: var(--radius-card);
   --font-ui: "Inter", system-ui, -apple-system, sans-serif;
 
-  --app-header-height: 62px;
+  --app-header-height: 68px;
   --now-playing-height: var(--app-header-height);
   --visualizer-mini-height: 46px;
   --visualizer-mini-width: 140px;
