@@ -1,5 +1,5 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import {
   cacheArtFromFile,
@@ -226,6 +226,7 @@ export function TrackEditor() {
   };
 
   const displayArtPath = pendingArtPath;
+  const displayArtSrc = useAssetUrl(displayArtPath);
 
   return (
     <AnimatedModal
@@ -257,9 +258,9 @@ export function TrackEditor() {
               onDragLeave={() => setArtDragOver(false)}
               onDrop={handleArtDrop}
             >
-              {displayArtPath ? (
+              {displayArtSrc ? (
                 <img
-                  src={convertFileSrc(displayArtPath)}
+                  src={displayArtSrc}
                   alt=""
                   className="track-editor__art-img"
                 />

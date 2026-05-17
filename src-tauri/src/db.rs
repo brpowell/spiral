@@ -47,7 +47,8 @@ pub fn save_track(conn: &Connection, input: &TrackInput) -> Result<i64, rusqlite
             year = excluded.year,
             genre = excluded.genre,
             duration_seconds = excluded.duration_seconds,
-            art_path = COALESCE(excluded.art_path, tracks.art_path)",
+            art_path = excluded.art_path,
+            date_added = excluded.date_added",
         params![
             input.title,
             input.artist,

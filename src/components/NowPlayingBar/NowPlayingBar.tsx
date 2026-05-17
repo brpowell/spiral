@@ -1,6 +1,6 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { albumKey } from "../../lib/albums";
 import { buildPlaybackOrder } from "../../lib/activeTrackList";
 import * as audio from "../../lib/audio";
@@ -130,9 +130,7 @@ export function NowPlayingBar({
 
   const progress = durationSeconds > 0 ? displayPosition / durationSeconds : 0;
 
-  const artSrc = currentTrack?.artPath
-    ? convertFileSrc(currentTrack.artPath)
-    : null;
+  const artSrc = useAssetUrl(currentTrack?.artPath);
 
   const subtitle = currentTrack
     ? [currentTrack.artist, currentTrack.album].filter(Boolean).join(" — ")

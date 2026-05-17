@@ -1,4 +1,4 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { IconAlbumPlaceholder } from "../icons";
 import "./AlbumArt.css";
 
@@ -9,7 +9,7 @@ interface AlbumArtProps {
 }
 
 export function AlbumArt({ artPath, alt = "", className = "" }: AlbumArtProps) {
-  const src = artPath ? convertFileSrc(artPath) : null;
+  const src = useAssetUrl(artPath);
 
   return (
     <div className={`album-art ${className}`.trim()}>

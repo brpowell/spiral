@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::time::UNIX_EPOCH;
 
 const AUDIO_EXTENSIONS: &[&str] = &["mp3", "flac", "aac", "wav", "m4a"];
 
@@ -58,6 +59,19 @@ pub fn pick_audio_files() -> Result<Vec<String>, String> {
 #[tauri::command]
 pub fn scan_folder(folder_path: String) -> Result<Vec<String>, String> {
     scan_folder_paths(&folder_path)
+}
+
+/// File modification time in milliseconds since UNIX epoch (for asset URL cache busting).
+#[tauri::command]
+pub fn get_file_modified_ms(path: String) -> Result<u64, String> {
+    let meta = std::fs::metadata(&path).map_err(|e| format!("Cannot stat file: {e}"))?;
+    let modified = meta
+        .modified()
+        .map_err(|e| format!("Cannot read modification time: {e}"))?;
+    modified
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .map_err(|e| format!("Invalid modification time: {e}"))
 }
 
 /// Read file bytes from disk (Rust-side; not subject to plugin-fs scope).

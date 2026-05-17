@@ -1,9 +1,10 @@
+use crate::art_cache;
 use crate::db;
 use crate::models::{Track, TrackInput};
 use std::fs;
 use std::path::Path;
 use std::sync::Mutex;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 pub struct DbState(pub Mutex<rusqlite::Connection>);
 
@@ -55,6 +56,9 @@ pub fn remove_track(
         }
     }
 
-    let _ = app;
+    if let Ok(app_data) = app.path().app_data_dir() {
+        let _ = art_cache::remove_cached_art(&app_data, &track.file_path);
+    }
+
     Ok(())
 }

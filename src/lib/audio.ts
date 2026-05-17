@@ -1,5 +1,5 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { Howl, Howler } from "howler";
+import { toAssetUrl } from "./assetUrl";
 import { ensureAnalyser } from "./audioAnalyser";
 
 let sound: Howl | null = null;
@@ -15,7 +15,18 @@ function formatFromPath(path: string): string | undefined {
 export function load(path: string): Promise<void> {
   return new Promise((resolve, reject) => {
     unload();
-    const src = convertFileSrc(path);
+    void toAssetUrl(path).then((src) => {
+      loadHowl(src, path, resolve, reject);
+    }, reject);
+  });
+}
+
+function loadHowl(
+  src: string,
+  path: string,
+  resolve: () => void,
+  reject: (reason: Error) => void,
+): void {
     const format = formatFromPath(path);
 
     const howlOptions: {
@@ -46,7 +57,6 @@ export function load(path: string): Promise<void> {
     }
 
     sound = new Howl(howlOptions);
-  });
 }
 
 export function unload(): void {

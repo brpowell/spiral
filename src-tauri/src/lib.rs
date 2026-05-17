@@ -40,6 +40,7 @@ pub fn run() {
             commands::files::scan_folder,
             commands::files::pick_folder,
             commands::files::read_file_bytes,
+            commands::files::get_file_modified_ms,
             commands::library::save_track,
             commands::library::get_library,
             commands::library::remove_track,

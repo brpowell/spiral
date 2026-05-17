@@ -1,4 +1,4 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { toAssetUrl } from "../../lib/assetUrl";
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { ensureAnalyser, getAnalyser } from "../../lib/audioAnalyser";
@@ -77,12 +77,13 @@ export function AudioVisualizer({
       return;
     }
 
-    const url = convertFileSrc(artPath);
-    extractPaletteFromImageUrl(url).then((colors) => {
-      if (!cancelled) {
-        paletteRef.current = colors;
-      }
-    });
+    void toAssetUrl(artPath).then((url) =>
+      extractPaletteFromImageUrl(url).then((colors) => {
+        if (!cancelled) {
+          paletteRef.current = colors;
+        }
+      }),
+    );
 
     return () => {
       cancelled = true;

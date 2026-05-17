@@ -72,3 +72,52 @@ pub fn guess_ext_from_url(url: &str) -> &'static str {
         "jpg"
     }
 }
+
+/// Remove cached album art keyed by library `file_path` (all extensions).
+pub fn remove_cached_art(app_data_dir: &Path, file_path: &str) -> Result<(), String> {
+    let dir = art_cache_dir(app_data_dir);
+    if !dir.is_dir() {
+        return Ok(());
+    }
+
+    let prefix = art_cache_key(file_path);
+    let entries = fs::read_dir(&dir).map_err(|e| e.to_string())?;
+    for entry in entries {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.starts_with(&prefix) {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn remove_cached_art_deletes_all_extensions_for_key() {
+        let app_data =
+            std::env::temp_dir().join(format!("spiral-art-cache-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&app_data);
+        let cache_dir = art_cache_dir(&app_data);
+        fs::create_dir_all(&cache_dir).unwrap();
+
+        let file_path = "/library/media/song.mp3";
+        let key = art_cache_key(file_path);
+        for ext in ["jpg", "png"] {
+            let path = cache_dir.join(format!("{key}.{ext}"));
+            let mut f = fs::File::create(&path).unwrap();
+            writeln!(f, "art").unwrap();
+        }
+
+        remove_cached_art(&app_data, file_path).unwrap();
+        assert!(!cache_dir.join(format!("{key}.jpg")).exists());
+        assert!(!cache_dir.join(format!("{key}.png")).exists());
+
+        let _ = fs::remove_dir_all(&app_data);
+    }
+}
