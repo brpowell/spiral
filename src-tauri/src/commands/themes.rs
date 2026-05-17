@@ -117,17 +117,15 @@ pub fn load_user_themes(app: AppHandle) -> Result<Vec<Theme>, String> {
     }
 
     let mut themes = Vec::new();
-    let entries = fs::read_dir(&dir).map_err(|e| format!("failed to read themes directory: {e}"))?;
+    let entries =
+        fs::read_dir(&dir).map_err(|e| format!("failed to read themes directory: {e}"))?;
 
     for entry in entries.flatten() {
         let path = entry.path();
         if !path.is_file() {
             continue;
         }
-        let file_name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
         if !file_name.ends_with(".theme.json") {
             continue;
         }
@@ -187,10 +185,7 @@ pub fn import_user_theme(app: AppHandle) -> Result<Option<Theme>, String> {
     let dest_name = if file_name.ends_with(".theme.json") {
         file_name.to_string()
     } else if file_name.ends_with(".json") {
-        format!(
-            "{}.theme.json",
-            file_name.trim_end_matches(".json")
-        )
+        format!("{}.theme.json", file_name.trim_end_matches(".json"))
     } else {
         format!("{file_name}.theme.json")
     };
@@ -200,8 +195,8 @@ pub fn import_user_theme(app: AppHandle) -> Result<Option<Theme>, String> {
 
     fs::copy(&source, &dest).map_err(|e| format!("failed to copy theme file: {e}"))?;
 
-    let contents = fs::read_to_string(&dest)
-        .map_err(|e| format!("failed to read imported theme: {e}"))?;
+    let contents =
+        fs::read_to_string(&dest).map_err(|e| format!("failed to read imported theme: {e}"))?;
 
     parse_theme_file(&dest, &contents)
         .ok_or_else(|| "imported theme file is not valid JSON".to_string())

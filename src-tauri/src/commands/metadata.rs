@@ -1,8 +1,8 @@
+use super::library::DbState;
 use crate::art_cache::{self, guess_ext_from_url};
 use crate::db;
 use crate::metadata_writer;
 use crate::models::{Track, TrackMetadataUpdate};
-use super::library::DbState;
 use std::path::Path;
 use tauri::{AppHandle, Manager, State};
 
@@ -12,7 +12,10 @@ const MUSICBRAINZ_USER_AGENT: &str = "Spiral/0.1.0 (https://github.com/brpowell/
 pub fn pick_image_file() -> Result<Option<String>, String> {
     let path = rfd::FileDialog::new()
         .set_title("Select album art")
-        .add_filter("Images", &["jpg", "jpeg", "png", "webp", "JPG", "JPEG", "PNG", "WEBP"])
+        .add_filter(
+            "Images",
+            &["jpg", "jpeg", "png", "webp", "JPG", "JPEG", "PNG", "WEBP"],
+        )
         .pick_file();
 
     Ok(path.map(|p| p.to_string_lossy().into_owned()))
@@ -59,7 +62,10 @@ pub fn cache_art_from_url(
         .map_err(|e| format!("Failed to download cover art: {e}"))?;
 
     if !response.status().is_success() {
-        return Err(format!("Failed to download cover art (HTTP {})", response.status()));
+        return Err(format!(
+            "Failed to download cover art (HTTP {})",
+            response.status()
+        ));
     }
 
     let bytes = response
@@ -116,7 +122,9 @@ pub fn fetch_cover_art(artist: String, album: String) -> Result<Vec<String>, Str
 
         let caa_url = format!("https://coverartarchive.org/release/{mbid}");
         let caa: serde_json::Value = match client.get(&caa_url).send() {
-            Ok(resp) if resp.status().is_success() => resp.json().unwrap_or(serde_json::Value::Null),
+            Ok(resp) if resp.status().is_success() => {
+                resp.json().unwrap_or(serde_json::Value::Null)
+            }
             _ => continue,
         };
 
@@ -131,15 +139,11 @@ pub fn fetch_cover_art(artist: String, album: String) -> Result<Vec<String>, Str
             let types = image
                 .get("types")
                 .and_then(|t| t.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|v| v.as_str())
-                        .collect::<Vec<_>>()
-                })
+                .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
                 .unwrap_or_default();
 
-            let is_front = types.iter().any(|t| t.eq_ignore_ascii_case("front"))
-                || types.is_empty();
+            let is_front =
+                types.iter().any(|t| t.eq_ignore_ascii_case("front")) || types.is_empty();
 
             if !is_front {
                 continue;
@@ -183,9 +187,7 @@ pub fn write_track_metadata(
 }
 
 fn app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
-    app.path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())
+    app.path().app_data_dir().map_err(|e| e.to_string())
 }
 
 fn urlencoding_simple(s: &str) -> String {

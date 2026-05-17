@@ -44,8 +44,7 @@ pub fn remove_track(
     if delete_from_disk {
         let audio_path = Path::new(&track.file_path);
         if audio_path.exists() {
-            fs::remove_file(audio_path)
-                .map_err(|e| format!("Failed to delete audio file: {e}"))?;
+            fs::remove_file(audio_path).map_err(|e| format!("Failed to delete audio file: {e}"))?;
         }
     }
 

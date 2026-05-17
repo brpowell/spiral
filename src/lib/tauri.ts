@@ -39,8 +39,8 @@ export async function pickAudioFiles(): Promise<string[]> {
   return invoke<string[]>("pick_audio_files");
 }
 
-export async function pickFolder(): Promise<string[]> {
-  return invoke<string[]>("pick_folder");
+export async function pickLibraryPaths(): Promise<string[]> {
+  return invoke<string[]>("pick_library_paths");
 }
 
 export async function scanFolder(folderPath: string): Promise<string[]> {

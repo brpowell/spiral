@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { ThemePicker } from "../ThemePicker/ThemePicker";
-import { usePlayerStore } from "../../store/usePlayerStore";
 import { useThemeStore } from "../../store/useThemeStore";
 import {
   type NavView,
@@ -21,40 +20,25 @@ const NAV_ITEMS: {
   icon: ReactNode;
   enabled: boolean;
 }[] = [
-  { view: "library", label: "Library", icon: <IconLibrary />, enabled: true },
-  { view: "albums", label: "Albums", icon: <IconAlbums />, enabled: true },
-  { view: "artists", label: "Artists", icon: <IconArtists />, enabled: false },
-  {
-    view: "playlists",
-    label: "Playlists",
-    icon: <IconPlaylists />,
-    enabled: false,
-  },
-];
+    { view: "library", label: "Library", icon: <IconLibrary />, enabled: true },
+    { view: "albums", label: "Albums", icon: <IconAlbums />, enabled: true },
+    { view: "artists", label: "Artists", icon: <IconArtists />, enabled: false },
+    {
+      view: "playlists",
+      label: "Playlists",
+      icon: <IconPlaylists />,
+      enabled: false,
+    },
+  ];
 
 export function Sidebar() {
   const view = useNavigationStore((s) => s.view);
   const setView = useNavigationStore((s) => s.setView);
   const setThemePickerOpen = useThemeStore((s) => s.setThemePickerOpen);
   const loadThemes = useThemeStore((s) => s.loadThemes);
-  const importTracks = usePlayerStore((s) => s.importTracks);
-  const importFolder = usePlayerStore((s) => s.importFolder);
 
   return (
     <nav className="sidebar" aria-label="Main navigation">
-      <div className="sidebar__brand">
-        <span className="sidebar__brand-name">Spiral</span>
-      </div>
-
-      <div className="sidebar__import">
-        <button type="button" onClick={() => importTracks()}>
-          Import files
-        </button>
-        <button type="button" onClick={() => importFolder()}>
-          Import folder
-        </button>
-      </div>
-
       <ul className="sidebar__list">
         {NAV_ITEMS.map((item) => {
           const isActive = item.view === view;

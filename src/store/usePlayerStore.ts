@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import * as audio from "../lib/audio";
-import { importPaths } from "../lib/import";
-import { getLibrary, pickAudioFiles, pickFolder, removeTrack } from "../lib/tauri";
+import { startLibraryImport } from "../lib/libraryImport";
+import { getLibrary, pickLibraryPaths, removeTrack } from "../lib/tauri";
 import {
   cycleRepeatMode,
   getAutoplayNextId,
@@ -24,14 +24,16 @@ interface PlayerState {
   editingTrackId: number | null;
 
   loadLibrary: () => Promise<void>;
-  importTracks: () => Promise<void>;
-  importFolder: () => Promise<void>;
+  addToLibrary: () => Promise<void>;
+  importFromPaths: (paths: string[]) => void;
   playTrack: (id: number) => Promise<void>;
   playTracks: (ids: number[], startId: number) => Promise<void>;
   selectTrack: (id: number | null) => void;
   pause: () => void;
   resume: () => void;
+  togglePlayPause: () => void;
   seek: (ratio: number) => void;
+  seekRelative: (deltaSeconds: number) => void;
   previousTrack: () => void;
   nextTrack: () => void;
   setVolume: (volume: number) => void;
@@ -117,36 +119,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }
     },
 
-    importTracks: async () => {
-      set({ importError: null });
-      try {
-        const paths = await pickAudioFiles();
-        if (paths.length === 0) return;
-        const result = await importPaths(paths);
-        await get().loadLibrary();
-        if (result.failed > 0) {
-          set({
-            importError: `Imported ${result.imported}, failed ${result.failed}. ${result.errors[0] ?? ""}`,
-          });
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        set({ importError: `Import failed: ${message}` });
-      }
+    importFromPaths: (paths) => {
+      startLibraryImport(paths);
     },
 
-    importFolder: async () => {
+    addToLibrary: async () => {
       set({ importError: null });
       try {
-        const paths = await pickFolder();
+        const paths = await pickLibraryPaths();
         if (paths.length === 0) return;
-        const result = await importPaths(paths);
-        await get().loadLibrary();
-        if (result.failed > 0) {
-          set({
-            importError: `Imported ${result.imported}, failed ${result.failed}. ${result.errors[0] ?? ""}`,
-          });
-        }
+        startLibraryImport(paths);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         set({ importError: `Import failed: ${message}` });
@@ -200,9 +182,30 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       startPositionPoll(set);
     },
 
+    togglePlayPause: () => {
+      const { playbackState, currentTrackId } = get();
+      if (playbackState === "playing") {
+        get().pause();
+      } else if (currentTrackId && playbackState === "paused") {
+        get().resume();
+      } else if (currentTrackId) {
+        void get().playTrack(currentTrackId);
+      }
+    },
+
     seek: (ratio) => {
       audio.seek(ratio);
       set({ positionSeconds: audio.getPositionSeconds() });
+    },
+
+    seekRelative: (deltaSeconds) => {
+      if (!get().currentTrackId) return;
+      const duration = audio.getDurationSeconds();
+      if (!duration) return;
+      const position = audio.getPositionSeconds();
+      const next = Math.max(0, Math.min(duration, position + deltaSeconds));
+      audio.seek(next / duration);
+      set({ positionSeconds: next });
     },
 
     previousTrack: () => {

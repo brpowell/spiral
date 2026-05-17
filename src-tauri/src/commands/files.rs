@@ -39,7 +39,9 @@ pub fn pick_audio_files() -> Result<Vec<String>, String> {
         .set_title("Select audio files")
         .add_filter(
             "Audio",
-            &["mp3", "flac", "aac", "wav", "m4a", "MP3", "FLAC", "AAC", "WAV", "M4A"],
+            &[
+                "mp3", "flac", "aac", "wav", "m4a", "MP3", "FLAC", "AAC", "WAV", "M4A",
+            ],
         )
         .set_directory("/")
         .pick_files();
@@ -74,7 +76,21 @@ pub fn pick_folder() -> Result<Vec<String>, String> {
         .pick_folder();
 
     match folder {
-        Some(path) => scan_folder_paths(&path.to_string_lossy()),
+        Some(path) => Ok(vec![path.to_string_lossy().into_owned()]),
         None => Ok(vec![]),
+    }
+}
+
+/// Open a picker for audio files and/or folders (platform-dependent capabilities).
+#[tauri::command]
+pub fn pick_library_paths() -> Result<Vec<String>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        return Ok(crate::macos_library_picker::pick_library_paths().unwrap_or_default());
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        pick_audio_files()
     }
 }

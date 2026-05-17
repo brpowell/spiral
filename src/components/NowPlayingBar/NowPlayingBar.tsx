@@ -42,9 +42,7 @@ export function NowPlayingBar({
   const repeatMode = usePlayerStore((s) => s.repeatMode);
   const volume = usePlayerStore((s) => s.volume);
   const muted = usePlayerStore((s) => s.muted);
-  const pause = usePlayerStore((s) => s.pause);
-  const resume = usePlayerStore((s) => s.resume);
-  const playTrack = usePlayerStore((s) => s.playTrack);
+  const togglePlayPause = usePlayerStore((s) => s.togglePlayPause);
   const seek = usePlayerStore((s) => s.seek);
   const previousTrack = usePlayerStore((s) => s.previousTrack);
   const nextTrack = usePlayerStore((s) => s.nextTrack);
@@ -124,14 +122,8 @@ export function NowPlayingBar({
     : null;
 
   const handlePlayPause = useCallback(() => {
-    if (playbackState === "playing") {
-      pause();
-    } else if (currentTrackId && playbackState === "paused") {
-      resume();
-    } else if (currentTrackId) {
-      void playTrack(currentTrackId);
-    }
-  }, [playbackState, currentTrackId, pause, resume, playTrack]);
+    togglePlayPause();
+  }, [togglePlayPause]);
 
   const handleSeekStart = () => setIsSeeking(true);
 

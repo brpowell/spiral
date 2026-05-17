@@ -11,7 +11,7 @@ interface NavigationState {
 }
 
 export const useNavigationStore = create<NavigationState>((set) => ({
-  view: "albums",
+  view: "library",
   albumKey: null,
 
   setView: (view) => set({ view, albumKey: null }),

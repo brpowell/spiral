@@ -1,4 +1,5 @@
 import { parseTrackMetadata } from "./metadata";
+import { yieldToMain } from "./scheduling";
 import { saveTrack } from "./tauri";
 
 export interface ImportResult {
@@ -7,10 +8,19 @@ export interface ImportResult {
   errors: string[];
 }
 
-export async function importPaths(paths: string[]): Promise<ImportResult> {
-  const result: ImportResult = { imported: 0, failed: 0, errors: [] };
+export interface ImportPathsOptions {
+  onProgress?: (current: number, total: number) => void;
+}
 
-  for (const path of paths) {
+export async function importPaths(
+  paths: string[],
+  options?: ImportPathsOptions,
+): Promise<ImportResult> {
+  const result: ImportResult = { imported: 0, failed: 0, errors: [] };
+  const total = paths.length;
+
+  for (let i = 0; i < paths.length; i++) {
+    const path = paths[i];
     try {
       const track = await parseTrackMetadata(path);
       await saveTrack(track);
@@ -21,6 +31,9 @@ export async function importPaths(paths: string[]): Promise<ImportResult> {
       result.errors.push(`${path}: ${message}`);
       console.error(`Failed to import ${path}:`, err);
     }
+
+    options?.onProgress?.(i + 1, total);
+    await yieldToMain();
   }
 
   return result;
