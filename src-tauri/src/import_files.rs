@@ -67,7 +67,7 @@ fn read_basic_tags(path: &Path) -> BasicTags {
                 tags.title = tag.title().map(|s| s.to_string());
                 tags.artist = tag.artist().map(|s| s.to_string());
                 tags.album = tag.album().map(|s| s.to_string());
-                tags.track_number = tag.track_number().0.map(|n| n as i32);
+                tags.track_number = tag.track_number().map(|n| n as i32);
             }
         }
         _ => {}

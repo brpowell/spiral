@@ -30,6 +30,9 @@ pub struct TrackMetadataUpdate {
     pub year: Option<i32>,
     pub genre: Option<String>,
     pub art_path: Option<String>,
+    /// When true, embed or remove cover art in the audio file. When false, leave embedded art unchanged.
+    #[serde(default)]
+    pub art_changed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

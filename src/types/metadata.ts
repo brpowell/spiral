@@ -8,6 +8,8 @@ export interface TrackMetadataUpdate {
   discNumber: number | null;
   year: number | null;
   genre: string | null;
-  /** Cached art file path to persist (null = no change to art). */
+  /** Cached art file path for the library DB (null = no cached art). */
   artPath: string | null;
+  /** When true, embed or clear cover art in the audio file. */
+  artChanged: boolean;
 }

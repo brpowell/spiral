@@ -30,10 +30,11 @@ chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
 id3 = "1"
 metaflac = "0.2"
-mp4ameta = "0.4"
+mp4ameta = "0.13"
 reqwest = { version = "0.12", features = ["blocking", "json"] }
 sha2 = "0.10"
 hex = "0.4"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

@@ -49,7 +49,11 @@ function parseOptionalInt(value: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function formToMetadata(form: EditorForm, artPath: string | null): TrackMetadataUpdate {
+function formToMetadata(
+  form: EditorForm,
+  artPath: string | null,
+  artChanged: boolean,
+): TrackMetadataUpdate {
   return {
     title: form.title.trim() || "Unknown",
     artist: form.artist.trim() || null,
@@ -60,6 +64,7 @@ function formToMetadata(form: EditorForm, artPath: string | null): TrackMetadata
     discNumber: parseOptionalInt(form.discNumber),
     genre: form.genre.trim() || null,
     artPath,
+    artChanged,
   };
 }
 
@@ -283,7 +288,9 @@ export function TrackEditor() {
       if (selectedCoverUrl) {
         artPath = await cacheArtFromUrl(selectedCoverUrl, track.filePath);
       }
-      const metadata = formToMetadata(form, artPath);
+      const artChanged =
+        pendingArtPath !== originalArtPath || selectedCoverUrl != null;
+      const metadata = formToMetadata(form, artPath, artChanged);
       const updated = await writeTrackMetadata(track.id, track.filePath, metadata);
       updateTrackInLibrary(updated);
       closeTrackEditor();
