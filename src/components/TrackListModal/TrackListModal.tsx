@@ -80,6 +80,11 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
     void playTrack(id);
   };
 
+  const handleClear = () => {
+    clearTrackList();
+    onClose();
+  };
+
   return (
     <AnimatedModal
       open={open}
@@ -97,7 +102,7 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
           <button
             type="button"
             className="track-list-modal__clear"
-            onClick={clearTrackList}
+            onClick={handleClear}
             disabled={activeIds.length === 0}
           >
             Clear

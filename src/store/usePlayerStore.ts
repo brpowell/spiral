@@ -103,6 +103,34 @@ function startPositionPoll(
   }, 500);
 }
 
+async function primeTrackPaused(
+  id: number,
+  library: Track[],
+  set: (partial: Partial<PlayerState>) => void,
+): Promise<void> {
+  const track = library.find((t) => t.id === id);
+  if (!track) return;
+
+  set({ importError: null });
+  try {
+    await audio.load(track.filePath);
+    set({
+      currentTrackId: id,
+      selectedTrackIds: [id],
+      selectionAnchorId: id,
+      playbackState: "paused",
+      positionSeconds: 0,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Failed to load track:", err);
+    set({
+      playbackState: "stopped",
+      importError: `Playback failed: ${message}`,
+    });
+  }
+}
+
 async function restorePlaybackSession(
   library: Track[],
   set: (partial: Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>)) => void,
@@ -378,21 +406,30 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     addToQueue: (ids) => {
-      const libraryIds = new Set(get().library.map((t) => t.id));
+      const state = get();
+      const libraryIds = new Set(state.library.map((t) => t.id));
       const valid = ids.filter((id) => libraryIds.has(id));
       if (valid.length === 0) return;
 
+      const trackListWasEmpty =
+        state.currentTrackId === null &&
+        state.playContextIds.length === 0 &&
+        state.manualQueueIds.length === 0;
+
       let addedIds: number[] = [];
-      set((state) => {
-        const existing = new Set(state.manualQueueIds);
+      set((s) => {
+        const existing = new Set(s.manualQueueIds);
         const toAdd = valid.filter((id) => !existing.has(id));
-        if (toAdd.length === 0) return state;
+        if (toAdd.length === 0) return s;
         addedIds = toAdd;
-        return { manualQueueIds: [...state.manualQueueIds, ...toAdd] };
+        return { manualQueueIds: [...s.manualQueueIds, ...toAdd] };
       });
 
       if (addedIds.length > 0) {
         showQueueAddedToast(addedIds, get().library);
+        if (trackListWasEmpty) {
+          void primeTrackPaused(addedIds[0], get().library, set);
+        }
       }
     },
 
