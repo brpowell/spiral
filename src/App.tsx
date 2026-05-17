@@ -9,6 +9,7 @@ import { ImportChoiceModal } from "./components/ImportChoiceModal/ImportChoiceMo
 import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal";
 import { setupAppMenu } from "./lib/appMenu";
 import { useMediaHotkeys } from "./hooks/useMediaHotkeys";
+import { usePlaybackSessionPersistence } from "./hooks/usePlaybackSessionPersistence";
 import { useLibrarySettingsStore } from "./store/useLibrarySettingsStore";
 import { usePlayerStore } from "./store/usePlayerStore";
 import "./App.css";
@@ -22,6 +23,7 @@ function App() {
   const clearImportError = usePlayerStore((s) => s.clearImportError);
 
   useMediaHotkeys();
+  usePlaybackSessionPersistence();
 
   useEffect(() => {
     void loadSettings();

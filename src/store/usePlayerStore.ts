@@ -2,7 +2,8 @@ import { create } from "zustand";
 import * as audio from "../lib/audio";
 import { buildPlaybackOrder } from "../lib/activeTrackList";
 import { startLibraryImport } from "../lib/libraryImport";
-import { getLibrary, pickLibraryPaths, removeTrack } from "../lib/tauri";
+import { parseRepeatMode, prunePlaybackSession } from "../lib/playbackSession";
+import { getLibrary, getPlaybackSession, pickLibraryPaths, removeTrack } from "../lib/tauri";
 import {
   applyTrackSelection,
   type TrackSelectionModifiers,
@@ -100,6 +101,70 @@ function startPositionPoll(
   }, 500);
 }
 
+async function restorePlaybackSession(
+  library: Track[],
+  set: (partial: Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>)) => void,
+): Promise<void> {
+  let session;
+  try {
+    session = await getPlaybackSession();
+  } catch (err) {
+    console.error("getPlaybackSession failed:", err);
+    return;
+  }
+  if (!session) return;
+
+  const pruned = prunePlaybackSession(session, library);
+  const playbackPrefs = {
+    shuffle: session.shuffle,
+    repeatMode: parseRepeatMode(session.repeatMode),
+  };
+
+  if (!pruned) {
+    set(playbackPrefs);
+    return;
+  }
+
+  set({
+    ...playbackPrefs,
+    playContextIds: pruned.playContextIds,
+    manualQueueIds: pruned.manualQueueIds,
+  });
+
+  if (pruned.currentTrackId === null) return;
+
+  const track = library.find((t) => t.id === pruned.currentTrackId);
+  if (!track) return;
+
+  try {
+    await audio.load(track.filePath);
+    const duration = audio.getDurationSeconds();
+    const position =
+      duration > 0
+        ? Math.min(pruned.positionSeconds, duration)
+        : 0;
+    if (position > 0 && duration > 0) {
+      audio.seek(position / duration);
+    }
+    set({
+      currentTrackId: pruned.currentTrackId,
+      selectedTrackIds: [pruned.currentTrackId],
+      selectionAnchorId: pruned.currentTrackId,
+      playbackState: "paused",
+      positionSeconds: position,
+    });
+  } catch (err) {
+    console.error("Failed to restore playback session:", err);
+    set({
+      currentTrackId: pruned.currentTrackId,
+      selectedTrackIds: [pruned.currentTrackId],
+      selectionAnchorId: pruned.currentTrackId,
+      playbackState: "stopped",
+      positionSeconds: 0,
+    });
+  }
+}
+
 export const usePlayerStore = create<PlayerState>((set, get) => {
   audio.onEnd(() => {
     const { currentTrackId, repeatMode } = get();
@@ -140,6 +205,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       try {
         const library = await getLibrary();
         set({ library });
+        await restorePlaybackSession(library, set);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error("loadLibrary failed:", err);

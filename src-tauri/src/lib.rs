@@ -9,6 +9,7 @@ mod macos_library_picker;
 mod media_shortcuts;
 mod metadata_writer;
 mod models;
+mod session;
 mod settings;
 
 use commands::library::DbState;
@@ -58,6 +59,8 @@ pub fn run() {
             commands::library_settings::save_library_settings,
             commands::library_settings::prepare_import_file,
             commands::library_settings::pick_database_folder,
+            commands::playback_session::get_playback_session,
+            commands::playback_session::save_playback_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

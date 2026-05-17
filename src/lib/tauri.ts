@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { LibrarySettings, LibrarySettingsPatch } from "../types/library";
+import { parseRepeatMode } from "./playbackSession";
+import type { PlaybackSession } from "../types/playbackSession";
 import type { Theme } from "../types/theme";
 import type { TrackMetadataUpdate } from "../types/metadata";
 import type { Track, TrackInput } from "../types/track";
@@ -164,4 +166,37 @@ export async function prepareImportFile(
 
 export async function pickDatabaseFolder(): Promise<string | null> {
   return invoke<string | null>("pick_database_folder");
+}
+
+function normalizePlaybackSession(
+  raw: Record<string, unknown> | null | undefined,
+): PlaybackSession | null {
+  if (!raw) return null;
+  return {
+    playContextIds: (raw.playContextIds ?? raw.play_context_ids ?? []) as number[],
+    manualQueueIds: (raw.manualQueueIds ?? raw.manual_queue_ids ?? []) as number[],
+    currentTrackId:
+      (raw.currentTrackId as number | null | undefined) ??
+      (raw.current_track_id as number | null | undefined) ??
+      null,
+    positionSeconds:
+      (raw.positionSeconds as number | undefined) ??
+      (raw.position_seconds as number | undefined) ??
+      0,
+    shuffle: Boolean(raw.shuffle),
+    repeatMode: parseRepeatMode(raw.repeatMode ?? raw.repeat_mode),
+  };
+}
+
+export async function getPlaybackSession(): Promise<PlaybackSession | null> {
+  const raw = await invoke<Record<string, unknown> | null>(
+    "get_playback_session",
+  );
+  return normalizePlaybackSession(raw);
+}
+
+export async function savePlaybackSession(
+  session: PlaybackSession,
+): Promise<void> {
+  await invoke<void>("save_playback_session", { session });
 }
