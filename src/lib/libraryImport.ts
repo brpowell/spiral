@@ -1,5 +1,5 @@
 import { importPaths } from "./import";
-import { yieldToMain } from "./scheduling";
+import { waitForPaint, yieldToMain } from "./scheduling";
 import { scanFolder } from "./tauri";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useLibrarySettingsStore } from "../store/useLibrarySettingsStore";
@@ -63,6 +63,9 @@ export function startLibraryImport(paths: string[]): void {
         ctx.setDetail("Import cancelled");
         return;
       }
+
+      await waitForPaint();
+      await yieldToMain();
 
       const result = await importPaths(audioPaths, {
         mode: importMode,

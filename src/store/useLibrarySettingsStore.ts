@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { afterUiTransition } from "../lib/scheduling";
 import {
   getLibrarySettings,
   saveLibrarySettings as persistLibrarySettings,
@@ -64,13 +65,15 @@ export const useLibrarySettingsStore = create<LibrarySettingsState>(
       const prompt = get().importPrompt;
       if (!prompt) return;
 
+      set({ importPrompt: null });
+
       if (remember) {
         const importMode: ImportMode = choice === "copy" ? "copy" : "reference";
-        await get().saveLibrarySettings({ importMode });
+        void get().saveLibrarySettings({ importMode });
       }
 
+      await afterUiTransition();
       prompt.resolve(choice);
-      set({ importPrompt: null });
     },
 
     cancelImportChoice: () => {
