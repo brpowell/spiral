@@ -2,6 +2,7 @@ import { importPaths } from "./import";
 import { yieldToMain } from "./scheduling";
 import { scanFolder } from "./tauri";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
+import { useLibrarySettingsStore } from "../store/useLibrarySettingsStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 
 async function resolveImportPaths(
@@ -52,7 +53,20 @@ export function startLibraryImport(paths: string[]): void {
           : `Importing ${audioPaths.length} tracks…`,
       );
 
+      const settingsStore = useLibrarySettingsStore.getState();
+      const settings =
+        settingsStore.settings ?? (await settingsStore.loadSettings());
+      let importMode: "copy" | "reference";
+      try {
+        importMode = await settingsStore.resolveImportMode();
+      } catch {
+        ctx.setDetail("Import cancelled");
+        return;
+      }
+
       const result = await importPaths(audioPaths, {
+        mode: importMode,
+        settings,
         onProgress: (current, total) => ctx.setProgress(current, total),
       });
 

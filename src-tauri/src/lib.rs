@@ -1,12 +1,15 @@
 mod art_cache;
 mod commands;
 mod db;
+mod import_files;
+mod library_paths;
 #[cfg(target_os = "macos")]
 mod macos_library_picker;
 #[cfg(desktop)]
 mod media_shortcuts;
 mod metadata_writer;
 mod models;
+mod settings;
 
 use commands::library::DbState;
 use std::sync::Mutex;
@@ -18,11 +21,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
-            let app_data_dir = app
-                .path()
-                .app_data_dir()
-                .expect("failed to resolve app data directory");
-            let db_path = app_data_dir.join("library.db");
+            let db_path =
+                library_paths::ensure_library_for_app(app.handle()).expect("failed to init library");
             let conn = db::open(&db_path).expect("failed to open database");
             app.manage(DbState(Mutex::new(conn)));
 
@@ -54,6 +54,10 @@ pub fn run() {
             commands::themes::get_active_theme_id,
             commands::themes::open_themes_folder,
             commands::themes::import_user_theme,
+            commands::library_settings::get_library_settings,
+            commands::library_settings::save_library_settings,
+            commands::library_settings::prepare_import_file,
+            commands::library_settings::pick_database_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

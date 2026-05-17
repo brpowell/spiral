@@ -1,6 +1,7 @@
 import { parseTrackMetadata } from "./metadata";
 import { yieldToMain } from "./scheduling";
-import { saveTrack } from "./tauri";
+import { prepareImportFile, saveTrack } from "./tauri";
+import type { LibrarySettings } from "../types/library";
 
 export interface ImportResult {
   imported: number;
@@ -10,11 +11,13 @@ export interface ImportResult {
 
 export interface ImportPathsOptions {
   onProgress?: (current: number, total: number) => void;
+  mode: "copy" | "reference";
+  settings: LibrarySettings;
 }
 
 export async function importPaths(
   paths: string[],
-  options?: ImportPathsOptions,
+  options: ImportPathsOptions,
 ): Promise<ImportResult> {
   const result: ImportResult = { imported: 0, failed: 0, errors: [] };
   const total = paths.length;
@@ -22,7 +25,13 @@ export async function importPaths(
   for (let i = 0; i < paths.length; i++) {
     const path = paths[i];
     try {
-      const track = await parseTrackMetadata(path);
+      const finalPath = await prepareImportFile(
+        path,
+        options.mode,
+        options.settings.autoOrganize,
+        options.settings.mediaFolder,
+      );
+      const track = await parseTrackMetadata(finalPath);
       await saveTrack(track);
       result.imported += 1;
     } catch (err) {
@@ -32,7 +41,7 @@ export async function importPaths(
       console.error(`Failed to import ${path}:`, err);
     }
 
-    options?.onProgress?.(i + 1, total);
+    options.onProgress?.(i + 1, total);
     await yieldToMain();
   }
 

@@ -1,8 +1,9 @@
+use crate::settings;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::{Path, PathBuf};
-use tauri::{AppHandle, Manager};
+use std::path::Path;
+use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13,20 +14,6 @@ pub struct Theme {
     pub tokens: HashMap<String, String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Settings {
-    #[serde(rename = "activeTheme")]
-    active_theme: String,
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            active_theme: "Obsidian".to_string(),
-        }
-    }
-}
-
 const BUILTIN_THEMES: &[&str] = &[
     include_str!("../../themes/builtin/obsidian.theme.json"),
     include_str!("../../themes/builtin/parchment.theme.json"),
@@ -34,58 +21,16 @@ const BUILTIN_THEMES: &[&str] = &[
     include_str!("../../themes/builtin/grove.theme.json"),
 ];
 
-fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .app_data_dir()
-        .map_err(|e| format!("failed to resolve app data directory: {e}"))
+fn themes_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    Ok(settings::app_data_dir(app)?.join("themes"))
 }
 
-fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(app_data_dir(app)?.join("settings.json"))
-}
-
-fn themes_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(app_data_dir(app)?.join("themes"))
-}
-
-fn ensure_themes_dir(app: &AppHandle) -> Result<PathBuf, String> {
+fn ensure_themes_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     let dir = themes_dir(app)?;
     if !dir.exists() {
         fs::create_dir_all(&dir).map_err(|e| format!("failed to create themes directory: {e}"))?;
     }
     Ok(dir)
-}
-
-fn read_settings(app: &AppHandle) -> Settings {
-    let path = match settings_path(app) {
-        Ok(p) => p,
-        Err(_) => return Settings::default(),
-    };
-    if !path.exists() {
-        return Settings::default();
-    }
-    let contents = match fs::read_to_string(&path) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("settings.json read error: {e}");
-            return Settings::default();
-        }
-    };
-    serde_json::from_str(&contents).unwrap_or_else(|e| {
-        eprintln!("settings.json parse error: {e}");
-        Settings::default()
-    })
-}
-
-fn write_settings(app: &AppHandle, settings: &Settings) -> Result<(), String> {
-    let path = settings_path(app)?;
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("failed to create app data directory: {e}"))?;
-    }
-    let json = serde_json::to_string_pretty(settings)
-        .map_err(|e| format!("failed to serialize settings: {e}"))?;
-    fs::write(&path, json).map_err(|e| format!("failed to write settings.json: {e}"))
 }
 
 fn parse_theme_file(path: &Path, contents: &str) -> Option<Theme> {
@@ -147,14 +92,14 @@ pub fn load_user_themes(app: AppHandle) -> Result<Vec<Theme>, String> {
 
 #[tauri::command]
 pub fn save_active_theme_id(app: AppHandle, theme_name: String) -> Result<(), String> {
-    let mut settings = read_settings(&app);
-    settings.active_theme = theme_name;
-    write_settings(&app, &settings)
+    let mut app_settings = settings::read_settings(&app);
+    app_settings.active_theme = theme_name;
+    settings::write_settings(&app, &app_settings)
 }
 
 #[tauri::command]
 pub fn get_active_theme_id(app: AppHandle) -> Result<String, String> {
-    Ok(read_settings(&app).active_theme)
+    Ok(settings::read_settings(&app).active_theme)
 }
 
 #[tauri::command]

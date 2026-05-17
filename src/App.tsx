@@ -5,30 +5,37 @@ import { PlayerDock } from "./components/PlayerDock/PlayerDock";
 import { TrackEditor } from "./components/TrackEditor/TrackEditor";
 import { MainContent } from "./components/layout/MainContent";
 import { Sidebar } from "./components/layout/Sidebar";
+import { ImportChoiceModal } from "./components/ImportChoiceModal/ImportChoiceModal";
+import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal";
 import { setupAppMenu } from "./lib/appMenu";
 import { useMediaHotkeys } from "./hooks/useMediaHotkeys";
+import { useLibrarySettingsStore } from "./store/useLibrarySettingsStore";
 import { usePlayerStore } from "./store/usePlayerStore";
 import "./App.css";
 
 function App() {
   const loadLibrary = usePlayerStore((s) => s.loadLibrary);
   const addToLibrary = usePlayerStore((s) => s.addToLibrary);
+  const loadSettings = useLibrarySettingsStore((s) => s.loadSettings);
+  const setPreferencesOpen = useLibrarySettingsStore((s) => s.setPreferencesOpen);
   const importError = usePlayerStore((s) => s.importError);
   const clearImportError = usePlayerStore((s) => s.clearImportError);
 
   useMediaHotkeys();
 
   useEffect(() => {
+    void loadSettings();
     loadLibrary();
-  }, [loadLibrary]);
+  }, [loadLibrary, loadSettings]);
 
   useEffect(() => {
     void setupAppMenu({
       addToLibrary: () => {
         void addToLibrary();
       },
+      openPreferences: () => setPreferencesOpen(true),
     });
-  }, [addToLibrary]);
+  }, [addToLibrary, setPreferencesOpen]);
 
   return (
     <div className="app">
@@ -52,6 +59,8 @@ function App() {
 
       <TrackEditor />
       <ImportDropZone />
+      <PreferencesModal />
+      <ImportChoiceModal />
       <BackgroundTasksIndicator />
     </div>
   );

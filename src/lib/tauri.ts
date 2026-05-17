@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { LibrarySettings, LibrarySettingsPatch } from "../types/library";
 import type { Theme } from "../types/theme";
 import type { TrackMetadataUpdate } from "../types/metadata";
 import type { Track, TrackInput } from "../types/track";
@@ -131,4 +132,36 @@ export async function writeTrackMetadata(
     metadata,
   });
   return normalizeTrack(raw);
+}
+
+export async function pickFolder(): Promise<string[]> {
+  return invoke<string[]>("pick_folder");
+}
+
+export async function getLibrarySettings(): Promise<LibrarySettings> {
+  return invoke<LibrarySettings>("get_library_settings");
+}
+
+export async function saveLibrarySettings(
+  patch: LibrarySettingsPatch,
+): Promise<LibrarySettings> {
+  return invoke<LibrarySettings>("save_library_settings", { library: patch });
+}
+
+export async function prepareImportFile(
+  sourcePath: string,
+  mode: "copy" | "reference",
+  autoOrganize: boolean,
+  mediaFolder: string,
+): Promise<string> {
+  return invoke<string>("prepare_import_file", {
+    sourcePath,
+    mode,
+    autoOrganize,
+    mediaFolder,
+  });
+}
+
+export async function pickDatabaseFolder(): Promise<string | null> {
+  return invoke<string | null>("pick_database_folder");
 }
