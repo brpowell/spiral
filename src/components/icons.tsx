@@ -186,3 +186,27 @@ export function IconHelp(props: IconProps) {
     </svg>
   );
 }
+
+export function IconAddToQueue(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
+      <path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zM2 16h8v-2H2v2zm15.59-3.41L17 11.17V21h2v-9.83l1.59 1.59L22 11l-4.41-4.41z" />
+    </svg>
+  );
+}
+
+export function IconRemoveFromQueue(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
+      <path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zM2 16h8v-2H2v2zm4.41 2.59L8 13.17V21h2v-7.83l1.59 1.59L16 11l-4.41-4.41z" />
+    </svg>
+  );
+}
+
+export function IconDelete(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
+      <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+    </svg>
+  );
+}
