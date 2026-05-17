@@ -8,6 +8,21 @@ body {
   background: var(--color-bg);
   color: var(--color-text-primary);
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input:is(
+    [type="text"],
+    [type="search"],
+    [type="email"],
+    [type="password"],
+    [type="url"],
+    [type="number"]
+  ),
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .app {
