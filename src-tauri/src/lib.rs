@@ -1,4 +1,5 @@
 mod art_cache;
+mod cover_art_fetch;
 mod commands;
 mod db;
 mod import_files;

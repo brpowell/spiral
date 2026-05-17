@@ -88,25 +88,69 @@
   text-align: center;
 }
 
+.track-editor__fetching {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.track-editor__fetching-spinner {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: track-editor-spin 0.7s linear infinite;
+}
+
+@keyframes track-editor-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .track-editor__cover-picker {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  justify-content: center;
+  flex-direction: column;
+  gap: 0.4rem;
   width: 100%;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.track-editor__cover-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.35rem;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  border: 2px solid transparent;
+  background: var(--color-surface-raised);
+}
+
+.track-editor__cover-option:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+.track-editor__cover-option--selected {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface-raised));
 }
 
 .track-editor__cover-thumb {
-  width: 80px;
-  height: 80px;
-  padding: 0;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
   overflow: hidden;
   border-radius: var(--radius-sm);
-  border: 2px solid transparent;
-}
-
-.track-editor__cover-thumb:hover {
-  border-color: var(--color-accent);
 }
 
 .track-editor__cover-thumb img {
@@ -114,6 +158,50 @@
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.track-editor__cover-meta {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+}
+
+.track-editor__discard {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, var(--color-border));
+  background: var(--color-danger-bg);
+}
+
+.track-editor__discard-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.track-editor__discard-desc {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.track-editor__discard-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.track-editor__discard-btn {
+  font-size: 0.8rem;
+}
+
+.track-editor__discard-btn--danger {
+  border-color: color-mix(in srgb, var(--color-danger) 50%, var(--color-border));
+  color: var(--color-danger);
 }
 
 .track-editor__fields {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { formatBytes, formatDimensions } from "../../lib/formatBytes";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -9,6 +10,7 @@ import {
   writeTrackMetadata,
 } from "../../lib/tauri";
 import { usePlayerStore } from "../../store/usePlayerStore";
+import type { CoverArtCandidate } from "../../types/coverArt";
 import type { TrackMetadataUpdate } from "../../types/metadata";
 import type { Track } from "../../types/track";
 import { AlbumArt } from "../AlbumArt/AlbumArt";
@@ -74,6 +76,48 @@ function formsEqual(a: EditorForm, b: EditorForm): boolean {
   );
 }
 
+function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
+  const [dims, setDims] = useState<{ w: number; h: number } | null>(() =>
+    candidate.width != null && candidate.height != null
+      ? { w: candidate.width, h: candidate.height }
+      : null,
+  );
+
+  useEffect(() => {
+    if (candidate.width != null && candidate.height != null) {
+      setDims({ w: candidate.width, h: candidate.height });
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      setDims({ w: img.naturalWidth, h: img.naturalHeight });
+    };
+    img.src = candidate.url;
+
+    return () => {
+      img.onload = null;
+      img.src = "";
+    };
+  }, [candidate.url, candidate.width, candidate.height]);
+
+  const sizeLabel =
+    candidate.fileSize != null && candidate.fileSize > 0
+      ? formatBytes(candidate.fileSize)
+      : null;
+  const dimLabel = dims
+    ? formatDimensions(dims.w, dims.h)
+    : formatDimensions(candidate.width, candidate.height);
+
+  const meta = [sizeLabel, dimLabel].filter(Boolean).join(" · ");
+
+  return (
+    <span className="track-editor__cover-meta">
+      {meta || "Loading details…"}
+    </span>
+  );
+}
+
 export function TrackEditor() {
   const editingTrackId = usePlayerStore((s) => s.editingTrackId);
   const library = usePlayerStore((s) => s.library);
@@ -90,9 +134,11 @@ export function TrackEditor() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [fetchingArt, setFetchingArt] = useState(false);
-  const [coverUrls, setCoverUrls] = useState<string[]>([]);
+  const [coverCandidates, setCoverCandidates] = useState<CoverArtCandidate[]>([]);
+  const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
+  const [discardPrompt, setDiscardPrompt] = useState(false);
 
   const isOpen = editingTrackId != null && track != null && form != null;
 
@@ -105,37 +151,62 @@ export function TrackEditor() {
     setOriginalForm(initial);
     setPendingArtPath(track.artPath);
     setOriginalArtPath(track.artPath);
-    setCoverUrls([]);
+    setCoverCandidates([]);
+    setSelectedCoverUrl(null);
     setFetchMessage(null);
     setSaveError(null);
+    setDiscardPrompt(false);
   }, [track?.id]);
 
   const hasChanges =
     form != null &&
     originalForm != null &&
-    (!formsEqual(form, originalForm) || pendingArtPath !== originalArtPath);
+    (!formsEqual(form, originalForm) ||
+      pendingArtPath !== originalArtPath ||
+      selectedCoverUrl != null);
 
-  const handleBackdropClick = useCallback(() => {
-    if (hasChanges && !confirm("Discard changes?")) return;
+  const requestClose = useCallback(() => {
+    if (hasChanges) {
+      setDiscardPrompt(true);
+      return;
+    }
     closeTrackEditor();
   }, [hasChanges, closeTrackEditor]);
 
+  const handleBackdropClick = useCallback(() => {
+    requestClose();
+  }, [requestClose]);
+
   const handleCancel = () => {
-    if (hasChanges && !confirm("Discard changes?")) return;
+    if (discardPrompt) {
+      setDiscardPrompt(false);
+      return;
+    }
+    requestClose();
+  };
+
+  const confirmDiscard = () => {
+    setDiscardPrompt(false);
     closeTrackEditor();
   };
 
   useEffect(() => {
     if (editingTrackId == null) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (hasChanges && !confirm("Discard changes?")) return;
-        closeTrackEditor();
+      if (e.key !== "Escape") return;
+      if (discardPrompt) {
+        setDiscardPrompt(false);
+        return;
       }
+      if (hasChanges) {
+        setDiscardPrompt(true);
+        return;
+      }
+      closeTrackEditor();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [editingTrackId, hasChanges, closeTrackEditor]);
+  }, [editingTrackId, hasChanges, discardPrompt, closeTrackEditor]);
 
   const setField = (field: keyof EditorForm, value: string) => {
     setForm((prev) => (prev ? { ...prev, [field]: value } : prev));
@@ -146,6 +217,7 @@ export function TrackEditor() {
     setSaveError(null);
     try {
       const cached = await cacheArtFromFile(sourcePath, track.filePath);
+      setSelectedCoverUrl(null);
       setPendingArtPath(cached);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -179,14 +251,15 @@ export function TrackEditor() {
     if (!form) return;
     setFetchingArt(true);
     setFetchMessage(null);
-    setCoverUrls([]);
+    setCoverCandidates([]);
+    setSelectedCoverUrl(null);
     setSaveError(null);
     try {
-      const urls = await fetchCoverArt(form.artist, form.album);
-      if (urls.length === 0) {
+      const candidates = await fetchCoverArt(form.artist, form.album);
+      if (candidates.length === 0) {
         setFetchMessage("No results found");
       } else {
-        setCoverUrls(urls);
+        setCoverCandidates(candidates);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -196,16 +269,9 @@ export function TrackEditor() {
     }
   };
 
-  const handleSelectCover = async (url: string) => {
-    if (!track) return;
+  const handleSelectCover = (url: string) => {
     setSaveError(null);
-    try {
-      const cached = await cacheArtFromUrl(url, track.filePath);
-      setPendingArtPath(cached);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setSaveError(message);
-    }
+    setSelectedCoverUrl(url);
   };
 
   const handleSave = async () => {
@@ -213,7 +279,11 @@ export function TrackEditor() {
     setSaving(true);
     setSaveError(null);
     try {
-      const metadata = formToMetadata(form, pendingArtPath);
+      let artPath = pendingArtPath;
+      if (selectedCoverUrl) {
+        artPath = await cacheArtFromUrl(selectedCoverUrl, track.filePath);
+      }
+      const metadata = formToMetadata(form, artPath);
       const updated = await writeTrackMetadata(track.id, track.filePath, metadata);
       updateTrackInLibrary(updated);
       closeTrackEditor();
@@ -225,8 +295,10 @@ export function TrackEditor() {
     }
   };
 
-  const displayArtPath = pendingArtPath;
-  const displayArtSrc = useAssetUrl(displayArtPath);
+  const displayArtSrc = useAssetUrl(
+    selectedCoverUrl ? null : pendingArtPath,
+  );
+  const previewSrc = selectedCoverUrl ?? displayArtSrc;
 
   return (
     <AnimatedModal
@@ -258,9 +330,9 @@ export function TrackEditor() {
               onDragLeave={() => setArtDragOver(false)}
               onDrop={handleArtDrop}
             >
-              {displayArtSrc ? (
+              {previewSrc ? (
                 <img
-                  src={displayArtSrc}
+                  src={previewSrc}
                   alt=""
                   className="track-editor__art-img"
                 />
@@ -283,21 +355,42 @@ export function TrackEditor() {
             >
               {fetchingArt ? "Fetching…" : "Fetch Art"}
             </button>
-            {fetchMessage && (
+            {fetchMessage && !fetchingArt && (
               <p className="track-editor__fetch-msg">{fetchMessage}</p>
             )}
-            {coverUrls.length > 0 && (
-              <div className="track-editor__cover-picker">
-                {coverUrls.map((url) => (
-                  <button
-                    key={url}
-                    type="button"
-                    className="track-editor__cover-thumb"
-                    onClick={() => void handleSelectCover(url)}
-                  >
-                    <img src={url} alt="" />
-                  </button>
-                ))}
+            {fetchingArt && (
+              <div className="track-editor__fetching" role="status" aria-live="polite">
+                <span className="track-editor__fetching-spinner" aria-hidden />
+                <span>Fetching artwork…</span>
+              </div>
+            )}
+            {coverCandidates.length > 0 && (
+              <div
+                className="track-editor__cover-picker"
+                aria-label="Cover art options"
+              >
+                {coverCandidates.map((candidate) => {
+                  const thumbSrc = candidate.thumbnailUrl ?? candidate.url;
+
+                  return (
+                    <button
+                      key={candidate.url}
+                      type="button"
+                      className={
+                        selectedCoverUrl === candidate.url
+                          ? "track-editor__cover-option track-editor__cover-option--selected"
+                          : "track-editor__cover-option"
+                      }
+                      onClick={() => handleSelectCover(candidate.url)}
+                      aria-pressed={selectedCoverUrl === candidate.url}
+                    >
+                      <span className="track-editor__cover-thumb">
+                        <img src={thumbSrc} alt="" loading="lazy" />
+                      </span>
+                      <CoverOptionMeta candidate={candidate} />
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -376,12 +469,48 @@ export function TrackEditor() {
           </p>
         )}
 
-        <ModalFooter onCancel={handleCancel} cancelDisabled={saving}>
+        {discardPrompt && (
+          <div
+            className="track-editor__discard"
+            role="alertdialog"
+            aria-labelledby="track-editor-discard-title"
+            aria-describedby="track-editor-discard-desc"
+          >
+            <p id="track-editor-discard-title" className="track-editor__discard-title">
+              Discard changes?
+            </p>
+            <p id="track-editor-discard-desc" className="track-editor__discard-desc">
+              Unsaved edits to this track will be lost.
+            </p>
+            <div className="track-editor__discard-actions">
+              <button
+                type="button"
+                className="track-editor__discard-btn"
+                onClick={() => setDiscardPrompt(false)}
+              >
+                Keep editing
+              </button>
+              <button
+                type="button"
+                className="track-editor__discard-btn track-editor__discard-btn--danger"
+                onClick={confirmDiscard}
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        )}
+
+        <ModalFooter
+          onCancel={handleCancel}
+          cancelDisabled={saving}
+          cancelLabel={discardPrompt ? "Back" : "Cancel"}
+        >
           <button
             type="button"
             className="modal-footer__btn modal-footer__btn--primary"
             onClick={() => void handleSave()}
-            disabled={!hasChanges || saving}
+            disabled={!hasChanges || saving || discardPrompt}
           >
             {saving ? "Saving…" : "Save"}
           </button>

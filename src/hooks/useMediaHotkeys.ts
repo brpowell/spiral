@@ -19,6 +19,14 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return target.isContentEditable;
 }
 
+function shouldIgnoreKeyboardShortcut(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return true;
+  if (isEditableTarget(target)) return true;
+  if (target.tagName === "BUTTON" || target.closest("button")) return true;
+  if (target.closest('[role="dialog"]')) return true;
+  return false;
+}
+
 function createScrubHandler(
   direction: ScrubDirection,
   onTap: () => void,
@@ -116,7 +124,8 @@ export function useMediaHotkeys(): void {
     });
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (isEditableTarget(e.target)) return;
+      if (usePlayerStore.getState().editingTrackId != null) return;
+      if (shouldIgnoreKeyboardShortcut(e.target)) return;
 
       if (e.code === "Space" || e.key === " ") {
         e.preventDefault();

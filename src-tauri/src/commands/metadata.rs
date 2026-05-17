@@ -1,12 +1,11 @@
 use super::library::DbState;
 use crate::art_cache::{self, guess_ext_from_url};
+use crate::cover_art_fetch::{self, CoverArtCandidate};
 use crate::db;
 use crate::metadata_writer;
 use crate::models::{Track, TrackMetadataUpdate};
 use std::path::Path;
 use tauri::{AppHandle, Manager, State};
-
-const MUSICBRAINZ_USER_AGENT: &str = "Spiral/0.1.0 (https://github.com/brpowell/spiral)";
 
 #[tauri::command]
 pub fn pick_image_file() -> Result<Option<String>, String> {
@@ -45,8 +44,21 @@ pub fn cache_art_from_bytes(
     Ok(dest.to_string_lossy().into_owned())
 }
 
+const MUSICBRAINZ_USER_AGENT: &str = "Spiral/0.1.0 (https://github.com/brpowell/spiral)";
+
 #[tauri::command]
-pub fn cache_art_from_url(
+pub async fn cache_art_from_url(
+    app: AppHandle,
+    url: String,
+    file_path: String,
+) -> Result<String, String> {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || cache_art_from_url_blocking(app, url, file_path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn cache_art_from_url_blocking(
     app: AppHandle,
     url: String,
     file_path: String,
@@ -79,85 +91,13 @@ pub fn cache_art_from_url(
 }
 
 #[tauri::command]
-pub fn fetch_cover_art(artist: String, album: String) -> Result<Vec<String>, String> {
-    if artist.trim().is_empty() && album.trim().is_empty() {
-        return Ok(vec![]);
-    }
-
-    let client = reqwest::blocking::Client::builder()
-        .user_agent(MUSICBRAINZ_USER_AGENT)
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    let query = format!(
-        "release:\"{}\" AND artist:\"{}\"",
-        album.replace('"', "\\\""),
-        artist.replace('"', "\\\"")
-    );
-    let search_url = format!(
-        "https://musicbrainz.org/ws/2/release?query={}&fmt=json&limit=5",
-        urlencoding_simple(&query)
-    );
-
-    let search: serde_json::Value = match client.get(&search_url).send() {
-        Ok(resp) if resp.status().is_success() => resp.json().unwrap_or(serde_json::Value::Null),
-        _ => return Ok(vec![]),
-    };
-
-    let releases = search
-        .get("releases")
-        .and_then(|r| r.as_array())
-        .cloned()
-        .unwrap_or_default();
-
-    let mut urls = Vec::new();
-
-    for release in releases {
-        if urls.len() >= 5 {
-            break;
-        }
-        let Some(mbid) = release.get("id").and_then(|id| id.as_str()) else {
-            continue;
-        };
-
-        let caa_url = format!("https://coverartarchive.org/release/{mbid}");
-        let caa: serde_json::Value = match client.get(&caa_url).send() {
-            Ok(resp) if resp.status().is_success() => {
-                resp.json().unwrap_or(serde_json::Value::Null)
-            }
-            _ => continue,
-        };
-
-        let Some(images) = caa.get("images").and_then(|i| i.as_array()) else {
-            continue;
-        };
-
-        for image in images {
-            if urls.len() >= 5 {
-                break;
-            }
-            let types = image
-                .get("types")
-                .and_then(|t| t.as_array())
-                .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
-                .unwrap_or_default();
-
-            let is_front =
-                types.iter().any(|t| t.eq_ignore_ascii_case("front")) || types.is_empty();
-
-            if !is_front {
-                continue;
-            }
-
-            if let Some(url) = image.get("image").and_then(|u| u.as_str()) {
-                if !urls.contains(&url.to_string()) {
-                    urls.push(url.to_string());
-                }
-            }
-        }
-    }
-
-    Ok(urls)
+pub async fn fetch_cover_art(
+    artist: String,
+    album: String,
+) -> Result<Vec<CoverArtCandidate>, String> {
+    tauri::async_runtime::spawn_blocking(move || cover_art_fetch::fetch_cover_art_cached(artist, album))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -190,16 +130,3 @@ fn app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     app.path().app_data_dir().map_err(|e| e.to_string())
 }
 
-fn urlencoding_simple(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() * 3);
-    for b in s.bytes() {
-        match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                out.push(b as char);
-            }
-            b' ' => out.push('+'),
-            _ => out.push_str(&format!("%{b:02X}")),
-        }
-    }
-    out
-}

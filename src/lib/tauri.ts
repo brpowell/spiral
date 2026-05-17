@@ -3,8 +3,29 @@ import type { LibrarySettings, LibrarySettingsPatch } from "../types/library";
 import { parseRepeatMode } from "./playbackSession";
 import type { PlaybackSession } from "../types/playbackSession";
 import type { Theme } from "../types/theme";
+import type { CoverArtCandidate } from "../types/coverArt";
 import type { TrackMetadataUpdate } from "../types/metadata";
 import type { Track, TrackInput } from "../types/track";
+
+function normalizeCoverArtCandidate(
+  raw: Record<string, unknown>,
+): CoverArtCandidate {
+  return {
+    url: raw.url as string,
+    thumbnailUrl:
+      (raw.thumbnailUrl as string | null) ??
+      (raw.thumbnail_url as string | null) ??
+      null,
+    fileSize:
+      (raw.fileSize as number | null) ??
+      (raw.file_size as number | null) ??
+      null,
+    width: (raw.width as number | null) ?? null,
+    height: (raw.height as number | null) ?? null,
+    canonicalRank:
+      (raw.canonicalRank as number) ?? (raw.canonical_rank as number) ?? 0,
+  };
+}
 
 /** Normalize track JSON in case serde casing differs at the IPC boundary. */
 function normalizeTrack(raw: Record<string, unknown>): Track {
@@ -95,8 +116,12 @@ export async function cacheArtFromUrl(
 export async function fetchCoverArt(
   artist: string,
   album: string,
-): Promise<string[]> {
-  return invoke<string[]>("fetch_cover_art", { artist, album });
+): Promise<CoverArtCandidate[]> {
+  const rows = await invoke<Record<string, unknown>[]>("fetch_cover_art", {
+    artist,
+    album,
+  });
+  return rows.map(normalizeCoverArtCandidate);
 }
 
 export async function getBuiltinThemes(): Promise<Theme[]> {
