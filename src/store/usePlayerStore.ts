@@ -7,6 +7,8 @@ import {
   getAutoplayNextId,
   getManualNextId,
   getManualPreviousId,
+  shuffleNewTrackList,
+  shuffleTrackList,
 } from "../lib/playbackQueue";
 import type { PlaybackState, RepeatMode, Track } from "../types/track";
 
@@ -20,6 +22,7 @@ interface PlayerState {
   volume: number;
   muted: boolean;
   repeatMode: RepeatMode;
+  shuffle: boolean;
   importError: string | null;
   editingTrackId: number | null;
 
@@ -40,6 +43,7 @@ interface PlayerState {
   toggleMute: () => void;
   setQueue: (ids: number[]) => void;
   cycleRepeat: () => void;
+  toggleShuffle: () => void;
   clearImportError: () => void;
   openTrackEditor: (id: number) => void;
   closeTrackEditor: () => void;
@@ -105,6 +109,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     volume: 1,
     muted: false,
     repeatMode: "off",
+    shuffle: false,
     importError: null,
     editingTrackId: null,
 
@@ -140,7 +145,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     playTracks: async (ids, startId) => {
       if (ids.length === 0) return;
       if (!ids.includes(startId)) return;
-      set({ queue: ids, selectedTrackId: startId });
+      const ordered = get().shuffle
+        ? shuffleNewTrackList(ids, startId)
+        : ids;
+      set({ queue: ordered, selectedTrackId: startId });
       await get().playTrack(startId);
     },
 
@@ -148,7 +156,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const track = get().library.find((t) => t.id === id);
       if (!track) return;
 
+      const hadQueue = get().queue.length > 0;
       ensureQueue(set, get);
+      if (!hadQueue && get().shuffle && get().queue.length > 1) {
+        set({ queue: shuffleTrackList(get().queue, id) });
+      }
       set({ importError: null });
       try {
         await audio.load(track.filePath);
@@ -251,6 +263,22 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     setQueue: (ids) => set({ queue: ids }),
     cycleRepeat: () =>
       set((state) => ({ repeatMode: cycleRepeatMode(state.repeatMode) })),
+    toggleShuffle: () => {
+      const state = get();
+      const next = !state.shuffle;
+      if (!next) {
+        set({ shuffle: false });
+        return;
+      }
+      if (state.queue.length === 0) {
+        set({ shuffle: true });
+        return;
+      }
+      set({
+        shuffle: true,
+        queue: shuffleTrackList(state.queue, state.currentTrackId),
+      });
+    },
     clearImportError: () => set({ importError: null }),
 
     openTrackEditor: (id) => set({ editingTrackId: id }),

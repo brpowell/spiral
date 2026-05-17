@@ -2,6 +2,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { albumKey } from "../../lib/albums";
+import { getActiveTrackIds } from "../../lib/activeTrackList";
 import * as audio from "../../lib/audio";
 import { formatRemainingTime, formatTime } from "../../lib/format";
 import {
@@ -12,6 +13,7 @@ import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { RepeatMode } from "../../types/track";
 import { AudioVisualizer } from "../AudioVisualizer/AudioVisualizer";
+import { TrackListModal } from "../TrackListModal/TrackListModal";
 import {
   IconAlbumPlaceholder,
   IconNext,
@@ -20,6 +22,8 @@ import {
   IconPrevious,
   IconRepeat,
   IconRepeatOne,
+  IconShuffle,
+  IconTrackList,
   IconVolume,
   IconVolumeMute,
 } from "../icons";
@@ -40,6 +44,7 @@ export function NowPlayingBar({
   const positionSeconds = usePlayerStore((s) => s.positionSeconds);
   const queue = usePlayerStore((s) => s.queue);
   const repeatMode = usePlayerStore((s) => s.repeatMode);
+  const shuffle = usePlayerStore((s) => s.shuffle);
   const volume = usePlayerStore((s) => s.volume);
   const muted = usePlayerStore((s) => s.muted);
   const togglePlayPause = usePlayerStore((s) => s.togglePlayPause);
@@ -47,6 +52,7 @@ export function NowPlayingBar({
   const previousTrack = usePlayerStore((s) => s.previousTrack);
   const nextTrack = usePlayerStore((s) => s.nextTrack);
   const cycleRepeat = usePlayerStore((s) => s.cycleRepeat);
+  const toggleShuffle = usePlayerStore((s) => s.toggleShuffle);
   const setVolume = usePlayerStore((s) => s.setVolume);
   const toggleMute = usePlayerStore((s) => s.toggleMute);
   const openAlbum = useNavigationStore((s) => s.openAlbum);
@@ -59,12 +65,15 @@ export function NowPlayingBar({
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekValue, setSeekValue] = useState(0);
   const [livePosition, setLivePosition] = useState(0);
+  const [trackListOpen, setTrackListOpen] = useState(false);
 
   const durationSeconds =
     currentTrack?.durationSeconds ?? audio.getDurationSeconds();
 
-  const activeQueue =
-    queue.length > 0 ? queue : library.map((t) => t.id);
+  const activeQueue = useMemo(
+    () => getActiveTrackIds(queue, library),
+    [queue, library],
+  );
 
   const canGoPrevious =
     currentTrackId !== null &&
@@ -153,6 +162,18 @@ export function NowPlayingBar({
         style={{ opacity: currentTrackId ? 1 : 0.5 }}
       >
         <div className="now-playing-bar__transport">
+          <button
+            type="button"
+            className={`now-playing-bar__btn now-playing-bar__btn--shuffle${
+              shuffle ? " now-playing-bar__btn--shuffle-active" : ""
+            }`}
+            onClick={toggleShuffle}
+            aria-label={shuffle ? "Shuffle on" : "Shuffle off"}
+            title={shuffle ? "Shuffle on" : "Shuffle off"}
+          >
+            <IconShuffle />
+          </button>
+
           <button
             type="button"
             className={`now-playing-bar__btn now-playing-bar__btn--repeat${
@@ -248,6 +269,7 @@ export function NowPlayingBar({
         className="now-playing-bar__center"
         style={{ opacity: currentTrack ? 1 : 0.55 }}
       >
+        <div className="now-playing-bar__center-inner">
         <div className="now-playing-bar__widget">
           <button
             type="button"
@@ -265,15 +287,13 @@ export function NowPlayingBar({
             )}
           </button>
 
-          <div className="now-playing-bar__track-row">
-            <div className="now-playing-bar__track-text">
-              <span className="now-playing-bar__title">
-                {currentTrack?.title ?? "No track selected"}
-              </span>
-              <span className="now-playing-bar__subtitle">
-                {subtitle ?? "Unknown artist"}
-              </span>
-            </div>
+          <div className="now-playing-bar__track-text">
+            <span className="now-playing-bar__title">
+              {currentTrack?.title ?? "No track selected"}
+            </span>
+            <span className="now-playing-bar__subtitle">
+              {subtitle ?? "Unknown artist"}
+            </span>
           </div>
 
           <div className="now-playing-bar__progress-row">
@@ -306,6 +326,18 @@ export function NowPlayingBar({
               {formatRemainingTime(displayPosition, durationSeconds)}
             </span>
           </div>
+          </div>
+
+          <button
+            type="button"
+            className="now-playing-bar__btn now-playing-bar__btn--track-list"
+            onClick={() => setTrackListOpen(true)}
+            disabled={activeQueue.length === 0}
+            aria-label="View track list"
+            title="View track list"
+          >
+            <IconTrackList />
+          </button>
         </div>
       </div>
 
@@ -316,6 +348,11 @@ export function NowPlayingBar({
           onToggleExpand={onToggleVisualizer}
         />
       </div>
+
+      <TrackListModal
+        open={trackListOpen}
+        onClose={() => setTrackListOpen(false)}
+      />
     </div>
   );
 }

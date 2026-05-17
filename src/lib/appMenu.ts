@@ -13,16 +13,15 @@ export interface AppMenuHandlers {
 export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   const preferences = await MenuItem.new({
     id: "preferences",
-    text: "Preferences…",
+    text: "Preferences",
     accelerator: "Cmd+,",
     action: handlers.openPreferences,
   });
-  const hide = await PredefinedMenuItem.new({ item: "Hide" });
   const quit = await PredefinedMenuItem.new({ item: "Quit" });
 
   const appSubmenu = await Submenu.new({
     text: "Spiral",
-    items: [preferences, hide, quit],
+    items: [preferences, quit],
   });
 
   const addToLibrary = await MenuItem.new({
