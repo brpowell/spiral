@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { formatTime } from "../lib/format";
 import { PlayingIndicator } from "../components/PlayingIndicator/PlayingIndicator";
-import { IconEditInfo, IconSearch } from "../components/icons";
+import { IconClose, IconEditInfo, IconSearch } from "../components/icons";
 import { useTrackEditMenu } from "../hooks/useTrackEditMenu";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Track } from "../types/track";
@@ -39,45 +39,45 @@ function LibraryTableRow({
 
   return (
     <>
-    <tr
-      className={rowClass}
-      onClick={onSelect}
-      onDoubleClick={onPlay}
-      onContextMenu={onContextMenu}
-    >
-      <td className="library-table__num">{index + 1}</td>
-      <td
-        className={[
-          "library-table__title-cell",
-          isActivelyPlaying && "library-table__title-cell--with-indicator",
-        ]
-          .filter(Boolean)
-          .join(" ")}
+      <tr
+        className={rowClass}
+        onClick={onSelect}
+        onDoubleClick={onPlay}
+        onContextMenu={onContextMenu}
       >
-        <PlayingIndicator active={isActivelyPlaying} />
-        <span className="library-table__title-text">{track.title}</span>
-      </td>
-      <td>{track.artist ?? "—"}</td>
-      <td>{track.album ?? "—"}</td>
-      <td className="library-table__duration">
-        {track.durationSeconds != null ? formatTime(track.durationSeconds) : "—"}
-      </td>
-      <td className="library-table__actions">
-        <button
-          type="button"
-          className="track-row-menu__edit track-row-menu__edit--table"
-          aria-label="Edit track info"
-          onClick={(e) => {
-            e.stopPropagation();
-            openEditor();
-          }}
+        <td className="library-table__num">{index + 1}</td>
+        <td
+          className={[
+            "library-table__title-cell",
+            isActivelyPlaying && "library-table__title-cell--with-indicator",
+          ]
+            .filter(Boolean)
+            .join(" ")}
         >
-          <IconEditInfo />
-        </button>
-      </td>
-    </tr>
-    {contextMenu}
-    {removeDialog}
+          <PlayingIndicator active={isActivelyPlaying} />
+          <span className="library-table__title-text">{track.title}</span>
+        </td>
+        <td>{track.artist ?? "—"}</td>
+        <td>{track.album ?? "—"}</td>
+        <td className="library-table__duration">
+          {track.durationSeconds != null ? formatTime(track.durationSeconds) : "—"}
+        </td>
+        <td className="library-table__actions">
+          <button
+            type="button"
+            className="track-row-menu__edit track-row-menu__edit--table"
+            aria-label="Edit track info"
+            onClick={(e) => {
+              e.stopPropagation();
+              openEditor();
+            }}
+          >
+            <IconEditInfo />
+          </button>
+        </td>
+      </tr>
+      {contextMenu}
+      {removeDialog}
     </>
   );
 }
@@ -142,6 +142,12 @@ export function LibraryView({ tracks }: LibraryViewProps) {
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>("title");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const clearSearch = (refocus = false) => {
+    setSearch("");
+    if (refocus) searchInputRef.current?.focus();
+  };
 
   const sortedTracks = useMemo(() => {
     const filtered = tracks.filter((t) => matchesSearch(t, search));
@@ -181,16 +187,38 @@ export function LibraryView({ tracks }: LibraryViewProps) {
   return (
     <div className="library-view">
       <header className="library-view__header">
-        <h1 className="library-view__title">Library</h1>
         <div className="library-view__search">
           <IconSearch />
           <input
-            type="search"
+            ref={searchInputRef}
+            type="text"
+            role="searchbox"
             placeholder="Search title, artist, or album…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+                e.currentTarget.select();
+                return;
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                if (search) clearSearch();
+                e.currentTarget.blur();
+              }
+            }}
             aria-label="Search library"
           />
+          {search ? (
+            <button
+              type="button"
+              className="library-view__search-clear"
+              onClick={() => clearSearch(true)}
+              aria-label="Clear search"
+            >
+              <IconClose />
+            </button>
+          ) : null}
         </div>
       </header>
 

@@ -12,15 +12,9 @@ body {
   -webkit-user-select: none;
 }
 
-input:is(
-    [type="text"],
-    [type="search"],
-    [type="email"],
-    [type="password"],
-    [type="url"],
-    [type="number"]
-  ),
-textarea {
+input,
+textarea,
+[contenteditable="true"] {
   user-select: text;
   -webkit-user-select: text;
 }
