@@ -169,3 +169,11 @@ pub fn delete_track(conn: &Connection, id: i64) -> Result<bool, rusqlite::Error>
     let deleted = conn.execute("DELETE FROM tracks WHERE id = ?1", params![id])?;
     Ok(deleted > 0)
 }
+
+pub fn list_file_paths(conn: &Connection) -> Result<Vec<String>, rusqlite::Error> {
+    let mut stmt = conn.prepare("SELECT file_path FROM tracks")?;
+    let paths = stmt
+        .query_map([], |row| row.get(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(paths)
+}

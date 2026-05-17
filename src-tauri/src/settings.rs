@@ -29,6 +29,32 @@ fn default_import_mode() -> String {
     "ask".to_string()
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetadataBackupSettings {
+    #[serde(default = "default_metadata_backups_enabled")]
+    pub enabled: bool,
+    #[serde(default = "default_metadata_backup_retention_days")]
+    pub retention_days: u32,
+}
+
+fn default_metadata_backups_enabled() -> bool {
+    true
+}
+
+fn default_metadata_backup_retention_days() -> u32 {
+    crate::metadata_backup::DEFAULT_RETENTION_DAYS
+}
+
+impl Default for MetadataBackupSettings {
+    fn default() -> Self {
+        Self {
+            enabled: default_metadata_backups_enabled(),
+            retention_days: default_metadata_backup_retention_days(),
+        }
+    }
+}
+
 impl Default for LibrarySettings {
     fn default() -> Self {
         Self {
@@ -47,6 +73,8 @@ pub struct AppSettings {
     pub active_theme: String,
     #[serde(default)]
     pub library: LibrarySettings,
+    #[serde(default)]
+    pub metadata_backups: MetadataBackupSettings,
 }
 
 fn default_active_theme() -> String {
@@ -58,6 +86,7 @@ impl Default for AppSettings {
         Self {
             active_theme: default_active_theme(),
             library: LibrarySettings::default(),
+            metadata_backups: MetadataBackupSettings::default(),
         }
     }
 }
@@ -72,6 +101,8 @@ pub struct LibrarySettingsResponse {
     pub default_media_folder: String,
     pub default_database_path: String,
     pub default_library_root: String,
+    pub metadata_backups_enabled: bool,
+    pub metadata_backup_retention_days: u32,
 }
 
 pub fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -143,7 +174,9 @@ pub fn default_database_path(app: &AppHandle) -> PathBuf {
 }
 
 pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
-    let stored = read_settings(app).library;
+    let app_settings = read_settings(app);
+    let stored = app_settings.library.clone();
+    let backups = app_settings.metadata_backups;
     let default_root = default_library_root(app);
     let default_media = default_media_folder(app);
     let default_db = default_database_path(app);
@@ -166,6 +199,11 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
         default_media_folder: default_media.to_string_lossy().into_owned(),
         default_database_path: default_db.to_string_lossy().into_owned(),
         default_library_root: default_root.to_string_lossy().into_owned(),
+        metadata_backups_enabled: backups.enabled,
+        metadata_backup_retention_days: backups.retention_days.clamp(
+            crate::metadata_backup::MIN_RETENTION_DAYS,
+            crate::metadata_backup::MAX_RETENTION_DAYS,
+        ),
     }
 }
 
@@ -180,6 +218,10 @@ pub struct LibrarySettingsPatch {
     pub auto_organize: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub import_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata_backups_enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata_backup_retention_days: Option<u32>,
 }
 
 pub fn merge_library_settings(
@@ -210,7 +252,26 @@ pub fn merge_library_settings(
             settings.library.import_mode = import_mode;
         }
     }
+    if let Some(enabled) = patch.metadata_backups_enabled {
+        settings.metadata_backups.enabled = enabled;
+    }
+    if let Some(days) = patch.metadata_backup_retention_days {
+        settings.metadata_backups.retention_days = days.clamp(
+            crate::metadata_backup::MIN_RETENTION_DAYS,
+            crate::metadata_backup::MAX_RETENTION_DAYS,
+        );
+    }
 
     write_settings(app, &settings)?;
-    Ok(resolved_library_settings(app))
+    let resolved = resolved_library_settings(app);
+
+    if let Err(e) = crate::metadata_backup::run_scheduled_cleanup(app) {
+        eprintln!("metadata backup cleanup after settings save: {e}");
+    }
+
+    Ok(resolved)
+}
+
+pub fn metadata_backup_config(app: &AppHandle) -> crate::metadata_backup::MetadataBackupConfig {
+    crate::metadata_backup::MetadataBackupConfig::from(&read_settings(app).metadata_backups)
 }

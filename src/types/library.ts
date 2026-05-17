@@ -8,6 +8,8 @@ export interface LibrarySettings {
   defaultMediaFolder: string;
   defaultDatabasePath: string;
   defaultLibraryRoot: string;
+  metadataBackupsEnabled: boolean;
+  metadataBackupRetentionDays: number;
 }
 
 export interface LibrarySettingsPatch {
@@ -15,4 +17,6 @@ export interface LibrarySettingsPatch {
   databasePath?: string;
   autoOrganize?: boolean;
   importMode?: ImportMode;
+  metadataBackupsEnabled?: boolean;
+  metadataBackupRetentionDays?: number;
 }

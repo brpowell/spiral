@@ -8,6 +8,7 @@ mod library_paths;
 mod macos_library_picker;
 #[cfg(desktop)]
 mod media_shortcuts;
+mod metadata_backup;
 mod metadata_writer;
 mod models;
 mod session;
@@ -31,6 +32,10 @@ pub fn run() {
             #[cfg(desktop)]
             if let Err(err) = media_shortcuts::register(app.handle()) {
                 eprintln!("failed to register media shortcuts: {err}");
+            }
+
+            if let Err(err) = metadata_backup::run_scheduled_cleanup(app.handle()) {
+                eprintln!("metadata backup cleanup on startup: {err}");
             }
 
             Ok(())

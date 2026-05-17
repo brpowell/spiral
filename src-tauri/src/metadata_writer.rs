@@ -1,3 +1,4 @@
+use crate::metadata_backup::{self, MetadataBackupConfig};
 use crate::models::TrackMetadataUpdate;
 use id3::frame::{Picture, PictureType};
 use id3::{Tag, TagLike};
@@ -118,22 +119,17 @@ fn temp_path_for(path: &Path) -> PathBuf {
     path.with_file_name(format!(".{name}.spiral.tmp"))
 }
 
-fn backup_path_for(path: &Path) -> PathBuf {
-    path.with_extension(format!(
-        "{}.bak",
-        path.extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("audio")
-    ))
-}
-
-/// Write to a temp copy, verify, then atomically replace the original (keeping a `.bak`).
-fn write_via_temp<F>(path: &Path, write: F) -> Result<(), MetadataWriteError>
+/// Write to a temp copy, verify, then atomically replace the original (optional `.bak`).
+fn write_via_temp<F>(
+    path: &Path,
+    backup_config: &MetadataBackupConfig,
+    write: F,
+) -> Result<(), MetadataWriteError>
 where
     F: FnOnce(&Path) -> Result<(), MetadataWriteError>,
 {
     let temp = temp_path_for(path);
-    let backup = backup_path_for(path);
+    let backup = metadata_backup::backup_path_for(path);
 
     if temp.exists() {
         std::fs::remove_file(&temp)
@@ -145,13 +141,15 @@ where
 
     write(&temp)?;
 
-    if backup.exists() {
-        std::fs::remove_file(&backup)
-            .map_err(|e| MetadataWriteError::Io(format!("Failed to remove old backup: {e}")))?;
+    if backup_config.enabled {
+        if backup.exists() {
+            std::fs::remove_file(&backup)
+                .map_err(|e| MetadataWriteError::Io(format!("Failed to remove old backup: {e}")))?;
+        }
+        std::fs::copy(path, &backup).map_err(|e| {
+            MetadataWriteError::Io(format!("Failed to create backup {}: {e}", backup.display()))
+        })?;
     }
-    std::fs::copy(path, &backup).map_err(|e| {
-        MetadataWriteError::Io(format!("Failed to create backup {}: {e}", backup.display()))
-    })?;
 
     std::fs::rename(&temp, path).map_err(|e| {
         MetadataWriteError::Io(format!("Failed to replace audio file: {e}"))
@@ -167,8 +165,12 @@ fn verify_m4a_readable(path: &Path) -> Result<(), MetadataWriteError> {
     Ok(())
 }
 
-fn write_mp3(path: &Path, metadata: &TrackMetadataUpdate) -> Result<(), MetadataWriteError> {
-    write_via_temp(path, |target| {
+fn write_mp3(
+    path: &Path,
+    metadata: &TrackMetadataUpdate,
+    backup_config: &MetadataBackupConfig,
+) -> Result<(), MetadataWriteError> {
+    write_via_temp(path, backup_config, |target| {
         let mut tag = Tag::read_from_path(target)
             .map_err(|e| MetadataWriteError::Tag(format!("Failed to read MP3 tags: {e}")))?;
 
@@ -215,8 +217,12 @@ fn write_mp3(path: &Path, metadata: &TrackMetadataUpdate) -> Result<(), Metadata
     })
 }
 
-fn write_flac(path: &Path, metadata: &TrackMetadataUpdate) -> Result<(), MetadataWriteError> {
-    write_via_temp(path, |target| {
+fn write_flac(
+    path: &Path,
+    metadata: &TrackMetadataUpdate,
+    backup_config: &MetadataBackupConfig,
+) -> Result<(), MetadataWriteError> {
+    write_via_temp(path, backup_config, |target| {
         let mut tag = FlacTag::read_from_path(target)
             .map_err(|e| MetadataWriteError::Tag(format!("Failed to read FLAC tags: {e}")))?;
 
@@ -277,20 +283,25 @@ fn write_m4a_tag(target: &Path, metadata: &TrackMetadataUpdate) -> Result<(), Me
     Ok(())
 }
 
-fn write_m4a(path: &Path, metadata: &TrackMetadataUpdate) -> Result<(), MetadataWriteError> {
-    write_via_temp(path, |target| write_m4a_tag(target, metadata))
+fn write_m4a(
+    path: &Path,
+    metadata: &TrackMetadataUpdate,
+    backup_config: &MetadataBackupConfig,
+) -> Result<(), MetadataWriteError> {
+    write_via_temp(path, backup_config, |target| write_m4a_tag(target, metadata))
 }
 
 pub fn write_track_metadata(
     path: &Path,
     metadata: &TrackMetadataUpdate,
+    backup_config: &MetadataBackupConfig,
 ) -> Result<(), MetadataWriteError> {
     ensure_writable(path)?;
 
     match audio_extension(path).as_deref() {
-        Some("mp3") => write_mp3(path, metadata),
-        Some("flac") => write_flac(path, metadata),
-        Some("m4a") | Some("aac") => write_m4a(path, metadata),
+        Some("mp3") => write_mp3(path, metadata, backup_config),
+        Some("flac") => write_flac(path, metadata, backup_config),
+        Some("m4a") | Some("aac") => write_m4a(path, metadata, backup_config),
         Some(ext) => Err(MetadataWriteError::UnsupportedFormat(format!(
             "Metadata editing is not supported for .{ext} files."
         ))),
@@ -368,14 +379,18 @@ mod tests {
             art_changed: true,
         };
 
-        write_m4a(&audio, &metadata).expect("write m4a metadata");
+        let backup_config = MetadataBackupConfig {
+            enabled: true,
+            retention_days: 14,
+        };
+        write_m4a(&audio, &metadata, &backup_config).expect("write m4a metadata");
 
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read after write");
         assert_eq!(tag.title().as_deref(), Some("Test Track"));
         assert_eq!(tag.artist().as_deref(), Some("Test Artist"));
         assert!(tag.artwork().is_some());
 
-        let backup = backup_path_for(&audio);
+        let backup = metadata_backup::backup_path_for(&audio);
         assert!(backup.exists(), "backup should be created");
 
         let _ = fs::remove_dir_all(&dir);
@@ -426,7 +441,11 @@ mod tests {
             art_changed: false,
         };
 
-        write_m4a(&audio, &metadata).expect("write text-only metadata");
+        let backup_config = MetadataBackupConfig {
+            enabled: true,
+            retention_days: 14,
+        };
+        write_m4a(&audio, &metadata, &backup_config).expect("write text-only metadata");
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read");
         assert_eq!(tag.title().as_deref(), Some("Only Title"));
         assert!(tag.artwork().is_none());

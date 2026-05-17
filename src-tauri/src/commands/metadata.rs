@@ -2,7 +2,9 @@ use super::library::DbState;
 use crate::art_cache::{self, guess_ext_from_url};
 use crate::cover_art_fetch::{self, CoverArtCandidate};
 use crate::db;
+use crate::metadata_backup;
 use crate::metadata_writer;
+use crate::settings;
 use crate::models::{Track, TrackMetadataUpdate};
 use std::path::Path;
 use tauri::{AppHandle, Manager, State};
@@ -109,8 +111,16 @@ pub fn write_track_metadata(
     metadata: TrackMetadataUpdate,
 ) -> Result<Track, String> {
     let path = Path::new(&file_path);
+    let backup_config = settings::metadata_backup_config(&app);
 
-    metadata_writer::write_track_metadata(path, &metadata).map_err(|e| e.to_message())?;
+    metadata_writer::write_track_metadata(path, &metadata, &backup_config)
+        .map_err(|e| e.to_message())?;
+
+    if let Some(parent) = path.parent() {
+        if let Err(e) = metadata_backup::cleanup_backups_in_dir(parent, &backup_config) {
+            eprintln!("metadata backup cleanup after write: {e}");
+        }
+    }
 
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     db::update_track(&conn, track_id, &metadata).map_err(|e| {

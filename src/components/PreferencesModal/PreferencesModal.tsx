@@ -59,6 +59,8 @@ export function PreferencesModal() {
         databasePath: draft.databasePath,
         autoOrganize: draft.autoOrganize,
         importMode: draft.importMode,
+        metadataBackupsEnabled: draft.metadataBackupsEnabled,
+        metadataBackupRetentionDays: draft.metadataBackupRetentionDays,
       });
       setRestartHint(dbChanged);
       if (!dbChanged) setOpen(false);
@@ -185,6 +187,59 @@ export function PreferencesModal() {
             ))}
           </div>
         </fieldset>
+      </section>
+
+      <section
+        className="preferences__section"
+        aria-labelledby="metadata-backups-heading"
+      >
+        <h3 id="metadata-backups-heading" className="preferences__section-title">
+          Metadata backups
+        </h3>
+        <p className="preferences__hint">
+          When you edit tags, Spiral can keep a copy of the original file next to
+          the track (for example <code>song.m4a.bak</code>). Older backups are
+          removed automatically.
+        </p>
+
+        <label className="preferences__checkbox">
+          <input
+            type="checkbox"
+            checked={draft.metadataBackupsEnabled}
+            onChange={(e) =>
+              setDraft((d) =>
+                d ? { ...d, metadataBackupsEnabled: e.target.checked } : d,
+              )
+            }
+          />
+          Keep backups before metadata edits
+        </label>
+
+        <label className="preferences__field">
+          <span className="preferences__label">Retention (days)</span>
+          <input
+            type="number"
+            min={1}
+            max={3650}
+            value={draft.metadataBackupRetentionDays}
+            disabled={!draft.metadataBackupsEnabled}
+            onChange={(e) => {
+              const n = Number.parseInt(e.target.value, 10);
+              if (!Number.isFinite(n)) return;
+              setDraft((d) =>
+                d
+                  ? {
+                      ...d,
+                      metadataBackupRetentionDays: Math.min(
+                        3650,
+                        Math.max(1, n),
+                      ),
+                    }
+                  : d,
+              );
+            }}
+          />
+        </label>
       </section>
 
       {restartHint && (
