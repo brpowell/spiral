@@ -24,6 +24,7 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playTrack = usePlayerStore((s) => s.playTrack);
   const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
+  const clearTrackList = usePlayerStore((s) => s.clearTrackList);
 
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -92,14 +93,24 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
         <h2 id={titleId} className="track-list-modal__title">
           Track list
         </h2>
-        <button
-          type="button"
-          className="track-list-modal__close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <IconClose />
-        </button>
+        <div className="track-list-modal__header-actions">
+          <button
+            type="button"
+            className="track-list-modal__clear"
+            onClick={clearTrackList}
+            disabled={activeIds.length === 0}
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            className="track-list-modal__close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <IconClose />
+          </button>
+        </div>
       </header>
 
       <div className="track-list-modal__body">

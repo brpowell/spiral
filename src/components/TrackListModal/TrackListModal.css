@@ -37,6 +37,34 @@
   font-weight: 600;
 }
 
+.track-list-modal__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.track-list-modal__clear {
+  padding: 0.25rem 0.55rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.track-list-modal__clear:hover:not(:disabled) {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+
+.track-list-modal__clear:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .track-list-modal__close {
   display: flex;
   align-items: center;

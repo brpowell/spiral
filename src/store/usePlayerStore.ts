@@ -56,6 +56,7 @@ interface PlayerState {
   toggleMute: () => void;
   addToQueue: (ids: number[]) => void;
   removeFromQueue: (id: number) => void;
+  clearTrackList: () => void;
   cycleRepeat: () => void;
   toggleShuffle: () => void;
   clearImportError: () => void;
@@ -391,6 +392,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       set((state) => ({
         manualQueueIds: state.manualQueueIds.filter((trackId) => trackId !== id),
       }));
+    },
+
+    clearTrackList: () => {
+      const { currentTrackId } = get();
+      if (currentTrackId !== null) {
+        audio.unload();
+        stopPositionPoll();
+      }
+      set({
+        playContextIds: [],
+        manualQueueIds: [],
+        currentTrackId: null,
+        playbackState: "stopped",
+        positionSeconds: 0,
+      });
     },
 
     cycleRepeat: () =>
