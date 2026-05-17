@@ -21,6 +21,14 @@
   --visualizer-mini-height: 46px;
   --visualizer-mini-width: 140px;
   --visualizer-height: 140px;
+
+  --track-row-indicator-width: 0.85rem;
+  --track-row-indicator-gap: 0.02rem;
+  --track-row-title-indent: calc(
+    var(--track-row-indicator-width) + var(--track-row-indicator-gap)
+  );
+  --track-row-bg-hover: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  --track-row-bg-selected: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
 html.theme-transition,

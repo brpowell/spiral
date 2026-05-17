@@ -132,32 +132,41 @@
 }
 
 .album-track-row:hover {
-  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  background: var(--track-row-bg-hover);
 }
 
-.album-track-row--selected {
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+.album-track-row--selected,
+.album-track-row--selected:hover {
+  background: var(--track-row-bg-selected);
 }
 
-.album-track-row--playing {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-}
-
-.album-track-row--playing .album-track-row__title {
+.album-track-row--playing .album-track-row__title-text {
   color: var(--color-accent);
+}
+
+.album-track-row__title {
+  display: block;
+  position: relative;
+  min-width: 0;
+}
+
+.album-track-row__title--with-indicator .album-track-row__title-text {
+  display: block;
+  padding-left: var(--track-row-title-indent);
+}
+
+.album-track-row__title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
 }
 
 .album-track-row__num {
   text-align: center;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
-}
-
-.album-track-row__title {
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .album-track-row__duration {

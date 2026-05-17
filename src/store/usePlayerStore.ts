@@ -116,8 +116,6 @@ async function primeTrackPaused(
     await audio.load(track.filePath);
     set({
       currentTrackId: id,
-      selectedTrackIds: [id],
-      selectionAnchorId: id,
       playbackState: "paused",
       positionSeconds: 0,
     });
@@ -178,8 +176,6 @@ async function restorePlaybackSession(
     }
     set({
       currentTrackId: pruned.currentTrackId,
-      selectedTrackIds: [pruned.currentTrackId],
-      selectionAnchorId: pruned.currentTrackId,
       playbackState: "paused",
       positionSeconds: position,
     });
@@ -187,8 +183,6 @@ async function restorePlaybackSession(
     console.error("Failed to restore playback session:", err);
     set({
       currentTrackId: pruned.currentTrackId,
-      selectedTrackIds: [pruned.currentTrackId],
-      selectionAnchorId: pruned.currentTrackId,
       playbackState: "stopped",
       positionSeconds: 0,
     });
@@ -283,11 +277,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const ordered = get().shuffle
         ? shuffleNewTrackList(ids, startId)
         : ids;
-      set({
-        playContextIds: ordered,
-        selectedTrackIds: [startId],
-        selectionAnchorId: startId,
-      });
+      set({ playContextIds: ordered });
       await get().playTrack(startId);
     },
 
@@ -310,8 +300,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         audio.play();
         set((state) => ({
           currentTrackId: id,
-          selectedTrackIds: [id],
-          selectionAnchorId: id,
           playbackState: "playing",
           positionSeconds: 0,
           manualQueueIds: state.manualQueueIds.filter((trackId) => trackId !== id),

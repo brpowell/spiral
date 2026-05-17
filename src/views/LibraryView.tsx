@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { formatTime } from "../lib/format";
+import { PlayingIndicator } from "../components/PlayingIndicator/PlayingIndicator";
 import { IconEditInfo, IconSearch } from "../components/icons";
 import { useTrackEditMenu } from "../hooks/useTrackEditMenu";
 import { usePlayerStore } from "../store/usePlayerStore";
@@ -11,14 +12,16 @@ function LibraryTableRow({
   track,
   index,
   isSelected,
-  isPlaying,
+  isNowPlaying,
+  isActivelyPlaying,
   onSelect,
   onPlay,
 }: {
   track: Track;
   index: number;
   isSelected: boolean;
-  isPlaying: boolean;
+  isNowPlaying: boolean;
+  isActivelyPlaying: boolean;
   onSelect: (e: React.MouseEvent) => void;
   onPlay: () => void;
 }) {
@@ -29,7 +32,7 @@ function LibraryTableRow({
     "library-table__row",
     "track-row-menu",
     isSelected && "library-table__row--selected",
-    isPlaying && "library-table__row--playing",
+    isNowPlaying && "library-table__row--playing",
   ]
     .filter(Boolean)
     .join(" ");
@@ -43,7 +46,17 @@ function LibraryTableRow({
       onContextMenu={onContextMenu}
     >
       <td className="library-table__num">{index + 1}</td>
-      <td>{track.title}</td>
+      <td
+        className={[
+          "library-table__title-cell",
+          isActivelyPlaying && "library-table__title-cell--with-indicator",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        <PlayingIndicator active={isActivelyPlaying} />
+        <span className="library-table__title-text">{track.title}</span>
+      </td>
       <td>{track.artist ?? "—"}</td>
       <td>{track.album ?? "—"}</td>
       <td className="library-table__duration">
@@ -122,6 +135,7 @@ function matchesSearch(track: Track, query: string): boolean {
 export function LibraryView({ tracks }: LibraryViewProps) {
   const playTracks = usePlayerStore((s) => s.playTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
+  const playbackState = usePlayerStore((s) => s.playbackState);
   const selectedTrackIds = usePlayerStore((s) => s.selectedTrackIds);
   const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
 
@@ -231,7 +245,10 @@ export function LibraryView({ tracks }: LibraryViewProps) {
                     track={track}
                     index={index}
                     isSelected={selectedTrackIds.includes(track.id)}
-                    isPlaying={track.id === currentTrackId}
+                    isNowPlaying={track.id === currentTrackId}
+                    isActivelyPlaying={
+                      track.id === currentTrackId && playbackState === "playing"
+                    }
                     onSelect={(e) => handleSelectRow(track, e)}
                     onPlay={() => handlePlayRow(track)}
                   />

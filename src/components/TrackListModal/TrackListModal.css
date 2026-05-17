@@ -139,18 +139,14 @@
 }
 
 .track-list-modal__row:hover {
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  background: var(--track-row-bg-hover);
 }
 
-.track-list-modal__row--playing {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-}
-
-.track-list-modal__row--playing .track-list-modal__row-title {
+.track-list-modal__row--playing .track-list-modal__row-title-text {
   color: var(--color-accent);
 }
 
-.track-list-modal__row--queued .track-list-modal__row-title::before {
+.track-list-modal__row--queued .track-list-modal__row-title-text::before {
   content: "▸ ";
   color: var(--color-accent);
 }
@@ -188,14 +184,25 @@
 }
 
 .track-list-modal__row-title {
+  position: relative;
   grid-column: 1;
   grid-row: 1;
+  min-width: 0;
   font-size: 0.88rem;
   font-weight: 500;
   color: var(--color-text-primary);
-  white-space: nowrap;
+}
+
+.track-list-modal__row-title--with-indicator .track-list-modal__row-title-text {
+  display: block;
+  padding-left: var(--track-row-title-indent);
+}
+
+.track-list-modal__row-title-text {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .track-list-modal__row-subtitle {

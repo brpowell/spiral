@@ -5,6 +5,7 @@ import { formatTime } from "../../lib/format";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { Track } from "../../types/track";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
+import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
 import { IconClose } from "../icons";
 import "./TrackListModal.css";
 
@@ -22,6 +23,7 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
   const playContextIds = usePlayerStore((s) => s.playContextIds);
   const manualQueueIds = usePlayerStore((s) => s.manualQueueIds);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
+  const playbackState = usePlayerStore((s) => s.playbackState);
   const playTrack = usePlayerStore((s) => s.playTrack);
   const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
   const clearTrackList = usePlayerStore((s) => s.clearTrackList);
@@ -129,6 +131,7 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
                 <TrackListRow
                   track={nowPlaying}
                   playing
+                  activelyPlaying={playbackState === "playing"}
                   queued={manualQueueSet.has(nowPlaying.id)}
                   onPlay={() => handlePlay(nowPlaying.id)}
                   onRemoveFromQueue={
@@ -180,6 +183,7 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
 interface TrackListRowProps {
   track: Track;
   playing?: boolean;
+  activelyPlaying?: boolean;
   queued?: boolean;
   onPlay: () => void;
   onRemoveFromQueue?: () => void;
@@ -188,6 +192,7 @@ interface TrackListRowProps {
 function TrackListRow({
   track,
   playing = false,
+  activelyPlaying = false,
   queued = false,
   onPlay,
   onRemoveFromQueue,
@@ -201,7 +206,17 @@ function TrackListRow({
       }${queued ? " track-list-modal__row--queued" : ""}`}
     >
       <button type="button" className="track-list-modal__row-main" onClick={onPlay}>
-        <span className="track-list-modal__row-title">{track.title}</span>
+        <span
+          className={[
+            "track-list-modal__row-title",
+            activelyPlaying && "track-list-modal__row-title--with-indicator",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          <PlayingIndicator active={activelyPlaying} />
+          <span className="track-list-modal__row-title-text">{track.title}</span>
+        </span>
         {subtitle ? (
           <span className="track-list-modal__row-subtitle">{subtitle}</span>
         ) : null}

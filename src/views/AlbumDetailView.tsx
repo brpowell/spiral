@@ -1,6 +1,7 @@
 import { albumTotalDurationSeconds, getAlbumByKey } from "../lib/albums";
 import { formatTime } from "../lib/format";
 import { AlbumArt } from "../components/AlbumArt/AlbumArt";
+import { PlayingIndicator } from "../components/PlayingIndicator/PlayingIndicator";
 import { TrackRowMenu } from "../components/TrackRowMenu/TrackRowMenu";
 import { IconBack, IconPlay } from "../components/icons";
 import { useNavigationStore } from "../store/useNavigationStore";
@@ -18,6 +19,7 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
   const closeAlbum = useNavigationStore((s) => s.closeAlbum);
   const playTracks = usePlayerStore((s) => s.playTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
+  const playbackState = usePlayerStore((s) => s.playbackState);
   const selectedTrackIds = usePlayerStore((s) => s.selectedTrackIds);
   const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
 
@@ -93,7 +95,12 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
       </section>
 
       <ol className="album-detail__tracks">
-        {album.tracks.map((track) => (
+        {album.tracks.map((track) => {
+          const isNowPlaying = track.id === currentTrackId;
+          const isActivelyPlaying =
+            isNowPlaying && playbackState === "playing";
+
+          return (
           <li key={track.id}>
             <TrackRowMenu track={track} className="album-track-row-wrap">
               <div
@@ -103,7 +110,7 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
                   "album-track-row",
                   selectedTrackIds.includes(track.id) &&
                     "album-track-row--selected",
-                  track.id === currentTrackId && "album-track-row--playing",
+                  isNowPlaying && "album-track-row--playing",
                 ]
                   .filter(Boolean)
                   .join(" ")}
@@ -116,7 +123,19 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
                 <span className="album-track-row__num">
                   {track.trackNumber ?? "—"}
                 </span>
-                <span className="album-track-row__title">{track.title}</span>
+                <span
+                  className={[
+                    "album-track-row__title",
+                    isActivelyPlaying && "album-track-row__title--with-indicator",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
+                  <PlayingIndicator active={isActivelyPlaying} />
+                  <span className="album-track-row__title-text">
+                    {track.title}
+                  </span>
+                </span>
                 <span className="album-track-row__duration">
                   {track.durationSeconds != null
                     ? formatTime(track.durationSeconds)
@@ -125,7 +144,8 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
               </div>
             </TrackRowMenu>
           </li>
-        ))}
+          );
+        })}
       </ol>
     </div>
   );

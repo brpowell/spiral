@@ -132,20 +132,34 @@
 }
 
 .library-table__row:hover td {
-  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  background: var(--track-row-bg-hover);
 }
 
-.library-table__row--selected td {
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
-}
-
-.library-table__row--playing td {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+.library-table__row--selected td,
+.library-table__row--selected:hover td {
+  background: var(--track-row-bg-selected);
 }
 
 .library-table__row--playing td:nth-child(2) {
   color: var(--color-accent);
   font-weight: 500;
+}
+
+.library-table__title-cell {
+  position: relative;
+  min-width: 0;
+}
+
+.library-table__title-cell--with-indicator .library-table__title-text {
+  display: block;
+  padding-left: var(--track-row-title-indent);
+}
+
+.library-table__title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .library-table td {
