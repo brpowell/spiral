@@ -2,7 +2,12 @@ import { albumTotalDurationSeconds, getAlbumByKey } from "../lib/albums";
 import { formatTime } from "../lib/format";
 import { AlbumArt } from "../components/AlbumArt/AlbumArt";
 import { TrackList } from "../components/TrackList/TrackList";
-import { IconBack, IconEditInfo, IconPlay } from "../components/icons";
+import {
+  IconAddToQueue,
+  IconBack,
+  IconEditInfo,
+  IconPlay,
+} from "../components/icons";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Album } from "../types/album";
@@ -22,6 +27,7 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
   const selectedTrackIds = usePlayerStore((s) => s.selectedTrackIds);
   const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
   const openAlbumEditor = usePlayerStore((s) => s.openAlbumEditor);
+  const addToQueue = usePlayerStore((s) => s.addToQueue);
 
   const album = getAlbumByKey(albums, albumKey);
 
@@ -43,6 +49,10 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
   const handlePlayAll = () => {
     const first = album.tracks[0];
     if (first) void playTracks(trackIds, first.id);
+  };
+
+  const handleAddToQueue = () => {
+    addToQueue(trackIds);
   };
 
   const handleSelectTrack = (track: Track, e: React.MouseEvent) => {
@@ -72,10 +82,21 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
             <IconEditInfo />
             Edit Album
           </button>
+          {album.tracks.length > 0 ? (
+            <button
+              type="button"
+              className="album-detail__queue-all"
+              onClick={handleAddToQueue}
+            >
+              <IconAddToQueue />
+              Add to Queue
+            </button>
+          ) : null}
           <button
             type="button"
             className="album-detail__play-all"
             onClick={handlePlayAll}
+            disabled={album.tracks.length === 0}
           >
             <IconPlay />
             Play All

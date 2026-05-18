@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -9,7 +10,11 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import "../components/TrackRowMenu/TrackRowMenu.css";
-import { IconEditInfo } from "../components/icons";
+import {
+  IconAddToQueue,
+  IconEditInfo,
+  IconRemoveFromQueue,
+} from "../components/icons";
 import { fitContextMenuPosition } from "../lib/contextMenuPosition";
 import { panelMotion } from "../lib/motion";
 import { usePlayerStore } from "../store/usePlayerStore";
@@ -35,7 +40,18 @@ function ContextMenuItem({
 }
 
 export function useAlbumEditMenu(album: Album) {
+  const manualQueueIds = usePlayerStore((s) => s.manualQueueIds);
   const openAlbumEditor = usePlayerStore((s) => s.openAlbumEditor);
+  const addToQueue = usePlayerStore((s) => s.addToQueue);
+  const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
+
+  const albumTrackIds = useMemo(
+    () => album.tracks.map((t) => t.id),
+    [album.tracks],
+  );
+
+  const anyInQueue = albumTrackIds.some((id) => manualQueueIds.includes(id));
+  const trackCount = album.tracks.length;
 
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(
     null,
@@ -70,7 +86,7 @@ export function useAlbumEditMenu(album: Album) {
     setMenuPosition(
       fitContextMenuPosition(menuAnchor.x, menuAnchor.y, width, height),
     );
-  }, [menuAnchor]);
+  }, [menuAnchor, anyInQueue, trackCount]);
 
   useEffect(() => {
     if (!menuAnchor) return;
@@ -109,6 +125,36 @@ export function useAlbumEditMenu(album: Album) {
             label="Edit Album"
             onClick={openEditor}
           />
+          {trackCount > 0 ? (
+            <ContextMenuItem
+              icon={<IconAddToQueue />}
+              label={
+                trackCount > 1
+                  ? `Add ${trackCount} to Queue`
+                  : "Add to Queue"
+              }
+              onClick={() => {
+                closeMenu();
+                addToQueue(albumTrackIds);
+              }}
+            />
+          ) : null}
+          {anyInQueue ? (
+            <ContextMenuItem
+              icon={<IconRemoveFromQueue />}
+              label={
+                trackCount > 1
+                  ? `Remove ${trackCount} from Queue`
+                  : "Remove from Queue"
+              }
+              onClick={() => {
+                closeMenu();
+                for (const id of albumTrackIds) {
+                  if (manualQueueIds.includes(id)) removeFromQueue(id);
+                }
+              }}
+            />
+          ) : null}
         </motion.div>
       )}
     </AnimatePresence>,
