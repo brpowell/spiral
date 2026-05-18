@@ -67,6 +67,10 @@ export function LibraryView({ tracks }: LibraryViewProps) {
   return (
     <div className="library-view">
       <header className="library-view__header">
+        <div className="library-view__heading">
+          <h1 className="library-view__title">Library</h1>
+          <span className="library-view__count">({tracks.length})</span>
+        </div>
         <div className="library-view__search">
           <IconSearch />
           <input
