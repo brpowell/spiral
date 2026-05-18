@@ -225,5 +225,5 @@ export function useTrackEditMenu(track: Track) {
     document.body,
   );
 
-  return { onContextMenu, openEditor, contextMenu, removeDialog };
+  return { onContextMenu, contextMenu, removeDialog };
 }

@@ -1,4 +1,3 @@
-import { IconEditInfo } from "../icons";
 import { useTrackEditMenu } from "../../hooks/useTrackEditMenu";
 import type { Track } from "../../types/track";
 import "./TrackRowMenu.css";
@@ -10,8 +9,7 @@ interface TrackRowMenuProps {
 }
 
 export function TrackRowMenu({ track, children, className = "" }: TrackRowMenuProps) {
-  const { onContextMenu, openEditor, contextMenu, removeDialog } =
-    useTrackEditMenu(track);
+  const { onContextMenu, contextMenu, removeDialog } = useTrackEditMenu(track);
 
   return (
     <div
@@ -19,17 +17,6 @@ export function TrackRowMenu({ track, children, className = "" }: TrackRowMenuPr
       onContextMenu={onContextMenu}
     >
       {children}
-      <button
-        type="button"
-        className="track-row-menu__edit"
-        aria-label="Edit track info"
-        onClick={(e) => {
-          e.stopPropagation();
-          openEditor();
-        }}
-      >
-        <IconEditInfo />
-      </button>
       {contextMenu}
       {removeDialog}
     </div>
