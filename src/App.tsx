@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { BackgroundTasksIndicator } from "./components/BackgroundTasks/BackgroundTasksIndicator";
 import { ImportDropZone } from "./components/ImportDropZone/ImportDropZone";
 import { PlayerDock } from "./components/PlayerDock/PlayerDock";
+import { AlbumEditor } from "./components/AlbumEditor/AlbumEditor";
 import { TrackEditor } from "./components/TrackEditor/TrackEditor";
 import { MainContent } from "./components/layout/MainContent";
 import { Sidebar } from "./components/layout/Sidebar";
@@ -60,6 +61,7 @@ function App() {
       </div>
 
       <TrackEditor />
+      <AlbumEditor />
       <ImportDropZone />
       <PreferencesModal />
       <ImportChoiceModal />

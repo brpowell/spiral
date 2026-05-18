@@ -29,6 +29,35 @@
   color: var(--color-accent);
 }
 
+.album-detail__toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.album-detail__edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.album-detail__edit svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.album-detail__edit:hover {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+}
+
 .album-detail__play-all {
   display: inline-flex;
   align-items: center;

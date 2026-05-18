@@ -3,7 +3,7 @@ import { formatTime } from "../lib/format";
 import { AlbumArt } from "../components/AlbumArt/AlbumArt";
 import { PlayingIndicator } from "../components/PlayingIndicator/PlayingIndicator";
 import { TrackRowMenu } from "../components/TrackRowMenu/TrackRowMenu";
-import { IconBack, IconPlay } from "../components/icons";
+import { IconBack, IconEditInfo, IconPlay } from "../components/icons";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Album } from "../types/album";
@@ -22,6 +22,7 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
   const playbackState = usePlayerStore((s) => s.playbackState);
   const selectedTrackIds = usePlayerStore((s) => s.selectedTrackIds);
   const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
+  const openAlbumEditor = usePlayerStore((s) => s.openAlbumEditor);
 
   const album = getAlbumByKey(albums, albumKey);
 
@@ -63,14 +64,24 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
           <IconBack />
           Albums
         </button>
-        <button
-          type="button"
-          className="album-detail__play-all"
-          onClick={handlePlayAll}
-        >
-          <IconPlay />
-          Play All
-        </button>
+        <div className="album-detail__toolbar-actions">
+          <button
+            type="button"
+            className="album-detail__edit"
+            onClick={() => openAlbumEditor(album.key)}
+          >
+            <IconEditInfo />
+            Edit Album
+          </button>
+          <button
+            type="button"
+            className="album-detail__play-all"
+            onClick={handlePlayAll}
+          >
+            <IconPlay />
+            Play All
+          </button>
+        </div>
       </div>
 
       <section className="album-detail__hero">
