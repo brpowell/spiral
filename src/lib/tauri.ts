@@ -225,3 +225,58 @@ export async function savePlaybackSession(
 ): Promise<void> {
   await invoke<void>("save_playback_session", { session });
 }
+
+export interface TrackListPreferencesPayload {
+  columnWidths: Partial<
+    Record<
+      | "index"
+      | "trackNumber"
+      | "title"
+      | "artist"
+      | "album"
+      | "albumArtist"
+      | "duration"
+      | "year"
+      | "genre"
+      | "discNumber",
+      number
+    >
+  >;
+  hiddenColumns: string[];
+}
+
+function normalizeTrackListPreferences(
+  raw: Record<string, unknown>,
+): TrackListPreferencesPayload {
+  const columnWidths: TrackListPreferencesPayload["columnWidths"] = {};
+  const widthsRaw =
+    (raw.columnWidths as Record<string, unknown> | undefined) ??
+    (raw.column_widths as Record<string, unknown> | undefined);
+  if (widthsRaw) {
+    for (const [key, value] of Object.entries(widthsRaw)) {
+      if (typeof value === "number" && Number.isFinite(value)) {
+        columnWidths[key as keyof typeof columnWidths] = Math.round(value);
+      }
+    }
+  }
+
+  const hiddenRaw =
+    (raw.hiddenColumns as unknown[] | undefined) ??
+    (raw.hidden_columns as unknown[] | undefined);
+  const hiddenColumns = Array.isArray(hiddenRaw)
+    ? hiddenRaw.filter((v): v is string => typeof v === "string")
+    : [];
+
+  return { columnWidths, hiddenColumns };
+}
+
+export async function getTrackListPreferences(): Promise<TrackListPreferencesPayload> {
+  const raw = await invoke<Record<string, unknown>>("get_track_list_preferences");
+  return normalizeTrackListPreferences(raw);
+}
+
+export async function saveTrackListPreferences(
+  preferences: TrackListPreferencesPayload,
+): Promise<void> {
+  await invoke<void>("save_track_list_preferences", { preferences });
+}

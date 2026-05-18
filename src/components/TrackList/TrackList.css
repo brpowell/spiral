@@ -1,0 +1,227 @@
+.track-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.track-list--bordered {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.track-list__scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+.track-list--bordered .track-list__scroll {
+  border-radius: inherit;
+}
+
+.track-list__inner {
+  min-width: max(100%, var(--track-list-min-width, 0px));
+}
+
+.track-list__header,
+.track-list__row {
+  width: 100%;
+}
+
+.track-list__header {
+  display: grid;
+  grid-template-columns: var(--track-list-columns);
+  align-items: stretch;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface-raised);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.track-list__header-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0.4rem 0.65rem;
+  border-right: 1px solid var(--color-border);
+}
+
+.track-list__header-cell--resizable {
+  padding-right: 0.85rem;
+}
+
+.track-list__header-btn,
+.track-list__header-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-list__header-btn {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.track-list__header-btn:hover {
+  color: var(--color-accent);
+}
+
+.track-list__header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem;
+  border-right: none;
+}
+
+.track-list__resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 9px;
+  transform: translateX(50%);
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 2;
+}
+
+.track-list__resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0.2rem;
+  bottom: 0.2rem;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--color-border);
+  transition: background 0.12s ease, width 0.12s ease;
+}
+
+.track-list__resize-handle:hover::after,
+.track-list__resize-handle:active::after {
+  width: 2px;
+  background: var(--color-accent);
+}
+
+.track-list__filler {
+  min-width: 0;
+  border-right: none;
+}
+
+.track-list__body {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.track-list__item {
+  margin: 0;
+}
+
+.track-list__row-wrap {
+  display: block;
+}
+
+.track-list__row {
+  display: grid;
+  grid-template-columns: var(--track-list-columns);
+  align-items: center;
+  width: 100%;
+  padding: 0.4rem 0;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  text-align: left;
+  font-size: 0.85rem;
+  cursor: default;
+}
+
+.track-list__row:hover {
+  background: var(--track-row-bg-hover);
+}
+
+.track-list__row--selected,
+.track-list__row--selected:hover {
+  background: var(--track-row-bg-selected);
+}
+
+.track-list__row--playing .track-list__title-text {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.track-list__cell {
+  min-width: 0;
+  padding: 0 0.65rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+
+.track-list__cell--index {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+.track-list__cell--title {
+  position: relative;
+}
+
+.track-list__cell--title-with-indicator .track-list__title-text {
+  display: block;
+  padding-left: var(--track-row-title-indent);
+}
+
+.track-list__title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-list__cell--secondary {
+  color: var(--color-text-secondary);
+}
+
+.track-list__cell--duration {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+.track-list__cell--center,
+.track-list__header-cell.track-list__cell--center {
+  text-align: center;
+}
+
+.track-list__cell--right,
+.track-list__header-cell.track-list__cell--right {
+  text-align: right;
+}
+
+.track-list__cell--actions {
+  position: relative;
+  padding: 0;
+}
+
+.track-list__empty {
+  margin: 0;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}

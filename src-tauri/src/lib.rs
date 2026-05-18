@@ -13,6 +13,7 @@ mod metadata_writer;
 mod models;
 mod session;
 mod settings;
+mod track_list_prefs;
 
 use commands::library::DbState;
 use std::sync::Mutex;
@@ -68,6 +69,8 @@ pub fn run() {
             commands::library_settings::pick_database_folder,
             commands::playback_session::get_playback_session,
             commands::playback_session::save_playback_session,
+            commands::track_list_preferences::get_track_list_preferences,
+            commands::track_list_preferences::save_track_list_preferences,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

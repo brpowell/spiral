@@ -1,8 +1,7 @@
 import { albumTotalDurationSeconds, getAlbumByKey } from "../lib/albums";
 import { formatTime } from "../lib/format";
 import { AlbumArt } from "../components/AlbumArt/AlbumArt";
-import { PlayingIndicator } from "../components/PlayingIndicator/PlayingIndicator";
-import { TrackRowMenu } from "../components/TrackRowMenu/TrackRowMenu";
+import { TrackList } from "../components/TrackList/TrackList";
 import { IconBack, IconEditInfo, IconPlay } from "../components/icons";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
@@ -105,59 +104,17 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
         </div>
       </section>
 
-      <ol className="album-detail__tracks">
-        {album.tracks.map((track) => {
-          const isNowPlaying = track.id === currentTrackId;
-          const isActivelyPlaying =
-            isNowPlaying && playbackState === "playing";
-
-          return (
-          <li key={track.id}>
-            <TrackRowMenu track={track} className="album-track-row-wrap">
-              <div
-                role="button"
-                tabIndex={0}
-                className={[
-                  "album-track-row",
-                  selectedTrackIds.includes(track.id) &&
-                    "album-track-row--selected",
-                  isNowPlaying && "album-track-row--playing",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                onClick={(e) => handleSelectTrack(track, e)}
-                onDoubleClick={() => handlePlayTrack(track)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handlePlayTrack(track);
-                }}
-              >
-                <span className="album-track-row__num">
-                  {track.trackNumber ?? "—"}
-                </span>
-                <span
-                  className={[
-                    "album-track-row__title",
-                    isActivelyPlaying && "album-track-row__title--with-indicator",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                >
-                  <PlayingIndicator active={isActivelyPlaying} />
-                  <span className="album-track-row__title-text">
-                    {track.title}
-                  </span>
-                </span>
-                <span className="album-track-row__duration">
-                  {track.durationSeconds != null
-                    ? formatTime(track.durationSeconds)
-                    : "—"}
-                </span>
-              </div>
-            </TrackRowMenu>
-          </li>
-          );
-        })}
-      </ol>
+      <TrackList
+        presetId="album"
+        tracks={album.tracks}
+        selectedTrackIds={selectedTrackIds}
+        currentTrackId={currentTrackId}
+        playbackState={playbackState}
+        onSelectTrack={handleSelectTrack}
+        onPlayTrack={handlePlayTrack}
+        bordered={false}
+        className="album-detail__tracks"
+      />
     </div>
   );
 }

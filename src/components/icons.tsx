@@ -34,6 +34,14 @@ export function IconTrackList(props: IconProps) {
   );
 }
 
+export function IconColumns(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
+      <path d="M3 5h4v14H3V5zm7 0h4v14h-4V5zm7 0h4v14h-4V5z" />
+    </svg>
+  );
+}
+
 export function IconRepeat(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
