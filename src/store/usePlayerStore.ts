@@ -34,7 +34,7 @@ interface PlayerState {
   repeatMode: RepeatMode;
   shuffle: boolean;
   importError: string | null;
-  editingTrackId: number | null;
+  editingTrackIds: number[];
   editingAlbumKey: string | null;
 
   loadLibrary: () => Promise<void>;
@@ -63,7 +63,7 @@ interface PlayerState {
   cycleRepeat: () => void;
   toggleShuffle: () => void;
   clearImportError: () => void;
-  openTrackEditor: (id: number) => void;
+  openTrackEditor: (ids: number | number[]) => void;
   closeTrackEditor: () => void;
   openAlbumEditor: (albumKey: string) => void;
   closeAlbumEditor: () => void;
@@ -228,7 +228,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     repeatMode: "off",
     shuffle: false,
     importError: null,
-    editingTrackId: null,
+    editingTrackIds: [],
     editingAlbumKey: null,
 
     loadLibrary: async () => {
@@ -473,11 +473,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     clearImportError: () => set({ importError: null }),
 
-    openTrackEditor: (id) =>
-      set({ editingTrackId: id, editingAlbumKey: null }),
-    closeTrackEditor: () => set({ editingTrackId: null }),
+    openTrackEditor: (ids) => {
+      const list = (Array.isArray(ids) ? ids : [ids]).filter(
+        (id, index, all) => all.indexOf(id) === index,
+      );
+      if (list.length === 0) return;
+      set({ editingTrackIds: list, editingAlbumKey: null });
+    },
+    closeTrackEditor: () => set({ editingTrackIds: [] }),
     openAlbumEditor: (albumKey) =>
-      set({ editingAlbumKey: albumKey, editingTrackId: null }),
+      set({ editingAlbumKey: albumKey, editingTrackIds: [] }),
     closeAlbumEditor: () => set({ editingAlbumKey: null }),
     updateTrackInLibrary: (track) =>
       set((s) => ({
@@ -536,10 +541,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             : state.selectionAnchorId,
         playbackState: wasCurrent ? "stopped" : state.playbackState,
         positionSeconds: wasCurrent ? 0 : state.positionSeconds,
-        editingTrackId:
-          state.editingTrackId !== null && removed.has(state.editingTrackId)
-            ? null
-            : state.editingTrackId,
+        editingTrackIds: state.editingTrackIds.filter((id) => !removed.has(id)),
         editingAlbumKey,
       });
     },

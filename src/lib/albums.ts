@@ -22,7 +22,7 @@ function compareTracks(a: Track, b: Track): number {
   return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
 }
 
-function pickArtPath(tracks: Track[]): string | null {
+export function pickArtPath(tracks: Track[]): string | null {
   for (const track of tracks) {
     if (track.artPath) return track.artPath;
   }

@@ -124,7 +124,7 @@ export function useMediaHotkeys(): void {
     });
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (usePlayerStore.getState().editingTrackId != null) return;
+      if (usePlayerStore.getState().editingTrackIds.length > 0) return;
       if (shouldIgnoreKeyboardShortcut(e.target)) return;
 
       if (e.code === "Space" || e.key === " ") {

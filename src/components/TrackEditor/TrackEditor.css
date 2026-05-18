@@ -27,6 +27,12 @@
   font-weight: 600;
 }
 
+.track-editor__subtitle {
+  margin: -0.75rem 0 1.25rem;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
 .track-editor__body {
   display: grid;
   grid-template-columns: 200px 1fr;

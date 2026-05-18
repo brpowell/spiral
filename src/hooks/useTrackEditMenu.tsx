@@ -93,8 +93,8 @@ export function useTrackEditMenu(track: Track) {
   const openEditor = useCallback(() => {
     setMenuAnchor(null);
     setMenuPosition(null);
-    openTrackEditor(track.id);
-  }, [openTrackEditor, track.id]);
+    openTrackEditor(contextTrackIds);
+  }, [openTrackEditor, contextTrackIds]);
 
   const closeMenu = useCallback(() => {
     setMenuAnchor(null);
@@ -159,7 +159,11 @@ export function useTrackEditMenu(track: Track) {
         >
             <ContextMenuItem
               icon={<IconEditInfo />}
-              label="Edit Info"
+              label={
+                bulkRemove
+                  ? `Edit Info (${contextTracks.length})`
+                  : "Edit Info"
+              }
               onClick={openEditor}
             />
             <ContextMenuItem
