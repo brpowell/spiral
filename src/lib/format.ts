@@ -12,3 +12,13 @@ export function formatRemainingTime(
   const remaining = Math.max(0, totalSeconds - elapsedSeconds);
   return `-${formatTime(remaining)}`;
 }
+
+export function formatDateAdded(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}

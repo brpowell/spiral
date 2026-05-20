@@ -1,5 +1,5 @@
 import { useCallback, type CSSProperties, type ReactNode } from "react";
-import { formatTime } from "../../lib/format";
+import { formatDateAdded, formatTime } from "../../lib/format";
 import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
 import { TrackRowMenu } from "../TrackRowMenu/TrackRowMenu";
 import { TrackListColumnMenu } from "./TrackListColumnMenu";
@@ -36,6 +36,10 @@ function cellValue(track: Track, columnId: TrackListColumnId): ReactNode {
       return track.genre ?? "—";
     case "discNumber":
       return track.discNumber != null ? String(track.discNumber) : "—";
+    case "dateAdded":
+      return formatDateAdded(track.dateAdded);
+    case "playCount":
+      return String(track.playCount);
     default:
       return "—";
   }

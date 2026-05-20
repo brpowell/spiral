@@ -5,7 +5,13 @@ import { groupTracksIntoAlbums } from "../lib/albums";
 import { startLibraryImport } from "../lib/libraryImport";
 import { showQueueAddedToast } from "../lib/queueToast";
 import { parseRepeatMode, prunePlaybackSession } from "../lib/playbackSession";
-import { getLibrary, getPlaybackSession, pickLibraryPaths, removeTrack } from "../lib/tauri";
+import {
+  getLibrary,
+  getPlaybackSession,
+  pickLibraryPaths,
+  recordTrackPlay,
+  removeTrack,
+} from "../lib/tauri";
 import {
   applyTrackSelection,
   type TrackSelectionModifiers,
@@ -240,6 +246,19 @@ async function restorePlaybackSession(
   }
 }
 
+function recordCompletedPlay(trackId: number, get: () => PlayerState): void {
+  const track = get().library.find((t) => t.id === trackId);
+  if (!track) return;
+
+  void recordTrackPlay(trackId)
+    .then((playCount) => {
+      get().updateTrackInLibrary({ ...track, playCount });
+    })
+    .catch((err) => {
+      console.error("recordTrackPlay failed:", err);
+    });
+}
+
 export const usePlayerStore = create<PlayerState>((set, get) => {
   audio.onEnd(() => {
     const { currentTrackId, repeatMode } = get();
@@ -248,6 +267,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       set({ playbackState: "stopped", positionSeconds: 0 });
       return;
     }
+
+    recordCompletedPlay(currentTrackId, get);
 
     const order = getPlaybackOrder(get);
     const nextId = getAutoplayNextId(order, currentTrackId, repeatMode);

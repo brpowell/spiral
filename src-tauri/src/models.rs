@@ -16,6 +16,7 @@ pub struct Track {
     pub file_path: String,
     pub art_path: Option<String>,
     pub date_added: String,
+    pub play_count: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -17,6 +17,7 @@ export interface Track {
   filePath: string;
   artPath: string | null;
   dateAdded: string;
+  playCount: number;
 }
 
 export interface TrackInput {

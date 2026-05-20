@@ -51,6 +51,7 @@ pub fn run() {
             commands::files::get_file_modified_ms,
             commands::library::save_track,
             commands::library::get_library,
+            commands::library::record_track_play,
             commands::library::remove_track,
             commands::metadata::pick_image_file,
             commands::metadata::cache_art_from_bytes,

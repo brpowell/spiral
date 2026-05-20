@@ -37,6 +37,12 @@ export function compareTracks(
         sensitivity: "base",
       });
       break;
+    case "dateAdded":
+      cmp = a.dateAdded.localeCompare(b.dateAdded);
+      break;
+    case "playCount":
+      cmp = a.playCount - b.playCount;
+      break;
   }
 
   return dir === "asc" ? cmp : -cmp;

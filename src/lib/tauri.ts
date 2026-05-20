@@ -56,7 +56,15 @@ function normalizeTrack(raw: Record<string, unknown>): Track {
     artPath:
       (raw.artPath as string | null) ?? (raw.art_path as string | null) ?? null,
     dateAdded: (raw.dateAdded ?? raw.date_added) as string,
+    playCount:
+      (raw.playCount as number | undefined) ??
+      (raw.play_count as number | undefined) ??
+      0,
   };
+}
+
+export async function recordTrackPlay(trackId: number): Promise<number> {
+  return invoke<number>("record_track_play", { trackId });
 }
 
 export async function pickAudioFiles(): Promise<string[]> {

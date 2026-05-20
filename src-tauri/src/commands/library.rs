@@ -27,6 +27,15 @@ pub fn get_library(state: State<DbState>) -> Result<Vec<Track>, String> {
 }
 
 #[tauri::command]
+pub fn record_track_play(state: State<DbState>, track_id: i64) -> Result<u32, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    db::increment_play_count(&conn, track_id).map_err(|e| {
+        eprintln!("record_track_play error: {e}");
+        e.to_string()
+    })
+}
+
+#[tauri::command]
 pub fn remove_track(
     app: AppHandle,
     state: State<DbState>,
