@@ -1,6 +1,6 @@
 import { useCallback, type CSSProperties, type ReactNode } from "react";
 import { formatDateAdded, formatTime } from "../../lib/format";
-import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
+import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
 import { TrackRowMenu } from "../TrackRowMenu/TrackRowMenu";
 import { TrackListColumnMenu } from "./TrackListColumnMenu";
 import { useTrackListColumns } from "./useTrackListColumns";
@@ -79,6 +79,7 @@ interface TrackListProps {
   emptyMessage?: string;
   className?: string;
   bordered?: boolean;
+  showAlbumArt?: boolean;
 }
 
 interface ResizeHandleProps {
@@ -140,6 +141,7 @@ export function TrackList({
   emptyMessage = "No tracks.",
   className = "",
   bordered = true,
+  showAlbumArt = false,
 }: TrackListProps) {
   const {
     preset,
@@ -267,6 +269,7 @@ export function TrackList({
                     tabIndex={0}
                     className={[
                       "track-list__row",
+                      showAlbumArt && "track-list__row--with-art",
                       isSelected && "track-list__row--selected",
                       isNowPlaying && "track-list__row--playing",
                     ]
@@ -306,19 +309,13 @@ export function TrackList({
                         return (
                           <span
                             key={col.id}
-                            className={[
-                              "track-list__cell",
-                              "track-list__cell--title",
-                              isActivelyPlaying &&
-                                "track-list__cell--title-with-indicator",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
+                            className="track-list__cell track-list__cell--title"
                           >
-                            <PlayingIndicator active={isActivelyPlaying} />
-                            <span className="track-list__title-text">
-                              {track.title}
-                            </span>
+                            <TrackItemTitle
+                              track={track}
+                              isActivelyPlaying={isActivelyPlaying}
+                              showAlbumArt={showAlbumArt}
+                            />
                           </span>
                         );
                       }

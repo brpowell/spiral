@@ -5,7 +5,8 @@ import { formatTime } from "../../lib/format";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { Track } from "../../types/track";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
-import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
+import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
+import { AlbumArt } from "../AlbumArt/AlbumArt";
 import { IconClose } from "../icons";
 import "./TrackListModal.css";
 
@@ -206,16 +207,17 @@ function TrackListRow({
       }${queued ? " track-list-modal__row--queued" : ""}`}
     >
       <button type="button" className="track-list-modal__row-main" onClick={onPlay}>
-        <span
-          className={[
-            "track-list-modal__row-title",
-            activelyPlaying && "track-list-modal__row-title--with-indicator",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
-          <PlayingIndicator active={activelyPlaying} />
-          <span className="track-list-modal__row-title-text">{track.title}</span>
+        <AlbumArt
+          artPath={track.artPath}
+          alt=""
+          className="track-list-modal__row-art album-art--row"
+        />
+        <span className="track-list-modal__row-title">
+          <TrackItemTitle
+            track={track}
+            isActivelyPlaying={activelyPlaying}
+            className="track-list-modal__row-title-inner"
+          />
         </span>
         {subtitle ? (
           <span className="track-list-modal__row-subtitle">{subtitle}</span>

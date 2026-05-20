@@ -13,6 +13,13 @@
   pointer-events: none;
 }
 
+.playing-indicator-slot--inline {
+  position: static;
+  transform: none;
+  flex-shrink: 0;
+  align-self: center;
+}
+
 .playing-indicator {
   display: flex;
   align-items: flex-end;

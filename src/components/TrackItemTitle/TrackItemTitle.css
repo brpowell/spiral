@@ -1,0 +1,31 @@
+.track-item-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+}
+
+.track-item-title--with-art {
+  gap: var(--track-list-art-gap);
+}
+
+.track-item-title__art {
+  width: var(--track-list-art-size);
+  flex-shrink: 0;
+}
+
+.track-item-title__body {
+  display: flex;
+  align-items: center;
+  gap: var(--track-row-indicator-gap);
+  min-width: 0;
+  flex: 1;
+}
+
+.track-item-title__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

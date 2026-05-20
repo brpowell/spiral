@@ -23,7 +23,9 @@
   --visualizer-height: 140px;
 
   --track-row-indicator-width: 0.85rem;
-  --track-row-indicator-gap: 0.02rem;
+  --track-row-indicator-gap: 0.35rem;
+  --track-list-art-size: 36px;
+  --track-list-art-gap: 0.75rem;
   --track-row-title-indent: calc(
     var(--track-row-indicator-width) + var(--track-row-indicator-gap)
   );

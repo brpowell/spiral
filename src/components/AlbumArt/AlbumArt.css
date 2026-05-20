@@ -1,6 +1,6 @@
 .album-art {
   aspect-ratio: 1;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--color-surface-raised);
 }
@@ -30,4 +30,9 @@
 .album-art--hero {
   border-radius: var(--radius-md);
   box-shadow: 0 12px 40px color-mix(in srgb, var(--color-bg) 50%, transparent);
+}
+
+.album-art--row .album-art__placeholder svg {
+  width: 50%;
+  height: 50%;
 }

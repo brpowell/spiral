@@ -80,6 +80,7 @@ export function TracksView({ tracks }: TracksViewProps) {
       ) : (
         <TrackList
           presetId="library"
+          showAlbumArt
           tracks={sortedTracks}
           selectedTrackIds={selectedTrackIds}
           currentTrackId={currentTrackId}

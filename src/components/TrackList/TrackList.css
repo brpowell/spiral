@@ -141,7 +141,7 @@
   grid-template-columns: var(--track-list-columns);
   align-items: center;
   width: 100%;
-  padding: 0.4rem 0;
+  padding: 0.35rem 0;
   border: none;
   border-bottom: 1px solid var(--color-border);
   background: transparent;
@@ -159,7 +159,11 @@
   background: var(--track-row-bg-selected);
 }
 
-.track-list__row--playing .track-list__title-text {
+.track-list__row--with-art {
+  min-height: calc(var(--track-list-art-size) + 0.5rem);
+}
+
+.track-list__row--playing .track-item-title__text {
   color: var(--color-accent);
   font-weight: 500;
 }
@@ -179,19 +183,7 @@
 }
 
 .track-list__cell--title {
-  position: relative;
-}
-
-.track-list__cell--title-with-indicator .track-list__title-text {
-  display: block;
-  padding-left: var(--track-row-title-indent);
-}
-
-.track-list__title-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
 }
 
 .track-list__cell--secondary {
