@@ -13,7 +13,6 @@ import {
   type TrackListSortField,
 } from "./types";
 import type { Track } from "../../types/track";
-import "../TrackRowMenu/TrackRowMenu.css";
 import "./TrackList.css";
 
 function cellValue(track: Track, columnId: TrackListColumnId): ReactNode {
