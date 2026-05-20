@@ -1,15 +1,26 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { fitContextMenuPosition } from "../lib/contextMenuPosition";
+
+const TRIGGER_MENU_GAP = 4;
 
 export interface UseContextMenuOptions {
   /** Re-run viewport fit when menu content size may change */
   layoutDeps?: unknown[];
   /** Called when menu opens, after preventDefault/stopPropagation */
   onBeforeOpen?: (e: React.MouseEvent) => void;
+  /** Clicks on these elements do not dismiss the menu (e.g. a toggle trigger) */
+  dismissExcludeRefs?: RefObject<HTMLElement | null>[];
 }
 
 export function useContextMenu(options: UseContextMenuOptions = {}) {
-  const { layoutDeps = [], onBeforeOpen } = options;
+  const { layoutDeps = [], onBeforeOpen, dismissExcludeRefs = [] } = options;
 
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(
     null,
@@ -19,6 +30,8 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
     top: number;
   } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const dismissExcludeRefsRef = useRef(dismissExcludeRefs);
+  dismissExcludeRefsRef.current = dismissExcludeRefs;
 
   const closeMenu = useCallback(() => {
     setMenuAnchor(null);
@@ -36,6 +49,28 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
     [onBeforeOpen],
   );
 
+  const openAt = useCallback((x: number, y: number) => {
+    setMenuPosition(null);
+    setMenuAnchor({ x, y });
+  }, []);
+
+  const openFromTrigger = useCallback((el: HTMLElement) => {
+    const rect = el.getBoundingClientRect();
+    openAt(rect.right, rect.bottom + TRIGGER_MENU_GAP);
+  }, [openAt]);
+
+  const toggleFromTrigger = useCallback(
+    (el: HTMLElement | null) => {
+      if (!el) return;
+      if (menuAnchor) {
+        closeMenu();
+        return;
+      }
+      openFromTrigger(el);
+    },
+    [menuAnchor, closeMenu, openFromTrigger],
+  );
+
   useLayoutEffect(() => {
     if (!menuAnchor || !menuRef.current) return;
     const { width, height } = menuRef.current.getBoundingClientRect();
@@ -50,12 +85,24 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
     if (!menuAnchor) return;
     const onPointerDown = (e: PointerEvent) => {
       if (menuRef.current?.contains(e.target as Node)) return;
+      if (
+        dismissExcludeRefsRef.current.some((ref) =>
+          ref.current?.contains(e.target as Node),
+        )
+      ) {
+        return;
+      }
       closeMenu();
     };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeMenu();
+    };
     window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
     window.addEventListener("scroll", closeMenu, true);
     return () => {
       window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("scroll", closeMenu, true);
     };
   }, [menuAnchor, closeMenu]);
@@ -67,5 +114,8 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
     menuRef,
     onContextMenu,
     closeMenu,
+    openAt,
+    openFromTrigger,
+    toggleFromTrigger,
   };
 }

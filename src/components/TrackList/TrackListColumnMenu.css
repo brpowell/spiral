@@ -1,5 +1,4 @@
 .track-list-column-menu {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -28,67 +27,4 @@
 .track-list-column-menu__trigger[aria-expanded="true"] {
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-}
-
-.track-list-column-menu__panel {
-  position: absolute;
-  top: calc(100% + 0.25rem);
-  right: 0;
-  z-index: 20;
-  min-width: 10.5rem;
-  padding: 0.35rem 0;
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 8px 24px color-mix(in srgb, #000 35%, transparent);
-}
-
-.track-list-column-menu__heading {
-  margin: 0 0 0.25rem;
-  padding: 0.25rem 0.75rem 0.35rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-}
-
-.track-list-column-menu__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.track-list-column-menu__item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.4rem 0.75rem;
-  border: none;
-  background: transparent;
-  font-size: 0.85rem;
-  text-align: left;
-  color: var(--color-text-primary);
-  cursor: pointer;
-}
-
-.track-list-column-menu__item:hover {
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-  color: var(--color-accent);
-}
-
-.track-list-column-menu__check {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-  color: var(--color-accent);
-}
-
-.track-list-column-menu__check svg {
-  width: 0.95rem;
-  height: 0.95rem;
 }
