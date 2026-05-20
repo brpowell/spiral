@@ -34,9 +34,11 @@ export function SearchField({
 
   const rootClass = ["search-field", className].filter(Boolean).join(" ");
 
+  const focusInput = () => inputRef.current?.focus();
+
   return (
-    <div className={rootClass}>
-      <IconSearch />
+    <div className={rootClass} onClick={focusInput}>
+      <IconSearch aria-hidden />
       <TextInput
         ref={inputRef}
         variant="ghost"
@@ -50,7 +52,10 @@ export function SearchField({
       <button
         type="button"
         className="search-field__clear"
-        onClick={() => clear(true)}
+        onClick={(e) => {
+          e.stopPropagation();
+          clear(true);
+        }}
         disabled={!value}
         tabIndex={value ? 0 : -1}
         aria-label="Clear search"
