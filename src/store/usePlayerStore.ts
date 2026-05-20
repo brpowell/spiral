@@ -37,7 +37,7 @@ interface PlayerState {
   editingTrackIds: number[];
   editingAlbumKey: string | null;
 
-  loadLibrary: () => Promise<void>;
+  loadLibrary: (options?: { preservePlayback?: boolean }) => Promise<void>;
   addToLibrary: () => Promise<void>;
   importFromPaths: (paths: string[]) => void;
   playTrack: (id: number) => Promise<void>;
@@ -132,6 +132,52 @@ async function primeTrackPaused(
       importError: `Playback failed: ${message}`,
     });
   }
+}
+
+const PREVIOUS_DOUBLE_TAP_MS = 2_000;
+let lastPreviousPressAt = 0;
+
+function prunePlaybackIds(ids: number[], libraryIds: Set<number>): number[] {
+  return ids.filter((id) => libraryIds.has(id));
+}
+
+function refreshLibraryPreservingPlayback(
+  library: Track[],
+  set: (partial: Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>)) => void,
+  get: () => PlayerState,
+): void {
+  const libraryIds = new Set(library.map((t) => t.id));
+  const state = get();
+  const playContextIds = prunePlaybackIds(state.playContextIds, libraryIds);
+  const manualQueueIds = prunePlaybackIds(state.manualQueueIds, libraryIds);
+  const currentTrackId =
+    state.currentTrackId !== null && libraryIds.has(state.currentTrackId)
+      ? state.currentTrackId
+      : null;
+
+  if (
+    state.currentTrackId !== null &&
+    currentTrackId === null
+  ) {
+    audio.unload();
+    stopPositionPoll();
+    set({
+      library,
+      playContextIds,
+      manualQueueIds,
+      currentTrackId: null,
+      playbackState: "stopped",
+      positionSeconds: 0,
+    });
+    return;
+  }
+
+  set({
+    library,
+    playContextIds,
+    manualQueueIds,
+    currentTrackId,
+  });
 }
 
 async function restorePlaybackSession(
@@ -231,9 +277,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     editingTrackIds: [],
     editingAlbumKey: null,
 
-    loadLibrary: async () => {
+    loadLibrary: async (options) => {
       try {
         const library = await getLibrary();
+        if (options?.preservePlayback) {
+          refreshLibraryPreservingPlayback(library, set, get);
+          return;
+        }
         set({ library });
         await restorePlaybackSession(library, set);
       } catch (err) {
@@ -363,8 +413,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const { currentTrackId, repeatMode } = get();
       const order = getPlaybackOrder(get);
       if (!currentTrackId || order.length === 0) return;
-      const prevId = getManualPreviousId(order, currentTrackId, repeatMode);
-      if (prevId !== null) void get().playTrack(prevId);
+
+      const now = Date.now();
+      const isQuickSecondPress = now - lastPreviousPressAt < PREVIOUS_DOUBLE_TAP_MS;
+      lastPreviousPressAt = now;
+
+      if (isQuickSecondPress) {
+        const prevId = getManualPreviousId(order, currentTrackId, repeatMode);
+        if (prevId !== null) void get().playTrack(prevId);
+        return;
+      }
+
+      get().seek(0);
     },
 
     nextTrack: () => {

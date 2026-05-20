@@ -73,7 +73,7 @@ export function startLibraryImport(paths: string[]): void {
         onProgress: (current, total) => ctx.setProgress(current, total),
       });
 
-      await usePlayerStore.getState().loadLibrary();
+      await usePlayerStore.getState().loadLibrary({ preservePlayback: true });
 
       if (result.imported > 0) {
         ctx.setLabel(

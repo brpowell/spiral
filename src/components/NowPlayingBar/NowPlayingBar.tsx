@@ -5,10 +5,7 @@ import { albumKey } from "../../lib/albums";
 import { buildPlaybackOrder } from "../../lib/activeTrackList";
 import * as audio from "../../lib/audio";
 import { formatRemainingTime, formatTime } from "../../lib/format";
-import {
-  getManualNextId,
-  getManualPreviousId,
-} from "../../lib/playbackQueue";
+import { getManualNextId } from "../../lib/playbackQueue";
 import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { RepeatMode } from "../../types/track";
@@ -83,10 +80,7 @@ export function NowPlayingBar({
     [manualQueueIds, playContextIds, library, currentTrackId],
   );
 
-  const canGoPrevious =
-    currentTrackId !== null &&
-    activeQueue.length > 0 &&
-    getManualPreviousId(activeQueue, currentTrackId, repeatMode) !== null;
+  const canGoPrevious = currentTrackId !== null;
 
   const canGoNext =
     currentTrackId !== null &&
