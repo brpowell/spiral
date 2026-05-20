@@ -24,6 +24,7 @@ import type { Track } from "../../types/track";
 import { AlbumArt } from "../AlbumArt/AlbumArt";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
 import { ModalFooter } from "../ModalFooter/ModalFooter";
+import { TextInput } from "../TextInput/TextInput";
 import "./TrackEditor.css";
 
 function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
@@ -88,7 +89,7 @@ function TrackEditorField({
   return (
     <label>
       {label}
-      <input
+      <TextInput
         type={type}
         value={form[field]}
         placeholder={

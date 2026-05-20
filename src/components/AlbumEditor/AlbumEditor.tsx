@@ -23,6 +23,7 @@ import type { Track } from "../../types/track";
 import { AlbumArt } from "../AlbumArt/AlbumArt";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
 import { ModalFooter } from "../ModalFooter/ModalFooter";
+import { TextInput } from "../TextInput/TextInput";
 import "../TrackEditor/TrackEditor.css";
 import "./AlbumEditor.css";
 
@@ -436,23 +437,21 @@ export function AlbumEditor() {
             <div className="track-editor__fields">
               <label>
                 Album
-                <input
-                  type="text"
+                <TextInput
                   value={form.title}
                   onChange={(e) => setField("title", e.target.value)}
                 />
               </label>
               <label>
                 Album Artist
-                <input
-                  type="text"
+                <TextInput
                   value={form.artist}
                   onChange={(e) => setField("artist", e.target.value)}
                 />
               </label>
               <label>
                 Year
-                <input
+                <TextInput
                   type="number"
                   value={form.year}
                   onChange={(e) => setField("year", e.target.value)}

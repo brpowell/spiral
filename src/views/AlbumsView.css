@@ -32,67 +32,6 @@
   color: var(--color-text-secondary);
 }
 
-.albums-view__search {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex: 1;
-  min-width: 200px;
-  max-width: 360px;
-  padding: 0.45rem 0.75rem;
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-}
-
-.albums-view__search > svg {
-  width: 1.1rem;
-  height: 1.1rem;
-  flex-shrink: 0;
-}
-
-.albums-view__search-clear {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 1.25rem;
-  height: 1.25rem;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-}
-
-.albums-view__search-clear:hover {
-  background: color-mix(in srgb, var(--color-text-secondary) 20%, transparent);
-  color: var(--color-text-primary);
-}
-
-.albums-view__search-clear svg {
-  width: 0.95rem;
-  height: 0.95rem;
-}
-
-.albums-view__search input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: transparent;
-  color: var(--color-text-primary);
-  font-size: 0.9rem;
-  outline: none;
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-.albums-view__search input::placeholder {
-  color: var(--color-text-secondary);
-}
-
 .albums-view__empty {
   color: var(--color-text-secondary);
 }

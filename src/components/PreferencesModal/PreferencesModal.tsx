@@ -6,6 +6,7 @@ import type { ImportMode, LibrarySettings } from "../../types/library";
 import { IconClose } from "../icons";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
 import { ModalFooter } from "../ModalFooter/ModalFooter";
+import { TextInput } from "../TextInput/TextInput";
 import "./PreferencesModal.css";
 
 const IMPORT_MODE_OPTIONS: { value: ImportMode; label: string }[] = [
@@ -120,8 +121,7 @@ export function PreferencesModal() {
         <label className="preferences__field">
           <span className="preferences__label">Media folder</span>
           <div className="preferences__path-row">
-            <input
-              type="text"
+            <TextInput
               value={draft.mediaFolder}
               onChange={(e) =>
                 setDraft((d) => (d ? { ...d, mediaFolder: e.target.value } : d))
@@ -137,8 +137,7 @@ export function PreferencesModal() {
         <label className="preferences__field">
           <span className="preferences__label">Database location</span>
           <div className="preferences__path-row">
-            <input
-              type="text"
+            <TextInput
               value={draft.databasePath}
               onChange={(e) =>
                 setDraft((d) =>
@@ -217,7 +216,7 @@ export function PreferencesModal() {
 
         <label className="preferences__field">
           <span className="preferences__label">Retention (days)</span>
-          <input
+          <TextInput
             type="number"
             min={1}
             max={3650}

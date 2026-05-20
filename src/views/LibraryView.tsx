@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { SearchField } from "../components/SearchField/SearchField";
 import { TrackList } from "../components/TrackList/TrackList";
 import {
   compareTracks,
@@ -8,7 +9,6 @@ import type {
   TrackListSortDir,
   TrackListSortField,
 } from "../components/TrackList/types";
-import { IconClose, IconSearch } from "../components/icons";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Track } from "../types/track";
 import "./LibraryView.css";
@@ -27,12 +27,6 @@ export function LibraryView({ tracks }: LibraryViewProps) {
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<TrackListSortField>("title");
   const [sortDir, setSortDir] = useState<TrackListSortDir>("asc");
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
-  const clearSearch = (refocus = false) => {
-    setSearch("");
-    if (refocus) searchInputRef.current?.focus();
-  };
 
   const sortedTracks = useMemo(() => {
     const filtered = tracks.filter((t) => matchesTrackSearch(t, search));
@@ -71,39 +65,12 @@ export function LibraryView({ tracks }: LibraryViewProps) {
           <h1 className="library-view__title">Library</h1>
           <span className="library-view__count">({tracks.length})</span>
         </div>
-        <div className="library-view__search">
-          <IconSearch />
-          <input
-            ref={searchInputRef}
-            type="text"
-            role="searchbox"
-            placeholder="Search title, artist, or album…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === "a") {
-                e.currentTarget.select();
-                return;
-              }
-              if (e.key === "Escape") {
-                e.preventDefault();
-                if (search) clearSearch();
-                e.currentTarget.blur();
-              }
-            }}
-            aria-label="Search library"
-          />
-          {search ? (
-            <button
-              type="button"
-              className="library-view__search-clear"
-              onClick={() => clearSearch(true)}
-              aria-label="Clear search"
-            >
-              <IconClose />
-            </button>
-          ) : null}
-        </div>
+        <SearchField
+          value={search}
+          onChange={setSearch}
+          placeholder="Search title, artist, or album…"
+          aria-label="Search library"
+        />
       </header>
 
       {tracks.length === 0 ? (
