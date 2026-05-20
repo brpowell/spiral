@@ -131,6 +131,20 @@ export function useTrackListColumns(presetId: TrackListPresetId) {
     [scheduleSave],
   );
 
+  const commitHiddenColumns = useCallback(
+    (prev: TrackListPreferences, hidden: Set<TrackListColumnId>) => {
+      const next = { ...prev, hiddenColumns: [...hidden] };
+      pendingSaveRef.current = null;
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      void saveTrackListPreferences(next);
+      return next;
+    },
+    [],
+  );
+
   const toggleColumnVisibility = useCallback(
     (columnId: TrackListColumnId) => {
       setPrefs((prev) => {
@@ -140,17 +154,22 @@ export function useTrackListColumns(presetId: TrackListPresetId) {
         } else {
           hidden.add(columnId);
         }
-        const next = { ...prev, hiddenColumns: [...hidden] };
-        pendingSaveRef.current = null;
-        if (saveTimerRef.current) {
-          clearTimeout(saveTimerRef.current);
-          saveTimerRef.current = null;
-        }
-        void saveTrackListPreferences(next);
-        return next;
+        return commitHiddenColumns(prev, hidden);
       });
     },
-    [],
+    [commitHiddenColumns],
+  );
+
+  const hideColumn = useCallback(
+    (columnId: TrackListColumnId) => {
+      setPrefs((prev) => {
+        const hidden = new Set(prev.hiddenColumns);
+        if (hidden.has(columnId)) return prev;
+        hidden.add(columnId);
+        return commitHiddenColumns(prev, hidden);
+      });
+    },
+    [commitHiddenColumns],
   );
 
   const isColumnVisible = useCallback(
@@ -167,6 +186,7 @@ export function useTrackListColumns(presetId: TrackListPresetId) {
     columnWidths: prefs.columnWidths,
     setColumnWidth,
     toggleColumnVisibility,
+    hideColumn,
     isColumnVisible,
     flushSave,
     loaded,

@@ -23,6 +23,8 @@ const VALID_COLUMN_IDS = new Set<TrackListColumnId>([
   "year",
   "genre",
   "discNumber",
+  "dateAdded",
+  "playCount",
 ]);
 
 export function defaultTrackListPreferences(): TrackListPreferences {
@@ -167,5 +169,7 @@ const TRACK_LIST_HIDEABLE_BY_PRESET: Partial<
     "year",
     "genre",
     "discNumber",
+    "dateAdded",
+    "playCount",
   ],
 };

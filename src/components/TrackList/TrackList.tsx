@@ -4,6 +4,7 @@ import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
 import { TrackRowMenu } from "../TrackRowMenu/TrackRowMenu";
 import { TrackListColumnMenu } from "./TrackListColumnMenu";
 import { useTrackListColumns } from "./useTrackListColumns";
+import { useTrackListHeaderMenu } from "./useTrackListHeaderMenu";
 import {
   DEFAULT_COLUMN_WIDTHS,
   type TrackListColumnDef,
@@ -149,9 +150,18 @@ export function TrackList({
     columnWidths,
     setColumnWidth,
     toggleColumnVisibility,
+    hideColumn,
     isColumnVisible,
     flushSave,
   } = useTrackListColumns(presetId);
+
+  const { onHeaderContextMenu, contextMenu: headerContextMenu } =
+    useTrackListHeaderMenu({
+      hideableColumns,
+      isColumnVisible,
+      onToggle: toggleColumnVisibility,
+      onHide: hideColumn,
+    });
 
   const gridStyle = {
     "--track-list-columns": gridTemplateColumns,
@@ -195,6 +205,9 @@ export function TrackList({
           .filter(Boolean)
           .join(" ")}
         data-track-list-col={col.id}
+        onContextMenu={
+          hideableColumns.length > 0 ? onHeaderContextMenu(col) : undefined
+        }
       >
         {content}
         {col.resizable ? (
@@ -210,6 +223,7 @@ export function TrackList({
   };
 
   return (
+    <>
     <div
       className={[
         "track-list",
@@ -340,5 +354,7 @@ export function TrackList({
         </div>
       </div>
     </div>
+    {headerContextMenu}
+    </>
   );
 }
