@@ -1,4 +1,8 @@
 import { importPaths } from "./import";
+import {
+  filterPathsForLibraryImport,
+  isSupportedAudioPath,
+} from "./supportedAudio";
 import { waitForPaint, yieldToMain } from "./scheduling";
 import { scanFolder } from "./tauri";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
@@ -18,7 +22,9 @@ async function resolveImportPaths(
       const scanned = await scanFolder(path);
       resolved.push(...scanned);
     } catch {
-      resolved.push(path);
+      if (isSupportedAudioPath(path)) {
+        resolved.push(path);
+      }
     }
     onProgress?.(i + 1, total);
     await yieldToMain();
@@ -28,7 +34,8 @@ async function resolveImportPaths(
 }
 
 export function startLibraryImport(paths: string[]): void {
-  if (paths.length === 0) return;
+  const pathsToImport = filterPathsForLibraryImport(paths);
+  if (pathsToImport.length === 0) return;
 
   usePlayerStore.setState({ importError: null });
 
@@ -37,7 +44,7 @@ export function startLibraryImport(paths: string[]): void {
     label: "Importing library…",
     run: async (ctx) => {
       ctx.setLabel("Scanning files…");
-      const audioPaths = await resolveImportPaths(paths, (current, total) => {
+      const audioPaths = await resolveImportPaths(pathsToImport, (current, total) => {
         ctx.setProgress(current, total);
       });
 

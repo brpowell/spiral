@@ -1,17 +1,6 @@
+use crate::audio_formats::{filter_library_import_paths, is_supported_audio_file};
 use std::path::Path;
 use std::time::UNIX_EPOCH;
-
-const AUDIO_EXTENSIONS: &[&str] = &["mp3", "flac", "aac", "wav", "m4a"];
-
-fn is_audio_file(path: &Path) -> bool {
-    path.extension()
-        .and_then(|ext| ext.to_str())
-        .map(|ext| {
-            let lower = ext.to_ascii_lowercase();
-            AUDIO_EXTENSIONS.contains(&lower.as_str())
-        })
-        .unwrap_or(false)
-}
 
 pub fn scan_folder_paths(folder_path: &str) -> Result<Vec<String>, String> {
     let root = Path::new(folder_path);
@@ -26,7 +15,7 @@ pub fn scan_folder_paths(folder_path: &str) -> Result<Vec<String>, String> {
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
-        if path.is_file() && is_audio_file(path) {
+        if path.is_file() && is_supported_audio_file(path) {
             paths.push(path.to_string_lossy().into_owned());
         }
     }
@@ -48,10 +37,12 @@ pub fn pick_audio_files() -> Result<Vec<String>, String> {
         .pick_files();
 
     match paths {
-        Some(files) => Ok(files
-            .into_iter()
-            .map(|p| p.to_string_lossy().into_owned())
-            .collect()),
+        Some(files) => Ok(filter_library_import_paths(
+            files
+                .into_iter()
+                .map(|p| p.to_string_lossy().into_owned())
+                .collect(),
+        )),
         None => Ok(vec![]),
     }
 }
@@ -100,7 +91,8 @@ pub fn pick_folder() -> Result<Vec<String>, String> {
 pub fn pick_library_paths() -> Result<Vec<String>, String> {
     #[cfg(target_os = "macos")]
     {
-        return Ok(crate::macos_library_picker::pick_library_paths().unwrap_or_default());
+        let paths = crate::macos_library_picker::pick_library_paths().unwrap_or_default();
+        return Ok(filter_library_import_paths(paths));
     }
 
     #[cfg(not(target_os = "macos"))]

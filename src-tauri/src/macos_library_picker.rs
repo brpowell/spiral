@@ -5,7 +5,7 @@ use objc2::MainThreadMarker;
 use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
 use objc2_foundation::{NSArray, NSString};
 
-const AUDIO_EXTENSIONS: &[&str] = &["mp3", "flac", "aac", "wav", "m4a"];
+use crate::audio_formats::SUPPORTED_AUDIO_EXTENSIONS;
 
 /// Native open panel that allows selecting multiple audio files and/or folders.
 pub fn pick_library_paths() -> Option<Vec<String>> {
@@ -20,7 +20,7 @@ pub fn pick_library_paths() -> Option<Vec<String>> {
             "Select audio files or folders to add to your library",
         )));
 
-        let extensions: Vec<_> = AUDIO_EXTENSIONS
+        let extensions: Vec<_> = SUPPORTED_AUDIO_EXTENSIONS
             .iter()
             .map(|ext| NSString::from_str(ext))
             .collect();
