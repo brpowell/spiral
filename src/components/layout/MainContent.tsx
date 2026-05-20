@@ -5,7 +5,7 @@ import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { AlbumDetailView } from "../../views/AlbumDetailView";
 import { AlbumsView } from "../../views/AlbumsView";
-import { LibraryView } from "../../views/LibraryView";
+import { TracksView } from "../../views/TracksView";
 import "./MainContent.css";
 
 const viewTransition = {
@@ -42,7 +42,7 @@ export function MainContent() {
             className="main-content__view"
             {...viewTransition}
           >
-            <LibraryView tracks={library} />
+            <TracksView tracks={library} />
           </motion.div>
         ) : view === "albums" ? (
           <motion.div

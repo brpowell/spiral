@@ -8,7 +8,7 @@ import {
 import {
   IconAlbums,
   IconArtists,
-  IconLibrary,
+  IconTracks,
   IconPalette,
   IconPlaylists,
 } from "../icons";
@@ -20,7 +20,7 @@ const NAV_ITEMS: {
   icon: ReactNode;
   enabled: boolean;
 }[] = [
-    { view: "library", label: "Library", icon: <IconLibrary />, enabled: true },
+    { view: "library", label: "Tracks", icon: <IconTracks />, enabled: true },
     { view: "albums", label: "Albums", icon: <IconAlbums />, enabled: true },
     { view: "artists", label: "Artists", icon: <IconArtists />, enabled: false },
     {

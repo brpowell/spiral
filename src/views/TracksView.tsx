@@ -11,13 +11,13 @@ import type {
 } from "../components/TrackList/types";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Track } from "../types/track";
-import "./LibraryView.css";
+import "./TracksView.css";
 
-interface LibraryViewProps {
+interface TracksViewProps {
   tracks: Track[];
 }
 
-export function LibraryView({ tracks }: LibraryViewProps) {
+export function TracksView({ tracks }: TracksViewProps) {
   const playTracks = usePlayerStore((s) => s.playTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
@@ -59,22 +59,22 @@ export function LibraryView({ tracks }: LibraryViewProps) {
   };
 
   return (
-    <div className="library-view">
-      <header className="library-view__header">
-        <div className="library-view__heading">
-          <h1 className="library-view__title">Library</h1>
-          <span className="library-view__count">({tracks.length})</span>
+    <div className="tracks-view">
+      <header className="tracks-view__header">
+        <div className="tracks-view__heading">
+          <h1 className="tracks-view__title">Tracks</h1>
+          <span className="tracks-view__count">({tracks.length})</span>
         </div>
         <SearchField
           value={search}
           onChange={setSearch}
           placeholder="Search title, artist, or album…"
-          aria-label="Search library"
+          aria-label="Search tracks"
         />
       </header>
 
       {tracks.length === 0 ? (
-        <p className="library-view__empty">
+        <p className="tracks-view__empty">
           No tracks yet. Import some music to get started.
         </p>
       ) : (
