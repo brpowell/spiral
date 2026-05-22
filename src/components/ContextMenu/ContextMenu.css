@@ -42,6 +42,13 @@
   height: 1rem;
 }
 
+.context-menu__item-icon .playlist-art--menu {
+  width: 1rem;
+  height: 1rem;
+  min-width: 1rem;
+  min-height: 1rem;
+}
+
 .context-menu__item-label {
   flex: 1;
   min-width: 0;
@@ -53,9 +60,14 @@
   background: var(--color-border);
 }
 
-.context-menu button:hover {
+.context-menu button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   color: var(--color-accent);
+}
+
+.context-menu button:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .context-menu .context-menu__danger {
@@ -80,4 +92,48 @@
 .context-menu button[role="menuitemcheckbox"] .context-menu__item-icon {
   opacity: 1;
   color: var(--color-accent);
+}
+
+.context-menu__submenu-wrap {
+  position: relative;
+}
+
+.context-menu__submenu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.65rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 0.85rem;
+  font-family: var(--font-ui);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.context-menu__submenu-trigger:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
+}
+
+.context-menu__submenu-chevron {
+  display: flex;
+  flex-shrink: 0;
+  margin-left: auto;
+  opacity: 0.65;
+}
+
+.context-menu__submenu-chevron svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.context-menu--flyout {
+  position: fixed;
+  z-index: 901;
+  max-height: min(24rem, calc(100vh - 1rem));
+  overflow-y: auto;
 }

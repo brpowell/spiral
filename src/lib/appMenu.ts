@@ -7,6 +7,7 @@ import {
 
 export interface AppMenuHandlers {
   addToLibrary: () => void;
+  newPlaylist: () => void;
   openPreferences: () => void;
 }
 
@@ -30,9 +31,15 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
     action: handlers.addToLibrary,
   });
 
+  const newPlaylist = await MenuItem.new({
+    id: "new-playlist",
+    text: "New Playlist…",
+    action: handlers.newPlaylist,
+  });
+
   const fileSubmenu = await Submenu.new({
     text: "File",
-    items: [addToLibrary],
+    items: [addToLibrary, newPlaylist],
   });
 
   const menu = await Menu.new({

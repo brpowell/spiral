@@ -1,6 +1,9 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import {
+  isExternalFileDrag,
+  pathsFromDataTransfer,
+} from "../../lib/dragDrop";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import "./ImportDropZone.css";
 
@@ -9,41 +12,56 @@ export function ImportDropZone() {
   const importFromPaths = usePlayerStore((s) => s.importFromPaths);
   const importFromPathsRef = useRef(importFromPaths);
   importFromPathsRef.current = importFromPaths;
+  const dragDepthRef = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
-    let unlisten: (() => void) | undefined;
+    const reset = () => {
+      dragDepthRef.current = 0;
+      setActive(false);
+    };
 
-    void getCurrentWindow()
-      .onDragDropEvent((event) => {
-        const payload = event.payload;
-        switch (payload.type) {
-          case "enter":
-          case "over":
-            setActive(true);
-            break;
-          case "leave":
-            setActive(false);
-            break;
-          case "drop":
-            setActive(false);
-            if (payload.paths.length > 0) {
-              importFromPathsRef.current(payload.paths);
-            }
-            break;
-        }
-      })
-      .then((fn) => {
-        if (cancelled) {
-          fn();
-          return;
-        }
-        unlisten = fn;
-      });
+    const onDragEnter = (e: DragEvent) => {
+      if (!isExternalFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+      dragDepthRef.current += 1;
+      setActive(true);
+    };
+
+    const onDragOver = (e: DragEvent) => {
+      if (!isExternalFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+      e.dataTransfer!.dropEffect = "copy";
+      setActive(true);
+    };
+
+    const onDragLeave = (e: DragEvent) => {
+      if (!isExternalFileDrag(e.dataTransfer)) return;
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+      if (dragDepthRef.current === 0) {
+        setActive(false);
+      }
+    };
+
+    const onDrop = (e: DragEvent) => {
+      if (!isExternalFileDrag(e.dataTransfer)) return;
+      e.preventDefault();
+      const paths = pathsFromDataTransfer(e.dataTransfer);
+      reset();
+      if (paths.length > 0) {
+        importFromPathsRef.current(paths);
+      }
+    };
+
+    window.addEventListener("dragenter", onDragEnter);
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("dragleave", onDragLeave);
+    window.addEventListener("drop", onDrop);
 
     return () => {
-      cancelled = true;
-      unlisten?.();
+      window.removeEventListener("dragenter", onDragEnter);
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("dragleave", onDragLeave);
+      window.removeEventListener("drop", onDrop);
     };
   }, []);
 

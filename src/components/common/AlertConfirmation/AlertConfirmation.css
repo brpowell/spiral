@@ -1,0 +1,28 @@
+.alert-confirmation .modal-header {
+  padding-bottom: 0.5rem;
+}
+
+.alert-confirmation .modal-body {
+  padding-top: 0;
+  padding-bottom: 0.25rem;
+}
+
+.alert-confirmation__message {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  color: var(--color-text-primary);
+}
+
+.alert-confirmation__message p {
+  margin: 0;
+}
+
+.alert-confirmation__message p + p {
+  margin-top: 0.75rem;
+}
+
+.alert-confirmation__message strong {
+  font-weight: 600;
+}

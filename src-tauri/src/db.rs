@@ -1,4 +1,4 @@
-use crate::models::{Track, TrackInput, TrackMetadataUpdate};
+use crate::models::{Playlist, PlaylistImageMode, Track, TrackInput, TrackMetadataUpdate};
 use chrono::Utc;
 use rusqlite::{params, Connection, Row};
 use std::path::Path;
@@ -19,6 +19,21 @@ CREATE TABLE IF NOT EXISTS tracks (
   art_path TEXT,
   date_added TEXT NOT NULL,
   play_count INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS playlists (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  description TEXT,
+  date_created TEXT NOT NULL,
+  last_used_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS playlist_tracks (
+  playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+  track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL,
+  PRIMARY KEY (playlist_id, track_id)
 );
 ";
 
@@ -44,18 +59,33 @@ fn map_track_row(row: &Row<'_>) -> rusqlite::Result<Track> {
     })
 }
 
-fn table_columns(conn: &Connection) -> Result<Vec<String>, rusqlite::Error> {
-    let mut stmt = conn.prepare("PRAGMA table_info(tracks)")?;
+fn table_columns(conn: &Connection, table: &str) -> Result<Vec<String>, rusqlite::Error> {
+    let sql = format!("PRAGMA table_info({table})");
+    let mut stmt = conn.prepare(&sql)?;
     let columns = stmt
         .query_map([], |row| row.get::<_, String>(1))?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(columns)
 }
 
-fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
-    let columns = table_columns(conn)?;
+fn parse_playlist_image_mode(value: &str) -> PlaylistImageMode {
+    match value {
+        "custom" => PlaylistImageMode::Custom,
+        _ => PlaylistImageMode::Generated,
+    }
+}
 
-    if !columns.iter().any(|c| c == "date_added") {
+fn playlist_image_mode_str(mode: PlaylistImageMode) -> &'static str {
+    match mode {
+        PlaylistImageMode::Generated => "generated",
+        PlaylistImageMode::Custom => "custom",
+    }
+}
+
+fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let track_columns = table_columns(conn, "tracks")?;
+
+    if !track_columns.iter().any(|c| c == "date_added") {
         conn.execute(
             "ALTER TABLE tracks ADD COLUMN date_added TEXT NOT NULL DEFAULT ''",
             [],
@@ -67,9 +97,23 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    if !columns.iter().any(|c| c == "play_count") {
+    if !track_columns.iter().any(|c| c == "play_count") {
         conn.execute(
             "ALTER TABLE tracks ADD COLUMN play_count INTEGER NOT NULL DEFAULT 0",
+            [],
+        )?;
+    }
+
+    let playlist_columns = table_columns(conn, "playlists")?;
+    if !playlist_columns.iter().any(|c| c == "image_mode") {
+        conn.execute(
+            "ALTER TABLE playlists ADD COLUMN image_mode TEXT NOT NULL DEFAULT 'generated'",
+            [],
+        )?;
+    }
+    if !playlist_columns.iter().any(|c| c == "custom_image_path") {
+        conn.execute(
+            "ALTER TABLE playlists ADD COLUMN custom_image_path TEXT",
             [],
         )?;
     }
@@ -205,6 +249,213 @@ pub fn delete_track(conn: &Connection, id: i64) -> Result<bool, rusqlite::Error>
     Ok(deleted > 0)
 }
 
+fn playlist_track_ids(conn: &Connection, playlist_id: i64) -> Result<Vec<i64>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT track_id FROM playlist_tracks
+         WHERE playlist_id = ?1
+         ORDER BY position ASC",
+    )?;
+    let ids = stmt
+        .query_map(params![playlist_id], |row| row.get(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(ids)
+}
+
+pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT id, title, description, date_created, last_used_at, image_mode, custom_image_path
+         FROM playlists
+         ORDER BY title COLLATE NOCASE",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, Option<String>>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, String>(4)?,
+            row.get::<_, String>(5)?,
+            row.get::<_, Option<String>>(6)?,
+        ))
+    })?;
+
+    let mut playlists = Vec::new();
+    for row in rows {
+        let (
+            id,
+            title,
+            description,
+            date_created,
+            last_used_at,
+            image_mode,
+            custom_image_path,
+        ) = row?;
+        let track_ids = playlist_track_ids(conn, id)?;
+        playlists.push(Playlist {
+            id,
+            title,
+            description,
+            date_created,
+            last_used_at,
+            track_ids,
+            image_mode: parse_playlist_image_mode(&image_mode),
+            custom_image_path,
+        });
+    }
+    Ok(playlists)
+}
+
+pub fn create_playlist(
+    conn: &Connection,
+    title: &str,
+    description: Option<&str>,
+    image_mode: PlaylistImageMode,
+    custom_image_path: Option<&str>,
+) -> Result<i64, rusqlite::Error> {
+    let now = Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO playlists (title, description, date_created, last_used_at, image_mode, custom_image_path)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            title,
+            description,
+            now,
+            now,
+            playlist_image_mode_str(image_mode),
+            custom_image_path,
+        ],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn update_playlist(
+    conn: &Connection,
+    id: i64,
+    title: &str,
+    description: Option<&str>,
+    image_mode: PlaylistImageMode,
+    custom_image_path: Option<&str>,
+) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "UPDATE playlists SET title = ?1, description = ?2, image_mode = ?3, custom_image_path = ?4
+         WHERE id = ?5",
+        params![
+            title,
+            description,
+            playlist_image_mode_str(image_mode),
+            custom_image_path,
+            id,
+        ],
+    )?;
+    Ok(())
+}
+
+pub fn touch_playlist(conn: &Connection, id: i64) -> Result<(), rusqlite::Error> {
+    let now = Utc::now().to_rfc3339();
+    conn.execute(
+        "UPDATE playlists SET last_used_at = ?1 WHERE id = ?2",
+        params![now, id],
+    )?;
+    Ok(())
+}
+
+pub fn delete_playlist(conn: &Connection, id: i64) -> Result<bool, rusqlite::Error> {
+    let deleted = conn.execute("DELETE FROM playlists WHERE id = ?1", params![id])?;
+    Ok(deleted > 0)
+}
+
+pub fn add_tracks_to_playlist(
+    conn: &Connection,
+    playlist_id: i64,
+    track_ids: &[i64],
+) -> Result<(), rusqlite::Error> {
+    if track_ids.is_empty() {
+        return Ok(());
+    }
+
+    let max_position: i64 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(position), -1) FROM playlist_tracks WHERE playlist_id = ?1",
+            params![playlist_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(-1);
+
+    let mut existing: std::collections::HashSet<i64> = conn
+        .prepare("SELECT track_id FROM playlist_tracks WHERE playlist_id = ?1")?
+        .query_map(params![playlist_id], |row| row.get(0))?
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .collect();
+
+    let mut position = max_position + 1;
+    for track_id in track_ids {
+        if existing.contains(track_id) {
+            continue;
+        }
+        conn.execute(
+            "INSERT INTO playlist_tracks (playlist_id, track_id, position)
+             VALUES (?1, ?2, ?3)",
+            params![playlist_id, track_id, position],
+        )?;
+        existing.insert(*track_id);
+        position += 1;
+    }
+
+    touch_playlist(conn, playlist_id)?;
+    Ok(())
+}
+
+pub fn remove_tracks_from_playlist(
+    conn: &Connection,
+    playlist_id: i64,
+    track_ids: &[i64],
+) -> Result<(), rusqlite::Error> {
+    if track_ids.is_empty() {
+        return Ok(());
+    }
+
+    for track_id in track_ids {
+        conn.execute(
+            "DELETE FROM playlist_tracks WHERE playlist_id = ?1 AND track_id = ?2",
+            params![playlist_id, track_id],
+        )?;
+    }
+
+    touch_playlist(conn, playlist_id)?;
+    Ok(())
+}
+
+pub fn reorder_playlist_tracks(
+    conn: &Connection,
+    playlist_id: i64,
+    track_ids: &[i64],
+) -> Result<(), rusqlite::Error> {
+    let current = playlist_track_ids(conn, playlist_id)?;
+    if current.len() != track_ids.len() {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "track_ids length mismatch".into(),
+        ));
+    }
+    let current_set: std::collections::HashSet<i64> = current.into_iter().collect();
+    if !track_ids.iter().all(|id| current_set.contains(id)) {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "track_ids contain unknown tracks".into(),
+        ));
+    }
+
+    for (position, track_id) in track_ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE playlist_tracks SET position = ?1
+             WHERE playlist_id = ?2 AND track_id = ?3",
+            params![position as i64, playlist_id, track_id],
+        )?;
+    }
+
+    touch_playlist(conn, playlist_id)?;
+    Ok(())
+}
+
 pub fn list_file_paths(conn: &Connection) -> Result<Vec<String>, rusqlite::Error> {
     let mut stmt = conn.prepare("SELECT file_path FROM tracks")?;
     let paths = stmt
@@ -259,6 +510,22 @@ mod tests {
         let second = get_track_by_id(&conn, 1).unwrap().unwrap();
         assert_eq!(second.title, "Renamed");
         assert_eq!(second.date_added, first_added);
+    }
+
+    #[test]
+    fn reorder_playlist_tracks_updates_order() {
+        let conn = test_conn();
+        save_track(&conn, &sample_input("/music/a.mp3")).unwrap();
+        save_track(&conn, &sample_input("/music/b.mp3")).unwrap();
+        save_track(&conn, &sample_input("/music/c.mp3")).unwrap();
+
+        let playlist_id =
+            create_playlist(&conn, "Mix", None, PlaylistImageMode::Generated, None).unwrap();
+        add_tracks_to_playlist(&conn, playlist_id, &[1, 2, 3]).unwrap();
+        assert_eq!(playlist_track_ids(&conn, playlist_id).unwrap(), vec![1, 2, 3]);
+
+        reorder_playlist_tracks(&conn, playlist_id, &[3, 1, 2]).unwrap();
+        assert_eq!(playlist_track_ids(&conn, playlist_id).unwrap(), vec![3, 1, 2]);
     }
 
     #[test]

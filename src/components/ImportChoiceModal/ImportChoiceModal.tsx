@@ -1,10 +1,16 @@
 import { useId, useRef, useState } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
-import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
-import { Button } from "../Button/Button";
-import { ModalFooter } from "../ModalFooter/ModalFooter";
-import "./ImportChoiceModal.css";
+import { Button } from "../common/Button/Button";
+import {
+  Modal,
+  ModalBody,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalHeaderMain,
+  ModalTitle,
+} from "../common/Modal/Modal";
 
 export function ImportChoiceModal() {
   const importPrompt = useLibrarySettingsStore((s) => s.importPrompt);
@@ -23,23 +29,24 @@ export function ImportChoiceModal() {
   };
 
   return (
-    <AnimatedModal
+    <Modal
       open={open}
-      backdropClassName="import-choice-backdrop"
-      panelClassName="import-choice"
+      onClose={cancelImportChoice}
+      size="xl"
       panelRef={panelRef}
       labelledBy={titleId}
-      onBackdropClick={cancelImportChoice}
     >
-      <div className="import-choice__body">
-        <h2 id={titleId} className="import-choice__title">
-          Add to library
-        </h2>
-        <p className="import-choice__hint">
-          Do you want to copy these files into your Spiral media folder, or keep
-          them at their current location?
-        </p>
+      <ModalHeader>
+        <ModalHeaderMain>
+          <ModalTitle id={titleId}>Add to library</ModalTitle>
+          <ModalDescription>
+            Do you want to copy these files into your Spiral media folder, or
+            keep them at their current location?
+          </ModalDescription>
+        </ModalHeaderMain>
+      </ModalHeader>
 
+      <ModalBody>
         <label className="import-choice__remember">
           <input
             type="checkbox"
@@ -48,7 +55,7 @@ export function ImportChoiceModal() {
           />
           Don&apos;t ask again
         </label>
-      </div>
+      </ModalBody>
 
       <ModalFooter onCancel={cancelImportChoice}>
         <Button
@@ -61,6 +68,6 @@ export function ImportChoiceModal() {
           Copy to library
         </Button>
       </ModalFooter>
-    </AnimatedModal>
+    </Modal>
   );
 }

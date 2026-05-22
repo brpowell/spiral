@@ -38,6 +38,26 @@ pub struct TrackMetadataUpdate {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub enum PlaylistImageMode {
+    Generated,
+    Custom,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Playlist {
+    pub id: i64,
+    pub title: String,
+    pub description: Option<String>,
+    pub date_created: String,
+    pub last_used_at: String,
+    pub track_ids: Vec<i64>,
+    pub image_mode: PlaylistImageMode,
+    pub custom_image_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TrackInput {
     pub title: String,
     pub artist: Option<String>,

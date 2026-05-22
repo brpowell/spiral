@@ -7,7 +7,7 @@ import {
   getDefaultPalette,
 } from "../../lib/palette";
 import { usePlayerStore } from "../../store/usePlayerStore";
-import { Button } from "../Button/Button";
+import { Button } from "../common/Button/Button";
 import { IconVisualizer } from "../icons";
 import "./AudioVisualizer.css";
 
@@ -155,8 +155,8 @@ export function AudioVisualizer({
       for (let i = 0; i < BAR_COUNT; i++) {
         const wave =
           (Math.sin(phase * IDLE_WAVE_FREQ + i * IDLE_WAVE_SPREAD) + 1) *
-            0.5 *
-            IDLE_WAVE_AMP +
+          0.5 *
+          IDLE_WAVE_AMP +
           IDLE_WAVE_BASE;
         const barHeight = wave * height;
         const x = i * barWidth + gap / 2;

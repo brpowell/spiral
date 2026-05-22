@@ -3,11 +3,17 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { pickDatabaseFolder, pickFolder } from "../../lib/tauri";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import type { ImportMode, LibrarySettings } from "../../types/library";
-import { IconClose } from "../icons";
-import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
-import { Button } from "../Button/Button";
-import { ModalFooter } from "../ModalFooter/ModalFooter";
-import { TextInput } from "../TextInput/TextInput";
+import { Button } from "../common/Button/Button";
+import { FormField } from "../common/Field/Field";
+import {
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+} from "../common/Modal/Modal";
+import { TextInput } from "../common/TextInput/TextInput";
 import "./PreferencesModal.css";
 
 const IMPORT_MODE_OPTIONS: { value: ImportMode; label: string }[] = [
@@ -38,15 +44,6 @@ export function PreferencesModal() {
     setRestartHint(false);
     setError(null);
   }, [open, settings]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, setOpen]);
 
   if (!draft) return null;
 
@@ -92,172 +89,158 @@ export function PreferencesModal() {
   };
 
   return (
-    <AnimatedModal
+    <Modal
       open={open}
-      backdropClassName="preferences-backdrop"
-      panelClassName="preferences"
+      onClose={() => setOpen(false)}
+      size="lg"
       panelRef={panelRef}
       labelledBy={titleId}
-      onBackdropClick={() => setOpen(false)}
     >
-      <header className="preferences__header">
-        <h2 id={titleId} className="preferences__title">
-          Preferences
-        </h2>
-        <Button
-          variant="ghost"
-          size="md"
-          iconOnly
-          className="preferences__close"
-          aria-label="Close"
-          onClick={() => setOpen(false)}
-        >
-          <IconClose />
-        </Button>
-      </header>
+      <ModalHeader>
+        <ModalTitle id={titleId}>Preferences</ModalTitle>
+        <ModalCloseButton onClick={() => setOpen(false)} />
+      </ModalHeader>
 
-      <section className="preferences__section" aria-labelledby="library-prefs-heading">
-        <h3 id="library-prefs-heading" className="preferences__section-title">
-          Library
-        </h3>
+      <ModalBody className="preferences__body">
+        <section className="preferences__section" aria-labelledby="library-prefs-heading">
+          <h3 id="library-prefs-heading" className="preferences__section-title">
+            Library
+          </h3>
 
-        <label className="preferences__field">
-          <span className="preferences__label">Media folder</span>
-          <div className="preferences__path-row">
-            <TextInput
-              value={draft.mediaFolder}
-              onChange={(e) =>
-                setDraft((d) => (d ? { ...d, mediaFolder: e.target.value } : d))
-              }
-              spellCheck={false}
-            />
-            <Button size="sm" onClick={() => void browseMediaFolder()}>
-              Choose…
-            </Button>
-          </div>
-        </label>
+          <FormField label="Media folder">
+            <div className="preferences__path-row">
+              <TextInput
+                value={draft.mediaFolder}
+                onChange={(e) =>
+                  setDraft((d) => (d ? { ...d, mediaFolder: e.target.value } : d))
+                }
+                spellCheck={false}
+              />
+              <Button size="sm" onClick={() => void browseMediaFolder()}>
+                Choose…
+              </Button>
+            </div>
+          </FormField>
 
-        <label className="preferences__field">
-          <span className="preferences__label">Database location</span>
-          <div className="preferences__path-row">
-            <TextInput
-              value={draft.databasePath}
+          <FormField label="Database location">
+            <div className="preferences__path-row">
+              <TextInput
+                value={draft.databasePath}
+                onChange={(e) =>
+                  setDraft((d) =>
+                    d ? { ...d, databasePath: e.target.value } : d,
+                  )
+                }
+                spellCheck={false}
+              />
+              <Button size="sm" onClick={() => void browseDatabaseFolder()}>
+                Choose…
+              </Button>
+            </div>
+          </FormField>
+
+          <label className="preferences__checkbox">
+            <input
+              type="checkbox"
+              checked={draft.autoOrganize}
               onChange={(e) =>
                 setDraft((d) =>
-                  d ? { ...d, databasePath: e.target.value } : d,
+                  d ? { ...d, autoOrganize: e.target.checked } : d,
                 )
               }
-              spellCheck={false}
             />
-            <Button size="sm" onClick={() => void browseDatabaseFolder()}>
-              Choose…
-            </Button>
-          </div>
-        </label>
+            Automatically organize music (Artist → Album → Track)
+          </label>
 
-        <label className="preferences__checkbox">
-          <input
-            type="checkbox"
-            checked={draft.autoOrganize}
-            onChange={(e) =>
-              setDraft((d) =>
-                d ? { ...d, autoOrganize: e.target.checked } : d,
-              )
-            }
-          />
-          Automatically organize music (Artist → Album → Track)
-        </label>
+          <fieldset className="preferences__fieldset">
+            <legend>When importing</legend>
+            <div className="preferences__segmented">
+              {IMPORT_MODE_OPTIONS.map((opt) => (
+                <label key={opt.value} className="preferences__segment">
+                  <input
+                    type="radio"
+                    name="importMode"
+                    value={opt.value}
+                    checked={draft.importMode === opt.value}
+                    onChange={() =>
+                      setDraft((d) =>
+                        d ? { ...d, importMode: opt.value } : d,
+                      )
+                    }
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </section>
 
-        <fieldset className="preferences__fieldset">
-          <legend>When importing</legend>
-          <div className="preferences__segmented">
-            {IMPORT_MODE_OPTIONS.map((opt) => (
-              <label key={opt.value} className="preferences__segment">
-                <input
-                  type="radio"
-                  name="importMode"
-                  value={opt.value}
-                  checked={draft.importMode === opt.value}
-                  onChange={() =>
-                    setDraft((d) =>
-                      d ? { ...d, importMode: opt.value } : d,
-                    )
-                  }
-                />
-                {opt.label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      </section>
+        <section
+          className="preferences__section"
+          aria-labelledby="metadata-backups-heading"
+        >
+          <h3 id="metadata-backups-heading" className="preferences__section-title">
+            Metadata backups
+          </h3>
+          <p className="preferences__hint">
+            When you edit tags, Spiral can keep a copy of the original file next to
+            the track (for example <code>song.m4a.bak</code>). Older backups are
+            removed automatically.
+          </p>
 
-      <section
-        className="preferences__section"
-        aria-labelledby="metadata-backups-heading"
-      >
-        <h3 id="metadata-backups-heading" className="preferences__section-title">
-          Metadata backups
-        </h3>
-        <p className="preferences__hint">
-          When you edit tags, Spiral can keep a copy of the original file next to
-          the track (for example <code>song.m4a.bak</code>). Older backups are
-          removed automatically.
-        </p>
+          <label className="preferences__checkbox">
+            <input
+              type="checkbox"
+              checked={draft.metadataBackupsEnabled}
+              onChange={(e) =>
+                setDraft((d) =>
+                  d ? { ...d, metadataBackupsEnabled: e.target.checked } : d,
+                )
+              }
+            />
+            Keep backups before metadata edits
+          </label>
 
-        <label className="preferences__checkbox">
-          <input
-            type="checkbox"
-            checked={draft.metadataBackupsEnabled}
-            onChange={(e) =>
-              setDraft((d) =>
-                d ? { ...d, metadataBackupsEnabled: e.target.checked } : d,
-              )
-            }
-          />
-          Keep backups before metadata edits
-        </label>
-
-        <label className="preferences__field">
-          <span className="preferences__label">Retention (days)</span>
-          <TextInput
-            type="number"
-            min={1}
-            max={3650}
-            value={draft.metadataBackupRetentionDays}
-            disabled={!draft.metadataBackupsEnabled}
-            onChange={(e) => {
-              const n = Number.parseInt(e.target.value, 10);
-              if (!Number.isFinite(n)) return;
-              setDraft((d) =>
-                d
-                  ? {
+          <FormField label="Retention (days)">
+            <TextInput
+              type="number"
+              min={1}
+              max={3650}
+              value={draft.metadataBackupRetentionDays}
+              disabled={!draft.metadataBackupsEnabled}
+              onChange={(e) => {
+                const n = Number.parseInt(e.target.value, 10);
+                if (!Number.isFinite(n)) return;
+                setDraft((d) =>
+                  d
+                    ? {
                       ...d,
                       metadataBackupRetentionDays: Math.min(
                         3650,
                         Math.max(1, n),
                       ),
                     }
-                  : d,
-              );
-            }}
-          />
-        </label>
-      </section>
+                    : d,
+                );
+              }}
+            />
+          </FormField>
+        </section>
 
-      {restartHint && (
-        <p className="preferences__notice" role="status">
-          Restart Spiral to use the new database location.
-        </p>
-      )}
+        {restartHint && (
+          <p className="preferences__notice" role="status">
+            Restart Spiral to use the new database location.
+          </p>
+        )}
 
-      {error && (
-        <p className="preferences__error" role="alert">
-          {error}
-        </p>
-      )}
+        {error && (
+          <p className="preferences__error" role="alert">
+            {error}
+          </p>
+        )}
+      </ModalBody>
 
       <ModalFooter
-        padded
         cancelLabel={restartHint ? "Close" : "Cancel"}
         onCancel={() => setOpen(false)}
         cancelDisabled={saving}
@@ -272,6 +255,6 @@ export function PreferencesModal() {
           </Button>
         )}
       </ModalFooter>
-    </AnimatedModal>
+    </Modal>
   );
 }

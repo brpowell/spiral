@@ -1,12 +1,20 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { resolveThemeTokens } from "../../lib/theme";
 import { useThemeStore } from "../../store/useThemeStore";
 import { THEME_SCHEMA_EXAMPLE, type Theme } from "../../types/theme";
-import { IconCheck, IconClose, IconHelp } from "../icons";
-import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
-import { Button } from "../Button/Button";
-import { ModalFooter } from "../ModalFooter/ModalFooter";
+import { IconCheck, IconHelp } from "../icons";
+import { Button } from "../common/Button/Button";
+import {
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalHeaderActions,
+  ModalTitle,
+} from "../common/Modal/Modal";
 import "./ThemePicker.css";
 
 function ThemeSwatch({
@@ -74,75 +82,55 @@ export function ThemePicker() {
 
   useFocusTrap(panelRef, open);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, setOpen]);
-
   return (
-    <AnimatedModal
+    <Modal
       open={open}
-      backdropClassName="theme-picker-backdrop"
-      panelClassName="theme-picker"
+      onClose={() => setOpen(false)}
+      size="xl"
       panelRef={panelRef}
       labelledBy={titleId}
-      onBackdropClick={() => setOpen(false)}
     >
-        <header className="theme-picker__header">
-          <h2 id={titleId} className="theme-picker__title">
-            Themes
-          </h2>
-          <div className="theme-picker__header-actions">
-            <div className="theme-picker__schema-wrap">
-              <Button
-                variant="ghost"
-                size="md"
-                iconOnly
-                className="theme-picker__help"
-                aria-expanded={schemaOpen}
-                aria-controls="theme-schema-panel"
-                title="Theme file format"
-                onClick={() => setSchemaOpen((v) => !v)}
-              >
-                <IconHelp />
-              </Button>
-              {schemaOpen && (
-                <div
-                  id="theme-schema-panel"
-                  className="theme-picker__schema-popover"
-                  role="region"
-                  aria-label="Theme JSON schema"
-                >
-                  <p>
-                    Save custom themes as <code>.theme.json</code> in the
-                    themes folder. Token keys map to CSS variables (prefixed
-                    with <code>--</code>).
-                  </p>
-                  <pre>{THEME_SCHEMA_EXAMPLE}</pre>
-                </div>
-              )}
-            </div>
+      <ModalHeader>
+        <ModalTitle id={titleId}>Themes</ModalTitle>
+        <ModalHeaderActions>
+          <div className="theme-picker__schema-wrap">
             <Button
               variant="ghost"
               size="md"
               iconOnly
-              className="theme-picker__close"
-              aria-label="Close"
-              onClick={() => setOpen(false)}
+              className="theme-picker__help"
+              aria-expanded={schemaOpen}
+              aria-controls="theme-schema-panel"
+              title="Theme file format"
+              onClick={() => setSchemaOpen((v) => !v)}
             >
-              <IconClose />
+              <IconHelp />
             </Button>
+            {schemaOpen && (
+              <div
+                id="theme-schema-panel"
+                className="theme-picker__schema-popover"
+                role="region"
+                aria-label="Theme JSON schema"
+              >
+                <p>
+                  Save custom themes as <code>.theme.json</code> in the themes
+                  folder. Token keys map to CSS variables (prefixed with{" "}
+                  <code>--</code>).
+                </p>
+                <pre>{THEME_SCHEMA_EXAMPLE}</pre>
+              </div>
+            )}
           </div>
-        </header>
+          <ModalCloseButton onClick={() => setOpen(false)} />
+        </ModalHeaderActions>
+      </ModalHeader>
 
-        <p className="theme-picker__hint">
+      <ModalBody>
+        <ModalDescription>
           Choose a theme for an instant preview. Missing tokens fall back to
           Obsidian defaults.
-        </p>
+        </ModalDescription>
 
         <div className="theme-picker__grid" role="list">
           {themes.map((theme) => (
@@ -155,15 +143,16 @@ export function ThemePicker() {
             </div>
           ))}
         </div>
+      </ModalBody>
 
-        <ModalFooter padded>
-          <Button variant="secondary" onClick={() => void importTheme()}>
-            Add theme…
-          </Button>
-          <Button variant="secondary" onClick={() => void openThemesFolder()}>
-            Open themes folder
-          </Button>
-        </ModalFooter>
-    </AnimatedModal>
+      <ModalFooter>
+        <Button variant="secondary" onClick={() => void importTheme()}>
+          Add theme…
+        </Button>
+        <Button variant="secondary" onClick={() => void openThemesFolder()}>
+          Open themes folder
+        </Button>
+      </ModalFooter>
+    </Modal>
   );
 }

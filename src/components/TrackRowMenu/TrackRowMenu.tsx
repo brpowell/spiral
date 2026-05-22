@@ -5,10 +5,18 @@ interface TrackRowMenuProps {
   track: Track;
   children: React.ReactNode;
   className?: string;
+  playlistId?: number;
 }
 
-export function TrackRowMenu({ track, children, className = "" }: TrackRowMenuProps) {
-  const { onContextMenu, contextMenu, removeDialog } = useTrackEditMenu(track);
+export function TrackRowMenu({
+  track,
+  children,
+  className = "",
+  playlistId,
+}: TrackRowMenuProps) {
+  const { onContextMenu, contextMenu, removeDialog } = useTrackEditMenu(track, {
+    playlistId,
+  });
 
   return (
     <div

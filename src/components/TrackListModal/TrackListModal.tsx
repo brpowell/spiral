@@ -1,14 +1,20 @@
-import { useEffect, useId, useMemo, useRef } from "react";
+import { useId, useMemo, useRef } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { buildPlaybackOrder } from "../../lib/activeTrackList";
 import { formatTime } from "../../lib/format";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { Track } from "../../types/track";
-import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
-import { Button } from "../Button/Button";
+import { Button } from "../common/Button/Button";
+import {
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalHeader,
+  ModalHeaderActions,
+  ModalTitle,
+} from "../common/Modal/Modal";
 import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
 import { AlbumArt } from "../AlbumArt/AlbumArt";
-import { IconClose } from "../icons";
 import "./TrackListModal.css";
 
 interface TrackListModalProps {
@@ -33,15 +39,6 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   useFocusTrap(panelRef, open);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
 
   const activeIds = useMemo(
     () =>
@@ -90,19 +87,16 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
   };
 
   return (
-    <AnimatedModal
+    <Modal
       open={open}
-      backdropClassName="track-list-backdrop"
-      panelClassName="track-list-modal"
+      onClose={onClose}
+      size="md"
       panelRef={panelRef}
       labelledBy={titleId}
-      onBackdropClick={onClose}
     >
-      <header className="track-list-modal__header">
-        <h2 id={titleId} className="track-list-modal__title">
-          Track list
-        </h2>
-        <div className="track-list-modal__header-actions">
+      <ModalHeader>
+        <ModalTitle id={titleId}>Track list</ModalTitle>
+        <ModalHeaderActions>
           <Button
             variant="ghost"
             size="sm"
@@ -111,19 +105,11 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
           >
             Clear
           </Button>
-          <Button
-            variant="ghost"
-            size="md"
-            iconOnly
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <IconClose />
-          </Button>
-        </div>
-      </header>
+          <ModalCloseButton onClick={onClose} />
+        </ModalHeaderActions>
+      </ModalHeader>
 
-      <div className="track-list-modal__body">
+      <ModalBody>
         {activeIds.length === 0 ? (
           <p className="track-list-modal__empty">No tracks in the list.</p>
         ) : (
@@ -178,8 +164,8 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
             </section>
           </>
         )}
-      </div>
-    </AnimatedModal>
+      </ModalBody>
+    </Modal>
   );
 }
 
@@ -204,9 +190,8 @@ function TrackListRow({
 
   return (
     <div
-      className={`track-list-modal__row${
-        playing ? " track-list-modal__row--playing" : ""
-      }${queued ? " track-list-modal__row--queued" : ""}`}
+      className={`track-list-modal__row${playing ? " track-list-modal__row--playing" : ""
+        }${queued ? " track-list-modal__row--queued" : ""}`}
     >
       <button type="button" className="track-list-modal__row-main" onClick={onPlay}>
         <AlbumArt

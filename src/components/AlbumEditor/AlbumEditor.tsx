@@ -21,10 +21,17 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
 import { AlbumArt } from "../AlbumArt/AlbumArt";
-import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
-import { Button } from "../Button/Button";
-import { ModalFooter } from "../ModalFooter/ModalFooter";
-import { TextInput } from "../TextInput/TextInput";
+import {
+  Modal,
+  ModalBody,
+  ModalDescription,
+  ModalFooter,
+  ModalHeader,
+  ModalTitle,
+} from "../common/Modal/Modal";
+import { Button } from "../common/Button/Button";
+import { FormField } from "../common/Field/Field";
+import { TextInput } from "../common/TextInput/TextInput";
 import "../TrackEditor/TrackEditor.css";
 import "./AlbumEditor.css";
 
@@ -327,183 +334,182 @@ export function AlbumEditor() {
     : "Save";
 
   return (
-    <AnimatedModal
+    <Modal
       open={isOpen}
-      backdropClassName="track-editor-backdrop"
-      panelClassName="track-editor"
+      onClose={handleBackdropClick}
+      size="editor"
       panelRef={dialogRef}
       labelledBy="album-editor-title"
-      onBackdropClick={handleBackdropClick}
     >
       {isOpen && (
         <>
-          <h2 id="album-editor-title" className="track-editor__heading">
-            Edit album
-          </h2>
-          <p className="album-editor__subtitle">
-            Changes apply to all {tracks.length}{" "}
-            {tracks.length === 1 ? "track" : "tracks"} in this album.
-          </p>
+          <ModalHeader>
+            <ModalTitle id="album-editor-title">Edit album</ModalTitle>
+          </ModalHeader>
 
-          <div className="track-editor__body">
-            <div className="track-editor__art-col">
-              <div
-                className={
-                  artDragOver
-                    ? "track-editor__art-drop track-editor__art-drop--active"
-                    : "track-editor__art-drop"
-                }
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setArtDragOver(true);
-                }}
-                onDragLeave={() => setArtDragOver(false)}
-                onDrop={handleArtDrop}
-              >
-                {previewSrc ? (
-                  <img
-                    src={previewSrc}
-                    alt=""
-                    className="track-editor__art-img"
-                  />
-                ) : (
-                  <AlbumArt
-                    artPath={null}
-                    className="track-editor__art-placeholder"
-                  />
+          <ModalBody>
+            <ModalDescription>
+              Changes apply to all {tracks.length}{" "}
+              {tracks.length === 1 ? "track" : "tracks"} in this album.
+            </ModalDescription>
+
+            <div className="track-editor__body">
+              <div className="track-editor__art-col">
+                <div
+                  className={
+                    artDragOver
+                      ? "track-editor__art-drop track-editor__art-drop--active"
+                      : "track-editor__art-drop"
+                  }
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setArtDragOver(true);
+                  }}
+                  onDragLeave={() => setArtDragOver(false)}
+                  onDrop={handleArtDrop}
+                >
+                  {previewSrc ? (
+                    <img
+                      src={previewSrc}
+                      alt=""
+                      className="track-editor__art-img"
+                    />
+                  ) : (
+                    <AlbumArt
+                      artPath={null}
+                      className="track-editor__art-placeholder"
+                    />
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  className="track-editor__art-btn"
+                  onClick={() => void handleChangeArt()}
+                >
+                  Change Art
+                </Button>
+                <Button
+                  size="sm"
+                  className="track-editor__art-btn"
+                  onClick={() => void handleFetchArt()}
+                  disabled={fetchingArt}
+                >
+                  {fetchingArt ? "Fetching…" : "Fetch Art"}
+                </Button>
+                {fetchMessage && !fetchingArt && (
+                  <p className="track-editor__fetch-msg">{fetchMessage}</p>
+                )}
+                {fetchingArt && (
+                  <div
+                    className="track-editor__fetching"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <span
+                      className="track-editor__fetching-spinner"
+                      aria-hidden
+                    />
+                    <span>Fetching artwork…</span>
+                  </div>
+                )}
+                {coverCandidates.length > 0 && (
+                  <div
+                    className="track-editor__cover-picker"
+                    aria-label="Cover art options"
+                  >
+                    {coverCandidates.map((candidate) => {
+                      const thumbSrc = candidate.thumbnailUrl ?? candidate.url;
+
+                      return (
+                        <button
+                          key={candidate.url}
+                          type="button"
+                          className={
+                            selectedCoverUrl === candidate.url
+                              ? "track-editor__cover-option track-editor__cover-option--selected"
+                              : "track-editor__cover-option"
+                          }
+                          onClick={() => handleSelectCover(candidate.url)}
+                          aria-pressed={selectedCoverUrl === candidate.url}
+                        >
+                          <span className="track-editor__cover-thumb">
+                            <img src={thumbSrc} alt="" loading="lazy" />
+                          </span>
+                          <CoverOptionMeta candidate={candidate} />
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
-              <Button
-                size="sm"
-                className="track-editor__art-btn"
-                onClick={() => void handleChangeArt()}
-              >
-                Change Art
-              </Button>
-              <Button
-                size="sm"
-                className="track-editor__art-btn"
-                onClick={() => void handleFetchArt()}
-                disabled={fetchingArt}
-              >
-                {fetchingArt ? "Fetching…" : "Fetch Art"}
-              </Button>
-              {fetchMessage && !fetchingArt && (
-                <p className="track-editor__fetch-msg">{fetchMessage}</p>
-              )}
-              {fetchingArt && (
-                <div
-                  className="track-editor__fetching"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <span
-                    className="track-editor__fetching-spinner"
-                    aria-hidden
+
+              <div className="track-editor__fields">
+                <FormField label="Album">
+                  <TextInput
+                    value={form.title}
+                    onChange={(e) => setField("title", e.target.value)}
                   />
-                  <span>Fetching artwork…</span>
-                </div>
-              )}
-              {coverCandidates.length > 0 && (
-                <div
-                  className="track-editor__cover-picker"
-                  aria-label="Cover art options"
-                >
-                  {coverCandidates.map((candidate) => {
-                    const thumbSrc = candidate.thumbnailUrl ?? candidate.url;
-
-                    return (
-                      <button
-                        key={candidate.url}
-                        type="button"
-                        className={
-                          selectedCoverUrl === candidate.url
-                            ? "track-editor__cover-option track-editor__cover-option--selected"
-                            : "track-editor__cover-option"
-                        }
-                        onClick={() => handleSelectCover(candidate.url)}
-                        aria-pressed={selectedCoverUrl === candidate.url}
-                      >
-                        <span className="track-editor__cover-thumb">
-                          <img src={thumbSrc} alt="" loading="lazy" />
-                        </span>
-                        <CoverOptionMeta candidate={candidate} />
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="track-editor__fields">
-              <label>
-                Album
-                <TextInput
-                  value={form.title}
-                  onChange={(e) => setField("title", e.target.value)}
-                />
-              </label>
-              <label>
-                Album Artist
-                <TextInput
-                  value={form.artist}
-                  onChange={(e) => setField("artist", e.target.value)}
-                />
-              </label>
-              <label>
-                Year
-                <TextInput
-                  type="number"
-                  value={form.year}
-                  onChange={(e) => setField("year", e.target.value)}
-                />
-              </label>
-            </div>
-          </div>
-
-          {saveError && (
-            <p className="track-editor__error" role="alert">
-              {saveError}
-            </p>
-          )}
-
-          {discardPrompt && (
-            <div
-              className="track-editor__discard"
-              role="alertdialog"
-              aria-labelledby="album-editor-discard-title"
-              aria-describedby="album-editor-discard-desc"
-            >
-              <p
-                id="album-editor-discard-title"
-                className="track-editor__discard-title"
-              >
-                Discard changes?
-              </p>
-              <p
-                id="album-editor-discard-desc"
-                className="track-editor__discard-desc"
-              >
-                Unsaved edits to this album will be lost.
-              </p>
-              <div className="track-editor__discard-actions">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setDiscardPrompt(false)}
-                >
-                  Keep editing
-                </Button>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={confirmDiscard}
-                >
-                  Discard
-                </Button>
+                </FormField>
+                <FormField label="Album Artist">
+                  <TextInput
+                    value={form.artist}
+                    onChange={(e) => setField("artist", e.target.value)}
+                  />
+                </FormField>
+                <FormField label="Year">
+                  <TextInput
+                    type="number"
+                    value={form.year}
+                    onChange={(e) => setField("year", e.target.value)}
+                  />
+                </FormField>
               </div>
             </div>
-          )}
+
+            {saveError && (
+              <p className="track-editor__error" role="alert">
+                {saveError}
+              </p>
+            )}
+
+            {discardPrompt && (
+              <div
+                className="track-editor__discard"
+                role="alertdialog"
+                aria-labelledby="album-editor-discard-title"
+                aria-describedby="album-editor-discard-desc"
+              >
+                <p
+                  id="album-editor-discard-title"
+                  className="track-editor__discard-title"
+                >
+                  Discard changes?
+                </p>
+                <p
+                  id="album-editor-discard-desc"
+                  className="track-editor__discard-desc"
+                >
+                  Unsaved edits to this album will be lost.
+                </p>
+                <div className="track-editor__discard-actions">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDiscardPrompt(false)}
+                  >
+                    Keep editing
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={confirmDiscard}
+                  >
+                    Discard
+                  </Button>
+                </div>
+              </div>
+            )}
+          </ModalBody>
 
           <ModalFooter
             onCancel={handleCancel}
@@ -520,6 +526,6 @@ export function AlbumEditor() {
           </ModalFooter>
         </>
       )}
-    </AnimatedModal>
+    </Modal>
   );
 }

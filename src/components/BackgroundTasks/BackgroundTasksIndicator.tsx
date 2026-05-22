@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Button } from "../Button/Button";
+import { Button } from "../common/Button/Button";
 import { IconCheck, IconClose } from "../icons";
 import { panelMotion } from "../../lib/motion";
 import {

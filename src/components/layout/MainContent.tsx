@@ -5,6 +5,7 @@ import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { AlbumDetailView } from "../../views/AlbumDetailView";
 import { AlbumsView } from "../../views/AlbumsView";
+import { PlaylistDetailView } from "../../views/PlaylistDetailView";
 import { TracksView } from "../../views/TracksView";
 import "./MainContent.css";
 
@@ -19,16 +20,29 @@ export function MainContent() {
   const library = usePlayerStore((s) => s.library);
   const view = useNavigationStore((s) => s.view);
   const albumKey = useNavigationStore((s) => s.albumKey);
+  const playlistId = useNavigationStore((s) => s.playlistId);
 
   const albums = useMemo(() => groupTracksIntoAlbums(library), [library]);
 
   const contentKey =
-    albumKey != null ? `album-${albumKey}` : view;
+    playlistId != null
+      ? `playlist-${playlistId}`
+      : albumKey != null
+        ? `album-${albumKey}`
+        : view;
 
   return (
     <main className="main-content">
       <AnimatePresence mode="wait">
-        {albumKey != null ? (
+        {playlistId != null ? (
+          <motion.div
+            key={contentKey}
+            className="main-content__view"
+            {...viewTransition}
+          >
+            <PlaylistDetailView playlistId={playlistId} />
+          </motion.div>
+        ) : albumKey != null ? (
           <motion.div
             key={contentKey}
             className="main-content__view"

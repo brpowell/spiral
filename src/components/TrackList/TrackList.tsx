@@ -1,6 +1,8 @@
-import { useCallback, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useState, type CSSProperties, type ReactNode } from "react";
+import { TRACK_REORDER_DRAG_TYPE } from "../../lib/dragDrop";
+import { IconGrip } from "../icons";
 import { formatDateAdded, formatTime } from "../../lib/format";
-import { Button } from "../Button/Button";
+import { Button } from "../common/Button/Button";
 import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
 import { TrackRowMenu } from "../TrackRowMenu/TrackRowMenu";
 import { TrackListColumnMenu } from "./TrackListColumnMenu";
@@ -81,6 +83,9 @@ interface TrackListProps {
   className?: string;
   bordered?: boolean;
   showAlbumArt?: boolean;
+  playlistId?: number;
+  reorderable?: boolean;
+  onReorderTracks?: (fromIndex: number, toIndex: number) => void;
 }
 
 interface ResizeHandleProps {
@@ -143,7 +148,14 @@ export function TrackList({
   className = "",
   bordered = true,
   showAlbumArt = false,
+  playlistId,
+  reorderable = false,
+  onReorderTracks,
 }: TrackListProps) {
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const canReorder = reorderable && !!onReorderTracks;
   const {
     preset,
     visibleColumns,
@@ -226,134 +238,215 @@ export function TrackList({
     );
   };
 
+  const handleDragEnd = () => {
+    setDraggingIndex(null);
+    setDragOverIndex(null);
+  };
+
+  const handleDrop = (toIndex: number) => {
+    if (draggingIndex == null || draggingIndex === toIndex || !onReorderTracks) {
+      handleDragEnd();
+      return;
+    }
+    onReorderTracks(draggingIndex, toIndex);
+    handleDragEnd();
+  };
+
   return (
     <>
-    <div
-      className={[
-        "track-list",
-        bordered && "track-list--bordered",
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      <div className="track-list__scroll">
-        <div className="track-list__inner" style={gridStyle}>
-          <div className="track-list__header" style={gridStyle} role="row">
-            {visibleColumns.map(renderHeaderCell)}
-            <div className="track-list__filler" aria-hidden />
-            <div className="track-list__header-actions">
-              {hideableColumns.length > 0 ? (
-                <TrackListColumnMenu
-                  columns={hideableColumns}
-                  isColumnVisible={isColumnVisible}
-                  onToggle={toggleColumnVisibility}
-                />
-              ) : null}
+      <div
+        className={[
+          "track-list",
+          bordered && "track-list--bordered",
+          canReorder && "track-list--reorderable",
+          className,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        <div className="track-list__scroll">
+          <div className="track-list__inner" style={gridStyle}>
+            <div className="track-list__header" style={gridStyle} role="row">
+              {visibleColumns.map(renderHeaderCell)}
+              <div className="track-list__filler" aria-hidden />
+              <div className="track-list__header-actions">
+                {hideableColumns.length > 0 ? (
+                  <TrackListColumnMenu
+                    columns={hideableColumns}
+                    isColumnVisible={isColumnVisible}
+                    onToggle={toggleColumnVisibility}
+                  />
+                ) : null}
+              </div>
             </div>
-          </div>
 
-          {tracks.length === 0 ? (
-            <p className="track-list__empty">{emptyMessage}</p>
-          ) : (
-            <ol className="track-list__body">
-              {tracks.map((track, displayIndex) => {
-            const isSelected = selectedTrackIds.includes(track.id);
-            const isNowPlaying = track.id === currentTrackId;
-            const isActivelyPlaying =
-              isNowPlaying && playbackState === "playing";
+            {tracks.length === 0 ? (
+              <p className="track-list__empty">{emptyMessage}</p>
+            ) : (
+              <ol className="track-list__body">
+                {tracks.map((track, displayIndex) => {
+                  const isSelected = selectedTrackIds.includes(track.id);
+                  const isNowPlaying = track.id === currentTrackId;
+                  const isActivelyPlaying =
+                    isNowPlaying && playbackState === "playing";
 
-            return (
-              <li key={track.id} className="track-list__item">
-                <TrackRowMenu track={track} className="track-list__row-wrap">
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    className={[
-                      "track-list__row",
-                      showAlbumArt && "track-list__row--with-art",
-                      isSelected && "track-list__row--selected",
-                      isNowPlaying && "track-list__row--playing",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    style={gridStyle}
-                    onClick={(e) => onSelectTrack(track, e)}
-                    onDoubleClick={() => onPlayTrack(track)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") onPlayTrack(track);
-                    }}
-                  >
-                    {visibleColumns.map((col) => {
-                      if (col.id === preset.indexColumn) {
-                        return (
-                          <span
-                            key={col.id}
-                            className={[
-                              "track-list__cell",
-                              "track-list__cell--index",
-                              col.align === "center" &&
-                                "track-list__cell--center",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
-                          >
-                            {indexDisplay(
-                              track,
-                              displayIndex,
-                              preset.indexColumn,
-                            )}
-                          </span>
-                        );
+                  return (
+                    <li
+                      key={track.id}
+                      className={[
+                        "track-list__item",
+                        draggingIndex === displayIndex &&
+                        "track-list__item--dragging",
+                        dragOverIndex === displayIndex &&
+                        draggingIndex != null &&
+                        draggingIndex !== displayIndex &&
+                        "track-list__item--drag-over",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      onDragOver={
+                        canReorder
+                          ? (e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                            setDragOverIndex(displayIndex);
+                          }
+                          : undefined
                       }
-
-                      if (col.id === "title") {
-                        return (
-                          <span
-                            key={col.id}
-                            className="track-list__cell track-list__cell--title"
-                          >
-                            <TrackItemTitle
-                              track={track}
-                              isActivelyPlaying={isActivelyPlaying}
-                              showAlbumArt={showAlbumArt}
-                            />
-                          </span>
-                        );
+                      onDragLeave={
+                        canReorder
+                          ? () => {
+                            if (dragOverIndex === displayIndex) {
+                              setDragOverIndex(null);
+                            }
+                          }
+                          : undefined
                       }
-
-                      return (
-                        <span
-                          key={col.id}
+                      onDrop={
+                        canReorder
+                          ? (e) => {
+                            e.preventDefault();
+                            handleDrop(displayIndex);
+                          }
+                          : undefined
+                      }
+                    >
+                      <TrackRowMenu
+                        track={track}
+                        className="track-list__row-wrap"
+                        playlistId={playlistId}
+                      >
+                        <div
+                          role="button"
+                          tabIndex={0}
                           className={[
-                            "track-list__cell",
-                            col.secondary && "track-list__cell--secondary",
-                            col.align === "center" &&
-                              "track-list__cell--center",
-                            col.align === "right" && "track-list__cell--right",
-                            col.id === "duration" &&
-                              "track-list__cell--duration",
+                            "track-list__row",
+                            showAlbumArt && "track-list__row--with-art",
+                            isSelected && "track-list__row--selected",
+                            isNowPlaying && "track-list__row--playing",
                           ]
                             .filter(Boolean)
                             .join(" ")}
+                          style={gridStyle}
+                          onClick={(e) => onSelectTrack(track, e)}
+                          onDoubleClick={() => onPlayTrack(track)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") onPlayTrack(track);
+                          }}
                         >
-                          {cellValue(track, col.id)}
-                        </span>
-                      );
-                    })}
-                    <span className="track-list__cell track-list__filler" aria-hidden />
-                    <span className="track-list__cell track-list__cell--actions" />
-                  </div>
-                </TrackRowMenu>
-              </li>
-            );
-              })}
-            </ol>
-          )}
+                          {visibleColumns.map((col) => {
+                            if (col.id === preset.indexColumn) {
+                              return (
+                                <span
+                                  key={col.id}
+                                  className={[
+                                    "track-list__cell",
+                                    "track-list__cell--index",
+                                    canReorder && "track-list__cell--index-reorder",
+                                    col.align === "center" &&
+                                    "track-list__cell--center",
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" ")}
+                                >
+                                  {canReorder ? (
+                                    <span
+                                      className="track-list__drag-handle"
+                                      draggable
+                                      aria-label={`Reorder ${track.title}`}
+                                      onDragStart={(e) => {
+                                        e.dataTransfer.effectAllowed = "move";
+                                        e.dataTransfer.setData(
+                                          TRACK_REORDER_DRAG_TYPE,
+                                          String(displayIndex),
+                                        );
+                                        setDraggingIndex(displayIndex);
+                                      }}
+                                      onDragEnd={handleDragEnd}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onPointerDown={(e) => e.stopPropagation()}
+                                    >
+                                      <IconGrip className="track-list__drag-icon" />
+                                    </span>
+                                  ) : null}
+                                  <span className="track-list__index-num">
+                                    {indexDisplay(
+                                      track,
+                                      displayIndex,
+                                      preset.indexColumn,
+                                    )}
+                                  </span>
+                                </span>
+                              );
+                            }
+
+                            if (col.id === "title") {
+                              return (
+                                <span
+                                  key={col.id}
+                                  className="track-list__cell track-list__cell--title"
+                                >
+                                  <TrackItemTitle
+                                    track={track}
+                                    isActivelyPlaying={isActivelyPlaying}
+                                    showAlbumArt={showAlbumArt}
+                                  />
+                                </span>
+                              );
+                            }
+
+                            return (
+                              <span
+                                key={col.id}
+                                className={[
+                                  "track-list__cell",
+                                  col.secondary && "track-list__cell--secondary",
+                                  col.align === "center" &&
+                                  "track-list__cell--center",
+                                  col.align === "right" && "track-list__cell--right",
+                                  col.id === "duration" &&
+                                  "track-list__cell--duration",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ")}
+                              >
+                                {cellValue(track, col.id)}
+                              </span>
+                            );
+                          })}
+                          <span className="track-list__cell track-list__filler" aria-hidden />
+                          <span className="track-list__cell track-list__cell--actions" />
+                        </div>
+                      </TrackRowMenu>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-    {headerContextMenu}
+      {headerContextMenu}
     </>
   );
 }

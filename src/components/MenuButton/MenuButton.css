@@ -1,0 +1,21 @@
+.menu-button {
+  display: flex;
+  align-items: center;
+}
+
+.menu-button__trigger {
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 1.75rem;
+}
+
+.menu-button__trigger svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+.menu-button__trigger:hover,
+.menu-button__trigger[aria-expanded="true"] {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}

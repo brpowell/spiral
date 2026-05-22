@@ -1,7 +1,9 @@
 import { albumTotalDurationSeconds, getAlbumByKey } from "../lib/albums";
 import { formatTime } from "../lib/format";
 import { AlbumArt } from "../components/AlbumArt/AlbumArt";
-import { Button } from "../components/Button/Button";
+import { Button } from "../components/common/Button/Button";
+import { ContextMenuItem } from "../components/ContextMenu/ContextMenu";
+import { MenuButton } from "../components/MenuButton/MenuButton";
 import { TrackList } from "../components/TrackList/TrackList";
 import {
   IconAddToQueue,
@@ -84,38 +86,45 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
           <IconBack />
           Albums
         </Button>
-        <div className="album-detail__toolbar-actions">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="album-detail__edit"
-            onClick={() => openAlbumEditor(album.key)}
-          >
-            <IconEditInfo />
-            Edit Album
-          </Button>
-          {album.tracks.length > 0 ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="album-detail__queue-all"
-              onClick={handleAddToQueue}
-            >
-              <IconAddToQueue />
-              Add to Queue
-            </Button>
-          ) : null}
-          <Button
-            variant="primary"
-            size="sm"
-            className="album-detail__play-all"
-            onClick={handlePlayAll}
-            disabled={album.tracks.length === 0}
-          >
-            <IconPlay />
-            Play All
-          </Button>
-        </div>
+        <MenuButton
+          ariaLabel="Album actions"
+          className="album-detail__toolbar-menu"
+          layoutDeps={[album.tracks.length]}
+          size="md"
+          variant="secondary"
+        >
+          {(close) => (
+            <>
+              <ContextMenuItem
+                icon={<IconEditInfo />}
+                label="Edit Album"
+                onClick={() => {
+                  close();
+                  openAlbumEditor(album.key);
+                }}
+              />
+              {album.tracks.length > 0 ? (
+                <ContextMenuItem
+                  icon={<IconAddToQueue />}
+                  label="Add to Queue"
+                  onClick={() => {
+                    close();
+                    handleAddToQueue();
+                  }}
+                />
+              ) : null}
+              <ContextMenuItem
+                icon={<IconPlay />}
+                label="Play All"
+                disabled={album.tracks.length === 0}
+                onClick={() => {
+                  close();
+                  handlePlayAll();
+                }}
+              />
+            </>
+          )}
+        </MenuButton>
       </div>
 
       <section className="album-detail__hero">

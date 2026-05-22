@@ -1,9 +1,3 @@
-.track-list-column-menu {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .track-list-column-menu__trigger {
   width: 1.75rem;
   height: 1.75rem;
@@ -13,10 +7,4 @@
 .track-list-column-menu__trigger svg {
   width: 1.05rem;
   height: 1.05rem;
-}
-
-.track-list-column-menu__trigger:hover,
-.track-list-column-menu__trigger[aria-expanded="true"] {
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }

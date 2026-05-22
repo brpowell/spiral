@@ -9,7 +9,7 @@ import { getManualNextId } from "../../lib/playbackQueue";
 import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { RepeatMode } from "../../types/track";
-import { Button } from "../Button/Button";
+import { Button } from "../common/Button/Button";
 import { AudioVisualizer } from "../AudioVisualizer/AudioVisualizer";
 import { ScrollingText } from "../ScrollingText/ScrollingText";
 import { TrackListModal } from "../TrackListModal/TrackListModal";
@@ -167,9 +167,8 @@ export function NowPlayingBar({
             variant="ghost"
             size="sm"
             iconOnly
-            className={`now-playing-bar__btn now-playing-bar__btn--shuffle${
-              shuffle ? " now-playing-bar__btn--shuffle-active" : ""
-            }`}
+            className={`now-playing-bar__btn now-playing-bar__btn--shuffle${shuffle ? " now-playing-bar__btn--shuffle-active" : ""
+              }`}
             onClick={toggleShuffle}
             aria-label={shuffle ? "Shuffle on" : "Shuffle off"}
             title={shuffle ? "Shuffle on" : "Shuffle off"}
@@ -181,11 +180,10 @@ export function NowPlayingBar({
             variant="ghost"
             size="sm"
             iconOnly
-            className={`now-playing-bar__btn now-playing-bar__btn--repeat${
-              repeatMode !== "off"
+            className={`now-playing-bar__btn now-playing-bar__btn--repeat${repeatMode !== "off"
                 ? " now-playing-bar__btn--repeat-active"
                 : ""
-            }`}
+              }`}
             onClick={cycleRepeat}
             aria-label={repeatLabel[repeatMode]}
             title={repeatLabel[repeatMode]}
@@ -283,64 +281,64 @@ export function NowPlayingBar({
         style={{ opacity: currentTrack ? 1 : 0.55 }}
       >
         <div className="now-playing-bar__center-inner">
-        <div className="now-playing-bar__widget">
-          <button
-            type="button"
-            className="now-playing-bar__art"
-            onClick={handleArtClick}
-            disabled={!currentTrack}
-            aria-label={artLabel}
-          >
-            {artSrc ? (
-              <img src={artSrc} alt="" className="now-playing-bar__art-img" />
-            ) : (
-              <div className="now-playing-bar__art-placeholder" aria-hidden>
-                <IconAlbumPlaceholder />
-              </div>
-            )}
-          </button>
+          <div className="now-playing-bar__widget">
+            <button
+              type="button"
+              className="now-playing-bar__art"
+              onClick={handleArtClick}
+              disabled={!currentTrack}
+              aria-label={artLabel}
+            >
+              {artSrc ? (
+                <img src={artSrc} alt="" className="now-playing-bar__art-img" />
+              ) : (
+                <div className="now-playing-bar__art-placeholder" aria-hidden>
+                  <IconAlbumPlaceholder />
+                </div>
+              )}
+            </button>
 
-          <div className="now-playing-bar__track-text">
-            <ScrollingText
-              className="now-playing-bar__title"
-              text={currentTrack?.title ?? "No track selected"}
-            />
-            <ScrollingText
-              className="now-playing-bar__subtitle"
-              text={subtitle ?? "Unknown artist"}
-            />
-          </div>
+            <div className="now-playing-bar__track-text">
+              <ScrollingText
+                className="now-playing-bar__title"
+                text={currentTrack?.title ?? "No track selected"}
+              />
+              <ScrollingText
+                className="now-playing-bar__subtitle"
+                text={subtitle ?? "Unknown artist"}
+              />
+            </div>
 
-          <div className="now-playing-bar__progress-row">
-            <span className="now-playing-bar__time">
-              {formatTime(displayPosition)}
-            </span>
-            <input
-              type="range"
-              className="now-playing-bar__seek-input"
-              min={0}
-              max={1}
-              step={0.001}
-              value={isSeeking ? seekValue : progress}
-              disabled={!currentTrackId}
-              aria-label="Seek"
-              onPointerDown={handleSeekStart}
-              onChange={(e) =>
-                handleSeekChange(Number(e.currentTarget.value))
-              }
-              onPointerUp={(e) =>
-                handleSeekEnd(Number(e.currentTarget.value))
-              }
-              onKeyUp={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  handleSeekEnd(Number(e.currentTarget.value));
+            <div className="now-playing-bar__progress-row">
+              <span className="now-playing-bar__time">
+                {formatTime(displayPosition)}
+              </span>
+              <input
+                type="range"
+                className="now-playing-bar__seek-input"
+                min={0}
+                max={1}
+                step={0.001}
+                value={isSeeking ? seekValue : progress}
+                disabled={!currentTrackId}
+                aria-label="Seek"
+                onPointerDown={handleSeekStart}
+                onChange={(e) =>
+                  handleSeekChange(Number(e.currentTarget.value))
                 }
-              }}
-            />
-            <span className="now-playing-bar__time now-playing-bar__time--remaining">
-              {formatRemainingTime(displayPosition, durationSeconds)}
-            </span>
-          </div>
+                onPointerUp={(e) =>
+                  handleSeekEnd(Number(e.currentTarget.value))
+                }
+                onKeyUp={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    handleSeekEnd(Number(e.currentTarget.value));
+                  }
+                }}
+              />
+              <span className="now-playing-bar__time now-playing-bar__time--remaining">
+                {formatRemainingTime(displayPosition, durationSeconds)}
+              </span>
+            </div>
           </div>
 
           <Button

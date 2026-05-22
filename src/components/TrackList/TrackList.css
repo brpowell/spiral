@@ -180,6 +180,59 @@
   color: var(--color-text-secondary);
 }
 
+.track-list--reorderable .track-list__cell--index-reorder {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding-left: 0.35rem;
+}
+
+.track-list__drag-handle {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: 0.1rem;
+  margin: -0.1rem;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: grab;
+  opacity: 0;
+  touch-action: none;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+
+.track-list__row:hover .track-list__drag-handle,
+.track-list__item--dragging .track-list__drag-handle {
+  opacity: 1;
+}
+
+.track-list__drag-handle:hover {
+  color: var(--color-text-primary);
+}
+
+.track-list__drag-handle:active {
+  cursor: grabbing;
+}
+
+.track-list__drag-icon {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.track-list__index-num {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+}
+
+.track-list__item--dragging {
+  opacity: 0.45;
+}
+
+.track-list__item--drag-over .track-list__row {
+  box-shadow: inset 0 2px 0 var(--color-accent);
+}
+
 .track-list__cell--title {
   overflow: visible;
 }

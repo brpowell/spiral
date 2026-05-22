@@ -1,12 +1,9 @@
-import { useRef } from "react";
 import {
-  ContextMenu,
   ContextMenuCheckboxItem,
   ContextMenuHeading,
 } from "../ContextMenu/ContextMenu";
-import { Button } from "../Button/Button";
 import { IconColumns } from "../icons";
-import { useContextMenu } from "../../hooks/useContextMenu";
+import { MenuButton } from "../MenuButton/MenuButton";
 import type { TrackListColumnDef, TrackListColumnId } from "./types";
 import "./TrackListColumnMenu.css";
 
@@ -21,35 +18,17 @@ export function TrackListColumnMenu({
   isColumnVisible,
   onToggle,
 }: TrackListColumnMenuProps) {
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const { open, anchor, position, menuRef, toggleFromTrigger } = useContextMenu({
-    layoutDeps: [columns.length],
-    dismissExcludeRefs: [triggerRef],
-  });
-
   if (columns.length === 0) return null;
 
   return (
-    <div className="track-list-column-menu">
-      <Button
-        ref={triggerRef}
-        variant="ghost"
-        size="sm"
-        iconOnly
-        className="track-list-column-menu__trigger"
-        aria-label="Show or hide columns"
-        aria-expanded={open}
-        aria-haspopup="true"
-        onClick={() => toggleFromTrigger(triggerRef.current)}
-      >
-        <IconColumns />
-      </Button>
-      <ContextMenu
-        open={open}
-        anchor={anchor}
-        position={position}
-        menuRef={menuRef}
-      >
+    <MenuButton
+      ariaLabel="Show or hide columns"
+      icon={<IconColumns />}
+      className="track-list-column-menu"
+      triggerClassName="track-list-column-menu__trigger"
+      layoutDeps={[columns.length]}
+    >
+      <>
         <ContextMenuHeading>Columns</ContextMenuHeading>
         {columns.map((col) => (
           <ContextMenuCheckboxItem
@@ -59,7 +38,7 @@ export function TrackListColumnMenu({
             onClick={() => onToggle(col.id)}
           />
         ))}
-      </ContextMenu>
-    </div>
+      </>
+    </MenuButton>
   );
 }

@@ -5,6 +5,7 @@ import type { PlaybackSession } from "../types/playbackSession";
 import type { Theme } from "../types/theme";
 import type { CoverArtCandidate } from "../types/coverArt";
 import type { TrackMetadataUpdate } from "../types/metadata";
+import type { Playlist } from "../types/playlist";
 import type { Track, TrackInput } from "../types/track";
 
 function normalizeCoverArtCandidate(
@@ -93,6 +94,95 @@ export async function removeTrack(
 export async function getLibrary(): Promise<Track[]> {
   const rows = await invoke<Record<string, unknown>[]>("get_library");
   return rows.map(normalizeTrack);
+}
+
+function normalizePlaylistImageMode(
+  raw: Record<string, unknown>,
+): Playlist["imageMode"] {
+  const mode = (raw.imageMode ?? raw.image_mode) as string | undefined;
+  return mode === "custom" ? "custom" : "generated";
+}
+
+function normalizePlaylist(raw: Record<string, unknown>): Playlist {
+  return {
+    id: raw.id as number,
+    title: raw.title as string,
+    description:
+      (raw.description as string | null | undefined) ?? null,
+    dateCreated: (raw.dateCreated ?? raw.date_created) as string,
+    lastUsedAt: (raw.lastUsedAt ?? raw.last_used_at) as string,
+    trackIds: (raw.trackIds ?? raw.track_ids ?? []) as number[],
+    imageMode: normalizePlaylistImageMode(raw),
+    customImagePath:
+      (raw.customImagePath ?? raw.custom_image_path ?? null) as string | null,
+  };
+}
+
+export async function getPlaylists(): Promise<Playlist[]> {
+  const rows = await invoke<Record<string, unknown>[]>("get_playlists");
+  return rows.map(normalizePlaylist);
+}
+
+export interface PlaylistImageUpdate {
+  imageMode: Playlist["imageMode"];
+  customImagePath: string | null;
+}
+
+export async function createPlaylist(
+  title: string,
+  description: string | null,
+  image: PlaylistImageUpdate,
+): Promise<number> {
+  return invoke<number>("create_playlist", {
+    title,
+    description,
+    imageMode: image.imageMode,
+    customImagePath: image.customImagePath,
+  });
+}
+
+export async function updatePlaylist(
+  id: number,
+  title: string,
+  description: string | null,
+  image: PlaylistImageUpdate,
+): Promise<void> {
+  return invoke<void>("update_playlist", {
+    id,
+    title,
+    description,
+    imageMode: image.imageMode,
+    customImagePath: image.customImagePath,
+  });
+}
+
+export async function touchPlaylist(id: number): Promise<void> {
+  return invoke<void>("touch_playlist", { id });
+}
+
+export async function addTracksToPlaylist(
+  playlistId: number,
+  trackIds: number[],
+): Promise<void> {
+  return invoke<void>("add_tracks_to_playlist", { playlistId, trackIds });
+}
+
+export async function removeTracksFromPlaylist(
+  playlistId: number,
+  trackIds: number[],
+): Promise<void> {
+  return invoke<void>("remove_tracks_from_playlist", { playlistId, trackIds });
+}
+
+export async function reorderPlaylistTracks(
+  playlistId: number,
+  trackIds: number[],
+): Promise<void> {
+  return invoke<void>("reorder_playlist_tracks", { playlistId, trackIds });
+}
+
+export async function deletePlaylist(id: number): Promise<void> {
+  return invoke<void>("delete_playlist", { id });
 }
 
 export async function pickImageFile(): Promise<string | null> {

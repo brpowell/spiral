@@ -1,7 +1,7 @@
 import { useRef, type KeyboardEvent } from "react";
 import { IconClose, IconSearch } from "../icons";
-import { Button } from "../Button/Button";
-import { TextInput } from "../TextInput/TextInput";
+import { Button } from "../common/Button/Button";
+import { TextInput } from "../common/TextInput/TextInput";
 import "./SearchField.css";
 
 export interface SearchFieldProps {
