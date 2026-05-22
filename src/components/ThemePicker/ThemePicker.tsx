@@ -5,6 +5,7 @@ import { useThemeStore } from "../../store/useThemeStore";
 import { THEME_SCHEMA_EXAMPLE, type Theme } from "../../types/theme";
 import { IconCheck, IconClose, IconHelp } from "../icons";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
+import { Button } from "../Button/Button";
 import { ModalFooter } from "../ModalFooter/ModalFooter";
 import "./ThemePicker.css";
 
@@ -97,8 +98,10 @@ export function ThemePicker() {
           </h2>
           <div className="theme-picker__header-actions">
             <div className="theme-picker__schema-wrap">
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="md"
+                iconOnly
                 className="theme-picker__help"
                 aria-expanded={schemaOpen}
                 aria-controls="theme-schema-panel"
@@ -106,7 +109,7 @@ export function ThemePicker() {
                 onClick={() => setSchemaOpen((v) => !v)}
               >
                 <IconHelp />
-              </button>
+              </Button>
               {schemaOpen && (
                 <div
                   id="theme-schema-panel"
@@ -123,14 +126,16 @@ export function ThemePicker() {
                 </div>
               )}
             </div>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="md"
+              iconOnly
               className="theme-picker__close"
               aria-label="Close"
               onClick={() => setOpen(false)}
             >
               <IconClose />
-            </button>
+            </Button>
           </div>
         </header>
 
@@ -152,20 +157,12 @@ export function ThemePicker() {
         </div>
 
         <ModalFooter padded>
-          <button
-            type="button"
-            className="modal-footer__btn"
-            onClick={() => void importTheme()}
-          >
+          <Button variant="secondary" onClick={() => void importTheme()}>
             Add theme…
-          </button>
-          <button
-            type="button"
-            className="modal-footer__btn"
-            onClick={() => void openThemesFolder()}
-          >
+          </Button>
+          <Button variant="secondary" onClick={() => void openThemesFolder()}>
             Open themes folder
-          </button>
+          </Button>
         </ModalFooter>
     </AnimatedModal>
   );

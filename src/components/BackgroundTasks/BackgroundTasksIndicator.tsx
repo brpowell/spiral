@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
+import { Button } from "../Button/Button";
 import { IconCheck, IconClose } from "../icons";
 import { panelMotion } from "../../lib/motion";
 import {
@@ -53,14 +54,16 @@ function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
         )}
       </div>
       {isDone && (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
           className="background-tasks__dismiss"
           onClick={() => dismissTask(task.id)}
           aria-label="Dismiss"
         >
           <IconClose />
-        </button>
+        </Button>
       )}
     </motion.div>
   );

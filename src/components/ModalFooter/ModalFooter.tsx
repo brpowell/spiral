@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Button } from "../Button/Button";
 import "./ModalFooter.css";
 
 interface ModalFooterProps {
@@ -24,14 +25,14 @@ export function ModalFooter({
     >
       <div className="modal-footer__start">
         {onCancel != null && (
-          <button
-            type="button"
-            className="modal-footer__cancel"
+          <Button
+            variant="ghost"
+            size="md"
             onClick={onCancel}
             disabled={cancelDisabled}
           >
             {cancelLabel}
-          </button>
+          </Button>
         )}
       </div>
       <div className="modal-footer__end">{children}</div>

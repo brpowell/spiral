@@ -4,6 +4,7 @@ import {
   ContextMenuCheckboxItem,
   ContextMenuHeading,
 } from "../ContextMenu/ContextMenu";
+import { Button } from "../Button/Button";
 import { IconColumns } from "../icons";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import type { TrackListColumnDef, TrackListColumnId } from "./types";
@@ -30,9 +31,11 @@ export function TrackListColumnMenu({
 
   return (
     <div className="track-list-column-menu">
-      <button
+      <Button
         ref={triggerRef}
-        type="button"
+        variant="ghost"
+        size="sm"
+        iconOnly
         className="track-list-column-menu__trigger"
         aria-label="Show or hide columns"
         aria-expanded={open}
@@ -40,7 +43,7 @@ export function TrackListColumnMenu({
         onClick={() => toggleFromTrigger(triggerRef.current)}
       >
         <IconColumns />
-      </button>
+      </Button>
       <ContextMenu
         open={open}
         anchor={anchor}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { Track } from "../../types/track";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
+import { Button } from "../Button/Button";
 import { ModalFooter } from "../ModalFooter/ModalFooter";
 import "./RemoveTrackDialog.css";
 
@@ -80,20 +81,15 @@ export function RemoveTrackDialog({
       </ul>
 
       <ModalFooter onCancel={onClose}>
-        <button
-          type="button"
-          className="modal-footer__btn"
+        <Button
+          variant="secondary"
           onClick={() => void handleRemove(false)}
         >
           Remove from library
-        </button>
-        <button
-          type="button"
-          className="modal-footer__btn modal-footer__btn--danger"
-          onClick={() => void handleRemove(true)}
-        >
+        </Button>
+        <Button variant="danger" onClick={() => void handleRemove(true)}>
           Remove and delete file{count > 1 ? "s" : ""}
-        </button>
+        </Button>
       </ModalFooter>
     </AnimatedModal>
   );

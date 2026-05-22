@@ -2,6 +2,7 @@ import { useId, useRef, useState } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
+import { Button } from "../Button/Button";
 import { ModalFooter } from "../ModalFooter/ModalFooter";
 import "./ImportChoiceModal.css";
 
@@ -50,20 +51,15 @@ export function ImportChoiceModal() {
       </div>
 
       <ModalFooter onCancel={cancelImportChoice}>
-        <button
-          type="button"
-          className="modal-footer__btn"
+        <Button
+          variant="secondary"
           onClick={() => handleChoice("reference")}
         >
           Keep original location
-        </button>
-        <button
-          type="button"
-          className="modal-footer__btn modal-footer__btn--primary"
-          onClick={() => handleChoice("copy")}
-        >
+        </Button>
+        <Button variant="primary" onClick={() => handleChoice("copy")}>
           Copy to library
-        </button>
+        </Button>
       </ModalFooter>
     </AnimatedModal>
   );

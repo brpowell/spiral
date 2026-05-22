@@ -6,6 +6,7 @@ import { AlbumEditor } from "./components/AlbumEditor/AlbumEditor";
 import { TrackEditor } from "./components/TrackEditor/TrackEditor";
 import { MainContent } from "./components/layout/MainContent";
 import { Sidebar } from "./components/layout/Sidebar";
+import { Button } from "./components/Button/Button";
 import { ImportChoiceModal } from "./components/ImportChoiceModal/ImportChoiceModal";
 import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal";
 import { setupAppMenu } from "./lib/appMenu";
@@ -51,9 +52,15 @@ function App() {
       {importError && (
         <div className="error-banner" role="alert">
           <span>{importError}</span>
-          <button type="button" onClick={clearImportError} aria-label="Dismiss">
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            onClick={clearImportError}
+            aria-label="Dismiss"
+          >
             ×
-          </button>
+          </Button>
         </div>
       )}
 

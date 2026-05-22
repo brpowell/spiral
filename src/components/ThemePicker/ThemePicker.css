@@ -46,17 +46,6 @@
   position: relative;
 }
 
-.theme-picker__help,
-.theme-picker__close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border-radius: var(--radius-button);
-}
-
 .theme-picker__help svg,
 .theme-picker__close svg {
   width: 1.1rem;

@@ -1,5 +1,6 @@
 import { useRef, type KeyboardEvent } from "react";
 import { IconClose, IconSearch } from "../icons";
+import { Button } from "../Button/Button";
 import { TextInput } from "../TextInput/TextInput";
 import "./SearchField.css";
 
@@ -49,8 +50,10 @@ export function SearchField({
         onEscape={handleEscape}
         aria-label={ariaLabel}
       />
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
+        iconOnly
         className="search-field__clear"
         onClick={(e) => {
           e.stopPropagation();
@@ -62,7 +65,7 @@ export function SearchField({
         aria-hidden={!value}
       >
         <IconClose />
-      </button>
+      </Button>
     </div>
   );
 }

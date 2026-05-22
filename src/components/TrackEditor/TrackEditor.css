@@ -84,7 +84,6 @@
 
 .track-editor__art-btn {
   width: 100%;
-  font-size: 0.8rem;
 }
 
 .track-editor__fetch-msg {
@@ -199,15 +198,6 @@
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
-}
-
-.track-editor__discard-btn {
-  font-size: 0.8rem;
-}
-
-.track-editor__discard-btn--danger {
-  border-color: color-mix(in srgb, var(--color-danger) 50%, var(--color-border));
-  color: var(--color-danger);
 }
 
 .track-editor__fields {

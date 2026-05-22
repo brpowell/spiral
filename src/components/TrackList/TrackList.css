@@ -66,17 +66,15 @@
 
 .track-list__header-btn {
   padding: 0;
-  border: none;
-  background: transparent;
-  color: inherit;
   font: inherit;
   font-weight: 600;
   text-align: inherit;
-  cursor: pointer;
+  color: inherit;
 }
 
-.track-list__header-btn:hover {
+.track-list__header-btn:hover:not(:disabled) {
   color: var(--color-accent);
+  background: transparent;
 }
 
 .track-list__header-actions {

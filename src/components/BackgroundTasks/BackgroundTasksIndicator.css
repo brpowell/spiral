@@ -101,16 +101,9 @@
 
 .background-tasks__dismiss {
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 1.5rem;
   height: 1.5rem;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  border-radius: var(--radius-button);
+  min-width: 1.5rem;
 }
 
 .background-tasks__dismiss svg {
@@ -118,8 +111,3 @@
   height: 0.9rem;
 }
 
-.background-tasks__dismiss:hover {
-  color: var(--color-text-primary);
-  background: color-mix(in srgb, var(--color-border) 50%, transparent);
-  border-color: transparent;
-}

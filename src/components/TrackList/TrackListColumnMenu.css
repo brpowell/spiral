@@ -5,17 +5,9 @@
 }
 
 .track-list-column-menu__trigger {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 1.75rem;
   height: 1.75rem;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-secondary);
-  cursor: pointer;
+  min-width: 1.75rem;
 }
 
 .track-list-column-menu__trigger svg {

@@ -5,6 +5,7 @@ import { formatTime } from "../../lib/format";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { Track } from "../../types/track";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
+import { Button } from "../Button/Button";
 import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
 import { AlbumArt } from "../AlbumArt/AlbumArt";
 import { IconClose } from "../icons";
@@ -102,22 +103,23 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
           Track list
         </h2>
         <div className="track-list-modal__header-actions">
-          <button
-            type="button"
-            className="track-list-modal__clear"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={handleClear}
             disabled={activeIds.length === 0}
           >
             Clear
-          </button>
-          <button
-            type="button"
-            className="track-list-modal__close"
+          </Button>
+          <Button
+            variant="ghost"
+            size="md"
+            iconOnly
             onClick={onClose}
             aria-label="Close"
           >
             <IconClose />
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -229,14 +231,15 @@ function TrackListRow({
         )}
       </button>
       {onRemoveFromQueue ? (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           className="track-list-modal__row-remove"
           onClick={onRemoveFromQueue}
           aria-label="Remove from queue"
         >
           Remove
-        </button>
+        </Button>
       ) : null}
     </div>
   );

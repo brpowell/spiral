@@ -5,6 +5,7 @@ import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import type { ImportMode, LibrarySettings } from "../../types/library";
 import { IconClose } from "../icons";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
+import { Button } from "../Button/Button";
 import { ModalFooter } from "../ModalFooter/ModalFooter";
 import { TextInput } from "../TextInput/TextInput";
 import "./PreferencesModal.css";
@@ -103,14 +104,16 @@ export function PreferencesModal() {
         <h2 id={titleId} className="preferences__title">
           Preferences
         </h2>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="md"
+          iconOnly
           className="preferences__close"
           aria-label="Close"
           onClick={() => setOpen(false)}
         >
           <IconClose />
-        </button>
+        </Button>
       </header>
 
       <section className="preferences__section" aria-labelledby="library-prefs-heading">
@@ -128,9 +131,9 @@ export function PreferencesModal() {
               }
               spellCheck={false}
             />
-            <button type="button" onClick={() => void browseMediaFolder()}>
+            <Button size="sm" onClick={() => void browseMediaFolder()}>
               Choose…
-            </button>
+            </Button>
           </div>
         </label>
 
@@ -146,9 +149,9 @@ export function PreferencesModal() {
               }
               spellCheck={false}
             />
-            <button type="button" onClick={() => void browseDatabaseFolder()}>
+            <Button size="sm" onClick={() => void browseDatabaseFolder()}>
               Choose…
-            </button>
+            </Button>
           </div>
         </label>
 
@@ -260,14 +263,13 @@ export function PreferencesModal() {
         cancelDisabled={saving}
       >
         {!restartHint && (
-          <button
-            type="button"
-            className="modal-footer__btn modal-footer__btn--primary"
+          <Button
+            variant="primary"
             onClick={() => void handleSave()}
             disabled={saving}
           >
             {saving ? "Saving…" : "Save"}
-          </button>
+          </Button>
         )}
       </ModalFooter>
     </AnimatedModal>

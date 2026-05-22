@@ -1,6 +1,7 @@
 import { albumTotalDurationSeconds, getAlbumByKey } from "../lib/albums";
 import { formatTime } from "../lib/format";
 import { AlbumArt } from "../components/AlbumArt/AlbumArt";
+import { Button } from "../components/Button/Button";
 import { TrackList } from "../components/TrackList/TrackList";
 import {
   IconAddToQueue,
@@ -34,10 +35,15 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
   if (!album) {
     return (
       <div className="album-detail album-detail--missing">
-        <button type="button" className="album-detail__back" onClick={closeAlbum}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="album-detail__back"
+          onClick={closeAlbum}
+        >
           <IconBack />
           Albums
-        </button>
+        </Button>
         <p>Album not found.</p>
       </div>
     );
@@ -69,38 +75,46 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
   return (
     <div className="album-detail">
       <div className="album-detail__toolbar">
-        <button type="button" className="album-detail__back" onClick={closeAlbum}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="album-detail__back"
+          onClick={closeAlbum}
+        >
           <IconBack />
           Albums
-        </button>
+        </Button>
         <div className="album-detail__toolbar-actions">
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="sm"
             className="album-detail__edit"
             onClick={() => openAlbumEditor(album.key)}
           >
             <IconEditInfo />
             Edit Album
-          </button>
+          </Button>
           {album.tracks.length > 0 ? (
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               className="album-detail__queue-all"
               onClick={handleAddToQueue}
             >
               <IconAddToQueue />
               Add to Queue
-            </button>
+            </Button>
           ) : null}
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             className="album-detail__play-all"
             onClick={handlePlayAll}
             disabled={album.tracks.length === 0}
           >
             <IconPlay />
             Play All
-          </button>
+          </Button>
         </div>
       </div>
 

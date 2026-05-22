@@ -1,5 +1,6 @@
 import { useCallback, type CSSProperties, type ReactNode } from "react";
 import { formatDateAdded, formatTime } from "../../lib/format";
+import { Button } from "../Button/Button";
 import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
 import { TrackRowMenu } from "../TrackRowMenu/TrackRowMenu";
 import { TrackListColumnMenu } from "./TrackListColumnMenu";
@@ -181,13 +182,14 @@ export function TrackList({
 
     const content =
       onSort && field ? (
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           className="track-list__header-btn"
           onClick={() => onSort(field)}
         >
           {label}
-        </button>
+        </Button>
       ) : (
         <span className="track-list__header-label">{label}</span>
       );

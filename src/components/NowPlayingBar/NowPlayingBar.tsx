@@ -9,6 +9,7 @@ import { getManualNextId } from "../../lib/playbackQueue";
 import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { RepeatMode } from "../../types/track";
+import { Button } from "../Button/Button";
 import { AudioVisualizer } from "../AudioVisualizer/AudioVisualizer";
 import { ScrollingText } from "../ScrollingText/ScrollingText";
 import { TrackListModal } from "../TrackListModal/TrackListModal";
@@ -162,8 +163,10 @@ export function NowPlayingBar({
         style={{ opacity: currentTrackId ? 1 : 0.5 }}
       >
         <div className="now-playing-bar__transport">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
             className={`now-playing-bar__btn now-playing-bar__btn--shuffle${
               shuffle ? " now-playing-bar__btn--shuffle-active" : ""
             }`}
@@ -172,10 +175,12 @@ export function NowPlayingBar({
             title={shuffle ? "Shuffle on" : "Shuffle off"}
           >
             <IconShuffle />
-          </button>
+          </Button>
 
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
             className={`now-playing-bar__btn now-playing-bar__btn--repeat${
               repeatMode !== "off"
                 ? " now-playing-bar__btn--repeat-active"
@@ -186,20 +191,24 @@ export function NowPlayingBar({
             title={repeatLabel[repeatMode]}
           >
             {repeatMode === "one" ? <IconRepeatOne /> : <IconRepeat />}
-          </button>
+          </Button>
 
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
             className="now-playing-bar__btn"
             onClick={previousTrack}
             disabled={!canGoPrevious}
             aria-label="Previous track"
           >
             <IconPrevious />
-          </button>
+          </Button>
 
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
+            iconOnly
             className="now-playing-bar__btn now-playing-bar__btn--play"
             onClick={handlePlayPause}
             disabled={!currentTrackId}
@@ -230,28 +239,32 @@ export function NowPlayingBar({
                 </motion.span>
               )}
             </AnimatePresence>
-          </button>
+          </Button>
 
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
             className="now-playing-bar__btn"
             onClick={nextTrack}
             disabled={!canGoNext}
             aria-label="Next track"
           >
             <IconNext />
-          </button>
+          </Button>
         </div>
 
         <div className="now-playing-bar__volume">
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
             className="now-playing-bar__btn now-playing-bar__btn--volume"
             onClick={toggleMute}
             aria-label={muted ? "Unmute" : "Mute"}
           >
             {muted ? <IconVolumeMute /> : <IconVolume />}
-          </button>
+          </Button>
           <input
             type="range"
             className="now-playing-bar__volume-input"
@@ -330,8 +343,10 @@ export function NowPlayingBar({
           </div>
           </div>
 
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
             className="now-playing-bar__btn now-playing-bar__btn--track-list"
             onClick={() => setTrackListOpen(true)}
             disabled={activeQueue.length === 0}
@@ -339,7 +354,7 @@ export function NowPlayingBar({
             title="View track list"
           >
             <IconTrackList />
-          </button>
+          </Button>
         </div>
       </div>
 

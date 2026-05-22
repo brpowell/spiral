@@ -54,35 +54,9 @@ textarea,
   flex-shrink: 0;
 }
 
-.error-banner button {
-  flex-shrink: 0;
-  padding: 0.1rem 0.45rem;
-  font-size: 1.1rem;
-  line-height: 1;
-}
-
 .app-body {
   display: flex;
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-
-button {
-  cursor: pointer;
-  padding: 0.4rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-button);
-  background: var(--color-surface-raised);
-  color: var(--color-text-primary);
-}
-
-button:hover:not(:disabled) {
-  border-color: var(--color-accent-muted);
-  color: var(--color-accent);
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }

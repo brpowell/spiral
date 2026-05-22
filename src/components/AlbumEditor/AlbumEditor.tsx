@@ -22,6 +22,7 @@ import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
 import { AlbumArt } from "../AlbumArt/AlbumArt";
 import { AnimatedModal } from "../AnimatedModal/AnimatedModal";
+import { Button } from "../Button/Button";
 import { ModalFooter } from "../ModalFooter/ModalFooter";
 import { TextInput } from "../TextInput/TextInput";
 import "../TrackEditor/TrackEditor.css";
@@ -372,21 +373,21 @@ export function AlbumEditor() {
                   />
                 )}
               </div>
-              <button
-                type="button"
+              <Button
+                size="sm"
                 className="track-editor__art-btn"
                 onClick={() => void handleChangeArt()}
               >
                 Change Art
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                size="sm"
                 className="track-editor__art-btn"
                 onClick={() => void handleFetchArt()}
                 disabled={fetchingArt}
               >
                 {fetchingArt ? "Fetching…" : "Fetch Art"}
-              </button>
+              </Button>
               {fetchMessage && !fetchingArt && (
                 <p className="track-editor__fetch-msg">{fetchMessage}</p>
               )}
@@ -486,20 +487,20 @@ export function AlbumEditor() {
                 Unsaved edits to this album will be lost.
               </p>
               <div className="track-editor__discard-actions">
-                <button
-                  type="button"
-                  className="track-editor__discard-btn"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setDiscardPrompt(false)}
                 >
                   Keep editing
-                </button>
-                <button
-                  type="button"
-                  className="track-editor__discard-btn track-editor__discard-btn--danger"
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
                   onClick={confirmDiscard}
                 >
                   Discard
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -509,14 +510,13 @@ export function AlbumEditor() {
             cancelDisabled={saving}
             cancelLabel={discardPrompt ? "Back" : "Cancel"}
           >
-            <button
-              type="button"
-              className="modal-footer__btn modal-footer__btn--primary"
+            <Button
+              variant="primary"
               onClick={() => void handleSave()}
               disabled={!hasChanges || saving || discardPrompt}
             >
               {saveLabel}
-            </button>
+            </Button>
           </ModalFooter>
         </>
       )}

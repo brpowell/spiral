@@ -36,16 +36,6 @@
   font-weight: 700;
 }
 
-.preferences__close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border-radius: var(--radius-button);
-}
-
 .preferences__close svg {
   width: 1.1rem;
   height: 1.1rem;
@@ -90,11 +80,8 @@
   background: var(--color-bg);
 }
 
-.preferences__path-row button {
+.preferences__path-row .btn {
   flex-shrink: 0;
-  padding: 0.45rem 0.65rem;
-  border-radius: var(--radius-button);
-  font-size: 0.82rem;
 }
 
 .preferences__hint {

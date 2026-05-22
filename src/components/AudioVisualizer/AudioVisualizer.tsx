@@ -7,6 +7,7 @@ import {
   getDefaultPalette,
 } from "../../lib/palette";
 import { usePlayerStore } from "../../store/usePlayerStore";
+import { Button } from "../Button/Button";
 import { IconVisualizer } from "../icons";
 import "./AudioVisualizer.css";
 
@@ -215,15 +216,17 @@ export function AudioVisualizer({
   ) => (
     <div className={className} ref={ref}>
       <canvas ref={canvasRef} className="audio-visualizer__canvas" aria-hidden />
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
+        iconOnly
         className="audio-visualizer__toggle"
         onClick={onToggleExpand}
         aria-label={expanded ? "Collapse visualizer" : "Expand visualizer"}
         aria-pressed={expanded}
       >
         <IconVisualizer />
-      </button>
+      </Button>
     </div>
   );
 
