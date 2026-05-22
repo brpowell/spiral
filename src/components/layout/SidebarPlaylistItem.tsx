@@ -4,6 +4,7 @@ import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { Playlist } from "../../types/playlist";
 import { PlaylistArt } from "../PlaylistArt/PlaylistArt";
+import { SidebarItem } from "./SidebarItem/SidebarItem";
 
 interface SidebarPlaylistItemProps {
   playlist: Playlist;
@@ -21,25 +22,22 @@ export function SidebarPlaylistItem({ playlist }: SidebarPlaylistItemProps) {
 
   return (
     <li>
-      <button
-        type="button"
-        className={
-          isActive
-            ? "sidebar__playlist-link sidebar__playlist-link--active"
-            : "sidebar__playlist-link"
+      <SidebarItem
+        variant="playlist"
+        active={isActive}
+        leading={
+          <PlaylistArt
+            playlist={playlist}
+            tracks={tracks}
+            className="playlist-art--sidebar"
+            alt=""
+          />
         }
-        aria-current={isActive ? "page" : undefined}
         onClick={() => openPlaylist(playlist.id)}
         onContextMenu={onContextMenu}
       >
-        <PlaylistArt
-          playlist={playlist}
-          tracks={tracks}
-          className="playlist-art--sidebar"
-          alt=""
-        />
-        <span className="sidebar__playlist-title">{playlist.title}</span>
-      </button>
+        {playlist.title}
+      </SidebarItem>
       {contextMenu}
       {deleteDialog}
     </li>

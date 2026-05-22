@@ -11,7 +11,9 @@ import {
   IconArtists,
   IconTracks,
   IconPalette,
+  IconPlaylistAdd,
 } from "../icons";
+import { SidebarItem } from "./SidebarItem/SidebarItem";
 import { SidebarPlaylistItem } from "./SidebarPlaylistItem";
 import "./Sidebar.css";
 
@@ -31,6 +33,7 @@ export function Sidebar() {
   const playlistId = useNavigationStore((s) => s.playlistId);
   const setView = useNavigationStore((s) => s.setView);
   const playlists = usePlaylistStore((s) => s.playlists);
+  const openPlaylistEditor = usePlaylistStore((s) => s.openPlaylistEditor);
   const setThemePickerOpen = useThemeStore((s) => s.setThemePickerOpen);
   const loadThemes = useThemeStore((s) => s.loadThemes);
 
@@ -41,20 +44,14 @@ export function Sidebar() {
           const isActive = item.view === view && playlistId == null;
           return (
             <li key={item.view}>
-              <button
-                type="button"
-                className={
-                  isActive
-                    ? "sidebar__link sidebar__link--active"
-                    : "sidebar__link"
-                }
+              <SidebarItem
+                icon={item.icon}
+                active={isActive}
                 disabled={!item.enabled}
-                aria-current={isActive ? "page" : undefined}
                 onClick={() => item.enabled && setView(item.view)}
               >
-                <span className="sidebar__icon">{item.icon}</span>
                 {item.label}
-              </button>
+              </SidebarItem>
             </li>
           );
         })}
@@ -62,31 +59,36 @@ export function Sidebar() {
 
       <section className="sidebar__playlists" aria-label="Playlists">
         <h2 className="sidebar__section-label">Playlists</h2>
-        {playlists.length === 0 ? (
-          <p className="sidebar__playlists-empty">No playlists yet</p>
-        ) : (
-          <ul className="sidebar__playlist-list">
-            {playlists.map((playlist) => (
-              <SidebarPlaylistItem key={playlist.id} playlist={playlist} />
-            ))}
-          </ul>
-        )}
+        <div className="sidebar__playlist-body">
+          {playlists.length === 0 ? (
+            <p className="sidebar__playlists-empty">No playlists yet</p>
+          ) : (
+            <ul className="sidebar__playlist-list">
+              {playlists.map((playlist) => (
+                <SidebarPlaylistItem key={playlist.id} playlist={playlist} />
+              ))}
+            </ul>
+          )}
+        </div>
+        <SidebarItem
+          icon={<IconPlaylistAdd />}
+          className="sidebar__playlist-create"
+          onClick={() => openPlaylistEditor("new")}
+        >
+          New Playlist
+        </SidebarItem>
       </section>
 
       <div className="sidebar__footer">
-        <button
-          type="button"
-          className="sidebar__link sidebar__link--settings"
+        <SidebarItem
+          icon={<IconPalette />}
           aria-label="Themes and appearance"
           onClick={() => {
             void loadThemes().then(() => setThemePickerOpen(true));
           }}
         >
-          <span className="sidebar__icon">
-            <IconPalette />
-          </span>
           Themes
-        </button>
+        </SidebarItem>
       </div>
 
       <ThemePicker />

@@ -4,7 +4,7 @@ import {
   uniqueTrackArtPaths,
 } from "../../lib/playlistArt";
 import type { Track } from "../../types/track";
-import { IconAlbumPlaceholder } from "../icons";
+import { IconPlaylistPlaceholder } from "../icons";
 import "./PlaylistArt.css";
 
 interface PlaylistGeneratedArtProps {
@@ -42,7 +42,7 @@ export function PlaylistGeneratedArt({
         aria-label={alt || undefined}
       >
         <span className="playlist-art__empty-icon" aria-hidden>
-          <IconAlbumPlaceholder />
+          <IconPlaylistPlaceholder />
         </span>
       </div>
     );

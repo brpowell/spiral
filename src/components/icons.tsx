@@ -101,10 +101,25 @@ export function IconVolumeMute(props: IconProps) {
 
 export function IconAlbumPlaceholder(props: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M6 12c0-1.7.7-3.2 1.8-4.2" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M18 12c0 1.7-.7 3.2-1.8 4.2" />
     </svg>
   );
+}
+
+export function IconPlaylistPlaceholder(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" {...props}>
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <circle cx="8" cy="10" r="2" />
+      <path d="M8 12h8" />
+      <circle cx="16" cy="10" r="2" />
+      <path d="m6 20 .7-2.9A1.4 1.4 0 0 1 8.1 16h7.8a1.4 1.4 0 0 1 1.4 1l.7 3" />
+    </svg>
+  )
 }
 
 export function IconBack(props: IconProps) {

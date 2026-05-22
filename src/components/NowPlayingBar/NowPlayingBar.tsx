@@ -181,8 +181,8 @@ export function NowPlayingBar({
             size="sm"
             iconOnly
             className={`now-playing-bar__btn now-playing-bar__btn--repeat${repeatMode !== "off"
-                ? " now-playing-bar__btn--repeat-active"
-                : ""
+              ? " now-playing-bar__btn--repeat-active"
+              : ""
               }`}
             onClick={cycleRepeat}
             aria-label={repeatLabel[repeatMode]}
