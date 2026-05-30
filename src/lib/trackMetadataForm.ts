@@ -1,4 +1,9 @@
 import { albumKey, pickArtPath } from "./albums";
+import {
+  artistNamesEqual,
+  parseArtistField,
+  serializeArtistField,
+} from "./artistNames";
 import type { TrackMetadataUpdate } from "../types/metadata";
 import type { Track } from "../types/track";
 
@@ -48,6 +53,18 @@ function sharedString(
   return first;
 }
 
+export function sharedArtistField(
+  tracks: Track[],
+  getter: (track: Track) => string | null,
+): string {
+  if (tracks.length === 0) return "";
+  const first = parseArtistField(getter(tracks[0]));
+  for (let i = 1; i < tracks.length; i++) {
+    if (!artistNamesEqual(first, parseArtistField(getter(tracks[i])))) return "";
+  }
+  return serializeArtistField(first) ?? "";
+}
+
 function sharedInt(
   tracks: Track[],
   getter: (track: Track) => number | null,
@@ -77,9 +94,9 @@ export function tracksToForm(tracks: Track[]): TrackEditorForm {
   if (tracks.length === 1) return trackToForm(tracks[0]);
   return {
     title: sharedString(tracks, (t) => t.title),
-    artist: sharedString(tracks, (t) => t.artist),
+    artist: sharedArtistField(tracks, (t) => t.artist),
     album: sharedString(tracks, (t) => t.album),
-    albumArtist: sharedString(tracks, (t) => t.albumArtist),
+    albumArtist: sharedArtistField(tracks, (t) => t.albumArtist),
     year: sharedInt(tracks, (t) => t.year),
     trackNumber: sharedInt(tracks, (t) => t.trackNumber),
     discNumber: sharedInt(tracks, (t) => t.discNumber),
@@ -103,12 +120,22 @@ export function isTrackEditorFieldMixed(
   switch (field) {
     case "title":
       return valuesDiffer(tracks, (t) => t.title);
-    case "artist":
-      return valuesDiffer(tracks, (t) => normalizeOptionalString(t.artist));
+    case "artist": {
+      if (tracks.length <= 1) return false;
+      const first = parseArtistField(tracks[0].artist);
+      return tracks.some(
+        (t) => !artistNamesEqual(first, parseArtistField(t.artist)),
+      );
+    }
     case "album":
       return valuesDiffer(tracks, (t) => normalizeOptionalString(t.album));
-    case "albumArtist":
-      return valuesDiffer(tracks, (t) => normalizeOptionalString(t.albumArtist));
+    case "albumArtist": {
+      if (tracks.length <= 1) return false;
+      const first = parseArtistField(tracks[0].albumArtist);
+      return tracks.some(
+        (t) => !artistNamesEqual(first, parseArtistField(t.albumArtist)),
+      );
+    }
     case "year":
       return valuesDiffer(tracks, (t) => t.year);
     case "trackNumber":

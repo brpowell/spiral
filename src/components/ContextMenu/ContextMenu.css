@@ -1,6 +1,6 @@
 .context-menu {
   position: fixed;
-  z-index: 900;
+  z-index: 1100;
   min-width: 11.5rem;
   width: max-content;
   max-width: calc(100vw - 1rem);
@@ -133,7 +133,52 @@
 
 .context-menu--flyout {
   position: fixed;
-  z-index: 901;
+  z-index: 1101;
   max-height: min(24rem, calc(100vh - 1rem));
   overflow-y: auto;
+}
+
+.context-menu--select {
+  min-width: 14rem;
+  max-width: min(22rem, calc(100vw - 1rem));
+}
+
+.context-menu button.context-menu__option {
+  align-items: flex-start;
+  gap: 0.5rem;
+  white-space: normal;
+  padding: 0.55rem 0.65rem;
+}
+
+.context-menu__option-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.context-menu__option-description {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+  white-space: normal;
+}
+
+.context-menu__option-check {
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-start;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.1rem;
+  margin-left: 0.35rem;
+  color: var(--color-accent);
+}
+
+.context-menu__option-check svg {
+  width: 1rem;
+  height: 1rem;
 }

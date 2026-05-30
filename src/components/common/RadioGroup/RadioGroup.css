@@ -1,0 +1,112 @@
+.radio-group {
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.radio-group__legend {
+  margin: 0 0 0.5rem;
+  padding: 0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.radio-group__options {
+  display: flex;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.radio-group--horizontal .radio-group__options {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.radio-group--vertical .radio-group__options {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.radio-group__option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.radio-group--plain .radio-group__option {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.radio-group__option--card {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  background: transparent;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.radio-group__option--card:hover:not(.radio-group__option--disabled) {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+}
+
+.radio-group__option--card.radio-group__option--checked {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.radio-group__option--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.radio-group__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.radio-group--plain .radio-group__input {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+}
+
+.radio-group__label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.radio-group__option--card .radio-group__label {
+  font-size: 0.9rem;
+}
+
+.radio-group__description {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+}
+
+.radio-group--plain .radio-group__description {
+  display: none;
+}

@@ -3,6 +3,7 @@ import { BackgroundTasksIndicator } from "./components/BackgroundTasks/Backgroun
 import { ImportDropZone } from "./components/ImportDropZone/ImportDropZone";
 import { PlayerDock } from "./components/PlayerDock/PlayerDock";
 import { AlbumEditor } from "./components/AlbumEditor/AlbumEditor";
+import { ArtistEditor } from "./components/ArtistEditor/ArtistEditor";
 import { TrackEditor } from "./components/TrackEditor/TrackEditor";
 import { MainContent } from "./components/layout/MainContent";
 import { Sidebar } from "./components/layout/Sidebar";
@@ -11,6 +12,7 @@ import { ImportChoiceModal } from "./components/ImportChoiceModal/ImportChoiceMo
 import { PlaylistEditorModal } from "./components/PlaylistEditorModal/PlaylistEditorModal";
 import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal";
 import { usePlaylistStore } from "./store/usePlaylistStore";
+import { useArtistImageStore } from "./store/useArtistImageStore";
 import { setupAppMenu } from "./lib/appMenu";
 import { useMediaHotkeys } from "./hooks/useMediaHotkeys";
 import { loadTrackListPreferences } from "./components/TrackList/trackListPreferences";
@@ -22,6 +24,7 @@ import "./App.css";
 function App() {
   const loadLibrary = usePlayerStore((s) => s.loadLibrary);
   const loadPlaylists = usePlaylistStore((s) => s.loadPlaylists);
+  const loadArtistImages = useArtistImageStore((s) => s.loadArtistImages);
   const openPlaylistEditor = usePlaylistStore((s) => s.openPlaylistEditor);
   const addToLibrary = usePlayerStore((s) => s.addToLibrary);
   const loadSettings = useLibrarySettingsStore((s) => s.loadSettings);
@@ -37,7 +40,8 @@ function App() {
     void loadTrackListPreferences();
     loadLibrary();
     void loadPlaylists();
-  }, [loadLibrary, loadSettings, loadPlaylists]);
+    void loadArtistImages();
+  }, [loadLibrary, loadSettings, loadPlaylists, loadArtistImages]);
 
   useEffect(() => {
     void setupAppMenu({
@@ -77,6 +81,7 @@ function App() {
 
       <TrackEditor />
       <AlbumEditor />
+      <ArtistEditor />
       <PlaylistEditorModal />
       <ImportDropZone />
       <PreferencesModal />

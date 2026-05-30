@@ -1,6 +1,6 @@
-use crate::models::{Playlist, PlaylistImageMode, Track, TrackInput, TrackMetadataUpdate};
+use crate::models::{ArtistImage, Playlist, PlaylistImageMode, Track, TrackInput, TrackMetadataUpdate};
 use chrono::Utc;
-use rusqlite::{params, Connection, Row};
+use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::path::Path;
 
 const SCHEMA: &str = "
@@ -34,6 +34,13 @@ CREATE TABLE IF NOT EXISTS playlist_tracks (
   track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
   position INTEGER NOT NULL,
   PRIMARY KEY (playlist_id, track_id)
+);
+
+CREATE TABLE IF NOT EXISTS artist_images (
+  artist_key TEXT NOT NULL,
+  browse_mode TEXT NOT NULL,
+  art_path TEXT NOT NULL,
+  PRIMARY KEY (artist_key, browse_mode)
 );
 ";
 
@@ -462,6 +469,74 @@ pub fn list_file_paths(conn: &Connection) -> Result<Vec<String>, rusqlite::Error
         .query_map([], |row| row.get(0))?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(paths)
+}
+
+pub fn get_all_artist_images(conn: &Connection) -> Result<Vec<ArtistImage>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT artist_key, browse_mode, art_path FROM artist_images ORDER BY artist_key",
+    )?;
+    let images = stmt
+        .query_map([], |row| {
+            Ok(ArtistImage {
+                artist_key: row.get(0)?,
+                browse_mode: row.get(1)?,
+                art_path: row.get(2)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(images)
+}
+
+pub fn save_artist_image(
+    conn: &Connection,
+    artist_key: &str,
+    browse_mode: &str,
+    art_path: Option<&str>,
+) -> Result<(), rusqlite::Error> {
+    match art_path {
+        Some(path) if !path.is_empty() => conn.execute(
+            "INSERT INTO artist_images (artist_key, browse_mode, art_path)
+             VALUES (?1, ?2, ?3)
+             ON CONFLICT(artist_key, browse_mode) DO UPDATE SET art_path = excluded.art_path",
+            params![artist_key, browse_mode, path],
+        )?,
+        _ => conn.execute(
+            "DELETE FROM artist_images WHERE artist_key = ?1 AND browse_mode = ?2",
+            params![artist_key, browse_mode],
+        )?,
+    };
+    Ok(())
+}
+
+pub fn rename_artist_image_key(
+    conn: &Connection,
+    old_key: &str,
+    new_key: &str,
+    browse_mode: &str,
+) -> Result<(), rusqlite::Error> {
+    let art_path: Option<String> = conn
+        .query_row(
+            "SELECT art_path FROM artist_images WHERE artist_key = ?1 AND browse_mode = ?2",
+            params![old_key, browse_mode],
+            |row| row.get(0),
+        )
+        .optional()?;
+
+    let Some(art_path) = art_path else {
+        return Ok(());
+    };
+
+    conn.execute(
+        "DELETE FROM artist_images WHERE artist_key = ?1 AND browse_mode = ?2",
+        params![old_key, browse_mode],
+    )?;
+    conn.execute(
+        "INSERT INTO artist_images (artist_key, browse_mode, art_path)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(artist_key, browse_mode) DO UPDATE SET art_path = excluded.art_path",
+        params![new_key, browse_mode, art_path],
+    )?;
+    Ok(())
 }
 
 #[cfg(test)]

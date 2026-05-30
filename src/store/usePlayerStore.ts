@@ -2,6 +2,10 @@ import { create } from "zustand";
 import * as audio from "../lib/audio";
 import { buildPlaybackOrder } from "../lib/activeTrackList";
 import { groupTracksIntoAlbums } from "../lib/albums";
+import {
+  groupTracksIntoArtists,
+  type ArtistBrowseMode,
+} from "../lib/artists";
 import { startLibraryImport } from "../lib/libraryImport";
 import { showQueueAddedToast } from "../lib/queueToast";
 import { parseRepeatMode, prunePlaybackSession } from "../lib/playbackSession";
@@ -42,6 +46,8 @@ interface PlayerState {
   importError: string | null;
   editingTrackIds: number[];
   editingAlbumKey: string | null;
+  editingArtistKey: string | null;
+  editingArtistBrowseMode: ArtistBrowseMode;
 
   loadLibrary: (options?: { preservePlayback?: boolean }) => Promise<void>;
   addToLibrary: () => Promise<void>;
@@ -73,6 +79,8 @@ interface PlayerState {
   closeTrackEditor: () => void;
   openAlbumEditor: (albumKey: string) => void;
   closeAlbumEditor: () => void;
+  openArtistEditor: (artistKey: string, browseMode: ArtistBrowseMode) => void;
+  closeArtistEditor: () => void;
   updateTrackInLibrary: (track: Track) => void;
   updateTracksInLibrary: (tracks: Track[]) => void;
   removeTrackFromLibrary: (id: number, deleteFromDisk: boolean) => Promise<void>;
@@ -297,6 +305,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     importError: null,
     editingTrackIds: [],
     editingAlbumKey: null,
+    editingArtistKey: null,
+    editingArtistBrowseMode: "discography",
 
     loadLibrary: async (options) => {
       try {
@@ -559,12 +569,24 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         (id, index, all) => all.indexOf(id) === index,
       );
       if (list.length === 0) return;
-      set({ editingTrackIds: list, editingAlbumKey: null });
+      set({ editingTrackIds: list, editingAlbumKey: null, editingArtistKey: null });
     },
     closeTrackEditor: () => set({ editingTrackIds: [] }),
     openAlbumEditor: (albumKey) =>
-      set({ editingAlbumKey: albumKey, editingTrackIds: [] }),
+      set({
+        editingAlbumKey: albumKey,
+        editingTrackIds: [],
+        editingArtistKey: null,
+      }),
     closeAlbumEditor: () => set({ editingAlbumKey: null }),
+    openArtistEditor: (artistKey, browseMode) =>
+      set({
+        editingArtistKey: artistKey,
+        editingArtistBrowseMode: browseMode,
+        editingTrackIds: [],
+        editingAlbumKey: null,
+      }),
+    closeArtistEditor: () => set({ editingArtistKey: null }),
     updateTrackInLibrary: (track) =>
       set((s) => ({
         library: s.library.map((t) => (t.id === track.id ? track : t)),
@@ -605,6 +627,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         groupTracksIntoAlbums(library).some((a) => a.key === state.editingAlbumKey)
           ? state.editingAlbumKey
           : null;
+      const editingArtistKey =
+        state.editingArtistKey != null &&
+        groupTracksIntoArtists(library, state.editingArtistBrowseMode).some(
+          (a) => a.key === state.editingArtistKey,
+        )
+          ? state.editingArtistKey
+          : null;
 
       set({
         library,
@@ -624,6 +653,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         positionSeconds: wasCurrent ? 0 : state.positionSeconds,
         editingTrackIds: state.editingTrackIds.filter((id) => !removed.has(id)),
         editingAlbumKey,
+        editingArtistKey,
       });
     },
   };

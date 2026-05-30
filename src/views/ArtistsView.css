@@ -1,0 +1,117 @@
+.artists-view--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 12rem;
+  color: var(--color-text-secondary);
+}
+
+.artists-view__header {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  min-width: 0;
+}
+
+.artists-view__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.artists-view__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artists-view__count {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.artists-view__controls {
+  display: flex;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.artists-view__browse {
+  flex: 0 0 9.5rem;
+  width: 9.5rem;
+}
+
+.artists-view__browse .select__trigger {
+  width: 100%;
+  min-width: 0;
+}
+
+.artists-view__search.search-field {
+  flex: 0 0 11.5rem;
+  width: 14.5rem;
+  min-width: 14.5rem;
+  max-width: 14.5rem;
+}
+
+.artists-view__empty {
+  color: var(--color-text-secondary);
+}
+
+.artists-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1.5rem 1.25rem;
+}
+
+.artist-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-bg) 60%, transparent);
+}
+
+.artist-card:hover {
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--color-bg) 35%, black);
+}
+
+.artist-card__art-wrap {
+  border-radius: 50%;
+  overflow: hidden;
+  aspect-ratio: 1;
+}
+
+.artist-card__name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.artist-card__meta {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

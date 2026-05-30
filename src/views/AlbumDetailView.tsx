@@ -1,6 +1,7 @@
 import { albumTotalDurationSeconds, getAlbumByKey } from "../lib/albums";
+import { getArtistByKey } from "../lib/artists";
 import { formatTime } from "../lib/format";
-import { AlbumArt } from "../components/AlbumArt/AlbumArt";
+import { EntityArt } from "../components/EntityArt/EntityArt";
 import { Button } from "../components/common/Button/Button";
 import { ContextMenuItem } from "../components/ContextMenu/ContextMenu";
 import { MenuButton } from "../components/MenuButton/MenuButton";
@@ -14,16 +15,23 @@ import {
 import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Album } from "../types/album";
+import type { Artist } from "../types/artist";
 import type { Track } from "../types/track";
 import "./AlbumDetailView.css";
 
 interface AlbumDetailViewProps {
   albums: Album[];
+  artists: Artist[];
   albumKey: string;
 }
 
-export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
+export function AlbumDetailView({
+  albums,
+  artists,
+  albumKey,
+}: AlbumDetailViewProps) {
   const closeAlbum = useNavigationStore((s) => s.closeAlbum);
+  const navArtistKey = useNavigationStore((s) => s.artistKey);
   const playTracks = usePlayerStore((s) => s.playTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
@@ -33,6 +41,10 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
   const addToQueue = usePlayerStore((s) => s.addToQueue);
 
   const album = getAlbumByKey(albums, albumKey);
+  const backArtist = navArtistKey
+    ? getArtistByKey(artists, navArtistKey)
+    : undefined;
+  const backLabel = backArtist?.name ?? "Albums";
 
   if (!album) {
     return (
@@ -44,7 +56,7 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
           onClick={closeAlbum}
         >
           <IconBack />
-          Albums
+          {backLabel}
         </Button>
         <p>Album not found.</p>
       </div>
@@ -84,7 +96,7 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
           onClick={closeAlbum}
         >
           <IconBack />
-          Albums
+          {backLabel}
         </Button>
         <MenuButton
           ariaLabel="Album actions"
@@ -128,7 +140,7 @@ export function AlbumDetailView({ albums, albumKey }: AlbumDetailViewProps) {
       </div>
 
       <section className="album-detail__hero">
-        <AlbumArt
+        <EntityArt
           artPath={album.artPath}
           alt={album.title}
           className="album-art--hero album-detail__art"

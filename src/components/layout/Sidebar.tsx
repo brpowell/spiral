@@ -23,10 +23,10 @@ const NAV_ITEMS: {
   icon: ReactNode;
   enabled: boolean;
 }[] = [
-  { view: "library", label: "Tracks", icon: <IconTracks />, enabled: true },
-  { view: "albums", label: "Albums", icon: <IconAlbums />, enabled: true },
-  { view: "artists", label: "Artists", icon: <IconArtists />, enabled: false },
-];
+    { view: "library", label: "Tracks", icon: <IconTracks />, enabled: true },
+    { view: "albums", label: "Albums", icon: <IconAlbums />, enabled: true },
+    { view: "artists", label: "Artists", icon: <IconArtists />, enabled: true },
+  ];
 
 export function Sidebar() {
   const view = useNavigationStore((s) => s.view);

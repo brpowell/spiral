@@ -1,0 +1,43 @@
+.chip-input {
+  width: 100%;
+  min-height: 2.35rem;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  cursor: text;
+}
+
+.chip-input:focus-within {
+  border-color: var(--color-accent);
+}
+
+.chip-input--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chip-input__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.chip-input__field {
+  order: 999;
+  flex: 1 1 6rem;
+  min-width: 4rem;
+}
+
+.chip-input__menu {
+  min-width: 12rem;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.chip-input__menu-item {
+  display: block;
+  width: 100%;
+}

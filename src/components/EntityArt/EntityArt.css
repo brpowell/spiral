@@ -32,6 +32,14 @@
   box-shadow: 0 12px 40px color-mix(in srgb, var(--color-bg) 50%, transparent);
 }
 
+.album-art--round {
+  border-radius: 50%;
+}
+
+.album-art--round.album-art--hero {
+  border-radius: 50%;
+}
+
 .album-art--row .album-art__placeholder svg {
   width: 50%;
   height: 50%;

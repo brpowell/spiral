@@ -75,15 +75,15 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
       [ref],
     );
 
-    // Sync external value changes to the uncontrolled input when it isn't focused.
-    // This preserves the native undo stack (which breaks with a controlled input)
-    // while still supporting programmatic updates and form resets.
+    // Sync external value changes when they diverge from the DOM (e.g. form reset,
+    // chip commit clearing the draft). Skip while focused only when already in sync
+    // so typing still drives the native undo stack instead of a fully controlled input.
     useLayoutEffect(() => {
       const el = inputRef.current;
-      if (!el || document.activeElement === el) return;
-      if (value === undefined) return;
+      if (!el || value === undefined) return;
       const next = String(value);
-      if (el.value !== next) el.value = next;
+      if (el.value === next) return;
+      el.value = next;
     }, [value]);
 
     const handleChange = useCallback(

@@ -4,12 +4,31 @@ use mp4ameta::Tag as Mp4Tag;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+const ARTIST_JOIN_DELIMITER: &str = " / ";
+
 #[derive(Debug, Default)]
 struct BasicTags {
     title: Option<String>,
     artist: Option<String>,
     album: Option<String>,
     track_number: Option<i32>,
+}
+
+fn join_tag_values<'a, I>(values: I) -> Option<String>
+where
+    I: IntoIterator<Item = &'a str>,
+{
+    let parts: Vec<String> = values
+        .into_iter()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+        .collect();
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(ARTIST_JOIN_DELIMITER))
+    }
 }
 
 fn audio_extension(path: &Path) -> Option<String> {
@@ -48,8 +67,8 @@ fn read_basic_tags(path: &Path) -> BasicTags {
                 if let Some(mut v) = tag.get_vorbis("TITLE") {
                     tags.title = v.next().map(|s| s.to_string());
                 }
-                if let Some(mut v) = tag.get_vorbis("ARTIST") {
-                    tags.artist = v.next().map(|s| s.to_string());
+                if let Some(v) = tag.get_vorbis("ARTIST") {
+                    tags.artist = join_tag_values(v);
                 }
                 if let Some(mut v) = tag.get_vorbis("ALBUM") {
                     tags.album = v.next().map(|s| s.to_string());
@@ -196,6 +215,15 @@ pub fn prepare_import_file(
 mod tests {
     use super::*;
     use std::io::Write;
+
+    #[test]
+    fn join_tag_values_joins_artists() {
+        assert_eq!(
+            join_tag_values(["A", " B "]),
+            Some("A / B".to_string())
+        );
+        assert_eq!(join_tag_values::<[&str; 0]>([]), None);
+    }
 
     #[test]
     fn sanitize_strips_path_separators() {

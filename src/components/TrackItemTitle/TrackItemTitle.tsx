@@ -1,4 +1,4 @@
-import { AlbumArt } from "../AlbumArt/AlbumArt";
+import { EntityArt } from "../EntityArt/EntityArt";
 import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
 import type { Track } from "../../types/track";
 import "./TrackItemTitle.css";
@@ -27,7 +27,7 @@ export function TrackItemTitle({
         .join(" ")}
     >
       {showAlbumArt ? (
-        <AlbumArt
+        <EntityArt
           artPath={track.artPath}
           alt=""
           className="track-item-title__art album-art--row"

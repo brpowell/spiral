@@ -222,6 +222,60 @@ export async function fetchCoverArt(
   return rows.map(normalizeCoverArtCandidate);
 }
 
+export async function fetchArtistArt(
+  artist: string,
+): Promise<CoverArtCandidate[]> {
+  const rows = await invoke<Record<string, unknown>[]>("fetch_artist_art", {
+    artist,
+  });
+  return rows.map(normalizeCoverArtCandidate);
+}
+
+export interface ArtistImageRecord {
+  artistKey: string;
+  browseMode: string;
+  artPath: string;
+}
+
+function normalizeArtistImage(raw: Record<string, unknown>): ArtistImageRecord {
+  return {
+    artistKey:
+      (raw.artistKey as string) ?? (raw.artist_key as string) ?? "",
+    browseMode:
+      (raw.browseMode as string) ?? (raw.browse_mode as string) ?? "",
+    artPath: (raw.artPath as string) ?? (raw.art_path as string) ?? "",
+  };
+}
+
+export async function getArtistImages(): Promise<ArtistImageRecord[]> {
+  const rows = await invoke<Record<string, unknown>[]>("get_artist_images");
+  return rows.map(normalizeArtistImage);
+}
+
+export async function saveArtistImage(
+  artistKey: string,
+  browseMode: string,
+  artPath: string | null,
+): Promise<void> {
+  await invoke<void>("save_artist_image", {
+    artistKey,
+    browseMode,
+    artPath,
+  });
+}
+
+export async function renameArtistImageKey(
+  oldKey: string,
+  newKey: string,
+  browseMode: string,
+): Promise<void> {
+  await invoke<void>("rename_artist_image_key", {
+    oldKey,
+    newKey,
+    browseMode,
+  });
+}
+
 export async function getBuiltinThemes(): Promise<Theme[]> {
   return invoke<Theme[]>("get_builtin_themes");
 }

@@ -20,7 +20,7 @@ import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
-import { AlbumArt } from "../AlbumArt/AlbumArt";
+import { EntityArt } from "../EntityArt/EntityArt";
 import {
   Modal,
   ModalBody,
@@ -375,7 +375,7 @@ export function AlbumEditor() {
                       className="track-editor__art-img"
                     />
                   ) : (
-                    <AlbumArt
+                    <EntityArt
                       artPath={null}
                       className="track-editor__art-placeholder"
                     />

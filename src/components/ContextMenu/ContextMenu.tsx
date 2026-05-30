@@ -78,11 +78,47 @@ export function ContextMenuCheckboxItem({
   );
 }
 
+export function ContextMenuOptionItem({
+  label,
+  description,
+  selected,
+  onClick,
+  disabled,
+}: {
+  label: ReactNode;
+  description?: ReactNode;
+  selected: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitemradio"
+      className="context-menu__option"
+      aria-checked={selected}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <span className="context-menu__option-content">
+        <span className="context-menu__item-label">{label}</span>
+        {description != null ? (
+          <span className="context-menu__option-description">{description}</span>
+        ) : null}
+      </span>
+      <span className="context-menu__option-check" aria-hidden>
+        {selected ? <IconCheck /> : null}
+      </span>
+    </button>
+  );
+}
+
 interface ContextMenuProps {
   open: boolean;
   anchor: { x: number; y: number } | null;
   position: { left: number; top: number } | null;
   menuRef: RefObject<HTMLDivElement | null>;
+  className?: string;
   children: ReactNode;
 }
 
@@ -179,15 +215,18 @@ export function ContextMenu({
   anchor,
   position,
   menuRef,
+  className,
   children,
 }: ContextMenuProps) {
+  const menuClass = ["context-menu", className].filter(Boolean).join(" ");
+
   return createPortal(
     <ContextMenuOpenContext.Provider value={open}>
       <AnimatePresence>
         {open && anchor != null && (
           <motion.div
             ref={menuRef}
-            className="context-menu"
+            className={menuClass}
             style={{
               left: position?.left ?? anchor.x,
               top: position?.top ?? anchor.y,

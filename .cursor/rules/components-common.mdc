@@ -1,0 +1,44 @@
+---
+description: Where UI components live — common primitives vs feature-specific components
+alwaysApply: true
+---
+
+# Component placement (`src/components/`)
+
+## `src/components/common/` — design-system primitives only
+
+Put components here when they are **domain-agnostic** and could be reused across unrelated features.
+
+Examples: `Button`, `TextInput`, `Modal`, `Chip`, `ChipInput`, `FormField`.
+
+Requirements:
+
+- Props are generic (strings, booleans, callbacks) — not Spiral music types or workflows.
+- No imports from domain `lib/` modules (`artistNames`, `trackMetadataForm`, `albums`, etc.).
+- No imports from Zustand stores or navigation tied to library/playback.
+
+## Outside `common/` — feature and domain UI
+
+Put components here when they encode **Spiral-specific** behavior or metadata semantics.
+
+Examples: `TrackEditor`, `AlbumEditor`, `ArtistChipField`, `AlbumCard`, `DiscographyTimeline`.
+
+Typical locations:
+
+- `src/components/<FeatureName>/` (e.g. `ArtistChipField/`, `TrackEditor/`)
+- `src/views/` for route-level screens
+
+## Heuristic
+
+If removing Spiral’s music/library domain would make the component meaningless, it **does not** belong in `common/`.
+
+## Composition
+
+- Feature components **compose** `common/` primitives.
+- Do not duplicate chip, button, or input styling in feature folders when a primitive exists.
+- Prefer a thin feature wrapper (e.g. `ArtistChipField` using `ChipInput` + `artistNames`) over stuffing domain logic into `common/`.
+
+## Anti-patterns
+
+- `common/ArtistChipField` or any `common/*` that imports `artistNames`, `trackMetadataForm`, or store slices.
+- “Shared between two editors” is not sufficient reason for `common/` — use a sibling feature folder (e.g. `ArtistChipField/`) instead.

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { formatBytes, formatDimensions } from "../../lib/formatBytes";
+import { parseArtistField } from "../../lib/artistNames";
+import { collectArtistNameSuggestions } from "../../lib/artistNameSuggestions";
 import {
   buildTrackMetadataFromForm,
   mixedFieldPlaceholder,
@@ -11,6 +13,7 @@ import {
   type TrackEditorForm,
   type TrackEditorFormField,
 } from "../../lib/trackMetadataForm";
+import { ArtistChipField } from "../ArtistChipField/ArtistChipField";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -21,7 +24,7 @@ import {
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
-import { AlbumArt } from "../AlbumArt/AlbumArt";
+import { EntityArt } from "../EntityArt/EntityArt";
 import {
   Modal,
   ModalBody,
@@ -125,6 +128,10 @@ export function TrackEditor() {
   const isBulk = tracks.length > 1;
   const referenceTrack = tracks[0] ?? null;
   const editingKey = editingTrackIds.join(",");
+  const artistSuggestions = useMemo(
+    () => collectArtistNameSuggestions(library),
+    [library],
+  );
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<TrackEditorForm | null>(null);
@@ -267,7 +274,11 @@ export function TrackEditor() {
     setSelectedCoverUrl(null);
     setSaveError(null);
     try {
-      const candidates = await fetchCoverArt(form.artist, form.album);
+      const primaryArtist =
+        parseArtistField(form.artist)[0] ??
+        parseArtistField(form.albumArtist)[0] ??
+        form.artist;
+      const candidates = await fetchCoverArt(primaryArtist, form.album);
       if (candidates.length === 0) {
         setFetchMessage("No results found");
       } else {
@@ -448,7 +459,7 @@ export function TrackEditor() {
                       className="track-editor__art-img"
                     />
                   ) : (
-                    <AlbumArt
+                    <EntityArt
                       artPath={null}
                       className="track-editor__art-placeholder"
                     />
@@ -525,14 +536,19 @@ export function TrackEditor() {
                   isBulk={isBulk}
                   onChange={setField}
                 />
-                <TrackEditorField
-                  label="Artist"
-                  field="artist"
-                  form={form}
-                  tracks={tracks}
-                  isBulk={isBulk}
-                  onChange={setField}
-                />
+                <FormField label="Artist">
+                  <ArtistChipField
+                    value={form.artist}
+                    onChange={(value) => setField("artist", value)}
+                    placeholder={
+                      isBulk
+                        ? mixedFieldPlaceholder(tracks, "artist", form)
+                        : undefined
+                    }
+                    suggestions={artistSuggestions}
+                    inputAriaLabel="Track artist"
+                  />
+                </FormField>
                 <TrackEditorField
                   label="Album"
                   field="album"
@@ -541,14 +557,17 @@ export function TrackEditor() {
                   isBulk={isBulk}
                   onChange={setField}
                 />
-                <TrackEditorField
-                  label="Album Artist"
-                  field="albumArtist"
-                  form={form}
-                  tracks={tracks}
-                  isBulk={isBulk}
-                  onChange={setField}
-                />
+                <FormField label="Album Artist">
+                  <TextInput
+                    value={form.albumArtist}
+                    onChange={(e) => setField("albumArtist", e.target.value)}
+                    placeholder={
+                      isBulk
+                        ? mixedFieldPlaceholder(tracks, "albumArtist", form)
+                        : undefined
+                    }
+                  />
+                </FormField>
                 <TrackEditorField
                   label="Year"
                   field="year"

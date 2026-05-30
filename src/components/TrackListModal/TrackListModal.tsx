@@ -14,7 +14,7 @@ import {
   ModalTitle,
 } from "../common/Modal/Modal";
 import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
-import { AlbumArt } from "../AlbumArt/AlbumArt";
+import { EntityArt } from "../EntityArt/EntityArt";
 import "./TrackListModal.css";
 
 interface TrackListModalProps {
@@ -194,7 +194,7 @@ function TrackListRow({
         }${queued ? " track-list-modal__row--queued" : ""}`}
     >
       <button type="button" className="track-list-modal__row-main" onClick={onPlay}>
-        <AlbumArt
+        <EntityArt
           artPath={track.artPath}
           alt=""
           className="track-list-modal__row-art album-art--row"

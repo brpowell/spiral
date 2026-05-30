@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { parseBuffer, type IAudioMetadata } from "music-metadata";
+import { normalizeArtistFieldFromTagValue } from "./artistNames";
 import { cacheArtFromBytes } from "./tauri";
 import type { TrackInput } from "../types/track";
 
@@ -63,9 +64,9 @@ export async function parseTrackMetadata(filePath: string): Promise<TrackInput> 
 
   return {
     title: firstString(metadata.common.title) ?? filenameTitle(filePath),
-    artist: firstString(metadata.common.artist),
+    artist: normalizeArtistFieldFromTagValue(metadata.common.artist),
     album: firstString(metadata.common.album),
-    albumArtist: firstString(metadata.common.albumartist),
+    albumArtist: normalizeArtistFieldFromTagValue(metadata.common.albumartist),
     trackNumber: trackNo != null ? Math.trunc(trackNo) : null,
     discNumber: discNo != null ? Math.trunc(discNo) : null,
     year: metadata.common.year ?? null,

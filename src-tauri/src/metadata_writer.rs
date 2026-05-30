@@ -1,7 +1,7 @@
 use crate::metadata_backup::{self, MetadataBackupConfig};
 use crate::models::TrackMetadataUpdate;
 use id3::frame::{Picture, PictureType};
-use id3::{Tag, TagLike};
+use id3::{ErrorKind, Tag, TagLike};
 use image::ImageFormat;
 use metaflac::block::PictureType as FlacPictureType;
 use metaflac::Tag as FlacTag;
@@ -158,6 +158,19 @@ where
     Ok(())
 }
 
+/// Read existing ID3 tags, or start from an empty tag when the file has none.
+fn read_mp3_tag(path: &Path) -> Result<Tag, MetadataWriteError> {
+    match Tag::read_from_path(path) {
+        Ok(tag) => Ok(tag),
+        Err(id3::Error {
+            kind: ErrorKind::NoTag, ..
+        }) => Ok(Tag::new()),
+        Err(e) => Err(MetadataWriteError::Tag(format!(
+            "Failed to read MP3 tags: {e}"
+        ))),
+    }
+}
+
 fn verify_m4a_readable(path: &Path) -> Result<(), MetadataWriteError> {
     Mp4Tag::read_from_path(path).map_err(|e| {
         MetadataWriteError::Tag(format!("Written file failed verification read: {e}"))
@@ -171,8 +184,7 @@ fn write_mp3(
     backup_config: &MetadataBackupConfig,
 ) -> Result<(), MetadataWriteError> {
     write_via_temp(path, backup_config, |target| {
-        let mut tag = Tag::read_from_path(target)
-            .map_err(|e| MetadataWriteError::Tag(format!("Failed to read MP3 tags: {e}")))?;
+        let mut tag = read_mp3_tag(target)?;
 
         tag.set_title(metadata.title.clone());
         if let Some(artist) = &metadata.artist {
@@ -324,6 +336,46 @@ mod tests {
         let dest = dir.join("test.m4a");
         fs::copy(&src, &dest).expect("copy m4a fixture");
         dest
+    }
+
+    #[test]
+    fn mp3_write_tags_on_file_without_id3() {
+        let dir = std::env::temp_dir().join(format!("spiral-mp3-notag-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let audio = dir.join("tagless.mp3");
+        // Minimal MPEG-1 Layer III frame header (no ID3 tag).
+        let mut f = fs::File::create(&audio).unwrap();
+        f.write_all(&[0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00])
+            .unwrap();
+
+        let metadata = TrackMetadataUpdate {
+            title: "Tagged Title".to_string(),
+            artist: Some("Tagged Artist".to_string()),
+            album: Some("Tagged Album".to_string()),
+            album_artist: None,
+            track_number: Some(1),
+            disc_number: None,
+            year: Some(2024),
+            genre: Some("Rock".to_string()),
+            art_path: None,
+            art_changed: false,
+        };
+
+        let backup_config = MetadataBackupConfig {
+            enabled: false,
+            retention_days: 14,
+        };
+        write_mp3(&audio, &metadata, &backup_config).expect("write mp3 metadata");
+
+        let tag = Tag::read_from_path(&audio).expect("re-read after write");
+        assert_eq!(tag.title().as_deref(), Some("Tagged Title"));
+        assert_eq!(tag.artist().as_deref(), Some("Tagged Artist"));
+        assert_eq!(tag.album().as_deref(), Some("Tagged Album"));
+        assert_eq!(tag.genre().as_deref(), Some("Rock"));
+
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

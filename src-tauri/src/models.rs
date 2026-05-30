@@ -58,6 +58,14 @@ pub struct Playlist {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ArtistImage {
+    pub artist_key: String,
+    pub browse_mode: String,
+    pub art_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TrackInput {
     pub title: String,
     pub artist: Option<String>,

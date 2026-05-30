@@ -1,5 +1,6 @@
 mod art_cache;
 mod audio_formats;
+mod artist_art_fetch;
 mod cover_art_fetch;
 mod commands;
 mod db;
@@ -66,6 +67,10 @@ pub fn run() {
             commands::metadata::cache_art_from_file,
             commands::metadata::cache_art_from_url,
             commands::metadata::fetch_cover_art,
+            commands::metadata::fetch_artist_art,
+            commands::artist_images::get_artist_images,
+            commands::artist_images::save_artist_image,
+            commands::artist_images::rename_artist_image_key,
             commands::metadata::write_track_metadata,
             commands::themes::get_builtin_themes,
             commands::themes::load_user_themes,

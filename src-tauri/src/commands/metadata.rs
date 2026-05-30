@@ -1,5 +1,6 @@
 use super::library::DbState;
 use crate::art_cache::{self, guess_ext_from_url};
+use crate::artist_art_fetch;
 use crate::cover_art_fetch::{self, CoverArtCandidate};
 use crate::db;
 use crate::metadata_backup;
@@ -98,6 +99,13 @@ pub async fn fetch_cover_art(
     album: String,
 ) -> Result<Vec<CoverArtCandidate>, String> {
     tauri::async_runtime::spawn_blocking(move || cover_art_fetch::fetch_cover_art_cached(artist, album))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn fetch_artist_art(artist: String) -> Result<Vec<CoverArtCandidate>, String> {
+    tauri::async_runtime::spawn_blocking(move || artist_art_fetch::fetch_artist_art_cached(artist))
         .await
         .map_err(|e| e.to_string())?
 }
