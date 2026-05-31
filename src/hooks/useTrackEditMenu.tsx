@@ -12,11 +12,14 @@ import {
   IconAddToQueue,
   IconDelete,
   IconEditInfo,
+  IconFolderOpen,
   IconPlaylistAdd,
   IconPlaylists,
   IconRemoveFromPlaylist,
   IconRemoveFromQueue,
 } from "../components/icons";
+import { revealInFileManagerLabel } from "../lib/fileManager";
+import { revealPathInFileManager } from "../lib/tauri";
 import {
   PlaylistContextMenuIcon,
   usePlaylistTracksById,
@@ -156,6 +159,14 @@ export function useTrackEditMenu(
           bulkRemove ? `Edit Info (${contextTracks.length})` : "Edit Info"
         }
         onClick={openEditor}
+      />
+      <ContextMenuItem
+        icon={<IconFolderOpen />}
+        label={revealInFileManagerLabel()}
+        onClick={() => {
+          closeMenu();
+          void revealPathInFileManager(track.filePath);
+        }}
       />
       <ContextMenuSeparator />
       <ContextMenuItem

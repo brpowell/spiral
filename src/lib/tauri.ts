@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { LibrarySettings, LibrarySettingsPatch } from "../types/library";
 import { parseRepeatMode } from "./playbackSession";
 import type { PlaybackSession } from "../types/playbackSession";
@@ -294,6 +295,10 @@ export async function saveActiveThemeId(themeName: string): Promise<void> {
 
 export async function openThemesFolder(): Promise<void> {
   return invoke<void>("open_themes_folder");
+}
+
+export async function revealPathInFileManager(path: string): Promise<void> {
+  await revealItemInDir(path);
 }
 
 export async function importUserTheme(): Promise<Theme | null> {

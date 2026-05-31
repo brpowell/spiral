@@ -14,11 +14,13 @@ import {
   type TrackEditorFormField,
 } from "../../lib/trackMetadataForm";
 import { ArtistChipField } from "../ArtistChipField/ArtistChipField";
+import { revealInFileManagerLabel } from "../../lib/fileManager";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
   fetchCoverArt,
   pickImageFile,
+  revealPathInFileManager,
   writeTrackMetadata,
 } from "../../lib/tauri";
 import { usePlayerStore } from "../../store/usePlayerStore";
@@ -34,7 +36,7 @@ import {
   ModalTitle,
 } from "../common/Modal/Modal";
 import { Button } from "../common/Button/Button";
-import { FormField } from "../common/Field/Field";
+import { FieldLabel, FormField } from "../common/Field/Field";
 import { TextInput } from "../common/TextInput/TextInput";
 import "./TrackEditor.css";
 
@@ -603,6 +605,30 @@ export function TrackEditor() {
                   isBulk={isBulk}
                   onChange={setField}
                 />
+                {!isBulk && referenceTrack ? (
+                  <div className="field">
+                    <FieldLabel>File location</FieldLabel>
+                    <div className="track-editor__file-location">
+                      <textarea
+                        className="track-editor__file-path"
+                        readOnly
+                        value={referenceTrack.filePath}
+                        rows={1}
+                        spellCheck={false}
+                        aria-label="Track file path"
+                      />
+                      <Button
+                        size="sm"
+                        aria-label={revealInFileManagerLabel()}
+                        onClick={() =>
+                          void revealPathInFileManager(referenceTrack.filePath)
+                        }
+                      >
+                        Reveal
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
 
