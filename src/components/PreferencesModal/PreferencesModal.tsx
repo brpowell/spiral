@@ -1,7 +1,16 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import {
+  formatOrganizeRelativePath,
+  GENERIC_ORGANIZE_PATH_SAMPLE,
+  isDefaultOrganizePathFormat,
+  previewSampleLabel,
+  trackToOrganizePathSample,
+  type OrganizePathSample,
+} from "../../lib/organizePathFormat";
 import { pickDatabaseFolder, pickFolder } from "../../lib/tauri";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
+import { usePlayerStore } from "../../store/usePlayerStore";
 import type { ImportMode, LibrarySettings } from "../../types/library";
 import { Button } from "../common/Button/Button";
 import { FormField } from "../common/Field/Field";
@@ -32,6 +41,10 @@ export function PreferencesModal() {
   const panelRef = useRef<HTMLDivElement>(null);
 
   const [draft, setDraft] = useState<LibrarySettings | null>(null);
+  const [previewSample, setPreviewSample] = useState<OrganizePathSample>(
+    GENERIC_ORGANIZE_PATH_SAMPLE,
+  );
+  const [previewFromLibrary, setPreviewFromLibrary] = useState(false);
   const [restartHint, setRestartHint] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +56,34 @@ export function PreferencesModal() {
     setDraft({ ...settings });
     setRestartHint(false);
     setError(null);
+    const tracks = usePlayerStore.getState().library;
+    if (tracks.length > 0) {
+      setPreviewFromLibrary(true);
+      setPreviewSample(
+        trackToOrganizePathSample(
+          tracks[Math.floor(Math.random() * tracks.length)]!,
+        ),
+      );
+    } else {
+      setPreviewFromLibrary(false);
+      setPreviewSample(GENERIC_ORGANIZE_PATH_SAMPLE);
+    }
   }, [open, settings]);
+
+  const organizePreview = useMemo(() => {
+    if (!draft?.autoOrganize) return null;
+    return {
+      label: previewSampleLabel(previewSample),
+      path: formatOrganizeRelativePath(draft.organizePathFormat, previewSample),
+      fromLibrary: previewFromLibrary,
+      isDefault: isDefaultOrganizePathFormat(draft.organizePathFormat),
+    };
+  }, [
+    draft?.autoOrganize,
+    draft?.organizePathFormat,
+    previewSample,
+    previewFromLibrary,
+  ]);
 
   if (!draft) return null;
 
@@ -57,6 +97,7 @@ export function PreferencesModal() {
         mediaFolder: draft.mediaFolder,
         databasePath: draft.databasePath,
         autoOrganize: draft.autoOrganize,
+        organizePathFormat: draft.organizePathFormat,
         importMode: draft.importMode,
         metadataBackupsEnabled: draft.metadataBackupsEnabled,
         metadataBackupRetentionDays: draft.metadataBackupRetentionDays,
@@ -149,8 +190,63 @@ export function PreferencesModal() {
                 )
               }
             />
-            Automatically organize music (Artist → Album → Track)
+            Automatically organize music in the media folder
           </label>
+
+          <FormField label="Organization path format">
+            <div className="preferences__path-row">
+              <TextInput
+                value={draft.organizePathFormat}
+                disabled={!draft.autoOrganize}
+                onChange={(e) =>
+                  setDraft((d) =>
+                    d ? { ...d, organizePathFormat: e.target.value } : d,
+                  )
+                }
+                spellCheck={false}
+              />
+              <Button
+                size="sm"
+                disabled={
+                  !draft.autoOrganize ||
+                  isDefaultOrganizePathFormat(draft.organizePathFormat)
+                }
+                onClick={() =>
+                  setDraft((d) =>
+                    d
+                      ? {
+                          ...d,
+                          organizePathFormat: d.defaultOrganizePathFormat,
+                        }
+                      : d,
+                  )
+                }
+              >
+                Reset
+              </Button>
+            </div>
+          </FormField>
+          {organizePreview && (
+            <div className="preferences__filename-preview" aria-live="polite">
+              <span className="preferences__filename-preview-label">
+                Preview
+                {organizePreview.fromLibrary
+                  ? ` (${organizePreview.label})`
+                  : " (example)"}
+              </span>
+              <code className="preferences__filename-preview-path">
+                {organizePreview.path}
+              </code>
+            </div>
+          )}
+          <p className="preferences__hint">
+            Relative path under your media folder. Use <code>/</code> between
+            folders. Placeholders: <code>{"{albumArtist}"}</code>,{" "}
+            <code>{"{artist}"}</code>, <code>{"{album}"}</code>,{" "}
+            <code>{"{title}"}</code>, <code>{"{trackNumber:02}"}</code>,{" "}
+            <code>{"{discNumber:02}"}</code>, <code>{"{year}"}</code>,{" "}
+            <code>{"{genre}"}</code>, <code>{"{ext}"}</code>.
+          </p>
 
           <fieldset className="preferences__fieldset">
             <legend>When importing</legend>

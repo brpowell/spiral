@@ -4,6 +4,9 @@ export interface LibrarySettings {
   mediaFolder: string;
   databasePath: string;
   autoOrganize: boolean;
+  /** Full relative path under the media folder. Use `/` between folders. */
+  organizePathFormat: string;
+  defaultOrganizePathFormat: string;
   importMode: ImportMode;
   defaultMediaFolder: string;
   defaultDatabasePath: string;
@@ -16,6 +19,7 @@ export interface LibrarySettingsPatch {
   mediaFolder?: string;
   databasePath?: string;
   autoOrganize?: boolean;
+  organizePathFormat?: string;
   importMode?: ImportMode;
   metadataBackupsEnabled?: boolean;
   metadataBackupRetentionDays?: number;

@@ -20,12 +20,18 @@ pub fn save_library_settings(
 
 #[tauri::command]
 pub fn prepare_import_file(
+    app: AppHandle,
     source_path: String,
     mode: String,
-    auto_organize: bool,
-    media_folder: String,
 ) -> Result<String, String> {
-    import_files::prepare_import_file(&source_path, &mode, auto_organize, &media_folder)
+    let resolved = settings::resolved_library_settings(&app);
+    import_files::prepare_import_file(
+        &source_path,
+        &mode,
+        resolved.auto_organize,
+        &resolved.media_folder,
+        &resolved.organize_path_format,
+    )
 }
 
 #[tauri::command]

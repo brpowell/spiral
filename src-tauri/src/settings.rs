@@ -19,6 +19,35 @@ pub struct LibrarySettings {
     pub auto_organize: bool,
     #[serde(default = "default_import_mode")]
     pub import_mode: String,
+    /// When set, controls the full relative path under the media folder.
+    #[serde(default)]
+    pub organize_path_format: Option<String>,
+    /// Legacy: filename-only format before `organize_path_format` existed.
+    #[serde(default = "default_track_filename_format")]
+    pub track_filename_format: String,
+}
+
+fn default_track_filename_format() -> String {
+    crate::library_organize::default_track_filename_format()
+}
+
+fn default_organize_path_format() -> String {
+    crate::library_organize::default_organize_path_format()
+}
+
+pub fn resolved_organize_path_format(stored: &LibrarySettings) -> String {
+    if let Some(fmt) = &stored.organize_path_format {
+        if !fmt.trim().is_empty() {
+            return fmt.clone();
+        }
+    }
+    let legacy = stored.track_filename_format.trim();
+    if !legacy.is_empty()
+        && legacy != crate::library_organize::DEFAULT_TRACK_FILENAME_FORMAT
+    {
+        return format!("{{albumArtist}}/{{album}}/{legacy}.{{ext}}");
+    }
+    default_organize_path_format()
 }
 
 fn default_auto_organize() -> bool {
@@ -62,6 +91,8 @@ impl Default for LibrarySettings {
             database_path: None,
             auto_organize: true,
             import_mode: default_import_mode(),
+            organize_path_format: None,
+            track_filename_format: default_track_filename_format(),
         }
     }
 }
@@ -98,6 +129,8 @@ pub struct LibrarySettingsResponse {
     pub database_path: String,
     pub auto_organize: bool,
     pub import_mode: String,
+    pub organize_path_format: String,
+    pub default_organize_path_format: String,
     pub default_media_folder: String,
     pub default_database_path: String,
     pub default_library_root: String,
@@ -181,6 +214,8 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
     let default_media = default_media_folder(app);
     let default_db = default_database_path(app);
 
+    let organize_path_format = resolved_organize_path_format(&stored);
+
     let media_folder = stored
         .media_folder
         .filter(|s| !s.is_empty())
@@ -196,6 +231,8 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
         database_path,
         auto_organize: stored.auto_organize,
         import_mode: stored.import_mode,
+        organize_path_format,
+        default_organize_path_format: default_organize_path_format(),
         default_media_folder: default_media.to_string_lossy().into_owned(),
         default_database_path: default_db.to_string_lossy().into_owned(),
         default_library_root: default_root.to_string_lossy().into_owned(),
@@ -218,6 +255,8 @@ pub struct LibrarySettingsPatch {
     pub auto_organize: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub import_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub organize_path_format: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata_backups_enabled: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -251,6 +290,13 @@ pub fn merge_library_settings(
         if !import_mode.is_empty() {
             settings.library.import_mode = import_mode;
         }
+    }
+    if let Some(organize_path_format) = patch.organize_path_format {
+        settings.library.organize_path_format = Some(if organize_path_format.trim().is_empty() {
+            default_organize_path_format()
+        } else {
+            organize_path_format
+        });
     }
     if let Some(enabled) = patch.metadata_backups_enabled {
         settings.metadata_backups.enabled = enabled;

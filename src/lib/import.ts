@@ -25,12 +25,7 @@ export async function importPaths(
   for (let i = 0; i < paths.length; i++) {
     const path = paths[i];
     try {
-      const finalPath = await prepareImportFile(
-        path,
-        options.mode,
-        options.settings.autoOrganize,
-        options.settings.mediaFolder,
-      );
+      const finalPath = await prepareImportFile(path, options.mode);
       const track = await parseTrackMetadata(finalPath);
       await saveTrack(track);
       result.imported += 1;

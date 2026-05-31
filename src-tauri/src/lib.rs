@@ -5,6 +5,7 @@ mod cover_art_fetch;
 mod commands;
 mod db;
 mod import_files;
+mod library_organize;
 mod library_paths;
 #[cfg(target_os = "macos")]
 mod macos_library_picker;

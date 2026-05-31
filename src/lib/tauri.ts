@@ -330,15 +330,8 @@ export async function saveLibrarySettings(
 export async function prepareImportFile(
   sourcePath: string,
   mode: "copy" | "reference",
-  autoOrganize: boolean,
-  mediaFolder: string,
 ): Promise<string> {
-  return invoke<string>("prepare_import_file", {
-    sourcePath,
-    mode,
-    autoOrganize,
-    mediaFolder,
-  });
+  return invoke<string>("prepare_import_file", { sourcePath, mode });
 }
 
 export async function pickDatabaseFolder(): Promise<string | null> {

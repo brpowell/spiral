@@ -211,32 +211,63 @@ pub fn update_track(
     conn: &Connection,
     id: i64,
     metadata: &TrackMetadataUpdate,
+    file_path: Option<&str>,
 ) -> Result<(), rusqlite::Error> {
-    conn.execute(
-        "UPDATE tracks SET
-            title = ?1,
-            artist = ?2,
-            album = ?3,
-            album_artist = ?4,
-            track_number = ?5,
-            disc_number = ?6,
-            year = ?7,
-            genre = ?8,
-            art_path = ?9
-         WHERE id = ?10",
-        params![
-            metadata.title,
-            metadata.artist,
-            metadata.album,
-            metadata.album_artist,
-            metadata.track_number,
-            metadata.disc_number,
-            metadata.year,
-            metadata.genre,
-            metadata.art_path,
-            id,
-        ],
-    )?;
+    if let Some(path) = file_path {
+        conn.execute(
+            "UPDATE tracks SET
+                title = ?1,
+                artist = ?2,
+                album = ?3,
+                album_artist = ?4,
+                track_number = ?5,
+                disc_number = ?6,
+                year = ?7,
+                genre = ?8,
+                art_path = ?9,
+                file_path = ?10
+             WHERE id = ?11",
+            params![
+                metadata.title,
+                metadata.artist,
+                metadata.album,
+                metadata.album_artist,
+                metadata.track_number,
+                metadata.disc_number,
+                metadata.year,
+                metadata.genre,
+                metadata.art_path,
+                path,
+                id,
+            ],
+        )?;
+    } else {
+        conn.execute(
+            "UPDATE tracks SET
+                title = ?1,
+                artist = ?2,
+                album = ?3,
+                album_artist = ?4,
+                track_number = ?5,
+                disc_number = ?6,
+                year = ?7,
+                genre = ?8,
+                art_path = ?9
+             WHERE id = ?10",
+            params![
+                metadata.title,
+                metadata.artist,
+                metadata.album,
+                metadata.album_artist,
+                metadata.track_number,
+                metadata.disc_number,
+                metadata.year,
+                metadata.genre,
+                metadata.art_path,
+                id,
+            ],
+        )?;
+    }
     Ok(())
 }
 

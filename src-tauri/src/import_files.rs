@@ -1,3 +1,4 @@
+use crate::library_organize::{self, OrganizeMetadata};
 use id3::{Tag, TagLike};
 use metaflac::Tag as FlacTag;
 use mp4ameta::Tag as Mp4Tag;
@@ -11,6 +12,7 @@ struct BasicTags {
     title: Option<String>,
     artist: Option<String>,
     album: Option<String>,
+    album_artist: Option<String>,
     track_number: Option<i32>,
 }
 
@@ -59,6 +61,7 @@ fn read_basic_tags(path: &Path) -> BasicTags {
                 tags.title = tag.title().map(|s| s.to_string());
                 tags.artist = tag.artist().map(|s| s.to_string());
                 tags.album = tag.album().map(|s| s.to_string());
+                tags.album_artist = tag.album_artist().map(|s| s.to_string());
                 tags.track_number = tag.track().map(|n| n as i32);
             }
         }
@@ -73,6 +76,9 @@ fn read_basic_tags(path: &Path) -> BasicTags {
                 if let Some(mut v) = tag.get_vorbis("ALBUM") {
                     tags.album = v.next().map(|s| s.to_string());
                 }
+                if let Some(v) = tag.get_vorbis("ALBUMARTIST") {
+                    tags.album_artist = join_tag_values(v);
+                }
                 if let Some(mut v) = tag.get_vorbis("TRACKNUMBER") {
                     tags.track_number = v
                         .next()
@@ -86,6 +92,7 @@ fn read_basic_tags(path: &Path) -> BasicTags {
                 tags.title = tag.title().map(|s| s.to_string());
                 tags.artist = tag.artist().map(|s| s.to_string());
                 tags.album = tag.album().map(|s| s.to_string());
+                tags.album_artist = tag.album_artist().map(|s| s.to_string());
                 tags.track_number = tag.track_number().map(|n| n as i32);
             }
         }
@@ -93,75 +100,6 @@ fn read_basic_tags(path: &Path) -> BasicTags {
     }
 
     tags
-}
-
-pub fn sanitize_filename(name: &str) -> String {
-    let mut out = String::with_capacity(name.len());
-    for ch in name.chars() {
-        if ch == '/' || ch == '\\' || ch == '\0' || ch == ':' {
-            continue;
-        }
-        out.push(ch);
-    }
-    let trimmed = out.split_whitespace().collect::<Vec<_>>().join(" ");
-    if trimmed.is_empty() {
-        "Unknown".to_string()
-    } else {
-        trimmed
-    }
-}
-
-fn unique_path(dest: PathBuf) -> PathBuf {
-    if !dest.exists() {
-        return dest;
-    }
-
-    let stem = dest
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("file")
-        .to_string();
-    let ext = dest
-        .extension()
-        .and_then(|s| s.to_str())
-        .map(|e| format!(".{e}"))
-        .unwrap_or_default();
-    let parent = dest.parent().map(|p| p.to_path_buf()).unwrap_or_default();
-
-    let mut n = 2;
-    loop {
-        let candidate = parent.join(format!("{stem} ({n}){ext}"));
-        if !candidate.exists() {
-            return candidate;
-        }
-        n += 1;
-        if n > 9999 {
-            return dest;
-        }
-    }
-}
-
-fn build_organized_path(
-    media_folder: &Path,
-    source: &Path,
-    tags: &BasicTags,
-) -> PathBuf {
-    let ext = source
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("mp3");
-
-    let artist = sanitize_filename(tags.artist.as_deref().unwrap_or("Unknown Artist"));
-    let album = sanitize_filename(tags.album.as_deref().unwrap_or("Unknown Album"));
-    let title = sanitize_filename(tags.title.as_deref().unwrap_or(&filename_title(source)));
-
-    let track_prefix = tags
-        .track_number
-        .map(|n| format!("{n:02} - "))
-        .unwrap_or_default();
-
-    let file_name = format!("{track_prefix}{title}.{ext}");
-    media_folder.join(artist).join(album).join(file_name)
 }
 
 fn build_flat_copy_path(media_folder: &Path, source: &Path) -> PathBuf {
@@ -177,6 +115,7 @@ pub fn prepare_import_file(
     mode: &str,
     auto_organize: bool,
     media_folder: &str,
+    organize_path_format: &str,
 ) -> Result<String, String> {
     let source = Path::new(source_path);
     if !source.is_file() {
@@ -196,7 +135,21 @@ pub fn prepare_import_file(
 
     let tags = read_basic_tags(source);
     let dest = if auto_organize {
-        build_organized_path(media, source, &tags)
+        let title = tags
+            .title
+            .clone()
+            .unwrap_or_else(|| filename_title(source));
+        let meta = OrganizeMetadata {
+            title: title.as_str(),
+            artist: tags.artist.as_deref(),
+            album: tags.album.as_deref(),
+            album_artist: tags.album_artist.as_deref(),
+            track_number: tags.track_number,
+            disc_number: None,
+            year: None,
+            genre: None,
+        };
+        library_organize::build_organized_path(media, source, &meta, organize_path_format)?
     } else {
         build_flat_copy_path(media, source)
     };
@@ -205,7 +158,7 @@ pub fn prepare_import_file(
         fs::create_dir_all(parent).map_err(|e| format!("failed to create destination folder: {e}"))?;
     }
 
-    let dest = unique_path(dest);
+    let dest = library_organize::unique_path(dest);
     fs::copy(source, &dest).map_err(|e| format!("failed to copy file: {e}"))?;
 
     Ok(dest.to_string_lossy().into_owned())
@@ -214,6 +167,7 @@ pub fn prepare_import_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::library_organize::sanitize_filename;
     use std::io::Write;
 
     #[test]
@@ -247,6 +201,7 @@ mod tests {
             "reference",
             true,
             media.to_str().unwrap(),
+            library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
         )
         .unwrap();
         assert_eq!(result, source.to_string_lossy());

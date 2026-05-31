@@ -3,6 +3,7 @@ use crate::art_cache::{self, guess_ext_from_url};
 use crate::artist_art_fetch;
 use crate::cover_art_fetch::{self, CoverArtCandidate};
 use crate::db;
+use crate::library_organize;
 use crate::metadata_backup;
 use crate::metadata_writer;
 use crate::settings;
@@ -116,22 +117,51 @@ pub fn write_track_metadata(
     state: State<DbState>,
     track_id: i64,
     file_path: String,
-    metadata: TrackMetadataUpdate,
+    mut metadata: TrackMetadataUpdate,
 ) -> Result<Track, String> {
     let path = Path::new(&file_path);
     let backup_config = settings::metadata_backup_config(&app);
+    let library = settings::resolved_library_settings(&app);
 
     metadata_writer::write_track_metadata(path, &metadata, &backup_config)
         .map_err(|e| e.to_message())?;
 
-    if let Some(parent) = path.parent() {
+    let mut final_path = file_path.clone();
+
+    if library.auto_organize {
+        if let Some(new_path) = library_organize::relocate_track_after_metadata(
+            &library.media_folder,
+            &library.organize_path_format,
+            path,
+            &metadata,
+        )? {
+            final_path = new_path.to_string_lossy().into_owned();
+            let app_data = app_data_dir(&app)?;
+            if let Some(new_art) = library_organize::migrate_art_cache(
+                &app_data,
+                &file_path,
+                &final_path,
+                metadata.art_path.as_deref(),
+            )? {
+                metadata.art_path = Some(new_art);
+            }
+        }
+    }
+
+    if let Some(parent) = Path::new(&final_path).parent() {
         if let Err(e) = metadata_backup::cleanup_backups_in_dir(parent, &backup_config) {
             eprintln!("metadata backup cleanup after write: {e}");
         }
     }
 
+    let new_file_path = if final_path != file_path {
+        Some(final_path.as_str())
+    } else {
+        None
+    };
+
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::update_track(&conn, track_id, &metadata).map_err(|e| {
+    db::update_track(&conn, track_id, &metadata, new_file_path).map_err(|e| {
         eprintln!("update_track error: {e}");
         e.to_string()
     })?;
@@ -140,11 +170,9 @@ pub fn write_track_metadata(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Track {track_id} not found after update"))?;
 
-    let _ = app;
     Ok(track)
 }
 
 fn app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     app.path().app_data_dir().map_err(|e| e.to_string())
 }
-
