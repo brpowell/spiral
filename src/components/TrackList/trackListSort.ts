@@ -10,9 +10,6 @@ export function compareTracks(
   let cmp = 0;
 
   switch (field) {
-    case "index":
-      cmp = a.id - b.id;
-      break;
     case "title":
       cmp = a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
       break;

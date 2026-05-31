@@ -14,14 +14,6 @@
   flex-shrink: 0;
 }
 
-.track-item-title__body {
-  display: flex;
-  align-items: center;
-  gap: var(--track-row-indicator-gap);
-  min-width: 0;
-  flex: 1;
-}
-
 .track-item-title__text {
   flex: 1;
   min-width: 0;

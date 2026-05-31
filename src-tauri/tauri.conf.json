@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Spiral",
-  "version": "0.1.0",
-  "identifier": "com.bryan.spiral",
+  "version": "1.0.0",
+  "identifier": "com.spiralpowered.music",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",

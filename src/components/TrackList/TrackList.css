@@ -222,7 +222,13 @@
 .track-list__index-num {
   flex: 1;
   min-width: 0;
-  text-align: right;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.track-list__cell--center .track-list__index-num {
+  justify-content: center;
 }
 
 .track-list__item--dragging {

@@ -31,7 +31,6 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
   const playContextIds = usePlayerStore((s) => s.playContextIds);
   const manualQueueIds = usePlayerStore((s) => s.manualQueueIds);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
-  const playbackState = usePlayerStore((s) => s.playbackState);
   const playTrack = usePlayerStore((s) => s.playTrack);
   const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
   const clearTrackList = usePlayerStore((s) => s.clearTrackList);
@@ -120,7 +119,6 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
                 <TrackListRow
                   track={nowPlaying}
                   playing
-                  activelyPlaying={playbackState === "playing"}
                   queued={manualQueueSet.has(nowPlaying.id)}
                   onPlay={() => handlePlay(nowPlaying.id)}
                   onRemoveFromQueue={
@@ -172,7 +170,6 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
 interface TrackListRowProps {
   track: Track;
   playing?: boolean;
-  activelyPlaying?: boolean;
   queued?: boolean;
   onPlay: () => void;
   onRemoveFromQueue?: () => void;
@@ -181,7 +178,6 @@ interface TrackListRowProps {
 function TrackListRow({
   track,
   playing = false,
-  activelyPlaying = false,
   queued = false,
   onPlay,
   onRemoveFromQueue,
@@ -202,7 +198,6 @@ function TrackListRow({
         <span className="track-list-modal__row-title">
           <TrackItemTitle
             track={track}
-            isActivelyPlaying={activelyPlaying}
             className="track-list-modal__row-title-inner"
           />
         </span>

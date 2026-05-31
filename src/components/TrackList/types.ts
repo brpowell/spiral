@@ -14,7 +14,6 @@ export type TrackListColumnId =
 
 export type TrackListSortField = Extract<
   TrackListColumnId,
-  | "index"
   | "title"
   | "artist"
   | "album"
@@ -48,7 +47,6 @@ export interface TrackListPreset {
 const INDEX_COL: TrackListColumnDef = {
   id: "index",
   label: "#",
-  sortable: true,
   resizable: true,
   align: "center",
 };

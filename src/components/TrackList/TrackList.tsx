@@ -3,6 +3,7 @@ import { TRACK_REORDER_DRAG_TYPE } from "../../lib/dragDrop";
 import { IconGrip } from "../icons";
 import { formatDateAdded, formatTime } from "../../lib/format";
 import { Button } from "../common/Button/Button";
+import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
 import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
 import { TrackRowMenu } from "../TrackRowMenu/TrackRowMenu";
 import { TrackListColumnMenu } from "./TrackListColumnMenu";
@@ -61,10 +62,8 @@ function indexDisplay(
 
 function sortFieldForColumn(
   col: TrackListColumnDef,
-  indexColumn: "index" | "trackNumber",
 ): TrackListSortField | null {
   if (!col.sortable) return null;
-  if (col.id === indexColumn) return "index";
   return col.id as TrackListSortField;
 }
 
@@ -189,7 +188,7 @@ export function TrackList({
   };
 
   const renderHeaderCell = (col: TrackListColumnDef) => {
-    const field = sortFieldForColumn(col, preset.indexColumn);
+    const field = sortFieldForColumn(col);
     const label = `${col.label}${field && onSort ? sortIndicator(field) : ""}`;
 
     const content =
@@ -390,10 +389,14 @@ export function TrackList({
                                     </span>
                                   ) : null}
                                   <span className="track-list__index-num">
-                                    {indexDisplay(
-                                      track,
-                                      displayIndex,
-                                      preset.indexColumn,
+                                    {isActivelyPlaying ? (
+                                      <PlayingIndicator active inline />
+                                    ) : (
+                                      indexDisplay(
+                                        track,
+                                        displayIndex,
+                                        preset.indexColumn,
+                                      )
                                     )}
                                   </span>
                                 </span>
@@ -408,7 +411,6 @@ export function TrackList({
                                 >
                                   <TrackItemTitle
                                     track={track}
-                                    isActivelyPlaying={isActivelyPlaying}
                                     showAlbumArt={showAlbumArt}
                                   />
                                 </span>
