@@ -30,10 +30,10 @@ import { showPlaylistAddedToast } from "../lib/playlistToast";
 import { recentPlaylists, sortedPlaylists } from "../lib/playlists";
 import type { Playlist } from "../types/playlist";
 import { tracksForContextAction } from "../lib/trackSelection";
+import { albumKey } from "../lib/albums";
 import {
   hasNavigableAlbum,
   hasNavigableArtist,
-  navigationAlbumKey,
   navigationArtistKey,
 } from "../lib/trackNavigation";
 import { useNavigationStore } from "../store/useNavigationStore";
@@ -200,7 +200,7 @@ export function useTrackEditMenu(
           label="Go to Album"
           onClick={() => {
             closeMenu();
-            openAlbum(navigationAlbumKey(track));
+            openAlbum(albumKey(track));
           }}
         />
       ) : null}

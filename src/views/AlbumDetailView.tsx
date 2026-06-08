@@ -1,5 +1,5 @@
 import { albumTotalDurationSeconds, getAlbumByKey } from "../lib/albums";
-import { getArtistByKey } from "../lib/artists";
+import { detailReturnLabel } from "../lib/navigationReturn";
 import { formatTime } from "../lib/format";
 import { EntityArt } from "../components/EntityArt/EntityArt";
 import { Button } from "../components/common/Button/Button";
@@ -31,7 +31,7 @@ export function AlbumDetailView({
   albumKey,
 }: AlbumDetailViewProps) {
   const closeAlbum = useNavigationStore((s) => s.closeAlbum);
-  const navArtistKey = useNavigationStore((s) => s.artistKey);
+  const albumReturnContext = useNavigationStore((s) => s.albumReturnContext);
   const playTracks = usePlayerStore((s) => s.playTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
@@ -41,10 +41,7 @@ export function AlbumDetailView({
   const addToQueue = usePlayerStore((s) => s.addToQueue);
 
   const album = getAlbumByKey(albums, albumKey);
-  const backArtist = navArtistKey
-    ? getArtistByKey(artists, navArtistKey)
-    : undefined;
-  const backLabel = backArtist?.name ?? "Albums";
+  const backLabel = detailReturnLabel(albumReturnContext, artists);
 
   if (!album) {
     return (

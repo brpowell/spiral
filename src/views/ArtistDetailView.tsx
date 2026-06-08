@@ -18,6 +18,7 @@ import {
   getArtistByKey,
 } from "../lib/artists";
 import { formatTime } from "../lib/format";
+import { detailReturnLabel } from "../lib/navigationReturn";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Album } from "../types/album";
@@ -38,11 +39,13 @@ export function ArtistDetailView({
   browseMode,
 }: ArtistDetailViewProps) {
   const closeArtist = useNavigationStore((s) => s.closeArtist);
+  const artistReturnContext = useNavigationStore((s) => s.artistReturnContext);
   const playTracks = usePlayerStore((s) => s.playTracks);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const openArtistEditor = usePlayerStore((s) => s.openArtistEditor);
 
   const artist = getArtistByKey(artists, artistKey);
+  const backLabel = detailReturnLabel(artistReturnContext, artists);
   const discography = useMemo(
     () => (artist ? albumsForArtist(albums, artist, browseMode) : []),
     [albums, artist, browseMode],
@@ -58,7 +61,7 @@ export function ArtistDetailView({
           onClick={closeArtist}
         >
           <IconBack />
-          Artists
+          {backLabel}
         </Button>
         <p>Artist not found.</p>
       </div>
@@ -93,7 +96,7 @@ export function ArtistDetailView({
           onClick={closeArtist}
         >
           <IconBack />
-          Artists
+          {backLabel}
         </Button>
         <MenuButton
           ariaLabel="Artist actions"

@@ -1,4 +1,3 @@
-import { albumKey } from "./albums";
 import {
   albumArtistKey,
   performerKeysForTrack,
@@ -22,8 +21,4 @@ export function hasNavigableAlbum(track: Track): boolean {
 
 export function hasNavigableArtist(track: Track): boolean {
   return Boolean(track.artist?.trim() || track.albumArtist?.trim());
-}
-
-export function navigationAlbumKey(track: Track): string {
-  return albumKey(track);
 }

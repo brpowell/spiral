@@ -4,10 +4,10 @@ import {
   isTrackImporting,
   isTrackInteractive,
 } from "../../lib/pendingImportTrack";
+import { albumKey } from "../../lib/albums";
 import {
   hasNavigableAlbum,
   hasNavigableArtist,
-  navigationAlbumKey,
   navigationArtistKey,
 } from "../../lib/trackNavigation";
 import { useNavigationStore } from "../../store/useNavigationStore";
@@ -256,7 +256,7 @@ function TrackListRowComponent({
                   <TrackListCellLink
                     label={label}
                     ariaLabel={`View album ${label}`}
-                    onClick={() => openAlbum(navigationAlbumKey(track))}
+                    onClick={() => openAlbum(albumKey(track))}
                   />
                 </span>
               );

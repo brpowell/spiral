@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { ContextMenuSeparator } from "../components/ContextMenu/ContextMenu";
 import { albumTotalDurationSeconds } from "../lib/albums";
 import { formatTime } from "../lib/format";
+import { detailReturnLabel } from "../lib/navigationReturn";
 import { getPlaylistById, resolvePlaylistTracks } from "../lib/playlists";
 import { PlaylistArt } from "../components/PlaylistArt/PlaylistArt";
 import { Button } from "../components/common/Button/Button";
@@ -19,19 +20,28 @@ import { useDeletePlaylistDialog } from "../hooks/useDeletePlaylistDialog";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { usePlaylistStore } from "../store/usePlaylistStore";
+import type { Artist } from "../types/artist";
 import type { Playlist } from "../types/playlist";
 import type { Track } from "../types/track";
 import "./PlaylistDetailView.css";
 
 interface PlaylistDetailViewProps {
   playlistId: number;
+  artists: Artist[];
 }
 
-export function PlaylistDetailView({ playlistId }: PlaylistDetailViewProps) {
+export function PlaylistDetailView({
+  playlistId,
+  artists,
+}: PlaylistDetailViewProps) {
   const closePlaylist = useNavigationStore((s) => s.closePlaylist);
+  const playlistReturnContext = useNavigationStore(
+    (s) => s.playlistReturnContext,
+  );
   const playlists = usePlaylistStore((s) => s.playlists);
   const touchPlaylist = usePlaylistStore((s) => s.touchPlaylist);
   const playlist = getPlaylistById(playlists, playlistId);
+  const backLabel = detailReturnLabel(playlistReturnContext, artists);
 
   useEffect(() => {
     void touchPlaylist(playlistId);
@@ -47,17 +57,25 @@ export function PlaylistDetailView({ playlistId }: PlaylistDetailViewProps) {
           onClick={closePlaylist}
         >
           <IconBack />
-          Playlists
+          {backLabel}
         </Button>
         <p>Playlist not found.</p>
       </div>
     );
   }
 
-  return <PlaylistDetailContent playlist={playlist} />;
+  return (
+    <PlaylistDetailContent playlist={playlist} backLabel={backLabel} />
+  );
 }
 
-function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
+function PlaylistDetailContent({
+  playlist,
+  backLabel,
+}: {
+  playlist: Playlist;
+  backLabel: string;
+}) {
   const closePlaylist = useNavigationStore((s) => s.closePlaylist);
   const openPlaylistEditor = usePlaylistStore((s) => s.openPlaylistEditor);
   const library = usePlayerStore((s) => s.library);
@@ -115,7 +133,7 @@ function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
           onClick={closePlaylist}
         >
           <IconBack />
-          Playlists
+          {backLabel}
         </Button>
         <MenuButton
           ariaLabel="Playlist actions"
