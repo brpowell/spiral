@@ -1,5 +1,11 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, type ReactNode, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { backdropMotion, panelMotion } from "../../../lib/motion";
 import { Button } from "../Button/Button";
 import { IconClose } from "../../icons";
@@ -26,6 +32,19 @@ export function Modal({
   panelRef,
   labelledBy,
 }: ModalProps) {
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const panelNodeRef = useRef<HTMLDivElement | null>(null);
+
+  const setPanelNode = useCallback(
+    (node: HTMLDivElement | null) => {
+      panelNodeRef.current = node;
+      if (panelRef) {
+        panelRef.current = node;
+      }
+    },
+    [panelRef],
+  );
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -33,6 +52,42 @@ export function Modal({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    let pressedOutsidePanel = false;
+
+    const onMouseDown = (e: MouseEvent) => {
+      const panel = panelNodeRef.current;
+      if (!panel) return;
+      pressedOutsidePanel = !panel.contains(e.target as Node);
+    };
+
+    const onMouseUp = (e: MouseEvent) => {
+      if (e.button !== 0) return;
+
+      const backdrop = backdropRef.current;
+      const panel = panelNodeRef.current;
+      if (!backdrop || !panel) return;
+
+      const target = e.target as Node;
+      const releasedOutsidePanel =
+        backdrop.contains(target) && !panel.contains(target);
+
+      if (pressedOutsidePanel && releasedOutsidePanel) {
+        onClose();
+      }
+      pressedOutsidePanel = false;
+    };
+
+    window.addEventListener("mousedown", onMouseDown, true);
+    window.addEventListener("mouseup", onMouseUp, true);
+    return () => {
+      window.removeEventListener("mousedown", onMouseDown, true);
+      window.removeEventListener("mouseup", onMouseUp, true);
+    };
   }, [open, onClose]);
 
   const panelClasses = [
@@ -47,17 +102,16 @@ export function Modal({
     <AnimatePresence>
       {open && (
         <motion.div
+          ref={backdropRef}
           className="modal-backdrop"
-          onClick={onClose}
           {...backdropMotion}
         >
           <motion.div
-            ref={panelRef}
+            ref={setPanelNode}
             className={panelClasses}
             role="dialog"
             aria-modal="true"
             aria-labelledby={labelledBy}
-            onClick={(e) => e.stopPropagation()}
             {...panelMotion}
           >
             {children}
