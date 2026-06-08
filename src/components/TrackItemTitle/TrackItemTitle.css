@@ -11,6 +11,7 @@
 
 .track-item-title__art {
   width: var(--track-list-art-size);
+  height: var(--track-list-art-size);
   flex-shrink: 0;
 }
 

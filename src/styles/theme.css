@@ -28,6 +28,10 @@
   --track-row-indicator-gap: 0.35rem;
   --track-list-art-size: 36px;
   --track-list-art-gap: 0.75rem;
+  --track-list-row-padding-y: 0.25rem;
+  --track-list-row-height: calc(
+    var(--track-list-art-size) + 2 * var(--track-list-row-padding-y)
+  );
   --track-row-title-indent: calc(
     var(--track-row-indicator-width) + var(--track-row-indicator-gap)
   );

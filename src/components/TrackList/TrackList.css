@@ -144,7 +144,7 @@
 }
 
 .track-list__body:not(.track-list__body--virtual) .track-list__item--with-art {
-  contain-intrinsic-size: auto calc(var(--track-list-art-size) + 0.5rem + 1px);
+  contain-intrinsic-size: auto calc(var(--track-list-row-height) + 1px);
 }
 
 .track-list__body--virtual {
@@ -157,11 +157,13 @@
 }
 
 .track-list__row {
+  position: relative;
+  isolation: isolate;
   display: grid;
   grid-template-columns: var(--track-list-columns);
   align-items: center;
   width: 100%;
-  padding: 0.35rem 0;
+  padding: var(--track-list-row-padding-y) 0;
   border: none;
   border-bottom: 1px solid var(--color-border);
   background: transparent;
@@ -171,17 +173,30 @@
   transition: opacity 0.2s ease;
 }
 
-.track-list__row:hover {
+.track-list__row::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+}
+
+.track-list__row:hover::before {
   background: var(--track-row-bg-hover);
 }
 
-.track-list__row--selected,
-.track-list__row--selected:hover {
+.track-list__row--selected::before,
+.track-list__row--selected:hover::before {
   background: var(--track-row-bg-selected);
 }
 
 .track-list__row--with-art {
-  min-height: calc(var(--track-list-art-size) + 0.5rem);
+  min-height: calc(var(--track-list-row-height) + 1px);
+}
+
+.track-list__row--with-art .track-list__cell--title {
+  display: flex;
+  align-items: center;
 }
 
 .track-list__row--playing .track-item-title__text {
@@ -194,7 +209,7 @@
   cursor: default;
 }
 
-.track-list__row--importing:hover {
+.track-list__row--importing:hover::before {
   background: transparent;
 }
 
