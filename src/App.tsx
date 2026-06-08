@@ -15,6 +15,7 @@ import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useArtistImageStore } from "./store/useArtistImageStore";
 import { setupAppMenu } from "./lib/appMenu";
 import { openSkinMode } from "./lib/skinModeWindow";
+import { useAudioWakeRecovery } from "./hooks/useAudioWakeRecovery";
 import { useMediaHotkeys } from "./hooks/useMediaHotkeys";
 import { loadTrackListPreferences } from "./components/TrackList/trackListPreferences";
 import { usePlaybackSessionPersistence } from "./hooks/usePlaybackSessionPersistence";
@@ -36,6 +37,7 @@ function App() {
   const clearImportError = usePlayerStore((s) => s.clearImportError);
 
   useMediaHotkeys();
+  useAudioWakeRecovery();
   usePlaybackSessionPersistence();
   useVisualizerDataProvider();
   useMediaSessionSync();

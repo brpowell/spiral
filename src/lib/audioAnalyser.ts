@@ -14,6 +14,11 @@ export function ensureAnalyser(): AnalyserNode | null {
     return null;
   }
 
+  if (wired && analyser && analyser.context !== ctx) {
+    analyser = null;
+    wired = false;
+  }
+
   if (!wired) {
     analyser = ctx.createAnalyser();
     analyser.fftSize = FFT_SIZE;

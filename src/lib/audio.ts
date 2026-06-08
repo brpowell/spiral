@@ -4,6 +4,18 @@ import { ensureAnalyser } from "./audioAnalyser";
 
 let sound: Howl | null = null;
 let endCallback: (() => void) | null = null;
+let loadPending = false;
+
+export interface RecoverAfterWakeOptions {
+  wasPlaying: boolean;
+  positionSeconds: number;
+  filePath: string | null;
+}
+
+export interface RecoverAfterWakeResult {
+  restarted: boolean;
+  reloaded: boolean;
+}
 
 function formatFromPath(path: string): string | undefined {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
@@ -15,9 +27,13 @@ function formatFromPath(path: string): string | undefined {
 export function load(path: string): Promise<void> {
   return new Promise((resolve, reject) => {
     unload();
+    loadPending = true;
     void toAssetUrl(path).then((src) => {
       loadHowl(src, path, resolve, reject);
-    }, reject);
+    }, (err) => {
+      loadPending = false;
+      reject(err);
+    });
   });
 }
 
@@ -40,12 +56,22 @@ function loadHowl(
     } = {
       src: [src],
       html5: false,
-      onload: () => resolve(),
+      onload: () => {
+        loadPending = false;
+        resolve();
+      },
       onloaderror: (_id, err) => {
+        loadPending = false;
         reject(new Error(`Failed to load audio (${src}): ${String(err)}`));
       },
       onplayerror: (_id, err) => {
-        reject(new Error(`Failed to play audio (${src}): ${String(err)}`));
+        const error = new Error(`Failed to play audio (${src}): ${String(err)}`);
+        if (loadPending) {
+          loadPending = false;
+          reject(error);
+        } else {
+          console.error(error);
+        }
       },
       onend: () => {
         endCallback?.();
@@ -112,4 +138,70 @@ export function getVolume(): number {
 
 export function setMuted(muted: boolean): void {
   Howler.mute(muted);
+}
+
+function contextNeedsResume(): boolean {
+  const ctx = Howler.ctx;
+  if (!ctx) return false;
+  const state = ctx.state as string;
+  return state === "suspended" || state === "interrupted";
+}
+
+export async function resumeAudioContext(): Promise<void> {
+  const ctx = Howler.ctx;
+  if (!ctx || typeof ctx.resume !== "function" || !contextNeedsResume()) {
+    return;
+  }
+
+  try {
+    await ctx.resume();
+  } catch (err) {
+    console.warn("AudioContext resume failed:", err);
+  }
+}
+
+/** Pause and replay so Howler does not no-op when it still thinks a track is playing. */
+export function restartPlaybackAt(positionSeconds: number): void {
+  if (!sound) return;
+
+  sound.pause();
+  const duration = sound.duration();
+  if (positionSeconds > 0 && Number.isFinite(duration) && duration > 0) {
+    sound.seek(positionSeconds);
+  }
+  ensureAnalyser();
+  sound.play();
+}
+
+const RECOVERY_PLAY_CHECK_MS = 100;
+
+export async function recoverAfterWake(
+  options: RecoverAfterWakeOptions,
+): Promise<RecoverAfterWakeResult> {
+  await resumeAudioContext();
+
+  if (!sound || !options.filePath || !options.wasPlaying) {
+    return { restarted: false, reloaded: false };
+  }
+
+  restartPlaybackAt(options.positionSeconds);
+  await new Promise((resolve) => setTimeout(resolve, RECOVERY_PLAY_CHECK_MS));
+
+  if (isPlaying()) {
+    return { restarted: true, reloaded: false };
+  }
+
+  try {
+    const positionSeconds = options.positionSeconds;
+    await load(options.filePath);
+    const duration = getDurationSeconds();
+    if (positionSeconds > 0 && duration > 0) {
+      seek(positionSeconds / duration);
+    }
+    play();
+    return { restarted: true, reloaded: true };
+  } catch (err) {
+    console.error("Audio wake recovery reload failed:", err);
+    return { restarted: false, reloaded: false };
+  }
 }

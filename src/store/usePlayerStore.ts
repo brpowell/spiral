@@ -71,6 +71,7 @@ interface PlayerState {
   clearSelection: () => void;
   pause: () => void;
   resume: () => void;
+  recoverPlaybackAfterWake: () => Promise<void>;
   togglePlayPause: () => void;
   seek: (ratio: number) => void;
   beginSeekPreview: () => void;
@@ -518,6 +519,30 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       audio.play();
       set({ playbackState: "playing" });
       startPositionPoll(set);
+    },
+
+    recoverPlaybackAfterWake: async () => {
+      const state = get();
+      const track =
+        state.currentTrackId === null
+          ? undefined
+          : state.library.find((item) => item.id === state.currentTrackId);
+
+      const result = await audio.recoverAfterWake({
+        wasPlaying: state.playbackState === "playing",
+        positionSeconds: state.positionSeconds,
+        filePath: track?.filePath ?? null,
+      });
+
+      if (state.playbackState !== "playing") return;
+
+      if (result.restarted) {
+        startPositionPoll(set);
+        return;
+      }
+
+      stopPositionPoll();
+      set({ playbackState: "paused" });
     },
 
     togglePlayPause: () => {
