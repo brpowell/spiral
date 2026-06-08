@@ -151,7 +151,9 @@ export function ContextMenuSubmenu({
     const { width, height } =
       resolvedPanelRef.current.getBoundingClientRect();
     setPosition(
-      fitContextMenuPosition(itemRect.right - 2, itemRect.top, width, height),
+      fitContextMenuPosition(itemRect.right - 2, itemRect.top, width, height, {
+        flipUpAlignBottomY: itemRect.bottom,
+      }),
     );
   }, [flyoutOpen, children, resolvedPanelRef]);
 
