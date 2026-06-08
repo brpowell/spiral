@@ -9,12 +9,15 @@ use tauri::{AppHandle, Manager, State};
 pub struct DbState(pub Mutex<rusqlite::Connection>);
 
 #[tauri::command]
-pub fn save_track(state: State<DbState>, track: TrackInput) -> Result<i64, String> {
+pub fn save_track(state: State<DbState>, track: TrackInput) -> Result<Track, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::save_track(&conn, &track).map_err(|e| {
+    let id = db::save_track(&conn, &track).map_err(|e| {
         eprintln!("save_track error: {e}");
         e.to_string()
-    })
+    })?;
+    db::get_track_by_id(&conn, id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Track {id} not found after save"))
 }
 
 #[tauri::command]

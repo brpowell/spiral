@@ -64,6 +64,8 @@ function patchTask(
   return tasks.map((task) => (task.id === id ? { ...task, ...patch } : task));
 }
 
+const PROGRESS_UPDATE_MIN_MS = 250;
+
 function createRunContext(
   id: string,
   set: (
@@ -72,21 +74,39 @@ function createRunContext(
       | ((state: BackgroundTasksState) => Partial<BackgroundTasksState>),
   ) => void,
 ): BackgroundTaskRunContext {
+  let lastProgressAt = 0;
+  let lastProgressPercent = -1;
+
   return {
     setLabel: (label) =>
       set((state) => ({ tasks: patchTask(state.tasks, id, { label }) })),
     setDetail: (detail) =>
       set((state) => ({ tasks: patchTask(state.tasks, id, { detail }) })),
-    setProgress: (current, total) =>
+    setProgress: (current, total) => {
+      const now = Date.now();
+      const isComplete = current >= total;
+      const percent =
+        total > 0 ? Math.min(100, Math.floor((current / total) * 100)) : 100;
+      if (
+        !isComplete &&
+        percent === lastProgressPercent &&
+        now - lastProgressAt < PROGRESS_UPDATE_MIN_MS
+      ) {
+        return;
+      }
+      lastProgressAt = now;
+      lastProgressPercent = percent;
       set((state) => ({
         tasks: patchTask(state.tasks, id, {
           progress: { current, total },
         }),
-      })),
-    clearProgress: () =>
+      }));
+    },
+    clearProgress: () => {
       set((state) => ({
         tasks: patchTask(state.tasks, id, { progress: undefined }),
-      })),
+      }));
+    },
   };
 }
 

@@ -40,10 +40,10 @@ function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
 
   return (
     <motion.div
-      layout
+      layout={task.status !== "running"}
       className={`background-tasks__item background-tasks__item--${task.status}`}
       role="status"
-      aria-live="polite"
+      aria-live={task.status === "running" ? "off" : "polite"}
       {...panelMotion}
     >
       <TaskStatusIcon status={task.status} />
@@ -74,7 +74,7 @@ export function BackgroundTasksIndicator() {
 
   return (
     <div className="background-tasks" aria-label="Background tasks">
-      <AnimatePresence mode="popLayout">
+      <AnimatePresence mode="sync">
         {tasks.map((task) => (
           <BackgroundTaskItem key={task.id} task={task} />
         ))}

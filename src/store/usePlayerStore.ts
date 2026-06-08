@@ -26,6 +26,10 @@ import {
   shuffleNewTrackList,
   shuffleTrackList,
 } from "../lib/playbackQueue";
+import {
+  isPendingTrackId,
+  isTrackImporting,
+} from "../lib/pendingImportTrack";
 import type { PlaybackState, RepeatMode, Track } from "../types/track";
 
 interface PlayerState {
@@ -50,6 +54,11 @@ interface PlayerState {
   editingArtistBrowseMode: ArtistBrowseMode;
 
   loadLibrary: (options?: { preservePlayback?: boolean }) => Promise<void>;
+  stagePendingImportTracks: (tracks: Track[]) => void;
+  applyImportTrackUpdates: (
+    activations: { pendingId: number; track: Track }[],
+    removedPendingIds: number[],
+  ) => void;
   addToLibrary: () => Promise<void>;
   importFromPaths: (paths: string[]) => void;
   playTrack: (id: number) => Promise<void>;
@@ -158,6 +167,14 @@ let lastPreviousPressAt = 0;
 
 function prunePlaybackIds(ids: number[], libraryIds: Set<number>): number[] {
   return ids.filter((id) => libraryIds.has(id));
+}
+
+function prunePendingIds(ids: number[]): number[] {
+  return ids.filter((id) => !isPendingTrackId(id));
+}
+
+function interactiveLibraryIds(library: Track[]): number[] {
+  return library.filter((t) => !isTrackImporting(t)).map((t) => t.id);
 }
 
 function refreshLibraryPreservingPlayback(
@@ -335,6 +352,76 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }
     },
 
+    stagePendingImportTracks: (tracks) => {
+      if (tracks.length === 0) return;
+      set((state) => ({
+        library: [...state.library, ...tracks],
+        selectedTrackIds: prunePendingIds(state.selectedTrackIds),
+        selectionAnchorId: isPendingTrackId(state.selectionAnchorId ?? -1)
+          ? null
+          : state.selectionAnchorId,
+        playContextIds: prunePendingIds(state.playContextIds),
+        manualQueueIds: prunePendingIds(state.manualQueueIds),
+      }));
+    },
+
+    applyImportTrackUpdates: (activations, removedPendingIds) => {
+      if (activations.length === 0 && removedPendingIds.length === 0) return;
+
+      const removeSet = new Set(removedPendingIds);
+      const activationMap = new Map(
+        activations.map((entry) => [entry.pendingId, entry.track]),
+      );
+
+      set((state) => {
+        const library = state.library
+          .filter((t) => !removeSet.has(t.id))
+          .map((t) => {
+            const activated = activationMap.get(t.id);
+            return activated
+              ? { ...activated, importSourcePath: t.importSourcePath }
+              : t;
+          });
+
+        let selectedTrackIds = state.selectedTrackIds;
+        let selectionAnchorId = state.selectionAnchorId;
+        let playContextIds = state.playContextIds;
+        let manualQueueIds = state.manualQueueIds;
+        let currentTrackId = state.currentTrackId;
+
+        for (const { pendingId, track } of activations) {
+          selectedTrackIds = selectedTrackIds.map((id) =>
+            id === pendingId ? track.id : id,
+          );
+          if (selectionAnchorId === pendingId) selectionAnchorId = track.id;
+          playContextIds = playContextIds.map((id) =>
+            id === pendingId ? track.id : id,
+          );
+          manualQueueIds = manualQueueIds.map((id) =>
+            id === pendingId ? track.id : id,
+          );
+          if (currentTrackId === pendingId) currentTrackId = track.id;
+        }
+
+        for (const pendingId of removedPendingIds) {
+          selectedTrackIds = selectedTrackIds.filter((id) => id !== pendingId);
+          if (selectionAnchorId === pendingId) selectionAnchorId = null;
+          playContextIds = playContextIds.filter((id) => id !== pendingId);
+          manualQueueIds = manualQueueIds.filter((id) => id !== pendingId);
+          if (currentTrackId === pendingId) currentTrackId = null;
+        }
+
+        return {
+          library,
+          selectedTrackIds,
+          selectionAnchorId,
+          playContextIds,
+          manualQueueIds,
+          currentTrackId,
+        };
+      });
+    },
+
     importFromPaths: (paths) => {
       startLibraryImport(paths);
     },
@@ -352,17 +439,22 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     selectTracksInList: (id, orderedIds, modifiers) => {
+      if (isPendingTrackId(id)) return;
       const { selectedTrackIds, selectionAnchorId } = get();
+      const interactiveIds = orderedIds.filter((trackId) => !isPendingTrackId(trackId));
       const result = applyTrackSelection(
         id,
-        orderedIds,
+        interactiveIds,
         selectedTrackIds,
         selectionAnchorId,
         modifiers,
       );
       set({
-        selectedTrackIds: result.selectedIds,
-        selectionAnchorId: result.anchorId,
+        selectedTrackIds: result.selectedIds.filter((trackId) => !isPendingTrackId(trackId)),
+        selectionAnchorId:
+          result.anchorId != null && isPendingTrackId(result.anchorId)
+            ? null
+            : result.anchorId,
       });
     },
 
@@ -370,21 +462,23 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       set({ selectedTrackIds: [], selectionAnchorId: null }),
 
     playTracks: async (ids, startId) => {
-      if (ids.length === 0) return;
-      if (!ids.includes(startId)) return;
-      const ordered = get().shuffle ? shuffleNewTrackList(ids, startId) : ids;
+      const playableIds = ids.filter((id) => !isPendingTrackId(id));
+      if (playableIds.length === 0) return;
+      if (!playableIds.includes(startId) || isPendingTrackId(startId)) return;
+      const ordered = get().shuffle
+        ? shuffleNewTrackList(playableIds, startId)
+        : playableIds;
       set({ playContextIds: ordered });
       await get().playTrack(startId);
     },
 
     playTrack: async (id) => {
       const track = get().library.find((t) => t.id === id);
-      if (!track) return;
+      if (!track || isTrackImporting(track)) return;
 
       const hadContext = get().playContextIds.length > 0;
       if (!hadContext && get().library.length > 0) {
-        const libraryIds = get().library.map((t) => t.id);
-        set({ playContextIds: libraryIds });
+        set({ playContextIds: interactiveLibraryIds(get().library) });
       }
       if (!hadContext && get().shuffle && get().playContextIds.length > 1) {
         set({ playContextIds: shuffleTrackList(get().playContextIds, id) });
@@ -533,7 +627,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     addToQueue: (ids) => {
       const state = get();
-      const libraryIds = new Set(state.library.map((t) => t.id));
+      const libraryIds = new Set(
+        state.library.filter((t) => !isTrackImporting(t)).map((t) => t.id),
+      );
       const valid = ids.filter((id) => libraryIds.has(id));
       if (valid.length === 0) return;
 
@@ -609,9 +705,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     clearImportError: () => set({ importError: null }),
 
     openTrackEditor: (ids) => {
-      const list = (Array.isArray(ids) ? ids : [ids]).filter(
-        (id, index, all) => all.indexOf(id) === index,
-      );
+      const list = (Array.isArray(ids) ? ids : [ids])
+        .filter((id) => !isPendingTrackId(id))
+        .filter((id, index, all) => all.indexOf(id) === index);
       if (list.length === 0) return;
       set({
         editingTrackIds: list,

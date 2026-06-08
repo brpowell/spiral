@@ -35,11 +35,12 @@ import { useContextMenu } from "./useContextMenu";
 
 interface UseTrackEditMenuOptions {
   playlistId?: number;
+  disabled?: boolean;
 }
 
 export function useTrackEditMenu(
   track: Track,
-  { playlistId }: UseTrackEditMenuOptions = {},
+  { playlistId, disabled = false }: UseTrackEditMenuOptions = {},
 ) {
   const library = usePlayerStore((s) => s.library);
   const selectedTrackIds = usePlayerStore((s) => s.selectedTrackIds);
@@ -269,5 +270,9 @@ export function useTrackEditMenu(
     document.body,
   );
 
-  return { onContextMenu, contextMenu, removeDialog };
+  return {
+    onContextMenu: disabled ? undefined : onContextMenu,
+    contextMenu: disabled ? null : contextMenu,
+    removeDialog: disabled ? null : removeDialog,
+  };
 }

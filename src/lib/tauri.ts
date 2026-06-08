@@ -82,8 +82,9 @@ export async function scanFolder(folderPath: string): Promise<string[]> {
   return invoke<string[]>("scan_folder", { folderPath });
 }
 
-export async function saveTrack(track: TrackInput): Promise<number> {
-  return invoke<number>("save_track", { track });
+export async function saveTrack(track: TrackInput): Promise<Track> {
+  const row = await invoke<Record<string, unknown>>("save_track", { track });
+  return normalizeTrack(row);
 }
 
 export async function removeTrack(

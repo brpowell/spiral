@@ -3,6 +3,9 @@ export type PlaybackState = "playing" | "paused" | "stopped";
 /** off = play queue once; all = loop queue; one = loop current track */
 export type RepeatMode = "off" | "all" | "one";
 
+/** Client-only state while a track is staged before copy/save finishes. */
+export type TrackImportStatus = "importing";
+
 export interface Track {
   id: number;
   title: string;
@@ -18,6 +21,9 @@ export interface Track {
   artPath: string | null;
   dateAdded: string;
   playCount: number;
+  importStatus?: TrackImportStatus;
+  /** Original dropped/picked path; used for copy and stable list keys during import. */
+  importSourcePath?: string;
 }
 
 export interface TrackInput {

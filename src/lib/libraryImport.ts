@@ -1,9 +1,16 @@
-import { importPaths } from "./import";
+import { commitImportEntries, parseImportMetadata } from "./import";
+import {
+  flushImportActivationQueue,
+  queueImportedTrackActivation,
+  queuePendingImportRemoval,
+  resetImportActivationQueue,
+} from "./importActivationQueue";
+import { pendingTrackFromInput } from "./pendingImportTrack";
 import {
   filterPathsForLibraryImport,
   isSupportedAudioPath,
 } from "./supportedAudio";
-import { waitForPaint, yieldToMain } from "./scheduling";
+import { waitForPaint, yieldForInteraction, yieldToMain } from "./scheduling";
 import { scanFolder } from "./tauri";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useLibrarySettingsStore } from "../store/useLibrarySettingsStore";
@@ -27,7 +34,7 @@ async function resolveImportPaths(
       }
     }
     onProgress?.(i + 1, total);
-    await yieldToMain();
+    await yieldForInteraction();
   }
 
   return resolved;
@@ -38,6 +45,7 @@ export function startLibraryImport(paths: string[]): void {
   if (pathsToImport.length === 0) return;
 
   usePlayerStore.setState({ importError: null });
+  resetImportActivationQueue();
 
   useBackgroundTasksStore.getState().runInBackground({
     key: "library-import",
@@ -53,16 +61,10 @@ export function startLibraryImport(paths: string[]): void {
         return;
       }
 
-      ctx.clearProgress();
-      ctx.setLabel(
-        audioPaths.length === 1
-          ? "Importing 1 track…"
-          : `Importing ${audioPaths.length} tracks…`,
-      );
-
       const settingsStore = useLibrarySettingsStore.getState();
-      const settings =
-        settingsStore.settings ?? (await settingsStore.loadSettings());
+      if (!settingsStore.settings) {
+        await settingsStore.loadSettings();
+      }
       let importMode: "copy" | "reference";
       try {
         importMode = await settingsStore.resolveImportMode();
@@ -74,13 +76,50 @@ export function startLibraryImport(paths: string[]): void {
       await waitForPaint();
       await yieldToMain();
 
-      const result = await importPaths(audioPaths, {
+      ctx.clearProgress();
+      ctx.setLabel(
+        audioPaths.length === 1
+          ? "Reading metadata for 1 track…"
+          : `Reading metadata for ${audioPaths.length} tracks…`,
+      );
+
+      const player = usePlayerStore.getState();
+      const { entries, errors: metadataErrors } = await parseImportMetadata(
+        audioPaths,
+        (current, total) => ctx.setProgress(current, total),
+      );
+
+      if (entries.length === 0) {
+        throw new Error(metadataErrors[0] ?? "Could not read track metadata");
+      }
+
+      const pendingTracks = entries.map((entry) =>
+        pendingTrackFromInput(entry.pendingId, entry.sourcePath, entry.metadata),
+      );
+      player.stagePendingImportTracks(pendingTracks);
+
+      ctx.clearProgress();
+      ctx.setLabel(
+        entries.length === 1
+          ? "Importing 1 track…"
+          : `Importing ${entries.length} tracks…`,
+      );
+
+      const result = await commitImportEntries(entries, {
         mode: importMode,
-        settings,
         onProgress: (current, total) => ctx.setProgress(current, total),
+        onTrackActivated: (pendingId, track) => {
+          queueImportedTrackActivation(pendingId, track);
+        },
+        onTrackFailed: (pendingId) => {
+          queuePendingImportRemoval(pendingId);
+        },
       });
 
-      await usePlayerStore.getState().loadLibrary({ preservePlayback: true });
+      flushImportActivationQueue();
+
+      result.errors.unshift(...metadataErrors);
+      result.failed += metadataErrors.length;
 
       if (result.imported > 0) {
         ctx.setLabel(
@@ -88,7 +127,7 @@ export function startLibraryImport(paths: string[]): void {
             ? "Imported 1 track"
             : `Imported ${result.imported} tracks`,
         );
-      } else if (audioPaths.length > 0) {
+      } else if (entries.length > 0) {
         ctx.setLabel("Import finished");
       }
 

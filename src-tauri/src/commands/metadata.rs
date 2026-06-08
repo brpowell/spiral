@@ -1,5 +1,7 @@
 use super::library::DbState;
 use crate::art_cache::{self, guess_ext_from_url};
+use crate::metadata_reader;
+use crate::models::TrackInput;
 use crate::artist_art_fetch;
 use crate::cover_art_fetch::{self, CoverArtCandidate};
 use crate::db;
@@ -10,6 +12,20 @@ use crate::settings;
 use crate::models::{Track, TrackMetadataUpdate};
 use std::path::Path;
 use tauri::{AppHandle, Manager, State};
+
+#[tauri::command]
+pub async fn parse_track_metadata(
+    app: AppHandle,
+    file_path: String,
+) -> Result<TrackInput, String> {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let app_data = app_data_dir(&app)?;
+        metadata_reader::parse_track_metadata(&app_data, &file_path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
 
 #[tauri::command]
 pub fn pick_image_file() -> Result<Option<String>, String> {

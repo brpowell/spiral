@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo } from "react";
+import { isTrackImporting } from "../../lib/pendingImportTrack";
 import { applyArtistImages } from "../../lib/artistArt";
 import { groupTracksIntoAlbums } from "../../lib/albums";
 import { groupTracksIntoArtists } from "../../lib/artists";
@@ -30,11 +31,15 @@ export function MainContent() {
   const artistBrowseMode = useNavigationStore((s) => s.artistBrowseMode);
   const playlistId = useNavigationStore((s) => s.playlistId);
 
-  const albums = useMemo(() => groupTracksIntoAlbums(library), [library]);
+  const liveLibrary = useMemo(
+    () => library.filter((track) => !isTrackImporting(track)),
+    [library],
+  );
+  const albums = useMemo(() => groupTracksIntoAlbums(liveLibrary), [liveLibrary]);
   const artists = useMemo(() => {
-    const grouped = groupTracksIntoArtists(library, artistBrowseMode);
+    const grouped = groupTracksIntoArtists(liveLibrary, artistBrowseMode);
     return applyArtistImages(grouped, imagesByKey);
-  }, [library, artistBrowseMode, imagesByKey]);
+  }, [liveLibrary, artistBrowseMode, imagesByKey]);
 
   const contentKey =
     playlistId != null

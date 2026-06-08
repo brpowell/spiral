@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { SearchField } from "../components/SearchField/SearchField";
 import { TrackList } from "../components/TrackList/TrackList";
 import {
@@ -9,6 +9,7 @@ import type {
   TrackListSortDir,
   TrackListSortField,
 } from "../components/TrackList/types";
+import { isTrackImporting } from "../lib/pendingImportTrack";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Track } from "../types/track";
 import "./TracksView.css";
@@ -47,23 +48,37 @@ export function TracksView({ tracks }: TracksViewProps) {
     }
   };
 
-  const handleSelectRow = (track: Track, e: React.MouseEvent) => {
-    selectTracksInList(track.id, sortedTrackIds, {
-      shiftKey: e.shiftKey,
-      metaKey: e.metaKey || e.ctrlKey,
-    });
-  };
+  const importingCount = tracks.filter((t) => isTrackImporting(t)).length;
+  const liveCount = tracks.length - importingCount;
 
-  const handlePlayRow = (track: Track) => {
-    void playTracks(sortedTrackIds, track.id);
-  };
+  const handleSelectRow = useCallback(
+    (track: Track, e: React.MouseEvent) => {
+      if (isTrackImporting(track)) return;
+      selectTracksInList(track.id, sortedTrackIds, {
+        shiftKey: e.shiftKey,
+        metaKey: e.metaKey || e.ctrlKey,
+      });
+    },
+    [selectTracksInList, sortedTrackIds],
+  );
+
+  const handlePlayRow = useCallback(
+    (track: Track) => {
+      if (isTrackImporting(track)) return;
+      void playTracks(sortedTrackIds, track.id);
+    },
+    [playTracks, sortedTrackIds],
+  );
 
   return (
     <div className="tracks-view">
       <header className="tracks-view__header">
         <div className="tracks-view__heading">
           <h1 className="tracks-view__title">Tracks</h1>
-          <span className="tracks-view__count">({tracks.length})</span>
+          <span className="tracks-view__count">
+            ({liveCount}
+            {importingCount > 0 ? `, ${importingCount} importing` : ""})
+          </span>
         </div>
         <SearchField
           value={search}

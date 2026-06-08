@@ -1,11 +1,7 @@
-import { useCallback, useState, type CSSProperties, type ReactNode } from "react";
-import { IconGrip } from "../icons";
-import { formatDateAdded, formatTime } from "../../lib/format";
+import { useCallback, useState, type CSSProperties } from "react";
 import { Button } from "../common/Button/Button";
-import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
-import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
-import { TrackRowMenu } from "../TrackRowMenu/TrackRowMenu";
 import { TrackListColumnMenu } from "./TrackListColumnMenu";
+import { TrackListRow } from "./TrackListRow";
 import { useTrackListColumns } from "./useTrackListColumns";
 import { useTrackListHeaderMenu } from "./useTrackListHeaderMenu";
 import {
@@ -18,46 +14,6 @@ import {
 } from "./types";
 import type { Track } from "../../types/track";
 import "./TrackList.css";
-
-function cellValue(track: Track, columnId: TrackListColumnId): ReactNode {
-  switch (columnId) {
-    case "title":
-      return track.title;
-    case "artist":
-      return track.artist ?? "—";
-    case "album":
-      return track.album ?? "—";
-    case "albumArtist":
-      return track.albumArtist ?? "—";
-    case "duration":
-      return track.durationSeconds != null
-        ? formatTime(track.durationSeconds)
-        : "—";
-    case "year":
-      return track.year != null ? String(track.year) : "—";
-    case "genre":
-      return track.genre ?? "—";
-    case "discNumber":
-      return track.discNumber != null ? String(track.discNumber) : "—";
-    case "dateAdded":
-      return formatDateAdded(track.dateAdded);
-    case "playCount":
-      return String(track.playCount);
-    default:
-      return "—";
-  }
-}
-
-function indexDisplay(
-  track: Track,
-  displayIndex: number,
-  indexColumn: "index" | "trackNumber",
-): string {
-  if (indexColumn === "trackNumber") {
-    return track.trackNumber != null ? String(track.trackNumber) : "—";
-  }
-  return String(displayIndex + 1);
-}
 
 function sortFieldForColumn(
   col: TrackListColumnDef,
@@ -309,131 +265,37 @@ export function TrackList({
             ) : (
               <ol className="track-list__body">
                 {tracks.map((track, displayIndex) => {
-                  const isSelected = selectedTrackIds.includes(track.id);
+                  const isSelected =
+                    !track.importStatus && selectedTrackIds.includes(track.id);
                   const isNowPlaying = track.id === currentTrackId;
                   const isActivelyPlaying =
                     isNowPlaying && playbackState === "playing";
+                  const rowKey = track.importSourcePath ?? String(track.id);
 
                   return (
-                    <li
-                      key={track.id}
-                      data-track-list-index={displayIndex}
-                      className={[
-                        "track-list__item",
-                        draggingIndex === displayIndex &&
-                        "track-list__item--dragging",
+                    <TrackListRow
+                      key={rowKey}
+                      track={track}
+                      displayIndex={displayIndex}
+                      showAlbumArt={showAlbumArt}
+                      visibleColumns={visibleColumns}
+                      indexColumn={preset.indexColumn}
+                      gridStyle={gridStyle}
+                      canReorder={canReorder}
+                      playlistId={playlistId}
+                      isSelected={isSelected}
+                      isNowPlaying={isNowPlaying}
+                      isActivelyPlaying={isActivelyPlaying}
+                      isDragging={draggingIndex === displayIndex}
+                      isDragOver={
                         dragOverIndex === displayIndex &&
                         draggingIndex != null &&
-                        draggingIndex !== displayIndex &&
-                        "track-list__item--drag-over",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                    >
-                      <TrackRowMenu
-                        track={track}
-                        className="track-list__row-wrap"
-                        playlistId={playlistId}
-                      >
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          className={[
-                            "track-list__row",
-                            showAlbumArt && "track-list__row--with-art",
-                            isSelected && "track-list__row--selected",
-                            isNowPlaying && "track-list__row--playing",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
-                          style={gridStyle}
-                          onClick={(e) => onSelectTrack(track, e)}
-                          onDoubleClick={() => onPlayTrack(track)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") onPlayTrack(track);
-                          }}
-                        >
-                          {visibleColumns.map((col) => {
-                            if (col.id === preset.indexColumn) {
-                              return (
-                                <span
-                                  key={col.id}
-                                  className={[
-                                    "track-list__cell",
-                                    "track-list__cell--index",
-                                    canReorder && "track-list__cell--index-reorder",
-                                    col.align === "center" &&
-                                    "track-list__cell--center",
-                                  ]
-                                    .filter(Boolean)
-                                    .join(" ")}
-                                >
-                                  {canReorder ? (
-                                    <span
-                                      className="track-list__drag-handle"
-                                      aria-label={`Reorder ${track.title}`}
-                                      onPointerDown={(e) => {
-                                        e.stopPropagation();
-                                        startReorder(e, displayIndex);
-                                      }}
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <IconGrip className="track-list__drag-icon" />
-                                    </span>
-                                  ) : null}
-                                  <span className="track-list__index-num">
-                                    {isActivelyPlaying ? (
-                                      <PlayingIndicator active inline />
-                                    ) : (
-                                      indexDisplay(
-                                        track,
-                                        displayIndex,
-                                        preset.indexColumn,
-                                      )
-                                    )}
-                                  </span>
-                                </span>
-                              );
-                            }
-
-                            if (col.id === "title") {
-                              return (
-                                <span
-                                  key={col.id}
-                                  className="track-list__cell track-list__cell--title"
-                                >
-                                  <TrackItemTitle
-                                    track={track}
-                                    showAlbumArt={showAlbumArt}
-                                  />
-                                </span>
-                              );
-                            }
-
-                            return (
-                              <span
-                                key={col.id}
-                                className={[
-                                  "track-list__cell",
-                                  col.secondary && "track-list__cell--secondary",
-                                  col.align === "center" &&
-                                  "track-list__cell--center",
-                                  col.align === "right" && "track-list__cell--right",
-                                  col.id === "duration" &&
-                                  "track-list__cell--duration",
-                                ]
-                                  .filter(Boolean)
-                                  .join(" ")}
-                              >
-                                {cellValue(track, col.id)}
-                              </span>
-                            );
-                          })}
-                          <span className="track-list__cell track-list__filler" aria-hidden />
-                          <span className="track-list__cell track-list__cell--actions" />
-                        </div>
-                      </TrackRowMenu>
-                    </li>
+                        draggingIndex !== displayIndex
+                      }
+                      onSelectTrack={onSelectTrack}
+                      onPlayTrack={onPlayTrack}
+                      onStartReorder={startReorder}
+                    />
                   );
                 })}
               </ol>

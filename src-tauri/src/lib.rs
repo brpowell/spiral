@@ -14,6 +14,7 @@ mod media_session;
 #[cfg(desktop)]
 mod media_shortcuts;
 mod metadata_backup;
+mod metadata_reader;
 mod metadata_writer;
 mod models;
 mod session;
@@ -55,7 +56,6 @@ pub fn run() {
             commands::files::pick_library_paths,
             commands::files::scan_folder,
             commands::files::pick_folder,
-            commands::files::read_file_bytes,
             commands::files::get_file_modified_ms,
             commands::library::save_track,
             commands::library::get_library,
@@ -69,6 +69,7 @@ pub fn run() {
             commands::playlists::delete_playlist,
             commands::library::record_track_play,
             commands::library::remove_track,
+            commands::metadata::parse_track_metadata,
             commands::metadata::pick_image_file,
             commands::metadata::cache_art_from_bytes,
             commands::metadata::cache_art_from_file,

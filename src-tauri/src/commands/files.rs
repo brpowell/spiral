@@ -65,15 +65,6 @@ pub fn get_file_modified_ms(path: String) -> Result<u64, String> {
         .map_err(|e| format!("Invalid modification time: {e}"))
 }
 
-/// Read file bytes from disk (Rust-side; not subject to plugin-fs scope).
-#[tauri::command]
-pub fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
-    std::fs::read(&path).map_err(|e| {
-        eprintln!("read_file_bytes error for {path}: {e}");
-        e.to_string()
-    })
-}
-
 #[tauri::command]
 pub fn pick_folder() -> Result<Vec<String>, String> {
     let folder = rfd::FileDialog::new()
