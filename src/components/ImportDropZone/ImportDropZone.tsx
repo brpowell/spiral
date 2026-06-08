@@ -1,11 +1,25 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import {
   isExternalFileDrag,
   pathsFromDataTransfer,
 } from "../../lib/dragDrop";
+import { routeDroppedPaths } from "../../lib/fileDropRouting";
+import { isTauri } from "../../lib/windowRole";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import "./ImportDropZone.css";
+
+function handleDroppedPaths(
+  paths: string[],
+  importFromPaths: (paths: string[]) => void,
+  position?: { x: number; y: number },
+) {
+  if (paths.length === 0) return;
+  if (routeDroppedPaths(paths, position) === "library") {
+    importFromPaths(paths);
+  }
+}
 
 export function ImportDropZone() {
   const [active, setActive] = useState(false);
@@ -15,6 +29,45 @@ export function ImportDropZone() {
   const dragDepthRef = useRef(0);
 
   useEffect(() => {
+    if (isTauri()) {
+      let cancelled = false;
+      let unlisten: (() => void) | undefined;
+
+      void getCurrentWindow()
+        .onDragDropEvent((event) => {
+          const payload = event.payload;
+          switch (payload.type) {
+            case "enter":
+            case "over":
+              setActive(true);
+              break;
+            case "leave":
+              setActive(false);
+              break;
+            case "drop":
+              setActive(false);
+              handleDroppedPaths(
+                payload.paths,
+                importFromPathsRef.current,
+                payload.position,
+              );
+              break;
+          }
+        })
+        .then((fn) => {
+          if (cancelled) {
+            fn();
+            return;
+          }
+          unlisten = fn;
+        });
+
+      return () => {
+        cancelled = true;
+        unlisten?.();
+      };
+    }
+
     const reset = () => {
       dragDepthRef.current = 0;
       setActive(false);
@@ -47,9 +100,10 @@ export function ImportDropZone() {
       e.preventDefault();
       const paths = pathsFromDataTransfer(e.dataTransfer);
       reset();
-      if (paths.length > 0) {
-        importFromPathsRef.current(paths);
-      }
+      handleDroppedPaths(paths, importFromPathsRef.current, {
+        x: e.clientX,
+        y: e.clientY,
+      });
     };
 
     window.addEventListener("dragenter", onDragEnter);

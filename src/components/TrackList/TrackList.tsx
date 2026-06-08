@@ -1,5 +1,4 @@
 import { useCallback, useState, type CSSProperties, type ReactNode } from "react";
-import { TRACK_REORDER_DRAG_TYPE } from "../../lib/dragDrop";
 import { IconGrip } from "../icons";
 import { formatDateAdded, formatTime } from "../../lib/format";
 import { Button } from "../common/Button/Button";
@@ -237,19 +236,45 @@ export function TrackList({
     );
   };
 
-  const handleDragEnd = () => {
-    setDraggingIndex(null);
-    setDragOverIndex(null);
-  };
+  const findReorderIndexAt = useCallback(
+    (clientX: number, clientY: number): number | null => {
+      const target = document.elementFromPoint(clientX, clientY);
+      const item = target?.closest("[data-track-list-index]");
+      if (!item) return null;
+      const index = item.getAttribute("data-track-list-index");
+      return index != null ? Number(index) : null;
+    },
+    [],
+  );
 
-  const handleDrop = (toIndex: number) => {
-    if (draggingIndex == null || draggingIndex === toIndex || !onReorderTracks) {
-      handleDragEnd();
-      return;
-    }
-    onReorderTracks(draggingIndex, toIndex);
-    handleDragEnd();
-  };
+  const startReorder = useCallback(
+    (e: React.PointerEvent, fromIndex: number) => {
+      if (!canReorder || !onReorderTracks) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setDraggingIndex(fromIndex);
+
+      const onMove = (ev: PointerEvent) => {
+        const index = findReorderIndexAt(ev.clientX, ev.clientY);
+        if (index != null) setDragOverIndex(index);
+      };
+
+      const onUp = (ev: PointerEvent) => {
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+        const toIndex = findReorderIndexAt(ev.clientX, ev.clientY);
+        if (toIndex != null && toIndex !== fromIndex) {
+          onReorderTracks(fromIndex, toIndex);
+        }
+        setDraggingIndex(null);
+        setDragOverIndex(null);
+      };
+
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+    },
+    [canReorder, findReorderIndexAt, onReorderTracks],
+  );
 
   return (
     <>
@@ -292,6 +317,7 @@ export function TrackList({
                   return (
                     <li
                       key={track.id}
+                      data-track-list-index={displayIndex}
                       className={[
                         "track-list__item",
                         draggingIndex === displayIndex &&
@@ -303,32 +329,6 @@ export function TrackList({
                       ]
                         .filter(Boolean)
                         .join(" ")}
-                      onDragOver={
-                        canReorder
-                          ? (e) => {
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = "move";
-                            setDragOverIndex(displayIndex);
-                          }
-                          : undefined
-                      }
-                      onDragLeave={
-                        canReorder
-                          ? () => {
-                            if (dragOverIndex === displayIndex) {
-                              setDragOverIndex(null);
-                            }
-                          }
-                          : undefined
-                      }
-                      onDrop={
-                        canReorder
-                          ? (e) => {
-                            e.preventDefault();
-                            handleDrop(displayIndex);
-                          }
-                          : undefined
-                      }
                     >
                       <TrackRowMenu
                         track={track}
@@ -371,19 +371,12 @@ export function TrackList({
                                   {canReorder ? (
                                     <span
                                       className="track-list__drag-handle"
-                                      draggable
                                       aria-label={`Reorder ${track.title}`}
-                                      onDragStart={(e) => {
-                                        e.dataTransfer.effectAllowed = "move";
-                                        e.dataTransfer.setData(
-                                          TRACK_REORDER_DRAG_TYPE,
-                                          String(displayIndex),
-                                        );
-                                        setDraggingIndex(displayIndex);
+                                      onPointerDown={(e) => {
+                                        e.stopPropagation();
+                                        startReorder(e, displayIndex);
                                       }}
-                                      onDragEnd={handleDragEnd}
                                       onClick={(e) => e.stopPropagation()}
-                                      onPointerDown={(e) => e.stopPropagation()}
                                     >
                                       <IconGrip className="track-list__drag-icon" />
                                     </span>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { formatBytes, formatDimensions } from "../../lib/formatBytes";
@@ -268,6 +269,8 @@ export function TrackEditor() {
     setSaveError("Could not read the dropped image path.");
   };
 
+  useArtFileDrop(isOpen && !!referenceTrack, applyArtPath);
+
   const handleFetchArt = async () => {
     if (!form) return;
     setFetchingArt(true);
@@ -442,6 +445,7 @@ export function TrackEditor() {
             <div className="track-editor__body">
               <div className="track-editor__art-col">
                 <div
+                  data-art-drop-zone
                   className={
                     artDragOver
                       ? "track-editor__art-drop track-editor__art-drop--active"

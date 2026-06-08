@@ -16,8 +16,7 @@
         "label": "main",
         "title": "Spiral",
         "width": 1200,
-        "height": 800,
-        "dragDropEnabled": false
+        "height": 800
       },
       {
         "label": "skin-mode",
