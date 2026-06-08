@@ -10,6 +10,7 @@ import {
 } from "../playback";
 import { SkinModeOpenButton } from "../playback/SkinModeOpenButton/SkinModeOpenButton";
 import { TrackListModal } from "../TrackListModal/TrackListModal";
+import { TrackRowMenu } from "../TrackRowMenu/TrackRowMenu";
 import "./NowPlayingBar.css";
 
 interface NowPlayingBarProps {
@@ -27,6 +28,13 @@ export function NowPlayingBar({
 
   const [trackListOpen, setTrackListOpen] = useState(false);
 
+  const widget = (
+    <>
+      <NowPlayingMetadata className="now-playing-bar__metadata" />
+      <SeekBar className="now-playing-bar__seek" />
+    </>
+  );
+
   return (
     <div className="now-playing-bar" aria-label="Now playing">
       <div
@@ -43,10 +51,13 @@ export function NowPlayingBar({
       >
         <div className="now-playing-bar__center-inner">
           <SkinModeOpenButton />
-          <div className="now-playing-bar__widget">
-            <NowPlayingMetadata className="now-playing-bar__metadata" />
-            <SeekBar className="now-playing-bar__seek" />
-          </div>
+          {currentTrack ? (
+            <TrackRowMenu track={currentTrack} className="now-playing-bar__widget">
+              {widget}
+            </TrackRowMenu>
+          ) : (
+            <div className="now-playing-bar__widget">{widget}</div>
+          )}
 
           <QueueButton onClick={() => setTrackListOpen(true)} />
         </div>
