@@ -23,6 +23,12 @@ export function compareTracks(
         sensitivity: "base",
       });
       break;
+    case "trackNumber": {
+      const numA = a.trackNumber ?? Number.MAX_SAFE_INTEGER;
+      const numB = b.trackNumber ?? Number.MAX_SAFE_INTEGER;
+      cmp = numA - numB;
+      break;
+    }
     case "duration":
       cmp = (a.durationSeconds ?? 0) - (b.durationSeconds ?? 0);
       break;

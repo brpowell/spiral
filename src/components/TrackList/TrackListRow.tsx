@@ -4,6 +4,13 @@ import {
   isTrackImporting,
   isTrackInteractive,
 } from "../../lib/pendingImportTrack";
+import {
+  hasNavigableAlbum,
+  hasNavigableArtist,
+  navigationAlbumKey,
+  navigationArtistKey,
+} from "../../lib/trackNavigation";
+import { useNavigationStore } from "../../store/useNavigationStore";
 import { IconGrip } from "../icons";
 import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
 import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
@@ -32,6 +39,8 @@ function cellValue(track: Track, columnId: TrackListColumnId): ReactNode {
       return track.genre ?? "—";
     case "discNumber":
       return track.discNumber != null ? String(track.discNumber) : "—";
+    case "trackNumber":
+      return track.trackNumber != null ? String(track.trackNumber) : "—";
     case "dateAdded":
       return formatDateAdded(track.dateAdded);
     case "playCount":
@@ -39,6 +48,28 @@ function cellValue(track: Track, columnId: TrackListColumnId): ReactNode {
     default:
       return "—";
   }
+}
+
+interface TrackListCellLinkProps {
+  label: string;
+  ariaLabel: string;
+  onClick: () => void;
+}
+
+function TrackListCellLink({ label, ariaLabel, onClick }: TrackListCellLinkProps) {
+  return (
+    <button
+      type="button"
+      className="track-list__cell-link"
+      aria-label={ariaLabel}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      {label}
+    </button>
+  );
 }
 
 function indexDisplay(
@@ -91,6 +122,9 @@ function TrackListRowComponent({
 }: TrackListRowProps) {
   const isImporting = isTrackImporting(track);
   const isInteractive = isTrackInteractive(track);
+  const openAlbum = useNavigationStore((s) => s.openAlbum);
+  const openArtist = useNavigationStore((s) => s.openArtist);
+  const artistBrowseMode = useNavigationStore((s) => s.artistBrowseMode);
 
   return (
     <li
@@ -190,19 +224,46 @@ function TrackListRowComponent({
               );
             }
 
+            const cellClassName = [
+              "track-list__cell",
+              col.secondary && "track-list__cell--secondary",
+              col.align === "center" && "track-list__cell--center",
+              col.align === "right" && "track-list__cell--right",
+              col.id === "duration" && "track-list__cell--duration",
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            if (col.id === "artist" && hasNavigableArtist(track)) {
+              const label = track.artist ?? "—";
+              return (
+                <span key={col.id} className={cellClassName}>
+                  <TrackListCellLink
+                    label={label}
+                    ariaLabel={`View artist ${label}`}
+                    onClick={() =>
+                      openArtist(navigationArtistKey(track, artistBrowseMode))
+                    }
+                  />
+                </span>
+              );
+            }
+
+            if (col.id === "album" && hasNavigableAlbum(track)) {
+              const label = track.album ?? "—";
+              return (
+                <span key={col.id} className={cellClassName}>
+                  <TrackListCellLink
+                    label={label}
+                    ariaLabel={`View album ${label}`}
+                    onClick={() => openAlbum(navigationAlbumKey(track))}
+                  />
+                </span>
+              );
+            }
+
             return (
-              <span
-                key={col.id}
-                className={[
-                  "track-list__cell",
-                  col.secondary && "track-list__cell--secondary",
-                  col.align === "center" && "track-list__cell--center",
-                  col.align === "right" && "track-list__cell--right",
-                  col.id === "duration" && "track-list__cell--duration",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-              >
+              <span key={col.id} className={cellClassName}>
                 {cellValue(track, col.id)}
               </span>
             );

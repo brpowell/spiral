@@ -10,6 +10,8 @@ import {
 import { RemoveTrackDialog } from "../components/RemoveTrackDialog/RemoveTrackDialog";
 import {
   IconAddToQueue,
+  IconAlbums,
+  IconArtists,
   IconDelete,
   IconEditInfo,
   IconFolderOpen,
@@ -28,6 +30,13 @@ import { showPlaylistAddedToast } from "../lib/playlistToast";
 import { recentPlaylists, sortedPlaylists } from "../lib/playlists";
 import type { Playlist } from "../types/playlist";
 import { tracksForContextAction } from "../lib/trackSelection";
+import {
+  hasNavigableAlbum,
+  hasNavigableArtist,
+  navigationAlbumKey,
+  navigationArtistKey,
+} from "../lib/trackNavigation";
+import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { usePlaylistStore } from "../store/usePlaylistStore";
 import type { Track } from "../types/track";
@@ -50,6 +59,9 @@ export function useTrackEditMenu(
   const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
   const removeTracksFromLibrary = usePlayerStore((s) => s.removeTracksFromLibrary);
   const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
+  const openAlbum = useNavigationStore((s) => s.openAlbum);
+  const openArtist = useNavigationStore((s) => s.openArtist);
+  const artistBrowseMode = useNavigationStore((s) => s.artistBrowseMode);
 
   const playlists = usePlaylistStore((s) => s.playlists);
   const addTracksToPlaylist = usePlaylistStore((s) => s.addTracksToPlaylist);
@@ -105,6 +117,9 @@ export function useTrackEditMenu(
         playlists.length,
         recent.length,
         allSorted.length,
+        hasNavigableArtist(track),
+        hasNavigableAlbum(track),
+        artistBrowseMode,
       ],
       onBeforeOpen,
       dismissExcludeRefs: [submenuPanelRef],
@@ -169,6 +184,26 @@ export function useTrackEditMenu(
           void revealPathInFileManager(track.filePath);
         }}
       />
+      {hasNavigableArtist(track) ? (
+        <ContextMenuItem
+          icon={<IconArtists />}
+          label="Go to Artist"
+          onClick={() => {
+            closeMenu();
+            openArtist(navigationArtistKey(track, artistBrowseMode));
+          }}
+        />
+      ) : null}
+      {hasNavigableAlbum(track) ? (
+        <ContextMenuItem
+          icon={<IconAlbums />}
+          label="Go to Album"
+          onClick={() => {
+            closeMenu();
+            openAlbum(navigationAlbumKey(track));
+          }}
+        />
+      ) : null}
       <ContextMenuSeparator />
       <ContextMenuItem
         icon={<IconAddToQueue />}

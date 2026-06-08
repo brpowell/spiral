@@ -169,6 +169,7 @@ const TRACK_LIST_HIDEABLE_BY_PRESET: Partial<
     "year",
     "genre",
     "discNumber",
+    "trackNumber",
     "dateAdded",
     "playCount",
   ],

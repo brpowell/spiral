@@ -17,6 +17,7 @@ export type TrackListSortField = Extract<
   | "title"
   | "artist"
   | "album"
+  | "trackNumber"
   | "duration"
   | "year"
   | "genre"
@@ -128,6 +129,16 @@ const DISC_COL: TrackListColumnDef = {
   secondary: true,
 };
 
+const TRACK_NUMBER_DATA_COL: TrackListColumnDef = {
+  id: "trackNumber",
+  label: "Track",
+  sortable: true,
+  resizable: true,
+  hideable: true,
+  align: "center",
+  secondary: true,
+};
+
 const DATE_ADDED_COL: TrackListColumnDef = {
   id: "dateAdded",
   label: "Date added",
@@ -160,6 +171,7 @@ export const TRACK_LIST_PRESETS: Record<TrackListPresetId, TrackListPreset> = {
       YEAR_COL,
       GENRE_COL,
       DISC_COL,
+      TRACK_NUMBER_DATA_COL,
       DATE_ADDED_COL,
       PLAY_COUNT_COL,
       DURATION_COL,
@@ -218,6 +230,7 @@ const LIBRARY_DEFAULT_HIDDEN: TrackListColumnId[] = [
   "year",
   "genre",
   "discNumber",
+  "trackNumber",
   "dateAdded",
   "playCount",
 ];
