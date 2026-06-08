@@ -1,0 +1,37 @@
+---
+description: Offer to remove dead code left over from iterative task work
+alwaysApply: true
+---
+
+# Cleaning up after ourselves
+
+When iterating on a task, earlier steps often leave behind code that is no longer needed once a direction is settled.
+
+## When to offer cleanup
+
+After the developer signals they are happy with the current direction or final version — e.g. "looks good", "ship it", "that's the one", or they move on without further changes — **offer** to clean up leftover iteration artifacts.
+
+Do not start a cleanup pass unprompted unless they accept the offer.
+
+## What to look for
+
+- Unused functions, components, hooks, or modules added during exploration
+- Commented-out or feature-flagged code paths that were superseded
+- Duplicate implementations kept "just in case" (e.g. two menu handlers, two state shapes)
+- Dead branches in conditionals (`if (false)`, unreachable `else`, unused enum variants)
+- Imports, types, CSS classes, or test helpers only referenced by removed code
+- Temporary logging, debug UI, or scaffolding left from intermediate steps
+
+## What to keep
+
+- Code that is still reachable and part of the chosen solution
+- Intentional fallbacks or compatibility shims the developer asked to retain
+- Anything whose removal would change behavior beyond deleting dead paths
+
+## How to offer
+
+Briefly name what looks removable and ask whether to proceed. Example:
+
+> The native context menu path replaced the custom one — want me to remove the old handler and its unused types?
+
+If they say yes, remove only the dead paths; keep the diff focused.

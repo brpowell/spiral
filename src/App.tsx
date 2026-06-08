@@ -14,9 +14,12 @@ import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useArtistImageStore } from "./store/useArtistImageStore";
 import { setupAppMenu } from "./lib/appMenu";
+import { openSkinMode } from "./lib/skinModeWindow";
 import { useMediaHotkeys } from "./hooks/useMediaHotkeys";
 import { loadTrackListPreferences } from "./components/TrackList/trackListPreferences";
 import { usePlaybackSessionPersistence } from "./hooks/usePlaybackSessionPersistence";
+import { useMediaSessionSync } from "./hooks/useMediaSessionSync";
+import { useVisualizerDataProvider } from "./hooks/useVisualizerDataProvider";
 import { useLibrarySettingsStore } from "./store/useLibrarySettingsStore";
 import { usePlayerStore } from "./store/usePlayerStore";
 import "./App.css";
@@ -34,6 +37,8 @@ function App() {
 
   useMediaHotkeys();
   usePlaybackSessionPersistence();
+  useVisualizerDataProvider();
+  useMediaSessionSync();
 
   useEffect(() => {
     void loadSettings();
@@ -50,6 +55,9 @@ function App() {
       },
       newPlaylist: () => openPlaylistEditor("new"),
       openPreferences: () => setPreferencesOpen(true),
+      openSkinMode: () => {
+        void openSkinMode();
+      },
     });
   }, [addToLibrary, openPlaylistEditor, setPreferencesOpen]);
 

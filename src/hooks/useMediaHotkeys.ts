@@ -89,6 +89,9 @@ function createScrubHandler(
 
 export function useMediaHotkeys(): void {
   const togglePlayPause = usePlayerStore((s) => s.togglePlayPause);
+  const pause = usePlayerStore((s) => s.pause);
+  const resume = usePlayerStore((s) => s.resume);
+  const seek = usePlayerStore((s) => s.seek);
   const nextTrack = usePlayerStore((s) => s.nextTrack);
   const previousTrack = usePlayerStore((s) => s.previousTrack);
   const seekRelative = usePlayerStore((s) => s.seekRelative);
@@ -107,8 +110,21 @@ export function useMediaHotkeys(): void {
 
     void Promise.all([
       listen("media-play-pause", () => togglePlayPause()),
+      listen("media-play", () => resume()),
+      listen("media-pause", () => pause()),
       listen("media-next", () => nextTrack()),
       listen("media-prev", () => previousTrack()),
+      listen<number>("media-seek", (event) => {
+        const { currentTrackId, library } = usePlayerStore.getState();
+        if (currentTrackId === null) return;
+        const track = library.find((item) => item.id === currentTrackId);
+        const duration = track?.durationSeconds ?? 0;
+        if (duration <= 0) return;
+        seek(Math.max(0, Math.min(1, event.payload / duration)));
+      }),
+      listen<number>("media-seek-delta", (event) => {
+        seekRelative(event.payload);
+      }),
       listen<MediaScrubPayload>("media-scrub-press", (event) => {
         scrubHandlers[event.payload.direction].onPress();
       }),
@@ -141,5 +157,5 @@ export function useMediaHotkeys(): void {
       cleanups.forEach((unlisten) => unlisten());
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [togglePlayPause, nextTrack, previousTrack, seekRelative]);
+  }, [togglePlayPause, pause, resume, seek, nextTrack, previousTrack, seekRelative]);
 }

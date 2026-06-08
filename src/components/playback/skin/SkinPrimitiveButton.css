@@ -1,0 +1,19 @@
+.skin-primitive-btn {
+  color: var(--color-text-muted);
+}
+
+.skin-primitive-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.skin-primitive-btn--active {
+  color: var(--color-accent);
+}
+
+.skin-primitive-btn--close:hover {
+  color: var(--color-danger, #e55);
+}
+
+.skin-primitive-btn--compact {
+  padding: 0.1rem;
+}

@@ -1,0 +1,25 @@
+.skin-bitmap-btn {
+  width: var(--skin-btn-w, 28px);
+  height: var(--skin-btn-h, 28px);
+  padding: 0;
+  border: none;
+  background: transparent;
+  background-image: var(--skin-btn-img);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  cursor: pointer;
+}
+
+.skin-bitmap-btn:hover:not(:disabled) {
+  background-image: var(--skin-btn-img-hover, var(--skin-btn-img));
+}
+
+.skin-bitmap-btn:active:not(:disabled) {
+  background-image: var(--skin-btn-img-pressed, var(--skin-btn-img-hover, var(--skin-btn-img)));
+}
+
+.skin-bitmap-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

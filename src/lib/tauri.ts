@@ -4,6 +4,7 @@ import type { LibrarySettings, LibrarySettingsPatch } from "../types/library";
 import { parseRepeatMode } from "./playbackSession";
 import type { PlaybackSession } from "../types/playbackSession";
 import type { Theme } from "../types/theme";
+import type { LoadedSkinPack, SkinSummary } from "../types/skin";
 import type { CoverArtCandidate } from "../types/coverArt";
 import type { TrackMetadataUpdate } from "../types/metadata";
 import type { Playlist } from "../types/playlist";
@@ -305,6 +306,38 @@ export async function importUserTheme(): Promise<Theme | null> {
   return invoke<Theme | null>("import_user_theme");
 }
 
+export async function listSkins(): Promise<SkinSummary[]> {
+  return invoke<SkinSummary[]>("list_skins");
+}
+
+export async function loadSkinPack(skinId: string): Promise<LoadedSkinPack> {
+  return invoke<LoadedSkinPack>("load_skin_pack", { skinId });
+}
+
+export async function getActiveSkinId(): Promise<string> {
+  return invoke<string>("get_active_skin_id");
+}
+
+export async function saveActiveSkinId(skinId: string): Promise<void> {
+  return invoke<void>("save_active_skin_id", { skinId });
+}
+
+export async function getActiveSkinView(): Promise<string> {
+  return invoke<string>("get_active_skin_view");
+}
+
+export async function saveActiveSkinView(viewId: string): Promise<void> {
+  return invoke<void>("save_active_skin_view", { viewId });
+}
+
+export async function openSkinsFolder(): Promise<void> {
+  return invoke<void>("open_skins_folder");
+}
+
+export async function getSkinSchema(): Promise<string> {
+  return invoke<string>("get_skin_schema");
+}
+
 export async function writeTrackMetadata(
   trackId: number,
   filePath: string,
@@ -374,6 +407,10 @@ export async function savePlaybackSession(
   session: PlaybackSession,
 ): Promise<void> {
   await invoke<void>("save_playback_session", { session });
+}
+
+export async function quitApp(): Promise<void> {
+  await invoke<void>("quit_app");
 }
 
 export interface TrackListPreferencesPayload {

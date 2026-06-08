@@ -10,6 +10,8 @@ mod library_paths;
 #[cfg(target_os = "macos")]
 mod macos_library_picker;
 #[cfg(desktop)]
+mod media_session;
+#[cfg(desktop)]
 mod media_shortcuts;
 mod metadata_backup;
 mod metadata_writer;
@@ -38,6 +40,9 @@ pub fn run() {
                 eprintln!("failed to register media shortcuts: {err}");
             }
 
+            #[cfg(desktop)]
+            media_session::init(app.handle());
+
             if let Err(err) = metadata_backup::run_scheduled_cleanup(app.handle()) {
                 eprintln!("metadata backup cleanup on startup: {err}");
             }
@@ -45,6 +50,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::app::quit_app,
             commands::files::pick_audio_files,
             commands::files::pick_library_paths,
             commands::files::scan_folder,
@@ -79,6 +85,14 @@ pub fn run() {
             commands::themes::get_active_theme_id,
             commands::themes::open_themes_folder,
             commands::themes::import_user_theme,
+            commands::skins::list_skins,
+            commands::skins::load_skin_pack,
+            commands::skins::save_active_skin_id,
+            commands::skins::get_active_skin_id,
+            commands::skins::save_active_skin_view,
+            commands::skins::get_active_skin_view,
+            commands::skins::open_skins_folder,
+            commands::skins::get_skin_schema,
             commands::library_settings::get_library_settings,
             commands::library_settings::save_library_settings,
             commands::library_settings::prepare_import_file,
@@ -87,6 +101,8 @@ pub fn run() {
             commands::playback_session::save_playback_session,
             commands::track_list_preferences::get_track_list_preferences,
             commands::track_list_preferences::save_track_list_preferences,
+            #[cfg(desktop)]
+            media_session::update_media_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

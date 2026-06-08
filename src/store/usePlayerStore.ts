@@ -2,12 +2,10 @@ import { create } from "zustand";
 import * as audio from "../lib/audio";
 import { buildPlaybackOrder } from "../lib/activeTrackList";
 import { groupTracksIntoAlbums } from "../lib/albums";
-import {
-  groupTracksIntoArtists,
-  type ArtistBrowseMode,
-} from "../lib/artists";
+import { groupTracksIntoArtists, type ArtistBrowseMode } from "../lib/artists";
 import { startLibraryImport } from "../lib/libraryImport";
 import { showQueueAddedToast } from "../lib/queueToast";
+import { seekRatioToPositionSeconds } from "../lib/playbackSeek";
 import { parseRepeatMode, prunePlaybackSession } from "../lib/playbackSession";
 import {
   getLibrary,
@@ -39,6 +37,8 @@ interface PlayerState {
   selectionAnchorId: number | null;
   playbackState: PlaybackState;
   positionSeconds: number;
+  /** Non-null while the user is scrubbing; shared by seek bar and skin time display. */
+  seekPreviewRatio: number | null;
   volume: number;
   muted: boolean;
   repeatMode: RepeatMode;
@@ -64,6 +64,9 @@ interface PlayerState {
   resume: () => void;
   togglePlayPause: () => void;
   seek: (ratio: number) => void;
+  beginSeekPreview: () => void;
+  updateSeekPreview: (ratio: number) => void;
+  commitSeekPreview: (ratio: number) => void;
   seekRelative: (deltaSeconds: number) => void;
   previousTrack: () => void;
   nextTrack: () => void;
@@ -83,7 +86,10 @@ interface PlayerState {
   closeArtistEditor: () => void;
   updateTrackInLibrary: (track: Track) => void;
   updateTracksInLibrary: (tracks: Track[]) => void;
-  removeTrackFromLibrary: (id: number, deleteFromDisk: boolean) => Promise<void>;
+  removeTrackFromLibrary: (
+    id: number,
+    deleteFromDisk: boolean,
+  ) => Promise<void>;
   removeTracksFromLibrary: (
     ids: number[],
     deleteFromDisk: boolean,
@@ -113,9 +119,7 @@ function stopPositionPoll(): void {
   }
 }
 
-function startPositionPoll(
-  set: (partial: Partial<PlayerState>) => void,
-): void {
+function startPositionPoll(set: (partial: Partial<PlayerState>) => void): void {
   stopPositionPoll();
   positionInterval = setInterval(() => {
     set({ positionSeconds: audio.getPositionSeconds() });
@@ -137,6 +141,7 @@ async function primeTrackPaused(
       currentTrackId: id,
       playbackState: "paused",
       positionSeconds: 0,
+      seekPreviewRatio: null,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -157,7 +162,11 @@ function prunePlaybackIds(ids: number[], libraryIds: Set<number>): number[] {
 
 function refreshLibraryPreservingPlayback(
   library: Track[],
-  set: (partial: Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>)) => void,
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
   get: () => PlayerState,
 ): void {
   const libraryIds = new Set(library.map((t) => t.id));
@@ -169,10 +178,7 @@ function refreshLibraryPreservingPlayback(
       ? state.currentTrackId
       : null;
 
-  if (
-    state.currentTrackId !== null &&
-    currentTrackId === null
-  ) {
+  if (state.currentTrackId !== null && currentTrackId === null) {
     audio.unload();
     stopPositionPoll();
     set({
@@ -182,6 +188,7 @@ function refreshLibraryPreservingPlayback(
       currentTrackId: null,
       playbackState: "stopped",
       positionSeconds: 0,
+      seekPreviewRatio: null,
     });
     return;
   }
@@ -196,7 +203,11 @@ function refreshLibraryPreservingPlayback(
 
 async function restorePlaybackSession(
   library: Track[],
-  set: (partial: Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>)) => void,
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
 ): Promise<void> {
   let session;
   try {
@@ -233,9 +244,7 @@ async function restorePlaybackSession(
     await audio.load(track.filePath);
     const duration = audio.getDurationSeconds();
     const position =
-      duration > 0
-        ? Math.min(pruned.positionSeconds, duration)
-        : 0;
+      duration > 0 ? Math.min(pruned.positionSeconds, duration) : 0;
     if (position > 0 && duration > 0) {
       audio.seek(position / duration);
     }
@@ -250,6 +259,7 @@ async function restorePlaybackSession(
       currentTrackId: pruned.currentTrackId,
       playbackState: "stopped",
       positionSeconds: 0,
+      seekPreviewRatio: null,
     });
   }
 }
@@ -272,7 +282,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     const { currentTrackId, repeatMode } = get();
     if (!currentTrackId) {
       stopPositionPoll();
-      set({ playbackState: "stopped", positionSeconds: 0 });
+      set({ playbackState: "stopped", positionSeconds: 0, seekPreviewRatio: null });
       return;
     }
 
@@ -286,7 +296,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     }
 
     stopPositionPoll();
-    set({ playbackState: "stopped", positionSeconds: 0 });
+    set({ playbackState: "stopped", positionSeconds: 0, seekPreviewRatio: null });
   });
 
   return {
@@ -298,6 +308,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     selectionAnchorId: null,
     playbackState: "stopped",
     positionSeconds: 0,
+    seekPreviewRatio: null,
     volume: 1,
     muted: false,
     repeatMode: "off",
@@ -361,9 +372,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     playTracks: async (ids, startId) => {
       if (ids.length === 0) return;
       if (!ids.includes(startId)) return;
-      const ordered = get().shuffle
-        ? shuffleNewTrackList(ids, startId)
-        : ids;
+      const ordered = get().shuffle ? shuffleNewTrackList(ids, startId) : ids;
       set({ playContextIds: ordered });
       await get().playTrack(startId);
     },
@@ -389,7 +398,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
           currentTrackId: id,
           playbackState: "playing",
           positionSeconds: 0,
-          manualQueueIds: state.manualQueueIds.filter((trackId) => trackId !== id),
+          seekPreviewRatio: null,
+          manualQueueIds: state.manualQueueIds.filter(
+            (trackId) => trackId !== id,
+          ),
         }));
         startPositionPoll(set);
       } catch (err) {
@@ -426,8 +438,36 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     seek: (ratio) => {
+      const state = get();
       audio.seek(ratio);
-      set({ positionSeconds: audio.getPositionSeconds() });
+      const fromAudio = audio.getPositionSeconds();
+      const positionSeconds =
+        fromAudio > 0
+          ? fromAudio
+          : seekRatioToPositionSeconds(
+              state.library,
+              state.currentTrackId,
+              ratio,
+            );
+      set({
+        positionSeconds,
+        seekPreviewRatio: null,
+      });
+    },
+
+    beginSeekPreview: () => {
+      const duration = audio.getDurationSeconds();
+      const ratio =
+        duration > 0 ? get().positionSeconds / duration : 0;
+      set({ seekPreviewRatio: ratio });
+    },
+
+    updateSeekPreview: (ratio) => {
+      set({ seekPreviewRatio: ratio });
+    },
+
+    commitSeekPreview: (ratio) => {
+      get().seek(ratio);
     },
 
     seekRelative: (deltaSeconds) => {
@@ -437,7 +477,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const position = audio.getPositionSeconds();
       const next = Math.max(0, Math.min(duration, position + deltaSeconds));
       audio.seek(next / duration);
-      set({ positionSeconds: next });
+      set({ positionSeconds: next, seekPreviewRatio: null });
     },
 
     previousTrack: () => {
@@ -446,7 +486,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       if (!currentTrackId || order.length === 0) return;
 
       const now = Date.now();
-      const isQuickSecondPress = now - lastPreviousPressAt < PREVIOUS_DOUBLE_TAP_MS;
+      const isQuickSecondPress =
+        now - lastPreviousPressAt < PREVIOUS_DOUBLE_TAP_MS;
       lastPreviousPressAt = now;
 
       if (isQuickSecondPress) {
@@ -520,7 +561,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     removeFromQueue: (id) => {
       set((state) => ({
-        manualQueueIds: state.manualQueueIds.filter((trackId) => trackId !== id),
+        manualQueueIds: state.manualQueueIds.filter(
+          (trackId) => trackId !== id,
+        ),
       }));
     },
 
@@ -536,6 +579,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         currentTrackId: null,
         playbackState: "stopped",
         positionSeconds: 0,
+        seekPreviewRatio: null,
       });
     },
 
@@ -569,7 +613,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         (id, index, all) => all.indexOf(id) === index,
       );
       if (list.length === 0) return;
-      set({ editingTrackIds: list, editingAlbumKey: null, editingArtistKey: null });
+      set({
+        editingTrackIds: list,
+        editingAlbumKey: null,
+        editingArtistKey: null,
+      });
     },
     closeTrackEditor: () => set({ editingTrackIds: [] }),
     openAlbumEditor: (albumKey) =>
@@ -624,7 +672,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const library = state.library.filter((t) => !removed.has(t.id));
       const editingAlbumKey =
         state.editingAlbumKey != null &&
-        groupTracksIntoAlbums(library).some((a) => a.key === state.editingAlbumKey)
+        groupTracksIntoAlbums(library).some(
+          (a) => a.key === state.editingAlbumKey,
+        )
           ? state.editingAlbumKey
           : null;
       const editingArtistKey =

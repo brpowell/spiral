@@ -1,0 +1,517 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spiral.dev/schemas/skin-v1.json",
+  "title": "Spiral skin mode manifest v1",
+  "type": "object",
+  "required": [
+    "version",
+    "name",
+    "author",
+    "description",
+    "defaultView",
+    "views"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri-reference",
+      "description": "JSON Schema reference for editor validation."
+    },
+    "version": { "const": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "author": { "type": "string" },
+    "description": { "type": "string" },
+    "defaultView": { "type": "string", "minLength": 1 },
+    "views": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/view" }
+    },
+    "textStyles": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/textStyle" }
+    },
+    "window": { "$ref": "#/$defs/windowChrome" },
+    "visualizer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preset"],
+      "properties": {
+        "preset": {
+          "type": "string",
+          "enum": ["bars", "wave", "spectrum"]
+        },
+        "placement": {
+          "type": "string",
+          "enum": ["top", "bottom"],
+          "description": "Where the visualizer band sits in the skin shell."
+        },
+        "display": {
+          "type": "string",
+          "enum": ["mini", "panel"],
+          "description": "mini = compact strip; panel = fills the visualizer slot."
+        },
+        "size": { "$ref": "#/$defs/visualizerSize" }
+      }
+    },
+    "animations": {
+      "type": "object",
+      "description": "Reserved for declarative timelines (#17)."
+    },
+    "timelines": {
+      "type": "object",
+      "description": "Reserved for declarative timelines (#17)."
+    },
+    "stylesheet": {
+      "type": "string",
+      "description": "Optional CSS file path relative to the skin pack root (e.g. skin.css)."
+    }
+  },
+  "$defs": {
+    "view": {
+      "type": "object",
+      "required": ["layout"],
+      "additionalProperties": false,
+      "properties": {
+        "layoutMode": {
+          "type": "string",
+          "enum": ["slots", "canvas"],
+          "description": "slots = SkinShell regions (default); canvas = absolute bounds"
+        },
+        "canvas": { "$ref": "#/$defs/canvasSpec" },
+        "layout": { "$ref": "#/$defs/layoutNode" }
+      }
+    },
+    "canvasSpec": {
+      "type": "object",
+      "required": ["width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "layoutBounds": {
+      "type": "object",
+      "required": ["x", "y", "w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "w": { "type": "number", "minimum": 1 },
+        "h": { "type": "number", "minimum": 1 },
+        "zIndex": { "type": "integer" }
+      }
+    },
+    "layoutNode": {
+      "oneOf": [
+        { "$ref": "#/$defs/containerNode" },
+        { "$ref": "#/$defs/regionNode" },
+        { "$ref": "#/$defs/decorationNode" },
+        { "$ref": "#/$defs/dragRegionNode" },
+        { "$ref": "#/$defs/controlNode" },
+        { "$ref": "#/$defs/buttonGroupNode" }
+      ]
+    },
+    "nodeBase": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "bounds": { "$ref": "#/$defs/layoutBounds" },
+        "visibleWhen": { "type": "string" },
+        "animations": { "type": "object" }
+      }
+    },
+    "containerNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "type": {
+              "type": "string",
+              "enum": ["stack", "row", "column", "overlay", "canvas"]
+            },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/layoutNode" }
+            },
+            "position": { "type": "string", "enum": ["relative", "absolute"] },
+            "zIndex": { "type": "integer" },
+            "visibleWhen": { "type": "string" },
+            "animations": { "type": "object" },
+            "dragRegion": {
+              "type": "boolean",
+              "description": "When true, pointer events on this container move the skin window."
+            }
+          }
+        }
+      ]
+    },
+    "regionNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "slot", "children"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "type": { "const": "region" },
+            "slot": {
+              "type": "string",
+              "enum": [
+                "header",
+                "art",
+                "info",
+                "controls",
+                "visualizer",
+                "footer"
+              ]
+            },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/layoutNode" }
+            },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "dragRegion": {
+              "type": "boolean",
+              "description": "When true, the region is a window drag handle."
+            },
+            "visibleWhen": { "type": "string" },
+            "animations": { "type": "object" }
+          }
+        }
+      ]
+    },
+    "decorationNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "presentation"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "type": { "const": "decoration" },
+            "presentation": { "$ref": "#/$defs/presentation" },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "dragRegion": {
+              "type": "boolean",
+              "description": "When true on a canvas view, marks a window drag handle"
+            },
+            "visibleWhen": { "type": "string" },
+            "animations": { "type": "object" }
+          }
+        }
+      ]
+    },
+    "dragRegionNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "bounds"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "type": { "const": "dragRegion" },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "visibleWhen": { "type": "string" },
+            "animations": { "type": "object" }
+          }
+        }
+      ]
+    },
+    "controlNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "presentation"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "type": {
+              "type": "string",
+              "enum": [
+                "button",
+                "seekbar",
+                "text",
+                "artwork",
+                "transport",
+                "visualizer",
+                "volume",
+                "queue",
+                "time"
+              ]
+            },
+            "action": { "type": "string" },
+            "bind": { "type": "string" },
+            "textStyle": { "type": "string" },
+            "disabledWhen": { "type": "string" },
+            "presentation": { "$ref": "#/$defs/presentation" },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "visibleWhen": { "type": "string" },
+            "animations": { "type": "object" }
+          }
+        }
+      ]
+    },
+    "buttonGroupNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "presentation"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "type": { "const": "buttonGroup" },
+            "presentation": { "$ref": "#/$defs/buttonGroupPresentation" },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "visibleWhen": { "type": "string" },
+            "animations": { "type": "object" }
+          }
+        }
+      ]
+    },
+    "presentation": {
+      "oneOf": [
+        { "$ref": "#/$defs/bitmapPresentation" },
+        { "$ref": "#/$defs/buttonGroupPresentation" },
+        { "$ref": "#/$defs/gifPresentation" },
+        { "$ref": "#/$defs/primitivePresentation" },
+        { "$ref": "#/$defs/cssPresentation" },
+        { "$ref": "#/$defs/stripSliderPresentation" },
+        { "$ref": "#/$defs/digitStripPresentation" }
+      ]
+    },
+    "bitmapPresentation": {
+      "type": "object",
+      "required": ["kind", "assetBase"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "bitmap" },
+        "assetBase": {
+          "type": "string",
+          "description": "Path under assets/ without extension, e.g. buttons/play"
+        },
+        "width": { "type": "number", "minimum": 1 },
+        "height": { "type": "number", "minimum": 1 },
+        "animatedHover": {
+          "type": "boolean",
+          "description": "When true, hover state uses {assetBase}-hover.gif (default and pressed remain PNG)."
+        }
+      }
+    },
+    "buttonGroupPresentation": {
+      "type": "object",
+      "required": ["kind", "assetBase", "positionMap", "elements"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "buttonGroup" },
+        "assetBase": {
+          "type": "string",
+          "description": "Composite button image under assets/ without extension"
+        },
+        "positionMap": {
+          "type": "string",
+          "description": "Color-key hit map under assets/ without extension"
+        },
+        "width": { "type": "number", "minimum": 1 },
+        "height": { "type": "number", "minimum": 1 },
+        "animatedHover": { "type": "boolean" },
+        "elements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["mappingColor", "action"],
+            "additionalProperties": false,
+            "properties": {
+              "mappingColor": {
+                "type": "string",
+                "pattern": "^#[0-9A-Fa-f]{6}$"
+              },
+              "action": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "gifPresentation": {
+      "type": "object",
+      "required": ["kind", "assetBase"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "gif" },
+        "assetBase": {
+          "type": "string",
+          "description": "Path under assets/ without extension, e.g. animations/m_idle"
+        }
+      }
+    },
+    "primitivePresentation": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "primitive" },
+        "classPrefix": { "type": "string" },
+        "variant": { "type": "string" }
+      }
+    },
+    "cssPresentation": {
+      "type": "object",
+      "required": ["kind", "className"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "css" },
+        "className": { "type": "string" },
+        "stylesheet": { "type": "string" }
+      }
+    },
+    "stripSliderPresentation": {
+      "type": "object",
+      "required": ["kind", "strip", "frameWidth", "frameCount"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "stripSlider" },
+        "strip": {
+          "type": "string",
+          "description": "Path under assets/ without extension, e.g. sliders/seek"
+        },
+        "positionMap": {
+          "type": "string",
+          "description": "Optional WMP positionImage path under assets/ without extension"
+        },
+        "frameWidth": { "type": "number", "minimum": 1 },
+        "frameHeight": { "type": "number", "minimum": 1 },
+        "frameCount": { "type": "number", "minimum": 2 },
+        "direction": {
+          "type": "string",
+          "enum": ["horizontal", "vertical"],
+          "description": "Fallback drag axis when positionMap is absent"
+        },
+        "invert": {
+          "type": "boolean",
+          "description": "Reverse pointer-to-value mapping only; display still follows playback ratio"
+        },
+        "classPrefix": { "type": "string" }
+      }
+    },
+    "digitStripPresentation": {
+      "type": "object",
+      "required": ["kind", "strip", "frameWidth", "frameHeight", "slots"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "digitStrip" },
+        "strip": {
+          "type": "string",
+          "description": "Path under assets/ without extension, e.g. time/numbers"
+        },
+        "frameWidth": { "type": "number", "minimum": 1 },
+        "frameHeight": { "type": "number", "minimum": 1 },
+        "slots": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/digitStripSlot" }
+        },
+        "signFrameElapsed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Strip frame for elapsed separator (WMP default 10)"
+        },
+        "signFrameRemaining": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Strip frame for remaining prefix (WMP default 11)"
+        },
+        "classPrefix": { "type": "string" }
+      }
+    },
+    "digitStripSlot": {
+      "type": "object",
+      "required": ["role", "x"],
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "sign",
+            "minuteTens",
+            "minuteOnes",
+            "secondTens",
+            "secondOnes"
+          ]
+        },
+        "x": { "type": "number", "minimum": 0 }
+      }
+    },
+    "textStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string",
+          "description": "Optional theme token for color, e.g. color-text-primary. Omit when skin CSS sets color."
+        },
+        "size": { "type": "string", "enum": ["sm", "md", "lg"] },
+        "weight": {
+          "type": "string",
+          "enum": ["normal", "medium", "semibold", "bold"]
+        },
+        "truncate": { "type": "boolean" },
+        "scroll": {
+          "type": "string",
+          "enum": ["bounce", "marquee"],
+          "description": "Overflow scroll style when truncate is true."
+        }
+      }
+    },
+    "visualizerSize": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "oneOf": [
+            { "type": "string", "const": "fill" },
+            { "type": "integer", "minimum": 1 }
+          ],
+          "description": "fill = 100% of slot width; integer = fixed px"
+        },
+        "height": {
+          "oneOf": [
+            { "type": "string", "enum": ["flex", "fill"] },
+            { "type": "integer", "minimum": 1 }
+          ],
+          "description": "flex = grow in shell; fill = 100% of slot; integer = fixed px"
+        },
+        "minHeight": { "type": "integer", "minimum": 1 },
+        "maxHeight": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "windowChrome": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "clipMask": { "type": "string" },
+        "background": { "type": "string" },
+        "defaultWidth": { "type": "integer", "minimum": 200 },
+        "defaultHeight": { "type": "integer", "minimum": 200 },
+        "minWidth": { "type": "integer", "minimum": 160 },
+        "minHeight": { "type": "integer", "minimum": 160 },
+        "maxWidth": { "type": "integer", "minimum": 200 },
+        "maxHeight": { "type": "integer", "minimum": 200 },
+        "resizable": { "type": "boolean" },
+        "snapEnabled": { "type": "boolean" }
+      }
+    }
+  }
+}

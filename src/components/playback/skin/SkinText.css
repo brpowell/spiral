@@ -1,0 +1,35 @@
+.skin-text {
+  display: block;
+  line-height: 1.3;
+}
+
+.skin-text--sm {
+  font-size: 0.8rem;
+}
+
+.skin-text--md {
+  font-size: 0.9rem;
+}
+
+.skin-text--lg {
+  font-size: 1rem;
+}
+
+.skin-text--semibold {
+  font-weight: 600;
+}
+
+.skin-text--medium {
+  font-weight: 500;
+}
+
+.skin-text--bold {
+  font-weight: 700;
+}
+
+.skin-text--truncate {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}

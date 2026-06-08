@@ -1,31 +1,15 @@
-import { AnimatePresence, motion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAssetUrl } from "../../hooks/useAssetUrl";
-import { albumKey } from "../../lib/albums";
-import { buildPlaybackOrder } from "../../lib/activeTrackList";
-import * as audio from "../../lib/audio";
-import { formatRemainingTime, formatTime } from "../../lib/format";
-import { getManualNextId } from "../../lib/playbackQueue";
-import { useNavigationStore } from "../../store/useNavigationStore";
+import { useState } from "react";
 import { usePlayerStore } from "../../store/usePlayerStore";
-import type { RepeatMode } from "../../types/track";
-import { Button } from "../common/Button/Button";
-import { AudioVisualizer } from "../AudioVisualizer/AudioVisualizer";
-import { ScrollingText } from "../ScrollingText/ScrollingText";
-import { TrackListModal } from "../TrackListModal/TrackListModal";
 import {
-  IconAlbumPlaceholder,
-  IconNext,
-  IconPause,
-  IconPlay,
-  IconPrevious,
-  IconRepeat,
-  IconRepeatOne,
-  IconShuffle,
-  IconTrackList,
-  IconVolume,
-  IconVolumeMute,
-} from "../icons";
+  NowPlayingMetadata,
+  PlaybackTransport,
+  QueueButton,
+  SeekBar,
+  VisualizerSlot,
+  VolumeControl,
+} from "../playback";
+import { SkinModeOpenButton } from "../playback/SkinModeOpenButton/SkinModeOpenButton";
+import { TrackListModal } from "../TrackListModal/TrackListModal";
 import "./NowPlayingBar.css";
 
 interface NowPlayingBarProps {
@@ -37,124 +21,11 @@ export function NowPlayingBar({
   visualizerExpanded,
   onToggleVisualizer,
 }: NowPlayingBarProps) {
-  const library = usePlayerStore((s) => s.library);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
-  const playbackState = usePlayerStore((s) => s.playbackState);
-  const positionSeconds = usePlayerStore((s) => s.positionSeconds);
-  const playContextIds = usePlayerStore((s) => s.playContextIds);
-  const manualQueueIds = usePlayerStore((s) => s.manualQueueIds);
-  const repeatMode = usePlayerStore((s) => s.repeatMode);
-  const shuffle = usePlayerStore((s) => s.shuffle);
-  const volume = usePlayerStore((s) => s.volume);
-  const muted = usePlayerStore((s) => s.muted);
-  const togglePlayPause = usePlayerStore((s) => s.togglePlayPause);
-  const seek = usePlayerStore((s) => s.seek);
-  const previousTrack = usePlayerStore((s) => s.previousTrack);
-  const nextTrack = usePlayerStore((s) => s.nextTrack);
-  const cycleRepeat = usePlayerStore((s) => s.cycleRepeat);
-  const toggleShuffle = usePlayerStore((s) => s.toggleShuffle);
-  const setVolume = usePlayerStore((s) => s.setVolume);
-  const toggleMute = usePlayerStore((s) => s.toggleMute);
-  const openAlbum = useNavigationStore((s) => s.openAlbum);
+  const library = usePlayerStore((s) => s.library);
+  const currentTrack = library.find((t) => t.id === currentTrackId);
 
-  const currentTrack = useMemo(
-    () => library.find((t) => t.id === currentTrackId),
-    [library, currentTrackId],
-  );
-
-  const [isSeeking, setIsSeeking] = useState(false);
-  const [seekValue, setSeekValue] = useState(0);
-  const [livePosition, setLivePosition] = useState(0);
   const [trackListOpen, setTrackListOpen] = useState(false);
-
-  const durationSeconds =
-    currentTrack?.durationSeconds ?? audio.getDurationSeconds();
-
-  const activeQueue = useMemo(
-    () =>
-      buildPlaybackOrder(
-        manualQueueIds,
-        playContextIds,
-        library,
-        currentTrackId,
-      ),
-    [manualQueueIds, playContextIds, library, currentTrackId],
-  );
-
-  const canGoPrevious = currentTrackId !== null;
-
-  const canGoNext =
-    currentTrackId !== null &&
-    activeQueue.length > 0 &&
-    getManualNextId(activeQueue, currentTrackId, repeatMode) !== null;
-
-  const repeatLabel: Record<RepeatMode, string> = {
-    off: "Repeat off",
-    all: "Repeat all",
-    one: "Repeat one",
-  };
-
-  useEffect(() => {
-    if (!isSeeking) {
-      setSeekValue(
-        durationSeconds > 0 ? positionSeconds / durationSeconds : 0,
-      );
-    }
-  }, [positionSeconds, durationSeconds, isSeeking]);
-
-  useEffect(() => {
-    if (playbackState !== "playing" || isSeeking) {
-      setLivePosition(positionSeconds);
-      return;
-    }
-
-    let frame = 0;
-    const tick = () => {
-      setLivePosition(audio.getPositionSeconds());
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [playbackState, isSeeking, positionSeconds, currentTrackId]);
-
-  const displayPosition = isSeeking
-    ? seekValue * durationSeconds
-    : playbackState === "playing"
-      ? livePosition
-      : positionSeconds;
-
-  const progress = durationSeconds > 0 ? displayPosition / durationSeconds : 0;
-
-  const artSrc = useAssetUrl(currentTrack?.artPath);
-
-  const subtitle = currentTrack
-    ? [currentTrack.artist, currentTrack.album].filter(Boolean).join(" — ")
-    : null;
-
-  const handlePlayPause = useCallback(() => {
-    togglePlayPause();
-  }, [togglePlayPause]);
-
-  const handleSeekStart = () => setIsSeeking(true);
-
-  const handleSeekChange = (value: number) => {
-    setSeekValue(value);
-  };
-
-  const handleSeekEnd = (value: number) => {
-    setIsSeeking(false);
-    seek(value);
-  };
-
-  const handleArtClick = useCallback(() => {
-    if (currentTrack) {
-      openAlbum(albumKey(currentTrack));
-    }
-  }, [currentTrack, openAlbum]);
-
-  const artLabel = currentTrack?.album
-    ? `View album ${currentTrack.album}`
-    : "View album";
 
   return (
     <div className="now-playing-bar" aria-label="Now playing">
@@ -162,118 +33,8 @@ export function NowPlayingBar({
         className="now-playing-bar__left"
         style={{ opacity: currentTrackId ? 1 : 0.5 }}
       >
-        <div className="now-playing-bar__transport">
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            className={`now-playing-bar__btn now-playing-bar__btn--shuffle${shuffle ? " now-playing-bar__btn--shuffle-active" : ""
-              }`}
-            onClick={toggleShuffle}
-            aria-label={shuffle ? "Shuffle on" : "Shuffle off"}
-            title={shuffle ? "Shuffle on" : "Shuffle off"}
-          >
-            <IconShuffle />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            className={`now-playing-bar__btn now-playing-bar__btn--repeat${repeatMode !== "off"
-              ? " now-playing-bar__btn--repeat-active"
-              : ""
-              }`}
-            onClick={cycleRepeat}
-            aria-label={repeatLabel[repeatMode]}
-            title={repeatLabel[repeatMode]}
-          >
-            {repeatMode === "one" ? <IconRepeatOne /> : <IconRepeat />}
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            className="now-playing-bar__btn"
-            onClick={previousTrack}
-            disabled={!canGoPrevious}
-            aria-label="Previous track"
-          >
-            <IconPrevious />
-          </Button>
-
-          <Button
-            variant="primary"
-            size="sm"
-            iconOnly
-            className="now-playing-bar__btn now-playing-bar__btn--play"
-            onClick={handlePlayPause}
-            disabled={!currentTrackId}
-            aria-label={playbackState === "playing" ? "Pause" : "Play"}
-          >
-            <AnimatePresence mode="wait" initial={false}>
-              {playbackState === "playing" ? (
-                <motion.span
-                  key="pause"
-                  className="now-playing-bar__play-icon"
-                  initial={{ scale: 0.6, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.6, opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <IconPause />
-                </motion.span>
-              ) : (
-                <motion.span
-                  key="play"
-                  className="now-playing-bar__play-icon"
-                  initial={{ scale: 0.6, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.6, opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <IconPlay />
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            className="now-playing-bar__btn"
-            onClick={nextTrack}
-            disabled={!canGoNext}
-            aria-label="Next track"
-          >
-            <IconNext />
-          </Button>
-        </div>
-
-        <div className="now-playing-bar__volume">
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            className="now-playing-bar__btn now-playing-bar__btn--volume"
-            onClick={toggleMute}
-            aria-label={muted ? "Unmute" : "Mute"}
-          >
-            {muted ? <IconVolumeMute /> : <IconVolume />}
-          </Button>
-          <input
-            type="range"
-            className="now-playing-bar__volume-input"
-            min={0}
-            max={1}
-            step={0.01}
-            value={volume}
-            aria-label="Volume"
-            onChange={(e) => setVolume(Number(e.currentTarget.value))}
-          />
-        </div>
+        <PlaybackTransport />
+        <VolumeControl />
       </div>
 
       <div
@@ -281,83 +42,18 @@ export function NowPlayingBar({
         style={{ opacity: currentTrack ? 1 : 0.55 }}
       >
         <div className="now-playing-bar__center-inner">
+          <SkinModeOpenButton />
           <div className="now-playing-bar__widget">
-            <button
-              type="button"
-              className="now-playing-bar__art"
-              onClick={handleArtClick}
-              disabled={!currentTrack}
-              aria-label={artLabel}
-            >
-              {artSrc ? (
-                <img src={artSrc} alt="" className="now-playing-bar__art-img" />
-              ) : (
-                <div className="now-playing-bar__art-placeholder" aria-hidden>
-                  <IconAlbumPlaceholder />
-                </div>
-              )}
-            </button>
-
-            <div className="now-playing-bar__track-text">
-              <ScrollingText
-                className="now-playing-bar__title"
-                text={currentTrack?.title ?? "No track selected"}
-              />
-              <ScrollingText
-                className="now-playing-bar__subtitle"
-                text={subtitle ?? "Unknown artist"}
-              />
-            </div>
-
-            <div className="now-playing-bar__progress-row">
-              <span className="now-playing-bar__time">
-                {formatTime(displayPosition)}
-              </span>
-              <input
-                type="range"
-                className="now-playing-bar__seek-input"
-                min={0}
-                max={1}
-                step={0.001}
-                value={isSeeking ? seekValue : progress}
-                disabled={!currentTrackId}
-                aria-label="Seek"
-                onPointerDown={handleSeekStart}
-                onChange={(e) =>
-                  handleSeekChange(Number(e.currentTarget.value))
-                }
-                onPointerUp={(e) =>
-                  handleSeekEnd(Number(e.currentTarget.value))
-                }
-                onKeyUp={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    handleSeekEnd(Number(e.currentTarget.value));
-                  }
-                }}
-              />
-              <span className="now-playing-bar__time now-playing-bar__time--remaining">
-                {formatRemainingTime(displayPosition, durationSeconds)}
-              </span>
-            </div>
+            <NowPlayingMetadata className="now-playing-bar__metadata" />
+            <SeekBar className="now-playing-bar__seek" />
           </div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            className="now-playing-bar__btn now-playing-bar__btn--track-list"
-            onClick={() => setTrackListOpen(true)}
-            disabled={activeQueue.length === 0}
-            aria-label="View track list"
-            title="View track list"
-          >
-            <IconTrackList />
-          </Button>
+          <QueueButton onClick={() => setTrackListOpen(true)} />
         </div>
       </div>
 
       <div className="now-playing-bar__right">
-        <AudioVisualizer
+        <VisualizerSlot
           variant="mini"
           expanded={visualizerExpanded}
           onToggleExpand={onToggleVisualizer}

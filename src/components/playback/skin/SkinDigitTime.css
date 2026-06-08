@@ -1,0 +1,32 @@
+.skin-digit-time {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.skin-digit-time__slot {
+  position: absolute;
+  top: 0;
+  overflow: hidden;
+}
+
+.skin-digit-time__strip {
+  display: block;
+  height: 100%;
+  max-width: none;
+  pointer-events: none;
+  user-select: none;
+}
+
+.skin-digit-time--interactive {
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.skin-digit-time--interactive:focus-visible {
+  outline: 2px solid var(--color-focus, #469fe5);
+  outline-offset: 1px;
+}

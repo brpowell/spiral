@@ -6,7 +6,9 @@
     "linux"
   ],
   "windows": [
-    "main"
+    "main",
+    "skin-mode",
+    "skin-picker"
   ],
   "permissions": [
     "global-shortcut:default"

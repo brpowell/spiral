@@ -1,0 +1,49 @@
+.skin-layout {
+  position: relative;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.skin-layout--has-bg {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.skin-layout__overlays {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.skin-layout__shell {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  background: transparent;
+  border: none;
+}
+
+.skin-slot-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.skin-layout-node--row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.skin-layout-node--column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}

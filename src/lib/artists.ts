@@ -1,5 +1,4 @@
 import { normalizeArtistName, parseArtistField } from "./artistNames";
-import { pickArtPath } from "./albums";
 import type { Album } from "../types/album";
 import type { Artist } from "../types/artist";
 import type { Track } from "../types/track";

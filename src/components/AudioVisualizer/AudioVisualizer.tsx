@@ -1,5 +1,11 @@
 import { toAssetUrl } from "../../lib/assetUrl";
-import { useCallback, useEffect, useRef, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import { ensureAnalyser, getAnalyser } from "../../lib/audioAnalyser";
 import {
@@ -15,6 +21,11 @@ interface AudioVisualizerProps {
   variant?: "mini" | "dock";
   expanded: boolean;
   onToggleExpand: () => void;
+  showExpandToggle?: boolean;
+  /** Fills the skin visualizer slot (panel layout) instead of a fixed height strip. */
+  fillContainer?: boolean;
+  /** When set, renders from forwarded bins (updated in place) instead of the local analyser. */
+  frequencyBinsRef?: RefObject<number[] | null>;
 }
 
 const BAR_COUNT = 64;
@@ -52,6 +63,9 @@ export function AudioVisualizer({
   variant = "dock",
   expanded,
   onToggleExpand,
+  showExpandToggle = true,
+  fillContainer = false,
+  frequencyBinsRef,
 }: AudioVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -68,6 +82,7 @@ export function AudioVisualizer({
   const isPlaying = playbackState === "playing";
   const isMini = variant === "mini";
   const showExpanded = isMini && expanded;
+  const useRemoteBins = frequencyBinsRef !== undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -122,15 +137,24 @@ export function AudioVisualizer({
     const gap = Math.max(1, barWidth * 0.18);
     const drawWidth = barWidth - gap;
 
-    ensureAnalyser();
-    const analyser = getAnalyser();
+    if (!useRemoteBins) {
+      ensureAnalyser();
+    }
+    const analyser = useRemoteBins ? null : getAnalyser();
+    const remoteBins = frequencyBinsRef?.current ?? null;
 
-    if (isPlaying && analyser) {
-      if (!dataArrayRef.current) {
-        dataArrayRef.current = new Uint8Array(analyser.frequencyBinCount);
+    if (isPlaying && (remoteBins || analyser)) {
+      let data: Uint8Array | number[];
+      if (remoteBins) {
+        data = remoteBins;
+      } else {
+        if (!dataArrayRef.current) {
+          dataArrayRef.current = new Uint8Array(analyser!.frequencyBinCount);
+        }
+        const localData = dataArrayRef.current;
+        analyser!.getByteFrequencyData(localData);
+        data = localData;
       }
-      const data = dataArrayRef.current;
-      analyser.getByteFrequencyData(data);
 
       for (let i = 0; i < BAR_COUNT; i++) {
         const dataIndex = Math.floor((i / BAR_COUNT) * data.length);
@@ -174,7 +198,7 @@ export function AudioVisualizer({
         ctx.globalAlpha = 1;
       }
     }
-  }, [isPlaying, showExpanded]);
+  }, [isPlaying, showExpanded, useRemoteBins, frequencyBinsRef]);
 
   useEffect(() => {
     let rafId = 0;
@@ -189,26 +213,31 @@ export function AudioVisualizer({
   }, [draw]);
 
   useEffect(() => {
-    const containers = [containerRef.current, expandedContainerRef.current].filter(
+    const container = containerRef.current;
+    const expanded = expandedContainerRef.current;
+    const slot = fillContainer
+      ? container?.closest<HTMLElement>(".visualizer-slot")
+      : null;
+    const targets = [container, expanded, slot].filter(
       Boolean,
-    ) as HTMLDivElement[];
+    ) as HTMLElement[];
 
     const observer = new ResizeObserver(() => {
       draw();
     });
 
-    for (const el of containers) {
+    for (const el of targets) {
       observer.observe(el);
     }
     return () => observer.disconnect();
-  }, [draw, showExpanded]);
+  }, [draw, showExpanded, fillContainer]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     resetCanvasSize(canvas);
     requestAnimationFrame(draw);
-  }, [showExpanded, draw]);
+  }, [showExpanded, fillContainer, draw]);
 
   const renderVisualizer = (
     ref: RefObject<HTMLDivElement | null>,
@@ -216,17 +245,19 @@ export function AudioVisualizer({
   ) => (
     <div className={className} ref={ref}>
       <canvas ref={canvasRef} className="audio-visualizer__canvas" aria-hidden />
-      <Button
-        variant="ghost"
-        size="sm"
-        iconOnly
-        className="audio-visualizer__toggle"
-        onClick={onToggleExpand}
-        aria-label={expanded ? "Collapse visualizer" : "Expand visualizer"}
-        aria-pressed={expanded}
-      >
-        <IconVisualizer />
-      </Button>
+      {showExpandToggle ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          className="audio-visualizer__toggle"
+          onClick={onToggleExpand}
+          aria-label={expanded ? "Collapse visualizer" : "Expand visualizer"}
+          aria-pressed={expanded}
+        >
+          <IconVisualizer />
+        </Button>
+      ) : null}
     </div>
   );
 
@@ -250,9 +281,13 @@ export function AudioVisualizer({
     );
   }
 
-  const dockClassName = expanded
-    ? "audio-visualizer audio-visualizer--expanded"
-    : "audio-visualizer";
+  const dockClassName = [
+    "audio-visualizer",
+    fillContainer ? "audio-visualizer--panel" : "",
+    expanded ? "audio-visualizer--expanded" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return renderVisualizer(containerRef, dockClassName);
 }

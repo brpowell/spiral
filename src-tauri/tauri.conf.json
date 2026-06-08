@@ -10,11 +10,39 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
+        "label": "main",
         "title": "Spiral",
         "width": 1200,
         "height": 800,
+        "dragDropEnabled": false
+      },
+      {
+        "label": "skin-mode",
+        "title": "Spiral Skin Mode",
+        "width": 320,
+        "height": 440,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "visible": false,
+        "resizable": true,
+        "minWidth": 200,
+        "minHeight": 120,
+        "dragDropEnabled": false,
+        "acceptFirstMouse": true
+      },
+      {
+        "label": "skin-picker",
+        "title": "Skins",
+        "width": 600,
+        "height": 600,
+        "visible": false,
+        "resizable": true,
+        "minWidth": 400,
+        "minHeight": 420,
         "dragDropEnabled": false
       }
     ],
@@ -37,6 +65,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": [
+      "skins/builtin/**/*"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

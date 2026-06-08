@@ -1,0 +1,35 @@
+.skin-canvas-layout {
+  position: relative;
+  flex-shrink: 0;
+  margin: 0 auto;
+}
+
+.skin-canvas-layout--has-bg {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.skin-canvas-layout__stage {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.skin-canvas-layout .skin-bounds {
+  pointer-events: auto;
+}
+
+.skin-canvas-layout__debug-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  padding: 2px 6px;
+  font: 10px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #ffe08a;
+  background: rgba(120, 40, 0, 0.88);
+  pointer-events: none;
+  text-align: center;
+}

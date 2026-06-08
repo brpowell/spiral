@@ -1,0 +1,88 @@
+.playback-btn {
+  border-radius: 50%;
+  border: none;
+}
+
+.playback-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.playback-btn:disabled {
+  opacity: 0.35;
+}
+
+.playback-btn--play {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  color: var(--color-text-primary);
+}
+
+.playback-btn--play:hover:not(:disabled) {
+  background: var(--color-accent-muted);
+  color: var(--color-text-primary);
+}
+
+.playback-btn--play svg,
+.playback-btn__play-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.playback-btn--repeat {
+  width: 26px;
+  height: 26px;
+}
+
+.playback-btn--repeat svg {
+  width: 15px;
+  height: 15px;
+}
+
+.playback-btn--repeat-active {
+  color: var(--color-accent);
+}
+
+.playback-btn--shuffle {
+  width: 26px;
+  height: 26px;
+}
+
+.playback-btn--shuffle svg {
+  width: 15px;
+  height: 15px;
+}
+
+.playback-btn--shuffle-active {
+  color: var(--color-accent);
+}
+
+.playback-btn--volume {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.playback-btn--volume svg {
+  width: 15px;
+  height: 15px;
+}
+
+.playback-btn__play-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.playback-btn--track-list {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.playback-btn--track-list svg {
+  width: 16px;
+  height: 16px;
+}

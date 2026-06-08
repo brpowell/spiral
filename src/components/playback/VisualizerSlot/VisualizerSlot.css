@@ -1,0 +1,33 @@
+.visualizer-slot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  overflow: hidden;
+}
+
+.visualizer-slot--mini {
+  width: var(--visualizer-mini-width);
+  height: var(--visualizer-mini-height);
+  flex-shrink: 0;
+}
+
+.visualizer-slot--panel {
+  flex: 1 1 0;
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.visualizer-slot--flex {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
+
+.visualizer-slot--fill-width {
+  width: 100%;
+  max-width: 100%;
+}

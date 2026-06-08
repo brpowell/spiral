@@ -25,3 +25,36 @@
   text-overflow: ellipsis;
   max-width: 100%;
 }
+
+.scrolling-text--marquee .scrolling-text__track {
+  display: inline-flex;
+  align-items: center;
+  gap: 32px;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.scrolling-text--marquee .scrolling-text__segment {
+  display: inline-block;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.scrolling-text--marquee:not(.scrolling-text--active)
+  .scrolling-text__segment[aria-hidden] {
+  display: none;
+}
+
+.scrolling-text--marquee:not(.scrolling-text--active) .scrolling-text__track {
+  display: inline-block;
+}
+
+.scrolling-text--marquee.scrolling-text--truncated .scrolling-text__track {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scrolling-text--marquee.scrolling-text--truncated .scrolling-text__segment[aria-hidden] {
+  display: none;
+}

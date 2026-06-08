@@ -1,7 +1,8 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef } from "react";
 import { collectPlaybackSession } from "../lib/playbackSession";
-import { savePlaybackSession } from "../lib/tauri";
+import { quitApp, savePlaybackSession } from "../lib/tauri";
+import { isSkinModeWindow } from "../lib/windowRole";
 import { usePlayerStore } from "../store/usePlayerStore";
 
 const SAVE_DEBOUNCE_MS = 1_500;
@@ -14,6 +15,7 @@ export function usePlaybackSessionPersistence(): void {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (isSkinModeWindow()) return;
     const scheduleSave = () => {
       if (saveTimerRef.current !== null) {
         clearTimeout(saveTimerRef.current);
@@ -55,7 +57,7 @@ export function usePlaybackSessionPersistence(): void {
         } catch (err) {
           console.error("Failed to save playback session on close:", err);
         } finally {
-          await getCurrentWindow().destroy();
+          await quitApp();
         }
       })
       .then((fn) => {

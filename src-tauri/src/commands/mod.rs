@@ -1,3 +1,4 @@
+pub mod app;
 pub mod artist_images;
 pub mod files;
 pub mod library;
@@ -7,3 +8,4 @@ pub mod metadata;
 pub mod playback_session;
 pub mod track_list_preferences;
 pub mod themes;
+pub mod skins;

@@ -1,0 +1,18 @@
+.seek-bar {
+  display: grid;
+  grid-template-columns: 1.85rem 1fr 2.15rem;
+  align-items: center;
+  column-gap: 0.3rem;
+  min-width: 0;
+}
+
+.seek-bar__time {
+  font-size: 0.62rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.seek-bar__time--remaining {
+  text-align: right;
+}

@@ -4,6 +4,7 @@ import {
   DEFAULT_THEME_ID,
   findThemeByName,
 } from "../lib/theme";
+import { emitThemeChanged } from "../lib/themeBridge";
 import {
   getActiveThemeId,
   getBuiltinThemes,
@@ -70,6 +71,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     applyTheme(theme);
     set({ activeThemeId: name });
     await saveActiveThemeId(name);
+    emitThemeChanged(name);
   },
 
   importTheme: async () => {

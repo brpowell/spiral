@@ -9,6 +9,7 @@ export interface AppMenuHandlers {
   addToLibrary: () => void;
   newPlaylist: () => void;
   openPreferences: () => void;
+  openSkinMode: () => void;
 }
 
 export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
@@ -42,8 +43,19 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
     items: [addToLibrary, newPlaylist],
   });
 
+  const skinMode = await MenuItem.new({
+    id: "skin-mode",
+    text: "Skin Mode",
+    action: handlers.openSkinMode,
+  });
+
+  const viewSubmenu = await Submenu.new({
+    text: "View",
+    items: [skinMode],
+  });
+
   const menu = await Menu.new({
-    items: [appSubmenu, fileSubmenu],
+    items: [appSubmenu, fileSubmenu, viewSubmenu],
   });
 
   await menu.setAsAppMenu();
