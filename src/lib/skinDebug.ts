@@ -36,7 +36,7 @@ declare global {
   }
 }
 
-if (import.meta.env.DEV) {
+if (import.meta.env.DEV && typeof window !== "undefined") {
   window.spiralSkinDebug = {
     enable: () => setSkinDebugEnabled(true),
     disable: () => setSkinDebugEnabled(false),

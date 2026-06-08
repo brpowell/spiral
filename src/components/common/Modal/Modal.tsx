@@ -6,6 +6,10 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import {
+  releasedOutsidePanel,
+  shouldDismissModalOnBackdropRelease,
+} from "../../../lib/modalBackdropDismiss";
 import { backdropMotion, panelMotion } from "../../../lib/motion";
 import { Button } from "../Button/Button";
 import { IconClose } from "../../icons";
@@ -73,10 +77,12 @@ export function Modal({
       if (!backdrop || !panel) return;
 
       const target = e.target as Node;
-      const releasedOutsidePanel =
-        backdrop.contains(target) && !panel.contains(target);
-
-      if (pressedOutsidePanel && releasedOutsidePanel) {
+      if (
+        shouldDismissModalOnBackdropRelease(
+          pressedOutsidePanel,
+          releasedOutsidePanel(backdrop, panel, target),
+        )
+      ) {
         onClose();
       }
       pressedOutsidePanel = false;
