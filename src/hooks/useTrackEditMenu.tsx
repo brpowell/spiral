@@ -162,7 +162,7 @@ export function useTrackEditMenu(
     />
   );
 
-  const contextMenu = (
+  const contextMenu = open ? (
     <ContextMenu
       open={open}
       anchor={anchor}
@@ -288,22 +288,24 @@ export function useTrackEditMenu(
         }}
       />
     </ContextMenu>
-  );
+  ) : null;
 
-  const removeDialog = createPortal(
-    <RemoveTrackDialog
-      open={removeDialogOpen}
-      tracks={contextTracks}
-      onClose={() => setRemoveDialogOpen(false)}
-      onRemove={(deleteFromDisk) =>
-        removeTracksFromLibrary(
-          contextTracks.map((t) => t.id),
-          deleteFromDisk,
-        )
-      }
-    />,
-    document.body,
-  );
+  const removeDialog = removeDialogOpen
+    ? createPortal(
+        <RemoveTrackDialog
+          open={removeDialogOpen}
+          tracks={contextTracks}
+          onClose={() => setRemoveDialogOpen(false)}
+          onRemove={(deleteFromDisk) =>
+            removeTracksFromLibrary(
+              contextTracks.map((t) => t.id),
+              deleteFromDisk,
+            )
+          }
+        />,
+        document.body,
+      )
+    : null;
 
   return {
     onContextMenu: disabled ? undefined : onContextMenu,

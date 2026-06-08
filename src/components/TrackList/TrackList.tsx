@@ -1,4 +1,8 @@
-import { useCallback, useState, type CSSProperties } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
+import { albumKey } from "../../lib/albums";
+import { navigationArtistKey } from "../../lib/trackNavigation";
+import { useNavigationStore } from "../../store/useNavigationStore";
 import { Button } from "../common/Button/Button";
 import { TrackListColumnMenu } from "./TrackListColumnMenu";
 import { TrackListRow } from "./TrackListRow";
@@ -108,8 +112,42 @@ export function TrackList({
 }: TrackListProps) {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const canReorder = reorderable && !!onReorderTracks;
+  const useVirtualRows = !canReorder && tracks.length > 40;
+
+  const openAlbum = useNavigationStore((s) => s.openAlbum);
+  const openArtist = useNavigationStore((s) => s.openArtist);
+  const artistBrowseMode = useNavigationStore((s) => s.artistBrowseMode);
+
+  const handleOpenArtist = useCallback(
+    (track: Track) => {
+      openArtist(navigationArtistKey(track, artistBrowseMode));
+    },
+    [openArtist, artistBrowseMode],
+  );
+
+  const handleOpenAlbum = useCallback(
+    (track: Track) => {
+      openAlbum(albumKey(track));
+    },
+    [openAlbum],
+  );
+
+  const selectedTrackIdSet = useMemo(
+    () => new Set(selectedTrackIds),
+    [selectedTrackIds],
+  );
+
+  const rowEstimateSize = showAlbumArt ? 45 : 40;
+
+  const virtualizer = useVirtualizer({
+    count: useVirtualRows ? tracks.length : 0,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => rowEstimateSize,
+    overscan: 12,
+  });
   const {
     preset,
     visibleColumns,
@@ -232,6 +270,49 @@ export function TrackList({
     [canReorder, findReorderIndexAt, onReorderTracks],
   );
 
+  const renderRow = (
+    track: Track,
+    displayIndex: number,
+    virtualStyle?: CSSProperties,
+  ) => {
+    const isSelected =
+      !track.importStatus && selectedTrackIdSet.has(track.id);
+    const isNowPlaying = track.id === currentTrackId;
+    const isActivelyPlaying = isNowPlaying && playbackState === "playing";
+    const rowKey = track.importSourcePath ?? String(track.id);
+
+    return (
+      <TrackListRow
+        key={rowKey}
+        track={track}
+        displayIndex={displayIndex}
+        showAlbumArt={showAlbumArt}
+        visibleColumns={visibleColumns}
+        indexColumn={preset.indexColumn}
+        gridStyle={gridStyle}
+        canReorder={canReorder}
+        playlistId={playlistId}
+        isSelected={isSelected}
+        isNowPlaying={isNowPlaying}
+        isActivelyPlaying={isActivelyPlaying}
+        isDragging={draggingIndex === displayIndex}
+        isDragOver={
+          dragOverIndex === displayIndex &&
+          draggingIndex != null &&
+          draggingIndex !== displayIndex
+        }
+        onSelectTrack={onSelectTrack}
+        onPlayTrack={onPlayTrack}
+        onStartReorder={startReorder}
+        onOpenArtist={handleOpenArtist}
+        onOpenAlbum={handleOpenAlbum}
+        virtualStyle={virtualStyle}
+      />
+    );
+  };
+
+  const virtualRows = virtualizer.getVirtualItems();
+
   return (
     <>
       <div
@@ -244,7 +325,15 @@ export function TrackList({
           .filter(Boolean)
           .join(" ")}
       >
-        <div className="track-list__scroll">
+        <div
+          ref={scrollRef}
+          className={[
+            "track-list__scroll",
+            useVirtualRows && "track-list__scroll--virtual",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
           <div className="track-list__inner" style={gridStyle}>
             <div className="track-list__header" style={gridStyle} role="row">
               {visibleColumns.map(renderHeaderCell)}
@@ -262,42 +351,27 @@ export function TrackList({
 
             {tracks.length === 0 ? (
               <p className="track-list__empty">{emptyMessage}</p>
+            ) : useVirtualRows ? (
+              <ol
+                className="track-list__body track-list__body--virtual"
+                style={{ height: virtualizer.getTotalSize() }}
+              >
+                {virtualRows.map((virtualRow) =>
+                  renderRow(tracks[virtualRow.index], virtualRow.index, {
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: virtualRow.size,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }),
+                )}
+              </ol>
             ) : (
               <ol className="track-list__body">
-                {tracks.map((track, displayIndex) => {
-                  const isSelected =
-                    !track.importStatus && selectedTrackIds.includes(track.id);
-                  const isNowPlaying = track.id === currentTrackId;
-                  const isActivelyPlaying =
-                    isNowPlaying && playbackState === "playing";
-                  const rowKey = track.importSourcePath ?? String(track.id);
-
-                  return (
-                    <TrackListRow
-                      key={rowKey}
-                      track={track}
-                      displayIndex={displayIndex}
-                      showAlbumArt={showAlbumArt}
-                      visibleColumns={visibleColumns}
-                      indexColumn={preset.indexColumn}
-                      gridStyle={gridStyle}
-                      canReorder={canReorder}
-                      playlistId={playlistId}
-                      isSelected={isSelected}
-                      isNowPlaying={isNowPlaying}
-                      isActivelyPlaying={isActivelyPlaying}
-                      isDragging={draggingIndex === displayIndex}
-                      isDragOver={
-                        dragOverIndex === displayIndex &&
-                        draggingIndex != null &&
-                        draggingIndex !== displayIndex
-                      }
-                      onSelectTrack={onSelectTrack}
-                      onPlayTrack={onPlayTrack}
-                      onStartReorder={startReorder}
-                    />
-                  );
-                })}
+                {tracks.map((track, displayIndex) =>
+                  renderRow(track, displayIndex),
+                )}
               </ol>
             )}
           </div>

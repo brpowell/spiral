@@ -1,7 +1,9 @@
 .track-list {
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-width: 0;
+  min-height: 0;
 }
 
 .track-list--bordered {
@@ -13,6 +15,12 @@
   overflow-x: auto;
   overflow-y: visible;
   -webkit-overflow-scrolling: touch;
+}
+
+.track-list__scroll--virtual {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .track-list--bordered .track-list__scroll {
@@ -128,8 +136,20 @@
 
 .track-list__item {
   margin: 0;
+}
+
+.track-list__body:not(.track-list__body--virtual) .track-list__item {
   content-visibility: auto;
   contain-intrinsic-size: auto 2.5rem;
+}
+
+.track-list__body:not(.track-list__body--virtual) .track-list__item--with-art {
+  contain-intrinsic-size: auto calc(var(--track-list-art-size) + 0.5rem + 1px);
+}
+
+.track-list__body--virtual {
+  position: relative;
+  width: 100%;
 }
 
 .track-list__row-wrap {

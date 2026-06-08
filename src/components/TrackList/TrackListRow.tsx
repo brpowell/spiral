@@ -4,13 +4,7 @@ import {
   isTrackImporting,
   isTrackInteractive,
 } from "../../lib/pendingImportTrack";
-import { albumKey } from "../../lib/albums";
-import {
-  hasNavigableAlbum,
-  hasNavigableArtist,
-  navigationArtistKey,
-} from "../../lib/trackNavigation";
-import { useNavigationStore } from "../../store/useNavigationStore";
+import { hasNavigableAlbum, hasNavigableArtist } from "../../lib/trackNavigation";
 import { IconGrip } from "../icons";
 import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
 import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
@@ -100,6 +94,9 @@ export interface TrackListRowProps {
   onSelectTrack: (track: Track, e: React.MouseEvent) => void;
   onPlayTrack: (track: Track) => void;
   onStartReorder: (e: React.PointerEvent, fromIndex: number) => void;
+  onOpenArtist: (track: Track) => void;
+  onOpenAlbum: (track: Track) => void;
+  virtualStyle?: CSSProperties;
 }
 
 function TrackListRowComponent({
@@ -119,18 +116,20 @@ function TrackListRowComponent({
   onSelectTrack,
   onPlayTrack,
   onStartReorder,
+  onOpenArtist,
+  onOpenAlbum,
+  virtualStyle,
 }: TrackListRowProps) {
   const isImporting = isTrackImporting(track);
   const isInteractive = isTrackInteractive(track);
-  const openAlbum = useNavigationStore((s) => s.openAlbum);
-  const openArtist = useNavigationStore((s) => s.openArtist);
-  const artistBrowseMode = useNavigationStore((s) => s.artistBrowseMode);
 
   return (
     <li
       data-track-list-index={displayIndex}
+      style={virtualStyle}
       className={[
         "track-list__item",
+        showAlbumArt && "track-list__item--with-art",
         isDragging && "track-list__item--dragging",
         isDragOver && "track-list__item--drag-over",
       ]
@@ -241,9 +240,7 @@ function TrackListRowComponent({
                   <TrackListCellLink
                     label={label}
                     ariaLabel={`View artist ${label}`}
-                    onClick={() =>
-                      openArtist(navigationArtistKey(track, artistBrowseMode))
-                    }
+                    onClick={() => onOpenArtist(track)}
                   />
                 </span>
               );
@@ -256,7 +253,7 @@ function TrackListRowComponent({
                   <TrackListCellLink
                     label={label}
                     ariaLabel={`View album ${label}`}
-                    onClick={() => openAlbum(albumKey(track))}
+                    onClick={() => onOpenAlbum(track)}
                   />
                 </span>
               );
@@ -273,6 +270,19 @@ function TrackListRowComponent({
         </div>
       </TrackRowMenu>
     </li>
+  );
+}
+
+function virtualStyleEqual(
+  prev?: CSSProperties,
+  next?: CSSProperties,
+): boolean {
+  if (prev === next) return true;
+  if (prev == null || next == null) return prev === next;
+  return (
+    prev.transform === next.transform &&
+    prev.height === next.height &&
+    prev.width === next.width
   );
 }
 
@@ -297,7 +307,10 @@ function rowPropsEqual(
     prev.gridStyle === next.gridStyle &&
     prev.onSelectTrack === next.onSelectTrack &&
     prev.onPlayTrack === next.onPlayTrack &&
-    prev.onStartReorder === next.onStartReorder
+    prev.onStartReorder === next.onStartReorder &&
+    prev.onOpenArtist === next.onOpenArtist &&
+    prev.onOpenAlbum === next.onOpenAlbum &&
+    virtualStyleEqual(prev.virtualStyle, next.virtualStyle)
   );
 }
 
