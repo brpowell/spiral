@@ -1,10 +1,18 @@
 import { create } from "zustand";
-import * as audio from "../lib/audio";
+import * as audio from "../lib/playback";
+import {
+  isCdTrackListId,
+  cdTrackNumberFromListId,
+  playableRefFromTrackListId,
+  resolvePlaybackSource,
+  trackListIdForPlayable,
+} from "../lib/playback";
 import { buildPlaybackOrder } from "../lib/activeTrackList";
+import { findPlaybackTrack } from "../lib/playbackTrack";
 import { groupTracksIntoAlbums } from "../lib/albums";
 import { groupTracksIntoArtists, type ArtistBrowseMode } from "../lib/artists";
 import { startLibraryImport } from "../lib/libraryImport";
-import { showQueueAddedToast } from "../lib/queueToast";
+import { showQueueAddedToast, showQueueAddedToastForTracks } from "../lib/queueToast";
 import { seekRatioToPositionSeconds } from "../lib/playbackSeek";
 import { parseRepeatMode, prunePlaybackSession } from "../lib/playbackSession";
 import {
@@ -30,6 +38,7 @@ import {
   isPendingTrackId,
   isTrackImporting,
 } from "../lib/pendingImportTrack";
+import type { PlayableRef } from "../types/playable";
 import type { PlaybackState, RepeatMode, Track } from "../types/track";
 
 interface PlayerState {
@@ -37,6 +46,12 @@ interface PlayerState {
   playContextIds: number[];
   manualQueueIds: number[];
   currentTrackId: number | null;
+  currentPlayable: PlayableRef | null;
+  /** When playing from a CD, the active drive and synthetic track rows. */
+  cdDriveId: string | null;
+  playbackTracks: Track[];
+  /** CD rows added to the manual queue before playback begins. */
+  cdQueueContext: { driveId: string; tracks: Track[] } | null;
   selectedTrackIds: number[];
   selectionAnchorId: number | null;
   playbackState: PlaybackState;
@@ -63,6 +78,12 @@ interface PlayerState {
   importFromPaths: (paths: string[]) => void;
   playTrack: (id: number) => Promise<void>;
   playTracks: (ids: number[], startId: number) => Promise<void>;
+  playCdTracks: (
+    driveId: string,
+    tracks: Track[],
+    startTrackNumber: number,
+  ) => Promise<void>;
+  stopCdPlaybackForDrive: (driveId: string) => void;
   selectTracksInList: (
     id: number,
     orderedIds: number[],
@@ -83,6 +104,7 @@ interface PlayerState {
   setVolume: (volume: number) => void;
   toggleMute: () => void;
   addToQueue: (ids: number[]) => void;
+  addCdToQueue: (driveId: string, tracks: Track[]) => void;
   removeFromQueue: (id: number) => void;
   clearTrackList: () => void;
   cycleRepeat: () => void;
@@ -136,6 +158,107 @@ function startPositionPoll(set: (partial: Partial<PlayerState>) => void): void {
   }, 500);
 }
 
+interface PlayResolvedPlayableOptions {
+  playContextIds?: number[];
+  playbackTracks?: Track[];
+  cdDriveId?: string | null;
+}
+
+async function playResolvedPlayable(
+  playable: PlayableRef,
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  get: () => PlayerState,
+  options?: PlayResolvedPlayableOptions,
+): Promise<void> {
+  const state = get();
+  const source = resolvePlaybackSource(playable, state.library);
+  if (!source) {
+    set({
+      playbackState: "stopped",
+      importError: "Playback failed: track not found",
+    });
+    return;
+  }
+
+  const trackListId = trackListIdForPlayable(playable);
+
+  set({ importError: null });
+  try {
+    await audio.loadSource(source);
+    // Loading may switch engines — make sure the new one has the user's
+    // volume/mute state before audio starts.
+    audio.setVolume(state.volume);
+    audio.setMuted(state.muted);
+    audio.play();
+    set((current) => ({
+      currentPlayable: playable,
+      currentTrackId: trackListId,
+      playbackState: "playing",
+      positionSeconds: 0,
+      seekPreviewRatio: null,
+      manualQueueIds: current.manualQueueIds.filter(
+        (trackId) => trackId !== trackListId,
+      ),
+      ...(options?.playContextIds !== undefined
+        ? { playContextIds: options.playContextIds }
+        : {}),
+      ...(options?.playbackTracks !== undefined
+        ? { playbackTracks: options.playbackTracks }
+        : {}),
+      ...(options?.cdDriveId !== undefined ? { cdDriveId: options.cdDriveId } : {}),
+      ...(playable.type === "library"
+        ? { cdDriveId: null, playbackTracks: [] }
+        : {}),
+    }));
+    startPositionPoll(set);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Playback failed:", err);
+    set({
+      playbackState: "stopped",
+      importError: `Playback failed: ${message}`,
+    });
+  }
+}
+
+async function primeCdTrackPaused(
+  driveId: string,
+  tracks: Track[],
+  trackId: number,
+  set: (partial: Partial<PlayerState>) => void,
+): Promise<void> {
+  const trackNumber = cdTrackNumberFromListId(trackId);
+  const playable = { type: "cd" as const, driveId, trackNumber };
+  set({ importError: null });
+  try {
+    await audio.loadSource({
+      kind: "cd",
+      driveId,
+      trackNumber,
+    });
+    set({
+      currentPlayable: playable,
+      currentTrackId: trackId,
+      cdDriveId: driveId,
+      playbackTracks: tracks,
+      playbackState: "paused",
+      positionSeconds: 0,
+      seekPreviewRatio: null,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("Failed to load CD track:", err);
+    set({
+      playbackState: "stopped",
+      importError: `Playback failed: ${message}`,
+    });
+  }
+}
+
 async function primeTrackPaused(
   id: number,
   library: Track[],
@@ -187,8 +310,13 @@ function refreshLibraryPreservingPlayback(
   ) => void,
   get: () => PlayerState,
 ): void {
-  const libraryIds = new Set(library.map((t) => t.id));
   const state = get();
+  if (state.cdDriveId !== null) {
+    set({ library });
+    return;
+  }
+
+  const libraryIds = new Set(library.map((t) => t.id));
   const playContextIds = prunePlaybackIds(state.playContextIds, libraryIds);
   const manualQueueIds = prunePlaybackIds(state.manualQueueIds, libraryIds);
   const currentTrackId =
@@ -304,7 +432,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       return;
     }
 
-    recordCompletedPlay(currentTrackId, get);
+    if (!isCdTrackListId(currentTrackId)) {
+      recordCompletedPlay(currentTrackId, get);
+    }
 
     const order = getPlaybackOrder(get);
     const nextId = getAutoplayNextId(order, currentTrackId, repeatMode);
@@ -322,6 +452,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     playContextIds: [],
     manualQueueIds: [],
     currentTrackId: null,
+    currentPlayable: null,
+    cdDriveId: null,
+    playbackTracks: [],
+    cdQueueContext: null,
     selectedTrackIds: [],
     selectionAnchorId: null,
     playbackState: "stopped",
@@ -469,11 +603,85 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const ordered = get().shuffle
         ? shuffleNewTrackList(playableIds, startId)
         : playableIds;
-      set({ playContextIds: ordered });
+      set({ playContextIds: ordered, cdDriveId: null, playbackTracks: [] });
       await get().playTrack(startId);
     },
 
+    playCdTracks: async (driveId, tracks, startTrackNumber) => {
+      if (tracks.length === 0) return;
+      const startId = trackListIdForPlayable({
+        type: "cd",
+        driveId,
+        trackNumber: startTrackNumber,
+      });
+      const orderedIds = tracks.map((track) => track.id);
+      if (!orderedIds.includes(startId)) return;
+
+      const contextIds = get().shuffle
+        ? shuffleNewTrackList(orderedIds, startId)
+        : orderedIds;
+
+      await playResolvedPlayable(
+        { type: "cd", driveId, trackNumber: startTrackNumber },
+        set,
+        get,
+        {
+          playContextIds: contextIds,
+          playbackTracks: tracks,
+          cdDriveId: driveId,
+        },
+      );
+    },
+
+    stopCdPlaybackForDrive: (driveId) => {
+      const state = get();
+      const playingFromDrive =
+        state.cdDriveId === driveId ||
+        (state.currentPlayable?.type === "cd" &&
+          state.currentPlayable.driveId === driveId);
+      if (!playingFromDrive) return;
+
+      audio.unload();
+      stopPositionPoll();
+      set({
+        cdDriveId: null,
+        playbackTracks: [],
+        currentPlayable: null,
+        playContextIds: [],
+        currentTrackId: null,
+        playbackState: "stopped",
+        positionSeconds: 0,
+        seekPreviewRatio: null,
+      });
+    },
+
     playTrack: async (id) => {
+      if (isPendingTrackId(id)) return;
+
+      if (isCdTrackListId(id)) {
+        const state = get();
+        const driveId =
+          state.cdDriveId ??
+          (state.cdQueueContext?.tracks.some((track) => track.id === id)
+            ? state.cdQueueContext.driveId
+            : null);
+        const playable = playableRefFromTrackListId(id, driveId);
+        if (!playable) return;
+
+        const cdTracks =
+          state.playbackTracks.length > 0 && state.cdDriveId === driveId
+            ? state.playbackTracks
+            : state.cdQueueContext?.driveId === driveId
+              ? state.cdQueueContext.tracks
+              : state.playbackTracks;
+
+        await playResolvedPlayable(playable, set, get, {
+          cdDriveId: driveId,
+          playbackTracks: cdTracks,
+        });
+        return;
+      }
+
       const track = get().library.find((t) => t.id === id);
       if (!track || isTrackImporting(track)) return;
 
@@ -485,28 +693,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         set({ playContextIds: shuffleTrackList(get().playContextIds, id) });
       }
 
-      set({ importError: null });
-      try {
-        await audio.load(track.filePath);
-        audio.play();
-        set((state) => ({
-          currentTrackId: id,
-          playbackState: "playing",
-          positionSeconds: 0,
-          seekPreviewRatio: null,
-          manualQueueIds: state.manualQueueIds.filter(
-            (trackId) => trackId !== id,
-          ),
-        }));
-        startPositionPoll(set);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error("Playback failed:", err);
-        set({
-          playbackState: "stopped",
-          importError: `Playback failed: ${message}`,
-        });
-      }
+      await playResolvedPlayable({ type: "library", trackId: id }, set, get);
     },
 
     pause: () => {
@@ -523,6 +710,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     recoverPlaybackAfterWake: async () => {
       const state = get();
+      if (state.currentPlayable?.type === "cd") return;
+
       const track =
         state.currentTrackId === null
           ? undefined
@@ -567,6 +756,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
               state.library,
               state.currentTrackId,
               ratio,
+              state.playbackTracks,
             );
       set({
         positionSeconds,
@@ -575,9 +765,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     beginSeekPreview: () => {
-      const duration = audio.getDurationSeconds();
+      const state = get();
+      let duration = audio.getDurationSeconds();
+      if (!duration) {
+        duration =
+          findPlaybackTrack({
+            library: state.library,
+            playbackTracks: state.playbackTracks,
+            currentTrackId: state.currentTrackId,
+          })?.durationSeconds ?? 0;
+      }
       const ratio =
-        duration > 0 ? get().positionSeconds / duration : 0;
+        duration > 0 ? state.positionSeconds / duration : 0;
       set({ seekPreviewRatio: ratio });
     },
 
@@ -590,8 +789,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     seekRelative: (deltaSeconds) => {
-      if (!get().currentTrackId) return;
-      const duration = audio.getDurationSeconds();
+      const state = get();
+      if (!state.currentTrackId) return;
+      let duration = audio.getDurationSeconds();
+      if (!duration) {
+        duration =
+          findPlaybackTrack({
+            library: state.library,
+            playbackTracks: state.playbackTracks,
+            currentTrackId: state.currentTrackId,
+          })?.durationSeconds ?? 0;
+      }
       if (!duration) return;
       const position = audio.getPositionSeconds();
       const next = Math.max(0, Math.min(duration, position + deltaSeconds));
@@ -680,6 +888,37 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }
     },
 
+    addCdToQueue: (driveId, tracks) => {
+      if (tracks.length === 0) return;
+
+      const ids = tracks.map((track) => track.id);
+      const state = get();
+      const trackListWasEmpty =
+        state.currentTrackId === null &&
+        state.playContextIds.length === 0 &&
+        state.manualQueueIds.length === 0;
+
+      let addedIds: number[] = [];
+      set((s) => {
+        const existing = new Set(s.manualQueueIds);
+        const toAdd = ids.filter((id) => !existing.has(id));
+        if (toAdd.length === 0) return s;
+        addedIds = toAdd;
+        return {
+          manualQueueIds: [...s.manualQueueIds, ...toAdd],
+          cdQueueContext: { driveId, tracks },
+        };
+      });
+
+      if (addedIds.length === 0) return;
+
+      const addedTracks = tracks.filter((track) => addedIds.includes(track.id));
+      showQueueAddedToastForTracks(addedTracks);
+      if (trackListWasEmpty) {
+        void primeCdTrackPaused(driveId, tracks, addedIds[0], set);
+      }
+    },
+
     removeFromQueue: (id) => {
       set((state) => ({
         manualQueueIds: state.manualQueueIds.filter(
@@ -698,6 +937,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         playContextIds: [],
         manualQueueIds: [],
         currentTrackId: null,
+        currentPlayable: null,
+        cdDriveId: null,
+        playbackTracks: [],
+        cdQueueContext: null,
         playbackState: "stopped",
         positionSeconds: 0,
         seekPreviewRatio: null,

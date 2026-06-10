@@ -1,5 +1,6 @@
 mod art_cache;
 mod audio_formats;
+mod cd;
 mod artist_art_fetch;
 mod cover_art_fetch;
 mod commands;
@@ -43,6 +44,8 @@ pub fn run() {
 
             #[cfg(desktop)]
             media_session::init(app.handle());
+
+            cd::monitor::start_monitor(app.handle().clone());
 
             if let Err(err) = metadata_backup::run_scheduled_cleanup(app.handle()) {
                 eprintln!("metadata backup cleanup on startup: {err}");
@@ -102,6 +105,18 @@ pub fn run() {
             commands::playback_session::save_playback_session,
             commands::track_list_preferences::get_track_list_preferences,
             commands::track_list_preferences::save_track_list_preferences,
+            commands::cd::list_cd_drives,
+            commands::cd::probe_cd_drive,
+            commands::cd::get_disc_info,
+            commands::cd::get_disc_cdtext,
+            commands::cd::eject_cd_disc,
+            commands::cd::set_cd_detail_drive,
+            commands::cd::start_cd_playback,
+            commands::cd::pause_cd_playback,
+            commands::cd::resume_cd_playback,
+            commands::cd::seek_cd_playback,
+            commands::cd::stop_cd_playback,
+            commands::cd::ack_cd_playback_pcm,
             #[cfg(desktop)]
             media_session::update_media_session,
         ])

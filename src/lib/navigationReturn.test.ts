@@ -40,6 +40,7 @@ describe("captureReturnContext", () => {
           albumKey: null,
           artistKey: null,
           playlistId: null,
+          cdDriveId: null,
         },
         [],
       ),
@@ -54,6 +55,7 @@ describe("captureReturnContext", () => {
           albumKey: null,
           artistKey: "rage",
           playlistId: null,
+          cdDriveId: null,
         },
         [],
       ),
@@ -68,6 +70,7 @@ describe("captureReturnContext", () => {
           albumKey: null,
           artistKey: null,
           playlistId: 7,
+          cdDriveId: null,
         },
         [playlist(7, "Road Trip")],
       ),
@@ -97,6 +100,7 @@ describe("stateAfterCloseAlbum", () => {
       albumKey: null,
       artistKey: null,
       playlistId: null,
+      cdDriveId: null,
       view: "library",
     });
   });
@@ -118,6 +122,7 @@ describe("stateAfterCloseArtist", () => {
     ).toEqual({
       artistKey: null,
       playlistId: null,
+      cdDriveId: null,
       view: "library",
     });
   });
@@ -128,6 +133,7 @@ describe("stateAfterCloseArtist", () => {
     ).toEqual({
       artistKey: null,
       playlistId: null,
+      cdDriveId: null,
       view: "artists",
     });
   });
@@ -140,6 +146,7 @@ describe("stateAfterClosePlaylist", () => {
     ).toEqual({
       playlistId: null,
       artistKey: null,
+      cdDriveId: null,
       view: "library",
     });
   });
@@ -166,6 +173,7 @@ describe("captureReturnContext for playlists", () => {
           albumKey: null,
           artistKey: null,
           playlistId: null,
+          cdDriveId: null,
         },
         [],
       ),

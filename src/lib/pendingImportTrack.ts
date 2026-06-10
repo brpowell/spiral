@@ -1,3 +1,4 @@
+import { isCdTrackListId } from "./cdTracks";
 import type { Track, TrackInput } from "../types/track";
 
 let nextPendingId = -1;
@@ -11,7 +12,7 @@ export function allocPendingTrackId(): number {
 }
 
 export function isPendingTrackId(id: number): boolean {
-  return id < 0;
+  return id < 0 && !isCdTrackListId(id);
 }
 
 export function isTrackImporting(track: Track): boolean {

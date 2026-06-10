@@ -1,0 +1,39 @@
+export interface CdDrive {
+  id: string;
+  name: string;
+  hasDisc: boolean;
+}
+
+export interface CdTrack {
+  number: number;
+  title: string;
+  artist?: string | null;
+  durationSeconds?: number | null;
+}
+
+export interface CdDisc {
+  driveId: string;
+  discId?: string | null;
+  album?: string | null;
+  artist?: string | null;
+  tracks: CdTrack[];
+}
+
+export interface CdTrackTitle {
+  number: number;
+  title: string;
+}
+
+/** CD-Text overlay fetched after the fast status-XML track list. */
+export interface CdDiscCdText {
+  driveId: string;
+  album?: string | null;
+  artist?: string | null;
+  trackTitles: CdTrackTitle[];
+}
+
+export const CD_DISC_CHANGED_EVENT = "cd-disc-changed";
+
+export interface CdDiscChangedPayload {
+  drives: CdDrive[];
+}

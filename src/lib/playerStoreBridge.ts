@@ -14,6 +14,7 @@ export const PLAYER_REQUEST_STATE_EVENT = "player://request-state";
 
 export interface PlayerStateSnapshot {
   library: Track[];
+  playbackTracks: Track[];
   playContextIds: number[];
   manualQueueIds: number[];
   currentTrackId: number | null;
@@ -45,6 +46,7 @@ export type PlayerRemoteAction =
 
 const SYNC_KEYS: (keyof PlayerStateSnapshot)[] = [
   "library",
+  "playbackTracks",
   "playContextIds",
   "manualQueueIds",
   "currentTrackId",
@@ -59,6 +61,7 @@ const SYNC_KEYS: (keyof PlayerStateSnapshot)[] = [
 function pickSnapshot(state: ReturnType<typeof usePlayerStore.getState>): PlayerStateSnapshot {
   return {
     library: state.library,
+    playbackTracks: state.playbackTracks,
     playContextIds: state.playContextIds,
     manualQueueIds: state.manualQueueIds,
     currentTrackId: state.currentTrackId,
@@ -152,6 +155,7 @@ function installRemoteActions(): void {
           state.library,
           state.currentTrackId,
           ratio,
+          state.playbackTracks,
         );
         emitRemoteAction({ type: "seek", ratio });
         usePlayerStore.setState({
@@ -230,6 +234,7 @@ async function initRemoteBridge(): Promise<() => void> {
           state.library,
           state.currentTrackId,
           pendingRatio,
+          state.playbackTracks,
         );
 
         if (
@@ -238,6 +243,8 @@ async function initRemoteBridge(): Promise<() => void> {
             snapshot.currentTrackId,
             snapshot.positionSeconds,
             pendingRatio,
+            1,
+            snapshot.playbackTracks,
           )
         ) {
           return { ...snapshot, seekPreviewRatio: null };

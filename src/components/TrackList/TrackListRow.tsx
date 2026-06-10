@@ -9,6 +9,7 @@ import { IconGrip } from "../icons";
 import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
 import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
 import { TrackRowMenu } from "../TrackRowMenu/TrackRowMenu";
+import { CdTrackRowMenu } from "../CdTrackRowMenu/CdTrackRowMenu";
 import type { TrackListColumnDef, TrackListColumnId } from "./types";
 import type { Track } from "../../types/track";
 
@@ -96,6 +97,11 @@ export interface TrackListRowProps {
   onStartReorder: (e: React.PointerEvent, fromIndex: number) => void;
   onOpenArtist: (track: Track) => void;
   onOpenAlbum: (track: Track) => void;
+  canNavigateAlbum?: (track: Track) => boolean;
+  canNavigateArtist?: (track: Track) => boolean;
+  readOnly?: boolean;
+  cdDriveId?: string;
+  cdTracks?: Track[];
   virtualStyle?: CSSProperties;
 }
 
@@ -118,33 +124,22 @@ function TrackListRowComponent({
   onStartReorder,
   onOpenArtist,
   onOpenAlbum,
+  canNavigateAlbum = hasNavigableAlbum,
+  canNavigateArtist = hasNavigableArtist,
+  readOnly = false,
+  cdDriveId,
+  cdTracks,
   virtualStyle,
 }: TrackListRowProps) {
   const isImporting = isTrackImporting(track);
-  const isInteractive = isTrackInteractive(track);
+  const isCdList = cdDriveId != null && cdTracks != null;
+  const isInteractive = isTrackInteractive(track) && (!readOnly || isCdList);
+  const canPlay = isTrackInteractive(track);
 
-  return (
-    <li
-      data-track-list-index={displayIndex}
-      style={virtualStyle}
-      className={[
-        "track-list__item",
-        showAlbumArt && "track-list__item--with-art",
-        isDragging && "track-list__item--dragging",
-        isDragOver && "track-list__item--drag-over",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      <TrackRowMenu
-        track={track}
-        className="track-list__row-wrap"
-        playlistId={playlistId}
-        interactive={isInteractive}
-      >
+  const rowContent = (
         <div
-          role={isInteractive ? "button" : "group"}
-          tabIndex={isInteractive ? 0 : -1}
+          role={canPlay ? "button" : "group"}
+          tabIndex={canPlay ? 0 : -1}
           aria-disabled={isImporting || undefined}
           className={[
             "track-list__row",
@@ -161,11 +156,11 @@ function TrackListRowComponent({
             onSelectTrack(track, e);
           }}
           onDoubleClick={() => {
-            if (!isInteractive) return;
+            if (!canPlay) return;
             onPlayTrack(track);
           }}
           onKeyDown={(e) => {
-            if (!isInteractive) return;
+            if (!canPlay) return;
             if (e.key === "Enter") onPlayTrack(track);
           }}
         >
@@ -233,7 +228,7 @@ function TrackListRowComponent({
               .filter(Boolean)
               .join(" ");
 
-            if (col.id === "artist" && hasNavigableArtist(track)) {
+            if (col.id === "artist" && canNavigateArtist(track)) {
               const label = track.artist ?? "—";
               return (
                 <span key={col.id} className={cellClassName}>
@@ -246,7 +241,7 @@ function TrackListRowComponent({
               );
             }
 
-            if (col.id === "album" && hasNavigableAlbum(track)) {
+            if (col.id === "album" && canNavigateAlbum(track)) {
               const label = track.album ?? "—";
               return (
                 <span key={col.id} className={cellClassName}>
@@ -268,7 +263,40 @@ function TrackListRowComponent({
           <span className="track-list__cell track-list__filler" aria-hidden />
           <span className="track-list__cell track-list__cell--actions" />
         </div>
-      </TrackRowMenu>
+  );
+
+  return (
+    <li
+      data-track-list-index={displayIndex}
+      style={virtualStyle}
+      className={[
+        "track-list__item",
+        showAlbumArt && "track-list__item--with-art",
+        isDragging && "track-list__item--dragging",
+        isDragOver && "track-list__item--drag-over",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      {isCdList ? (
+        <CdTrackRowMenu
+          track={track}
+          driveId={cdDriveId}
+          tracks={cdTracks}
+          className="track-list__row-wrap"
+        >
+          {rowContent}
+        </CdTrackRowMenu>
+      ) : (
+        <TrackRowMenu
+          track={track}
+          className="track-list__row-wrap"
+          playlistId={playlistId}
+          interactive={isInteractive}
+        >
+          {rowContent}
+        </TrackRowMenu>
+      )}
     </li>
   );
 }
@@ -310,6 +338,11 @@ function rowPropsEqual(
     prev.onStartReorder === next.onStartReorder &&
     prev.onOpenArtist === next.onOpenArtist &&
     prev.onOpenAlbum === next.onOpenAlbum &&
+    prev.canNavigateAlbum === next.canNavigateAlbum &&
+    prev.canNavigateArtist === next.canNavigateArtist &&
+    prev.readOnly === next.readOnly &&
+    prev.cdDriveId === next.cdDriveId &&
+    prev.cdTracks === next.cdTracks &&
     virtualStyleEqual(prev.virtualStyle, next.virtualStyle)
   );
 }

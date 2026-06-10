@@ -50,10 +50,10 @@ export function applyTrackSelection(
 export function tracksForContextAction(
   trackId: number,
   selectedIds: number[],
-  libraryTrackIds: Set<number>,
+  scopeTrackIds: Set<number>,
 ): number[] {
   if (selectedIds.includes(trackId) && selectedIds.length > 1) {
-    return selectedIds.filter((id) => libraryTrackIds.has(id));
+    return selectedIds.filter((id) => scopeTrackIds.has(id));
   }
   return [trackId];
 }

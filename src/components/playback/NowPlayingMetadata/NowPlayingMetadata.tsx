@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useAssetUrl } from "../../../hooks/useAssetUrl";
 import { albumKey } from "../../../lib/albums";
+import { findPlaybackTrack } from "../../../lib/playbackTrack";
 import { useNavigationStore } from "../../../store/useNavigationStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import { ScrollingText } from "../../ScrollingText/ScrollingText";
@@ -22,12 +23,14 @@ export function NowPlayingMetadata({
   onArtClick,
 }: NowPlayingMetadataProps) {
   const library = usePlayerStore((s) => s.library);
+  const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const openAlbum = useNavigationStore((s) => s.openAlbum);
 
   const currentTrack = useMemo(
-    () => library.find((t) => t.id === currentTrackId),
-    [library, currentTrackId],
+    () =>
+      findPlaybackTrack({ library, playbackTracks, currentTrackId }),
+    [library, playbackTracks, currentTrackId],
   );
 
   const artSrc = useAssetUrl(currentTrack?.artPath);

@@ -1,0 +1,95 @@
+.cd-detail__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.cd-detail__toolbar--no-back {
+  justify-content: flex-end;
+}
+
+.cd-detail__back {
+  gap: 0.35rem;
+}
+
+.cd-detail__back svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.cd-detail__hero {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  align-items: flex-start;
+}
+
+@media (max-width: 640px) {
+  .cd-detail__hero {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .cd-detail__art {
+    width: min(220px, 70vw);
+  }
+}
+
+.cd-detail__art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 220px;
+  height: 220px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--color-surface-raised, var(--color-surface));
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.cd-detail__art svg {
+  width: 4rem;
+  height: 4rem;
+}
+
+.cd-detail__meta {
+  flex: 1;
+  min-width: 0;
+  padding-top: 0.5rem;
+}
+
+.cd-detail__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cd-detail__artist {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+  color: var(--color-text-secondary);
+}
+
+.cd-detail__stats {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.cd-detail__status {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.cd-detail__status--secondary {
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.cd-detail__tracks {
+  border-top: 1px solid var(--color-border);
+}

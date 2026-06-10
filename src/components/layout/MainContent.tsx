@@ -12,6 +12,7 @@ import { AlbumsView } from "../../views/AlbumsView";
 import { ArtistDetailView } from "../../views/ArtistDetailView";
 import { ArtistsView } from "../../views/ArtistsView";
 import { PlaylistDetailView } from "../../views/PlaylistDetailView";
+import { CdDetailView } from "../../views/CdDetailView";
 import { TracksView } from "../../views/TracksView";
 import "./MainContent.css";
 
@@ -30,6 +31,7 @@ export function MainContent() {
   const artistKey = useNavigationStore((s) => s.artistKey);
   const artistBrowseMode = useNavigationStore((s) => s.artistBrowseMode);
   const playlistId = useNavigationStore((s) => s.playlistId);
+  const cdDriveId = useNavigationStore((s) => s.cdDriveId);
 
   const liveLibrary = useMemo(
     () => library.filter((track) => !isTrackImporting(track)),
@@ -42,18 +44,28 @@ export function MainContent() {
   }, [liveLibrary, artistBrowseMode, imagesByKey]);
 
   const contentKey =
-    playlistId != null
-      ? `playlist-${playlistId}`
-      : albumKey != null
-        ? `album-${albumKey}`
-        : artistKey != null
-          ? `artist-${artistBrowseMode}-${artistKey}`
-          : view;
+    cdDriveId != null
+      ? `cd-${cdDriveId}`
+      : playlistId != null
+        ? `playlist-${playlistId}`
+        : albumKey != null
+          ? `album-${albumKey}`
+          : artistKey != null
+            ? `artist-${artistBrowseMode}-${artistKey}`
+            : view;
 
   return (
     <main className="main-content">
       <AnimatePresence mode="wait">
-        {playlistId != null ? (
+        {cdDriveId != null ? (
+          <motion.div
+            key={contentKey}
+            className="main-content__view"
+            {...viewTransition}
+          >
+            <CdDetailView driveId={cdDriveId} albums={albums} artists={artists} />
+          </motion.div>
+        ) : playlistId != null ? (
           <motion.div
             key={contentKey}
             className="main-content__view"

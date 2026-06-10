@@ -1,5 +1,7 @@
 import type { PlaybackSession } from "../types/playbackSession";
 import type { RepeatMode, Track } from "../types/track";
+import * as audio from "./playback";
+import { usePlayerStore } from "../store/usePlayerStore";
 
 const REPEAT_MODES: RepeatMode[] = ["off", "all", "one"];
 
@@ -9,8 +11,6 @@ export function parseRepeatMode(value: unknown): RepeatMode {
   }
   return "off";
 }
-import * as audio from "./audio";
-import { usePlayerStore } from "../store/usePlayerStore";
 
 export function collectPlaybackSession(): PlaybackSession {
   const state = usePlayerStore.getState();

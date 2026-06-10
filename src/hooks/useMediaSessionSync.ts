@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef } from "react";
-import * as audio from "../lib/audio";
+import * as audio from "../lib/playback";
+import { findPlaybackTrack } from "../lib/playbackTrack";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { isSkinModeWindow, isTauri } from "../lib/windowRole";
 
@@ -22,10 +23,11 @@ interface MediaSessionUpdate {
 function buildUpdate(
   state: ReturnType<typeof usePlayerStore.getState>,
 ): MediaSessionUpdate | null {
-  const track =
-    state.currentTrackId === null
-      ? null
-      : state.library.find((item) => item.id === state.currentTrackId);
+  const track = findPlaybackTrack({
+    library: state.library,
+    playbackTracks: state.playbackTracks,
+    currentTrackId: state.currentTrackId,
+  }) ?? null;
 
   if (!track && state.playbackState === "stopped") {
     return {

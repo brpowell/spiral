@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import * as audio from "../../../lib/audio";
+import * as audio from "../../../lib/playback";
+import { findPlaybackTrack } from "../../../lib/playbackTrack";
 import { skinPackAssetUrl } from "../../../lib/skinAssets";
 import {
   digitTimeDisplaySeconds,
@@ -59,10 +60,12 @@ function SkinDigitTimeInner({
   } = presentation;
 
   const library = usePlayerStore((s) => s.library);
+  const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const currentTrack = useMemo(
-    () => library.find((t) => t.id === currentTrackId),
-    [library, currentTrackId],
+    () =>
+      findPlaybackTrack({ library, playbackTracks, currentTrackId }),
+    [library, playbackTracks, currentTrackId],
   );
   const durationSeconds =
     currentTrack?.durationSeconds ?? audio.getDurationSeconds();

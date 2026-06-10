@@ -39,11 +39,3 @@ export function buildPlaybackOrder(
 
   return [...beforeAndCurrent, ...manualUpcoming, ...afterFiltered];
 }
-
-/** @deprecated Use buildPlaybackOrder — kept for callers passing legacy single queue. */
-export function getActiveTrackIds(
-  queue: number[],
-  library: Track[],
-): number[] {
-  return buildPlaybackOrder([], queue, library, null);
-}

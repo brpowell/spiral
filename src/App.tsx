@@ -16,6 +16,8 @@ import { useArtistImageStore } from "./store/useArtistImageStore";
 import { setupAppMenu } from "./lib/appMenu";
 import { openSkinMode } from "./lib/skinModeWindow";
 import { useAudioWakeRecovery } from "./hooks/useAudioWakeRecovery";
+import { useHiddenPlaybackKeepAlive } from "./hooks/useHiddenPlaybackKeepAlive";
+import { useCdMonitor } from "./hooks/useCdMonitor";
 import { useMediaHotkeys } from "./hooks/useMediaHotkeys";
 import { loadTrackListPreferences } from "./components/TrackList/trackListPreferences";
 import { usePlaybackSessionPersistence } from "./hooks/usePlaybackSessionPersistence";
@@ -38,6 +40,8 @@ function App() {
 
   useMediaHotkeys();
   useAudioWakeRecovery();
+  useHiddenPlaybackKeepAlive();
+  useCdMonitor();
   usePlaybackSessionPersistence();
   useVisualizerDataProvider();
   useMediaSessionSync();

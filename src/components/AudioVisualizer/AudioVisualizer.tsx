@@ -7,7 +7,8 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import { ensureAnalyser, getAnalyser } from "../../lib/audioAnalyser";
+import { ensureAnalyser, getAnalyser } from "../../lib/playback";
+import { findPlaybackTrack } from "../../lib/playbackTrack";
 import {
   extractPaletteFromImageUrl,
   getDefaultPalette,
@@ -77,8 +78,13 @@ export function AudioVisualizer({
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
   const library = usePlayerStore((s) => s.library);
+  const playbackTracks = usePlayerStore((s) => s.playbackTracks);
 
-  const currentTrack = library.find((t) => t.id === currentTrackId);
+  const currentTrack = findPlaybackTrack({
+    library,
+    playbackTracks,
+    currentTrackId,
+  });
   const isPlaying = playbackState === "playing";
   const isMini = variant === "mini";
   const showExpanded = isMini && expanded;

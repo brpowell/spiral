@@ -16,7 +16,8 @@
         "label": "main",
         "title": "Spiral",
         "width": 1200,
-        "height": 800
+        "height": 800,
+        "backgroundThrottling": "disabled"
       },
       {
         "label": "skin-mode",

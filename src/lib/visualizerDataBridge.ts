@@ -1,5 +1,5 @@
 import { emit, listen } from "@tauri-apps/api/event";
-import { getAnalyser } from "./audioAnalyser";
+import { getAnalyser } from "./playback";
 import { usePlayerStore } from "../store/usePlayerStore";
 
 export const VISUALIZER_FRAME_EVENT = "visualizer://frame";
@@ -37,7 +37,7 @@ export function sampleAndEmitVisualizerFrame(): boolean {
 }
 
 /**
- * Runs in the main window (where Howler + the analyser live).
+ * Runs in the main window (where the shared playback analyser lives).
  * Responds to pull requests from the skin-mode webview only — no push loop.
  */
 export function startVisualizerDataProvider(): () => void {

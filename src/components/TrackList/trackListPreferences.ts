@@ -173,4 +173,5 @@ const TRACK_LIST_HIDEABLE_BY_PRESET: Partial<
     "dateAdded",
     "playCount",
   ],
+  cd: ["artist"],
 };

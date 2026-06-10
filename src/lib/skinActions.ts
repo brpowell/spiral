@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { albumKey as albumKeyFromTrack } from "./albums";
 import { useNavigationStore } from "../store/useNavigationStore";
+import { findPlaybackTrack } from "./playbackTrack";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { openSkinPickerWindow } from "./skinPickerWindow";
 import {
@@ -52,8 +53,13 @@ export function runSkinAction(
       usePlayerStore.getState().clearTrackList();
       break;
     case "navigation.openAlbum": {
-      const { library, currentTrackId } = usePlayerStore.getState();
-      const track = library.find((t) => t.id === currentTrackId);
+      const { library, playbackTracks, currentTrackId } =
+        usePlayerStore.getState();
+      const track = findPlaybackTrack({
+        library,
+        playbackTracks,
+        currentTrackId,
+      });
       if (track) {
         useNavigationStore.getState().openAlbum(albumKeyFromTrack(track));
       }

@@ -44,6 +44,10 @@ interface TrackListProps {
   playlistId?: number;
   reorderable?: boolean;
   onReorderTracks?: (fromIndex: number, toIndex: number) => void;
+  readOnly?: boolean;
+  canNavigateAlbum?: (track: Track) => boolean;
+  canNavigateArtist?: (track: Track) => boolean;
+  cdDriveId?: string;
 }
 
 interface ResizeHandleProps {
@@ -109,6 +113,10 @@ export function TrackList({
   playlistId,
   reorderable = false,
   onReorderTracks,
+  readOnly = false,
+  canNavigateAlbum,
+  canNavigateArtist,
+  cdDriveId,
 }: TrackListProps) {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -306,6 +314,11 @@ export function TrackList({
         onStartReorder={startReorder}
         onOpenArtist={handleOpenArtist}
         onOpenAlbum={handleOpenAlbum}
+        canNavigateAlbum={canNavigateAlbum}
+        canNavigateArtist={canNavigateArtist}
+        readOnly={readOnly}
+        cdDriveId={cdDriveId}
+        cdTracks={cdDriveId != null ? tracks : undefined}
         virtualStyle={virtualStyle}
       />
     );

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { findPlaybackTrack } from "../../lib/playbackTrack";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import {
   NowPlayingMetadata,
@@ -24,7 +25,12 @@ export function NowPlayingBar({
 }: NowPlayingBarProps) {
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const library = usePlayerStore((s) => s.library);
-  const currentTrack = library.find((t) => t.id === currentTrackId);
+  const playbackTracks = usePlayerStore((s) => s.playbackTracks);
+  const currentTrack = useMemo(
+    () =>
+      findPlaybackTrack({ library, playbackTracks, currentTrackId }),
+    [library, playbackTracks, currentTrackId],
+  );
 
   const [trackListOpen, setTrackListOpen] = useState(false);
 

@@ -6,6 +6,8 @@ import {
   useNavigationStore,
 } from "../../store/useNavigationStore";
 import { usePlaylistStore } from "../../store/usePlaylistStore";
+import { useCdStore } from "../../store/useCdStore";
+import { isCdSidebarDiscReady } from "../../lib/cdTracks";
 import {
   IconAlbums,
   IconArtists,
@@ -15,6 +17,7 @@ import {
 } from "../icons";
 import { SidebarItem } from "./SidebarItem/SidebarItem";
 import { SidebarPlaylistItem } from "./SidebarPlaylistItem";
+import { SidebarCdDriveItem } from "./SidebarCdDriveItem";
 import "./Sidebar.css";
 
 const NAV_ITEMS: {
@@ -31,8 +34,18 @@ const NAV_ITEMS: {
 export function Sidebar() {
   const view = useNavigationStore((s) => s.view);
   const playlistId = useNavigationStore((s) => s.playlistId);
+  const cdDriveId = useNavigationStore((s) => s.cdDriveId);
   const setView = useNavigationStore((s) => s.setView);
   const playlists = usePlaylistStore((s) => s.playlists);
+  const cdDrives = useCdStore((s) => s.drives);
+  const discsByDriveId = useCdStore((s) => s.discsByDriveId);
+  const cdtextAttemptedDriveIds = useCdStore((s) => s.cdtextAttemptedDriveIds);
+  const readyCdDrives = cdDrives.filter((drive) =>
+    isCdSidebarDiscReady(
+      discsByDriveId[drive.id],
+      cdtextAttemptedDriveIds.has(drive.id),
+    ),
+  );
   const openPlaylistEditor = usePlaylistStore((s) => s.openPlaylistEditor);
   const setThemePickerOpen = useThemeStore((s) => s.setThemePickerOpen);
   const loadThemes = useThemeStore((s) => s.loadThemes);
@@ -41,7 +54,7 @@ export function Sidebar() {
     <nav className="sidebar" aria-label="Main navigation">
       <ul className="sidebar__list">
         {NAV_ITEMS.map((item) => {
-          const isActive = item.view === view && playlistId == null;
+          const isActive = item.view === view && playlistId == null && cdDriveId == null;
           return (
             <li key={item.view}>
               <SidebarItem
@@ -56,6 +69,17 @@ export function Sidebar() {
           );
         })}
       </ul>
+
+      {readyCdDrives.length > 0 ? (
+        <section className="sidebar__devices" aria-label="Devices">
+          <h2 className="sidebar__section-label">Devices</h2>
+          <ul className="sidebar__device-list">
+            {readyCdDrives.map((drive) => (
+              <SidebarCdDriveItem key={drive.id} drive={drive} />
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="sidebar__playlists" aria-label="Playlists">
         <h2 className="sidebar__section-label">Playlists</h2>

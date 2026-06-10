@@ -2,6 +2,7 @@ import { useId, useMemo, useRef } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { buildPlaybackOrder } from "../../lib/activeTrackList";
 import { formatTime } from "../../lib/format";
+import { findPlaybackTrack } from "../../lib/playbackTrack";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { Track } from "../../types/track";
 import { Button } from "../common/Button/Button";
@@ -22,12 +23,10 @@ interface TrackListModalProps {
   onClose: () => void;
 }
 
-function trackById(library: Track[], id: number): Track | undefined {
-  return library.find((t) => t.id === id);
-}
-
 export function TrackListModal({ open, onClose }: TrackListModalProps) {
   const library = usePlayerStore((s) => s.library);
+  const playbackTracks = usePlayerStore((s) => s.playbackTracks);
+  const cdQueueContext = usePlayerStore((s) => s.cdQueueContext);
   const playContextIds = usePlayerStore((s) => s.playContextIds);
   const manualQueueIds = usePlayerStore((s) => s.manualQueueIds);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
@@ -73,7 +72,12 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
   }, [activeIds, currentTrackId]);
 
   const nowPlaying = nowPlayingId
-    ? trackById(library, nowPlayingId)
+    ? findPlaybackTrack({
+        library,
+        playbackTracks,
+        cdQueueTracks: cdQueueContext?.tracks,
+        currentTrackId: nowPlayingId,
+      })
     : undefined;
 
   const handlePlay = (id: number) => {
@@ -141,7 +145,12 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
               ) : (
                 <ul className="track-list-modal__list">
                   {upNextIds.map((id) => {
-                    const track = trackById(library, id);
+                    const track = findPlaybackTrack({
+                      library,
+                      playbackTracks,
+                      cdQueueTracks: cdQueueContext?.tracks,
+                      currentTrackId: id,
+                    });
                     if (!track) return null;
                     const queued = manualQueueSet.has(id);
                     return (

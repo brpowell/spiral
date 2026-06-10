@@ -5,6 +5,10 @@ export function showQueueAddedToast(ids: number[], library: Track[]): void {
   const tracks = ids
     .map((id) => library.find((t) => t.id === id))
     .filter((t): t is Track => t != null);
+  showQueueAddedToastForTracks(tracks);
+}
+
+export function showQueueAddedToastForTracks(tracks: Track[]): void {
   if (tracks.length === 0) return;
 
   const showToast = useBackgroundTasksStore.getState().showToast;

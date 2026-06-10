@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { LibrarySettings, LibrarySettingsPatch } from "../types/library";
+import type { CdDisc, CdDiscCdText, CdDrive } from "../types/cd";
 import { parseRepeatMode } from "./playbackSession";
 import type { PlaybackSession } from "../types/playbackSession";
 import type { Theme } from "../types/theme";
@@ -467,4 +468,86 @@ export async function saveTrackListPreferences(
   preferences: TrackListPreferencesPayload,
 ): Promise<void> {
   await invoke<void>("save_track_list_preferences", { preferences });
+}
+
+function normalizeCdDrive(raw: Record<string, unknown>): CdDrive {
+  return {
+    id: raw.id as string,
+    name: raw.name as string,
+    hasDisc: Boolean(raw.hasDisc ?? raw.has_disc),
+  };
+}
+
+function normalizeCdTrack(raw: Record<string, unknown>): CdDisc["tracks"][number] {
+  return {
+    number: raw.number as number,
+    title: raw.title as string,
+    artist: (raw.artist as string | null | undefined) ?? null,
+    durationSeconds:
+      (raw.durationSeconds as number | null | undefined) ??
+      (raw.duration_seconds as number | null | undefined) ??
+      null,
+  };
+}
+
+function normalizeCdDisc(raw: Record<string, unknown>): CdDisc {
+  const tracksRaw = (raw.tracks as Record<string, unknown>[] | undefined) ?? [];
+  return {
+    driveId: (raw.driveId ?? raw.drive_id) as string,
+    discId: (raw.discId ?? raw.disc_id ?? null) as string | null,
+    album: (raw.album as string | null | undefined) ?? null,
+    artist: (raw.artist as string | null | undefined) ?? null,
+    tracks: tracksRaw.map(normalizeCdTrack),
+  };
+}
+
+export async function listCdDrives(): Promise<CdDrive[]> {
+  const rows = await invoke<Record<string, unknown>[]>("list_cd_drives");
+  return rows.map(normalizeCdDrive);
+}
+
+export async function probeCdDrive(driveId: string): Promise<boolean> {
+  return invoke<boolean>("probe_cd_drive", { driveId });
+}
+
+export async function getDiscInfo(driveId: string): Promise<CdDisc | null> {
+  const raw = await invoke<Record<string, unknown> | null>("get_disc_info", {
+    driveId,
+  });
+  return raw ? normalizeCdDisc(raw) : null;
+}
+
+function normalizeCdDiscCdText(raw: Record<string, unknown>): CdDiscCdText {
+  const trackTitlesRaw =
+    (raw.trackTitles as Record<string, unknown>[] | undefined) ??
+    (raw.track_titles as Record<string, unknown>[] | undefined) ??
+    [];
+  return {
+    driveId: (raw.driveId ?? raw.drive_id) as string,
+    album: (raw.album as string | null | undefined) ?? null,
+    artist: (raw.artist as string | null | undefined) ?? null,
+    trackTitles: trackTitlesRaw.map((entry) => ({
+      number: entry.number as number,
+      title: entry.title as string,
+    })),
+  };
+}
+
+export async function getDiscCdText(
+  driveId: string,
+): Promise<CdDiscCdText | null> {
+  const raw = await invoke<Record<string, unknown> | null>("get_disc_cdtext", {
+    driveId,
+  });
+  return raw ? normalizeCdDiscCdText(raw) : null;
+}
+
+export async function ejectCdDisc(driveId: string): Promise<void> {
+  await invoke("eject_cd_disc", { driveId });
+}
+
+export async function setCdDetailDrive(
+  driveId: string | null,
+): Promise<void> {
+  await invoke("set_cd_detail_drive", { driveId });
 }

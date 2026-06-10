@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { findPlaybackTrack } from "../lib/playbackTrack";
 import { usePlayerStore } from "../store/usePlayerStore";
 
 const HOLD_MS = 400;
@@ -115,9 +116,14 @@ export function useMediaHotkeys(): void {
       listen("media-next", () => nextTrack()),
       listen("media-prev", () => previousTrack()),
       listen<number>("media-seek", (event) => {
-        const { currentTrackId, library } = usePlayerStore.getState();
+        const { currentTrackId, library, playbackTracks } =
+          usePlayerStore.getState();
         if (currentTrackId === null) return;
-        const track = library.find((item) => item.id === currentTrackId);
+        const track = findPlaybackTrack({
+          library,
+          playbackTracks,
+          currentTrackId,
+        });
         const duration = track?.durationSeconds ?? 0;
         if (duration <= 0) return;
         seek(Math.max(0, Math.min(1, event.payload / duration)));

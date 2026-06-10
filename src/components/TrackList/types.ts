@@ -27,7 +27,7 @@ export type TrackListSortField = Extract<
 
 export type TrackListSortDir = "asc" | "desc";
 
-export type TrackListPresetId = "library" | "album" | "playlist";
+export type TrackListPresetId = "library" | "album" | "playlist" | "cd";
 
 export interface TrackListColumnDef {
   id: TrackListColumnId;
@@ -186,6 +186,11 @@ export const TRACK_LIST_PRESETS: Record<TrackListPresetId, TrackListPreset> = {
     id: "playlist",
     indexColumn: "index",
     columns: [INDEX_COL, TITLE_COL, ARTIST_COL, DURATION_COL],
+  },
+  cd: {
+    id: "cd",
+    indexColumn: "trackNumber",
+    columns: [TRACK_NUM_COL, TITLE_COL, ARTIST_COL, DURATION_COL],
   },
 };
 

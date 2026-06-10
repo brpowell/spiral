@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import * as audio from "../lib/audio";
+import * as audio from "../lib/playback";
 import { isSkinModeWindow } from "../lib/windowRole";
 import { usePlayerStore } from "../store/usePlayerStore";
 

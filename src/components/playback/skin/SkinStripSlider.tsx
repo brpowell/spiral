@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import * as audio from "../../../lib/audio";
+import * as audio from "../../../lib/playback";
+import { findPlaybackTrack } from "../../../lib/playbackTrack";
 import { skinPackAssetUrl } from "../../../lib/skinAssets";
 import {
   loadStripSliderPositionMap,
@@ -70,13 +71,15 @@ export function SkinStripSlider({
   }, [mapUrl, frameCount, direction]);
 
   const library = usePlayerStore((s) => s.library);
+  const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const volume = usePlayerStore((s) => s.volume);
   const setVolume = usePlayerStore((s) => s.setVolume);
 
   const currentTrack = useMemo(
-    () => library.find((t) => t.id === currentTrackId),
-    [library, currentTrackId],
+    () =>
+      findPlaybackTrack({ library, playbackTracks, currentTrackId }),
+    [library, playbackTracks, currentTrackId],
   );
   const durationSeconds =
     currentTrack?.durationSeconds ?? audio.getDurationSeconds();

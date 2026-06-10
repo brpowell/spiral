@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { buildPlaybackOrder } from "./activeTrackList";
+import { findPlaybackTrack } from "./playbackTrack";
 import { getManualNextId } from "./playbackQueue";
 import { formatMetadataLine, playbackStatus } from "./skinMetadataLine";
 import { useSkinModeAlwaysOnTop } from "./skinModeAlwaysOnTop";
@@ -12,6 +13,7 @@ export type SkinBindValue = string | number | boolean | null;
 export function useSkinBindValue(path: string | undefined): SkinBindValue {
   const alwaysOnTop = useSkinModeAlwaysOnTop();
   const library = usePlayerStore((s) => s.library);
+  const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
   const positionSeconds = usePlayerStore((s) => s.positionSeconds);
@@ -23,8 +25,9 @@ export function useSkinBindValue(path: string | undefined): SkinBindValue {
   const manualQueueIds = usePlayerStore((s) => s.manualQueueIds);
 
   const currentTrack = useMemo(
-    () => library.find((t) => t.id === currentTrackId) ?? null,
-    [library, currentTrackId],
+    () =>
+      findPlaybackTrack({ library, playbackTracks, currentTrackId }) ?? null,
+    [library, playbackTracks, currentTrackId],
   );
 
   const artUrl = useAssetUrl(currentTrack?.artPath);

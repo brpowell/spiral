@@ -1,5 +1,6 @@
 pub mod app;
 pub mod artist_images;
+pub mod cd;
 pub mod files;
 pub mod library;
 pub mod playlists;

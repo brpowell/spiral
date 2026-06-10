@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { Slider } from "../../common/Slider/Slider";
-import * as audio from "../../../lib/audio";
+import * as audio from "../../../lib/playback";
 import { formatRemainingTime, formatTime } from "../../../lib/format";
+import { findPlaybackTrack } from "../../../lib/playbackTrack";
 import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import "./SeekBar.css";
@@ -12,11 +13,13 @@ interface SeekBarProps {
 
 export function SeekBar({ className }: SeekBarProps) {
   const library = usePlayerStore((s) => s.library);
+  const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
 
   const currentTrack = useMemo(
-    () => library.find((t) => t.id === currentTrackId),
-    [library, currentTrackId],
+    () =>
+      findPlaybackTrack({ library, playbackTracks, currentTrackId }),
+    [library, playbackTracks, currentTrackId],
   );
 
   const durationSeconds =
