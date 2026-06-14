@@ -2,16 +2,28 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
+  -webkit-overflow-scrolling: touch;
+  --main-content-padding-x: 2rem;
+  --main-content-padding-y: 1.5rem;
+  --main-content-padding-bottom: calc(
+    var(--main-content-padding-y) + var(--scrollbar-size)
+  );
+  padding-bottom: var(--main-content-padding-bottom);
 }
 
 .main-content__view {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 1.5rem 2rem;
+  flex: 1 1 auto;
+  padding: var(--main-content-padding-y) var(--main-content-padding-x) 0;
+}
+
+.main-content__view .track-list {
+  width: calc(100% + 2 * var(--main-content-padding-x));
+  margin-inline: calc(-1 * var(--main-content-padding-x));
+  border-top: 1px solid var(--color-border);
 }
 
 .main-content__placeholder {

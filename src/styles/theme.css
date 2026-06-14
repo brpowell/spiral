@@ -37,6 +37,20 @@
   );
   --track-row-bg-hover: color-mix(in srgb, var(--color-accent) 7%, transparent);
   --track-row-bg-selected: color-mix(in srgb, var(--color-accent) 12%, transparent);
+
+  --scrollbar-size: 12px;
+  --scrollbar-track-bg: var(--color-surface);
+  --scrollbar-track-border: var(--color-border);
+  --scrollbar-thumb-bg: color-mix(
+    in srgb,
+    var(--color-text-secondary) 35%,
+    var(--color-surface-raised)
+  );
+  --scrollbar-thumb-hover-bg: color-mix(
+    in srgb,
+    var(--color-text-secondary) 55%,
+    var(--color-surface-raised)
+  );
 }
 
 html.theme-transition,
@@ -46,5 +60,6 @@ html.theme-transition *::after {
   transition:
     background-color 200ms ease,
     color 200ms ease,
-    border-color 200ms ease !important;
+    border-color 200ms ease,
+    scrollbar-color 200ms ease !important;
 }

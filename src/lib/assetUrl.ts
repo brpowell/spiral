@@ -1,6 +1,11 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 
-/** Cache-bust local asset URLs so replaced files on disk are not served from the WebView cache. */
+/** Synchronous asset URL from a local path (no cache-bust IPC). */
+export function assetUrlFromPath(path: string): string {
+  return convertFileSrc(path);
+}
+
+/** Resolve a local file path to a cache-busted asset URL for display in the WebView. */
 export async function toAssetUrl(path: string): Promise<string> {
   const base = convertFileSrc(path);
   try {

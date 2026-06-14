@@ -1,4 +1,5 @@
 mod art_cache;
+mod art_thumb;
 mod audio_formats;
 mod cd;
 mod artist_art_fetch;
@@ -84,6 +85,7 @@ pub fn run() {
             commands::metadata::cache_art_from_file,
             commands::metadata::cache_art_from_url,
             commands::metadata::resolve_cached_art_path,
+            commands::metadata::ensure_art_row_thumb,
             commands::metadata::fetch_cover_art,
             commands::metadata::fetch_cover_art_for_release,
             commands::metadata::fetch_artist_art,

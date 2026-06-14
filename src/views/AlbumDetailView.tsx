@@ -182,8 +182,6 @@ export function AlbumDetailView({
         playbackState={playbackState}
         onSelectTrack={handleSelectTrack}
         onPlayTrack={handlePlayTrack}
-        bordered={false}
-        className="album-detail__tracks"
       />
     </div>
   );

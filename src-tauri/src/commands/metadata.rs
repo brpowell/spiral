@@ -286,6 +286,23 @@ pub fn write_track_metadata(
     Ok(track)
 }
 
+#[tauri::command]
+pub async fn ensure_art_row_thumb(
+    app: AppHandle,
+    art_path: String,
+    size: Option<u32>,
+) -> Result<Option<String>, String> {
+    let size = size.unwrap_or(crate::art_thumb::ROW_THUMB_SIZE);
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let app_data = app_data_dir(&app)?;
+        crate::art_thumb::ensure_row_thumb(&app_data, &art_path, size)
+            .map(|path| path.map(|p| p.to_string_lossy().into_owned()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 fn app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     app.path().app_data_dir().map_err(|e| e.to_string())
 }

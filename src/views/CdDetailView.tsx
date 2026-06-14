@@ -418,8 +418,6 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
             cdImportingActiveTrackId={cdImportingActiveTrackId}
             cdImportCompletedTrackIds={cdImportCompletedTrackIds}
             readOnly
-            bordered={false}
-            className="cd-detail__tracks"
             emptyMessage="No tracks on this disc."
           />
         </>

@@ -1,0 +1,13 @@
+.track-list__pinned-h-scroll {
+  position: fixed;
+  bottom: 0;
+  z-index: 10;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+}
+
+.track-list__pinned-h-scroll-inner {
+  height: 1px;
+}

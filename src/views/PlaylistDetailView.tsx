@@ -227,8 +227,6 @@ function PlaylistDetailContent({
           onPlayTrack={handlePlayTrack}
           reorderable
           onReorderTracks={handleReorderTracks}
-          bordered={false}
-          className="playlist-detail__tracks"
         />
       )}
       {deleteDialog}

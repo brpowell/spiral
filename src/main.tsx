@@ -16,6 +16,7 @@ import {
   isSkinPickerWindow,
 } from "./lib/windowRole";
 import "./styles/theme.css";
+import "./styles/scrollbars.css";
 
 const root = document.getElementById("root") as HTMLElement;
 

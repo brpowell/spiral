@@ -1,4 +1,3 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import { albumKey } from "../../lib/albums";
 import { navigationArtistKey } from "../../lib/trackNavigation";
@@ -22,6 +21,11 @@ import {
 } from "./types";
 import { checkAllState } from "../../lib/trackCheckSelection";
 import type { Track } from "../../types/track";
+import { useTrackListVirtualizer } from "./useTrackListVirtualizer";
+import { useForwardVerticalWheel } from "./useForwardVerticalWheel";
+import { useSyncTrackListHeaderScroll } from "./useSyncTrackListHeaderScroll";
+import { TrackListPinnedHScroll } from "./TrackListPinnedHScroll";
+import { usePrefetchVirtualRowArt } from "./usePrefetchVirtualRowArt";
 import "./TrackList.css";
 
 function sortFieldForColumn(
@@ -44,7 +48,6 @@ interface TrackListProps {
   onSort?: (field: TrackListSortField) => void;
   emptyMessage?: string;
   className?: string;
-  bordered?: boolean;
   showAlbumArt?: boolean;
   playlistId?: number;
   reorderable?: boolean;
@@ -120,7 +123,6 @@ export function TrackList({
   onSort,
   emptyMessage = "No tracks.",
   className = "",
-  bordered = true,
   showAlbumArt = false,
   playlistId,
   reorderable = false,
@@ -139,7 +141,11 @@ export function TrackList({
 }: TrackListProps) {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLOListElement>(null);
+  const horizontalScrollRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const headerSyncRef = useRef<HTMLDivElement>(null);
 
   const canReorder = reorderable && !!onReorderTracks;
   const useVirtualRows = !canReorder && tracks.length > 40;
@@ -181,12 +187,31 @@ export function TrackList({
 
   const rowEstimateSize = showAlbumArt ? 45 : 40;
 
-  const virtualizer = useVirtualizer({
-    count: useVirtualRows ? tracks.length : 0,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => rowEstimateSize,
-    overscan: 12,
+  const getVirtualItemKey = useCallback(
+    (index: number) => tracks[index]?.id ?? index,
+    [tracks],
+  );
+
+  const virtualizer = useTrackListVirtualizer({
+    enabled: useVirtualRows,
+    count: tracks.length,
+    listRef,
+    bodyRef,
+    estimateSize: rowEstimateSize,
+    getItemKey: getVirtualItemKey,
   });
+
+  const virtualRows = virtualizer.getVirtualItems();
+
+  usePrefetchVirtualRowArt({
+    enabled: useVirtualRows && showAlbumArt,
+    tracks,
+    virtualRows,
+    isScrolling: virtualizer.isScrolling,
+  });
+
+  useForwardVerticalWheel(horizontalScrollRef, headerRef);
+  useSyncTrackListHeaderScroll(horizontalScrollRef, headerSyncRef);
   const {
     preset,
     visibleColumns,
@@ -388,14 +413,12 @@ export function TrackList({
     );
   };
 
-  const virtualRows = virtualizer.getVirtualItems();
-
   return (
     <>
       <div
+        ref={listRef}
         className={[
           "track-list",
-          bordered && "track-list--bordered",
           canReorder && "track-list--reorderable",
           checkMode && "track-list--check-mode",
           className,
@@ -403,34 +426,34 @@ export function TrackList({
           .filter(Boolean)
           .join(" ")}
       >
-        <div
-          ref={scrollRef}
-          className={[
-            "track-list__scroll",
-            useVirtualRows && "track-list__scroll--virtual",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
-          <div className="track-list__inner" style={displayGridStyle}>
-            <div className="track-list__header" style={displayGridStyle} role="row">
-              {displayColumns.map(renderHeaderCell)}
-              <div className="track-list__filler" aria-hidden />
-              <div className="track-list__header-actions">
-                {hideableColumns.length > 0 ? (
-                  <TrackListColumnMenu
-                    columns={hideableColumns}
-                    isColumnVisible={isColumnVisible}
-                    onToggle={toggleColumnVisibility}
-                  />
-                ) : null}
-              </div>
+        <div ref={headerRef} className="track-list__header">
+          <div
+            ref={headerSyncRef}
+            className="track-list__header-sync"
+            style={displayGridStyle}
+            role="row"
+          >
+            {displayColumns.map(renderHeaderCell)}
+            <div className="track-list__filler" aria-hidden />
+            <div className="track-list__header-actions">
+              {hideableColumns.length > 0 ? (
+                <TrackListColumnMenu
+                  columns={hideableColumns}
+                  isColumnVisible={isColumnVisible}
+                  onToggle={toggleColumnVisibility}
+                />
+              ) : null}
             </div>
+          </div>
+        </div>
 
+        <div ref={horizontalScrollRef} className="track-list__scroll">
+          <div className="track-list__inner" style={displayGridStyle}>
             {tracks.length === 0 ? (
               <p className="track-list__empty">{emptyMessage}</p>
             ) : useVirtualRows ? (
               <ol
+                ref={bodyRef}
                 className="track-list__body track-list__body--virtual"
                 style={{ height: virtualizer.getTotalSize() }}
               >
@@ -441,7 +464,7 @@ export function TrackList({
                     left: 0,
                     width: "100%",
                     height: virtualRow.size,
-                    transform: `translateY(${virtualRow.start}px)`,
+                    transform: `translate3d(0, ${virtualRow.start - virtualizer.options.scrollMargin}px, 0)`,
                   }),
                 )}
               </ol>
@@ -456,6 +479,7 @@ export function TrackList({
         </div>
       </div>
       {headerContextMenu}
+      <TrackListPinnedHScroll sourceRef={horizontalScrollRef} />
     </>
   );
 }

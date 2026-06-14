@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { EntityArt } from "../EntityArt/EntityArt";
 import type { Track } from "../../types/track";
 import "./TrackItemTitle.css";
@@ -8,7 +9,7 @@ export interface TrackItemTitleProps {
   className?: string;
 }
 
-export function TrackItemTitle({
+function TrackItemTitleComponent({
   track,
   showAlbumArt = false,
   className = "",
@@ -28,6 +29,7 @@ export function TrackItemTitle({
           artPath={track.artPath}
           alt=""
           className="track-item-title__art album-art--row"
+          variant="row"
         />
       ) : null}
       <span className="track-item-title__text" title={track.title}>
@@ -36,3 +38,11 @@ export function TrackItemTitle({
     </span>
   );
 }
+
+export const TrackItemTitle = memo(
+  TrackItemTitleComponent,
+  (prev, next) =>
+    prev.track === next.track &&
+    prev.showAlbumArt === next.showAlbumArt &&
+    prev.className === next.className,
+);

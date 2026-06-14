@@ -1,0 +1,128 @@
+:is(
+  .main-content,
+  .sidebar__playlist-list,
+  .modal-body,
+  .activity-logs-panel__list,
+  .context-menu--flyout,
+  .chip-input__menu,
+  .skin-picker-app__main,
+  .track-editor__cover-picker,
+  .remove-track-dialog__list
+) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-bg) var(--scrollbar-track-bg);
+}
+
+:is(
+  .main-content,
+  .sidebar__playlist-list,
+  .modal-body,
+  .activity-logs-panel__list,
+  .context-menu--flyout,
+  .chip-input__menu,
+  .skin-picker-app__main,
+  .track-editor__cover-picker,
+  .remove-track-dialog__list
+)::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+:is(
+  .main-content,
+  .sidebar__playlist-list,
+  .modal-body,
+  .activity-logs-panel__list,
+  .context-menu--flyout,
+  .chip-input__menu,
+  .skin-picker-app__main,
+  .track-editor__cover-picker,
+  .remove-track-dialog__list
+)::-webkit-scrollbar-track {
+  background: var(--scrollbar-track-bg);
+}
+
+:is(
+  .main-content,
+  .sidebar__playlist-list,
+  .modal-body,
+  .activity-logs-panel__list,
+  .context-menu--flyout,
+  .chip-input__menu,
+  .skin-picker-app__main,
+  .track-editor__cover-picker,
+  .remove-track-dialog__list
+)::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb-bg);
+  border: 3px solid var(--scrollbar-track-bg);
+  border-radius: var(--radius-sm);
+  background-clip: padding-box;
+}
+
+:is(
+  .main-content,
+  .sidebar__playlist-list,
+  .modal-body,
+  .activity-logs-panel__list,
+  .context-menu--flyout,
+  .chip-input__menu,
+  .skin-picker-app__main,
+  .track-editor__cover-picker,
+  .remove-track-dialog__list
+)::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover-bg);
+}
+
+:is(
+  .main-content,
+  .sidebar__playlist-list,
+  .modal-body,
+  .activity-logs-panel__list,
+  .context-menu--flyout,
+  .chip-input__menu,
+  .skin-picker-app__main,
+  .track-editor__cover-picker,
+  .remove-track-dialog__list
+)::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track-bg);
+}
+
+/* Vertical gutter — surface fill with inner border, like the pinned horizontal bar */
+:is(
+  .main-content,
+  .sidebar__playlist-list,
+  .modal-body,
+  .activity-logs-panel__list,
+  .context-menu--flyout,
+  .chip-input__menu,
+  .skin-picker-app__main,
+  .track-editor__cover-picker,
+  .remove-track-dialog__list
+)::-webkit-scrollbar-track:vertical {
+  border-left: 1px solid var(--scrollbar-track-border);
+}
+
+.track-list__pinned-h-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb-bg) var(--scrollbar-track-bg);
+}
+
+.track-list__pinned-h-scroll::-webkit-scrollbar {
+  height: var(--scrollbar-size);
+}
+
+.track-list__pinned-h-scroll::-webkit-scrollbar-track:horizontal {
+  background: var(--scrollbar-track-bg);
+  border-top: 1px solid var(--scrollbar-track-border);
+}
+
+.track-list__pinned-h-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb-bg);
+  border: 3px solid var(--scrollbar-track-bg);
+  border-radius: var(--radius-sm);
+  background-clip: padding-box;
+}
+
+.track-list__pinned-h-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover-bg);
+}

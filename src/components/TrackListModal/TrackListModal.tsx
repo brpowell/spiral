@@ -203,6 +203,7 @@ function TrackListRow({
           artPath={track.artPath}
           alt=""
           className="track-list-modal__row-art album-art--row"
+          variant="row"
         />
         <span className="track-list-modal__row-title">
           <TrackItemTitle
