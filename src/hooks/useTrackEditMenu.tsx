@@ -14,7 +14,7 @@ import {
   IconArtists,
   IconDelete,
   IconEditInfo,
-  IconFolderOpen,
+  IconImport,
   IconPlaylistAdd,
   IconPlaylists,
   IconRemoveFromPlaylist,
@@ -177,7 +177,7 @@ export function useTrackEditMenu(
         onClick={openEditor}
       />
       <ContextMenuItem
-        icon={<IconFolderOpen />}
+        icon={<IconImport />}
         label={revealInFileManagerLabel()}
         onClick={() => {
           closeMenu();
@@ -292,19 +292,19 @@ export function useTrackEditMenu(
 
   const removeDialog = removeDialogOpen
     ? createPortal(
-        <RemoveTrackDialog
-          open={removeDialogOpen}
-          tracks={contextTracks}
-          onClose={() => setRemoveDialogOpen(false)}
-          onRemove={(deleteFromDisk) =>
-            removeTracksFromLibrary(
-              contextTracks.map((t) => t.id),
-              deleteFromDisk,
-            )
-          }
-        />,
-        document.body,
-      )
+      <RemoveTrackDialog
+        open={removeDialogOpen}
+        tracks={contextTracks}
+        onClose={() => setRemoveDialogOpen(false)}
+        onRemove={(deleteFromDisk) =>
+          removeTracksFromLibrary(
+            contextTracks.map((t) => t.id),
+            deleteFromDisk,
+          )
+        }
+      />,
+      document.body,
+    )
     : null;
 
   return {

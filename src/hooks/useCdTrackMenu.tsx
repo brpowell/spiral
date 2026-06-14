@@ -7,6 +7,7 @@ import { IconAddToQueue } from "../components/icons";
 import { tracksForContextAction } from "../lib/trackSelection";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Track } from "../types/track";
+import { useCdImportBlockingPlayback } from "./useCdImportBlockingPlayback";
 import { useContextMenu } from "./useContextMenu";
 
 interface UseCdTrackMenuOptions {
@@ -21,6 +22,7 @@ export function useCdTrackMenu(
   const selectedTrackIds = usePlayerStore((s) => s.selectedTrackIds);
   const addCdToQueue = usePlayerStore((s) => s.addCdToQueue);
   const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
+  const cdImportBlockingPlayback = useCdImportBlockingPlayback(driveId);
 
   const cdTrackIdSet = useMemo(
     () => new Set(tracks.map((row) => row.id)),
@@ -53,7 +55,7 @@ export function useCdTrackMenu(
 
   const { onContextMenu, closeMenu, open, anchor, position, menuRef } =
     useContextMenu({
-      layoutDeps: [bulkAdd, contextTracks.length],
+      layoutDeps: [bulkAdd, contextTracks.length, cdImportBlockingPlayback],
       onBeforeOpen,
     });
 
@@ -76,6 +78,7 @@ export function useCdTrackMenu(
             ? `Add ${contextTracks.length} to Queue`
             : "Add to Queue"
         }
+        disabled={cdImportBlockingPlayback}
         onClick={handleAddToQueue}
       />
     </ContextMenu>

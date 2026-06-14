@@ -6,6 +6,7 @@ pub mod library;
 pub mod playlists;
 pub mod library_settings;
 pub mod metadata;
+pub mod activity_log;
 pub mod playback_session;
 pub mod track_list_preferences;
 pub mod themes;

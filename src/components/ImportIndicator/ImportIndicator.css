@@ -1,0 +1,122 @@
+.import-indicator-slot {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--track-row-indicator-width);
+  height: 0.85rem;
+  pointer-events: none;
+}
+
+.import-indicator-slot--inline {
+  position: static;
+  transform: none;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.import-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+}
+
+.import-indicator__clock {
+  width: var(--track-row-indicator-width);
+  height: var(--track-row-indicator-width);
+  color: color-mix(in srgb, var(--color-accent) 55%, var(--color-text-secondary));
+}
+
+.import-indicator__page {
+  position: relative;
+  width: 0.62rem;
+  height: 0.78rem;
+  border: 1px solid color-mix(in srgb, currentColor 70%, transparent);
+  border-radius: 1px;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  overflow: hidden;
+}
+
+.import-indicator__scanned {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 0;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  animation: import-indicator-scanned 1.45s ease-in-out infinite;
+}
+
+.import-indicator__line {
+  position: absolute;
+  left: 0.12rem;
+  right: 0.12rem;
+  height: 1px;
+  border-radius: 1px;
+  background: color-mix(in srgb, currentColor 28%, transparent);
+}
+
+.import-indicator__line:nth-of-type(2) {
+  top: 0.18rem;
+}
+
+.import-indicator__line:nth-of-type(3) {
+  top: 0.34rem;
+}
+
+.import-indicator__line--short {
+  top: 0.5rem;
+  right: 0.24rem;
+}
+
+.import-indicator__scanner {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  height: 4px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, currentColor 25%, transparent) 20%,
+    color-mix(in srgb, currentColor 90%, white) 50%,
+    color-mix(in srgb, currentColor 25%, transparent) 80%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 3px color-mix(in srgb, currentColor 45%, transparent),
+    0 0 6px color-mix(in srgb, currentColor 20%, transparent);
+  animation: import-indicator-scan 1.45s ease-in-out infinite;
+}
+
+@keyframes import-indicator-scan {
+  0% {
+    top: -4px;
+    opacity: 0.35;
+  }
+
+  8% {
+    opacity: 1;
+  }
+
+  92% {
+    opacity: 1;
+  }
+
+  100% {
+    top: calc(100% + 1px);
+    opacity: 0.35;
+  }
+}
+
+@keyframes import-indicator-scanned {
+  0% {
+    height: 0;
+  }
+
+  100% {
+    height: 100%;
+  }
+}

@@ -1,7 +1,8 @@
 import { create } from "zustand";
+import { isCdImportCancelledError } from "../lib/cdImport";
 import { waitForPaint, yieldToMain } from "../lib/scheduling";
 
-export type BackgroundTaskStatus = "running" | "success" | "error";
+export type BackgroundTaskStatus = "running" | "success" | "error" | "cancelled";
 
 export interface BackgroundTask {
   id: string;
@@ -10,12 +11,14 @@ export interface BackgroundTask {
   status: BackgroundTaskStatus;
   detail?: string;
   progress?: { current: number; total: number };
+  cancellable?: boolean;
   createdAt: number;
 }
 
 export interface BackgroundTaskRunContext {
   setLabel: (label: string) => void;
   setDetail: (detail: string) => void;
+  clearDetail: () => void;
   setProgress: (current: number, total: number) => void;
   clearProgress: () => void;
 }
@@ -23,6 +26,7 @@ export interface BackgroundTaskRunContext {
 interface RunInBackgroundOptions {
   label: string;
   key?: string;
+  cancellable?: boolean;
   run: (ctx: BackgroundTaskRunContext) => Promise<void>;
 }
 
@@ -44,13 +48,14 @@ interface BackgroundTasksState {
 const SUCCESS_DISMISS_MS = 5000;
 const BRIEF_TOAST_DISMISS_MS = 2000;
 
-function scheduleSuccessDismiss(
+function scheduleAutoDismiss(
   get: () => BackgroundTasksState,
   id: string,
   ms: number,
+  status: "success" | "cancelled",
 ): void {
   window.setTimeout(() => {
-    if (get().tasks.some((t) => t.id === id && t.status === "success")) {
+    if (get().tasks.some((t) => t.id === id && t.status === status)) {
       get().dismissTask(id);
     }
   }, ms);
@@ -82,6 +87,10 @@ function createRunContext(
       set((state) => ({ tasks: patchTask(state.tasks, id, { label }) })),
     setDetail: (detail) =>
       set((state) => ({ tasks: patchTask(state.tasks, id, { detail }) })),
+    clearDetail: () =>
+      set((state) => ({
+        tasks: patchTask(state.tasks, id, { detail: undefined }),
+      })),
     setProgress: (current, total) => {
       const now = Date.now();
       const isComplete = current >= total;
@@ -113,7 +122,7 @@ function createRunContext(
 export const useBackgroundTasksStore = create<BackgroundTasksState>((set, get) => ({
   tasks: [],
 
-  runInBackground: ({ label, key, run }) => {
+  runInBackground: ({ label, key, cancellable, run }) => {
     if (key) {
       const existing = get().tasks.find(
         (task) => task.key === key && task.status === "running",
@@ -127,6 +136,7 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>((set, get) =
       key,
       label,
       status: "running",
+      cancellable,
       createdAt: Date.now(),
     };
 
@@ -145,8 +155,21 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>((set, get) =
             progress: undefined,
           }),
         }));
-        scheduleSuccessDismiss(get, id, SUCCESS_DISMISS_MS);
+        scheduleAutoDismiss(get, id, SUCCESS_DISMISS_MS, "success");
       } catch (err) {
+        if (isCdImportCancelledError(err)) {
+          set((state) => ({
+            tasks: patchTask(state.tasks, id, {
+              status: "cancelled",
+              label: "Import cancelled",
+              detail: undefined,
+              progress: undefined,
+            }),
+          }));
+          scheduleAutoDismiss(get, id, SUCCESS_DISMISS_MS, "cancelled");
+          return;
+        }
+
         const message = err instanceof Error ? err.message : String(err);
         set((state) => ({
           tasks: patchTask(state.tasks, id, {
@@ -179,7 +202,7 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>((set, get) =
       ],
     }));
 
-    scheduleSuccessDismiss(get, id, dismissMs);
+    scheduleAutoDismiss(get, id, dismissMs, "success");
     return id;
   },
 

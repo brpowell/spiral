@@ -3,6 +3,9 @@ mod audio_formats;
 mod cd;
 mod artist_art_fetch;
 mod cover_art_fetch;
+mod disc_metadata_cache;
+mod musicbrainz_disc;
+mod activity_log;
 mod commands;
 mod db;
 mod import_files;
@@ -47,6 +50,8 @@ pub fn run() {
 
             cd::monitor::start_monitor(app.handle().clone());
 
+            activity_log::init(app.handle().clone());
+
             if let Err(err) = metadata_backup::run_scheduled_cleanup(app.handle()) {
                 eprintln!("metadata backup cleanup on startup: {err}");
             }
@@ -60,6 +65,7 @@ pub fn run() {
             commands::files::scan_folder,
             commands::files::pick_folder,
             commands::files::get_file_modified_ms,
+            commands::files::file_exists,
             commands::library::save_track,
             commands::library::get_library,
             commands::playlists::get_playlists,
@@ -77,8 +83,11 @@ pub fn run() {
             commands::metadata::cache_art_from_bytes,
             commands::metadata::cache_art_from_file,
             commands::metadata::cache_art_from_url,
+            commands::metadata::resolve_cached_art_path,
             commands::metadata::fetch_cover_art,
+            commands::metadata::fetch_cover_art_for_release,
             commands::metadata::fetch_artist_art,
+            commands::metadata::clear_metadata_cache,
             commands::artist_images::get_artist_images,
             commands::artist_images::save_artist_image,
             commands::artist_images::rename_artist_image_key,
@@ -117,6 +126,14 @@ pub fn run() {
             commands::cd::seek_cd_playback,
             commands::cd::stop_cd_playback,
             commands::cd::ack_cd_playback_pcm,
+            commands::cd::lookup_disc_metadata,
+            commands::cd::peek_disc_metadata_cache,
+            commands::cd::save_disc_metadata_preference,
+            commands::cd::rip_cd_track,
+            commands::cd::cleanup_cd_rip_temp,
+            commands::activity_log::append_activity_log,
+            commands::activity_log::get_recent_activity_logs,
+            commands::activity_log::clear_activity_logs,
             #[cfg(desktop)]
             media_session::update_media_session,
         ])

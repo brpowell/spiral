@@ -2,7 +2,7 @@
   position: fixed;
   right: 1rem;
   bottom: 1rem;
-  z-index: 40;
+  z-index: 1200;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -33,6 +33,10 @@
 
 .background-tasks__item--error {
   border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
+}
+
+.background-tasks__item--cancelled {
+  border-color: color-mix(in srgb, var(--color-text-secondary) 35%, var(--color-border));
 }
 
 .background-tasks__spinner {
@@ -76,6 +80,10 @@
   color: var(--color-danger);
 }
 
+.background-tasks__icon--cancelled {
+  color: var(--color-text-secondary);
+}
+
 .background-tasks__body {
   display: flex;
   flex-direction: column;
@@ -104,6 +112,13 @@
   width: 1.5rem;
   height: 1.5rem;
   min-width: 1.5rem;
+}
+
+.background-tasks__cancel {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  min-height: 1.5rem;
+  padding-inline: 0.45rem;
 }
 
 .background-tasks__dismiss svg {

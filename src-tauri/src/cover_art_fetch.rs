@@ -1,3 +1,4 @@
+use crate::activity_log::{self, LogLevel};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
@@ -5,6 +6,7 @@ use std::time::{Duration, SystemTime};
 
 const MUSICBRAINZ_USER_AGENT: &str = "Spiral/0.1.0 (https://github.com/brpowell/spiral)";
 const CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
+const COVER_ART_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_RESULTS: usize = 12;
 
 #[derive(Clone, Serialize)]
@@ -28,6 +30,78 @@ struct CacheEntry {
 static FETCH_CACHE: LazyLock<Mutex<HashMap<String, CacheEntry>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
+pub fn fetch_cover_art_for_release_cached(
+    release_mbid: String,
+) -> Result<Vec<CoverArtCandidate>, String> {
+    let mbid = release_mbid.trim();
+    if mbid.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let key = format!("v3|release|{}", mbid.to_ascii_lowercase());
+    prune_expired();
+
+    if let Some(entry) = FETCH_CACHE
+        .lock()
+        .map_err(|e| e.to_string())?
+        .get(&key)
+        .cloned()
+    {
+        if entry.fetched_at.elapsed().unwrap_or(CACHE_TTL) < CACHE_TTL {
+            activity_log::log(
+                LogLevel::Info,
+                "metadata.coverArt",
+                format!("In-memory cache hit for release {mbid}"),
+                Some(serde_json::json!({
+                    "releaseMbid": mbid,
+                    "candidateCount": entry.candidates.len(),
+                })),
+            );
+            return Ok(entry.candidates);
+        }
+    }
+
+    activity_log::log(
+        LogLevel::Info,
+        "metadata.coverArt",
+        format!("Fetching cover art for release {mbid}"),
+        Some(serde_json::json!({ "releaseMbid": mbid })),
+    );
+
+    let candidates = fetch_cover_art_for_release_uncached(mbid)?;
+    let fetched_at = SystemTime::now();
+
+    FETCH_CACHE
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(
+            key,
+            CacheEntry {
+                fetched_at,
+                candidates: candidates.clone(),
+            },
+        );
+
+    activity_log::log(
+        if candidates.is_empty() {
+            LogLevel::Warn
+        } else {
+            LogLevel::Info
+        },
+        "metadata.coverArt",
+        format!(
+            "Cover art fetch for release {mbid} returned {} candidate(s)",
+            candidates.len()
+        ),
+        Some(serde_json::json!({
+            "releaseMbid": mbid,
+            "candidateCount": candidates.len(),
+        })),
+    );
+
+    Ok(candidates)
+}
+
 pub fn fetch_cover_art_cached(artist: String, album: String) -> Result<Vec<CoverArtCandidate>, String> {
     if artist.trim().is_empty() && album.trim().is_empty() {
         return Ok(vec![]);
@@ -43,9 +117,26 @@ pub fn fetch_cover_art_cached(artist: String, album: String) -> Result<Vec<Cover
         .cloned()
     {
         if entry.fetched_at.elapsed().unwrap_or(CACHE_TTL) < CACHE_TTL {
+            activity_log::log(
+                LogLevel::Info,
+                "metadata.coverArt",
+                format!("In-memory cache hit for \"{artist}\" — \"{album}\""),
+                Some(serde_json::json!({
+                    "artist": artist,
+                    "album": album,
+                    "candidateCount": entry.candidates.len(),
+                })),
+            );
             return Ok(entry.candidates);
         }
     }
+
+    activity_log::log(
+        LogLevel::Info,
+        "metadata.coverArt",
+        format!("Searching cover art for \"{artist}\" — \"{album}\""),
+        Some(serde_json::json!({ "artist": artist, "album": album })),
+    );
 
     let candidates = fetch_cover_art_uncached(&artist, &album)?;
     let fetched_at = SystemTime::now();
@@ -60,6 +151,24 @@ pub fn fetch_cover_art_cached(artist: String, album: String) -> Result<Vec<Cover
                 candidates: candidates.clone(),
             },
         );
+
+    activity_log::log(
+        if candidates.is_empty() {
+            LogLevel::Warn
+        } else {
+            LogLevel::Info
+        },
+        "metadata.coverArt",
+        format!(
+            "Cover art search for \"{artist}\" — \"{album}\" returned {} candidate(s)",
+            candidates.len()
+        ),
+        Some(serde_json::json!({
+            "artist": artist,
+            "album": album,
+            "candidateCount": candidates.len(),
+        })),
+    );
 
     Ok(candidates)
 }
@@ -79,11 +188,32 @@ fn prune_expired() {
     cache.retain(|_, entry| entry.fetched_at.elapsed().unwrap_or(CACHE_TTL) < CACHE_TTL);
 }
 
-fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCandidate>, String> {
-    let client = reqwest::blocking::Client::builder()
+pub fn clear_fetch_cache() {
+    let Ok(mut cache) = FETCH_CACHE.lock() else {
+        return;
+    };
+    cache.clear();
+}
+
+fn http_client() -> Result<reqwest::blocking::Client, String> {
+    reqwest::blocking::Client::builder()
         .user_agent(MUSICBRAINZ_USER_AGENT)
+        .timeout(COVER_ART_REQUEST_TIMEOUT)
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())
+}
+
+fn fetch_cover_art_for_release_uncached(release_mbid: &str) -> Result<Vec<CoverArtCandidate>, String> {
+    let client = http_client()?;
+    let mut candidates =
+        fetch_caa_front_images(&client, release_mbid, 0)?;
+    enrich_candidates(&client, &mut candidates);
+    sort_and_truncate_candidates(&mut candidates);
+    Ok(candidates)
+}
+
+fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCandidate>, String> {
+    let client = http_client()?;
 
     let query = format!(
         "release:\"{}\" AND artist:\"{}\"",
@@ -97,7 +227,32 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
 
     let search: serde_json::Value = match client.get(&search_url).send() {
         Ok(resp) if resp.status().is_success() => resp.json().unwrap_or(serde_json::Value::Null),
-        _ => return Ok(vec![]),
+        Ok(resp) => {
+            activity_log::log(
+                LogLevel::Error,
+                "metadata.coverArt",
+                format!("MusicBrainz release search failed with HTTP {}", resp.status()),
+                Some(serde_json::json!({
+                    "artist": artist,
+                    "album": album,
+                    "httpStatus": resp.status().as_u16(),
+                })),
+            );
+            return Ok(vec![]);
+        }
+        Err(err) => {
+            activity_log::log(
+                LogLevel::Error,
+                "metadata.coverArt",
+                "MusicBrainz release search request failed",
+                Some(serde_json::json!({
+                    "artist": artist,
+                    "album": album,
+                    "error": err.to_string(),
+                })),
+            );
+            return Ok(vec![]);
+        }
     };
 
     let releases = search
@@ -106,6 +261,20 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
         .cloned()
         .unwrap_or_default();
 
+    activity_log::log(
+        LogLevel::Info,
+        "metadata.coverArt",
+        format!(
+            "MusicBrainz release search found {} release(s)",
+            releases.len()
+        ),
+        Some(serde_json::json!({
+            "artist": artist,
+            "album": album,
+            "releaseCount": releases.len(),
+        })),
+    );
+
     let mut candidates = Vec::new();
 
     for (release_idx, release) in releases.iter().enumerate() {
@@ -113,84 +282,145 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
             continue;
         };
 
-        let caa_url = format!("https://coverartarchive.org/release/{mbid}");
-        let caa: serde_json::Value = match client.get(&caa_url).send() {
-            Ok(resp) if resp.status().is_success() => {
-                resp.json().unwrap_or(serde_json::Value::Null)
-            }
-            _ => continue,
-        };
-
-        let Some(images) = caa.get("images").and_then(|i| i.as_array()) else {
-            continue;
-        };
-
-        for (image_idx, image) in images.iter().enumerate() {
-            let types = image
-                .get("types")
-                .and_then(|t| t.as_array())
-                .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
-                .unwrap_or_default();
-
-            let is_front = image
-                .get("front")
-                .and_then(|f| f.as_bool())
-                .unwrap_or_else(|| {
-                    types.iter().any(|t| t.eq_ignore_ascii_case("front")) || types.is_empty()
-                });
-
-            if !is_front {
-                continue;
-            }
-
-            let Some(url) = image.get("image").and_then(|u| u.as_str()) else {
-                continue;
-            };
-
-            if candidates.iter().any(|c: &CoverArtCandidate| c.url == url) {
-                continue;
-            }
-
-            let approved = image.get("approved").and_then(|a| a.as_bool()).unwrap_or(true);
-            let mut canonical_rank =
-                u32::try_from(release_idx).unwrap_or(u32::MAX) * 1000
-                    + u32::try_from(image_idx).unwrap_or(u32::MAX);
-            if !approved {
-                canonical_rank += 500;
-            }
-
-            let thumbnail_url = image
-                .get("thumbnails")
-                .and_then(|t| {
-                    t.get("small")
-                        .or_else(|| t.get("large"))
-                        .or_else(|| t.get("1200"))
-                        .and_then(|u| u.as_str())
-                })
-                .map(str::to_string);
-
-            candidates.push(CoverArtCandidate {
-                url: url.to_string(),
-                thumbnail_url,
-                file_size: image
-                    .get("filesize")
-                    .and_then(|v| v.as_u64())
-                    .filter(|size| *size > 0),
-                width: image
-                    .get("width")
-                    .and_then(|v| v.as_u64())
-                    .and_then(|n| u32::try_from(n).ok()),
-                height: image
-                    .get("height")
-                    .and_then(|v| v.as_u64())
-                    .and_then(|n| u32::try_from(n).ok()),
-                canonical_rank,
-            });
-        }
+        candidates.extend(fetch_caa_front_images(&client, mbid, release_idx)?);
     }
 
     enrich_candidates(&client, &mut candidates);
+    sort_and_truncate_candidates(&mut candidates);
+    Ok(candidates)
+}
 
+fn fetch_caa_front_images(
+    client: &reqwest::blocking::Client,
+    release_mbid: &str,
+    release_idx: usize,
+) -> Result<Vec<CoverArtCandidate>, String> {
+    let caa_url = format!("https://coverartarchive.org/release/{release_mbid}");
+    let caa: serde_json::Value = match client.get(&caa_url).send() {
+        Ok(resp) if resp.status().is_success() => resp.json().unwrap_or(serde_json::Value::Null),
+        Ok(resp) if resp.status().as_u16() == 404 => {
+            activity_log::log(
+                LogLevel::Warn,
+                "metadata.coverArt",
+                format!("Cover Art Archive has no images for release {release_mbid}"),
+                Some(serde_json::json!({ "releaseMbid": release_mbid })),
+            );
+            return Ok(vec![]);
+        }
+        Ok(resp) => {
+            activity_log::log(
+                LogLevel::Error,
+                "metadata.coverArt",
+                format!(
+                    "Cover Art Archive request failed with HTTP {}",
+                    resp.status()
+                ),
+                Some(serde_json::json!({
+                    "releaseMbid": release_mbid,
+                    "httpStatus": resp.status().as_u16(),
+                })),
+            );
+            return Ok(vec![]);
+        }
+        Err(err) => {
+            activity_log::log(
+                LogLevel::Error,
+                "metadata.coverArt",
+                "Cover Art Archive request failed",
+                Some(serde_json::json!({
+                    "releaseMbid": release_mbid,
+                    "error": err.to_string(),
+                })),
+            );
+            return Ok(vec![]);
+        }
+    };
+
+    let Some(images) = caa.get("images").and_then(|i| i.as_array()) else {
+        return Ok(vec![]);
+    };
+
+    let mut candidates = Vec::new();
+
+    for (image_idx, image) in images.iter().enumerate() {
+        let types = image
+            .get("types")
+            .and_then(|t| t.as_array())
+            .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
+            .unwrap_or_default();
+
+        let is_front = image
+            .get("front")
+            .and_then(|f| f.as_bool())
+            .unwrap_or_else(|| {
+                types.iter().any(|t| t.eq_ignore_ascii_case("front")) || types.is_empty()
+            });
+
+        if !is_front {
+            continue;
+        }
+
+        let Some(url) = image.get("image").and_then(|u| u.as_str()) else {
+            continue;
+        };
+
+        if candidates.iter().any(|c: &CoverArtCandidate| c.url == url) {
+            continue;
+        }
+
+        let approved = image.get("approved").and_then(|a| a.as_bool()).unwrap_or(true);
+        let mut canonical_rank = u32::try_from(release_idx).unwrap_or(u32::MAX) * 1000
+            + u32::try_from(image_idx).unwrap_or(u32::MAX);
+        if !approved {
+            canonical_rank += 500;
+        }
+
+        let thumbnail_url = image
+            .get("thumbnails")
+            .and_then(|t| {
+                t.get("small")
+                    .or_else(|| t.get("large"))
+                    .or_else(|| t.get("1200"))
+                    .and_then(|u| u.as_str())
+            })
+            .map(str::to_string);
+
+        candidates.push(CoverArtCandidate {
+            url: url.to_string(),
+            thumbnail_url,
+            file_size: image
+                .get("filesize")
+                .and_then(|v| v.as_u64())
+                .filter(|size| *size > 0),
+            width: image
+                .get("width")
+                .and_then(|v| v.as_u64())
+                .and_then(|n| u32::try_from(n).ok()),
+            height: image
+                .get("height")
+                .and_then(|v| v.as_u64())
+                .and_then(|n| u32::try_from(n).ok()),
+            canonical_rank,
+        });
+    }
+
+    activity_log::log(
+        LogLevel::Debug,
+        "metadata.coverArt",
+        format!(
+            "Parsed {} front image(s) from Cover Art Archive for release {release_mbid}",
+            candidates.len()
+        ),
+        Some(serde_json::json!({
+            "releaseMbid": release_mbid,
+            "imageCount": candidates.len(),
+        })),
+    );
+
+    Ok(candidates)
+}
+
+fn sort_and_truncate_candidates(candidates: &mut Vec<CoverArtCandidate>) {
     candidates.sort_by(|a, b| {
         a.canonical_rank
             .cmp(&b.canonical_rank)
@@ -200,9 +430,7 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
                     .cmp(&b.file_size.unwrap_or(u64::MAX))
             })
     });
-
     candidates.truncate(MAX_RESULTS);
-    Ok(candidates)
 }
 
 /// CAA JSON from archive.org often omits `filesize` / `width` / `height`; fill via HEAD + URL hints.
@@ -289,6 +517,22 @@ fn urlencoding_simple(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clear_fetch_cache_empties_entries() {
+        FETCH_CACHE
+            .lock()
+            .unwrap()
+            .insert(
+                "v3|artist|album".to_string(),
+                CacheEntry {
+                    fetched_at: SystemTime::now(),
+                    candidates: vec![],
+                },
+            );
+        clear_fetch_cache();
+        assert!(FETCH_CACHE.lock().unwrap().is_empty());
+    }
 
     #[test]
     #[ignore = "network"]

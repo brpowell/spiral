@@ -1,4 +1,4 @@
-import type { CdDisc, CdDiscCdText, CdTrack } from "../types/cd";
+import type { CdDisc, CdDiscCdText, CdTrack, DiscTocTrack } from "../types/cd";
 import type { Track } from "../types/track";
 
 const PLACEHOLDER_TRACK_TITLE = /^Track \d+$/;
@@ -68,6 +68,16 @@ function cdTrackToListRow(track: CdTrack, disc: CdDisc): Track {
   };
 }
 
+/** Attach cached CD hero art to synthetic list rows for playback and now-playing UI. */
+export function applyArtPathToCdTracks(
+  tracks: Track[],
+  artPath: string | null,
+): Track[] {
+  return tracks.map((track) =>
+    track.artPath === artPath ? track : { ...track, artPath },
+  );
+}
+
 export function albumTotalDurationSecondsFromCd(tracks: CdTrack[]): number {
   return tracks.reduce(
     (total, track) => total + (track.durationSeconds ?? 0),
@@ -103,4 +113,11 @@ export function isCdSidebarDiscReady(
   if (disc.album?.trim() || disc.artist?.trim()) return true;
   if (discNeedsCdText(disc)) return cdTextAttempted;
   return true;
+}
+
+export function discTocTracks(disc: CdDisc): DiscTocTrack[] {
+  return disc.tracks.flatMap((track) => {
+    if (track.durationSeconds == null) return [];
+    return [{ number: track.number, durationSeconds: track.durationSeconds }];
+  });
 }

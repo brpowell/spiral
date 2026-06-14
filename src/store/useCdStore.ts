@@ -5,24 +5,46 @@ import {
   type CdDisc,
   type CdDiscChangedPayload,
   type CdDrive,
+  type DiscMetadata,
+  type DiscMetadataLookup,
 } from "../types/cd";
+import type { ActivityLogContext } from "../types/activityLog";
+import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
 import {
   discNeedsCdText,
+  discTocTracks,
   mergeCdTextIntoDisc,
 } from "../lib/cdTracks";
+import { discFromActivePlayback } from "../lib/cdActivePlaybackDisc";
+import { isCdImportBlockingPlayback } from "../lib/cdImportGuard";
+import { startCdHeroArtFetch, startCdMetadataFetch } from "../lib/cdMetadataFetch";
+import { syncCdHeroArtToPlayback } from "../lib/cdPlaybackArt";
+import { logActivity } from "../lib/activityLog";
+import { isNetworkLikelyAvailable } from "../lib/network";
 import {
   ejectCdDisc,
   getDiscCdText,
   getDiscInfo,
   listCdDrives,
+  lookupDiscMetadata,
+  peekDiscMetadataCache,
   probeCdDrive,
+  saveDiscMetadataPreference,
 } from "../lib/tauri";
+import { useLibrarySettingsStore } from "./useLibrarySettingsStore";
 import { useNavigationStore } from "./useNavigationStore";
 import { usePlayerStore } from "./usePlayerStore";
 
 interface CdState {
   drives: CdDrive[];
   discsByDriveId: Record<string, CdDisc | null | undefined>;
+  metadataByDriveId: Record<string, DiscMetadata | undefined>;
+  metadataCandidatesByDriveId: Record<string, DiscMetadata[]>;
+  metadataFetchedDiscIdByDriveId: Record<string, string | undefined>;
+  metadataPickDriveId: string | null;
+  metadataFetchPromptDriveId: string | null;
+  metadataFetchPromptQueue: string[];
+  heroArtByDriveId: Record<string, string | undefined>;
   loadingDriveIds: Set<string>;
   cdtextLoadingDriveIds: Set<string>;
   cdtextAttemptedDriveIds: Set<string>;
@@ -35,13 +57,140 @@ interface CdState {
     options?: { force?: boolean },
   ) => Promise<CdDisc | null>;
   loadDiscCdText: (driveId: string) => Promise<void>;
+  loadDiscMetadata: (
+    driveId: string,
+    options?: { force?: boolean; logContext?: ActivityLogContext },
+  ) => Promise<void>;
+  selectDiscMetadata: (driveId: string, metadata: DiscMetadata) => void;
+  dismissDiscMetadataPick: (driveId: string) => void;
+  confirmMetadataFetch: (driveId: string, remember: boolean) => void;
+  cancelMetadataFetch: (driveId: string, remember: boolean) => void;
+  resetMetadataCacheState: () => void;
+  setHeroArt: (driveId: string, artPath: string | null) => void;
   ejectDrive: (driveId: string) => Promise<void>;
   init: () => Promise<UnlistenFn>;
+}
+
+function patchFromMetadataLookup(
+  driveId: string,
+  discId: string | undefined,
+  lookup: DiscMetadataLookup,
+  state: CdState,
+): Partial<CdState> {
+  const candidates = lookup.candidates;
+  const selected =
+    lookup.preferred ??
+    (candidates.length === 1 ? candidates[0] : undefined);
+
+  const patch: Partial<CdState> = {
+    metadataCandidatesByDriveId: {
+      ...state.metadataCandidatesByDriveId,
+      [driveId]: candidates,
+    },
+    metadataFetchedDiscIdByDriveId: {
+      ...state.metadataFetchedDiscIdByDriveId,
+      [driveId]: discId ?? lookup.discId ?? undefined,
+    },
+  };
+
+  if (selected) {
+    patch.metadataByDriveId = {
+      ...state.metadataByDriveId,
+      [driveId]: selected,
+    };
+    if (state.metadataPickDriveId === driveId) {
+      patch.metadataPickDriveId = null;
+    }
+    return patch;
+  }
+
+  if (candidates.length > 1 && state.metadataByDriveId[driveId] == null) {
+    patch.metadataPickDriveId = driveId;
+  }
+
+  return patch;
 }
 
 /** Coalesce concurrent loadDisc calls for the same drive. */
 const inflightDiscLoads = new Map<string, Promise<CdDisc | null>>();
 const inflightCdTextLoads = new Map<string, Promise<void>>();
+const inflightMetadataPeeks = new Map<string, Promise<void>>();
+
+function markMetadataFetched(
+  driveId: string,
+  discId: string | undefined,
+  state: CdState,
+): Partial<CdState> {
+  return {
+    metadataFetchedDiscIdByDriveId: {
+      ...state.metadataFetchedDiscIdByDriveId,
+      [driveId]: discId,
+    },
+  };
+}
+
+function dequeueMetadataFetchPrompt(state: CdState): Partial<CdState> {
+  const [next, ...rest] = state.metadataFetchPromptQueue;
+  return {
+    metadataFetchPromptDriveId: next ?? null,
+    metadataFetchPromptQueue: rest,
+  };
+}
+
+function enqueueMetadataFetchPrompt(
+  driveId: string,
+  state: CdState,
+): Partial<CdState> {
+  if (state.metadataFetchPromptDriveId === driveId) {
+    return {};
+  }
+  if (state.metadataFetchPromptDriveId != null) {
+    if (state.metadataFetchPromptQueue.includes(driveId)) {
+      return {};
+    }
+    return {
+      metadataFetchPromptQueue: [...state.metadataFetchPromptQueue, driveId],
+    };
+  }
+  return { metadataFetchPromptDriveId: driveId };
+}
+
+async function resolveMetadataFetchMode(): Promise<"ask" | "always" | "never"> {
+  const settings =
+    useLibrarySettingsStore.getState().settings ??
+    (await useLibrarySettingsStore.getState().loadSettings());
+  const mode = settings.cdMetadataFetchMode;
+  if (mode === "always" || mode === "never") return mode;
+  return "ask";
+}
+
+function finishMetadataFetchPrompt(
+  driveId: string,
+  remember: boolean,
+  rememberedMode: "always" | "never",
+  startFetch: boolean,
+  get: () => CdState,
+  set: (
+    partial: Partial<CdState> | ((state: CdState) => Partial<CdState>),
+  ) => void,
+): void {
+  const discId = get().discsByDriveId[driveId]?.discId ?? undefined;
+
+  set((state) => ({
+    ...markMetadataFetched(driveId, discId, state),
+    ...dequeueMetadataFetchPrompt(state),
+  }));
+
+  if (remember) {
+    void useLibrarySettingsStore
+      .getState()
+      .saveLibrarySettings({ cdMetadataFetchMode: rememberedMode });
+  }
+
+  if (startFetch) {
+    startCdMetadataFetch(driveId);
+  }
+}
 
 /** Avoid flicker when drutil briefly loses disc presence during spin-up. */
 const driveRemovalTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -61,7 +210,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Ignore monitor absent signals briefly after a successful disc read. */
 const driveMonitorQuietUntil = new Map<string, number>();
 
 function drivesWithDisc(drives: CdDrive[]): CdDrive[] {
@@ -172,6 +320,97 @@ async function verifyDriveStillAbsent(
   removeDriveNow(drive.id, set);
 }
 
+function clearDriveDiscDerivedState(
+  driveId: string,
+  state: CdState,
+): Partial<CdState> {
+  const discsByDriveId = { ...state.discsByDriveId };
+  delete discsByDriveId[driveId];
+  const metadataByDriveId = { ...state.metadataByDriveId };
+  delete metadataByDriveId[driveId];
+  const metadataCandidatesByDriveId = { ...state.metadataCandidatesByDriveId };
+  delete metadataCandidatesByDriveId[driveId];
+  const metadataFetchedDiscIdByDriveId = {
+    ...state.metadataFetchedDiscIdByDriveId,
+  };
+  delete metadataFetchedDiscIdByDriveId[driveId];
+  const metadataPickDriveId =
+    state.metadataPickDriveId === driveId ? null : state.metadataPickDriveId;
+  const metadataFetchPromptDriveId =
+    state.metadataFetchPromptDriveId === driveId
+      ? null
+      : state.metadataFetchPromptDriveId;
+  const metadataFetchPromptQueue = state.metadataFetchPromptQueue.filter(
+    (id) => id !== driveId,
+  );
+  const heroArtByDriveId = { ...state.heroArtByDriveId };
+  delete heroArtByDriveId[driveId];
+  const cdtextAttemptedDriveIds = new Set(state.cdtextAttemptedDriveIds);
+  cdtextAttemptedDriveIds.delete(driveId);
+  const cdtextLoadingDriveIds = new Set(state.cdtextLoadingDriveIds);
+  cdtextLoadingDriveIds.delete(driveId);
+  return {
+    discsByDriveId,
+    metadataByDriveId,
+    metadataCandidatesByDriveId,
+    metadataFetchedDiscIdByDriveId,
+    metadataPickDriveId,
+    metadataFetchPromptDriveId,
+    metadataFetchPromptQueue,
+    heroArtByDriveId,
+    cdtextAttemptedDriveIds,
+    cdtextLoadingDriveIds,
+  };
+}
+
+function cancelDriveDiscInflight(driveId: string): void {
+  inflightDiscLoads.delete(driveId);
+  inflightCdTextLoads.delete(driveId);
+  inflightMetadataLoads.delete(driveId);
+  inflightMetadataPeeks.delete(driveId);
+}
+
+function shouldDeferDriveDiscRead(driveId: string): boolean {
+  const { cdDriveId, currentPlayable, playbackState } =
+    usePlayerStore.getState();
+  const playbackActive =
+    playbackState !== "stopped" &&
+    (cdDriveId === driveId ||
+      (currentPlayable?.type === "cd" &&
+        currentPlayable.driveId === driveId));
+
+  return playbackActive || isCdImportBlockingPlayback(driveId);
+}
+
+function stageDiscFromActivePlayback(
+  driveId: string,
+  set: (
+    partial: Partial<CdState> | ((state: CdState) => Partial<CdState>),
+  ) => void,
+): CdDisc | null {
+  const disc = discFromActivePlayback(driveId);
+  if (disc == null) return null;
+  set((state) => ({
+    discsByDriveId: { ...state.discsByDriveId, [driveId]: disc },
+  }));
+  return disc;
+}
+
+function refreshDriveDisc(
+  driveId: string,
+  set: (
+    partial: Partial<CdState> | ((state: CdState) => Partial<CdState>),
+  ) => void,
+  get: () => CdState,
+): void {
+  if (shouldDeferDriveDiscRead(driveId)) return;
+
+  usePlayerStore.getState().stopCdPlaybackForDrive(driveId);
+  cancelDriveDiscInflight(driveId);
+  set((state) => clearDriveDiscDerivedState(driveId, state));
+  void get().loadDisc(driveId, { force: true });
+}
+
 function removeDriveNow(
   driveId: string,
   set: (
@@ -187,14 +426,10 @@ function removeDriveNow(
 
   usePlayerStore.getState().stopCdPlaybackForDrive(driveId);
 
-  set((state) => {
-    const drives = state.drives.filter((drive) => drive.id !== driveId);
-    const discsByDriveId = { ...state.discsByDriveId };
-    delete discsByDriveId[driveId];
-    const cdtextAttemptedDriveIds = new Set(state.cdtextAttemptedDriveIds);
-    cdtextAttemptedDriveIds.delete(driveId);
-    return { drives, discsByDriveId, cdtextAttemptedDriveIds };
-  });
+  set((state) => ({
+    drives: state.drives.filter((drive) => drive.id !== driveId),
+    ...clearDriveDiscDerivedState(driveId, state),
+  }));
 }
 
 function scheduleDriveRemoval(
@@ -223,11 +458,21 @@ function applyDrivesWithDisc(
 ): void {
   const withDisc = drivesWithDisc(incoming);
   const incomingIds = new Set(withDisc.map((drive) => drive.id));
+  const prevDrivesById = new Map(
+    get().drives.map((drive) => [drive.id, drive]),
+  );
 
   for (const drive of withDisc) {
     cancelDriveRemoval(drive.id);
     cancelAbsentVerification(drive.id);
-    scheduleDiscLoad(drive.id, get);
+    const discAlreadyLoaded = get().discsByDriveId[drive.id] !== undefined;
+    const hadDisc = prevDrivesById.get(drive.id)?.hasDisc ?? false;
+
+    if (!discAlreadyLoaded) {
+      scheduleDiscLoad(drive.id, get);
+    } else if (!hadDisc) {
+      refreshDriveDisc(drive.id, set, get);
+    }
   }
 
   set((state) => {
@@ -253,9 +498,133 @@ function applyDrivesWithDisc(
   }
 }
 
-function scheduleDiscCdTextLoad(driveId: string, get: () => CdState): void {
+const inflightMetadataLoads = new Map<string, Promise<void>>();
+
+async function maybeLoadDiscMetadata(
+  driveId: string,
+  get: () => CdState,
+): Promise<void> {
   const disc = get().discsByDriveId[driveId];
+  if (disc == null) return;
+
+  const discId = disc.discId ?? undefined;
+  if (get().metadataByDriveId[driveId] != null) {
+    startCdHeroArtFetch(driveId);
+    return;
+  }
+  if (
+    discId != null &&
+    get().metadataFetchedDiscIdByDriveId[driveId] === discId
+  ) {
+    return;
+  }
+
+  const inflight = inflightMetadataPeeks.get(driveId);
+  if (inflight != null) {
+    return inflight;
+  }
+
+  const markFetched = () =>
+    useCdStore.setState((state) => markMetadataFetched(driveId, discId, state));
+
+  const peekPromise = (async (): Promise<void> => {
+    const logContext: ActivityLogContext = { driveId, discId };
+    try {
+      const peek = await peekDiscMetadataCache(
+        driveId,
+        discTocTracks(disc),
+        logContext,
+      );
+      useCdStore.setState((state) =>
+        patchFromMetadataLookup(driveId, discId, peek.lookup, state),
+      );
+
+      if (!peek.needsNetworkFetch) {
+        logActivity({
+          level: "info",
+          domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+          message: "Metadata served from cache on disc load",
+          context: logContext,
+          details: {
+            candidateCount: peek.lookup.candidates.length,
+          },
+        });
+        markFetched();
+        if (useCdStore.getState().metadataByDriveId[driveId] != null) {
+          startCdHeroArtFetch(driveId);
+        }
+        return;
+      }
+
+      if (!isNetworkLikelyAvailable()) {
+        logActivity({
+          level: "warn",
+          domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+          message: "Skipped metadata network fetch: network unavailable",
+          context: logContext,
+        });
+        markFetched();
+        return;
+      }
+
+      const mode = await resolveMetadataFetchMode();
+      if (mode === "never") {
+        logActivity({
+          level: "info",
+          domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+          message: "Skipped metadata fetch: user preference is never",
+          context: logContext,
+        });
+        markFetched();
+        return;
+      }
+      if (mode === "always") {
+        logActivity({
+          level: "info",
+          domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+          message: "Starting automatic metadata fetch",
+          context: logContext,
+        });
+        markFetched();
+        startCdMetadataFetch(driveId);
+        return;
+      }
+
+      logActivity({
+        level: "info",
+        domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+        message: "Prompting user to fetch metadata",
+        context: logContext,
+      });
+      useCdStore.setState((state) => enqueueMetadataFetchPrompt(driveId, state));
+    } catch (err) {
+      logActivity({
+        level: "error",
+        domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+        message: "Metadata cache peek failed",
+        context: logContext,
+        details: {
+          error: err instanceof Error ? err.message : String(err),
+        },
+      });
+      console.error("maybeLoadDiscMetadata failed:", err);
+    }
+  })();
+
+  inflightMetadataPeeks.set(driveId, peekPromise);
+  try {
+    await peekPromise;
+  } finally {
+    inflightMetadataPeeks.delete(driveId);
+  }
+}
+
+function scheduleDiscCdTextLoad(driveId: string, get: () => CdState): void {
+  const state = get();
+  const disc = state.discsByDriveId[driveId];
   if (disc == null || !discNeedsCdText(disc)) return;
+  if (state.cdtextAttemptedDriveIds.has(driveId)) return;
+  if (shouldDeferDriveDiscRead(driveId)) return;
   void get().loadDiscCdText(driveId);
 }
 
@@ -266,6 +635,13 @@ function scheduleDiscLoad(driveId: string, get: () => CdState): void {
 export const useCdStore = create<CdState>((set, get) => ({
   drives: [],
   discsByDriveId: {},
+  metadataByDriveId: {},
+  metadataCandidatesByDriveId: {},
+  metadataFetchedDiscIdByDriveId: {},
+  metadataPickDriveId: null,
+  metadataFetchPromptDriveId: null,
+  metadataFetchPromptQueue: [],
+  heroArtByDriveId: {},
   loadingDriveIds: new Set(),
   cdtextLoadingDriveIds: new Set(),
   cdtextAttemptedDriveIds: new Set(),
@@ -305,8 +681,17 @@ export const useCdStore = create<CdState>((set, get) => ({
   loadDisc: async (driveId, options) => {
     const force = options?.force ?? false;
     if (!force && get().discsByDriveId[driveId] != null) {
-      scheduleDiscCdTextLoad(driveId, get);
+      if (!shouldDeferDriveDiscRead(driveId)) {
+        scheduleDiscCdTextLoad(driveId, get);
+      }
+      void maybeLoadDiscMetadata(driveId, get);
       return get().discsByDriveId[driveId] ?? null;
+    }
+
+    if (!force && shouldDeferDriveDiscRead(driveId)) {
+      const cached = get().discsByDriveId[driveId];
+      if (cached != null) return cached;
+      return stageDiscFromActivePlayback(driveId, set);
     }
 
     const inflight = inflightDiscLoads.get(driveId);
@@ -320,7 +705,16 @@ export const useCdStore = create<CdState>((set, get) => ({
       }));
 
       try {
+        const previous = get().discsByDriveId[driveId];
         const disc = await getDiscInfo(driveId);
+        if (
+          previous?.discId &&
+          disc?.discId &&
+          previous.discId !== disc.discId
+        ) {
+          usePlayerStore.getState().stopCdPlaybackForDrive(driveId);
+          set((state) => clearDriveDiscDerivedState(driveId, state));
+        }
         if (disc != null) {
           driveMonitorQuietUntil.set(driveId, Date.now() + DISC_LOAD_QUIET_MS);
         }
@@ -329,6 +723,7 @@ export const useCdStore = create<CdState>((set, get) => ({
         }));
         if (disc != null) {
           scheduleDiscCdTextLoad(driveId, get);
+          void maybeLoadDiscMetadata(driveId, get);
         }
         return disc;
       } catch (err) {
@@ -352,8 +747,11 @@ export const useCdStore = create<CdState>((set, get) => ({
   },
 
   loadDiscCdText: async (driveId) => {
-    const disc = get().discsByDriveId[driveId];
+    const state = get();
+    const disc = state.discsByDriveId[driveId];
     if (disc == null || !discNeedsCdText(disc)) return;
+    if (state.cdtextAttemptedDriveIds.has(driveId)) return;
+    if (shouldDeferDriveDiscRead(driveId)) return;
 
     const inflight = inflightCdTextLoads.get(driveId);
     if (inflight != null) {
@@ -398,6 +796,132 @@ export const useCdStore = create<CdState>((set, get) => ({
     return loadPromise;
   },
 
+  loadDiscMetadata: async (driveId, options) => {
+    const force = options?.force ?? false;
+    const disc = get().discsByDriveId[driveId];
+    if (disc == null) return;
+
+    const discId = disc.discId ?? undefined;
+    if (!force && get().metadataByDriveId[driveId] != null) return;
+    if (
+      !force &&
+      discId != null &&
+      get().metadataFetchedDiscIdByDriveId[driveId] === discId
+    ) {
+      return;
+    }
+
+    const inflight = inflightMetadataLoads.get(driveId);
+    if (inflight != null && !force) {
+      return inflight;
+    }
+
+    const loadPromise = (async (): Promise<void> => {
+      try {
+        const lookup = await lookupDiscMetadata(
+          driveId,
+          discTocTracks(disc),
+          {
+            force: options?.force,
+            logContext: options?.logContext ?? { driveId, discId },
+          },
+        );
+        set((state) => patchFromMetadataLookup(driveId, discId, lookup, state));
+        set((state) => markMetadataFetched(driveId, discId, state));
+      } catch (err) {
+        logActivity({
+          level: "error",
+          domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+          message: "Disc metadata lookup failed",
+          operationId: options?.logContext?.operationId,
+          context: options?.logContext ?? { driveId, discId },
+          details: {
+            error: err instanceof Error ? err.message : String(err),
+          },
+        });
+        console.error("loadDiscMetadata failed:", err);
+      } finally {
+        inflightMetadataLoads.delete(driveId);
+      }
+    })();
+
+    inflightMetadataLoads.set(driveId, loadPromise);
+    return loadPromise;
+  },
+
+  selectDiscMetadata: (driveId, metadata) => {
+    set((state) => ({
+      metadataByDriveId: { ...state.metadataByDriveId, [driveId]: metadata },
+      metadataPickDriveId:
+        state.metadataPickDriveId === driveId ? null : state.metadataPickDriveId,
+    }));
+
+    const disc = get().discsByDriveId[driveId];
+    if (disc?.discId && metadata.releaseMbid) {
+      void saveDiscMetadataPreference(disc.discId, metadata.releaseMbid).catch(
+        (err) => {
+          console.error("saveDiscMetadataPreference failed:", err);
+        },
+      );
+    }
+
+    get().setHeroArt(driveId, null);
+    startCdHeroArtFetch(driveId);
+  },
+
+  dismissDiscMetadataPick: (driveId) => {
+    set((state) => ({
+      metadataPickDriveId:
+        state.metadataPickDriveId === driveId ? null : state.metadataPickDriveId,
+    }));
+  },
+
+  confirmMetadataFetch: (driveId, remember) => {
+    logActivity({
+      level: "info",
+      domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+      message: "User confirmed metadata fetch",
+      context: { driveId },
+      details: { remember },
+    });
+    finishMetadataFetchPrompt(driveId, remember, "always", true, get, set);
+  },
+
+  cancelMetadataFetch: (driveId, remember) => {
+    logActivity({
+      level: "info",
+      domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+      message: "User declined metadata fetch",
+      context: { driveId },
+      details: { remember },
+    });
+    finishMetadataFetchPrompt(driveId, remember, "never", false, get, set);
+  },
+
+  resetMetadataCacheState: () => {
+    set({
+      metadataByDriveId: {},
+      metadataCandidatesByDriveId: {},
+      metadataFetchedDiscIdByDriveId: {},
+      metadataPickDriveId: null,
+      metadataFetchPromptDriveId: null,
+      metadataFetchPromptQueue: [],
+    });
+  },
+
+  setHeroArt: (driveId, artPath) => {
+    set((state) => {
+      const heroArtByDriveId = { ...state.heroArtByDriveId };
+      if (artPath == null) {
+        delete heroArtByDriveId[driveId];
+      } else {
+        heroArtByDriveId[driveId] = artPath;
+      }
+      return { heroArtByDriveId };
+    });
+    syncCdHeroArtToPlayback(driveId, artPath);
+  },
+
   ejectDrive: async (driveId) => {
     if (get().ejectingDriveIds.has(driveId)) return;
 
@@ -412,6 +936,8 @@ export const useCdStore = create<CdState>((set, get) => ({
       cancelAbsentVerification(driveId);
       inflightDiscLoads.delete(driveId);
       inflightCdTextLoads.delete(driveId);
+      inflightMetadataLoads.delete(driveId);
+      inflightMetadataPeeks.delete(driveId);
       driveMonitorQuietUntil.delete(driveId);
       removeDriveNow(driveId, set);
     } catch (err) {

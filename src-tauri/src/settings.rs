@@ -60,6 +60,25 @@ fn default_import_mode() -> String {
     "ask".to_string()
 }
 
+fn default_cd_metadata_fetch_mode() -> String {
+    "ask".to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CdSettings {
+    #[serde(default = "default_cd_metadata_fetch_mode")]
+    pub metadata_fetch_mode: String,
+}
+
+impl Default for CdSettings {
+    fn default() -> Self {
+        Self {
+            metadata_fetch_mode: default_cd_metadata_fetch_mode(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetadataBackupSettings {
@@ -112,6 +131,8 @@ pub struct AppSettings {
     pub library: LibrarySettings,
     #[serde(default)]
     pub metadata_backups: MetadataBackupSettings,
+    #[serde(default)]
+    pub cd: CdSettings,
 }
 
 fn default_active_theme() -> String {
@@ -134,6 +155,7 @@ impl Default for AppSettings {
             active_skin_view: default_active_skin_view(),
             library: LibrarySettings::default(),
             metadata_backups: MetadataBackupSettings::default(),
+            cd: CdSettings::default(),
         }
     }
 }
@@ -152,6 +174,7 @@ pub struct LibrarySettingsResponse {
     pub default_library_root: String,
     pub metadata_backups_enabled: bool,
     pub metadata_backup_retention_days: u32,
+    pub cd_metadata_fetch_mode: String,
 }
 
 pub fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -226,6 +249,7 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
     let app_settings = read_settings(app);
     let stored = app_settings.library.clone();
     let backups = app_settings.metadata_backups;
+    let cd = app_settings.cd;
     let default_root = default_library_root(app);
     let default_media = default_media_folder(app);
     let default_db = default_database_path(app);
@@ -257,6 +281,7 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
             crate::metadata_backup::MIN_RETENTION_DAYS,
             crate::metadata_backup::MAX_RETENTION_DAYS,
         ),
+        cd_metadata_fetch_mode: cd.metadata_fetch_mode,
     }
 }
 
@@ -277,6 +302,8 @@ pub struct LibrarySettingsPatch {
     pub metadata_backups_enabled: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata_backup_retention_days: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cd_metadata_fetch_mode: Option<String>,
 }
 
 pub fn merge_library_settings(
@@ -322,6 +349,11 @@ pub fn merge_library_settings(
             crate::metadata_backup::MIN_RETENTION_DAYS,
             crate::metadata_backup::MAX_RETENTION_DAYS,
         );
+    }
+    if let Some(mode) = patch.cd_metadata_fetch_mode {
+        if !mode.is_empty() {
+            settings.cd.metadata_fetch_mode = mode;
+        }
     }
 
     write_settings(app, &settings)?;

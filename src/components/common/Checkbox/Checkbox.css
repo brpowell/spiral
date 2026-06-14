@@ -1,0 +1,44 @@
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  min-width: 0;
+}
+
+.checkbox--align-start {
+  align-items: flex-start;
+}
+
+.checkbox--muted {
+  color: var(--color-text-secondary);
+}
+
+.checkbox--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.checkbox__input {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.checkbox--disabled .checkbox__input {
+  cursor: not-allowed;
+}
+
+.checkbox__label {
+  min-width: 0;
+}
+
+.checkbox--align-start .checkbox__input {
+  margin-top: 0.15rem;
+}

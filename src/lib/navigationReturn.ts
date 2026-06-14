@@ -1,3 +1,5 @@
+import { mergeRemoteMetadataIntoDisc } from "./cdMetadata";
+import { cdDiscTitle } from "./cdTracks";
 import { getPlaylistById } from "./playlists";
 import { getCdDriveById, useCdStore } from "../store/useCdStore";
 import type { Artist } from "../types/artist";
@@ -24,16 +26,29 @@ const SIDEBAR_VIEW_LABELS: Record<NavView, string> = {
   artists: "Artists",
 };
 
+function cdNavigationTitle(driveId: string): string {
+  const cdState = useCdStore.getState();
+  const drive = getCdDriveById(cdState.drives, driveId);
+  const fallback = drive?.name ?? "Disc Drive";
+  const rawDisc = cdState.discsByDriveId[driveId];
+  if (rawDisc == null) return fallback;
+  const remoteMetadata = cdState.metadataByDriveId[driveId] ?? null;
+  const disc =
+    remoteMetadata != null
+      ? mergeRemoteMetadataIntoDisc(rawDisc, remoteMetadata)
+      : rawDisc;
+  return cdDiscTitle(disc, fallback);
+}
+
 export function captureReturnContext(
   state: NavigationSnapshot,
   playlists: Playlist[],
 ): DetailReturnContext {
   if (state.cdDriveId != null) {
-    const drive = getCdDriveById(useCdStore.getState().drives, state.cdDriveId);
     return {
       kind: "cd",
       driveId: state.cdDriveId,
-      title: drive?.name ?? "Disc Drive",
+      title: cdNavigationTitle(state.cdDriveId),
     };
   }
   if (state.playlistId != null) {
@@ -60,7 +75,7 @@ export function detailReturnLabel(
     case "playlist":
       return ctx.title;
     case "cd":
-      return ctx.title;
+      return cdNavigationTitle(ctx.driveId);
     case "artist": {
       const artist = artists.find((a) => a.key === ctx.artistKey);
       return artist?.name ?? "Artist";

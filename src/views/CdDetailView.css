@@ -25,6 +25,11 @@
   align-items: flex-start;
 }
 
+.cd-detail__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 @media (max-width: 640px) {
   .cd-detail__hero {
     flex-direction: column;
@@ -38,21 +43,8 @@
 }
 
 .cd-detail__art {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 220px;
-  height: 220px;
   flex-shrink: 0;
-  border-radius: 999px;
-  background: var(--color-surface-raised, var(--color-surface));
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-}
-
-.cd-detail__art svg {
-  width: 4rem;
-  height: 4rem;
 }
 
 .cd-detail__meta {
@@ -92,4 +84,13 @@
 
 .cd-detail__tracks {
   border-top: 1px solid var(--color-border);
+}
+
+.cd-detail__import-btn {
+  margin-top: 0.75rem;
+}
+
+.cd-detail__import-btn svg {
+  width: 1rem;
+  height: 1rem;
 }

@@ -52,6 +52,11 @@ pub fn scan_folder(folder_path: String) -> Result<Vec<String>, String> {
     scan_folder_paths(&folder_path)
 }
 
+#[tauri::command]
+pub fn file_exists(path: String) -> bool {
+    Path::new(&path).is_file()
+}
+
 /// File modification time in milliseconds since UNIX epoch (for asset URL cache busting).
 #[tauri::command]
 pub fn get_file_modified_ms(path: String) -> Result<u64, String> {

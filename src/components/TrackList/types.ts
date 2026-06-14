@@ -1,4 +1,5 @@
 export type TrackListColumnId =
+  | "check"
   | "index"
   | "trackNumber"
   | "title"
@@ -44,6 +45,12 @@ export interface TrackListPreset {
   columns: TrackListColumnDef[];
   indexColumn: "index" | "trackNumber";
 }
+
+export const CHECK_COL: TrackListColumnDef = {
+  id: "check",
+  label: "",
+  align: "center",
+};
 
 const INDEX_COL: TrackListColumnDef = {
   id: "index",
@@ -196,6 +203,7 @@ export const TRACK_LIST_PRESETS: Record<TrackListPresetId, TrackListPreset> = {
 
 export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> =
   {
+    check: 36,
     index: 40,
     trackNumber: 40,
     title: 300,

@@ -2,6 +2,7 @@ import { useId, useRef, useState } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import { Button } from "../common/Button/Button";
+import { Checkbox } from "../common/Checkbox/Checkbox";
 import {
   Modal,
   ModalBody,
@@ -47,14 +48,13 @@ export function ImportChoiceModal() {
       </ModalHeader>
 
       <ModalBody>
-        <label className="import-choice__remember">
-          <input
-            type="checkbox"
-            checked={remember}
-            onChange={(e) => setRemember(e.target.checked)}
-          />
+        <Checkbox
+          variant="muted"
+          checked={remember}
+          onChange={(e) => setRemember(e.target.checked)}
+        >
           Don&apos;t ask again
-        </label>
+        </Checkbox>
       </ModalBody>
 
       <ModalFooter onCancel={cancelImportChoice}>

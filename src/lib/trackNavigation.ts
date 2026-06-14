@@ -41,3 +41,14 @@ export function isArtistInLibrary(
     artistKeys.has(navigationArtistKey(track, browseMode))
   );
 }
+
+/** Artist page key when the artist exists in the library; otherwise null. */
+export function linkableArtistKey(
+  track: Track | undefined,
+  artistKeys: ReadonlySet<string>,
+  browseMode: ArtistBrowseMode,
+): string | null {
+  if (track == null) return null;
+  if (!isArtistInLibrary(track, artistKeys, browseMode)) return null;
+  return navigationArtistKey(track, browseMode);
+}

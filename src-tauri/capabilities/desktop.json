@@ -8,7 +8,8 @@
   "windows": [
     "main",
     "skin-mode",
-    "skin-picker"
+    "skin-picker",
+    "activity-logs"
   ],
   "permissions": [
     "global-shortcut:default"

@@ -1,29 +1,43 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { DetailArtistLink } from "../components/DetailArtistLink/DetailArtistLink";
+import { EntityArt } from "../components/EntityArt/EntityArt";
 import { Button } from "../components/common/Button/Button";
-import { ContextMenuItem } from "../components/ContextMenu/ContextMenu";
+import { ContextMenuItem, ContextMenuSeparator } from "../components/ContextMenu/ContextMenu";
 import { MenuButton } from "../components/MenuButton/MenuButton";
 import { TrackList } from "../components/TrackList/TrackList";
 import {
   IconAddToQueue,
   IconBack,
-  IconDisc,
   IconEject,
+  IconImport,
   IconPlay,
 } from "../components/icons";
+import { mergeRemoteMetadataIntoDisc } from "../lib/cdMetadata";
+import { ensureCdHeroArtValid } from "../lib/cdArt";
+import { startCdHeroArtFetch } from "../lib/cdMetadataFetch";
 import {
   albumTotalDurationSecondsFromCd,
   cdDiscTitle,
+  cdTrackListId,
   cdTrackNumberFromListId,
   cdTracksForList,
 } from "../lib/cdTracks";
+import { startCdImport } from "../lib/cdImport";
 import { formatTime } from "../lib/format";
 import { setCdDetailDrive } from "../lib/tauri";
 import { detailReturnLabel } from "../lib/navigationReturn";
 import {
   isAlbumInLibrary,
   isArtistInLibrary,
+  linkableArtistKey,
 } from "../lib/trackNavigation";
+import {
+  setAllTracksChecked,
+  toggleTrackChecked,
+} from "../lib/trackCheckSelection";
 import { getCdDriveById, useCdStore } from "../store/useCdStore";
+import { useCdImportBlockingPlayback } from "../hooks/useCdImportBlockingPlayback";
+import { useCdImportStore, cdImportRowIndicators } from "../store/useCdImportStore";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Album } from "../types/album";
@@ -43,6 +57,8 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
   const artistBrowseMode = useNavigationStore((s) => s.artistBrowseMode);
   const drives = useCdStore((s) => s.drives);
   const discsByDriveId = useCdStore((s) => s.discsByDriveId);
+  const metadataByDriveId = useCdStore((s) => s.metadataByDriveId);
+  const heroArtByDriveId = useCdStore((s) => s.heroArtByDriveId);
   const loadingDriveIds = useCdStore((s) => s.loadingDriveIds);
   const cdtextLoadingDriveIds = useCdStore((s) => s.cdtextLoadingDriveIds);
   const ejectingDriveIds = useCdStore((s) => s.ejectingDriveIds);
@@ -56,11 +72,50 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
   const storeCdDriveId = usePlayerStore((s) => s.cdDriveId);
   const storeCurrentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
+  const cdImportBlockingPlayback = useCdImportBlockingPlayback(driveId);
+  const cdImportProgress = useCdImportStore((s) =>
+    s.progress?.driveId === driveId ? s.progress : null,
+  );
+  const cdImportCompletedDisplay = useCdImportStore(
+    (s) => s.completedDisplayByDriveId[driveId],
+  );
+  const clearCdImportCompletedDisplay = useCdImportStore(
+    (s) => s.clearCompletedDisplay,
+  );
+
+  useEffect(() => {
+    return () => {
+      clearCdImportCompletedDisplay(driveId);
+    };
+  }, [driveId, clearCdImportCompletedDisplay]);
+
+  const {
+    importingTrackIds: cdImportingTrackIds,
+    activeTrackId: cdImportingActiveTrackId,
+    completedTrackIds: cdImportCompletedTrackIds,
+  } = useMemo(
+    () =>
+      cdImportRowIndicators(
+        cdImportProgress,
+        cdImportCompletedDisplay,
+        cdTrackListId,
+      ),
+    [cdImportProgress, cdImportCompletedDisplay],
+  );
+
+  const [checkedTrackIds, setCheckedTrackIds] = useState<number[]>([]);
 
   const drive = getCdDriveById(drives, driveId);
-  const disc = discsByDriveId[driveId];
+  const rawDisc = discsByDriveId[driveId];
+  const remoteMetadata = metadataByDriveId[driveId] ?? null;
+  const disc = useMemo(() => {
+    if (rawDisc == null) return rawDisc;
+    if (remoteMetadata == null) return rawDisc;
+    return mergeRemoteMetadataIntoDisc(rawDisc, remoteMetadata);
+  }, [rawDisc, remoteMetadata]);
   const isLoading = loadingDriveIds.has(driveId) || disc === undefined;
   const isLoadingCdText = cdtextLoadingDriveIds.has(driveId);
+  const heroArtPath = heroArtByDriveId[driveId] ?? null;
   const isEjecting = ejectingDriveIds.has(driveId);
   const showBack = cdReturnContext?.kind !== "sidebar";
   const backLabel = detailReturnLabel(cdReturnContext, artists);
@@ -93,6 +148,15 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
   }, [driveId, loadDisc]);
 
   useEffect(() => {
+    void (async () => {
+      const valid = await ensureCdHeroArtValid(driveId);
+      if (!valid) {
+        startCdHeroArtFetch(driveId);
+      }
+    })();
+  }, [driveId]);
+
+  useEffect(() => {
     void setCdDetailDrive(driveId);
     return () => {
       void setCdDetailDrive(null);
@@ -104,7 +168,17 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
     [disc],
   );
 
+  const heroArtistKey = useMemo(
+    () => linkableArtistKey(tracks[0], libraryArtistKeys, artistBrowseMode),
+    [tracks, libraryArtistKeys, artistBrowseMode],
+  );
+
   const trackIds = useMemo(() => tracks.map((track) => track.id), [tracks]);
+  const trackIdsKey = trackIds.join(",");
+
+  useEffect(() => {
+    setCheckedTrackIds(trackIds);
+  }, [driveId, trackIdsKey, trackIds]);
 
   const handlePlayDisc = useCallback(() => {
     if (!disc || disc.tracks.length === 0) return;
@@ -133,6 +207,32 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
     [selectTracksInList, trackIds],
   );
 
+  const handleToggleChecked = useCallback(
+    (track: Track, checked: boolean) => {
+      setCheckedTrackIds((current) =>
+        toggleTrackChecked(track.id, trackIds, current, checked),
+      );
+    },
+    [trackIds],
+  );
+
+  const handleToggleAllChecked = useCallback(
+    (checked: boolean) => {
+      setCheckedTrackIds(setAllTracksChecked(trackIds, checked));
+    },
+    [trackIds],
+  );
+
+  const handleStartImport = useCallback(() => {
+    if (!disc || checkedTrackIds.length === 0) return;
+    startCdImport({
+      driveId,
+      disc,
+      year: remoteMetadata?.year ?? null,
+      checkedTrackNumbers: checkedTrackIds.map(cdTrackNumberFromListId),
+    });
+  }, [checkedTrackIds, disc, driveId, remoteMetadata?.year]);
+
   if (!drive) {
     return null;
   }
@@ -144,6 +244,14 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
     ? albumTotalDurationSecondsFromCd(disc.tracks)
     : 0;
   const hasTracks = disc != null && disc.tracks.length > 0;
+  const checkedCount = checkedTrackIds.length;
+  const allTracksChecked =
+    disc != null && checkedCount > 0 && checkedCount === disc.tracks.length;
+  const importLabel = allTracksChecked
+    ? "Import to Library"
+    : checkedCount === 1
+      ? "Import 1 track"
+      : `Import ${checkedCount} tracks`;
 
   return (
     <div className="cd-detail">
@@ -169,7 +277,7 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
         <MenuButton
           ariaLabel="Disc actions"
           className="cd-detail__toolbar-menu"
-          layoutDeps={[tracks.length, isEjecting]}
+          layoutDeps={[tracks.length, isEjecting, checkedCount, cdImportBlockingPlayback]}
           size="md"
           variant="secondary"
         >
@@ -177,23 +285,37 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
             <>
               {hasTracks ? (
                 <ContextMenuItem
+                  icon={<IconImport />}
+                  label={importLabel}
+                  disabled={checkedCount === 0 || cdImportBlockingPlayback}
+                  onClick={() => {
+                    close();
+                    handleStartImport();
+                  }}
+                />
+              ) : null}
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                icon={<IconPlay />}
+                label="Play All"
+                disabled={!hasTracks || cdImportBlockingPlayback}
+                onClick={() => {
+                  close();
+                  handlePlayDisc();
+                }}
+              />
+              {hasTracks ? (
+                <ContextMenuItem
                   icon={<IconAddToQueue />}
                   label="Add to Queue"
+                  disabled={cdImportBlockingPlayback}
                   onClick={() => {
                     close();
                     handleAddToQueue();
                   }}
                 />
               ) : null}
-              <ContextMenuItem
-                icon={<IconPlay />}
-                label="Play All"
-                disabled={!hasTracks}
-                onClick={() => {
-                  close();
-                  handlePlayDisc();
-                }}
-              />
+              <ContextMenuSeparator />
               <ContextMenuItem
                 icon={<IconEject />}
                 label={isEjecting ? "Ejecting…" : "Eject"}
@@ -209,13 +331,19 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
       </div>
 
       <section className="cd-detail__hero">
-        <div className="cd-detail__art" aria-hidden>
-          <IconDisc />
-        </div>
+        <EntityArt
+          artPath={heroArtPath}
+          alt={title}
+          className="album-art--hero cd-detail__art"
+        />
         <div className="cd-detail__meta">
           <h1 className="cd-detail__title">{title}</h1>
           {artistLine ? (
-            <p className="cd-detail__artist">{artistLine}</p>
+            <DetailArtistLink
+              className="cd-detail__artist"
+              name={artistLine}
+              artistKey={heroArtistKey}
+            />
           ) : null}
           {hasTracks ? (
             <p className="cd-detail__stats">
@@ -226,6 +354,30 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
                 .filter(Boolean)
                 .join(" · ")}
             </p>
+          ) : null}
+          {hasTracks ? (
+            <div className="cd-detail__actions">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="cd-detail__import-btn"
+                disabled={!hasTracks || cdImportBlockingPlayback}
+                onClick={handlePlayDisc}
+              >
+                <IconPlay />
+                Play All
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="cd-detail__import-btn"
+                disabled={checkedCount === 0 || cdImportBlockingPlayback}
+                onClick={handleStartImport}
+              >
+                <IconImport />
+                {importLabel}
+              </Button>
+            </div>
           ) : null}
         </div>
       </section>
@@ -258,6 +410,13 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
             canNavigateAlbum={canNavigateAlbum}
             canNavigateArtist={canNavigateArtist}
             cdDriveId={driveId}
+            checkMode
+            checkedTrackIds={checkedTrackIds}
+            onToggleChecked={handleToggleChecked}
+            onToggleAllChecked={handleToggleAllChecked}
+            cdImportingTrackIds={cdImportingTrackIds}
+            cdImportingActiveTrackId={cdImportingActiveTrackId}
+            cdImportCompletedTrackIds={cdImportCompletedTrackIds}
             readOnly
             bordered={false}
             className="cd-detail__tracks"

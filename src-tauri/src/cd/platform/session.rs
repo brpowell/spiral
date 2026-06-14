@@ -15,7 +15,7 @@ pub enum DriveSessionPhase {
     ReadingMetadata,
     Playing,
     Ejecting,
-    // Ripping,
+    Ripping,
 }
 
 impl DriveSessionPhase {
@@ -199,9 +199,24 @@ pub fn is_playing(drive_id: &str) -> bool {
     })
 }
 
+pub fn is_ripping(drive_id: &str) -> bool {
+    with_sessions(|store| {
+        store
+            .drives
+            .get(drive_id)
+            .is_some_and(|session| session.phase == DriveSessionPhase::Ripping)
+    })
+}
+
+/// User-initiated TOC / CD-Text reads must not contend with playback or ripping.
+pub fn should_defer_user_disc_read(drive_id: &str) -> bool {
+    is_playing(drive_id) || is_ripping(drive_id)
+}
+
 pub fn invalidate_presence_cache(drive_id: &str) {
     with_status_cache(drive_id, |cache| {
         cache.has_audio_cd = None;
+        cache.volume_path = None;
         cache.updated_at = Instant::now() - STATUS_CACHE_TTL * 2;
     });
 }
@@ -210,6 +225,7 @@ pub fn invalidate_all_presence_cache() {
     with_sessions(|store| {
         for session in store.drives.values_mut() {
             session.cache.has_audio_cd = None;
+            session.cache.volume_path = None;
             session.cache.updated_at = Instant::now() - STATUS_CACHE_TTL * 2;
         }
     });

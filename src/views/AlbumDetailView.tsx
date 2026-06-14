@@ -1,6 +1,9 @@
+import { useMemo } from "react";
 import { albumTotalDurationSeconds, getAlbumByKey } from "../lib/albums";
 import { detailReturnLabel } from "../lib/navigationReturn";
 import { formatTime } from "../lib/format";
+import { linkableArtistKey } from "../lib/trackNavigation";
+import { DetailArtistLink } from "../components/DetailArtistLink/DetailArtistLink";
 import { EntityArt } from "../components/EntityArt/EntityArt";
 import { Button } from "../components/common/Button/Button";
 import { ContextMenuItem } from "../components/ContextMenu/ContextMenu";
@@ -32,6 +35,7 @@ export function AlbumDetailView({
 }: AlbumDetailViewProps) {
   const closeAlbum = useNavigationStore((s) => s.closeAlbum);
   const albumReturnContext = useNavigationStore((s) => s.albumReturnContext);
+  const artistBrowseMode = useNavigationStore((s) => s.artistBrowseMode);
   const playTracks = usePlayerStore((s) => s.playTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
@@ -42,6 +46,15 @@ export function AlbumDetailView({
 
   const album = getAlbumByKey(albums, albumKey);
   const backLabel = detailReturnLabel(albumReturnContext, artists);
+  const libraryArtistKeys = useMemo(
+    () => new Set(artists.map((artist) => artist.key)),
+    [artists],
+  );
+  const albumArtistKey = useMemo(
+    () =>
+      linkableArtistKey(album?.tracks[0], libraryArtistKeys, artistBrowseMode),
+    [album, libraryArtistKeys, artistBrowseMode],
+  );
 
   if (!album) {
     return (
@@ -144,7 +157,11 @@ export function AlbumDetailView({
         />
         <div className="album-detail__meta">
           <h1 className="album-detail__title">{album.title}</h1>
-          <p className="album-detail__artist">{album.artist}</p>
+          <DetailArtistLink
+            className="album-detail__artist"
+            name={album.artist}
+            artistKey={albumArtistKey}
+          />
           <p className="album-detail__stats">
             {[
               album.year != null ? String(album.year) : null,

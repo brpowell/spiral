@@ -234,6 +234,12 @@
   }
 }
 
+.track-list__import-complete {
+  width: var(--track-row-indicator-width);
+  height: var(--track-row-indicator-width);
+  color: var(--color-accent);
+}
+
 .track-list__cell {
   min-width: 0;
   padding: 0 0.65rem;
@@ -362,4 +368,39 @@
   text-align: center;
   font-size: 0.85rem;
   color: var(--color-text-secondary);
+}
+
+.track-list--check-mode .track-list__row--checked {
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.track-list__check-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.track-list__check-label--header {
+  justify-content: center;
+  width: 100%;
+}
+
+.track-list__checkbox {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.track-list__cell--check,
+.track-list__header-cell[data-track-list-col="check"] {
+  padding-inline: 0.25rem;
+}
+
+.track-list__row--check-mode {
+  cursor: default;
 }

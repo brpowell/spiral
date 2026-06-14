@@ -1,11 +1,13 @@
 use super::disc_recording;
 use super::session::{
     begin_phase, cached_has_audio_cd_for_drive, cached_volume_path, drive_had_successful_read,
-    invalidate_all_presence_cache, invalidate_presence_cache, is_any_drive_busy, is_playing,
-    is_read_in_progress, mark_drive_read_success, remove_drive, update_status_cache,
+    invalidate_all_presence_cache, invalidate_presence_cache, is_any_drive_busy,
+    is_read_in_progress, mark_drive_read_success, remove_drive, should_defer_user_disc_read,
+    update_status_cache,
     DriveSessionPhase, PRESENCE_CACHE_TTL,
 };
 
+use crate::cd::disc_id;
 use crate::cd::types::{CdDisc, CdDiscCdText, CdDrive, CdTrack, CdTrackTitle};
 use std::collections::HashMap;
 use std::process::Command;
@@ -241,9 +243,14 @@ fn build_disc_from_tracks(
         });
     }
     tracks.sort_by_key(|track| track.number);
+    let disc_id = if toc_tracks.is_empty() {
+        None
+    } else {
+        Some(disc_id::compute_disc_id(toc_tracks))
+    };
     CdDisc {
         drive_id: drive_id.to_string(),
-        disc_id: None,
+        disc_id,
         album,
         artist,
         tracks,
@@ -380,10 +387,11 @@ pub fn eject_disc(drive_id: &str) -> Result<(), String> {
 }
 
 pub fn get_disc_info(drive_id: &str) -> Result<Option<CdDisc>, String> {
-    // While playing, the Playing phase already blocks the monitor; entering
-    // ReadingMetadata would clobber it and break the playback guard's reset.
-    let _read_guard = (!is_playing(drive_id))
-        .then(|| begin_phase(drive_id, DriveSessionPhase::ReadingMetadata));
+    if should_defer_user_disc_read(drive_id) {
+        return Err("Disc read deferred while drive is busy".into());
+    }
+
+    let _read_guard = begin_phase(drive_id, DriveSessionPhase::ReadingMetadata);
 
     let toc_tracks = match read_disc_tracks_user(drive_id) {
         Ok(tracks) => tracks,
@@ -435,8 +443,11 @@ fn read_cdtext(drive_id: &str) -> Option<(Option<String>, Option<String>, HashMa
 
 /// Background CD-Text read — merges into an existing disc on the frontend.
 pub fn get_disc_cdtext(drive_id: &str) -> Result<Option<CdDiscCdText>, String> {
-    let _read_guard = (!is_playing(drive_id))
-        .then(|| begin_phase(drive_id, DriveSessionPhase::ReadingMetadata));
+    if should_defer_user_disc_read(drive_id) {
+        return Err("CD-Text read deferred while drive is busy".into());
+    }
+
+    let _read_guard = begin_phase(drive_id, DriveSessionPhase::ReadingMetadata);
 
     let Some((album, artist, track_titles_map)) = read_cdtext(drive_id) else {
         return Ok(None);

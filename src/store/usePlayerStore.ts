@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import * as audio from "../lib/playback";
+import { cdPlaybackTracks } from "../lib/cdPlaybackArt";
 import {
   isCdTrackListId,
   cdTrackNumberFromListId,
@@ -12,6 +13,7 @@ import { findPlaybackTrack } from "../lib/playbackTrack";
 import { groupTracksIntoAlbums } from "../lib/albums";
 import { groupTracksIntoArtists, type ArtistBrowseMode } from "../lib/artists";
 import { startLibraryImport } from "../lib/libraryImport";
+import { isCdImportBlockingPlayback } from "../lib/cdImportGuard";
 import { showQueueAddedToast, showQueueAddedToastForTracks } from "../lib/queueToast";
 import { seekRatioToPositionSeconds } from "../lib/playbackSeek";
 import { parseRepeatMode, prunePlaybackSession } from "../lib/playbackSession";
@@ -128,13 +130,21 @@ interface PlayerState {
   ) => Promise<void>;
 }
 
+function cdPlayContextIds(state: PlayerState): number[] {
+  if (state.playContextIds.length > 0) return state.playContextIds;
+  if (state.cdDriveId == null || state.playbackTracks.length === 0) {
+    return state.playContextIds;
+  }
+  return state.playbackTracks.map((track) => track.id);
+}
+
 function getPlaybackOrder(get: () => PlayerState): number[] {
-  const { manualQueueIds, playContextIds, library, currentTrackId } = get();
+  const state = get();
   return buildPlaybackOrder(
-    manualQueueIds,
-    playContextIds,
-    library,
-    currentTrackId,
+    state.manualQueueIds,
+    cdPlayContextIds(state),
+    state.library,
+    state.currentTrackId,
   );
 }
 
@@ -174,6 +184,10 @@ async function playResolvedPlayable(
   get: () => PlayerState,
   options?: PlayResolvedPlayableOptions,
 ): Promise<void> {
+  if (playable.type === "cd" && isCdImportBlockingPlayback(playable.driveId)) {
+    return;
+  }
+
   const state = get();
   const source = resolvePlaybackSource(playable, state.library);
   if (!source) {
@@ -233,6 +247,7 @@ async function primeCdTrackPaused(
 ): Promise<void> {
   const trackNumber = cdTrackNumberFromListId(trackId);
   const playable = { type: "cd" as const, driveId, trackNumber };
+  const playbackTracks = cdPlaybackTracks(driveId, tracks);
   set({ importError: null });
   try {
     await audio.loadSource({
@@ -244,7 +259,7 @@ async function primeCdTrackPaused(
       currentPlayable: playable,
       currentTrackId: trackId,
       cdDriveId: driveId,
-      playbackTracks: tracks,
+      playbackTracks,
       playbackState: "paused",
       positionSeconds: 0,
       seekPreviewRatio: null,
@@ -614,7 +629,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         driveId,
         trackNumber: startTrackNumber,
       });
-      const orderedIds = tracks.map((track) => track.id);
+      const playbackTracks = cdPlaybackTracks(driveId, tracks);
+      const orderedIds = playbackTracks.map((track) => track.id);
       if (!orderedIds.includes(startId)) return;
 
       const contextIds = get().shuffle
@@ -627,7 +643,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         get,
         {
           playContextIds: contextIds,
-          playbackTracks: tracks,
+          playbackTracks,
           cdDriveId: driveId,
         },
       );
@@ -675,9 +691,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
               ? state.cdQueueContext.tracks
               : state.playbackTracks;
 
+        const playContextIds = cdPlayContextIds({
+          ...state,
+          cdDriveId: driveId,
+          playbackTracks: cdTracks,
+        });
+
         await playResolvedPlayable(playable, set, get, {
           cdDriveId: driveId,
           playbackTracks: cdTracks,
+          ...(playContextIds.length > 0 ? { playContextIds } : {}),
         });
         return;
       }
@@ -703,6 +726,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     resume: () => {
+      const state = get();
+      if (
+        state.currentPlayable?.type === "cd" &&
+        isCdImportBlockingPlayback(state.currentPlayable.driveId)
+      ) {
+        return;
+      }
       audio.play();
       set({ playbackState: "playing" });
       startPositionPoll(set);
@@ -889,9 +919,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     addCdToQueue: (driveId, tracks) => {
-      if (tracks.length === 0) return;
+      if (tracks.length === 0 || isCdImportBlockingPlayback(driveId)) return;
 
-      const ids = tracks.map((track) => track.id);
+      const playbackTracks = cdPlaybackTracks(driveId, tracks);
+      const ids = playbackTracks.map((track) => track.id);
       const state = get();
       const trackListWasEmpty =
         state.currentTrackId === null &&
@@ -906,16 +937,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         addedIds = toAdd;
         return {
           manualQueueIds: [...s.manualQueueIds, ...toAdd],
-          cdQueueContext: { driveId, tracks },
+          cdQueueContext: { driveId, tracks: playbackTracks },
         };
       });
 
       if (addedIds.length === 0) return;
 
-      const addedTracks = tracks.filter((track) => addedIds.includes(track.id));
+      const addedTracks = playbackTracks.filter((track) =>
+        addedIds.includes(track.id),
+      );
       showQueueAddedToastForTracks(addedTracks);
       if (trackListWasEmpty) {
-        void primeCdTrackPaused(driveId, tracks, addedIds[0], set);
+        void primeCdTrackPaused(driveId, playbackTracks, addedIds[0], set);
       }
     },
 

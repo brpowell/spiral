@@ -1,5 +1,7 @@
 export type ImportMode = "ask" | "copy" | "reference";
 
+export type CdMetadataFetchMode = "ask" | "always" | "never";
+
 export interface LibrarySettings {
   mediaFolder: string;
   databasePath: string;
@@ -8,6 +10,7 @@ export interface LibrarySettings {
   organizePathFormat: string;
   defaultOrganizePathFormat: string;
   importMode: ImportMode;
+  cdMetadataFetchMode: CdMetadataFetchMode;
   defaultMediaFolder: string;
   defaultDatabasePath: string;
   defaultLibraryRoot: string;
@@ -21,6 +24,7 @@ export interface LibrarySettingsPatch {
   autoOrganize?: boolean;
   organizePathFormat?: string;
   importMode?: ImportMode;
+  cdMetadataFetchMode?: CdMetadataFetchMode;
   metadataBackupsEnabled?: boolean;
   metadataBackupRetentionDays?: number;
 }

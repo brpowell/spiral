@@ -6,9 +6,13 @@ import { useNavigationStore } from "../../store/useNavigationStore";
 import { Button } from "../common/Button/Button";
 import { TrackListColumnMenu } from "./TrackListColumnMenu";
 import { TrackListRow } from "./TrackListRow";
-import { useTrackListColumns } from "./useTrackListColumns";
+import {
+  computeMinTableWidth,
+  useTrackListColumns,
+} from "./useTrackListColumns";
 import { useTrackListHeaderMenu } from "./useTrackListHeaderMenu";
 import {
+  CHECK_COL,
   DEFAULT_COLUMN_WIDTHS,
   type TrackListColumnDef,
   type TrackListColumnId,
@@ -16,6 +20,7 @@ import {
   type TrackListSortDir,
   type TrackListSortField,
 } from "./types";
+import { checkAllState } from "../../lib/trackCheckSelection";
 import type { Track } from "../../types/track";
 import "./TrackList.css";
 
@@ -48,6 +53,13 @@ interface TrackListProps {
   canNavigateAlbum?: (track: Track) => boolean;
   canNavigateArtist?: (track: Track) => boolean;
   cdDriveId?: string;
+  checkMode?: boolean;
+  checkedTrackIds?: number[];
+  onToggleChecked?: (track: Track, checked: boolean) => void;
+  onToggleAllChecked?: (checked: boolean) => void;
+  cdImportingTrackIds?: ReadonlySet<number>;
+  cdImportingActiveTrackId?: number | null;
+  cdImportCompletedTrackIds?: ReadonlySet<number>;
 }
 
 interface ResizeHandleProps {
@@ -117,6 +129,13 @@ export function TrackList({
   canNavigateAlbum,
   canNavigateArtist,
   cdDriveId,
+  checkMode = false,
+  checkedTrackIds = [],
+  onToggleChecked,
+  onToggleAllChecked,
+  cdImportingTrackIds,
+  cdImportingActiveTrackId = null,
+  cdImportCompletedTrackIds,
 }: TrackListProps) {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -148,6 +167,18 @@ export function TrackList({
     [selectedTrackIds],
   );
 
+  const checkedTrackIdSet = useMemo(
+    () => new Set(checkedTrackIds),
+    [checkedTrackIds],
+  );
+
+  const trackIds = useMemo(() => tracks.map((track) => track.id), [tracks]);
+
+  const headerCheckState = useMemo(
+    () => (checkMode ? checkAllState(trackIds, checkedTrackIds) : "none"),
+    [checkMode, trackIds, checkedTrackIds],
+  );
+
   const rowEstimateSize = showAlbumArt ? 45 : 40;
 
   const virtualizer = useVirtualizer({
@@ -160,8 +191,6 @@ export function TrackList({
     preset,
     visibleColumns,
     hideableColumns,
-    gridTemplateColumns,
-    minTableWidth,
     columnWidths,
     setColumnWidth,
     toggleColumnVisibility,
@@ -178,10 +207,23 @@ export function TrackList({
       onHide: hideColumn,
     });
 
-  const gridStyle = {
-    "--track-list-columns": gridTemplateColumns,
-    "--track-list-min-width": `${minTableWidth}px`,
-  } as CSSProperties;
+  const displayColumns = useMemo(
+    () => (checkMode ? [CHECK_COL, ...visibleColumns] : visibleColumns),
+    [checkMode, visibleColumns],
+  );
+
+  const displayGridStyle = useMemo(() => {
+    const columnParts = displayColumns.map((col) => {
+      const w = columnWidths[col.id] ?? DEFAULT_COLUMN_WIDTHS[col.id] ?? 80;
+      return `${w}px`;
+    });
+    columnParts.push("minmax(0, 1fr)");
+    columnParts.push("2.25rem");
+    return {
+      "--track-list-columns": columnParts.join(" "),
+      "--track-list-min-width": `${computeMinTableWidth(displayColumns, columnWidths)}px`,
+    } as CSSProperties;
+  }, [columnWidths, displayColumns]);
 
   const sortIndicator = (field: TrackListSortField) => {
     if (!sortField || field !== sortField) return "";
@@ -192,19 +234,34 @@ export function TrackList({
     const field = sortFieldForColumn(col);
     const label = `${col.label}${field && onSort ? sortIndicator(field) : ""}`;
 
-    const content =
-      onSort && field ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="track-list__header-btn"
-          onClick={() => onSort(field)}
-        >
-          {label}
-        </Button>
-      ) : (
-        <span className="track-list__header-label">{label}</span>
-      );
+    const showHeaderCheckbox =
+      checkMode && col.id === "check" && onToggleAllChecked != null;
+
+    const content = showHeaderCheckbox ? (
+      <label className="track-list__check-label track-list__check-label--header">
+        <input
+          type="checkbox"
+          className="track-list__checkbox"
+          checked={headerCheckState === "all"}
+          ref={(el) => {
+            if (el) el.indeterminate = headerCheckState === "some";
+          }}
+          onChange={(e) => onToggleAllChecked(e.target.checked)}
+          aria-label="Select all tracks"
+        />
+      </label>
+    ) : onSort && field ? (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="track-list__header-btn"
+        onClick={() => onSort(field)}
+      >
+        {label}
+      </Button>
+    ) : (
+      <span className="track-list__header-label">{label}</span>
+    );
 
     const width =
       columnWidths[col.id] ?? DEFAULT_COLUMN_WIDTHS[col.id] ?? 80;
@@ -285,6 +342,7 @@ export function TrackList({
   ) => {
     const isSelected =
       !track.importStatus && selectedTrackIdSet.has(track.id);
+    const isChecked = checkMode && checkedTrackIdSet.has(track.id);
     const isNowPlaying = track.id === currentTrackId;
     const isActivelyPlaying = isNowPlaying && playbackState === "playing";
     const rowKey = track.importSourcePath ?? String(track.id);
@@ -295,12 +353,15 @@ export function TrackList({
         track={track}
         displayIndex={displayIndex}
         showAlbumArt={showAlbumArt}
-        visibleColumns={visibleColumns}
+        visibleColumns={displayColumns}
         indexColumn={preset.indexColumn}
-        gridStyle={gridStyle}
+        gridStyle={displayGridStyle}
         canReorder={canReorder}
         playlistId={playlistId}
         isSelected={isSelected}
+        checkMode={checkMode}
+        isChecked={isChecked}
+        onToggleChecked={onToggleChecked}
         isNowPlaying={isNowPlaying}
         isActivelyPlaying={isActivelyPlaying}
         isDragging={draggingIndex === displayIndex}
@@ -319,6 +380,9 @@ export function TrackList({
         readOnly={readOnly}
         cdDriveId={cdDriveId}
         cdTracks={cdDriveId != null ? tracks : undefined}
+        cdImportingTrackIds={cdImportingTrackIds}
+        cdImportingActiveTrackId={cdImportingActiveTrackId}
+        cdImportCompletedTrackIds={cdImportCompletedTrackIds}
         virtualStyle={virtualStyle}
       />
     );
@@ -333,6 +397,7 @@ export function TrackList({
           "track-list",
           bordered && "track-list--bordered",
           canReorder && "track-list--reorderable",
+          checkMode && "track-list--check-mode",
           className,
         ]
           .filter(Boolean)
@@ -347,9 +412,9 @@ export function TrackList({
             .filter(Boolean)
             .join(" ")}
         >
-          <div className="track-list__inner" style={gridStyle}>
-            <div className="track-list__header" style={gridStyle} role="row">
-              {visibleColumns.map(renderHeaderCell)}
+          <div className="track-list__inner" style={displayGridStyle}>
+            <div className="track-list__header" style={displayGridStyle} role="row">
+              {displayColumns.map(renderHeaderCell)}
               <div className="track-list__filler" aria-hidden />
               <div className="track-list__header-actions">
                 {hideableColumns.length > 0 ? (

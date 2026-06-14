@@ -1,0 +1,25 @@
+.sidebar-cd-drive-item {
+  position: relative;
+}
+
+.sidebar-cd-drive-item__eject {
+  position: absolute;
+  right: 0.15rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.sidebar-cd-drive-item__eject svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.sidebar-cd-drive-item:hover .sidebar-cd-drive-item__eject,
+.sidebar-cd-drive-item:focus-within .sidebar-cd-drive-item__eject,
+.sidebar-cd-drive-item__eject:focus-visible,
+.sidebar-cd-drive-item__eject:disabled {
+  opacity: 1;
+}

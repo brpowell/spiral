@@ -9,12 +9,16 @@ import { MainContent } from "./components/layout/MainContent";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Button } from "./components/common/Button/Button";
 import { ImportChoiceModal } from "./components/ImportChoiceModal/ImportChoiceModal";
+import { CdImportCancelDialog } from "./components/CdImportCancelDialog/CdImportCancelDialog";
+import { CdMetadataPicker } from "./components/CdMetadataPicker/CdMetadataPicker";
+import { CdMusicBrainzFetchModal } from "./components/CdMusicBrainzFetchModal/CdMusicBrainzFetchModal";
 import { PlaylistEditorModal } from "./components/PlaylistEditorModal/PlaylistEditorModal";
 import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useArtistImageStore } from "./store/useArtistImageStore";
 import { setupAppMenu } from "./lib/appMenu";
 import { openSkinMode } from "./lib/skinModeWindow";
+import { openActivityLogsWindow } from "./lib/activityLogsWindow";
 import { useAudioWakeRecovery } from "./hooks/useAudioWakeRecovery";
 import { useHiddenPlaybackKeepAlive } from "./hooks/useHiddenPlaybackKeepAlive";
 import { useCdMonitor } from "./hooks/useCdMonitor";
@@ -64,6 +68,9 @@ function App() {
       openSkinMode: () => {
         void openSkinMode();
       },
+      openActivityLogs: () => {
+        void openActivityLogsWindow();
+      },
     });
   }, [addToLibrary, openPlaylistEditor, setPreferencesOpen]);
 
@@ -100,6 +107,9 @@ function App() {
       <ImportDropZone />
       <PreferencesModal />
       <ImportChoiceModal />
+      <CdMusicBrainzFetchModal />
+      <CdMetadataPicker />
+      <CdImportCancelDialog />
       <BackgroundTasksIndicator />
     </div>
   );

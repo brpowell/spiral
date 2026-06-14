@@ -64,6 +64,13 @@ fn prune_expired() {
     cache.retain(|_, entry| entry.fetched_at.elapsed().unwrap_or(CACHE_TTL) < CACHE_TTL);
 }
 
+pub fn clear_fetch_cache() {
+    let Ok(mut cache) = FETCH_CACHE.lock() else {
+        return;
+    };
+    cache.clear();
+}
+
 fn fetch_artist_art_uncached(artist: &str) -> Result<Vec<CoverArtCandidate>, String> {
     let client = reqwest::blocking::Client::builder()
         .user_agent(DEEZER_USER_AGENT)
@@ -193,6 +200,22 @@ fn urlencoding_simple(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clear_fetch_cache_empties_entries() {
+        FETCH_CACHE
+            .lock()
+            .unwrap()
+            .insert(
+                "artist|test".to_string(),
+                CacheEntry {
+                    fetched_at: SystemTime::now(),
+                    candidates: vec![],
+                },
+            );
+        clear_fetch_cache();
+        assert!(FETCH_CACHE.lock().unwrap().is_empty());
+    }
 
     #[test]
     fn dimensions_from_deezer_url_parses_size_hint() {

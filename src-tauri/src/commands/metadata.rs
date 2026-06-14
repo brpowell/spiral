@@ -4,14 +4,19 @@ use crate::metadata_reader;
 use crate::models::TrackInput;
 use crate::artist_art_fetch;
 use crate::cover_art_fetch::{self, CoverArtCandidate};
+use crate::disc_metadata_cache;
 use crate::db;
 use crate::library_organize;
 use crate::metadata_backup;
 use crate::metadata_writer;
+use crate::activity_log::{self, LogLevel};
 use crate::settings;
 use crate::models::{Track, TrackMetadataUpdate};
 use std::path::Path;
+use std::time::Duration;
 use tauri::{AppHandle, Manager, State};
+
+const ART_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[tauri::command]
 pub async fn parse_track_metadata(
@@ -85,15 +90,38 @@ fn cache_art_from_url_blocking(
 ) -> Result<String, String> {
     let client = reqwest::blocking::Client::builder()
         .user_agent(MUSICBRAINZ_USER_AGENT)
+        .timeout(ART_DOWNLOAD_TIMEOUT)
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            activity_log::log(
+                LogLevel::Error,
+                "metadata.coverArt",
+                "Failed to build HTTP client for cover art download",
+                Some(serde_json::json!({ "error": e.to_string(), "url": url })),
+            );
+            e.to_string()
+        })?;
 
-    let response = client
-        .get(&url)
-        .send()
-        .map_err(|e| format!("Failed to download cover art: {e}"))?;
+    let response = client.get(&url).send().map_err(|e| {
+        activity_log::log(
+            LogLevel::Error,
+            "metadata.coverArt",
+            "Failed to download cover art",
+            Some(serde_json::json!({ "error": e.to_string(), "url": url })),
+        );
+        format!("Failed to download cover art: {e}")
+    })?;
 
     if !response.status().is_success() {
+        activity_log::log(
+            LogLevel::Error,
+            "metadata.coverArt",
+            format!("Cover art download failed with HTTP {}", response.status()),
+            Some(serde_json::json!({
+                "url": url,
+                "httpStatus": response.status().as_u16(),
+            })),
+        );
         return Err(format!(
             "Failed to download cover art (HTTP {})",
             response.status()
@@ -106,18 +134,66 @@ fn cache_art_from_url_blocking(
 
     let ext = guess_ext_from_url(&url);
     let app_data = app_data_dir(&app)?;
+    if let Some(existing) = art_cache::find_cached_art_path(&app_data, &file_path) {
+        return Ok(existing.to_string_lossy().into_owned());
+    }
     let dest = art_cache::write_bytes_to_art_cache(&app_data, &file_path, &bytes, ext)?;
-    Ok(dest.to_string_lossy().into_owned())
+    let dest_str = dest.to_string_lossy().into_owned();
+
+    activity_log::log(
+        LogLevel::Info,
+        "metadata.coverArt",
+        format!("Cached cover art to {dest_str}"),
+        Some(serde_json::json!({
+            "url": url,
+            "cachePath": dest_str,
+            "byteCount": bytes.len(),
+        })),
+    );
+
+    Ok(dest_str)
+}
+
+#[tauri::command]
+pub fn resolve_cached_art_path(app: AppHandle, file_path: String) -> Result<Option<String>, String> {
+    let app_data = app_data_dir(&app)?;
+    Ok(art_cache::find_cached_art_path(&app_data, &file_path)
+        .map(|path| path.to_string_lossy().into_owned()))
 }
 
 #[tauri::command]
 pub async fn fetch_cover_art(
     artist: String,
     album: String,
+    log_context: Option<activity_log::ActivityLogContext>,
 ) -> Result<Vec<CoverArtCandidate>, String> {
-    tauri::async_runtime::spawn_blocking(move || cover_art_fetch::fetch_cover_art_cached(artist, album))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Some(ctx) = log_context {
+            activity_log::set_thread_context(ctx);
+        }
+        let result = cover_art_fetch::fetch_cover_art_cached(artist, album);
+        activity_log::clear_thread_context();
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn fetch_cover_art_for_release(
+    release_mbid: String,
+    log_context: Option<activity_log::ActivityLogContext>,
+) -> Result<Vec<CoverArtCandidate>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Some(ctx) = log_context {
+            activity_log::set_thread_context(ctx);
+        }
+        let result = cover_art_fetch::fetch_cover_art_for_release_cached(release_mbid);
+        activity_log::clear_thread_context();
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -125,6 +201,27 @@ pub async fn fetch_artist_art(artist: String) -> Result<Vec<CoverArtCandidate>, 
     tauri::async_runtime::spawn_blocking(move || artist_art_fetch::fetch_artist_art_cached(artist))
         .await
         .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn clear_metadata_cache(app: AppHandle) -> Result<(), String> {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        disc_metadata_cache::clear_lookup_cache(&app)?;
+        cover_art_fetch::clear_fetch_cache();
+        artist_art_fetch::clear_fetch_cache();
+
+        activity_log::log(
+            LogLevel::Info,
+            "metadata.cache",
+            "Cleared remote metadata fetch caches",
+            None,
+        );
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

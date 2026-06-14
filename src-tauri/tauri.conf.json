@@ -44,6 +44,17 @@
         "minWidth": 400,
         "minHeight": 420,
         "dragDropEnabled": false
+      },
+      {
+        "label": "activity-logs",
+        "title": "Activity Logs",
+        "width": 720,
+        "height": 520,
+        "visible": false,
+        "resizable": true,
+        "minWidth": 480,
+        "minHeight": 320,
+        "dragDropEnabled": false
       }
     ],
     "security": {

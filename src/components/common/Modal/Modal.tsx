@@ -25,6 +25,8 @@ export interface ModalProps {
   panelClassName?: string;
   panelRef?: RefObject<HTMLDivElement | null>;
   labelledBy?: string;
+  /** When false, backdrop click and Escape do not call onClose. Default true. */
+  dismissible?: boolean;
 }
 
 export function Modal({
@@ -35,6 +37,7 @@ export function Modal({
   panelClassName,
   panelRef,
   labelledBy,
+  dismissible = true,
 }: ModalProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const panelNodeRef = useRef<HTMLDivElement | null>(null);
@@ -50,16 +53,16 @@ export function Modal({
   );
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !dismissible) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onClose, dismissible]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !dismissible) return;
 
     let pressedOutsidePanel = false;
 
@@ -94,7 +97,7 @@ export function Modal({
       window.removeEventListener("mousedown", onMouseDown, true);
       window.removeEventListener("mouseup", onMouseUp, true);
     };
-  }, [open, onClose]);
+  }, [open, onClose, dismissible]);
 
   const panelClasses = [
     "modal-panel",

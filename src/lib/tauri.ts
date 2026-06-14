@@ -1,15 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { LibrarySettings, LibrarySettingsPatch } from "../types/library";
-import type { CdDisc, CdDiscCdText, CdDrive } from "../types/cd";
+import type { CdDisc, CdDiscCdText, CdDrive, DiscMetadata, DiscMetadataCachePeek, DiscMetadataLookup, DiscTocTrack } from "../types/cd";
+import type { TrackMetadataUpdate } from "../types/metadata";
 import { parseRepeatMode } from "./playbackSession";
 import type { PlaybackSession } from "../types/playbackSession";
 import type { Theme } from "../types/theme";
 import type { LoadedSkinPack, SkinSummary } from "../types/skin";
 import type { CoverArtCandidate } from "../types/coverArt";
-import type { TrackMetadataUpdate } from "../types/metadata";
 import type { Playlist } from "../types/playlist";
 import type { Track, TrackInput } from "../types/track";
+import type { ActivityLogContext } from "../types/activityLog";
 
 function normalizeCoverArtCandidate(
   raw: Record<string, unknown>,
@@ -215,14 +216,33 @@ export async function cacheArtFromUrl(
   return invoke<string>("cache_art_from_url", { url, filePath });
 }
 
+export async function resolveCachedArtPath(
+  filePath: string,
+): Promise<string | null> {
+  return invoke<string | null>("resolve_cached_art_path", { filePath });
+}
+
 export async function fetchCoverArt(
   artist: string,
   album: string,
+  logContext?: ActivityLogContext,
 ): Promise<CoverArtCandidate[]> {
   const rows = await invoke<Record<string, unknown>[]>("fetch_cover_art", {
     artist,
     album,
+    logContext: logContext ?? null,
   });
+  return rows.map(normalizeCoverArtCandidate);
+}
+
+export async function fetchCoverArtForRelease(
+  releaseMbid: string,
+  logContext?: ActivityLogContext,
+): Promise<CoverArtCandidate[]> {
+  const rows = await invoke<Record<string, unknown>[]>(
+    "fetch_cover_art_for_release",
+    { releaseMbid, logContext: logContext ?? null },
+  );
   return rows.map(normalizeCoverArtCandidate);
 }
 
@@ -550,4 +570,116 @@ export async function setCdDetailDrive(
   driveId: string | null,
 ): Promise<void> {
   await invoke("set_cd_detail_drive", { driveId });
+}
+
+function normalizeDiscTrackMetadata(
+  raw: Record<string, unknown>,
+): import("../types/cd").DiscTrackMetadata {
+  return {
+    number: raw.number as number,
+    title: raw.title as string,
+    artist: (raw.artist as string | null | undefined) ?? null,
+  };
+}
+
+function normalizeDiscMetadata(raw: Record<string, unknown>): DiscMetadata {
+  const tracksRaw =
+    (raw.tracks as Record<string, unknown>[] | undefined) ?? [];
+  return {
+    discId: (raw.discId ?? raw.disc_id ?? null) as string | null,
+    album: (raw.album as string | null | undefined) ?? null,
+    albumArtist:
+      (raw.albumArtist as string | null | undefined) ??
+      (raw.album_artist as string | null | undefined) ??
+      null,
+    year: (raw.year as number | null | undefined) ?? null,
+    country: (raw.country as string | null | undefined) ?? null,
+    label: (raw.label as string | null | undefined) ?? null,
+    releaseMbid:
+      (raw.releaseMbid as string | null | undefined) ??
+      (raw.release_mbid as string | null | undefined) ??
+      null,
+    tracks: tracksRaw.map(normalizeDiscTrackMetadata),
+  };
+}
+
+function normalizeDiscMetadataLookup(
+  raw: Record<string, unknown>,
+): DiscMetadataLookup {
+  const candidatesRaw =
+    (raw.candidates as Record<string, unknown>[] | undefined) ?? [];
+  const preferredRaw = raw.preferred as Record<string, unknown> | null | undefined;
+  return {
+    discId: (raw.discId ?? raw.disc_id ?? null) as string | null,
+    candidates: candidatesRaw.map(normalizeDiscMetadata),
+    preferred: preferredRaw ? normalizeDiscMetadata(preferredRaw) : null,
+  };
+}
+
+function normalizeDiscMetadataCachePeek(
+  raw: Record<string, unknown>,
+): DiscMetadataCachePeek {
+  const lookupRaw =
+    (raw.lookup as Record<string, unknown> | undefined) ?? {};
+  return {
+    lookup: normalizeDiscMetadataLookup(lookupRaw),
+    needsNetworkFetch: Boolean(
+      raw.needsNetworkFetch ?? raw.needs_network_fetch,
+    ),
+  };
+}
+
+export async function peekDiscMetadataCache(
+  driveId: string,
+  tracks: DiscTocTrack[],
+  logContext?: ActivityLogContext,
+): Promise<DiscMetadataCachePeek> {
+  const raw = await invoke<Record<string, unknown>>("peek_disc_metadata_cache", {
+    driveId,
+    tracks,
+    logContext: logContext ?? null,
+  });
+  return normalizeDiscMetadataCachePeek(raw);
+}
+
+export async function lookupDiscMetadata(
+  driveId: string,
+  tracks: DiscTocTrack[],
+  options?: { force?: boolean; logContext?: ActivityLogContext },
+): Promise<DiscMetadataLookup> {
+  const raw = await invoke<Record<string, unknown>>("lookup_disc_metadata", {
+    driveId,
+    tracks,
+    forceRefresh: options?.force ?? false,
+    logContext: options?.logContext ?? null,
+  });
+  return normalizeDiscMetadataLookup(raw);
+}
+
+export async function saveDiscMetadataPreference(
+  discId: string,
+  releaseMbid: string,
+): Promise<void> {
+  await invoke("save_disc_metadata_preference", { discId, releaseMbid });
+}
+
+export async function clearMetadataCache(): Promise<void> {
+  await invoke("clear_metadata_cache");
+}
+
+export async function ripCdTrack(
+  driveId: string,
+  trackNumber: number,
+  metadata: TrackMetadataUpdate,
+): Promise<string> {
+  return invoke<string>("rip_cd_track", {
+    driveId,
+    trackNumber,
+    format: "flac",
+    metadata,
+  });
+}
+
+export async function cleanupCdImportTemp(driveId: string): Promise<void> {
+  await invoke("cleanup_cd_rip_temp", { driveId });
 }

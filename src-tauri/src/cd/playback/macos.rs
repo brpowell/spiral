@@ -1,7 +1,6 @@
 //! CD playback engine for macOS: cddafs AIFF file → PCM stream to frontend.
 #![cfg(target_os = "macos")]
 
-use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Condvar, Mutex};
@@ -17,16 +16,13 @@ use super::{
     CdPlaybackStarted, CD_PLAYBACK_ENDED_EVENT, CD_PLAYBACK_ERROR_EVENT,
     CD_PLAYBACK_FLUSH_EVENT, CD_PLAYBACK_PCM_EVENT, CD_PLAYBACK_POSITION_EVENT,
 };
-use crate::cd::platform;
+use crate::cd::aiff_path::find_track_aiff_path;
 use crate::cd::platform::session::{
-    begin_phase, is_read_in_progress, DriveSessionGuard, DriveSessionPhase,
+    begin_phase, DriveSessionGuard, DriveSessionPhase,
 };
 
 /// ~4 Hz position pushes — plenty for a 500ms UI poll.
 const POSITION_EVENT_INTERVAL: Duration = Duration::from_millis(250);
-/// How long `start` waits for an in-flight metadata read before giving up.
-const METADATA_WAIT_TIMEOUT: Duration = Duration::from_secs(5);
-const METADATA_WAIT_POLL: Duration = Duration::from_millis(100);
 const ENGINE_START_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// 2048 frames per chunk (~46 ms at 44.1 kHz).
@@ -106,43 +102,6 @@ fn with_active<R>(f: impl FnOnce(&ActivePlayback) -> R) -> Option<R> {
     guard.as_ref().map(f)
 }
 
-fn wait_for_metadata_read(drive_id: &str) -> Result<(), String> {
-    let deadline = Instant::now() + METADATA_WAIT_TIMEOUT;
-    while is_read_in_progress(drive_id) {
-        if Instant::now() >= deadline {
-            return Err("Drive is busy reading disc info".into());
-        }
-        thread::sleep(METADATA_WAIT_POLL);
-    }
-    Ok(())
-}
-
-/// cddafs names tracks like `1 Audio Track.aiff` (or the CD-Text title) — the
-/// leading integer is the track number.
-fn find_track_file(volume: &Path, track_number: u32) -> Result<PathBuf, String> {
-    let entries = std::fs::read_dir(volume)
-        .map_err(|err| format!("Failed to read CD volume {}: {err}", volume.display()))?;
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let Some(ext) = path.extension().and_then(|ext| ext.to_str()) else {
-            continue;
-        };
-        if !matches!(ext.to_ascii_lowercase().as_str(), "aiff" | "aif" | "aifc") {
-            continue;
-        }
-        let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) else {
-            continue;
-        };
-        let leading: String = stem.chars().take_while(char::is_ascii_digit).collect();
-        if leading.parse::<u32>() == Ok(track_number) {
-            return Ok(path);
-        }
-    }
-
-    Err(format!("Track {track_number} not found on disc"))
-}
-
 fn emit_flush(app: &AppHandle, drive_id: &str, track_number: u32) {
     let payload = CdPlaybackFlush {
         drive_id: drive_id.to_string(),
@@ -159,18 +118,16 @@ pub fn start(
     track_number: u32,
 ) -> Result<CdPlaybackStarted, String> {
     stop();
-    wait_for_metadata_read(drive_id)?;
+    // Hold Playing before path resolution so the brief gap between tracks does
+    // not return Idle and let background disc reads block auto-advance.
+    let session_guard = begin_phase(drive_id, DriveSessionPhase::Playing);
 
-    let volume_path = platform::mounted_volume_path(drive_id)
-        .ok_or_else(|| "No audio CD in drive".to_string())?;
-    let track_path = find_track_file(Path::new(&volume_path), track_number)?;
+    let track_path = find_track_aiff_path(drive_id, track_number)?;
     let source = AiffSource::open(&track_path)?;
     let duration_seconds = source.duration_seconds();
     let sample_rate = source.sample_rate();
     let channels = source.channels();
     let read_failed = source.read_failed_flag();
-
-    let session_guard = begin_phase(drive_id, DriveSessionPhase::Playing);
     let stop_requested = Arc::new(AtomicBool::new(false));
     let is_playing = Arc::new(AtomicBool::new(false));
     let in_flight = Arc::new(InFlightTracker::new());

@@ -26,6 +26,7 @@ struct MonitorState {
     last_emitted_sig: String,
     last_presence_probe: Instant,
     known_has_disc: HashMap<String, bool>,
+    disc_revision: u64,
 }
 
 impl MonitorState {
@@ -35,6 +36,7 @@ impl MonitorState {
             last_emitted_sig: String::new(),
             last_presence_probe: Instant::now() - FALLBACK_PRESENCE_PROBE_INTERVAL,
             known_has_disc: HashMap::new(),
+            disc_revision: 0,
         }
     }
 }
@@ -47,15 +49,17 @@ fn drive_list_signature(drives: &[CdDrive]) -> String {
         .join("|")
 }
 
-fn full_signature(drives: &[CdDrive]) -> String {
-    drives
+fn full_signature(drives: &[CdDrive], disc_revision: u64) -> String {
+    let drives_sig = drives
         .iter()
         .map(|drive| format!("{}:{}:{}", drive.id, drive.name, drive.has_disc))
         .collect::<Vec<_>>()
-        .join("|")
+        .join("|");
+    format!("r{disc_revision}|{drives_sig}")
 }
 
 fn apply_presence_probes(drives: &mut [CdDrive], state: &mut MonitorState) {
+    let previous = state.known_has_disc.clone();
     for drive in drives.iter_mut() {
         if platform::should_skip_monitor_probe(&drive.id) {
             drive.has_disc = platform::cached_disc_presence(&drive.id)
@@ -84,24 +88,50 @@ fn apply_presence_probes(drives: &mut [CdDrive], state: &mut MonitorState) {
         .iter()
         .map(|drive| (drive.id.clone(), drive.has_disc))
         .collect();
+
+    if drives.iter().any(|drive| {
+        previous
+            .get(&drive.id)
+            .is_none_or(|was| *was != drive.has_disc)
+    }) {
+        state.disc_revision = state.disc_revision.saturating_add(1);
+    }
+
     state.last_presence_probe = Instant::now();
 }
 
-fn apply_wake(wake: &MonitorWake) {
+fn apply_wake(wake: &MonitorWake, state: &mut MonitorState) {
+    let mut bump_if_optical = |path: &str| {
+        if platform::is_optical_disc_volume(path) {
+            state.disc_revision = state.disc_revision.saturating_add(1);
+        }
+    };
+
     match wake {
-        MonitorWake::VolumeMounted { path } => platform::note_volume_mounted(path),
-        MonitorWake::VolumeUnmounted { path } => platform::note_volume_unmounted(path),
-        MonitorWake::DeviceStatusChanged => platform::note_device_status_changed(),
+        MonitorWake::VolumeMounted { path } => {
+            platform::note_volume_mounted(path);
+            bump_if_optical(path);
+        }
+        MonitorWake::VolumeUnmounted { path } => {
+            platform::note_volume_unmounted(path);
+            bump_if_optical(path);
+        }
+        MonitorWake::DeviceStatusChanged => {
+            platform::note_device_status_changed();
+            state.disc_revision = state.disc_revision.saturating_add(1);
+        }
     }
 }
 
 fn drain_and_apply_wakes(
     rx: &std::sync::mpsc::Receiver<MonitorWake>,
     first: MonitorWake,
+    state: &Arc<Mutex<MonitorState>>,
 ) {
-    apply_wake(&first);
+    let mut guard = state.lock().expect("cd monitor state poisoned");
+    apply_wake(&first, &mut guard);
     while let Ok(wake) = rx.try_recv() {
-        apply_wake(&wake);
+        apply_wake(&wake, &mut guard);
     }
 }
 
@@ -145,7 +175,10 @@ fn refresh_drives(
 }
 
 fn emit_if_changed(app: &AppHandle, state: &Arc<Mutex<MonitorState>>, drives: Vec<CdDrive>) {
-    let signature = full_signature(&drives);
+    let signature = {
+        let guard = state.lock().expect("cd monitor state poisoned");
+        full_signature(&drives, guard.disc_revision)
+    };
     let changed = {
         let mut guard = state.lock().expect("cd monitor state poisoned");
         let changed = guard.last_emitted_sig != signature;
@@ -182,7 +215,7 @@ pub fn start_monitor(app: AppHandle) {
             let force_presence_probe = match rx.recv_timeout(TICK_INTERVAL) {
                 Ok(wake) => {
                     thread::sleep(EVENT_DEBOUNCE);
-                    drain_and_apply_wakes(&rx, wake);
+                    drain_and_apply_wakes(&rx, wake, &state);
                     true
                 }
                 Err(RecvTimeoutError::Timeout) => false,

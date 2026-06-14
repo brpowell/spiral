@@ -8,11 +8,13 @@ import {
   trackToOrganizePathSample,
   type OrganizePathSample,
 } from "../../lib/organizePathFormat";
-import { pickDatabaseFolder, pickFolder } from "../../lib/tauri";
+import { pickDatabaseFolder, pickFolder, clearMetadataCache } from "../../lib/tauri";
+import { useCdStore } from "../../store/useCdStore";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
-import type { ImportMode, LibrarySettings } from "../../types/library";
+import type { CdMetadataFetchMode, ImportMode, LibrarySettings } from "../../types/library";
 import { Button } from "../common/Button/Button";
+import { Checkbox } from "../common/Checkbox/Checkbox";
 import { FormField } from "../common/Field/Field";
 import {
   Modal,
@@ -23,12 +25,22 @@ import {
   ModalTitle,
 } from "../common/Modal/Modal";
 import { TextInput } from "../common/TextInput/TextInput";
+import { IconCheck } from "../icons";
 import "./PreferencesModal.css";
 
 const IMPORT_MODE_OPTIONS: { value: ImportMode; label: string }[] = [
   { value: "ask", label: "Always ask" },
   { value: "copy", label: "Copy" },
   { value: "reference", label: "Reference" },
+];
+
+const CD_METADATA_FETCH_MODE_OPTIONS: {
+  value: CdMetadataFetchMode;
+  label: string;
+}[] = [
+  { value: "ask", label: "Always ask" },
+  { value: "always", label: "Fetch automatically" },
+  { value: "never", label: "Don't fetch" },
 ];
 
 export function PreferencesModal() {
@@ -47,15 +59,27 @@ export function PreferencesModal() {
   const [previewFromLibrary, setPreviewFromLibrary] = useState(false);
   const [restartHint, setRestartHint] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [clearingMetadataCache, setClearingMetadataCache] = useState(false);
+  const [metadataCacheCleared, setMetadataCacheCleared] = useState(false);
+  const metadataCacheClearedTimeoutRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useFocusTrap(panelRef, open);
+
+  useEffect(() => {
+    return () => {
+      if (metadataCacheClearedTimeoutRef.current != null) {
+        window.clearTimeout(metadataCacheClearedTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!open || !settings) return;
     setDraft({ ...settings });
     setRestartHint(false);
     setError(null);
+    setMetadataCacheCleared(false);
     const tracks = usePlayerStore.getState().library;
     if (tracks.length > 0) {
       setPreviewFromLibrary(true);
@@ -99,6 +123,7 @@ export function PreferencesModal() {
         autoOrganize: draft.autoOrganize,
         organizePathFormat: draft.organizePathFormat,
         importMode: draft.importMode,
+        cdMetadataFetchMode: draft.cdMetadataFetchMode,
         metadataBackupsEnabled: draft.metadataBackupsEnabled,
         metadataBackupRetentionDays: draft.metadataBackupRetentionDays,
       });
@@ -126,6 +151,29 @@ export function PreferencesModal() {
       setDraft((d) =>
         d ? { ...d, databasePath: `${folder}${sep}Library.db` } : d,
       );
+    }
+  };
+
+  const handleClearMetadataCache = async () => {
+    setClearingMetadataCache(true);
+    setError(null);
+    try {
+      await clearMetadataCache();
+      setMetadataCacheCleared(true);
+      if (metadataCacheClearedTimeoutRef.current != null) {
+        window.clearTimeout(metadataCacheClearedTimeoutRef.current);
+      }
+      metadataCacheClearedTimeoutRef.current = window.setTimeout(() => {
+        setMetadataCacheCleared(false);
+        metadataCacheClearedTimeoutRef.current = null;
+      }, 2000);
+      useCdStore.getState().resetMetadataCacheState();
+      void useCdStore.getState().refreshDrives();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+    } finally {
+      setClearingMetadataCache(false);
     }
   };
 
@@ -180,18 +228,18 @@ export function PreferencesModal() {
             </div>
           </FormField>
 
-          <label className="preferences__checkbox">
-            <input
-              type="checkbox"
-              checked={draft.autoOrganize}
-              onChange={(e) =>
-                setDraft((d) =>
-                  d ? { ...d, autoOrganize: e.target.checked } : d,
-                )
-              }
-            />
+          <Checkbox
+            alignStart
+            className="preferences__checkbox"
+            checked={draft.autoOrganize}
+            onChange={(e) =>
+              setDraft((d) =>
+                d ? { ...d, autoOrganize: e.target.checked } : d,
+              )
+            }
+          >
             Automatically organize music in the media folder
-          </label>
+          </Checkbox>
 
           <FormField label="Organization path format">
             <div className="preferences__path-row">
@@ -271,6 +319,65 @@ export function PreferencesModal() {
           </fieldset>
         </section>
 
+        <section className="preferences__section" aria-labelledby="cd-prefs-heading">
+          <h3 id="cd-prefs-heading" className="preferences__section-title">
+            CD
+          </h3>
+          <p className="preferences__hint">
+            When an audio CD is inserted, Spiral can look up album and track
+            information from MusicBrainz.
+          </p>
+
+          <fieldset className="preferences__fieldset">
+            <legend>Metadata lookup</legend>
+            <div className="preferences__segmented">
+              {CD_METADATA_FETCH_MODE_OPTIONS.map((opt) => (
+                <label key={opt.value} className="preferences__segment">
+                  <input
+                    type="radio"
+                    name="cdMetadataFetchMode"
+                    value={opt.value}
+                    checked={draft.cdMetadataFetchMode === opt.value}
+                    onChange={() =>
+                      setDraft((d) =>
+                        d ? { ...d, cdMetadataFetchMode: opt.value } : d,
+                      )
+                    }
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <p className="preferences__hint">
+            Clears cached remote lookup results so the next fetch contacts
+            MusicBrainz and art services again. Release preferences and
+            downloaded art files are kept.
+          </p>
+          <Button
+            variant="secondary"
+            className={
+              metadataCacheCleared
+                ? "preferences__cache-clear-btn preferences__cache-clear-btn--success"
+                : "preferences__cache-clear-btn"
+            }
+            onClick={() => void handleClearMetadataCache()}
+            disabled={saving || clearingMetadataCache}
+          >
+            {clearingMetadataCache ? (
+              "Clearing…"
+            ) : metadataCacheCleared ? (
+              <>
+                <IconCheck aria-hidden />
+                Cache cleared
+              </>
+            ) : (
+              "Clear metadata cache"
+            )}
+          </Button>
+        </section>
+
         <section
           className="preferences__section"
           aria-labelledby="metadata-backups-heading"
@@ -284,18 +391,18 @@ export function PreferencesModal() {
             removed automatically.
           </p>
 
-          <label className="preferences__checkbox">
-            <input
-              type="checkbox"
-              checked={draft.metadataBackupsEnabled}
-              onChange={(e) =>
-                setDraft((d) =>
-                  d ? { ...d, metadataBackupsEnabled: e.target.checked } : d,
-                )
-              }
-            />
+          <Checkbox
+            alignStart
+            className="preferences__checkbox"
+            checked={draft.metadataBackupsEnabled}
+            onChange={(e) =>
+              setDraft((d) =>
+                d ? { ...d, metadataBackupsEnabled: e.target.checked } : d,
+              )
+            }
+          >
             Keep backups before metadata edits
-          </label>
+          </Checkbox>
 
           <FormField label="Retention (days)">
             <TextInput

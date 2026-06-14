@@ -1,0 +1,5 @@
+.cd-import-cancel-dialog__lead {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}

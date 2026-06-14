@@ -5,7 +5,8 @@ import {
   isTrackInteractive,
 } from "../../lib/pendingImportTrack";
 import { hasNavigableAlbum, hasNavigableArtist } from "../../lib/trackNavigation";
-import { IconGrip } from "../icons";
+import { IconCheck, IconGrip } from "../icons";
+import { ImportIndicator } from "../ImportIndicator/ImportIndicator";
 import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
 import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
 import { TrackRowMenu } from "../TrackRowMenu/TrackRowMenu";
@@ -88,6 +89,9 @@ export interface TrackListRowProps {
   canReorder: boolean;
   playlistId?: number;
   isSelected: boolean;
+  checkMode?: boolean;
+  isChecked?: boolean;
+  onToggleChecked?: (track: Track, checked: boolean) => void;
   isNowPlaying: boolean;
   isActivelyPlaying: boolean;
   isDragging: boolean;
@@ -102,6 +106,9 @@ export interface TrackListRowProps {
   readOnly?: boolean;
   cdDriveId?: string;
   cdTracks?: Track[];
+  cdImportingTrackIds?: ReadonlySet<number>;
+  cdImportingActiveTrackId?: number | null;
+  cdImportCompletedTrackIds?: ReadonlySet<number>;
   virtualStyle?: CSSProperties;
 }
 
@@ -115,6 +122,9 @@ function TrackListRowComponent({
   canReorder,
   playlistId,
   isSelected,
+  checkMode = false,
+  isChecked = false,
+  onToggleChecked,
   isNowPlaying,
   isActivelyPlaying,
   isDragging,
@@ -129,24 +139,34 @@ function TrackListRowComponent({
   readOnly = false,
   cdDriveId,
   cdTracks,
+  cdImportingTrackIds,
+  cdImportingActiveTrackId = null,
+  cdImportCompletedTrackIds,
   virtualStyle,
 }: TrackListRowProps) {
   const isImporting = isTrackImporting(track);
+  const isCdImporting = cdImportingTrackIds?.has(track.id) ?? false;
+  const isCdImportComplete = cdImportCompletedTrackIds?.has(track.id) ?? false;
+  const isCdImportingEmphasized =
+    isCdImporting &&
+    (cdImportingActiveTrackId == null || track.id === cdImportingActiveTrackId);
   const isCdList = cdDriveId != null && cdTracks != null;
   const isInteractive = isTrackInteractive(track) && (!readOnly || isCdList);
-  const canPlay = isTrackInteractive(track);
+  const canPlay = isTrackInteractive(track) && !isCdImporting;
 
   const rowContent = (
         <div
-          role={canPlay ? "button" : "group"}
-          tabIndex={canPlay ? 0 : -1}
-          aria-disabled={isImporting || undefined}
+          role={canPlay ? "button" : isInteractive ? "group" : undefined}
+          tabIndex={canPlay || isInteractive ? 0 : -1}
+          aria-disabled={isImporting || isCdImporting || undefined}
           className={[
             "track-list__row",
             showAlbumArt && "track-list__row--with-art",
             isSelected && "track-list__row--selected",
+            checkMode && isChecked && "track-list__row--checked",
             isNowPlaying && "track-list__row--playing",
-            isImporting && "track-list__row--importing",
+            (isImporting || isCdImporting) && "track-list__row--importing",
+            checkMode && "track-list__row--check-mode",
           ]
             .filter(Boolean)
             .join(" ")}
@@ -165,6 +185,30 @@ function TrackListRowComponent({
           }}
         >
           {visibleColumns.map((col) => {
+            if (col.id === "check") {
+              return (
+                <span
+                  key={col.id}
+                  className="track-list__cell track-list__cell--check track-list__cell--center"
+                >
+                  <label
+                    className="track-list__check-label"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      className="track-list__checkbox"
+                      checked={isChecked}
+                      onChange={(e) =>
+                        onToggleChecked?.(track, e.target.checked)
+                      }
+                      aria-label={`Select ${track.title}`}
+                    />
+                  </label>
+                </span>
+              );
+            }
+
             if (col.id === indexColumn) {
               return (
                 <span
@@ -196,6 +240,16 @@ function TrackListRowComponent({
                       <span
                         className="track-list__import-spinner"
                         aria-label="Importing"
+                      />
+                    ) : isCdImportComplete ? (
+                      <IconCheck
+                        className="track-list__import-complete"
+                        aria-label="Imported"
+                      />
+                    ) : isCdImporting ? (
+                      <ImportIndicator
+                        inline
+                        emphasized={isCdImportingEmphasized}
                       />
                     ) : isActivelyPlaying ? (
                       <PlayingIndicator active inline />
@@ -323,6 +377,9 @@ function rowPropsEqual(
     prev.track.id === next.track.id &&
     prev.displayIndex === next.displayIndex &&
     prev.isSelected === next.isSelected &&
+    prev.checkMode === next.checkMode &&
+    prev.isChecked === next.isChecked &&
+    prev.onToggleChecked === next.onToggleChecked &&
     prev.isNowPlaying === next.isNowPlaying &&
     prev.isActivelyPlaying === next.isActivelyPlaying &&
     prev.isDragging === next.isDragging &&
@@ -343,6 +400,9 @@ function rowPropsEqual(
     prev.readOnly === next.readOnly &&
     prev.cdDriveId === next.cdDriveId &&
     prev.cdTracks === next.cdTracks &&
+    prev.cdImportingTrackIds === next.cdImportingTrackIds &&
+    prev.cdImportingActiveTrackId === next.cdImportingActiveTrackId &&
+    prev.cdImportCompletedTrackIds === next.cdImportCompletedTrackIds &&
     virtualStyleEqual(prev.virtualStyle, next.virtualStyle)
   );
 }

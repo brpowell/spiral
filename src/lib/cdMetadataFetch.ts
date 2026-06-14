@@ -1,0 +1,206 @@
+import { fetchAlbumArtForRelease, fetchAlbumArtPath, resolveAlbumArtPath } from "./albumArtFetch";
+import { ensureCdHeroArtValid } from "./cdArt";
+import { createOperationId, logActivity, withLogContext } from "./activityLog";
+import { isNetworkLikelyAvailable } from "./network";
+import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
+import { useCdStore } from "../store/useCdStore";
+import type { ActivityLogContext } from "../types/activityLog";
+import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+
+function resolveCdHeroArtQuery(
+  driveId: string,
+): { artist: string; album: string; releaseMbid?: string | null } | null {
+  const metadata = useCdStore.getState().metadataByDriveId[driveId];
+  const disc = useCdStore.getState().discsByDriveId[driveId];
+  const album = metadata?.album?.trim() || disc?.album?.trim();
+  const artist =
+    metadata?.albumArtist?.trim() ||
+    disc?.artist?.trim() ||
+    metadata?.tracks[0]?.artist?.trim();
+  if (!artist || !album) return null;
+  return { artist, album, releaseMbid: metadata?.releaseMbid };
+}
+
+function buildLogContext(
+  driveId: string,
+  operationId: string,
+): ActivityLogContext {
+  const disc = useCdStore.getState().discsByDriveId[driveId];
+  return {
+    operationId,
+    driveId,
+    discId: disc?.discId ?? undefined,
+  };
+}
+
+async function resolveCdHeroArtCachePath(
+  driveId: string,
+  logContext?: ActivityLogContext,
+): Promise<string | null> {
+  const query = resolveCdHeroArtQuery(driveId);
+  if (!query) return null;
+  const context = withLogContext(logContext, {
+    artist: query.artist,
+    album: query.album,
+    releaseMbid: query.releaseMbid ?? undefined,
+  });
+  return resolveAlbumArtPath(`${query.artist} - ${query.album}`, context);
+}
+
+async function fetchAndSetHeroArt(
+  driveId: string,
+  logContext?: ActivityLogContext,
+): Promise<void> {
+  const query = resolveCdHeroArtQuery(driveId);
+  if (!query) {
+    logActivity({
+      level: "warn",
+      domain: ACTIVITY_LOG_DOMAINS.coverArt,
+      message: "Skipped hero art fetch: missing artist or album",
+      operationId: logContext?.operationId,
+      context: logContext,
+    });
+    return;
+  }
+
+  const context = withLogContext(logContext, {
+    artist: query.artist,
+    album: query.album,
+    releaseMbid: query.releaseMbid ?? undefined,
+  });
+
+  const cacheLabel = `${query.artist} - ${query.album}`;
+  let artPath = await resolveAlbumArtPath(cacheLabel, context);
+
+  if (!artPath) {
+    if (!isNetworkLikelyAvailable()) {
+      logActivity({
+        level: "warn",
+        domain: ACTIVITY_LOG_DOMAINS.coverArt,
+        message: "Skipped hero art fetch: network unavailable and no local cache",
+        operationId: logContext?.operationId,
+        context: logContext,
+      });
+      return;
+    }
+
+    if (query.releaseMbid?.trim()) {
+      artPath = await fetchAlbumArtForRelease(
+        query.releaseMbid.trim(),
+        cacheLabel,
+        context,
+      );
+    }
+    if (!artPath) {
+      artPath = await fetchAlbumArtPath(query.artist, query.album, context);
+    }
+  }
+
+  if (artPath) {
+    useCdStore.getState().setHeroArt(driveId, artPath);
+    logActivity({
+      level: "info",
+      domain: ACTIVITY_LOG_DOMAINS.coverArt,
+      message: "Hero art cached for CD",
+      operationId: context.operationId,
+      context,
+      details: { artPath },
+    });
+  } else {
+    logActivity({
+      level: "warn",
+      domain: ACTIVITY_LOG_DOMAINS.coverArt,
+      message: "No hero art found for CD",
+      operationId: context.operationId,
+      context,
+    });
+  }
+}
+
+export function startCdHeroArtFetch(driveId: string): void {
+  if (!resolveCdHeroArtQuery(driveId)) return;
+
+  const operationId = createOperationId();
+  const logContext = buildLogContext(driveId, operationId);
+
+  void (async () => {
+    const existing = await ensureCdHeroArtValid(driveId);
+    if (existing) return;
+
+    const cachedPath = await resolveCdHeroArtCachePath(driveId, logContext);
+    if (cachedPath) {
+      useCdStore.getState().setHeroArt(driveId, cachedPath);
+      return;
+    }
+
+    logActivity({
+      level: "info",
+      domain: ACTIVITY_LOG_DOMAINS.coverArt,
+      message: "Starting CD hero art fetch",
+      operationId,
+      context: logContext,
+    });
+
+    useBackgroundTasksStore.getState().runInBackground({
+      key: `cd-hero-art-${driveId}`,
+      label: "Fetching album art…",
+      run: async () => {
+        await fetchAndSetHeroArt(driveId, logContext);
+      },
+    });
+  })();
+}
+
+export function startCdMetadataFetch(driveId: string): void {
+  const operationId = createOperationId();
+  const logContext = buildLogContext(driveId, operationId);
+
+  logActivity({
+    level: "info",
+    domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+    message: "Starting CD metadata fetch",
+    operationId,
+    context: logContext,
+  });
+
+  useBackgroundTasksStore.getState().runInBackground({
+    key: `cd-metadata-${driveId}`,
+    label: "Looking up album metadata…",
+    run: async (ctx) => {
+      try {
+        await useCdStore.getState().loadDiscMetadata(driveId, {
+          force: true,
+          logContext,
+        });
+
+        const needsRemoteArt =
+          (await resolveCdHeroArtCachePath(driveId, logContext)) == null;
+        if (needsRemoteArt) {
+          ctx.setDetail("Fetching album art…");
+        }
+        await fetchAndSetHeroArt(driveId, logContext);
+        ctx.clearDetail();
+
+        logActivity({
+          level: "info",
+          domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+          message: "CD metadata fetch completed",
+          operationId,
+          context: logContext,
+        });
+      } catch (err) {
+        logActivity({
+          level: "error",
+          domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+          message: "CD metadata fetch failed",
+          operationId,
+          context: logContext,
+          details: {
+            error: err instanceof Error ? err.message : String(err),
+          },
+        });
+        throw err;
+      }
+    },
+  });
+}

@@ -1,0 +1,312 @@
+.activity-logs-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.activity-logs-panel__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  flex-shrink: 0;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.activity-logs-panel__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.activity-logs-panel__filter {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-button);
+  padding: 0.25rem 0.6rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.activity-logs-panel__filter:hover {
+  color: var(--color-text-primary);
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+}
+
+.activity-logs-panel__filter--active {
+  color: var(--color-text-primary);
+  border-color: var(--color-accent-muted);
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+}
+
+.activity-logs-panel__controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin-left: auto;
+}
+
+.activity-logs-panel__level-select {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-button);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.78rem;
+}
+
+.activity-logs-panel__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.activity-logs-panel__list {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin-top: 0.5rem;
+  padding-right: 0.15rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  outline: none;
+}
+
+.activity-logs-panel__list:focus-visible {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent);
+  border-radius: var(--radius-button);
+}
+
+.activity-logs-panel__list--drag-selecting {
+  user-select: none;
+  cursor: default;
+}
+
+.activity-logs-panel__entry--drag-selecting,
+.activity-logs-panel__list--drag-selecting .activity-logs-panel__body,
+.activity-logs-panel__list--drag-selecting .activity-logs-panel__json {
+  user-select: none;
+  cursor: default;
+}
+
+.activity-logs-panel__empty {
+  padding: 2rem 0;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.activity-logs-panel__list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.activity-logs-panel__group-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.35rem 0.5rem;
+  margin-top: 0.35rem;
+  border-radius: var(--radius-button);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.activity-logs-panel__list-item:first-child .activity-logs-panel__group-header {
+  margin-top: 0;
+}
+
+.activity-logs-panel__entry {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: start;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-button);
+  cursor: default;
+  border: 1px solid transparent;
+}
+
+.activity-logs-panel__entry:hover {
+  background: var(--color-surface-raised);
+}
+
+.activity-logs-panel__entry--selected {
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.activity-logs-panel__entry--selected:hover {
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
+}
+
+.activity-logs-panel__entry--expanded {
+  background: var(--color-surface-raised);
+}
+
+.activity-logs-panel__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  user-select: text;
+  cursor: text;
+}
+
+.activity-logs-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.activity-logs-panel__entry:hover .activity-logs-panel__actions,
+.activity-logs-panel__entry--selected .activity-logs-panel__actions,
+.activity-logs-panel__entry:focus-within .activity-logs-panel__actions {
+  opacity: 1;
+}
+
+.activity-logs-panel__action {
+  flex-shrink: 0;
+}
+
+.activity-logs-panel__action svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.activity-logs-panel__time {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.activity-logs-panel__level {
+  display: inline-block;
+  min-width: 3.25rem;
+  text-align: center;
+  border-radius: 999px;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.activity-logs-panel__level--debug {
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-text-secondary) 15%, transparent);
+}
+
+.activity-logs-panel__level--info {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+.activity-logs-panel__level--warn {
+  color: #d4a017;
+  background: color-mix(in srgb, #d4a017 15%, transparent);
+}
+
+.activity-logs-panel__level--error {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+}
+
+.activity-logs-panel__message {
+  color: var(--color-text-primary);
+  min-width: 0;
+  word-break: break-word;
+}
+
+.activity-logs-panel__hint {
+  flex-shrink: 0;
+  margin: 0.5rem 0 0;
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+}
+
+.activity-logs-panel__json {
+  grid-column: 1 / -1;
+  margin: 0.15rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-button);
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  user-select: text;
+  cursor: text;
+}
+
+@media (max-width: 640px) {
+  .activity-logs-panel__controls {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .activity-logs-panel__entry {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "time actions"
+      "level actions"
+      "body body"
+      "json json";
+  }
+
+  .activity-logs-panel__time {
+    grid-area: time;
+  }
+
+  .activity-logs-panel__level {
+    grid-area: level;
+    justify-self: start;
+  }
+
+  .activity-logs-panel__body {
+    grid-area: body;
+  }
+
+  .activity-logs-panel__actions {
+    grid-area: actions;
+    justify-self: end;
+    align-self: start;
+    opacity: 1;
+  }
+
+  .activity-logs-panel__json {
+    grid-area: json;
+  }
+}
+
+@media (max-width: 420px) {
+  .activity-logs-panel__hint {
+    display: none;
+  }
+
+  .activity-logs-panel__toolbar {
+    gap: 0.65rem;
+  }
+}

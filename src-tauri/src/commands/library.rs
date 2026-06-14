@@ -61,15 +61,17 @@ pub fn remove_track(
         }
     }
 
-    if let Some(art_path) = &track.art_path {
-        let path = Path::new(art_path);
-        if path.exists() {
-            let _ = fs::remove_file(path);
-        }
-    }
-
     if let Ok(app_data) = app.path().app_data_dir() {
         let _ = art_cache::remove_cached_art(&app_data, &track.file_path);
+
+        if let Some(art_path) = &track.art_path {
+            if art_cache::art_path_is_track_owned(&app_data, &track.file_path, art_path) {
+                let path = Path::new(art_path);
+                if path.exists() {
+                    let _ = fs::remove_file(path);
+                }
+            }
+        }
     }
 
     Ok(())

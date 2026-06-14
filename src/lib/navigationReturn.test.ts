@@ -6,6 +6,7 @@ import {
   stateAfterCloseArtist,
   stateAfterClosePlaylist,
 } from "./navigationReturn";
+import { useCdStore } from "../store/useCdStore";
 import type { Artist } from "../types/artist";
 import type { Playlist } from "../types/playlist";
 
@@ -76,6 +77,37 @@ describe("captureReturnContext", () => {
       ),
     ).toEqual({ kind: "playlist", playlistId: 7, title: "Road Trip" });
   });
+
+  it("captures disc title when opening album from CD detail", () => {
+    useCdStore.setState({
+      drives: [{ id: "drive-1", name: "HL-DT-ST BD-RE BP60NB10", hasDisc: true }],
+      discsByDriveId: {
+        "drive-1": {
+          driveId: "drive-1",
+          album: "CALL ME IF YOU GET LOST",
+          artist: "Tyler, The Creator",
+          tracks: [],
+        },
+      },
+    });
+
+    expect(
+      captureReturnContext(
+        {
+          view: "library",
+          albumKey: null,
+          artistKey: null,
+          playlistId: null,
+          cdDriveId: "drive-1",
+        },
+        [],
+      ),
+    ).toEqual({
+      kind: "cd",
+      driveId: "drive-1",
+      title: "CALL ME IF YOU GET LOST",
+    });
+  });
 });
 
 describe("detailReturnLabel", () => {
@@ -89,6 +121,31 @@ describe("detailReturnLabel", () => {
     expect(
       detailReturnLabel({ kind: "artist", artistKey: "rage" }, artists),
     ).toBe("Rage Against the Machine");
+  });
+
+  it("labels CD return with disc title, not drive name", () => {
+    useCdStore.setState({
+      drives: [{ id: "drive-1", name: "HL-DT-ST BD-RE BP60NB10", hasDisc: true }],
+      discsByDriveId: {
+        "drive-1": {
+          driveId: "drive-1",
+          album: "CALL ME IF YOU GET LOST",
+          artist: "Tyler, The Creator",
+          tracks: [],
+        },
+      },
+    });
+
+    expect(
+      detailReturnLabel(
+        {
+          kind: "cd",
+          driveId: "drive-1",
+          title: "HL-DT-ST BD-RE BP60NB10",
+        },
+        artists,
+      ),
+    ).toBe("CALL ME IF YOU GET LOST");
   });
 });
 

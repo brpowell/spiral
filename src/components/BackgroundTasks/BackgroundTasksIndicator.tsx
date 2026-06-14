@@ -1,7 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
 import { Button } from "../common/Button/Button";
 import { IconCheck, IconClose } from "../icons";
 import { panelMotion } from "../../lib/motion";
+import { useCdImportStore } from "../../store/useCdImportStore";
 import {
   useBackgroundTasksStore,
   type BackgroundTask,
@@ -26,6 +28,13 @@ function TaskStatusIcon({ status }: { status: BackgroundTask["status"] }) {
       </span>
     );
   }
+  if (status === "cancelled") {
+    return (
+      <span className="background-tasks__icon background-tasks__icon--cancelled" aria-hidden>
+        <IconClose />
+      </span>
+    );
+  }
   return (
     <span className="background-tasks__icon background-tasks__icon--error" aria-hidden>
       !
@@ -35,8 +44,12 @@ function TaskStatusIcon({ status }: { status: BackgroundTask["status"] }) {
 
 function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
   const dismissTask = useBackgroundTasksStore((s) => s.dismissTask);
+  const requestCancelImport = useCdImportStore((s) => s.requestCancelImport);
+  const cancelRequested = useCdImportStore((s) => s.cancelRequested);
   const progress = formatProgress(task);
   const isDone = task.status !== "running";
+  const showCancel =
+    task.status === "running" && task.cancellable && task.key === "cd-import";
 
   return (
     <motion.div
@@ -53,6 +66,17 @@ function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
           <span className="background-tasks__meta">{progress ?? task.detail}</span>
         )}
       </div>
+      {showCancel && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="background-tasks__cancel"
+          onClick={() => requestCancelImport()}
+          disabled={cancelRequested}
+        >
+          {cancelRequested ? "Cancelling…" : "Cancel"}
+        </Button>
+      )}
       {isDone && (
         <Button
           variant="ghost"
@@ -72,13 +96,14 @@ function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
 export function BackgroundTasksIndicator() {
   const tasks = useBackgroundTasksStore((s) => s.tasks);
 
-  return (
+  return createPortal(
     <div className="background-tasks" aria-label="Background tasks">
       <AnimatePresence mode="sync">
         {tasks.map((task) => (
           <BackgroundTaskItem key={task.id} task={task} />
         ))}
       </AnimatePresence>
-    </div>
+    </div>,
+    document.body,
   );
 }
