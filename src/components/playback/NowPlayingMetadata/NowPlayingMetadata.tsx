@@ -1,9 +1,13 @@
-import { useCallback, useMemo } from "react";
+import { LayoutGroup, motion } from "framer-motion";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAssetUrl } from "../../../hooks/useAssetUrl";
-import { albumKey } from "../../../lib/albums";
 import { findPlaybackTrack } from "../../../lib/playbackTrack";
-import { useNavigationStore } from "../../../store/useNavigationStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
+import {
+  AlbumArtLightbox,
+  albumArtLayoutTransition,
+  NOW_PLAYING_ART_LAYOUT_ID,
+} from "../../AlbumArtLightbox/AlbumArtLightbox";
 import { ScrollingText } from "../../ScrollingText/ScrollingText";
 import { IconAlbumPlaceholder } from "../../icons";
 import "./NowPlayingMetadata.css";
@@ -12,20 +16,17 @@ interface NowPlayingMetadataProps {
   className?: string;
   showArt?: boolean;
   showText?: boolean;
-  /** When set, art click invokes this instead of default album navigation. */
-  onArtClick?: () => void;
 }
 
 export function NowPlayingMetadata({
   className,
   showArt = true,
   showText = true,
-  onArtClick,
 }: NowPlayingMetadataProps) {
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
-  const openAlbum = useNavigationStore((s) => s.openAlbum);
+  const [artOpen, setArtOpen] = useState(false);
 
   const currentTrack = useMemo(
     () =>
@@ -39,58 +40,83 @@ export function NowPlayingMetadata({
     ? [currentTrack.artist, currentTrack.album].filter(Boolean).join(" — ")
     : null;
 
+  useEffect(() => {
+    setArtOpen(false);
+  }, [currentTrackId]);
+
   const handleArtClick = useCallback(() => {
-    if (onArtClick) {
-      onArtClick();
-      return;
+    if (artSrc) {
+      setArtOpen(true);
     }
-    if (currentTrack) {
-      openAlbum(albumKey(currentTrack));
-    }
-  }, [currentTrack, onArtClick, openAlbum]);
+  }, [artSrc]);
 
   const artLabel = currentTrack?.album
-    ? `View album ${currentTrack.album}`
-    : "View album";
+    ? `View album art for ${currentTrack.album}`
+    : "View album art";
 
   return (
-    <div
-      className={["now-playing-metadata", className].filter(Boolean).join(" ")}
-    >
-      {showArt ? (
-        <button
-          type="button"
-          className="now-playing-metadata__art"
-          onClick={handleArtClick}
-          disabled={!currentTrack}
-          aria-label={artLabel}
-        >
-          {artSrc ? (
-            <img
-              src={artSrc}
-              alt=""
-              className="now-playing-metadata__art-img"
-            />
+    <LayoutGroup>
+      <div
+        className={["now-playing-metadata", className].filter(Boolean).join(" ")}
+      >
+        {showArt ? (
+          artSrc ? (
+            <motion.button
+              type="button"
+              className="now-playing-metadata__art"
+              layoutId={NOW_PLAYING_ART_LAYOUT_ID}
+              transition={albumArtLayoutTransition}
+              onClick={handleArtClick}
+              disabled={!currentTrack}
+              aria-label={artLabel}
+            >
+              <img
+                src={artSrc}
+                alt=""
+                className="now-playing-metadata__art-img"
+              />
+            </motion.button>
           ) : (
-            <div className="now-playing-metadata__art-placeholder" aria-hidden>
-              <IconAlbumPlaceholder />
-            </div>
-          )}
-        </button>
-      ) : null}
+            <button
+              type="button"
+              className="now-playing-metadata__art"
+              onClick={handleArtClick}
+              disabled={!currentTrack}
+              aria-label={artLabel}
+            >
+              <div
+                className="now-playing-metadata__art-placeholder"
+                aria-hidden
+              >
+                <IconAlbumPlaceholder />
+              </div>
+            </button>
+          )
+        ) : null}
 
-      {showText ? (
-        <div className="now-playing-metadata__text">
-          <ScrollingText
-            className="now-playing-metadata__title"
-            text={currentTrack?.title ?? "No track selected"}
-          />
-          <ScrollingText
-            className="now-playing-metadata__subtitle"
-            text={subtitle ?? "Unknown artist"}
-          />
-        </div>
+        {showText ? (
+          <div className="now-playing-metadata__text">
+            <ScrollingText
+              className="now-playing-metadata__title"
+              text={currentTrack?.title ?? "No track selected"}
+            />
+            <ScrollingText
+              className="now-playing-metadata__subtitle"
+              text={subtitle ?? "Unknown artist"}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      {artSrc ? (
+        <AlbumArtLightbox
+          open={artOpen}
+          onClose={() => setArtOpen(false)}
+          artSrc={artSrc}
+          alt={currentTrack?.album ?? ""}
+          caption={subtitle ?? undefined}
+        />
       ) : null}
-    </div>
+    </LayoutGroup>
   );
 }
