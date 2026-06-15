@@ -13,6 +13,10 @@ After the developer signals they are happy with the current direction or final v
 
 Do not start a cleanup pass unprompted unless they accept the offer.
 
+## Cleanup on codeword
+
+Run cleanup pass when the codeword "scrubit" is provided, especially when used as the only word in a message.
+
 ## What to look for
 
 - Unused functions, components, hooks, or modules added during exploration

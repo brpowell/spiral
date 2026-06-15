@@ -447,11 +447,16 @@ export interface TrackListPreferencesPayload {
       | "duration"
       | "year"
       | "genre"
-      | "discNumber",
+      | "discNumber"
+      | "dateAdded"
+      | "playCount",
       number
     >
   >;
   hiddenColumns: string[];
+  columnOrderByPreset: Partial<
+    Record<"library" | "album" | "playlist" | "cd", string[]>
+  >;
 }
 
 function normalizeTrackListPreferences(
@@ -476,7 +481,22 @@ function normalizeTrackListPreferences(
     ? hiddenRaw.filter((v): v is string => typeof v === "string")
     : [];
 
-  return { columnWidths, hiddenColumns };
+  const orderRaw =
+    (raw.columnOrderByPreset as
+      | Record<string, unknown>
+      | undefined) ??
+    (raw.column_order_by_preset as Record<string, unknown> | undefined);
+  const columnOrderByPreset: TrackListPreferencesPayload["columnOrderByPreset"] =
+    {};
+  if (orderRaw && typeof orderRaw === "object") {
+    for (const [presetKey, ids] of Object.entries(orderRaw)) {
+      if (!Array.isArray(ids)) continue;
+      columnOrderByPreset[presetKey as keyof typeof columnOrderByPreset] =
+        ids.filter((v): v is string => typeof v === "string");
+    }
+  }
+
+  return { columnWidths, hiddenColumns, columnOrderByPreset };
 }
 
 export async function getTrackListPreferences(): Promise<TrackListPreferencesPayload> {

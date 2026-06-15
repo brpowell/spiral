@@ -2,14 +2,15 @@ import {
   getTrackListPreferences as fetchTrackListPreferences,
   saveTrackListPreferences as persistTrackListPreferences,
 } from "../../lib/tauri";
-import type { TrackListColumnId } from "./types";
-import { defaultHiddenColumns } from "./types";
+import type { TrackListColumnDef, TrackListColumnId, TrackListPresetId } from "./types";
+import { defaultHiddenColumns, TRACK_LIST_PRESETS } from "./types";
 
 const LEGACY_STORAGE_KEY = "spiral-track-list-preferences";
 
 export interface TrackListPreferences {
   columnWidths: Partial<Record<TrackListColumnId, number>>;
   hiddenColumns: TrackListColumnId[];
+  columnOrderByPreset: Partial<Record<TrackListPresetId, TrackListColumnId[]>>;
 }
 
 const VALID_COLUMN_IDS = new Set<TrackListColumnId>([
@@ -31,17 +32,14 @@ export function defaultTrackListPreferences(): TrackListPreferences {
   return {
     columnWidths: {},
     hiddenColumns: defaultHiddenColumns("library"),
+    columnOrderByPreset: {},
   };
-}
-
-function defaultPreferences(): TrackListPreferences {
-  return defaultTrackListPreferences();
 }
 
 function normalizePreferences(
   raw: Partial<TrackListPreferences> | null | undefined,
 ): TrackListPreferences {
-  const defaults = defaultPreferences();
+  const defaults = defaultTrackListPreferences();
   if (!raw) return defaults;
 
   const columnWidths: Partial<Record<TrackListColumnId, number>> = {};
@@ -63,7 +61,90 @@ function normalizePreferences(
       )
     : defaults.hiddenColumns;
 
-  return { columnWidths, hiddenColumns };
+  const columnOrderByPreset: Partial<
+    Record<TrackListPresetId, TrackListColumnId[]>
+  > = {};
+  const orderRaw = raw.columnOrderByPreset;
+  if (orderRaw && typeof orderRaw === "object") {
+    for (const [presetKey, ids] of Object.entries(orderRaw)) {
+      if (!Array.isArray(ids)) continue;
+      const preset = presetKey as TrackListPresetId;
+      if (!(preset in TRACK_LIST_PRESETS)) continue;
+      const validIds = new Set(TRACK_LIST_PRESETS[preset].columns.map((c) => c.id));
+      const filtered = ids.filter(
+        (id): id is TrackListColumnId =>
+          VALID_COLUMN_IDS.has(id as TrackListColumnId) && validIds.has(id),
+      );
+      if (filtered.length > 0) {
+        columnOrderByPreset[preset] = filtered;
+      }
+    }
+  }
+
+  return { columnWidths, hiddenColumns, columnOrderByPreset };
+}
+
+export function columnIdsForPreset(
+  presetId: TrackListPresetId,
+  prefs: TrackListPreferences,
+): TrackListColumnId[] {
+  const preset = TRACK_LIST_PRESETS[presetId];
+  const saved = prefs.columnOrderByPreset[presetId];
+  if (!saved?.length) return preset.columns.map((col) => col.id);
+
+  const presetIds = preset.columns.map((col) => col.id);
+  const presetIdSet = new Set(presetIds);
+  const result: TrackListColumnId[] = [];
+  const seen = new Set<TrackListColumnId>();
+
+  for (const id of saved) {
+    if (presetIdSet.has(id) && !seen.has(id)) {
+      result.push(id);
+      seen.add(id);
+    }
+  }
+  for (const id of presetIds) {
+    if (!seen.has(id)) {
+      result.push(id);
+      seen.add(id);
+    }
+  }
+  return result;
+}
+
+export function columnsForPreset(
+  presetId: TrackListPresetId,
+  prefs: TrackListPreferences,
+): TrackListColumnDef[] {
+  const preset = TRACK_LIST_PRESETS[presetId];
+  const columnById = new Map(preset.columns.map((col) => [col.id, col]));
+  return columnIdsForPreset(presetId, prefs).flatMap((id) => {
+    const col = columnById.get(id);
+    return col ? [col] : [];
+  });
+}
+
+export function reorderColumnIds(
+  order: TrackListColumnId[],
+  fromId: TrackListColumnId,
+  toId: TrackListColumnId,
+  lockedId: TrackListColumnId,
+): TrackListColumnId[] {
+  if (fromId === lockedId || toId === lockedId) return order;
+  const fromIndex = order.indexOf(fromId);
+  const toIndex = order.indexOf(toId);
+  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return order;
+
+  const next = [...order];
+  next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, fromId);
+
+  const lockedIndex = next.indexOf(lockedId);
+  if (lockedIndex > 0) {
+    next.splice(lockedIndex, 1);
+    next.unshift(lockedId);
+  }
+  return next;
 }
 
 function readLegacyLocalStorage(): TrackListPreferences | null {
@@ -102,7 +183,8 @@ export function loadTrackListPreferences(): Promise<TrackListPreferences> {
       );
       const hasDiskData =
         Object.keys(fromDisk.columnWidths).length > 0 ||
-        fromDisk.hiddenColumns.length > 0;
+        fromDisk.hiddenColumns.length > 0 ||
+        Object.keys(fromDisk.columnOrderByPreset).length > 0;
 
       if (hasDiskData) {
         cached = fromDisk;
@@ -124,7 +206,7 @@ export function loadTrackListPreferences(): Promise<TrackListPreferences> {
       return legacy;
     }
 
-    cached = defaultPreferences();
+    cached = defaultTrackListPreferences();
     return cached;
   })().finally(() => {
     loadPromise = null;
@@ -146,7 +228,7 @@ export async function saveTrackListPreferences(
 }
 
 export function hiddenColumnsForPreset(
-  presetId: import("./types").TrackListPresetId,
+  presetId: TrackListPresetId,
   prefs: TrackListPreferences,
 ): Set<TrackListColumnId> {
   const hideable = new Set(
@@ -160,7 +242,7 @@ export function hiddenColumnsForPreset(
 }
 
 const TRACK_LIST_HIDEABLE_BY_PRESET: Partial<
-  Record<import("./types").TrackListPresetId, TrackListColumnId[]>
+  Record<TrackListPresetId, TrackListColumnId[]>
 > = {
   library: [
     "artist",

@@ -10,6 +10,7 @@ import {
   useTrackListColumns,
 } from "./useTrackListColumns";
 import { useTrackListHeaderMenu } from "./useTrackListHeaderMenu";
+import { useTrackListColumnReorder } from "./useTrackListColumnReorder";
 import {
   CHECK_COL,
   DEFAULT_COLUMN_WIDTHS,
@@ -221,8 +222,17 @@ export function TrackList({
     toggleColumnVisibility,
     hideColumn,
     isColumnVisible,
+    reorderColumns,
+    canReorderColumns,
     flushSave,
   } = useTrackListColumns(presetId);
+
+  const { draggingColumnId, dragOverColumnId, startColumnReorder } =
+    useTrackListColumnReorder({
+      indexColumn: preset.indexColumn,
+      enabled: canReorderColumns,
+      onReorder: reorderColumns,
+    });
 
   const { onHeaderContextMenu, contextMenu: headerContextMenu } =
     useTrackListHeaderMenu({
@@ -258,6 +268,8 @@ export function TrackList({
   const renderHeaderCell = (col: TrackListColumnDef) => {
     const field = sortFieldForColumn(col);
     const label = `${col.label}${field && onSort ? sortIndicator(field) : ""}`;
+    const isIndexColumn = col.id === preset.indexColumn;
+    const isColumnReorderable = canReorderColumns && !isIndexColumn;
 
     const showHeaderCheckbox =
       checkMode && col.id === "check" && onToggleAllChecked != null;
@@ -280,7 +292,21 @@ export function TrackList({
         variant="ghost"
         size="sm"
         className="track-list__header-btn"
-        onClick={() => onSort(field)}
+        onClick={
+          isColumnReorderable
+            ? undefined
+            : () => onSort(field)
+        }
+        onKeyDown={
+          isColumnReorderable
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSort(field);
+                }
+              }
+            : undefined
+        }
       >
         {label}
       </Button>
@@ -297,12 +323,29 @@ export function TrackList({
         className={[
           "track-list__header-cell",
           col.resizable && "track-list__header-cell--resizable",
+          isColumnReorderable && "track-list__header-cell--reorderable",
+          draggingColumnId === col.id &&
+            "track-list__header-cell--column-dragging",
+          dragOverColumnId === col.id &&
+            draggingColumnId != null &&
+            draggingColumnId !== col.id &&
+            "track-list__header-cell--column-drag-over",
           col.align === "center" && "track-list__cell--center",
           col.align === "right" && "track-list__cell--right",
         ]
           .filter(Boolean)
           .join(" ")}
         data-track-list-col={col.id}
+        onPointerDown={
+          isColumnReorderable
+            ? (e) =>
+                startColumnReorder(
+                  e,
+                  col.id,
+                  onSort && field ? () => onSort(field) : undefined,
+                )
+            : undefined
+        }
         onContextMenu={
           hideableColumns.length > 0 ? onHeaderContextMenu(col) : undefined
         }
@@ -420,6 +463,7 @@ export function TrackList({
         className={[
           "track-list",
           canReorder && "track-list--reorderable",
+          draggingColumnId != null && "track-list--column-dragging",
           checkMode && "track-list--check-mode",
           className,
         ]

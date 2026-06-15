@@ -5,36 +5,24 @@ import {
   loadTrackListPreferences,
   saveTrackListPreferences,
   hiddenColumnsForPreset,
+  columnsForPreset,
+  columnIdsForPreset,
+  reorderColumnIds,
   type TrackListPreferences,
 } from "./trackListPreferences";
 import {
   DEFAULT_COLUMN_WIDTHS,
   MIN_COLUMN_WIDTHS,
   TRACK_LIST_PRESETS,
-  type TrackListColumnDef,
   type TrackListColumnId,
   type TrackListPresetId,
 } from "./types";
 
-const ACTIONS_COLUMN_WIDTH_PX = 36;
-
-function buildGridTemplate(
-  columns: TrackListColumnDef[],
-  widths: Partial<Record<TrackListColumnId, number>>,
-): string {
-  const parts = columns.map((col) => {
-    const w = widths[col.id] ?? DEFAULT_COLUMN_WIDTHS[col.id] ?? 80;
-    return `${w}px`;
-  });
-  parts.push("minmax(0, 1fr)");
-  parts.push("2.25rem");
-  return parts.join(" ");
-}
-
 export function computeMinTableWidth(
-  columns: TrackListColumnDef[],
+  columns: { id: TrackListColumnId }[],
   widths: Partial<Record<TrackListColumnId, number>>,
 ): number {
+  const ACTIONS_COLUMN_WIDTH_PX = 36;
   return (
     columns.reduce((sum, col) => {
       const w = widths[col.id] ?? DEFAULT_COLUMN_WIDTHS[col.id] ?? 80;
@@ -50,7 +38,6 @@ function initialPreferences(): TrackListPreferences {
 export function useTrackListColumns(presetId: TrackListPresetId) {
   const preset = TRACK_LIST_PRESETS[presetId];
   const [prefs, setPrefs] = useState<TrackListPreferences>(initialPreferences);
-  const [loaded, setLoaded] = useState(() => getCachedTrackListPreferences() != null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveRef = useRef<TrackListPreferences | null>(null);
 
@@ -82,7 +69,6 @@ export function useTrackListColumns(presetId: TrackListPresetId) {
     void loadTrackListPreferences().then((loadedPrefs) => {
       if (cancelled) return;
       setPrefs(loadedPrefs);
-      setLoaded(true);
     });
     return () => {
       cancelled = true;
@@ -95,25 +81,23 @@ export function useTrackListColumns(presetId: TrackListPresetId) {
     [presetId, prefs],
   );
 
+  const orderedColumns = useMemo(
+    () => columnsForPreset(presetId, prefs),
+    [presetId, prefs],
+  );
+
   const visibleColumns = useMemo(
-    () => preset.columns.filter((col) => !hiddenSet.has(col.id)),
-    [preset.columns, hiddenSet],
+    () => orderedColumns.filter((col) => !hiddenSet.has(col.id)),
+    [orderedColumns, hiddenSet],
   );
 
   const hideableColumns = useMemo(
-    () => preset.columns.filter((col) => col.hideable),
-    [preset.columns],
+    () => orderedColumns.filter((col) => col.hideable),
+    [orderedColumns],
   );
 
-  const gridTemplateColumns = useMemo(
-    () => buildGridTemplate(visibleColumns, prefs.columnWidths),
-    [visibleColumns, prefs.columnWidths],
-  );
-
-  const minTableWidth = useMemo(
-    () => computeMinTableWidth(visibleColumns, prefs.columnWidths),
-    [visibleColumns, prefs.columnWidths],
-  );
+  const canReorderColumns =
+    preset.columns.filter((col) => col.id !== preset.indexColumn).length >= 2;
 
   const setColumnWidth = useCallback(
     (columnId: TrackListColumnId, width: number) => {
@@ -177,18 +161,43 @@ export function useTrackListColumns(presetId: TrackListPresetId) {
     [hiddenSet],
   );
 
+  const reorderColumns = useCallback(
+    (fromId: TrackListColumnId, toId: TrackListColumnId) => {
+      if (fromId === preset.indexColumn || toId === preset.indexColumn) return;
+      setPrefs((prev) => {
+        const currentIds = columnIdsForPreset(presetId, prev);
+        const nextIds = reorderColumnIds(
+          currentIds,
+          fromId,
+          toId,
+          preset.indexColumn,
+        );
+        if (nextIds.every((id, i) => id === currentIds[i])) return prev;
+        const next = {
+          ...prev,
+          columnOrderByPreset: {
+            ...prev.columnOrderByPreset,
+            [presetId]: nextIds,
+          },
+        };
+        scheduleSave(next);
+        return next;
+      });
+    },
+    [preset.indexColumn, presetId, scheduleSave],
+  );
+
   return {
     preset,
     visibleColumns,
     hideableColumns,
-    gridTemplateColumns,
-    minTableWidth,
     columnWidths: prefs.columnWidths,
     setColumnWidth,
     toggleColumnVisibility,
     hideColumn,
     isColumnVisible,
+    reorderColumns,
+    canReorderColumns,
     flushSave,
-    loaded,
   };
 }

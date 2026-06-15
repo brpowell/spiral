@@ -12,6 +12,8 @@ pub struct TrackListPreferences {
     pub column_widths: HashMap<String, u32>,
     #[serde(default)]
     pub hidden_columns: Vec<String>,
+    #[serde(default)]
+    pub column_order_by_preset: HashMap<String, Vec<String>>,
 }
 
 pub fn preferences_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
