@@ -129,6 +129,9 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
         defaultValue={value !== undefined ? String(value) : ""}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck="false"
         {...props}
       />
     );
