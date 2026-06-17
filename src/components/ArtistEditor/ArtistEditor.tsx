@@ -581,7 +581,7 @@ function nameChangedDescription(
     return `Name changes apply to all ${trackCount} ${trackCount === 1 ? "track" : "tracks"}. Artist images are stored separately from album art.`;
   }
   if (nameChanged) {
-    return `Changes apply to all ${trackCount} ${trackCount === 1 ? "track" : "tracks"} for this artist.`;
+    return `Changes apply to all ${trackCount} ${trackCount === 1 ? "track" : "tracks"}.`;
   }
   return "Artist images are stored separately from album art.";
 }

@@ -353,7 +353,7 @@ export function AlbumEditor() {
           <ModalBody>
             <ModalDescription>
               Changes apply to all {tracks.length}{" "}
-              {tracks.length === 1 ? "track" : "tracks"} in this album.
+              {tracks.length === 1 ? "track" : "tracks"}.
             </ModalDescription>
 
             <div className="track-editor__body">

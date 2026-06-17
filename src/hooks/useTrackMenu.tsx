@@ -13,12 +13,11 @@ import {
   IconAlbums,
   IconArtists,
   IconDelete,
-  IconEditInfo,
-  IconImport,
+  IconEditInfo, IconOpenFolder,
   IconPlaylistAdd,
   IconPlaylists,
   IconRemoveFromPlaylist,
-  IconRemoveFromQueue,
+  IconRemoveFromQueue
 } from "../components/icons";
 import { revealInFileManagerLabel } from "../lib/fileManager";
 import { revealPathInFileManager } from "../lib/tauri";
@@ -42,14 +41,14 @@ import { usePlaylistStore } from "../store/usePlaylistStore";
 import type { Track } from "../types/track";
 import { useContextMenu } from "./useContextMenu";
 
-interface UseTrackEditMenuOptions {
+interface UseTrackMenuOptions {
   playlistId?: number;
   disabled?: boolean;
 }
 
-export function useTrackEditMenu(
+export function useTrackMenu(
   track: Track,
-  { playlistId, disabled = false }: UseTrackEditMenuOptions = {},
+  { playlistId, disabled = false }: UseTrackMenuOptions = {},
 ) {
   const library = usePlayerStore((s) => s.library);
   const selectedTrackIds = usePlayerStore((s) => s.selectedTrackIds);
@@ -177,13 +176,16 @@ export function useTrackEditMenu(
         onClick={openEditor}
       />
       <ContextMenuItem
-        icon={<IconImport />}
+        icon={<IconOpenFolder />}
         label={revealInFileManagerLabel()}
         onClick={() => {
           closeMenu();
           void revealPathInFileManager(track.filePath);
         }}
       />
+      {hasNavigableArtist(track) || hasNavigableAlbum(track) ? (
+        <ContextMenuSeparator />
+      ) : null}
       {hasNavigableArtist(track) ? (
         <ContextMenuItem
           icon={<IconArtists />}

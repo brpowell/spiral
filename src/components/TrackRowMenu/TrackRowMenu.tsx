@@ -1,4 +1,4 @@
-import { useTrackEditMenu } from "../../hooks/useTrackEditMenu";
+import { useTrackMenu } from "../../hooks/useTrackMenu";
 import type { Track } from "../../types/track";
 
 interface TrackRowMenuProps {
@@ -16,7 +16,7 @@ export function TrackRowMenu({
   playlistId,
   interactive = true,
 }: TrackRowMenuProps) {
-  const { onContextMenu, contextMenu, removeDialog } = useTrackEditMenu(track, {
+  const { onContextMenu, contextMenu, removeDialog } = useTrackMenu(track, {
     playlistId,
     disabled: !interactive,
   });
