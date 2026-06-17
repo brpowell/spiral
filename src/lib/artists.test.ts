@@ -99,6 +99,21 @@ describe("groupTracksIntoArtists", () => {
     expect(artists[0]?.name).toBe("Alice");
     expect(artists[0]?.tracks).toHaveLength(2);
   });
+
+  it("does not split performer names on commas", () => {
+    const library = [
+      track({
+        id: 1,
+        album: "IGOR",
+        artist: "Tyler, the Creator",
+        albumArtist: "Tyler, the Creator",
+      }),
+    ];
+    const artists = groupTracksIntoArtists(library, "performers");
+    expect(artists).toHaveLength(1);
+    expect(artists[0]?.name).toBe("Tyler, the Creator");
+    expect(artists[0]?.key).toBe("Tyler, the Creator");
+  });
 });
 
 describe("albumsForArtist", () => {

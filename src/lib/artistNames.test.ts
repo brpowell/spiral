@@ -19,9 +19,17 @@ describe("parseArtistField", () => {
     ["A / B", ["A", "B"]],
     ["A/B", ["A", "B"]],
     ["A; B", ["A", "B"]],
-    ["A, B", ["A", "B"]],
   ])("parses %s", (raw, expected) => {
     expect(parseArtistField(raw)).toEqual(expected);
+  });
+
+  it("keeps commas inside artist names", () => {
+    expect(parseArtistField("Tyler, the Creator")).toEqual([
+      "Tyler, the Creator",
+    ]);
+    expect(parseArtistField("Earth, Wind & Fire")).toEqual([
+      "Earth, Wind & Fire",
+    ]);
   });
 
   it("keeps Simon & Garfunkel as one name", () => {

@@ -4,7 +4,6 @@ const STRUCTURAL_SPLITS: Array<{ pattern: RegExp; split: (s: string) => string[]
   { pattern: /\s+\/\s+/, split: (s) => s.split(/\s+\/\s+/) },
   { pattern: /\//, split: (s) => s.split(/\//) },
   { pattern: /;/, split: (s) => s.split(/\s*;\s*/) },
-  { pattern: /,/, split: (s) => s.split(/\s*,\s*/) },
 ];
 
 function wordCount(s: string): number {
