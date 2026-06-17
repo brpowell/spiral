@@ -20,6 +20,8 @@ export interface RecoverOptions {
 export interface RecoverResult {
   restarted: boolean;
   reloaded: boolean;
+  /** Playback was already outputting; no pause/seek/play restart needed. */
+  alreadyHealthy?: boolean;
 }
 
 export interface PlaybackEngine {

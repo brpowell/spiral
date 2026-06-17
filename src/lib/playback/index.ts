@@ -40,6 +40,7 @@ export interface RecoverAfterWakeOptions {
 export interface RecoverAfterWakeResult {
   restarted: boolean;
   reloaded: boolean;
+  alreadyHealthy?: boolean;
 }
 
 export function load(path: string): Promise<void> {

@@ -202,6 +202,7 @@ export class FilePlaybackEngine implements PlaybackEngine {
   }
 
   async recover(options: RecoverOptions): Promise<RecoverResult> {
+    const neededResume = contextNeedsResume();
     await this.resumeAudioContext();
 
     const filePath =
@@ -211,7 +212,15 @@ export class FilePlaybackEngine implements PlaybackEngine {
       return { restarted: false, reloaded: false };
     }
 
-    this.restartPlaybackAt(options.positionSeconds);
+    // Keepalive likely kept output alive — skip pause/seek/play that causes audible skip.
+    if (!neededResume && this.isPlaying()) {
+      return { restarted: false, reloaded: false, alreadyHealthy: true };
+    }
+
+    const livePosition = this.getPositionSeconds();
+    const positionSeconds =
+      livePosition > 0 ? livePosition : options.positionSeconds;
+    this.restartPlaybackAt(positionSeconds);
     await new Promise((resolve) => setTimeout(resolve, RECOVERY_PLAY_CHECK_MS));
 
     if (this.isPlaying()) {
@@ -219,7 +228,6 @@ export class FilePlaybackEngine implements PlaybackEngine {
     }
 
     try {
-      const positionSeconds = options.positionSeconds;
       await this.load({ kind: "file", path: filePath });
       const duration = this.getDurationSeconds();
       if (positionSeconds > 0 && duration > 0) {

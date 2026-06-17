@@ -755,6 +755,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
       if (state.playbackState !== "playing") return;
 
+      if (result.alreadyHealthy) {
+        return;
+      }
+
       if (result.restarted) {
         startPositionPoll(set);
         return;
