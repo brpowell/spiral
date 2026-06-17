@@ -1,5 +1,9 @@
 import { useMemo } from "react";
-import { albumTotalDurationSeconds, getAlbumByKey } from "../lib/albums";
+import {
+  albumTotalDurationSeconds,
+  getAlbumByKey,
+  groupAlbumTracksByDisc,
+} from "../lib/albums";
 import { detailReturnLabel } from "../lib/navigationReturn";
 import { formatTime } from "../lib/format";
 import { linkableArtistKey } from "../lib/trackNavigation";
@@ -12,6 +16,7 @@ import { TrackList } from "../components/TrackList/TrackList";
 import {
   IconAddToQueue,
   IconBack,
+  IconDisc,
   IconEditInfo,
   IconPlay,
 } from "../components/icons";
@@ -55,6 +60,11 @@ export function AlbumDetailView({
       linkableArtistKey(album?.tracks[0], libraryArtistKeys, artistBrowseMode),
     [album, libraryArtistKeys, artistBrowseMode],
   );
+  const discGroups = useMemo(
+    () => (album ? groupAlbumTracksByDisc(album.tracks) : []),
+    [album],
+  );
+  const multipleDiscs = discGroups.length > 1;
 
   if (!album) {
     return (
@@ -94,6 +104,15 @@ export function AlbumDetailView({
 
   const handlePlayTrack = (track: Track) => {
     void playTracks(trackIds, track.id);
+  };
+
+  const trackListProps = {
+    presetId: "album" as const,
+    selectedTrackIds,
+    currentTrackId,
+    playbackState,
+    onSelectTrack: handleSelectTrack,
+    onPlayTrack: handlePlayTrack,
   };
 
   return (
@@ -174,15 +193,21 @@ export function AlbumDetailView({
         </div>
       </section>
 
-      <TrackList
-        presetId="album"
-        tracks={album.tracks}
-        selectedTrackIds={selectedTrackIds}
-        currentTrackId={currentTrackId}
-        playbackState={playbackState}
-        onSelectTrack={handleSelectTrack}
-        onPlayTrack={handlePlayTrack}
-      />
+      {multipleDiscs ? (
+        <div className="album-detail__discs">
+          {discGroups.map(({ discNumber, tracks: discTracks }) => (
+            <section key={discNumber} className="album-detail__disc">
+              <h2 className="album-detail__disc-label">
+                <IconDisc aria-hidden />
+                Disc {discNumber}
+              </h2>
+              <TrackList {...trackListProps} tracks={discTracks} />
+            </section>
+          ))}
+        </div>
+      ) : (
+        <TrackList {...trackListProps} tracks={album.tracks} />
+      )}
     </div>
   );
 }

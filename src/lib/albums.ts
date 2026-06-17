@@ -80,6 +80,27 @@ export function albumTotalDurationSeconds(tracks: Track[]): number {
   return tracks.reduce((sum, t) => sum + (t.durationSeconds ?? 0), 0);
 }
 
+interface AlbumDiscGroup {
+  discNumber: number;
+  tracks: Track[];
+}
+
+/** Split album tracks into disc groups, preserving track order within each disc. */
+export function groupAlbumTracksByDisc(tracks: Track[]): AlbumDiscGroup[] {
+  const groups = new Map<number, Track[]>();
+
+  for (const track of tracks) {
+    const discNumber = track.discNumber ?? 1;
+    const list = groups.get(discNumber);
+    if (list) list.push(track);
+    else groups.set(discNumber, [track]);
+  }
+
+  return [...groups.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([discNumber, discTracks]) => ({ discNumber, tracks: discTracks }));
+}
+
 export function getAlbumByKey(albums: Album[], key: string): Album | undefined {
   return albums.find((a) => a.key === key);
 }

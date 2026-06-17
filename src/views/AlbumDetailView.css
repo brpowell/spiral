@@ -66,3 +66,23 @@
   font-size: 0.9rem;
   color: var(--color-text-secondary);
 }
+
+.album-detail__disc + .album-detail__disc {
+  margin-top: 2rem;
+}
+
+.album-detail__disc-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.album-detail__disc-label svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
