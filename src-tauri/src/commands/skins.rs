@@ -47,6 +47,7 @@ const KNOWN_BINDS: &[&str] = &[
     "queue.length",
     "player.hasTrack",
     "skin.alwaysOnTop",
+    "playback.source",
 ];
 
 const SHELL_SLOTS: &[&str] = &["header", "art", "info", "controls", "visualizer", "footer"];
@@ -393,7 +394,11 @@ pub struct WindowChrome {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkinVisualizer {
-    pub preset: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pack: Option<String>,
+    /// Legacy preset name — maps to built-in pack ids at runtime.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preset: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub placement: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -839,11 +844,18 @@ fn validate_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Result<(), Str
         }
     }
     if let Some(viz) = &manifest.visualizer {
-        if !["bars", "wave", "spectrum"].contains(&viz.preset.as_str()) {
-            errors.push(format!(
-                "visualizer.preset \"{}\" must be bars, wave, or spectrum",
-                viz.preset
-            ));
+        if let Some(pack) = &viz.pack {
+            let trimmed = pack.trim();
+            if trimmed.is_empty() {
+                errors.push("visualizer.pack cannot be empty".to_string());
+            }
+        }
+        if let Some(preset) = &viz.preset {
+            if !["bars", "wave", "spectrum"].contains(&preset.as_str()) {
+                errors.push(format!(
+                    "visualizer.preset \"{preset}\" must be bars, wave, or spectrum"
+                ));
+            }
         }
         if let Some(placement) = &viz.placement {
             if placement != "top" && placement != "bottom" {
@@ -1057,12 +1069,6 @@ pub fn open_skins_folder(app: AppHandle) -> Result<(), String> {
     app.opener()
         .open_path(dir.to_string_lossy().as_ref(), None::<&str>)
         .map_err(|e| format!("failed to open skins folder: {e}"))
-}
-
-#[tauri::command]
-pub fn get_skin_schema() -> Result<String, String> {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("skins/schema/skin-v1.schema.json");
-    fs::read_to_string(&path).map_err(|e| format!("failed to read skin schema: {e}"))
 }
 
 #[cfg(test)]

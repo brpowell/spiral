@@ -3,7 +3,7 @@ import { albumKey as albumKeyFromTrack } from "./albums";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { findPlaybackTrack } from "./playbackTrack";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { openSkinPickerWindow } from "./skinPickerWindow";
+import { openAppearanceWindow } from "./appearanceWindow";
 import {
   exitSkinMode,
   minimizeSkinMode,
@@ -68,7 +68,7 @@ export function runSkinAction(
     case "queue.openTrackList":
       break;
     case "skin.openPicker":
-      void openSkinPickerWindow();
+      void openAppearanceWindow("skins");
       break;
     case "skin.exit":
       void exitSkinMode();

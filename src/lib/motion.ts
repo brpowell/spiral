@@ -1,3 +1,11 @@
+/** Shared fade for in-place view swaps (library routes, appearance panels). */
+export const viewTransition = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+  transition: { duration: 0.08 },
+};
+
 /** Shared enter/exit motion for floating panels (modals, toasts, task pills). */
 export const panelMotion = {
   initial: { opacity: 0, scale: 0.98, y: 8 },

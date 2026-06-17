@@ -10,6 +10,7 @@ export interface AppMenuHandlers {
   newPlaylist: () => void;
   openPreferences: () => void;
   openSkinMode: () => void;
+  openAppearance: () => void;
   openActivityLogs: () => void;
 }
 
@@ -50,6 +51,12 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
     action: handlers.openSkinMode,
   });
 
+  const appearance = await MenuItem.new({
+    id: "appearance",
+    text: "Appearance…",
+    action: handlers.openAppearance,
+  });
+
   const activityLogs = await MenuItem.new({
     id: "activity-logs",
     text: "Activity Logs",
@@ -59,7 +66,7 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
 
   const viewSubmenu = await Submenu.new({
     text: "View",
-    items: [skinMode, activityLogs],
+    items: [skinMode, appearance, activityLogs],
   });
 
   const menu = await Menu.new({

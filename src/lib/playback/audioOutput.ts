@@ -1,6 +1,10 @@
 const FFT_SIZE = 256;
 const SMOOTHING = 0.8;
 
+/** Shared with visualizer bridge — must match `AnalyserNode.fftSize`. */
+export const ANALYSER_FFT_SIZE = FFT_SIZE;
+export const ANALYSER_FREQUENCY_BIN_COUNT = FFT_SIZE / 2;
+
 let analyser: AnalyserNode | null = null;
 let wiredSource: AudioNode | null = null;
 

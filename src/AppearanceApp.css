@@ -1,0 +1,19 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-ui);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+}
+
+.appearance-shell {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}

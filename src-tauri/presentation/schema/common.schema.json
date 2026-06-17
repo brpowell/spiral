@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spiral.dev/schemas/presentation-common.json",
+  "title": "Spiral presentation shared atoms",
+  "$defs": {
+    "assetRef": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Asset base name under pack assets/ (extension resolved by host)."
+    },
+    "bindExpression": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Skin bind path evaluated for visibility or drive input."
+    },
+    "driveBinding": {
+      "oneOf": [
+        { "type": "number" },
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["drive"],
+          "properties": {
+            "drive": { "type": "string", "minLength": 1 },
+            "map": {
+              "type": "array",
+              "items": { "type": "number" },
+              "minItems": 4,
+              "maxItems": 4
+            },
+            "value": { "type": "number" }
+          }
+        }
+      ]
+    },
+    "presentationTrigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["on"],
+      "properties": {
+        "on": { "type": "string", "minLength": 1 },
+        "clip": { "type": "string" }
+      }
+    },
+    "timelineClip": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Reserved for skin animation timelines (#17)."
+    }
+  }
+}

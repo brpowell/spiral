@@ -19,7 +19,7 @@
     }
   },
   "visualizer": {
-    "preset": "bars",
+    "pack": "global",
     "placement": "top",
     "display": "panel",
     "size": { "width": "fill", "height": "flex" }

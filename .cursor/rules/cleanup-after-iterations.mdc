@@ -25,6 +25,7 @@ Run cleanup pass when the codeword "scrubit" is provided, especially when used a
 - Dead branches in conditionals (`if (false)`, unreachable `else`, unused enum variants)
 - Imports, types, CSS classes, or test helpers only referenced by removed code
 - Temporary logging, debug UI, or scaffolding left from intermediate steps
+- Linting errors & warnings
 
 ## What to keep
 

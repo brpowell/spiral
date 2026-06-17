@@ -11,3 +11,4 @@ pub mod playback_session;
 pub mod track_list_preferences;
 pub mod themes;
 pub mod skins;
+pub mod visualizers;

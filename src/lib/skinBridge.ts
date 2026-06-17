@@ -2,11 +2,13 @@ import { listen } from "@tauri-apps/api/event";
 import { applySkinChangeWindowLayout } from "./skinModeWindowChrome";
 import { isSkinModeVisible } from "./skinModeWindow";
 import { useSkinStore } from "../store/useSkinStore";
+import { useThemeStore } from "../store/useThemeStore";
+import { useVisualizerStore } from "../store/useVisualizerStore";
+import { APPEARANCE_REFRESH_EVENT } from "./appearanceWindow";
 import type { WindowRole } from "./windowRole";
-import { isSkinModeWindow, isSkinPickerWindow } from "./windowRole";
+import { isAppearanceWindow, isSkinModeWindow } from "./windowRole";
 
 export const SKIN_CHANGED_EVENT = "skin://changed";
-export const SKIN_PICKER_REFRESH_EVENT = "skin://picker-refresh";
 
 export interface SkinChangedPayload {
   skinId: string;
@@ -19,6 +21,14 @@ async function reloadSkinOnSkinModeWindow(): Promise<void> {
   if (pack && (await isSkinModeVisible())) {
     await applySkinChangeWindowLayout(pack);
   }
+}
+
+async function refreshAppearanceData(): Promise<void> {
+  await Promise.all([
+    useThemeStore.getState().loadThemes(),
+    useVisualizerStore.getState().loadPacks(),
+    useSkinStore.getState().loadSkins(),
+  ]);
 }
 
 export async function initSkinBridge(role: WindowRole): Promise<void> {
@@ -35,10 +45,10 @@ export async function initSkinBridge(role: WindowRole): Promise<void> {
     return;
   }
 
-  if (isSkinPickerWindow()) {
-    await listen(SKIN_PICKER_REFRESH_EVENT, () => {
-      void useSkinStore.getState().loadSkins().catch((err: unknown) => {
-        console.error("Failed to refresh skins in picker:", err);
+  if (isAppearanceWindow()) {
+    await listen(APPEARANCE_REFRESH_EVENT, () => {
+      void refreshAppearanceData().catch((err: unknown) => {
+        console.error("Failed to refresh appearance data:", err);
       });
     });
   }

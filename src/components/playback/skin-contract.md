@@ -21,7 +21,7 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | `player.clearTrackList` | Stop playback and clear the active track list (same as the library track list Clear action) |
 | `navigation.openAlbum` | Open album view for current track (payload: `{ albumKey: string }`) |
 | `queue.openTrackList` | Open the track list / queue modal |
-| `skin.openPicker` | Open the skin picker window |
+| `skin.openPicker` | Open Appearance (Skins section) |
 | `skin.exit` | Exit skin mode |
 | `skin.restoreMainWindow` | Hide skin mode and show the library window |
 | `skin.minimize` | Minimize the skin-mode window |
@@ -57,7 +57,7 @@ Text styles with `truncate: true` enable overflow scrolling. Set `scroll: "marqu
 
 ## Window (`skin.json` → `window`)
 
-Skin mode always uses a **frameless** transparent native window. There is no built-in title bar — authors declare window chrome in the layout and wire `skin.*` / `app.quit` actions (see below). Right-click still opens a native context menu (pin, skin chooser, return to library) as a fallback.
+Skin mode always uses a **frameless** transparent native window. There is no built-in title bar — authors declare window chrome in the layout and wire `skin.*` / `app.quit` actions (see below). Right-click still opens a native context menu (pin, Appearance, return to library) as a fallback.
 
 | Field | Purpose |
 | --- | --- |
@@ -132,7 +132,7 @@ Toggle with `visibleWhen` binds such as `player.isPlaying` and `player.notPlayin
 
 | Action ID | Description |
 | --- | --- |
-| `skin.openPicker` | Open the skin picker window |
+| `skin.openPicker` | Open Appearance (Skins section) |
 | `skin.exit` | Exit skin mode |
 | `skin.restoreMainWindow` | Hide skin mode and show the library window |
 | `skin.minimize` | Minimize the skin-mode window |
@@ -141,22 +141,33 @@ Toggle with `visibleWhen` binds such as `player.isPlaying` and `player.notPlayin
 
 ## Visualizer (`skin.json` → `visualizer`)
 
-Skins declare renderer preset, shell placement, and sizing separately from the layout `visualizer` control node (which still wires the control into a slot).
+Skins declare pack reference (optional), shell placement, and sizing separately from the layout `visualizer` control node.
 
 | Field | Values | Purpose |
 | --- | --- | --- |
-| `preset` | `bars`, `wave`, `spectrum` | Renderer style (V1 implements `bars`) |
+| `pack` | pack id, `global`, or omit | Pack id pins a visualizer; `global`/omit follows the active picker |
+| `preset` | `bars`, `wave`, `spectrum` | Deprecated — maps to built-in pack ids |
 | `placement` | `top`, `bottom` (default) | Where the visualizer band sits in `SkinShell` |
 | `display` | `mini`, `panel` (default `mini`) | `mini` = compact strip; `panel` = fills the visualizer slot |
 | `size.width` | `fill` or px | Slot width |
 | `size.height` | `flex`, `fill`, or px | `flex` grows to use remaining shell height (typical top panel layout) |
 | `size.minHeight` / `maxHeight` | px | Optional bounds |
 
-Example (spectrum across the top, controls below):
+Pinned pack example:
 
 ```json
 "visualizer": {
-  "preset": "bars",
+  "pack": "wave",
+  "placement": "top",
+  "display": "panel",
+  "size": { "width": "fill", "height": "flex" }
+}
+```
+
+Follow global picker (omit `pack` or use `"global"`):
+
+```json
+"visualizer": {
   "placement": "top",
   "display": "panel",
   "size": { "width": "fill", "height": "flex" }
@@ -180,12 +191,12 @@ Unset slots receive the V1 default Spiral layout. Skins override individual slot
 
 ## Visualizer cross-window data pipe
 
-The Web Audio `AnalyserNode` is created in the main window on the shared playback bus (`src/lib/playback/audioOutput.ts`, consumed by `AudioVisualizer`). File playback taps Howler's master gain; CD playback taps the PCM pipeline gain — both route through the same analyser.
+The Web Audio `AnalyserNode` is created in the main window on the shared playback bus (`src/lib/playback/audioOutput.ts`, consumed by `VisualizerSlot` / `SceneRenderer`). File playback taps Howler's master gain; CD playback taps the PCM pipeline gain — both route through the same analyser.
 
 When skin mode runs in a **second Tauri webview**, it must not instantiate a second analyser. Plan:
 
 1. **`VisualizerDataProvider`** (main window): samples `getAnalyser()` each animation frame and publishes frequency/time-domain frames (e.g. Tauri event or shared channel).
-2. **`VisualizerSlot` subscriber** (skin-mode webview): receives frames and passes them to a renderer; `AudioVisualizer` in the main window continues to read the analyser locally.
+2. **`VisualizerSlot` subscriber** (skin-mode webview): receives frames and passes them to a renderer; the main window continues to read the analyser locally via the same slot.
 
 `VisualizerSlot` is the layout integration point — swap the inner renderer per skin without changing transport or seek components.
 

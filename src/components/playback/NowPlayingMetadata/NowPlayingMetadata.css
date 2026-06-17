@@ -12,17 +12,25 @@
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
-  overflow: visible;
+  overflow: hidden;
   background: var(--color-surface-raised);
-  cursor: pointer;
+  cursor: default;
   transition: opacity 0.15s ease, box-shadow 0.15s ease;
 }
 
-.now-playing-metadata__art:hover:not(:disabled) {
+.now-playing-metadata__art--zoomable {
+  cursor: zoom-in;
+}
+
+.now-playing-metadata__art--zoomable:hover:not(:disabled) {
   box-shadow: 0 0 0 1px var(--color-accent-muted);
 }
 
-.now-playing-metadata__art:disabled {
+.now-playing-metadata__art--inactive {
+  opacity: 0.7;
+}
+
+.now-playing-metadata__art--zoomable:disabled {
   cursor: default;
   opacity: 0.7;
 }

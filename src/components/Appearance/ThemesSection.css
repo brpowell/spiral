@@ -1,0 +1,16 @@
+.theme-picker__preview {
+  display: flex;
+  height: 100%;
+}
+
+.theme-picker__preview-bg {
+  flex: 2;
+}
+
+.theme-picker__preview-surface {
+  flex: 1.2;
+}
+
+.theme-picker__preview-accent {
+  flex: 0.8;
+}

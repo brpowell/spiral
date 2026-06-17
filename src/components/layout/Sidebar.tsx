@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import { ThemePicker } from "../ThemePicker/ThemePicker";
-import { useThemeStore } from "../../store/useThemeStore";
+import { openAppearanceWindow } from "../../lib/appearanceWindow";
 import {
   type NavView,
   useNavigationStore,
@@ -47,8 +46,6 @@ export function Sidebar() {
     ),
   );
   const openPlaylistEditor = usePlaylistStore((s) => s.openPlaylistEditor);
-  const setThemePickerOpen = useThemeStore((s) => s.setThemePickerOpen);
-  const loadThemes = useThemeStore((s) => s.loadThemes);
 
   return (
     <nav className="sidebar" aria-label="Main navigation">
@@ -106,16 +103,14 @@ export function Sidebar() {
       <div className="sidebar__footer">
         <SidebarItem
           icon={<IconPalette />}
-          aria-label="Themes and appearance"
+          aria-label="Appearance"
           onClick={() => {
-            void loadThemes().then(() => setThemePickerOpen(true));
+            void openAppearanceWindow();
           }}
         >
-          Themes
+          Appearance
         </SidebarItem>
       </div>
-
-      <ThemePicker />
     </nav>
   );
 }

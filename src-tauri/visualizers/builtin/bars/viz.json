@@ -1,0 +1,20 @@
+{
+  "$schema": "../../schema/viz-v1.schema.json",
+  "version": 1,
+  "name": "Bars",
+  "author": "Spiral",
+  "description": "Mirrored frequency bars with album palette — the default Spiral visualizer.",
+  "surfaces": {
+    "default": {
+      "scene": [
+        {
+          "id": "bars",
+          "kind": "canvas",
+          "layout": "fill",
+          "renderer": "bars",
+          "params": { "barCount": 64 }
+        }
+      ]
+    }
+  }
+}

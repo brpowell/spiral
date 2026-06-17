@@ -1,0 +1,42 @@
+{
+  "$schema": "../../schema/viz-v1.schema.json",
+  "version": 1,
+  "name": "Wave",
+  "author": "Spiral",
+  "description": "Mirrored waveform line with soft glow driven by album palette.",
+  "surfaces": {
+    "default": {
+      "scene": [
+        {
+          "id": "wave",
+          "kind": "canvas",
+          "layout": "fill",
+          "renderer": "wave",
+          "params": { "barCount": 128, "mirror": true, "glow": 0.6 }
+        }
+      ]
+    },
+    "mini": {
+      "scene": [
+        {
+          "id": "wave",
+          "kind": "canvas",
+          "layout": "fill",
+          "renderer": "wave",
+          "params": { "barCount": 64, "mirror": true, "glow": 0.4 }
+        }
+      ]
+    },
+    "expanded": {
+      "scene": [
+        {
+          "id": "wave",
+          "kind": "canvas",
+          "layout": "fill",
+          "renderer": "wave",
+          "params": { "barCount": 192, "mirror": true, "glow": 0.8 }
+        }
+      ]
+    }
+  }
+}

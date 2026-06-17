@@ -18,7 +18,6 @@ import type { Theme } from "../types/theme";
 interface ThemeState {
   themes: Theme[];
   activeThemeId: string;
-  themePickerOpen: boolean;
   themesLoaded: boolean;
   loadThemes: () => Promise<void>;
   initializeFromBootstrap: (
@@ -28,7 +27,6 @@ interface ThemeState {
   setTheme: (name: string) => Promise<void>;
   importTheme: () => Promise<void>;
   openThemesFolder: () => Promise<void>;
-  setThemePickerOpen: (open: boolean) => void;
 }
 
 function applyActiveTheme(themes: Theme[], activeThemeId: string): void {
@@ -44,7 +42,6 @@ function applyActiveTheme(themes: Theme[], activeThemeId: string): void {
 export const useThemeStore = create<ThemeState>((set, get) => ({
   themes: [],
   activeThemeId: DEFAULT_THEME_ID,
-  themePickerOpen: false,
   themesLoaded: false,
 
   initializeFromBootstrap: (themes, activeThemeId) => {
@@ -85,6 +82,4 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   openThemesFolder: async () => {
     await openThemesFolder();
   },
-
-  setThemePickerOpen: (open) => set({ themePickerOpen: open }),
 }));

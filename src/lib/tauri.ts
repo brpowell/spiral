@@ -7,6 +7,7 @@ import { parseRepeatMode } from "./playbackSession";
 import type { PlaybackSession } from "../types/playbackSession";
 import type { Theme } from "../types/theme";
 import type { LoadedSkinPack, SkinSummary } from "../types/skin";
+import type { LoadedVisualizerPack, VizSummary } from "../types/visualizer";
 import type { CoverArtCandidate } from "../types/coverArt";
 import type { Playlist } from "../types/playlist";
 import type { Track, TrackInput } from "../types/track";
@@ -356,8 +357,26 @@ export async function openSkinsFolder(): Promise<void> {
   return invoke<void>("open_skins_folder");
 }
 
-export async function getSkinSchema(): Promise<string> {
-  return invoke<string>("get_skin_schema");
+export async function listVisualizers(): Promise<VizSummary[]> {
+  return invoke<VizSummary[]>("list_visualizers");
+}
+
+export async function loadVisualizerPack(
+  packId: string,
+): Promise<LoadedVisualizerPack> {
+  return invoke<LoadedVisualizerPack>("load_visualizer_pack", { packId });
+}
+
+export async function getActiveVisualizerId(): Promise<string> {
+  return invoke<string>("get_active_visualizer_id");
+}
+
+export async function saveActiveVisualizerId(packId: string): Promise<void> {
+  return invoke<void>("save_active_visualizer_id", { packId });
+}
+
+export async function openVisualizersFolder(): Promise<void> {
+  return invoke<void>("open_visualizers_folder");
 }
 
 export async function writeTrackMetadata(

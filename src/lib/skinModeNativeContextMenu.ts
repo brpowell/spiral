@@ -5,7 +5,7 @@ import {
   PredefinedMenuItem,
 } from "@tauri-apps/api/menu";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { openSkinPickerWindow } from "./skinPickerWindow";
+import { openAppearanceWindow } from "./appearanceWindow";
 import {
   DEFAULT_SKIN_MODE_ALWAYS_ON_TOP,
   readSkinModeAlwaysOnTop,
@@ -31,11 +31,11 @@ async function createMenu(): Promise<Menu> {
     },
   });
 
-  const openChooser = await MenuItem.new({
-    id: "skin-mode-open-chooser",
-    text: "Open skin chooser",
+  const openAppearance = await MenuItem.new({
+    id: "skin-mode-open-appearance",
+    text: "Appearance…",
     action: () => {
-      void openSkinPickerWindow();
+      void openAppearanceWindow("skins");
     },
   });
 
@@ -51,7 +51,7 @@ async function createMenu(): Promise<Menu> {
 
   return Menu.new({
     id: "skin-mode-context",
-    items: [pinItem, separator, openChooser, returnLibrary],
+    items: [pinItem, separator, openAppearance, returnLibrary],
   });
 }
 

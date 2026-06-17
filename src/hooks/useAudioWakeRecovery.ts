@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { isSkinModeWindow, isSkinPickerWindow } from "../lib/windowRole";
+import { isSkinModeWindow, isAppearanceWindow } from "../lib/windowRole";
 import { usePlayerStore } from "../store/usePlayerStore";
 
 /** Only replay after the app was hidden long enough to likely be asleep. */
@@ -12,7 +12,7 @@ export function useAudioWakeRecovery(): void {
   const recoveringRef = useRef(false);
 
   useEffect(() => {
-    if (isSkinModeWindow() || isSkinPickerWindow()) return;
+    if (isSkinModeWindow() || isAppearanceWindow()) return;
 
     const scheduleRecover = (hiddenDurationMs: number) => {
       if (hiddenDurationMs < MIN_HIDDEN_MS) return;

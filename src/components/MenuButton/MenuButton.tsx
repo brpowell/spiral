@@ -28,7 +28,7 @@ export function MenuButton({
   icon = <IconMore />,
   className,
   triggerClassName,
-  variant = "ghost",
+  variant = "secondary",
   size = "sm",
   layoutDeps = [],
 }: MenuButtonProps) {

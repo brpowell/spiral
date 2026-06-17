@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { resumeAudioContext } from "../lib/playback";
-import { isSkinModeWindow, isSkinPickerWindow } from "../lib/windowRole";
+import { isSkinModeWindow, isAppearanceWindow } from "../lib/windowRole";
 import { usePlayerStore } from "../store/usePlayerStore";
 
 /** How often to try resuming suspended output while playback is active. */
@@ -13,7 +13,7 @@ const KEEPALIVE_INTERVAL_MS = 400;
  */
 export function useHiddenPlaybackKeepAlive(): void {
   useEffect(() => {
-    if (isSkinModeWindow() || isSkinPickerWindow()) return;
+    if (isSkinModeWindow() || isAppearanceWindow()) return;
 
     let intervalId: ReturnType<typeof setInterval> | null = null;
 

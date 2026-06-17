@@ -5,6 +5,7 @@ use tauri::{AppHandle, Manager};
 
 pub const DEFAULT_THEME_ID: &str = "Obsidian";
 pub const DEFAULT_SKIN_ID: &str = "spiral-default";
+pub const DEFAULT_VISUALIZER_ID: &str = "bars";
 pub const DEFAULT_SKIN_VIEW_ID: &str = "standard";
 pub const SPIRAL_LIBRARY_DIR_NAME: &str = "Spiral Library";
 pub const MEDIA_DIR_NAME: &str = "Media";
@@ -127,6 +128,8 @@ pub struct AppSettings {
     pub active_skin: String,
     #[serde(default = "default_active_skin_view")]
     pub active_skin_view: String,
+    #[serde(default = "default_active_visualizer")]
+    pub active_visualizer: String,
     #[serde(default)]
     pub library: LibrarySettings,
     #[serde(default)]
@@ -147,12 +150,17 @@ fn default_active_skin_view() -> String {
     DEFAULT_SKIN_VIEW_ID.to_string()
 }
 
+fn default_active_visualizer() -> String {
+    DEFAULT_VISUALIZER_ID.to_string()
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
             active_theme: default_active_theme(),
             active_skin: default_active_skin(),
             active_skin_view: default_active_skin_view(),
+            active_visualizer: default_active_visualizer(),
             library: LibrarySettings::default(),
             metadata_backups: MetadataBackupSettings::default(),
             cd: CdSettings::default(),

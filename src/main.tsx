@@ -2,18 +2,20 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ActivityLogsApp } from "./ActivityLogsApp";
+import { AppearanceApp } from "./AppearanceApp";
 import { SkinModeApp } from "./SkinModeApp";
-import { SkinPickerApp } from "./SkinPickerApp";
 import { initPlayerStoreBridge } from "./lib/playerStoreBridge";
 import { initSkinBridge } from "./lib/skinBridge";
 import { initThemeBridge } from "./lib/themeBridge";
+import { initVisualizerBridge } from "./lib/visualizerBridge";
 import { bootstrapSkin } from "./lib/skinBootstrap";
 import { bootstrapTheme } from "./lib/themeBootstrap";
+import { bootstrapVisualizer } from "./lib/visualizerBootstrap";
 import {
   bootstrapWindowRole,
   isActivityLogsWindow,
+  isAppearanceWindow,
   isSkinModeWindow,
-  isSkinPickerWindow,
 } from "./lib/windowRole";
 import "./styles/theme.css";
 import "./styles/scrollbars.css";
@@ -22,6 +24,7 @@ const root = document.getElementById("root") as HTMLElement;
 
 async function start() {
   await bootstrapTheme();
+  await bootstrapVisualizer();
   const role = await bootstrapWindowRole();
 
   if (isActivityLogsWindow()) {
@@ -33,17 +36,18 @@ async function start() {
     return;
   }
 
-  if (isSkinModeWindow() || isSkinPickerWindow()) {
+  if (isSkinModeWindow() || isAppearanceWindow()) {
     await bootstrapSkin();
   }
   await initPlayerStoreBridge(role);
   await initThemeBridge(role);
+  await initVisualizerBridge(role);
   await initSkinBridge(role);
 
   const Root = isSkinModeWindow()
     ? SkinModeApp
-    : isSkinPickerWindow()
-      ? SkinPickerApp
+    : isAppearanceWindow()
+      ? AppearanceApp
       : App;
 
   ReactDOM.createRoot(root).render(

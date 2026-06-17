@@ -1,0 +1,30 @@
+.scene-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.scene-layer {
+  position: absolute;
+  overflow: hidden;
+  pointer-events: none;
+  transform-origin: center center;
+}
+
+.scene-layer__media,
+.scene-layer__canvas,
+.scene-layer__webgl {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scene-layer__webgl-host {
+  width: 100%;
+  height: 100%;
+}
+
+.scene-layer__canvas {
+  background: transparent;
+}

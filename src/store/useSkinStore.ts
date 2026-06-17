@@ -11,7 +11,7 @@ import {
 } from "../lib/tauri";
 import { applySkinChangeWindowLayout } from "../lib/skinModeWindowChrome";
 import { isSkinModeVisible } from "../lib/skinModeWindow";
-import { isSkinPickerWindow } from "../lib/windowRole";
+import { isAppearanceWindow } from "../lib/windowRole";
 import {
   resolveViewForPack,
   writeViewForSkin,
@@ -84,7 +84,7 @@ export const useSkinStore = create<SkinState>((set, get) => ({
     await saveActiveSkinId(skinId);
     await saveActiveSkinView(viewId);
 
-    if (isSkinPickerWindow()) {
+    if (isAppearanceWindow()) {
       await emit(SKIN_CHANGED_EVENT, { skinId, viewId } satisfies SkinChangedPayload);
     } else if (await isSkinModeVisible()) {
       await applySkinChangeWindowLayout(pack);

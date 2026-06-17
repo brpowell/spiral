@@ -63,7 +63,7 @@ export function NowPlayingMetadata({
           artSrc ? (
             <motion.button
               type="button"
-              className="now-playing-metadata__art"
+              className="now-playing-metadata__art now-playing-metadata__art--zoomable"
               layoutId={NOW_PLAYING_ART_LAYOUT_ID}
               transition={albumArtLayoutTransition}
               onClick={handleArtClick}
@@ -77,12 +77,14 @@ export function NowPlayingMetadata({
               />
             </motion.button>
           ) : (
-            <button
-              type="button"
-              className="now-playing-metadata__art"
-              onClick={handleArtClick}
-              disabled={!currentTrack}
-              aria-label={artLabel}
+            <div
+              className={[
+                "now-playing-metadata__art",
+                !currentTrack && "now-playing-metadata__art--inactive",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              aria-hidden
             >
               <div
                 className="now-playing-metadata__art-placeholder"
@@ -90,7 +92,7 @@ export function NowPlayingMetadata({
               >
                 <IconAlbumPlaceholder />
               </div>
-            </button>
+            </div>
           )
         ) : null}
 

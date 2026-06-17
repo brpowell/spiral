@@ -36,11 +36,16 @@
     "visualizer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["preset"],
       "properties": {
+        "pack": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Visualizer pack id, or \"global\" to follow the user's active visualizer picker. Omit pack to use global."
+        },
         "preset": {
           "type": "string",
-          "enum": ["bars", "wave", "spectrum"]
+          "enum": ["bars", "wave", "spectrum"],
+          "description": "Deprecated — use pack. Maps to built-in pack ids at runtime."
         },
         "placement": {
           "type": "string",

@@ -1,0 +1,29 @@
+{
+  "$schema": "../../schema/viz-v1.schema.json",
+  "version": 1,
+  "name": "Video Demo",
+  "author": "Spiral",
+  "description": "Full-viewport looping video background.",
+  "preview": "preview.png",
+  "surfaces": {
+    "default": {
+      "scene": [
+        {
+          "id": "bg",
+          "kind": "video",
+          "asset": "ambient-swim-clip-PLACEHOLDER",
+          "layout": "fill",
+          "loop": true,
+          "opacity": 0.9
+        },
+        {
+          "id": "wave",
+          "kind": "canvas",
+          "renderer": "wave",
+          "layout": { "x": 0, "y": 0.58, "w": 1, "h": 0.42 },
+          "params": { "mirror": true, "glow": 0.8, "barCount": 72 }
+        }
+      ]
+    }
+  }
+}

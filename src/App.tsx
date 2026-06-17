@@ -19,6 +19,7 @@ import { useArtistImageStore } from "./store/useArtistImageStore";
 import { setupAppMenu } from "./lib/appMenu";
 import { openSkinMode } from "./lib/skinModeWindow";
 import { openActivityLogsWindow } from "./lib/activityLogsWindow";
+import { openAppearanceWindow } from "./lib/appearanceWindow";
 import { useAudioWakeRecovery } from "./hooks/useAudioWakeRecovery";
 import { useHiddenPlaybackKeepAlive } from "./hooks/useHiddenPlaybackKeepAlive";
 import { useCdMonitor } from "./hooks/useCdMonitor";
@@ -67,6 +68,9 @@ function App() {
       openPreferences: () => setPreferencesOpen(true),
       openSkinMode: () => {
         void openSkinMode();
+      },
+      openAppearance: () => {
+        void openAppearanceWindow();
       },
       openActivityLogs: () => {
         void openActivityLogsWindow();

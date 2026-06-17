@@ -4,6 +4,7 @@ import { isTrackImporting } from "../../lib/pendingImportTrack";
 import { applyArtistImages } from "../../lib/artistArt";
 import { groupTracksIntoAlbums } from "../../lib/albums";
 import { groupTracksIntoArtists } from "../../lib/artists";
+import { viewTransition } from "../../lib/motion";
 import { useArtistImageStore } from "../../store/useArtistImageStore";
 import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
@@ -15,13 +16,6 @@ import { PlaylistDetailView } from "../../views/PlaylistDetailView";
 import { CdDetailView } from "../../views/CdDetailView";
 import { TracksView } from "../../views/TracksView";
 import "./MainContent.css";
-
-const viewTransition = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  exit: { opacity: 0 },
-  transition: { duration: 0.08 },
-};
 
 export function MainContent() {
   const library = usePlayerStore((s) => s.library);

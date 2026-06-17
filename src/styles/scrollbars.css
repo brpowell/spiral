@@ -5,7 +5,8 @@
   .activity-logs-panel__list,
   .context-menu--flyout,
   .chip-input__menu,
-  .skin-picker-app__main,
+  .appearance-section__body,
+  .pack-detail,
   .track-editor__cover-picker,
   .remove-track-dialog__list
 ) {
@@ -20,7 +21,8 @@
   .activity-logs-panel__list,
   .context-menu--flyout,
   .chip-input__menu,
-  .skin-picker-app__main,
+  .appearance-section__body,
+  .pack-detail,
   .track-editor__cover-picker,
   .remove-track-dialog__list
 )::-webkit-scrollbar {
@@ -35,7 +37,8 @@
   .activity-logs-panel__list,
   .context-menu--flyout,
   .chip-input__menu,
-  .skin-picker-app__main,
+  .appearance-section__body,
+  .pack-detail,
   .track-editor__cover-picker,
   .remove-track-dialog__list
 )::-webkit-scrollbar-track {
@@ -49,7 +52,8 @@
   .activity-logs-panel__list,
   .context-menu--flyout,
   .chip-input__menu,
-  .skin-picker-app__main,
+  .appearance-section__body,
+  .pack-detail,
   .track-editor__cover-picker,
   .remove-track-dialog__list
 )::-webkit-scrollbar-thumb {
@@ -66,7 +70,8 @@
   .activity-logs-panel__list,
   .context-menu--flyout,
   .chip-input__menu,
-  .skin-picker-app__main,
+  .appearance-section__body,
+  .pack-detail,
   .track-editor__cover-picker,
   .remove-track-dialog__list
 )::-webkit-scrollbar-thumb:hover {
@@ -80,7 +85,8 @@
   .activity-logs-panel__list,
   .context-menu--flyout,
   .chip-input__menu,
-  .skin-picker-app__main,
+  .appearance-section__body,
+  .pack-detail,
   .track-editor__cover-picker,
   .remove-track-dialog__list
 )::-webkit-scrollbar-corner {
@@ -95,7 +101,8 @@
   .activity-logs-panel__list,
   .context-menu--flyout,
   .chip-input__menu,
-  .skin-picker-app__main,
+  .appearance-section__body,
+  .pack-detail,
   .track-editor__cover-picker,
   .remove-track-dialog__list
 )::-webkit-scrollbar-track:vertical {

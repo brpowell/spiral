@@ -1,21 +1,23 @@
 import { useEffect, useRef, type RefObject } from "react";
 import {
-  copyVisualizerBins,
+  copyVisualizerFrame,
   startVisualizerFramePull,
   subscribeVisualizerFrames,
-  VISUALIZER_BAR_COUNT,
+  type VisualizerRemoteFrame,
 } from "../lib/visualizerDataBridge";
 
-export function useVisualizerFrameRef(): RefObject<number[] | null> {
-  const binsRef = useRef<number[] | null>(null);
+const EMPTY_REMOTE_FRAME: VisualizerRemoteFrame = {
+  bins: null,
+  waveform: null,
+};
+
+export function useVisualizerFrameRef(): RefObject<VisualizerRemoteFrame> {
+  const frameRef = useRef<VisualizerRemoteFrame>(EMPTY_REMOTE_FRAME);
 
   useEffect(() => {
     const stopPull = startVisualizerFramePull();
-    const stopSubscribe = subscribeVisualizerFrames((bins) => {
-      if (!binsRef.current) {
-        binsRef.current = new Array(VISUALIZER_BAR_COUNT);
-      }
-      binsRef.current = copyVisualizerBins(binsRef.current, bins);
+    const stopSubscribe = subscribeVisualizerFrames((frame) => {
+      copyVisualizerFrame(frameRef.current, frame);
     });
     return () => {
       stopPull();
@@ -23,5 +25,5 @@ export function useVisualizerFrameRef(): RefObject<number[] | null> {
     };
   }, []);
 
-  return binsRef;
+  return frameRef;
 }

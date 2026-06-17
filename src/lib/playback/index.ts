@@ -10,7 +10,13 @@ export type {
   RecoverResult,
 } from "./types";
 
-export { connectEngineOutput, disconnectEngineOutput, getAnalyser } from "./audioOutput";
+export {
+  ANALYSER_FFT_SIZE,
+  ANALYSER_FREQUENCY_BIN_COUNT,
+  connectEngineOutput,
+  disconnectEngineOutput,
+  getAnalyser,
+} from "./audioOutput";
 export { CdPlaybackEngine } from "./cdPlaybackEngine";
 export { FilePlaybackEngine } from "./filePlaybackEngine";
 export {

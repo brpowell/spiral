@@ -326,7 +326,13 @@ export interface SkinVisualizerSize {
 }
 
 export interface SkinVisualizer {
-  preset: "bars" | "wave" | "spectrum";
+  /**
+   * Viz pack id (folder under visualizers/), or `"global"` / omit to follow
+   * the user's active visualizer picker.
+   */
+  pack?: string;
+  /** @deprecated Use `pack`. Maps to built-in pack ids at runtime. */
+  preset?: "bars" | "wave" | "spectrum";
   /** Band position in the skin shell. Default `bottom`. */
   placement?: VisualizerPlacement;
   /** `mini` = compact strip; `panel` = full slot with optional flex height. Default `mini`. */
@@ -372,4 +378,5 @@ export type SkinBindPath =
   | "player.canGoNext"
   | "queue.length"
   | "player.hasTrack"
-  | "skin.alwaysOnTop";
+  | "skin.alwaysOnTop"
+  | "playback.source";

@@ -2,7 +2,7 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { applyTheme, findThemeByName } from "./theme";
 import { useThemeStore } from "../store/useThemeStore";
 import type { WindowRole } from "./windowRole";
-import { isSkinModeWindow } from "./windowRole";
+import { isAppearanceWindow, isSkinModeWindow } from "./windowRole";
 
 export const THEME_CHANGED_EVENT = "theme://changed";
 
@@ -19,8 +19,12 @@ function applyThemeChange(themeId: string): void {
   applyTheme(theme);
 }
 
-export async function initThemeBridge(_role: WindowRole): Promise<() => void> {
-  if (!isSkinModeWindow()) {
+function shouldListenForThemeChanges(role: WindowRole): boolean {
+  return role === "main" || isSkinModeWindow() || isAppearanceWindow();
+}
+
+export async function initThemeBridge(role: WindowRole): Promise<() => void> {
+  if (!shouldListenForThemeChanges(role)) {
     return async () => {};
   }
 

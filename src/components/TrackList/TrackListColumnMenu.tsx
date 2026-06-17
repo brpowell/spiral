@@ -5,7 +5,6 @@ import {
 import { IconColumns } from "../icons";
 import { MenuButton } from "../MenuButton/MenuButton";
 import type { TrackListColumnDef, TrackListColumnId } from "./types";
-import "./TrackListColumnMenu.css";
 
 interface TrackListColumnMenuProps {
   columns: TrackListColumnDef[];
@@ -24,8 +23,7 @@ export function TrackListColumnMenu({
     <MenuButton
       ariaLabel="Show or hide columns"
       icon={<IconColumns />}
-      className="track-list-column-menu"
-      triggerClassName="track-list-column-menu__trigger"
+      size="sm"
       layoutDeps={[columns.length]}
     >
       <>
