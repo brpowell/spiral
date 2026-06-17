@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   albumTotalDurationSeconds,
   getAlbumByKey,
@@ -66,21 +66,14 @@ export function AlbumDetailView({
   );
   const multipleDiscs = discGroups.length > 1;
 
+  useEffect(() => {
+    if (!album) {
+      closeAlbum();
+    }
+  }, [album, closeAlbum]);
+
   if (!album) {
-    return (
-      <div className="album-detail album-detail--missing">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="album-detail__back"
-          onClick={closeAlbum}
-        >
-          <IconBack />
-          {backLabel}
-        </Button>
-        <p>Album not found.</p>
-      </div>
-    );
+    return null;
   }
 
   const trackIds = album.tracks.map((t) => t.id);
