@@ -256,4 +256,5 @@ const TRACK_LIST_HIDEABLE_BY_PRESET: Partial<
     "playCount",
   ],
   cd: ["artist"],
+  album: ["artist"],
 };

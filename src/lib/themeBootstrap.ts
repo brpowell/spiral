@@ -1,8 +1,9 @@
-import { applyTheme, DEFAULT_THEME_ID, findThemeByName } from "./theme";
+import { applyTheme, DEFAULT_THEME_ID, findThemeByName, resolveActiveThemeId } from "./theme";
 import {
   getActiveThemeId,
   getBuiltinThemes,
   loadUserThemes,
+  saveActiveThemeId,
 } from "./tauri";
 import { useThemeStore } from "../store/useThemeStore";
 import type { Theme } from "../types/theme";
@@ -24,18 +25,19 @@ export async function bootstrapTheme(): Promise<void> {
   }
 
   const themes: Theme[] = [...builtin, ...user];
-  const resolvedId =
-    findThemeByName(themes, activeThemeId) !== undefined
-      ? activeThemeId
-      : DEFAULT_THEME_ID;
-
-  const theme =
-    findThemeByName(themes, resolvedId) ??
-    findThemeByName(themes, DEFAULT_THEME_ID) ??
-    themes[0];
+  const resolvedId = resolveActiveThemeId(themes, activeThemeId);
+  const theme = findThemeByName(themes, resolvedId);
 
   if (theme) {
     applyTheme(theme);
+  }
+
+  if (resolvedId !== activeThemeId) {
+    try {
+      await saveActiveThemeId(resolvedId);
+    } catch {
+      // Settings write failed; in-memory state is still corrected.
+    }
   }
 
   useThemeStore.getState().initializeFromBootstrap(themes, resolvedId);

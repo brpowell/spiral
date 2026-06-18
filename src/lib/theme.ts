@@ -62,3 +62,16 @@ export function applyTheme(theme: Theme): void {
 export function findThemeByName(themes: Theme[], name: string): Theme | undefined {
   return themes.find((t) => t.name === name);
 }
+
+export function resolveActiveThemeId(
+  themes: Theme[],
+  activeThemeId: string,
+): string {
+  if (findThemeByName(themes, activeThemeId) !== undefined) {
+    return activeThemeId;
+  }
+  if (findThemeByName(themes, DEFAULT_THEME_ID) !== undefined) {
+    return DEFAULT_THEME_ID;
+  }
+  return themes[0]?.name ?? DEFAULT_THEME_ID;
+}

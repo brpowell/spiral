@@ -3,6 +3,7 @@ import {
   applyTheme,
   DEFAULT_THEME_ID,
   findThemeByName,
+  resolveActiveThemeId,
 } from "../lib/theme";
 import { emitThemeChanged } from "../lib/themeBridge";
 import {
@@ -29,14 +30,13 @@ interface ThemeState {
   openThemesFolder: () => Promise<void>;
 }
 
-function applyActiveTheme(themes: Theme[], activeThemeId: string): void {
-  const theme =
-    findThemeByName(themes, activeThemeId) ??
-    findThemeByName(themes, DEFAULT_THEME_ID) ??
-    themes[0];
+function applyActiveTheme(themes: Theme[], activeThemeId: string): string {
+  const resolvedId = resolveActiveThemeId(themes, activeThemeId);
+  const theme = findThemeByName(themes, resolvedId);
   if (theme) {
     applyTheme(theme);
   }
+  return resolvedId;
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
@@ -45,19 +45,24 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   themesLoaded: false,
 
   initializeFromBootstrap: (themes, activeThemeId) => {
-    applyActiveTheme(themes, activeThemeId);
-    set({ themes, activeThemeId, themesLoaded: true });
+    const resolvedId = applyActiveTheme(themes, activeThemeId);
+    set({ themes, activeThemeId: resolvedId, themesLoaded: true });
   },
 
   loadThemes: async () => {
-    const [builtin, user, activeThemeId] = await Promise.all([
+    const [builtin, user, storedActiveThemeId] = await Promise.all([
       getBuiltinThemes(),
       loadUserThemes(),
       getActiveThemeId(),
     ]);
     const themes = [...builtin, ...user];
-    applyActiveTheme(themes, activeThemeId);
-    set({ themes, activeThemeId, themesLoaded: true });
+    const resolvedId = applyActiveTheme(themes, storedActiveThemeId);
+    set({ themes, activeThemeId: resolvedId, themesLoaded: true });
+
+    if (resolvedId !== storedActiveThemeId) {
+      await saveActiveThemeId(resolvedId);
+      emitThemeChanged(resolvedId);
+    }
   },
 
   setTheme: async (name) => {

@@ -187,7 +187,7 @@ export const TRACK_LIST_PRESETS: Record<TrackListPresetId, TrackListPreset> = {
   album: {
     id: "album",
     indexColumn: "trackNumber",
-    columns: [TRACK_NUM_COL, TITLE_COL, DURATION_COL],
+    columns: [TRACK_NUM_COL, TITLE_COL, ARTIST_COL, DURATION_COL],
   },
   playlist: {
     id: "playlist",
