@@ -28,6 +28,7 @@ import "./ArtistDetailView.css";
 interface ArtistDetailViewProps {
   albums: Album[];
   artists: Artist[];
+  performerArtists: Artist[];
   artistKey: string;
   browseMode: ArtistBrowseMode;
 }
@@ -35,6 +36,7 @@ interface ArtistDetailViewProps {
 export function ArtistDetailView({
   albums,
   artists,
+  performerArtists,
   artistKey,
   browseMode,
 }: ArtistDetailViewProps) {
@@ -44,11 +46,15 @@ export function ArtistDetailView({
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const openArtistEditor = usePlayerStore((s) => s.openArtistEditor);
 
-  const artist = getArtistByKey(artists, artistKey);
+  const artist =
+    getArtistByKey(artists, artistKey) ??
+    getArtistByKey(performerArtists, artistKey);
+  const artistBrowseMode =
+    getArtistByKey(artists, artistKey) != null ? browseMode : "performers";
   const backLabel = detailReturnLabel(artistReturnContext, artists);
   const discography = useMemo(
-    () => (artist ? albumsForArtist(albums, artist, browseMode) : []),
-    [albums, artist, browseMode],
+    () => (artist ? albumsForArtist(albums, artist, artistBrowseMode) : []),
+    [albums, artist, artistBrowseMode],
   );
 
   if (!artist) {
@@ -71,9 +77,9 @@ export function ArtistDetailView({
   const trackIds = artist.tracks.map((t) => t.id);
   const totalDuration = artistTotalDurationSeconds(artist.tracks);
   const discographySectionTitle =
-    browseMode === "performers" ? "Appears on" : "Discography";
+    artistBrowseMode === "performers" ? "Appears on" : "Discography";
   const emptyDiscographyMessage =
-    browseMode === "performers"
+    artistBrowseMode === "performers"
       ? "No albums in library for this performer."
       : "No albums in library.";
 
@@ -112,7 +118,7 @@ export function ArtistDetailView({
                 label="Edit Artist"
                 onClick={() => {
                   close();
-                  openArtistEditor(artist.key, browseMode);
+                  openArtistEditor(artist.key, artistBrowseMode);
                 }}
               />
               {artist.tracks.length > 0 ? (

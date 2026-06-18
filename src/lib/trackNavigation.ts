@@ -3,8 +3,53 @@ import {
   performerKeysForTrack,
   type ArtistBrowseMode,
 } from "./artists";
+import { normalizeArtistName, parseArtistField } from "./artistNames";
 import { albumKey } from "./albums";
 import type { Track } from "../types/track";
+
+export interface TrackArtistLink {
+  name: string;
+  key: string;
+  linkable: boolean;
+}
+
+function artistDisplayNames(track: Track): string[] {
+  const names = parseArtistField(track.artist);
+  if (names.length > 0) return names;
+  const fallback = track.albumArtist?.trim() || track.artist?.trim();
+  return fallback ? [fallback] : [];
+}
+
+function isKeyLinkable(
+  key: string,
+  linkableArtistKeys: ReadonlySet<string> | undefined,
+): boolean {
+  return linkableArtistKeys == null || linkableArtistKeys.has(key);
+}
+
+function performerArtistLinks(
+  track: Track,
+  linkableArtistKeys?: ReadonlySet<string>,
+): TrackArtistLink[] {
+  return artistDisplayNames(track).map((name) => {
+    const key = normalizeArtistName(name);
+    return {
+      name,
+      key,
+      linkable: isKeyLinkable(key, linkableArtistKeys),
+    };
+  });
+}
+
+/** Per-artist links for the track list artist column. */
+export function artistLinksForTrack(
+  track: Track,
+  linkableArtistKeys?: ReadonlySet<string>,
+): TrackArtistLink[] {
+  if (!hasNavigableArtist(track)) return [];
+
+  return performerArtistLinks(track, linkableArtistKeys);
+}
 
 export function navigationArtistKey(
   track: Track,

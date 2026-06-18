@@ -366,6 +366,21 @@
   vertical-align: bottom;
 }
 
+.track-list__artist-links {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-list__artist-links .track-list__cell-link {
+  display: inline;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  vertical-align: baseline;
+}
+
 .track-list__cell-link:hover {
   color: var(--color-accent);
   text-decoration: underline;

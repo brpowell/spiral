@@ -36,6 +36,10 @@ export function MainContent() {
     const grouped = groupTracksIntoArtists(liveLibrary, artistBrowseMode);
     return applyArtistImages(grouped, imagesByKey);
   }, [liveLibrary, artistBrowseMode, imagesByKey]);
+  const performerArtists = useMemo(() => {
+    const grouped = groupTracksIntoArtists(liveLibrary, "performers");
+    return applyArtistImages(grouped, imagesByKey);
+  }, [liveLibrary, imagesByKey]);
 
   const contentKey =
     cdDriveId != null
@@ -65,10 +69,7 @@ export function MainContent() {
             className="main-content__view"
             {...viewTransition}
           >
-            <PlaylistDetailView
-              playlistId={playlistId}
-              artists={artists}
-            />
+            <PlaylistDetailView playlistId={playlistId} artists={artists} />
           </motion.div>
         ) : albumKey != null ? (
           <motion.div
@@ -91,6 +92,7 @@ export function MainContent() {
             <ArtistDetailView
               albums={albums}
               artists={artists}
+              performerArtists={performerArtists}
               artistKey={artistKey}
               browseMode={artistBrowseMode}
             />

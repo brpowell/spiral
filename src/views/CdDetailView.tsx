@@ -28,7 +28,6 @@ import { setCdDetailDrive } from "../lib/tauri";
 import { detailReturnLabel } from "../lib/navigationReturn";
 import {
   isAlbumInLibrary,
-  isArtistInLibrary,
   linkableArtistKey,
 } from "../lib/trackNavigation";
 import {
@@ -135,12 +134,6 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
   const canNavigateAlbum = useCallback(
     (track: Track) => isAlbumInLibrary(track, libraryAlbumKeys),
     [libraryAlbumKeys],
-  );
-
-  const canNavigateArtist = useCallback(
-    (track: Track) =>
-      isArtistInLibrary(track, libraryArtistKeys, artistBrowseMode),
-    [libraryArtistKeys, artistBrowseMode],
   );
 
   useEffect(() => {
@@ -408,7 +401,6 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
             onSelectTrack={handleSelectTrack}
             onPlayTrack={handlePlayTrack}
             canNavigateAlbum={canNavigateAlbum}
-            canNavigateArtist={canNavigateArtist}
             cdDriveId={driveId}
             checkMode
             checkedTrackIds={checkedTrackIds}

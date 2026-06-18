@@ -1,10 +1,15 @@
-import { memo, type CSSProperties, type ReactNode } from "react";
+import { Fragment, memo, type CSSProperties, type ReactNode } from "react";
+import { DEFAULT_ARTIST_JOIN_DELIMITER } from "../../lib/artistNames";
 import { formatDateAdded, formatTime } from "../../lib/format";
+import {
+  artistLinksForTrack,
+  hasNavigableAlbum,
+  type TrackArtistLink,
+} from "../../lib/trackNavigation";
 import {
   isTrackImporting,
   isTrackInteractive,
 } from "../../lib/pendingImportTrack";
-import { hasNavigableAlbum, hasNavigableArtist } from "../../lib/trackNavigation";
 import { IconCheck, IconGrip } from "../icons";
 import { ImportIndicator } from "../ImportIndicator/ImportIndicator";
 import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
@@ -68,6 +73,34 @@ function TrackListCellLink({ label, ariaLabel, onClick }: TrackListCellLinkProps
   );
 }
 
+interface TrackListArtistCellProps {
+  links: TrackArtistLink[];
+  onOpenArtist: (artistKey: string) => void;
+}
+
+function TrackListArtistCell({ links, onOpenArtist }: TrackListArtistCellProps) {
+  if (links.length === 0) return <>—</>;
+
+  return (
+    <span className="track-list__artist-links">
+      {links.map((link, index) => (
+        <Fragment key={`${link.key}-${index}`}>
+          {index > 0 ? DEFAULT_ARTIST_JOIN_DELIMITER : null}
+          {link.linkable ? (
+            <TrackListCellLink
+              label={link.name}
+              ariaLabel={`View artist ${link.name}`}
+              onClick={() => onOpenArtist(link.key)}
+            />
+          ) : (
+            link.name
+          )}
+        </Fragment>
+      ))}
+    </span>
+  );
+}
+
 function indexDisplay(
   track: Track,
   displayIndex: number,
@@ -99,10 +132,10 @@ export interface TrackListRowProps {
   onSelectTrack: (track: Track, e: React.MouseEvent) => void;
   onPlayTrack: (track: Track) => void;
   onStartReorder: (e: React.PointerEvent, fromIndex: number) => void;
-  onOpenArtist: (track: Track) => void;
+  onOpenArtist: (artistKey: string) => void;
   onOpenAlbum: (track: Track) => void;
+  linkableArtistKeys: ReadonlySet<string>;
   canNavigateAlbum?: (track: Track) => boolean;
-  canNavigateArtist?: (track: Track) => boolean;
   readOnly?: boolean;
   cdDriveId?: string;
   cdTracks?: Track[];
@@ -134,8 +167,8 @@ function TrackListRowComponent({
   onStartReorder,
   onOpenArtist,
   onOpenAlbum,
+  linkableArtistKeys,
   canNavigateAlbum = hasNavigableAlbum,
-  canNavigateArtist = hasNavigableArtist,
   readOnly = false,
   cdDriveId,
   cdTracks,
@@ -156,7 +189,6 @@ function TrackListRowComponent({
 
   const rowContent = (
         <div
-          role={canPlay ? "button" : isInteractive ? "group" : undefined}
           tabIndex={canPlay || isInteractive ? 0 : -1}
           aria-disabled={isImporting || isCdImporting || undefined}
           className={[
@@ -282,14 +314,13 @@ function TrackListRowComponent({
               .filter(Boolean)
               .join(" ");
 
-            if (col.id === "artist" && canNavigateArtist(track)) {
-              const label = track.artist ?? "—";
+            if (col.id === "artist") {
+              const links = artistLinksForTrack(track, linkableArtistKeys);
               return (
                 <span key={col.id} className={cellClassName}>
-                  <TrackListCellLink
-                    label={label}
-                    ariaLabel={`View artist ${label}`}
-                    onClick={() => onOpenArtist(track)}
+                  <TrackListArtistCell
+                    links={links}
+                    onOpenArtist={onOpenArtist}
                   />
                 </span>
               );
@@ -395,8 +426,8 @@ function rowPropsEqual(
     prev.onStartReorder === next.onStartReorder &&
     prev.onOpenArtist === next.onOpenArtist &&
     prev.onOpenAlbum === next.onOpenAlbum &&
+    prev.linkableArtistKeys === next.linkableArtistKeys &&
     prev.canNavigateAlbum === next.canNavigateAlbum &&
-    prev.canNavigateArtist === next.canNavigateArtist &&
     prev.readOnly === next.readOnly &&
     prev.cdDriveId === next.cdDriveId &&
     prev.cdTracks === next.cdTracks &&

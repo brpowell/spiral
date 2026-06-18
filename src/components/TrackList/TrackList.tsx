@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import { albumKey } from "../../lib/albums";
-import { navigationArtistKey } from "../../lib/trackNavigation";
+import { groupTracksIntoArtists } from "../../lib/artists";
+import { isTrackImporting } from "../../lib/pendingImportTrack";
 import { useNavigationStore } from "../../store/useNavigationStore";
+import { usePlayerStore } from "../../store/usePlayerStore";
 import { Button } from "../common/Button/Button";
 import { TrackListColumnMenu } from "./TrackListColumnMenu";
 import { TrackListRow } from "./TrackListRow";
@@ -55,7 +57,6 @@ interface TrackListProps {
   onReorderTracks?: (fromIndex: number, toIndex: number) => void;
   readOnly?: boolean;
   canNavigateAlbum?: (track: Track) => boolean;
-  canNavigateArtist?: (track: Track) => boolean;
   cdDriveId?: string;
   checkMode?: boolean;
   checkedTrackIds?: number[];
@@ -130,7 +131,6 @@ export function TrackList({
   onReorderTracks,
   readOnly = false,
   canNavigateAlbum,
-  canNavigateArtist,
   cdDriveId,
   checkMode = false,
   checkedTrackIds = [],
@@ -153,14 +153,14 @@ export function TrackList({
 
   const openAlbum = useNavigationStore((s) => s.openAlbum);
   const openArtist = useNavigationStore((s) => s.openArtist);
-  const artistBrowseMode = useNavigationStore((s) => s.artistBrowseMode);
+  const library = usePlayerStore((s) => s.library);
 
-  const handleOpenArtist = useCallback(
-    (track: Track) => {
-      openArtist(navigationArtistKey(track, artistBrowseMode));
-    },
-    [openArtist, artistBrowseMode],
-  );
+  const linkableArtistKeys = useMemo(() => {
+    const liveLibrary = library.filter((track) => !isTrackImporting(track));
+    return new Set(
+      groupTracksIntoArtists(liveLibrary, "performers").map((artist) => artist.key),
+    );
+  }, [library]);
 
   const handleOpenAlbum = useCallback(
     (track: Track) => {
@@ -441,10 +441,10 @@ export function TrackList({
         onSelectTrack={onSelectTrack}
         onPlayTrack={onPlayTrack}
         onStartReorder={startReorder}
-        onOpenArtist={handleOpenArtist}
+        onOpenArtist={openArtist}
         onOpenAlbum={handleOpenAlbum}
+        linkableArtistKeys={linkableArtistKeys}
         canNavigateAlbum={canNavigateAlbum}
-        canNavigateArtist={canNavigateArtist}
         readOnly={readOnly}
         cdDriveId={cdDriveId}
         cdTracks={cdDriveId != null ? tracks : undefined}
