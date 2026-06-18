@@ -17,7 +17,7 @@ import {
 } from "../../../lib/presentation/assets";
 import { useSkinVisible } from "../../../lib/skinBinds";
 import { Button } from "../../common/Button/Button";
-import { IconVisualizer } from "../../icons";
+import { IconMaximize, IconMinimize } from "../../icons";
 import { useVisualizerContextBuilder } from "../context";
 import { drawBarsFrame } from "../renderers/drawBars";
 import { drawSpectrumFrame } from "../renderers/drawSpectrum";
@@ -385,7 +385,7 @@ export function SceneRenderer({
           aria-label={expanded ? "Collapse visualizer" : "Expand visualizer"}
           aria-pressed={expanded}
         >
-          <IconVisualizer />
+          {expanded ? <IconMinimize /> : <IconMaximize />}
         </Button>
       ) : null}
     </div>

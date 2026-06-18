@@ -3,7 +3,7 @@ import {
   IconAlwaysOnTop,
   IconClose,
   IconPalette,
-  IconRestoreWindow,
+  IconMaximize,
 } from "../../icons";
 import { useSkinAction } from "../../../lib/skinActions";
 import { useSkinModeAlwaysOnTop } from "../../../lib/skinModeAlwaysOnTop";
@@ -35,7 +35,7 @@ function ActionIcon({
     case "skin.toggleAlwaysOnTop":
       return <IconAlwaysOnTop width={width} height={height} />;
     case "skin.restoreMainWindow":
-      return <IconRestoreWindow width={width} height={height} />;
+      return <IconMaximize width={width} height={height} />;
     case "skin.exit":
     case "app.quit":
       return <IconClose width={width} height={height} />;

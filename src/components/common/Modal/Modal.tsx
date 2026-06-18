@@ -6,6 +6,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   releasedOutsidePanel,
   shouldDismissModalOnBackdropRelease,
@@ -107,7 +108,7 @@ export function Modal({
     .filter(Boolean)
     .join(" ");
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -127,7 +128,8 @@ export function Modal({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 

@@ -51,6 +51,16 @@
   right: 0.2rem;
 }
 
+.audio-visualizer--mini .audio-visualizer__toggle {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.audio-visualizer--mini:hover .audio-visualizer__toggle,
+.audio-visualizer--mini:focus-within .audio-visualizer__toggle {
+  opacity: 1;
+}
+
 .audio-visualizer--expanded .audio-visualizer__toggle {
   top: 0.5rem;
   right: 0.75rem;
