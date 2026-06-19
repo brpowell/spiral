@@ -112,6 +112,8 @@ pub fn run() {
             commands::visualizers::save_active_visualizer_id,
             commands::visualizers::get_active_visualizer_id,
             commands::visualizers::open_visualizers_folder,
+            commands::equalizer::get_equalizer_settings,
+            commands::equalizer::save_equalizer_settings,
             commands::library_settings::get_library_settings,
             commands::library_settings::save_library_settings,
             commands::library_settings::prepare_import_file,

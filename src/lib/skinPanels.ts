@@ -1,0 +1,203 @@
+import type {
+  LayoutBounds,
+  LayoutNode,
+  SkinCanvasSpec,
+  SkinManifest,
+  SkinPanel,
+  SkinView,
+} from "../types/skin";
+
+export type PanelOpenState = Record<string, boolean>;
+
+export interface PanelBindContext {
+  panelOpen: PanelOpenState;
+  panelRevealed?: PanelOpenState;
+  panelSettled?: PanelOpenState;
+}
+
+const PANEL_BIND_RE =
+  /^skin\.panel\.([^.]+)\.(open|closed|revealed|settled|openSettled)$/;
+
+export function parsePanelBindPath(
+  path: string,
+): {
+  panelId: string;
+  prop: "open" | "closed" | "revealed" | "settled" | "openSettled";
+} | null {
+  const match = path.match(PANEL_BIND_RE);
+  if (!match) return null;
+  const [, panelId, prop] = match;
+  return {
+    panelId,
+    prop: prop as "open" | "closed" | "revealed" | "settled" | "openSettled",
+  };
+}
+
+export function evaluatePanelBind(
+  path: string,
+  panelOpen: PanelOpenState,
+  panelRevealed: PanelOpenState = {},
+  panelSettled: PanelOpenState = {},
+): boolean | null {
+  const parsed = parsePanelBindPath(path);
+  if (!parsed) return null;
+  if (parsed.prop === "revealed") {
+    return panelRevealed[parsed.panelId] ?? false;
+  }
+  if (parsed.prop === "settled") {
+    return panelSettled[parsed.panelId] ?? true;
+  }
+  if (parsed.prop === "openSettled") {
+    return (
+      (panelOpen[parsed.panelId] ?? false) &&
+      (panelSettled[parsed.panelId] ?? true)
+    );
+  }
+  const isOpen = panelOpen[parsed.panelId] ?? false;
+  return parsed.prop === "open" ? isOpen : !isOpen;
+}
+
+export function defaultPanelRevealedState(
+  view: SkinView,
+  panelOpen: PanelOpenState = defaultPanelOpenState(view),
+): PanelOpenState {
+  const state: PanelOpenState = {};
+  if (!view.panels) return state;
+  for (const [id] of Object.entries(view.panels)) {
+    state[id] = panelOpen[id] ?? false;
+  }
+  return state;
+}
+
+/** True when a panel is not mid-slide (controls can appear without crossing the head). */
+export function defaultPanelSettledState(view: SkinView): PanelOpenState {
+  const state: PanelOpenState = {};
+  if (!view.panels) return state;
+  for (const id of Object.keys(view.panels)) {
+    state[id] = true;
+  }
+  return state;
+}
+
+export function defaultPanelOpenState(view: SkinView): PanelOpenState {
+  const state: PanelOpenState = {};
+  if (!view.panels) return state;
+  for (const [id, panel] of Object.entries(view.panels)) {
+    state[id] = panel.defaultOpen ?? false;
+  }
+  return state;
+}
+
+function conditionMatches(
+  condition: string,
+  ctx: PanelBindContext,
+): boolean {
+  const panelValue = evaluatePanelBind(
+    condition,
+    ctx.panelOpen,
+    ctx.panelRevealed,
+    ctx.panelSettled,
+  );
+  if (panelValue !== null) return panelValue;
+  return false;
+}
+
+function resolveDimensionWhen(
+  base: number,
+  when: Record<string, number> | undefined,
+  ctx: PanelBindContext,
+): number {
+  if (!when) return base;
+  let resolved = base;
+  for (const [condition, value] of Object.entries(when)) {
+    if (conditionMatches(condition, ctx)) {
+      resolved = Math.max(resolved, value);
+    }
+  }
+  return resolved;
+}
+
+export function resolveCanvasSize(
+  view: SkinView,
+  manifest: SkinManifest,
+  _panelOpen: PanelOpenState = {},
+): { width: number; height: number } {
+  const canvas: SkinCanvasSpec | undefined = view.canvas;
+  const width =
+    canvas?.width ?? manifest.window?.defaultWidth ?? 320;
+  const height =
+    canvas?.height ?? manifest.window?.defaultHeight ?? 440;
+
+  return { width, height };
+}
+
+/** Native window size for panel-driven chrome (may be smaller than the canvas stage). */
+export function resolvePanelWindowSize(
+  view: SkinView,
+  manifest: SkinManifest,
+  panelOpen: PanelOpenState = {},
+  panelRevealed: PanelOpenState = {},
+  panelSettled: PanelOpenState = {},
+): { width: number; height: number } {
+  const ctx: PanelBindContext = { panelOpen, panelRevealed, panelSettled };
+  const canvas = resolveCanvasSize(view, manifest, panelOpen);
+  let width =
+    manifest.window?.defaultWidth ?? canvas.width;
+  let height =
+    manifest.window?.defaultHeight ?? canvas.height;
+
+  width = resolveDimensionWhen(width, view.canvas?.widthWhen, ctx);
+  height = resolveDimensionWhen(height, view.canvas?.heightWhen, ctx);
+
+  if (view.panels) {
+    for (const [id, panel] of Object.entries(view.panels)) {
+      if (!panelOpen[id]) continue;
+      if (panel.windowWhenOpen?.width !== undefined) {
+        width = Math.max(width, panel.windowWhenOpen.width);
+      }
+      if (panel.windowWhenOpen?.height !== undefined) {
+        height = Math.max(height, panel.windowWhenOpen.height);
+      }
+    }
+  }
+
+  return { width, height };
+}
+
+export function resolveNodeBounds(
+  bounds: LayoutBounds | undefined,
+  boundsWhen: Record<string, Partial<LayoutBounds>> | undefined,
+  ctx: PanelBindContext,
+): LayoutBounds | undefined {
+  if (!bounds) return undefined;
+  let resolved: LayoutBounds = { ...bounds };
+  if (boundsWhen) {
+    for (const [condition, override] of Object.entries(boundsWhen)) {
+      if (conditionMatches(condition, ctx)) {
+        resolved = { ...resolved, ...override };
+      }
+    }
+  }
+  return resolved;
+}
+
+export function getNodeBoundsWhen(
+  node: LayoutNode,
+): Record<string, Partial<LayoutBounds>> | undefined {
+  if ("boundsWhen" in node) {
+    return node.boundsWhen;
+  }
+  return undefined;
+}
+
+export function panelIdsForView(view: SkinView | undefined): string[] {
+  if (!view?.panels) return [];
+  return Object.keys(view.panels);
+}
+
+export function panelDefinition(
+  view: SkinView | undefined,
+  panelId: string,
+): SkinPanel | undefined {
+  return view?.panels?.[panelId];
+}

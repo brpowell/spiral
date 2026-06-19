@@ -1,0 +1,102 @@
+import { describe, expect, it } from "vitest";
+import {
+  SKIN_PLAYLIST_SOURCE_ALL,
+  SKIN_PLAYLIST_SOURCE_UP_NEXT,
+  buildSkinPlaylistSourceOptions,
+  playlistSourceIdForPlaylist,
+  resolveSkinPlaylistTrackIds,
+} from "./skinPlaylist";
+import type { Playlist } from "../types/playlist";
+import type { Track } from "../types/track";
+
+function track(id: number, title: string): Track {
+  return {
+    id,
+    title,
+    artist: null,
+    album: null,
+    albumArtist: null,
+    trackNumber: null,
+    discNumber: null,
+    year: null,
+    genre: null,
+    durationSeconds: 180,
+    filePath: `/music/${id}.mp3`,
+    artPath: null,
+    dateAdded: "2024-01-01",
+    playCount: 0,
+  };
+}
+
+function playlist(id: number, title: string, trackIds: number[]): Playlist {
+  return {
+    id,
+    title,
+    description: null,
+    trackIds,
+    imageMode: "generated",
+    customImagePath: null,
+    createdAt: "2024-01-01",
+    updatedAt: "2024-01-01",
+    lastUsedAt: "2024-01-01",
+  };
+}
+
+describe("buildSkinPlaylistSourceOptions", () => {
+  it("includes All tracks, Up Next, and sorted user playlists", () => {
+    const options = buildSkinPlaylistSourceOptions([
+      playlist(2, "Zebra", []),
+      playlist(1, "Alpha", []),
+    ]);
+
+    expect(options.map((option) => option.id)).toEqual([
+      SKIN_PLAYLIST_SOURCE_ALL,
+      SKIN_PLAYLIST_SOURCE_UP_NEXT,
+      playlistSourceIdForPlaylist(1),
+      playlistSourceIdForPlaylist(2),
+    ]);
+  });
+});
+
+describe("resolveSkinPlaylistTrackIds", () => {
+  const library = [track(1, "B"), track(2, "A"), track(3, "C")];
+
+  it("returns library tracks sorted by title for All tracks", () => {
+    expect(
+      resolveSkinPlaylistTrackIds(SKIN_PLAYLIST_SOURCE_ALL, {
+        library,
+        playbackTracks: [],
+        playContextIds: [],
+        manualQueueIds: [],
+        currentTrackId: null,
+        playlists: [],
+      }),
+    ).toEqual([2, 1, 3]);
+  });
+
+  it("returns tracks after the current item for Up Next", () => {
+    expect(
+      resolveSkinPlaylistTrackIds(SKIN_PLAYLIST_SOURCE_UP_NEXT, {
+        library,
+        playbackTracks: [],
+        playContextIds: [1, 2, 3],
+        manualQueueIds: [],
+        currentTrackId: 1,
+        playlists: [],
+      }),
+    ).toEqual([2, 3]);
+  });
+
+  it("returns playlist track order for user playlists", () => {
+    expect(
+      resolveSkinPlaylistTrackIds(playlistSourceIdForPlaylist(9), {
+        library,
+        playbackTracks: [],
+        playContextIds: [],
+        manualQueueIds: [],
+        currentTrackId: null,
+        playlists: [playlist(9, "Mix", [3, 1])],
+      }),
+    ).toEqual([3, 1]);
+  });
+});

@@ -10,12 +10,15 @@ export function SkinBounds({
   className,
   dragRegion,
   debugLabel,
+  motion,
 }: {
   bounds: LayoutBounds;
   children: ReactNode;
   className?: string;
   dragRegion?: boolean;
   debugLabel?: string;
+  /** When true, position changes animate (panel drawer slides). */
+  motion?: boolean;
 }) {
   const skinDebug = useSkinDebug();
   const style: CSSProperties = {
@@ -30,6 +33,7 @@ export function SkinBounds({
     <div
       className={[
         "skin-bounds",
+        motion && "skin-bounds--motion",
         dragRegion && "skin-bounds--drag",
         skinDebug && "skin-bounds--debug",
         className,
@@ -37,6 +41,7 @@ export function SkinBounds({
         .filter(Boolean)
         .join(" ")}
       style={style}
+      data-node-id={debugLabel}
       {...(dragRegion ? skinDragRegionSelfProps() : {})}
     >
       {skinDebug && debugLabel ? (

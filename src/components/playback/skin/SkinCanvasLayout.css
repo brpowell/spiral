@@ -20,6 +20,17 @@
   pointer-events: auto;
 }
 
+/* Canvas grouping nodes pass through; only their bounded children capture input. */
+.skin-canvas-layout .skin-layout-node--canvas {
+  pointer-events: none;
+}
+
+.skin-layout-node--canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
 .skin-canvas-layout__debug-banner {
   position: absolute;
   top: 0;

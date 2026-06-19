@@ -1,4 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  EQ_BAND_FREQUENCIES_HZ,
+  formatEqBandFrequency,
+  gainDbToRatio,
+  ratioToGainDb,
+} from "../../../lib/equalizer/types";
 import * as audio from "../../../lib/playback";
 import { findPlaybackTrack } from "../../../lib/playbackTrack";
 import { skinPackAssetUrl } from "../../../lib/skinAssets";
@@ -10,11 +16,17 @@ import {
 } from "../../../lib/skinStripSliderMap";
 import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
 import { useSkinDebug } from "../../../hooks/useSkinDebug";
+import { useEqualizerStore } from "../../../store/useEqualizerStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
-import type { LoadedSkinPack, SeekbarNode, VolumeNode } from "../../../types/skin";
+import type {
+  EqBandNode,
+  LoadedSkinPack,
+  SeekbarNode,
+  VolumeNode,
+} from "../../../types/skin";
 import "./SkinStripSlider.css";
 
-type StripSliderNode = SeekbarNode | VolumeNode;
+type StripSliderNode = SeekbarNode | VolumeNode | EqBandNode;
 
 export function SkinStripSlider({
   node,
@@ -23,10 +35,12 @@ export function SkinStripSlider({
 }: {
   node: StripSliderNode;
   pack: LoadedSkinPack;
-  mode: "seek" | "volume";
+  mode: "seek" | "volume" | "eq";
 }) {
   const presentation = node.presentation;
   if (presentation.kind !== "stripSlider") return null;
+
+  const eqBand = mode === "eq" && node.type === "eqBand" ? node.band : null;
 
   const {
     strip,
@@ -34,7 +48,7 @@ export function SkinStripSlider({
     frameWidth,
     frameHeight,
     frameCount,
-    direction = mode === "volume" ? "vertical" : "horizontal",
+    direction = mode === "volume" || mode === "eq" ? "vertical" : "horizontal",
     invert = false,
     classPrefix,
   } = presentation;
@@ -76,6 +90,11 @@ export function SkinStripSlider({
   const volume = usePlayerStore((s) => s.volume);
   const setVolume = usePlayerStore((s) => s.setVolume);
 
+  const bandGain = useEqualizerStore((s) =>
+    eqBand !== null ? s.bands[eqBand - 1] : 0,
+  );
+  const setBand = useEqualizerStore((s) => s.setBand);
+
   const currentTrack = useMemo(
     () =>
       findPlaybackTrack({ library, playbackTracks, currentTrackId }),
@@ -94,8 +113,15 @@ export function SkinStripSlider({
     handleSeekEnd,
   } = usePlaybackProgress(durationSeconds);
 
-  const valueRatio = mode === "volume" ? volume : isSeeking ? seekValue : progress;
-  const disabled = mode === "volume" ? false : seekDisabled;
+  const valueRatio =
+    mode === "eq"
+      ? gainDbToRatio(bandGain)
+      : mode === "volume"
+        ? volume
+        : isSeeking
+          ? seekValue
+          : progress;
+  const disabled = mode === "eq" || mode === "volume" ? false : seekDisabled;
 
   const displayFrame = Math.round(valueRatio * (frameCount - 1));
 
@@ -133,7 +159,10 @@ export function SkinStripSlider({
 
   const applyRatio = useCallback(
     (ratio: number, commit: boolean) => {
-      if (mode === "volume") {
+      if (mode === "eq") {
+        if (eqBand === null) return;
+        setBand(eqBand - 1, ratioToGainDb(ratio));
+      } else if (mode === "volume") {
         setVolume(ratio);
       } else if (commit) {
         handleSeekEnd(ratio);
@@ -141,7 +170,14 @@ export function SkinStripSlider({
         handleSeekChange(ratio);
       }
     },
-    [mode, setVolume, handleSeekChange, handleSeekEnd],
+    [
+      mode,
+      eqBand,
+      setBand,
+      setVolume,
+      handleSeekChange,
+      handleSeekEnd,
+    ],
   );
 
   const onPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -166,7 +202,10 @@ export function SkinStripSlider({
   const finishDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
     event.currentTarget.releasePointerCapture(event.pointerId);
-    applyRatio(pointerToRatio(event.clientX, event.clientY), mode !== "volume");
+    applyRatio(
+      pointerToRatio(event.clientX, event.clientY),
+      mode === "seek",
+    );
   };
 
   const className = [
@@ -186,6 +225,13 @@ export function SkinStripSlider({
       ? `ratio ${debugSample.ratio.toFixed(3)} map ${Math.round(debugSample.mapX)},${Math.round(debugSample.mapY)}`
       : null,
   ].filter(Boolean);
+
+  const ariaLabel =
+    mode === "eq" && eqBand !== null
+      ? `EQ band ${eqBand} (${formatEqBandFrequency(EQ_BAND_FREQUENCIES_HZ[eqBand - 1])} Hz)`
+      : mode === "volume"
+        ? "Volume"
+        : "Seek";
 
   return (
     <div
@@ -211,7 +257,7 @@ export function SkinStripSlider({
         type="button"
         className="skin-strip-slider__hit"
         disabled={disabled}
-        aria-label={mode === "volume" ? "Volume" : "Seek"}
+        aria-label={ariaLabel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerLeave={onPointerLeave}

@@ -39,6 +39,7 @@ export class FilePlaybackEngine implements PlaybackEngine {
   private sound: Howl | null = null;
   private endCallback: (() => void) | null = null;
   private loadPending = false;
+  private balance = 0;
 
   async load(source: PlaybackSource): Promise<void> {
     if (source.kind !== "file") {
@@ -158,6 +159,15 @@ export class FilePlaybackEngine implements PlaybackEngine {
 
   getVolume(): number {
     return Howler.volume();
+  }
+
+  setBalance(balance: number): void {
+    this.balance = Math.max(-1, Math.min(1, balance));
+    Howler.stereo(this.balance);
+  }
+
+  getBalance(): number {
+    return this.balance;
   }
 
   setMuted(muted: boolean): void {

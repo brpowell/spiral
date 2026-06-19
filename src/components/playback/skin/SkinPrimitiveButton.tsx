@@ -18,6 +18,7 @@ const ACTION_LABELS: Record<string, string> = {
   "skin.exit": "Exit skin mode",
   "skin.minimize": "Minimize window",
   "app.quit": "Quit Spiral",
+  "eq.reset": "reset",
 };
 
 function ActionIcon({
@@ -50,6 +51,20 @@ function ActionIcon({
   }
 }
 
+function actionHasIcon(action: string | undefined): boolean {
+  switch (action) {
+    case "skin.openPicker":
+    case "skin.toggleAlwaysOnTop":
+    case "skin.restoreMainWindow":
+    case "skin.exit":
+    case "app.quit":
+    case "skin.minimize":
+      return true;
+    default:
+      return false;
+  }
+}
+
 export function SkinPrimitiveButton({ node }: { node: ButtonNode }) {
   const invoke = useSkinAction(node.action);
   const alwaysOnTop = useSkinModeAlwaysOnTop();
@@ -59,6 +74,7 @@ export function SkinPrimitiveButton({ node }: { node: ButtonNode }) {
 
   const label = ACTION_LABELS[node.action ?? ""] ?? node.id ?? node.action ?? "Action";
   const active = node.action === "skin.toggleAlwaysOnTop" && alwaysOnTop;
+  const hasIcon = actionHasIcon(node.action);
 
   const className = [
     "skin-primitive-btn",
@@ -67,6 +83,7 @@ export function SkinPrimitiveButton({ node }: { node: ButtonNode }) {
     node.action === "skin.exit" || node.action === "app.quit"
       ? "skin-primitive-btn--close"
       : null,
+    !hasIcon && "skin-primitive-btn--text",
     presentation.variant ? `skin-primitive-btn--${presentation.variant}` : null,
   ]
     .filter(Boolean)
@@ -76,7 +93,7 @@ export function SkinPrimitiveButton({ node }: { node: ButtonNode }) {
     <Button
       variant="ghost"
       size="sm"
-      iconOnly
+      iconOnly={hasIcon}
       className={className}
       data-node-id={node.id}
       {...skinDragRegionNoneProps()}
@@ -85,7 +102,7 @@ export function SkinPrimitiveButton({ node }: { node: ButtonNode }) {
       aria-pressed={node.action === "skin.toggleAlwaysOnTop" ? active : undefined}
       title={label}
     >
-      <ActionIcon action={node.action} />
+      {hasIcon ? <ActionIcon action={node.action} /> : label}
     </Button>
   );
 }

@@ -1,0 +1,25 @@
+.skin-bitmap-horizontal-slider {
+  position: relative;
+  touch-action: none;
+}
+
+.skin-bitmap-horizontal-slider__track {
+  position: absolute;
+  left: 0;
+  pointer-events: none;
+}
+
+.skin-bitmap-horizontal-slider__thumb {
+  position: absolute;
+  pointer-events: none;
+}
+
+.skin-bitmap-horizontal-slider__hit {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}

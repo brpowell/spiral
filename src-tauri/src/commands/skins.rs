@@ -15,6 +15,7 @@ const KNOWN_ACTIONS: &[&str] = &[
     "player.toggleShuffle",
     "player.seek",
     "player.setVolume",
+    "player.setBalance",
     "player.toggleMute",
     "player.clearTrackList",
     "navigation.openAlbum",
@@ -24,6 +25,17 @@ const KNOWN_ACTIONS: &[&str] = &[
     "skin.minimize",
     "skin.toggleAlwaysOnTop",
     "skin.restoreMainWindow",
+    "skin.togglePanel",
+    "skin.openPanel",
+    "skin.closePanel",
+    "visualizer.previous",
+    "visualizer.next",
+    "playlist.setSource",
+    "playlist.playTrack",
+    "eq.setBand",
+    "eq.applyPreset",
+    "eq.reset",
+    "eq.setEnabled",
     "app.quit",
 ];
 
@@ -41,6 +53,7 @@ const KNOWN_BINDS: &[&str] = &[
     "player.repeatMode",
     "player.shuffle",
     "player.volume",
+    "player.balance",
     "player.muted",
     "player.canGoPrevious",
     "player.canGoNext",
@@ -48,6 +61,26 @@ const KNOWN_BINDS: &[&str] = &[
     "player.hasTrack",
     "skin.alwaysOnTop",
     "playback.source",
+    "visualizer.name",
+    "visualizer.canGoPrevious",
+    "visualizer.canGoNext",
+    "playlist.sourceLabel",
+    "playlist.trackCount",
+    "playlist.hasTracks",
+    "eq.enabled",
+    "eq.presetId",
+    "eq.isManual",
+    "eq.presetLabel",
+    "eq.band.1",
+    "eq.band.2",
+    "eq.band.3",
+    "eq.band.4",
+    "eq.band.5",
+    "eq.band.6",
+    "eq.band.7",
+    "eq.band.8",
+    "eq.band.9",
+    "eq.band.10",
 ];
 
 const SHELL_SLOTS: &[&str] = &["header", "art", "info", "controls", "visualizer", "footer"];
@@ -96,11 +129,40 @@ pub struct SkinManifest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SkinPanelWindowOverride {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkinPanelMotion {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkinPanel {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_open: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window_when_open: Option<SkinPanelWindowOverride>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion: Option<SkinPanelMotion>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SkinView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout_mode: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub canvas: Option<SkinCanvasSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub panels: Option<HashMap<String, SkinPanel>>,
     pub layout: LayoutNode,
 }
 
@@ -109,6 +171,25 @@ pub struct SkinView {
 pub struct SkinCanvasSpec {
     pub width: u32,
     pub height: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width_when: Option<HashMap<String, u32>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height_when: Option<HashMap<String, u32>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct LayoutBoundsOverride {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub w: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub h: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub z_index: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,10 +236,16 @@ pub enum LayoutNode {
     Visualizer(ControlFields),
     #[serde(rename = "volume")]
     Volume(ControlFields),
+    #[serde(rename = "balance")]
+    Balance(ControlFields),
+    #[serde(rename = "eqBand")]
+    EqBand(EqBandFields),
     #[serde(rename = "queue")]
     Queue(ControlFields),
     #[serde(rename = "time")]
     Time(ControlFields),
+    #[serde(rename = "playlist")]
+    Playlist(ControlFields),
     #[serde(rename = "dragRegion")]
     DragRegion(DragRegionFields),
 }
@@ -176,6 +263,8 @@ pub struct ContainerFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drag_region: Option<bool>,
@@ -191,6 +280,8 @@ pub struct RegionFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drag_region: Option<bool>,
@@ -205,6 +296,8 @@ pub struct DecorationFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drag_region: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<String>,
@@ -217,6 +310,8 @@ pub struct DragRegionFields {
     pub id: Option<String>,
     pub bounds: LayoutBounds,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<String>,
 }
 
@@ -225,6 +320,8 @@ pub struct DragRegionFields {
 pub struct ButtonGroupElement {
     pub mapping_color: String,
     pub action: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub panel_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -235,6 +332,8 @@ pub struct ButtonGroupFields {
     pub presentation: Presentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<String>,
 }
@@ -247,6 +346,8 @@ pub struct ControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub panel_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disabled_when: Option<String>,
@@ -254,7 +355,17 @@ pub struct ControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EqBandFields {
+    pub band: u8,
+    #[serde(flatten)]
+    pub control: ControlFields,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -264,6 +375,8 @@ pub struct TextControlFields {
     pub id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bind: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_style: Option<String>,
     pub presentation: Presentation,
@@ -317,6 +430,49 @@ pub enum Presentation {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         class_prefix: Option<String>,
     },
+    #[serde(rename = "bitmapSeekbar", rename_all = "camelCase")]
+    BitmapSeekbar {
+        track: String,
+        fill: String,
+        thumb: String,
+        border_size: f64,
+        track_width: f64,
+        track_height: f64,
+        thumb_width: f64,
+        thumb_height: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        class_prefix: Option<String>,
+    },
+    #[serde(rename = "bitmapVerticalSlider", rename_all = "camelCase")]
+    BitmapVerticalSlider {
+        track: String,
+        thumb: String,
+        track_tile_width: f64,
+        track_tile_height: f64,
+        track_width: f64,
+        track_height: f64,
+        thumb_width: f64,
+        thumb_height: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        border_size: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        class_prefix: Option<String>,
+    },
+    #[serde(rename = "bitmapHorizontalSlider", rename_all = "camelCase")]
+    BitmapHorizontalSlider {
+        track: String,
+        thumb: String,
+        track_tile_width: f64,
+        track_tile_height: f64,
+        track_width: f64,
+        track_height: f64,
+        thumb_width: f64,
+        thumb_height: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        border_size: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        class_prefix: Option<String>,
+    },
     #[serde(rename = "digitStrip", rename_all = "camelCase")]
     DigitStrip {
         strip: String,
@@ -342,6 +498,34 @@ pub enum Presentation {
         animated_hover: Option<bool>,
         elements: Vec<ButtonGroupElement>,
     },
+    #[serde(rename = "framedPanel", rename_all = "camelCase")]
+    FramedPanel {
+        mask: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        frame: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        content_inset: Option<FramedPanelInset>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        class_prefix: Option<String>,
+    },
+    #[serde(rename = "compact", rename_all = "camelCase")]
+    Compact {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        show_dropdown: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        show_duration: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        class_prefix: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FramedPanelInset {
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -471,11 +655,21 @@ fn read_manifest(path: &Path) -> Result<SkinManifest, String> {
 
 fn validate_bind(path: Option<&str>, field: &str, errors: &mut Vec<String>) {
     if let Some(p) = path {
-        if !KNOWN_BINDS.contains(&p) {
-            errors.push(format!(
-                "{field} references unknown bind path \"{p}\". See skin-contract.md for valid paths."
-            ));
+        if KNOWN_BINDS.contains(&p) {
+            return;
         }
+        if p.starts_with("skin.panel.")
+            && p.split('.').count() == 4
+            && matches!(
+                p.rsplit('.').next(),
+                Some("open" | "closed" | "revealed" | "settled" | "openSettled")
+            )
+        {
+            return;
+        }
+        errors.push(format!(
+            "{field} references unknown bind path \"{p}\". See skin-contract.md for valid paths."
+        ));
     }
 }
 
@@ -486,6 +680,54 @@ fn validate_action(action: Option<&str>, errors: &mut Vec<String>) {
                 "control action \"{a}\" is not in the Spiral action catalog."
             ));
         }
+    }
+}
+
+fn validate_bitmap_tiled_slider_presentation(
+    kind: &str,
+    track: &str,
+    thumb: &str,
+    track_tile_width: &f64,
+    track_tile_height: &f64,
+    track_width: &f64,
+    track_height: &f64,
+    thumb_width: &f64,
+    thumb_height: &f64,
+    border_size: &Option<f64>,
+    pack_dir: &Path,
+    errors: &mut Vec<String>,
+) {
+    for (label, path) in [("track", track), ("thumb", thumb)] {
+        if path.contains("..") || path.starts_with('/') {
+            errors.push(format!(
+                "{kind} {label} \"{path}\" must be a relative path under assets/"
+            ));
+            return;
+        }
+        let base = pack_dir.join("assets").join(path);
+        let found = ["png", "webp", "jpg", "jpeg"]
+            .iter()
+            .any(|ext| base.with_extension(ext).is_file());
+        if !found {
+            errors.push(format!(
+                "{kind} {label} asset not found: expected {}.(png|webp|jpg)",
+                base.display()
+            ));
+        }
+    }
+    if track_tile_width <= &0.0 || track_tile_height <= &0.0 {
+        errors.push(format!(
+            "{kind} trackTileWidth and trackTileHeight must be positive"
+        ));
+    }
+    if track_width <= &0.0 || track_height <= &0.0 {
+        errors.push(format!("{kind} trackWidth and trackHeight must be positive"));
+    }
+    if thumb_width <= &0.0 || thumb_height <= &0.0 {
+        errors.push(format!("{kind} thumbWidth and thumbHeight must be positive"));
+    }
+    if border_size.is_some_and(|size| size < 0.0) {
+        errors.push(format!("{kind} borderSize must be non-negative"));
     }
 }
 
@@ -590,6 +832,103 @@ fn validate_presentation(
                 errors.push("stripSlider frameCount must be at least 2".into());
             }
         }
+        Presentation::BitmapSeekbar {
+            track,
+            fill,
+            thumb,
+            border_size,
+            track_width,
+            track_height,
+            thumb_width,
+            thumb_height,
+            ..
+        } => {
+            for (label, path) in [
+                ("track", track.as_str()),
+                ("fill", fill.as_str()),
+                ("thumb", thumb.as_str()),
+            ] {
+                if path.contains("..") || path.starts_with('/') {
+                    errors.push(format!(
+                        "bitmapSeekbar {label} \"{path}\" must be a relative path under assets/"
+                    ));
+                    return;
+                }
+                let base = pack_dir.join("assets").join(path);
+                let found = ["png", "webp", "jpg", "jpeg"]
+                    .iter()
+                    .any(|ext| base.with_extension(ext).is_file());
+                if !found {
+                    errors.push(format!(
+                        "bitmapSeekbar {label} asset not found: expected {}.(png|webp|jpg)",
+                        base.display()
+                    ));
+                }
+            }
+            if *border_size < 0.0 {
+                errors.push("bitmapSeekbar borderSize must be non-negative".into());
+            }
+            if *track_width <= 0.0 || *track_height <= 0.0 {
+                errors.push("bitmapSeekbar trackWidth and trackHeight must be positive".into());
+            }
+            if *thumb_width <= 0.0 || *thumb_height <= 0.0 {
+                errors.push("bitmapSeekbar thumbWidth and thumbHeight must be positive".into());
+            }
+        }
+        Presentation::BitmapVerticalSlider {
+            track,
+            thumb,
+            track_tile_width,
+            track_tile_height,
+            track_width,
+            track_height,
+            thumb_width,
+            thumb_height,
+            border_size,
+            ..
+        } => {
+            validate_bitmap_tiled_slider_presentation(
+                "bitmapVerticalSlider",
+                track,
+                thumb,
+                track_tile_width,
+                track_tile_height,
+                track_width,
+                track_height,
+                thumb_width,
+                thumb_height,
+                border_size,
+                pack_dir,
+                errors,
+            );
+        }
+        Presentation::BitmapHorizontalSlider {
+            track,
+            thumb,
+            track_tile_width,
+            track_tile_height,
+            track_width,
+            track_height,
+            thumb_width,
+            thumb_height,
+            border_size,
+            ..
+        } => {
+            validate_bitmap_tiled_slider_presentation(
+                "bitmapHorizontalSlider",
+                track,
+                thumb,
+                track_tile_width,
+                track_tile_height,
+                track_width,
+                track_height,
+                thumb_width,
+                thumb_height,
+                border_size,
+                pack_dir,
+                errors,
+            );
+        }
         Presentation::DigitStrip {
             strip,
             frame_width,
@@ -639,6 +978,40 @@ fn validate_presentation(
                 }
             }
         }
+        Presentation::FramedPanel {
+            mask,
+            frame,
+            content_inset,
+            ..
+        } => {
+            for (label, path) in [("mask", mask.as_str())]
+                .into_iter()
+                .chain(frame.as_deref().map(|p| ("frame", p)))
+            {
+                if path.contains("..") || path.starts_with('/') {
+                    errors.push(format!(
+                        "framedPanel {label} \"{path}\" must be a relative path under assets/"
+                    ));
+                    return;
+                }
+                let base = pack_dir.join("assets").join(path);
+                let found = ["png", "webp", "jpg", "jpeg"]
+                    .iter()
+                    .any(|ext| base.with_extension(ext).is_file());
+                if !found {
+                    errors.push(format!(
+                        "framedPanel {label} asset not found: expected {}.(png|webp|jpg)",
+                        base.display()
+                    ));
+                }
+            }
+            if let Some(inset) = content_inset {
+                if inset.w <= 0.0 || inset.h <= 0.0 {
+                    errors.push("framedPanel contentInset.w and contentInset.h must be positive".into());
+                }
+            }
+        }
+        Presentation::Compact { .. } => {}
         Presentation::ButtonGroup {
             asset_base,
             position_map,
@@ -740,8 +1113,10 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
         | LayoutNode::Volume(f)
+        | LayoutNode::Balance(f)
         | LayoutNode::Queue(f)
-        | LayoutNode::Time(f) => {
+        | LayoutNode::Time(f)
+        | LayoutNode::Playlist(f) => {
             validate_action(f.action.as_deref(), errors);
             validate_bind(f.bind.as_deref(), "bind", errors);
             validate_bind(f.disabled_when.as_deref(), "disabledWhen", errors);
@@ -750,6 +1125,22 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
                 validate_bounds(bounds, "bounds", errors);
             }
             validate_presentation(&f.presentation, pack_dir, errors);
+        }
+        LayoutNode::EqBand(f) => {
+            if !(1..=10).contains(&f.band) {
+                errors.push(format!(
+                    "eqBand band must be between 1 and 10, got {}",
+                    f.band
+                ));
+            }
+            validate_action(f.control.action.as_deref(), errors);
+            validate_bind(f.control.bind.as_deref(), "bind", errors);
+            validate_bind(f.control.disabled_when.as_deref(), "disabledWhen", errors);
+            validate_bind(f.control.visible_when.as_deref(), "visibleWhen", errors);
+            if let Some(bounds) = &f.control.bounds {
+                validate_bounds(bounds, "bounds", errors);
+            }
+            validate_presentation(&f.control.presentation, pack_dir, errors);
         }
         LayoutNode::ButtonGroup(f) => {
             validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);

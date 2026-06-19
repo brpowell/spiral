@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { skinAssetUrl, skinPackAssetUrl } from "../../../lib/skinAssets";
 import {
   loadButtonGroupPositionMap,
@@ -40,6 +40,7 @@ export function SkinButtonGroup({
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   const [pressedAction, setPressedAction] = useState<string | null>(null);
   const [debugAction, setDebugAction] = useState<string | null>(null);
+  const pendingPressActionRef = useRef<string | null>(null);
 
   const mapUrl = skinPackAssetUrl(pack.packDir, presentation.positionMap);
   const mapWidth = presentation.width ?? node.bounds?.w ?? 44;
@@ -98,7 +99,15 @@ export function SkinButtonGroup({
     return positionMap.actionAt(point.x, point.y, colorToAction);
   };
 
-  const activateAt = (event: PointerEvent<HTMLButtonElement>) => {
+  const updateHoverFromEvent = (event: PointerEvent<HTMLButtonElement>) => {
+    const action = actionAtPointer(event);
+    setHoveredAction(action);
+    if (skinDebug) {
+      setDebugAction(action ?? "(none)");
+    }
+  };
+
+  const beginPress = (event: PointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return;
 
     const action = actionAtPointer(event);
@@ -109,24 +118,40 @@ export function SkinButtonGroup({
 
     event.preventDefault();
     event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pendingPressActionRef.current = action;
     setPressedAction(action);
-    runSkinAction(action);
   };
 
-  const onPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
-    const action = actionAtPointer(event);
-    setHoveredAction(action);
-    if (skinDebug) {
-      setDebugAction(action ?? "(none)");
-    }
-  };
+  const onPointerMove = updateHoverFromEvent;
 
-  const onPointerLeave = () => {
+  const onPointerEnter = updateHoverFromEvent;
+
+  const onPointerLeave = (event: PointerEvent<HTMLButtonElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) return;
     setHoveredAction(null);
     setDebugAction(null);
   };
 
-  const finishPress = () => {
+  const finishPress = (event: PointerEvent<HTMLButtonElement>) => {
+    const pending = pendingPressActionRef.current;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    const actionAtRelease = actionAtPointer(event);
+    if (pending && actionAtRelease === pending) {
+      const element = presentation.elements.find((e) => e.action === pending);
+      runSkinAction(pending, { panelId: element?.panelId });
+    }
+
+    pendingPressActionRef.current = null;
+    setPressedAction(null);
+    setHoveredAction(actionAtRelease);
+  };
+
+  const onLostPointerCapture = () => {
+    pendingPressActionRef.current = null;
     setPressedAction(null);
   };
 
@@ -174,11 +199,13 @@ export function SkinButtonGroup({
           backgroundImage: `url("${src}")`,
           cursor: hoveredAction ? "pointer" : "default",
         }}
-        onPointerDown={activateAt}
+        onPointerDown={beginPress}
         onPointerMove={onPointerMove}
+        onPointerEnter={onPointerEnter}
         onPointerLeave={onPointerLeave}
         onPointerUp={finishPress}
         onPointerCancel={finishPress}
+        onLostPointerCapture={onLostPointerCapture}
       />
       {overlayStyle ? (
         <div

@@ -8,9 +8,11 @@ import { initPlayerStoreBridge } from "./lib/playerStoreBridge";
 import { initSkinBridge } from "./lib/skinBridge";
 import { initThemeBridge } from "./lib/themeBridge";
 import { initVisualizerBridge } from "./lib/visualizerBridge";
+import { initEqBridge } from "./lib/eqBridge";
 import { bootstrapSkin } from "./lib/skinBootstrap";
 import { bootstrapTheme } from "./lib/themeBootstrap";
 import { bootstrapVisualizer } from "./lib/visualizerBootstrap";
+import { bootstrapEqualizer } from "./lib/equalizerBootstrap";
 import {
   bootstrapWindowRole,
   isActivityLogsWindow,
@@ -26,6 +28,7 @@ async function start() {
   await bootstrapTheme();
   await bootstrapVisualizer();
   const role = await bootstrapWindowRole();
+  await bootstrapEqualizer();
 
   if (isActivityLogsWindow()) {
     ReactDOM.createRoot(root).render(
@@ -42,6 +45,7 @@ async function start() {
   await initPlayerStoreBridge(role);
   await initThemeBridge(role);
   await initVisualizerBridge(role);
+  await initEqBridge(role);
   await initSkinBridge(role);
 
   const Root = isSkinModeWindow()

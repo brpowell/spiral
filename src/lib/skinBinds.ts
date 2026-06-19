@@ -1,13 +1,31 @@
 import { useMemo } from "react";
+import { getBuiltinPreset } from "./equalizer/builtinPresets";
 import { buildPlaybackOrder } from "./activeTrackList";
 import { findPlaybackTrack } from "./playbackTrack";
 import { getManualNextId } from "./playbackQueue";
 import { formatMetadataLine, playbackStatus } from "./skinMetadataLine";
 import { useSkinModeAlwaysOnTop } from "./skinModeAlwaysOnTop";
+import { evaluatePanelBind } from "./skinPanels";
+import {
+  labelForSkinPlaylistSource,
+  resolveSkinPlaylistTrackCount,
+} from "./skinPlaylist";
+import {
+  activeVisualizerName,
+  canCycleVisualizers,
+} from "./visualizerCycle";
 import { useAssetUrl } from "../hooks/useAssetUrl";
 import { usePlayerStore } from "../store/usePlayerStore";
+import { usePlaylistStore } from "../store/usePlaylistStore";
+import { useSkinStore } from "../store/useSkinStore";
+import { useVisualizerStore } from "../store/useVisualizerStore";
+import { useEqualizerStore } from "../store/useEqualizerStore";
+import type { EqualizerBandGains } from "./equalizer/types";
 import type { PlayableRef } from "../types/playable";
 import type { SkinBindPath } from "../types/skin";
+import type { Track } from "../types/track";
+import type { Playlist } from "../types/playlist";
+import type { PanelOpenState } from "./skinPanels";
 
 export type SkinBindValue = string | number | boolean | null;
 
@@ -19,6 +37,7 @@ export interface SkinBindState {
   repeatMode: ReturnType<typeof usePlayerStore.getState>["repeatMode"];
   shuffle: boolean;
   volume: number;
+  balance: number;
   muted: boolean;
   canGoPrevious: boolean;
   canGoNext: boolean;
@@ -26,12 +45,37 @@ export interface SkinBindState {
   currentTrackId: number | null;
   alwaysOnTop: boolean;
   currentPlayable: PlayableRef | null;
+  panelOpen: PanelOpenState;
+  panelRevealed: PanelOpenState;
+  panelSettled: PanelOpenState;
+  visualizerName: string;
+  canCycleVisualizer: boolean;
+  playlistSourceId: string;
+  playlists: Playlist[];
+  library: Track[];
+  playbackTracks: Track[];
+  cdQueueTracks?: Track[];
+  playContextIds: number[];
+  manualQueueIds: number[];
+  eqEnabled: boolean;
+  eqPresetId: string;
+  eqBands: EqualizerBandGains;
 }
 
 export function evaluateSkinBind(
-  path: SkinBindPath,
+  path: SkinBindPath | string,
   state: SkinBindState,
 ): SkinBindValue {
+  const panelValue = evaluatePanelBind(
+    path,
+    state.panelOpen,
+    state.panelRevealed,
+    state.panelSettled,
+  );
+  if (panelValue !== null) {
+    return panelValue;
+  }
+
   const { currentTrack } = state;
 
   switch (path) {
@@ -66,6 +110,8 @@ export function evaluateSkinBind(
       return state.shuffle;
     case "player.volume":
       return state.volume;
+    case "player.balance":
+      return state.balance;
     case "player.muted":
       return state.muted;
     case "player.canGoPrevious":
@@ -81,25 +127,86 @@ export function evaluateSkinBind(
     case "playback.source":
       if (!state.currentPlayable) return null;
       return state.currentPlayable.type === "cd" ? "cd" : "file";
-    default:
+    case "visualizer.name":
+      return state.visualizerName;
+    case "visualizer.canGoPrevious":
+    case "visualizer.canGoNext":
+      return state.canCycleVisualizer;
+    case "playlist.sourceLabel":
+      return labelForSkinPlaylistSource(state.playlistSourceId, state.playlists);
+    case "playlist.trackCount":
+      return playlistTrackCount(state);
+    case "playlist.hasTracks":
+      return playlistTrackCount(state) > 0;
+    case "eq.enabled":
+      return state.eqEnabled;
+    case "eq.presetId":
+      return state.eqPresetId;
+    case "eq.isManual":
+      return state.eqPresetId === "manual";
+    case "eq.presetLabel": {
+      if (state.eqPresetId === "manual") return "Manual";
+      return getBuiltinPreset(state.eqPresetId)?.name ?? state.eqPresetId;
+    }
+    default: {
+      if (path.startsWith("eq.band.")) {
+        const band = Number.parseInt(path.slice("eq.band.".length), 10);
+        if (band >= 1 && band <= state.eqBands.length) {
+          return state.eqBands[band - 1];
+        }
+      }
       return null;
+    }
   }
 }
 
-export function useSkinBindValue(path: string | undefined): SkinBindValue {
+function playlistTrackCount(state: SkinBindState): number {
+  return resolveSkinPlaylistTrackCount(state.playlistSourceId, {
+    library: state.library,
+    playbackTracks: state.playbackTracks,
+    cdQueueTracks: state.cdQueueTracks,
+    playContextIds: state.playContextIds,
+    manualQueueIds: state.manualQueueIds,
+    currentTrackId: state.currentTrackId,
+    playlists: state.playlists,
+  });
+}
+
+export function useSkinBindState(): SkinBindState {
   const alwaysOnTop = useSkinModeAlwaysOnTop();
+  const panelOpen = useSkinStore((s) => s.panelOpen);
+  const panelRevealed = useSkinStore((s) => s.panelRevealed);
+  const panelSettled = useSkinStore((s) => s.panelSettled);
+  const playlistSourceId = useSkinStore((s) => s.playlistSourceId);
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
+  const cdQueueContext = usePlayerStore((s) => s.cdQueueContext);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
   const positionSeconds = usePlayerStore((s) => s.positionSeconds);
   const repeatMode = usePlayerStore((s) => s.repeatMode);
   const shuffle = usePlayerStore((s) => s.shuffle);
   const volume = usePlayerStore((s) => s.volume);
+  const balance = usePlayerStore((s) => s.balance);
   const muted = usePlayerStore((s) => s.muted);
   const playContextIds = usePlayerStore((s) => s.playContextIds);
   const manualQueueIds = usePlayerStore((s) => s.manualQueueIds);
   const currentPlayable = usePlayerStore((s) => s.currentPlayable);
+  const playlists = usePlaylistStore((s) => s.playlists);
+  const visualizerPacks = useVisualizerStore((s) => s.packs);
+  const activeVisualizerId = useVisualizerStore((s) => s.activePackId);
+  const eqEnabled = useEqualizerStore((s) => s.enabled);
+  const eqPresetId = useEqualizerStore((s) => s.presetId);
+  const eqBands = useEqualizerStore((s) => s.bands);
+
+  const visualizerName = useMemo(
+    () => activeVisualizerName(visualizerPacks, activeVisualizerId),
+    [visualizerPacks, activeVisualizerId],
+  );
+  const canCycleVisualizer = useMemo(
+    () => canCycleVisualizers(visualizerPacks),
+    [visualizerPacks],
+  );
 
   const currentTrack = useMemo(
     () =>
@@ -126,7 +233,7 @@ export function useSkinBindValue(path: string | undefined): SkinBindValue {
     activeQueue.length > 0 &&
     getManualNextId(activeQueue, currentTrackId, repeatMode) !== null;
 
-  const bindState = useMemo(
+  return useMemo(
     (): SkinBindState => ({
       currentTrack,
       artUrl,
@@ -135,6 +242,7 @@ export function useSkinBindValue(path: string | undefined): SkinBindValue {
       repeatMode,
       shuffle,
       volume,
+      balance,
       muted,
       canGoPrevious,
       canGoNext,
@@ -142,6 +250,21 @@ export function useSkinBindValue(path: string | undefined): SkinBindValue {
       currentTrackId,
       alwaysOnTop,
       currentPlayable,
+      panelOpen,
+      panelRevealed,
+      panelSettled,
+      visualizerName,
+      canCycleVisualizer,
+      playlistSourceId,
+      library,
+      playbackTracks,
+      cdQueueTracks: cdQueueContext?.tracks,
+      playContextIds,
+      manualQueueIds,
+      playlists,
+      eqEnabled,
+      eqPresetId,
+      eqBands,
     }),
     [
       currentTrack,
@@ -151,6 +274,7 @@ export function useSkinBindValue(path: string | undefined): SkinBindValue {
       repeatMode,
       shuffle,
       volume,
+      balance,
       muted,
       canGoPrevious,
       canGoNext,
@@ -158,16 +282,32 @@ export function useSkinBindValue(path: string | undefined): SkinBindValue {
       currentTrackId,
       alwaysOnTop,
       currentPlayable,
+      panelOpen,
+      panelRevealed,
+      panelSettled,
+      visualizerName,
+      canCycleVisualizer,
+      playlistSourceId,
+      library,
+      playbackTracks,
+      cdQueueContext?.tracks,
+      playContextIds,
+      manualQueueIds,
+      playlists,
+      eqEnabled,
+      eqPresetId,
+      eqBands,
     ],
   );
+}
+
+export function useSkinBindValue(path: string | undefined): SkinBindValue {
+  const bindState = useSkinBindState();
 
   return useMemo((): SkinBindValue => {
     if (!path) return null;
     return evaluateSkinBind(path as SkinBindPath, bindState);
-  }, [
-    path,
-    bindState,
-  ]);
+  }, [path, bindState]);
 }
 
 /** True when `visibleWhen` bind is truthy (or unset). */

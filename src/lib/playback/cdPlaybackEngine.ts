@@ -41,6 +41,7 @@ export class CdPlaybackEngine implements PlaybackEngine {
   private lastPositionAtMs = 0;
   private playing = false;
   private volume = 1;
+  private balance = 0;
   private muted = false;
   private endCallback: (() => void) | null = null;
   private listeners: Promise<UnlistenFn[]> | null = null;
@@ -159,6 +160,15 @@ export class CdPlaybackEngine implements PlaybackEngine {
 
   getVolume(): number {
     return this.volume;
+  }
+
+  setBalance(balance: number): void {
+    this.balance = Math.max(-1, Math.min(1, balance));
+    this.pcm.setBalance(this.balance);
+  }
+
+  getBalance(): number {
+    return this.balance;
   }
 
   setMuted(muted: boolean): void {

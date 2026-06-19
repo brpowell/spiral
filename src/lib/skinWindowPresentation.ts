@@ -1,6 +1,10 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { CSSProperties } from "react";
 import type { LoadedSkinPack, SkinManifest, SkinView } from "../types/skin";
+import {
+  resolveCanvasSize as resolveCanvasSizeWithPanels,
+  type PanelOpenState,
+} from "./skinPanels";
 
 export function resolveSkinWindowBackgroundStyle(
   pack: LoadedSkinPack,
@@ -22,15 +26,7 @@ export function resolveViewLayoutMode(view: SkinView): "slots" | "canvas" {
 export function resolveCanvasSize(
   view: SkinView,
   manifest: SkinManifest,
+  panelOpen: PanelOpenState = {},
 ): { width: number; height: number } {
-  return {
-    width:
-      view.canvas?.width ??
-      manifest.window?.defaultWidth ??
-      320,
-    height:
-      view.canvas?.height ??
-      manifest.window?.defaultHeight ??
-      440,
-  };
+  return resolveCanvasSizeWithPanels(view, manifest, panelOpen);
 }

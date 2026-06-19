@@ -10,9 +10,11 @@ export function SkinText({
   node: TextNode;
   textStyles: Record<string, TextStyle>;
 }) {
-  const value = useSkinBindValue(node.bind);
+  const bound = useSkinBindValue(node.bind);
+  const text =
+    node.value ??
+    (bound === null || bound === undefined ? "" : String(bound));
   const style = node.textStyle ? textStyles[node.textStyle] : undefined;
-  const text = value === null || value === undefined ? "" : String(value);
 
   if (!text) return null;
 

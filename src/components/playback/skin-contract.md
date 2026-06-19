@@ -17,6 +17,7 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | `player.toggleShuffle` | Toggle shuffle |
 | `player.seek` | Seek to ratio 0–1 (payload: `{ ratio: number }`) |
 | `player.setVolume` | Set volume 0–1 (payload: `{ volume: number }`) |
+| `player.setBalance` | Set stereo balance −1…1 (payload: `{ balance: number }`; 0 = center) |
 | `player.toggleMute` | Toggle mute |
 | `player.clearTrackList` | Stop playback and clear the active track list (same as the library track list Clear action) |
 | `navigation.openAlbum` | Open album view for current track (payload: `{ albumKey: string }`) |
@@ -26,6 +27,17 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | `skin.restoreMainWindow` | Hide skin mode and show the library window |
 | `skin.minimize` | Minimize the skin-mode window |
 | `skin.toggleAlwaysOnTop` | Toggle always-on-top for the skin window |
+| `skin.togglePanel` | Toggle an in-view panel (payload: `{ panelId: string }` on the control node) |
+| `skin.openPanel` | Open an in-view panel |
+| `skin.closePanel` | Close an in-view panel |
+| `visualizer.previous` | Cycle to the previous global visualizer pack |
+| `visualizer.next` | Cycle to the next global visualizer pack |
+| `playlist.setSource` | Select playlist view source (payload: `{ sourceId: string }` — `all`, `upNext`, or `playlist:{id}`) |
+| `playlist.playTrack` | Play a track from the active playlist view (payload: `{ trackId: number }`) |
+| `eq.setBand` | Set EQ band gain (payload: `{ band: number; gain: number }` — **band is 1-based**, gain in dB −14…+14; forces manual preset) |
+| `eq.applyPreset` | Apply a named preset (payload: `{ presetId: string }`) |
+| `eq.reset` | Flatten all bands to 0 dB and set preset to manual |
+| `eq.setEnabled` | Toggle EQ processing (payload: `{ enabled: boolean }`; band values preserved when disabled) |
 | `app.quit` | Quit Spiral (saves session and closes the app) |
 
 ## Data bind paths
@@ -49,11 +61,44 @@ Text styles with `truncate: true` enable overflow scrolling. Set `scroll: "marqu
 | `player.repeatMode` | `"off" \| "all" \| "one"` | Repeat mode |
 | `player.shuffle` | `boolean` | Shuffle enabled |
 | `player.volume` | `number` | Volume 0–1 |
+| `player.balance` | `number` | Stereo balance −1…1 (0 = center) |
 | `player.muted` | `boolean` | Mute state |
 | `player.canGoPrevious` | `boolean` | Previous control enabled |
 | `player.canGoNext` | `boolean` | Next control enabled |
 | `queue.length` | `number` | Active playback queue length |
+| `player.hasTrack` | `boolean` | A track is loaded |
 | `skin.alwaysOnTop` | `boolean` | Skin window pinned on top |
+| `playback.source` | `"file" \| "cd" \| null` | Current playback source |
+| `visualizer.name` | `string` | Display name of the active global visualizer |
+| `visualizer.canGoPrevious` | `boolean` | More than one visualizer pack installed (wraps) |
+| `visualizer.canGoNext` | `boolean` | Same as `visualizer.canGoPrevious` |
+| `playlist.sourceLabel` | `string` | Display label for the active playlist view source |
+| `playlist.trackCount` | `number` | Tracks in the active playlist view |
+| `playlist.hasTracks` | `boolean` | Active playlist view has at least one track |
+
+### Equalizer bind paths (`eq.*`)
+
+Band indices in bind paths and `eq.setBand` actions are **1-based** (1 = 31 Hz … 10 = 16 kHz). The store uses 0-based indices internally.
+
+| Bind path | Type | Description |
+| --- | --- | --- |
+| `eq.enabled` | `boolean` | EQ processing on |
+| `eq.presetId` | `string` | Active preset id or `"manual"` |
+| `eq.isManual` | `boolean` | `presetId === "manual"` |
+| `eq.presetLabel` | `string` | Display name for active preset |
+| `eq.band.1` … `eq.band.10` | `number` | Band gain in dB (−14…+14) |
+
+### Panel bind paths (`skin.panel.{panelId}.*`)
+
+Dynamic per-view panel ids from `views.*.panels`. Typical ids: `eq`, `playlist`, `visChooser`.
+
+| Bind path | Type | Description |
+| --- | --- | --- |
+| `skin.panel.{id}.open` | `boolean` | Drawer/overlay is open (drives `boundsWhen` slide targets) |
+| `skin.panel.{id}.closed` | `boolean` | Negation of `.open` |
+| `skin.panel.{id}.revealed` | `boolean` | Panel content mounted (before/during slide; hidden after close animation) |
+| `skin.panel.{id}.settled` | `boolean` | Slide animation complete at the current open/closed target |
+| `skin.panel.{id}.openSettled` | `boolean` | `.open` and `.settled` (use for close controls that must not appear mid-slide) |
 
 ## Window (`skin.json` → `window`)
 
@@ -127,6 +172,20 @@ Classic WMP skins use looping GIFs for status chrome (e.g. T3 `m_idle.gif` / `m_
 WMP source GIFs use magenta (`#FF00FF`) as a fake transparent color — bake real alpha before bundling (see `chroma_gif` in `scripts/import-skynet-wmp-assets.sh`). Raw magenta GIFs render as solid pink.
 
 Toggle with `visibleWhen` binds such as `player.isPlaying` and `player.notPlaying`.
+
+## Playlist view (`type`: `playlist`)
+
+Reusable compact track list for skin playlist drawers and panels. Sources: **All tracks** (library, title sort), **Up Next** (tracks after the current item in playback order), and each user-defined playlist (sorted by title).
+
+Wire a `playlist` node with `presentation.kind`: `compact`:
+
+| Field | Purpose |
+| --- | --- |
+| `showDropdown` | Source selector at top (default `true`) |
+| `showDuration` | Duration column (default `true`) |
+| `classPrefix` | Optional CSS scope class |
+
+Dropdown changes invoke `playlist.setSource`; row clicks invoke `playlist.playTrack`. Bind `playlist.sourceLabel`, `playlist.trackCount`, or `playlist.hasTracks` for chrome text and visibility.
 
 ## Skin window actions
 

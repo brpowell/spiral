@@ -1,20 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toAssetUrl } from "../../lib/assetUrl";
-import { buildPlaybackOrder } from "../../lib/activeTrackList";
 import { findPlaybackTrack } from "../../lib/playbackTrack";
-import { getManualNextId } from "../../lib/playbackQueue";
 import {
   extractPaletteFromImageUrl,
   getDefaultPalette,
 } from "../../lib/palette";
-import { evaluateSkinBind, type SkinBindState } from "../../lib/skinBinds";
-import { useSkinModeAlwaysOnTop } from "../../lib/skinModeAlwaysOnTop";
+import { evaluateSkinBind, useSkinBindState } from "../../lib/skinBinds";
 import {
   OBSIDIAN_DEFAULT_TOKENS,
   findThemeByName,
   resolveThemeTokens,
 } from "../../lib/theme";
-import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { useThemeStore } from "../../store/useThemeStore";
 import type { SkinBindPath } from "../../types/skin";
@@ -72,82 +68,6 @@ export function useVisualizerPalette(): string[] {
   }, [currentTrack?.artPath, currentTrackId]);
 
   return palette;
-}
-
-function useSkinBindState(): SkinBindState {
-  const alwaysOnTop = useSkinModeAlwaysOnTop();
-  const library = usePlayerStore((s) => s.library);
-  const playbackTracks = usePlayerStore((s) => s.playbackTracks);
-  const currentTrackId = usePlayerStore((s) => s.currentTrackId);
-  const playbackState = usePlayerStore((s) => s.playbackState);
-  const positionSeconds = usePlayerStore((s) => s.positionSeconds);
-  const repeatMode = usePlayerStore((s) => s.repeatMode);
-  const shuffle = usePlayerStore((s) => s.shuffle);
-  const volume = usePlayerStore((s) => s.volume);
-  const muted = usePlayerStore((s) => s.muted);
-  const playContextIds = usePlayerStore((s) => s.playContextIds);
-  const manualQueueIds = usePlayerStore((s) => s.manualQueueIds);
-  const currentPlayable = usePlayerStore((s) => s.currentPlayable);
-
-  const currentTrack = useMemo(
-    () =>
-      findPlaybackTrack({ library, playbackTracks, currentTrackId }) ?? null,
-    [library, playbackTracks, currentTrackId],
-  );
-
-  const artUrl = useAssetUrl(currentTrack?.artPath);
-
-  const activeQueue = useMemo(
-    () =>
-      buildPlaybackOrder(
-        manualQueueIds,
-        playContextIds,
-        library,
-        currentTrackId,
-      ),
-    [manualQueueIds, playContextIds, library, currentTrackId],
-  );
-
-  const canGoPrevious = currentTrackId !== null;
-  const canGoNext =
-    currentTrackId !== null &&
-    activeQueue.length > 0 &&
-    getManualNextId(activeQueue, currentTrackId, repeatMode) !== null;
-
-  return useMemo(
-    (): SkinBindState => ({
-      currentTrack,
-      artUrl,
-      playbackState,
-      positionSeconds,
-      repeatMode,
-      shuffle,
-      volume,
-      muted,
-      canGoPrevious,
-      canGoNext,
-      activeQueueLength: activeQueue.length,
-      currentTrackId,
-      alwaysOnTop,
-      currentPlayable,
-    }),
-    [
-      currentTrack,
-      artUrl,
-      playbackState,
-      positionSeconds,
-      repeatMode,
-      shuffle,
-      volume,
-      muted,
-      canGoPrevious,
-      canGoNext,
-      activeQueue.length,
-      currentTrackId,
-      alwaysOnTop,
-      currentPlayable,
-    ],
-  );
 }
 
 function useResolvedThemeTokens(): Record<string, string> {

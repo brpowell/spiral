@@ -30,6 +30,7 @@ export function decodePcmBase64(b64: string): Float32Array {
 export class CdPcmPipeline {
   private ctx: AudioContext | null = null;
   private gain: GainNode | null = null;
+  private panner: StereoPannerNode | null = null;
   private worklet: AudioWorkletNode | null = null;
   private workletReady: Promise<void> | null = null;
   private track: CdPlaybackTrackKey | null = null;
@@ -37,11 +38,17 @@ export class CdPcmPipeline {
   private chunksAcked = 0;
   private listeners: Promise<UnlistenFn[]> | null = null;
   private volume = 1;
+  private balance = 0;
   private muted = false;
 
   private applyGain(): void {
     if (!this.gain) return;
     this.gain.gain.value = this.muted ? 0 : this.volume;
+  }
+
+  private applyBalance(): void {
+    if (!this.panner) return;
+    this.panner.pan.value = this.balance;
   }
 
   private maybeAck(): void {
@@ -85,6 +92,7 @@ export class CdPcmPipeline {
       this.workletReady = null;
       this.worklet = null;
       this.gain = null;
+      this.panner = null;
     }
 
     if (!this.workletReady) {
@@ -100,8 +108,11 @@ export class CdPcmPipeline {
           }
         };
         this.gain = this.ctx!.createGain();
+        this.panner = this.ctx!.createStereoPanner();
         this.applyGain();
+        this.applyBalance();
         this.worklet.connect(this.gain);
+        this.gain.connect(this.panner);
       })();
     }
 
@@ -133,13 +144,18 @@ export class CdPcmPipeline {
   }
 
   connectToOutputBus(): AnalyserNode | null {
-    if (!this.gain) return null;
-    return connectEngineOutput(this.gain);
+    if (!this.panner) return null;
+    return connectEngineOutput(this.panner);
   }
 
   setVolume(volume: number): void {
     this.volume = Math.max(0, Math.min(1, volume));
     this.applyGain();
+  }
+
+  setBalance(balance: number): void {
+    this.balance = Math.max(-1, Math.min(1, balance));
+    this.applyBalance();
   }
 
   setMuted(muted: boolean): void {
@@ -156,6 +172,10 @@ export class CdPcmPipeline {
     if (this.gain) {
       this.gain.disconnect();
       this.gain = null;
+    }
+    if (this.panner) {
+      this.panner.disconnect();
+      this.panner = null;
     }
     this.workletReady = null;
   }

@@ -22,6 +22,7 @@ export interface PlayerStateSnapshot {
   positionSeconds: number;
   volume: number;
   muted: boolean;
+  balance: number;
   repeatMode: RepeatMode;
   shuffle: boolean;
 }
@@ -37,6 +38,7 @@ export type PlayerRemoteAction =
   | { type: "seek"; ratio: number }
   | { type: "seekRelative"; deltaSeconds: number }
   | { type: "setVolume"; volume: number }
+  | { type: "setBalance"; balance: number }
   | { type: "toggleMute" }
   | { type: "playTrack"; id: number }
   | { type: "playTracks"; ids: number[]; startId: number }
@@ -54,6 +56,7 @@ const SYNC_KEYS: (keyof PlayerStateSnapshot)[] = [
   "positionSeconds",
   "volume",
   "muted",
+  "balance",
   "repeatMode",
   "shuffle",
 ];
@@ -69,6 +72,7 @@ function pickSnapshot(state: ReturnType<typeof usePlayerStore.getState>): Player
     positionSeconds: state.positionSeconds,
     volume: state.volume,
     muted: state.muted,
+    balance: state.balance,
     repeatMode: state.repeatMode,
     shuffle: state.shuffle,
   };
@@ -113,6 +117,9 @@ function dispatchRemoteAction(action: PlayerRemoteAction): void {
       break;
     case "setVolume":
       store.setVolume(action.volume);
+      break;
+    case "setBalance":
+      store.setBalance(action.balance);
       break;
     case "toggleMute":
       store.toggleMute();
@@ -166,6 +173,7 @@ function installRemoteActions(): void {
       seekRelative: (deltaSeconds) =>
         emitRemoteAction({ type: "seekRelative", deltaSeconds }),
       setVolume: (volume) => emitRemoteAction({ type: "setVolume", volume }),
+      setBalance: (balance) => emitRemoteAction({ type: "setBalance", balance }),
       toggleMute: () => emitRemoteAction({ type: "toggleMute" }),
       playTrack: async (id) => {
         emitRemoteAction({ type: "playTrack", id });

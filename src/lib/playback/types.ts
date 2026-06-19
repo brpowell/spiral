@@ -38,6 +38,8 @@ export interface PlaybackEngine {
 
   setVolume(volume: number): void;
   getVolume(): number;
+  setBalance(balance: number): void;
+  getBalance(): number;
   setMuted(muted: boolean): void;
 
   onEnd(callback: () => void): void;

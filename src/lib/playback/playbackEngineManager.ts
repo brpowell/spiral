@@ -95,6 +95,14 @@ export class PlaybackEngineManager {
     return this.activeEngine.getVolume();
   }
 
+  setBalance(balance: number): void {
+    this.activeEngine.setBalance(balance);
+  }
+
+  getBalance(): number {
+    return this.activeEngine.getBalance();
+  }
+
   setMuted(muted: boolean): void {
     this.activeEngine.setMuted(muted);
   }

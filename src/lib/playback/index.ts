@@ -91,6 +91,14 @@ export function getVolume(): number {
   return manager.getVolume();
 }
 
+export function setBalance(balance: number): void {
+  manager.setBalance(balance);
+}
+
+export function getBalance(): number {
+  return manager.getBalance();
+}
+
 export function setMuted(muted: boolean): void {
   manager.setMuted(muted);
 }

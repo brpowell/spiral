@@ -119,6 +119,39 @@ impl Default for LibrarySettings {
     }
 }
 
+fn default_equalizer_enabled() -> bool {
+    true
+}
+
+fn default_equalizer_preset_id() -> String {
+    "flat".to_string()
+}
+
+fn default_equalizer_bands() -> [f32; 10] {
+    [0.0; 10]
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EqualizerSettings {
+    #[serde(default = "default_equalizer_enabled")]
+    pub enabled: bool,
+    #[serde(default = "default_equalizer_preset_id")]
+    pub preset_id: String,
+    #[serde(default = "default_equalizer_bands")]
+    pub bands: [f32; 10],
+}
+
+impl Default for EqualizerSettings {
+    fn default() -> Self {
+        Self {
+            enabled: default_equalizer_enabled(),
+            preset_id: default_equalizer_preset_id(),
+            bands: default_equalizer_bands(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -136,6 +169,8 @@ pub struct AppSettings {
     pub metadata_backups: MetadataBackupSettings,
     #[serde(default)]
     pub cd: CdSettings,
+    #[serde(default)]
+    pub equalizer: EqualizerSettings,
 }
 
 fn default_active_theme() -> String {
@@ -164,6 +199,7 @@ impl Default for AppSettings {
             library: LibrarySettings::default(),
             metadata_backups: MetadataBackupSettings::default(),
             cd: CdSettings::default(),
+            equalizer: EqualizerSettings::default(),
         }
     }
 }

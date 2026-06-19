@@ -379,6 +379,22 @@ export async function openVisualizersFolder(): Promise<void> {
   return invoke<void>("open_visualizers_folder");
 }
 
+export interface EqualizerSettings {
+  enabled: boolean;
+  presetId: string;
+  bands: number[];
+}
+
+export async function getEqualizerSettings(): Promise<EqualizerSettings> {
+  return invoke<EqualizerSettings>("get_equalizer_settings");
+}
+
+export async function saveEqualizerSettings(
+  settings: EqualizerSettings,
+): Promise<void> {
+  return invoke<void>("save_equalizer_settings", { settings });
+}
+
 export async function writeTrackMetadata(
   trackId: number,
   filePath: string,

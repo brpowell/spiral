@@ -1,0 +1,5 @@
+# Live-edited in dev; debug builds read from source (see builtin_skins_root).
+skins/builtin/**
+
+# Same pattern as skins — avoid dev restarts when tweaking built-in visualizers.
+visualizers/builtin/**

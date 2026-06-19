@@ -1,0 +1,41 @@
+.skin-bitmap-seekbar {
+  position: relative;
+  touch-action: none;
+}
+
+.skin-bitmap-seekbar__track,
+.skin-bitmap-seekbar__fill {
+  position: absolute;
+  left: 0;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  pointer-events: none;
+}
+
+.skin-bitmap-seekbar__track {
+  width: 100%;
+}
+
+.skin-bitmap-seekbar__fill {
+  overflow: hidden;
+}
+
+.skin-bitmap-seekbar__thumb {
+  position: absolute;
+  top: 0;
+  pointer-events: none;
+}
+
+.skin-bitmap-seekbar__hit {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.skin-bitmap-seekbar__hit:disabled {
+  cursor: default;
+}

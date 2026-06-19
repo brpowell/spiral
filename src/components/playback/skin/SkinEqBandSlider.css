@@ -1,0 +1,25 @@
+.skin-eq-band-slider {
+  position: relative;
+  touch-action: none;
+}
+
+.skin-eq-band-slider__track {
+  position: absolute;
+  top: 0;
+  pointer-events: none;
+}
+
+.skin-eq-band-slider__thumb {
+  position: absolute;
+  pointer-events: none;
+}
+
+.skin-eq-band-slider__hit {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}

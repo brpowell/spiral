@@ -12,3 +12,4 @@ pub mod track_list_preferences;
 pub mod themes;
 pub mod skins;
 pub mod visualizers;
+pub mod equalizer;

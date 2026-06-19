@@ -13,7 +13,7 @@ export function SkinBitmapButton({
   node: ButtonNode;
   pack: LoadedSkinPack;
 }) {
-  const invoke = useSkinAction(node.action);
+  const invoke = useSkinAction(node.action, node.panelId);
   const isPlaying = useSkinBindValue("player.isPlaying");
   const hasTrack = useSkinBindValue("player.hasTrack");
   const canGoPrevious = useSkinBindValue("player.canGoPrevious");

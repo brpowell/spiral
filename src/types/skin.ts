@@ -44,6 +44,22 @@ export type LayoutMode = "slots" | "canvas";
 export interface SkinCanvasSpec {
   width: number;
   height: number;
+  /** Bind path → width when condition is true (e.g. `skin.panel.playlist.open`). */
+  widthWhen?: Record<string, number>;
+  heightWhen?: Record<string, number>;
+}
+
+export interface SkinPanelWindowOverride {
+  width?: number;
+  height?: number;
+}
+
+export interface SkinPanel {
+  defaultOpen?: boolean;
+  /** Window size overrides while this panel is open (merged with max across open panels). */
+  windowWhenOpen?: SkinPanelWindowOverride;
+  /** Slide animation duration in ms. */
+  motion?: { durationMs?: number };
 }
 
 export interface SkinView {
@@ -51,6 +67,8 @@ export interface SkinView {
   layoutMode?: LayoutMode;
   /** Logical size of the canvas stage when `layoutMode` is `canvas`. */
   canvas?: SkinCanvasSpec;
+  /** In-view overlays toggled via `skin.togglePanel` (drawers, dropdowns). */
+  panels?: Record<string, SkinPanel>;
   layout: LayoutNode;
 }
 
@@ -78,8 +96,11 @@ export type LayoutNode =
   | TransportNode
   | VisualizerNode
   | VolumeNode
+  | BalanceNode
+  | EqBandNode
   | QueueNode
   | TimeNode
+  | PlaylistNode
   | DragRegionNode;
 
 interface NodeBase {
@@ -87,6 +108,8 @@ interface NodeBase {
   visibleWhen?: string;
   /** Absolute placement on a canvas view (logical px). */
   bounds?: LayoutBounds;
+  /** Override `bounds` when a bind path is true (typically `skin.panel.*`). */
+  boundsWhen?: Record<string, Partial<LayoutBounds>>;
 }
 
 export interface StackNode extends NodeBase {
@@ -149,6 +172,8 @@ export interface DragRegionNode extends NodeBase {
 
 export interface ControlNodeBase extends NodeBase {
   action?: string;
+  /** Target panel for `skin.*Panel` actions. */
+  panelId?: string;
   bind?: string;
   disabledWhen?: string;
   presentation: Presentation;
@@ -168,6 +193,8 @@ export interface ButtonGroupElement {
   /** Hex color matching a region in the position map, e.g. "#0000ff". */
   mappingColor: string;
   action: string;
+  /** Target panel for `skin.*Panel` actions. */
+  panelId?: string;
 }
 
 export interface ButtonGroupPresentation {
@@ -202,6 +229,16 @@ export interface VolumeNode extends ControlNodeBase {
   type: "volume";
 }
 
+export interface BalanceNode extends ControlNodeBase {
+  type: "balance";
+}
+
+export interface EqBandNode extends ControlNodeBase {
+  type: "eqBand";
+  /** 1-based band index (1 = 31 Hz … 10 = 16 kHz). */
+  band: number;
+}
+
 export interface QueueNode extends ControlNodeBase {
   type: "queue";
 }
@@ -210,9 +247,15 @@ export interface TimeNode extends ControlNodeBase {
   type: "time";
 }
 
+export interface PlaylistNode extends ControlNodeBase {
+  type: "playlist";
+}
+
 export interface TextNode extends NodeBase {
   type: "text";
   bind?: string;
+  /** Static label when `bind` is omitted. */
+  value?: string;
   textStyle?: string;
   presentation: Presentation;
 }
@@ -223,7 +266,12 @@ export type Presentation =
   | PrimitivePresentation
   | CssPresentation
   | StripSliderPresentation
-  | DigitStripPresentation;
+  | BitmapVerticalSliderPresentation
+  | BitmapHorizontalSliderPresentation
+  | BitmapSeekbarPresentation
+  | DigitStripPresentation
+  | FramedPanelPresentation
+  | CompactPlaylistPresentation;
 
 export interface BitmapPresentation {
   kind: "bitmap";
@@ -250,6 +298,59 @@ export interface CssPresentation {
   kind: "css";
   className: string;
   stylesheet?: string;
+}
+
+/** WMP-style tiled vertical track + movable thumb (graphic EQ bands). */
+export interface BitmapVerticalSliderPresentation {
+  kind: "bitmapVerticalSlider";
+  /** Track tile path under assets/ without extension (small WMP slice or full-height PNG). */
+  track: string;
+  /** Thumb image path under assets/ without extension. */
+  thumb: string;
+  /** Source tile width in px (WMP backgroundImage width). */
+  trackTileWidth: number;
+  /** Source tile height in px; when less than trackHeight, runtime 3-slice tiling applies. */
+  trackTileHeight: number;
+  trackWidth: number;
+  trackHeight: number;
+  thumbWidth: number;
+  thumbHeight: number;
+  /** Cap size and thumb travel inset (WMP borderSize); enables 3-slice tiling when > 0. */
+  borderSize?: number;
+  classPrefix?: string;
+}
+
+/** WMP-style tiled horizontal track + movable thumb (balance, volume). */
+export interface BitmapHorizontalSliderPresentation {
+  kind: "bitmapHorizontalSlider";
+  track: string;
+  thumb: string;
+  trackTileWidth: number;
+  trackTileHeight: number;
+  trackWidth: number;
+  trackHeight: number;
+  thumbWidth: number;
+  thumbHeight: number;
+  borderSize?: number;
+  classPrefix?: string;
+}
+
+/** WMP-style track + fill + thumb seek bar. */
+export interface BitmapSeekbarPresentation {
+  kind: "bitmapSeekbar";
+  /** Path under assets/ without extension, e.g. sliders/seek-track */
+  track: string;
+  /** Foreground fill image path under assets/ without extension. */
+  fill: string;
+  /** Thumb image base path; hover/pressed use -hover/-pressed suffixes. */
+  thumb: string;
+  /** Inset from each track edge for thumb travel (WMP borderSize). */
+  borderSize: number;
+  trackWidth: number;
+  trackHeight: number;
+  thumbWidth: number;
+  thumbHeight: number;
+  classPrefix?: string;
 }
 
 /** WMP-style filmstrip slider: one frame per discrete value step. */
@@ -287,6 +388,35 @@ export interface DigitStripPresentation {
 export interface DigitStripSlot {
   role: "sign" | "minuteTens" | "minuteOnes" | "secondTens" | "secondOnes";
   x: number;
+}
+
+/** WMP-style viz panel: bitmap mask clip + optional frame overlay (vid_bkgd pattern). */
+export interface FramedPanelPresentation {
+  kind: "framedPanel";
+  /** Path under assets/ without extension — opaque region is the visible viz area. */
+  mask: string;
+  /** Optional frame overlay; white/keyed regions are transparent in the asset. */
+  frame?: string;
+  /** Optional inner content rect when viz/video is inset within the outer frame bounds. */
+  contentInset?: FramedPanelInset;
+  classPrefix?: string;
+}
+
+export interface FramedPanelInset {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Compact WMP-style playlist panel with source dropdown and track rows. */
+export interface CompactPlaylistPresentation {
+  kind: "compact";
+  /** Show the source dropdown (All tracks, Up Next, user playlists). Default true. */
+  showDropdown?: boolean;
+  /** Show duration column. Default true. */
+  showDuration?: boolean;
+  classPrefix?: string;
 }
 
 export interface TextStyle {
@@ -348,6 +478,7 @@ export type SkinActionId =
   | "player.toggleShuffle"
   | "player.seek"
   | "player.setVolume"
+  | "player.setBalance"
   | "player.toggleMute"
   | "player.clearTrackList"
   | "navigation.openAlbum"
@@ -357,6 +488,17 @@ export type SkinActionId =
   | "skin.minimize"
   | "skin.toggleAlwaysOnTop"
   | "skin.restoreMainWindow"
+  | "skin.togglePanel"
+  | "skin.openPanel"
+  | "skin.closePanel"
+  | "visualizer.previous"
+  | "visualizer.next"
+  | "playlist.setSource"
+  | "playlist.playTrack"
+  | "eq.setBand"
+  | "eq.applyPreset"
+  | "eq.reset"
+  | "eq.setEnabled"
   | "app.quit";
 
 export type SkinBindPath =
@@ -373,10 +515,31 @@ export type SkinBindPath =
   | "player.repeatMode"
   | "player.shuffle"
   | "player.volume"
+  | "player.balance"
   | "player.muted"
   | "player.canGoPrevious"
   | "player.canGoNext"
   | "queue.length"
   | "player.hasTrack"
   | "skin.alwaysOnTop"
-  | "playback.source";
+  | "playback.source"
+  | "visualizer.name"
+  | "visualizer.canGoPrevious"
+  | "visualizer.canGoNext"
+  | "playlist.sourceLabel"
+  | "playlist.trackCount"
+  | "playlist.hasTracks"
+  | "eq.enabled"
+  | "eq.presetId"
+  | "eq.isManual"
+  | "eq.presetLabel"
+  | "eq.band.1"
+  | "eq.band.2"
+  | "eq.band.3"
+  | "eq.band.4"
+  | "eq.band.5"
+  | "eq.band.6"
+  | "eq.band.7"
+  | "eq.band.8"
+  | "eq.band.9"
+  | "eq.band.10";

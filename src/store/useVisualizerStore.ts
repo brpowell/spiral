@@ -14,6 +14,7 @@ import type { VizSummary } from "../types/visualizer";
 import type { VisualizerPack } from "../components/visualizer/types";
 import { BARS_FALLBACK_PACK } from "../components/visualizer/packs";
 import { emitVisualizerChanged } from "../lib/visualizerBridge";
+import { adjacentVisualizerId } from "../lib/visualizerCycle";
 
 interface VisualizerState {
   packs: VizSummary[];
@@ -26,6 +27,7 @@ interface VisualizerState {
     initialCache: Record<string, VisualizerPack>,
   ) => void;
   setActivePack: (packId: string) => Promise<void>;
+  cycleActivePack: (direction: "next" | "prev") => Promise<void>;
   /** Update active pack in memory (and cache). Used by cross-window sync. */
   applyActivePack: (packId: string) => Promise<void>;
   getPack: (packId: string) => Promise<VisualizerPack>;
@@ -73,6 +75,16 @@ export const useVisualizerStore = create<VisualizerState>((set, get) => ({
     await get().applyActivePack(packId);
     await saveActiveVisualizerId(packId);
     emitVisualizerChanged(packId);
+  },
+
+  cycleActivePack: async (direction) => {
+    const nextId = adjacentVisualizerId(
+      get().packs,
+      get().activePackId,
+      direction,
+    );
+    if (!nextId) return;
+    await get().setActivePack(nextId);
   },
 
   applyActivePack: async (packId) => {

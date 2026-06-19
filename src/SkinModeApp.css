@@ -48,11 +48,12 @@
   height: 100%;
 }
 
-/* Fixed-size slot and canvas skins: shrink-wrap to layout. */
+/* Fixed-size slot and canvas skins: shrink-wrap to layout, left-aligned so
+   a wide canvas stage clips cleanly when the native window is narrower. */
 .skin-mode-app[data-resizable="false"] {
   height: auto;
   width: 100%;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-start;
 }
 

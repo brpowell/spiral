@@ -1,3 +1,10 @@
+import type { EqualizerState } from "../equalizer/types";
+import {
+  applyEqualizerState as applyEqChainState,
+  disposeEqualizerChain,
+  ensureEqualizerChain,
+} from "./eqAudio";
+
 const FFT_SIZE = 256;
 const SMOOTHING = 0.8;
 
@@ -8,13 +15,14 @@ export const ANALYSER_FREQUENCY_BIN_COUNT = FFT_SIZE / 2;
 let analyser: AnalyserNode | null = null;
 let wiredSource: AudioNode | null = null;
 
-/** Insert `source` → analyser → destination on the shared bus. */
+/** Insert `source` → EQ → analyser → destination on the shared bus. */
 export function connectEngineOutput(source: AudioNode): AnalyserNode {
   const ctx = source.context;
 
   if (analyser && analyser.context !== ctx) {
     analyser = null;
     wiredSource = null;
+    disposeEqualizerChain();
   }
 
   if (!analyser) {
@@ -22,6 +30,8 @@ export function connectEngineOutput(source: AudioNode): AnalyserNode {
     analyser.fftSize = FFT_SIZE;
     analyser.smoothingTimeConstant = SMOOTHING;
   }
+
+  const eq = ensureEqualizerChain(ctx);
 
   if (wiredSource !== source) {
     if (wiredSource) {
@@ -38,7 +48,8 @@ export function connectEngineOutput(source: AudioNode): AnalyserNode {
       // e.g. Howler may have connected source → destination
     }
 
-    source.connect(analyser);
+    source.connect(eq.input);
+    eq.output.connect(analyser);
     analyser.connect(ctx.destination);
     wiredSource = source;
   }
@@ -60,4 +71,11 @@ export function disconnectEngineOutput(): void {
     wiredSource = null;
   }
   analyser = null;
+  disposeEqualizerChain();
+}
+
+export function applyEqualizerState(
+  state: Pick<EqualizerState, "enabled" | "bands">,
+): void {
+  applyEqChainState(state);
 }

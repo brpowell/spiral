@@ -85,7 +85,35 @@
           "description": "slots = SkinShell regions (default); canvas = absolute bounds"
         },
         "canvas": { "$ref": "#/$defs/canvasSpec" },
+        "panels": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/panel" },
+          "description": "In-view overlays toggled via skin.togglePanel (drawers, dropdowns)."
+        },
         "layout": { "$ref": "#/$defs/layoutNode" }
+      }
+    },
+    "panel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "defaultOpen": { "type": "boolean" },
+        "windowWhenOpen": { "$ref": "#/$defs/panelWindowOverride" },
+        "motion": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "durationMs": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "panelWindowOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
       }
     },
     "canvasSpec": {
@@ -94,7 +122,15 @@
       "additionalProperties": false,
       "properties": {
         "width": { "type": "integer", "minimum": 1 },
-        "height": { "type": "integer", "minimum": 1 }
+        "height": { "type": "integer", "minimum": 1 },
+        "widthWhen": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        },
+        "heightWhen": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        }
       }
     },
     "layoutBounds": {
@@ -116,7 +152,9 @@
         { "$ref": "#/$defs/decorationNode" },
         { "$ref": "#/$defs/dragRegionNode" },
         { "$ref": "#/$defs/controlNode" },
-        { "$ref": "#/$defs/buttonGroupNode" }
+        { "$ref": "#/$defs/buttonGroupNode" },
+        { "$ref": "#/$defs/eqBandNode" },
+        { "$ref": "#/$defs/balanceNode" }
       ]
     },
     "nodeBase": {
@@ -124,8 +162,23 @@
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "bounds": { "$ref": "#/$defs/layoutBounds" },
+        "boundsWhen": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+        },
         "visibleWhen": { "type": "string" },
         "animations": { "type": "object" }
+      }
+    },
+    "layoutBoundsPartial": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "w": { "type": "number", "minimum": 1 },
+        "h": { "type": "number", "minimum": 1 },
+        "zIndex": { "type": "integer" }
       }
     },
     "containerNode": {
@@ -253,11 +306,14 @@
                 "visualizer",
                 "volume",
                 "queue",
-                "time"
+                "time",
+                "playlist"
               ]
             },
             "action": { "type": "string" },
+            "panelId": { "type": "string", "minLength": 1 },
             "bind": { "type": "string" },
+            "value": { "type": "string" },
             "textStyle": { "type": "string" },
             "disabledWhen": { "type": "string" },
             "presentation": { "$ref": "#/$defs/presentation" },
@@ -286,6 +342,58 @@
         }
       ]
     },
+    "eqBandNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "band", "presentation"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "type": { "const": "eqBand" },
+            "band": { "type": "integer", "minimum": 1, "maximum": 10 },
+            "action": { "type": "string" },
+            "panelId": { "type": "string", "minLength": 1 },
+            "bind": { "type": "string" },
+            "disabledWhen": { "type": "string" },
+            "presentation": {
+              "oneOf": [
+                { "$ref": "#/$defs/stripSliderPresentation" },
+                { "$ref": "#/$defs/bitmapVerticalSliderPresentation" }
+              ]
+            },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "visibleWhen": { "type": "string" },
+            "animations": { "type": "object" }
+          }
+        }
+      ]
+    },
+    "balanceNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "presentation"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "type": { "const": "balance" },
+            "action": { "type": "string" },
+            "panelId": { "type": "string", "minLength": 1 },
+            "bind": { "type": "string" },
+            "disabledWhen": { "type": "string" },
+            "presentation": {
+              "oneOf": [{ "$ref": "#/$defs/bitmapHorizontalSliderPresentation" }]
+            },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "visibleWhen": { "type": "string" },
+            "animations": { "type": "object" }
+          }
+        }
+      ]
+    },
     "presentation": {
       "oneOf": [
         { "$ref": "#/$defs/bitmapPresentation" },
@@ -294,7 +402,12 @@
         { "$ref": "#/$defs/primitivePresentation" },
         { "$ref": "#/$defs/cssPresentation" },
         { "$ref": "#/$defs/stripSliderPresentation" },
-        { "$ref": "#/$defs/digitStripPresentation" }
+        { "$ref": "#/$defs/bitmapVerticalSliderPresentation" },
+        { "$ref": "#/$defs/bitmapHorizontalSliderPresentation" },
+        { "$ref": "#/$defs/bitmapSeekbarPresentation" },
+        { "$ref": "#/$defs/digitStripPresentation" },
+        { "$ref": "#/$defs/framedPanelPresentation" },
+        { "$ref": "#/$defs/compactPlaylistPresentation" }
       ]
     },
     "bitmapPresentation": {
@@ -344,7 +457,8 @@
                 "type": "string",
                 "pattern": "^#[0-9A-Fa-f]{6}$"
               },
-              "action": { "type": "string" }
+              "action": { "type": "string" },
+              "panelId": { "type": "string", "minLength": 1 }
             }
           }
         }
@@ -411,6 +525,132 @@
         "classPrefix": { "type": "string" }
       }
     },
+    "bitmapVerticalSliderPresentation": {
+      "type": "object",
+      "required": [
+        "kind",
+        "track",
+        "thumb",
+        "trackTileWidth",
+        "trackTileHeight",
+        "trackWidth",
+        "trackHeight",
+        "thumbWidth",
+        "thumbHeight"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "bitmapVerticalSlider" },
+        "track": {
+          "type": "string",
+          "description": "Track tile path under assets/ without extension (WMP slice or full-height PNG)"
+        },
+        "thumb": { "type": "string" },
+        "trackTileWidth": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Source tile width in px"
+        },
+        "trackTileHeight": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Source tile height in px; when less than trackHeight, 3-slice tiling repeats the middle"
+        },
+        "trackWidth": { "type": "number", "minimum": 1 },
+        "trackHeight": { "type": "number", "minimum": 1 },
+        "thumbWidth": { "type": "number", "minimum": 1 },
+        "thumbHeight": { "type": "number", "minimum": 1 },
+        "borderSize": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Cap size and thumb travel inset (WMP borderSize); enables 3-slice tiling when > 0"
+        },
+        "classPrefix": { "type": "string" }
+      }
+    },
+    "bitmapHorizontalSliderPresentation": {
+      "type": "object",
+      "required": [
+        "kind",
+        "track",
+        "thumb",
+        "trackTileWidth",
+        "trackTileHeight",
+        "trackWidth",
+        "trackHeight",
+        "thumbWidth",
+        "thumbHeight"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "bitmapHorizontalSlider" },
+        "track": {
+          "type": "string",
+          "description": "Track tile path under assets/ without extension (WMP slice or full-width PNG)"
+        },
+        "thumb": { "type": "string" },
+        "trackTileWidth": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Source tile width in px; when less than trackWidth, 3-slice tiling repeats the middle"
+        },
+        "trackTileHeight": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Source tile height in px"
+        },
+        "trackWidth": { "type": "number", "minimum": 1 },
+        "trackHeight": { "type": "number", "minimum": 1 },
+        "thumbWidth": { "type": "number", "minimum": 1 },
+        "thumbHeight": { "type": "number", "minimum": 1 },
+        "borderSize": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Cap size and thumb travel inset (WMP borderSize); enables 3-slice tiling when > 0"
+        },
+        "classPrefix": { "type": "string" }
+      }
+    },
+    "bitmapSeekbarPresentation": {
+      "type": "object",
+      "required": [
+        "kind",
+        "track",
+        "fill",
+        "thumb",
+        "borderSize",
+        "trackWidth",
+        "trackHeight",
+        "thumbWidth",
+        "thumbHeight"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "bitmapSeekbar" },
+        "track": {
+          "type": "string",
+          "description": "Track background path under assets/ without extension"
+        },
+        "fill": {
+          "type": "string",
+          "description": "Played portion fill path under assets/ without extension"
+        },
+        "thumb": {
+          "type": "string",
+          "description": "Thumb image base path; hover/pressed use -hover/-pressed suffixes"
+        },
+        "borderSize": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Inset from each track edge for thumb travel (WMP borderSize)"
+        },
+        "trackWidth": { "type": "number", "minimum": 1 },
+        "trackHeight": { "type": "number", "minimum": 1 },
+        "thumbWidth": { "type": "number", "minimum": 1 },
+        "thumbHeight": { "type": "number", "minimum": 1 },
+        "classPrefix": { "type": "string" }
+      }
+    },
     "digitStripPresentation": {
       "type": "object",
       "required": ["kind", "strip", "frameWidth", "frameHeight", "slots"],
@@ -439,6 +679,52 @@
           "description": "Strip frame for remaining prefix (WMP default 11)"
         },
         "classPrefix": { "type": "string" }
+      }
+    },
+    "framedPanelPresentation": {
+      "type": "object",
+      "required": ["kind", "mask"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "framedPanel" },
+        "mask": {
+          "type": "string",
+          "description": "Path under assets/ without extension. Opaque pixels define the visible viz area (WMP clippingColor hole)."
+        },
+        "frame": {
+          "type": "string",
+          "description": "Optional frame overlay path under assets/ without extension (WMP vid_bkgd border)."
+        },
+        "contentInset": { "$ref": "#/$defs/framedPanelInset" },
+        "classPrefix": { "type": "string" }
+      }
+    },
+    "compactPlaylistPresentation": {
+      "type": "object",
+      "required": ["kind"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "compact" },
+        "showDropdown": {
+          "type": "boolean",
+          "description": "Show source dropdown (All tracks, Up Next, user playlists). Default true."
+        },
+        "showDuration": {
+          "type": "boolean",
+          "description": "Show track duration column. Default true."
+        },
+        "classPrefix": { "type": "string" }
+      }
+    },
+    "framedPanelInset": {
+      "type": "object",
+      "required": ["x", "y", "w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number", "minimum": 0 },
+        "y": { "type": "number", "minimum": 0 },
+        "w": { "type": "number", "minimum": 1 },
+        "h": { "type": "number", "minimum": 1 }
       }
     },
     "digitStripSlot": {

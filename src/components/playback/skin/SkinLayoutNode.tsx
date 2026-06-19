@@ -1,13 +1,20 @@
 import type { LayoutNode, LoadedSkinPack, TextStyle } from "../../../types/skin";
+import type { PanelOpenState } from "../../../lib/skinPanels";
 import { useSkinVisible } from "../../../lib/skinBinds";
 import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
+import { SkinBoundedCanvasNode } from "./SkinBoundedCanvasNode";
 import { SkinBitmapButton } from "./SkinBitmapButton";
 import { SkinButtonGroup } from "./SkinButtonGroup";
 import { SkinPrimitiveButton } from "./SkinPrimitiveButton";
 import { SkinDecoration } from "./SkinDecoration";
 import { SkinPrimitiveControl } from "./SkinPrimitiveControl";
 import { SkinDigitTime } from "./SkinDigitTime";
+import { SkinPlaylistView } from "../SkinPlaylistView/SkinPlaylistView";
 import { SkinStripSlider } from "./SkinStripSlider";
+import { SkinBitmapHorizontalSlider } from "./SkinBitmapHorizontalSlider";
+import { SkinEqBandSlider } from "./SkinEqBandSlider";
+import { SkinBitmapSeekbar } from "./SkinBitmapSeekbar";
+import { SkinFramedVisualizer } from "./SkinFramedVisualizer";
 import { SkinText } from "./SkinText";
 import "./SkinLayoutNode.css";
 
@@ -18,6 +25,7 @@ export interface SkinLayoutNodeProps {
   visualizerExpanded: boolean;
   onToggleVisualizer: () => void;
   onOpenQueue: () => void;
+  panelOpen?: PanelOpenState;
 }
 
 export function SkinLayoutNode({
@@ -27,6 +35,7 @@ export function SkinLayoutNode({
   visualizerExpanded,
   onToggleVisualizer,
   onOpenQueue,
+  panelOpen = {},
 }: SkinLayoutNodeProps) {
   const visible = useSkinVisible(node.visibleWhen);
   if (!visible) return null;
@@ -53,9 +62,12 @@ export function SkinLayoutNode({
 
   if (node.type === "canvas") {
     return (
-      <div className="skin-layout-node skin-layout-node--canvas" data-node-id={node.id}>
+      <div
+        className="skin-layout-node skin-layout-node--canvas"
+        data-node-id={node.id}
+      >
         {node.children.map((child, index) => (
-          <SkinLayoutNode
+          <SkinBoundedCanvasNode
             key={child.id ?? index}
             node={child}
             pack={pack}
@@ -63,6 +75,7 @@ export function SkinLayoutNode({
             visualizerExpanded={visualizerExpanded}
             onToggleVisualizer={onToggleVisualizer}
             onOpenQueue={onOpenQueue}
+            panelOpen={panelOpen}
           />
         ))}
       </div>
@@ -91,6 +104,7 @@ export function SkinLayoutNode({
             visualizerExpanded={visualizerExpanded}
             onToggleVisualizer={onToggleVisualizer}
             onOpenQueue={onOpenQueue}
+            panelOpen={panelOpen}
           />
         ))}
       </div>
@@ -99,6 +113,17 @@ export function SkinLayoutNode({
 
   if (node.type === "time" && node.presentation.kind === "digitStrip") {
     return <SkinDigitTime node={node} pack={pack} />;
+  }
+
+  if (node.type === "playlist" && node.presentation.kind === "compact") {
+    return <SkinPlaylistView presentation={node.presentation} />;
+  }
+
+  if (
+    node.type === "seekbar" &&
+    node.presentation.kind === "bitmapSeekbar"
+  ) {
+    return <SkinBitmapSeekbar node={node} pack={pack} />;
   }
 
   if (
@@ -110,6 +135,36 @@ export function SkinLayoutNode({
         node={node}
         pack={pack}
         mode={node.type === "volume" ? "volume" : "seek"}
+      />
+    );
+  }
+
+  if (node.type === "eqBand" && node.presentation.kind === "bitmapVerticalSlider") {
+    return <SkinEqBandSlider node={node} pack={pack} />;
+  }
+
+  if (
+    (node.type === "balance" || node.type === "volume") &&
+    node.presentation.kind === "bitmapHorizontalSlider"
+  ) {
+    return <SkinBitmapHorizontalSlider node={node} pack={pack} />;
+  }
+
+  if (node.type === "eqBand" && node.presentation.kind === "stripSlider") {
+    return <SkinStripSlider node={node} pack={pack} mode="eq" />;
+  }
+
+  if (
+    node.type === "visualizer" &&
+    node.presentation.kind === "framedPanel"
+  ) {
+    return (
+      <SkinFramedVisualizer
+        node={node}
+        pack={pack}
+        manifest={pack.manifest}
+        visualizerExpanded={visualizerExpanded}
+        onToggleVisualizer={onToggleVisualizer}
       />
     );
   }

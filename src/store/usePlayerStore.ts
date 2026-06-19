@@ -62,6 +62,7 @@ interface PlayerState {
   seekPreviewRatio: number | null;
   volume: number;
   muted: boolean;
+  balance: number;
   repeatMode: RepeatMode;
   shuffle: boolean;
   importError: string | null;
@@ -104,6 +105,7 @@ interface PlayerState {
   previousTrack: () => void;
   nextTrack: () => void;
   setVolume: (volume: number) => void;
+  setBalance: (balance: number) => void;
   toggleMute: () => void;
   addToQueue: (ids: number[]) => void;
   addCdToQueue: (driveId: string, tracks: Track[]) => void;
@@ -207,6 +209,7 @@ async function playResolvedPlayable(
     // volume/mute state before audio starts.
     audio.setVolume(state.volume);
     audio.setMuted(state.muted);
+    audio.setBalance(state.balance);
     audio.play();
     set((current) => ({
       currentPlayable: playable,
@@ -478,6 +481,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     seekPreviewRatio: null,
     volume: 1,
     muted: false,
+    balance: 0,
     repeatMode: "off",
     shuffle: false,
     importError: null,
@@ -881,6 +885,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         return;
       }
       set({ volume: clamped });
+    },
+
+    setBalance: (balance) => {
+      const clamped = Math.max(-1, Math.min(1, balance));
+      audio.setBalance(clamped);
+      set({ balance: clamped });
     },
 
     toggleMute: () => {
