@@ -195,6 +195,10 @@
               "enum": ["stack", "row", "column", "overlay", "canvas"]
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+            },
             "children": {
               "type": "array",
               "items": { "$ref": "#/$defs/layoutNode" }
@@ -259,6 +263,10 @@
             "type": { "const": "decoration" },
             "presentation": { "$ref": "#/$defs/presentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+            },
             "dragRegion": {
               "type": "boolean",
               "description": "When true on a canvas view, marks a window drag handle"
@@ -280,6 +288,10 @@
             "id": { "type": "string" },
             "type": { "const": "dragRegion" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+            },
             "visibleWhen": { "type": "string" },
             "animations": { "type": "object" }
           }
