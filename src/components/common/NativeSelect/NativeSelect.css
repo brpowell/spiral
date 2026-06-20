@@ -1,0 +1,57 @@
+.native-select-wrap {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: var(--control-height);
+}
+
+.native-select {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 calc(var(--control-padding-x) + var(--control-icon-size)) 0
+    var(--control-padding-x);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font-size: var(--control-font-size);
+  font-family: var(--font-ui);
+  font-weight: 500;
+  line-height: var(--control-line-height);
+  cursor: pointer;
+  appearance: none;
+}
+
+.native-select-wrap:hover:not(.native-select-wrap--disabled) .native-select:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+}
+
+.native-select:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.native-select:disabled {
+  cursor: not-allowed;
+}
+
+.native-select-wrap--disabled {
+  opacity: 0.5;
+}
+
+.native-select__chevron {
+  position: absolute;
+  top: 50%;
+  right: var(--control-padding-x);
+  display: flex;
+  pointer-events: none;
+  opacity: 0.65;
+  transform: translateY(-50%);
+}
+
+.native-select__chevron svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
+}

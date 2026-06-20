@@ -1,27 +1,16 @@
-import { useRef, type ReactNode } from "react";
+import { useRef } from "react";
 import { useContextMenu } from "../../../hooks/useContextMenu";
 import {
   ContextMenu,
   ContextMenuOptionItem,
 } from "../../ContextMenu/ContextMenu";
 import { IconChevronDown } from "../../icons";
+import type { SelectBaseProps } from "./selectTypes";
 import "./Select.css";
 
-export type SelectOption<T extends string> = {
-  value: T;
-  label: ReactNode;
-  description?: ReactNode;
-  disabled?: boolean;
-};
+export type { SelectOption } from "./selectTypes";
 
-export type SelectProps<T extends string> = {
-  value: T;
-  onChange: (value: T) => void;
-  options: SelectOption<T>[];
-  "aria-label": string;
-  className?: string;
-  disabled?: boolean;
-};
+export type SelectProps<T extends string> = SelectBaseProps<T>;
 
 export function Select<T extends string>({
   value,

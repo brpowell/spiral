@@ -1,0 +1,177 @@
+.equalizer-shell {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  height: 100%;
+  min-height: 0;
+  padding: 0.75rem 1rem 1rem;
+  font-family: var(--font-ui);
+}
+
+.equalizer-shell__toolbar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.equalizer-shell__toolbar-left {
+  display: flex;
+  flex-shrink: 1;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.equalizer-shell__preset-select {
+  flex: 0 1 auto;
+  width: 8.5rem;
+  min-width: 0;
+}
+
+.equalizer-shell__enable {
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.equalizer-shell__bands-area {
+  --eq-band-label-height: 1rem;
+  --eq-band-gap: 0.25rem;
+  --eq-band-track-height: 7.5rem;
+  --eq-column-gap: 0.375rem;
+  --eq-preamp-gutter: 0.75rem;
+  /* Half the slider thumb height, so the thumb stays inside the plot at ±12. */
+  --eq-plot-inset: 7px;
+  /* Rail extends past the outermost reference lines, like classic EQ sliders. */
+  --eq-rail-overhang: 5px;
+
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: var(--eq-band-label-height) var(--eq-band-track-height);
+  gap: var(--eq-band-gap) var(--eq-column-gap);
+  align-content: center;
+  min-height: 0;
+}
+
+.equalizer-shell__bands-area--disabled {
+  opacity: 0.55;
+}
+
+.equalizer-shell__scale {
+  display: grid;
+  grid-column: 1;
+  grid-template-rows: subgrid;
+  grid-row: 1 / -1;
+  align-items: stretch;
+  width: 1.625rem;
+}
+
+.equalizer-shell__scale-unit {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: var(--eq-band-label-height);
+  font-size: 0.625rem;
+  line-height: 1;
+  color: var(--color-text-secondary);
+}
+
+.equalizer-shell__scale-track {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+}
+
+.equalizer-shell__scale-mark {
+  position: absolute;
+  right: 0;
+  bottom: calc(
+    var(--eq-plot-inset) + var(--eq-ratio) * (100% - 2 * var(--eq-plot-inset))
+  );
+  font-size: 0.5625rem;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  transform: translateY(50%);
+}
+
+.equalizer-shell__bands {
+  position: relative;
+  display: grid;
+  grid-column: 2;
+  grid-template-rows: subgrid;
+  grid-row: 1 / -1;
+  grid-template-columns: minmax(3.5rem, auto) repeat(10, minmax(0, 1fr));
+  gap: 0 var(--eq-column-gap);
+  align-items: stretch;
+  min-width: 0;
+  min-height: 0;
+}
+
+.equalizer-shell__grid-lines {
+  position: absolute;
+  top: calc(var(--eq-band-label-height) + var(--eq-band-gap));
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.equalizer-shell__grid-line {
+  position: absolute;
+  right: 0;
+  left: 0;
+  bottom: calc(
+    var(--eq-plot-inset) + var(--eq-ratio) * (100% - 2 * var(--eq-plot-inset))
+  );
+  height: 1px;
+  background: color-mix(in srgb, var(--color-border) 85%, transparent);
+  transform: translateY(50%);
+}
+
+.equalizer-shell__grid-line--zero {
+  background: color-mix(in srgb, var(--color-text-secondary) 55%, var(--color-border));
+}
+
+.equalizer-shell__band {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: 1 / -1;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.equalizer-shell__band--preamp {
+  box-sizing: border-box;
+  padding-left: var(--eq-preamp-gutter);
+  padding-right: calc(var(--eq-preamp-gutter) + var(--eq-column-gap));
+  border-right: 1px solid var(--color-border);
+}
+
+.equalizer-shell__band-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--eq-band-label-height);
+  font-size: 0.625rem;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.equalizer-shell__band-track {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+}

@@ -1,0 +1,17 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+.equalizer-app {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+}

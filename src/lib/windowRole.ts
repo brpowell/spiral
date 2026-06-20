@@ -1,6 +1,6 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-export type WindowRole = "main" | "skin-mode" | "appearance" | "activity-logs";
+export type WindowRole = "main" | "skin-mode" | "appearance" | "equalizer" | "activity-logs";
 
 let role: WindowRole = "main";
 let inTauri = false;
@@ -13,6 +13,8 @@ export async function bootstrapWindowRole(): Promise<WindowRole> {
       role = "skin-mode";
     } else if (label === "appearance") {
       role = "appearance";
+    } else if (label === "equalizer") {
+      role = "equalizer";
     } else if (label === "activity-logs") {
       role = "activity-logs";
     } else {
@@ -35,6 +37,10 @@ export function isSkinModeWindow(): boolean {
 
 export function isAppearanceWindow(): boolean {
   return role === "appearance";
+}
+
+export function isEqualizerWindow(): boolean {
+  return role === "equalizer";
 }
 
 export function isActivityLogsWindow(): boolean {

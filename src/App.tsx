@@ -20,6 +20,7 @@ import { setupAppMenu } from "./lib/appMenu";
 import { openSkinMode } from "./lib/skinModeWindow";
 import { openActivityLogsWindow } from "./lib/activityLogsWindow";
 import { openAppearanceWindow } from "./lib/appearanceWindow";
+import { openEqualizerWindow } from "./lib/equalizerWindow";
 import { useAudioWakeRecovery } from "./hooks/useAudioWakeRecovery";
 import { useHiddenPlaybackKeepAlive } from "./hooks/useHiddenPlaybackKeepAlive";
 import { useCdMonitor } from "./hooks/useCdMonitor";
@@ -71,6 +72,9 @@ function App() {
       },
       openAppearance: () => {
         void openAppearanceWindow();
+      },
+      openEqualizer: () => {
+        void openEqualizerWindow();
       },
       openActivityLogs: () => {
         void openActivityLogsWindow();

@@ -55,13 +55,20 @@
 }
 
 .activity-logs-panel__level-select {
-  appearance: none;
-  border: 1px solid var(--color-border);
+  width: auto;
+  --control-padding-x: 0.5rem;
+  --control-padding-y: 0.25rem;
+  --control-font-size: 0.78rem;
+  --control-icon-size: 1rem;
+  --control-height: calc(
+    2 * var(--control-padding-y) + var(--control-icon-size) + 2px
+  );
+}
+
+.activity-logs-panel__level-select .native-select {
   background: var(--color-surface);
-  color: var(--color-text-primary);
   border-radius: var(--radius-button);
-  padding: 0.25rem 0.5rem;
-  font-size: 0.78rem;
+  font-weight: 400;
 }
 
 .activity-logs-panel__toggle {

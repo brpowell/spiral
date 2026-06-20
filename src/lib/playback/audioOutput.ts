@@ -75,7 +75,7 @@ export function disconnectEngineOutput(): void {
 }
 
 export function applyEqualizerState(
-  state: Pick<EqualizerState, "enabled" | "bands">,
+  state: Pick<EqualizerState, "enabled" | "bands" | "preampGain">,
 ): void {
   applyEqChainState(state);
 }

@@ -81,10 +81,27 @@ export function getBuiltinPreset(id: string): EqualizerPreset | undefined {
   return presetById.get(id);
 }
 
-export function findBuiltinPresetByBands(
-  bands: EqualizerBandGains,
+export function resolvePreset(
+  id: string,
+  customPresets: readonly EqualizerPreset[],
 ): EqualizerPreset | undefined {
-  return BUILTIN_PRESETS.find((preset) =>
-    preset.bands.every((gain, index) => gain === bands[index]),
-  );
+  const builtin = getBuiltinPreset(id);
+  if (builtin) return builtin;
+  return customPresets.find((preset) => preset.id === id);
+}
+
+export function presetLabel(
+  id: string,
+  customPresets: readonly EqualizerPreset[],
+): string {
+  if (id === "manual") return "Manual";
+  return resolvePreset(id, customPresets)?.name ?? id;
+}
+
+export function isKnownPresetId(
+  id: string,
+  customPresets: readonly EqualizerPreset[],
+): boolean {
+  if (id === "manual") return true;
+  return resolvePreset(id, customPresets) != null;
 }

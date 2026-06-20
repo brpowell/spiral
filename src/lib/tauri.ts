@@ -383,6 +383,13 @@ export interface EqualizerSettings {
   enabled: boolean;
   presetId: string;
   bands: number[];
+  preampGain: number;
+}
+
+export interface EqualizerPresetRecord {
+  id: string;
+  name: string;
+  bands: number[];
 }
 
 export async function getEqualizerSettings(): Promise<EqualizerSettings> {
@@ -393,6 +400,22 @@ export async function saveEqualizerSettings(
   settings: EqualizerSettings,
 ): Promise<void> {
   return invoke<void>("save_equalizer_settings", { settings });
+}
+
+export async function listEqualizerCustomPresets(): Promise<
+  EqualizerPresetRecord[]
+> {
+  return invoke<EqualizerPresetRecord[]>("list_equalizer_custom_presets");
+}
+
+export async function saveEqualizerCustomPreset(
+  preset: EqualizerPresetRecord,
+): Promise<void> {
+  return invoke<void>("save_equalizer_custom_preset", { preset });
+}
+
+export async function deleteEqualizerCustomPreset(id: string): Promise<void> {
+  return invoke<void>("delete_equalizer_custom_preset", { id });
 }
 
 export async function writeTrackMetadata(

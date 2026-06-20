@@ -5,7 +5,8 @@
   flex: 1;
   min-width: 200px;
   max-width: 360px;
-  padding: 0.3rem 0.6rem;
+  height: var(--control-height);
+  padding: 0 var(--control-padding-x);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -19,15 +20,17 @@
 }
 
 .search-field > svg:first-child {
-  width: 1.1rem;
-  height: 1.1rem;
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
   flex-shrink: 0;
 }
 
-.search-field__clear.btn--icon-only {
-  width: 1.2rem;
-  height: 1.2rem;
-  min-width: 1.2rem;
+.search-field__clear.btn.btn--icon-only.btn--sm {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
+  min-width: var(--control-icon-size);
+  padding: 0;
+  line-height: 0;
 }
 
 .search-field__clear {

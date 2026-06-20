@@ -46,6 +46,20 @@
         "dragDropEnabled": false
       },
       {
+        "label": "equalizer",
+        "title": "Equalizer",
+        "width": 580,
+        "height": 260,
+        "visible": false,
+        "resizable": false,
+        "maximizable": false,
+        "minWidth": 580,
+        "minHeight": 260,
+        "maxWidth": 580,
+        "maxHeight": 260,
+        "dragDropEnabled": false
+      },
+      {
         "label": "activity-logs",
         "title": "Activity Logs",
         "width": 720,

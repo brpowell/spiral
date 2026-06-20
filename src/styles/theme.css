@@ -16,6 +16,16 @@
   --radius-md: var(--radius-card);
   --font-ui: "Inter", system-ui, -apple-system, sans-serif;
 
+  /* Shared compact control sizing (text inputs, selects, search fields) */
+  --control-padding-y: 0.3rem;
+  --control-padding-x: 0.6rem;
+  --control-font-size: 0.875rem;
+  --control-line-height: 1.25;
+  --control-icon-size: 1.1rem;
+  --control-height: calc(
+    2 * var(--control-padding-y) + var(--control-icon-size) + 2px
+  );
+
   --z-modal: 1000;
 
   --app-header-height: 68px;

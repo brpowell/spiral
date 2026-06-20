@@ -4,13 +4,14 @@
  * When disabled, audio routes through bypassGain (unity) while wetGain is muted,
  * preserving stored band gains without re-applying on re-enable.
  *
- *   input ─┬─► [filter₁…filter₁₀] ─► wetGain ─┬─► output
- *          └─► bypassGain ─────────────────────┘
+ *   input ─┬─► preampGain ─► [filter₁…filter₁₀] ─► wetGain ─┬─► output
+ *          └─► bypassGain ───────────────────────────────────┘
  */
 import {
   clampBandGain,
   EQ_BAND_COUNT,
   EQ_BAND_FREQUENCIES_HZ,
+  gainDbToLinear,
   type EqualizerState,
 } from "../equalizer/types";
 
@@ -20,8 +21,9 @@ interface EqualizerChain {
   input: AudioNode;
   output: AudioNode;
   setBandGain(index: number, gainDb: number): void;
+  setPreampGain(gainDb: number): void;
   setEnabled(enabled: boolean): void;
-  applyState(state: Pick<EqualizerState, "enabled" | "bands">): void;
+  applyState(state: Pick<EqualizerState, "enabled" | "bands" | "preampGain">): void;
   dispose(): void;
 }
 
@@ -29,6 +31,7 @@ function createEqualizerChain(ctx: BaseAudioContext): EqualizerChain {
   const input = ctx.createGain();
   const output = ctx.createGain();
   const bypassGain = ctx.createGain();
+  const preampGain = ctx.createGain();
   const wetGain = ctx.createGain();
 
   const filters: BiquadFilterNode[] = [];
@@ -44,7 +47,8 @@ function createEqualizerChain(ctx: BaseAudioContext): EqualizerChain {
   input.connect(bypassGain);
   bypassGain.connect(output);
 
-  let previous: AudioNode = input;
+  input.connect(preampGain);
+  let previous: AudioNode = preampGain;
   for (const filter of filters) {
     previous.connect(filter);
     previous = filter;
@@ -62,10 +66,17 @@ function createEqualizerChain(ctx: BaseAudioContext): EqualizerChain {
     filters[index]!.gain.value = clampBandGain(gainDb);
   };
 
-  const applyState = (state: Pick<EqualizerState, "enabled" | "bands">) => {
+  const setPreampGain = (gainDb: number) => {
+    preampGain.gain.value = gainDbToLinear(gainDb);
+  };
+
+  const applyState = (
+    state: Pick<EqualizerState, "enabled" | "bands" | "preampGain">,
+  ) => {
     for (let i = 0; i < EQ_BAND_COUNT; i++) {
       setBandGain(i, state.bands[i] ?? 0);
     }
+    setPreampGain(state.preampGain);
     setEnabled(state.enabled);
   };
 
@@ -73,6 +84,7 @@ function createEqualizerChain(ctx: BaseAudioContext): EqualizerChain {
     input.disconnect();
     output.disconnect();
     bypassGain.disconnect();
+    preampGain.disconnect();
     wetGain.disconnect();
     for (const filter of filters) {
       filter.disconnect();
@@ -80,11 +92,13 @@ function createEqualizerChain(ctx: BaseAudioContext): EqualizerChain {
   };
 
   setEnabled(true);
+  setPreampGain(0);
 
   return {
     input,
     output,
     setBandGain,
+    setPreampGain,
     setEnabled,
     applyState,
     dispose,
@@ -93,9 +107,10 @@ function createEqualizerChain(ctx: BaseAudioContext): EqualizerChain {
 
 let activeChain: EqualizerChain | null = null;
 let activeContext: BaseAudioContext | null = null;
-let lastAppliedState: Pick<EqualizerState, "enabled" | "bands"> = {
+let lastAppliedState: Pick<EqualizerState, "enabled" | "bands" | "preampGain"> = {
   enabled: true,
   bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  preampGain: 0,
 };
 
 export function ensureEqualizerChain(ctx: BaseAudioContext): EqualizerChain {
@@ -119,11 +134,12 @@ export function disposeEqualizerChain(): void {
 }
 
 export function applyEqualizerState(
-  state: Pick<EqualizerState, "enabled" | "bands">,
+  state: Pick<EqualizerState, "enabled" | "bands" | "preampGain">,
 ): void {
   lastAppliedState = {
     enabled: state.enabled,
     bands: [...state.bands] as EqualizerState["bands"],
+    preampGain: state.preampGain,
   };
   activeChain?.applyState(lastAppliedState);
 }

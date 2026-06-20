@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { ActivityLogsApp } from "./ActivityLogsApp";
 import { AppearanceApp } from "./AppearanceApp";
+import { EqualizerApp } from "./EqualizerApp";
 import { SkinModeApp } from "./SkinModeApp";
 import { initPlayerStoreBridge } from "./lib/playerStoreBridge";
 import { initSkinBridge } from "./lib/skinBridge";
@@ -17,6 +18,7 @@ import {
   bootstrapWindowRole,
   isActivityLogsWindow,
   isAppearanceWindow,
+  isEqualizerWindow,
   isSkinModeWindow,
 } from "./lib/windowRole";
 import "./styles/theme.css";
@@ -34,6 +36,17 @@ async function start() {
     ReactDOM.createRoot(root).render(
       <React.StrictMode>
         <ActivityLogsApp />
+      </React.StrictMode>,
+    );
+    return;
+  }
+
+  if (isEqualizerWindow()) {
+    await initEqBridge(role);
+
+    ReactDOM.createRoot(root).render(
+      <React.StrictMode>
+        <EqualizerApp />
       </React.StrictMode>,
     );
     return;

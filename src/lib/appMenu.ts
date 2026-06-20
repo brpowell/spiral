@@ -11,6 +11,7 @@ export interface AppMenuHandlers {
   openPreferences: () => void;
   openSkinMode: () => void;
   openAppearance: () => void;
+  openEqualizer: () => void;
   openActivityLogs: () => void;
 }
 
@@ -57,6 +58,12 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
     action: handlers.openAppearance,
   });
 
+  const equalizer = await MenuItem.new({
+    id: "equalizer",
+    text: "Equalizer…",
+    action: handlers.openEqualizer,
+  });
+
   const activityLogs = await MenuItem.new({
     id: "activity-logs",
     text: "Activity Logs",
@@ -66,7 +73,7 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
 
   const viewSubmenu = await Submenu.new({
     text: "View",
-    items: [skinMode, appearance, activityLogs],
+    items: [skinMode, appearance, equalizer, activityLogs],
   });
 
   const menu = await Menu.new({

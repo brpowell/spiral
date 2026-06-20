@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../common/Button/Button";
 import { Checkbox } from "../common/Checkbox/Checkbox";
+import { NativeSelect } from "../common/NativeSelect/NativeSelect";
 import {
   ContextMenu,
   ContextMenuItem,
@@ -541,18 +542,13 @@ export function ActivityLogsPanel() {
         </div>
 
         <div className="activity-logs-panel__controls">
-          <select
+          <NativeSelect
             className="activity-logs-panel__level-select"
-            value={minLevel}
-            onChange={(event) => setMinLevel(event.target.value as LogLevel)}
             aria-label="Minimum log level"
-          >
-            {LEVEL_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            value={minLevel}
+            options={LEVEL_OPTIONS}
+            onChange={setMinLevel}
+          />
 
           <label className="activity-logs-panel__toggle">
             <Checkbox

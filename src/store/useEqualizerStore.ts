@@ -1,6 +1,10 @@
 import { create } from "zustand";
-import { getBuiltinPreset } from "../lib/equalizer/builtinPresets";
 import {
+  isKnownPresetId,
+  resolvePreset,
+} from "../lib/equalizer/builtinPresets";
+import {
+  clampPreampGain,
   FLAT_BAND_GAINS,
   normalizeBandGains,
   type EqualizerBandGains,
@@ -8,42 +12,61 @@ import {
   type EqualizerStateSnapshot,
 } from "../lib/equalizer/types";
 import { applyEqualizerState } from "../lib/playback/audioOutput";
-import { saveEqualizerSettings, type EqualizerSettings } from "../lib/tauri";
+import {
+  deleteEqualizerCustomPreset,
+  saveEqualizerCustomPreset,
+  saveEqualizerSettings,
+  type EqualizerPresetRecord,
+  type EqualizerSettings,
+} from "../lib/tauri";
 import { getWindowRole } from "../lib/windowRole";
 
 interface EqualizerStoreState {
   enabled: boolean;
   presetId: string;
   bands: EqualizerBandGains;
+  preampGain: number;
   customPresets: EqualizerPreset[];
   initializeFromBootstrap: (settings: EqualizerSettings) => void;
+  loadCustomPresets: (presets: EqualizerPreset[]) => void;
   setBand: (index: number, gain: number) => void;
+  setPreampGain: (gain: number) => void;
   applyPreset: (presetId: string) => void;
   reset: () => void;
   setEnabled: (enabled: boolean) => void;
+  saveCurrentAsPreset: (name: string) => void;
+  renameCustomPreset: (id: string, name: string) => void;
+  deleteCustomPreset: (id: string) => void;
   applySnapshot: (snapshot: EqualizerStateSnapshot) => void;
 }
+
+type EqualizerAudioState = Pick<
+  EqualizerStoreState,
+  "enabled" | "bands" | "preampGain"
+>;
+
+type EqualizerPersistedState = Pick<
+  EqualizerStoreState,
+  "enabled" | "presetId" | "bands" | "preampGain"
+>;
 
 function isMainWindow(): boolean {
   return getWindowRole() === "main";
 }
 
-function commitAudioState(
-  state: Pick<EqualizerStoreState, "enabled" | "bands">,
-): void {
+function commitAudioState(state: EqualizerAudioState): void {
   if (!isMainWindow()) return;
-  applyEqualizerState({ enabled: state.enabled, bands: state.bands });
+  applyEqualizerState(state);
 }
 
-function persistEqualizerState(
-  state: Pick<EqualizerStoreState, "enabled" | "presetId" | "bands">,
-): void {
+function persistEqualizerState(state: EqualizerPersistedState): void {
   if (!isMainWindow()) return;
 
   void saveEqualizerSettings({
     enabled: state.enabled,
     presetId: state.presetId,
     bands: [...state.bands],
+    preampGain: state.preampGain,
   }).catch((err: unknown) => {
     console.error("Failed to save equalizer settings:", err);
   });
@@ -59,34 +82,63 @@ function updateBands(
   return normalizeBandGains(next);
 }
 
-function commitStateChange(
-  state: Pick<EqualizerStoreState, "enabled" | "presetId" | "bands">,
-): void {
+function commitStateChange(state: EqualizerPersistedState): void {
   commitAudioState(state);
   persistEqualizerState(state);
+}
+
+function recordToPreset(record: EqualizerPresetRecord): EqualizerPreset {
+  return {
+    id: record.id,
+    name: record.name,
+    bands: normalizeBandGains(record.bands),
+    builtin: false,
+  };
+}
+
+function presetToRecord(preset: EqualizerPreset): EqualizerPresetRecord {
+  return {
+    id: preset.id,
+    name: preset.name,
+    bands: [...preset.bands],
+  };
+}
+
+function resolvePresetId(
+  presetId: string,
+  customPresets: EqualizerPreset[],
+): string {
+  if (isKnownPresetId(presetId, customPresets)) {
+    return presetId;
+  }
+  return "flat";
 }
 
 export const useEqualizerStore = create<EqualizerStoreState>((set, get) => ({
   enabled: true,
   presetId: "flat",
   bands: FLAT_BAND_GAINS,
+  preampGain: 0,
   customPresets: [],
 
   initializeFromBootstrap: (settings) => {
+    const customPresets = get().customPresets;
     const bands = normalizeBandGains(settings.bands);
-    const presetId =
-      settings.presetId === "manual" || getBuiltinPreset(settings.presetId)
-        ? settings.presetId
-        : "flat";
+    const presetId = resolvePresetId(settings.presetId, customPresets);
 
     const next = {
       enabled: settings.enabled,
       presetId,
       bands,
+      preampGain: clampPreampGain(settings.preampGain ?? 0),
     };
 
     set(next);
     commitAudioState(next);
+  },
+
+  loadCustomPresets: (presets) => {
+    set({ customPresets: presets });
   },
 
   setBand: (index, gain) => {
@@ -96,20 +148,34 @@ export const useEqualizerStore = create<EqualizerStoreState>((set, get) => ({
       enabled: get().enabled,
       presetId: "manual",
       bands: updateBands(get().bands, index, gain),
+      preampGain: get().preampGain,
     };
 
     set(next);
     commitStateChange(next);
   },
 
+  setPreampGain: (gain) => {
+    const next = {
+      enabled: get().enabled,
+      presetId: get().presetId,
+      bands: get().bands,
+      preampGain: clampPreampGain(gain),
+    };
+
+    set({ preampGain: next.preampGain });
+    commitStateChange(next);
+  },
+
   applyPreset: (presetId) => {
-    const preset = getBuiltinPreset(presetId);
+    const preset = resolvePreset(presetId, get().customPresets);
     if (!preset) return;
 
     const next = {
       enabled: get().enabled,
       presetId,
       bands: preset.bands,
+      preampGain: get().preampGain,
     };
 
     set(next);
@@ -121,6 +187,7 @@ export const useEqualizerStore = create<EqualizerStoreState>((set, get) => ({
       enabled: get().enabled,
       presetId: "manual",
       bands: FLAT_BAND_GAINS,
+      preampGain: 0,
     };
 
     set(next);
@@ -132,10 +199,88 @@ export const useEqualizerStore = create<EqualizerStoreState>((set, get) => ({
       enabled,
       presetId: get().presetId,
       bands: get().bands,
+      preampGain: get().preampGain,
     };
 
     set({ enabled });
     commitStateChange(next);
+  },
+
+  saveCurrentAsPreset: (name) => {
+    const trimmed = name.trim();
+    if (!trimmed || !isMainWindow()) return;
+
+    const preset: EqualizerPreset = {
+      id: crypto.randomUUID(),
+      name: trimmed,
+      bands: get().bands,
+      builtin: false,
+    };
+
+    const customPresets = [...get().customPresets, preset];
+    const next = {
+      enabled: get().enabled,
+      presetId: preset.id,
+      bands: get().bands,
+      preampGain: get().preampGain,
+    };
+
+    set({ ...next, customPresets });
+
+    void saveEqualizerCustomPreset(presetToRecord(preset)).catch(
+      (err: unknown) => {
+        console.error("Failed to save equalizer custom preset:", err);
+      },
+    );
+    persistEqualizerState(next);
+  },
+
+  renameCustomPreset: (id, name) => {
+    const trimmed = name.trim();
+    if (!trimmed || !isMainWindow()) return;
+
+    const preset = get().customPresets.find((item) => item.id === id);
+    if (!preset || preset.builtin) return;
+
+    const updated: EqualizerPreset = { ...preset, name: trimmed };
+    const customPresets = get().customPresets.map((item) =>
+      item.id === id ? updated : item,
+    );
+
+    set({ customPresets });
+
+    void saveEqualizerCustomPreset(presetToRecord(updated)).catch(
+      (err: unknown) => {
+        console.error("Failed to rename equalizer custom preset:", err);
+      },
+    );
+  },
+
+  deleteCustomPreset: (id) => {
+    if (!isMainWindow()) return;
+
+    const preset = get().customPresets.find((item) => item.id === id);
+    if (!preset || preset.builtin) return;
+
+    const wasActive = get().presetId === id;
+    const customPresets = get().customPresets.filter((item) => item.id !== id);
+    const presetId = wasActive ? "flat" : get().presetId;
+    const next = {
+      enabled: get().enabled,
+      presetId,
+      bands: get().bands,
+      preampGain: get().preampGain,
+    };
+
+    set({ customPresets, presetId });
+
+    void deleteEqualizerCustomPreset(id).catch((err: unknown) => {
+      console.error("Failed to delete equalizer custom preset:", err);
+    });
+
+    if (wasActive) {
+      persistEqualizerState(next);
+    }
   },
 
   applySnapshot: (snapshot) => {
@@ -143,16 +288,10 @@ export const useEqualizerStore = create<EqualizerStoreState>((set, get) => ({
       enabled: snapshot.enabled,
       presetId: snapshot.presetId,
       bands: normalizeBandGains(snapshot.bands),
+      preampGain: clampPreampGain(snapshot.preampGain),
+      customPresets: snapshot.customPresets,
     });
   },
 }));
 
-declare global {
-  interface Window {
-    useEqualizerStore?: typeof useEqualizerStore;
-  }
-}
-
-if (import.meta.env.DEV && typeof window !== "undefined") {
-  window.useEqualizerStore = useEqualizerStore;
-}
+export { recordToPreset };

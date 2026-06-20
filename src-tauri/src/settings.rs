@@ -131,6 +131,18 @@ fn default_equalizer_bands() -> [f32; 10] {
     [0.0; 10]
 }
 
+fn default_equalizer_preamp_gain() -> f32 {
+    0.0
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EqualizerPresetRecord {
+    pub id: String,
+    pub name: String,
+    pub bands: [f32; 10],
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EqualizerSettings {
@@ -140,6 +152,10 @@ pub struct EqualizerSettings {
     pub preset_id: String,
     #[serde(default = "default_equalizer_bands")]
     pub bands: [f32; 10],
+    #[serde(default = "default_equalizer_preamp_gain")]
+    pub preamp_gain: f32,
+    #[serde(default)]
+    pub custom_presets: Vec<EqualizerPresetRecord>,
 }
 
 impl Default for EqualizerSettings {
@@ -148,6 +164,8 @@ impl Default for EqualizerSettings {
             enabled: default_equalizer_enabled(),
             preset_id: default_equalizer_preset_id(),
             bands: default_equalizer_bands(),
+            preamp_gain: default_equalizer_preamp_gain(),
+            custom_presets: Vec::new(),
         }
     }
 }

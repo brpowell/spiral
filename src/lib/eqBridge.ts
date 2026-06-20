@@ -1,8 +1,11 @@
 import { emit, listen } from "@tauri-apps/api/event";
-import type { EqualizerRemoteAction, EqualizerStateSnapshot } from "./equalizer/types";
+import type {
+  EqualizerPreset,
+  EqualizerRemoteAction,
+  EqualizerStateSnapshot,
+} from "./equalizer/types";
 import { useEqualizerStore } from "../store/useEqualizerStore";
 import type { WindowRole } from "./windowRole";
-import { isSkinModeWindow } from "./windowRole";
 
 export const EQ_STATE_EVENT = "eq://state";
 export const EQ_ACTION_EVENT = "eq://action";
@@ -15,11 +18,28 @@ function pickEqualizerSnapshot(
     enabled: state.enabled,
     presetId: state.presetId,
     bands: state.bands,
+    preampGain: state.preampGain,
+    customPresets: state.customPresets,
   };
 }
 
+function presetsEqual(
+  left: readonly EqualizerPreset[],
+  right: readonly EqualizerPreset[],
+): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((preset, index) => {
+    const other = right[index];
+    return (
+      preset.id === other.id &&
+      preset.name === other.name &&
+      preset.bands.every((gain, bandIndex) => gain === other.bands[bandIndex])
+    );
+  });
+}
+
 function shouldSyncEqualizer(role: WindowRole): boolean {
-  return role === "main" || isSkinModeWindow();
+  return role === "main" || role === "skin-mode" || role === "equalizer";
 }
 
 function dispatchRemoteAction(action: EqualizerRemoteAction): void {
@@ -27,6 +47,9 @@ function dispatchRemoteAction(action: EqualizerRemoteAction): void {
   switch (action.type) {
     case "setBand":
       store.setBand(action.band, action.gain);
+      break;
+    case "setPreampGain":
+      store.setPreampGain(action.gain);
       break;
     case "applyPreset":
       store.applyPreset(action.presetId);
@@ -36,6 +59,15 @@ function dispatchRemoteAction(action: EqualizerRemoteAction): void {
       break;
     case "setEnabled":
       store.setEnabled(action.enabled);
+      break;
+    case "saveCustomPreset":
+      store.saveCurrentAsPreset(action.name);
+      break;
+    case "renameCustomPreset":
+      store.renameCustomPreset(action.id, action.name);
+      break;
+    case "deleteCustomPreset":
+      store.deleteCustomPreset(action.id);
       break;
   }
 }
@@ -48,11 +80,19 @@ function installRemoteActions(): void {
   useEqualizerStore.setState(
     {
       setBand: (band, gain) => emitRemoteAction({ type: "setBand", band, gain }),
+      setPreampGain: (gain) =>
+        emitRemoteAction({ type: "setPreampGain", gain }),
       applyPreset: (presetId) =>
         emitRemoteAction({ type: "applyPreset", presetId }),
       reset: () => emitRemoteAction({ type: "reset" }),
       setEnabled: (enabled) =>
         emitRemoteAction({ type: "setEnabled", enabled }),
+      saveCurrentAsPreset: (name) =>
+        emitRemoteAction({ type: "saveCustomPreset", name }),
+      renameCustomPreset: (id, name) =>
+        emitRemoteAction({ type: "renameCustomPreset", id, name }),
+      deleteCustomPreset: (id) =>
+        emitRemoteAction({ type: "deleteCustomPreset", id }),
     },
     false,
   );
@@ -71,7 +111,9 @@ async function initMainBridge(): Promise<() => void> {
     if (
       snapshot.enabled === lastSnapshot.enabled &&
       snapshot.presetId === lastSnapshot.presetId &&
-      snapshot.bands.every((gain, index) => gain === lastSnapshot.bands[index])
+      snapshot.preampGain === lastSnapshot.preampGain &&
+      snapshot.bands.every((gain, index) => gain === lastSnapshot.bands[index]) &&
+      presetsEqual(snapshot.customPresets, lastSnapshot.customPresets)
     ) {
       return;
     }

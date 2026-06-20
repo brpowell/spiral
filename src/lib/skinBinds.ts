@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { getBuiltinPreset } from "./equalizer/builtinPresets";
+import { presetLabel } from "./equalizer/builtinPresets";
 import { buildPlaybackOrder } from "./activeTrackList";
 import { findPlaybackTrack } from "./playbackTrack";
 import { getManualNextId } from "./playbackQueue";
@@ -20,7 +20,7 @@ import { usePlaylistStore } from "../store/usePlaylistStore";
 import { useSkinStore } from "../store/useSkinStore";
 import { useVisualizerStore } from "../store/useVisualizerStore";
 import { useEqualizerStore } from "../store/useEqualizerStore";
-import type { EqualizerBandGains } from "./equalizer/types";
+import type { EqualizerBandGains, EqualizerPreset } from "./equalizer/types";
 import type { PlayableRef } from "../types/playable";
 import type { SkinBindPath } from "../types/skin";
 import type { Track } from "../types/track";
@@ -60,6 +60,7 @@ export interface SkinBindState {
   eqEnabled: boolean;
   eqPresetId: string;
   eqBands: EqualizerBandGains;
+  eqCustomPresets: EqualizerPreset[];
 }
 
 export function evaluateSkinBind(
@@ -144,10 +145,8 @@ export function evaluateSkinBind(
       return state.eqPresetId;
     case "eq.isManual":
       return state.eqPresetId === "manual";
-    case "eq.presetLabel": {
-      if (state.eqPresetId === "manual") return "Manual";
-      return getBuiltinPreset(state.eqPresetId)?.name ?? state.eqPresetId;
-    }
+    case "eq.presetLabel":
+      return presetLabel(state.eqPresetId, state.eqCustomPresets);
     default: {
       if (path.startsWith("eq.band.")) {
         const band = Number.parseInt(path.slice("eq.band.".length), 10);
@@ -198,6 +197,7 @@ export function useSkinBindState(): SkinBindState {
   const eqEnabled = useEqualizerStore((s) => s.enabled);
   const eqPresetId = useEqualizerStore((s) => s.presetId);
   const eqBands = useEqualizerStore((s) => s.bands);
+  const eqCustomPresets = useEqualizerStore((s) => s.customPresets);
 
   const visualizerName = useMemo(
     () => activeVisualizerName(visualizerPacks, activeVisualizerId),
@@ -265,6 +265,7 @@ export function useSkinBindState(): SkinBindState {
       eqEnabled,
       eqPresetId,
       eqBands,
+      eqCustomPresets,
     }),
     [
       currentTrack,
@@ -297,6 +298,7 @@ export function useSkinBindState(): SkinBindState {
       eqEnabled,
       eqPresetId,
       eqBands,
+      eqCustomPresets,
     ],
   );
 }

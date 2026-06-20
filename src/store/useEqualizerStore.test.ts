@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getBuiltinPreset } from "../lib/equalizer/builtinPresets";
-import { FLAT_BAND_GAINS } from "../lib/equalizer/types";
+import { FLAT_BAND_GAINS, type EqualizerPreset } from "../lib/equalizer/types";
 import { useEqualizerStore } from "./useEqualizerStore";
 
 vi.mock("../lib/windowRole", () => ({
@@ -14,7 +14,17 @@ vi.mock("../lib/playback/audioOutput", () => ({
 vi.mock("../lib/tauri", () => ({
   getEqualizerSettings: vi.fn(),
   saveEqualizerSettings: vi.fn(() => Promise.resolve()),
+  listEqualizerCustomPresets: vi.fn(() => Promise.resolve([])),
+  saveEqualizerCustomPreset: vi.fn(() => Promise.resolve()),
+  deleteEqualizerCustomPreset: vi.fn(() => Promise.resolve()),
 }));
+
+const customPreset: EqualizerPreset = {
+  id: "custom-1",
+  name: "My Curve",
+  bands: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  builtin: false,
+};
 
 describe("useEqualizerStore", () => {
   beforeEach(() => {
@@ -22,6 +32,7 @@ describe("useEqualizerStore", () => {
       enabled: true,
       presetId: "flat",
       bands: FLAT_BAND_GAINS,
+      preampGain: 0,
       customPresets: [],
     });
   });
@@ -46,13 +57,56 @@ describe("useEqualizerStore", () => {
     expect([...state.bands]).toEqual([...rock!.bands]);
   });
 
-  it("reset zeroes all bands and sets manual", () => {
+  it("applyPreset copies custom preset bands", () => {
+    useEqualizerStore.setState({ customPresets: [customPreset] });
+    useEqualizerStore.getState().applyPreset("custom-1");
+
+    const state = useEqualizerStore.getState();
+    expect(state.presetId).toBe("custom-1");
+    expect([...state.bands]).toEqual([...customPreset.bands]);
+  });
+
+  it("setBand after custom preset switches to manual", () => {
+    useEqualizerStore.setState({
+      customPresets: [customPreset],
+      presetId: "custom-1",
+      bands: customPreset.bands,
+    });
+
+    useEqualizerStore.getState().setBand(0, -3);
+
+    const state = useEqualizerStore.getState();
+    expect(state.presetId).toBe("manual");
+    expect(state.bands[0]).toBe(-3);
+  });
+
+  it("reset zeroes all bands, preamp, and sets manual", () => {
     useEqualizerStore.getState().applyPreset("bass");
+    useEqualizerStore.getState().setPreampGain(8);
     useEqualizerStore.getState().reset();
 
     const state = useEqualizerStore.getState();
     expect(state.presetId).toBe("manual");
     expect([...state.bands]).toEqual([...FLAT_BAND_GAINS]);
+    expect(state.preampGain).toBe(0);
+  });
+
+  it("setPreampGain updates gain without forcing manual preset", () => {
+    useEqualizerStore.getState().applyPreset("rock");
+    useEqualizerStore.getState().setPreampGain(6);
+
+    const state = useEqualizerStore.getState();
+    expect(state.presetId).toBe("rock");
+    expect(state.preampGain).toBe(6);
+  });
+
+  it("applyPreset leaves preamp unchanged", () => {
+    useEqualizerStore.getState().setPreampGain(5);
+    useEqualizerStore.getState().applyPreset("jazz");
+
+    const state = useEqualizerStore.getState();
+    expect(state.presetId).toBe("jazz");
+    expect(state.preampGain).toBe(5);
   });
 
   it("setEnabled preserves band values", () => {
@@ -71,11 +125,50 @@ describe("useEqualizerStore", () => {
       enabled: false,
       presetId: "jazz",
       bands: getBuiltinPreset("jazz")!.bands,
+      preampGain: 3,
+      customPresets: [],
     });
 
     const state = useEqualizerStore.getState();
     expect(state.enabled).toBe(false);
     expect(state.presetId).toBe("jazz");
+    expect(state.preampGain).toBe(3);
     expect([...state.bands]).toEqual([...getBuiltinPreset("jazz")!.bands]);
+  });
+
+  it("saveCurrentAsPreset adds preset and selects it", () => {
+    useEqualizerStore.getState().setBand(2, 6);
+
+    useEqualizerStore.getState().saveCurrentAsPreset("Saved");
+
+    const state = useEqualizerStore.getState();
+    expect(state.customPresets).toHaveLength(1);
+    expect(state.customPresets[0]?.name).toBe("Saved");
+    expect(state.presetId).toBe(state.customPresets[0]?.id);
+    expect(state.bands[2]).toBe(6);
+  });
+
+  it("renameCustomPreset updates the preset name", () => {
+    useEqualizerStore.setState({ customPresets: [customPreset] });
+
+    useEqualizerStore.getState().renameCustomPreset("custom-1", "Renamed");
+
+    const state = useEqualizerStore.getState();
+    expect(state.customPresets[0]?.name).toBe("Renamed");
+  });
+
+  it("deleteCustomPreset removes preset and resets active id", () => {
+    useEqualizerStore.setState({
+      customPresets: [customPreset],
+      presetId: "custom-1",
+      bands: customPreset.bands,
+    });
+
+    useEqualizerStore.getState().deleteCustomPreset("custom-1");
+
+    const state = useEqualizerStore.getState();
+    expect(state.customPresets).toHaveLength(0);
+    expect(state.presetId).toBe("flat");
+    expect([...state.bands]).toEqual([...customPreset.bands]);
   });
 });
