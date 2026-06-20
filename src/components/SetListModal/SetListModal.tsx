@@ -1,6 +1,6 @@
 import { useId, useMemo, useRef } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { buildPlaybackOrder } from "../../lib/activeTrackList";
+import { buildPlaybackOrder } from "../../lib/playbackOrder";
 import { formatTime } from "../../lib/format";
 import { findPlaybackTrack } from "../../lib/playbackTrack";
 import { usePlayerStore } from "../../store/usePlayerStore";
@@ -16,14 +16,14 @@ import {
 } from "../common/Modal/Modal";
 import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
 import { EntityArt } from "../EntityArt/EntityArt";
-import "./TrackListModal.css";
+import "./SetListModal.css";
 
-interface TrackListModalProps {
+interface SetListModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-export function TrackListModal({ open, onClose }: TrackListModalProps) {
+export function SetListModal({ open, onClose }: SetListModalProps) {
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const cdQueueContext = usePlayerStore((s) => s.cdQueueContext);
@@ -32,7 +32,7 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playTrack = usePlayerStore((s) => s.playTrack);
   const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
-  const clearTrackList = usePlayerStore((s) => s.clearTrackList);
+  const clearSetList = usePlayerStore((s) => s.clearSetList);
 
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -85,7 +85,7 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
   };
 
   const handleClear = () => {
-    clearTrackList();
+    clearSetList();
     onClose();
   };
 
@@ -98,7 +98,7 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
       labelledBy={titleId}
     >
       <ModalHeader>
-        <ModalTitle id={titleId}>Track list</ModalTitle>
+        <ModalTitle id={titleId}>Set list</ModalTitle>
         <ModalHeaderActions>
           <Button
             variant="ghost"
@@ -114,13 +114,13 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
 
       <ModalBody>
         {activeIds.length === 0 ? (
-          <p className="track-list-modal__empty">No tracks in the list.</p>
+          <p className="set-list-modal__empty">Nothing on the set list.</p>
         ) : (
           <>
-            <section className="track-list-modal__section">
-              <h3 className="track-list-modal__section-title">Now playing</h3>
+            <section className="set-list-modal__section">
+              <h3 className="set-list-modal__section-title">Now playing</h3>
               {nowPlaying ? (
-                <TrackListRow
+                <SetListRow
                   track={nowPlaying}
                   playing
                   queued={manualQueueSet.has(nowPlaying.id)}
@@ -132,18 +132,18 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
                   }
                 />
               ) : (
-                <p className="track-list-modal__empty-section">Nothing playing</p>
+                <p className="set-list-modal__empty-section">Nothing playing</p>
               )}
             </section>
 
-            <section className="track-list-modal__section">
-              <h3 className="track-list-modal__section-title">Up next</h3>
+            <section className="set-list-modal__section">
+              <h3 className="set-list-modal__section-title">Up next</h3>
               {upNextIds.length === 0 ? (
-                <p className="track-list-modal__empty-section">
+                <p className="set-list-modal__empty-section">
                   No more tracks
                 </p>
               ) : (
-                <ul className="track-list-modal__list">
+                <ul className="set-list-modal__list">
                   {upNextIds.map((id) => {
                     const track = findPlaybackTrack({
                       library,
@@ -155,7 +155,7 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
                     const queued = manualQueueSet.has(id);
                     return (
                       <li key={id}>
-                        <TrackListRow
+                        <SetListRow
                           track={track}
                           queued={queued}
                           onPlay={() => handlePlay(id)}
@@ -176,7 +176,7 @@ export function TrackListModal({ open, onClose }: TrackListModalProps) {
   );
 }
 
-interface TrackListRowProps {
+interface SetListRowProps {
   track: Track;
   playing?: boolean;
   queued?: boolean;
@@ -184,38 +184,38 @@ interface TrackListRowProps {
   onRemoveFromQueue?: () => void;
 }
 
-function TrackListRow({
+function SetListRow({
   track,
   playing = false,
   queued = false,
   onPlay,
   onRemoveFromQueue,
-}: TrackListRowProps) {
+}: SetListRowProps) {
   const subtitle = [track.artist, track.album].filter(Boolean).join(" — ");
 
   return (
     <div
-      className={`track-list-modal__row${playing ? " track-list-modal__row--playing" : ""
-        }${queued ? " track-list-modal__row--queued" : ""}`}
+      className={`set-list-modal__row${playing ? " set-list-modal__row--playing" : ""
+        }${queued ? " set-list-modal__row--queued" : ""}`}
     >
-      <button type="button" className="track-list-modal__row-main" onClick={onPlay}>
+      <button type="button" className="set-list-modal__row-main" onClick={onPlay}>
         <EntityArt
           artPath={track.artPath}
           alt=""
-          className="track-list-modal__row-art album-art--row"
+          className="set-list-modal__row-art album-art--row"
           variant="row"
         />
-        <span className="track-list-modal__row-title">
+        <span className="set-list-modal__row-title">
           <TrackItemTitle
             track={track}
-            className="track-list-modal__row-title-inner"
+            className="set-list-modal__row-title-inner"
           />
         </span>
         {subtitle ? (
-          <span className="track-list-modal__row-subtitle">{subtitle}</span>
+          <span className="set-list-modal__row-subtitle">{subtitle}</span>
         ) : null}
         {track.durationSeconds != null && (
-          <span className="track-list-modal__row-duration">
+          <span className="set-list-modal__row-duration">
             {formatTime(track.durationSeconds)}
           </span>
         )}
@@ -224,9 +224,9 @@ function TrackListRow({
         <Button
           variant="ghost"
           size="sm"
-          className="track-list-modal__row-remove"
+          className="set-list-modal__row-remove"
           onClick={onRemoveFromQueue}
-          aria-label="Remove from queue"
+          aria-label="Remove from set list"
         >
           Remove
         </Button>

@@ -74,8 +74,8 @@ export function runSkinAction(
     case "player.toggleMute":
       usePlayerStore.getState().toggleMute();
       break;
-    case "player.clearTrackList":
-      usePlayerStore.getState().clearTrackList();
+    case "player.clearSetList":
+      usePlayerStore.getState().clearSetList();
       break;
     case "navigation.openAlbum": {
       const { library, playbackTracks, currentTrackId } =
@@ -90,7 +90,7 @@ export function runSkinAction(
       }
       break;
     }
-    case "queue.openTrackList":
+    case "queue.openSetList":
       break;
     case "skin.openPicker":
       void openAppearanceWindow("skins");

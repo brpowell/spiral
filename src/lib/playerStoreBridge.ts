@@ -44,7 +44,7 @@ export type PlayerRemoteAction =
   | { type: "playTracks"; ids: number[]; startId: number }
   | { type: "addToQueue"; ids: number[] }
   | { type: "removeFromQueue"; id: number }
-  | { type: "clearTrackList" };
+  | { type: "clearSetList" };
 
 const SYNC_KEYS: (keyof PlayerStateSnapshot)[] = [
   "library",
@@ -136,8 +136,8 @@ function dispatchRemoteAction(action: PlayerRemoteAction): void {
     case "removeFromQueue":
       store.removeFromQueue(action.id);
       break;
-    case "clearTrackList":
-      store.clearTrackList();
+    case "clearSetList":
+      store.clearSetList();
       break;
   }
 }
@@ -184,7 +184,7 @@ function installRemoteActions(): void {
       addToQueue: (ids) => emitRemoteAction({ type: "addToQueue", ids }),
       removeFromQueue: (id) =>
         emitRemoteAction({ type: "removeFromQueue", id }),
-      clearTrackList: () => emitRemoteAction({ type: "clearTrackList" }),
+      clearSetList: () => emitRemoteAction({ type: "clearSetList" }),
       loadLibrary: async () => {},
       addToLibrary: async () => {},
       importFromPaths: () => {},

@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useMemo } from "react";
-import { buildPlaybackOrder } from "../../../lib/activeTrackList";
+import { buildPlaybackOrder } from "../../../lib/playbackOrder";
 import { getManualNextId } from "../../../lib/playbackQueue";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import type { RepeatMode } from "../../../types/track";

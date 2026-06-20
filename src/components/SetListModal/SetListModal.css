@@ -1,18 +1,18 @@
-.track-list-modal__empty {
+.set-list-modal__empty {
   margin: 0.5rem 0 0;
   color: var(--color-text-secondary);
   font-size: 0.9rem;
 }
 
-.track-list-modal__section {
+.set-list-modal__section {
   margin-top: 0.75rem;
 }
 
-.track-list-modal__section:first-child {
+.set-list-modal__section:first-child {
   margin-top: 0.25rem;
 }
 
-.track-list-modal__section-title {
+.set-list-modal__section-title {
   margin: 0 0 0.35rem;
   font-size: 0.7rem;
   font-weight: 600;
@@ -21,20 +21,20 @@
   color: var(--color-text-secondary);
 }
 
-.track-list-modal__empty-section {
+.set-list-modal__empty-section {
   margin: 0;
   padding: 0.35rem 0.5rem;
   font-size: 0.85rem;
   color: var(--color-text-secondary);
 }
 
-.track-list-modal__list {
+.set-list-modal__list {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.track-list-modal__row {
+.set-list-modal__row {
   display: flex;
   align-items: center;
   gap: 0.35rem;
@@ -42,20 +42,20 @@
   transition: background 0.12s ease;
 }
 
-.track-list-modal__row:hover {
+.set-list-modal__row:hover {
   background: var(--track-row-bg-hover);
 }
 
-.track-list-modal__row--playing .track-item-title__text {
+.set-list-modal__row--playing .track-item-title__text {
   color: var(--color-accent);
 }
 
-.track-list-modal__row--queued .track-item-title__text::before {
+.set-list-modal__row--queued .track-item-title__text::before {
   content: "▸ ";
   color: var(--color-accent);
 }
 
-.track-list-modal__row-main {
+.set-list-modal__row-main {
   display: grid;
   flex: 1;
   min-width: 0;
@@ -72,7 +72,7 @@
   cursor: pointer;
 }
 
-.track-list-modal__row-art {
+.set-list-modal__row-art {
   grid-column: 1;
   grid-row: 1 / -1;
   width: var(--track-list-art-size);
@@ -80,12 +80,12 @@
   align-self: center;
 }
 
-.track-list-modal__row-remove {
+.set-list-modal__row-remove {
   flex-shrink: 0;
   margin-right: 0.35rem;
 }
 
-.track-list-modal__row-title {
+.set-list-modal__row-title {
   grid-column: 2;
   grid-row: 1;
   min-width: 0;
@@ -94,11 +94,11 @@
   color: var(--color-text-primary);
 }
 
-.track-list-modal__row-title-inner {
+.set-list-modal__row-title-inner {
   width: 100%;
 }
 
-.track-list-modal__row-subtitle {
+.set-list-modal__row-subtitle {
   grid-column: 2;
   grid-row: 2;
   font-size: 0.75rem;
@@ -108,7 +108,7 @@
   text-overflow: ellipsis;
 }
 
-.track-list-modal__row-duration {
+.set-list-modal__row-duration {
   grid-column: 3;
   grid-row: 1 / -1;
   align-self: center;

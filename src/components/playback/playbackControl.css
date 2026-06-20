@@ -75,14 +75,14 @@
   justify-content: center;
 }
 
-.playback-btn--track-list {
+.playback-btn--set-list {
   width: 28px;
   height: 28px;
   flex-shrink: 0;
   color: var(--color-text-secondary);
 }
 
-.playback-btn--track-list svg {
+.playback-btn--set-list svg {
   width: 16px;
   height: 16px;
 }

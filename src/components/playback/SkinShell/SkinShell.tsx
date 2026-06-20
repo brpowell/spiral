@@ -6,7 +6,7 @@ import { NowPlayingMetadata } from "../NowPlayingMetadata/NowPlayingMetadata";
 import { PlaybackTransport } from "../PlaybackTransport/PlaybackTransport";
 import { QueueButton } from "../QueueButton/QueueButton";
 import { SeekBar } from "../SeekBar/SeekBar";
-import { TrackListModal } from "../../TrackListModal/TrackListModal";
+import { SetListModal } from "../../SetListModal/SetListModal";
 import { VisualizerSlot } from "../VisualizerSlot/VisualizerSlot";
 import { VolumeControl } from "../VolumeControl/VolumeControl";
 import "./SkinShell.css";
@@ -64,17 +64,17 @@ function DefaultVisualizer({
 }
 
 function DefaultFooter({ showVolume }: { showVolume: boolean }) {
-  const [trackListOpen, setTrackListOpen] = useState(false);
+  const [setListOpen, setSetListOpen] = useState(false);
 
   return (
     <>
       <div className="skin-shell__footer-inner">
         {showVolume ? <VolumeControl /> : null}
-        <QueueButton onClick={() => setTrackListOpen(true)} />
+        <QueueButton onClick={() => setSetListOpen(true)} />
       </div>
-      <TrackListModal
-        open={trackListOpen}
-        onClose={() => setTrackListOpen(false)}
+      <SetListModal
+        open={setListOpen}
+        onClose={() => setSetListOpen(false)}
       />
     </>
   );

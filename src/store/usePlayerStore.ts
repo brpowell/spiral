@@ -8,7 +8,7 @@ import {
   resolvePlaybackSource,
   trackListIdForPlayable,
 } from "../lib/playback";
-import { buildPlaybackOrder } from "../lib/activeTrackList";
+import { buildPlaybackOrder } from "../lib/playbackOrder";
 import { findPlaybackTrack } from "../lib/playbackTrack";
 import { groupTracksIntoAlbums } from "../lib/albums";
 import { groupTracksIntoArtists, type ArtistBrowseMode } from "../lib/artists";
@@ -110,7 +110,7 @@ interface PlayerState {
   addToQueue: (ids: number[]) => void;
   addCdToQueue: (driveId: string, tracks: Track[]) => void;
   removeFromQueue: (id: number) => void;
-  clearTrackList: () => void;
+  clearSetList: () => void;
   cycleRepeat: () => void;
   toggleShuffle: () => void;
   clearImportError: () => void;
@@ -910,7 +910,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const valid = ids.filter((id) => libraryIds.has(id));
       if (valid.length === 0) return;
 
-      const trackListWasEmpty =
+      const setListWasEmpty =
         state.currentTrackId === null &&
         state.playContextIds.length === 0 &&
         state.manualQueueIds.length === 0;
@@ -926,7 +926,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
       if (addedIds.length > 0) {
         showQueueAddedToast(addedIds, get().library);
-        if (trackListWasEmpty) {
+        if (setListWasEmpty) {
           void primeTrackPaused(addedIds[0], get().library, set);
         }
       }
@@ -938,7 +938,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const playbackTracks = cdPlaybackTracks(driveId, tracks);
       const ids = playbackTracks.map((track) => track.id);
       const state = get();
-      const trackListWasEmpty =
+      const setListWasEmpty =
         state.currentTrackId === null &&
         state.playContextIds.length === 0 &&
         state.manualQueueIds.length === 0;
@@ -961,7 +961,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         addedIds.includes(track.id),
       );
       showQueueAddedToastForTracks(addedTracks);
-      if (trackListWasEmpty) {
+      if (setListWasEmpty) {
         void primeCdTrackPaused(driveId, playbackTracks, addedIds[0], set);
       }
     },
@@ -974,7 +974,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }));
     },
 
-    clearTrackList: () => {
+    clearSetList: () => {
       const { currentTrackId } = get();
       if (currentTrackId !== null) {
         audio.unload();

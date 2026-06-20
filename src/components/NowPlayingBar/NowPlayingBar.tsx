@@ -10,7 +10,7 @@ import {
   VolumeControl,
 } from "../playback";
 import { SkinModeOpenButton } from "../playback/SkinModeOpenButton/SkinModeOpenButton";
-import { TrackListModal } from "../TrackListModal/TrackListModal";
+import { SetListModal } from "../SetListModal/SetListModal";
 import { TrackRowMenu } from "../TrackRowMenu/TrackRowMenu";
 import "./NowPlayingBar.css";
 
@@ -32,7 +32,7 @@ export function NowPlayingBar({
     [library, playbackTracks, currentTrackId],
   );
 
-  const [trackListOpen, setTrackListOpen] = useState(false);
+  const [setListOpen, setSetListOpen] = useState(false);
 
   const widget = (
     <>
@@ -65,7 +65,7 @@ export function NowPlayingBar({
             <div className="now-playing-bar__widget">{widget}</div>
           )}
 
-          <QueueButton onClick={() => setTrackListOpen(true)} />
+          <QueueButton onClick={() => setSetListOpen(true)} />
         </div>
       </div>
 
@@ -77,9 +77,9 @@ export function NowPlayingBar({
         />
       </div>
 
-      <TrackListModal
-        open={trackListOpen}
-        onClose={() => setTrackListOpen(false)}
+      <SetListModal
+        open={setListOpen}
+        onClose={() => setSetListOpen(false)}
       />
     </div>
   );

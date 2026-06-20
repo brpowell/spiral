@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { buildPlaybackOrder } from "../../../lib/activeTrackList";
+import { buildPlaybackOrder } from "../../../lib/playbackOrder";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import { Button } from "../../common/Button/Button";
-import { IconTrackList } from "../../icons";
+import { IconSetList } from "../../icons";
 import "../playbackControl.css";
 import "./QueueButton.css";
 
@@ -33,15 +33,15 @@ export function QueueButton({ onClick, className }: QueueButtonProps) {
       variant="ghost"
       size="sm"
       iconOnly
-      className={["playback-btn playback-btn--track-list", className]
+      className={["playback-btn playback-btn--set-list", className]
         .filter(Boolean)
         .join(" ")}
       onClick={onClick}
       disabled={activeQueue.length === 0}
-      aria-label="View track list"
-      title="View track list"
+      aria-label="View set list"
+      title="View set list"
     >
-      <IconTrackList />
+      <IconSetList />
     </Button>
   );
 }

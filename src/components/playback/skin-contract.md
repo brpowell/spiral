@@ -19,9 +19,9 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | `player.setVolume` | Set volume 0–1 (payload: `{ volume: number }`) |
 | `player.setBalance` | Set stereo balance −1…1 (payload: `{ balance: number }`; 0 = center) |
 | `player.toggleMute` | Toggle mute |
-| `player.clearTrackList` | Stop playback and clear the active track list (same as the library track list Clear action) |
+| `player.clearSetList` | Stop playback and clear the set list (same as the set list modal Clear action) |
 | `navigation.openAlbum` | Open album view for current track (payload: `{ albumKey: string }`) |
-| `queue.openTrackList` | Open the track list / queue modal |
+| `queue.openSetList` | Open the set list modal |
 | `skin.openPicker` | Open Appearance (Skins section) |
 | `skin.exit` | Exit skin mode |
 | `skin.restoreMainWindow` | Hide skin mode and show the library window |

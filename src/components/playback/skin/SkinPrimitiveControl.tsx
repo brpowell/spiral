@@ -5,7 +5,7 @@ import { QueueButton } from "../QueueButton/QueueButton";
 import { SeekBar } from "../SeekBar/SeekBar";
 import { VisualizerSlot } from "../VisualizerSlot/VisualizerSlot";
 import { VolumeControl } from "../VolumeControl/VolumeControl";
-import { TrackListModal } from "../../TrackListModal/TrackListModal";
+import { SetListModal } from "../../SetListModal/SetListModal";
 import { resolveVisualizerLayout } from "../../../lib/skinVisualizerLayout";
 import type {
   ArtworkNode,
@@ -39,7 +39,7 @@ export function SkinPrimitiveControl({
   onToggleVisualizer: () => void;
   onOpenQueue: () => void;
 }) {
-  const [trackListOpen, setTrackListOpen] = useState(false);
+  const [setListOpen, setSetListOpen] = useState(false);
   const prefix = classPrefix(node);
 
   if (node.type === "artwork") {
@@ -90,12 +90,12 @@ export function SkinPrimitiveControl({
         <QueueButton
           onClick={() => {
             onOpenQueue();
-            setTrackListOpen(true);
+            setSetListOpen(true);
           }}
         />
-        <TrackListModal
-          open={trackListOpen}
-          onClose={() => setTrackListOpen(false)}
+        <SetListModal
+          open={setListOpen}
+          onClose={() => setSetListOpen(false)}
         />
       </>
     );

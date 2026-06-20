@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { presetLabel } from "./equalizer/builtinPresets";
-import { buildPlaybackOrder } from "./activeTrackList";
+import { buildPlaybackOrder } from "./playbackOrder";
 import { findPlaybackTrack } from "./playbackTrack";
 import { getManualNextId } from "./playbackQueue";
 import { formatMetadataLine, playbackStatus } from "./skinMetadataLine";
