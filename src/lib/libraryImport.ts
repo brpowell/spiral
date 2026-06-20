@@ -1,4 +1,4 @@
-import { commitImportEntries, parseImportMetadata } from "./import";
+import { commitImportEntries, formatImportSummary, parseImportMetadata } from "./import";
 import {
   flushImportActivationQueue,
   queueImportedTrackActivation,
@@ -42,36 +42,6 @@ async function resolveImportPaths(
   }
 
   return resolved;
-}
-
-function formatImportSummary(result: {
-  imported: number;
-  skipped: number;
-  replaced: number;
-}): string {
-  const parts: string[] = [];
-  if (result.imported > 0) {
-    parts.push(
-      result.imported === 1
-        ? "Imported 1 track"
-        : `Imported ${result.imported} tracks`,
-    );
-  }
-  if (result.replaced > 0) {
-    parts.push(
-      result.replaced === 1
-        ? "Replaced 1 track"
-        : `Replaced ${result.replaced} tracks`,
-    );
-  }
-  if (result.skipped > 0) {
-    parts.push(
-      result.skipped === 1
-        ? "Skipped 1 duplicate"
-        : `Skipped ${result.skipped} duplicates`,
-    );
-  }
-  return parts.length > 0 ? parts.join(", ") : "Import finished";
 }
 
 export function startLibraryImport(paths: string[]): void {
@@ -183,11 +153,12 @@ export function startLibraryImport(paths: string[]): void {
       result.errors.unshift(...metadataErrors);
       result.failed += metadataErrors.length;
 
-      ctx.setLabel(formatImportSummary(result));
+      const summary = formatImportSummary(result);
+      ctx.setLabel(summary);
 
       if (result.failed > 0) {
         usePlayerStore.setState({
-          importError: `${formatImportSummary(result)}; failed ${result.failed}. ${result.errors[0] ?? ""}`,
+          importError: `${summary}; failed ${result.failed}. ${result.errors[0] ?? ""}`,
         });
         if (result.imported === 0 && result.replaced === 0) {
           throw new Error(result.errors[0] ?? "Import failed");

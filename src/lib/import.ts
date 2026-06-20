@@ -4,12 +4,13 @@ import { yieldForInteraction } from "./scheduling";
 import {
   findLibraryDuplicate,
   countRemainingBatchDuplicates,
+  type ImportDedupeAction,
   type ImportDuplicateContext,
 } from "./trackDedupe";
 import { prepareImportFile, replaceTrackFromImport, saveTrack } from "./tauri";
 import { useImportDedupeStore, isImportCancelledError } from "../store/useImportDedupeStore";
 import { usePlayerStore } from "../store/usePlayerStore";
-import type { Track } from "../types/track";
+import type { Track, TrackInput } from "../types/track";
 
 export interface ImportResult {
   imported: number;
@@ -28,10 +29,21 @@ export interface ParsedImportEntry {
 export interface CommitImportOptions {
   onProgress?: (current: number, total: number) => void;
   mode: "copy" | "reference";
+  /** Pre-resolved duplicate actions keyed by pending import id. */
+  duplicateActions?: ReadonlyMap<number, ImportDedupeAction>;
   onTrackActivated?: (pendingId: number, track: Track) => void;
   onTrackFailed?: (pendingId: number) => void;
   onTrackSkipped?: (pendingId: number) => void;
   onTrackReplaced?: (pendingId: number, track: Track) => void;
+}
+
+export interface ResolveImportDuplicatesResult {
+  duplicateActions: ReadonlyMap<number, ImportDedupeAction>;
+  skippedPendingIds: ReadonlySet<number>;
+}
+
+export interface ResolveImportDuplicatesOptions {
+  incomingPendingRip?: boolean;
 }
 
 export interface ParseImportMetadataResult {
@@ -72,12 +84,102 @@ export async function parseImportMetadata(
 
 async function resolveDuplicateAction(
   context: ImportDuplicateContext,
-) {
+): Promise<ImportDedupeAction> {
   const { batchRule, promptImportDedupe } = useImportDedupeStore.getState();
   if (batchRule != null) {
     return batchRule;
   }
   return promptImportDedupe(context);
+}
+
+function buildDuplicatePromptContext(
+  entry: ParsedImportEntry,
+  entries: ReadonlyArray<ParsedImportEntry>,
+  index: number,
+  library: Track[],
+  existing: Track,
+  incomingPendingRip?: boolean,
+): ImportDuplicateContext {
+  return {
+    incoming: entry.metadata,
+    existing,
+    pendingId: entry.pendingId,
+    sourcePath: entry.sourcePath,
+    remainingDuplicates: countRemainingBatchDuplicates(
+      entries,
+      index,
+      library,
+    ),
+    incomingPendingRip,
+  };
+}
+
+export async function resolveImportDuplicates(
+  entries: ParsedImportEntry[],
+  options: ResolveImportDuplicatesOptions = {},
+): Promise<ResolveImportDuplicatesResult> {
+  const duplicateActions = new Map<number, ImportDedupeAction>();
+  const skippedPendingIds = new Set<number>();
+  const library = usePlayerStore.getState().library;
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const existing = findLibraryDuplicate(entry.metadata, library, {
+      excludeSourcePath: entry.sourcePath || undefined,
+    });
+
+    if (existing) {
+      const action = await resolveDuplicateAction(
+        buildDuplicatePromptContext(
+          entry,
+          entries,
+          i,
+          library,
+          existing,
+          options.incomingPendingRip,
+        ),
+      );
+
+      duplicateActions.set(entry.pendingId, action);
+      if (action === "skip") {
+        skippedPendingIds.add(entry.pendingId);
+      }
+    }
+
+    await yieldForInteraction();
+  }
+
+  return { duplicateActions, skippedPendingIds };
+}
+
+export function formatImportSummary(result: {
+  imported: number;
+  skipped: number;
+  replaced: number;
+}): string {
+  const parts: string[] = [];
+  if (result.imported > 0) {
+    parts.push(
+      result.imported === 1
+        ? "Imported 1 track"
+        : `Imported ${result.imported} tracks`,
+    );
+  }
+  if (result.replaced > 0) {
+    parts.push(
+      result.replaced === 1
+        ? "Replaced 1 track"
+        : `Replaced ${result.replaced} tracks`,
+    );
+  }
+  if (result.skipped > 0) {
+    parts.push(
+      result.skipped === 1
+        ? "Skipped 1 duplicate"
+        : `Skipped ${result.skipped} duplicates`,
+    );
+  }
+  return parts.length > 0 ? parts.join(", ") : "Import finished";
 }
 
 export async function commitImportEntries(
@@ -102,18 +204,11 @@ export async function commitImportEntries(
       });
 
       if (existing) {
-        const remainingDuplicates = countRemainingBatchDuplicates(
-          entries,
-          i,
-          library,
-        );
-        const action = await resolveDuplicateAction({
-          incoming: metadata,
-          existing,
-          pendingId,
-          sourcePath,
-          remainingDuplicates,
-        });
+        const action =
+          options.duplicateActions?.get(pendingId) ??
+          (await resolveDuplicateAction(
+            buildDuplicatePromptContext(entries[i], entries, i, library, existing),
+          ));
 
         if (action === "skip") {
           options.onTrackSkipped?.(pendingId);

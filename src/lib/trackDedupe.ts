@@ -9,6 +9,8 @@ export interface ImportDuplicateContext {
   sourcePath: string;
   /** Duplicates still ahead in this import batch (excluding the current one). */
   remainingDuplicates: number;
+  /** Incoming audio is not on disk yet (e.g. CD rip pending). */
+  incomingPendingRip?: boolean;
 }
 
 const UNKNOWN_ALBUM = "Unknown Album";

@@ -29,15 +29,21 @@ function ImportFileCard({
   label,
   filePath,
   sizeBytes,
+  pendingRip = false,
 }: {
   label: string;
-  filePath: string;
-  sizeBytes: number | null;
+  filePath?: string;
+  sizeBytes?: number | null;
+  pendingRip?: boolean;
 }) {
   return (
     <div className="import-dedupe-modal__file">
       <span className="import-dedupe-modal__file-label">{label}</span>
-      <AudioFileSpecs filePath={filePath} sizeBytes={sizeBytes} />
+      {pendingRip ? (
+        <AudioFileSpecs formatLabel="FLAC" sizeLabel="Not ripped yet" />
+      ) : (
+        <AudioFileSpecs filePath={filePath!} sizeBytes={sizeBytes ?? null} />
+      )}
     </div>
   );
 }
@@ -51,7 +57,9 @@ export function ImportDedupeModal() {
   const panelRef = useRef<HTMLDivElement>(null);
   const resolvingRef = useRef(false);
   const [applyToRemaining, setApplyToRemaining] = useState(false);
-  const incomingSizeBytes = useFileSize(context?.sourcePath);
+  const incomingSizeBytes = useFileSize(
+    context?.incomingPendingRip ? null : context?.sourcePath,
+  );
   const existingSizeBytes = useFileSize(context?.existing.filePath);
 
   const open = context != null;
@@ -113,6 +121,7 @@ export function ImportDedupeModal() {
           <div className="import-dedupe-modal__files">
             <ImportFileCard
               label="Incoming"
+              pendingRip={context.incomingPendingRip}
               filePath={context.sourcePath}
               sizeBytes={incomingSizeBytes}
             />
