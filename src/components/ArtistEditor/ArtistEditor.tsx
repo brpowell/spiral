@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
 import { artistArtCacheKey, applyArtistImages } from "../../lib/artistArt";
 import {
   artistFormsEqual,
@@ -28,6 +29,7 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
 import { EntityArt } from "../EntityArt/EntityArt";
+import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import { IconArtistPlaceholder } from "../icons";
 import {
   Modal,
@@ -125,7 +127,6 @@ export function ArtistEditor() {
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
-  const [discardPrompt, setDiscardPrompt] = useState(false);
 
   const isOpen = editingArtistKey != null && artist != null && form != null;
 
@@ -157,48 +158,13 @@ export function ArtistEditor() {
     originalForm != null &&
     (!artistFormsEqual(form, originalForm) || artChanged);
 
-  const requestClose = useCallback(() => {
-    if (hasChanges) {
-      setDiscardPrompt(true);
-      return;
-    }
-    closeArtistEditor();
-  }, [hasChanges, closeArtistEditor]);
-
-  const handleBackdropClick = useCallback(() => {
-    requestClose();
-  }, [requestClose]);
-
-  const handleCancel = () => {
-    if (discardPrompt) {
-      setDiscardPrompt(false);
-      return;
-    }
-    requestClose();
-  };
-
-  const confirmDiscard = () => {
-    setDiscardPrompt(false);
-    closeArtistEditor();
-  };
-
-  useEffect(() => {
-    if (editingArtistKey == null) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (discardPrompt) {
-        setDiscardPrompt(false);
-        return;
-      }
-      if (hasChanges) {
-        setDiscardPrompt(true);
-        return;
-      }
-      closeArtistEditor();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [editingArtistKey, hasChanges, discardPrompt, closeArtistEditor]);
+  const {
+    discardPrompt,
+    setDiscardPrompt,
+    requestClose,
+    handleBackdropClick,
+    dismissDiscardPrompt,
+  } = useEditorDiscardPrompt(hasChanges, closeArtistEditor);
 
   const artCacheKey = editingArtistKey
     ? artistArtCacheKey(editingArtistKey)
@@ -386,16 +352,21 @@ export function ArtistEditor() {
       open={isOpen}
       onClose={handleBackdropClick}
       size="editor"
+      panelClassName="track-editor-modal"
       panelRef={dialogRef}
       labelledBy="artist-editor-title"
     >
       {isOpen && (
         <>
-          <ModalHeader>
-            <ModalTitle id="artist-editor-title">Edit artist</ModalTitle>
-          </ModalHeader>
+          <div
+            className="track-editor-modal__content"
+            inert={discardPrompt || undefined}
+          >
+            <ModalHeader>
+              <ModalTitle id="artist-editor-title">Edit artist</ModalTitle>
+            </ModalHeader>
 
-          <ModalBody>
+            <ModalBody>
             <ModalDescription>
               {nameChangedDescription(form!, originalForm!, tracks.length, artChanged)}
             </ModalDescription>
@@ -511,59 +482,29 @@ export function ArtistEditor() {
                 {saveError}
               </p>
             )}
+            </ModalBody>
 
-            {discardPrompt && (
-              <div
-                className="track-editor__discard"
-                role="alertdialog"
-                aria-labelledby="artist-editor-discard-title"
-                aria-describedby="artist-editor-discard-desc"
-              >
-                <p
-                  id="artist-editor-discard-title"
-                  className="track-editor__discard-title"
-                >
-                  Discard changes?
-                </p>
-                <p
-                  id="artist-editor-discard-desc"
-                  className="track-editor__discard-desc"
-                >
-                  Unsaved edits to this artist will be lost.
-                </p>
-                <div className="track-editor__discard-actions">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setDiscardPrompt(false)}
-                  >
-                    Keep editing
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={confirmDiscard}
-                  >
-                    Discard
-                  </Button>
-                </div>
-              </div>
-            )}
-          </ModalBody>
-
-          <ModalFooter
-            onCancel={handleCancel}
-            cancelDisabled={saving}
-            cancelLabel={discardPrompt ? "Back" : "Cancel"}
-          >
-            <Button
-              variant="primary"
-              onClick={() => void handleSave()}
-              disabled={!hasChanges || saving || discardPrompt}
+            <ModalFooter
+              onCancel={requestClose}
+              cancelDisabled={saving}
+              cancelLabel="Cancel"
             >
-              {saveLabel}
-            </Button>
-          </ModalFooter>
+              <Button
+                variant="primary"
+                onClick={() => void handleSave()}
+                disabled={!hasChanges || saving || discardPrompt}
+              >
+                {saveLabel}
+              </Button>
+            </ModalFooter>
+          </div>
+
+          <EditorDiscardOverlay
+            open={discardPrompt}
+            description="Unsaved edits to this artist will be lost."
+            onKeepEditing={dismissDiscardPrompt}
+            onDiscard={closeArtistEditor}
+          />
         </>
       )}
     </Modal>

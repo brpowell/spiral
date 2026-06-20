@@ -1,0 +1,25 @@
+.context-menu.context-menu--suggestions {
+  min-width: unset;
+  padding: 0;
+}
+
+.suggestion-menu {
+  max-height: calc(var(--control-height) * 6);
+  overflow-y: auto;
+}
+
+.context-menu--suggestions .suggestion-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: var(--control-height);
+  padding: 0 var(--control-padding-x);
+  font-size: var(--control-font-size);
+  line-height: var(--control-line-height);
+  border-radius: 0;
+}
+
+.context-menu--suggestions .suggestion-menu__item--active {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-accent);
+}

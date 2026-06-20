@@ -13,6 +13,7 @@ export function Chip({ label, onRemove, disabled }: ChipProps) {
       <button
         type="button"
         className="chip__remove"
+        tabIndex={-1}
         onClick={onRemove}
         disabled={disabled}
         aria-label={`Remove ${label}`}

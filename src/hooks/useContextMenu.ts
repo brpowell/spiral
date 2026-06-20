@@ -6,9 +6,18 @@ import {
   useState,
   type RefObject,
 } from "react";
-import { fitContextMenuPosition } from "../lib/contextMenuPosition";
+import {
+  fitContextMenuPosition,
+  type FitContextMenuPositionOptions,
+} from "../lib/contextMenuPosition";
 
 const TRIGGER_MENU_GAP = 4;
+
+type MenuAnchor = {
+  x: number;
+  y: number;
+  fitOptions?: FitContextMenuPositionOptions;
+};
 
 export type ContextMenuTriggerPlacement = "below-end" | "below-start";
 
@@ -34,9 +43,7 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
     triggerPlacement = "below-end",
   } = options;
 
-  const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(
-    null,
-  );
+  const [menuAnchor, setMenuAnchor] = useState<MenuAnchor | null>(null);
   const [menuPosition, setMenuPosition] = useState<{
     left: number;
     top: number;
@@ -61,10 +68,13 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
     [onBeforeOpen],
   );
 
-  const openAt = useCallback((x: number, y: number) => {
-    setMenuPosition(null);
-    setMenuAnchor({ x, y });
-  }, []);
+  const openAt = useCallback(
+    (x: number, y: number, fitOptions?: FitContextMenuPositionOptions) => {
+      setMenuPosition(null);
+      setMenuAnchor({ x, y, fitOptions });
+    },
+    [],
+  );
 
   const openFromTrigger = useCallback(
     (el: HTMLElement) => {
@@ -91,7 +101,13 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
     if (!menuAnchor || !menuRef.current) return;
     const { width, height } = menuRef.current.getBoundingClientRect();
     setMenuPosition(
-      fitContextMenuPosition(menuAnchor.x, menuAnchor.y, width, height),
+      fitContextMenuPosition(
+        menuAnchor.x,
+        menuAnchor.y,
+        width,
+        height,
+        menuAnchor.fitOptions,
+      ),
     );
     // layoutDeps drives refit when menu items change
     // eslint-disable-next-line react-hooks/exhaustive-deps -- layoutDeps is intentional

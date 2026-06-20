@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFileSize } from "../../hooks/useFileSize";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
 import { formatBytes, formatDimensions } from "../../lib/formatBytes";
 import { parseArtistField } from "../../lib/artistNames";
 import { collectArtistNameSuggestions } from "../../lib/artistNameSuggestions";
+import { collectGenreSuggestions, collectAlbumSuggestions } from "../../lib/trackFieldSuggestions";
 import {
   buildTrackMetadataFromForm,
   mixedFieldPlaceholder,
@@ -30,6 +32,7 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
 import { EntityArt } from "../EntityArt/EntityArt";
+import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import {
   Modal,
   ModalBody,
@@ -40,6 +43,7 @@ import {
 } from "../common/Modal/Modal";
 import { Button } from "../common/Button/Button";
 import { FieldLabel, FormField } from "../common/Field/Field";
+import { AutocompleteInput } from "../common/AutocompleteInput/AutocompleteInput";
 import { TextInput } from "../common/TextInput/TextInput";
 import "./TrackEditor.css";
 
@@ -89,29 +93,39 @@ function TrackEditorField({
   label,
   field,
   type = "text",
+  min,
   form,
   tracks,
   isBulk,
   onChange,
+  suggestions,
 }: {
   label: string;
   field: TrackEditorFormField;
   type?: "text" | "number";
+  min?: number;
   form: TrackEditorForm;
   tracks: Track[];
   isBulk: boolean;
   onChange: (field: TrackEditorFormField, value: string) => void;
+  suggestions?: string[];
 }) {
+  const common = {
+    type,
+    min,
+    value: form[field],
+    placeholder: isBulk ? mixedFieldPlaceholder(tracks, field, form) : undefined,
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+      onChange(field, e.target.value),
+  };
+
   return (
     <FormField label={label}>
-      <TextInput
-        type={type}
-        value={form[field]}
-        placeholder={
-          isBulk ? mixedFieldPlaceholder(tracks, field, form) : undefined
-        }
-        onChange={(e) => onChange(field, e.target.value)}
-      />
+      {suggestions && type === "text" ? (
+        <AutocompleteInput {...common} suggestions={suggestions} />
+      ) : (
+        <TextInput {...common} />
+      )}
     </FormField>
   );
 }
@@ -137,6 +151,14 @@ export function TrackEditor() {
     () => collectArtistNameSuggestions(library),
     [library],
   );
+  const genreSuggestions = useMemo(
+    () => collectGenreSuggestions(library),
+    [library],
+  );
+  const albumSuggestions = useMemo(
+    () => collectAlbumSuggestions(library),
+    [library],
+  );
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<TrackEditorForm | null>(null);
@@ -155,7 +177,6 @@ export function TrackEditor() {
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
-  const [discardPrompt, setDiscardPrompt] = useState(false);
   const fileSizeBytes = useFileSize(referenceTrack?.filePath);
 
   const isOpen = editingTrackIds.length > 0 && tracks.length > 0 && form != null;
@@ -189,48 +210,13 @@ export function TrackEditor() {
     originalForm != null &&
     (!trackEditorFormsEqual(form, originalForm) || artChanged);
 
-  const requestClose = useCallback(() => {
-    if (hasChanges) {
-      setDiscardPrompt(true);
-      return;
-    }
-    closeTrackEditor();
-  }, [hasChanges, closeTrackEditor]);
-
-  const handleBackdropClick = useCallback(() => {
-    requestClose();
-  }, [requestClose]);
-
-  const handleCancel = () => {
-    if (discardPrompt) {
-      setDiscardPrompt(false);
-      return;
-    }
-    requestClose();
-  };
-
-  const confirmDiscard = () => {
-    setDiscardPrompt(false);
-    closeTrackEditor();
-  };
-
-  useEffect(() => {
-    if (editingTrackIds.length === 0) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (discardPrompt) {
-        setDiscardPrompt(false);
-        return;
-      }
-      if (hasChanges) {
-        setDiscardPrompt(true);
-        return;
-      }
-      closeTrackEditor();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [editingTrackIds.length, hasChanges, discardPrompt, closeTrackEditor]);
+  const {
+    discardPrompt,
+    setDiscardPrompt,
+    requestClose,
+    handleBackdropClick,
+    dismissDiscardPrompt,
+  } = useEditorDiscardPrompt(hasChanges, closeTrackEditor);
 
   const setField = (field: TrackEditorFormField, value: string) => {
     setForm((prev) => (prev ? { ...prev, [field]: value } : prev));
@@ -427,18 +413,23 @@ export function TrackEditor() {
       open={isOpen}
       onClose={handleBackdropClick}
       size="editor"
+      panelClassName="track-editor-modal"
       panelRef={dialogRef}
       labelledBy="track-editor-title"
     >
       {isOpen && form && (
         <>
-          <ModalHeader>
-            <ModalTitle id="track-editor-title">
-              {isBulk ? `Edit ${tracks.length} tracks` : "Edit track info"}
-            </ModalTitle>
-          </ModalHeader>
+          <div
+            className="track-editor-modal__content"
+            inert={discardPrompt || undefined}
+          >
+            <ModalHeader>
+              <ModalTitle id="track-editor-title">
+                {isBulk ? `Edit ${tracks.length} tracks` : "Edit track info"}
+              </ModalTitle>
+            </ModalHeader>
 
-          <ModalBody>
+            <ModalBody>
             {isBulk ? (
               <ModalDescription>
                 Updated changes will apply to all {tracks.length} tracks.
@@ -565,22 +556,22 @@ export function TrackEditor() {
                   tracks={tracks}
                   isBulk={isBulk}
                   onChange={setField}
+                  suggestions={albumSuggestions}
                 />
-                <FormField label="Album Artist">
-                  <TextInput
-                    value={form.albumArtist}
-                    onChange={(e) => setField("albumArtist", e.target.value)}
-                    placeholder={
-                      isBulk
-                        ? mixedFieldPlaceholder(tracks, "albumArtist", form)
-                        : undefined
-                    }
-                  />
-                </FormField>
+                <TrackEditorField
+                  label="Album Artist"
+                  field="albumArtist"
+                  form={form}
+                  tracks={tracks}
+                  isBulk={isBulk}
+                  onChange={setField}
+                  suggestions={artistSuggestions}
+                />
                 <TrackEditorField
                   label="Year"
                   field="year"
                   type="number"
+                  min={1}
                   form={form}
                   tracks={tracks}
                   isBulk={isBulk}
@@ -590,6 +581,7 @@ export function TrackEditor() {
                   label="Track Number"
                   field="trackNumber"
                   type="number"
+                  min={1}
                   form={form}
                   tracks={tracks}
                   isBulk={isBulk}
@@ -599,6 +591,7 @@ export function TrackEditor() {
                   label="Disc Number"
                   field="discNumber"
                   type="number"
+                  min={1}
                   form={form}
                   tracks={tracks}
                   isBulk={isBulk}
@@ -611,6 +604,7 @@ export function TrackEditor() {
                   tracks={tracks}
                   isBulk={isBulk}
                   onChange={setField}
+                  suggestions={genreSuggestions}
                 />
                 {!isBulk && referenceTrack ? (
                   <div className="field">
@@ -649,59 +643,29 @@ export function TrackEditor() {
                 {saveError}
               </p>
             )}
+            </ModalBody>
 
-            {discardPrompt && (
-              <div
-                className="track-editor__discard"
-                role="alertdialog"
-                aria-labelledby="track-editor-discard-title"
-                aria-describedby="track-editor-discard-desc"
-              >
-                <p
-                  id="track-editor-discard-title"
-                  className="track-editor__discard-title"
-                >
-                  Discard changes?
-                </p>
-                <p
-                  id="track-editor-discard-desc"
-                  className="track-editor__discard-desc"
-                >
-                  {discardDescription}
-                </p>
-                <div className="track-editor__discard-actions">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setDiscardPrompt(false)}
-                  >
-                    Keep editing
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={confirmDiscard}
-                  >
-                    Discard
-                  </Button>
-                </div>
-              </div>
-            )}
-          </ModalBody>
-
-          <ModalFooter
-            onCancel={handleCancel}
-            cancelDisabled={saving}
-            cancelLabel={discardPrompt ? "Back" : "Cancel"}
-          >
-            <Button
-              variant="primary"
-              onClick={() => void handleSave()}
-              disabled={!hasChanges || saving || discardPrompt}
+            <ModalFooter
+              onCancel={requestClose}
+              cancelDisabled={saving}
+              cancelLabel="Cancel"
             >
-              {saveLabel}
-            </Button>
-          </ModalFooter>
+              <Button
+                variant="primary"
+                onClick={() => void handleSave()}
+                disabled={!hasChanges || saving || discardPrompt}
+              >
+                {saveLabel}
+              </Button>
+            </ModalFooter>
+          </div>
+
+          <EditorDiscardOverlay
+            open={discardPrompt}
+            description={discardDescription}
+            onKeepEditing={dismissDiscardPrompt}
+            onDiscard={closeTrackEditor}
+          />
         </>
       )}
     </Modal>

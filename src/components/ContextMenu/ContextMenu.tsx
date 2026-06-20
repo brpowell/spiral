@@ -119,6 +119,7 @@ interface ContextMenuProps {
   position: { left: number; top: number } | null;
   menuRef: RefObject<HTMLDivElement | null>;
   className?: string;
+  style?: React.CSSProperties;
   children: ReactNode;
 }
 
@@ -218,6 +219,7 @@ export function ContextMenu({
   position,
   menuRef,
   className,
+  style,
   children,
 }: ContextMenuProps) {
   const menuClass = ["context-menu", className].filter(Boolean).join(" ");
@@ -234,6 +236,7 @@ export function ContextMenu({
               top: position?.top ?? anchor.y,
               transformOrigin: "0 0",
               pointerEvents: position == null ? "none" : undefined,
+              ...style,
             }}
             role="menu"
             initial={panelMotion.initial}

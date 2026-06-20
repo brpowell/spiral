@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useContextMenu } from "../../../hooks/useContextMenu";
-import { ContextMenu } from "../../ContextMenu/ContextMenu";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { useSuggestionAutocomplete } from "../../../hooks/useSuggestionAutocomplete";
 import { Chip } from "../Chip/Chip";
-import { TextInput } from "../TextInput/TextInput";
+import { SuggestionMenu } from "../SuggestionMenu/SuggestionMenu";
+import { TextInput, type InputEditHistory } from "../TextInput/TextInput";
 import "./ChipInput.css";
 
 export type ChipInputProps = {
@@ -38,10 +38,34 @@ export function ChipInput({
 }: ChipInputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const editHistoryRef = useRef<InputEditHistory | null>(null);
+  const menuId = useId();
+  const optionIdPrefix = `${menuId}-option`;
   const [draft, setDraft] = useState("");
-  const { open, anchor, position, menuRef, openAt, closeMenu } = useContextMenu({
-    dismissExcludeRefs: [containerRef],
-    closeOnScroll: false,
+  const excludeSuggestion = useMemo(
+    () => (name: string) => isDuplicate(name, values),
+    [isDuplicate, values],
+  );
+
+  const {
+    setFocused,
+    filteredSuggestions,
+    activeIndex,
+    setActiveIndex,
+    handleSuggestionKeyDown,
+    open,
+    anchor,
+    position,
+    menuRef,
+    menuWidth,
+    closeMenu,
+  } = useSuggestionAutocomplete({
+    suggestions,
+    term: draft,
+    exclude: excludeSuggestion,
+    inputRef,
+    containerRef,
+    disabled,
   });
 
   const addValue = useCallback(
@@ -53,12 +77,19 @@ export function ChipInput({
     [isDuplicate, onChange, values],
   );
 
+  const clearDraft = useCallback(() => {
+    setDraft("");
+    const input = inputRef.current;
+    editHistoryRef.current?.setValueWithoutRecord("");
+    if (input) input.value = "";
+    closeMenu();
+  }, [closeMenu]);
+
   const commitDraft = useCallback(() => {
     if (!draft.trim()) return;
     const tokens = parseDraft(draft);
     if (tokens.length === 0) {
-      setDraft("");
-      closeMenu();
+      clearDraft();
       return;
     }
     let next = values;
@@ -68,15 +99,21 @@ export function ChipInput({
       next = [...next, trimmed];
     }
     if (next.length !== values.length) onChange(next);
-    setDraft("");
-    closeMenu();
-  }, [draft, values, onChange, parseDraft, isDuplicate, closeMenu]);
+    clearDraft();
+  }, [draft, values, onChange, parseDraft, isDuplicate, clearDraft]);
 
   const removeAt = (index: number) => {
     onChange(values.filter((_, i) => i !== index));
   };
 
+  const selectSuggestion = (name: string) => {
+    addValue(name);
+    clearDraft();
+    inputRef.current?.focus();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (handleSuggestionKeyDown(e, selectSuggestion)) return;
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
       commitDraft();
@@ -88,55 +125,6 @@ export function ChipInput({
     }
   };
 
-  const filteredSuggestions = useMemo(() => {
-    if (!suggestions || suggestions.length === 0) return [];
-    const term = draft.trim().toLowerCase();
-    if (term.length === 0) return [];
-    return suggestions
-      .filter((name) => !isDuplicate(name, values))
-      .filter((name) => name.toLowerCase().includes(term))
-      .slice(0, 50);
-  }, [suggestions, draft, isDuplicate, values]);
-
-  useEffect(() => {
-    const input = inputRef.current;
-    if (
-      !input ||
-      disabled ||
-      document.activeElement !== input ||
-      draft.trim().length === 0 ||
-      filteredSuggestions.length === 0
-    ) {
-      closeMenu();
-      return;
-    }
-    const rect = input.getBoundingClientRect();
-    openAt(rect.left, rect.bottom + 4);
-  }, [draft, filteredSuggestions.length, disabled, openAt, closeMenu]);
-
-  useEffect(() => {
-    if (!open) return;
-    const reposition = () => {
-      const input = inputRef.current;
-      if (!input) return;
-      const rect = input.getBoundingClientRect();
-      openAt(rect.left, rect.bottom + 4);
-    };
-    window.addEventListener("scroll", reposition, true);
-    window.addEventListener("resize", reposition);
-    return () => {
-      window.removeEventListener("scroll", reposition, true);
-      window.removeEventListener("resize", reposition);
-    };
-  }, [open, openAt]);
-
-  const selectSuggestion = (name: string) => {
-    addValue(name);
-    setDraft("");
-    closeMenu();
-    inputRef.current?.focus();
-  };
-
   return (
     <div
       ref={containerRef}
@@ -146,15 +134,25 @@ export function ChipInput({
       <div className="chip-input__chips" role="list">
         <TextInput
           ref={inputRef}
+          editHistoryRef={editHistoryRef}
           className="chip-input__field"
           variant="ghost"
           value={draft}
           placeholder={values.length === 0 ? placeholder : undefined}
           disabled={disabled}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={open}
+          aria-controls={open ? menuId : undefined}
+          aria-activedescendant={
+            open && activeIndex >= 0 ? `${optionIdPrefix}-${activeIndex}` : undefined
+          }
           aria-label={inputAriaLabel}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={() => setFocused(true)}
           onBlur={() => {
+            setFocused(false);
             commitDraft();
             closeMenu();
           }}
@@ -168,22 +166,19 @@ export function ChipInput({
           />
         ))}
       </div>
-      <ContextMenu open={open} anchor={anchor} position={position} menuRef={menuRef}>
-        <div className="chip-input__menu" role="presentation">
-          {filteredSuggestions.map((name) => (
-            <button
-              key={name}
-              type="button"
-              role="menuitem"
-              className="chip-input__menu-item"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => selectSuggestion(name)}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-      </ContextMenu>
+      <SuggestionMenu
+        id={menuId}
+        open={open}
+        anchor={anchor}
+        position={position}
+        menuRef={menuRef}
+        menuWidth={menuWidth}
+        suggestions={filteredSuggestions}
+        onSelect={selectSuggestion}
+        activeIndex={activeIndex}
+        onActiveIndexChange={setActiveIndex}
+        optionIdPrefix={optionIdPrefix}
+      />
     </div>
   );
 }

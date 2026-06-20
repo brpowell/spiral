@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
 import {
   albumFormsEqual,
   albumToForm,
@@ -22,6 +23,7 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
 import { EntityArt } from "../EntityArt/EntityArt";
+import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import {
   Modal,
   ModalBody,
@@ -110,7 +112,6 @@ export function AlbumEditor() {
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
-  const [discardPrompt, setDiscardPrompt] = useState(false);
 
   const isOpen = editingAlbumKey != null && album != null && form != null;
 
@@ -142,48 +143,13 @@ export function AlbumEditor() {
     originalForm != null &&
     (!albumFormsEqual(form, originalForm) || artChanged);
 
-  const requestClose = useCallback(() => {
-    if (hasChanges) {
-      setDiscardPrompt(true);
-      return;
-    }
-    closeAlbumEditor();
-  }, [hasChanges, closeAlbumEditor]);
-
-  const handleBackdropClick = useCallback(() => {
-    requestClose();
-  }, [requestClose]);
-
-  const handleCancel = () => {
-    if (discardPrompt) {
-      setDiscardPrompt(false);
-      return;
-    }
-    requestClose();
-  };
-
-  const confirmDiscard = () => {
-    setDiscardPrompt(false);
-    closeAlbumEditor();
-  };
-
-  useEffect(() => {
-    if (editingAlbumKey == null) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (discardPrompt) {
-        setDiscardPrompt(false);
-        return;
-      }
-      if (hasChanges) {
-        setDiscardPrompt(true);
-        return;
-      }
-      closeAlbumEditor();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [editingAlbumKey, hasChanges, discardPrompt, closeAlbumEditor]);
+  const {
+    discardPrompt,
+    setDiscardPrompt,
+    requestClose,
+    handleBackdropClick,
+    dismissDiscardPrompt,
+  } = useEditorDiscardPrompt(hasChanges, closeAlbumEditor);
 
   const setField = (field: keyof AlbumEditorForm, value: string) => {
     setForm((prev) => (prev ? { ...prev, [field]: value } : prev));
@@ -341,16 +307,21 @@ export function AlbumEditor() {
       open={isOpen}
       onClose={handleBackdropClick}
       size="editor"
+      panelClassName="track-editor-modal"
       panelRef={dialogRef}
       labelledBy="album-editor-title"
     >
       {isOpen && (
         <>
-          <ModalHeader>
-            <ModalTitle id="album-editor-title">Edit album</ModalTitle>
-          </ModalHeader>
+          <div
+            className="track-editor-modal__content"
+            inert={discardPrompt || undefined}
+          >
+            <ModalHeader>
+              <ModalTitle id="album-editor-title">Edit album</ModalTitle>
+            </ModalHeader>
 
-          <ModalBody>
+            <ModalBody>
             <ModalDescription>
               Changes apply to all {tracks.length}{" "}
               {tracks.length === 1 ? "track" : "tracks"}.
@@ -475,59 +446,29 @@ export function AlbumEditor() {
                 {saveError}
               </p>
             )}
+            </ModalBody>
 
-            {discardPrompt && (
-              <div
-                className="track-editor__discard"
-                role="alertdialog"
-                aria-labelledby="album-editor-discard-title"
-                aria-describedby="album-editor-discard-desc"
-              >
-                <p
-                  id="album-editor-discard-title"
-                  className="track-editor__discard-title"
-                >
-                  Discard changes?
-                </p>
-                <p
-                  id="album-editor-discard-desc"
-                  className="track-editor__discard-desc"
-                >
-                  Unsaved edits to this album will be lost.
-                </p>
-                <div className="track-editor__discard-actions">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setDiscardPrompt(false)}
-                  >
-                    Keep editing
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={confirmDiscard}
-                  >
-                    Discard
-                  </Button>
-                </div>
-              </div>
-            )}
-          </ModalBody>
-
-          <ModalFooter
-            onCancel={handleCancel}
-            cancelDisabled={saving}
-            cancelLabel={discardPrompt ? "Back" : "Cancel"}
-          >
-            <Button
-              variant="primary"
-              onClick={() => void handleSave()}
-              disabled={!hasChanges || saving || discardPrompt}
+            <ModalFooter
+              onCancel={requestClose}
+              cancelDisabled={saving}
+              cancelLabel="Cancel"
             >
-              {saveLabel}
-            </Button>
-          </ModalFooter>
+              <Button
+                variant="primary"
+                onClick={() => void handleSave()}
+                disabled={!hasChanges || saving || discardPrompt}
+              >
+                {saveLabel}
+              </Button>
+            </ModalFooter>
+          </div>
+
+          <EditorDiscardOverlay
+            open={discardPrompt}
+            description="Unsaved edits to this album will be lost."
+            onKeepEditing={dismissDiscardPrompt}
+            onDiscard={closeAlbumEditor}
+          />
         </>
       )}
     </Modal>

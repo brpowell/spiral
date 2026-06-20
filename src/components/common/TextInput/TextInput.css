@@ -26,6 +26,20 @@
   cursor: not-allowed;
 }
 
+.text-input[type="number"] {
+  color-scheme: dark;
+}
+
+.text-input[type="number"]::-webkit-inner-spin-button {
+  margin: 0;
+  opacity: 0.85;
+}
+
+.text-input[type="number"]:hover::-webkit-inner-spin-button,
+.text-input[type="number"]:focus::-webkit-inner-spin-button {
+  opacity: 1;
+}
+
 .text-input--ghost {
   width: auto;
   flex: 1;

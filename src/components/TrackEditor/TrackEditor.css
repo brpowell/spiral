@@ -150,33 +150,6 @@
   color: var(--color-text-secondary);
 }
 
-.track-editor__discard {
-  margin-top: 1rem;
-  padding: 0.85rem 1rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, var(--color-border));
-  background: var(--color-danger-bg);
-}
-
-.track-editor__discard-title {
-  margin: 0 0 0.25rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.track-editor__discard-desc {
-  margin: 0 0 0.75rem;
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
-}
-
-.track-editor__discard-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
 .track-editor__fields {
   display: flex;
   flex-direction: column;

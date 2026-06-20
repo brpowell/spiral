@@ -7,34 +7,9 @@ import {
   type KeyboardEvent,
   type Ref,
 } from "react";
+import { useInputEditHistory } from "../../../hooks/useInputEditHistory";
+import { applyMacEditingShortcuts } from "../../../lib/macEditingShortcuts";
 import "./Textarea.css";
-
-// Tauri's macOS WebView does not wire up Cmd+A (select-all) or Cmd+Z (undo/redo)
-// by default the way a real browser does. These have to be handled explicitly.
-function applyMacEditingShortcuts(
-  e: KeyboardEvent<HTMLTextAreaElement>,
-  syncChange: (el: HTMLTextAreaElement) => void,
-): boolean {
-  const mod = e.metaKey || e.ctrlKey;
-  if (!mod) return false;
-
-  if (e.key === "a") {
-    e.currentTarget.select();
-    return true;
-  }
-
-  if (e.key === "z") {
-    e.preventDefault();
-    const el = e.currentTarget;
-    // execCommand is deprecated in browsers but remains the only reliable way
-    // to trigger native undo/redo in a WebView without reimplementing the stack.
-    document.execCommand(e.shiftKey ? "redo" : "undo");
-    syncChange(el);
-    return true;
-  }
-
-  return false;
-}
 
 export type TextareaProps = Omit<
   ComponentPropsWithoutRef<"textarea">,
@@ -64,6 +39,13 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     ref,
   ) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const {
+      reset: resetEditHistory,
+      recordChange,
+      undo,
+      redo,
+    } = useInputEditHistory();
+    const historyInitialized = useRef(false);
 
     const setRefs = useCallback(
       (node: HTMLTextAreaElement | null) => {
@@ -73,25 +55,31 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       [ref],
     );
 
-    // Sync external value changes to the uncontrolled textarea when it isn't focused.
-    // This preserves the native undo stack (which breaks with a controlled input)
-    // while still supporting programmatic updates and form resets.
+    useLayoutEffect(() => {
+      if (historyInitialized.current || value === undefined) return;
+      historyInitialized.current = true;
+      resetEditHistory(String(value));
+    }, [resetEditHistory, value]);
+
+    // Sync external value changes when the input isn't focused.
     useLayoutEffect(() => {
       const el = textareaRef.current;
       if (!el || document.activeElement === el) return;
       if (value === undefined) return;
       const next = String(value);
-      if (el.value !== next) el.value = next;
-    }, [value]);
+      if (el.value === next) return;
+      el.value = next;
+      resetEditHistory(next);
+    }, [value, resetEditHistory]);
 
     const handleChange = useCallback(
       (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        recordChange(e.target.value);
         onChange?.(e);
       },
-      [onChange],
+      [onChange, recordChange],
     );
 
-    // After execCommand mutates the textarea, fire onChange so consumers stay in sync.
     const syncChange = useCallback(
       (el: HTMLTextAreaElement) => {
         onChange?.({
@@ -104,14 +92,15 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 
     const handleKeyDown = useCallback(
       (e: KeyboardEvent<HTMLTextAreaElement>) => {
-        if (applyMacEditingShortcuts(e, syncChange)) return;
+        onKeyDown?.(e);
+        if (e.defaultPrevented) return;
+        if (applyMacEditingShortcuts(e, undo, redo, syncChange)) return;
         if (e.key === "Escape" && onEscape) {
           e.preventDefault();
           onEscape(e);
         }
-        onKeyDown?.(e);
       },
-      [onKeyDown, onEscape, syncChange],
+      [onKeyDown, onEscape, syncChange, undo, redo],
     );
 
     const classes = [
