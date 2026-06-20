@@ -23,7 +23,6 @@ export function SidebarPlaylistItem({ playlist }: SidebarPlaylistItemProps) {
   return (
     <li>
       <SidebarItem
-        variant="playlist"
         active={isActive}
         leading={
           <PlaylistArt

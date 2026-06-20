@@ -7,11 +7,8 @@ import {
 import { Button, type ButtonProps } from "../../common/Button/Button";
 import "./SidebarItem.css";
 
-export type SidebarItemVariant = "nav" | "playlist";
-
 type SidebarItemShared = {
   active?: boolean;
-  variant?: SidebarItemVariant;
   icon?: ReactNode;
   leading?: ReactNode;
   className?: string;
@@ -31,17 +28,8 @@ export type SidebarItemLinkProps = SidebarItemShared &
 
 export type SidebarItemProps = SidebarItemButtonProps | SidebarItemLinkProps;
 
-function itemClassName(
-  active?: boolean,
-  variant: SidebarItemVariant = "nav",
-  className?: string,
-): string {
-  return [
-    "sidebar-item",
-    `sidebar-item--${variant}`,
-    active && "sidebar-item--active",
-    className,
-  ]
+function itemClassName(active?: boolean, className?: string): string {
+  return ["sidebar-item", active && "sidebar-item--active", className]
     .filter(Boolean)
     .join(" ");
 }
@@ -54,7 +42,6 @@ export const SidebarItem = forwardRef<
     const {
       as,
       active,
-      variant = "nav",
       icon,
       leading,
       className,
@@ -68,7 +55,7 @@ export const SidebarItem = forwardRef<
     return (
       <a
         ref={ref as Ref<HTMLAnchorElement>}
-        className={itemClassName(active, variant, className)}
+        className={itemClassName(active, className)}
         aria-current={active ? "page" : undefined}
         {...anchorProps}
       >
@@ -81,7 +68,6 @@ export const SidebarItem = forwardRef<
   const {
     as,
     active,
-    variant = "nav",
     icon,
     leading,
     className,
@@ -99,7 +85,7 @@ export const SidebarItem = forwardRef<
       type={type}
       variant="ghost"
       size="sm"
-      className={itemClassName(active, variant, className)}
+      className={itemClassName(active, className)}
       aria-current={active ? "page" : undefined}
       {...buttonProps}
     >
