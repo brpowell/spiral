@@ -39,6 +39,15 @@ export function TracksView({ tracks }: TracksViewProps) {
     [sortedTracks],
   );
 
+  const playbackContextIds = useMemo(
+    () =>
+      [...tracks]
+        .filter((t) => !isTrackImporting(t))
+        .sort((a, b) => compareTracks(a, b, sortField, sortDir))
+        .map((t) => t.id),
+    [tracks, sortField, sortDir],
+  );
+
   const handleSort = (field: TrackListSortField) => {
     if (field === sortField) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -65,9 +74,9 @@ export function TracksView({ tracks }: TracksViewProps) {
   const handlePlayRow = useCallback(
     (track: Track) => {
       if (isTrackImporting(track)) return;
-      void playTracks(sortedTrackIds, track.id);
+      void playTracks(playbackContextIds, track.id);
     },
-    [playTracks, sortedTrackIds],
+    [playTracks, playbackContextIds],
   );
 
   return (
