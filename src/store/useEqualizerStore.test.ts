@@ -31,6 +31,7 @@ describe("useEqualizerStore", () => {
     useEqualizerStore.setState({
       enabled: true,
       presetId: "flat",
+      lastPresetId: "flat",
       bands: FLAT_BAND_GAINS,
       preampGain: 0,
       customPresets: [],
@@ -80,15 +81,31 @@ describe("useEqualizerStore", () => {
     expect(state.bands[0]).toBe(-3);
   });
 
-  it("reset zeroes all bands, preamp, and sets manual", () => {
+  it("reset restores active preset bands and keeps preamp", () => {
+    const bass = getBuiltinPreset("bass");
+    expect(bass).toBeDefined();
+
     useEqualizerStore.getState().applyPreset("bass");
     useEqualizerStore.getState().setPreampGain(8);
     useEqualizerStore.getState().reset();
 
     const state = useEqualizerStore.getState();
-    expect(state.presetId).toBe("manual");
-    expect([...state.bands]).toEqual([...FLAT_BAND_GAINS]);
-    expect(state.preampGain).toBe(0);
+    expect(state.presetId).toBe("bass");
+    expect([...state.bands]).toEqual([...bass!.bands]);
+    expect(state.preampGain).toBe(8);
+  });
+
+  it("reset after manual band edits restores last preset", () => {
+    const rock = getBuiltinPreset("rock");
+    expect(rock).toBeDefined();
+
+    useEqualizerStore.getState().applyPreset("rock");
+    useEqualizerStore.getState().setBand(4, 8);
+    useEqualizerStore.getState().reset();
+
+    const state = useEqualizerStore.getState();
+    expect(state.presetId).toBe("rock");
+    expect([...state.bands]).toEqual([...rock!.bands]);
   });
 
   it("setPreampGain updates gain without forcing manual preset", () => {

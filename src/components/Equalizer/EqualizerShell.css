@@ -32,6 +32,15 @@
   min-width: 0;
 }
 
+.equalizer-shell__reset {
+  flex-shrink: 0;
+}
+
+.equalizer-shell__reset svg {
+  width: 1rem;
+  height: 1rem;
+}
+
 .equalizer-shell__enable {
   flex-shrink: 0;
   font-size: 0.8125rem;

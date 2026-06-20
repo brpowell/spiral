@@ -24,6 +24,8 @@ import { getWindowRole } from "../lib/windowRole";
 interface EqualizerStoreState {
   enabled: boolean;
   presetId: string;
+  /** Last explicitly selected preset; used when reset restores bands after manual edits. */
+  lastPresetId: string;
   bands: EqualizerBandGains;
   preampGain: number;
   customPresets: EqualizerPreset[];
@@ -117,6 +119,7 @@ function resolvePresetId(
 export const useEqualizerStore = create<EqualizerStoreState>((set, get) => ({
   enabled: true,
   presetId: "flat",
+  lastPresetId: "flat",
   bands: FLAT_BAND_GAINS,
   preampGain: 0,
   customPresets: [],
@@ -129,6 +132,7 @@ export const useEqualizerStore = create<EqualizerStoreState>((set, get) => ({
     const next = {
       enabled: settings.enabled,
       presetId,
+      lastPresetId: presetId === "manual" ? "flat" : presetId,
       bands,
       preampGain: clampPreampGain(settings.preampGain ?? 0),
     };
@@ -174,6 +178,7 @@ export const useEqualizerStore = create<EqualizerStoreState>((set, get) => ({
     const next = {
       enabled: get().enabled,
       presetId,
+      lastPresetId: presetId,
       bands: preset.bands,
       preampGain: get().preampGain,
     };
@@ -183,15 +188,9 @@ export const useEqualizerStore = create<EqualizerStoreState>((set, get) => ({
   },
 
   reset: () => {
-    const next = {
-      enabled: get().enabled,
-      presetId: "manual",
-      bands: FLAT_BAND_GAINS,
-      preampGain: 0,
-    };
-
-    set(next);
-    commitStateChange(next);
+    const { presetId, lastPresetId } = get();
+    const targetPresetId = presetId === "manual" ? lastPresetId : presetId;
+    get().applyPreset(targetPresetId);
   },
 
   setEnabled: (enabled) => {
@@ -221,6 +220,7 @@ export const useEqualizerStore = create<EqualizerStoreState>((set, get) => ({
     const next = {
       enabled: get().enabled,
       presetId: preset.id,
+      lastPresetId: preset.id,
       bands: get().bands,
       preampGain: get().preampGain,
     };
@@ -265,14 +265,16 @@ export const useEqualizerStore = create<EqualizerStoreState>((set, get) => ({
     const wasActive = get().presetId === id;
     const customPresets = get().customPresets.filter((item) => item.id !== id);
     const presetId = wasActive ? "flat" : get().presetId;
+    const lastPresetId = wasActive ? "flat" : get().lastPresetId;
     const next = {
       enabled: get().enabled,
       presetId,
+      lastPresetId,
       bands: get().bands,
       preampGain: get().preampGain,
     };
 
-    set({ customPresets, presetId });
+    set({ customPresets, presetId, lastPresetId });
 
     void deleteEqualizerCustomPreset(id).catch((err: unknown) => {
       console.error("Failed to delete equalizer custom preset:", err);
@@ -284,9 +286,11 @@ export const useEqualizerStore = create<EqualizerStoreState>((set, get) => ({
   },
 
   applySnapshot: (snapshot) => {
+    const presetId = snapshot.presetId;
     set({
       enabled: snapshot.enabled,
-      presetId: snapshot.presetId,
+      presetId,
+      lastPresetId: presetId === "manual" ? get().lastPresetId : presetId,
       bands: normalizeBandGains(snapshot.bands),
       preampGain: clampPreampGain(snapshot.preampGain),
       customPresets: snapshot.customPresets,

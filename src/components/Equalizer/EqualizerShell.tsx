@@ -30,7 +30,8 @@ import { FormField } from "../common/Field/Field";
 import {
   IconCopy,
   IconDelete,
-  IconEditInfo
+  IconEditInfo,
+  IconReset
 } from "../icons";
 import "./EqualizerShell.css";
 
@@ -39,6 +40,7 @@ type PresetDialogMode = "save" | "rename" | null;
 export function EqualizerShell() {
   const enabled = useEqualizerStore((s) => s.enabled);
   const presetId = useEqualizerStore((s) => s.presetId);
+  const lastPresetId = useEqualizerStore((s) => s.lastPresetId);
   const bands = useEqualizerStore((s) => s.bands);
   const customPresets = useEqualizerStore((s) => s.customPresets);
   const preampGain = useEqualizerStore((s) => s.preampGain);
@@ -46,6 +48,7 @@ export function EqualizerShell() {
   const setBand = useEqualizerStore((s) => s.setBand);
   const setPreampGain = useEqualizerStore((s) => s.setPreampGain);
   const applyPreset = useEqualizerStore((s) => s.applyPreset);
+  const reset = useEqualizerStore((s) => s.reset);
   const saveCurrentAsPreset = useEqualizerStore((s) => s.saveCurrentAsPreset);
   const renameCustomPreset = useEqualizerStore((s) => s.renameCustomPreset);
   const deleteCustomPreset = useEqualizerStore((s) => s.deleteCustomPreset);
@@ -79,6 +82,13 @@ export function EqualizerShell() {
 
     return options;
   }, [customPresets, presetId]);
+
+  const canReset = useMemo(() => {
+    const targetPresetId = presetId === "manual" ? lastPresetId : presetId;
+    const targetPreset = resolvePreset(targetPresetId, customPresets);
+    if (!targetPreset) return false;
+    return bands.some((gain, index) => gain !== targetPreset.bands[index]);
+  }, [bands, customPresets, lastPresetId, presetId]);
 
   const openSaveDialog = () => {
     setPresetName("");
@@ -124,7 +134,16 @@ export function EqualizerShell() {
               }
             }}
           />
-
+          <Button
+            className="equalizer-shell__reset"
+            variant="secondary"
+            size="sm"
+            disabled={!canReset}
+            onClick={() => reset()}
+          >
+            <IconReset />
+            Reset
+          </Button>
           <MenuButton ariaLabel="Equalizer actions" size="md">
             {(close) => (
               <>
@@ -158,6 +177,8 @@ export function EqualizerShell() {
               </>
             )}
           </MenuButton>
+
+
         </div>
 
         <Switch
