@@ -1,0 +1,26 @@
+.audio-file-specs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem 0.65rem;
+}
+
+.audio-file-specs__format {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-border) 35%, transparent);
+  color: var(--color-text-primary);
+}
+
+.audio-file-specs__size {
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}

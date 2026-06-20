@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useFileSize } from "../../hooks/useFileSize";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { formatBytes } from "../../lib/formatBytes";
-import { audioExtensionFromPath } from "../../lib/supportedAudio";
-import { getFileSize } from "../../lib/tauri";
 import type { ImportDedupeAction } from "../../lib/trackDedupe";
 import { useImportDedupeStore } from "../../store/useImportDedupeStore";
+import { AudioFileSpecs } from "../AudioFileSpecs/AudioFileSpecs";
 import { Button } from "../common/Button/Button";
 import { Checkbox } from "../common/Checkbox/Checkbox";
 import {
@@ -26,7 +25,7 @@ function formatTrackSummary(
   return artistAlbum ? `${title} — ${artistAlbum}` : title;
 }
 
-function ImportFileSpecs({
+function ImportFileCard({
   label,
   filePath,
   sizeBytes,
@@ -35,19 +34,10 @@ function ImportFileSpecs({
   filePath: string;
   sizeBytes: number | null;
 }) {
-  const format = audioExtensionFromPath(filePath).toUpperCase() || "AUDIO";
-
   return (
     <div className="import-dedupe-modal__file">
       <span className="import-dedupe-modal__file-label">{label}</span>
-      <div className="import-dedupe-modal__file-specs">
-        <span className="import-dedupe-modal__format-badge">{format}</span>
-        <span className="import-dedupe-modal__size">
-          {sizeBytes != null && sizeBytes > 0
-            ? formatBytes(sizeBytes)
-            : "Size unknown"}
-        </span>
-      </div>
+      <AudioFileSpecs filePath={filePath} sizeBytes={sizeBytes} />
     </div>
   );
 }
@@ -61,12 +51,8 @@ export function ImportDedupeModal() {
   const panelRef = useRef<HTMLDivElement>(null);
   const resolvingRef = useRef(false);
   const [applyToRemaining, setApplyToRemaining] = useState(false);
-  const [incomingSizeBytes, setIncomingSizeBytes] = useState<number | null>(
-    null,
-  );
-  const [existingSizeBytes, setExistingSizeBytes] = useState<number | null>(
-    null,
-  );
+  const incomingSizeBytes = useFileSize(context?.sourcePath);
+  const existingSizeBytes = useFileSize(context?.existing.filePath);
 
   const open = context != null;
   useFocusTrap(panelRef, open);
@@ -74,28 +60,6 @@ export function ImportDedupeModal() {
   useEffect(() => {
     if (open) resolvingRef.current = false;
   }, [open]);
-
-  useEffect(() => {
-    setIncomingSizeBytes(null);
-    setExistingSizeBytes(null);
-    if (context == null) return;
-
-    let cancelled = false;
-
-    void (async () => {
-      const [incomingSize, existingSize] = await Promise.all([
-        getFileSize(context.sourcePath).catch(() => null),
-        getFileSize(context.existing.filePath).catch(() => null),
-      ]);
-      if (cancelled) return;
-      setIncomingSizeBytes(incomingSize);
-      setExistingSizeBytes(existingSize);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [context?.sourcePath, context?.existing.filePath]);
 
   const handleChoice = useCallback(
     async (action: ImportDedupeAction) => {
@@ -147,12 +111,12 @@ export function ImportDedupeModal() {
             </p>
           </div>
           <div className="import-dedupe-modal__files">
-            <ImportFileSpecs
+            <ImportFileCard
               label="Incoming"
               filePath={context.sourcePath}
               sizeBytes={incomingSizeBytes}
             />
-            <ImportFileSpecs
+            <ImportFileCard
               label="In library"
               filePath={context.existing.filePath}
               sizeBytes={existingSizeBytes}

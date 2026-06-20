@@ -183,6 +183,10 @@
   gap: 0.75rem;
 }
 
+.track-editor__audio-file-specs {
+  margin-bottom: 0.5rem;
+}
+
 .track-editor__file-location {
   display: flex;
   align-items: flex-start;

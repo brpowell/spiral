@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
+import { useFileSize } from "../../hooks/useFileSize";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { formatBytes, formatDimensions } from "../../lib/formatBytes";
 import { parseArtistField } from "../../lib/artistNames";
@@ -15,6 +16,7 @@ import {
   type TrackEditorFormField,
 } from "../../lib/trackMetadataForm";
 import { ArtistChipField } from "../ArtistChipField/ArtistChipField";
+import { AudioFileSpecs } from "../AudioFileSpecs/AudioFileSpecs";
 import { revealInFileManagerLabel } from "../../lib/fileManager";
 import {
   cacheArtFromFile,
@@ -154,6 +156,7 @@ export function TrackEditor() {
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
   const [discardPrompt, setDiscardPrompt] = useState(false);
+  const fileSizeBytes = useFileSize(referenceTrack?.filePath);
 
   const isOpen = editingTrackIds.length > 0 && tracks.length > 0 && form != null;
 
@@ -611,7 +614,12 @@ export function TrackEditor() {
                 />
                 {!isBulk && referenceTrack ? (
                   <div className="field">
-                    <FieldLabel>File location</FieldLabel>
+                    <FieldLabel>File</FieldLabel>
+                    <AudioFileSpecs
+                      className="track-editor__audio-file-specs"
+                      filePath={referenceTrack.filePath}
+                      sizeBytes={fileSizeBytes}
+                    />
                     <div className="track-editor__file-location">
                       <textarea
                         className="track-editor__file-path"
