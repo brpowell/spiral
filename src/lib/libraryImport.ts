@@ -5,7 +5,7 @@ import {
   queuePendingImportRemoval,
   resetImportActivationQueue,
 } from "./importActivationQueue";
-import { pendingTrackFromInput } from "./pendingImportTrack";
+import { isTrackImporting, pendingTrackFromInput } from "./pendingImportTrack";
 import {
   filterPathsForLibraryImport,
   isSupportedAudioPath,
@@ -13,6 +13,10 @@ import {
 import { waitForPaint, yieldForInteraction, yieldToMain } from "./scheduling";
 import { scanFolder } from "./tauri";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
+import {
+  isImportCancelledError,
+  useImportDedupeStore,
+} from "../store/useImportDedupeStore";
 import { useLibrarySettingsStore } from "../store/useLibrarySettingsStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 
@@ -40,21 +44,55 @@ async function resolveImportPaths(
   return resolved;
 }
 
+function formatImportSummary(result: {
+  imported: number;
+  skipped: number;
+  replaced: number;
+}): string {
+  const parts: string[] = [];
+  if (result.imported > 0) {
+    parts.push(
+      result.imported === 1
+        ? "Imported 1 track"
+        : `Imported ${result.imported} tracks`,
+    );
+  }
+  if (result.replaced > 0) {
+    parts.push(
+      result.replaced === 1
+        ? "Replaced 1 track"
+        : `Replaced ${result.replaced} tracks`,
+    );
+  }
+  if (result.skipped > 0) {
+    parts.push(
+      result.skipped === 1
+        ? "Skipped 1 duplicate"
+        : `Skipped ${result.skipped} duplicates`,
+    );
+  }
+  return parts.length > 0 ? parts.join(", ") : "Import finished";
+}
+
 export function startLibraryImport(paths: string[]): void {
   const pathsToImport = filterPathsForLibraryImport(paths);
   if (pathsToImport.length === 0) return;
 
   usePlayerStore.setState({ importError: null });
   resetImportActivationQueue();
+  useImportDedupeStore.getState().resetImportDedupeSession();
 
   useBackgroundTasksStore.getState().runInBackground({
     key: "library-import",
     label: "Importing library…",
     run: async (ctx) => {
       ctx.setLabel("Scanning files…");
-      const audioPaths = await resolveImportPaths(pathsToImport, (current, total) => {
-        ctx.setProgress(current, total);
-      });
+      const audioPaths = await resolveImportPaths(
+        pathsToImport,
+        (current, total) => {
+          ctx.setProgress(current, total);
+        },
+      );
 
       if (audioPaths.length === 0) {
         ctx.setDetail("No audio files found");
@@ -94,7 +132,11 @@ export function startLibraryImport(paths: string[]): void {
       }
 
       const pendingTracks = entries.map((entry) =>
-        pendingTrackFromInput(entry.pendingId, entry.sourcePath, entry.metadata),
+        pendingTrackFromInput(
+          entry.pendingId,
+          entry.sourcePath,
+          entry.metadata,
+        ),
       );
       player.stagePendingImportTracks(pendingTracks);
 
@@ -105,37 +147,49 @@ export function startLibraryImport(paths: string[]): void {
           : `Importing ${entries.length} tracks…`,
       );
 
-      const result = await commitImportEntries(entries, {
-        mode: importMode,
-        onProgress: (current, total) => ctx.setProgress(current, total),
-        onTrackActivated: (pendingId, track) => {
-          queueImportedTrackActivation(pendingId, track);
-        },
-        onTrackFailed: (pendingId) => {
-          queuePendingImportRemoval(pendingId);
-        },
-      });
+      let result;
+      const removePending = (pendingId: number) => {
+        queuePendingImportRemoval(pendingId);
+      };
+
+      try {
+        result = await commitImportEntries(entries, {
+          mode: importMode,
+          onProgress: (current, total) => ctx.setProgress(current, total),
+          onTrackActivated: (pendingId, track) => {
+            queueImportedTrackActivation(pendingId, track);
+          },
+          onTrackFailed: removePending,
+          onTrackSkipped: removePending,
+          onTrackReplaced: (pendingId, track) => {
+            removePending(pendingId);
+            usePlayerStore.getState().updateTrackInLibrary(track);
+          },
+        });
+      } catch (err) {
+        flushImportActivationQueue();
+        if (isImportCancelledError(err)) {
+          usePlayerStore.setState((state) => ({
+            library: state.library.filter((track) => !isTrackImporting(track)),
+          }));
+          ctx.setLabel("Import cancelled");
+          return;
+        }
+        throw err;
+      }
 
       flushImportActivationQueue();
 
       result.errors.unshift(...metadataErrors);
       result.failed += metadataErrors.length;
 
-      if (result.imported > 0) {
-        ctx.setLabel(
-          result.imported === 1
-            ? "Imported 1 track"
-            : `Imported ${result.imported} tracks`,
-        );
-      } else if (entries.length > 0) {
-        ctx.setLabel("Import finished");
-      }
+      ctx.setLabel(formatImportSummary(result));
 
       if (result.failed > 0) {
         usePlayerStore.setState({
-          importError: `Imported ${result.imported}, failed ${result.failed}. ${result.errors[0] ?? ""}`,
+          importError: `${formatImportSummary(result)}; failed ${result.failed}. ${result.errors[0] ?? ""}`,
         });
-        if (result.imported === 0) {
+        if (result.imported === 0 && result.replaced === 0) {
           throw new Error(result.errors[0] ?? "Import failed");
         }
       }

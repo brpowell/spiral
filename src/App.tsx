@@ -9,6 +9,7 @@ import { MainContent } from "./components/layout/MainContent";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Button } from "./components/common/Button/Button";
 import { ImportChoiceModal } from "./components/ImportChoiceModal/ImportChoiceModal";
+import { ImportDedupeModal } from "./components/ImportDedupeModal/ImportDedupeModal";
 import { CdImportCancelDialog } from "./components/CdImportCancelDialog/CdImportCancelDialog";
 import { CdMetadataPicker } from "./components/CdMetadataPicker/CdMetadataPicker";
 import { CdMusicBrainzFetchModal } from "./components/CdMusicBrainzFetchModal/CdMusicBrainzFetchModal";
@@ -115,6 +116,7 @@ function App() {
       <ImportDropZone />
       <PreferencesModal />
       <ImportChoiceModal />
+      <ImportDedupeModal />
       <CdMusicBrainzFetchModal />
       <CdMetadataPicker />
       <CdImportCancelDialog />

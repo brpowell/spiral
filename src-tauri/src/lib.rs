@@ -69,6 +69,7 @@ pub fn run() {
             commands::files::file_exists,
             commands::library::save_track,
             commands::library::get_library,
+            commands::library::replace_track_from_import,
             commands::playlists::get_playlists,
             commands::playlists::create_playlist,
             commands::playlists::update_playlist,

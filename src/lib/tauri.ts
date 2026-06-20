@@ -90,6 +90,21 @@ export async function saveTrack(track: TrackInput): Promise<Track> {
   return normalizeTrack(row);
 }
 
+export async function replaceTrackFromImport(options: {
+  trackId: number;
+  sourcePath: string;
+  mode: "copy" | "reference";
+  track: TrackInput;
+}): Promise<Track> {
+  const row = await invoke<Record<string, unknown>>("replace_track_from_import", {
+    trackId: options.trackId,
+    sourcePath: options.sourcePath,
+    mode: options.mode,
+    track: options.track,
+  });
+  return normalizeTrack(row);
+}
+
 export async function removeTrack(
   trackId: number,
   deleteFromDisk: boolean,

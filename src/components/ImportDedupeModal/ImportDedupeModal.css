@@ -1,0 +1,25 @@
+.import-dedupe-modal__track {
+  margin-bottom: 1rem;
+}
+
+.import-dedupe-modal__track-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.import-dedupe-modal__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.import-dedupe-modal__replace-note {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}

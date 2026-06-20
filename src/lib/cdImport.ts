@@ -120,7 +120,13 @@ export function startCdImport(options: {
         ctx.clearDetail();
 
         const entries: ParsedImportEntry[] = [];
-        const result: ImportResult = { imported: 0, failed: 0, errors: [] };
+        const result: ImportResult = {
+          imported: 0,
+          skipped: 0,
+          replaced: 0,
+          failed: 0,
+          errors: [],
+        };
         const importedTracks: Track[] = [];
 
         for (let i = 0; i < plans.length; i++) {
