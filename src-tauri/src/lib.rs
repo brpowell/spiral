@@ -65,6 +65,7 @@ pub fn run() {
             commands::files::pick_library_paths,
             commands::files::scan_folder,
             commands::files::pick_folder,
+            commands::files::get_file_size,
             commands::files::get_file_modified_ms,
             commands::files::file_exists,
             commands::library::save_track,

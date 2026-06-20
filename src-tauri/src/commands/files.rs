@@ -57,6 +57,13 @@ pub fn file_exists(path: String) -> bool {
     Path::new(&path).is_file()
 }
 
+/// File size in bytes.
+#[tauri::command]
+pub fn get_file_size(path: String) -> Result<u64, String> {
+    let meta = std::fs::metadata(&path).map_err(|e| format!("Cannot stat file: {e}"))?;
+    Ok(meta.len())
+}
+
 /// File modification time in milliseconds since UNIX epoch (for asset URL cache busting).
 #[tauri::command]
 pub fn get_file_modified_ms(path: String) -> Result<u64, String> {

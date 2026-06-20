@@ -85,6 +85,10 @@ export async function scanFolder(folderPath: string): Promise<string[]> {
   return invoke<string[]>("scan_folder", { folderPath });
 }
 
+export async function getFileSize(path: string): Promise<number> {
+  return invoke<number>("get_file_size", { path });
+}
+
 export async function saveTrack(track: TrackInput): Promise<Track> {
   const row = await invoke<Record<string, unknown>>("save_track", { track });
   return normalizeTrack(row);

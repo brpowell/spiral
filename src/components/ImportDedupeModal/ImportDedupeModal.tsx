@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { formatBytes } from "../../lib/formatBytes";
 import { audioExtensionFromPath } from "../../lib/supportedAudio";
+import { getFileSize } from "../../lib/tauri";
 import type { ImportDedupeAction } from "../../lib/trackDedupe";
 import { useImportDedupeStore } from "../../store/useImportDedupeStore";
 import { Button } from "../common/Button/Button";
@@ -24,6 +26,32 @@ function formatTrackSummary(
   return artistAlbum ? `${title} — ${artistAlbum}` : title;
 }
 
+function ImportFileSpecs({
+  label,
+  filePath,
+  sizeBytes,
+}: {
+  label: string;
+  filePath: string;
+  sizeBytes: number | null;
+}) {
+  const format = audioExtensionFromPath(filePath).toUpperCase() || "AUDIO";
+
+  return (
+    <div className="import-dedupe-modal__file">
+      <span className="import-dedupe-modal__file-label">{label}</span>
+      <div className="import-dedupe-modal__file-specs">
+        <span className="import-dedupe-modal__format-badge">{format}</span>
+        <span className="import-dedupe-modal__size">
+          {sizeBytes != null && sizeBytes > 0
+            ? formatBytes(sizeBytes)
+            : "Size unknown"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function ImportDedupeModal() {
   const context = useImportDedupeStore((s) => s.prompt?.context ?? null);
   const resolveImportDedupe = useImportDedupeStore((s) => s.resolveImportDedupe);
@@ -33,6 +61,12 @@ export function ImportDedupeModal() {
   const panelRef = useRef<HTMLDivElement>(null);
   const resolvingRef = useRef(false);
   const [applyToRemaining, setApplyToRemaining] = useState(false);
+  const [incomingSizeBytes, setIncomingSizeBytes] = useState<number | null>(
+    null,
+  );
+  const [existingSizeBytes, setExistingSizeBytes] = useState<number | null>(
+    null,
+  );
 
   const open = context != null;
   useFocusTrap(panelRef, open);
@@ -40,6 +74,28 @@ export function ImportDedupeModal() {
   useEffect(() => {
     if (open) resolvingRef.current = false;
   }, [open]);
+
+  useEffect(() => {
+    setIncomingSizeBytes(null);
+    setExistingSizeBytes(null);
+    if (context == null) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      const [incomingSize, existingSize] = await Promise.all([
+        getFileSize(context.sourcePath).catch(() => null),
+        getFileSize(context.existing.filePath).catch(() => null),
+      ]);
+      if (cancelled) return;
+      setIncomingSizeBytes(incomingSize);
+      setExistingSizeBytes(existingSize);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [context?.sourcePath, context?.existing.filePath]);
 
   const handleChoice = useCallback(
     async (action: ImportDedupeAction) => {
@@ -63,11 +119,6 @@ export function ImportDedupeModal() {
     setApplyToRemaining(false);
     resolvingRef.current = false;
   }, [rejectImportDedupe]);
-
-  const format =
-    context != null
-      ? audioExtensionFromPath(context.sourcePath).toUpperCase() || "AUDIO"
-      : "";
 
   return (
     <Modal
@@ -94,18 +145,22 @@ export function ImportDedupeModal() {
                 context.incoming.album,
               )}
             </p>
-            <p className="import-dedupe-modal__meta">
-              <span>{format}</span>
-              {context.existing.playCount > 0 && (
-                <span>
-                  {context.existing.playCount}{" "}
-                  {context.existing.playCount === 1 ? "play" : "plays"}
-                </span>
-              )}
-            </p>
+          </div>
+          <div className="import-dedupe-modal__files">
+            <ImportFileSpecs
+              label="Incoming"
+              filePath={context.sourcePath}
+              sizeBytes={incomingSizeBytes}
+            />
+            <ImportFileSpecs
+              label="In library"
+              filePath={context.existing.filePath}
+              sizeBytes={existingSizeBytes}
+            />
           </div>
           <p className="import-dedupe-modal__replace-note">
-            Replacing this track will still keep play count and playlists
+            Replacing this file will keep the original play count and playlist
+            entries.
           </p>
           {context.remainingDuplicates > 0 && (
             <Checkbox
