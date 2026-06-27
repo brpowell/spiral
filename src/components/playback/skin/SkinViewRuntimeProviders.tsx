@@ -2,14 +2,14 @@ import { useMemo, type ReactNode } from "react";
 import type { SkinView } from "../../../types/skin";
 import { collectSlideshowNodes } from "../../../lib/skinSlideshow";
 import { SkinSlideshowStateProvider } from "../../../lib/skinSlideshowContext";
-import { useViewRuntimeEffects } from "../../../hooks/useViewRuntimeEffects";
+import { useViewActivateEffects } from "../../../hooks/useViewActivateEffects";
 import {
   initViewStateDefaults,
   SkinViewStateProvider,
 } from "../../../lib/skinViewStateContext";
 
-function SkinViewRuntimeEffects({ view }: { view: SkinView }) {
-  useViewRuntimeEffects(view);
+function SkinViewActivateEffectsRunner({ view }: { view: SkinView }) {
+  useViewActivateEffects(view);
   return null;
 }
 
@@ -37,7 +37,7 @@ export function SkinViewRuntimeProviders({
       registerGlobalApi={registerGlobalApi}
     >
       <SkinSlideshowStateProvider definitions={slideshowDefinitions}>
-        <SkinViewRuntimeEffects view={view} />
+        <SkinViewActivateEffectsRunner view={view} />
         {children}
       </SkinSlideshowStateProvider>
     </SkinViewStateProvider>

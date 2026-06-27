@@ -26,8 +26,8 @@ import { useEqualizerStore } from "../store/useEqualizerStore";
 import { pickAndImportLibraryPaths } from "./libraryImport";
 import { getSkinAuxContext } from "./windowRole";
 import { getSkinSlideshowStateApi } from "./skinSlideshowContext";
-import { toggleShutter } from "./skinShutter";
 import { getSkinViewStateApi } from "./skinViewStateContext";
+import { applyViewStateEvent } from "./skinViewStateEvents";
 
 export type SkinActionPayload = SkinActionPayloadFields;
 
@@ -272,9 +272,15 @@ export function runSkinAction(
       api.setVariable(variable, value);
       break;
     }
-    case "view.toggleShutter":
-      toggleShutter();
+    case "view.applyStateEvent": {
+      const api = getSkinViewStateApi();
+      const { variable, event } = payload ?? {};
+      if (!api || !variable || !event) break;
+      const { activePack, activeViewId } = useSkinStore.getState();
+      const stateSpec = activePack?.manifest.views[activeViewId]?.state;
+      applyViewStateEvent(variable, event, stateSpec, api);
       break;
+    }
     case "slideshow.setDeck": {
       const slideshowId = payload?.id;
       const deck = payload?.deck;

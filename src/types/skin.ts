@@ -84,6 +84,8 @@ export interface SkinView {
   panels?: Record<string, SkinPanel>;
   /** Ephemeral in-view variables (menu/content screens, etc.). */
   state?: Record<string, SkinViewStateSpec>;
+  /** Effects run once when the skin-mode window becomes visible. */
+  onActivate?: SkinViewActivateEffect[];
   /** Native window constraints and optional slots-mode background. */
   window?: WindowChrome;
   layout: LayoutNode;
@@ -91,6 +93,27 @@ export interface SkinView {
 
 export interface SkinViewStateSpec {
   default: string | number | boolean;
+  /** Named transition events mapped to ordered branch lists. */
+  on?: Record<string, SkinViewStateTransition[]>;
+}
+
+export interface SkinViewStateTransition {
+  /** Current values that allow this branch (omit = any). */
+  from?: Array<string | number | boolean>;
+  set: string | number | boolean;
+  /** Manifest soundEffects key played before set. */
+  sound?: string;
+}
+
+export interface SkinViewActivateEffect {
+  /** Bind path; effect runs only if truthy (same evaluator as visibleWhen). */
+  when?: string;
+  /** Wait after activate before dispatch (default 0). */
+  delayMs?: number;
+  action: string;
+  payload?: SkinActionPayloadFields;
+  /** Manifest soundEffects key played before the action. */
+  sound?: string;
 }
 
 export interface LayoutBounds {
@@ -355,6 +378,8 @@ export interface SkinActionPayloadFields {
   value?: string | number | boolean;
   /** When set, `view.setVariable` only applies if the variable currently equals this. */
   when?: string | number | boolean;
+  /** Named event for `view.applyStateEvent`. */
+  event?: string;
 }
 
 export interface ButtonGroupPresentation {
@@ -700,7 +725,7 @@ export type SkinActionId =
   | "app.openFile"
   | "view.setScreen"
   | "view.setVariable"
-  | "view.toggleShutter"
+  | "view.applyStateEvent"
   | "slideshow.setDeck"
   | "slideshow.prev"
   | "slideshow.next";

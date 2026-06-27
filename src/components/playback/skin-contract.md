@@ -341,6 +341,74 @@ When skin mode runs in a **second Tauri webview**, it must not instantiate a sec
 
 Used by `SeekBar`; import this hook in custom skin seek controls to avoid duplicating seek logic.
 
+## View lifecycle effects (`views.*.onActivate`)
+
+Effects declared on a view run **once** when the skin-mode window becomes visible (same trigger as classic WMP `onLoad` + delayed `onTimer`). Scheduled on mount; timers are cancelled on unmount. Re-schedule only when the view definition changes, not on every view-state tick.
+
+```json
+"onActivate": [
+  {
+    "when": "view.introLight.pending",
+    "action": "view.setVariable",
+    "payload": { "variable": "introLight", "value": "playing" }
+  },
+  {
+    "when": "view.shutter.intro",
+    "delayMs": 1000,
+    "action": "view.setVariable",
+    "payload": { "variable": "shutter", "value": "opening" },
+    "sound": "open"
+  }
+]
+```
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `when` | no | Bind path; effect runs only if truthy (same evaluator as `visibleWhen`) |
+| `delayMs` | no | Wait after activate before dispatch (default `0`) |
+| `action` | yes | Existing skin action id (e.g. `view.setVariable`) |
+| `payload` | no | Merged into action payload |
+| `sound` | no | Manifest `soundEffects` key played **before** the action (transition start) |
+
+Delayed effects re-evaluate `when` at **fire time** — if state changed during the delay, the effect no-ops. Effect-level `when` (bind path) is distinct from `payload.when` on `view.setVariable` (value equality guard).
+
+## State transition events (`views.*.state.*.on`)
+
+User-driven state changes are declared as ordered transition tables on view-state variables. Buttons dispatch `view.applyStateEvent` with `{ variable, event }`; the runtime evaluates branches in order and applies the first match.
+
+```json
+"state": {
+  "shutter": {
+    "default": "intro",
+    "on": {
+      "toggle": [
+        { "from": ["intro", "closed"], "set": "opening", "sound": "open" },
+        { "from": ["open"], "set": "closing", "sound": "close" }
+      ]
+    }
+  }
+}
+```
+
+```json
+{
+  "type": "button",
+  "action": "view.applyStateEvent",
+  "payload": { "variable": "shutter", "event": "toggle" }
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `on.<event>` | Author-defined event name (e.g. `toggle`) |
+| `from` | Current values that allow this branch (omit = any) |
+| `set` | New value assigned via `setVariable` |
+| `sound` | Optional manifest key played **before** `set` |
+
+No matching branch → no-op (e.g. `opening` / `closing` need no extra guards). Presentation nodes (`visibleWhen`, GIF `completeAction`) remain unchanged.
+
+**Incremental path:** [skin-view-effects-plan.md](../../../docs/skin-view-effects-plan.md) — Phase 3 adds full timelines (#17).
+
 ## Future: declarative skin animations (post-epic)
 
 Not in V1/V2 scope. Documented so the manifest/renderer do not assume static chrome only.

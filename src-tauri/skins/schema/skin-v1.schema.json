@@ -113,6 +113,11 @@
           "additionalProperties": { "$ref": "#/$defs/viewStateVariable" },
           "description": "Ephemeral in-view variables (menu/content screens, etc.)."
         },
+        "onActivate": {
+          "type": "array",
+          "description": "Effects run once when the skin-mode window becomes visible.",
+          "items": { "$ref": "#/$defs/viewActivateEffect" }
+        },
         "window": {
           "$ref": "#/$defs/windowChrome",
           "description": "Native window size constraints for this view."
@@ -154,6 +159,75 @@
             { "type": "number" },
             { "type": "boolean" }
           ]
+        },
+        "on": {
+          "type": "object",
+          "description": "Named state transition events (e.g. toggle) mapped to ordered branch lists.",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/viewStateTransition" }
+          }
+        }
+      }
+    },
+    "viewStateTransition": {
+      "type": "object",
+      "required": ["set"],
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "type": "array",
+          "description": "Current values that allow this branch (omit = any).",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "number" },
+              { "type": "boolean" }
+            ]
+          }
+        },
+        "set": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" }
+          ],
+          "description": "New value for the variable."
+        },
+        "sound": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Manifest soundEffects key played before set (transition start)."
+        }
+      }
+    },
+    "viewActivateEffect": {
+      "type": "object",
+      "required": ["action"],
+      "additionalProperties": false,
+      "properties": {
+        "when": {
+          "type": "string",
+          "description": "Bind path; effect runs only if truthy (same evaluator as visibleWhen)."
+        },
+        "delayMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Wait after activate before dispatch (default 0)."
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Existing skin action id (e.g. view.setVariable)."
+        },
+        "payload": {
+          "type": "object",
+          "description": "Merged into action payload."
+        },
+        "sound": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Manifest soundEffects key played before the action (transition start)."
         }
       }
     },

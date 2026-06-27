@@ -22,6 +22,7 @@ export function SkinBitmapButton({
   const invoke = useSkinAction(node.action, node);
   const bindState = useSkinBindState();
   const isPlaying = useSkinBindValue("player.isPlaying");
+  const isMuted = useSkinBindValue("player.muted");
   const hasTrack = useSkinBindValue("player.hasTrack");
   const canGoPrevious = useSkinBindValue("player.canGoPrevious");
   const canGoNext = useSkinBindValue("player.canGoNext");
@@ -39,16 +40,27 @@ export function SkinBitmapButton({
       }
       return base;
     }
+    if (node.action === "player.toggleMute" && isMuted) {
+      return `${presentation.assetBase}-muted`;
+    }
     return presentation.assetBase;
-  }, [node.action, isPlaying, presentation.assetBase]);
+  }, [node.action, isPlaying, isMuted, presentation.assetBase]);
 
   const width = presentation.width ?? 28;
   const height = presentation.height ?? 28;
 
-  const hoverFormat = presentation.animatedHover ? "gif" : "png";
+  const hoverFormat =
+    node.action === "player.toggleMute" && isMuted
+      ? "png"
+      : presentation.animatedHover
+        ? "gif"
+        : "png";
   const src = skinAssetUrl(pack.packDir, assetBase);
   const hoverSrc = skinAssetUrl(pack.packDir, assetBase, "hover", hoverFormat);
-  const pressedSrc = skinAssetUrl(pack.packDir, assetBase, "pressed");
+  const pressedSrc =
+    node.action === "player.toggleMute"
+      ? hoverSrc
+      : skinAssetUrl(pack.packDir, assetBase, "pressed");
 
   const actionDisabled =
     disabledWhen ||

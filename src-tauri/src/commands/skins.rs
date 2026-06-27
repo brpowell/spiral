@@ -55,7 +55,7 @@ const KNOWN_ACTIONS: &[&str] = &[
     "app.openFile",
     "view.setScreen",
     "view.setVariable",
-    "view.toggleShutter",
+    "view.applyStateEvent",
     "slideshow.setDeck",
     "slideshow.prev",
     "slideshow.next",
@@ -180,6 +180,20 @@ pub struct SkinPanel {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SkinViewActivateEffect {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub when: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delay_ms: Option<u64>,
+    pub action: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payload: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sound: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SkinView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub presentation: Option<String>,
@@ -194,14 +208,28 @@ pub struct SkinView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<HashMap<String, SkinViewStateSpec>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_activate: Option<Vec<SkinViewActivateEffect>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub window: Option<WindowChrome>,
     pub layout: LayoutNode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SkinViewStateTransition {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub from: Option<Vec<serde_json::Value>>,
+    pub set: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sound: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SkinViewStateSpec {
     pub default: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on: Option<HashMap<String, Vec<SkinViewStateTransition>>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

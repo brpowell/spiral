@@ -63,6 +63,14 @@ function collectLayoutAssetUrls(
           urls,
           node.presentation.animatedHover,
         );
+        if (node.action === "player.toggleMute") {
+          addBitmapButtonAssets(
+            packDir,
+            `${node.presentation.assetBase}-muted`,
+            urls,
+            false,
+          );
+        }
       }
       return;
     case "buttonGroup":
