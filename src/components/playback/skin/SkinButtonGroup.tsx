@@ -6,6 +6,7 @@ import {
   type ButtonGroupPositionMap,
 } from "../../../lib/skinButtonGroupMap";
 import { runSkinAction, skinControlPayload } from "../../../lib/skinActions";
+import { playSkinSound } from "../../../lib/skinSoundEffects";
 import {
   evaluateSkinBind,
   isSkinBindDisabled,
@@ -194,6 +195,7 @@ export function SkinButtonGroup({
     if (pending && keyAtRelease === pending) {
       const element = keyToElement.get(pending);
       if (element && !isElementDisabled(element)) {
+        playSkinSound(pack, element.sound ?? presentation.sound);
         runSkinAction(element.action, {
           ...skinControlPayload(element),
           ...element.payload,

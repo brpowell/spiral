@@ -1,4 +1,5 @@
 import { getSkinViewStateApi } from "./skinViewStateContext";
+import { playActiveSkinSound } from "./skinSoundEffects";
 
 /** T3 main view `onTimer` intro delay before playing the open animation. */
 export const SHUTTER_INTRO_DELAY_MS = 1000;
@@ -16,6 +17,7 @@ export function playShutterOpen(): void {
   if (phase !== "intro" && phase !== "closed") return;
 
   api.setVariable("shutter", "opening");
+  playActiveSkinSound("open");
 }
 
 export function playShutterClose(): void {
@@ -27,6 +29,7 @@ export function playShutterClose(): void {
   if (phase !== "open") return;
 
   api.setVariable("shutter", "closing");
+  playActiveSkinSound("close");
 }
 
 export function toggleShutter(): void {

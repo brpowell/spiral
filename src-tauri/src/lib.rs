@@ -25,6 +25,7 @@ mod models;
 mod session;
 mod settings;
 mod track_list_prefs;
+mod skin_preferences;
 
 use commands::library::DbState;
 use std::sync::Mutex;
@@ -127,6 +128,8 @@ pub fn run() {
             commands::playback_session::save_playback_session,
             commands::track_list_preferences::get_track_list_preferences,
             commands::track_list_preferences::save_track_list_preferences,
+            commands::skin_preferences::get_skin_preferences,
+            commands::skin_preferences::save_skin_preferences,
             commands::cd::list_cd_drives,
             commands::cd::probe_cd_drive,
             commands::cd::get_disc_info,

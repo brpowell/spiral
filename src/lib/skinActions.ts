@@ -20,6 +20,7 @@ import {
 } from "./skinModeWindow";
 import type { SkinActionId, SkinActionPayloadFields } from "../types/skin";
 import { useSkinStore } from "../store/useSkinStore";
+import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
 import { useVisualizerStore } from "../store/useVisualizerStore";
 import { useEqualizerStore } from "../store/useEqualizerStore";
 import { pickAndImportLibraryPaths } from "./libraryImport";
@@ -187,6 +188,9 @@ export function runSkinAction(
       if (viewId) void useSkinStore.getState().toggleView(viewId);
       break;
     }
+    case "skin.toggleSoundEffects":
+      void useSkinPreferencesStore.getState().toggleSoundEffects();
+      break;
     case "visualizer.previous":
       void useVisualizerStore.getState().cycleActivePack("prev");
       break;

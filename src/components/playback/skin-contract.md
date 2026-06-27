@@ -36,6 +36,8 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | `skin.switchView` | Switch the primary skin window to an exclusive view (payload: `{ viewId: string }`) |
 | `skin.openView` | Open an auxiliary view window (payload: `{ viewId: string }`) |
 | `skin.closeView` | Close an auxiliary view window (payload: `{ viewId?: string }`; defaults to the current aux window) |
+| `skin.toggleView` | Toggle an auxiliary view window open/closed (payload: `{ viewId: string }`) |
+| `skin.toggleSoundEffects` | Toggle skin sound effects for the active skin (no-op when manifest has no `soundEffects`) |
 | `visualizer.previous` | Cycle to the previous global visualizer pack |
 | `visualizer.next` | Cycle to the next global visualizer pack |
 | `playlist.setSource` | Select playlist view source (payload: `{ sourceId: string }` — `all`, `upNext`, or `playlist:{id}`) |
@@ -109,6 +111,31 @@ Dynamic per-view panel ids from `views.*.panels`. Typical ids: `eq`, `playlist`,
 | `skin.panel.{id}.revealed` | `boolean` | Panel content mounted (before/during slide; hidden after close animation) |
 | `skin.panel.{id}.settled` | `boolean` | Slide animation complete at the current open/closed target |
 | `skin.panel.{id}.openSettled` | `boolean` | `.open` and `.settled` (use for close controls that must not appear mid-slide) |
+
+### Skin preference bind paths (`skin.pref.*`)
+
+Per-skin user preferences persisted in `{app_data}/skin-preferences.json`. Spiral built-in keys live under `builtin` in storage; author-defined settings (future) will use `custom` and expose as `skin.pref.{settingId}`.
+
+| Bind path | Type | Description |
+| --- | --- | --- |
+| `skin.pref.soundEffectsEnabled` | `boolean` | When `true`, controls with `sound` and programmatic skin sounds play (default `true`) |
+
+**Taxonomy:** `skin.*` = commands and chrome; `skin.pref.*` = per-skin user prefs; distinct from global `eq.*` and ephemeral `view.*` state.
+
+## Manifest sound effects
+
+Skins may declare optional short UI sounds under the pack root:
+
+```json
+"soundEffects": {
+  "button": "sounds/buton",
+  "window": "sounds/window",
+  "open": "sounds/open",
+  "close": "sounds/close"
+}
+```
+
+Paths are under `assets/` without extension (`.wav` required on disk). Controls reference keys via an optional `sound` field on `button` nodes and `buttonGroup` presentations (group-level sound plays on any element click).
 
 ## Window (`views.*.window`)
 

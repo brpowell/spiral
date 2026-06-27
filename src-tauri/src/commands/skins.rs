@@ -39,6 +39,7 @@ const KNOWN_ACTIONS: &[&str] = &[
     "skin.openView",
     "skin.closeView",
     "skin.toggleView",
+    "skin.toggleSoundEffects",
     "visualizer.previous",
     "visualizer.next",
     "playlist.setSource",
@@ -146,6 +147,8 @@ pub struct SkinManifest {
     pub timelines: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stylesheet: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sound_effects: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -462,6 +465,8 @@ pub struct ButtonGroupElement {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disabled_when: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sound: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payload: Option<HashMap<String, serde_json::Value>>,
 }
 
@@ -525,6 +530,10 @@ pub struct ControlFields {
     pub bind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disabled_when: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active_when: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sound: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payload: Option<HashMap<String, serde_json::Value>>,
     pub presentation: Presentation,
@@ -682,6 +691,8 @@ pub enum Presentation {
         height: Option<f64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         animated_hover: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sound: Option<String>,
         elements: Vec<ButtonGroupElement>,
     },
     #[serde(rename = "framedPanel", rename_all = "camelCase")]
@@ -852,6 +863,12 @@ fn validate_bind(path: Option<&str>, field: &str, errors: &mut Vec<String>) {
             )
         {
             return;
+        }
+        if p.starts_with("skin.pref.") {
+            let suffix = p.strip_prefix("skin.pref.").unwrap_or("");
+            if !suffix.is_empty() && !suffix.contains('.') {
+                return;
+            }
         }
         if is_known_view_bind(p) || is_known_slideshow_bind(p) {
             return;
@@ -1419,6 +1436,7 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
             validate_action(f.action.as_deref(), errors);
             validate_bind(f.bind.as_deref(), "bind", errors);
             validate_bind(f.disabled_when.as_deref(), "disabledWhen", errors);
+            validate_bind(f.active_when.as_deref(), "activeWhen", errors);
             validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
@@ -1594,6 +1612,27 @@ fn validate_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Result<(), Str
         if let Some(size) = &viz.size {
             validate_visualizer_dimension(size.width.as_ref(), "visualizer.size.width", &mut errors);
             validate_visualizer_dimension(size.height.as_ref(), "visualizer.size.height", &mut errors);
+        }
+    }
+    if let Some(sounds) = &manifest.sound_effects {
+        for (key, asset_path) in sounds {
+            if key.trim().is_empty() {
+                errors.push("soundEffects keys cannot be empty".to_string());
+                continue;
+            }
+            if asset_path.contains("..") || asset_path.starts_with('/') {
+                errors.push(format!(
+                    "soundEffects.{key} \"{asset_path}\" must be a relative path under assets/"
+                ));
+                continue;
+            }
+            let wav_path = pack_dir.join("assets").join(format!("{asset_path}.wav"));
+            if !wav_path.is_file() {
+                errors.push(format!(
+                    "soundEffects.{key} asset not found: {}",
+                    wav_path.display()
+                ));
+            }
         }
     }
 

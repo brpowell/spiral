@@ -7,6 +7,7 @@ import { parseRepeatMode } from "./playbackSession";
 import type { PlaybackSession } from "../types/playbackSession";
 import type { Theme } from "../types/theme";
 import type { LoadedSkinPack, SkinSummary } from "../types/skin";
+import type { SkinUserPreferences } from "../types/skinPreferences";
 import type { LoadedVisualizerPack, VizSummary } from "../types/visualizer";
 import type { CoverArtCandidate } from "../types/coverArt";
 import type { Playlist } from "../types/playlist";
@@ -374,6 +375,19 @@ export async function saveActiveSkinView(viewId: string): Promise<void> {
 
 export async function openSkinsFolder(): Promise<void> {
   return invoke<void>("open_skins_folder");
+}
+
+export async function getSkinPreferences(
+  skinId: string,
+): Promise<SkinUserPreferences> {
+  return invoke<SkinUserPreferences>("get_skin_preferences", { skinId });
+}
+
+export async function saveSkinPreferences(
+  skinId: string,
+  preferences: SkinUserPreferences,
+): Promise<void> {
+  await invoke<void>("save_skin_preferences", { skinId, preferences });
 }
 
 export async function listVisualizers(): Promise<VizSummary[]> {

@@ -36,6 +36,8 @@ export interface SkinManifest {
   timelines?: unknown;
   /** CSS file path relative to the skin pack root. */
   stylesheet?: string;
+  /** Optional sound effect assets keyed by logical id (paths under assets/ without extension). */
+  soundEffects?: Record<string, string>;
 }
 
 export type LayoutMode = "slots" | "canvas";
@@ -292,6 +294,8 @@ export interface ControlNodeBase extends NodeBase {
   disabledWhen?: string;
   /** When truthy, keep the pressed overlay (WMP sticky buttons). */
   activeWhen?: string;
+  /** Manifest `soundEffects` key played on click. */
+  sound?: string;
   presentation: Presentation;
 }
 
@@ -319,6 +323,8 @@ export interface ButtonGroupElement {
   activeWhen?: string;
   /** When truthy, the element is non-interactive (WMP disabled nav). */
   disabledWhen?: string;
+  /** Manifest `soundEffects` key; overrides group-level `sound`. */
+  sound?: string;
   /** Extra action payload merged at dispatch (e.g. slideshow deck id). */
   payload?: SkinActionPayloadFields;
 }
@@ -360,6 +366,8 @@ export interface ButtonGroupPresentation {
   height?: number;
   /** When true, hover uses `{assetBase}-hover.gif` (default/pressed stay PNG). */
   animatedHover?: boolean;
+  /** Manifest `soundEffects` key played on any element click in this group. */
+  sound?: string;
   elements: ButtonGroupElement[];
 }
 
@@ -676,6 +684,7 @@ export type SkinActionId =
   | "skin.openView"
   | "skin.closeView"
   | "skin.toggleView"
+  | "skin.toggleSoundEffects"
   | "visualizer.previous"
   | "visualizer.next"
   | "playlist.setSource"
@@ -719,6 +728,7 @@ export type SkinBindPath =
   | "queue.length"
   | "player.hasTrack"
   | "skin.alwaysOnTop"
+  | "skin.pref.soundEffectsEnabled"
   | "playback.source"
   | "visualizer.name"
   | "visualizer.canGoPrevious"

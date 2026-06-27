@@ -35,6 +35,7 @@ export type PlayerRemoteAction =
   | { type: "previousTrack" }
   | { type: "nextTrack" }
   | { type: "cycleRepeat" }
+  | { type: "toggleRepeat" }
   | { type: "toggleShuffle" }
   | { type: "seek"; ratio: number }
   | { type: "seekRelative"; deltaSeconds: number }
@@ -108,6 +109,9 @@ function dispatchRemoteAction(action: PlayerRemoteAction): void {
     case "cycleRepeat":
       store.cycleRepeat();
       break;
+    case "toggleRepeat":
+      store.toggleRepeat();
+      break;
     case "toggleShuffle":
       store.toggleShuffle();
       break;
@@ -160,6 +164,7 @@ function installRemoteActions(): void {
       previousTrack: () => emitRemoteAction({ type: "previousTrack" }),
       nextTrack: () => emitRemoteAction({ type: "nextTrack" }),
       cycleRepeat: () => emitRemoteAction({ type: "cycleRepeat" }),
+      toggleRepeat: () => emitRemoteAction({ type: "toggleRepeat" }),
       toggleShuffle: () => emitRemoteAction({ type: "toggleShuffle" }),
       seek: (ratio) => {
         const state = usePlayerStore.getState();

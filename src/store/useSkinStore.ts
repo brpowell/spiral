@@ -46,6 +46,7 @@ import {
 import { SKIN_PLAYLIST_SOURCE_ALL } from "../lib/skinPlaylist";
 import type { LoadedSkinPack, SkinSummary, SkinView } from "../types/skin";
 import { isAppearanceWindow, isSkinModeWindow } from "../lib/windowRole";
+import { useSkinPreferencesStore } from "./useSkinPreferencesStore";
 
 export const DEFAULT_SKIN_ID = "spiral-default";
 
@@ -135,6 +136,7 @@ export const useSkinStore = create<SkinState>((set, get) => ({
       ...motionStateForView(pack, viewId),
       skinsLoaded: true,
     });
+    await useSkinPreferencesStore.getState().loadForSkin(resolvedId);
   },
 
   setSkin: async (skinId) => {
@@ -156,6 +158,7 @@ export const useSkinStore = create<SkinState>((set, get) => ({
     });
     await saveActiveSkinId(skinId);
     await saveActiveSkinView(viewId);
+    await useSkinPreferencesStore.getState().loadForSkin(skinId);
 
     if (isAppearanceWindow()) {
       await emit(SKIN_CHANGED_EVENT, { skinId, viewId } satisfies SkinChangedPayload);

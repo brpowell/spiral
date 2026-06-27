@@ -24,6 +24,8 @@ import { usePlaylistStore } from "../store/usePlaylistStore";
 import { useSkinStore } from "../store/useSkinStore";
 import { useVisualizerStore } from "../store/useVisualizerStore";
 import { useEqualizerStore } from "../store/useEqualizerStore";
+import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
+import { soundEffectsEnabledFromPreferences } from "../types/skinPreferences";
 import type { EqualizerBandGains, EqualizerPreset } from "./equalizer/types";
 import type { PlayableRef } from "../types/playable";
 import type { SkinBindPath } from "../types/skin";
@@ -68,6 +70,7 @@ export interface SkinBindState {
   eqPresetId: string;
   eqBands: EqualizerBandGains;
   eqCustomPresets: EqualizerPreset[];
+  soundEffectsEnabled: boolean;
   viewState: ViewStateValues;
   slideshowPresentations: Record<string, SlideshowPresentation>;
   slideshowState: SlideshowStateMap;
@@ -99,6 +102,14 @@ export function evaluateSkinBind(
   );
   if (slideshowValue !== null) {
     return slideshowValue;
+  }
+
+  if (path.startsWith("skin.pref.")) {
+    const key = path.slice("skin.pref.".length);
+    if (key === "soundEffectsEnabled") {
+      return state.soundEffectsEnabled;
+    }
+    return null;
   }
 
   const { currentTrack } = state;
@@ -229,6 +240,8 @@ export function useSkinBindState(): SkinBindState {
   const eqPresetId = useEqualizerStore((s) => s.presetId);
   const eqBands = useEqualizerStore((s) => s.bands);
   const eqCustomPresets = useEqualizerStore((s) => s.customPresets);
+  const skinPreferences = useSkinPreferencesStore((s) => s.preferences);
+  const soundEffectsEnabled = soundEffectsEnabledFromPreferences(skinPreferences);
 
   const visualizerName = useMemo(
     () => activeVisualizerName(visualizerPacks, activeVisualizerId),
@@ -297,6 +310,7 @@ export function useSkinBindState(): SkinBindState {
       eqPresetId,
       eqBands,
       eqCustomPresets,
+      soundEffectsEnabled,
       viewState,
       slideshowPresentations,
       slideshowState,
@@ -333,6 +347,7 @@ export function useSkinBindState(): SkinBindState {
       eqPresetId,
       eqBands,
       eqCustomPresets,
+      soundEffectsEnabled,
       viewState,
       slideshowPresentations,
       slideshowState,

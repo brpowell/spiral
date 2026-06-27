@@ -41,6 +41,7 @@ function minimalBindState(
     eqPresetId: "flat",
     eqBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     eqCustomPresets: [],
+    soundEffectsEnabled: true,
     viewState: {},
     slideshowPresentations: {},
     slideshowState: {},
@@ -173,5 +174,22 @@ describe("slideshow page clamping via state transitions", () => {
         { "info-promo": atLast },
       ),
     ).toBe(true);
+  });
+});
+
+describe("skin.pref binds", () => {
+  it("evaluates skin.pref.soundEffectsEnabled", () => {
+    expect(
+      evaluateSkinBind(
+        "skin.pref.soundEffectsEnabled",
+        minimalBindState({ soundEffectsEnabled: true }),
+      ),
+    ).toBe(true);
+    expect(
+      evaluateSkinBind(
+        "skin.pref.soundEffectsEnabled",
+        minimalBindState({ soundEffectsEnabled: false }),
+      ),
+    ).toBe(false);
   });
 });

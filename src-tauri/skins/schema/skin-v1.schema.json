@@ -70,6 +70,14 @@
     "stylesheet": {
       "type": "string",
       "description": "Optional CSS file path relative to the skin pack root (e.g. skin.css)."
+    },
+    "soundEffects": {
+      "type": "object",
+      "description": "Optional UI sound assets keyed by logical id (paths under assets/ without extension; .wav on disk).",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
     }
   },
   "$defs": {
@@ -482,6 +490,15 @@
             "value": { "type": "string" },
             "textStyle": { "type": "string" },
             "disabledWhen": { "type": "string" },
+            "activeWhen": {
+              "type": "string",
+              "description": "When truthy, keep the pressed overlay (WMP sticky buttons)."
+            },
+            "sound": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Manifest soundEffects key played on click."
+            },
             "payload": {
               "type": "object",
               "description": "Extra action payload merged at dispatch.",
@@ -669,6 +686,11 @@
         "width": { "type": "number", "minimum": 1 },
         "height": { "type": "number", "minimum": 1 },
         "animatedHover": { "type": "boolean" },
+        "sound": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Manifest soundEffects key played on any element click in this group."
+        },
         "elements": {
           "type": "array",
           "minItems": 1,
@@ -692,6 +714,11 @@
               "disabledWhen": {
                 "type": "string",
                 "description": "When truthy, the element is non-interactive."
+              },
+              "sound": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Manifest soundEffects key; overrides group-level sound."
               },
               "payload": {
                 "type": "object",

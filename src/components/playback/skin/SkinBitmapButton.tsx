@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { skinAssetUrl } from "../../../lib/skinAssets";
 import { useSkinAction } from "../../../lib/skinActions";
+import { playSkinSound } from "../../../lib/skinSoundEffects";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
 import {
   evaluateSkinBind,
@@ -80,7 +81,10 @@ export function SkinBitmapButton({
           "--skin-btn-img-pressed": `url("${pressedSrc}")`,
         } as React.CSSProperties
       }
-      onClick={() => invoke(node.payload)}
+      onClick={() => {
+        playSkinSound(pack, node.sound);
+        invoke(node.payload);
+      }}
     />
   );
 }

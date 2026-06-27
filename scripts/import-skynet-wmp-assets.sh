@@ -322,4 +322,12 @@ if [[ -f "$SKYNET/c_link3_no.jpg" ]]; then
   import_promo_jpg_button "c_link3" "info-story-link"
 fi
 
+SOUNDS="$OUT/sounds"
+mkdir -p "$SOUNDS"
+for wav in buton window open close skynet; do
+  if [[ -f "$SKYNET/${wav}.wav" ]]; then
+    cp "$SKYNET/${wav}.wav" "$SOUNDS/"
+  fi
+done
+
 echo "Imported Skynet assets to $OUT"
