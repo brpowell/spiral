@@ -9,6 +9,11 @@
   pointer-events: none;
 }
 
+.skin-eq-band-slider__fill {
+  position: absolute;
+  pointer-events: none;
+}
+
 .skin-eq-band-slider__thumb {
   position: absolute;
   pointer-events: none;

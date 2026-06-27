@@ -11,9 +11,12 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | Action ID | Description |
 | --- | --- |
 | `player.togglePlayPause` | Toggle play/pause for the current track |
+| `player.play` | Start or resume playback for the current track |
+| `player.pause` | Pause playback when playing |
 | `player.previousTrack` | Go to previous track |
 | `player.nextTrack` | Go to next track |
 | `player.cycleRepeat` | Cycle repeat mode: off → all → one |
+| `player.toggleRepeat` | Toggle playlist repeat on/off (no repeat-one) |
 | `player.toggleShuffle` | Toggle shuffle |
 | `player.seek` | Seek to ratio 0–1 (payload: `{ ratio: number }`) |
 | `player.setVolume` | Set volume 0–1 (payload: `{ volume: number }`) |
@@ -30,6 +33,9 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | `skin.togglePanel` | Toggle an in-view panel (payload: `{ panelId: string }` on the control node) |
 | `skin.openPanel` | Open an in-view panel |
 | `skin.closePanel` | Close an in-view panel |
+| `skin.switchView` | Switch the primary skin window to an exclusive view (payload: `{ viewId: string }`) |
+| `skin.openView` | Open an auxiliary view window (payload: `{ viewId: string }`) |
+| `skin.closeView` | Close an auxiliary view window (payload: `{ viewId?: string }`; defaults to the current aux window) |
 | `visualizer.previous` | Cycle to the previous global visualizer pack |
 | `visualizer.next` | Cycle to the next global visualizer pack |
 | `playlist.setSource` | Select playlist view source (payload: `{ sourceId: string }` — `all`, `upNext`, or `playlist:{id}`) |
@@ -38,7 +44,11 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | `eq.applyPreset` | Apply a named preset (payload: `{ presetId: string }`) |
 | `eq.reset` | Flatten all bands to 0 dB and set preset to manual |
 | `eq.setEnabled` | Toggle EQ processing (payload: `{ enabled: boolean }`; band values preserved when disabled) |
+| `eq.previousPreset` | Cycle to the previous EQ preset (built-ins, then custom) |
+| `eq.nextPreset` | Cycle to the next EQ preset |
 | `app.quit` | Quit Spiral (saves session and closes the app) |
+| `app.openUrl` | Open an external URL in the system browser (payload: `{ url: string }`) |
+| `app.openFile` | Open the library import picker and import selected audio files or folders |
 
 ## Data bind paths
 
@@ -100,16 +110,16 @@ Dynamic per-view panel ids from `views.*.panels`. Typical ids: `eq`, `playlist`,
 | `skin.panel.{id}.settled` | `boolean` | Slide animation complete at the current open/closed target |
 | `skin.panel.{id}.openSettled` | `boolean` | `.open` and `.settled` (use for close controls that must not appear mid-slide) |
 
-## Window (`skin.json` → `window`)
+## Window (`views.*.window`)
 
-Skin mode always uses a **frameless** transparent native window. There is no built-in title bar — authors declare window chrome in the layout and wire `skin.*` / `app.quit` actions (see below). Right-click still opens a native context menu (pin, Appearance, return to library) as a fallback.
+Each view declares native window constraints in its own `window` block. Skin mode always uses a **frameless** transparent native window. There is no built-in title bar — authors declare window chrome in the layout and wire `skin.*` / `app.quit` actions (see below). Right-click still opens a native context menu (pin, Appearance, return to library) as a fallback.
 
 | Field | Purpose |
 | --- | --- |
-| `background` | Full-window background image path (under the skin pack root) |
 | `clipMask` | Reserved: PNG alpha mask for shaped windows (not yet applied at runtime) |
 | `defaultWidth` / `defaultHeight` | Initial size when no per-skin position is saved (logical px); include chrome drawn in the layout |
-| `minWidth` / `minHeight` / `maxWidth` / `maxHeight` | Passed to `setMinSize` / `setMaxSize` |
+| `minWidth` / `minHeight` | Passed to `setSizeConstraints` |
+| `maxWidth` / `maxHeight` | Optional upper bounds; omitted means unbounded on that axis |
 | `resizable` | When `false`, the window is fixed to the default size |
 | `snapEnabled` | When `false`, edge snapping is disabled (useful for fixed chrome skins) |
 
@@ -119,10 +129,23 @@ Position is remembered **per skin id** in local storage. Sizes are stored in **l
 
 | Mode | Audience | Chrome pattern |
 | --- | --- | --- |
-| `canvas` | WMP classic bitmap | `buttonGroup` + `dragRegion` / `decoration.dragRegion` on absolute bounds |
+| `canvas` | WMP classic bitmap | Stage `dragInference: "auto"` (default) |
 | `slots` (default) | CSS flex + primitives | `header` region with `dragRegion: true` + primitive `button` nodes |
 
-Use `dragRegion` nodes (canvas), `decoration` + `dragRegion: true`, or `dragRegion: true` on a `region` / `row` / `column` (slots) for window drag handles. Runtime maps these to `data-tauri-drag-region="deep"` so clicks on non-interactive areas inside the region move the window; interactive controls opt out with `data-tauri-drag-region="false"`.
+### Window drag inference (`dragInference`)
+
+Canvas views default to `"auto"`: the runtime sets `data-tauri-drag-region="deep"` on `.skin-canvas-layout__stage`. Tauri walks the pointer path upward; clicks drag the window when they reach the stage and nothing along the path is a clickable element (or is marked `data-tauri-drag-region="false"`). This matches classic WMP behavior where non-interactive hits move the frameless window.
+
+| Value | Behavior |
+| --- | --- |
+| `"auto"` | Stage-level deep drag (runtime default when `layoutMode` is `canvas`) |
+| `"manual"` | Explicit behavior via `dragRegion: true` flags (runtime default for `layoutMode: "slots"`) |
+
+Per-view `dragInference` overrides the `layoutMode` default. Omit on canvas views unless overriding — the runtime resolves `"auto"` from `layoutMode`.
+
+Interactive controls opt out with `data-tauri-drag-region="false"` (bitmap buttons, button groups, bitmap sliders). Native `<button>` hit targets (strip sliders, digit time, visualizer expand toggle) are excluded automatically.
+
+For `"manual"` canvas views, use `decoration` + `dragRegion: true` or `dragRegion: true` on a `region` / `row` / `column`. For slots views, mark the header (or other chrome) `region` with `dragRegion: true` — the runtime wraps it with `data-tauri-drag-region="deep"`.
 
 Classic WMP skins often use a composite **button group** (`presentation.kind`: `buttonGroup`) for window chrome (expand / minimize / close). Each element maps a color in `positionMap` to an action:
 
@@ -133,20 +156,42 @@ Classic WMP skins often use a composite **button group** (`presentation.kind`: `
 | `elements` | `{ mappingColor, action }` pairs — hex colors match map pixels |
 | `animatedHover` | When true, hover uses `{assetBase}-hover.gif` |
 
-Place drag regions on non-interactive chrome with a **lower `zIndex` than controls** so buttons and sliders stay clickable.
-
 ## Layout modes (`views.*`)
 
 | Field | Values | Purpose |
 | --- | --- | --- |
+| `presentation` | `primary`, `exclusive`, `auxiliary` | How the runtime manages the native window for this view |
 | `layoutMode` | `slots` (default), `canvas` | `slots` fills `SkinShell` regions; `canvas` places nodes with `bounds` |
+| `dragInference` | `auto` (canvas default), `manual` | Stage-level deep drag vs explicit `dragRegion` flags |
 | `canvas.width` / `canvas.height` | px | Stage size when `layoutMode` is `canvas` |
 | `bounds` | `{ x, y, w, h, zIndex? }` | Absolute position on the canvas (logical px) |
-| `dragRegion` | node type, `decoration` flag, or `true` on `region` / `row` / `column` | Window drag handle |
+| `dragRegion` | `true` on `region` / `decoration` / `row` / `column` | Window drag handle (slots and manual canvas) |
+| `hitArea` | node type | Solid hit target without Tauri drag (e.g. ear tabs on click-through skins) |
+
+Auxiliary windows bootstrap only the subsystems their layout needs: `eqBand` nodes load the EQ bridge, `visualizer` nodes load the visualizer bridge, `playlist` nodes load the playlist store. Canvas aux views skip theme bootstrap. The layout walk recurses through container nodes including `tiledFrame`.
 
 Root layout for canvas views is typically `{ "type": "canvas", "children": [ … ] }`.
 
 Canvas skins may ship a pack-level `stylesheet` for control styling scoped via `classPrefix` on primitive nodes.
+
+### Resizable canvas views
+
+When a view's merged `window.resizable` is `true`, the canvas stage tracks the native window size via `ResizeObserver` instead of fixed `canvas.width` / `canvas.height`. Use a `tiledFrame` node for WMP-style stretchable window chrome; inner children use `bounds` relative to the computed **content rect** (origin at top-left of the inset area).
+
+## Tiled frame (`type`: `tiledFrame`)
+
+WMP auxiliary windows (playlist, visualizer, info) use 9-slice frame tiles that stretch on resize. Wrap view content in a `tiledFrame` container:
+
+| Field | Purpose |
+| --- | --- |
+| `presentation.kind` | `"tiledFrame"` |
+| `presentation.assets` | Tile paths under `assets/` (`topLeft`, `topCenter`, `topRight`, `topStretch`, optional `topStretch2`, `leftStretch`, `rightStretch`, `bottomLeft`, `bottomCenter`, `bottomRight`, `bottomStretch`, optional `bottomStretch2`, optional `resizeGrip`) |
+| `presentation.tileSizes` | Fixed `{ w, h }` per tile for layout math |
+| `presentation.frameThickness` | Top/bottom chrome band height in px (53 for T3 plView) |
+| `presentation.contentInset` | `{ left, top, right, bottom }` — inner content area insets from window edges |
+| `children` | Controls placed inside the content rect (coordinates relative to content origin) |
+
+Horizontal stretch tile widths follow WMP `checkPlViewSize`: top = `floor(windowW / 2) + 10`, bottom = `floor(windowW / 2)`. Native OS resize handles dragging when `window.resizable` is `true`; `resizeGrip` is decorative.
 
 ## Digit time (`presentation.kind`: `digitStrip`)
 

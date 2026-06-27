@@ -23,6 +23,7 @@ export function SkinText({
     style?.size && `skin-text--${style.size}`,
     style?.weight && `skin-text--${style.weight}`,
     style?.truncate && "skin-text--truncate",
+    style?.align && `skin-text--align-${style.align}`,
   ]
     .filter(Boolean)
     .join(" ");

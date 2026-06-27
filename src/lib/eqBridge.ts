@@ -1,8 +1,9 @@
 import { emit, listen } from "@tauri-apps/api/event";
-import type {
-  EqualizerPreset,
-  EqualizerRemoteAction,
-  EqualizerStateSnapshot,
+import {
+  normalizeBandGains,
+  type EqualizerPreset,
+  type EqualizerRemoteAction,
+  type EqualizerStateSnapshot,
 } from "./equalizer/types";
 import { useEqualizerStore } from "../store/useEqualizerStore";
 import type { WindowRole } from "./windowRole";
@@ -39,7 +40,7 @@ function presetsEqual(
 }
 
 function shouldSyncEqualizer(role: WindowRole): boolean {
-  return role === "main" || role === "skin-mode" || role === "equalizer";
+  return role === "main" || role === "skin-mode" || role === "skin-aux" || role === "equalizer";
 }
 
 function dispatchRemoteAction(action: EqualizerRemoteAction): void {
@@ -53,6 +54,9 @@ function dispatchRemoteAction(action: EqualizerRemoteAction): void {
       break;
     case "applyPreset":
       store.applyPreset(action.presetId);
+      break;
+    case "cyclePreset":
+      store.cyclePreset(action.direction);
       break;
     case "reset":
       store.reset();
@@ -76,14 +80,28 @@ function emitRemoteAction(action: EqualizerRemoteAction): void {
   void emit(EQ_ACTION_EVENT, { action });
 }
 
+function applyRemoteBandOptimistic(band: number, gain: number): void {
+  useEqualizerStore.setState((state) => {
+    if (band < 0 || band >= state.bands.length) return state;
+    const bands = [...state.bands] as number[];
+    bands[band] = gain;
+    return { presetId: "manual", bands: normalizeBandGains(bands) };
+  });
+}
+
 function installRemoteActions(): void {
   useEqualizerStore.setState(
     {
-      setBand: (band, gain) => emitRemoteAction({ type: "setBand", band, gain }),
+      setBand: (band, gain) => {
+        applyRemoteBandOptimistic(band, gain);
+        emitRemoteAction({ type: "setBand", band, gain });
+      },
       setPreampGain: (gain) =>
         emitRemoteAction({ type: "setPreampGain", gain }),
       applyPreset: (presetId) =>
         emitRemoteAction({ type: "applyPreset", presetId }),
+      cyclePreset: (direction) =>
+        emitRemoteAction({ type: "cyclePreset", direction }),
       reset: () => emitRemoteAction({ type: "reset" }),
       setEnabled: (enabled) =>
         emitRemoteAction({ type: "setEnabled", enabled }),

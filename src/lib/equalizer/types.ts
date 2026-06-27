@@ -44,6 +44,7 @@ export type EqualizerRemoteAction =
   | { type: "setBand"; band: number; gain: number }
   | { type: "setPreampGain"; gain: number }
   | { type: "applyPreset"; presetId: string }
+  | { type: "cyclePreset"; direction: "prev" | "next" }
   | { type: "reset" }
   | { type: "setEnabled"; enabled: boolean }
   | { type: "saveCustomPreset"; name: string }

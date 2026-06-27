@@ -9,11 +9,18 @@ use tauri_plugin_opener::OpenerExt;
 
 const KNOWN_ACTIONS: &[&str] = &[
     "player.togglePlayPause",
+    "player.play",
+    "player.pause",
     "player.previousTrack",
     "player.nextTrack",
     "player.cycleRepeat",
+    "player.toggleRepeat",
     "player.toggleShuffle",
     "player.seek",
+    "player.seekForward",
+    "player.seekBackward",
+    "player.volumeUp",
+    "player.volumeDown",
     "player.setVolume",
     "player.setBalance",
     "player.toggleMute",
@@ -28,6 +35,10 @@ const KNOWN_ACTIONS: &[&str] = &[
     "skin.togglePanel",
     "skin.openPanel",
     "skin.closePanel",
+    "skin.switchView",
+    "skin.openView",
+    "skin.closeView",
+    "skin.toggleView",
     "visualizer.previous",
     "visualizer.next",
     "playlist.setSource",
@@ -36,7 +47,17 @@ const KNOWN_ACTIONS: &[&str] = &[
     "eq.applyPreset",
     "eq.reset",
     "eq.setEnabled",
+    "eq.previousPreset",
+    "eq.nextPreset",
     "app.quit",
+    "app.openUrl",
+    "app.openFile",
+    "view.setScreen",
+    "view.setVariable",
+    "view.toggleShutter",
+    "slideshow.setDeck",
+    "slideshow.prev",
+    "slideshow.next",
 ];
 
 const KNOWN_BINDS: &[&str] = &[
@@ -50,7 +71,9 @@ const KNOWN_BINDS: &[&str] = &[
     "player.notPlaying",
     "player.playbackState",
     "player.positionSeconds",
+    "player.positionLabel",
     "player.repeatMode",
+    "player.repeatOn",
     "player.shuffle",
     "player.volume",
     "player.balance",
@@ -116,8 +139,6 @@ pub struct SkinManifest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_styles: Option<HashMap<String, TextStyle>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub window: Option<WindowChrome>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visualizer: Option<SkinVisualizer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub animations: Option<serde_json::Value>,
@@ -158,12 +179,26 @@ pub struct SkinPanel {
 #[serde(rename_all = "camelCase")]
 pub struct SkinView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presentation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub layout_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drag_inference: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub canvas: Option<SkinCanvasSpec>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub panels: Option<HashMap<String, SkinPanel>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<HashMap<String, SkinViewStateSpec>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window: Option<WindowChrome>,
     pub layout: LayoutNode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkinViewStateSpec {
+    pub default: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -183,6 +218,8 @@ pub struct LayoutBoundsOverride {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub x: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub right: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub w: Option<f64>,
@@ -195,7 +232,10 @@ pub struct LayoutBoundsOverride {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LayoutBounds {
-    pub x: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub right: Option<f64>,
     pub y: f64,
     pub w: f64,
     pub h: f64,
@@ -246,8 +286,12 @@ pub enum LayoutNode {
     Time(ControlFields),
     #[serde(rename = "playlist")]
     Playlist(ControlFields),
-    #[serde(rename = "dragRegion")]
-    DragRegion(DragRegionFields),
+    #[serde(rename = "hitArea")]
+    HitArea(HitAreaFields),
+    #[serde(rename = "tiledFrame")]
+    TiledFrame(TiledFrameFields),
+    #[serde(rename = "slideshow")]
+    Slideshow(SlideshowFields),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -305,7 +349,7 @@ pub struct DecorationFields {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DragRegionFields {
+pub struct HitAreaFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
     pub bounds: LayoutBounds,
@@ -317,11 +361,108 @@ pub struct DragRegionFields {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TiledFrameTileSize {
+    pub w: f64,
+    pub h: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub art_height: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TiledFrameAssets {
+    pub top_left: String,
+    pub top_center: String,
+    pub top_right: String,
+    pub top_stretch: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_stretch2: Option<String>,
+    pub left_stretch: String,
+    pub right_stretch: String,
+    pub bottom_left: String,
+    pub bottom_center: String,
+    pub bottom_right: String,
+    pub bottom_stretch: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bottom_stretch2: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resize_grip: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TiledFrameTileSizes {
+    pub top_left: TiledFrameTileSize,
+    pub top_center: TiledFrameTileSize,
+    pub top_right: TiledFrameTileSize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_stretch: Option<TiledFrameTileSize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_stretch2: Option<TiledFrameTileSize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub left_stretch: Option<TiledFrameTileSize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub right_stretch: Option<TiledFrameTileSize>,
+    pub bottom_left: TiledFrameTileSize,
+    pub bottom_center: TiledFrameTileSize,
+    pub bottom_right: TiledFrameTileSize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bottom_stretch: Option<TiledFrameTileSize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bottom_stretch2: Option<TiledFrameTileSize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resize_grip: Option<TiledFrameTileSize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TiledFrameContentInset {
+    pub left: f64,
+    pub top: f64,
+    pub right: f64,
+    pub bottom: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TiledFramePresentation {
+    pub kind: String,
+    pub assets: TiledFrameAssets,
+    pub tile_sizes: TiledFrameTileSizes,
+    pub frame_thickness: f64,
+    pub content_inset: TiledFrameContentInset,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TiledFrameFields {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub presentation: TiledFramePresentation,
+    pub children: Vec<LayoutNode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds: Option<LayoutBounds>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible_when: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ButtonGroupElement {
     pub mapping_color: String,
     pub action: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub panel_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub view_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active_when: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disabled_when: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payload: Option<HashMap<String, serde_json::Value>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -340,6 +481,35 @@ pub struct ButtonGroupFields {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SlideshowDeck {
+    pub deck_index: u32,
+    pub pages: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_page_nav: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SlideshowPresentation {
+    pub kind: String,
+    pub asset_pattern: String,
+    pub decks: HashMap<String, SlideshowDeck>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SlideshowFields {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub presentation: SlideshowPresentation,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds: Option<LayoutBounds>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible_when: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
@@ -348,9 +518,15 @@ pub struct ControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub panel_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub view_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disabled_when: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payload: Option<HashMap<String, serde_json::Value>>,
     pub presentation: Presentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
@@ -400,7 +576,15 @@ pub enum Presentation {
         animated_hover: Option<bool>,
     },
     #[serde(rename = "gif", rename_all = "camelCase")]
-    Gif { asset_base: String },
+    Gif {
+        asset_base: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        duration_ms: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        complete_action: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        complete_payload: Option<HashMap<String, serde_json::Value>>,
+    },
     #[serde(rename = "primitive", rename_all = "camelCase")]
     Primitive {
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -455,6 +639,8 @@ pub enum Presentation {
         thumb_height: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         border_size: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fill_from_bottom: Option<bool>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         class_prefix: Option<String>,
     },
@@ -548,6 +734,8 @@ pub struct TextStyle {
     pub truncate: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scroll: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub align: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -555,8 +743,6 @@ pub struct TextStyle {
 pub struct WindowChrome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub clip_mask: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub background: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_width: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -667,10 +853,57 @@ fn validate_bind(path: Option<&str>, field: &str, errors: &mut Vec<String>) {
         {
             return;
         }
+        if is_known_view_bind(p) || is_known_slideshow_bind(p) {
+            return;
+        }
         errors.push(format!(
             "{field} references unknown bind path \"{p}\". See skin-contract.md for valid paths."
         ));
     }
+}
+
+fn is_known_view_bind(path: &str) -> bool {
+    let Some(rest) = path.strip_prefix("view.") else {
+        return false;
+    };
+    let parts: Vec<&str> = rest.split('.').collect();
+    match parts.as_slice() {
+        [var] => !var.is_empty(),
+        [var, screen] if *var == "screen" => matches!(*screen, "menu" | "content"),
+        [var, phase] if !var.is_empty() && !phase.is_empty() => *var != "screen",
+        _ => false,
+    }
+}
+
+fn is_known_slideshow_bind(path: &str) -> bool {
+    let Some(rest) = path.strip_prefix("slideshow.") else {
+        return false;
+    };
+    let Some((id, suffix)) = rest.split_once('.') else {
+        return false;
+    };
+    if id.is_empty() {
+        return false;
+    }
+    if matches!(
+        suffix,
+        "canPrev" | "canNext" | "showPageNav" | "atFirst" | "atLast"
+    ) {
+        return true;
+    }
+    if let Some(page) = suffix.strip_prefix("page.") {
+        return page.parse::<u32>().is_ok();
+    }
+    if let Some(deck_rest) = suffix.strip_prefix("deck.") {
+        if deck_rest.is_empty() {
+            return false;
+        }
+        if let Some((deck, page)) = deck_rest.split_once(".page.") {
+            return !deck.is_empty() && page.parse::<u32>().is_ok();
+        }
+        return true;
+    }
+    false
 }
 
 fn validate_action(action: Option<&str>, errors: &mut Vec<String>) {
@@ -731,6 +964,61 @@ fn validate_bitmap_tiled_slider_presentation(
     }
 }
 
+fn validate_tiled_frame_asset(path: &str, pack_dir: &Path, label: &str, errors: &mut Vec<String>) {
+    if path.contains("..") || path.starts_with('/') {
+        errors.push(format!(
+            "tiledFrame {label} \"{path}\" must be a relative path under assets/"
+        ));
+        return;
+    }
+    let base = pack_dir.join("assets").join(path);
+    let found = ["png", "webp", "jpg", "jpeg"]
+        .iter()
+        .any(|ext| base.with_extension(ext).is_file());
+    if !found {
+        errors.push(format!(
+            "tiledFrame {label} asset not found: expected {}.(png|webp|jpg)",
+            base.display()
+        ));
+    }
+}
+
+fn validate_tiled_frame_presentation(
+    presentation: &TiledFramePresentation,
+    pack_dir: &Path,
+    errors: &mut Vec<String>,
+) {
+    if presentation.kind != "tiledFrame" {
+        errors.push(format!(
+            "tiledFrame presentation kind must be \"tiledFrame\", got \"{}\"",
+            presentation.kind
+        ));
+    }
+    if presentation.frame_thickness <= 0.0 {
+        errors.push("tiledFrame frameThickness must be positive".to_string());
+    }
+    let assets = &presentation.assets;
+    validate_tiled_frame_asset(&assets.top_left, pack_dir, "assets.topLeft", errors);
+    validate_tiled_frame_asset(&assets.top_center, pack_dir, "assets.topCenter", errors);
+    validate_tiled_frame_asset(&assets.top_right, pack_dir, "assets.topRight", errors);
+    validate_tiled_frame_asset(&assets.top_stretch, pack_dir, "assets.topStretch", errors);
+    validate_tiled_frame_asset(&assets.left_stretch, pack_dir, "assets.leftStretch", errors);
+    validate_tiled_frame_asset(&assets.right_stretch, pack_dir, "assets.rightStretch", errors);
+    validate_tiled_frame_asset(&assets.bottom_left, pack_dir, "assets.bottomLeft", errors);
+    validate_tiled_frame_asset(&assets.bottom_center, pack_dir, "assets.bottomCenter", errors);
+    validate_tiled_frame_asset(&assets.bottom_right, pack_dir, "assets.bottomRight", errors);
+    validate_tiled_frame_asset(&assets.bottom_stretch, pack_dir, "assets.bottomStretch", errors);
+    if let Some(path) = &assets.top_stretch2 {
+        validate_tiled_frame_asset(path, pack_dir, "assets.topStretch2", errors);
+    }
+    if let Some(path) = &assets.bottom_stretch2 {
+        validate_tiled_frame_asset(path, pack_dir, "assets.bottomStretch2", errors);
+    }
+    if let Some(path) = &assets.resize_grip {
+        validate_tiled_frame_asset(path, pack_dir, "assets.resizeGrip", errors);
+    }
+}
+
 fn validate_presentation(
     presentation: &Presentation,
     pack_dir: &Path,
@@ -770,7 +1058,11 @@ fn validate_presentation(
                 }
             }
         }
-        Presentation::Gif { asset_base, .. } => {
+        Presentation::Gif {
+            asset_base,
+            complete_action,
+            ..
+        } => {
             if asset_base.contains("..") || asset_base.starts_with('/') {
                 errors.push(format!(
                     "gif assetBase \"{asset_base}\" must be a relative path under assets/"
@@ -784,6 +1076,7 @@ fn validate_presentation(
                     path.display()
                 ));
             }
+            validate_action(complete_action.as_deref(), errors);
         }
         Presentation::Css { stylesheet, .. } => {
             if let Some(sheet) = stylesheet {
@@ -1054,6 +1347,7 @@ fn validate_presentation(
             }
             for element in elements {
                 validate_action(Some(element.action.as_str()), errors);
+                validate_bind(element.active_when.as_deref(), "activeWhen", errors);
             }
         }
     }
@@ -1062,6 +1356,11 @@ fn validate_presentation(
 fn validate_bounds(bounds: &LayoutBounds, field: &str, errors: &mut Vec<String>) {
     if bounds.w <= 0.0 || bounds.h <= 0.0 {
         errors.push(format!("{field}.w and {field}.h must be positive"));
+    }
+    match (bounds.x, bounds.right) {
+        (None, None) => errors.push(format!("{field} must set x or right")),
+        (Some(_), Some(_)) => errors.push(format!("{field} must not set both x and right")),
+        _ => {}
     }
 }
 
@@ -1103,7 +1402,7 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
             }
             validate_presentation(&f.presentation, pack_dir, errors);
         }
-        LayoutNode::DragRegion(f) => {
+        LayoutNode::HitArea(f) => {
             validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);
             validate_bounds(&f.bounds, "bounds", errors);
         }
@@ -1156,6 +1455,36 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
                 validate_bounds(bounds, "bounds", errors);
             }
             validate_presentation(&f.presentation, pack_dir, errors);
+        }
+        LayoutNode::TiledFrame(f) => {
+            validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);
+            if let Some(bounds) = &f.bounds {
+                validate_bounds(bounds, "bounds", errors);
+            }
+            validate_tiled_frame_presentation(&f.presentation, pack_dir, errors);
+            for child in &f.children {
+                validate_layout_node(child, pack_dir, errors);
+            }
+        }
+        LayoutNode::Slideshow(f) => {
+            validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);
+            if let Some(bounds) = &f.bounds {
+                validate_bounds(bounds, "bounds", errors);
+            }
+            if f.presentation.kind != "imageSequence" {
+                errors.push("slideshow presentation kind must be imageSequence".into());
+            }
+            if f.presentation.asset_pattern.is_empty() {
+                errors.push("slideshow assetPattern must not be empty".into());
+            }
+            if f.presentation.decks.is_empty() {
+                errors.push("slideshow decks must not be empty".into());
+            }
+            for (name, deck) in &f.presentation.decks {
+                if deck.pages == 0 {
+                    errors.push(format!("slideshow deck \"{name}\" pages must be >= 1"));
+                }
+            }
         }
     }
 }
@@ -1269,6 +1598,16 @@ fn validate_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Result<(), Str
     }
 
     for (view_name, view) in &manifest.views {
+        if let Some(presentation) = &view.presentation {
+            if presentation != "primary"
+                && presentation != "exclusive"
+                && presentation != "auxiliary"
+            {
+                errors.push(format!(
+                    "views.{view_name}.presentation \"{presentation}\" must be primary, exclusive, or auxiliary"
+                ));
+            }
+        }
         if let Some(mode) = &view.layout_mode {
             if mode != "slots" && mode != "canvas" {
                 errors.push(format!(
@@ -1284,6 +1623,17 @@ fn validate_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Result<(), Str
             }
         }
         validate_layout_node(&view.layout, pack_dir, &mut errors);
+    }
+
+    let primary_count = manifest
+        .views
+        .values()
+        .filter(|view| view.presentation.as_deref() == Some("primary"))
+        .count();
+    if primary_count > 1 {
+        errors.push(format!(
+            "exactly one view may declare presentation \"primary\" (found {primary_count})"
+        ));
     }
 
     if errors.is_empty() {
@@ -1481,5 +1831,38 @@ mod tests {
             loaded += 1;
         }
         assert!(loaded > 0, "expected at least one built-in skin pack");
+    }
+
+    #[test]
+    fn t3_mini_switch_preserves_view_id() {
+        let pack_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("skins/builtin/t3");
+        let pack = load_pack_from_dir(&pack_dir, true).expect("t3 skin should load");
+        let main = &pack.manifest.views["main"];
+        let mini_switch = find_control_by_id(&main.layout, "mini-switch")
+            .expect("main view should include mini-switch button");
+        assert_eq!(mini_switch.view_id.as_deref(), Some("mini"));
+    }
+
+    fn find_control_by_id<'a>(node: &'a LayoutNode, id: &str) -> Option<&'a ControlFields> {
+        match node {
+            LayoutNode::Button(f) | LayoutNode::Seekbar(f) | LayoutNode::Artwork(f)
+            | LayoutNode::Transport(f) | LayoutNode::Visualizer(f) | LayoutNode::Volume(f)
+            | LayoutNode::Balance(f) | LayoutNode::Queue(f) | LayoutNode::Time(f)
+            | LayoutNode::Playlist(f) if f.id.as_deref() == Some(id) => Some(f),
+            LayoutNode::Stack(f) | LayoutNode::Row(f) | LayoutNode::Column(f)
+            | LayoutNode::Overlay(f) | LayoutNode::Canvas(f) => f
+                .children
+                .iter()
+                .find_map(|child| find_control_by_id(child, id)),
+            LayoutNode::Region(f) => f
+                .children
+                .iter()
+                .find_map(|child| find_control_by_id(child, id)),
+            LayoutNode::TiledFrame(f) => f
+                .children
+                .iter()
+                .find_map(|child| find_control_by_id(child, id)),
+            _ => None,
+        }
     }
 }

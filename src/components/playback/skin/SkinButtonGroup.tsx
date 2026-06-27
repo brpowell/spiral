@@ -5,10 +5,20 @@ import {
   parseMappingColor,
   type ButtonGroupPositionMap,
 } from "../../../lib/skinButtonGroupMap";
-import { runSkinAction } from "../../../lib/skinActions";
+import { runSkinAction, skinControlPayload } from "../../../lib/skinActions";
+import {
+  evaluateSkinBind,
+  isSkinBindDisabled,
+  useSkinBindState,
+} from "../../../lib/skinBinds";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
 import { useSkinDebug } from "../../../hooks/useSkinDebug";
-import type { ButtonGroupNode, LoadedSkinPack } from "../../../types/skin";
+import type {
+  ButtonGroupElement,
+  ButtonGroupNode,
+  LoadedSkinPack,
+  SkinBindPath,
+} from "../../../types/skin";
 import "./SkinButtonGroup.css";
 
 function resolveLocalPointer(
@@ -34,37 +44,33 @@ export function SkinButtonGroup({
 }) {
   const presentation = node.presentation;
   const skinDebug = useSkinDebug();
+  const bindState = useSkinBindState();
   const [positionMap, setPositionMap] = useState<ButtonGroupPositionMap | null>(
     null,
   );
-  const [hoveredAction, setHoveredAction] = useState<string | null>(null);
-  const [pressedAction, setPressedAction] = useState<string | null>(null);
-  const [debugAction, setDebugAction] = useState<string | null>(null);
-  const pendingPressActionRef = useRef<string | null>(null);
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const [pressedKey, setPressedKey] = useState<string | null>(null);
+  const [debugLabel, setDebugLabel] = useState<string | null>(null);
+  const pendingPressKeyRef = useRef<string | null>(null);
 
   const mapUrl = skinPackAssetUrl(pack.packDir, presentation.positionMap);
   const mapWidth = presentation.width ?? node.bounds?.w ?? 44;
   const mapHeight = presentation.height ?? node.bounds?.h ?? 50;
 
-  const colorToAction = useMemo(() => {
-    const map = new Map<string, string>();
+  // Key elements by their mapping color (not by action) so a group that repeats
+  // an action with different payloads (e.g. skin.toggleView per viewId) keeps
+  // each button distinct for hover, press, masking, and dispatch.
+  const keyToElement = useMemo(() => {
+    const map = new Map<string, ButtonGroupElement>();
     for (const element of presentation.elements) {
       const rgb = parseMappingColor(element.mappingColor);
       if (!rgb) continue;
-      map.set(`${rgb.r},${rgb.g},${rgb.b}`, element.action);
+      map.set(`${rgb.r},${rgb.g},${rgb.b}`, element);
     }
     return map;
   }, [presentation.elements]);
 
-  const actionToMask = useMemo(() => {
-    const map = new Map<string, string>();
-    if (!positionMap) return map;
-    for (const [colorKey, maskUrl] of positionMap.colorMasks) {
-      const action = colorToAction.get(colorKey);
-      if (action) map.set(action, maskUrl);
-    }
-    return map;
-  }, [positionMap, colorToAction]);
+  const validKeys = useMemo(() => new Set(keyToElement.keys()), [keyToElement]);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,35 +98,80 @@ export function SkinButtonGroup({
   );
   const pressedSrc = skinAssetUrl(pack.packDir, presentation.assetBase, "pressed");
 
-  const actionAtPointer = (event: PointerEvent<HTMLButtonElement>): string | null => {
+  const isElementDisabled = (element: ButtonGroupElement): boolean =>
+    isSkinBindDisabled(element.disabledWhen, bindState);
+
+  const overlayLayers = useMemo(() => {
+    const layers: Array<{ key: string; src: string }> = [];
+    for (const [key, element] of keyToElement) {
+      if (isElementDisabled(element)) continue;
+
+      const isPressed = pressedKey === key;
+      const isHovered = hoveredKey === key;
+      const isSticky =
+        element.activeWhen &&
+        Boolean(
+          evaluateSkinBind(element.activeWhen as SkinBindPath, bindState),
+        );
+
+      if (isPressed || (!isHovered && isSticky)) {
+        layers.push({ key, src: pressedSrc });
+      } else if (isHovered) {
+        layers.push({ key, src: hoverSrc });
+      }
+    }
+    return layers;
+  }, [
+    keyToElement,
+    pressedKey,
+    hoveredKey,
+    bindState,
+    pressedSrc,
+    hoverSrc,
+  ]);
+
+  const keyAtPointer = (event: PointerEvent<HTMLButtonElement>): string | null => {
     if (!positionMap) return null;
     const point = resolveLocalPointer(event, mapWidth, mapHeight);
     if (!point) return null;
-    return positionMap.actionAt(point.x, point.y, colorToAction);
+    const key = positionMap.keyAt(point.x, point.y, validKeys);
+    if (!key) return null;
+    const element = keyToElement.get(key);
+    if (element && isElementDisabled(element)) return null;
+    return key;
+  };
+
+  const debugLabelForKey = (key: string | null): string => {
+    if (!key) return "(none)";
+    const element = keyToElement.get(key);
+    if (!element) return "(none)";
+    return element.viewId
+      ? `${element.action} (${element.viewId})`
+      : element.action;
   };
 
   const updateHoverFromEvent = (event: PointerEvent<HTMLButtonElement>) => {
-    const action = actionAtPointer(event);
-    setHoveredAction(action);
+    const key = keyAtPointer(event);
+    setHoveredKey(key);
     if (skinDebug) {
-      setDebugAction(action ?? "(none)");
+      setDebugLabel(debugLabelForKey(key));
     }
   };
 
   const beginPress = (event: PointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return;
 
-    const action = actionAtPointer(event);
+    const key = keyAtPointer(event);
     if (skinDebug) {
-      setDebugAction(action ?? "(none)");
+      setDebugLabel(debugLabelForKey(key));
     }
-    if (!action) return;
+    if (!key) return;
 
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    pendingPressActionRef.current = action;
-    setPressedAction(action);
+    pendingPressKeyRef.current = key;
+    setPressedKey(key);
   };
 
   const onPointerMove = updateHoverFromEvent;
@@ -129,44 +180,36 @@ export function SkinButtonGroup({
 
   const onPointerLeave = (event: PointerEvent<HTMLButtonElement>) => {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) return;
-    setHoveredAction(null);
-    setDebugAction(null);
+    setHoveredKey(null);
+    setDebugLabel(null);
   };
 
   const finishPress = (event: PointerEvent<HTMLButtonElement>) => {
-    const pending = pendingPressActionRef.current;
+    const pending = pendingPressKeyRef.current;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
 
-    const actionAtRelease = actionAtPointer(event);
-    if (pending && actionAtRelease === pending) {
-      const element = presentation.elements.find((e) => e.action === pending);
-      runSkinAction(pending, { panelId: element?.panelId });
+    const keyAtRelease = keyAtPointer(event);
+    if (pending && keyAtRelease === pending) {
+      const element = keyToElement.get(pending);
+      if (element && !isElementDisabled(element)) {
+        runSkinAction(element.action, {
+          ...skinControlPayload(element),
+          ...element.payload,
+        });
+      }
     }
 
-    pendingPressActionRef.current = null;
-    setPressedAction(null);
-    setHoveredAction(actionAtRelease);
+    pendingPressKeyRef.current = null;
+    setPressedKey(null);
+    setHoveredKey(keyAtRelease);
   };
 
   const onLostPointerCapture = () => {
-    pendingPressActionRef.current = null;
-    setPressedAction(null);
+    pendingPressKeyRef.current = null;
+    setPressedKey(null);
   };
-
-  const activeAction = pressedAction ?? hoveredAction;
-  const activeMaskUrl = activeAction ? actionToMask.get(activeAction) : null;
-  const overlaySrc = pressedAction ? pressedSrc : hoverSrc;
-
-  const overlayStyle =
-    activeMaskUrl
-      ? ({
-          backgroundImage: `url("${overlaySrc}")`,
-          WebkitMaskImage: `url("${activeMaskUrl}")`,
-          maskImage: `url("${activeMaskUrl}")`,
-        } as React.CSSProperties)
-      : undefined;
 
   return (
     <div
@@ -184,9 +227,9 @@ export function SkinButtonGroup({
           aria-hidden
         />
       ) : null}
-      {skinDebug && debugAction ? (
+      {skinDebug && debugLabel ? (
         <div className="skin-button-group__debug-label" aria-hidden>
-          {debugAction}
+          {debugLabel}
         </div>
       ) : null}
       <button
@@ -197,7 +240,7 @@ export function SkinButtonGroup({
         aria-label={node.id ?? "Window controls"}
         style={{
           backgroundImage: `url("${src}")`,
-          cursor: hoveredAction ? "pointer" : "default",
+          cursor: hoveredKey ? "pointer" : "default",
         }}
         onPointerDown={beginPress}
         onPointerMove={onPointerMove}
@@ -207,13 +250,22 @@ export function SkinButtonGroup({
         onPointerCancel={finishPress}
         onLostPointerCapture={onLostPointerCapture}
       />
-      {overlayStyle ? (
-        <div
-          className="skin-button-group__overlay"
-          style={overlayStyle}
-          aria-hidden
-        />
-      ) : null}
+      {overlayLayers.map(({ key, src }) => {
+        const maskUrl = positionMap?.colorMasks.get(key);
+        if (!maskUrl) return null;
+        return (
+          <div
+            key={key}
+            className="skin-button-group__overlay"
+            style={{
+              backgroundImage: `url("${src}")`,
+              WebkitMaskImage: `url("${maskUrl}")`,
+              maskImage: `url("${maskUrl}")`,
+            }}
+            aria-hidden
+          />
+        );
+      })}
     </div>
   );
 }

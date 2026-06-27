@@ -60,7 +60,7 @@ export async function runPanelToggle(
 
   if (nextOpen) {
     if (panel.windowWhenOpen) {
-      await applyPanelWindowSize(pack, view, nextPanelOpen);
+      await applyPanelWindowSize(view, nextPanelOpen);
       if (stale()) return;
     }
 
@@ -96,7 +96,7 @@ export async function runPanelToggle(
   if (stale()) return;
 
   if (panel.windowWhenOpen) {
-    await applyPanelWindowSize(pack, view, nextPanelOpen);
+    await applyPanelWindowSize(view, nextPanelOpen);
   }
 
   setState({

@@ -105,3 +105,29 @@ export function isKnownPresetId(
   if (id === "manual") return true;
   return resolvePreset(id, customPresets) != null;
 }
+
+function listCycleablePresetIds(
+  customPresets: readonly EqualizerPreset[],
+): string[] {
+  return [
+    ...BUILTIN_PRESETS.map((preset) => preset.id),
+    ...customPresets.map((preset) => preset.id),
+  ];
+}
+
+export function cyclePresetId(
+  currentId: string,
+  lastPresetId: string,
+  customPresets: readonly EqualizerPreset[],
+  direction: "prev" | "next",
+): string {
+  const ids = listCycleablePresetIds(customPresets);
+  if (ids.length === 0) return currentId;
+
+  const activeId = currentId === "manual" ? lastPresetId : currentId;
+  let index = ids.indexOf(activeId);
+  if (index === -1) index = 0;
+
+  const offset = direction === "next" ? 1 : -1;
+  return ids[(index + offset + ids.length) % ids.length]!;
+}

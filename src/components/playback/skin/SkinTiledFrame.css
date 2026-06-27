@@ -1,0 +1,59 @@
+.skin-tiled-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.skin-tiled-frame__layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.skin-tiled-frame__layer--stretch {
+  z-index: 0;
+}
+
+.skin-tiled-frame__layer--chrome {
+  z-index: 2;
+}
+
+.skin-tiled-frame__tile {
+  position: absolute;
+  pointer-events: none;
+  overflow: hidden;
+  background-repeat: no-repeat;
+  background-position: left top;
+}
+
+.skin-tiled-frame__tile--tile-x {
+  background-repeat: repeat-x;
+}
+
+.skin-tiled-frame__tile--tile-y {
+  background-repeat: repeat-y;
+}
+
+.skin-tiled-frame__content {
+  position: absolute;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.skin-tiled-frame__content .skin-bounds {
+  pointer-events: auto;
+}
+
+.skin-tiled-frame__content > .skin-layout-node--overlay,
+.skin-tiled-frame__content > .skin-bounds > .skin-layout-node--overlay {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.skin-layout-node--overlay > .skin-layout-node--overlay {
+  position: absolute;
+  inset: 0;
+}

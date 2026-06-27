@@ -36,6 +36,7 @@ export function SkinEqBandSlider({
     thumbWidth,
     thumbHeight,
     borderSize = 0,
+    fillFromBottom = false,
     classPrefix,
   } = presentation;
 
@@ -90,24 +91,41 @@ export function SkinEqBandSlider({
     <div
       className={className}
       data-node-id={node.id}
-      style={{ width: `${trackWidth}px`, height: `${trackHeight}px` }}
+      style={{ width: "100%", height: "100%" }}
     >
-      <div
-        className="skin-eq-band-slider__track"
-        style={{
-          left: `${trackLeft}px`,
-          ...wmpTiledTrackStyle({
-            trackUrl,
-            trackTileWidth,
-            trackTileHeight,
-            trackWidth: trackTileWidth,
-            trackHeight,
-            borderSize,
-            direction: "vertical",
-          }),
-        }}
-        aria-hidden
-      />
+      {fillFromBottom ? (
+        <div
+          className="skin-eq-band-slider__fill"
+          style={{
+            left: `${trackLeft}px`,
+            bottom: 0,
+            width: `${trackTileWidth}px`,
+            height: `${Math.round(ratio * trackHeight)}px`,
+            backgroundImage: `url("${trackUrl}")`,
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "bottom center",
+            backgroundSize: `${trackTileWidth}px ${trackHeight}px`,
+          }}
+          aria-hidden
+        />
+      ) : (
+        <div
+          className="skin-eq-band-slider__track"
+          style={{
+            left: `${trackLeft}px`,
+            ...wmpTiledTrackStyle({
+              trackUrl,
+              trackTileWidth,
+              trackTileHeight,
+              trackWidth: trackTileWidth,
+              trackHeight,
+              borderSize,
+              direction: "vertical",
+            }),
+          }}
+          aria-hidden
+        />
+      )}
       <img
         className="skin-eq-band-slider__thumb"
         src={thumbUrl}

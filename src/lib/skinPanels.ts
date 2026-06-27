@@ -2,7 +2,6 @@ import type {
   LayoutBounds,
   LayoutNode,
   SkinCanvasSpec,
-  SkinManifest,
   SkinPanel,
   SkinView,
 } from "../types/skin";
@@ -119,14 +118,13 @@ function resolveDimensionWhen(
 
 export function resolveCanvasSize(
   view: SkinView,
-  manifest: SkinManifest,
   _panelOpen: PanelOpenState = {},
 ): { width: number; height: number } {
   const canvas: SkinCanvasSpec | undefined = view.canvas;
   const width =
-    canvas?.width ?? manifest.window?.defaultWidth ?? 320;
+    canvas?.width ?? view.window?.defaultWidth ?? 320;
   const height =
-    canvas?.height ?? manifest.window?.defaultHeight ?? 440;
+    canvas?.height ?? view.window?.defaultHeight ?? 440;
 
   return { width, height };
 }
@@ -134,17 +132,14 @@ export function resolveCanvasSize(
 /** Native window size for panel-driven chrome (may be smaller than the canvas stage). */
 export function resolvePanelWindowSize(
   view: SkinView,
-  manifest: SkinManifest,
   panelOpen: PanelOpenState = {},
   panelRevealed: PanelOpenState = {},
   panelSettled: PanelOpenState = {},
 ): { width: number; height: number } {
   const ctx: PanelBindContext = { panelOpen, panelRevealed, panelSettled };
-  const canvas = resolveCanvasSize(view, manifest, panelOpen);
-  let width =
-    manifest.window?.defaultWidth ?? canvas.width;
-  let height =
-    manifest.window?.defaultHeight ?? canvas.height;
+  const canvas = resolveCanvasSize(view, panelOpen);
+  let width = view.window?.defaultWidth ?? canvas.width;
+  let height = view.window?.defaultHeight ?? canvas.height;
 
   width = resolveDimensionWhen(width, view.canvas?.widthWhen, ctx);
   height = resolveDimensionWhen(height, view.canvas?.heightWhen, ctx);

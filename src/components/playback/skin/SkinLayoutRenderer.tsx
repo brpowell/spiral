@@ -1,6 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { SkinShell } from "../SkinShell/SkinShell";
-import { resolveSkinWindowBackgroundStyle } from "../../../lib/skinWindowPresentation";
 import type {
   LayoutNode,
   LoadedSkinPack,
@@ -144,6 +143,7 @@ export interface SkinLayoutRendererProps {
   pack: LoadedSkinPack;
   viewId?: string;
   className?: string;
+  registerGlobalApi?: boolean;
 }
 
 function SkinSlotsLayout({
@@ -165,7 +165,7 @@ function SkinSlotsLayout({
   const onToggleVisualizer = () => setVisualizerExpanded((v) => !v);
   const onOpenQueue = () => {};
 
-  const { slots, overlays, shellClass, bgStyle } = useMemo(() => {
+  const { slots, overlays, shellClass } = useMemo(() => {
     const slotNodes = emptySlots();
     const overlayNodes = view
       ? collectRegions(
@@ -179,23 +179,17 @@ function SkinSlotsLayout({
         )
       : [];
 
-    const windowClass = manifest.window?.background
-      ? "skin-layout--has-bg"
-      : "";
-    const bgStyle = resolveSkinWindowBackgroundStyle(pack);
-
     return {
       slots: slotNodes,
       overlays: overlayNodes,
-      shellClass: ["skin-layout", windowClass, className].filter(Boolean).join(" "),
-      bgStyle,
+      shellClass: ["skin-layout", className].filter(Boolean).join(" "),
     };
-  }, [view, pack, textStyles, visualizerExpanded, manifest.window, className]);
+  }, [view, pack, textStyles, visualizerExpanded, className]);
 
   const hasFooterVolume = slots.footer.length > 0;
 
   return (
-    <div className={shellClass} style={bgStyle} data-skin-id={pack.summary.id}>
+    <div className={shellClass} data-skin-id={pack.summary.id}>
       {overlays.length > 0 ? (
         <div className="skin-layout__overlays">{overlays}</div>
       ) : null}
@@ -221,6 +215,7 @@ export function SkinLayoutRenderer({
   pack,
   viewId,
   className,
+  registerGlobalApi = false,
 }: SkinLayoutRendererProps) {
   const manifest: SkinManifest = pack.manifest;
   const resolvedView =
@@ -237,6 +232,7 @@ export function SkinLayoutRenderer({
         view={view}
         viewId={resolvedView}
         className={className}
+        registerGlobalApi={registerGlobalApi}
       />
     );
   }

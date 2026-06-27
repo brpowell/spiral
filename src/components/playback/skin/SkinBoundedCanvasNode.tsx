@@ -34,14 +34,13 @@ export function SkinBoundedCanvasNode({
   const hasMotion =
     boundsWhen !== undefined && Object.keys(boundsWhen).length > 0;
 
-  if (node.type === "dragRegion") {
+  if (node.type === "hitArea") {
     const bounds = resolveNodeBounds(node.bounds, boundsWhen, panelCtx);
     if (!bounds) return null;
     return (
       <SkinBounds
         bounds={bounds}
-        debugLabel={node.id ?? "drag"}
-        dragRegion
+        debugLabel={node.id ?? "hit"}
         motion={hasMotion}
       >
         {null}
@@ -66,14 +65,14 @@ export function SkinBoundedCanvasNode({
   const bounds = resolveNodeBounds(node.bounds, boundsWhen, panelCtx);
 
   if (bounds) {
+    const isDecoration = node.type === "decoration";
+
     return (
       <SkinBounds
         bounds={bounds}
         debugLabel={node.id}
         motion={hasMotion}
-        dragRegion={
-          node.type === "decoration" && node.dragRegion === true
-        }
+        className={isDecoration ? "skin-bounds--passthrough" : undefined}
       >
         {inner}
       </SkinBounds>

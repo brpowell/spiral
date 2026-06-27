@@ -1,6 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useSkinDebug } from "../../../hooks/useSkinDebug";
-import { skinDragRegionSelfProps } from "../../../lib/skinDragRegion";
 import type { LayoutBounds } from "../../../types/skin";
 import "./SkinBounds.css";
 
@@ -8,21 +7,24 @@ export function SkinBounds({
   bounds,
   children,
   className,
-  dragRegion,
   debugLabel,
   motion,
 }: {
   bounds: LayoutBounds;
   children: ReactNode;
   className?: string;
-  dragRegion?: boolean;
   debugLabel?: string;
   /** When true, position changes animate (panel drawer slides). */
   motion?: boolean;
 }) {
   const skinDebug = useSkinDebug();
   const style: CSSProperties = {
-    left: `${bounds.x}px`,
+    ...(bounds.right !== undefined
+      ? {
+          right: `${bounds.right - bounds.w}px`,
+          left: "auto",
+        }
+      : { left: `${bounds.x ?? 0}px` }),
     top: `${bounds.y}px`,
     width: `${bounds.w}px`,
     height: `${bounds.h}px`,
@@ -34,7 +36,6 @@ export function SkinBounds({
       className={[
         "skin-bounds",
         motion && "skin-bounds--motion",
-        dragRegion && "skin-bounds--drag",
         skinDebug && "skin-bounds--debug",
         className,
       ]
@@ -42,7 +43,6 @@ export function SkinBounds({
         .join(" ")}
       style={style}
       data-node-id={debugLabel}
-      {...(dragRegion ? skinDragRegionSelfProps() : {})}
     >
       {skinDebug && debugLabel ? (
         <span className="skin-bounds__debug-label" aria-hidden>

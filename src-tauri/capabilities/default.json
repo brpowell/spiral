@@ -2,9 +2,10 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for Spiral windows",
-  "windows": ["main", "skin-mode", "appearance", "equalizer", "activity-logs"],
+  "windows": ["main", "skin-mode", "skin-aux-*", "appearance", "equalizer", "activity-logs"],
   "permissions": [
     "core:default",
+    "core:webview:allow-create-webview-window",
     "core:window:allow-destroy",
     "core:window:allow-show",
     "core:window:allow-hide",

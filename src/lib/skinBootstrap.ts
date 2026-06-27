@@ -1,6 +1,10 @@
 import { getActiveSkinId, listSkins, loadSkinPack } from "./tauri";
+import { restoreOpenSkinAuxWindows } from "./skinAuxWindow";
+import { readOpenAuxViewsForSkin } from "./skinAuxViewState";
 import { resolveViewForPack } from "./skinViewState";
 import { applyPackWindowLayout } from "./skinModeWindowChrome";
+import { installSkinDevConsole } from "./skinDevConsole";
+import { isSkinModeVisible } from "./skinModeWindow";
 import { DEFAULT_SKIN_ID, useSkinStore } from "../store/useSkinStore";
 import { isSkinModeWindow } from "./windowRole";
 
@@ -17,13 +21,26 @@ export async function bootstrapSkin(): Promise<void> {
 
     const pack = await loadSkinPack(resolvedId);
     const viewId = resolveViewForPack(pack);
+    const openAuxiliaryViews = readOpenAuxViewsForSkin(resolvedId);
 
-    useSkinStore
-      .getState()
-      .initializeFromBootstrap(summaries, pack, resolvedId, viewId);
+    useSkinStore.getState().initializeFromBootstrap(
+      summaries,
+      pack,
+      resolvedId,
+      viewId,
+      openAuxiliaryViews,
+    );
 
-    if (await isSkinModeWindow()) {
-      await applyPackWindowLayout(pack);
+    if (isSkinModeWindow()) {
+      installSkinDevConsole();
+      await applyPackWindowLayout(pack, viewId);
+      // Only restore auxiliary windows when skin mode is actually on screen.
+      // At launch the skin-mode webview is created hidden (see tauri.conf.json),
+      // so restoring here would spawn aux windows while the library view is
+      // showing. openSkinMode() handles restoration once the window is shown.
+      if (await isSkinModeVisible()) {
+        await restoreOpenSkinAuxWindows(pack);
+      }
     }
   } catch (err) {
     console.error("Skin bootstrap failed:", err);

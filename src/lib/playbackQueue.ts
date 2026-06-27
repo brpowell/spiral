@@ -46,6 +46,11 @@ export function cycleRepeatMode(mode: RepeatMode): RepeatMode {
   return "off";
 }
 
+/** Toggle playlist repeat on/off (no repeat-one). */
+export function toggleRepeatMode(mode: RepeatMode): RepeatMode {
+  return mode === "off" ? "all" : "off";
+}
+
 function fisherYates<T>(items: T[]): T[] {
   const result = [...items];
   for (let i = result.length - 1; i > 0; i--) {

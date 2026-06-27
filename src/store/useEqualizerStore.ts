@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import {
+  cyclePresetId,
   isKnownPresetId,
   resolvePreset,
 } from "../lib/equalizer/builtinPresets";
@@ -34,6 +35,7 @@ interface EqualizerStoreState {
   setBand: (index: number, gain: number) => void;
   setPreampGain: (gain: number) => void;
   applyPreset: (presetId: string) => void;
+  cyclePreset: (direction: "prev" | "next") => void;
   reset: () => void;
   setEnabled: (enabled: boolean) => void;
   saveCurrentAsPreset: (name: string) => void;
@@ -185,6 +187,17 @@ export const useEqualizerStore = create<EqualizerStoreState>((set, get) => ({
 
     set(next);
     commitStateChange(next);
+  },
+
+  cyclePreset: (direction) => {
+    const { presetId, lastPresetId, customPresets } = get();
+    const nextPresetId = cyclePresetId(
+      presetId,
+      lastPresetId,
+      customPresets,
+      direction,
+    );
+    get().applyPreset(nextPresetId);
   },
 
   reset: () => {

@@ -21,6 +21,22 @@
   min-height: 0;
 }
 
+.skin-mode-app__skin--layered {
+  position: relative;
+}
+
+.skin-view-layer--active {
+  position: relative;
+}
+
+.skin-view-layer--inactive {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* Resizable slot skins: content fills the native window. */
 .skin-mode-app[data-resizable="true"] {
   height: 100%;
@@ -29,9 +45,15 @@
 }
 
 .skin-mode-app[data-resizable="true"] .skin-mode-app__skin,
-.skin-mode-app[data-resizable="true"] .skin-layout {
+.skin-mode-app[data-resizable="true"] .skin-layout,
+.skin-mode-app[data-resizable="true"] .skin-canvas-layout {
   flex: 1 1 auto;
   min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.skin-mode-app[data-resizable="true"] .skin-canvas-layout__stage {
   width: 100%;
   height: 100%;
 }

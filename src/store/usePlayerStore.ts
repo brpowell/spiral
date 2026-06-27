@@ -12,7 +12,7 @@ import { buildPlaybackOrder } from "../lib/playbackOrder";
 import { findPlaybackTrack } from "../lib/playbackTrack";
 import { groupTracksIntoAlbums } from "../lib/albums";
 import { groupTracksIntoArtists, type ArtistBrowseMode } from "../lib/artists";
-import { startLibraryImport } from "../lib/libraryImport";
+import { pickAndImportLibraryPaths, startLibraryImport } from "../lib/libraryImport";
 import { isCdImportBlockingPlayback } from "../lib/cdImportGuard";
 import { showQueueAddedToast, showQueueAddedToastForTracks } from "../lib/queueToast";
 import { seekRatioToPositionSeconds } from "../lib/playbackSeek";
@@ -20,7 +20,6 @@ import { parseRepeatMode, prunePlaybackSession } from "../lib/playbackSession";
 import {
   getLibrary,
   getPlaybackSession,
-  pickLibraryPaths,
   recordTrackPlay,
   removeTrack,
 } from "../lib/tauri";
@@ -30,6 +29,7 @@ import {
 } from "../lib/trackSelection";
 import {
   cycleRepeatMode,
+  toggleRepeatMode,
   getAutoplayNextId,
   getManualNextId,
   getManualPreviousId,
@@ -112,6 +112,7 @@ interface PlayerState {
   removeFromQueue: (id: number) => void;
   clearSetList: () => void;
   cycleRepeat: () => void;
+  toggleRepeat: () => void;
   toggleShuffle: () => void;
   clearImportError: () => void;
   openTrackEditor: (ids: number | number[]) => void;
@@ -581,15 +582,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     addToLibrary: async () => {
-      set({ importError: null });
-      try {
-        const paths = await pickLibraryPaths();
-        if (paths.length === 0) return;
-        startLibraryImport(paths);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        set({ importError: `Import failed: ${message}` });
-      }
+      await pickAndImportLibraryPaths();
     },
 
     selectTracksInList: (id, orderedIds, modifiers) => {
@@ -996,6 +989,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     cycleRepeat: () =>
       set((state) => ({ repeatMode: cycleRepeatMode(state.repeatMode) })),
+
+    toggleRepeat: () =>
+      set((state) => ({ repeatMode: toggleRepeatMode(state.repeatMode) })),
 
     toggleShuffle: () => {
       const state = get();

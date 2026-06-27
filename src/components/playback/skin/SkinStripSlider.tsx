@@ -54,6 +54,7 @@ export function SkinStripSlider({
   } = presentation;
 
   const hitRef = useRef<HTMLButtonElement>(null);
+  const dragAnchorFrameRef = useRef<number | null>(null);
   const skinDebug = useSkinDebug();
   const [positionMapData, setPositionMapData] =
     useState<StripSliderPositionMap | null>(null);
@@ -71,7 +72,11 @@ export function SkinStripSlider({
       return;
     }
     let cancelled = false;
-    void loadStripSliderPositionMap(mapUrl, frameCount, direction)
+    void loadStripSliderPositionMap(mapUrl, frameCount, direction, {
+      stripUrl,
+      frameWidth,
+      frameHeight: frameHeight ?? (mode === "volume" ? 128 : 113),
+    })
       .then((map) => {
         if (!cancelled) setPositionMapData(map);
       })
@@ -82,7 +87,7 @@ export function SkinStripSlider({
     return () => {
       cancelled = true;
     };
-  }, [mapUrl, frameCount, direction]);
+  }, [mapUrl, stripUrl, frameCount, frameWidth, frameHeight, direction, mode]);
 
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
@@ -135,7 +140,11 @@ export function SkinStripSlider({
   } as React.CSSProperties;
 
   const samplePointer = useCallback(
-    (clientX: number, clientY: number): StripSliderPointerSample | null => {
+    (
+      clientX: number,
+      clientY: number,
+      anchorFrame?: number,
+    ): StripSliderPointerSample | null => {
       const el = hitRef.current;
       if (!el) return null;
       return sampleStripSliderPointer(
@@ -146,14 +155,15 @@ export function SkinStripSlider({
         frameCount,
         direction,
         invert,
+        anchorFrame,
       );
     },
     [positionMapData, frameCount, direction, invert],
   );
 
   const pointerToRatio = useCallback(
-    (clientX: number, clientY: number): number =>
-      samplePointer(clientX, clientY)?.ratio ?? 0,
+    (clientX: number, clientY: number, anchorFrame?: number): number =>
+      samplePointer(clientX, clientY, anchorFrame)?.ratio ?? 0,
     [samplePointer],
   );
 
@@ -180,19 +190,30 @@ export function SkinStripSlider({
     ],
   );
 
+  const applyPointer = useCallback(
+    (clientX: number, clientY: number, anchorFrame: number, commit: boolean) => {
+      const ratio = pointerToRatio(clientX, clientY, anchorFrame);
+      applyRatio(ratio, commit);
+      dragAnchorFrameRef.current = Math.round(ratio * (frameCount - 1));
+    },
+    [pointerToRatio, applyRatio, frameCount],
+  );
+
   const onPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (disabled) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     if (mode === "seek") handleSeekStart();
-    applyRatio(pointerToRatio(event.clientX, event.clientY), false);
+    dragAnchorFrameRef.current = displayFrame;
+    applyPointer(event.clientX, event.clientY, displayFrame, false);
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const anchorFrame = dragAnchorFrameRef.current ?? displayFrame;
     if (skinDebug) {
-      setDebugSample(samplePointer(event.clientX, event.clientY));
+      setDebugSample(samplePointer(event.clientX, event.clientY, anchorFrame));
     }
     if (!event.currentTarget.hasPointerCapture(event.pointerId) || disabled) return;
-    applyRatio(pointerToRatio(event.clientX, event.clientY), false);
+    applyPointer(event.clientX, event.clientY, anchorFrame, false);
   };
 
   const onPointerLeave = () => {
@@ -202,10 +223,13 @@ export function SkinStripSlider({
   const finishDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
     event.currentTarget.releasePointerCapture(event.pointerId);
-    applyRatio(
-      pointerToRatio(event.clientX, event.clientY),
+    applyPointer(
+      event.clientX,
+      event.clientY,
+      dragAnchorFrameRef.current ?? displayFrame,
       mode === "seek",
     );
+    dragAnchorFrameRef.current = null;
   };
 
   const className = [

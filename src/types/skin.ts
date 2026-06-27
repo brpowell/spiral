@@ -31,7 +31,6 @@ export interface SkinManifest {
   defaultView: string;
   views: Record<string, SkinView>;
   textStyles?: Record<string, TextStyle>;
-  window?: WindowChrome;
   visualizer?: SkinVisualizer;
   animations?: unknown;
   timelines?: unknown;
@@ -40,6 +39,9 @@ export interface SkinManifest {
 }
 
 export type LayoutMode = "slots" | "canvas";
+
+/** How the runtime infers window drag handles on canvas views. */
+export type DragInference = "auto" | "manual";
 
 export interface SkinCanvasSpec {
   width: number;
@@ -62,18 +64,38 @@ export interface SkinPanel {
   motion?: { durationMs?: number };
 }
 
+export type SkinViewPresentation = "primary" | "exclusive" | "auxiliary";
+
 export interface SkinView {
+  /** How the runtime manages the native window for this view. */
+  presentation?: SkinViewPresentation;
   /** `slots` (default) uses SkinShell regions; `canvas` uses absolute bounds. */
   layoutMode?: LayoutMode;
+  /**
+   * Window drag inference mode. Default `"auto"` for canvas views (stage-level
+   * `deep` drag); `"manual"` for slots or when explicit drag flags are required.
+   */
+  dragInference?: DragInference;
   /** Logical size of the canvas stage when `layoutMode` is `canvas`. */
   canvas?: SkinCanvasSpec;
   /** In-view overlays toggled via `skin.togglePanel` (drawers, dropdowns). */
   panels?: Record<string, SkinPanel>;
+  /** Ephemeral in-view variables (menu/content screens, etc.). */
+  state?: Record<string, SkinViewStateSpec>;
+  /** Native window constraints and optional slots-mode background. */
+  window?: WindowChrome;
   layout: LayoutNode;
 }
 
+export interface SkinViewStateSpec {
+  default: string | number | boolean;
+}
+
 export interface LayoutBounds {
-  x: number;
+  /** Offset from the stage left edge. */
+  x?: number;
+  /** WMP-style right anchor: inset of the node's left edge from the stage right (`view.width - N`). */
+  right?: number;
   y: number;
   w: number;
   h: number;
@@ -101,7 +123,9 @@ export type LayoutNode =
   | QueueNode
   | TimeNode
   | PlaylistNode
-  | DragRegionNode;
+  | HitAreaNode
+  | TiledFrameNode
+  | SlideshowNode;
 
 interface NodeBase {
   id?: string;
@@ -165,17 +189,109 @@ export interface DecorationNode extends NodeBase {
   dragRegion?: boolean;
 }
 
-/** Invisible canvas hit target for moving a frameless skin window. */
-export interface DragRegionNode extends NodeBase {
-  type: "dragRegion";
+/** Solid canvas hit target without a Tauri drag attribute (e.g. click-through margins). */
+export interface HitAreaNode extends NodeBase {
+  type: "hitArea";
+  bounds: LayoutBounds;
+}
+
+/** WMP-style 9-slice window frame that stretches on resize (pl/vis/info views). */
+export interface TiledFrameNode extends NodeBase {
+  type: "tiledFrame";
+  presentation: TiledFramePresentation;
+  children: LayoutNode[];
+}
+
+export interface TiledFrameAssets {
+  topLeft: string;
+  topCenter: string;
+  topRight: string;
+  topStretch: string;
+  topStretch2?: string;
+  leftStretch: string;
+  rightStretch: string;
+  bottomLeft: string;
+  bottomCenter: string;
+  bottomRight: string;
+  bottomStretch: string;
+  bottomStretch2?: string;
+  resizeGrip?: string;
+}
+
+export interface TiledFrameTileSize {
+  w: number;
+  h: number;
+  /** Visible chrome band height within the source asset; stretched to frameThickness at runtime. */
+  artHeight?: number;
+}
+
+export interface TiledFrameTileSizes {
+  topLeft: TiledFrameTileSize;
+  topCenter: TiledFrameTileSize;
+  topRight: TiledFrameTileSize;
+  topStretch?: TiledFrameTileSize;
+  topStretch2?: TiledFrameTileSize;
+  leftStretch?: TiledFrameTileSize;
+  rightStretch?: TiledFrameTileSize;
+  bottomLeft: TiledFrameTileSize;
+  bottomCenter: TiledFrameTileSize;
+  bottomRight: TiledFrameTileSize;
+  bottomStretch?: TiledFrameTileSize;
+  bottomStretch2?: TiledFrameTileSize;
+  resizeGrip?: TiledFrameTileSize;
+}
+
+export interface TiledFrameContentInset {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+export interface TiledFramePresentation {
+  kind: "tiledFrame";
+  assets: TiledFrameAssets;
+  tileSizes: TiledFrameTileSizes;
+  /** WMP top/bottom chrome band height (53 for plView). */
+  frameThickness: number;
+  /** Inner content area insets from the window edges. */
+  contentInset: TiledFrameContentInset;
+}
+
+/** WMP-style image sequence paging (info promo decks). */
+export interface SlideshowNode extends NodeBase {
+  type: "slideshow";
+  presentation: SlideshowPresentation;
+}
+
+export interface SlideshowPresentation {
+  kind: "imageSequence";
+  /** Asset path template under assets/ without extension; `{deckIndex}` and `{page}` placeholders. */
+  assetPattern: string;
+  decks: Record<string, SlideshowDeck>;
+}
+
+export interface SlideshowDeck {
+  deckIndex: number;
+  pages: number;
+  /** When false, prev/next chrome is hidden (WMP trailer deck). Default true. */
+  showPageNav?: boolean;
 }
 
 export interface ControlNodeBase extends NodeBase {
   action?: string;
   /** Target panel for `skin.*Panel` actions. */
   panelId?: string;
+  /** Target view for `skin.*View` actions. */
+  viewId?: string;
+  /** Target URL for `app.openUrl`. */
+  url?: string;
+  /** Extra action payload merged at dispatch (e.g. view screen transitions). */
+  payload?: SkinActionPayloadFields;
   bind?: string;
   disabledWhen?: string;
+  /** When truthy, keep the pressed overlay (WMP sticky buttons). */
+  activeWhen?: string;
   presentation: Presentation;
 }
 
@@ -195,6 +311,44 @@ export interface ButtonGroupElement {
   action: string;
   /** Target panel for `skin.*Panel` actions. */
   panelId?: string;
+  /** Target view for `skin.*View` actions. */
+  viewId?: string;
+  /** Target URL for `app.openUrl`. */
+  url?: string;
+  /** When the bind is truthy, keep the pressed overlay (WMP sticky buttons). */
+  activeWhen?: string;
+  /** When truthy, the element is non-interactive (WMP disabled nav). */
+  disabledWhen?: string;
+  /** Extra action payload merged at dispatch (e.g. slideshow deck id). */
+  payload?: SkinActionPayloadFields;
+}
+
+/** Fields accepted on control nodes and button-group element payloads. */
+export interface SkinActionPayloadFields {
+  ratio?: number;
+  volume?: number;
+  balance?: number;
+  albumKey?: string;
+  panelId?: string;
+  viewId?: string;
+  sourceId?: string;
+  trackId?: number;
+  band?: number;
+  gain?: number;
+  enabled?: boolean;
+  presetId?: string;
+  url?: string;
+  /** Slideshow node id for `slideshow.*` actions. */
+  id?: string;
+  deck?: string;
+  /** View screen name for combined `slideshow.setDeck` + menu transitions. */
+  screen?: string;
+  /** Target view-state variable for `view.setVariable`. */
+  variable?: string;
+  /** Value to assign for `view.setVariable`. */
+  value?: string | number | boolean;
+  /** When set, `view.setVariable` only applies if the variable currently equals this. */
+  when?: string | number | boolean;
 }
 
 export interface ButtonGroupPresentation {
@@ -286,6 +440,20 @@ export interface BitmapPresentation {
 export interface GifPresentation {
   kind: "gif";
   assetBase: string;
+  /**
+   * Target loop duration in ms. Scales frame timing to match (all frames kept).
+   * When set with `completeAction`, the action fires after one scaled loop.
+   */
+  durationMs?: number;
+  /**
+   * Multiplier on native frame delays (`1` = file timing, `0.5` = half speed).
+   * Ignored when `durationMs` is set.
+   */
+  playbackRate?: number;
+  /** Action dispatched after the first scaled animation loop completes. */
+  completeAction?: string;
+  /** Payload merged when `completeAction` fires (e.g. `view.setVariable`). */
+  completePayload?: SkinActionPayloadFields;
 }
 
 export interface PrimitivePresentation {
@@ -317,6 +485,12 @@ export interface BitmapVerticalSliderPresentation {
   thumbHeight: number;
   /** Cap size and thumb travel inset (WMP borderSize); enables 3-slice tiling when > 0. */
   borderSize?: number;
+  /**
+   * When true, the track image is a bottom-anchored value fill (WMP
+   * `foregroundImage`) revealed up to the current value, rather than a static
+   * track. The empty groove is expected in the window background.
+   */
+  fillFromBottom?: boolean;
   classPrefix?: string;
 }
 
@@ -427,11 +601,11 @@ export interface TextStyle {
   truncate?: boolean;
   /** When `truncate` is true: `bounce` (default) or seamless `marquee` loop. */
   scroll?: "bounce" | "marquee";
+  align?: "left" | "center" | "right";
 }
 
 export interface WindowChrome {
   clipMask?: string;
-  background?: string;
   defaultWidth?: number;
   defaultHeight?: number;
   minWidth?: number;
@@ -439,7 +613,7 @@ export interface WindowChrome {
   maxWidth?: number;
   maxHeight?: number;
   resizable?: boolean;
-  /** When false, edge snapping is disabled for this skin. Default true. */
+  /** When false, edge snapping is disabled for this view. Default true. */
   snapEnabled?: boolean;
 }
 
@@ -472,11 +646,18 @@ export interface SkinVisualizer {
 
 export type SkinActionId =
   | "player.togglePlayPause"
+  | "player.play"
+  | "player.pause"
   | "player.previousTrack"
   | "player.nextTrack"
   | "player.cycleRepeat"
+  | "player.toggleRepeat"
   | "player.toggleShuffle"
   | "player.seek"
+  | "player.seekForward"
+  | "player.seekBackward"
+  | "player.volumeUp"
+  | "player.volumeDown"
   | "player.setVolume"
   | "player.setBalance"
   | "player.toggleMute"
@@ -491,6 +672,10 @@ export type SkinActionId =
   | "skin.togglePanel"
   | "skin.openPanel"
   | "skin.closePanel"
+  | "skin.switchView"
+  | "skin.openView"
+  | "skin.closeView"
+  | "skin.toggleView"
   | "visualizer.previous"
   | "visualizer.next"
   | "playlist.setSource"
@@ -499,7 +684,17 @@ export type SkinActionId =
   | "eq.applyPreset"
   | "eq.reset"
   | "eq.setEnabled"
-  | "app.quit";
+  | "eq.previousPreset"
+  | "eq.nextPreset"
+  | "app.quit"
+  | "app.openUrl"
+  | "app.openFile"
+  | "view.setScreen"
+  | "view.setVariable"
+  | "view.toggleShutter"
+  | "slideshow.setDeck"
+  | "slideshow.prev"
+  | "slideshow.next";
 
 export type SkinBindPath =
   | "track.title"
@@ -512,7 +707,9 @@ export type SkinBindPath =
   | "player.notPlaying"
   | "player.playbackState"
   | "player.positionSeconds"
+  | "player.positionLabel"
   | "player.repeatMode"
+  | "player.repeatOn"
   | "player.shuffle"
   | "player.volume"
   | "player.balance"

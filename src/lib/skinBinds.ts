@@ -1,11 +1,15 @@
 import { useMemo } from "react";
 import { presetLabel } from "./equalizer/builtinPresets";
+import { formatTime } from "./format";
 import { buildPlaybackOrder } from "./playbackOrder";
 import { findPlaybackTrack } from "./playbackTrack";
 import { getManualNextId } from "./playbackQueue";
 import { formatMetadataLine, playbackStatus } from "./skinMetadataLine";
 import { useSkinModeAlwaysOnTop } from "./skinModeAlwaysOnTop";
 import { evaluatePanelBind } from "./skinPanels";
+import { evaluateSlideshowBind } from "./skinSlideshow";
+import { evaluateViewBind, useSkinViewState } from "./skinViewStateContext";
+import { useSkinSlideshowState } from "./skinSlideshowContext";
 import {
   labelForSkinPlaylistSource,
   resolveSkinPlaylistTrackCount,
@@ -26,6 +30,9 @@ import type { SkinBindPath } from "../types/skin";
 import type { Track } from "../types/track";
 import type { Playlist } from "../types/playlist";
 import type { PanelOpenState } from "./skinPanels";
+import type { SlideshowPresentation } from "../types/skin";
+import type { SlideshowStateMap } from "./skinSlideshow";
+import type { ViewStateValues } from "./skinViewStateContext";
 
 export type SkinBindValue = string | number | boolean | null;
 
@@ -61,6 +68,9 @@ export interface SkinBindState {
   eqPresetId: string;
   eqBands: EqualizerBandGains;
   eqCustomPresets: EqualizerPreset[];
+  viewState: ViewStateValues;
+  slideshowPresentations: Record<string, SlideshowPresentation>;
+  slideshowState: SlideshowStateMap;
 }
 
 export function evaluateSkinBind(
@@ -75,6 +85,20 @@ export function evaluateSkinBind(
   );
   if (panelValue !== null) {
     return panelValue;
+  }
+
+  const viewValue = evaluateViewBind(path, state.viewState);
+  if (viewValue !== null) {
+    return viewValue;
+  }
+
+  const slideshowValue = evaluateSlideshowBind(
+    path,
+    state.slideshowPresentations,
+    state.slideshowState,
+  );
+  if (slideshowValue !== null) {
+    return slideshowValue;
   }
 
   const { currentTrack } = state;
@@ -105,8 +129,12 @@ export function evaluateSkinBind(
       return state.playbackState;
     case "player.positionSeconds":
       return state.positionSeconds;
+    case "player.positionLabel":
+      return formatTime(state.positionSeconds);
     case "player.repeatMode":
       return state.repeatMode;
+    case "player.repeatOn":
+      return state.repeatMode !== "off";
     case "player.shuffle":
       return state.shuffle;
     case "player.volume":
@@ -173,6 +201,9 @@ function playlistTrackCount(state: SkinBindState): number {
 
 export function useSkinBindState(): SkinBindState {
   const alwaysOnTop = useSkinModeAlwaysOnTop();
+  const { values: viewState } = useSkinViewState();
+  const { state: slideshowState, presentations: slideshowPresentations } =
+    useSkinSlideshowState();
   const panelOpen = useSkinStore((s) => s.panelOpen);
   const panelRevealed = useSkinStore((s) => s.panelRevealed);
   const panelSettled = useSkinStore((s) => s.panelSettled);
@@ -266,6 +297,9 @@ export function useSkinBindState(): SkinBindState {
       eqPresetId,
       eqBands,
       eqCustomPresets,
+      viewState,
+      slideshowPresentations,
+      slideshowState,
     }),
     [
       currentTrack,
@@ -299,6 +333,9 @@ export function useSkinBindState(): SkinBindState {
       eqPresetId,
       eqBands,
       eqCustomPresets,
+      viewState,
+      slideshowPresentations,
+      slideshowState,
     ],
   );
 }
@@ -320,8 +357,15 @@ export function useSkinVisible(visibleWhen: string | undefined): boolean {
 }
 
 /** Disabled when `disabledWhen` bind is falsy (for canGo* / hasTrack style guards). */
-export function useSkinDisabled(disabledWhen: string | undefined): boolean {
-  const value = useSkinBindValue(disabledWhen);
+export function isSkinBindDisabled(
+  disabledWhen: string | undefined,
+  state: SkinBindState,
+): boolean {
   if (!disabledWhen) return false;
-  return !value;
+  return !evaluateSkinBind(disabledWhen as SkinBindPath, state);
+}
+
+export function useSkinDisabled(disabledWhen: string | undefined): boolean {
+  const bindState = useSkinBindState();
+  return isSkinBindDisabled(disabledWhen, bindState);
 }

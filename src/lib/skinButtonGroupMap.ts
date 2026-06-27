@@ -11,7 +11,12 @@ export interface ButtonGroupPositionMap {
   height: number;
   /** Alpha masks keyed by mapping color (`"r,g,b"`) for per-button hover/pressed overlays. */
   colorMasks: Map<string, string>;
-  actionAt(x: number, y: number, colorToAction: Map<string, string>): string | null;
+  /**
+   * Resolve the mapping-color key (`"r,g,b"`) under a point, restricted to
+   * `validKeys`. Returns the element-identifying color key (not an action) so
+   * groups that repeat an action with different payloads stay distinct.
+   */
+  keyAt(x: number, y: number, validKeys: Set<string>): string | null;
 }
 
 export function parseMappingColor(color: string): { r: number; g: number; b: number } | null {
@@ -187,18 +192,15 @@ export async function loadButtonGroupPositionMap(
     width,
     height,
     colorMasks,
-    actionAt(x: number, y: number, colorToAction: Map<string, string>) {
+    keyAt(x: number, y: number, validKeys: Set<string>) {
       const px = Math.min(Math.max(Math.floor(x), 0), width - 1);
       const py = Math.min(Math.max(Math.floor(y), 0), height - 1);
 
       const color = colorAt(px, py);
-      if (color) {
-        const mapped = colorToAction.get(color);
-        if (mapped) return mapped;
-      }
+      if (color && validKeys.has(color)) return color;
 
       // Fallback when pointer lands just outside anti-aliased map edges.
-      let best: { action: string; area: number } | null = null;
+      let best: { colorKey: string; area: number } | null = null;
       for (const region of regions) {
         if (
           px >= region.x &&
@@ -206,16 +208,15 @@ export async function loadButtonGroupPositionMap(
           py >= region.y &&
           py < region.y + region.h
         ) {
-          const action = colorToAction.get(region.colorKey);
-          if (!action) continue;
+          if (!validKeys.has(region.colorKey)) continue;
           const area = region.w * region.h;
           if (!best || area < best.area) {
-            best = { action, area };
+            best = { colorKey: region.colorKey, area };
           }
         }
       }
 
-      return best?.action ?? null;
+      return best?.colorKey ?? null;
     },
   };
 }

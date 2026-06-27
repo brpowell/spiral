@@ -7,7 +7,7 @@ export interface PersistedSkinModeState {
   /** Physical screen coordinates. */
   x: number;
   y: number;
-  /** Logical pixels (matches Tauri `innerSize` / `LogicalSize`). */
+  /** Logical pixels (matches Tauri `LogicalSize`; not raw `innerSize` physical px). */
   width: number;
   height: number;
   alwaysOnTop: boolean;

@@ -7,6 +7,7 @@ import {
 } from "./playbackSeek";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { WindowRole } from "./windowRole";
+import { pickAndImportLibraryPaths } from "./libraryImport";
 
 export const PLAYER_STATE_EVENT = "player://state";
 export const PLAYER_ACTION_EVENT = "player://action";
@@ -44,7 +45,8 @@ export type PlayerRemoteAction =
   | { type: "playTracks"; ids: number[]; startId: number }
   | { type: "addToQueue"; ids: number[] }
   | { type: "removeFromQueue"; id: number }
-  | { type: "clearSetList" };
+  | { type: "clearSetList" }
+  | { type: "importFromPaths"; paths: string[] };
 
 const SYNC_KEYS: (keyof PlayerStateSnapshot)[] = [
   "library",
@@ -139,6 +141,9 @@ function dispatchRemoteAction(action: PlayerRemoteAction): void {
     case "clearSetList":
       store.clearSetList();
       break;
+    case "importFromPaths":
+      store.importFromPaths(action.paths);
+      break;
   }
 }
 
@@ -186,8 +191,11 @@ function installRemoteActions(): void {
         emitRemoteAction({ type: "removeFromQueue", id }),
       clearSetList: () => emitRemoteAction({ type: "clearSetList" }),
       loadLibrary: async () => {},
-      addToLibrary: async () => {},
-      importFromPaths: () => {},
+      addToLibrary: async () => {
+        await pickAndImportLibraryPaths();
+      },
+      importFromPaths: (paths) =>
+        emitRemoteAction({ type: "importFromPaths", paths }),
     },
     false,
   );

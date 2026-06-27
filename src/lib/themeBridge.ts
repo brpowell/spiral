@@ -1,7 +1,7 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import { useThemeStore } from "../store/useThemeStore";
 import type { WindowRole } from "./windowRole";
-import { isAppearanceWindow, isSkinModeWindow } from "./windowRole";
+import { isAnySkinWindow, isAppearanceWindow } from "./windowRole";
 
 export const THEME_CHANGED_EVENT = "theme://changed";
 
@@ -15,7 +15,7 @@ async function applyThemeChange(_themeId: string): Promise<void> {
 }
 
 function shouldListenForThemeChanges(role: WindowRole): boolean {
-  return role === "main" || isSkinModeWindow() || isAppearanceWindow();
+  return role === "main" || isAnySkinWindow() || isAppearanceWindow();
 }
 
 export async function initThemeBridge(role: WindowRole): Promise<() => void> {

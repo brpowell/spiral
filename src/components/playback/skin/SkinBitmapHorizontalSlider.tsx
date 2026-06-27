@@ -110,7 +110,7 @@ export function SkinBitmapHorizontalSlider({
     <div
       className={className}
       data-node-id={node.id}
-      style={{ width: `${trackWidth}px`, height: `${trackHeight}px` }}
+      style={{ width: "100%", height: "100%" }}
     >
       <div
         className="skin-bitmap-horizontal-slider__track"

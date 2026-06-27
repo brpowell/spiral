@@ -1,14 +1,22 @@
 .skin-decoration {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
   pointer-events: none;
+  /* Avoid macOS WebKit crisp-upscale halos on skin bitmap edges. */
+  image-rendering: smooth;
+}
+
+/* 1:1 with canvas bounds when they match asset size (see SkinButtonGroup.css). */
+.skin-decoration--bitmap {
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: 0 0;
 }
 
 .skin-decoration--gif {
-  object-fit: contain;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .skin-decoration--drag {

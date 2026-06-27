@@ -15,8 +15,13 @@
   background-image: var(--skin-btn-img-hover, var(--skin-btn-img));
 }
 
-.skin-bitmap-btn:active:not(:disabled) {
+.skin-bitmap-btn:active:not(:disabled),
+.skin-bitmap-btn--sticky:not(:disabled) {
   background-image: var(--skin-btn-img-pressed, var(--skin-btn-img-hover, var(--skin-btn-img)));
+}
+
+.skin-bitmap-btn--sticky:hover:not(:disabled) {
+  background-image: var(--skin-btn-img-hover, var(--skin-btn-img));
 }
 
 .skin-bitmap-btn:disabled {

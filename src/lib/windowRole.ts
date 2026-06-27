@@ -1,8 +1,20 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import {
+  parseSkinAuxContextFromUrl,
+  parseSkinAuxWindowLabel,
+  type SkinAuxContext,
+} from "./skinAuxContext";
 
-export type WindowRole = "main" | "skin-mode" | "appearance" | "equalizer" | "activity-logs";
+export type WindowRole =
+  | "main"
+  | "skin-mode"
+  | "skin-aux"
+  | "appearance"
+  | "equalizer"
+  | "activity-logs";
 
 let role: WindowRole = "main";
+let skinAuxContext: SkinAuxContext | null = null;
 let inTauri = false;
 
 export async function bootstrapWindowRole(): Promise<WindowRole> {
@@ -11,6 +23,10 @@ export async function bootstrapWindowRole(): Promise<WindowRole> {
     inTauri = true;
     if (label === "skin-mode") {
       role = "skin-mode";
+    } else if (label.startsWith("skin-aux-")) {
+      role = "skin-aux";
+      skinAuxContext =
+        parseSkinAuxWindowLabel(label) ?? parseSkinAuxContextFromUrl();
     } else if (label === "appearance") {
       role = "appearance";
     } else if (label === "equalizer") {
@@ -23,6 +39,7 @@ export async function bootstrapWindowRole(): Promise<WindowRole> {
   } catch {
     inTauri = false;
     role = "main";
+    skinAuxContext = null;
   }
   return role;
 }
@@ -31,8 +48,20 @@ export function getWindowRole(): WindowRole {
   return role;
 }
 
+export function getSkinAuxContext(): SkinAuxContext | null {
+  return skinAuxContext;
+}
+
 export function isSkinModeWindow(): boolean {
   return role === "skin-mode";
+}
+
+export function isSkinAuxWindow(): boolean {
+  return role === "skin-aux";
+}
+
+export function isAnySkinWindow(): boolean {
+  return role === "skin-mode" || role === "skin-aux";
 }
 
 export function isAppearanceWindow(): boolean {

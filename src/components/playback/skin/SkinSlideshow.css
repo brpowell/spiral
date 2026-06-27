@@ -1,0 +1,10 @@
+.skin-slideshow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  /* Avoid macOS WebKit crisp-upscale halos on skin bitmap edges. */
+  image-rendering: smooth;
+}

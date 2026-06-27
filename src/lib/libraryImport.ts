@@ -11,7 +11,7 @@ import {
   isSupportedAudioPath,
 } from "./supportedAudio";
 import { waitForPaint, yieldForInteraction, yieldToMain } from "./scheduling";
-import { scanFolder } from "./tauri";
+import { scanFolder, pickLibraryPaths } from "./tauri";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import {
   isImportCancelledError,
@@ -42,6 +42,19 @@ async function resolveImportPaths(
   }
 
   return resolved;
+}
+
+export async function pickAndImportLibraryPaths(): Promise<void> {
+  usePlayerStore.setState({ importError: null });
+
+  try {
+    const paths = await pickLibraryPaths();
+    if (paths.length === 0) return;
+    usePlayerStore.getState().importFromPaths(paths);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    usePlayerStore.setState({ importError: `Import failed: ${message}` });
+  }
 }
 
 export function startLibraryImport(paths: string[]): void {

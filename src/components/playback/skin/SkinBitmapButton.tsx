@@ -2,7 +2,12 @@ import { useMemo } from "react";
 import { skinAssetUrl } from "../../../lib/skinAssets";
 import { useSkinAction } from "../../../lib/skinActions";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
-import { useSkinBindValue, useSkinDisabled } from "../../../lib/skinBinds";
+import {
+  evaluateSkinBind,
+  useSkinBindState,
+  useSkinBindValue,
+  useSkinDisabled,
+} from "../../../lib/skinBinds";
 import type { ButtonNode, LoadedSkinPack } from "../../../types/skin";
 import "./SkinBitmapButton.css";
 
@@ -13,7 +18,8 @@ export function SkinBitmapButton({
   node: ButtonNode;
   pack: LoadedSkinPack;
 }) {
-  const invoke = useSkinAction(node.action, node.panelId);
+  const invoke = useSkinAction(node.action, node);
+  const bindState = useSkinBindState();
   const isPlaying = useSkinBindValue("player.isPlaying");
   const hasTrack = useSkinBindValue("player.hasTrack");
   const canGoPrevious = useSkinBindValue("player.canGoPrevious");
@@ -47,12 +53,20 @@ export function SkinBitmapButton({
     disabledWhen ||
     (node.action === "player.previousTrack" && !canGoPrevious) ||
     (node.action === "player.nextTrack" && !canGoNext) ||
-    (node.action === "player.togglePlayPause" && !hasTrack);
+    (node.action === "player.togglePlayPause" && !hasTrack) ||
+    (node.action === "player.play" && !hasTrack) ||
+    (node.action === "player.pause" && !hasTrack);
+
+  const isSticky =
+    node.activeWhen &&
+    Boolean(evaluateSkinBind(node.activeWhen, bindState));
 
   return (
     <button
       type="button"
-      className="skin-bitmap-btn"
+      className={["skin-bitmap-btn", isSticky && "skin-bitmap-btn--sticky"]
+        .filter(Boolean)
+        .join(" ")}
       data-node-id={node.id}
       {...skinDragRegionNoneProps()}
       disabled={Boolean(actionDisabled)}
@@ -66,7 +80,7 @@ export function SkinBitmapButton({
           "--skin-btn-img-pressed": `url("${pressedSrc}")`,
         } as React.CSSProperties
       }
-      onClick={() => invoke()}
+      onClick={() => invoke(node.payload)}
     />
   );
 }

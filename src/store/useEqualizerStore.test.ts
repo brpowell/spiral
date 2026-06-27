@@ -188,4 +188,22 @@ describe("useEqualizerStore", () => {
     expect(state.presetId).toBe("flat");
     expect([...state.bands]).toEqual([...customPreset.bands]);
   });
+
+  it("cyclePreset wraps built-in presets and skips manual", () => {
+    useEqualizerStore.getState().applyPreset("flat");
+    useEqualizerStore.getState().cyclePreset("next");
+    expect(useEqualizerStore.getState().presetId).toBe("rock");
+
+    useEqualizerStore.getState().applyPreset("flat");
+    useEqualizerStore.getState().cyclePreset("prev");
+    expect(useEqualizerStore.getState().presetId).toBe("treble");
+  });
+
+  it("cyclePreset uses last preset when current is manual", () => {
+    useEqualizerStore.getState().applyPreset("jazz");
+    useEqualizerStore.getState().setBand(0, 4);
+
+    useEqualizerStore.getState().cyclePreset("next");
+    expect(useEqualizerStore.getState().presetId).toBe("classical");
+  });
 });

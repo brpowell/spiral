@@ -24,18 +24,18 @@
     "display": "panel",
     "size": { "width": "fill", "height": "flex" }
   },
-  "window": {
-    "defaultWidth": 320,
-    "defaultHeight": 468,
-    "minWidth": 280,
-    "minHeight": 388,
-    "maxWidth": 420,
-    "maxHeight": 588,
-    "resizable": true,
-    "snapEnabled": true
-  },
   "views": {
     "standard": {
+      "window": {
+        "defaultWidth": 320,
+        "defaultHeight": 468,
+        "minWidth": 280,
+        "minHeight": 388,
+        "maxWidth": 420,
+        "maxHeight": 588,
+        "resizable": true,
+        "snapEnabled": true
+      },
       "layout": {
         "type": "column",
         "children": [

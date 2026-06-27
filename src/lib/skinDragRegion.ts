@@ -10,8 +10,3 @@ export function skinDragRegionDeepProps(): Record<string, string> {
 export function skinDragRegionNoneProps(): Record<string, string> {
   return { [SKIN_TAURI_DRAG_REGION]: "false" };
 }
-
-/** Leaf drag target with no interactive children. */
-export function skinDragRegionSelfProps(): Record<string, string> {
-  return { [SKIN_TAURI_DRAG_REGION]: "true" };
-}

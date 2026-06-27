@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { isSkinModeWindow } from "../../lib/windowRole";
+import { isAnySkinWindow } from "../../lib/windowRole";
 import {
   DEFAULT_VISUALIZER_ID,
   resolveSkinVisualizerFixedPackId,
@@ -11,7 +11,7 @@ import type { VisualizerPack } from "./types";
 
 export function useResolvedVisualizerPack(): VisualizerPack {
   const skinFixedPackId = useSkinStore((s) => {
-    if (!isSkinModeWindow()) return null;
+    if (!isAnySkinWindow()) return null;
     return resolveSkinVisualizerFixedPackId(s.activePack?.manifest.visualizer);
   });
   const globalPackId = useVisualizerStore((s) => s.activePackId);

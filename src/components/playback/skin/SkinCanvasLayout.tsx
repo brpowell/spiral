@@ -1,17 +1,19 @@
-import { useMemo, useState } from "react";
-import { SKIN_DEBUG_STORAGE_KEY } from "../../../lib/skinDebug";
+import { useMemo, useRef, useState } from "react";
 import { useSkinStore } from "../../../store/useSkinStore";
 import type {
   LoadedSkinPack,
   SkinManifest,
   SkinView,
 } from "../../../types/skin";
-import {
-  resolveCanvasSize,
-  resolveSkinWindowBackgroundStyle,
-} from "../../../lib/skinWindowPresentation";
+import { resolveViewWindowChrome } from "../../../lib/skinModeWindowChrome";
+import { resolveCanvasSize } from "../../../lib/skinPanels";
+import { resolveViewDragInference } from "../../../lib/skinWindowPresentation";
+import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
 import { SkinBoundedCanvasNode } from "./SkinBoundedCanvasNode";
+import { SkinViewRuntimeProviders } from "./SkinViewRuntimeProviders";
 import { useSkinDebug } from "../../../hooks/useSkinDebug";
+import { useSkinCanvasStageSize } from "../../../hooks/useSkinCanvasStageSize";
+import { SkinCanvasStageContext } from "./SkinCanvasStageContext";
 import "./SkinCanvasLayout.css";
 
 export interface SkinCanvasLayoutProps {
@@ -19,6 +21,7 @@ export interface SkinCanvasLayoutProps {
   view: SkinView;
   viewId: string;
   className?: string;
+  registerGlobalApi?: boolean;
 }
 
 export function SkinCanvasLayout({
@@ -26,18 +29,34 @@ export function SkinCanvasLayout({
   view,
   viewId,
   className,
+  registerGlobalApi = false,
 }: SkinCanvasLayoutProps) {
   const skinDebug = useSkinDebug();
   const panelOpen = useSkinStore((s) => s.panelOpen);
   const [visualizerExpanded, setVisualizerExpanded] = useState(false);
   const manifest: SkinManifest = pack.manifest;
   const textStyles = manifest.textStyles ?? {};
-  const { width, height } = resolveCanvasSize(view, manifest);
+  const fallbackSize = resolveCanvasSize(view);
+  const chrome = resolveViewWindowChrome(pack, viewId);
+  const resizable = chrome.resizable !== false;
+  const stageDragProps =
+    resolveViewDragInference(view) === "auto"
+      ? skinDragRegionDeepProps()
+      : undefined;
+  const stageRef = useRef<HTMLDivElement>(null);
+  const stageSize = useSkinCanvasStageSize(stageRef, fallbackSize);
+  const layoutSize = resizable ? stageSize : fallbackSize;
+  const { width, height } = layoutSize;
 
   const onToggleVisualizer = () => setVisualizerExpanded((v) => !v);
   const onOpenQueue = () => {};
 
-  const { nodes, shellClass, bgStyle } = useMemo(() => {
+  const stageContext = useMemo(
+    () => ({ stageSize: layoutSize }),
+    [layoutSize],
+  );
+
+  const { nodes, shellClass } = useMemo(() => {
     const root = view.layout;
     const children = (
       root.type === "canvas"
@@ -48,12 +67,6 @@ export function SkinCanvasLayout({
     ).slice().sort(
       (a, b) => (a.bounds?.zIndex ?? 0) - (b.bounds?.zIndex ?? 0),
     );
-
-    const windowClass = manifest.window?.background
-      ? "skin-canvas-layout--has-bg"
-      : "";
-
-    const bgStyle = resolveSkinWindowBackgroundStyle(pack);
 
     return {
       nodes: children.map((child, index) => (
@@ -68,10 +81,13 @@ export function SkinCanvasLayout({
           panelOpen={panelOpen}
         />
       )),
-      shellClass: ["skin-canvas-layout", windowClass, className]
+      shellClass: [
+        "skin-canvas-layout",
+        resizable && "skin-canvas-layout--resizable",
+        className,
+      ]
         .filter(Boolean)
         .join(" "),
-      bgStyle,
     };
   }, [
     view.layout,
@@ -79,29 +95,48 @@ export function SkinCanvasLayout({
     textStyles,
     visualizerExpanded,
     panelOpen,
-    manifest.window,
     className,
+    resizable,
   ]);
 
   return (
-    <div
-      className={shellClass}
-      style={{ ...bgStyle, width: `${width}px`, height: `${height}px` }}
-      data-skin-id={pack.summary.id}
-      data-view-id={viewId}
+    <SkinViewRuntimeProviders
+      key={viewId}
+      view={view}
+      registerGlobalApi={registerGlobalApi}
     >
-      <div
-        className="skin-canvas-layout__stage"
-        style={{ width: `${width}px`, height: `${height}px` }}
-      >
-        {skinDebug ? (
-          <div className="skin-canvas-layout__debug-banner" aria-hidden>
-            Skin debug — spiralSkinDebug.disable() or localStorage.removeItem(
-            {JSON.stringify(SKIN_DEBUG_STORAGE_KEY)})
+      <SkinCanvasStageContext.Provider value={stageContext}>
+        <div
+          className={shellClass}
+          style={
+            resizable
+              ? undefined
+              : { width: `${width}px`, height: `${height}px` }
+          }
+          data-skin-id={pack.summary.id}
+          data-view-id={viewId}
+          data-resizable={resizable ? "true" : "false"}
+        >
+          <div
+            ref={stageRef}
+            className="skin-canvas-layout__stage"
+            {...stageDragProps}
+            style={
+              resizable
+                ? undefined
+                : { width: `${width}px`, height: `${height}px` }
+            }
+          >
+            {skinDebug ? (
+              <div className="skin-canvas-layout__debug-banner" aria-hidden>
+                Skin debug — spiralSkinDebug.enable() for bounds; spiralSkin.help()
+                for view windows
+              </div>
+            ) : null}
+            {nodes}
           </div>
-        ) : null}
-        {nodes}
-      </div>
-    </div>
+        </div>
+      </SkinCanvasStageContext.Provider>
+    </SkinViewRuntimeProviders>
   );
 }

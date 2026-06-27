@@ -2,11 +2,18 @@ import { emit } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { availableMonitors, getCurrentWindow } from "@tauri-apps/api/window";
 import {
+  closeAllSkinAuxWindows,
+  prewarmSkinAuxWindows,
+  restoreOpenSkinAuxWindows,
+} from "./skinAuxWindow";
+import {
   applyPackWindowLayout,
   persistSkinModeStateForSkin,
-  resolvePackWindowChrome,
+  resolveViewWindowChrome,
   suppressSkinModeSnap,
 } from "./skinModeWindowChrome";
+import { resolveViewForPack } from "./skinViewState";
+import { useSkinStore } from "../store/useSkinStore";
 import { getActiveSkinId, loadSkinPack, quitApp } from "./tauri";
 import {
   patchPersistedSkinModeState,
@@ -21,6 +28,9 @@ export { DEFAULT_SKIN_MODE_ALWAYS_ON_TOP } from "./skinModeWindowState";
 
 const SKIN_MODE_LABEL = "skin-mode";
 const MAIN_WINDOW_LABEL = "main";
+
+/** Fired in the skin-mode webview after the window is shown (intro timers, etc.). */
+export const SKIN_MODE_SHOWN_EVENT = "spiral:skin-mode-shown";
 
 async function getSkinModeWindow(): Promise<WebviewWindow | null> {
   try {
@@ -59,19 +69,21 @@ export async function openSkinMode(): Promise<void> {
   try {
     const skinId = await getActiveSkinId();
     const pack = await loadSkinPack(skinId);
-    await applyPackWindowLayout(pack, skinModeWindow);
-  } catch (err) {
-    console.error("openSkinMode: layout failed, opening anyway", err);
-  }
+    const viewId = resolveViewForPack(pack);
+    await applyPackWindowLayout(pack, viewId, skinModeWindow);
 
-  try {
     await skinModeWindow.show();
     if (main) {
       await main.hide();
     }
     suppressSkinModeSnap();
     await skinModeWindow.setFocus();
+    void emit(SKIN_MODE_SHOWN_EVENT, {});
     void emit(PLAYER_REQUEST_STATE_EVENT, {});
+    await restoreOpenSkinAuxWindows(pack);
+    void prewarmSkinAuxWindows(pack).catch((err: unknown) => {
+      console.warn("prewarmSkinAuxWindows failed:", err);
+    });
   } catch (err) {
     console.error("openSkinMode: failed to show skin mode window", err);
   }
@@ -81,10 +93,18 @@ export async function openSkinMode(): Promise<void> {
 export async function restoreMainWindow(): Promise<void> {
   if (!isTauri()) return;
 
+  const pack = await loadSkinPack(await getActiveSkinId()).catch(() => null);
+
   const [main, skinModeWindow] = await Promise.all([
     getMainWindow(),
     getSkinModeWindow(),
   ]);
+
+  if (pack) {
+    await closeAllSkinAuxWindows(pack);
+  } else {
+    await closeAllSkinAuxWindows();
+  }
 
   if (skinModeWindow) {
     await skinModeWindow.hide();
@@ -167,7 +187,9 @@ export async function setSkinModeAlwaysOnTop(
   }
 
   const pack = await loadSkinPack(resolvedSkinId).catch(() => null);
-  const chrome = resolvePackWindowChrome(pack);
+  if (!pack) return;
+  const viewId = useSkinStore.getState().activeViewId;
+  const chrome = resolveViewWindowChrome(pack, viewId);
   await persistSkinModeStateForSkin(resolvedSkinId, chrome);
 }
 
@@ -185,7 +207,9 @@ export async function persistSkinModeWindowState(
   if (window.label !== SKIN_MODE_LABEL) return;
 
   const pack = await loadSkinPack(skinId).catch(() => null);
-  const chrome = resolvePackWindowChrome(pack);
+  if (!pack) return;
+  const viewId = useSkinStore.getState().activeViewId;
+  const chrome = resolveViewWindowChrome(pack, viewId);
   await persistSkinModeStateForSkin(skinId, chrome, snapResult, window);
 }
 

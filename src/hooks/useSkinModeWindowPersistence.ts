@@ -9,14 +9,19 @@ import {
 import { isSkinModeSnapSuppressed } from "../lib/skinModeWindowChrome";
 import { useSkinStore } from "../store/useSkinStore";
 
+import { isSkinModeWindow } from "../lib/windowRole";
+
 const SAVE_DEBOUNCE_MS = 500;
 
 export function useSkinModeWindowPersistence(): void {
+  const isPrimarySkin = isSkinModeWindow();
   const skinId = useSkinStore((s) => s.activeSkinId);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const snapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (!isPrimarySkin) return;
+
     void ensureSkinModeOnVisibleMonitor().catch((err: unknown) => {
       console.error("Failed to validate skin mode monitor:", err);
     });
@@ -133,5 +138,5 @@ export function useSkinModeWindowPersistence(): void {
         clearTimeout(snapTimerRef.current);
       }
     };
-  }, [skinId]);
+  }, [isPrimarySkin, skinId]);
 }

@@ -1,7 +1,7 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import { useVisualizerStore } from "../store/useVisualizerStore";
 import type { WindowRole } from "./windowRole";
-import { isAppearanceWindow, isSkinModeWindow } from "./windowRole";
+import { isAnySkinWindow, isAppearanceWindow } from "./windowRole";
 
 export const VISUALIZER_CHANGED_EVENT = "visualizer://changed";
 
@@ -14,7 +14,7 @@ async function applyVisualizerChange(packId: string): Promise<void> {
 }
 
 function shouldListenForVisualizerChanges(role: WindowRole): boolean {
-  return role === "main" || isSkinModeWindow() || isAppearanceWindow();
+  return role === "main" || isAnySkinWindow() || isAppearanceWindow();
 }
 
 export async function initVisualizerBridge(

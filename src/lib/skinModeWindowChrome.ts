@@ -5,7 +5,8 @@ import {
   type Color,
   type Window,
 } from "@tauri-apps/api/window";
-import type { LoadedSkinPack, SkinManifest, WindowChrome } from "../types/skin";
+import type { LoadedSkinPack, WindowChrome } from "../types/skin";
+import { resolveViewForPack } from "./skinViewState";
 import { setSkinModeAlwaysOnTopSnapshot } from "./skinModeAlwaysOnTop";
 import { restoreSkinModeGeometry } from "./skinModeSnap";
 import {
@@ -21,8 +22,6 @@ export const DEFAULT_SKIN_MODE_CHROME: ResolvedSkinModeWindowChrome = {
   defaultHeight: 440,
   minWidth: 260,
   minHeight: 320,
-  maxWidth: 480,
-  maxHeight: 720,
   resizable: true,
   snapEnabled: true,
 };
@@ -32,44 +31,75 @@ export interface ResolvedSkinModeWindowChrome {
   defaultHeight: number;
   minWidth: number;
   minHeight: number;
-  maxWidth: number;
-  maxHeight: number;
+  maxWidth?: number;
+  maxHeight?: number;
   resizable: boolean;
   snapEnabled: boolean;
 }
 
-export function resolveSkinWindowChrome(
-  manifest: SkinManifest | undefined,
+export function resolveWindowChrome(
+  w: WindowChrome | undefined,
 ): ResolvedSkinModeWindowChrome {
-  const w: WindowChrome | undefined = manifest?.window;
   const defaultWidth =
     w?.defaultWidth ?? DEFAULT_SKIN_MODE_CHROME.defaultWidth;
   const defaultHeight =
     w?.defaultHeight ?? DEFAULT_SKIN_MODE_CHROME.defaultHeight;
   const minWidth = w?.minWidth ?? Math.min(defaultWidth, 240);
   const minHeight = w?.minHeight ?? Math.min(defaultHeight, 280);
-  const maxWidth = w?.maxWidth ?? DEFAULT_SKIN_MODE_CHROME.maxWidth;
-  const maxHeight = w?.maxHeight ?? DEFAULT_SKIN_MODE_CHROME.maxHeight;
+  const maxWidth = w?.maxWidth;
+  const maxHeight = w?.maxHeight;
   const resizable = w?.resizable ?? true;
   const snapEnabled = w?.snapEnabled ?? true;
+
+  const resolvedMinWidth =
+    maxWidth !== undefined
+      ? Math.min(minWidth, defaultWidth, maxWidth)
+      : Math.min(minWidth, defaultWidth);
+  const resolvedMinHeight =
+    maxHeight !== undefined
+      ? Math.min(minHeight, defaultHeight, maxHeight)
+      : Math.min(minHeight, defaultHeight);
 
   return {
     defaultWidth,
     defaultHeight,
-    minWidth: Math.min(minWidth, defaultWidth, maxWidth),
-    minHeight: Math.min(minHeight, defaultHeight, maxHeight),
-    maxWidth: Math.max(maxWidth, defaultWidth, minWidth),
-    maxHeight: Math.max(maxHeight, defaultHeight, minHeight),
+    minWidth: resolvedMinWidth,
+    minHeight: resolvedMinHeight,
+    maxWidth:
+      maxWidth !== undefined
+        ? Math.max(maxWidth, defaultWidth, resolvedMinWidth)
+        : undefined,
+    maxHeight:
+      maxHeight !== undefined
+        ? Math.max(maxHeight, defaultHeight, resolvedMinHeight)
+        : undefined,
     resizable,
     snapEnabled,
   };
 }
 
-export function resolvePackWindowChrome(
-  pack: LoadedSkinPack | null,
+export function resolveViewWindowChrome(
+  pack: LoadedSkinPack,
+  viewId: string,
 ): ResolvedSkinModeWindowChrome {
-  if (!pack) return DEFAULT_SKIN_MODE_CHROME;
-  return resolveSkinWindowChrome(pack.manifest);
+  return resolveWindowChrome(pack.manifest.views[viewId]?.window);
+}
+
+/** Min/max fields for Tauri window creation and `setSizeConstraints`. */
+export function windowSizeLimitsFromChrome(
+  chrome: ResolvedSkinModeWindowChrome,
+): {
+  minWidth: number;
+  minHeight: number;
+  maxWidth?: number;
+  maxHeight?: number;
+} {
+  return {
+    minWidth: chrome.minWidth,
+    minHeight: chrome.minHeight,
+    ...(chrome.maxWidth !== undefined ? { maxWidth: chrome.maxWidth } : {}),
+    ...(chrome.maxHeight !== undefined ? { maxHeight: chrome.maxHeight } : {}),
+  };
 }
 
 let snapSuppressedUntil = 0;
@@ -92,8 +122,12 @@ export function isSkinModeSnapSuppressed(): boolean {
   return Date.now() < snapSuppressedUntil;
 }
 
-function clampLogical(value: number, min: number, max: number): number {
-  return Math.min(Math.max(Math.round(value), min), max);
+/** Safety cap when manifest omits maxWidth/maxHeight (prevents runaway persisted sizes). */
+const ABSOLUTE_MAX_WINDOW_DIMENSION = 4096;
+
+function clampLogical(value: number, min: number, max: number | undefined): number {
+  const clampedMin = Math.max(Math.round(value), min);
+  return max !== undefined ? Math.min(clampedMin, max) : clampedMin;
 }
 
 export function sanitizeWindowSize(
@@ -101,10 +135,24 @@ export function sanitizeWindowSize(
   height: number,
   chrome: ResolvedSkinModeWindowChrome,
 ): { width: number; height: number } {
+  const maxWidth = chrome.maxWidth ?? ABSOLUTE_MAX_WINDOW_DIMENSION;
+  const maxHeight = chrome.maxHeight ?? ABSOLUTE_MAX_WINDOW_DIMENSION;
   return {
-    width: clampLogical(width, chrome.minWidth, chrome.maxWidth),
-    height: clampLogical(height, chrome.minHeight, chrome.maxHeight),
+    width: clampLogical(width, chrome.minWidth, maxWidth),
+    height: clampLogical(height, chrome.minHeight, maxHeight),
   };
+}
+
+export function isPlausibleWindowSize(
+  width: number,
+  height: number,
+  chrome: ResolvedSkinModeWindowChrome,
+): boolean {
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return false;
+  if (width <= 0 || height <= 0) return false;
+  const maxWidth = chrome.maxWidth ?? ABSOLUTE_MAX_WINDOW_DIMENSION;
+  const maxHeight = chrome.maxHeight ?? ABSOLUTE_MAX_WINDOW_DIMENSION;
+  return width <= maxWidth && height <= maxHeight;
 }
 
 export function defaultWindowSize(chrome: ResolvedSkinModeWindowChrome): {
@@ -150,11 +198,8 @@ export async function applySkinModeWindowChrome(
   await tryWindowOp("setResizable", () =>
     window.setResizable(chrome.resizable),
   );
-  await tryWindowOp("setMinSize", () =>
-    window.setMinSize(new LogicalSize(chrome.minWidth, chrome.minHeight)),
-  );
-  await tryWindowOp("setMaxSize", () =>
-    window.setMaxSize(new LogicalSize(chrome.maxWidth, chrome.maxHeight)),
+  await tryWindowOp("setSizeConstraints", () =>
+    window.setSizeConstraints(windowSizeLimitsFromChrome(chrome)),
   );
   setSkinModeSnapEnabled(chrome.snapEnabled);
 }
@@ -170,9 +215,10 @@ export async function applySkinModeWindowLayout(
   await applySkinModeWindowChrome(chrome, window);
 
   const persisted = readPersistedSkinModeState(skinId);
-  const { width, height } = persisted
-    ? sanitizeWindowSize(persisted.width, persisted.height, chrome)
-    : defaultWindowSize(chrome);
+  const { width, height } =
+    persisted && isPlausibleWindowSize(persisted.width, persisted.height, chrome)
+      ? sanitizeWindowSize(persisted.width, persisted.height, chrome)
+      : defaultWindowSize(chrome);
 
   await window.setSize(new LogicalSize(width, height));
 
@@ -197,20 +243,42 @@ export async function applySkinModeWindowLayout(
   suppressSkinModeSnap();
 }
 
+export async function applyViewWindowLayout(
+  pack: LoadedSkinPack,
+  viewId: string,
+  window: Window = getCurrentWindow(),
+): Promise<void> {
+  const chrome = resolveViewWindowChrome(pack, viewId);
+  await applySkinModeWindowLayout(chrome, pack.summary.id, pack, window);
+}
+
 export async function applyPackWindowLayout(
   pack: LoadedSkinPack,
-  window?: Window,
+  viewIdOrWindow?: string | Window,
+  maybeWindow?: Window,
 ): Promise<void> {
-  const chrome = resolvePackWindowChrome(pack);
-  await applySkinModeWindowLayout(chrome, pack.summary.id, pack, window);
+  let viewId: string;
+  let window: Window | undefined;
+
+  if (typeof viewIdOrWindow === "string") {
+    viewId = viewIdOrWindow;
+    window = maybeWindow;
+  } else {
+    viewId = resolveViewForPack(pack);
+    window = viewIdOrWindow;
+  }
+
+  await applyViewWindowLayout(pack, viewId, window);
 }
 
 /** After switching skins, resize to the new skin's defaults if not resizable. */
 export async function applySkinChangeWindowLayout(
   pack: LoadedSkinPack,
+  viewId?: string,
   window: Window = getCurrentWindow(),
 ): Promise<void> {
-  const chrome = resolvePackWindowChrome(pack);
+  const resolvedViewId = viewId ?? resolveViewForPack(pack);
+  const chrome = resolveViewWindowChrome(pack, resolvedViewId);
   suppressSkinModeSnap();
   await applySkinModeWindowPresentation(pack, window);
   await applySkinModeWindowChrome(chrome, window);
@@ -235,11 +303,32 @@ export async function applySkinChangeWindowLayout(
   suppressSkinModeSnap();
 }
 
+/** Resize the primary skin window when switching exclusive/primary views. */
+export async function applySwitchViewWindowLayout(
+  pack: LoadedSkinPack,
+  viewId: string,
+  window: Window = getCurrentWindow(),
+): Promise<void> {
+  const chrome = resolveViewWindowChrome(pack, viewId);
+  suppressSkinModeSnap();
+  await applySkinModeWindowPresentation(pack, window);
+  await applySkinModeWindowChrome(chrome, window);
+
+  const { width, height } = defaultWindowSize(chrome);
+  await window.setSize(new LogicalSize(width, height));
+
+  suppressSkinModeSnap();
+}
+
 export async function readLogicalWindowSize(
   window: Window = getCurrentWindow(),
 ): Promise<{ width: number; height: number }> {
-  const size = await window.innerSize();
-  return { width: size.width, height: size.height };
+  const [physicalSize, scaleFactor] = await Promise.all([
+    window.innerSize(),
+    window.scaleFactor(),
+  ]);
+  const logical = physicalSize.toLogical(scaleFactor);
+  return { width: logical.width, height: logical.height };
 }
 
 export function buildPersistedState(

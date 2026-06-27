@@ -1,5 +1,5 @@
 import { useVisualizerFrameRef } from "../../../hooks/useVisualizerFrame";
-import { isSkinModeWindow } from "../../../lib/windowRole";
+import { isAnySkinWindow } from "../../../lib/windowRole";
 import { usePrefersReducedMotion } from "../../visualizer/context";
 import { resolveSurfaceScene } from "../../visualizer/packs";
 import { SceneRenderer } from "../../visualizer/scene/SceneRenderer";
@@ -67,7 +67,7 @@ function LocalVisualizerSlot(props: VisualizerSlotProps) {
 }
 
 export function VisualizerSlot(props: VisualizerSlotProps) {
-  if (isSkinModeWindow()) {
+  if (isAnySkinWindow()) {
     return <RemoteVisualizerSlot {...props} />;
   }
   return <LocalVisualizerSlot {...props} />;

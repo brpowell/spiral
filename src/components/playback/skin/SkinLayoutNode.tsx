@@ -15,6 +15,8 @@ import { SkinBitmapHorizontalSlider } from "./SkinBitmapHorizontalSlider";
 import { SkinEqBandSlider } from "./SkinEqBandSlider";
 import { SkinBitmapSeekbar } from "./SkinBitmapSeekbar";
 import { SkinFramedVisualizer } from "./SkinFramedVisualizer";
+import { SkinTiledFrame } from "./SkinTiledFrame";
+import { SkinSlideshow } from "./SkinSlideshow";
 import { SkinText } from "./SkinText";
 import "./SkinLayoutNode.css";
 
@@ -60,6 +62,10 @@ export function SkinLayoutNode({
     return <SkinButtonGroup node={node} pack={pack} />;
   }
 
+  if (node.type === "slideshow" && node.presentation.kind === "imageSequence") {
+    return <SkinSlideshow node={node} pack={pack} />;
+  }
+
   if (node.type === "canvas") {
     return (
       <div
@@ -82,6 +88,25 @@ export function SkinLayoutNode({
     );
   }
 
+  if (node.type === "tiledFrame") {
+    return (
+      <SkinTiledFrame node={node} pack={pack}>
+        {node.children.map((child, index) => (
+          <SkinBoundedCanvasNode
+            key={child.id ?? index}
+            node={child}
+            pack={pack}
+            textStyles={textStyles}
+            visualizerExpanded={visualizerExpanded}
+            onToggleVisualizer={onToggleVisualizer}
+            onOpenQueue={onOpenQueue}
+            panelOpen={panelOpen}
+          />
+        ))}
+      </SkinTiledFrame>
+    );
+  }
+
   if (
     node.type === "stack" ||
     node.type === "row" ||
@@ -96,7 +121,7 @@ export function SkinLayoutNode({
         {...(node.dragRegion ? skinDragRegionDeepProps() : {})}
       >
         {node.children.map((child, index) => (
-          <SkinLayoutNode
+          <SkinBoundedCanvasNode
             key={child.id ?? index}
             node={child}
             pack={pack}

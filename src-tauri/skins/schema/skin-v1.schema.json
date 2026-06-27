@@ -32,7 +32,6 @@
       "type": "object",
       "additionalProperties": { "$ref": "#/$defs/textStyle" }
     },
-    "window": { "$ref": "#/$defs/windowChrome" },
     "visualizer": {
       "type": "object",
       "additionalProperties": false,
@@ -79,16 +78,36 @@
       "required": ["layout"],
       "additionalProperties": false,
       "properties": {
+        "presentation": {
+          "type": "string",
+          "enum": ["primary", "exclusive", "auxiliary"],
+          "description": "How the runtime manages the native window for this view."
+        },
         "layoutMode": {
           "type": "string",
           "enum": ["slots", "canvas"],
-          "description": "slots = SkinShell regions (default); canvas = absolute bounds"
+          "default": "slots",
+          "description": "slots = SkinShell regions (default); canvas = absolute bounds. Canvas views default to dragInference auto."
+        },
+        "dragInference": {
+          "type": "string",
+          "enum": ["auto", "manual"],
+          "description": "Window drag inference. Runtime default: auto when layoutMode is canvas, manual for slots. Override per view or via window.dragInference."
         },
         "canvas": { "$ref": "#/$defs/canvasSpec" },
         "panels": {
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/panel" },
           "description": "In-view overlays toggled via skin.togglePanel (drawers, dropdowns)."
+        },
+        "state": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/viewStateVariable" },
+          "description": "Ephemeral in-view variables (menu/content screens, etc.)."
+        },
+        "window": {
+          "$ref": "#/$defs/windowChrome",
+          "description": "Native window size constraints for this view."
         },
         "layout": { "$ref": "#/$defs/layoutNode" }
       }
@@ -116,6 +135,20 @@
         "height": { "type": "integer", "minimum": 1 }
       }
     },
+    "viewStateVariable": {
+      "type": "object",
+      "required": ["default"],
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" }
+          ]
+        }
+      }
+    },
     "canvasSpec": {
       "type": "object",
       "required": ["width", "height"],
@@ -135,24 +168,31 @@
     },
     "layoutBounds": {
       "type": "object",
-      "required": ["x", "y", "w", "h"],
+      "required": ["y", "w", "h"],
       "additionalProperties": false,
       "properties": {
         "x": { "type": "number" },
+        "right": {
+          "type": "number",
+          "description": "WMP right anchor: inset of the node's left edge from the stage right (view.width - N)."
+        },
         "y": { "type": "number" },
         "w": { "type": "number", "minimum": 1 },
         "h": { "type": "number", "minimum": 1 },
         "zIndex": { "type": "integer" }
-      }
+      },
+      "anyOf": [{ "required": ["x"] }, { "required": ["right"] }]
     },
     "layoutNode": {
       "oneOf": [
         { "$ref": "#/$defs/containerNode" },
         { "$ref": "#/$defs/regionNode" },
         { "$ref": "#/$defs/decorationNode" },
-        { "$ref": "#/$defs/dragRegionNode" },
+        { "$ref": "#/$defs/hitAreaNode" },
+        { "$ref": "#/$defs/tiledFrameNode" },
         { "$ref": "#/$defs/controlNode" },
         { "$ref": "#/$defs/buttonGroupNode" },
+        { "$ref": "#/$defs/slideshowNode" },
         { "$ref": "#/$defs/eqBandNode" },
         { "$ref": "#/$defs/balanceNode" }
       ]
@@ -175,6 +215,7 @@
       "additionalProperties": false,
       "properties": {
         "x": { "type": "number" },
+        "right": { "type": "number" },
         "y": { "type": "number" },
         "w": { "type": "number", "minimum": 1 },
         "h": { "type": "number", "minimum": 1 },
@@ -277,7 +318,8 @@
         }
       ]
     },
-    "dragRegionNode": {
+    "hitAreaNode": {
+      "description": "Solid canvas hit target without a Tauri drag attribute. Use on click-through skins where bounds must block OS pass-through but stage dragInference handles window moves.",
       "allOf": [
         { "$ref": "#/$defs/nodeBase" },
         {
@@ -286,7 +328,7 @@
           "additionalProperties": false,
           "properties": {
             "id": { "type": "string" },
-            "type": { "const": "dragRegion" },
+            "type": { "const": "hitArea" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "boundsWhen": {
               "type": "object",
@@ -297,6 +339,116 @@
           }
         }
       ]
+    },
+    "tiledFrameNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "presentation", "children"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "type": { "const": "tiledFrame" },
+            "presentation": { "$ref": "#/$defs/tiledFramePresentation" },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/layoutNode" }
+            },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "visibleWhen": { "type": "string" },
+            "animations": { "type": "object" }
+          }
+        }
+      ]
+    },
+    "tiledFrameTileSize": {
+      "type": "object",
+      "required": ["w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "w": { "type": "number", "minimum": 1 },
+        "h": { "type": "number", "minimum": 1 },
+        "artHeight": { "type": "number", "minimum": 1 }
+      }
+    },
+    "tiledFramePresentation": {
+      "type": "object",
+      "required": ["kind", "assets", "tileSizes", "frameThickness", "contentInset"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "tiledFrame" },
+        "assets": {
+          "type": "object",
+          "required": [
+            "topLeft",
+            "topCenter",
+            "topRight",
+            "topStretch",
+            "leftStretch",
+            "rightStretch",
+            "bottomLeft",
+            "bottomCenter",
+            "bottomRight",
+            "bottomStretch"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "topLeft": { "type": "string" },
+            "topCenter": { "type": "string" },
+            "topRight": { "type": "string" },
+            "topStretch": { "type": "string" },
+            "topStretch2": { "type": "string" },
+            "leftStretch": { "type": "string" },
+            "rightStretch": { "type": "string" },
+            "bottomLeft": { "type": "string" },
+            "bottomCenter": { "type": "string" },
+            "bottomRight": { "type": "string" },
+            "bottomStretch": { "type": "string" },
+            "bottomStretch2": { "type": "string" },
+            "resizeGrip": { "type": "string" }
+          }
+        },
+        "tileSizes": {
+          "type": "object",
+          "required": [
+            "topLeft",
+            "topCenter",
+            "topRight",
+            "bottomLeft",
+            "bottomCenter",
+            "bottomRight"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "topLeft": { "$ref": "#/$defs/tiledFrameTileSize" },
+            "topCenter": { "$ref": "#/$defs/tiledFrameTileSize" },
+            "topRight": { "$ref": "#/$defs/tiledFrameTileSize" },
+            "topStretch": { "$ref": "#/$defs/tiledFrameTileSize" },
+            "topStretch2": { "$ref": "#/$defs/tiledFrameTileSize" },
+            "leftStretch": { "$ref": "#/$defs/tiledFrameTileSize" },
+            "rightStretch": { "$ref": "#/$defs/tiledFrameTileSize" },
+            "bottomLeft": { "$ref": "#/$defs/tiledFrameTileSize" },
+            "bottomCenter": { "$ref": "#/$defs/tiledFrameTileSize" },
+            "bottomRight": { "$ref": "#/$defs/tiledFrameTileSize" },
+            "bottomStretch": { "$ref": "#/$defs/tiledFrameTileSize" },
+            "bottomStretch2": { "$ref": "#/$defs/tiledFrameTileSize" },
+            "resizeGrip": { "$ref": "#/$defs/tiledFrameTileSize" }
+          }
+        },
+        "frameThickness": { "type": "number", "minimum": 1 },
+        "contentInset": {
+          "type": "object",
+          "required": ["left", "top", "right", "bottom"],
+          "additionalProperties": false,
+          "properties": {
+            "left": { "type": "number", "minimum": 0 },
+            "top": { "type": "number", "minimum": 0 },
+            "right": { "type": "number", "minimum": 0 },
+            "bottom": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
     },
     "controlNode": {
       "allOf": [
@@ -324,10 +476,17 @@
             },
             "action": { "type": "string" },
             "panelId": { "type": "string", "minLength": 1 },
+            "viewId": { "type": "string", "minLength": 1 },
+            "url": { "type": "string", "minLength": 1 },
             "bind": { "type": "string" },
             "value": { "type": "string" },
             "textStyle": { "type": "string" },
             "disabledWhen": { "type": "string" },
+            "payload": {
+              "type": "object",
+              "description": "Extra action payload merged at dispatch.",
+              "additionalProperties": true
+            },
             "presentation": { "$ref": "#/$defs/presentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "type": "string" },
@@ -354,6 +513,55 @@
         }
       ]
     },
+    "slideshowNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "presentation"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "type": { "const": "slideshow" },
+            "presentation": { "$ref": "#/$defs/slideshowPresentation" },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "visibleWhen": { "type": "string" },
+            "animations": { "type": "object" }
+          }
+        }
+      ]
+    },
+    "slideshowPresentation": {
+      "type": "object",
+      "required": ["kind", "assetPattern", "decks"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "imageSequence" },
+        "assetPattern": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Asset path template under assets/ without extension; {deckIndex} and {page} placeholders."
+        },
+        "decks": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/slideshowDeck" }
+        }
+      }
+    },
+    "slideshowDeck": {
+      "type": "object",
+      "required": ["deckIndex", "pages"],
+      "additionalProperties": false,
+      "properties": {
+        "deckIndex": { "type": "integer", "minimum": 1 },
+        "pages": { "type": "integer", "minimum": 1 },
+        "showPageNav": {
+          "type": "boolean",
+          "description": "When false, prev/next chrome is hidden (WMP trailer deck). Default true."
+        }
+      }
+    },
     "eqBandNode": {
       "allOf": [
         { "$ref": "#/$defs/nodeBase" },
@@ -367,6 +575,8 @@
             "band": { "type": "integer", "minimum": 1, "maximum": 10 },
             "action": { "type": "string" },
             "panelId": { "type": "string", "minLength": 1 },
+            "viewId": { "type": "string", "minLength": 1 },
+            "url": { "type": "string", "minLength": 1 },
             "bind": { "type": "string" },
             "disabledWhen": { "type": "string" },
             "presentation": {
@@ -394,6 +604,8 @@
             "type": { "const": "balance" },
             "action": { "type": "string" },
             "panelId": { "type": "string", "minLength": 1 },
+            "viewId": { "type": "string", "minLength": 1 },
+            "url": { "type": "string", "minLength": 1 },
             "bind": { "type": "string" },
             "disabledWhen": { "type": "string" },
             "presentation": {
@@ -470,7 +682,22 @@
                 "pattern": "^#[0-9A-Fa-f]{6}$"
               },
               "action": { "type": "string" },
-              "panelId": { "type": "string", "minLength": 1 }
+              "panelId": { "type": "string", "minLength": 1 },
+              "viewId": { "type": "string", "minLength": 1 },
+              "url": { "type": "string", "minLength": 1 },
+              "activeWhen": {
+                "type": "string",
+                "description": "When truthy, keep the pressed overlay (WMP sticky buttons)."
+              },
+              "disabledWhen": {
+                "type": "string",
+                "description": "When truthy, the element is non-interactive."
+              },
+              "payload": {
+                "type": "object",
+                "description": "Extra action payload merged at dispatch.",
+                "additionalProperties": true
+              }
             }
           }
         }
@@ -485,6 +712,24 @@
         "assetBase": {
           "type": "string",
           "description": "Path under assets/ without extension, e.g. animations/m_idle"
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Target loop duration in ms; scales frame timing to match. With completeAction, fires after one scaled loop."
+        },
+        "playbackRate": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Multiplier on native frame delays (1 = file timing, 0.5 = half speed). Ignored when durationMs is set."
+        },
+        "completeAction": {
+          "type": "string",
+          "description": "Action dispatched after the first scaled animation loop completes."
+        },
+        "completePayload": {
+          "type": "object",
+          "description": "Payload merged when completeAction fires (e.g. view.setVariable)."
         }
       }
     },
@@ -576,6 +821,10 @@
           "type": "number",
           "minimum": 0,
           "description": "Cap size and thumb travel inset (WMP borderSize); enables 3-slice tiling when > 0"
+        },
+        "fillFromBottom": {
+          "type": "boolean",
+          "description": "When true, the track image is a bottom-anchored value fill (WMP foregroundImage) revealed up to the current value; the empty groove is expected in the window background."
         },
         "classPrefix": { "type": "string" }
       }
@@ -775,6 +1024,10 @@
           "type": "string",
           "enum": ["bounce", "marquee"],
           "description": "Overflow scroll style when truncate is true."
+        },
+        "align": {
+          "type": "string",
+          "enum": ["left", "center", "right"]
         }
       }
     },
@@ -805,7 +1058,6 @@
       "additionalProperties": false,
       "properties": {
         "clipMask": { "type": "string" },
-        "background": { "type": "string" },
         "defaultWidth": { "type": "integer", "minimum": 200 },
         "defaultHeight": { "type": "integer", "minimum": 200 },
         "minWidth": { "type": "integer", "minimum": 160 },
