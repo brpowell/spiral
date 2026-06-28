@@ -2,21 +2,32 @@
   position: relative;
   width: 100%;
   height: 100%;
+  pointer-events: none;
 }
 
 .skin-button-group {
-  display: block;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border: none;
-  background-color: transparent;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   /* 1:1 with map/image pixels when bounds match asset size (see t3.wms buttongroup) */
   background-size: 100% 100%;
   background-repeat: no-repeat;
   background-position: 0 0;
-  cursor: default;
+}
+
+.skin-button-group__hit {
+  position: absolute;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  pointer-events: auto;
   touch-action: manipulation;
+}
+
+.skin-button-group-wrap--debug .skin-button-group__hit {
+  outline: 1px dashed rgba(0, 255, 128, 0.85);
+  outline-offset: -1px;
 }
 
 .skin-button-group__overlay {
@@ -35,7 +46,7 @@
 }
 
 .skin-button-group-wrap--debug .skin-button-group {
-  outline: 1px dashed rgba(0, 255, 128, 0.85);
+  outline: 1px dashed rgba(0, 255, 128, 0.35);
   outline-offset: -1px;
 }
 

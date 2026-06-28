@@ -1,4 +1,4 @@
-interface HitRegion {
+export interface ButtonGroupHitRegion {
   colorKey: string;
   x: number;
   y: number;
@@ -9,6 +9,8 @@ interface HitRegion {
 export interface ButtonGroupPositionMap {
   width: number;
   height: number;
+  /** Bounding boxes per mapping color for transparent passthrough between buttons. */
+  regions: ButtonGroupHitRegion[];
   /** Alpha masks keyed by mapping color (`"r,g,b"`) for per-button hover/pressed overlays. */
   colorMasks: Map<string, string>;
   /**
@@ -44,7 +46,7 @@ function buildRegions(
   data: Uint8ClampedArray,
   width: number,
   height: number,
-): HitRegion[] {
+): ButtonGroupHitRegion[] {
   const boxes = new Map<
     string,
     { minX: number; minY: number; maxX: number; maxY: number }
@@ -191,6 +193,7 @@ export async function loadButtonGroupPositionMap(
   return {
     width,
     height,
+    regions,
     colorMasks,
     keyAt(x: number, y: number, validKeys: Set<string>) {
       const px = Math.min(Math.max(Math.floor(x), 0), width - 1);

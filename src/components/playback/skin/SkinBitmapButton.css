@@ -8,15 +8,17 @@
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
+}
+
+.skin-bitmap-btn:not(:disabled) {
   cursor: pointer;
 }
 
-.skin-bitmap-btn:hover:not(:disabled) {
+.skin-bitmap-btn--hover:not(:disabled) {
   background-image: var(--skin-btn-img-hover, var(--skin-btn-img));
 }
 
-.skin-bitmap-btn:active:not(:disabled),
-.skin-bitmap-btn--sticky:not(:disabled) {
+.skin-bitmap-btn--pressed:not(:disabled) {
   background-image: var(--skin-btn-img-pressed, var(--skin-btn-img-hover, var(--skin-btn-img)));
 }
 

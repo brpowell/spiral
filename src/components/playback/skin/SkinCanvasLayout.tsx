@@ -49,7 +49,7 @@ export function SkinCanvasLayout({
   const { width, height } = layoutSize;
 
   const onToggleVisualizer = () => setVisualizerExpanded((v) => !v);
-  const onOpenQueue = () => {};
+  const onOpenQueue = () => { };
 
   const stageContext = useMemo(
     () => ({ stageSize: layoutSize }),
@@ -127,12 +127,7 @@ export function SkinCanvasLayout({
                 : { width: `${width}px`, height: `${height}px` }
             }
           >
-            {skinDebug ? (
-              <div className="skin-canvas-layout__debug-banner" aria-hidden>
-                Skin debug — spiralSkinDebug.enable() for bounds; spiralSkin.help()
-                for view windows
-              </div>
-            ) : null}
+
             {nodes}
           </div>
         </div>

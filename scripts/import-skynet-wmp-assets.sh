@@ -161,6 +161,14 @@ for name in mute pause prev; do
   chroma "$SKYNET/${pre}_no.png" "$BTN/mini-${name}.png"
   chroma "$SKYNET/${pre}_hov.png" "$BTN/mini-${name}-hover.png"
   chroma "$SKYNET/${pre}_do.png" "$BTN/mini-${name}-pressed.png"
+  if [[ "$name" == "mute" ]]; then
+    chroma "$SKYNET/${pre}_do.png" "$BTN/mini-${name}-muted.png"
+    if [[ -f "$SKYNET/${pre}_do_hov.png" ]]; then
+      chroma "$SKYNET/${pre}_do_hov.png" "$BTN/mini-${name}-muted-hover.png"
+    else
+      cp "$BTN/mini-${name}-muted.png" "$BTN/mini-${name}-muted-hover.png"
+    fi
+  fi
 done
 
 chroma "$SKYNET/mini_back.png" "$OUT/mini-background.png"

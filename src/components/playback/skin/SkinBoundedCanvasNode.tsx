@@ -65,14 +65,15 @@ export function SkinBoundedCanvasNode({
   const bounds = resolveNodeBounds(node.bounds, boundsWhen, panelCtx);
 
   if (bounds) {
-    const isDecoration = node.type === "decoration";
+    const passthrough =
+      node.type === "decoration" || node.type === "buttonGroup";
 
     return (
       <SkinBounds
         bounds={bounds}
         debugLabel={node.id}
         motion={hasMotion}
-        className={isDecoration ? "skin-bounds--passthrough" : undefined}
+        className={passthrough ? "skin-bounds--passthrough" : undefined}
       >
         {inner}
       </SkinBounds>
