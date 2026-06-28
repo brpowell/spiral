@@ -1,7 +1,9 @@
-import { useCallback, type PointerEvent } from "react";
+import { useCallback, useMemo, useState, type PointerEvent } from "react";
 import { skinAssetUrl } from "../../../lib/skinAssets";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
 import { wmpTiledTrackStyle } from "../../../lib/wmpTiledTrack";
+import { useSkinBindState } from "../../../lib/skinBinds";
+import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import type {
   BalanceNode,
@@ -53,6 +55,8 @@ export function SkinBitmapHorizontalSlider({
   const setVolume = usePlayerStore((s) => s.setVolume);
   const balance = usePlayerStore((s) => s.balance);
   const setBalance = usePlayerStore((s) => s.setBalance);
+  const bindState = useSkinBindState();
+  const [hoverRatio, setHoverRatio] = useState<number | null>(null);
 
   const ratio =
     mode === "balance" ? balanceToRatio(balance) : clamp01(volume);
@@ -91,8 +95,13 @@ export function SkinBitmapHorizontalSlider({
   };
 
   const onPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    const nextRatio = pointerToRatio(
+      event.clientX,
+      event.currentTarget.getBoundingClientRect(),
+    );
+    setHoverRatio(nextRatio);
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-    applyRatio(pointerToRatio(event.clientX, event.currentTarget.getBoundingClientRect()));
+    applyRatio(nextRatio);
   };
 
   const finishPointer = (event: PointerEvent<HTMLButtonElement>) => {
@@ -105,6 +114,17 @@ export function SkinBitmapHorizontalSlider({
   const className = ["skin-bitmap-horizontal-slider", classPrefix]
     .filter(Boolean)
     .join(" ");
+
+  const liveRatio = hoverRatio ?? ratio;
+  const tooltip = useMemo(
+    () =>
+      resolveSkinTooltip(
+        { id: node.id, tooltip: node.tooltip, tooltipWhen: node.tooltipWhen },
+        bindState,
+        { sliderMode: mode, ratio: liveRatio },
+      ),
+    [node.id, node.tooltip, node.tooltipWhen, bindState, mode, liveRatio],
+  );
 
   return (
     <div
@@ -144,12 +164,19 @@ export function SkinBitmapHorizontalSlider({
       <button
         type="button"
         className="skin-bitmap-horizontal-slider__hit"
-        aria-label={mode === "balance" ? "Balance" : "Volume"}
+        aria-label={tooltip || (mode === "balance" ? "Balance" : "Volume")}
+        title={tooltip || undefined}
         {...skinDragRegionNoneProps()}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={finishPointer}
         onPointerCancel={finishPointer}
+        onPointerEnter={(event) =>
+          setHoverRatio(
+            pointerToRatio(event.clientX, event.currentTarget.getBoundingClientRect()),
+          )
+        }
+        onPointerLeave={() => setHoverRatio(null)}
       />
     </div>
   );

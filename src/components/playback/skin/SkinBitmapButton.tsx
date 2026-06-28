@@ -9,6 +9,7 @@ import {
   useSkinBindValue,
   useSkinDisabled,
 } from "../../../lib/skinBinds";
+import { useSkinTooltip } from "../../../lib/skinTooltips";
 import type { ButtonNode, LoadedSkinPack } from "../../../types/skin";
 import "./SkinBitmapButton.css";
 
@@ -74,6 +75,15 @@ export function SkinBitmapButton({
     node.activeWhen &&
     Boolean(evaluateSkinBind(node.activeWhen, bindState));
 
+  const tooltip = useSkinTooltip({
+    action: node.action,
+    panelId: node.panelId,
+    viewId: node.viewId,
+    id: node.id,
+    tooltip: node.tooltip,
+    tooltipWhen: node.tooltipWhen,
+  });
+
   return (
     <button
       type="button"
@@ -83,7 +93,8 @@ export function SkinBitmapButton({
       data-node-id={node.id}
       {...skinDragRegionNoneProps()}
       disabled={Boolean(actionDisabled)}
-      aria-label={node.id ?? node.action}
+      aria-label={tooltip || node.id || node.action}
+      title={tooltip || undefined}
       style={
         {
           "--skin-btn-w": `${width}px`,

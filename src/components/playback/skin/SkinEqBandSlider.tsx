@@ -1,4 +1,4 @@
-import { useCallback, type PointerEvent } from "react";
+import { useCallback, useMemo, useState, type PointerEvent } from "react";
 import {
   EQ_BAND_FREQUENCIES_HZ,
   formatEqBandFrequency,
@@ -8,6 +8,8 @@ import {
 import { skinAssetUrl } from "../../../lib/skinAssets";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
 import { wmpTiledTrackStyle } from "../../../lib/wmpTiledTrack";
+import { useSkinBindState } from "../../../lib/skinBinds";
+import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import { useEqualizerStore } from "../../../store/useEqualizerStore";
 import type { EqBandNode, LoadedSkinPack } from "../../../types/skin";
 import "./SkinEqBandSlider.css";
@@ -42,6 +44,8 @@ export function SkinEqBandSlider({
 
   const bandGain = useEqualizerStore((s) => s.bands[node.band - 1]);
   const setBand = useEqualizerStore((s) => s.setBand);
+  const bindState = useSkinBindState();
+  const [hoverRatio, setHoverRatio] = useState<number | null>(null);
   const ratio = gainDbToRatio(bandGain);
 
   const travel = Math.max(0, trackHeight - borderSize * 2 - thumbHeight);
@@ -74,8 +78,13 @@ export function SkinEqBandSlider({
   };
 
   const onPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    const nextRatio = pointerToRatio(
+      event.clientY,
+      event.currentTarget.getBoundingClientRect(),
+    );
+    setHoverRatio(nextRatio);
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-    applyRatio(pointerToRatio(event.clientY, event.currentTarget.getBoundingClientRect()));
+    applyRatio(nextRatio);
   };
 
   const finishPointer = (event: PointerEvent<HTMLButtonElement>) => {
@@ -86,6 +95,17 @@ export function SkinEqBandSlider({
   };
 
   const className = ["skin-eq-band-slider", classPrefix].filter(Boolean).join(" ");
+
+  const liveRatio = hoverRatio ?? ratio;
+  const tooltip = useMemo(
+    () =>
+      resolveSkinTooltip(
+        { id: node.id, tooltip: node.tooltip, tooltipWhen: node.tooltipWhen },
+        bindState,
+        { sliderMode: "eq", ratio: liveRatio, eqBand: node.band },
+      ),
+    [node.id, node.tooltip, node.tooltipWhen, node.band, bindState, liveRatio],
+  );
 
   return (
     <div
@@ -142,12 +162,22 @@ export function SkinEqBandSlider({
       <button
         type="button"
         className="skin-eq-band-slider__hit"
-        aria-label={`EQ band ${node.band} (${formatEqBandFrequency(EQ_BAND_FREQUENCIES_HZ[node.band - 1])} Hz)`}
+        aria-label={
+          tooltip ||
+          `EQ band ${node.band} (${formatEqBandFrequency(EQ_BAND_FREQUENCIES_HZ[node.band - 1])} Hz)`
+        }
+        title={tooltip || undefined}
         {...skinDragRegionNoneProps()}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={finishPointer}
         onPointerCancel={finishPointer}
+        onPointerEnter={(event) =>
+          setHoverRatio(
+            pointerToRatio(event.clientY, event.currentTarget.getBoundingClientRect()),
+          )
+        }
+        onPointerLeave={() => setHoverRatio(null)}
       />
     </div>
   );

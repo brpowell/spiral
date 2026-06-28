@@ -319,6 +319,10 @@ export interface ControlNodeBase extends NodeBase {
   activeWhen?: string;
   /** Manifest `soundEffects` key played on click. */
   sound?: string;
+  /** OS tooltip text; supports `{bind.path}` placeholders. */
+  tooltip?: string;
+  /** Bind path → tooltip when truthy (last match wins). */
+  tooltipWhen?: Record<string, string>;
   presentation: Presentation;
 }
 
@@ -350,6 +354,10 @@ export interface ButtonGroupElement {
   sound?: string;
   /** Extra action payload merged at dispatch (e.g. slideshow deck id). */
   payload?: SkinActionPayloadFields;
+  /** OS tooltip text; supports `{bind.path}` placeholders. */
+  tooltip?: string;
+  /** Bind path → tooltip when truthy (last match wins). */
+  tooltipWhen?: Record<string, string>;
 }
 
 /** Fields accepted on control nodes and button-group element payloads. */
@@ -742,6 +750,9 @@ export type SkinBindPath =
   | "player.playbackState"
   | "player.positionSeconds"
   | "player.positionLabel"
+  | "player.durationLabel"
+  | "player.remainingLabel"
+  | "player.volumePercent"
   | "player.repeatMode"
   | "player.repeatOn"
   | "player.shuffle"

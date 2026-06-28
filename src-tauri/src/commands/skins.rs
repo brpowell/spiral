@@ -73,6 +73,9 @@ const KNOWN_BINDS: &[&str] = &[
     "player.playbackState",
     "player.positionSeconds",
     "player.positionLabel",
+    "player.durationLabel",
+    "player.remainingLabel",
+    "player.volumePercent",
     "player.repeatMode",
     "player.repeatOn",
     "player.shuffle",
@@ -495,6 +498,10 @@ pub struct ButtonGroupElement {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sound: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tooltip: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tooltip_when: Option<HashMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payload: Option<HashMap<String, serde_json::Value>>,
 }
 
@@ -562,6 +569,10 @@ pub struct ControlFields {
     pub active_when: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sound: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tooltip: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tooltip_when: Option<HashMap<String, String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payload: Option<HashMap<String, serde_json::Value>>,
     pub presentation: Presentation,

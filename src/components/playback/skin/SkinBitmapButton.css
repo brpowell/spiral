@@ -20,10 +20,6 @@
   background-image: var(--skin-btn-img-pressed, var(--skin-btn-img-hover, var(--skin-btn-img)));
 }
 
-.skin-bitmap-btn--sticky:hover:not(:disabled) {
-  background-image: var(--skin-btn-img-hover, var(--skin-btn-img));
-}
-
 .skin-bitmap-btn:disabled {
   opacity: 0.45;
   cursor: default;

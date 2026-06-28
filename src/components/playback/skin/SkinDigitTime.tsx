@@ -8,6 +8,7 @@ import {
   type DigitSlotRole,
 } from "../../../lib/skinDigitTime";
 import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
+import { useSkinTooltip } from "../../../lib/skinTooltips";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import type {
   DigitStripPresentation,
@@ -88,14 +89,22 @@ function SkinDigitTimeInner({
     .filter(Boolean)
     .join(" ");
 
+  const tooltip = useSkinTooltip(
+    {
+      id: node.id,
+      tooltip: node.tooltip,
+      tooltipWhen: node.tooltipWhen,
+    },
+    { showElapsed },
+  );
+
   return (
     <button
       type="button"
       className={`${className} skin-digit-time--interactive`}
       data-node-id={node.id}
-      aria-label={
-        showElapsed ? "Elapsed time, show remaining" : "Remaining time, show elapsed"
-      }
+      aria-label={tooltip}
+      title={tooltip}
       onClick={() => setShowElapsed((v) => !v)}
     >
       {slots.map((slot) => {

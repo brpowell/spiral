@@ -70,6 +70,10 @@ Text styles with `truncate: true` enable overflow scrolling. Set `scroll: "marqu
 | `player.notPlaying` | `boolean` | `playbackState !== "playing"` |
 | `player.playbackState` | `"playing" \| "paused" \| "stopped"` | Raw playback state |
 | `player.positionSeconds` | `number` | Store position (use hook for live scrubber) |
+| `player.positionLabel` | `string` | Elapsed time formatted `m:ss` |
+| `player.durationLabel` | `string` | Track duration formatted `m:ss` |
+| `player.remainingLabel` | `string` | Remaining time formatted `-m:ss` |
+| `player.volumePercent` | `number` | Volume as integer 0–100 |
 | `player.repeatMode` | `"off" \| "all" \| "one"` | Repeat mode |
 | `player.shuffle` | `boolean` | Shuffle enabled |
 | `player.volume` | `number` | Volume 0–1 |
@@ -136,6 +140,63 @@ Skins may declare optional short UI sounds under the pack root:
 ```
 
 Paths are under `assets/` without extension (`.wav` required on disk). Controls reference keys via an optional `sound` field on `button` nodes and `buttonGroup` presentations (group-level sound plays on any element click).
+
+## Tooltips
+
+Interactive controls show **native OS tooltips** via the HTML `title` attribute. Authors can override labels in `skin.json`; otherwise the runtime derives sensible defaults from the control's action and current bind state.
+
+### Manifest fields
+
+Available on **control nodes** (`button`, `seekbar`, `volume`, `time`, etc.) and **button-group elements**:
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `tooltip` | `string` | Static label, or template with `{bind.path}` placeholders |
+| `tooltipWhen` | `Record<string, string>` | Bind path → label when truthy (last match wins) |
+
+Resolution order: `tooltipWhen` → `tooltip` template → built-in default.
+
+Example — explicit mute toggle without scripting:
+
+```json
+{
+  "action": "player.toggleMute",
+  "tooltip": "Mute",
+  "tooltipWhen": { "player.muted": "Unmute" }
+}
+```
+
+Example — seek position template:
+
+```json
+{
+  "type": "seekbar",
+  "tooltip": "{player.positionLabel} / {player.durationLabel}"
+}
+```
+
+### Built-in defaults
+
+When `tooltip` / `tooltipWhen` are omitted, the runtime derives labels from `action` and bind state:
+
+- `player.toggleMute` → Mute / Unmute
+- `player.togglePlayPause` → Play / Pause
+- `player.cycleRepeat` → Repeat: off / all / one
+- `skin.toggleView` → Toggle {viewId}
+- Window chrome actions → Choose skin, Minimize window, Exit skin mode, etc.
+
+**Sliders** update live while the pointer moves:
+
+| Control | Default tooltip |
+| --- | --- |
+| Volume | `Volume: 72%` |
+| Balance | `Balance: L12` / `Balance: R8` / `Balance: Center` |
+| Seek | `1:23 / 4:56` (pointer position / duration) |
+| EQ band | `125 Hz: +3.0 dB` |
+
+**Digit time** controls show elapsed or remaining time and hint that clicking toggles the mode.
+
+Button groups swap the tooltip per hovered region (same pattern as classic WMP `upToolTip`).
 
 ## Window (`views.*.window`)
 

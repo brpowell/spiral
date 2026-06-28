@@ -16,6 +16,8 @@ import {
 } from "../../../lib/skinStripSliderMap";
 import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
 import { useSkinDebug } from "../../../hooks/useSkinDebug";
+import { useSkinBindState } from "../../../lib/skinBinds";
+import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import { useEqualizerStore } from "../../../store/useEqualizerStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import type {
@@ -60,6 +62,8 @@ export function SkinStripSlider({
     useState<StripSliderPositionMap | null>(null);
   const [debugSample, setDebugSample] =
     useState<StripSliderPointerSample | null>(null);
+  const [hoverRatio, setHoverRatio] = useState<number | null>(null);
+  const bindState = useSkinBindState();
 
   const stripUrl = skinPackAssetUrl(pack.packDir, strip);
   const mapUrl = positionMap
@@ -209,14 +213,17 @@ export function SkinStripSlider({
 
   const onPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
     const anchorFrame = dragAnchorFrameRef.current ?? displayFrame;
+    const sample = samplePointer(event.clientX, event.clientY, anchorFrame);
+    if (sample) setHoverRatio(sample.ratio);
     if (skinDebug) {
-      setDebugSample(samplePointer(event.clientX, event.clientY, anchorFrame));
+      setDebugSample(sample);
     }
     if (!event.currentTarget.hasPointerCapture(event.pointerId) || disabled) return;
     applyPointer(event.clientX, event.clientY, anchorFrame, false);
   };
 
   const onPointerLeave = () => {
+    setHoverRatio(null);
     if (skinDebug) setDebugSample(null);
   };
 
@@ -257,6 +264,25 @@ export function SkinStripSlider({
         ? "Volume"
         : "Seek";
 
+  const liveRatio = hoverRatio ?? valueRatio;
+  const tooltip = useMemo(
+    () =>
+      resolveSkinTooltip(
+        {
+          id: node.id,
+          tooltip: node.tooltip,
+          tooltipWhen: node.tooltipWhen,
+        },
+        bindState,
+        {
+          sliderMode: mode === "eq" ? "eq" : mode,
+          ratio: liveRatio,
+          eqBand: eqBand ?? undefined,
+        },
+      ),
+    [node.id, node.tooltip, node.tooltipWhen, bindState, mode, liveRatio, eqBand],
+  );
+
   return (
     <div
       className={className}
@@ -281,9 +307,14 @@ export function SkinStripSlider({
         type="button"
         className="skin-strip-slider__hit"
         disabled={disabled}
-        aria-label={ariaLabel}
+        aria-label={tooltip || ariaLabel}
+        title={tooltip || undefined}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
+        onPointerEnter={(event) => {
+          const sample = samplePointer(event.clientX, event.clientY, displayFrame);
+          if (sample) setHoverRatio(sample.ratio);
+        }}
         onPointerLeave={onPointerLeave}
         onPointerUp={finishDrag}
         onPointerCancel={finishDrag}

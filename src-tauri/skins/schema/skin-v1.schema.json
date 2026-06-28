@@ -573,6 +573,15 @@
               "minLength": 1,
               "description": "Manifest soundEffects key played on click."
             },
+            "tooltip": {
+              "type": "string",
+              "description": "OS tooltip text; supports {bind.path} placeholders."
+            },
+            "tooltipWhen": {
+              "type": "object",
+              "description": "Bind path → tooltip when truthy (last match wins).",
+              "additionalProperties": { "type": "string" }
+            },
             "payload": {
               "type": "object",
               "description": "Extra action payload merged at dispatch.",
@@ -670,6 +679,15 @@
             "url": { "type": "string", "minLength": 1 },
             "bind": { "type": "string" },
             "disabledWhen": { "type": "string" },
+            "tooltip": {
+              "type": "string",
+              "description": "OS tooltip text; supports {bind.path} placeholders."
+            },
+            "tooltipWhen": {
+              "type": "object",
+              "description": "Bind path → tooltip when truthy (last match wins).",
+              "additionalProperties": { "type": "string" }
+            },
             "presentation": {
               "oneOf": [
                 { "$ref": "#/$defs/stripSliderPresentation" },
@@ -699,6 +717,15 @@
             "url": { "type": "string", "minLength": 1 },
             "bind": { "type": "string" },
             "disabledWhen": { "type": "string" },
+            "tooltip": {
+              "type": "string",
+              "description": "OS tooltip text; supports {bind.path} placeholders."
+            },
+            "tooltipWhen": {
+              "type": "object",
+              "description": "Bind path → tooltip when truthy (last match wins).",
+              "additionalProperties": { "type": "string" }
+            },
             "presentation": {
               "oneOf": [{ "$ref": "#/$defs/bitmapHorizontalSliderPresentation" }]
             },
@@ -793,6 +820,15 @@
                 "type": "string",
                 "minLength": 1,
                 "description": "Manifest soundEffects key; overrides group-level sound."
+              },
+              "tooltip": {
+                "type": "string",
+                "description": "OS tooltip text; supports {bind.path} placeholders."
+              },
+              "tooltipWhen": {
+                "type": "object",
+                "description": "Bind path → tooltip when truthy (last match wins).",
+                "additionalProperties": { "type": "string" }
               },
               "payload": {
                 "type": "object",

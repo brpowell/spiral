@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState, type PointerEvent } from "react";
 import { findPlaybackTrack } from "../../../lib/playbackTrack";
 import { skinAssetUrl } from "../../../lib/skinAssets";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
+import { useSkinBindState } from "../../../lib/skinBinds";
+import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import * as audio from "../../../lib/playback";
 import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
 import { usePlayerStore } from "../../../store/usePlayerStore";
@@ -70,6 +72,8 @@ export function SkinBitmapSeekbar({
 
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
+  const [hoverRatio, setHoverRatio] = useState<number | null>(null);
+  const bindState = useSkinBindState();
 
   const pointerToRatio = useCallback(
     (clientX: number, rect: DOMRect): number => {
@@ -88,8 +92,13 @@ export function SkinBitmapSeekbar({
   };
 
   const onPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    const nextRatio = pointerToRatio(
+      event.clientX,
+      event.currentTarget.getBoundingClientRect(),
+    );
+    setHoverRatio(nextRatio);
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-    handleSeekChange(pointerToRatio(event.clientX, event.currentTarget.getBoundingClientRect()));
+    handleSeekChange(nextRatio);
   };
 
   const finishPointer = (event: PointerEvent<HTMLButtonElement>) => {
@@ -103,6 +112,17 @@ export function SkinBitmapSeekbar({
   const thumbSrc = useMemo(
     () => (pressed ? thumbPressedUrl : hovered ? thumbHoverUrl : thumbUrl),
     [pressed, hovered, thumbPressedUrl, thumbHoverUrl, thumbUrl],
+  );
+
+  const liveRatio = hoverRatio ?? ratio;
+  const tooltip = useMemo(
+    () =>
+      resolveSkinTooltip(
+        { id: node.id, tooltip: node.tooltip, tooltipWhen: node.tooltipWhen },
+        bindState,
+        { sliderMode: "seek", ratio: liveRatio },
+      ),
+    [node.id, node.tooltip, node.tooltipWhen, bindState, liveRatio],
   );
 
   return (
@@ -151,16 +171,23 @@ export function SkinBitmapSeekbar({
         type="button"
         className="skin-bitmap-seekbar__hit"
         disabled={disabled}
-        aria-label="Seek"
+        aria-label={tooltip || "Seek"}
+        title={tooltip || undefined}
         {...skinDragRegionNoneProps()}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={finishPointer}
         onPointerCancel={finishPointer}
-        onPointerEnter={() => setHovered(true)}
+        onPointerEnter={(event) => {
+          setHovered(true);
+          setHoverRatio(
+            pointerToRatio(event.clientX, event.currentTarget.getBoundingClientRect()),
+          );
+        }}
         onPointerLeave={() => {
           setHovered(false);
           setPressed(false);
+          setHoverRatio(null);
         }}
       />
     </div>

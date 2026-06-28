@@ -14,6 +14,7 @@ import {
 } from "../../../lib/skinBinds";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
 import { useSkinDebug } from "../../../hooks/useSkinDebug";
+import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import type {
   ButtonGroupElement,
   ButtonGroupNode,
@@ -29,6 +30,18 @@ function resolveLocalPointer(
 ): { x: number; y: number } | null {
   const rect = event.currentTarget.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return null;
+
+  // With pointer capture active, move/up events keep firing while the cursor is
+  // outside the element. Treat anything beyond the bounds as "no key" so dragging
+  // off the button cancels the press instead of clamping back onto a region.
+  if (
+    event.clientX < rect.left ||
+    event.clientX >= rect.right ||
+    event.clientY < rect.top ||
+    event.clientY >= rect.bottom
+  ) {
+    return null;
+  }
 
   return {
     x: ((event.clientX - rect.left) / rect.width) * mapWidth,
@@ -53,6 +66,11 @@ export function SkinButtonGroup({
   const [pressedKey, setPressedKey] = useState<string | null>(null);
   const [debugLabel, setDebugLabel] = useState<string | null>(null);
   const pendingPressKeyRef = useRef<string | null>(null);
+  // Hold pressed graphic until activeWhen bind catches up (aux windows can lag).
+  const [settlingToggle, setSettlingToggle] = useState<{
+    key: string;
+    prevSticky: boolean;
+  } | null>(null);
 
   const mapUrl = skinPackAssetUrl(pack.packDir, presentation.positionMap);
   const mapWidth = presentation.width ?? node.bounds?.w ?? 44;
@@ -102,6 +120,23 @@ export function SkinButtonGroup({
   const isElementDisabled = (element: ButtonGroupElement): boolean =>
     isSkinBindDisabled(element.disabledWhen, bindState);
 
+  const isElementSticky = (element: ButtonGroupElement): boolean =>
+    Boolean(
+      element.activeWhen &&
+        evaluateSkinBind(element.activeWhen as SkinBindPath, bindState),
+    );
+
+  useEffect(() => {
+    if (!settlingToggle) return;
+    const element = keyToElement.get(settlingToggle.key);
+    if (!element || isElementSticky(element) !== settlingToggle.prevSticky) {
+      setSettlingToggle(null);
+      return;
+    }
+    const timeout = window.setTimeout(() => setSettlingToggle(null), 1000);
+    return () => window.clearTimeout(timeout);
+  }, [settlingToggle, keyToElement, bindState]);
+
   const overlayLayers = useMemo(() => {
     const layers: Array<{ key: string; src: string }> = [];
     for (const [key, element] of keyToElement) {
@@ -109,13 +144,10 @@ export function SkinButtonGroup({
 
       const isPressed = pressedKey === key;
       const isHovered = hoveredKey === key;
-      const isSticky =
-        element.activeWhen &&
-        Boolean(
-          evaluateSkinBind(element.activeWhen as SkinBindPath, bindState),
-        );
+      const isSticky = isElementSticky(element);
+      const isSettling = settlingToggle?.key === key;
 
-      if (isPressed || (!isHovered && isSticky)) {
+      if (isPressed || isSticky || isSettling) {
         layers.push({ key, src: pressedSrc });
       } else if (isHovered) {
         layers.push({ key, src: hoverSrc });
@@ -127,6 +159,7 @@ export function SkinButtonGroup({
     pressedKey,
     hoveredKey,
     bindState,
+    settlingToggle,
     pressedSrc,
     hoverSrc,
   ]);
@@ -154,6 +187,10 @@ export function SkinButtonGroup({
   const updateHoverFromEvent = (event: PointerEvent<HTMLButtonElement>) => {
     const key = keyAtPointer(event);
     setHoveredKey(key);
+    const pending = pendingPressKeyRef.current;
+    if (pending) {
+      setPressedKey(key === pending ? pending : null);
+    }
     if (skinDebug) {
       setDebugLabel(debugLabelForKey(key));
     }
@@ -175,16 +212,6 @@ export function SkinButtonGroup({
     setPressedKey(key);
   };
 
-  const onPointerMove = updateHoverFromEvent;
-
-  const onPointerEnter = updateHoverFromEvent;
-
-  const onPointerLeave = (event: PointerEvent<HTMLButtonElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) return;
-    setHoveredKey(null);
-    setDebugLabel(null);
-  };
-
   const finishPress = (event: PointerEvent<HTMLButtonElement>) => {
     const pending = pendingPressKeyRef.current;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -196,6 +223,12 @@ export function SkinButtonGroup({
       const element = keyToElement.get(pending);
       if (element && !isElementDisabled(element)) {
         playSkinSound(pack, element.sound ?? presentation.sound);
+        if (element.activeWhen) {
+          setSettlingToggle({
+            key: pending,
+            prevSticky: isElementSticky(element),
+          });
+        }
         runSkinAction(element.action, {
           ...skinControlPayload(element),
           ...element.payload,
@@ -212,6 +245,21 @@ export function SkinButtonGroup({
     pendingPressKeyRef.current = null;
     setPressedKey(null);
   };
+
+  const hoveredElement = hoveredKey ? keyToElement.get(hoveredKey) : undefined;
+  const tooltip = useMemo(() => {
+    if (!hoveredElement) return undefined;
+    return resolveSkinTooltip(
+      {
+        action: hoveredElement.action,
+        panelId: hoveredElement.panelId,
+        viewId: hoveredElement.viewId,
+        tooltip: hoveredElement.tooltip,
+        tooltipWhen: hoveredElement.tooltipWhen,
+      },
+      bindState,
+    );
+  }, [hoveredElement, bindState]);
 
   return (
     <div
@@ -239,15 +287,16 @@ export function SkinButtonGroup({
         className="skin-button-group"
         data-node-id={node.id}
         {...skinDragRegionNoneProps()}
-        aria-label={node.id ?? "Window controls"}
+        aria-label={tooltip ?? node.id ?? "Window controls"}
+        title={tooltip}
         style={{
           backgroundImage: `url("${src}")`,
           cursor: hoveredKey ? "pointer" : "default",
         }}
         onPointerDown={beginPress}
-        onPointerMove={onPointerMove}
-        onPointerEnter={onPointerEnter}
-        onPointerLeave={onPointerLeave}
+        onPointerMove={updateHoverFromEvent}
+        onPointerEnter={updateHoverFromEvent}
+        onPointerLeave={updateHoverFromEvent}
         onPointerUp={finishPress}
         onPointerCancel={finishPress}
         onLostPointerCapture={onLostPointerCapture}

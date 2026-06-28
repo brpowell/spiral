@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { presetLabel } from "./equalizer/builtinPresets";
-import { formatTime } from "./format";
+import { formatTime, formatRemainingTime } from "./format";
 import { buildPlaybackOrder } from "./playbackOrder";
 import { findPlaybackTrack } from "./playbackTrack";
 import { getManualNextId } from "./playbackQueue";
@@ -142,6 +142,16 @@ export function evaluateSkinBind(
       return state.positionSeconds;
     case "player.positionLabel":
       return formatTime(state.positionSeconds);
+    case "player.durationLabel": {
+      const duration = currentTrack?.durationSeconds;
+      return duration != null ? formatTime(duration) : "0:00";
+    }
+    case "player.remainingLabel": {
+      const duration = currentTrack?.durationSeconds ?? 0;
+      return formatRemainingTime(state.positionSeconds, duration);
+    }
+    case "player.volumePercent":
+      return Math.round(state.volume * 100);
     case "player.repeatMode":
       return state.repeatMode;
     case "player.repeatOn":

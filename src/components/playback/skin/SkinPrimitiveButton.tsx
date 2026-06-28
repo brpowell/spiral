@@ -8,18 +8,9 @@ import {
 import { useSkinAction } from "../../../lib/skinActions";
 import { useSkinModeAlwaysOnTop } from "../../../lib/skinModeAlwaysOnTop";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
+import { useSkinTooltip } from "../../../lib/skinTooltips";
 import type { ButtonNode } from "../../../types/skin";
 import "./SkinPrimitiveButton.css";
-
-const ACTION_LABELS: Record<string, string> = {
-  "skin.openPicker": "Choose skin",
-  "skin.toggleAlwaysOnTop": "Toggle always on top",
-  "skin.restoreMainWindow": "Restore main window",
-  "skin.exit": "Exit skin mode",
-  "skin.minimize": "Minimize window",
-  "app.quit": "Quit Spiral",
-  "eq.reset": "reset",
-};
 
 function ActionIcon({
   action,
@@ -72,7 +63,14 @@ export function SkinPrimitiveButton({ node }: { node: ButtonNode }) {
 
   if (presentation.kind !== "primitive") return null;
 
-  const label = ACTION_LABELS[node.action ?? ""] ?? node.id ?? node.action ?? "Action";
+  const label = useSkinTooltip({
+    action: node.action,
+    panelId: node.panelId,
+    viewId: node.viewId,
+    id: node.id,
+    tooltip: node.tooltip,
+    tooltipWhen: node.tooltipWhen,
+  });
   const active = node.action === "skin.toggleAlwaysOnTop" && alwaysOnTop;
   const hasIcon = actionHasIcon(node.action);
 
