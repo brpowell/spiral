@@ -57,7 +57,7 @@
   gap: 0.75rem;
   flex-shrink: 0;
   padding: var(--modal-padding-block) var(--modal-padding-inline)
-    0.75rem;
+    1rem;
 }
 
 .modal-header__actions {
@@ -82,7 +82,7 @@
 .modal-header__main {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.15rem;
   min-width: 0;
 }
 
@@ -140,8 +140,4 @@
 
 .modal-body > .modal-description {
   margin-bottom: 1rem;
-}
-
-.modal-title + .modal-description {
-  margin-top: 0.35rem;
 }

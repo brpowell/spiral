@@ -1,7 +1,7 @@
 use crate::cd::platform;
 use crate::cd::playback;
 use crate::cd::playback::CdPlaybackStarted;
-use crate::cd::{cleanup_rip_temp, rip_cd_track as rip_cd_track_impl, RipFormat};
+use crate::cd::{cleanup_rip_temp, rip_cd_track as rip_cd_track_impl};
 use crate::cd::types::{CdDisc, CdDiscCdText, CdDrive};
 use crate::disc_metadata_cache::{self, DiscMetadataCachePeek};
 use crate::models::TrackMetadataUpdate;
@@ -196,12 +196,11 @@ pub async fn save_disc_metadata_preference(
 pub async fn rip_cd_track(
     drive_id: String,
     track_number: u32,
-    format: String,
+    profile_id: String,
     metadata: TrackMetadataUpdate,
 ) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let rip_format = RipFormat::from_str(&format)?;
-        rip_cd_track_impl(&drive_id, track_number, rip_format, &metadata)
+        rip_cd_track_impl(&drive_id, track_number, &profile_id, &metadata)
     })
     .await
     .map_err(|err| err.to_string())?

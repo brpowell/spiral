@@ -12,6 +12,7 @@ import {
   IconAddToQueue,
   IconAlbums,
   IconArtists,
+  IconConvert,
   IconDelete,
   IconEditInfo, IconOpenFolder,
   IconPlaylistAdd,
@@ -21,6 +22,8 @@ import {
 } from "../components/icons";
 import { revealInFileManagerLabel } from "../lib/fileManager";
 import { revealPathInFileManager } from "../lib/tauri";
+import { openConvertForTrackIds } from "../lib/convertTracks";
+import { isTrackConvertible } from "../lib/pendingImportTrack";
 import {
   PlaylistContextMenuIcon,
   usePlaylistTracksById,
@@ -96,6 +99,9 @@ export function useTrackMenu(
 
   const anyInQueue = contextTrackIds.some((id) => manualQueueIds.includes(id));
   const bulkRemove = contextTracks.length > 1;
+  const convertibleCount = contextTracks.filter((item) =>
+    isTrackConvertible(item),
+  ).length;
 
   const onBeforeOpen = useCallback(() => {
     if (!selectedTrackIds.includes(track.id)) {
@@ -112,6 +118,7 @@ export function useTrackMenu(
         anyInQueue,
         bulkRemove,
         contextTracks.length,
+        convertibleCount,
         playlistId,
         playlists.length,
         recent.length,
@@ -272,6 +279,20 @@ export function useTrackMenu(
           onClick={() => {
             closeMenu();
             void removeTracksFromPlaylist(playlistId, contextTrackIds);
+          }}
+        />
+      ) : null}
+      {convertibleCount > 0 ? (
+        <ContextMenuItem
+          icon={<IconConvert />}
+          label={
+            convertibleCount > 1
+              ? `Convert ${convertibleCount} Tracks…`
+              : "Convert…"
+          }
+          onClick={() => {
+            closeMenu();
+            openConvertForTrackIds(contextTrackIds);
           }}
         />
       ) : null}

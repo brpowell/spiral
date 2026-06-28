@@ -1,0 +1,11 @@
+.convert-confirm-modal__profile-field {
+  margin-bottom: 1rem;
+}
+
+.convert-confirm-modal__profile-field .select {
+  max-width: 18rem;
+}
+
+.convert-confirm-modal__outcome {
+  margin-bottom: 1rem;
+}

@@ -36,23 +36,26 @@ interface ShowToastOptions {
   /** Replaces any existing toast with the same key. */
   key?: string;
   dismissMs?: number;
+  status?: Extract<BackgroundTaskStatus, "success" | "error">;
 }
 
 interface BackgroundTasksState {
   tasks: BackgroundTask[];
   runInBackground: (options: RunInBackgroundOptions) => string;
   showToast: (options: ShowToastOptions) => string;
+  showErrorToast: (options: ShowToastOptions) => string;
   dismissTask: (id: string) => void;
 }
 
 const SUCCESS_DISMISS_MS = 5000;
+const ERROR_DISMISS_MS = 10000;
 const BRIEF_TOAST_DISMISS_MS = 2000;
 
 function scheduleAutoDismiss(
   get: () => BackgroundTasksState,
   id: string,
   ms: number,
-  status: "success" | "cancelled",
+  status: "success" | "cancelled" | "error",
 ): void {
   window.setTimeout(() => {
     if (get().tasks.some((t) => t.id === id && t.status === status)) {
@@ -184,14 +187,20 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>((set, get) =
     return id;
   },
 
-  showToast: ({ label, detail, key, dismissMs = BRIEF_TOAST_DISMISS_MS }) => {
+  showToast: ({
+    label,
+    detail,
+    key,
+    status = "success",
+    dismissMs = status === "error" ? ERROR_DISMISS_MS : BRIEF_TOAST_DISMISS_MS,
+  }) => {
     const id = crypto.randomUUID();
     const task: BackgroundTask = {
       id,
       key,
       label,
       detail,
-      status: "success",
+      status,
       createdAt: Date.now(),
     };
 
@@ -202,9 +211,12 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>((set, get) =
       ],
     }));
 
-    scheduleAutoDismiss(get, id, dismissMs, "success");
+    scheduleAutoDismiss(get, id, dismissMs, status);
     return id;
   },
+
+  showErrorToast: (options) =>
+    get().showToast({ ...options, status: "error" }),
 
   dismissTask: (id) =>
     set((state) => ({ tasks: state.tasks.filter((task) => task.id !== id) })),

@@ -48,11 +48,13 @@ export interface ActivityLogDraft {
 export type ActivityLogDomainFilter =
   | "all"
   | "metadata.musicbrainz"
-  | "metadata.coverArt";
+  | "metadata.coverArt"
+  | "library.convert";
 
 export const ACTIVITY_LOG_DOMAINS = {
   musicbrainz: "metadata.musicbrainz",
   coverArt: "metadata.coverArt",
+  convert: "library.convert",
 } as const;
 
 export const ACTIVITY_LOG_EVENT = "activity://entry";

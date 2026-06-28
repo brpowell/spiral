@@ -119,6 +119,32 @@ export async function replaceTrackFromImport(options: {
   return normalizeTrack(row);
 }
 
+export async function convertTrack(options: {
+  trackId: number;
+  profileId: string;
+  mode: "replace" | "add_new";
+}): Promise<Track> {
+  const row = await invoke<Record<string, unknown>>("convert_track", {
+    trackId: options.trackId,
+    profileId: options.profileId,
+    mode: options.mode,
+  });
+  return normalizeTrack(row);
+}
+
+export interface ConvertProfileOptions {
+  profileIds: string[];
+  defaultProfileId: string;
+}
+
+export async function getConvertProfileOptions(
+  sourcePaths: string[],
+): Promise<ConvertProfileOptions> {
+  return invoke<ConvertProfileOptions>("get_convert_profile_options", {
+    sourcePaths,
+  });
+}
+
 export async function removeTrack(
   trackId: number,
   deleteFromDisk: boolean,
@@ -791,12 +817,13 @@ export async function clearMetadataCache(): Promise<void> {
 export async function ripCdTrack(
   driveId: string,
   trackNumber: number,
+  profileId: string,
   metadata: TrackMetadataUpdate,
 ): Promise<string> {
   return invoke<string>("rip_cd_track", {
     driveId,
     trackNumber,
-    format: "flac",
+    profileId,
     metadata,
   });
 }

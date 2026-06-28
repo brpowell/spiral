@@ -2,6 +2,8 @@ mod art_cache;
 mod art_thumb;
 mod audio_formats;
 mod cd;
+mod encoding_profiles;
+mod transcoder;
 mod artist_art_fetch;
 mod cover_art_fetch;
 mod disc_metadata_cache;
@@ -76,6 +78,8 @@ pub fn run() {
             commands::library::save_track,
             commands::library::get_library,
             commands::library::replace_track_from_import,
+            commands::library::convert_track,
+            commands::library::get_convert_profile_options,
             commands::playlists::get_playlists,
             commands::playlists::create_playlist,
             commands::playlists::update_playlist,

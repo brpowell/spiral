@@ -23,6 +23,11 @@ export function isTrackInteractive(track: Track): boolean {
   return !isTrackImporting(track);
 }
 
+/** Library tracks that can be converted (saved rows, not mid-import). */
+export function isTrackConvertible(track: Track): boolean {
+  return track.id > 0 && isTrackInteractive(track);
+}
+
 export function pendingTrackFromInput(
   id: number,
   sourcePath: string,

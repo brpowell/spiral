@@ -8,7 +8,93 @@
   margin-top: 1rem;
 }
 
+.radio-group > .field,
+.radio-group > .field + .field {
+  margin-top: 0;
+}
+
+.field--horizontal {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .field__label {
   font-size: 0.85rem;
   color: var(--color-text-secondary);
+}
+
+label.field__label {
+  color: var(--color-text-primary);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.field__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.field__description {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+  text-wrap: balance;
+}
+
+.field > .field__label + .radio-group {
+  margin-top: 0.25rem;
+}
+
+.field--description-below-label > .field__label + .field__description {
+  margin-top: -0.1rem;
+}
+
+.field--description-below-label > .field__description + * {
+  margin-top: 0.35rem;
+}
+
+.field > .radio-group + .field__description {
+  margin-top: 0.35rem;
+}
+
+.field--choice-card {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.field--choice-card:hover:not(:has(.radio-group-item__input:disabled)) {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+}
+
+.field--choice-card:has(.radio-group-item__input:checked) {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.field--choice-card:has(.radio-group-item__input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.field--choice-card .field--horizontal {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.field--choice-card .field__content > .field__label {
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
+  font-weight: 500;
 }

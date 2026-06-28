@@ -5,9 +5,12 @@ import {
 } from "../components/ContextMenu/ContextMenu";
 import {
   IconAddToQueue,
+  IconConvert,
   IconEditInfo,
   IconRemoveFromQueue,
 } from "../components/icons";
+import { openConvertForTrackIds } from "../lib/convertTracks";
+import { isTrackConvertible } from "../lib/pendingImportTrack";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Album } from "../types/album";
 import { useContextMenu } from "./useContextMenu";
@@ -25,10 +28,13 @@ export function useAlbumEditMenu(album: Album) {
 
   const anyInQueue = albumTrackIds.some((id) => manualQueueIds.includes(id));
   const trackCount = album.tracks.length;
+  const convertibleCount = album.tracks.filter((track) =>
+    isTrackConvertible(track),
+  ).length;
 
   const { onContextMenu, closeMenu, open, anchor, position, menuRef } =
     useContextMenu({
-      layoutDeps: [anyInQueue, trackCount],
+      layoutDeps: [anyInQueue, trackCount, convertibleCount],
     });
 
   const openEditor = useCallback(() => {
@@ -73,6 +79,20 @@ export function useAlbumEditMenu(album: Album) {
             for (const id of albumTrackIds) {
               if (manualQueueIds.includes(id)) removeFromQueue(id);
             }
+          }}
+        />
+      ) : null}
+      {convertibleCount > 0 ? (
+        <ContextMenuItem
+          icon={<IconConvert />}
+          label={
+            convertibleCount > 1
+              ? `Convert ${convertibleCount} Tracks…`
+              : "Convert Album…"
+          }
+          onClick={() => {
+            closeMenu();
+            openConvertForTrackIds(albumTrackIds);
           }}
         />
       ) : null}

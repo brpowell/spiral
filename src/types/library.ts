@@ -11,6 +11,7 @@ export interface LibrarySettings {
   defaultOrganizePathFormat: string;
   importMode: ImportMode;
   cdMetadataFetchMode: CdMetadataFetchMode;
+  cdImportProfileId: string;
   defaultMediaFolder: string;
   defaultDatabasePath: string;
   defaultLibraryRoot: string;
@@ -25,6 +26,7 @@ export interface LibrarySettingsPatch {
   organizePathFormat?: string;
   importMode?: ImportMode;
   cdMetadataFetchMode?: CdMetadataFetchMode;
+  cdImportProfileId?: string;
   metadataBackupsEnabled?: boolean;
   metadataBackupRetentionDays?: number;
 }

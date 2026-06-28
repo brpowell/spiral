@@ -39,6 +39,7 @@ base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+mp3lame-encoder = "0.2.4"
 block2 = "0.6"
 objc2 = { version = "0.6", features = ["exception"] }
 objc2-app-kit = { version = "0.3", features = ["NSOpenPanel", "NSWorkspace"] }

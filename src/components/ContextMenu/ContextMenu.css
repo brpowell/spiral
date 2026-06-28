@@ -139,8 +139,7 @@
 }
 
 .context-menu--select {
-  min-width: 14rem;
-  max-width: min(22rem, calc(100vw - 1rem));
+  box-sizing: border-box;
 }
 
 .context-menu button.context-menu__option {

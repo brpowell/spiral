@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   allocPendingTrackId,
+  isTrackConvertible,
   isTrackImporting,
   isTrackInteractive,
   pendingTrackFromInput,
@@ -31,5 +32,6 @@ describe("pendingImportTrack", () => {
 
     expect(isTrackImporting(track)).toBe(true);
     expect(isTrackInteractive(track)).toBe(false);
+    expect(isTrackConvertible(track)).toBe(false);
   });
 });

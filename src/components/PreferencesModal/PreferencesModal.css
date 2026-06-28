@@ -96,6 +96,10 @@
   border: none;
 }
 
+.preferences__encoding-profiles {
+  margin-top: 1rem;
+}
+
 .preferences__fieldset legend {
   margin-bottom: 0.5rem;
   font-size: 0.85rem;

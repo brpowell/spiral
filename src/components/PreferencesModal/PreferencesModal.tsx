@@ -8,6 +8,12 @@ import {
   trackToOrganizePathSample,
   type OrganizePathSample,
 } from "../../lib/organizePathFormat";
+import {
+  DEFAULT_CD_IMPORT_PROFILE_ID,
+  ENCODING_PROFILE_SELECT_OPTIONS,
+  isKnownEncodingProfileId,
+  type EncodingProfileId,
+} from "../../lib/encodingProfiles";
 import { pickDatabaseFolder, pickFolder, clearMetadataCache } from "../../lib/tauri";
 import { useCdStore } from "../../store/useCdStore";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
@@ -25,6 +31,7 @@ import {
   ModalTitle,
 } from "../common/Modal/Modal";
 import { TextInput } from "../common/TextInput/TextInput";
+import { Select } from "../common/Select/Select";
 import { IconCheck } from "../icons";
 import "./PreferencesModal.css";
 
@@ -124,6 +131,7 @@ export function PreferencesModal() {
         organizePathFormat: draft.organizePathFormat,
         importMode: draft.importMode,
         cdMetadataFetchMode: draft.cdMetadataFetchMode,
+        cdImportProfileId: draft.cdImportProfileId,
         metadataBackupsEnabled: draft.metadataBackupsEnabled,
         metadataBackupRetentionDays: draft.metadataBackupRetentionDays,
       });
@@ -349,6 +357,24 @@ export function PreferencesModal() {
               ))}
             </div>
           </fieldset>
+
+          <FormField
+            label="When ripping to library"
+            className="preferences__encoding-profiles"
+          >
+            <Select
+              value={
+                isKnownEncodingProfileId(draft.cdImportProfileId)
+                  ? (draft.cdImportProfileId as EncodingProfileId)
+                  : DEFAULT_CD_IMPORT_PROFILE_ID
+              }
+              onChange={(value) =>
+                setDraft((d) => (d ? { ...d, cdImportProfileId: value } : d))
+              }
+              options={ENCODING_PROFILE_SELECT_OPTIONS}
+              aria-label="CD import encoding profile"
+            />
+          </FormField>
 
           <p className="preferences__hint">
             Clears cached remote lookup results so the next fetch contacts

@@ -358,12 +358,62 @@ function refreshLibraryPreservingPlayback(
     return;
   }
 
+  const priorTrack =
+    state.currentTrackId !== null
+      ? state.library.find((track) => track.id === state.currentTrackId)
+      : undefined;
+  const updatedTrack =
+    currentTrackId !== null
+      ? library.find((track) => track.id === currentTrackId)
+      : undefined;
+  const filePathChanged =
+    priorTrack != null &&
+    updatedTrack != null &&
+    priorTrack.filePath !== updatedTrack.filePath &&
+    !isTrackImporting(updatedTrack);
+
   set({
     library,
     playContextIds,
     manualQueueIds,
     currentTrackId,
   });
+
+  if (!filePathChanged || updatedTrack == null) return;
+
+  const wasPlaying = state.playbackState === "playing";
+  const positionSeconds = state.positionSeconds;
+
+  void (async () => {
+    try {
+      await audio.load(updatedTrack.filePath);
+      if (positionSeconds > 0) {
+        const duration = updatedTrack.durationSeconds ?? 0;
+        if (duration > 0) {
+          audio.seek(Math.min(positionSeconds / duration, 1));
+        }
+      }
+      if (wasPlaying) {
+        audio.play();
+        startPositionPoll(set);
+        set({ playbackState: "playing" });
+      } else {
+        stopPositionPoll();
+        set({ playbackState: "paused", positionSeconds });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("Failed to reload converted track:", err);
+      audio.unload();
+      stopPositionPoll();
+      set({
+        playbackState: "stopped",
+        positionSeconds: 0,
+        seekPreviewRatio: null,
+        importError: `Playback failed after convert: ${message}`,
+      });
+    }
+  })();
 }
 
 async function restorePlaybackSession(

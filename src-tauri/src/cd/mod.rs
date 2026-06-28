@@ -10,4 +10,4 @@ mod rip;
 #[cfg(target_os = "macos")]
 pub mod aiff_path;
 
-pub use rip::{cleanup_rip_temp, rip_cd_track, RipFormat};
+pub use rip::{cleanup_rip_temp, rip_cd_track};

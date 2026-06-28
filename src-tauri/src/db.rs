@@ -601,7 +601,7 @@ pub fn rename_artist_image_key(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::TrackInput;
+    use crate::models::{TrackInput, TrackMetadataUpdate};
 
     fn test_conn() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
@@ -738,5 +738,46 @@ mod tests {
         save_track(&conn, &updated).unwrap();
 
         assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().rating, 179);
+    }
+
+    #[test]
+    fn convert_replace_updates_path_preserving_id() {
+        let conn = test_conn();
+        let id = save_track(&conn, &sample_input("/music/album/track.flac")).unwrap();
+        let existing = get_track_by_id(&conn, id).unwrap().unwrap();
+
+        update_track(
+            &conn,
+            id,
+            &TrackMetadataUpdate {
+                title: existing.title.clone(),
+                artist: existing.artist.clone(),
+                album: existing.album.clone(),
+                album_artist: existing.album_artist.clone(),
+                track_number: existing.track_number,
+                disc_number: existing.disc_number,
+                year: existing.year,
+                genre: existing.genre.clone(),
+                art_path: existing.art_path.clone(),
+                art_changed: false,
+            },
+            Some("/music/album/track.m4a"),
+        )
+        .unwrap();
+
+        let updated = get_track_by_id(&conn, id).unwrap().unwrap();
+        assert_eq!(updated.id, id);
+        assert_eq!(updated.file_path, "/music/album/track.m4a");
+    }
+
+    #[test]
+    fn convert_add_new_creates_row_with_distinct_file_path() {
+        let conn = test_conn();
+        save_track(&conn, &sample_input("/music/album/track.flac")).unwrap();
+        save_track(&conn, &sample_input("/music/album/track.m4a")).unwrap();
+
+        let tracks = get_all_tracks(&conn).unwrap();
+        assert_eq!(tracks.len(), 2);
+        assert_ne!(tracks[0].file_path, tracks[1].file_path);
     }
 }

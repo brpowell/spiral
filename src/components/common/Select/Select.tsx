@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useContextMenu } from "../../../hooks/useContextMenu";
 import {
   ContextMenu,
@@ -21,14 +21,29 @@ export function Select<T extends string>({
   disabled = false,
 }: SelectProps<T>) {
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const [menuWidth, setMenuWidth] = useState<number | undefined>();
   const { open, anchor, position, menuRef, toggleFromTrigger, closeMenu } =
     useContextMenu({
-      layoutDeps: [options, value],
+      layoutDeps: [options, value, menuWidth],
       dismissExcludeRefs: [triggerRef],
       triggerPlacement: "below-start",
     });
 
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuWidth(undefined);
+    }
+  }, [open]);
+
   const selected = options.find((o) => o.value === value);
+
+  const handleTriggerClick = () => {
+    if (disabled) return;
+    if (triggerRef.current) {
+      setMenuWidth(triggerRef.current.getBoundingClientRect().width);
+    }
+    toggleFromTrigger(triggerRef.current);
+  };
 
   return (
     <div className={["select", className].filter(Boolean).join(" ")}>
@@ -40,9 +55,7 @@ export function Select<T extends string>({
         aria-label={ariaLabel}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => {
-          if (!disabled) toggleFromTrigger(triggerRef.current);
-        }}
+        onClick={handleTriggerClick}
       >
         <span className="select__value">
           {selected?.label ?? "Select…"}
@@ -57,6 +70,7 @@ export function Select<T extends string>({
         position={position}
         menuRef={menuRef}
         className="context-menu--select"
+        style={menuWidth != null ? { width: menuWidth } : undefined}
       >
         {options.map((opt) => (
           <ContextMenuOptionItem

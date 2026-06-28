@@ -65,17 +65,32 @@ fn default_cd_metadata_fetch_mode() -> String {
     "ask".to_string()
 }
 
+fn default_cd_import_profile_id() -> String {
+    crate::encoding_profiles::DEFAULT_CD_IMPORT_PROFILE_ID.to_string()
+}
+
+fn resolved_cd_import_profile_id(stored: &str) -> String {
+    if crate::encoding_profiles::profile_from_id(stored).is_ok() {
+        stored.to_string()
+    } else {
+        default_cd_import_profile_id()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CdSettings {
     #[serde(default = "default_cd_metadata_fetch_mode")]
     pub metadata_fetch_mode: String,
+    #[serde(default = "default_cd_import_profile_id")]
+    pub import_profile_id: String,
 }
 
 impl Default for CdSettings {
     fn default() -> Self {
         Self {
             metadata_fetch_mode: default_cd_metadata_fetch_mode(),
+            import_profile_id: default_cd_import_profile_id(),
         }
     }
 }
@@ -237,6 +252,7 @@ pub struct LibrarySettingsResponse {
     pub metadata_backups_enabled: bool,
     pub metadata_backup_retention_days: u32,
     pub cd_metadata_fetch_mode: String,
+    pub cd_import_profile_id: String,
 }
 
 pub fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -344,6 +360,7 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
             crate::metadata_backup::MAX_RETENTION_DAYS,
         ),
         cd_metadata_fetch_mode: cd.metadata_fetch_mode,
+        cd_import_profile_id: resolved_cd_import_profile_id(&cd.import_profile_id),
     }
 }
 
@@ -366,6 +383,8 @@ pub struct LibrarySettingsPatch {
     pub metadata_backup_retention_days: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cd_metadata_fetch_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cd_import_profile_id: Option<String>,
 }
 
 pub fn merge_library_settings(
@@ -417,6 +436,12 @@ pub fn merge_library_settings(
             settings.cd.metadata_fetch_mode = mode;
         }
     }
+    if let Some(profile_id) = patch.cd_import_profile_id {
+        if !profile_id.is_empty() {
+            crate::encoding_profiles::profile_from_id(&profile_id)?;
+            settings.cd.import_profile_id = profile_id;
+        }
+    }
 
     write_settings(app, &settings)?;
     let resolved = resolved_library_settings(app);
@@ -430,4 +455,30 @@ pub fn merge_library_settings(
 
 pub fn metadata_backup_config(app: &AppHandle) -> crate::metadata_backup::MetadataBackupConfig {
     crate::metadata_backup::MetadataBackupConfig::from(&read_settings(app).metadata_backups)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_cd_settings_use_lossless_flac_import_profile() {
+        let settings = CdSettings::default();
+        assert_eq!(
+            settings.import_profile_id,
+            crate::encoding_profiles::DEFAULT_CD_IMPORT_PROFILE_ID
+        );
+    }
+
+    #[test]
+    fn resolved_cd_import_profile_id_falls_back_for_unknown_values() {
+        assert_eq!(
+            resolved_cd_import_profile_id("lossless-flac"),
+            "lossless-flac"
+        );
+        assert_eq!(
+            resolved_cd_import_profile_id("not-a-profile"),
+            crate::encoding_profiles::DEFAULT_CD_IMPORT_PROFILE_ID
+        );
+    }
 }

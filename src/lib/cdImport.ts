@@ -32,6 +32,7 @@ import {
 } from "../store/useImportDedupeStore";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
+import { useLibrarySettingsStore } from "../store/useLibrarySettingsStore";
 import type { Album } from "../types/album";
 import type { CdDisc } from "../types/cd";
 import type { TrackMetadataUpdate } from "../types/metadata";
@@ -151,6 +152,11 @@ export function startCdImport(options: {
           plansToImport.map((plan) => plan.trackNumber),
         );
 
+        const settings =
+          useLibrarySettingsStore.getState().settings ??
+          (await useLibrarySettingsStore.getState().loadSettings());
+        const profileId = settings.cdImportProfileId;
+
         const albumArtist = plansToImport[0].metadata.albumArtist ?? plansToImport[0].metadata.artist;
         const albumTitle = plansToImport[0].metadata.album;
         const sharedArtPath = await resolveCdSharedArtPath({
@@ -195,6 +201,7 @@ export function startCdImport(options: {
           const filePath = await ripCdTrack(
             driveId,
             plan.trackNumber,
+            profileId,
             metadata,
           );
 

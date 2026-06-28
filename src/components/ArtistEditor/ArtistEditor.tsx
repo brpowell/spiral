@@ -37,6 +37,7 @@ import {
   ModalDescription,
   ModalFooter,
   ModalHeader,
+  ModalHeaderMain,
   ModalTitle,
 } from "../common/Modal/Modal";
 import { Button } from "../common/Button/Button";
@@ -363,125 +364,126 @@ export function ArtistEditor() {
             inert={discardPrompt || undefined}
           >
             <ModalHeader>
-              <ModalTitle id="artist-editor-title">Edit artist</ModalTitle>
+              <ModalHeaderMain>
+                <ModalTitle id="artist-editor-title">Edit artist</ModalTitle>
+                <ModalDescription>
+                  {nameChangedDescription(form!, originalForm!, tracks.length, artChanged)}
+                </ModalDescription>
+              </ModalHeaderMain>
             </ModalHeader>
 
             <ModalBody>
-            <ModalDescription>
-              {nameChangedDescription(form!, originalForm!, tracks.length, artChanged)}
-            </ModalDescription>
+              <div className="track-editor__body">
+                <div className="track-editor__art-col">
+                  <div
+                    data-art-drop-zone
+                    className={
+                      artDragOver
+                        ? "track-editor__art-drop track-editor__art-drop--active track-editor__art-drop--round"
+                        : "track-editor__art-drop track-editor__art-drop--round"
+                    }
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setArtDragOver(true);
+                    }}
+                    onDragLeave={() => setArtDragOver(false)}
+                    onDrop={handleArtDrop}
+                  >
+                    {previewSrc ? (
+                      <img
+                        src={previewSrc}
+                        alt=""
+                        className="track-editor__art-img track-editor__art-img--round"
+                      />
+                    ) : (
+                      <EntityArt
+                        artPath={null}
+                        className="track-editor__art-placeholder album-art--round"
+                        placeholder={<IconArtistPlaceholder />}
+                      />
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    className="track-editor__art-btn"
+                    onClick={() => void handleChangeArt()}
+                  >
+                    Change Art
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="track-editor__art-btn"
+                    onClick={() => void handleFetchArt()}
+                    disabled={fetchingArt}
+                  >
+                    {fetchingArt ? "Fetching…" : "Fetch Art"}
+                  </Button>
+                  {fetchMessage && !fetchingArt && (
+                    <p className="track-editor__fetch-msg">{fetchMessage}</p>
+                  )}
+                  {fetchingArt && (
+                    <div
+                      className="track-editor__fetching"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <span
+                        className="track-editor__fetching-spinner"
+                        aria-hidden
+                      />
+                      <span>Fetching artwork…</span>
+                    </div>
+                  )}
+                  {coverCandidates.length > 0 && (
+                    <div
+                      className="track-editor__cover-picker"
+                      aria-label="Artist image options"
+                    >
+                      {coverCandidates.map((candidate) => {
+                        const thumbSrc = candidate.thumbnailUrl ?? candidate.url;
 
-            <div className="track-editor__body">
-              <div className="track-editor__art-col">
-                <div
-                  data-art-drop-zone
-                  className={
-                    artDragOver
-                      ? "track-editor__art-drop track-editor__art-drop--active track-editor__art-drop--round"
-                      : "track-editor__art-drop track-editor__art-drop--round"
-                  }
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setArtDragOver(true);
-                  }}
-                  onDragLeave={() => setArtDragOver(false)}
-                  onDrop={handleArtDrop}
-                >
-                  {previewSrc ? (
-                    <img
-                      src={previewSrc}
-                      alt=""
-                      className="track-editor__art-img track-editor__art-img--round"
-                    />
-                  ) : (
-                    <EntityArt
-                      artPath={null}
-                      className="track-editor__art-placeholder album-art--round"
-                      placeholder={<IconArtistPlaceholder />}
-                    />
+                        return (
+                          <button
+                            key={candidate.url}
+                            type="button"
+                            className={
+                              selectedCoverUrl === candidate.url
+                                ? "track-editor__cover-option track-editor__cover-option--selected"
+                                : "track-editor__cover-option"
+                            }
+                            onClick={() => handleSelectCover(candidate.url)}
+                            aria-pressed={selectedCoverUrl === candidate.url}
+                          >
+                            <span className="track-editor__cover-thumb track-editor__cover-thumb--round">
+                              <img src={thumbSrc} alt="" loading="lazy" />
+                            </span>
+                            <CoverOptionMeta candidate={candidate} />
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
-                <Button
-                  size="sm"
-                  className="track-editor__art-btn"
-                  onClick={() => void handleChangeArt()}
-                >
-                  Change Art
-                </Button>
-                <Button
-                  size="sm"
-                  className="track-editor__art-btn"
-                  onClick={() => void handleFetchArt()}
-                  disabled={fetchingArt}
-                >
-                  {fetchingArt ? "Fetching…" : "Fetch Art"}
-                </Button>
-                {fetchMessage && !fetchingArt && (
-                  <p className="track-editor__fetch-msg">{fetchMessage}</p>
-                )}
-                {fetchingArt && (
-                  <div
-                    className="track-editor__fetching"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <span
-                      className="track-editor__fetching-spinner"
-                      aria-hidden
+
+                <div className="track-editor__fields">
+                  <FormField label="Artist">
+                    <TextInput
+                      value={form.name}
+                      onChange={(e) =>
+                        setForm((prev) =>
+                          prev ? { ...prev, name: e.target.value } : prev,
+                        )
+                      }
                     />
-                    <span>Fetching artwork…</span>
-                  </div>
-                )}
-                {coverCandidates.length > 0 && (
-                  <div
-                    className="track-editor__cover-picker"
-                    aria-label="Artist image options"
-                  >
-                    {coverCandidates.map((candidate) => {
-                      const thumbSrc = candidate.thumbnailUrl ?? candidate.url;
-
-                      return (
-                        <button
-                          key={candidate.url}
-                          type="button"
-                          className={
-                            selectedCoverUrl === candidate.url
-                              ? "track-editor__cover-option track-editor__cover-option--selected"
-                              : "track-editor__cover-option"
-                          }
-                          onClick={() => handleSelectCover(candidate.url)}
-                          aria-pressed={selectedCoverUrl === candidate.url}
-                        >
-                          <span className="track-editor__cover-thumb track-editor__cover-thumb--round">
-                            <img src={thumbSrc} alt="" loading="lazy" />
-                          </span>
-                          <CoverOptionMeta candidate={candidate} />
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                  </FormField>
+                </div>
               </div>
 
-              <div className="track-editor__fields">
-                <FormField label="Artist">
-                  <TextInput
-                    value={form.name}
-                    onChange={(e) =>
-                      setForm((prev) =>
-                        prev ? { ...prev, name: e.target.value } : prev,
-                      )
-                    }
-                  />
-                </FormField>
-              </div>
-            </div>
-
-            {saveError && (
-              <p className="track-editor__error" role="alert">
-                {saveError}
-              </p>
-            )}
+              {saveError && (
+                <p className="track-editor__error" role="alert">
+                  {saveError}
+                </p>
+              )}
             </ModalBody>
 
             <ModalFooter
