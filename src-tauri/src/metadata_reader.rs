@@ -1,5 +1,6 @@
 use crate::art_cache;
 use crate::models::TrackInput;
+use crate::rating_tags;
 use id3::{Tag, TagLike};
 use metaflac::Tag as FlacTag;
 use mp4ameta::Tag as Mp4Tag;
@@ -18,6 +19,7 @@ pub struct BasicTags {
     pub year: Option<i32>,
     pub genre: Option<String>,
     pub duration_seconds: Option<f64>,
+    pub rating: Option<u8>,
 }
 
 fn join_tag_values<'a, I>(values: I) -> Option<String>
@@ -90,6 +92,7 @@ fn read_mp3_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
     tags.disc_number = tag.disc().map(|n| n as i32);
     tags.year = tag.year();
     tags.genre = tag.genre().map(|s| s.to_string());
+    tags.rating = rating_tags::read_mp3_rating(&tag);
 
     if let Some(picture) = tag.pictures().next() {
         art = Some((picture.data.clone(), picture.mime_type.clone()));
@@ -136,6 +139,7 @@ fn read_flac_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
     if let Some(mut v) = tag.get_vorbis("GENRE") {
         tags.genre = v.next().map(|s| s.to_string());
     }
+    tags.rating = rating_tags::read_flac_rating(&tag);
 
     if let Some(streaminfo) = tag.get_streaminfo() {
         if streaminfo.sample_rate > 0 && streaminfo.total_samples > 0 {
@@ -167,6 +171,7 @@ fn read_mp4_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
     tags.disc_number = tag.disc_number().map(|n| n as i32);
     tags.year = tag.year().and_then(|value| parse_year(value));
     tags.genre = tag.genre().map(|s| s.to_string());
+    tags.rating = rating_tags::read_m4a_rating(&tag);
     let duration = tag.duration().as_secs_f64();
     if duration > 0.0 {
         tags.duration_seconds = Some(duration);
@@ -281,6 +286,7 @@ pub fn parse_track_metadata(
         duration_seconds: tags.duration_seconds,
         file_path: file_path.to_string(),
         art_path,
+        rating: tags.rating,
     })
 }
 
@@ -318,7 +324,36 @@ mod tests {
         let result = parse_track_metadata(&app_data, file.to_str().unwrap()).unwrap();
         assert_eq!(result.title, "Plain");
         assert_eq!(result.file_path, file.to_string_lossy());
+        assert_eq!(result.rating, None);
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn parse_track_metadata_reads_mp3_popm_rating() {
+        use crate::metadata_backup::MetadataBackupConfig;
+        use std::fs;
+        use std::io::Write;
+
+        let dir = std::env::temp_dir().join(format!("spiral-meta-popm-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let audio = dir.join("rated.mp3");
+        let mut f = fs::File::create(&audio).unwrap();
+        f.write_all(&[0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00])
+            .unwrap();
+
+        let backup_config = MetadataBackupConfig {
+            enabled: false,
+            retention_days: 14,
+        };
+        rating_tags::write_rating_to_file(&audio, 204, &backup_config).unwrap();
+
+        let app_data = dir.join("appdata");
+        let result = parse_track_metadata(&app_data, audio.to_str().unwrap()).unwrap();
+        assert_eq!(result.rating, Some(204));
+
+        let _ = fs::remove_dir_all(&dir);
     }
 }

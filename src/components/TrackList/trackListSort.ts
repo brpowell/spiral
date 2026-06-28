@@ -46,6 +46,13 @@ export function compareTracks(
     case "playCount":
       cmp = a.playCount - b.playCount;
       break;
+    case "rating": {
+      const unratedSentinel = dir === "asc" ? Number.MAX_SAFE_INTEGER : -1;
+      const ratingA = a.rating === 0 ? unratedSentinel : a.rating;
+      const ratingB = b.rating === 0 ? unratedSentinel : b.rating;
+      cmp = ratingA - ratingB;
+      break;
+    }
   }
 
   return dir === "asc" ? cmp : -cmp;

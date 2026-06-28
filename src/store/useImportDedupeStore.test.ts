@@ -40,6 +40,7 @@ function existingTrack(id: number): Track {
     artPath: null,
     dateAdded: "2024-01-01",
     playCount: 2,
+    rating: 0,
   };
 }
 

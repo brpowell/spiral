@@ -6,6 +6,7 @@ import {
 } from "./artistNames";
 import type { TrackMetadataUpdate } from "../types/metadata";
 import type { Track } from "../types/track";
+import { UNRATED, type CanonicalRating } from "./trackRating";
 
 function tracksShareAlbum(tracks: Track[]): boolean {
   if (tracks.length <= 1) return true;
@@ -22,9 +23,10 @@ export interface TrackEditorForm {
   trackNumber: string;
   discNumber: string;
   genre: string;
+  rating: CanonicalRating;
 }
 
-export type TrackEditorFormField = keyof TrackEditorForm;
+export type TrackEditorFormField = Exclude<keyof TrackEditorForm, "rating">;
 
 const MIXED_PLACEHOLDER = "Multiple values";
 
@@ -87,7 +89,14 @@ export function trackToForm(track: Track): TrackEditorForm {
     trackNumber: track.trackNumber != null ? String(track.trackNumber) : "",
     discNumber: track.discNumber != null ? String(track.discNumber) : "",
     genre: track.genre ?? "",
+    rating: track.rating,
   };
+}
+
+function sharedRating(tracks: Track[]): CanonicalRating {
+  if (tracks.length === 0) return UNRATED;
+  const first = tracks[0].rating;
+  return tracks.every((t) => t.rating === first) ? first : UNRATED;
 }
 
 export function tracksToForm(tracks: Track[]): TrackEditorForm {
@@ -101,6 +110,7 @@ export function tracksToForm(tracks: Track[]): TrackEditorForm {
     trackNumber: sharedInt(tracks, (t) => t.trackNumber),
     discNumber: sharedInt(tracks, (t) => t.discNumber),
     genre: sharedString(tracks, (t) => t.genre),
+    rating: sharedRating(tracks),
   };
 }
 
@@ -168,7 +178,7 @@ export function parseOptionalInt(value: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-export function trackEditorFormsEqual(
+export function trackEditorMetadataFormsEqual(
   a: TrackEditorForm,
   b: TrackEditorForm,
 ): boolean {
@@ -182,6 +192,13 @@ export function trackEditorFormsEqual(
     a.discNumber === b.discNumber &&
     a.genre === b.genre
   );
+}
+
+export function trackEditorFormsEqual(
+  a: TrackEditorForm,
+  b: TrackEditorForm,
+): boolean {
+  return trackEditorMetadataFormsEqual(a, b) && a.rating === b.rating;
 }
 
 export function buildTrackMetadataFromForm(

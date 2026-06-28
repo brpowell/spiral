@@ -10,6 +10,8 @@ import type {
   TrackListSortField,
 } from "../components/TrackList/types";
 import { isTrackImporting } from "../lib/pendingImportTrack";
+import { setTrackRating } from "../lib/tauri";
+import type { CanonicalRating } from "../lib/trackRating";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Track } from "../types/track";
 import "./TracksView.css";
@@ -24,6 +26,22 @@ export function TracksView({ tracks }: TracksViewProps) {
   const playbackState = usePlayerStore((s) => s.playbackState);
   const selectedTrackIds = usePlayerStore((s) => s.selectedTrackIds);
   const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
+  const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
+
+  const handleRatingChange = useCallback(
+    (trackId: number, rating: CanonicalRating) => {
+      const track = usePlayerStore
+        .getState()
+        .library.find((t) => t.id === trackId);
+      if (!track) return;
+
+      updateTrackInLibrary({ ...track, rating });
+      void setTrackRating(trackId, rating).catch(() =>
+        updateTrackInLibrary(track),
+      );
+    },
+    [updateTrackInLibrary],
+  );
 
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<TrackListSortField>("title");
@@ -111,6 +129,7 @@ export function TracksView({ tracks }: TracksViewProps) {
           playbackState={playbackState}
           onSelectTrack={handleSelectRow}
           onPlayTrack={handlePlayRow}
+          onRatingChange={handleRatingChange}
           sortField={sortField}
           sortDir={sortDir}
           onSort={handleSort}

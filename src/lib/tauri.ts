@@ -67,11 +67,20 @@ function normalizeTrack(raw: Record<string, unknown>): Track {
       (raw.playCount as number | undefined) ??
       (raw.play_count as number | undefined) ??
       0,
+    rating:
+      (raw.rating as number | undefined) ?? 0,
   };
 }
 
 export async function recordTrackPlay(trackId: number): Promise<number> {
   return invoke<number>("record_track_play", { trackId });
+}
+
+export async function setTrackRating(
+  trackId: number,
+  rating: number,
+): Promise<number> {
+  return invoke<number>("set_track_rating", { trackId, rating });
 }
 
 export async function pickAudioFiles(): Promise<string[]> {
@@ -540,7 +549,8 @@ export interface TrackListPreferencesPayload {
       | "genre"
       | "discNumber"
       | "dateAdded"
-      | "playCount",
+      | "playCount"
+      | "rating",
       number
     >
   >;

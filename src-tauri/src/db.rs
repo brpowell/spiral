@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS tracks (
   file_path TEXT NOT NULL UNIQUE,
   art_path TEXT,
   date_added TEXT NOT NULL,
-  play_count INTEGER NOT NULL DEFAULT 0
+  play_count INTEGER NOT NULL DEFAULT 0,
+  rating INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS playlists (
@@ -45,7 +46,7 @@ CREATE TABLE IF NOT EXISTS artist_images (
 ";
 
 const TRACK_SELECT: &str = "SELECT id, title, artist, album, album_artist, track_number, disc_number,
-                year, genre, duration_seconds, file_path, art_path, date_added, play_count";
+                year, genre, duration_seconds, file_path, art_path, date_added, play_count, rating";
 
 fn map_track_row(row: &Row<'_>) -> rusqlite::Result<Track> {
     Ok(Track {
@@ -63,6 +64,7 @@ fn map_track_row(row: &Row<'_>) -> rusqlite::Result<Track> {
         art_path: row.get(11)?,
         date_added: row.get(12)?,
         play_count: row.get(13)?,
+        rating: row.get(14)?,
     })
 }
 
@@ -111,6 +113,13 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
+    if !track_columns.iter().any(|c| c == "rating") {
+        conn.execute(
+            "ALTER TABLE tracks ADD COLUMN rating INTEGER NOT NULL DEFAULT 0",
+            [],
+        )?;
+    }
+
     let playlist_columns = table_columns(conn, "playlists")?;
     if !playlist_columns.iter().any(|c| c == "image_mode") {
         conn.execute(
@@ -140,11 +149,12 @@ pub fn open(db_path: &Path) -> Result<Connection, rusqlite::Error> {
 
 pub fn save_track(conn: &Connection, input: &TrackInput) -> Result<i64, rusqlite::Error> {
     let date_added = Utc::now().to_rfc3339();
+    let rating = input.rating.unwrap_or(0);
     conn.execute(
         "INSERT INTO tracks (
             title, artist, album, album_artist, track_number, disc_number,
-            year, genre, duration_seconds, file_path, art_path, date_added
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+            year, genre, duration_seconds, file_path, art_path, date_added, rating
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
         ON CONFLICT(file_path) DO UPDATE SET
             title = excluded.title,
             artist = excluded.artist,
@@ -155,7 +165,12 @@ pub fn save_track(conn: &Connection, input: &TrackInput) -> Result<i64, rusqlite
             year = excluded.year,
             genre = excluded.genre,
             duration_seconds = excluded.duration_seconds,
-            art_path = excluded.art_path",
+            art_path = excluded.art_path,
+            rating = CASE
+                WHEN tracks.rating = 0 AND excluded.rating != 0
+                THEN excluded.rating
+                ELSE tracks.rating
+            END",
         params![
             input.title,
             input.artist,
@@ -169,6 +184,7 @@ pub fn save_track(conn: &Connection, input: &TrackInput) -> Result<i64, rusqlite
             input.file_path,
             input.art_path,
             date_added,
+            rating,
         ],
     )?;
 
@@ -187,6 +203,18 @@ pub fn increment_play_count(conn: &Connection, id: i64) -> Result<u32, rusqlite:
     )?;
     conn.query_row(
         "SELECT play_count FROM tracks WHERE id = ?1",
+        params![id],
+        |row| row.get(0),
+    )
+}
+
+pub fn set_track_rating(conn: &Connection, id: i64, rating: u8) -> Result<u8, rusqlite::Error> {
+    conn.execute(
+        "UPDATE tracks SET rating = ?1 WHERE id = ?2",
+        params![rating, id],
+    )?;
+    conn.query_row(
+        "SELECT rating FROM tracks WHERE id = ?1",
         params![id],
         |row| row.get(0),
     )
@@ -595,6 +623,7 @@ mod tests {
             duration_seconds: None,
             file_path: path.into(),
             art_path: None,
+            rating: None,
         }
     }
 
@@ -644,5 +673,70 @@ mod tests {
 
         let track = get_track_by_id(&conn, 1).unwrap().unwrap();
         assert_eq!(track.play_count, 2);
+    }
+
+    #[test]
+    fn set_track_rating_persists_and_preserves_on_upsert() {
+        let conn = test_conn();
+        let path = "/music/rated.mp3";
+
+        save_track(&conn, &sample_input(path)).unwrap();
+        assert_eq!(set_track_rating(&conn, 1, 128).unwrap(), 128);
+
+        let rated = get_track_by_id(&conn, 1).unwrap().unwrap();
+        assert_eq!(rated.rating, 128);
+
+        let mut updated = sample_input(path);
+        updated.title = "Renamed".into();
+        save_track(&conn, &updated).unwrap();
+
+        let after_upsert = get_track_by_id(&conn, 1).unwrap().unwrap();
+        assert_eq!(after_upsert.title, "Renamed");
+        assert_eq!(after_upsert.rating, 128);
+    }
+
+    #[test]
+    fn save_track_seeds_rating_on_first_import() {
+        let conn = test_conn();
+        let path = "/music/new-rated.mp3";
+
+        let mut input = sample_input(path);
+        input.rating = Some(204);
+        save_track(&conn, &input).unwrap();
+
+        let track = get_track_by_id(&conn, 1).unwrap().unwrap();
+        assert_eq!(track.rating, 204);
+    }
+
+    #[test]
+    fn save_track_seeds_rating_on_reimport_when_unrated() {
+        let conn = test_conn();
+        let path = "/music/late-rated.mp3";
+
+        save_track(&conn, &sample_input(path)).unwrap();
+        assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().rating, 0);
+
+        let mut updated = sample_input(path);
+        updated.rating = Some(153);
+        save_track(&conn, &updated).unwrap();
+
+        assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().rating, 153);
+    }
+
+    #[test]
+    fn save_track_does_not_overwrite_existing_rating_on_reimport() {
+        let conn = test_conn();
+        let path = "/music/keep-rating.mp3";
+
+        let mut first = sample_input(path);
+        first.rating = Some(128);
+        save_track(&conn, &first).unwrap();
+        set_track_rating(&conn, 1, 179).unwrap();
+
+        let mut updated = sample_input(path);
+        updated.rating = Some(255);
+        save_track(&conn, &updated).unwrap();
+
+        assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().rating, 179);
     }
 }

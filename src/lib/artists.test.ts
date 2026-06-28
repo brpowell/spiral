@@ -24,6 +24,7 @@ function track(overrides: Partial<Track> & Pick<Track, "id">): Track {
     filePath: overrides.filePath ?? `/music/${overrides.id}.mp3`,
     dateAdded: overrides.dateAdded ?? "2024-01-01",
     playCount: overrides.playCount ?? 0,
+    rating: overrides.rating ?? 0,
   };
 }
 

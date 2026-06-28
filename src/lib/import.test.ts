@@ -45,6 +45,7 @@ function libraryTrack(overrides: Partial<Track> & Pick<Track, "id">): Track {
     artPath: overrides.artPath ?? null,
     dateAdded: overrides.dateAdded ?? "2024-01-01",
     playCount: overrides.playCount ?? 2,
+    rating: overrides.rating ?? 0,
   };
 }
 

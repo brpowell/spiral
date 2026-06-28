@@ -17,6 +17,7 @@ pub struct Track {
     pub art_path: Option<String>,
     pub date_added: String,
     pub play_count: u32,
+    pub rating: u8,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,4 +79,5 @@ pub struct TrackInput {
     pub duration_seconds: Option<f64>,
     pub file_path: String,
     pub art_path: Option<String>,
+    pub rating: Option<u8>,
 }

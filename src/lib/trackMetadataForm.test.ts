@@ -17,6 +17,7 @@ function track(partial: Partial<Track> & Pick<Track, "id">): Track {
     artPath: null,
     dateAdded: "2020-01-01T00:00:00Z",
     playCount: 0,
+    rating: 0,
     ...partial,
   };
 }

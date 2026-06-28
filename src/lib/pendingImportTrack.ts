@@ -43,6 +43,7 @@ export function pendingTrackFromInput(
     artPath: input.artPath,
     dateAdded: new Date().toISOString(),
     playCount: 0,
+    rating: 0,
     importStatus: "importing",
     importSourcePath: sourcePath,
   };

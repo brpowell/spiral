@@ -14,10 +14,12 @@ import { IconCheck, IconGrip } from "../icons";
 import { ImportIndicator } from "../ImportIndicator/ImportIndicator";
 import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
 import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
+import { TrackRating } from "../TrackRating/TrackRating";
 import { TrackRowMenu } from "../TrackRowMenu/TrackRowMenu";
 import { CdTrackRowMenu } from "../CdTrackRowMenu/CdTrackRowMenu";
 import type { TrackListColumnDef, TrackListColumnId } from "./types";
 import type { Track } from "../../types/track";
+import type { CanonicalRating } from "../../lib/trackRating";
 
 function cellValue(track: Track, columnId: TrackListColumnId): ReactNode {
   switch (columnId) {
@@ -134,6 +136,7 @@ export interface TrackListRowProps {
   onStartReorder: (e: React.PointerEvent, fromIndex: number) => void;
   onOpenArtist: (artistKey: string) => void;
   onOpenAlbum: (track: Track) => void;
+  onRatingChange?: (trackId: number, rating: CanonicalRating) => void;
   linkableArtistKeys: ReadonlySet<string>;
   canNavigateAlbum?: (track: Track) => boolean;
   readOnly?: boolean;
@@ -167,6 +170,7 @@ function TrackListRowComponent({
   onStartReorder,
   onOpenArtist,
   onOpenAlbum,
+  onRatingChange,
   linkableArtistKeys,
   canNavigateAlbum = hasNavigableAlbum,
   readOnly = false,
@@ -339,6 +343,19 @@ function TrackListRowComponent({
               );
             }
 
+            if (col.id === "rating" && onRatingChange) {
+              return (
+                <span key={col.id} className={cellClassName}>
+                  <TrackRating
+                    value={track.rating}
+                    size="compact"
+                    disabled={!isInteractive}
+                    onChange={(rating) => onRatingChange(track.id, rating)}
+                  />
+                </span>
+              );
+            }
+
             return (
               <span key={col.id} className={cellClassName}>
                 {cellValue(track, col.id)}
@@ -405,7 +422,6 @@ function rowPropsEqual(
 ): boolean {
   return (
     prev.track === next.track &&
-    prev.track.id === next.track.id &&
     prev.displayIndex === next.displayIndex &&
     prev.isSelected === next.isSelected &&
     prev.checkMode === next.checkMode &&
@@ -426,6 +442,7 @@ function rowPropsEqual(
     prev.onStartReorder === next.onStartReorder &&
     prev.onOpenArtist === next.onOpenArtist &&
     prev.onOpenAlbum === next.onOpenAlbum &&
+    prev.onRatingChange === next.onRatingChange &&
     prev.linkableArtistKeys === next.linkableArtistKeys &&
     prev.canNavigateAlbum === next.canNavigateAlbum &&
     prev.readOnly === next.readOnly &&

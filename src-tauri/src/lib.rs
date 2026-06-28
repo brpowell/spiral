@@ -21,6 +21,8 @@ mod media_shortcuts;
 mod metadata_backup;
 mod metadata_reader;
 mod metadata_writer;
+mod rating_sync;
+mod rating_tags;
 mod models;
 mod session;
 mod settings;
@@ -28,6 +30,7 @@ mod track_list_prefs;
 mod skin_preferences;
 
 use commands::library::DbState;
+use rating_sync::RatingSync;
 use std::sync::Mutex;
 use tauri::Manager;
 
@@ -41,6 +44,7 @@ pub fn run() {
                 library_paths::ensure_library_for_app(app.handle()).expect("failed to init library");
             let conn = db::open(&db_path).expect("failed to open database");
             app.manage(DbState(Mutex::new(conn)));
+            app.manage(RatingSync::new());
 
             #[cfg(desktop)]
             if let Err(err) = media_shortcuts::register(app.handle()) {
@@ -81,6 +85,7 @@ pub fn run() {
             commands::playlists::reorder_playlist_tracks,
             commands::playlists::delete_playlist,
             commands::library::record_track_play,
+            commands::library::set_track_rating,
             commands::library::remove_track,
             commands::metadata::parse_track_metadata,
             commands::metadata::pick_image_file,

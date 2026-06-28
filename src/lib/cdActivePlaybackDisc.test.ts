@@ -20,6 +20,7 @@ function cdTrack(number: number): Track {
     artPath: null,
     dateAdded: "",
     playCount: 0,
+    rating: 0,
   };
 }
 

@@ -3,6 +3,7 @@ use crate::db;
 use crate::import_files;
 use crate::library_organize;
 use crate::models::{Track, TrackInput, TrackMetadataUpdate};
+use crate::rating_sync::{schedule_rating_file_write, RatingSync};
 use crate::settings;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -66,6 +67,32 @@ pub fn record_track_play(state: State<DbState>, track_id: i64) -> Result<u32, St
         eprintln!("record_track_play error: {e}");
         e.to_string()
     })
+}
+
+#[tauri::command]
+pub fn set_track_rating(
+    app: AppHandle,
+    state: State<DbState>,
+    rating_sync: State<RatingSync>,
+    track_id: i64,
+    rating: u8,
+) -> Result<u8, String> {
+    let (saved_rating, file_path) = {
+        let conn = state.0.lock().map_err(|e| e.to_string())?;
+        let saved_rating = db::set_track_rating(&conn, track_id, rating).map_err(|e| {
+            eprintln!("set_track_rating error: {e}");
+            e.to_string()
+        })?;
+        let file_path = db::get_track_by_id(&conn, track_id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("Track {track_id} not found after rating update"))?
+            .file_path;
+        (saved_rating, file_path)
+    };
+
+    schedule_rating_file_write(app, &rating_sync, track_id, file_path, saved_rating);
+
+    Ok(saved_rating)
 }
 
 #[tauri::command]

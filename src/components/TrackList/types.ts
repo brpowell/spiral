@@ -11,7 +11,8 @@ export type TrackListColumnId =
   | "genre"
   | "discNumber"
   | "dateAdded"
-  | "playCount";
+  | "playCount"
+  | "rating";
 
 export type TrackListSortField = Extract<
   TrackListColumnId,
@@ -24,6 +25,7 @@ export type TrackListSortField = Extract<
   | "genre"
   | "dateAdded"
   | "playCount"
+  | "rating"
 >;
 
 export type TrackListSortDir = "asc" | "desc";
@@ -165,6 +167,16 @@ const PLAY_COUNT_COL: TrackListColumnDef = {
   secondary: true,
 };
 
+const RATING_COL: TrackListColumnDef = {
+  id: "rating",
+  label: "Rating",
+  sortable: true,
+  resizable: true,
+  hideable: true,
+  align: "center",
+  secondary: true,
+};
+
 export const TRACK_LIST_PRESETS: Record<TrackListPresetId, TrackListPreset> = {
   library: {
     id: "library",
@@ -181,6 +193,7 @@ export const TRACK_LIST_PRESETS: Record<TrackListPresetId, TrackListPreset> = {
       TRACK_NUMBER_DATA_COL,
       DATE_ADDED_COL,
       PLAY_COUNT_COL,
+      RATING_COL,
       DURATION_COL,
     ],
   },
@@ -216,6 +229,7 @@ export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> =
     discNumber: 44,
     dateAdded: 128,
     playCount: 56,
+    rating: 120,
   };
 
 export const MIN_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> = {
@@ -231,6 +245,7 @@ export const MIN_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> = {
   discNumber: 36,
   dateAdded: 96,
   playCount: 44,
+  rating: 96,
 };
 
 const LIBRARY_DEFAULT_HIDDEN: TrackListColumnId[] = [
@@ -241,6 +256,7 @@ const LIBRARY_DEFAULT_HIDDEN: TrackListColumnId[] = [
   "trackNumber",
   "dateAdded",
   "playCount",
+  "rating",
 ];
 
 export function defaultHiddenColumns(

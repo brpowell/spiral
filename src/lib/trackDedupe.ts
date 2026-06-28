@@ -123,6 +123,7 @@ function syntheticLibraryTrack(
     artPath: metadata.artPath,
     dateAdded: "",
     playCount: 0,
+    rating: 0,
   };
 }
 

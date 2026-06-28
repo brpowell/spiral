@@ -132,8 +132,8 @@ export function ImportDedupeModal() {
             />
           </div>
           <p className="import-dedupe-modal__replace-note">
-            Replacing this file will keep the original play count and playlist
-            entries.
+            Replacing this file will keep the original play count, rating, and
+            playlist entries.
           </p>
           {context.remainingDuplicates > 0 && (
             <Checkbox

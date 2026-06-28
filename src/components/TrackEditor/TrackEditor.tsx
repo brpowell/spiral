@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFileSize } from "../../hooks/useFileSize";
@@ -13,11 +13,13 @@ import {
   mixedFieldPlaceholder,
   sharedArtPath,
   trackEditorFormsEqual,
+  trackEditorMetadataFormsEqual,
   tracksToForm,
   type TrackEditorForm,
   type TrackEditorFormField,
 } from "../../lib/trackMetadataForm";
 import { ArtistChipField } from "../ArtistChipField/ArtistChipField";
+import { TrackRating } from "../TrackRating/TrackRating";
 import { AudioFileSpecs } from "../AudioFileSpecs/AudioFileSpecs";
 import { revealInFileManagerLabel } from "../../lib/fileManager";
 import {
@@ -26,6 +28,7 @@ import {
   fetchCoverArt,
   pickImageFile,
   revealPathInFileManager,
+  setTrackRating,
   writeTrackMetadata,
 } from "../../lib/tauri";
 import { usePlayerStore } from "../../store/usePlayerStore";
@@ -222,6 +225,10 @@ export function TrackEditor() {
     setForm((prev) => (prev ? { ...prev, [field]: value } : prev));
   };
 
+  const setRating = useCallback((rating: number) => {
+    setForm((prev) => (prev ? { ...prev, rating } : prev));
+  }, []);
+
   const applyArtPath = async (sourcePath: string) => {
     if (!referenceTrack) return;
     setSaveError(null);
@@ -309,6 +316,10 @@ export function TrackEditor() {
       setSaving(true);
       setSaveError(null);
       try {
+        const metadataDirty =
+          !trackEditorMetadataFormsEqual(form, originalForm) || artChanged;
+        const ratingDirty = form.rating !== originalForm.rating;
+
         let artPath = pendingArtPath;
         if (selectedCoverUrl) {
           artPath = await cacheArtFromUrl(
@@ -316,18 +327,26 @@ export function TrackEditor() {
             referenceTrack.filePath,
           );
         }
-        const metadata = buildTrackMetadataFromForm(
-          referenceTrack,
-          form,
-          originalForm,
-          artPath,
-          artChanged,
-        );
-        const updated = await writeTrackMetadata(
-          referenceTrack.id,
-          referenceTrack.filePath,
-          metadata,
-        );
+
+        let updated = referenceTrack;
+        if (metadataDirty) {
+          const metadata = buildTrackMetadataFromForm(
+            referenceTrack,
+            form,
+            originalForm,
+            artPath,
+            artChanged,
+          );
+          updated = await writeTrackMetadata(
+            referenceTrack.id,
+            referenceTrack.filePath,
+            metadata,
+          );
+        }
+        if (ratingDirty) {
+          const rating = await setTrackRating(referenceTrack.id, form.rating);
+          updated = { ...updated, rating };
+        }
         updateTrackInLibrary(updated);
         closeTrackEditor();
       } catch (err) {
@@ -606,6 +625,15 @@ export function TrackEditor() {
                   onChange={setField}
                   suggestions={genreSuggestions}
                 />
+                {!isBulk ? (
+                  <FormField label="Rating">
+                    <TrackRating
+                      value={form.rating}
+                      size="comfortable"
+                      onChange={setRating}
+                    />
+                  </FormField>
+                ) : null}
                 {!isBulk && referenceTrack ? (
                   <div className="field">
                     <FieldLabel>File</FieldLabel>

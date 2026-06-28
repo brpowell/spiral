@@ -28,7 +28,7 @@ impl MetadataWriteError {
     }
 }
 
-fn ensure_writable(path: &Path) -> Result<(), MetadataWriteError> {
+pub(crate) fn ensure_writable(path: &Path) -> Result<(), MetadataWriteError> {
     if !path.exists() {
         return Err(MetadataWriteError::Io(format!(
             "File not found: {}",
@@ -46,7 +46,7 @@ fn ensure_writable(path: &Path) -> Result<(), MetadataWriteError> {
     Ok(())
 }
 
-fn audio_extension(path: &Path) -> Option<String> {
+pub(crate) fn audio_extension(path: &Path) -> Option<String> {
     path.extension()
         .and_then(|e| e.to_str())
         .map(|e| e.to_ascii_lowercase())
@@ -120,7 +120,7 @@ fn temp_path_for(path: &Path) -> PathBuf {
 }
 
 /// Write to a temp copy, verify, then atomically replace the original (optional `.bak`).
-fn write_via_temp<F>(
+pub(crate) fn write_via_temp<F>(
     path: &Path,
     backup_config: &MetadataBackupConfig,
     write: F,
@@ -159,7 +159,7 @@ where
 }
 
 /// Read existing ID3 tags, or start from an empty tag when the file has none.
-fn read_mp3_tag(path: &Path) -> Result<Tag, MetadataWriteError> {
+pub(crate) fn read_mp3_tag(path: &Path) -> Result<Tag, MetadataWriteError> {
     match Tag::read_from_path(path) {
         Ok(tag) => Ok(tag),
         Err(id3::Error {
@@ -171,7 +171,7 @@ fn read_mp3_tag(path: &Path) -> Result<Tag, MetadataWriteError> {
     }
 }
 
-fn verify_m4a_readable(path: &Path) -> Result<(), MetadataWriteError> {
+pub(crate) fn verify_m4a_readable(path: &Path) -> Result<(), MetadataWriteError> {
     Mp4Tag::read_from_path(path).map_err(|e| {
         MetadataWriteError::Tag(format!("Written file failed verification read: {e}"))
     })?;

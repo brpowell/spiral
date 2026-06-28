@@ -24,6 +24,7 @@ import {
 } from "./types";
 import { checkAllState } from "../../lib/trackCheckSelection";
 import type { Track } from "../../types/track";
+import type { CanonicalRating } from "../../lib/trackRating";
 import { useTrackListVirtualizer } from "./useTrackListVirtualizer";
 import { useForwardVerticalWheel } from "./useForwardVerticalWheel";
 import { useSyncTrackListHeaderScroll } from "./useSyncTrackListHeaderScroll";
@@ -46,6 +47,7 @@ interface TrackListProps {
   playbackState: "playing" | "paused" | "stopped";
   onSelectTrack: (track: Track, e: React.MouseEvent) => void;
   onPlayTrack: (track: Track) => void;
+  onRatingChange?: (trackId: number, rating: CanonicalRating) => void;
   sortField?: TrackListSortField;
   sortDir?: TrackListSortDir;
   onSort?: (field: TrackListSortField) => void;
@@ -120,6 +122,7 @@ export function TrackList({
   playbackState,
   onSelectTrack,
   onPlayTrack,
+  onRatingChange,
   sortField,
   sortDir,
   onSort,
@@ -440,6 +443,7 @@ export function TrackList({
         }
         onSelectTrack={onSelectTrack}
         onPlayTrack={onPlayTrack}
+        onRatingChange={onRatingChange}
         onStartReorder={startReorder}
         onOpenArtist={openArtist}
         onOpenAlbum={handleOpenAlbum}
@@ -465,6 +469,7 @@ export function TrackList({
           canReorder && "track-list--reorderable",
           draggingColumnId != null && "track-list--column-dragging",
           checkMode && "track-list--check-mode",
+          useVirtualRows && virtualizer.isScrolling && "track-list--scrolling",
           className,
         ]
           .filter(Boolean)

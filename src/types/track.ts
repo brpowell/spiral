@@ -21,6 +21,7 @@ export interface Track {
   artPath: string | null;
   dateAdded: string;
   playCount: number;
+  rating: number;
   importStatus?: TrackImportStatus;
   /** Original dropped/picked path; used for copy and stable list keys during import. */
   importSourcePath?: string;
@@ -38,4 +39,5 @@ export interface TrackInput {
   durationSeconds: number | null;
   filePath: string;
   artPath: string | null;
+  rating?: number | null;
 }

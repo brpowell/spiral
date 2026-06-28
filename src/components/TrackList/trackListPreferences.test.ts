@@ -20,6 +20,7 @@ describe("columnIdsForPreset", () => {
       "trackNumber",
       "dateAdded",
       "playCount",
+      "rating",
       "duration",
     ]);
   });
@@ -44,6 +45,7 @@ describe("columnIdsForPreset", () => {
       "trackNumber",
       "dateAdded",
       "playCount",
+      "rating",
     ]);
   });
 });
