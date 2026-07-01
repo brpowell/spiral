@@ -17,12 +17,13 @@ pub fn pick_library_paths() -> Option<Vec<String>> {
         panel.setCanChooseFiles(true);
         panel.setAllowsMultipleSelection(true);
         panel.setMessage(Some(&NSString::from_str(
-            "Select audio files or folders to add to your library",
+            "Select audio files, folders, or zip archives to add to your library",
         )));
 
         let extensions: Vec<_> = SUPPORTED_AUDIO_EXTENSIONS
             .iter()
             .map(|ext| NSString::from_str(ext))
+            .chain(std::iter::once(NSString::from_str("zip")))
             .collect();
         let allowed = NSArray::from_retained_slice(&extensions);
         #[allow(deprecated)]

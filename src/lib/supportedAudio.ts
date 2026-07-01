@@ -20,11 +20,15 @@ export function isSupportedAudioPath(path: string): boolean {
   return (SUPPORTED_AUDIO_EXTENSIONS as readonly string[]).includes(ext);
 }
 
-/** Keep folders and supported audio files; drop unsupported files (e.g. .m4p). */
+export function isZipPath(path: string): boolean {
+  return audioExtensionFromPath(path) === "zip";
+}
+
+/** Keep folders, zip archives, and supported audio files; drop unsupported files (e.g. .m4p). */
 export function filterPathsForLibraryImport(paths: string[]): string[] {
   return paths.filter((path) => {
     const ext = audioExtensionFromPath(path);
     if (!ext) return true;
-    return isSupportedAudioPath(path);
+    return isSupportedAudioPath(path) || isZipPath(path);
   });
 }

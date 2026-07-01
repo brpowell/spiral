@@ -95,6 +95,26 @@ export async function scanFolder(folderPath: string): Promise<string[]> {
   return invoke<string[]>("scan_folder", { folderPath });
 }
 
+export interface ZipImportScan {
+  extractDir: string;
+  audioPaths: string[];
+}
+
+export async function scanZipImport(zipPath: string): Promise<ZipImportScan> {
+  const result = await invoke<{ extract_dir: string; audio_paths: string[] }>(
+    "scan_zip_import",
+    { zipPath },
+  );
+  return {
+    extractDir: result.extract_dir,
+    audioPaths: result.audio_paths,
+  };
+}
+
+export async function cleanupZipImport(extractDir: string): Promise<void> {
+  await invoke<void>("cleanup_zip_import", { extractDir });
+}
+
 export async function getFileSize(path: string): Promise<number> {
   return invoke<number>("get_file_size", { path });
 }

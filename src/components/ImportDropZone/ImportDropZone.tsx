@@ -140,7 +140,7 @@ export function ImportDropZone() {
           >
             <p className="import-drop-zone__title">Drop to import</p>
             <p className="import-drop-zone__hint">
-              Audio files and folders will be added to your library
+              Audio files, folders, and zip archives will be added to your library
             </p>
           </motion.div>
         </motion.div>

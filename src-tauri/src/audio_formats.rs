@@ -17,7 +17,13 @@ pub fn is_supported_audio_file(path: &Path) -> bool {
     SUPPORTED_AUDIO_EXTENSIONS.contains(&ext.as_str())
 }
 
-/// Keep directories and supported audio files; drop unsupported files.
+pub fn is_zip_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("zip"))
+}
+
+/// Keep directories, zip archives, and supported audio files; drop unsupported files.
 pub fn filter_library_import_paths(paths: Vec<String>) -> Vec<String> {
     paths
         .into_iter()
@@ -26,7 +32,7 @@ pub fn filter_library_import_paths(paths: Vec<String>) -> Vec<String> {
             if p.is_dir() {
                 return true;
             }
-            is_supported_audio_file(p)
+            is_zip_file(p) || is_supported_audio_file(p)
         })
         .collect()
 }
@@ -43,5 +49,10 @@ mod tests {
     #[test]
     fn accepts_m4a() {
         assert!(is_supported_audio_file(Path::new("/music/song.m4a")));
+    }
+
+    #[test]
+    fn accepts_zip_archives() {
+        assert!(is_zip_file(Path::new("/imports/album.ZIP")));
     }
 }

@@ -1,27 +1,7 @@
-use crate::audio_formats::{filter_library_import_paths, is_supported_audio_file};
+use crate::audio_formats::filter_library_import_paths;
+use crate::file_scan::scan_folder_paths;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
-
-pub fn scan_folder_paths(folder_path: &str) -> Result<Vec<String>, String> {
-    let root = Path::new(folder_path);
-    if !root.is_dir() {
-        return Err(format!("Not a directory: {folder_path}"));
-    }
-
-    let mut paths = Vec::new();
-    for entry in walkdir::WalkDir::new(root)
-        .follow_links(false)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        let path = entry.path();
-        if path.is_file() && is_supported_audio_file(path) {
-            paths.push(path.to_string_lossy().into_owned());
-        }
-    }
-    paths.sort();
-    Ok(paths)
-}
 
 #[tauri::command]
 pub fn pick_audio_files() -> Result<Vec<String>, String> {
@@ -30,7 +10,8 @@ pub fn pick_audio_files() -> Result<Vec<String>, String> {
         .add_filter(
             "Audio",
             &[
-                "mp3", "flac", "aac", "wav", "m4a", "MP3", "FLAC", "AAC", "WAV", "M4A",
+                "mp3", "flac", "aac", "wav", "m4a", "zip", "MP3", "FLAC", "AAC", "WAV", "M4A",
+                "ZIP",
             ],
         )
         .set_directory("/")

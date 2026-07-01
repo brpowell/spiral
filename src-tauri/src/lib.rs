@@ -11,6 +11,7 @@ mod musicbrainz_disc;
 mod activity_log;
 mod commands;
 mod db;
+mod file_scan;
 mod import_files;
 mod library_organize;
 mod library_paths;
@@ -29,6 +30,7 @@ mod models;
 mod session;
 mod settings;
 mod track_list_prefs;
+mod zip_import;
 mod skin_preferences;
 
 use commands::library::DbState;
@@ -71,6 +73,8 @@ pub fn run() {
             commands::files::pick_audio_files,
             commands::files::pick_library_paths,
             commands::files::scan_folder,
+            zip_import::scan_zip_import,
+            zip_import::cleanup_zip_import,
             commands::files::pick_folder,
             commands::files::get_file_size,
             commands::files::get_file_modified_ms,
