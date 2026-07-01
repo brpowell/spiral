@@ -161,17 +161,13 @@
   white-space: nowrap;
 }
 
-.track-list__cell:has([data-track-list-cell-control]:focus),
 .track-list__cell:has([data-track-list-cell-control]:focus-visible) {
   position: relative;
   overflow: visible;
   z-index: 3;
 }
 
-.track-list__cell > .track-list__cell-link:focus,
-.track-list__cell > .track-list__cell-link:focus-visible,
-.track-list__artist-links:has(.track-list__cell-link:focus),
-.track-list__artist-links:has(.track-list__cell-link:focus-visible) {
+.track-list__cell-link-host:has(.track-list__cell-link:focus-visible) {
   --track-list-cell-flyout-bg: color-mix(
     in srgb,
     var(--color-accent) 16%,
@@ -198,15 +194,7 @@
   transform: translateY(-50%);
 }
 
-.track-list__cell > .track-list__cell-link:focus,
-.track-list__cell > .track-list__cell-link:focus-visible {
-  color: var(--color-accent);
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
-}
-
-.track-list__artist-links:has(.track-list__cell-link:focus) .track-list__cell-link,
-.track-list__artist-links:has(.track-list__cell-link:focus-visible)
+.track-list__cell-link-host:has(.track-list__cell-link:focus-visible)
   .track-list__cell-link {
   position: static;
   display: inline;
@@ -223,20 +211,15 @@
   vertical-align: baseline;
 }
 
-.track-list__artist-links:has(.track-list__cell-link:focus) .track-list__cell-link:focus,
-.track-list__artist-links:has(.track-list__cell-link:focus-visible)
+.track-list__cell-link-host:has(.track-list__cell-link:focus-visible)
   .track-list__cell-link:focus-visible {
   color: var(--color-accent);
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
 
-.track-list__row--selected .track-list__cell-link:focus,
-.track-list__row--selected .track-list__cell-link:focus-visible,
 .track-list__row--selected
-  .track-list__artist-links:has(.track-list__cell-link:focus),
-.track-list__row--selected
-  .track-list__artist-links:has(.track-list__cell-link:focus-visible) {
+  .track-list__cell-link-host:has(.track-list__cell-link:focus-visible) {
   --track-list-cell-flyout-bg: color-mix(
     in srgb,
     var(--color-accent) 24%,
@@ -250,7 +233,6 @@
   border-radius: var(--radius-sm);
 }
 
-.track-list__row .track-rating:focus,
 .track-list__row .track-rating:focus-visible {
   padding: 0.2rem 0.4rem;
   border-radius: var(--radius-sm);
@@ -330,7 +312,6 @@
 }
 
 .track-list__row:focus,
-.track-list__row:has([data-track-list-cell-control]:focus),
 .track-list__row:has([data-track-list-cell-control]:focus-visible) {
   outline: none;
   z-index: 2;
@@ -394,8 +375,6 @@
   contain: layout style paint;
 }
 
-.track-list__body--virtual
-  .track-list__item:has([data-track-list-cell-control]:focus),
 .track-list__body--virtual
   .track-list__item:has([data-track-list-cell-control]:focus-visible) {
   contain: layout style;
@@ -576,29 +555,23 @@
 }
 
 .track-list__cell-link {
-  display: inline-block;
-  max-width: 100%;
   padding: 0;
   margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font: inherit;
   color: inherit;
   background: none;
   border: none;
   cursor: pointer;
-  vertical-align: bottom;
 }
 
-.track-list__artist-links {
+.track-list__cell-link-host {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.track-list__artist-links .track-list__cell-link {
+.track-list__cell-link-host .track-list__cell-link {
   display: inline;
   max-width: none;
   overflow: visible;
@@ -609,6 +582,7 @@
 .track-list__cell-link:hover {
   color: var(--color-accent);
   text-decoration: underline;
+  text-underline-offset: 0.15em;
 }
 
 .track-list__cell--duration {

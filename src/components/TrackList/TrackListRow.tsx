@@ -107,7 +107,7 @@ function TrackListArtistCell({ links, onOpenArtist }: TrackListArtistCellProps) 
   let linkableIndex = 0;
 
   return (
-    <span className="track-list__artist-links">
+    <span className="track-list__cell-link-host">
       {links.map((link, index) => {
         const linkSubIndex = link.linkable ? linkableIndex++ : null;
         return (
@@ -179,7 +179,7 @@ export interface TrackListRowProps {
   onRowFocus: () => void;
   onRowKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   onRowCellNavigation: (
-    e: React.KeyboardEvent<HTMLDivElement>,
+    e: React.KeyboardEvent,
     location: CellControlLocation,
   ) => void;
   onRowClick: () => void;
@@ -412,12 +412,14 @@ function TrackListRowComponent({
           const label = track.album ?? "—";
           return (
             <span key={col.id} className={cellClassName}>
-                  <TrackListCellLink
-                    label={label}
-                    ariaLabel={`View album ${label}`}
-                    column="album"
-                    onClick={() => onOpenAlbum(track)}
-                  />
+              <span className="track-list__cell-link-host">
+                <TrackListCellLink
+                  label={label}
+                  ariaLabel={`View album ${label}`}
+                  column="album"
+                  onClick={() => onOpenAlbum(track)}
+                />
+              </span>
             </span>
           );
         }
