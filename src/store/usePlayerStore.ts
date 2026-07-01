@@ -40,6 +40,18 @@ import {
   isPendingTrackId,
   isTrackImporting,
 } from "../lib/pendingImportTrack";
+import { fileExists } from "../lib/artPath";
+import {
+  mergeLibraryClientState,
+  withTrackMissingFile,
+} from "../lib/missingFileTrack";
+import { showPlaybackFileMissingToast } from "../lib/playbackToast";
+import {
+  findNextPlayableInOrder,
+  getNextSkippingKnownUnplayable,
+  isTrackKnownUnplayable,
+  type PlaybackNextIdFn,
+} from "../lib/playbackSkip";
 import type { PlayableRef } from "../types/playable";
 import type { PlaybackState, RepeatMode, Track } from "../types/track";
 
@@ -79,7 +91,10 @@ interface PlayerState {
   ) => void;
   addToLibrary: () => Promise<void>;
   importFromPaths: (paths: string[]) => void;
-  playTrack: (id: number) => Promise<void>;
+  playTrack: (
+    id: number,
+    options?: PlayTrackOptions,
+  ) => Promise<void>;
   playTracks: (ids: number[], startId: number) => Promise<void>;
   playCdTracks: (
     driveId: string,
@@ -171,13 +186,144 @@ function startPositionPoll(set: (partial: Partial<PlayerState>) => void): void {
   }, 500);
 }
 
-interface PlayResolvedPlayableOptions {
+interface PlaybackAdvanceOptions {
+  /** When true, skip missing tracks and continue through the set list. */
+  advanceOnMissing?: boolean;
+  getNextId?: PlaybackNextIdFn;
+}
+
+interface PlayTrackOptions extends PlaybackAdvanceOptions {}
+
+interface PlayResolvedPlayableOptions extends PlaybackAdvanceOptions {
   playContextIds?: number[];
   playbackTracks?: Track[];
   cdDriveId?: string | null;
 }
 
 let playResolvedGeneration = 0;
+
+function setLibraryTrackMissingFile(
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  trackId: number,
+  missing: boolean,
+): void {
+  set((state) => ({
+    library: state.library.map((track) =>
+      track.id === trackId ? withTrackMissingFile(track, missing) : track,
+    ),
+  }));
+}
+
+function isMissingFilePlaybackError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /cannot stat file|enoent|not found|no such file/i.test(message);
+}
+
+function handlePlaybackFileMissing(
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  get: () => PlayerState,
+  trackId: number,
+  options?: { toast?: boolean },
+): void {
+  setLibraryTrackMissingFile(set, trackId, true);
+  if (options?.toast === false) return;
+  const track = get().library.find((item) => item.id === trackId);
+  if (track) {
+    showPlaybackFileMissingToast(track);
+  }
+}
+
+function shouldPreserveCurrentPlayback(
+  get: () => PlayerState,
+  targetTrackListId: number,
+): boolean {
+  const state = get();
+  return (
+    state.playbackState === "playing" &&
+    state.currentTrackId !== null &&
+    state.currentTrackId !== targetTrackListId &&
+    audio.isPlaying()
+  );
+}
+
+async function advanceToPlayableInOrder(
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  get: () => PlayerState,
+  fromTrackId: number,
+  getNextId: PlaybackNextIdFn,
+): Promise<void> {
+  const state = get();
+  const order = getPlaybackOrder(get);
+  const nextId = await findNextPlayableInOrder(
+    order,
+    fromTrackId,
+    state.repeatMode,
+    state.library,
+    getNextId,
+    {
+      onDiscoveredMissing: (trackId) => {
+        handlePlaybackFileMissing(set, get, trackId, { toast: false });
+      },
+    },
+  );
+
+  if (nextId === null) {
+    if (!audio.isPlaying()) {
+      stopPositionPoll();
+      set({
+        playbackState: "stopped",
+        positionSeconds: 0,
+        seekPreviewRatio: null,
+      });
+    }
+    return;
+  }
+
+  await playResolvedPlayable(
+    { type: "library", trackId: nextId },
+    set,
+    get,
+    { advanceOnMissing: true, getNextId },
+  );
+}
+
+async function handleMissingLibraryPlayback(
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  get: () => PlayerState,
+  trackId: number,
+  trackListId: number,
+  generation: number,
+  options?: PlayResolvedPlayableOptions,
+): Promise<void> {
+  handlePlaybackFileMissing(set, get, trackId);
+  if (!options?.advanceOnMissing) {
+    if (shouldPreserveCurrentPlayback(get, trackListId)) return;
+    return;
+  }
+  if (generation !== playResolvedGeneration) return;
+  await advanceToPlayableInOrder(
+    set,
+    get,
+    trackId,
+    options.getNextId ?? getAutoplayNextId,
+  );
+}
 
 async function playResolvedPlayable(
   playable: PlayableRef,
@@ -207,6 +353,23 @@ async function playResolvedPlayable(
   const generation = ++playResolvedGeneration;
 
   set({ importError: null });
+
+  if (source.kind === "file" && playable.type === "library") {
+    const exists = await fileExists(source.path);
+    if (generation !== playResolvedGeneration) return;
+    if (!exists) {
+      await handleMissingLibraryPlayback(
+        set,
+        get,
+        playable.trackId,
+        trackListId,
+        generation,
+        options,
+      );
+      return;
+    }
+  }
+
   try {
     await audio.loadSource(source);
     if (generation !== playResolvedGeneration) return;
@@ -225,6 +388,14 @@ async function playResolvedPlayable(
       manualQueueIds: current.manualQueueIds.filter(
         (trackId) => trackId !== trackListId,
       ),
+      library:
+        playable.type === "library"
+          ? current.library.map((track) =>
+              track.id === playable.trackId
+                ? withTrackMissingFile(track, false)
+                : track,
+            )
+          : current.library,
       ...(options?.playContextIds !== undefined
         ? { playContextIds: options.playContextIds }
         : {}),
@@ -241,6 +412,17 @@ async function playResolvedPlayable(
     if (generation !== playResolvedGeneration) return;
     const message = err instanceof Error ? err.message : String(err);
     console.error("Playback failed:", err);
+    if (playable.type === "library" && isMissingFilePlaybackError(err)) {
+      await handleMissingLibraryPlayback(
+        set,
+        get,
+        playable.trackId,
+        trackListId,
+        generation,
+        options,
+      );
+      return;
+    }
     set({
       playbackState: "stopped",
       importError: `Playback failed: ${message}`,
@@ -286,23 +468,41 @@ async function primeCdTrackPaused(
 async function primeTrackPaused(
   id: number,
   library: Track[],
-  set: (partial: Partial<PlayerState>) => void,
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  get: () => PlayerState,
 ): Promise<void> {
   const track = library.find((t) => t.id === id);
   if (!track) return;
 
   set({ importError: null });
   try {
+    const exists = await fileExists(track.filePath);
+    if (!exists) {
+      handlePlaybackFileMissing(set, get, id);
+      return;
+    }
+
     await audio.load(track.filePath);
     set({
       currentTrackId: id,
       playbackState: "paused",
       positionSeconds: 0,
       seekPreviewRatio: null,
+      library: library.map((item) =>
+        item.id === id ? withTrackMissingFile(item, false) : item,
+      ),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Failed to load track:", err);
+    if (isMissingFilePlaybackError(err)) {
+      handlePlaybackFileMissing(set, get, id);
+      return;
+    }
     set({
       playbackState: "stopped",
       importError: `Playback failed: ${message}`,
@@ -336,7 +536,7 @@ function refreshLibraryPreservingPlayback(
 ): void {
   const state = get();
   if (state.cdDriveId !== null) {
-    set({ library });
+    set({ library: mergeLibraryClientState(state.library, library) });
     return;
   }
 
@@ -352,7 +552,7 @@ function refreshLibraryPreservingPlayback(
     audio.unload();
     stopPositionPoll();
     set({
-      library,
+      library: mergeLibraryClientState(state.library, library),
       playContextIds,
       manualQueueIds,
       currentTrackId: null,
@@ -378,7 +578,7 @@ function refreshLibraryPreservingPlayback(
     !isTrackImporting(updatedTrack);
 
   set({
-    library,
+    library: mergeLibraryClientState(state.library, library),
     playContextIds,
     manualQueueIds,
     currentTrackId,
@@ -411,6 +611,9 @@ function refreshLibraryPreservingPlayback(
       console.error("Failed to reload converted track:", err);
       audio.unload();
       stopPositionPoll();
+      if (isMissingFilePlaybackError(err)) {
+        setLibraryTrackMissingFile(set, updatedTrack.id, true);
+      }
       set({
         playbackState: "stopped",
         positionSeconds: 0,
@@ -511,9 +714,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     }
 
     const order = getPlaybackOrder(get);
-    const nextId = getAutoplayNextId(order, currentTrackId, repeatMode);
+    const nextId = getNextSkippingKnownUnplayable(
+      order,
+      currentTrackId,
+      repeatMode,
+      get().library,
+      getAutoplayNextId,
+    );
     if (nextId !== null) {
-      void get().playTrack(nextId);
+      void get().playTrack(nextId, {
+        advanceOnMissing: true,
+        getNextId: getAutoplayNextId,
+      });
       return;
     }
 
@@ -548,7 +760,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     loadLibrary: async (options) => {
       try {
-        const library = await getLibrary();
+        const loaded = await getLibrary();
+        const state = get();
+        const library = mergeLibraryClientState(state.library, loaded);
         if (options?.preservePlayback) {
           refreshLibraryPreservingPlayback(library, set, get);
           return;
@@ -723,7 +937,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       });
     },
 
-    playTrack: async (id) => {
+    playTrack: async (id, options) => {
       if (isPendingTrackId(id)) return;
 
       if (isCdTrackListId(id)) {
@@ -760,6 +974,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const track = get().library.find((t) => t.id === id);
       if (!track || isTrackImporting(track)) return;
 
+      if (isTrackKnownUnplayable(track)) {
+        handlePlaybackFileMissing(set, get, id);
+        if (!options?.advanceOnMissing) {
+          if (shouldPreserveCurrentPlayback(get, id)) return;
+          return;
+        }
+        await advanceToPlayableInOrder(
+          set,
+          get,
+          id,
+          options.getNextId ?? getAutoplayNextId,
+        );
+        return;
+      }
+
       const hadContext = get().playContextIds.length > 0;
       if (!hadContext && get().library.length > 0) {
         set({ playContextIds: interactiveLibraryIds(get().library) });
@@ -768,7 +997,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         set({ playContextIds: shuffleTrackList(get().playContextIds, id) });
       }
 
-      await playResolvedPlayable({ type: "library", trackId: id }, set, get);
+      await playResolvedPlayable(
+        { type: "library", trackId: id },
+        set,
+        get,
+        {
+          advanceOnMissing: options?.advanceOnMissing,
+          getNextId: options?.getNextId,
+        },
+      );
     },
 
     pause: () => {
@@ -904,8 +1141,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       lastPreviousPressAt = now;
 
       if (isQuickSecondPress) {
-        const prevId = getManualPreviousId(order, currentTrackId, repeatMode);
-        if (prevId !== null) void get().playTrack(prevId);
+        const prevId = getNextSkippingKnownUnplayable(
+          order,
+          currentTrackId,
+          repeatMode,
+          get().library,
+          getManualPreviousId,
+        );
+        if (prevId !== null) {
+          void get().playTrack(prevId, {
+            advanceOnMissing: true,
+            getNextId: getManualPreviousId,
+          });
+        }
         return;
       }
 
@@ -916,8 +1164,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const { currentTrackId, repeatMode } = get();
       const order = getPlaybackOrder(get);
       if (!currentTrackId || order.length === 0) return;
-      const nextId = getManualNextId(order, currentTrackId, repeatMode);
-      if (nextId !== null) void get().playTrack(nextId);
+      const nextId = getNextSkippingKnownUnplayable(
+        order,
+        currentTrackId,
+        repeatMode,
+        get().library,
+        getManualNextId,
+      );
+      if (nextId !== null) {
+        void get().playTrack(nextId, {
+          advanceOnMissing: true,
+          getNextId: getManualNextId,
+        });
+      }
     },
 
     setVolume: (volume) => {
@@ -975,7 +1234,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       if (addedIds.length > 0) {
         showQueueAddedToast(addedIds, get().library);
         if (setListWasEmpty) {
-          void primeTrackPaused(addedIds[0], get().library, set);
+          void primeTrackPaused(addedIds[0], get().library, set, get);
         }
       }
     },

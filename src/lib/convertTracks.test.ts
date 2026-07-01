@@ -38,6 +38,14 @@ describe("filterConvertibleTrackIds", () => {
     expect(filterConvertibleTrackIds([1, -1, 2], library)).toEqual([1]);
   });
 
+  it("excludes tracks flagged missing on disk", () => {
+    const library = [
+      makeTrack({ id: 1 }),
+      makeTrack({ id: 2, missingFile: true }),
+    ];
+    expect(filterConvertibleTrackIds([1, 2], library)).toEqual([1]);
+  });
+
   it("deduplicates track ids", () => {
     const library = [makeTrack({ id: 1 })];
     expect(filterConvertibleTrackIds([1, 1, 1], library)).toEqual([1]);

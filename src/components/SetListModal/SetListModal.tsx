@@ -3,6 +3,7 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { buildPlaybackOrder } from "../../lib/playbackOrder";
 import { formatTime } from "../../lib/format";
 import { findPlaybackTrack } from "../../lib/playbackTrack";
+import { isTrackKnownUnplayable } from "../../lib/playbackSkip";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { Track } from "../../types/track";
 import { Button } from "../common/Button/Button";
@@ -55,21 +56,30 @@ export function SetListModal({ open, onClose }: SetListModalProps) {
   );
 
   const { nowPlayingId, upNextIds } = useMemo(() => {
+    const playableUpNext = (ids: number[]) =>
+      ids.filter((id) => {
+        const track = library.find((item) => item.id === id);
+        return !isTrackKnownUnplayable(track);
+      });
+
     if (activeIds.length === 0) {
       return { nowPlayingId: null, upNextIds: [] as number[] };
     }
     if (currentTrackId === null) {
-      return { nowPlayingId: null, upNextIds: activeIds };
+      return { nowPlayingId: null, upNextIds: playableUpNext(activeIds) };
     }
     const idx = activeIds.indexOf(currentTrackId);
     if (idx < 0) {
-      return { nowPlayingId: currentTrackId, upNextIds: activeIds };
+      return {
+        nowPlayingId: currentTrackId,
+        upNextIds: playableUpNext(activeIds),
+      };
     }
     return {
       nowPlayingId: currentTrackId,
-      upNextIds: activeIds.slice(idx + 1),
+      upNextIds: playableUpNext(activeIds.slice(idx + 1)),
     };
-  }, [activeIds, currentTrackId]);
+  }, [activeIds, currentTrackId, library]);
 
   const nowPlaying = nowPlayingId
     ? findPlaybackTrack({

@@ -160,6 +160,22 @@
   margin-bottom: 0.5rem;
 }
 
+.track-editor__file-missing {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--color-danger, #e55);
+}
+
+.track-editor__file-missing-icon {
+  flex-shrink: 0;
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
 .track-editor__file-location {
   display: flex;
   align-items: flex-start;
@@ -192,6 +208,11 @@
 
 .track-editor__file-path:focus {
   border-color: var(--color-border);
+}
+
+.track-editor__file-path--missing {
+  color: var(--color-text-secondary);
+  border-color: color-mix(in srgb, var(--color-danger, #e55) 35%, var(--color-border));
 }
 
 .track-editor__file-location .btn {

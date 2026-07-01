@@ -28,6 +28,8 @@ export interface Track {
   importStatus?: TrackImportStatus;
   /** Original dropped/picked path; used for copy and stable list keys during import. */
   importSourcePath?: string;
+  /** Client-only flag set when playback cannot find the file on disk. */
+  missingFile?: true;
 }
 
 export interface TrackInput {

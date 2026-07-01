@@ -473,6 +473,12 @@
   color: var(--color-accent);
 }
 
+.track-list__missing-file {
+  width: var(--track-row-indicator-width);
+  height: var(--track-row-indicator-width);
+  color: var(--color-danger, #e55);
+}
+
 .track-list__cell {
   min-width: 0;
   padding: 0 0.65rem;

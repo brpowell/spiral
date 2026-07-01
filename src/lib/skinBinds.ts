@@ -4,6 +4,7 @@ import { formatTime, formatRemainingTime } from "./format";
 import { buildPlaybackOrder } from "./playbackOrder";
 import { findPlaybackTrack } from "./playbackTrack";
 import { getManualNextId } from "./playbackQueue";
+import { getNextSkippingKnownUnplayable } from "./playbackSkip";
 import { formatMetadataLine, playbackStatus } from "./skinMetadataLine";
 import { useSkinModeAlwaysOnTop } from "./skinModeAlwaysOnTop";
 import { evaluatePanelBind } from "./skinPanels";
@@ -285,7 +286,13 @@ export function useSkinBindState(): SkinBindState {
   const canGoNext =
     currentTrackId !== null &&
     activeQueue.length > 0 &&
-    getManualNextId(activeQueue, currentTrackId, repeatMode) !== null;
+    getNextSkippingKnownUnplayable(
+      activeQueue,
+      currentTrackId,
+      repeatMode,
+      library,
+      getManualNextId,
+    ) !== null;
 
   return useMemo(
     (): SkinBindState => ({

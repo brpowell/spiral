@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useMemo } from "react";
 import { buildPlaybackOrder } from "../../../lib/playbackOrder";
 import { getManualNextId } from "../../../lib/playbackQueue";
+import { getNextSkippingKnownUnplayable } from "../../../lib/playbackSkip";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import type { RepeatMode } from "../../../types/track";
 import { Button } from "../../common/Button/Button";
@@ -57,7 +58,13 @@ export function PlaybackTransport({ className }: PlaybackTransportProps) {
   const canGoNext =
     currentTrackId !== null &&
     activeQueue.length > 0 &&
-    getManualNextId(activeQueue, currentTrackId, repeatMode) !== null;
+    getNextSkippingKnownUnplayable(
+      activeQueue,
+      currentTrackId,
+      repeatMode,
+      library,
+      getManualNextId,
+    ) !== null;
 
   const handlePlayPause = useCallback(() => {
     togglePlayPause();

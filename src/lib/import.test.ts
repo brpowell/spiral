@@ -5,10 +5,15 @@ vi.mock("./scheduling", () => ({
   afterUiTransition: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("./artPath", () => ({
+  fileExists: vi.fn().mockResolvedValue(true),
+}));
+
 import {
   formatImportSummary,
   resolveImportDuplicates,
 } from "./import";
+import { fileExists } from "./artPath";
 import { useImportDedupeStore } from "../store/useImportDedupeStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Track, TrackInput } from "../types/track";
@@ -46,6 +51,7 @@ function libraryTrack(overrides: Partial<Track> & Pick<Track, "id">): Track {
     dateAdded: overrides.dateAdded ?? "2024-01-01",
     playCount: overrides.playCount ?? 2,
     rating: overrides.rating ?? 0,
+    ...overrides,
   };
 }
 
@@ -61,6 +67,7 @@ describe("resolveImportDuplicates", () => {
   beforeEach(() => {
     useImportDedupeStore.getState().resetImportDedupeSession();
     usePlayerStore.setState({ library: [libraryTrack({ id: 1 })] });
+    vi.mocked(fileExists).mockResolvedValue(true);
   });
 
   it("marks skipped pending ids when user chooses skip", async () => {
@@ -69,7 +76,9 @@ describe("resolveImportDuplicates", () => {
       { incomingPendingRip: true },
     );
 
-    await Promise.resolve();
+    await vi.waitFor(() => {
+      expect(useImportDedupeStore.getState().prompt).not.toBeNull();
+    });
     await useImportDedupeStore.getState().resolveImportDedupe("skip", false);
 
     const result = await resolutionPromise;
@@ -79,6 +88,32 @@ describe("resolveImportDuplicates", () => {
 
   it("uses batch rule without prompting", async () => {
     useImportDedupeStore.setState({ batchRule: "replace" });
+
+    const result = await resolveImportDuplicates(
+      [{ sourcePath: "", metadata: trackInput(), pendingId: 10 }],
+      { incomingPendingRip: true },
+    );
+
+    expect(result.skippedPendingIds.size).toBe(0);
+    expect(result.duplicateActions.get(10)).toBe("replace");
+  });
+
+  it("auto-replaces when the library file is missing on disk", async () => {
+    vi.mocked(fileExists).mockResolvedValue(false);
+
+    const result = await resolveImportDuplicates(
+      [{ sourcePath: "", metadata: trackInput(), pendingId: 10 }],
+      { incomingPendingRip: true },
+    );
+
+    expect(result.skippedPendingIds.size).toBe(0);
+    expect(result.duplicateActions.get(10)).toBe("replace");
+  });
+
+  it("auto-replaces when the library track is flagged missing", async () => {
+    usePlayerStore.setState({
+      library: [libraryTrack({ id: 1, missingFile: true })],
+    });
 
     const result = await resolveImportDuplicates(
       [{ sourcePath: "", metadata: trackInput(), pendingId: 10 }],

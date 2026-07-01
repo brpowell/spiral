@@ -8,6 +8,7 @@ import {
   type ImportDuplicateContext,
 } from "./trackDedupe";
 import { prepareImportFile, replaceTrackFromImport, saveTrack } from "./tauri";
+import { shouldAutoReplaceMissingDuplicate } from "./missingFileTrack";
 import { useImportDedupeStore, isImportCancelledError } from "../store/useImportDedupeStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Track, TrackInput } from "../types/track";
@@ -85,6 +86,10 @@ export async function parseImportMetadata(
 async function resolveDuplicateAction(
   context: ImportDuplicateContext,
 ): Promise<ImportDedupeAction> {
+  if (await shouldAutoReplaceMissingDuplicate(context.existing)) {
+    return "replace";
+  }
+
   const { batchRule, promptImportDedupe } = useImportDedupeStore.getState();
   if (batchRule != null) {
     return batchRule;

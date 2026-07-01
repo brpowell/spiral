@@ -11,7 +11,8 @@ import {
   isTrackImporting,
   isTrackInteractive,
 } from "../../lib/pendingImportTrack";
-import { IconCheck, IconGrip } from "../icons";
+import { isTrackMissingFile } from "../../lib/missingFileTrack";
+import { IconCheck, IconGrip, IconMissingFile } from "../icons";
 import { ImportIndicator } from "../ImportIndicator/ImportIndicator";
 import { PlayingIndicator } from "../PlayingIndicator/PlayingIndicator";
 import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
@@ -225,6 +226,7 @@ function TrackListRowComponent({
   onRowClick,
 }: TrackListRowProps) {
   const isImporting = isTrackImporting(track);
+  const isMissingFile = isTrackMissingFile(track);
   const isCdImporting = cdImportingTrackIds?.has(track.id) ?? false;
   const isCdImportComplete = cdImportCompletedTrackIds?.has(track.id) ?? false;
   const isCdImportingEmphasized =
@@ -261,8 +263,8 @@ function TrackListRowComponent({
   );
 
   const rowContent = (
-        <div
-          ref={setRowElementRef}
+    <div
+      ref={setRowElementRef}
       role="option"
       aria-selected={isSelected}
       tabIndex={tabIndex}
@@ -290,7 +292,7 @@ function TrackListRowComponent({
         onPlayTrack(track);
       }}
       onKeyDownCapture={handleRowKeyDownCapture}
-          onKeyDown={onRowKeyDown}
+      onKeyDown={onRowKeyDown}
     >
       {visibleColumns.map((col) => {
         if (col.id === "check") {
@@ -306,11 +308,11 @@ function TrackListRowComponent({
                 <input
                   type="checkbox"
                   className="track-list__checkbox"
-                      tabIndex={-1}
-                      data-track-list-cell-control
-                      data-track-list-cell-column="check"
-                      data-track-list-cell-sub-index={0}
-                      checked={isChecked}
+                  tabIndex={-1}
+                  data-track-list-cell-control
+                  data-track-list-cell-column="check"
+                  data-track-list-cell-sub-index={0}
+                  checked={isChecked}
                   onChange={(e) =>
                     onToggleChecked?.(track, e.target.checked)
                   }
@@ -365,6 +367,11 @@ function TrackListRowComponent({
                   />
                 ) : isActivelyPlaying ? (
                   <PlayingIndicator active inline />
+                ) : isMissingFile ? (
+                  <IconMissingFile
+                    className="track-list__missing-file"
+                    aria-label="File missing"
+                  />
                 ) : (
                   indexDisplay(track, displayIndex, indexColumn)
                 )}
@@ -391,7 +398,7 @@ function TrackListRowComponent({
           col.align === "right" && "track-list__cell--right",
           col.id === "duration" && "track-list__cell--duration",
           (col.id === "sampleRate" || col.id === "bitrate") &&
-            "track-list__cell--duration",
+          "track-list__cell--duration",
         ]
           .filter(Boolean)
           .join(" ");
@@ -427,15 +434,15 @@ function TrackListRowComponent({
         if (col.id === "rating" && onRatingChange) {
           return (
             <span key={col.id} className={cellClassName}>
-                  <TrackRating
-                    value={track.rating}
-                    size="compact"
-                    disabled={!isInteractive}
-                    tabIndex={-1}
-                    cellControl
-                    cellColumn="rating"
-                    onChange={(rating) => onRatingChange(track.id, rating)}
-                  />
+              <TrackRating
+                value={track.rating}
+                size="compact"
+                disabled={!isInteractive}
+                tabIndex={-1}
+                cellControl
+                cellColumn="rating"
+                onChange={(rating) => onRatingChange(track.id, rating)}
+              />
             </span>
           );
         }

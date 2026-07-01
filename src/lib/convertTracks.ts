@@ -2,7 +2,12 @@ import { convertTrack } from "./tauri";
 import { createOperationId, logActivity } from "./activityLog";
 import { formatFailureDetail } from "./formatFailureDetail";
 import { getEncodingProfile } from "./encodingProfiles";
+import {
+  discoverTrackFileMissing,
+  isTrackMissingFile,
+} from "./missingFileTrack";
 import { isTrackConvertible } from "./pendingImportTrack";
+import { showPlaybackFileMissingToast } from "./playbackToast";
 import { yieldForInteraction } from "./scheduling";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useConvertStore } from "../store/useConvertStore";
@@ -18,8 +23,32 @@ export function filterConvertibleTrackIds(
 ): number[] {
   return [...new Set(trackIds)].filter((id) => {
     const track = library.find((item) => item.id === id);
-    return track != null && isTrackConvertible(track);
+    return (
+      track != null &&
+      isTrackConvertible(track) &&
+      !isTrackMissingFile(track)
+    );
   });
+}
+
+async function resolveConvertibleCandidatesOnDisk(
+  candidateIds: number[],
+  library: Track[],
+): Promise<number[]> {
+  const updateTrackInLibrary = usePlayerStore.getState().updateTrackInLibrary;
+  const resolved: number[] = [];
+
+  for (const id of candidateIds) {
+    const track = library.find((item) => item.id === id);
+    if (!track) continue;
+
+    const missing = await discoverTrackFileMissing(track, updateTrackInLibrary);
+    if (!missing) {
+      resolved.push(id);
+    }
+  }
+
+  return resolved;
 }
 
 function notifyConvertFailure(summary: string, detail: string): void {
@@ -34,12 +63,25 @@ function notifyConvertFailure(summary: string, detail: string): void {
 }
 
 export function openConvertForTrackIds(trackIds: number[]): void {
-  const library = usePlayerStore.getState().library;
-  const convertibleIds = filterConvertibleTrackIds(trackIds, library);
+  void (async () => {
+    const library = usePlayerStore.getState().library;
+    const candidates = filterConvertibleTrackIds(trackIds, library);
+    const convertibleIds = await resolveConvertibleCandidatesOnDisk(
+      candidates,
+      library,
+    );
 
-  if (convertibleIds.length === 0) return;
+    if (convertibleIds.length === 0) {
+      if (candidates.length > 0) {
+        const track = library.find((item) => item.id === candidates[0]);
+        if (track) {
+          showPlaybackFileMissingToast(track);
+        }
+      }
+      return;
+    }
 
-  void useConvertStore.getState().promptConvert(convertibleIds).then((result) => {
+    const result = await useConvertStore.getState().promptConvert(convertibleIds);
     if (result) {
       startConvertTracks({
         trackIds: convertibleIds,
@@ -47,7 +89,7 @@ export function openConvertForTrackIds(trackIds: number[]): void {
         mode: result.mode,
       });
     }
-  });
+  })();
 }
 
 export function startConvertTracks(options: {

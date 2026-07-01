@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFileSize } from "../../hooks/useFileSize";
+import { useFileExists } from "../../hooks/useFileExists";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
 import { formatBytes, formatDimensions } from "../../lib/formatBytes";
@@ -21,13 +22,16 @@ import {
 import { ArtistChipField } from "../ArtistChipField/ArtistChipField";
 import { TrackRating } from "../TrackRating/TrackRating";
 import { AudioFileSpecs } from "../AudioFileSpecs/AudioFileSpecs";
-import { revealInFileManagerLabel } from "../../lib/fileManager";
+import { revealInFileManagerLabel, revealTrackInFileManager } from "../../lib/fileManager";
+import {
+  discoverTrackFileMissing,
+  isTrackMissingFile,
+} from "../../lib/missingFileTrack";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
   fetchCoverArt,
   pickImageFile,
-  revealPathInFileManager,
   setTrackRating,
   writeTrackMetadata,
 } from "../../lib/tauri";
@@ -48,6 +52,7 @@ import { Button } from "../common/Button/Button";
 import { FieldLabel, FormField } from "../common/Field/Field";
 import { AutocompleteInput } from "../common/AutocompleteInput/AutocompleteInput";
 import { TextInput } from "../common/TextInput/TextInput";
+import { IconWarning } from "../icons";
 import "./TrackEditor.css";
 
 function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
@@ -181,6 +186,10 @@ export function TrackEditor() {
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
   const fileSizeBytes = useFileSize(referenceTrack?.filePath);
+  const fileExistsOnDisk = useFileExists(referenceTrack?.filePath);
+  const isMissingFile =
+    referenceTrack != null &&
+    (isTrackMissingFile(referenceTrack) || fileExistsOnDisk === false);
 
   const isOpen = editingTrackIds.length > 0 && tracks.length > 0 && form != null;
 
@@ -202,6 +211,13 @@ export function TrackEditor() {
     setDiscardPrompt(false);
     setSaveProgress(null);
   }, [editingKey]);
+
+  useEffect(() => {
+    if (referenceTrack == null || fileExistsOnDisk !== false) {
+      return;
+    }
+    void discoverTrackFileMissing(referenceTrack, updateTrackInLibrary);
+  }, [referenceTrack, fileExistsOnDisk, updateTrackInLibrary]);
 
   const artChanged =
     pendingArtPath !== originalArtPath ||
@@ -637,6 +653,15 @@ export function TrackEditor() {
                 {!isBulk && referenceTrack ? (
                   <div className="field">
                     <FieldLabel>File</FieldLabel>
+                    {isMissingFile ? (
+                      <p className="track-editor__file-missing" role="status">
+                        <IconWarning
+                          className="track-editor__file-missing-icon"
+                          aria-hidden
+                        />
+                        File not found at this location
+                      </p>
+                    ) : null}
                     <AudioFileSpecs
                       className="track-editor__audio-file-specs"
                       filePath={referenceTrack.filePath}
@@ -647,7 +672,12 @@ export function TrackEditor() {
                     />
                     <div className="track-editor__file-location">
                       <textarea
-                        className="track-editor__file-path"
+                        className={[
+                          "track-editor__file-path",
+                          isMissingFile && "track-editor__file-path--missing",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
                         readOnly
                         value={referenceTrack.filePath}
                         rows={1}
@@ -656,9 +686,13 @@ export function TrackEditor() {
                       />
                       <Button
                         size="sm"
+                        disabled={isMissingFile}
                         aria-label={revealInFileManagerLabel()}
                         onClick={() =>
-                          void revealPathInFileManager(referenceTrack.filePath)
+                          void revealTrackInFileManager(
+                            referenceTrack,
+                            updateTrackInLibrary,
+                          )
                         }
                       >
                         Reveal

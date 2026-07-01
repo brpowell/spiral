@@ -22,11 +22,13 @@ import {
   IconRemoveFromQueue
 } from "../components/icons";
 import { applyTrackRating } from "../lib/applyTrackRating";
-import { revealInFileManagerLabel } from "../lib/fileManager";
+import {
+  revealInFileManagerLabel,
+  revealTrackInFileManager,
+} from "../lib/fileManager";
 import type { CanonicalRating } from "../lib/trackRating";
-import { revealPathInFileManager } from "../lib/tauri";
-import { openConvertForTrackIds } from "../lib/convertTracks";
-import { isTrackConvertible } from "../lib/pendingImportTrack";
+import { openConvertForTrackIds, filterConvertibleTrackIds } from "../lib/convertTracks";
+import { isTrackMissingFile } from "../lib/missingFileTrack";
 import {
   PlaylistContextMenuIcon,
   usePlaylistTracksById,
@@ -102,9 +104,11 @@ export function useTrackMenu(
   );
 
   const anyInQueue = contextTrackIds.some((id) => manualQueueIds.includes(id));
+  const anyKnownMissingFile = contextTracks.some(isTrackMissingFile);
   const bulkRemove = contextTracks.length > 1;
-  const convertibleCount = contextTracks.filter((item) =>
-    isTrackConvertible(item),
+  const convertibleCount = filterConvertibleTrackIds(
+    contextTrackIds,
+    library,
   ).length;
 
   const onBeforeOpen = useCallback(() => {
@@ -120,6 +124,7 @@ export function useTrackMenu(
     useContextMenu({
       layoutDeps: [
         anyInQueue,
+        anyKnownMissingFile,
         bulkRemove,
         contextTracks.length,
         convertibleCount,
@@ -226,9 +231,10 @@ export function useTrackMenu(
       <ContextMenuItem
         icon={<IconOpenFolder />}
         label={revealInFileManagerLabel()}
+        disabled={isTrackMissingFile(track)}
         onClick={() => {
           closeMenu();
-          void revealPathInFileManager(track.filePath);
+          void revealTrackInFileManager(track, updateTrackInLibrary);
         }}
       />
       <ContextMenuSeparator />
@@ -239,6 +245,7 @@ export function useTrackMenu(
             ? `Add ${contextTracks.length} to Queue`
             : "Add to Queue"
         }
+        disabled={anyKnownMissingFile}
         onClick={() => {
           closeMenu();
           addToQueue(contextTrackIds);
