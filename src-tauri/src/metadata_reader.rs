@@ -58,26 +58,41 @@ fn cache_embedded_art(
         .map(|p| p.to_string_lossy().into_owned())
 }
 
+fn read_mp3_duration(path: &Path) -> Option<f64> {
+    mp3_duration::from_path(path)
+        .ok()
+        .map(|duration| duration.as_secs_f64())
+        .filter(|seconds| *seconds > 0.0)
+}
+
 fn read_mp3_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
     let mut tags = BasicTags::default();
     let mut art = None;
 
-    let Ok(tag) = Tag::read_from_path(path) else {
-        return (tags, art);
-    };
+    if let Ok(tag) = Tag::read_from_path(path) {
+        tags.title = tag.title().map(|s| s.to_string());
+        tags.artist = tag.artist().map(|s| s.to_string());
+        tags.album = tag.album().map(|s| s.to_string());
+        tags.album_artist = tag.album_artist().map(|s| s.to_string());
+        tags.track_number = tag.track().map(|n| n as i32);
+        tags.disc_number = tag.disc().map(|n| n as i32);
+        tags.year = tag.year();
+        tags.genre = tag.genre().map(|s| s.to_string());
+        tags.rating = rating_tags::read_mp3_rating(&tag);
 
-    tags.title = tag.title().map(|s| s.to_string());
-    tags.artist = tag.artist().map(|s| s.to_string());
-    tags.album = tag.album().map(|s| s.to_string());
-    tags.album_artist = tag.album_artist().map(|s| s.to_string());
-    tags.track_number = tag.track().map(|n| n as i32);
-    tags.disc_number = tag.disc().map(|n| n as i32);
-    tags.year = tag.year();
-    tags.genre = tag.genre().map(|s| s.to_string());
-    tags.rating = rating_tags::read_mp3_rating(&tag);
+        if let Some(milliseconds) = tag.duration() {
+            if milliseconds > 0 {
+                tags.duration_seconds = Some(milliseconds as f64 / 1000.0);
+            }
+        }
 
-    if let Some(picture) = tag.pictures().next() {
-        art = Some((picture.data.clone(), picture.mime_type.clone()));
+        if let Some(picture) = tag.pictures().next() {
+            art = Some((picture.data.clone(), picture.mime_type.clone()));
+        }
+    }
+
+    if tags.duration_seconds.is_none() {
+        tags.duration_seconds = read_mp3_duration(path);
     }
 
     (tags, art)
@@ -306,6 +321,18 @@ mod tests {
         assert_eq!(result.title, "Plain");
         assert_eq!(result.file_path, file.to_string_lossy());
         assert_eq!(result.rating, None);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_mp3_duration_returns_none_for_invalid_file() {
+        let dir = std::env::temp_dir().join(format!("spiral-mp3-dur-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let file = dir.join("not-mp3.txt");
+        std::fs::write(&file, b"not audio").unwrap();
+
+        assert_eq!(read_mp3_duration(&file), None);
 
         let _ = std::fs::remove_dir_all(&dir);
     }

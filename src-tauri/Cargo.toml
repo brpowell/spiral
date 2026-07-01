@@ -38,6 +38,7 @@ hex = "0.4"
 base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 zip = "2"
+mp3-duration = "0.1.10"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 mp3lame-encoder = "0.2.4"
