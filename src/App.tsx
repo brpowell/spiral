@@ -19,6 +19,7 @@ import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useArtistImageStore } from "./store/useArtistImageStore";
 import { setupAppMenu } from "./lib/appMenu";
+import { refreshLibraryMetadata } from "./lib/refreshLibraryMetadata";
 import { openSkinMode } from "./lib/skinModeWindow";
 import { openActivityLogsWindow } from "./lib/activityLogsWindow";
 import { openAppearanceWindow } from "./lib/appearanceWindow";
@@ -66,6 +67,9 @@ function App() {
     void setupAppMenu({
       addToLibrary: () => {
         void addToLibrary();
+      },
+      refreshLibraryMetadata: () => {
+        void refreshLibraryMetadata();
       },
       newPlaylist: () => openPlaylistEditor("new"),
       openPreferences: () => setPreferencesOpen(true),

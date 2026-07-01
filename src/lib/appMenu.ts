@@ -7,6 +7,7 @@ import {
 
 export interface AppMenuHandlers {
   addToLibrary: () => void;
+  refreshLibraryMetadata: () => void;
   newPlaylist: () => void;
   openPreferences: () => void;
   openSkinMode: () => void;
@@ -35,6 +36,12 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
     action: handlers.addToLibrary,
   });
 
+  const refreshLibraryMetadata = await MenuItem.new({
+    id: "refresh-library-metadata",
+    text: "Refresh Library Metadata",
+    action: handlers.refreshLibraryMetadata,
+  });
+
   const newPlaylist = await MenuItem.new({
     id: "new-playlist",
     text: "New Playlist…",
@@ -43,7 +50,7 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
 
   const fileSubmenu = await Submenu.new({
     text: "File",
-    items: [addToLibrary, newPlaylist],
+    items: [addToLibrary, refreshLibraryMetadata, newPlaylist],
   });
 
   const skinMode = await MenuItem.new({

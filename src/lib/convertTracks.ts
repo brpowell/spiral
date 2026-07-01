@@ -1,5 +1,6 @@
 import { convertTrack } from "./tauri";
 import { createOperationId, logActivity } from "./activityLog";
+import { formatFailureDetail } from "./formatFailureDetail";
 import { getEncodingProfile } from "./encodingProfiles";
 import { isTrackConvertible } from "./pendingImportTrack";
 import { yieldForInteraction } from "./scheduling";
@@ -19,17 +20,6 @@ export function filterConvertibleTrackIds(
     const track = library.find((item) => item.id === id);
     return track != null && isTrackConvertible(track);
   });
-}
-
-function formatConvertFailureDetail(
-  errors: string[],
-  maxLines = 3,
-): string {
-  if (errors.length === 0) return "";
-  const shown = errors.slice(0, maxLines);
-  const remainder = errors.length - shown.length;
-  const body = shown.join("; ");
-  return remainder > 0 ? `${body}; +${remainder} more` : body;
 }
 
 function notifyConvertFailure(summary: string, detail: string): void {
@@ -127,7 +117,7 @@ export function startConvertTracks(options: {
             },
           });
           if (trackIds.length > 1) {
-            ctx.setDetail(formatConvertFailureDetail(errors, 2));
+            ctx.setDetail(formatFailureDetail(errors, 2));
           }
         }
 
@@ -165,7 +155,7 @@ export function startConvertTracks(options: {
       });
 
       if (failed > 0) {
-        const detail = formatConvertFailureDetail(errors);
+        const detail = formatFailureDetail(errors);
         ctx.setDetail(detail);
         notifyConvertFailure(summary, detail || errors[0] || "Convert failed");
         throw new Error(summary);

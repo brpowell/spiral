@@ -806,6 +806,47 @@ mod tests {
     }
 
     #[test]
+    fn save_track_refresh_preserves_library_fields() {
+        let conn = test_conn();
+        let path = "/music/refresh.mp3";
+
+        save_track(&conn, &sample_input(path)).unwrap();
+        increment_play_count(&conn, 1).unwrap();
+        increment_play_count(&conn, 1).unwrap();
+        set_track_rating(&conn, 1, 128).unwrap();
+
+        let before = get_track_by_id(&conn, 1).unwrap().unwrap();
+        let date_added = before.date_added.clone();
+        assert_eq!(before.play_count, 2);
+        assert_eq!(before.rating, 128);
+
+        std::thread::sleep(std::time::Duration::from_millis(5));
+
+        let mut refreshed = sample_input(path);
+        refreshed.title = "Updated Title".into();
+        refreshed.artist = Some("Updated Artist".into());
+        refreshed.album = Some("Updated Album".into());
+        refreshed.duration_seconds = Some(245.0);
+        refreshed.sample_rate = Some(48_000);
+        refreshed.bitrate = Some(320);
+        refreshed.codec = Some("mp3".into());
+        refreshed.rating = Some(255);
+        save_track(&conn, &refreshed).unwrap();
+
+        let after = get_track_by_id(&conn, 1).unwrap().unwrap();
+        assert_eq!(after.title, "Updated Title");
+        assert_eq!(after.artist.as_deref(), Some("Updated Artist"));
+        assert_eq!(after.album.as_deref(), Some("Updated Album"));
+        assert_eq!(after.duration_seconds, Some(245.0));
+        assert_eq!(after.sample_rate, Some(48_000));
+        assert_eq!(after.bitrate, Some(320));
+        assert_eq!(after.codec.as_deref(), Some("mp3"));
+        assert_eq!(after.date_added, date_added);
+        assert_eq!(after.play_count, 2);
+        assert_eq!(after.rating, 128);
+    }
+
+    #[test]
     fn convert_replace_updates_path_preserving_id() {
         let conn = test_conn();
         let id = save_track(&conn, &sample_input("/music/album/track.flac")).unwrap();

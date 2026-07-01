@@ -183,6 +183,17 @@ export async function getLibrary(): Promise<Track[]> {
   return rows.map(normalizeTrack);
 }
 
+export interface RefreshLibraryMetadataResult {
+  updated: number;
+  missing: number;
+  failed: number;
+  errors: string[];
+}
+
+export async function refreshLibraryMetadataFromFiles(): Promise<RefreshLibraryMetadataResult> {
+  return invoke<RefreshLibraryMetadataResult>("refresh_library_metadata");
+}
+
 function normalizePlaylistImageMode(
   raw: Record<string, unknown>,
 ): Playlist["imageMode"] {

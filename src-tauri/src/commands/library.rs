@@ -5,7 +5,7 @@ use crate::import_files;
 use crate::library_organize::{self, OrganizeMetadata};
 use crate::audio_properties;
 use crate::metadata_reader;
-use crate::models::{Track, TrackInput, TrackMetadataUpdate};
+use crate::models::{RefreshLibraryMetadataResult, Track, TrackInput, TrackMetadataUpdate};
 use crate::rating_sync::{schedule_rating_file_write, RatingSync};
 use crate::settings;
 use crate::transcoder;
@@ -136,6 +136,80 @@ pub fn get_library(state: State<DbState>) -> Result<Vec<Track>, String> {
         eprintln!("get_library error: {e}");
         e.to_string()
     })
+}
+
+const REFRESH_METADATA_MAX_ERRORS: usize = 20;
+
+fn refresh_library_metadata_blocking(app: &AppHandle) -> Result<RefreshLibraryMetadataResult, String> {
+    let app_data = settings::app_data_dir(app)?;
+    let state = app.state::<DbState>();
+    let tracks = {
+        let conn = state.0.lock().map_err(|e| e.to_string())?;
+        db::get_all_tracks(&conn).map_err(|e| {
+            eprintln!("refresh_library_metadata get_all_tracks error: {e}");
+            e.to_string()
+        })?
+    };
+
+    let mut updated = 0u32;
+    let mut missing = 0u32;
+    let mut failed = 0u32;
+    let mut errors = Vec::new();
+
+    for track in tracks {
+        let label = if track.title.is_empty() {
+            track.file_path.clone()
+        } else {
+            track.title.clone()
+        };
+
+        if !Path::new(&track.file_path).is_file() {
+            missing += 1;
+            continue;
+        }
+
+        let parse_result = metadata_reader::parse_track_metadata(&app_data, &track.file_path);
+        let input = match parse_result {
+            Ok(input) => input,
+            Err(err) => {
+                failed += 1;
+                if errors.len() < REFRESH_METADATA_MAX_ERRORS {
+                    errors.push(format!("{label}: {err}"));
+                }
+                continue;
+            }
+        };
+
+        let save_result = {
+            let conn = state.0.lock().map_err(|e| e.to_string())?;
+            db::save_track(&conn, &input)
+        };
+
+        match save_result {
+            Ok(_) => updated += 1,
+            Err(err) => {
+                failed += 1;
+                if errors.len() < REFRESH_METADATA_MAX_ERRORS {
+                    errors.push(format!("{label}: {err}"));
+                }
+            }
+        }
+    }
+
+    Ok(RefreshLibraryMetadataResult {
+        updated,
+        missing,
+        failed,
+        errors,
+    })
+}
+
+#[tauri::command]
+pub async fn refresh_library_metadata(app: AppHandle) -> Result<RefreshLibraryMetadataResult, String> {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || refresh_library_metadata_blocking(&app))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

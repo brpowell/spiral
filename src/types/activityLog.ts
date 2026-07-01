@@ -49,12 +49,14 @@ export type ActivityLogDomainFilter =
   | "all"
   | "metadata.musicbrainz"
   | "metadata.coverArt"
-  | "library.convert";
+  | "library.convert"
+  | "library.refresh";
 
 export const ACTIVITY_LOG_DOMAINS = {
   musicbrainz: "metadata.musicbrainz",
   coverArt: "metadata.coverArt",
   convert: "library.convert",
+  refresh: "library.refresh",
 } as const;
 
 export const ACTIVITY_LOG_EVENT = "activity://entry";

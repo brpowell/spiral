@@ -68,6 +68,15 @@ pub struct ArtistImage {
     pub art_path: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RefreshLibraryMetadataResult {
+    pub updated: u32,
+    pub missing: u32,
+    pub failed: u32,
+    pub errors: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackInput {

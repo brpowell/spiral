@@ -83,6 +83,7 @@ pub fn run() {
             commands::files::file_exists,
             commands::library::save_track,
             commands::library::get_library,
+            commands::library::refresh_library_metadata,
             commands::library::replace_track_from_import,
             commands::library::convert_track,
             commands::library::get_convert_profile_options,

@@ -36,6 +36,7 @@ const DOMAIN_FILTERS: { value: ActivityLogDomainFilter; label: string }[] = [
   { value: "metadata.musicbrainz", label: "MusicBrainz" },
   { value: "metadata.coverArt", label: "Cover Art" },
   { value: "library.convert", label: "Convert" },
+  { value: "library.refresh", label: "Refresh" },
 ];
 
 const LEVEL_OPTIONS: { value: LogLevel; label: string }[] = [
@@ -85,7 +86,9 @@ function formatGroupLabel(entry: ActivityLogEntry): string {
         ? "Cover art fetch"
         : entry.domain === "library.convert"
           ? "Track convert"
-          : entry.domain;
+          : entry.domain === "library.refresh"
+            ? "Library refresh"
+            : entry.domain;
 
   if (discId) return `${domainLabel} · disc ${discId}`;
   if (driveId) return `${domainLabel} · drive ${driveId}`;
