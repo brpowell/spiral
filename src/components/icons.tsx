@@ -238,6 +238,14 @@ export function IconEditInfo(props: IconProps) {
   );
 }
 
+export function IconStar(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
+      <path d="M12 2.5l2.9 6.5 7.1.6-5.4 4.6 1.7 6.9L12 17.8 5.7 21.1l1.7-6.9L2 9.6l7.1-.6L12 2.5z" />
+    </svg>
+  );
+}
+
 export function IconImport(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" {...props}>

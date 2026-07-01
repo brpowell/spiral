@@ -11,8 +11,8 @@ import type {
   TrackListSortDir,
   TrackListSortField,
 } from "../components/TrackList/types";
+import { applyTrackRating } from "../lib/applyTrackRating";
 import { isTrackImporting } from "../lib/pendingImportTrack";
-import { setTrackRating } from "../lib/tauri";
 import type { CanonicalRating } from "../lib/trackRating";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Track } from "../types/track";
@@ -36,11 +36,7 @@ export function TracksView({ tracks }: TracksViewProps) {
         .getState()
         .library.find((t) => t.id === trackId);
       if (!track) return;
-
-      updateTrackInLibrary({ ...track, rating });
-      void setTrackRating(trackId, rating).catch(() =>
-        updateTrackInLibrary(track),
-      );
+      applyTrackRating(track, rating, updateTrackInLibrary);
     },
     [updateTrackInLibrary],
   );

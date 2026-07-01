@@ -7,6 +7,7 @@ import {
   ContextMenuSeparator,
   ContextMenuSubmenu,
 } from "../components/ContextMenu/ContextMenu";
+import { ContextMenuRatingItem } from "../components/ContextMenu/ContextMenuRatingItem";
 import { RemoveTrackDialog } from "../components/RemoveTrackDialog/RemoveTrackDialog";
 import {
   IconAddToQueue,
@@ -20,7 +21,9 @@ import {
   IconRemoveFromPlaylist,
   IconRemoveFromQueue
 } from "../components/icons";
+import { applyTrackRating } from "../lib/applyTrackRating";
 import { revealInFileManagerLabel } from "../lib/fileManager";
+import type { CanonicalRating } from "../lib/trackRating";
 import { revealPathInFileManager } from "../lib/tauri";
 import { openConvertForTrackIds } from "../lib/convertTracks";
 import { isTrackConvertible } from "../lib/pendingImportTrack";
@@ -60,6 +63,7 @@ export function useTrackMenu(
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
   const removeTracksFromLibrary = usePlayerStore((s) => s.removeTracksFromLibrary);
+  const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
   const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
   const openAlbum = useNavigationStore((s) => s.openAlbum);
   const openArtist = useNavigationStore((s) => s.openArtist);
@@ -126,6 +130,7 @@ export function useTrackMenu(
         hasNavigableArtist(track),
         hasNavigableAlbum(track),
         artistBrowseMode,
+        track.rating,
       ],
       onBeforeOpen,
       dismissExcludeRefs: [submenuPanelRef],
@@ -153,6 +158,16 @@ export function useTrackMenu(
     closeMenu();
     openPlaylistEditor("new", contextTrackIds);
   }, [closeMenu, openPlaylistEditor, contextTrackIds]);
+
+  const handleRatingChange = useCallback(
+    (rating: CanonicalRating) => {
+      for (const contextTrack of contextTracks) {
+        applyTrackRating(contextTrack, rating, updateTrackInLibrary);
+      }
+      closeMenu();
+    },
+    [closeMenu, contextTracks, updateTrackInLibrary],
+  );
 
   const renderPlaylistItem = (playlist: Playlist) => (
     <ContextMenuItem
@@ -182,17 +197,12 @@ export function useTrackMenu(
         }
         onClick={openEditor}
       />
-      <ContextMenuItem
-        icon={<IconOpenFolder />}
-        label={revealInFileManagerLabel()}
-        onClick={() => {
-          closeMenu();
-          void revealPathInFileManager(track.filePath);
-        }}
+      <ContextMenuRatingItem
+        value={track.rating}
+        onChange={handleRatingChange}
       />
-      {hasNavigableArtist(track) || hasNavigableAlbum(track) ? (
-        <ContextMenuSeparator />
-      ) : null}
+
+      <ContextMenuSeparator />
       {hasNavigableArtist(track) ? (
         <ContextMenuItem
           icon={<IconArtists />}
@@ -213,6 +223,14 @@ export function useTrackMenu(
           }}
         />
       ) : null}
+      <ContextMenuItem
+        icon={<IconOpenFolder />}
+        label={revealInFileManagerLabel()}
+        onClick={() => {
+          closeMenu();
+          void revealPathInFileManager(track.filePath);
+        }}
+      />
       <ContextMenuSeparator />
       <ContextMenuItem
         icon={<IconAddToQueue />}

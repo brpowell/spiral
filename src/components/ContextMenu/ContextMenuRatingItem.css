@@ -1,0 +1,18 @@
+.context-menu__rating-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  color: var(--color-text-primary);
+  font-size: 0.85rem;
+  font-family: var(--font-ui);
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.context-menu__rating-row .track-rating {
+  flex-shrink: 0;
+  margin-left: auto;
+  align-self: center;
+}
