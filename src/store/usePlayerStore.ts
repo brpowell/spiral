@@ -177,6 +177,8 @@ interface PlayResolvedPlayableOptions {
   cdDriveId?: string | null;
 }
 
+let playResolvedGeneration = 0;
+
 async function playResolvedPlayable(
   playable: PlayableRef,
   set: (
@@ -202,10 +204,12 @@ async function playResolvedPlayable(
   }
 
   const trackListId = trackListIdForPlayable(playable);
+  const generation = ++playResolvedGeneration;
 
   set({ importError: null });
   try {
     await audio.loadSource(source);
+    if (generation !== playResolvedGeneration) return;
     // Loading may switch engines — make sure the new one has the user's
     // volume/mute state before audio starts.
     audio.setVolume(state.volume);
@@ -234,6 +238,7 @@ async function playResolvedPlayable(
     }));
     startPositionPoll(set);
   } catch (err) {
+    if (generation !== playResolvedGeneration) return;
     const message = err instanceof Error ? err.message : String(err);
     console.error("Playback failed:", err);
     set({

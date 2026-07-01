@@ -8,6 +8,8 @@ import { TrackEditor } from "./components/TrackEditor/TrackEditor";
 import { MainContent } from "./components/layout/MainContent";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Button } from "./components/common/Button/Button";
+import { CopyButton } from "./components/common/CopyButton/CopyButton";
+import { IconClose } from "./components/icons";
 import { ImportChoiceModal } from "./components/ImportChoiceModal/ImportChoiceModal";
 import { ImportDedupeModal } from "./components/ImportDedupeModal/ImportDedupeModal";
 import { ConvertConfirmModal } from "./components/ConvertConfirmModal/ConvertConfirmModal";
@@ -96,16 +98,25 @@ function App() {
 
       {importError && (
         <div className="error-banner" role="alert">
-          <span>{importError}</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            iconOnly
-            onClick={clearImportError}
-            aria-label="Dismiss"
-          >
-            ×
-          </Button>
+          <span className="error-banner__message">{importError}</span>
+          <div className="error-banner__actions">
+            <CopyButton
+              text={importError}
+              aria-label="Copy error message"
+              copiedAriaLabel="Copied error message"
+              title="Copy error message"
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              onClick={clearImportError}
+              aria-label="Dismiss"
+              title="Dismiss"
+            >
+              <IconClose />
+            </Button>
+          </div>
         </div>
       )}
 

@@ -54,6 +54,20 @@ textarea,
   flex-shrink: 0;
 }
 
+.error-banner__message {
+  flex: 1;
+  min-width: 0;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.error-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex-shrink: 0;
+}
+
 .app-body {
   display: flex;
   flex: 1;

@@ -13,8 +13,8 @@ import {
 } from "../icons";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { clearActivityLogsRemote } from "../../lib/activityLogBridge";
+import { copyTextToClipboard } from "../../lib/clipboard";
 import {
-  copyTextToClipboard,
   formatLogLinePretty,
   getEntryOperationId,
   serializeLogLines,

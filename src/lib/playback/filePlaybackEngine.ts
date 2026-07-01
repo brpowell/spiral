@@ -1,5 +1,5 @@
 import { Howl, Howler } from "howler";
-import { toAssetUrl } from "../assetUrl";
+import { formatAssetForDisplay, toAssetUrl } from "../assetUrl";
 import { connectEngineOutput, disconnectEngineOutput } from "./audioOutput";
 import type {
   PlaybackCapabilities,
@@ -39,6 +39,7 @@ export class FilePlaybackEngine implements PlaybackEngine {
   private sound: Howl | null = null;
   private endCallback: (() => void) | null = null;
   private loadPending = false;
+  private loadGeneration = 0;
   private balance = 0;
 
   async load(source: PlaybackSource): Promise<void> {
@@ -46,15 +47,37 @@ export class FilePlaybackEngine implements PlaybackEngine {
       throw new Error(`FilePlaybackEngine cannot load source kind: ${source.kind}`);
     }
 
+    const generation = ++this.loadGeneration;
+
     return new Promise((resolve, reject) => {
       this.unload();
       this.loadPending = true;
 
+      const finishSuperseded = () => {
+        this.loadPending = false;
+        resolve();
+      };
+
       void toAssetUrl(source.path).then(
         (src) => {
-          this.loadHowl(src, source.path, resolve, reject);
+          if (generation !== this.loadGeneration) {
+            finishSuperseded();
+            return;
+          }
+          this.loadHowl(
+            src,
+            source.path,
+            generation,
+            resolve,
+            reject,
+            finishSuperseded,
+          );
         },
         (err) => {
+          if (generation !== this.loadGeneration) {
+            finishSuperseded();
+            return;
+          }
           this.loadPending = false;
           reject(err);
         },
@@ -65,10 +88,18 @@ export class FilePlaybackEngine implements PlaybackEngine {
   private loadHowl(
     src: string,
     path: string,
+    generation: number,
     resolve: () => void,
     reject: (reason: Error) => void,
+    finishSuperseded: () => void,
   ): void {
+    if (generation !== this.loadGeneration) {
+      finishSuperseded();
+      return;
+    }
+
     const format = formatFromPath(path);
+    const label = formatAssetForDisplay(path);
 
     const howlOptions: {
       src: string[];
@@ -82,15 +113,26 @@ export class FilePlaybackEngine implements PlaybackEngine {
       src: [src],
       html5: false,
       onload: () => {
+        if (generation !== this.loadGeneration) {
+          finishSuperseded();
+          return;
+        }
         this.loadPending = false;
         resolve();
       },
       onloaderror: (_id, err) => {
+        if (generation !== this.loadGeneration) {
+          finishSuperseded();
+          return;
+        }
         this.loadPending = false;
-        reject(new Error(`Failed to load audio (${src}): ${String(err)}`));
+        reject(new Error(`Failed to load audio (${label}): ${String(err)}`));
       },
       onplayerror: (_id, err) => {
-        const error = new Error(`Failed to play audio (${src}): ${String(err)}`);
+        if (generation !== this.loadGeneration) {
+          return;
+        }
+        const error = new Error(`Failed to play audio (${label}): ${String(err)}`);
         if (this.loadPending) {
           this.loadPending = false;
           reject(error);
