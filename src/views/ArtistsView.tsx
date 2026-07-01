@@ -1,5 +1,7 @@
 import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
+import { BrowseView } from "../components/BrowseView/BrowseView";
+import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
 import { EntityArt } from "../components/EntityArt/EntityArt";
 import { Select } from "../components/common/Select/Select";
 import { SearchField } from "../components/SearchField/SearchField";
@@ -13,6 +15,7 @@ import { useArtistEditMenu } from "../hooks/useArtistEditMenu";
 import { useNavigationStore } from "../store/useNavigationStore";
 import type { Album } from "../types/album";
 import type { Artist } from "../types/artist";
+import { BrowseGridBody } from "../components/BrowseView/BrowseGridBody";
 import "./ArtistsView.css";
 
 interface ArtistsViewProps {
@@ -102,51 +105,54 @@ export function ArtistsView({ artists, albums, browseMode }: ArtistsViewProps) {
 
   if (artists.length === 0) {
     return (
-      <div className="artists-view artists-view--empty">
+      <BrowseView className="browse-view--empty">
         <p>No artists yet. Import some music to get started.</p>
-      </div>
+      </BrowseView>
     );
   }
 
   return (
-    <div className="artists-view">
-      <header className="artists-view__header">
-        <div className="artists-view__heading">
-          <h1 className="artists-view__title">Artists</h1>
-          <span className="artists-view__count">({artists.length})</span>
-        </div>
-        <div className="artists-view__controls">
-          <Select
-            className="artists-view__browse"
-            aria-label="Artist browse mode"
-            value={browseMode}
-            onChange={setArtistBrowseMode}
-            options={BROWSE_MODE_OPTIONS}
-          />
-          <SearchField
-            className="artists-view__search"
-            value={search}
-            onChange={setSearch}
-            placeholder="Search artists…"
-            aria-label="Search artists"
-          />
-        </div>
-      </header>
-
-      {filteredArtists.length === 0 ? (
-        <p className="artists-view__empty">No artists match your search.</p>
-      ) : (
-        <div className="artists-grid" role="list">
-          {filteredArtists.map((artist) => (
-            <ArtistCard
-              key={artist.key}
-              artist={artist}
-              browseMode={browseMode}
-              albumCount={albumsForArtist(albums, artist, browseMode).length}
+    <BrowseView>
+      <BrowseViewHeader
+        className="browse-view__header--single-row"
+        title="Artists"
+        count={`(${artists.length})`}
+        actions={
+          <div className="artists-view__controls">
+            <Select
+              className="artists-view__browse"
+              aria-label="Artist browse mode"
+              value={browseMode}
+              onChange={setArtistBrowseMode}
+              options={BROWSE_MODE_OPTIONS}
             />
-          ))}
-        </div>
-      )}
-    </div>
+            <SearchField
+              className="artists-view__search"
+              value={search}
+              onChange={setSearch}
+              placeholder="Search artists…"
+              aria-label="Search artists"
+            />
+          </div>
+        }
+      />
+
+      <BrowseGridBody>
+        {filteredArtists.length === 0 ? (
+          <p className="browse-view__empty">No artists match your search.</p>
+        ) : (
+          <div className="browse-grid" role="list">
+            {filteredArtists.map((artist) => (
+              <ArtistCard
+                key={artist.key}
+                artist={artist}
+                browseMode={browseMode}
+                albumCount={albumsForArtist(albums, artist, browseMode).length}
+              />
+            ))}
+          </div>
+        )}
+      </BrowseGridBody>
+    </BrowseView>
   );
 }

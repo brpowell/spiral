@@ -1,29 +1,9 @@
-.tracks-view__header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+.tracks-view .browse-view__header {
   margin-bottom: 1.25rem;
 }
 
-.tracks-view__heading {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-}
-
-.tracks-view__title {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.tracks-view__count {
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-}
-
-.tracks-view__empty {
-  color: var(--color-text-secondary);
+.tracks-view .track-list {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
 }

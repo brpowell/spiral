@@ -43,6 +43,7 @@ import type { Album } from "../types/album";
 import type { Artist } from "../types/artist";
 import type { Track } from "../types/track";
 import "./CdDetailView.css";
+import "./DetailViewShared.css";
 
 interface CdDetailViewProps {
   driveId: string;
@@ -247,173 +248,180 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
       : `Import ${checkedCount} tracks`;
 
   return (
-    <div className="cd-detail">
-      <div
-        className={[
-          "cd-detail__toolbar",
-          !showBack && "cd-detail__toolbar--no-back",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        {showBack ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="cd-detail__back"
-            onClick={closeCdDrive}
-          >
-            <IconBack />
-            {backLabel}
-          </Button>
-        ) : null}
-        <MenuButton
-          ariaLabel="Disc actions"
-          className="cd-detail__toolbar-menu"
-          layoutDeps={[tracks.length, isEjecting, checkedCount, cdImportBlockingPlayback]}
-          size="md"
-          variant="secondary"
+    <div className="cd-detail detail-view">
+      <div className="detail-view__body">
+        <div className="detail-view__chrome">
+        <div
+          className={[
+            "cd-detail__toolbar",
+            !showBack && "cd-detail__toolbar--no-back",
+          ]
+            .filter(Boolean)
+            .join(" ")}
         >
-          {(close) => (
-            <>
-              {hasTracks ? (
+          {showBack ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="cd-detail__back"
+              onClick={closeCdDrive}
+            >
+              <IconBack />
+              {backLabel}
+            </Button>
+          ) : null}
+          <MenuButton
+            ariaLabel="Disc actions"
+            className="cd-detail__toolbar-menu"
+            layoutDeps={[tracks.length, isEjecting, checkedCount, cdImportBlockingPlayback]}
+            size="md"
+            variant="secondary"
+          >
+            {(close) => (
+              <>
+                {hasTracks ? (
+                  <ContextMenuItem
+                    icon={<IconImport />}
+                    label={importLabel}
+                    disabled={checkedCount === 0 || cdImportBlockingPlayback}
+                    onClick={() => {
+                      close();
+                      handleStartImport();
+                    }}
+                  />
+                ) : null}
+                <ContextMenuSeparator />
                 <ContextMenuItem
-                  icon={<IconImport />}
-                  label={importLabel}
-                  disabled={checkedCount === 0 || cdImportBlockingPlayback}
+                  icon={<IconPlay />}
+                  label="Play All"
+                  disabled={!hasTracks || cdImportBlockingPlayback}
                   onClick={() => {
                     close();
-                    handleStartImport();
+                    handlePlayDisc();
                   }}
                 />
-              ) : null}
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                icon={<IconPlay />}
-                label="Play All"
-                disabled={!hasTracks || cdImportBlockingPlayback}
-                onClick={() => {
-                  close();
-                  handlePlayDisc();
-                }}
-              />
-              {hasTracks ? (
+                {hasTracks ? (
+                  <ContextMenuItem
+                    icon={<IconAddToQueue />}
+                    label="Add to Queue"
+                    disabled={cdImportBlockingPlayback}
+                    onClick={() => {
+                      close();
+                      handleAddToQueue();
+                    }}
+                  />
+                ) : null}
+                <ContextMenuSeparator />
                 <ContextMenuItem
-                  icon={<IconAddToQueue />}
-                  label="Add to Queue"
-                  disabled={cdImportBlockingPlayback}
+                  icon={<IconEject />}
+                  label={isEjecting ? "Ejecting…" : "Eject"}
+                  disabled={isEjecting}
                   onClick={() => {
                     close();
-                    handleAddToQueue();
+                    void ejectDrive(driveId);
                   }}
                 />
-              ) : null}
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                icon={<IconEject />}
-                label={isEjecting ? "Ejecting…" : "Eject"}
-                disabled={isEjecting}
-                onClick={() => {
-                  close();
-                  void ejectDrive(driveId);
-                }}
-              />
-            </>
-          )}
-        </MenuButton>
-      </div>
-
-      <section className="cd-detail__hero">
-        <EntityArt
-          artPath={heroArtPath}
-          alt={title}
-          className="album-art--hero cd-detail__art"
-        />
-        <div className="cd-detail__meta">
-          <h1 className="cd-detail__title">{title}</h1>
-          {artistLine ? (
-            <DetailArtistLink
-              className="cd-detail__artist"
-              name={artistLine}
-              artistKey={heroArtistKey}
-            />
-          ) : null}
-          {hasTracks ? (
-            <p className="cd-detail__stats">
-              {[
-                `${disc.tracks.length} ${disc.tracks.length === 1 ? "track" : "tracks"}`,
-                formatTime(totalDuration),
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-          ) : null}
-          {hasTracks ? (
-            <div className="cd-detail__actions">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="cd-detail__import-btn"
-                disabled={!hasTracks || cdImportBlockingPlayback}
-                onClick={handlePlayDisc}
-              >
-                <IconPlay />
-                Play All
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="cd-detail__import-btn"
-                disabled={checkedCount === 0 || cdImportBlockingPlayback}
-                onClick={handleStartImport}
-              >
-                <IconImport />
-                {importLabel}
-              </Button>
-            </div>
-          ) : null}
+              </>
+            )}
+          </MenuButton>
         </div>
-      </section>
 
-      {isLoading ? (
-        <p className="cd-detail__status">Reading disc…</p>
-      ) : disc == null ? (
-        <p className="cd-detail__status">
-          No audio CD detected in this drive.
-        </p>
-      ) : disc.tracks.length === 0 ? (
-        <p className="cd-detail__status">
-          Could not read tracks from this disc.
-        </p>
-      ) : (
-        <>
-          {isLoadingCdText ? (
-            <p className="cd-detail__status cd-detail__status--secondary">
-              Reading track titles…
-            </p>
-          ) : null}
-          <TrackList
-            presetId="cd"
-            tracks={tracks}
-            selectedTrackIds={selectedTrackIds}
-            currentTrackId={currentTrackId}
-            playbackState={activePlaybackState}
-            onSelectTrack={handleSelectTrack}
-            onPlayTrack={handlePlayTrack}
-            canNavigateAlbum={canNavigateAlbum}
-            cdDriveId={driveId}
-            checkMode
-            checkedTrackIds={checkedTrackIds}
-            onToggleChecked={handleToggleChecked}
-            onToggleAllChecked={handleToggleAllChecked}
-            cdImportingTrackIds={cdImportingTrackIds}
-            cdImportingActiveTrackId={cdImportingActiveTrackId}
-            cdImportCompletedTrackIds={cdImportCompletedTrackIds}
-            readOnly
-            emptyMessage="No tracks on this disc."
+        <section className="cd-detail__hero">
+          <EntityArt
+            artPath={heroArtPath}
+            alt={title}
+            className="album-art--hero cd-detail__art"
           />
-        </>
-      )}
+          <div className="cd-detail__meta">
+            <h1 className="cd-detail__title">{title}</h1>
+            {artistLine ? (
+              <DetailArtistLink
+                className="cd-detail__artist"
+                name={artistLine}
+                artistKey={heroArtistKey}
+              />
+            ) : null}
+            {hasTracks ? (
+              <p className="cd-detail__stats">
+                {[
+                  `${disc.tracks.length} ${disc.tracks.length === 1 ? "track" : "tracks"}`,
+                  formatTime(totalDuration),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            ) : null}
+            {hasTracks ? (
+              <div className="cd-detail__actions">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="cd-detail__import-btn"
+                  disabled={!hasTracks || cdImportBlockingPlayback}
+                  onClick={handlePlayDisc}
+                >
+                  <IconPlay />
+                  Play All
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="cd-detail__import-btn"
+                  disabled={checkedCount === 0 || cdImportBlockingPlayback}
+                  onClick={handleStartImport}
+                >
+                  <IconImport />
+                  {importLabel}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </section>
+        </div>
+
+        <div className="detail-view__tracks">
+          {isLoading ? (
+            <p className="detail-view__status">Reading disc…</p>
+          ) : disc == null ? (
+            <p className="detail-view__status">
+              No audio CD detected in this drive.
+            </p>
+          ) : disc.tracks.length === 0 ? (
+            <p className="detail-view__status">
+              Could not read tracks from this disc.
+            </p>
+          ) : (
+            <>
+              {isLoadingCdText ? (
+                <p className="cd-detail__status cd-detail__status--secondary">
+                  Reading track titles…
+                </p>
+              ) : null}
+              <TrackList
+                presetId="cd"
+                fillHeight={false}
+                tracks={tracks}
+              selectedTrackIds={selectedTrackIds}
+              currentTrackId={currentTrackId}
+              playbackState={activePlaybackState}
+              onSelectTrack={handleSelectTrack}
+              onPlayTrack={handlePlayTrack}
+              canNavigateAlbum={canNavigateAlbum}
+              cdDriveId={driveId}
+              checkMode
+              checkedTrackIds={checkedTrackIds}
+              onToggleChecked={handleToggleChecked}
+              onToggleAllChecked={handleToggleAllChecked}
+              cdImportingTrackIds={cdImportingTrackIds}
+              cdImportingActiveTrackId={cdImportingActiveTrackId}
+              cdImportCompletedTrackIds={cdImportCompletedTrackIds}
+              readOnly
+              emptyMessage="No tracks on this disc."
+            />
+          </>
+        )}
+        </div>
+      </div>
     </div>
   );
 }

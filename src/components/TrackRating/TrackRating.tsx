@@ -20,6 +20,11 @@ export interface TrackRatingProps {
   size?: TrackRatingSize;
   onChange: (rating: CanonicalRating) => void;
   disabled?: boolean;
+  tabIndex?: number;
+  /** Marks the control for track-list arrow-key cell navigation. */
+  cellControl?: boolean;
+  cellColumn?: string;
+  cellSubIndex?: number;
 }
 
 function zonesPerGlyph(bucketCount: number): number {
@@ -100,6 +105,10 @@ function TrackRatingComponent({
   size = "compact",
   onChange,
   disabled = false,
+  tabIndex,
+  cellControl = false,
+  cellColumn = "rating",
+  cellSubIndex = 0,
 }: TrackRatingProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
@@ -181,6 +190,28 @@ function TrackRatingComponent({
     if (!draggingRef.current) setHoverBucket(null);
   }, []);
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (disabled) return;
+
+      let delta: number | null = null;
+      if (cellControl) {
+        if (e.key === "-" || e.key === "_") delta = -1;
+        else if (e.key === "+" || e.key === "=") delta = 1;
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        delta = e.key === "ArrowRight" ? 1 : -1;
+      }
+
+      if (delta == null) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      const next = Math.max(0, Math.min(bucketCount, committedBucket + delta));
+      commitBucket(next);
+    },
+    [bucketCount, cellControl, commitBucket, committedBucket, disabled],
+  );
+
   return (
     <div
       ref={rootRef}
@@ -192,10 +223,19 @@ function TrackRatingComponent({
         .filter(Boolean)
         .join(" ")}
       role="slider"
+      tabIndex={tabIndex}
+      data-track-list-cell-control={cellControl ? "" : undefined}
+      data-track-list-cell-column={cellControl ? cellColumn : undefined}
+      data-track-list-cell-sub-index={cellControl ? cellSubIndex : undefined}
       aria-valuemin={0}
       aria-valuemax={bucketCount}
       aria-valuenow={committedBucket}
-      aria-label="Track rating"
+      aria-label={
+        cellControl
+          ? "Track rating. Use minus or plus to change rating."
+          : "Track rating"
+      }
+      onKeyDown={handleKeyDown}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -222,6 +262,10 @@ function trackRatingPropsEqual(
     prev.bucketCount === next.bucketCount &&
     prev.size === next.size &&
     prev.disabled === next.disabled &&
+    prev.tabIndex === next.tabIndex &&
+    prev.cellControl === next.cellControl &&
+    prev.cellColumn === next.cellColumn &&
+    prev.cellSubIndex === next.cellSubIndex &&
     prev.onChange === next.onChange
   );
 }

@@ -5,7 +5,6 @@ import {
   useState,
   type RefObject,
 } from "react";
-import { findVerticalScrollParent } from "./scrollParent";
 
 function measureScrollMargin(
   bodyEl: HTMLElement | null,
@@ -22,6 +21,7 @@ interface UseTrackListVirtualizerOptions {
   count: number;
   listRef: RefObject<HTMLElement | null>;
   bodyRef: RefObject<HTMLElement | null>;
+  scrollRef: RefObject<HTMLElement | null>;
   estimateSize: number;
   getItemKey?: (index: number) => string | number;
   overscan?: number;
@@ -32,6 +32,7 @@ export function useTrackListVirtualizer({
   count,
   listRef,
   bodyRef,
+  scrollRef,
   estimateSize,
   getItemKey,
   overscan = 8,
@@ -39,8 +40,8 @@ export function useTrackListVirtualizer({
   const [scrollMargin, setScrollMargin] = useState(0);
 
   const getScrollElement = useCallback(
-    () => findVerticalScrollParent(listRef.current),
-    [listRef],
+    () => scrollRef.current,
+    [scrollRef],
   );
 
   useLayoutEffect(() => {
@@ -57,13 +58,15 @@ export function useTrackListVirtualizer({
     const observer = new ResizeObserver(update);
     if (listRef.current) observer.observe(listRef.current);
     if (bodyRef.current) observer.observe(bodyRef.current);
+    const scrollEl = scrollRef.current;
+    if (scrollEl) observer.observe(scrollEl);
     window.addEventListener("resize", update);
 
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [enabled, count, getScrollElement, listRef, bodyRef]);
+  }, [enabled, count, getScrollElement, listRef, bodyRef, scrollRef]);
 
   const virtualizer = useVirtualizer({
     count: enabled ? count : 0,

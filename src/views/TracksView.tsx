@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
+import { BrowseView } from "../components/BrowseView/BrowseView";
+import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
 import { SearchField } from "../components/SearchField/SearchField";
 import { TrackList } from "../components/TrackList/TrackList";
 import {
@@ -98,25 +100,27 @@ export function TracksView({ tracks }: TracksViewProps) {
   );
 
   return (
-    <div className="tracks-view">
-      <header className="tracks-view__header">
-        <div className="tracks-view__heading">
-          <h1 className="tracks-view__title">Tracks</h1>
-          <span className="tracks-view__count">
+    <BrowseView className="tracks-view">
+      <BrowseViewHeader
+        title="Tracks"
+        count={
+          <>
             ({liveCount}
             {importingCount > 0 ? `, ${importingCount} importing` : ""})
-          </span>
-        </div>
-        <SearchField
-          value={search}
-          onChange={setSearch}
-          placeholder="Search title, artist, or album…"
-          aria-label="Search tracks"
-        />
-      </header>
+          </>
+        }
+        actions={
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            placeholder="Search title, artist, or album…"
+            aria-label="Search tracks"
+          />
+        }
+      />
 
       {tracks.length === 0 ? (
-        <p className="tracks-view__empty">
+        <p className="browse-view__empty">
           No tracks yet. Import some music to get started.
         </p>
       ) : (
@@ -136,6 +140,6 @@ export function TracksView({ tracks }: TracksViewProps) {
           emptyMessage="No tracks match your search."
         />
       )}
-    </div>
+    </BrowseView>
   );
 }

@@ -26,6 +26,7 @@ import type { Album } from "../types/album";
 import type { Artist } from "../types/artist";
 import type { Track } from "../types/track";
 import "./AlbumDetailView.css";
+import "./DetailViewShared.css";
 
 interface AlbumDetailViewProps {
   albums: Album[];
@@ -109,98 +110,112 @@ export function AlbumDetailView({
   };
 
   return (
-    <div className="album-detail">
-      <div className="album-detail__toolbar">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="album-detail__back"
-          onClick={closeAlbum}
-        >
-          <IconBack />
-          {backLabel}
-        </Button>
-        <MenuButton
-          ariaLabel="Album actions"
-          className="album-detail__toolbar-menu"
-          layoutDeps={[album.tracks.length]}
-          size="md"
-          variant="secondary"
-        >
-          {(close) => (
-            <>
-              <ContextMenuItem
-                icon={<IconEditInfo />}
-                label="Edit Album"
-                onClick={() => {
-                  close();
-                  openAlbumEditor(album.key);
-                }}
-              />
-              {album.tracks.length > 0 ? (
+    <div className="album-detail detail-view">
+      <div className="detail-view__body">
+        <div className="detail-view__chrome">
+          <div className="album-detail__toolbar">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="album-detail__back"
+            onClick={closeAlbum}
+          >
+            <IconBack />
+            {backLabel}
+          </Button>
+          <MenuButton
+            ariaLabel="Album actions"
+            className="album-detail__toolbar-menu"
+            layoutDeps={[album.tracks.length]}
+            size="md"
+            variant="secondary"
+          >
+            {(close) => (
+              <>
                 <ContextMenuItem
-                  icon={<IconAddToQueue />}
-                  label="Add to Queue"
+                  icon={<IconEditInfo />}
+                  label="Edit Album"
                   onClick={() => {
                     close();
-                    handleAddToQueue();
+                    openAlbumEditor(album.key);
                   }}
                 />
-              ) : null}
-              <ContextMenuItem
-                icon={<IconPlay />}
-                label="Play All"
-                disabled={album.tracks.length === 0}
-                onClick={() => {
-                  close();
-                  handlePlayAll();
-                }}
-              />
-            </>
-          )}
-        </MenuButton>
-      </div>
+                {album.tracks.length > 0 ? (
+                  <ContextMenuItem
+                    icon={<IconAddToQueue />}
+                    label="Add to Queue"
+                    onClick={() => {
+                      close();
+                      handleAddToQueue();
+                    }}
+                  />
+                ) : null}
+                <ContextMenuItem
+                  icon={<IconPlay />}
+                  label="Play All"
+                  disabled={album.tracks.length === 0}
+                  onClick={() => {
+                    close();
+                    handlePlayAll();
+                  }}
+                />
+              </>
+            )}
+          </MenuButton>
+          </div>
 
-      <section className="album-detail__hero">
-        <EntityArt
-          artPath={album.artPath}
-          alt={album.title}
-          className="album-art--hero album-detail__art"
-        />
-        <div className="album-detail__meta">
-          <h1 className="album-detail__title">{album.title}</h1>
-          <DetailArtistLink
-            className="album-detail__artist"
-            name={album.artist}
-            artistKey={albumArtistKey}
+          <section className="album-detail__hero">
+          <EntityArt
+            artPath={album.artPath}
+            alt={album.title}
+            className="album-art--hero album-detail__art"
           />
-          <p className="album-detail__stats">
-            {[
-              album.year != null ? String(album.year) : null,
-              `${album.tracks.length} ${album.tracks.length === 1 ? "track" : "tracks"}`,
-              formatTime(totalDuration),
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
+          <div className="album-detail__meta">
+            <h1 className="album-detail__title">{album.title}</h1>
+            <DetailArtistLink
+              className="album-detail__artist"
+              name={album.artist}
+              artistKey={albumArtistKey}
+            />
+            <p className="album-detail__stats">
+              {[
+                album.year != null ? String(album.year) : null,
+                `${album.tracks.length} ${album.tracks.length === 1 ? "track" : "tracks"}`,
+                formatTime(totalDuration),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </div>
+          </section>
         </div>
-      </section>
 
-      {multipleDiscs ? (
-        <div className="album-detail__discs">
-          {discGroups.map(({ discNumber, tracks: discTracks }) => (
-            <section key={discNumber} className="album-detail__disc">
-              <h2 className="album-detail__disc-label">
-                <IconDisc aria-hidden />
-                Disc {discNumber}
-              </h2>
-              <TrackList {...trackListProps} tracks={discTracks} />
-            </section>
-          ))}
+        <div className="detail-view__tracks">
+          {multipleDiscs ? (
+            <div className="album-detail__discs">
+              {discGroups.map(({ discNumber, tracks: discTracks }) => (
+                <section key={discNumber} className="album-detail__disc">
+                  <h2 className="album-detail__disc-label">
+                    <IconDisc aria-hidden />
+                    Disc {discNumber}
+                  </h2>
+                  <TrackList
+                    {...trackListProps}
+                    fillHeight={false}
+                    tracks={discTracks}
+                  />
+                </section>
+              ))}
+            </div>
+          ) : (
+            <TrackList
+              {...trackListProps}
+              fillHeight={false}
+              tracks={album.tracks}
+            />
+          )}
         </div>
-      ) : (
-        <TrackList {...trackListProps} tracks={album.tracks} />
-      )}
+      </div>
     </div>
   );
 }

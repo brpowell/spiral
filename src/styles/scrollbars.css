@@ -1,5 +1,7 @@
 :is(
   .main-content,
+  .track-list__scroll,
+  .detail-view__body,
   .sidebar__playlist-list,
   .modal-body,
   .activity-logs-panel__list,
@@ -16,6 +18,8 @@
 
 :is(
   .main-content,
+  .track-list__scroll,
+  .detail-view__body,
   .sidebar__playlist-list,
   .modal-body,
   .activity-logs-panel__list,
@@ -32,6 +36,8 @@
 
 :is(
   .main-content,
+  .track-list__scroll,
+  .detail-view__body,
   .sidebar__playlist-list,
   .modal-body,
   .activity-logs-panel__list,
@@ -47,6 +53,8 @@
 
 :is(
   .main-content,
+  .track-list__scroll,
+  .detail-view__body,
   .sidebar__playlist-list,
   .modal-body,
   .activity-logs-panel__list,
@@ -65,6 +73,8 @@
 
 :is(
   .main-content,
+  .track-list__scroll,
+  .detail-view__body,
   .sidebar__playlist-list,
   .modal-body,
   .activity-logs-panel__list,
@@ -80,6 +90,8 @@
 
 :is(
   .main-content,
+  .track-list__scroll,
+  .detail-view__body,
   .sidebar__playlist-list,
   .modal-body,
   .activity-logs-panel__list,
@@ -93,9 +105,11 @@
   background: var(--scrollbar-track-bg);
 }
 
-/* Vertical gutter — surface fill with inner border, like the pinned horizontal bar */
+/* Vertical gutter — surface fill with inner border */
 :is(
   .main-content,
+  .track-list__scroll,
+  .detail-view__body,
   .sidebar__playlist-list,
   .modal-body,
   .activity-logs-panel__list,
@@ -107,29 +121,4 @@
   .remove-track-dialog__list
 )::-webkit-scrollbar-track:vertical {
   border-left: 1px solid var(--scrollbar-track-border);
-}
-
-.track-list__pinned-h-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb-bg) var(--scrollbar-track-bg);
-}
-
-.track-list__pinned-h-scroll::-webkit-scrollbar {
-  height: var(--scrollbar-size);
-}
-
-.track-list__pinned-h-scroll::-webkit-scrollbar-track:horizontal {
-  background: var(--scrollbar-track-bg);
-  border-top: 1px solid var(--scrollbar-track-border);
-}
-
-.track-list__pinned-h-scroll::-webkit-scrollbar-thumb {
-  background-color: var(--scrollbar-thumb-bg);
-  border: 3px solid var(--scrollbar-track-bg);
-  border-radius: var(--radius-sm);
-  background-clip: padding-box;
-}
-
-.track-list__pinned-h-scroll::-webkit-scrollbar-thumb:hover {
-  background-color: var(--scrollbar-thumb-hover-bg);
 }

@@ -24,6 +24,7 @@ import { usePlayerStore } from "../store/usePlayerStore";
 import type { Album } from "../types/album";
 import type { Artist } from "../types/artist";
 import "./ArtistDetailView.css";
+import "./DetailViewShared.css";
 
 interface ArtistDetailViewProps {
   albums: Album[];

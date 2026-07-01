@@ -21,7 +21,6 @@
 .cd-detail__hero {
   display: flex;
   gap: 2rem;
-  margin-bottom: 2rem;
   align-items: flex-start;
 }
 
@@ -43,7 +42,6 @@
 }
 
 .cd-detail__art {
-  width: 220px;
   flex-shrink: 0;
 }
 
@@ -72,14 +70,11 @@
   color: var(--color-text-secondary);
 }
 
-.cd-detail__status {
-  margin: 0;
-  color: var(--color-text-secondary);
-}
-
 .cd-detail__status--secondary {
-  margin-bottom: 0.5rem;
+  margin: 0;
+  padding: 0.75rem var(--main-content-padding-x) 0;
   font-size: 0.875rem;
+  color: var(--color-text-secondary);
 }
 
 .cd-detail__import-btn {

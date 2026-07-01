@@ -1,0 +1,42 @@
+.browse-grid-view__shell {
+  --browse-grid-fade-height: 1.125rem;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.browse-grid-view__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-top: var(--browse-grid-fade-height);
+  padding-bottom: var(--main-content-padding-y);
+  -webkit-overflow-scrolling: touch;
+}
+
+.browse-grid-view__shell::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--browse-grid-fade-height);
+  background: linear-gradient(
+    to bottom,
+    var(--color-bg) 0%,
+    color-mix(in srgb, var(--color-bg) 92%, transparent) 38%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.browse-grid {
+  padding-inline: var(--main-content-padding-x);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1.5rem 1.25rem;
+}

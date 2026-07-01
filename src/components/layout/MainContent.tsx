@@ -58,7 +58,7 @@ export function MainContent() {
         {cdDriveId != null ? (
           <motion.div
             key={contentKey}
-            className="main-content__view"
+            className="main-content__view main-content__view--contained"
             {...viewTransition}
           >
             <CdDetailView driveId={cdDriveId} albums={albums} artists={artists} />
@@ -66,7 +66,7 @@ export function MainContent() {
         ) : playlistId != null ? (
           <motion.div
             key={contentKey}
-            className="main-content__view"
+            className="main-content__view main-content__view--contained"
             {...viewTransition}
           >
             <PlaylistDetailView playlistId={playlistId} artists={artists} />
@@ -74,7 +74,7 @@ export function MainContent() {
         ) : albumKey != null ? (
           <motion.div
             key={contentKey}
-            className="main-content__view"
+            className="main-content__view main-content__view--contained"
             {...viewTransition}
           >
             <AlbumDetailView
@@ -100,7 +100,7 @@ export function MainContent() {
         ) : view === "library" ? (
           <motion.div
             key={contentKey}
-            className="main-content__view"
+            className="main-content__view main-content__view--contained"
             {...viewTransition}
           >
             <TracksView tracks={library} />
@@ -108,7 +108,7 @@ export function MainContent() {
         ) : view === "albums" ? (
           <motion.div
             key={contentKey}
-            className="main-content__view"
+            className="main-content__view main-content__view--contained"
             {...viewTransition}
           >
             <AlbumsView albums={albums} />
@@ -116,7 +116,7 @@ export function MainContent() {
         ) : view === "artists" ? (
           <motion.div
             key={contentKey}
-            className="main-content__view"
+            className="main-content__view main-content__view--contained"
             {...viewTransition}
           >
             <ArtistsView

@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { AlbumCard } from "../components/AlbumCard/AlbumCard";
+import { BrowseView } from "../components/BrowseView/BrowseView";
+import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
 import { SearchField } from "../components/SearchField/SearchField";
 import type { Album } from "../types/album";
-import "./AlbumsView.css";
+import { BrowseGridBody } from "../components/BrowseView/BrowseGridBody";
 
 interface AlbumsViewProps {
   albums: Album[];
@@ -28,36 +30,38 @@ export function AlbumsView({ albums }: AlbumsViewProps) {
 
   if (albums.length === 0) {
     return (
-      <div className="albums-view albums-view--empty">
+      <BrowseView className="browse-view--empty">
         <p>No albums yet. Import some music to get started.</p>
-      </div>
+      </BrowseView>
     );
   }
 
   return (
-    <div className="albums-view">
-      <header className="albums-view__header">
-        <div className="albums-view__heading">
-          <h1 className="albums-view__title">Albums</h1>
-          <span className="albums-view__count">({albums.length})</span>
-        </div>
-        <SearchField
-          value={search}
-          onChange={setSearch}
-          placeholder="Search title or artist…"
-          aria-label="Search albums"
-        />
-      </header>
+    <BrowseView>
+      <BrowseViewHeader
+        title="Albums"
+        count={`(${albums.length})`}
+        actions={
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            placeholder="Search title or artist…"
+            aria-label="Search albums"
+          />
+        }
+      />
 
-      {filteredAlbums.length === 0 ? (
-        <p className="albums-view__empty">No albums match your search.</p>
-      ) : (
-        <div className="albums-grid" role="list">
-          {filteredAlbums.map((album) => (
-            <AlbumCard key={album.key} album={album} />
-          ))}
-        </div>
-      )}
-    </div>
+      <BrowseGridBody>
+        {filteredAlbums.length === 0 ? (
+          <p className="browse-view__empty">No albums match your search.</p>
+        ) : (
+          <div className="browse-grid" role="list">
+            {filteredAlbums.map((album) => (
+              <AlbumCard key={album.key} album={album} />
+            ))}
+          </div>
+        )}
+      </BrowseGridBody>
+    </BrowseView>
   );
 }

@@ -21,7 +21,6 @@
 .playlist-detail__hero {
   display: flex;
   gap: 2rem;
-  margin-bottom: 2rem;
   align-items: flex-start;
 }
 
@@ -57,11 +56,4 @@
   margin: 0;
   font-size: 0.9rem;
   color: var(--color-text-secondary);
-}
-
-.playlist-detail__empty {
-  margin: 0;
-  padding: 2rem 0;
-  color: var(--color-text-secondary);
-  font-size: 0.95rem;
 }

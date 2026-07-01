@@ -20,6 +20,7 @@ export interface MenuButtonProps {
   size?: ButtonSize;
   /** Re-run viewport fit when menu content size may change */
   layoutDeps?: unknown[];
+  title?: string;
 }
 
 export function MenuButton({
@@ -31,6 +32,7 @@ export function MenuButton({
   variant = "secondary",
   size = "sm",
   layoutDeps = [],
+  title,
 }: MenuButtonProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const { open, anchor, position, menuRef, toggleFromTrigger, closeMenu } =
@@ -55,6 +57,7 @@ export function MenuButton({
         aria-label={ariaLabel}
         aria-expanded={open}
         aria-haspopup="menu"
+        title={title}
         onClick={() => toggleFromTrigger(triggerRef.current)}
       >
         {icon}

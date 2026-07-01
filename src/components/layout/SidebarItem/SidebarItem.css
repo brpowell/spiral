@@ -7,6 +7,12 @@
   font-size: 0.85rem;
 }
 
+.sidebar-item:focus-visible,
+a.sidebar-item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-inset);
+}
+
 .sidebar-item.btn--sm {
   padding: 0.4rem 0.75rem;
 }

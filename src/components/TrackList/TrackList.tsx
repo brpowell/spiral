@@ -1,10 +1,9 @@
 import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import { albumKey } from "../../lib/albums";
 import { groupTracksIntoArtists } from "../../lib/artists";
-import { isTrackImporting } from "../../lib/pendingImportTrack";
+import { isTrackImporting, isTrackInteractive } from "../../lib/pendingImportTrack";
 import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
-import { Button } from "../common/Button/Button";
 import { TrackListColumnMenu } from "./TrackListColumnMenu";
 import { TrackListRow } from "./TrackListRow";
 import {
@@ -26,10 +25,9 @@ import { checkAllState } from "../../lib/trackCheckSelection";
 import type { Track } from "../../types/track";
 import type { CanonicalRating } from "../../lib/trackRating";
 import { useTrackListVirtualizer } from "./useTrackListVirtualizer";
-import { useForwardVerticalWheel } from "./useForwardVerticalWheel";
-import { useSyncTrackListHeaderScroll } from "./useSyncTrackListHeaderScroll";
-import { TrackListPinnedHScroll } from "./TrackListPinnedHScroll";
 import { usePrefetchVirtualRowArt } from "./usePrefetchVirtualRowArt";
+import { useTrackListHeaderRoving } from "./useTrackListHeaderRoving";
+import { useTrackListRowRoving } from "./useTrackListRowRoving";
 import "./TrackList.css";
 
 function sortFieldForColumn(
@@ -67,6 +65,8 @@ interface TrackListProps {
   cdImportingTrackIds?: ReadonlySet<number>;
   cdImportingActiveTrackId?: number | null;
   cdImportCompletedTrackIds?: ReadonlySet<number>;
+  /** Grow to fill the parent. Use false when the list lives in a page-style scroller. */
+  fillHeight?: boolean;
 }
 
 interface ResizeHandleProps {
@@ -142,14 +142,14 @@ export function TrackList({
   cdImportingTrackIds,
   cdImportingActiveTrackId = null,
   cdImportCompletedTrackIds,
+  fillHeight = true,
 }: TrackListProps) {
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLOListElement>(null);
-  const horizontalScrollRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const headerSyncRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const headerActionsRef = useRef<HTMLDivElement>(null);
 
   const canReorder = reorderable && !!onReorderTracks;
   const useVirtualRows = !canReorder && tracks.length > 40;
@@ -157,6 +157,7 @@ export function TrackList({
   const openAlbum = useNavigationStore((s) => s.openAlbum);
   const openArtist = useNavigationStore((s) => s.openArtist);
   const library = usePlayerStore((s) => s.library);
+  const selectionAnchorId = usePlayerStore((s) => s.selectionAnchorId);
 
   const linkableArtistKeys = useMemo(() => {
     const liveLibrary = library.filter((track) => !isTrackImporting(track));
@@ -203,6 +204,7 @@ export function TrackList({
     bodyRef,
     estimateSize: rowEstimateSize,
     getItemKey: getVirtualItemKey,
+    scrollRef,
   });
 
   const virtualRows = virtualizer.getVirtualItems();
@@ -214,8 +216,6 @@ export function TrackList({
     isScrolling: virtualizer.isScrolling,
   });
 
-  useForwardVerticalWheel(horizontalScrollRef, headerRef);
-  useSyncTrackListHeaderScroll(horizontalScrollRef, headerSyncRef);
   const {
     preset,
     visibleColumns,
@@ -250,6 +250,75 @@ export function TrackList({
     [checkMode, visibleColumns],
   );
 
+  const navigableHeaderColumns = useMemo(
+    () => displayColumns.filter((col) => col.id !== "check"),
+    [displayColumns],
+  );
+
+  const getHeaderScrollPaddingEnd = useCallback(
+    () => headerActionsRef.current?.offsetWidth ?? 0,
+    [],
+  );
+
+  const {
+    getTabIndex: getHeaderTabIndex,
+    setHeaderRef,
+    onHeaderFocus,
+    onHeaderKeyDown,
+  } = useTrackListHeaderRoving(navigableHeaderColumns.length, {
+    scrollContainerRef: scrollRef,
+    getScrollPaddingEnd: getHeaderScrollPaddingEnd,
+  });
+
+  const isRowNavigable = useCallback(
+    (index: number) => {
+      const track = tracks[index];
+      if (!track) return false;
+      const isCdList = cdDriveId != null;
+      const isCdImporting = cdImportingTrackIds?.has(track.id) ?? false;
+      const isInteractive =
+        isTrackInteractive(track) && (!readOnly || isCdList);
+      const canPlay = isTrackInteractive(track) && !isCdImporting;
+      return canPlay || isInteractive;
+    },
+    [tracks, cdDriveId, readOnly, cdImportingTrackIds],
+  );
+
+  const handleKeyboardSelectRow = useCallback(
+    (track: Track) => {
+      onSelectTrack(track, {
+        shiftKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      } as React.MouseEvent);
+    },
+    [onSelectTrack],
+  );
+
+  const {
+    listTabIndex,
+    getRowTabIndex,
+    setRowRef,
+    onListFocus,
+    onRowFocus,
+    onBodyBlur,
+    onRowKeyDown,
+    onRowCellNavigation,
+    onRowClick,
+  } = useTrackListRowRoving({
+    tracks,
+    selectedTrackIds,
+    selectionAnchorId,
+    bodyRef,
+    scrollContainerRef: scrollRef,
+    isRowNavigable,
+    onSelectRow: handleKeyboardSelectRow,
+    onPlayRow: onPlayTrack,
+    useVirtualRows,
+    virtualizer,
+    virtualRows,
+  });
+
   const displayGridStyle = useMemo(() => {
     const columnParts = displayColumns.map((col) => {
       const w = columnWidths[col.id] ?? DEFAULT_COLUMN_WIDTHS[col.id] ?? 80;
@@ -268,65 +337,72 @@ export function TrackList({
     return sortDir === "asc" ? " ↑" : " ↓";
   };
 
+  const headerAriaSort = (
+    field: TrackListSortField | null,
+  ): "ascending" | "descending" | "none" | undefined => {
+    if (!field || !onSort) return undefined;
+    if (sortField !== field) return "none";
+    return sortDir === "asc" ? "ascending" : "descending";
+  };
+
   const renderHeaderCell = (col: TrackListColumnDef) => {
     const field = sortFieldForColumn(col);
     const label = `${col.label}${field && onSort ? sortIndicator(field) : ""}`;
     const isIndexColumn = col.id === preset.indexColumn;
     const isColumnReorderable = canReorderColumns && !isIndexColumn;
+    const isSortable = Boolean(onSort && field);
 
     const showHeaderCheckbox =
       checkMode && col.id === "check" && onToggleAllChecked != null;
 
-    const content = showHeaderCheckbox ? (
-      <label className="track-list__check-label track-list__check-label--header">
-        <input
-          type="checkbox"
-          className="track-list__checkbox"
-          checked={headerCheckState === "all"}
-          ref={(el) => {
-            if (el) el.indeterminate = headerCheckState === "some";
-          }}
-          onChange={(e) => onToggleAllChecked(e.target.checked)}
-          aria-label="Select all tracks"
-        />
-      </label>
-    ) : onSort && field ? (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="track-list__header-btn"
-        onClick={
-          isColumnReorderable
-            ? undefined
-            : () => onSort(field)
-        }
-        onKeyDown={
-          isColumnReorderable
-            ? (e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onSort(field);
-                }
-              }
-            : undefined
-        }
-      >
-        {label}
-      </Button>
-    ) : (
-      <span className="track-list__header-label">{label}</span>
-    );
-
     const width =
       columnWidths[col.id] ?? DEFAULT_COLUMN_WIDTHS[col.id] ?? 80;
+
+    if (showHeaderCheckbox) {
+      return (
+        <div
+          key={col.id}
+          className={[
+            "track-list__header-cell",
+            col.align === "center" && "track-list__cell--center",
+            col.align === "right" && "track-list__cell--right",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          data-track-list-col={col.id}
+        >
+          <label className="track-list__check-label track-list__check-label--header">
+            <input
+              type="checkbox"
+              className="track-list__checkbox"
+              checked={headerCheckState === "all"}
+              ref={(el) => {
+                if (el) el.indeterminate = headerCheckState === "some";
+              }}
+              onChange={(e) => onToggleAllChecked(e.target.checked)}
+              aria-label="Select all tracks"
+            />
+          </label>
+        </div>
+      );
+    }
+
+    const navIndex = navigableHeaderColumns.findIndex(
+      (navCol) => navCol.id === col.id,
+    );
 
     return (
       <div
         key={col.id}
+        ref={navIndex >= 0 ? setHeaderRef(navIndex) : undefined}
+        role="columnheader"
+        tabIndex={navIndex >= 0 ? getHeaderTabIndex(navIndex) : undefined}
+        aria-sort={headerAriaSort(field)}
         className={[
           "track-list__header-cell",
           col.resizable && "track-list__header-cell--resizable",
           isColumnReorderable && "track-list__header-cell--reorderable",
+          isSortable && "track-list__header-cell--sortable",
           draggingColumnId === col.id &&
             "track-list__header-cell--column-dragging",
           dragOverColumnId === col.id &&
@@ -339,13 +415,29 @@ export function TrackList({
           .filter(Boolean)
           .join(" ")}
         data-track-list-col={col.id}
+        onFocus={navIndex >= 0 ? () => onHeaderFocus(navIndex) : undefined}
+        onKeyDown={
+          navIndex >= 0
+            ? (e) =>
+                onHeaderKeyDown(
+                  e,
+                  navIndex,
+                  isSortable && field ? () => onSort!(field) : undefined,
+                )
+            : undefined
+        }
+        onClick={
+          !isColumnReorderable && isSortable && field
+            ? () => onSort!(field)
+            : undefined
+        }
         onPointerDown={
           isColumnReorderable
             ? (e) =>
                 startColumnReorder(
                   e,
                   col.id,
-                  onSort && field ? () => onSort(field) : undefined,
+                  isSortable && field ? () => onSort!(field) : undefined,
                 )
             : undefined
         }
@@ -353,7 +445,7 @@ export function TrackList({
           hideableColumns.length > 0 ? onHeaderContextMenu(col) : undefined
         }
       >
-        {content}
+        <span className="track-list__header-label">{label}</span>
         {col.resizable ? (
           <ResizeHandle
             columnId={col.id}
@@ -456,79 +548,100 @@ export function TrackList({
         cdImportingActiveTrackId={cdImportingActiveTrackId}
         cdImportCompletedTrackIds={cdImportCompletedTrackIds}
         virtualStyle={virtualStyle}
+        tabIndex={getRowTabIndex(displayIndex)}
+        rowRef={setRowRef(displayIndex)}
+        onRowFocus={() => onRowFocus(displayIndex)}
+        onRowKeyDown={(e) => onRowKeyDown(displayIndex, e)}
+        onRowCellNavigation={(e, location) =>
+          onRowCellNavigation(displayIndex, e, location)
+        }
+        onRowClick={() => onRowClick(displayIndex)}
       />
     );
   };
 
+  const listClassName = [
+    "track-list",
+    !fillHeight && "track-list--content-height",
+    canReorder && "track-list--reorderable",
+    draggingColumnId != null && "track-list--column-dragging",
+    checkMode && "track-list--check-mode",
+    useVirtualRows && virtualizer.isScrolling && "track-list--scrolling",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const headerRow = (
+    <div className="track-list__header">
+      <div className="track-list__header-sync" role="row">
+        {displayColumns.map(renderHeaderCell)}
+        <div className="track-list__filler" aria-hidden />
+        <div ref={headerActionsRef} className="track-list__header-actions">
+          {hideableColumns.length > 0 ? (
+            <TrackListColumnMenu
+              columns={hideableColumns}
+              isColumnVisible={isColumnVisible}
+              onToggle={toggleColumnVisibility}
+            />
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+
+  const bodyContent =
+    tracks.length === 0 ? (
+      <p className="track-list__empty">{emptyMessage}</p>
+    ) : useVirtualRows ? (
+      <ol
+        ref={bodyRef}
+        className="track-list__body track-list__body--virtual"
+        style={{ height: virtualizer.getTotalSize() }}
+        role="listbox"
+        aria-label="Tracks"
+        tabIndex={listTabIndex}
+        onFocus={onListFocus}
+        onBlur={onBodyBlur}
+      >
+        {virtualRows.map((virtualRow) =>
+          renderRow(tracks[virtualRow.index], virtualRow.index, {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: virtualRow.size,
+            transform: `translate3d(0, ${virtualRow.start - virtualizer.options.scrollMargin}px, 0)`,
+          }),
+        )}
+      </ol>
+    ) : (
+      <ol
+        ref={bodyRef}
+        className="track-list__body"
+        role="listbox"
+        aria-label="Tracks"
+        tabIndex={listTabIndex}
+        onFocus={onListFocus}
+        onBlur={onBodyBlur}
+      >
+        {tracks.map((track, displayIndex) =>
+          renderRow(track, displayIndex),
+        )}
+      </ol>
+    );
+
   return (
     <>
-      <div
-        ref={listRef}
-        className={[
-          "track-list",
-          canReorder && "track-list--reorderable",
-          draggingColumnId != null && "track-list--column-dragging",
-          checkMode && "track-list--check-mode",
-          useVirtualRows && virtualizer.isScrolling && "track-list--scrolling",
-          className,
-        ]
-          .filter(Boolean)
-          .join(" ")}
-      >
-        <div ref={headerRef} className="track-list__header">
-          <div
-            ref={headerSyncRef}
-            className="track-list__header-sync"
-            style={displayGridStyle}
-            role="row"
-          >
-            {displayColumns.map(renderHeaderCell)}
-            <div className="track-list__filler" aria-hidden />
-            <div className="track-list__header-actions">
-              {hideableColumns.length > 0 ? (
-                <TrackListColumnMenu
-                  columns={hideableColumns}
-                  isColumnVisible={isColumnVisible}
-                  onToggle={toggleColumnVisibility}
-                />
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-        <div ref={horizontalScrollRef} className="track-list__scroll">
-          <div className="track-list__inner" style={displayGridStyle}>
-            {tracks.length === 0 ? (
-              <p className="track-list__empty">{emptyMessage}</p>
-            ) : useVirtualRows ? (
-              <ol
-                ref={bodyRef}
-                className="track-list__body track-list__body--virtual"
-                style={{ height: virtualizer.getTotalSize() }}
-              >
-                {virtualRows.map((virtualRow) =>
-                  renderRow(tracks[virtualRow.index], virtualRow.index, {
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: virtualRow.size,
-                    transform: `translate3d(0, ${virtualRow.start - virtualizer.options.scrollMargin}px, 0)`,
-                  }),
-                )}
-              </ol>
-            ) : (
-              <ol className="track-list__body">
-                {tracks.map((track, displayIndex) =>
-                  renderRow(track, displayIndex),
-                )}
-              </ol>
-            )}
+      <div ref={listRef} className={listClassName}>
+        <div ref={scrollRef} className="track-list__scroll">
+          <div className="track-list__table" style={displayGridStyle}>
+            {headerRow}
+            <div className="track-list__inner">{bodyContent}</div>
           </div>
         </div>
       </div>
       {headerContextMenu}
-      <TrackListPinnedHScroll sourceRef={horizontalScrollRef} />
     </>
   );
 }

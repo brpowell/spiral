@@ -22,8 +22,10 @@ export function TrackListColumnMenu({
   return (
     <MenuButton
       ariaLabel="Show or hide columns"
+      title="Show or hide columns"
       icon={<IconColumns />}
       size="sm"
+      variant="ghost"
       layoutDeps={[columns.length]}
     >
       <>

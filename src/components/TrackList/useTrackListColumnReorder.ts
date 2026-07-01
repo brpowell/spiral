@@ -44,6 +44,7 @@ export function useTrackListColumnReorder({
       onTap?: () => void,
     ) => {
       if (!enabled || columnId === indexColumn) return;
+      if (e.button !== 0) return;
       if ((e.target as HTMLElement).closest(".track-list__resize-handle")) {
         return;
       }
@@ -72,7 +73,7 @@ export function useTrackListColumnReorder({
           if (isValidDropTarget(toId) && toId !== columnId) {
             onReorder(columnId, toId);
           }
-        } else {
+        } else if (ev.button === 0) {
           onTap?.();
         }
         setDraggingColumnId(null);

@@ -17,6 +17,8 @@
         "title": "Spiral",
         "width": 1200,
         "height": 800,
+        "minWidth": 520,
+        "minHeight": 420,
         "backgroundThrottling": "disabled"
       },
       {

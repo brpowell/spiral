@@ -1,0 +1,44 @@
+.artist-detail {
+  padding: var(--main-content-padding-y) var(--main-content-padding-x) 0;
+}
+
+.detail-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.detail-view__body {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.detail-view__chrome {
+  flex-shrink: 0;
+  min-width: 0;
+  padding: var(--main-content-padding-y) var(--main-content-padding-x) 1.5rem;
+}
+
+.detail-view__chrome .album-detail__art,
+.detail-view__chrome .cd-detail__art,
+.detail-view__chrome .playlist-detail__art {
+  width: 220px;
+  max-width: min(220px, 35vw);
+  flex-shrink: 0;
+}
+
+.detail-view__tracks .track-list {
+  width: 100%;
+}
+
+.detail-view__status,
+.detail-view__empty {
+  margin: 0;
+  padding: 1.5rem var(--main-content-padding-x);
+  color: var(--color-text-secondary);
+}

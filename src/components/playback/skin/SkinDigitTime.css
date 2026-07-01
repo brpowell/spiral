@@ -27,6 +27,6 @@
 }
 
 .skin-digit-time--interactive:focus-visible {
-  outline: 2px solid var(--color-focus, #469fe5);
-  outline-offset: 1px;
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
 }
