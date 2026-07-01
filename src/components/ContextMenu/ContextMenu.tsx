@@ -1,17 +1,22 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   createContext,
+  useCallback,
   useContext,
   useLayoutEffect,
   useRef,
   useState,
+  type KeyboardEvent,
   type ReactNode,
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 import { fitContextMenuPosition } from "../../lib/contextMenuPosition";
-import { IconChevronRight } from "../icons";
-import { IconCheck } from "../icons";
+import {
+  focusFirstContextMenuItem,
+  handleContextMenuKeyDown,
+} from "../../lib/contextMenuKeyboard";
+import { IconChevronRight, IconCheck } from "../icons";
 import { panelMotion } from "../../lib/motion";
 import "./ContextMenu.css";
 
@@ -142,9 +147,20 @@ export function ContextMenuSubmenu({
   const itemRef = useRef<HTMLButtonElement>(null);
   const internalPanelRef = useRef<HTMLDivElement>(null);
   const resolvedPanelRef = panelRef ?? internalPanelRef;
+  const openFromKeyboardRef = useRef(false);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(
     null,
   );
+
+  const openFromKeyboard = useCallback(() => {
+    openFromKeyboardRef.current = true;
+    setOpen(true);
+  }, []);
+
+  const closeFromKeyboard = useCallback(() => {
+    setOpen(false);
+    itemRef.current?.focus();
+  }, []);
 
   useLayoutEffect(() => {
     if (!flyoutOpen || !itemRef.current || !resolvedPanelRef.current) return;
@@ -157,6 +173,39 @@ export function ContextMenuSubmenu({
       }),
     );
   }, [flyoutOpen, children, resolvedPanelRef]);
+
+  useLayoutEffect(() => {
+    if (!flyoutOpen || !openFromKeyboardRef.current || !resolvedPanelRef.current) {
+      return;
+    }
+    openFromKeyboardRef.current = false;
+    focusFirstContextMenuItem(resolvedPanelRef.current);
+  }, [flyoutOpen, resolvedPanelRef]);
+
+  const onTriggerKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLButtonElement>) => {
+      if (e.key === "ArrowRight" || e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        openFromKeyboard();
+      }
+    },
+    [openFromKeyboard],
+  );
+
+  const onFlyoutKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      const panel = resolvedPanelRef.current;
+      if (!panel) return;
+      if (handleContextMenuKeyDown(e, panel, e.target)) return;
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        e.stopPropagation();
+        closeFromKeyboard();
+      }
+    },
+    [closeFromKeyboard, resolvedPanelRef],
+  );
 
   return (
     <div
@@ -171,6 +220,7 @@ export function ContextMenuSubmenu({
         aria-haspopup="menu"
         aria-expanded={open}
         className="context-menu__submenu-trigger"
+        onKeyDown={onTriggerKeyDown}
       >
         {icon != null ? (
           <span className="context-menu__item-icon" aria-hidden>
@@ -196,6 +246,7 @@ export function ContextMenuSubmenu({
                 pointerEvents: position == null ? "none" : undefined,
               }}
               role="menu"
+              onKeyDown={onFlyoutKeyDown}
               onMouseEnter={() => setOpen(true)}
               onMouseLeave={() => setOpen(false)}
               initial={panelMotion.initial}
@@ -224,6 +275,21 @@ export function ContextMenu({
 }: ContextMenuProps) {
   const menuClass = ["context-menu", className].filter(Boolean).join(" ");
 
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!open || !position || !menu) return;
+    focusFirstContextMenuItem(menu);
+  }, [open, position, menuRef, children]);
+
+  const onMenuKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      const menu = menuRef.current;
+      if (!menu) return;
+      handleContextMenuKeyDown(e, menu, e.target);
+    },
+    [menuRef],
+  );
+
   return createPortal(
     <ContextMenuOpenContext.Provider value={open}>
       <AnimatePresence>
@@ -239,6 +305,7 @@ export function ContextMenu({
               ...style,
             }}
             role="menu"
+            onKeyDown={onMenuKeyDown}
             initial={panelMotion.initial}
             animate={position ? panelMotion.animate : panelMotion.initial}
             exit={panelMotion.exit}

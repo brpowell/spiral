@@ -60,9 +60,15 @@
   background: var(--color-border);
 }
 
-.context-menu button:hover:not(:disabled) {
+.context-menu button:hover:not(:disabled),
+.context-menu button:focus-visible:not(:disabled) {
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   color: var(--color-accent);
+}
+
+.context-menu button:focus-visible:not(:disabled) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
 }
 
 .context-menu button:disabled {
@@ -74,7 +80,8 @@
   color: var(--color-danger);
 }
 
-.context-menu .context-menu__danger:hover {
+.context-menu .context-menu__danger:hover,
+.context-menu .context-menu__danger:focus-visible {
   background: var(--color-danger-bg);
   color: var(--color-danger);
 }
@@ -96,27 +103,6 @@
 
 .context-menu__submenu-wrap {
   position: relative;
-}
-
-.context-menu__submenu-trigger {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  text-align: left;
-  padding: 0.45rem 0.65rem;
-  border: none;
-  background: transparent;
-  color: var(--color-text-primary);
-  font-size: 0.85rem;
-  font-family: var(--font-ui);
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.context-menu__submenu-trigger:hover {
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-  color: var(--color-accent);
 }
 
 .context-menu__submenu-chevron {
