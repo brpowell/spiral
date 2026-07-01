@@ -3,14 +3,11 @@ import { useMemo, useState } from "react";
 import { BrowseView } from "../components/BrowseView/BrowseView";
 import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
 import { EntityArt } from "../components/EntityArt/EntityArt";
-import { Select } from "../components/common/Select/Select";
+import { Field, FieldLabel } from "../components/common/Field/Field";
+import { Switch } from "../components/common/Switch/Switch";
 import { SearchField } from "../components/SearchField/SearchField";
 import { IconArtistPlaceholder } from "../components/icons";
-import {
-  albumsForArtist,
-  ARTIST_BROWSE_MODES,
-  type ArtistBrowseMode,
-} from "../lib/artists";
+import { albumsForArtist, type ArtistBrowseMode } from "../lib/artists";
 import { useArtistEditMenu } from "../hooks/useArtistEditMenu";
 import { useNavigationStore } from "../store/useNavigationStore";
 import type { Album } from "../types/album";
@@ -23,12 +20,6 @@ interface ArtistsViewProps {
   albums: Album[];
   browseMode: ArtistBrowseMode;
 }
-
-const BROWSE_MODE_OPTIONS = ARTIST_BROWSE_MODES.map((m) => ({
-  value: m.value,
-  label: m.label,
-  description: m.description,
-}));
 
 function matchesArtistSearch(artist: Artist, query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -119,13 +110,21 @@ export function ArtistsView({ artists, albums, browseMode }: ArtistsViewProps) {
         count={`(${artists.length})`}
         actions={
           <div className="artists-view__controls">
-            <Select
-              className="artists-view__browse"
-              aria-label="Artist browse mode"
-              value={browseMode}
-              onChange={setArtistBrowseMode}
-              options={BROWSE_MODE_OPTIONS}
-            />
+            <Field orientation="horizontal" className="artists-view__filter">
+              <FieldLabel htmlFor="artists-album-only">
+                Album artists only
+              </FieldLabel>
+              <Switch
+                id="artists-album-only"
+                checked={browseMode === "discography"}
+                onChange={(e) =>
+                  setArtistBrowseMode(
+                    e.target.checked ? "discography" : "performers",
+                  )
+                }
+              />
+
+            </Field>
             <SearchField
               className="artists-view__search"
               value={search}
