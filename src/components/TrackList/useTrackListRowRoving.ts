@@ -132,6 +132,15 @@ function isRowVisibleInViewport(
   return isRowOverlappingViewport(rect.top, rect.bottom, visibleTop, visibleBottom);
 }
 
+function isRowFullyVisibleInViewport(
+  scrollEl: HTMLElement,
+  rowElement: HTMLElement,
+): boolean {
+  const { visibleTop, visibleBottom } = getVisibleRowBounds(scrollEl);
+  const rect = rowElement.getBoundingClientRect();
+  return rect.top >= visibleTop && rect.bottom <= visibleBottom;
+}
+
 function isVirtualIndexVisibleInViewport(
   index: number,
   scrollEl: HTMLElement,
@@ -147,6 +156,23 @@ function isVirtualIndexVisibleInViewport(
   const viewTop = scrollEl.scrollTop + headerHeight - scrollMargin;
   const viewBottom = scrollEl.scrollTop + scrollEl.clientHeight;
   return isRowOverlappingViewport(item.start, item.end, viewTop, viewBottom);
+}
+
+function isVirtualIndexFullyVisibleInViewport(
+  index: number,
+  scrollEl: HTMLElement,
+  virtualRows: VirtualItem[],
+  scrollMargin: number,
+): boolean {
+  const item = virtualRows.find((row) => row.index === index);
+  if (!item) return false;
+
+  const headerHeight =
+    scrollEl.querySelector(".track-list__header")?.getBoundingClientRect()
+      .height ?? 0;
+  const viewTop = scrollEl.scrollTop + headerHeight - scrollMargin;
+  const viewBottom = scrollEl.scrollTop + scrollEl.clientHeight;
+  return item.start >= viewTop && item.end <= viewBottom;
 }
 
 function isIndexVisibleInViewport(
@@ -181,7 +207,6 @@ function scrollRowIntoView(
   rowElement: HTMLElement | null,
 ) {
   if (!rowElement) return;
-  if (isRowVisibleInViewport(scrollContainer, rowElement)) return;
 
   const { visibleTop, visibleBottom } = getVisibleRowBounds(scrollContainer);
   const rowRect = rowElement.getBoundingClientRect();
@@ -287,12 +312,21 @@ export function useTrackListRowRoving({
     (index: number) => {
       const scrollContainer = scrollContainerRef.current;
       const rowElement = rowRefs.current.get(index) ?? null;
+      const scrollMargin = virtualizer.options.scrollMargin;
 
-      if (scrollContainer && rowElement) {
-        if (isRowVisibleInViewport(scrollContainer, rowElement)) return;
-      }
+      const isFullyVisible =
+        scrollContainer &&
+        (rowElement
+          ? isRowFullyVisibleInViewport(scrollContainer, rowElement)
+          : useVirtualRows &&
+            isVirtualIndexFullyVisibleInViewport(
+              index,
+              scrollContainer,
+              virtualRows,
+              scrollMargin,
+            ));
 
-      if (useVirtualRows) {
+      if (useVirtualRows && scrollContainer && !isFullyVisible) {
         virtualizer.scrollToIndex(index, { align: "auto" });
       }
 
@@ -302,7 +336,7 @@ export function useTrackListRowRoving({
         scrollRowIntoView(container, rowRefs.current.get(index) ?? null);
       });
     },
-    [scrollContainerRef, useVirtualRows, virtualizer],
+    [scrollContainerRef, useVirtualRows, virtualRows, virtualizer],
   );
 
   const activateRow = useCallback(
