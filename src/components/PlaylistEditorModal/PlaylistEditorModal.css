@@ -21,12 +21,6 @@
   min-width: 0;
 }
 
-.playlist-editor__segmented {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
 .playlist-editor__segment {
   display: flex;
   align-items: center;

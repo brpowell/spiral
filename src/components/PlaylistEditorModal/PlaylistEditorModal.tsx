@@ -12,7 +12,12 @@ import { usePlaylistStore } from "../../store/usePlaylistStore";
 import type { Playlist, PlaylistImageMode } from "../../types/playlist";
 import { PlaylistArt } from "../PlaylistArt/PlaylistArt";
 import { Button } from "../common/Button/Button";
-import { FormField } from "../common/Field/Field";
+import {
+  Field,
+  FieldLabel,
+  FormField,
+} from "../common/Field/Field";
+import { RadioGroup, RadioGroupItem } from "../common/RadioGroup/RadioGroup";
 import {
   Modal,
   ModalBody,
@@ -224,32 +229,38 @@ export function PlaylistEditorModal() {
                 />
               </div>
               <div className="playlist-editor__image-actions">
-                <div
-                  className="playlist-editor__segmented"
-                  role="radiogroup"
+                <RadioGroup
+                  name="playlist-image-mode"
+                  value={imageMode}
+                  onChange={setImageMode}
+                  orientation="horizontal"
                   aria-label="Cover image source"
                 >
-                  <label className="playlist-editor__segment">
-                    <input
-                      type="radio"
-                      name="playlist-image-mode"
+                  <Field
+                    orientation="horizontal"
+                    className="playlist-editor__segment"
+                  >
+                    <RadioGroupItem
                       value="generated"
-                      checked={imageMode === "generated"}
-                      onChange={() => setImageMode("generated")}
+                      id="playlist-image-mode-generated"
                     />
-                    From playlist
-                  </label>
-                  <label className="playlist-editor__segment">
-                    <input
-                      type="radio"
-                      name="playlist-image-mode"
+                    <FieldLabel htmlFor="playlist-image-mode-generated">
+                      From playlist
+                    </FieldLabel>
+                  </Field>
+                  <Field
+                    orientation="horizontal"
+                    className="playlist-editor__segment"
+                  >
+                    <RadioGroupItem
                       value="custom"
-                      checked={imageMode === "custom"}
-                      onChange={() => setImageMode("custom")}
+                      id="playlist-image-mode-custom"
                     />
-                    Custom image
-                  </label>
-                </div>
+                    <FieldLabel htmlFor="playlist-image-mode-custom">
+                      Custom image
+                    </FieldLabel>
+                  </Field>
+                </RadioGroup>
                 {showCustomActions ? (
                   <Button
                     size="sm"
