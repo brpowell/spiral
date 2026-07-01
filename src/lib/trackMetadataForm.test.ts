@@ -23,12 +23,12 @@ function track(partial: Partial<Track> & Pick<Track, "id">): Track {
 }
 
 describe("sharedArtistField", () => {
-  it("treats equivalent delimiters as shared", () => {
+  it("returns shared semicolon-joined artist field", () => {
     const tracks = [
-      track({ id: 1, artist: "A / B" }),
+      track({ id: 1, artist: "A; B" }),
       track({ id: 2, artist: "A; B" }),
     ];
-    expect(sharedArtistField(tracks, (t) => t.artist)).toBe("A / B");
+    expect(sharedArtistField(tracks, (t) => t.artist)).toBe("A; B");
   });
 
   it("returns empty when artist sets differ", () => {
@@ -41,12 +41,12 @@ describe("sharedArtistField", () => {
 });
 
 describe("isTrackEditorFieldMixed", () => {
-  it("artist not mixed when delimiters differ only", () => {
+  it("artist mixed when delimiter conventions differ", () => {
     const tracks = [
       track({ id: 1, artist: "A / B" }),
       track({ id: 2, artist: "A; B" }),
     ];
-    expect(isTrackEditorFieldMixed(tracks, "artist")).toBe(false);
+    expect(isTrackEditorFieldMixed(tracks, "artist")).toBe(true);
   });
 
   it("artist mixed when names differ", () => {

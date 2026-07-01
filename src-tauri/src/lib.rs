@@ -5,6 +5,7 @@ mod cd;
 mod encoding_profiles;
 mod transcoder;
 mod artist_art_fetch;
+mod artist_tags;
 mod cover_art_fetch;
 mod disc_metadata_cache;
 mod musicbrainz_disc;

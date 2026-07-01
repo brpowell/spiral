@@ -42,7 +42,7 @@ describe("performerKeysForTrack", () => {
   it("splits multi-artist track fields", () => {
     expect(
       performerKeysForTrack(
-        track({ id: 1, artist: "Alice / Bob", albumArtist: "Various" }),
+        track({ id: 1, artist: "Alice; Bob", albumArtist: "Various" }),
       ),
     ).toEqual(["Alice", "Bob"]);
   });

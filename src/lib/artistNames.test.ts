@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   artistNamesEqual,
   DEFAULT_ARTIST_JOIN_DELIMITER,
-  normalizeArtistFieldFromTagValue,
   normalizeArtistName,
   parseArtistField,
   serializeArtistField,
@@ -16,11 +15,15 @@ describe("normalizeArtistName", () => {
 
 describe("parseArtistField", () => {
   it.each([
-    ["A / B", ["A", "B"]],
-    ["A/B", ["A", "B"]],
     ["A; B", ["A", "B"]],
+    ["A;B", ["A", "B"]],
   ])("parses %s", (raw, expected) => {
     expect(parseArtistField(raw)).toEqual(expected);
+  });
+
+  it("does not split on slash", () => {
+    expect(parseArtistField("AC/DC")).toEqual(["AC/DC"]);
+    expect(parseArtistField("A / B")).toEqual(["A / B"]);
   });
 
   it("keeps commas inside artist names", () => {
@@ -32,14 +35,10 @@ describe("parseArtistField", () => {
     ]);
   });
 
-  it("keeps Simon & Garfunkel as one name", () => {
+  it("keeps ampersand names whole", () => {
     expect(parseArtistField("Simon & Garfunkel")).toEqual(["Simon & Garfunkel"]);
-  });
-
-  it("splits Anderson .Paak & Bruno Mars", () => {
-    expect(parseArtistField("Anderson .Paak & Bruno Mars")).toEqual([
-      "Anderson .Paak",
-      "Bruno Mars",
+    expect(parseArtistField("King Gizzard & The Lizard Wizard")).toEqual([
+      "King Gizzard & The Lizard Wizard",
     ]);
   });
 
@@ -52,7 +51,7 @@ describe("parseArtistField", () => {
 
 describe("serializeArtistField", () => {
   it("joins with default delimiter", () => {
-    expect(serializeArtistField(["A", "B"])).toBe("A / B");
+    expect(serializeArtistField(["A", "B"])).toBe("A; B");
   });
 
   it("returns null when empty", () => {
@@ -61,7 +60,7 @@ describe("serializeArtistField", () => {
   });
 
   it("uses custom delimiter", () => {
-    expect(serializeArtistField(["A", "B"], "; ")).toBe("A; B");
+    expect(serializeArtistField(["A", "B"], " | ")).toBe("A | B");
   });
 });
 
@@ -79,22 +78,8 @@ describe("artistNamesEqual", () => {
   });
 });
 
-describe("normalizeArtistFieldFromTagValue", () => {
-  it("joins multi-value arrays with default delimiter", () => {
-    expect(normalizeArtistFieldFromTagValue(["A", " B "])).toBe("A / B");
-  });
-
-  it("trims single strings without re-parsing", () => {
-    expect(normalizeArtistFieldFromTagValue("  A; B  ")).toBe("A; B");
-  });
-
-  it("returns null for empty input", () => {
-    expect(normalizeArtistFieldFromTagValue(undefined)).toBeNull();
-    expect(normalizeArtistFieldFromTagValue([])).toBeNull();
-    expect(normalizeArtistFieldFromTagValue("   ")).toBeNull();
-  });
-
-  it("exports expected default delimiter", () => {
-    expect(DEFAULT_ARTIST_JOIN_DELIMITER).toBe(" / ");
+describe("DEFAULT_ARTIST_JOIN_DELIMITER", () => {
+  it("is semicolon with space", () => {
+    expect(DEFAULT_ARTIST_JOIN_DELIMITER).toBe("; ");
   });
 });

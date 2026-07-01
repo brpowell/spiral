@@ -35,8 +35,6 @@ export function ArtistChipField({
     onChange(serializeArtistField(next) ?? "");
   };
 
-  const showSavedHint = names.length > 1 && value.trim().length > 0;
-
   return (
     <div className="artist-chip-field">
       <ChipInput
@@ -49,9 +47,6 @@ export function ArtistChipField({
         parseDraft={parseArtistField}
         inputAriaLabel={inputAriaLabel}
       />
-      {showSavedHint ? (
-        <p className="artist-chip-field__hint">Saved as: {value}</p>
-      ) : null}
     </div>
   );
 }

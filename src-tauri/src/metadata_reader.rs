@@ -1,12 +1,11 @@
 use crate::art_cache;
+use crate::artist_tags::join_artist_field;
 use crate::models::TrackInput;
 use crate::rating_tags;
 use id3::{Tag, TagLike};
 use metaflac::Tag as FlacTag;
 use mp4ameta::Tag as Mp4Tag;
 use std::path::{Path, PathBuf};
-
-const ARTIST_JOIN_DELIMITER: &str = " / ";
 
 #[derive(Debug, Default, Clone)]
 pub struct BasicTags {
@@ -20,23 +19,6 @@ pub struct BasicTags {
     pub genre: Option<String>,
     pub duration_seconds: Option<f64>,
     pub rating: Option<u8>,
-}
-
-fn join_tag_values<'a, I>(values: I) -> Option<String>
-where
-    I: IntoIterator<Item = &'a str>,
-{
-    let parts: Vec<String> = values
-        .into_iter()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_string())
-        .collect();
-    if parts.is_empty() {
-        None
-    } else {
-        Some(parts.join(ARTIST_JOIN_DELIMITER))
-    }
 }
 
 fn audio_extension(path: &Path) -> Option<String> {
@@ -113,13 +95,13 @@ fn read_flac_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
         tags.title = v.next().map(|s| s.to_string());
     }
     if let Some(v) = tag.get_vorbis("ARTIST") {
-        tags.artist = join_tag_values(v);
+        tags.artist = join_artist_field(v);
     }
     if let Some(mut v) = tag.get_vorbis("ALBUM") {
         tags.album = v.next().map(|s| s.to_string());
     }
     if let Some(v) = tag.get_vorbis("ALBUMARTIST") {
-        tags.album_artist = join_tag_values(v);
+        tags.album_artist = join_artist_field(v);
     }
     if let Some(mut v) = tag.get_vorbis("TRACKNUMBER") {
         if let Some(value) = v.next() {
@@ -295,12 +277,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn join_tag_values_joins_artists() {
+    fn join_artist_field_joins_flac_values() {
         assert_eq!(
-            join_tag_values(["A", " B "]),
-            Some("A / B".to_string())
+            join_artist_field(["A", " B "]),
+            Some("A; B".to_string())
         );
-        assert_eq!(join_tag_values::<[&str; 0]>([]), None);
     }
 
     #[test]

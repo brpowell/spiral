@@ -1,3 +1,4 @@
+use crate::artist_tags::{join_artist_field, parse_artist_field};
 use crate::metadata_backup::{self, MetadataBackupConfig};
 use crate::models::TrackMetadataUpdate;
 use id3::frame::{Picture, PictureType};
@@ -86,16 +87,24 @@ fn mp4_artwork(art_path: &str, bytes: Vec<u8>) -> Result<Img<Vec<u8>>, MetadataW
     Ok(Img::jpeg(bytes))
 }
 
+fn joined_artist_tag(raw: &str) -> Option<String> {
+    join_artist_field(parse_artist_field(raw))
+}
+
 fn apply_common_mp4(tag: &mut Mp4Tag, metadata: &TrackMetadataUpdate) {
     tag.set_title(metadata.title.clone());
     if let Some(artist) = &metadata.artist {
-        tag.set_artist(artist.clone());
+        if let Some(joined) = joined_artist_tag(artist) {
+            tag.set_artist(joined);
+        }
     }
     if let Some(album) = &metadata.album {
         tag.set_album(album.clone());
     }
     if let Some(album_artist) = &metadata.album_artist {
-        tag.set_album_artist(album_artist.clone());
+        if let Some(joined) = joined_artist_tag(album_artist) {
+            tag.set_album_artist(joined);
+        }
     }
     if let Some(n) = metadata.track_number {
         tag.set_track_number(n as u16);
@@ -183,18 +192,23 @@ fn write_mp3(
     metadata: &TrackMetadataUpdate,
     backup_config: &MetadataBackupConfig,
 ) -> Result<(), MetadataWriteError> {
+    // TODO: optional ID3v2.4 multi-TPE1 frames (player support is inconsistent).
     write_via_temp(path, backup_config, |target| {
         let mut tag = read_mp3_tag(target)?;
 
         tag.set_title(metadata.title.clone());
         if let Some(artist) = &metadata.artist {
-            tag.set_artist(artist.clone());
+            if let Some(joined) = joined_artist_tag(artist) {
+                tag.set_artist(joined);
+            }
         }
         if let Some(album) = &metadata.album {
             tag.set_album(album.clone());
         }
         if let Some(album_artist) = &metadata.album_artist {
-            tag.set_text("TPE2", album_artist);
+            if let Some(joined) = joined_artist_tag(album_artist) {
+                tag.set_text("TPE2", &joined);
+            }
         }
         if let Some(n) = metadata.track_number {
             tag.set_track(n as u32);
@@ -240,13 +254,19 @@ fn write_flac(
 
         tag.set_vorbis("TITLE", vec![metadata.title.clone()]);
         if let Some(artist) = &metadata.artist {
-            tag.set_vorbis("ARTIST", vec![artist.clone()]);
+            let values = parse_artist_field(artist);
+            if !values.is_empty() {
+                tag.set_vorbis("ARTIST", values);
+            }
         }
         if let Some(album) = &metadata.album {
             tag.set_vorbis("ALBUM", vec![album.clone()]);
         }
         if let Some(album_artist) = &metadata.album_artist {
-            tag.set_vorbis("ALBUMARTIST", vec![album_artist.clone()]);
+            let values = parse_artist_field(album_artist);
+            if !values.is_empty() {
+                tag.set_vorbis("ALBUMARTIST", values);
+            }
         }
         if let Some(n) = metadata.track_number {
             tag.set_vorbis("TRACKNUMBER", vec![n.to_string()]);
@@ -374,6 +394,123 @@ mod tests {
         assert_eq!(tag.artist().as_deref(), Some("Tagged Artist"));
         assert_eq!(tag.album().as_deref(), Some("Tagged Album"));
         assert_eq!(tag.genre().as_deref(), Some("Rock"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn mp3_write_multi_artist_uses_semicolon_join() {
+        let dir = std::env::temp_dir().join(format!("spiral-mp3-multi-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let audio = dir.join("multi.mp3");
+        let mut f = fs::File::create(&audio).unwrap();
+        f.write_all(&[0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00])
+            .unwrap();
+
+        let metadata = TrackMetadataUpdate {
+            title: "Title".to_string(),
+            artist: Some("Alice; Bob".to_string()),
+            album: None,
+            album_artist: Some("Band A; Band B".to_string()),
+            track_number: None,
+            disc_number: None,
+            year: None,
+            genre: None,
+            art_path: None,
+            art_changed: false,
+        };
+
+        let backup_config = MetadataBackupConfig {
+            enabled: false,
+            retention_days: 14,
+        };
+        write_mp3(&audio, &metadata, &backup_config).expect("write mp3 metadata");
+
+        let tag = Tag::read_from_path(&audio).expect("re-read after write");
+        assert_eq!(tag.artist().as_deref(), Some("Alice; Bob"));
+        assert_eq!(
+            tag.get("TPE2").and_then(|f| f.content().text()).map(|s| s.to_string()),
+            Some("Band A; Band B".to_string())
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    fn copy_minimal_flac_fixture(dir: &Path) -> PathBuf {
+        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.flac");
+        let dest = dir.join("test.flac");
+        fs::copy(&src, &dest).expect("copy flac fixture");
+        dest
+    }
+
+    #[test]
+    fn flac_write_multi_artist_uses_native_vorbis_values() {
+        let dir = std::env::temp_dir().join(format!("spiral-flac-multi-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let audio = copy_minimal_flac_fixture(&dir);
+        let metadata = TrackMetadataUpdate {
+            title: "Title".to_string(),
+            artist: Some("Alice; Bob".to_string()),
+            album: None,
+            album_artist: None,
+            track_number: None,
+            disc_number: None,
+            year: None,
+            genre: None,
+            art_path: None,
+            art_changed: false,
+        };
+
+        let backup_config = MetadataBackupConfig {
+            enabled: false,
+            retention_days: 14,
+        };
+        write_flac(&audio, &metadata, &backup_config).expect("write flac metadata");
+
+        let tag = FlacTag::read_from_path(&audio).expect("re-read after write");
+        let artists: Vec<String> = tag
+            .get_vorbis("ARTIST")
+            .into_iter()
+            .flatten()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(artists, vec!["Alice".to_string(), "Bob".to_string()]);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn m4a_write_multi_artist_uses_semicolon_join() {
+        let dir = std::env::temp_dir().join(format!("spiral-m4a-multi-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let audio = copy_moov_before_mdat_fixture(&dir);
+        let metadata = TrackMetadataUpdate {
+            title: "Title".to_string(),
+            artist: Some("Alice; Bob".to_string()),
+            album: None,
+            album_artist: None,
+            track_number: None,
+            disc_number: None,
+            year: None,
+            genre: None,
+            art_path: None,
+            art_changed: false,
+        };
+
+        let backup_config = MetadataBackupConfig {
+            enabled: false,
+            retention_days: 14,
+        };
+        write_m4a(&audio, &metadata, &backup_config).expect("write m4a metadata");
+
+        let tag = Mp4Tag::read_from_path(&audio).expect("re-read after write");
+        assert_eq!(tag.artist().as_deref(), Some("Alice; Bob"));
 
         let _ = fs::remove_dir_all(&dir);
     }
