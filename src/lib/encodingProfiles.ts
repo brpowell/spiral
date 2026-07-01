@@ -3,6 +3,7 @@ import { audioExtensionFromPath } from "./supportedAudio";
 
 export type EncodingProfileId =
   | "lossless-flac"
+  | "apple-alac"
   | "apple-aac"
   | "mp3-high"
   | "mp3-compact";
@@ -20,6 +21,12 @@ export const BUILTIN_ENCODING_PROFILES: readonly EncodingProfile[] = [
     label: "Lossless (FLAC)",
     subtitle: "Best quality for your library",
     extension: "flac",
+  },
+  {
+    id: "apple-alac",
+    label: "Apple Lossless (ALAC)",
+    subtitle: ".m4a for iTunes and Apple devices",
+    extension: "m4a",
   },
   {
     id: "apple-aac",
@@ -66,6 +73,29 @@ export function isKnownEncodingProfileId(id: string): boolean {
   return profileById.has(id as EncodingProfileId);
 }
 
+/** Label for the source file's inferred or probed encoding profile. */
+export function formatSourceEncodingProfileLabel(options: {
+  sourceProfileId?: string | null;
+  codec?: string | null;
+}): string | null {
+  if (options.sourceProfileId) {
+    const builtin = getEncodingProfile(options.sourceProfileId);
+    if (builtin) return builtin.label;
+  }
+  if (options.codec?.trim().toLowerCase() === "alac") {
+    return "Apple Lossless (ALAC)";
+  }
+  return null;
+}
+
+function profileIsLosslessFallback(profileId: string): boolean {
+  return profileId === "lossless-flac" || profileId === "apple-alac";
+}
+
+function sourceIsLosslessFallback(sourcePath: string): boolean {
+  return audioExtensionFromPath(sourcePath) === "flac";
+}
+
 function inferEncodingProfileIdFromPath(
   path: string,
 ): EncodingProfileId | undefined {
@@ -82,7 +112,10 @@ function canConvertSourceToProfileFallback(
 ): boolean {
   const sourceProfile = inferEncodingProfileIdFromPath(sourcePath);
   if (sourceProfile === profileId) return false;
-  if (profileId === "lossless-flac" && sourceProfile !== "lossless-flac") {
+  if (
+    profileIsLosslessFallback(profileId) &&
+    !sourceIsLosslessFallback(sourcePath)
+  ) {
     return false;
   }
   return true;
@@ -109,6 +142,7 @@ export async function loadConvertProfileOptions(sourcePaths: readonly string[]) 
     return {
       profileOptions,
       defaultProfileId,
+      sourceProfileId: options.sourceProfileId ?? null,
     };
   } catch (err) {
     console.warn("get_convert_profile_options failed; using extension fallback", err);
@@ -116,6 +150,7 @@ export async function loadConvertProfileOptions(sourcePaths: readonly string[]) 
     return {
       profileOptions,
       defaultProfileId: inferDefaultConvertProfileId(sourcePaths[0] ?? ""),
+      sourceProfileId: null,
     };
   }
 }

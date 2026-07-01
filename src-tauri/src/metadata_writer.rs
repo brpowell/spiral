@@ -168,14 +168,14 @@ where
 }
 
 /// Read existing ID3 tags, or start from an empty tag when the file has none.
-pub(crate) fn read_mp3_tag(path: &Path) -> Result<Tag, MetadataWriteError> {
+pub(crate) fn read_id3_tag(path: &Path) -> Result<Tag, MetadataWriteError> {
     match Tag::read_from_path(path) {
         Ok(tag) => Ok(tag),
         Err(id3::Error {
             kind: ErrorKind::NoTag, ..
         }) => Ok(Tag::new()),
         Err(e) => Err(MetadataWriteError::Tag(format!(
-            "Failed to read MP3 tags: {e}"
+            "Failed to read ID3 tags: {e}"
         ))),
     }
 }
@@ -187,60 +187,81 @@ pub(crate) fn verify_m4a_readable(path: &Path) -> Result<(), MetadataWriteError>
     Ok(())
 }
 
+fn apply_id3_metadata(tag: &mut Tag, metadata: &TrackMetadataUpdate) -> Result<(), MetadataWriteError> {
+    tag.set_title(metadata.title.clone());
+    if let Some(artist) = &metadata.artist {
+        if let Some(joined) = joined_artist_tag(artist) {
+            tag.set_artist(joined);
+        }
+    }
+    if let Some(album) = &metadata.album {
+        tag.set_album(album.clone());
+    }
+    if let Some(album_artist) = &metadata.album_artist {
+        if let Some(joined) = joined_artist_tag(album_artist) {
+            tag.set_text("TPE2", &joined);
+        }
+    }
+    if let Some(n) = metadata.track_number {
+        tag.set_track(n as u32);
+    }
+    if let Some(n) = metadata.disc_number {
+        tag.set_disc(n as u32);
+    }
+    if let Some(year) = metadata.year {
+        tag.set_year(year as i32);
+    }
+    if let Some(genre) = &metadata.genre {
+        tag.set_genre(genre.clone());
+    }
+
+    if metadata.art_changed {
+        tag.remove_all_pictures();
+        if let Some(art_path) = &metadata.art_path {
+            let data = read_image_bytes(art_path)?;
+            let picture = Picture {
+                mime_type: mime_for_path(art_path),
+                picture_type: PictureType::CoverFront,
+                description: String::new(),
+                data,
+            };
+            tag.add_frame(picture);
+        }
+    }
+
+    Ok(())
+}
+
+fn write_id3(
+    path: &Path,
+    metadata: &TrackMetadataUpdate,
+    backup_config: &MetadataBackupConfig,
+    format_label: &str,
+) -> Result<(), MetadataWriteError> {
+    // TODO: optional ID3v2.4 multi-TPE1 frames (player support is inconsistent).
+    write_via_temp(path, backup_config, |target| {
+        let mut tag = read_id3_tag(target)?;
+        apply_id3_metadata(&mut tag, metadata)?;
+        tag.write_to_path(target, id3::Version::Id3v24)
+            .map_err(|e| MetadataWriteError::Tag(format!("Failed to write {format_label} tags: {e}")))?;
+        Ok(())
+    })
+}
+
 fn write_mp3(
     path: &Path,
     metadata: &TrackMetadataUpdate,
     backup_config: &MetadataBackupConfig,
 ) -> Result<(), MetadataWriteError> {
-    // TODO: optional ID3v2.4 multi-TPE1 frames (player support is inconsistent).
-    write_via_temp(path, backup_config, |target| {
-        let mut tag = read_mp3_tag(target)?;
+    write_id3(path, metadata, backup_config, "MP3")
+}
 
-        tag.set_title(metadata.title.clone());
-        if let Some(artist) = &metadata.artist {
-            if let Some(joined) = joined_artist_tag(artist) {
-                tag.set_artist(joined);
-            }
-        }
-        if let Some(album) = &metadata.album {
-            tag.set_album(album.clone());
-        }
-        if let Some(album_artist) = &metadata.album_artist {
-            if let Some(joined) = joined_artist_tag(album_artist) {
-                tag.set_text("TPE2", &joined);
-            }
-        }
-        if let Some(n) = metadata.track_number {
-            tag.set_track(n as u32);
-        }
-        if let Some(n) = metadata.disc_number {
-            tag.set_disc(n as u32);
-        }
-        if let Some(year) = metadata.year {
-            tag.set_year(year as i32);
-        }
-        if let Some(genre) = &metadata.genre {
-            tag.set_genre(genre.clone());
-        }
-
-        if metadata.art_changed {
-            tag.remove_all_pictures();
-            if let Some(art_path) = &metadata.art_path {
-                let data = read_image_bytes(art_path)?;
-                let picture = Picture {
-                    mime_type: mime_for_path(art_path),
-                    picture_type: PictureType::CoverFront,
-                    description: String::new(),
-                    data,
-                };
-                tag.add_frame(picture);
-            }
-        }
-
-        tag.write_to_path(target, id3::Version::Id3v24)
-            .map_err(|e| MetadataWriteError::Tag(format!("Failed to write MP3 tags: {e}")))?;
-        Ok(())
-    })
+fn write_wav(
+    path: &Path,
+    metadata: &TrackMetadataUpdate,
+    backup_config: &MetadataBackupConfig,
+) -> Result<(), MetadataWriteError> {
+    write_id3(path, metadata, backup_config, "WAV")
 }
 
 fn write_flac(
@@ -323,6 +344,16 @@ fn write_m4a(
     write_via_temp(path, backup_config, |target| write_m4a_tag(target, metadata))
 }
 
+fn write_vorbis_container(
+    path: &Path,
+    metadata: &TrackMetadataUpdate,
+    backup_config: &MetadataBackupConfig,
+) -> Result<(), MetadataWriteError> {
+    write_via_temp(path, backup_config, |target| {
+        crate::vorbis_container::write_vorbis_container_tag(target, metadata)
+    })
+}
+
 pub fn write_track_metadata(
     path: &Path,
     metadata: &TrackMetadataUpdate,
@@ -333,7 +364,9 @@ pub fn write_track_metadata(
     match audio_extension(path).as_deref() {
         Some("mp3") => write_mp3(path, metadata, backup_config),
         Some("flac") => write_flac(path, metadata, backup_config),
-        Some("m4a") | Some("aac") => write_m4a(path, metadata, backup_config),
+        Some("m4a") | Some("aac") | Some("mp4") => write_m4a(path, metadata, backup_config),
+        Some("wav") => write_wav(path, metadata, backup_config),
+        Some("ogg") | Some("opus") => write_vorbis_container(path, metadata, backup_config),
         Some(ext) => Err(MetadataWriteError::UnsupportedFormat(format!(
             "Metadata editing is not supported for .{ext} files."
         ))),
@@ -346,17 +379,9 @@ pub fn write_track_metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_fixtures::{m4a, wav};
     use std::fs;
     use std::io::Write;
-
-    /// iTunes-like layout: `moov` before `mdat` (from `tests/fixtures/moov_before_mdat.m4a`).
-    fn copy_moov_before_mdat_fixture(dir: &Path) -> PathBuf {
-        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/moov_before_mdat.m4a");
-        let dest = dir.join("test.m4a");
-        fs::copy(&src, &dest).expect("copy m4a fixture");
-        dest
-    }
 
     #[test]
     fn mp3_write_tags_on_file_without_id3() {
@@ -484,12 +509,45 @@ mod tests {
     }
 
     #[test]
+    fn mp4_write_metadata_uses_m4a_writer() {
+        let dir = std::env::temp_dir().join(format!("spiral-mp4-meta-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let audio = m4a::copy_moov_before_mdat(&dir, "test.mp4");
+        let metadata = TrackMetadataUpdate {
+            title: "MP4 Title".to_string(),
+            artist: Some("MP4 Artist".to_string()),
+            album: None,
+            album_artist: None,
+            track_number: None,
+            disc_number: None,
+            year: None,
+            genre: None,
+            art_path: None,
+            art_changed: false,
+        };
+
+        let backup_config = MetadataBackupConfig {
+            enabled: false,
+            retention_days: 14,
+        };
+        write_track_metadata(&audio, &metadata, &backup_config).expect("write mp4 metadata");
+
+        let tag = Mp4Tag::read_from_path(&audio).expect("re-read after write");
+        assert_eq!(tag.title().as_deref(), Some("MP4 Title"));
+        assert_eq!(tag.artist().as_deref(), Some("MP4 Artist"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn m4a_write_multi_artist_uses_semicolon_join() {
         let dir = std::env::temp_dir().join(format!("spiral-m4a-multi-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let audio = copy_moov_before_mdat_fixture(&dir);
+        let audio = m4a::copy_moov_before_mdat(&dir, "test.m4a");
         let metadata = TrackMetadataUpdate {
             title: "Title".to_string(),
             artist: Some("Alice; Bob".to_string()),
@@ -521,7 +579,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let audio = copy_moov_before_mdat_fixture(&dir);
+        let audio = m4a::copy_moov_before_mdat(&dir, "test.m4a");
         let art_path = dir.join("cover.jpg");
         let mut art_file = fs::File::create(&art_path).unwrap();
         // Minimal valid JPEG (1x1)
@@ -614,7 +672,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let audio = copy_moov_before_mdat_fixture(&dir);
+        let audio = m4a::copy_moov_before_mdat(&dir, "test.m4a");
         let before_len = fs::metadata(&audio).unwrap().len();
 
         let metadata = TrackMetadataUpdate {
@@ -645,6 +703,109 @@ mod tests {
             after_len <= before_len + 4096,
             "unexpected size growth: {before_len} -> {after_len}"
         );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn wav_write_tags_on_file_without_id3() {
+        let dir = std::env::temp_dir().join(format!("spiral-wav-notag-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let audio = dir.join("tagless.wav");
+        wav::write_minimal(&audio);
+
+        let metadata = TrackMetadataUpdate {
+            title: "Tagged Title".to_string(),
+            artist: Some("Tagged Artist".to_string()),
+            album: Some("Tagged Album".to_string()),
+            album_artist: None,
+            track_number: Some(1),
+            disc_number: None,
+            year: Some(2024),
+            genre: Some("Rock".to_string()),
+            art_path: None,
+            art_changed: false,
+        };
+
+        let backup_config = MetadataBackupConfig {
+            enabled: false,
+            retention_days: 14,
+        };
+        write_wav(&audio, &metadata, &backup_config).expect("write wav metadata");
+
+        let tag = Tag::read_from_path(&audio).expect("re-read after write");
+        assert_eq!(tag.title().as_deref(), Some("Tagged Title"));
+        assert_eq!(tag.artist().as_deref(), Some("Tagged Artist"));
+        assert_eq!(tag.album().as_deref(), Some("Tagged Album"));
+        assert_eq!(tag.genre().as_deref(), Some("Rock"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn wav_write_artwork_adds_apic_frame() {
+        let dir = std::env::temp_dir().join(format!("spiral-wav-art-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let audio = dir.join("cover.wav");
+        wav::write_minimal(&audio);
+        let art_path = dir.join("cover.jpg");
+        let mut art_file = fs::File::create(&art_path).unwrap();
+        art_file
+            .write_all(&[
+                0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00,
+                0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43, 0x00, 0x08, 0x06, 0x06,
+                0x07, 0x06, 0x05, 0x08, 0x07, 0x07, 0x07, 0x09, 0x09, 0x08, 0x0A, 0x0C, 0x14, 0x0D,
+                0x0C, 0x0B, 0x0B, 0x0C, 0x19, 0x12, 0x13, 0x0F, 0x14, 0x1D, 0x1A, 0x1F, 0x1E, 0x1D,
+                0x1A, 0x1C, 0x1C, 0x20, 0x24, 0x2E, 0x27, 0x20, 0x22, 0x2C, 0x23, 0x1C, 0x1C, 0x28,
+                0x37, 0x29, 0x2C, 0x30, 0x31, 0x34, 0x34, 0x34, 0x1F, 0x27, 0x39, 0x3D, 0x38, 0x32,
+                0x3C, 0x2E, 0x33, 0x34, 0x32, 0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01, 0x00, 0x01,
+                0x01, 0x01, 0x11, 0x00, 0xFF, 0xC4, 0x00, 0x1F, 0x00, 0x00, 0x01, 0x05, 0x01, 0x01,
+                0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02,
+                0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0xFF, 0xC4, 0x00, 0xB5, 0x10,
+                0x00, 0x02, 0x01, 0x03, 0x03, 0x02, 0x04, 0x03, 0x05, 0x05, 0x04, 0x04, 0x00, 0x00,
+                0x01, 0x7D, 0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12, 0x21, 0x31, 0x41, 0x06,
+                0x13, 0x51, 0x61, 0x07, 0x22, 0x71, 0x14, 0x32, 0x81, 0x91, 0xA1, 0x08, 0x23, 0x42,
+                0xB1, 0xC1, 0x15, 0x52, 0xD1, 0xF0, 0x24, 0x33, 0x62, 0x72, 0x82, 0x09, 0x0A, 0x16,
+                0x17, 0x18, 0x19, 0x1A, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x34, 0x35, 0x36, 0x37,
+                0x38, 0x39, 0x3A, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x53, 0x54, 0x55,
+                0x56, 0x57, 0x58, 0x59, 0x5A, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x73,
+                0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7A, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89,
+                0x8A, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x99, 0x9A, 0xA2, 0xA3, 0xA4, 0xA5,
+                0xA6, 0xA7, 0xA8, 0xA9, 0xAA, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8, 0xB9, 0xBA,
+                0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9, 0xCA, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6,
+                0xD7, 0xD8, 0xD9, 0xDA, 0xE1, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6, 0xE7, 0xE8, 0xE9, 0xEA,
+                0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA, 0xFF, 0xDA, 0x00, 0x0C,
+                0x03, 0x01, 0x00, 0x02, 0x11, 0x03, 0x11, 0x00, 0x3F, 0x00, 0xFB, 0xD5, 0xDB, 0x20,
+                0xA0, 0xF3, 0x4E, 0x8F, 0xFF, 0xD9,
+            ])
+            .unwrap();
+
+        let metadata = TrackMetadataUpdate {
+            title: "Art Track".to_string(),
+            artist: None,
+            album: None,
+            album_artist: None,
+            track_number: None,
+            disc_number: None,
+            year: None,
+            genre: None,
+            art_path: Some(art_path.to_string_lossy().into_owned()),
+            art_changed: true,
+        };
+
+        let backup_config = MetadataBackupConfig {
+            enabled: false,
+            retention_days: 14,
+        };
+        write_wav(&audio, &metadata, &backup_config).expect("write wav art");
+
+        let tag = Tag::read_from_path(&audio).expect("re-read after write");
+        assert_eq!(tag.title().as_deref(), Some("Art Track"));
+        assert!(tag.pictures().next().is_some());
 
         let _ = fs::remove_dir_all(&dir);
     }

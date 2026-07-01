@@ -70,6 +70,16 @@ pub fn read_flac_rating(tag: &FlacTag) -> Option<u8> {
         .and_then(|value| parse_rating_string(value))
 }
 
+pub fn read_vorbis_rating(tag: &lofty::tag::Tag) -> Option<u8> {
+    tag.get(&rating_item_key())
+        .and_then(|item| item.value().text())
+        .and_then(parse_rating_string)
+}
+
+fn rating_item_key() -> lofty::tag::ItemKey {
+    lofty::tag::ItemKey::Unknown("RATING".to_string())
+}
+
 pub fn read_m4a_rating(tag: &Mp4Tag) -> Option<u8> {
     tag.data_of(&ITUNES_RATING)
         .next()
@@ -87,9 +97,9 @@ pub fn write_rating_to_file(
     match metadata_writer::audio_extension(path).as_deref() {
         Some("mp3") => write_mp3_rating(path, canonical, backup_config),
         Some("flac") => write_flac_rating(path, canonical, backup_config),
-        Some("m4a") | Some("aac") => write_m4a_rating(path, canonical, backup_config),
+        Some("m4a") | Some("aac") | Some("mp4") => write_m4a_rating(path, canonical, backup_config),
         Some("wav") => write_wav_rating(path, canonical, backup_config),
-        Some("mp4") => Ok(()),
+        Some("ogg") | Some("opus") => write_vorbis_container_rating(path, canonical, backup_config),
         Some(ext) => Err(MetadataWriteError::UnsupportedFormat(format!(
             "Rating export is not supported for .{ext} files."
         ))),
@@ -116,7 +126,7 @@ fn write_mp3_rating(
     backup_config: &MetadataBackupConfig,
 ) -> Result<(), MetadataWriteError> {
     metadata_writer::write_via_temp(path, backup_config, |target| {
-        let mut tag = metadata_writer::read_mp3_tag(target)?;
+        let mut tag = metadata_writer::read_id3_tag(target)?;
         apply_popm_to_tag(&mut tag, canonical);
         tag.write_to_path(target, Version::Id3v24)
             .map_err(|e| MetadataWriteError::Tag(format!("Failed to write MP3 rating: {e}")))?;
@@ -145,6 +155,16 @@ fn write_flac_rating(
         tag.save()
             .map_err(|e| MetadataWriteError::Tag(format!("Failed to write FLAC rating: {e}")))?;
         Ok(())
+    })
+}
+
+fn write_vorbis_container_rating(
+    path: &Path,
+    canonical: u8,
+    backup_config: &MetadataBackupConfig,
+) -> Result<(), MetadataWriteError> {
+    metadata_writer::write_via_temp(path, backup_config, |target| {
+        crate::vorbis_container::write_vorbis_container_rating(target, canonical)
     })
 }
 
@@ -204,6 +224,7 @@ fn write_wav_rating(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_fixtures::m4a;
     use std::fs;
     use std::io::Write;
 
@@ -245,6 +266,26 @@ mod tests {
         assert_eq!(parse_rating_string(""), None);
         assert_eq!(parse_rating_string("not-a-number"), None);
         assert_eq!(parse_rating_string("150"), None);
+    }
+
+    #[test]
+    fn mp4_write_rating_uses_m4a_path() {
+        let dir = std::env::temp_dir().join(format!("spiral-mp4-rating-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let audio = m4a::copy_moov_before_mdat(&dir, "rated.mp4");
+
+        let backup_config = MetadataBackupConfig {
+            enabled: false,
+            retention_days: 14,
+        };
+        write_rating_to_file(&audio, 204, &backup_config).expect("write mp4 rating");
+
+        let tag = Mp4Tag::read_from_path(&audio).expect("re-read");
+        assert_eq!(read_m4a_rating(&tag), Some(204));
+
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -7,6 +7,7 @@ use crate::metadata_writer;
 use crate::models::TrackMetadataUpdate;
 
 use super::afconvert;
+use super::alac;
 use super::lame;
 use super::wav;
 
@@ -22,6 +23,8 @@ fn transcode_file(source: &Path, dest: &Path, profile_id: &str) -> Result<(), St
     let profile = encoding_profiles::profile_from_id(profile_id)?;
     if encoding_profiles::profile_is_mp3(profile.id) {
         transcode_to_mp3(source, dest, profile)
+    } else if encoding_profiles::profile_is_alac(profile.id) {
+        alac::transcode_file_to_alac(source, dest)
     } else {
         afconvert::run(source, dest, &encoding_profiles::afconvert_args(profile))
     }

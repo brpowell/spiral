@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import {
+  formatSourceEncodingProfileLabel,
   loadConvertProfileOptions,
   type EncodingProfileId,
   type EncodingProfileSelectOption,
@@ -66,6 +67,7 @@ export function ConvertConfirmModal() {
   >([]);
   const [profilesLoading, setProfilesLoading] = useState(false);
   const [profileId, setProfileId] = useState<EncodingProfileId>("apple-aac");
+  const [sourceProfileId, setSourceProfileId] = useState<string | null>(null);
   const [mode, setMode] = useState<ConvertMode>("add_new");
 
   const open = prompt != null;
@@ -81,11 +83,13 @@ export function ConvertConfirmModal() {
     setMode("add_new");
     setProfilesLoading(true);
     setProfileOptions([]);
+    setSourceProfileId(null);
 
     void loadConvertProfileOptions(sourcePaths)
       .then((result) => {
         if (cancelled) return;
         setProfileOptions(result.profileOptions);
+        setSourceProfileId(result.sourceProfileId);
         if (result.defaultProfileId) {
           setProfileId(result.defaultProfileId);
         }
@@ -124,6 +128,13 @@ export function ConvertConfirmModal() {
   }, [cancelConvert]);
 
   const trackCount = tracks.length;
+  const sourceFormatLabel =
+    sampleTrack != null
+      ? formatSourceEncodingProfileLabel({
+          sourceProfileId,
+          codec: sampleTrack.codec,
+        })
+      : null;
 
   return (
     <Modal
@@ -147,6 +158,14 @@ export function ConvertConfirmModal() {
                   sampleTrack.album,
                 )
                 : `${trackCount} selected tracks will be transcoded.`}
+              {sourceFormatLabel != null ? (
+                <>
+                  {" "}
+                  <span className="convert-confirm-modal__source-format">
+                    Current format: {sourceFormatLabel}
+                  </span>
+                </>
+              ) : null}
             </ModalDescription>
           ) : null}
         </ModalHeaderMain>

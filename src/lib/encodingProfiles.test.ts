@@ -3,15 +3,17 @@ import {
   BUILTIN_ENCODING_PROFILES,
   DEFAULT_CD_IMPORT_PROFILE_ID,
   encodingProfileOptionsForConvert,
+  formatSourceEncodingProfileLabel,
   getEncodingProfile,
   inferDefaultConvertProfileId,
   isKnownEncodingProfileId,
 } from "./encodingProfiles";
 
 describe("BUILTIN_ENCODING_PROFILES", () => {
-  it("lists the four curated built-in profiles", () => {
+  it("lists the five curated built-in profiles", () => {
     expect(BUILTIN_ENCODING_PROFILES.map((profile) => profile.id)).toEqual([
       "lossless-flac",
+      "apple-alac",
       "apple-aac",
       "mp3-high",
       "mp3-compact",
@@ -25,6 +27,12 @@ describe("BUILTIN_ENCODING_PROFILES", () => {
         label: "Lossless (FLAC)",
         subtitle: "Best quality for your library",
         extension: "flac",
+      },
+      {
+        id: "apple-alac",
+        label: "Apple Lossless (ALAC)",
+        subtitle: ".m4a for iTunes and Apple devices",
+        extension: "m4a",
       },
       {
         id: "apple-aac",
@@ -51,6 +59,9 @@ describe("BUILTIN_ENCODING_PROFILES", () => {
 describe("getEncodingProfile", () => {
   it("returns a profile by id", () => {
     expect(getEncodingProfile("apple-aac")?.label).toBe("Apple Device (AAC)");
+    expect(getEncodingProfile("apple-alac")?.label).toBe(
+      "Apple Lossless (ALAC)",
+    );
   });
 
   it("returns undefined for unknown ids", () => {
@@ -65,7 +76,20 @@ describe("encoding profile helpers", () => {
 
   it("validates profile ids", () => {
     expect(isKnownEncodingProfileId("mp3-high")).toBe(true);
+    expect(isKnownEncodingProfileId("apple-alac")).toBe(true);
     expect(isKnownEncodingProfileId("custom")).toBe(false);
+  });
+
+  it("formats source encoding labels from profile id or codec", () => {
+    expect(
+      formatSourceEncodingProfileLabel({ sourceProfileId: "apple-alac" }),
+    ).toBe("Apple Lossless (ALAC)");
+    expect(formatSourceEncodingProfileLabel({ codec: "alac" })).toBe(
+      "Apple Lossless (ALAC)",
+    );
+    expect(
+      formatSourceEncodingProfileLabel({ sourceProfileId: "lossless-flac" }),
+    ).toBe("Lossless (FLAC)");
   });
 });
 
@@ -80,7 +104,7 @@ describe("convert profile options", () => {
       encodingProfileOptionsForConvert(["/music/album/track.flac"]).map(
         (option) => option.value,
       ),
-    ).toEqual(["apple-aac", "mp3-high", "mp3-compact"]);
+    ).toEqual(["apple-alac", "apple-aac", "mp3-high", "mp3-compact"]);
     expect(
       encodingProfileOptionsForConvert(["/music/album/track.mp3"]).map(
         (option) => option.value,
@@ -101,7 +125,7 @@ describe("convert profile options", () => {
 describe("inferDefaultConvertProfileId", () => {
   it("prefers a different allowed format from the source file", () => {
     expect(inferDefaultConvertProfileId("/music/album/track.flac")).toBe(
-      "apple-aac",
+      "apple-alac",
     );
     expect(inferDefaultConvertProfileId("/music/album/track.m4a")).toBe(
       "mp3-high",

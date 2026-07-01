@@ -1,15 +1,15 @@
 //! Transcode audio files using built-in encoding profiles.
 
+mod alac;
+mod decode;
+mod error;
+mod pcm_stream;
+mod wav;
+
 #[cfg(target_os = "macos")]
 mod afconvert;
 #[cfg(target_os = "macos")]
-mod error;
-#[cfg(target_os = "macos")]
 mod lame;
-#[cfg(target_os = "macos")]
-mod pcm_stream;
-#[cfg(target_os = "macos")]
-mod wav;
 
 #[cfg(target_os = "macos")]
 mod macos;

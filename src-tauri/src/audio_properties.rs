@@ -12,20 +12,25 @@ pub fn read_audio_properties(path: &Path) -> AudioProperties {
         return AudioProperties::default();
     }
 
-    #[cfg(target_os = "macos")]
-    if let Some(props) = read_afinfo_properties(path) {
-        return props;
-    }
-
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
         .map(|e| e.to_ascii_lowercase());
 
+    #[cfg(target_os = "macos")]
+    if let Some(mut props) = read_afinfo_properties(path) {
+        if props.codec.is_none() {
+            props.codec = codec_from_extension(ext.as_deref());
+        }
+        return props;
+    }
+
     let mut props = match ext.as_deref() {
         Some("flac") => read_flac_properties(path),
         Some("wav") => read_wav_properties(path),
         Some("mp3") => read_mp3_properties(path),
+        Some("ogg") => read_ogg_properties(path),
+        Some("opus") => read_opus_properties(path),
         _ => AudioProperties::default(),
     };
 
@@ -42,6 +47,8 @@ fn codec_from_extension(ext: Option<&str>) -> Option<String> {
         Some("flac") => Some("flac".into()),
         Some("m4a") | Some("aac") | Some("mp4") => Some("aac".into()),
         Some("wav") => Some("pcm".into()),
+        Some("ogg") => Some("vorbis".into()),
+        Some("opus") => Some("opus".into()),
         _ => None,
     }
 }
@@ -118,7 +125,16 @@ fn parse_data_format_codec(text: &str) -> Option<String> {
     if lower.contains("mp3") || lower.contains("mpg3") {
         return Some("mp3".into());
     }
-    if lower.contains("lpcm") || lower.contains("pcm") {
+    if lower.contains("lpcm")
+        || lower.contains("pcm")
+        || lower.contains("int16")
+        || lower.contains("int24")
+        || lower.contains("int32")
+        || lower.contains("float32")
+        || lower.contains("float64")
+        || lower.contains("f32")
+        || lower.contains("f64")
+    {
         return Some("pcm".into());
     }
     None
@@ -303,9 +319,84 @@ fn find_mp3_frame_offset(data: &[u8]) -> Option<usize> {
     None
 }
 
+fn read_ogg_properties(path: &Path) -> AudioProperties {
+    probe_symphonia_properties(path, "vorbis")
+}
+
+fn read_opus_properties(path: &Path) -> AudioProperties {
+    probe_symphonia_properties(path, "opus")
+}
+
+fn probe_symphonia_properties(path: &Path, codec: &str) -> AudioProperties {
+    use std::fs::File;
+
+    use symphonia::core::codecs::CODEC_TYPE_NULL;
+    use symphonia::core::formats::FormatOptions;
+    use symphonia::core::io::MediaSourceStream;
+    use symphonia::core::meta::MetadataOptions;
+    use symphonia::core::probe::Hint;
+
+    let mut props = AudioProperties {
+        codec: Some(codec.into()),
+        ..AudioProperties::default()
+    };
+
+    let Ok(file) = File::open(path) else {
+        return props;
+    };
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+    let mut hint = Hint::new();
+    if let Some(ext) = path.extension().and_then(|value| value.to_str()) {
+        hint.with_extension(ext);
+    }
+
+    let Ok(probed) = symphonia::default::get_probe().format(
+        &hint,
+        mss,
+        &FormatOptions::default(),
+        &MetadataOptions::default(),
+    ) else {
+        return props;
+    };
+
+    let track = probed
+        .format
+        .tracks()
+        .iter()
+        .find(|track| track.codec_params.codec != CODEC_TYPE_NULL);
+
+    let Some(track) = track else {
+        return props;
+    };
+
+    if let Some(rate) = track.codec_params.sample_rate {
+        props.sample_rate = Some(rate);
+    }
+
+    if let (Some(n_frames), Some(rate)) =
+        (track.codec_params.n_frames, track.codec_params.sample_rate)
+    {
+        if rate > 0 && n_frames > 0 {
+            let duration_secs = n_frames as f64 / rate as f64;
+            if duration_secs > 0.0 {
+                let file_size = std::fs::metadata(path).ok().map(|m| m.len()).unwrap_or(0);
+                if file_size > 0 {
+                    let bitrate = ((file_size as f64 * 8.0) / duration_secs).round() as u32;
+                    if bitrate > 0 {
+                        props.bitrate = Some(bitrate);
+                    }
+                }
+            }
+        }
+    }
+
+    props
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_fixtures::wav;
 
     #[test]
     fn parse_hz_value_reads_sample_rate() {
@@ -325,12 +416,30 @@ mod tests {
             parse_data_format_codec("2 ch, 44100 Hz, '.mp3'"),
             Some("mp3".into())
         );
+        assert_eq!(
+            parse_data_format_codec("2 ch, 44100 Hz, Int16, interleaved"),
+            Some("pcm".into())
+        );
     }
 
     #[test]
     fn parse_bitrate_number_reads_first_number() {
         assert_eq!(parse_bitrate_number("256000 bits/sec"), Some(256_000));
         assert_eq!(parse_bitrate_number("193239.6 bits per second"), Some(193_240));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn parse_afinfo_properties_reads_pcm_wav_int16() {
+        let stdout = "\
+File type ID:   WAVE
+Data format:     2 ch,  44100 Hz, Int16, interleaved
+bit rate: 1411200 bits per second
+";
+        let props = parse_afinfo_properties(stdout);
+        assert_eq!(props.sample_rate, Some(44_100));
+        assert_eq!(props.codec.as_deref(), Some("pcm"));
+        assert_eq!(props.bitrate, Some(1_411_200));
     }
 
     #[cfg(target_os = "macos")]
@@ -352,34 +461,7 @@ bit rate: 256000 bits per second
         let dir = std::env::temp_dir().join(format!("spiral-wav-props-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join("test.wav");
-
-        let channels: u16 = 2;
-        let sample_rate: u32 = 48_000;
-        let bits_per_sample: u16 = 16;
-        let block_align = channels * (bits_per_sample / 8);
-        let byte_rate = sample_rate * u32::from(block_align);
-        let samples: [i16; 4] = [0, 0, 0, 0];
-        let data_bytes = samples.len() * 2;
-
-        let mut file = std::fs::File::create(&path).unwrap();
-        use std::io::Write;
-        file.write_all(b"RIFF").unwrap();
-        file.write_all(&(36u32 + data_bytes as u32).to_le_bytes())
-            .unwrap();
-        file.write_all(b"WAVE").unwrap();
-        file.write_all(b"fmt ").unwrap();
-        file.write_all(&16u32.to_le_bytes()).unwrap();
-        file.write_all(&1u16.to_le_bytes()).unwrap();
-        file.write_all(&channels.to_le_bytes()).unwrap();
-        file.write_all(&sample_rate.to_le_bytes()).unwrap();
-        file.write_all(&byte_rate.to_le_bytes()).unwrap();
-        file.write_all(&block_align.to_le_bytes()).unwrap();
-        file.write_all(&bits_per_sample.to_le_bytes()).unwrap();
-        file.write_all(b"data").unwrap();
-        file.write_all(&(data_bytes as u32).to_le_bytes()).unwrap();
-        for sample in samples {
-            file.write_all(&sample.to_le_bytes()).unwrap();
-        }
+        wav::write_minimal(&path);
 
         let props = read_wav_properties(&path);
         assert_eq!(props.codec.as_deref(), Some("pcm"));

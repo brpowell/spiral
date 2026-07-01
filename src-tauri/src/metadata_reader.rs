@@ -66,7 +66,10 @@ fn read_mp3_duration(path: &Path) -> Option<f64> {
         .filter(|seconds| *seconds > 0.0)
 }
 
-fn read_mp3_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
+fn read_id3_tags(
+    path: &Path,
+    duration_fallback: fn(&Path) -> Option<f64>,
+) -> (BasicTags, Option<(Vec<u8>, String)>) {
     let mut tags = BasicTags::default();
     let mut art = None;
 
@@ -93,10 +96,18 @@ fn read_mp3_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
     }
 
     if tags.duration_seconds.is_none() {
-        tags.duration_seconds = read_mp3_duration(path);
+        tags.duration_seconds = duration_fallback(path);
     }
 
     (tags, art)
+}
+
+fn read_mp3_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
+    read_id3_tags(path, read_mp3_duration)
+}
+
+fn read_wav_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
+    read_id3_tags(path, read_wav_duration)
 }
 
 fn read_flac_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
@@ -233,11 +244,8 @@ pub fn read_basic_tags(path: &Path) -> BasicTags {
         "mp3" => read_mp3_tags(path),
         "flac" => read_flac_tags(path),
         "m4a" | "aac" | "mp4" => read_mp4_tags(path),
-        "wav" => {
-            let mut tags = BasicTags::default();
-            tags.duration_seconds = read_wav_duration(path);
-            (tags, None)
-        }
+        "wav" => read_wav_tags(path),
+        "ogg" | "opus" => crate::vorbis_container::read_vorbis_container_tags(path),
         _ => (BasicTags::default(), None),
     };
 
@@ -258,11 +266,8 @@ pub fn parse_track_metadata(
         "mp3" => read_mp3_tags(&path),
         "flac" => read_flac_tags(&path),
         "m4a" | "aac" | "mp4" => read_mp4_tags(&path),
-        "wav" => {
-            let mut tags = BasicTags::default();
-            tags.duration_seconds = read_wav_duration(&path);
-            (tags, None)
-        }
+        "wav" => read_wav_tags(&path),
+        "ogg" | "opus" => crate::vorbis_container::read_vorbis_container_tags(&path),
         _ => (BasicTags::default(), None),
     };
 
@@ -296,6 +301,8 @@ pub fn parse_track_metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_fixtures::wav;
+    use std::fs;
 
     #[test]
     fn join_artist_field_joins_flac_values() {
@@ -369,5 +376,82 @@ mod tests {
         assert_eq!(result.rating, Some(204));
 
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_wav_tags_reads_committed_fixture() {
+        let (tags, _) = read_wav_tags(&wav::tagged_fixture_path());
+        assert_eq!(tags.title.as_deref(), Some("WAV Title"));
+        assert_eq!(tags.artist.as_deref(), Some("WAV Artist"));
+        assert_eq!(tags.album.as_deref(), Some("WAV Album"));
+        assert_eq!(tags.album_artist.as_deref(), Some("WAV Album Artist"));
+        assert_eq!(tags.track_number, Some(3));
+        assert_eq!(tags.disc_number, Some(2));
+        assert_eq!(tags.year, Some(2020));
+        assert_eq!(tags.genre.as_deref(), Some("Jazz"));
+        assert!(tags.duration_seconds.unwrap() > 0.0);
+    }
+
+    #[test]
+    fn read_wav_tags_falls_back_to_duration_for_untagged() {
+        let dir = std::env::temp_dir().join(format!("spiral-wav-untagged-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let audio = dir.join("plain.wav");
+        wav::write_minimal(&audio);
+
+        let (tags, art) = read_wav_tags(&audio);
+        assert!(tags.title.is_none());
+        assert!(tags.artist.is_none());
+        assert!(art.is_none());
+        assert!(tags.duration_seconds.unwrap() > 0.0);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_wav_tags_ignores_corrupt_id3_and_keeps_duration() {
+        let dir = std::env::temp_dir().join(format!("spiral-wav-corrupt-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let audio = dir.join("corrupt.wav");
+        wav::write_minimal(&audio);
+        let mut bytes = std::fs::read(&audio).unwrap();
+        bytes.extend_from_slice(b"ID3\x00\x00\x00\x10garbage!!!!");
+        std::fs::write(&audio, bytes).unwrap();
+
+        let (tags, art) = read_wav_tags(&audio);
+        assert!(tags.title.is_none());
+        assert!(art.is_none());
+        assert!(tags.duration_seconds.unwrap() > 0.0);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn parse_track_metadata_reads_wav_id3_rating() {
+        use crate::metadata_backup::MetadataBackupConfig;
+
+        let dir = std::env::temp_dir().join(format!("spiral-wav-popm-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let audio = dir.join("rated.wav");
+        fs::copy(wav::tagged_fixture_path(), &audio).unwrap();
+
+        let backup_config = MetadataBackupConfig {
+            enabled: false,
+            retention_days: 14,
+        };
+        rating_tags::write_rating_to_file(&audio, 180, &backup_config).unwrap();
+
+        let app_data = dir.join("appdata");
+        let result = parse_track_metadata(&app_data, audio.to_str().unwrap()).unwrap();
+        assert_eq!(result.rating, Some(180));
+        assert_eq!(result.title, "WAV Title");
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

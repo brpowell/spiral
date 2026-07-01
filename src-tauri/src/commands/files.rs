@@ -10,8 +10,8 @@ pub fn pick_audio_files() -> Result<Vec<String>, String> {
         .add_filter(
             "Audio",
             &[
-                "mp3", "flac", "aac", "wav", "m4a", "zip", "MP3", "FLAC", "AAC", "WAV", "M4A",
-                "ZIP",
+                "mp3", "flac", "aac", "wav", "m4a", "mp4", "ogg", "opus", "zip", "MP3", "FLAC",
+                "AAC", "WAV", "M4A", "MP4", "OGG", "OPUS", "ZIP",
             ],
         )
         .set_directory("/")

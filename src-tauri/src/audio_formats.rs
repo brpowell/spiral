@@ -1,6 +1,7 @@
 use std::path::Path;
 
-pub const SUPPORTED_AUDIO_EXTENSIONS: &[&str] = &["mp3", "flac", "aac", "wav", "m4a"];
+pub const SUPPORTED_AUDIO_EXTENSIONS: &[&str] =
+    &["mp3", "flac", "aac", "wav", "m4a", "mp4", "ogg", "opus"];
 
 const BLOCKED_AUDIO_EXTENSIONS: &[&str] = &["m4p"];
 
@@ -49,6 +50,17 @@ mod tests {
     #[test]
     fn accepts_m4a() {
         assert!(is_supported_audio_file(Path::new("/music/song.m4a")));
+    }
+
+    #[test]
+    fn accepts_mp4() {
+        assert!(is_supported_audio_file(Path::new("/music/song.mp4")));
+    }
+
+    #[test]
+    fn accepts_ogg_and_opus() {
+        assert!(is_supported_audio_file(Path::new("/music/song.ogg")));
+        assert!(is_supported_audio_file(Path::new("/music/song.opus")));
     }
 
     #[test]

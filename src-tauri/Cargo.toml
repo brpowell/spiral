@@ -39,6 +39,10 @@ base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 zip = "2"
 mp3-duration = "0.1.10"
+alac-encoder = "0.3"
+lofty = "0.22"
+symphonia = { version = "0.5", default-features = false, features = ["aac", "alac", "flac", "isomp4", "mp3", "pcm", "ogg", "vorbis"] }
+opus-decoder = "0.1"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 mp3lame-encoder = "0.2.4"

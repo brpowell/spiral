@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodePcmBase64 } from "./cdPcmPipeline";
+import { decodePcmBase64 } from "./pcmDecode";
 
 describe("decodePcmBase64", () => {
   it("decodes little-endian f32 PCM", () => {

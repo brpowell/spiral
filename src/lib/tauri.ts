@@ -161,6 +161,7 @@ export async function convertTrack(options: {
 export interface ConvertProfileOptions {
   profileIds: string[];
   defaultProfileId: string;
+  sourceProfileId?: string | null;
 }
 
 export async function getConvertProfileOptions(

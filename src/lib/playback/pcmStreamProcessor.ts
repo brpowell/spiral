@@ -1,9 +1,12 @@
-/// <reference lib="webworker" />
+/// <reference path="./pcmWorklet.d.ts" />
+
+/** Must match `PCM_STREAM_PROCESSOR_NAME` in pcmStreamConstants.ts (main thread). */
+const PCM_STREAM_PROCESSOR_NAME = "pcm-stream-processor";
 
 /** Matches Rust `CHUNK_FRAMES` — low-watermark for back-pressure acks. */
 const LOW_WATERMARK_FRAMES = 2048;
 
-class CdPcmProcessor extends AudioWorkletProcessor {
+class PcmStreamProcessor extends AudioWorkletProcessor {
   private buffer: Float32Array = new Float32Array(0);
   private readIndex = 0;
   private channels = 2;
@@ -11,7 +14,7 @@ class CdPcmProcessor extends AudioWorkletProcessor {
 
   constructor() {
     super();
-    this.port.onmessage = (event: MessageEvent<CdPcmWorkletMessage>) => {
+    this.port.onmessage = (event: MessageEvent<PcmStreamWorkletMessage>) => {
       const data = event.data;
       if (data.type === "pcm") {
         this.appendSamples(data.samples, data.channels);
@@ -48,7 +51,7 @@ class CdPcmProcessor extends AudioWorkletProcessor {
 
   private maybeRequestData(): void {
     if (this.bufferedFrames() >= LOW_WATERMARK_FRAMES) return;
-    this.port.postMessage({ type: "needData" } satisfies CdPcmMainMessage);
+    this.port.postMessage({ type: "needData" } satisfies PcmStreamMainMessage);
   }
 
   process(
@@ -80,13 +83,13 @@ class CdPcmProcessor extends AudioWorkletProcessor {
   }
 }
 
-type CdPcmWorkletMessage =
+type PcmStreamWorkletMessage =
   | { type: "pcm"; samples: Float32Array; channels: number }
   | { type: "flush" }
   | { type: "configure"; channels: number; sampleRate: number };
 
-type CdPcmMainMessage = { type: "needData" };
+type PcmStreamMainMessage = { type: "needData" };
 
-registerProcessor("cd-pcm-processor", CdPcmProcessor);
+registerProcessor(PCM_STREAM_PROCESSOR_NAME, PcmStreamProcessor);
 
 export {};

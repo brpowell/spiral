@@ -22,7 +22,7 @@ const RECOVERY_PLAY_CHECK_MS = 100;
 function formatFromPath(path: string): string | undefined {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
   if (!ext) return undefined;
-  if (ext === "m4a") return "mp4";
+  if (ext === "m4a" || ext === "mp4") return "mp4";
   return ext;
 }
 

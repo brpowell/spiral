@@ -4,6 +4,9 @@ export const SUPPORTED_AUDIO_EXTENSIONS = [
   "aac",
   "wav",
   "m4a",
+  "mp4",
+  "ogg",
+  "opus",
 ] as const;
 
 const BLOCKED_AUDIO_EXTENSIONS = new Set(["m4p"]);
@@ -12,6 +15,12 @@ export function audioExtensionFromPath(path: string): string {
   const name = path.split(/[/\\]/).pop() ?? path;
   const dot = name.lastIndexOf(".");
   return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
+}
+
+/** OGG/Opus decode via Rust PCM pipeline — not Howler/Web Audio. */
+export function requiresPcmPlayback(path: string): boolean {
+  const ext = audioExtensionFromPath(path);
+  return ext === "ogg" || ext === "opus";
 }
 
 export function isSupportedAudioPath(path: string): boolean {

@@ -11,7 +11,13 @@ pub const DEFAULT_RETENTION_DAYS: u32 = 14;
 pub const MIN_RETENTION_DAYS: u32 = 1;
 pub const MAX_RETENTION_DAYS: u32 = 3650;
 
-const BACKUP_SUFFIXES: &[&str] = &[".m4a.bak", ".mp3.bak", ".flac.bak", ".aac.bak"];
+const BACKUP_SUFFIXES: &[&str] = &[
+    ".m4a.bak",
+    ".mp4.bak",
+    ".mp3.bak",
+    ".flac.bak",
+    ".aac.bak",
+];
 
 #[derive(Debug, Clone, Copy)]
 pub struct MetadataBackupConfig {
@@ -185,6 +191,7 @@ mod tests {
     #[test]
     fn recognizes_spiral_backup_names() {
         assert!(is_spiral_metadata_backup(Path::new("/a/song.m4a.bak")));
+        assert!(is_spiral_metadata_backup(Path::new("/a/song.mp4.bak")));
         assert!(is_spiral_metadata_backup(Path::new("track.mp3.bak")));
         assert!(!is_spiral_metadata_backup(Path::new("notes.bak")));
         assert!(!is_spiral_metadata_backup(Path::new("song.m4a")));
