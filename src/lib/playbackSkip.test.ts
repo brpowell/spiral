@@ -5,9 +5,11 @@ vi.mock("./artPath", () => ({
 }));
 
 import { fileExists } from "./artPath";
+import { cdTrackListId } from "./cdTracks";
 import {
   getNextSkippingKnownUnplayable,
   findNextPlayableInOrder,
+  isPlaybackIdKnownUnplayable,
 } from "./playbackSkip";
 import { getAutoplayNextId, getManualPreviousId } from "./playbackQueue";
 import type { Track } from "../types/track";
@@ -79,6 +81,32 @@ describe("getNextSkippingKnownUnplayable", () => {
       ),
     ).toBe(1);
   });
+
+  it("advances to CD list ids that are not in the library", () => {
+    const cd1 = cdTrackListId(1);
+    const cd2 = cdTrackListId(2);
+    expect(
+      getNextSkippingKnownUnplayable(
+        [cd1, cd2],
+        cd1,
+        "off",
+        [],
+        getAutoplayNextId,
+      ),
+    ).toBe(cd2);
+  });
+});
+
+describe("isPlaybackIdKnownUnplayable", () => {
+  it("treats CD list ids as playable", () => {
+    expect(isPlaybackIdKnownUnplayable(cdTrackListId(3), [])).toBe(false);
+  });
+
+  it("flags missing library tracks as unplayable", () => {
+    expect(
+      isPlaybackIdKnownUnplayable(2, [track(2, { missingFile: true })]),
+    ).toBe(true);
+  });
 });
 
 describe("findNextPlayableInOrder", () => {
@@ -121,5 +149,19 @@ describe("findNextPlayableInOrder", () => {
         getManualPreviousId,
       ),
     ).resolves.toBe(1);
+  });
+
+  it("advances to CD list ids that are not in the library", async () => {
+    const cd1 = cdTrackListId(1);
+    const cd2 = cdTrackListId(2);
+    await expect(
+      findNextPlayableInOrder(
+        [cd1, cd2],
+        cd1,
+        "off",
+        [],
+        getAutoplayNextId,
+      ),
+    ).resolves.toBe(cd2);
   });
 });

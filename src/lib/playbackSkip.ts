@@ -1,4 +1,5 @@
 import { fileExists } from "./artPath";
+import { isCdTrackListId } from "./cdTracks";
 import { isTrackImporting } from "./pendingImportTrack";
 import { isTrackMissingFile } from "./missingFileTrack";
 import type { RepeatMode, Track } from "../types/track";
@@ -14,6 +15,16 @@ export function isTrackKnownUnplayable(track: Track | undefined): boolean {
   if (isTrackImporting(track)) return true;
   if (isTrackMissingFile(track)) return true;
   return false;
+}
+
+/** Library lookup for set-list and skip logic; CD list ids are always playable. */
+export function isPlaybackIdKnownUnplayable(
+  id: number,
+  library: Track[],
+): boolean {
+  if (isCdTrackListId(id)) return false;
+  const track = library.find((item) => item.id === id);
+  return isTrackKnownUnplayable(track);
 }
 
 async function isTrackPlayableOnDisk(track: Track): Promise<boolean> {
@@ -36,8 +47,7 @@ export function getNextSkippingKnownUnplayable(
     if (visited.has(candidate)) return null;
     visited.add(candidate);
 
-    const track = library.find((item) => item.id === candidate);
-    if (!isTrackKnownUnplayable(track)) {
+    if (!isPlaybackIdKnownUnplayable(candidate, library)) {
       return candidate;
     }
 
@@ -66,6 +76,10 @@ export async function findNextPlayableInOrder(
   while (candidate !== null) {
     if (visited.has(candidate)) return null;
     visited.add(candidate);
+
+    if (isCdTrackListId(candidate)) {
+      return candidate;
+    }
 
     const track = library.find((item) => item.id === candidate);
     if (!track || isTrackImporting(track)) {

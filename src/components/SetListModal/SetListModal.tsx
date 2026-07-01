@@ -3,7 +3,7 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { buildPlaybackOrder } from "../../lib/playbackOrder";
 import { formatTime } from "../../lib/format";
 import { findPlaybackTrack } from "../../lib/playbackTrack";
-import { isTrackKnownUnplayable } from "../../lib/playbackSkip";
+import { isPlaybackIdKnownUnplayable } from "../../lib/playbackSkip";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { Track } from "../../types/track";
 import { Button } from "../common/Button/Button";
@@ -57,10 +57,7 @@ export function SetListModal({ open, onClose }: SetListModalProps) {
 
   const { nowPlayingId, upNextIds } = useMemo(() => {
     const playableUpNext = (ids: number[]) =>
-      ids.filter((id) => {
-        const track = library.find((item) => item.id === id);
-        return !isTrackKnownUnplayable(track);
-      });
+      ids.filter((id) => !isPlaybackIdKnownUnplayable(id, library));
 
     if (activeIds.length === 0) {
       return { nowPlayingId: null, upNextIds: [] as number[] };
