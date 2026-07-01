@@ -274,7 +274,7 @@ pub fn write_track_metadata(
     };
 
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::update_track(&conn, track_id, &metadata, new_file_path).map_err(|e| {
+    db::update_track(&conn, track_id, &metadata, new_file_path, None).map_err(|e| {
         eprintln!("update_track error: {e}");
         e.to_string()
     })?;

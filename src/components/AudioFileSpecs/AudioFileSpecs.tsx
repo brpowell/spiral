@@ -1,14 +1,20 @@
+import { formatAudioFormatLabel } from "../../lib/formatAudio";
 import { formatBytes } from "../../lib/formatBytes";
-import { audioExtensionFromPath } from "../../lib/supportedAudio";
 import "./AudioFileSpecs.css";
 
 export function AudioFileSpecs({
+  codec,
+  sampleRate,
+  bitrate,
   filePath,
   sizeBytes,
   className,
   formatLabel,
   sizeLabel,
 }: {
+  codec?: string | null;
+  sampleRate?: number | null;
+  bitrate?: number | null;
   filePath?: string;
   sizeBytes?: number | null;
   className?: string;
@@ -17,7 +23,7 @@ export function AudioFileSpecs({
 }) {
   const format =
     formatLabel ??
-    (audioExtensionFromPath(filePath ?? "").toUpperCase() || "AUDIO");
+    formatAudioFormatLabel({ codec, sampleRate, bitrate, filePath });
   const size =
     sizeLabel ??
     (sizeBytes != null && sizeBytes > 0

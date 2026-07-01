@@ -53,6 +53,17 @@ export function compareTracks(
       cmp = ratingA - ratingB;
       break;
     }
+    case "codec":
+      cmp = (a.codec ?? "").localeCompare(b.codec ?? "", undefined, {
+        sensitivity: "base",
+      });
+      break;
+    case "sampleRate":
+      cmp = (a.sampleRate ?? 0) - (b.sampleRate ?? 0);
+      break;
+    case "bitrate":
+      cmp = (a.bitrate ?? 0) - (b.bitrate ?? 0);
+      break;
   }
 
   return dir === "asc" ? cmp : -cmp;

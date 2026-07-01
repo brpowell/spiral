@@ -1,5 +1,6 @@
 use crate::art_cache;
 use crate::artist_tags::join_artist_field;
+use crate::audio_properties;
 use crate::models::TrackInput;
 use crate::rating_tags;
 use id3::{Tag, TagLike};
@@ -269,6 +270,8 @@ pub fn parse_track_metadata(
         cache_embedded_art(app_data_dir, file_path, &bytes, &mime)
     });
 
+    let audio = audio_properties::read_audio_properties(&path);
+
     Ok(TrackInput {
         title: tags
             .title
@@ -281,6 +284,9 @@ pub fn parse_track_metadata(
         year: tags.year,
         genre: tags.genre,
         duration_seconds: tags.duration_seconds,
+        sample_rate: audio.sample_rate,
+        bitrate: audio.bitrate,
+        codec: audio.codec,
         file_path: file_path.to_string(),
         art_path,
         rating: tags.rating,

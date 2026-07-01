@@ -1,6 +1,7 @@
 mod art_cache;
 mod art_thumb;
 mod audio_formats;
+mod audio_properties;
 mod cd;
 mod encoding_profiles;
 mod transcoder;

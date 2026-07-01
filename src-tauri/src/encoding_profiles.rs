@@ -1,5 +1,6 @@
 //! Built-in encoding profiles shared by CD rip and library convert.
 
+use crate::audio_properties;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -156,41 +157,17 @@ fn infer_default_convert_profile_id(
         .cloned()
 }
 
-#[cfg(target_os = "macos")]
 fn read_source_codec(path: &Path) -> Option<&'static str> {
-    let stdout = read_afinfo_stdout(path)?;
-    parse_afinfo_codec(&stdout)
-}
-
-#[cfg(not(target_os = "macos"))]
-fn read_source_codec(_path: &Path) -> Option<&'static str> {
-    None
-}
-
-#[cfg(target_os = "macos")]
-fn parse_afinfo_codec(stdout: &str) -> Option<&'static str> {
-    for line in stdout.lines() {
-        let trimmed = line.trim();
-        if !trimmed.starts_with("Data format:") {
-            continue;
-        }
-        let lower = trimmed.to_ascii_lowercase();
-        if lower.contains("alac") {
-            return Some("alac");
-        }
-        if lower.contains("aac") {
-            return Some("aac");
-        }
-        if lower.contains("flac") {
-            return Some("flac");
-        }
+    match audio_properties::read_audio_properties(path).codec.as_deref()? {
+        "alac" => Some("alac"),
+        "aac" => Some("aac"),
+        "flac" => Some("flac"),
+        _ => None,
     }
-    None
 }
 
-#[cfg(target_os = "macos")]
 fn infer_mp3_profile_id(path: &Path) -> Option<&'static str> {
-    let bitrate = read_audio_bitrate_bps(path)?;
+    let bitrate = audio_properties::read_audio_properties(path).bitrate?;
     if bitrate >= 280_000 {
         Some("mp3-high")
     } else if bitrate <= 160_000 {
@@ -198,41 +175,6 @@ fn infer_mp3_profile_id(path: &Path) -> Option<&'static str> {
     } else {
         None
     }
-}
-
-#[cfg(not(target_os = "macos"))]
-fn infer_mp3_profile_id(_path: &Path) -> Option<&'static str> {
-    None
-}
-
-#[cfg(target_os = "macos")]
-fn read_afinfo_stdout(path: &Path) -> Option<String> {
-    use std::process::Command;
-
-    let output = Command::new("afinfo").arg(path).output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
-
-    Some(String::from_utf8_lossy(&output.stdout).into_owned())
-}
-
-#[cfg(target_os = "macos")]
-fn read_audio_bitrate_bps(path: &Path) -> Option<u32> {
-    let stdout = read_afinfo_stdout(path)?;
-    for line in stdout.lines() {
-        let trimmed = line.trim();
-        let Some(rest) = trimmed.strip_prefix("bit rate:") else {
-            continue;
-        };
-        let number = rest
-            .split_whitespace()
-            .next()
-            .and_then(|value| value.parse::<u32>().ok())?;
-        return Some(number);
-    }
-
-    None
 }
 
 /// Build `afconvert` arguments for a profile (excluding input/output paths).
@@ -348,19 +290,5 @@ mod tests {
             Path::new("/music/album/track.flac"),
             "apple-aac",
         ));
-    }
-
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn parse_afinfo_codec_detects_alac_before_aac() {
-        let stdout = "Data format:     2 ch,  44100 Hz, alac (0x00000001) from 16-bit source";
-        assert_eq!(parse_afinfo_codec(stdout), Some("alac"));
-    }
-
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn parse_afinfo_codec_detects_aac() {
-        let stdout = "Data format:     2 ch,  44100 Hz, aac (0x00000000) 256000 bits/sec";
-        assert_eq!(parse_afinfo_codec(stdout), Some("aac"));
     }
 }

@@ -1,3 +1,4 @@
+use crate::audio_properties::AudioProperties;
 use crate::models::{ArtistImage, Playlist, PlaylistImageMode, Track, TrackInput, TrackMetadataUpdate};
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, Row};
@@ -15,6 +16,9 @@ CREATE TABLE IF NOT EXISTS tracks (
   year INTEGER,
   genre TEXT,
   duration_seconds REAL,
+  sample_rate INTEGER,
+  bitrate INTEGER,
+  codec TEXT,
   file_path TEXT NOT NULL UNIQUE,
   art_path TEXT,
   date_added TEXT NOT NULL,
@@ -46,7 +50,8 @@ CREATE TABLE IF NOT EXISTS artist_images (
 ";
 
 const TRACK_SELECT: &str = "SELECT id, title, artist, album, album_artist, track_number, disc_number,
-                year, genre, duration_seconds, file_path, art_path, date_added, play_count, rating";
+                year, genre, duration_seconds, sample_rate, bitrate, codec, file_path, art_path,
+                date_added, play_count, rating";
 
 fn map_track_row(row: &Row<'_>) -> rusqlite::Result<Track> {
     Ok(Track {
@@ -60,11 +65,14 @@ fn map_track_row(row: &Row<'_>) -> rusqlite::Result<Track> {
         year: row.get(7)?,
         genre: row.get(8)?,
         duration_seconds: row.get(9)?,
-        file_path: row.get(10)?,
-        art_path: row.get(11)?,
-        date_added: row.get(12)?,
-        play_count: row.get(13)?,
-        rating: row.get(14)?,
+        sample_rate: row.get(10)?,
+        bitrate: row.get(11)?,
+        codec: row.get(12)?,
+        file_path: row.get(13)?,
+        art_path: row.get(14)?,
+        date_added: row.get(15)?,
+        play_count: row.get(16)?,
+        rating: row.get(17)?,
     })
 }
 
@@ -120,6 +128,16 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
+    if !track_columns.iter().any(|c| c == "sample_rate") {
+        conn.execute("ALTER TABLE tracks ADD COLUMN sample_rate INTEGER", [])?;
+    }
+    if !track_columns.iter().any(|c| c == "bitrate") {
+        conn.execute("ALTER TABLE tracks ADD COLUMN bitrate INTEGER", [])?;
+    }
+    if !track_columns.iter().any(|c| c == "codec") {
+        conn.execute("ALTER TABLE tracks ADD COLUMN codec TEXT", [])?;
+    }
+
     let playlist_columns = table_columns(conn, "playlists")?;
     if !playlist_columns.iter().any(|c| c == "image_mode") {
         conn.execute(
@@ -153,8 +171,9 @@ pub fn save_track(conn: &Connection, input: &TrackInput) -> Result<i64, rusqlite
     conn.execute(
         "INSERT INTO tracks (
             title, artist, album, album_artist, track_number, disc_number,
-            year, genre, duration_seconds, file_path, art_path, date_added, rating
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+            year, genre, duration_seconds, sample_rate, bitrate, codec,
+            file_path, art_path, date_added, rating
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
         ON CONFLICT(file_path) DO UPDATE SET
             title = excluded.title,
             artist = excluded.artist,
@@ -165,6 +184,9 @@ pub fn save_track(conn: &Connection, input: &TrackInput) -> Result<i64, rusqlite
             year = excluded.year,
             genre = excluded.genre,
             duration_seconds = excluded.duration_seconds,
+            sample_rate = excluded.sample_rate,
+            bitrate = excluded.bitrate,
+            codec = excluded.codec,
             art_path = excluded.art_path,
             rating = CASE
                 WHEN tracks.rating = 0 AND excluded.rating != 0
@@ -181,6 +203,9 @@ pub fn save_track(conn: &Connection, input: &TrackInput) -> Result<i64, rusqlite
             input.year,
             input.genre,
             input.duration_seconds,
+            input.sample_rate,
+            input.bitrate,
+            input.codec,
             input.file_path,
             input.art_path,
             date_added,
@@ -240,35 +265,72 @@ pub fn update_track(
     id: i64,
     metadata: &TrackMetadataUpdate,
     file_path: Option<&str>,
+    audio_properties: Option<&AudioProperties>,
 ) -> Result<(), rusqlite::Error> {
     if let Some(path) = file_path {
-        conn.execute(
-            "UPDATE tracks SET
-                title = ?1,
-                artist = ?2,
-                album = ?3,
-                album_artist = ?4,
-                track_number = ?5,
-                disc_number = ?6,
-                year = ?7,
-                genre = ?8,
-                art_path = ?9,
-                file_path = ?10
-             WHERE id = ?11",
-            params![
-                metadata.title,
-                metadata.artist,
-                metadata.album,
-                metadata.album_artist,
-                metadata.track_number,
-                metadata.disc_number,
-                metadata.year,
-                metadata.genre,
-                metadata.art_path,
-                path,
-                id,
-            ],
-        )?;
+        if let Some(audio) = audio_properties {
+            conn.execute(
+                "UPDATE tracks SET
+                    title = ?1,
+                    artist = ?2,
+                    album = ?3,
+                    album_artist = ?4,
+                    track_number = ?5,
+                    disc_number = ?6,
+                    year = ?7,
+                    genre = ?8,
+                    art_path = ?9,
+                    file_path = ?10,
+                    sample_rate = ?11,
+                    bitrate = ?12,
+                    codec = ?13
+                 WHERE id = ?14",
+                params![
+                    metadata.title,
+                    metadata.artist,
+                    metadata.album,
+                    metadata.album_artist,
+                    metadata.track_number,
+                    metadata.disc_number,
+                    metadata.year,
+                    metadata.genre,
+                    metadata.art_path,
+                    path,
+                    audio.sample_rate,
+                    audio.bitrate,
+                    audio.codec,
+                    id,
+                ],
+            )?;
+        } else {
+            conn.execute(
+                "UPDATE tracks SET
+                    title = ?1,
+                    artist = ?2,
+                    album = ?3,
+                    album_artist = ?4,
+                    track_number = ?5,
+                    disc_number = ?6,
+                    year = ?7,
+                    genre = ?8,
+                    art_path = ?9,
+                    file_path = ?10
+                 WHERE id = ?11",
+                params![
+                    metadata.title,
+                    metadata.artist,
+                    metadata.album,
+                    metadata.album_artist,
+                    metadata.track_number,
+                    metadata.disc_number,
+                    metadata.year,
+                    metadata.genre,
+                    metadata.art_path,
+                    path,
+                    id,
+                ],
+            )?;
+        }
     } else {
         conn.execute(
             "UPDATE tracks SET
@@ -621,6 +683,9 @@ mod tests {
             year: None,
             genre: None,
             duration_seconds: None,
+            sample_rate: None,
+            bitrate: None,
+            codec: None,
             file_path: path.into(),
             art_path: None,
             rating: None,
@@ -762,6 +827,7 @@ mod tests {
                 art_changed: false,
             },
             Some("/music/album/track.m4a"),
+            None,
         )
         .unwrap();
 

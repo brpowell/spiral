@@ -17,6 +17,9 @@ export interface Track {
   year: number | null;
   genre: string | null;
   durationSeconds: number | null;
+  sampleRate: number | null;
+  bitrate: number | null;
+  codec: string | null;
   filePath: string;
   artPath: string | null;
   dateAdded: string;
@@ -37,6 +40,9 @@ export interface TrackInput {
   year: number | null;
   genre: string | null;
   durationSeconds: number | null;
+  sampleRate: number | null;
+  bitrate: number | null;
+  codec: string | null;
   filePath: string;
   artPath: string | null;
   rating?: number | null;

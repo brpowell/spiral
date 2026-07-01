@@ -12,7 +12,10 @@ export type TrackListColumnId =
   | "discNumber"
   | "dateAdded"
   | "playCount"
-  | "rating";
+  | "rating"
+  | "codec"
+  | "sampleRate"
+  | "bitrate";
 
 export type TrackListSortField = Extract<
   TrackListColumnId,
@@ -26,6 +29,9 @@ export type TrackListSortField = Extract<
   | "dateAdded"
   | "playCount"
   | "rating"
+  | "codec"
+  | "sampleRate"
+  | "bitrate"
 >;
 
 export type TrackListSortDir = "asc" | "desc";
@@ -177,6 +183,35 @@ const RATING_COL: TrackListColumnDef = {
   secondary: true,
 };
 
+const CODEC_COL: TrackListColumnDef = {
+  id: "codec",
+  label: "Codec",
+  sortable: true,
+  resizable: true,
+  hideable: true,
+  secondary: true,
+};
+
+const SAMPLE_RATE_COL: TrackListColumnDef = {
+  id: "sampleRate",
+  label: "Sample rate",
+  sortable: true,
+  resizable: true,
+  hideable: true,
+  align: "right",
+  secondary: true,
+};
+
+const BITRATE_COL: TrackListColumnDef = {
+  id: "bitrate",
+  label: "Bitrate",
+  sortable: true,
+  resizable: true,
+  hideable: true,
+  align: "right",
+  secondary: true,
+};
+
 export const TRACK_LIST_PRESETS: Record<TrackListPresetId, TrackListPreset> = {
   library: {
     id: "library",
@@ -194,6 +229,9 @@ export const TRACK_LIST_PRESETS: Record<TrackListPresetId, TrackListPreset> = {
       DATE_ADDED_COL,
       PLAY_COUNT_COL,
       RATING_COL,
+      CODEC_COL,
+      SAMPLE_RATE_COL,
+      BITRATE_COL,
       DURATION_COL,
     ],
   },
@@ -230,6 +268,9 @@ export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> =
     dateAdded: 128,
     playCount: 56,
     rating: 120,
+    codec: 72,
+    sampleRate: 88,
+    bitrate: 72,
   };
 
 export const MIN_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> = {
@@ -246,6 +287,9 @@ export const MIN_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> = {
   dateAdded: 96,
   playCount: 44,
   rating: 96,
+  codec: 56,
+  sampleRate: 72,
+  bitrate: 64,
 };
 
 const LIBRARY_DEFAULT_HIDDEN: TrackListColumnId[] = [
@@ -257,6 +301,9 @@ const LIBRARY_DEFAULT_HIDDEN: TrackListColumnId[] = [
   "dateAdded",
   "playCount",
   "rating",
+  "codec",
+  "sampleRate",
+  "bitrate",
 ];
 
 export function defaultHiddenColumns(

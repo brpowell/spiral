@@ -3,6 +3,7 @@ use crate::db;
 use crate::encoding_profiles;
 use crate::import_files;
 use crate::library_organize::{self, OrganizeMetadata};
+use crate::audio_properties;
 use crate::metadata_reader;
 use crate::models::{Track, TrackInput, TrackMetadataUpdate};
 use crate::rating_sync::{schedule_rating_file_write, RatingSync};
@@ -46,6 +47,7 @@ fn track_to_metadata(track: &Track) -> TrackMetadataUpdate {
 }
 
 fn track_to_input(track: &Track, file_path: String) -> TrackInput {
+    let audio = audio_properties::read_audio_properties(Path::new(&file_path));
     TrackInput {
         title: track.title.clone(),
         artist: track.artist.clone(),
@@ -56,6 +58,9 @@ fn track_to_input(track: &Track, file_path: String) -> TrackInput {
         year: track.year,
         genre: track.genre.clone(),
         duration_seconds: track.duration_seconds,
+        sample_rate: audio.sample_rate,
+        bitrate: audio.bitrate,
+        codec: audio.codec,
         file_path,
         art_path: track.art_path.clone(),
         rating: Some(track.rating),
@@ -250,7 +255,14 @@ pub fn replace_track_from_import(
 
     {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        db::update_track(&conn, track_id, &metadata, Some(new_path.as_str())).map_err(|e| {
+        db::update_track(
+            &conn,
+            track_id,
+            &metadata,
+            Some(new_path.as_str()),
+            Some(&audio_properties::read_audio_properties(Path::new(&new_path))),
+        )
+        .map_err(|e| {
             eprintln!("replace_track_from_import update error: {e}");
             e.to_string()
         })?;
@@ -446,7 +458,14 @@ fn convert_track_impl(
 
     {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        db::update_track(&conn, track_id, &metadata, Some(new_path.as_str())).map_err(|e| {
+        db::update_track(
+            &conn,
+            track_id,
+            &metadata,
+            Some(new_path.as_str()),
+            Some(&audio_properties::read_audio_properties(Path::new(&new_path))),
+        )
+        .map_err(|e| {
             eprintln!("convert_track update error: {e}");
             e.to_string()
         })?;
@@ -485,6 +504,9 @@ mod tests {
             year: Some(2024),
             genre: None,
             duration_seconds: Some(180.0),
+            sample_rate: None,
+            bitrate: None,
+            codec: None,
             file_path: file_path.into(),
             art_path: None,
             date_added: "2026-01-01T00:00:00Z".into(),

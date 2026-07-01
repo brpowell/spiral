@@ -21,6 +21,9 @@ describe("columnIdsForPreset", () => {
       "dateAdded",
       "playCount",
       "rating",
+      "codec",
+      "sampleRate",
+      "bitrate",
       "duration",
     ]);
   });
@@ -46,6 +49,9 @@ describe("columnIdsForPreset", () => {
       "dateAdded",
       "playCount",
       "rating",
+      "codec",
+      "sampleRate",
+      "bitrate",
     ]);
   });
 });

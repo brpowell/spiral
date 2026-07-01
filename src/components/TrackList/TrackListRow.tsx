@@ -1,6 +1,7 @@
 import { Fragment, memo, useCallback, useRef, type CSSProperties, type ReactNode } from "react";
 import { DEFAULT_ARTIST_JOIN_DELIMITER } from "../../lib/artistNames";
 import { formatDateAdded, formatTime } from "../../lib/format";
+import { formatBitrate, formatCodec, formatSampleRate } from "../../lib/formatAudio";
 import {
   artistLinksForTrack,
   hasNavigableAlbum,
@@ -50,6 +51,12 @@ function cellValue(track: Track, columnId: TrackListColumnId): ReactNode {
       return formatDateAdded(track.dateAdded);
     case "playCount":
       return String(track.playCount);
+    case "codec":
+      return formatCodec(track.codec) ?? "—";
+    case "sampleRate":
+      return formatSampleRate(track.sampleRate) ?? "—";
+    case "bitrate":
+      return formatBitrate(track.bitrate) ?? "—";
     default:
       return "—";
   }
@@ -383,6 +390,8 @@ function TrackListRowComponent({
           col.align === "center" && "track-list__cell--center",
           col.align === "right" && "track-list__cell--right",
           col.id === "duration" && "track-list__cell--duration",
+          (col.id === "sampleRate" || col.id === "bitrate") &&
+            "track-list__cell--duration",
         ]
           .filter(Boolean)
           .join(" ");

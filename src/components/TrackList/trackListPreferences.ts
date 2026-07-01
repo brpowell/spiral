@@ -27,6 +27,9 @@ const VALID_COLUMN_IDS = new Set<TrackListColumnId>([
   "dateAdded",
   "playCount",
   "rating",
+  "codec",
+  "sampleRate",
+  "bitrate",
 ]);
 
 export function defaultTrackListPreferences(): TrackListPreferences {
@@ -256,6 +259,9 @@ const TRACK_LIST_HIDEABLE_BY_PRESET: Partial<
     "dateAdded",
     "playCount",
     "rating",
+    "codec",
+    "sampleRate",
+    "bitrate",
   ],
   cd: ["artist"],
   album: ["artist"],

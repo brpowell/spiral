@@ -640,6 +640,9 @@ export function TrackEditor() {
                     <AudioFileSpecs
                       className="track-editor__audio-file-specs"
                       filePath={referenceTrack.filePath}
+                      codec={referenceTrack.codec}
+                      sampleRate={referenceTrack.sampleRate}
+                      bitrate={referenceTrack.bitrate}
                       sizeBytes={fileSizeBytes}
                     />
                     <div className="track-editor__file-location">

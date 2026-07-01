@@ -59,6 +59,12 @@ function normalizeTrack(raw: Record<string, unknown>): Track {
       (raw.durationSeconds as number | null) ??
       (raw.duration_seconds as number | null) ??
       null,
+    sampleRate:
+      (raw.sampleRate as number | null) ??
+      (raw.sample_rate as number | null) ??
+      null,
+    bitrate: (raw.bitrate as number | null) ?? null,
+    codec: (raw.codec as string | null) ?? null,
     filePath: (raw.filePath ?? raw.file_path) as string,
     artPath:
       (raw.artPath as string | null) ?? (raw.art_path as string | null) ?? null,
