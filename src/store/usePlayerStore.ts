@@ -43,6 +43,7 @@ import {
 import { fileExists } from "../lib/artPath";
 import {
   mergeLibraryClientState,
+  isMissingFileError,
   withTrackMissingFile,
 } from "../lib/missingFileTrack";
 import { showPlaybackFileMissingToast } from "../lib/playbackToast";
@@ -216,11 +217,6 @@ function setLibraryTrackMissingFile(
       track.id === trackId ? withTrackMissingFile(track, missing) : track,
     ),
   }));
-}
-
-function isMissingFilePlaybackError(err: unknown): boolean {
-  const message = err instanceof Error ? err.message : String(err);
-  return /cannot stat file|enoent|not found|no such file/i.test(message);
 }
 
 function handlePlaybackFileMissing(
@@ -412,7 +408,7 @@ async function playResolvedPlayable(
     if (generation !== playResolvedGeneration) return;
     const message = err instanceof Error ? err.message : String(err);
     console.error("Playback failed:", err);
-    if (playable.type === "library" && isMissingFilePlaybackError(err)) {
+    if (playable.type === "library" && isMissingFileError(err)) {
       await handleMissingLibraryPlayback(
         set,
         get,
@@ -499,7 +495,7 @@ async function primeTrackPaused(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("Failed to load track:", err);
-    if (isMissingFilePlaybackError(err)) {
+    if (isMissingFileError(err)) {
       handlePlaybackFileMissing(set, get, id);
       return;
     }
@@ -611,7 +607,7 @@ function refreshLibraryPreservingPlayback(
       console.error("Failed to reload converted track:", err);
       audio.unload();
       stopPositionPoll();
-      if (isMissingFilePlaybackError(err)) {
+      if (isMissingFileError(err)) {
         setLibraryTrackMissingFile(set, updatedTrack.id, true);
       }
       set({

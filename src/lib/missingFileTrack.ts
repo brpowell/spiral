@@ -5,6 +5,21 @@ export function isTrackMissingFile(track: Track): boolean {
   return track.missingFile === true;
 }
 
+export function isMissingFileError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /cannot stat file|enoent|not found|no such file|file not found/i.test(
+    message,
+  );
+}
+
+export function missingFileErrorDetail(track: Pick<Track, "title">): string {
+  return `${track.title}: File not found`;
+}
+
+export function isMissingFileErrorDetail(detail: string): boolean {
+  return detail.endsWith(": File not found");
+}
+
 /** Resolve whether a track file exists, flagging the library row when it does not. */
 export async function discoverTrackFileMissing(
   track: Track,

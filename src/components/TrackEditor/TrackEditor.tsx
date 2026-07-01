@@ -25,8 +25,12 @@ import { AudioFileSpecs } from "../AudioFileSpecs/AudioFileSpecs";
 import { revealInFileManagerLabel, revealTrackInFileManager } from "../../lib/fileManager";
 import {
   discoverTrackFileMissing,
+  isMissingFileError,
   isTrackMissingFile,
+  missingFileErrorDetail,
+  withTrackMissingFile,
 } from "../../lib/missingFileTrack";
+import { showBulkTrackMetadataSaveToast } from "../../lib/trackMetadataToast";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -379,12 +383,24 @@ export function TrackEditor() {
     setSaveProgress({ current: 0, total: tracks.length });
 
     const updated: Track[] = [];
+    const missingTracks: Track[] = [];
     const errors: string[] = [];
+
+    const noteMissing = (track: Track) => {
+      missingTracks.push(track);
+      errors.push(missingFileErrorDetail(track));
+    };
 
     try {
       for (let i = 0; i < tracks.length; i++) {
         const track = tracks[i];
         setSaveProgress({ current: i + 1, total: tracks.length });
+
+        if (await discoverTrackFileMissing(track)) {
+          noteMissing(track);
+          continue;
+        }
+
         try {
           const artPath = artChanged
             ? await resolveArtPathForTrack(track)
@@ -404,24 +420,33 @@ export function TrackEditor() {
           updated.push(saved);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          errors.push(`${track.title}: ${message}`);
+          if (isMissingFileError(err)) {
+            noteMissing(track);
+          } else {
+            errors.push(`${track.title}: ${message}`);
+          }
         }
       }
 
-      if (updated.length > 0) {
-        updateTracksInLibrary(updated);
+      const libraryUpdates = [
+        ...updated,
+        ...missingTracks.map((track) => withTrackMissingFile(track, true)),
+      ];
+      if (libraryUpdates.length > 0) {
+        updateTracksInLibrary(libraryUpdates);
       }
 
       if (errors.length > 0) {
-        setSaveError(
-          errors.length === tracks.length
-            ? errors[0]
-            : `Updated ${updated.length} of ${tracks.length} tracks. ${errors[0]}`,
-        );
-        return;
+        showBulkTrackMetadataSaveToast({
+          total: tracks.length,
+          updated: updated.length,
+          errors,
+        });
       }
 
-      closeTrackEditor();
+      if (updated.length > 0) {
+        closeTrackEditor();
+      }
     } finally {
       setSaving(false);
       setSaveProgress(null);
