@@ -17,6 +17,7 @@ interface VisualizerSlotProps {
   showExpandToggle?: boolean;
   fillContainer?: boolean;
   className?: string;
+  nodeId?: string;
 }
 
 function VisualizerRendererView({
@@ -32,6 +33,7 @@ function VisualizerRendererView({
     showExpandToggle,
     fillContainer,
     className,
+    nodeId,
   } = props;
 
   const surface = resolveVisualizerSurface(variant, expanded);
@@ -40,7 +42,10 @@ function VisualizerRendererView({
   const scene = resolveSurfaceScene(activePack, surface, reducedMotion);
 
   return (
-    <div className={["visualizer-slot", className].filter(Boolean).join(" ")}>
+    <div
+      className={["visualizer-slot", className].filter(Boolean).join(" ")}
+      data-node-id={nodeId}
+    >
       <SceneRenderer
         key={`${activePack.id}-${surface}`}
         scene={scene}

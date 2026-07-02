@@ -1,4 +1,4 @@
-import type { LayoutNode, LoadedSkinPack, TextStyle } from "../../../types/skin";
+import type { LayoutNode, LoadedSkinPack } from "../../../types/skin";
 import { useSkinVisible } from "../../../lib/skinBinds";
 import { getNodeBoundsWhen, resolveNodeBounds } from "../../../lib/skinPanels";
 import type { PanelOpenState } from "../../../lib/skinPanels";
@@ -9,7 +9,6 @@ import { SkinLayoutNode } from "./SkinLayoutNode";
 export interface SkinBoundedCanvasNodeProps {
   node: LayoutNode;
   pack: LoadedSkinPack;
-  textStyles: Record<string, TextStyle>;
   visualizerExpanded: boolean;
   onToggleVisualizer: () => void;
   onOpenQueue: () => void;
@@ -19,7 +18,6 @@ export interface SkinBoundedCanvasNodeProps {
 export function SkinBoundedCanvasNode({
   node,
   pack,
-  textStyles,
   visualizerExpanded,
   onToggleVisualizer,
   onOpenQueue,
@@ -54,7 +52,6 @@ export function SkinBoundedCanvasNode({
     <SkinLayoutNode
       node={node}
       pack={pack}
-      textStyles={textStyles}
       visualizerExpanded={visualizerExpanded}
       onToggleVisualizer={onToggleVisualizer}
       onOpenQueue={onOpenQueue}
@@ -71,7 +68,11 @@ export function SkinBoundedCanvasNode({
     return (
       <SkinBounds
         bounds={bounds}
-        debugLabel={node.id}
+        debugLabel={
+          node.type === "text" || node.type === "button"
+            ? undefined
+            : node.id
+        }
         motion={hasMotion}
         className={passthrough ? "skin-bounds--passthrough" : undefined}
       >

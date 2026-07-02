@@ -1,51 +1,42 @@
 import { ScrollingText } from "../../ScrollingText/ScrollingText";
 import { useSkinBindValue } from "../../../lib/skinBinds";
-import type { TextNode, TextStyle } from "../../../types/skin";
+import type { TextNode } from "../../../types/skin";
 import "./SkinText.css";
 
-export function SkinText({
-  node,
-  textStyles,
-}: {
-  node: TextNode;
-  textStyles: Record<string, TextStyle>;
-}) {
+export function SkinText({ node }: { node: TextNode }) {
   const bound = useSkinBindValue(node.bind);
   const text =
     node.value ??
     (bound === null || bound === undefined ? "" : String(bound));
-  const style = node.textStyle ? textStyles[node.textStyle] : undefined;
+  const overflow = node.overflow ?? "visible";
 
   if (!text) return null;
 
   const className = [
     "skin-text",
-    style?.size && `skin-text--${style.size}`,
-    style?.weight && `skin-text--${style.weight}`,
-    style?.truncate && "skin-text--truncate",
-    style?.align && `skin-text--align-${style.align}`,
+    node.presentation.kind === "css" ? node.presentation.className : undefined,
+    (overflow === "scroll" || overflow === "scroll-bounce") &&
+      "skin-text--overflow-scroll",
+    overflow === "clip" && "skin-text--overflow-clip",
   ]
     .filter(Boolean)
     .join(" ");
 
-  const colorVar = style?.role ? `var(--${style.role})` : undefined;
+  const nodeIdProps = node.id ? { "data-node-id": node.id } : undefined;
 
-  if (style?.truncate) {
+  if (overflow === "scroll" || overflow === "scroll-bounce") {
     return (
-      <span
-        className={className}
-        style={colorVar ? { color: colorVar } : undefined}
-      >
+      <span className={className} {...nodeIdProps}>
         <ScrollingText
           text={text}
-          mode={style?.scroll === "marquee" ? "marquee" : "bounce"}
+          mode={overflow === "scroll" ? "marquee" : "bounce"}
         />
       </span>
     );
   }
 
   return (
-    <span className={className} style={colorVar ? { color: colorVar } : undefined}>
+    <span className={className} {...nodeIdProps}>
       {text}
     </span>
   );

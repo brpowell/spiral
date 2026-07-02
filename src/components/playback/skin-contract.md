@@ -61,8 +61,6 @@ Read-only paths for skin text, visibility, and disabled states. No scripting in 
 | `track.title` | `string` | Current track title |
 | `track.artist` | `string \| null` | Primary artist |
 | `track.metadataLine` | `string` | `{status} - {artist} - {title}` (scrolling-friendly) |
-
-Text styles with `truncate: true` enable overflow scrolling. Set `scroll: "marquee"` for a seamless looping ticker (classic WMP); omit or use `bounce` for pause–scroll–snap-back.
 | `track.album` | `string \| null` | Album name |
 | `track.artUrl` | `string \| null` | Resolved album art URL |
 | `track.durationSeconds` | `number \| null` | Track duration |
@@ -260,7 +258,69 @@ Auxiliary windows bootstrap only the subsystems their layout needs: `eqBand` nod
 
 Root layout for canvas views is typically `{ "type": "canvas", "children": [ … ] }`.
 
-Canvas skins may ship a pack-level `stylesheet` for control styling scoped via `classPrefix` on primitive nodes.
+Canvas skins may ship a pack-level `stylesheet`. Target nodes by `id` (`data-node-id`); use `classPrefix` on primitives only when many nodes share the same look (e.g. spiral-default slot controls).
+
+## Stylesheet (`stylesheet`)
+
+Optional `skin.css` (or any path relative to the pack root). The runtime **auto-scopes** every rule to the active skin by prefixing selectors with `[data-skin-id="{skinId}"]` — authors write plain selectors; do not repeat the skin id in `skin.css`.
+
+| Author writes | Runtime applies |
+| --- | --- |
+| `.skin-text { font-size: 11px; }` | `[data-skin-id="my-skin"] .skin-text { … }` |
+| `[data-node-id="track-title"] { … }` | `[data-skin-id="my-skin"] [data-node-id="track-title"] { … }` |
+| `[data-view-id="playlist"] .foo { … }` | `[data-skin-id="my-skin"] [data-view-id="playlist"] .foo { … }` |
+
+Rare unscoped rules (e.g. host chrome) may use `:global(.selector) { … }`. `@keyframes` and `@font-face` are not prefixed.
+
+**Use flat selectors** in `skin.css` (no CSS nesting). The scoping pipeline does not expand nested rules before prefixing.
+
+This sandboxing keeps skin CSS from leaking into the host app and is the foundation for user-authored packs and a future skin editor (preview = same scoping as runtime).
+
+## Text nodes (`type`: `text`)
+
+Text nodes bind dynamic or static labels. **Overflow behavior** lives in JSON; **typography** (font, color, weight, alignment) belongs in the skin stylesheet.
+
+| Field | Purpose |
+| --- | --- |
+| `bind` | Data bind path (e.g. `track.title`) |
+| `value` | Static label when `bind` is omitted |
+| `overflow` | Runtime overflow: omit/`visible` (plain text), `clip` (ellipsis), `scroll` (marquee), `scroll-bounce` (pause–scroll–snap-back) |
+| `id` | Unique node id — exposed as `data-node-id` on the text element; primary CSS hook |
+
+CSS targeting examples:
+
+```css
+/* skin.css — auto-scoped to the active skin; no [data-skin-id] prefix needed */
+
+/* Skin-wide text defaults */
+.skin-text { font-size: 11px; }
+
+/* Unique text node by id */
+[data-node-id="track-title"] { font-weight: 600; }
+
+/* Several text nodes, same look — comma-list ids (no one-off classes) */
+[data-node-id="eq-balance-label"],
+[data-node-id="eq-volume-label"] { color: #77ce07; }
+
+/* Control by id */
+[data-node-id="eq-reset"].skin-primitive-btn--text { color: #ddd; }
+
+/* Child inside a bounds box when the control has no id on its root */
+.skin-bounds[data-node-id="pl-view"] .skin-playlist-view { padding: 2px; }
+```
+
+**Which hook to use:**
+
+| Styling | Selector |
+| --- | --- |
+| One text node | `[data-node-id="track-title"]` |
+| Several text nodes, same look | Comma-list `[data-node-id="a"], [data-node-id="b"]` |
+| Control with an `id` | `[data-node-id="pl-list"]`, `[data-node-id="vis-viz"]` |
+| Child inside a bounds box | `.skin-bounds[data-node-id="pl-view"] .skin-playlist-view` |
+| Skin-wide text defaults | `.skin-text` |
+| Shared slot controls (many nodes) | `classPrefix` on primitives only, e.g. `skin-spiral-default` |
+
+Theme-following skins use app CSS variables directly (`var(--color-text-primary)`, etc.).
 
 ### Resizable canvas views
 
@@ -316,7 +376,8 @@ Wire a `playlist` node with `presentation.kind`: `compact`:
 | --- | --- |
 | `showDropdown` | Source selector at top (default `true`) |
 | `showDuration` | Duration column (default `true`) |
-| `classPrefix` | Optional CSS scope class |
+
+Set an `id` on the playlist node and target `[data-node-id="…"]` in `skin.css` for per-skin styling.
 
 Dropdown changes invoke `playlist.setSource`; row clicks invoke `playlist.playTrack`. Bind `playlist.sourceLabel`, `playlist.trackCount`, or `playlist.hasTracks` for chrome text and visibility.
 

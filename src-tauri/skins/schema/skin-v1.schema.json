@@ -28,10 +28,6 @@
       "minProperties": 1,
       "additionalProperties": { "$ref": "#/$defs/view" }
     },
-    "textStyles": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/textStyle" }
-    },
     "visualizer": {
       "type": "object",
       "additionalProperties": false,
@@ -69,7 +65,7 @@
     },
     "stylesheet": {
       "type": "string",
-      "description": "Optional CSS file path relative to the skin pack root (e.g. skin.css)."
+      "description": "Optional CSS file path relative to the skin pack root (e.g. skin.css). The runtime auto-prefixes every selector with [data-skin-id] for sandboxing — authors write plain selectors."
     },
     "soundEffects": {
       "type": "object",
@@ -562,7 +558,11 @@
             "url": { "type": "string", "minLength": 1 },
             "bind": { "type": "string" },
             "value": { "type": "string" },
-            "textStyle": { "type": "string" },
+            "overflow": {
+              "type": "string",
+              "enum": ["visible", "clip", "scroll", "scroll-bounce"],
+              "description": "Runtime overflow behavior. Typography belongs in skin CSS."
+            },
             "disabledWhen": { "type": "string" },
             "activeWhen": {
               "type": "string",
@@ -1110,8 +1110,7 @@
         "showDuration": {
           "type": "boolean",
           "description": "Show track duration column. Default true."
-        },
-        "classPrefix": { "type": "string" }
+        }
       }
     },
     "framedPanelInset": {
@@ -1141,31 +1140,6 @@
           ]
         },
         "x": { "type": "number", "minimum": 0 }
-      }
-    },
-    "textStyle": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "role": {
-          "type": "string",
-          "description": "Optional theme token for color, e.g. color-text-primary. Omit when skin CSS sets color."
-        },
-        "size": { "type": "string", "enum": ["sm", "md", "lg"] },
-        "weight": {
-          "type": "string",
-          "enum": ["normal", "medium", "semibold", "bold"]
-        },
-        "truncate": { "type": "boolean" },
-        "scroll": {
-          "type": "string",
-          "enum": ["bounce", "marquee"],
-          "description": "Overflow scroll style when truncate is true."
-        },
-        "align": {
-          "type": "string",
-          "enum": ["left", "center", "right"]
-        }
       }
     },
     "visualizerSize": {

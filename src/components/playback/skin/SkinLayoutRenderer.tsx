@@ -5,7 +5,6 @@ import type {
   LoadedSkinPack,
   ShellSlot,
   SkinManifest,
-  TextStyle,
 } from "../../../types/skin";
 import { resolveViewLayoutMode } from "../../../lib/skinWindowPresentation";
 import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
@@ -29,7 +28,6 @@ function collectRegions(
   node: LayoutNode,
   slots: Record<ShellSlot, ReactNode[]>,
   pack: LoadedSkinPack,
-  textStyles: Record<string, TextStyle>,
   visualizerExpanded: boolean,
   onToggleVisualizer: () => void,
   onOpenQueue: () => void,
@@ -43,7 +41,6 @@ function collectRegions(
           key={child.id ?? `${current.slot}-${index}`}
           node={child}
           pack={pack}
-          textStyles={textStyles}
           visualizerExpanded={visualizerExpanded}
           onToggleVisualizer={onToggleVisualizer}
           onOpenQueue={onOpenQueue}
@@ -90,7 +87,6 @@ function collectRegions(
           key={child.id ?? `overlay-${index}`}
           node={child}
           pack={pack}
-          textStyles={textStyles}
           visualizerExpanded={visualizerExpanded}
           onToggleVisualizer={onToggleVisualizer}
           onOpenQueue={onOpenQueue}
@@ -120,7 +116,6 @@ function collectRegions(
           key={current.id ?? `decoration-${overlays.length}`}
           node={current}
           pack={pack}
-          textStyles={textStyles}
           visualizerExpanded={visualizerExpanded}
           onToggleVisualizer={onToggleVisualizer}
           onOpenQueue={onOpenQueue}
@@ -152,14 +147,12 @@ function SkinSlotsLayout({
   resolvedView,
   className,
   manifest,
-  textStyles,
 }: {
   pack: LoadedSkinPack;
   view: NonNullable<SkinLayoutRendererProps["pack"]["manifest"]["views"][string]>;
   resolvedView: string;
   className?: string;
   manifest: SkinManifest;
-  textStyles: Record<string, TextStyle>;
 }) {
   const [visualizerExpanded, setVisualizerExpanded] = useState(false);
   const onToggleVisualizer = () => setVisualizerExpanded((v) => !v);
@@ -172,7 +165,6 @@ function SkinSlotsLayout({
           view.layout,
           slotNodes,
           pack,
-          textStyles,
           visualizerExpanded,
           onToggleVisualizer,
           onOpenQueue,
@@ -184,7 +176,7 @@ function SkinSlotsLayout({
       overlays: overlayNodes,
       shellClass: ["skin-layout", className].filter(Boolean).join(" "),
     };
-  }, [view, pack, textStyles, visualizerExpanded, className]);
+  }, [view, pack, visualizerExpanded, className]);
 
   const hasFooterVolume = slots.footer.length > 0;
 
@@ -221,7 +213,6 @@ export function SkinLayoutRenderer({
   const resolvedView =
     viewId && manifest.views[viewId] ? viewId : manifest.defaultView;
   const view = manifest.views[resolvedView];
-  const textStyles = manifest.textStyles ?? {};
 
   if (!view) return null;
 
@@ -244,7 +235,6 @@ export function SkinLayoutRenderer({
       resolvedView={resolvedView}
       className={className}
       manifest={manifest}
-      textStyles={textStyles}
     />
   );
 }

@@ -141,8 +141,6 @@ pub struct SkinManifest {
     pub default_view: String,
     pub views: HashMap<String, SkinView>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub text_styles: Option<HashMap<String, TextStyle>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visualizer: Option<SkinVisualizer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub animations: Option<serde_json::Value>,
@@ -602,7 +600,7 @@ pub struct TextControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub text_style: Option<String>,
+    pub overflow: Option<String>,
     pub presentation: Presentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
@@ -750,8 +748,6 @@ pub enum Presentation {
         show_dropdown: Option<bool>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         show_duration: Option<bool>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        class_prefix: Option<String>,
     },
 }
 
@@ -769,23 +765,6 @@ pub struct FramedPanelInset {
 pub struct DigitStripSlot {
     pub role: String,
     pub x: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TextStyle {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub role: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub size: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub weight: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub truncate: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scroll: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub align: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1508,6 +1487,14 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
         LayoutNode::Text(f) => {
             validate_bind(f.bind.as_deref(), "bind", errors);
             validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);
+            if let Some(overflow) = &f.overflow {
+                const ALLOWED: &[&str] = &["visible", "clip", "scroll", "scroll-bounce"];
+                if !ALLOWED.contains(&overflow.as_str()) {
+                    errors.push(format!(
+                        "text overflow \"{overflow}\" must be visible, clip, scroll, or scroll-bounce"
+                    ));
+                }
+            }
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
@@ -1597,13 +1584,6 @@ fn validate_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Result<(), Str
             "defaultView \"{}\" is not defined in views",
             manifest.default_view
         ));
-    }
-    if let Some(styles) = &manifest.text_styles {
-        for (name, style) in styles {
-            if style.role.as_ref().is_some_and(|role| role.trim().is_empty()) {
-                errors.push(format!("textStyles.{name}.role cannot be empty"));
-            }
-        }
     }
     if let Some(sheet) = &manifest.stylesheet {
         if sheet.contains("..") || sheet.starts_with('/') {

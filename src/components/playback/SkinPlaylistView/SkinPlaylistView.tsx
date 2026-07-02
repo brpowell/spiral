@@ -11,7 +11,13 @@ import { useSkinStore } from "../../../store/useSkinStore";
 import type { CompactPlaylistPresentation } from "../../../types/skin";
 import "./SkinPlaylistView.css";
 
-export function SkinPlaylistView({ presentation }: { presentation: CompactPlaylistPresentation }) {
+export function SkinPlaylistView({
+  presentation,
+  nodeId,
+}: {
+  presentation: CompactPlaylistPresentation;
+  nodeId?: string;
+}) {
   const sourceId = useSkinStore((s) => s.playlistSourceId);
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
@@ -53,15 +59,10 @@ export function SkinPlaylistView({ presentation }: { presentation: CompactPlayli
   const showDropdown = presentation.showDropdown !== false;
   const showDuration = presentation.showDuration !== false;
 
-  const className = [
-    "skin-playlist-view",
-    presentation.classPrefix,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const className = "skin-playlist-view";
 
   return (
-    <div className={className}>
+    <div className={className} data-node-id={nodeId}>
       {showDropdown ? (
         <select
           className="skin-playlist-view__source"

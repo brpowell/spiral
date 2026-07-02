@@ -2,7 +2,6 @@ import { useMemo, useRef, useState } from "react";
 import { useSkinStore } from "../../../store/useSkinStore";
 import type {
   LoadedSkinPack,
-  SkinManifest,
   SkinView,
 } from "../../../types/skin";
 import { resolveViewWindowChrome } from "../../../lib/skinModeWindowChrome";
@@ -11,7 +10,6 @@ import { resolveViewDragInference } from "../../../lib/skinWindowPresentation";
 import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
 import { SkinBoundedCanvasNode } from "./SkinBoundedCanvasNode";
 import { SkinViewRuntimeProviders } from "./SkinViewRuntimeProviders";
-import { useSkinDebug } from "../../../hooks/useSkinDebug";
 import { useSkinCanvasStageSize } from "../../../hooks/useSkinCanvasStageSize";
 import { SkinCanvasStageContext } from "./SkinCanvasStageContext";
 import "./SkinCanvasLayout.css";
@@ -31,11 +29,8 @@ export function SkinCanvasLayout({
   className,
   registerGlobalApi = false,
 }: SkinCanvasLayoutProps) {
-  const skinDebug = useSkinDebug();
   const panelOpen = useSkinStore((s) => s.panelOpen);
   const [visualizerExpanded, setVisualizerExpanded] = useState(false);
-  const manifest: SkinManifest = pack.manifest;
-  const textStyles = manifest.textStyles ?? {};
   const fallbackSize = resolveCanvasSize(view);
   const chrome = resolveViewWindowChrome(pack, viewId);
   const resizable = chrome.resizable !== false;
@@ -74,7 +69,6 @@ export function SkinCanvasLayout({
           key={child.id ?? `canvas-node-${index}`}
           node={child}
           pack={pack}
-          textStyles={textStyles}
           visualizerExpanded={visualizerExpanded}
           onToggleVisualizer={onToggleVisualizer}
           onOpenQueue={onOpenQueue}
@@ -92,7 +86,6 @@ export function SkinCanvasLayout({
   }, [
     view.layout,
     pack,
-    textStyles,
     visualizerExpanded,
     panelOpen,
     className,

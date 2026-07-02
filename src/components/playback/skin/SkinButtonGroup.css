@@ -17,6 +17,7 @@
 
 .skin-button-group__hit {
   position: absolute;
+  inset: 0;
   padding: 0;
   margin: 0;
   border: none;

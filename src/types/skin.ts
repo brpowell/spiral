@@ -30,7 +30,6 @@ export interface SkinManifest {
   description: string;
   defaultView: string;
   views: Record<string, SkinView>;
-  textStyles?: Record<string, TextStyle>;
   visualizer?: SkinVisualizer;
   animations?: unknown;
   timelines?: unknown;
@@ -446,12 +445,18 @@ export interface PlaylistNode extends ControlNodeBase {
   type: "playlist";
 }
 
+export type TextOverflow = "visible" | "clip" | "scroll" | "scroll-bounce";
+
 export interface TextNode extends NodeBase {
   type: "text";
   bind?: string;
   /** Static label when `bind` is omitted. */
   value?: string;
-  textStyle?: string;
+  /**
+   * Runtime overflow behavior. Typography (size, color, weight, align) belongs
+   * in the skin stylesheet — target via `id` (`data-node-id`).
+   */
+  overflow?: TextOverflow;
   presentation: Presentation;
 }
 
@@ -631,18 +636,6 @@ export interface CompactPlaylistPresentation {
   showDropdown?: boolean;
   /** Show duration column. Default true. */
   showDuration?: boolean;
-  classPrefix?: string;
-}
-
-export interface TextStyle {
-  /** Theme token for color (`var(--{role})`). Omit when color is set in skin CSS. */
-  role?: string;
-  size?: "sm" | "md" | "lg";
-  weight?: "normal" | "medium" | "semibold" | "bold";
-  truncate?: boolean;
-  /** When `truncate` is true: `bounce` (default) or seamless `marquee` loop. */
-  scroll?: "bounce" | "marquee";
-  align?: "left" | "center" | "right";
 }
 
 export interface WindowChrome {

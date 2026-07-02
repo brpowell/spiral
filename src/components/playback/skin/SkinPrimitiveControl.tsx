@@ -72,6 +72,7 @@ export function SkinPrimitiveControl({
         showExpandToggle={vizLayout.showExpandToggle}
         fillContainer={vizLayout.fillContainer}
         className={[prefix, vizLayout.slotClassName].filter(Boolean).join(" ")}
+        nodeId={node.id}
       />
     );
   }

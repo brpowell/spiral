@@ -1,4 +1,6 @@
-[data-skin-id="spiral-default"] .skin-shell {
+/* Auto-scoped to this skin at runtime — write selectors without [data-skin-id]. */
+
+.skin-shell {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -8,14 +10,13 @@
   gap: 0.625rem;
 }
 
-[data-skin-id="spiral-default"] .skin-region-drag {
+.skin-region-drag {
   display: flex;
   align-items: center;
   min-height: 1.75rem;
 }
 
-[data-skin-id="spiral-default"] .skin-layout-node--row#window-chrome,
-[data-skin-id="spiral-default"] [data-node-id="window-chrome"] {
+[data-node-id="window-chrome"] {
   display: flex;
   justify-content: flex-end;
   gap: 0.15rem;
@@ -23,57 +24,54 @@
 }
 
 /* Art + info row: artwork left, title/artist stacked right, top-aligned. */
-[data-skin-id="spiral-default"] .skin-shell__slot--art,
-[data-skin-id="spiral-default"] .skin-shell__slot--info {
+.skin-shell__slot--art,
+.skin-shell__slot--info {
   align-self: start;
 }
 
-[data-skin-id="spiral-default"] .skin-shell__slot--info {
+.skin-shell__slot--info {
   align-items: flex-start;
   justify-content: flex-start;
 }
 
-[data-skin-id="spiral-default"] .skin-shell__slot--info .skin-slot-stack {
+.skin-shell__slot--info .skin-slot-stack {
   align-items: flex-start;
   gap: 0.125rem;
   width: 100%;
 }
 
-[data-skin-id="spiral-default"] .skin-spiral-default.now-playing-metadata .now-playing-metadata__art {
+.skin-spiral-default.now-playing-metadata .now-playing-metadata__art {
   width: 48px;
   height: 48px;
   border-radius: var(--radius-md);
 }
 
-[data-skin-id="spiral-default"]
-  .skin-spiral-default.now-playing-metadata
-  .now-playing-metadata__art-placeholder
-  svg {
+.skin-spiral-default.now-playing-metadata .now-playing-metadata__art-placeholder svg {
   width: 24px;
   height: 24px;
 }
 
 /* Controls: left-aligned transport, full-width seek below. */
-[data-skin-id="spiral-default"] .skin-shell__slot--controls .skin-slot-stack {
+.skin-shell__slot--controls .skin-slot-stack {
   width: 100%;
   align-items: flex-start;
   gap: 0.5rem;
 }
 
-[data-skin-id="spiral-default"] .skin-spiral-default.playback-transport {
+.skin-spiral-default.playback-transport {
   gap: 0.25rem;
 }
 
-[data-skin-id="spiral-default"] .skin-spiral-default.seek-bar {
+.skin-spiral-default.seek-bar {
   width: 100%;
 }
 
 /* Footer: volume left, queue right. */
-[data-skin-id="spiral-default"] .skin-shell__slot--footer {
+.skin-shell__slot--footer {
   width: 100%;
 }
 
-[data-skin-id="spiral-default"] [data-node-id="footer-row"] {
+[data-node-id="footer-row"] {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -82,6 +80,23 @@
   gap: 0.5rem;
 }
 
-[data-skin-id="spiral-default"] .volume-control__slider {
+[data-node-id="track-title"],
+[data-node-id="track-artist"] {
+  width: 100%;
+  min-width: 0;
+}
+
+[data-node-id="track-title"] {
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+[data-node-id="track-artist"] {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+
+.volume-control__slider {
   width: 72px;
 }

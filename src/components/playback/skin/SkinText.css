@@ -7,72 +7,16 @@
   width: 100%;
 }
 
-.skin-text--align-left {
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  text-align: left;
-}
-
-.skin-text--align-center {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  text-align: center;
-}
-
-.skin-text--align-right {
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  text-align: right;
-}
-
-.skin-text--align-center.skin-text--truncate
-  .scrolling-text:not(.scrolling-text--active) {
-  text-align: center;
-}
-
-.skin-text--sm {
-  font-size: 0.8rem;
-}
-
-.skin-text--md {
-  font-size: 0.9rem;
-}
-
-.skin-text--lg {
-  font-size: 1rem;
-}
-
-.skin-text--semibold {
-  font-weight: 600;
-}
-
-.skin-text--medium {
-  font-weight: 500;
-}
-
-.skin-text--bold {
-  font-weight: 700;
-}
-
-.skin-text--truncate {
+.skin-text--overflow-scroll {
   width: 100%;
   min-width: 0;
   overflow: hidden;
 }
 
-.skin-text--align-left.skin-text--truncate,
-.skin-text--align-center.skin-text--truncate,
-.skin-text--align-right.skin-text--truncate {
-  display: flex;
-}
-
-.skin-text--align-left.skin-text--truncate .scrolling-text,
-.skin-text--align-center.skin-text--truncate .scrolling-text,
-.skin-text--align-right.skin-text--truncate .scrolling-text {
-  flex: 1;
-  min-width: 0;
+.skin-text--overflow-clip {
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

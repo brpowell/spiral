@@ -1,4 +1,4 @@
-import type { LayoutNode, LoadedSkinPack, TextStyle } from "../../../types/skin";
+import type { LayoutNode, LoadedSkinPack } from "../../../types/skin";
 import type { PanelOpenState } from "../../../lib/skinPanels";
 import { useSkinVisible } from "../../../lib/skinBinds";
 import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
@@ -23,7 +23,6 @@ import "./SkinLayoutNode.css";
 export interface SkinLayoutNodeProps {
   node: LayoutNode;
   pack: LoadedSkinPack;
-  textStyles: Record<string, TextStyle>;
   visualizerExpanded: boolean;
   onToggleVisualizer: () => void;
   onOpenQueue: () => void;
@@ -33,7 +32,6 @@ export interface SkinLayoutNodeProps {
 export function SkinLayoutNode({
   node,
   pack,
-  textStyles,
   visualizerExpanded,
   onToggleVisualizer,
   onOpenQueue,
@@ -47,7 +45,7 @@ export function SkinLayoutNode({
   }
 
   if (node.type === "text") {
-    return <SkinText node={node} textStyles={textStyles} />;
+    return <SkinText node={node} />;
   }
 
   if (node.type === "button" && node.presentation.kind === "bitmap") {
@@ -77,7 +75,6 @@ export function SkinLayoutNode({
             key={child.id ?? index}
             node={child}
             pack={pack}
-            textStyles={textStyles}
             visualizerExpanded={visualizerExpanded}
             onToggleVisualizer={onToggleVisualizer}
             onOpenQueue={onOpenQueue}
@@ -96,7 +93,6 @@ export function SkinLayoutNode({
             key={child.id ?? index}
             node={child}
             pack={pack}
-            textStyles={textStyles}
             visualizerExpanded={visualizerExpanded}
             onToggleVisualizer={onToggleVisualizer}
             onOpenQueue={onOpenQueue}
@@ -125,7 +121,6 @@ export function SkinLayoutNode({
             key={child.id ?? index}
             node={child}
             pack={pack}
-            textStyles={textStyles}
             visualizerExpanded={visualizerExpanded}
             onToggleVisualizer={onToggleVisualizer}
             onOpenQueue={onOpenQueue}
@@ -141,7 +136,7 @@ export function SkinLayoutNode({
   }
 
   if (node.type === "playlist" && node.presentation.kind === "compact") {
-    return <SkinPlaylistView presentation={node.presentation} />;
+    return <SkinPlaylistView presentation={node.presentation} nodeId={node.id} />;
   }
 
   if (

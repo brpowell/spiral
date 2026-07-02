@@ -143,6 +143,7 @@ export function SkinModeApp() {
                       : "skin-view-layer--inactive",
                   ].join(" ")}
                   aria-hidden={!isActive}
+                  {...(!isActive ? { inert: true } : {})}
                 >
                   <SkinLayoutRenderer
                     pack={activePack}
