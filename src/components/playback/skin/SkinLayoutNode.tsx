@@ -17,6 +17,7 @@ import { SkinBitmapSeekbar } from "./SkinBitmapSeekbar";
 import { SkinFramedVisualizer } from "./SkinFramedVisualizer";
 import { SkinTiledFrame } from "./SkinTiledFrame";
 import { SkinSlideshow } from "./SkinSlideshow";
+import { SkinScrollStrip } from "./SkinScrollStrip";
 import { SkinText } from "./SkinText";
 import "./SkinLayoutNode.css";
 
@@ -62,6 +63,10 @@ export function SkinLayoutNode({
 
   if (node.type === "slideshow" && node.presentation.kind === "imageSequence") {
     return <SkinSlideshow node={node} pack={pack} />;
+  }
+
+  if (node.type === "scrollStrip" && node.presentation.kind === "bitmapVertical") {
+    return <SkinScrollStrip node={node} pack={pack} />;
   }
 
   if (node.type === "canvas") {

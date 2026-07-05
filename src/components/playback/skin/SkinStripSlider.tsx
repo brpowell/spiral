@@ -7,16 +7,18 @@ import {
 } from "../../../lib/equalizer/types";
 import * as audio from "../../../lib/playback";
 import { findPlaybackTrack } from "../../../lib/playbackTrack";
-import { skinPackAssetUrl } from "../../../lib/skinAssets";
+import { skinAssetFileUrl } from "../../../lib/skinAssets";
 import {
+  inferStripSliderStripLayout,
   loadStripSliderPositionMap,
+  ratioToStripFrame,
   sampleStripSliderPointer,
   type StripSliderPointerSample,
   type StripSliderPositionMap,
 } from "../../../lib/skinStripSliderMap";
 import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
 import { useSkinDebug } from "../../../hooks/useSkinDebug";
-import { useSkinBindState } from "../../../lib/skinBinds";
+import { useSkinBindState, useSkinControlEnabled } from "../../../lib/skinBinds";
 import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import { useEqualizerStore } from "../../../store/useEqualizerStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
@@ -51,7 +53,8 @@ export function SkinStripSlider({
     frameHeight,
     frameCount,
     direction = mode === "volume" || mode === "eq" ? "vertical" : "horizontal",
-    invert = false,
+    valueFrames = "ascending",
+    mapFrames = "ascending",
     classPrefix,
   } = presentation;
 
@@ -60,15 +63,46 @@ export function SkinStripSlider({
   const skinDebug = useSkinDebug();
   const [positionMapData, setPositionMapData] =
     useState<StripSliderPositionMap | null>(null);
+  const [stripLayout, setStripLayout] = useState<"horizontal" | "vertical">(
+    "horizontal",
+  );
   const [debugSample, setDebugSample] =
     useState<StripSliderPointerSample | null>(null);
   const [hoverRatio, setHoverRatio] = useState<number | null>(null);
+  const [mapHitActive, setMapHitActive] = useState(false);
   const bindState = useSkinBindState();
+  const interactionEnabled = useSkinControlEnabled(node.enabledWhen);
 
-  const stripUrl = skinPackAssetUrl(pack.packDir, strip);
+  const stripUrl = skinAssetFileUrl(pack.packDir, strip);
   const mapUrl = positionMap
-    ? skinPackAssetUrl(pack.packDir, positionMap)
+    ? skinAssetFileUrl(pack.packDir, positionMap)
     : null;
+
+  const resolvedFrameHeight = frameHeight ?? (mode === "volume" ? 128 : 113);
+
+  useEffect(() => {
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      setStripLayout(
+        inferStripSliderStripLayout(
+          img.naturalWidth,
+          img.naturalHeight,
+          frameWidth,
+          resolvedFrameHeight,
+          frameCount,
+        ),
+      );
+    };
+    img.onerror = () => {
+      if (!cancelled) setStripLayout("horizontal");
+    };
+    img.src = stripUrl;
+    return () => {
+      cancelled = true;
+    };
+  }, [stripUrl, frameWidth, resolvedFrameHeight, frameCount]);
 
   useEffect(() => {
     if (!mapUrl) {
@@ -80,6 +114,7 @@ export function SkinStripSlider({
       stripUrl,
       frameWidth,
       frameHeight: frameHeight ?? (mode === "volume" ? 128 : 113),
+      mapFrames,
     })
       .then((map) => {
         if (!cancelled) setPositionMapData(map);
@@ -91,7 +126,7 @@ export function SkinStripSlider({
     return () => {
       cancelled = true;
     };
-  }, [mapUrl, stripUrl, frameCount, frameWidth, frameHeight, direction, mode]);
+  }, [mapUrl, stripUrl, frameCount, frameWidth, frameHeight, direction, mapFrames, mode]);
 
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
@@ -130,18 +165,27 @@ export function SkinStripSlider({
         : isSeeking
           ? seekValue
           : progress;
-  const disabled = mode === "eq" || mode === "volume" ? false : seekDisabled;
+  const disabled =
+    mode === "eq"
+      ? !interactionEnabled
+      : mode === "volume"
+        ? !interactionEnabled
+        : seekDisabled || !interactionEnabled;
 
-  const displayFrame = Math.round(valueRatio * (frameCount - 1));
+  const displayFrame = ratioToStripFrame(valueRatio, frameCount, valueFrames);
 
-  const resolvedFrameHeight = frameHeight ?? (mode === "volume" ? 128 : 113);
-  const stripWidth = frameWidth * frameCount;
-
-  const displayStyle = {
-    backgroundImage: `url("${stripUrl}")`,
-    backgroundSize: `${stripWidth}px ${resolvedFrameHeight}px`,
-    backgroundPosition: `-${displayFrame * frameWidth}px 0`,
-  } as React.CSSProperties;
+  const displayStyle =
+    stripLayout === "vertical"
+      ? ({
+          backgroundImage: `url("${stripUrl}")`,
+          backgroundSize: `${frameWidth}px ${resolvedFrameHeight * frameCount}px`,
+          backgroundPosition: `0 -${displayFrame * resolvedFrameHeight}px`,
+        } as React.CSSProperties)
+      : ({
+          backgroundImage: `url("${stripUrl}")`,
+          backgroundSize: `${frameWidth * frameCount}px ${resolvedFrameHeight}px`,
+          backgroundPosition: `-${displayFrame * frameWidth}px 0`,
+        } as React.CSSProperties);
 
   const samplePointer = useCallback(
     (
@@ -158,16 +202,16 @@ export function SkinStripSlider({
         positionMapData,
         frameCount,
         direction,
-        invert,
+        valueFrames,
         anchorFrame,
       );
     },
-    [positionMapData, frameCount, direction, invert],
+    [positionMapData, frameCount, direction, valueFrames],
   );
 
   const pointerToRatio = useCallback(
-    (clientX: number, clientY: number, anchorFrame?: number): number =>
-      samplePointer(clientX, clientY, anchorFrame)?.ratio ?? 0,
+    (clientX: number, clientY: number, anchorFrame?: number): number | null =>
+      samplePointer(clientX, clientY, anchorFrame)?.ratio ?? null,
     [samplePointer],
   );
 
@@ -197,33 +241,64 @@ export function SkinStripSlider({
   const applyPointer = useCallback(
     (clientX: number, clientY: number, anchorFrame: number, commit: boolean) => {
       const ratio = pointerToRatio(clientX, clientY, anchorFrame);
+      if (ratio === null) return;
       applyRatio(ratio, commit);
-      dragAnchorFrameRef.current = Math.round(ratio * (frameCount - 1));
+      dragAnchorFrameRef.current = ratioToStripFrame(ratio, frameCount, valueFrames);
     },
-    [pointerToRatio, applyRatio, frameCount],
+    [pointerToRatio, applyRatio, frameCount, valueFrames],
+  );
+
+  const updateMapHitState = useCallback(
+    (
+      clientX: number,
+      clientY: number,
+      anchorFrame: number,
+      dragging: boolean,
+    ) => {
+      if (disabled) {
+        setMapHitActive(false);
+        return;
+      }
+      if (dragging) {
+        setMapHitActive(true);
+        return;
+      }
+      setMapHitActive(samplePointer(clientX, clientY, anchorFrame) !== null);
+    },
+    [disabled, samplePointer],
   );
 
   const onPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (disabled) return;
+    const sample = samplePointer(
+      event.clientX,
+      event.clientY,
+      displayFrame,
+    );
+    if (!sample) return;
+    setMapHitActive(true);
     event.currentTarget.setPointerCapture(event.pointerId);
     if (mode === "seek") handleSeekStart();
     dragAnchorFrameRef.current = displayFrame;
-    applyPointer(event.clientX, event.clientY, displayFrame, false);
+    applyRatio(sample.ratio, false);
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
     const anchorFrame = dragAnchorFrameRef.current ?? displayFrame;
+    const dragging = event.currentTarget.hasPointerCapture(event.pointerId);
     const sample = samplePointer(event.clientX, event.clientY, anchorFrame);
+    updateMapHitState(event.clientX, event.clientY, anchorFrame, dragging);
     if (sample) setHoverRatio(sample.ratio);
     if (skinDebug) {
       setDebugSample(sample);
     }
-    if (!event.currentTarget.hasPointerCapture(event.pointerId) || disabled) return;
+    if (!dragging || disabled) return;
     applyPointer(event.clientX, event.clientY, anchorFrame, false);
   };
 
   const onPointerLeave = () => {
     setHoverRatio(null);
+    setMapHitActive(false);
     if (skinDebug) setDebugSample(null);
   };
 
@@ -305,7 +380,12 @@ export function SkinStripSlider({
       <button
         ref={hitRef}
         type="button"
-        className="skin-strip-slider__hit"
+        className={[
+          "skin-strip-slider__hit",
+          mapHitActive && "skin-strip-slider__hit--interactive",
+        ]
+          .filter(Boolean)
+          .join(" ")}
         disabled={disabled}
         aria-label={tooltip || ariaLabel}
         title={tooltip || undefined}
@@ -313,6 +393,7 @@ export function SkinStripSlider({
         onPointerMove={onPointerMove}
         onPointerEnter={(event) => {
           const sample = samplePointer(event.clientX, event.clientY, displayFrame);
+          updateMapHitState(event.clientX, event.clientY, displayFrame, false);
           if (sample) setHoverRatio(sample.ratio);
         }}
         onPointerLeave={onPointerLeave}

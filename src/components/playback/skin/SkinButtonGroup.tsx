@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
-import { skinAssetUrl, skinPackAssetUrl } from "../../../lib/skinAssets";
+import { skinAssetFileUrl, resolveInteractiveAssetUrl } from "../../../lib/skinAssets";
 import {
   loadButtonGroupPositionMap,
   parseMappingColor,
@@ -8,8 +8,8 @@ import {
 import { runSkinAction, skinControlPayload } from "../../../lib/skinActions";
 import { playSkinSound } from "../../../lib/skinSoundEffects";
 import {
-  evaluateSkinBind,
-  isSkinBindDisabled,
+  evaluateSkinCondition,
+  isSkinControlEnabled,
   useSkinBindState,
 } from "../../../lib/skinBinds";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
@@ -19,11 +19,11 @@ import {
 } from "../../../lib/skinButtonHoverSuppression";
 import { useSkinDebug } from "../../../hooks/useSkinDebug";
 import { resolveSkinTooltip } from "../../../lib/skinTooltips";
+import { useSkinButtonGroupHitRegistry } from "./SkinButtonGroupHitRegistry";
 import type {
   ButtonGroupElement,
   ButtonGroupNode,
   LoadedSkinPack,
-  SkinBindPath,
 } from "../../../types/skin";
 import "./SkinButtonGroup.css";
 
@@ -37,6 +37,8 @@ export function SkinButtonGroup({
   const presentation = node.presentation;
   const skinDebug = useSkinDebug();
   const bindState = useSkinBindState();
+  const hitRegistry = useSkinButtonGroupHitRegistry();
+  const setPressedNodeId = hitRegistry?.setPressedNodeId;
   const [positionMap, setPositionMap] = useState<ButtonGroupPositionMap | null>(
     null,
   );
@@ -45,6 +47,7 @@ export function SkinButtonGroup({
   const [debugLabel, setDebugLabel] = useState<string | null>(null);
   const pendingPressKeyRef = useRef<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const hitRef = useRef<HTMLButtonElement>(null);
   const hoverSuppressed = useSkinButtonHoverSuppressed();
   // Hold pressed graphic until activeWhen bind catches up (aux windows can lag).
   const [settlingToggle, setSettlingToggle] = useState<{
@@ -52,7 +55,7 @@ export function SkinButtonGroup({
     prevSticky: boolean;
   } | null>(null);
 
-  const mapUrl = skinPackAssetUrl(pack.packDir, presentation.positionMap);
+  const mapUrl = skinAssetFileUrl(pack.packDir, presentation.positionMap);
 
   // Key elements by their mapping color (not by action) so a group that repeats
   // an action with different payloads (e.g. skin.toggleView per viewId) keeps
@@ -68,6 +71,26 @@ export function SkinButtonGroup({
   }, [presentation.elements]);
 
   const validKeys = useMemo(() => new Set(keyToElement.keys()), [keyToElement]);
+  const isPlaying = evaluateSkinCondition("player.isPlaying", bindState);
+
+  const playColorKey = useMemo(() => {
+    for (const [key, element] of keyToElement) {
+      if (element.action === "player.play") return key;
+    }
+    return null;
+  }, [keyToElement]);
+
+  const effectiveValidKeys = useMemo(() => {
+    if (!isPlaying || !playColorKey) return validKeys;
+    const keys = new Set(validKeys);
+    keys.delete(playColorKey);
+    return keys;
+  }, [validKeys, isPlaying, playColorKey]);
+
+  const defaultLayerMaskUrl = useMemo(() => {
+    if (!isPlaying || !playColorKey || !positionMap) return undefined;
+    return positionMap.excludeColorMasks.get(playColorKey);
+  }, [isPlaying, playColorKey, positionMap]);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,12 +109,12 @@ export function SkinButtonGroup({
   }, [mapUrl]);
 
   const isElementDisabled = (element: ButtonGroupElement): boolean =>
-    isSkinBindDisabled(element.disabledWhen, bindState);
+    !isSkinControlEnabled(element.enabledWhen, bindState);
 
   const isElementSticky = (element: ButtonGroupElement): boolean =>
     Boolean(
       element.activeWhen &&
-        evaluateSkinBind(element.activeWhen as SkinBindPath, bindState),
+        evaluateSkinCondition(element.activeWhen, bindState),
     );
 
   const debugLabelForKey = useCallback(
@@ -116,26 +139,84 @@ export function SkinButtonGroup({
 
       const mapX = ((clientX - rect.left) / rect.width) * positionMap.width;
       const mapY = ((clientY - rect.top) / rect.height) * positionMap.height;
-      const key = positionMap.keyAt(mapX, mapY, validKeys);
+      const key = positionMap.keyAt(mapX, mapY, effectiveValidKeys);
       if (!key) return null;
 
       const element = keyToElement.get(key);
       if (!element || isElementDisabled(element)) return null;
       return key;
     },
-    [positionMap, validKeys, keyToElement, bindState],
+    [positionMap, effectiveValidKeys, keyToElement, bindState],
   );
 
   const syncHoverFromPointer = useCallback(
     (clientX: number, clientY: number) => {
       if (hoverSuppressed) return;
-      const key = sampleKeyAt(clientX, clientY);
-      setHoveredKey(key);
+
+      if (hitRegistry) {
+        hitRegistry.syncHoverAt(clientX, clientY);
+      } else {
+        const key = sampleKeyAt(clientX, clientY);
+        setHoveredKey(key);
+      }
+
       if (skinDebug) {
+        const resolved = hitRegistry?.resolveHitAt(clientX, clientY);
+        const key =
+          resolved && resolved.entry.nodeId === node.id
+            ? resolved.key
+            : hitRegistry
+              ? null
+              : sampleKeyAt(clientX, clientY);
         setDebugLabel(debugLabelForKey(key));
       }
     },
-    [hoverSuppressed, sampleKeyAt, skinDebug, debugLabelForKey],
+    [
+      hoverSuppressed,
+      hitRegistry,
+      sampleKeyAt,
+      skinDebug,
+      debugLabelForKey,
+      node.id,
+    ],
+  );
+
+  const keyAtPointer = useCallback(
+    (clientX: number, clientY: number): string | null => {
+      if (hitRegistry) {
+        const resolved = hitRegistry.resolveHitAt(clientX, clientY);
+        return resolved && resolved.entry.nodeId === node.id
+          ? resolved.key
+          : null;
+      }
+      return sampleKeyAt(clientX, clientY);
+    },
+    [hitRegistry, sampleKeyAt, node.id],
+  );
+
+  const syncPressedFromPointer = useCallback(
+    (clientX: number, clientY: number) => {
+      const pending = pendingPressKeyRef.current;
+      if (!pending) return;
+
+      const key = keyAtPointer(clientX, clientY);
+      if (key === pending) {
+        setPressedKey(pending);
+        setPressedNodeId?.(node.id ?? null);
+      } else {
+        setPressedKey(null);
+        setPressedNodeId?.(null);
+      }
+    },
+    [keyAtPointer, setPressedNodeId, node.id],
+  );
+
+  const syncPointerFromPointer = useCallback(
+    (clientX: number, clientY: number) => {
+      syncHoverFromPointer(clientX, clientY);
+      syncPressedFromPointer(clientX, clientY);
+    },
+    [syncHoverFromPointer, syncPressedFromPointer],
   );
 
   useEffect(() => {
@@ -144,15 +225,27 @@ export function SkinButtonGroup({
     }
   }, [hoverSuppressed]);
 
-  const hoverFormat = presentation.animatedHover ? "gif" : "png";
-  const src = skinAssetUrl(pack.packDir, presentation.assetBase);
-  const hoverSrc = skinAssetUrl(
+  const src = resolveInteractiveAssetUrl(
     pack.packDir,
-    presentation.assetBase,
-    "hover",
-    hoverFormat,
+    presentation.assets,
+    presentation.assetsWhen,
+    bindState,
+    "default",
   );
-  const pressedSrc = skinAssetUrl(pack.packDir, presentation.assetBase, "pressed");
+  const hoverSrc = resolveInteractiveAssetUrl(
+    pack.packDir,
+    presentation.assets,
+    presentation.assetsWhen,
+    bindState,
+    "hover",
+  );
+  const pressedSrc = resolveInteractiveAssetUrl(
+    pack.packDir,
+    presentation.assets,
+    presentation.assetsWhen,
+    bindState,
+    "pressed",
+  );
 
   useEffect(() => {
     if (!settlingToggle) return;
@@ -169,6 +262,7 @@ export function SkinButtonGroup({
     const layers: Array<{ key: string; src: string }> = [];
     for (const [key, element] of keyToElement) {
       if (isElementDisabled(element)) continue;
+      if (isPlaying && element.action === "player.play") continue;
 
       const isPressed = pressedKey === key;
       const isHovered = hoveredKey === key && !hoverSuppressed;
@@ -191,6 +285,7 @@ export function SkinButtonGroup({
     settlingToggle,
     pressedSrc,
     hoverSrc,
+    isPlaying,
   ]);
 
   const hoveredElement = hoveredKey ? keyToElement.get(hoveredKey) : undefined;
@@ -207,54 +302,109 @@ export function SkinButtonGroup({
       )
     : undefined;
 
+  const startPress = useCallback(
+    (key: string, event: PointerEvent<HTMLButtonElement>) => {
+      if (skinDebug) {
+        setDebugLabel(debugLabelForKey(key));
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      const captureTarget = hitRef.current ?? event.currentTarget;
+      captureTarget.setPointerCapture(event.pointerId);
+      pendingPressKeyRef.current = key;
+      syncPressedFromPointer(event.clientX, event.clientY);
+    },
+    [skinDebug, debugLabelForKey, syncPressedFromPointer],
+  );
+
+  const finishPress = useCallback(
+    (event: PointerEvent<HTMLButtonElement>) => {
+      const pending = pendingPressKeyRef.current;
+      const captureTarget = hitRef.current ?? event.currentTarget;
+      if (captureTarget.hasPointerCapture(event.pointerId)) {
+        captureTarget.releasePointerCapture(event.pointerId);
+      }
+
+      const keyAtRelease = keyAtPointer(event.clientX, event.clientY);
+
+      if (pending !== null && keyAtRelease === pending) {
+        const element = keyToElement.get(pending);
+        if (element && !isElementDisabled(element)) {
+          playSkinSound(pack, element.sound ?? presentation.sound);
+          if (element.activeWhen) {
+            setSettlingToggle({
+              key: pending,
+              prevSticky: isElementSticky(element),
+            });
+          }
+          runSkinAction(element.action, {
+            ...skinControlPayload(element),
+            ...element.payload,
+          });
+          suppressSkinButtonHoverUntilPointerMove();
+        }
+      }
+
+      pendingPressKeyRef.current = null;
+      setPressedKey(null);
+      setPressedNodeId?.(null);
+      hitRegistry?.syncHoverAt(event.clientX, event.clientY);
+    },
+    [
+      keyAtPointer,
+      keyToElement,
+      bindState,
+      pack,
+      presentation.sound,
+      hitRegistry,
+      setPressedNodeId,
+    ],
+  );
+
+  useEffect(() => {
+    if (!hitRegistry || !node.id) return;
+
+    return hitRegistry.register({
+      nodeId: node.id,
+      elevateWhen: presentation.elevateWhen,
+      sampleKeyAt,
+      setHoveredKey,
+      startPress,
+      finishPress,
+    });
+  }, [
+    hitRegistry,
+    node.id,
+    presentation.elevateWhen,
+    sampleKeyAt,
+    startPress,
+    finishPress,
+  ]);
+
   const beginPress = (event: PointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return;
 
+    const resolved = hitRegistry?.resolveHitAt(event.clientX, event.clientY);
+    if (hitRegistry) {
+      if (!resolved) return;
+      if (resolved.entry.nodeId !== node.id) {
+        resolved.entry.startPress(resolved.key, event);
+        return;
+      }
+      startPress(resolved.key, event);
+      return;
+    }
+
     const key = sampleKeyAt(event.clientX, event.clientY);
     if (!key) return;
-
-    if (skinDebug) {
-      setDebugLabel(debugLabelForKey(key));
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    pendingPressKeyRef.current = key;
-    setPressedKey(key);
-  };
-
-  const finishPress = (event: PointerEvent<HTMLButtonElement>) => {
-    const pending = pendingPressKeyRef.current;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-
-    if (pending) {
-      const element = keyToElement.get(pending);
-      if (element && !isElementDisabled(element)) {
-        playSkinSound(pack, element.sound ?? presentation.sound);
-        if (element.activeWhen) {
-          setSettlingToggle({
-            key: pending,
-            prevSticky: isElementSticky(element),
-          });
-        }
-        runSkinAction(element.action, {
-          ...skinControlPayload(element),
-          ...element.payload,
-        });
-        suppressSkinButtonHoverUntilPointerMove();
-      }
-    }
-
-    pendingPressKeyRef.current = null;
-    setPressedKey(null);
+    startPress(key, event);
   };
 
   const onLostPointerCapture = () => {
     pendingPressKeyRef.current = null;
     setPressedKey(null);
+    setPressedNodeId?.(null);
   };
 
   return (
@@ -282,11 +432,24 @@ export function SkinButtonGroup({
       <div
         className="skin-button-group"
         data-node-id={node.id}
-        style={{ backgroundImage: `url("${src}")` }}
+        style={{
+          backgroundImage: `url("${src}")`,
+          ...(defaultLayerMaskUrl
+            ? {
+                WebkitMaskImage: `url("${defaultLayerMaskUrl}")`,
+                maskImage: `url("${defaultLayerMaskUrl}")`,
+                WebkitMaskSize: "100% 100%",
+                maskSize: "100% 100%",
+                WebkitMaskRepeat: "no-repeat",
+                maskRepeat: "no-repeat",
+              }
+            : undefined),
+        }}
         aria-hidden
       />
       {positionMap ? (
         <button
+          ref={hitRef}
           type="button"
           className="skin-button-group__hit"
           data-node-id={node.id}
@@ -295,10 +458,19 @@ export function SkinButtonGroup({
           title={hitTooltip}
           style={{ cursor: hoveredKey ? "pointer" : "default" }}
           onPointerDown={beginPress}
-          onPointerEnter={(event) => syncHoverFromPointer(event.clientX, event.clientY)}
-          onPointerMove={(event) => syncHoverFromPointer(event.clientX, event.clientY)}
-          onPointerLeave={() => {
-            setHoveredKey(null);
+          onPointerEnter={(event) =>
+            syncPointerFromPointer(event.clientX, event.clientY)
+          }
+          onPointerMove={(event) =>
+            syncPointerFromPointer(event.clientX, event.clientY)
+          }
+          onPointerLeave={(event) => {
+            syncPressedFromPointer(event.clientX, event.clientY);
+            if (hitRegistry) {
+              hitRegistry.syncHoverAt(event.clientX, event.clientY);
+            } else {
+              setHoveredKey(null);
+            }
             if (skinDebug) setDebugLabel("(none)");
           }}
           onPointerUp={finishPress}

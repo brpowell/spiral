@@ -1,23 +1,13 @@
+import { resolveStretchBounds } from "./skinPanels";
 import type {
   TiledFrameContentInset,
   TiledFramePresentation,
+  TiledFramePresetPresentation,
+  TiledFrameTileDef,
 } from "../types/skin";
-
-/** WMP paint order: stretch bands, then content, then chrome caps and grip. */
-export type FrameRectLayer = "stretchSecondary" | "stretch" | "chrome" | "grip";
+import { isTiledFrameExplicit } from "../types/skin";
 
 export const TILED_FRAME_CONTENT_Z = 1;
-
-const FRAME_LAYER_Z: Record<FrameRectLayer, number> = {
-  stretchSecondary: 0,
-  stretch: 0,
-  chrome: 2,
-  grip: 3,
-};
-
-export function frameRectZIndex(layer: FrameRectLayer): number {
-  return FRAME_LAYER_Z[layer];
-}
 
 export interface FrameRect {
   asset: string;
@@ -26,26 +16,28 @@ export interface FrameRect {
   w: number;
   h: number;
   tiled: "horizontal" | "vertical" | false;
-  layer: FrameRectLayer;
+  zIndex: number;
+  /** Stable manifest order for React keys across resize. */
+  tileIndex: number;
   /** Source tile dimensions for repeat-x / repeat-y (defaults to w × h). */
   tileUnitW?: number;
   tileUnitH?: number;
 }
 
 export function partitionTiledFrameRects(rects: FrameRect[]): {
-  stretchTiles: FrameRect[];
-  chromeTiles: FrameRect[];
+  underContentTiles: FrameRect[];
+  overContentTiles: FrameRect[];
 } {
-  const stretchTiles: FrameRect[] = [];
-  const chromeTiles: FrameRect[] = [];
+  const underContentTiles: FrameRect[] = [];
+  const overContentTiles: FrameRect[] = [];
   for (const rect of rects) {
-    if (rect.layer === "stretch" || rect.layer === "stretchSecondary") {
-      stretchTiles.push(rect);
+    if (rect.zIndex < TILED_FRAME_CONTENT_Z) {
+      underContentTiles.push(rect);
     } else {
-      chromeTiles.push(rect);
+      overContentTiles.push(rect);
     }
   }
-  return { stretchTiles, chromeTiles };
+  return { underContentTiles, overContentTiles };
 }
 
 /** Scale a tall source tile so its art band fills the display band (WMP top/bottom stretch). */
@@ -87,14 +79,20 @@ export function computeChromeClipPath(
   );
 }
 
+function presetZIndex(layer: "stretchSecondary" | "stretch" | "chrome" | "grip"): number {
+  if (layer === "stretchSecondary" || layer === "stretch") return 0;
+  if (layer === "chrome") return 2;
+  return 3;
+}
+
 /**
  * WMP plView-style 9-slice frame tile layout.
  * Stretch widths follow `checkPlViewSize`: top = floor(w/2)+10, bottom = floor(w/2).
  */
-export function computeTiledFrameRects(
+export function computeTiledFramePresetRects(
   windowW: number,
   windowH: number,
-  presentation: TiledFramePresentation,
+  presentation: TiledFramePresetPresentation,
 ): FrameRect[] {
   const { assets, tileSizes, frameThickness } = presentation;
   const t = frameThickness;
@@ -112,124 +110,125 @@ export function computeTiledFrameRects(
 
   const sideStretchH = Math.max(0, windowH - t * 2);
 
-  // f_top_s_2: left top tiled band (after top-left corner, up to center.left).
   const topStretch2X = tileSizes.topLeft.w;
   const topStretch2W = Math.max(0, topCenterX - topStretch2X);
 
-  // f_top_s (plTopStretch): right top tiled band from center.left, width from checkPlViewSize.
   const topStretchX = topCenterX;
 
-  // f_bot_s_2: left bottom tiled band (after bottom-left corner, up to center.left).
   const bottomStretch2X = tileSizes.bottomLeft.w;
   const bottomStretch2W = Math.max(0, bottomCenterX - bottomStretch2X);
 
-  // f_bot_s (plBotStretch): right bottom tiled band from center.left.
   const bottomStretchX = bottomCenterX;
 
-  const rects: FrameRect[] = [
-    {
-      asset: assets.topStretch,
-      x: topStretchX,
-      y: 0,
-      w: topStretchW,
-      h: t,
-      tiled: "horizontal",
-      layer: "stretch",
-      tileUnitW: tileSizes.topStretch?.w,
-      tileUnitH: computeStretchTileUnitH(t, tileSizes.topStretch ?? { h: t }),
-    },
-    {
-      asset: assets.leftStretch,
-      x: 0,
-      y: t,
-      w: tileSizes.leftStretch?.w ?? tileSizes.topLeft.w,
-      h: sideStretchH,
-      tiled: "vertical",
-      layer: "stretch",
-      tileUnitW: tileSizes.leftStretch?.w ?? tileSizes.topLeft.w,
-      tileUnitH: tileSizes.leftStretch?.h,
-    },
-    {
-      asset: assets.rightStretch,
-      x: rightStretchX,
-      y: t,
-      w: tileSizes.rightStretch?.w ?? tileSizes.topRight.w,
-      h: sideStretchH,
-      tiled: "vertical",
-      layer: "stretch",
-      tileUnitW: tileSizes.rightStretch?.w ?? tileSizes.topRight.w,
-      tileUnitH: tileSizes.rightStretch?.h,
-    },
-    {
-      asset: assets.bottomStretch,
-      x: bottomStretchX,
-      y: bottomY,
-      w: bottomStretchW,
-      h: t,
-      tiled: "horizontal",
-      layer: "stretch",
-      tileUnitW: tileSizes.bottomStretch?.w,
-      tileUnitH: t,
-    },
-    {
-      asset: assets.topLeft,
-      x: 0,
-      y: 0,
-      w: tileSizes.topLeft.w,
-      h: tileSizes.topLeft.h,
-      tiled: false,
-      layer: "chrome",
-    },
-    {
-      asset: assets.topCenter,
-      x: topCenterX,
-      y: 0,
-      w: tileSizes.topCenter.w,
-      h: tileSizes.topCenter.h,
-      tiled: false,
-      layer: "chrome",
-    },
-    {
-      asset: assets.topRight,
-      x: topRightX,
-      y: 0,
-      w: tileSizes.topRight.w,
-      h: tileSizes.topRight.h,
-      tiled: false,
-      layer: "chrome",
-    },
-    {
-      asset: assets.bottomLeft,
-      x: 0,
-      y: bottomY,
-      w: tileSizes.bottomLeft.w,
-      h: tileSizes.bottomLeft.h,
-      tiled: false,
-      layer: "chrome",
-    },
-    {
-      asset: assets.bottomCenter,
-      x: bottomCenterX,
-      y: bottomY,
-      w: tileSizes.bottomCenter.w,
-      h: tileSizes.bottomCenter.h,
-      tiled: false,
-      layer: "chrome",
-    },
-    {
-      asset: assets.bottomRight,
-      x: bottomRightX,
-      y: bottomY,
-      w: tileSizes.bottomRight.w,
-      h: tileSizes.bottomRight.h,
-      tiled: false,
-      layer: "chrome",
-    },
-  ];
+  type Layer = "stretchSecondary" | "stretch" | "chrome" | "grip";
+
+  const push = (
+    rects: FrameRect[],
+    asset: string,
+    rect: Omit<FrameRect, "asset" | "zIndex" | "tileIndex"> & { layer: Layer },
+  ) => {
+    const { layer, ...rest } = rect;
+    rects.push({
+      asset,
+      ...rest,
+      zIndex: presetZIndex(layer),
+      tileIndex: rects.length,
+    });
+  };
+
+  const rects: FrameRect[] = [];
+
+  push(rects, assets.topStretch, {
+    x: topStretchX,
+    y: 0,
+    w: topStretchW,
+    h: t,
+    tiled: "horizontal",
+    layer: "stretch",
+    tileUnitW: tileSizes.topStretch?.w,
+    tileUnitH: computeStretchTileUnitH(t, tileSizes.topStretch ?? { h: t }),
+  });
+  push(rects, assets.leftStretch, {
+    x: 0,
+    y: t,
+    w: tileSizes.leftStretch?.w ?? tileSizes.topLeft.w,
+    h: sideStretchH,
+    tiled: "vertical",
+    layer: "stretch",
+    tileUnitW: tileSizes.leftStretch?.w ?? tileSizes.topLeft.w,
+    tileUnitH: tileSizes.leftStretch?.h,
+  });
+  push(rects, assets.rightStretch, {
+    x: rightStretchX,
+    y: t,
+    w: tileSizes.rightStretch?.w ?? tileSizes.topRight.w,
+    h: sideStretchH,
+    tiled: "vertical",
+    layer: "stretch",
+    tileUnitW: tileSizes.rightStretch?.w ?? tileSizes.topRight.w,
+    tileUnitH: tileSizes.rightStretch?.h,
+  });
+  push(rects, assets.bottomStretch, {
+    x: bottomStretchX,
+    y: bottomY,
+    w: bottomStretchW,
+    h: t,
+    tiled: "horizontal",
+    layer: "stretch",
+    tileUnitW: tileSizes.bottomStretch?.w,
+    tileUnitH: t,
+  });
+  push(rects, assets.topLeft, {
+    x: 0,
+    y: 0,
+    w: tileSizes.topLeft.w,
+    h: tileSizes.topLeft.h,
+    tiled: false,
+    layer: "chrome",
+  });
+  push(rects, assets.topCenter, {
+    x: topCenterX,
+    y: 0,
+    w: tileSizes.topCenter.w,
+    h: tileSizes.topCenter.h,
+    tiled: false,
+    layer: "chrome",
+  });
+  push(rects, assets.topRight, {
+    x: topRightX,
+    y: 0,
+    w: tileSizes.topRight.w,
+    h: tileSizes.topRight.h,
+    tiled: false,
+    layer: "chrome",
+  });
+  push(rects, assets.bottomLeft, {
+    x: 0,
+    y: bottomY,
+    w: tileSizes.bottomLeft.w,
+    h: tileSizes.bottomLeft.h,
+    tiled: false,
+    layer: "chrome",
+  });
+  push(rects, assets.bottomCenter, {
+    x: bottomCenterX,
+    y: bottomY,
+    w: tileSizes.bottomCenter.w,
+    h: tileSizes.bottomCenter.h,
+    tiled: false,
+    layer: "chrome",
+  });
+  push(rects, assets.bottomRight, {
+    x: bottomRightX,
+    y: bottomY,
+    w: tileSizes.bottomRight.w,
+    h: tileSizes.bottomRight.h,
+    tiled: false,
+    layer: "chrome",
+  });
 
   if (assets.topStretch2 && tileSizes.topStretch2) {
-    rects.push({
-      asset: assets.topStretch2,
+    push(rects, assets.topStretch2, {
       x: topStretch2X,
       y: 0,
       w: topStretch2W,
@@ -242,8 +241,7 @@ export function computeTiledFrameRects(
   }
 
   if (assets.bottomStretch2 && tileSizes.bottomStretch2) {
-    rects.push({
-      asset: assets.bottomStretch2,
+    push(rects, assets.bottomStretch2, {
       x: bottomStretch2X,
       y: bottomY,
       w: bottomStretch2W,
@@ -256,8 +254,7 @@ export function computeTiledFrameRects(
   }
 
   if (assets.resizeGrip && tileSizes.resizeGrip) {
-    rects.push({
-      asset: assets.resizeGrip,
+    push(rects, assets.resizeGrip, {
       x: windowW - tileSizes.resizeGrip.w,
       y: windowH - tileSizes.resizeGrip.h,
       w: tileSizes.resizeGrip.w,
@@ -268,4 +265,52 @@ export function computeTiledFrameRects(
   }
 
   return rects;
+}
+
+export function computeExplicitTiledFrameRects(
+  windowW: number,
+  windowH: number,
+  tiles: TiledFrameTileDef[],
+): FrameRect[] {
+  return tiles.map((tile, tileIndex) => {
+    const resolved = resolveStretchBounds(tile.bounds, windowW, windowH);
+    const tiled =
+      tile.repeat === "horizontal"
+        ? "horizontal"
+        : tile.repeat === "vertical"
+          ? "vertical"
+          : false;
+    const defaultZ = tile.repeat ? 0 : 2;
+    const zIndex = tile.zIndex ?? tile.bounds.zIndex ?? defaultZ;
+    let tileUnitH = tile.tileUnit?.h ?? resolved.h;
+    if (tile.artHeight != null && tile.tileUnit) {
+      tileUnitH = computeStretchTileUnitH(resolved.h, {
+        h: tile.tileUnit.h,
+        artHeight: tile.artHeight,
+      });
+    }
+    return {
+      asset: tile.asset,
+      x: resolved.x,
+      y: resolved.y,
+      w: resolved.w,
+      h: resolved.h,
+      tiled,
+      zIndex,
+      tileIndex,
+      tileUnitW: tile.tileUnit?.w,
+      tileUnitH,
+    };
+  });
+}
+
+export function computeTiledFrameLayoutRects(
+  windowW: number,
+  windowH: number,
+  presentation: TiledFramePresentation,
+): FrameRect[] {
+  if (isTiledFrameExplicit(presentation)) {
+    return computeExplicitTiledFrameRects(windowW, windowH, presentation.tiles);
+  }
+  return computeTiledFramePresetRects(windowW, windowH, presentation);
 }

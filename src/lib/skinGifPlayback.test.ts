@@ -4,9 +4,12 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   clearSkinGifDecodeCache,
+  compositeGifFramePatch,
   loadSkinGif,
+  resolveGifLoopCount,
   resolveGifPlaybackRate,
 } from "./skinGifPlayback";
+import { decompressFrames, parseGIF } from "gifuct-js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -62,6 +65,33 @@ describe("loadSkinGif", () => {
     }
   });
 
+  it("composites transparent GIF deltas without clearing prior pixels", () => {
+    const filePath = path.join(
+      repoRoot,
+      "src-tauri/skins/builtin/xbox/assets/animations/vis-idle.gif",
+    );
+    const bytes = readFileSync(filePath);
+    const buffer = bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength,
+    );
+    const gif = parseGIF(buffer);
+    const frames = decompressFrames(gif, true);
+    const width = gif.lsd.width;
+    const height = gif.lsd.height;
+    const canvas = new Uint8ClampedArray(width * height * 4);
+
+    for (const frame of frames) {
+      compositeGifFramePatch(canvas, width, frame);
+    }
+
+    let opaque = 0;
+    for (let i = 3; i < canvas.length; i += 4) {
+      if (canvas[i] > 0) opaque += 1;
+    }
+    expect(opaque).toBe(width * height);
+  });
+
   it("reports intro-light native timing", async () => {
     const buffer = gifBuffer("intro-light");
     const blob = new Blob([buffer], { type: "image/gif" });
@@ -75,5 +105,19 @@ describe("loadSkinGif", () => {
     } finally {
       URL.revokeObjectURL(url);
     }
+  });
+});
+
+describe("resolveGifLoopCount", () => {
+  it("honors loopForever over file metadata", () => {
+    const decoded = {
+      width: 1,
+      height: 1,
+      frames: [],
+      totalDurationMs: 0,
+      loopCount: 0,
+    };
+    expect(resolveGifLoopCount(decoded, { loopForever: true })).toBe(0);
+    expect(resolveGifLoopCount(decoded, {})).toBe(0);
   });
 });

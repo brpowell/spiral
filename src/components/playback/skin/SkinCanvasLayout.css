@@ -33,6 +33,10 @@
   pointer-events: auto;
 }
 
+.skin-canvas-layout .skin-bounds.skin-bounds--passthrough {
+  pointer-events: none;
+}
+
 /* Canvas grouping nodes pass through; only their bounded children capture input. */
 .skin-canvas-layout .skin-layout-node--canvas {
   pointer-events: none;

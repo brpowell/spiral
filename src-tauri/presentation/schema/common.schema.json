@@ -6,7 +6,28 @@
     "assetRef": {
       "type": "string",
       "minLength": 1,
-      "description": "Asset base name under pack assets/ (extension resolved by host)."
+      "description": "Pack-relative path under assets/, including extension."
+    },
+    "skinAssetFile": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^/\\\\][^\\\\]*\\.(png|gif|webp|jpe?g)$",
+      "description": "Pack-relative file path under assets/, including extension."
+    },
+    "interactiveAssets": {
+      "type": "object",
+      "required": ["default"],
+      "additionalProperties": false,
+      "properties": {
+        "default": { "$ref": "#/$defs/skinAssetFile" },
+        "hover": { "$ref": "#/$defs/skinAssetFile" },
+        "pressed": { "$ref": "#/$defs/skinAssetFile" }
+      }
+    },
+    "interactiveAssetsWhen": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/interactiveAssets" },
+      "description": "Bind path → asset set when truthy (last match wins)."
     },
     "bindExpression": {
       "type": "string",

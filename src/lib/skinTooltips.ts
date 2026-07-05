@@ -103,17 +103,17 @@ function defaultActionTooltip(
     case "player.pause":
       return "Pause";
     case "player.previousTrack":
-      return "Previous track";
+      return "Previous";
     case "player.nextTrack":
-      return "Next track";
+      return "Next";
     case "player.cycleRepeat":
       return `Repeat: ${repeatModeLabel(String(state.repeatMode))}`;
     case "player.toggleRepeat":
-      return state.repeatMode === "off" ? "Repeat on" : "Repeat off";
+      return state.repeatMode === "off" ? "Turn repeat on" : "Turn repeat off";
     case "player.toggleShuffle":
-      return state.shuffle ? "Shuffle off" : "Shuffle on";
+      return state.shuffle ? "Turn shuffle off" : "Turn shuffle on";
     case "player.clearSetList":
-      return "Clear set list";
+      return "Stop";
     case "queue.openSetList":
       return "View set list";
     case "navigation.openAlbum":
@@ -166,6 +166,10 @@ function defaultActionTooltip(
       return "Previous page";
     case "slideshow.next":
       return "Next page";
+    case "scrollStrip.prev":
+      return "Previous";
+    case "scrollStrip.next":
+      return "Next";
     default:
       return id ?? action;
   }
@@ -262,14 +266,7 @@ export function useSkinTooltip(
   live: SkinTooltipLiveContext = {},
 ): string {
   const bindState = useSkinBindState();
-  const {
-    action,
-    panelId,
-    viewId,
-    id,
-    tooltip,
-    tooltipWhen,
-  } = config;
+  const { action, panelId, viewId, id, tooltip, tooltipWhen } = config;
   const { sliderMode, ratio, eqBand, showElapsed } = live;
 
   return useMemo(

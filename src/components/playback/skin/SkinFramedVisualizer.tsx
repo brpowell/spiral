@@ -1,7 +1,7 @@
 import { useMemo, type CSSProperties } from "react";
 import { VisualizerSlot } from "../VisualizerSlot/VisualizerSlot";
 import { resolveVisualizerLayout } from "../../../lib/skinVisualizerLayout";
-import { skinAssetUrl } from "../../../lib/skinAssets";
+import { skinAssetFileUrl } from "../../../lib/skinAssets";
 import type {
   FramedPanelPresentation,
   LoadedSkinPack,
@@ -25,9 +25,9 @@ export function SkinFramedVisualizer({
 }) {
   const presentation = node.presentation as FramedPanelPresentation;
   const vizLayout = resolveVisualizerLayout(manifest);
-  const maskUrl = skinAssetUrl(pack.packDir, presentation.mask);
+  const maskUrl = skinAssetFileUrl(pack.packDir, presentation.mask);
   const frameUrl = presentation.frame
-    ? skinAssetUrl(pack.packDir, presentation.frame)
+    ? skinAssetFileUrl(pack.packDir, presentation.frame)
     : null;
 
   const contentStyle = useMemo((): CSSProperties => {

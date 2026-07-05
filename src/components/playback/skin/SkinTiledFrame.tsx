@@ -1,10 +1,9 @@
 import { useMemo, type CSSProperties, type ReactNode } from "react";
-import { skinAssetUrl } from "../../../lib/skinAssets";
+import { skinAssetFileUrl } from "../../../lib/skinAssets";
 import {
   computeChromeClipPath,
   computeContentRect,
-  computeTiledFrameRects,
-  frameRectZIndex,
+  computeTiledFrameLayoutRects,
   partitionTiledFrameRects,
   TILED_FRAME_CONTENT_Z,
 } from "../../../lib/skinTiledFrame";
@@ -32,7 +31,7 @@ function tileStyle(
     tileUnitH?: number;
   },
 ): CSSProperties {
-  const url = skinAssetUrl(pack.packDir, tile.asset);
+  const url = skinAssetFileUrl(pack.packDir, tile.asset);
   const { tiled, w, h, tileUnitW, tileUnitH } = tile;
   const unitW = tileUnitW ?? w;
   const unitH = tileUnitH ?? h;
@@ -53,11 +52,11 @@ export function SkinTiledFrame({ node, pack, children }: SkinTiledFrameProps) {
   );
 
   const tiles = useMemo(
-    () => computeTiledFrameRects(width, height, presentation),
+    () => computeTiledFrameLayoutRects(width, height, presentation),
     [width, height, presentation],
   );
 
-  const { stretchTiles, chromeTiles } = useMemo(
+  const { underContentTiles, overContentTiles } = useMemo(
     () => partitionTiledFrameRects(tiles),
     [tiles],
   );
@@ -71,7 +70,7 @@ export function SkinTiledFrame({ node, pack, children }: SkinTiledFrameProps) {
 
   const renderTile = (tile: (typeof tiles)[number]) => (
     <div
-      key={`${tile.asset}-${tile.x}-${tile.y}`}
+      key={`${node.id ?? "frame"}-tile-${tile.tileIndex}`}
       className={[
         "skin-tiled-frame__tile",
         tile.tiled === "horizontal" && "skin-tiled-frame__tile--tile-x",
@@ -84,7 +83,7 @@ export function SkinTiledFrame({ node, pack, children }: SkinTiledFrameProps) {
         top: `${tile.y}px`,
         width: `${tile.w}px`,
         height: `${tile.h}px`,
-        zIndex: frameRectZIndex(tile.layer),
+        zIndex: tile.zIndex,
         ...tileStyle(pack, tile),
       }}
       aria-hidden
@@ -94,7 +93,7 @@ export function SkinTiledFrame({ node, pack, children }: SkinTiledFrameProps) {
   return (
     <div className="skin-tiled-frame" data-node-id={node.id}>
       <div className="skin-tiled-frame__layer skin-tiled-frame__layer--stretch">
-        {stretchTiles.map(renderTile)}
+        {underContentTiles.map(renderTile)}
       </div>
       <div
         className="skin-tiled-frame__content"
@@ -114,7 +113,7 @@ export function SkinTiledFrame({ node, pack, children }: SkinTiledFrameProps) {
         className="skin-tiled-frame__layer skin-tiled-frame__layer--chrome"
         style={{ clipPath: chromeClip, WebkitClipPath: chromeClip }}
       >
-        {chromeTiles.map(renderTile)}
+        {overContentTiles.map(renderTile)}
       </div>
     </div>
   );

@@ -1,0 +1,10 @@
+---
+description: Policy for backwards compatibility and deprecation
+alwaysApply: true
+---
+
+# Spiral Unreleased
+
+Currently, the app is unreleased and under heavy development. Until the app has reached version 1:
+* Prefer ignoring backwards compatibility
+* Prefer full replacements rather than maintaining deprecated code, schemas, and concepts

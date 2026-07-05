@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState, type PointerEvent } from "react";
-import { skinAssetUrl } from "../../../lib/skinAssets";
+import { skinAssetFileUrl } from "../../../lib/skinAssets";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
 import { wmpTiledTrackStyle } from "../../../lib/wmpTiledTrack";
-import { useSkinBindState } from "../../../lib/skinBinds";
+import { useSkinBindState, useSkinControlEnabled } from "../../../lib/skinBinds";
 import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import type {
@@ -56,6 +56,7 @@ export function SkinBitmapHorizontalSlider({
   const balance = usePlayerStore((s) => s.balance);
   const setBalance = usePlayerStore((s) => s.setBalance);
   const bindState = useSkinBindState();
+  const interactionEnabled = useSkinControlEnabled(node.enabledWhen);
   const [hoverRatio, setHoverRatio] = useState<number | null>(null);
 
   const ratio =
@@ -66,8 +67,8 @@ export function SkinBitmapHorizontalSlider({
   const thumbTop = (trackHeight - thumbHeight) / 2;
   const trackTop = (trackHeight - trackTileHeight) / 2;
 
-  const trackUrl = skinAssetUrl(pack.packDir, track);
-  const thumbUrl = skinAssetUrl(pack.packDir, thumb);
+  const trackUrl = skinAssetFileUrl(pack.packDir, track);
+  const thumbUrl = skinAssetFileUrl(pack.packDir, thumb);
 
   const pointerToRatio = useCallback(
     (clientX: number, rect: DOMRect): number => {
@@ -90,6 +91,7 @@ export function SkinBitmapHorizontalSlider({
   );
 
   const onPointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!interactionEnabled) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     applyRatio(pointerToRatio(event.clientX, event.currentTarget.getBoundingClientRect()));
   };
@@ -100,7 +102,7 @@ export function SkinBitmapHorizontalSlider({
       event.currentTarget.getBoundingClientRect(),
     );
     setHoverRatio(nextRatio);
-    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    if (!event.currentTarget.hasPointerCapture(event.pointerId) || !interactionEnabled) return;
     applyRatio(nextRatio);
   };
 
@@ -164,6 +166,7 @@ export function SkinBitmapHorizontalSlider({
       <button
         type="button"
         className="skin-bitmap-horizontal-slider__hit"
+        disabled={!interactionEnabled}
         aria-label={tooltip || (mode === "balance" ? "Balance" : "Volume")}
         title={tooltip || undefined}
         {...skinDragRegionNoneProps()}

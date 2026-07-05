@@ -6,7 +6,7 @@ import {
 import * as skinActions from "./skinActions";
 import * as skinSoundEffects from "./skinSoundEffects";
 import type { SkinViewActivateEffect } from "../types/skin";
-import type { ViewStateValues } from "./skinViewStateContext";
+import { minimalBindState } from "../test/skinBindFixtures";
 
 const introLightEffect: SkinViewActivateEffect = {
   when: "view.introLight.pending",
@@ -35,9 +35,9 @@ describe("dispatchViewActivateEffect", () => {
   });
 
   it("runs action when when guard is truthy", () => {
-    const values: ViewStateValues = { introLight: "pending" };
-
-    dispatchViewActivateEffect(introLightEffect, () => values);
+    dispatchViewActivateEffect(introLightEffect, () =>
+      minimalBindState({ viewState: { introLight: "pending" } }),
+    );
 
     expect(skinActions.runSkinAction).toHaveBeenCalledWith(
       "view.setVariable",
@@ -46,9 +46,9 @@ describe("dispatchViewActivateEffect", () => {
   });
 
   it("skips action when when guard is false at fire time", () => {
-    const values: ViewStateValues = { introLight: "playing" };
-
-    dispatchViewActivateEffect(introLightEffect, () => values);
+    dispatchViewActivateEffect(introLightEffect, () =>
+      minimalBindState({ viewState: { introLight: "playing" } }),
+    );
 
     expect(skinActions.runSkinAction).not.toHaveBeenCalled();
   });
@@ -62,11 +62,31 @@ describe("dispatchViewActivateEffect", () => {
       callOrder.push("action");
     });
 
-    const values: ViewStateValues = { shutter: "intro" };
-    dispatchViewActivateEffect(shutterIntroEffect, () => values);
+    dispatchViewActivateEffect(shutterIntroEffect, () =>
+      minimalBindState({ viewState: { shutter: "intro" } }),
+    );
 
     expect(callOrder).toEqual(["sound", "action"]);
     expect(skinSoundEffects.playActiveSkinSound).toHaveBeenCalledWith("open");
+  });
+
+  it("evaluates compound when guards", () => {
+    const effect: SkinViewActivateEffect = {
+      when: { all: ["view.shutter.open", "view.xIntro.done"] },
+      action: "view.setVariable",
+      payload: { variable: "chrome", value: "ready" },
+    };
+
+    dispatchViewActivateEffect(effect, () =>
+      minimalBindState({ viewState: { shutter: "open", xIntro: "done" } }),
+    );
+    expect(skinActions.runSkinAction).toHaveBeenCalledTimes(1);
+
+    vi.mocked(skinActions.runSkinAction).mockClear();
+    dispatchViewActivateEffect(effect, () =>
+      minimalBindState({ viewState: { shutter: "open", xIntro: "playing" } }),
+    );
+    expect(skinActions.runSkinAction).not.toHaveBeenCalled();
   });
 });
 
@@ -85,18 +105,18 @@ describe("scheduleViewActivateEffects", () => {
   });
 
   it("runs immediate effects without delay", () => {
-    const values: ViewStateValues = { introLight: "pending" };
-
-    scheduleViewActivateEffects([introLightEffect], () => values);
+    scheduleViewActivateEffects([introLightEffect], () =>
+      minimalBindState({ viewState: { introLight: "pending" } }),
+    );
     vi.runAllTimers();
 
     expect(skinActions.runSkinAction).toHaveBeenCalledTimes(1);
   });
 
   it("runs delayed effects after delayMs", () => {
-    const values: ViewStateValues = { shutter: "intro" };
-
-    scheduleViewActivateEffects([shutterIntroEffect], () => values);
+    scheduleViewActivateEffects([shutterIntroEffect], () =>
+      minimalBindState({ viewState: { shutter: "intro" } }),
+    );
     expect(skinActions.runSkinAction).not.toHaveBeenCalled();
 
     vi.advanceTimersByTime(1000);
@@ -107,20 +127,20 @@ describe("scheduleViewActivateEffects", () => {
   });
 
   it("no-ops delayed effect when when guard becomes false before fire", () => {
-    const values: ViewStateValues = { shutter: "intro" };
-    const getValues = () => values;
+    const viewState = { shutter: "intro" };
+    const getBindState = () => minimalBindState({ viewState });
 
-    scheduleViewActivateEffects([shutterIntroEffect], getValues);
-    values.shutter = "opening";
+    scheduleViewActivateEffects([shutterIntroEffect], getBindState);
+    viewState.shutter = "opening";
 
     vi.advanceTimersByTime(1000);
     expect(skinActions.runSkinAction).not.toHaveBeenCalled();
   });
 
   it("cancel clears pending timers", () => {
-    const values: ViewStateValues = { shutter: "intro" };
-
-    const cancel = scheduleViewActivateEffects([shutterIntroEffect], () => values);
+    const cancel = scheduleViewActivateEffects([shutterIntroEffect], () =>
+      minimalBindState({ viewState: { shutter: "intro" } }),
+    );
     cancel();
 
     vi.advanceTimersByTime(1000);

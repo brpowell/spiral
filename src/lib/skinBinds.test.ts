@@ -1,53 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { evaluateSkinBind, type SkinBindState } from "./skinBinds";
+import {
+  evaluateSkinBind,
+  evaluateSkinCondition,
+  isSkinControlEnabled,
+} from "./skinBinds";
+import { minimalBindState } from "../test/skinBindFixtures";
 import {
   evaluateSlideshowBind,
   initSlideshowState,
 } from "./skinSlideshow";
+import {
+  initScrollStripState,
+} from "./skinScrollStrip";
 import { evaluateViewBind } from "./skinViewStateContext";
-import type { SlideshowPresentation } from "../types/skin";
-
-function minimalBindState(
-  overrides: Partial<SkinBindState> = {},
-): SkinBindState {
-  return {
-    currentTrack: null,
-    artUrl: null,
-    playbackState: "stopped",
-    positionSeconds: 0,
-    repeatMode: "off",
-    shuffle: false,
-    volume: 1,
-    balance: 0,
-    muted: false,
-    canGoPrevious: false,
-    canGoNext: false,
-    activeQueueLength: 0,
-    currentTrackId: null,
-    alwaysOnTop: false,
-    currentPlayable: null,
-    panelOpen: {},
-    panelRevealed: {},
-    panelSettled: {},
-    visualizerName: "",
-    canCycleVisualizer: false,
-    playlistSourceId: "all",
-    playlists: [],
-    library: [],
-    playbackTracks: [],
-    playContextIds: [],
-    manualQueueIds: [],
-    eqEnabled: false,
-    eqPresetId: "flat",
-    eqBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    eqCustomPresets: [],
-    soundEffectsEnabled: true,
-    viewState: {},
-    slideshowPresentations: {},
-    slideshowState: {},
-    ...overrides,
-  };
-}
+import type { ScrollStripPresentation, SlideshowPresentation } from "../types/skin";
 
 const promoPresentation: SlideshowPresentation = {
   kind: "imageSequence",
@@ -56,6 +22,12 @@ const promoPresentation: SlideshowPresentation = {
     story: { deckIndex: 1, pages: 7, showPageNav: true },
     trailer: { deckIndex: 3, pages: 1, showPageNav: false },
   },
+};
+
+const contentStripPresentation: ScrollStripPresentation = {
+  kind: "bitmapVertical",
+  items: [{ id: "xbox", asset: "content/c_xbox_text.gif", w: 255, h: 50 }],
+  slides: [{ items: { xbox: { y: 172 } } }, { items: { xbox: { y: 92 } } }],
 };
 
 describe("evaluateViewBind", () => {
@@ -155,6 +127,32 @@ describe("evaluateSlideshowBind", () => {
   });
 });
 
+describe("evaluateScrollStripBind integration", () => {
+  const presentations = { "content-text": contentStripPresentation };
+  const state = {
+    ...initScrollStripState([
+      { id: "content-text", presentation: contentStripPresentation },
+    ]),
+    "content-text": { slide: 2 },
+  };
+
+  it("evaluates through evaluateSkinBind", () => {
+    const bindState = minimalBindState({
+      scrollStripPresentations: presentations,
+      scrollStripState: state,
+    });
+    expect(
+      evaluateSkinBind("scrollStrip.content-text.slide.2", bindState),
+    ).toBe(true);
+    expect(
+      evaluateSkinBind("scrollStrip.content-text.canPrev", bindState),
+    ).toBe(true);
+    expect(
+      evaluateSkinBind("scrollStrip.content-text.atLast", bindState),
+    ).toBe(true);
+  });
+});
+
 describe("slideshow page clamping via state transitions", () => {
   it("clamps at deck bounds when page moves", () => {
     const atLast = { deck: "story", page: 7 };
@@ -191,5 +189,67 @@ describe("skin.pref binds", () => {
         minimalBindState({ soundEffectsEnabled: false }),
       ),
     ).toBe(false);
+  });
+});
+
+describe("evaluateSkinCondition", () => {
+  const shutterOpenIntroDone = minimalBindState({
+    viewState: { shutter: "open", xIntro: "done" },
+  });
+  const shutterClosedIntroDone = minimalBindState({
+    viewState: { shutter: "closed", xIntro: "done" },
+  });
+  const shutterOpenIntroPlaying = minimalBindState({
+    viewState: { shutter: "open", xIntro: "playing" },
+  });
+
+  it("evaluates leaf binds", () => {
+    expect(
+      evaluateSkinCondition("view.shutter.open", shutterOpenIntroDone),
+    ).toBe(true);
+    expect(
+      evaluateSkinCondition("view.shutter.open", shutterClosedIntroDone),
+    ).toBe(false);
+  });
+
+  it("evaluates all", () => {
+    const condition = {
+      all: ["view.shutter.open", "view.xIntro.done"],
+    };
+    expect(evaluateSkinCondition(condition, shutterOpenIntroDone)).toBe(true);
+    expect(evaluateSkinCondition(condition, shutterClosedIntroDone)).toBe(false);
+    expect(evaluateSkinCondition(condition, shutterOpenIntroPlaying)).toBe(
+      false,
+    );
+  });
+
+  it("evaluates any and not", () => {
+    expect(
+      evaluateSkinCondition(
+        { any: ["view.shutter.closing", "view.shutter.closed"] },
+        minimalBindState({ viewState: { shutter: "closed" } }),
+      ),
+    ).toBe(true);
+    expect(
+      evaluateSkinCondition(
+        { not: "view.xIntro.playing" },
+        shutterOpenIntroDone,
+      ),
+    ).toBe(true);
+    expect(
+      evaluateSkinCondition(
+        { not: "view.xIntro.playing" },
+        shutterOpenIntroPlaying,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("isSkinControlEnabled", () => {
+  it("is enabled when condition is truthy or unset", () => {
+    const state = minimalBindState({ viewState: { shutter: "open" } });
+    expect(isSkinControlEnabled("view.shutter.open", state)).toBe(true);
+    expect(isSkinControlEnabled(undefined, state)).toBe(true);
+    expect(isSkinControlEnabled("view.shutter.closed", state)).toBe(false);
   });
 });

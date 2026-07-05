@@ -13,6 +13,8 @@ export interface ButtonGroupPositionMap {
   regions: ButtonGroupHitRegion[];
   /** Alpha masks keyed by mapping color (`"r,g,b"`) for per-button hover/pressed overlays. */
   colorMasks: Map<string, string>;
+  /** Masks that hide a mapping color (show everything else) for composite sheets. */
+  excludeColorMasks: Map<string, string>;
   /**
    * Resolve the mapping-color key (`"r,g,b"`) under a point, restricted to
    * `validKeys`. Returns the element-identifying color key (not an action) so
@@ -39,7 +41,10 @@ function colorKey(r: number, g: number, b: number): string {
 
 function isTransparent(r: number, g: number, b: number, a: number): boolean {
   if (a < 128) return true;
-  return r === 255 && g === 0 && b === 255;
+  // WMP mapping images use magenta and often white for passthrough.
+  if (r === 255 && g === 0 && b === 255) return true;
+  if (r === 255 && g === 255 && b === 255) return true;
+  return false;
 }
 
 function buildRegions(
@@ -116,6 +121,46 @@ function buildColorMasks(
   return masks;
 }
 
+/** Masks that omit one mapping color — hide that button region on a composite sheet. */
+function buildExcludeColorMasks(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+): Map<string, string> {
+  const masks = new Map<string, string>();
+
+  for (const excludeKey of collectMapColorKeys(data, width, height)) {
+    const [r, g, b] = excludeKey.split(",").map(Number);
+    const maskData = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        const pr = data[i];
+        const pg = data[i + 1];
+        const pb = data[i + 2];
+        const pa = data[i + 3];
+        const excluded =
+          pr === r && pg === g && pb === b && !isTransparent(pr, pg, pb, pa);
+        const o = (y * width + x) * 4;
+        maskData[o] = 255;
+        maskData[o + 1] = 255;
+        maskData[o + 2] = 255;
+        maskData[o + 3] = excluded ? 0 : 255;
+      }
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) continue;
+    ctx.putImageData(new ImageData(maskData, width, height), 0, 0);
+    masks.set(excludeKey, canvas.toDataURL("image/png"));
+  }
+
+  return masks;
+}
+
 function collectMapColorKeys(
   data: Uint8ClampedArray,
   width: number,
@@ -177,6 +222,7 @@ export async function loadButtonGroupPositionMap(
   const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const regions = buildRegions(data, width, height);
   const colorMasks = buildColorMasks(data, width, height);
+  const excludeColorMasks = buildExcludeColorMasks(data, width, height);
 
   const colorAt = (x: number, y: number): string | null => {
     const px = Math.min(Math.max(Math.floor(x), 0), width - 1);
@@ -190,37 +236,38 @@ export async function loadButtonGroupPositionMap(
     return colorKey(r, g, b);
   };
 
+  const resolveKeyAt = (
+    x: number,
+    y: number,
+    validKeys: Set<string>,
+  ): string | null => {
+    const px = Math.floor(x);
+    const py = Math.floor(y);
+
+    const direct = colorAt(px, py);
+    if (direct && validKeys.has(direct)) return direct;
+
+    // Small neighborhood for anti-aliased map edges only — not bbox interiors.
+    for (let radius = 1; radius <= 2; radius++) {
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (Math.abs(dx) !== radius && Math.abs(dy) !== radius) continue;
+          const color = colorAt(px + dx, py + dy);
+          if (color && validKeys.has(color)) return color;
+        }
+      }
+    }
+
+    return null;
+  };
+
   return {
     width,
     height,
     regions,
     colorMasks,
-    keyAt(x: number, y: number, validKeys: Set<string>) {
-      const px = Math.min(Math.max(Math.floor(x), 0), width - 1);
-      const py = Math.min(Math.max(Math.floor(y), 0), height - 1);
-
-      const color = colorAt(px, py);
-      if (color && validKeys.has(color)) return color;
-
-      // Fallback when pointer lands just outside anti-aliased map edges.
-      let best: { colorKey: string; area: number } | null = null;
-      for (const region of regions) {
-        if (
-          px >= region.x &&
-          px < region.x + region.w &&
-          py >= region.y &&
-          py < region.y + region.h
-        ) {
-          if (!validKeys.has(region.colorKey)) continue;
-          const area = region.w * region.h;
-          if (!best || area < best.area) {
-            best = { colorKey: region.colorKey, area };
-          }
-        }
-      }
-
-      return best?.colorKey ?? null;
-    },
+    excludeColorMasks,
+    keyAt: resolveKeyAt,
   };
 }
 

@@ -1,4 +1,9 @@
-import { decompressFrames, parseGIF, type ParsedFrame, type ParsedGif } from "gifuct-js";
+import {
+  decompressFrames,
+  parseGIF,
+  type ParsedFrame,
+  type ParsedGif,
+} from "gifuct-js";
 
 export interface DecodedSkinGif {
   width: number;
@@ -89,6 +94,26 @@ export function resolveGifPlaybackRate(
   return 1;
 }
 
+export function compositeGifFramePatch(
+  dest: Uint8ClampedArray,
+  destWidth: number,
+  frame: ParsedFrame,
+): void {
+  const { left, top, width, height } = frame.dims;
+  const patch = frame.patch;
+  for (let py = 0; py < height; py += 1) {
+    for (let px = 0; px < width; px += 1) {
+      const patchIndex = (py * width + px) * 4;
+      if (patch[patchIndex + 3] === 0) continue;
+      const destIndex = ((top + py) * destWidth + (left + px)) * 4;
+      dest[destIndex] = patch[patchIndex];
+      dest[destIndex + 1] = patch[patchIndex + 1];
+      dest[destIndex + 2] = patch[patchIndex + 2];
+      dest[destIndex + 3] = patch[patchIndex + 3];
+    }
+  }
+}
+
 function shouldContinueLoop(
   loopCount: number | null,
   completedLoops: number,
@@ -96,6 +121,69 @@ function shouldContinueLoop(
   if (loopCount === null) return completedLoops < 1;
   if (loopCount === 0) return true;
   return completedLoops <= loopCount;
+}
+
+export function resolveGifLoopCount(
+  decoded: DecodedSkinGif,
+  options: Pick<SkinGifPlaybackOptions, "loopForever"> = {},
+): number | null {
+  if (options.loopForever) return 0;
+  return decoded.loopCount;
+}
+
+function createGifFrameCanvas(decoded: DecodedSkinGif): {
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+} | null {
+  const canvas = document.createElement("canvas");
+  canvas.width = decoded.width;
+  canvas.height = decoded.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  return { canvas, ctx };
+}
+
+function compositeGifFramesToCanvas(
+  frameCtx: CanvasRenderingContext2D,
+  decoded: DecodedSkinGif,
+  upToFrameIndex = decoded.frames.length - 1,
+): void {
+  let previousFrame: ParsedFrame | null = null;
+  const lastIndex = Math.min(upToFrameIndex, decoded.frames.length - 1);
+  for (let index = 0; index <= lastIndex; index += 1) {
+    const frame = decoded.frames[index];
+    if (previousFrame?.disposalType === 2) {
+      frameCtx.clearRect(
+        previousFrame.dims.left,
+        previousFrame.dims.top,
+        previousFrame.dims.width,
+        previousFrame.dims.height,
+      );
+    }
+    const existing = frameCtx.getImageData(0, 0, decoded.width, decoded.height);
+    compositeGifFramePatch(existing.data, decoded.width, frame);
+    frameCtx.putImageData(existing, 0, 0);
+    previousFrame = frame;
+  }
+}
+
+/** Draw the final composited frame without playing the animation. */
+export function drawSkinGifLastFrame(
+  canvas: HTMLCanvasElement,
+  decoded: DecodedSkinGif,
+): void {
+  const ctx = canvas.getContext("2d");
+  if (!ctx || decoded.frames.length === 0) return;
+
+  canvas.width = decoded.width;
+  canvas.height = decoded.height;
+
+  const frameBuffer = createGifFrameCanvas(decoded);
+  if (!frameBuffer) return;
+
+  compositeGifFramesToCanvas(frameBuffer.ctx, decoded);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(frameBuffer.canvas, 0, 0);
 }
 
 export function playSkinGifOnCanvas(
@@ -120,7 +208,7 @@ export function playSkinGifOnCanvas(
   }
 
   const playbackRate = resolveGifPlaybackRate(decoded, options);
-  const loopCount = options.loopForever ? 0 : decoded.loopCount;
+  const loopCount = resolveGifLoopCount(decoded, options);
 
   let frameIndex = 0;
   let completedLoops = 0;
@@ -149,14 +237,20 @@ export function playSkinGifOnCanvas(
     }
   };
 
+  const blitFramePatch = (frame: ParsedFrame) => {
+    const existing = frameCtx.getImageData(
+      0,
+      0,
+      frameCanvas.width,
+      frameCanvas.height,
+    );
+    compositeGifFramePatch(existing.data, frameCanvas.width, frame);
+    frameCtx.putImageData(existing, 0, 0);
+  };
+
   const drawFrame = (frame: ParsedFrame) => {
     applyDisposal();
-    const patch = new ImageData(
-      new Uint8ClampedArray(frame.patch),
-      frame.dims.width,
-      frame.dims.height,
-    );
-    frameCtx.putImageData(patch, frame.dims.left, frame.dims.top);
+    blitFramePatch(frame);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(frameCanvas, 0, 0);
     if (!firstFrameDrawn) {
@@ -172,25 +266,28 @@ export function playSkinGifOnCanvas(
     const frame = decoded.frames[frameIndex];
     drawFrame(frame);
 
-    timer = setTimeout(() => {
-      timer = null;
-      if (stopped) return;
+    timer = setTimeout(
+      () => {
+        timer = null;
+        if (stopped) return;
 
-      frameIndex += 1;
-      if (frameIndex >= decoded.frames.length) {
-        options.onLoopComplete?.(completedLoops);
-        completedLoops += 1;
-        if (!shouldContinueLoop(loopCount, completedLoops)) {
-          stop();
-          return;
+        frameIndex += 1;
+        if (frameIndex >= decoded.frames.length) {
+          options.onLoopComplete?.(completedLoops);
+          completedLoops += 1;
+          if (!shouldContinueLoop(loopCount, completedLoops)) {
+            stop();
+            return;
+          }
+          frameIndex = 0;
+          previousFrame = null;
+          frameCtx.clearRect(0, 0, frameCanvas.width, frameCanvas.height);
         }
-        frameIndex = 0;
-        previousFrame = null;
-        frameCtx.clearRect(0, 0, frameCanvas.width, frameCanvas.height);
-      }
 
-      scheduleNext();
-    }, Math.max(0, frame.delay / playbackRate));
+        scheduleNext();
+      },
+      Math.max(0, frame.delay / playbackRate),
+    );
   };
 
   scheduleNext();

@@ -20,6 +20,11 @@
   justify-content: stretch;
 }
 
+.skin-bounds:has(> .skin-primitive-control) {
+  align-items: stretch;
+  justify-content: stretch;
+}
+
 .skin-bounds--motion {
   transition: left 120ms linear, right 120ms linear, top 120ms linear,
     width 120ms linear, height 120ms linear;
@@ -28,10 +33,6 @@
 .skin-bounds .skin-layout-node--row {
   width: 100%;
   justify-content: center;
-}
-
-.skin-bounds .skin-seekbar {
-  width: 100%;
 }
 
 .skin-bounds--passthrough {

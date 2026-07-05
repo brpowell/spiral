@@ -9,6 +9,7 @@ import { resolveCanvasSize } from "../../../lib/skinPanels";
 import { resolveViewDragInference } from "../../../lib/skinWindowPresentation";
 import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
 import { SkinBoundedCanvasNode } from "./SkinBoundedCanvasNode";
+import { SkinButtonGroupHitRegistryProvider } from "./SkinButtonGroupHitRegistry";
 import { SkinViewRuntimeProviders } from "./SkinViewRuntimeProviders";
 import { useSkinCanvasStageSize } from "../../../hooks/useSkinCanvasStageSize";
 import { SkinCanvasStageContext } from "./SkinCanvasStageContext";
@@ -99,31 +100,33 @@ export function SkinCanvasLayout({
       registerGlobalApi={registerGlobalApi}
     >
       <SkinCanvasStageContext.Provider value={stageContext}>
-        <div
-          className={shellClass}
-          style={
-            resizable
-              ? undefined
-              : { width: `${width}px`, height: `${height}px` }
-          }
-          data-skin-id={pack.summary.id}
-          data-view-id={viewId}
-          data-resizable={resizable ? "true" : "false"}
-        >
+        <SkinButtonGroupHitRegistryProvider>
           <div
-            ref={stageRef}
-            className="skin-canvas-layout__stage"
-            {...stageDragProps}
+            className={shellClass}
             style={
               resizable
                 ? undefined
                 : { width: `${width}px`, height: `${height}px` }
             }
+            data-skin-id={pack.summary.id}
+            data-view-id={viewId}
+            data-resizable={resizable ? "true" : "false"}
           >
+            <div
+              ref={stageRef}
+              className="skin-canvas-layout__stage"
+              {...stageDragProps}
+              style={
+                resizable
+                  ? undefined
+                  : { width: `${width}px`, height: `${height}px` }
+              }
+            >
 
-            {nodes}
+              {nodes}
+            </div>
           </div>
-        </div>
+        </SkinButtonGroupHitRegistryProvider>
       </SkinCanvasStageContext.Provider>
     </SkinViewRuntimeProviders>
   );

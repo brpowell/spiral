@@ -59,6 +59,9 @@ const KNOWN_ACTIONS: &[&str] = &[
     "slideshow.setDeck",
     "slideshow.prev",
     "slideshow.next",
+    "scrollStrip.prev",
+    "scrollStrip.next",
+    "scrollStrip.setSlide",
 ];
 
 const KNOWN_BINDS: &[&str] = &[
@@ -180,10 +183,38 @@ pub struct SkinPanel {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SkinCondition {
+    Leaf(String),
+    All { all: Vec<SkinCondition> },
+    Any { any: Vec<SkinCondition> },
+    Not { not: Box<SkinCondition> },
+}
+
+impl SkinCondition {
+    pub fn validate_leaves(&self, field: &str, errors: &mut Vec<String>) {
+        match self {
+            SkinCondition::Leaf(path) => validate_bind(Some(path.as_str()), field, errors),
+            SkinCondition::All { all } => {
+                for child in all {
+                    child.validate_leaves(field, errors);
+                }
+            }
+            SkinCondition::Any { any } => {
+                for child in any {
+                    child.validate_leaves(field, errors);
+                }
+            }
+            SkinCondition::Not { not } => not.validate_leaves(field, errors),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkinViewActivateEffect {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub when: Option<String>,
+    pub when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delay_ms: Option<u64>,
     pub action: String,
@@ -324,6 +355,8 @@ pub enum LayoutNode {
     TiledFrame(TiledFrameFields),
     #[serde(rename = "slideshow")]
     Slideshow(SlideshowFields),
+    #[serde(rename = "scrollStrip")]
+    ScrollStrip(ScrollStripFields),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -341,7 +374,7 @@ pub struct ContainerFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visible_when: Option<String>,
+    pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drag_region: Option<bool>,
 }
@@ -358,7 +391,7 @@ pub struct RegionFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visible_when: Option<String>,
+    pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drag_region: Option<bool>,
 }
@@ -376,7 +409,7 @@ pub struct DecorationFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drag_region: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visible_when: Option<String>,
+    pub visible_when: Option<SkinCondition>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -388,7 +421,7 @@ pub struct HitAreaFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visible_when: Option<String>,
+    pub visible_when: Option<SkinCondition>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -457,7 +490,56 @@ pub struct TiledFrameContentInset {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TiledFramePresentation {
+pub struct StretchLayoutBounds {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub right: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub y: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bottom: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub w: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub h: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub z_index: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TiledFrameTileDef {
+    pub asset: String,
+    pub bounds: StretchLayoutBounds,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repeat: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tile_unit: Option<TiledFrameTileSize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub art_height: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub z_index: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", untagged)]
+pub enum TiledFramePresentation {
+    Explicit(TiledFrameExplicitPresentation),
+    Preset(TiledFramePresetPresentation),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TiledFrameExplicitPresentation {
+    pub kind: String,
+    pub content_inset: TiledFrameContentInset,
+    pub tiles: Vec<TiledFrameTileDef>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TiledFramePresetPresentation {
     pub kind: String,
     pub assets: TiledFrameAssets,
     pub tile_sizes: TiledFrameTileSizes,
@@ -475,7 +557,7 @@ pub struct TiledFrameFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visible_when: Option<String>,
+    pub visible_when: Option<SkinCondition>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -490,9 +572,9 @@ pub struct ButtonGroupElement {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub active_when: Option<String>,
+    pub active_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub disabled_when: Option<String>,
+    pub enabled_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sound: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -514,7 +596,7 @@ pub struct ButtonGroupFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visible_when: Option<String>,
+    pub visible_when: Option<SkinCondition>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -543,7 +625,49 @@ pub struct SlideshowFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visible_when: Option<String>,
+    pub visible_when: Option<SkinCondition>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScrollStripItem {
+    pub id: String,
+    pub asset: String,
+    pub w: f64,
+    pub h: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScrollStripSlideItem {
+    pub y: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScrollStripSlide {
+    pub items: HashMap<String, ScrollStripSlideItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScrollStripPresentation {
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_ms: Option<u32>,
+    pub items: Vec<ScrollStripItem>,
+    pub slides: Vec<ScrollStripSlide>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScrollStripFields {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub presentation: ScrollStripPresentation,
+    pub bounds: LayoutBounds,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible_when: Option<SkinCondition>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -562,9 +686,9 @@ pub struct ControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub disabled_when: Option<String>,
+    pub enabled_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub active_when: Option<String>,
+    pub active_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sound: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -579,7 +703,7 @@ pub struct ControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visible_when: Option<String>,
+    pub visible_when: Option<SkinCondition>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -605,7 +729,17 @@ pub struct TextControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visible_when: Option<String>,
+    pub visible_when: Option<SkinCondition>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InteractiveAssets {
+    pub default: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hover: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pressed: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -613,17 +747,17 @@ pub struct TextControlFields {
 pub enum Presentation {
     #[serde(rename = "bitmap", rename_all = "camelCase")]
     Bitmap {
-        asset_base: String,
+        assets: InteractiveAssets,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        assets_when: Option<HashMap<String, InteractiveAssets>>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         width: Option<f64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         height: Option<f64>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        animated_hover: Option<bool>,
     },
     #[serde(rename = "gif", rename_all = "camelCase")]
     Gif {
-        asset_base: String,
+        asset: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         duration_ms: Option<u64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -656,7 +790,9 @@ pub enum Presentation {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         direction: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        invert: Option<bool>,
+        value_frames: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        map_frames: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         class_prefix: Option<String>,
     },
@@ -664,7 +800,7 @@ pub enum Presentation {
     BitmapSeekbar {
         track: String,
         fill: String,
-        thumb: String,
+        thumb_assets: InteractiveAssets,
         border_size: f64,
         track_width: f64,
         track_height: f64,
@@ -675,10 +811,15 @@ pub enum Presentation {
     },
     #[serde(rename = "bitmapVerticalSlider", rename_all = "camelCase")]
     BitmapVerticalSlider {
-        track: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        track: Option<String>,
         thumb: String,
-        track_tile_width: f64,
-        track_tile_height: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        thumb_pressed: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        track_tile_width: Option<f64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        track_tile_height: Option<f64>,
         track_width: f64,
         track_height: f64,
         thumb_width: f64,
@@ -720,16 +861,19 @@ pub enum Presentation {
     },
     #[serde(rename = "buttonGroup", rename_all = "camelCase")]
     ButtonGroup {
-        asset_base: String,
+        assets: InteractiveAssets,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        assets_when: Option<HashMap<String, InteractiveAssets>>,
         position_map: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         width: Option<f64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         height: Option<f64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        animated_hover: Option<bool>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         sound: Option<String>,
+        /// Sibling buttonGroup node ids — co-elevate above them on hover/press.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        elevate_when: Option<Vec<String>>,
         elements: Vec<ButtonGroupElement>,
     },
     #[serde(rename = "framedPanel", rename_all = "camelCase")]
@@ -868,6 +1012,16 @@ fn read_manifest(path: &Path) -> Result<SkinManifest, String> {
         .map_err(|e| format!("{} is not valid skin JSON: {e}", path.display()))
 }
 
+fn validate_condition(
+    condition: Option<&SkinCondition>,
+    field: &str,
+    errors: &mut Vec<String>,
+) {
+    if let Some(cond) = condition {
+        cond.validate_leaves(field, errors);
+    }
+}
+
 fn validate_bind(path: Option<&str>, field: &str, errors: &mut Vec<String>) {
     if let Some(p) = path {
         if KNOWN_BINDS.contains(&p) {
@@ -888,7 +1042,7 @@ fn validate_bind(path: Option<&str>, field: &str, errors: &mut Vec<String>) {
                 return;
             }
         }
-        if is_known_view_bind(p) || is_known_slideshow_bind(p) {
+        if is_known_view_bind(p) || is_known_slideshow_bind(p) || is_known_scroll_strip_bind(p) {
             return;
         }
         errors.push(format!(
@@ -941,6 +1095,72 @@ fn is_known_slideshow_bind(path: &str) -> bool {
     false
 }
 
+fn is_known_scroll_strip_bind(path: &str) -> bool {
+    let Some(rest) = path.strip_prefix("scrollStrip.") else {
+        return false;
+    };
+    let Some((id, suffix)) = rest.split_once('.') else {
+        return false;
+    };
+    if id.is_empty() {
+        return false;
+    }
+    if matches!(suffix, "canPrev" | "canNext" | "atFirst" | "atLast") {
+        return true;
+    }
+    if let Some(slide) = suffix.strip_prefix("slide.") {
+        return slide.parse::<u32>().is_ok();
+    }
+    false
+}
+
+fn validate_skin_asset_file(path: &str, pack_dir: &Path, label: &str, errors: &mut Vec<String>) {
+    if path.contains("..") || path.starts_with('/') {
+        errors.push(format!(
+            "{label} \"{path}\" must be a relative path under assets/"
+        ));
+        return;
+    }
+    let file_path = pack_dir.join("assets").join(path);
+    if !file_path.is_file() {
+        errors.push(format!(
+            "{label} asset not found: expected {}",
+            file_path.display()
+        ));
+    }
+}
+
+fn validate_interactive_assets(
+    assets: &InteractiveAssets,
+    pack_dir: &Path,
+    label: &str,
+    errors: &mut Vec<String>,
+) {
+    validate_skin_asset_file(&assets.default, pack_dir, &format!("{label}.default"), errors);
+    if let Some(hover) = &assets.hover {
+        validate_skin_asset_file(hover, pack_dir, &format!("{label}.hover"), errors);
+    }
+    if let Some(pressed) = &assets.pressed {
+        validate_skin_asset_file(pressed, pack_dir, &format!("{label}.pressed"), errors);
+    }
+}
+
+fn validate_interactive_assets_when(
+    assets_when: &HashMap<String, InteractiveAssets>,
+    pack_dir: &Path,
+    label: &str,
+    errors: &mut Vec<String>,
+) {
+    for (bind, assets) in assets_when {
+        validate_interactive_assets(
+            assets,
+            pack_dir,
+            &format!("{label}.assetsWhen[\"{bind}\"]"),
+            errors,
+        );
+    }
+}
+
 fn validate_action(action: Option<&str>, errors: &mut Vec<String>) {
     if let Some(a) = action {
         if !KNOWN_ACTIONS.contains(&a) {
@@ -953,45 +1173,39 @@ fn validate_action(action: Option<&str>, errors: &mut Vec<String>) {
 
 fn validate_bitmap_tiled_slider_presentation(
     kind: &str,
-    track: &str,
+    track: Option<&str>,
     thumb: &str,
-    track_tile_width: &f64,
-    track_tile_height: &f64,
-    track_width: &f64,
-    track_height: &f64,
-    thumb_width: &f64,
-    thumb_height: &f64,
-    border_size: &Option<f64>,
+    thumb_pressed: Option<&str>,
+    track_tile_width: Option<f64>,
+    track_tile_height: Option<f64>,
+    track_width: f64,
+    track_height: f64,
+    thumb_width: f64,
+    thumb_height: f64,
+    border_size: Option<f64>,
     pack_dir: &Path,
     errors: &mut Vec<String>,
 ) {
-    for (label, path) in [("track", track), ("thumb", thumb)] {
-        if path.contains("..") || path.starts_with('/') {
+    validate_skin_asset_file(thumb, pack_dir, &format!("{kind} thumb"), errors);
+    if let Some(pressed) = thumb_pressed {
+        validate_skin_asset_file(pressed, pack_dir, &format!("{kind} thumbPressed"), errors);
+    }
+    if let Some(track_path) = track {
+        validate_skin_asset_file(track_path, pack_dir, &format!("{kind} track"), errors);
+        let tile_w = track_tile_width.unwrap_or(track_width);
+        let tile_h = track_tile_height.unwrap_or(track_height);
+        if tile_w <= 0.0 || tile_h <= 0.0 {
             errors.push(format!(
-                "{kind} {label} \"{path}\" must be a relative path under assets/"
-            ));
-            return;
-        }
-        let base = pack_dir.join("assets").join(path);
-        let found = ["png", "webp", "jpg", "jpeg"]
-            .iter()
-            .any(|ext| base.with_extension(ext).is_file());
-        if !found {
-            errors.push(format!(
-                "{kind} {label} asset not found: expected {}.(png|webp|jpg)",
-                base.display()
+                "{kind} trackTileWidth and trackTileHeight must be positive"
             ));
         }
+    } else if track_tile_width.is_some() || track_tile_height.is_some() {
+        errors.push(format!("{kind} trackTileWidth/trackTileHeight require track"));
     }
-    if track_tile_width <= &0.0 || track_tile_height <= &0.0 {
-        errors.push(format!(
-            "{kind} trackTileWidth and trackTileHeight must be positive"
-        ));
-    }
-    if track_width <= &0.0 || track_height <= &0.0 {
+    if track_width <= 0.0 || track_height <= 0.0 {
         errors.push(format!("{kind} trackWidth and trackHeight must be positive"));
     }
-    if thumb_width <= &0.0 || thumb_height <= &0.0 {
+    if thumb_width <= 0.0 || thumb_height <= 0.0 {
         errors.push(format!("{kind} thumbWidth and thumbHeight must be positive"));
     }
     if border_size.is_some_and(|size| size < 0.0) {
@@ -1000,22 +1214,7 @@ fn validate_bitmap_tiled_slider_presentation(
 }
 
 fn validate_tiled_frame_asset(path: &str, pack_dir: &Path, label: &str, errors: &mut Vec<String>) {
-    if path.contains("..") || path.starts_with('/') {
-        errors.push(format!(
-            "tiledFrame {label} \"{path}\" must be a relative path under assets/"
-        ));
-        return;
-    }
-    let base = pack_dir.join("assets").join(path);
-    let found = ["png", "webp", "jpg", "jpeg"]
-        .iter()
-        .any(|ext| base.with_extension(ext).is_file());
-    if !found {
-        errors.push(format!(
-            "tiledFrame {label} asset not found: expected {}.(png|webp|jpg)",
-            base.display()
-        ));
-    }
+    validate_skin_asset_file(path, pack_dir, &format!("tiledFrame {label}"), errors);
 }
 
 fn validate_tiled_frame_presentation(
@@ -1023,34 +1222,67 @@ fn validate_tiled_frame_presentation(
     pack_dir: &Path,
     errors: &mut Vec<String>,
 ) {
-    if presentation.kind != "tiledFrame" {
-        errors.push(format!(
-            "tiledFrame presentation kind must be \"tiledFrame\", got \"{}\"",
-            presentation.kind
-        ));
-    }
-    if presentation.frame_thickness <= 0.0 {
-        errors.push("tiledFrame frameThickness must be positive".to_string());
-    }
-    let assets = &presentation.assets;
-    validate_tiled_frame_asset(&assets.top_left, pack_dir, "assets.topLeft", errors);
-    validate_tiled_frame_asset(&assets.top_center, pack_dir, "assets.topCenter", errors);
-    validate_tiled_frame_asset(&assets.top_right, pack_dir, "assets.topRight", errors);
-    validate_tiled_frame_asset(&assets.top_stretch, pack_dir, "assets.topStretch", errors);
-    validate_tiled_frame_asset(&assets.left_stretch, pack_dir, "assets.leftStretch", errors);
-    validate_tiled_frame_asset(&assets.right_stretch, pack_dir, "assets.rightStretch", errors);
-    validate_tiled_frame_asset(&assets.bottom_left, pack_dir, "assets.bottomLeft", errors);
-    validate_tiled_frame_asset(&assets.bottom_center, pack_dir, "assets.bottomCenter", errors);
-    validate_tiled_frame_asset(&assets.bottom_right, pack_dir, "assets.bottomRight", errors);
-    validate_tiled_frame_asset(&assets.bottom_stretch, pack_dir, "assets.bottomStretch", errors);
-    if let Some(path) = &assets.top_stretch2 {
-        validate_tiled_frame_asset(path, pack_dir, "assets.topStretch2", errors);
-    }
-    if let Some(path) = &assets.bottom_stretch2 {
-        validate_tiled_frame_asset(path, pack_dir, "assets.bottomStretch2", errors);
-    }
-    if let Some(path) = &assets.resize_grip {
-        validate_tiled_frame_asset(path, pack_dir, "assets.resizeGrip", errors);
+    match presentation {
+        TiledFramePresentation::Explicit(explicit) => {
+            if explicit.kind != "tiledFrame" {
+                errors.push(format!(
+                    "tiledFrame presentation kind must be \"tiledFrame\", got \"{}\"",
+                    explicit.kind
+                ));
+            }
+            if explicit.tiles.is_empty() {
+                errors.push("tiledFrame tiles must not be empty".to_string());
+            }
+            for (index, tile) in explicit.tiles.iter().enumerate() {
+                validate_tiled_frame_asset(
+                    &tile.asset,
+                    pack_dir,
+                    &format!("tiles[{index}].asset"),
+                    errors,
+                );
+            }
+        }
+        TiledFramePresentation::Preset(preset) => {
+            if preset.kind != "tiledFrame" {
+                errors.push(format!(
+                    "tiledFrame presentation kind must be \"tiledFrame\", got \"{}\"",
+                    preset.kind
+                ));
+            }
+            if preset.frame_thickness <= 0.0 {
+                errors.push("tiledFrame frameThickness must be positive".to_string());
+            }
+            let assets = &preset.assets;
+            validate_tiled_frame_asset(&assets.top_left, pack_dir, "assets.topLeft", errors);
+            validate_tiled_frame_asset(&assets.top_center, pack_dir, "assets.topCenter", errors);
+            validate_tiled_frame_asset(&assets.top_right, pack_dir, "assets.topRight", errors);
+            validate_tiled_frame_asset(&assets.top_stretch, pack_dir, "assets.topStretch", errors);
+            validate_tiled_frame_asset(&assets.left_stretch, pack_dir, "assets.leftStretch", errors);
+            validate_tiled_frame_asset(&assets.right_stretch, pack_dir, "assets.rightStretch", errors);
+            validate_tiled_frame_asset(&assets.bottom_left, pack_dir, "assets.bottomLeft", errors);
+            validate_tiled_frame_asset(
+                &assets.bottom_center,
+                pack_dir,
+                "assets.bottomCenter",
+                errors,
+            );
+            validate_tiled_frame_asset(&assets.bottom_right, pack_dir, "assets.bottomRight", errors);
+            validate_tiled_frame_asset(
+                &assets.bottom_stretch,
+                pack_dir,
+                "assets.bottomStretch",
+                errors,
+            );
+            if let Some(path) = &assets.top_stretch2 {
+                validate_tiled_frame_asset(path, pack_dir, "assets.topStretch2", errors);
+            }
+            if let Some(path) = &assets.bottom_stretch2 {
+                validate_tiled_frame_asset(path, pack_dir, "assets.bottomStretch2", errors);
+            }
+            if let Some(path) = &assets.resize_grip {
+                validate_tiled_frame_asset(path, pack_dir, "assets.resizeGrip", errors);
+            }
+        }
     }
 }
 
@@ -1061,56 +1293,21 @@ fn validate_presentation(
 ) {
     match presentation {
         Presentation::Bitmap {
-            asset_base,
-            animated_hover,
+            assets,
+            assets_when,
             ..
         } => {
-            if asset_base.contains("..") || asset_base.starts_with('/') {
-                errors.push(format!(
-                    "bitmap assetBase \"{asset_base}\" must be a relative path under assets/"
-                ));
-                return;
-            }
-            let base = pack_dir.join("assets").join(asset_base);
-            let has_default = ["png", "webp", "jpg", "jpeg"]
-                .iter()
-                .any(|ext| base.with_extension(ext).is_file());
-            if !has_default {
-                errors.push(format!(
-                    "bitmap asset not found: expected {}.(png|webp|jpg)",
-                    base.display()
-                ));
-            }
-            if animated_hover.unwrap_or(false) {
-                let hover_path = pack_dir
-                    .join("assets")
-                    .join(format!("{asset_base}-hover.gif"));
-                if !hover_path.is_file() {
-                    errors.push(format!(
-                        "bitmap animatedHover: expected {}",
-                        hover_path.display()
-                    ));
-                }
+            validate_interactive_assets(assets, pack_dir, "bitmap assets", errors);
+            if let Some(when) = assets_when {
+                validate_interactive_assets_when(when, pack_dir, "bitmap", errors);
             }
         }
         Presentation::Gif {
-            asset_base,
+            asset,
             complete_action,
             ..
         } => {
-            if asset_base.contains("..") || asset_base.starts_with('/') {
-                errors.push(format!(
-                    "gif assetBase \"{asset_base}\" must be a relative path under assets/"
-                ));
-                return;
-            }
-            let path = pack_dir.join("assets").join(asset_base).with_extension("gif");
-            if !path.is_file() {
-                errors.push(format!(
-                    "gif asset not found: expected {}",
-                    path.display()
-                ));
-            }
+            validate_skin_asset_file(asset, pack_dir, "gif asset", errors);
             validate_action(complete_action.as_deref(), errors);
         }
         Presentation::Css { stylesheet, .. } => {
@@ -1132,26 +1329,9 @@ fn validate_presentation(
             frame_count,
             ..
         } => {
-            for (label, path) in [("strip", strip.as_str())]
-                .into_iter()
-                .chain(position_map.as_deref().map(|p| ("positionMap", p)))
-            {
-                if path.contains("..") || path.starts_with('/') {
-                    errors.push(format!(
-                        "stripSlider {label} \"{path}\" must be a relative path under assets/"
-                    ));
-                    return;
-                }
-                let base = pack_dir.join("assets").join(path);
-                let found = ["png", "webp", "jpg", "jpeg"]
-                    .iter()
-                    .any(|ext| base.with_extension(ext).is_file());
-                if !found {
-                    errors.push(format!(
-                        "stripSlider {label} asset not found: expected {}.(png|webp|jpg)",
-                        base.display()
-                    ));
-                }
+            validate_skin_asset_file(strip, pack_dir, "stripSlider strip", errors);
+            if let Some(map) = position_map {
+                validate_skin_asset_file(map, pack_dir, "stripSlider positionMap", errors);
             }
             if *frame_width <= 0.0 {
                 errors.push("stripSlider frameWidth must be positive".into());
@@ -1163,7 +1343,7 @@ fn validate_presentation(
         Presentation::BitmapSeekbar {
             track,
             fill,
-            thumb,
+            thumb_assets,
             border_size,
             track_width,
             track_height,
@@ -1171,28 +1351,14 @@ fn validate_presentation(
             thumb_height,
             ..
         } => {
-            for (label, path) in [
-                ("track", track.as_str()),
-                ("fill", fill.as_str()),
-                ("thumb", thumb.as_str()),
-            ] {
-                if path.contains("..") || path.starts_with('/') {
-                    errors.push(format!(
-                        "bitmapSeekbar {label} \"{path}\" must be a relative path under assets/"
-                    ));
-                    return;
-                }
-                let base = pack_dir.join("assets").join(path);
-                let found = ["png", "webp", "jpg", "jpeg"]
-                    .iter()
-                    .any(|ext| base.with_extension(ext).is_file());
-                if !found {
-                    errors.push(format!(
-                        "bitmapSeekbar {label} asset not found: expected {}.(png|webp|jpg)",
-                        base.display()
-                    ));
-                }
-            }
+            validate_skin_asset_file(track, pack_dir, "bitmapSeekbar track", errors);
+            validate_skin_asset_file(fill, pack_dir, "bitmapSeekbar fill", errors);
+            validate_interactive_assets(
+                thumb_assets,
+                pack_dir,
+                "bitmapSeekbar thumbAssets",
+                errors,
+            );
             if *border_size < 0.0 {
                 errors.push("bitmapSeekbar borderSize must be non-negative".into());
             }
@@ -1206,6 +1372,7 @@ fn validate_presentation(
         Presentation::BitmapVerticalSlider {
             track,
             thumb,
+            thumb_pressed,
             track_tile_width,
             track_tile_height,
             track_width,
@@ -1217,15 +1384,16 @@ fn validate_presentation(
         } => {
             validate_bitmap_tiled_slider_presentation(
                 "bitmapVerticalSlider",
-                track,
+                track.as_deref(),
                 thumb,
-                track_tile_width,
-                track_tile_height,
-                track_width,
-                track_height,
-                thumb_width,
-                thumb_height,
-                border_size,
+                thumb_pressed.as_deref(),
+                *track_tile_width,
+                *track_tile_height,
+                *track_width,
+                *track_height,
+                *thumb_width,
+                *thumb_height,
+                *border_size,
                 pack_dir,
                 errors,
             );
@@ -1244,15 +1412,16 @@ fn validate_presentation(
         } => {
             validate_bitmap_tiled_slider_presentation(
                 "bitmapHorizontalSlider",
-                track,
+                Some(track.as_str()),
                 thumb,
-                track_tile_width,
-                track_tile_height,
-                track_width,
-                track_height,
-                thumb_width,
-                thumb_height,
-                border_size,
+                None,
+                Some(*track_tile_width),
+                Some(*track_tile_height),
+                *track_width,
+                *track_height,
+                *thumb_width,
+                *thumb_height,
+                *border_size,
                 pack_dir,
                 errors,
             );
@@ -1264,22 +1433,7 @@ fn validate_presentation(
             slots,
             ..
         } => {
-            if strip.contains("..") || strip.starts_with('/') {
-                errors.push(format!(
-                    "digitStrip strip \"{strip}\" must be a relative path under assets/"
-                ));
-                return;
-            }
-            let base = pack_dir.join("assets").join(strip);
-            let found = ["png", "webp", "jpg", "jpeg"]
-                .iter()
-                .any(|ext| base.with_extension(ext).is_file());
-            if !found {
-                errors.push(format!(
-                    "digitStrip strip asset not found: expected {}.(png|webp|jpg)",
-                    base.display()
-                ));
-            }
+            validate_skin_asset_file(strip, pack_dir, "digitStrip strip", errors);
             if *frame_width <= 0.0 {
                 errors.push("digitStrip frameWidth must be positive".into());
             }
@@ -1312,26 +1466,9 @@ fn validate_presentation(
             content_inset,
             ..
         } => {
-            for (label, path) in [("mask", mask.as_str())]
-                .into_iter()
-                .chain(frame.as_deref().map(|p| ("frame", p)))
-            {
-                if path.contains("..") || path.starts_with('/') {
-                    errors.push(format!(
-                        "framedPanel {label} \"{path}\" must be a relative path under assets/"
-                    ));
-                    return;
-                }
-                let base = pack_dir.join("assets").join(path);
-                let found = ["png", "webp", "jpg", "jpeg"]
-                    .iter()
-                    .any(|ext| base.with_extension(ext).is_file());
-                if !found {
-                    errors.push(format!(
-                        "framedPanel {label} asset not found: expected {}.(png|webp|jpg)",
-                        base.display()
-                    ));
-                }
+            validate_skin_asset_file(mask, pack_dir, "framedPanel mask", errors);
+            if let Some(frame_path) = frame {
+                validate_skin_asset_file(frame_path, pack_dir, "framedPanel frame", errors);
             }
             if let Some(inset) = content_inset {
                 if inset.w <= 0.0 || inset.h <= 0.0 {
@@ -1341,48 +1478,24 @@ fn validate_presentation(
         }
         Presentation::Compact { .. } => {}
         Presentation::ButtonGroup {
-            asset_base,
+            assets,
+            assets_when,
             position_map,
-            animated_hover,
             elements,
             ..
         } => {
-            for (label, path) in [("assetBase", asset_base.as_str()), ("positionMap", position_map.as_str())]
-            {
-                if path.contains("..") || path.starts_with('/') {
-                    errors.push(format!(
-                        "buttonGroup {label} \"{path}\" must be a relative path under assets/"
-                    ));
-                    return;
-                }
-                let base = pack_dir.join("assets").join(path);
-                let found = ["png", "webp", "jpg", "jpeg"]
-                    .iter()
-                    .any(|ext| base.with_extension(ext).is_file());
-                if !found {
-                    errors.push(format!(
-                        "buttonGroup {label} asset not found: expected {}.(png|webp|jpg)",
-                        base.display()
-                    ));
-                }
+            validate_interactive_assets(assets, pack_dir, "buttonGroup assets", errors);
+            if let Some(when) = assets_when {
+                validate_interactive_assets_when(when, pack_dir, "buttonGroup", errors);
             }
-            if animated_hover.unwrap_or(false) {
-                let hover_path = pack_dir
-                    .join("assets")
-                    .join(format!("{asset_base}-hover.gif"));
-                if !hover_path.is_file() {
-                    errors.push(format!(
-                        "buttonGroup animatedHover: expected {}",
-                        hover_path.display()
-                    ));
-                }
-            }
+            validate_skin_asset_file(position_map, pack_dir, "buttonGroup positionMap", errors);
             if elements.is_empty() {
                 errors.push("buttonGroup elements must not be empty".into());
             }
             for element in elements {
                 validate_action(Some(element.action.as_str()), errors);
-                validate_bind(element.active_when.as_deref(), "activeWhen", errors);
+                validate_condition(element.active_when.as_ref(), "activeWhen", errors);
+                validate_condition(element.enabled_when.as_ref(), "enabledWhen", errors);
             }
         }
     }
@@ -1406,7 +1519,7 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
         | LayoutNode::Column(f)
         | LayoutNode::Overlay(f)
         | LayoutNode::Canvas(f) => {
-            validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
@@ -1422,7 +1535,7 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
                     SHELL_SLOTS.join(", ")
                 ));
             }
-            validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
@@ -1431,14 +1544,14 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
             }
         }
         LayoutNode::Decoration(f) => {
-            validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
             validate_presentation(&f.presentation, pack_dir, errors);
         }
         LayoutNode::HitArea(f) => {
-            validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             validate_bounds(&f.bounds, "bounds", errors);
         }
         LayoutNode::Button(f)
@@ -1453,9 +1566,9 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
         | LayoutNode::Playlist(f) => {
             validate_action(f.action.as_deref(), errors);
             validate_bind(f.bind.as_deref(), "bind", errors);
-            validate_bind(f.disabled_when.as_deref(), "disabledWhen", errors);
-            validate_bind(f.active_when.as_deref(), "activeWhen", errors);
-            validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);
+            validate_condition(f.enabled_when.as_ref(), "enabledWhen", errors);
+            validate_condition(f.active_when.as_ref(), "activeWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
@@ -1470,15 +1583,15 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
             }
             validate_action(f.control.action.as_deref(), errors);
             validate_bind(f.control.bind.as_deref(), "bind", errors);
-            validate_bind(f.control.disabled_when.as_deref(), "disabledWhen", errors);
-            validate_bind(f.control.visible_when.as_deref(), "visibleWhen", errors);
+            validate_condition(f.control.enabled_when.as_ref(), "enabledWhen", errors);
+            validate_condition(f.control.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.control.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
             validate_presentation(&f.control.presentation, pack_dir, errors);
         }
         LayoutNode::ButtonGroup(f) => {
-            validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
@@ -1486,7 +1599,7 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
         }
         LayoutNode::Text(f) => {
             validate_bind(f.bind.as_deref(), "bind", errors);
-            validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(overflow) = &f.overflow {
                 const ALLOWED: &[&str] = &["visible", "clip", "scroll", "scroll-bounce"];
                 if !ALLOWED.contains(&overflow.as_str()) {
@@ -1501,7 +1614,7 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
             validate_presentation(&f.presentation, pack_dir, errors);
         }
         LayoutNode::TiledFrame(f) => {
-            validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
@@ -1511,7 +1624,7 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
             }
         }
         LayoutNode::Slideshow(f) => {
-            validate_bind(f.visible_when.as_deref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
@@ -1528,6 +1641,33 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
                 if deck.pages == 0 {
                     errors.push(format!("slideshow deck \"{name}\" pages must be >= 1"));
                 }
+            }
+        }
+        LayoutNode::ScrollStrip(f) => {
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_bounds(&f.bounds, "bounds", errors);
+            if f.id.as_deref().unwrap_or("").is_empty() {
+                errors.push("scrollStrip id must not be empty".into());
+            }
+            if f.presentation.kind != "bitmapVertical" {
+                errors.push("scrollStrip presentation kind must be bitmapVertical".into());
+            }
+            if f.presentation.items.is_empty() {
+                errors.push("scrollStrip items must not be empty".into());
+            }
+            if f.presentation.slides.is_empty() {
+                errors.push("scrollStrip slides must not be empty".into());
+            }
+            for item in &f.presentation.items {
+                if item.id.is_empty() {
+                    errors.push("scrollStrip item id must not be empty".into());
+                }
+                validate_skin_asset_file(
+                    &item.asset,
+                    pack_dir,
+                    &format!("scrollStrip item \"{}\"", item.id),
+                    errors,
+                );
             }
         }
     }

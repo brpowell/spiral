@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState, type PointerEvent } from "react";
 import { findPlaybackTrack } from "../../../lib/playbackTrack";
-import { skinAssetUrl } from "../../../lib/skinAssets";
+import { skinAssetFileUrl } from "../../../lib/skinAssets";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
-import { useSkinBindState } from "../../../lib/skinBinds";
+import { useSkinBindState, useSkinControlEnabled } from "../../../lib/skinBinds";
 import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import * as audio from "../../../lib/playback";
 import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
@@ -51,7 +51,7 @@ export function SkinBitmapSeekbar({
   const {
     track,
     fill,
-    thumb,
+    thumbAssets,
     borderSize,
     trackWidth,
     trackHeight,
@@ -64,16 +64,24 @@ export function SkinBitmapSeekbar({
   const thumbLeft = borderSize + ratio * travel;
   const fillWidth = borderSize + ratio * fillTravel;
 
-  const trackUrl = skinAssetUrl(pack.packDir, track);
-  const fillUrl = skinAssetUrl(pack.packDir, fill);
-  const thumbUrl = skinAssetUrl(pack.packDir, thumb);
-  const thumbHoverUrl = skinAssetUrl(pack.packDir, thumb, "hover");
-  const thumbPressedUrl = skinAssetUrl(pack.packDir, thumb, "pressed");
+  const trackUrl = skinAssetFileUrl(pack.packDir, track);
+  const fillUrl = skinAssetFileUrl(pack.packDir, fill);
+  const thumbUrl = skinAssetFileUrl(pack.packDir, thumbAssets.default);
+  const thumbHoverUrl = skinAssetFileUrl(
+    pack.packDir,
+    thumbAssets.hover ?? thumbAssets.default,
+  );
+  const thumbPressedUrl = skinAssetFileUrl(
+    pack.packDir,
+    thumbAssets.pressed ?? thumbAssets.default,
+  );
 
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
   const [hoverRatio, setHoverRatio] = useState<number | null>(null);
   const bindState = useSkinBindState();
+  const interactionEnabled = useSkinControlEnabled(node.enabledWhen);
+  const hitDisabled = disabled || !interactionEnabled;
 
   const pointerToRatio = useCallback(
     (clientX: number, rect: DOMRect): number => {
@@ -84,7 +92,7 @@ export function SkinBitmapSeekbar({
   );
 
   const onPointerDown = (event: PointerEvent<HTMLButtonElement>) => {
-    if (disabled) return;
+    if (hitDisabled) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     setPressed(true);
     handleSeekStart();
@@ -170,7 +178,7 @@ export function SkinBitmapSeekbar({
       <button
         type="button"
         className="skin-bitmap-seekbar__hit"
-        disabled={disabled}
+        disabled={hitDisabled}
         aria-label={tooltip || "Seek"}
         title={tooltip || undefined}
         {...skinDragRegionNoneProps()}

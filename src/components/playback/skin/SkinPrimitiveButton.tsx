@@ -8,6 +8,11 @@ import {
 import { useSkinAction } from "../../../lib/skinActions";
 import { useSkinModeAlwaysOnTop } from "../../../lib/skinModeAlwaysOnTop";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
+import {
+  evaluateSkinCondition,
+  useSkinBindState,
+  useSkinControlEnabled,
+} from "../../../lib/skinBinds";
 import { useSkinTooltip } from "../../../lib/skinTooltips";
 import type { ButtonNode } from "../../../types/skin";
 import "./SkinPrimitiveButton.css";
@@ -58,7 +63,9 @@ function actionHasIcon(action: string | undefined): boolean {
 
 export function SkinPrimitiveButton({ node }: { node: ButtonNode }) {
   const invoke = useSkinAction(node.action);
+  const bindState = useSkinBindState();
   const alwaysOnTop = useSkinModeAlwaysOnTop();
+  const interactionEnabled = useSkinControlEnabled(node.enabledWhen);
   const presentation = node.presentation;
 
   if (presentation.kind !== "primitive") return null;
@@ -71,7 +78,11 @@ export function SkinPrimitiveButton({ node }: { node: ButtonNode }) {
     tooltip: node.tooltip,
     tooltipWhen: node.tooltipWhen,
   });
-  const active = node.action === "skin.toggleAlwaysOnTop" && alwaysOnTop;
+  const isSticky =
+    node.activeWhen &&
+    evaluateSkinCondition(node.activeWhen, bindState);
+  const active =
+    (node.action === "skin.toggleAlwaysOnTop" && alwaysOnTop) || Boolean(isSticky);
   const hasIcon = actionHasIcon(node.action);
 
   const className = [
@@ -95,7 +106,11 @@ export function SkinPrimitiveButton({ node }: { node: ButtonNode }) {
       className={className}
       data-node-id={node.id}
       {...skinDragRegionNoneProps()}
-      onClick={() => invoke()}
+      disabled={!interactionEnabled}
+      onClick={() => {
+        if (!interactionEnabled) return;
+        invoke();
+      }}
       aria-label={label}
       aria-pressed={node.action === "skin.toggleAlwaysOnTop" ? active : undefined}
       title={label}

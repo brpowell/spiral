@@ -28,6 +28,7 @@ import {
   isEqualizerWindow,
   isAnySkinWindow,
   isSkinAuxWindow,
+  isSkinModeWindow,
 } from "./lib/windowRole";
 import "./styles/theme.css";
 import "./styles/scrollbars.css";
@@ -110,6 +111,13 @@ async function start() {
   await initVisualizerBridge(role);
   await initEqBridge(role);
   await initSkinBridge(role);
+
+  if (isSkinModeWindow()) {
+    const { activePack, activeViewId } = useSkinStore.getState();
+    if (activePack) {
+      await preloadSkinViewAssets(activePack, activeViewId);
+    }
+  }
 
   const Root = isAnySkinWindow()
     ? SkinModeApp

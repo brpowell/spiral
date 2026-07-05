@@ -8,12 +8,16 @@ export function SkinBounds({
   children,
   className,
   debugLabel,
+  boundsFor,
   motion,
 }: {
   bounds: LayoutBounds;
   children: ReactNode;
   className?: string;
+  /** Fallback debug overlay label when `boundsFor` is unset (e.g. anonymous hit areas). */
   debugLabel?: string;
+  /** Stable node id for bounds-box CSS (e.g. motion timing on `.skin-bounds`). */
+  boundsFor?: string;
   /** When true, position changes animate (panel drawer slides). */
   motion?: boolean;
 }) {
@@ -42,11 +46,11 @@ export function SkinBounds({
         .filter(Boolean)
         .join(" ")}
       style={style}
-      data-node-id={debugLabel}
+      data-bounds-for={boundsFor}
     >
-      {skinDebug && debugLabel ? (
+      {skinDebug && (boundsFor ?? debugLabel) ? (
         <span className="skin-bounds__debug-label" aria-hidden>
-          {debugLabel}
+          {boundsFor ?? debugLabel}
         </span>
       ) : null}
       {children}

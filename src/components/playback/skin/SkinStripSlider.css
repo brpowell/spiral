@@ -19,6 +19,10 @@
   padding: 0;
   border: none;
   background: transparent;
+  cursor: default;
+}
+
+.skin-strip-slider__hit--interactive {
   cursor: pointer;
 }
 

@@ -26,3 +26,9 @@
   opacity: 0.45;
   cursor: default;
 }
+
+.skin-bitmap-btn--canvas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

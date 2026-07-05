@@ -5,10 +5,10 @@ import {
   gainDbToRatio,
   ratioToGainDb,
 } from "../../../lib/equalizer/types";
-import { skinAssetUrl } from "../../../lib/skinAssets";
+import { skinAssetFileUrl } from "../../../lib/skinAssets";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
 import { wmpTiledTrackStyle } from "../../../lib/wmpTiledTrack";
-import { useSkinBindState } from "../../../lib/skinBinds";
+import { useSkinBindState, useSkinControlEnabled } from "../../../lib/skinBinds";
 import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import { useEqualizerStore } from "../../../store/useEqualizerStore";
 import type { EqBandNode, LoadedSkinPack } from "../../../types/skin";
@@ -31,8 +31,9 @@ export function SkinEqBandSlider({
   const {
     track,
     thumb,
-    trackTileWidth,
-    trackTileHeight,
+    thumbPressed,
+    trackTileWidth: trackTileWidthRaw,
+    trackTileHeight: trackTileHeightRaw,
     trackWidth,
     trackHeight,
     thumbWidth,
@@ -41,11 +42,15 @@ export function SkinEqBandSlider({
     fillFromBottom = false,
     classPrefix,
   } = presentation;
+  const trackTileWidth = trackTileWidthRaw ?? trackWidth;
+  const trackTileHeight = trackTileHeightRaw ?? trackHeight;
 
   const bandGain = useEqualizerStore((s) => s.bands[node.band - 1]);
   const setBand = useEqualizerStore((s) => s.setBand);
   const bindState = useSkinBindState();
+  const interactionEnabled = useSkinControlEnabled(node.enabledWhen);
   const [hoverRatio, setHoverRatio] = useState<number | null>(null);
+  const [dragging, setDragging] = useState(false);
   const ratio = gainDbToRatio(bandGain);
 
   const travel = Math.max(0, trackHeight - borderSize * 2 - thumbHeight);
@@ -53,8 +58,13 @@ export function SkinEqBandSlider({
   const thumbLeft = (trackWidth - thumbWidth) / 2;
   const trackLeft = (trackWidth - trackTileWidth) / 2;
 
-  const trackUrl = skinAssetUrl(pack.packDir, track);
-  const thumbUrl = skinAssetUrl(pack.packDir, thumb);
+  const trackUrl = track ? skinAssetFileUrl(pack.packDir, track) : null;
+  const thumbUrl = skinAssetFileUrl(pack.packDir, thumb);
+  const thumbPressedUrl = thumbPressed
+    ? skinAssetFileUrl(pack.packDir, thumbPressed)
+    : null;
+  const activeThumbUrl =
+    dragging && thumbPressedUrl ? thumbPressedUrl : thumbUrl;
 
   const pointerToRatio = useCallback(
     (clientY: number, rect: DOMRect): number => {
@@ -73,6 +83,8 @@ export function SkinEqBandSlider({
   );
 
   const onPointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!interactionEnabled) return;
+    setDragging(true);
     event.currentTarget.setPointerCapture(event.pointerId);
     applyRatio(pointerToRatio(event.clientY, event.currentTarget.getBoundingClientRect()));
   };
@@ -83,11 +95,12 @@ export function SkinEqBandSlider({
       event.currentTarget.getBoundingClientRect(),
     );
     setHoverRatio(nextRatio);
-    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    if (!event.currentTarget.hasPointerCapture(event.pointerId) || !interactionEnabled) return;
     applyRatio(nextRatio);
   };
 
   const finishPointer = (event: PointerEvent<HTMLButtonElement>) => {
+    setDragging(false);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -113,42 +126,43 @@ export function SkinEqBandSlider({
       data-node-id={node.id}
       style={{ width: "100%", height: "100%" }}
     >
-      {fillFromBottom ? (
-        <div
-          className="skin-eq-band-slider__fill"
-          style={{
-            left: `${trackLeft}px`,
-            bottom: 0,
-            width: `${trackTileWidth}px`,
-            height: `${Math.round(ratio * trackHeight)}px`,
-            backgroundImage: `url("${trackUrl}")`,
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "bottom center",
-            backgroundSize: `${trackTileWidth}px ${trackHeight}px`,
-          }}
-          aria-hidden
-        />
-      ) : (
-        <div
-          className="skin-eq-band-slider__track"
-          style={{
-            left: `${trackLeft}px`,
-            ...wmpTiledTrackStyle({
-              trackUrl,
-              trackTileWidth,
-              trackTileHeight,
-              trackWidth: trackTileWidth,
-              trackHeight,
-              borderSize,
-              direction: "vertical",
-            }),
-          }}
-          aria-hidden
-        />
-      )}
+      {trackUrl &&
+        (fillFromBottom ? (
+          <div
+            className="skin-eq-band-slider__fill"
+            style={{
+              left: `${trackLeft}px`,
+              bottom: 0,
+              width: `${trackTileWidth}px`,
+              height: `${Math.round(ratio * trackHeight)}px`,
+              backgroundImage: `url("${trackUrl}")`,
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "bottom center",
+              backgroundSize: `${trackTileWidth}px ${trackHeight}px`,
+            }}
+            aria-hidden
+          />
+        ) : (
+          <div
+            className="skin-eq-band-slider__track"
+            style={{
+              left: `${trackLeft}px`,
+              ...wmpTiledTrackStyle({
+                trackUrl,
+                trackTileWidth,
+                trackTileHeight,
+                trackWidth: trackTileWidth,
+                trackHeight,
+                borderSize,
+                direction: "vertical",
+              }),
+            }}
+            aria-hidden
+          />
+        ))}
       <img
         className="skin-eq-band-slider__thumb"
-        src={thumbUrl}
+        src={activeThumbUrl}
         alt=""
         draggable={false}
         style={{
@@ -162,6 +176,7 @@ export function SkinEqBandSlider({
       <button
         type="button"
         className="skin-eq-band-slider__hit"
+        disabled={!interactionEnabled}
         aria-label={
           tooltip ||
           `EQ band ${node.band} (${formatEqBandFrequency(EQ_BAND_FREQUENCIES_HZ[node.band - 1])} Hz)`

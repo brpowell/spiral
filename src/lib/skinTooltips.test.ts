@@ -1,44 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { SkinBindState } from "./skinBinds";
 import { resolveSkinTooltip } from "./skinTooltips";
-
-function minimalBindState(overrides: Partial<SkinBindState> = {}): SkinBindState {
-  return {
-    currentTrack: null,
-    artUrl: null,
-    playbackState: "stopped",
-    positionSeconds: 83,
-    repeatMode: "off",
-    shuffle: false,
-    volume: 0.72,
-    balance: 0,
-    muted: false,
-    canGoPrevious: false,
-    canGoNext: false,
-    activeQueueLength: 0,
-    currentTrackId: null,
-    alwaysOnTop: false,
-    currentPlayable: null,
-    panelOpen: {},
-    panelRevealed: {},
-    panelSettled: {},
-    visualizerName: "Bars",
-    canCycleVisualizer: false,
-    playlistSourceId: "all",
-    playlists: [],
-    library: [],
-    playbackTracks: [],
-    eqEnabled: true,
-    eqPresetId: "manual",
-    eqBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    eqCustomPresets: [],
-    soundEffectsEnabled: true,
-    viewState: {},
-    slideshowPresentations: {},
-    slideshowState: {},
-    ...overrides,
-  };
-}
+import { minimalBindState } from "../test/skinBindFixtures";
 
 describe("resolveSkinTooltip", () => {
   it("prefers tooltipWhen over tooltip and defaults", () => {
@@ -57,6 +19,7 @@ describe("resolveSkinTooltip", () => {
 
   it("interpolates bind placeholders in tooltip templates", () => {
     const state = minimalBindState({
+      positionSeconds: 83,
       currentTrack: {
         id: 1,
         title: "Track",

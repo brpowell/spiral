@@ -26,6 +26,7 @@ import { useEqualizerStore } from "../store/useEqualizerStore";
 import { pickAndImportLibraryPaths } from "./libraryImport";
 import { getSkinAuxContext } from "./windowRole";
 import { getSkinSlideshowStateApi } from "./skinSlideshowContext";
+import { getSkinScrollStripStateApi } from "./skinScrollStripContext";
 import { getSkinViewStateApi } from "./skinViewStateContext";
 import { applyViewStateEvent } from "./skinViewStateEvents";
 
@@ -302,6 +303,24 @@ export function runSkinAction(
         getSkinSlideshowStateApi()?.next(payload.id);
       }
       break;
+    case "scrollStrip.prev":
+      if (payload?.id) {
+        getSkinScrollStripStateApi()?.prev(payload.id);
+      }
+      break;
+    case "scrollStrip.next":
+      if (payload?.id) {
+        getSkinScrollStripStateApi()?.next(payload.id);
+      }
+      break;
+    case "scrollStrip.setSlide": {
+      const stripId = payload?.id;
+      const slide = payload?.slide;
+      if (stripId && slide !== undefined) {
+        getSkinScrollStripStateApi()?.setSlide(stripId, slide);
+      }
+      break;
+    }
     default:
       break;
   }

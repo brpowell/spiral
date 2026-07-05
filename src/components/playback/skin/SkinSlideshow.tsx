@@ -1,4 +1,4 @@
-import { skinAssetUrl } from "../../../lib/skinAssets";
+import { skinAssetFileUrl } from "../../../lib/skinAssets";
 import { resolveSlideshowAssetForState } from "../../../lib/skinSlideshow";
 import { useSkinSlideshowState } from "../../../lib/skinSlideshowContext";
 import type { LoadedSkinPack, SlideshowNode } from "../../../types/skin";
@@ -13,10 +13,10 @@ export function SkinSlideshow({
 }) {
   const { state } = useSkinSlideshowState();
   const runtime = node.id ? state[node.id] : undefined;
-  const assetBase = resolveSlideshowAssetForState(node, runtime);
-  if (!assetBase) return null;
+  const assetPath = resolveSlideshowAssetForState(node, runtime);
+  if (!assetPath) return null;
 
-  const src = skinAssetUrl(pack.packDir, assetBase);
+  const src = skinAssetFileUrl(pack.packDir, assetPath);
 
   return (
     <div

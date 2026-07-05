@@ -178,12 +178,14 @@ export async function loadStripSliderPositionMap(
     stripUrl?: string;
     frameWidth?: number;
     frameHeight?: number;
+    mapFrames?: StripSliderMapFrames;
   },
 ): Promise<StripSliderPositionMap | null> {
   const cacheKey = [
     url,
     frameCount,
     direction,
+    options?.mapFrames ?? "ascending",
     options?.stripUrl ?? "",
     options?.frameWidth ?? "",
     options?.frameHeight ?? "",
@@ -215,6 +217,7 @@ async function loadStripSliderPositionMapInner(
     stripUrl?: string;
     frameWidth?: number;
     frameHeight?: number;
+    mapFrames?: StripSliderMapFrames;
   },
 ): Promise<StripSliderPositionMap | null> {
   const image = await loadImage(url);
@@ -232,6 +235,53 @@ async function loadStripSliderPositionMapInner(
     canvas.height,
   );
 
+  let dialPath: DialPathGeometry | null = null;
+  if (options?.stripUrl && options.frameWidth && options.frameHeight) {
+    const colorKeys = collectDistinctColorKeys(data);
+    if (isDialStripSliderMap(colorKeys.size, frameCount, colorKeys)) {
+      dialPath = await loadDialPathFromStrip(
+        options.stripUrl,
+        options.frameWidth,
+        options.frameHeight,
+        frameCount,
+      );
+    }
+  }
+
+  return buildStripSliderPositionMapFromPixels(
+    data,
+    width,
+    height,
+    frameCount,
+    direction,
+    dialPath,
+    options?.mapFrames ?? "ascending",
+  );
+}
+
+function collectDistinctColorKeys(data: Uint8ClampedArray): Set<string> {
+  const keys = new Set<string>();
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const a = data[i + 3];
+    if (isTransparent(r, g, b, a)) continue;
+    keys.add(colorKey(r, g, b));
+  }
+  return keys;
+}
+
+/** Build a position map from RGBA pixels (shared by runtime loader and tests). */
+export function buildStripSliderPositionMapFromPixels(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  frameCount: number,
+  direction: "horizontal" | "vertical",
+  dialPath?: DialPathGeometry | null,
+  mapFrames: StripSliderMapFrames = "ascending",
+): StripSliderPositionMap | null {
   const colorStats = new Map<
     string,
     { sumX: number; sumY: number; count: number }
@@ -257,27 +307,6 @@ async function loadStripSliderPositionMapInner(
 
   if (colorStats.size === 0) return null;
 
-  const isDialMap = isDialStripSliderMap(
-    colorStats.size,
-    frameCount,
-    colorStats.keys(),
-  );
-
-  let dialPath: DialPathGeometry | null = null;
-  if (
-    isDialMap &&
-    options?.stripUrl &&
-    options.frameWidth &&
-    options.frameHeight
-  ) {
-    dialPath = await loadDialPathFromStrip(
-      options.stripUrl,
-      options.frameWidth,
-      options.frameHeight,
-      frameCount,
-    );
-  }
-
   if (dialPath) {
     return {
       width,
@@ -289,19 +318,27 @@ async function loadStripSliderPositionMapInner(
     };
   }
 
-  const ranked = [...colorStats.entries()]
-    .map(([key, stat]) => ({
-      key,
-      avgX: stat.sumX / stat.count,
-      avgY: stat.sumY / stat.count,
-    }))
-    .sort((a, b) =>
-      direction === "vertical" ? b.avgY - a.avgY : a.avgX - b.avgX,
-    );
+  const colorEntries = [...colorStats.entries()].map(([key, stat]) => ({
+    key,
+    avgX: stat.sumX / stat.count,
+    avgY: stat.sumY / stat.count,
+  }));
+
+  // Map each color to a frame by its normalized position along the slider axis
+  // rather than by rank index. Rank-index only works when the map has ~one
+  // distinct color per frame; smooth-gradient maps (e.g. vol-map with 90 grays
+  // for 30 frames) would otherwise cram the whole range into the first frames.
+  const positions = colorEntries.map((e) =>
+    direction === "vertical" ? e.avgY : e.avgX,
+  );
+  const minPos = Math.min(...positions);
+  const maxPos = Math.max(...positions);
 
   const colorToFrame = new Map<string, number>();
-  ranked.forEach((entry, index) => {
-    const frame = Math.min(index, frameCount - 1);
+  colorEntries.forEach((entry) => {
+    const pos = direction === "vertical" ? entry.avgY : entry.avgX;
+    const t = mapPositionToFrameT(pos, minPos, maxPos, direction, mapFrames);
+    const frame = Math.round(Math.min(1, Math.max(0, t)) * (frameCount - 1));
     colorToFrame.set(entry.key, frame);
   });
 
@@ -372,6 +409,20 @@ function loadImage(url: string): Promise<HTMLImageElement> {
     );
 }
 
+export function inferStripSliderStripLayout(
+  naturalWidth: number,
+  naturalHeight: number,
+  frameWidth: number,
+  frameHeight: number,
+  frameCount: number,
+): "horizontal" | "vertical" {
+  const horizontalSpan = frameWidth * frameCount;
+  const verticalSpan = frameHeight * frameCount;
+  const horizontalDelta = Math.abs(naturalWidth - horizontalSpan);
+  const verticalDelta = Math.abs(naturalHeight - verticalSpan);
+  return verticalDelta < horizontalDelta ? "vertical" : "horizontal";
+}
+
 export function linearFrameFromPointer(
   x: number,
   y: number,
@@ -392,13 +443,56 @@ export function frameToRatio(frame: number, frameCount: number): number {
   return frame / (frameCount - 1);
 }
 
-export function invertStripFrame(
+export type StripSliderValueFrames = "ascending" | "descending";
+
+export type StripSliderMapFrames = "ascending" | "descending";
+
+function mapPositionToFrameT(
+  pos: number,
+  minPos: number,
+  maxPos: number,
+  direction: "horizontal" | "vertical",
+  mapFrames: StripSliderMapFrames,
+): number {
+  const span = maxPos - minPos || 1;
+  const ascending =
+    direction === "vertical"
+      ? (maxPos - pos) / span
+      : (pos - minPos) / span;
+  if (mapFrames === "descending") {
+    return 1 - ascending;
+  }
+  return ascending;
+}
+
+/** Normalized value 0…1 → strip frame index for display. */
+export function ratioToStripFrame(
+  ratio: number,
+  frameCount: number,
+  valueFrames: StripSliderValueFrames = "ascending",
+): number {
+  if (frameCount <= 1) return 0;
+  const clamped = Math.min(Math.max(ratio, 0), 1);
+  const ascendingFrame = Math.round(clamped * (frameCount - 1));
+  if (valueFrames === "descending") {
+    return frameCount - 1 - ascendingFrame;
+  }
+  return ascendingFrame;
+}
+
+/** Strip frame index → normalized value 0…1. */
+export function stripFrameToRatio(
   frame: number,
   frameCount: number,
-  invert: boolean,
+  valueFrames: StripSliderValueFrames = "ascending",
 ): number {
-  if (!invert || frameCount <= 1) return frame;
-  return frameCount - 1 - frame;
+  if (frameCount <= 1) return 0;
+  const clamped = Math.min(Math.max(frame, 0), frameCount - 1);
+  const ascendingRatio = clamped / (frameCount - 1);
+  if (valueFrames === "descending") {
+    return 1 - ascendingRatio;
+  }
+  return ascendingRatio;
 }
 
 export interface StripSliderPointerSample {
@@ -417,9 +511,9 @@ export function sampleStripSliderPointer(
   positionMapData: StripSliderPositionMap | null,
   frameCount: number,
   direction: "horizontal" | "vertical",
-  invert: boolean,
+  valueFrames: StripSliderValueFrames = "ascending",
   anchorFrame?: number,
-): StripSliderPointerSample {
+): StripSliderPointerSample | null {
   const localX = clientX - rect.left;
   const localY = clientY - rect.top;
   const mapX = positionMapData
@@ -448,6 +542,9 @@ export function sampleStripSliderPointer(
     if (raw >= 0) source = "map";
   }
   if (raw < 0) {
+    if (positionMapData && !positionMapData.dialPath) {
+      return null;
+    }
     raw = linearFrameFromPointer(
       localX,
       localY,
@@ -459,15 +556,13 @@ export function sampleStripSliderPointer(
     source = "linear";
   }
 
-  const frame = invertStripFrame(
-    raw,
-    frameCount,
-    invert && !positionMapData?.dialPath,
-  );
+  const ratio = positionMapData?.dialPath
+    ? frameToRatio(raw, frameCount)
+    : stripFrameToRatio(raw, frameCount, valueFrames);
   return {
     rawFrame: raw,
-    frame,
-    ratio: frameToRatio(frame, frameCount),
+    frame: raw,
+    ratio,
     mapX,
     mapY,
     source,

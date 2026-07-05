@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { NowPlayingMetadata } from "../NowPlayingMetadata/NowPlayingMetadata";
 import { PlaybackTransport } from "../PlaybackTransport/PlaybackTransport";
 import { QueueButton } from "../QueueButton/QueueButton";
@@ -7,6 +7,7 @@ import { VisualizerSlot } from "../VisualizerSlot/VisualizerSlot";
 import { VolumeControl } from "../VolumeControl/VolumeControl";
 import { SetListModal } from "../../SetListModal/SetListModal";
 import { resolveVisualizerLayout } from "../../../lib/skinVisualizerLayout";
+import { useSkinControlEnabled } from "../../../lib/skinBinds";
 import type {
   ArtworkNode,
   ControlNodeBase,
@@ -17,6 +18,7 @@ import type {
   VisualizerNode,
   VolumeNode,
 } from "../../../types/skin";
+import "./SkinPrimitiveControl.css";
 
 type PrimitiveNode =
   | ArtworkNode
@@ -40,31 +42,28 @@ export function SkinPrimitiveControl({
   onOpenQueue: () => void;
 }) {
   const [setListOpen, setSetListOpen] = useState(false);
+  const interactionEnabled = useSkinControlEnabled(node.enabledWhen);
   const prefix = classPrefix(node);
 
-  if (node.type === "artwork") {
-    return <NowPlayingMetadata showText={false} className={prefix} />;
-  }
+  let content: ReactNode = null;
 
-  if (node.type === "transport") {
-    return (
+  if (node.type === "artwork") {
+    content = <NowPlayingMetadata showText={false} className={prefix} />;
+  } else if (node.type === "transport") {
+    content = (
       <PlaybackTransport
         className={[prefix, variantClass(node)].filter(Boolean).join(" ")}
       />
     );
-  }
-
-  if (node.type === "seekbar") {
-    return <SeekBar className={[prefix, "skin-seekbar"].filter(Boolean).join(" ")} />;
-  }
-
-  if (node.type === "visualizer") {
+  } else if (node.type === "seekbar") {
+    content = <SeekBar className={[prefix, "skin-seekbar"].filter(Boolean).join(" ")} />;
+  } else if (node.type === "visualizer") {
     const vizLayout = resolveVisualizerLayout(manifest);
     const presentationMini =
       node.presentation.kind === "primitive" &&
       node.presentation.variant === "mini";
     const variant = presentationMini && vizLayout.display === "mini" ? "mini" : vizLayout.variant;
-    return (
+    content = (
       <VisualizerSlot
         variant={variant}
         expanded={visualizerExpanded}
@@ -75,18 +74,14 @@ export function SkinPrimitiveControl({
         nodeId={node.id}
       />
     );
-  }
-
-  if (node.type === "volume") {
-    return (
+  } else if (node.type === "volume") {
+    content = (
       <VolumeControl
         className={[prefix, variantClass(node)].filter(Boolean).join(" ")}
       />
     );
-  }
-
-  if (node.type === "queue") {
-    return (
+  } else if (node.type === "queue") {
+    content = (
       <>
         <QueueButton
           onClick={() => {
@@ -102,7 +97,18 @@ export function SkinPrimitiveControl({
     );
   }
 
-  return null;
+  if (!content) return null;
+
+  return (
+    <div
+      className="skin-primitive-control"
+      data-node-id={node.id}
+      aria-disabled={!interactionEnabled || undefined}
+      style={interactionEnabled ? undefined : { pointerEvents: "none" }}
+    >
+      {content}
+    </div>
+  );
 }
 
 function classPrefix(node: ControlNodeBase): string | undefined {

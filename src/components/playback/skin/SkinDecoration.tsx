@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { skinAssetUrl, skinGifAssetUrl } from "../../../lib/skinAssets";
+import { skinAssetFileUrl } from "../../../lib/skinAssets";
+import { isSkinBitmapReady, loadSkinBitmap } from "../../../lib/skinBitmapCache";
 import { runSkinAction } from "../../../lib/skinActions";
 import { loadSkinGif, playSkinGifOnCanvas } from "../../../lib/skinGifPlayback";
 import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
@@ -22,7 +23,7 @@ function SkinGifDecoration({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [playKey] = useState(() => Date.now());
   const [frameReady, setFrameReady] = useState(false);
-  const baseSrc = skinGifAssetUrl(pack.packDir, presentation.assetBase);
+  const baseSrc = skinAssetFileUrl(pack.packDir, presentation.asset);
   const { durationMs, playbackRate, completeAction, completePayload } =
     presentation;
 
@@ -51,10 +52,10 @@ function SkinGifDecoration({
           onFirstFrameDrawn: () => setFrameReady(true),
           ...(completeAction
             ? {
-                onLoopComplete: (loopIndex) => {
-                  if (loopIndex === 0) fireCompleteAction();
-                },
-              }
+              onLoopComplete: (loopIndex) => {
+                if (loopIndex === 0) fireCompleteAction();
+              },
+            }
             : {}),
         });
         playbackStop = handle.stop;
@@ -111,6 +112,55 @@ function SkinGifDecoration({
   );
 }
 
+function SkinBitmapDecoration({
+  node,
+  src,
+}: {
+  node: DecorationNode;
+  src: string;
+}) {
+  const [ready, setReady] = useState(() => isSkinBitmapReady(src));
+
+  useEffect(() => {
+    if (isSkinBitmapReady(src)) {
+      setReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    setReady(false);
+    loadSkinBitmap(src)
+      .then(() => {
+        if (!cancelled) setReady(true);
+      })
+      .catch((err) => {
+        console.warn("SkinBitmapDecoration: failed to load bitmap", err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
+
+  return (
+    <img
+      className={[
+        "skin-decoration",
+        "skin-decoration--bitmap",
+        node.dragRegion && "skin-decoration--drag",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      data-node-id={node.id}
+      {...(node.dragRegion ? skinDragRegionDeepProps() : {})}
+      src={src}
+      alt=""
+      style={{ opacity: ready ? 1 : 0 }}
+      aria-hidden
+    />
+  );
+}
+
 export function SkinDecoration({
   node,
   pack,
@@ -146,21 +196,7 @@ export function SkinDecoration({
 
   if (presentation.kind !== "bitmap") return null;
 
-  const src = skinAssetUrl(pack.packDir, presentation.assetBase);
+  const src = skinAssetFileUrl(pack.packDir, presentation.assets.default);
 
-  return (
-    <div
-      className={[
-        "skin-decoration",
-        "skin-decoration--bitmap",
-        node.dragRegion && "skin-decoration--drag",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      data-node-id={node.id}
-      {...(node.dragRegion ? skinDragRegionDeepProps() : {})}
-      style={{ backgroundImage: `url("${src}")` }}
-      aria-hidden
-    />
-  );
+  return <SkinBitmapDecoration node={node} src={src} />;
 }

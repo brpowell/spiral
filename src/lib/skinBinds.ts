@@ -9,8 +9,10 @@ import { formatMetadataLine, playbackStatus } from "./skinMetadataLine";
 import { useSkinModeAlwaysOnTop } from "./skinModeAlwaysOnTop";
 import { evaluatePanelBind } from "./skinPanels";
 import { evaluateSlideshowBind } from "./skinSlideshow";
+import { evaluateScrollStripBind } from "./skinScrollStrip";
 import { evaluateViewBind, useSkinViewState } from "./skinViewStateContext";
 import { useSkinSlideshowState } from "./skinSlideshowContext";
+import { useSkinScrollStripState } from "./skinScrollStripContext";
 import {
   labelForSkinPlaylistSource,
   resolveSkinPlaylistTrackCount,
@@ -29,11 +31,16 @@ import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
 import { soundEffectsEnabledFromPreferences } from "../types/skinPreferences";
 import type { EqualizerBandGains, EqualizerPreset } from "./equalizer/types";
 import type { PlayableRef } from "../types/playable";
-import type { SkinBindPath } from "../types/skin";
+import type {
+  ScrollStripPresentation,
+  SkinBindPath,
+  SkinCondition,
+  SlideshowPresentation,
+} from "../types/skin";
 import type { Track } from "../types/track";
 import type { Playlist } from "../types/playlist";
 import type { PanelOpenState } from "./skinPanels";
-import type { SlideshowPresentation } from "../types/skin";
+import type { ScrollStripStateMap } from "./skinScrollStrip";
 import type { SlideshowStateMap } from "./skinSlideshow";
 import type { ViewStateValues } from "./skinViewStateContext";
 
@@ -58,6 +65,8 @@ export interface SkinBindState {
   panelOpen: PanelOpenState;
   panelRevealed: PanelOpenState;
   panelSettled: PanelOpenState;
+  /** View ids with open auxiliary windows for the active skin. */
+  openAuxiliaryViews: string[];
   visualizerName: string;
   canCycleVisualizer: boolean;
   playlistSourceId: string;
@@ -75,6 +84,21 @@ export interface SkinBindState {
   viewState: ViewStateValues;
   slideshowPresentations: Record<string, SlideshowPresentation>;
   slideshowState: SlideshowStateMap;
+  scrollStripPresentations: Record<string, ScrollStripPresentation>;
+  scrollStripState: ScrollStripStateMap;
+}
+
+const AUX_VIEW_BIND_RE = /^skin\.view\.([^.]+)\.(open|closed)$/;
+
+function evaluateAuxViewBind(
+  path: string,
+  openAuxiliaryViews: string[],
+): boolean | null {
+  const match = path.match(AUX_VIEW_BIND_RE);
+  if (!match) return null;
+  const [, viewId, prop] = match;
+  const isOpen = openAuxiliaryViews.includes(viewId);
+  return prop === "open" ? isOpen : !isOpen;
 }
 
 export function evaluateSkinBind(
@@ -91,6 +115,11 @@ export function evaluateSkinBind(
     return panelValue;
   }
 
+  const auxViewValue = evaluateAuxViewBind(path, state.openAuxiliaryViews);
+  if (auxViewValue !== null) {
+    return auxViewValue;
+  }
+
   const viewValue = evaluateViewBind(path, state.viewState);
   if (viewValue !== null) {
     return viewValue;
@@ -103,6 +132,15 @@ export function evaluateSkinBind(
   );
   if (slideshowValue !== null) {
     return slideshowValue;
+  }
+
+  const scrollStripValue = evaluateScrollStripBind(
+    path,
+    state.scrollStripPresentations,
+    state.scrollStripState,
+  );
+  if (scrollStripValue !== null) {
+    return scrollStripValue;
   }
 
   if (path.startsWith("skin.pref.")) {
@@ -209,6 +247,33 @@ export function evaluateSkinBind(
   }
 }
 
+export function evaluateSkinCondition(
+  condition: SkinCondition,
+  state: SkinBindState,
+): boolean {
+  if (typeof condition === "string") {
+    return Boolean(evaluateSkinBind(condition, state));
+  }
+  if ("all" in condition) {
+    return condition.all.every((child) => evaluateSkinCondition(child, state));
+  }
+  if ("any" in condition) {
+    return condition.any.some((child) => evaluateSkinCondition(child, state));
+  }
+  if ("not" in condition) {
+    return !evaluateSkinCondition(condition.not, state);
+  }
+  return false;
+}
+
+export function isSkinControlEnabled(
+  enabledWhen: SkinCondition | undefined,
+  state: SkinBindState,
+): boolean {
+  if (enabledWhen === undefined) return true;
+  return evaluateSkinCondition(enabledWhen, state);
+}
+
 function playlistTrackCount(state: SkinBindState): number {
   return resolveSkinPlaylistTrackCount(state.playlistSourceId, {
     library: state.library,
@@ -226,9 +291,12 @@ export function useSkinBindState(): SkinBindState {
   const { values: viewState } = useSkinViewState();
   const { state: slideshowState, presentations: slideshowPresentations } =
     useSkinSlideshowState();
+  const { state: scrollStripState, presentations: scrollStripPresentations } =
+    useSkinScrollStripState();
   const panelOpen = useSkinStore((s) => s.panelOpen);
   const panelRevealed = useSkinStore((s) => s.panelRevealed);
   const panelSettled = useSkinStore((s) => s.panelSettled);
+  const openAuxiliaryViews = useSkinStore((s) => s.openAuxiliaryViews);
   const playlistSourceId = useSkinStore((s) => s.playlistSourceId);
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
@@ -314,6 +382,7 @@ export function useSkinBindState(): SkinBindState {
       panelOpen,
       panelRevealed,
       panelSettled,
+      openAuxiliaryViews,
       visualizerName,
       canCycleVisualizer,
       playlistSourceId,
@@ -331,6 +400,8 @@ export function useSkinBindState(): SkinBindState {
       viewState,
       slideshowPresentations,
       slideshowState,
+      scrollStripPresentations,
+      scrollStripState,
     }),
     [
       currentTrack,
@@ -351,6 +422,7 @@ export function useSkinBindState(): SkinBindState {
       panelOpen,
       panelRevealed,
       panelSettled,
+      openAuxiliaryViews,
       visualizerName,
       canCycleVisualizer,
       playlistSourceId,
@@ -368,6 +440,8 @@ export function useSkinBindState(): SkinBindState {
       viewState,
       slideshowPresentations,
       slideshowState,
+      scrollStripPresentations,
+      scrollStripState,
     ],
   );
 }
@@ -381,23 +455,16 @@ export function useSkinBindValue(path: string | undefined): SkinBindValue {
   }, [path, bindState]);
 }
 
-/** True when `visibleWhen` bind is truthy (or unset). */
-export function useSkinVisible(visibleWhen: string | undefined): boolean {
-  const value = useSkinBindValue(visibleWhen);
-  if (!visibleWhen) return true;
-  return Boolean(value);
-}
-
-/** Disabled when `disabledWhen` bind is falsy (for canGo* / hasTrack style guards). */
-export function isSkinBindDisabled(
-  disabledWhen: string | undefined,
-  state: SkinBindState,
-): boolean {
-  if (!disabledWhen) return false;
-  return !evaluateSkinBind(disabledWhen as SkinBindPath, state);
-}
-
-export function useSkinDisabled(disabledWhen: string | undefined): boolean {
+/** True when `visibleWhen` condition is truthy (or unset). */
+export function useSkinVisible(visibleWhen: SkinCondition | undefined): boolean {
   const bindState = useSkinBindState();
-  return isSkinBindDisabled(disabledWhen, bindState);
+  if (!visibleWhen) return true;
+  return evaluateSkinCondition(visibleWhen, bindState);
+}
+
+export function useSkinControlEnabled(
+  enabledWhen: SkinCondition | undefined,
+): boolean {
+  const bindState = useSkinBindState();
+  return isSkinControlEnabled(enabledWhen, bindState);
 }

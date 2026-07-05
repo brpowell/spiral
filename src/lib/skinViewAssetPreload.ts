@@ -1,24 +1,28 @@
-import type { LayoutNode, LoadedSkinPack, StripSliderPresentation } from "../types/skin";
+import type {
+  InteractiveAssets,
+  InteractiveAssetsWhen,
+  LayoutNode,
+  LoadedSkinPack,
+  StripSliderPresentation,
+} from "../types/skin";
 import { loadStripSliderPositionMap } from "./skinStripSliderMap";
 import { loadSkinGif } from "./skinGifPlayback";
-import { skinAssetUrl, skinGifAssetUrl, skinPackAssetUrl } from "./skinAssets";
+import { loadSkinBitmap } from "./skinBitmapCache";
+import {
+  collectBitmapAssetFiles,
+  isSkinGifUrl,
+  skinAssetFileUrl,
+} from "./skinAssets";
 
-function addBitmapButtonAssets(
+function addBitmapAssetUrls(
   packDir: string,
-  assetBase: string,
+  assets: InteractiveAssets,
+  assetsWhen: InteractiveAssetsWhen | undefined,
   urls: Set<string>,
-  animatedHover?: boolean,
 ): void {
-  urls.add(skinAssetUrl(packDir, assetBase));
-  urls.add(
-    skinAssetUrl(
-      packDir,
-      assetBase,
-      "hover",
-      animatedHover ? "gif" : "png",
-    ),
-  );
-  urls.add(skinAssetUrl(packDir, assetBase, "pressed"));
+  for (const file of collectBitmapAssetFiles(assets, assetsWhen)) {
+    urls.add(skinAssetFileUrl(packDir, file));
+  }
 }
 
 function addStripSliderAssets(
@@ -26,9 +30,9 @@ function addStripSliderAssets(
   presentation: StripSliderPresentation,
   urls: Set<string>,
 ): void {
-  urls.add(skinPackAssetUrl(packDir, presentation.strip));
+  urls.add(skinAssetFileUrl(packDir, presentation.strip));
   if (presentation.positionMap) {
-    urls.add(skinPackAssetUrl(packDir, presentation.positionMap));
+    urls.add(skinAssetFileUrl(packDir, presentation.positionMap));
   }
 }
 
@@ -50,38 +54,35 @@ function collectLayoutAssetUrls(
       return;
     case "decoration":
       if (node.presentation.kind === "bitmap") {
-        urls.add(skinAssetUrl(packDir, node.presentation.assetBase));
+        addBitmapAssetUrls(
+          packDir,
+          node.presentation.assets,
+          node.presentation.assetsWhen,
+          urls,
+        );
       } else if (node.presentation.kind === "gif") {
-        urls.add(skinGifAssetUrl(packDir, node.presentation.assetBase));
+        urls.add(skinAssetFileUrl(packDir, node.presentation.asset));
       }
       return;
     case "button":
       if (node.presentation.kind === "bitmap") {
-        addBitmapButtonAssets(
+        addBitmapAssetUrls(
           packDir,
-          node.presentation.assetBase,
+          node.presentation.assets,
+          node.presentation.assetsWhen,
           urls,
-          node.presentation.animatedHover,
         );
-        if (node.action === "player.toggleMute") {
-          addBitmapButtonAssets(
-            packDir,
-            `${node.presentation.assetBase}-muted`,
-            urls,
-            false,
-          );
-        }
       }
       return;
     case "buttonGroup":
       if (node.presentation.kind === "buttonGroup") {
-        addBitmapButtonAssets(
+        addBitmapAssetUrls(
           packDir,
-          node.presentation.assetBase,
+          node.presentation.assets,
+          node.presentation.assetsWhen,
           urls,
-          node.presentation.animatedHover,
         );
-        urls.add(skinPackAssetUrl(packDir, node.presentation.positionMap));
+        urls.add(skinAssetFileUrl(packDir, node.presentation.positionMap));
       }
       return;
     case "eqBand":
@@ -92,18 +93,63 @@ function collectLayoutAssetUrls(
         node.presentation.kind === "bitmapVerticalSlider" ||
         node.presentation.kind === "bitmapHorizontalSlider"
       ) {
-        urls.add(skinAssetUrl(packDir, node.presentation.track));
-        urls.add(skinAssetUrl(packDir, node.presentation.thumb));
+        if (node.presentation.track) {
+          urls.add(skinAssetFileUrl(packDir, node.presentation.track));
+        }
+        urls.add(skinAssetFileUrl(packDir, node.presentation.thumb));
+        if (
+          node.presentation.kind === "bitmapVerticalSlider" &&
+          node.presentation.thumbPressed
+        ) {
+          urls.add(skinAssetFileUrl(packDir, node.presentation.thumbPressed));
+        }
+      } else if (node.presentation.kind === "bitmapSeekbar") {
+        urls.add(skinAssetFileUrl(packDir, node.presentation.track));
+        urls.add(skinAssetFileUrl(packDir, node.presentation.fill));
+        addBitmapAssetUrls(
+          packDir,
+          node.presentation.thumbAssets,
+          undefined,
+          urls,
+        );
       } else if (node.presentation.kind === "stripSlider") {
         addStripSliderAssets(packDir, node.presentation, urls);
       }
       return;
     case "visualizer":
       if (node.presentation.kind === "framedPanel") {
-        urls.add(skinAssetUrl(packDir, node.presentation.mask));
+        urls.add(skinAssetFileUrl(packDir, node.presentation.mask));
         if (node.presentation.frame) {
-          urls.add(skinAssetUrl(packDir, node.presentation.frame));
+          urls.add(skinAssetFileUrl(packDir, node.presentation.frame));
         }
+      }
+      return;
+    case "time":
+      if (node.presentation.kind === "digitStrip") {
+        urls.add(skinAssetFileUrl(packDir, node.presentation.strip));
+      }
+      return;
+    case "scrollStrip":
+      if (node.presentation.kind === "bitmapVertical") {
+        for (const item of node.presentation.items) {
+          urls.add(skinAssetFileUrl(packDir, item.asset));
+        }
+      }
+      return;
+    case "tiledFrame":
+      if ("tiles" in node.presentation) {
+        for (const tile of node.presentation.tiles) {
+          urls.add(skinAssetFileUrl(packDir, tile.asset));
+        }
+      } else {
+        for (const asset of Object.values(node.presentation.assets)) {
+          if (asset) {
+            urls.add(skinAssetFileUrl(packDir, asset));
+          }
+        }
+      }
+      for (const child of node.children) {
+        collectLayoutAssetUrls(child, packDir, urls);
       }
       return;
     default:
@@ -132,6 +178,7 @@ async function warmLayoutStripSliderMaps(
     case "column":
     case "overlay":
     case "region":
+    case "tiledFrame":
       await Promise.all(
         node.children.map((child) => warmLayoutStripSliderMaps(child, packDir)),
       );
@@ -143,8 +190,8 @@ async function warmLayoutStripSliderMaps(
       if (presentation.kind !== "stripSlider" || !presentation.positionMap) {
         return;
       }
-      const mapUrl = skinPackAssetUrl(packDir, presentation.positionMap);
-      const stripUrl = skinPackAssetUrl(packDir, presentation.strip);
+      const mapUrl = skinAssetFileUrl(packDir, presentation.positionMap);
+      const stripUrl = skinAssetFileUrl(packDir, presentation.strip);
       const direction = stripSliderDirection(node, presentation);
       const defaultFrameHeight =
         node.type === "volume" ? 128 : node.type === "eqBand" ? 116 : 113;
@@ -157,6 +204,7 @@ async function warmLayoutStripSliderMaps(
             stripUrl,
             frameWidth: presentation.frameWidth,
             frameHeight: presentation.frameHeight ?? defaultFrameHeight,
+            mapFrames: presentation.mapFrames,
           },
         );
       } catch (err) {
@@ -173,29 +221,7 @@ function decodeAssetUrl(url: string, isGif = false): Promise<void> {
   if (isGif) {
     return loadSkinGif(url).then(() => undefined);
   }
-  return fetch(url)
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(`Failed to fetch skin asset: ${response.status}`);
-      }
-      return response.blob();
-    })
-    .then(
-      (blob) =>
-        new Promise<void>((resolve, reject) => {
-          const objectUrl = URL.createObjectURL(blob);
-          const img = new Image();
-          img.onload = () => {
-            URL.revokeObjectURL(objectUrl);
-            resolve();
-          };
-          img.onerror = () => {
-            URL.revokeObjectURL(objectUrl);
-            reject(new Error(`Failed to decode skin asset: ${url}`));
-          };
-          img.src = objectUrl;
-        }),
-    );
+  return loadSkinBitmap(url).then(() => undefined);
 }
 
 export async function preloadSkinViewAssets(
@@ -211,7 +237,7 @@ export async function preloadSkinViewAssets(
   await Promise.all([
     ...[...urls].map(async (url) => {
       try {
-        await decodeAssetUrl(url, url.endsWith(".gif"));
+        await decodeAssetUrl(url, isSkinGifUrl(url));
       } catch (err) {
         console.warn("preloadSkinViewAssets:", err);
       }

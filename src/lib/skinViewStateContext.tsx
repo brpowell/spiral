@@ -22,9 +22,9 @@ const EMPTY_VALUES: ViewStateValues = {};
 
 const SkinViewStateContext = createContext<SkinViewStateApi>({
   values: EMPTY_VALUES,
-  setVariable: () => {},
-  setScreen: () => {},
-  reset: () => {},
+  setVariable: () => { },
+  setScreen: () => { },
+  reset: () => { },
 });
 
 let activeViewStateApi: SkinViewStateApi | null = null;

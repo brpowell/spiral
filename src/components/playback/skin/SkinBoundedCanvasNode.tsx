@@ -1,9 +1,10 @@
 import type { LayoutNode, LoadedSkinPack } from "../../../types/skin";
-import { useSkinVisible } from "../../../lib/skinBinds";
+import { useSkinBindState, useSkinVisible } from "../../../lib/skinBinds";
 import { getNodeBoundsWhen, resolveNodeBounds } from "../../../lib/skinPanels";
 import type { PanelOpenState } from "../../../lib/skinPanels";
 import { useSkinStore } from "../../../store/useSkinStore";
 import { SkinBounds } from "./SkinBounds";
+import { useButtonGroupElevationDelta } from "./SkinButtonGroupHitRegistry";
 import { SkinLayoutNode } from "./SkinLayoutNode";
 
 export interface SkinBoundedCanvasNodeProps {
@@ -24,9 +25,13 @@ export function SkinBoundedCanvasNode({
   panelOpen,
 }: SkinBoundedCanvasNodeProps) {
   const visible = useSkinVisible(node.visibleWhen);
+  const { viewState } = useSkinBindState();
   const panelRevealed = useSkinStore((s) => s.panelRevealed);
   const panelSettled = useSkinStore((s) => s.panelSettled);
-  const panelCtx = { panelOpen, panelRevealed, panelSettled };
+  const panelCtx = { panelOpen, panelRevealed, panelSettled, viewState };
+  const elevationDelta = useButtonGroupElevationDelta(
+    node.type === "buttonGroup" ? node.id : undefined,
+  );
 
   const boundsWhen = getNodeBoundsWhen(node);
   const hasMotion =
@@ -38,7 +43,8 @@ export function SkinBoundedCanvasNode({
     return (
       <SkinBounds
         bounds={bounds}
-        debugLabel={node.id ?? "hit"}
+        boundsFor={node.id}
+        debugLabel={node.id ? undefined : "hit"}
         motion={hasMotion}
       >
         {null}
@@ -64,15 +70,18 @@ export function SkinBoundedCanvasNode({
   if (bounds) {
     const passthrough =
       node.type === "decoration" || node.type === "buttonGroup";
+    const effectiveBounds =
+      elevationDelta > 0 && bounds.zIndex !== undefined
+        ? {
+          ...bounds,
+          zIndex: bounds.zIndex + elevationDelta,
+        }
+        : bounds;
 
     return (
       <SkinBounds
-        bounds={bounds}
-        debugLabel={
-          node.type === "text" || node.type === "button"
-            ? undefined
-            : node.id
-        }
+        bounds={effectiveBounds}
+        boundsFor={node.id}
         motion={hasMotion}
         className={passthrough ? "skin-bounds--passthrough" : undefined}
       >

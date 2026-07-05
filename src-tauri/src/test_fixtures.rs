@@ -74,16 +74,9 @@ pub mod ogg {
 
 #[cfg(test)]
 pub mod opus {
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
 
     pub fn minimal_fixture_path() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.opus")
-    }
-
-    pub fn copy_minimal(dir: &Path, dest_name: &str) -> PathBuf {
-        let dest = dir.join(dest_name);
-        std::fs::copy(minimal_fixture_path(), &dest)
-            .unwrap_or_else(|_| panic!("copy opus fixture to {}", dest.display()));
-        dest
     }
 }

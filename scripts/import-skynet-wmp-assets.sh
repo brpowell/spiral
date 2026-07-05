@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Import a subset of T3 Skynet WMP skin assets into the builtin T3 skin pack.
+# skin.json must reference explicit paths under assets/ including extensions
+# (e.g. buttons/play.png, buttons/play-hover.gif).
 # Usage: ./scripts/import-skynet-wmp-assets.sh "/path/to/T3 Skynet Media Player"
 
 set -euo pipefail

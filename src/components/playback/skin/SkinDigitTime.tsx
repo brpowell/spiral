@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import * as audio from "../../../lib/playback";
 import { findPlaybackTrack } from "../../../lib/playbackTrack";
-import { skinPackAssetUrl } from "../../../lib/skinAssets";
+import { skinAssetFileUrl } from "../../../lib/skinAssets";
 import {
   digitTimeDisplaySeconds,
   mmssDigitFrames,
@@ -74,7 +74,7 @@ function SkinDigitTimeInner({
   const { displayPosition } = usePlaybackProgress(durationSeconds);
   const [showElapsed, setShowElapsed] = useState(true);
 
-  const stripUrl = skinPackAssetUrl(pack.packDir, strip);
+  const stripUrl = skinAssetFileUrl(pack.packDir, strip);
   const stripWidth = frameWidth * 12;
 
   const seconds = digitTimeDisplaySeconds(

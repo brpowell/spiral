@@ -47,14 +47,14 @@ describe("scopeSkinStylesheet", () => {
 
   it("scopes descendant selectors for bounded components", () => {
     const scoped = scopeSkinStylesheet(
-      `.skin-bounds[data-node-id="pl-view"] .skin-playlist-view {
+      `.skin-bounds[data-bounds-for="pl-view"] .skin-playlist-view {
         background: #285f03;
         font: 11px/1.25 Tahoma, Arial, sans-serif;
       }`,
       "headspace",
     );
     expect(scoped).toContain(
-      `${skinScopeSelector("headspace")} .skin-bounds[data-node-id="pl-view"] .skin-playlist-view`,
+      `${skinScopeSelector("headspace")} .skin-bounds[data-bounds-for="pl-view"] .skin-playlist-view`,
     );
   });
 });

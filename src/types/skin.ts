@@ -1,5 +1,30 @@
 /** Mirrors Rust `SkinManifest` / layout types (skin.json v1). */
 
+/** Pack-relative path under assets/, including extension (e.g. buttons/play.png). */
+export type SkinAssetFile = string;
+
+export type InteractiveAssetState = "default" | "hover" | "pressed";
+
+/** Default / hover / pressed bitmap states for interactive controls. */
+export interface InteractiveAssets {
+  default: SkinAssetFile;
+  hover?: SkinAssetFile;
+  pressed?: SkinAssetFile;
+}
+
+/** Bind path → asset set when truthy (last match wins, same as tooltipWhen). */
+export type InteractiveAssetsWhen = Record<string, InteractiveAssets>;
+
+/**
+ * Boolean composition of skin bind paths for visibility and interaction guards.
+ * A plain string is a leaf bind (truthy when evaluated value is truthy).
+ */
+export type SkinCondition =
+  | string
+  | { all: SkinCondition[] }
+  | { any: SkinCondition[] }
+  | { not: SkinCondition };
+
 export type ShellSlot =
   | "header"
   | "art"
@@ -105,8 +130,8 @@ export interface SkinViewStateTransition {
 }
 
 export interface SkinViewActivateEffect {
-  /** Bind path; effect runs only if truthy (same evaluator as visibleWhen). */
-  when?: string;
+  /** Condition; effect runs only when truthy (same evaluator as visibleWhen). */
+  when?: SkinCondition;
   /** Wait after activate before dispatch (default 0). */
   delayMs?: number;
   action: string;
@@ -123,6 +148,20 @@ export interface LayoutBounds {
   y: number;
   w: number;
   h: number;
+  zIndex?: number;
+}
+
+/**
+ * WMP subview-style bounds for frame tiles that resize with the stage.
+ * Omit `w` when `x` + `right` are set (horizontal stretch); omit `h` when `y` + `bottom` are set.
+ */
+export interface StretchLayoutBounds {
+  x?: number;
+  right?: number;
+  y?: number;
+  bottom?: number;
+  w?: number;
+  h?: number;
   zIndex?: number;
 }
 
@@ -149,11 +188,12 @@ export type LayoutNode =
   | PlaylistNode
   | HitAreaNode
   | TiledFrameNode
-  | SlideshowNode;
+  | SlideshowNode
+  | ScrollStripNode;
 
 interface NodeBase {
   id?: string;
-  visibleWhen?: string;
+  visibleWhen?: SkinCondition;
   /** Absolute placement on a canvas view (logical px). */
   bounds?: LayoutBounds;
   /** Override `bounds` when a bind path is true (typically `skin.panel.*`). */
@@ -272,14 +312,42 @@ export interface TiledFrameContentInset {
   bottom: number;
 }
 
-export interface TiledFramePresentation {
+/** Explicit WMP-style frame tile (subview equivalent). */
+export interface TiledFrameTileDef {
+  asset: string;
+  bounds: StretchLayoutBounds;
+  repeat?: "horizontal" | "vertical";
+  tileUnit?: { w: number; h: number };
+  /** Visible chrome band height within the source asset; stretched to display band at runtime. */
+  artHeight?: number;
+  zIndex?: number;
+}
+
+/** T3-style 9-slice preset generated at runtime from assets + tileSizes. */
+export interface TiledFramePresetPresentation {
   kind: "tiledFrame";
+  contentInset: TiledFrameContentInset;
   assets: TiledFrameAssets;
   tileSizes: TiledFrameTileSizes;
   /** WMP top/bottom chrome band height (53 for plView). */
   frameThickness: number;
-  /** Inner content area insets from the window edges. */
+}
+
+/** Declarative multi-layer frame (Xbox-style stacked subviews). */
+export interface TiledFrameExplicitPresentation {
+  kind: "tiledFrame";
   contentInset: TiledFrameContentInset;
+  tiles: TiledFrameTileDef[];
+}
+
+export type TiledFramePresentation =
+  | TiledFramePresetPresentation
+  | TiledFrameExplicitPresentation;
+
+export function isTiledFrameExplicit(
+  presentation: TiledFramePresentation,
+): presentation is TiledFrameExplicitPresentation {
+  return "tiles" in presentation && Array.isArray(presentation.tiles);
 }
 
 /** WMP-style image sequence paging (info promo decks). */
@@ -290,7 +358,7 @@ export interface SlideshowNode extends NodeBase {
 
 export interface SlideshowPresentation {
   kind: "imageSequence";
-  /** Asset path template under assets/ without extension; `{deckIndex}` and `{page}` placeholders. */
+  /** Asset path template under assets/ with extension; `{deckIndex}` and `{page}` placeholders. */
   assetPattern: string;
   decks: Record<string, SlideshowDeck>;
 }
@@ -300,6 +368,32 @@ export interface SlideshowDeck {
   pages: number;
   /** When false, prev/next chrome is hidden (WMP trailer deck). Default true. */
   showPageNav?: boolean;
+}
+
+/** WMP-style vertically animated bitmap text columns (XBOX content promos). */
+export interface ScrollStripNode extends NodeBase {
+  type: "scrollStrip";
+  presentation: ScrollStripPresentation;
+}
+
+export interface ScrollStripPresentation {
+  kind: "bitmapVertical";
+  /** Slide transition duration in ms (WMP moveTo default 500). */
+  transitionMs?: number;
+  items: ScrollStripItem[];
+  /** Per-slide item Y positions (stage-absolute px, same as WMP subview top). */
+  slides: ScrollStripSlide[];
+}
+
+export interface ScrollStripItem {
+  id: string;
+  asset: SkinAssetFile;
+  w: number;
+  h: number;
+}
+
+export interface ScrollStripSlide {
+  items: Record<string, { y: number }>;
 }
 
 export interface ControlNodeBase extends NodeBase {
@@ -313,9 +407,10 @@ export interface ControlNodeBase extends NodeBase {
   /** Extra action payload merged at dispatch (e.g. view screen transitions). */
   payload?: SkinActionPayloadFields;
   bind?: string;
-  disabledWhen?: string;
+  /** When truthy, the control is interactive. */
+  enabledWhen?: SkinCondition;
   /** When truthy, keep the pressed overlay (WMP sticky buttons). */
-  activeWhen?: string;
+  activeWhen?: SkinCondition;
   /** Manifest `soundEffects` key played on click. */
   sound?: string;
   /** OS tooltip text; supports `{bind.path}` placeholders. */
@@ -346,9 +441,9 @@ export interface ButtonGroupElement {
   /** Target URL for `app.openUrl`. */
   url?: string;
   /** When the bind is truthy, keep the pressed overlay (WMP sticky buttons). */
-  activeWhen?: string;
-  /** When truthy, the element is non-interactive (WMP disabled nav). */
-  disabledWhen?: string;
+  activeWhen?: SkinCondition;
+  /** When truthy, the element is interactive. */
+  enabledWhen?: SkinCondition;
   /** Manifest `soundEffects` key; overrides group-level `sound`. */
   sound?: string;
   /** Extra action payload merged at dispatch (e.g. slideshow deck id). */
@@ -374,9 +469,11 @@ export interface SkinActionPayloadFields {
   enabled?: boolean;
   presetId?: string;
   url?: string;
-  /** Slideshow node id for `slideshow.*` actions. */
+  /** Slideshow / scrollStrip node id for `slideshow.*` / `scrollStrip.*` actions. */
   id?: string;
   deck?: string;
+  /** Target slide for `scrollStrip.setSlide`. */
+  slide?: number;
   /** View screen name for combined `slideshow.setDeck` + menu transitions. */
   screen?: string;
   /** Target view-state variable for `view.setVariable`. */
@@ -391,15 +488,19 @@ export interface SkinActionPayloadFields {
 
 export interface ButtonGroupPresentation {
   kind: "buttonGroup";
-  assetBase: string;
-  /** Path under assets/ without extension, e.g. buttons/window-chrome-map */
-  positionMap: string;
+  assets: InteractiveAssets;
+  assetsWhen?: InteractiveAssetsWhen;
+  positionMap: SkinAssetFile;
   width?: number;
   height?: number;
-  /** When true, hover uses `{assetBase}-hover.gif` (default/pressed stay PNG). */
-  animatedHover?: boolean;
   /** Manifest `soundEffects` key played on any element click in this group. */
   sound?: string;
+  /**
+   * Co-elevate this group when any listed overlapping group is hovered or pressed.
+   * Use when a sibling overlay (e.g. pause) must stay painted above part of the
+   * active group's composite artwork (e.g. play+stop sheet).
+   */
+  elevateWhen?: string[];
   elements: ButtonGroupElement[];
 }
 
@@ -475,17 +576,16 @@ export type Presentation =
 
 export interface BitmapPresentation {
   kind: "bitmap";
-  assetBase: string;
+  assets: InteractiveAssets;
+  assetsWhen?: InteractiveAssetsWhen;
   width?: number;
   height?: number;
-  /** When true, hover uses `{assetBase}-hover.gif` (default/pressed stay PNG). */
-  animatedHover?: boolean;
 }
 
-/** Animated GIF under assets/ (path without extension). Pixels must already have alpha baked in. */
+/** Animated GIF under assets/. Pixels must already have alpha baked in. */
 export interface GifPresentation {
   kind: "gif";
-  assetBase: string;
+  asset: SkinAssetFile;
   /**
    * Target loop duration in ms. Scales frame timing to match (all frames kept).
    * When set with `completeAction`, the action fires after one scaled loop.
@@ -517,14 +617,15 @@ export interface CssPresentation {
 /** WMP-style tiled vertical track + movable thumb (graphic EQ bands). */
 export interface BitmapVerticalSliderPresentation {
   kind: "bitmapVerticalSlider";
-  /** Track tile path under assets/ without extension (small WMP slice or full-height PNG). */
-  track: string;
-  /** Thumb image path under assets/ without extension. */
-  thumb: string;
-  /** Source tile width in px (WMP backgroundImage width). */
-  trackTileWidth: number;
+  /** Omitted for thumb-only sliders (groove baked into panel background). */
+  track?: SkinAssetFile;
+  thumb: SkinAssetFile;
+  /** WMP `thumbDownImage`. */
+  thumbPressed?: SkinAssetFile;
+  /** Source tile width in px (WMP backgroundImage width). Required when `track` is set. */
+  trackTileWidth?: number;
   /** Source tile height in px; when less than trackHeight, runtime 3-slice tiling applies. */
-  trackTileHeight: number;
+  trackTileHeight?: number;
   trackWidth: number;
   trackHeight: number;
   thumbWidth: number;
@@ -543,8 +644,8 @@ export interface BitmapVerticalSliderPresentation {
 /** WMP-style tiled horizontal track + movable thumb (balance, volume). */
 export interface BitmapHorizontalSliderPresentation {
   kind: "bitmapHorizontalSlider";
-  track: string;
-  thumb: string;
+  track: SkinAssetFile;
+  thumb: SkinAssetFile;
   trackTileWidth: number;
   trackTileHeight: number;
   trackWidth: number;
@@ -558,12 +659,9 @@ export interface BitmapHorizontalSliderPresentation {
 /** WMP-style track + fill + thumb seek bar. */
 export interface BitmapSeekbarPresentation {
   kind: "bitmapSeekbar";
-  /** Path under assets/ without extension, e.g. sliders/seek-track */
-  track: string;
-  /** Foreground fill image path under assets/ without extension. */
-  fill: string;
-  /** Thumb image base path; hover/pressed use -hover/-pressed suffixes. */
-  thumb: string;
+  track: SkinAssetFile;
+  fill: SkinAssetFile;
+  thumbAssets: InteractiveAssets;
   /** Inset from each track edge for thumb travel (WMP borderSize). */
   borderSize: number;
   trackWidth: number;
@@ -576,24 +674,24 @@ export interface BitmapSeekbarPresentation {
 /** WMP-style filmstrip slider: one frame per discrete value step. */
 export interface StripSliderPresentation {
   kind: "stripSlider";
-  /** Path under assets/ without extension, e.g. sliders/seek */
-  strip: string;
+  strip: SkinAssetFile;
   /** Optional position map for non-linear hit testing (WMP positionImage). */
-  positionMap?: string;
+  positionMap?: SkinAssetFile;
   frameWidth: number;
   frameHeight?: number;
   frameCount: number;
   direction?: "horizontal" | "vertical";
-  /** When true, reverses pointer→value mapping only (display follows value normally). */
-  invert?: boolean;
+  /** How normalized value maps to strip frame indices (default ascending). */
+  valueFrames?: "ascending" | "descending";
+  /** How position-map colors map to frame indices along the interaction axis (default ascending). */
+  mapFrames?: "ascending" | "descending";
   classPrefix?: string;
 }
 
 /** WMP-style horizontal digit strip for MM:SS (and sign) display. */
 export interface DigitStripPresentation {
   kind: "digitStrip";
-  /** Path under assets/ without extension, e.g. time/numbers */
-  strip: string;
+  strip: SkinAssetFile;
   frameWidth: number;
   frameHeight: number;
   /** Digit/sign windows within the control bounds (logical px). */
@@ -613,10 +711,8 @@ export interface DigitStripSlot {
 /** WMP-style viz panel: bitmap mask clip + optional frame overlay (vid_bkgd pattern). */
 export interface FramedPanelPresentation {
   kind: "framedPanel";
-  /** Path under assets/ without extension — opaque region is the visible viz area. */
-  mask: string;
-  /** Optional frame overlay; white/keyed regions are transparent in the asset. */
-  frame?: string;
+  mask: SkinAssetFile;
+  frame?: SkinAssetFile;
   /** Optional inner content rect when viz/video is inset within the outer frame bounds. */
   contentInset?: FramedPanelInset;
   classPrefix?: string;
@@ -729,7 +825,10 @@ export type SkinActionId =
   | "view.applyStateEvent"
   | "slideshow.setDeck"
   | "slideshow.prev"
-  | "slideshow.next";
+  | "slideshow.next"
+  | "scrollStrip.prev"
+  | "scrollStrip.next"
+  | "scrollStrip.setSlide";
 
 export type SkinBindPath =
   | "track.title"

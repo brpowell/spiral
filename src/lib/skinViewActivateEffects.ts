@@ -1,39 +1,36 @@
 import type { SkinViewActivateEffect } from "../types/skin";
 import { runSkinAction } from "./skinActions";
+import { evaluateSkinCondition, type SkinBindState } from "./skinBinds";
 import { playActiveSkinSound } from "./skinSoundEffects";
-import {
-  evaluateViewBind,
-  type ViewStateValues,
-} from "./skinViewStateContext";
 
 function isEffectWhenTruthy(
-  when: string | undefined,
-  values: ViewStateValues,
+  when: SkinViewActivateEffect["when"],
+  getBindState: () => SkinBindState,
 ): boolean {
   if (!when) return true;
-  return evaluateViewBind(when, values) === true;
+  return evaluateSkinCondition(when, getBindState());
 }
 
 export function dispatchViewActivateEffect(
   effect: SkinViewActivateEffect,
-  getValues: () => ViewStateValues,
+  getBindState: () => SkinBindState,
 ): void {
-  if (!isEffectWhenTruthy(effect.when, getValues())) return;
+  if (!isEffectWhenTruthy(effect.when, getBindState)) return;
   if (effect.sound) playActiveSkinSound(effect.sound);
   runSkinAction(effect.action, effect.payload);
 }
 
 export function scheduleViewActivateEffects(
   effects: SkinViewActivateEffect[],
-  getValues: () => ViewStateValues,
+  getBindState: () => SkinBindState,
 ): () => void {
   const timers: ReturnType<typeof setTimeout>[] = [];
 
   for (const effect of effects) {
-    if (!isEffectWhenTruthy(effect.when, getValues())) continue;
+    if (!isEffectWhenTruthy(effect.when, getBindState)) continue;
 
     const timer = setTimeout(
-      () => dispatchViewActivateEffect(effect, getValues),
+      () => dispatchViewActivateEffect(effect, getBindState),
       effect.delayMs ?? 0,
     );
     timers.push(timer);

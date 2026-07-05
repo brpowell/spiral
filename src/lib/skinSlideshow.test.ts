@@ -13,7 +13,7 @@ const slideshowNode: SlideshowNode = {
   id: "info-promo",
   presentation: {
     kind: "imageSequence",
-    assetPattern: "promo/c_sub_{deckIndex}_{page}",
+    assetPattern: "promo/c_sub_{deckIndex}_{page}.png",
     decks: {
       story: { deckIndex: 1, pages: 7 },
       trailer: { deckIndex: 3, pages: 1, showPageNav: false },
@@ -22,10 +22,10 @@ const slideshowNode: SlideshowNode = {
 };
 
 describe("resolveSlideshowAssetPath", () => {
-  it("resolves promo/c_sub_1_3", () => {
+  it("resolves promo/c_sub_1_3.png", () => {
     expect(
-      resolveSlideshowAssetPath("promo/c_sub_{deckIndex}_{page}", 1, 3),
-    ).toBe("promo/c_sub_1_3");
+      resolveSlideshowAssetPath("promo/c_sub_{deckIndex}_{page}.png", 1, 3),
+    ).toBe("promo/c_sub_1_3.png");
   });
 });
 
@@ -62,7 +62,7 @@ describe("resolveSlideshowAssetForState", () => {
         deck: "story",
         page: 3,
       }),
-    ).toBe("promo/c_sub_1_3");
+    ).toBe("promo/c_sub_1_3.png");
   });
 
   it("clamps page to deck max", () => {
@@ -71,7 +71,7 @@ describe("resolveSlideshowAssetForState", () => {
         deck: "story",
         page: 99,
       }),
-    ).toBe("promo/c_sub_1_7");
+    ).toBe("promo/c_sub_1_7.png");
   });
 });
 

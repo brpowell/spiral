@@ -80,8 +80,8 @@ export function PlaybackTransport({ className }: PlaybackTransportProps) {
         iconOnly
         className={`playback-btn playback-btn--shuffle${shuffle ? " playback-btn--shuffle-active" : ""}`}
         onClick={toggleShuffle}
-        aria-label={shuffle ? "Shuffle on" : "Shuffle off"}
-        title={shuffle ? "Shuffle on" : "Shuffle off"}
+        aria-label={shuffle ? "Turn shuffle off" : "Turn shuffle on"}
+        title={shuffle ? "Turn shuffle off" : "Turn shuffle on"}
       >
         <IconShuffle />
       </Button>

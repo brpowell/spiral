@@ -4,7 +4,12 @@ import type {
   SkinCanvasSpec,
   SkinPanel,
   SkinView,
+  StretchLayoutBounds,
 } from "../types/skin";
+import {
+  evaluateViewBind,
+  type ViewStateValues,
+} from "./skinViewStateContext";
 
 export type PanelOpenState = Record<string, boolean>;
 
@@ -12,6 +17,7 @@ export interface PanelBindContext {
   panelOpen: PanelOpenState;
   panelRevealed?: PanelOpenState;
   panelSettled?: PanelOpenState;
+  viewState?: ViewStateValues;
 }
 
 const PANEL_BIND_RE =
@@ -98,6 +104,10 @@ function conditionMatches(
     ctx.panelSettled,
   );
   if (panelValue !== null) return panelValue;
+  if (ctx.viewState) {
+    const viewValue = evaluateViewBind(condition, ctx.viewState);
+    if (viewValue !== null) return Boolean(viewValue);
+  }
   return false;
 }
 
@@ -157,6 +167,51 @@ export function resolvePanelWindowSize(
   }
 
   return { width, height };
+}
+
+/** Resolve WMP stretch/fixed bounds against the canvas stage size. */
+export function resolveStretchBounds(
+  bounds: StretchLayoutBounds,
+  stageW: number,
+  stageH: number,
+): { x: number; y: number; w: number; h: number; zIndex?: number } {
+  let y: number;
+  if (bounds.y !== undefined) {
+    y = bounds.y;
+  } else if (bounds.bottom !== undefined) {
+    y = stageH - bounds.bottom;
+  } else {
+    y = 0;
+  }
+
+  let h: number;
+  if (bounds.h !== undefined) {
+    h = bounds.h;
+  } else if (bounds.bottom !== undefined) {
+    h = Math.max(0, stageH - y - bounds.bottom);
+  } else {
+    h = 0;
+  }
+
+  let x: number;
+  let w: number;
+
+  if (bounds.x !== undefined) {
+    x = bounds.x;
+    if (bounds.right !== undefined && bounds.w === undefined) {
+      w = Math.max(0, stageW - bounds.x - bounds.right);
+    } else {
+      w = bounds.w ?? 0;
+    }
+  } else if (bounds.right !== undefined) {
+    x = stageW - bounds.right;
+    w = bounds.w ?? 0;
+  } else {
+    x = 0;
+    w = bounds.w ?? 0;
+  }
+
+  return { x, y, w, h, zIndex: bounds.zIndex };
 }
 
 export function resolveNodeBounds(

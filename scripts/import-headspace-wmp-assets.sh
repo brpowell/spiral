@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Import Headspace WMP skin assets into the builtin headspace skin pack.
+# skin.json must reference explicit paths under assets/ including extensions.
 # Usage: ./scripts/import-headspace-wmp-assets.sh [path-to-Headspace-folder]
 
 set -euo pipefail

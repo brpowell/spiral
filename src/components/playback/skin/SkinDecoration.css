@@ -8,9 +8,10 @@
 
 /* 1:1 with canvas bounds when they match asset size (see SkinButtonGroup.css). */
 .skin-decoration--bitmap {
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  background-position: 0 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  display: block;
 }
 
 .skin-decoration--gif {
