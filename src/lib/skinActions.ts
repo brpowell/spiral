@@ -23,6 +23,7 @@ import { useSkinStore } from "../store/useSkinStore";
 import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
 import { useVisualizerStore } from "../store/useVisualizerStore";
 import { useEqualizerStore } from "../store/useEqualizerStore";
+import { usePlaybackSettingsStore } from "../store/usePlaybackSettingsStore";
 import { pickAndImportLibraryPaths } from "./libraryImport";
 import { getSkinAuxContext } from "./windowRole";
 import { getSkinSlideshowStateApi } from "./skinSlideshowContext";
@@ -117,6 +118,9 @@ export function runSkinAction(
       break;
     case "player.toggleMute":
       usePlayerStore.getState().toggleMute();
+      break;
+    case "player.toggleCrossfade":
+      usePlaybackSettingsStore.getState().toggleCrossfade();
       break;
     case "player.clearSetList":
       usePlayerStore.getState().clearSetList();

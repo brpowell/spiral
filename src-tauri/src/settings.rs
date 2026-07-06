@@ -185,6 +185,60 @@ impl Default for EqualizerSettings {
     }
 }
 
+fn default_crossfade_enabled() -> bool {
+    false
+}
+
+fn default_crossfade_seconds() -> u32 {
+    7
+}
+
+fn default_crossfade_on_skip() -> bool {
+    false
+}
+
+fn default_crossfade_visual_enabled() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaybackSettings {
+    #[serde(default = "default_crossfade_enabled")]
+    pub crossfade_enabled: bool,
+    #[serde(default = "default_crossfade_seconds")]
+    pub crossfade_seconds: u32,
+    #[serde(default = "default_crossfade_on_skip")]
+    pub crossfade_on_skip: bool,
+    #[serde(default = "default_crossfade_visual_enabled")]
+    pub crossfade_visual_enabled: bool,
+}
+
+impl Default for PlaybackSettings {
+    fn default() -> Self {
+        Self {
+            crossfade_enabled: default_crossfade_enabled(),
+            crossfade_seconds: default_crossfade_seconds(),
+            crossfade_on_skip: default_crossfade_on_skip(),
+            crossfade_visual_enabled: default_crossfade_visual_enabled(),
+        }
+    }
+}
+
+pub const MIN_CROSSFADE_SECONDS: u32 = 1;
+pub const MAX_CROSSFADE_SECONDS: u32 = 12;
+
+pub fn normalize_playback_settings(settings: PlaybackSettings) -> PlaybackSettings {
+    PlaybackSettings {
+        crossfade_enabled: settings.crossfade_enabled,
+        crossfade_seconds: settings
+            .crossfade_seconds
+            .clamp(MIN_CROSSFADE_SECONDS, MAX_CROSSFADE_SECONDS),
+        crossfade_on_skip: settings.crossfade_on_skip,
+        crossfade_visual_enabled: settings.crossfade_visual_enabled,
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -204,6 +258,8 @@ pub struct AppSettings {
     pub cd: CdSettings,
     #[serde(default)]
     pub equalizer: EqualizerSettings,
+    #[serde(default)]
+    pub playback: PlaybackSettings,
     #[serde(default)]
     pub acknowledged_crash_report_ids: Vec<String>,
 }
@@ -235,6 +291,7 @@ impl Default for AppSettings {
             metadata_backups: MetadataBackupSettings::default(),
             cd: CdSettings::default(),
             equalizer: EqualizerSettings::default(),
+            playback: PlaybackSettings::default(),
             acknowledged_crash_report_ids: Vec::new(),
         }
     }
@@ -510,5 +567,24 @@ mod tests {
             resolved_cd_import_profile_id("not-a-profile"),
             crate::encoding_profiles::DEFAULT_CD_IMPORT_PROFILE_ID
         );
+    }
+
+    #[test]
+    fn normalize_playback_settings_clamps_crossfade_seconds() {
+        let settings = normalize_playback_settings(PlaybackSettings {
+            crossfade_enabled: true,
+            crossfade_seconds: 99,
+            crossfade_on_skip: false,
+            crossfade_visual_enabled: true,
+        });
+        assert_eq!(settings.crossfade_seconds, MAX_CROSSFADE_SECONDS);
+
+        let settings = normalize_playback_settings(PlaybackSettings {
+            crossfade_enabled: true,
+            crossfade_seconds: 0,
+            crossfade_on_skip: false,
+            crossfade_visual_enabled: true,
+        });
+        assert_eq!(settings.crossfade_seconds, MIN_CROSSFADE_SECONDS);
     }
 }

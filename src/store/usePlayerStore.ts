@@ -17,6 +17,8 @@ import { isCdImportBlockingPlayback } from "../lib/cdImportGuard";
 import { showQueueAddedToast, showQueueAddedToastForTracks } from "../lib/queueToast";
 import { seekRatioToPositionSeconds } from "../lib/playbackSeek";
 import { parseRepeatMode, prunePlaybackSession } from "../lib/playbackSession";
+import { requiresPcmPlayback } from "../lib/supportedAudio";
+import { usePlaybackSettingsStore } from "./usePlaybackSettingsStore";
 import {
   getLibrary,
   getPlaybackSession,
@@ -54,6 +56,8 @@ import {
   type PlaybackNextIdFn,
 } from "../lib/playbackSkip";
 import type { PlayableRef } from "../types/playable";
+import type { PlaybackSource } from "../lib/playback";
+import type { CrossfadeVisualState } from "../lib/playback";
 import type { PlaybackState, RepeatMode, Track } from "../types/track";
 
 interface PlayerState {
@@ -73,6 +77,8 @@ interface PlayerState {
   positionSeconds: number;
   /** Non-null while the user is scrubbing; shared by seek bar and skin time display. */
   seekPreviewRatio: number | null;
+  /** Outgoing/incoming track blend while a crossfade is underway. */
+  crossfadeVisual: CrossfadeVisualState | null;
   volume: number;
   muted: boolean;
   balance: number;
@@ -94,7 +100,7 @@ interface PlayerState {
   importFromPaths: (paths: string[]) => void;
   playTrack: (
     id: number,
-    options?: PlayTrackOptions,
+    options?: PlaybackAdvanceOptions,
   ) => Promise<void>;
   playTracks: (ids: number[], startId: number) => Promise<void>;
   playCdTracks: (
@@ -171,20 +177,259 @@ function pruneIdsMany(ids: number[], removed: Set<number>): number[] {
   return ids.filter((id) => !removed.has(id));
 }
 
-let positionInterval: ReturnType<typeof setInterval> | null = null;
-
-function stopPositionPoll(): void {
-  if (positionInterval !== null) {
-    clearInterval(positionInterval);
-    positionInterval = null;
+function applyActiveTrackHandoff(
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  get: () => PlayerState,
+  incomingPlayable: PlayableRef,
+  incomingTrackListId: number,
+): void {
+  const outgoingId = get().currentTrackId;
+  if (outgoingId !== null && !isCdTrackListId(outgoingId)) {
+    recordCompletedPlay(outgoingId, get);
   }
+
+  set((current) => ({
+    currentPlayable: incomingPlayable,
+    currentTrackId: incomingTrackListId,
+    positionSeconds: audio.getPositionSeconds(),
+    seekPreviewRatio: null,
+    manualQueueIds: current.manualQueueIds.filter(
+      (trackId) => trackId !== incomingTrackListId,
+    ),
+    library:
+      incomingPlayable.type === "library"
+        ? current.library.map((track) =>
+            track.id === incomingPlayable.trackId
+              ? withTrackMissingFile(track, false)
+              : track,
+          )
+        : current.library,
+    ...(incomingPlayable.type === "library"
+      ? { cdDriveId: null, playbackTracks: [] }
+      : {}),
+  }));
 }
 
-function startPositionPoll(set: (partial: Partial<PlayerState>) => void): void {
-  stopPositionPoll();
-  positionInterval = setInterval(() => {
-    set({ positionSeconds: audio.getPositionSeconds() });
-  }, 500);
+let positionInterval: ReturnType<typeof setTimeout> | null = null;
+
+function stopPositionPoll(
+  set?: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+): void {
+  if (positionInterval !== null) {
+    clearTimeout(positionInterval);
+    positionInterval = null;
+  }
+  set?.({ crossfadeVisual: null });
+}
+
+function positionPollIntervalMs(
+  get: () => PlayerState,
+  positionSeconds: number,
+): number {
+  if (audio.isCrossfadeInProgress()) return 75;
+
+  const settings = usePlaybackSettingsStore.getState();
+  if (!settings.crossfadeEnabled || !audio.isCrossfadeControllerActive()) {
+    return 500;
+  }
+
+  const state = get();
+  if (state.playbackState !== "playing") return 500;
+
+  const duration = audio.getDurationSeconds();
+  if (!duration) return 500;
+
+  const remaining = duration - positionSeconds;
+  if (remaining <= settings.crossfadeSeconds + 1) return 75;
+  return 500;
+}
+
+function tryScheduleCrossfade(
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  get: () => PlayerState,
+  positionSeconds: number,
+): void {
+  const settings = usePlaybackSettingsStore.getState();
+  if (!settings.crossfadeEnabled || !audio.isCrossfadeControllerActive()) {
+    return;
+  }
+  if (audio.isCrossfadeInProgress()) return;
+
+  const state = get();
+  if (state.playbackState !== "playing" || state.currentTrackId === null) {
+    return;
+  }
+  if (!state.currentPlayable) return;
+
+  const order = getPlaybackOrder(get);
+  const nextId = getNextSkippingKnownUnplayable(
+    order,
+    state.currentTrackId,
+    state.repeatMode,
+    state.library,
+    getAutoplayNextId,
+  );
+  if (nextId === null) return;
+
+  const nextPlayable: PlayableRef = { type: "library", trackId: nextId };
+  const ctx = buildCrossfadeScheduleContext(get, set, nextPlayable, nextId);
+  if (!ctx) return;
+
+  audio.maybeScheduleCrossfade({ ...ctx, positionSeconds });
+}
+
+function buildCrossfadeScheduleContext(
+  get: () => PlayerState,
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  nextPlayable: PlayableRef,
+  nextTrackId: number,
+): Parameters<typeof audio.startCrossfadeNow>[0] | null {
+  const settings = usePlaybackSettingsStore.getState();
+  const state = get();
+  const currentPlayable = state.currentPlayable;
+  if (!currentPlayable) return null;
+
+  const currentSource = resolvePlaybackSource(currentPlayable, state.library);
+  const nextSource = resolvePlaybackSource(nextPlayable, state.library);
+  if (!currentSource || !nextSource) return null;
+  if (!audio.canHowlerCrossfade(currentSource, nextSource)) return null;
+
+  const outgoingDuration = audio.getDurationSeconds();
+  if (!outgoingDuration) return null;
+
+  return {
+    crossfadeSeconds: settings.crossfadeSeconds,
+    currentPlayable,
+    currentTrackId: state.currentTrackId!,
+    currentSource,
+    nextPlayable,
+    nextSource,
+    nextTrackId,
+    repeatMode: state.repeatMode,
+    volume: state.volume,
+    muted: state.muted,
+    balance: state.balance,
+    outgoingDuration,
+    positionSeconds: audio.getPositionSeconds(),
+    onActiveTrackChange: ({ incomingPlayable, incomingTrackListId }) => {
+      applyActiveTrackHandoff(set, get, incomingPlayable, incomingTrackListId);
+    },
+  };
+}
+
+function getManualAdvanceFromTrackId(get: () => PlayerState): number | null {
+  const crossfadeTarget = audio.getCrossfadeIncomingTrackId();
+  if (crossfadeTarget !== null) return crossfadeTarget;
+  return get().currentTrackId;
+}
+
+function tryStartManualCrossfade(
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  get: () => PlayerState,
+  nextPlayable: PlayableRef,
+  nextTrackId: number,
+): boolean {
+  const settings = usePlaybackSettingsStore.getState();
+  if (!settings.crossfadeEnabled || !settings.crossfadeOnSkip) return false;
+  if (!audio.isCrossfadeControllerActive()) return false;
+
+  const state = get();
+  if (state.playbackState !== "playing" || state.currentTrackId === null) {
+    return false;
+  }
+  if (state.repeatMode === "one") return false;
+
+  const ctx = buildCrossfadeScheduleContext(get, set, nextPlayable, nextTrackId);
+  if (!ctx) return false;
+
+  audio.startCrossfadeNow(ctx);
+  return true;
+}
+
+function stopPlaybackAtQueueEnd(
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+): void {
+  stopPositionPoll(set);
+  set({
+    playbackState: "stopped",
+    positionSeconds: 0,
+    seekPreviewRatio: null,
+    crossfadeVisual: null,
+  });
+}
+
+function handleQueueEnd(
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+): void {
+  const settings = usePlaybackSettingsStore.getState();
+  if (
+    settings.crossfadeEnabled &&
+    audio.isCrossfadeControllerActive() &&
+    !audio.isCrossfadeInProgress()
+  ) {
+    const duration = audio.getDurationSeconds();
+    const fadeSec = audio.effectiveFadeSeconds(duration, settings.crossfadeSeconds);
+    audio.fadeOutAndStop(fadeSec, () => {
+      stopPlaybackAtQueueEnd(set);
+    });
+    return;
+  }
+
+  stopPlaybackAtQueueEnd(set);
+}
+
+function startPositionPoll(
+  set: (
+    partial:
+      | Partial<PlayerState>
+      | ((state: PlayerState) => Partial<PlayerState>),
+  ) => void,
+  get: () => PlayerState,
+): void {
+  stopPositionPoll(set);
+
+  const tick = () => {
+    const positionSeconds = audio.getPositionSeconds();
+    const crossfadeVisual = usePlaybackSettingsStore.getState()
+      .crossfadeVisualEnabled
+      ? audio.getCrossfadeVisualState()
+      : null;
+    set({ positionSeconds, crossfadeVisual });
+    tryScheduleCrossfade(set, get, positionSeconds);
+
+    const intervalMs = positionPollIntervalMs(get, positionSeconds);
+    positionInterval = setTimeout(tick, intervalMs);
+  };
+
+  positionInterval = setTimeout(tick, positionPollIntervalMs(get, get().positionSeconds));
 }
 
 interface PlaybackAdvanceOptions {
@@ -193,12 +438,29 @@ interface PlaybackAdvanceOptions {
   getNextId?: PlaybackNextIdFn;
 }
 
-interface PlayTrackOptions extends PlaybackAdvanceOptions {}
-
 interface PlayResolvedPlayableOptions extends PlaybackAdvanceOptions {
   playContextIds?: number[];
   playbackTracks?: Track[];
   cdDriveId?: string | null;
+}
+
+function shouldUseCrossfadeController(
+  source: PlaybackSource,
+  state: PlayerState,
+  playable: PlayableRef,
+): boolean {
+  const settings = usePlaybackSettingsStore.getState();
+  if (!settings.crossfadeEnabled) return false;
+  if (source.kind !== "file" || requiresPcmPlayback(source.path)) return false;
+
+  const isRepeatOneReplay =
+    state.repeatMode === "one" &&
+    playable.type === "library" &&
+    state.currentPlayable?.type === "library" &&
+    playable.trackId === state.currentPlayable.trackId;
+  if (isRepeatOneReplay) return false;
+
+  return true;
 }
 
 let playResolvedGeneration = 0;
@@ -277,7 +539,7 @@ async function advanceToPlayableInOrder(
 
   if (nextId === null) {
     if (!audio.isPlaying()) {
-      stopPositionPoll();
+      stopPositionPoll(set);
       set({
         playbackState: "stopped",
         positionSeconds: 0,
@@ -367,14 +629,28 @@ async function playResolvedPlayable(
   }
 
   try {
-    await audio.loadSource(source);
+    const useCrossfade = shouldUseCrossfadeController(
+      source,
+      state,
+      playable,
+    );
+
+    if (useCrossfade) {
+      await audio.crossfadeLoadAndPlay(source, {
+        volume: state.volume,
+        muted: state.muted,
+        balance: state.balance,
+      });
+    } else {
+      await audio.loadSource(source);
+      if (generation !== playResolvedGeneration) return;
+      audio.setVolume(state.volume);
+      audio.setMuted(state.muted);
+      audio.setBalance(state.balance);
+      audio.play();
+    }
+
     if (generation !== playResolvedGeneration) return;
-    // Loading may switch engines — make sure the new one has the user's
-    // volume/mute state before audio starts.
-    audio.setVolume(state.volume);
-    audio.setMuted(state.muted);
-    audio.setBalance(state.balance);
-    audio.play();
     set((current) => ({
       currentPlayable: playable,
       currentTrackId: trackListId,
@@ -403,7 +679,7 @@ async function playResolvedPlayable(
         ? { cdDriveId: null, playbackTracks: [] }
         : {}),
     }));
-    startPositionPoll(set);
+    startPositionPoll(set, get);
   } catch (err) {
     if (generation !== playResolvedGeneration) return;
     const message = err instanceof Error ? err.message : String(err);
@@ -546,7 +822,7 @@ function refreshLibraryPreservingPlayback(
 
   if (state.currentTrackId !== null && currentTrackId === null) {
     audio.unload();
-    stopPositionPoll();
+    stopPositionPoll(set);
     set({
       library: mergeLibraryClientState(state.library, library),
       playContextIds,
@@ -596,17 +872,17 @@ function refreshLibraryPreservingPlayback(
       }
       if (wasPlaying) {
         audio.play();
-        startPositionPoll(set);
+        startPositionPoll(set, get);
         set({ playbackState: "playing" });
       } else {
-        stopPositionPoll();
+        stopPositionPoll(set);
         set({ playbackState: "paused", positionSeconds });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("Failed to reload converted track:", err);
       audio.unload();
-      stopPositionPoll();
+      stopPositionPoll(set);
       if (isMissingFileError(err)) {
         setLibraryTrackMissingFile(set, updatedTrack.id, true);
       }
@@ -698,9 +974,11 @@ function recordCompletedPlay(trackId: number, get: () => PlayerState): void {
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
   audio.onEnd(() => {
+    if (audio.consumeCrossfadeHandledEnd()) return;
+
     const { currentTrackId, repeatMode } = get();
     if (!currentTrackId) {
-      stopPositionPoll();
+      stopPositionPoll(set);
       set({ playbackState: "stopped", positionSeconds: 0, seekPreviewRatio: null });
       return;
     }
@@ -725,8 +1003,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       return;
     }
 
-    stopPositionPoll();
-    set({ playbackState: "stopped", positionSeconds: 0, seekPreviewRatio: null });
+    handleQueueEnd(set);
   });
 
   return {
@@ -743,6 +1020,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     playbackState: "stopped",
     positionSeconds: 0,
     seekPreviewRatio: null,
+    crossfadeVisual: null,
     volume: 1,
     muted: false,
     balance: 0,
@@ -920,7 +1198,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       if (!playingFromDrive) return;
 
       audio.unload();
-      stopPositionPoll();
+      stopPositionPoll(set);
       set({
         cdDriveId: null,
         playbackTracks: [],
@@ -1006,7 +1284,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     pause: () => {
       audio.pause();
-      stopPositionPoll();
+      stopPositionPoll(set);
       set({ playbackState: "paused" });
     },
 
@@ -1020,7 +1298,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }
       audio.play();
       set({ playbackState: "playing" });
-      startPositionPoll(set);
+      startPositionPoll(set, get);
     },
 
     recoverPlaybackAfterWake: async () => {
@@ -1045,11 +1323,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }
 
       if (result.restarted) {
-        startPositionPoll(set);
+        startPositionPoll(set, get);
         return;
       }
 
-      stopPositionPoll();
+      stopPositionPoll(set);
       set({ playbackState: "paused" });
     },
 
@@ -1127,9 +1405,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     previousTrack: () => {
-      const { currentTrackId, repeatMode } = get();
+      const fromTrackId = getManualAdvanceFromTrackId(get);
+      const { repeatMode } = get();
       const order = getPlaybackOrder(get);
-      if (!currentTrackId || order.length === 0) return;
+      if (!fromTrackId || order.length === 0) return;
 
       const now = Date.now();
       const isQuickSecondPress =
@@ -1139,12 +1418,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       if (isQuickSecondPress) {
         const prevId = getNextSkippingKnownUnplayable(
           order,
-          currentTrackId,
+          fromTrackId,
           repeatMode,
           get().library,
           getManualPreviousId,
         );
         if (prevId !== null) {
+          const prevPlayable: PlayableRef = { type: "library", trackId: prevId };
+          if (tryStartManualCrossfade(set, get, prevPlayable, prevId)) {
+            return;
+          }
           void get().playTrack(prevId, {
             advanceOnMissing: true,
             getNextId: getManualPreviousId,
@@ -1157,17 +1440,22 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     nextTrack: () => {
-      const { currentTrackId, repeatMode } = get();
+      const fromTrackId = getManualAdvanceFromTrackId(get);
+      const { repeatMode } = get();
       const order = getPlaybackOrder(get);
-      if (!currentTrackId || order.length === 0) return;
+      if (!fromTrackId || order.length === 0) return;
       const nextId = getNextSkippingKnownUnplayable(
         order,
-        currentTrackId,
+        fromTrackId,
         repeatMode,
         get().library,
         getManualNextId,
       );
       if (nextId !== null) {
+        const nextPlayable: PlayableRef = { type: "library", trackId: nextId };
+        if (tryStartManualCrossfade(set, get, nextPlayable, nextId)) {
+          return;
+        }
         void get().playTrack(nextId, {
           advanceOnMissing: true,
           getNextId: getManualNextId,
@@ -1281,7 +1569,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const { currentTrackId } = get();
       if (currentTrackId !== null) {
         audio.unload();
-        stopPositionPoll();
+        stopPositionPoll(set);
       }
       set({
         playContextIds: [],
@@ -1383,7 +1671,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
       if (wasCurrent) {
         audio.unload();
-        stopPositionPoll();
+        stopPositionPoll(set);
       }
 
       const library = state.library.filter((t) => !removed.has(t.id));

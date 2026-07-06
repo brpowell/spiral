@@ -17,7 +17,9 @@ import {
 import { pickDatabaseFolder, pickFolder, clearMetadataCache } from "../../lib/tauri";
 import { useCdStore } from "../../store/useCdStore";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
+import { usePlaybackSettingsStore } from "../../store/usePlaybackSettingsStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
+import { MIN_CROSSFADE_SECONDS, MAX_CROSSFADE_SECONDS } from "../../types/playbackSettings";
 import type { CdMetadataFetchMode, ImportMode, LibrarySettings } from "../../types/library";
 import { Button } from "../common/Button/Button";
 import { Checkbox } from "../common/Checkbox/Checkbox";
@@ -32,6 +34,7 @@ import {
 } from "../common/Modal/Modal";
 import { TextInput } from "../common/TextInput/TextInput";
 import { Select } from "../common/Select/Select";
+import { Slider } from "../common/Slider/Slider";
 import { IconCheck } from "../icons";
 import "./PreferencesModal.css";
 
@@ -45,16 +48,28 @@ const CD_METADATA_FETCH_MODE_OPTIONS: {
   value: CdMetadataFetchMode;
   label: string;
 }[] = [
-  { value: "ask", label: "Always ask" },
-  { value: "always", label: "Fetch automatically" },
-  { value: "never", label: "Don't fetch" },
-];
+    { value: "ask", label: "Always ask" },
+    { value: "always", label: "Fetch automatically" },
+    { value: "never", label: "Don't fetch" },
+  ];
 
 export function PreferencesModal() {
   const open = useLibrarySettingsStore((s) => s.preferencesOpen);
   const setOpen = useLibrarySettingsStore((s) => s.setPreferencesOpen);
   const settings = useLibrarySettingsStore((s) => s.settings);
   const saveLibrarySettings = useLibrarySettingsStore((s) => s.saveLibrarySettings);
+  const crossfadeEnabled = usePlaybackSettingsStore((s) => s.crossfadeEnabled);
+  const crossfadeSeconds = usePlaybackSettingsStore((s) => s.crossfadeSeconds);
+  const crossfadeOnSkip = usePlaybackSettingsStore((s) => s.crossfadeOnSkip);
+  const crossfadeVisualEnabled = usePlaybackSettingsStore(
+    (s) => s.crossfadeVisualEnabled,
+  );
+  const setCrossfadeEnabled = usePlaybackSettingsStore((s) => s.setCrossfadeEnabled);
+  const setCrossfadeSeconds = usePlaybackSettingsStore((s) => s.setCrossfadeSeconds);
+  const setCrossfadeOnSkip = usePlaybackSettingsStore((s) => s.setCrossfadeOnSkip);
+  const setCrossfadeVisualEnabled = usePlaybackSettingsStore(
+    (s) => s.setCrossfadeVisualEnabled,
+  );
 
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -271,9 +286,9 @@ export function PreferencesModal() {
                   setDraft((d) =>
                     d
                       ? {
-                          ...d,
-                          organizePathFormat: d.defaultOrganizePathFormat,
-                        }
+                        ...d,
+                        organizePathFormat: d.defaultOrganizePathFormat,
+                      }
                       : d,
                   )
                 }
@@ -402,6 +417,65 @@ export function PreferencesModal() {
               "Clear metadata cache"
             )}
           </Button>
+        </section>
+
+        <section
+          className="preferences__section"
+          aria-labelledby="playback-prefs-heading"
+        >
+          <h3 id="playback-prefs-heading" className="preferences__section-title">
+            Playback
+          </h3>
+
+          <Checkbox
+            alignStart
+            className="preferences__checkbox"
+            checked={crossfadeEnabled}
+            onChange={(e) => setCrossfadeEnabled(e.target.checked)}
+          >
+            Crossfade between tracks
+          </Checkbox>
+
+          <FormField label="Crossfade duration">
+            <Slider
+              min={MIN_CROSSFADE_SECONDS}
+              max={MAX_CROSSFADE_SECONDS}
+              step={1}
+              value={crossfadeSeconds}
+              disabled={!crossfadeEnabled}
+              onChange={(e) =>
+                setCrossfadeSeconds(Number.parseInt(e.target.value, 10))
+              }
+              aria-label="Crossfade duration in seconds"
+              showValueTooltip
+              formatValueTooltip={(value) => `${value} s`}
+            />
+          </FormField>
+
+          <Checkbox
+            alignStart
+            className="preferences__checkbox"
+            checked={crossfadeOnSkip}
+            disabled={!crossfadeEnabled}
+            onChange={(e) => setCrossfadeOnSkip(e.target.checked)}
+          >
+            Crossfade when skipping tracks
+          </Checkbox>
+
+          <Checkbox
+            alignStart
+            className="preferences__checkbox"
+            checked={crossfadeVisualEnabled}
+            disabled={!crossfadeEnabled}
+            onChange={(e) => setCrossfadeVisualEnabled(e.target.checked)}
+          >
+            Animate now playing during crossfade
+          </Checkbox>
+
+          <p className="preferences__hint">
+            Crossfade applies between mp3, flac, aac, wav, and m4a tracks.
+            OGG, Opus, and CD transitions are not supported and will instantly switch.
+          </p>
         </section>
 
         <section

@@ -19,6 +19,10 @@ A local-first desktop app for managing and enjoying a personal music library. Yo
 - **Visualizations** — Audio-reactive visuals that make listening feel like an event. Spectrum analyzers, waveforms, and more.
 - **Themes** — Swap the entire look of the app with a theme file. Dark, light, warm, cold — make it yours.
 
+## Known limitations
+
+Spiral is under active development. Some features are intentionally scoped or platform-limited. See [docs/known-limitations.md](docs/known-limitations.md) for the public list (crossfade scope, CD platform support, format gaps, and more).
+
 ## Philosophy
 
 > The best music experience isn't the one with the most songs. It's the one that makes you care about the songs you have.

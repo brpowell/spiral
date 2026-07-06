@@ -20,6 +20,7 @@ import { useSkinStore } from "./store/useSkinStore";
 import { bootstrapTheme } from "./lib/themeBootstrap";
 import { bootstrapVisualizer } from "./lib/visualizerBootstrap";
 import { bootstrapEqualizer } from "./lib/equalizerBootstrap";
+import { bootstrapPlaybackSettings } from "./lib/playbackSettingsBootstrap";
 import {
   initCrashHandlers,
   installCrashDevConsole,
@@ -112,6 +113,7 @@ async function start() {
   await bootstrapTheme();
   await bootstrapVisualizer();
   await bootstrapEqualizer();
+  await bootstrapPlaybackSettings();
 
   if (isAnySkinWindow() || isAppearanceWindow()) {
     await bootstrapSkin();

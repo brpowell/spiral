@@ -1,3 +1,4 @@
+use crate::activity_log::{self, LogLevel};
 use crate::settings;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -481,7 +482,12 @@ fn list_builtin_packs(app: &AppHandle) -> Vec<LoadedVisualizerPack> {
     let entries = match fs::read_dir(&root) {
         Ok(e) => e,
         Err(e) => {
-            eprintln!("builtin visualizers directory read error: {e}");
+            activity_log::log(
+                LogLevel::Debug,
+                "visualizer.load",
+                format!("builtin visualizers directory read error: {e}"),
+                None,
+            );
             return packs;
         }
     };
@@ -495,7 +501,16 @@ fn list_builtin_packs(app: &AppHandle) -> Vec<LoadedVisualizerPack> {
             Ok(pack) => packs.push(pack),
             Err(e) => {
                 let id = pack_id_from_dir(&path).unwrap_or_default();
-                eprintln!("built-in visualizer \"{id}\" failed to load: {e}");
+                activity_log::log(
+                    LogLevel::Debug,
+                    "visualizer.load",
+                    format!("built-in visualizer \"{id}\" failed to load: {e}"),
+                    Some(serde_json::json!({
+                        "visualizerId": id,
+                        "builtin": true,
+                        "error": e,
+                    })),
+                );
             }
         }
     }
@@ -517,7 +532,12 @@ fn list_user_packs(app: &AppHandle) -> Vec<LoadedVisualizerPack> {
     let entries = match fs::read_dir(&dir) {
         Ok(e) => e,
         Err(e) => {
-            eprintln!("visualizers directory read error: {e}");
+            activity_log::log(
+                LogLevel::Debug,
+                "visualizer.load",
+                format!("visualizers directory read error: {e}"),
+                None,
+            );
             return packs;
         }
     };
@@ -529,7 +549,19 @@ fn list_user_packs(app: &AppHandle) -> Vec<LoadedVisualizerPack> {
         }
         match load_pack_from_dir(&path, false) {
             Ok(pack) => packs.push(pack),
-            Err(e) => eprintln!("user visualizer at {} skipped: {e}", path.display()),
+            Err(e) => {
+                let path_display = path.display().to_string();
+                activity_log::log(
+                    LogLevel::Debug,
+                    "visualizer.load",
+                    format!("user visualizer at {path_display} skipped: {e}"),
+                    Some(serde_json::json!({
+                        "path": path_display,
+                        "builtin": false,
+                        "error": e,
+                    })),
+                );
+            }
         }
     }
 

@@ -6,6 +6,10 @@ import {
   seekRatioToPositionSeconds,
 } from "./playbackSeek";
 import { usePlayerStore } from "../store/usePlayerStore";
+import {
+  pickPlaybackSettingsSnapshot,
+  usePlaybackSettingsStore,
+} from "../store/usePlaybackSettingsStore";
 import type { WindowRole } from "./windowRole";
 import { pickAndImportLibraryPaths } from "./libraryImport";
 
@@ -26,6 +30,10 @@ export interface PlayerStateSnapshot {
   balance: number;
   repeatMode: RepeatMode;
   shuffle: boolean;
+  crossfadeEnabled: boolean;
+  crossfadeSeconds: number;
+  crossfadeOnSkip: boolean;
+  crossfadeVisualEnabled: boolean;
 }
 
 export type PlayerRemoteAction =
@@ -47,7 +55,8 @@ export type PlayerRemoteAction =
   | { type: "addToQueue"; ids: number[] }
   | { type: "removeFromQueue"; id: number }
   | { type: "clearSetList" }
-  | { type: "importFromPaths"; paths: string[] };
+  | { type: "importFromPaths"; paths: string[] }
+  | { type: "toggleCrossfade" };
 
 const SYNC_KEYS: (keyof PlayerStateSnapshot)[] = [
   "library",
@@ -62,22 +71,30 @@ const SYNC_KEYS: (keyof PlayerStateSnapshot)[] = [
   "balance",
   "repeatMode",
   "shuffle",
+  "crossfadeEnabled",
+  "crossfadeSeconds",
+  "crossfadeOnSkip",
+  "crossfadeVisualEnabled",
 ];
 
-function pickSnapshot(state: ReturnType<typeof usePlayerStore.getState>): PlayerStateSnapshot {
+function pickSnapshot(
+  playerState: ReturnType<typeof usePlayerStore.getState>,
+  playbackSettings: ReturnType<typeof usePlaybackSettingsStore.getState>,
+): PlayerStateSnapshot {
   return {
-    library: state.library,
-    playbackTracks: state.playbackTracks,
-    playContextIds: state.playContextIds,
-    manualQueueIds: state.manualQueueIds,
-    currentTrackId: state.currentTrackId,
-    playbackState: state.playbackState,
-    positionSeconds: state.positionSeconds,
-    volume: state.volume,
-    muted: state.muted,
-    balance: state.balance,
-    repeatMode: state.repeatMode,
-    shuffle: state.shuffle,
+    library: playerState.library,
+    playbackTracks: playerState.playbackTracks,
+    playContextIds: playerState.playContextIds,
+    manualQueueIds: playerState.manualQueueIds,
+    currentTrackId: playerState.currentTrackId,
+    playbackState: playerState.playbackState,
+    positionSeconds: playerState.positionSeconds,
+    volume: playerState.volume,
+    muted: playerState.muted,
+    balance: playerState.balance,
+    repeatMode: playerState.repeatMode,
+    shuffle: playerState.shuffle,
+    ...pickPlaybackSettingsSnapshot(playbackSettings),
   };
 }
 
@@ -148,6 +165,9 @@ function dispatchRemoteAction(action: PlayerRemoteAction): void {
     case "importFromPaths":
       store.importFromPaths(action.paths);
       break;
+    case "toggleCrossfade":
+      usePlaybackSettingsStore.getState().toggleCrossfade();
+      break;
   }
 }
 
@@ -204,20 +224,41 @@ function installRemoteActions(): void {
     },
     false,
   );
+
+  usePlaybackSettingsStore.setState(
+    {
+      toggleCrossfade: () => emitRemoteAction({ type: "toggleCrossfade" }),
+    },
+    false,
+  );
 }
 
 async function initMainBridge(): Promise<() => void> {
-  let lastSnapshot = pickSnapshot(usePlayerStore.getState());
+  let lastSnapshot = pickSnapshot(
+    usePlayerStore.getState(),
+    usePlaybackSettingsStore.getState(),
+  );
 
   const emitSnapshot = (snapshot: PlayerStateSnapshot) => {
     void emit(PLAYER_STATE_EVENT, { snapshot });
   };
 
-  const unsubscribe = usePlayerStore.subscribe((state) => {
-    const snapshot = pickSnapshot(state);
+  const publishSnapshot = () => {
+    const snapshot = pickSnapshot(
+      usePlayerStore.getState(),
+      usePlaybackSettingsStore.getState(),
+    );
     if (!snapshotChanged(lastSnapshot, snapshot)) return;
     lastSnapshot = snapshot;
     emitSnapshot(snapshot);
+  };
+
+  const unsubscribePlayer = usePlayerStore.subscribe(() => {
+    publishSnapshot();
+  });
+
+  const unsubscribePlaybackSettings = usePlaybackSettingsStore.subscribe(() => {
+    publishSnapshot();
   });
 
   const unlistenAction = await listen<{ action: PlayerRemoteAction }>(
@@ -228,11 +269,17 @@ async function initMainBridge(): Promise<() => void> {
   );
 
   const unlistenRequest = await listen(PLAYER_REQUEST_STATE_EVENT, () => {
-    emitSnapshot(pickSnapshot(usePlayerStore.getState()));
+    emitSnapshot(
+      pickSnapshot(
+        usePlayerStore.getState(),
+        usePlaybackSettingsStore.getState(),
+      ),
+    );
   });
 
   return () => {
-    unsubscribe();
+    unsubscribePlayer();
+    unsubscribePlaybackSettings();
     unlistenAction();
     unlistenRequest();
   };
@@ -245,6 +292,12 @@ async function initRemoteBridge(): Promise<() => void> {
     PLAYER_STATE_EVENT,
     (event) => {
       const snapshot = event.payload.snapshot;
+      usePlaybackSettingsStore.getState().applySnapshot({
+        crossfadeEnabled: snapshot.crossfadeEnabled,
+        crossfadeSeconds: snapshot.crossfadeSeconds,
+        crossfadeOnSkip: snapshot.crossfadeOnSkip,
+        crossfadeVisualEnabled: snapshot.crossfadeVisualEnabled,
+      });
       usePlayerStore.setState((state) => {
         if (state.seekPreviewRatio === null) {
           return snapshot;

@@ -11,6 +11,7 @@ import type { SkinUserPreferences } from "../types/skinPreferences";
 import type { LoadedVisualizerPack, VizSummary } from "../types/visualizer";
 import type { CoverArtCandidate } from "../types/coverArt";
 import type { Playlist } from "../types/playlist";
+import type { PlaybackSettings } from "../types/playbackSettings";
 import type { Track, TrackInput } from "../types/track";
 import type { ActivityLogContext } from "../types/activityLog";
 
@@ -522,6 +523,18 @@ export async function saveEqualizerCustomPreset(
 
 export async function deleteEqualizerCustomPreset(id: string): Promise<void> {
   return invoke<void>("delete_equalizer_custom_preset", { id });
+}
+
+export type { PlaybackSettings } from "../types/playbackSettings";
+
+export async function getPlaybackSettings(): Promise<PlaybackSettings> {
+  return invoke<PlaybackSettings>("get_playback_settings");
+}
+
+export async function savePlaybackSettings(
+  settings: PlaybackSettings,
+): Promise<void> {
+  return invoke<void>("save_playback_settings", { settings });
 }
 
 export async function writeTrackMetadata(

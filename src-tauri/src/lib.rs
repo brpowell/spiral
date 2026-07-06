@@ -145,6 +145,8 @@ pub fn run() {
             commands::equalizer::list_equalizer_custom_presets,
             commands::equalizer::save_equalizer_custom_preset,
             commands::equalizer::delete_equalizer_custom_preset,
+            commands::playback_settings::get_playback_settings,
+            commands::playback_settings::save_playback_settings,
             commands::library_settings::get_library_settings,
             commands::library_settings::save_library_settings,
             commands::library_settings::prepare_import_file,

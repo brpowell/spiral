@@ -1,3 +1,4 @@
+use crate::activity_log::{self, LogLevel};
 use crate::settings;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -24,6 +25,7 @@ const KNOWN_ACTIONS: &[&str] = &[
     "player.setVolume",
     "player.setBalance",
     "player.toggleMute",
+    "player.toggleCrossfade",
     "player.clearSetList",
     "navigation.openAlbum",
     "queue.openSetList",
@@ -82,6 +84,7 @@ const KNOWN_BINDS: &[&str] = &[
     "player.repeatMode",
     "player.repeatOn",
     "player.shuffle",
+    "player.crossfadeEnabled",
     "player.volume",
     "player.balance",
     "player.muted",
@@ -1046,7 +1049,7 @@ fn validate_bind(path: Option<&str>, field: &str, errors: &mut Vec<String>) {
             return;
         }
         errors.push(format!(
-            "{field} references unknown bind path \"{p}\". See skin-contract.md for valid paths."
+            "{field} references unknown bind path \"{p}\"."
         ));
     }
 }
@@ -1887,7 +1890,12 @@ fn list_builtin_packs(app: &AppHandle) -> Vec<LoadedSkinPack> {
     let entries = match fs::read_dir(&root) {
         Ok(e) => e,
         Err(e) => {
-            eprintln!("builtin skins directory read error: {e}");
+            activity_log::log(
+                LogLevel::Debug,
+                "skin.load",
+                format!("builtin skins directory read error: {e}"),
+                None,
+            );
             return packs;
         }
     };
@@ -1901,7 +1909,16 @@ fn list_builtin_packs(app: &AppHandle) -> Vec<LoadedSkinPack> {
             Ok(pack) => packs.push(pack),
             Err(e) => {
                 let id = skin_id_from_dir(&path).unwrap_or_default();
-                eprintln!("built-in skin \"{id}\" failed to load: {e}");
+                activity_log::log(
+                    LogLevel::Debug,
+                    "skin.load",
+                    format!("built-in skin \"{id}\" failed to load: {e}"),
+                    Some(serde_json::json!({
+                        "skinId": id,
+                        "builtin": true,
+                        "error": e,
+                    })),
+                );
             }
         }
     }
@@ -1923,7 +1940,12 @@ fn list_user_packs(app: &AppHandle) -> Vec<LoadedSkinPack> {
     let entries = match fs::read_dir(&dir) {
         Ok(e) => e,
         Err(e) => {
-            eprintln!("skins directory read error: {e}");
+            activity_log::log(
+                LogLevel::Debug,
+                "skin.load",
+                format!("skins directory read error: {e}"),
+                None,
+            );
             return packs;
         }
     };
@@ -1935,7 +1957,19 @@ fn list_user_packs(app: &AppHandle) -> Vec<LoadedSkinPack> {
         }
         match load_pack_from_dir(&path, false) {
             Ok(pack) => packs.push(pack),
-            Err(e) => eprintln!("user skin at {} skipped: {e}", path.display()),
+            Err(e) => {
+                let path_display = path.display().to_string();
+                activity_log::log(
+                    LogLevel::Debug,
+                    "skin.load",
+                    format!("user skin at {path_display} skipped: {e}"),
+                    Some(serde_json::json!({
+                        "path": path_display,
+                        "builtin": false,
+                        "error": e,
+                    })),
+                );
+            }
         }
     }
 

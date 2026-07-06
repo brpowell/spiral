@@ -27,6 +27,7 @@ import { usePlaylistStore } from "../store/usePlaylistStore";
 import { useSkinStore } from "../store/useSkinStore";
 import { useVisualizerStore } from "../store/useVisualizerStore";
 import { useEqualizerStore } from "../store/useEqualizerStore";
+import { usePlaybackSettingsStore } from "../store/usePlaybackSettingsStore";
 import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
 import { soundEffectsEnabledFromPreferences } from "../types/skinPreferences";
 import type { EqualizerBandGains, EqualizerPreset } from "./equalizer/types";
@@ -81,6 +82,7 @@ export interface SkinBindState {
   eqBands: EqualizerBandGains;
   eqCustomPresets: EqualizerPreset[];
   soundEffectsEnabled: boolean;
+  crossfadeEnabled: boolean;
   viewState: ViewStateValues;
   slideshowPresentations: Record<string, SlideshowPresentation>;
   slideshowState: SlideshowStateMap;
@@ -197,6 +199,8 @@ export function evaluateSkinBind(
       return state.repeatMode !== "off";
     case "player.shuffle":
       return state.shuffle;
+    case "player.crossfadeEnabled":
+      return state.crossfadeEnabled;
     case "player.volume":
       return state.volume;
     case "player.balance":
@@ -319,6 +323,7 @@ export function useSkinBindState(): SkinBindState {
   const eqPresetId = useEqualizerStore((s) => s.presetId);
   const eqBands = useEqualizerStore((s) => s.bands);
   const eqCustomPresets = useEqualizerStore((s) => s.customPresets);
+  const crossfadeEnabled = usePlaybackSettingsStore((s) => s.crossfadeEnabled);
   const skinPreferences = useSkinPreferencesStore((s) => s.preferences);
   const soundEffectsEnabled = soundEffectsEnabledFromPreferences(skinPreferences);
 
@@ -397,6 +402,7 @@ export function useSkinBindState(): SkinBindState {
       eqBands,
       eqCustomPresets,
       soundEffectsEnabled,
+      crossfadeEnabled,
       viewState,
       slideshowPresentations,
       slideshowState,
@@ -437,6 +443,7 @@ export function useSkinBindState(): SkinBindState {
       eqBands,
       eqCustomPresets,
       soundEffectsEnabled,
+      crossfadeEnabled,
       viewState,
       slideshowPresentations,
       slideshowState,

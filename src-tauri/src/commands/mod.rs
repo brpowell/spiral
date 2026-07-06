@@ -17,3 +17,4 @@ pub mod themes;
 pub mod skins;
 pub mod visualizers;
 pub mod equalizer;
+pub mod playback_settings;

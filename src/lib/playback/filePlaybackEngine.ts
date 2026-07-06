@@ -1,6 +1,13 @@
 import { Howl, Howler } from "howler";
 import { formatAssetForDisplay, toAssetUrl } from "../assetUrl";
-import { connectEngineOutput, disconnectEngineOutput } from "./audioOutput";
+import {
+  connectDeckOutput,
+  disconnectDeckOutput,
+  getAnalyser,
+  getDeckGainNode,
+  setDeckGain,
+  type DeckId,
+} from "./audioOutput";
 import type {
   PlaybackCapabilities,
   PlaybackEngine,
@@ -18,6 +25,15 @@ const FILE_CAPABILITIES: PlaybackCapabilities = {
 };
 
 const RECOVERY_PLAY_CHECK_MS = 100;
+
+interface HowlSoundInternal {
+  _id?: number;
+  _node?: GainNode;
+}
+
+interface HowlInternal extends Howl {
+  _sounds?: HowlSoundInternal[];
+}
 
 function formatFromPath(path: string): string | undefined {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
@@ -41,6 +57,50 @@ export class FilePlaybackEngine implements PlaybackEngine {
   private loadPending = false;
   private loadGeneration = 0;
   private balance = 0;
+  private deckId: DeckId = "a";
+  private playId: number | null = null;
+  private suppressEndCallback = false;
+  private routedSource: AudioNode | null = null;
+  private userVolume = 1;
+  private userMuted = false;
+  private crossfadeMix = 1;
+
+  setDeckId(deckId: DeckId): void {
+    this.deckId = deckId;
+  }
+
+  getDeckId(): DeckId {
+    return this.deckId;
+  }
+
+  /** Suppress the next onEnd notification (outgoing deck during crossfade). */
+  setSuppressEndCallback(suppress: boolean): void {
+    this.suppressEndCallback = suppress;
+  }
+
+  /** Crossfade mix level (0–1) on the deck gain; user volume is on the Howl. */
+  setCrossfadeMix(mix: number): void {
+    this.crossfadeMix = Math.max(0, Math.min(1, mix));
+    if (getDeckGainNode(this.deckId)) {
+      setDeckGain(this.deckId, this.crossfadeMix);
+    }
+  }
+
+  private getPlayingSoundNode(): GainNode | null {
+    if (!this.sound) return null;
+    const howl = this.sound as HowlInternal;
+    const sounds = howl._sounds ?? [];
+    if (this.playId !== null) {
+      const match = sounds.find((entry) => entry._id === this.playId);
+      if (match?._node) return match._node;
+    }
+    const playing = sounds.find((entry) => entry._node);
+    return playing?._node ?? null;
+  }
+
+  getOutputNode(): AudioNode | null {
+    return this.getPlayingSoundNode() ?? Howler.masterGain ?? null;
+  }
 
   async load(source: PlaybackSource): Promise<void> {
     if (source.kind !== "file") {
@@ -141,6 +201,7 @@ export class FilePlaybackEngine implements PlaybackEngine {
         }
       },
       onend: () => {
+        if (this.suppressEndCallback) return;
         this.endCallback?.();
       },
     };
@@ -157,11 +218,19 @@ export class FilePlaybackEngine implements PlaybackEngine {
       this.sound.unload();
       this.sound = null;
     }
+    this.routedSource = null;
+    this.playId = null;
+    this.crossfadeMix = 1;
   }
 
   play(): void {
+    if (this.sound) {
+      this.playId = this.sound.play();
+    } else {
+      this.playId = null;
+    }
     this.connectToOutputBus();
-    this.sound?.play();
+    this.applyHowlVolume();
   }
 
   pause(): void {
@@ -196,11 +265,21 @@ export class FilePlaybackEngine implements PlaybackEngine {
   }
 
   setVolume(volume: number): void {
-    Howler.volume(Math.max(0, Math.min(1, volume)));
+    this.userVolume = Math.max(0, Math.min(1, volume));
+    this.applyHowlVolume();
   }
 
   getVolume(): number {
-    return Howler.volume();
+    return this.userVolume;
+  }
+
+  private applyHowlVolume(): void {
+    Howler.volume(1);
+    Howler.mute(false);
+    const effective = this.userMuted ? 0 : this.userVolume;
+    if (this.sound && this.playId !== null) {
+      this.sound.volume(effective, this.playId);
+    }
   }
 
   setBalance(balance: number): void {
@@ -213,18 +292,37 @@ export class FilePlaybackEngine implements PlaybackEngine {
   }
 
   setMuted(muted: boolean): void {
-    Howler.mute(muted);
+    this.userMuted = muted;
+    this.applyHowlVolume();
   }
 
   destroy(): void {
     this.unload();
-    disconnectEngineOutput();
+    disconnectDeckOutput(this.deckId);
+    this.routedSource = null;
   }
 
   connectToOutputBus(): AnalyserNode | null {
-    const masterGain = Howler.masterGain;
-    if (!masterGain) return null;
-    return connectEngineOutput(masterGain);
+    const soundNode = this.getPlayingSoundNode();
+    const source = soundNode ?? Howler.masterGain;
+    if (!source) return null;
+
+    if (this.routedSource === source) {
+      return getAnalyser() ?? connectDeckOutput(this.deckId, source);
+    }
+
+    if (soundNode) {
+      try {
+        soundNode.disconnect();
+      } catch {
+        // already disconnected from Howler master bus
+      }
+    }
+
+    this.routedSource = source;
+    const analyser = connectDeckOutput(this.deckId, source);
+    this.setCrossfadeMix(this.crossfadeMix);
+    return analyser;
   }
 
   async resumeAudioContext(): Promise<void> {
@@ -244,6 +342,7 @@ export class FilePlaybackEngine implements PlaybackEngine {
   restartPlaybackAt(positionSeconds: number): void {
     if (!this.sound) return;
 
+    this.routedSource = null;
     this.sound.pause();
     const duration = this.sound.duration();
     if (positionSeconds > 0 && Number.isFinite(duration) && duration > 0) {

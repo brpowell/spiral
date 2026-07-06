@@ -80,7 +80,11 @@ function formatGroupLabel(entry: ActivityLogEntry): string {
           ? "Track convert"
           : entry.domain === "library.refresh"
             ? "Library refresh"
-            : entry.domain;
+            : entry.domain === "skin.load"
+              ? "Skin load"
+              : entry.domain === "visualizer.load"
+                ? "Visualizer load"
+                : entry.domain;
 
   if (discId) return `${domainLabel} · disc ${discId}`;
   if (driveId) return `${domainLabel} · drive ${driveId}`;

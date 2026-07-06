@@ -53,6 +53,8 @@ const ACTIVITY_LOG_DOMAIN_DEFS = {
   coverArt: { value: "metadata.coverArt", label: "Cover Art" },
   convert: { value: "library.convert", label: "Convert" },
   refresh: { value: "library.refresh", label: "Refresh" },
+  skinLoad: { value: "skin.load", label: "Skin load" },
+  visualizerLoad: { value: "visualizer.load", label: "Visualizer load" },
 } as const;
 
 export const ACTIVITY_LOG_DOMAINS = {
@@ -60,6 +62,8 @@ export const ACTIVITY_LOG_DOMAINS = {
   coverArt: ACTIVITY_LOG_DOMAIN_DEFS.coverArt.value,
   convert: ACTIVITY_LOG_DOMAIN_DEFS.convert.value,
   refresh: ACTIVITY_LOG_DOMAIN_DEFS.refresh.value,
+  skinLoad: ACTIVITY_LOG_DOMAIN_DEFS.skinLoad.value,
+  visualizerLoad: ACTIVITY_LOG_DOMAIN_DEFS.visualizerLoad.value,
 } as const;
 
 export const ACTIVITY_LOG_DOMAIN_OPTIONS: ReadonlyArray<{
