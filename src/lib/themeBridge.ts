@@ -15,7 +15,12 @@ async function applyThemeChange(_themeId: string): Promise<void> {
 }
 
 function shouldListenForThemeChanges(role: WindowRole): boolean {
-  return role === "main" || isAnySkinWindow() || isAppearanceWindow();
+  return (
+    role === "main" ||
+    role === "activity-logs" ||
+    isAnySkinWindow() ||
+    isAppearanceWindow()
+  );
 }
 
 export async function initThemeBridge(role: WindowRole): Promise<() => void> {

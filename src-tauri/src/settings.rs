@@ -204,6 +204,8 @@ pub struct AppSettings {
     pub cd: CdSettings,
     #[serde(default)]
     pub equalizer: EqualizerSettings,
+    #[serde(default)]
+    pub acknowledged_crash_report_ids: Vec<String>,
 }
 
 fn default_active_theme() -> String {
@@ -233,6 +235,7 @@ impl Default for AppSettings {
             metadata_backups: MetadataBackupSettings::default(),
             cd: CdSettings::default(),
             equalizer: EqualizerSettings::default(),
+            acknowledged_crash_report_ids: Vec::new(),
         }
     }
 }
@@ -253,6 +256,33 @@ pub struct LibrarySettingsResponse {
     pub metadata_backup_retention_days: u32,
     pub cd_metadata_fetch_mode: String,
     pub cd_import_profile_id: String,
+}
+
+const MAX_ACKNOWLEDGED_CRASH_REPORTS: usize = 50;
+
+pub fn is_crash_report_acknowledged(app: &AppHandle, id: &str) -> bool {
+    read_settings(app)
+        .acknowledged_crash_report_ids
+        .iter()
+        .any(|stored| stored == id)
+}
+
+pub fn push_acknowledged_crash_report_id(app: &AppHandle, id: &str) -> Result<(), String> {
+    let mut settings = read_settings(app);
+    if settings.acknowledged_crash_report_ids.iter().any(|stored| stored == id) {
+        return Ok(());
+    }
+
+    settings.acknowledged_crash_report_ids.push(id.to_string());
+    if settings.acknowledged_crash_report_ids.len() > MAX_ACKNOWLEDGED_CRASH_REPORTS {
+        let drain = settings
+            .acknowledged_crash_report_ids
+            .len()
+            .saturating_sub(MAX_ACKNOWLEDGED_CRASH_REPORTS);
+        settings.acknowledged_crash_report_ids.drain(0..drain);
+    }
+
+    write_settings(app, &settings)
 }
 
 pub fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {

@@ -1,0 +1,13 @@
+.activity-log-domain-chip-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 22rem;
+}
+
+.activity-log-domain-chip-field .chip-input {
+  min-height: calc(var(--control-height) - 0.15rem);
+  padding: 0.2rem 0.45rem;
+  font-size: 0.78rem;
+  border-radius: var(--radius-button);
+  background: var(--color-surface);
+}

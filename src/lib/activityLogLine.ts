@@ -1,5 +1,31 @@
 import type { ActivityLogEntry, ActivityLogLine } from "../types/activityLog";
 
+export function normalizeActivityLogEntry(
+  raw: Record<string, unknown>,
+): ActivityLogEntry {
+  return {
+    id: String(raw.id ?? ""),
+    timestampMs: Number(raw.timestampMs ?? raw.timestamp_ms ?? Date.now()),
+    level: (raw.level as ActivityLogEntry["level"]) ?? "info",
+    domain: String(raw.domain ?? ""),
+    message: String(raw.message ?? ""),
+    operationId:
+      raw.operationId != null
+        ? String(raw.operationId)
+        : raw.operation_id != null
+          ? String(raw.operation_id)
+          : undefined,
+    context:
+      raw.context != null && typeof raw.context === "object"
+        ? (raw.context as ActivityLogEntry["context"])
+        : undefined,
+    details:
+      raw.details != null && typeof raw.details === "object"
+        ? (raw.details as Record<string, unknown>)
+        : undefined,
+  };
+}
+
 export function getEntryOperationId(
   entry: ActivityLogEntry,
 ): string | undefined {

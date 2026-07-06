@@ -45,18 +45,26 @@ export interface ActivityLogDraft {
   details?: Record<string, unknown>;
 }
 
-export type ActivityLogDomainFilter =
-  | "all"
-  | "metadata.musicbrainz"
-  | "metadata.coverArt"
-  | "library.convert"
-  | "library.refresh";
+export type ActivityLogDomain =
+  (typeof ACTIVITY_LOG_DOMAIN_DEFS)[keyof typeof ACTIVITY_LOG_DOMAIN_DEFS]["value"];
+
+const ACTIVITY_LOG_DOMAIN_DEFS = {
+  musicbrainz: { value: "metadata.musicbrainz", label: "MusicBrainz" },
+  coverArt: { value: "metadata.coverArt", label: "Cover Art" },
+  convert: { value: "library.convert", label: "Convert" },
+  refresh: { value: "library.refresh", label: "Refresh" },
+} as const;
 
 export const ACTIVITY_LOG_DOMAINS = {
-  musicbrainz: "metadata.musicbrainz",
-  coverArt: "metadata.coverArt",
-  convert: "library.convert",
-  refresh: "library.refresh",
+  musicbrainz: ACTIVITY_LOG_DOMAIN_DEFS.musicbrainz.value,
+  coverArt: ACTIVITY_LOG_DOMAIN_DEFS.coverArt.value,
+  convert: ACTIVITY_LOG_DOMAIN_DEFS.convert.value,
+  refresh: ACTIVITY_LOG_DOMAIN_DEFS.refresh.value,
 } as const;
+
+export const ACTIVITY_LOG_DOMAIN_OPTIONS: ReadonlyArray<{
+  value: ActivityLogDomain;
+  label: string;
+}> = Object.values(ACTIVITY_LOG_DOMAIN_DEFS);
 
 export const ACTIVITY_LOG_EVENT = "activity://entry";

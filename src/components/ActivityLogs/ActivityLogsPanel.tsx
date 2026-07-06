@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../common/Button/Button";
 import { Checkbox } from "../common/Checkbox/Checkbox";
-import { NativeSelect } from "../common/NativeSelect/NativeSelect";
 import {
   ContextMenu,
   ContextMenuItem,
@@ -12,7 +11,6 @@ import {
   IconCopy,
 } from "../icons";
 import { useContextMenu } from "../../hooks/useContextMenu";
-import { clearActivityLogsRemote } from "../../lib/activityLogBridge";
 import { copyTextToClipboard } from "../../lib/clipboard";
 import {
   formatLogLinePretty,
@@ -26,18 +24,12 @@ import {
 } from "../../store/useActivityLogStore";
 import type {
   LogLevel,
-  ActivityLogDomainFilter,
   ActivityLogEntry,
 } from "../../types/activityLog";
+import { Select } from "../common/Select/Select";
+import { ActivityLogDomainChipField } from "./ActivityLogDomainChipField";
+import { ActivityLogsActionsMenu } from "./ActivityLogsActionsMenu";
 import "./ActivityLogsPanel.css";
-
-const DOMAIN_FILTERS: { value: ActivityLogDomainFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "metadata.musicbrainz", label: "MusicBrainz" },
-  { value: "metadata.coverArt", label: "Cover Art" },
-  { value: "library.convert", label: "Convert" },
-  { value: "library.refresh", label: "Refresh" },
-];
 
 const LEVEL_OPTIONS: { value: LogLevel; label: string }[] = [
   { value: "debug", label: "Debug+" },
@@ -101,6 +93,7 @@ function shouldShowGroupHeader(
 ): boolean {
   const operationId = getEntryOperationId(entry);
   if (operationId == null) return false;
+  if (previous == null) return true;
   return operationId !== getEntryOperationId(previous);
 }
 
@@ -195,10 +188,10 @@ function LogEntryRow({
 
 export function ActivityLogsPanel() {
   const entries = useActivityLogStore((s) => s.entries);
-  const domainFilter = useActivityLogStore((s) => s.domainFilter);
+  const domainFilters = useActivityLogStore((s) => s.domainFilters);
   const minLevel = useActivityLogStore((s) => s.minLevel);
   const autoScroll = useActivityLogStore((s) => s.autoScroll);
-  const setDomainFilter = useActivityLogStore((s) => s.setDomainFilter);
+  const setDomainFilters = useActivityLogStore((s) => s.setDomainFilters);
   const setMinLevel = useActivityLogStore((s) => s.setMinLevel);
   const setAutoScroll = useActivityLogStore((s) => s.setAutoScroll);
   const listRef = useRef<HTMLDivElement>(null);
@@ -214,8 +207,8 @@ export function ActivityLogsPanel() {
   const [dragSelecting, setDragSelecting] = useState(false);
 
   const filteredEntries = useMemo(
-    () => filterActivityLogEntries(entries, domainFilter, minLevel),
-    [entries, domainFilter, minLevel],
+    () => filterActivityLogEntries(entries, domainFilters, minLevel),
+    [entries, domainFilters, minLevel],
   );
 
   const entryIndexById = useMemo(() => {
@@ -531,25 +524,13 @@ export function ActivityLogsPanel() {
   return (
     <div className="activity-logs-panel">
       <div className="activity-logs-panel__toolbar">
-        <div className="activity-logs-panel__filters">
-          {DOMAIN_FILTERS.map((filter) => (
-            <button
-              key={filter.value}
-              type="button"
-              className={`activity-logs-panel__filter${domainFilter === filter.value
-                  ? " activity-logs-panel__filter--active"
-                  : ""
-                }`}
-              onClick={() => setDomainFilter(filter.value)}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
+        <ActivityLogDomainChipField
+          value={domainFilters}
+          onChange={setDomainFilters}
+        />
 
         <div className="activity-logs-panel__controls">
-          <NativeSelect
-            className="activity-logs-panel__level-select"
+          <Select
             aria-label="Minimum log level"
             value={minLevel}
             options={LEVEL_OPTIONS}
@@ -565,20 +546,9 @@ export function ActivityLogsPanel() {
             Auto-scroll
           </label>
 
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void clearActivityLogsRemote()}
-          >
-            Clear
-          </Button>
+          <ActivityLogsActionsMenu includeClear />
         </div>
       </div>
-
-      <p className="activity-logs-panel__hint">
-        Click to select · Drag across lines · Shift-click range · ⌘/Ctrl-click
-        toggle · Expand for JSON · Right-click or ⌘C to copy JSON lines
-      </p>
 
       <div
         ref={listRef}
@@ -603,7 +573,7 @@ export function ActivityLogsPanel() {
       >
         {filteredEntries.length === 0 ? (
           <p className="activity-logs-panel__empty">
-            No log entries yet. Insert a CD or fetch metadata to see activity here.
+            No logs yet...
           </p>
         ) : (
           filteredEntries.map((entry, index) => {

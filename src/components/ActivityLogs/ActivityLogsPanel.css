@@ -16,59 +16,12 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.activity-logs-panel__filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.activity-logs-panel__filter {
-  appearance: none;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  border-radius: var(--radius-button);
-  padding: 0.25rem 0.6rem;
-  font-size: 0.78rem;
-  cursor: pointer;
-}
-
-.activity-logs-panel__filter:hover {
-  color: var(--color-text-primary);
-  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
-}
-
-.activity-logs-panel__filter--active {
-  color: var(--color-text-primary);
-  border-color: var(--color-accent-muted);
-  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
-}
-
 .activity-logs-panel__controls {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem 0.75rem;
   margin-left: auto;
-}
-
-.activity-logs-panel__level-select {
-  width: auto;
-  --control-padding-x: 0.5rem;
-  --control-padding-y: 0.25rem;
-  --control-font-size: 0.78rem;
-  --control-icon-size: 1rem;
-  --control-height: calc(
-    2 * var(--control-padding-y) + var(--control-icon-size) + 2px
-  );
-}
-
-.activity-logs-panel__level-select .native-select {
-  background: var(--color-surface);
-  border-radius: var(--radius-button);
-  font-weight: 400;
 }
 
 .activity-logs-panel__toggle {
@@ -247,13 +200,6 @@
   word-break: break-word;
 }
 
-.activity-logs-panel__hint {
-  flex-shrink: 0;
-  margin: 0.5rem 0 0;
-  font-size: 0.72rem;
-  color: var(--color-text-secondary);
-}
-
 .activity-logs-panel__json {
   grid-column: 1 / -1;
   margin: 0.15rem 0 0;
@@ -309,10 +255,6 @@
 }
 
 @media (max-width: 420px) {
-  .activity-logs-panel__hint {
-    display: none;
-  }
-
   .activity-logs-panel__toolbar {
     gap: 0.65rem;
   }

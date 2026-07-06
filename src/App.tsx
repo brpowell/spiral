@@ -18,6 +18,8 @@ import { CdMetadataPicker } from "./components/CdMetadataPicker/CdMetadataPicker
 import { CdMusicBrainzFetchModal } from "./components/CdMusicBrainzFetchModal/CdMusicBrainzFetchModal";
 import { PlaylistEditorModal } from "./components/PlaylistEditorModal/PlaylistEditorModal";
 import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal";
+import { CrashReportModal } from "./components/ActivityLogs/CrashReportModal";
+import { useStartupCrashReport } from "./hooks/useStartupCrashReport";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useArtistImageStore } from "./store/useArtistImageStore";
 import { setupAppMenu } from "./lib/appMenu";
@@ -48,6 +50,8 @@ function App() {
   const setPreferencesOpen = useLibrarySettingsStore((s) => s.setPreferencesOpen);
   const importError = usePlayerStore((s) => s.importError);
   const clearImportError = usePlayerStore((s) => s.clearImportError);
+  const { open: crashModalOpen, report: crashReport, crashReportId, dismiss: dismissCrashReport } =
+    useStartupCrashReport();
 
   useMediaHotkeys();
   useAudioWakeRecovery();
@@ -137,6 +141,12 @@ function App() {
       <CdMusicBrainzFetchModal />
       <CdMetadataPicker />
       <CdImportCancelDialog />
+      <CrashReportModal
+        open={crashModalOpen}
+        report={crashReport}
+        crashReportId={crashReportId}
+        onDismiss={dismissCrashReport}
+      />
       <BackgroundTasksIndicator />
     </div>
   );

@@ -21,6 +21,10 @@ import { bootstrapTheme } from "./lib/themeBootstrap";
 import { bootstrapVisualizer } from "./lib/visualizerBootstrap";
 import { bootstrapEqualizer } from "./lib/equalizerBootstrap";
 import {
+  initCrashHandlers,
+  installCrashDevConsole,
+} from "./lib/crashReport";
+import {
   bootstrapWindowRole,
   getSkinAuxContext,
   isActivityLogsWindow,
@@ -36,9 +40,15 @@ import "./styles/scrollbars.css";
 const root = document.getElementById("root") as HTMLElement;
 
 async function start() {
+  initCrashHandlers();
+  installCrashDevConsole();
+
   const role = await bootstrapWindowRole();
 
   if (isActivityLogsWindow()) {
+    await bootstrapTheme();
+    await initThemeBridge(role);
+
     ReactDOM.createRoot(root).render(
       <React.StrictMode>
         <ActivityLogsApp />

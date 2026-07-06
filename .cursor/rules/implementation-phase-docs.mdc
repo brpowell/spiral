@@ -1,0 +1,11 @@
+---
+description: Crafting implementation phase docs
+alwaysApply: true
+---
+
+# About implementation phase docs
+
+These docs allow a developer to work in digestable chunks towards a larger effort. It consists of a checklist of tasks to do, and a verification checklist.
+
+* When implementing phases, make sure to check off tasks done.
+* If a task ends up not being needed, remove it rather than leave it empty.

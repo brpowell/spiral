@@ -8,6 +8,8 @@ pub mod playlists;
 pub mod library_settings;
 pub mod metadata;
 pub mod activity_log;
+pub mod crash_report;
+pub mod diagnostics_export;
 pub mod playback_session;
 pub mod track_list_preferences;
 pub mod skin_preferences;

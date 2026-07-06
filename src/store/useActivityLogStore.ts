@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type {
-  ActivityLogDomainFilter,
+  ActivityLogDomain,
   ActivityLogEntry,
   LogLevel,
 } from "../types/activityLog";
@@ -14,36 +14,40 @@ const MIN_LEVELS: Record<LogLevel, number> = {
 
 interface ActivityLogState {
   entries: ActivityLogEntry[];
-  domainFilter: ActivityLogDomainFilter;
+  domainFilters: ActivityLogDomain[];
   minLevel: LogLevel;
   autoScroll: boolean;
   append: (entry: ActivityLogEntry) => void;
   hydrate: (entries: ActivityLogEntry[]) => void;
   clear: () => void;
-  setDomainFilter: (filter: ActivityLogDomainFilter) => void;
+  setDomainFilters: (filters: ActivityLogDomain[]) => void;
   setMinLevel: (level: LogLevel) => void;
   setAutoScroll: (enabled: boolean) => void;
 }
 
+function entryMatchesDomain(entry: ActivityLogEntry, domain: ActivityLogDomain): boolean {
+  return (
+    entry.domain === domain ||
+    entry.domain.startsWith(`${domain}.`)
+  );
+}
+
 export function filterActivityLogEntries(
   entries: ActivityLogEntry[],
-  domainFilter: ActivityLogDomainFilter,
+  domainFilters: ActivityLogDomain[],
   minLevel: LogLevel,
 ): ActivityLogEntry[] {
   const min = MIN_LEVELS[minLevel];
   return entries.filter((entry) => {
     if (MIN_LEVELS[entry.level] < min) return false;
-    if (domainFilter === "all") return true;
-    return (
-      entry.domain === domainFilter ||
-      entry.domain.startsWith(`${domainFilter}.`)
-    );
+    if (domainFilters.length === 0) return true;
+    return domainFilters.some((domain) => entryMatchesDomain(entry, domain));
   });
 }
 
 export const useActivityLogStore = create<ActivityLogState>((set) => ({
   entries: [],
-  domainFilter: "all",
+  domainFilters: [],
   minLevel: "info",
   autoScroll: true,
 
@@ -56,7 +60,7 @@ export const useActivityLogStore = create<ActivityLogState>((set) => ({
 
   clear: () => set({ entries: [] }),
 
-  setDomainFilter: (domainFilter) => set({ domainFilter }),
+  setDomainFilters: (domainFilters) => set({ domainFilters }),
 
   setMinLevel: (minLevel) => set({ minLevel }),
 

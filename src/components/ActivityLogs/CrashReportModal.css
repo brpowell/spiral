@@ -1,0 +1,95 @@
+.crash-report-modal__panel {
+  width: min(560px, 100%);
+}
+
+.crash-report-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.crash-report-modal__intro {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+}
+
+.crash-report-modal__export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.crash-report-modal__export-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.crash-report-modal__export-actions svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.crash-report-modal__details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.crash-report-modal__details-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0.15rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.crash-report-modal__details-toggle:hover {
+  color: var(--color-text-primary);
+}
+
+.crash-report-modal__details-toggle svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.crash-report-modal__details-body {
+  min-height: 0;
+}
+
+.crash-report-modal__details-status {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+
+.crash-report-modal__details-status--error {
+  color: var(--color-danger);
+}
+
+.crash-report-modal__json {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-button);
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
+  max-height: 18rem;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}

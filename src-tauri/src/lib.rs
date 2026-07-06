@@ -11,8 +11,10 @@ mod cover_art_fetch;
 mod disc_metadata_cache;
 mod musicbrainz_disc;
 mod activity_log;
+mod crash_report;
 mod commands;
 mod db;
+mod diagnostics_export;
 mod file_playback;
 mod file_scan;
 mod import_files;
@@ -69,6 +71,7 @@ pub fn run() {
             cd::monitor::start_monitor(app.handle().clone());
 
             activity_log::init(app.handle().clone());
+            crash_report::init(app.handle().clone());
 
             if let Err(err) = metadata_backup::run_scheduled_cleanup(app.handle()) {
                 eprintln!("metadata backup cleanup on startup: {err}");
@@ -178,6 +181,15 @@ pub fn run() {
             commands::activity_log::append_activity_log,
             commands::activity_log::get_recent_activity_logs,
             commands::activity_log::clear_activity_logs,
+            commands::crash_report::list_crash_reports,
+            commands::crash_report::read_crash_report,
+            commands::crash_report::acknowledge_crash_report,
+            commands::diagnostics_export::export_diagnostics,
+            commands::diagnostics_export::save_diagnostics_export,
+            #[cfg(debug_assertions)]
+            commands::crash_report::trigger_test_panic,
+            #[cfg(debug_assertions)]
+            commands::crash_report::get_crash_reports_dir,
             #[cfg(desktop)]
             media_session::update_media_session,
         ])
