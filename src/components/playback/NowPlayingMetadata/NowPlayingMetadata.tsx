@@ -1,9 +1,27 @@
 import { LayoutGroup, motion } from "framer-motion";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useAssetUrl } from "../../../hooks/useAssetUrl";
+import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
 import { findPlaybackTrack } from "../../../lib/playbackTrack";
+import { getTrackLyrics } from "../../../lib/tauri";
+import {
+  canFetchLyricsForTrack,
+  prepareLyricsFetchForLightbox,
+  startLyricsFetchForTrack,
+} from "../../../lib/lyricsFetchToast";
+import { LYRICS_FETCH_INSTRUMENTAL } from "../../../lib/lyricsFetch";
+import { useLibrarySettingsStore } from "../../../store/useLibrarySettingsStore";
 import { usePlaybackSettingsStore } from "../../../store/usePlaybackSettingsStore";
+import { useLyricsFetchStore } from "../../../store/useLyricsFetchStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
+import type { TrackLyrics } from "../../../types/lyrics";
 import type { Track } from "../../../types/track";
 import {
   AlbumArtLightbox,
@@ -98,6 +116,9 @@ export function NowPlayingMetadata({
     crossfadeVisual !== null && crossfadeVisualEnabled;
   const crossfadeProgress = crossfadeVisual?.progress ?? 0;
   const [artOpen, setArtOpen] = useState(false);
+  const [trackLyrics, setTrackLyrics] = useState<TrackLyrics | null>(null);
+  const [lyricsLoading, setLyricsLoading] = useState(false);
+  const autoFetchedTrackIdRef = useRef<number | null>(null);
   const [reduceMotion, setReduceMotion] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -154,12 +175,86 @@ export function NowPlayingMetadata({
     showCrossfadeVisual ? incomingTrack?.artPath : null,
   );
   const metadataTrack = showCrossfadeVisual ? displayTrack : currentTrack;
+  const metadataTrackId = metadataTrack?.id ?? null;
+  const lyricsRevision = usePlayerStore((s) =>
+    metadataTrackId != null
+      ? (s.lyricsRevisionByTrackId[metadataTrackId] ?? 0)
+      : 0,
+  );
+  const librarySettings = useLibrarySettingsStore((s) => s.settings);
+  const openTrackEditor = usePlayerStore((s) => s.openTrackEditor);
+  const lyricsAutoFetchInLightbox =
+    librarySettings?.lyricsAutoFetchInLightbox ?? true;
+  const fetchingLyrics = useLyricsFetchStore((s) =>
+    metadataTrackId != null ? s.fetchingTrackIds.has(metadataTrackId) : false,
+  );
+  const lyricsQueued = useLyricsFetchStore((s) =>
+    metadataTrackId != null ? s.queuedTrackIds.has(metadataTrackId) : false,
+  );
+  const [prepareInFlight, setPrepareInFlight] = useState(false);
+  const isInstrumental =
+    metadataTrack?.lyricsFormat === "instrumental" ||
+    trackLyrics?.format === "instrumental";
+  const canFetchLyrics =
+    metadataTrack != null &&
+    !lyricsLoading &&
+    !isInstrumental &&
+    !(trackLyrics?.plainText.trim()) &&
+    canFetchLyricsForTrack(metadataTrack);
+  const autoFetchEligible =
+    artOpen &&
+    canFetchLyrics &&
+    metadataTrackId != null &&
+    lyricsAutoFetchInLightbox &&
+    !lyricsQueued &&
+    !fetchingLyrics &&
+    autoFetchedTrackIdRef.current !== metadataTrackId;
+  const lyricsFetchPending =
+    fetchingLyrics ||
+    lyricsQueued ||
+    prepareInFlight ||
+    autoFetchEligible;
+  const lyricsFetchFeedbackFromStore = useLyricsFetchStore((s) =>
+    metadataTrackId != null
+      ? (s.pendingByTrackId[metadataTrackId]?.feedback ?? null)
+      : null,
+  );
+  const lyricsFetchFeedback = isInstrumental
+    ? LYRICS_FETCH_INSTRUMENTAL
+    : lyricsFetchFeedbackFromStore;
   const artSrc = useAssetUrl(metadataTrack?.artPath);
+  const { displayPosition } = usePlaybackProgress(
+    metadataTrack?.durationSeconds ?? 0,
+  );
 
   const subtitle = trackSubtitle(metadataTrack);
 
   useEffect(() => {
-    setArtOpen(false);
+    if (!metadataTrackId) {
+      setTrackLyrics(null);
+      setLyricsLoading(false);
+      return;
+    }
+
+    setTrackLyrics(null);
+    setLyricsLoading(true);
+    let cancelled = false;
+    void getTrackLyrics(metadataTrackId).then((lyrics) => {
+      if (!cancelled) {
+        setTrackLyrics(lyrics);
+        setLyricsLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [metadataTrackId, lyricsRevision]);
+
+  useEffect(() => {
+    if (currentTrackId === null) {
+      setArtOpen(false);
+    }
   }, [currentTrackId]);
 
   const handleArtClick = useCallback(() => {
@@ -167,6 +262,64 @@ export function NowPlayingMetadata({
       setArtOpen(true);
     }
   }, [artSrc, showCrossfadeVisual]);
+
+  const handleFetchLyrics = useCallback(() => {
+    if (!metadataTrack || lyricsFetchPending) return;
+    startLyricsFetchForTrack(metadataTrack);
+  }, [lyricsFetchPending, metadataTrack]);
+
+  const handleAddLyricsManually = useCallback(() => {
+    if (metadataTrackId == null) return;
+    setArtOpen(false);
+    openTrackEditor(metadataTrackId, { tab: "lyrics" });
+  }, [metadataTrackId, openTrackEditor]);
+
+  useEffect(() => {
+    if (!artOpen) {
+      autoFetchedTrackIdRef.current = null;
+    }
+  }, [artOpen]);
+
+  useEffect(() => {
+    if (
+      !artOpen ||
+      !canFetchLyrics ||
+      !metadataTrack ||
+      metadataTrackId == null ||
+      !lyricsAutoFetchInLightbox
+    ) {
+      setPrepareInFlight(false);
+      return;
+    }
+    if (lyricsQueued || fetchingLyrics) return;
+    if (autoFetchedTrackIdRef.current === metadataTrackId) return;
+
+    const trackId = metadataTrackId;
+    const trackSnapshot = metadataTrack;
+    const timer = window.setTimeout(() => {
+      if (autoFetchedTrackIdRef.current === trackId) return;
+      autoFetchedTrackIdRef.current = trackId;
+      setPrepareInFlight(true);
+      void prepareLyricsFetchForLightbox(trackSnapshot, {
+        autoFetch: lyricsAutoFetchInLightbox,
+      }).finally(() => {
+        setPrepareInFlight(false);
+      });
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timer);
+      setPrepareInFlight(false);
+    };
+  }, [
+    artOpen,
+    canFetchLyrics,
+    fetchingLyrics,
+    lyricsAutoFetchInLightbox,
+    lyricsQueued,
+    metadataTrack,
+    metadataTrackId,
+  ]);
 
   const artLabel = metadataTrack?.album
     ? `View album art for ${metadataTrack.album}`
@@ -177,9 +330,16 @@ export function NowPlayingMetadata({
 
     if (showCrossfadeVisual && (outgoingArtSrc || incomingArtSrc)) {
       return (
-        <button
+        <motion.button
           type="button"
-          className="now-playing-metadata__art"
+          className={[
+            "now-playing-metadata__art",
+            artOpen && "now-playing-metadata__art--lightbox-open",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          layoutId={artOpen ? undefined : NOW_PLAYING_ART_LAYOUT_ID}
+          transition={albumArtLayoutTransition}
           disabled
           aria-label="Crossfading between tracks"
         >
@@ -203,7 +363,7 @@ export function NowPlayingMetadata({
               </CrossfadeOpacity>
             ) : null}
           </div>
-        </button>
+        </motion.button>
       );
     }
 
@@ -211,8 +371,14 @@ export function NowPlayingMetadata({
       return (
         <motion.button
           type="button"
-          className="now-playing-metadata__art now-playing-metadata__art--zoomable"
-          layoutId={NOW_PLAYING_ART_LAYOUT_ID}
+          className={[
+            "now-playing-metadata__art",
+            "now-playing-metadata__art--zoomable",
+            artOpen && "now-playing-metadata__art--lightbox-open",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          layoutId={artOpen ? undefined : NOW_PLAYING_ART_LAYOUT_ID}
           transition={albumArtLayoutTransition}
           onClick={handleArtClick}
           disabled={!currentTrack}
@@ -304,13 +470,23 @@ export function NowPlayingMetadata({
         {renderText()}
       </div>
 
-      {artSrc && !showCrossfadeVisual ? (
+      {artSrc ? (
         <AlbumArtLightbox
           open={artOpen}
           onClose={() => setArtOpen(false)}
           artSrc={artSrc}
           alt={metadataTrack?.album ?? ""}
+          title={metadataTrack?.title}
           caption={subtitle ?? undefined}
+          lyrics={trackLyrics}
+          lyricsLoading={lyricsLoading}
+          playbackPositionSeconds={displayPosition}
+          reduceMotion={reduceMotion}
+          canFetchLyrics={canFetchLyrics}
+          fetchingLyrics={lyricsFetchPending}
+          lyricsFetchFeedback={lyricsFetchFeedback}
+          onFetchLyrics={handleFetchLyrics}
+          onAddLyricsManually={handleAddLyricsManually}
         />
       ) : null}
     </LayoutGroup>

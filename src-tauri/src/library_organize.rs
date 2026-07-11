@@ -1,4 +1,5 @@
 use crate::metadata_backup;
+use crate::lyrics_sidecar;
 use crate::models::TrackMetadataUpdate;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -325,7 +326,11 @@ fn same_path(a: &Path, b: &Path) -> bool {
 }
 
 /// Move audio file and its Spiral metadata backup (if present) to `dest`.
-pub fn move_track_file(from: &Path, dest: PathBuf) -> Result<PathBuf, String> {
+pub fn move_track_file(
+    from: &Path,
+    dest: PathBuf,
+    move_lyrics_sidecar: bool,
+) -> Result<PathBuf, String> {
     if same_path(from, &dest) {
         return Ok(dest);
     }
@@ -351,6 +356,10 @@ pub fn move_track_file(from: &Path, dest: PathBuf) -> Result<PathBuf, String> {
         if let Err(e) = fs::rename(&backup_from, &backup_to) {
             eprintln!("failed to move metadata backup: {e}");
         }
+    }
+
+    if move_lyrics_sidecar {
+        lyrics_sidecar::move_sidecar(from, &dest);
     }
 
     Ok(dest)
@@ -447,6 +456,7 @@ pub fn relocate_track_after_metadata(
     path_format: &str,
     source_path: &Path,
     metadata: &TrackMetadataUpdate,
+    move_lyrics_sidecar: bool,
 ) -> Result<Option<PathBuf>, String> {
     let media = Path::new(media_folder);
     if !is_under_media_folder(source_path, media) {
@@ -460,7 +470,7 @@ pub fn relocate_track_after_metadata(
     }
 
     let old_parent = source_path.parent().map(|p| p.to_path_buf());
-    let new_path = move_track_file(source_path, dest)?;
+    let new_path = move_track_file(source_path, dest, move_lyrics_sidecar)?;
     if let Some(old_parent) = old_parent {
         match media.canonicalize() {
             Ok(media_canon) => prune_empty_dirs(&old_parent, &media_canon),
@@ -595,11 +605,35 @@ mod tests {
             .join("Artist")
             .join("Album")
             .join("song.mp3");
-        let moved = move_track_file(&from, dest).unwrap();
+        let moved = move_track_file(&from, dest, true).unwrap();
         assert!(moved.exists());
         assert!(!from.exists());
         assert!(metadata_backup::backup_path_for(&moved).exists());
         assert!(!backup.exists());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn move_track_file_moves_sidecar() {
+        let dir = std::env::temp_dir().join(format!("spiral-organize-lrc-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let from = dir.join("old").join("song.mp3");
+        fs::create_dir_all(from.parent().unwrap()).unwrap();
+        fs::File::create(&from).unwrap();
+        fs::write(dir.join("old").join("song.lrc"), "[00:01.00] Moved").unwrap();
+
+        let dest = dir
+            .join("new")
+            .join("Artist")
+            .join("Album")
+            .join("song.mp3");
+        let moved = move_track_file(&from, dest, true).unwrap();
+        assert!(dir.join("new").join("Artist").join("Album").join("song.lrc").exists());
+        assert!(!dir.join("old").join("song.lrc").exists());
+        assert!(moved.exists());
 
         let _ = fs::remove_dir_all(&dir);
     }

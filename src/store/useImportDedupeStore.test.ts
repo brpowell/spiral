@@ -4,7 +4,10 @@ vi.mock("../lib/scheduling", () => ({
   afterUiTransition: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { useImportDedupeStore } from "./useImportDedupeStore";
+import {
+  applyBatchRule,
+  useImportDedupeStore,
+} from "./useImportDedupeStore";
 import type { ImportDuplicateContext } from "../lib/trackDedupe";
 import type { Track, TrackInput } from "../types/track";
 
@@ -44,13 +47,17 @@ function existingTrack(id: number): Track {
   };
 }
 
-function duplicateContext(): ImportDuplicateContext {
+function duplicateContext(
+  overrides: Partial<ImportDuplicateContext> = {},
+): ImportDuplicateContext {
   return {
     incoming: trackInput(),
     existing: existingTrack(1),
     pendingId: -1,
     sourcePath: "/incoming/airbag.flac",
     remainingDuplicates: 2,
+    hasLyricsConflict: false,
+    ...overrides,
   };
 }
 
@@ -60,10 +67,10 @@ describe("useImportDedupeStore", () => {
   });
 
   it("resolves promptImportDedupe when batch rule is set", async () => {
-    useImportDedupeStore.setState({ batchRule: "skip" });
+    useImportDedupeStore.setState({ batchRule: { action: "skip" } });
     await expect(
       useImportDedupeStore.getState().promptImportDedupe(duplicateContext()),
-    ).resolves.toBe("skip");
+    ).resolves.toEqual({ action: "skip" });
   });
 
   it("stores batch rule when applyToRemaining is true", async () => {
@@ -71,10 +78,14 @@ describe("useImportDedupeStore", () => {
       .getState()
       .promptImportDedupe(duplicateContext());
 
-    await useImportDedupeStore.getState().resolveImportDedupe("skip", true);
+    await useImportDedupeStore
+      .getState()
+      .resolveImportDedupe({ action: "skip" }, true);
 
-    await expect(promptPromise).resolves.toBe("skip");
-    expect(useImportDedupeStore.getState().batchRule).toBe("skip");
+    await expect(promptPromise).resolves.toEqual({ action: "skip" });
+    expect(useImportDedupeStore.getState().batchRule).toEqual({
+      action: "skip",
+    });
   });
 
   it("does not store batch rule for import anyway", async () => {
@@ -82,9 +93,51 @@ describe("useImportDedupeStore", () => {
       .getState()
       .promptImportDedupe(duplicateContext());
 
-    await useImportDedupeStore.getState().resolveImportDedupe("import", true);
+    await useImportDedupeStore
+      .getState()
+      .resolveImportDedupe({ action: "import" }, true);
 
-    await expect(promptPromise).resolves.toBe("import");
+    await expect(promptPromise).resolves.toEqual({ action: "import" });
     expect(useImportDedupeStore.getState().batchRule).toBeNull();
+  });
+
+  it("carries replaceLyrics in batch rule for later conflicts", async () => {
+    const promptPromise = useImportDedupeStore
+      .getState()
+      .promptImportDedupe(duplicateContext({ hasLyricsConflict: true }));
+
+    await useImportDedupeStore.getState().resolveImportDedupe(
+      { action: "replace", replaceLyrics: false },
+      true,
+    );
+
+    await expect(promptPromise).resolves.toEqual({
+      action: "replace",
+      replaceLyrics: false,
+    });
+
+    await expect(
+      useImportDedupeStore
+        .getState()
+        .promptImportDedupe(duplicateContext({ hasLyricsConflict: true })),
+    ).resolves.toEqual({ action: "replace", replaceLyrics: false });
+  });
+});
+
+describe("applyBatchRule", () => {
+  it("scopes replaceLyrics to tracks with a lyrics conflict", () => {
+    expect(
+      applyBatchRule(
+        { action: "replace", replaceLyrics: false },
+        duplicateContext({ hasLyricsConflict: false }),
+      ),
+    ).toEqual({ action: "replace" });
+
+    expect(
+      applyBatchRule(
+        { action: "replace", replaceLyrics: true },
+        duplicateContext({ hasLyricsConflict: true }),
+      ),
+    ).toEqual({ action: "replace", replaceLyrics: true });
   });
 });

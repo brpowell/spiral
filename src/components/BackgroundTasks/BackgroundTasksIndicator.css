@@ -25,6 +25,8 @@
   backdrop-filter: blur(10px);
   pointer-events: auto;
   min-width: 12rem;
+  max-width: min(22rem, calc(100vw - 2rem));
+  overflow: hidden;
 }
 
 .background-tasks__item--success {
@@ -96,15 +98,19 @@
   font-size: 0.82rem;
   font-weight: 500;
   color: var(--color-text-primary);
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .background-tasks__meta {
   font-size: 0.72rem;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .background-tasks__dismiss {

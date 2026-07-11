@@ -10,7 +10,7 @@
 .sidebar-item:focus-visible,
 a.sidebar-item:focus-visible {
   outline: none;
-  box-shadow: var(--focus-ring-inset);
+  border-color: var(--color-accent);
 }
 
 .sidebar-item.btn--sm {

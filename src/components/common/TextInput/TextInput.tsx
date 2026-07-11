@@ -105,12 +105,13 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(
       [onChange, recordChange],
     );
 
-    // After undo/redo mutates the input, fire onChange so consumers stay in sync.
+    // After programmatic edits (undo/redo, cut/paste), sync React state and history.
     const syncChange = useCallback(
       (el: HTMLInputElement) => {
+        recordChange(el.value);
         onChange?.({ target: el, currentTarget: el } as React.ChangeEvent<HTMLInputElement>);
       },
-      [onChange],
+      [onChange, recordChange],
     );
 
     const handleKeyDown = useCallback(

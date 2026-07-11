@@ -5,7 +5,17 @@ pub const SUPPORTED_AUDIO_EXTENSIONS: &[&str] =
 
 const BLOCKED_AUDIO_EXTENSIONS: &[&str] = &["m4p"];
 
+pub fn is_lyrics_sidecar_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("lrc"))
+}
+
 pub fn is_supported_audio_file(path: &Path) -> bool {
+    if is_lyrics_sidecar_file(path) {
+        return false;
+    }
+
     let ext = match path.extension().and_then(|e| e.to_str()) {
         Some(ext) => ext.to_ascii_lowercase(),
         None => return false,
@@ -41,6 +51,21 @@ pub fn filter_library_import_paths(paths: Vec<String>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rejects_lrc_sidecar_files() {
+        assert!(!is_supported_audio_file(Path::new("/music/song.lrc")));
+        assert!(is_lyrics_sidecar_file(Path::new("/music/song.lrc")));
+    }
+
+    #[test]
+    fn filter_library_import_paths_rejects_lrc() {
+        let paths = filter_library_import_paths(vec![
+            "/music/song.mp3".to_string(),
+            "/music/song.lrc".to_string(),
+        ]);
+        assert_eq!(paths, vec!["/music/song.mp3".to_string()]);
+    }
 
     #[test]
     fn rejects_m4p() {

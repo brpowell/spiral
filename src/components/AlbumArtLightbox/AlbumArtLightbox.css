@@ -1,4 +1,11 @@
 .album-art-lightbox {
+  --lightbox-art-size: clamp(280px, min(34vw, 70vh), 520px);
+  --lightbox-lyrics-width: clamp(
+    300px,
+    calc(var(--lightbox-art-size) * 1.15),
+    600px
+  );
+
   position: fixed;
   inset: 0;
   z-index: var(--z-modal, 1000);
@@ -7,6 +14,7 @@
   justify-content: center;
   padding: 2rem;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .album-art-lightbox__scrim {
@@ -23,8 +31,29 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: min(520px, 92vw);
+  max-width: min(var(--lightbox-art-size), 92vw);
   pointer-events: none;
+}
+
+.album-art-lightbox__panel--with-lyrics {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1.25rem;
+  width: max-content;
+  max-width: none;
+}
+
+.album-art-lightbox__art-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 720px) {
+  .album-art-lightbox {
+    padding: 1rem;
+  }
 }
 
 .album-art-lightbox__art-shadow {
@@ -36,7 +65,7 @@
 
 .album-art-lightbox__art {
   display: block;
-  width: min(520px, 92vw);
+  width: var(--lightbox-art-size);
   aspect-ratio: 1;
   padding: 0;
   border: none;
@@ -53,20 +82,24 @@
   display: block;
 }
 
-.album-art-lightbox__caption-anchor {
-  position: fixed;
-  left: 50%;
-  top: calc(50% + min(260px, 46vw) + 0.75rem);
-  z-index: calc(var(--z-modal, 1000) + 1);
-  max-width: min(520px, 92vw);
-  width: 100%;
+.album-art-lightbox__track-info {
+  margin-top: 0.75rem;
+  width: var(--lightbox-art-size);
+  text-align: center;
   pointer-events: none;
 }
 
-.album-art-lightbox__caption {
+.album-art-lightbox__track-title {
+  margin: 0 0 0.25rem;
+  font-size: clamp(0.95rem, 0.2vw + 0.9rem, 1.15rem);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--color-text-primary);
+}
+
+.album-art-lightbox__track-subtitle {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: clamp(0.85rem, 0.15vw + 0.8rem, 1rem);
   line-height: 1.35;
   color: var(--color-text-secondary);
-  text-align: center;
 }

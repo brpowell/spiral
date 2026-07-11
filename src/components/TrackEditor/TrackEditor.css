@@ -1,3 +1,50 @@
+.track-editor-modal__content--tabbed > .modal-header {
+  padding-bottom: 0.65rem;
+}
+
+.track-editor__tabs {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.track-editor__tab-bar {
+  flex-shrink: 0;
+  padding-left: var(--modal-padding-inline);
+  padding-right: var(--modal-padding-inline);
+}
+
+.track-editor__tab-body.modal-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding-top: 1rem;
+  overflow-y: auto;
+}
+
+.track-editor__tab-stage {
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 34rem;
+}
+
+.track-editor__tab-panel.tabs__panel:not([hidden]) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.track-editor__tab-panel--lyrics.tabs__panel:not([hidden]) {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
 .track-editor__body {
   display: grid;
   grid-template-columns: 200px 1fr;

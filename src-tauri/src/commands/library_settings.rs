@@ -31,6 +31,7 @@ pub fn prepare_import_file(
         resolved.auto_organize,
         &resolved.media_folder,
         &resolved.organize_path_format,
+        settings::lyrics_sidecar_sync_enabled(&app),
     )
 }
 

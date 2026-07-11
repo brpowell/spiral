@@ -1,12 +1,14 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   albumTotalDurationSeconds,
   getAlbumByKey,
   groupAlbumTracksByDisc,
 } from "../lib/albums";
+import { applyTrackRating } from "../lib/applyTrackRating";
 import { detailReturnLabel } from "../lib/navigationReturn";
 import { formatTime } from "../lib/format";
 import { linkableArtistKey } from "../lib/trackNavigation";
+import type { CanonicalRating } from "../lib/trackRating";
 import { DetailArtistLink } from "../components/DetailArtistLink/DetailArtistLink";
 import { EntityArt } from "../components/EntityArt/EntityArt";
 import { Button } from "../components/common/Button/Button";
@@ -49,6 +51,7 @@ export function AlbumDetailView({
   const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
   const openAlbumEditor = usePlayerStore((s) => s.openAlbumEditor);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
+  const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
 
   const album = getAlbumByKey(albums, albumKey);
   const backLabel = detailReturnLabel(albumReturnContext, artists);
@@ -100,6 +103,17 @@ export function AlbumDetailView({
     void playTracks(trackIds, track.id);
   };
 
+  const handleRatingChange = useCallback(
+    (trackId: number, rating: CanonicalRating) => {
+      const track = usePlayerStore
+        .getState()
+        .library.find((t) => t.id === trackId);
+      if (!track) return;
+      applyTrackRating(track, rating, updateTrackInLibrary);
+    },
+    [updateTrackInLibrary],
+  );
+
   const trackListProps = {
     presetId: "album" as const,
     selectedTrackIds,
@@ -107,6 +121,7 @@ export function AlbumDetailView({
     playbackState,
     onSelectTrack: handleSelectTrack,
     onPlayTrack: handlePlayTrack,
+    onRatingChange: handleRatingChange,
   };
 
   return (

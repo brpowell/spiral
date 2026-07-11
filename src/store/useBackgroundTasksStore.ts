@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isBackgroundTaskCancelledError } from "../lib/backgroundTaskCancel";
 import { isCdImportCancelledError } from "../lib/cdImport";
 import { waitForPaint, yieldToMain } from "../lib/scheduling";
 
@@ -12,6 +13,7 @@ export interface BackgroundTask {
   detail?: string;
   progress?: { current: number; total: number };
   cancellable?: boolean;
+  cancelRequested?: boolean;
   createdAt: number;
 }
 
@@ -21,6 +23,9 @@ export interface BackgroundTaskRunContext {
   clearDetail: () => void;
   setProgress: (current: number, total: number) => void;
   clearProgress: () => void;
+  /** Remove the task when it completes instead of showing a success toast. */
+  dismissSilently: () => void;
+  isCancelRequested: () => boolean;
 }
 
 interface RunInBackgroundOptions {
@@ -44,6 +49,7 @@ interface BackgroundTasksState {
   runInBackground: (options: RunInBackgroundOptions) => string;
   showToast: (options: ShowToastOptions) => string;
   showErrorToast: (options: ShowToastOptions) => string;
+  requestCancel: (id: string) => void;
   dismissTask: (id: string) => void;
 }
 
@@ -81,11 +87,13 @@ function createRunContext(
       | Partial<BackgroundTasksState>
       | ((state: BackgroundTasksState) => Partial<BackgroundTasksState>),
   ) => void,
-): BackgroundTaskRunContext {
+  get: () => BackgroundTasksState,
+): { ctx: BackgroundTaskRunContext; shouldDismissSilently: () => boolean } {
   let lastProgressAt = 0;
   let lastProgressPercent = -1;
+  let dismissSilently = false;
 
-  return {
+  const ctx: BackgroundTaskRunContext = {
     setLabel: (label) =>
       set((state) => ({ tasks: patchTask(state.tasks, id, { label }) })),
     setDetail: (detail) =>
@@ -119,7 +127,14 @@ function createRunContext(
         tasks: patchTask(state.tasks, id, { progress: undefined }),
       }));
     },
+    dismissSilently: () => {
+      dismissSilently = true;
+    },
+    isCancelRequested: () =>
+      get().tasks.find((task) => task.id === id)?.cancelRequested === true,
   };
+
+  return { ctx, shouldDismissSilently: () => dismissSilently };
 }
 
 export const useBackgroundTasksStore = create<BackgroundTasksState>((set, get) => ({
@@ -145,13 +160,17 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>((set, get) =
 
     set((state) => ({ tasks: [...state.tasks, task] }));
 
-    const ctx = createRunContext(id, set);
+    const { ctx, shouldDismissSilently } = createRunContext(id, set, get);
 
     void (async () => {
       await waitForPaint();
       await yieldToMain();
       try {
         await run(ctx);
+        if (shouldDismissSilently()) {
+          get().dismissTask(id);
+          return;
+        }
         set((state) => ({
           tasks: patchTask(state.tasks, id, {
             status: "success",
@@ -165,6 +184,19 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>((set, get) =
             tasks: patchTask(state.tasks, id, {
               status: "cancelled",
               label: "Import cancelled",
+              detail: undefined,
+              progress: undefined,
+            }),
+          }));
+          scheduleAutoDismiss(get, id, SUCCESS_DISMISS_MS, "cancelled");
+          return;
+        }
+
+        if (isBackgroundTaskCancelledError(err)) {
+          set((state) => ({
+            tasks: patchTask(state.tasks, id, {
+              status: "cancelled",
+              label: err.toastLabel,
               detail: undefined,
               progress: undefined,
             }),
@@ -217,6 +249,11 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>((set, get) =
 
   showErrorToast: (options) =>
     get().showToast({ ...options, status: "error" }),
+
+  requestCancel: (id) =>
+    set((state) => ({
+      tasks: patchTask(state.tasks, id, { cancelRequested: true }),
+    })),
 
   dismissTask: (id) =>
     set((state) => ({ tasks: state.tasks.filter((task) => task.id !== id) })),

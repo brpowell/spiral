@@ -1,3 +1,5 @@
+import type { LyricsFormat, TrackLyricsInput } from "./lyrics";
+
 export type PlaybackState = "playing" | "paused" | "stopped";
 
 /** off = play queue once; all = loop queue; one = loop current track */
@@ -30,6 +32,7 @@ export interface Track {
   importSourcePath?: string;
   /** Client-only flag set when playback cannot find the file on disk. */
   missingFile?: true;
+  lyricsFormat?: LyricsFormat | null;
 }
 
 export interface TrackInput {
@@ -48,4 +51,5 @@ export interface TrackInput {
   filePath: string;
   artPath: string | null;
   rating?: number | null;
+  lyrics?: TrackLyricsInput | null;
 }

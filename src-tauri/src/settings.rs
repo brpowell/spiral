@@ -121,6 +121,32 @@ impl Default for MetadataBackupSettings {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LyricsSettings {
+    #[serde(default = "default_lyrics_sidecar_sync_enabled")]
+    pub sidecar_sync_enabled: bool,
+    #[serde(default = "default_lyrics_auto_fetch_in_lightbox")]
+    pub auto_fetch_in_lightbox: bool,
+}
+
+fn default_lyrics_sidecar_sync_enabled() -> bool {
+    true
+}
+
+fn default_lyrics_auto_fetch_in_lightbox() -> bool {
+    true
+}
+
+impl Default for LyricsSettings {
+    fn default() -> Self {
+        Self {
+            sidecar_sync_enabled: default_lyrics_sidecar_sync_enabled(),
+            auto_fetch_in_lightbox: default_lyrics_auto_fetch_in_lightbox(),
+        }
+    }
+}
+
 impl Default for LibrarySettings {
     fn default() -> Self {
         Self {
@@ -255,6 +281,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub metadata_backups: MetadataBackupSettings,
     #[serde(default)]
+    pub lyrics: LyricsSettings,
+    #[serde(default)]
     pub cd: CdSettings,
     #[serde(default)]
     pub equalizer: EqualizerSettings,
@@ -289,6 +317,7 @@ impl Default for AppSettings {
             active_visualizer: default_active_visualizer(),
             library: LibrarySettings::default(),
             metadata_backups: MetadataBackupSettings::default(),
+            lyrics: LyricsSettings::default(),
             cd: CdSettings::default(),
             equalizer: EqualizerSettings::default(),
             playback: PlaybackSettings::default(),
@@ -311,6 +340,8 @@ pub struct LibrarySettingsResponse {
     pub default_library_root: String,
     pub metadata_backups_enabled: bool,
     pub metadata_backup_retention_days: u32,
+    pub lyrics_sidecar_sync_enabled: bool,
+    pub lyrics_auto_fetch_in_lightbox: bool,
     pub cd_metadata_fetch_mode: String,
     pub cd_import_profile_id: String,
 }
@@ -414,6 +445,7 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
     let app_settings = read_settings(app);
     let stored = app_settings.library.clone();
     let backups = app_settings.metadata_backups;
+    let lyrics = app_settings.lyrics;
     let cd = app_settings.cd;
     let default_root = default_library_root(app);
     let default_media = default_media_folder(app);
@@ -446,6 +478,8 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
             crate::metadata_backup::MIN_RETENTION_DAYS,
             crate::metadata_backup::MAX_RETENTION_DAYS,
         ),
+        lyrics_sidecar_sync_enabled: lyrics.sidecar_sync_enabled,
+        lyrics_auto_fetch_in_lightbox: lyrics.auto_fetch_in_lightbox,
         cd_metadata_fetch_mode: cd.metadata_fetch_mode,
         cd_import_profile_id: resolved_cd_import_profile_id(&cd.import_profile_id),
     }
@@ -468,6 +502,10 @@ pub struct LibrarySettingsPatch {
     pub metadata_backups_enabled: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata_backup_retention_days: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lyrics_sidecar_sync_enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lyrics_auto_fetch_in_lightbox: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cd_metadata_fetch_mode: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -518,6 +556,12 @@ pub fn merge_library_settings(
             crate::metadata_backup::MAX_RETENTION_DAYS,
         );
     }
+    if let Some(enabled) = patch.lyrics_sidecar_sync_enabled {
+        settings.lyrics.sidecar_sync_enabled = enabled;
+    }
+    if let Some(enabled) = patch.lyrics_auto_fetch_in_lightbox {
+        settings.lyrics.auto_fetch_in_lightbox = enabled;
+    }
     if let Some(mode) = patch.cd_metadata_fetch_mode {
         if !mode.is_empty() {
             settings.cd.metadata_fetch_mode = mode;
@@ -544,9 +588,20 @@ pub fn metadata_backup_config(app: &AppHandle) -> crate::metadata_backup::Metada
     crate::metadata_backup::MetadataBackupConfig::from(&read_settings(app).metadata_backups)
 }
 
+pub fn lyrics_sidecar_sync_enabled(app: &AppHandle) -> bool {
+    read_settings(app).lyrics.sidecar_sync_enabled
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_lyrics_settings_enable_sidecar_sync() {
+        let settings = LyricsSettings::default();
+        assert!(settings.sidecar_sync_enabled);
+        assert!(settings.auto_fetch_in_lightbox);
+    }
 
     #[test]
     fn default_cd_settings_use_lossless_flac_import_profile() {

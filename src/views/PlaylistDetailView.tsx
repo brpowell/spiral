@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { ContextMenuSeparator } from "../components/ContextMenu/ContextMenu";
+import { applyTrackRating } from "../lib/applyTrackRating";
 import { albumTotalDurationSeconds } from "../lib/albums";
 import { formatTime } from "../lib/format";
 import { detailReturnLabel } from "../lib/navigationReturn";
@@ -22,6 +23,7 @@ import { usePlayerStore } from "../store/usePlayerStore";
 import { usePlaylistStore } from "../store/usePlaylistStore";
 import type { Artist } from "../types/artist";
 import type { Playlist } from "../types/playlist";
+import type { CanonicalRating } from "../lib/trackRating";
 import type { Track } from "../types/track";
 import "./PlaylistDetailView.css";
 import "./DetailViewShared.css";
@@ -86,6 +88,7 @@ function PlaylistDetailContent({
   const selectedTrackIds = usePlayerStore((s) => s.selectedTrackIds);
   const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
+  const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
   const reorderPlaylistTracks = usePlaylistStore((s) => s.reorderPlaylistTracks);
   const { requestDelete, deleteDialog } = useDeletePlaylistDialog(playlist);
 
@@ -116,6 +119,17 @@ function PlaylistDetailContent({
   const handlePlayTrack = (track: Track) => {
     void playTracks(trackIds, track.id);
   };
+
+  const handleRatingChange = useCallback(
+    (trackId: number, rating: CanonicalRating) => {
+      const track = usePlayerStore
+        .getState()
+        .library.find((t) => t.id === trackId);
+      if (!track) return;
+      applyTrackRating(track, rating, updateTrackInLibrary);
+    },
+    [updateTrackInLibrary],
+  );
 
   const handleReorderTracks = (fromIndex: number, toIndex: number) => {
     const ids = [...playlist.trackIds];
@@ -231,6 +245,7 @@ function PlaylistDetailContent({
               playbackState={playbackState}
               onSelectTrack={handleSelectTrack}
               onPlayTrack={handlePlayTrack}
+              onRatingChange={handleRatingChange}
               reorderable
               onReorderTracks={handleReorderTracks}
             />

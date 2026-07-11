@@ -1,10 +1,12 @@
 .context-menu {
+  --context-menu-inset: 0.25rem;
+  --context-menu-item-radius: calc(var(--radius-sm) - var(--context-menu-inset));
   position: fixed;
   z-index: 1100;
   min-width: 11.5rem;
   width: max-content;
   max-width: calc(100vw - 1rem);
-  padding: 0.25rem;
+  padding: var(--context-menu-inset);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -58,6 +60,20 @@
   height: 1px;
   margin: 0.25rem 0.35rem;
   background: var(--color-border);
+}
+
+.context-menu > button:first-of-type,
+.context-menu > .context-menu__submenu-wrap:first-of-type > button,
+.context-menu > .context-menu__rating-row:first-of-type {
+  border-top-left-radius: var(--context-menu-item-radius);
+  border-top-right-radius: var(--context-menu-item-radius);
+}
+
+.context-menu > button:last-of-type,
+.context-menu > .context-menu__submenu-wrap:last-of-type > button,
+.context-menu > .context-menu__rating-row:last-of-type {
+  border-bottom-left-radius: var(--context-menu-item-radius);
+  border-bottom-right-radius: var(--context-menu-item-radius);
 }
 
 .context-menu button:hover:not(:disabled),

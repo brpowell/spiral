@@ -15,7 +15,8 @@ export type TrackListColumnId =
   | "rating"
   | "codec"
   | "sampleRate"
-  | "bitrate";
+  | "bitrate"
+  | "lyrics";
 
 export type TrackListSortField = Extract<
   TrackListColumnId,
@@ -32,6 +33,7 @@ export type TrackListSortField = Extract<
   | "codec"
   | "sampleRate"
   | "bitrate"
+  | "lyrics"
 >;
 
 export type TrackListSortDir = "asc" | "desc";
@@ -212,38 +214,59 @@ const BITRATE_COL: TrackListColumnDef = {
   secondary: true,
 };
 
+const LYRICS_COL: TrackListColumnDef = {
+  id: "lyrics",
+  label: "Lyrics",
+  sortable: true,
+  resizable: true,
+  hideable: true,
+  align: "center",
+  secondary: true,
+};
+
+const LIBRARY_COLUMNS: TrackListColumnDef[] = [
+  INDEX_COL,
+  TITLE_COL,
+  ARTIST_COL,
+  ALBUM_COL,
+  ALBUM_ARTIST_COL,
+  YEAR_COL,
+  GENRE_COL,
+  DISC_COL,
+  TRACK_NUMBER_DATA_COL,
+  DATE_ADDED_COL,
+  PLAY_COUNT_COL,
+  RATING_COL,
+  CODEC_COL,
+  SAMPLE_RATE_COL,
+  BITRATE_COL,
+  LYRICS_COL,
+  DURATION_COL,
+];
+
+const ALBUM_COLUMNS: TrackListColumnDef[] = [
+  TRACK_NUM_COL,
+  ...LIBRARY_COLUMNS.filter(
+    (col) =>
+      col.id !== "index" && col.id !== "album" && col.id !== "trackNumber",
+  ),
+];
+
 export const TRACK_LIST_PRESETS: Record<TrackListPresetId, TrackListPreset> = {
   library: {
     id: "library",
     indexColumn: "index",
-    columns: [
-      INDEX_COL,
-      TITLE_COL,
-      ARTIST_COL,
-      ALBUM_COL,
-      ALBUM_ARTIST_COL,
-      YEAR_COL,
-      GENRE_COL,
-      DISC_COL,
-      TRACK_NUMBER_DATA_COL,
-      DATE_ADDED_COL,
-      PLAY_COUNT_COL,
-      RATING_COL,
-      CODEC_COL,
-      SAMPLE_RATE_COL,
-      BITRATE_COL,
-      DURATION_COL,
-    ],
+    columns: LIBRARY_COLUMNS,
   },
   album: {
     id: "album",
     indexColumn: "trackNumber",
-    columns: [TRACK_NUM_COL, TITLE_COL, ARTIST_COL, DURATION_COL],
+    columns: ALBUM_COLUMNS,
   },
   playlist: {
     id: "playlist",
     indexColumn: "index",
-    columns: [INDEX_COL, TITLE_COL, ARTIST_COL, DURATION_COL],
+    columns: LIBRARY_COLUMNS,
   },
   cd: {
     id: "cd",
@@ -271,6 +294,7 @@ export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> =
     codec: 72,
     sampleRate: 88,
     bitrate: 72,
+    lyrics: 64,
   };
 
 export const MIN_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> = {
@@ -290,6 +314,7 @@ export const MIN_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> = {
   codec: 56,
   sampleRate: 72,
   bitrate: 64,
+  lyrics: 56,
 };
 
 const LIBRARY_DEFAULT_HIDDEN: TrackListColumnId[] = [
@@ -304,11 +329,23 @@ const LIBRARY_DEFAULT_HIDDEN: TrackListColumnId[] = [
   "codec",
   "sampleRate",
   "bitrate",
+  "lyrics",
 ];
+
+const PLAYLIST_DEFAULT_HIDDEN: TrackListColumnId[] = [
+  "album",
+  ...LIBRARY_DEFAULT_HIDDEN,
+];
+
+const ALBUM_DEFAULT_HIDDEN: TrackListColumnId[] = LIBRARY_DEFAULT_HIDDEN.filter(
+  (id) => id !== "trackNumber",
+);
 
 export function defaultHiddenColumns(
   presetId: TrackListPresetId,
 ): TrackListColumnId[] {
   if (presetId === "library") return [...LIBRARY_DEFAULT_HIDDEN];
+  if (presetId === "playlist") return [...PLAYLIST_DEFAULT_HIDDEN];
+  if (presetId === "album") return [...ALBUM_DEFAULT_HIDDEN];
   return [];
 }

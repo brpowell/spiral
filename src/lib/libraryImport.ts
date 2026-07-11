@@ -1,4 +1,9 @@
-import { commitImportEntries, formatImportSummary, parseImportMetadata } from "./import";
+import {
+  commitImportEntries,
+  formatImportLyricsDetail,
+  formatImportSummary,
+  parseImportMetadata,
+} from "./import";
 import {
   flushImportActivationQueue,
   queueImportedTrackActivation,
@@ -205,6 +210,10 @@ export function startLibraryImport(paths: string[]): void {
 
         const summary = formatImportSummary(result);
         ctx.setLabel(summary);
+        const lyricsDetail = formatImportLyricsDetail(result);
+        if (lyricsDetail) {
+          ctx.setDetail(lyricsDetail);
+        }
 
         if (result.failed > 0) {
           usePlayerStore.setState({

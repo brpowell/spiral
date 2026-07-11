@@ -6,6 +6,11 @@ import {
 } from "./artistNames";
 import type { TrackMetadataUpdate } from "../types/metadata";
 import type { Track } from "../types/track";
+import type { LyricsLine, LyricsSource } from "../types/lyrics";
+import {
+  buildTrackLyricsInputFromEditor,
+  lyricsEditorStatesEquivalent,
+} from "./lyrics";
 import { UNRATED, type CanonicalRating } from "./trackRating";
 
 function tracksShareAlbum(tracks: Track[]): boolean {
@@ -24,9 +29,21 @@ export interface TrackEditorForm {
   discNumber: string;
   genre: string;
   rating: CanonicalRating;
+  lyrics: string;
+  lyricsSyncedLines: LyricsLine[] | null;
+  lyricsSource: LyricsSource;
+  /** Library mark: track has no vocals / no lyrics to fetch. */
+  lyricsInstrumental: boolean;
 }
 
-export type TrackEditorFormField = Exclude<keyof TrackEditorForm, "rating">;
+export type TrackEditorFormField = Exclude<
+  keyof TrackEditorForm,
+  | "rating"
+  | "lyrics"
+  | "lyricsSyncedLines"
+  | "lyricsSource"
+  | "lyricsInstrumental"
+>;
 
 const MIXED_PLACEHOLDER = "Multiple values";
 
@@ -90,6 +107,10 @@ export function trackToForm(track: Track): TrackEditorForm {
     discNumber: track.discNumber != null ? String(track.discNumber) : "",
     genre: track.genre ?? "",
     rating: track.rating,
+    lyrics: "",
+    lyricsSyncedLines: null,
+    lyricsSource: null,
+    lyricsInstrumental: track.lyricsFormat === "instrumental",
   };
 }
 
@@ -111,6 +132,10 @@ export function tracksToForm(tracks: Track[]): TrackEditorForm {
     discNumber: sharedInt(tracks, (t) => t.discNumber),
     genre: sharedString(tracks, (t) => t.genre),
     rating: sharedRating(tracks),
+    lyrics: "",
+    lyricsSyncedLines: null,
+    lyricsSource: null,
+    lyricsInstrumental: false,
   };
 }
 
@@ -178,6 +203,22 @@ export function parseOptionalInt(value: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+export function lyricsEditorStateEqual(
+  a: Pick<TrackEditorForm, "lyrics" | "lyricsSyncedLines" | "lyricsInstrumental">,
+  b: Pick<TrackEditorForm, "lyrics" | "lyricsSyncedLines" | "lyricsInstrumental">,
+): boolean {
+  if (Boolean(a.lyricsInstrumental) !== Boolean(b.lyricsInstrumental)) {
+    return false;
+  }
+  if (a.lyricsInstrumental && b.lyricsInstrumental) {
+    return true;
+  }
+  return lyricsEditorStatesEquivalent(
+    { lyrics: a.lyrics, syncedLines: a.lyricsSyncedLines },
+    { lyrics: b.lyrics, syncedLines: b.lyricsSyncedLines },
+  );
+}
+
 export function trackEditorMetadataFormsEqual(
   a: TrackEditorForm,
   b: TrackEditorForm,
@@ -190,7 +231,8 @@ export function trackEditorMetadataFormsEqual(
     a.year === b.year &&
     a.trackNumber === b.trackNumber &&
     a.discNumber === b.discNumber &&
-    a.genre === b.genre
+    a.genre === b.genre &&
+    lyricsEditorStateEqual(a, b)
   );
 }
 
@@ -230,6 +272,22 @@ export function buildTrackMetadataFromForm(
       ? track.title
       : form.title.trim() || "Unknown";
 
+  const lyricsChanged = !lyricsEditorStateEqual(form, initialForm);
+  const lyricsPayload = lyricsChanged
+    ? form.lyricsInstrumental
+      ? {
+          format: "instrumental" as const,
+          source: form.lyricsSource ?? "manual",
+          lines: [],
+          plainText: "",
+        }
+      : buildTrackLyricsInputFromEditor(
+          form.lyrics.trim(),
+          form.lyricsSyncedLines,
+          form.lyricsSource ?? "manual",
+        )
+    : undefined;
+
   return {
     title,
     artist: pickString("artist", track.artist),
@@ -241,5 +299,36 @@ export function buildTrackMetadataFromForm(
     genre: pickString("genre", track.genre),
     artPath,
     artChanged,
+    lyricsChanged,
+    lyrics: lyricsPayload,
+  };
+}
+
+export function buildLyricsOnlyMetadataUpdate(
+  track: Track,
+  lyrics: {
+    text: string;
+    syncedLines: LyricsLine[] | null;
+    source: LyricsSource;
+  },
+): TrackMetadataUpdate {
+  const trimmedLyrics = lyrics.text.trim();
+  return {
+    title: track.title,
+    artist: track.artist,
+    album: track.album,
+    albumArtist: track.albumArtist,
+    year: track.year,
+    trackNumber: track.trackNumber,
+    discNumber: track.discNumber,
+    genre: track.genre,
+    artPath: track.artPath,
+    artChanged: false,
+    lyricsChanged: true,
+    lyrics: buildTrackLyricsInputFromEditor(
+      trimmedLyrics,
+      lyrics.syncedLines,
+      lyrics.source,
+    ),
   };
 }

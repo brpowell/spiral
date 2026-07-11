@@ -60,6 +60,8 @@ import type { PlaybackSource } from "../lib/playback";
 import type { CrossfadeVisualState } from "../lib/playback";
 import type { PlaybackState, RepeatMode, Track } from "../types/track";
 
+export type TrackEditorTab = "details" | "lyrics";
+
 interface PlayerState {
   library: Track[];
   playContextIds: number[];
@@ -86,9 +88,12 @@ interface PlayerState {
   shuffle: boolean;
   importError: string | null;
   editingTrackIds: number[];
+  trackEditorInitialTab: TrackEditorTab;
   editingAlbumKey: string | null;
   editingArtistKey: string | null;
   editingArtistBrowseMode: ArtistBrowseMode;
+  /** Bumped when lyrics are saved so now-playing UI can refetch. */
+  lyricsRevisionByTrackId: Record<number, number>;
 
   loadLibrary: (options?: { preservePlayback?: boolean }) => Promise<void>;
   stagePendingImportTracks: (tracks: Track[]) => void;
@@ -137,7 +142,10 @@ interface PlayerState {
   toggleRepeat: () => void;
   toggleShuffle: () => void;
   clearImportError: () => void;
-  openTrackEditor: (ids: number | number[]) => void;
+  openTrackEditor: (
+    ids: number | number[],
+    options?: { tab?: TrackEditorTab },
+  ) => void;
   closeTrackEditor: () => void;
   openAlbumEditor: (albumKey: string) => void;
   closeAlbumEditor: () => void;
@@ -145,6 +153,7 @@ interface PlayerState {
   closeArtistEditor: () => void;
   updateTrackInLibrary: (track: Track) => void;
   updateTracksInLibrary: (tracks: Track[]) => void;
+  notifyTrackLyricsUpdated: (trackId: number) => void;
   removeTrackFromLibrary: (
     id: number,
     deleteFromDisk: boolean,
@@ -1028,9 +1037,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     shuffle: false,
     importError: null,
     editingTrackIds: [],
+    trackEditorInitialTab: "details",
     editingAlbumKey: null,
     editingArtistKey: null,
     editingArtistBrowseMode: "discography",
+    lyricsRevisionByTrackId: {},
 
     loadLibrary: async (options) => {
       try {
@@ -1613,22 +1624,25 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     clearImportError: () => set({ importError: null }),
 
-    openTrackEditor: (ids) => {
+    openTrackEditor: (ids, options) => {
       const list = (Array.isArray(ids) ? ids : [ids])
         .filter((id) => !isPendingTrackId(id))
         .filter((id, index, all) => all.indexOf(id) === index);
       if (list.length === 0) return;
       set({
         editingTrackIds: list,
+        trackEditorInitialTab: options?.tab ?? "details",
         editingAlbumKey: null,
         editingArtistKey: null,
       });
     },
-    closeTrackEditor: () => set({ editingTrackIds: [] }),
+    closeTrackEditor: () =>
+      set({ editingTrackIds: [], trackEditorInitialTab: "details" }),
     openAlbumEditor: (albumKey) =>
       set({
         editingAlbumKey: albumKey,
         editingTrackIds: [],
+        trackEditorInitialTab: "details",
         editingArtistKey: null,
       }),
     closeAlbumEditor: () => set({ editingAlbumKey: null }),
@@ -1637,6 +1651,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         editingArtistKey: artistKey,
         editingArtistBrowseMode: browseMode,
         editingTrackIds: [],
+        trackEditorInitialTab: "details",
         editingAlbumKey: null,
       }),
     closeArtistEditor: () => set({ editingArtistKey: null }),
@@ -1651,6 +1666,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
           library: s.library.map((t) => byId.get(t.id) ?? t),
         };
       }),
+    notifyTrackLyricsUpdated: (trackId) =>
+      set((s) => ({
+        lyricsRevisionByTrackId: {
+          ...s.lyricsRevisionByTrackId,
+          [trackId]: (s.lyricsRevisionByTrackId[trackId] ?? 0) + 1,
+        },
+      })),
 
     removeTrackFromLibrary: async (id, deleteFromDisk) => {
       await get().removeTracksFromLibrary([id], deleteFromDisk);

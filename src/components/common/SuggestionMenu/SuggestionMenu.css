@@ -1,6 +1,9 @@
 .context-menu.context-menu--suggestions {
+  --context-menu-inset: 0;
+  --context-menu-item-radius: var(--radius-sm);
   min-width: unset;
   padding: 0;
+  overflow: hidden;
 }
 
 .suggestion-menu {
@@ -16,7 +19,16 @@
   padding: 0 var(--control-padding-x);
   font-size: var(--control-font-size);
   line-height: var(--control-line-height);
-  border-radius: 0;
+}
+
+.context-menu--suggestions .suggestion-menu__item:first-child {
+  border-top-left-radius: var(--context-menu-item-radius);
+  border-top-right-radius: var(--context-menu-item-radius);
+}
+
+.context-menu--suggestions .suggestion-menu__item:last-child {
+  border-bottom-left-radius: var(--context-menu-item-radius);
+  border-bottom-right-radius: var(--context-menu-item-radius);
 }
 
 .context-menu--suggestions .suggestion-menu__item--active {

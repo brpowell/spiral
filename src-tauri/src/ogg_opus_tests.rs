@@ -37,6 +37,7 @@ mod ogg_opus_support {
         let result = metadata_reader::parse_track_metadata(
             &app_data,
             ogg::minimal_fixture_path().to_str().unwrap(),
+            true,
         )
         .expect("parse ogg metadata");
         assert_eq!(result.codec.as_deref(), Some("vorbis"));
@@ -51,6 +52,7 @@ mod ogg_opus_support {
         let result = metadata_reader::parse_track_metadata(
             &app_data,
             opus::minimal_fixture_path().to_str().unwrap(),
+            true,
         )
         .expect("parse opus metadata");
         assert_eq!(result.codec.as_deref(), Some("opus"));
@@ -76,6 +78,8 @@ mod ogg_opus_support {
             genre: Some("Electronic".to_string()),
             art_path: None,
             art_changed: false,
+            lyrics: None,
+            lyrics_changed: false,
         };
         let backup = MetadataBackupConfig {
             enabled: false,

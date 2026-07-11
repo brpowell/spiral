@@ -2,6 +2,16 @@ import type { Track, TrackInput } from "../types/track";
 
 export type ImportDedupeAction = "skip" | "replace" | "import";
 
+export interface ImportDedupeResolution {
+  action: ImportDedupeAction;
+  /**
+   * When `action` is `"replace"` and the prompt had a lyrics conflict:
+   * `true` overwrites library lyrics with incoming; `false` keeps library lyrics.
+   * Omitted when there is no conflict (incoming lyrics pass through as today).
+   */
+  replaceLyrics?: boolean;
+}
+
 export interface ImportDuplicateContext {
   incoming: TrackInput;
   existing: Track;
@@ -11,6 +21,8 @@ export interface ImportDuplicateContext {
   remainingDuplicates: number;
   /** Incoming audio is not on disk yet (e.g. CD rip pending). */
   incomingPendingRip?: boolean;
+  /** Both sides have non-empty lyrics and content differs. */
+  hasLyricsConflict: boolean;
 }
 
 const UNKNOWN_ALBUM = "Unknown Album";

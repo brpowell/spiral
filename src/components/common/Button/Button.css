@@ -122,3 +122,12 @@
   color: var(--color-danger);
   background: color-mix(in srgb, var(--color-danger) 10%, var(--color-danger-bg));
 }
+
+.btn:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.btn--icon-only.btn--primary:focus-visible {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent-text, #fff) 70%, transparent);
+}

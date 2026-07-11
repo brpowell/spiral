@@ -10,6 +10,7 @@ use lofty::probe::Probe;
 use lofty::tag::{ItemKey, ItemValue, Tag, TagItem};
 
 use crate::artist_tags::{join_artist_field, parse_artist_field};
+use crate::lyrics_tags;
 use crate::metadata_reader::BasicTags;
 use crate::metadata_writer::MetadataWriteError;
 use crate::models::TrackMetadataUpdate;
@@ -87,6 +88,7 @@ pub fn read_vorbis_container_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, S
     }
     tags.genre = tag.genre().map(|s| s.to_string());
     tags.rating = rating_tags::read_vorbis_rating(tag);
+    tags.lyrics = lyrics_tags::read_lyrics_from_vorbis(tag);
 
     if let Some(duration) = duration_from_properties(&tagged) {
         tags.duration_seconds = Some(duration);
@@ -191,9 +193,35 @@ pub fn write_vorbis_container_tag(
         }
     }
 
+    if metadata.lyrics_changed {
+        let (text, remove) = lyrics_tags::lyrics_text_for_embed(
+            metadata,
+            lyrics_tags::LyricsEmbedKind::SyncCapable,
+        );
+        lyrics_tags::apply_lyrics_to_vorbis(tag, &text, remove);
+    }
+
     tagged
         .save_to_path(target, WriteOptions::default())
         .map_err(|e| MetadataWriteError::Tag(format!("Failed to write tags: {e}")))?;
+
+    verify_readable(target)?;
+    Ok(())
+}
+
+pub fn write_vorbis_container_lyrics(
+    target: &Path,
+    lyrics: Option<&crate::models::TrackLyricsInput>,
+) -> Result<(), MetadataWriteError> {
+    let mut tagged = open_tagged(target).map_err(MetadataWriteError::Tag)?;
+    let tag = primary_tag_mut(&mut tagged);
+    let (text, remove) =
+        lyrics_tags::lyrics_text_for_embed_input(lyrics, lyrics_tags::LyricsEmbedKind::SyncCapable);
+    lyrics_tags::apply_lyrics_to_vorbis(tag, &text, remove);
+
+    tagged
+        .save_to_path(target, WriteOptions::default())
+        .map_err(|e| MetadataWriteError::Tag(format!("Failed to write lyrics: {e}")))?;
 
     verify_readable(target)?;
     Ok(())

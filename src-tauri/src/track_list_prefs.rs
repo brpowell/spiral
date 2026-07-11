@@ -11,7 +11,7 @@ pub struct TrackListPreferences {
     #[serde(default)]
     pub column_widths: HashMap<String, u32>,
     #[serde(default)]
-    pub hidden_columns: Vec<String>,
+    pub hidden_columns_by_preset: HashMap<String, Vec<String>>,
     #[serde(default)]
     pub column_order_by_preset: HashMap<String, Vec<String>>,
 }

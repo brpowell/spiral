@@ -95,5 +95,6 @@ export function buildTrackArtistMetadata(
     genre: track.genre,
     artPath: track.artPath,
     artChanged: false,
+    lyricsChanged: false,
   };
 }

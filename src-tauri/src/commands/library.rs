@@ -4,8 +4,12 @@ use crate::encoding_profiles;
 use crate::import_files;
 use crate::library_organize::{self, OrganizeMetadata};
 use crate::audio_properties;
+use crate::lyrics_normalize;
+use crate::lyrics_sidecar;
+use crate::metadata_backup;
 use crate::metadata_reader;
-use crate::models::{RefreshLibraryMetadataResult, Track, TrackInput, TrackMetadataUpdate};
+use crate::metadata_writer;
+use crate::models::{RefreshLibraryMetadataResult, Track, TrackInput, TrackMetadataUpdate, TrackLyricsInput};
 use crate::rating_sync::{schedule_rating_file_write, RatingSync};
 use crate::settings;
 use crate::transcoder;
@@ -28,6 +32,8 @@ fn track_input_to_metadata(input: &TrackInput) -> TrackMetadataUpdate {
         genre: input.genre.clone(),
         art_path: input.art_path.clone(),
         art_changed: false,
+        lyrics: None,
+        lyrics_changed: false,
     }
 }
 
@@ -43,6 +49,8 @@ fn track_to_metadata(track: &Track) -> TrackMetadataUpdate {
         genre: track.genre.clone(),
         art_path: track.art_path.clone(),
         art_changed: false,
+        lyrics: None,
+        lyrics_changed: false,
     }
 }
 
@@ -64,6 +72,7 @@ fn track_to_input(track: &Track, file_path: String) -> TrackInput {
         file_path,
         art_path: track.art_path.clone(),
         rating: Some(track.rating),
+        lyrics: None,
     }
 }
 
@@ -86,7 +95,11 @@ fn resolve_convert_art_path(
     }
 
     let source_path = source.to_string_lossy();
-    match metadata_reader::parse_track_metadata(&app_data, source_path.as_ref()) {
+    match metadata_reader::parse_track_metadata(
+        &app_data,
+        source_path.as_ref(),
+        settings::lyrics_sidecar_sync_enabled(app),
+    ) {
         Ok(input) => Ok(input.art_path),
         Err(_) => Ok(None),
     }
@@ -122,6 +135,10 @@ pub fn save_track(state: State<DbState>, track: TrackInput) -> Result<Track, Str
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let id = db::save_track(&conn, &track).map_err(|e| {
         eprintln!("save_track error: {e}");
+        e.to_string()
+    })?;
+    lyrics_normalize::persist_import_lyrics(&conn, id, &track.lyrics).map_err(|e| {
+        eprintln!("persist_import_lyrics error: {e}");
         e.to_string()
     })?;
     db::get_track_by_id(&conn, id)
@@ -168,7 +185,12 @@ fn refresh_library_metadata_blocking(app: &AppHandle) -> Result<RefreshLibraryMe
             continue;
         }
 
-        let parse_result = metadata_reader::parse_track_metadata(&app_data, &track.file_path);
+        let lyrics_sidecar_enabled = settings::lyrics_sidecar_sync_enabled(app);
+        let parse_result = metadata_reader::parse_track_metadata(
+            &app_data,
+            &track.file_path,
+            lyrics_sidecar_enabled,
+        );
         let input = match parse_result {
             Ok(input) => input,
             Err(err) => {
@@ -265,6 +287,9 @@ pub fn remove_track(
 
     if delete_from_disk {
         let audio_path = Path::new(&track.file_path);
+        if settings::lyrics_sidecar_sync_enabled(&app) {
+            lyrics_sidecar::remove_sidecar(audio_path)?;
+        }
         if audio_path.exists() {
             fs::remove_file(audio_path).map_err(|e| format!("Failed to delete audio file: {e}"))?;
         }
@@ -296,12 +321,15 @@ pub fn replace_track_from_import(
     track: TrackInput,
 ) -> Result<Track, String> {
     let resolved = settings::resolved_library_settings(&app);
+    let sidecar_enabled = settings::lyrics_sidecar_sync_enabled(&app);
+    let backup_config = settings::metadata_backup_config(&app);
     let new_path = import_files::prepare_import_file(
         &source_path,
         &mode,
         resolved.auto_organize,
         &resolved.media_folder,
         &resolved.organize_path_format,
+        sidecar_enabled,
     )?;
 
     let (existing, mut metadata) = {
@@ -327,7 +355,7 @@ pub fn replace_track_from_import(
         }
     }
 
-    {
+    let canonical_lyrics = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
         db::update_track(
             &conn,
@@ -340,9 +368,28 @@ pub fn replace_track_from_import(
             eprintln!("replace_track_from_import update error: {e}");
             e.to_string()
         })?;
-    }
+        lyrics_normalize::persist_import_lyrics(&conn, track_id, &track.lyrics).map_err(|e| {
+            eprintln!("persist_import_lyrics error: {e}");
+            e.to_string()
+        })?;
+        db::get_track_lyrics(&conn, track_id)
+            .map_err(|e| e.to_string())?
+            .map(lyrics_normalize::track_lyrics_record_to_input)
+    };
+
+    project_replace_lyrics(
+        &new_path_buf,
+        canonical_lyrics.as_ref(),
+        &backup_config,
+        sidecar_enabled,
+    )?;
 
     if old_path != new_path_buf {
+        if sidecar_enabled {
+            if let Err(e) = lyrics_sidecar::remove_sidecar(&old_path) {
+                eprintln!("replace_track_from_import failed to remove old lyrics sidecar: {e}");
+            }
+        }
         let media_folder = Path::new(&resolved.media_folder);
         if path_is_under_media(media_folder, &old_path) && old_path.is_file() {
             if let Err(e) = fs::remove_file(&old_path) {
@@ -355,6 +402,28 @@ pub fn replace_track_from_import(
     db::get_track_by_id(&conn, track_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Track {track_id} not found after replace"))
+}
+
+/// After replace, project canonical DB lyrics onto the new audio file (tags + sidecar).
+fn project_replace_lyrics(
+    new_path: &Path,
+    lyrics: Option<&TrackLyricsInput>,
+    backup_config: &metadata_backup::MetadataBackupConfig,
+    sidecar_enabled: bool,
+) -> Result<(), String> {
+    match metadata_writer::write_lyrics_projection(new_path, lyrics, backup_config) {
+        Ok(()) => {}
+        Err(metadata_writer::MetadataWriteError::UnsupportedFormat(msg)) => {
+            eprintln!("replace lyrics projection skipped: {msg}");
+        }
+        Err(err) => return Err(err.to_message()),
+    }
+
+    if sidecar_enabled {
+        lyrics_sidecar::sync_sidecar(new_path, lyrics)?;
+    }
+
+    Ok(())
 }
 
 fn build_convert_dest_path(
@@ -497,8 +566,12 @@ fn convert_track_impl(
         &backup_config,
     )?;
 
-    let final_path =
-        library_organize::move_track_file(&temp_path, dest_path).map_err(|err| {
+    let final_path = library_organize::move_track_file(
+        &temp_path,
+        dest_path,
+        resolved.lyrics_sidecar_sync_enabled,
+    )
+    .map_err(|err| {
             let _ = fs::remove_file(&temp_path);
             err
         })?;
@@ -586,6 +659,7 @@ mod tests {
             date_added: "2026-01-01T00:00:00Z".into(),
             play_count: 0,
             rating: 0,
+            lyrics_format: None,
         }
     }
 

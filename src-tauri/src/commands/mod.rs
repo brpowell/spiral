@@ -4,6 +4,7 @@ pub mod cd;
 pub mod file_playback;
 pub mod files;
 pub mod library;
+pub mod lyrics;
 pub mod playlists;
 pub mod library_settings;
 pub mod metadata;

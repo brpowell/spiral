@@ -1,8 +1,10 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { Button } from "../common/Button/Button";
-import { IconCheck, IconClose } from "../icons";
+import { IconCancel, IconCheck, IconClose } from "../icons";
+import { LYRICS_FETCH_MISSING_KEY } from "../../lib/fetchMissingLyrics";
 import { panelMotion } from "../../lib/motion";
+import { cancelLyricsFetch } from "../../lib/tauri";
 import { useCdImportStore } from "../../store/useCdImportStore";
 import {
   useBackgroundTasksStore,
@@ -31,7 +33,7 @@ function TaskStatusIcon({ status }: { status: BackgroundTask["status"] }) {
   if (status === "cancelled") {
     return (
       <span className="background-tasks__icon background-tasks__icon--cancelled" aria-hidden>
-        <IconClose />
+        <IconCancel />
       </span>
     );
   }
@@ -44,12 +46,15 @@ function TaskStatusIcon({ status }: { status: BackgroundTask["status"] }) {
 
 function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
   const dismissTask = useBackgroundTasksStore((s) => s.dismissTask);
+  const requestCancel = useBackgroundTasksStore((s) => s.requestCancel);
   const requestCancelImport = useCdImportStore((s) => s.requestCancelImport);
-  const cancelRequested = useCdImportStore((s) => s.cancelRequested);
+  const cdCancelRequested = useCdImportStore((s) => s.cancelRequested);
   const progress = formatProgress(task);
+  const meta = progress ?? task.detail;
   const isDone = task.status !== "running";
-  const showCancel =
-    task.status === "running" && task.cancellable && task.key === "cd-import";
+  const showCancel = task.status === "running" && task.cancellable;
+  const cancelRequested =
+    task.key === "cd-import" ? cdCancelRequested : Boolean(task.cancelRequested);
 
   return (
     <motion.div
@@ -61,9 +66,13 @@ function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
     >
       <TaskStatusIcon status={task.status} />
       <div className="background-tasks__body">
-        <span className="background-tasks__label">{task.label}</span>
-        {(progress || task.detail) && (
-          <span className="background-tasks__meta">{progress ?? task.detail}</span>
+        <span className="background-tasks__label" title={task.label}>
+          {task.label}
+        </span>
+        {meta && (
+          <span className="background-tasks__meta" title={meta}>
+            {meta}
+          </span>
         )}
       </div>
       {showCancel && (
@@ -71,7 +80,16 @@ function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
           variant="ghost"
           size="sm"
           className="background-tasks__cancel"
-          onClick={() => requestCancelImport()}
+          onClick={() => {
+            if (task.key === "cd-import") {
+              requestCancelImport();
+            } else {
+              requestCancel(task.id);
+              if (task.key === LYRICS_FETCH_MISSING_KEY) {
+                void cancelLyricsFetch();
+              }
+            }
+          }}
           disabled={cancelRequested}
         >
           {cancelRequested ? "Cancelling…" : "Cancel"}

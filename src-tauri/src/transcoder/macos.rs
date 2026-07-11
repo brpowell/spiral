@@ -136,6 +136,8 @@ mod tests {
             genre: None,
             art_path: None,
             art_changed: false,
+            lyrics: None,
+            lyrics_changed: false,
         };
         let backup = MetadataBackupConfig {
             enabled: false,

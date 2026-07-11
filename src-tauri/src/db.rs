@@ -1,7 +1,11 @@
 use crate::audio_properties::AudioProperties;
-use crate::models::{ArtistImage, Playlist, PlaylistImageMode, Track, TrackInput, TrackMetadataUpdate};
+use crate::models::{
+    ArtistImage, LyricsFormat, LyricsLine, LyricsSource, Playlist, PlaylistImageMode, Track,
+    TrackInput, TrackLyricsRecord, TrackMetadataUpdate,
+};
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, Row};
+use std::collections::HashMap;
 use std::path::Path;
 
 const SCHEMA: &str = "
@@ -47,11 +51,23 @@ CREATE TABLE IF NOT EXISTS artist_images (
   art_path TEXT NOT NULL,
   PRIMARY KEY (artist_key, browse_mode)
 );
+
+CREATE TABLE IF NOT EXISTS track_lyrics (
+  track_id INTEGER PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
+  format TEXT NOT NULL DEFAULT 'plain',
+  source TEXT,
+  lines_json TEXT NOT NULL,
+  plain_text TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+);
 ";
 
-const TRACK_SELECT: &str = "SELECT id, title, artist, album, album_artist, track_number, disc_number,
-                year, genre, duration_seconds, sample_rate, bitrate, codec, file_path, art_path,
-                date_added, play_count, rating";
+const TRACK_SELECT: &str = "SELECT tracks.id, tracks.title, tracks.artist, tracks.album, tracks.album_artist, tracks.track_number, tracks.disc_number,
+                tracks.year, tracks.genre, tracks.duration_seconds, tracks.sample_rate, tracks.bitrate, tracks.codec, tracks.file_path, tracks.art_path,
+                tracks.date_added, tracks.play_count, tracks.rating, track_lyrics.format";
+
+const TRACK_FROM_JOIN: &str =
+    "FROM tracks LEFT JOIN track_lyrics ON track_lyrics.track_id = tracks.id";
 
 fn map_track_row(row: &Row<'_>) -> rusqlite::Result<Track> {
     Ok(Track {
@@ -73,7 +89,19 @@ fn map_track_row(row: &Row<'_>) -> rusqlite::Result<Track> {
         date_added: row.get(15)?,
         play_count: row.get(16)?,
         rating: row.get(17)?,
+        lyrics_format: row
+            .get::<_, Option<String>>(18)?
+            .map(|value| parse_lyrics_format(&value)),
     })
+}
+
+fn table_exists(conn: &Connection, table: &str) -> Result<bool, rusqlite::Error> {
+    conn.query_row(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
+        [table],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|count| count > 0)
 }
 
 fn table_columns(conn: &Connection, table: &str) -> Result<Vec<String>, rusqlite::Error> {
@@ -149,6 +177,19 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute(
             "ALTER TABLE playlists ADD COLUMN custom_image_path TEXT",
             [],
+        )?;
+    }
+
+    if !table_exists(conn, "track_lyrics")? {
+        conn.execute_batch(
+            "CREATE TABLE track_lyrics (
+                track_id INTEGER PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
+                format TEXT NOT NULL DEFAULT 'plain',
+                source TEXT,
+                lines_json TEXT NOT NULL,
+                plain_text TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL
+            );",
         )?;
     }
 
@@ -248,7 +289,7 @@ pub fn set_track_rating(conn: &Connection, id: i64, rating: u8) -> Result<u8, ru
 pub fn get_all_tracks(conn: &Connection) -> Result<Vec<Track>, rusqlite::Error> {
     let sql = format!(
         "{TRACK_SELECT}
-         FROM tracks
+         {TRACK_FROM_JOIN}
          ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, track_number"
     );
     let mut stmt = conn.prepare(&sql)?;
@@ -362,7 +403,7 @@ pub fn update_track(
 }
 
 pub fn get_track_by_id(conn: &Connection, id: i64) -> Result<Option<Track>, rusqlite::Error> {
-    let sql = format!("{TRACK_SELECT} FROM tracks WHERE id = ?1");
+    let sql = format!("{TRACK_SELECT} {TRACK_FROM_JOIN} WHERE tracks.id = ?1");
     let mut stmt = conn.prepare(&sql)?;
     let mut rows = stmt.query(params![id])?;
     if let Some(row) = rows.next()? {
@@ -660,10 +701,142 @@ pub fn rename_artist_image_key(
     Ok(())
 }
 
+fn lyrics_format_to_str(format: LyricsFormat) -> &'static str {
+    match format {
+        LyricsFormat::Plain => "plain",
+        LyricsFormat::LineSynced => "line_synced",
+        LyricsFormat::WordSynced => "word_synced",
+        LyricsFormat::Instrumental => "instrumental",
+    }
+}
+
+fn parse_lyrics_format(value: &str) -> LyricsFormat {
+    match value {
+        "line_synced" => LyricsFormat::LineSynced,
+        "word_synced" => LyricsFormat::WordSynced,
+        "instrumental" => LyricsFormat::Instrumental,
+        _ => LyricsFormat::Plain,
+    }
+}
+
+fn lyrics_source_to_str(source: &LyricsSource) -> &'static str {
+    match source {
+        LyricsSource::Manual => "manual",
+        LyricsSource::Embedded => "embedded",
+        LyricsSource::Sidecar => "sidecar",
+        LyricsSource::Lrclib => "lrclib",
+    }
+}
+
+fn parse_lyrics_source(value: &str) -> Option<LyricsSource> {
+    match value {
+        "manual" => Some(LyricsSource::Manual),
+        "embedded" => Some(LyricsSource::Embedded),
+        "sidecar" => Some(LyricsSource::Sidecar),
+        "lrclib" => Some(LyricsSource::Lrclib),
+        _ => None,
+    }
+}
+
+fn map_track_lyrics_row(row: &Row<'_>) -> rusqlite::Result<TrackLyricsRecord> {
+    let track_id: i64 = row.get(0)?;
+    let format = parse_lyrics_format(&row.get::<_, String>(1)?);
+    let source = row
+        .get::<_, Option<String>>(2)?
+        .and_then(|value| parse_lyrics_source(&value));
+    let lines_json: String = row.get(3)?;
+    let lines: Vec<LyricsLine> = serde_json::from_str(&lines_json).map_err(|err| {
+        rusqlite::Error::FromSqlConversionFailure(3, rusqlite::types::Type::Text, Box::new(err))
+    })?;
+    Ok(TrackLyricsRecord {
+        track_id,
+        format,
+        source,
+        lines,
+        plain_text: row.get(4)?,
+        updated_at: row.get(5)?,
+    })
+}
+
+pub fn get_track_lyrics(
+    conn: &Connection,
+    track_id: i64,
+) -> Result<Option<TrackLyricsRecord>, rusqlite::Error> {
+    conn.query_row(
+        "SELECT track_id, format, source, lines_json, plain_text, updated_at
+         FROM track_lyrics WHERE track_id = ?1",
+        params![track_id],
+        map_track_lyrics_row,
+    )
+    .optional()
+}
+
+pub fn upsert_track_lyrics(
+    conn: &Connection,
+    record: &TrackLyricsRecord,
+) -> Result<(), rusqlite::Error> {
+    let lines_json = serde_json::to_string(&record.lines).map_err(|err| {
+        rusqlite::Error::ToSqlConversionFailure(Box::new(err))
+    })?;
+    let source = record
+        .source
+        .as_ref()
+        .map(lyrics_source_to_str);
+    conn.execute(
+        "INSERT INTO track_lyrics (track_id, format, source, lines_json, plain_text, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT(track_id) DO UPDATE SET
+            format = excluded.format,
+            source = excluded.source,
+            lines_json = excluded.lines_json,
+            plain_text = excluded.plain_text,
+            updated_at = excluded.updated_at",
+        params![
+            record.track_id,
+            lyrics_format_to_str(record.format.clone()),
+            source,
+            lines_json,
+            record.plain_text,
+            record.updated_at,
+        ],
+    )?;
+    Ok(())
+}
+
+pub fn delete_track_lyrics(conn: &Connection, track_id: i64) -> Result<(), rusqlite::Error> {
+    conn.execute("DELETE FROM track_lyrics WHERE track_id = ?1", params![track_id])?;
+    Ok(())
+}
+
+/// Batch load lyrics for multiple tracks (library hydration — Phase 2).
+#[allow(dead_code)]
+pub fn get_lyrics_for_track_ids(
+    conn: &Connection,
+    ids: &[i64],
+) -> Result<HashMap<i64, TrackLyricsRecord>, rusqlite::Error> {
+    if ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let placeholders = (0..ids.len()).map(|_| "?").collect::<Vec<_>>().join(", ");
+    let sql = format!(
+        "SELECT track_id, format, source, lines_json, plain_text, updated_at
+         FROM track_lyrics WHERE track_id IN ({placeholders})"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(rusqlite::params_from_iter(ids.iter()), map_track_lyrics_row)?;
+    let mut lyrics = HashMap::new();
+    for row in rows {
+        let record = row?;
+        lyrics.insert(record.track_id, record);
+    }
+    Ok(lyrics)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{TrackInput, TrackMetadataUpdate};
+    use crate::models::{LyricsFormat, LyricsLine, LyricsSource, TrackInput, TrackMetadataUpdate};
 
     fn test_conn() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
@@ -689,6 +862,7 @@ mod tests {
             file_path: path.into(),
             art_path: None,
             rating: None,
+            lyrics: None,
         }
     }
 
@@ -866,6 +1040,8 @@ mod tests {
                 genre: existing.genre.clone(),
                 art_path: existing.art_path.clone(),
                 art_changed: false,
+                lyrics: None,
+                lyrics_changed: false,
             },
             Some("/music/album/track.m4a"),
             None,
@@ -886,5 +1062,162 @@ mod tests {
         let tracks = get_all_tracks(&conn).unwrap();
         assert_eq!(tracks.len(), 2);
         assert_ne!(tracks[0].file_path, tracks[1].file_path);
+    }
+
+    fn sample_lyrics(track_id: i64, plain_text: &str) -> TrackLyricsRecord {
+        TrackLyricsRecord {
+            track_id,
+            format: LyricsFormat::Plain,
+            source: Some(LyricsSource::Manual),
+            lines: plain_text
+                .lines()
+                .map(|line| LyricsLine {
+                    text: line.to_string(),
+                    start_ms: None,
+                    end_ms: None,
+                    words: None,
+                })
+                .collect(),
+            plain_text: plain_text.to_string(),
+            updated_at: Utc::now().to_rfc3339(),
+        }
+    }
+
+    #[test]
+    fn track_lyrics_round_trip() {
+        let conn = test_conn();
+        save_track(&conn, &sample_input("/music/lyrics.mp3")).unwrap();
+
+        let record = sample_lyrics(1, "Line one\nLine two");
+        upsert_track_lyrics(&conn, &record).unwrap();
+
+        let loaded = get_track_lyrics(&conn, 1).unwrap().unwrap();
+        assert_eq!(loaded.track_id, 1);
+        assert_eq!(loaded.format, LyricsFormat::Plain);
+        assert_eq!(loaded.source, Some(LyricsSource::Manual));
+        assert_eq!(loaded.plain_text, "Line one\nLine two");
+        assert_eq!(loaded.lines.len(), 2);
+        assert_eq!(loaded.lines[0].text, "Line one");
+        assert_eq!(loaded.lines[1].text, "Line two");
+    }
+
+    #[test]
+    fn track_lyrics_instrumental_round_trip_and_track_format() {
+        let conn = test_conn();
+        save_track(&conn, &sample_input("/music/instrumental.mp3")).unwrap();
+
+        let record = TrackLyricsRecord {
+            track_id: 1,
+            format: LyricsFormat::Instrumental,
+            source: Some(LyricsSource::Lrclib),
+            lines: vec![],
+            plain_text: String::new(),
+            updated_at: Utc::now().to_rfc3339(),
+        };
+        upsert_track_lyrics(&conn, &record).unwrap();
+
+        let loaded = get_track_lyrics(&conn, 1).unwrap().unwrap();
+        assert_eq!(loaded.format, LyricsFormat::Instrumental);
+        assert_eq!(loaded.source, Some(LyricsSource::Lrclib));
+        assert!(loaded.plain_text.is_empty());
+
+        let track = get_track_by_id(&conn, 1).unwrap().unwrap();
+        assert_eq!(track.lyrics_format, Some(LyricsFormat::Instrumental));
+    }
+
+    #[test]
+    fn track_lyrics_upsert_replaces_existing() {
+        let conn = test_conn();
+        save_track(&conn, &sample_input("/music/lyrics.mp3")).unwrap();
+
+        upsert_track_lyrics(&conn, &sample_lyrics(1, "First version")).unwrap();
+        upsert_track_lyrics(&conn, &sample_lyrics(1, "Second version")).unwrap();
+
+        let loaded = get_track_lyrics(&conn, 1).unwrap().unwrap();
+        assert_eq!(loaded.plain_text, "Second version");
+    }
+
+    #[test]
+    fn delete_track_lyrics_removes_row() {
+        let conn = test_conn();
+        save_track(&conn, &sample_input("/music/lyrics.mp3")).unwrap();
+        upsert_track_lyrics(&conn, &sample_lyrics(1, "To delete")).unwrap();
+
+        delete_track_lyrics(&conn, 1).unwrap();
+        assert!(get_track_lyrics(&conn, 1).unwrap().is_none());
+    }
+
+    #[test]
+    fn get_lyrics_for_track_ids_returns_batch_map() {
+        let conn = test_conn();
+        save_track(&conn, &sample_input("/music/a.mp3")).unwrap();
+        save_track(&conn, &sample_input("/music/b.mp3")).unwrap();
+        save_track(&conn, &sample_input("/music/c.mp3")).unwrap();
+
+        upsert_track_lyrics(&conn, &sample_lyrics(1, "Track A")).unwrap();
+        upsert_track_lyrics(&conn, &sample_lyrics(3, "Track C")).unwrap();
+
+        let lyrics = get_lyrics_for_track_ids(&conn, &[1, 2, 3]).unwrap();
+        assert_eq!(lyrics.len(), 2);
+        assert_eq!(lyrics.get(&1).unwrap().plain_text, "Track A");
+        assert_eq!(lyrics.get(&3).unwrap().plain_text, "Track C");
+        assert!(!lyrics.contains_key(&2));
+    }
+
+    #[test]
+    fn delete_track_cascades_lyrics() {
+        let conn = test_conn();
+        save_track(&conn, &sample_input("/music/lyrics.mp3")).unwrap();
+        upsert_track_lyrics(&conn, &sample_lyrics(1, "Cascade me")).unwrap();
+
+        conn.execute("DELETE FROM tracks WHERE id = 1", []).unwrap();
+        assert!(get_track_lyrics(&conn, 1).unwrap().is_none());
+    }
+
+    #[test]
+    fn persist_import_lyrics_upserts_when_present() {
+        use crate::lyrics_normalize::{normalize_embedded_lyrics, persist_import_lyrics};
+        use crate::lyrics_tags::{LyricsFormatHint, RawLyrics};
+
+        let conn = test_conn();
+        save_track(&conn, &sample_input("/music/song.mp3")).unwrap();
+
+        let input = normalize_embedded_lyrics(RawLyrics {
+            text: "Embedded verse".to_string(),
+            hint: LyricsFormatHint::Plain,
+        });
+        persist_import_lyrics(&conn, 1, &Some(input)).unwrap();
+
+        let loaded = get_track_lyrics(&conn, 1).unwrap().unwrap();
+        assert_eq!(loaded.plain_text, "Embedded verse");
+        assert_eq!(loaded.source, Some(LyricsSource::Embedded));
+    }
+
+    #[test]
+    fn persist_import_lyrics_skips_when_absent() {
+        use crate::lyrics_normalize::persist_import_lyrics;
+
+        let conn = test_conn();
+        save_track(&conn, &sample_input("/music/song.mp3")).unwrap();
+        upsert_track_lyrics(&conn, &sample_lyrics(1, "Existing")).unwrap();
+
+        persist_import_lyrics(&conn, 1, &None).unwrap();
+
+        let loaded = get_track_lyrics(&conn, 1).unwrap().unwrap();
+        assert_eq!(loaded.plain_text, "Existing");
+    }
+
+    #[test]
+    fn get_track_by_id_includes_lyrics_format_when_present() {
+        let conn = test_conn();
+        save_track(&conn, &sample_input("/music/song.mp3")).unwrap();
+
+        let without_lyrics = get_track_by_id(&conn, 1).unwrap().unwrap();
+        assert!(without_lyrics.lyrics_format.is_none());
+
+        upsert_track_lyrics(&conn, &sample_lyrics(1, "Line one")).unwrap();
+
+        let with_plain = get_track_by_id(&conn, 1).unwrap().unwrap();
+        assert_eq!(with_plain.lyrics_format, Some(LyricsFormat::Plain));
     }
 }

@@ -1,4 +1,5 @@
 import type { Track } from "../../types/track";
+import { lyricsFormatSortRank } from "../../lib/lyrics";
 import type { TrackListSortDir, TrackListSortField } from "./types";
 
 export function compareTracks(
@@ -64,6 +65,13 @@ export function compareTracks(
     case "bitrate":
       cmp = (a.bitrate ?? 0) - (b.bitrate ?? 0);
       break;
+    case "lyrics": {
+      const noLyricsRank = dir === "asc" ? 99 : -1;
+      cmp =
+        lyricsFormatSortRank(a.lyricsFormat, noLyricsRank) -
+        lyricsFormatSortRank(b.lyricsFormat, noLyricsRank);
+      break;
+    }
   }
 
   return dir === "asc" ? cmp : -cmp;

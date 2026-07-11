@@ -33,9 +33,29 @@
   color: var(--color-text-secondary);
 }
 
+.import-dedupe-modal__lyrics {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.import-dedupe-modal__lyrics-label {
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+}
+
 .import-dedupe-modal__replace-note {
   margin: 0 0 1rem;
   font-size: 0.85rem;
   line-height: 1.45;
   color: var(--color-text-secondary);
+}
+
+.import-dedupe-modal__options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
 }

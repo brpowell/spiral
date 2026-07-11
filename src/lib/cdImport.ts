@@ -3,6 +3,7 @@ import { resolveCdSharedArtPath } from "./cdArt";
 import { isCdImportCancelRequested } from "./cdImportGuard";
 import {
   commitImportEntries,
+  formatImportLyricsDetail,
   formatImportSummary,
   resolveImportDuplicates,
   type ImportResult,
@@ -175,6 +176,9 @@ export function startCdImport(options: {
           replaced: 0,
           failed: 0,
           errors: [],
+          lyricsFromTags: 0,
+          lyricsFromSidecar: 0,
+          lyricsNone: 0,
         };
         const importedTracks: Track[] = [];
 
@@ -245,6 +249,9 @@ export function startCdImport(options: {
           result.replaced += trackResult.replaced;
           result.failed += trackResult.failed;
           result.errors.push(...trackResult.errors);
+          result.lyricsFromTags += trackResult.lyricsFromTags;
+          result.lyricsFromSidecar += trackResult.lyricsFromSidecar;
+          result.lyricsNone += trackResult.lyricsNone;
 
           if (trackResult.imported > 0 || trackResult.replaced > 0) {
             cdImport.completeTrack(plan.trackNumber);
@@ -294,6 +301,12 @@ export function startCdImport(options: {
 
         const summary = formatImportSummary(result);
         ctx.setLabel(summary);
+        const lyricsDetail = formatImportLyricsDetail(result);
+        if (lyricsDetail) {
+          ctx.setDetail(lyricsDetail);
+        } else {
+          ctx.clearDetail();
+        }
 
         if (result.failed > 0) {
           usePlayerStore.setState({

@@ -35,6 +35,10 @@
   opacity: 0.7;
 }
 
+.now-playing-metadata__art--lightbox-open {
+  visibility: hidden;
+}
+
 .now-playing-metadata__art-stack {
   position: relative;
   width: 100%;

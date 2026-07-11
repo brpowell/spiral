@@ -2,24 +2,24 @@ import { create } from "zustand";
 import { afterUiTransition } from "../lib/scheduling";
 import type {
   ImportDuplicateContext,
-  ImportDedupeAction,
+  ImportDedupeResolution,
 } from "../lib/trackDedupe";
 
 interface ImportDedupePromptRequest {
   context: ImportDuplicateContext;
-  resolve: (action: ImportDedupeAction) => void;
+  resolve: (resolution: ImportDedupeResolution) => void;
   reject: (reason?: unknown) => void;
 }
 
 interface ImportDedupeState {
   prompt: ImportDedupePromptRequest | null;
-  batchRule: ImportDedupeAction | null;
+  batchRule: ImportDedupeResolution | null;
   resetImportDedupeSession: () => void;
   promptImportDedupe: (
     context: ImportDuplicateContext,
-  ) => Promise<ImportDedupeAction>;
+  ) => Promise<ImportDedupeResolution>;
   resolveImportDedupe: (
-    action: ImportDedupeAction,
+    resolution: ImportDedupeResolution,
     applyToRemaining: boolean,
   ) => Promise<void>;
   rejectImportDedupe: () => void;
@@ -36,26 +36,28 @@ export const useImportDedupeStore = create<ImportDedupeState>((set, get) => ({
   promptImportDedupe: (context) => {
     const batchRule = get().batchRule;
     if (batchRule != null) {
-      return Promise.resolve(batchRule);
+      return Promise.resolve(applyBatchRule(batchRule, context));
     }
 
-    return new Promise<ImportDedupeAction>((resolve, reject) => {
+    return new Promise<ImportDedupeResolution>((resolve, reject) => {
       set({ prompt: { context, resolve, reject } });
     });
   },
 
-  resolveImportDedupe: async (action, applyToRemaining) => {
+  resolveImportDedupe: async (resolution, applyToRemaining) => {
     const prompt = get().prompt;
     if (!prompt) return;
 
     set({
       prompt: null,
       batchRule:
-        applyToRemaining && action !== "import" ? action : get().batchRule,
+        applyToRemaining && resolution.action !== "import"
+          ? resolution
+          : get().batchRule,
     });
 
     await afterUiTransition();
-    prompt.resolve(action);
+    prompt.resolve(resolution);
   },
 
   rejectImportDedupe: () => {
@@ -65,6 +67,20 @@ export const useImportDedupeStore = create<ImportDedupeState>((set, get) => ({
     set({ prompt: null });
   },
 }));
+
+/** Apply a batch rule to the current prompt, scoping lyrics preference to conflicts. */
+export function applyBatchRule(
+  batchRule: ImportDedupeResolution,
+  context: ImportDuplicateContext,
+): ImportDedupeResolution {
+  if (batchRule.action === "replace" && context.hasLyricsConflict) {
+    return {
+      action: "replace",
+      replaceLyrics: batchRule.replaceLyrics ?? false,
+    };
+  }
+  return { action: batchRule.action };
+}
 
 export class ImportCancelledError extends Error {
   constructor() {

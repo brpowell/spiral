@@ -13,6 +13,13 @@ import type { CoverArtCandidate } from "../types/coverArt";
 import type { Playlist } from "../types/playlist";
 import type { PlaybackSettings } from "../types/playbackSettings";
 import type { Track, TrackInput } from "../types/track";
+import type {
+  LyricsFetchOutcome,
+  LyricsFormat,
+  LyricsSearchCandidate,
+  TrackLyrics,
+} from "../types/lyrics";
+import { normalizeTrackLyrics, normalizeTrackLyricsInput } from "./lyrics";
 import type { ActivityLogContext } from "../types/activityLog";
 
 function normalizeCoverArtCandidate(
@@ -76,6 +83,10 @@ function normalizeTrack(raw: Record<string, unknown>): Track {
       0,
     rating:
       (raw.rating as number | undefined) ?? 0,
+    lyricsFormat:
+      (raw.lyricsFormat as LyricsFormat | null | undefined) ??
+      (raw.lyrics_format as LyricsFormat | null | undefined) ??
+      null,
   };
 }
 
@@ -88,6 +99,119 @@ export async function setTrackRating(
   rating: number,
 ): Promise<number> {
   return invoke<number>("set_track_rating", { trackId, rating });
+}
+
+export async function getTrackLyrics(
+  trackId: number,
+): Promise<TrackLyrics | null> {
+  const raw = await invoke<Record<string, unknown> | null>("get_track_lyrics", {
+    trackId,
+  });
+  return raw ? normalizeTrackLyrics(raw) : null;
+}
+
+function normalizeLyricsSearchCandidate(
+  raw: Record<string, unknown>,
+): LyricsSearchCandidate {
+  return {
+    id: raw.id as number,
+    trackName:
+      (raw.trackName as string | undefined) ??
+      (raw.track_name as string | undefined) ??
+      "",
+    artistName:
+      (raw.artistName as string | undefined) ??
+      (raw.artist_name as string | undefined) ??
+      "",
+    albumName:
+      (raw.albumName as string | undefined) ??
+      (raw.album_name as string | undefined) ??
+      "",
+    duration: (raw.duration as number | undefined) ?? 0,
+    lyrics: normalizeTrackLyricsInput(
+      (raw.lyrics as Record<string, unknown> | undefined) ?? {},
+    ),
+  };
+}
+
+function normalizeLyricsFetchOutcome(
+  raw: Record<string, unknown>,
+): LyricsFetchOutcome {
+  const status = (raw.status as string | undefined) ?? "not_found";
+  if (status === "found") {
+    return {
+      status: "found",
+      lyrics: normalizeTrackLyricsInput(
+        (raw.lyrics as Record<string, unknown> | undefined) ?? {},
+      ),
+    };
+  }
+  if (status === "ambiguous") {
+    const candidates = Array.isArray(raw.candidates)
+      ? raw.candidates.map((candidate) =>
+          normalizeLyricsSearchCandidate(candidate as Record<string, unknown>),
+        )
+      : [];
+    return { status: "ambiguous", candidates };
+  }
+  if (status === "instrumental") {
+    return { status: "instrumental" };
+  }
+  return { status: "not_found" };
+}
+
+export type LyricsFetchCachePeek =
+  | "notCached"
+  | "miss"
+  | "hit"
+  | "instrumental";
+
+export async function peekLyricsFetchCache(params: {
+  artist: string;
+  title: string;
+  durationSeconds?: number | null;
+}): Promise<LyricsFetchCachePeek> {
+  return invoke<LyricsFetchCachePeek>("peek_lyrics_fetch_cache", {
+    artist: params.artist,
+    title: params.title,
+    durationSeconds: params.durationSeconds ?? null,
+  });
+}
+
+export async function markTrackInstrumental(trackId: number): Promise<Track> {
+  const raw = await invoke<Record<string, unknown>>("mark_track_instrumental", {
+    trackId,
+  });
+  return normalizeTrack(raw);
+}
+
+export async function fetchLyricsLrclib(
+  params: {
+    artist: string;
+    albumArtist?: string;
+    title: string;
+    album: string;
+    durationSeconds?: number | null;
+  },
+  options?: { respectMissCache?: boolean },
+): Promise<LyricsFetchOutcome> {
+  const raw = await invoke<Record<string, unknown>>("fetch_lyrics_lrclib", {
+    artist: params.artist,
+    albumArtist: params.albumArtist ?? "",
+    title: params.title,
+    album: params.album,
+    durationSeconds: params.durationSeconds ?? null,
+    respectMissCache: options?.respectMissCache ?? false,
+  });
+  return normalizeLyricsFetchOutcome(raw);
+}
+
+export async function cancelLyricsFetch(): Promise<void> {
+  await invoke("cancel_lyrics_fetch");
+}
+
+export async function clearLyricsFetchCancel(): Promise<void> {
+  await invoke("clear_lyrics_fetch_cancel");
 }
 
 export async function pickAudioFiles(): Promise<string[]> {
@@ -631,7 +755,9 @@ export interface TrackListPreferencesPayload {
       number
     >
   >;
-  hiddenColumns: string[];
+  hiddenColumnsByPreset: Partial<
+    Record<"library" | "album" | "playlist" | "cd", string[]>
+  >;
   columnOrderByPreset: Partial<
     Record<"library" | "album" | "playlist" | "cd", string[]>
   >;
@@ -652,12 +778,33 @@ function normalizeTrackListPreferences(
     }
   }
 
-  const hiddenRaw =
+  const hiddenByPresetRaw =
+    (raw.hiddenColumnsByPreset as
+      | Record<string, unknown>
+      | undefined) ??
+    (raw.hidden_columns_by_preset as Record<string, unknown> | undefined);
+  const hiddenColumnsByPreset: TrackListPreferencesPayload["hiddenColumnsByPreset"] =
+    {};
+  if (hiddenByPresetRaw && typeof hiddenByPresetRaw === "object") {
+    for (const [presetKey, ids] of Object.entries(hiddenByPresetRaw)) {
+      if (!Array.isArray(ids)) continue;
+      hiddenColumnsByPreset[presetKey as keyof typeof hiddenColumnsByPreset] =
+        ids.filter((v): v is string => typeof v === "string");
+    }
+  }
+
+  const legacyHiddenRaw =
     (raw.hiddenColumns as unknown[] | undefined) ??
     (raw.hidden_columns as unknown[] | undefined);
-  const hiddenColumns = Array.isArray(hiddenRaw)
-    ? hiddenRaw.filter((v): v is string => typeof v === "string")
-    : [];
+  if (
+    !hiddenColumnsByPreset.library &&
+    Array.isArray(legacyHiddenRaw) &&
+    legacyHiddenRaw.length > 0
+  ) {
+    hiddenColumnsByPreset.library = legacyHiddenRaw.filter(
+      (v): v is string => typeof v === "string",
+    );
+  }
 
   const orderRaw =
     (raw.columnOrderByPreset as
@@ -674,7 +821,7 @@ function normalizeTrackListPreferences(
     }
   }
 
-  return { columnWidths, hiddenColumns, columnOrderByPreset };
+  return { columnWidths, hiddenColumnsByPreset, columnOrderByPreset };
 }
 
 export async function getTrackListPreferences(): Promise<TrackListPreferencesPayload> {

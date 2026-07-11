@@ -1,5 +1,6 @@
 import { Fragment, memo, useCallback, useRef, type CSSProperties, type ReactNode } from "react";
 import { DEFAULT_ARTIST_JOIN_DELIMITER } from "../../lib/artistNames";
+import { formatTrackLyricsColumnLabel } from "../../lib/lyrics";
 import { formatDateAdded, formatTime } from "../../lib/format";
 import { formatBitrate, formatCodec, formatSampleRate } from "../../lib/formatAudio";
 import {
@@ -58,6 +59,8 @@ function cellValue(track: Track, columnId: TrackListColumnId): ReactNode {
       return formatSampleRate(track.sampleRate) ?? "—";
     case "bitrate":
       return formatBitrate(track.bitrate) ?? "—";
+    case "lyrics":
+      return formatTrackLyricsColumnLabel(track.lyricsFormat);
     default:
       return "—";
   }

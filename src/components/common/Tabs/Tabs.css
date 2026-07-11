@@ -1,0 +1,101 @@
+.tabs {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tabs__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  background: transparent;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.tabs__tab:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+}
+
+.tabs__tab:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.tabs--underline .tabs__tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.tabs__tab--selected {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.tabs__tab:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tabs__badge {
+  font-size: 0.75rem;
+  line-height: 1;
+  color: var(--color-accent);
+}
+
+.tabs__panel {
+  min-width: 0;
+}
+
+.tabs__panel[hidden] {
+  display: none;
+}
+
+/* Underline variant */
+
+.tabs--underline .tabs__list {
+  gap: 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tabs--underline .tabs__tab {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.5rem 0.85rem;
+}
+
+.tabs--underline .tabs__tab--selected {
+  background: transparent;
+  color: var(--color-accent);
+}
+
+.tabs__list--underline {
+  position: relative;
+}
+
+.tabs__indicator {
+  position: absolute;
+  bottom: 0;
+  height: 2px;
+  background: var(--color-accent);
+  pointer-events: none;
+  transition:
+    left 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}

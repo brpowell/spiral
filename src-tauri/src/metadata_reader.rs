@@ -1,6 +1,9 @@
 use crate::art_cache;
 use crate::artist_tags::join_artist_field;
 use crate::audio_properties;
+use crate::lyrics_normalize;
+use crate::lyrics_sidecar;
+use crate::lyrics_tags;
 use crate::models::TrackInput;
 use crate::rating_tags;
 use id3::{Tag, TagLike};
@@ -20,6 +23,7 @@ pub struct BasicTags {
     pub genre: Option<String>,
     pub duration_seconds: Option<f64>,
     pub rating: Option<u8>,
+    pub lyrics: Option<lyrics_tags::RawLyrics>,
 }
 
 fn audio_extension(path: &Path) -> Option<String> {
@@ -93,6 +97,8 @@ fn read_id3_tags(
         if let Some(picture) = tag.pictures().next() {
             art = Some((picture.data.clone(), picture.mime_type.clone()));
         }
+
+        tags.lyrics = lyrics_tags::read_lyrics_from_id3(&tag);
     }
 
     if tags.duration_seconds.is_none() {
@@ -161,6 +167,8 @@ fn read_flac_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
         art = Some((picture.data.clone(), picture.mime_type.clone()));
     }
 
+    tags.lyrics = lyrics_tags::read_lyrics_from_flac(&tag);
+
     (tags, art)
 }
 
@@ -194,6 +202,8 @@ fn read_mp4_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
         };
         art = Some((picture.data.to_vec(), mime.to_string()));
     }
+
+    tags.lyrics = lyrics_tags::read_lyrics_from_mp4(&tag);
 
     (tags, art)
 }
@@ -255,6 +265,7 @@ pub fn read_basic_tags(path: &Path) -> BasicTags {
 pub fn parse_track_metadata(
     app_data_dir: &Path,
     file_path: &str,
+    lyrics_sidecar_enabled: bool,
 ) -> Result<TrackInput, String> {
     let path = PathBuf::from(file_path);
     if !path.is_file() {
@@ -295,6 +306,18 @@ pub fn parse_track_metadata(
         file_path: file_path.to_string(),
         art_path,
         rating: tags.rating,
+        lyrics: {
+            let embedded = tags
+                .lyrics
+                .map(lyrics_normalize::normalize_embedded_lyrics);
+            let sidecar = if lyrics_sidecar_enabled {
+                lyrics_sidecar::read_lyrics_sidecar(&path)
+                    .map(lyrics_normalize::normalize_sidecar_lyrics)
+            } else {
+                None
+            };
+            lyrics_normalize::resolve_embedded_and_sidecar_lyrics(embedded, sidecar)
+        },
     })
 }
 
@@ -330,7 +353,7 @@ mod tests {
         writeln!(f, "not a real wav").unwrap();
 
         let app_data = dir.join("appdata");
-        let result = parse_track_metadata(&app_data, file.to_str().unwrap()).unwrap();
+        let result = parse_track_metadata(&app_data, file.to_str().unwrap(), true).unwrap();
         assert_eq!(result.title, "Plain");
         assert_eq!(result.file_path, file.to_string_lossy());
         assert_eq!(result.rating, None);
@@ -372,7 +395,7 @@ mod tests {
         rating_tags::write_rating_to_file(&audio, 204, &backup_config).unwrap();
 
         let app_data = dir.join("appdata");
-        let result = parse_track_metadata(&app_data, audio.to_str().unwrap()).unwrap();
+        let result = parse_track_metadata(&app_data, audio.to_str().unwrap(), true).unwrap();
         assert_eq!(result.rating, Some(204));
 
         let _ = fs::remove_dir_all(&dir);
@@ -448,9 +471,186 @@ mod tests {
         rating_tags::write_rating_to_file(&audio, 180, &backup_config).unwrap();
 
         let app_data = dir.join("appdata");
-        let result = parse_track_metadata(&app_data, audio.to_str().unwrap()).unwrap();
+        let result = parse_track_metadata(&app_data, audio.to_str().unwrap(), true).unwrap();
         assert_eq!(result.rating, Some(180));
         assert_eq!(result.title, "WAV Title");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn parse_track_metadata_reads_embedded_flac_lyrics() {
+        use metaflac::Tag as FlacTag;
+        use std::path::PathBuf;
+
+        let dir = std::env::temp_dir().join(format!("spiral-meta-lyrics-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let audio = dir.join("lyrics.flac");
+        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.flac");
+        fs::copy(src, &audio).unwrap();
+        let mut tag = FlacTag::read_from_path(&audio).unwrap();
+        tag.set_vorbis("LYRICS", vec!["Embedded line one\nEmbedded line two"]);
+        tag.save().unwrap();
+
+        let app_data = dir.join("appdata");
+        let result = parse_track_metadata(&app_data, audio.to_str().unwrap(), true).unwrap();
+        let lyrics = result.lyrics.expect("lyrics payload");
+        assert_eq!(lyrics.format, crate::models::LyricsFormat::Plain);
+        assert_eq!(lyrics.source, Some(crate::models::LyricsSource::Embedded));
+        assert_eq!(lyrics.plain_text, "Embedded line one\nEmbedded line two");
+        assert_eq!(lyrics.lines.len(), 2);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn parse_track_metadata_reads_embedded_lrc_as_line_synced() {
+        use metaflac::Tag as FlacTag;
+        use std::path::PathBuf;
+
+        let dir = std::env::temp_dir().join(format!("spiral-meta-lrc-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let audio = dir.join("synced.flac");
+        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.flac");
+        fs::copy(src, &audio).unwrap();
+        let mut tag = FlacTag::read_from_path(&audio).unwrap();
+        tag.set_vorbis("LYRICS", vec!["[00:05.00] Synced line"]);
+        tag.save().unwrap();
+
+        let app_data = dir.join("appdata");
+        let result = parse_track_metadata(&app_data, audio.to_str().unwrap(), true).unwrap();
+        let lyrics = result.lyrics.expect("lyrics payload");
+        assert_eq!(lyrics.format, crate::models::LyricsFormat::LineSynced);
+        assert_eq!(lyrics.plain_text, "Synced line");
+        assert_eq!(lyrics.lines[0].start_ms, Some(5_000));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn parse_track_metadata_reads_sidecar_when_tags_have_no_lyrics() {
+        use std::io::Write;
+        use std::path::PathBuf;
+
+        let dir = std::env::temp_dir().join(format!("spiral-meta-sidecar-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let audio = dir.join("sidecar.flac");
+        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.flac");
+        fs::copy(src, &audio).unwrap();
+
+        let sidecar = dir.join("sidecar.lrc");
+        let mut file = std::fs::File::create(&sidecar).unwrap();
+        writeln!(file, "[00:08.00] Sidecar lyrics").unwrap();
+
+        let app_data = dir.join("appdata");
+        let result = parse_track_metadata(&app_data, audio.to_str().unwrap(), true).unwrap();
+        let lyrics = result.lyrics.expect("sidecar lyrics");
+        assert_eq!(lyrics.format, crate::models::LyricsFormat::LineSynced);
+        assert_eq!(lyrics.source, Some(crate::models::LyricsSource::Sidecar));
+        assert_eq!(lyrics.plain_text, "Sidecar lyrics");
+        assert_eq!(lyrics.lines[0].start_ms, Some(8_000));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn parse_track_metadata_prefers_line_synced_sidecar_over_plain_tags() {
+        use metaflac::Tag as FlacTag;
+        use std::io::Write;
+        use std::path::PathBuf;
+
+        let dir = std::env::temp_dir().join(format!(
+            "spiral-meta-prefer-sidecar-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let audio = dir.join("prefer.flac");
+        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.flac");
+        fs::copy(src, &audio).unwrap();
+        let mut tag = FlacTag::read_from_path(&audio).unwrap();
+        tag.set_vorbis("LYRICS", vec!["Same line"]);
+        tag.save().unwrap();
+
+        let sidecar = dir.join("prefer.lrc");
+        let mut file = std::fs::File::create(&sidecar).unwrap();
+        writeln!(file, "[00:04.00] Same line").unwrap();
+
+        let app_data = dir.join("appdata");
+        let result = parse_track_metadata(&app_data, audio.to_str().unwrap(), true).unwrap();
+        let lyrics = result.lyrics.expect("lyrics");
+        assert_eq!(lyrics.format, crate::models::LyricsFormat::LineSynced);
+        assert_eq!(lyrics.source, Some(crate::models::LyricsSource::Sidecar));
+        assert_eq!(lyrics.plain_text, "Same line");
+        assert_eq!(lyrics.lines[0].start_ms, Some(4_000));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn parse_track_metadata_keeps_tags_when_same_format_content_differs() {
+        use metaflac::Tag as FlacTag;
+        use std::io::Write;
+        use std::path::PathBuf;
+
+        let dir = std::env::temp_dir().join(format!(
+            "spiral-meta-tags-win-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let audio = dir.join("conflict.flac");
+        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.flac");
+        fs::copy(src, &audio).unwrap();
+        let mut tag = FlacTag::read_from_path(&audio).unwrap();
+        tag.set_vorbis("LYRICS", vec!["[00:01.00] From tags"]);
+        tag.save().unwrap();
+
+        let sidecar = dir.join("conflict.lrc");
+        let mut file = std::fs::File::create(&sidecar).unwrap();
+        writeln!(file, "[00:02.00] From sidecar").unwrap();
+
+        let app_data = dir.join("appdata");
+        let result = parse_track_metadata(&app_data, audio.to_str().unwrap(), true).unwrap();
+        let lyrics = result.lyrics.expect("lyrics");
+        assert_eq!(lyrics.format, crate::models::LyricsFormat::LineSynced);
+        assert_eq!(lyrics.source, Some(crate::models::LyricsSource::Embedded));
+        assert_eq!(lyrics.plain_text, "From tags");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn parse_track_metadata_skips_sidecar_when_disabled() {
+        use std::io::Write;
+        use std::path::PathBuf;
+
+        let dir = std::env::temp_dir().join(format!(
+            "spiral-meta-sidecar-off-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let audio = dir.join("sidecar.flac");
+        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.flac");
+        fs::copy(src, &audio).unwrap();
+
+        let sidecar = dir.join("sidecar.lrc");
+        let mut file = std::fs::File::create(&sidecar).unwrap();
+        writeln!(file, "[00:08.00] Sidecar lyrics").unwrap();
+
+        let app_data = dir.join("appdata");
+        let result = parse_track_metadata(&app_data, audio.to_str().unwrap(), false).unwrap();
+        assert!(result.lyrics.is_none());
 
         let _ = std::fs::remove_dir_all(&dir);
     }

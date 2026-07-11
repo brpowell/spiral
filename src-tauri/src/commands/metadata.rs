@@ -1,10 +1,13 @@
 use super::library::DbState;
 use crate::art_cache::{self, guess_ext_from_url};
+use crate::lyrics_normalize;
+use crate::lyrics_sidecar;
 use crate::metadata_reader;
 use crate::models::TrackInput;
 use crate::artist_art_fetch;
 use crate::cover_art_fetch::{self, CoverArtCandidate};
 use crate::disc_metadata_cache;
+use crate::lyrics_fetch;
 use crate::db;
 use crate::library_organize;
 use crate::metadata_backup;
@@ -26,7 +29,8 @@ pub async fn parse_track_metadata(
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let app_data = app_data_dir(&app)?;
-        metadata_reader::parse_track_metadata(&app_data, &file_path)
+        let lyrics_sidecar_enabled = settings::lyrics_sidecar_sync_enabled(&app);
+        metadata_reader::parse_track_metadata(&app_data, &file_path, lyrics_sidecar_enabled)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -208,6 +212,7 @@ pub async fn clear_metadata_cache(app: AppHandle) -> Result<(), String> {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         disc_metadata_cache::clear_lookup_cache(&app)?;
+        lyrics_fetch::clear_fetch_cache(&app)?;
         cover_art_fetch::clear_fetch_cache();
         artist_art_fetch::clear_fetch_cache();
 
@@ -247,6 +252,7 @@ pub fn write_track_metadata(
             &library.organize_path_format,
             path,
             &metadata,
+            library.lyrics_sidecar_sync_enabled,
         )? {
             final_path = new_path.to_string_lossy().into_owned();
             let app_data = app_data_dir(&app)?;
@@ -273,11 +279,33 @@ pub fn write_track_metadata(
         None
     };
 
+    if metadata.lyrics_changed && library.lyrics_sidecar_sync_enabled {
+        lyrics_sidecar::sync_sidecar(Path::new(&final_path), metadata.lyrics.as_ref())?;
+    }
+
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     db::update_track(&conn, track_id, &metadata, new_file_path, None).map_err(|e| {
         eprintln!("update_track error: {e}");
         e.to_string()
     })?;
+
+    if metadata.lyrics_changed {
+        if let Some(lyrics) = metadata.lyrics.as_ref().filter(|lyrics| {
+            lyrics.format == crate::models::LyricsFormat::Instrumental
+                || !lyrics.plain_text.trim().is_empty()
+        }) {
+            let record = lyrics_normalize::track_lyrics_input_to_record(lyrics.clone(), track_id);
+            db::upsert_track_lyrics(&conn, &record).map_err(|e| {
+                eprintln!("upsert_track_lyrics error: {e}");
+                e.to_string()
+            })?;
+        } else {
+            db::delete_track_lyrics(&conn, track_id).map_err(|e| {
+                eprintln!("delete_track_lyrics error: {e}");
+                e.to_string()
+            })?;
+        }
+    }
 
     let track = db::get_track_by_id(&conn, track_id)
         .map_err(|e| e.to_string())?

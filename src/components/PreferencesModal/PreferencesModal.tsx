@@ -149,6 +149,8 @@ export function PreferencesModal() {
         cdImportProfileId: draft.cdImportProfileId,
         metadataBackupsEnabled: draft.metadataBackupsEnabled,
         metadataBackupRetentionDays: draft.metadataBackupRetentionDays,
+        lyricsSidecarSyncEnabled: draft.lyricsSidecarSyncEnabled,
+        lyricsAutoFetchInLightbox: draft.lyricsAutoFetchInLightbox,
       });
       setRestartHint(dbChanged);
       if (!dbChanged) setOpen(false);
@@ -476,6 +478,53 @@ export function PreferencesModal() {
             Crossfade applies between mp3, flac, aac, wav, and m4a tracks.
             OGG, Opus, and CD transitions are not supported and will instantly switch.
           </p>
+        </section>
+
+        <section
+          className="preferences__section"
+          aria-labelledby="lyrics-prefs-heading"
+        >
+          <h3 id="lyrics-prefs-heading" className="preferences__section-title">
+            Lyrics
+          </h3>
+          <p className="preferences__hint">
+            Line-synced lyrics can be stored in a sibling <code>.lrc</code> file
+            next to the audio track. When enabled, Spiral reads existing{" "}
+            <code>.lrc</code> files on import and keeps them in sync on save.
+            Spiral can also look up lyrics from{" "}
+            <a href="https://lrclib.net" target="_blank" rel="noreferrer">
+              LRCLIB
+            </a>
+            .
+          </p>
+
+          <Checkbox
+            alignStart
+            className="preferences__checkbox"
+            checked={draft.lyricsAutoFetchInLightbox}
+            onChange={(e) =>
+              setDraft((d) =>
+                d
+                  ? { ...d, lyricsAutoFetchInLightbox: e.target.checked }
+                  : d,
+              )
+            }
+          >
+            Automatically fetch lyrics when viewing album art
+          </Checkbox>
+
+          <Checkbox
+            alignStart
+            className="preferences__checkbox"
+            checked={draft.lyricsSidecarSyncEnabled}
+            onChange={(e) =>
+              setDraft((d) =>
+                d ? { ...d, lyricsSidecarSyncEnabled: e.target.checked } : d,
+              )
+            }
+          >
+            Read and write line-synced lyrics via .lrc sidecar files
+          </Checkbox>
         </section>
 
         <section

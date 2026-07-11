@@ -1,4 +1,5 @@
 use crate::library_organize::{self, OrganizeMetadata};
+use crate::lyrics_sidecar;
 use crate::metadata_reader::{self, read_basic_tags};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -17,6 +18,7 @@ pub fn prepare_import_file(
     auto_organize: bool,
     media_folder: &str,
     organize_path_format: &str,
+    lyrics_sidecar_enabled: bool,
 ) -> Result<String, String> {
     let source = Path::new(source_path);
     if !source.is_file() {
@@ -62,6 +64,10 @@ pub fn prepare_import_file(
     let dest = library_organize::unique_path(dest);
     fs::copy(source, &dest).map_err(|e| format!("failed to copy file: {e}"))?;
 
+    if lyrics_sidecar_enabled {
+        lyrics_sidecar::copy_sidecar(source, &dest)?;
+    }
+
     Ok(dest.to_string_lossy().into_owned())
 }
 
@@ -70,6 +76,7 @@ mod tests {
     use super::*;
     use crate::library_organize::sanitize_filename;
     use std::io::Write;
+    use std::path::PathBuf;
 
     #[test]
     fn sanitize_strips_path_separators() {
@@ -94,9 +101,131 @@ mod tests {
             true,
             media.to_str().unwrap(),
             library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
+            true,
         )
         .unwrap();
         assert_eq!(result, source.to_string_lossy());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn copy_mode_copies_sibling_lrc_when_enabled() {
+        let dir = std::env::temp_dir().join(format!(
+            "spiral-import-sidecar-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let source = dir.join("song.flac");
+        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.flac");
+        fs::copy(src, &source).unwrap();
+        {
+            let mut f = fs::File::create(dir.join("song.lrc")).unwrap();
+            writeln!(f, "[00:01.00] Hello").unwrap();
+        }
+
+        let media = dir.join("media");
+        let result = prepare_import_file(
+            source.to_str().unwrap(),
+            "copy",
+            false,
+            media.to_str().unwrap(),
+            library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
+            true,
+        )
+        .unwrap();
+
+        let dest = PathBuf::from(&result);
+        assert!(dest.is_file());
+        let dest_sidecar = lyrics_sidecar::sidecar_path_for(&dest);
+        assert!(dest_sidecar.is_file());
+        let text = fs::read_to_string(&dest_sidecar).unwrap();
+        assert!(text.contains("Hello"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn copy_mode_skips_sidecar_when_disabled() {
+        let dir = std::env::temp_dir().join(format!(
+            "spiral-import-sidecar-off-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let source = dir.join("song.flac");
+        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.flac");
+        fs::copy(src, &source).unwrap();
+        {
+            let mut f = fs::File::create(dir.join("song.lrc")).unwrap();
+            writeln!(f, "[00:01.00] Hello").unwrap();
+        }
+
+        let media = dir.join("media");
+        let result = prepare_import_file(
+            source.to_str().unwrap(),
+            "copy",
+            false,
+            media.to_str().unwrap(),
+            library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
+            false,
+        )
+        .unwrap();
+
+        let dest = PathBuf::from(&result);
+        assert!(dest.is_file());
+        assert!(!lyrics_sidecar::sidecar_path_for(&dest).exists());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn copy_mode_with_organize_keeps_sidecar_beside_dest() {
+        let dir = std::env::temp_dir().join(format!(
+            "spiral-import-sidecar-org-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let source = dir.join("song.flac");
+        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.flac");
+        fs::copy(&src, &source).unwrap();
+        {
+            use metaflac::Tag as FlacTag;
+            let mut tag = FlacTag::read_from_path(&source).unwrap();
+            tag.set_vorbis("TITLE", vec!["Organize Me"]);
+            tag.set_vorbis("ARTIST", vec!["Tester"]);
+            tag.set_vorbis("ALBUM", vec!["Demo"]);
+            tag.save().unwrap();
+        }
+        {
+            let mut f = fs::File::create(dir.join("song.lrc")).unwrap();
+            writeln!(f, "[00:01.00] Organized").unwrap();
+        }
+
+        let media = dir.join("media");
+        let result = prepare_import_file(
+            source.to_str().unwrap(),
+            "copy",
+            true,
+            media.to_str().unwrap(),
+            library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
+            true,
+        )
+        .unwrap();
+
+        let dest = PathBuf::from(&result);
+        assert!(dest.is_file());
+        let dest_sidecar = lyrics_sidecar::sidecar_path_for(&dest);
+        assert!(
+            dest_sidecar.is_file(),
+            "expected sidecar at {}",
+            dest_sidecar.display()
+        );
+
         let _ = fs::remove_dir_all(&dir);
     }
 }

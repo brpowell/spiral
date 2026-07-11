@@ -19,3 +19,11 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
     }
   }
 }
+
+export async function readTextFromClipboard(): Promise<string | null> {
+  try {
+    return await navigator.clipboard.readText();
+  } catch {
+    return null;
+  }
+}

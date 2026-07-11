@@ -20,6 +20,12 @@ mod file_scan;
 mod import_files;
 mod library_organize;
 mod library_paths;
+mod lyrics_fetch;
+mod lyrics_fetch_cache;
+mod lyrics_lrc;
+mod lyrics_normalize;
+mod lyrics_sidecar;
+mod lyrics_tags;
 #[cfg(target_os = "macos")]
 mod macos_library_picker;
 #[cfg(desktop)]
@@ -27,7 +33,8 @@ mod media_session;
 #[cfg(desktop)]
 mod media_shortcuts;
 mod metadata_backup;
-mod metadata_reader;
+pub mod metadata_reader;
+pub mod tag_inspector;
 mod metadata_writer;
 mod rating_sync;
 mod rating_tags;
@@ -107,6 +114,12 @@ pub fn run() {
             commands::library::record_track_play,
             commands::library::set_track_rating,
             commands::library::remove_track,
+            commands::lyrics::get_track_lyrics,
+            commands::lyrics::mark_track_instrumental,
+            commands::lyrics::fetch_lyrics_lrclib,
+            commands::lyrics::cancel_lyrics_fetch,
+            commands::lyrics::clear_lyrics_fetch_cancel,
+            commands::lyrics::peek_lyrics_fetch_cache,
             commands::metadata::parse_track_metadata,
             commands::metadata::pick_image_file,
             commands::metadata::cache_art_from_bytes,

@@ -13,6 +13,9 @@ import {
 
 const TRIGGER_MENU_GAP = 4;
 
+/** Put on scroll containers whose scroll should not dismiss context menus. */
+export const CONTEXT_MENU_IGNORE_SCROLL_ATTR = "data-context-menu-ignore-scroll";
+
 type MenuAnchor = {
   x: number;
   y: number;
@@ -129,16 +132,26 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeMenu();
     };
+    const onScroll = (e: Event) => {
+      const target = e.target;
+      if (
+        target instanceof Element &&
+        target.closest(`[${CONTEXT_MENU_IGNORE_SCROLL_ATTR}]`)
+      ) {
+        return;
+      }
+      closeMenu();
+    };
     window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("keydown", onKeyDown);
     if (closeOnScroll) {
-      window.addEventListener("scroll", closeMenu, true);
+      window.addEventListener("scroll", onScroll, true);
     }
     return () => {
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", onKeyDown);
       if (closeOnScroll) {
-        window.removeEventListener("scroll", closeMenu, true);
+        window.removeEventListener("scroll", onScroll, true);
       }
     };
   }, [menuAnchor, closeMenu, closeOnScroll]);

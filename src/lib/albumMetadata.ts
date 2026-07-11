@@ -47,5 +47,6 @@ export function buildTrackAlbumMetadata(
     genre: track.genre,
     artPath,
     artChanged,
+    lyricsChanged: false,
   };
 }

@@ -1,0 +1,140 @@
+.album-art-lightbox__lyrics {
+  flex: 0 1 var(--lightbox-lyrics-width);
+  width: var(--lightbox-lyrics-width);
+  min-width: 0;
+  max-height: var(--lightbox-art-size);
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.album-art-lightbox__lyrics-scroll {
+  max-height: inherit;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 2.5rem 0.5rem;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 12%,
+    black 88%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 12%,
+    black 88%,
+    transparent 100%
+  );
+}
+
+.album-art-lightbox__lyrics-line {
+  margin: 0 0 0.85rem;
+  font-size: clamp(1.15rem, 0.35vw + 1rem, 1.4rem);
+  font-weight: 500;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.album-art-lightbox__lyrics--synced .album-art-lightbox__lyrics-scroll {
+  overflow-y: hidden;
+  scrollbar-gutter: auto;
+  touch-action: none;
+}
+
+.album-art-lightbox__lyrics--synced .album-art-lightbox__lyrics-line {
+  color: color-mix(in srgb, var(--color-text-primary) 38%, transparent);
+  transition: color 0.45s ease;
+}
+
+.album-art-lightbox__lyrics--synced .album-art-lightbox__lyrics-line--active {
+  color: var(--color-text-primary);
+}
+
+.album-art-lightbox__lyrics-preroll {
+  margin: 0;
+}
+
+.album-art-lightbox__lyrics-preroll-track {
+  position: relative;
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-text-primary) 14%, transparent);
+  overflow: visible;
+}
+
+.album-art-lightbox__lyrics-preroll-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-accent) 55%, transparent),
+    var(--color-accent)
+  );
+  transform-origin: left center;
+}
+
+.album-art-lightbox__lyrics-preroll-beacon {
+  position: absolute;
+  top: 50%;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--color-accent) 25%, transparent),
+    0 0 12px color-mix(in srgb, var(--color-accent) 70%, transparent);
+  transform: translate(-50%, -50%);
+}
+
+.album-art-lightbox__lyrics-line:last-child {
+  margin-bottom: 0;
+}
+
+.album-art-lightbox__lyrics--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 12rem;
+  padding: 2.5rem 1rem;
+}
+
+.album-art-lightbox__lyrics--loading {
+  position: relative;
+}
+
+.album-art-lightbox__lyrics-scroll--loading {
+  pointer-events: none;
+}
+
+.album-art-lightbox__lyrics-skeleton-line {
+  margin: 0 0 0.85rem;
+  font-size: clamp(1.15rem, 0.35vw + 1rem, 1.4rem);
+}
+
+.album-art-lightbox__lyrics-skeleton-line:last-child {
+  margin-bottom: 0;
+}
+
+.album-art-lightbox__lyrics-loading-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .album-art-lightbox__lyrics--synced .album-art-lightbox__lyrics-line {
+    transition: none;
+  }
+}

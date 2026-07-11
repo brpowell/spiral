@@ -21,6 +21,8 @@ pub struct Track {
     pub date_added: String,
     pub play_count: u32,
     pub rating: u8,
+    #[serde(default)]
+    pub lyrics_format: Option<LyricsFormat>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,6 +40,10 @@ pub struct TrackMetadataUpdate {
     /// When true, embed or remove cover art in the audio file. When false, leave embedded art unchanged.
     #[serde(default)]
     pub art_changed: bool,
+    pub lyrics: Option<TrackLyricsInput>,
+    /// When true, embed or remove lyrics in the audio file and sync `track_lyrics`.
+    #[serde(default)]
+    pub lyrics_changed: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,6 +83,100 @@ pub struct RefreshLibraryMetadataResult {
     pub errors: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LyricsFormat {
+    Plain,
+    LineSynced,
+    WordSynced,
+    /// LRCLIB (or user) marked this track as instrumental — no lyrics to fetch.
+    Instrumental,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LyricsSource {
+    Manual,
+    Embedded,
+    Sidecar,
+    Lrclib,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LyricsWord {
+    pub text: String,
+    pub start_ms: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_ms: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LyricsLine {
+    pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_ms: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_ms: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub words: Option<Vec<LyricsWord>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrackLyricsInput {
+    pub format: LyricsFormat,
+    pub source: Option<LyricsSource>,
+    pub lines: Vec<LyricsLine>,
+    pub plain_text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LyricsSearchCandidate {
+    pub id: i64,
+    pub track_name: String,
+    pub artist_name: String,
+    pub album_name: String,
+    pub duration: f64,
+    pub lyrics: TrackLyricsInput,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LyricsFetchCachePeek {
+    NotCached,
+    Miss,
+    Hit,
+    Instrumental,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum LyricsFetchOutcome {
+    Found {
+        lyrics: TrackLyricsInput,
+    },
+    NotFound,
+    /// LRCLIB reports this recording as instrumental.
+    Instrumental,
+    Ambiguous {
+        candidates: Vec<LyricsSearchCandidate>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrackLyricsRecord {
+    pub track_id: i64,
+    pub format: LyricsFormat,
+    pub source: Option<LyricsSource>,
+    pub lines: Vec<LyricsLine>,
+    pub plain_text: String,
+    pub updated_at: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackInput {
@@ -95,4 +195,5 @@ pub struct TrackInput {
     pub file_path: String,
     pub art_path: Option<String>,
     pub rating: Option<u8>,
+    pub lyrics: Option<TrackLyricsInput>,
 }

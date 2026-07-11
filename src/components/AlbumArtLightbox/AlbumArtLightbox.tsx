@@ -1,10 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import {
   releasedOutsidePanel,
   shouldDismissModalOnBackdropRelease,
 } from "../../lib/modalBackdropDismiss";
+import { lightboxCompanionMotionProps } from "../../lib/motion";
+import type { LyricsFetchFeedback } from "../../lib/lyricsFetch";
+import type { TrackLyrics } from "../../types/lyrics";
+import { LyricsEmptyPanel, LyricsLoadingPanel, LyricsPanel } from "./LyricsPanel";
 import "./AlbumArtLightbox.css";
 
 export const NOW_PLAYING_ART_LAYOUT_ID = "now-playing-album-art";
@@ -20,7 +24,17 @@ interface AlbumArtLightboxProps {
   onClose: () => void;
   artSrc: string;
   alt?: string;
+  title?: string;
   caption?: string;
+  lyrics?: TrackLyrics | null;
+  lyricsLoading?: boolean;
+  playbackPositionSeconds?: number;
+  reduceMotion?: boolean;
+  canFetchLyrics?: boolean;
+  fetchingLyrics?: boolean;
+  lyricsFetchFeedback?: LyricsFetchFeedback | null;
+  onFetchLyrics?: () => void;
+  onAddLyricsManually?: () => void;
 }
 
 export function AlbumArtLightbox({
@@ -28,29 +42,29 @@ export function AlbumArtLightbox({
   onClose,
   artSrc,
   alt = "",
+  title,
   caption,
+  lyrics,
+  lyricsLoading = false,
+  playbackPositionSeconds = 0,
+  reduceMotion = false,
+  canFetchLyrics = false,
+  fetchingLyrics = false,
+  lyricsFetchFeedback = null,
+  onFetchLyrics,
+  onAddLyricsManually,
 }: AlbumArtLightboxProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [showCaption, setShowCaption] = useState(open);
-
-  const requestClose = useCallback(() => {
-    setShowCaption(false);
-    onClose();
-  }, [onClose]);
-
-  useEffect(() => {
-    if (open) setShowCaption(true);
-  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") requestClose();
+      if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, requestClose]);
+  }, [open, onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -77,7 +91,7 @@ export function AlbumArtLightbox({
           releasedOutsidePanel(backdrop, panel, target),
         )
       ) {
-        requestClose();
+        onClose();
       }
       pressedOutsidePanel = false;
     };
@@ -88,32 +102,54 @@ export function AlbumArtLightbox({
       window.removeEventListener("mousedown", onMouseDown, true);
       window.removeEventListener("mouseup", onMouseUp, true);
     };
-  }, [open, requestClose]);
+  }, [open, onClose]);
+
+  const displayLyrics =
+    lyrics && lyrics.plainText.trim() ? lyrics : null;
+  const showLyricsColumn =
+    displayLyrics != null ||
+    lyricsLoading ||
+    fetchingLyrics ||
+    canFetchLyrics ||
+    lyricsFetchFeedback != null;
+  const showTrackInfo = Boolean(title?.trim() || caption?.trim());
+  const companionMotion = lightboxCompanionMotionProps(reduceMotion);
 
   return createPortal(
-    <>
-      <AnimatePresence>
-        {open ? (
+    <AnimatePresence>
+      {open ? (
+        <motion.div
+          key="album-art-lightbox"
+          ref={backdropRef}
+          className="album-art-lightbox"
+          layoutRoot
+          initial={false}
+          animate={{ opacity: 1 }}
+          exit={{
+            opacity: 1,
+            transition: { delay: 0.22 },
+          }}
+        >
           <motion.div
-            key="album-art-lightbox"
-            ref={backdropRef}
-            className="album-art-lightbox"
-            layoutRoot
-            initial={false}
+            className="album-art-lightbox__scrim"
+            initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 1 }}
+            exit={{
+              opacity: 0,
+              transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] },
+            }}
+            aria-hidden
+          />
+          <div
+            ref={panelRef}
+            className={[
+              "album-art-lightbox__panel",
+              showLyricsColumn && "album-art-lightbox__panel--with-lyrics",
+            ]
+              .filter(Boolean)
+              .join(" ")}
           >
-            <motion.div
-              className="album-art-lightbox__scrim"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{
-                opacity: 0,
-                transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] },
-              }}
-              aria-hidden
-            />
-            <div ref={panelRef} className="album-art-lightbox__panel">
+            <div className="album-art-lightbox__art-column">
               <div className="album-art-lightbox__art-shadow">
                 <motion.button
                   type="button"
@@ -122,7 +158,7 @@ export function AlbumArtLightbox({
                   transition={albumArtLayoutTransition}
                   onClick={(e: MouseEvent<HTMLButtonElement>) => {
                     e.stopPropagation();
-                    requestClose();
+                    onClose();
                   }}
                   aria-label={alt ? `Close ${alt} album art` : "Close album art"}
                 >
@@ -133,34 +169,45 @@ export function AlbumArtLightbox({
                   />
                 </motion.button>
               </div>
+              {showTrackInfo ? (
+                <motion.div
+                  className="album-art-lightbox__track-info"
+                  {...companionMotion}
+                >
+                  {title?.trim() ? (
+                    <p className="album-art-lightbox__track-title">
+                      {title}
+                    </p>
+                  ) : null}
+                  {caption?.trim() ? (
+                    <p className="album-art-lightbox__track-subtitle">
+                      {caption}
+                    </p>
+                  ) : null}
+                </motion.div>
+              ) : null}
             </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-      <AnimatePresence>
-        {showCaption && caption ? (
-          <motion.div
-            key="album-art-lightbox-caption"
-            className="album-art-lightbox__caption-anchor"
-            initial={{ opacity: 0, x: "-50%", y: 6 }}
-            animate={{
-              opacity: 1,
-              x: "-50%",
-              y: 0,
-              transition: { duration: 0.14, delay: 0.06 },
-            }}
-            exit={{
-              opacity: 0,
-              x: "-50%",
-              y: 6,
-              transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] },
-            }}
-          >
-            <p className="album-art-lightbox__caption">{caption}</p>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </>,
+            {displayLyrics ? (
+              <LyricsPanel
+                lyrics={displayLyrics}
+                playbackPositionSeconds={playbackPositionSeconds}
+                reduceMotion={reduceMotion}
+                companionMotion={companionMotion}
+              />
+            ) : lyricsLoading || fetchingLyrics ? (
+              <LyricsLoadingPanel companionMotion={companionMotion} />
+            ) : (canFetchLyrics || lyricsFetchFeedback) && onFetchLyrics ? (
+              <LyricsEmptyPanel
+                onFetchLyrics={onFetchLyrics}
+                onAddManually={onAddLyricsManually}
+                companionMotion={companionMotion}
+                feedback={lyricsFetchFeedback}
+              />
+            ) : null}
+          </div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>,
     document.body,
   );
 }

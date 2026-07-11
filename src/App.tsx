@@ -23,6 +23,7 @@ import { useStartupCrashReport } from "./hooks/useStartupCrashReport";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useArtistImageStore } from "./store/useArtistImageStore";
 import { setupAppMenu } from "./lib/appMenu";
+import { fetchMissingLyrics } from "./lib/fetchMissingLyrics";
 import { refreshLibraryMetadata } from "./lib/refreshLibraryMetadata";
 import { openSkinMode } from "./lib/skinModeWindow";
 import { openActivityLogsWindow } from "./lib/activityLogsWindow";
@@ -76,6 +77,9 @@ function App() {
       },
       refreshLibraryMetadata: () => {
         void refreshLibraryMetadata();
+      },
+      fetchMissingLyrics: () => {
+        fetchMissingLyrics();
       },
       newPlaylist: () => openPlaylistEditor("new"),
       openPreferences: () => setPreferencesOpen(true),

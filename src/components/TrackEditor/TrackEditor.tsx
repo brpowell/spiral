@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
-import { useFileSize } from "../../hooks/useFileSize";
-import { useFileExists } from "../../hooks/useFileExists";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
-import { formatBytes, formatDimensions } from "../../lib/formatBytes";
 import { parseArtistField } from "../../lib/artistNames";
 import { collectArtistNameSuggestions } from "../../lib/artistNameSuggestions";
 import { collectGenreSuggestions, collectAlbumSuggestions } from "../../lib/trackFieldSuggestions";
+import { parseTrackMetadata } from "../../lib/metadata";
 import {
   buildTrackMetadataFromForm,
-  mixedFieldPlaceholder,
+  lyricsEditorStateEqual,
   sharedArtPath,
   trackEditorFormsEqual,
   trackEditorMetadataFormsEqual,
@@ -19,30 +17,35 @@ import {
   type TrackEditorForm,
   type TrackEditorFormField,
 } from "../../lib/trackMetadataForm";
-import { ArtistChipField } from "../ArtistChipField/ArtistChipField";
-import { TrackRating } from "../TrackRating/TrackRating";
-import { AudioFileSpecs } from "../AudioFileSpecs/AudioFileSpecs";
-import { revealInFileManagerLabel, revealTrackInFileManager } from "../../lib/fileManager";
 import {
   discoverTrackFileMissing,
   isMissingFileError,
-  isTrackMissingFile,
   missingFileErrorDetail,
   withTrackMissingFile,
 } from "../../lib/missingFileTrack";
+import {
+  LYRICS_FETCH_NOT_FOUND,
+  createLyricsFetchFeedback,
+  type LyricsFetchFeedback,
+  type LyricsLibraryTrackRef,
+} from "../../lib/lyricsFetch";
+import { runLyricsFetchInBackground } from "../../lib/lyricsFetchToast";
+import { commitFetchedLyricsForTrack } from "../../lib/lyricsFetchCommit";
 import { showBulkTrackMetadataSaveToast } from "../../lib/trackMetadataToast";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
   fetchCoverArt,
+  getTrackLyrics,
   pickImageFile,
   setTrackRating,
   writeTrackMetadata,
 } from "../../lib/tauri";
-import { usePlayerStore } from "../../store/usePlayerStore";
+import { usePlayerStore, type TrackEditorTab } from "../../store/usePlayerStore";
+import { useLyricsFetchStore } from "../../store/useLyricsFetchStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
-import { EntityArt } from "../EntityArt/EntityArt";
+import type { LyricsFormat, LyricsLine, LyricsSearchCandidate, LyricsSource } from "../../types/lyrics";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import {
   Modal,
@@ -53,101 +56,85 @@ import {
   ModalTitle,
 } from "../common/Modal/Modal";
 import { Button } from "../common/Button/Button";
-import { FieldLabel, FormField } from "../common/Field/Field";
-import { AutocompleteInput } from "../common/AutocompleteInput/AutocompleteInput";
-import { TextInput } from "../common/TextInput/TextInput";
-import { IconWarning } from "../icons";
+import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
+import { TrackEditorDetailsTab } from "./TrackEditorDetailsTab";
+import { TrackEditorLyricsTab } from "./TrackEditorLyricsTab";
+import { LyricsCandidatePicker } from "./LyricsCandidatePicker";
 import "./TrackEditor.css";
 
-function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
-  const [dims, setDims] = useState<{ w: number; h: number } | null>(() =>
-    candidate.width != null && candidate.height != null
-      ? { w: candidate.width, h: candidate.height }
-      : null,
-  );
+type LoadedTrackLyrics = {
+  text: string;
+  syncedLines: LyricsLine[] | null;
+  source: LyricsSource;
+  instrumental: boolean;
+};
 
-  useEffect(() => {
-    if (candidate.width != null && candidate.height != null) {
-      setDims({ w: candidate.width, h: candidate.height });
-      return;
-    }
-
-    const img = new Image();
-    img.onload = () => {
-      setDims({ w: img.naturalWidth, h: img.naturalHeight });
-    };
-    img.src = candidate.url;
-
-    return () => {
-      img.onload = null;
-      img.src = "";
-    };
-  }, [candidate.url, candidate.width, candidate.height]);
-
-  const sizeLabel =
-    candidate.fileSize != null && candidate.fileSize > 0
-      ? formatBytes(candidate.fileSize)
-      : null;
-  const dimLabel = dims
-    ? formatDimensions(dims.w, dims.h)
-    : formatDimensions(candidate.width, candidate.height);
-
-  const meta = [sizeLabel, dimLabel].filter(Boolean).join(" · ");
-
-  return (
-    <span className="track-editor__cover-meta">
-      {meta || "Loading details…"}
-    </span>
-  );
-}
-
-function TrackEditorField({
-  label,
-  field,
-  type = "text",
-  min,
-  form,
-  tracks,
-  isBulk,
-  onChange,
-  suggestions,
-}: {
-  label: string;
-  field: TrackEditorFormField;
-  type?: "text" | "number";
-  min?: number;
-  form: TrackEditorForm;
-  tracks: Track[];
-  isBulk: boolean;
-  onChange: (field: TrackEditorFormField, value: string) => void;
-  suggestions?: string[];
-}) {
-  const common = {
-    type,
-    min,
-    value: form[field],
-    placeholder: isBulk ? mixedFieldPlaceholder(tracks, field, form) : undefined,
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-      onChange(field, e.target.value),
+async function loadTrackLyrics(track: Track): Promise<LoadedTrackLyrics> {
+  const empty: LoadedTrackLyrics = {
+    text: "",
+    syncedLines: null,
+    source: null,
+    instrumental: false,
   };
 
-  return (
-    <FormField label={label}>
-      {suggestions && type === "text" ? (
-        <AutocompleteInput {...common} suggestions={suggestions} />
-      ) : (
-        <TextInput {...common} />
-      )}
-    </FormField>
-  );
+  try {
+    const dbLyrics = await getTrackLyrics(track.id);
+    if (dbLyrics?.format === "instrumental") {
+      return {
+        text: "",
+        syncedLines: null,
+        source: dbLyrics.source,
+        instrumental: true,
+      };
+    }
+    if (dbLyrics?.plainText) {
+      return {
+        text: dbLyrics.plainText,
+        syncedLines:
+          dbLyrics.format === "line_synced" ? dbLyrics.lines : null,
+        source: dbLyrics.source,
+        instrumental: false,
+      };
+    }
+  } catch {
+    // Fall through to embedded tag / sidecar read.
+  }
+
+  try {
+    const parsed = await parseTrackMetadata(track.filePath);
+    if (parsed.lyrics?.plainText) {
+      return {
+        text: parsed.lyrics.plainText,
+        syncedLines:
+          parsed.lyrics.format === "line_synced" ? parsed.lyrics.lines : null,
+        source: parsed.lyrics.source,
+        instrumental: false,
+      };
+    }
+  } catch {
+    return empty;
+  }
+
+  return empty;
+}
+
+function lyricsFormFieldsFromLoaded(loaded: LoadedTrackLyrics) {
+  return {
+    lyrics: loaded.text,
+    lyricsSyncedLines: loaded.syncedLines,
+    lyricsSource: loaded.source,
+    lyricsInstrumental: loaded.instrumental,
+  };
 }
 
 export function TrackEditor() {
   const editingTrackIds = usePlayerStore((s) => s.editingTrackIds);
+  const trackEditorInitialTab = usePlayerStore((s) => s.trackEditorInitialTab);
   const library = usePlayerStore((s) => s.library);
   const closeTrackEditor = usePlayerStore((s) => s.closeTrackEditor);
   const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
   const updateTracksInLibrary = usePlayerStore((s) => s.updateTracksInLibrary);
+  const notifyTrackLyricsUpdated = usePlayerStore((s) => s.notifyTrackLyricsUpdated);
 
   const tracks = useMemo(
     () =>
@@ -173,6 +160,7 @@ export function TrackEditor() {
   );
 
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<TrackEditorTab>("details");
   const [form, setForm] = useState<TrackEditorForm | null>(null);
   const [originalForm, setOriginalForm] = useState<TrackEditorForm | null>(null);
   const [pendingArtPath, setPendingArtPath] = useState<string | null>(null);
@@ -188,21 +176,45 @@ export function TrackEditor() {
   const [coverCandidates, setCoverCandidates] = useState<CoverArtCandidate[]>([]);
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
+  const [lyricsFetchFeedback, setLyricsFetchFeedback] =
+    useState<LyricsFetchFeedback | null>(null);
+  const [committingLyrics, setCommittingLyrics] = useState(false);
+  const [lyricsCandidates, setLyricsCandidates] = useState<LyricsSearchCandidate[]>(
+    [],
+  );
   const [artDragOver, setArtDragOver] = useState(false);
-  const fileSizeBytes = useFileSize(referenceTrack?.filePath);
-  const fileExistsOnDisk = useFileExists(referenceTrack?.filePath);
-  const isMissingFile =
-    referenceTrack != null &&
-    (isTrackMissingFile(referenceTrack) || fileExistsOnDisk === false);
 
   const isOpen = editingTrackIds.length > 0 && tracks.length > 0 && form != null;
+
+  const lyricsFetchPending = useLyricsFetchStore((s) =>
+    referenceTrack
+      ? s.fetchingTrackIds.has(referenceTrack.id) ||
+        s.queuedTrackIds.has(referenceTrack.id)
+      : false,
+  );
+
+  const lyricsRevision = usePlayerStore((s) =>
+    referenceTrack ? (s.lyricsRevisionByTrackId[referenceTrack.id] ?? 0) : 0,
+  );
+
+  const lyricsLibraryTrack = useMemo((): LyricsLibraryTrackRef | null => {
+    if (!referenceTrack || !form) return null;
+    return {
+      title: form.title.trim() || referenceTrack.title,
+      artist: form.artist.trim() || referenceTrack.artist?.trim() || "",
+      album: form.album.trim() || referenceTrack.album?.trim() || "",
+      durationSeconds: referenceTrack.durationSeconds ?? null,
+    };
+  }, [form, referenceTrack]);
 
   useFocusTrap(dialogRef, isOpen);
 
   useEffect(() => {
     if (tracks.length === 0) return;
+
     const initial = tracksToForm(tracks);
     const initialArt = sharedArtPath(tracks);
+    setActiveTab(trackEditorInitialTab);
     setForm(initial);
     setOriginalForm(initial);
     setPendingArtPath(initialArt);
@@ -214,14 +226,58 @@ export function TrackEditor() {
     setSaveError(null);
     setDiscardPrompt(false);
     setSaveProgress(null);
-  }, [editingKey]);
+
+    if (!isBulk && referenceTrack) {
+      const pending = useLyricsFetchStore.getState().takePending(referenceTrack.id);
+      setLyricsFetchFeedback(pending?.feedback ?? null);
+      setLyricsCandidates(pending?.candidates ?? []);
+    } else {
+      setLyricsFetchFeedback(null);
+      setLyricsCandidates([]);
+    }
+
+    if (!isBulk && referenceTrack) {
+      let cancelled = false;
+      void loadTrackLyrics(referenceTrack).then((loadedLyrics) => {
+        if (cancelled) return;
+        const lyricsUpdate = lyricsFormFieldsFromLoaded(loadedLyrics);
+        setForm((prev) => (prev ? { ...prev, ...lyricsUpdate } : prev));
+        setOriginalForm((prev) => (prev ? { ...prev, ...lyricsUpdate } : prev));
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [editingKey, trackEditorInitialTab]);
 
   useEffect(() => {
-    if (referenceTrack == null || fileExistsOnDisk !== false) {
-      return;
-    }
-    void discoverTrackFileMissing(referenceTrack, updateTrackInLibrary);
-  }, [referenceTrack, fileExistsOnDisk, updateTrackInLibrary]);
+    if (!referenceTrack || isBulk) return;
+
+    return useLyricsFetchStore.subscribe((state, prev) => {
+      const next = state.pendingByTrackId[referenceTrack.id];
+      const previous = prev.pendingByTrackId[referenceTrack.id];
+      if (next && next !== previous) {
+        setLyricsFetchFeedback(next.feedback);
+        setLyricsCandidates(next.candidates);
+      }
+    });
+  }, [referenceTrack?.id, isBulk]);
+
+  useEffect(() => {
+    if (!referenceTrack || isBulk || lyricsRevision === 0) return;
+
+    let cancelled = false;
+    void loadTrackLyrics(referenceTrack).then((loadedLyrics) => {
+      if (cancelled) return;
+      const lyricsUpdate = lyricsFormFieldsFromLoaded(loadedLyrics);
+      setForm((prev) => (prev ? { ...prev, ...lyricsUpdate } : prev));
+      setOriginalForm((prev) => (prev ? { ...prev, ...lyricsUpdate } : prev));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [referenceTrack?.id, lyricsRevision, isBulk]);
 
   const artChanged =
     pendingArtPath !== originalArtPath ||
@@ -244,6 +300,184 @@ export function TrackEditor() {
   const setField = (field: TrackEditorFormField, value: string) => {
     setForm((prev) => (prev ? { ...prev, [field]: value } : prev));
   };
+
+  const setLyrics = useCallback(
+    (update: {
+      text: string;
+      syncedLines: LyricsLine[] | null;
+      format: LyricsFormat;
+    }) => {
+      setForm((prev) => {
+        if (!prev || !originalForm) {
+          return prev;
+        }
+
+        const nextLyrics = {
+          lyrics: update.text,
+          lyricsSyncedLines: update.syncedLines,
+          lyricsInstrumental: false,
+        };
+
+        if (lyricsEditorStateEqual(nextLyrics, originalForm)) {
+          if (lyricsEditorStateEqual(prev, originalForm)) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            lyrics: originalForm.lyrics,
+            lyricsSyncedLines: originalForm.lyricsSyncedLines,
+            lyricsSource: originalForm.lyricsSource,
+            lyricsInstrumental: originalForm.lyricsInstrumental,
+          };
+        }
+
+        if (lyricsEditorStateEqual(nextLyrics, prev)) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          lyrics: update.text,
+          lyricsSyncedLines: update.syncedLines,
+          lyricsSource: "manual",
+          lyricsInstrumental: false,
+        };
+      });
+      setLyricsFetchFeedback(null);
+    },
+    [originalForm],
+  );
+
+  const setLyricsInstrumental = useCallback((instrumental: boolean) => {
+    setForm((prev) => {
+      if (!prev) return prev;
+      if (instrumental) {
+        return {
+          ...prev,
+          lyrics: "",
+          lyricsSyncedLines: null,
+          lyricsSource: "manual",
+          lyricsInstrumental: true,
+        };
+      }
+      return {
+        ...prev,
+        lyricsInstrumental: false,
+        lyricsSource: "manual",
+      };
+    });
+    setLyricsFetchFeedback(null);
+  }, []);
+
+  const commitFetchedLyrics = useCallback(
+    async (input: {
+      plainText: string;
+      lines: LyricsLine[];
+      format: LyricsFormat;
+    }) => {
+      if (!referenceTrack || !originalForm) return;
+
+      const lyricsState = {
+        lyrics: input.plainText,
+        lyricsSyncedLines:
+          input.format === "line_synced" ? input.lines : null,
+        lyricsSource: "lrclib" as const,
+        lyricsInstrumental: false,
+      };
+
+      setForm((prev) => (prev ? { ...prev, ...lyricsState } : prev));
+
+      const result = await commitFetchedLyricsForTrack(referenceTrack, input);
+      if (result.status === "ok") {
+        setOriginalForm((prev) => (prev ? { ...prev, ...lyricsState } : prev));
+        setSaveError(null);
+        return;
+      }
+
+      if (result.status === "missing_file") {
+        setSaveError(missingFileErrorDetail(referenceTrack));
+        return;
+      }
+
+      setSaveError(result.message);
+      setLyricsFetchFeedback(
+        createLyricsFetchFeedback(
+          "Fetched lyrics couldn't be saved. Try again or use Save.",
+        ),
+      );
+    },
+    [originalForm, referenceTrack],
+  );
+
+  const handleFetchLyrics = useCallback(async () => {
+    if (!referenceTrack || lyricsFetchPending) return;
+
+    setLyricsFetchFeedback(null);
+    setSaveError(null);
+
+    const artist = form?.artist.trim() || referenceTrack.artist?.trim() || "";
+    const albumArtist =
+      form?.albumArtist.trim() ||
+      referenceTrack.albumArtist?.trim() ||
+      "";
+    const title = form?.title.trim() || referenceTrack.title.trim();
+    const album = form?.album.trim() || referenceTrack.album?.trim() || "";
+
+    if (!artist || !title) {
+      setLyricsFetchFeedback(
+        createLyricsFetchFeedback("Artist and title are required to fetch lyrics."),
+      );
+      return;
+    }
+
+    if (!referenceTrack.durationSeconds) {
+      setLyricsFetchFeedback(
+        createLyricsFetchFeedback(
+          "Track duration is required to fetch lyrics from LRCLIB.",
+        ),
+      );
+      return;
+    }
+
+    setLyricsCandidates([]);
+    runLyricsFetchInBackground(referenceTrack.id, title, {
+      artist,
+      albumArtist,
+      title,
+      album,
+      durationSeconds: referenceTrack.durationSeconds,
+    });
+  }, [lyricsFetchPending, form, referenceTrack]);
+
+  const handleSelectLyricsCandidate = useCallback(
+    async (candidate: LyricsSearchCandidate) => {
+      setLyricsCandidates([]);
+      setLyricsFetchFeedback(null);
+      setCommittingLyrics(true);
+      try {
+        await commitFetchedLyrics({
+          plainText: candidate.lyrics.plainText,
+          lines: candidate.lyrics.lines,
+          format: candidate.lyrics.format,
+        });
+        if (referenceTrack) {
+          useLyricsFetchStore.getState().clearPending(referenceTrack.id);
+        }
+      } finally {
+        setCommittingLyrics(false);
+      }
+    },
+    [commitFetchedLyrics, referenceTrack],
+  );
+
+  const handleDismissLyricsCandidates = useCallback(() => {
+    setLyricsCandidates([]);
+    setLyricsFetchFeedback(LYRICS_FETCH_NOT_FOUND);
+    if (referenceTrack) {
+      useLyricsFetchStore.getState().clearPending(referenceTrack.id);
+    }
+  }, [referenceTrack]);
 
   const setRating = useCallback((rating: number) => {
     setForm((prev) => (prev ? { ...prev, rating } : prev));
@@ -362,6 +596,9 @@ export function TrackEditor() {
             referenceTrack.filePath,
             metadata,
           );
+          if (metadata.lyricsChanged) {
+            notifyTrackLyricsUpdated(referenceTrack.id);
+          }
         }
         if (ratingDirty) {
           const rating = await setTrackRating(referenceTrack.id, form.rating);
@@ -468,6 +705,9 @@ export function TrackEditor() {
     ? `Unsaved edits to ${tracks.length} tracks will be lost.`
     : "Unsaved edits to this track will be lost.";
 
+  const hasLyrics =
+    (form?.lyrics.trim().length ?? 0) > 0 || Boolean(form?.lyricsInstrumental);
+
   return (
     <Modal
       open={isOpen}
@@ -480,7 +720,12 @@ export function TrackEditor() {
       {isOpen && form && (
         <>
           <div
-            className="track-editor-modal__content"
+            className={[
+              "track-editor-modal__content",
+              !isBulk && "track-editor-modal__content--tabbed",
+            ]
+              .filter(Boolean)
+              .join(" ")}
             inert={discardPrompt || undefined}
           >
             <ModalHeader>
@@ -489,251 +734,84 @@ export function TrackEditor() {
               </ModalTitle>
             </ModalHeader>
 
-            <ModalBody>
-            {isBulk ? (
-              <ModalDescription>
-                Updated changes will apply to all {tracks.length} tracks.
-              </ModalDescription>
-            ) : null}
-
-            <div className="track-editor__body">
-              <div className="track-editor__art-col">
-                <div
-                  data-art-drop-zone
-                  className={
-                    artDragOver
-                      ? "track-editor__art-drop track-editor__art-drop--active"
-                      : "track-editor__art-drop"
-                  }
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setArtDragOver(true);
-                  }}
-                  onDragLeave={() => setArtDragOver(false)}
-                  onDrop={handleArtDrop}
-                >
-                  {previewSrc ? (
-                    <img
-                      src={previewSrc}
-                      alt=""
-                      className="track-editor__art-img"
-                    />
-                  ) : (
-                    <EntityArt
-                      artPath={null}
-                      className="track-editor__art-placeholder"
-                    />
-                  )}
+            <Tabs
+              value={activeTab}
+              onChange={(tab) => setActiveTab(tab as TrackEditorTab)}
+              className="track-editor__tabs"
+              variant="underline"
+            >
+              {!isBulk ? (
+                <div className="track-editor__tab-bar">
+                  <TabList aria-label="Track editor sections">
+                    <Tab value="details">Details</Tab>
+                    <Tab value="lyrics" badge={hasLyrics ? "•" : undefined}>
+                      Lyrics
+                    </Tab>
+                  </TabList>
                 </div>
-                <Button
-                  size="sm"
-                  className="track-editor__art-btn"
-                  onClick={() => void handleChangeArt()}
-                >
-                  Change Art
-                </Button>
-                <Button
-                  size="sm"
-                  className="track-editor__art-btn"
-                  onClick={() => void handleFetchArt()}
-                  disabled={fetchingArt}
-                >
-                  {fetchingArt ? "Fetching…" : "Fetch Art"}
-                </Button>
-                {fetchMessage && !fetchingArt && (
-                  <p className="track-editor__fetch-msg">{fetchMessage}</p>
-                )}
-                {fetchingArt && (
-                  <div
-                    className="track-editor__fetching"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <span
-                      className="track-editor__fetching-spinner"
-                      aria-hidden
-                    />
-                    <span>Fetching artwork…</span>
-                  </div>
-                )}
-                {coverCandidates.length > 0 && (
-                  <div
-                    className="track-editor__cover-picker"
-                    aria-label="Cover art options"
-                  >
-                    {coverCandidates.map((candidate) => {
-                      const thumbSrc = candidate.thumbnailUrl ?? candidate.url;
+              ) : null}
 
-                      return (
-                        <button
-                          key={candidate.url}
-                          type="button"
-                          className={
-                            selectedCoverUrl === candidate.url
-                              ? "track-editor__cover-option track-editor__cover-option--selected"
-                              : "track-editor__cover-option"
-                          }
-                          onClick={() => handleSelectCover(candidate.url)}
-                          aria-pressed={selectedCoverUrl === candidate.url}
-                        >
-                          <span className="track-editor__cover-thumb">
-                            <img src={thumbSrc} alt="" loading="lazy" />
-                          </span>
-                          <CoverOptionMeta candidate={candidate} />
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="track-editor__fields">
-                <TrackEditorField
-                  label="Title"
-                  field="title"
-                  form={form}
-                  tracks={tracks}
-                  isBulk={isBulk}
-                  onChange={setField}
-                />
-                <FormField label="Artist">
-                  <ArtistChipField
-                    value={form.artist}
-                    onChange={(value) => setField("artist", value)}
-                    placeholder={
-                      isBulk
-                        ? mixedFieldPlaceholder(tracks, "artist", form)
-                        : undefined
-                    }
-                    suggestions={artistSuggestions}
-                    inputAriaLabel="Track artist"
-                  />
-                </FormField>
-                <TrackEditorField
-                  label="Album"
-                  field="album"
-                  form={form}
-                  tracks={tracks}
-                  isBulk={isBulk}
-                  onChange={setField}
-                  suggestions={albumSuggestions}
-                />
-                <TrackEditorField
-                  label="Album Artist"
-                  field="albumArtist"
-                  form={form}
-                  tracks={tracks}
-                  isBulk={isBulk}
-                  onChange={setField}
-                  suggestions={artistSuggestions}
-                />
-                <TrackEditorField
-                  label="Year"
-                  field="year"
-                  type="number"
-                  min={1}
-                  form={form}
-                  tracks={tracks}
-                  isBulk={isBulk}
-                  onChange={setField}
-                />
-                <TrackEditorField
-                  label="Track Number"
-                  field="trackNumber"
-                  type="number"
-                  min={1}
-                  form={form}
-                  tracks={tracks}
-                  isBulk={isBulk}
-                  onChange={setField}
-                />
-                <TrackEditorField
-                  label="Disc Number"
-                  field="discNumber"
-                  type="number"
-                  min={1}
-                  form={form}
-                  tracks={tracks}
-                  isBulk={isBulk}
-                  onChange={setField}
-                />
-                <TrackEditorField
-                  label="Genre"
-                  field="genre"
-                  form={form}
-                  tracks={tracks}
-                  isBulk={isBulk}
-                  onChange={setField}
-                  suggestions={genreSuggestions}
-                />
-                {!isBulk ? (
-                  <FormField label="Rating">
-                    <TrackRating
-                      value={form.rating}
-                      size="comfortable"
-                      onChange={setRating}
-                    />
-                  </FormField>
+              <ModalBody className={!isBulk ? "track-editor__tab-body" : undefined}>
+                {isBulk ? (
+                  <ModalDescription>
+                    Updated changes will apply to all {tracks.length} tracks.
+                  </ModalDescription>
                 ) : null}
-                {!isBulk && referenceTrack ? (
-                  <div className="field">
-                    <FieldLabel>File</FieldLabel>
-                    {isMissingFile ? (
-                      <p className="track-editor__file-missing" role="status">
-                        <IconWarning
-                          className="track-editor__file-missing-icon"
-                          aria-hidden
-                        />
-                        File not found at this location
-                      </p>
-                    ) : null}
-                    <AudioFileSpecs
-                      className="track-editor__audio-file-specs"
-                      filePath={referenceTrack.filePath}
-                      codec={referenceTrack.codec}
-                      sampleRate={referenceTrack.sampleRate}
-                      bitrate={referenceTrack.bitrate}
-                      sizeBytes={fileSizeBytes}
+
+                <div className={!isBulk ? "track-editor__tab-stage" : undefined}>
+                  <TabPanel value="details" className="track-editor__tab-panel">
+                    <TrackEditorDetailsTab
+                      form={form}
+                      tracks={tracks}
+                      isBulk={isBulk}
+                      referenceTrack={referenceTrack}
+                      previewSrc={previewSrc}
+                      artDragOver={artDragOver}
+                      fetchingArt={fetchingArt}
+                      fetchMessage={fetchMessage}
+                      coverCandidates={coverCandidates}
+                      selectedCoverUrl={selectedCoverUrl}
+                      onArtDragOver={setArtDragOver}
+                      onArtDrop={(e) => void handleArtDrop(e)}
+                      onChangeArt={() => void handleChangeArt()}
+                      onFetchArt={() => void handleFetchArt()}
+                      onSelectCover={handleSelectCover}
+                      onFieldChange={setField}
+                      onRatingChange={setRating}
+                      artistSuggestions={artistSuggestions}
+                      genreSuggestions={genreSuggestions}
+                      albumSuggestions={albumSuggestions}
+                      updateTrackInLibrary={updateTrackInLibrary}
                     />
-                    <div className="track-editor__file-location">
-                      <textarea
-                        className={[
-                          "track-editor__file-path",
-                          isMissingFile && "track-editor__file-path--missing",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                        readOnly
-                        value={referenceTrack.filePath}
-                        rows={1}
-                        spellCheck={false}
-                        aria-label="Track file path"
+                  </TabPanel>
+
+                  {!isBulk ? (
+                    <TabPanel
+                      value="lyrics"
+                      className="track-editor__tab-panel track-editor__tab-panel--lyrics"
+                    >
+                      <TrackEditorLyricsTab
+                        value={form.lyrics}
+                        syncedLines={form.lyricsSyncedLines}
+                        instrumental={form.lyricsInstrumental}
+                        fetchingLyrics={lyricsFetchPending || committingLyrics}
+                        fetchFeedback={lyricsFetchFeedback}
+                        onFetchLyrics={() => void handleFetchLyrics()}
+                        onMarkInstrumental={() => setLyricsInstrumental(true)}
+                        onClearInstrumental={() => setLyricsInstrumental(false)}
+                        onChange={setLyrics}
                       />
-                      <Button
-                        size="sm"
-                        disabled={isMissingFile}
-                        aria-label={revealInFileManagerLabel()}
-                        onClick={() =>
-                          void revealTrackInFileManager(
-                            referenceTrack,
-                            updateTrackInLibrary,
-                          )
-                        }
-                      >
-                        Reveal
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
+                    </TabPanel>
+                  ) : null}
+                </div>
 
-            {saveError && (
-              <p className="track-editor__error" role="alert">
-                {saveError}
-              </p>
-            )}
-            </ModalBody>
+                {saveError ? (
+                  <p className="track-editor__error" role="alert">
+                    {saveError}
+                  </p>
+                ) : null}
+              </ModalBody>
+            </Tabs>
 
             <ModalFooter
               onCancel={requestClose}
@@ -755,6 +833,14 @@ export function TrackEditor() {
             description={discardDescription}
             onKeepEditing={dismissDiscardPrompt}
             onDiscard={closeTrackEditor}
+          />
+
+          <LyricsCandidatePicker
+            open={lyricsCandidates.length > 1}
+            candidates={lyricsCandidates}
+            libraryTrack={lyricsLibraryTrack}
+            onSelect={handleSelectLyricsCandidate}
+            onClose={handleDismissLyricsCandidates}
           />
         </>
       )}
