@@ -134,6 +134,19 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
     };
     const onScroll = (e: Event) => {
       const target = e.target;
+      if (!(target instanceof Node)) {
+        closeMenu();
+        return;
+      }
+      // Submenus portal outside menuRef; treat them like pointerdown excludes.
+      if (menuRef.current?.contains(target)) return;
+      if (
+        dismissExcludeRefsRef.current.some((ref) =>
+          ref.current?.contains(target),
+        )
+      ) {
+        return;
+      }
       if (
         target instanceof Element &&
         target.closest(`[${CONTEXT_MENU_IGNORE_SCROLL_ATTR}]`)

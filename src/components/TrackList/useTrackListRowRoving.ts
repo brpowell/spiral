@@ -21,6 +21,8 @@ interface UseTrackListRowRovingOptions {
   isRowNavigable: (index: number) => boolean;
   onSelectRow: (track: Track) => void;
   onPlayRow: (track: Track) => void;
+  /** Playlist reorder: move the focused row from → to (Alt+Arrow / Home / End). */
+  onReorderRow?: (fromIndex: number, toIndex: number) => void;
   useVirtualRows: boolean;
   virtualizer: Virtualizer<HTMLElement, Element>;
   virtualRows: VirtualItem[];
@@ -227,6 +229,7 @@ export function useTrackListRowRoving({
   isRowNavigable,
   onSelectRow,
   onPlayRow,
+  onReorderRow,
   useVirtualRows,
   virtualizer,
   virtualRows,
@@ -478,10 +481,59 @@ export function useTrackListRowRoving({
     [bodyRef],
   );
 
+  const nudgeRow = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      if (!onReorderRow || fromIndex === toIndex) return;
+      const track = tracks[fromIndex];
+      if (!track || !isRowNavigable(fromIndex)) return;
+
+      onReorderRow(fromIndex, toIndex);
+      // Keep selection/focus on the moved track (lookup by id after optimistic
+      // reorder would race; use the known target index + same track object).
+      setFocusedIndex(toIndex);
+      onSelectRow(track);
+      requestAnimationFrame(() => {
+        scrollToRow(toIndex);
+        focusRowElement(toIndex);
+      });
+    },
+    [
+      focusRowElement,
+      isRowNavigable,
+      onReorderRow,
+      onSelectRow,
+      scrollToRow,
+      tracks,
+    ],
+  );
+
   const onRowKeyDown = useCallback(
     (index: number, e: React.KeyboardEvent) => {
       const track = tracks[index];
       if (!track) return;
+
+      if (e.altKey && onReorderRow) {
+        switch (e.key) {
+          case "ArrowUp":
+            e.preventDefault();
+            if (index > 0) nudgeRow(index, index - 1);
+            return;
+          case "ArrowDown":
+            e.preventDefault();
+            if (index < tracks.length - 1) nudgeRow(index, index + 1);
+            return;
+          case "Home":
+            e.preventDefault();
+            if (index > 0) nudgeRow(index, 0);
+            return;
+          case "End":
+            e.preventDefault();
+            if (index < tracks.length - 1) nudgeRow(index, tracks.length - 1);
+            return;
+          default:
+            break;
+        }
+      }
 
       switch (e.key) {
         case "ArrowDown":
@@ -534,7 +586,9 @@ export function useTrackListRowRoving({
       activateRow,
       focusRow,
       isRowNavigable,
+      nudgeRow,
       onPlayRow,
+      onReorderRow,
       tracks,
     ],
   );

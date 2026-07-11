@@ -110,6 +110,7 @@ pub fn run() {
             commands::playlists::add_tracks_to_playlist,
             commands::playlists::remove_tracks_from_playlist,
             commands::playlists::reorder_playlist_tracks,
+            commands::playlists::reorder_playlists,
             commands::playlists::delete_playlist,
             commands::library::record_track_play,
             commands::library::set_track_rating,

@@ -108,6 +108,18 @@ pub fn reorder_playlist_tracks(
 }
 
 #[tauri::command]
+pub fn reorder_playlists(
+    state: State<DbState>,
+    playlist_ids: Vec<i64>,
+) -> Result<(), String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    db::reorder_playlists(&conn, &playlist_ids).map_err(|e| {
+        eprintln!("reorder_playlists error: {e}");
+        e.to_string()
+    })
+}
+
+#[tauri::command]
 pub fn delete_playlist(state: State<DbState>, id: i64) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     db::delete_playlist(&conn, id).map_err(|e| {

@@ -357,12 +357,19 @@
   margin: 0;
 }
 
-.track-list__body:not(.track-list__body--virtual) .track-list__item {
+/* Skip painting off-screen rows in long non-virtual lists. Do not use this on
+   reorderable playlists — DOM reorder + content-visibility:auto leaves blank
+   reserved rows (computed style stayed auto when override lost on specificity). */
+.track-list:not(.track-list--reorderable)
+  .track-list__body:not(.track-list__body--virtual)
+  .track-list__item {
   content-visibility: auto;
   contain-intrinsic-size: auto 2.5rem;
 }
 
-.track-list__body:not(.track-list__body--virtual) .track-list__item--with-art {
+.track-list:not(.track-list--reorderable)
+  .track-list__body:not(.track-list__body--virtual)
+  .track-list__item--with-art {
   contain-intrinsic-size: auto calc(var(--track-list-row-height) + 1px);
 }
 
@@ -506,11 +513,14 @@
   align-items: center;
   padding: 0.1rem;
   margin: -0.1rem;
+  border: none;
   border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--color-text-secondary);
   cursor: grab;
   opacity: 0;
   touch-action: none;
+  user-select: none;
   transition: opacity 0.12s ease, color 0.12s ease;
 }
 
@@ -548,8 +558,8 @@
   opacity: 0.45;
 }
 
-.track-list__item--drag-over .track-list__row {
-  box-shadow: inset 0 2px 0 var(--color-accent);
+.track-list__item--dragging .track-list__row {
+  cursor: grabbing;
 }
 
 .track-list__cell--title {

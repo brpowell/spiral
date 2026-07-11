@@ -1,12 +1,18 @@
 import type { ReactNode } from "react";
+import { DragDropProvider } from "@dnd-kit/react";
+import { move } from "@dnd-kit/helpers";
 import { openAppearanceWindow } from "../../lib/appearanceWindow";
+import { isCdSidebarDiscReady } from "../../lib/cdTracks";
+import {
+  CLICKABLE_ITEM_POINTER_SENSOR,
+  SORT_KEYBOARD_SENSOR,
+} from "../../lib/dndSortSensors";
 import {
   type NavView,
   useNavigationStore,
 } from "../../store/useNavigationStore";
 import { usePlaylistStore } from "../../store/usePlaylistStore";
 import { useCdStore } from "../../store/useCdStore";
-import { isCdSidebarDiscReady } from "../../lib/cdTracks";
 import {
   IconAlbums,
   IconArtists,
@@ -18,6 +24,12 @@ import { SidebarItem } from "./SidebarItem/SidebarItem";
 import { SidebarPlaylistItem } from "./SidebarPlaylistItem";
 import { SidebarCdDriveItem } from "./SidebarCdDriveItem";
 import "./Sidebar.css";
+
+/** Allow drag from the inner button while sorting the whole <li>. */
+const PLAYLIST_SORT_SENSORS = [
+  CLICKABLE_ITEM_POINTER_SENSOR,
+  SORT_KEYBOARD_SENSOR,
+];
 
 const NAV_ITEMS: {
   view: NavView;
@@ -36,6 +48,7 @@ export function Sidebar() {
   const cdDriveId = useNavigationStore((s) => s.cdDriveId);
   const setView = useNavigationStore((s) => s.setView);
   const playlists = usePlaylistStore((s) => s.playlists);
+  const reorderPlaylists = usePlaylistStore((s) => s.reorderPlaylists);
   const cdDrives = useCdStore((s) => s.drives);
   const discsByDriveId = useCdStore((s) => s.discsByDriveId);
   const cdtextAttemptedDriveIds = useCdStore((s) => s.cdtextAttemptedDriveIds);
@@ -84,11 +97,28 @@ export function Sidebar() {
           {playlists.length === 0 ? (
             <p className="sidebar__playlists-empty">No playlists yet</p>
           ) : (
-            <ul className="sidebar__playlist-list">
-              {playlists.map((playlist) => (
-                <SidebarPlaylistItem key={playlist.id} playlist={playlist} />
-              ))}
-            </ul>
+            <DragDropProvider
+              sensors={PLAYLIST_SORT_SENSORS}
+              onDragEnd={(event) => {
+                if (event.canceled) return;
+                const next = move(playlists, event);
+                const unchanged = next.every(
+                  (playlist, index) => playlist.id === playlists[index]?.id,
+                );
+                if (unchanged) return;
+                void reorderPlaylists(next.map((playlist) => playlist.id));
+              }}
+            >
+              <ul className="sidebar__playlist-list">
+                {playlists.map((playlist, index) => (
+                  <SidebarPlaylistItem
+                    key={playlist.id}
+                    playlist={playlist}
+                    index={index}
+                  />
+                ))}
+              </ul>
+            </DragDropProvider>
           )}
         </div>
         <SidebarItem

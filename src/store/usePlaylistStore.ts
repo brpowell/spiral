@@ -3,6 +3,7 @@ import {
   addTracksToPlaylist as addTracksToPlaylistApi,
   removeTracksFromPlaylist as removeTracksFromPlaylistApi,
   reorderPlaylistTracks as reorderPlaylistTracksApi,
+  reorderPlaylists as reorderPlaylistsApi,
   createPlaylist as createPlaylistApi,
   deletePlaylist as deletePlaylistApi,
   getPlaylists,
@@ -42,6 +43,7 @@ interface PlaylistState {
     playlistId: number,
     trackIds: number[],
   ) => Promise<void>;
+  reorderPlaylists: (playlistIds: number[]) => Promise<void>;
   touchPlaylist: (id: number) => Promise<void>;
   deletePlaylist: (id: number) => Promise<void>;
 }
@@ -103,6 +105,18 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
       ),
     }));
     await reorderPlaylistTracksApi(playlistId, trackIds);
+    await get().loadPlaylists();
+  },
+
+  reorderPlaylists: async (playlistIds) => {
+    set((state) => {
+      const byId = new Map(state.playlists.map((p) => [p.id, p]));
+      const playlists = playlistIds
+        .map((id) => byId.get(id))
+        .filter((p): p is Playlist => p != null);
+      return { playlists };
+    });
+    await reorderPlaylistsApi(playlistIds);
     await get().loadPlaylists();
   },
 

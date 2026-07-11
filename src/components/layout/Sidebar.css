@@ -75,6 +75,19 @@
   gap: 0.1rem;
 }
 
+.sidebar__playlist-item .sidebar-item {
+  touch-action: none;
+  user-select: none;
+}
+
+.sidebar__playlist-item--dragging {
+  opacity: 0.45;
+}
+
+.sidebar__playlist-item--dragging .sidebar-item {
+  cursor: grabbing;
+}
+
 .sidebar__playlist-create {
   flex-shrink: 0;
   margin-top: 0.35rem;

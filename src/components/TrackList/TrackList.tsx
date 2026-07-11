@@ -1,11 +1,23 @@
-import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type CSSProperties,
+} from "react";
+import { DragDropProvider, type DragEndEvent } from "@dnd-kit/react";
+import { move, arrayMove } from "@dnd-kit/helpers";
+import { useSortable } from "@dnd-kit/react/sortable";
 import { albumKey } from "../../lib/albums";
 import { groupTracksIntoArtists } from "../../lib/artists";
+import {
+  HANDLE_POINTER_SENSOR,
+} from "../../lib/dndSortSensors";
 import { isTrackImporting, isTrackInteractive } from "../../lib/pendingImportTrack";
 import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { TrackListColumnMenu } from "./TrackListColumnMenu";
-import { TrackListRow } from "./TrackListRow";
+import { TrackListRow, type TrackListRowProps } from "./TrackListRow";
 import {
   computeMinTableWidth,
   useTrackListColumns,
@@ -29,6 +41,9 @@ import { usePrefetchVirtualRowArt } from "./usePrefetchVirtualRowArt";
 import { useTrackListHeaderRoving } from "./useTrackListHeaderRoving";
 import { useTrackListRowRoving } from "./useTrackListRowRoving";
 import "./TrackList.css";
+
+/** Pointer-only — keyboard rearrange uses Alt+Arrow on the focused row. */
+const TRACK_SORT_SENSORS = [HANDLE_POINTER_SENSOR];
 
 function sortFieldForColumn(
   col: TrackListColumnDef,
@@ -54,7 +69,7 @@ interface TrackListProps {
   showAlbumArt?: boolean;
   playlistId?: number;
   reorderable?: boolean;
-  onReorderTracks?: (fromIndex: number, toIndex: number) => void;
+  onReorderTracks?: (trackIds: number[]) => void;
   readOnly?: boolean;
   canNavigateAlbum?: (track: Track) => boolean;
   cdDriveId?: string;
@@ -74,6 +89,42 @@ interface ResizeHandleProps {
   startWidth: number;
   onResize: (columnId: TrackListColumnId, width: number) => void;
   onResizeEnd: () => void;
+}
+
+function SortableTrackListRow({
+  sortableGroup,
+  onDropSettled,
+  ...rowProps
+}: TrackListRowProps & {
+  sortableGroup: string;
+  onDropSettled?: (trackId: number) => void;
+}) {
+  // Keep the sortable element on the <li>, but activate drag from the grip
+  // so row keyboard nav (Space to select, Enter to play) stays intact.
+  const { ref, handleRef, isDragging, isDropping } = useSortable({
+    id: rowProps.track.id,
+    index: rowProps.displayIndex,
+    group: sortableGroup,
+  });
+  const wasDroppingRef = useRef(false);
+
+  // Commit React order only after Feedback finishes dropping — otherwise the
+  // hidden placeholder is still in the list and reconciliation flashes empty.
+  useLayoutEffect(() => {
+    if (wasDroppingRef.current && !isDropping) {
+      onDropSettled?.(rowProps.track.id);
+    }
+    wasDroppingRef.current = isDropping;
+  }, [isDropping, onDropSettled, rowProps.track.id]);
+
+  return (
+    <TrackListRow
+      {...rowProps}
+      itemRef={ref}
+      dragHandleRef={handleRef}
+      isDragging={isDragging}
+    />
+  );
 }
 
 function ResizeHandle({
@@ -144,8 +195,6 @@ export function TrackList({
   cdImportCompletedTrackIds,
   fillHeight = true,
 }: TrackListProps) {
-  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLOListElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -153,6 +202,12 @@ export function TrackList({
 
   const canReorder = reorderable && !!onReorderTracks;
   const useVirtualRows = !canReorder && tracks.length > 40;
+  const sortableGroup =
+    playlistId != null ? `playlist-tracks-${playlistId}` : "playlist-tracks";
+  const pendingReorderRef = useRef<{
+    sourceId: number;
+    trackIds: number[];
+  } | null>(null);
 
   const openAlbum = useNavigationStore((s) => s.openAlbum);
   const openArtist = useNavigationStore((s) => s.openArtist);
@@ -295,6 +350,22 @@ export function TrackList({
     [onSelectTrack],
   );
 
+  const handleReorderRow = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      if (!onReorderTracks || fromIndex === toIndex) return;
+      if (
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= tracks.length ||
+        toIndex >= tracks.length
+      ) {
+        return;
+      }
+      onReorderTracks(arrayMove(tracks, fromIndex, toIndex).map((t) => t.id));
+    },
+    [onReorderTracks, tracks],
+  );
+
   const {
     listTabIndex,
     getRowTabIndex,
@@ -314,6 +385,7 @@ export function TrackList({
     isRowNavigable,
     onSelectRow: handleKeyboardSelectRow,
     onPlayRow: onPlayTrack,
+    onReorderRow: canReorder ? handleReorderRow : undefined,
     useVirtualRows,
     virtualizer,
     virtualRows,
@@ -458,44 +530,39 @@ export function TrackList({
     );
   };
 
-  const findReorderIndexAt = useCallback(
-    (clientX: number, clientY: number): number | null => {
-      const target = document.elementFromPoint(clientX, clientY);
-      const item = target?.closest("[data-track-list-index]");
-      if (!item) return null;
-      const index = item.getAttribute("data-track-list-index");
-      return index != null ? Number(index) : null;
+  const flushPendingReorder = useCallback(
+    (trackId: number) => {
+      const pending = pendingReorderRef.current;
+      if (!pending || pending.sourceId !== trackId || !onReorderTracks) return;
+      pendingReorderRef.current = null;
+      onReorderTracks(pending.trackIds);
     },
-    [],
+    [onReorderTracks],
   );
 
-  const startReorder = useCallback(
-    (e: React.PointerEvent, fromIndex: number) => {
-      if (!canReorder || !onReorderTracks) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setDraggingIndex(fromIndex);
-
-      const onMove = (ev: PointerEvent) => {
-        const index = findReorderIndexAt(ev.clientX, ev.clientY);
-        if (index != null) setDragOverIndex(index);
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      if (!onReorderTracks || event.canceled) {
+        pendingReorderRef.current = null;
+        return;
+      }
+      const next = move(tracks, event);
+      const unchanged = next.every(
+        (track, index) => track.id === tracks[index]?.id,
+      );
+      if (unchanged) {
+        pendingReorderRef.current = null;
+        return;
+      }
+      // Defer Zustand/React order update until Feedback drop settles. Committing
+      // while the hidden placeholder is still mounted races reconciliation and
+      // briefly flashes an empty row (especially when moving down).
+      pendingReorderRef.current = {
+        sourceId: Number(event.operation.source?.id),
+        trackIds: next.map((track) => track.id),
       };
-
-      const onUp = (ev: PointerEvent) => {
-        document.removeEventListener("pointermove", onMove);
-        document.removeEventListener("pointerup", onUp);
-        const toIndex = findReorderIndexAt(ev.clientX, ev.clientY);
-        if (toIndex != null && toIndex !== fromIndex) {
-          onReorderTracks(fromIndex, toIndex);
-        }
-        setDraggingIndex(null);
-        setDragOverIndex(null);
-      };
-
-      document.addEventListener("pointermove", onMove);
-      document.addEventListener("pointerup", onUp);
     },
-    [canReorder, findReorderIndexAt, onReorderTracks],
+    [onReorderTracks, tracks],
   );
 
   const renderRow = (
@@ -510,54 +577,56 @@ export function TrackList({
     const isActivelyPlaying = isNowPlaying && playbackState === "playing";
     const rowKey = track.importSourcePath ?? String(track.id);
 
-    return (
-      <TrackListRow
-        key={rowKey}
-        track={track}
-        displayIndex={displayIndex}
-        showAlbumArt={showAlbumArt}
-        visibleColumns={displayColumns}
-        indexColumn={preset.indexColumn}
-        gridStyle={displayGridStyle}
-        canReorder={canReorder}
-        playlistId={playlistId}
-        isSelected={isSelected}
-        checkMode={checkMode}
-        isChecked={isChecked}
-        onToggleChecked={onToggleChecked}
-        isNowPlaying={isNowPlaying}
-        isActivelyPlaying={isActivelyPlaying}
-        isDragging={draggingIndex === displayIndex}
-        isDragOver={
-          dragOverIndex === displayIndex &&
-          draggingIndex != null &&
-          draggingIndex !== displayIndex
-        }
-        onSelectTrack={onSelectTrack}
-        onPlayTrack={onPlayTrack}
-        onRatingChange={onRatingChange}
-        onStartReorder={startReorder}
-        onOpenArtist={openArtist}
-        onOpenAlbum={handleOpenAlbum}
-        linkableArtistKeys={linkableArtistKeys}
-        canNavigateAlbum={canNavigateAlbum}
-        readOnly={readOnly}
-        cdDriveId={cdDriveId}
-        cdTracks={cdDriveId != null ? tracks : undefined}
-        cdImportingTrackIds={cdImportingTrackIds}
-        cdImportingActiveTrackId={cdImportingActiveTrackId}
-        cdImportCompletedTrackIds={cdImportCompletedTrackIds}
-        virtualStyle={virtualStyle}
-        tabIndex={getRowTabIndex(displayIndex)}
-        rowRef={setRowRef(displayIndex)}
-        onRowFocus={() => onRowFocus(displayIndex)}
-        onRowKeyDown={(e) => onRowKeyDown(displayIndex, e)}
-        onRowCellNavigation={(e, location) =>
-          onRowCellNavigation(displayIndex, e, location)
-        }
-        onRowClick={() => onRowClick(displayIndex)}
-      />
-    );
+    const rowProps: TrackListRowProps = {
+      track,
+      displayIndex,
+      showAlbumArt,
+      visibleColumns: displayColumns,
+      indexColumn: preset.indexColumn,
+      gridStyle: displayGridStyle,
+      canReorder,
+      playlistId,
+      isSelected,
+      checkMode,
+      isChecked,
+      onToggleChecked,
+      isNowPlaying,
+      isActivelyPlaying,
+      onSelectTrack,
+      onPlayTrack,
+      onRatingChange,
+      onOpenArtist: openArtist,
+      onOpenAlbum: handleOpenAlbum,
+      linkableArtistKeys,
+      canNavigateAlbum,
+      readOnly,
+      cdDriveId,
+      cdTracks: cdDriveId != null ? tracks : undefined,
+      cdImportingTrackIds,
+      cdImportingActiveTrackId,
+      cdImportCompletedTrackIds,
+      virtualStyle,
+      tabIndex: getRowTabIndex(displayIndex),
+      rowRef: setRowRef(displayIndex),
+      onRowFocus: () => onRowFocus(displayIndex),
+      onRowKeyDown: (e) => onRowKeyDown(displayIndex, e),
+      onRowCellNavigation: (e, location) =>
+        onRowCellNavigation(displayIndex, e, location),
+      onRowClick: () => onRowClick(displayIndex),
+    };
+
+    if (canReorder) {
+      return (
+        <SortableTrackListRow
+          key={rowKey}
+          sortableGroup={sortableGroup}
+          onDropSettled={flushPendingReorder}
+          {...rowProps}
+        />
+      );
+    }
+
+    return <TrackListRow key={rowKey} {...rowProps} />;
   };
 
   const listClassName = [
@@ -590,7 +659,7 @@ export function TrackList({
     </div>
   );
 
-  const bodyContent =
+  const trackListBody =
     tracks.length === 0 ? (
       <p className="track-list__empty">{emptyMessage}</p>
     ) : useVirtualRows ? (
@@ -629,6 +698,15 @@ export function TrackList({
           renderRow(track, displayIndex),
         )}
       </ol>
+    );
+
+  const bodyContent =
+    canReorder && tracks.length > 0 ? (
+      <DragDropProvider sensors={TRACK_SORT_SENSORS} onDragEnd={handleDragEnd}>
+        {trackListBody}
+      </DragDropProvider>
+    ) : (
+      trackListBody
     );
 
   return (

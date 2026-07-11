@@ -161,11 +161,12 @@ export interface TrackListRowProps {
   onToggleChecked?: (track: Track, checked: boolean) => void;
   isNowPlaying: boolean;
   isActivelyPlaying: boolean;
-  isDragging: boolean;
-  isDragOver: boolean;
+  /** Set by SortableTrackListRow when reorderable. */
+  isDragging?: boolean;
+  itemRef?: (element: Element | null) => void;
+  dragHandleRef?: (element: Element | null) => void;
   onSelectTrack: (track: Track, e: React.MouseEvent) => void;
   onPlayTrack: (track: Track) => void;
-  onStartReorder: (e: React.PointerEvent, fromIndex: number) => void;
   onOpenArtist: (artistKey: string) => void;
   onOpenAlbum: (track: Track) => void;
   onRatingChange?: (trackId: number, rating: CanonicalRating) => void;
@@ -204,11 +205,11 @@ function TrackListRowComponent({
   onToggleChecked,
   isNowPlaying,
   isActivelyPlaying,
-  isDragging,
-  isDragOver,
+  isDragging = false,
+  itemRef,
+  dragHandleRef,
   onSelectTrack,
   onPlayTrack,
-  onStartReorder,
   onOpenArtist,
   onOpenAlbum,
   onRatingChange,
@@ -340,17 +341,16 @@ function TrackListRowComponent({
                 .join(" ")}
             >
               {canReorder ? (
-                <span
+                <button
+                  type="button"
+                  ref={dragHandleRef}
                   className="track-list__drag-handle"
                   aria-label={`Reorder ${track.title}`}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    onStartReorder(e, displayIndex);
-                  }}
+                  tabIndex={-1}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <IconGrip className="track-list__drag-icon" />
-                </span>
+                </button>
               ) : null}
               <span className="track-list__index-num">
                 {isImporting ? (
@@ -463,13 +463,13 @@ function TrackListRowComponent({
 
   return (
     <li
+      ref={itemRef}
       data-track-list-index={displayIndex}
       style={virtualStyle}
       className={[
         "track-list__item",
         showAlbumArt && "track-list__item--with-art",
         isDragging && "track-list__item--dragging",
-        isDragOver && "track-list__item--drag-over",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -524,7 +524,8 @@ function rowPropsEqual(
     prev.isNowPlaying === next.isNowPlaying &&
     prev.isActivelyPlaying === next.isActivelyPlaying &&
     prev.isDragging === next.isDragging &&
-    prev.isDragOver === next.isDragOver &&
+    prev.itemRef === next.itemRef &&
+    prev.dragHandleRef === next.dragHandleRef &&
     prev.showAlbumArt === next.showAlbumArt &&
     prev.canReorder === next.canReorder &&
     prev.playlistId === next.playlistId &&
@@ -533,7 +534,6 @@ function rowPropsEqual(
     prev.gridStyle === next.gridStyle &&
     prev.onSelectTrack === next.onSelectTrack &&
     prev.onPlayTrack === next.onPlayTrack &&
-    prev.onStartReorder === next.onStartReorder &&
     prev.onOpenArtist === next.onOpenArtist &&
     prev.onOpenAlbum === next.onOpenAlbum &&
     prev.onRatingChange === next.onRatingChange &&

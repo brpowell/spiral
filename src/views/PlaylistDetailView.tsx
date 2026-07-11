@@ -131,13 +131,6 @@ function PlaylistDetailContent({
     [updateTrackInLibrary],
   );
 
-  const handleReorderTracks = (fromIndex: number, toIndex: number) => {
-    const ids = [...playlist.trackIds];
-    const [moved] = ids.splice(fromIndex, 1);
-    ids.splice(toIndex, 0, moved);
-    void reorderPlaylistTracks(playlist.id, ids);
-  };
-
   return (
     <div className="playlist-detail detail-view">
       <div className="detail-view__body">
@@ -247,7 +240,9 @@ function PlaylistDetailContent({
               onPlayTrack={handlePlayTrack}
               onRatingChange={handleRatingChange}
               reorderable
-              onReorderTracks={handleReorderTracks}
+              onReorderTracks={(trackIds) => {
+                void reorderPlaylistTracks(playlist.id, trackIds);
+              }}
             />
           )}
         </div>

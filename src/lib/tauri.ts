@@ -405,6 +405,10 @@ export async function reorderPlaylistTracks(
   return invoke<void>("reorder_playlist_tracks", { playlistId, trackIds });
 }
 
+export async function reorderPlaylists(playlistIds: number[]): Promise<void> {
+  return invoke<void>("reorder_playlists", { playlistIds });
+}
+
 export async function deletePlaylist(id: number): Promise<void> {
   return invoke<void>("delete_playlist", { id });
 }

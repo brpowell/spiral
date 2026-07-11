@@ -240,6 +240,7 @@ export function ContextMenuSubmenu({
             <motion.div
               ref={resolvedPanelRef}
               className="context-menu context-menu--flyout"
+              data-context-menu-ignore-scroll=""
               style={{
                 left: position?.left ?? -9999,
                 top: position?.top ?? -9999,

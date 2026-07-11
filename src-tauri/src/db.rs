@@ -179,6 +179,27 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
             [],
         )?;
     }
+    if !playlist_columns.iter().any(|c| c == "position") {
+        conn.execute(
+            "ALTER TABLE playlists ADD COLUMN position INTEGER NOT NULL DEFAULT 0",
+            [],
+        )?;
+        let ids: Vec<i64> = {
+            let mut stmt = conn.prepare(
+                "SELECT id FROM playlists ORDER BY title COLLATE NOCASE, id ASC",
+            )?;
+            let ids = stmt
+                .query_map([], |row| row.get(0))?
+                .collect::<Result<Vec<_>, _>>()?;
+            ids
+        };
+        for (position, id) in ids.iter().enumerate() {
+            conn.execute(
+                "UPDATE playlists SET position = ?1 WHERE id = ?2",
+                params![position as i64, id],
+            )?;
+        }
+    }
 
     if !table_exists(conn, "track_lyrics")? {
         conn.execute_batch(
@@ -434,7 +455,7 @@ pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::E
     let mut stmt = conn.prepare(
         "SELECT id, title, description, date_created, last_used_at, image_mode, custom_image_path
          FROM playlists
-         ORDER BY title COLLATE NOCASE",
+         ORDER BY position ASC, id ASC",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok((
@@ -482,9 +503,16 @@ pub fn create_playlist(
     custom_image_path: Option<&str>,
 ) -> Result<i64, rusqlite::Error> {
     let now = Utc::now().to_rfc3339();
+    let position: i64 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(position), -1) + 1 FROM playlists",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
     conn.execute(
-        "INSERT INTO playlists (title, description, date_created, last_used_at, image_mode, custom_image_path)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO playlists (title, description, date_created, last_used_at, image_mode, custom_image_path, position)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
             title,
             description,
@@ -492,6 +520,7 @@ pub fn create_playlist(
             now,
             playlist_image_mode_str(image_mode),
             custom_image_path,
+            position,
         ],
     )?;
     Ok(conn.last_insert_rowid())
@@ -622,6 +651,41 @@ pub fn reorder_playlist_tracks(
     }
 
     touch_playlist(conn, playlist_id)?;
+    Ok(())
+}
+
+fn all_playlist_ids(conn: &Connection) -> Result<Vec<i64>, rusqlite::Error> {
+    let mut stmt = conn.prepare("SELECT id FROM playlists ORDER BY position ASC, id ASC")?;
+    let ids = stmt
+        .query_map([], |row| row.get(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(ids)
+}
+
+pub fn reorder_playlists(
+    conn: &Connection,
+    playlist_ids: &[i64],
+) -> Result<(), rusqlite::Error> {
+    let current = all_playlist_ids(conn)?;
+    if current.len() != playlist_ids.len() {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "playlist_ids length mismatch".into(),
+        ));
+    }
+    let current_set: std::collections::HashSet<i64> = current.into_iter().collect();
+    if !playlist_ids.iter().all(|id| current_set.contains(id)) {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "playlist_ids contain unknown playlists".into(),
+        ));
+    }
+
+    for (position, playlist_id) in playlist_ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE playlists SET position = ?1 WHERE id = ?2",
+            params![position as i64, playlist_id],
+        )?;
+    }
+
     Ok(())
 }
 
@@ -900,6 +964,36 @@ mod tests {
 
         reorder_playlist_tracks(&conn, playlist_id, &[3, 1, 2]).unwrap();
         assert_eq!(playlist_track_ids(&conn, playlist_id).unwrap(), vec![3, 1, 2]);
+    }
+
+    #[test]
+    fn reorder_playlists_updates_sidebar_order() {
+        let conn = test_conn();
+        let zebra =
+            create_playlist(&conn, "Zebra", None, PlaylistImageMode::Generated, None).unwrap();
+        let alpha =
+            create_playlist(&conn, "Alpha", None, PlaylistImageMode::Generated, None).unwrap();
+        let middle =
+            create_playlist(&conn, "Middle", None, PlaylistImageMode::Generated, None).unwrap();
+
+        assert_eq!(
+            get_all_playlists(&conn)
+                .unwrap()
+                .into_iter()
+                .map(|p| p.id)
+                .collect::<Vec<_>>(),
+            vec![zebra, alpha, middle]
+        );
+
+        reorder_playlists(&conn, &[alpha, middle, zebra]).unwrap();
+        assert_eq!(
+            get_all_playlists(&conn)
+                .unwrap()
+                .into_iter()
+                .map(|p| p.id)
+                .collect::<Vec<_>>(),
+            vec![alpha, middle, zebra]
+        );
     }
 
     #[test]
