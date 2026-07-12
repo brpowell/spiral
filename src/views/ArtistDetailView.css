@@ -62,9 +62,22 @@
 }
 
 .artist-detail__section-title {
-  margin: 0 0 1.25rem;
+  margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
+}
+
+.artist-detail__discography-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.artist-detail__filter {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .artist-detail__empty-discography {

@@ -6,7 +6,7 @@ import {
 } from "../lib/albums";
 import { applyTrackRating } from "../lib/applyTrackRating";
 import { detailReturnLabel } from "../lib/navigationReturn";
-import { formatTime } from "../lib/format";
+import { formatDurationNatural } from "../lib/format";
 import { linkableArtistKey } from "../lib/trackNavigation";
 import type { CanonicalRating } from "../lib/trackRating";
 import { DetailArtistLink } from "../components/DetailArtistLink/DetailArtistLink";
@@ -196,7 +196,7 @@ export function AlbumDetailView({
               {[
                 album.year != null ? String(album.year) : null,
                 `${album.tracks.length} ${album.tracks.length === 1 ? "track" : "tracks"}`,
-                formatTime(totalDuration),
+                formatDurationNatural(totalDuration),
               ]
                 .filter(Boolean)
                 .join(" · ")}

@@ -1,21 +1,34 @@
 import { motion } from "framer-motion";
 import { useMemo } from "react";
 import { groupAlbumsForTimeline } from "../../lib/discographyTimeline";
+import {
+  artistTrackCountOnAlbum,
+  type ArtistBrowseMode,
+} from "../../lib/artists";
 import { useAlbumEditMenu } from "../../hooks/useAlbumEditMenu";
 import { useNavigationStore } from "../../store/useNavigationStore";
 import { EntityArt } from "../EntityArt/EntityArt";
 import type { Album } from "../../types/album";
+import type { Artist } from "../../types/artist";
 import "./DiscographyTimeline.css";
 
 interface DiscographyTimelineProps {
   albums: Album[];
+  artist: Artist;
+  mode: ArtistBrowseMode;
 }
 
-function TimelineAlbumEntry({ album }: { album: Album }) {
+function TimelineAlbumEntry({
+  album,
+  trackCount,
+}: {
+  album: Album;
+  trackCount: number;
+}) {
   const openAlbum = useNavigationStore((s) => s.openAlbum);
   const { onContextMenu, contextMenu } = useAlbumEditMenu(album);
   const trackLabel =
-    album.tracks.length === 1 ? "1 track" : `${album.tracks.length} tracks`;
+    trackCount === 1 ? "1 track" : `${trackCount} tracks`;
 
   return (
     <>
@@ -40,12 +53,16 @@ function TimelineAlbumEntry({ album }: { album: Album }) {
   );
 }
 
-export function DiscographyTimeline({ albums }: DiscographyTimelineProps) {
+export function DiscographyTimeline({
+  albums,
+  artist,
+  mode,
+}: DiscographyTimelineProps) {
   const groups = useMemo(() => groupAlbumsForTimeline(albums), [albums]);
 
   return (
     <ol className="discography-timeline" aria-label="Discography timeline">
-      {groups.map((group, groupIndex) => (
+      {groups.map((group) => (
         <li
           key={group.year ?? "unknown"}
           className="discography-timeline__year-group"
@@ -55,22 +72,14 @@ export function DiscographyTimeline({ albums }: DiscographyTimelineProps) {
             <span className="discography-timeline__node" />
           </div>
           <ul className="discography-timeline__entries" role="list">
-            {group.albums.map((album, albumIndex) => {
-              const isLastGroup = groupIndex === groups.length - 1;
-              const isLastAlbum = albumIndex === group.albums.length - 1;
-              return (
-                <li
-                  key={album.key}
-                  className={
-                    isLastGroup && isLastAlbum
-                      ? "discography-timeline__entry-wrap discography-timeline__entry-wrap--last"
-                      : "discography-timeline__entry-wrap"
-                  }
-                >
-                  <TimelineAlbumEntry album={album} />
-                </li>
-              );
-            })}
+            {group.albums.map((album) => (
+              <li key={album.key} className="discography-timeline__entry-wrap">
+                <TimelineAlbumEntry
+                  album={album}
+                  trackCount={artistTrackCountOnAlbum(album, artist, mode)}
+                />
+              </li>
+            ))}
           </ul>
         </li>
       ))}

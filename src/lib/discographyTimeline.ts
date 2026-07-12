@@ -19,7 +19,7 @@ export function groupAlbumsForTimeline(albums: Album[]): DiscographyYearGroup[] 
   const groups: DiscographyYearGroup[] = [];
 
   const knownYears = [...byYear.keys()].filter((y): y is number => y != null);
-  knownYears.sort((a, b) => a - b);
+  knownYears.sort((a, b) => b - a);
 
   for (const year of knownYears) {
     const yearAlbums = byYear.get(year) ?? [];

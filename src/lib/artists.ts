@@ -162,6 +162,20 @@ export function albumsForArtist(
   );
 }
 
+/** Tracks on the album credited to this artist for the given browse mode. */
+export function artistTrackCountOnAlbum(
+  album: Album,
+  artist: Artist,
+  mode: ArtistBrowseMode,
+): number {
+  if (mode === "discography") {
+    return album.artist === artist.name ? album.tracks.length : 0;
+  }
+  return album.tracks.filter((t) =>
+    performerKeysForTrack(t).includes(artist.key),
+  ).length;
+}
+
 export function artistTotalDurationSeconds(tracks: Track[]): number {
   return tracks.reduce((sum, t) => sum + (t.durationSeconds ?? 0), 0);
 }

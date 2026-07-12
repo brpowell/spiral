@@ -70,11 +70,7 @@ export const useNavigationStore = create<NavigationState>((set) => ({
 
   setArtistBrowseMode: (artistBrowseMode) => {
     saveArtistBrowseMode(artistBrowseMode);
-    set({
-      artistBrowseMode,
-      artistKey: null,
-      artistReturnContext: null,
-    });
+    set({ artistBrowseMode });
   },
 
   openAlbum: (albumKey) =>

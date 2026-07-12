@@ -49,7 +49,7 @@ export function MainContent() {
         : albumKey != null
           ? `album-${albumKey}`
           : artistKey != null
-            ? `artist-${artistBrowseMode}-${artistKey}`
+            ? `artist-${artistKey}`
             : view;
 
   return (

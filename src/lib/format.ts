@@ -5,6 +5,19 @@ export function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+/** Compact natural duration for totals (e.g. "4h 15m", "42m", "1h"). */
+export function formatDurationNatural(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0m";
+  const total = Math.floor(seconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  if (minutes > 0) return `${minutes}m`;
+  return `${total}s`;
+}
+
 export function formatRemainingTime(
   elapsedSeconds: number,
   totalSeconds: number,
