@@ -28,17 +28,11 @@
   background: transparent;
   text-align: left;
   cursor: pointer;
-  border-radius: var(--radius-md);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-bg) 60%, transparent);
-}
-
-.artist-card:hover {
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--color-bg) 35%, black);
+  perspective: 900px;
 }
 
 .artist-card__art-wrap {
   border-radius: 50%;
-  overflow: hidden;
   aspect-ratio: 1;
 }
 

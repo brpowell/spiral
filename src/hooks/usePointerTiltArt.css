@@ -1,0 +1,31 @@
+.pointer-tilt-art {
+  --glare-x: 42%;
+  --glare-y: 28%;
+  position: relative;
+  overflow: hidden;
+  transform-style: preserve-3d;
+}
+
+.pointer-tilt-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(
+      120% 90% at var(--glare-x) var(--glare-y),
+      color-mix(in srgb, white 28%, transparent) 0%,
+      color-mix(in srgb, white 8%, transparent) 28%,
+      transparent 55%
+    ),
+    linear-gradient(
+      125deg,
+      transparent 36%,
+      color-mix(in srgb, white 14%, transparent) 48%,
+      transparent 62%
+    );
+  mix-blend-mode: soft-light;
+  opacity: 0.85;
+}
