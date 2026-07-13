@@ -59,12 +59,17 @@ export function TrackEditorLyricsTab({
       }
 
       const parsed = parseEditorLyricsChange(pasted, syncedLines);
-      if (parsed.format !== "line_synced") {
+      if (parsed.format !== "line_synced" || !parsed.syncedLines) {
         return;
       }
 
       event.preventDefault();
       onChange(parsed);
+      // State stores plain text for resting view; while focused we show raw LRC.
+      // Textarea skips prop→DOM sync while focused, so write it here.
+      const el = event.currentTarget;
+      el.value = serializeLrc(parsed.syncedLines);
+      syncTextareaAutoSize(el, LYRICS_TEXTAREA_ROWS);
     },
     [onChange, syncedLines],
   );

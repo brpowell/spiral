@@ -2,7 +2,7 @@ import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { useSuggestionAutocomplete } from "../../../hooks/useSuggestionAutocomplete";
 import { Chip } from "../Chip/Chip";
 import { SuggestionMenu } from "../SuggestionMenu/SuggestionMenu";
-import { TextInput, type InputEditHistory } from "../TextInput/TextInput";
+import { TextInput } from "../TextInput/TextInput";
 import "./ChipInput.css";
 
 export type ChipInputProps = {
@@ -38,7 +38,6 @@ export function ChipInput({
 }: ChipInputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const editHistoryRef = useRef<InputEditHistory | null>(null);
   const menuId = useId();
   const optionIdPrefix = `${menuId}-option`;
   const [draft, setDraft] = useState("");
@@ -80,7 +79,6 @@ export function ChipInput({
   const clearDraft = useCallback(() => {
     setDraft("");
     const input = inputRef.current;
-    editHistoryRef.current?.setValueWithoutRecord("");
     if (input) input.value = "";
     closeMenu();
   }, [closeMenu]);
@@ -134,7 +132,6 @@ export function ChipInput({
       <div className="chip-input__chips" role="list">
         <TextInput
           ref={inputRef}
-          editHistoryRef={editHistoryRef}
           className="chip-input__field"
           variant="ghost"
           value={draft}

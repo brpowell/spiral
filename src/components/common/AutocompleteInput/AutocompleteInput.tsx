@@ -7,7 +7,7 @@ import {
 import { flushSync } from "react-dom";
 import { useSuggestionAutocomplete } from "../../../hooks/useSuggestionAutocomplete";
 import { SuggestionMenu } from "../SuggestionMenu/SuggestionMenu";
-import { TextInput, type InputEditHistory } from "../TextInput/TextInput";
+import { TextInput } from "../TextInput/TextInput";
 import "./AutocompleteInput.css";
 
 export type AutocompleteInputProps = Omit<
@@ -43,7 +43,6 @@ export function AutocompleteInput({
 }: AutocompleteInputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const editHistoryRef = useRef<InputEditHistory | null>(null);
   const menuId = useId();
   const optionIdPrefix = `${menuId}-option`;
   const term = value != null ? String(value) : "";
@@ -72,7 +71,6 @@ export function AutocompleteInput({
     (suggestion: string) => {
       const input = inputRef.current;
       if (!input) return;
-      editHistoryRef.current?.replaceWithUndo(suggestion);
       applyInputValue(input, suggestion, onChange);
       closeMenu();
       input.focus();
@@ -84,7 +82,6 @@ export function AutocompleteInput({
     <div ref={containerRef} className="autocomplete-input">
       <TextInput
         ref={inputRef}
-        editHistoryRef={editHistoryRef}
         {...props}
         value={value}
         disabled={disabled}

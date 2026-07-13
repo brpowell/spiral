@@ -7,8 +7,6 @@ import {
   type KeyboardEvent,
   type Ref,
 } from "react";
-import { useInputEditHistory } from "../../../hooks/useInputEditHistory";
-import { applyMacEditingShortcuts } from "../../../lib/macEditingShortcuts";
 import "./Textarea.css";
 
 export type TextareaProps = Omit<
@@ -65,13 +63,6 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     ref,
   ) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const {
-      reset: resetEditHistory,
-      recordChange,
-      undo,
-      redo,
-    } = useInputEditHistory();
-    const historyInitialized = useRef(false);
 
     const setRefs = useCallback(
       (node: HTMLTextAreaElement | null) => {
@@ -80,12 +71,6 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       },
       [ref],
     );
-
-    useLayoutEffect(() => {
-      if (historyInitialized.current || value === undefined) return;
-      historyInitialized.current = true;
-      resetEditHistory(String(value));
-    }, [resetEditHistory, value]);
 
     const syncAutoSize = useCallback(() => {
       const el = textareaRef.current;
@@ -101,9 +86,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       const next = String(value);
       if (el.value === next) return;
       el.value = next;
-      resetEditHistory(next);
       syncAutoSize();
-    }, [value, resetEditHistory, syncAutoSize]);
+    }, [value, syncAutoSize]);
 
     useLayoutEffect(() => {
       syncAutoSize();
@@ -111,36 +95,22 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 
     const handleChange = useCallback(
       (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        recordChange(e.target.value);
         onChange?.(e);
         syncAutoSize();
       },
-      [onChange, recordChange, syncAutoSize],
-    );
-
-    const syncChange = useCallback(
-      (el: HTMLTextAreaElement) => {
-        recordChange(el.value);
-        onChange?.({
-          target: el,
-          currentTarget: el,
-        } as React.ChangeEvent<HTMLTextAreaElement>);
-        syncAutoSize();
-      },
-      [onChange, recordChange, syncAutoSize],
+      [onChange, syncAutoSize],
     );
 
     const handleKeyDown = useCallback(
       (e: KeyboardEvent<HTMLTextAreaElement>) => {
         onKeyDown?.(e);
         if (e.defaultPrevented) return;
-        if (applyMacEditingShortcuts(e, undo, redo, syncChange)) return;
         if (e.key === "Escape" && onEscape) {
           e.preventDefault();
           onEscape(e);
         }
       },
-      [onKeyDown, onEscape, syncChange, undo, redo],
+      [onKeyDown, onEscape],
     );
 
     const classes = [

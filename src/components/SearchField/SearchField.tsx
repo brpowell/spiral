@@ -1,7 +1,7 @@
 import { useRef, type KeyboardEvent } from "react";
 import { IconClose, IconSearch } from "../icons";
 import { Button } from "../common/Button/Button";
-import { TextInput, type InputEditHistory } from "../common/TextInput/TextInput";
+import { TextInput } from "../common/TextInput/TextInput";
 import "./SearchField.css";
 
 export interface SearchFieldProps {
@@ -20,12 +20,10 @@ export function SearchField({
   className,
 }: SearchFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const editHistoryRef = useRef<InputEditHistory | null>(null);
 
   const clear = (refocus = false) => {
     onChange("");
     const input = inputRef.current;
-    editHistoryRef.current?.setValueWithoutRecord("");
     if (input) input.value = "";
     if (refocus) input?.focus();
   };
@@ -44,7 +42,6 @@ export function SearchField({
       <IconSearch aria-hidden />
       <TextInput
         ref={inputRef}
-        editHistoryRef={editHistoryRef}
         variant="ghost"
         role="searchbox"
         placeholder={placeholder}

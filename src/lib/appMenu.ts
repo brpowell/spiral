@@ -68,6 +68,19 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
     ],
   });
 
+  const undo = await PredefinedMenuItem.new({ item: "Undo" });
+  const redo = await PredefinedMenuItem.new({ item: "Redo" });
+  const editSeparator = await PredefinedMenuItem.new({ item: "Separator" });
+  const cut = await PredefinedMenuItem.new({ item: "Cut" });
+  const copy = await PredefinedMenuItem.new({ item: "Copy" });
+  const paste = await PredefinedMenuItem.new({ item: "Paste" });
+  const selectAll = await PredefinedMenuItem.new({ item: "SelectAll" });
+
+  const editSubmenu = await Submenu.new({
+    text: "Edit",
+    items: [undo, redo, editSeparator, cut, copy, paste, selectAll],
+  });
+
   const skinMode = await MenuItem.new({
     id: "skin-mode",
     text: "Skin Mode",
@@ -99,7 +112,7 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   });
 
   const menu = await Menu.new({
-    items: [appSubmenu, fileSubmenu, viewSubmenu],
+    items: [appSubmenu, fileSubmenu, editSubmenu, viewSubmenu],
   });
 
   await menu.setAsAppMenu();
