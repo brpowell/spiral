@@ -9,7 +9,10 @@ use crate::lyrics_sidecar;
 use crate::metadata_backup;
 use crate::metadata_reader;
 use crate::metadata_writer;
-use crate::models::{RefreshLibraryMetadataResult, Track, TrackInput, TrackMetadataUpdate, TrackLyricsInput};
+use crate::models::{
+    ClearListenHistoryResult, ListenEventInput, RecordListenEventResult,
+    RefreshLibraryMetadataResult, Track, TrackInput, TrackLyricsInput, TrackMetadataUpdate,
+};
 use crate::rating_sync::{schedule_rating_file_write, RatingSync};
 use crate::settings;
 use crate::transcoder;
@@ -241,10 +244,32 @@ pub async fn refresh_library_metadata(app: AppHandle) -> Result<RefreshLibraryMe
 }
 
 #[tauri::command]
-pub fn record_track_play(state: State<DbState>, track_id: i64) -> Result<u32, String> {
+pub fn record_listen_event(
+    app: AppHandle,
+    state: State<DbState>,
+    event: ListenEventInput,
+) -> Result<RecordListenEventResult, String> {
+    let mut conn = state.0.lock().map_err(|e| e.to_string())?;
+    if !settings::listening_history_enabled(&app) {
+        return db::skip_listen_event_recording(&conn, event.track_id).map_err(|e| {
+            eprintln!("skip_listen_event_recording error: {e}");
+            e.to_string()
+        });
+    }
+    db::record_listen_event(&mut conn, &event).map_err(|e| {
+        eprintln!("record_listen_event error: {e}");
+        e.to_string()
+    })
+}
+
+#[tauri::command]
+pub fn clear_listen_history(
+    state: State<DbState>,
+    within_hours: Option<u32>,
+) -> Result<ClearListenHistoryResult, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::increment_play_count(&conn, track_id).map_err(|e| {
-        eprintln!("record_track_play error: {e}");
+    db::clear_listen_events(&conn, within_hours).map_err(|e| {
+        eprintln!("clear_listen_history error: {e}");
         e.to_string()
     })
 }
@@ -666,6 +691,7 @@ mod tests {
             art_path: None,
             date_added: "2026-01-01T00:00:00Z".into(),
             play_count: 0,
+            last_played_at: None,
             rating: 0,
             lyrics_format: None,
         }

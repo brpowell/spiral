@@ -38,7 +38,7 @@ function ThemeSwatch({
   onSelect: () => void;
 }) {
   const openDetail = useOpenAppearancePackDetail();
-  const packRef = { kind: "theme" as const, id: theme.name };
+  const packRef = { kind: "theme" as const, id: theme.id };
 
   return (
     <AppearancePackCard
@@ -72,11 +72,11 @@ export function ThemesSection() {
         ) : (
           <div className="appearance-pack-grid" role="list">
             {themes.map((theme) => (
-              <div key={theme.name} role="listitem">
+              <div key={theme.id} role="listitem">
                 <ThemeSwatch
                   theme={theme}
-                  active={theme.name === activeThemeId}
-                  onSelect={() => void setTheme(theme.name)}
+                  active={theme.id === activeThemeId}
+                  onSelect={() => void setTheme(theme.id)}
                 />
               </div>
             ))}

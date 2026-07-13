@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { collectPlaybackSession } from "../lib/playbackSession";
 import { quitApp, savePlaybackSession } from "../lib/tauri";
 import { isSkinModeWindow } from "../lib/windowRole";
-import { usePlayerStore } from "../store/usePlayerStore";
+import { flushOpenListenOnQuit, usePlayerStore } from "../store/usePlayerStore";
 
 const SAVE_DEBOUNCE_MS = 1_500;
 
@@ -53,6 +53,7 @@ export function usePlaybackSessionPersistence(): void {
           saveTimerRef.current = null;
         }
         try {
+          await flushOpenListenOnQuit();
           await persistPlaybackSession();
         } catch (err) {
           console.error("Failed to save playback session on close:", err);

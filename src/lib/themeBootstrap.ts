@@ -1,4 +1,4 @@
-import { applyTheme, DEFAULT_THEME_ID, findThemeByName, resolveActiveThemeId } from "./theme";
+import { applyTheme, DEFAULT_THEME_ID, findThemeById, resolveActiveThemeId } from "./theme";
 import {
   getActiveThemeId,
   getBuiltinThemes,
@@ -26,7 +26,7 @@ export async function bootstrapTheme(): Promise<void> {
 
   const themes: Theme[] = [...builtin, ...user];
   const resolvedId = resolveActiveThemeId(themes, activeThemeId);
-  const theme = findThemeByName(themes, resolvedId);
+  const theme = findThemeById(themes, resolvedId);
 
   if (theme) {
     applyTheme(theme);

@@ -1,6 +1,6 @@
 import type { Theme, ThemeTokens } from "../types/theme";
 
-export const DEFAULT_THEME_ID = "Obsidian";
+export const DEFAULT_THEME_ID = "obsidian";
 
 /** Full token set used for merge fallbacks (Obsidian). */
 export const OBSIDIAN_DEFAULT_TOKENS: ThemeTokens = {
@@ -71,19 +71,30 @@ export function applyTheme(theme: Theme): void {
   }, 250);
 }
 
-export function findThemeByName(themes: Theme[], name: string): Theme | undefined {
-  return themes.find((t) => t.name === name);
+export function findThemeById(
+  themes: Theme[],
+  id: string,
+): Theme | undefined {
+  return themes.find((t) => t.id === id);
 }
 
+/**
+ * Resolve a stored active-theme value to a stable id.
+ * Legacy settings stored display names; map those to ids.
+ */
 export function resolveActiveThemeId(
   themes: Theme[],
   activeThemeId: string,
 ): string {
-  if (findThemeByName(themes, activeThemeId) !== undefined) {
+  if (findThemeById(themes, activeThemeId) !== undefined) {
     return activeThemeId;
   }
-  if (findThemeByName(themes, DEFAULT_THEME_ID) !== undefined) {
+  const byName = themes.find((t) => t.name === activeThemeId);
+  if (byName) {
+    return byName.id;
+  }
+  if (findThemeById(themes, DEFAULT_THEME_ID) !== undefined) {
     return DEFAULT_THEME_ID;
   }
-  return themes[0]?.name ?? DEFAULT_THEME_ID;
+  return themes[0]?.id ?? DEFAULT_THEME_ID;
 }

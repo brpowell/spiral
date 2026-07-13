@@ -22,6 +22,7 @@ pub struct Track {
     pub art_path: Option<String>,
     pub date_added: String,
     pub play_count: u32,
+    pub last_played_at: Option<String>,
     pub rating: u8,
     #[serde(default)]
     pub lyrics_format: Option<LyricsFormat>,
@@ -202,4 +203,66 @@ pub struct TrackInput {
     pub art_path: Option<String>,
     pub rating: Option<u8>,
     pub lyrics: Option<TrackLyricsInput>,
+}
+
+/// Append-only listen history row written when a library play closes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ListenEventInput {
+    pub track_id: i64,
+    pub started_at: String,
+    pub ended_at: String,
+    pub listened_seconds: f64,
+    #[serde(default)]
+    pub library_listened_seconds: f64,
+    #[serde(default)]
+    pub skin_listened_seconds: f64,
+    pub track_duration_seconds: Option<f64>,
+    /// `natural_end` | `skipped` | `interrupted`
+    pub completion: String,
+    /// Currently always `library` (CD later).
+    #[serde(default = "default_listen_source")]
+    pub source: String,
+    /// Majority UI surface by listened seconds: `library` | `skin`.
+    #[serde(default = "default_listen_ui_mode")]
+    pub ui_mode: String,
+    pub theme_id: Option<String>,
+    pub theme_name: Option<String>,
+    pub skin_id: Option<String>,
+    pub skin_name: Option<String>,
+    pub visualizer_id: Option<String>,
+    pub visualizer_name: Option<String>,
+}
+
+fn default_listen_source() -> String {
+    "library".into()
+}
+
+fn default_listen_ui_mode() -> String {
+    "library".into()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordListenEventResult {
+    pub event_id: i64,
+    pub play_count: u32,
+    pub last_played_at: String,
+    /// True when this close qualified as a play and bumped `play_count`.
+    #[serde(default)]
+    pub counted: bool,
+    /// False when recording is disabled and nothing was inserted.
+    #[serde(default = "default_true")]
+    pub recorded: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClearListenHistoryResult {
+    pub deleted_events: u64,
+    pub reset_counters: bool,
 }

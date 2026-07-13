@@ -24,6 +24,7 @@ const libraryTrack: Track = {
   artPath: null,
   dateAdded: "2026-01-01",
   playCount: 0,
+  lastPlayedAt: null,
   rating: 0,
 };
 

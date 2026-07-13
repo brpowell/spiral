@@ -1,4 +1,6 @@
 {
+  "$schema": "../schema/theme-v1.schema.json",
+  "id": "parchment",
   "name": "Parchment",
   "author": "Spiral",
   "description": "Warm off-white and sepia tones, like a well-lit record shop.",

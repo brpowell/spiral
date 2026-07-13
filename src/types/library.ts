@@ -17,6 +17,7 @@ export interface LibrarySettings {
   defaultLibraryRoot: string;
   metadataBackupsEnabled: boolean;
   metadataBackupRetentionDays: number;
+  listeningHistoryEnabled: boolean;
   lyricsSidecarSyncEnabled: boolean;
   lyricsAutoFetchInLightbox: boolean;
 }
@@ -31,6 +32,7 @@ export interface LibrarySettingsPatch {
   cdImportProfileId?: string;
   metadataBackupsEnabled?: boolean;
   metadataBackupRetentionDays?: number;
+  listeningHistoryEnabled?: boolean;
   lyricsSidecarSyncEnabled?: boolean;
   lyricsAutoFetchInLightbox?: boolean;
 }

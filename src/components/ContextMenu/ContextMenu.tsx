@@ -29,7 +29,7 @@ export function ContextMenuItem({
   className,
   disabled,
 }: {
-  icon: ReactNode;
+  icon?: ReactNode;
   label: string;
   onClick: () => void;
   className?: string;
@@ -43,9 +43,11 @@ export function ContextMenuItem({
       disabled={disabled}
       onClick={onClick}
     >
-      <span className="context-menu__item-icon" aria-hidden>
-        {icon}
-      </span>
+      {icon != null ? (
+        <span className="context-menu__item-icon" aria-hidden>
+          {icon}
+        </span>
+      ) : null}
       <span className="context-menu__item-label">{label}</span>
     </button>
   );

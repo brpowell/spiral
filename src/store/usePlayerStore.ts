@@ -17,12 +17,21 @@ import { isCdImportBlockingPlayback } from "../lib/cdImportGuard";
 import { showQueueAddedToast, showQueueAddedToastForTracks } from "../lib/queueToast";
 import { seekRatioToPositionSeconds } from "../lib/playbackSeek";
 import { parseRepeatMode, prunePlaybackSession } from "../lib/playbackSession";
+import {
+  closeListen,
+  closeListenForHandoff,
+  openListen,
+  pauseListenAccumulation,
+  resumeListenAccumulation,
+  type ListenCompletion,
+  type ListenEventPayload,
+} from "../lib/listenSession";
 import { requiresPcmPlayback } from "../lib/supportedAudio";
 import { usePlaybackSettingsStore } from "./usePlaybackSettingsStore";
 import {
   getLibrary,
   getPlaybackSession,
-  recordTrackPlay,
+  recordListenEvent,
   removeTrack,
 } from "../lib/tauri";
 import {
@@ -198,7 +207,13 @@ function applyActiveTrackHandoff(
 ): void {
   const outgoingId = get().currentTrackId;
   if (outgoingId !== null && !isCdTrackListId(outgoingId)) {
-    recordCompletedPlay(outgoingId, get);
+    // Crossfade / auto handoff — close outgoing once (onEnd is suppressed).
+    // Near-complete listens count as natural_end, not skipped.
+    const payload = closeListenForHandoff(
+      audio.getPositionSeconds(),
+      audio.getDurationSeconds() || undefined,
+    );
+    if (payload) persistListenEvent(payload, get);
   }
 
   set((current) => ({
@@ -221,6 +236,11 @@ function applyActiveTrackHandoff(
       ? { cdDriveId: null, playbackTracks: [] }
       : {}),
   }));
+
+  if (incomingPlayable.type === "library") {
+    const track = get().library.find((t) => t.id === incomingPlayable.trackId);
+    openListen(incomingPlayable.trackId, track?.durationSeconds ?? null, true);
+  }
 }
 
 let positionInterval: ReturnType<typeof setTimeout> | null = null;
@@ -660,6 +680,19 @@ async function playResolvedPlayable(
     }
 
     if (generation !== playResolvedGeneration) return;
+
+    if (playable.type === "library") {
+      const track = get().library.find((t) => t.id === playable.trackId);
+      const previous = openListen(
+        playable.trackId,
+        track?.durationSeconds ?? null,
+        true,
+      );
+      if (previous) persistListenEvent(previous, get);
+    } else {
+      flushListenClose("skipped", get);
+    }
+
     set((current) => ({
       currentPlayable: playable,
       currentTrackId: trackListId,
@@ -968,17 +1001,44 @@ async function restorePlaybackSession(
   }
 }
 
-function recordCompletedPlay(trackId: number, get: () => PlayerState): void {
-  const track = get().library.find((t) => t.id === trackId);
+function persistListenEvent(
+  payload: ListenEventPayload,
+  get: () => PlayerState,
+): void {
+  const track = get().library.find((t) => t.id === payload.trackId);
   if (!track) return;
 
-  void recordTrackPlay(trackId)
-    .then((playCount) => {
-      get().updateTrackInLibrary({ ...track, playCount });
+  void recordListenEvent(payload)
+    .then((result) => {
+      if (!result.counted) return;
+      get().updateTrackInLibrary({
+        ...track,
+        playCount: result.playCount,
+        lastPlayedAt: result.lastPlayedAt || null,
+      });
     })
     .catch((err) => {
-      console.error("recordTrackPlay failed:", err);
+      console.error("recordListenEvent failed:", err);
     });
+}
+
+function flushListenClose(
+  completion: ListenCompletion,
+  get: () => PlayerState,
+): void {
+  const payload = closeListen(completion);
+  if (payload) persistListenEvent(payload, get);
+}
+
+/** Flush any open library listen (e.g. app quit). */
+export async function flushOpenListenOnQuit(): Promise<void> {
+  const payload = closeListen("interrupted");
+  if (!payload) return;
+  try {
+    await recordListenEvent(payload);
+  } catch (err) {
+    console.error("recordListenEvent on quit failed:", err);
+  }
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
@@ -993,7 +1053,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     }
 
     if (!isCdTrackListId(currentTrackId)) {
-      recordCompletedPlay(currentTrackId, get);
+      flushListenClose("natural_end", get);
     }
 
     const order = getPlaybackOrder(get);
@@ -1296,6 +1356,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     pause: () => {
       audio.pause();
       stopPositionPoll(set);
+      pauseListenAccumulation();
       set({ playbackState: "paused" });
     },
 
@@ -1308,6 +1369,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         return;
       }
       audio.play();
+      resumeListenAccumulation();
       set({ playbackState: "playing" });
       startPositionPoll(set, get);
     },
@@ -1339,6 +1401,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }
 
       stopPositionPoll(set);
+      pauseListenAccumulation();
       set({ playbackState: "paused" });
     },
 

@@ -16,6 +16,9 @@ export interface ThemeTokens {
 }
 
 export interface Theme {
+  /** Stable slug used in settings and listen history. */
+  id: string;
+  /** Human-readable display label. */
   name: string;
   author: string;
   description: string;

@@ -23,6 +23,7 @@ function track(overrides: Partial<Track> = {}): Track {
     artPath: null,
     dateAdded: "2026-01-01T00:00:00.000Z",
     playCount: 0,
+    lastPlayedAt: null,
     rating: 0,
     ...overrides,
   };
@@ -48,5 +49,20 @@ describe("compareTracks lyrics", () => {
     expect(compareTracks(lineSynced, plain, "lyrics", "desc")).toBeLessThan(0);
     expect(compareTracks(plain, missing, "lyrics", "desc")).toBeLessThan(0);
     expect(compareTracks(missing, plain, "lyrics", "desc")).toBeGreaterThan(0);
+  });
+});
+
+describe("compareTracks lastPlayedAt", () => {
+  it("sorts by timestamp and keeps never-played last in both directions", () => {
+    const older = track({ id: 1, lastPlayedAt: "2026-01-01T00:00:00.000Z" });
+    const newer = track({ id: 2, lastPlayedAt: "2026-06-01T00:00:00.000Z" });
+    const never = track({ id: 3, lastPlayedAt: null });
+
+    expect(compareTracks(older, newer, "lastPlayedAt", "asc")).toBeLessThan(0);
+    expect(compareTracks(newer, older, "lastPlayedAt", "desc")).toBeLessThan(0);
+    expect(compareTracks(newer, never, "lastPlayedAt", "asc")).toBeLessThan(0);
+    expect(compareTracks(never, newer, "lastPlayedAt", "asc")).toBeGreaterThan(0);
+    expect(compareTracks(newer, never, "lastPlayedAt", "desc")).toBeLessThan(0);
+    expect(compareTracks(never, newer, "lastPlayedAt", "desc")).toBeGreaterThan(0);
   });
 });

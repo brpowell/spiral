@@ -20,6 +20,7 @@ import type {
   TrackLyrics,
 } from "../types/lyrics";
 import { normalizeTrackLyrics, normalizeTrackLyricsInput } from "./lyrics";
+import type { ListenEventPayload } from "../types/listenEvent";
 import type { ActivityLogContext } from "../types/activityLog";
 
 function normalizeCoverArtCandidate(
@@ -89,6 +90,10 @@ function normalizeTrack(raw: Record<string, unknown>): Track {
       (raw.playCount as number | undefined) ??
       (raw.play_count as number | undefined) ??
       0,
+    lastPlayedAt:
+      ((raw.lastPlayedAt as string | null | undefined) ??
+        (raw.last_played_at as string | null | undefined)) ||
+      null,
     rating:
       (raw.rating as number | undefined) ?? 0,
     lyricsFormat:
@@ -98,8 +103,45 @@ function normalizeTrack(raw: Record<string, unknown>): Track {
   };
 }
 
-export async function recordTrackPlay(trackId: number): Promise<number> {
-  return invoke<number>("record_track_play", { trackId });
+export type ListenEventInput = ListenEventPayload;
+
+export interface RecordListenEventResult {
+  eventId: number;
+  playCount: number;
+  lastPlayedAt: string;
+  counted: boolean;
+}
+
+export async function recordListenEvent(
+  event: ListenEventInput,
+): Promise<RecordListenEventResult> {
+  const raw = await invoke<Record<string, unknown>>("record_listen_event", {
+    event,
+  });
+  return {
+    eventId: (raw.eventId ?? raw.event_id) as number,
+    playCount: (raw.playCount ?? raw.play_count) as number,
+    lastPlayedAt: (raw.lastPlayedAt ?? raw.last_played_at) as string,
+    counted: Boolean(raw.counted ?? false),
+  };
+}
+
+export interface ClearListenHistoryResult {
+  deletedEvents: number;
+  resetCounters: boolean;
+}
+
+/** Clear recent listens. Omit `withinHours` (or pass null) for all time. */
+export async function clearListenHistory(options?: {
+  withinHours?: number | null;
+}): Promise<ClearListenHistoryResult> {
+  const raw = await invoke<Record<string, unknown>>("clear_listen_history", {
+    withinHours: options?.withinHours ?? null,
+  });
+  return {
+    deletedEvents: (raw.deletedEvents ?? raw.deleted_events) as number,
+    resetCounters: Boolean(raw.resetCounters ?? raw.reset_counters),
+  };
 }
 
 export async function setTrackRating(
@@ -543,8 +585,8 @@ export async function getActiveThemeId(): Promise<string> {
   return invoke<string>("get_active_theme_id");
 }
 
-export async function saveActiveThemeId(themeName: string): Promise<void> {
-  return invoke<void>("save_active_theme_id", { themeName });
+export async function saveActiveThemeId(themeId: string): Promise<void> {
+  return invoke<void>("save_active_theme_id", { themeId });
 }
 
 export async function openThemesFolder(): Promise<void> {
@@ -763,6 +805,7 @@ export interface TrackListPreferencesPayload {
       | "discNumber"
       | "dateAdded"
       | "playCount"
+      | "lastPlayedAt"
       | "rating",
       number
     >

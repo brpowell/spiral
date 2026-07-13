@@ -59,6 +59,15 @@ async function listenSkinPreferencesChanged(): Promise<void> {
 
 export async function initSkinBridge(role: WindowRole): Promise<void> {
   if (role === "main") {
+    // Main owns listen snapshots; keep skin id/name in sync with Appearance.
+    await listen<SkinChangedPayload>(SKIN_CHANGED_EVENT, () => {
+      void useSkinStore
+        .getState()
+        .loadSkins()
+        .catch((err: unknown) => {
+          console.error("Failed to reload skins on main after change:", err);
+        });
+    });
     return;
   }
 

@@ -137,6 +137,7 @@ function syntheticLibraryTrack(
     artPath: metadata.artPath,
     dateAdded: "",
     playCount: 0,
+    lastPlayedAt: null,
     rating: 0,
   };
 }

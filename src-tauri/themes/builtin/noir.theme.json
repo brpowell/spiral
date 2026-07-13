@@ -1,4 +1,6 @@
 {
+  "$schema": "../schema/theme-v1.schema.json",
+  "id": "noir",
   "name": "Noir",
   "author": "Spiral",
   "description": "True black, stark white, red accent. Cinematic high contrast.",

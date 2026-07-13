@@ -109,6 +109,7 @@ function track(overrides: Partial<Track> = {}): Track {
     artPath: null,
     dateAdded: "2026-01-01T00:00:00.000Z",
     playCount: 0,
+    lastPlayedAt: null,
     rating: 0,
     lyricsFormat: null,
     ...overrides,

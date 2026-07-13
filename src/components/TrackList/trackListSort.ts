@@ -47,6 +47,20 @@ export function compareTracks(
     case "playCount":
       cmp = a.playCount - b.playCount;
       break;
+    case "lastPlayedAt": {
+      const aVal = a.lastPlayedAt ?? "";
+      const bVal = b.lastPlayedAt ?? "";
+      if (!aVal && !bVal) {
+        cmp = 0;
+      } else if (!aVal) {
+        return 1;
+      } else if (!bVal) {
+        return -1;
+      } else {
+        cmp = aVal.localeCompare(bVal);
+      }
+      break;
+    }
     case "rating": {
       const unratedSentinel = dir === "asc" ? Number.MAX_SAFE_INTEGER : -1;
       const ratingA = a.rating === 0 ? unratedSentinel : a.rating;

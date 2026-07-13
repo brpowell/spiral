@@ -1,7 +1,8 @@
 use crate::audio_properties::AudioProperties;
 use crate::models::{
-    ArtistImage, LyricsFormat, LyricsLine, LyricsSource, Playlist, PlaylistImageMode, Track,
-    TrackInput, TrackLyricsRecord, TrackMetadataUpdate,
+    ArtistImage, ClearListenHistoryResult, ListenEventInput, LyricsFormat, LyricsLine, LyricsSource,
+    Playlist, PlaylistImageMode, RecordListenEventResult, Track, TrackInput, TrackLyricsRecord,
+    TrackMetadataUpdate,
 };
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, Row};
@@ -29,8 +30,32 @@ CREATE TABLE IF NOT EXISTS tracks (
   art_path TEXT,
   date_added TEXT NOT NULL,
   play_count INTEGER NOT NULL DEFAULT 0,
+  last_played_at TEXT,
   rating INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS listen_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+  started_at TEXT NOT NULL,
+  ended_at TEXT NOT NULL,
+  listened_seconds REAL NOT NULL,
+  library_listened_seconds REAL NOT NULL DEFAULT 0,
+  skin_listened_seconds REAL NOT NULL DEFAULT 0,
+  track_duration_seconds REAL,
+  completion TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'library',
+  ui_mode TEXT NOT NULL DEFAULT 'library',
+  theme_id TEXT,
+  theme_name TEXT,
+  skin_id TEXT,
+  skin_name TEXT,
+  visualizer_id TEXT,
+  visualizer_name TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_listen_events_ended_at ON listen_events(ended_at);
+CREATE INDEX IF NOT EXISTS idx_listen_events_track_id ON listen_events(track_id);
 
 CREATE TABLE IF NOT EXISTS playlists (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,7 +91,7 @@ CREATE TABLE IF NOT EXISTS track_lyrics (
 
 const TRACK_SELECT: &str = "SELECT tracks.id, tracks.title, tracks.artist, tracks.album, tracks.album_artist, tracks.track_number, tracks.total_tracks, tracks.disc_number, tracks.total_discs,
                 tracks.year, tracks.genre, tracks.duration_seconds, tracks.sample_rate, tracks.bitrate, tracks.codec, tracks.file_path, tracks.art_path,
-                tracks.date_added, tracks.play_count, tracks.rating, track_lyrics.format";
+                tracks.date_added, tracks.play_count, tracks.last_played_at, tracks.rating, track_lyrics.format";
 
 const TRACK_FROM_JOIN: &str =
     "FROM tracks LEFT JOIN track_lyrics ON track_lyrics.track_id = tracks.id";
@@ -92,9 +117,10 @@ fn map_track_row(row: &Row<'_>) -> rusqlite::Result<Track> {
         art_path: row.get(16)?,
         date_added: row.get(17)?,
         play_count: row.get(18)?,
-        rating: row.get(19)?,
+        last_played_at: row.get(19)?,
+        rating: row.get(20)?,
         lyrics_format: row
-            .get::<_, Option<String>>(20)?
+            .get::<_, Option<String>>(21)?
             .map(|value| parse_lyrics_format(&value)),
     })
 }
@@ -151,6 +177,10 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
             "ALTER TABLE tracks ADD COLUMN play_count INTEGER NOT NULL DEFAULT 0",
             [],
         )?;
+    }
+
+    if !track_columns.iter().any(|c| c == "last_played_at") {
+        conn.execute("ALTER TABLE tracks ADD COLUMN last_played_at TEXT", [])?;
     }
 
     if !track_columns.iter().any(|c| c == "rating") {
@@ -224,6 +254,70 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
+    if !table_exists(conn, "listen_events")? {
+        conn.execute_batch(
+            "CREATE TABLE listen_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+                started_at TEXT NOT NULL,
+                ended_at TEXT NOT NULL,
+                listened_seconds REAL NOT NULL,
+                library_listened_seconds REAL NOT NULL DEFAULT 0,
+                skin_listened_seconds REAL NOT NULL DEFAULT 0,
+                track_duration_seconds REAL,
+                completion TEXT NOT NULL,
+                source TEXT NOT NULL DEFAULT 'library',
+                ui_mode TEXT NOT NULL DEFAULT 'library',
+                theme_id TEXT,
+                theme_name TEXT,
+                skin_id TEXT,
+                skin_name TEXT,
+                visualizer_id TEXT,
+                visualizer_name TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_listen_events_ended_at ON listen_events(ended_at);
+            CREATE INDEX IF NOT EXISTS idx_listen_events_track_id ON listen_events(track_id);",
+        )?;
+    } else {
+        let listen_columns = table_columns(conn, "listen_events")?;
+        if !listen_columns.iter().any(|c| c == "ui_mode") {
+            conn.execute(
+                "ALTER TABLE listen_events ADD COLUMN ui_mode TEXT NOT NULL DEFAULT 'library'",
+                [],
+            )?;
+        }
+        if !listen_columns.iter().any(|c| c == "library_listened_seconds") {
+            conn.execute(
+                "ALTER TABLE listen_events ADD COLUMN library_listened_seconds REAL NOT NULL DEFAULT 0",
+                [],
+            )?;
+            // Best-effort backfill: attribute prior totals to the stamped ui_mode.
+            conn.execute(
+                "UPDATE listen_events SET library_listened_seconds = listened_seconds
+                 WHERE ui_mode = 'library' OR ui_mode IS NULL OR ui_mode = ''",
+                [],
+            )?;
+        }
+        if !listen_columns.iter().any(|c| c == "skin_listened_seconds") {
+            conn.execute(
+                "ALTER TABLE listen_events ADD COLUMN skin_listened_seconds REAL NOT NULL DEFAULT 0",
+                [],
+            )?;
+            conn.execute(
+                "UPDATE listen_events SET skin_listened_seconds = listened_seconds
+                 WHERE ui_mode = 'skin'",
+                [],
+            )?;
+        }
+        if !listen_columns.iter().any(|c| c == "theme_name") {
+            conn.execute("ALTER TABLE listen_events ADD COLUMN theme_name TEXT", [])?;
+        }
+        if listen_columns.iter().any(|c| c == "skin_view_id") {
+            // Drop unused Phase 1 column (SQLite 3.35+).
+            let _ = conn.execute("ALTER TABLE listen_events DROP COLUMN skin_view_id", []);
+        }
+    }
+
     Ok(())
 }
 
@@ -232,6 +326,7 @@ pub fn open(db_path: &Path) -> Result<Connection, rusqlite::Error> {
         std::fs::create_dir_all(parent).ok();
     }
     let conn = Connection::open(db_path)?;
+    conn.execute_batch("PRAGMA foreign_keys = ON;")?;
     conn.execute_batch(SCHEMA)?;
     migrate(&conn)?;
     Ok(conn)
@@ -297,16 +392,154 @@ pub fn save_track(conn: &Connection, input: &TrackInput) -> Result<i64, rusqlite
     Ok(id)
 }
 
-pub fn increment_play_count(conn: &Connection, id: i64) -> Result<u32, rusqlite::Error> {
-    conn.execute(
-        "UPDATE tracks SET play_count = play_count + 1 WHERE id = ?1",
-        params![id],
-    )?;
+/// Insert a listen event. Qualifying events bump `play_count` and `last_played_at`.
+///
+/// A close counts as a play when any of:
+/// - `completion == "natural_end"`, or
+/// - `listened_seconds >= 30`, or
+/// - `listened_seconds >= 50%` of known `track_duration_seconds`
+///
+/// Short skips are still stored; they do not inflate counters.
+pub const LISTEN_QUALIFY_SECONDS: f64 = 30.0;
+pub const LISTEN_QUALIFY_RATIO: f64 = 0.5;
+
+pub fn listen_event_qualifies(event: &ListenEventInput) -> bool {
+    if event.completion == "natural_end" {
+        return true;
+    }
+    if event.listened_seconds >= LISTEN_QUALIFY_SECONDS {
+        return true;
+    }
+    if let Some(duration) = event.track_duration_seconds {
+        if duration > 0.0 && event.listened_seconds >= duration * LISTEN_QUALIFY_RATIO {
+            return true;
+        }
+    }
+    false
+}
+
+fn track_listen_counters(
+    conn: &Connection,
+    track_id: i64,
+) -> Result<(u32, String), rusqlite::Error> {
     conn.query_row(
-        "SELECT play_count FROM tracks WHERE id = ?1",
-        params![id],
-        |row| row.get(0),
+        "SELECT play_count, COALESCE(last_played_at, '') FROM tracks WHERE id = ?1",
+        params![track_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
     )
+}
+
+/// Return current counters without inserting (recording disabled).
+pub fn skip_listen_event_recording(
+    conn: &Connection,
+    track_id: i64,
+) -> Result<RecordListenEventResult, rusqlite::Error> {
+    let (play_count, last_played_at) = track_listen_counters(conn, track_id)?;
+    Ok(RecordListenEventResult {
+        event_id: 0,
+        play_count,
+        last_played_at,
+        counted: false,
+        recorded: false,
+    })
+}
+
+pub fn record_listen_event(
+    conn: &mut Connection,
+    event: &ListenEventInput,
+) -> Result<RecordListenEventResult, rusqlite::Error> {
+    let qualifies = listen_event_qualifies(event);
+    let tx = conn.transaction()?;
+
+    tx.execute(
+        "INSERT INTO listen_events (
+            track_id, started_at, ended_at, listened_seconds,
+            library_listened_seconds, skin_listened_seconds,
+            track_duration_seconds, completion, source, ui_mode,
+            theme_id, theme_name, skin_id, skin_name, visualizer_id, visualizer_name
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+        params![
+            event.track_id,
+            event.started_at,
+            event.ended_at,
+            event.listened_seconds,
+            event.library_listened_seconds,
+            event.skin_listened_seconds,
+            event.track_duration_seconds,
+            event.completion,
+            event.source,
+            event.ui_mode,
+            event.theme_id,
+            event.theme_name,
+            event.skin_id,
+            event.skin_name,
+            event.visualizer_id,
+            event.visualizer_name,
+        ],
+    )?;
+    let event_id = tx.last_insert_rowid();
+
+    if qualifies {
+        tx.execute(
+            "UPDATE tracks SET
+                play_count = play_count + 1,
+                last_played_at = ?1
+             WHERE id = ?2",
+            params![event.ended_at, event.track_id],
+        )?;
+    }
+
+    let (play_count, last_played_at) = track_listen_counters(&tx, event.track_id)?;
+
+    tx.commit()?;
+
+    Ok(RecordListenEventResult {
+        event_id,
+        play_count,
+        last_played_at: if qualifies {
+            event.ended_at.clone()
+        } else {
+            last_played_at
+        },
+        counted: qualifies,
+        recorded: true,
+    })
+}
+
+/// Clear listen history.
+///
+/// When `within_hours` is `Some(h)`, deletes events with `ended_at` in the last
+/// `h` hours (browser-style “clear recent”). When `None`, deletes all events and
+/// resets `play_count` / `last_played_at` on every track.
+pub fn clear_listen_events(
+    conn: &Connection,
+    within_hours: Option<u32>,
+) -> Result<ClearListenHistoryResult, rusqlite::Error> {
+    let deleted = if let Some(hours) = within_hours {
+        let cutoff = (Utc::now() - chrono::Duration::hours(i64::from(hours)))
+            .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        let n = conn.execute(
+            "DELETE FROM listen_events WHERE ended_at >= ?1",
+            params![cutoff],
+        )?;
+        n as u64
+    } else {
+        let n = conn.execute("DELETE FROM listen_events", [])?;
+        n as u64
+    };
+
+    let reset_counters = within_hours.is_none();
+    if reset_counters {
+        conn.execute(
+            "UPDATE tracks SET play_count = 0, last_played_at = NULL",
+            [],
+        )?;
+    }
+
+    Ok(ClearListenHistoryResult {
+        deleted_events: deleted,
+        reset_counters,
+    })
 }
 
 pub fn set_track_rating(conn: &Connection, id: i64, rating: u8) -> Result<u8, rusqlite::Error> {
@@ -930,6 +1163,7 @@ mod tests {
 
     fn test_conn() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
         conn.execute_batch(SCHEMA).unwrap();
         migrate(&conn).unwrap();
         conn
@@ -956,6 +1190,36 @@ mod tests {
             rating: None,
             lyrics: None,
         }
+    }
+
+    fn sample_listen(track_id: i64, completion: &str) -> ListenEventInput {
+        ListenEventInput {
+            track_id,
+            started_at: "2026-07-13T12:00:00Z".into(),
+            ended_at: "2026-07-13T12:01:00Z".into(),
+            listened_seconds: 60.0,
+            library_listened_seconds: 60.0,
+            skin_listened_seconds: 0.0,
+            track_duration_seconds: Some(180.0),
+            completion: completion.into(),
+            source: "library".into(),
+            ui_mode: "library".into(),
+            theme_id: None,
+            theme_name: None,
+            skin_id: None,
+            skin_name: None,
+            visualizer_id: None,
+            visualizer_name: None,
+        }
+    }
+
+    fn listen_event_count(conn: &Connection, track_id: i64) -> i64 {
+        conn.query_row(
+            "SELECT COUNT(*) FROM listen_events WHERE track_id = ?1",
+            params![track_id],
+            |row| row.get(0),
+        )
+        .unwrap()
     }
 
     #[test]
@@ -1025,15 +1289,211 @@ mod tests {
     }
 
     #[test]
-    fn increment_play_count_increases_count() {
-        let conn = test_conn();
+    fn record_listen_event_inserts_and_updates_counters() {
+        let mut conn = test_conn();
         save_track(&conn, &sample_input("/music/a.mp3")).unwrap();
 
-        assert_eq!(increment_play_count(&conn, 1).unwrap(), 1);
-        assert_eq!(increment_play_count(&conn, 1).unwrap(), 2);
+        let mut event = sample_listen(1, "natural_end");
+        event.ended_at = "2026-07-13T12:03:00Z".into();
+        event.listened_seconds = 180.0;
+        event.library_listened_seconds = 40.0;
+        event.skin_listened_seconds = 140.0;
+        event.ui_mode = "skin".into();
+        event.theme_id = Some("obsidian".into());
+        event.theme_name = Some("Obsidian".into());
+        event.skin_id = Some("spiral-default".into());
+        event.skin_name = Some("Spiral Default".into());
+        event.visualizer_id = Some("bars".into());
+        event.visualizer_name = Some("Bars".into());
+
+        let result = record_listen_event(&mut conn, &event).unwrap();
+
+        assert_eq!(result.event_id, 1);
+        assert_eq!(result.play_count, 1);
+        assert!(result.counted);
+        assert!(result.recorded);
+        assert_eq!(result.last_played_at, "2026-07-13T12:03:00Z");
 
         let track = get_track_by_id(&conn, 1).unwrap().unwrap();
-        assert_eq!(track.play_count, 2);
+        assert_eq!(track.play_count, 1);
+        assert_eq!(
+            track.last_played_at.as_deref(),
+            Some("2026-07-13T12:03:00Z")
+        );
+
+        assert_eq!(listen_event_count(&conn, 1), 1);
+
+        let (completion, theme_id, theme_name, skin_name, ui_mode, lib_s, skin_s): (
+            String,
+            String,
+            String,
+            String,
+            String,
+            f64,
+            f64,
+        ) = conn
+            .query_row(
+                "SELECT completion, theme_id, theme_name, skin_name, ui_mode,
+                        library_listened_seconds, skin_listened_seconds
+                 FROM listen_events WHERE id = 1",
+                [],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                        row.get(6)?,
+                    ))
+                },
+            )
+            .unwrap();
+        assert_eq!(completion, "natural_end");
+        assert_eq!(theme_id, "obsidian");
+        assert_eq!(theme_name, "Obsidian");
+        assert_eq!(skin_name, "Spiral Default");
+        assert_eq!(ui_mode, "skin");
+        assert_eq!(lib_s, 40.0);
+        assert_eq!(skin_s, 140.0);
+    }
+
+    #[test]
+    fn record_listen_event_short_skip_does_not_count() {
+        let mut conn = test_conn();
+        save_track(&conn, &sample_input("/music/a.mp3")).unwrap();
+
+        let mut event = sample_listen(1, "skipped");
+        event.ended_at = "2026-07-13T12:00:10Z".into();
+        event.listened_seconds = 10.0;
+        event.track_duration_seconds = Some(180.0);
+
+        let result = record_listen_event(&mut conn, &event).unwrap();
+
+        assert!(result.recorded);
+        assert!(!result.counted);
+        assert_eq!(result.play_count, 0);
+        assert_eq!(result.last_played_at, "");
+        assert_eq!(listen_event_count(&conn, 1), 1);
+
+        let last_played_at: Option<String> = conn
+            .query_row(
+                "SELECT last_played_at FROM tracks WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(last_played_at.is_none());
+    }
+
+    #[test]
+    fn listen_event_qualifies_at_threshold_boundaries() {
+        let mut base = sample_listen(1, "skipped");
+        base.track_duration_seconds = Some(100.0);
+
+        let mut under_seconds = base.clone();
+        under_seconds.listened_seconds = 29.9;
+        assert!(!listen_event_qualifies(&under_seconds));
+
+        let mut at_seconds = base.clone();
+        at_seconds.listened_seconds = 30.0;
+        assert!(listen_event_qualifies(&at_seconds));
+
+        // Under 30s and under 50% of duration.
+        let mut under_ratio = base.clone();
+        under_ratio.listened_seconds = 14.0;
+        under_ratio.track_duration_seconds = Some(40.0);
+        assert!(!listen_event_qualifies(&under_ratio));
+
+        let mut at_ratio = base.clone();
+        at_ratio.listened_seconds = 20.0;
+        at_ratio.track_duration_seconds = Some(40.0);
+        assert!(listen_event_qualifies(&at_ratio));
+
+        let mut natural = base.clone();
+        natural.completion = "natural_end".into();
+        natural.listened_seconds = 1.0;
+        natural.track_duration_seconds = Some(300.0);
+        assert!(listen_event_qualifies(&natural));
+    }
+
+    #[test]
+    fn skip_listen_event_recording_leaves_history_untouched() {
+        let mut conn = test_conn();
+        save_track(&conn, &sample_input("/music/a.mp3")).unwrap();
+        record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
+
+        let result = skip_listen_event_recording(&conn, 1).unwrap();
+        assert!(!result.recorded);
+        assert!(!result.counted);
+        assert_eq!(result.event_id, 0);
+        assert_eq!(result.play_count, 1);
+        assert_eq!(listen_event_count(&conn, 1), 1);
+    }
+
+    #[test]
+    fn clear_listen_events_all_resets_counters() {
+        let mut conn = test_conn();
+        save_track(&conn, &sample_input("/music/a.mp3")).unwrap();
+        save_track(&conn, &sample_input("/music/b.mp3")).unwrap();
+        record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
+        record_listen_event(&mut conn, &sample_listen(2, "natural_end")).unwrap();
+
+        let cleared = clear_listen_events(&conn, None).unwrap();
+        assert_eq!(cleared.deleted_events, 2);
+        assert!(cleared.reset_counters);
+        assert_eq!(listen_event_count(&conn, 1), 0);
+        assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().play_count, 0);
+        let last_played_at: Option<String> = conn
+            .query_row(
+                "SELECT last_played_at FROM tracks WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(last_played_at.is_none());
+    }
+
+    #[test]
+    fn clear_listen_events_within_hours_keeps_older_rows() {
+        let mut conn = test_conn();
+        save_track(&conn, &sample_input("/music/a.mp3")).unwrap();
+
+        let mut old = sample_listen(1, "natural_end");
+        old.ended_at = "2020-01-01T00:00:00.000Z".into();
+        record_listen_event(&mut conn, &old).unwrap();
+
+        let mut recent = sample_listen(1, "natural_end");
+        recent.ended_at = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        record_listen_event(&mut conn, &recent).unwrap();
+
+        assert_eq!(listen_event_count(&conn, 1), 2);
+        let cleared = clear_listen_events(&conn, Some(24)).unwrap();
+        assert_eq!(cleared.deleted_events, 1);
+        assert!(!cleared.reset_counters);
+        assert_eq!(listen_event_count(&conn, 1), 1);
+        assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().play_count, 2);
+
+        let ended_at: String = conn
+            .query_row(
+                "SELECT ended_at FROM listen_events WHERE track_id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(ended_at, "2020-01-01T00:00:00.000Z");
+    }
+
+    #[test]
+    fn delete_track_cascades_listen_events() {
+        let mut conn = test_conn();
+        save_track(&conn, &sample_input("/music/a.mp3")).unwrap();
+        record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
+
+        assert_eq!(listen_event_count(&conn, 1), 1);
+        delete_track(&conn, 1).unwrap();
+        assert_eq!(listen_event_count(&conn, 1), 0);
     }
 
     #[test]
@@ -1103,12 +1563,12 @@ mod tests {
 
     #[test]
     fn save_track_refresh_preserves_library_fields() {
-        let conn = test_conn();
+        let mut conn = test_conn();
         let path = "/music/refresh.mp3";
 
         save_track(&conn, &sample_input(path)).unwrap();
-        increment_play_count(&conn, 1).unwrap();
-        increment_play_count(&conn, 1).unwrap();
+        record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
+        record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
         set_track_rating(&conn, 1, 128).unwrap();
 
         let before = get_track_by_id(&conn, 1).unwrap().unwrap();
@@ -1139,6 +1599,7 @@ mod tests {
         assert_eq!(after.codec.as_deref(), Some("mp3"));
         assert_eq!(after.date_added, date_added);
         assert_eq!(after.play_count, 2);
+        assert_eq!(after.last_played_at, before.last_played_at);
         assert_eq!(after.rating, 128);
     }
 

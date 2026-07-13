@@ -8,7 +8,8 @@ import {
 import { evaluateSkinBind, useSkinBindState } from "../../lib/skinBinds";
 import {
   OBSIDIAN_DEFAULT_TOKENS,
-  findThemeByName,
+  DEFAULT_THEME_ID,
+  findThemeById,
   resolveThemeTokens,
 } from "../../lib/theme";
 import { usePlayerStore } from "../../store/usePlayerStore";
@@ -76,8 +77,8 @@ function useResolvedThemeTokens(): Record<string, string> {
 
   return useMemo(() => {
     const theme =
-      findThemeByName(themes, activeThemeId) ??
-      findThemeByName(themes, "Obsidian") ??
+      findThemeById(themes, activeThemeId) ??
+      findThemeById(themes, DEFAULT_THEME_ID) ??
       themes[0];
     if (!theme) {
       return Object.fromEntries(

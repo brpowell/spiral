@@ -2,7 +2,7 @@ import { create } from "zustand";
 import {
   applyTheme,
   DEFAULT_THEME_ID,
-  findThemeByName,
+  findThemeById,
   resolveActiveThemeId,
 } from "../lib/theme";
 import { emitThemeChanged } from "../lib/themeBridge";
@@ -25,14 +25,14 @@ interface ThemeState {
     themes: Theme[],
     activeThemeId: string,
   ) => void;
-  setTheme: (name: string) => Promise<void>;
+  setTheme: (themeId: string) => Promise<void>;
   importTheme: () => Promise<void>;
   openThemesFolder: () => Promise<void>;
 }
 
 function applyActiveTheme(themes: Theme[], activeThemeId: string): string {
   const resolvedId = resolveActiveThemeId(themes, activeThemeId);
-  const theme = findThemeByName(themes, resolvedId);
+  const theme = findThemeById(themes, resolvedId);
   if (theme) {
     applyTheme(theme);
   }
@@ -65,15 +65,15 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     }
   },
 
-  setTheme: async (name) => {
+  setTheme: async (themeId) => {
     const { themes } = get();
-    const theme = findThemeByName(themes, name);
+    const theme = findThemeById(themes, themeId);
     if (!theme) return;
 
     applyTheme(theme);
-    set({ activeThemeId: name });
-    await saveActiveThemeId(name);
-    emitThemeChanged(name);
+    set({ activeThemeId: theme.id });
+    await saveActiveThemeId(theme.id);
+    emitThemeChanged(theme.id);
   },
 
   importTheme: async () => {
@@ -81,7 +81,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     if (!imported) return;
 
     await get().loadThemes();
-    await get().setTheme(imported.name);
+    await get().setTheme(imported.id);
   },
 
   openThemesFolder: async () => {

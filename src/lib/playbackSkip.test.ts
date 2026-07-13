@@ -35,6 +35,7 @@ function track(id: number, overrides: Partial<Track> = {}): Track {
     artPath: null,
     dateAdded: "2024-01-01",
     playCount: 0,
+    lastPlayedAt: null,
     rating: 0,
     ...overrides,
   };

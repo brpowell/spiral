@@ -210,7 +210,7 @@ export function AppearancePackDetailView({
   const theme = useMemo(
     () =>
       packRef.kind === "theme"
-        ? themes.find((item) => item.name === packRef.id)
+        ? themes.find((item) => item.id === packRef.id)
         : undefined,
     [packRef, themes],
   );

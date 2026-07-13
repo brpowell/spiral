@@ -28,6 +28,7 @@ export interface Track {
   artPath: string | null;
   dateAdded: string;
   playCount: number;
+  lastPlayedAt: string | null;
   rating: number;
   importStatus?: TrackImportStatus;
   /** Original dropped/picked path; used for copy and stable list keys during import. */

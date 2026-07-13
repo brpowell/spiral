@@ -67,6 +67,7 @@ function cdTrackToListRow(track: CdTrack, disc: CdDisc): Track {
     artPath: null,
     dateAdded: "",
     playCount: 0,
+    lastPlayedAt: null,
     rating: 0,
   };
 }

@@ -148,6 +148,17 @@
   gap: 0.4rem;
 }
 
+.preferences__clear-history-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.preferences__clear-history-btn svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
 .preferences__cache-clear-btn svg {
   width: 1rem;
   height: 1rem;

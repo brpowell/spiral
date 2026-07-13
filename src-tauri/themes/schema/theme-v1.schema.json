@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spiral.dev/schemas/theme-v1.json",
+  "title": "Spiral theme pack v1",
+  "type": "object",
+  "required": ["id", "name", "author", "description", "tokens"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri-reference",
+      "description": "JSON Schema reference for editor validation."
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Stable slug used in settings and listen history. Not the display name."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable display label."
+    },
+    "author": { "type": "string" },
+    "description": { "type": "string" },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "required": [
+        "color-bg",
+        "color-surface",
+        "color-text-primary",
+        "color-text-secondary",
+        "color-accent",
+        "color-accent-muted",
+        "color-border",
+        "color-danger",
+        "radius-card",
+        "radius-button",
+        "font-ui"
+      ]
+    }
+  }
+}

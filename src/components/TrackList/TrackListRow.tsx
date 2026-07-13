@@ -61,6 +61,8 @@ function cellValue(track: Track, columnId: TrackListColumnId): ReactNode {
       return formatDateAdded(track.dateAdded);
     case "playCount":
       return String(track.playCount);
+    case "lastPlayedAt":
+      return track.lastPlayedAt ? formatDateAdded(track.lastPlayedAt) : "—";
     case "codec":
       return formatCodec(track.codec) ?? "—";
     case "sampleRate":

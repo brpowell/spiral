@@ -1,4 +1,6 @@
 {
+  "$schema": "../schema/theme-v1.schema.json",
+  "id": "obsidian",
   "name": "Obsidian",
   "author": "Spiral",
   "description": "Deep dark with cool blue accents. A pro audio tool feel.",

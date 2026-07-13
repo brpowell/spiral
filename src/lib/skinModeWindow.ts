@@ -22,6 +22,7 @@ import {
 } from "./skinModeWindowState";
 import { PLAYER_REQUEST_STATE_EVENT } from "./playerStoreBridge";
 import { setSkinModeAlwaysOnTopSnapshot } from "./skinModeAlwaysOnTop";
+import { setSkinModeSessionActive } from "./listenSession";
 import { isTauri } from "./windowRole";
 
 export { DEFAULT_SKIN_MODE_ALWAYS_ON_TOP } from "./skinModeWindowState";
@@ -76,6 +77,7 @@ export async function openSkinMode(): Promise<void> {
     if (main) {
       await main.hide();
     }
+    setSkinModeSessionActive(true);
     suppressSkinModeSnap();
     await skinModeWindow.setFocus();
     void emit(SKIN_MODE_SHOWN_EVENT, {});
@@ -109,6 +111,8 @@ export async function restoreMainWindow(): Promise<void> {
   if (skinModeWindow) {
     await skinModeWindow.hide();
   }
+
+  setSkinModeSessionActive(false);
 
   if (main) {
     const minimized = await main.isMinimized();

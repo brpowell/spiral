@@ -1,4 +1,6 @@
 {
+  "$schema": "../schema/theme-v1.schema.json",
+  "id": "grove",
   "name": "Grove",
   "author": "Spiral",
   "description": "Dark green surfaces and soft sage accents. Calm and organic.",

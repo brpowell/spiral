@@ -295,6 +295,7 @@ export function startCdImport(options: {
               artPath: firstEntry.artPath,
               dateAdded: "",
               playCount: 0,
+              lastPlayedAt: null,
               rating: 0,
             });
             useNavigationStore.getState().openAlbum(key);

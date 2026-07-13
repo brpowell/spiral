@@ -114,10 +114,8 @@ async function start() {
   await bootstrapVisualizer();
   await bootstrapEqualizer();
   await bootstrapPlaybackSettings();
+  await bootstrapSkin();
 
-  if (isAnySkinWindow() || isAppearanceWindow()) {
-    await bootstrapSkin();
-  }
   await initPlayerStoreBridge(role);
   await initThemeBridge(role);
   await initVisualizerBridge(role);
