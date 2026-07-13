@@ -10,7 +10,7 @@ import {
   IconAddToQueue,
   IconArtistPlaceholder,
   IconBack,
-  IconEditInfo,
+  IconPencil,
   IconPlay,
 } from "../components/icons";
 import {
@@ -118,7 +118,7 @@ export function ArtistDetailView({
           {(close) => (
             <>
               <ContextMenuItem
-                icon={<IconEditInfo />}
+                icon={<IconPencil />}
                 label="Edit Artist"
                 onClick={() => {
                   close();

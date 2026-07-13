@@ -70,18 +70,20 @@ pub fn read_vorbis_container_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, S
         tags.album_artist = join_artist_field(album_artists);
     }
     if let Some(value) = tag.track() {
-        tags.track_number = value
-            .to_string()
-            .split('/')
-            .next()
-            .and_then(|s| s.trim().parse().ok());
+        let (number, slash_total) = crate::metadata_reader::parse_number_pair(&value.to_string());
+        tags.track_number = number;
+        tags.total_tracks = slash_total;
+    }
+    if let Some(t) = tag.track_total() {
+        tags.total_tracks = Some(t as i32);
     }
     if let Some(value) = tag.disk() {
-        tags.disc_number = value
-            .to_string()
-            .split('/')
-            .next()
-            .and_then(|s| s.trim().parse().ok());
+        let (number, slash_total) = crate::metadata_reader::parse_number_pair(&value.to_string());
+        tags.disc_number = number;
+        tags.total_discs = slash_total;
+    }
+    if let Some(t) = tag.disk_total() {
+        tags.total_discs = Some(t as i32);
     }
     if let Some(year) = tag.year() {
         tags.year = Some(year as i32);
@@ -161,10 +163,16 @@ pub fn write_vorbis_container_tag(
     } else {
         tag.remove_key(&ItemKey::TrackNumber);
     }
+    if let Some(n) = metadata.total_tracks {
+        tag.set_track_total(n as u32);
+    }
     if let Some(n) = metadata.disc_number {
         tag.set_disk(n as u32);
     } else {
         tag.remove_key(&ItemKey::DiscNumber);
+    }
+    if let Some(n) = metadata.total_discs {
+        tag.set_disk_total(n as u32);
     }
     if let Some(year) = metadata.year {
         tag.set_year(year as u32);

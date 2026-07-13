@@ -60,7 +60,7 @@ import type { PlaybackSource } from "../lib/playback";
 import type { CrossfadeVisualState } from "../lib/playback";
 import type { PlaybackState, RepeatMode, Track } from "../types/track";
 
-export type TrackEditorTab = "details" | "lyrics";
+export type TrackEditorTab = "details" | "file" | "lyrics";
 
 interface PlayerState {
   library: Track[];

@@ -1,26 +1,40 @@
 .audio-file-specs {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.45rem 0.65rem;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0;
 }
 
-.audio-file-specs__format {
+.audio-file-specs__item {
+  display: grid;
+  grid-template-columns: minmax(8.5rem, auto) 1fr;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0;
+}
+
+.audio-file-specs__label {
   display: inline-flex;
   align-items: center;
-  padding: 0.15rem 0.45rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
   line-height: 1.2;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-border) 35%, transparent);
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
 }
 
-.audio-file-specs__size {
+.audio-file-specs__icon {
+  flex-shrink: 0;
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.audio-file-specs__value {
+  margin: 0;
   font-size: 0.9rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  line-height: 1.2;
   color: var(--color-text-primary);
 }

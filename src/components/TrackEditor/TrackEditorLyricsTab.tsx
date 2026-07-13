@@ -8,6 +8,7 @@ import { Button } from "../common/Button/Button";
 import { Alert } from "../common/Alert/Alert";
 import { Badge } from "../common/Badge/Badge";
 import { EmptyState } from "../common/EmptyState/EmptyState";
+import { Switch } from "../common/Switch/Switch";
 import { syncTextareaAutoSize, Textarea } from "../common/Textarea/Textarea";
 import { IconMicrophone } from "../icons";
 import "./TrackEditorLyricsTab.css";
@@ -19,8 +20,7 @@ export type TrackEditorLyricsTabProps = {
   fetchingLyrics: boolean;
   fetchFeedback: LyricsFetchFeedback | null;
   onFetchLyrics: () => void;
-  onMarkInstrumental: () => void;
-  onClearInstrumental: () => void;
+  onInstrumentalChange: (instrumental: boolean) => void;
   onChange: (update: {
     text: string;
     syncedLines: LyricsLine[] | null;
@@ -37,8 +37,7 @@ export function TrackEditorLyricsTab({
   fetchingLyrics,
   fetchFeedback,
   onFetchLyrics,
-  onMarkInstrumental,
-  onClearInstrumental,
+  onInstrumentalChange,
   onChange,
 }: TrackEditorLyricsTabProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -152,25 +151,13 @@ export function TrackEditorLyricsTab({
             "Fetch lyrics"
           )}
         </Button>
-        {instrumental ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onClearInstrumental}
-            disabled={fetchingLyrics}
-          >
-            Clear instrumental
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onMarkInstrumental}
-            disabled={fetchingLyrics}
-          >
-            Mark as instrumental
-          </Button>
-        )}
+        <Switch
+          checked={instrumental}
+          disabled={fetchingLyrics}
+          onChange={(e) => onInstrumentalChange(e.target.checked)}
+        >
+          Instrumental
+        </Switch>
         {formatLabel ? (
           <Badge
             variant="accent"

@@ -18,7 +18,9 @@ pub struct BasicTags {
     pub album: Option<String>,
     pub album_artist: Option<String>,
     pub track_number: Option<i32>,
+    pub total_tracks: Option<i32>,
     pub disc_number: Option<i32>,
+    pub total_discs: Option<i32>,
     pub year: Option<i32>,
     pub genre: Option<String>,
     pub duration_seconds: Option<f64>,
@@ -44,11 +46,17 @@ fn parse_year(value: &str) -> Option<i32> {
     year_str.parse().ok()
 }
 
-fn parse_track_number(value: &str) -> Option<i32> {
-    value
-        .split('/')
-        .next()
-        .and_then(|s| s.trim().parse().ok())
+/// Parse `N` or `N/M` track/disc strings into (number, total).
+pub(crate) fn parse_number_pair(value: &str) -> (Option<i32>, Option<i32>) {
+    let mut parts = value.split('/');
+    let number = parts.next().and_then(|s| s.trim().parse().ok());
+    let total = parts.next().and_then(|s| s.trim().parse().ok());
+    (number, total)
+}
+
+fn first_vorbis_int(tag: &FlacTag, key: &str) -> Option<i32> {
+    tag.get_vorbis(key)
+        .and_then(|mut v| v.next().and_then(|s| s.trim().parse().ok()))
 }
 
 fn cache_embedded_art(
@@ -83,7 +91,9 @@ fn read_id3_tags(
         tags.album = tag.album().map(|s| s.to_string());
         tags.album_artist = tag.album_artist().map(|s| s.to_string());
         tags.track_number = tag.track().map(|n| n as i32);
+        tags.total_tracks = tag.total_tracks().map(|n| n as i32);
         tags.disc_number = tag.disc().map(|n| n as i32);
+        tags.total_discs = tag.total_discs().map(|n| n as i32);
         tags.year = tag.year();
         tags.genre = tag.genre().map(|s| s.to_string());
         tags.rating = rating_tags::read_mp3_rating(&tag);
@@ -138,14 +148,24 @@ fn read_flac_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
     }
     if let Some(mut v) = tag.get_vorbis("TRACKNUMBER") {
         if let Some(value) = v.next() {
-            tags.track_number = parse_track_number(value);
+            let (number, slash_total) = parse_number_pair(value);
+            tags.track_number = number;
+            tags.total_tracks = slash_total;
         }
     }
+    tags.total_tracks = first_vorbis_int(&tag, "TRACKTOTAL")
+        .or_else(|| first_vorbis_int(&tag, "TOTALTRACKS"))
+        .or(tags.total_tracks);
     if let Some(mut v) = tag.get_vorbis("DISCNUMBER") {
         if let Some(value) = v.next() {
-            tags.disc_number = parse_track_number(value);
+            let (number, slash_total) = parse_number_pair(value);
+            tags.disc_number = number;
+            tags.total_discs = slash_total;
         }
     }
+    tags.total_discs = first_vorbis_int(&tag, "DISCTOTAL")
+        .or_else(|| first_vorbis_int(&tag, "TOTALDISCS"))
+        .or(tags.total_discs);
     if let Some(mut v) = tag.get_vorbis("DATE") {
         if let Some(value) = v.next() {
             tags.year = parse_year(value);
@@ -185,7 +205,9 @@ fn read_mp4_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
     tags.album = tag.album().map(|s| s.to_string());
     tags.album_artist = tag.album_artist().map(|s| s.to_string());
     tags.track_number = tag.track_number().map(|n| n as i32);
+    tags.total_tracks = tag.total_tracks().map(|n| n as i32);
     tags.disc_number = tag.disc_number().map(|n| n as i32);
+    tags.total_discs = tag.total_discs().map(|n| n as i32);
     tags.year = tag.year().and_then(|value| parse_year(value));
     tags.genre = tag.genre().map(|s| s.to_string());
     tags.rating = rating_tags::read_m4a_rating(&tag);
@@ -296,7 +318,9 @@ pub fn parse_track_metadata(
         album: tags.album,
         album_artist: tags.album_artist,
         track_number: tags.track_number,
+        total_tracks: tags.total_tracks,
         disc_number: tags.disc_number,
+        total_discs: tags.total_discs,
         year: tags.year,
         genre: tags.genre,
         duration_seconds: tags.duration_seconds,
@@ -341,6 +365,14 @@ mod tests {
             filename_title(Path::new("/music/My Song.mp3")),
             "My Song"
         );
+    }
+
+    #[test]
+    fn parse_number_pair_reads_slash_totals() {
+        assert_eq!(parse_number_pair("3"), (Some(3), None));
+        assert_eq!(parse_number_pair("3/12"), (Some(3), Some(12)));
+        assert_eq!(parse_number_pair(" 1 / 10 "), (Some(1), Some(10)));
+        assert_eq!(parse_number_pair(""), (None, None));
     }
 
     #[test]

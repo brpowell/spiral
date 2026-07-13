@@ -3,7 +3,7 @@ import {
   ContextMenu,
   ContextMenuItem,
 } from "../components/ContextMenu/ContextMenu";
-import { IconAddToQueue, IconEditInfo } from "../components/icons";
+import { IconAddToQueue, IconPencil } from "../components/icons";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Artist } from "../types/artist";
 import type { ArtistBrowseMode } from "../lib/artists";
@@ -36,7 +36,7 @@ export function useArtistEditMenu(
       menuRef={menuRef}
     >
       <ContextMenuItem
-        icon={<IconEditInfo />}
+        icon={<IconPencil />}
         label="Edit Artist"
         onClick={() => {
           closeMenu();

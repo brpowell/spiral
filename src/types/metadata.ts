@@ -7,7 +7,9 @@ export interface TrackMetadataUpdate {
   album: string | null;
   albumArtist: string | null;
   trackNumber: number | null;
+  totalTracks: number | null;
   discNumber: number | null;
+  totalDiscs: number | null;
   year: number | null;
   genre: string | null;
   /** Cached art file path for the library DB (null = no cached art). */

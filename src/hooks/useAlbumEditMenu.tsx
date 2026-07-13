@@ -6,7 +6,7 @@ import {
 import {
   IconAddToQueue,
   IconConvert,
-  IconEditInfo,
+  IconPencil,
   IconRemoveFromQueue,
 } from "../components/icons";
 import { openConvertForTrackIds } from "../lib/convertTracks";
@@ -50,7 +50,7 @@ export function useAlbumEditMenu(album: Album) {
       menuRef={menuRef}
     >
       <ContextMenuItem
-        icon={<IconEditInfo />}
+        icon={<IconPencil />}
         label="Edit Album"
         onClick={openEditor}
       />

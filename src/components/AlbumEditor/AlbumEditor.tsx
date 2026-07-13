@@ -363,7 +363,7 @@ export function AlbumEditor() {
                     className="track-editor__art-btn"
                     onClick={() => void handleChangeArt()}
                   >
-                    Change Art
+                    Add art
                   </Button>
                   <Button
                     size="sm"

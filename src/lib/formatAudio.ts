@@ -1,5 +1,3 @@
-import { audioExtensionFromPath } from "./supportedAudio";
-
 export function formatCodec(codec: string | null | undefined): string | null {
   if (!codec) return null;
   const normalized = codec.trim().toLowerCase();
@@ -38,20 +36,4 @@ export function formatBitrate(bps: number | null | undefined): string | null {
     return `${(bps / 1_000_000).toFixed(1)} Mbps`;
   }
   return `${Math.round(bps / 1000)} kbps`;
-}
-
-export function formatAudioFormatLabel(options: {
-  codec?: string | null;
-  sampleRate?: number | null;
-  bitrate?: number | null;
-  filePath?: string;
-}): string {
-  const parts = [
-    formatCodec(options.codec) ??
-      (audioExtensionFromPath(options.filePath ?? "").toUpperCase() || "AUDIO"),
-    formatSampleRate(options.sampleRate),
-    formatBitrate(options.bitrate),
-  ].filter((part): part is string => Boolean(part));
-
-  return parts.join(" · ");
 }

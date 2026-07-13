@@ -26,6 +26,14 @@ import type { CanonicalRating } from "../../lib/trackRating";
 import type { CellControlColumn, CellControlLocation } from "./trackListRowCellNav";
 import { handleTrackListRowCellKeyDown } from "./trackListRowCellNav";
 
+function formatTrackNumber(track: Track): string {
+  if (track.trackNumber == null) return "—";
+  if (track.totalTracks != null) {
+    return `${track.trackNumber} of ${track.totalTracks}`;
+  }
+  return String(track.trackNumber);
+}
+
 function cellValue(track: Track, columnId: TrackListColumnId): ReactNode {
   switch (columnId) {
     case "title":
@@ -48,7 +56,7 @@ function cellValue(track: Track, columnId: TrackListColumnId): ReactNode {
     case "discNumber":
       return track.discNumber != null ? String(track.discNumber) : "—";
     case "trackNumber":
-      return track.trackNumber != null ? String(track.trackNumber) : "—";
+      return formatTrackNumber(track);
     case "dateAdded":
       return formatDateAdded(track.dateAdded);
     case "playCount":
@@ -141,7 +149,7 @@ function indexDisplay(
   indexColumn: "index" | "trackNumber",
 ): string {
   if (indexColumn === "trackNumber") {
-    return track.trackNumber != null ? String(track.trackNumber) : "—";
+    return formatTrackNumber(track);
   }
   return String(displayIndex + 1);
 }

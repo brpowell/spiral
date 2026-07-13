@@ -1,28 +1,19 @@
 import { useEffect, useState } from "react";
-import { useFileSize } from "../../hooks/useFileSize";
-import { useFileExists } from "../../hooks/useFileExists";
 import { formatBytes, formatDimensions } from "../../lib/formatBytes";
 import {
   mixedFieldPlaceholder,
   type TrackEditorForm,
   type TrackEditorFormField,
 } from "../../lib/trackMetadataForm";
-import { revealInFileManagerLabel, revealTrackInFileManager } from "../../lib/fileManager";
-import {
-  discoverTrackFileMissing,
-  isTrackMissingFile,
-} from "../../lib/missingFileTrack";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
 import { ArtistChipField } from "../ArtistChipField/ArtistChipField";
 import { TrackRating } from "../TrackRating/TrackRating";
-import { AudioFileSpecs } from "../AudioFileSpecs/AudioFileSpecs";
 import { EntityArt } from "../EntityArt/EntityArt";
 import { Button } from "../common/Button/Button";
-import { FieldLabel, FormField } from "../common/Field/Field";
+import { FormField } from "../common/Field/Field";
 import { AutocompleteInput } from "../common/AutocompleteInput/AutocompleteInput";
 import { TextInput } from "../common/TextInput/TextInput";
-import { IconWarning } from "../icons";
 
 function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
   const [dims, setDims] = useState<{ w: number; h: number } | null>(() =>
@@ -107,11 +98,60 @@ function TrackEditorField({
   );
 }
 
+function TrackEditorNumberPairField({
+  label,
+  numberField,
+  totalField,
+  form,
+  tracks,
+  isBulk,
+  onChange,
+}: {
+  label: string;
+  numberField: "trackNumber" | "discNumber";
+  totalField: "totalTracks" | "totalDiscs";
+  form: TrackEditorForm;
+  tracks: Track[];
+  isBulk: boolean;
+  onChange: (field: TrackEditorFormField, value: string) => void;
+}) {
+  return (
+    <FormField label={label}>
+      <div className="track-editor__number-pair">
+        <TextInput
+          type="number"
+          min={1}
+          value={form[numberField]}
+          placeholder={
+            isBulk
+              ? mixedFieldPlaceholder(tracks, numberField, form)
+              : undefined
+          }
+          onChange={(e) => onChange(numberField, e.target.value)}
+          aria-label={label}
+        />
+        <span className="track-editor__number-pair-of" aria-hidden>
+          of
+        </span>
+        <TextInput
+          type="number"
+          min={1}
+          value={form[totalField]}
+          placeholder={
+            isBulk ? mixedFieldPlaceholder(tracks, totalField, form) : undefined
+          }
+          onChange={(e) => onChange(totalField, e.target.value)}
+          aria-label={`${label} total`}
+        />
+      </div>
+    </FormField>
+  );
+}
+
 export type TrackEditorDetailsTabProps = {
   form: TrackEditorForm;
   tracks: Track[];
   isBulk: boolean;
-  referenceTrack: Track | null;
   previewSrc: string | null;
   artDragOver: boolean;
   fetchingArt: boolean;
@@ -128,14 +168,12 @@ export type TrackEditorDetailsTabProps = {
   artistSuggestions: string[];
   genreSuggestions: string[];
   albumSuggestions: string[];
-  updateTrackInLibrary: (track: Track) => void;
 };
 
 export function TrackEditorDetailsTab({
   form,
   tracks,
   isBulk,
-  referenceTrack,
   previewSrc,
   artDragOver,
   fetchingArt,
@@ -152,21 +190,7 @@ export function TrackEditorDetailsTab({
   artistSuggestions,
   genreSuggestions,
   albumSuggestions,
-  updateTrackInLibrary,
 }: TrackEditorDetailsTabProps) {
-  const fileSizeBytes = useFileSize(referenceTrack?.filePath);
-  const fileExistsOnDisk = useFileExists(referenceTrack?.filePath);
-  const isMissingFile =
-    referenceTrack != null &&
-    (isTrackMissingFile(referenceTrack) || fileExistsOnDisk === false);
-
-  useEffect(() => {
-    if (referenceTrack == null || fileExistsOnDisk !== false) {
-      return;
-    }
-    void discoverTrackFileMissing(referenceTrack, updateTrackInLibrary);
-  }, [referenceTrack, fileExistsOnDisk, updateTrackInLibrary]);
-
   return (
     <div className="track-editor__body">
       <div className="track-editor__art-col">
@@ -198,7 +222,7 @@ export function TrackEditorDetailsTab({
           className="track-editor__art-btn"
           onClick={onChangeArt}
         >
-          Change Art
+          Add art
         </Button>
         <Button
           size="sm"
@@ -293,21 +317,19 @@ export function TrackEditorDetailsTab({
           isBulk={isBulk}
           onChange={onFieldChange}
         />
-        <TrackEditorField
+        <TrackEditorNumberPairField
           label="Track Number"
-          field="trackNumber"
-          type="number"
-          min={1}
+          numberField="trackNumber"
+          totalField="totalTracks"
           form={form}
           tracks={tracks}
           isBulk={isBulk}
           onChange={onFieldChange}
         />
-        <TrackEditorField
+        <TrackEditorNumberPairField
           label="Disc Number"
-          field="discNumber"
-          type="number"
-          min={1}
+          numberField="discNumber"
+          totalField="totalDiscs"
           form={form}
           tracks={tracks}
           isBulk={isBulk}
@@ -330,56 +352,6 @@ export function TrackEditorDetailsTab({
               onChange={onRatingChange}
             />
           </FormField>
-        ) : null}
-        {!isBulk && referenceTrack ? (
-          <div className="field">
-            <FieldLabel>File</FieldLabel>
-            {isMissingFile ? (
-              <p className="track-editor__file-missing" role="status">
-                <IconWarning
-                  className="track-editor__file-missing-icon"
-                  aria-hidden
-                />
-                File not found at this location
-              </p>
-            ) : null}
-            <AudioFileSpecs
-              className="track-editor__audio-file-specs"
-              filePath={referenceTrack.filePath}
-              codec={referenceTrack.codec}
-              sampleRate={referenceTrack.sampleRate}
-              bitrate={referenceTrack.bitrate}
-              sizeBytes={fileSizeBytes}
-            />
-            <div className="track-editor__file-location">
-              <textarea
-                className={[
-                  "track-editor__file-path",
-                  isMissingFile && "track-editor__file-path--missing",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                readOnly
-                value={referenceTrack.filePath}
-                rows={1}
-                spellCheck={false}
-                aria-label="Track file path"
-              />
-              <Button
-                size="sm"
-                disabled={isMissingFile}
-                aria-label={revealInFileManagerLabel()}
-                onClick={() =>
-                  void revealTrackInFileManager(
-                    referenceTrack,
-                    updateTrackInLibrary,
-                  )
-                }
-              >
-                Reveal
-              </Button>
-            </div>
-          </div>
         ) : null}
       </div>
     </div>

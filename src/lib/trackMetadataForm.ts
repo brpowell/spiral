@@ -26,7 +26,9 @@ export interface TrackEditorForm {
   albumArtist: string;
   year: string;
   trackNumber: string;
+  totalTracks: string;
   discNumber: string;
+  totalDiscs: string;
   genre: string;
   rating: CanonicalRating;
   lyrics: string;
@@ -104,7 +106,9 @@ export function trackToForm(track: Track): TrackEditorForm {
     albumArtist: track.albumArtist ?? "",
     year: track.year != null ? String(track.year) : "",
     trackNumber: track.trackNumber != null ? String(track.trackNumber) : "",
+    totalTracks: track.totalTracks != null ? String(track.totalTracks) : "",
     discNumber: track.discNumber != null ? String(track.discNumber) : "",
+    totalDiscs: track.totalDiscs != null ? String(track.totalDiscs) : "",
     genre: track.genre ?? "",
     rating: track.rating,
     lyrics: "",
@@ -129,7 +133,9 @@ export function tracksToForm(tracks: Track[]): TrackEditorForm {
     albumArtist: sharedArtistField(tracks, (t) => t.albumArtist),
     year: sharedInt(tracks, (t) => t.year),
     trackNumber: sharedInt(tracks, (t) => t.trackNumber),
+    totalTracks: sharedInt(tracks, (t) => t.totalTracks),
     discNumber: sharedInt(tracks, (t) => t.discNumber),
+    totalDiscs: sharedInt(tracks, (t) => t.totalDiscs),
     genre: sharedString(tracks, (t) => t.genre),
     rating: sharedRating(tracks),
     lyrics: "",
@@ -175,8 +181,12 @@ export function isTrackEditorFieldMixed(
       return valuesDiffer(tracks, (t) => t.year);
     case "trackNumber":
       return valuesDiffer(tracks, (t) => t.trackNumber);
+    case "totalTracks":
+      return valuesDiffer(tracks, (t) => t.totalTracks);
     case "discNumber":
       return valuesDiffer(tracks, (t) => t.discNumber);
+    case "totalDiscs":
+      return valuesDiffer(tracks, (t) => t.totalDiscs);
     case "genre":
       return valuesDiffer(tracks, (t) => normalizeOptionalString(t.genre));
   }
@@ -230,7 +240,9 @@ export function trackEditorMetadataFormsEqual(
     a.albumArtist === b.albumArtist &&
     a.year === b.year &&
     a.trackNumber === b.trackNumber &&
+    a.totalTracks === b.totalTracks &&
     a.discNumber === b.discNumber &&
+    a.totalDiscs === b.totalDiscs &&
     a.genre === b.genre &&
     lyricsEditorStateEqual(a, b)
   );
@@ -251,7 +263,10 @@ export function buildTrackMetadataFromForm(
   artChanged: boolean,
 ): TrackMetadataUpdate {
   const pickString = (
-    field: Exclude<TrackEditorFormField, "title" | "year" | "trackNumber" | "discNumber">,
+    field: Exclude<
+      TrackEditorFormField,
+      "title" | "year" | "trackNumber" | "totalTracks" | "discNumber" | "totalDiscs"
+    >,
     current: string | null,
   ): string | null => {
     if (form[field] === initialForm[field]) return current;
@@ -260,7 +275,7 @@ export function buildTrackMetadataFromForm(
   };
 
   const pickInt = (
-    field: "year" | "trackNumber" | "discNumber",
+    field: "year" | "trackNumber" | "totalTracks" | "discNumber" | "totalDiscs",
     current: number | null,
   ): number | null => {
     if (form[field] === initialForm[field]) return current;
@@ -295,7 +310,9 @@ export function buildTrackMetadataFromForm(
     albumArtist: pickString("albumArtist", track.albumArtist),
     year: pickInt("year", track.year),
     trackNumber: pickInt("trackNumber", track.trackNumber),
+    totalTracks: pickInt("totalTracks", track.totalTracks),
     discNumber: pickInt("discNumber", track.discNumber),
+    totalDiscs: pickInt("totalDiscs", track.totalDiscs),
     genre: pickString("genre", track.genre),
     artPath,
     artChanged,
@@ -320,7 +337,9 @@ export function buildLyricsOnlyMetadataUpdate(
     albumArtist: track.albumArtist,
     year: track.year,
     trackNumber: track.trackNumber,
+    totalTracks: track.totalTracks,
     discNumber: track.discNumber,
+    totalDiscs: track.totalDiscs,
     genre: track.genre,
     artPath: track.artPath,
     artChanged: false,

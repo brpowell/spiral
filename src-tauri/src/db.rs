@@ -16,7 +16,9 @@ CREATE TABLE IF NOT EXISTS tracks (
   album TEXT,
   album_artist TEXT,
   track_number INTEGER,
+  total_tracks INTEGER,
   disc_number INTEGER,
+  total_discs INTEGER,
   year INTEGER,
   genre TEXT,
   duration_seconds REAL,
@@ -62,7 +64,7 @@ CREATE TABLE IF NOT EXISTS track_lyrics (
 );
 ";
 
-const TRACK_SELECT: &str = "SELECT tracks.id, tracks.title, tracks.artist, tracks.album, tracks.album_artist, tracks.track_number, tracks.disc_number,
+const TRACK_SELECT: &str = "SELECT tracks.id, tracks.title, tracks.artist, tracks.album, tracks.album_artist, tracks.track_number, tracks.total_tracks, tracks.disc_number, tracks.total_discs,
                 tracks.year, tracks.genre, tracks.duration_seconds, tracks.sample_rate, tracks.bitrate, tracks.codec, tracks.file_path, tracks.art_path,
                 tracks.date_added, tracks.play_count, tracks.rating, track_lyrics.format";
 
@@ -77,20 +79,22 @@ fn map_track_row(row: &Row<'_>) -> rusqlite::Result<Track> {
         album: row.get(3)?,
         album_artist: row.get(4)?,
         track_number: row.get(5)?,
-        disc_number: row.get(6)?,
-        year: row.get(7)?,
-        genre: row.get(8)?,
-        duration_seconds: row.get(9)?,
-        sample_rate: row.get(10)?,
-        bitrate: row.get(11)?,
-        codec: row.get(12)?,
-        file_path: row.get(13)?,
-        art_path: row.get(14)?,
-        date_added: row.get(15)?,
-        play_count: row.get(16)?,
-        rating: row.get(17)?,
+        total_tracks: row.get(6)?,
+        disc_number: row.get(7)?,
+        total_discs: row.get(8)?,
+        year: row.get(9)?,
+        genre: row.get(10)?,
+        duration_seconds: row.get(11)?,
+        sample_rate: row.get(12)?,
+        bitrate: row.get(13)?,
+        codec: row.get(14)?,
+        file_path: row.get(15)?,
+        art_path: row.get(16)?,
+        date_added: row.get(17)?,
+        play_count: row.get(18)?,
+        rating: row.get(19)?,
         lyrics_format: row
-            .get::<_, Option<String>>(18)?
+            .get::<_, Option<String>>(20)?
             .map(|value| parse_lyrics_format(&value)),
     })
 }
@@ -165,6 +169,12 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
     if !track_columns.iter().any(|c| c == "codec") {
         conn.execute("ALTER TABLE tracks ADD COLUMN codec TEXT", [])?;
     }
+    if !track_columns.iter().any(|c| c == "total_tracks") {
+        conn.execute("ALTER TABLE tracks ADD COLUMN total_tracks INTEGER", [])?;
+    }
+    if !track_columns.iter().any(|c| c == "total_discs") {
+        conn.execute("ALTER TABLE tracks ADD COLUMN total_discs INTEGER", [])?;
+    }
 
     let playlist_columns = table_columns(conn, "playlists")?;
     if !playlist_columns.iter().any(|c| c == "image_mode") {
@@ -232,17 +242,19 @@ pub fn save_track(conn: &Connection, input: &TrackInput) -> Result<i64, rusqlite
     let rating = input.rating.unwrap_or(0);
     conn.execute(
         "INSERT INTO tracks (
-            title, artist, album, album_artist, track_number, disc_number,
+            title, artist, album, album_artist, track_number, total_tracks, disc_number, total_discs,
             year, genre, duration_seconds, sample_rate, bitrate, codec,
             file_path, art_path, date_added, rating
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
         ON CONFLICT(file_path) DO UPDATE SET
             title = excluded.title,
             artist = excluded.artist,
             album = excluded.album,
             album_artist = excluded.album_artist,
             track_number = excluded.track_number,
+            total_tracks = excluded.total_tracks,
             disc_number = excluded.disc_number,
+            total_discs = excluded.total_discs,
             year = excluded.year,
             genre = excluded.genre,
             duration_seconds = excluded.duration_seconds,
@@ -261,7 +273,9 @@ pub fn save_track(conn: &Connection, input: &TrackInput) -> Result<i64, rusqlite
             input.album,
             input.album_artist,
             input.track_number,
+            input.total_tracks,
             input.disc_number,
+            input.total_discs,
             input.year,
             input.genre,
             input.duration_seconds,
@@ -338,22 +352,26 @@ pub fn update_track(
                     album = ?3,
                     album_artist = ?4,
                     track_number = ?5,
-                    disc_number = ?6,
-                    year = ?7,
-                    genre = ?8,
-                    art_path = ?9,
-                    file_path = ?10,
-                    sample_rate = ?11,
-                    bitrate = ?12,
-                    codec = ?13
-                 WHERE id = ?14",
+                    total_tracks = ?6,
+                    disc_number = ?7,
+                    total_discs = ?8,
+                    year = ?9,
+                    genre = ?10,
+                    art_path = ?11,
+                    file_path = ?12,
+                    sample_rate = ?13,
+                    bitrate = ?14,
+                    codec = ?15
+                 WHERE id = ?16",
                 params![
                     metadata.title,
                     metadata.artist,
                     metadata.album,
                     metadata.album_artist,
                     metadata.track_number,
+                    metadata.total_tracks,
                     metadata.disc_number,
+                    metadata.total_discs,
                     metadata.year,
                     metadata.genre,
                     metadata.art_path,
@@ -372,19 +390,23 @@ pub fn update_track(
                     album = ?3,
                     album_artist = ?4,
                     track_number = ?5,
-                    disc_number = ?6,
-                    year = ?7,
-                    genre = ?8,
-                    art_path = ?9,
-                    file_path = ?10
-                 WHERE id = ?11",
+                    total_tracks = ?6,
+                    disc_number = ?7,
+                    total_discs = ?8,
+                    year = ?9,
+                    genre = ?10,
+                    art_path = ?11,
+                    file_path = ?12
+                 WHERE id = ?13",
                 params![
                     metadata.title,
                     metadata.artist,
                     metadata.album,
                     metadata.album_artist,
                     metadata.track_number,
+                    metadata.total_tracks,
                     metadata.disc_number,
+                    metadata.total_discs,
                     metadata.year,
                     metadata.genre,
                     metadata.art_path,
@@ -401,18 +423,22 @@ pub fn update_track(
                 album = ?3,
                 album_artist = ?4,
                 track_number = ?5,
-                disc_number = ?6,
-                year = ?7,
-                genre = ?8,
-                art_path = ?9
-             WHERE id = ?10",
+                total_tracks = ?6,
+                disc_number = ?7,
+                total_discs = ?8,
+                year = ?9,
+                genre = ?10,
+                art_path = ?11
+             WHERE id = ?12",
             params![
                 metadata.title,
                 metadata.artist,
                 metadata.album,
                 metadata.album_artist,
                 metadata.track_number,
+                metadata.total_tracks,
                 metadata.disc_number,
+                metadata.total_discs,
                 metadata.year,
                 metadata.genre,
                 metadata.art_path,
@@ -916,7 +942,9 @@ mod tests {
             album: None,
             album_artist: None,
             track_number: None,
+            total_tracks: None,
             disc_number: None,
+            total_discs: None,
             year: None,
             genre: None,
             duration_seconds: None,
@@ -1129,7 +1157,9 @@ mod tests {
                 album: existing.album.clone(),
                 album_artist: existing.album_artist.clone(),
                 track_number: existing.track_number,
+                total_tracks: existing.total_tracks,
                 disc_number: existing.disc_number,
+                total_discs: existing.total_discs,
                 year: existing.year,
                 genre: existing.genre.clone(),
                 art_path: existing.art_path.clone(),

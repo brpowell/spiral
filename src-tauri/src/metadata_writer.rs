@@ -1,6 +1,7 @@
 use crate::artist_tags::{join_artist_field, parse_artist_field};
 use crate::lyrics_tags;
 use crate::metadata_backup::{self, MetadataBackupConfig};
+use crate::metadata_reader::parse_number_pair;
 use crate::models::TrackMetadataUpdate;
 use id3::frame::{Picture, PictureType};
 use id3::{ErrorKind, Tag, TagLike};
@@ -110,8 +111,14 @@ fn apply_common_mp4(tag: &mut Mp4Tag, metadata: &TrackMetadataUpdate) {
     if let Some(n) = metadata.track_number {
         tag.set_track_number(n as u16);
     }
+    if let Some(n) = metadata.total_tracks {
+        tag.set_total_tracks(n as u16);
+    }
     if let Some(n) = metadata.disc_number {
         tag.set_disc_number(n as u16);
+    }
+    if let Some(n) = metadata.total_discs {
+        tag.set_total_discs(n as u16);
     }
     if let Some(year) = metadata.year {
         tag.set_year(year.to_string());
@@ -206,8 +213,14 @@ fn apply_id3_metadata(tag: &mut Tag, metadata: &TrackMetadataUpdate) -> Result<(
     if let Some(n) = metadata.track_number {
         tag.set_track(n as u32);
     }
+    if let Some(n) = metadata.total_tracks {
+        tag.set_total_tracks(n as u32);
+    }
     if let Some(n) = metadata.disc_number {
         tag.set_disc(n as u32);
+    }
+    if let Some(n) = metadata.total_discs {
+        tag.set_total_discs(n as u32);
     }
     if let Some(year) = metadata.year {
         tag.set_year(year as i32);
@@ -271,6 +284,31 @@ fn write_wav(
     write_id3(path, metadata, backup_config, "WAV")
 }
 
+fn vorbis_slash_total(tag: &FlacTag, key: &str) -> Option<i32> {
+    tag.get_vorbis(key)
+        .and_then(|mut v| v.next().map(|s| s.to_string()))
+        .and_then(|s| parse_number_pair(&s).1)
+}
+
+fn write_flac_number_pair(
+    tag: &mut FlacTag,
+    number_key: &str,
+    total_key: &str,
+    number: Option<i32>,
+    total: Option<i32>,
+) {
+    if let Some(n) = number {
+        // Prefer bare number + dedicated TOTAL over "N/M" slash form.
+        let existing_slash_total = vorbis_slash_total(tag, number_key);
+        tag.set_vorbis(number_key, vec![n.to_string()]);
+        if let Some(t) = total.or(existing_slash_total) {
+            tag.set_vorbis(total_key, vec![t.to_string()]);
+        }
+    } else if let Some(t) = total {
+        tag.set_vorbis(total_key, vec![t.to_string()]);
+    }
+}
+
 fn write_flac(
     path: &Path,
     metadata: &TrackMetadataUpdate,
@@ -296,12 +334,20 @@ fn write_flac(
                 tag.set_vorbis("ALBUMARTIST", values);
             }
         }
-        if let Some(n) = metadata.track_number {
-            tag.set_vorbis("TRACKNUMBER", vec![n.to_string()]);
-        }
-        if let Some(n) = metadata.disc_number {
-            tag.set_vorbis("DISCNUMBER", vec![n.to_string()]);
-        }
+        write_flac_number_pair(
+            &mut tag,
+            "TRACKNUMBER",
+            "TRACKTOTAL",
+            metadata.track_number,
+            metadata.total_tracks,
+        );
+        write_flac_number_pair(
+            &mut tag,
+            "DISCNUMBER",
+            "DISCTOTAL",
+            metadata.disc_number,
+            metadata.total_discs,
+        );
         if let Some(year) = metadata.year {
             tag.set_vorbis("DATE", vec![year.to_string()]);
         }
@@ -488,7 +534,9 @@ mod tests {
             album: Some("Tagged Album".to_string()),
             album_artist: None,
             track_number: Some(1),
+            total_tracks: None,
             disc_number: None,
+            total_discs: None,
             year: Some(2024),
             genre: Some("Rock".to_string()),
             art_path: None,
@@ -529,7 +577,9 @@ mod tests {
             album: None,
             album_artist: Some("Band A; Band B".to_string()),
             track_number: None,
+            total_tracks: None,
             disc_number: None,
+            total_discs: None,
             year: None,
             genre: None,
             art_path: None,
@@ -574,7 +624,9 @@ mod tests {
             album: None,
             album_artist: None,
             track_number: None,
+            total_tracks: None,
             disc_number: None,
+            total_discs: None,
             year: None,
             genre: None,
             art_path: None,
@@ -614,7 +666,9 @@ mod tests {
             album: None,
             album_artist: None,
             track_number: None,
+            total_tracks: None,
             disc_number: None,
+            total_discs: None,
             year: None,
             genre: None,
             art_path: None,
@@ -649,7 +703,9 @@ mod tests {
             album: None,
             album_artist: None,
             track_number: None,
+            total_tracks: None,
             disc_number: None,
+            total_discs: None,
             year: None,
             genre: None,
             art_path: None,
@@ -716,7 +772,9 @@ mod tests {
             album: Some("Test Album".to_string()),
             album_artist: None,
             track_number: Some(1),
+            total_tracks: None,
             disc_number: None,
+            total_discs: None,
             year: Some(2024),
             genre: None,
             art_path: Some(art_path.to_string_lossy().into_owned()),
@@ -780,7 +838,9 @@ mod tests {
             album: None,
             album_artist: None,
             track_number: None,
+            total_tracks: None,
             disc_number: None,
+            total_discs: None,
             year: None,
             genre: None,
             art_path: None,
@@ -823,7 +883,9 @@ mod tests {
             album: Some("Tagged Album".to_string()),
             album_artist: None,
             track_number: Some(1),
+            total_tracks: None,
             disc_number: None,
+            total_discs: None,
             year: Some(2024),
             genre: Some("Rock".to_string()),
             art_path: None,
@@ -893,7 +955,9 @@ mod tests {
             album: None,
             album_artist: None,
             track_number: None,
+            total_tracks: None,
             disc_number: None,
+            total_discs: None,
             year: None,
             genre: None,
             art_path: Some(art_path.to_string_lossy().into_owned()),
@@ -922,7 +986,9 @@ mod tests {
             album: None,
             album_artist: None,
             track_number: None,
+            total_tracks: None,
             disc_number: None,
+            total_discs: None,
             year: None,
             genre: None,
             art_path: None,
@@ -939,7 +1005,9 @@ mod tests {
             album: None,
             album_artist: None,
             track_number: None,
+            total_tracks: None,
             disc_number: None,
+            total_discs: None,
             year: None,
             genre: None,
             art_path: None,
@@ -958,7 +1026,9 @@ mod tests {
             album: None,
             album_artist: None,
             track_number: None,
+            total_tracks: None,
             disc_number: None,
+            total_discs: None,
             year: None,
             genre: None,
             art_path: None,
@@ -1109,7 +1179,9 @@ mod tests {
                 album: None,
                 album_artist: None,
                 track_number: None,
+                total_tracks: None,
                 disc_number: None,
+                total_discs: None,
                 year: None,
                 genre: None,
                 art_path: None,

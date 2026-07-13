@@ -1,0 +1,11 @@
+.track-editor-file-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 40rem;
+}
+
+.track-editor-file-tab .field__label {
+  font-size: 0.8rem;
+  font-weight: 500;
+}

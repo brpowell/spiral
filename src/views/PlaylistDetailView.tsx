@@ -14,7 +14,7 @@ import {
   IconAddToQueue,
   IconBack,
   IconDelete,
-  IconEditInfo,
+  IconPencil,
   IconPlay,
 } from "../components/icons";
 import { useDeletePlaylistDialog } from "../hooks/useDeletePlaylistDialog";
@@ -135,89 +135,89 @@ function PlaylistDetailContent({
     <div className="playlist-detail detail-view">
       <div className="detail-view__body">
         <div className="detail-view__chrome">
-        <div className="playlist-detail__toolbar">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="playlist-detail__back"
-            onClick={closePlaylist}
-          >
-            <IconBack />
-            {backLabel}
-          </Button>
-          <MenuButton
-            ariaLabel="Playlist actions"
-            className="playlist-detail__toolbar-menu"
-            layoutDeps={[tracks.length]}
-            size="md"
-            variant="secondary"
-          >
-            {(close) => (
-              <>
-                <ContextMenuItem
-                  icon={<IconEditInfo />}
-                  label="Edit Playlist"
-                  onClick={() => {
-                    close();
-                    openPlaylistEditor(playlist.id);
-                  }}
-                />
-                {tracks.length > 0 ? (
+          <div className="playlist-detail__toolbar">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="playlist-detail__back"
+              onClick={closePlaylist}
+            >
+              <IconBack />
+              {backLabel}
+            </Button>
+            <MenuButton
+              ariaLabel="Playlist actions"
+              className="playlist-detail__toolbar-menu"
+              layoutDeps={[tracks.length]}
+              size="md"
+              variant="secondary"
+            >
+              {(close) => (
+                <>
                   <ContextMenuItem
-                    icon={<IconAddToQueue />}
-                    label="Add to Queue"
+                    icon={<IconPencil />}
+                    label="Edit Playlist"
                     onClick={() => {
                       close();
-                      handleAddToQueue();
+                      openPlaylistEditor(playlist.id);
                     }}
                   />
-                ) : null}
-                <ContextMenuItem
-                  icon={<IconPlay />}
-                  label="Play All"
-                  disabled={tracks.length === 0}
-                  onClick={() => {
-                    close();
-                    handlePlayAll();
-                  }}
-                />
-                <ContextMenuSeparator />
-                <ContextMenuItem
-                  icon={<IconDelete />}
-                  label="Delete Playlist"
-                  className="context-menu__danger"
-                  onClick={() => {
-                    close();
-                    requestDelete();
-                  }}
-                />
-              </>
-            )}
-          </MenuButton>
-        </div>
-
-        <section className="playlist-detail__hero">
-          <PlaylistArt
-            playlist={playlist}
-            tracks={tracks}
-            className="playlist-detail__art"
-            alt={playlist.title}
-          />
-          <div className="playlist-detail__meta">
-            <h1 className="playlist-detail__title">{playlist.title}</h1>
-            {playlist.description ? (
-              <p className="playlist-detail__description">{playlist.description}</p>
-            ) : null}
-            <p className="playlist-detail__stats">
-              {[
-                `${tracks.length} ${tracks.length === 1 ? "track" : "tracks"}`,
-                formatTime(totalDuration),
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
+                  {tracks.length > 0 ? (
+                    <ContextMenuItem
+                      icon={<IconAddToQueue />}
+                      label="Add to Queue"
+                      onClick={() => {
+                        close();
+                        handleAddToQueue();
+                      }}
+                    />
+                  ) : null}
+                  <ContextMenuItem
+                    icon={<IconPlay />}
+                    label="Play All"
+                    disabled={tracks.length === 0}
+                    onClick={() => {
+                      close();
+                      handlePlayAll();
+                    }}
+                  />
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    icon={<IconDelete />}
+                    label="Delete Playlist"
+                    className="context-menu__danger"
+                    onClick={() => {
+                      close();
+                      requestDelete();
+                    }}
+                  />
+                </>
+              )}
+            </MenuButton>
           </div>
-        </section>
+
+          <section className="playlist-detail__hero">
+            <PlaylistArt
+              playlist={playlist}
+              tracks={tracks}
+              className="playlist-detail__art"
+              alt={playlist.title}
+            />
+            <div className="playlist-detail__meta">
+              <h1 className="playlist-detail__title">{playlist.title}</h1>
+              {playlist.description ? (
+                <p className="playlist-detail__description">{playlist.description}</p>
+              ) : null}
+              <p className="playlist-detail__stats">
+                {[
+                  `${tracks.length} ${tracks.length === 1 ? "track" : "tracks"}`,
+                  formatTime(totalDuration),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            </div>
+          </section>
         </div>
 
         <div className="detail-view__tracks">

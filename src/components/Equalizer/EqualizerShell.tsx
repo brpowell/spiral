@@ -30,7 +30,7 @@ import { FormField } from "../common/Field/Field";
 import {
   IconCopy,
   IconDelete,
-  IconEditInfo,
+  IconPencil,
   IconReset
 } from "../icons";
 import "./EqualizerShell.css";
@@ -156,7 +156,7 @@ export function EqualizerShell() {
                   }}
                 />
                 <ContextMenuItem
-                  icon={<IconEditInfo />}
+                  icon={<IconPencil />}
                   label="Rename preset"
                   disabled={!canEditPreset}
                   onClick={() => {

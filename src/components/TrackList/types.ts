@@ -279,7 +279,7 @@ export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> =
   {
     check: 36,
     index: 40,
-    trackNumber: 40,
+    trackNumber: 64,
     title: 300,
     artist: 140,
     album: 160,
@@ -299,7 +299,7 @@ export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> =
 
 export const MIN_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> = {
   index: 32,
-  trackNumber: 32,
+  trackNumber: 48,
   title: 140,
   artist: 72,
   album: 72,

@@ -48,7 +48,7 @@ pub fn prepare_import_file(
             album: tags.album.as_deref(),
             album_artist: tags.album_artist.as_deref(),
             track_number: tags.track_number,
-            disc_number: None,
+            disc_number: tags.disc_number,
             year: None,
             genre: None,
         };

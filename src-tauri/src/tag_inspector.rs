@@ -37,7 +37,9 @@ pub struct BasicTagReport {
     pub album: Option<String>,
     pub album_artist: Option<String>,
     pub track_number: Option<i32>,
+    pub total_tracks: Option<i32>,
     pub disc_number: Option<i32>,
+    pub total_discs: Option<i32>,
     pub year: Option<i32>,
     pub genre: Option<String>,
     pub rating: Option<u8>,
@@ -208,7 +210,9 @@ pub fn inspect_path(path: &Path) -> TagFileReport {
                 album: None,
                 album_artist: None,
                 track_number: None,
+                total_tracks: None,
                 disc_number: None,
+                total_discs: None,
                 year: None,
                 genre: None,
                 rating: None,
@@ -232,7 +236,9 @@ pub fn inspect_path(path: &Path) -> TagFileReport {
                 album: None,
                 album_artist: None,
                 track_number: None,
+                total_tracks: None,
                 disc_number: None,
+                total_discs: None,
                 year: None,
                 genre: None,
                 rating: None,
@@ -258,7 +264,9 @@ pub fn inspect_path(path: &Path) -> TagFileReport {
             album: tags.album,
             album_artist: tags.album_artist,
             track_number: tags.track_number,
+            total_tracks: tags.total_tracks,
             disc_number: tags.disc_number,
+            total_discs: tags.total_discs,
             year: tags.year,
             genre: tags.genre,
             rating: tags.rating,
@@ -317,7 +325,9 @@ pub fn print_human_report(report: &TagFileReport) {
     print_field("album", tags.album.as_deref());
     print_field("album artist", tags.album_artist.as_deref());
     print_number("track", tags.track_number);
+    print_number("total tracks", tags.total_tracks);
     print_number("disc", tags.disc_number);
+    print_number("total discs", tags.total_discs);
     print_number("year", tags.year);
     print_field("genre", tags.genre.as_deref());
     if let Some(rating) = tags.rating {

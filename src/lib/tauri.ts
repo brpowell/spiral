@@ -57,9 +57,17 @@ function normalizeTrack(raw: Record<string, unknown>): Track {
       (raw.trackNumber as number | null) ??
       (raw.track_number as number | null) ??
       null,
+    totalTracks:
+      (raw.totalTracks as number | null) ??
+      (raw.total_tracks as number | null) ??
+      null,
     discNumber:
       (raw.discNumber as number | null) ??
       (raw.disc_number as number | null) ??
+      null,
+    totalDiscs:
+      (raw.totalDiscs as number | null) ??
+      (raw.total_discs as number | null) ??
       null,
     year: (raw.year as number | null) ?? null,
     genre: (raw.genre as string | null) ?? null,

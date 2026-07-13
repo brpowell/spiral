@@ -53,11 +53,14 @@ import {
   ModalDescription,
   ModalFooter,
   ModalHeader,
+  ModalHeaderMain,
   ModalTitle,
 } from "../common/Modal/Modal";
 import { Button } from "../common/Button/Button";
 import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
+import { EntityArt } from "../EntityArt/EntityArt";
 import { TrackEditorDetailsTab } from "./TrackEditorDetailsTab";
+import { TrackEditorFileTab } from "./TrackEditorFileTab";
 import { TrackEditorLyricsTab } from "./TrackEditorLyricsTab";
 import { LyricsCandidatePicker } from "./LyricsCandidatePicker";
 import "./TrackEditor.css";
@@ -189,7 +192,7 @@ export function TrackEditor() {
   const lyricsFetchPending = useLyricsFetchStore((s) =>
     referenceTrack
       ? s.fetchingTrackIds.has(referenceTrack.id) ||
-        s.queuedTrackIds.has(referenceTrack.id)
+      s.queuedTrackIds.has(referenceTrack.id)
       : false,
   );
 
@@ -351,24 +354,30 @@ export function TrackEditor() {
 
   const setLyricsInstrumental = useCallback((instrumental: boolean) => {
     setForm((prev) => {
-      if (!prev) return prev;
-      if (instrumental) {
+      if (!prev || !originalForm) return prev;
+      if (instrumental === prev.lyricsInstrumental) return prev;
+
+      // Keep lyrics in form state while marked instrumental so a quick
+      // retoggle restores them; save ignores text when instrumental is set.
+      const next = {
+        ...prev,
+        lyricsInstrumental: instrumental,
+      };
+
+      if (lyricsEditorStateEqual(next, originalForm)) {
         return {
           ...prev,
-          lyrics: "",
-          lyricsSyncedLines: null,
-          lyricsSource: "manual",
-          lyricsInstrumental: true,
+          lyrics: originalForm.lyrics,
+          lyricsSyncedLines: originalForm.lyricsSyncedLines,
+          lyricsSource: originalForm.lyricsSource,
+          lyricsInstrumental: originalForm.lyricsInstrumental,
         };
       }
-      return {
-        ...prev,
-        lyricsInstrumental: false,
-        lyricsSource: "manual",
-      };
+
+      return next;
     });
     setLyricsFetchFeedback(null);
-  }, []);
+  }, [originalForm]);
 
   const commitFetchedLyrics = useCallback(
     async (input: {
@@ -708,6 +717,14 @@ export function TrackEditor() {
   const hasLyrics =
     (form?.lyrics.trim().length ?? 0) > 0 || Boolean(form?.lyricsInstrumental);
 
+  const identityTitle = form?.title.trim() || "Untitled";
+  const identitySubtitle = [
+    form ? parseArtistField(form.artist).join(", ") : "",
+    form?.album.trim() ?? "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <Modal
       open={isOpen}
@@ -728,10 +745,51 @@ export function TrackEditor() {
               .join(" ")}
             inert={discardPrompt || undefined}
           >
-            <ModalHeader>
-              <ModalTitle id="track-editor-title">
-                {isBulk ? `Edit ${tracks.length} tracks` : "Edit track info"}
-              </ModalTitle>
+            <ModalHeader
+              className={
+                isBulk ? undefined : "track-editor__identity-header"
+              }
+            >
+              {isBulk ? (
+                <ModalHeaderMain>
+                  <ModalTitle id="track-editor-title">
+                    {`Edit ${tracks.length} tracks`}
+                  </ModalTitle>
+                  <ModalDescription>
+                    Changes apply to all {tracks.length} tracks.
+                  </ModalDescription>
+                </ModalHeaderMain>
+              ) : (
+                <div className="track-editor__identity">
+                  <div className="track-editor__identity-art" aria-hidden>
+                    {previewSrc ? (
+                      <img
+                        src={previewSrc}
+                        alt=""
+                        className="track-editor__identity-art-img"
+                      />
+                    ) : (
+                      <EntityArt
+                        artPath={null}
+                        className="track-editor__identity-art-placeholder"
+                      />
+                    )}
+                  </div>
+                  <ModalHeaderMain className="track-editor__identity-meta">
+                    <ModalTitle
+                      id="track-editor-title"
+                      className="track-editor__identity-title"
+                    >
+                      {identityTitle}
+                    </ModalTitle>
+                    {identitySubtitle ? (
+                      <p className="track-editor__identity-subtitle">
+                        {identitySubtitle}
+                      </p>
+                    ) : null}
+                  </ModalHeaderMain>
+                </div>
+              )}
             </ModalHeader>
 
             <Tabs
@@ -747,24 +805,18 @@ export function TrackEditor() {
                     <Tab value="lyrics" badge={hasLyrics ? "•" : undefined}>
                       Lyrics
                     </Tab>
+                    <Tab value="file">File</Tab>
                   </TabList>
                 </div>
               ) : null}
 
               <ModalBody className={!isBulk ? "track-editor__tab-body" : undefined}>
-                {isBulk ? (
-                  <ModalDescription>
-                    Updated changes will apply to all {tracks.length} tracks.
-                  </ModalDescription>
-                ) : null}
-
                 <div className={!isBulk ? "track-editor__tab-stage" : undefined}>
                   <TabPanel value="details" className="track-editor__tab-panel">
                     <TrackEditorDetailsTab
                       form={form}
                       tracks={tracks}
                       isBulk={isBulk}
-                      referenceTrack={referenceTrack}
                       previewSrc={previewSrc}
                       artDragOver={artDragOver}
                       fetchingArt={fetchingArt}
@@ -781,7 +833,6 @@ export function TrackEditor() {
                       artistSuggestions={artistSuggestions}
                       genreSuggestions={genreSuggestions}
                       albumSuggestions={albumSuggestions}
-                      updateTrackInLibrary={updateTrackInLibrary}
                     />
                   </TabPanel>
 
@@ -797,9 +848,17 @@ export function TrackEditor() {
                         fetchingLyrics={lyricsFetchPending || committingLyrics}
                         fetchFeedback={lyricsFetchFeedback}
                         onFetchLyrics={() => void handleFetchLyrics()}
-                        onMarkInstrumental={() => setLyricsInstrumental(true)}
-                        onClearInstrumental={() => setLyricsInstrumental(false)}
+                        onInstrumentalChange={setLyricsInstrumental}
                         onChange={setLyrics}
+                      />
+                    </TabPanel>
+                  ) : null}
+
+                  {!isBulk && referenceTrack ? (
+                    <TabPanel value="file" className="track-editor__tab-panel">
+                      <TrackEditorFileTab
+                        track={referenceTrack}
+                        updateTrackInLibrary={updateTrackInLibrary}
                       />
                     </TabPanel>
                   ) : null}

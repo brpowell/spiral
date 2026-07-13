@@ -15,7 +15,9 @@ export interface Track {
   album: string | null;
   albumArtist: string | null;
   trackNumber: number | null;
+  totalTracks: number | null;
   discNumber: number | null;
+  totalDiscs: number | null;
   year: number | null;
   genre: string | null;
   durationSeconds: number | null;
@@ -41,7 +43,9 @@ export interface TrackInput {
   album: string | null;
   albumArtist: string | null;
   trackNumber: number | null;
+  totalTracks: number | null;
   discNumber: number | null;
+  totalDiscs: number | null;
   year: number | null;
   genre: string | null;
   durationSeconds: number | null;

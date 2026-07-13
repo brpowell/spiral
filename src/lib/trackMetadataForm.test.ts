@@ -15,7 +15,9 @@ function track(partial: Partial<Track> & Pick<Track, "id">): Track {
     album: null,
     albumArtist: null,
     trackNumber: null,
+    totalTracks: null,
     discNumber: null,
+    totalDiscs: null,
     year: null,
     genre: null,
     durationSeconds: null,
@@ -65,6 +67,32 @@ describe("isTrackEditorFieldMixed", () => {
 });
 
 describe("buildTrackMetadataFromForm", () => {
+  it("writes total tracks and discs when changed", () => {
+    const editedTrack = track({
+      id: 1,
+      title: "Song",
+      trackNumber: 3,
+      totalTracks: 10,
+      discNumber: 1,
+      totalDiscs: 2,
+    });
+    const initial = trackToForm(editedTrack);
+    const edited = { ...initial, totalTracks: "12", totalDiscs: "3" };
+
+    const metadata = buildTrackMetadataFromForm(
+      editedTrack,
+      edited,
+      initial,
+      null,
+      false,
+    );
+
+    expect(metadata.trackNumber).toBe(3);
+    expect(metadata.totalTracks).toBe(12);
+    expect(metadata.discNumber).toBe(1);
+    expect(metadata.totalDiscs).toBe(3);
+  });
+
   it("includes lyrics payload when lyrics changed", () => {
     const editedTrack = track({ id: 1, title: "Song" });
     const initial = trackToForm(editedTrack);

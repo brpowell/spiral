@@ -14,12 +14,12 @@ import {
   IconAlbums,
   IconArtists,
   IconConvert,
-  IconDelete,
-  IconEditInfo, IconOpenFolder,
+  IconDelete, IconOpenFolder,
   IconPlaylistAdd,
   IconPlaylists,
   IconRemoveFromPlaylist,
-  IconRemoveFromQueue
+  IconRemoveFromQueue,
+  IconInfo
 } from "../components/icons";
 import { applyTrackRating } from "../lib/applyTrackRating";
 import {
@@ -196,9 +196,9 @@ export function useTrackMenu(
       menuRef={menuRef}
     >
       <ContextMenuItem
-        icon={<IconEditInfo />}
+        icon={<IconInfo />}
         label={
-          bulkRemove ? `Edit Info (${contextTracks.length})` : "Edit Info"
+          bulkRemove ? `View Details (${contextTracks.length})` : "View Details"
         }
         onClick={openEditor}
       />

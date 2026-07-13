@@ -4,7 +4,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from "../components/ContextMenu/ContextMenu";
-import { IconAddToQueue, IconDelete, IconEditInfo } from "../components/icons";
+import { IconAddToQueue, IconDelete, IconPencil } from "../components/icons";
 import { resolvePlaylistTracks } from "../lib/playlists";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { usePlaylistStore } from "../store/usePlaylistStore";
@@ -45,7 +45,7 @@ export function usePlaylistSidebarMenu(playlist: Playlist) {
       menuRef={menuRef}
     >
       <ContextMenuItem
-        icon={<IconEditInfo />}
+        icon={<IconPencil />}
         label="Edit"
         onClick={openEditor}
       />

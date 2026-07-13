@@ -47,7 +47,7 @@
 
 .modal-panel--editor {
   width: min(640px, 100%);
-  max-height: min(90vh, 720px);
+  max-height: min(92vh, 820px);
 }
 
 .modal-header {
