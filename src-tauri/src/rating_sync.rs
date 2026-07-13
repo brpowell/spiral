@@ -35,6 +35,15 @@ impl RatingSync {
             pending: HashMap::new(),
         })))
     }
+
+    /// Drop pending tag writes (e.g. after library relocation) and invalidate
+    /// in-flight debounce generations so they no longer write old paths.
+    pub fn clear_pending(&self) {
+        GENERATION.fetch_add(1, Ordering::Relaxed);
+        if let Ok(mut guard) = self.0.lock() {
+            guard.pending.clear();
+        }
+    }
 }
 
 pub fn schedule_rating_file_write(

@@ -19,6 +19,14 @@
   gap: 0.35rem;
 }
 
+.field--horizontal:has(> .checkbox__input) {
+  align-items: flex-start;
+}
+
+.field--horizontal > .checkbox__input {
+  margin-top: 0.15rem;
+}
+
 .field__label {
   font-size: 0.85rem;
   color: var(--color-text-secondary);
@@ -45,6 +53,10 @@ label.field__label {
   text-wrap: balance;
 }
 
+.field__description code {
+  font-size: 0.78rem;
+}
+
 .field > .field__label + .radio-group {
   margin-top: 0.25rem;
 }
@@ -59,42 +71,4 @@ label.field__label {
 
 .field > .radio-group + .field__description {
   margin-top: 0.35rem;
-}
-
-.field--choice-card {
-  display: block;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-button);
-  background: transparent;
-  cursor: pointer;
-  transition:
-    border-color 0.12s ease,
-    background 0.12s ease;
-}
-
-.field--choice-card:hover:not(:has(.radio-group-item__input:disabled)) {
-  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
-}
-
-.field--choice-card:has(.radio-group-item__input:checked) {
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-}
-
-.field--choice-card:has(.radio-group-item__input:disabled) {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.field--choice-card .field--horizontal {
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.field--choice-card .field__content > .field__label {
-  font-size: 0.9rem;
-  color: var(--color-text-primary);
-  font-weight: 500;
 }

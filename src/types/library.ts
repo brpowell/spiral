@@ -2,7 +2,18 @@ export type ImportMode = "ask" | "copy" | "reference";
 
 export type CdMetadataFetchMode = "ask" | "always" | "never";
 
+export type LibraryRelocateMode = "move" | "switch" | "fresh" | "freshImport";
+
+export interface LibraryDestinationInfo {
+  path: string;
+  hasDatabase: boolean;
+  audioFileCount: number;
+  blockedReason: string | null;
+}
+
 export interface LibrarySettings {
+  /** Root directory; media lives in `Media/` and the DB is `Library.db` here. */
+  libraryRoot: string;
   mediaFolder: string;
   databasePath: string;
   autoOrganize: boolean;
@@ -12,8 +23,6 @@ export interface LibrarySettings {
   importMode: ImportMode;
   cdMetadataFetchMode: CdMetadataFetchMode;
   cdImportProfileId: string;
-  defaultMediaFolder: string;
-  defaultDatabasePath: string;
   defaultLibraryRoot: string;
   metadataBackupsEnabled: boolean;
   metadataBackupRetentionDays: number;
@@ -23,8 +32,7 @@ export interface LibrarySettings {
 }
 
 export interface LibrarySettingsPatch {
-  mediaFolder?: string;
-  databasePath?: string;
+  libraryRoot?: string;
   autoOrganize?: boolean;
   organizePathFormat?: string;
   importMode?: ImportMode;

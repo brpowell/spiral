@@ -12,11 +12,7 @@ import { usePlaylistStore } from "../../store/usePlaylistStore";
 import type { Playlist, PlaylistImageMode } from "../../types/playlist";
 import { PlaylistArt } from "../PlaylistArt/PlaylistArt";
 import { Button } from "../common/Button/Button";
-import {
-  Field,
-  FieldLabel,
-  FormField,
-} from "../common/Field/Field";
+import { FormField } from "../common/Field/Field";
 import { RadioGroup, RadioGroupItem } from "../common/RadioGroup/RadioGroup";
 import {
   Modal,
@@ -233,33 +229,12 @@ export function PlaylistEditorModal() {
                   name="playlist-image-mode"
                   value={imageMode}
                   onChange={setImageMode}
+                  variant="button"
                   orientation="horizontal"
                   aria-label="Cover image source"
                 >
-                  <Field
-                    orientation="horizontal"
-                    className="playlist-editor__segment"
-                  >
-                    <RadioGroupItem
-                      value="generated"
-                      id="playlist-image-mode-generated"
-                    />
-                    <FieldLabel htmlFor="playlist-image-mode-generated">
-                      From playlist
-                    </FieldLabel>
-                  </Field>
-                  <Field
-                    orientation="horizontal"
-                    className="playlist-editor__segment"
-                  >
-                    <RadioGroupItem
-                      value="custom"
-                      id="playlist-image-mode-custom"
-                    />
-                    <FieldLabel htmlFor="playlist-image-mode-custom">
-                      Custom image
-                    </FieldLabel>
-                  </Field>
+                  <RadioGroupItem value="generated">From playlist</RadioGroupItem>
+                  <RadioGroupItem value="custom">Custom image</RadioGroupItem>
                 </RadioGroup>
                 {showCustomActions ? (
                   <Button

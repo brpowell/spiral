@@ -1,6 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import type { LibrarySettings, LibrarySettingsPatch } from "../types/library";
+import type {
+  LibraryDestinationInfo,
+  LibraryRelocateMode,
+  LibrarySettings,
+  LibrarySettingsPatch,
+} from "../types/library";
 import type { CdDisc, CdDiscCdText, CdDrive, DiscMetadata, DiscMetadataCachePeek, DiscMetadataLookup, DiscTocTrack } from "../types/cd";
 import type { TrackMetadataUpdate } from "../types/metadata";
 import { parseRepeatMode } from "./playbackSession";
@@ -728,10 +733,6 @@ export async function writeTrackMetadata(
   return normalizeTrack(raw);
 }
 
-export async function pickFolder(): Promise<string[]> {
-  return invoke<string[]>("pick_folder");
-}
-
 export async function getLibrarySettings(): Promise<LibrarySettings> {
   return invoke<LibrarySettings>("get_library_settings");
 }
@@ -749,8 +750,23 @@ export async function prepareImportFile(
   return invoke<string>("prepare_import_file", { sourcePath, mode });
 }
 
-export async function pickDatabaseFolder(): Promise<string | null> {
-  return invoke<string | null>("pick_database_folder");
+export async function pickLibraryFolder(): Promise<string | null> {
+  return invoke<string | null>("pick_library_folder");
+}
+
+export async function inspectLibraryDestination(
+  path: string,
+): Promise<LibraryDestinationInfo> {
+  return invoke<LibraryDestinationInfo>("inspect_library_destination", {
+    path,
+  });
+}
+
+export async function relocateLibrary(
+  newRoot: string,
+  mode: LibraryRelocateMode,
+): Promise<LibrarySettings> {
+  return invoke<LibrarySettings>("relocate_library", { newRoot, mode });
 }
 
 function normalizePlaybackSession(

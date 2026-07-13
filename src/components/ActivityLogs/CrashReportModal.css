@@ -21,17 +21,6 @@
   gap: 0.5rem;
 }
 
-.crash-report-modal__export-actions .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.crash-report-modal__export-actions svg {
-  width: 0.95rem;
-  height: 0.95rem;
-}
-
 .crash-report-modal__details {
   display: flex;
   flex-direction: column;

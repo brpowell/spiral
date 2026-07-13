@@ -8,6 +8,7 @@
   --color-text-secondary: #888899;
   --color-accent: #7b8cde;
   --color-accent-muted: #3a4170;
+  --color-link: var(--color-accent);
   --color-danger: #e06c75;
   --color-danger-bg: #2a1518;
   --color-alert-info: #9aa8e8;

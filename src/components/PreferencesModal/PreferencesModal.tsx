@@ -5,7 +5,6 @@ import {
   formatOrganizeRelativePath,
   GENERIC_ORGANIZE_PATH_SAMPLE,
   isDefaultOrganizePathFormat,
-  previewSampleLabel,
   trackToOrganizePathSample,
   type OrganizePathSample,
 } from "../../lib/organizePathFormat";
@@ -15,30 +14,48 @@ import {
   isKnownEncodingProfileId,
   type EncodingProfileId,
 } from "../../lib/encodingProfiles";
-import { pickDatabaseFolder, pickFolder, clearMetadataCache, clearListenHistory } from "../../lib/tauri";
+import {
+  pickLibraryFolder,
+  clearMetadataCache,
+  clearListenHistory,
+  inspectLibraryDestination,
+  relocateLibrary,
+} from "../../lib/tauri";
+import { useArtistImageStore } from "../../store/useArtistImageStore";
 import { useCdStore } from "../../store/useCdStore";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import { usePlaybackSettingsStore } from "../../store/usePlaybackSettingsStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
+import { usePlaylistStore } from "../../store/usePlaylistStore";
 import { MIN_CROSSFADE_SECONDS, MAX_CROSSFADE_SECONDS } from "../../types/playbackSettings";
 import type {
   CdMetadataFetchMode,
   ImportMode,
-  LibrarySettings,
+  LibraryDestinationInfo,
+  LibraryRelocateMode,
+  LibrarySettingsPatch,
 } from "../../types/library";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
 import { Button } from "../common/Button/Button";
 import { Checkbox } from "../common/Checkbox/Checkbox";
-import { FormField } from "../common/Field/Field";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FormField,
+} from "../common/Field/Field";
 import {
   Modal,
   ModalBody,
   ModalCloseButton,
-  ModalFooter,
   ModalHeader,
   ModalTitle,
 } from "../common/Modal/Modal";
+import { RadioGroup, RadioGroupItem } from "../common/RadioGroup/RadioGroup";
+import { Separator } from "../common/Separator/Separator";
 import { TextInput } from "../common/TextInput/TextInput";
+import { TextLink } from "../common/TextLink/TextLink";
 import { Select } from "../common/Select/Select";
 import { Slider } from "../common/Slider/Slider";
 import {
@@ -46,22 +63,28 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from "../ContextMenu/ContextMenu";
-import { IconCheck, IconChevronDown } from "../icons";
+import { SidebarItem } from "../layout/SidebarItem/SidebarItem";
+import { IconCheck, IconChevronDown, IconOpenFolder, IconReset } from "../icons";
+import { LibraryRelocateDialog } from "./LibraryRelocateDialog";
+import {
+  PREFERENCES_SECTIONS,
+  type PreferencesSectionId,
+} from "./preferencesSections";
 import "./PreferencesModal.css";
 
 const IMPORT_MODE_OPTIONS: { value: ImportMode; label: string }[] = [
+  { value: "copy", label: "Copy into library" },
+  { value: "reference", label: "Reference from source" },
   { value: "ask", label: "Always ask" },
-  { value: "copy", label: "Copy" },
-  { value: "reference", label: "Reference" },
 ];
 
 const CD_METADATA_FETCH_MODE_OPTIONS: {
   value: CdMetadataFetchMode;
   label: string;
 }[] = [
+    { value: "always", label: "Automatically" },
     { value: "ask", label: "Always ask" },
-    { value: "always", label: "Fetch automatically" },
-    { value: "never", label: "Don't fetch" },
+    { value: "never", label: "Never" },
   ];
 
 /** Browser-style clear ranges: hours to delete, or null for all time. */
@@ -78,6 +101,7 @@ export function PreferencesModal() {
   const setOpen = useLibrarySettingsStore((s) => s.setPreferencesOpen);
   const settings = useLibrarySettingsStore((s) => s.settings);
   const saveLibrarySettings = useLibrarySettingsStore((s) => s.saveLibrarySettings);
+  const applyLibrarySettings = useLibrarySettingsStore((s) => s.applyLibrarySettings);
   const crossfadeEnabled = usePlaybackSettingsStore((s) => s.crossfadeEnabled);
   const crossfadeSeconds = usePlaybackSettingsStore((s) => s.crossfadeSeconds);
   const crossfadeOnSkip = usePlaybackSettingsStore((s) => s.crossfadeOnSkip);
@@ -92,16 +116,18 @@ export function PreferencesModal() {
   );
 
   const titleId = useId();
+  const importModeLabelId = useId();
+  const cdMetadataFetchModeLabelId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const clearHistoryTriggerRef = useRef<HTMLButtonElement>(null);
 
-  const [draft, setDraft] = useState<LibrarySettings | null>(null);
+  const [activeSection, setActiveSection] =
+    useState<PreferencesSectionId>("library");
+  const [libraryRoot, setLibraryRoot] = useState("");
+  const [organizePathFormat, setOrganizePathFormat] = useState("");
   const [previewSample, setPreviewSample] = useState<OrganizePathSample>(
     GENERIC_ORGANIZE_PATH_SAMPLE,
   );
-  const [previewFromLibrary, setPreviewFromLibrary] = useState(false);
-  const [restartHint, setRestartHint] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [clearingMetadataCache, setClearingMetadataCache] = useState(false);
   const [metadataCacheCleared, setMetadataCacheCleared] = useState(false);
   const metadataCacheClearedTimeoutRef = useRef<number | null>(null);
@@ -110,6 +136,10 @@ export function PreferencesModal() {
   const [historyCleared, setHistoryCleared] = useState(false);
   const historyClearedTimeoutRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [relocateInfo, setRelocateInfo] =
+    useState<LibraryDestinationInfo | null>(null);
+  const [relocateBusy, setRelocateBusy] = useState(false);
+  const relocateInspectingRef = useRef(false);
 
   const {
     open: clearRangeMenuOpen,
@@ -138,89 +168,137 @@ export function PreferencesModal() {
   }, []);
 
   useEffect(() => {
-    if (!open || !settings) return;
-    setDraft({ ...settings });
-    setRestartHint(false);
+    if (!open) return;
+    const current = useLibrarySettingsStore.getState().settings;
+    if (!current) return;
+    setActiveSection("library");
+    setLibraryRoot(current.libraryRoot);
+    setOrganizePathFormat(current.organizePathFormat);
     setError(null);
+    setRelocateInfo(null);
+    setRelocateBusy(false);
     setMetadataCacheCleared(false);
     setHistoryCleared(false);
     setClearHistoryOpen(false);
     closeClearRangeMenu();
     const tracks = usePlayerStore.getState().library;
     if (tracks.length > 0) {
-      setPreviewFromLibrary(true);
       setPreviewSample(
         trackToOrganizePathSample(
           tracks[Math.floor(Math.random() * tracks.length)]!,
         ),
       );
     } else {
-      setPreviewFromLibrary(false);
       setPreviewSample(GENERIC_ORGANIZE_PATH_SAMPLE);
     }
-  }, [open, settings, closeClearRangeMenu]);
+  }, [open, closeClearRangeMenu]);
 
-  const organizePreview = useMemo(() => {
-    if (!draft?.autoOrganize) return null;
-    return {
-      label: previewSampleLabel(previewSample),
-      path: formatOrganizeRelativePath(draft.organizePathFormat, previewSample),
-      fromLibrary: previewFromLibrary,
-      isDefault: isDefaultOrganizePathFormat(draft.organizePathFormat),
-    };
-  }, [
-    draft?.autoOrganize,
-    draft?.organizePathFormat,
-    previewSample,
-    previewFromLibrary,
-  ]);
+  const organizePreviewPath = useMemo(() => {
+    if (!settings) return null;
+    return formatOrganizeRelativePath(organizePathFormat, previewSample);
+  }, [settings, organizePathFormat, previewSample]);
 
-  if (!draft) return null;
+  if (!settings) return null;
 
-  const handleSave = async () => {
-    if (!settings) return;
-    setSaving(true);
+  const patchSettings = (patch: LibrarySettingsPatch) => {
     setError(null);
+    void saveLibrarySettings(patch).catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+    });
+  };
+
+  const reloadAfterRelocate = async () => {
+    await usePlayerStore.getState().loadLibrary();
+    await usePlaylistStore.getState().loadPlaylists();
+    await useArtistImageStore.getState().loadArtistImages();
+  };
+
+  const beginLibraryRootChange = async (value: string = libraryRoot) => {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === settings.libraryRoot) {
+      setLibraryRoot(settings.libraryRoot);
+      return;
+    }
+    if (relocateInspectingRef.current || relocateBusy) return;
+
+    setError(null);
+    relocateInspectingRef.current = true;
     try {
-      const dbChanged = draft.databasePath !== settings.databasePath;
-      await saveLibrarySettings({
-        mediaFolder: draft.mediaFolder,
-        databasePath: draft.databasePath,
-        autoOrganize: draft.autoOrganize,
-        organizePathFormat: draft.organizePathFormat,
-        importMode: draft.importMode,
-        cdMetadataFetchMode: draft.cdMetadataFetchMode,
-        cdImportProfileId: draft.cdImportProfileId,
-        metadataBackupsEnabled: draft.metadataBackupsEnabled,
-        metadataBackupRetentionDays: draft.metadataBackupRetentionDays,
-        listeningHistoryEnabled: draft.listeningHistoryEnabled,
-        lyricsSidecarSyncEnabled: draft.lyricsSidecarSyncEnabled,
-        lyricsAutoFetchInLightbox: draft.lyricsAutoFetchInLightbox,
-      });
-      setRestartHint(dbChanged);
-      if (!dbChanged) setOpen(false);
+      const info = await inspectLibraryDestination(trimmed);
+      setLibraryRoot(info.path);
+      if (info.blockedReason) {
+        setError(info.blockedReason);
+        setLibraryRoot(settings.libraryRoot);
+        setRelocateInfo(null);
+        return;
+      }
+      setRelocateInfo(info);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
+      setLibraryRoot(settings.libraryRoot);
     } finally {
-      setSaving(false);
+      relocateInspectingRef.current = false;
     }
   };
 
-  const browseMediaFolder = async () => {
-    const paths = await pickFolder();
-    if (paths[0]) {
-      setDraft((d) => (d ? { ...d, mediaFolder: paths[0] } : d));
+  const confirmRelocate = async (mode: LibraryRelocateMode) => {
+    if (!relocateInfo) return;
+    setRelocateBusy(true);
+    setError(null);
+    try {
+      const next = await relocateLibrary(relocateInfo.path, mode);
+      applyLibrarySettings(next);
+      setLibraryRoot(next.libraryRoot);
+      try {
+        await reloadAfterRelocate();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setError(`Library moved, but reload failed: ${message}`);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      const current = useLibrarySettingsStore.getState().settings;
+      setLibraryRoot(current?.libraryRoot ?? settings.libraryRoot);
+      throw err;
+    } finally {
+      setRelocateBusy(false);
     }
   };
 
-  const browseDatabaseFolder = async () => {
-    const folder = await pickDatabaseFolder();
+  const commitOrganizePathFormat = (value: string = organizePathFormat) => {
+    if (value === settings.organizePathFormat) return;
+    patchSettings({ organizePathFormat: value });
+  };
+
+  const flushTextFields = () => {
+    const current = useLibrarySettingsStore.getState().settings;
+    if (!current) return;
+    if (
+      organizePathFormat !== current.organizePathFormat &&
+      !relocateInfo &&
+      !relocateBusy
+    ) {
+      patchSettings({ organizePathFormat });
+    }
+    // Discard unconfirmed library-root edits when closing preferences.
+    if (libraryRoot.trim() !== current.libraryRoot && !relocateInfo) {
+      setLibraryRoot(current.libraryRoot);
+    }
+  };
+
+  const handleClose = () => {
+    flushTextFields();
+    setOpen(false);
+  };
+
+  const browseLibraryFolder = async () => {
+    const folder = await pickLibraryFolder();
     if (folder) {
-      const sep = folder.includes("\\") ? "\\" : "/";
-      setDraft((d) =>
-        d ? { ...d, databasePath: `${folder}${sep}Library.db` } : d,
-      );
+      setLibraryRoot(folder);
+      await beginLibraryRootChange(folder);
     }
   };
 
@@ -287,486 +365,523 @@ export function PreferencesModal() {
     <>
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
-        size="lg"
+        onClose={handleClose}
+        size="editor"
+        panelClassName="preferences-modal"
         panelRef={panelRef}
         labelledBy={titleId}
       >
         <ModalHeader>
           <ModalTitle id={titleId}>Preferences</ModalTitle>
-          <ModalCloseButton onClick={() => setOpen(false)} />
+          <ModalCloseButton onClick={handleClose} />
         </ModalHeader>
 
         <ModalBody className="preferences__body">
-          <section className="preferences__section" aria-labelledby="library-prefs-heading">
-            <h3 id="library-prefs-heading" className="preferences__section-title">
-              Library
-            </h3>
+          <aside className="preferences__sidebar" aria-label="Preference categories">
+            <nav>
+              <ul className="preferences__nav">
+                {PREFERENCES_SECTIONS.map((item) => (
+                  <li key={item.id}>
+                    <SidebarItem
+                      icon={item.icon}
+                      active={activeSection === item.id}
+                      onClick={() => setActiveSection(item.id)}
+                    >
+                      {item.label}
+                    </SidebarItem>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </aside>
 
-            <FormField label="Media folder">
-              <div className="preferences__path-row">
-                <TextInput
-                  value={draft.mediaFolder}
+          <div className="preferences__content">
+            {activeSection === "library" && (
+              <div className="preferences__panel">
+                <FormField
+                  label="Library location"
+                  description="Media files and the database are stored in this folder."
+                >
+                  <div className="preferences__path-row">
+                    <TextInput
+                      value={libraryRoot}
+                      onChange={(e) => setLibraryRoot(e.target.value)}
+                      onBlur={() => void beginLibraryRootChange()}
+                      spellCheck={false}
+                      disabled={relocateBusy}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => void browseLibraryFolder()}
+                      disabled={relocateBusy}
+                    >
+                      <IconOpenFolder />
+                      Choose…
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={
+                        relocateBusy || libraryRoot === settings.defaultLibraryRoot
+                      }
+                      onClick={() => {
+                        const next = settings.defaultLibraryRoot;
+                        setLibraryRoot(next);
+                        void beginLibraryRootChange(next);
+                      }}
+                    >
+                      <IconReset />
+                      Reset
+                    </Button>
+                  </div>
+                </FormField>
+
+                <Separator />
+
+                <Checkbox
+                  alignStart
+                  className="preferences__checkbox"
+                  checked={settings.autoOrganize}
                   onChange={(e) =>
-                    setDraft((d) => (d ? { ...d, mediaFolder: e.target.value } : d))
-                  }
-                  spellCheck={false}
-                />
-                <Button size="sm" onClick={() => void browseMediaFolder()}>
-                  Choose…
-                </Button>
-              </div>
-            </FormField>
-
-            <FormField label="Database location">
-              <div className="preferences__path-row">
-                <TextInput
-                  value={draft.databasePath}
-                  onChange={(e) =>
-                    setDraft((d) =>
-                      d ? { ...d, databasePath: e.target.value } : d,
-                    )
-                  }
-                  spellCheck={false}
-                />
-                <Button size="sm" onClick={() => void browseDatabaseFolder()}>
-                  Choose…
-                </Button>
-              </div>
-            </FormField>
-
-            <Checkbox
-              alignStart
-              className="preferences__checkbox"
-              checked={draft.autoOrganize}
-              onChange={(e) =>
-                setDraft((d) =>
-                  d ? { ...d, autoOrganize: e.target.checked } : d,
-                )
-              }
-            >
-              Automatically organize music in the media folder
-            </Checkbox>
-
-            <FormField label="Organization path format">
-              <div className="preferences__path-row">
-                <TextInput
-                  value={draft.organizePathFormat}
-                  disabled={!draft.autoOrganize}
-                  onChange={(e) =>
-                    setDraft((d) =>
-                      d ? { ...d, organizePathFormat: e.target.value } : d,
-                    )
-                  }
-                  spellCheck={false}
-                />
-                <Button
-                  size="sm"
-                  disabled={
-                    !draft.autoOrganize ||
-                    isDefaultOrganizePathFormat(draft.organizePathFormat)
-                  }
-                  onClick={() =>
-                    setDraft((d) =>
-                      d
-                        ? {
-                          ...d,
-                          organizePathFormat: d.defaultOrganizePathFormat,
-                        }
-                        : d,
-                    )
+                    patchSettings({ autoOrganize: e.target.checked })
                   }
                 >
-                  Reset
-                </Button>
-              </div>
-            </FormField>
-            {organizePreview && (
-              <div className="preferences__filename-preview" aria-live="polite">
-                <span className="preferences__filename-preview-label">
-                  Preview
-                  {organizePreview.fromLibrary
-                    ? ` (${organizePreview.label})`
-                    : " (example)"}
-                </span>
-                <code className="preferences__filename-preview-path">
-                  {organizePreview.path}
-                </code>
+                  Automatically organize music in the media folder
+                </Checkbox>
+
+                <div className="preferences__organize-path">
+                  <FormField
+                    label="Path format"
+                    description={
+                      organizePreviewPath != null ? (
+                        <span aria-live="polite">
+                          <code>{organizePreviewPath}</code>
+                        </span>
+                      ) : undefined
+                    }
+                  >
+                    <div className="preferences__path-row">
+                      <TextInput
+                        value={organizePathFormat}
+                        disabled={!settings.autoOrganize}
+                        onChange={(e) => setOrganizePathFormat(e.target.value)}
+                        onBlur={() => commitOrganizePathFormat()}
+                        spellCheck={false}
+                      />
+                      <Button
+                        size="sm"
+                        disabled={
+                          !settings.autoOrganize ||
+                          isDefaultOrganizePathFormat(organizePathFormat)
+                        }
+                        onClick={() => {
+                          const next = settings.defaultOrganizePathFormat;
+                          setOrganizePathFormat(next);
+                          commitOrganizePathFormat(next);
+                        }}
+                      >
+                        <IconReset />
+                        Reset
+                      </Button>
+                    </div>
+                  </FormField>
+                  <p className="preferences__hint">
+                    <span className="preferences__hint-label">Placeholders:</span>{" "}
+                    <code>{"{albumArtist}"}</code>,{" "}
+                    <code>{"{artist}"}</code>, <code>{"{album}"}</code>,{" "}
+                    <code>{"{title}"}</code>, <code>{"{trackNumber:02}"}</code>,{" "}
+                    <code>{"{discNumber:02}"}</code>, <code>{"{year}"}</code>,{" "}
+                    <code>{"{genre}"}</code>, <code>{"{ext}"}</code>
+                  </p>
+                </div>
+
+                <Separator />
+
+                <FormField label="When importing files…" labelId={importModeLabelId}>
+                  <RadioGroup
+                    name="importMode"
+                    value={settings.importMode}
+                    onChange={(importMode) => patchSettings({ importMode })}
+                    variant="button"
+                    orientation="horizontal"
+                    aria-labelledby={importModeLabelId}
+                  >
+                    {IMPORT_MODE_OPTIONS.map((opt) => (
+                      <RadioGroupItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </RadioGroupItem>
+                    ))}
+                  </RadioGroup>
+                </FormField>
               </div>
             )}
-            <p className="preferences__hint">
-              Relative path under your media folder. Use <code>/</code> between
-              folders. Placeholders: <code>{"{albumArtist}"}</code>,{" "}
-              <code>{"{artist}"}</code>, <code>{"{album}"}</code>,{" "}
-              <code>{"{title}"}</code>, <code>{"{trackNumber:02}"}</code>,{" "}
-              <code>{"{discNumber:02}"}</code>, <code>{"{year}"}</code>,{" "}
-              <code>{"{genre}"}</code>, <code>{"{ext}"}</code>.
-            </p>
 
-            <fieldset className="preferences__fieldset">
-              <legend>When importing</legend>
-              <div className="preferences__segmented">
-                {IMPORT_MODE_OPTIONS.map((opt) => (
-                  <label key={opt.value} className="preferences__segment">
-                    <input
-                      type="radio"
-                      name="importMode"
-                      value={opt.value}
-                      checked={draft.importMode === opt.value}
-                      onChange={() =>
-                        setDraft((d) =>
-                          d ? { ...d, importMode: opt.value } : d,
-                        )
-                      }
-                    />
-                    {opt.label}
-                  </label>
-                ))}
+            {activeSection === "cd" && (
+              <div className="preferences__panel">
+                <FormField label="Encode CD audio to…">
+                  <Select
+                    value={
+                      isKnownEncodingProfileId(settings.cdImportProfileId)
+                        ? (settings.cdImportProfileId as EncodingProfileId)
+                        : DEFAULT_CD_IMPORT_PROFILE_ID
+                    }
+                    onChange={(value) =>
+                      patchSettings({ cdImportProfileId: value })
+                    }
+                    options={ENCODING_PROFILE_SELECT_OPTIONS}
+                    aria-label="CD import encoding profile"
+                  />
+                </FormField>
               </div>
-            </fieldset>
-          </section>
+            )}
 
-          <section className="preferences__section" aria-labelledby="cd-prefs-heading">
-            <h3 id="cd-prefs-heading" className="preferences__section-title">
-              CD
-            </h3>
-            <p className="preferences__hint">
-              When an audio CD is inserted, Spiral can look up album and track
-              information from MusicBrainz.
-            </p>
+            {activeSection === "playback" && (
+              <div className="preferences__panel">
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="pref-crossfade-enabled"
+                    checked={crossfadeEnabled}
+                    onChange={(e) => setCrossfadeEnabled(e.target.checked)}
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor="pref-crossfade-enabled">
+                      Crossfade between tracks
+                    </FieldLabel>
+                    <FieldDescription>
+                      Crossfade applies between mp3, flac, aac, wav, and m4a
+                      tracks. OGG, Opus, and CD transitions are not supported and
+                      will instantly switch.
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
 
-            <fieldset className="preferences__fieldset">
-              <legend>Metadata lookup</legend>
-              <div className="preferences__segmented">
-                {CD_METADATA_FETCH_MODE_OPTIONS.map((opt) => (
-                  <label key={opt.value} className="preferences__segment">
-                    <input
-                      type="radio"
-                      name="cdMetadataFetchMode"
-                      value={opt.value}
-                      checked={draft.cdMetadataFetchMode === opt.value}
-                      onChange={() =>
-                        setDraft((d) =>
-                          d ? { ...d, cdMetadataFetchMode: opt.value } : d,
-                        )
-                      }
-                    />
-                    {opt.label}
-                  </label>
-                ))}
+                <FormField label="Crossfade duration">
+                  <Slider
+                    min={MIN_CROSSFADE_SECONDS}
+                    max={MAX_CROSSFADE_SECONDS}
+                    step={1}
+                    value={crossfadeSeconds}
+                    disabled={!crossfadeEnabled}
+                    onChange={(e) =>
+                      setCrossfadeSeconds(Number.parseInt(e.target.value, 10))
+                    }
+                    aria-label="Crossfade duration in seconds"
+                    showValueTooltip
+                    formatValueTooltip={(value) => `${value} s`}
+                  />
+                </FormField>
+
+                <Checkbox
+                  alignStart
+                  className="preferences__checkbox"
+                  checked={crossfadeOnSkip}
+                  disabled={!crossfadeEnabled}
+                  onChange={(e) => setCrossfadeOnSkip(e.target.checked)}
+                >
+                  Crossfade when skipping tracks
+                </Checkbox>
+
+                <Checkbox
+                  alignStart
+                  className="preferences__checkbox"
+                  checked={crossfadeVisualEnabled}
+                  disabled={!crossfadeEnabled}
+                  onChange={(e) => setCrossfadeVisualEnabled(e.target.checked)}
+                >
+                  Animate now playing during crossfade
+                </Checkbox>
               </div>
-            </fieldset>
+            )}
 
-            <FormField
-              label="When ripping to library"
-              className="preferences__encoding-profiles"
-            >
-              <Select
-                value={
-                  isKnownEncodingProfileId(draft.cdImportProfileId)
-                    ? (draft.cdImportProfileId as EncodingProfileId)
-                    : DEFAULT_CD_IMPORT_PROFILE_ID
-                }
-                onChange={(value) =>
-                  setDraft((d) => (d ? { ...d, cdImportProfileId: value } : d))
-                }
-                options={ENCODING_PROFILE_SELECT_OPTIONS}
-                aria-label="CD import encoding profile"
-              />
-            </FormField>
+            {activeSection === "listening" && (
+              <div className="preferences__panel">
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="pref-listening-history"
+                    checked={settings.listeningHistoryEnabled}
+                    onChange={(e) =>
+                      patchSettings({
+                        listeningHistoryEnabled: e.target.checked,
+                      })
+                    }
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor="pref-listening-history">
+                      Record listening history
+                    </FieldLabel>
+                    <FieldDescription>
+                      Spiral can record listening history for play counts and
+                      personal insights.{" "}
+                      <strong>
+                        Your history is yours, stored locally, and never shared
+                        with Spiral.
+                      </strong>
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
 
-            <p className="preferences__hint">
-              Clears cached remote lookup results so the next fetch contacts
-              MusicBrainz and art services again. Release preferences and
-              downloaded art files are kept.
-            </p>
-            <Button
-              variant="secondary"
-              className={
-                metadataCacheCleared
-                  ? "preferences__cache-clear-btn preferences__cache-clear-btn--success"
-                  : "preferences__cache-clear-btn"
-              }
-              onClick={() => void handleClearMetadataCache()}
-              disabled={saving || clearingMetadataCache}
-            >
-              {clearingMetadataCache ? (
-                "Clearing…"
-              ) : metadataCacheCleared ? (
-                <>
-                  <IconCheck aria-hidden />
-                  Cache cleared
-                </>
-              ) : (
-                "Clear metadata cache"
-              )}
-            </Button>
-          </section>
+                <div className="preferences__clear-history">
+                  <Button
+                    ref={clearHistoryTriggerRef}
+                    variant="secondary"
+                    className={
+                      historyCleared
+                        ? "preferences__action-btn preferences__action-btn--success"
+                        : undefined
+                    }
+                    onClick={() =>
+                      toggleClearRangeMenu(clearHistoryTriggerRef.current)
+                    }
+                    disabled={clearingHistory}
+                    aria-haspopup="menu"
+                    aria-expanded={clearRangeMenuOpen}
+                  >
+                    {clearingHistory ? (
+                      "Clearing…"
+                    ) : historyCleared ? (
+                      <>
+                        <IconCheck aria-hidden />
+                        History cleared
+                      </>
+                    ) : (
+                      <>
+                        Clear listening history
+                        <IconChevronDown aria-hidden />
+                      </>
+                    )}
+                  </Button>
+                  <ContextMenu
+                    open={clearRangeMenuOpen}
+                    anchor={clearRangeAnchor}
+                    position={clearRangePosition}
+                    menuRef={clearRangeMenuRef}
+                  >
+                    {CLEAR_HISTORY_RANGES.flatMap((range) => {
+                      const item = (
+                        <ContextMenuItem
+                          key={range.label}
+                          label={range.label}
+                          disabled={clearingHistory}
+                          onClick={() => handleClearRange(range.withinHours)}
+                        />
+                      );
+                      return range.withinHours == null
+                        ? [<ContextMenuSeparator key="clear-all-sep" />, item]
+                        : [item];
+                    })}
+                  </ContextMenu>
+                </div>
+              </div>
+            )}
 
-          <section
-            className="preferences__section"
-            aria-labelledby="playback-prefs-heading"
-          >
-            <h3 id="playback-prefs-heading" className="preferences__section-title">
-              Playback
-            </h3>
+            {activeSection === "metadata" && (
+              <div className="preferences__panel">
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="pref-metadata-backups"
+                    checked={settings.metadataBackupsEnabled}
+                    onChange={(e) =>
+                      patchSettings({
+                        metadataBackupsEnabled: e.target.checked,
+                      })
+                    }
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor="pref-metadata-backups">
+                      Keep backups before metadata edits
+                    </FieldLabel>
+                    <FieldDescription>
+                      When you edit tags, Spiral can keep a copy of the original
+                      file next to the track (e.g. <code>song.m4a.bak</code>).
+                      This can help recover from accidental edits, or corrupted
+                      files.
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
 
-            <Checkbox
-              alignStart
-              className="preferences__checkbox"
-              checked={crossfadeEnabled}
-              onChange={(e) => setCrossfadeEnabled(e.target.checked)}
-            >
-              Crossfade between tracks
-            </Checkbox>
-
-            <FormField label="Crossfade duration">
-              <Slider
-                min={MIN_CROSSFADE_SECONDS}
-                max={MAX_CROSSFADE_SECONDS}
-                step={1}
-                value={crossfadeSeconds}
-                disabled={!crossfadeEnabled}
-                onChange={(e) =>
-                  setCrossfadeSeconds(Number.parseInt(e.target.value, 10))
-                }
-                aria-label="Crossfade duration in seconds"
-                showValueTooltip
-                formatValueTooltip={(value) => `${value} s`}
-              />
-            </FormField>
-
-            <Checkbox
-              alignStart
-              className="preferences__checkbox"
-              checked={crossfadeOnSkip}
-              disabled={!crossfadeEnabled}
-              onChange={(e) => setCrossfadeOnSkip(e.target.checked)}
-            >
-              Crossfade when skipping tracks
-            </Checkbox>
-
-            <Checkbox
-              alignStart
-              className="preferences__checkbox"
-              checked={crossfadeVisualEnabled}
-              disabled={!crossfadeEnabled}
-              onChange={(e) => setCrossfadeVisualEnabled(e.target.checked)}
-            >
-              Animate now playing during crossfade
-            </Checkbox>
-
-            <p className="preferences__hint">
-              Crossfade applies between mp3, flac, aac, wav, and m4a tracks.
-              OGG, Opus, and CD transitions are not supported and will instantly switch.
-            </p>
-          </section>
-
-          <section
-            className="preferences__section"
-            aria-labelledby="lyrics-prefs-heading"
-          >
-            <h3 id="lyrics-prefs-heading" className="preferences__section-title">
-              Lyrics
-            </h3>
-            <p className="preferences__hint">
-              Line-synced lyrics can be stored in a sibling <code>.lrc</code> file
-              next to the audio track. When enabled, Spiral reads existing{" "}
-              <code>.lrc</code> files on import and keeps them in sync on save.
-              Spiral can also look up lyrics from{" "}
-              <a href="https://lrclib.net" target="_blank" rel="noreferrer">
-                LRCLIB
-              </a>
-              .
-            </p>
-
-            <Checkbox
-              alignStart
-              className="preferences__checkbox"
-              checked={draft.lyricsAutoFetchInLightbox}
-              onChange={(e) =>
-                setDraft((d) =>
-                  d
-                    ? { ...d, lyricsAutoFetchInLightbox: e.target.checked }
-                    : d,
-                )
-              }
-            >
-              Automatically fetch lyrics when viewing album art
-            </Checkbox>
-
-            <Checkbox
-              alignStart
-              className="preferences__checkbox"
-              checked={draft.lyricsSidecarSyncEnabled}
-              onChange={(e) =>
-                setDraft((d) =>
-                  d ? { ...d, lyricsSidecarSyncEnabled: e.target.checked } : d,
-                )
-              }
-            >
-              Read and write line-synced lyrics via .lrc sidecar files
-            </Checkbox>
-          </section>
-
-          <section
-            className="preferences__section"
-            aria-labelledby="listening-prefs-heading"
-          >
-            <h3 id="listening-prefs-heading" className="preferences__section-title">
-              Listening / Privacy
-            </h3>
-            <p className="preferences__hint">
-              Spiral records local listen history for play counts and personal
-              insights. Turning recording off stops new history rows and play-count
-              updates; existing history stays until you clear it.
-            </p>
-
-            <Checkbox
-              alignStart
-              className="preferences__checkbox"
-              checked={draft.listeningHistoryEnabled}
-              onChange={(e) =>
-                setDraft((d) =>
-                  d ? { ...d, listeningHistoryEnabled: e.target.checked } : d,
-                )
-              }
-            >
-              Record listening history
-            </Checkbox>
-
-            <div className="preferences__clear-history">
-              <Button
-                ref={clearHistoryTriggerRef}
-                variant="secondary"
-                className={
-                  historyCleared
-                    ? "preferences__cache-clear-btn preferences__cache-clear-btn--success"
-                    : "preferences__clear-history-btn"
-                }
-                onClick={() => toggleClearRangeMenu(clearHistoryTriggerRef.current)}
-                disabled={saving || clearingHistory}
-                aria-haspopup="menu"
-                aria-expanded={clearRangeMenuOpen}
-              >
-                {clearingHistory ? (
-                  "Clearing…"
-                ) : historyCleared ? (
-                  <>
-                    <IconCheck aria-hidden />
-                    History cleared
-                  </>
-                ) : (
-                  <>
-                    Clear listening history
-                    <IconChevronDown aria-hidden />
-                  </>
-                )}
-              </Button>
-              <ContextMenu
-                open={clearRangeMenuOpen}
-                anchor={clearRangeAnchor}
-                position={clearRangePosition}
-                menuRef={clearRangeMenuRef}
-              >
-                {CLEAR_HISTORY_RANGES.flatMap((range) => {
-                  const item = (
-                    <ContextMenuItem
-                      key={range.label}
-                      label={range.label}
-                      disabled={clearingHistory}
-                      onClick={() => handleClearRange(range.withinHours)}
-                    />
-                  );
-                  return range.withinHours == null
-                    ? [<ContextMenuSeparator key="clear-all-sep" />, item]
-                    : [item];
-                })}
-              </ContextMenu>
-            </div>
-          </section>
-
-          <section
-            className="preferences__section"
-            aria-labelledby="metadata-backups-heading"
-          >
-            <h3 id="metadata-backups-heading" className="preferences__section-title">
-              Metadata backups
-            </h3>
-            <p className="preferences__hint">
-              When you edit tags, Spiral can keep a copy of the original file next to
-              the track (for example <code>song.m4a.bak</code>). Older backups are
-              removed automatically.
-            </p>
-
-            <Checkbox
-              alignStart
-              className="preferences__checkbox"
-              checked={draft.metadataBackupsEnabled}
-              onChange={(e) =>
-                setDraft((d) =>
-                  d ? { ...d, metadataBackupsEnabled: e.target.checked } : d,
-                )
-              }
-            >
-              Keep backups before metadata edits
-            </Checkbox>
-
-            <FormField label="Retention (days)">
-              <TextInput
-                type="number"
-                min={1}
-                max={3650}
-                value={draft.metadataBackupRetentionDays}
-                disabled={!draft.metadataBackupsEnabled}
-                onChange={(e) => {
-                  const n = Number.parseInt(e.target.value, 10);
-                  if (!Number.isFinite(n)) return;
-                  setDraft((d) =>
-                    d
-                      ? {
-                        ...d,
+                <FormField label="Retention (days)">
+                  <TextInput
+                    type="number"
+                    min={1}
+                    max={3650}
+                    value={settings.metadataBackupRetentionDays}
+                    disabled={!settings.metadataBackupsEnabled}
+                    onChange={(e) => {
+                      const n = Number.parseInt(e.target.value, 10);
+                      if (!Number.isFinite(n)) return;
+                      patchSettings({
                         metadataBackupRetentionDays: Math.min(
                           3650,
                           Math.max(1, n),
                         ),
-                      }
-                      : d,
-                  );
-                }}
-              />
-            </FormField>
-          </section>
+                      });
+                    }}
+                  />
+                  <FieldDescription>
+                    Remove backups after the specified number of days.
+                  </FieldDescription>
+                </FormField>
 
-          {restartHint && (
-            <p className="preferences__notice" role="status">
-              Restart Spiral to use the new database location.
-            </p>
-          )}
+                <Separator />
 
-          {error && (
-            <p className="preferences__error" role="alert">
-              {error}
-            </p>
-          )}
+                <Field>
+                  <FieldLabel htmlFor="pref-cd-metadata-fetch-mode">
+                    Fetch album metadata when inserting a CD
+                  </FieldLabel>
+                  <RadioGroup
+                    name="cdMetadataFetchMode"
+                    value={settings.cdMetadataFetchMode}
+                    onChange={(cdMetadataFetchMode) =>
+                      patchSettings({ cdMetadataFetchMode })
+                    }
+                    variant="button"
+                    orientation="horizontal"
+                    aria-labelledby={cdMetadataFetchModeLabelId}
+                  >
+                    {CD_METADATA_FETCH_MODE_OPTIONS.map((opt) => (
+                      <RadioGroupItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </RadioGroupItem>
+                    ))}
+                  </RadioGroup>
+                  <FieldDescription>
+                    Look up metadata from <TextLink href="https://musicbrainz.org" target="_blank">MusicBrainz</TextLink>
+                  </FieldDescription>
+                </Field>
+
+                <Separator />
+
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="pref-lyrics-auto-fetch"
+                    checked={settings.lyricsAutoFetchInLightbox}
+                    onChange={(e) =>
+                      patchSettings({
+                        lyricsAutoFetchInLightbox: e.target.checked,
+                      })
+                    }
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor="pref-lyrics-auto-fetch">
+                      Automatically fetch lyrics in lightbox mode
+                    </FieldLabel>
+                    <FieldDescription>
+                      Look up lyrics from{" "}
+                      <TextLink href="https://lrclib.net" target="_blank">
+                        LRCLIB
+                      </TextLink>
+                      .
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
+
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="pref-lyrics-sidecar"
+                    checked={settings.lyricsSidecarSyncEnabled}
+                    onChange={(e) =>
+                      patchSettings({
+                        lyricsSidecarSyncEnabled: e.target.checked,
+                      })
+                    }
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor="pref-lyrics-sidecar">
+                      Sync timed lyrics to LRC sidecar files
+                    </FieldLabel>
+                    <FieldDescription>
+                      <code>.lrc</code> files are kept next to track files.
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
+
+                <Separator />
+
+                <Button
+                  variant="secondary"
+                  className={
+                    metadataCacheCleared
+                      ? "preferences__action-btn preferences__action-btn--success"
+                      : "preferences__action-btn"
+                  }
+                  onClick={() => void handleClearMetadataCache()}
+                  disabled={clearingMetadataCache}
+                >
+                  {clearingMetadataCache ? (
+                    "Clearing…"
+                  ) : metadataCacheCleared ? (
+                    <>
+                      <IconCheck aria-hidden />
+                      Cache cleared
+                    </>
+                  ) : (
+                    "Clear remote metadata cache"
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {error && (
+              <div className="preferences__status">
+                <p className="preferences__error" role="alert">
+                  {error}
+                </p>
+              </div>
+            )}
+          </div>
         </ModalBody>
-
-        <ModalFooter
-          cancelLabel={restartHint ? "Close" : "Cancel"}
-          onCancel={() => setOpen(false)}
-          cancelDisabled={saving}
-        >
-          {!restartHint && (
-            <Button
-              variant="primary"
-              onClick={() => void handleSave()}
-              disabled={saving}
-            >
-              {saving ? "Saving…" : "Save"}
-            </Button>
-          )}
-        </ModalFooter>
       </Modal>
+
+      <LibraryRelocateDialog
+        open={relocateInfo != null}
+        title={
+          relocateInfo?.hasDatabase
+            ? "Switch library location?"
+            : relocateInfo && relocateInfo.audioFileCount > 0
+              ? "Change library location?"
+              : "Move library?"
+        }
+        primary={
+          relocateInfo?.hasDatabase
+            ? { label: "Switch to this library", mode: "switch" }
+            : { label: "Move library here", mode: "move" }
+        }
+        secondary={
+          relocateInfo?.hasDatabase
+            ? undefined
+            : relocateInfo && relocateInfo.audioFileCount > 0
+              ? {
+                label: `Import ${relocateInfo.audioFileCount} found file${relocateInfo.audioFileCount === 1 ? "" : "s"
+                  }`,
+                mode: "freshImport",
+              }
+              : { label: "Start empty library", mode: "fresh" }
+        }
+        busy={relocateBusy}
+        onClose={() => {
+          if (relocateBusy) return;
+          setRelocateInfo(null);
+          const current = useLibrarySettingsStore.getState().settings;
+          setLibraryRoot(current?.libraryRoot ?? settings.libraryRoot);
+        }}
+        onConfirm={confirmRelocate}
+      >
+        {relocateInfo?.hasDatabase ? (
+          <p>
+            A Spiral library already exists here. Your current library will stay at its old location.
+          </p>
+        ) : relocateInfo && relocateInfo.audioFileCount > 0 ? (
+          <p>
+            Found {relocateInfo.audioFileCount} audio file
+            {relocateInfo.audioFileCount === 1 ? "" : "s"} at{" "}
+            <code>{relocateInfo.path}</code>. Move your current library here, or
+            start a new library and import those files in place.
+          </p>
+        ) : (
+          <p>
+            Alternatively, start a new empty library here.
+          </p>
+        )}
+      </LibraryRelocateDialog>
 
       <AlertConfirmation
         open={clearHistoryOpen}
@@ -778,9 +893,7 @@ export function PreferencesModal() {
         confirmLabel={clearingHistory ? "Clearing…" : "Clear all history"}
         onConfirm={() => handleClearListeningHistory(null)}
       >
-        <p>
-          All personal insights will be permanently lost.
-        </p>
+        <p>All personal insights will be permanently lost.</p>
       </AlertConfirmation>
     </>
   );

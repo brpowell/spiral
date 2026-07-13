@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
 pub const DEFAULT_THEME_ID: &str = "obsidian";
@@ -14,10 +14,9 @@ pub const DATABASE_FILE_NAME: &str = "Library.db";
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibrarySettings {
+    /// Root directory for the Spiral library (`Media/` + `Library.db` live here).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub media_folder: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub database_path: Option<String>,
+    pub library_root: Option<String>,
     #[serde(default = "default_auto_organize")]
     pub auto_organize: bool,
     #[serde(default = "default_import_mode")]
@@ -169,8 +168,7 @@ impl Default for LyricsSettings {
 impl Default for LibrarySettings {
     fn default() -> Self {
         Self {
-            media_folder: None,
-            database_path: None,
+            library_root: None,
             auto_organize: true,
             import_mode: default_import_mode(),
             organize_path_format: None,
@@ -351,14 +349,13 @@ impl Default for AppSettings {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibrarySettingsResponse {
+    pub library_root: String,
     pub media_folder: String,
     pub database_path: String,
     pub auto_organize: bool,
     pub import_mode: String,
     pub organize_path_format: String,
     pub default_organize_path_format: String,
-    pub default_media_folder: String,
-    pub default_database_path: String,
     pub default_library_root: String,
     pub metadata_backups_enabled: bool,
     pub metadata_backup_retention_days: u32,
@@ -456,12 +453,12 @@ pub fn default_library_root(app: &AppHandle) -> PathBuf {
     music_base_dir(app).join(SPIRAL_LIBRARY_DIR_NAME)
 }
 
-pub fn default_media_folder(app: &AppHandle) -> PathBuf {
-    default_library_root(app).join(MEDIA_DIR_NAME)
+pub fn media_folder_for_root(library_root: &Path) -> PathBuf {
+    library_root.join(MEDIA_DIR_NAME)
 }
 
-pub fn default_database_path(app: &AppHandle) -> PathBuf {
-    default_library_root(app).join(DATABASE_FILE_NAME)
+pub fn database_path_for_root(library_root: &Path) -> PathBuf {
+    library_root.join(DATABASE_FILE_NAME)
 }
 
 pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
@@ -472,30 +469,29 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
     let lyrics = app_settings.lyrics;
     let cd = app_settings.cd;
     let default_root = default_library_root(app);
-    let default_media = default_media_folder(app);
-    let default_db = default_database_path(app);
 
     let organize_path_format = resolved_organize_path_format(&stored);
 
-    let media_folder = stored
-        .media_folder
+    let library_root = stored
+        .library_root
         .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| default_media.to_string_lossy().into_owned());
-
-    let database_path = stored
-        .database_path
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| default_db.to_string_lossy().into_owned());
+        .unwrap_or_else(|| default_root.to_string_lossy().into_owned());
+    let root_path = Path::new(&library_root);
+    let media_folder = media_folder_for_root(root_path)
+        .to_string_lossy()
+        .into_owned();
+    let database_path = database_path_for_root(root_path)
+        .to_string_lossy()
+        .into_owned();
 
     LibrarySettingsResponse {
+        library_root,
         media_folder,
         database_path,
         auto_organize: stored.auto_organize,
         import_mode: stored.import_mode,
         organize_path_format,
         default_organize_path_format: default_organize_path_format(),
-        default_media_folder: default_media.to_string_lossy().into_owned(),
-        default_database_path: default_db.to_string_lossy().into_owned(),
         default_library_root: default_root.to_string_lossy().into_owned(),
         metadata_backups_enabled: backups.enabled,
         metadata_backup_retention_days: backups.retention_days.clamp(
@@ -514,9 +510,7 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
 #[serde(rename_all = "camelCase")]
 pub struct LibrarySettingsPatch {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub media_folder: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub database_path: Option<String>,
+    pub library_root: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auto_organize: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -545,18 +539,11 @@ pub fn merge_library_settings(
 ) -> Result<LibrarySettingsResponse, String> {
     let mut settings = read_settings(app);
 
-    if let Some(media_folder) = patch.media_folder {
-        if media_folder.trim().is_empty() {
-            settings.library.media_folder = None;
+    if let Some(library_root) = patch.library_root {
+        if library_root.trim().is_empty() {
+            settings.library.library_root = None;
         } else {
-            settings.library.media_folder = Some(media_folder);
-        }
-    }
-    if let Some(database_path) = patch.database_path {
-        if database_path.trim().is_empty() {
-            settings.library.database_path = None;
-        } else {
-            settings.library.database_path = Some(database_path);
+            settings.library.library_root = Some(library_root);
         }
     }
     if let Some(auto_organize) = patch.auto_organize {

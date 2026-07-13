@@ -4,18 +4,11 @@ use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 
 pub fn ensure_spiral_library(resolved: &LibrarySettingsResponse) -> Result<(), String> {
-    let media = Path::new(&resolved.media_folder);
-    if let Some(parent) = media.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("failed to create library folder: {e}"))?;
-    }
-    fs::create_dir_all(media).map_err(|e| format!("failed to create media folder: {e}"))?;
+    let root = Path::new(&resolved.library_root);
+    fs::create_dir_all(root).map_err(|e| format!("failed to create library folder: {e}"))?;
 
-    let db_path = Path::new(&resolved.database_path);
-    if let Some(parent) = db_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("failed to create database folder: {e}"))?;
-    }
+    let media = Path::new(&resolved.media_folder);
+    fs::create_dir_all(media).map_err(|e| format!("failed to create media folder: {e}"))?;
 
     Ok(())
 }

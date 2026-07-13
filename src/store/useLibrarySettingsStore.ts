@@ -25,6 +25,7 @@ interface LibrarySettingsState {
   loadSettings: () => Promise<LibrarySettings>;
   setPreferencesOpen: (open: boolean) => void;
   saveLibrarySettings: (patch: LibrarySettingsPatch) => Promise<LibrarySettings>;
+  applyLibrarySettings: (settings: LibrarySettings) => void;
   resolveImportMode: () => Promise<ImportChoice>;
   confirmImportChoice: (choice: ImportChoice, remember: boolean) => Promise<void>;
   cancelImportChoice: () => void;
@@ -45,10 +46,21 @@ export const useLibrarySettingsStore = create<LibrarySettingsState>(
 
     setPreferencesOpen: (open) => set({ preferencesOpen: open }),
 
+    applyLibrarySettings: (settings) => set({ settings, loaded: true }),
+
     saveLibrarySettings: async (patch) => {
-      const settings = await persistLibrarySettings(patch);
-      set({ settings });
-      return settings;
+      const previous = get().settings;
+      if (previous) {
+        set({ settings: { ...previous, ...patch } });
+      }
+      try {
+        const settings = await persistLibrarySettings(patch);
+        set({ settings });
+        return settings;
+      } catch (err) {
+        if (previous) set({ settings: previous });
+        throw err;
+      }
     },
 
     resolveImportMode: async () => {

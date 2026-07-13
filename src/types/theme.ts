@@ -6,6 +6,8 @@ export interface ThemeTokens {
   "color-text-secondary": string;
   "color-accent": string;
   "color-accent-muted": string;
+  /** Inline text links. Falls back to accent when omitted. */
+  "color-link"?: string;
   "color-border": string;
   "color-danger": string;
   "color-danger-bg"?: string;

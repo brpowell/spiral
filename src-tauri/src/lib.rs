@@ -20,6 +20,7 @@ mod file_scan;
 mod import_files;
 mod library_organize;
 mod library_paths;
+mod library_relocate;
 mod lyrics_fetch;
 mod lyrics_fetch_cache;
 mod lyrics_lrc;
@@ -165,7 +166,9 @@ pub fn run() {
             commands::library_settings::get_library_settings,
             commands::library_settings::save_library_settings,
             commands::library_settings::prepare_import_file,
-            commands::library_settings::pick_database_folder,
+            commands::library_settings::pick_library_folder,
+            commands::library_settings::inspect_library_destination,
+            commands::library_settings::relocate_library,
             commands::playback_session::get_playback_session,
             commands::playback_session::save_playback_session,
             commands::track_list_preferences::get_track_list_preferences,

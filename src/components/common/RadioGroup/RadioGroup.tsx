@@ -9,12 +9,14 @@ import {
 import "./RadioGroup.css";
 
 export type RadioGroupOrientation = "horizontal" | "vertical";
+export type RadioGroupVariant = "default" | "button";
 
 type RadioGroupContextValue<T extends string = string> = {
   name: string;
   value: T;
   onChange: (value: T) => void;
   disabled: boolean;
+  variant: RadioGroupVariant;
 };
 
 const RadioGroupContext = createContext<RadioGroupContextValue | null>(null);
@@ -32,6 +34,7 @@ export type RadioGroupProps<T extends string> = {
   value: T;
   onChange: (value: T) => void;
   orientation?: RadioGroupOrientation;
+  variant?: RadioGroupVariant;
   disabled?: boolean;
   "aria-label"?: string;
   "aria-labelledby"?: string;
@@ -44,6 +47,7 @@ export function RadioGroup<T extends string>({
   value,
   onChange,
   orientation = "horizontal",
+  variant = "default",
   disabled = false,
   "aria-label": ariaLabel,
   "aria-labelledby": ariaLabelledBy,
@@ -56,6 +60,7 @@ export function RadioGroup<T extends string>({
   const rootClass = [
     "radio-group",
     `radio-group--${orientation}`,
+    `radio-group--${variant}`,
     className,
   ]
     .filter(Boolean)
@@ -68,6 +73,7 @@ export function RadioGroup<T extends string>({
         value,
         onChange: onChange as (value: string) => void,
         disabled,
+        variant,
       }}
     >
       <div
@@ -84,39 +90,67 @@ export function RadioGroup<T extends string>({
 
 export type RadioGroupItemProps = Omit<
   ComponentPropsWithoutRef<"input">,
-  "type" | "name" | "checked" | "onChange"
+  "type" | "name" | "checked" | "onChange" | "children"
 > & {
   value: string;
+  children?: ReactNode;
 };
 
 export const RadioGroupItem = forwardRef<HTMLInputElement, RadioGroupItemProps>(
   function RadioGroupItem(
-    { value, id: idProp, disabled, className, ...props },
+    { value, id: idProp, disabled, className, children, ...props },
     ref,
   ) {
-    const { name, value: groupValue, onChange, disabled: groupDisabled } =
-      useRadioGroupContext();
+    const {
+      name,
+      value: groupValue,
+      onChange,
+      disabled: groupDisabled,
+      variant,
+    } = useRadioGroupContext();
     const autoId = useId();
     const id = idProp ?? autoId;
     const isDisabled = disabled ?? groupDisabled;
+    const checked = groupValue === value;
 
-    const inputClass = ["radio-group-item__input", className]
-      .filter(Boolean)
-      .join(" ");
-
-    return (
+    const input = (
       <input
         ref={ref}
         id={id}
         type="radio"
-        className={inputClass}
+        className={
+          variant === "button"
+            ? "radio-group-item__input radio-group-item__input--visually-hidden"
+            : ["radio-group-item__input", className].filter(Boolean).join(" ")
+        }
         name={name}
         value={value}
-        checked={groupValue === value}
+        checked={checked}
         disabled={isDisabled}
         onChange={() => onChange(value)}
         {...props}
       />
     );
+
+    if (variant === "button") {
+      const labelClass = [
+        "radio-group-item",
+        "radio-group-item--button",
+        checked && "radio-group-item--checked",
+        isDisabled && "radio-group-item--disabled",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      return (
+        <label className={labelClass}>
+          {input}
+          {children}
+        </label>
+      );
+    }
+
+    return input;
   },
 );

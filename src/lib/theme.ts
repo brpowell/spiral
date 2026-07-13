@@ -56,6 +56,11 @@ export function applyTheme(theme: Theme): void {
     }
   }
 
+  root.style.setProperty(
+    "--color-link",
+    tokens["color-link"] ?? tokens["color-accent"],
+  );
+
   root.style.setProperty("--radius-sm", tokens["radius-button"]);
   root.style.setProperty("--radius-md", tokens["radius-card"]);
 

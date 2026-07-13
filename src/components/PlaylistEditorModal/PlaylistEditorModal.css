@@ -20,19 +20,3 @@
   gap: 0.5rem;
   min-width: 0;
 }
-
-.playlist-editor__segment {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.65rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-button);
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.playlist-editor__segment:has(input:checked) {
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-}

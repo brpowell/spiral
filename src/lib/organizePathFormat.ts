@@ -213,14 +213,6 @@ export function formatOrganizeRelativePath(
     .join("/");
 }
 
-export function previewSampleLabel(sample: OrganizePathSample): string {
-  const parts = [sample.title];
-  const artist = sample.albumArtist ?? sample.artist;
-  if (artist) parts.push(artist);
-  if (sample.album) parts.push(sample.album);
-  return parts.join(" · ");
-}
-
 export function isDefaultOrganizePathFormat(format: string): boolean {
   return format.trim() === DEFAULT_ORGANIZE_PATH_FORMAT;
 }

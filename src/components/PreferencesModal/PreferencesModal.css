@@ -1,30 +1,62 @@
-.modal-header + .preferences__body {
-  padding-top: 0;
-  padding-bottom: 0;
+.preferences-modal {
+  width: min(760px, 100%);
+  height: min(88vh, 720px);
+  max-height: min(88vh, 720px);
 }
 
-.preferences__section {
-  padding: 1rem 0;
+.preferences-modal .modal-header {
+  border-bottom: 1px solid var(--color-border);
 }
 
-.preferences__section + .preferences__section {
-  border-top: 1px solid var(--color-border);
+.preferences__body {
+  display: flex;
+  flex-direction: row;
+  padding: 0;
+  overflow: hidden;
 }
 
-.preferences__section-title {
-  margin: 0 0 0.85rem;
-  font-size: 0.82rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-secondary);
+.preferences__sidebar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  width: 11.5rem;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
-.preferences__section > .field {
-  margin-bottom: 0.85rem;
+.preferences__nav {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0.35rem;
 }
 
-.preferences__section > .field + .field {
+.preferences__nav li {
+  margin: 0;
+}
+
+.preferences__content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.preferences__panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  padding: 1rem 1.25rem 1.25rem;
+  overflow-y: auto;
+}
+
+.preferences__panel > .field {
+  margin-bottom: 0;
+}
+
+.preferences__panel > .field + .field {
   margin-top: 0;
 }
 
@@ -46,7 +78,7 @@
 }
 
 .preferences__hint {
-  margin: 0 0 0.85rem;
+  margin: 0;
   font-size: 0.82rem;
   line-height: 1.45;
   color: var(--color-text-secondary);
@@ -56,29 +88,22 @@
   font-size: 0.78rem;
 }
 
-.preferences__filename-preview {
-  margin: -0.35rem 0 0.85rem;
-  padding: 0.65rem 0.75rem;
-  border-radius: var(--radius-button);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
+.preferences__hint-label {
+  font-weight: 500;
 }
 
-.preferences__filename-preview-label {
-  display: block;
-  margin-bottom: 0.35rem;
+.preferences__organize-path {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.preferences__organize-path .field__description code {
   font-size: 0.78rem;
-  color: var(--color-text-secondary);
-}
-
-.preferences__filename-preview-path {
-  display: block;
-  font-size: 0.82rem;
-  line-height: 1.45;
   word-break: break-all;
 }
 
-.preferences__section .field .text-input[type="number"] {
+.preferences__panel .field .text-input[type="number"] {
   width: 6rem;
   font-size: 0.88rem;
   border-radius: var(--radius-button);
@@ -87,45 +112,16 @@
 
 .preferences__checkbox {
   display: flex;
-  margin-bottom: 1rem;
-}
-
-.preferences__fieldset {
   margin: 0;
-  padding: 0;
-  border: none;
 }
 
-.preferences__encoding-profiles {
-  margin-top: 1rem;
-}
-
-.preferences__fieldset legend {
-  margin-bottom: 0.5rem;
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
-}
-
-.preferences__segmented {
+.preferences__status {
+  flex-shrink: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.preferences__segment {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.4rem 0.65rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-button);
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.preferences__segment:has(input:checked) {
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem 1rem;
+  border-top: 1px solid var(--color-border);
 }
 
 .preferences__notice {
@@ -142,29 +138,17 @@
   font-size: 0.85rem;
 }
 
-.preferences__cache-clear-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
+.preferences__clear-history {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
-.preferences__clear-history-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
+.preferences__action-btn {
+  align-self: flex-start;
 }
 
-.preferences__clear-history-btn svg {
-  width: 0.85rem;
-  height: 0.85rem;
-}
-
-.preferences__cache-clear-btn svg {
-  width: 1rem;
-  height: 1rem;
-}
-
-.preferences__cache-clear-btn--success {
+.preferences__action-btn--success {
   color: var(--color-accent);
   border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
 }
