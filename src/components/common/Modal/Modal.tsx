@@ -11,6 +11,11 @@ import {
   releasedOutsidePanel,
   shouldDismissModalOnBackdropRelease,
 } from "../../../lib/modalBackdropDismiss";
+import {
+  isTopModalLayer,
+  popModalLayer,
+  pushModalLayer,
+} from "../../../lib/modalStack";
 import { backdropMotion, panelMotion } from "../../../lib/motion";
 import { Button } from "../Button/Button";
 import { IconClose } from "../../icons";
@@ -42,6 +47,7 @@ export function Modal({
 }: ModalProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const panelNodeRef = useRef<HTMLDivElement | null>(null);
+  const layerIdRef = useRef<symbol | null>(null);
 
   const setPanelNode = useCallback(
     (node: HTMLDivElement | null) => {
@@ -54,9 +60,22 @@ export function Modal({
   );
 
   useEffect(() => {
+    if (!open) return;
+    const id = pushModalLayer();
+    layerIdRef.current = id;
+    return () => {
+      popModalLayer(id);
+      if (layerIdRef.current === id) layerIdRef.current = null;
+    };
+  }, [open]);
+
+  useEffect(() => {
     if (!open || !dismissible) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      const id = layerIdRef.current;
+      if (id == null || !isTopModalLayer(id)) return;
+      onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -75,6 +94,9 @@ export function Modal({
 
     const onMouseUp = (e: MouseEvent) => {
       if (e.button !== 0) return;
+
+      const id = layerIdRef.current;
+      if (id == null || !isTopModalLayer(id)) return;
 
       const backdrop = backdropRef.current;
       const panel = panelNodeRef.current;
