@@ -278,8 +278,12 @@ pub fn build_organized_path(
     Ok(dest)
 }
 
-pub fn unique_path(dest: PathBuf) -> PathBuf {
-    if !dest.exists() {
+/// Pick a free path, appending ` (2)`, ` (3)`, … on collision.
+///
+/// When `allow_existing` is set (track replace), that path may be overwritten
+/// instead of uniquified.
+pub fn unique_path(dest: PathBuf, allow_existing: Option<&Path>) -> PathBuf {
+    if !dest.exists() || allow_existing.is_some_and(|p| same_path(&dest, p)) {
         return dest;
     }
 
@@ -298,7 +302,9 @@ pub fn unique_path(dest: PathBuf) -> PathBuf {
     let mut n = 2;
     loop {
         let candidate = parent.join(format!("{stem} ({n}){ext}"));
-        if !candidate.exists() {
+        if !candidate.exists()
+            || allow_existing.is_some_and(|p| same_path(&candidate, p))
+        {
             return candidate;
         }
         n += 1;
@@ -340,7 +346,7 @@ pub fn move_track_file(
             .map_err(|e| format!("failed to create destination folder: {e}"))?;
     }
 
-    let dest = unique_path(dest);
+    let dest = unique_path(dest, None);
     fs::rename(from, &dest).map_err(|e| format!("failed to move track file: {e}"))?;
 
     let backup_from = metadata_backup::backup_path_for(from);
@@ -697,5 +703,29 @@ mod tests {
             .unwrap();
         assert!(dest.starts_with(media));
         assert_eq!(dest, media.join("etc").join("passwd").join("Song.mp3"));
+    }
+
+    #[test]
+    fn unique_path_can_reuse_allowed_existing_file() {
+        let dir = std::env::temp_dir().join(format!(
+            "spiral-unique-allow-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let existing = dir.join("My Song.mp3");
+        fs::write(&existing, b"old").unwrap();
+
+        assert_eq!(
+            unique_path(existing.clone(), None),
+            dir.join("My Song (2).mp3")
+        );
+        assert_eq!(
+            unique_path(existing.clone(), Some(&existing)),
+            existing
+        );
+
+        let _ = fs::remove_dir_all(&dir);
     }
 }

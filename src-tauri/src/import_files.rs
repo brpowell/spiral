@@ -12,6 +12,10 @@ fn build_flat_copy_path(media_folder: &Path, source: &Path) -> PathBuf {
     media_folder.join(file_name)
 }
 
+/// Copy (or reference) an import source into the library.
+///
+/// When `allow_overwrite` is set (track replace), that path may be reused even
+/// if a file already exists there.
 pub fn prepare_import_file(
     source_path: &str,
     mode: &str,
@@ -19,6 +23,7 @@ pub fn prepare_import_file(
     media_folder: &str,
     organize_path_format: &str,
     lyrics_sidecar_enabled: bool,
+    allow_overwrite: Option<&Path>,
 ) -> Result<String, String> {
     let source = Path::new(source_path);
     if !source.is_file() {
@@ -61,7 +66,7 @@ pub fn prepare_import_file(
         fs::create_dir_all(parent).map_err(|e| format!("failed to create destination folder: {e}"))?;
     }
 
-    let dest = library_organize::unique_path(dest);
+    let dest = library_organize::unique_path(dest, allow_overwrite);
     fs::copy(source, &dest).map_err(|e| format!("failed to copy file: {e}"))?;
 
     if lyrics_sidecar_enabled {
@@ -102,6 +107,7 @@ mod tests {
             media.to_str().unwrap(),
             library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
             true,
+            None,
         )
         .unwrap();
         assert_eq!(result, source.to_string_lossy());
@@ -133,6 +139,7 @@ mod tests {
             media.to_str().unwrap(),
             library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
             true,
+            None,
         )
         .unwrap();
 
@@ -171,6 +178,7 @@ mod tests {
             media.to_str().unwrap(),
             library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
             false,
+            None,
         )
         .unwrap();
 
@@ -214,6 +222,7 @@ mod tests {
             media.to_str().unwrap(),
             library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
             true,
+            None,
         )
         .unwrap();
 
@@ -225,6 +234,41 @@ mod tests {
             "expected sidecar at {}",
             dest_sidecar.display()
         );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn copy_mode_replace_reuses_existing_path() {
+        let dir = std::env::temp_dir().join(format!(
+            "spiral-import-replace-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        let media = dir.join("media");
+        let incoming_dir = dir.join("incoming");
+        fs::create_dir_all(&media).unwrap();
+        fs::create_dir_all(&incoming_dir).unwrap();
+
+        let existing = media.join("My Song.flac");
+        let incoming = incoming_dir.join("My Song.flac");
+        fs::write(&existing, b"old").unwrap();
+        fs::write(&incoming, b"new").unwrap();
+
+        let result = prepare_import_file(
+            incoming.to_str().unwrap(),
+            "copy",
+            false,
+            media.to_str().unwrap(),
+            library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
+            false,
+            Some(&existing),
+        )
+        .unwrap();
+
+        assert_eq!(PathBuf::from(&result), existing);
+        assert!(!media.join("My Song (2).flac").exists());
+        assert_eq!(fs::read(&existing).unwrap(), b"new");
 
         let _ = fs::remove_dir_all(&dir);
     }

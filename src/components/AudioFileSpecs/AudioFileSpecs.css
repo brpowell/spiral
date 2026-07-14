@@ -36,5 +36,6 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
+  text-align: right;
   color: var(--color-text-primary);
 }

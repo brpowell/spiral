@@ -36,14 +36,16 @@
 .import-dedupe-modal__lyrics {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  width: fit-content;
-  max-width: 100%;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
 }
 
 .import-dedupe-modal__lyrics-label {
+  flex-shrink: 0;
   font-size: 0.8rem;
-  line-height: 1.35;
+  font-weight: 500;
+  line-height: 1.2;
   color: var(--color-text-secondary);
 }
 

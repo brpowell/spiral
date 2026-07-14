@@ -354,14 +354,6 @@ pub fn replace_track_from_import(
     let resolved = settings::resolved_library_settings(&app);
     let sidecar_enabled = settings::lyrics_sidecar_sync_enabled(&app);
     let backup_config = settings::metadata_backup_config(&app);
-    let new_path = import_files::prepare_import_file(
-        &source_path,
-        &mode,
-        resolved.auto_organize,
-        &resolved.media_folder,
-        &resolved.organize_path_format,
-        sidecar_enabled,
-    )?;
 
     let (existing, mut metadata) = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -373,6 +365,16 @@ pub fn replace_track_from_import(
     };
 
     let old_path = PathBuf::from(&existing.file_path);
+    let new_path = import_files::prepare_import_file(
+        &source_path,
+        &mode,
+        resolved.auto_organize,
+        &resolved.media_folder,
+        &resolved.organize_path_format,
+        sidecar_enabled,
+        Some(&old_path),
+    )?;
+
     let new_path_buf = PathBuf::from(&new_path);
 
     if let Ok(app_data) = app.path().app_data_dir() {
