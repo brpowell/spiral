@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spiral.dev/schemas/renderer-v1.json",
+  "title": "Spiral VizRenderer contribution manifest v1",
+  "type": "object",
+  "required": ["id", "name", "author", "description", "engine", "entry"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri-reference"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Declared contribution id."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "Human-readable display label."
+    },
+    "author": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "Freeform credit for the contribution's creator."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 280,
+      "description": "Short summary for lists/cards; keep longer notes in the pack README."
+    },
+    "engine": {
+      "type": "string",
+      "enum": ["canvas2d", "webgl"],
+      "description": "Draw backend."
+    },
+    "entry": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._-]+\\.js$",
+      "description": "Pack-relative JS module path inside this contribution folder (e.g. index.js)."
+    }
+  }
+}

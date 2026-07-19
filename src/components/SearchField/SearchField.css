@@ -1,50 +1,12 @@
 .search-field {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
   flex: 1;
   min-width: 200px;
   max-width: 360px;
-  height: var(--control-height);
-  padding: 0 var(--control-padding-x);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-  outline: none;
-  cursor: text;
+  width: auto;
 }
 
-.search-field:focus-within {
-  border-color: var(--color-accent);
-}
-
-.search-field > svg:first-child {
-  width: var(--control-icon-size);
-  height: var(--control-icon-size);
-  flex-shrink: 0;
-}
-
-.search-field__clear.btn.btn--icon-only.btn--sm {
-  width: var(--control-icon-size);
-  height: var(--control-icon-size);
-  min-width: var(--control-icon-size);
-  padding: 0;
-  line-height: 0;
-}
-
-.search-field__clear {
-  flex-shrink: 0;
+/* Reserve end-addon space so the query text doesn't shift when clear appears. */
+.search-field__clear--hidden {
   visibility: hidden;
   pointer-events: none;
-}
-
-.search-field__clear:not(:disabled) {
-  visibility: visible;
-  pointer-events: auto;
-}
-
-.search-field__clear svg {
-  width: 0.95rem;
-  height: 0.95rem;
 }

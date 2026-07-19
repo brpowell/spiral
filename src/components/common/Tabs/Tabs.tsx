@@ -317,10 +317,17 @@ export function Tab({
 export type TabPanelProps = {
   value: string;
   className?: string;
+  /** When true, keep children mounted while the panel is hidden. */
+  keepMounted?: boolean;
   children: ReactNode;
 };
 
-export function TabPanel({ value, className, children }: TabPanelProps) {
+export function TabPanel({
+  value,
+  className,
+  keepMounted = false,
+  children,
+}: TabPanelProps) {
   const { value: selectedValue, idPrefix } = useTabsContext();
   const panelId = `${idPrefix}-panel-${value}`;
   const tabId = `${idPrefix}-tab-${value}`;
@@ -336,7 +343,7 @@ export function TabPanel({ value, className, children }: TabPanelProps) {
       aria-labelledby={tabId}
       hidden={!isSelected}
     >
-      {isSelected ? children : null}
+      {isSelected || keepMounted ? children : null}
     </div>
   );
 }

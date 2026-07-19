@@ -1,33 +1,37 @@
 # Visualizer host contract
 
-Sibling to [skin-contract.md](../playback/skin-contract.md). Describes what Spiral provides to scene layers each frame — packs declare `scene[]` per surface; the host builds context.
+Sibling to [skin-contract.md](../playback/skin-contract.md). Describes what Spiral provides to VizScene layers each frame — visualizers declare a `scene` (VizScene) on `surfaces.default`; the host builds context.
 
-## Resolution order (active pack)
+## Resolution order (active visualizer)
 
-1. **Skin override** — `skin.json` → `visualizer.pack` when set to a pack id (skin mode only).
-2. **Skin global** — omit `pack`, or set `pack: "global"`, to follow the active visualizer picker in skin mode.
+1. **Skin override** — `skin.json` → `visualizer.id` when set to a visualizer contribution id (skin mode only).
+2. **Skin global** — omit `id`, or set `id: "global"`, to follow the active visualizer picker in skin mode.
 3. **Global default** — user preference from the visualizer picker.
-4. **Fallback** — built-in `bars`.
-
-Legacy `visualizer.preset` in skins maps to built-in pack ids: `bars` → `bars`, `wave` → `wave`, `spectrum` → `spectrum`.
+4. **Fallback** — built-in `spiral.core.visualizer.bars`.
 
 ## Surfaces
 
-| Surface | Trigger |
-| --- | --- |
-| `mini` | `VisualizerSlot` with `variant="mini"` and not expanded |
-| `panel` | Skin shell slot (`variant="dock"`) or skin `display: "panel"` |
-| `expanded` | Mini expand overlay |
+Visualizer manifests require `surfaces.default`. Only `default` is reserved for now; slot placement (`mini` / `panel` skin display, expand overlay) still uses layout variants, but they all render the same scene.
 
-Pack manifests require `surfaces.default`. Optional `mini`, `panel`, and `expanded` entries override it. At runtime the host resolves all three surfaces before render.
+Renderers may still soften motion via `flags.reducedMotion` on the host context.
 
-When `prefers-reduced-motion` is set, the host resolves `reducedSurfaces[surface]`, then `reducedSurfaces.default`, then the normal surface scene.
+## Visualizer vs VizScene vs VizRenderer
+
+| Concept | Folder | Manifest | Job |
+| --- | --- | --- | --- |
+| **Visualizer** | `visualizers/` | `viz.json` | Product composition: a VizScene on `surfaces.default` |
+| **VizScene** | (inside viz.json) | `surfaces.default.scene` | Layer tree for the reserved surface |
+| **VizRenderer** | `renderers/` | `renderer.json` + entry JS | Draw one canvas or webgl layer from a `VizFrame` |
+
+Effective ids are fully qualified: `authorId.packId.type.contributionId` (e.g. `spiral.core.visualizer.wave`, `spiral.core.renderer.wave`).
+
+Canvas and webgl layers both reference a fully-qualified renderer contribution id (e.g. `spiral.core.renderer.neon-tunnel`).
 
 ## VisualizerContext (per frame)
 
 ```typescript
 interface VisualizerContext {
-  surface: "mini" | "panel" | "expanded";
+  surface: "default";
   size: { width: number; height: number; dpr: number };
 
   audio: {
@@ -55,6 +59,22 @@ interface VisualizerContext {
 ```
 
 Built via `src/components/visualizer/context.ts` from player store, theme, album palette, and skin bind resolver.
+
+## VizRenderer author API
+
+The host builds a normalized `VizFrame` each tick (`vizRendererApi.ts`) and loads source via `read_viz_renderer_source`. Both engines run in the same **Worker + OffscreenCanvas** sandbox (`sandbox/SandboxedVizRenderer.ts`): network APIs are stubbed, frames are transferable, and a frame-budget watchdog can terminate stuck workers. The worker returns an `ImageBitmap` for the host to blit.
+
+### canvas2d (`engine: "canvas2d"`)
+
+`create() → { render(ctx, frame, params) }`
+
+### webgl (`engine: "webgl"`)
+
+`create({ canvas, THREE }) → { render(frame, params), resize?, dispose? }`
+
+The host injects the app’s bundled `three` — packs must not import or vendor three.js. Prefer `OffscreenCanvas` (not `document`) for scratch textures.
+
+Stock WebGL: `spiral.core.renderer.neon-tunnel`.
 
 ## Bind paths
 
@@ -100,22 +120,23 @@ interface VisualizerFramePayload {
 
 Subscribers use `useVisualizerFrameRef()` in the skin webview. Renderer drawing merges remote bins with local palette/theme context.
 
-## Pack manifest (`viz.json` v1)
+## Pack manifests
 
-See [visualizer-pack-guide.md](../../docs/visualizer-pack-guide.md) and `src-tauri/visualizers/schema/viz-v1.schema.json`.
+- Visualizer: [visualizer-pack-guide.md](../../docs/guides/visualizer-pack-guide.md), `src-tauri/schemas/viz-v1.schema.json`
+- Renderer: `src-tauri/schemas/renderer-v1.schema.json`
 
-Canvas layers reference built-in renderer ids (`bars`, `wave`, `spectrum`). Params are validated on load (renderer allowlist, param bounds, asset paths).
+Canvas `renderer` fields must be fully-qualified renderer ids (e.g. `spiral.core.renderer.bars`). Params are validated on load (bounds, asset paths).
 
 ## Install paths
 
 | Kind | Location |
 | --- | --- |
-| Built-in | `src-tauri/visualizers/builtin/<id>/` |
-| User | `<app data>/visualizers/<id>/` |
+| Built-in | `src-tauri/packs/builtin/<packId>/` |
+| User | `{app_data}/packs/{workshop,installed}/` |
 
-Folder name = pack id. User packs with the same id as a built-in override the built-in in the picker list.
+Contributions are discovered under type folders (`visualizers/`, `renderers/`, …). Effective id = `authorId.packId.type.contributionId`.
 
 ## Related
 
 - [Playback skin contract](../playback/skin-contract.md) — visualizer slot placement in skins
-- [Visualizer iteration plan](../../docs/visualizer-iteration-plan.md) — roadmap and phases
+- [Spiral pack format](../../docs/guides/spiral-pack-format.md) — pack wrapper and type folders

@@ -38,7 +38,7 @@
       },
       {
         "label": "appearance",
-        "title": "Appearance",
+        "title": "Studio",
         "width": 1000,
         "height": 720,
         "visible": false,
@@ -92,7 +92,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": ["skins/builtin/**/*", "visualizers/builtin/**/*"],
+    "resources": ["packs/builtin/**/*"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

@@ -317,8 +317,8 @@ export function useSkinBindState(): SkinBindState {
   const manualQueueIds = usePlayerStore((s) => s.manualQueueIds);
   const currentPlayable = usePlayerStore((s) => s.currentPlayable);
   const playlists = usePlaylistStore((s) => s.playlists);
-  const visualizerPacks = useVisualizerStore((s) => s.packs);
-  const activeVisualizerId = useVisualizerStore((s) => s.activePackId);
+  const visualizers = useVisualizerStore((s) => s.visualizers);
+  const activeVisualizerId = useVisualizerStore((s) => s.activeVisualizerId);
   const eqEnabled = useEqualizerStore((s) => s.enabled);
   const eqPresetId = useEqualizerStore((s) => s.presetId);
   const eqBands = useEqualizerStore((s) => s.bands);
@@ -328,12 +328,12 @@ export function useSkinBindState(): SkinBindState {
   const soundEffectsEnabled = soundEffectsEnabledFromPreferences(skinPreferences);
 
   const visualizerName = useMemo(
-    () => activeVisualizerName(visualizerPacks, activeVisualizerId),
-    [visualizerPacks, activeVisualizerId],
+    () => activeVisualizerName(visualizers, activeVisualizerId),
+    [visualizers, activeVisualizerId],
   );
   const canCycleVisualizer = useMemo(
-    () => canCycleVisualizers(visualizerPacks),
-    [visualizerPacks],
+    () => canCycleVisualizers(visualizers),
+    [visualizers],
   );
 
   const currentTrack = useMemo(

@@ -1,13 +1,9 @@
 import { useVisualizerFrameRef } from "../../../hooks/useVisualizerFrame";
 import { isAnySkinWindow } from "../../../lib/windowRole";
-import { usePrefersReducedMotion } from "../../visualizer/context";
-import { resolveSurfaceScene } from "../../visualizer/packs";
+import { resolveSurfaceScene } from "../../visualizer/fallbackVisualizer";
 import { SceneRenderer } from "../../visualizer/scene/SceneRenderer";
-import { useResolvedVisualizerPack } from "../../visualizer/useResolvedVisualizerPack";
-import {
-  resolveVisualizerSurface,
-  type VisualizerRendererProps,
-} from "../../visualizer/types";
+import { useResolvedVisualizer } from "../../visualizer/useResolvedVisualizer";
+import type { VisualizerRendererProps } from "../../visualizer/types";
 import "./VisualizerSlot.css";
 
 interface VisualizerSlotProps {
@@ -36,10 +32,8 @@ function VisualizerRendererView({
     nodeId,
   } = props;
 
-  const surface = resolveVisualizerSurface(variant, expanded);
-  const reducedMotion = usePrefersReducedMotion();
-  const activePack = useResolvedVisualizerPack();
-  const scene = resolveSurfaceScene(activePack, surface, reducedMotion);
+  const activeVisualizer = useResolvedVisualizer();
+  const scene = resolveSurfaceScene(activeVisualizer);
 
   return (
     <div
@@ -47,10 +41,9 @@ function VisualizerRendererView({
       data-node-id={nodeId}
     >
       <SceneRenderer
-        key={`${activePack.id}-${surface}`}
+        key={activeVisualizer.id}
         scene={scene}
-        packDir={activePack.packDir}
-        surface={surface}
+        packDir={activeVisualizer.packDir}
         variant={variant}
         expanded={expanded}
         onToggleExpand={onToggleExpand}

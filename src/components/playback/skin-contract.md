@@ -2,7 +2,7 @@
 
 Shared playback UI lives under `src/components/playback/` (`PlaybackTransport`, `NowPlayingMetadata`, `SeekBar`, `VolumeControl`, `QueueButton`, `VisualizerSlot`) and composes through `SkinShell` slot wrappers. Import from `src/components/playback` (barrel) or individual subfolders.
 
-V1 components read `usePlayerStore` directly. **V2:** skin mode uses manifests (`skin.json` v1) that bind to the action catalog and data paths below via `SkinLayoutRenderer` — see `src/components/playback/skin/` and `src-tauri/skins/`.
+V1 components read `usePlayerStore` directly. **V2:** skin mode uses manifests (`skin.json` v1) that bind to the action catalog and data paths below via `SkinLayoutRenderer` — see `src/components/playback/skin/` and `src-tauri/schemas/skin-v1.schema.json`.
 
 ## Action catalog
 
@@ -26,7 +26,7 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | `player.clearSetList`     | Stop playback and clear the set list (same as the set list modal Clear action)                                               |
 | `navigation.openAlbum`    | Open album view for current track (payload: `{ albumKey: string }`)                                                          |
 | `queue.openSetList`       | Open the set list modal                                                                                                      |
-| `skin.openPicker`         | Open Appearance (Skins section)                                                                                              |
+| `skin.openPicker`         | Open Studio (Skins section)                                                                                                  |
 | `skin.exit`               | Exit skin mode                                                                                                               |
 | `skin.restoreMainWindow`  | Hide skin mode and show the library window                                                                                   |
 | `skin.minimize`           | Minimize the skin-mode window                                                                                                |
@@ -39,8 +39,8 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | `skin.closeView`          | Close an auxiliary view window (payload: `{ viewId?: string }`; defaults to the current aux window)                          |
 | `skin.toggleView`         | Toggle an auxiliary view window open/closed (payload: `{ viewId: string }`)                                                  |
 | `skin.toggleSoundEffects` | Toggle skin sound effects for the active skin (no-op when manifest has no `soundEffects`)                                    |
-| `visualizer.previous`     | Cycle to the previous global visualizer pack                                                                                 |
-| `visualizer.next`         | Cycle to the next global visualizer pack                                                                                     |
+| `visualizer.previous`     | Cycle to the previous global visualizer                                                                                      |
+| `visualizer.next`         | Cycle to the next global visualizer                                                                                          |
 | `playlist.setSource`      | Select playlist view source (payload: `{ sourceId: string }` — `all`, `upNext`, or `playlist:{id}`)                          |
 | `playlist.playTrack`      | Play a track from the active playlist view (payload: `{ trackId: number }`)                                                  |
 | `eq.setBand`              | Set EQ band gain (payload: `{ band: number; gain: number }` — **band is 1-based**, gain in dB −14…+14; forces manual preset) |
@@ -89,7 +89,7 @@ Read-only paths for skin text, visibility, and interaction guards (`visibleWhen`
 | `skin.alwaysOnTop`         | `boolean`                          | Skin window pinned on top                            |
 | `playback.source`          | `"file" | "cd" | null`             | Current playback source                              |
 | `visualizer.name`          | `string`                           | Display name of the active global visualizer         |
-| `visualizer.canGoPrevious` | `boolean`                          | More than one visualizer pack installed (wraps)      |
+| `visualizer.canGoPrevious` | `boolean`                          | More than one visualizer installed (wraps)           |
 | `visualizer.canGoNext`     | `boolean`                          | Same as `visualizer.canGoPrevious`                   |
 | `playlist.sourceLabel`     | `string`                           | Display label for the active playlist view source    |
 | `playlist.trackCount`      | `number`                           | Tracks in the active playlist view                   |
@@ -251,7 +251,7 @@ Button groups swap the tooltip per hovered region (same pattern as classic WMP `
 
 ## Window (`views.*.window`)
 
-Each view declares native window constraints in its own `window` block. Skin mode always uses a **frameless** transparent native window. There is no built-in title bar — authors declare window chrome in the layout and wire `skin.`* / `app.quit` actions (see below). Right-click still opens a native context menu (pin, Appearance, return to library) as a fallback.
+Each view declares native window constraints in its own `window` block. Skin mode always uses a **frameless** transparent native window. There is no built-in title bar — authors declare window chrome in the layout and wire `skin.`* / `app.quit` actions (see below). Right-click still opens a native context menu (pin, Studio, return to library) as a fallback.
 
 
 | Field                            | Purpose                                                                                          |
@@ -539,7 +539,7 @@ Dropdown changes invoke `playlist.setSource`; row clicks invoke `playlist.playTr
 
 | Action ID                | Description                                |
 | ------------------------ | ------------------------------------------ |
-| `skin.openPicker`        | Open Appearance (Skins section)            |
+| `skin.openPicker`        | Open Studio (Skins section)                |
 | `skin.exit`              | Exit skin mode                             |
 | `skin.restoreMainWindow` | Hide skin mode and show the library window |
 | `skin.minimize`          | Minimize the skin-mode window              |
@@ -551,13 +551,12 @@ Dropdown changes invoke `playlist.setSource`; row clicks invoke `playlist.playTr
 
 ## Visualizer (`skin.json` → `visualizer`)
 
-Skins declare pack reference (optional), shell placement, and sizing separately from the layout `visualizer` control node.
+Skins declare visualizer reference (optional), shell placement, and sizing separately from the layout `visualizer` control node.
 
 
 | Field                          | Values                           | Purpose                                                               |
 | ------------------------------ | -------------------------------- | --------------------------------------------------------------------- |
-| `pack`                         | pack id, `global`, or omit       | Pack id pins a visualizer; `global`/omit follows the active picker    |
-| `preset`                       | `bars`, `wave`, `spectrum`       | Deprecated — maps to built-in pack ids                                |
+| `id`                           | contribution id, `global`, or omit | Pins a visualizer (`authorId.packId.type.contributionId`); `global`/omit follows the picker |
 | `placement`                    | `top`, `bottom` (default)        | Where the visualizer band sits in `SkinShell`                         |
 | `display`                      | `mini`, `panel` (default `mini`) | `mini` = compact strip; `panel` = fills the visualizer slot           |
 | `size.width`                   | `fill` or px                     | Slot width                                                            |
@@ -565,18 +564,18 @@ Skins declare pack reference (optional), shell placement, and sizing separately 
 | `size.minHeight` / `maxHeight` | px                               | Optional bounds                                                       |
 
 
-Pinned pack example:
+Pinned visualizer example:
 
 ```json
 "visualizer": {
-  "pack": "wave",
+  "id": "spiral.core.visualizer.wave",
   "placement": "top",
   "display": "panel",
   "size": { "width": "fill", "height": "flex" }
 }
 ```
 
-Follow global picker (omit `pack` or use `"global"`):
+Follow global picker (omit `id` or use `"global"`):
 
 ```json
 "visualizer": {

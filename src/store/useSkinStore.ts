@@ -5,7 +5,6 @@ import {
   getActiveSkinId,
   listSkins,
   loadSkinPack,
-  openSkinsFolder,
   saveActiveSkinId,
   saveActiveSkinView,
 } from "../lib/tauri";
@@ -48,7 +47,7 @@ import type { LoadedSkinPack, SkinSummary, SkinView } from "../types/skin";
 import { isAppearanceWindow, isSkinModeWindow } from "../lib/windowRole";
 import { useSkinPreferencesStore } from "./useSkinPreferencesStore";
 
-export const DEFAULT_SKIN_ID = "spiral-default";
+export const DEFAULT_SKIN_ID = "spiral.core.skin.spiral-default";
 
 function motionStateForView(
   pack: LoadedSkinPack | null,
@@ -89,7 +88,6 @@ interface SkinState extends PanelMotionState {
   closePanel: (panelId: string) => Promise<void>;
   resetPanelsForView: (view: SkinView) => void;
   setPlaylistSource: (sourceId: string) => void;
-  openSkinsFolder: () => Promise<void>;
 }
 
 export const useSkinStore = create<SkinState>((set, get) => ({
@@ -326,9 +324,6 @@ export const useSkinStore = create<SkinState>((set, get) => ({
     );
   },
 
-  openSkinsFolder: async () => {
-    await openSkinsFolder();
-  },
 }));
 
 export type { PanelOpenState };

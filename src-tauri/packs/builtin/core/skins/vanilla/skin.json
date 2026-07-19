@@ -1,0 +1,182 @@
+{
+  "id": "vanilla",
+  "name": "Vanilla",
+  "author": "Spiral",
+  "description": "Default skin out of the box, batteries included.",
+  "defaultView": "standard",
+  "stylesheet": "skin.css",
+  "visualizer": {
+    "id": "global",
+    "placement": "top",
+    "display": "panel",
+    "size": {
+      "width": "fill",
+      "height": "flex"
+    }
+  },
+  "views": {
+    "standard": {
+      "window": {
+        "defaultWidth": 320,
+        "defaultHeight": 468,
+        "minWidth": 280,
+        "minHeight": 388,
+        "maxWidth": 420,
+        "maxHeight": 588,
+        "resizable": true,
+        "snapEnabled": true
+      },
+      "layout": {
+        "type": "column",
+        "children": [
+          {
+            "type": "region",
+            "slot": "header",
+            "dragRegion": true,
+            "children": [
+              {
+                "type": "row",
+                "id": "window-chrome",
+                "children": [
+                  {
+                    "type": "button",
+                    "id": "chrome-picker",
+                    "action": "skin.openPicker",
+                    "presentation": {
+                      "kind": "primitive"
+                    }
+                  },
+                  {
+                    "type": "button",
+                    "id": "chrome-pin",
+                    "action": "skin.toggleAlwaysOnTop",
+                    "presentation": {
+                      "kind": "primitive"
+                    }
+                  },
+                  {
+                    "type": "button",
+                    "id": "chrome-restore",
+                    "action": "skin.restoreMainWindow",
+                    "presentation": {
+                      "kind": "primitive"
+                    }
+                  },
+                  {
+                    "type": "button",
+                    "id": "chrome-close",
+                    "action": "skin.exit",
+                    "presentation": {
+                      "kind": "primitive"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "region",
+            "slot": "visualizer",
+            "children": [
+              {
+                "type": "visualizer",
+                "presentation": {
+                  "kind": "primitive",
+                  "classPrefix": "skin-spiral-default"
+                }
+              }
+            ]
+          },
+          {
+            "type": "row",
+            "children": [
+              {
+                "type": "region",
+                "slot": "art",
+                "children": [
+                  {
+                    "type": "artwork",
+                    "presentation": {
+                      "kind": "primitive",
+                      "classPrefix": "skin-spiral-default"
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "region",
+                "slot": "info",
+                "children": [
+                  {
+                    "type": "text",
+                    "id": "track-title",
+                    "bind": "track.title",
+                    "overflow": "scroll-bounce",
+                    "presentation": {
+                      "kind": "primitive"
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "id": "track-artist",
+                    "bind": "track.artist",
+                    "overflow": "scroll-bounce",
+                    "presentation": {
+                      "kind": "primitive"
+                    },
+                    "visibleWhen": "player.hasTrack"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "region",
+            "slot": "controls",
+            "children": [
+              {
+                "type": "transport",
+                "presentation": {
+                  "kind": "primitive",
+                  "classPrefix": "skin-spiral-default"
+                }
+              },
+              {
+                "type": "seekbar",
+                "presentation": {
+                  "kind": "primitive",
+                  "classPrefix": "skin-spiral-default"
+                }
+              }
+            ]
+          },
+          {
+            "type": "region",
+            "slot": "footer",
+            "children": [
+              {
+                "type": "row",
+                "id": "footer-row",
+                "children": [
+                  {
+                    "type": "volume",
+                    "presentation": {
+                      "kind": "primitive"
+                    }
+                  },
+                  {
+                    "type": "queue",
+                    "action": "queue.openSetList",
+                    "presentation": {
+                      "kind": "primitive"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

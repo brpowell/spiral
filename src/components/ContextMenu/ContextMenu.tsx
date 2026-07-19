@@ -13,7 +13,7 @@ import {
 import { createPortal } from "react-dom";
 import { fitContextMenuPosition } from "../../lib/contextMenuPosition";
 import {
-  focusFirstContextMenuItem,
+  focusContextMenuOnOpen,
   handleContextMenuKeyDown,
 } from "../../lib/contextMenuKeyboard";
 import { IconChevronRight, IconCheck } from "../icons";
@@ -125,6 +125,8 @@ interface ContextMenuProps {
   anchor: { x: number; y: number } | null;
   position: { left: number; top: number } | null;
   menuRef: RefObject<HTMLDivElement | null>;
+  /** Focus first item (keyboard). Pointer opens focus the menu root. */
+  focusFirstItem?: boolean;
   className?: string;
   style?: React.CSSProperties;
   children: ReactNode;
@@ -181,7 +183,7 @@ export function ContextMenuSubmenu({
       return;
     }
     openFromKeyboardRef.current = false;
-    focusFirstContextMenuItem(resolvedPanelRef.current);
+    focusContextMenuOnOpen(resolvedPanelRef.current, true);
   }, [flyoutOpen, resolvedPanelRef]);
 
   const onTriggerKeyDown = useCallback(
@@ -272,17 +274,24 @@ export function ContextMenu({
   anchor,
   position,
   menuRef,
+  focusFirstItem = false,
   className,
   style,
   children,
 }: ContextMenuProps) {
   const menuClass = ["context-menu", className].filter(Boolean).join(" ");
+  const didFocusRef = useRef(false);
 
   useLayoutEffect(() => {
+    if (!open) {
+      didFocusRef.current = false;
+      return;
+    }
     const menu = menuRef.current;
-    if (!open || !position || !menu) return;
-    focusFirstContextMenuItem(menu);
-  }, [open, position, menuRef, children]);
+    if (!position || !menu || didFocusRef.current) return;
+    didFocusRef.current = true;
+    focusContextMenuOnOpen(menu, focusFirstItem);
+  }, [open, position, menuRef, focusFirstItem]);
 
   const onMenuKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
@@ -308,6 +317,7 @@ export function ContextMenu({
               ...style,
             }}
             role="menu"
+            tabIndex={-1}
             onKeyDown={onMenuKeyDown}
             initial={panelMotion.initial}
             animate={position ? panelMotion.animate : panelMotion.initial}

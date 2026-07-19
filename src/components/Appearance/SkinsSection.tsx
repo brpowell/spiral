@@ -1,22 +1,28 @@
-import { SkinsGrid } from "./SkinsGrid";
-import { Button } from "../common/Button/Button";
+import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
+import { BrowseView } from "../BrowseView/BrowseView";
+import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
 import { useSkinStore } from "../../store/useSkinStore";
+import { SkinsGrid } from "./SkinsGrid";
 import "./AppearanceSection.css";
 
-export function SkinsSection() {
-  const openSkinsFolder = useSkinStore((s) => s.openSkinsFolder);
+export function SkinsSection({
+  onOpenPack,
+}: {
+  onOpenPack: (packId: string) => void;
+}) {
+  const skins = useSkinStore((s) => s.skins);
+  const skinsLoaded = useSkinStore((s) => s.skinsLoaded);
 
   return (
-    <div className="appearance-section">
-      <div className="appearance-section__body">
-        <SkinsGrid />
-      </div>
+    <BrowseView>
+      <BrowseViewHeader
+        title="Skins"
+        count={skinsLoaded ? `(${skins.length})` : undefined}
+      />
 
-      <footer className="appearance-section__footer">
-        <Button variant="secondary" size="sm" onClick={() => void openSkinsFolder()}>
-          Open skins folder
-        </Button>
-      </footer>
-    </div>
+      <BrowseGridBody>
+        <SkinsGrid onOpenPack={onOpenPack} />
+      </BrowseGridBody>
+    </BrowseView>
   );
 }

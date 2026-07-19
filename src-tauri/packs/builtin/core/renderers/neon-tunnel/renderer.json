@@ -1,0 +1,9 @@
+{
+  "$schema": "../../../../../schemas/renderer-v1.schema.json",
+  "id": "neon-tunnel",
+  "name": "Neon Tunnel",
+  "author": "Spiral",
+  "description": "Reactive neon ring tunnel.",
+  "engine": "webgl",
+  "entry": "index.js"
+}

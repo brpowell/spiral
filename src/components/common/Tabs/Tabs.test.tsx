@@ -66,6 +66,31 @@ describe("Tabs", () => {
     expect(screen.getByText("•")).toBeInTheDocument();
   });
 
+  it("keeps panel children mounted when keepMounted is set", () => {
+    function KeepMountedTabs() {
+      const [value, setValue] = useState("one");
+      return (
+        <Tabs value={value} onChange={setValue}>
+          <TabList>
+            <Tab value="one">One</Tab>
+            <Tab value="two">Two</Tab>
+          </TabList>
+          <TabPanel value="one" keepMounted>
+            Panel one
+          </TabPanel>
+          <TabPanel value="two">Panel two</TabPanel>
+        </Tabs>
+      );
+    }
+
+    render(<KeepMountedTabs />);
+
+    fireEvent.click(screen.getByRole("tab", { name: /two/i }));
+
+    expect(screen.getByText("Panel one")).not.toBeVisible();
+    expect(screen.getByRole("tabpanel")).toHaveTextContent("Panel two");
+  });
+
   it("renders underline variant with a sliding indicator", () => {
     render(
       <Tabs value="one" onChange={() => {}} variant="underline">

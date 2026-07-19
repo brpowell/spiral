@@ -10,70 +10,53 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { VisualizerRemoteFrame } from "../../../lib/visualizerDataBridge";
-import {
-  vizGifAssetUrl,
-  vizImageAssetUrl,
-  vizVideoAssetUrl,
-} from "../../../lib/presentation/assets";
+import { vizMediaLayerUrl } from "../../../lib/presentation/assets";
 import { useSkinVisible } from "../../../lib/skinBinds";
+import type { VizRendererEngine } from "../../../types/renderer";
 import { Button } from "../../common/Button/Button";
 import { IconMaximize, IconMinimize } from "../../icons";
 import { useVisualizerContextBuilder } from "../context";
-import { drawBarsFrame } from "../renderers/drawBars";
-import { drawSpectrumFrame } from "../renderers/drawSpectrum";
-import { drawWaveFrame } from "../renderers/drawWave";
-import { WebGLLayerView } from "../webgl/WebGLLayerView";
-import { isWebGLRendererId } from "../webgl/registry";
-import "../renderers/audioVisualizer.css";
+import { SandboxedVizRenderer } from "../sandbox/SandboxedVizRenderer";
+import "../audioVisualizer.css";
 import {
   sampleFrequencyData,
   sampleTimeDomainData,
 } from "../rendererUtils";
 import type {
-  RendererParams,
   VisualizerContext,
-  VisualizerDrawArgs,
   VisualizerDrawState,
-  VisualizerRendererId,
   VisualizerRendererProps,
 } from "../types";
+import {
+  buildVizFrame,
+  isRendererContributionId,
+} from "../vizRendererApi";
 import { resolveLayerTransform } from "./resolveLayerTransform";
-import type { LayoutRect, SceneLayer } from "./types";
+import type { LayoutRect, VizScene, VizSceneLayer } from "./types";
 import { resolveLayout } from "./types";
 import "./SceneRenderer.css";
 
-const DRAW_FNS: Record<
-  VisualizerRendererId,
-  (args: VisualizerDrawArgs, params: RendererParams) => void
-> = {
-  bars: drawBarsFrame,
-  wave: drawWaveFrame,
-  spectrum: drawSpectrumFrame,
-};
+function layerSandboxEngine(
+  kind: VizSceneLayer["kind"],
+): VizRendererEngine | null {
+  if (kind === "canvas") return "canvas2d";
+  if (kind === "webgl") return "webgl";
+  return null;
+}
 
 export interface SceneRendererProps extends VisualizerRendererProps {
-  scene: SceneLayer[];
+  scene: VizScene;
   packDir?: string;
+  /**
+   * When true, treat audio as playing for this host only (Appearance card
+   * previews with synthetic demo frames while the player is paused).
+   */
+  previewForcePlaying?: boolean;
+  /** Fires once after the first sandboxed layer has painted a frame. */
+  onFirstFrame?: () => void;
 }
 
-function layerAssetUrl(
-  layer: SceneLayer,
-  packDir: string,
-): string | null {
-  if (!layer.asset) return null;
-  switch (layer.kind) {
-    case "image":
-      return vizImageAssetUrl(packDir, layer.asset);
-    case "gif":
-      return vizGifAssetUrl(packDir, layer.asset);
-    case "video":
-      return vizVideoAssetUrl(packDir, layer.asset);
-    default:
-      return null;
-  }
-}
-
-function SceneLayerView({
+function VizSceneLayerView({
   layer,
   rect,
   transform,
@@ -82,8 +65,11 @@ function SceneLayerView({
   drawState,
   remoteBins,
   remoteWaveform,
+  elapsedMs,
+  deltaMs,
+  onFirstFrame,
 }: {
-  layer: SceneLayer;
+  layer: VizSceneLayer;
   rect: LayoutRect;
   transform: ReturnType<typeof resolveLayerTransform>;
   packDir?: string;
@@ -91,9 +77,19 @@ function SceneLayerView({
   drawState: VisualizerDrawState;
   remoteBins: number[] | null;
   remoteWaveform: number[] | null;
+  elapsedMs: number;
+  deltaMs: number;
+  onFirstFrame?: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sandboxRef = useRef<SandboxedVizRenderer | null>(null);
+  const [sandboxEpoch, setSandboxEpoch] = useState(0);
   const visible = useSkinVisible(layer.visibleWhen);
+  const dpr = context.size.dpr || window.devicePixelRatio || 1;
+  const sizeReady = rect.w > 0 && rect.h > 0;
+  const sandboxEngine = layerSandboxEngine(layer.kind);
+  const onFirstFrameRef = useRef(onFirstFrame);
+  onFirstFrameRef.current = onFirstFrame;
 
   const style = useMemo((): CSSProperties => {
     const base: CSSProperties = {
@@ -110,44 +106,102 @@ function SceneLayerView({
     return base;
   }, [layer.blend, rect, transform]);
 
-  const drawCanvas = useCallback(() => {
-    if (layer.kind !== "canvas" || !layer.renderer) return;
-    const canvas = canvasRef.current;
-    if (!canvas || rect.w <= 0 || rect.h <= 0) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const pixelW = Math.max(1, Math.floor(rect.w * dpr));
-    const pixelH = Math.max(1, Math.floor(rect.h * dpr));
-
-    if (canvas.width !== pixelW || canvas.height !== pixelH) {
-      canvas.width = pixelW;
-      canvas.height = pixelH;
+  useEffect(() => {
+    if (!sandboxEngine) return;
+    if (!visible || !sizeReady) return;
+    if (!isRendererContributionId(layer.renderer)) {
+      console.error(
+        `[visualizer] ${layer.kind} layer requires a renderer contribution id, got: ${layer.renderer ?? "(missing)"}`,
+      );
+      return;
     }
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    const draw = DRAW_FNS[layer.renderer as VisualizerRendererId] ?? DRAW_FNS.bars;
-    draw(
-      {
-        ctx,
-        width: rect.w,
-        height: rect.h,
-        context,
-        remoteBins,
-        remoteWaveform,
-        state: drawState,
-      },
-      (layer.params ?? {}) as RendererParams,
-    );
-  }, [context, drawState, layer, rect.h, rect.w, remoteBins, remoteWaveform]);
+    const rendererId = layer.renderer;
+    let cancelled = false;
+    let sandbox: SandboxedVizRenderer | null = null;
+
+    SandboxedVizRenderer.create({
+      canvas,
+      rendererId,
+      engine: sandboxEngine,
+      width: rect.w,
+      height: rect.h,
+      dpr,
+      onFirstFrame: () => onFirstFrameRef.current?.(),
+    })
+      .then((created) => {
+        if (cancelled) {
+          created.dispose();
+          return;
+        }
+        sandbox = created;
+        sandboxRef.current = created;
+        setSandboxEpoch((n) => n + 1);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(
+          `[visualizer] failed to sandbox renderer ${rendererId}`,
+          err,
+        );
+      });
+
+    return () => {
+      cancelled = true;
+      sandbox?.dispose();
+      if (sandboxRef.current === sandbox) {
+        sandboxRef.current = null;
+      }
+    };
+    // Intentionally omit rect/dpr: resize is handled below. sizeReady gates first boot.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- boot once per renderer when sized
+  }, [sandboxEngine, layer.kind, layer.renderer, sizeReady, visible]);
+
+  useEffect(() => {
+    if (!sandboxEngine) return;
+    const sandbox = sandboxRef.current;
+    if (!sandbox?.ready || !sizeReady) return;
+    sandbox.resize(rect.w, rect.h, dpr);
+  }, [sandboxEngine, rect.w, rect.h, dpr, sizeReady, sandboxEpoch]);
+
+  const postSandboxFrame = useCallback(() => {
+    if (!sandboxEngine) return;
+    const sandbox = sandboxRef.current;
+    if (!sandbox?.ready || !sizeReady) return;
+
+    const frame = buildVizFrame({
+      context,
+      remoteWaveform,
+      timeDomainData: drawState.timeDomainDataRef.current,
+      elapsedMs,
+      deltaMs,
+      width: rect.w,
+      height: rect.h,
+    });
+
+    sandbox.postFrame(frame, layer.params ?? {});
+  }, [
+    sandboxEngine,
+    context,
+    deltaMs,
+    drawState,
+    elapsedMs,
+    layer,
+    rect.h,
+    rect.w,
+    remoteWaveform,
+    sandboxEpoch,
+    sizeReady,
+  ]);
 
   useLayoutEffect(() => {
-    if (layer.kind === "canvas") {
-      drawCanvas();
+    if (sandboxEngine) {
+      postSandboxFrame();
     }
-  }, [drawCanvas, layer.kind]);
+  }, [postSandboxFrame, sandboxEngine]);
 
   if (!visible) return null;
 
@@ -161,7 +215,7 @@ function SceneLayerView({
             bind: context.bind,
           });
           return (
-            <SceneLayerView
+            <VizSceneLayerView
               key={child.id ?? `${layer.id ?? "group"}-${index}`}
               layer={child}
               rect={childRect}
@@ -171,6 +225,9 @@ function SceneLayerView({
               drawState={drawState}
               remoteBins={remoteBins}
               remoteWaveform={remoteWaveform}
+              elapsedMs={elapsedMs}
+              deltaMs={deltaMs}
+              onFirstFrame={onFirstFrame}
             />
           );
         })}
@@ -178,34 +235,24 @@ function SceneLayerView({
     );
   }
 
-  if (layer.kind === "canvas") {
+  if (sandboxEngine) {
     return (
       <div className="scene-layer" style={style}>
         <canvas
           ref={canvasRef}
-          className="scene-layer__canvas"
+          className={
+            layer.kind === "webgl"
+              ? "scene-layer__webgl"
+              : "scene-layer__canvas"
+          }
           aria-hidden
         />
       </div>
     );
   }
 
-  if (layer.kind === "webgl" && layer.renderer && isWebGLRendererId(layer.renderer)) {
-    return (
-      <WebGLLayerView
-        rendererId={layer.renderer}
-        params={layer.params}
-        rect={rect}
-        style={style}
-        context={context}
-        drawState={drawState}
-        remoteBins={remoteBins}
-      />
-    );
-  }
-
   if (!packDir || !layer.asset) return null;
-  const src = layerAssetUrl(layer, packDir);
+  const src = vizMediaLayerUrl(packDir, layer);
   if (!src) return null;
 
   if (layer.kind === "video") {
@@ -240,31 +287,51 @@ function SceneLayerView({
 function SceneViewport({
   scene,
   packDir,
-  surface,
   remoteFrameRef,
   useRemoteFrame,
+  previewForcePlaying = false,
+  onFirstFrame,
 }: {
-  scene: SceneLayer[];
+  scene: VizScene;
   packDir?: string;
-  surface: VisualizerRendererProps["surface"];
   remoteFrameRef?: RefObject<VisualizerRemoteFrame | null>;
   useRemoteFrame: boolean;
+  previewForcePlaying?: boolean;
+  onFirstFrame?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const frequencyDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const timeDomainDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
-  const idlePhaseRef = useRef(0);
+  const frameClockRef = useRef({ start: 0, last: 0, elapsedMs: 0, deltaMs: 0 });
   const [viewport, setViewport] = useState({ width: 0, height: 0, dpr: 1 });
-  const buildContext = useVisualizerContextBuilder(surface);
+  const buildContext = useVisualizerContextBuilder();
   const remote = useRemoteFrame ? remoteFrameRef?.current : null;
   const remoteBins = remote?.bins ?? null;
   const remoteWaveform = remote?.waveform ?? null;
+  const firstFrameNotifiedRef = useRef(false);
+  const onFirstFrameRef = useRef(onFirstFrame);
+  onFirstFrameRef.current = onFirstFrame;
+
+  const notifyFirstFrame = useCallback(() => {
+    if (firstFrameNotifiedRef.current) return;
+    firstFrameNotifiedRef.current = true;
+    onFirstFrameRef.current?.();
+  }, []);
 
   const [frame, setFrame] = useState(0);
 
   useEffect(() => {
     let rafId = 0;
-    const loop = () => {
+    const loop = (now: number) => {
+      const clock = frameClockRef.current;
+      if (clock.start === 0) {
+        clock.start = now;
+        clock.last = now;
+      }
+      clock.deltaMs = Math.min(64, now - clock.last);
+      clock.last = now;
+      clock.elapsedMs = now - clock.start;
+
       if (!useRemoteFrame) {
         sampleTimeDomainData(timeDomainDataRef);
       }
@@ -306,16 +373,24 @@ function SceneViewport({
         ? sampled
         : Array.from(sampled);
 
-  const context = useMemo(
-    () => buildContext(viewport, bins),
-    [buildContext, viewport, bins, frame],
-  );
+  const context = useMemo((): VisualizerContext => {
+    const base = buildContext(viewport, bins);
+    if (!previewForcePlaying) return base;
+    return {
+      ...base,
+      audio: {
+        ...base.audio,
+        isPlaying: true,
+        playbackState: "playing",
+      },
+    };
+  }, [buildContext, viewport, bins, frame, previewForcePlaying]);
 
   const drawState: VisualizerDrawState = {
-    idlePhaseRef,
-    frequencyDataRef,
     timeDomainDataRef,
   };
+
+  const { elapsedMs, deltaMs } = frameClockRef.current;
 
   if (viewport.width === 0 || viewport.height === 0) {
     return <div className="scene-viewport" ref={containerRef} />;
@@ -329,7 +404,7 @@ function SceneViewport({
         const rect = resolveLayout(layer.layout, viewport.width, viewport.height);
         const transform = resolveLayerTransform(layer, driveContext);
         return (
-          <SceneLayerView
+          <VizSceneLayerView
             key={layer.id ?? `layer-${index}`}
             layer={layer}
             rect={rect}
@@ -339,6 +414,9 @@ function SceneViewport({
             drawState={drawState}
             remoteBins={remoteBins}
             remoteWaveform={remoteWaveform}
+            elapsedMs={elapsedMs}
+            deltaMs={deltaMs}
+            onFirstFrame={notifyFirstFrame}
           />
         );
       })}
@@ -349,13 +427,14 @@ function SceneViewport({
 export function SceneRenderer({
   scene,
   packDir,
-  surface,
   variant = "dock",
   expanded,
   onToggleExpand,
   showExpandToggle = true,
   fillContainer = false,
   remoteFrameRef,
+  previewForcePlaying = false,
+  onFirstFrame,
 }: SceneRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const expandedContainerRef = useRef<HTMLDivElement>(null);
@@ -371,9 +450,10 @@ export function SceneRenderer({
       <SceneViewport
         scene={scene}
         packDir={packDir}
-        surface={surface}
         remoteFrameRef={remoteFrameRef}
         useRemoteFrame={useRemoteFrame}
+        previewForcePlaying={previewForcePlaying}
+        onFirstFrame={onFirstFrame}
       />
       {showExpandToggle ? (
         <Button

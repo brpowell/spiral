@@ -20,7 +20,10 @@ import {
   clearListenHistory,
   inspectLibraryDestination,
   relocateLibrary,
+  getDefaultAuthorId,
+  saveDefaultAuthorId,
 } from "../../lib/tauri";
+import { isAuthorId } from "../../lib/packs/packManifest";
 import { useArtistImageStore } from "../../store/useArtistImageStore";
 import { useCdStore } from "../../store/useCdStore";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
@@ -64,6 +67,7 @@ import {
   ContextMenuSeparator,
 } from "../ContextMenu/ContextMenu";
 import { SidebarItem } from "../layout/SidebarItem/SidebarItem";
+import { SidebarFrame, SidebarList } from "../layout/SidebarChrome";
 import { IconCheck, IconChevronDown, IconOpenFolder, IconReset } from "../icons";
 import { LibraryRelocateDialog } from "./LibraryRelocateDialog";
 import {
@@ -140,12 +144,17 @@ export function PreferencesModal() {
     useState<LibraryDestinationInfo | null>(null);
   const [relocateBusy, setRelocateBusy] = useState(false);
   const relocateInspectingRef = useRef(false);
+  const [defaultAuthorId, setDefaultAuthorId] = useState("");
+  const [defaultAuthorIdLoaded, setDefaultAuthorIdLoaded] = useState(false);
+  const [savingDefaultAuthorId, setSavingDefaultAuthorId] = useState(false);
+  const lastPersistedAuthorIdRef = useRef("");
 
   const {
     open: clearRangeMenuOpen,
     anchor: clearRangeAnchor,
     position: clearRangePosition,
     menuRef: clearRangeMenuRef,
+    openedWithKeyboard: clearRangeOpenedWithKeyboard,
     toggleFromTrigger: toggleClearRangeMenu,
     closeMenu: closeClearRangeMenu,
   } = useContextMenu({
@@ -181,6 +190,7 @@ export function PreferencesModal() {
     setHistoryCleared(false);
     setClearHistoryOpen(false);
     closeClearRangeMenu();
+    setDefaultAuthorIdLoaded(false);
     const tracks = usePlayerStore.getState().library;
     if (tracks.length > 0) {
       setPreviewSample(
@@ -192,6 +202,28 @@ export function PreferencesModal() {
       setPreviewSample(GENERIC_ORGANIZE_PATH_SAMPLE);
     }
   }, [open, closeClearRangeMenu]);
+
+  useEffect(() => {
+    if (!open || activeSection !== "studio" || defaultAuthorIdLoaded) return;
+    let cancelled = false;
+    void getDefaultAuthorId()
+      .then((id) => {
+        if (!cancelled) {
+          setDefaultAuthorId(id);
+          lastPersistedAuthorIdRef.current = id;
+          setDefaultAuthorIdLoaded(true);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          console.error("Failed to load default author id:", err);
+          setDefaultAuthorIdLoaded(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, activeSection, defaultAuthorIdLoaded]);
 
   const organizePreviewPath = useMemo(() => {
     if (!settings) return null;
@@ -325,6 +357,31 @@ export function PreferencesModal() {
     }
   };
 
+  const trimmedDefaultAuthorId = defaultAuthorId.trim();
+  const defaultAuthorIdValid =
+    trimmedDefaultAuthorId.length === 0 || isAuthorId(trimmedDefaultAuthorId);
+
+  const persistDefaultAuthorId = async () => {
+    if (savingDefaultAuthorId) return;
+    if (!defaultAuthorIdValid) {
+      setDefaultAuthorId(lastPersistedAuthorIdRef.current);
+      return;
+    }
+    setSavingDefaultAuthorId(true);
+    setError(null);
+    try {
+      const saved = await saveDefaultAuthorId(trimmedDefaultAuthorId);
+      setDefaultAuthorId(saved);
+      lastPersistedAuthorIdRef.current = saved;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      setDefaultAuthorId(lastPersistedAuthorIdRef.current);
+    } finally {
+      setSavingDefaultAuthorId(false);
+    }
+  };
+
   const handleClearListeningHistory = async (withinHours: number | null) => {
     setClearingHistory(true);
     setError(null);
@@ -377,23 +434,25 @@ export function PreferencesModal() {
         </ModalHeader>
 
         <ModalBody className="preferences__body">
-          <aside className="preferences__sidebar" aria-label="Preference categories">
-            <nav>
-              <ul className="preferences__nav">
-                {PREFERENCES_SECTIONS.map((item) => (
-                  <li key={item.id}>
-                    <SidebarItem
-                      icon={item.icon}
-                      active={activeSection === item.id}
-                      onClick={() => setActiveSection(item.id)}
-                    >
-                      {item.label}
-                    </SidebarItem>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          </aside>
+          <SidebarFrame
+            as="aside"
+            aria-label="Preference categories"
+            className="preferences__sidebar"
+          >
+            <SidebarList>
+              {PREFERENCES_SECTIONS.map((item) => (
+                <li key={item.id}>
+                  <SidebarItem
+                    icon={item.icon}
+                    active={activeSection === item.id}
+                    onClick={() => setActiveSection(item.id)}
+                  >
+                    {item.label}
+                  </SidebarItem>
+                </li>
+              ))}
+            </SidebarList>
+          </SidebarFrame>
 
           <div className="preferences__content">
             {activeSection === "library" && (
@@ -628,8 +687,10 @@ export function PreferencesModal() {
                         ? "preferences__action-btn preferences__action-btn--success"
                         : undefined
                     }
-                    onClick={() =>
-                      toggleClearRangeMenu(clearHistoryTriggerRef.current)
+                    onClick={(e) =>
+                      toggleClearRangeMenu(clearHistoryTriggerRef.current, {
+                        keyboard: e.detail === 0,
+                      })
                     }
                     disabled={clearingHistory}
                     aria-haspopup="menu"
@@ -654,6 +715,7 @@ export function PreferencesModal() {
                     anchor={clearRangeAnchor}
                     position={clearRangePosition}
                     menuRef={clearRangeMenuRef}
+                    focusFirstItem={clearRangeOpenedWithKeyboard}
                   >
                     {CLEAR_HISTORY_RANGES.flatMap((range) => {
                       const item = (
@@ -817,6 +879,35 @@ export function PreferencesModal() {
                     "Clear remote metadata cache"
                   )}
                 </Button>
+              </div>
+            )}
+
+            {activeSection === "studio" && (
+              <div className="preferences__panel">
+                <FormField
+                  label="Default Author ID"
+                  description={
+                    defaultAuthorId.length > 0 && !defaultAuthorIdValid
+                      ? "Use lowercase letters, numbers, and hyphens (e.g. jane-doe)."
+                      : "Seeded into new workshop packs as authorId. Changing this does not rewrite existing packs."
+                  }
+                >
+                  <TextInput
+                    value={defaultAuthorId}
+                    onChange={(e) => setDefaultAuthorId(e.target.value)}
+                    onBlur={() => void persistDefaultAuthorId()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void persistDefaultAuthorId();
+                      }
+                    }}
+                    placeholder="jane-doe"
+                    spellCheck={false}
+                    autoComplete="off"
+                    disabled={!defaultAuthorIdLoaded || savingDefaultAuthorId}
+                  />
+                </FormField>
               </div>
             )}
 

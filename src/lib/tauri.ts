@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import type { PackSummary } from "../types/pack";
 import type {
   LibraryDestinationInfo,
   LibraryRelocateMode,
@@ -13,7 +14,7 @@ import type { PlaybackSession } from "../types/playbackSession";
 import type { Theme } from "../types/theme";
 import type { LoadedSkinPack, SkinSummary } from "../types/skin";
 import type { SkinUserPreferences } from "../types/skinPreferences";
-import type { LoadedVisualizerPack, VizSummary } from "../types/visualizer";
+import type { LoadedVisualizer, VizSummary } from "../types/visualizer";
 import type { CoverArtCandidate } from "../types/coverArt";
 import type { Playlist } from "../types/playlist";
 import type { PlaybackSettings } from "../types/playbackSettings";
@@ -594,16 +595,191 @@ export async function saveActiveThemeId(themeId: string): Promise<void> {
   return invoke<void>("save_active_theme_id", { themeId });
 }
 
-export async function openThemesFolder(): Promise<void> {
-  return invoke<void>("open_themes_folder");
+export interface CreateWorkshopThemeArgs {
+  name?: string | null;
+  /** Add the theme to this existing workshop pack (omit to create a new pack). */
+  packId?: string | null;
+  /** Display name for a new pack; defaults to the theme name. Ignored when packId is set. */
+  packName?: string | null;
+}
+
+export async function createWorkshopTheme(
+  args?: CreateWorkshopThemeArgs,
+): Promise<Theme> {
+  return invoke<Theme>("create_workshop_theme", {
+    name: args?.name ?? null,
+    packId: args?.packId ?? null,
+    packName: args?.packName ?? null,
+  });
+}
+
+export async function saveWorkshopTheme(theme: Theme): Promise<Theme> {
+  return invoke<Theme>("save_workshop_theme", { theme });
+}
+
+export async function deleteWorkshopTheme(themeId: string): Promise<void> {
+  return invoke<void>("delete_workshop_theme", { themeId });
+}
+
+export interface InstallPackResult {
+  packId: string;
+  version: string;
+  name: string;
+  packDir: string;
+  contributionCount: number;
+}
+
+/** Install a `.spk` into `packs/installed/`. Omit path to open a file picker. */
+export async function installPack(
+  path?: string | null,
+): Promise<InstallPackResult | null> {
+  return invoke<InstallPackResult | null>("install_pack", {
+    path: path ?? null,
+  });
+}
+
+export async function listPacks(): Promise<PackSummary[]> {
+  return invoke<PackSummary[]>("list_packs");
+}
+
+/** Create an empty workshop pack; returns the new packId. */
+export async function createWorkshopPack(args: {
+  name: string;
+  description: string;
+}): Promise<string> {
+  return invoke<string>("create_workshop_pack", {
+    name: args.name,
+    description: args.description,
+  });
+}
+
+/** Link an external pack folder. Omit path to open a directory picker. */
+export async function linkPackFolder(
+  path?: string | null,
+): Promise<string | null> {
+  return invoke<string | null>("link_pack_folder", { path: path ?? null });
+}
+
+/** Remove a path from linkedPackPaths; never deletes the folder. */
+export async function unlinkPack(path: string): Promise<void> {
+  return invoke<void>("unlink_pack", { path });
+}
+
+export async function getPackScanWarnings(): Promise<string[]> {
+  return invoke<string[]>("get_pack_scan_warnings");
+}
+
+export async function updateWorkshopPackMetadata(
+  packId: string,
+  metadata: {
+    packId: string;
+    authorId: string;
+    name: string;
+    version: string;
+    description: string;
+  },
+): Promise<string> {
+  return invoke<string>("update_workshop_pack_metadata", {
+    packId,
+    newPackId: metadata.packId,
+    authorId: metadata.authorId,
+    name: metadata.name,
+    version: metadata.version,
+    description: metadata.description,
+  });
+}
+
+export async function updateLinkedPackMetadata(
+  packDir: string,
+  metadata: {
+    packId: string;
+    authorId: string;
+    name: string;
+    version: string;
+    description: string;
+  },
+): Promise<string> {
+  return invoke<string>("update_linked_pack_metadata", {
+    packDir,
+    newPackId: metadata.packId,
+    authorId: metadata.authorId,
+    name: metadata.name,
+    version: metadata.version,
+    description: metadata.description,
+  });
+}
+
+/** Preferences → Studio → Default Author ID. */
+export async function getDefaultAuthorId(): Promise<string> {
+  return invoke<string>("get_default_author_id");
+}
+
+/** Persist Default Author ID (kebab slug). Empty input reseeds from the OS username. */
+export async function saveDefaultAuthorId(authorId: string): Promise<string> {
+  return invoke<string>("save_default_author_id", { authorId });
+}
+
+/** Optional pack-root README.md; `null` when the file is absent. */
+export async function readPackReadme(packDir: string): Promise<string | null> {
+  return invoke<string | null>("read_pack_readme", { packDir });
+}
+
+/** Write or delete pack-root README.md for workshop/linked (empty/whitespace deletes). */
+export async function writePackReadme(
+  packDir: string,
+  content: string,
+): Promise<void> {
+  return invoke<void>("write_pack_readme", { packDir, content });
+}
+
+export async function deleteWorkshopPack(packId: string): Promise<void> {
+  return invoke<void>("delete_workshop_pack", { packId });
+}
+
+export interface DeleteWorkshopContributionResult {
+  packId: string;
+  packRemoved: boolean;
+}
+
+export async function deleteWorkshopContribution(
+  contributionId: string,
+): Promise<DeleteWorkshopContributionResult> {
+  return invoke<DeleteWorkshopContributionResult>("delete_workshop_contribution", {
+    contributionId,
+  });
+}
+
+export async function uninstallPack(
+  packId: string,
+  version: string,
+): Promise<void> {
+  return invoke<void>("uninstall_pack", { packId, version });
+}
+
+export async function rollbackPack(
+  packId: string,
+  version: string,
+): Promise<string[]> {
+  return invoke<string[]>("rollback_pack", { packId, version });
+}
+
+export async function setContributionHidden(
+  contributionId: string,
+  hidden: boolean,
+): Promise<string[]> {
+  return invoke<string[]>("set_contribution_hidden", {
+    contributionId,
+    hidden,
+  });
 }
 
 export async function revealPathInFileManager(path: string): Promise<void> {
   await revealItemInDir(path);
 }
 
-export async function importUserTheme(): Promise<Theme | null> {
-  return invoke<Theme | null>("import_user_theme");
+/** Open a path with the system default app (directories open in the file manager). */
+export async function openPathInFileManager(path: string): Promise<void> {
+  await openPath(path);
 }
 
 export async function listSkins(): Promise<SkinSummary[]> {
@@ -630,10 +806,6 @@ export async function saveActiveSkinView(viewId: string): Promise<void> {
   return invoke<void>("save_active_skin_view", { viewId });
 }
 
-export async function openSkinsFolder(): Promise<void> {
-  return invoke<void>("open_skins_folder");
-}
-
 export async function getSkinPreferences(
   skinId: string,
 ): Promise<SkinUserPreferences> {
@@ -651,22 +823,20 @@ export async function listVisualizers(): Promise<VizSummary[]> {
   return invoke<VizSummary[]>("list_visualizers");
 }
 
-export async function loadVisualizerPack(
-  packId: string,
-): Promise<LoadedVisualizerPack> {
-  return invoke<LoadedVisualizerPack>("load_visualizer_pack", { packId });
+export async function loadVisualizer(
+  visualizerId: string,
+): Promise<LoadedVisualizer> {
+  return invoke<LoadedVisualizer>("load_visualizer", { visualizerId });
 }
 
 export async function getActiveVisualizerId(): Promise<string> {
   return invoke<string>("get_active_visualizer_id");
 }
 
-export async function saveActiveVisualizerId(packId: string): Promise<void> {
-  return invoke<void>("save_active_visualizer_id", { packId });
-}
-
-export async function openVisualizersFolder(): Promise<void> {
-  return invoke<void>("open_visualizers_folder");
+export async function saveActiveVisualizerId(
+  visualizerId: string,
+): Promise<void> {
+  return invoke<void>("save_active_visualizer_id", { visualizerId });
 }
 
 export interface EqualizerSettings {

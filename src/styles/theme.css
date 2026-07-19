@@ -6,11 +6,25 @@
   --color-border: #2a2a32;
   --color-text-primary: #f0f0f0;
   --color-text-secondary: #888899;
+  --color-text-muted: #6a6a7a;
   --color-accent: #7b8cde;
   --color-accent-muted: #3a4170;
-  --color-link: var(--color-accent);
+  --color-accent-text: #ffffff;
   --color-danger: #e06c75;
   --color-danger-bg: #2a1518;
+  --color-interactive: #7b8cde;
+  --color-interactive-selected-text: #7b8cde;
+  /* App-owned wash strengths — themes supply solid --color-interactive only */
+  --color-interactive-hover: color-mix(
+    in srgb,
+    var(--color-interactive) 7%,
+    transparent
+  );
+  --color-interactive-selected: color-mix(
+    in srgb,
+    var(--color-interactive) 12%,
+    transparent
+  );
   --color-alert-info: #9aa8e8;
   --color-alert-info-bg: #1a1f35;
   --color-alert-info-border: #3a4570;
@@ -29,7 +43,8 @@
   --focus-ring-inset: inset 0 0 0 var(--focus-ring-width) var(--focus-ring-color);
   --radius-card: 10px;
   --radius-button: 6px;
-  --radius-sm: var(--radius-button);
+  --radius-input: 6px;
+  --radius-sm: var(--radius-input);
   --radius-md: var(--radius-card);
   --font-ui: "Inter", system-ui, -apple-system, sans-serif;
 
@@ -62,8 +77,8 @@
   --track-row-title-indent: calc(
     var(--track-row-indicator-width) + var(--track-row-indicator-gap)
   );
-  --track-row-bg-hover: color-mix(in srgb, var(--color-accent) 7%, transparent);
-  --track-row-bg-selected: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  --track-row-bg-hover: var(--color-interactive-hover);
+  --track-row-bg-selected: var(--color-interactive-selected);
 
   --scrollbar-size: 12px;
   --scrollbar-track-bg: var(--color-surface);

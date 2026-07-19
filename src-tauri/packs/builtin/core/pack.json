@@ -1,0 +1,8 @@
+{
+  "manifestVersion": 1,
+  "name": "Core",
+  "description": "Built-in customizations for Spiral.",
+  "version": "1.0.0",
+  "packId": "core",
+  "authorId": "spiral"
+}

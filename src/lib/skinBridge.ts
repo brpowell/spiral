@@ -35,7 +35,7 @@ async function reloadSkinOnSkinModeWindow(): Promise<void> {
 async function refreshAppearanceData(): Promise<void> {
   await Promise.all([
     useThemeStore.getState().loadThemes(),
-    useVisualizerStore.getState().loadPacks(),
+    useVisualizerStore.getState().loadVisualizers(),
     useSkinStore.getState().loadSkins(),
   ]);
 }

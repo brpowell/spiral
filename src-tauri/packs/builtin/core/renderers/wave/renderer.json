@@ -1,0 +1,9 @@
+{
+  "$schema": "../../../../../schemas/renderer-v1.schema.json",
+  "id": "wave",
+  "name": "Wave",
+  "author": "Spiral",
+  "description": "Time-domain waveform renderer.",
+  "engine": "canvas2d",
+  "entry": "index.js"
+}

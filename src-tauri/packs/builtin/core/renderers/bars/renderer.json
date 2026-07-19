@@ -1,0 +1,9 @@
+{
+  "$schema": "../../../../../schemas/renderer-v1.schema.json",
+  "id": "bars",
+  "name": "Bars",
+  "author": "Spiral",
+  "description": "Frequency bars renderer.",
+  "engine": "canvas2d",
+  "entry": "index.js"
+}

@@ -35,11 +35,18 @@ export function MenuButton({
   title,
 }: MenuButtonProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const { open, anchor, position, menuRef, toggleFromTrigger, closeMenu } =
-    useContextMenu({
-      layoutDeps,
-      dismissExcludeRefs: [triggerRef],
-    });
+  const {
+    open,
+    anchor,
+    position,
+    menuRef,
+    openedWithKeyboard,
+    toggleFromTrigger,
+    closeMenu,
+  } = useContextMenu({
+    layoutDeps,
+    dismissExcludeRefs: [triggerRef],
+  });
 
   const menuContent =
     typeof children === "function" ? children(closeMenu) : children;
@@ -58,7 +65,9 @@ export function MenuButton({
         aria-expanded={open}
         aria-haspopup="menu"
         title={title}
-        onClick={() => toggleFromTrigger(triggerRef.current)}
+        onClick={(e) =>
+          toggleFromTrigger(triggerRef.current, { keyboard: e.detail === 0 })
+        }
       >
         {icon}
       </Button>
@@ -67,6 +76,7 @@ export function MenuButton({
         anchor={anchor}
         position={position}
         menuRef={menuRef}
+        focusFirstItem={openedWithKeyboard}
       >
         {menuContent}
       </ContextMenu>

@@ -43,21 +43,21 @@ a.sidebar-item {
 
 .sidebar-item.btn--ghost:hover:not(:disabled):not(.sidebar-item--active),
 a.sidebar-item:hover:not(.sidebar-item--active) {
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  background: var(--color-interactive-hover);
   color: var(--color-text-primary);
   border-color: transparent;
 }
 
 .sidebar-item--active.btn--ghost,
 a.sidebar-item--active {
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-  color: var(--color-accent);
+  background: var(--color-interactive-selected);
+  color: var(--color-interactive-selected-text, var(--color-accent));
 }
 
 .sidebar-item--active.btn--ghost:hover:not(:disabled),
 a.sidebar-item--active:hover {
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-  color: var(--color-accent);
+  background: var(--color-interactive-selected);
+  color: var(--color-interactive-selected-text, var(--color-accent));
   border-color: transparent;
 }
 

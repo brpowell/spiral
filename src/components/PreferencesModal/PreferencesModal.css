@@ -16,22 +16,9 @@
 }
 
 .preferences__sidebar {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  width: 11.5rem;
-  border-right: 1px solid var(--color-border);
-  background: var(--color-surface);
-}
-
-.preferences__nav {
-  list-style: none;
-  margin: 0;
-  padding: 0.5rem 0.35rem;
-}
-
-.preferences__nav li {
-  margin: 0;
+  /* Width / padding / item chrome come from SidebarFrame; keep modal-specific height fill. */
+  align-self: stretch;
+  height: auto;
 }
 
 .preferences__content {

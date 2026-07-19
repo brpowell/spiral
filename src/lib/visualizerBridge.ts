@@ -6,11 +6,11 @@ import { isAnySkinWindow, isAppearanceWindow } from "./windowRole";
 export const VISUALIZER_CHANGED_EVENT = "visualizer://changed";
 
 export interface VisualizerChangedPayload {
-  packId: string;
+  visualizerId: string;
 }
 
-async function applyVisualizerChange(packId: string): Promise<void> {
-  await useVisualizerStore.getState().applyActivePack(packId);
+async function applyVisualizerChange(visualizerId: string): Promise<void> {
+  await useVisualizerStore.getState().applyActiveVisualizer(visualizerId);
 }
 
 function shouldListenForVisualizerChanges(role: WindowRole): boolean {
@@ -27,9 +27,11 @@ export async function initVisualizerBridge(
   const unlisten = await listen<VisualizerChangedPayload>(
     VISUALIZER_CHANGED_EVENT,
     (event) => {
-      void applyVisualizerChange(event.payload.packId).catch((err: unknown) => {
-        console.error("Failed to apply visualizer change:", err);
-      });
+      void applyVisualizerChange(event.payload.visualizerId).catch(
+        (err: unknown) => {
+          console.error("Failed to apply visualizer change:", err);
+        },
+      );
     },
   );
 
@@ -38,6 +40,8 @@ export async function initVisualizerBridge(
   };
 }
 
-export function emitVisualizerChanged(packId: string): void {
-  void emit(VISUALIZER_CHANGED_EVENT, { packId } satisfies VisualizerChangedPayload);
+export function emitVisualizerChanged(visualizerId: string): void {
+  void emit(VISUALIZER_CHANGED_EVENT, {
+    visualizerId,
+  } satisfies VisualizerChangedPayload);
 }

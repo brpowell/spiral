@@ -5,15 +5,21 @@ import {
   findThemeById,
   resolveActiveThemeId,
 } from "../lib/theme";
-import { emitThemeChanged } from "../lib/themeBridge";
+import { emitThemeChanged, getLiveThemePreview } from "../lib/themeBridge";
 import {
+  createWorkshopTheme,
+  deleteWorkshopTheme,
   getActiveThemeId,
   getBuiltinThemes,
-  importUserTheme,
   loadUserThemes,
-  openThemesFolder,
   saveActiveThemeId,
+  saveWorkshopTheme,
 } from "../lib/tauri";
+import {
+  formatThemeValidationError,
+  validateThemeForApply,
+  validateThemeForSave,
+} from "../lib/themeValidation";
 import type { Theme } from "../types/theme";
 
 interface ThemeState {
@@ -26,17 +32,35 @@ interface ThemeState {
     activeThemeId: string,
   ) => void;
   setTheme: (themeId: string) => Promise<void>;
-  importTheme: () => Promise<void>;
-  openThemesFolder: () => Promise<void>;
+  createTheme: (args?: {
+    name?: string;
+    packId?: string;
+    packName?: string;
+  }) => Promise<Theme>;
+  saveTheme: (theme: Theme) => Promise<Theme>;
+  deleteTheme: (themeId: string) => Promise<void>;
 }
 
 function applyActiveTheme(themes: Theme[], activeThemeId: string): string {
   const resolvedId = resolveActiveThemeId(themes, activeThemeId);
-  const theme = findThemeById(themes, resolvedId);
-  if (theme) {
-    applyTheme(theme);
+  const preview = getLiveThemePreview();
+  if (preview && preview.id === resolvedId) {
+    // Keep unsaved editor draft visible across window focus / list reloads.
+    applyTheme(preview, { transition: false });
+  } else {
+    const theme = findThemeById(themes, resolvedId);
+    if (theme) {
+      applyTheme(theme);
+    }
   }
   return resolvedId;
+}
+
+function upsertTheme(themes: Theme[], theme: Theme): Theme[] {
+  const next = themes.filter((t) => t.id !== theme.id);
+  next.push(theme);
+  next.sort((a, b) => a.name.localeCompare(b.name));
+  return next;
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
@@ -70,21 +94,42 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     const theme = findThemeById(themes, themeId);
     if (!theme) return;
 
+    const issues = validateThemeForApply(theme);
+    if (issues.length > 0) {
+      throw new Error(formatThemeValidationError(issues));
+    }
+
     applyTheme(theme);
     set({ activeThemeId: theme.id });
     await saveActiveThemeId(theme.id);
     emitThemeChanged(theme.id);
   },
 
-  importTheme: async () => {
-    const imported = await importUserTheme();
-    if (!imported) return;
-
-    await get().loadThemes();
-    await get().setTheme(imported.id);
+  createTheme: async (args) => {
+    const theme = await createWorkshopTheme(args);
+    set({ themes: upsertTheme(get().themes, theme) });
+    return theme;
   },
 
-  openThemesFolder: async () => {
-    await openThemesFolder();
+  saveTheme: async (theme) => {
+    const issues = validateThemeForSave(theme);
+    if (issues.length > 0) {
+      throw new Error(formatThemeValidationError(issues));
+    }
+    const saved = await saveWorkshopTheme(theme);
+    const { themes, activeThemeId } = get();
+    const nextThemes = upsertTheme(themes, saved);
+    if (activeThemeId === saved.id) {
+      applyTheme(saved);
+    }
+    set({ themes: nextThemes });
+    emitThemeChanged(saved.id);
+    return saved;
+  },
+
+  deleteTheme: async (themeId) => {
+    await deleteWorkshopTheme(themeId);
+    await get().loadThemes();
+    emitThemeChanged(get().activeThemeId);
   },
 }));

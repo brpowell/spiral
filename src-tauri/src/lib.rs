@@ -44,6 +44,7 @@ mod session;
 mod settings;
 mod track_list_prefs;
 mod vorbis_container;
+mod packs;
 mod zip_import;
 mod skin_preferences;
 #[cfg(test)]
@@ -80,6 +81,12 @@ pub fn run() {
 
             activity_log::init(app.handle().clone());
             crash_report::init(app.handle().clone());
+
+            if let Err(err) = packs::ensure_packs_ready(app.handle()) {
+                eprintln!("pack dirs on startup: {err}");
+            }
+
+            packs::start_workshop_watch(app.handle().clone());
 
             if let Err(err) = metadata_backup::run_scheduled_cleanup(app.handle()) {
                 eprintln!("metadata backup cleanup on startup: {err}");
@@ -142,20 +149,39 @@ pub fn run() {
             commands::themes::load_user_themes,
             commands::themes::save_active_theme_id,
             commands::themes::get_active_theme_id,
-            commands::themes::open_themes_folder,
-            commands::themes::import_user_theme,
+            commands::themes::create_workshop_theme,
+            commands::themes::save_workshop_theme,
+            commands::themes::delete_workshop_theme,
+            commands::packs::install_pack,
+            commands::packs::get_workshop_export_defaults,
+            commands::packs::export_workshop_pack,
+            commands::packs::list_packs,
+            commands::packs::create_workshop_pack,
+            commands::packs::link_pack_folder,
+            commands::packs::unlink_pack,
+            commands::packs::get_pack_scan_warnings,
+            commands::packs::update_workshop_pack_metadata,
+            commands::packs::update_linked_pack_metadata,
+            commands::packs::read_pack_readme,
+            commands::packs::write_pack_readme,
+            commands::packs::delete_workshop_pack,
+            commands::packs::delete_workshop_contribution,
+            commands::packs::uninstall_pack,
+            commands::packs::rollback_pack,
+            commands::packs::set_contribution_hidden,
+            commands::packs::get_default_author_id,
+            commands::packs::save_default_author_id,
             commands::skins::list_skins,
             commands::skins::load_skin_pack,
             commands::skins::save_active_skin_id,
             commands::skins::get_active_skin_id,
             commands::skins::save_active_skin_view,
             commands::skins::get_active_skin_view,
-            commands::skins::open_skins_folder,
             commands::visualizers::list_visualizers,
-            commands::visualizers::load_visualizer_pack,
+            commands::visualizers::load_visualizer,
+            commands::visualizers::read_viz_renderer_source,
             commands::visualizers::save_active_visualizer_id,
             commands::visualizers::get_active_visualizer_id,
-            commands::visualizers::open_visualizers_folder,
             commands::equalizer::get_equalizer_settings,
             commands::equalizer::save_equalizer_settings,
             commands::equalizer::list_equalizer_custom_presets,

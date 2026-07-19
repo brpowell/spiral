@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import {
-  focusFirstContextMenuItem,
+  focusContextMenuOnOpen,
   getContextMenuItems,
   handleContextMenuKeyDown,
 } from "./contextMenuKeyboard";
@@ -9,6 +9,7 @@ import {
 function buildMenu() {
   const menu = document.createElement("div");
   menu.setAttribute("role", "menu");
+  menu.tabIndex = -1;
   menu.innerHTML = `
     <button type="button" role="menuitem">First</button>
     <div class="context-menu__separator" role="separator"></div>
@@ -57,9 +58,16 @@ describe("contextMenuKeyboard", () => {
     menu.remove();
   });
 
-  it("focuses the first item when a menu opens", () => {
+  it("focuses the menu root for pointer opens", () => {
     const menu = buildMenu();
-    focusFirstContextMenuItem(menu);
+    focusContextMenuOnOpen(menu, false);
+    expect(document.activeElement).toBe(menu);
+    menu.remove();
+  });
+
+  it("focuses the first item for keyboard opens", () => {
+    const menu = buildMenu();
+    focusContextMenuOnOpen(menu, true);
     expect(document.activeElement).toBe(getContextMenuItems(menu)[0]);
     menu.remove();
   });
@@ -67,6 +75,7 @@ describe("contextMenuKeyboard", () => {
   it("ignores suggestion menus that use a listbox", () => {
     const menu = document.createElement("div");
     menu.setAttribute("role", "menu");
+    menu.tabIndex = -1;
     menu.innerHTML = `
       <div role="listbox">
         <button type="button" role="option">One</button>
@@ -75,6 +84,9 @@ describe("contextMenuKeyboard", () => {
     document.body.appendChild(menu);
     const option = menu.querySelector('[role="option"]') as HTMLButtonElement;
     option.focus();
+
+    focusContextMenuOnOpen(menu, false);
+    expect(document.activeElement).toBe(option);
 
     const handled = handleContextMenuKeyDown(
       {

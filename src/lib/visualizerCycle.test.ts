@@ -13,6 +13,10 @@ const packs: VizSummary[] = [
     author: "Spiral",
     description: "",
     isBuiltin: true,
+    packId: "core",
+    packName: "Core",
+    packVersion: "1.0.0",
+    zone: "builtin",
     previewPath: null,
   },
   {
@@ -21,6 +25,10 @@ const packs: VizSummary[] = [
     author: "Spiral",
     description: "",
     isBuiltin: true,
+    packId: "core",
+    packName: "Core",
+    packVersion: "1.0.0",
+    zone: "builtin",
     previewPath: null,
   },
   {
@@ -29,6 +37,10 @@ const packs: VizSummary[] = [
     author: "Spiral",
     description: "",
     isBuiltin: true,
+    packId: "core",
+    packName: "Core",
+    packVersion: "1.0.0",
+    zone: "builtin",
     previewPath: null,
   },
 ];

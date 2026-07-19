@@ -1,111 +1,113 @@
 import { create } from "zustand";
 import {
   DEFAULT_VISUALIZER_ID,
-  loadedPackToVisualizerPack,
-} from "../lib/visualizerPack";
+  toVisualizer,
+} from "../lib/resolveVisualizer";
 import {
   getActiveVisualizerId,
   listVisualizers,
-  loadVisualizerPack,
-  openVisualizersFolder,
+  loadVisualizer,
   saveActiveVisualizerId,
 } from "../lib/tauri";
 import type { VizSummary } from "../types/visualizer";
-import type { VisualizerPack } from "../components/visualizer/types";
-import { BARS_FALLBACK_PACK } from "../components/visualizer/packs";
+import type { Visualizer } from "../components/visualizer/types";
+import { BARS_FALLBACK_VISUALIZER } from "../components/visualizer/fallbackVisualizer";
 import { emitVisualizerChanged } from "../lib/visualizerBridge";
 import { adjacentVisualizerId } from "../lib/visualizerCycle";
 
 interface VisualizerState {
-  packs: VizSummary[];
-  activePackId: string;
-  packCache: Record<string, VisualizerPack>;
-  loadPacks: () => Promise<void>;
+  visualizers: VizSummary[];
+  activeVisualizerId: string;
+  visualizerCache: Record<string, Visualizer>;
+  loadVisualizers: () => Promise<void>;
   initializeFromBootstrap: (
-    packs: VizSummary[],
-    activePackId: string,
-    initialCache: Record<string, VisualizerPack>,
+    visualizers: VizSummary[],
+    activeVisualizerId: string,
+    initialCache: Record<string, Visualizer>,
   ) => void;
-  setActivePack: (packId: string) => Promise<void>;
-  cycleActivePack: (direction: "next" | "prev") => Promise<void>;
-  /** Update active pack in memory (and cache). Used by cross-window sync. */
-  applyActivePack: (packId: string) => Promise<void>;
-  getPack: (packId: string) => Promise<VisualizerPack>;
-  openVisualizersFolder: () => Promise<void>;
+  setActiveVisualizer: (visualizerId: string) => Promise<void>;
+  cycleActiveVisualizer: (direction: "next" | "prev") => Promise<void>;
+  /** Update active visualizer in memory (and cache). Used by cross-window sync. */
+  applyActiveVisualizer: (visualizerId: string) => Promise<void>;
+  getVisualizer: (visualizerId: string) => Promise<Visualizer>;
 }
 
 export const useVisualizerStore = create<VisualizerState>((set, get) => ({
-  packs: [],
-  activePackId: DEFAULT_VISUALIZER_ID,
-  packCache: { [DEFAULT_VISUALIZER_ID]: BARS_FALLBACK_PACK },
+  visualizers: [],
+  activeVisualizerId: DEFAULT_VISUALIZER_ID,
+  visualizerCache: { [DEFAULT_VISUALIZER_ID]: BARS_FALLBACK_VISUALIZER },
 
-  initializeFromBootstrap: (packs, activePackId, initialCache) => {
+  initializeFromBootstrap: (visualizers, activeVisualizerId, initialCache) => {
     set({
-      packs,
-      activePackId,
-      packCache: initialCache,
+      visualizers,
+      activeVisualizerId,
+      visualizerCache: initialCache,
     });
   },
 
-  loadPacks: async () => {
-    const [summaries, activePackId] = await Promise.all([
+  loadVisualizers: async () => {
+    const [summaries, activeVisualizerId] = await Promise.all([
       listVisualizers(),
       getActiveVisualizerId(),
     ]);
-    const resolvedId = summaries.some((pack) => pack.id === activePackId)
-      ? activePackId
+    const resolvedId = summaries.some((v) => v.id === activeVisualizerId)
+      ? activeVisualizerId
       : DEFAULT_VISUALIZER_ID;
 
-    let activePack = BARS_FALLBACK_PACK;
+    let active = BARS_FALLBACK_VISUALIZER;
     try {
-      const loaded = await loadVisualizerPack(resolvedId);
-      activePack = loadedPackToVisualizerPack(loaded);
+      const loaded = await loadVisualizer(resolvedId);
+      active = toVisualizer(loaded);
     } catch (err) {
-      console.error(`Failed to load visualizer pack "${resolvedId}":`, err);
+      console.error(`Failed to load visualizer "${resolvedId}":`, err);
     }
 
     set({
-      packs: summaries,
-      activePackId: resolvedId,
-      packCache: { ...get().packCache, [resolvedId]: activePack },
+      visualizers: summaries,
+      activeVisualizerId: resolvedId,
+      visualizerCache: { ...get().visualizerCache, [resolvedId]: active },
     });
   },
 
-  setActivePack: async (packId) => {
-    await get().applyActivePack(packId);
-    await saveActiveVisualizerId(packId);
-    emitVisualizerChanged(packId);
+  setActiveVisualizer: async (visualizerId) => {
+    await get().applyActiveVisualizer(visualizerId);
+    await saveActiveVisualizerId(visualizerId);
+    emitVisualizerChanged(visualizerId);
   },
 
-  cycleActivePack: async (direction) => {
+  cycleActiveVisualizer: async (direction) => {
     const nextId = adjacentVisualizerId(
-      get().packs,
-      get().activePackId,
+      get().visualizers,
+      get().activeVisualizerId,
       direction,
     );
     if (!nextId) return;
-    await get().setActivePack(nextId);
+    await get().setActiveVisualizer(nextId);
   },
 
-  applyActivePack: async (packId) => {
-    const pack = await get().getPack(packId);
+  applyActiveVisualizer: async (visualizerId) => {
+    const visualizer = await get().getVisualizer(visualizerId);
     set({
-      activePackId: packId,
-      packCache: { ...get().packCache, [packId]: pack },
+      activeVisualizerId: visualizerId,
+      visualizerCache: {
+        ...get().visualizerCache,
+        [visualizerId]: visualizer,
+      },
     });
   },
 
-  getPack: async (packId) => {
-    const cached = get().packCache[packId];
+  getVisualizer: async (visualizerId) => {
+    const cached = get().visualizerCache[visualizerId];
     if (cached) return cached;
 
-    const loaded = await loadVisualizerPack(packId);
-    const pack = loadedPackToVisualizerPack(loaded);
-    set({ packCache: { ...get().packCache, [packId]: pack } });
-    return pack;
-  },
-
-  openVisualizersFolder: async () => {
-    await openVisualizersFolder();
+    const loaded = await loadVisualizer(visualizerId);
+    const visualizer = toVisualizer(loaded);
+    set({
+      visualizerCache: {
+        ...get().visualizerCache,
+        [visualizerId]: visualizer,
+      },
+    });
+    return visualizer;
   },
 }));

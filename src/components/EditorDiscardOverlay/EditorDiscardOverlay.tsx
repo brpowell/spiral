@@ -9,6 +9,10 @@ interface EditorDiscardOverlayProps {
   description: string;
   onKeepEditing: () => void;
   onDiscard: () => void;
+  /** When set, shows a Save action (e.g. theme editor unsaved close). */
+  onSave?: () => void;
+  saveLabel?: string;
+  saveDisabled?: boolean;
 }
 
 export function EditorDiscardOverlay({
@@ -16,6 +20,9 @@ export function EditorDiscardOverlay({
   description,
   onKeepEditing,
   onDiscard,
+  onSave,
+  saveLabel = "Save",
+  saveDisabled = false,
 }: EditorDiscardOverlayProps) {
   const titleId = useId();
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -43,16 +50,31 @@ export function EditorDiscardOverlay({
         >
           <motion.div className="track-editor__discard-dialog" {...panelMotion}>
             <p id={titleId} className="track-editor__discard-title">
-              Discard changes?
+              {onSave ? "Save changes?" : "Discard changes?"}
             </p>
             <p className="track-editor__discard-desc">{description}</p>
             <div className="track-editor__discard-actions">
-              <Button variant="ghost" size="sm" onClick={onKeepEditing}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="track-editor__discard-keep"
+                onClick={onKeepEditing}
+              >
                 Keep editing
               </Button>
               <Button variant="danger" size="sm" onClick={onDiscard}>
                 Discard
               </Button>
+              {onSave ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={saveDisabled}
+                  onClick={onSave}
+                >
+                  {saveLabel}
+                </Button>
+              ) : null}
             </div>
           </motion.div>
         </motion.div>

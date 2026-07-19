@@ -1,7 +1,11 @@
 import { useRef, type KeyboardEvent } from "react";
 import { IconClose, IconSearch } from "../icons";
-import { Button } from "../common/Button/Button";
-import { TextInput } from "../common/TextInput/TextInput";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "../common/InputGroup/InputGroup";
 import "./SearchField.css";
 
 export interface SearchFieldProps {
@@ -33,16 +37,10 @@ export function SearchField({
     e.currentTarget.blur();
   };
 
-  const rootClass = ["search-field", className].filter(Boolean).join(" ");
-
-  const focusInput = () => inputRef.current?.focus();
-
   return (
-    <div className={rootClass} onClick={focusInput}>
-      <IconSearch aria-hidden />
-      <TextInput
+    <InputGroup className={["search-field", className].filter(Boolean).join(" ")}>
+      <InputGroupInput
         ref={inputRef}
-        variant="ghost"
         role="searchbox"
         placeholder={placeholder}
         value={value}
@@ -50,22 +48,23 @@ export function SearchField({
         onEscape={handleEscape}
         aria-label={ariaLabel}
       />
-      <Button
-        variant="ghost"
-        size="sm"
-        iconOnly
-        className="search-field__clear"
-        onClick={(e) => {
-          e.stopPropagation();
-          clear(true);
-        }}
-        disabled={!value}
-        tabIndex={value ? 0 : -1}
-        aria-label="Clear search"
-        aria-hidden={!value}
+      <InputGroupAddon align="inline-start">
+        <IconSearch aria-hidden />
+      </InputGroupAddon>
+      <InputGroupAddon
+        align="inline-end"
+        className={!value ? "search-field__clear--hidden" : undefined}
       >
-        <IconClose />
-      </Button>
-    </div>
+        <InputGroupButton
+          aria-label="Clear search"
+          aria-hidden={!value}
+          tabIndex={value ? 0 : -1}
+          disabled={!value}
+          onClick={() => clear(true)}
+        >
+          <IconClose />
+        </InputGroupButton>
+      </InputGroupAddon>
+    </InputGroup>
   );
 }

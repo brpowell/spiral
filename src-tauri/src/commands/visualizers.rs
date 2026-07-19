@@ -1,20 +1,84 @@
 use crate::activity_log::{self, LogLevel};
+use crate::packs;
 use crate::settings;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::{Path, PathBuf};
-use tauri::path::BaseDirectory;
-use tauri::{AppHandle, Manager};
-use tauri_plugin_opener::OpenerExt;
+use std::path::Path;
+use tauri::AppHandle;
 
-const KNOWN_CANVAS_RENDERERS: &[&str] = &["bars", "wave", "spectrum"];
-const KNOWN_WEBGL_RENDERERS: &[&str] = &["neon-tunnel"];
 const SURFACE_DEFAULT: &str = "default";
-const KNOWN_SURFACES: &[&str] = &["mini", "panel", "expanded"];
-const AUTHORING_SURFACES: &[&str] = &["default", "mini", "panel", "expanded"];
-const KNOWN_LAYER_KINDS: &[&str] = &["canvas", "webgl", "image", "gif", "video", "group"];
-const ASSET_EXTENSIONS: &[&str] = &["png", "webp", "gif", "webm", "mp4"];
+const KNOWN_LAYER_KINDS: &[&str] = &["canvas", "webgl", "image", "video", "group"];
+const IMAGE_EXTENSIONS: &[&str] = &["png", "webp", "gif"];
+const VIDEO_EXTENSIONS: &[&str] = &["webm", "mp4"];
+
+/// `asset` is contribution-relative (`assets/foo.webm`), including prefix and extension.
+fn validate_media_asset(pack_dir: &Path, asset: &str, kind: &str, prefix: &str, errors: &mut Vec<String>) {
+    if asset.contains("..") || asset.starts_with('/') || asset.starts_with('\\') {
+        errors.push(format!(
+            "{prefix}.asset \"{asset}\" must be a relative path under assets/"
+        ));
+        return;
+    }
+    if !asset.starts_with("assets/") {
+        errors.push(format!(
+            "{prefix}.asset \"{asset}\" must start with assets/ and include the file extension"
+        ));
+        return;
+    }
+
+    let allowed: &[&str] = match kind {
+        "image" => IMAGE_EXTENSIONS,
+        "video" => VIDEO_EXTENSIONS,
+        _ => return,
+    };
+    let ext = Path::new(asset)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("");
+    if ext.is_empty() {
+        errors.push(format!(
+            "{prefix}.asset \"{asset}\" must include a file extension"
+        ));
+        return;
+    }
+    if !allowed.iter().any(|e| ext.eq_ignore_ascii_case(e)) {
+        errors.push(format!(
+            "{prefix}.asset \"{asset}\" extension .{ext} is not allowed for {kind} layers ({})",
+            allowed
+                .iter()
+                .map(|e| format!(".{e}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+        return;
+    }
+
+    let path = pack_dir.join(asset);
+    if !path.is_file() {
+        errors.push(format!(
+            "{prefix}.asset \"{asset}\" not found at {}",
+            path.display()
+        ));
+    }
+}
+
+/// Effective renderer id: `authorId.packId.renderer.contributionId`.
+fn is_renderer_effective_id(value: &str) -> bool {
+    let parts: Vec<&str> = value.split('.').collect();
+    parts.len() == 4
+        && parts.iter().all(|p| packs::is_kebab_slug(p))
+        && parts[2] == "renderer"
+}
+
+fn is_safe_pack_relative_js(path: &str) -> bool {
+    !path.is_empty()
+        && path.ends_with(".js")
+        && !path.contains("..")
+        && !path.starts_with('/')
+        && !path.starts_with('\\')
+        && !Path::new(path).is_absolute()
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -24,12 +88,16 @@ pub struct VizSummary {
     pub author: String,
     pub description: String,
     pub is_builtin: bool,
+    pub pack_id: String,
+    pub pack_name: String,
+    pub pack_version: String,
+    pub zone: packs::PackZone,
     pub preview_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LoadedVisualizerPack {
+pub struct LoadedVisualizer {
     pub summary: VizSummary,
     pub pack_dir: String,
     pub manifest: VizManifest,
@@ -38,29 +106,12 @@ pub struct LoadedVisualizerPack {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VizManifest {
-    pub version: u32,
     pub name: String,
     pub author: String,
     pub description: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
     pub surfaces: HashMap<String, VizSurfaceProfile>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reduced_surfaces: Option<HashMap<String, VizSurfaceProfile>>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct VizManifestRaw {
-    pub version: u32,
-    pub name: String,
-    pub author: String,
-    pub description: String,
-    #[serde(default)]
-    pub preview: Option<String>,
-    pub surfaces: HashMap<String, VizSurfaceProfile>,
-    #[serde(default)]
-    pub reduced_surfaces: Option<HashMap<String, VizSurfaceProfile>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,181 +120,42 @@ pub struct VizSurfaceProfile {
     pub scene: Vec<serde_json::Value>,
 }
 
-fn builtin_visualizers_root(app: &AppHandle) -> PathBuf {
-    let manifest_builtin =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("visualizers/builtin");
-
-    #[cfg(debug_assertions)]
-    if manifest_builtin.is_dir() {
-        return manifest_builtin;
+fn resolve_visualizer_id(stored: &str, known_ids: &HashSet<String>) -> String {
+    if known_ids.contains(stored) {
+        return stored.to_string();
     }
-
-    if let Ok(path) = app
-        .path()
-        .resolve("visualizers/builtin", BaseDirectory::Resource)
-    {
-        if path.is_dir() {
-            return path;
-        }
+    if known_ids.contains(settings::DEFAULT_VISUALIZER_ID) {
+        return settings::DEFAULT_VISUALIZER_ID.to_string();
     }
-    manifest_builtin
+    known_ids
+        .iter()
+        .next()
+        .cloned()
+        .unwrap_or_else(|| settings::DEFAULT_VISUALIZER_ID.to_string())
 }
 
-fn visualizers_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(settings::app_data_dir(app)?.join("visualizers"))
-}
-
-fn ensure_visualizers_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = visualizers_dir(app)?;
-    if !dir.exists() {
-        fs::create_dir_all(&dir)
-            .map_err(|e| format!("failed to create visualizers directory: {e}"))?;
-    }
-    Ok(dir)
-}
-
-fn pack_id_from_dir(dir: &Path) -> Option<String> {
-    dir.file_name().and_then(|n| n.to_str()).map(str::to_string)
-}
-
-fn expand_surface_defaults(
+fn normalize_surfaces(
     resolved: HashMap<String, VizSurfaceProfile>,
     prefix: &str,
-    strip_default: bool,
 ) -> Result<HashMap<String, VizSurfaceProfile>, String> {
     for key in resolved.keys() {
-        if !AUTHORING_SURFACES.contains(&key.as_str()) {
+        if key.as_str() != SURFACE_DEFAULT {
             return Err(format!(
-                "{prefix}.{key} is not a known surface (default, mini, panel, expanded)"
+                "{prefix}.{key} is not a known surface (default)"
             ));
         }
     }
 
-    let default = resolved.get(SURFACE_DEFAULT).ok_or_else(|| {
-        format!("{prefix}.{SURFACE_DEFAULT} is required")
-    })?;
-    let default_scene = default.scene.clone();
-
-    let mut expanded = HashMap::new();
-    for surface in KNOWN_SURFACES {
-        let profile = resolved
-            .get(*surface)
-            .cloned()
-            .unwrap_or_else(|| VizSurfaceProfile {
-                scene: default_scene.clone(),
-            });
-        expanded.insert(surface.to_string(), profile);
+    if !resolved.contains_key(SURFACE_DEFAULT) {
+        return Err(format!("{prefix}.{SURFACE_DEFAULT} is required"));
     }
 
-    if !strip_default {
-        expanded.insert(
-            SURFACE_DEFAULT.to_string(),
-            VizSurfaceProfile {
-                scene: default_scene,
-            },
-        );
-    }
-
-    Ok(expanded)
+    Ok(resolved)
 }
 
-fn normalize_manifest(raw: VizManifestRaw) -> Result<VizManifest, String> {
-    let surfaces = expand_surface_defaults(raw.surfaces, "surfaces", true)?;
-    let reduced_surfaces = raw
-        .reduced_surfaces
-        .map(|entries| expand_surface_defaults(entries, "reducedSurfaces", false))
-        .transpose()?;
-
-    Ok(VizManifest {
-        version: raw.version,
-        name: raw.name,
-        author: raw.author,
-        description: raw.description,
-        preview: raw.preview,
-        surfaces,
-        reduced_surfaces,
-    })
-}
-
-fn validate_webgl_params(
-    params: &HashMap<String, serde_json::Value>,
-    prefix: &str,
-    errors: &mut Vec<String>,
-) {
-    if let Some(ring_count) = params.get("ringCount") {
-        if let Some(n) = ring_count.as_u64() {
-            if !(12..=64).contains(&n) {
-                errors.push(format!("{prefix}.params.ringCount must be between 12 and 64"));
-            }
-        }
-    }
-    if let Some(tunnel_speed) = params.get("tunnelSpeed") {
-        if let Some(n) = tunnel_speed.as_f64() {
-            if !(0.2..=3.0).contains(&n) {
-                errors.push(format!("{prefix}.params.tunnelSpeed must be between 0.2 and 3"));
-            }
-        }
-    }
-    if let Some(glow) = params.get("glow") {
-        if let Some(n) = glow.as_f64() {
-            if !(0.0..=2.0).contains(&n) {
-                errors.push(format!("{prefix}.params.glow must be between 0 and 2"));
-            }
-        }
-    }
-    if let Some(density) = params.get("particleDensity") {
-        if let Some(n) = density.as_f64() {
-            if !(0.0..=1.0).contains(&n) {
-                errors.push(format!(
-                    "{prefix}.params.particleDensity must be between 0 and 1"
-                ));
-            }
-        }
-    }
-    if let Some(pulse) = params.get("bassPulse") {
-        if let Some(n) = pulse.as_f64() {
-            if !(0.0..=2.0).contains(&n) {
-                errors.push(format!("{prefix}.params.bassPulse must be between 0 and 2"));
-            }
-        }
-    }
-}
-
-fn validate_renderer_params(
-    params: &HashMap<String, serde_json::Value>,
-    prefix: &str,
-    errors: &mut Vec<String>,
-) {
-    if let Some(bar_count) = params.get("barCount") {
-        if let Some(n) = bar_count.as_u64() {
-            if n == 0 || n > 256 {
-                errors.push(format!("{prefix}.params.barCount must be between 1 and 256"));
-            }
-        }
-    }
-    if let Some(glow) = params.get("glow") {
-        if let Some(n) = glow.as_f64() {
-            if !(0.0..=2.0).contains(&n) {
-                errors.push(format!("{prefix}.params.glow must be between 0 and 2"));
-            }
-        }
-    }
-}
-
-fn asset_exists(pack_dir: &Path, asset_base: &str, kind: &str) -> bool {
-    let preferred: &[&str] = match kind {
-        "image" => &["png", "webp"],
-        "gif" => &["gif"],
-        "video" => &["webm", "mp4", "webp"],
-        _ => ASSET_EXTENSIONS,
-    };
-
-    for ext in preferred {
-        if pack_dir.join("assets").join(format!("{asset_base}.{ext}")).is_file() {
-            return true;
-        }
-    }
-    false
+fn normalize_manifest(mut manifest: VizManifest) -> Result<VizManifest, String> {
+    manifest.surfaces = normalize_surfaces(manifest.surfaces, "surfaces")?;
+    Ok(manifest)
 }
 
 fn validate_scene_layer(
@@ -273,41 +185,23 @@ fn validate_scene_layer(
     }
 
     match kind {
-        "canvas" => {
+        "canvas" | "webgl" => {
             let renderer = layer
                 .get("renderer")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            if !KNOWN_CANVAS_RENDERERS.contains(&renderer) {
+            if !is_renderer_effective_id(renderer) {
                 errors.push(format!(
-                    "{prefix}.renderer \"{renderer}\" must be one of: {}",
-                    KNOWN_CANVAS_RENDERERS.join(", ")
+                    "{prefix}.renderer \"{renderer}\" must be a fully-qualified renderer id (authorId.packId.renderer.id)"
                 ));
             }
-            if let Some(params) = layer.get("params").and_then(|v| v.as_object()) {
-                let map: HashMap<String, serde_json::Value> =
-                    params.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-                validate_renderer_params(&map, prefix, errors);
+            if let Some(params) = layer.get("params") {
+                if !params.is_object() {
+                    errors.push(format!("{prefix}.params must be an object"));
+                }
             }
         }
-        "webgl" => {
-            let renderer = layer
-                .get("renderer")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            if !KNOWN_WEBGL_RENDERERS.contains(&renderer) {
-                errors.push(format!(
-                    "{prefix}.renderer \"{renderer}\" must be one of: {}",
-                    KNOWN_WEBGL_RENDERERS.join(", ")
-                ));
-            }
-            if let Some(params) = layer.get("params").and_then(|v| v.as_object()) {
-                let map: HashMap<String, serde_json::Value> =
-                    params.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-                validate_webgl_params(&map, prefix, errors);
-            }
-        }
-        "image" | "gif" | "video" => {
+        "image" | "video" => {
             let asset = match layer.get("asset").and_then(|v| v.as_str()) {
                 Some(a) if !a.is_empty() => a,
                 _ => {
@@ -315,16 +209,7 @@ fn validate_scene_layer(
                     return;
                 }
             };
-            if asset.contains("..") || asset.starts_with('/') {
-                errors.push(format!(
-                    "{prefix}.asset \"{asset}\" must be a relative path under assets/"
-                ));
-            } else if !asset_exists(pack_dir, asset, kind) {
-                errors.push(format!(
-                    "{prefix}.asset \"{asset}\" not found under {}",
-                    pack_dir.join("assets").display()
-                ));
-            }
+            validate_media_asset(pack_dir, asset, kind, prefix, errors);
         }
         "group" => {
             if let Some(children) = layer.get("children").and_then(|v| v.as_array()) {
@@ -368,40 +253,27 @@ fn validate_surface_profile(
     }
 }
 
+/// Strict visualizer contribution check used by pack install/export.
+pub(crate) fn validate_visualizer_contribution_at(manifest_path: &Path) -> Result<(), String> {
+    let pack_dir = manifest_path.parent().ok_or_else(|| {
+        format!(
+            "visualizer manifest has no parent directory: {}",
+            manifest_path.display()
+        )
+    })?;
+    let contents = fs::read_to_string(manifest_path)
+        .map_err(|e| format!("could not read {}: {e}", manifest_path.display()))?;
+    let parsed: VizManifest = serde_json::from_str(&contents)
+        .map_err(|e| format!("{} is not valid viz JSON: {e}", manifest_path.display()))?;
+    let manifest = normalize_manifest(parsed)?;
+    validate_manifest(&manifest, pack_dir)
+}
+
 fn validate_manifest(manifest: &VizManifest, pack_dir: &Path) -> Result<(), String> {
     let mut errors = Vec::new();
 
-    if manifest.version != 1 {
-        errors.push(format!(
-            "version must be 1 (got {})",
-            manifest.version
-        ));
-    }
-
-    for surface in KNOWN_SURFACES {
-        if !manifest.surfaces.contains_key(*surface) {
-            errors.push(format!("surfaces.{surface} is required"));
-        }
-    }
-
     for (surface, profile) in &manifest.surfaces {
-        if !KNOWN_SURFACES.contains(&surface.as_str()) {
-            errors.push(format!(
-                "surfaces.{surface} is not a known surface (mini, panel, expanded)"
-            ));
-        }
         validate_surface_profile(surface, profile, "surfaces", pack_dir, &mut errors);
-    }
-
-    if let Some(reduced) = &manifest.reduced_surfaces {
-        for (surface, profile) in reduced {
-            if !AUTHORING_SURFACES.contains(&surface.as_str()) {
-                errors.push(format!(
-                    "reducedSurfaces.{surface} is not a known surface (default, mini, panel, expanded)"
-                ));
-            }
-            validate_surface_profile(surface, profile, "reducedSurfaces", pack_dir, &mut errors);
-        }
     }
 
     if let Some(preview) = &manifest.preview {
@@ -424,23 +296,25 @@ fn validate_manifest(manifest: &VizManifest, pack_dir: &Path) -> Result<(), Stri
     }
 }
 
-fn load_pack_from_dir(pack_dir: &Path, is_builtin: bool) -> Result<LoadedVisualizerPack, String> {
-    let id = pack_id_from_dir(pack_dir)
-        .ok_or_else(|| format!("invalid visualizer folder: {}", pack_dir.display()))?;
-    let manifest_path = pack_dir.join("viz.json");
+fn load_pack_from_contribution(
+    contrib: &packs::ScannedContribution,
+) -> Result<LoadedVisualizer, String> {
+    let pack_dir = &contrib.contribution_dir;
+    let manifest_path = &contrib.manifest_path;
     if !manifest_path.is_file() {
         return Err(format!(
-            "visualizer pack \"{id}\" is missing viz.json at {}",
+            "visualizer \"{}\" is missing viz.json at {}",
+            contrib.effective_id,
             manifest_path.display()
         ));
     }
 
-    let contents =
-        fs::read_to_string(&manifest_path).map_err(|e| format!("could not read {}: {e}", manifest_path.display()))?;
-    let raw: VizManifestRaw = serde_json::from_str(&contents)
+    let contents = fs::read_to_string(manifest_path)
+        .map_err(|e| format!("could not read {}: {e}", manifest_path.display()))?;
+    let parsed: VizManifest = serde_json::from_str(&contents)
         .map_err(|e| format!("{} is not valid viz JSON: {e}", manifest_path.display()))?;
 
-    let manifest = normalize_manifest(raw)?;
+    let manifest = normalize_manifest(parsed)?;
     validate_manifest(&manifest, pack_dir)?;
 
     let preview_path = manifest
@@ -457,107 +331,63 @@ fn load_pack_from_dir(pack_dir: &Path, is_builtin: bool) -> Result<LoadedVisuali
         .map(|p| p.to_string_lossy().into_owned());
 
     let summary = VizSummary {
-        id: id.clone(),
+        id: contrib.effective_id.clone(),
         name: manifest.name.clone(),
         author: manifest.author.clone(),
         description: manifest.description.clone(),
-        is_builtin,
+        is_builtin: contrib.zone.is_builtin(),
+        pack_id: contrib.pack_id.clone(),
+        pack_name: contrib.pack_name.clone(),
+        pack_version: contrib.pack_version.clone(),
+        zone: contrib.zone,
         preview_path,
     };
 
-    Ok(LoadedVisualizerPack {
+    Ok(LoadedVisualizer {
         summary,
         pack_dir: pack_dir.to_string_lossy().into_owned(),
         manifest,
     })
 }
 
-fn list_builtin_packs(app: &AppHandle) -> Vec<LoadedVisualizerPack> {
-    let root = builtin_visualizers_root(app);
-    if !root.is_dir() {
-        return vec![];
+fn list_all_visualizer_packs(app: &AppHandle) -> Vec<LoadedVisualizer> {
+    if let Err(e) = packs::ensure_packs_ready(app) {
+        activity_log::log(
+            LogLevel::Debug,
+            "visualizer.load",
+            format!("pack setup error: {e}"),
+            None,
+        );
     }
 
-    let mut packs = Vec::new();
-    let entries = match fs::read_dir(&root) {
-        Ok(e) => e,
-        Err(e) => {
-            activity_log::log(
-                LogLevel::Debug,
-                "visualizer.load",
-                format!("builtin visualizers directory read error: {e}"),
-                None,
-            );
-            return packs;
-        }
-    };
+    let scan = packs::scan_contributions_of_type(app, "visualizer");
+    for w in &scan.warnings {
+        activity_log::log(LogLevel::Debug, "visualizer.load", w.message.clone(), None);
+    }
 
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
+    let hidden: HashSet<String> = settings::read_settings(app)
+        .hidden_contribution_ids
+        .into_iter()
+        .collect();
+
+    let mut packs = Vec::new();
+    for contrib in &scan.contributions {
+        if hidden.contains(&contrib.effective_id) {
             continue;
         }
-        match load_pack_from_dir(&path, true) {
+        match load_pack_from_contribution(contrib) {
             Ok(pack) => packs.push(pack),
             Err(e) => {
-                let id = pack_id_from_dir(&path).unwrap_or_default();
                 activity_log::log(
                     LogLevel::Debug,
                     "visualizer.load",
-                    format!("built-in visualizer \"{id}\" failed to load: {e}"),
+                    format!(
+                        "visualizer \"{}\" failed to load: {e}",
+                        contrib.effective_id
+                    ),
                     Some(serde_json::json!({
-                        "visualizerId": id,
-                        "builtin": true,
-                        "error": e,
-                    })),
-                );
-            }
-        }
-    }
-
-    packs.sort_by(|a, b| a.summary.name.cmp(&b.summary.name));
-    packs
-}
-
-fn list_user_packs(app: &AppHandle) -> Vec<LoadedVisualizerPack> {
-    let dir = match visualizers_dir(app) {
-        Ok(d) => d,
-        Err(_) => return vec![],
-    };
-    if !dir.is_dir() {
-        return vec![];
-    }
-
-    let mut packs = Vec::new();
-    let entries = match fs::read_dir(&dir) {
-        Ok(e) => e,
-        Err(e) => {
-            activity_log::log(
-                LogLevel::Debug,
-                "visualizer.load",
-                format!("visualizers directory read error: {e}"),
-                None,
-            );
-            return packs;
-        }
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-        match load_pack_from_dir(&path, false) {
-            Ok(pack) => packs.push(pack),
-            Err(e) => {
-                let path_display = path.display().to_string();
-                activity_log::log(
-                    LogLevel::Debug,
-                    "visualizer.load",
-                    format!("user visualizer at {path_display} skipped: {e}"),
-                    Some(serde_json::json!({
-                        "path": path_display,
-                        "builtin": false,
+                        "visualizerId": contrib.effective_id,
+                        "builtin": contrib.zone.is_builtin(),
                         "error": e,
                     })),
                 );
@@ -571,57 +401,159 @@ fn list_user_packs(app: &AppHandle) -> Vec<LoadedVisualizerPack> {
 
 #[tauri::command]
 pub fn list_visualizers(app: AppHandle) -> Result<Vec<VizSummary>, String> {
-    let mut seen = HashSet::new();
-    let mut summaries = Vec::new();
-
-    for pack in list_builtin_packs(&app) {
-        seen.insert(pack.summary.id.clone());
-        summaries.push(pack.summary);
-    }
-    for pack in list_user_packs(&app) {
-        if seen.insert(pack.summary.id.clone()) {
-            summaries.push(pack.summary);
-        }
-    }
-
-    Ok(summaries)
+    Ok(list_all_visualizer_packs(&app)
+        .into_iter()
+        .map(|p| p.summary)
+        .collect())
 }
 
 #[tauri::command]
-pub fn load_visualizer_pack(app: AppHandle, pack_id: String) -> Result<LoadedVisualizerPack, String> {
-    let builtin_dir = builtin_visualizers_root(&app).join(&pack_id);
-    if builtin_dir.is_dir() {
-        return load_pack_from_dir(&builtin_dir, true);
-    }
+pub fn load_visualizer(
+    app: AppHandle,
+    visualizer_id: String,
+) -> Result<LoadedVisualizer, String> {
+    let packs = list_all_visualizer_packs(&app);
+    let known: HashSet<String> = packs.iter().map(|p| p.summary.id.clone()).collect();
+    let resolved = resolve_visualizer_id(&visualizer_id, &known);
 
-    let user_dir = visualizers_dir(&app)?.join(&pack_id);
-    if user_dir.is_dir() {
-        return load_pack_from_dir(&user_dir, false);
-    }
-
-    Err(format!(
-        "visualizer \"{pack_id}\" was not found in built-in or user visualizers folders"
-    ))
+    packs
+        .into_iter()
+        .find(|p| p.summary.id == resolved)
+        .ok_or_else(|| {
+            format!(
+                "visualizer \"{visualizer_id}\" was not found in builtin, workshop, or installed packs"
+            )
+        })
 }
 
 #[tauri::command]
-pub fn save_active_visualizer_id(app: AppHandle, pack_id: String) -> Result<(), String> {
+pub fn save_active_visualizer_id(app: AppHandle, visualizer_id: String) -> Result<(), String> {
     let mut app_settings = settings::read_settings(&app);
-    app_settings.active_visualizer = pack_id;
+    app_settings.active_visualizer = visualizer_id;
     settings::write_settings(&app, &app_settings)
+}
+
+/// Read a VizRenderer contribution's entry JS by effective id (`authorId.packId.renderer.id`).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VizRendererSource {
+    pub source: String,
+    pub engine: String,
+}
+
+#[tauri::command]
+pub fn read_viz_renderer_source(
+    app: AppHandle,
+    renderer_id: String,
+) -> Result<VizRendererSource, String> {
+    if !is_renderer_effective_id(&renderer_id) {
+        return Err(format!(
+            "renderer id \"{renderer_id}\" must be authorId.packId.renderer.id"
+        ));
+    }
+
+    let scan = packs::scan_contributions_of_type(&app, "renderer");
+    let contrib = scan
+        .contributions
+        .iter()
+        .find(|c| c.effective_id == renderer_id)
+        .ok_or_else(|| format!("renderer \"{renderer_id}\" was not found"))?;
+
+    let contents = fs::read_to_string(&contrib.manifest_path).map_err(|e| {
+        format!(
+            "could not read {}: {e}",
+            contrib.manifest_path.display()
+        )
+    })?;
+    let manifest: RendererManifestFile = serde_json::from_str(&contents).map_err(|e| {
+        format!(
+            "{} is not valid renderer JSON: {e}",
+            contrib.manifest_path.display()
+        )
+    })?;
+
+    if manifest.engine != "canvas2d" && manifest.engine != "webgl" {
+        return Err(format!(
+            "renderer \"{renderer_id}\" has unsupported engine \"{}\"",
+            manifest.engine
+        ));
+    }
+
+    if !is_safe_pack_relative_js(&manifest.entry) {
+        return Err(format!(
+            "renderer \"{renderer_id}\" has invalid entry path \"{}\"",
+            manifest.entry
+        ));
+    }
+
+    let entry_path = contrib.contribution_dir.join(&manifest.entry);
+    let source = fs::read_to_string(&entry_path)
+        .map_err(|e| format!("could not read {}: {e}", entry_path.display()))?;
+
+    Ok(VizRendererSource {
+        source,
+        engine: manifest.engine,
+    })
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RendererManifestFile {
+    #[allow(dead_code)]
+    id: String,
+    engine: String,
+    entry: String,
+}
+
+/// Validate a renderer contribution at install / scan time.
+pub fn validate_renderer_contribution_at(manifest_path: &Path) -> Result<(), String> {
+    let contribution_dir = manifest_path.parent().ok_or_else(|| {
+        format!(
+            "renderer manifest has no parent directory: {}",
+            manifest_path.display()
+        )
+    })?;
+    let contents = fs::read_to_string(manifest_path)
+        .map_err(|e| format!("could not read {}: {e}", manifest_path.display()))?;
+    let manifest: RendererManifestFile = serde_json::from_str(&contents)
+        .map_err(|e| format!("{} is not valid renderer JSON: {e}", manifest_path.display()))?;
+
+    if manifest.engine != "canvas2d" && manifest.engine != "webgl" {
+        return Err(format!(
+            "{}: unsupported engine \"{}\" (expected canvas2d or webgl)",
+            manifest_path.display(),
+            manifest.engine
+        ));
+    }
+    if !is_safe_pack_relative_js(&manifest.entry) {
+        return Err(format!(
+            "{}: entry \"{}\" must be a relative .js filename",
+            manifest_path.display(),
+            manifest.entry
+        ));
+    }
+    let entry_path = contribution_dir.join(&manifest.entry);
+    if !entry_path.is_file() {
+        return Err(format!(
+            "{}: entry file not found at {}",
+            manifest_path.display(),
+            entry_path.display()
+        ));
+    }
+    Ok(())
 }
 
 #[tauri::command]
 pub fn get_active_visualizer_id(app: AppHandle) -> Result<String, String> {
-    Ok(settings::read_settings(&app).active_visualizer)
-}
-
-#[tauri::command]
-pub fn open_visualizers_folder(app: AppHandle) -> Result<(), String> {
-    let dir = ensure_visualizers_dir(&app)?;
-    app.opener()
-        .open_path(dir.to_string_lossy().as_ref(), None::<&str>)
-        .map_err(|e| format!("failed to open visualizers folder: {e}"))
+    let mut app_settings = settings::read_settings(&app);
+    let packs = list_all_visualizer_packs(&app);
+    let known: HashSet<String> = packs.iter().map(|p| p.summary.id.clone()).collect();
+    let resolved = resolve_visualizer_id(&app_settings.active_visualizer, &known);
+    if resolved != app_settings.active_visualizer {
+        app_settings.active_visualizer = resolved.clone();
+        let _ = settings::write_settings(&app, &app_settings);
+    }
+    Ok(resolved)
 }
 
 #[cfg(test)]
@@ -629,73 +561,83 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_surface_fills_missing_overrides() {
+    fn default_surface_is_kept() {
         let raw_json = r#"{
-            "version": 1,
             "name": "Default Test",
             "author": "Spiral",
-            "description": "Default surface fallback",
+            "description": "Default surface only",
             "surfaces": {
                 "default": {
                     "scene": [
-                        { "kind": "canvas", "layout": "fill", "renderer": "bars", "params": { "barCount": 64 } }
-                    ]
-                },
-                "panel": {
-                    "scene": [
-                        { "kind": "canvas", "layout": "fill", "renderer": "bars", "params": { "barCount": 96 } }
+                        { "kind": "canvas", "layout": "fill", "renderer": "spiral.core.renderer.bars", "params": { "barCount": 64 } }
                     ]
                 }
             }
         }"#;
-        let raw: VizManifestRaw = serde_json::from_str(raw_json).expect("raw manifest should parse");
-        let manifest = normalize_manifest(raw).expect("manifest should normalize");
+        let parsed: VizManifest =
+            serde_json::from_str(raw_json).expect("manifest should parse");
+        let manifest = normalize_manifest(parsed).expect("manifest should normalize");
         assert_eq!(
-            manifest.surfaces["mini"].scene[0]["params"]["barCount"].as_u64(),
+            manifest.surfaces["default"].scene[0]["params"]["barCount"].as_u64(),
             Some(64)
         );
-        assert_eq!(
-            manifest.surfaces["panel"].scene[0]["params"]["barCount"].as_u64(),
-            Some(96)
-        );
-        assert_eq!(
-            manifest.surfaces["expanded"].scene[0]["params"]["barCount"].as_u64(),
-            Some(64)
-        );
-        assert!(!manifest.surfaces.contains_key("default"));
+        assert_eq!(manifest.surfaces.len(), 1);
+    }
+
+    #[test]
+    fn unknown_surface_fails() {
+        let raw_json = r#"{
+            "name": "Bad Surface",
+            "author": "Spiral",
+            "description": "Unknown surface key",
+            "surfaces": {
+                "default": {
+                    "scene": [
+                        { "kind": "canvas", "layout": "fill", "renderer": "spiral.core.renderer.bars", "params": {} }
+                    ]
+                },
+                "mini": {
+                    "scene": [
+                        { "kind": "canvas", "layout": "fill", "renderer": "spiral.core.renderer.bars", "params": {} }
+                    ]
+                }
+            }
+        }"#;
+        let parsed: VizManifest =
+            serde_json::from_str(raw_json).expect("manifest should parse");
+        let err = normalize_manifest(parsed).expect_err("unknown surface should fail");
+        assert!(err.contains("surfaces.mini is not a known surface"));
     }
 
     #[test]
     fn missing_default_surface_fails() {
         let raw_json = r#"{
-            "version": 1,
             "name": "Bad Default",
             "author": "Spiral",
             "description": "Missing default surface",
-            "surfaces": {
-                "mini": { "scene": [{ "kind": "canvas", "layout": "fill", "renderer": "bars", "params": {} }] },
-                "panel": { "scene": [{ "kind": "canvas", "layout": "fill", "renderer": "bars", "params": {} }] },
-                "expanded": { "scene": [{ "kind": "canvas", "layout": "fill", "renderer": "bars", "params": {} }] }
-            }
+            "surfaces": {}
         }"#;
-        let raw: VizManifestRaw = serde_json::from_str(raw_json).expect("raw manifest should parse");
-        let err = normalize_manifest(raw).expect_err("missing default should fail");
+        let parsed: VizManifest =
+            serde_json::from_str(raw_json).expect("manifest should parse");
+        let err = normalize_manifest(parsed).expect_err("missing default should fail");
         assert!(err.contains("surfaces.default is required"));
     }
 
     #[test]
     fn all_builtin_visualizers_load() {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("visualizers/builtin");
-        let entries = fs::read_dir(&root).expect("builtin visualizers directory should exist");
+        use crate::packs::scan::scan_zone_root;
+        use crate::packs::PackZone;
+        use std::path::PathBuf;
+
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("packs/builtin");
+        let mut warnings = Vec::new();
+        let contribs = scan_zone_root(&root, PackZone::Builtin, &mut warnings);
         let mut loaded = 0usize;
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_dir() {
-                continue;
-            }
-            load_pack_from_dir(&path, true).expect("builtin visualizer should load");
+        for contrib in contribs.iter().filter(|c| c.r#type == "visualizer") {
+            load_pack_from_contribution(contrib)
+                .unwrap_or_else(|e| panic!("{} should load: {e}", contrib.effective_id));
             loaded += 1;
         }
-        assert!(loaded >= 4, "expected at least 4 built-in visualizer packs");
+        assert_eq!(loaded, 5, "expected 5 built-in visualizer packs");
     }
 }

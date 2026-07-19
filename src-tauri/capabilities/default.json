@@ -32,6 +32,15 @@
     "core:window:allow-set-ignore-cursor-events",
     "core:window:allow-cursor-position",
     "opener:default",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [
+        { "path": "$APPDATA/packs/**" },
+        { "path": "$RESOURCE/packs/**" },
+        { "path": "$HOME/**/packs/**" },
+        { "path": "$HOME/**" }
+      ]
+    },
     "fs:default",
     {
       "identifier": "fs:allow-read-file",

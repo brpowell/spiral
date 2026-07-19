@@ -149,14 +149,15 @@ function snapshotAppearance(): Pick<
     skin.skins.find((s) => s.id === skin.activeSkinId)?.name ??
     null;
   const visualizerName =
-    visualizer.packs.find((p) => p.id === visualizer.activePackId)?.name ?? null;
+    visualizer.visualizers.find((p) => p.id === visualizer.activeVisualizerId)
+      ?.name ?? null;
 
   return {
     themeId: theme.activeThemeId || null,
     themeName,
     skinId: skin.activeSkinId || null,
     skinName,
-    visualizerId: visualizer.activePackId || null,
+    visualizerId: visualizer.activeVisualizerId || null,
     visualizerName,
   };
 }

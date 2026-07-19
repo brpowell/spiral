@@ -1,18 +1,19 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 
-/** Resolve a pack-relative asset path to a Tauri asset URL. */
-export function vizPackAssetUrl(packDir: string, relativePath: string): string {
-  return convertFileSrc(`${packDir}/assets/${relativePath}`);
+/**
+ * Resolve a contribution-relative media path (`assets/foo.webm`) to a Tauri
+ * asset URL. Paths include the `assets/` prefix and file extension.
+ */
+export function vizLayerAssetUrl(packDir: string, asset: string): string {
+  return convertFileSrc(`${packDir}/${asset}`);
 }
 
-export function vizImageAssetUrl(packDir: string, assetBase: string): string {
-  return vizPackAssetUrl(packDir, `${assetBase}.png`);
-}
-
-export function vizGifAssetUrl(packDir: string, assetBase: string): string {
-  return vizPackAssetUrl(packDir, `${assetBase}.gif`);
-}
-
-export function vizVideoAssetUrl(packDir: string, assetBase: string): string {
-  return vizPackAssetUrl(packDir, `${assetBase}.webm`);
+/** URL for image/video scene layers; null for other kinds or missing asset. */
+export function vizMediaLayerUrl(
+  packDir: string,
+  layer: { kind: string; asset?: string },
+): string | null {
+  if (!layer.asset) return null;
+  if (layer.kind !== "image" && layer.kind !== "video") return null;
+  return vizLayerAssetUrl(packDir, layer.asset);
 }

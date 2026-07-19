@@ -33,7 +33,7 @@ async function createMenu(): Promise<Menu> {
 
   const openAppearance = await MenuItem.new({
     id: "skin-mode-open-appearance",
-    text: "Appearance…",
+    text: "Studio…",
     action: () => {
       void openAppearanceWindow("skins");
     },

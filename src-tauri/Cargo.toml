@@ -48,6 +48,7 @@ alac-encoder = "0.3"
 lofty = "0.22"
 symphonia = { version = "0.5", default-features = false, features = ["aac", "alac", "flac", "isomp4", "mp3", "pcm", "ogg", "vorbis"] }
 opus-decoder = "0.1"
+notify = { version = "6.1", features = ["macos_fsevent"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 mp3lame-encoder = "0.2.4"

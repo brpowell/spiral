@@ -20,9 +20,15 @@ type MenuAnchor = {
   x: number;
   y: number;
   fitOptions?: FitContextMenuPositionOptions;
+  keyboard?: boolean;
 };
 
 export type ContextMenuTriggerPlacement = "below-end" | "below-start";
+
+export type OpenContextMenuOptions = {
+  /** Focus first item instead of the menu root (keyboard opens). */
+  keyboard?: boolean;
+};
 
 export interface UseContextMenuOptions {
   /** Re-run viewport fit when menu content size may change */
@@ -72,30 +78,40 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
   );
 
   const openAt = useCallback(
-    (x: number, y: number, fitOptions?: FitContextMenuPositionOptions) => {
+    (
+      x: number,
+      y: number,
+      fitOptions?: FitContextMenuPositionOptions,
+      openOptions?: OpenContextMenuOptions,
+    ) => {
       setMenuPosition(null);
-      setMenuAnchor({ x, y, fitOptions });
+      setMenuAnchor({
+        x,
+        y,
+        fitOptions,
+        keyboard: openOptions?.keyboard,
+      });
     },
     [],
   );
 
   const openFromTrigger = useCallback(
-    (el: HTMLElement) => {
+    (el: HTMLElement, openOptions?: OpenContextMenuOptions) => {
       const rect = el.getBoundingClientRect();
       const x = triggerPlacement === "below-start" ? rect.left : rect.right;
-      openAt(x, rect.bottom + TRIGGER_MENU_GAP);
+      openAt(x, rect.bottom + TRIGGER_MENU_GAP, undefined, openOptions);
     },
     [openAt, triggerPlacement],
   );
 
   const toggleFromTrigger = useCallback(
-    (el: HTMLElement | null) => {
+    (el: HTMLElement | null, openOptions?: OpenContextMenuOptions) => {
       if (!el) return;
       if (menuAnchor) {
         closeMenu();
         return;
       }
-      openFromTrigger(el);
+      openFromTrigger(el, openOptions);
     },
     [menuAnchor, closeMenu, openFromTrigger],
   );
@@ -174,6 +190,7 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
     anchor: menuAnchor,
     position: menuPosition,
     menuRef,
+    openedWithKeyboard: menuAnchor?.keyboard === true,
     onContextMenu,
     closeMenu,
     openAt,

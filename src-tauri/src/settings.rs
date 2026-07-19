@@ -3,9 +3,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
-pub const DEFAULT_THEME_ID: &str = "obsidian";
-pub const DEFAULT_SKIN_ID: &str = "spiral-default";
-pub const DEFAULT_VISUALIZER_ID: &str = "bars";
+pub const DEFAULT_THEME_ID: &str = "spiral.core.theme.obsidian";
+pub const DEFAULT_SKIN_ID: &str = "spiral.core.skin.spiral-default";
+pub const DEFAULT_VISUALIZER_ID: &str = "spiral.core.visualizer.bars";
 pub const DEFAULT_SKIN_VIEW_ID: &str = "standard";
 pub const SPIRAL_LIBRARY_DIR_NAME: &str = "Spiral Library";
 pub const MEDIA_DIR_NAME: &str = "Media";
@@ -293,6 +293,15 @@ pub struct AppSettings {
     pub active_skin_view: String,
     #[serde(default = "default_active_visualizer")]
     pub active_visualizer: String,
+    /// Effective contribution ids hidden from pickers (pack remains on disk).
+    #[serde(default)]
+    pub hidden_contribution_ids: Vec<String>,
+    /// Absolute paths to linked pack roots (each contains `pack.json` directly).
+    #[serde(default)]
+    pub linked_pack_paths: Vec<String>,
+    /// Seeded once from the OS account name; copied into new workshop packs as `authorId`.
+    #[serde(default = "default_default_author_id")]
+    pub default_author_id: String,
     #[serde(default)]
     pub library: LibrarySettings,
     #[serde(default)]
@@ -327,6 +336,18 @@ fn default_active_visualizer() -> String {
     DEFAULT_VISUALIZER_ID.to_string()
 }
 
+fn default_default_author_id() -> String {
+    slugify_os_username()
+}
+
+/// Normalize the current OS username into a kebab-case authorId seed.
+pub fn slugify_os_username() -> String {
+    let raw = std::env::var("USER")
+        .or_else(|_| std::env::var("USERNAME"))
+        .unwrap_or_else(|_| "author".to_string());
+    crate::packs::slugify_id(&raw)
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -334,6 +355,9 @@ impl Default for AppSettings {
             active_skin: default_active_skin(),
             active_skin_view: default_active_skin_view(),
             active_visualizer: default_active_visualizer(),
+            hidden_contribution_ids: Vec::new(),
+            linked_pack_paths: Vec::new(),
+            default_author_id: default_default_author_id(),
             library: LibrarySettings::default(),
             metadata_backups: MetadataBackupSettings::default(),
             listening_history: ListeningHistorySettings::default(),

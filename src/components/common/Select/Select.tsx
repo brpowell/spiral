@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import { useContextMenu } from "../../../hooks/useContextMenu";
 import {
   ContextMenu,
@@ -22,12 +22,19 @@ export function Select<T extends string>({
 }: SelectProps<T>) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [menuWidth, setMenuWidth] = useState<number | undefined>();
-  const { open, anchor, position, menuRef, toggleFromTrigger, closeMenu } =
-    useContextMenu({
-      layoutDeps: [options, value, menuWidth],
-      dismissExcludeRefs: [triggerRef],
-      triggerPlacement: "below-start",
-    });
+  const {
+    open,
+    anchor,
+    position,
+    menuRef,
+    openedWithKeyboard,
+    toggleFromTrigger,
+    closeMenu,
+  } = useContextMenu({
+    layoutDeps: [options, value, menuWidth],
+    dismissExcludeRefs: [triggerRef],
+    triggerPlacement: "below-start",
+  });
 
   useLayoutEffect(() => {
     if (!open) {
@@ -37,12 +44,12 @@ export function Select<T extends string>({
 
   const selected = options.find((o) => o.value === value);
 
-  const handleTriggerClick = () => {
+  const handleTriggerClick = (e: MouseEvent<HTMLButtonElement>) => {
     if (disabled) return;
     if (triggerRef.current) {
       setMenuWidth(triggerRef.current.getBoundingClientRect().width);
     }
-    toggleFromTrigger(triggerRef.current);
+    toggleFromTrigger(triggerRef.current, { keyboard: e.detail === 0 });
   };
 
   return (
@@ -69,6 +76,7 @@ export function Select<T extends string>({
         anchor={anchor}
         position={position}
         menuRef={menuRef}
+        focusFirstItem={openedWithKeyboard}
         className="context-menu--select"
         style={menuWidth != null ? { width: menuWidth } : undefined}
       >

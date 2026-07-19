@@ -1,0 +1,1301 @@
+{
+  "$schema": "../../../../src-tauri/schemas/skin-v1.schema.json",
+  "id": "headspace",
+  "name": "Headspace",
+  "author": "Microsoft Corporation",
+  "description": "(2000) The green head...",
+  "defaultView": "main",
+  "stylesheet": "skin.css",
+  "visualizer": {
+    "display": "panel",
+    "size": {
+      "width": "fill",
+      "height": "fill"
+    }
+  },
+  "views": {
+    "main": {
+      "layoutMode": "canvas",
+      "canvas": {
+        "width": 760,
+        "height": 394
+      },
+      "window": {
+        "defaultWidth": 549,
+        "defaultHeight": 394,
+        "minWidth": 549,
+        "minHeight": 394,
+        "maxWidth": 760,
+        "maxHeight": 394,
+        "resizable": false,
+        "snapEnabled": false
+      },
+      "panels": {
+        "eq": {
+          "defaultOpen": false,
+          "windowWhenOpen": {
+            "width": 549,
+            "height": 394
+          },
+          "motion": {
+            "durationMs": 120
+          }
+        },
+        "playlist": {
+          "defaultOpen": false,
+          "windowWhenOpen": {
+            "width": 760,
+            "height": 394
+          },
+          "motion": {
+            "durationMs": 120
+          }
+        },
+        "visChooser": {
+          "defaultOpen": false,
+          "motion": {
+            "durationMs": 120
+          }
+        }
+      },
+      "layout": {
+        "type": "canvas",
+        "children": [
+          {
+            "type": "decoration",
+            "id": "left-ear",
+            "bounds": {
+              "x": 207,
+              "y": 86,
+              "w": 84,
+              "h": 170,
+              "zIndex": -1
+            },
+            "boundsWhen": {
+              "skin.panel.eq.open": {
+                "x": 0
+              }
+            },
+            "presentation": {
+              "kind": "bitmap",
+              "assets": {
+                "default": "decorations/left-ear.png"
+              }
+            }
+          },
+          {
+            "type": "decoration",
+            "id": "right-ear",
+            "bounds": {
+              "x": 462,
+              "y": 86,
+              "w": 87,
+              "h": 170,
+              "zIndex": -1
+            },
+            "boundsWhen": {
+              "skin.panel.playlist.open": {
+                "x": 673
+              }
+            },
+            "presentation": {
+              "kind": "bitmap",
+              "assets": {
+                "default": "decorations/right-ear.png"
+              }
+            }
+          },
+          {
+            "type": "canvas",
+            "id": "left-ear-controls",
+            "bounds": {
+              "x": 207,
+              "y": 86,
+              "w": 84,
+              "h": 170,
+              "zIndex": 14
+            },
+            "boundsWhen": {
+              "skin.panel.eq.open": {
+                "x": 0
+              }
+            },
+            "children": [
+              {
+                "type": "button",
+                "id": "eq-drawer-open",
+                "action": "skin.togglePanel",
+                "panelId": "eq",
+                "visibleWhen": "skin.panel.eq.closed",
+                "bounds": {
+                  "x": 8,
+                  "y": 66,
+                  "w": 18,
+                  "h": 66
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "width": 18,
+                  "height": 66,
+                  "assets": {
+                    "default": "buttons/eq-drawer-open.png",
+                    "hover": "buttons/eq-drawer-open-hover.png",
+                    "pressed": "buttons/eq-drawer-open-pressed.png"
+                  }
+                }
+              },
+              {
+                "type": "button",
+                "id": "eq-drawer-close-tab",
+                "action": "skin.togglePanel",
+                "panelId": "eq",
+                "visibleWhen": "skin.panel.eq.open",
+                "bounds": {
+                  "x": 8,
+                  "y": 66,
+                  "w": 18,
+                  "h": 66
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "width": 18,
+                  "height": 66,
+                  "assets": {
+                    "default": "buttons/eq-drawer-close.png",
+                    "hover": "buttons/eq-drawer-close-hover.png",
+                    "pressed": "buttons/eq-drawer-close-pressed.png"
+                  }
+                }
+              },
+              {
+                "type": "button",
+                "id": "eq-drawer-close",
+                "action": "skin.togglePanel",
+                "panelId": "eq",
+                "visibleWhen": "skin.panel.eq.openSettled",
+                "bounds": {
+                  "x": 72,
+                  "y": 7,
+                  "w": 11,
+                  "h": 11
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "width": 11,
+                  "height": 11,
+                  "assets": {
+                    "default": "buttons/eq-drawer-x.png",
+                    "hover": "buttons/eq-drawer-x-hover.png",
+                    "pressed": "buttons/eq-drawer-x-pressed.png"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "canvas",
+            "id": "right-ear-controls",
+            "bounds": {
+              "x": 462,
+              "y": 86,
+              "w": 87,
+              "h": 170,
+              "zIndex": 14
+            },
+            "boundsWhen": {
+              "skin.panel.playlist.open": {
+                "x": 673
+              }
+            },
+            "children": [
+              {
+                "type": "button",
+                "id": "pl-drawer-open",
+                "action": "skin.togglePanel",
+                "panelId": "playlist",
+                "visibleWhen": "skin.panel.playlist.closed",
+                "bounds": {
+                  "x": 61,
+                  "y": 65,
+                  "w": 18,
+                  "h": 67
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "width": 18,
+                  "height": 67,
+                  "assets": {
+                    "default": "buttons/pl-drawer-open.png",
+                    "hover": "buttons/pl-drawer-open-hover.png",
+                    "pressed": "buttons/pl-drawer-open-pressed.png"
+                  }
+                }
+              },
+              {
+                "type": "button",
+                "id": "pl-drawer-close-tab",
+                "action": "skin.togglePanel",
+                "panelId": "playlist",
+                "visibleWhen": "skin.panel.playlist.open",
+                "bounds": {
+                  "x": 61,
+                  "y": 65,
+                  "w": 18,
+                  "h": 67
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "width": 18,
+                  "height": 67,
+                  "assets": {
+                    "default": "buttons/pl-drawer-close.png",
+                    "hover": "buttons/pl-drawer-close-hover.png",
+                    "pressed": "buttons/pl-drawer-close-pressed.png"
+                  }
+                }
+              },
+              {
+                "type": "button",
+                "id": "pl-drawer-close",
+                "action": "skin.togglePanel",
+                "panelId": "playlist",
+                "visibleWhen": "skin.panel.playlist.openSettled",
+                "bounds": {
+                  "x": 4,
+                  "y": 7,
+                  "w": 11,
+                  "h": 11
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "width": 11,
+                  "height": 11,
+                  "assets": {
+                    "default": "buttons/pl-drawer-x.png",
+                    "hover": "buttons/pl-drawer-x-hover.png",
+                    "pressed": "buttons/pl-drawer-x-pressed.png"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "canvas",
+            "id": "eq-drawer",
+            "visibleWhen": "skin.panel.eq.revealed",
+            "bounds": {
+              "x": 207,
+              "y": 86,
+              "w": 269,
+              "h": 170,
+              "zIndex": -1
+            },
+            "boundsWhen": {
+              "skin.panel.eq.open": {
+                "x": 0
+              }
+            },
+            "children": [
+              {
+                "type": "decoration",
+                "id": "eq-drawer-top",
+                "bounds": {
+                  "x": 84,
+                  "y": 0,
+                  "w": 167,
+                  "h": 10
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "assets": {
+                    "default": "decorations/left-drawer-top.png"
+                  }
+                }
+              },
+              {
+                "type": "decoration",
+                "id": "eq-drawer-bottom",
+                "bounds": {
+                  "x": 84,
+                  "y": 150,
+                  "w": 168,
+                  "h": 10
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "assets": {
+                    "default": "decorations/left-drawer-bottom.png"
+                  }
+                }
+              },
+              {
+                "type": "decoration",
+                "id": "eq-drawer-right",
+                "bounds": {
+                  "x": 251,
+                  "y": 0,
+                  "w": 16,
+                  "h": 160
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "assets": {
+                    "default": "decorations/left-drawer-right.png"
+                  }
+                }
+              },
+              {
+                "type": "canvas",
+                "id": "eq-panel",
+                "bounds": {
+                  "x": 84,
+                  "y": 10,
+                  "w": 171,
+                  "h": 140
+                },
+                "children": [
+                  {
+                    "type": "decoration",
+                    "id": "eq-inner-left",
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "w": 10,
+                      "h": 140
+                    },
+                    "presentation": {
+                      "kind": "bitmap",
+                      "assets": {
+                        "default": "decorations/drawer-bkgrnd-left.png"
+                      }
+                    }
+                  },
+                  {
+                    "type": "decoration",
+                    "id": "eq-inner-top",
+                    "bounds": {
+                      "x": 10,
+                      "y": 0,
+                      "w": 157,
+                      "h": 11
+                    },
+                    "presentation": {
+                      "kind": "bitmap",
+                      "assets": {
+                        "default": "decorations/drawer-bkgrnd-top.png"
+                      }
+                    }
+                  },
+                  {
+                    "type": "decoration",
+                    "id": "eq-inner-bottom",
+                    "bounds": {
+                      "x": 10,
+                      "y": 137,
+                      "w": 157,
+                      "h": 3
+                    },
+                    "presentation": {
+                      "kind": "bitmap",
+                      "assets": {
+                        "default": "decorations/drawer-bkgrnd-bottom.png"
+                      }
+                    }
+                  },
+                  {
+                    "type": "decoration",
+                    "id": "eq-inner-right",
+                    "bounds": {
+                      "x": 166,
+                      "y": 0,
+                      "w": 5,
+                      "h": 140
+                    },
+                    "presentation": {
+                      "kind": "bitmap",
+                      "assets": {
+                        "default": "decorations/drawer-bkgrnd-right.png"
+                      }
+                    }
+                  },
+                  {
+                    "type": "balance",
+                    "id": "eq-balance",
+                    "bounds": {
+                      "x": 8,
+                      "y": 11,
+                      "w": 71,
+                      "h": 11,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "bitmapHorizontalSlider",
+                      "track": "sliders/eq-h-track-tile.png",
+                      "thumb": "sliders/eq-h-thumb.png",
+                      "trackTileWidth": 15,
+                      "trackTileHeight": 11,
+                      "trackWidth": 71,
+                      "trackHeight": 11,
+                      "thumbWidth": 9,
+                      "thumbHeight": 11,
+                      "borderSize": 7
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "id": "eq-balance-label",
+                    "value": "Balance",
+                    "bounds": {
+                      "x": 25,
+                      "y": 22,
+                      "w": 40,
+                      "h": 10,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "primitive"
+                    }
+                  },
+                  {
+                    "type": "volume",
+                    "id": "eq-volume",
+                    "bounds": {
+                      "x": 89,
+                      "y": 11,
+                      "w": 71,
+                      "h": 11,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "bitmapHorizontalSlider",
+                      "track": "sliders/eq-h-track-tile.png",
+                      "thumb": "sliders/eq-h-thumb.png",
+                      "trackTileWidth": 15,
+                      "trackTileHeight": 11,
+                      "trackWidth": 71,
+                      "trackHeight": 11,
+                      "thumbWidth": 9,
+                      "thumbHeight": 11,
+                      "borderSize": 7
+                    }
+                  },
+                  {
+                    "type": "text",
+                    "id": "eq-volume-label",
+                    "value": "Volume",
+                    "bounds": {
+                      "x": 108,
+                      "y": 22,
+                      "w": 40,
+                      "h": 10,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "primitive"
+                    }
+                  },
+                  {
+                    "type": "eqBand",
+                    "id": "eq-band-1",
+                    "band": 1,
+                    "bounds": {
+                      "x": 11,
+                      "y": 44,
+                      "w": 14,
+                      "h": 76,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "bitmapVerticalSlider",
+                      "track": "sliders/eq-track-tile.png",
+                      "thumb": "sliders/eq-thumb.png",
+                      "trackTileWidth": 11,
+                      "trackTileHeight": 15,
+                      "trackWidth": 14,
+                      "trackHeight": 76,
+                      "thumbWidth": 11,
+                      "thumbHeight": 11,
+                      "borderSize": 7
+                    }
+                  },
+                  {
+                    "type": "eqBand",
+                    "id": "eq-band-2",
+                    "band": 2,
+                    "bounds": {
+                      "x": 26,
+                      "y": 44,
+                      "w": 14,
+                      "h": 76,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "bitmapVerticalSlider",
+                      "track": "sliders/eq-track-tile.png",
+                      "thumb": "sliders/eq-thumb.png",
+                      "trackTileWidth": 11,
+                      "trackTileHeight": 15,
+                      "trackWidth": 14,
+                      "trackHeight": 76,
+                      "thumbWidth": 11,
+                      "thumbHeight": 11,
+                      "borderSize": 7
+                    }
+                  },
+                  {
+                    "type": "eqBand",
+                    "id": "eq-band-3",
+                    "band": 3,
+                    "bounds": {
+                      "x": 41,
+                      "y": 44,
+                      "w": 14,
+                      "h": 76,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "bitmapVerticalSlider",
+                      "track": "sliders/eq-track-tile.png",
+                      "thumb": "sliders/eq-thumb.png",
+                      "trackTileWidth": 11,
+                      "trackTileHeight": 15,
+                      "trackWidth": 14,
+                      "trackHeight": 76,
+                      "thumbWidth": 11,
+                      "thumbHeight": 11,
+                      "borderSize": 7
+                    }
+                  },
+                  {
+                    "type": "eqBand",
+                    "id": "eq-band-4",
+                    "band": 4,
+                    "bounds": {
+                      "x": 56,
+                      "y": 44,
+                      "w": 14,
+                      "h": 76,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "bitmapVerticalSlider",
+                      "track": "sliders/eq-track-tile.png",
+                      "thumb": "sliders/eq-thumb.png",
+                      "trackTileWidth": 11,
+                      "trackTileHeight": 15,
+                      "trackWidth": 14,
+                      "trackHeight": 76,
+                      "thumbWidth": 11,
+                      "thumbHeight": 11,
+                      "borderSize": 7
+                    }
+                  },
+                  {
+                    "type": "eqBand",
+                    "id": "eq-band-5",
+                    "band": 5,
+                    "bounds": {
+                      "x": 71,
+                      "y": 44,
+                      "w": 14,
+                      "h": 76,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "bitmapVerticalSlider",
+                      "track": "sliders/eq-track-tile.png",
+                      "thumb": "sliders/eq-thumb.png",
+                      "trackTileWidth": 11,
+                      "trackTileHeight": 15,
+                      "trackWidth": 14,
+                      "trackHeight": 76,
+                      "thumbWidth": 11,
+                      "thumbHeight": 11,
+                      "borderSize": 7
+                    }
+                  },
+                  {
+                    "type": "eqBand",
+                    "id": "eq-band-6",
+                    "band": 6,
+                    "bounds": {
+                      "x": 86,
+                      "y": 44,
+                      "w": 14,
+                      "h": 76,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "bitmapVerticalSlider",
+                      "track": "sliders/eq-track-tile.png",
+                      "thumb": "sliders/eq-thumb.png",
+                      "trackTileWidth": 11,
+                      "trackTileHeight": 15,
+                      "trackWidth": 14,
+                      "trackHeight": 76,
+                      "thumbWidth": 11,
+                      "thumbHeight": 11,
+                      "borderSize": 7
+                    }
+                  },
+                  {
+                    "type": "eqBand",
+                    "id": "eq-band-7",
+                    "band": 7,
+                    "bounds": {
+                      "x": 101,
+                      "y": 44,
+                      "w": 14,
+                      "h": 76,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "bitmapVerticalSlider",
+                      "track": "sliders/eq-track-tile.png",
+                      "thumb": "sliders/eq-thumb.png",
+                      "trackTileWidth": 11,
+                      "trackTileHeight": 15,
+                      "trackWidth": 14,
+                      "trackHeight": 76,
+                      "thumbWidth": 11,
+                      "thumbHeight": 11,
+                      "borderSize": 7
+                    }
+                  },
+                  {
+                    "type": "eqBand",
+                    "id": "eq-band-8",
+                    "band": 8,
+                    "bounds": {
+                      "x": 116,
+                      "y": 44,
+                      "w": 14,
+                      "h": 76,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "bitmapVerticalSlider",
+                      "track": "sliders/eq-track-tile.png",
+                      "thumb": "sliders/eq-thumb.png",
+                      "trackTileWidth": 11,
+                      "trackTileHeight": 15,
+                      "trackWidth": 14,
+                      "trackHeight": 76,
+                      "thumbWidth": 11,
+                      "thumbHeight": 11,
+                      "borderSize": 7
+                    }
+                  },
+                  {
+                    "type": "eqBand",
+                    "id": "eq-band-9",
+                    "band": 9,
+                    "bounds": {
+                      "x": 131,
+                      "y": 44,
+                      "w": 14,
+                      "h": 76,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "bitmapVerticalSlider",
+                      "track": "sliders/eq-track-tile.png",
+                      "thumb": "sliders/eq-thumb.png",
+                      "trackTileWidth": 11,
+                      "trackTileHeight": 15,
+                      "trackWidth": 14,
+                      "trackHeight": 76,
+                      "thumbWidth": 11,
+                      "thumbHeight": 11,
+                      "borderSize": 7
+                    }
+                  },
+                  {
+                    "type": "eqBand",
+                    "id": "eq-band-10",
+                    "band": 10,
+                    "bounds": {
+                      "x": 146,
+                      "y": 44,
+                      "w": 14,
+                      "h": 76,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "bitmapVerticalSlider",
+                      "track": "sliders/eq-track-tile.png",
+                      "thumb": "sliders/eq-thumb.png",
+                      "trackTileWidth": 11,
+                      "trackTileHeight": 15,
+                      "trackWidth": 14,
+                      "trackHeight": 76,
+                      "thumbWidth": 11,
+                      "thumbHeight": 11,
+                      "borderSize": 7
+                    }
+                  },
+                  {
+                    "type": "button",
+                    "id": "eq-reset",
+                    "action": "eq.reset",
+                    "bounds": {
+                      "x": 137,
+                      "y": 127,
+                      "w": 30,
+                      "h": 12,
+                      "zIndex": 2
+                    },
+                    "presentation": {
+                      "kind": "primitive"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "canvas",
+            "id": "pl-drawer",
+            "visibleWhen": "skin.panel.playlist.revealed",
+            "bounds": {
+              "x": 277,
+              "y": 86,
+              "w": 272,
+              "h": 170,
+              "zIndex": -1
+            },
+            "boundsWhen": {
+              "skin.panel.playlist.open": {
+                "x": 488
+              }
+            },
+            "children": [
+              {
+                "type": "decoration",
+                "id": "pl-drawer-left",
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "w": 13,
+                  "h": 160
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "assets": {
+                    "default": "decorations/right-drawer-left.png"
+                  }
+                }
+              },
+              {
+                "type": "decoration",
+                "id": "pl-drawer-top",
+                "bounds": {
+                  "x": 13,
+                  "y": 0,
+                  "w": 172,
+                  "h": 10
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "assets": {
+                    "default": "decorations/right-drawer-top.png"
+                  }
+                }
+              },
+              {
+                "type": "decoration",
+                "id": "pl-drawer-bottom",
+                "bounds": {
+                  "x": 13,
+                  "y": 150,
+                  "w": 172,
+                  "h": 10
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "assets": {
+                    "default": "decorations/right-drawer-bottom.png"
+                  }
+                }
+              },
+              {
+                "type": "canvas",
+                "id": "pl-panel",
+                "bounds": {
+                  "x": 13,
+                  "y": 10,
+                  "w": 172,
+                  "h": 140
+                },
+                "children": [
+                  {
+                    "type": "decoration",
+                    "id": "pl-inner-left",
+                    "bounds": {
+                      "x": 0,
+                      "y": 0,
+                      "w": 10,
+                      "h": 140
+                    },
+                    "presentation": {
+                      "kind": "bitmap",
+                      "assets": {
+                        "default": "decorations/drawer-bkgrnd-left.png"
+                      }
+                    }
+                  },
+                  {
+                    "type": "decoration",
+                    "id": "pl-inner-top",
+                    "bounds": {
+                      "x": 10,
+                      "y": 0,
+                      "w": 157,
+                      "h": 11
+                    },
+                    "presentation": {
+                      "kind": "bitmap",
+                      "assets": {
+                        "default": "decorations/drawer-bkgrnd-top.png"
+                      }
+                    }
+                  },
+                  {
+                    "type": "decoration",
+                    "id": "pl-inner-bottom",
+                    "bounds": {
+                      "x": 10,
+                      "y": 137,
+                      "w": 157,
+                      "h": 3
+                    },
+                    "presentation": {
+                      "kind": "bitmap",
+                      "assets": {
+                        "default": "decorations/drawer-bkgrnd-bottom.png"
+                      }
+                    }
+                  },
+                  {
+                    "type": "decoration",
+                    "id": "pl-inner-right",
+                    "bounds": {
+                      "x": 167,
+                      "y": 0,
+                      "w": 5,
+                      "h": 140
+                    },
+                    "presentation": {
+                      "kind": "bitmap",
+                      "assets": {
+                        "default": "decorations/drawer-bkgrnd-right.png"
+                      }
+                    }
+                  },
+                  {
+                    "type": "playlist",
+                    "id": "pl-view",
+                    "bounds": {
+                      "x": 10,
+                      "y": 11,
+                      "w": 157,
+                      "h": 126,
+                      "zIndex": 1
+                    },
+                    "presentation": {
+                      "kind": "compact",
+                      "showDropdown": true,
+                      "showDuration": true
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "canvas",
+            "id": "vis-chooser",
+            "visibleWhen": "skin.panel.visChooser.revealed",
+            "bounds": {
+              "x": 291,
+              "y": 33,
+              "w": 174,
+              "h": 26,
+              "zIndex": 5
+            },
+            "boundsWhen": {
+              "skin.panel.visChooser.open": {
+                "y": 59
+              },
+              "skin.panel.visChooser.openSettled": {
+                "zIndex": 14
+              }
+            },
+            "children": [
+              {
+                "type": "decoration",
+                "id": "vis-drop-bg",
+                "bounds": {
+                  "x": 0,
+                  "y": 0,
+                  "w": 174,
+                  "h": 26
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "assets": {
+                    "default": "decorations/viz-drop.png"
+                  }
+                }
+              },
+              {
+                "type": "text",
+                "id": "vis-drop-title",
+                "bind": "visualizer.name",
+                "overflow": "scroll",
+                "bounds": {
+                  "x": 30,
+                  "y": 6,
+                  "w": 105,
+                  "h": 14,
+                  "zIndex": 2
+                },
+                "presentation": {
+                  "kind": "primitive"
+                }
+              },
+              {
+                "type": "button",
+                "id": "vis-drop-prev",
+                "action": "visualizer.previous",
+                "enabledWhen": "visualizer.canGoPrevious",
+                "bounds": {
+                  "x": 9,
+                  "y": 3,
+                  "w": 22,
+                  "h": 21,
+                  "zIndex": 1
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "width": 22,
+                  "height": 21,
+                  "assets": {
+                    "default": "buttons/viz-drop-prev.png",
+                    "hover": "buttons/viz-drop-prev-hover.png",
+                    "pressed": "buttons/viz-drop-prev-pressed.png"
+                  }
+                }
+              },
+              {
+                "type": "button",
+                "id": "vis-drop-next",
+                "action": "visualizer.next",
+                "enabledWhen": "visualizer.canGoNext",
+                "bounds": {
+                  "x": 135,
+                  "y": 3,
+                  "w": 22,
+                  "h": 21,
+                  "zIndex": 1
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "width": 22,
+                  "height": 21,
+                  "assets": {
+                    "default": "buttons/viz-drop-next.png",
+                    "hover": "buttons/viz-drop-next-hover.png",
+                    "pressed": "buttons/viz-drop-next-pressed.png"
+                  }
+                }
+              },
+              {
+                "type": "button",
+                "id": "vis-drop-close",
+                "action": "skin.closePanel",
+                "panelId": "visChooser",
+                "bounds": {
+                  "x": 157,
+                  "y": 8,
+                  "w": 13,
+                  "h": 13,
+                  "zIndex": 1
+                },
+                "presentation": {
+                  "kind": "bitmap",
+                  "width": 13,
+                  "height": 13,
+                  "assets": {
+                    "default": "buttons/viz-drop-close.png",
+                    "hover": "buttons/viz-drop-close-hover.png",
+                    "pressed": "buttons/viz-drop-close-pressed.png"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "decoration",
+            "id": "head",
+            "bounds": {
+              "x": 261,
+              "y": 0,
+              "w": 234,
+              "h": 394,
+              "zIndex": 10
+            },
+            "presentation": {
+              "kind": "bitmap",
+              "assets": {
+                "default": "decorations/head.png"
+              }
+            }
+          },
+          {
+            "type": "visualizer",
+            "id": "viz",
+            "bounds": {
+              "x": 270,
+              "y": 59,
+              "w": 216,
+              "h": 158,
+              "zIndex": 1
+            },
+            "presentation": {
+              "kind": "framedPanel",
+              "mask": "decorations/vid-mask.png",
+              "frame": "decorations/vid-frame.png"
+            }
+          },
+          {
+            "type": "buttonGroup",
+            "id": "transport",
+            "bounds": {
+              "x": 309,
+              "y": 31,
+              "w": 144,
+              "h": 25,
+              "zIndex": 15
+            },
+            "presentation": {
+              "kind": "buttonGroup",
+              "positionMap": "buttons/transport-map.png",
+              "width": 144,
+              "height": 25,
+              "elements": [
+                {
+                  "mappingColor": "#ff0033",
+                  "action": "player.previousTrack"
+                },
+                {
+                  "mappingColor": "#ffff00",
+                  "action": "player.togglePlayPause"
+                },
+                {
+                  "mappingColor": "#00ff00",
+                  "action": "player.clearSetList"
+                },
+                {
+                  "mappingColor": "#00ffff",
+                  "action": "player.nextTrack"
+                },
+                {
+                  "mappingColor": "#0000ff",
+                  "action": "skin.togglePanel",
+                  "panelId": "visChooser"
+                }
+              ],
+              "assets": {
+                "default": "buttons/transport.png",
+                "hover": "buttons/transport-hover.png",
+                "pressed": "buttons/transport-pressed.png"
+              }
+            }
+          },
+          {
+            "type": "button",
+            "id": "pause",
+            "action": "player.togglePlayPause",
+            "visibleWhen": "player.isPlaying",
+            "bounds": {
+              "x": 335,
+              "y": 32,
+              "w": 23,
+              "h": 23,
+              "zIndex": 16
+            },
+            "presentation": {
+              "kind": "bitmap",
+              "width": 23,
+              "height": 23,
+              "assets": {
+                "default": "buttons/pause.png",
+                "hover": "buttons/pause-hover.png",
+                "pressed": "buttons/pause-pressed.png"
+              }
+            }
+          },
+          {
+            "type": "buttonGroup",
+            "id": "window-chrome",
+            "bounds": {
+              "x": 362,
+              "y": 4,
+              "w": 29,
+              "h": 16,
+              "zIndex": 20
+            },
+            "presentation": {
+              "kind": "buttonGroup",
+              "positionMap": "buttons/window-chrome-map.png",
+              "width": 29,
+              "height": 16,
+              "elements": [
+                {
+                  "mappingColor": "#ff00cc",
+                  "action": "skin.minimize"
+                },
+                {
+                  "mappingColor": "#cc0066",
+                  "action": "app.quit"
+                }
+              ],
+              "assets": {
+                "default": "buttons/window-chrome.png",
+                "hover": "buttons/window-chrome-hover.png",
+                "pressed": "buttons/window-chrome-pressed.png"
+              }
+            }
+          },
+          {
+            "type": "button",
+            "id": "eq-tab",
+            "action": "skin.togglePanel",
+            "panelId": "eq",
+            "bounds": {
+              "x": 276,
+              "y": 214,
+              "w": 20,
+              "h": 19,
+              "zIndex": 14
+            },
+            "presentation": {
+              "kind": "bitmap",
+              "width": 20,
+              "height": 19,
+              "assets": {
+                "default": "buttons/eq.png",
+                "hover": "buttons/eq-hover.png",
+                "pressed": "buttons/eq-pressed.png"
+              }
+            }
+          },
+          {
+            "type": "button",
+            "id": "pl-tab",
+            "action": "skin.togglePanel",
+            "panelId": "playlist",
+            "bounds": {
+              "x": 465,
+              "y": 214,
+              "w": 19,
+              "h": 20,
+              "zIndex": 14
+            },
+            "presentation": {
+              "kind": "bitmap",
+              "width": 19,
+              "height": 20,
+              "assets": {
+                "default": "buttons/pl.png",
+                "hover": "buttons/pl-hover.png",
+                "pressed": "buttons/pl-pressed.png"
+              }
+            }
+          },
+          {
+            "type": "seekbar",
+            "id": "seek",
+            "bounds": {
+              "x": 300,
+              "y": 218,
+              "w": 163,
+              "h": 18,
+              "zIndex": 15
+            },
+            "presentation": {
+              "kind": "bitmapSeekbar",
+              "track": "sliders/seek-track.png",
+              "fill": "sliders/seek-fill.png",
+              "borderSize": 9,
+              "trackWidth": 163,
+              "trackHeight": 9,
+              "thumbWidth": 18,
+              "thumbHeight": 9,
+              "thumbAssets": {
+                "default": "sliders/seek-thumb.png",
+                "hover": "sliders/seek-thumb-hover.png",
+                "pressed": "sliders/seek-thumb-pressed.png"
+              }
+            }
+          },
+          {
+            "type": "button",
+            "id": "return-to-library",
+            "action": "skin.restoreMainWindow",
+            "bounds": {
+              "x": 362,
+              "y": 232,
+              "w": 35,
+              "h": 31,
+              "zIndex": 14
+            },
+            "presentation": {
+              "kind": "bitmap",
+              "width": 35,
+              "height": 31,
+              "assets": {
+                "default": "buttons/theme.png",
+                "hover": "buttons/theme-hover.png",
+                "pressed": "buttons/theme-pressed.png"
+              }
+            }
+          },
+          {
+            "type": "hitArea",
+            "id": "hit-left-ear",
+            "bounds": {
+              "x": 207,
+              "y": 86,
+              "w": 84,
+              "h": 170,
+              "zIndex": 11
+            },
+            "boundsWhen": {
+              "skin.panel.eq.open": {
+                "x": 0
+              }
+            }
+          },
+          {
+            "type": "hitArea",
+            "id": "hit-right-ear",
+            "bounds": {
+              "x": 462,
+              "y": 86,
+              "w": 87,
+              "h": 170,
+              "zIndex": 11
+            },
+            "boundsWhen": {
+              "skin.panel.playlist.open": {
+                "x": 673
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

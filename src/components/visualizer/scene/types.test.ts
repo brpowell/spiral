@@ -19,10 +19,4 @@ describe("resolveLayout", () => {
       h: 60,
     });
   });
-
-  it("anchors centered layers", () => {
-    expect(
-      resolveLayout({ anchor: "center", w: 0.5, h: 0.25 }, 200, 100),
-    ).toEqual({ x: 50, y: 37.5, w: 100, h: 25 });
-  });
 });

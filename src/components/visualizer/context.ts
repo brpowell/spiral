@@ -16,7 +16,7 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 import { useThemeStore } from "../../store/useThemeStore";
 import type { SkinBindPath } from "../../types/skin";
 import { computeAudioEnergy } from "./rendererUtils";
-import type { VisualizerContext, VisualizerSurface } from "./types";
+import type { VisualizerContext } from "./types";
 
 export function usePrefersReducedMotion(): boolean {
   const [reducedMotion, setReducedMotion] = useState(() => {
@@ -95,7 +95,7 @@ function useResolvedThemeTokens(): Record<string, string> {
   }, [themes, activeThemeId]);
 }
 
-export function useVisualizerContextBuilder(surface: VisualizerSurface) {
+export function useVisualizerContextBuilder() {
   const palette = useVisualizerPalette();
   const themeTokens = useResolvedThemeTokens();
   const bindState = useSkinBindState();
@@ -114,7 +114,7 @@ export function useVisualizerContextBuilder(surface: VisualizerSurface) {
       size: VisualizerContext["size"],
       bins: readonly number[],
     ): VisualizerContext => ({
-      surface,
+      surface: "default",
       size,
       audio: {
         bins,
@@ -133,7 +133,6 @@ export function useVisualizerContextBuilder(surface: VisualizerSurface) {
       },
     }),
     [
-      surface,
       playbackState,
       volume,
       muted,

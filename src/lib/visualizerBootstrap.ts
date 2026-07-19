@@ -1,32 +1,32 @@
 import {
   DEFAULT_VISUALIZER_ID,
-  loadedPackToVisualizerPack,
-} from "./visualizerPack";
+  toVisualizer,
+} from "./resolveVisualizer";
 import {
   getActiveVisualizerId,
   listVisualizers,
-  loadVisualizerPack,
+  loadVisualizer,
 } from "./tauri";
 import { useVisualizerStore } from "../store/useVisualizerStore";
-import { BARS_FALLBACK_PACK } from "../components/visualizer/packs";
+import { BARS_FALLBACK_VISUALIZER } from "../components/visualizer/fallbackVisualizer";
 
 export async function bootstrapVisualizer(): Promise<void> {
   try {
-    const [summaries, activePackId] = await Promise.all([
+    const [summaries, activeVisualizerId] = await Promise.all([
       listVisualizers(),
       getActiveVisualizerId(),
     ]);
 
-    const resolvedId = summaries.some((pack) => pack.id === activePackId)
-      ? activePackId
+    const resolvedId = summaries.some((v) => v.id === activeVisualizerId)
+      ? activeVisualizerId
       : DEFAULT_VISUALIZER_ID;
 
-    let initialCache = { [DEFAULT_VISUALIZER_ID]: BARS_FALLBACK_PACK };
+    let initialCache = { [DEFAULT_VISUALIZER_ID]: BARS_FALLBACK_VISUALIZER };
     try {
-      const loaded = await loadVisualizerPack(resolvedId);
+      const loaded = await loadVisualizer(resolvedId);
       initialCache = {
         ...initialCache,
-        [resolvedId]: loadedPackToVisualizerPack(loaded),
+        [resolvedId]: toVisualizer(loaded),
       };
     } catch (err) {
       console.error(`Visualizer bootstrap: failed to load "${resolvedId}":`, err);
@@ -40,7 +40,7 @@ export async function bootstrapVisualizer(): Promise<void> {
     useVisualizerStore.getState().initializeFromBootstrap(
       [],
       DEFAULT_VISUALIZER_ID,
-      { [DEFAULT_VISUALIZER_ID]: BARS_FALLBACK_PACK },
+      { [DEFAULT_VISUALIZER_ID]: BARS_FALLBACK_VISUALIZER },
     );
   }
 }

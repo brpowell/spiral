@@ -2,19 +2,14 @@ import type { RefObject } from "react";
 import type { SkinBindPath } from "../../types/skin";
 import type { VisualizerRemoteFrame } from "../../lib/visualizerDataBridge";
 import type {
-  VisualizerAuthoringSurface,
   VisualizerSurface,
   VizSurfaceProfile,
 } from "../../types/visualizer";
 
 export type {
-  VisualizerAuthoringSurface,
   VisualizerSurface,
   VizSurfaceProfile as VisualizerSurfaceProfile,
-  WebGLRendererId,
 } from "../../types/visualizer";
-
-export type VisualizerRendererId = "bars" | "wave" | "spectrum";
 
 export interface VisualizerContext {
   surface: VisualizerSurface;
@@ -47,55 +42,23 @@ export interface VisualizerContext {
   };
 }
 
-export type VisualizerOrientation = "horizontal" | "vertical";
-
-/** Shared param surface for built-in renderers (pack manifest v1). */
-export interface RendererParams {
-  barCount?: number;
-  mirror?: boolean;
-  glow?: number;
-  orientation?: VisualizerOrientation;
-}
-
-export interface VisualizerPack {
+/** Runtime visualizer: resolved surfaces ready for the scene compositor. */
+export interface Visualizer {
   id: string;
   /** Pack root on disk — required for scene asset layers. */
   packDir?: string;
   surfaces: Record<VisualizerSurface, VizSurfaceProfile>;
-  reducedSurfaces?: Partial<Record<VisualizerAuthoringSurface, VizSurfaceProfile>>;
 }
 
 export interface VisualizerDrawState {
-  idlePhaseRef: { current: number };
-  frequencyDataRef: { current: Uint8Array<ArrayBuffer> | null };
   timeDomainDataRef: { current: Uint8Array<ArrayBuffer> | null };
 }
 
-export interface VisualizerDrawArgs {
-  ctx: CanvasRenderingContext2D;
-  width: number;
-  height: number;
-  context: VisualizerContext;
-  remoteBins: number[] | null;
-  remoteWaveform: number[] | null;
-  state: VisualizerDrawState;
-}
-
 export interface VisualizerRendererProps {
-  surface: VisualizerSurface;
   variant?: "mini" | "dock";
   expanded: boolean;
   onToggleExpand: () => void;
   showExpandToggle?: boolean;
   fillContainer?: boolean;
   remoteFrameRef?: RefObject<VisualizerRemoteFrame>;
-}
-
-export function resolveVisualizerSurface(
-  variant: "mini" | "dock",
-  expanded: boolean,
-): VisualizerSurface {
-  if (variant === "mini" && expanded) return "expanded";
-  if (variant === "mini") return "mini";
-  return "panel";
 }

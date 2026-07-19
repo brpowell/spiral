@@ -2,23 +2,42 @@ import { emit } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { isTauri } from "./windowRole";
 
-export type AppearanceSection = "themes" | "visualizers" | "skins";
+export type AppearanceSection =
+  | "themes"
+  | "visualizers"
+  | "skins"
+  | "packs";
 
 export const APPEARANCE_NAVIGATE_EVENT = "appearance://navigate";
 export const APPEARANCE_REFRESH_EVENT = "appearance://refresh";
+/** Manual reload of linked pack paths (View → Reload Linked Packs / Cmd+Alt+R). */
+export const RELOAD_LINKED_PACKS_EVENT = "packs://reload-linked";
+
+/** Fired when a pack is linked or unlinked so the app menu can update. */
+export const LINKED_PACKS_CHANGED_EVENT = "packs://linked-changed";
 
 export interface AppearanceNavigatePayload {
   section: AppearanceSection;
+  packId?: string;
 }
 
 const APPEARANCE_LABEL = "appearance";
 
 const STORAGE_KEY = "appearance.lastSection";
 
+function isAppearanceSection(value: string): value is AppearanceSection {
+  return (
+    value === "themes" ||
+    value === "visualizers" ||
+    value === "skins" ||
+    value === "packs"
+  );
+}
+
 export function getStoredAppearanceSection(): AppearanceSection {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "themes" || stored === "visualizers" || stored === "skins") {
+    if (stored && isAppearanceSection(stored)) {
       return stored;
     }
   } catch {
@@ -45,6 +64,7 @@ async function getAppearanceWindow(): Promise<WebviewWindow | null> {
 
 export async function openAppearanceWindow(
   section?: AppearanceSection,
+  packId?: string,
 ): Promise<void> {
   if (!isTauri()) {
     console.warn("openAppearanceWindow: not running in Tauri");
@@ -71,6 +91,7 @@ export async function openAppearanceWindow(
       await window.setFocus();
       void emit(APPEARANCE_NAVIGATE_EVENT, {
         section: resolvedSection,
+        packId,
       } satisfies AppearanceNavigatePayload);
       void emit(APPEARANCE_REFRESH_EVENT, {});
       return;
@@ -78,6 +99,7 @@ export async function openAppearanceWindow(
 
     void emit(APPEARANCE_NAVIGATE_EVENT, {
       section: resolvedSection,
+      packId,
     } satisfies AppearanceNavigatePayload);
 
     await window.center();

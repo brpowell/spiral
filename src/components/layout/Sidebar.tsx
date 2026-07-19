@@ -20,6 +20,12 @@ import {
   IconPalette,
   IconPlaylistAdd,
 } from "../icons";
+import {
+  SidebarFooter,
+  SidebarFrame,
+  SidebarList,
+  SidebarSection,
+} from "./SidebarChrome";
 import { SidebarItem } from "./SidebarItem/SidebarItem";
 import { SidebarPlaylistItem } from "./SidebarPlaylistItem";
 import { SidebarCdDriveItem } from "./SidebarCdDriveItem";
@@ -37,11 +43,12 @@ const NAV_ITEMS: {
   icon: ReactNode;
   enabled: boolean;
 }[] = [
-    { view: "library", label: "Tracks", icon: <IconTracks />, enabled: true },
-    { view: "albums", label: "Albums", icon: <IconAlbums />, enabled: true },
-    { view: "artists", label: "Artists", icon: <IconArtists />, enabled: true },
-  ];
+  { view: "library", label: "Tracks", icon: <IconTracks />, enabled: true },
+  { view: "albums", label: "Albums", icon: <IconAlbums />, enabled: true },
+  { view: "artists", label: "Artists", icon: <IconArtists />, enabled: true },
+];
 
+/** Main-window library navigation rail. */
 export function Sidebar() {
   const view = useNavigationStore((s) => s.view);
   const playlistId = useNavigationStore((s) => s.playlistId);
@@ -61,10 +68,11 @@ export function Sidebar() {
   const openPlaylistEditor = usePlaylistStore((s) => s.openPlaylistEditor);
 
   return (
-    <nav className="sidebar" aria-label="Main navigation">
-      <ul className="sidebar__list">
+    <SidebarFrame aria-label="Main navigation">
+      <SidebarList>
         {NAV_ITEMS.map((item) => {
-          const isActive = item.view === view && playlistId == null && cdDriveId == null;
+          const isActive =
+            item.view === view && playlistId == null && cdDriveId == null;
           return (
             <li key={item.view}>
               <SidebarItem
@@ -78,21 +86,19 @@ export function Sidebar() {
             </li>
           );
         })}
-      </ul>
+      </SidebarList>
 
       {readyCdDrives.length > 0 ? (
-        <section className="sidebar__devices" aria-label="Devices">
-          <h2 className="sidebar__section-label">Devices</h2>
+        <SidebarSection label="Devices">
           <ul className="sidebar__device-list">
             {readyCdDrives.map((drive) => (
               <SidebarCdDriveItem key={drive.id} drive={drive} />
             ))}
           </ul>
-        </section>
+        </SidebarSection>
       ) : null}
 
-      <section className="sidebar__playlists" aria-label="Playlists">
-        <h2 className="sidebar__section-label">Playlists</h2>
+      <SidebarSection label="Playlists" grow>
         <div className="sidebar__playlist-body">
           {playlists.length === 0 ? (
             <p className="sidebar__playlists-empty">No playlists yet</p>
@@ -128,19 +134,19 @@ export function Sidebar() {
         >
           New Playlist
         </SidebarItem>
-      </section>
+      </SidebarSection>
 
-      <div className="sidebar__footer">
+      <SidebarFooter>
         <SidebarItem
           icon={<IconPalette />}
-          aria-label="Appearance"
+          aria-label="Studio"
           onClick={() => {
             void openAppearanceWindow();
           }}
         >
-          Appearance
+          Studio
         </SidebarItem>
-      </div>
-    </nav>
+      </SidebarFooter>
+    </SidebarFrame>
   );
 }

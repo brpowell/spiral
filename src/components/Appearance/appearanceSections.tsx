@@ -1,6 +1,11 @@
 import type { ReactNode } from "react";
 import type { AppearanceSection } from "../../lib/appearanceWindow";
-import { IconPalette, IconSkinMode, IconVisualizer } from "../icons";
+import {
+  IconPackage,
+  IconPalette,
+  IconSkinMode,
+  IconVisualizer,
+} from "../icons";
 
 export interface AppearanceSectionConfig {
   id: AppearanceSection;
@@ -24,7 +29,19 @@ export const APPEARANCE_SECTIONS: AppearanceSectionConfig[] = [
     label: "Skins",
     icon: <IconSkinMode />,
   },
+  {
+    id: "packs",
+    label: "Packs",
+    icon: <IconPackage />,
+  },
 ];
+
+export const APPEARANCE_CONTENT_SECTIONS: AppearanceSectionConfig[] =
+  APPEARANCE_SECTIONS.filter((item) => item.id !== "packs");
+
+export const APPEARANCE_MANAGE_SECTION = APPEARANCE_SECTIONS.find(
+  (item) => item.id === "packs",
+)!;
 
 export function getAppearanceSectionConfig(
   section: AppearanceSection,

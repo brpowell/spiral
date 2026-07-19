@@ -13,6 +13,12 @@
   box-shadow: 0 8px 24px color-mix(in srgb, #000 35%, transparent);
 }
 
+/* Root is focused on pointer-open for arrow-key entry; ring belongs on items only. */
+.context-menu:focus,
+.context-menu:focus-visible {
+  outline: none;
+}
+
 .context-menu button {
   display: flex;
   align-items: center;
@@ -78,7 +84,7 @@
 
 .context-menu button:hover:not(:disabled),
 .context-menu button:focus-visible:not(:disabled) {
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  background: var(--color-interactive-hover);
   color: var(--color-accent);
 }
 

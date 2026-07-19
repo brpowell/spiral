@@ -44,7 +44,7 @@
 
 .tabs__tab--selected {
   border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  background: var(--color-interactive-selected);
 }
 
 .tabs__tab:disabled {

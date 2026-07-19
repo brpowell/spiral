@@ -5,8 +5,20 @@ export interface SkinAuxContext {
   viewId: string;
 }
 
+/**
+ * Tauri webview labels allow only `a-zA-Z0-9-/:_`. Pack contribution ids use
+ * `authorId.packId.type.contributionId` (e.g. `spiral.iconic.skin.xbox`), so map `.` ↔ `:` for window labels.
+ */
+function encodeSkinIdForLabel(skinId: string): string {
+  return skinId.replace(/\./g, ":");
+}
+
+function decodeSkinIdFromLabel(encoded: string): string {
+  return encoded.replace(/:/g, ".");
+}
+
 export function skinAuxWindowLabel(skinId: string, viewId: string): string {
-  return `${SKIN_AUX_LABEL_PREFIX}${skinId}_${viewId}`;
+  return `${SKIN_AUX_LABEL_PREFIX}${encodeSkinIdForLabel(skinId)}_${viewId}`;
 }
 
 export function parseSkinAuxWindowLabel(label: string): SkinAuxContext | null {
@@ -14,7 +26,7 @@ export function parseSkinAuxWindowLabel(label: string): SkinAuxContext | null {
   const rest = label.slice(SKIN_AUX_LABEL_PREFIX.length);
   const separator = rest.lastIndexOf("_");
   if (separator <= 0) return null;
-  const skinId = rest.slice(0, separator);
+  const skinId = decodeSkinIdFromLabel(rest.slice(0, separator));
   const viewId = rest.slice(separator + 1);
   if (!skinId || !viewId) return null;
   return { skinId, viewId };

@@ -1,0 +1,48 @@
+[data-node-id="metadata"],
+[data-node-id="time"] {
+  color: #63e900;
+  text-align: center;
+}
+
+[data-node-id="metadata"] {
+  font: bold 7px/1 verdana, arial, sans-serif;
+}
+
+[data-node-id="time"] {
+  font: bold 8px/1 verdana, arial, sans-serif;
+}
+
+[data-node-id="eq-preset"] {
+  color: #73cc00;
+  font: 8px verdana, sans-serif;
+  text-align: center;
+}
+
+[data-node-id="pl-list"] {
+  color: #7ec509;
+  font: 11px verdana, arial, sans-serif;
+}
+
+.skin-tiled-frame__content {
+  background: #000000;
+}
+
+[data-node-id="pl-list"] .skin-playlist-view__row--playing {
+  color: #ffffff;
+  background-color: #369108;
+}
+
+[data-node-id="content-system-link"].skin-bitmap-btn,
+[data-node-id="content-games-link"].skin-bitmap-btn,
+[data-node-id="content-web-link"].skin-bitmap-btn,
+[data-node-id="content-winmedia-link"].skin-bitmap-btn,
+[data-node-id="content-cs-link"].skin-bitmap-btn {
+  opacity: 0;
+}
+
+/* WMP moveTo(..., 500) for vis prev/next when visualizer effects are shown. */
+.skin-bounds--motion[data-bounds-for="vis-prev"],
+.skin-bounds--motion[data-bounds-for="vis-next"] {
+  transition: left 500ms linear, right 500ms linear, top 500ms linear,
+    width 500ms linear, height 500ms linear;
+}

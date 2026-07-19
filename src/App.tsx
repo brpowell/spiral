@@ -29,6 +29,7 @@ import { openSkinMode } from "./lib/skinModeWindow";
 import { openActivityLogsWindow } from "./lib/activityLogsWindow";
 import { openAppearanceWindow } from "./lib/appearanceWindow";
 import { openEqualizerWindow } from "./lib/equalizerWindow";
+import { reloadLinkedPacksWithRefresh } from "./lib/packs/refreshPackStores";
 import { useAudioWakeRecovery } from "./hooks/useAudioWakeRecovery";
 import { useHiddenPlaybackKeepAlive } from "./hooks/useHiddenPlaybackKeepAlive";
 import { useCdMonitor } from "./hooks/useCdMonitor";
@@ -94,6 +95,9 @@ function App() {
       },
       openActivityLogs: () => {
         void openActivityLogsWindow();
+      },
+      reloadLinkedPacks: () => {
+        void reloadLinkedPacksWithRefresh();
       },
     });
   }, [addToLibrary, openPlaylistEditor, setPreferencesOpen]);

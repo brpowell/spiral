@@ -17,9 +17,21 @@ function isSuggestionContextMenu(menuEl: HTMLElement): boolean {
   return menuEl.querySelector('[role="listbox"]') != null;
 }
 
-export function focusFirstContextMenuItem(menuEl: HTMLElement): void {
-  if (isSuggestionContextMenu(menuEl)) return;
+function focusFirstContextMenuItem(menuEl: HTMLElement): void {
   focusContextMenuItem(getContextMenuItems(menuEl)[0]);
+}
+
+/** Focus the menu root (pointer) or first item (keyboard). Skips suggestion menus. */
+export function focusContextMenuOnOpen(
+  menuEl: HTMLElement,
+  focusFirstItem: boolean,
+): void {
+  if (isSuggestionContextMenu(menuEl)) return;
+  if (focusFirstItem) {
+    focusFirstContextMenuItem(menuEl);
+    return;
+  }
+  menuEl.focus({ preventScroll: true });
 }
 
 function navigateContextMenuItems(

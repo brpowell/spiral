@@ -1,4 +1,6 @@
-/** Mirrors Rust `SkinManifest` / layout types (skin.json v1). */
+/** Mirrors Rust `SkinManifest` / layout types (skin.json). */
+
+import type { PackZone } from "./pack";
 
 /** Pack-relative path under assets/, including extension (e.g. buttons/play.png). */
 export type SkinAssetFile = string;
@@ -39,6 +41,10 @@ export interface SkinSummary {
   author: string;
   description: string;
   isBuiltin: boolean;
+  packId: string;
+  packName: string;
+  packVersion: string;
+  zone: PackZone;
   previewPath: string | null;
 }
 
@@ -49,7 +55,8 @@ export interface LoadedSkinPack {
 }
 
 export interface SkinManifest {
-  version: number;
+  /** Declared contribution id (kebab slug). */
+  id: string;
   name: string;
   author: string;
   description: string;
@@ -761,12 +768,10 @@ export interface SkinVisualizerSize {
 
 export interface SkinVisualizer {
   /**
-   * Viz pack id (folder under visualizers/), or `"global"` / omit to follow
-   * the user's active visualizer picker.
+   * Effective visualizer contribution id (`authorId.packId.type.contributionId`),
+   * or `"global"` / omit to follow the user's active visualizer picker.
    */
-  pack?: string;
-  /** @deprecated Use `pack`. Maps to built-in pack ids at runtime. */
-  preset?: "bars" | "wave" | "spectrum";
+  id?: string;
   /** Band position in the skin shell. Default `bottom`. */
   placement?: VisualizerPlacement;
   /** `mini` = compact strip; `panel` = full slot with optional flex height. Default `mini`. */

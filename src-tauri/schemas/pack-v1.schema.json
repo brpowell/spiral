@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spiralpowered.com/packs/schema/pack-v1.json",
+  "title": "Spiral pack manifest v1",
+  "type": "object",
+  "required": [
+    "manifestVersion",
+    "packId",
+    "authorId",
+    "version",
+    "name",
+    "description"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri-reference",
+      "description": "JSON Schema reference for editor validation."
+    },
+    "manifestVersion": {
+      "const": 1,
+      "description": "Pack wrapper JSON shape version. Checked first; unknown versions fail fast."
+    },
+    "packId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Stable pack slug within the author's namespace."
+    },
+    "authorId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Structured slug identifying who maintains/distributes this pack."
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$",
+      "description": "Semantic version of the pack."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "Human-readable pack title shown in Studio lists and pack detail."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 280,
+      "description": "Short summary for lists/hero; use README.md for longer notes."
+    },
+    "icon": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional pack icon path relative to the pack root (e.g. icon.png)."
+    },
+    "minAppVersion": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$",
+      "description": "Optional semver floor for app capabilities."
+    }
+  }
+}

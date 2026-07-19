@@ -20,11 +20,7 @@
   object-fit: cover;
 }
 
-.scene-layer__webgl-host {
-  width: 100%;
-  height: 100%;
-}
-
-.scene-layer__canvas {
+.scene-layer__canvas,
+.scene-layer__webgl {
   background: transparent;
 }

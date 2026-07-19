@@ -32,6 +32,6 @@
 }
 
 .context-menu--suggestions .suggestion-menu__item--active {
-  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
-  color: var(--color-accent);
+  background: var(--color-interactive-selected);
+  color: var(--color-interactive-selected-text, var(--color-accent));
 }

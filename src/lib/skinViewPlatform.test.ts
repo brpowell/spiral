@@ -24,11 +24,15 @@ function makePack(views: LoadedSkinPack["manifest"]["views"]): LoadedSkinPack {
       author: "Test",
       description: "",
       isBuiltin: true,
+      packId: "t3",
+      packName: "T3",
+      packVersion: "1.0.0",
+      zone: "builtin",
       previewPath: null,
     },
     packDir: "/tmp/t3",
     manifest: {
-      version: 1,
+      id: "t3",
       name: "T3",
       author: "Test",
       description: "",
@@ -44,6 +48,16 @@ describe("skinAuxContext", () => {
     expect(parseSkinAuxWindowLabel("skin-aux-t3_eq")).toEqual({
       skinId: "t3",
       viewId: "eq",
+    });
+  });
+
+  it("encodes dots in pack contribution ids for Tauri labels", () => {
+    expect(skinAuxWindowLabel("spiral.iconic.skin.xbox", "playlist")).toBe(
+      "skin-aux-spiral:iconic:skin:xbox_playlist",
+    );
+    expect(parseSkinAuxWindowLabel("skin-aux-spiral:iconic:skin:xbox_playlist")).toEqual({
+      skinId: "spiral.iconic.skin.xbox",
+      viewId: "playlist",
     });
   });
 });

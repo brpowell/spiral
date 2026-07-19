@@ -1,0 +1,25 @@
+{
+  "$schema": "../../../../../schemas/theme-v1.schema.json",
+  "id": "abyss",
+  "name": "Abyss",
+  "author": "Spiral",
+  "description": "Moonlit indigo depths and luminous aqua.",
+  "tokens": {
+    "color-accent": "#5ecfd4",
+    "color-accent-muted": "#2a4f5c",
+    "color-accent-text": "#000000",
+    "color-bg": "#0a1220",
+    "color-border": "#243048",
+    "color-danger": "#e8945a",
+    "color-danger-bg": "#2a1a14",
+    "color-interactive": "#5ecfd4",
+    "color-interactive-selected-text": "#5ecfd4",
+    "color-surface": "#121e32",
+    "color-surface-raised": "#1a2a42",
+    "color-text-primary": "#eef1f8",
+    "color-text-secondary": "#8898b4",
+    "font-ui": "'Outfit', system-ui, -apple-system, sans-serif",
+    "radius-button": "8px",
+    "radius-card": "12px"
+  }
+}

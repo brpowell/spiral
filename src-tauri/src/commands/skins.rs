@@ -1,12 +1,11 @@
 use crate::activity_log::{self, LogLevel};
+use crate::packs;
 use crate::settings;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::{Path, PathBuf};
-use tauri::path::BaseDirectory;
-use tauri::{AppHandle, Manager};
-use tauri_plugin_opener::OpenerExt;
+use std::path::Path;
+use tauri::AppHandle;
 
 const KNOWN_ACTIONS: &[&str] = &[
     "player.togglePlayPause",
@@ -126,6 +125,10 @@ pub struct SkinSummary {
     pub author: String,
     pub description: String,
     pub is_builtin: bool,
+    pub pack_id: String,
+    pub pack_name: String,
+    pub pack_version: String,
+    pub zone: packs::PackZone,
     pub preview_path: Option<String>,
 }
 
@@ -140,7 +143,6 @@ pub struct LoadedSkinPack {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkinManifest {
-    pub version: u32,
     pub name: String,
     pub author: String,
     pub description: String,
@@ -941,10 +943,7 @@ pub struct WindowChrome {
 #[serde(rename_all = "camelCase")]
 pub struct SkinVisualizer {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pack: Option<String>,
-    /// Legacy preset name — maps to built-in pack ids at runtime.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub preset: Option<String>,
+    pub id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub placement: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -973,39 +972,18 @@ pub enum SkinVisualizerDimension {
     Pixels(u32),
 }
 
-fn builtin_skins_root(app: &AppHandle) -> PathBuf {
-    let manifest_builtin =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("skins/builtin");
-
-    // Dev builds bundle resources at compile time; prefer live source so new assets
-    // under skins/builtin/ are picked up without a full rebuild.
-    #[cfg(debug_assertions)]
-    if manifest_builtin.is_dir() {
-        return manifest_builtin;
+fn resolve_skin_id(stored: &str, known_ids: &HashSet<String>) -> String {
+    if known_ids.contains(stored) {
+        return stored.to_string();
     }
-
-    if let Ok(path) = app.path().resolve("skins/builtin", BaseDirectory::Resource) {
-        if path.is_dir() {
-            return path;
-        }
+    if known_ids.contains(settings::DEFAULT_SKIN_ID) {
+        return settings::DEFAULT_SKIN_ID.to_string();
     }
-    manifest_builtin
-}
-
-fn skins_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(settings::app_data_dir(app)?.join("skins"))
-}
-
-fn ensure_skins_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    let dir = skins_dir(app)?;
-    if !dir.exists() {
-        fs::create_dir_all(&dir).map_err(|e| format!("failed to create skins directory: {e}"))?;
-    }
-    Ok(dir)
-}
-
-fn skin_id_from_dir(dir: &Path) -> Option<String> {
-    dir.file_name().and_then(|n| n.to_str()).map(str::to_string)
+    known_ids
+        .iter()
+        .next()
+        .cloned()
+        .unwrap_or_else(|| settings::DEFAULT_SKIN_ID.to_string())
 }
 
 fn read_manifest(path: &Path) -> Result<SkinManifest, String> {
@@ -1013,6 +991,18 @@ fn read_manifest(path: &Path) -> Result<SkinManifest, String> {
         fs::read_to_string(path).map_err(|e| format!("could not read {}: {e}", path.display()))?;
     serde_json::from_str(&contents)
         .map_err(|e| format!("{} is not valid skin JSON: {e}", path.display()))
+}
+
+/// Strict skin contribution check used by pack install/export.
+pub(crate) fn validate_skin_contribution_at(manifest_path: &Path) -> Result<(), String> {
+    let pack_dir = manifest_path.parent().ok_or_else(|| {
+        format!(
+            "skin manifest has no parent directory: {}",
+            manifest_path.display()
+        )
+    })?;
+    let manifest = read_manifest(manifest_path)?;
+    validate_manifest(&manifest, pack_dir)
 }
 
 fn validate_condition(
@@ -1713,12 +1703,6 @@ fn validate_visualizer_dimension(
 fn validate_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Result<(), String> {
     let mut errors: Vec<String> = Vec::new();
 
-    if manifest.version != 1 {
-        errors.push(format!(
-            "unsupported skin version {} (expected 1)",
-            manifest.version
-        ));
-    }
     if manifest.name.trim().is_empty() {
         errors.push("skin name cannot be empty".to_string());
     }
@@ -1744,17 +1728,10 @@ fn validate_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Result<(), Str
         }
     }
     if let Some(viz) = &manifest.visualizer {
-        if let Some(pack) = &viz.pack {
-            let trimmed = pack.trim();
+        if let Some(id) = &viz.id {
+            let trimmed = id.trim();
             if trimmed.is_empty() {
-                errors.push("visualizer.pack cannot be empty".to_string());
-            }
-        }
-        if let Some(preset) = &viz.preset {
-            if !["bars", "wave", "spectrum"].contains(&preset.as_str()) {
-                errors.push(format!(
-                    "visualizer.preset \"{preset}\" must be bars, wave, or spectrum"
-                ));
+                errors.push("visualizer.id cannot be empty".to_string());
             }
         }
         if let Some(placement) = &viz.placement {
@@ -1844,18 +1821,20 @@ fn validate_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Result<(), Str
     }
 }
 
-fn load_pack_from_dir(pack_dir: &Path, is_builtin: bool) -> Result<LoadedSkinPack, String> {
-    let id = skin_id_from_dir(pack_dir)
-        .ok_or_else(|| format!("invalid skin folder: {}", pack_dir.display()))?;
-    let manifest_path = pack_dir.join("skin.json");
+fn load_pack_from_contribution(
+    contrib: &packs::ScannedContribution,
+) -> Result<LoadedSkinPack, String> {
+    let pack_dir = &contrib.contribution_dir;
+    let manifest_path = &contrib.manifest_path;
     if !manifest_path.is_file() {
         return Err(format!(
-            "skin pack \"{id}\" is missing skin.json at {}",
+            "skin \"{}\" is missing skin.json at {}",
+            contrib.effective_id,
             manifest_path.display()
         ));
     }
 
-    let manifest = read_manifest(&manifest_path)?;
+    let manifest = read_manifest(manifest_path)?;
     validate_manifest(&manifest, pack_dir)?;
 
     let preview_path = ["preview.png", "preview.webp"]
@@ -1865,11 +1844,15 @@ fn load_pack_from_dir(pack_dir: &Path, is_builtin: bool) -> Result<LoadedSkinPac
         .map(|p| p.to_string_lossy().into_owned());
 
     let summary = SkinSummary {
-        id: id.clone(),
+        id: contrib.effective_id.clone(),
         name: manifest.name.clone(),
         author: manifest.author.clone(),
         description: manifest.description.clone(),
-        is_builtin,
+        is_builtin: contrib.zone.is_builtin(),
+        pack_id: contrib.pack_id.clone(),
+        pack_name: contrib.pack_name.clone(),
+        pack_version: contrib.pack_version.clone(),
+        zone: contrib.zone,
         preview_path,
     };
 
@@ -1880,92 +1863,41 @@ fn load_pack_from_dir(pack_dir: &Path, is_builtin: bool) -> Result<LoadedSkinPac
     })
 }
 
-fn list_builtin_packs(app: &AppHandle) -> Vec<LoadedSkinPack> {
-    let root = builtin_skins_root(app);
-    if !root.is_dir() {
-        return vec![];
+fn list_all_skin_packs(app: &AppHandle) -> Vec<LoadedSkinPack> {
+    if let Err(e) = packs::ensure_packs_ready(app) {
+        activity_log::log(
+            LogLevel::Debug,
+            "skin.load",
+            format!("pack setup error: {e}"),
+            None,
+        );
     }
 
-    let mut packs = Vec::new();
-    let entries = match fs::read_dir(&root) {
-        Ok(e) => e,
-        Err(e) => {
-            activity_log::log(
-                LogLevel::Debug,
-                "skin.load",
-                format!("builtin skins directory read error: {e}"),
-                None,
-            );
-            return packs;
-        }
-    };
+    let scan = packs::scan_contributions_of_type(app, "skin");
+    for w in &scan.warnings {
+        activity_log::log(LogLevel::Debug, "skin.load", w.message.clone(), None);
+    }
 
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
+    let hidden: HashSet<String> = settings::read_settings(app)
+        .hidden_contribution_ids
+        .into_iter()
+        .collect();
+
+    let mut packs = Vec::new();
+    for contrib in &scan.contributions {
+        if hidden.contains(&contrib.effective_id) {
             continue;
         }
-        match load_pack_from_dir(&path, true) {
+        match load_pack_from_contribution(contrib) {
             Ok(pack) => packs.push(pack),
             Err(e) => {
-                let id = skin_id_from_dir(&path).unwrap_or_default();
                 activity_log::log(
                     LogLevel::Debug,
                     "skin.load",
-                    format!("built-in skin \"{id}\" failed to load: {e}"),
+                    format!("skin \"{}\" failed to load: {e}", contrib.effective_id),
                     Some(serde_json::json!({
-                        "skinId": id,
-                        "builtin": true,
-                        "error": e,
-                    })),
-                );
-            }
-        }
-    }
-
-    packs.sort_by(|a, b| a.summary.name.cmp(&b.summary.name));
-    packs
-}
-
-fn list_user_packs(app: &AppHandle) -> Vec<LoadedSkinPack> {
-    let dir = match skins_dir(app) {
-        Ok(d) => d,
-        Err(_) => return vec![],
-    };
-    if !dir.is_dir() {
-        return vec![];
-    }
-
-    let mut packs = Vec::new();
-    let entries = match fs::read_dir(&dir) {
-        Ok(e) => e,
-        Err(e) => {
-            activity_log::log(
-                LogLevel::Debug,
-                "skin.load",
-                format!("skins directory read error: {e}"),
-                None,
-            );
-            return packs;
-        }
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-        match load_pack_from_dir(&path, false) {
-            Ok(pack) => packs.push(pack),
-            Err(e) => {
-                let path_display = path.display().to_string();
-                activity_log::log(
-                    LogLevel::Debug,
-                    "skin.load",
-                    format!("user skin at {path_display} skipped: {e}"),
-                    Some(serde_json::json!({
-                        "path": path_display,
-                        "builtin": false,
+                        "skinId": contrib.effective_id,
+                        "builtin": contrib.zone.is_builtin(),
                         "error": e,
                     })),
                 );
@@ -1979,37 +1911,24 @@ fn list_user_packs(app: &AppHandle) -> Vec<LoadedSkinPack> {
 
 #[tauri::command]
 pub fn list_skins(app: AppHandle) -> Result<Vec<SkinSummary>, String> {
-    let mut seen = HashSet::new();
-    let mut summaries = Vec::new();
-
-    for pack in list_builtin_packs(&app) {
-        seen.insert(pack.summary.id.clone());
-        summaries.push(pack.summary);
-    }
-    for pack in list_user_packs(&app) {
-        if seen.insert(pack.summary.id.clone()) {
-            summaries.push(pack.summary);
-        }
-    }
-
-    Ok(summaries)
+    Ok(list_all_skin_packs(&app)
+        .into_iter()
+        .map(|p| p.summary)
+        .collect())
 }
 
 #[tauri::command]
 pub fn load_skin_pack(app: AppHandle, skin_id: String) -> Result<LoadedSkinPack, String> {
-    let builtin_dir = builtin_skins_root(&app).join(&skin_id);
-    if builtin_dir.is_dir() {
-        return load_pack_from_dir(&builtin_dir, true);
-    }
+    let packs = list_all_skin_packs(&app);
+    let known: HashSet<String> = packs.iter().map(|p| p.summary.id.clone()).collect();
+    let resolved = resolve_skin_id(&skin_id, &known);
 
-    let user_dir = skins_dir(&app)?.join(&skin_id);
-    if user_dir.is_dir() {
-        return load_pack_from_dir(&user_dir, false);
-    }
-
-    Err(format!(
-        "skin \"{skin_id}\" was not found in built-in or user skins folders"
-    ))
+    packs
+        .into_iter()
+        .find(|p| p.summary.id == resolved)
+        .ok_or_else(|| {
+            format!("skin \"{skin_id}\" was not found in builtin, workshop, or installed packs")
+        })
 }
 
 #[tauri::command]
@@ -2021,7 +1940,15 @@ pub fn save_active_skin_id(app: AppHandle, skin_id: String) -> Result<(), String
 
 #[tauri::command]
 pub fn get_active_skin_id(app: AppHandle) -> Result<String, String> {
-    Ok(settings::read_settings(&app).active_skin)
+    let mut app_settings = settings::read_settings(&app);
+    let packs = list_all_skin_packs(&app);
+    let known: HashSet<String> = packs.iter().map(|p| p.summary.id.clone()).collect();
+    let resolved = resolve_skin_id(&app_settings.active_skin, &known);
+    if resolved != app_settings.active_skin {
+        app_settings.active_skin = resolved.clone();
+        let _ = settings::write_settings(&app, &app_settings);
+    }
+    Ok(resolved)
 }
 
 #[tauri::command]
@@ -2036,39 +1963,53 @@ pub fn get_active_skin_view(app: AppHandle) -> Result<String, String> {
     Ok(settings::read_settings(&app).active_skin_view)
 }
 
-#[tauri::command]
-pub fn open_skins_folder(app: AppHandle) -> Result<(), String> {
-    let dir = ensure_skins_dir(&app)?;
-    app.opener()
-        .open_path(dir.to_string_lossy().as_ref(), None::<&str>)
-        .map_err(|e| format!("failed to open skins folder: {e}"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::packs::PackZone;
+    use crate::packs::scan::scan_zone_root;
+    use std::path::PathBuf;
 
     #[test]
     fn all_builtin_skins_load() {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("skins/builtin");
-        let entries = fs::read_dir(&root).expect("builtin skins directory should exist");
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("packs/builtin");
+        let mut warnings = Vec::new();
+        let contribs = scan_zone_root(&root, PackZone::Builtin, &mut warnings);
         let mut loaded = 0usize;
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_dir() {
-                continue;
-            }
-            load_pack_from_dir(&path, true)
-                .unwrap_or_else(|e| panic!("built-in skin at {} should load: {e}", path.display()));
+        for contrib in contribs.iter().filter(|c| c.r#type == "skin") {
+            load_pack_from_contribution(contrib).unwrap_or_else(|e| {
+                panic!(
+                    "built-in skin {} should load: {e}",
+                    contrib.effective_id
+                )
+            });
             loaded += 1;
         }
-        assert!(loaded > 0, "expected at least one built-in skin pack");
+        assert_eq!(loaded, 1, "expected 1 built-in skin in core");
+        assert!(
+            contribs
+                .iter()
+                .any(|c| c.effective_id == "spiral.core.skin.spiral-default"),
+            "spiral.core.skin.spiral-default should be present"
+        );
     }
 
     #[test]
     fn t3_mini_switch_preserves_view_id() {
-        let pack_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("skins/builtin/t3");
-        let pack = load_pack_from_dir(&pack_dir, true).expect("t3 skin should load");
+        let pack_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packs/iconic");
+        let mut warnings = Vec::new();
+        let contribs = crate::packs::scan::scan_pack_dir(&pack_dir, PackZone::Builtin, &mut warnings);
+        let t3 = contribs
+            .iter()
+            .find(|c| c.effective_id == "spiral.iconic.skin.t3")
+            .unwrap_or_else(|| {
+                panic!(
+                    "spiral.iconic.skin.t3; warnings={:?} ids={:?}",
+                    warnings,
+                    contribs.iter().map(|c| &c.effective_id).collect::<Vec<_>>()
+                )
+            });
+        let pack = load_pack_from_contribution(t3).expect("t3 skin should load");
         let main = &pack.manifest.views["main"];
         let mini_switch = find_control_by_id(&main.layout, "mini-switch")
             .expect("main view should include mini-switch button");

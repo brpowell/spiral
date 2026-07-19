@@ -1,0 +1,9 @@
+{
+  "$schema": "../../../../../schemas/renderer-v1.schema.json",
+  "id": "spectrum",
+  "name": "Spectrum",
+  "author": "Spiral",
+  "description": "Log-filled frequency spectrum renderer.",
+  "engine": "canvas2d",
+  "entry": "index.js"
+}

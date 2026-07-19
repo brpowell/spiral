@@ -1,6 +1,6 @@
 import { resolveDrive, type DriveContext } from "../../../lib/presentation/drives";
 import type { TransformDriveKey } from "../../../lib/presentation/types";
-import type { SceneLayer } from "./types";
+import type { VizSceneLayer } from "./types";
 
 export interface ResolvedLayerTransform {
   opacity: number;
@@ -27,7 +27,7 @@ const STATIC_KEYS: TransformDriveKey[] = [
 ];
 
 export function resolveLayerTransform(
-  layer: SceneLayer,
+  layer: VizSceneLayer,
   context: DriveContext,
 ): ResolvedLayerTransform {
   const result = { ...TRANSFORM_DEFAULTS };

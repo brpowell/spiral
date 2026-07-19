@@ -1,29 +1,29 @@
-/** Mirrors Rust `VizManifest` / summary types (viz.json v1). */
+/** Mirrors Rust `VizManifest` / summary types (viz.json). */
 
-import type { SceneLayer } from "../components/visualizer/scene/types";
+import type { VizScene } from "../components/visualizer/scene/types";
+import type { PackZone } from "./pack";
 
-export type VisualizerRendererId = "bars" | "wave" | "spectrum";
+/**
+ * Canvas and webgl layers both reference a fully-qualified renderer contribution id
+ * (`authorId.packId.renderer.id`).
+ */
+export type VizRendererRef = string;
 
-export type WebGLRendererId = "neon-tunnel";
-
-export type VisualizerSurface = "mini" | "panel" | "expanded";
-
-export type VisualizerAuthoringSurface = VisualizerSurface | "default";
+/** Reserved surface key in viz.json. Additional surfaces may return later. */
+export type VisualizerSurface = "default";
 
 export interface VizSurfaceProfile {
-  scene: SceneLayer[];
+  scene: VizScene;
 }
 
 export interface VizManifest {
-  version: number;
+  /** Declared contribution id (kebab slug). */
+  id: string;
   name: string;
   author: string;
   description: string;
   preview?: string;
   surfaces: Record<VisualizerSurface, VizSurfaceProfile>;
-  reducedSurfaces?: Partial<
-    Record<VisualizerAuthoringSurface, VizSurfaceProfile>
-  >;
 }
 
 export interface VizSummary {
@@ -32,10 +32,15 @@ export interface VizSummary {
   author: string;
   description: string;
   isBuiltin: boolean;
+  /** Spiral pack (.spk) that contains this visualizer contribution. */
+  packId: string;
+  packName: string;
+  packVersion: string;
+  zone: PackZone;
   previewPath: string | null;
 }
 
-export interface LoadedVisualizerPack {
+export interface LoadedVisualizer {
   summary: VizSummary;
   packDir: string;
   manifest: VizManifest;

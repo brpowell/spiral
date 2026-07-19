@@ -197,10 +197,10 @@ export function runSkinAction(
       void useSkinPreferencesStore.getState().toggleSoundEffects();
       break;
     case "visualizer.previous":
-      void useVisualizerStore.getState().cycleActivePack("prev");
+      void useVisualizerStore.getState().cycleActiveVisualizer("prev");
       break;
     case "visualizer.next":
-      void useVisualizerStore.getState().cycleActivePack("next");
+      void useVisualizerStore.getState().cycleActiveVisualizer("next");
       break;
     case "playlist.setSource": {
       const sourceId = payload?.sourceId;

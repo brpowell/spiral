@@ -15,12 +15,10 @@
   width: 32px;
   height: 32px;
   min-width: 32px;
-  color: var(--color-text-primary);
 }
 
 .playback-btn--play:hover:not(:disabled) {
   background: var(--color-accent-muted);
-  color: var(--color-text-primary);
 }
 
 .playback-btn--play svg,

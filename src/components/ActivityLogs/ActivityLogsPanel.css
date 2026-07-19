@@ -87,7 +87,7 @@
   padding: 0.35rem 0.5rem;
   margin-top: 0.35rem;
   border-radius: var(--radius-button);
-  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  background: var(--color-interactive-hover);
   color: var(--color-text-secondary);
   font-size: 0.72rem;
   text-transform: uppercase;
@@ -114,12 +114,12 @@
 }
 
 .activity-logs-panel__entry--selected {
-  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  background: var(--color-interactive-selected);
   border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
 .activity-logs-panel__entry--selected:hover {
-  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
+  background: var(--color-interactive-selected);
 }
 
 .activity-logs-panel__entry--expanded {

@@ -76,7 +76,7 @@
 
 .radio-group-item--button.radio-group-item--checked {
   border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  background: var(--color-interactive-selected);
 }
 
 .radio-group-item--button:has(.radio-group-item__input:focus-visible) {

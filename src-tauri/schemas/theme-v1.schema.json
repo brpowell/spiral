@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spiral.dev/schemas/theme-v1.json",
+  "title": "Spiral theme pack v1",
+  "type": "object",
+  "required": ["id", "name", "author", "description", "tokens"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri-reference",
+      "description": "JSON Schema reference for editor validation."
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Declared contribution id. Effective id is authorId.packId.type.id at scan time."
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "Human-readable display label. May be empty on workshop drafts."
+    },
+    "author": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "Freeform credit for the contribution's creator. Independent of pack.json authorId (pack maintainer/distributor)."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 280,
+      "description": "Short summary for lists/cards; keep longer notes in the pack README."
+    },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "CSS custom property tokens. Required keys are enforced before apply; workshop drafts may omit keys while saving."
+    }
+  }
+}

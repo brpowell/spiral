@@ -1,20 +1,22 @@
 import type { LayerDriveMap } from "../../../lib/presentation/types";
-import type { VisualizerRendererId, WebGLRendererId } from "../types";
+import type { VizRendererRef } from "../../../types/visualizer";
 
-export type SceneLayerKind = "canvas" | "webgl" | "image" | "gif" | "video" | "group";
+export type VizSceneLayerKind =
+  | "canvas"
+  | "webgl"
+  | "image"
+  | "video"
+  | "group";
 
-export type SceneAnchor = "center" | "top" | "bottom" | "left" | "right";
-
-export type SceneLayout =
+export type VizSceneLayout =
   | "fill"
-  | { x: number; y: number; w: number; h: number }
-  | { anchor: SceneAnchor; w: number; h: number };
+  | { x: number; y: number; w: number; h: number };
 
-export interface SceneLayer {
+/** One layer in a VizScene (canvas/webgl/media/group). */
+export interface VizSceneLayer {
   id?: string;
-  kind: SceneLayerKind;
-  layout: SceneLayout;
-  layoutParams?: Record<string, number>;
+  kind: VizSceneLayerKind;
+  layout: VizSceneLayout;
   visibleWhen?: string;
   blend?: string;
   drive?: LayerDriveMap;
@@ -23,12 +25,16 @@ export interface SceneLayer {
   translateX?: number;
   translateY?: number;
   rotation?: number;
-  renderer?: VisualizerRendererId | WebGLRendererId;
+  /** Fully-qualified renderer contribution id (`authorId.packId.renderer.id`). */
+  renderer?: VizRendererRef;
   params?: Record<string, unknown>;
   asset?: string;
   loop?: boolean;
-  children?: SceneLayer[];
+  children?: VizSceneLayer[];
 }
+
+/** Layer tree for one visualizer surface. */
+export type VizScene = VizSceneLayer[];
 
 export interface LayoutRect {
   x: number;
@@ -38,7 +44,7 @@ export interface LayoutRect {
 }
 
 export function resolveLayout(
-  layout: SceneLayout,
+  layout: VizSceneLayout,
   width: number,
   height: number,
 ): LayoutRect {
@@ -46,38 +52,10 @@ export function resolveLayout(
     return { x: 0, y: 0, w: width, h: height };
   }
 
-  if ("x" in layout) {
-    return {
-      x: layout.x * width,
-      y: layout.y * height,
-      w: layout.w * width,
-      h: layout.h * height,
-    };
-  }
-
-  const w = layout.w * width;
-  const h = layout.h * height;
-  let x = (width - w) / 2;
-  let y = (height - h) / 2;
-
-  switch (layout.anchor) {
-    case "top":
-      y = 0;
-      break;
-    case "bottom":
-      y = height - h;
-      break;
-    case "left":
-      x = 0;
-      y = (height - h) / 2;
-      break;
-    case "right":
-      x = width - w;
-      y = (height - h) / 2;
-      break;
-    default:
-      break;
-  }
-
-  return { x, y, w, h };
+  return {
+    x: layout.x * width,
+    y: layout.y * height,
+    w: layout.w * width,
+    h: layout.h * height,
+  };
 }

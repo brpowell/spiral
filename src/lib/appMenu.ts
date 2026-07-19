@@ -1,9 +1,12 @@
+import { listen } from "@tauri-apps/api/event";
 import {
   Menu,
   MenuItem,
   PredefinedMenuItem,
   Submenu,
 } from "@tauri-apps/api/menu";
+import { LINKED_PACKS_CHANGED_EVENT } from "./appearanceWindow";
+import { listPacks } from "./tauri";
 
 export interface AppMenuHandlers {
   addToLibrary: () => void;
@@ -15,6 +18,32 @@ export interface AppMenuHandlers {
   openAppearance: () => void;
   openEqualizer: () => void;
   openActivityLogs: () => void;
+  reloadLinkedPacks: () => void;
+}
+
+const RELOAD_LINKED_PACKS_ID = "reload-linked-packs";
+
+let reloadLinkedPacksItem: MenuItem | null = null;
+let linkedPacksListenerBound = false;
+
+async function hasLinkedPacks(): Promise<boolean> {
+  try {
+    const packs = await listPacks();
+    return packs.some((pack) => pack.zone === "linked");
+  } catch (err) {
+    console.error("Failed to check linked packs:", err);
+    return false;
+  }
+}
+
+/** Enable/disable Reload Linked Packs based on whether any packs are linked. */
+async function syncReloadLinkedPacksMenuEnabled(): Promise<void> {
+  if (!reloadLinkedPacksItem) return;
+  try {
+    await reloadLinkedPacksItem.setEnabled(await hasLinkedPacks());
+  } catch (err) {
+    console.error("Failed to sync Reload Linked Packs menu state:", err);
+  }
 }
 
 export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
@@ -89,13 +118,25 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
 
   const appearance = await MenuItem.new({
     id: "appearance",
-    text: "Appearance…",
+    text: "Studio",
     action: handlers.openAppearance,
   });
 
+  const linked = await hasLinkedPacks();
+  const reloadLinkedPacks = await MenuItem.new({
+    id: RELOAD_LINKED_PACKS_ID,
+    text: "Reload Linked Packs",
+    accelerator: "Cmd+Alt+R",
+    enabled: linked,
+    action: handlers.reloadLinkedPacks,
+  });
+  reloadLinkedPacksItem = reloadLinkedPacks;
+
+  const viewSeparator = await PredefinedMenuItem.new({ item: "Separator" });
+
   const equalizer = await MenuItem.new({
     id: "equalizer",
-    text: "Equalizer…",
+    text: "Equalizer",
     action: handlers.openEqualizer,
   });
 
@@ -108,7 +149,14 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
 
   const viewSubmenu = await Submenu.new({
     text: "View",
-    items: [skinMode, appearance, equalizer, activityLogs],
+    items: [
+      skinMode,
+      appearance,
+      reloadLinkedPacks,
+      viewSeparator,
+      equalizer,
+      activityLogs,
+    ],
   });
 
   const menu = await Menu.new({
@@ -116,4 +164,11 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   });
 
   await menu.setAsAppMenu();
+
+  if (!linkedPacksListenerBound) {
+    linkedPacksListenerBound = true;
+    void listen(LINKED_PACKS_CHANGED_EVENT, () => {
+      void syncReloadLinkedPacksMenuEnabled();
+    });
+  }
 }
