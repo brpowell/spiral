@@ -253,3 +253,11 @@ describe("isSkinControlEnabled", () => {
     expect(isSkinControlEnabled("view.shutter.closed", state)).toBe(false);
   });
 });
+
+describe("bind path isolation", () => {
+  it("does not expose library filePath through binds", () => {
+    const state = minimalBindState();
+    expect(evaluateSkinBind("track.filePath", state)).toBeNull();
+    expect(evaluateSkinBind("track.path", state)).toBeNull();
+  });
+});

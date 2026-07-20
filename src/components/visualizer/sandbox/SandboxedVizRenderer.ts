@@ -10,14 +10,53 @@ import type { VizFrame } from "../vizRendererApi";
 import {
   FATAL_BUDGET_MS,
   FRAME_BUDGET_MS,
+  INIT_BUDGET_MS,
   MAX_FRAME_OVERRUNS,
   WEBGL_FATAL_BUDGET_MS,
   WEBGL_FRAME_BUDGET_MS,
+  WEBGL_INIT_BUDGET_MS,
   type HostToWorkerMessage,
   type WorkerToHostMessage,
 } from "./protocol";
+import {
+  assertAudioBuffersWithinBudget,
+  assertRendererSourceWithinBudget,
+  clampVizRenderSize,
+  isWithinPixelBudget,
+  type VizRenderSize,
+} from "./resourceBudgets";
+import { assertVizRendererSourceAllowed } from "./vizSourceGuard";
 
 type SandboxedVizRendererStatus = "loading" | "ready" | "terminated";
+
+/**
+ * Treat every inbound worker message as untrusted. Pack code no longer has
+ * a live `postMessage` global, but the host still shape-checks before reading
+ * fields or blitting a bitmap (defense in depth against forged/malformed
+ * structured-clone payloads).
+ */
+function parseWorkerMessage(data: unknown): WorkerToHostMessage | null {
+  if (typeof data !== "object" || data === null) return null;
+  const msg = data as Record<string, unknown>;
+  switch (msg.type) {
+    case "ready":
+      return typeof msg.rendererId === "string"
+        ? (msg as WorkerToHostMessage)
+        : null;
+    case "rendered":
+      return typeof msg.seq === "number" &&
+        Number.isFinite(msg.seq) &&
+        msg.bitmap instanceof ImageBitmap
+        ? (msg as WorkerToHostMessage)
+        : null;
+    case "error":
+      return typeof msg.message === "string"
+        ? (msg as WorkerToHostMessage)
+        : null;
+    default:
+      return null;
+  }
+}
 
 export interface SandboxedVizRendererOptions {
   /** Display canvas — host blits ImageBitmaps here; never transferred. */
@@ -30,6 +69,11 @@ export interface SandboxedVizRendererOptions {
   dpr: number;
   /** Fires once after the first frame has been blitted to the display canvas. */
   onFirstFrame?: () => void;
+  /**
+   * Aborts in-flight init and disposes the worker once created
+   * (e.g. React effect cleanup). Kept for the sandbox lifetime.
+   */
+  signal?: AbortSignal;
 }
 
 export class SandboxedVizRenderer {
@@ -77,7 +121,7 @@ export class SandboxedVizRenderer {
       this.resolveReady = resolve;
       this.rejectReady = reject;
     });
-    this.worker.onmessage = (event: MessageEvent<WorkerToHostMessage>) => {
+    this.worker.onmessage = (event: MessageEvent<unknown>) => {
       this.onWorkerMessage(event.data);
     };
     this.worker.onerror = (event) => {
@@ -92,6 +136,11 @@ export class SandboxedVizRenderer {
   static async create(
     opts: SandboxedVizRendererOptions,
   ): Promise<SandboxedVizRenderer> {
+    const signal = opts.signal;
+    if (signal?.aborted) {
+      throw new Error("sandbox init aborted");
+    }
+
     const displayCtx = opts.canvas.getContext("2d");
     if (!displayCtx) {
       throw new Error("display canvas 2d context unavailable");
@@ -101,16 +150,21 @@ export class SandboxedVizRenderer {
     }
 
     const payload = await readVizRendererPayload(opts.rendererId);
+    if (signal?.aborted) {
+      throw new Error("sandbox init aborted");
+    }
+
     const engine = opts.engine ?? payload.engine;
     if (engine !== payload.engine) {
       throw new Error(
         `renderer ${opts.rendererId} is engine "${payload.engine}", expected "${engine}"`,
       );
     }
+    assertVizRendererSourceAllowed(payload.source);
+    assertRendererSourceWithinBudget(payload.source);
 
-    const pixelW = Math.max(1, Math.floor(opts.width * opts.dpr));
-    const pixelH = Math.max(1, Math.floor(opts.height * opts.dpr));
-    const offscreen = new OffscreenCanvas(pixelW, pixelH);
+    const size = clampVizRenderSize(opts.width, opts.height, opts.dpr);
+    const offscreen = new OffscreenCanvas(size.pixelWidth, size.pixelHeight);
 
     const worker = new Worker(
       new URL("./vizRenderer.worker.ts", import.meta.url),
@@ -124,22 +178,54 @@ export class SandboxedVizRenderer {
       engine,
       opts.onFirstFrame,
     );
-    host.syncDisplaySize(opts.width, opts.height, opts.dpr);
+    host.syncDisplaySize(size);
 
-    const initMsg: HostToWorkerMessage = {
-      type: "init",
-      rendererId: opts.rendererId,
-      engine,
-      source: payload.source,
-      canvas: offscreen,
-      width: opts.width,
-      height: opts.height,
-      dpr: opts.dpr,
+    const onAbort = (): void => {
+      host.dispose();
     };
-    worker.postMessage(initMsg, [offscreen]);
+    signal?.addEventListener("abort", onAbort, { once: true });
 
-    await host.readyPromise;
-    return host;
+    const initBudgetMs =
+      engine === "webgl" ? WEBGL_INIT_BUDGET_MS : INIT_BUDGET_MS;
+    let initTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    try {
+      const initMsg: HostToWorkerMessage = {
+        type: "init",
+        rendererId: opts.rendererId,
+        engine,
+        source: payload.source,
+        canvas: offscreen,
+        width: size.width,
+        height: size.height,
+        dpr: size.dpr,
+      };
+      worker.postMessage(initMsg, [offscreen]);
+
+      await Promise.race([
+        host.readyPromise,
+        new Promise<never>((_, reject) => {
+          initTimeoutId = setTimeout(() => {
+            reject(new Error(`init exceeded budget (${initBudgetMs}ms)`));
+          }, initBudgetMs);
+        }),
+      ]);
+      if (host.disposed || signal?.aborted) {
+        throw new Error("sandbox init aborted");
+      }
+      return host;
+    } catch (err) {
+      if (!host.disposed) {
+        const message = err instanceof Error ? err.message : String(err);
+        host.terminate(message);
+      }
+      signal?.removeEventListener("abort", onAbort);
+      throw err;
+    } finally {
+      if (initTimeoutId !== null) {
+        clearTimeout(initTimeoutId);
+      }
+    }
   }
 
   get ready(): boolean {
@@ -148,8 +234,14 @@ export class SandboxedVizRenderer {
 
   resize(width: number, height: number, dpr: number): void {
     if (this.disposed || this.status !== "ready") return;
-    this.syncDisplaySize(width, height, dpr);
-    const msg: HostToWorkerMessage = { type: "resize", width, height, dpr };
+    const size = clampVizRenderSize(width, height, dpr);
+    this.syncDisplaySize(size);
+    const msg: HostToWorkerMessage = {
+      type: "resize",
+      width: size.width,
+      height: size.height,
+      dpr: size.dpr,
+    };
     this.worker.postMessage(msg);
   }
 
@@ -160,6 +252,17 @@ export class SandboxedVizRenderer {
   postFrame(frame: VizFrame, params: Record<string, unknown>): void {
     if (this.disposed || this.status !== "ready") return;
     if (this.pendingSeq !== null) return;
+
+    try {
+      assertAudioBuffersWithinBudget(
+        frame.audio.frequencies,
+        frame.audio.waveform,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.terminate(message);
+      return;
+    }
 
     this.seq += 1;
     this.pendingSeq = this.seq;
@@ -229,6 +332,10 @@ export class SandboxedVizRenderer {
     const waiter = this.frameWaiter;
     this.frameWaiter = null;
     waiter?.reject(new Error("sandbox disposed"));
+    if (!this.readySettled) {
+      this.readySettled = true;
+      this.rejectReady(new Error("sandbox disposed"));
+    }
     try {
       this.worker.postMessage({ type: "dispose" } satisfies HostToWorkerMessage);
     } catch {
@@ -238,18 +345,27 @@ export class SandboxedVizRenderer {
     this.pendingSeq = null;
   }
 
-  private syncDisplaySize(width: number, height: number, dpr: number): void {
+  private syncDisplaySize(size: VizRenderSize): void {
     const display = this.displayCtx.canvas;
-    const pixelW = Math.max(1, Math.floor(width * dpr));
-    const pixelH = Math.max(1, Math.floor(height * dpr));
-    if (display.width !== pixelW || display.height !== pixelH) {
-      display.width = pixelW;
-      display.height = pixelH;
+    if (
+      display.width !== size.pixelWidth ||
+      display.height !== size.pixelHeight
+    ) {
+      display.width = size.pixelWidth;
+      display.height = size.pixelHeight;
     }
     this.displayCtx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
-  private onWorkerMessage(msg: WorkerToHostMessage): void {
+  private onWorkerMessage(raw: unknown): void {
+    const msg = parseWorkerMessage(raw);
+    if (!msg) {
+      // Malformed/forged message on the channel — treat as fatal, same as
+      // any other protocol violation.
+      this.terminate("received malformed message from worker");
+      return;
+    }
+
     if (this.disposed) {
       if (msg.type === "rendered") msg.bitmap.close();
       return;
@@ -274,40 +390,47 @@ export class SandboxedVizRenderer {
 
   private onRendered(seq: number, bitmap: ImageBitmap): void {
     try {
-      if (this.pendingSeq === seq) {
-        const display = this.displayCtx.canvas;
-        this.displayCtx.setTransform(1, 0, 0, 1, 0, 0);
-        this.displayCtx.clearRect(0, 0, display.width, display.height);
-        this.displayCtx.drawImage(bitmap, 0, 0);
+      if (!isWithinPixelBudget(bitmap.width, bitmap.height)) {
+        this.terminate(
+          `[viz-sandbox] bitmap exceeded pixel budget (${bitmap.width}x${bitmap.height})`,
+        );
+        return;
+      }
 
-        const elapsed = performance.now() - this.pendingStartedAt;
-        this.pendingSeq = null;
+      if (this.pendingSeq !== seq) return;
 
-        const waiter = this.frameWaiter;
-        this.frameWaiter = null;
-        waiter?.resolve();
+      const display = this.displayCtx.canvas;
+      this.displayCtx.setTransform(1, 0, 0, 1, 0, 0);
+      this.displayCtx.clearRect(0, 0, display.width, display.height);
+      this.displayCtx.drawImage(bitmap, 0, 0);
 
-        if (!this.firstFrameNotified) {
-          this.firstFrameNotified = true;
-          this.onFirstFrame?.();
-        }
+      const elapsed = performance.now() - this.pendingStartedAt;
+      this.pendingSeq = null;
 
-        if (elapsed > this.fatalBudgetMs) {
+      const waiter = this.frameWaiter;
+      this.frameWaiter = null;
+      waiter?.resolve();
+
+      if (!this.firstFrameNotified) {
+        this.firstFrameNotified = true;
+        this.onFirstFrame?.();
+      }
+
+      if (elapsed > this.fatalBudgetMs) {
+        this.terminate(
+          `frame ${seq} exceeded fatal budget (${Math.round(elapsed)}ms)`,
+        );
+        return;
+      }
+      if (elapsed > this.frameBudgetMs) {
+        this.overrunCount += 1;
+        if (this.overrunCount >= MAX_FRAME_OVERRUNS) {
           this.terminate(
-            `frame ${seq} exceeded fatal budget (${Math.round(elapsed)}ms)`,
+            `frame budget overrun limit (${this.overrunCount} consecutive soft overruns)`,
           );
-          return;
         }
-        if (elapsed > this.frameBudgetMs) {
-          this.overrunCount += 1;
-          if (this.overrunCount >= MAX_FRAME_OVERRUNS) {
-            this.terminate(
-              `frame budget overrun limit (${this.overrunCount} consecutive soft overruns)`,
-            );
-          }
-        } else {
-          this.overrunCount = Math.max(0, this.overrunCount - 1);
-        }
+      } else {
+        this.overrunCount = Math.max(0, this.overrunCount - 1);
       }
     } finally {
       bitmap.close();

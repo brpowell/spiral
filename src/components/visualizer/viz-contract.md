@@ -62,7 +62,15 @@ Built via `src/components/visualizer/context.ts` from player store, theme, album
 
 ## VizRenderer author API
 
-The host builds a normalized `VizFrame` each tick (`vizRendererApi.ts`) and loads source via `read_viz_renderer_source`. Both engines run in the same **Worker + OffscreenCanvas** sandbox (`sandbox/SandboxedVizRenderer.ts`): network APIs are stubbed, frames are transferable, and a frame-budget watchdog can terminate stuck workers. The worker returns an `ImageBitmap` for the host to blit.
+The host builds a normalized `VizFrame` each tick (`vizRendererApi.ts`) and loads source via `read_viz_renderer_source`. Both engines run in the same **Worker + OffscreenCanvas** sandbox (`sandbox/SandboxedVizRenderer.ts`): entry source is statically scanned for secondary code-loading patterns, network and code-loading APIs are stubbed in the worker, frames are transferable, and a frame-budget watchdog can terminate stuck workers. Init also has a hard timeout (2s canvas2d / 5s webgl); if `ready` never arrives the host terminates the worker. Effect cleanup aborts in-flight init so a hung `create()` cannot leak a thread. The worker returns an `ImageBitmap` for the host to blit.
+
+**Resource budgets** (`sandbox/resourceBudgets.ts`): CSS/DPR viewport is clamped so the backing store stays ≤ 2560×1440 and ≤ ~3.7MP; oversized audio transfers, pack-grown canvases, returned bitmaps, or entry source (>512KB) terminate the worker. Soft/hard frame-time budgets and consecutive overrun kills remain as before.
+
+**Worker globals** (`sandbox/workerGlobalLockdown.ts`): allowlist-first. Pack code sees language intrinsics, canvas/WebGL surface APIs, `navigator` (THREE capability probes), timers (no string eval), and message-event types — not `fetch`, `Worker`, `eval`/`Function`, `WebAssembly`, WebRTC, `SharedArrayBuffer`/`Atomics`, storage, `crypto`, or raw `postMessage`/`close` (host keeps native refs). Host shape-checks inbound worker messages and pixel-budgets returned bitmaps before blit. `webglcontextlost` terminates that renderer only. Add to the allowlist only when a concrete renderer need requires it.
+
+WebView **CSP** (`src-tauri/tauri.conf.json`) reinforces this: production `connect-src` allows only IPC + the local asset protocol (no remote `https:`), `frame-src` / `object-src` are `'none'`, and `worker-src` is limited to `'self' blob:`. Pack media still loads via `asset:` / `asset.localhost` under `img-src` / `media-src`.
+
+Declarative **image/video** layers stay on the host DOM. Their `src` is built only from pack-relative `asset` (`assets/…`) after path checks — never from binds or track `filePath`. `track.artUrl` is an app-resolved cover URL for binds/drives only.
 
 ### canvas2d (`engine: "canvas2d"`)
 
@@ -86,7 +94,7 @@ Reuse the skin bind catalog — read-only each frame:
 | `track.artist` | string | Artist line |
 | `track.metadataLine` | string | Formatted metadata |
 | `track.album` | string | Album title |
-| `track.artUrl` | string | Resolved art URL |
+| `track.artUrl` | string | Host-resolved cover art URL from `artPath` (not a library `filePath`; not used as media-layer `src`) |
 | `track.durationSeconds` | number | Track length |
 | `player.isPlaying` | boolean | Playing |
 | `player.notPlaying` | boolean | Paused or stopped |

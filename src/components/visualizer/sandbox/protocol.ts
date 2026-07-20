@@ -15,6 +15,13 @@ export const FATAL_BUDGET_MS = 250;
 export const WEBGL_FRAME_BUDGET_MS = 48;
 export const WEBGL_FATAL_BUDGET_MS = 500;
 
+/**
+ * Hard budget for worker init (module load + create()). Longer than a frame
+ * budget because THREE / WebGL setup can take hundreds of ms on cold start.
+ */
+export const INIT_BUDGET_MS = 2000;
+export const WEBGL_INIT_BUDGET_MS = 5000;
+
 /** Consecutive soft overruns before the host kills the worker. */
 export const MAX_FRAME_OVERRUNS = 45;
 

@@ -6,6 +6,9 @@
  *
  * Draws to a transferred OffscreenCanvas, then returns an ImageBitmap each
  * frame for the host to blit onto the display canvas.
+ *
+ * Globals are allowlist-locked before pack source runs; only the single
+ * host-supplied entry module is imported (blob URL).
  */
 
 import * as THREE from "three";
@@ -17,43 +20,40 @@ import type {
   VizWebGLRendererModule,
 } from "../vizRendererApi";
 import type { HostToWorkerMessage, WorkerToHostMessage } from "./protocol";
+import {
+  assertAudioBuffersWithinBudget,
+  assertCanvasWithinBudget,
+  assertRendererSourceWithinBudget,
+  clampVizRenderSize,
+} from "./resourceBudgets";
+import { assertVizRendererSourceAllowed } from "./vizSourceGuard";
+import {
+  lockDownWorkerGlobals,
+  sealBlobUrlApi,
+} from "./workerGlobalLockdown";
 
 const workerScope = self as unknown as {
-  fetch: typeof fetch;
-  XMLHttpRequest: typeof XMLHttpRequest;
-  WebSocket: typeof WebSocket;
-  EventSource: typeof EventSource;
+  addEventListener: (
+    type: "message",
+    listener: (event: MessageEvent<HostToWorkerMessage>) => void,
+  ) => void;
   postMessage: (message: unknown, transfer?: Transferable[]) => void;
   close: () => void;
-  onmessage: ((event: MessageEvent<HostToWorkerMessage>) => void) | null;
 };
 
-function lockDownNetwork(): void {
-  const deny = () =>
-    Promise.reject(new Error("[viz-sandbox] network disabled"));
-  workerScope.fetch = deny as typeof fetch;
-  workerScope.XMLHttpRequest = class {
-    constructor() {
-      throw new Error("[viz-sandbox] network disabled");
-    }
-  } as unknown as typeof XMLHttpRequest;
-  workerScope.WebSocket = class {
-    constructor() {
-      throw new Error("[viz-sandbox] network disabled");
-    }
-  } as unknown as typeof WebSocket;
-  workerScope.EventSource = class {
-    constructor() {
-      throw new Error("[viz-sandbox] network disabled");
-    }
-  } as unknown as typeof EventSource;
-}
+/**
+ * Capture native postMessage/close before `lockDownWorkerGlobals` denies the
+ * global names — pack code must not be able to forge protocol messages or
+ * terminate the worker by calling `postMessage`/`close` directly.
+ */
+const nativePostMessage = workerScope.postMessage.bind(workerScope);
+const nativeClose = workerScope.close.bind(workerScope);
 
 function post(msg: WorkerToHostMessage, transfer?: Transferable[]): void {
   if (transfer && transfer.length > 0) {
-    workerScope.postMessage(msg, transfer);
+    nativePostMessage(msg, transfer);
   } else {
-    workerScope.postMessage(msg);
+    nativePostMessage(msg);
   }
 }
 
@@ -62,22 +62,53 @@ let canvas2dInstance: VizRendererInstance | null = null;
 let webglInstance: VizWebGLRendererInstance | null = null;
 let canvas: OffscreenCanvas | null = null;
 let ctx2d: OffscreenCanvasRenderingContext2D | null = null;
+let lastSize = clampVizRenderSize(1, 1, 1);
 
 function applyCanvas2dSize(width: number, height: number, dpr: number): void {
   if (!canvas || !ctx2d) return;
-  const pixelW = Math.max(1, Math.floor(Math.max(1, width) * dpr));
-  const pixelH = Math.max(1, Math.floor(Math.max(1, height) * dpr));
-  if (canvas.width !== pixelW || canvas.height !== pixelH) {
-    canvas.width = pixelW;
-    canvas.height = pixelH;
+  const size = clampVizRenderSize(width, height, dpr);
+  lastSize = size;
+  if (canvas.width !== size.pixelWidth || canvas.height !== size.pixelHeight) {
+    canvas.width = size.pixelWidth;
+    canvas.height = size.pixelHeight;
   }
-  ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx2d.setTransform(size.dpr, 0, 0, size.dpr, 0, 0);
+}
+
+function applyWebglSize(width: number, height: number, dpr: number): void {
+  if (!canvas) return;
+  const size = clampVizRenderSize(width, height, dpr);
+  lastSize = size;
+  if (canvas.width !== size.pixelWidth || canvas.height !== size.pixelHeight) {
+    canvas.width = size.pixelWidth;
+    canvas.height = size.pixelHeight;
+  }
+  webglInstance?.resize?.(size.width, size.height, size.dpr);
+}
+
+/** transferToImageBitmap() resets the canvas to 0×0 — restore before the next draw. */
+function ensureBackingStore(): void {
+  if (!canvas) return;
+  if (
+    canvas.width !== lastSize.pixelWidth ||
+    canvas.height !== lastSize.pixelHeight
+  ) {
+    canvas.width = lastSize.pixelWidth;
+    canvas.height = lastSize.pixelHeight;
+    if (engine === "canvas2d" && ctx2d) {
+      ctx2d.setTransform(lastSize.dpr, 0, 0, lastSize.dpr, 0, 0);
+    } else if (engine === "webgl") {
+      webglInstance?.resize?.(lastSize.width, lastSize.height, lastSize.dpr);
+    }
+  }
 }
 
 async function handleInit(
   msg: Extract<HostToWorkerMessage, { type: "init" }>,
 ): Promise<void> {
-  lockDownNetwork();
+  lockDownWorkerGlobals(globalThis);
+  assertVizRendererSourceAllowed(msg.source);
+  assertRendererSourceWithinBudget(msg.source);
 
   engine = msg.engine;
   canvas = msg.canvas;
@@ -98,20 +129,20 @@ async function handleInit(
       }
       canvas2dInstance = mod.create();
     } else {
-      const pixelW = Math.max(1, Math.floor(msg.width * msg.dpr));
-      const pixelH = Math.max(1, Math.floor(msg.height * msg.dpr));
-      canvas.width = pixelW;
-      canvas.height = pixelH;
+      applyWebglSize(msg.width, msg.height, msg.dpr);
 
       const mod = (await import(/* @vite-ignore */ url)) as VizWebGLRendererModule;
       if (typeof mod.create !== "function") {
         throw new Error(`${msg.rendererId} must export a create() factory`);
       }
       webglInstance = mod.create({ canvas, THREE });
-      webglInstance.resize?.(msg.width, msg.height, msg.dpr);
+      webglInstance.resize?.(lastSize.width, lastSize.height, lastSize.dpr);
+      canvas.addEventListener("webglcontextlost", handleContextLost);
     }
+    assertCanvasWithinBudget(canvas);
   } finally {
     URL.revokeObjectURL(url);
+    sealBlobUrlApi();
   }
 
   post({ type: "ready", rendererId: msg.rendererId });
@@ -124,14 +155,8 @@ function handleResize(
     applyCanvas2dSize(msg.width, msg.height, msg.dpr);
     return;
   }
-  if (engine === "webgl" && canvas && webglInstance) {
-    const pixelW = Math.max(1, Math.floor(msg.width * msg.dpr));
-    const pixelH = Math.max(1, Math.floor(msg.height * msg.dpr));
-    if (canvas.width !== pixelW || canvas.height !== pixelH) {
-      canvas.width = pixelW;
-      canvas.height = pixelH;
-    }
-    webglInstance.resize?.(msg.width, msg.height, msg.dpr);
+  if (engine === "webgl" && webglInstance) {
+    applyWebglSize(msg.width, msg.height, msg.dpr);
   }
 }
 
@@ -141,6 +166,13 @@ function handleFrame(
   if (!canvas) {
     throw new Error("renderer not initialized");
   }
+
+  assertAudioBuffersWithinBudget(
+    msg.frame.audio.frequencies,
+    msg.frame.audio.waveform,
+  );
+
+  ensureBackingStore();
 
   if (engine === "canvas2d") {
     if (!ctx2d || !canvas2dInstance) {
@@ -155,6 +187,8 @@ function handleFrame(
   } else {
     throw new Error("renderer engine not set");
   }
+
+  assertCanvasWithinBudget(canvas);
 
   const bitmap = canvas.transferToImageBitmap();
   post({ type: "rendered", seq: msg.seq, bitmap }, [bitmap]);
@@ -176,30 +210,46 @@ function handleDispose(): void {
   ctx2d = null;
   canvas = null;
   engine = null;
-  workerScope.close();
+  nativeClose();
 }
 
-workerScope.onmessage = (event: MessageEvent<HostToWorkerMessage>) => {
-  const msg = event.data;
-  void (async () => {
-    try {
-      switch (msg.type) {
-        case "init":
-          await handleInit(msg);
-          break;
-        case "resize":
-          handleResize(msg);
-          break;
-        case "frame":
-          handleFrame(msg);
-          break;
-        case "dispose":
-          handleDispose();
-          break;
+/**
+ * `webglcontextlost` fires on driver crash/reset/resource exhaustion. Report
+ * it like any other fatal error so the host disposes this one worker cleanly.
+ */
+function handleContextLost(event: Event): void {
+  event.preventDefault();
+  post({ type: "error", message: "webgl context lost" });
+}
+
+/**
+ * Registered via addEventListener (not the `.onmessage` property) so pack
+ * code assigning `self.onmessage = ...` cannot hijack host↔worker dispatch.
+ */
+workerScope.addEventListener(
+  "message",
+  (event: MessageEvent<HostToWorkerMessage>) => {
+    const msg = event.data;
+    void (async () => {
+      try {
+        switch (msg.type) {
+          case "init":
+            await handleInit(msg);
+            break;
+          case "resize":
+            handleResize(msg);
+            break;
+          case "frame":
+            handleFrame(msg);
+            break;
+          case "dispose":
+            handleDispose();
+            break;
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        post({ type: "error", message });
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      post({ type: "error", message });
-    }
-  })();
-};
+    })();
+  },
+);

@@ -12,17 +12,39 @@ const KNOWN_LAYER_KINDS: &[&str] = &["canvas", "webgl", "image", "video", "group
 const IMAGE_EXTENSIONS: &[&str] = &["png", "webp", "gif"];
 const VIDEO_EXTENSIONS: &[&str] = &["webm", "mp4"];
 
-/// `asset` is contribution-relative (`assets/foo.webm`), including prefix and extension.
-fn validate_media_asset(pack_dir: &Path, asset: &str, kind: &str, prefix: &str, errors: &mut Vec<String>) {
-    if asset.contains("..") || asset.starts_with('/') || asset.starts_with('\\') {
-        errors.push(format!(
-            "{prefix}.asset \"{asset}\" must be a relative path under assets/"
-        ));
-        return;
+/// Contribution-relative media path shape (`assets/foo.webm`) before disk checks.
+fn is_safe_media_asset_path(asset: &str) -> bool {
+    if asset.is_empty() || asset.contains('\0') {
+        return false;
+    }
+    if asset.starts_with('/') || asset.starts_with('\\') || Path::new(asset).is_absolute() {
+        return false;
+    }
+    if asset.contains('\\') || asset.contains(':') {
+        return false;
     }
     if !asset.starts_with("assets/") {
+        return false;
+    }
+    let mut segments = asset.split('/');
+    if segments.next() != Some("assets") {
+        return false;
+    }
+    let mut saw_file = false;
+    for segment in segments {
+        if segment.is_empty() || segment == "." || segment == ".." {
+            return false;
+        }
+        saw_file = true;
+    }
+    saw_file
+}
+
+/// `asset` is contribution-relative (`assets/foo.webm`), including prefix and extension.
+fn validate_media_asset(pack_dir: &Path, asset: &str, kind: &str, prefix: &str, errors: &mut Vec<String>) {
+    if !is_safe_media_asset_path(asset) {
         errors.push(format!(
-            "{prefix}.asset \"{asset}\" must start with assets/ and include the file extension"
+            "{prefix}.asset \"{asset}\" must be a relative path under assets/ (no .., absolute, or drive paths)"
         ));
         return;
     }
@@ -60,6 +82,23 @@ fn validate_media_asset(pack_dir: &Path, asset: &str, kind: &str, prefix: &str, 
             "{prefix}.asset \"{asset}\" not found at {}",
             path.display()
         ));
+        return;
+    }
+
+    // Symlink / join containment: resolved file must stay under pack root.
+    match (pack_dir.canonicalize(), path.canonicalize()) {
+        (Ok(pack_canon), Ok(file_canon)) => {
+            if !file_canon.starts_with(&pack_canon) {
+                errors.push(format!(
+                    "{prefix}.asset \"{asset}\" resolves outside the pack directory"
+                ));
+            }
+        }
+        _ => {
+            errors.push(format!(
+                "{prefix}.asset \"{asset}\" could not be resolved under the pack directory"
+            ));
+        }
     }
 }
 
@@ -639,5 +678,51 @@ mod tests {
             loaded += 1;
         }
         assert_eq!(loaded, 5, "expected 5 built-in visualizer packs");
+    }
+
+    #[test]
+    fn safe_media_asset_path_rejects_traversal() {
+        assert!(is_safe_media_asset_path("assets/bg.png"));
+        assert!(is_safe_media_asset_path("assets/clips/ambient.webm"));
+        assert!(!is_safe_media_asset_path("assets/../secret.png"));
+        assert!(!is_safe_media_asset_path("/etc/passwd"));
+        assert!(!is_safe_media_asset_path("assets/foo\\bar.png"));
+        assert!(!is_safe_media_asset_path("C:/Music/x.png"));
+        assert!(!is_safe_media_asset_path("bg.png"));
+        assert!(!is_safe_media_asset_path("assets//bg.png"));
+    }
+
+    #[test]
+    fn validate_media_asset_accepts_pack_file_and_rejects_escape() {
+        use std::fs;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let pack_dir = std::env::temp_dir().join(format!("spiral-viz-asset-{nanos}"));
+        let assets = pack_dir.join("assets");
+        fs::create_dir_all(&assets).unwrap();
+        fs::write(assets.join("bg.png"), b"png").unwrap();
+
+        let mut errors = Vec::new();
+        validate_media_asset(&pack_dir, "assets/bg.png", "image", "layer", &mut errors);
+        assert!(errors.is_empty(), "{errors:?}");
+
+        errors.clear();
+        validate_media_asset(
+            &pack_dir,
+            "assets/../assets/bg.png",
+            "image",
+            "layer",
+            &mut errors,
+        );
+        assert!(
+            errors.iter().any(|e| e.contains("relative path under assets")),
+            "{errors:?}"
+        );
+
+        let _ = fs::remove_dir_all(&pack_dir);
     }
 }

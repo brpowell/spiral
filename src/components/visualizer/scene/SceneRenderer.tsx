@@ -122,6 +122,7 @@ function VizSceneLayerView({
     const rendererId = layer.renderer;
     let cancelled = false;
     let sandbox: SandboxedVizRenderer | null = null;
+    const abort = new AbortController();
 
     SandboxedVizRenderer.create({
       canvas,
@@ -131,6 +132,7 @@ function VizSceneLayerView({
       height: rect.h,
       dpr,
       onFirstFrame: () => onFirstFrameRef.current?.(),
+      signal: abort.signal,
     })
       .then((created) => {
         if (cancelled) {
@@ -151,7 +153,7 @@ function VizSceneLayerView({
 
     return () => {
       cancelled = true;
-      sandbox?.dispose();
+      abort.abort();
       if (sandboxRef.current === sandbox) {
         sandboxRef.current = null;
       }

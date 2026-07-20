@@ -6,8 +6,8 @@
     "assetRef": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^assets/[^\\\\]+\\.(png|webp|gif|webm|mp4)$",
-      "description": "Contribution-relative path under assets/, including the assets/ prefix and file extension (e.g. assets/bg-far.png)."
+      "pattern": "^assets/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+\\.(png|webp|gif|webm|mp4)$",
+      "description": "Contribution-relative path under assets/, including the assets/ prefix and file extension (e.g. assets/bg-far.png). No .., absolute, or drive paths."
     },
     "skinAssetFile": {
       "type": "string",
