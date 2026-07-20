@@ -7,7 +7,7 @@
   font: 11px/1.2 Tahoma, Arial, sans-serif;
 }
 
-.skin-layout-node--canvas[data-node-id="eq-panel"] {
+.skin-layout-node--subview[data-node-id="eq-panel"] {
   background: #285f03;
 }
 

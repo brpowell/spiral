@@ -324,6 +324,8 @@ pub enum LayoutNode {
     Overlay(ContainerFields),
     #[serde(rename = "canvas")]
     Canvas(ContainerFields),
+    #[serde(rename = "subview")]
+    Subview(SubviewFields),
     #[serde(rename = "region")]
     Region(RegionFields),
     #[serde(rename = "decoration")]
@@ -380,6 +382,23 @@ pub struct ContainerFields {
     pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drag_region: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubviewFields {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    pub bounds: LayoutBounds,
+    pub children: Vec<LayoutNode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible_when: Option<SkinCondition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub passthrough: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drag_region: Option<bool>,
 }
@@ -1505,19 +1524,50 @@ fn validate_bounds(bounds: &LayoutBounds, field: &str, errors: &mut Vec<String>)
     }
 }
 
-fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<String>) {
+fn validate_layout_node(
+    node: &LayoutNode,
+    pack_dir: &Path,
+    errors: &mut Vec<String>,
+    is_root: bool,
+) {
     match node {
         LayoutNode::Stack(f)
         | LayoutNode::Row(f)
         | LayoutNode::Column(f)
-        | LayoutNode::Overlay(f)
-        | LayoutNode::Canvas(f) => {
+        | LayoutNode::Overlay(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
             for child in &f.children {
-                validate_layout_node(child, pack_dir, errors);
+                validate_layout_node(child, pack_dir, errors, false);
+            }
+        }
+        LayoutNode::Canvas(f) => {
+            if !is_root {
+                let label = f.id.as_deref().unwrap_or("(anonymous)");
+                errors.push(format!(
+                    "nested canvas \"{label}\" is invalid; use subview for nested groups (canvas is view root only)"
+                ));
+            }
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            if let Some(bounds) = &f.bounds {
+                validate_bounds(bounds, "bounds", errors);
+            }
+            for child in &f.children {
+                validate_layout_node(child, pack_dir, errors, false);
+            }
+        }
+        LayoutNode::Subview(f) => {
+            if is_root {
+                errors.push(
+                    "subview cannot be a view layout root; use canvas (or tiledFrame)".into(),
+                );
+            }
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_bounds(&f.bounds, "bounds", errors);
+            for child in &f.children {
+                validate_layout_node(child, pack_dir, errors, false);
             }
         }
         LayoutNode::Region(f) => {
@@ -1533,7 +1583,7 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
                 validate_bounds(bounds, "bounds", errors);
             }
             for child in &f.children {
-                validate_layout_node(child, pack_dir, errors);
+                validate_layout_node(child, pack_dir, errors, false);
             }
         }
         LayoutNode::Decoration(f) => {
@@ -1613,7 +1663,7 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
             }
             validate_tiled_frame_presentation(&f.presentation, pack_dir, errors);
             for child in &f.children {
-                validate_layout_node(child, pack_dir, errors);
+                validate_layout_node(child, pack_dir, errors, false);
             }
         }
         LayoutNode::Slideshow(f) => {
@@ -1800,7 +1850,7 @@ fn validate_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Result<(), Str
                 }
             }
         }
-        validate_layout_node(&view.layout, pack_dir, &mut errors);
+        validate_layout_node(&view.layout, pack_dir, &mut errors, true);
     }
 
     let primary_count = manifest
@@ -2024,6 +2074,10 @@ mod tests {
             | LayoutNode::Playlist(f) if f.id.as_deref() == Some(id) => Some(f),
             LayoutNode::Stack(f) | LayoutNode::Row(f) | LayoutNode::Column(f)
             | LayoutNode::Overlay(f) | LayoutNode::Canvas(f) => f
+                .children
+                .iter()
+                .find_map(|child| find_control_by_id(child, id)),
+            LayoutNode::Subview(f) => f
                 .children
                 .iter()
                 .find_map(|child| find_control_by_id(child, id)),

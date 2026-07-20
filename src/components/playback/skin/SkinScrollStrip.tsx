@@ -7,6 +7,7 @@ import {
 } from "../../../lib/skinScrollStrip";
 import { useSkinScrollStripState } from "../../../lib/skinScrollStripContext";
 import type { LoadedSkinPack, ScrollStripNode } from "../../../types/skin";
+import { useSkinLayoutContext } from "./SkinLayoutContext";
 import "./SkinScrollStrip.css";
 
 export function SkinScrollStrip({
@@ -17,13 +18,15 @@ export function SkinScrollStrip({
   pack: LoadedSkinPack;
 }) {
   const { state } = useSkinScrollStripState();
+  const layout = useSkinLayoutContext();
+  // Layout context already includes this node's absolute origin when bounded.
+  const stripOriginY = layout.origin.y;
   const runtime = node.id ? state[node.id] : undefined;
   const slide = runtime?.slide ?? 1;
-  const layout = resolveScrollStripSlideLayout(node, slide);
-  const stripOriginY = node.bounds?.y ?? 0;
+  const slideLayout = resolveScrollStripSlideLayout(node, slide);
   const transitionMs = node.presentation.transitionMs ?? 500;
   const lastTopsRef = useRef<Record<string, number>>(
-    buildScrollStripInitialTops(node),
+    buildScrollStripInitialTops(node, stripOriginY),
   );
   const [reduceMotion, setReduceMotion] = useState(
     () =>
@@ -39,7 +42,7 @@ export function SkinScrollStrip({
   }, []);
 
   const itemStates = node.presentation.items.map((item) => {
-    const placement = layout[item.id];
+    const placement = slideLayout[item.id];
     const visible = placement !== undefined;
     const top = visible
       ? resolveScrollStripItemTop(placement.y, stripOriginY)

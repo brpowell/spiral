@@ -79,10 +79,19 @@ describe("resolveScrollStripItemTop", () => {
 
 describe("buildScrollStripInitialTops", () => {
   it("seeds each item at its first slide appearance", () => {
-    expect(buildScrollStripInitialTops(scrollStripNode)).toEqual({
+    expect(buildScrollStripInitialTops(scrollStripNode, 92)).toEqual({
       xbox: 80,
       games: 143,
       web: 143,
+    });
+  });
+
+  it("uses absolute strip origin when nested under a parent group", () => {
+    // Parent origin 100 + local bounds.y 92 = absolute 192
+    expect(buildScrollStripInitialTops(scrollStripNode, 192)).toEqual({
+      xbox: 172 - 192,
+      games: 235 - 192,
+      web: 235 - 192,
     });
   });
 });

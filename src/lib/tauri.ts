@@ -28,6 +28,7 @@ import type {
 import { normalizeTrackLyrics, normalizeTrackLyricsInput } from "./lyrics";
 import type { ListenEventPayload } from "../types/listenEvent";
 import type { ActivityLogContext } from "../types/activityLog";
+import { reportSkinLayoutValidation } from "./skinLayoutReport";
 
 function normalizeCoverArtCandidate(
   raw: Record<string, unknown>,
@@ -787,7 +788,9 @@ export async function listSkins(): Promise<SkinSummary[]> {
 }
 
 export async function loadSkinPack(skinId: string): Promise<LoadedSkinPack> {
-  return invoke<LoadedSkinPack>("load_skin_pack", { skinId });
+  const pack = await invoke<LoadedSkinPack>("load_skin_pack", { skinId });
+  reportSkinLayoutValidation(pack);
+  return pack;
 }
 
 export async function getActiveSkinId(): Promise<string> {

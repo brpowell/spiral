@@ -299,6 +299,7 @@
     "layoutNode": {
       "oneOf": [
         { "$ref": "#/$defs/containerNode" },
+        { "$ref": "#/$defs/subviewNode" },
         { "$ref": "#/$defs/regionNode" },
         { "$ref": "#/$defs/decorationNode" },
         { "$ref": "#/$defs/hitAreaNode" },
@@ -382,10 +383,11 @@
           "required": ["type", "children"],
           "additionalProperties": false,
           "properties": {
-            "id": { "type": "string" },
+            "id": { "type": "string", "minLength": 1 },
             "type": {
               "type": "string",
-              "enum": ["stack", "row", "column", "overlay", "canvas"]
+              "enum": ["stack", "row", "column", "overlay", "canvas"],
+              "description": "canvas is valid only as a view layout root; nested groups use subview."
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "boundsWhen": {
@@ -403,6 +405,40 @@
             "dragRegion": {
               "type": "boolean",
               "description": "When true, pointer events on this container move the skin window."
+            }
+          }
+        }
+      ]
+    },
+    "subviewNode": {
+      "description": "Bounded nested group (WMS subview). Parent-relative bounds; not valid as a view layout root.",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "bounds", "children"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "type": { "const": "subview" },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+            },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/layoutNode" }
+            },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "animations": { "type": "object" },
+            "passthrough": {
+              "type": "boolean",
+              "description": "When true, the group bounds box does not capture pointer events (children still do)."
+            },
+            "dragRegion": {
+              "type": "boolean",
+              "description": "When true, pointer events on empty group space move the skin window."
             }
           }
         }

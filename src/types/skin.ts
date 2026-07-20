@@ -178,6 +178,7 @@ export type LayoutNode =
   | ColumnNode
   | OverlayNode
   | CanvasNode
+  | SubviewNode
   | RegionNode
   | DecorationNode
   | ButtonNode
@@ -243,6 +244,23 @@ export interface OverlayNode extends NodeBase {
 export interface CanvasNode extends NodeBase {
   type: "canvas";
   children: LayoutNode[];
+}
+
+/**
+ * Bounded nested group (WMS subview). Parent-relative `bounds` required.
+ * Not valid as a view layout root — use `canvas` (or `tiledFrame`) for roots.
+ */
+export interface SubviewNode extends NodeBase {
+  type: "subview";
+  bounds: LayoutBounds;
+  children: LayoutNode[];
+  /**
+   * When true, the group’s bounds box does not capture pointer events
+   * (children still do). Matches WMS passthrough subviews.
+   */
+  passthrough?: boolean;
+  /** When true, pointer events on empty group space move the skin window. */
+  dragRegion?: boolean;
 }
 
 export interface RegionNode extends NodeBase {
@@ -388,7 +406,10 @@ export interface ScrollStripPresentation {
   /** Slide transition duration in ms (WMP moveTo default 500). */
   transitionMs?: number;
   items: ScrollStripItem[];
-  /** Per-slide item Y positions (stage-absolute px, same as WMP subview top). */
+  /**
+   * Per-slide item Y positions (stage-absolute px, same as WMP subview top).
+   * Runtime subtracts the strip’s absolute origin (parent chain + local bounds).
+   */
   slides: ScrollStripSlide[];
 }
 

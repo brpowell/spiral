@@ -6,10 +6,12 @@ import type {
 } from "../../../types/skin";
 import { resolveViewWindowChrome } from "../../../lib/skinModeWindowChrome";
 import { resolveCanvasSize } from "../../../lib/skinPanels";
+import { sortChildrenByZIndex } from "../../../lib/skinLayout";
 import { resolveViewDragInference } from "../../../lib/skinWindowPresentation";
 import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
 import { SkinBoundedCanvasNode } from "./SkinBoundedCanvasNode";
 import { SkinButtonGroupHitRegistryProvider } from "./SkinButtonGroupHitRegistry";
+import { SkinLayoutContextProvider } from "./SkinLayoutContext";
 import { SkinViewRuntimeProviders } from "./SkinViewRuntimeProviders";
 import { useSkinCanvasStageSize } from "../../../hooks/useSkinCanvasStageSize";
 import { SkinCanvasStageContext } from "./SkinCanvasStageContext";
@@ -52,17 +54,22 @@ export function SkinCanvasLayout({
     [layoutSize],
   );
 
+  const rootLayoutContext = useMemo(
+    () => ({
+      origin: { x: 0, y: 0 },
+      size: layoutSize,
+      space: "stage" as const,
+    }),
+    [layoutSize],
+  );
+
   const { nodes, shellClass } = useMemo(() => {
     const root = view.layout;
-    const children = (
-      root.type === "canvas"
-        ? root.children
-        : root.type === "overlay"
-          ? root.children
-          : [root]
-    ).slice().sort(
-      (a, b) => (a.bounds?.zIndex ?? 0) - (b.bounds?.zIndex ?? 0),
-    );
+    const container =
+      root.type === "canvas" || root.type === "overlay" ? root : null;
+    const children = container
+      ? sortChildrenByZIndex(container)
+      : [root];
 
     return {
       nodes: children.map((child, index) => (
@@ -100,33 +107,34 @@ export function SkinCanvasLayout({
       registerGlobalApi={registerGlobalApi}
     >
       <SkinCanvasStageContext.Provider value={stageContext}>
-        <SkinButtonGroupHitRegistryProvider>
-          <div
-            className={shellClass}
-            style={
-              resizable
-                ? undefined
-                : { width: `${width}px`, height: `${height}px` }
-            }
-            data-skin-id={pack.summary.id}
-            data-view-id={viewId}
-            data-resizable={resizable ? "true" : "false"}
-          >
+        <SkinLayoutContextProvider value={rootLayoutContext}>
+          <SkinButtonGroupHitRegistryProvider>
             <div
-              ref={stageRef}
-              className="skin-canvas-layout__stage"
-              {...stageDragProps}
+              className={shellClass}
               style={
                 resizable
                   ? undefined
                   : { width: `${width}px`, height: `${height}px` }
               }
+              data-skin-id={pack.summary.id}
+              data-view-id={viewId}
+              data-resizable={resizable ? "true" : "false"}
             >
-
-              {nodes}
+              <div
+                ref={stageRef}
+                className="skin-canvas-layout__stage"
+                {...stageDragProps}
+                style={
+                  resizable
+                    ? undefined
+                    : { width: `${width}px`, height: `${height}px` }
+                }
+              >
+                {nodes}
+              </div>
             </div>
-          </div>
-        </SkinButtonGroupHitRegistryProvider>
+          </SkinButtonGroupHitRegistryProvider>
+        </SkinLayoutContextProvider>
       </SkinCanvasStageContext.Provider>
     </SkinViewRuntimeProviders>
   );

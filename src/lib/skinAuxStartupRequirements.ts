@@ -25,6 +25,7 @@ function walkLayoutFeatures(
 ): void {
   switch (node.type) {
     case "canvas":
+    case "subview":
     case "stack":
     case "row":
     case "column":

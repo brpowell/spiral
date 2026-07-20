@@ -317,7 +317,7 @@ Classic WMP skins often use a composite **button group** (`presentation.kind`: `
 | `layoutMode`                     | `slots` (default), `canvas`                          | `slots` fills `SkinShell` regions; `canvas` places nodes with `bounds`     |
 | `dragInference`                  | `auto` (canvas default), `manual`                    | Stage-level deep drag vs explicit `dragRegion` flags                       |
 | `canvas.width` / `canvas.height` | px                                                   | Stage size when `layoutMode` is `canvas`                                   |
-| `bounds`                         | `{ x, y, w, h, zIndex? }`                            | Absolute position on the canvas (logical px)                               |
+| `bounds`                         | `{ x, y, w, h, zIndex? }`                            | Position in the current layout context (stage-absolute at root; parent-relative inside nested groups) |
 | `dragRegion`                     | `true` on `region` / `decoration` / `row` / `column` | Window drag handle (slots and manual canvas)                               |
 | `hitArea`                        | node type                                            | Solid hit target without Tauri drag (e.g. ear tabs on click-through skins) |
 
@@ -325,6 +325,28 @@ Classic WMP skins often use a composite **button group** (`presentation.kind`: `
 Auxiliary windows bootstrap only the subsystems their layout needs: `eqBand` nodes load the EQ bridge, `visualizer` nodes load the visualizer bridge, `playlist` nodes load the playlist store. Canvas aux views skip theme bootstrap. The layout walk recurses through container nodes including `tiledFrame`.
 
 Root layout for canvas views is typically `{ "type": "canvas", "children": [ … ] }`.
+
+### Coordinate spaces and nested groups
+
+Canvas views use an explicit coordinate context. Shared helpers live in `src/lib/skinLayout.ts` (`walkLayoutTree`, `resolveAbsoluteBounds`, `localizeBounds`, `validateLayoutTree`). Runtime pushes a layout context stack via `SkinLayoutContext` when rendering bounded groups.
+
+| Role | Node type | Child `bounds` |
+| --- | --- | --- |
+| View stage root (`layoutMode: "canvas"`) | `canvas` | **Stage-absolute** (origin at the stage top-left) |
+| Nested bounded group | **`subview`** | **Parent-relative** (origin at the group’s bounds top-left) |
+| `tiledFrame` content area | (children of `tiledFrame`) | **Content-inset-relative** |
+| `scrollStrip` slide item `y` | (inside `presentation.slides`) | Stage-absolute; runtime subtracts the strip’s **absolute** origin |
+
+Rules:
+
+- Only the view layout root may be `canvas`. Nested clusters use `subview` with required `bounds` (parent-relative). Nested `canvas` fails validation (TS lint + Rust pack load).
+- `subview` is never valid as a view layout root.
+- Optional `passthrough: true` on `subview` makes the group bounds box ignore pointer events (children still receive them) — WMS passthrough subviews.
+- `bounds.x` / `bounds.y` are offsets within the **current** layout context. `bounds.right` resolves against the **current context width**, not always the full stage.
+- Container children are paint-sorted by `bounds.zIndex` at every level (`sortChildrenByZIndex`), including nested `subview` / flex / `tiledFrame` children.
+- Stretch / `bottom` chrome sizing stays **`tiledFrame` tiles only** (`resolveStretchBounds`). Ordinary `subview` groups use fixed `LayoutBounds` (plus optional `right` against context width).
+
+`validateLayoutTree` runs on pack load (logs structural errors) and via `npm run lint:skins`. Duplicate ids, nested `canvas`, and missing `subview` bounds are errors; missing `id` is a warning.
 
 Canvas skins may ship a pack-level `stylesheet`. Target nodes by `id` (`data-node-id`); use `classPrefix` on primitives only when many nodes share the same look (e.g. spiral-default slot controls).
 
@@ -413,7 +435,7 @@ For **bitmap promo columns** that slide vertically between info-panel pages (XBO
 | `bounds` | Clipped viewport (`overflow: hidden`) |
 | `presentation.kind` | `"bitmapVertical"` |
 | `presentation.items` | Bitmap strips (`asset`, `w`, `h`) keyed by `id` |
-| `presentation.slides` | Ordered slide layouts: item id → stage-absolute `y` (WMP `subview top`) |
+| `presentation.slides` | Ordered slide layouts: item id → stage-absolute `y` (WMP `subview top`); runtime subtracts the strip’s absolute origin from the layout context stack |
 | `presentation.transitionMs` | Vertical move duration (default `500`) |
 
 **Binds:** `scrollStrip.{id}.slide.{n}`, `canPrev`, `canNext`, `atFirst`, `atLast`.

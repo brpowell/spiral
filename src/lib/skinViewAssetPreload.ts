@@ -43,6 +43,7 @@ function collectLayoutAssetUrls(
 ): void {
   switch (node.type) {
     case "canvas":
+    case "subview":
     case "stack":
     case "row":
     case "column":
@@ -173,6 +174,7 @@ async function warmLayoutStripSliderMaps(
 ): Promise<void> {
   switch (node.type) {
     case "canvas":
+    case "subview":
     case "stack":
     case "row":
     case "column":

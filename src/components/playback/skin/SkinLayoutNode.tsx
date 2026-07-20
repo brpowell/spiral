@@ -2,6 +2,7 @@ import type { LayoutNode, LoadedSkinPack } from "../../../types/skin";
 import type { PanelOpenState } from "../../../lib/skinPanels";
 import { useSkinVisible } from "../../../lib/skinBinds";
 import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
+import { sortChildrenByZIndex } from "../../../lib/skinLayout";
 import { SkinBoundedCanvasNode } from "./SkinBoundedCanvasNode";
 import { SkinBitmapButton } from "./SkinBitmapButton";
 import { SkinButtonGroup } from "./SkinButtonGroup";
@@ -28,6 +29,27 @@ export interface SkinLayoutNodeProps {
   onToggleVisualizer: () => void;
   onOpenQueue: () => void;
   panelOpen?: PanelOpenState;
+}
+
+function renderBoundedChildren(
+  children: LayoutNode[],
+  pack: LoadedSkinPack,
+  visualizerExpanded: boolean,
+  onToggleVisualizer: () => void,
+  onOpenQueue: () => void,
+  panelOpen: PanelOpenState,
+) {
+  return children.map((child, index) => (
+    <SkinBoundedCanvasNode
+      key={child.id ?? index}
+      node={child}
+      pack={pack}
+      visualizerExpanded={visualizerExpanded}
+      onToggleVisualizer={onToggleVisualizer}
+      onOpenQueue={onOpenQueue}
+      panelOpen={panelOpen}
+    />
+  ));
 }
 
 export function SkinLayoutNode({
@@ -69,41 +91,38 @@ export function SkinLayoutNode({
     return <SkinScrollStrip node={node} pack={pack} />;
   }
 
-  if (node.type === "canvas") {
+  if (node.type === "subview") {
+    const children = sortChildrenByZIndex(node);
     return (
       <div
-        className="skin-layout-node skin-layout-node--canvas"
+        className="skin-layout-node skin-layout-node--subview"
         data-node-id={node.id}
+        {...(node.dragRegion ? skinDragRegionDeepProps() : {})}
       >
-        {node.children.map((child, index) => (
-          <SkinBoundedCanvasNode
-            key={child.id ?? index}
-            node={child}
-            pack={pack}
-            visualizerExpanded={visualizerExpanded}
-            onToggleVisualizer={onToggleVisualizer}
-            onOpenQueue={onOpenQueue}
-            panelOpen={panelOpen}
-          />
-        ))}
+        {renderBoundedChildren(
+          children,
+          pack,
+          visualizerExpanded,
+          onToggleVisualizer,
+          onOpenQueue,
+          panelOpen,
+        )}
       </div>
     );
   }
 
   if (node.type === "tiledFrame") {
+    const children = sortChildrenByZIndex(node);
     return (
       <SkinTiledFrame node={node} pack={pack}>
-        {node.children.map((child, index) => (
-          <SkinBoundedCanvasNode
-            key={child.id ?? index}
-            node={child}
-            pack={pack}
-            visualizerExpanded={visualizerExpanded}
-            onToggleVisualizer={onToggleVisualizer}
-            onOpenQueue={onOpenQueue}
-            panelOpen={panelOpen}
-          />
-        ))}
+        {renderBoundedChildren(
+          children,
+          pack,
+          visualizerExpanded,
+          onToggleVisualizer,
+          onOpenQueue,
+          panelOpen,
+        )}
       </SkinTiledFrame>
     );
   }
@@ -115,23 +134,21 @@ export function SkinLayoutNode({
     node.type === "overlay"
   ) {
     const layoutClass = `skin-layout-node skin-layout-node--${node.type}`;
+    const children = sortChildrenByZIndex(node);
     return (
       <div
         className={layoutClass}
         data-node-id={node.id}
         {...(node.dragRegion ? skinDragRegionDeepProps() : {})}
       >
-        {node.children.map((child, index) => (
-          <SkinBoundedCanvasNode
-            key={child.id ?? index}
-            node={child}
-            pack={pack}
-            visualizerExpanded={visualizerExpanded}
-            onToggleVisualizer={onToggleVisualizer}
-            onOpenQueue={onOpenQueue}
-            panelOpen={panelOpen}
-          />
-        ))}
+        {renderBoundedChildren(
+          children,
+          pack,
+          visualizerExpanded,
+          onToggleVisualizer,
+          onOpenQueue,
+          panelOpen,
+        )}
       </div>
     );
   }

@@ -10,6 +10,7 @@
     "test": "npm run test:frontend && npm run test:backend",
     "test:frontend": "vitest run",
     "test:backend": "cd src-tauri && cargo test",
+    "lint:skins": "vitest run src/lib/skinLayout.test.ts",
     "read-tags": "cargo run --manifest-path src-tauri/Cargo.toml --bin read_tags --",
     "tauri": "tauri"
   },

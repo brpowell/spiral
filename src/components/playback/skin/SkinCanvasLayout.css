@@ -37,12 +37,12 @@
   pointer-events: none;
 }
 
-/* Canvas grouping nodes pass through; only their bounded children capture input. */
-.skin-canvas-layout .skin-layout-node--canvas {
+/* Nested group nodes pass through; only their bounded children capture input. */
+.skin-canvas-layout .skin-layout-node--subview {
   pointer-events: none;
 }
 
-.skin-layout-node--canvas {
+.skin-layout-node--subview {
   position: relative;
   width: 100%;
   height: 100%;

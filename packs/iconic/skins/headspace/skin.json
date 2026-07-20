@@ -106,7 +106,7 @@
             }
           },
           {
-            "type": "canvas",
+            "type": "subview",
             "id": "left-ear-controls",
             "bounds": {
               "x": 207,
@@ -193,7 +193,7 @@
             ]
           },
           {
-            "type": "canvas",
+            "type": "subview",
             "id": "right-ear-controls",
             "bounds": {
               "x": 462,
@@ -280,7 +280,7 @@
             ]
           },
           {
-            "type": "canvas",
+            "type": "subview",
             "id": "eq-drawer",
             "visibleWhen": "skin.panel.eq.revealed",
             "bounds": {
@@ -345,7 +345,7 @@
                 }
               },
               {
-                "type": "canvas",
+                "type": "subview",
                 "id": "eq-panel",
                 "bounds": {
                   "x": 84,
@@ -754,7 +754,7 @@
             ]
           },
           {
-            "type": "canvas",
+            "type": "subview",
             "id": "pl-drawer",
             "visibleWhen": "skin.panel.playlist.revealed",
             "bounds": {
@@ -819,7 +819,7 @@
                 }
               },
               {
-                "type": "canvas",
+                "type": "subview",
                 "id": "pl-panel",
                 "bounds": {
                   "x": 13,
@@ -913,7 +913,7 @@
             ]
           },
           {
-            "type": "canvas",
+            "type": "subview",
             "id": "vis-chooser",
             "visibleWhen": "skin.panel.visChooser.revealed",
             "bounds": {

@@ -1,10 +1,18 @@
 import type { LayoutNode, LoadedSkinPack } from "../../../types/skin";
 import { useSkinBindState, useSkinVisible } from "../../../lib/skinBinds";
-import { getNodeBoundsWhen, resolveNodeBounds } from "../../../lib/skinPanels";
+import {
+  getNodeBoundsWhen,
+  resolveNodeBounds,
+} from "../../../lib/skinPanels";
 import type { PanelOpenState } from "../../../lib/skinPanels";
+import { resolveLocalBounds } from "../../../lib/skinLayout";
 import { useSkinStore } from "../../../store/useSkinStore";
 import { SkinBounds } from "./SkinBounds";
 import { useButtonGroupElevationDelta } from "./SkinButtonGroupHitRegistry";
+import {
+  SkinLayoutContextProvider,
+  useSkinLayoutContext,
+} from "./SkinLayoutContext";
 import { SkinLayoutNode } from "./SkinLayoutNode";
 
 export interface SkinBoundedCanvasNodeProps {
@@ -29,6 +37,7 @@ export function SkinBoundedCanvasNode({
   const panelRevealed = useSkinStore((s) => s.panelRevealed);
   const panelSettled = useSkinStore((s) => s.panelSettled);
   const panelCtx = { panelOpen, panelRevealed, panelSettled, viewState };
+  const parentLayout = useSkinLayoutContext();
   const elevationDelta = useButtonGroupElevationDelta(
     node.type === "buttonGroup" ? node.id : undefined,
   );
@@ -69,24 +78,38 @@ export function SkinBoundedCanvasNode({
 
   if (bounds) {
     const passthrough =
-      node.type === "decoration" || node.type === "buttonGroup";
+      node.type === "decoration" ||
+      node.type === "buttonGroup" ||
+      (node.type === "subview" && node.passthrough === true);
     const effectiveBounds =
       elevationDelta > 0 && bounds.zIndex !== undefined
         ? {
-          ...bounds,
-          zIndex: bounds.zIndex + elevationDelta,
-        }
+            ...bounds,
+            zIndex: bounds.zIndex + elevationDelta,
+          }
         : bounds;
 
+    const local = resolveLocalBounds(effectiveBounds, parentLayout.size);
+    const childLayout = {
+      origin: {
+        x: parentLayout.origin.x + local.x,
+        y: parentLayout.origin.y + local.y,
+      },
+      size: { width: local.w, height: local.h },
+      space: "parent" as const,
+    };
+
     return (
-      <SkinBounds
-        bounds={effectiveBounds}
-        boundsFor={node.id}
-        motion={hasMotion}
-        className={passthrough ? "skin-bounds--passthrough" : undefined}
-      >
-        {inner}
-      </SkinBounds>
+      <SkinLayoutContextProvider value={childLayout}>
+        <SkinBounds
+          bounds={effectiveBounds}
+          boundsFor={node.id}
+          motion={hasMotion}
+          className={passthrough ? "skin-bounds--passthrough" : undefined}
+        >
+          {inner}
+        </SkinBounds>
+      </SkinLayoutContextProvider>
     );
   }
 

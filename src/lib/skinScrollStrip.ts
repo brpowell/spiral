@@ -123,8 +123,8 @@ export function resolveScrollStripItemTop(
 /** Seed off-slide item positions so first scroll transitions don't start from top: 0. */
 export function buildScrollStripInitialTops(
   node: ScrollStripNode,
+  stripOriginY: number,
 ): Record<string, number> {
-  const stripOriginY = node.bounds?.y ?? 0;
   const tops: Record<string, number> = {};
 
   for (const item of node.presentation.items) {

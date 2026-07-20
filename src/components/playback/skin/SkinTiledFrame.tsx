@@ -12,6 +12,10 @@ import {
   SkinCanvasStageContext,
   useSkinCanvasStage,
 } from "./SkinCanvasStageContext";
+import {
+  SkinLayoutContextProvider,
+  useSkinLayoutContext,
+} from "./SkinLayoutContext";
 import "./SkinTiledFrame.css";
 
 export interface SkinTiledFrameProps {
@@ -43,6 +47,7 @@ function tileStyle(
 
 export function SkinTiledFrame({ node, pack, children }: SkinTiledFrameProps) {
   const { stageSize } = useSkinCanvasStage();
+  const parentLayout = useSkinLayoutContext();
   const presentation = node.presentation;
   const { width, height } = stageSize;
 
@@ -61,7 +66,19 @@ export function SkinTiledFrame({ node, pack, children }: SkinTiledFrameProps) {
     [tiles],
   );
 
-  const childContext = useMemo(() => ({ stageSize }), [stageSize]);
+  const childStageContext = useMemo(() => ({ stageSize }), [stageSize]);
+
+  const contentLayoutContext = useMemo(
+    () => ({
+      origin: {
+        x: parentLayout.origin.x + contentRect.x,
+        y: parentLayout.origin.y + contentRect.y,
+      },
+      size: { width: contentRect.w, height: contentRect.h },
+      space: "content" as const,
+    }),
+    [parentLayout.origin.x, parentLayout.origin.y, contentRect],
+  );
 
   const chromeClip = useMemo(
     () => computeChromeClipPath(width, height, contentRect),
@@ -105,8 +122,10 @@ export function SkinTiledFrame({ node, pack, children }: SkinTiledFrameProps) {
           zIndex: TILED_FRAME_CONTENT_Z,
         }}
       >
-        <SkinCanvasStageContext.Provider value={childContext}>
-          {children}
+        <SkinCanvasStageContext.Provider value={childStageContext}>
+          <SkinLayoutContextProvider value={contentLayoutContext}>
+            {children}
+          </SkinLayoutContextProvider>
         </SkinCanvasStageContext.Provider>
       </div>
       <div

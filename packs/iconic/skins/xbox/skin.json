@@ -366,7 +366,7 @@
             }
           },
           {
-            "type": "canvas",
+            "type": "subview",
             "id": "screen-buttons",
             "bounds": {
               "x": 124,
