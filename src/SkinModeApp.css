@@ -21,6 +21,10 @@
   min-height: 0;
 }
 
+.skin-mode-app__skin--swap-pending {
+  visibility: hidden;
+}
+
 .skin-mode-app__skin--layered {
   position: relative;
 }

@@ -13,6 +13,7 @@ import {
   isSkinGifUrl,
   skinAssetFileUrl,
 } from "./skinAssets";
+import { listSwitchableViewIds } from "./skinWindowPresentation";
 
 function addBitmapAssetUrls(
   packDir: string,
@@ -246,4 +247,19 @@ export async function preloadSkinViewAssets(
     }),
     warmLayoutStripSliderMaps(view.layout, pack.packDir),
   ]);
+}
+
+/**
+ * Decode the primary view plus any other switchable views that mount as layers
+ * (e.g. T3 main+mini) so a skin switch can paint without progressive pop-in.
+ */
+export async function preloadSkinSwitchAssets(
+  pack: LoadedSkinPack,
+  primaryViewId: string,
+): Promise<void> {
+  const viewIds = new Set(listSwitchableViewIds(pack));
+  viewIds.add(primaryViewId);
+  await Promise.all(
+    [...viewIds].map((viewId) => preloadSkinViewAssets(pack, viewId)),
+  );
 }

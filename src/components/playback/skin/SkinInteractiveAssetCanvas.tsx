@@ -1,5 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { isSkinGifAsset } from "../../../lib/skinAssets";
+import {
+  getSkinBitmapIfReady,
+  isSkinBitmapReady,
+  loadSkinBitmap,
+} from "../../../lib/skinBitmapCache";
 import {
   drawSkinGifLastFrame,
   loadSkinGif,
@@ -7,6 +12,18 @@ import {
 } from "../../../lib/skinGifPlayback";
 import type { SkinAssetFile } from "../../../types/skin";
 import "./SkinInteractiveAssetCanvas.css";
+
+function drawBitmap(
+  canvas: HTMLCanvasElement,
+  image: HTMLImageElement,
+): void {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(image, 0, 0);
+}
 
 export function SkinInteractiveAssetCanvas({
   assetFile,
@@ -24,10 +41,12 @@ export function SkinInteractiveAssetCanvas({
   playKey: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [ready, setReady] = useState(false);
+  const isGif = isSkinGifAsset(assetFile);
+  const [ready, setReady] = useState(
+    () => !isGif && isSkinBitmapReady(assetUrl),
+  );
 
-  useEffect(() => {
-    setReady(false);
+  useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -38,28 +57,34 @@ export function SkinInteractiveAssetCanvas({
       if (!cancelled) setReady(true);
     };
 
-    if (!isSkinGifAsset(assetFile)) {
-      const img = new Image();
-      img.onload = () => {
-        if (cancelled) return;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
+    if (!isGif) {
+      const cached = getSkinBitmapIfReady(assetUrl);
+      if (cached) {
+        drawBitmap(canvas, cached);
         finishReady();
-      };
-      img.onerror = () => {
-        if (!cancelled) finishReady();
-      };
-      img.src = assetUrl;
+        return () => {
+          cancelled = true;
+        };
+      }
+
+      setReady(false);
+      void loadSkinBitmap(assetUrl)
+        .then((image) => {
+          if (cancelled) return;
+          drawBitmap(canvas, image);
+          finishReady();
+        })
+        .catch(() => {
+          if (!cancelled) finishReady();
+        });
+
       return () => {
         cancelled = true;
       };
     }
 
-    loadSkinGif(assetUrl)
+    setReady(false);
+    void loadSkinGif(assetUrl)
       .then((decoded) => {
         if (cancelled) return;
 
@@ -83,7 +108,7 @@ export function SkinInteractiveAssetCanvas({
       cancelled = true;
       playbackStop?.();
     };
-  }, [assetFile, assetUrl, animate, playKey]);
+  }, [assetFile, assetUrl, animate, playKey, isGif]);
 
   return (
     <canvas

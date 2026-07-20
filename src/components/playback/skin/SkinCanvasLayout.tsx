@@ -102,7 +102,7 @@ export function SkinCanvasLayout({
 
   return (
     <SkinViewRuntimeProviders
-      key={viewId}
+      key={`${pack.summary.id}:${viewId}`}
       view={view}
       registerGlobalApi={registerGlobalApi}
     >

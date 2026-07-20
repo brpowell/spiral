@@ -10,6 +10,11 @@ export function isSkinBitmapReady(url: string): boolean {
   return cache.get(url)?.image !== undefined;
 }
 
+/** Sync access to a bitmap already decoded by {@link loadSkinBitmap}. */
+export function getSkinBitmapIfReady(url: string): HTMLImageElement | undefined {
+  return cache.get(url)?.image;
+}
+
 /** Decode a skin bitmap once and reuse the result for `<img>` and preload. */
 export function loadSkinBitmap(url: string): Promise<HTMLImageElement> {
   let entry = cache.get(url);

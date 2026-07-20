@@ -1,8 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
-import { applySkinChangeWindowLayout } from "./skinModeWindowChrome";
-import { closeAllSkinAuxWindows, restoreOpenSkinAuxWindows } from "./skinAuxWindow";
-import { isSkinModeVisible } from "./skinModeWindow";
-import { resolveViewForPack } from "./skinViewState";
+import { closeAllSkinAuxWindows } from "./skinAuxWindow";
 import { useSkinStore } from "../store/useSkinStore";
 import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
 import { useThemeStore } from "../store/useThemeStore";
@@ -21,15 +18,6 @@ export interface SkinChangedPayload {
 
 export interface SkinPreferencesChangedPayload {
   skinId: string;
-}
-
-async function reloadSkinOnSkinModeWindow(): Promise<void> {
-  await useSkinStore.getState().loadSkins();
-  const pack = useSkinStore.getState().activePack;
-  if (!pack || !(await isSkinModeVisible())) return;
-  const viewId = resolveViewForPack(pack);
-  await applySkinChangeWindowLayout(pack, viewId);
-  await restoreOpenSkinAuxWindows(pack);
 }
 
 async function refreshAppearanceData(): Promise<void> {
@@ -73,9 +61,12 @@ export async function initSkinBridge(role: WindowRole): Promise<void> {
 
   if (isSkinModeWindow()) {
     await listen<SkinChangedPayload>(SKIN_CHANGED_EVENT, () => {
-      void reloadSkinOnSkinModeWindow().catch((err: unknown) => {
-        console.error("Failed to apply skin change in skin mode:", err);
-      });
+      void useSkinStore
+        .getState()
+        .loadSkins()
+        .catch((err: unknown) => {
+          console.error("Failed to apply skin change in skin mode:", err);
+        });
     });
     await listenSkinPreferencesChanged();
     return;

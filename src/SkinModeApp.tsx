@@ -28,8 +28,10 @@ export function SkinModeApp() {
   const activePack = useSkinStore((s) => s.activePack);
   const activeViewId = useSkinStore((s) => s.activeViewId);
   const packReloadGeneration = useSkinStore((s) => s.packReloadGeneration);
+  const skinSwapPending = useSkinStore((s) => s.skinSwapPending);
   const prevReloadGeneration = useRef(packReloadGeneration);
   const prevViewIdRef = useRef<string | null>(null);
+  const prevSkinIdRef = useRef<string | null>(null);
   const isAux = isSkinAuxWindow();
   const view = activePack?.manifest.views?.[activeViewId];
   const chrome = activePack
@@ -89,6 +91,10 @@ export function SkinModeApp() {
 
     const reloaded = packReloadGeneration !== prevReloadGeneration.current;
     prevReloadGeneration.current = packReloadGeneration;
+    const skinId = activePack.summary.id;
+    const skinIdChanged =
+      prevSkinIdRef.current !== null && prevSkinIdRef.current !== skinId;
+    prevSkinIdRef.current = skinId;
     const viewIdChanged =
       prevViewIdRef.current !== null && prevViewIdRef.current !== activeViewId;
     prevViewIdRef.current = activeViewId;
@@ -101,6 +107,9 @@ export function SkinModeApp() {
       );
       return;
     }
+
+    // Skin switches resize in the store swap path before the new pack paints.
+    if (skinIdChanged && !reloaded) return;
 
     // Sized exclusive/primary switches resize in setView after the UI swap.
     if (viewIdChanged && !reloaded) return;
@@ -124,6 +133,7 @@ export function SkinModeApp() {
           className={[
             "skin-mode-app__skin",
             useViewLayers && "skin-mode-app__skin--layered",
+            skinSwapPending && "skin-mode-app__skin--swap-pending",
           ]
             .filter(Boolean)
             .join(" ")}

@@ -1,5 +1,8 @@
-import { useEffect } from "react";
-import { scopeSkinStylesheet } from "../../../lib/scopeSkinStylesheet";
+import { useLayoutEffect } from "react";
+import {
+  getCachedScopedSkinStylesheet,
+  preloadSkinStylesheet,
+} from "../../../lib/skinStylesheetCache";
 import { skinStylesheetUrl } from "../../../lib/skinStylesheet";
 import { useSkinStore } from "../../../store/useSkinStore";
 import type { LoadedSkinPack } from "../../../types/skin";
@@ -9,33 +12,39 @@ export function SkinStylesheet({ pack }: { pack: LoadedSkinPack }) {
   const skinId = pack.summary.id;
   const packReloadGeneration = useSkinStore((s) => s.packReloadGeneration);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!href) return;
 
     let cancelled = false;
     const style = document.createElement("style");
     style.dataset.skinStylesheet = skinId;
 
+    const inject = (css: string) => {
+      style.textContent = css;
+      document.head.appendChild(style);
+    };
+
+    const cached = getCachedScopedSkinStylesheet(skinId, packReloadGeneration);
+    if (cached) {
+      inject(cached);
+      return () => {
+        style.remove();
+      };
+    }
+
     void (async () => {
-      try {
-        const response = await fetch(`${href}?v=${packReloadGeneration}`);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const css = await response.text();
-        if (cancelled) return;
-        style.textContent = scopeSkinStylesheet(css, skinId);
-        document.head.appendChild(style);
-      } catch (err) {
-        console.error(`Failed to load skin stylesheet for ${skinId}:`, err);
-      }
+      await preloadSkinStylesheet(pack, packReloadGeneration);
+      if (cancelled) return;
+      const scoped = getCachedScopedSkinStylesheet(skinId, packReloadGeneration);
+      if (!scoped) return;
+      inject(scoped);
     })();
 
     return () => {
       cancelled = true;
       style.remove();
     };
-  }, [href, skinId, packReloadGeneration]);
+  }, [href, skinId, pack, packReloadGeneration]);
 
   return null;
 }

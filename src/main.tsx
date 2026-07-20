@@ -13,7 +13,7 @@ import { initEqBridge } from "./lib/eqBridge";
 import { bootstrapSkin } from "./lib/skinBootstrap";
 import { bootstrapSkinAux } from "./lib/skinAuxBootstrap";
 import { emitSkinAuxReady } from "./lib/skinAuxEvents";
-import { preloadSkinViewAssets } from "./lib/skinViewAssetPreload";
+import { preloadSkinSwitchAssets, preloadSkinViewAssets } from "./lib/skinViewAssetPreload";
 import { resolveAuxStartupRequirements } from "./lib/skinAuxStartupRequirements";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useSkinStore } from "./store/useSkinStore";
@@ -125,7 +125,7 @@ async function start() {
   if (isSkinModeWindow()) {
     const { activePack, activeViewId } = useSkinStore.getState();
     if (activePack) {
-      await preloadSkinViewAssets(activePack, activeViewId);
+      await preloadSkinSwitchAssets(activePack, activeViewId);
     }
   }
 

@@ -43,11 +43,88 @@ import {
   type PanelMotionState,
 } from "../lib/skinPanelMotion";
 import { SKIN_PLAYLIST_SOURCE_ALL } from "../lib/skinPlaylist";
+import { preloadSkinStylesheet } from "../lib/skinStylesheetCache";
+import { preloadSkinSwitchAssets } from "../lib/skinViewAssetPreload";
 import type { LoadedSkinPack, SkinSummary, SkinView } from "../types/skin";
 import { isAppearanceWindow, isSkinModeWindow } from "../lib/windowRole";
 import { useSkinPreferencesStore } from "./useSkinPreferencesStore";
 
 export const DEFAULT_SKIN_ID = "spiral.core.skin.spiral-default";
+
+/** Bumped so an older in-flight load/switch cannot commit after a newer one. */
+let skinCommitGeneration = 0;
+
+function waitAnimationFrames(count: number): Promise<void> {
+  return new Promise((resolve) => {
+    const step = (remaining: number) => {
+      if (remaining <= 0) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(() => step(remaining - 1));
+    };
+    step(count);
+  });
+}
+
+async function preloadSkinModePack(
+  pack: LoadedSkinPack,
+  viewId: string,
+  packReloadGeneration: number,
+): Promise<void> {
+  await Promise.all([
+    preloadSkinSwitchAssets(pack, viewId),
+    preloadSkinStylesheet(pack, packReloadGeneration),
+  ]);
+}
+
+/** Hide → preload → resize → commit → show (avoids painting at the wrong window size). */
+async function commitSkinModeSwitch(
+  set: (partial: Partial<SkinState>) => void,
+  get: () => SkinState,
+  options: {
+    commitGeneration: number;
+    pack: LoadedSkinPack;
+    viewId: string;
+    patch: Partial<SkinState>;
+  },
+): Promise<boolean> {
+  const { commitGeneration, pack, viewId, patch } = options;
+  const isStale = () => commitGeneration !== skinCommitGeneration;
+
+  set({ skinSwapPending: true });
+  // Let React apply visibility:hidden before the window resizes.
+  await waitAnimationFrames(1);
+
+  await preloadSkinModePack(pack, viewId, get().packReloadGeneration);
+  if (isStale()) {
+    set({ skinSwapPending: false });
+    return false;
+  }
+
+  if (await isSkinModeVisible()) {
+    await applySkinChangeWindowLayout(pack, viewId);
+  }
+  if (isStale()) {
+    set({ skinSwapPending: false });
+    return false;
+  }
+
+  set(patch);
+
+  await waitAnimationFrames(2);
+  if (isStale()) {
+    set({ skinSwapPending: false });
+    return false;
+  }
+
+  set({ skinSwapPending: false });
+
+  if (await isSkinModeVisible()) {
+    await restoreOpenSkinAuxWindows(pack);
+  }
+  return true;
+}
 
 function motionStateForView(
   pack: LoadedSkinPack | null,
@@ -68,6 +145,8 @@ interface SkinState extends PanelMotionState {
   playlistSourceId: string;
   /** Bumped on dev hot-reload so layout/stylesheet effects re-run for the same skin id. */
   packReloadGeneration: number;
+  /** True while a skin-mode switch veil is up. */
+  skinSwapPending: boolean;
   skinsLoaded: boolean;
   loadSkins: () => Promise<void>;
   initializeFromBootstrap: (
@@ -98,6 +177,7 @@ export const useSkinStore = create<SkinState>((set, get) => ({
   openAuxiliaryViews: [],
   playlistSourceId: SKIN_PLAYLIST_SOURCE_ALL,
   packReloadGeneration: 0,
+  skinSwapPending: false,
   panelOpen: {},
   panelRevealed: {},
   panelSettled: {},
@@ -118,6 +198,7 @@ export const useSkinStore = create<SkinState>((set, get) => ({
   },
 
   loadSkins: async () => {
+    const commitGeneration = ++skinCommitGeneration;
     const summaries = await listSkins();
     const activeSkinId = await getActiveSkinId();
     const resolvedId = summaries.some((s) => s.id === activeSkinId)
@@ -125,7 +206,13 @@ export const useSkinStore = create<SkinState>((set, get) => ({
       : DEFAULT_SKIN_ID;
     const pack = await loadSkinPack(resolvedId);
     const viewId = resolveViewForPack(pack);
-    set({
+    const previousId = get().activePack?.summary.id;
+    const isSkinSwitch =
+      isSkinModeWindow() &&
+      previousId != null &&
+      previousId !== resolvedId;
+
+    const patch = {
       skins: summaries,
       activePack: pack,
       activeSkinId: resolvedId,
@@ -133,11 +220,29 @@ export const useSkinStore = create<SkinState>((set, get) => ({
       openAuxiliaryViews: readOpenAuxViewsForSkin(resolvedId),
       ...motionStateForView(pack, viewId),
       skinsLoaded: true,
-    });
+    };
+
+    if (isSkinSwitch) {
+      const committed = await commitSkinModeSwitch(set, get, {
+        commitGeneration,
+        pack,
+        viewId,
+        patch,
+      });
+      if (!committed) return;
+    } else {
+      if (isSkinModeWindow()) {
+        await preloadSkinModePack(pack, viewId, get().packReloadGeneration);
+      }
+      if (commitGeneration !== skinCommitGeneration) return;
+      set(patch);
+    }
+
     await useSkinPreferencesStore.getState().loadForSkin(resolvedId);
   },
 
   setSkin: async (skinId) => {
+    const commitGeneration = ++skinCommitGeneration;
     const { activePack: previousPack } = get();
     if (previousPack && previousPack.summary.id !== skinId) {
       await closeAllSkinAuxWindows(previousPack);
@@ -146,21 +251,44 @@ export const useSkinStore = create<SkinState>((set, get) => ({
     const pack = await loadSkinPack(skinId);
     const viewId = resolveViewForPack(pack);
     writeViewForSkin(skinId, viewId);
-    set({
+
+    const patch = {
       activePack: pack,
       activeSkinId: skinId,
       activeViewId: viewId,
       openAuxiliaryViews: readOpenAuxViewsForSkin(skinId),
       playlistSourceId: SKIN_PLAYLIST_SOURCE_ALL,
       ...motionStateForView(pack, viewId),
-    });
+    };
+
+    const isSkinSwitch =
+      isSkinModeWindow() &&
+      previousPack != null &&
+      previousPack.summary.id !== skinId;
+
+    if (isSkinSwitch) {
+      const committed = await commitSkinModeSwitch(set, get, {
+        commitGeneration,
+        pack,
+        viewId,
+        patch,
+      });
+      if (!committed) return;
+    } else {
+      if (isSkinModeWindow()) {
+        await preloadSkinModePack(pack, viewId, get().packReloadGeneration);
+      }
+      if (commitGeneration !== skinCommitGeneration) return;
+      set(patch);
+    }
+
     await saveActiveSkinId(skinId);
     await saveActiveSkinView(viewId);
     await useSkinPreferencesStore.getState().loadForSkin(skinId);
 
     if (isAppearanceWindow()) {
       await emit(SKIN_CHANGED_EVENT, { skinId, viewId } satisfies SkinChangedPayload);
-    } else if (await isSkinModeVisible()) {
+    } else if (isSkinModeWindow() && !isSkinSwitch && (await isSkinModeVisible())) {
       await applySkinChangeWindowLayout(pack, viewId);
       await restoreOpenSkinAuxWindows(pack);
     }
