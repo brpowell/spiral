@@ -108,45 +108,6 @@ export function ArtistDetailView({
           <IconBack />
           {backLabel}
         </Button>
-        <MenuButton
-          ariaLabel="Artist actions"
-          className="artist-detail__toolbar-menu"
-          layoutDeps={[artist.tracks.length]}
-          size="md"
-          variant="secondary"
-        >
-          {(close) => (
-            <>
-              <ContextMenuItem
-                icon={<IconPencil />}
-                label="Edit Artist"
-                onClick={() => {
-                  close();
-                  openArtistEditor(artist.key, editorBrowseMode);
-                }}
-              />
-              {artist.tracks.length > 0 ? (
-                <ContextMenuItem
-                  icon={<IconAddToQueue />}
-                  label="Add to Queue"
-                  onClick={() => {
-                    close();
-                    handleAddToQueue();
-                  }}
-                />
-              ) : null}
-              <ContextMenuItem
-                icon={<IconPlay />}
-                label="Play All"
-                disabled={artist.tracks.length === 0}
-                onClick={() => {
-                  close();
-                  handlePlayAll();
-                }}
-              />
-            </>
-          )}
-        </MenuButton>
       </div>
 
       <section className="artist-detail__hero">
@@ -167,6 +128,46 @@ export function ArtistDetailView({
               .filter(Boolean)
               .join(" · ")}
           </p>
+          <div className="detail-view__actions">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => openArtistEditor(artist.key, editorBrowseMode)}
+            >
+              <IconPencil />
+              Edit Artist
+            </Button>
+            <MenuButton
+              ariaLabel="Artist actions"
+              layoutDeps={[artist.tracks.length]}
+              size="sm"
+              variant="secondary"
+            >
+              {(close) => (
+                <>
+                  {artist.tracks.length > 0 ? (
+                    <ContextMenuItem
+                      icon={<IconAddToQueue />}
+                      label="Add to Queue"
+                      onClick={() => {
+                        close();
+                        handleAddToQueue();
+                      }}
+                    />
+                  ) : null}
+                  <ContextMenuItem
+                    icon={<IconPlay />}
+                    label="Play All"
+                    disabled={artist.tracks.length === 0}
+                    onClick={() => {
+                      close();
+                      handlePlayAll();
+                    }}
+                  />
+                </>
+              )}
+            </MenuButton>
+          </div>
         </div>
       </section>
 

@@ -105,7 +105,7 @@ export const useNavigationStore = create<NavigationState>((set) => ({
       cdDriveId: null,
       albumReturnContext: null,
       artistReturnContext: null,
-      playlistReturnContext: captureReturnContext(state, playlistsForCapture()),
+      playlistReturnContext: { kind: "sidebar", view: state.view },
     })),
 
   closePlaylist: () =>

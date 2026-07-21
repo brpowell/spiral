@@ -1,27 +1,25 @@
 import { useCallback, useEffect, useMemo } from "react";
-import { ContextMenuSeparator } from "../components/ContextMenu/ContextMenu";
 import { applyTrackRating } from "../lib/applyTrackRating";
 import { albumTotalDurationSeconds } from "../lib/albums";
 import { formatTime } from "../lib/format";
-import { detailReturnLabel } from "../lib/navigationReturn";
 import { getPlaylistById, resolvePlaylistTracks } from "../lib/playlists";
 import { PlaylistArt } from "../components/PlaylistArt/PlaylistArt";
 import { Button } from "../components/common/Button/Button";
-import { ContextMenuItem } from "../components/ContextMenu/ContextMenu";
+import {
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "../components/ContextMenu/ContextMenu";
 import { MenuButton } from "../components/MenuButton/MenuButton";
 import { TrackList } from "../components/TrackList/TrackList";
 import {
   IconAddToQueue,
-  IconBack,
   IconDelete,
   IconPencil,
   IconPlay,
 } from "../components/icons";
 import { useDeletePlaylistDialog } from "../hooks/useDeletePlaylistDialog";
-import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { usePlaylistStore } from "../store/usePlaylistStore";
-import type { Artist } from "../types/artist";
 import type { Playlist } from "../types/playlist";
 import type { CanonicalRating } from "../lib/trackRating";
 import type { Track } from "../types/track";
@@ -30,21 +28,12 @@ import "./DetailViewShared.css";
 
 interface PlaylistDetailViewProps {
   playlistId: number;
-  artists: Artist[];
 }
 
-export function PlaylistDetailView({
-  playlistId,
-  artists,
-}: PlaylistDetailViewProps) {
-  const closePlaylist = useNavigationStore((s) => s.closePlaylist);
-  const playlistReturnContext = useNavigationStore(
-    (s) => s.playlistReturnContext,
-  );
+export function PlaylistDetailView({ playlistId }: PlaylistDetailViewProps) {
   const playlists = usePlaylistStore((s) => s.playlists);
   const touchPlaylist = usePlaylistStore((s) => s.touchPlaylist);
   const playlist = getPlaylistById(playlists, playlistId);
-  const backLabel = detailReturnLabel(playlistReturnContext, artists);
 
   useEffect(() => {
     void touchPlaylist(playlistId);
@@ -53,33 +42,15 @@ export function PlaylistDetailView({
   if (!playlist) {
     return (
       <div className="playlist-detail playlist-detail--missing">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="playlist-detail__back"
-          onClick={closePlaylist}
-        >
-          <IconBack />
-          {backLabel}
-        </Button>
         <p>Playlist not found.</p>
       </div>
     );
   }
 
-  return (
-    <PlaylistDetailContent playlist={playlist} backLabel={backLabel} />
-  );
+  return <PlaylistDetailContent playlist={playlist} />;
 }
 
-function PlaylistDetailContent({
-  playlist,
-  backLabel,
-}: {
-  playlist: Playlist;
-  backLabel: string;
-}) {
-  const closePlaylist = useNavigationStore((s) => s.closePlaylist);
+function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
   const openPlaylistEditor = usePlaylistStore((s) => s.openPlaylistEditor);
   const library = usePlayerStore((s) => s.library);
   const playTracks = usePlayerStore((s) => s.playTracks);
@@ -135,67 +106,6 @@ function PlaylistDetailContent({
     <div className="playlist-detail detail-view">
       <div className="detail-view__body">
         <div className="detail-view__chrome">
-          <div className="playlist-detail__toolbar">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="playlist-detail__back"
-              onClick={closePlaylist}
-            >
-              <IconBack />
-              {backLabel}
-            </Button>
-            <MenuButton
-              ariaLabel="Playlist actions"
-              className="playlist-detail__toolbar-menu"
-              layoutDeps={[tracks.length]}
-              size="md"
-              variant="secondary"
-            >
-              {(close) => (
-                <>
-                  <ContextMenuItem
-                    icon={<IconPencil />}
-                    label="Edit Playlist"
-                    onClick={() => {
-                      close();
-                      openPlaylistEditor(playlist.id);
-                    }}
-                  />
-                  {tracks.length > 0 ? (
-                    <ContextMenuItem
-                      icon={<IconAddToQueue />}
-                      label="Add to Queue"
-                      onClick={() => {
-                        close();
-                        handleAddToQueue();
-                      }}
-                    />
-                  ) : null}
-                  <ContextMenuItem
-                    icon={<IconPlay />}
-                    label="Play All"
-                    disabled={tracks.length === 0}
-                    onClick={() => {
-                      close();
-                      handlePlayAll();
-                    }}
-                  />
-                  <ContextMenuSeparator />
-                  <ContextMenuItem
-                    icon={<IconDelete />}
-                    label="Delete Playlist"
-                    className="context-menu__danger"
-                    onClick={() => {
-                      close();
-                      requestDelete();
-                    }}
-                  />
-                </>
-              )}
-            </MenuButton>
-          </div>
-
           <section className="playlist-detail__hero">
             <PlaylistArt
               playlist={playlist}
@@ -216,6 +126,56 @@ function PlaylistDetailContent({
                   .filter(Boolean)
                   .join(" · ")}
               </p>
+              <div className="detail-view__actions">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => openPlaylistEditor(playlist.id)}
+                >
+                  <IconPencil />
+                  Edit Playlist
+                </Button>
+                <MenuButton
+                  ariaLabel="Playlist actions"
+                  layoutDeps={[tracks.length]}
+                  size="sm"
+                  variant="secondary"
+                >
+                  {(close) => (
+                    <>
+                      {tracks.length > 0 ? (
+                        <ContextMenuItem
+                          icon={<IconAddToQueue />}
+                          label="Add to Queue"
+                          onClick={() => {
+                            close();
+                            handleAddToQueue();
+                          }}
+                        />
+                      ) : null}
+                      <ContextMenuItem
+                        icon={<IconPlay />}
+                        label="Play All"
+                        disabled={tracks.length === 0}
+                        onClick={() => {
+                          close();
+                          handlePlayAll();
+                        }}
+                      />
+                      <ContextMenuSeparator />
+                      <ContextMenuItem
+                        icon={<IconDelete />}
+                        label="Delete Playlist"
+                        className="context-menu__danger"
+                        onClick={() => {
+                          close();
+                          requestDelete();
+                        }}
+                      />
+                    </>
+                  )}
+                </MenuButton>
+              </div>
             </div>
           </section>
         </div>

@@ -117,7 +117,8 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
   const isLoadingCdText = cdtextLoadingDriveIds.has(driveId);
   const heroArtPath = heroArtByDriveId[driveId] ?? null;
   const isEjecting = ejectingDriveIds.has(driveId);
-  const showBack = cdReturnContext?.kind !== "sidebar";
+  const showBack =
+    cdReturnContext != null && cdReturnContext.kind !== "sidebar";
   const backLabel = detailReturnLabel(cdReturnContext, artists);
   const isActiveCdPlayback = storeCdDriveId === driveId;
   const currentTrackId = isActiveCdPlayback ? storeCurrentTrackId : null;

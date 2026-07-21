@@ -1,11 +1,6 @@
-.album-detail--missing {
-  color: var(--color-text-secondary);
-}
-
 .album-detail__toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   margin-bottom: 1.5rem;
 }
 

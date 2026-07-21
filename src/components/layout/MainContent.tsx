@@ -69,7 +69,7 @@ export function MainContent() {
             className="main-content__view main-content__view--contained"
             {...viewTransition}
           >
-            <PlaylistDetailView playlistId={playlistId} artists={artists} />
+            <PlaylistDetailView playlistId={playlistId} />
           </motion.div>
         ) : albumKey != null ? (
           <motion.div

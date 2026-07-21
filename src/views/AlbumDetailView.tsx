@@ -138,45 +138,6 @@ export function AlbumDetailView({
               <IconBack />
               {backLabel}
             </Button>
-            <MenuButton
-              ariaLabel="Album actions"
-              className="album-detail__toolbar-menu"
-              layoutDeps={[album.tracks.length]}
-              size="md"
-              variant="secondary"
-            >
-              {(close) => (
-                <>
-                  <ContextMenuItem
-                    icon={<IconPencil />}
-                    label="Edit Album"
-                    onClick={() => {
-                      close();
-                      openAlbumEditor(album.key);
-                    }}
-                  />
-                  {album.tracks.length > 0 ? (
-                    <ContextMenuItem
-                      icon={<IconAddToQueue />}
-                      label="Add to Queue"
-                      onClick={() => {
-                        close();
-                        handleAddToQueue();
-                      }}
-                    />
-                  ) : null}
-                  <ContextMenuItem
-                    icon={<IconPlay />}
-                    label="Play All"
-                    disabled={album.tracks.length === 0}
-                    onClick={() => {
-                      close();
-                      handlePlayAll();
-                    }}
-                  />
-                </>
-              )}
-            </MenuButton>
           </div>
 
           <section className="album-detail__hero">
@@ -201,6 +162,46 @@ export function AlbumDetailView({
                   .filter(Boolean)
                   .join(" · ")}
               </p>
+              <div className="detail-view__actions">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => openAlbumEditor(album.key)}
+                >
+                  <IconPencil />
+                  Edit Album
+                </Button>
+                <MenuButton
+                  ariaLabel="Album actions"
+                  layoutDeps={[album.tracks.length]}
+                  size="sm"
+                  variant="secondary"
+                >
+                  {(close) => (
+                    <>
+                      {album.tracks.length > 0 ? (
+                        <ContextMenuItem
+                          icon={<IconAddToQueue />}
+                          label="Add to Queue"
+                          onClick={() => {
+                            close();
+                            handleAddToQueue();
+                          }}
+                        />
+                      ) : null}
+                      <ContextMenuItem
+                        icon={<IconPlay />}
+                        label="Play All"
+                        disabled={album.tracks.length === 0}
+                        onClick={() => {
+                          close();
+                          handlePlayAll();
+                        }}
+                      />
+                    </>
+                  )}
+                </MenuButton>
+              </div>
             </div>
           </section>
         </div>

@@ -42,3 +42,16 @@
   padding: 1.5rem var(--main-content-padding-x);
   color: var(--color-text-secondary);
 }
+
+.detail-view__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 640px) {
+  .detail-view__actions {
+    justify-content: center;
+  }
+}

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
+  albumTitleFromKey,
   captureReturnContext,
   detailReturnLabel,
   stateAfterCloseAlbum,
@@ -7,6 +8,7 @@ import {
   stateAfterClosePlaylist,
 } from "./navigationReturn";
 import { useCdStore } from "../store/useCdStore";
+import { useNavigationStore } from "../store/useNavigationStore";
 import type { Artist } from "../types/artist";
 import type { Playlist } from "../types/playlist";
 
@@ -31,6 +33,14 @@ const artists: Artist[] = [
     tracks: [],
   },
 ];
+
+const ALBUM_KEY = "The Battle of Los Angeles\0Rage Against the Machine";
+
+describe("albumTitleFromKey", () => {
+  it("extracts title from album key", () => {
+    expect(albumTitleFromKey(ALBUM_KEY)).toBe("The Battle of Los Angeles");
+  });
+});
 
 describe("captureReturnContext", () => {
   it("captures library sidebar when on track list", () => {
@@ -61,6 +71,40 @@ describe("captureReturnContext", () => {
         [],
       ),
     ).toEqual({ kind: "artist", artistKey: "rage" });
+  });
+
+  it("captures album when opening artist from album detail", () => {
+    expect(
+      captureReturnContext(
+        {
+          view: "library",
+          albumKey: ALBUM_KEY,
+          artistKey: null,
+          playlistId: null,
+          cdDriveId: null,
+        },
+        [],
+      ),
+    ).toEqual({
+      kind: "album",
+      albumKey: ALBUM_KEY,
+      title: "The Battle of Los Angeles",
+    });
+  });
+
+  it("prefers album over sidebar when album is open", () => {
+    expect(
+      captureReturnContext(
+        {
+          view: "albums",
+          albumKey: ALBUM_KEY,
+          artistKey: null,
+          playlistId: null,
+          cdDriveId: null,
+        },
+        [],
+      ).kind,
+    ).toBe("album");
   });
 
   it("captures playlist when opening album from playlist", () => {
@@ -123,6 +167,19 @@ describe("detailReturnLabel", () => {
     ).toBe("Rage Against the Machine");
   });
 
+  it("labels album return with album title", () => {
+    expect(
+      detailReturnLabel(
+        {
+          kind: "album",
+          albumKey: ALBUM_KEY,
+          title: "The Battle of Los Angeles",
+        },
+        artists,
+      ),
+    ).toBe("The Battle of Los Angeles");
+  });
+
   it("labels CD return with disc title, not drive name", () => {
     useCdStore.setState({
       drives: [{ id: "drive-1", name: "HL-DT-ST BD-RE BP60NB10", hasDisc: true }],
@@ -178,6 +235,7 @@ describe("stateAfterCloseArtist", () => {
       stateAfterCloseArtist({ kind: "sidebar", view: "library" }),
     ).toEqual({
       artistKey: null,
+      albumKey: null,
       playlistId: null,
       cdDriveId: null,
       view: "library",
@@ -189,9 +247,25 @@ describe("stateAfterCloseArtist", () => {
       stateAfterCloseArtist({ kind: "sidebar", view: "artists" }),
     ).toEqual({
       artistKey: null,
+      albumKey: null,
       playlistId: null,
       cdDriveId: null,
       view: "artists",
+    });
+  });
+
+  it("restores album detail after closing artist opened from album", () => {
+    expect(
+      stateAfterCloseArtist({
+        kind: "album",
+        albumKey: ALBUM_KEY,
+        title: "The Battle of Los Angeles",
+      }),
+    ).toEqual({
+      artistKey: null,
+      albumKey: ALBUM_KEY,
+      playlistId: null,
+      cdDriveId: null,
     });
   });
 });
@@ -208,32 +282,139 @@ describe("stateAfterClosePlaylist", () => {
     });
   });
 
-  it("restores previous playlist when switching playlists in sidebar", () => {
-    expect(
-      stateAfterClosePlaylist({
-        kind: "playlist",
-        playlistId: 3,
-        title: "Dingo",
-      }),
-    ).toEqual({
-      playlistId: 3,
-    });
+  it("clears playlist when return context is absent", () => {
+    expect(stateAfterClosePlaylist(null)).toEqual({ playlistId: null });
   });
 });
 
-describe("captureReturnContext for playlists", () => {
-  it("captures sidebar view when opening playlist from tracks", () => {
+describe("navigation stack unwind", () => {
+  beforeEach(() => {
+    useNavigationStore.setState({
+      view: "library",
+      albumKey: null,
+      artistKey: null,
+      playlistId: null,
+      cdDriveId: null,
+      albumReturnContext: null,
+      artistReturnContext: null,
+      playlistReturnContext: null,
+      cdReturnContext: null,
+    });
+  });
+
+  it("unwinds Tracks → Album → Artist → Album → Tracks", () => {
+    const store = useNavigationStore.getState();
+
+    store.openAlbum(ALBUM_KEY);
+    expect(useNavigationStore.getState()).toMatchObject({
+      albumKey: ALBUM_KEY,
+      artistKey: null,
+      albumReturnContext: { kind: "sidebar", view: "library" },
+    });
+
+    store.openArtist("rage");
+    expect(useNavigationStore.getState()).toMatchObject({
+      albumKey: null,
+      artistKey: "rage",
+      artistReturnContext: {
+        kind: "album",
+        albumKey: ALBUM_KEY,
+        title: "The Battle of Los Angeles",
+      },
+      // Prior album return must survive so the second back hop works.
+      albumReturnContext: { kind: "sidebar", view: "library" },
+    });
     expect(
-      captureReturnContext(
-        {
-          view: "library",
-          albumKey: null,
-          artistKey: null,
-          playlistId: null,
-          cdDriveId: null,
-        },
-        [],
+      detailReturnLabel(
+        useNavigationStore.getState().artistReturnContext,
+        artists,
       ),
-    ).toEqual({ kind: "sidebar", view: "library" });
+    ).toBe("The Battle of Los Angeles");
+
+    store.closeArtist();
+    expect(useNavigationStore.getState()).toMatchObject({
+      albumKey: ALBUM_KEY,
+      artistKey: null,
+      albumReturnContext: { kind: "sidebar", view: "library" },
+    });
+
+    store.closeAlbum();
+    expect(useNavigationStore.getState()).toMatchObject({
+      albumKey: null,
+      artistKey: null,
+      view: "library",
+    });
+  });
+
+  it("unwinds Artists → Artist → Album → Artist → Artists", () => {
+    const store = useNavigationStore.getState();
+    store.setView("artists");
+
+    store.openArtist("rage");
+    expect(useNavigationStore.getState()).toMatchObject({
+      artistKey: "rage",
+      artistReturnContext: { kind: "sidebar", view: "artists" },
+    });
+
+    store.openAlbum(ALBUM_KEY);
+    expect(useNavigationStore.getState()).toMatchObject({
+      albumKey: ALBUM_KEY,
+      artistKey: null,
+      albumReturnContext: { kind: "artist", artistKey: "rage" },
+      artistReturnContext: { kind: "sidebar", view: "artists" },
+    });
+
+    store.closeAlbum();
+    expect(useNavigationStore.getState()).toMatchObject({
+      albumKey: null,
+      artistKey: "rage",
+    });
+
+    store.closeArtist();
+    expect(useNavigationStore.getState()).toMatchObject({
+      artistKey: null,
+      view: "artists",
+    });
+  });
+
+  it("unwinds Playlist → Album → Artist → Album → Playlist", () => {
+    const store = useNavigationStore.getState();
+
+    store.openPlaylist(7);
+    store.openAlbum(ALBUM_KEY);
+    expect(useNavigationStore.getState()).toMatchObject({
+      albumKey: ALBUM_KEY,
+      playlistId: null,
+      albumReturnContext: {
+        kind: "playlist",
+        playlistId: 7,
+      },
+    });
+
+    store.openArtist("rage");
+    expect(useNavigationStore.getState()).toMatchObject({
+      artistKey: "rage",
+      albumKey: null,
+      artistReturnContext: {
+        kind: "album",
+        albumKey: ALBUM_KEY,
+      },
+      albumReturnContext: {
+        kind: "playlist",
+        playlistId: 7,
+      },
+    });
+
+    store.closeArtist();
+    expect(useNavigationStore.getState()).toMatchObject({
+      albumKey: ALBUM_KEY,
+      artistKey: null,
+    });
+
+    store.closeAlbum();
+    expect(useNavigationStore.getState()).toMatchObject({
+      albumKey: null,
+      playlistId: 7,
+    });
   });
 });
