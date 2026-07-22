@@ -68,23 +68,21 @@ function formatTimestamp(timestampMs: number): string {
   });
 }
 
+const DOMAIN_GROUP_LABELS: Record<string, string> = {
+  "metadata.musicbrainz": "Metadata fetch",
+  "metadata.coverArt": "Cover art fetch",
+  "library.convert": "Track convert",
+  "library.import": "Library import",
+  "library.refresh": "Library refresh",
+  "lyrics.fetch": "Lyrics fetch",
+  "skin.load": "Skin load",
+  "visualizer.load": "Visualizer load",
+};
+
 function formatGroupLabel(entry: ActivityLogEntry): string {
   const discId = entry.context?.discId;
   const driveId = entry.context?.driveId;
-  const domainLabel =
-    entry.domain === "metadata.musicbrainz"
-      ? "Metadata fetch"
-      : entry.domain === "metadata.coverArt"
-        ? "Cover art fetch"
-        : entry.domain === "library.convert"
-          ? "Track convert"
-          : entry.domain === "library.refresh"
-            ? "Library refresh"
-            : entry.domain === "skin.load"
-              ? "Skin load"
-              : entry.domain === "visualizer.load"
-                ? "Visualizer load"
-                : entry.domain;
+  const domainLabel = DOMAIN_GROUP_LABELS[entry.domain] ?? entry.domain;
 
   if (discId) return `${domainLabel} · disc ${discId}`;
   if (driveId) return `${domainLabel} · drive ${driveId}`;

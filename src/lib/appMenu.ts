@@ -19,7 +19,11 @@ export interface AppMenuHandlers {
   openEqualizer: () => void;
   openActivityLogs: () => void;
   reloadLinkedPacks: () => void;
+  /** Custom chrome File → Exit (macOS uses the system Quit item). */
+  quit: () => void;
 }
+
+export type AppMenuBarId = "file" | "edit" | "view";
 
 const RELOAD_LINKED_PACKS_ID = "reload-linked-packs";
 
@@ -36,6 +40,11 @@ async function hasLinkedPacks(): Promise<boolean> {
   }
 }
 
+/** Whether any packs are linked (View → Reload Linked Packs enablement). */
+export async function linkedPacksAvailable(): Promise<boolean> {
+  return hasLinkedPacks();
+}
+
 /** Enable/disable Reload Linked Packs based on whether any packs are linked. */
 async function syncReloadLinkedPacksMenuEnabled(): Promise<void> {
   if (!reloadLinkedPacksItem) return;
@@ -46,16 +55,20 @@ async function syncReloadLinkedPacksMenuEnabled(): Promise<void> {
   }
 }
 
+/**
+ * Installs the native macOS app menu. Custom-chrome platforms (Windows / future
+ * Linux) skip this and use in-app menus in {@link WindowTitleBar} instead.
+ */
 export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   const preferences = await MenuItem.new({
     id: "preferences",
     text: "Preferences",
-    accelerator: "Cmd+,",
+    accelerator: "CmdOrCtrl+,",
     action: handlers.openPreferences,
   });
   const quit = await PredefinedMenuItem.new({ item: "Quit" });
 
-  const appSubmenu = await Submenu.new({
+  const spiralSubmenu = await Submenu.new({
     text: "Spiral",
     items: [preferences, quit],
   });
@@ -126,7 +139,7 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   const reloadLinkedPacks = await MenuItem.new({
     id: RELOAD_LINKED_PACKS_ID,
     text: "Reload Linked Packs",
-    accelerator: "Cmd+Alt+R",
+    accelerator: "CmdOrCtrl+Alt+R",
     enabled: linked,
     action: handlers.reloadLinkedPacks,
   });
@@ -143,7 +156,7 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   const activityLogs = await MenuItem.new({
     id: "activity-logs",
     text: "Activity Logs",
-    accelerator: "Cmd+Shift+L",
+    accelerator: "CmdOrCtrl+Shift+L",
     action: handlers.openActivityLogs,
   });
 
@@ -160,9 +173,8 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   });
 
   const menu = await Menu.new({
-    items: [appSubmenu, fileSubmenu, editSubmenu, viewSubmenu],
+    items: [spiralSubmenu, fileSubmenu, editSubmenu, viewSubmenu],
   });
-
   await menu.setAsAppMenu();
 
   if (!linkedPacksListenerBound) {

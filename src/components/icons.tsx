@@ -396,6 +396,34 @@ export function IconClose(props: IconProps) {
   );
 }
 
+/** Caption-bar minimize (horizontal rule). */
+export function IconWindowMinimize(props: IconProps) {
+  return (
+    <svg viewBox="0 0 12 12" fill="currentColor" aria-hidden {...props}>
+      <rect x="2" y="5.25" width="8" height="1.5" rx="0.5" />
+    </svg>
+  );
+}
+
+/** Caption-bar maximize (single square). */
+export function IconWindowMaximize(props: IconProps) {
+  return (
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.25" aria-hidden {...props}>
+      <rect x="2.25" y="2.25" width="7.5" height="7.5" rx="0.5" />
+    </svg>
+  );
+}
+
+/** Caption-bar restore (overlapping squares). */
+export function IconWindowRestore(props: IconProps) {
+  return (
+    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.25" aria-hidden {...props}>
+      <path d="M3.5 4.25h4.25V8.5H3.5z" />
+      <path d="M4.75 3.5h4.25v4.25" />
+    </svg>
+  );
+}
+
 export function IconMore(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>

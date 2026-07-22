@@ -84,7 +84,8 @@ fn create_controls(app: &AppHandle) -> Result<MediaControls, String> {
     #[cfg(target_os = "windows")]
     let hwnd = app
         .get_webview_window("main")
-        .and_then(|window| window.hwnd().ok());
+        .and_then(|window| window.hwnd().ok())
+        .map(|hwnd| hwnd.0);
 
     #[cfg(not(target_os = "windows"))]
     let hwnd = None;

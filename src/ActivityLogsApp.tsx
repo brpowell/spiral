@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BackgroundTasksIndicator } from "./components/BackgroundTasks/BackgroundTasksIndicator";
 import { ActivityLogsPanel } from "./components/ActivityLogs/ActivityLogsPanel";
+import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
 import { useActivityLogsWindowClose } from "./hooks/useActivityLogsWindowClose";
 import { initActivityLogBridge } from "./lib/activityLogBridge";
 import "./ActivityLogsApp.css";
@@ -28,11 +29,11 @@ export function ActivityLogsApp() {
   }, []);
 
   return (
-    <div className="activity-logs-app">
+    <CustomWindowFrame title="Activity Logs" className="activity-logs-app">
       <main className="activity-logs-app__main">
         <ActivityLogsPanel />
       </main>
       <BackgroundTasksIndicator />
-    </div>
+    </CustomWindowFrame>
   );
 }

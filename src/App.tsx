@@ -19,17 +19,19 @@ import { CdMusicBrainzFetchModal } from "./components/CdMusicBrainzFetchModal/Cd
 import { PlaylistEditorModal } from "./components/PlaylistEditorModal/PlaylistEditorModal";
 import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal";
 import { CrashReportModal } from "./components/ActivityLogs/CrashReportModal";
+import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
 import { useStartupCrashReport } from "./hooks/useStartupCrashReport";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useArtistImageStore } from "./store/useArtistImageStore";
-import { setupAppMenu } from "./lib/appMenu";
+import { setupAppMenu, type AppMenuHandlers } from "./lib/appMenu";
 import { fetchMissingLyrics } from "./lib/fetchMissingLyrics";
 import { refreshLibraryMetadata } from "./lib/refreshLibraryMetadata";
-import { openSkinMode } from "./lib/skinModeWindow";
+import { openSkinMode, quitApplication } from "./lib/skinModeWindow";
 import { openActivityLogsWindow } from "./lib/activityLogsWindow";
 import { openAppearanceWindow } from "./lib/appearanceWindow";
 import { openEqualizerWindow } from "./lib/equalizerWindow";
 import { reloadLinkedPacksWithRefresh } from "./lib/packs/refreshPackStores";
+import { usesCustomWindowChrome } from "./lib/windowChrome";
 import { useAudioWakeRecovery } from "./hooks/useAudioWakeRecovery";
 import { useHiddenPlaybackKeepAlive } from "./hooks/useHiddenPlaybackKeepAlive";
 import { useCdMonitor } from "./hooks/useCdMonitor";
@@ -41,6 +43,8 @@ import { useVisualizerDataProvider } from "./hooks/useVisualizerDataProvider";
 import { useLibrarySettingsStore } from "./store/useLibrarySettingsStore";
 import { usePlayerStore } from "./store/usePlayerStore";
 import "./App.css";
+
+const showCustomWindowChrome = usesCustomWindowChrome();
 
 function App() {
   const loadLibrary = usePlayerStore((s) => s.loadLibrary);
@@ -63,6 +67,38 @@ function App() {
   useVisualizerDataProvider();
   useMediaSessionSync();
 
+  const menuHandlers: AppMenuHandlers = {
+    addToLibrary: () => {
+      void addToLibrary();
+    },
+    refreshLibraryMetadata: () => {
+      void refreshLibraryMetadata();
+    },
+    fetchMissingLyrics: () => {
+      fetchMissingLyrics();
+    },
+    newPlaylist: () => openPlaylistEditor("new"),
+    openPreferences: () => setPreferencesOpen(true),
+    openSkinMode: () => {
+      void openSkinMode();
+    },
+    openAppearance: () => {
+      void openAppearanceWindow();
+    },
+    openEqualizer: () => {
+      void openEqualizerWindow();
+    },
+    openActivityLogs: () => {
+      void openActivityLogsWindow();
+    },
+    reloadLinkedPacks: () => {
+      void reloadLinkedPacksWithRefresh();
+    },
+    quit: () => {
+      void quitApplication();
+    },
+  };
+
   useEffect(() => {
     void loadSettings();
     void loadTrackListPreferences();
@@ -72,38 +108,40 @@ function App() {
   }, [loadLibrary, loadSettings, loadPlaylists, loadArtistImages]);
 
   useEffect(() => {
-    void setupAppMenu({
-      addToLibrary: () => {
-        void addToLibrary();
-      },
-      refreshLibraryMetadata: () => {
-        void refreshLibraryMetadata();
-      },
-      fetchMissingLyrics: () => {
-        fetchMissingLyrics();
-      },
-      newPlaylist: () => openPlaylistEditor("new"),
-      openPreferences: () => setPreferencesOpen(true),
-      openSkinMode: () => {
-        void openSkinMode();
-      },
-      openAppearance: () => {
-        void openAppearanceWindow();
-      },
-      openEqualizer: () => {
-        void openEqualizerWindow();
-      },
-      openActivityLogs: () => {
-        void openActivityLogsWindow();
-      },
-      reloadLinkedPacks: () => {
-        void reloadLinkedPacksWithRefresh();
-      },
-    });
+    if (showCustomWindowChrome) return;
+    void setupAppMenu(menuHandlers);
   }, [addToLibrary, openPlaylistEditor, setPreferencesOpen]);
 
+  // Native setAsAppMenu accelerators don't apply under custom chrome.
+  useEffect(() => {
+    if (!showCustomWindowChrome) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const key = e.key.toLowerCase();
+
+      if (key === "," && !e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        setPreferencesOpen(true);
+        return;
+      }
+      if (key === "l" && e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        void openActivityLogsWindow();
+        return;
+      }
+      if (key === "r" && e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        void reloadLinkedPacksWithRefresh();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [setPreferencesOpen]);
+
   return (
-    <div className="app">
+    <CustomWindowFrame title="Spiral" handlers={menuHandlers} className="app">
       <header className="app-header">
         <PlayerDock />
       </header>
@@ -156,7 +194,7 @@ function App() {
         onDismiss={dismissCrashReport}
       />
       <BackgroundTasksIndicator />
-    </div>
+    </CustomWindowFrame>
   );
 }
 

@@ -76,4 +76,5 @@ pub use macos::{ack_pcm_chunks, pause, resume, seek, start, stop, stop_for_drive
 mod stub;
 
 #[cfg(not(target_os = "macos"))]
+#[allow(unused_imports)] // stop_for_drive is only called from macOS eject today
 pub use stub::{ack_pcm_chunks, pause, resume, seek, start, stop, stop_for_drive};

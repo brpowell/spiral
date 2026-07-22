@@ -60,6 +60,7 @@
 
   --z-modal: 1000;
 
+  --window-titlebar-height: 32px;
   --app-header-height: 68px;
   --now-playing-height: var(--app-header-height);
   --visualizer-mini-height: 46px;

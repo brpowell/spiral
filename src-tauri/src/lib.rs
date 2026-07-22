@@ -92,6 +92,23 @@ pub fn run() {
                 eprintln!("metadata backup cleanup on startup: {err}");
             }
 
+            // Match frontend `usesCustomWindowChrome()` — Windows now; add Linux when enabling there.
+            #[cfg(target_os = "windows")]
+            {
+                for label in ["main", "appearance", "equalizer", "activity-logs"] {
+                    if let Some(window) = app.get_webview_window(label) {
+                        if let Err(err) = window.set_decorations(false) {
+                            eprintln!(
+                                "failed to disable decorations on `{label}`: {err}"
+                            );
+                        }
+                        if let Err(err) = window.set_shadow(true) {
+                            eprintln!("failed to enable shadow on `{label}`: {err}");
+                        }
+                    }
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

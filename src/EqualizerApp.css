@@ -15,3 +15,8 @@ body,
   background: var(--color-bg);
   color: var(--color-text-primary);
 }
+
+.equalizer-app .custom-window-frame__body > .equalizer-shell {
+  flex: 1;
+  min-height: 0;
+}

@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { AppearanceShell } from "./components/Appearance/AppearanceShell";
 import { BackgroundTasksIndicator } from "./components/BackgroundTasks/BackgroundTasksIndicator";
+import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
 import { useAppearanceWindowClose } from "./hooks/useAppearanceWindowClose";
 import { RELOAD_LINKED_PACKS_EVENT } from "./lib/appearanceWindow";
 import { refreshPackContributionStores } from "./lib/packs/refreshPackStores";
@@ -54,9 +55,9 @@ export function AppearanceApp() {
   // (theme://changed, workshop://changed, skin events, etc.).
 
   return (
-    <>
+    <CustomWindowFrame title="Studio" className="appearance-app">
       <AppearanceShell />
       <BackgroundTasksIndicator />
-    </>
+    </CustomWindowFrame>
   );
 }

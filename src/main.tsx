@@ -35,6 +35,7 @@ import {
   isSkinAuxWindow,
   isSkinModeWindow,
 } from "./lib/windowRole";
+import { applyCustomWindowChrome } from "./lib/windowChrome";
 import "./styles/theme.css";
 import "./styles/scrollbars.css";
 
@@ -45,6 +46,16 @@ async function start() {
   installCrashDevConsole();
 
   const role = await bootstrapWindowRole();
+
+  // Library + secondary utility windows (not skins — already frameless).
+  if (
+    role === "main" ||
+    role === "appearance" ||
+    role === "equalizer" ||
+    role === "activity-logs"
+  ) {
+    await applyCustomWindowChrome();
+  }
 
   if (isActivityLogsWindow()) {
     await bootstrapTheme();

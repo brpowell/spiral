@@ -16,8 +16,15 @@ body {
   color: var(--color-text-primary);
 }
 
-.appearance-shell {
+.appearance-app {
+  display: flex;
+  flex-direction: column;
   height: 100%;
+  min-height: 0;
+}
+
+.appearance-shell {
+  flex: 1;
   min-height: 0;
   overflow: hidden;
 }

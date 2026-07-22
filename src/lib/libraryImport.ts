@@ -10,6 +10,7 @@ import {
   queuePendingImportRemoval,
   resetImportActivationQueue,
 } from "./importActivationQueue";
+import { createOperationId, logActivity } from "./activityLog";
 import { isTrackImporting, pendingTrackFromInput } from "./pendingImportTrack";
 import {
   filterPathsForLibraryImport,
@@ -30,6 +31,7 @@ import {
 } from "../store/useImportDedupeStore";
 import { useLibrarySettingsStore } from "../store/useLibrarySettingsStore";
 import { usePlayerStore } from "../store/usePlayerStore";
+import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
 
 interface ResolvedImportPaths {
   audioPaths: string[];
@@ -93,18 +95,40 @@ export function startLibraryImport(paths: string[]): void {
   resetImportActivationQueue();
   useImportDedupeStore.getState().resetImportDedupeSession();
 
+  const operationId = createOperationId();
+
   useBackgroundTasksStore.getState().runInBackground({
     key: "library-import",
     label: "Importing library…",
     run: async (ctx) => {
       let zipExtractDirs: string[] = [];
+      let outcomeLogged = false;
       const cleanupZips = async () => {
         for (const extractDir of zipExtractDirs) {
           await cleanupZipImport(extractDir).catch(() => undefined);
         }
       };
+      const logImportCancelled = () => {
+        logActivity({
+          level: "info",
+          domain: ACTIVITY_LOG_DOMAINS.import,
+          message: "Library import cancelled",
+          operationId,
+        });
+      };
 
       try {
+        logActivity({
+          level: "info",
+          domain: ACTIVITY_LOG_DOMAINS.import,
+          message: "Starting library import",
+          operationId,
+          details: {
+            pathCount: pathsToImport.length,
+            paths: pathsToImport,
+          },
+        });
+
         ctx.setLabel("Scanning files…");
         const resolved = await resolveImportPaths(
           pathsToImport,
@@ -117,6 +141,13 @@ export function startLibraryImport(paths: string[]): void {
 
         if (audioPaths.length === 0) {
           ctx.setDetail("No audio files found");
+          logActivity({
+            level: "warn",
+            domain: ACTIVITY_LOG_DOMAINS.import,
+            message: "Library import found no audio files",
+            operationId,
+            details: { paths: pathsToImport },
+          });
           return;
         }
 
@@ -129,6 +160,7 @@ export function startLibraryImport(paths: string[]): void {
           importMode = await settingsStore.resolveImportMode();
         } catch {
           ctx.setDetail("Import cancelled");
+          logImportCancelled();
           return;
         }
 
@@ -198,6 +230,7 @@ export function startLibraryImport(paths: string[]): void {
               library: state.library.filter((track) => !isTrackImporting(track)),
             }));
             ctx.setLabel("Import cancelled");
+            logImportCancelled();
             return;
           }
           throw err;
@@ -215,6 +248,22 @@ export function startLibraryImport(paths: string[]): void {
           ctx.setDetail(lyricsDetail);
         }
 
+        logActivity({
+          level: result.failed > 0 ? "warn" : "info",
+          domain: ACTIVITY_LOG_DOMAINS.import,
+          message: "Library import completed",
+          operationId,
+          details: {
+            importMode,
+            imported: result.imported,
+            replaced: result.replaced,
+            skipped: result.skipped,
+            failed: result.failed,
+            ...(result.errors.length > 0 ? { errors: result.errors } : {}),
+          },
+        });
+        outcomeLogged = true;
+
         if (result.failed > 0) {
           usePlayerStore.setState({
             importError: `${summary}; failed ${result.failed}. ${result.errors[0] ?? ""}`,
@@ -223,6 +272,18 @@ export function startLibraryImport(paths: string[]): void {
             throw new Error(result.errors[0] ?? "Import failed");
           }
         }
+      } catch (err) {
+        if (!isImportCancelledError(err) && !outcomeLogged) {
+          const message = err instanceof Error ? err.message : String(err);
+          logActivity({
+            level: "error",
+            domain: ACTIVITY_LOG_DOMAINS.import,
+            message: "Library import failed",
+            operationId,
+            details: { error: message },
+          });
+        }
+        throw err;
       } finally {
         await cleanupZips();
       }

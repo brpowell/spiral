@@ -1,0 +1,104 @@
+.window-titlebar {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  height: var(--window-titlebar-height);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  user-select: none;
+  -webkit-user-select: none;
+  z-index: 20;
+}
+
+.window-titlebar__drag {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 0;
+  padding-left: 0.75rem;
+}
+
+.window-titlebar__title {
+  flex-shrink: 0;
+  margin-right: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--color-text-primary);
+  pointer-events: none;
+}
+
+.window-titlebar__menus {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.window-titlebar__menu-btn {
+  appearance: none;
+  margin: 0;
+  padding: 0.2rem 0.45rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  cursor: default;
+}
+
+.window-titlebar__menu-btn:hover,
+.window-titlebar__menu-btn--active {
+  background: var(--color-interactive-hover);
+  color: var(--color-text-primary);
+}
+
+.window-titlebar__menu-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-inset);
+}
+
+.window-titlebar__controls {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.window-titlebar__control {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: default;
+}
+
+.window-titlebar__control > svg {
+  width: 10px;
+  height: 10px;
+}
+
+.window-titlebar__control:hover {
+  background: var(--color-interactive-hover);
+  color: var(--color-text-primary);
+}
+
+.window-titlebar__control:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring-inset);
+}
+
+.window-titlebar__control--close:hover {
+  background: var(--color-danger);
+  color: #fff;
+}

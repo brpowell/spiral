@@ -28,6 +28,11 @@ textarea,
   min-height: 600px;
 }
 
+.custom-window-frame.app > .custom-window-frame__body {
+  flex: 1;
+  min-height: 0;
+}
+
 .app-header {
   flex-shrink: 0;
   height: var(--app-header-height);
