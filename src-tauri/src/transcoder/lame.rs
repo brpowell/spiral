@@ -161,4 +161,36 @@ mod tests {
         let profile = profile_from_id("mp3-compact").unwrap();
         build_encoder(2, 44_100, profile).expect("build encoder");
     }
+
+    #[test]
+    fn encode_pcm_to_mp3_supports_mono_and_stereo() {
+        let profile = profile_from_id("mp3-high").unwrap();
+        for (channels, samples) in [(1u16, vec![0i16; 1152]), (2u16, vec![0i16; 1152 * 2])] {
+            let dest = std::env::temp_dir().join(format!(
+                "spiral-lame-ch{channels}-{}.mp3",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_file(&dest);
+            let pcm = PcmStream {
+                channels,
+                sample_rate: 44_100,
+                samples,
+            };
+            encode_pcm_to_mp3(&pcm, &dest, profile).expect("encode");
+            assert!(dest.is_file());
+            let _ = std::fs::remove_file(&dest);
+        }
+    }
+
+    #[test]
+    fn encode_pcm_to_mp3_rejects_too_many_channels() {
+        let profile = profile_from_id("mp3-high").unwrap();
+        let pcm = PcmStream {
+            channels: 3,
+            sample_rate: 44_100,
+            samples: vec![0; 1152 * 3],
+        };
+        let err = encode_pcm_to_mp3(&pcm, Path::new("out.mp3"), profile).unwrap_err();
+        assert!(err.contains("mono and stereo only"));
+    }
 }

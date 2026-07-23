@@ -606,9 +606,9 @@ export function PreferencesModal() {
                       Crossfade between tracks
                     </FieldLabel>
                     <FieldDescription>
-                      Crossfade applies between mp3, flac, aac, wav, and m4a
-                      tracks. OGG, Opus, and CD transitions are not supported and
-                      will instantly switch.
+                      Crossfade applies between mp3, flac, aac, wav, and AAC m4a
+                      tracks. OGG, Opus, ALAC, and CD transitions are not
+                      supported and will instantly switch.
                     </FieldDescription>
                   </FieldContent>
                 </Field>

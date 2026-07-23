@@ -16,6 +16,10 @@ describe("supportedAudio ogg/opus", () => {
     expect(requiresPcmPlayback("/music/a.opus")).toBe(true);
     expect(requiresPcmPlayback("/music/a.flac")).toBe(false);
     expect(requiresPcmPlayback("/music/a.mp3")).toBe(false);
+    expect(requiresPcmPlayback("/music/a.m4a")).toBe(false);
+    expect(requiresPcmPlayback("/music/a.m4a", "aac")).toBe(false);
+    expect(requiresPcmPlayback("/music/a.m4a", "alac")).toBe(true);
+    expect(requiresPcmPlayback("/music/a.m4a", "ALAC")).toBe(true);
   });
 
   it("parses extensions case-insensitively", () => {

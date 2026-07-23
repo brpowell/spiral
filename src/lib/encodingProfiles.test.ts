@@ -31,7 +31,7 @@ describe("BUILTIN_ENCODING_PROFILES", () => {
       {
         id: "apple-alac",
         label: "Apple Lossless (ALAC)",
-        subtitle: ".m4a for iTunes and Apple devices",
+        subtitle: "Lossless quality for Apple devices",
         extension: "m4a",
       },
       {
@@ -106,6 +106,17 @@ describe("convert profile options", () => {
       ),
     ).toEqual(["apple-alac", "apple-aac", "mp3-high", "mp3-compact"]);
     expect(
+      encodingProfileOptionsForConvert(["/music/album/track.wav"]).map(
+        (option) => option.value,
+      ),
+    ).toEqual([
+      "lossless-flac",
+      "apple-alac",
+      "apple-aac",
+      "mp3-high",
+      "mp3-compact",
+    ]);
+    expect(
       encodingProfileOptionsForConvert(["/music/album/track.mp3"]).map(
         (option) => option.value,
       ),
@@ -126,6 +137,9 @@ describe("inferDefaultConvertProfileId", () => {
   it("prefers a different allowed format from the source file", () => {
     expect(inferDefaultConvertProfileId("/music/album/track.flac")).toBe(
       "apple-alac",
+    );
+    expect(inferDefaultConvertProfileId("/music/album/track.wav")).toBe(
+      "lossless-flac",
     );
     expect(inferDefaultConvertProfileId("/music/album/track.m4a")).toBe(
       "mp3-high",

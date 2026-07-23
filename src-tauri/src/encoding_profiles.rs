@@ -23,7 +23,7 @@ const PROFILES: &[EncodingProfile] = &[
     EncodingProfile {
         id: "apple-alac",
         label: "Apple Lossless (ALAC)",
-        subtitle: ".m4a for iTunes and Apple devices",
+        subtitle: "Lossless quality for Apple devices",
         extension: "m4a",
     },
     EncodingProfile {
@@ -95,19 +95,25 @@ pub(crate) fn profile_is_mp3(profile_id: &str) -> bool {
     matches!(profile_id, "mp3-high" | "mp3-compact")
 }
 
+pub(crate) fn profile_is_flac(profile_id: &str) -> bool {
+    profile_id == "lossless-flac"
+}
+
 pub fn source_is_lossless(path: &Path) -> bool {
-    if path
+    let Some(ext) = path
         .extension()
         .and_then(|value| value.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("flac"))
-    {
-        return true;
-    }
+        .map(|value| value.to_ascii_lowercase())
+    else {
+        return false;
+    };
 
-    path.extension()
-        .and_then(|value| value.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("m4a"))
-        && read_source_codec(path) == Some("alac")
+    match ext.as_str() {
+        // WAV is uncompressed PCM in Spiral's library path — valid lossless→lossless source.
+        "flac" | "wav" => true,
+        "m4a" => read_source_codec(path) == Some("alac"),
+        _ => false,
+    }
 }
 
 pub fn can_convert_to_profile(path: &Path, profile_id: &str) -> bool {
@@ -196,32 +202,6 @@ fn infer_mp3_profile_id(path: &Path) -> Option<&'static str> {
     }
 }
 
-/// Build `afconvert` arguments for a profile (excluding input/output paths).
-pub fn afconvert_args(profile: &EncodingProfile) -> Vec<&'static str> {
-    match profile.id {
-        "lossless-flac" => vec!["-f", "flac", "-d", "flac"],
-        "apple-aac" => vec![
-            "-f",
-            "m4af",
-            "-d",
-            "aac",
-            "-b",
-            "256000",
-            "-q",
-            "127",
-            "-s",
-            "2",
-        ],
-        "mp3-high" | "mp3-compact" => {
-            unreachable!("MP3 profiles use afconvert decode + LAME encode")
-        }
-        "apple-alac" => {
-            unreachable!("ALAC profile uses bundled alac-encoder")
-        }
-        other => unreachable!("missing afconvert args for profile {other}"),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,23 +239,6 @@ mod tests {
     }
 
     #[test]
-    fn afconvert_args_for_lossless_flac() {
-        let profile = profile_from_id("lossless-flac").unwrap();
-        assert_eq!(afconvert_args(profile), vec!["-f", "flac", "-d", "flac"]);
-    }
-
-    #[test]
-    fn afconvert_args_for_apple_aac() {
-        let profile = profile_from_id("apple-aac").unwrap();
-        assert_eq!(
-            afconvert_args(profile),
-            vec![
-                "-f", "m4af", "-d", "aac", "-b", "256000", "-q", "127", "-s", "2",
-            ]
-        );
-    }
-
-    #[test]
     fn mp3_profiles_are_identified() {
         assert!(profile_is_mp3("mp3-high"));
         assert!(profile_is_mp3("mp3-compact"));
@@ -297,13 +260,23 @@ mod tests {
     #[test]
     fn blocks_noop_and_lossy_to_lossless_convert() {
         assert!(source_is_lossless(Path::new("/music/album/track.flac")));
+        assert!(source_is_lossless(Path::new("/music/album/track.wav")));
         assert!(!source_is_lossless(Path::new("/music/album/track.m4a")));
+        assert!(!source_is_lossless(Path::new("/music/album/track.mp3")));
         assert!(!can_convert_to_profile(
             Path::new("/music/album/track.flac"),
             "lossless-flac",
         ));
         assert!(can_convert_to_profile(
             Path::new("/music/album/track.flac"),
+            "apple-alac",
+        ));
+        assert!(can_convert_to_profile(
+            Path::new("/music/album/track.wav"),
+            "lossless-flac",
+        ));
+        assert!(can_convert_to_profile(
+            Path::new("/music/album/track.wav"),
             "apple-alac",
         ));
         assert!(can_convert_to_profile(

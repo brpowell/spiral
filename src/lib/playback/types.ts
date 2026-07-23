@@ -1,5 +1,5 @@
 export type PlaybackSource =
-  | { kind: "file"; path: string }
+  | { kind: "file"; path: string; codec?: string | null }
   | { kind: "cd"; driveId: string; trackNumber: number }
   | { kind: "remote"; url: string; mimeType?: string };
 

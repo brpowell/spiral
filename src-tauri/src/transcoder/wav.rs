@@ -1,5 +1,7 @@
 use std::fs::File;
 use std::io::Read;
+#[cfg(any(test, target_os = "macos"))]
+use std::io::Write;
 use std::path::Path;
 
 use super::error;
@@ -128,38 +130,68 @@ pub fn read_pcm_from_wav(path: &Path) -> Result<PcmStream, String> {
     })
 }
 
+#[cfg(any(test, target_os = "macos"))]
+pub fn write_pcm_to_wav(pcm: &PcmStream, path: &Path) -> Result<(), String> {
+    if pcm.channels == 0 {
+        return Err("Cannot write WAVE with zero channels".into());
+    }
+    if pcm.sample_rate == 0 {
+        return Err("Cannot write WAVE with zero sample rate".into());
+    }
+    if pcm.samples.is_empty() {
+        return Err("Cannot write WAVE with no audio samples".into());
+    }
+
+    let mut data = Vec::with_capacity(pcm.samples.len() * 2);
+    for sample in &pcm.samples {
+        data.extend_from_slice(&sample.to_le_bytes());
+    }
+
+    let block_align = u32::from(pcm.channels) * 2;
+    let byte_rate = pcm.sample_rate.saturating_mul(block_align);
+    let mut file = File::create(path)
+        .map_err(|err| format!("Failed to create {}: {err}", path.display()))?;
+    let map_write = |err| format!("Failed to write {}: {err}", path.display());
+    file.write_all(b"RIFF").map_err(&map_write)?;
+    file.write_all(&(36u32 + data.len() as u32).to_le_bytes())
+        .map_err(&map_write)?;
+    file.write_all(b"WAVE").map_err(&map_write)?;
+    file.write_all(b"fmt ").map_err(&map_write)?;
+    file.write_all(&16u32.to_le_bytes()).map_err(&map_write)?;
+    file.write_all(&WAVE_FORMAT_PCM.to_le_bytes())
+        .map_err(&map_write)?;
+    file.write_all(&pcm.channels.to_le_bytes())
+        .map_err(&map_write)?;
+    file.write_all(&pcm.sample_rate.to_le_bytes())
+        .map_err(&map_write)?;
+    file.write_all(&byte_rate.to_le_bytes()).map_err(&map_write)?;
+    file.write_all(&(block_align as u16).to_le_bytes())
+        .map_err(&map_write)?;
+    file.write_all(&16u16.to_le_bytes()).map_err(&map_write)?;
+    file.write_all(b"data").map_err(&map_write)?;
+    file.write_all(&(data.len() as u32).to_le_bytes())
+        .map_err(&map_write)?;
+    file.write_all(&data).map_err(map_write)?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
-
     use std::path::PathBuf;
 
     fn write_test_wav(dir: &Path, channels: u16, sample_rate: u32, samples: &[i16]) -> PathBuf {
         let path = dir.join("test.wav");
-        let mut data = Vec::new();
-        for sample in samples {
-            data.extend_from_slice(&sample.to_le_bytes());
-        }
-
-        let block_align = channels * 2;
-        let byte_rate = sample_rate * u32::from(block_align);
-        let mut file = std::fs::File::create(&path).unwrap();
-        file.write_all(b"RIFF").unwrap();
-        file.write_all(&(36u32 + data.len() as u32).to_le_bytes())
-            .unwrap();
-        file.write_all(b"WAVE").unwrap();
-        file.write_all(b"fmt ").unwrap();
-        file.write_all(&16u32.to_le_bytes()).unwrap();
-        file.write_all(&1u16.to_le_bytes()).unwrap(); // PCM
-        file.write_all(&channels.to_le_bytes()).unwrap();
-        file.write_all(&sample_rate.to_le_bytes()).unwrap();
-        file.write_all(&byte_rate.to_le_bytes()).unwrap();
-        file.write_all(&block_align.to_le_bytes()).unwrap();
-        file.write_all(&16u16.to_le_bytes()).unwrap();
-        file.write_all(b"data").unwrap();
-        file.write_all(&(data.len() as u32).to_le_bytes()).unwrap();
-        file.write_all(&data).unwrap();
+        write_pcm_to_wav(
+            &PcmStream {
+                channels,
+                sample_rate,
+                samples: samples.to_vec(),
+            },
+            &path,
+        )
+        .unwrap();
         path
     }
 
@@ -169,6 +201,8 @@ mod tests {
         sample_rate: u32,
         samples: &[i16],
     ) -> PathBuf {
+        use std::io::Write;
+
         let path = dir.join("extensible.wav");
         let mut pcm = Vec::new();
         for sample in samples {
@@ -217,32 +251,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn read_pcm_from_wav_parses_afconvert_output() {
-        use std::process::Command;
-
-        let dir = std::env::temp_dir().join(format!("spiral-wav-afconvert-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let source = write_test_wav(&dir, 2, 44_100, &[1, 2, 3, 4]);
-        let decoded = dir.join("decoded.wav");
-
-        let status = Command::new("afconvert")
-            .arg(&source)
-            .arg(&decoded)
-            .args(["-f", "WAVE", "-d", "LEI16", "-c", "2"])
-            .status()
-            .expect("run afconvert");
-        assert!(status.success(), "afconvert should succeed");
-
-        let pcm = read_pcm_from_wav(&decoded).expect("read afconvert wav");
-        assert_eq!(pcm.channels, 2);
-        assert_eq!(pcm.sample_rate, 44_100);
-        assert!(!pcm.samples.is_empty());
-
-        let _ = std::fs::remove_dir_all(dir);
-    }
-
     #[test]
     fn read_pcm_from_wav_parses_stereo_16_bit() {
         let dir = std::env::temp_dir().join(format!("spiral-wav-test-{}", std::process::id()));
@@ -253,6 +261,26 @@ mod tests {
         assert_eq!(pcm.channels, 2);
         assert_eq!(pcm.sample_rate, 44_100);
         assert_eq!(pcm.samples, vec![100, -100, 200, -200]);
+
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn write_pcm_to_wav_round_trips() {
+        let dir = std::env::temp_dir().join(format!("spiral-wav-write-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("roundtrip.wav");
+        let pcm = PcmStream {
+            channels: 2,
+            sample_rate: 44_100,
+            samples: vec![100, -100, 200, -200],
+        };
+
+        write_pcm_to_wav(&pcm, &path).expect("write wav");
+        let roundtrip = read_pcm_from_wav(&path).expect("read wav");
+        assert_eq!(roundtrip.channels, pcm.channels);
+        assert_eq!(roundtrip.sample_rate, pcm.sample_rate);
+        assert_eq!(roundtrip.samples, pcm.samples);
 
         let _ = std::fs::remove_dir_all(dir);
     }

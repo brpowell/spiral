@@ -36,7 +36,7 @@ export function resolvePlaybackSource(
   if (playable.type === "library") {
     const track = library.find((item) => item.id === playable.trackId);
     if (!track?.filePath) return null;
-    return { kind: "file", path: track.filePath };
+    return { kind: "file", path: track.filePath, codec: track.codec };
   }
 
   return {

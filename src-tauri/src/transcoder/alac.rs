@@ -6,19 +6,13 @@ use std::path::Path;
 
 use alac_encoder::{AlacEncoder, FormatDescription};
 
-use super::decode;
 use super::error;
 use super::pcm_stream::PcmStream;
 
 const FRAMES_PER_PACKET: u32 = 4096;
 const MVHD_TIMESCALE: u32 = 1000;
 
-pub fn transcode_file_to_alac(source: &Path, dest: &Path) -> Result<(), String> {
-    let pcm = decode::pcm_from_audio_file(source)?;
-    encode_pcm_to_alac_m4a(&pcm, dest)
-}
-
-fn encode_pcm_to_alac_m4a(pcm: &PcmStream, dest: &Path) -> Result<(), String> {
+pub fn encode_pcm_to_alac_m4a(pcm: &PcmStream, dest: &Path) -> Result<(), String> {
     if pcm.channels == 0 || pcm.channels > 2 {
         return Err("Apple Lossless encoding supports mono or stereo only".into());
     }
@@ -377,6 +371,8 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    use super::super::decode;
+
     fn minimal_flac_fixture() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.flac")
     }
@@ -404,6 +400,11 @@ mod tests {
         assert_eq!(roundtrip.channels, pcm.channels);
         assert_eq!(roundtrip.sample_rate, pcm.sample_rate);
         assert_eq!(roundtrip.samples.len(), pcm.samples.len());
+
+        let mut stream = crate::file_playback::decoder::StreamingDecoder::open(&dest)
+            .expect("open alac for streaming playback");
+        assert_eq!(stream.sample_rate(), pcm.sample_rate);
+        assert!(stream.next_sample().is_some());
 
         #[cfg(target_os = "macos")]
         {

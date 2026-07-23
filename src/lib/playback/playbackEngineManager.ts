@@ -32,7 +32,7 @@ export class PlaybackEngineManager {
   private resolveEngine(source: PlaybackSource): PlaybackEngine {
     switch (source.kind) {
       case "file":
-        if (requiresPcmPlayback(source.path)) {
+        if (requiresPcmPlayback(source.path, source.codec)) {
           return this.pcmFileEngine;
         }
         return this.fileEngine;

@@ -153,7 +153,7 @@ pub fn start(app: AppHandle, path: &str) -> Result<FilePlaybackStarted, String> 
         .and_then(|value| value.to_str())
         .map(|value| value.to_ascii_lowercase())
         .unwrap_or_default();
-    if ext != "ogg" && ext != "opus" {
+    if ext != "ogg" && ext != "opus" && ext != "m4a" && ext != "mp4" {
         return Err(format!("Native PCM playback is not supported for .{ext} files"));
     }
 

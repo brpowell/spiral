@@ -8,7 +8,8 @@ export function canHowlerCrossfade(
   if (outgoing.kind === "cd" || incoming.kind === "cd") return false;
   if (outgoing.kind !== "file" || incoming.kind !== "file") return false;
   return (
-    !requiresPcmPlayback(outgoing.path) && !requiresPcmPlayback(incoming.path)
+    !requiresPcmPlayback(outgoing.path, outgoing.codec) &&
+    !requiresPcmPlayback(incoming.path, incoming.codec)
   );
 }
 

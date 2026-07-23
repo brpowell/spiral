@@ -29,6 +29,7 @@ pub fn read_audio_properties(path: &Path) -> AudioProperties {
         Some("flac") => read_flac_properties(path),
         Some("wav") => read_wav_properties(path),
         Some("mp3") => read_mp3_properties(path),
+        Some("m4a") | Some("aac") | Some("mp4") => read_mp4_properties(path),
         Some("ogg") => read_ogg_properties(path),
         Some("opus") => read_opus_properties(path),
         _ => AudioProperties::default(),
@@ -251,30 +252,31 @@ fn read_mp3_properties(path: &Path) -> AudioProperties {
         ..AudioProperties::default()
     };
 
-    let Ok(data) = std::fs::read(path) else {
-        return props;
-    };
-
-    let frame_offset = match find_mp3_frame_offset(&data) {
-        Some(offset) => offset,
-        None => return props,
-    };
-    let header_bytes: [u8; 4] = match data[frame_offset..frame_offset + 4].try_into() {
-        Ok(bytes) => bytes,
-        Err(_) => return props,
-    };
-    let header = u32::from_be_bytes(header_bytes);
-
-    if header & 0xFFE0_0000 != 0xFFE0_0000 {
-        return props;
+    if let Ok(data) = std::fs::read(path) {
+        if let Some(header) = find_mp3_frame_header(&data) {
+            apply_mp3_header(&mut props, header);
+        }
     }
 
+    // Cover art / ID3 bytes can still defeat the header scan; Symphonia is the fallback.
+    if props.sample_rate.is_none() || props.bitrate.is_none() {
+        let fallback = probe_symphonia_properties(path, Some("mp3"));
+        if props.sample_rate.is_none() {
+            props.sample_rate = fallback.sample_rate;
+        }
+        if props.bitrate.is_none() {
+            props.bitrate = fallback.bitrate;
+        }
+        if props.codec.is_none() {
+            props.codec = fallback.codec;
+        }
+    }
+
+    props
+}
+
+fn apply_mp3_header(props: &mut AudioProperties, header: u32) {
     let version = (header >> 19) & 0x3;
-    let layer = (header >> 17) & 0x3;
-    if layer != 0b01 {
-        return props;
-    }
-
     let bitrate_index = ((header >> 12) & 0xF) as usize;
     let sample_rate_index = ((header >> 10) & 0x3) as usize;
 
@@ -303,41 +305,81 @@ fn read_mp3_properties(path: &Path) -> AudioProperties {
     if bitrate_index > 0 && bitrate_index < 15 {
         props.bitrate = Some(bitrates_kbps[bitrate_index] * 1000);
     }
-
-    props
 }
 
-fn find_mp3_frame_offset(data: &[u8]) -> Option<usize> {
+fn skip_id3v2_offset(data: &[u8]) -> usize {
+    if data.len() < 10 || &data[0..3] != b"ID3" {
+        return 0;
+    }
+    let size = ((u32::from(data[6]) & 0x7F) << 21)
+        | ((u32::from(data[7]) & 0x7F) << 14)
+        | ((u32::from(data[8]) & 0x7F) << 7)
+        | (u32::from(data[9]) & 0x7F);
+    let footer = if data[5] & 0x10 != 0 { 10usize } else { 0 };
+    let offset = 10usize
+        .saturating_add(size as usize)
+        .saturating_add(footer);
+    offset.min(data.len())
+}
+
+fn is_valid_mp3_frame_header(header: u32) -> bool {
+    if header & 0xFFE0_0000 != 0xFFE0_0000 {
+        return false;
+    }
+    let version = (header >> 19) & 0x3;
+    let layer = (header >> 17) & 0x3;
+    let bitrate_index = (header >> 12) & 0xF;
+    let sample_rate_index = (header >> 10) & 0x3;
+    // Layer III only; reject reserved version/layer and free/bad bitrate or reserved rate.
+    version != 0b01
+        && layer == 0b01
+        && bitrate_index != 0
+        && bitrate_index != 0xF
+        && sample_rate_index != 0b11
+}
+
+fn find_mp3_frame_header(data: &[u8]) -> Option<u32> {
     let limit = data.len().saturating_sub(4);
-    let mut offset = 0usize;
+    let mut offset = skip_id3v2_offset(data);
     while offset < limit {
         if data[offset] == 0xFF && (data[offset + 1] & 0xE0) == 0xE0 {
-            return Some(offset);
+            let header_bytes: [u8; 4] = data[offset..offset + 4].try_into().ok()?;
+            let header = u32::from_be_bytes(header_bytes);
+            if is_valid_mp3_frame_header(header) {
+                return Some(header);
+            }
         }
         offset += 1;
     }
     None
 }
 
+fn read_mp4_properties(path: &Path) -> AudioProperties {
+    probe_symphonia_properties(path, None)
+}
+
 fn read_ogg_properties(path: &Path) -> AudioProperties {
-    probe_symphonia_properties(path, "vorbis")
+    probe_symphonia_properties(path, Some("vorbis"))
 }
 
 fn read_opus_properties(path: &Path) -> AudioProperties {
-    probe_symphonia_properties(path, "opus")
+    probe_symphonia_properties(path, Some("opus"))
 }
 
-fn probe_symphonia_properties(path: &Path, codec: &str) -> AudioProperties {
+fn probe_symphonia_properties(path: &Path, codec_hint: Option<&str>) -> AudioProperties {
     use std::fs::File;
 
-    use symphonia::core::codecs::CODEC_TYPE_NULL;
+    use symphonia::core::codecs::{
+        CODEC_TYPE_AAC, CODEC_TYPE_ALAC, CODEC_TYPE_FLAC, CODEC_TYPE_MP3, CODEC_TYPE_NULL,
+        CODEC_TYPE_OPUS, CODEC_TYPE_VORBIS,
+    };
     use symphonia::core::formats::FormatOptions;
     use symphonia::core::io::MediaSourceStream;
     use symphonia::core::meta::MetadataOptions;
     use symphonia::core::probe::Hint;
 
     let mut props = AudioProperties {
-        codec: Some(codec.into()),
+        codec: codec_hint.map(str::to_string),
         ..AudioProperties::default()
     };
 
@@ -368,6 +410,26 @@ fn probe_symphonia_properties(path: &Path, codec: &str) -> AudioProperties {
     let Some(track) = track else {
         return props;
     };
+
+    let detected = match track.codec_params.codec {
+        CODEC_TYPE_AAC => Some("aac"),
+        CODEC_TYPE_ALAC => Some("alac"),
+        CODEC_TYPE_MP3 => Some("mp3"),
+        CODEC_TYPE_FLAC => Some("flac"),
+        CODEC_TYPE_VORBIS => Some("vorbis"),
+        CODEC_TYPE_OPUS => Some("opus"),
+        _ => None,
+    };
+    if detected.is_some() {
+        props.codec = detected.map(str::to_string);
+    } else if props.codec.is_none() {
+        props.codec = codec_from_extension(
+            path.extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.to_ascii_lowercase())
+                .as_deref(),
+        );
+    }
 
     if let Some(rate) = track.codec_params.sample_rate {
         props.sample_rate = Some(rate);
@@ -467,6 +529,82 @@ bit rate: 256000 bits per second
         assert_eq!(props.codec.as_deref(), Some("pcm"));
         assert_eq!(props.sample_rate, Some(48_000));
         assert_eq!(props.bitrate, Some(1_536_000));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_mp3_properties_skips_id3_jpeg_false_sync() {
+        let dir = std::env::temp_dir().join(format!("spiral-mp3-props-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("cover.mp3");
+
+        // ID3v2 with APIC JPEG (FF E0 JFIF) that used to be mistaken for an MP3 sync,
+        // followed by a real MPEG-1 Layer III 128 kbps / 44.1 kHz frame header.
+        let mut id3 = Vec::new();
+        id3.extend_from_slice(b"ID3");
+        id3.extend_from_slice(&[4, 0, 0]); // v2.4, no flags
+        let jpeg = [
+            0xFFu8, 0xD8, 0xFF, 0xE0, 0x00, 0x10, b'J', b'F', b'I', b'F', 0x00, 0x01,
+        ];
+        let mut apic = Vec::new();
+        apic.push(0x03); // UTF-8
+        apic.extend_from_slice(b"image/jpeg\0");
+        apic.push(0x03); // Cover (front)
+        apic.push(0x00); // empty description
+        apic.extend_from_slice(&jpeg);
+        let mut frames = Vec::new();
+        frames.extend_from_slice(b"APIC");
+        frames.extend_from_slice(&(apic.len() as u32).to_be_bytes());
+        frames.extend_from_slice(&[0, 0]);
+        frames.extend_from_slice(&apic);
+        let size = frames.len() as u32;
+        id3.extend_from_slice(&[
+            ((size >> 21) & 0x7F) as u8,
+            ((size >> 14) & 0x7F) as u8,
+            ((size >> 7) & 0x7F) as u8,
+            (size & 0x7F) as u8,
+        ]);
+        id3.extend_from_slice(&frames);
+
+        let mut file = std::fs::File::create(&path).unwrap();
+        use std::io::Write;
+        file.write_all(&id3).unwrap();
+        // MPEG-1 Layer III, 128 kbps, 44.1 kHz
+        file.write_all(&[0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00])
+            .unwrap();
+
+        let props = read_mp3_properties(&path);
+        assert_eq!(props.codec.as_deref(), Some("mp3"));
+        assert_eq!(props.sample_rate, Some(44_100));
+        assert_eq!(props.bitrate, Some(128_000));
+
+        let via_public = read_audio_properties(&path);
+        assert_eq!(via_public.sample_rate, Some(44_100));
+        assert_eq!(via_public.bitrate, Some(128_000));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn read_mp4_properties_reads_m4a_fixture() {
+        let dir = std::env::temp_dir().join(format!("spiral-m4a-props-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let path = crate::test_fixtures::m4a::copy_moov_before_mdat(&dir, "probe.m4a");
+
+        let props = read_audio_properties(&path);
+        assert!(
+            props.sample_rate.unwrap_or(0) > 0,
+            "expected sample rate, got {props:?}"
+        );
+        assert!(
+            props.bitrate.unwrap_or(0) > 0,
+            "expected bitrate, got {props:?}"
+        );
+        assert!(
+            matches!(props.codec.as_deref(), Some("aac") | Some("alac")),
+            "expected aac or alac, got {props:?}"
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }

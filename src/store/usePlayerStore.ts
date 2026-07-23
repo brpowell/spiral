@@ -480,7 +480,12 @@ function shouldUseCrossfadeController(
 ): boolean {
   const settings = usePlaybackSettingsStore.getState();
   if (!settings.crossfadeEnabled) return false;
-  if (source.kind !== "file" || requiresPcmPlayback(source.path)) return false;
+  if (
+    source.kind !== "file" ||
+    requiresPcmPlayback(source.path, source.codec)
+  ) {
+    return false;
+  }
 
   const isRepeatOneReplay =
     state.repeatMode === "one" &&

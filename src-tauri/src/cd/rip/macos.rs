@@ -1,4 +1,4 @@
-//! Rip CD tracks to FLAC/MP3 via cddafs AIFF + macOS `afconvert`.
+//! Rip CD tracks via cddafs AIFF → shared `transcode_file_with_metadata` encode.
 
 use std::fs;
 use std::path::PathBuf;

@@ -1,4 +1,7 @@
 //! Incremental Symphonia / opus-decoder source for file PCM playback.
+//!
+//! Supported: OGG Vorbis, Opus, and ALAC (m4a). Opus uses `opus-decoder`;
+//! Vorbis and ALAC use Symphonia.
 
 use std::collections::VecDeque;
 use std::fs::File;
@@ -6,7 +9,9 @@ use std::path::Path;
 
 use opus_decoder::OpusDecoder;
 use symphonia::core::audio::{AudioBufferRef, SampleBuffer};
-use symphonia::core::codecs::{Decoder, DecoderOptions, CODEC_TYPE_NULL, CODEC_TYPE_OPUS, CODEC_TYPE_VORBIS};
+use symphonia::core::codecs::{
+    Decoder, DecoderOptions, CODEC_TYPE_ALAC, CODEC_TYPE_NULL, CODEC_TYPE_OPUS, CODEC_TYPE_VORBIS,
+};
 use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::{FormatOptions, FormatReader, SeekMode, SeekTo};
 use symphonia::core::io::MediaSourceStream;
@@ -112,7 +117,9 @@ impl StreamingDecoder {
                 pcm_scratch: vec![0.0; OPUS_PCM_BUFFER_SAMPLES],
                 packets_seen: 0,
             }
-        } else if track.codec_params.codec == CODEC_TYPE_VORBIS {
+        } else if track.codec_params.codec == CODEC_TYPE_VORBIS
+            || track.codec_params.codec == CODEC_TYPE_ALAC
+        {
             let decoder = symphonia::default::get_codecs()
                 .make(&track.codec_params, &DecoderOptions::default())
                 .map_err(|err| format_open_failure(label, err))?;
@@ -129,7 +136,7 @@ impl StreamingDecoder {
             }
         } else {
             return Err(format!(
-                "Unsupported codec {:?} in {label} (expected Vorbis or Opus)",
+                "Unsupported codec {:?} in {label} (expected Vorbis, Opus, or ALAC)",
                 track.codec_params.codec
             ));
         };

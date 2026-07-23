@@ -17,10 +17,18 @@ export function audioExtensionFromPath(path: string): string {
   return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
 }
 
-/** OGG/Opus decode via Rust PCM pipeline — not Howler/Web Audio. */
-export function requiresPcmPlayback(path: string): boolean {
+/**
+ * Formats that decode via the Rust PCM pipeline — not Howler/Web Audio.
+ * OGG/Opus: webview codecs are unreliable. ALAC: Chromium (Win/Linux) cannot
+ * decode Apple Lossless; routed everywhere for a single reliable path.
+ */
+export function requiresPcmPlayback(
+  path: string,
+  codec?: string | null,
+): boolean {
   const ext = audioExtensionFromPath(path);
-  return ext === "ogg" || ext === "opus";
+  if (ext === "ogg" || ext === "opus") return true;
+  return codec?.trim().toLowerCase() === "alac";
 }
 
 export function isSupportedAudioPath(path: string): boolean {

@@ -38,8 +38,8 @@ const pcmConfig = {
 } as const;
 
 /**
- * Plays OGG/Opus via Rust PCM streaming into a Web Audio worklet on the shared
- * analyser bus.
+ * Plays OGG/Opus/ALAC via Rust PCM streaming into a Web Audio worklet on the
+ * shared analyser bus.
  */
 export class PcmFilePlaybackEngine implements PlaybackEngine {
   readonly capabilities = PCM_FILE_CAPABILITIES;

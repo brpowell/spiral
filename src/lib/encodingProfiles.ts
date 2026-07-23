@@ -25,7 +25,7 @@ export const BUILTIN_ENCODING_PROFILES: readonly EncodingProfile[] = [
   {
     id: "apple-alac",
     label: "Apple Lossless (ALAC)",
-    subtitle: ".m4a for iTunes and Apple devices",
+    subtitle: "Lossless quality for Apple devices",
     extension: "m4a",
   },
   {
@@ -93,7 +93,8 @@ function profileIsLosslessFallback(profileId: string): boolean {
 }
 
 function sourceIsLosslessFallback(sourcePath: string): boolean {
-  return audioExtensionFromPath(sourcePath) === "flac";
+  const ext = audioExtensionFromPath(sourcePath);
+  return ext === "flac" || ext === "wav";
 }
 
 function inferEncodingProfileIdFromPath(

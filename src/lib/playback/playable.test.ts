@@ -21,6 +21,9 @@ const libraryTrack: Track = {
   year: 2020,
   genre: null,
   durationSeconds: 180,
+  sampleRate: null,
+  bitrate: null,
+  codec: "mp3",
   filePath: "/music/song.mp3",
   artPath: null,
   dateAdded: "2026-01-01",
@@ -79,7 +82,19 @@ describe("resolvePlaybackSource", () => {
   it("resolves library tracks to file sources", () => {
     expect(
       resolvePlaybackSource({ type: "library", trackId: 1 }, [libraryTrack]),
-    ).toEqual({ kind: "file", path: "/music/song.mp3" });
+    ).toEqual({ kind: "file", path: "/music/song.mp3", codec: "mp3" });
+  });
+
+  it("includes ALAC codec so playback can route to PCM", () => {
+    const alacTrack: Track = {
+      ...libraryTrack,
+      id: 2,
+      codec: "alac",
+      filePath: "/music/song.m4a",
+    };
+    expect(
+      resolvePlaybackSource({ type: "library", trackId: 2 }, [alacTrack]),
+    ).toEqual({ kind: "file", path: "/music/song.m4a", codec: "alac" });
   });
 
   it("resolves CD playables to cd sources", () => {
