@@ -58,8 +58,8 @@ block2 = "0.6"
 objc2 = { version = "0.6", features = ["exception"] }
 objc2-app-kit = { version = "0.3", features = ["NSOpenPanel", "NSWorkspace"] }
 objc2-foundation = { version = "0.3", features = ["NSArray", "block2", "NSData", "NSDictionary", "NSNotification", "NSOperation", "NSString", "NSURL"] }
+tauri-plugin-global-shortcut = "2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-tauri-plugin-global-shortcut = "2"
 souvlaki = "0.8"
 

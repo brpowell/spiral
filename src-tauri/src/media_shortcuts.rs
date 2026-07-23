@@ -1,19 +1,29 @@
-use serde::Serialize;
-use tauri::{AppHandle, Emitter};
-use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Shortcut, ShortcutState};
+use tauri::AppHandle;
 
-const MEDIA_PLAY_PAUSE: &str = "media-play-pause";
-const MEDIA_NEXT: &str = "media-next";
-const MEDIA_PREV: &str = "media-prev";
-const MEDIA_SCRUB_PRESS: &str = "media-scrub-press";
-const MEDIA_SCRUB_RELEASE: &str = "media-scrub-release";
-
-#[derive(Clone, Serialize)]
-struct MediaScrubPayload {
-    direction: &'static str,
-}
-
+/// Register hardware media-key global shortcuts.
+///
+/// macOS is the primary target: Apple keyboards expose Fast/Rewind with
+/// press+hold semantics used for scrubbing. Windows/Linux lack VK/keysym
+/// mappings for those keys (and often for PlayPause on X11), and media keys
+/// are delivered through the OS media session (`media_session` / souvlaki)
+/// instead — SMTC on Windows, MPRIS on Linux.
+#[cfg(target_os = "macos")]
 pub fn register(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+    use serde::Serialize;
+    use tauri::Emitter;
+    use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Shortcut, ShortcutState};
+
+    const MEDIA_PLAY_PAUSE: &str = "media-play-pause";
+    const MEDIA_NEXT: &str = "media-next";
+    const MEDIA_PREV: &str = "media-prev";
+    const MEDIA_SCRUB_PRESS: &str = "media-scrub-press";
+    const MEDIA_SCRUB_RELEASE: &str = "media-scrub-release";
+
+    #[derive(Clone, Serialize)]
+    struct MediaScrubPayload {
+        direction: &'static str,
+    }
+
     let play_pause = Shortcut::new(None, Code::MediaPlayPause);
     let next = Shortcut::new(None, Code::MediaTrackNext);
     let prev = Shortcut::new(None, Code::MediaTrackPrevious);
@@ -74,5 +84,10 @@ pub fn register(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     shortcuts.register(seek_forward)?;
     shortcuts.register(seek_back)?;
 
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn register(_app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
