@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type KeyboardEvent, type PointerEvent } from "react";
 import { Slider } from "../../common/Slider/Slider";
 import * as audio from "../../../lib/playback";
 import { formatRemainingTime, formatTime } from "../../../lib/format";
@@ -9,6 +9,19 @@ import "./SeekBar.css";
 
 interface SeekBarProps {
   className?: string;
+}
+
+function isSeekKey(key: string): boolean {
+  return (
+    key === "ArrowLeft" ||
+    key === "ArrowRight" ||
+    key === "ArrowUp" ||
+    key === "ArrowDown" ||
+    key === "Home" ||
+    key === "End" ||
+    key === "PageUp" ||
+    key === "PageDown"
+  );
 }
 
 export function SeekBar({ className }: SeekBarProps) {
@@ -36,6 +49,13 @@ export function SeekBar({ className }: SeekBarProps) {
     handleSeekEnd,
   } = usePlaybackProgress(durationSeconds);
 
+  const finishPointer = (e: PointerEvent<HTMLInputElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    handleSeekEnd(Number(e.currentTarget.value));
+  };
+
   return (
     <div className={["seek-bar", className].filter(Boolean).join(" ")}>
       <span className="seek-bar__time">{formatTime(displayPosition)}</span>
@@ -47,11 +67,18 @@ export function SeekBar({ className }: SeekBarProps) {
         value={isSeeking ? seekValue : progress}
         disabled={disabled}
         aria-label="Seek"
-        onPointerDown={handleSeekStart}
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          handleSeekStart();
+        }}
         onChange={(e) => handleSeekChange(Number(e.currentTarget.value))}
-        onPointerUp={(e) => handleSeekEnd(Number(e.currentTarget.value))}
-        onKeyUp={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
+        onPointerUp={finishPointer}
+        onPointerCancel={finishPointer}
+        onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+          if (isSeekKey(e.key)) handleSeekStart();
+        }}
+        onKeyUp={(e: KeyboardEvent<HTMLInputElement>) => {
+          if (e.key === "Enter" || e.key === " " || isSeekKey(e.key)) {
             handleSeekEnd(Number(e.currentTarget.value));
           }
         }}

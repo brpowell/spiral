@@ -47,13 +47,8 @@ export function usePlaybackProgress(durationSeconds: number) {
   const progress =
     durationSeconds > 0 ? displayPosition / durationSeconds : 0;
 
-  const handleSeekStart = () => beginSeekPreview();
-
-  const handleSeekChange = (value: number) => {
-    updateSeekPreview(value);
-  };
-
   const handleSeekEnd = (value: number) => {
+    if (usePlayerStore.getState().seekPreviewRatio === null) return;
     commitSeekPreview(value);
   };
 
@@ -64,8 +59,8 @@ export function usePlaybackProgress(durationSeconds: number) {
     displayPosition,
     durationSeconds,
     disabled: currentTrackId === null,
-    handleSeekStart,
-    handleSeekChange,
+    handleSeekStart: beginSeekPreview,
+    handleSeekChange: updateSeekPreview,
     handleSeekEnd,
   };
 }

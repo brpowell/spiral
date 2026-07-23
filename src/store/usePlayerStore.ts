@@ -1457,6 +1457,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     updateSeekPreview: (ratio) => {
+      // Late range `change` after pointerup must not re-enter preview mode.
+      if (get().seekPreviewRatio === null) return;
       set({ seekPreviewRatio: ratio });
     },
 
