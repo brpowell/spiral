@@ -70,6 +70,11 @@ export interface SandboxedVizRendererOptions {
   /** Fires once after the first frame has been blitted to the display canvas. */
   onFirstFrame?: () => void;
   /**
+   * Fires once after a fatal terminate (watchdog, context loss, budget, etc.).
+   * Not called for intentional `dispose()` / abort cleanup.
+   */
+  onTerminated?: (reason: string) => void;
+  /**
    * Aborts in-flight init and disposes the worker once created
    * (e.g. React effect cleanup). Kept for the sandbox lifetime.
    */
@@ -99,6 +104,7 @@ export class SandboxedVizRenderer {
     reject: (err: Error) => void;
   } | null = null;
   private onFirstFrame: (() => void) | null;
+  private onTerminated: ((reason: string) => void) | null;
   private firstFrameNotified = false;
 
   private constructor(
@@ -107,12 +113,14 @@ export class SandboxedVizRenderer {
     rendererId: string,
     engine: VizRendererEngine,
     onFirstFrame?: () => void,
+    onTerminated?: (reason: string) => void,
   ) {
     this.worker = worker;
     this.displayCtx = displayCtx;
     this.rendererId = rendererId;
     this.engine = engine;
     this.onFirstFrame = onFirstFrame ?? null;
+    this.onTerminated = onTerminated ?? null;
     this.frameBudgetMs =
       engine === "webgl" ? WEBGL_FRAME_BUDGET_MS : FRAME_BUDGET_MS;
     this.fatalBudgetMs =
@@ -177,6 +185,7 @@ export class SandboxedVizRenderer {
       opts.rendererId,
       engine,
       opts.onFirstFrame,
+      opts.onTerminated,
     );
     host.syncDisplaySize(size);
 
@@ -325,6 +334,7 @@ export class SandboxedVizRenderer {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.onTerminated = null;
     if (this.watchdogId !== null) {
       clearInterval(this.watchdogId);
       this.watchdogId = null;
@@ -460,6 +470,9 @@ export class SandboxedVizRenderer {
       this.readySettled = true;
       this.rejectReady(new Error(reason));
     }
+    const onTerminated = this.onTerminated;
+    this.onTerminated = null;
     this.dispose();
+    onTerminated?.(reason);
   }
 }

@@ -44,6 +44,10 @@ function layerSandboxEngine(
   return null;
 }
 
+/** Caps auto-restarts after fatal sandbox terminates (e.g. lock-screen watchdog). */
+const SANDBOX_RESTART_LIMIT = 3;
+const SANDBOX_RESTART_WINDOW_MS = 30_000;
+
 export interface SceneRendererProps extends VisualizerRendererProps {
   scene: VizScene;
   packDir?: string;
@@ -84,6 +88,8 @@ function VizSceneLayerView({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sandboxRef = useRef<SandboxedVizRenderer | null>(null);
   const [sandboxEpoch, setSandboxEpoch] = useState(0);
+  const [sandboxGeneration, setSandboxGeneration] = useState(0);
+  const restartStateRef = useRef({ count: 0, windowStart: 0 });
   const visible = useSkinVisible(layer.visibleWhen);
   const dpr = context.size.dpr || window.devicePixelRatio || 1;
   const sizeReady = rect.w > 0 && rect.h > 0;
@@ -131,7 +137,34 @@ function VizSceneLayerView({
       width: rect.w,
       height: rect.h,
       dpr,
-      onFirstFrame: () => onFirstFrameRef.current?.(),
+      onFirstFrame: () => {
+        restartStateRef.current = { count: 0, windowStart: 0 };
+        onFirstFrameRef.current?.();
+      },
+      onTerminated: (reason) => {
+        if (cancelled) return;
+        if (sandboxRef.current === sandbox) {
+          sandboxRef.current = null;
+        }
+
+        const now = Date.now();
+        const state = restartStateRef.current;
+        if (now - state.windowStart > SANDBOX_RESTART_WINDOW_MS) {
+          state.count = 0;
+          state.windowStart = now;
+        }
+        if (state.count >= SANDBOX_RESTART_LIMIT) {
+          console.error(
+            `[visualizer] sandbox restart limit reached for ${rendererId}: ${reason}`,
+          );
+          return;
+        }
+        state.count += 1;
+        console.warn(
+          `[visualizer] restarting sandbox ${rendererId} (${state.count}/${SANDBOX_RESTART_LIMIT}): ${reason}`,
+        );
+        setSandboxGeneration((g) => g + 1);
+      },
       signal: abort.signal,
     })
       .then((created) => {
@@ -159,8 +192,16 @@ function VizSceneLayerView({
       }
     };
     // Intentionally omit rect/dpr: resize is handled below. sizeReady gates first boot.
+    // sandboxGeneration remounts after fatal terminate (watchdog / context loss).
     // eslint-disable-next-line react-hooks/exhaustive-deps -- boot once per renderer when sized
-  }, [sandboxEngine, layer.kind, layer.renderer, sizeReady, visible]);
+  }, [
+    sandboxEngine,
+    layer.kind,
+    layer.renderer,
+    sizeReady,
+    visible,
+    sandboxGeneration,
+  ]);
 
   useEffect(() => {
     if (!sandboxEngine) return;
