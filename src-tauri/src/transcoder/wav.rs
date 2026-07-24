@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::Read;
-#[cfg(any(test, target_os = "macos"))]
+#[cfg(test)]
 use std::io::Write;
 use std::path::Path;
 
@@ -130,7 +130,8 @@ pub fn read_pcm_from_wav(path: &Path) -> Result<PcmStream, String> {
     })
 }
 
-#[cfg(any(test, target_os = "macos"))]
+/// Test helper: write a `PcmStream` as a PCM WAVE file.
+#[cfg(test)]
 pub fn write_pcm_to_wav(pcm: &PcmStream, path: &Path) -> Result<(), String> {
     if pcm.channels == 0 {
         return Err("Cannot write WAVE with zero channels".into());

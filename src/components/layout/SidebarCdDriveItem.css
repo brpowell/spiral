@@ -2,6 +2,11 @@
   position: relative;
 }
 
+.sidebar-cd-drive-item .sidebar-item__icon {
+  align-items: center;
+  justify-content: center;
+}
+
 .sidebar-cd-drive-item__eject {
   position: absolute;
   right: 0.15rem;

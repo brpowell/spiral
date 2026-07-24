@@ -209,21 +209,32 @@ fn rewrite_path_prefix(file_path: &str, old_media: &Path, new_media: &Path) -> O
         return None;
     }
 
+    // Prefer string prefix replacement so stored path separators are preserved
+    // (Path::join on Windows injects `\` even when rewriting `/`-style paths).
+    let old_prefix = old_media.to_string_lossy();
+    if let Some(suffix) = file_path.strip_prefix(old_prefix.as_ref()) {
+        let trimmed = suffix.trim_start_matches(['/', '\\']);
+        if trimmed.is_empty() {
+            return None;
+        }
+        let new_prefix = new_media.to_string_lossy();
+        let sep = if suffix.starts_with('\\') { "\\" } else { "/" };
+        return Some(format!("{new_prefix}{sep}{trimmed}"));
+    }
+
+    // Fallback when canonicalize differs from the stored absolute string.
     if let Ok(rel) = old_path.strip_prefix(old_media) {
         if rel.as_os_str().is_empty() {
             return None;
         }
-        return Some(new_media.join(rel).to_string_lossy().into_owned());
+        let joined = new_media.join(rel).to_string_lossy().into_owned();
+        if file_path.contains('/') && !file_path.contains('\\') {
+            return Some(joined.replace('\\', "/"));
+        }
+        return Some(joined);
     }
 
-    // Fallback when canonicalize differs from the stored absolute string.
-    let old_prefix = old_media.to_string_lossy();
-    let suffix = file_path.strip_prefix(old_prefix.as_ref())?;
-    let trimmed = suffix.trim_start_matches(['/', '\\']);
-    if trimmed.is_empty() {
-        return None;
-    }
-    Some(new_media.join(trimmed).to_string_lossy().into_owned())
+    None
 }
 
 fn rewrite_media_paths(

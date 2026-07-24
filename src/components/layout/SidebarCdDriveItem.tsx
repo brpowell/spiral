@@ -1,10 +1,12 @@
 import { useMemo } from "react";
 import { SidebarItem } from "./SidebarItem/SidebarItem";
 import { Button } from "../common/Button/Button";
+import { ImportIndicator } from "../ImportIndicator/ImportIndicator";
 import { IconDisc, IconEject } from "../icons";
 import { useCdDriveMenu } from "../../hooks/useCdDriveMenu";
 import { mergeRemoteMetadataIntoDisc } from "../../lib/cdMetadata";
 import { cdSidebarDiscLabel } from "../../lib/cdTracks";
+import { useCdImportStore } from "../../store/useCdImportStore";
 import { useCdStore } from "../../store/useCdStore";
 import { useNavigationStore } from "../../store/useNavigationStore";
 import type { CdDrive } from "../../types/cd";
@@ -25,13 +27,15 @@ export function SidebarCdDriveItem({ drive }: SidebarCdDriveItemProps) {
   }, [disc, metadata]);
   const isActive = cdDriveId === drive.id;
   const isEjecting = useCdStore((s) => s.ejectingDriveIds.has(drive.id));
+  const isImporting = useCdImportStore((s) => s.importingDriveId === drive.id);
   const { onContextMenu, contextMenu, eject } = useCdDriveMenu(drive);
 
   return (
     <li className="sidebar-cd-drive-item">
       <SidebarItem
-        icon={<IconDisc />}
+        icon={isImporting ? <ImportIndicator inline /> : <IconDisc />}
         active={isActive}
+        aria-busy={isImporting || undefined}
         onClick={() => openCdDrive(drive.id)}
         onContextMenu={onContextMenu}
       >

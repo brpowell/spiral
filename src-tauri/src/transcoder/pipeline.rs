@@ -22,16 +22,26 @@ pub fn transcode_file_with_metadata(
     metadata: &TrackMetadataUpdate,
     backup_config: &MetadataBackupConfig,
 ) -> Result<(), String> {
+    // Resolve profile before decode so unknown profiles fail fast.
+    let _ = encoding_profiles::profile_from_id(profile_id)?;
+
+    let pcm = decode::pcm_from_audio_file(source)?;
+    encode_pcm_with_metadata(&pcm, dest, profile_id, metadata, backup_config)
+}
+
+pub fn encode_pcm_with_metadata(
+    pcm: &PcmStream,
+    dest: &Path,
+    profile_id: &str,
+    metadata: &TrackMetadataUpdate,
+    backup_config: &MetadataBackupConfig,
+) -> Result<(), String> {
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent)
             .map_err(|err| format!("Failed to create output folder: {err}"))?;
     }
 
-    // Resolve profile before decode so unknown profiles fail fast.
-    let _ = encoding_profiles::profile_from_id(profile_id)?;
-
-    let pcm = decode::pcm_from_audio_file(source)?;
-    encode_pcm_to_profile(&pcm, dest, profile_id)?;
+    encode_pcm_to_profile(pcm, dest, profile_id)?;
 
     metadata_writer::write_track_metadata(dest, metadata, backup_config)
         .map_err(|err| err.to_message())

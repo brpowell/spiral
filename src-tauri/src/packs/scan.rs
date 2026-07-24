@@ -488,11 +488,11 @@ mod tests {
             .any(|c| c.effective_id == "spiral.core.theme.obsidian"));
         assert!(skins
             .iter()
-            .any(|c| c.effective_id == "spiral.core.skin.spiral-default"));
+            .any(|c| c.effective_id == "spiral.core.skin.vanilla"));
         assert!(viz.iter().any(|c| c.effective_id == "spiral.core.visualizer.bars"));
         assert_eq!(themes.len(), 5, "expected 5 builtin themes");
         assert_eq!(skins.len(), 1, "expected 1 builtin skin in core");
-        assert_eq!(viz.len(), 5, "expected 5 builtin visualizers");
+        assert_eq!(viz.len(), 4, "expected 4 builtin visualizers");
         let renderers: Vec<_> = contribs.iter().filter(|c| c.r#type == "renderer").collect();
         assert!(renderers
             .iter()

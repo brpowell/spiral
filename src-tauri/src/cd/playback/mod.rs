@@ -1,9 +1,8 @@
 //! Native CD audio playback.
 //!
-//! macOS mounts audio CDs via cddafs as one AIFF file per track; the engine
-//! reads that file, decodes CD-DA PCM, and streams f32 chunks to the frontend
-//! Web Audio pipeline. Position / end / error updates reach the frontend as
-//! Tauri events.
+//! Platforms supply a PCM source (macOS: cddafs AIFF; Windows: raw CD-DA sectors).
+//! The shared engine streams f32 chunks to the frontend Web Audio pipeline.
+//! Position / end / error updates reach the frontend as Tauri events.
 
 use serde::Serialize;
 
@@ -64,17 +63,31 @@ pub struct CdPlaybackFlush {
     pub track_number: u32,
 }
 
+mod engine;
+mod source;
+
 #[cfg(target_os = "macos")]
 mod aiff;
 #[cfg(target_os = "macos")]
 mod macos;
 
-#[cfg(target_os = "macos")]
-pub use macos::{ack_pcm_chunks, pause, resume, seek, start, stop, stop_for_drive};
+#[cfg(target_os = "windows")]
+mod cdda;
+#[cfg(target_os = "windows")]
+mod windows;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 mod stub;
 
-#[cfg(not(target_os = "macos"))]
-#[allow(unused_imports)] // stop_for_drive is only called from macOS eject today
+#[cfg(target_os = "macos")]
+pub use macos::{ack_pcm_chunks, pause, read_track_pcm, resume, seek, start, stop, stop_for_drive};
+
+#[cfg(target_os = "windows")]
+pub use windows::{ack_pcm_chunks, pause, resume, seek, start, stop, stop_for_drive};
+
+#[cfg(target_os = "windows")]
+pub use cdda::read_track_pcm;
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[allow(unused_imports)]
 pub use stub::{ack_pcm_chunks, pause, resume, seek, start, stop, stop_for_drive};

@@ -63,7 +63,7 @@ export async function bootstrapSkin(): Promise<void> {
         },
         packDir: "",
         manifest: {
-          id: "spiral-default",
+          id: "vanilla",
           name: "Spiral Default",
           author: "Spiral",
           description: "",

@@ -1301,7 +1301,7 @@ mod tests {
         event.ui_mode = "skin".into();
         event.theme_id = Some("obsidian".into());
         event.theme_name = Some("Obsidian".into());
-        event.skin_id = Some("spiral-default".into());
+        event.skin_id = Some("vanilla".into());
         event.skin_name = Some("Spiral Default".into());
         event.visualizer_id = Some("bars".into());
         event.visualizer_name = Some("Bars".into());

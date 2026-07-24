@@ -1,5 +1,5 @@
-//! CD playback stub for non-macOS platforms.
-#![cfg(not(target_os = "macos"))]
+//! CD playback stub for platforms without optical support.
+#![cfg(not(any(target_os = "macos", target_os = "windows")))]
 
 use super::CdPlaybackStarted;
 use tauri::AppHandle;
@@ -24,5 +24,5 @@ pub fn ack_pcm_chunks(_count: u32) {}
 
 pub fn stop() {}
 
-#[allow(dead_code)] // Called from macOS eject; kept for API parity on other platforms
+#[allow(dead_code)]
 pub fn stop_for_drive(_drive_id: &str) {}

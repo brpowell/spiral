@@ -7,8 +7,7 @@ use super::session::{
     DriveSessionPhase, PRESENCE_CACHE_TTL,
 };
 
-use crate::cd::disc_id;
-use crate::cd::types::{CdDisc, CdDiscCdText, CdDrive, CdTrack, CdTrackTitle};
+use crate::cd::types::{CdDisc, CdDiscCdText, CdDrive, CdTrackTitle};
 use std::collections::HashMap;
 use std::process::Command;
 use std::sync::Mutex;
@@ -222,41 +221,6 @@ fn parse_cdtext(cdtext: &str) -> (Option<String>, Option<String>, HashMap<u32, S
     (album, artist, track_titles)
 }
 
-fn build_disc_from_tracks(
-    drive_id: &str,
-    toc_tracks: &[(u32, f64)],
-    album: Option<String>,
-    artist: Option<String>,
-    cdtext_titles: &HashMap<u32, String>,
-) -> CdDisc {
-    let mut tracks = Vec::new();
-    for (number, duration_seconds) in toc_tracks {
-        let title = cdtext_titles
-            .get(number)
-            .cloned()
-            .unwrap_or_else(|| format!("Track {number}"));
-        tracks.push(CdTrack {
-            number: *number,
-            title,
-            artist: artist.clone(),
-            duration_seconds: Some(*duration_seconds),
-        });
-    }
-    tracks.sort_by_key(|track| track.number);
-    let disc_id = if toc_tracks.is_empty() {
-        None
-    } else {
-        Some(disc_id::compute_disc_id(toc_tracks))
-    };
-    CdDisc {
-        drive_id: drive_id.to_string(),
-        disc_id,
-        album,
-        artist,
-        tracks,
-    }
-}
-
 fn drives_from_list(devices: &[(String, String)]) -> Vec<CdDrive> {
     devices
         .iter()
@@ -399,7 +363,7 @@ pub fn get_disc_info(drive_id: &str) -> Result<Option<CdDisc>, String> {
         Err(err) => return Err(err),
     };
 
-    Ok(Some(build_disc_from_tracks(
+    Ok(Some(super::disc::build_disc_from_tracks(
         drive_id,
         &toc_tracks,
         None,

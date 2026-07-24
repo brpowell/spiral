@@ -139,8 +139,27 @@ fn path_is_under_media(media_folder: &Path, file_path: &Path) -> bool {
     file.starts_with(&media)
 }
 
+/// Fill codec / sample rate / bitrate from the file when the client omitted them
+/// (e.g. CD rip builds tags without re-probing the encoded file).
+fn fill_missing_audio_properties(track: &mut TrackInput) {
+    if track.sample_rate.is_some() && track.bitrate.is_some() && track.codec.is_some() {
+        return;
+    }
+    let audio = audio_properties::read_audio_properties(Path::new(&track.file_path));
+    if track.sample_rate.is_none() {
+        track.sample_rate = audio.sample_rate;
+    }
+    if track.bitrate.is_none() {
+        track.bitrate = audio.bitrate;
+    }
+    if track.codec.is_none() {
+        track.codec = audio.codec;
+    }
+}
+
 #[tauri::command]
-pub fn save_track(state: State<DbState>, track: TrackInput) -> Result<Track, String> {
+pub fn save_track(state: State<DbState>, mut track: TrackInput) -> Result<Track, String> {
+    fill_missing_audio_properties(&mut track);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let id = db::save_track(&conn, &track).map_err(|e| {
         eprintln!("save_track error: {e}");

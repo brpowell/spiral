@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
 pub const DEFAULT_THEME_ID: &str = "spiral.core.theme.obsidian";
-pub const DEFAULT_SKIN_ID: &str = "spiral.core.skin.spiral-default";
+pub const DEFAULT_SKIN_ID: &str = "spiral.core.skin.vanilla";
 pub const DEFAULT_VISUALIZER_ID: &str = "spiral.core.visualizer.bars";
 pub const DEFAULT_SKIN_VIEW_ID: &str = "standard";
 pub const SPIRAL_LIBRARY_DIR_NAME: &str = "Spiral Library";

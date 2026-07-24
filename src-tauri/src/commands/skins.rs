@@ -2039,8 +2039,8 @@ mod tests {
         assert!(
             contribs
                 .iter()
-                .any(|c| c.effective_id == "spiral.core.skin.spiral-default"),
-            "spiral.core.skin.spiral-default should be present"
+                .any(|c| c.effective_id == "spiral.core.skin.vanilla"),
+            "spiral.core.skin.vanilla should be present"
         );
     }
 

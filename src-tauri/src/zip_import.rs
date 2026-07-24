@@ -159,10 +159,10 @@ mod tests {
             .audio_paths
             .iter()
             .any(|p| p.ends_with("01-track.mp3")));
-        assert!(result
-            .audio_paths
-            .iter()
-            .any(|p| p.ends_with("disc/02-track.flac")));
+        assert!(result.audio_paths.iter().any(|p| {
+            let normalized = p.replace('\\', "/");
+            normalized.ends_with("disc/02-track.flac")
+        }));
 
         cleanup_zip_import_path(&result.extract_dir).unwrap();
         let _ = fs::remove_dir_all(&dir);

@@ -23,7 +23,7 @@ vi.mock("../store/useThemeStore", () => ({
 vi.mock("../store/useSkinStore", () => ({
   useSkinStore: {
     getState: () => ({
-      activeSkinId: "spiral.core.skin.spiral-default",
+      activeSkinId: "spiral.core.skin.vanilla",
       activeViewId: "standard",
       activePack: { summary: { name: "Spiral Default" } },
       skins: [],
@@ -60,7 +60,7 @@ describe("listenSession", () => {
     expect(closed?.skinListenedSeconds).toBe(0);
     expect(closed?.themeId).toBe("spiral.core.theme.obsidian");
     expect(closed?.themeName).toBe("Obsidian");
-    expect(closed?.skinId).toBe("spiral.core.skin.spiral-default");
+    expect(closed?.skinId).toBe("spiral.core.skin.vanilla");
     expect(closed?.skinName).toBe("Spiral Default");
     expect(closed?.visualizerId).toBe("spiral.core.visualizer.bars");
     expect(closed?.visualizerName).toBe("Bars");

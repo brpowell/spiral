@@ -1,0 +1,42 @@
+---
+description: Silence Rust unused warnings for platform- or test-only symbols via cfg
+globs: src-tauri/**/*.rs
+alwaysApply: false
+---
+
+# Platform / test-gated Rust symbols
+
+Rustc only sees the current target. A symbol used solely under `#[cfg(target_os = "...")]` or in tests looks unused on other builds and triggers `unused_imports` / `dead_code`.
+
+## Prefer cfg over allow
+
+Gate the definition or re-export so it is not compiled where unused. Do not reach for `#[allow(dead_code)]` / `#[allow(unused_imports)]` when a cfg matches the real callers.
+
+```rust
+// ✅ GOOD — re-export only where callers compile
+pub use pipeline::transcode_file_with_metadata;
+
+#[cfg(target_os = "windows")]
+pub use pipeline::encode_pcm_with_metadata;
+#[cfg(target_os = "windows")]
+pub use pcm_stream::PcmStream;
+
+// ✅ GOOD — test-only helper
+#[cfg(test)]
+pub fn write_pcm_to_wav(...) { ... }
+
+// ❌ BAD — still compiled (and warned) on macOS app builds
+#[cfg(any(test, target_os = "macos"))]
+pub fn write_pcm_to_wav(...) { ... }
+
+// ❌ BAD — hides real dead code
+#[allow(dead_code)]
+pub fn write_pcm_to_wav(...) { ... }
+```
+
+## Checklist when adding cross-platform APIs
+
+1. Identify which OS / `cfg(test)` paths call the symbol.
+2. Put the same cfg on `pub use`, `pub fn`, or the module that owns it.
+3. Keep shared helpers used on every target ungated.
+4. After changing cfgs, confirm a local `tauri`/`cargo` build is warning-clean for unused items.

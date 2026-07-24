@@ -5,7 +5,6 @@ import {
   groupAlbumTracksByDisc,
 } from "../lib/albums";
 import { applyTrackRating } from "../lib/applyTrackRating";
-import { detailReturnLabel } from "../lib/navigationReturn";
 import { formatDurationNatural } from "../lib/format";
 import { linkableArtistKey } from "../lib/trackNavigation";
 import type { CanonicalRating } from "../lib/trackRating";
@@ -22,6 +21,7 @@ import {
   IconPencil,
   IconPlay,
 } from "../components/icons";
+import { useDetailReturnLabel } from "../hooks/useDetailReturnLabel";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Album } from "../types/album";
@@ -54,7 +54,7 @@ export function AlbumDetailView({
   const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
 
   const album = getAlbumByKey(albums, albumKey);
-  const backLabel = detailReturnLabel(albumReturnContext, artists);
+  const backLabel = useDetailReturnLabel(albumReturnContext, artists);
   const libraryArtistKeys = useMemo(
     () => new Set(artists.map((artist) => artist.key)),
     [artists],

@@ -1,13 +1,16 @@
 //! Rip CD tracks using built-in encoding profiles.
+//!
+//! Platform difference is only PCM acquisition (`read_track_pcm`); encode is shared.
 
-#[cfg(target_os = "macos")]
-mod macos;
+mod common;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 mod stub;
 
-#[cfg(target_os = "macos")]
-pub use macos::{cleanup_rip_temp, rip_cd_track};
+pub use common::cleanup_rip_temp;
 
-#[cfg(not(target_os = "macos"))]
-pub use stub::{cleanup_rip_temp, rip_cd_track};
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub use common::rip_cd_track;
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+pub use stub::rip_cd_track;

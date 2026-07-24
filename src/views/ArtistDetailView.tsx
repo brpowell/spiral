@@ -20,7 +20,7 @@ import {
   getArtistByKey,
 } from "../lib/artists";
 import { formatDurationNatural } from "../lib/format";
-import { detailReturnLabel } from "../lib/navigationReturn";
+import { useDetailReturnLabel } from "../hooks/useDetailReturnLabel";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Album } from "../types/album";
@@ -55,7 +55,7 @@ export function ArtistDetailView({
     browseArtist ?? getArtistByKey(performerArtists, artistKey);
   const editorBrowseMode = browseArtist != null ? browseMode : "performers";
   const albumArtistsOnly = browseMode === "discography";
-  const backLabel = detailReturnLabel(artistReturnContext, artists);
+  const backLabel = useDetailReturnLabel(artistReturnContext, artists);
   const discography = useMemo(
     () => (artist ? albumsForArtist(albums, artist, browseMode) : []),
     [albums, artist, browseMode],

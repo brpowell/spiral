@@ -25,7 +25,6 @@ import {
 import { startCdImport } from "../lib/cdImport";
 import { formatTime } from "../lib/format";
 import { setCdDetailDrive } from "../lib/tauri";
-import { detailReturnLabel } from "../lib/navigationReturn";
 import {
   isAlbumInLibrary,
   linkableArtistKey,
@@ -37,6 +36,7 @@ import {
 import { getCdDriveById, useCdStore } from "../store/useCdStore";
 import { useCdImportBlockingPlayback } from "../hooks/useCdImportBlockingPlayback";
 import { useCdImportStore, cdImportRowIndicators } from "../store/useCdImportStore";
+import { useDetailReturnLabel } from "../hooks/useDetailReturnLabel";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Album } from "../types/album";
@@ -119,7 +119,7 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
   const isEjecting = ejectingDriveIds.has(driveId);
   const showBack =
     cdReturnContext != null && cdReturnContext.kind !== "sidebar";
-  const backLabel = detailReturnLabel(cdReturnContext, artists);
+  const backLabel = useDetailReturnLabel(cdReturnContext, artists);
   const isActiveCdPlayback = storeCdDriveId === driveId;
   const currentTrackId = isActiveCdPlayback ? storeCurrentTrackId : null;
   const activePlaybackState = isActiveCdPlayback ? playbackState : "stopped";
@@ -252,15 +252,8 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
     <div className="cd-detail detail-view">
       <div className="detail-view__body">
         <div className="detail-view__chrome">
-        <div
-          className={[
-            "cd-detail__toolbar",
-            !showBack && "cd-detail__toolbar--no-back",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
-          {showBack ? (
+        {showBack ? (
+          <div className="cd-detail__toolbar">
             <Button
               variant="ghost"
               size="sm"
@@ -270,62 +263,8 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
               <IconBack />
               {backLabel}
             </Button>
-          ) : null}
-          <MenuButton
-            ariaLabel="Disc actions"
-            className="cd-detail__toolbar-menu"
-            layoutDeps={[tracks.length, isEjecting, checkedCount, cdImportBlockingPlayback]}
-            size="md"
-            variant="secondary"
-          >
-            {(close) => (
-              <>
-                {hasTracks ? (
-                  <ContextMenuItem
-                    icon={<IconImport />}
-                    label={importLabel}
-                    disabled={checkedCount === 0 || cdImportBlockingPlayback}
-                    onClick={() => {
-                      close();
-                      handleStartImport();
-                    }}
-                  />
-                ) : null}
-                <ContextMenuSeparator />
-                <ContextMenuItem
-                  icon={<IconPlay />}
-                  label="Play All"
-                  disabled={!hasTracks || cdImportBlockingPlayback}
-                  onClick={() => {
-                    close();
-                    handlePlayDisc();
-                  }}
-                />
-                {hasTracks ? (
-                  <ContextMenuItem
-                    icon={<IconAddToQueue />}
-                    label="Add to Queue"
-                    disabled={cdImportBlockingPlayback}
-                    onClick={() => {
-                      close();
-                      handleAddToQueue();
-                    }}
-                  />
-                ) : null}
-                <ContextMenuSeparator />
-                <ContextMenuItem
-                  icon={<IconEject />}
-                  label={isEjecting ? "Ejecting…" : "Eject"}
-                  disabled={isEjecting}
-                  onClick={() => {
-                    close();
-                    void ejectDrive(driveId);
-                  }}
-                />
-              </>
-            )}
-          </MenuButton>
-        </div>
+          </div>
+        ) : null}
 
         <section className="cd-detail__hero">
           <EntityArt
@@ -352,30 +291,66 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
                   .join(" · ")}
               </p>
             ) : null}
-            {hasTracks ? (
-              <div className="cd-detail__actions">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="cd-detail__import-btn"
-                  disabled={!hasTracks || cdImportBlockingPlayback}
-                  onClick={handlePlayDisc}
-                >
-                  <IconPlay />
-                  Play All
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="cd-detail__import-btn"
-                  disabled={checkedCount === 0 || cdImportBlockingPlayback}
-                  onClick={handleStartImport}
-                >
-                  <IconImport />
-                  {importLabel}
-                </Button>
-              </div>
-            ) : null}
+            <div className="detail-view__actions">
+              {hasTracks ? (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={cdImportBlockingPlayback}
+                    onClick={handlePlayDisc}
+                  >
+                    <IconPlay />
+                    Play All
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={checkedCount === 0 || cdImportBlockingPlayback}
+                    onClick={handleStartImport}
+                  >
+                    <IconImport />
+                    {importLabel}
+                  </Button>
+                </>
+              ) : null}
+              <MenuButton
+                ariaLabel="Disc actions"
+                layoutDeps={[
+                  tracks.length,
+                  isEjecting,
+                  cdImportBlockingPlayback,
+                ]}
+                size="sm"
+                variant="secondary"
+              >
+                {(close) => (
+                  <>
+                    {hasTracks ? (
+                      <ContextMenuItem
+                        icon={<IconAddToQueue />}
+                        label="Add to Queue"
+                        disabled={cdImportBlockingPlayback}
+                        onClick={() => {
+                          close();
+                          handleAddToQueue();
+                        }}
+                      />
+                    ) : null}
+                    {hasTracks ? <ContextMenuSeparator /> : null}
+                    <ContextMenuItem
+                      icon={<IconEject />}
+                      label={isEjecting ? "Ejecting…" : "Eject"}
+                      disabled={isEjecting}
+                      onClick={() => {
+                        close();
+                        void ejectDrive(driveId);
+                      }}
+                    />
+                  </>
+                )}
+              </MenuButton>
+            </div>
           </div>
         </section>
         </div>

@@ -1,5 +1,4 @@
 //! Per-drive session state: operation phase, detail-view pin, and presence cache.
-#![cfg(target_os = "macos")]
 
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
@@ -135,6 +134,7 @@ fn with_status_cache<R>(drive_id: &str, f: impl FnOnce(&mut CachedDriveStatus) -
     })
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn cached_volume_path(drive_id: &str) -> Option<String> {
     with_status_cache(drive_id, |cache| {
         if cache.updated_at.elapsed() <= STATUS_CACHE_TTL {
@@ -231,6 +231,7 @@ pub fn invalidate_all_presence_cache() {
     });
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn normalize_volume_path(path: &str) -> String {
     let trimmed = path.trim();
     if trimmed.is_empty() {
@@ -239,6 +240,7 @@ fn normalize_volume_path(path: &str) -> String {
     trimmed.trim_end_matches('/').to_string()
 }
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub fn clear_drive_on_unmount(normalized_volume_path: &str, bsd_name: Option<&str>) {
     if normalized_volume_path.is_empty() {
         return;

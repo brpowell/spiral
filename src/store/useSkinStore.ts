@@ -49,7 +49,7 @@ import type { LoadedSkinPack, SkinSummary, SkinView } from "../types/skin";
 import { isAppearanceWindow, isSkinModeWindow } from "../lib/windowRole";
 import { useSkinPreferencesStore } from "./useSkinPreferencesStore";
 
-export const DEFAULT_SKIN_ID = "spiral.core.skin.spiral-default";
+export const DEFAULT_SKIN_ID = "spiral.core.skin.vanilla";
 
 /** Bumped so an older in-flight load/switch cannot commit after a newer one. */
 let skinCommitGeneration = 0;

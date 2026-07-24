@@ -229,6 +229,8 @@ pub fn assert_pack_manifest_version(value: &serde_json::Value) -> Result<(), Pac
 
 /// Parse and validate pack.json JSON text against the v1 contract.
 pub fn parse_pack_manifest_json(json: &str) -> Result<PackManifest, PackManifestError> {
+    // Editors on Windows often save UTF-8 with a BOM; serde_json rejects it.
+    let json = json.strip_prefix('\u{feff}').unwrap_or(json);
     let value: serde_json::Value = serde_json::from_str(json)
         .map_err(|e| err("invalid_json", format!("pack.json is not valid JSON: {e}")))?;
     parse_pack_manifest_value(&value)

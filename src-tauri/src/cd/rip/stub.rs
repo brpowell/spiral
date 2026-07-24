@@ -6,7 +6,5 @@ pub fn rip_cd_track(
     _profile_id: &str,
     _metadata: &TrackMetadataUpdate,
 ) -> Result<String, String> {
-    Err("CD ripping is only supported on macOS".into())
+    Err("CD ripping is not supported on this platform".into())
 }
-
-pub fn cleanup_rip_temp(_drive_id: &str) {}

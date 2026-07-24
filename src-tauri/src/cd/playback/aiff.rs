@@ -10,6 +10,9 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+use super::source::CdPcmSource;
+use crate::transcoder::PcmStream;
+
 const READ_BUFFER_BYTES: usize = 64 * 1024;
 const BYTES_PER_SAMPLE: u64 = 2;
 
@@ -181,30 +184,58 @@ impl AiffSource {
         })
     }
 
-    pub fn channels(&self) -> u16 {
+    /// Read the entire track as interleaved i16 PCM for ripping.
+    pub fn read_pcm(path: &Path) -> Result<PcmStream, String> {
+        let mut source = Self::open(path)?;
+        let sample_count = source.total_samples as usize;
+        let mut bytes = vec![0u8; sample_count * BYTES_PER_SAMPLE as usize];
+        source
+            .reader
+            .read_exact(&mut bytes)
+            .map_err(|err| format!("Failed to read CD track audio data: {err}"))?;
+
+        let mut samples = Vec::with_capacity(sample_count);
+        for chunk in bytes.chunks_exact(BYTES_PER_SAMPLE as usize) {
+            let sample = if source.little_endian {
+                i16::from_le_bytes([chunk[0], chunk[1]])
+            } else {
+                i16::from_be_bytes([chunk[0], chunk[1]])
+            };
+            samples.push(sample);
+        }
+
+        Ok(PcmStream {
+            channels: source.channels,
+            sample_rate: source.sample_rate,
+            samples,
+        })
+    }
+}
+
+impl CdPcmSource for AiffSource {
+    fn channels(&self) -> u16 {
         self.channels
     }
 
-    pub fn sample_rate(&self) -> u32 {
+    fn sample_rate(&self) -> u32 {
         self.sample_rate
     }
 
-    pub fn duration_seconds(&self) -> f64 {
+    fn duration_seconds(&self) -> f64 {
         let frames = self.total_samples / self.channels as u64;
         frames as f64 / self.sample_rate as f64
     }
 
-    pub fn position_seconds(&self) -> f64 {
+    fn position_seconds(&self) -> f64 {
         let frames = self.samples_read / self.channels as u64;
         frames as f64 / self.sample_rate as f64
     }
 
-    /// Set when a mid-track read fails (eject, scratched disc, I/O error).
-    pub fn read_failed_flag(&self) -> Arc<AtomicBool> {
+    fn read_failed_flag(&self) -> Arc<AtomicBool> {
         Arc::clone(&self.read_failed)
     }
 
-    pub fn seek_seconds(&mut self, seconds: f64) -> Result<(), String> {
+    fn seek_seconds(&mut self, seconds: f64) -> Result<(), String> {
         let channels = self.channels as u64;
         let total_frames = self.total_samples / channels;
         let frame = ((seconds.max(0.0) * self.sample_rate as f64).round() as u64).min(total_frames);
@@ -217,12 +248,8 @@ impl AiffSource {
         self.samples_read = sample_index;
         Ok(())
     }
-}
 
-impl Iterator for AiffSource {
-    type Item = f32;
-
-    fn next(&mut self) -> Option<f32> {
+    fn next_sample(&mut self) -> Option<f32> {
         if self.samples_read >= self.total_samples {
             return None;
         }
@@ -240,11 +267,6 @@ impl Iterator for AiffSource {
             i16::from_be_bytes(buf)
         };
         Some(sample as f32 / 32768.0)
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = (self.total_samples - self.samples_read) as usize;
-        (remaining, Some(remaining))
     }
 }
 
@@ -317,6 +339,27 @@ mod tests {
         assert_eq!(info.channels, 2);
         assert_eq!(info.sample_rate, 44100);
         assert!(info.little_endian);
+    }
+
+    #[test]
+    fn read_pcm_preserves_sample_values() {
+        use std::io::Write;
+        let data = build_aiff(8, false);
+        let dir = std::env::temp_dir().join("spiral-aiff-read-pcm-test");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("track.aiff");
+        {
+            let mut file = std::fs::File::create(&path).expect("create");
+            file.write_all(&data).expect("write");
+        }
+        let pcm = AiffSource::read_pcm(&path).expect("read_pcm");
+        assert_eq!(pcm.channels, 2);
+        assert_eq!(pcm.sample_rate, 44100);
+        assert_eq!(pcm.samples.len(), 8 * 2);
+        assert_eq!(pcm.samples[0], 0);
+        assert_eq!(pcm.samples[1], 1);
+        assert_eq!(pcm.samples[2], 2);
+        let _ = std::fs::remove_file(&path);
     }
 
     #[test]

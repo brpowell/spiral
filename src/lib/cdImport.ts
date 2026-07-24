@@ -348,6 +348,9 @@ function planMetadataToTrackInput(plan: CdImportTrackPlan): TrackInput {
     year: plan.metadata.year,
     genre: plan.metadata.genre,
     durationSeconds: plan.durationSeconds,
+    sampleRate: null,
+    bitrate: null,
+    codec: null,
     filePath: "",
     artPath: plan.metadata.artPath,
   };

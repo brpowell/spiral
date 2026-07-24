@@ -677,7 +677,7 @@ mod tests {
                 .unwrap_or_else(|e| panic!("{} should load: {e}", contrib.effective_id));
             loaded += 1;
         }
-        assert_eq!(loaded, 5, "expected 5 built-in visualizer packs");
+        assert_eq!(loaded, 4, "expected 4 built-in visualizer packs");
     }
 
     #[test]

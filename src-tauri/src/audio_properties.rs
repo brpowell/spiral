@@ -67,7 +67,7 @@ fn read_afinfo_properties(path: &Path) -> Option<AudioProperties> {
     Some(parse_afinfo_properties(&stdout))
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
 fn parse_afinfo_properties(stdout: &str) -> AudioProperties {
     let mut props = AudioProperties::default();
 
@@ -97,6 +97,7 @@ fn parse_afinfo_properties(stdout: &str) -> AudioProperties {
     props
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn parse_hz_value(text: &str) -> Option<u32> {
     let lower = text.to_ascii_lowercase();
     let hz_idx = lower.find(" hz")?;
@@ -112,6 +113,7 @@ fn parse_hz_value(text: &str) -> Option<u32> {
     digits.parse::<f64>().ok().map(|v| v.round() as u32)
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn parse_data_format_codec(text: &str) -> Option<String> {
     let lower = text.to_ascii_lowercase();
     if lower.contains("alac") {
@@ -141,6 +143,7 @@ fn parse_data_format_codec(text: &str) -> Option<String> {
     None
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn parse_inline_bitrate(text: &str) -> Option<u32> {
     let lower = text.to_ascii_lowercase();
     if !lower.contains("bits/sec") && !lower.contains("bits per second") {
@@ -149,6 +152,7 @@ fn parse_inline_bitrate(text: &str) -> Option<u32> {
     parse_bitrate_number(text)
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn parse_bitrate_number(text: &str) -> Option<u32> {
     text.split_whitespace()
         .find_map(|token| token.trim_end_matches(',').parse::<f64>().ok())
@@ -490,7 +494,6 @@ mod tests {
         assert_eq!(parse_bitrate_number("193239.6 bits per second"), Some(193_240));
     }
 
-    #[cfg(target_os = "macos")]
     #[test]
     fn parse_afinfo_properties_reads_pcm_wav_int16() {
         let stdout = "\
@@ -504,7 +507,6 @@ bit rate: 1411200 bits per second
         assert_eq!(props.bitrate, Some(1_411_200));
     }
 
-    #[cfg(target_os = "macos")]
     #[test]
     fn parse_afinfo_properties_reads_all_fields() {
         let stdout = "\
