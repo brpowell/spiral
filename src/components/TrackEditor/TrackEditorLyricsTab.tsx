@@ -17,6 +17,10 @@ export type TrackEditorLyricsTabProps = {
   value: string;
   syncedLines: LyricsLine[] | null;
   instrumental: boolean;
+  /** Bulk edit: hide fetch; adjust copy for multi-track apply. */
+  bulk?: boolean;
+  /** Some but not all selected tracks are marked instrumental. */
+  instrumentalMixed?: boolean;
   fetchingLyrics: boolean;
   fetchFeedback: LyricsFetchFeedback | null;
   onFetchLyrics: () => void;
@@ -34,6 +38,8 @@ export function TrackEditorLyricsTab({
   value,
   syncedLines,
   instrumental,
+  bulk = false,
+  instrumentalMixed = false,
   fetchingLyrics,
   fetchFeedback,
   onFetchLyrics,
@@ -136,26 +142,28 @@ export function TrackEditorLyricsTab({
   return (
     <div className="track-editor-lyrics-tab">
       <div className="track-editor-lyrics-tab__toolbar">
-        <Button
-          size="sm"
-          variant="secondary"
-          className="track-editor-lyrics-tab__fetch-btn"
-          onClick={onFetchLyrics}
-          disabled={fetchingLyrics || instrumental}
-          aria-busy={fetchingLyrics}
-        >
-          {fetchingLyrics ? (
-            <>
-              <span
-                className="track-editor-lyrics-tab__spinner"
-                aria-hidden
-              />
-              Fetching…
-            </>
-          ) : (
-            "Fetch lyrics"
-          )}
-        </Button>
+        {!bulk ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="track-editor-lyrics-tab__fetch-btn"
+            onClick={onFetchLyrics}
+            disabled={fetchingLyrics || instrumental}
+            aria-busy={fetchingLyrics}
+          >
+            {fetchingLyrics ? (
+              <>
+                <span
+                  className="track-editor-lyrics-tab__spinner"
+                  aria-hidden
+                />
+                Fetching…
+              </>
+            ) : (
+              "Fetch lyrics"
+            )}
+          </Button>
+        ) : null}
         <Switch
           checked={instrumental}
           disabled={fetchingLyrics}
@@ -173,7 +181,13 @@ export function TrackEditorLyricsTab({
           </Badge>
         ) : null}
       </div>
-      {fetchFeedback && !instrumental ? (
+      {bulk && instrumentalMixed && !instrumental ? (
+        <Alert variant="info">
+          Some selected tracks are marked instrumental. Turn on Instrumental to
+          mark all, or paste lyrics to replace.
+        </Alert>
+      ) : null}
+      {fetchFeedback && !instrumental && !bulk ? (
         <Alert variant={fetchFeedback.variant}>{fetchFeedback.text}</Alert>
       ) : null}
       {instrumental ? (
@@ -181,7 +195,11 @@ export function TrackEditorLyricsTab({
           className="track-editor-lyrics-tab__instrumental"
           icon={<IconMicrophone />}
           title="Instrumental"
-          description="This track is marked as having no lyrics. Auto-fetch will skip it."
+          description={
+            bulk
+              ? "These tracks are marked as having no lyrics."
+              : "This track is marked as having no lyrics. Auto-fetch will skip it."
+          }
         />
       ) : (
         <Textarea
@@ -199,8 +217,12 @@ export function TrackEditorLyricsTab({
           onFocus={handleFocus}
           onBlur={handleBlur}
           onPaste={handlePaste}
-          placeholder="Paste or type lyrics…"
-          aria-label="Track lyrics"
+          placeholder={
+            bulk
+              ? "Paste or type lyrics to apply to all tracks…"
+              : "Paste or type lyrics…"
+          }
+          aria-label={bulk ? "Lyrics for all selected tracks" : "Track lyrics"}
           rows={LYRICS_TEXTAREA_ROWS}
         />
       )}

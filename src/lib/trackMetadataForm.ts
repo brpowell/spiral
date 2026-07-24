@@ -124,6 +124,20 @@ function sharedRating(tracks: Track[]): CanonicalRating {
   return tracks.every((t) => t.rating === first) ? first : UNRATED;
 }
 
+function sharedLyricsInstrumental(tracks: Track[]): boolean {
+  return (
+    tracks.length > 0 &&
+    tracks.every((t) => t.lyricsFormat === "instrumental")
+  );
+}
+
+/** True when some but not all selected tracks are marked instrumental. */
+export function isLyricsInstrumentalMixed(tracks: Track[]): boolean {
+  if (tracks.length <= 1) return false;
+  const first = tracks[0].lyricsFormat === "instrumental";
+  return tracks.some((t) => (t.lyricsFormat === "instrumental") !== first);
+}
+
 export function tracksToForm(tracks: Track[]): TrackEditorForm {
   if (tracks.length === 1) return trackToForm(tracks[0]);
   return {
@@ -141,7 +155,7 @@ export function tracksToForm(tracks: Track[]): TrackEditorForm {
     lyrics: "",
     lyricsSyncedLines: null,
     lyricsSource: null,
-    lyricsInstrumental: false,
+    lyricsInstrumental: sharedLyricsInstrumental(tracks),
   };
 }
 

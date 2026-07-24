@@ -9,6 +9,7 @@ import { collectGenreSuggestions, collectAlbumSuggestions } from "../../lib/trac
 import { parseTrackMetadata } from "../../lib/metadata";
 import {
   buildTrackMetadataFromForm,
+  isLyricsInstrumentalMixed,
   lyricsEditorStateEqual,
   sharedArtPath,
   trackEditorFormsEqual,
@@ -663,6 +664,9 @@ export function TrackEditor() {
             track.filePath,
             metadata,
           );
+          if (metadata.lyricsChanged) {
+            notifyTrackLyricsUpdated(track.id);
+          }
           updated.push(saved);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
@@ -737,12 +741,7 @@ export function TrackEditor() {
       {isOpen && form && (
         <>
           <div
-            className={[
-              "track-editor-modal__content",
-              !isBulk && "track-editor-modal__content--tabbed",
-            ]
-              .filter(Boolean)
-              .join(" ")}
+            className="track-editor-modal__content track-editor-modal__content--tabbed"
             inert={discardPrompt || undefined}
           >
             <ModalHeader
@@ -798,20 +797,18 @@ export function TrackEditor() {
               className="track-editor__tabs"
               variant="underline"
             >
-              {!isBulk ? (
-                <div className="track-editor__tab-bar">
-                  <TabList aria-label="Track editor sections">
-                    <Tab value="details">Details</Tab>
-                    <Tab value="lyrics" badge={hasLyrics ? "•" : undefined}>
-                      Lyrics
-                    </Tab>
-                    <Tab value="file">File</Tab>
-                  </TabList>
-                </div>
-              ) : null}
+              <div className="track-editor__tab-bar">
+                <TabList aria-label="Track editor sections">
+                  <Tab value="details">Details</Tab>
+                  <Tab value="lyrics" badge={hasLyrics ? "•" : undefined}>
+                    Lyrics
+                  </Tab>
+                  {!isBulk ? <Tab value="file">File</Tab> : null}
+                </TabList>
+              </div>
 
-              <ModalBody className={!isBulk ? "track-editor__tab-body" : undefined}>
-                <div className={!isBulk ? "track-editor__tab-stage" : undefined}>
+              <ModalBody className="track-editor__tab-body">
+                <div className="track-editor__tab-stage">
                   <TabPanel value="details" className="track-editor__tab-panel">
                     <TrackEditorDetailsTab
                       form={form}
@@ -836,23 +833,25 @@ export function TrackEditor() {
                     />
                   </TabPanel>
 
-                  {!isBulk ? (
-                    <TabPanel
-                      value="lyrics"
-                      className="track-editor__tab-panel track-editor__tab-panel--lyrics"
-                    >
-                      <TrackEditorLyricsTab
-                        value={form.lyrics}
-                        syncedLines={form.lyricsSyncedLines}
-                        instrumental={form.lyricsInstrumental}
-                        fetchingLyrics={lyricsFetchPending || committingLyrics}
-                        fetchFeedback={lyricsFetchFeedback}
-                        onFetchLyrics={() => void handleFetchLyrics()}
-                        onInstrumentalChange={setLyricsInstrumental}
-                        onChange={setLyrics}
-                      />
-                    </TabPanel>
-                  ) : null}
+                  <TabPanel
+                    value="lyrics"
+                    className="track-editor__tab-panel track-editor__tab-panel--lyrics"
+                  >
+                    <TrackEditorLyricsTab
+                      value={form.lyrics}
+                      syncedLines={form.lyricsSyncedLines}
+                      instrumental={form.lyricsInstrumental}
+                      bulk={isBulk}
+                      instrumentalMixed={isLyricsInstrumentalMixed(tracks)}
+                      fetchingLyrics={
+                        !isBulk && (lyricsFetchPending || committingLyrics)
+                      }
+                      fetchFeedback={isBulk ? null : lyricsFetchFeedback}
+                      onFetchLyrics={() => void handleFetchLyrics()}
+                      onInstrumentalChange={setLyricsInstrumental}
+                      onChange={setLyrics}
+                    />
+                  </TabPanel>
 
                   {!isBulk && referenceTrack ? (
                     <TabPanel value="file" className="track-editor__tab-panel">

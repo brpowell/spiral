@@ -3,9 +3,11 @@ import type { Track } from "../types/track";
 import {
   buildLyricsOnlyMetadataUpdate,
   buildTrackMetadataFromForm,
+  isLyricsInstrumentalMixed,
   isTrackEditorFieldMixed,
   sharedArtistField,
   trackToForm,
+  tracksToForm,
 } from "./trackMetadataForm";
 
 function track(partial: Partial<Track> & Pick<Track, "id">): Track {
@@ -302,5 +304,33 @@ describe("buildLyricsOnlyMetadataUpdate", () => {
         plainText: "Fetched line",
       },
     });
+  });
+});
+
+describe("tracksToForm lyrics instrumental", () => {
+  it("marks instrumental when every track is instrumental", () => {
+    const form = tracksToForm([
+      track({ id: 1, lyricsFormat: "instrumental" }),
+      track({ id: 2, lyricsFormat: "instrumental" }),
+    ]);
+    expect(form.lyricsInstrumental).toBe(true);
+  });
+
+  it("leaves instrumental off when any track is not", () => {
+    const tracks = [
+      track({ id: 1, lyricsFormat: "instrumental" }),
+      track({ id: 2, lyricsFormat: "plain" }),
+    ];
+    expect(tracksToForm(tracks).lyricsInstrumental).toBe(false);
+    expect(isLyricsInstrumentalMixed(tracks)).toBe(true);
+  });
+
+  it("leaves instrumental off when none are instrumental", () => {
+    const tracks = [
+      track({ id: 1, lyricsFormat: "plain" }),
+      track({ id: 2 }),
+    ];
+    expect(tracksToForm(tracks).lyricsInstrumental).toBe(false);
+    expect(isLyricsInstrumentalMixed(tracks)).toBe(false);
   });
 });
