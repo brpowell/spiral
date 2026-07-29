@@ -29,7 +29,8 @@
 
 .album-art--hero {
   border-radius: var(--radius-md);
-  box-shadow: 0 12px 40px color-mix(in srgb, var(--color-bg) 50%, transparent);
+  /* Match browse-card resting shadow — bg-tinted shadows vanish on the surface */
+  box-shadow: 0 2px 5px rgb(0 0 0 / 0.32);
 }
 
 .album-art--round {

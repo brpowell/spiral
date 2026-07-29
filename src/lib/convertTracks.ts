@@ -9,6 +9,11 @@ import {
 import { isTrackConvertible } from "./pendingImportTrack";
 import { showPlaybackFileMissingToast } from "./playbackToast";
 import { yieldForInteraction } from "./scheduling";
+import {
+  blockIfTrialCannotFit,
+  isTrialLibraryCapError,
+  notifyTrialLibraryCap,
+} from "./trialGate";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useConvertStore } from "../store/useConvertStore";
 import { usePlayerStore } from "../store/usePlayerStore";
@@ -99,6 +104,8 @@ export function startConvertTracks(options: {
 }): void {
   const { trackIds, profileId, mode } = options;
   if (trackIds.length === 0) return;
+
+  if (mode === "add_new" && blockIfTrialCannotFit(trackIds.length)) return;
 
   const operationId = createOperationId();
   const profileLabel = getEncodingProfile(profileId)?.label ?? profileId;
@@ -197,6 +204,11 @@ export function startConvertTracks(options: {
       });
 
       if (failed > 0) {
+        if (errors.some(isTrialLibraryCapError)) {
+          notifyTrialLibraryCap();
+          ctx.dismissSilently();
+          return;
+        }
         const detail = formatFailureDetail(errors);
         ctx.setDetail(detail);
         notifyConvertFailure(summary, detail || errors[0] || "Convert failed");

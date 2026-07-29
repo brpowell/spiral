@@ -136,6 +136,7 @@ function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
                   Edit Playlist
                 </Button>
                 <MenuButton
+                  triggerPlacement="below-start"
                   ariaLabel="Playlist actions"
                   layoutDeps={[tracks.length]}
                   size="sm"

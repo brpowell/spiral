@@ -98,8 +98,9 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
   const openFromTrigger = useCallback(
     (el: HTMLElement, openOptions?: OpenContextMenuOptions) => {
       const rect = el.getBoundingClientRect();
+      const align = triggerPlacement === "below-start" ? "start" : "end";
       const x = triggerPlacement === "below-start" ? rect.left : rect.right;
-      openAt(x, rect.bottom + TRIGGER_MENU_GAP, undefined, openOptions);
+      openAt(x, rect.bottom + TRIGGER_MENU_GAP, { align }, openOptions);
     },
     [openAt, triggerPlacement],
   );

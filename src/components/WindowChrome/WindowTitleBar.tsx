@@ -158,6 +158,10 @@ export function WindowTitleBar({
           label="Preferences"
           onClick={run(handlers.openPreferences)}
         />
+        <ContextMenuItem
+          label="Spiral Card…"
+          onClick={run(handlers.openSpiralCard)}
+        />
         <ContextMenuSeparator />
         <ContextMenuItem label="Exit" onClick={run(handlers.quit)} />
       </>

@@ -103,6 +103,12 @@ const CLEAR_HISTORY_RANGES: { withinHours: number | null; label: string }[] = [
 export function PreferencesModal() {
   const open = useLibrarySettingsStore((s) => s.preferencesOpen);
   const setOpen = useLibrarySettingsStore((s) => s.setPreferencesOpen);
+  const preferencesFocusSection = useLibrarySettingsStore(
+    (s) => s.preferencesFocusSection,
+  );
+  const consumePreferencesFocusSection = useLibrarySettingsStore(
+    (s) => s.consumePreferencesFocusSection,
+  );
   const settings = useLibrarySettingsStore((s) => s.settings);
   const saveLibrarySettings = useLibrarySettingsStore((s) => s.saveLibrarySettings);
   const applyLibrarySettings = useLibrarySettingsStore((s) => s.applyLibrarySettings);
@@ -127,6 +133,12 @@ export function PreferencesModal() {
 
   const [activeSection, setActiveSection] =
     useState<PreferencesSectionId>("library");
+
+  useEffect(() => {
+    if (!open || preferencesFocusSection == null) return;
+    setActiveSection(preferencesFocusSection);
+    consumePreferencesFocusSection();
+  }, [open, preferencesFocusSection, consumePreferencesFocusSection]);
   const [libraryRoot, setLibraryRoot] = useState("");
   const [organizePathFormat, setOrganizePathFormat] = useState("");
   const [previewSample, setPreviewSample] = useState<OrganizePathSample>(
@@ -969,7 +981,7 @@ export function PreferencesModal() {
           </p>
         ) : (
           <p>
-            Alternatively, start a new empty library here.
+            Or start a new empty library here.
           </p>
         )}
       </LibraryRelocateDialog>

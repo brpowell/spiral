@@ -175,6 +175,7 @@ export function AlbumDetailView({
                   ariaLabel="Album actions"
                   layoutDeps={[album.tracks.length]}
                   size="sm"
+                  triggerPlacement="below-start"
                   variant="secondary"
                 >
                   {(close) => (

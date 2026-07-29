@@ -25,6 +25,11 @@ import {
   cleanupCdImportTemp,
   ripCdTrack,
 } from "./tauri";
+import {
+  blockIfTrialLibraryAtCap,
+  isTrialLibraryCapError,
+  notifyTrialLibraryCap,
+} from "./trialGate";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useCdImportStore } from "../store/useCdImportStore";
 import {
@@ -83,6 +88,8 @@ export function startCdImport(options: {
 }): void {
   const { driveId, disc, year = null, checkedTrackNumbers } = options;
   if (checkedTrackNumbers.length === 0) return;
+
+  if (blockIfTrialLibraryAtCap()) return;
 
   usePlayerStore.getState().stopCdPlaybackForDrive(driveId);
   usePlayerStore.setState({ importError: null });
@@ -312,11 +319,20 @@ export function startCdImport(options: {
         }
 
         if (result.failed > 0) {
-          usePlayerStore.setState({
-            importError: `${summary}; failed ${result.failed}. ${result.errors[0] ?? ""}`,
-          });
-          if (result.imported === 0 && result.replaced === 0) {
-            throw new Error(result.errors[0] ?? "Import failed");
+          const trialCapHit = result.errors.some(isTrialLibraryCapError);
+          if (trialCapHit) {
+            notifyTrialLibraryCap();
+            if (result.imported === 0 && result.replaced === 0) {
+              ctx.dismissSilently();
+              return;
+            }
+          } else {
+            usePlayerStore.setState({
+              importError: `${summary}; failed ${result.failed}. ${result.errors[0] ?? ""}`,
+            });
+            if (result.imported === 0 && result.replaced === 0) {
+              throw new Error(result.errors[0] ?? "Import failed");
+            }
           }
         }
       } catch (err) {

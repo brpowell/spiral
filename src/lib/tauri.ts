@@ -18,6 +18,7 @@ import type { LoadedVisualizer, VizSummary } from "../types/visualizer";
 import type { CoverArtCandidate } from "../types/coverArt";
 import type { Playlist } from "../types/playlist";
 import type { PlaybackSettings } from "../types/playbackSettings";
+import type { LicenseCosmetic, LicenseSnapshot } from "../types/license";
 import type { Track, TrackInput } from "../types/track";
 import type {
   LyricsFetchOutcome,
@@ -915,6 +916,61 @@ export async function saveLibrarySettings(
 ): Promise<LibrarySettings> {
   return invoke<LibrarySettings>("save_library_settings", { library: patch });
 }
+
+export async function getLicenseState(): Promise<LicenseSnapshot> {
+  return invoke<LicenseSnapshot>("get_license_state");
+}
+
+/** Absolute path to the installed `registration.spcard`, if present. */
+export async function getRegistrationSpcardPath(): Promise<string> {
+  return invoke<string>("get_registration_spcard_path");
+}
+
+export async function pickSpcardFile(): Promise<string | null> {
+  return invoke<string | null>("pick_spcard_file");
+}
+
+export async function pickCardWrapFile(): Promise<string | null> {
+  return invoke<string | null>("pick_card_wrap_file");
+}
+
+export async function installRegistrationCard(
+  path: string,
+): Promise<LicenseSnapshot> {
+  return invoke<LicenseSnapshot>("install_registration_card", { path });
+}
+
+/** Copy the installed card to a user-chosen path. Cancel → `null`. */
+export async function exportRegistrationCard(): Promise<string | null> {
+  return invoke<string | null>("export_registration_card");
+}
+
+export async function finalizeRegistration(): Promise<LicenseSnapshot> {
+  return invoke<LicenseSnapshot>("finalize_registration");
+}
+
+export async function updateRegistrationCosmetic(
+  cosmetic: LicenseCosmetic,
+): Promise<LicenseSnapshot> {
+  return invoke<LicenseSnapshot>("update_registration_cosmetic", { cosmetic });
+}
+
+export async function setRegistrationWrapFromFile(
+  path: string,
+): Promise<LicenseSnapshot> {
+  return invoke<LicenseSnapshot>("set_registration_wrap_from_file", { path });
+}
+
+export async function clearRegistrationWrap(): Promise<LicenseSnapshot> {
+  return invoke<LicenseSnapshot>("clear_registration_wrap");
+}
+
+export async function takePendingSpcardOpens(): Promise<string[]> {
+  return invoke<string[]>("take_pending_spcard_opens");
+}
+
+/** OS file-association opens of `.spcard` (payload: string[] paths). */
+export const SPCARD_OPENED_EVENT = "spiral:spcard-opened";
 
 export async function prepareImportFile(
   sourcePath: string,

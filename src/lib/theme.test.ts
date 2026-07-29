@@ -83,6 +83,8 @@ describe("resolveActiveThemeId", () => {
 describe("mergeThemeTokens / applyTheme role tokens", () => {
   afterEach(() => {
     document.documentElement.style.cssText = "";
+    document.documentElement.classList.remove("theme-transition");
+    document.getElementById("spiral-theme-transition")?.remove();
   });
 
   it("fills color-accent-text and role tokens from Obsidian defaults", () => {
@@ -104,7 +106,7 @@ describe("mergeThemeTokens / applyTheme role tokens", () => {
 
   it("applyTheme writes merged role tokens (derived aliases stay in CSS)", () => {
     const theme = makeTheme("core.test", "Test");
-    applyTheme(theme, { transition: false });
+    applyTheme(theme);
     const root = document.documentElement;
     const tokens = resolveThemeTokens(theme);
     expect(root.style.getPropertyValue("--color-accent-text")).toBe(
@@ -115,6 +117,18 @@ describe("mergeThemeTokens / applyTheme role tokens", () => {
     );
     expect(root.style.getPropertyValue("--radius-input")).toBe(
       tokens["radius-input"],
+    );
+  });
+
+  it("applyTheme with transition toggles theme-transition on html", () => {
+    const theme = makeTheme("core.test", "Test");
+    applyTheme(theme, { transition: true });
+    expect(document.documentElement.classList.contains("theme-transition")).toBe(
+      true,
+    );
+    applyTheme(theme, { transition: false });
+    expect(document.documentElement.classList.contains("theme-transition")).toBe(
+      false,
     );
   });
 });

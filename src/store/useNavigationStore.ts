@@ -83,7 +83,12 @@ export const useNavigationStore = create<NavigationState>((set) => ({
     })),
 
   closeAlbum: () =>
-    set((state) => stateAfterCloseAlbum(state.albumReturnContext)),
+    set((state) => ({
+      ...stateAfterCloseAlbum(state.albumReturnContext),
+      // Consume this hop so Artist→Album→Artist cannot re-enter via a stale
+      // albumReturnContext that still points at the artist.
+      albumReturnContext: null,
+    })),
 
   openArtist: (artistKey) =>
     set((state) => ({
@@ -95,7 +100,12 @@ export const useNavigationStore = create<NavigationState>((set) => ({
     })),
 
   closeArtist: () =>
-    set((state) => stateAfterCloseArtist(state.artistReturnContext)),
+    set((state) => ({
+      ...stateAfterCloseArtist(state.artistReturnContext),
+      // Consume this hop so Album→Artist→Album cannot re-enter via a stale
+      // artistReturnContext that still points at the album.
+      artistReturnContext: null,
+    })),
 
   openPlaylist: (playlistId) =>
     set((state) => ({

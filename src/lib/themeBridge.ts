@@ -33,10 +33,18 @@ export function getLiveThemePreview(): Theme | null {
 function adoptLivePreview(theme: Theme): void {
   pendingPreview = null;
   livePreview = theme;
-  applyTheme(theme, { transition: false });
+  applyTheme(theme);
 }
 
+/** Set in the emitting window so its own theme://changed listener skips IPC reload. */
+let skipNextLocalReloadForThemeId: string | null = null;
+
 async function applyThemeChange(themeId: string): Promise<void> {
+  const skipLocalReload = skipNextLocalReloadForThemeId === themeId;
+  if (skipLocalReload) {
+    skipNextLocalReloadForThemeId = null;
+  }
+
   // Adopt the id immediately so interleaved theme://preview events are not
   // rejected while loadThemes() is still in flight.
   useThemeStore.setState({ activeThemeId: themeId });
@@ -51,7 +59,13 @@ async function applyThemeChange(themeId: string): Promise<void> {
     pendingPreview = null;
   }
 
-  await useThemeStore.getState().loadThemes();
+  // Originating window already applied / reloaded before emit — other windows
+  // still run loadThemes() (their skip flag is unset).
+  if (skipLocalReload) {
+    return;
+  }
+
+  await useThemeStore.getState().loadThemes({ transition: true });
 }
 
 function shouldListenForThemeChanges(role: WindowRole): boolean {
@@ -120,7 +134,13 @@ export async function initThemeBridge(role: WindowRole): Promise<() => void> {
   };
 }
 
-export function emitThemeChanged(themeId: string): void {
+export function emitThemeChanged(
+  themeId: string,
+  options?: { skipLocalReload?: boolean },
+): void {
+  if (options?.skipLocalReload) {
+    skipNextLocalReloadForThemeId = themeId;
+  }
   void emit(THEME_CHANGED_EVENT, { themeId } satisfies ThemeChangedPayload);
 }
 

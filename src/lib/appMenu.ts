@@ -14,6 +14,7 @@ export interface AppMenuHandlers {
   fetchMissingLyrics: () => void;
   newPlaylist: () => void;
   openPreferences: () => void;
+  openSpiralCard: () => void;
   openSkinMode: () => void;
   openAppearance: () => void;
   openEqualizer: () => void;
@@ -66,11 +67,17 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
     accelerator: "CmdOrCtrl+,",
     action: handlers.openPreferences,
   });
+  const spiralCard = await MenuItem.new({
+    id: "spiral-card",
+    text: "Spiral Card…",
+    action: handlers.openSpiralCard,
+  });
   const quit = await PredefinedMenuItem.new({ item: "Quit" });
+  const spiralSeparator = await PredefinedMenuItem.new({ item: "Separator" });
 
   const spiralSubmenu = await Submenu.new({
     text: "Spiral",
-    items: [preferences, quit],
+    items: [preferences, spiralCard, spiralSeparator, quit],
   });
 
   const addToLibrary = await MenuItem.new({

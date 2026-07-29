@@ -19,6 +19,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 name = "read_tags"
 path = "src/bin/read_tags.rs"
 
+[[bin]]
+name = "license_mint"
+path = "src/bin/license_mint.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -41,6 +45,7 @@ sha2 = "0.10"
 sha1 = "0.10"
 hex = "0.4"
 base64 = "0.22"
+ed25519-dalek = "2.1"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 zip = "2"
 mp3-duration = "0.1.10"
@@ -52,6 +57,7 @@ lofty = "0.22"
 symphonia = { version = "0.5", default-features = false, features = ["aac", "alac", "flac", "isomp4", "mp3", "pcm", "ogg", "vorbis"] }
 opus-decoder = "0.1"
 notify = { version = "6.1", features = ["macos_fsevent"] }
+tiny_http = "0.12"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"

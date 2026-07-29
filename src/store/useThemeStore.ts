@@ -26,7 +26,7 @@ interface ThemeState {
   themes: Theme[];
   activeThemeId: string;
   themesLoaded: boolean;
-  loadThemes: () => Promise<void>;
+  loadThemes: (options?: { transition?: boolean }) => Promise<void>;
   initializeFromBootstrap: (
     themes: Theme[],
     activeThemeId: string,
@@ -41,16 +41,20 @@ interface ThemeState {
   deleteTheme: (themeId: string) => Promise<void>;
 }
 
-function applyActiveTheme(themes: Theme[], activeThemeId: string): string {
+function applyActiveTheme(
+  themes: Theme[],
+  activeThemeId: string,
+  options?: { transition?: boolean },
+): string {
   const resolvedId = resolveActiveThemeId(themes, activeThemeId);
   const preview = getLiveThemePreview();
   if (preview && preview.id === resolvedId) {
     // Keep unsaved editor draft visible across window focus / list reloads.
-    applyTheme(preview, { transition: false });
+    applyTheme(preview);
   } else {
     const theme = findThemeById(themes, resolvedId);
     if (theme) {
-      applyTheme(theme);
+      applyTheme(theme, options);
     }
   }
   return resolvedId;
@@ -73,19 +77,23 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     set({ themes, activeThemeId: resolvedId, themesLoaded: true });
   },
 
-  loadThemes: async () => {
+  loadThemes: async (options) => {
     const [builtin, user, storedActiveThemeId] = await Promise.all([
       getBuiltinThemes(),
       loadUserThemes(),
       getActiveThemeId(),
     ]);
     const themes = [...builtin, ...user];
-    const resolvedId = applyActiveTheme(themes, storedActiveThemeId);
+    const resolvedId = applyActiveTheme(
+      themes,
+      storedActiveThemeId,
+      options,
+    );
     set({ themes, activeThemeId: resolvedId, themesLoaded: true });
 
     if (resolvedId !== storedActiveThemeId) {
       await saveActiveThemeId(resolvedId);
-      emitThemeChanged(resolvedId);
+      emitThemeChanged(resolvedId, { skipLocalReload: true });
     }
   },
 
@@ -99,10 +107,10 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
       throw new Error(formatThemeValidationError(issues));
     }
 
-    applyTheme(theme);
+    applyTheme(theme, { transition: true });
     set({ activeThemeId: theme.id });
     await saveActiveThemeId(theme.id);
-    emitThemeChanged(theme.id);
+    emitThemeChanged(theme.id, { skipLocalReload: true });
   },
 
   createTheme: async (args) => {
@@ -123,13 +131,13 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
       applyTheme(saved);
     }
     set({ themes: nextThemes });
-    emitThemeChanged(saved.id);
+    emitThemeChanged(saved.id, { skipLocalReload: true });
     return saved;
   },
 
   deleteTheme: async (themeId) => {
     await deleteWorkshopTheme(themeId);
     await get().loadThemes();
-    emitThemeChanged(get().activeThemeId);
+    emitThemeChanged(get().activeThemeId, { skipLocalReload: true });
   },
 }));

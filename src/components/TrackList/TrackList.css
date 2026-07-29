@@ -161,7 +161,8 @@
   white-space: nowrap;
 }
 
-.track-list__cell:has([data-track-list-cell-control]:focus-visible) {
+.track-list__cell:has([data-track-list-cell-control]:focus-visible),
+.track-list__cell:has(.track-list__checkbox:focus) {
   position: relative;
   overflow: visible;
   z-index: 3;
@@ -312,7 +313,8 @@
 }
 
 .track-list__row:focus,
-.track-list__row:has([data-track-list-cell-control]:focus-visible) {
+.track-list__row:has([data-track-list-cell-control]:focus-visible),
+.track-list__row:has(.track-list__checkbox:focus) {
   outline: none;
   z-index: 2;
 }
@@ -383,7 +385,8 @@
 }
 
 .track-list__body--virtual
-  .track-list__item:has([data-track-list-cell-control]:focus-visible) {
+  .track-list__item:has([data-track-list-cell-control]:focus-visible),
+.track-list__body--virtual .track-list__item:has(.track-list__checkbox:focus) {
   contain: layout style;
   z-index: 2;
 }
@@ -657,6 +660,7 @@
 
 .track-list__cell--check,
 .track-list__header-cell[data-track-list-col="check"] {
+  overflow: visible;
   padding-inline: 0.25rem;
 }
 

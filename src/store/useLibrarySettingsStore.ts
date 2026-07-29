@@ -9,6 +9,7 @@ import type {
   LibrarySettings,
   LibrarySettingsPatch,
 } from "../types/library";
+import type { PreferencesSectionId } from "../components/PreferencesModal/preferencesSections";
 
 type ImportChoice = "copy" | "reference";
 
@@ -21,9 +22,13 @@ interface LibrarySettingsState {
   settings: LibrarySettings | null;
   loaded: boolean;
   preferencesOpen: boolean;
+  /** When set, Preferences opens on this section then clears the focus. */
+  preferencesFocusSection: PreferencesSectionId | null;
   importPrompt: ImportPromptRequest | null;
   loadSettings: () => Promise<LibrarySettings>;
   setPreferencesOpen: (open: boolean) => void;
+  openPreferences: (section?: PreferencesSectionId) => void;
+  consumePreferencesFocusSection: () => PreferencesSectionId | null;
   saveLibrarySettings: (patch: LibrarySettingsPatch) => Promise<LibrarySettings>;
   applyLibrarySettings: (settings: LibrarySettings) => void;
   resolveImportMode: () => Promise<ImportChoice>;
@@ -36,6 +41,7 @@ export const useLibrarySettingsStore = create<LibrarySettingsState>(
     settings: null,
     loaded: false,
     preferencesOpen: false,
+    preferencesFocusSection: null,
     importPrompt: null,
 
     loadSettings: async () => {
@@ -44,7 +50,26 @@ export const useLibrarySettingsStore = create<LibrarySettingsState>(
       return settings;
     },
 
-    setPreferencesOpen: (open) => set({ preferencesOpen: open }),
+    setPreferencesOpen: (open) =>
+      set(
+        open
+          ? { preferencesOpen: true }
+          : { preferencesOpen: false, preferencesFocusSection: null },
+      ),
+
+    openPreferences: (section) =>
+      set({
+        preferencesOpen: true,
+        preferencesFocusSection: section ?? null,
+      }),
+
+    consumePreferencesFocusSection: () => {
+      const section = get().preferencesFocusSection;
+      if (section) {
+        set({ preferencesFocusSection: null });
+      }
+      return section;
+    },
 
     applyLibrarySettings: (settings) => set({ settings, loaded: true }),
 

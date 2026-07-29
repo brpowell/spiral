@@ -1,8 +1,11 @@
 import { useRef, type ReactNode } from "react";
-import { useContextMenu } from "../../hooks/useContextMenu";
+import {
+  useContextMenu,
+  type ContextMenuTriggerPlacement,
+} from "../../hooks/useContextMenu";
 import { Button, type ButtonSize, type ButtonVariant } from "../common/Button/Button";
 import { ContextMenu } from "../ContextMenu/ContextMenu";
-import { IconMore } from "../icons";
+import { IconChevronDown, IconMore } from "../icons";
 import "./MenuButton.css";
 
 export type MenuButtonChildren =
@@ -13,6 +16,8 @@ export interface MenuButtonProps {
   /** Accessible name for the trigger button */
   ariaLabel: string;
   children: MenuButtonChildren;
+  /** When set, render a text trigger instead of icon-only */
+  label?: string;
   icon?: ReactNode;
   className?: string;
   triggerClassName?: string;
@@ -21,18 +26,26 @@ export interface MenuButtonProps {
   /** Re-run viewport fit when menu content size may change */
   layoutDeps?: unknown[];
   title?: string;
+  /**
+   * Where the menu anchors under the trigger (Radix/shadcn-style).
+   * - `below-end` (default): right edges align
+   * - `below-start`: left edges align
+   */
+  triggerPlacement?: ContextMenuTriggerPlacement;
 }
 
 export function MenuButton({
   ariaLabel,
   children,
-  icon = <IconMore />,
+  label,
+  icon,
   className,
   triggerClassName,
   variant = "secondary",
   size = "sm",
   layoutDeps = [],
   title,
+  triggerPlacement = "below-end",
 }: MenuButtonProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const {
@@ -46,10 +59,12 @@ export function MenuButton({
   } = useContextMenu({
     layoutDeps,
     dismissExcludeRefs: [triggerRef],
+    triggerPlacement,
   });
 
   const menuContent =
     typeof children === "function" ? children(closeMenu) : children;
+  const iconOnly = label == null;
 
   return (
     <div className={["menu-button", className].filter(Boolean).join(" ")}>
@@ -57,7 +72,7 @@ export function MenuButton({
         ref={triggerRef}
         variant={variant}
         size={size}
-        iconOnly
+        iconOnly={iconOnly}
         className={["menu-button__trigger", triggerClassName]
           .filter(Boolean)
           .join(" ")}
@@ -69,7 +84,14 @@ export function MenuButton({
           toggleFromTrigger(triggerRef.current, { keyboard: e.detail === 0 })
         }
       >
-        {icon}
+        {iconOnly ? (
+          (icon ?? <IconMore />)
+        ) : (
+          <>
+            {label}
+            {icon ?? <IconChevronDown />}
+          </>
+        )}
       </Button>
       <ContextMenu
         open={open}

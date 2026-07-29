@@ -336,6 +336,7 @@ describe("navigation stack unwind", () => {
       albumKey: ALBUM_KEY,
       artistKey: null,
       albumReturnContext: { kind: "sidebar", view: "library" },
+      artistReturnContext: null,
     });
 
     store.closeAlbum();
@@ -343,6 +344,7 @@ describe("navigation stack unwind", () => {
       albumKey: null,
       artistKey: null,
       view: "library",
+      albumReturnContext: null,
     });
   });
 
@@ -368,12 +370,15 @@ describe("navigation stack unwind", () => {
     expect(useNavigationStore.getState()).toMatchObject({
       albumKey: null,
       artistKey: "rage",
+      albumReturnContext: null,
+      artistReturnContext: { kind: "sidebar", view: "artists" },
     });
 
     store.closeArtist();
     expect(useNavigationStore.getState()).toMatchObject({
       artistKey: null,
       view: "artists",
+      artistReturnContext: null,
     });
   });
 
@@ -409,12 +414,57 @@ describe("navigation stack unwind", () => {
     expect(useNavigationStore.getState()).toMatchObject({
       albumKey: ALBUM_KEY,
       artistKey: null,
+      artistReturnContext: null,
     });
 
     store.closeAlbum();
     expect(useNavigationStore.getState()).toMatchObject({
       albumKey: null,
       playlistId: 7,
+      albumReturnContext: null,
+    });
+  });
+
+  it("does not loop Artists → Artist → Album → Artist → back…", () => {
+    const store = useNavigationStore.getState();
+    store.setView("artists");
+
+    store.openArtist("rage");
+    store.openAlbum(ALBUM_KEY);
+    // Re-open the same artist from the album (e.g. track artist link).
+    // This overwrites artistReturnContext to the album.
+    store.openArtist("rage");
+    expect(useNavigationStore.getState()).toMatchObject({
+      artistKey: "rage",
+      albumKey: null,
+      artistReturnContext: {
+        kind: "album",
+        albumKey: ALBUM_KEY,
+      },
+      albumReturnContext: { kind: "artist", artistKey: "rage" },
+    });
+
+    store.closeArtist();
+    expect(useNavigationStore.getState()).toMatchObject({
+      albumKey: ALBUM_KEY,
+      artistKey: null,
+      artistReturnContext: null,
+      albumReturnContext: { kind: "artist", artistKey: "rage" },
+    });
+
+    store.closeAlbum();
+    expect(useNavigationStore.getState()).toMatchObject({
+      albumKey: null,
+      artistKey: "rage",
+      albumReturnContext: null,
+      artistReturnContext: null,
+    });
+
+    store.closeArtist();
+    expect(useNavigationStore.getState()).toMatchObject({
+      artistKey: null,
+      albumKey: null,
+      view: "artists",
     });
   });
 });

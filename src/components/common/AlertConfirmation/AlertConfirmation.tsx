@@ -48,6 +48,7 @@ export function AlertConfirmation({
       onClose();
     } catch (err) {
       console.error("AlertConfirmation confirm failed:", err);
+    } finally {
       confirmingRef.current = false;
     }
   }, [onClose, onConfirm]);

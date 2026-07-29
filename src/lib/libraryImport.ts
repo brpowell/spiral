@@ -24,6 +24,11 @@ import {
   scanFolder,
   scanZipImport,
 } from "./tauri";
+import {
+  blockIfTrialLibraryAtCap,
+  isTrialLibraryCapError,
+  notifyTrialLibraryCap,
+} from "./trialGate";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import {
   isImportCancelledError,
@@ -77,6 +82,8 @@ async function resolveImportPaths(
 export async function pickAndImportLibraryPaths(): Promise<void> {
   usePlayerStore.setState({ importError: null });
 
+  if (blockIfTrialLibraryAtCap()) return;
+
   try {
     const paths = await pickLibraryPaths();
     if (paths.length === 0) return;
@@ -90,6 +97,8 @@ export async function pickAndImportLibraryPaths(): Promise<void> {
 export function startLibraryImport(paths: string[]): void {
   const pathsToImport = filterPathsForLibraryImport(paths);
   if (pathsToImport.length === 0) return;
+
+  if (blockIfTrialLibraryAtCap()) return;
 
   usePlayerStore.setState({ importError: null });
   resetImportActivationQueue();
@@ -265,11 +274,21 @@ export function startLibraryImport(paths: string[]): void {
         outcomeLogged = true;
 
         if (result.failed > 0) {
-          usePlayerStore.setState({
-            importError: `${summary}; failed ${result.failed}. ${result.errors[0] ?? ""}`,
-          });
-          if (result.imported === 0 && result.replaced === 0) {
-            throw new Error(result.errors[0] ?? "Import failed");
+          const trialCapHit = result.errors.some(isTrialLibraryCapError);
+          if (trialCapHit) {
+            // Expected product limit — Spiral Card modal only (no banner/toast).
+            notifyTrialLibraryCap();
+            if (result.imported === 0 && result.replaced === 0) {
+              ctx.dismissSilently();
+              return;
+            }
+          } else {
+            usePlayerStore.setState({
+              importError: `${summary}; failed ${result.failed}. ${result.errors[0] ?? ""}`,
+            });
+            if (result.imported === 0 && result.replaced === 0) {
+              throw new Error(result.errors[0] ?? "Import failed");
+            }
           }
         }
       } catch (err) {

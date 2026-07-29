@@ -57,6 +57,10 @@ const ACTIVITY_LOG_DOMAIN_DEFS = {
   lyricsFetch: { value: "lyrics.fetch", label: "Lyrics" },
   skinLoad: { value: "skin.load", label: "Skin load" },
   visualizerLoad: { value: "visualizer.load", label: "Visualizer load" },
+  licenseRegistration: {
+    value: "license.registration",
+    label: "Registration",
+  },
 } as const;
 
 export const ACTIVITY_LOG_DOMAINS = {
@@ -68,6 +72,7 @@ export const ACTIVITY_LOG_DOMAINS = {
   lyricsFetch: ACTIVITY_LOG_DOMAIN_DEFS.lyricsFetch.value,
   skinLoad: ACTIVITY_LOG_DOMAIN_DEFS.skinLoad.value,
   visualizerLoad: ACTIVITY_LOG_DOMAIN_DEFS.visualizerLoad.value,
+  licenseRegistration: ACTIVITY_LOG_DOMAIN_DEFS.licenseRegistration.value,
 } as const;
 
 export const ACTIVITY_LOG_DOMAIN_OPTIONS: ReadonlyArray<{

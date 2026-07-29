@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { BackgroundTasksIndicator } from "./components/BackgroundTasks/BackgroundTasksIndicator";
 import { ImportDropZone } from "./components/ImportDropZone/ImportDropZone";
 import { PlayerDock } from "./components/PlayerDock/PlayerDock";
@@ -18,6 +19,8 @@ import { CdMetadataPicker } from "./components/CdMetadataPicker/CdMetadataPicker
 import { CdMusicBrainzFetchModal } from "./components/CdMusicBrainzFetchModal/CdMusicBrainzFetchModal";
 import { PlaylistEditorModal } from "./components/PlaylistEditorModal/PlaylistEditorModal";
 import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal";
+import { SpiralCardModal } from "./components/SpiralCardModal/SpiralCardModal";
+import { ReplaceSpiralCardDialog } from "./components/SpiralCardModal/ReplaceSpiralCardDialog";
 import { CrashReportModal } from "./components/ActivityLogs/CrashReportModal";
 import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
 import { useStartupCrashReport } from "./hooks/useStartupCrashReport";
@@ -32,6 +35,8 @@ import { openAppearanceWindow } from "./lib/appearanceWindow";
 import { openEqualizerWindow } from "./lib/equalizerWindow";
 import { reloadLinkedPacksWithRefresh } from "./lib/packs/refreshPackStores";
 import { usesCustomWindowChrome } from "./lib/windowChrome";
+import { SPCARD_OPENED_EVENT, takePendingSpcardOpens } from "./lib/tauri";
+import { requestSpcardInstall } from "./lib/spcardInstall";
 import { useAudioWakeRecovery } from "./hooks/useAudioWakeRecovery";
 import { useHiddenPlaybackKeepAlive } from "./hooks/useHiddenPlaybackKeepAlive";
 import { useCdMonitor } from "./hooks/useCdMonitor";
@@ -41,6 +46,7 @@ import { usePlaybackSessionPersistence } from "./hooks/usePlaybackSessionPersist
 import { useMediaSessionSync } from "./hooks/useMediaSessionSync";
 import { useVisualizerDataProvider } from "./hooks/useVisualizerDataProvider";
 import { useLibrarySettingsStore } from "./store/useLibrarySettingsStore";
+import { useLicenseStore } from "./store/useLicenseStore";
 import { usePlayerStore } from "./store/usePlayerStore";
 import "./App.css";
 
@@ -54,6 +60,8 @@ function App() {
   const addToLibrary = usePlayerStore((s) => s.addToLibrary);
   const loadSettings = useLibrarySettingsStore((s) => s.loadSettings);
   const setPreferencesOpen = useLibrarySettingsStore((s) => s.setPreferencesOpen);
+  const loadLicense = useLicenseStore((s) => s.loadLicense);
+  const openSpiralCard = useLicenseStore((s) => s.openSpiralCard);
   const importError = usePlayerStore((s) => s.importError);
   const clearImportError = usePlayerStore((s) => s.clearImportError);
   const { open: crashModalOpen, report: crashReport, crashReportId, dismiss: dismissCrashReport } =
@@ -79,6 +87,7 @@ function App() {
     },
     newPlaylist: () => openPlaylistEditor("new"),
     openPreferences: () => setPreferencesOpen(true),
+    openSpiralCard: () => openSpiralCard(),
     openSkinMode: () => {
       void openSkinMode();
     },
@@ -102,15 +111,48 @@ function App() {
   useEffect(() => {
     void loadSettings();
     void loadTrackListPreferences();
+    void loadLicense().then(async () => {
+      const paths = await takePendingSpcardOpens();
+      for (const path of paths) {
+        await requestSpcardInstall(path);
+      }
+      if (!useLicenseStore.getState().pendingReplacePath) {
+        useLicenseStore.getState().maybeOpenReadyToFinalizePrompt();
+      }
+    });
     loadLibrary();
     void loadPlaylists();
     void loadArtistImages();
-  }, [loadLibrary, loadSettings, loadPlaylists, loadArtistImages]);
+  }, [
+    loadLibrary,
+    loadSettings,
+    loadLicense,
+    loadPlaylists,
+    loadArtistImages,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void listen<string[]>(SPCARD_OPENED_EVENT, (event) => {
+      const paths = event.payload ?? [];
+      for (const path of paths) {
+        void requestSpcardInstall(path);
+      }
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
 
   useEffect(() => {
     if (showCustomWindowChrome) return;
     void setupAppMenu(menuHandlers);
-  }, [addToLibrary, openPlaylistEditor, setPreferencesOpen]);
+  }, [addToLibrary, openPlaylistEditor, setPreferencesOpen, openSpiralCard]);
 
   // Native setAsAppMenu accelerators don't apply under custom chrome.
   useEffect(() => {
@@ -181,6 +223,8 @@ function App() {
       <PlaylistEditorModal />
       <ImportDropZone />
       <PreferencesModal />
+      <SpiralCardModal />
+      <ReplaceSpiralCardDialog />
       <ImportChoiceModal />
       <ImportDedupeModal />
       <ConvertConfirmModal />

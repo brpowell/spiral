@@ -158,9 +158,14 @@ fn fill_missing_audio_properties(track: &mut TrackInput) {
 }
 
 #[tauri::command]
-pub fn save_track(state: State<DbState>, mut track: TrackInput) -> Result<Track, String> {
+pub fn save_track(
+    app: AppHandle,
+    state: State<DbState>,
+    mut track: TrackInput,
+) -> Result<Track, String> {
     fill_missing_audio_properties(&mut track);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
+    crate::license::assert_can_add_library_track(&app, &conn, &track.file_path)?;
     let id = db::save_track(&conn, &track).map_err(|e| {
         eprintln!("save_track error: {e}");
         e.to_string()
@@ -632,6 +637,7 @@ fn convert_track_impl(
     if mode == "add_new" {
         let input = track_to_input(&existing, new_path);
         let conn = state.0.lock().map_err(|e| e.to_string())?;
+        crate::license::assert_can_add_library_track(app, &conn, &input.file_path)?;
         let id = db::save_track(&conn, &input).map_err(|e| {
             eprintln!("convert_track save_track error: {e}");
             e.to_string()

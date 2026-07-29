@@ -127,6 +127,20 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["spcard"],
+        "name": "Spiral Card",
+        "description": "Spiral registration card",
+        "mimeType": "application/vnd.spiral.spcard+json",
+        "role": "Editor",
+        "rank": "Owner",
+        "exportedType": {
+          "identifier": "com.spiralpowered.music.spcard",
+          "conformsTo": ["public.json", "public.data"]
+        }
+      }
     ]
   }
 }

@@ -13,6 +13,13 @@
 
 .album-card__art-wrap {
   border-radius: var(--radius-md);
+  /* Black shadow — --color-bg matches the browse surface, so bg-tinted shadows vanish */
+  box-shadow: 0 2px 5px rgb(0 0 0 / 0.32);
+  transition: box-shadow 0.25s ease;
+}
+
+.album-card__art-wrap:hover {
+  box-shadow: 0 8px 16px rgb(0 0 0 / 0.42);
 }
 
 .album-card__title {

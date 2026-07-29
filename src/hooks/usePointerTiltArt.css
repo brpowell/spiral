@@ -2,8 +2,9 @@
   --glare-x: 42%;
   --glare-y: 28%;
   position: relative;
-  overflow: hidden;
+  /* Keep overflow visible so resting / lift box-shadows aren't clipped */
   transform-style: preserve-3d;
+  isolation: isolate;
 }
 
 .pointer-tilt-art::after {

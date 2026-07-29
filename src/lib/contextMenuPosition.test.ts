@@ -25,4 +25,32 @@ describe("fitContextMenuPosition", () => {
     expect(position.top).toBe(inputTop - menuGap - menuHeight);
     expect(position.top + menuHeight).toBeLessThanOrEqual(inputTop - menuGap);
   });
+
+  it("align=end places the menu's right edge at the anchor X", () => {
+    vi.stubGlobal("window", {
+      innerWidth: 800,
+      innerHeight: 600,
+    });
+
+    const position = fitContextMenuPosition(400, 100, 200, 120, {
+      align: "end",
+    });
+
+    expect(position.left).toBe(200);
+    expect(position.top).toBe(100);
+  });
+
+  it("align=start places the menu's left edge at the anchor X", () => {
+    vi.stubGlobal("window", {
+      innerWidth: 800,
+      innerHeight: 600,
+    });
+
+    const position = fitContextMenuPosition(100, 80, 200, 120, {
+      align: "start",
+    });
+
+    expect(position.left).toBe(100);
+    expect(position.top).toBe(80);
+  });
 });

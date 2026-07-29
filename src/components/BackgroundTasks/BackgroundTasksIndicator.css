@@ -108,9 +108,10 @@
   font-size: 0.72rem;
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .background-tasks__dismiss {

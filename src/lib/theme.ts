@@ -36,6 +36,56 @@ export const OBSIDIAN_DEFAULT_TOKENS: ThemeTokens = {
   "font-ui": "'Inter', system-ui, -apple-system, sans-serif",
 };
 
+/** Color tokens that interpolate via `CSS.registerProperty`. */
+const THEME_COLOR_TOKEN_KEYS = Object.keys(OBSIDIAN_DEFAULT_TOKENS).filter((key) =>
+  key.startsWith("color-"),
+);
+
+const THEME_TRANSITION_MS = 200;
+const THEME_TRANSITION_STYLE_ID = "spiral-theme-transition";
+
+let themeColorPropertiesRegistered = false;
+let themeTransitionTimer: ReturnType<typeof setTimeout> | undefined;
+
+function ensureThemeColorPropertiesRegistered(): void {
+  if (themeColorPropertiesRegistered) return;
+  themeColorPropertiesRegistered = true;
+
+  if (typeof CSS === "undefined" || typeof CSS.registerProperty !== "function") {
+    return;
+  }
+
+  for (const key of THEME_COLOR_TOKEN_KEYS) {
+    const initialValue = OBSIDIAN_DEFAULT_TOKENS[key];
+    if (!initialValue) continue;
+    try {
+      CSS.registerProperty({
+        name: `--${key}`,
+        syntax: "<color>",
+        inherits: true,
+        initialValue,
+      });
+    } catch {
+      // Already registered (HMR / second window bootstrap).
+    }
+  }
+}
+
+function ensureThemeTransitionStyle(): void {
+  if (document.getElementById(THEME_TRANSITION_STYLE_ID)) return;
+
+  const transitions = THEME_COLOR_TOKEN_KEYS.map(
+    (key) => `--${key} ${THEME_TRANSITION_MS}ms ease`,
+  ).join(",\n    ");
+
+  const style = document.createElement("style");
+  style.id = THEME_TRANSITION_STYLE_ID;
+  // Transition only registered custom properties on <html> — descendants pick
+  // up interpolated vars without per-element transition thrash.
+  style.textContent = `html.theme-transition {\n  transition:\n    ${transitions};\n}`;
+  document.head.appendChild(style);
+}
+
 export function mergeThemeTokens(partial: ThemeTokens): ThemeTokens {
   return { ...OBSIDIAN_DEFAULT_TOKENS, ...partial };
 }
@@ -48,12 +98,25 @@ export function applyTheme(
   theme: Theme,
   options?: { transition?: boolean },
 ): void {
+  ensureThemeColorPropertiesRegistered();
+  ensureThemeTransitionStyle();
+
   const tokens = resolveThemeTokens(theme);
   const root = document.documentElement;
-  const withTransition = options?.transition !== false;
+  const prefersReducedMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)",
+  ).matches;
+  const withTransition = options?.transition === true && !prefersReducedMotion;
+
+  if (themeTransitionTimer !== undefined) {
+    clearTimeout(themeTransitionTimer);
+    themeTransitionTimer = undefined;
+  }
 
   if (withTransition) {
     root.classList.add("theme-transition");
+  } else {
+    root.classList.remove("theme-transition");
   }
 
   for (const [key, value] of Object.entries(tokens)) {
@@ -63,9 +126,10 @@ export function applyTheme(
   }
 
   if (withTransition) {
-    window.setTimeout(() => {
+    themeTransitionTimer = setTimeout(() => {
       root.classList.remove("theme-transition");
-    }, 250);
+      themeTransitionTimer = undefined;
+    }, THEME_TRANSITION_MS + 50);
   }
 }
 

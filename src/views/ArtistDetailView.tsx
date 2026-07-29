@@ -138,6 +138,7 @@ export function ArtistDetailView({
               Edit Artist
             </Button>
             <MenuButton
+              triggerPlacement="below-start"
               ariaLabel="Artist actions"
               layoutDeps={[artist.tracks.length]}
               size="sm"

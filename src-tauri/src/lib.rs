@@ -21,6 +21,7 @@ mod import_files;
 mod library_organize;
 mod library_paths;
 mod library_relocate;
+pub mod license;
 mod lyrics_fetch;
 mod lyrics_fetch_cache;
 mod lyrics_lrc;
@@ -62,6 +63,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
+        .manage(commands::license::PendingSpcardOpens::default())
         .setup(|app| {
             let db_path =
                 library_paths::ensure_library_for_app(app.handle()).expect("failed to init library");
@@ -107,6 +109,12 @@ pub fn run() {
                         }
                     }
                 }
+            }
+
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                let files = commands::license::spcard_paths_from_args(std::env::args().skip(1));
+                commands::license::handle_opened_spcard_paths(app.handle(), files);
             }
 
             Ok(())
@@ -212,6 +220,17 @@ pub fn run() {
             commands::library_settings::pick_library_folder,
             commands::library_settings::inspect_library_destination,
             commands::library_settings::relocate_library,
+            commands::license::get_license_state,
+            commands::license::get_registration_spcard_path,
+            commands::license::pick_spcard_file,
+            commands::license::pick_card_wrap_file,
+            commands::license::install_registration_card,
+            commands::license::export_registration_card,
+            commands::license::update_registration_cosmetic,
+            commands::license::set_registration_wrap_from_file,
+            commands::license::clear_registration_wrap,
+            commands::license::take_pending_spcard_opens,
+            commands::license::finalize_registration,
             commands::playback_session::get_playback_session,
             commands::playback_session::save_playback_session,
             commands::track_list_preferences::get_track_list_preferences,
@@ -256,6 +275,16 @@ pub fn run() {
             #[cfg(desktop)]
             media_session::update_media_session,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            if let tauri::RunEvent::Opened { urls } = event {
+                let files = urls
+                    .into_iter()
+                    .filter_map(|url| url.to_file_path().ok())
+                    .collect::<Vec<_>>();
+                commands::license::handle_opened_spcard_paths(app, files);
+            }
+        });
 }
