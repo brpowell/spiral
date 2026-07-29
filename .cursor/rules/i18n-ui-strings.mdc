@@ -1,0 +1,34 @@
+---
+description: User-facing UI strings must go through the i18n catalogs and helpers
+alwaysApply: true
+---
+
+# UI strings (i18n)
+
+Spiral stores user-facing copy in locale catalogs and references it by key. Do not hardcode new UI English in components or `src/lib/` once the i18n scaffold exists.
+
+## Setup gate
+
+- If `src/lib/i18n.ts` and `src/locales/en/` are **missing**, implement **Phases 1–2** from [`docs/localization-investigation.md`](docs/localization-investigation.md) before adding substantial new UI copy in a localization-related task. Unrelated features may still ship with inline English until that cutoff lands.
+- If the scaffold **exists**, follow the rules below for all new work.
+
+## Required pattern
+
+- **React components / views:** `useTranslation()` (and `<Trans>` only when copy mixes markup/links).
+- **Non-React modules** (`src/lib/`, stores, menu setup): import `t` / `i18n` from `src/lib/i18n` — never `useTranslation` outside React.
+- **New strings:** add a stable key under `src/locales/en/<namespace>.json`, then call `t('namespace:key', opts)` (or the project’s agreed key shape).
+- **Keys:** descriptive and stable (e.g. `library.empty.tracks`), not the English sentence as the key.
+- **Plurals / interpolation:** use i18n plural forms and interpolation. Do not add new `count === 1 ? "…" : \`…${count}…\`` English branches for user-facing copy.
+- **Touched files:** when editing UI that still has hardcoded copy, extract the strings you change in the same PR (boy scout). Do not require extracting an entire feature.
+
+## Do not
+
+- Dual-maintain an English constant and an i18n key for the same user-facing string — replace the literal with `t()`.
+- Put pack/skin **author** content (manifest tooltips, pack README) into app catalogs.
+- Localize activity-log / developer log messages that are not shown as UI chrome (user-facing toasts still use i18n).
+- Block unrelated features on finishing a full-app string port (Phases 3+ are opportunistic; see the investigation doc).
+
+## References
+
+- Plan and cutoff: [`docs/localization-investigation.md`](docs/localization-investigation.md)
+- Contributing note: [`docs/contributing.md`](docs/contributing.md)
