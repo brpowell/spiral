@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import type { EqualizerBandGains, EqualizerPreset } from "./types";
 import { FLAT_BAND_GAINS } from "./types";
 
@@ -21,55 +22,55 @@ function bands(
 export const BUILTIN_PRESETS: readonly EqualizerPreset[] = [
   {
     id: "flat",
-    name: "Flat",
+    name: t("playback:eq.presets.flat"),
     bands: FLAT_BAND_GAINS,
     builtin: true,
   },
   {
     id: "rock",
-    name: "Rock",
+    name: t("playback:eq.presets.rock"),
     bands: bands(5, 4, -4, -5, -2, 2, 5, 6, 6, 6),
     builtin: true,
   },
   {
     id: "jazz",
-    name: "Jazz",
+    name: t("playback:eq.presets.jazz"),
     bands: bands(4, 3, 1, 2, -2, -2, 0, 1, 3, 4),
     builtin: true,
   },
   {
     id: "classical",
-    name: "Classical",
+    name: t("playback:eq.presets.classical"),
     bands: bands(5, 4, 3, 2, -2, -2, 0, 2, 3, 4),
     builtin: true,
   },
   {
     id: "pop",
-    name: "Pop",
+    name: t("playback:eq.presets.pop"),
     bands: bands(-1, 2, 4, 5, 4, 1, -1, -1, -1, -1),
     builtin: true,
   },
   {
     id: "techno",
-    name: "Techno",
+    name: t("playback:eq.presets.techno"),
     bands: bands(5, 4, 0, -3, -2, 0, 5, 6, 6, 5),
     builtin: true,
   },
   {
     id: "vocal",
-    name: "Vocal",
+    name: t("playback:eq.presets.vocal"),
     bands: bands(-2, -3, -3, 2, 5, 5, 4, 2, 0, -2),
     builtin: true,
   },
   {
     id: "bass",
-    name: "Bass",
+    name: t("playback:eq.presets.bass"),
     bands: bands(7, 6, 5, 3, 1, -2, -4, -5, -5, -5),
     builtin: true,
   },
   {
     id: "treble",
-    name: "Treble",
+    name: t("playback:eq.presets.treble"),
     bands: bands(-5, -5, -5, -2, 1, 3, 5, 6, 7, 7),
     builtin: true,
   },
@@ -94,7 +95,7 @@ export function presetLabel(
   id: string,
   customPresets: readonly EqualizerPreset[],
 ): string {
-  if (id === "manual") return "Manual";
+  if (id === "manual") return t("playback:eq.manual");
   return resolvePreset(id, customPresets)?.name ?? id;
 }
 

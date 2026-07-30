@@ -1,6 +1,7 @@
 import { albumKey, albumImportMetadata, findMatchingLibraryAlbum, groupTracksIntoAlbums } from "./albums";
 import { resolveCdSharedArtPath } from "./cdArt";
 import { isCdImportCancelRequested } from "./cdImportGuard";
+import { t } from "./i18n";
 import {
   commitImportEntries,
   formatImportLyricsDetail,
@@ -380,7 +381,8 @@ function buildImportPlans(
 ): CdImportTrackPlan[] {
   const checked = new Set(checkedTrackNumbers);
   const canonical = existingAlbum ? albumImportMetadata(existingAlbum) : null;
-  const album = canonical?.album ?? (disc.album?.trim() || "Unknown Album");
+  const album =
+    canonical?.album ?? (disc.album?.trim() || t("common:unknownAlbum"));
   const albumArtist = canonical?.albumArtist ?? (disc.artist?.trim() || null);
   const importYear = canonical?.year ?? year;
   const genre = canonical?.genre ?? null;

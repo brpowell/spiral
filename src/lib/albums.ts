@@ -1,13 +1,14 @@
 import type { Album } from "../types/album";
 import type { CdDisc } from "../types/cd";
 import type { Track } from "../types/track";
-
-const UNKNOWN_ALBUM = "Unknown Album";
-const UNKNOWN_ARTIST = "Unknown Artist";
+import { t } from "./i18n";
 
 export function albumKey(track: Track): string {
-  const album = track.album?.trim() || UNKNOWN_ALBUM;
-  const albumArtist = track.albumArtist?.trim() || track.artist?.trim() || UNKNOWN_ARTIST;
+  const album = track.album?.trim() || t("common:unknownAlbum");
+  const albumArtist =
+    track.albumArtist?.trim() ||
+    track.artist?.trim() ||
+    t("common:unknownArtist");
   return `${album}\0${albumArtist}`;
 }
 
@@ -35,7 +36,7 @@ function displayArtist(tracks: Track[]): string {
   if (albumArtist) return albumArtist;
 
   const artist = tracks.find((t) => t.artist?.trim())?.artist?.trim();
-  return artist ?? UNKNOWN_ARTIST;
+  return artist ?? t("common:unknownArtist");
 }
 
 export function groupTracksIntoAlbums(tracks: Track[]): Album[] {
@@ -52,7 +53,7 @@ export function groupTracksIntoAlbums(tracks: Track[]): Album[] {
 
   for (const [key, albumTracks] of groups) {
     const sorted = [...albumTracks].sort(compareTracks);
-    const title = sorted[0]?.album?.trim() || UNKNOWN_ALBUM;
+    const title = sorted[0]?.album?.trim() || t("common:unknownAlbum");
     const year =
       sorted.find((t) => t.year != null)?.year ??
       sorted.reduce<number | null>((best, t) => {
@@ -145,7 +146,7 @@ function syntheticDiscTrack(disc: CdDisc): Track {
 
 function albumArtistsMatch(album: Album, discArtist: string | null): boolean {
   if (discArtist == null) {
-    return album.artist === UNKNOWN_ARTIST;
+    return album.artist === t("common:unknownArtist");
   }
   return titlesEqual(album.artist, discArtist);
 }
@@ -174,7 +175,7 @@ export function findMatchingLibraryAlbum(
   const exact = albums.find((album) => album.key === key);
   if (exact) return exact;
 
-  const discAlbum = disc.album?.trim() || UNKNOWN_ALBUM;
+  const discAlbum = disc.album?.trim() || t("common:unknownAlbum");
   const discArtist = discArtistForMatch(disc);
 
   return albums.find((album) => {

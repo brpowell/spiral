@@ -5,12 +5,7 @@ alwaysApply: true
 
 # UI strings (i18n)
 
-Spiral stores user-facing copy in locale catalogs and references it by key. Do not hardcode new UI English in components or `src/lib/` once the i18n scaffold exists.
-
-## Setup gate
-
-- If `src/lib/i18n.ts` and `src/locales/en/` are **missing**, implement **Phases 1–2** from [`docs/localization-investigation.md`](docs/localization-investigation.md) before adding substantial new UI copy in a localization-related task. Unrelated features may still ship with inline English until that cutoff lands.
-- If the scaffold **exists**, follow the rules below for all new work.
+Spiral stores user-facing copy in locale catalogs and references it by key. Do not hardcode new UI English in components or `src/lib/`.
 
 ## Required pattern
 

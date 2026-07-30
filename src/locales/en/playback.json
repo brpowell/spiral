@@ -1,0 +1,16 @@
+{
+  "eq": {
+    "manual": "Manual",
+    "presets": {
+      "flat": "Flat",
+      "rock": "Rock",
+      "jazz": "Jazz",
+      "classical": "Classical",
+      "pop": "Pop",
+      "techno": "Techno",
+      "vocal": "Vocal",
+      "bass": "Bass",
+      "treble": "Treble"
+    }
+  }
+}

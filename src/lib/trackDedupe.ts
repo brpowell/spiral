@@ -1,4 +1,5 @@
 import type { Track, TrackInput } from "../types/track";
+import { t } from "./i18n";
 
 export type ImportDedupeAction = "skip" | "replace" | "import";
 
@@ -24,9 +25,6 @@ export interface ImportDuplicateContext {
   /** Both sides have non-empty lyrics and content differs. */
   hasLyricsConflict: boolean;
 }
-
-const UNKNOWN_ALBUM = "Unknown Album";
-const UNKNOWN_ARTIST = "Unknown Artist";
 
 const DURATION_TOLERANCE_SECONDS = 2;
 
@@ -56,8 +54,8 @@ function trackDedupeFields(
     albumArtist:
       track.albumArtist?.trim() ||
       track.artist?.trim() ||
-      UNKNOWN_ARTIST,
-    album: track.album?.trim() || UNKNOWN_ALBUM,
+      t("common:unknownArtist"),
+    album: track.album?.trim() || t("common:unknownAlbum"),
     discNumber: track.discNumber ?? 1,
     trackNumber: track.trackNumber,
     title: normalizeText(track.title),

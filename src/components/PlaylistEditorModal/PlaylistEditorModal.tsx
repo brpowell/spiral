@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { t } from "../../lib/i18n";
 import {
   playlistArtCacheKey,
   resolvePlaylistImageMode,
@@ -66,7 +67,7 @@ export function PlaylistEditorModal() {
   useEffect(() => {
     if (!isOpen) return;
     if (isNew) {
-      setTitle("Untitled Playlist");
+      setTitle(t("common:untitledPlaylist"));
       setDescription("");
       setImageMode("generated");
       setCustomImagePath(null);
@@ -87,7 +88,7 @@ export function PlaylistEditorModal() {
         : null;
     return {
       id: existing?.id ?? 0,
-      title: title.trim() || "Untitled Playlist",
+      title: title.trim() || t("common:untitledPlaylist"),
       description: description.trim() || null,
       dateCreated: existing?.dateCreated ?? "",
       lastUsedAt: existing?.lastUsedAt ?? "",

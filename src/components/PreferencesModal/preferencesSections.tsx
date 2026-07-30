@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { t } from "../../lib/i18n";
 import {
   IconAudioWaveform,
   IconDisc,
@@ -25,32 +26,32 @@ export interface PreferencesSectionConfig {
 export const PREFERENCES_SECTIONS: PreferencesSectionConfig[] = [
   {
     id: "library",
-    label: "Library",
+    label: t("preferences:sections.library"),
     icon: <IconOpenFolder />,
   },
   {
     id: "cd",
-    label: "CD",
+    label: t("preferences:sections.cd"),
     icon: <IconDisc />,
   },
   {
     id: "playback",
-    label: "Playback",
+    label: t("preferences:sections.playback"),
     icon: <IconAudioWaveform />,
   },
   {
     id: "listening",
-    label: "Privacy",
+    label: t("preferences:sections.listening"),
     icon: <IconGlasses />,
   },
   {
     id: "metadata",
-    label: "Metadata",
+    label: t("preferences:sections.metadata"),
     icon: <IconInfo />,
   },
   {
     id: "studio",
-    label: "Studio",
+    label: t("preferences:sections.studio"),
     icon: <IconPalette />,
   },
 ];

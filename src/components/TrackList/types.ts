@@ -1,3 +1,5 @@
+import { t } from "../../lib/i18n";
+
 export type TrackListColumnId =
   | "check"
   | "index"
@@ -66,28 +68,28 @@ export const CHECK_COL: TrackListColumnDef = {
 
 const INDEX_COL: TrackListColumnDef = {
   id: "index",
-  label: "#",
+  label: t("library:columns.index"),
   resizable: true,
   align: "center",
 };
 
 const TRACK_NUM_COL: TrackListColumnDef = {
   id: "trackNumber",
-  label: "#",
+  label: t("library:columns.index"),
   resizable: true,
   align: "center",
 };
 
 const TITLE_COL: TrackListColumnDef = {
   id: "title",
-  label: "Title",
+  label: t("library:columns.title"),
   sortable: true,
   resizable: true,
 };
 
 const ARTIST_COL: TrackListColumnDef = {
   id: "artist",
-  label: "Artist",
+  label: t("library:columns.artist"),
   sortable: true,
   resizable: true,
   hideable: true,
@@ -96,7 +98,7 @@ const ARTIST_COL: TrackListColumnDef = {
 
 const ALBUM_COL: TrackListColumnDef = {
   id: "album",
-  label: "Album",
+  label: t("library:columns.album"),
   sortable: true,
   resizable: true,
   hideable: true,
@@ -105,7 +107,7 @@ const ALBUM_COL: TrackListColumnDef = {
 
 const ALBUM_ARTIST_COL: TrackListColumnDef = {
   id: "albumArtist",
-  label: "Album artist",
+  label: t("library:columns.albumArtist"),
   sortable: false,
   resizable: true,
   hideable: true,
@@ -114,7 +116,7 @@ const ALBUM_ARTIST_COL: TrackListColumnDef = {
 
 const DURATION_COL: TrackListColumnDef = {
   id: "duration",
-  label: "Duration",
+  label: t("library:columns.duration"),
   sortable: true,
   resizable: true,
   align: "right",
@@ -122,7 +124,7 @@ const DURATION_COL: TrackListColumnDef = {
 
 const YEAR_COL: TrackListColumnDef = {
   id: "year",
-  label: "Year",
+  label: t("library:columns.year"),
   sortable: true,
   resizable: true,
   hideable: true,
@@ -132,7 +134,7 @@ const YEAR_COL: TrackListColumnDef = {
 
 const GENRE_COL: TrackListColumnDef = {
   id: "genre",
-  label: "Genre",
+  label: t("library:columns.genre"),
   sortable: true,
   resizable: true,
   hideable: true,
@@ -141,7 +143,7 @@ const GENRE_COL: TrackListColumnDef = {
 
 const DISC_COL: TrackListColumnDef = {
   id: "discNumber",
-  label: "Disc",
+  label: t("library:columns.disc"),
   resizable: true,
   hideable: true,
   align: "center",
@@ -150,7 +152,7 @@ const DISC_COL: TrackListColumnDef = {
 
 const TRACK_NUMBER_DATA_COL: TrackListColumnDef = {
   id: "trackNumber",
-  label: "Track",
+  label: t("library:columns.track"),
   sortable: true,
   resizable: true,
   hideable: true,
@@ -160,7 +162,7 @@ const TRACK_NUMBER_DATA_COL: TrackListColumnDef = {
 
 const DATE_ADDED_COL: TrackListColumnDef = {
   id: "dateAdded",
-  label: "Date added",
+  label: t("library:columns.dateAdded"),
   sortable: true,
   resizable: true,
   hideable: true,
@@ -169,7 +171,7 @@ const DATE_ADDED_COL: TrackListColumnDef = {
 
 const PLAY_COUNT_COL: TrackListColumnDef = {
   id: "playCount",
-  label: "Plays",
+  label: t("library:columns.plays"),
   sortable: true,
   resizable: true,
   hideable: true,
@@ -179,7 +181,7 @@ const PLAY_COUNT_COL: TrackListColumnDef = {
 
 const LAST_PLAYED_COL: TrackListColumnDef = {
   id: "lastPlayedAt",
-  label: "Last played",
+  label: t("library:columns.lastPlayed"),
   sortable: true,
   resizable: true,
   hideable: true,
@@ -188,7 +190,7 @@ const LAST_PLAYED_COL: TrackListColumnDef = {
 
 const RATING_COL: TrackListColumnDef = {
   id: "rating",
-  label: "Rating",
+  label: t("library:columns.rating"),
   sortable: true,
   resizable: true,
   hideable: true,
@@ -198,7 +200,7 @@ const RATING_COL: TrackListColumnDef = {
 
 const CODEC_COL: TrackListColumnDef = {
   id: "codec",
-  label: "Codec",
+  label: t("library:columns.codec"),
   sortable: true,
   resizable: true,
   hideable: true,
@@ -207,7 +209,7 @@ const CODEC_COL: TrackListColumnDef = {
 
 const SAMPLE_RATE_COL: TrackListColumnDef = {
   id: "sampleRate",
-  label: "Sample rate",
+  label: t("library:columns.sampleRate"),
   sortable: true,
   resizable: true,
   hideable: true,
@@ -217,7 +219,7 @@ const SAMPLE_RATE_COL: TrackListColumnDef = {
 
 const BITRATE_COL: TrackListColumnDef = {
   id: "bitrate",
-  label: "Bitrate",
+  label: t("library:columns.bitrate"),
   sortable: true,
   resizable: true,
   hideable: true,
@@ -227,7 +229,7 @@ const BITRATE_COL: TrackListColumnDef = {
 
 const LYRICS_COL: TrackListColumnDef = {
   id: "lyrics",
-  label: "Lyrics",
+  label: t("library:columns.lyrics"),
   sortable: true,
   resizable: true,
   hideable: true,

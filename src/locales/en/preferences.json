@@ -1,0 +1,10 @@
+{
+  "sections": {
+    "library": "Library",
+    "cd": "CD",
+    "playback": "Playback",
+    "listening": "Privacy",
+    "metadata": "Metadata",
+    "studio": "Studio"
+  }
+}

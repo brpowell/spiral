@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BrowseView } from "../components/BrowseView/BrowseView";
 import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
 import { SearchField } from "../components/SearchField/SearchField";
@@ -23,6 +24,7 @@ interface TracksViewProps {
 }
 
 export function TracksView({ tracks }: TracksViewProps) {
+  const { t } = useTranslation("library");
   const playTracks = usePlayerStore((s) => s.playTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
@@ -116,9 +118,7 @@ export function TracksView({ tracks }: TracksViewProps) {
       />
 
       {tracks.length === 0 ? (
-        <p className="browse-view__empty">
-          No tracks yet. Import some music to get started.
-        </p>
+        <p className="browse-view__empty">{t("empty.tracks")}</p>
       ) : (
         <TrackList
           presetId="library"

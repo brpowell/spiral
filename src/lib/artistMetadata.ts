@@ -4,10 +4,9 @@ import {
   serializeArtistField,
 } from "./artistNames";
 import type { ArtistBrowseMode } from "./artists";
+import { t } from "./i18n";
 import type { TrackMetadataUpdate } from "../types/metadata";
 import type { Track } from "../types/track";
-
-const UNKNOWN_ARTIST = "Unknown Artist";
 
 export interface ArtistEditorForm {
   name: string;
@@ -29,7 +28,7 @@ export function artistKeyAfterRename(
   browseMode: ArtistBrowseMode,
 ): string {
   const trimmed = name.trim();
-  if (!trimmed) return UNKNOWN_ARTIST;
+  if (!trimmed) return t("common:unknownArtist");
   if (browseMode === "performers") return normalizeArtistName(trimmed);
   return trimmed;
 }

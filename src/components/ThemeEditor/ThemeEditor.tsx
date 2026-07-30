@@ -7,6 +7,7 @@ import {
   type MutableRefObject,
 } from "react";
 import type { Theme, ThemeTokens } from "../../types/theme";
+import { t } from "../../lib/i18n";
 import {
   effectiveContributionId,
   isContributionId,
@@ -227,7 +228,7 @@ function ThemePreviewSamples({ inputId }: { inputId: string }) {
 
 /** Browse header title while editing a theme. */
 export function formatThemeEditorTitle(name: string): string {
-  return `Edit theme (${name.trim() || "Untitled theme"})`;
+  return `Edit theme (${name.trim() || t("common:untitledTheme")})`;
 }
 
 export type ThemeEditorProps = {
@@ -588,7 +589,7 @@ export function ThemeEditor({
                 <div className="theme-editor__preview-main">
                   <div className="theme-editor__preview-header">
                     <p className="theme-editor__preview-title">
-                      {draft.name.trim() || "Untitled Theme"}
+                      {draft.name.trim() || t("common:untitledTheme")}
                     </p>
                     <div className="theme-editor__preview-badges">
                       <Badge>Neutral</Badge>

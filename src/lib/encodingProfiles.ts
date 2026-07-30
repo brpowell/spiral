@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { getConvertProfileOptions } from "./tauri";
 import { audioExtensionFromPath } from "./supportedAudio";
 
@@ -18,32 +19,32 @@ export interface EncodingProfile {
 export const BUILTIN_ENCODING_PROFILES: readonly EncodingProfile[] = [
   {
     id: "lossless-flac",
-    label: "Lossless (FLAC)",
-    subtitle: "Best quality for your library",
+    label: t("library:encoding.losslessFlac.label"),
+    subtitle: t("library:encoding.losslessFlac.subtitle"),
     extension: "flac",
   },
   {
     id: "apple-alac",
-    label: "Apple Lossless (ALAC)",
-    subtitle: "Lossless quality for Apple devices",
+    label: t("library:encoding.appleAlac.label"),
+    subtitle: t("library:encoding.appleAlac.subtitle"),
     extension: "m4a",
   },
   {
     id: "apple-aac",
-    label: "Apple Device (AAC)",
-    subtitle: ".m4a for iPod, iPhone, and iTunes",
+    label: t("library:encoding.appleAac.label"),
+    subtitle: t("library:encoding.appleAac.subtitle"),
     extension: "m4a",
   },
   {
     id: "mp3-high",
-    label: "MP3 - High (320)",
-    subtitle: "Works on almost any player",
+    label: t("library:encoding.mp3High.label"),
+    subtitle: t("library:encoding.mp3High.subtitle"),
     extension: "mp3",
   },
   {
     id: "mp3-compact",
-    label: "MP3 - Compact (128)",
-    subtitle: "Smaller files, more songs per device",
+    label: t("library:encoding.mp3Compact.label"),
+    subtitle: t("library:encoding.mp3Compact.subtitle"),
     extension: "mp3",
   },
 ] as const;
@@ -83,7 +84,7 @@ export function formatSourceEncodingProfileLabel(options: {
     if (builtin) return builtin.label;
   }
   if (options.codec?.trim().toLowerCase() === "alac") {
-    return "Apple Lossless (ALAC)";
+    return getEncodingProfile("apple-alac")?.label ?? null;
   }
   return null;
 }

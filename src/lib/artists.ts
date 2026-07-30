@@ -1,4 +1,5 @@
 import { normalizeArtistName, parseArtistField } from "./artistNames";
+import { t } from "./i18n";
 import type { Album } from "../types/album";
 import type { Artist } from "../types/artist";
 import type { Track } from "../types/track";
@@ -12,17 +13,15 @@ export const ARTIST_BROWSE_MODES: {
 }[] = [
   {
     value: "discography",
-    label: "Discography",
-    description: "Artists as credited on albums — full releases and collections.",
+    label: t("library:artistBrowse.discography.label"),
+    description: t("library:artistBrowse.discography.description"),
   },
   {
     value: "performers",
-    label: "Performers",
-    description: "Everyone credited on tracks — including compilations and one-offs.",
+    label: t("library:artistBrowse.performers.label"),
+    description: t("library:artistBrowse.performers.description"),
   },
 ];
-
-const UNKNOWN_ARTIST = "Unknown Artist";
 
 function sortTracksForArtist(a: Track, b: Track): number {
   const albumCmp = (a.album ?? "").localeCompare(b.album ?? "", undefined, {
@@ -40,7 +39,11 @@ function sortTracksForArtist(a: Track, b: Track): number {
 
 /** Album-artist identity (matches album grouping). */
 export function albumArtistKey(track: Track): string {
-  return track.albumArtist?.trim() || track.artist?.trim() || UNKNOWN_ARTIST;
+  return (
+    track.albumArtist?.trim() ||
+    track.artist?.trim() ||
+    t("common:unknownArtist")
+  );
 }
 
 /** Normalized performer keys for a track (may be multiple). */
@@ -51,7 +54,7 @@ export function performerKeysForTrack(track: Track): string[] {
   }
   const fallback = track.albumArtist?.trim() || track.artist?.trim();
   if (fallback) return [normalizeArtistName(fallback)];
-  return [UNKNOWN_ARTIST];
+  return [t("common:unknownArtist")];
 }
 
 /** @deprecated Use {@link albumArtistKey} — kept for call sites that mean discography grouping. */
@@ -60,7 +63,8 @@ export function artistKey(track: Track): string {
 }
 
 function displayNameForAlbumArtistKey(key: string, tracks: Track[]): string {
-  if (key === UNKNOWN_ARTIST) return UNKNOWN_ARTIST;
+  const unknown = t("common:unknownArtist");
+  if (key === unknown) return unknown;
   for (const track of tracks) {
     const albumArtist = track.albumArtist?.trim();
     if (albumArtist && albumArtistKey(track) === key) return albumArtist;
@@ -73,7 +77,8 @@ function displayNameForAlbumArtistKey(key: string, tracks: Track[]): string {
 }
 
 function displayNameForPerformerKey(key: string, tracks: Track[]): string {
-  if (key === UNKNOWN_ARTIST) return UNKNOWN_ARTIST;
+  const unknown = t("common:unknownArtist");
+  if (key === unknown) return unknown;
   for (const track of tracks) {
     for (const name of parseArtistField(track.artist)) {
       if (normalizeArtistName(name) === key) return name;

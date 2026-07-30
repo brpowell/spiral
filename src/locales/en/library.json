@@ -1,0 +1,57 @@
+{
+  "empty": {
+    "tracks": "No tracks yet. Import some music to get started."
+  },
+  "columns": {
+    "index": "#",
+    "title": "Title",
+    "artist": "Artist",
+    "album": "Album",
+    "albumArtist": "Album artist",
+    "duration": "Duration",
+    "year": "Year",
+    "genre": "Genre",
+    "disc": "Disc",
+    "track": "Track",
+    "dateAdded": "Date added",
+    "plays": "Plays",
+    "lastPlayed": "Last played",
+    "rating": "Rating",
+    "codec": "Codec",
+    "sampleRate": "Sample rate",
+    "bitrate": "Bitrate",
+    "lyrics": "Lyrics"
+  },
+  "artistBrowse": {
+    "discography": {
+      "label": "Discography",
+      "description": "Artists as credited on albums — full releases and collections."
+    },
+    "performers": {
+      "label": "Performers",
+      "description": "Everyone credited on tracks — including compilations and one-offs."
+    }
+  },
+  "encoding": {
+    "losslessFlac": {
+      "label": "Lossless (FLAC)",
+      "subtitle": "Best quality for your library"
+    },
+    "appleAlac": {
+      "label": "Apple Lossless (ALAC)",
+      "subtitle": "Lossless quality for Apple devices"
+    },
+    "appleAac": {
+      "label": "Apple Device (AAC)",
+      "subtitle": ".m4a for iPod, iPhone, and iTunes"
+    },
+    "mp3High": {
+      "label": "MP3 - High (320)",
+      "subtitle": "Works on almost any player"
+    },
+    "mp3Compact": {
+      "label": "MP3 - Compact (128)",
+      "subtitle": "Smaller files, more songs per device"
+    }
+  }
+}

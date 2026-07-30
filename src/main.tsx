@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { I18nextProvider } from "react-i18next";
 import App from "./App";
 import { ActivityLogsApp } from "./ActivityLogsApp";
 import { AppearanceApp } from "./AppearanceApp";
@@ -36,10 +37,19 @@ import {
   isSkinModeWindow,
 } from "./lib/windowRole";
 import { applyCustomWindowChrome } from "./lib/windowChrome";
+import { i18n } from "./lib/i18n";
 import "./styles/theme.css";
 import "./styles/scrollbars.css";
 
 const root = document.getElementById("root") as HTMLElement;
+
+function renderRoot(node: React.ReactNode) {
+  ReactDOM.createRoot(root).render(
+    <React.StrictMode>
+      <I18nextProvider i18n={i18n}>{node}</I18nextProvider>
+    </React.StrictMode>,
+  );
+}
 
 async function start() {
   initCrashHandlers();
@@ -61,11 +71,7 @@ async function start() {
     await bootstrapTheme();
     await initThemeBridge(role);
 
-    ReactDOM.createRoot(root).render(
-      <React.StrictMode>
-        <ActivityLogsApp />
-      </React.StrictMode>,
-    );
+    renderRoot(<ActivityLogsApp />);
     return;
   }
 
@@ -73,11 +79,7 @@ async function start() {
     await bootstrapEqualizer();
     await initEqBridge(role);
 
-    ReactDOM.createRoot(root).render(
-      <React.StrictMode>
-        <EqualizerApp />
-      </React.StrictMode>,
-    );
+    renderRoot(<EqualizerApp />);
     return;
   }
 
@@ -110,11 +112,7 @@ async function start() {
     }
     await initSkinBridge(role);
 
-    ReactDOM.createRoot(root).render(
-      <React.StrictMode>
-        <SkinModeApp />
-      </React.StrictMode>,
-    );
+    renderRoot(<SkinModeApp />);
     if (auxContext) {
       emitSkinAuxReady(auxContext.skinId, auxContext.viewId);
     }
@@ -146,11 +144,7 @@ async function start() {
       ? AppearanceApp
       : App;
 
-  ReactDOM.createRoot(root).render(
-    <React.StrictMode>
-      <Root />
-    </React.StrictMode>,
-  );
+  renderRoot(<Root />);
 }
 
 void start();

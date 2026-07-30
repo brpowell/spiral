@@ -1,4 +1,5 @@
 import type { Track } from "../types/track";
+import { t } from "./i18n";
 
 export const DEFAULT_ORGANIZE_PATH_FORMAT =
   "{albumArtist}/{album}/{trackNumber:02} - {title}.{ext}";
@@ -122,12 +123,12 @@ function placeholderValue(
     case "title":
       return sanitizeFilename(sample.title);
     case "artist":
-      return sanitizeFilename(sample.artist ?? "Unknown Artist");
+      return sanitizeFilename(sample.artist ?? t("common:unknownArtist"));
     case "album":
-      return sanitizeFilename(sample.album ?? "Unknown Album");
+      return sanitizeFilename(sample.album ?? t("common:unknownAlbum"));
     case "albumArtist":
       return sanitizeFilename(
-        sample.albumArtist ?? sample.artist ?? "Unknown Artist",
+        sample.albumArtist ?? sample.artist ?? t("common:unknownArtist"),
       );
     case "ext":
       return sanitizeExtension(sample.extension);
