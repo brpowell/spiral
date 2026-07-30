@@ -357,6 +357,28 @@ export function IconPalette(props: IconProps) {
   );
 }
 
+/** Lucide id-card */
+export function IconIdCard(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M16 10h2" />
+      <path d="M16 14h2" />
+      <path d="M6.17 15a3 3 0 0 1 5.66 0" />
+      <circle cx="9" cy="11" r="2" />
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+    </svg>
+  );
+}
+
 export function IconChevronRight(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
@@ -449,10 +471,22 @@ export function IconWindowRestore(props: IconProps) {
   );
 }
 
+/** Lucide ellipsis */
 export function IconMore(props: IconProps) {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-      <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="19" cy="12" r="1" />
+      <circle cx="5" cy="12" r="1" />
     </svg>
   );
 }

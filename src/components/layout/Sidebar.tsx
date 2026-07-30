@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { DragDropProvider } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
-import { openAppearanceWindow } from "../../lib/appearanceWindow";
 import { isCdSidebarDiscReady } from "../../lib/cdTracks";
 import {
   CLICKABLE_ITEM_POINTER_SENSOR,
@@ -17,7 +16,6 @@ import {
   IconAlbums,
   IconArtists,
   IconTracks,
-  IconPalette,
   IconPlaylistAdd,
 } from "../icons";
 import {
@@ -27,6 +25,7 @@ import {
   SidebarSection,
 } from "./SidebarChrome";
 import { SidebarItem } from "./SidebarItem/SidebarItem";
+import { SidebarMoreMenu } from "./SidebarMoreMenu";
 import { SidebarPlaylistItem } from "./SidebarPlaylistItem";
 import { SidebarCdDriveItem } from "./SidebarCdDriveItem";
 import "./Sidebar.css";
@@ -137,15 +136,7 @@ export function Sidebar() {
       </SidebarSection>
 
       <SidebarFooter>
-        <SidebarItem
-          icon={<IconPalette />}
-          aria-label="Studio"
-          onClick={() => {
-            void openAppearanceWindow();
-          }}
-        >
-          Studio
-        </SidebarItem>
+        <SidebarMoreMenu />
       </SidebarFooter>
     </SidebarFrame>
   );

@@ -53,4 +53,34 @@ describe("fitContextMenuPosition", () => {
     expect(position.left).toBe(100);
     expect(position.top).toBe(80);
   });
+
+  it("vertical=above places the menu's bottom edge at the anchor Y", () => {
+    vi.stubGlobal("window", {
+      innerWidth: 800,
+      innerHeight: 600,
+    });
+
+    const position = fitContextMenuPosition(100, 400, 200, 120, {
+      align: "start",
+      vertical: "above",
+    });
+
+    expect(position.left).toBe(100);
+    expect(position.top).toBe(280);
+  });
+
+  it("vertical=above flips below when there is not enough room above", () => {
+    vi.stubGlobal("window", {
+      innerWidth: 800,
+      innerHeight: 600,
+    });
+
+    const position = fitContextMenuPosition(100, 40, 200, 120, {
+      align: "start",
+      vertical: "above",
+      flipDownAlignTopY: 56,
+    });
+
+    expect(position.top).toBe(56);
+  });
 });

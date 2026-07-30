@@ -23,7 +23,11 @@ type MenuAnchor = {
   keyboard?: boolean;
 };
 
-export type ContextMenuTriggerPlacement = "below-end" | "below-start";
+export type ContextMenuTriggerPlacement =
+  | "below-end"
+  | "below-start"
+  | "above-end"
+  | "above-start";
 
 export type OpenContextMenuOptions = {
   /** Focus first item instead of the menu root (keyboard opens). */
@@ -98,8 +102,22 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
   const openFromTrigger = useCallback(
     (el: HTMLElement, openOptions?: OpenContextMenuOptions) => {
       const rect = el.getBoundingClientRect();
-      const align = triggerPlacement === "below-start" ? "start" : "end";
-      const x = triggerPlacement === "below-start" ? rect.left : rect.right;
+      const preferAbove = triggerPlacement.startsWith("above");
+      const align = triggerPlacement.endsWith("start") ? "start" : "end";
+      const x = align === "start" ? rect.left : rect.right;
+      if (preferAbove) {
+        openAt(
+          x,
+          rect.top - TRIGGER_MENU_GAP,
+          {
+            align,
+            vertical: "above",
+            flipDownAlignTopY: rect.bottom + TRIGGER_MENU_GAP,
+          },
+          openOptions,
+        );
+        return;
+      }
       openAt(x, rect.bottom + TRIGGER_MENU_GAP, { align }, openOptions);
     },
     [openAt, triggerPlacement],

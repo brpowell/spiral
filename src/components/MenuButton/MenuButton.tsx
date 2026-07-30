@@ -27,9 +27,11 @@ export interface MenuButtonProps {
   layoutDeps?: unknown[];
   title?: string;
   /**
-   * Where the menu anchors under the trigger (Radix/shadcn-style).
-   * - `below-end` (default): right edges align
-   * - `below-start`: left edges align
+   * Where the menu anchors relative to the trigger (Radix/shadcn-style).
+   * - `below-end` (default): opens below, right edges align
+   * - `below-start`: opens below, left edges align
+   * - `above-end`: opens above, right edges align
+   * - `above-start`: opens above, left edges align
    */
   triggerPlacement?: ContextMenuTriggerPlacement;
 }
