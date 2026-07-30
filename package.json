@@ -23,7 +23,8 @@
     "mint:permanent:default": "npm run mint:provisional -- --purchase-id poc-permanent --refund-days 0 --buffer-mins 0 --out ./tools/license-mint/poc-permanent.spcard && npm run mint:finalize -- --purchase-id poc-permanent >/dev/null && npm run mint:provisional -- --purchase-id poc-permanent --out ./tools/license-mint/poc-permanent.spcard",
     "tauri": "tauri",
     "prepare": "husky",
-    "lint:commit": "commitlint --last --verbose"
+    "lint:commit": "commitlint --last --verbose",
+    "check:version": "node scripts/check-version-sync.mjs"
   },
   "dependencies": {
     "@dnd-kit/dom": "^0.5.0",

@@ -1,0 +1,25 @@
+---
+description: Include GitHub closing keywords in PR descriptions for linked issues
+alwaysApply: true
+---
+
+# Closing issues from PRs
+
+When opening or updating a pull request that is meant to finish specific GitHub issues/tickets, include GitHub closing keywords in the PR description so merge auto-closes them.
+
+## Required form
+
+Use one `closes` per issue, comma-separated:
+
+```text
+closes #1, closes #2
+```
+
+Put that line near the top of the PR body (after a one-line summary is fine). Do not rely on plain references like `Implements #1` or `Part of #2` alone when the PR is intended to close those tickets.
+
+## Scope
+
+- Include every issue this PR fully completes.
+- Omit parent epics or tracking issues that still have unfinished work.
+- Omit issues that are only related context, not done by this PR.
+- If the PR later grows to finish more tickets, update the description to add the matching `closes #N` entries.
