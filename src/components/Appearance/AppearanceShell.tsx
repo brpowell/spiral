@@ -195,9 +195,6 @@ export function AppearanceShell() {
   return (
     <div className="appearance-shell">
       <aside className="appearance-shell__sidebar">
-        <header className="appearance-shell__sidebar-header">
-          <h1 className="appearance-shell__title">Studio</h1>
-        </header>
         <SidebarFrame embedded aria-label="Studio sections">
           <SidebarList>
             {APPEARANCE_CONTENT_SECTIONS.map((item) => (

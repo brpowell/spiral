@@ -76,7 +76,9 @@ async function start() {
   }
 
   if (isEqualizerWindow()) {
+    await bootstrapTheme();
     await bootstrapEqualizer();
+    await initThemeBridge(role);
     await initEqBridge(role);
 
     renderRoot(<EqualizerApp />);

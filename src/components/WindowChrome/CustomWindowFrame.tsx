@@ -13,10 +13,7 @@ export interface CustomWindowFrameProps {
   className?: string;
 }
 
-/**
- * Adds the in-app title bar on custom-chrome platforms (Windows now; Linux later).
- * On macOS, renders children unchanged.
- */
+/** In-app title bar on Windows/Linux; passthrough on macOS. */
 export function CustomWindowFrame({
   title,
   children,

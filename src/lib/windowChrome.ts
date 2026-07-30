@@ -1,18 +1,9 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
 
 export type DesktopPlatform = "macos" | "windows" | "linux" | "unknown";
 
-/**
- * Platforms that use an in-app title bar instead of OS decorations + menu bar.
- * macOS keeps the system menu bar / traffic lights.
- *
- * Linux (esp. Ubuntu with a classic menubar) has the same chrome mismatch —
- * add `"linux"` here when polishing Linux.
- */
-const CUSTOM_WINDOW_CHROME_PLATFORMS: ReadonlySet<DesktopPlatform> = new Set([
-  "windows",
-  // "linux",
-]);
+/** Minimal surface shared by `Window` / `WebviewWindow` for chrome setup. */
+type WindowChromeTarget = Pick<Window, "setDecorations" | "setShadow">;
 
 export function getDesktopPlatform(): DesktopPlatform {
   if (typeof navigator === "undefined") return "unknown";
@@ -23,25 +14,31 @@ export function getDesktopPlatform(): DesktopPlatform {
   return "unknown";
 }
 
-/** True when library / Studio / EQ / logs should use the in-app title bar. */
+/**
+ * True when library / Studio / EQ / logs should use the in-app title bar.
+ * macOS keeps the system menu bar / traffic lights.
+ */
 export function usesCustomWindowChrome(): boolean {
-  return CUSTOM_WINDOW_CHROME_PLATFORMS.has(getDesktopPlatform());
+  const platform = getDesktopPlatform();
+  return platform === "windows" || platform === "linux";
 }
 
 /**
- * Strip native decorations (and keep a Win11-friendly shadow) on custom-chrome
- * platforms. Safe to call once at startup for the current window.
+ * Strip native decorations (and request a compositor shadow where supported).
+ * On Linux, call after the window is visible — GTK often ignores decoration
+ * changes while still hidden.
  */
-export async function applyCustomWindowChrome(): Promise<void> {
+export async function applyCustomWindowChrome(
+  target?: WindowChromeTarget,
+): Promise<void> {
   if (!usesCustomWindowChrome()) return;
   try {
-    const window = getCurrentWindow();
+    const window = target ?? getCurrentWindow();
     await window.setDecorations(false);
-    // Windows: enables shadow + Win11 rounded corners on undecorated windows.
     try {
       await window.setShadow(true);
     } catch {
-      // Optional; older WebView2 / missing ACL should not block chrome.
+      // Optional platform support.
     }
   } catch (err) {
     console.warn("Failed to apply custom window chrome:", err);

@@ -1,4 +1,5 @@
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { applyCustomWindowChrome } from "./windowChrome";
 import { isTauri } from "./windowRole";
 
 const EQUALIZER_LABEL = "equalizer";
@@ -28,16 +29,15 @@ export async function openEqualizerWindow(): Promise<void> {
   try {
     const visible = await window.isVisible();
     if (visible) {
-      const minimized = await window.isMinimized();
-      if (minimized) {
+      if (await window.isMinimized()) {
         await window.unminimize();
       }
-      await window.setFocus();
-      return;
+    } else {
+      await window.center();
+      await window.show();
     }
 
-    await window.center();
-    await window.show();
+    await applyCustomWindowChrome(window);
     await window.setFocus();
   } catch (err) {
     console.error("openEqualizerWindow: failed to show equalizer window", err);

@@ -10,7 +10,7 @@ type SidebarFrameProps = {
   children: ReactNode;
   className?: string;
   /**
-   * Nest inside a custom rail (e.g. Studio title header). Skips width / border /
+   * Nest inside a custom rail (e.g. Studio sidebar column). Skips width / border /
    * background so the parent owns the column chrome.
    */
   embedded?: boolean;

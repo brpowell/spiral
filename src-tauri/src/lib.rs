@@ -94,8 +94,8 @@ pub fn run() {
                 eprintln!("metadata backup cleanup on startup: {err}");
             }
 
-            // Match frontend `usesCustomWindowChrome()` — Windows now; add Linux when enabling there.
-            #[cfg(target_os = "windows")]
+            // Match frontend `usesCustomWindowChrome()` (Windows + Linux).
+            #[cfg(any(windows, target_os = "linux"))]
             {
                 for label in ["main", "appearance", "equalizer", "activity-logs"] {
                     if let Some(window) = app.get_webview_window(label) {
@@ -109,10 +109,7 @@ pub fn run() {
                         }
                     }
                 }
-            }
 
-            #[cfg(any(windows, target_os = "linux"))]
-            {
                 let files = commands::license::spcard_paths_from_args(std::env::args().skip(1));
                 commands::license::handle_opened_spcard_paths(app.handle(), files);
             }

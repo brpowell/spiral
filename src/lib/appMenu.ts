@@ -57,8 +57,8 @@ async function syncReloadLinkedPacksMenuEnabled(): Promise<void> {
 }
 
 /**
- * Installs the native macOS app menu. Custom-chrome platforms (Windows / future
- * Linux) skip this and use in-app menus in {@link WindowTitleBar} instead.
+ * Installs the native macOS app menu. Windows/Linux skip this and use
+ * {@link WindowTitleBar} instead.
  */
 export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   const preferences = await MenuItem.new({

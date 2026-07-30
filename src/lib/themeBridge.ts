@@ -72,6 +72,7 @@ function shouldListenForThemeChanges(role: WindowRole): boolean {
   return (
     role === "main" ||
     role === "activity-logs" ||
+    role === "equalizer" ||
     isAnySkinWindow() ||
     isAppearanceWindow()
   );

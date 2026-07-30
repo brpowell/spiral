@@ -1,24 +1,10 @@
 .appearance-shell {
-  --appearance-header-height: 57px;
   --appearance-sidebar-width: 200px;
   box-sizing: border-box;
   display: flex;
   position: relative;
   background: var(--color-bg);
   color: var(--color-text-primary);
-}
-
-/* Rule under the sidebar Studio title only — content uses browse headers. */
-.appearance-shell::after {
-  content: "";
-  position: absolute;
-  z-index: 1;
-  left: 0;
-  width: var(--appearance-sidebar-width);
-  top: var(--appearance-header-height);
-  height: 1px;
-  background: var(--color-border);
-  pointer-events: none;
 }
 
 .appearance-shell__sidebar {
@@ -29,25 +15,6 @@
   border-right: 1px solid var(--color-border);
   background: var(--color-surface);
   font-family: var(--font-ui);
-}
-
-.appearance-shell__sidebar-header {
-  box-sizing: border-box;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  height: var(--appearance-header-height);
-  padding-block: 0;
-  padding-inline: 0.75rem;
-  border-bottom: none;
-}
-
-.appearance-shell__title {
-  margin: 0;
-  padding-inline: 0.75rem;
-  font-size: 1.1rem;
-  font-weight: 700;
-  line-height: 1.2;
 }
 
 .appearance-shell__content {

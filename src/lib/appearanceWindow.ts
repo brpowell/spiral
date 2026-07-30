@@ -1,5 +1,6 @@
 import { emit } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { applyCustomWindowChrome } from "./windowChrome";
 import { isTauri } from "./windowRole";
 
 export type AppearanceSection =
@@ -84,27 +85,20 @@ export async function openAppearanceWindow(
   try {
     const visible = await window.isVisible();
     if (visible) {
-      const minimized = await window.isMinimized();
-      if (minimized) {
+      if (await window.isMinimized()) {
         await window.unminimize();
       }
-      await window.setFocus();
-      void emit(APPEARANCE_NAVIGATE_EVENT, {
-        section: resolvedSection,
-        packId,
-      } satisfies AppearanceNavigatePayload);
-      void emit(APPEARANCE_REFRESH_EVENT, {});
-      return;
+    } else {
+      await window.center();
+      await window.show();
     }
 
+    await applyCustomWindowChrome(window);
+    await window.setFocus();
     void emit(APPEARANCE_NAVIGATE_EVENT, {
       section: resolvedSection,
       packId,
     } satisfies AppearanceNavigatePayload);
-
-    await window.center();
-    await window.show();
-    await window.setFocus();
     void emit(APPEARANCE_REFRESH_EVENT, {});
   } catch (err) {
     console.error("openAppearanceWindow: failed to show appearance window", err);

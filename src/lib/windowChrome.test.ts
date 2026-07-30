@@ -18,9 +18,9 @@ describe("windowChrome", () => {
     expect(usesCustomWindowChrome()).toBe(false);
   });
 
-  it("leaves Linux ready but disabled until opted in", () => {
+  it("treats Linux as custom chrome", () => {
     vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 (X11; Linux x86_64)" });
     expect(getDesktopPlatform()).toBe("linux");
-    expect(usesCustomWindowChrome()).toBe(false);
+    expect(usesCustomWindowChrome()).toBe(true);
   });
 });
