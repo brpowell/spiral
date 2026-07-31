@@ -15,10 +15,13 @@ jobs:
     name: Open or update release PR
     runs-on: ubuntu-latest
     steps:
-      # Uses GITHUB_TOKEN by default. Once a tag/draft-triggered build matrix
-      # lands (#177), switch to a PAT secret so release events can trigger
-      # downstream workflows (GITHUB_TOKEN-created events do not).
+      # Prefer RELEASE_PLEASE_TOKEN (PAT with contents:write) so the tag/draft
+      # this action creates can trigger `.github/workflows/release.yml`.
+      # GITHUB_TOKEN-created tags/releases do not fire downstream workflows.
+      # Until the PAT secret exists, falls back to GITHUB_TOKEN (matrix won't
+      # auto-trigger — re-run Release via workflow_dispatch on the tag).
       - uses: googleapis/release-please-action@v4
         with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json

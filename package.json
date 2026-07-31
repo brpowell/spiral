@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test": "npm run test:frontend && npm run test:backend",
     "test:frontend": "vitest run",
@@ -24,7 +25,11 @@
     "tauri": "tauri",
     "prepare": "husky",
     "lint:commit": "commitlint --last --verbose",
-    "check:version": "node scripts/check-version-sync.mjs"
+    "check:version": "node scripts/check-version-sync.mjs",
+    "clean:target": "cd src-tauri && cargo clean",
+    "release:installer": "node scripts/release/build-installer.mjs",
+    "release:dmg": "node scripts/release/build-installer.mjs dmg",
+    "release:nsis": "node scripts/release/build-installer.mjs nsis"
   },
   "dependencies": {
     "@dnd-kit/dom": "^0.5.0",

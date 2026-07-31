@@ -25,7 +25,7 @@ Spiral is under active development. Some features are intentionally scoped or pl
 
 ## Contributing
 
-Commits must follow [Conventional Commits](https://www.conventionalcommits.org/). See [docs/contributing.md](docs/contributing.md) for the format and the commitlint hook.
+Commits must follow [Conventional Commits](https://www.conventionalcommits.org/). See [docs/contributing.md](docs/contributing.md) for the format and the commitlint hook. Cutting a version: [docs/release.md](docs/release.md).
 
 ## Philosophy
 
