@@ -8,12 +8,19 @@ This keypair is dedicated to `tauri-plugin-updater`. It is **not** shared with t
 | ---- | -------- |
 | `spiral-updater.pub` | Minisign public key (base64); same value as `plugins.updater.pubkey` in `tauri.conf.json` |
 
-Generate / rotate with:
+Generate / rotate:
 
 ```bash
-npm run tauri signer generate -- -w ~/.tauri/spiral-updater.key --ci
+npm run release:keys:generate
 ```
 
 Then replace `spiral-updater.pub` and `plugins.updater.pubkey` with the new `.pub` contents, update the Environment secret, and store the new private key in the vault before discarding the old one.
 
-See `docs/release-process-plan.md` (Updater signing keys / Key & secret storage).
+Sign / verify a local artifact:
+
+```bash
+npm run release:sign -- path/to/artifact
+npm run release:verify -- path/to/artifact
+```
+
+Full runbook: `docs/signing-and-keys.md`.

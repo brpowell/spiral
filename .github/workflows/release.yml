@@ -9,8 +9,8 @@
 # actually triggers this workflow — GITHUB_TOKEN-created events do not.
 #
 # Fan-in: `platforms-green` only succeeds when every matrix cell succeeded and the
-# draft has installers for all platforms. The manual publish job (#179) must
-# `needs: platforms-green` so a partial matrix can never publish.
+# draft has installers for all platforms. Publish is a separate workflow
+# (publish-release.yml) — never auto-undraft from this file.
 name: Release
 
 on:
@@ -121,7 +121,7 @@ jobs:
 
   # Fan-in gate (#185). Runs even when `build` failed so the check is red (not
   # skipped — skipped can look green to required-check / downstream needs).
-  # Publish (#179) must depend on this job, never on `build` alone.
+  # Operators should only run Publish Release after this job is green.
   platforms-green:
     name: All platforms green
     needs: build
