@@ -108,14 +108,20 @@ export function SkinButtonGroup({
     };
   }, [mapUrl]);
 
-  const isElementDisabled = (element: ButtonGroupElement): boolean =>
-    !isSkinControlEnabled(element.enabledWhen, bindState);
+  const isElementDisabled = useCallback(
+    (element: ButtonGroupElement): boolean =>
+      !isSkinControlEnabled(element.enabledWhen, bindState),
+    [bindState],
+  );
 
-  const isElementSticky = (element: ButtonGroupElement): boolean =>
-    Boolean(
-      element.activeWhen &&
-        evaluateSkinCondition(element.activeWhen, bindState),
-    );
+  const isElementSticky = useCallback(
+    (element: ButtonGroupElement): boolean =>
+      Boolean(
+        element.activeWhen &&
+          evaluateSkinCondition(element.activeWhen, bindState),
+      ),
+    [bindState],
+  );
 
   const debugLabelForKey = useCallback(
     (key: string | null): string => {
@@ -146,7 +152,7 @@ export function SkinButtonGroup({
       if (!element || isElementDisabled(element)) return null;
       return key;
     },
-    [positionMap, effectiveValidKeys, keyToElement, bindState],
+    [positionMap, effectiveValidKeys, keyToElement, isElementDisabled],
   );
 
   const syncHoverFromPointer = useCallback(
@@ -256,7 +262,7 @@ export function SkinButtonGroup({
     }
     const timeout = window.setTimeout(() => setSettlingToggle(null), 1000);
     return () => window.clearTimeout(timeout);
-  }, [settlingToggle, keyToElement, bindState]);
+  }, [settlingToggle, keyToElement, isElementSticky]);
 
   const overlayLayers = useMemo(() => {
     const layers: Array<{ key: string; src: string }> = [];
@@ -281,7 +287,8 @@ export function SkinButtonGroup({
     pressedKey,
     hoveredKey,
     hoverSuppressed,
-    bindState,
+    isElementDisabled,
+    isElementSticky,
     settlingToggle,
     pressedSrc,
     hoverSrc,
@@ -354,7 +361,8 @@ export function SkinButtonGroup({
     [
       keyAtPointer,
       keyToElement,
-      bindState,
+      isElementDisabled,
+      isElementSticky,
       pack,
       presentation.sound,
       hitRegistry,

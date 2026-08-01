@@ -1,5 +1,20 @@
 # Contributing
 
+## Lint and format
+
+Frontend TypeScript/React is checked with [ESLint](https://eslint.org/) and formatted with [Prettier](https://prettier.io/).
+
+```bash
+npm run lint          # ESLint (CI + local)
+npm run lint:fix     # ESLint with autofix
+npm run format        # Prettier write
+npm run format:check  # Prettier check (not required in CI yet)
+```
+
+A Husky `pre-commit` hook runs [lint-staged](https://github.com/lint-staged/lint-staged) so only staged files are linted/formatted, then the full test suite. That keeps formatting adoption incremental without a repo-wide reformat.
+
+Editor extensions are recommended in `.vscode/extensions.json` (ESLint + Prettier).
+
 ## UI strings (i18n)
 
 User-facing copy belongs in `src/locales/en/` and is referenced via `t` / `useTranslation` — not hardcoded in components or `src/lib/`.

@@ -45,10 +45,6 @@ export { PlaybackEngineManager } from "./playbackEngineManager";
 
 const manager = new PlaybackEngineManager();
 
-function useCrossfadeController(): boolean {
-  return crossfadeController.isControllerActive();
-}
-
 export function isCrossfadeControllerActive(): boolean {
   return crossfadeController.isControllerActive();
 }
@@ -134,7 +130,7 @@ export function unload(): void {
 }
 
 export function play(): void {
-  if (useCrossfadeController()) {
+  if (isCrossfadeControllerActive()) {
     crossfadeController.play();
     return;
   }
@@ -142,7 +138,7 @@ export function play(): void {
 }
 
 export function pause(): void {
-  if (useCrossfadeController()) {
+  if (isCrossfadeControllerActive()) {
     crossfadeController.pause();
     return;
   }
@@ -150,7 +146,7 @@ export function pause(): void {
 }
 
 export function seek(ratio: number): void {
-  if (useCrossfadeController()) {
+  if (isCrossfadeControllerActive()) {
     crossfadeController.seekRatio(ratio);
     return;
   }
@@ -158,21 +154,21 @@ export function seek(ratio: number): void {
 }
 
 export function getPositionSeconds(): number {
-  if (useCrossfadeController()) {
+  if (isCrossfadeControllerActive()) {
     return crossfadeController.getPositionSeconds();
   }
   return manager.getPositionSeconds();
 }
 
 export function getDurationSeconds(): number {
-  if (useCrossfadeController()) {
+  if (isCrossfadeControllerActive()) {
     return crossfadeController.getDurationSeconds();
   }
   return manager.getDurationSeconds();
 }
 
 export function isPlaying(): boolean {
-  if (useCrossfadeController()) {
+  if (isCrossfadeControllerActive()) {
     return crossfadeController.isPlaying();
   }
   return manager.isPlaying();
@@ -184,7 +180,7 @@ export function onEnd(callback: () => void): void {
 }
 
 export function setVolume(volume: number): void {
-  if (useCrossfadeController()) {
+  if (isCrossfadeControllerActive()) {
     crossfadeController.setVolume(volume);
     return;
   }
@@ -196,7 +192,7 @@ export function getVolume(): number {
 }
 
 export function setBalance(balance: number): void {
-  if (useCrossfadeController()) {
+  if (isCrossfadeControllerActive()) {
     crossfadeController.setBalance(balance);
     return;
   }
@@ -208,7 +204,7 @@ export function getBalance(): number {
 }
 
 export function setMuted(muted: boolean): void {
-  if (useCrossfadeController()) {
+  if (isCrossfadeControllerActive()) {
     crossfadeController.setMuted(muted);
     return;
   }
@@ -220,7 +216,7 @@ export async function resumeAudioContext(): Promise<void> {
 }
 
 export function restartPlaybackAt(positionSeconds: number): void {
-  if (useCrossfadeController()) {
+  if (isCrossfadeControllerActive()) {
     crossfadeController.getActiveEngine().restartPlaybackAt(positionSeconds);
     return;
   }
@@ -239,7 +235,7 @@ export async function recoverAfterWake(
         : { kind: "file" as const, path: options.filePath },
   };
 
-  if (useCrossfadeController()) {
+  if (isCrossfadeControllerActive()) {
     return crossfadeController.getActiveEngine().recover(recoverOptions);
   }
 
@@ -247,7 +243,7 @@ export async function recoverAfterWake(
 }
 
 export function ensureAnalyser(): AnalyserNode | null {
-  if (useCrossfadeController()) {
+  if (isCrossfadeControllerActive()) {
     return (
       crossfadeController.getActiveEngine().connectToOutputBus() ??
       getOutputAnalyser()

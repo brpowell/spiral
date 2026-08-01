@@ -226,6 +226,9 @@ function VizSceneLayerView({
     });
 
     sandbox.postFrame(frame, layer.params ?? {});
+    // sandboxEpoch intentionally busts this callback after sandbox restart so the
+    // layout effect re-posts a frame; the body reads sandboxRef, not the epoch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- epoch triggers re-post
   }, [
     sandboxEngine,
     context,
@@ -427,6 +430,8 @@ function SceneViewport({
         playbackState: "playing",
       },
     };
+    // `frame` forces a per-RAF rebuild when bin array identity is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- frame is a render tick
   }, [buildContext, viewport, bins, frame, previewForcePlaying]);
 
   const drawState: VisualizerDrawState = {

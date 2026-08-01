@@ -124,6 +124,8 @@ export function SkinModeApp() {
     void applyLayout.catch((err: unknown) => {
       console.error("Failed to apply skin window layout:", err);
     });
+    // Depend on skin id, not pack object identity — reloads bump packReloadGeneration.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- activePack used for layout apply only
   }, [activePack?.summary.id, activeViewId, packReloadGeneration, isAux]);
 
   return (

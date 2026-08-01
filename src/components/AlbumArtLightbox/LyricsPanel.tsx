@@ -233,7 +233,6 @@ export function LyricsPanel({
     let cancelled = false;
     let cancelScroll: (() => void) | undefined;
     let frameId = 0;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const startedAt = performance.now();
 
     const tryScroll = () => {
@@ -258,7 +257,7 @@ export function LyricsPanel({
     };
 
     tryScroll();
-    timeoutId = setTimeout(tryScroll, 400);
+    const timeoutId = setTimeout(tryScroll, 400);
 
     return () => {
       cancelled = true;

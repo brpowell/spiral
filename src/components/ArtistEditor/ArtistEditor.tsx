@@ -147,6 +147,9 @@ export function ArtistEditor() {
     setSaveError(null);
     setDiscardPrompt(false);
     setSaveProgress(null);
+    // Reset only when switching artists — full `artist` would wipe in-progress edits
+    // whenever library data refreshes. setDiscardPrompt is stable useState.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- key-gated form reset
   }, [artist?.key]);
 
   const artChanged =

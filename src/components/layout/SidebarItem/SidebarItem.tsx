@@ -40,7 +40,7 @@ export const SidebarItem = forwardRef<
 >(function SidebarItem(props, ref) {
   if (props.as === "a") {
     const {
-      as,
+      as: _as,
       active,
       icon,
       leading,
@@ -66,7 +66,7 @@ export const SidebarItem = forwardRef<
   }
 
   const {
-    as,
+    as: _as,
     active,
     icon,
     leading,

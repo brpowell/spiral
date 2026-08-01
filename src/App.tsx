@@ -152,6 +152,9 @@ function App() {
   useEffect(() => {
     if (showCustomWindowChrome) return;
     void setupAppMenu(menuHandlers);
+    // menuHandlers is a fresh object each render; store actions in the dep list
+    // are stable and cover the callbacks that actually change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- avoid rebinding the native menu every render
   }, [addToLibrary, openPlaylistEditor, setPreferencesOpen, openSpiralCard]);
 
   // Native setAsAppMenu accelerators don't apply under custom chrome.

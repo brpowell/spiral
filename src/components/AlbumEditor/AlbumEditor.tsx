@@ -132,6 +132,9 @@ export function AlbumEditor() {
     setSaveError(null);
     setDiscardPrompt(false);
     setSaveProgress(null);
+    // Reset only when switching albums — full `album` would wipe in-progress edits
+    // whenever library data refreshes. setDiscardPrompt is stable useState.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- key-gated form reset
   }, [album?.key]);
 
   const artChanged =

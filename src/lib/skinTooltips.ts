@@ -55,7 +55,7 @@ function resolveTooltipWhen(
   if (!tooltipWhen) return null;
   let resolved: string | null = null;
   for (const [condition, label] of Object.entries(tooltipWhen)) {
-    if (Boolean(evaluateSkinBind(condition, state))) {
+    if (evaluateSkinBind(condition, state)) {
       resolved = label;
     }
   }

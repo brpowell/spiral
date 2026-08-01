@@ -252,6 +252,9 @@ export function TrackEditor() {
         cancelled = true;
       };
     }
+    // Reset only when the edited selection/tab changes — `tracks` would wipe
+    // in-progress edits on library refresh. setDiscardPrompt is stable useState.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- key-gated form reset
   }, [editingKey, trackEditorInitialTab]);
 
   useEffect(() => {
@@ -265,6 +268,7 @@ export function TrackEditor() {
         setLyricsCandidates(next.candidates);
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- subscribe by track id, not object identity
   }, [referenceTrack?.id, isBulk]);
 
   useEffect(() => {
@@ -281,6 +285,7 @@ export function TrackEditor() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload by track id + lyricsRevision
   }, [referenceTrack?.id, lyricsRevision, isBulk]);
 
   const artChanged =

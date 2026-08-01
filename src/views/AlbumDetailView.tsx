@@ -70,6 +70,17 @@ export function AlbumDetailView({
   );
   const multipleDiscs = discGroups.length > 1;
 
+  const handleRatingChange = useCallback(
+    (trackId: number, rating: CanonicalRating) => {
+      const track = usePlayerStore
+        .getState()
+        .library.find((t) => t.id === trackId);
+      if (!track) return;
+      applyTrackRating(track, rating, updateTrackInLibrary);
+    },
+    [updateTrackInLibrary],
+  );
+
   useEffect(() => {
     if (!album) {
       closeAlbum();
@@ -102,17 +113,6 @@ export function AlbumDetailView({
   const handlePlayTrack = (track: Track) => {
     void playTracks(trackIds, track.id);
   };
-
-  const handleRatingChange = useCallback(
-    (trackId: number, rating: CanonicalRating) => {
-      const track = usePlayerStore
-        .getState()
-        .library.find((t) => t.id === trackId);
-      if (!track) return;
-      applyTrackRating(track, rating, updateTrackInLibrary);
-    },
-    [updateTrackInLibrary],
-  );
 
   const trackListProps = {
     presetId: "album" as const,

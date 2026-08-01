@@ -338,6 +338,8 @@ export function useSkinAction(
     (payload?: SkinActionPayload) => {
       runSkinAction(actionId, { ...skinControlPayload(source ?? {}), ...payload });
     },
+    // Depend on source fields, not object identity (callers often pass `node`).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable by field
     [actionId, source?.panelId, source?.viewId, source?.url],
   );
 }

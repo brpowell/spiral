@@ -1,0 +1,8 @@
+dist
+src-tauri
+node_modules
+packs
+wmp-skins
+tools
+package-lock.json
+*.md
