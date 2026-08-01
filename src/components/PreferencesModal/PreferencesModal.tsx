@@ -23,6 +23,7 @@ import {
   getDefaultAuthorId,
   saveDefaultAuthorId,
 } from "../../lib/tauri";
+import { stopPlaybackForLibraryRelocate } from "../../lib/libraryRelocatePlayback";
 import { isAuthorId } from "../../lib/packs/packManifest";
 import { useArtistImageStore } from "../../store/useArtistImageStore";
 import { useCdStore } from "../../store/useCdStore";
@@ -292,6 +293,9 @@ export function PreferencesModal() {
     setRelocateBusy(true);
     setError(null);
     try {
+      // Stop before the root/DB change so mid-playback audio cannot keep
+      // reading the previous library while relocate runs (issue #159).
+      stopPlaybackForLibraryRelocate();
       const next = await relocateLibrary(relocateInfo.path, mode);
       applyLibrarySettings(next);
       setLibraryRoot(next.libraryRoot);
