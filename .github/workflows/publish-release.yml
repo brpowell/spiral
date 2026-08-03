@@ -33,7 +33,7 @@ jobs:
     environment: production-release
 
     steps:
-      - name: Require draft has installers for every platform
+      - name: Require draft has installers and updater artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.tag }}
@@ -67,6 +67,11 @@ jobs:
           require '_aarch64\.dmg$' 'macOS aarch64 DMG'
           require '_(x64|x86_64)\.dmg$' 'macOS x64 DMG'
           require '-setup\.exe$' 'Windows NSIS installer'
+          require '_aarch64\.app\.tar\.gz$' 'macOS aarch64 updater bundle'
+          require '_aarch64\.app\.tar\.gz\.sig$' 'macOS aarch64 updater signature'
+          require '_(x64|x86_64)\.app\.tar\.gz$' 'macOS x64 updater bundle'
+          require '_(x64|x86_64)\.app\.tar\.gz\.sig$' 'macOS x64 updater signature'
+          require '-setup\.exe\.sig$' 'Windows NSIS updater signature'
 
           if [ "$missing" -ne 0 ]; then
             echo "::error::Draft release is missing platform artifacts — not publishing."

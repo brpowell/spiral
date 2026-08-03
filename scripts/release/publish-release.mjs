@@ -2,9 +2,10 @@
 /**
  * Publish a draft GitHub Release (flip draft → published).
  *
- * Same checks as the CI publish job: require aarch64 DMG, x64 DMG, and NSIS
- * assets before undrafting. This is the go-live moment for Direct-channel
- * installs once the marketing-site update route reads published releases.
+ * Same checks as the CI publish job: require installers (DMG / NSIS) and
+ * updater artifacts (.app.tar.gz + .sig / NSIS .sig) before undrafting.
+ * This is the go-live moment for Direct-channel installs once the
+ * marketing-site update route reads published releases.
  *
  * Usage:
  *   npm run release:publish -- v0.2.0
@@ -90,6 +91,17 @@ function requireAsset(pattern, label) {
 requireAsset(/_aarch64\.dmg$/, "macOS aarch64 DMG");
 requireAsset(/_(x64|x86_64)\.dmg$/, "macOS x64 DMG");
 requireAsset(/-setup\.exe$/, "Windows NSIS installer");
+requireAsset(/_aarch64\.app\.tar\.gz$/, "macOS aarch64 updater bundle");
+requireAsset(
+  /_aarch64\.app\.tar\.gz\.sig$/,
+  "macOS aarch64 updater signature",
+);
+requireAsset(/_(x64|x86_64)\.app\.tar\.gz$/, "macOS x64 updater bundle");
+requireAsset(
+  /_(x64|x86_64)\.app\.tar\.gz\.sig$/,
+  "macOS x64 updater signature",
+);
+requireAsset(/-setup\.exe\.sig$/, "Windows NSIS updater signature");
 
 if (missing !== 0) {
   console.error(

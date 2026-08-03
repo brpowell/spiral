@@ -17,12 +17,14 @@
 # APPLE_* directly on the job's `env:` block for this reason.
 #
 # Fan-in: `platforms-green` is the single required check — it only goes green
-# once every matrix cell has succeeded and the draft actually has installers
-# for all platforms. It intentionally still runs (rather than being skipped)
-# when a build fails, since a skipped check can read as green to required-
-# check gating and downstream `needs:`. Operators should treat this job as the
+# once every matrix cell has succeeded and the draft has installers *and*
+# updater artifacts (macOS .app.tar.gz + .sig; Windows NSIS .sig) for all
+# platforms. It intentionally still runs (rather than being skipped) when a
+# build fails, since a skipped check can read as green to required-check
+# gating and downstream `needs:`. Operators should treat this job as the
 # signal for "ready to publish"; the actual publish step lives in a separate
 # workflow (publish-release.yml) and this file never auto-undrafts a release.
+# Updater artifacts come from bundle.createUpdaterArtifacts + TAURI_SIGNING_*.
 name: Release
 
 on:
@@ -177,7 +179,7 @@ jobs:
           fi
           echo "All platform builds succeeded."
 
-      - name: Verify draft has installers for every platform
+      - name: Verify draft has installers and updater artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -197,15 +199,21 @@ jobs:
             fi
           }
 
-          # Tauri asset names: Spiral_<ver>_aarch64.dmg, Spiral_<ver>_x64.dmg
-          # (sometimes _x86_64), Spiral_<ver>_x64-setup.exe. Updater .sig is
-          # optional until code-signing secrets are filled.
+          # Installers (browser download)
           require '_aarch64\.dmg$' 'macOS aarch64 DMG'
           require '_(x64|x86_64)\.dmg$' 'macOS x64 DMG'
           require '-setup\.exe$' 'Windows NSIS installer'
+
+          # Updater payloads (in-app auto-update). macOS uses .app.tar.gz;
+          # Windows reuses NSIS (updaterJsonPreferNsis) and needs its .sig.
+          require '_aarch64\.app\.tar\.gz$' 'macOS aarch64 updater bundle'
+          require '_aarch64\.app\.tar\.gz\.sig$' 'macOS aarch64 updater signature'
+          require '_(x64|x86_64)\.app\.tar\.gz$' 'macOS x64 updater bundle'
+          require '_(x64|x86_64)\.app\.tar\.gz\.sig$' 'macOS x64 updater signature'
+          require '-setup\.exe\.sig$' 'Windows NSIS updater signature'
 
           if [ "$missing" -ne 0 ]; then
             echo "::error::Draft release is missing one or more platform artifacts — not release-ready."
             exit 1
           fi
-          echo "Draft has installers for every platform."
+          echo "Draft has installers and updater artifacts for every platform."

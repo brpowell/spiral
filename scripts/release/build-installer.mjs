@@ -9,8 +9,10 @@
  *   node scripts/release/build-installer.mjs dmg -- --target aarch64-apple-darwin
  *
  * Extra args after `--` are passed to `tauri build`.
- * Unsigned unless Apple/Windows / updater signing env vars are set
- * (same secret names as `.github/workflows/release.yml`).
+ * Apple/Windows code signing is optional. Updater signing env vars
+ * (`TAURI_SIGNING_PRIVATE_KEY` / `_PASSWORD`, same as CI) are required
+ * because `bundle.createUpdaterArtifacts` is enabled — without them the
+ * build fails when producing `.app.tar.gz` / `.sig` sidecars.
  *
  * See docs/release.md.
  */
