@@ -4,6 +4,7 @@ import { useUpdaterStore } from "./useUpdaterStore";
 const {
   mockCheckForAvailableUpdate,
   mockDownloadAndInstallPendingUpdate,
+  mockIsUpdaterEnabled,
   mockShowErrorToast,
   mockShowToast,
   mockRunInBackground,
@@ -13,6 +14,7 @@ const {
 } = vi.hoisted(() => ({
   mockCheckForAvailableUpdate: vi.fn(),
   mockDownloadAndInstallPendingUpdate: vi.fn(),
+  mockIsUpdaterEnabled: vi.fn(() => true),
   mockShowErrorToast: vi.fn(),
   mockShowToast: vi.fn(),
   mockRunInBackground: vi.fn(),
@@ -25,6 +27,7 @@ vi.mock("../lib/updater", () => ({
   AUTOMATIC_UPDATE_INTERVAL_MS: 5 * 60 * 60 * 1000,
   checkForAvailableUpdate: mockCheckForAvailableUpdate,
   downloadAndInstallPendingUpdate: mockDownloadAndInstallPendingUpdate,
+  isUpdaterEnabled: () => mockIsUpdaterEnabled(),
 }));
 
 vi.mock("../lib/tauri", () => ({
@@ -65,6 +68,7 @@ describe("useUpdaterStore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsTauri.mockReturnValue(true);
+    mockIsUpdaterEnabled.mockReturnValue(true);
     mockRunInBackground.mockImplementation(
       ({ run }: { run: (ctx: RunCtx) => Promise<void> }) => {
         lastCtx = {
@@ -103,6 +107,54 @@ describe("useUpdaterStore", () => {
     expect(result).toBeNull();
     expect(mockCheckForAvailableUpdate).not.toHaveBeenCalled();
     expect(useUpdaterStore.getState().status).toBe("idle");
+  });
+
+  it("skips automatic checks when the debug updater gate is closed", async () => {
+    mockIsUpdaterEnabled.mockReturnValue(false);
+
+    const result = await useUpdaterStore
+      .getState()
+      .checkForUpdates({ reason: "automatic" });
+
+    expect(result).toBeNull();
+    expect(mockCheckForAvailableUpdate).not.toHaveBeenCalled();
+    expect(mockShowErrorToast).not.toHaveBeenCalled();
+    expect(useUpdaterStore.getState().status).toBe("idle");
+  });
+
+  it("surfaces a clear error on manual check when the debug gate is closed", async () => {
+    mockIsUpdaterEnabled.mockReturnValue(false);
+
+    const result = await useUpdaterStore
+      .getState()
+      .checkForUpdates({ reason: "manual" });
+
+    expect(result).toBeNull();
+    expect(mockCheckForAvailableUpdate).not.toHaveBeenCalled();
+    expect(useUpdaterStore.getState()).toMatchObject({
+      status: "error",
+      lastError: "common:updates.error.disabledInDev",
+    });
+    expect(mockShowErrorToast).toHaveBeenCalledWith({
+      key: "updater",
+      label: "common:updates.error.disabledInDev",
+      detail: "common:updates.error.disabledInDevDetail",
+    });
+  });
+
+  it("does not start the automatic-check interval when the debug gate is closed", async () => {
+    mockIsUpdaterEnabled.mockReturnValue(false);
+    vi.useFakeTimers();
+
+    const stop = useUpdaterStore.getState().startAutomaticUpdateChecks();
+    await Promise.resolve();
+    expect(mockCheckForAvailableUpdate).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(5 * 60 * 60 * 1000);
+    expect(mockCheckForAvailableUpdate).not.toHaveBeenCalled();
+
+    stop();
+    vi.useRealTimers();
   });
 
   it("still runs manual checks when automatic checks are off", async () => {

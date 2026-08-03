@@ -5,6 +5,13 @@ import { isTauri } from "./windowRole";
 /** Background check cadence while the app stays open (within the 4–6h plan window). */
 export const AUTOMATIC_UPDATE_INTERVAL_MS = 5 * 60 * 60 * 1000;
 
+/**
+ * Process env that re-enables the updater during `tauri dev` / Vite DEV.
+ * Set to `1` or `true` when intentionally testing update checks from a debug session.
+ * See `docs/release.md` ("Debug builds and the updater").
+ */
+export const UPDATER_ENABLE_ENV = "SPIRAL_ENABLE_UPDATER";
+
 export type UpdateCheckReason = "automatic" | "manual";
 
 export interface AvailableUpdateInfo {
@@ -12,6 +19,38 @@ export interface AvailableUpdateInfo {
   currentVersion: string;
   date?: string;
   body?: string;
+}
+
+/** Thrown when check/install is attempted while the debug hard gate is active. */
+export class UpdaterDisabledInDevError extends Error {
+  readonly code = "updater_disabled_in_dev" as const;
+
+  constructor() {
+    super("Updater is disabled in debug builds");
+    this.name = "UpdaterDisabledInDevError";
+  }
+}
+
+/**
+ * Whether the app may talk to the live update endpoint / install updates.
+ *
+ * Release builds: always on.
+ * DEV (`tauri dev` / Vite): off unless {@link UPDATER_ENABLE_ENV} is `1`/`true`.
+ *
+ * Why: debug binaries live under `src-tauri/target/debug/`; accepting a live
+ * update can unpack a release bundle over that tree and relaunch outside the
+ * Vite-driven session. Packaged installs are unaffected.
+ */
+export function isUpdaterEnabled(options?: {
+  isDev?: boolean;
+  enableFlag?: string | undefined;
+}): boolean {
+  const isDev = options?.isDev ?? import.meta.env.DEV;
+  if (!isDev) return true;
+
+  const flag = options?.enableFlag ?? import.meta.env.SPIRAL_ENABLE_UPDATER;
+  const normalized = flag?.trim().toLowerCase();
+  return normalized === "1" || normalized === "true";
 }
 
 /** Holds the live plugin Update until install or a newer check replaces it. */
@@ -29,6 +68,7 @@ export function clearPendingUpdate(): void {
 
 export async function checkForAvailableUpdate(): Promise<AvailableUpdateInfo | null> {
   if (!isTauri()) return null;
+  if (!isUpdaterEnabled()) return null;
 
   const update = await check();
   clearPendingUpdate();
@@ -54,6 +94,9 @@ export async function downloadAndInstallPendingUpdate(
 ): Promise<void> {
   if (!isTauri()) {
     throw new Error("Updater is only available in the desktop app");
+  }
+  if (!isUpdaterEnabled()) {
+    throw new UpdaterDisabledInDevError();
   }
 
   const update = pendingUpdate;

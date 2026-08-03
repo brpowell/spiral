@@ -29,7 +29,9 @@
       "check": "Couldn't check for updates",
       "install": "Couldn't install the update",
       "noUpdate": "No update is ready to install",
-      "savePreference": "Couldn't save update preferences"
+      "savePreference": "Couldn't save update preferences",
+      "disabledInDev": "Updates are disabled in debug builds",
+      "disabledInDevDetail": "Set SPIRAL_ENABLE_UPDATER=1 to override, or test with a packaged installer. See docs/release.md."
     }
   }
 }

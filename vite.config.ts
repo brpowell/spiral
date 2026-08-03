@@ -6,6 +6,8 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
+  // Expose SPIRAL_* (e.g. SPIRAL_ENABLE_UPDATER) alongside default VITE_*.
+  envPrefix: ["VITE_", "SPIRAL_"],
   test: {
     projects: [
       {

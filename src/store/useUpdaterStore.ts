@@ -4,6 +4,7 @@ import {
   AUTOMATIC_UPDATE_INTERVAL_MS,
   checkForAvailableUpdate,
   downloadAndInstallPendingUpdate,
+  isUpdaterEnabled,
   type AvailableUpdateInfo,
   type UpdateCheckReason,
 } from "../lib/updater";
@@ -131,6 +132,14 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
 
   checkForUpdates: async ({ reason = "manual" } = {}) => {
     if (!isTauri()) return null;
+    if (!isUpdaterEnabled()) {
+      if (reason === "automatic") return null;
+      const message = t("common:updates.error.disabledInDev");
+      const detail = t("common:updates.error.disabledInDevDetail");
+      set({ status: "error", lastError: message });
+      surfaceUpdaterError(message, detail);
+      return null;
+    }
     if (reason === "automatic" && !get().automaticChecksEnabled) return null;
 
     const previousStatus = get().status;
@@ -252,6 +261,13 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
 
   installAvailableUpdate: async () => {
     if (!isTauri()) return;
+    if (!isUpdaterEnabled()) {
+      const message = t("common:updates.error.disabledInDev");
+      const detail = t("common:updates.error.disabledInDevDetail");
+      set({ status: "error", lastError: message });
+      surfaceUpdaterError(message, detail);
+      return;
+    }
     if (!get().availableUpdate) {
       const message = t("common:updates.error.noUpdate");
       set({ status: "error", lastError: message });
@@ -308,7 +324,7 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
   },
 
   startAutomaticUpdateChecks: () => {
-    if (!isTauri()) return () => {};
+    if (!isTauri() || !isUpdaterEnabled()) return () => {};
 
     void get().checkForUpdates({ reason: "automatic" });
 
