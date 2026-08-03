@@ -3,10 +3,11 @@
 # Attaches DMG + NSIS installers to that draft — does not publish.
 #
 # Signing secrets live on `production-release`. Updater key (#181) is set.
-# Apple/Windows (#182 / #183) are optional — only exported into the job env when
-# present. Do NOT map missing secrets to empty APPLE_* env vars: tauri-bundler
-# treats a present (even "") APPLE_CERTIFICATE as "import this cert" and fails
-# with SecKeychainItemImport on unsigned CI runners.
+# Apple/Windows (#182 / #183) are optional — Apple vars are appended to
+# GITHUB_ENV only when non-empty (secrets cannot be used in `if:`). Do NOT map
+# missing secrets to empty APPLE_* job env vars: tauri-bundler treats a present
+# (even "") APPLE_CERTIFICATE as "import this cert" and fails with
+# SecKeychainItemImport on unsigned CI runners.
 #
 # Requires release-please to use RELEASE_PLEASE_TOKEN (a PAT) so the tag push
 # actually triggers this workflow — GITHUB_TOKEN-created events do not.
@@ -88,10 +89,12 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      # Optional until #182 fills Apple secrets. Gated so missing secrets leave
-      # APPLE_* unset (unsigned DMG) instead of empty-string → failed import.
+      # Optional until #182 fills Apple secrets. `secrets` is not allowed in
+      # `if:`; gate on macOS only and append non-empty values to GITHUB_ENV so
+      # missing secrets leave APPLE_* unset (unsigned DMG) instead of empty-
+      # string → failed import. Do not put APPLE_* on the job env.
       - name: Export Apple signing env when configured
-        if: runner.os == 'macOS' && secrets.APPLE_CERTIFICATE != ''
+        if: runner.os == 'macOS'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
