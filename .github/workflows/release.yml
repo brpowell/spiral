@@ -1,20 +1,28 @@
-# Platform-matrix release build (macOS + Windows).
-# Triggered by the v* tag that release-please creates alongside its draft GitHub Release.
-# Attaches DMG + NSIS installers to that draft — does not publish.
+# Builds release installers for every platform (macOS + Windows) and attaches
+# them to the draft GitHub Release — it never publishes anything itself.
 #
-# Signing secrets live on `production-release`. Updater key (#181) is set.
-# Apple/Windows (#182 / #183) are optional — Apple vars are appended to
-# GITHUB_ENV only when non-empty (secrets cannot be used in `if:`). Do NOT map
-# missing secrets to empty APPLE_* job env vars: tauri-bundler treats a present
-# (even "") APPLE_CERTIFICATE as "import this cert" and fails with
-# SecKeychainItemImport on unsigned CI runners.
+# Trigger: the v* tag that release-please creates alongside its draft release.
+# For that tag push to actually reach this workflow, release-please must be
+# configured with RELEASE_PLEASE_TOKEN (a PAT) — tags created via the default
+# GITHUB_TOKEN do not fire tag-push events.
 #
-# Requires release-please to use RELEASE_PLEASE_TOKEN (a PAT) so the tag push
-# actually triggers this workflow — GITHUB_TOKEN-created events do not.
+# Signing: secrets live in the `production-release` environment. The updater
+# key (#181) is already configured; Apple notarization (#182) and Windows
+# Authenticode (#183) are still optional. Because `secrets` can't be read in
+# `if:` conditions, the Apple step gates on `runner.os == 'macOS'` and only
+# appends a secret to GITHUB_ENV when it's non-empty, so unset secrets leave
+# APPLE_* undefined rather than empty. This distinction matters: tauri-bundler
+# treats a *present-but-empty* APPLE_CERTIFICATE as "please import this cert"
+# and fails with SecKeychainItemImport on our unsigned CI runners. Never set
+# APPLE_* directly on the job's `env:` block for this reason.
 #
-# Fan-in: `platforms-green` only succeeds when every matrix cell succeeded and the
-# draft has installers for all platforms. Publish is a separate workflow
-# (publish-release.yml) — never auto-undraft from this file.
+# Fan-in: `platforms-green` is the single required check — it only goes green
+# once every matrix cell has succeeded and the draft actually has installers
+# for all platforms. It intentionally still runs (rather than being skipped)
+# when a build fails, since a skipped check can read as green to required-
+# check gating and downstream `needs:`. Operators should treat this job as the
+# signal for "ready to publish"; the actual publish step lives in a separate
+# workflow (publish-release.yml) and this file never auto-undrafts a release.
 name: Release
 
 on:
@@ -175,7 +183,7 @@ jobs:
           TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
-          assets="$(gh release view "$TAG" --json assets --jq '.assets[].name')"
+          assets="$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[].name')"
           echo "Assets on $TAG:"
           echo "$assets"
 
