@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/brpowell/spiral-desktop/compare/v0.2.0...v0.2.1) (2026-08-03)
+
+
+### Bug Fixes
+
+* load PCM worklet via Vite worker URL for production CSP ([#213](https://github.com/brpowell/spiral-desktop/issues/213)) ([36b69b2](https://github.com/brpowell/spiral-desktop/commit/36b69b28ef7908c5fa55b3a485073c5f94a6ca80))
+* stabilize lightbox album art shared-layout zoom ([#211](https://github.com/brpowell/spiral-desktop/issues/211)) ([7bcb7a2](https://github.com/brpowell/spiral-desktop/commit/7bcb7a26dc08e27fd92dc91bdd07eb8ebf8575fd))
+
 ## [0.2.0](https://github.com/brpowell/spiral-desktop/compare/v0.1.0...v0.2.0) (2026-08-03)
 
 
