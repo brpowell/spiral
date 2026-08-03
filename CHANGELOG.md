@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/brpowell/spiral-desktop/compare/v0.2.1...v0.2.2) (2026-08-03)
+
+
+### Bug Fixes
+
+* **deps:** address npm and cargo audit vulnerabilities ([#214](https://github.com/brpowell/spiral-desktop/issues/214)) ([fd87c5d](https://github.com/brpowell/spiral-desktop/commit/fd87c5d0688a8bc5fe0e0e9208ce8a9c89c9b503))
+* generate updater artifacts ([#215](https://github.com/brpowell/spiral-desktop/issues/215)) ([784cacb](https://github.com/brpowell/spiral-desktop/commit/784cacbd9ac61fe88a8a122c4e832dd80d36f830))
+
 ## [0.2.1](https://github.com/brpowell/spiral-desktop/compare/v0.2.0...v0.2.1) (2026-08-03)
 
 
