@@ -2,8 +2,11 @@
 # Triggered by the v* tag that release-please creates alongside its draft GitHub Release.
 # Attaches DMG + NSIS installers to that draft — does not publish.
 #
-# Signing secrets are referenced by name on `production-release`.
-# Updater key (#181) is already set; Apple/Windows (#182 / #183) stay empty → unsigned.
+# Signing secrets live on `production-release`. Updater key (#181) is set.
+# Apple/Windows (#182 / #183) are optional — only exported into the job env when
+# present. Do NOT map missing secrets to empty APPLE_* env vars: tauri-bundler
+# treats a present (even "") APPLE_CERTIFICATE as "import this cert" and fails
+# with SecKeychainItemImport on unsigned CI runners.
 #
 # Requires release-please to use RELEASE_PLEASE_TOKEN (a PAT) so the tag push
 # actually triggers this workflow — GITHUB_TOKEN-created events do not.
@@ -57,16 +60,8 @@ jobs:
       # Updater signing (#181) — Environment secret on production-release
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-      # macOS code signing + notarization (#182)
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-      # Windows Authenticode (#183) — imported below when present
+      # Windows Authenticode (#183) — imported below when present (empty is fine;
+      # that step is gated). Apple secrets are exported only when non-empty.
       WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
       WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
 
@@ -92,6 +87,38 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      # Optional until #182 fills Apple secrets. Gated so missing secrets leave
+      # APPLE_* unset (unsigned DMG) instead of empty-string → failed import.
+      - name: Export Apple signing env when configured
+        if: runner.os == 'macOS' && secrets.APPLE_CERTIFICATE != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          append() {
+            local name="$1" value="$2"
+            [ -n "$value" ] || return 0
+            {
+              echo "${name}<<EOF"
+              printf '%s\n' "$value"
+              echo "EOF"
+            } >> "$GITHUB_ENV"
+          }
+          append APPLE_CERTIFICATE "$APPLE_CERTIFICATE"
+          append APPLE_CERTIFICATE_PASSWORD "$APPLE_CERTIFICATE_PASSWORD"
+          append APPLE_SIGNING_IDENTITY "$APPLE_SIGNING_IDENTITY"
+          append APPLE_ID "$APPLE_ID"
+          append APPLE_PASSWORD "$APPLE_PASSWORD"
+          append APPLE_TEAM_ID "$APPLE_TEAM_ID"
+          append APPLE_API_KEY "$APPLE_API_KEY"
+          append APPLE_API_ISSUER "$APPLE_API_ISSUER"
 
       # Optional until #183 fills WINDOWS_CERTIFICATE / WINDOWS_CERTIFICATE_PASSWORD.
       # Also requires certificateThumbprint (etc.) in tauri.conf.json when signing is flipped on.
