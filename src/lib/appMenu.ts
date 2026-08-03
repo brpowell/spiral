@@ -6,6 +6,7 @@ import {
   Submenu,
 } from "@tauri-apps/api/menu";
 import { LINKED_PACKS_CHANGED_EVENT } from "./appearanceWindow";
+import { t } from "./i18n";
 import { listPacks } from "./tauri";
 
 export interface AppMenuHandlers {
@@ -15,6 +16,7 @@ export interface AppMenuHandlers {
   newPlaylist: () => void;
   openPreferences: () => void;
   openSpiralCard: () => void;
+  checkForUpdates: () => void;
   openSkinMode: () => void;
   openAppearance: () => void;
   openEqualizer: () => void;
@@ -72,12 +74,17 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
     text: "Spiral Card…",
     action: handlers.openSpiralCard,
   });
+  const checkForUpdates = await MenuItem.new({
+    id: "check-for-updates",
+    text: t("common:updates.menu.check"),
+    action: handlers.checkForUpdates,
+  });
   const quit = await PredefinedMenuItem.new({ item: "Quit" });
   const spiralSeparator = await PredefinedMenuItem.new({ item: "Separator" });
 
   const spiralSubmenu = await Submenu.new({
     text: "Spiral",
-    items: [preferences, spiralCard, spiralSeparator, quit],
+    items: [preferences, spiralCard, checkForUpdates, spiralSeparator, quit],
   });
 
   const addToLibrary = await MenuItem.new({

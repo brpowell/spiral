@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import {
@@ -31,7 +32,11 @@ import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import { usePlaybackSettingsStore } from "../../store/usePlaybackSettingsStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { usePlaylistStore } from "../../store/usePlaylistStore";
-import { MIN_CROSSFADE_SECONDS, MAX_CROSSFADE_SECONDS } from "../../types/playbackSettings";
+import { useUpdaterStore } from "../../store/useUpdaterStore";
+import {
+  MIN_CROSSFADE_SECONDS,
+  MAX_CROSSFADE_SECONDS,
+} from "../../types/playbackSettings";
 import type {
   CdMetadataFetchMode,
   ImportMode,
@@ -69,7 +74,13 @@ import {
 } from "../ContextMenu/ContextMenu";
 import { SidebarItem } from "../layout/SidebarItem/SidebarItem";
 import { SidebarFrame, SidebarList } from "../layout/SidebarChrome";
-import { IconCheck, IconChevronDown, IconOpenFolder, IconReset } from "../icons";
+import {
+  IconCheck,
+  IconChevronDown,
+  IconOpenFolder,
+  IconRefresh,
+  IconReset,
+} from "../icons";
 import { LibraryRelocateDialog } from "./LibraryRelocateDialog";
 import {
   PREFERENCES_SECTIONS,
@@ -87,10 +98,10 @@ const CD_METADATA_FETCH_MODE_OPTIONS: {
   value: CdMetadataFetchMode;
   label: string;
 }[] = [
-    { value: "always", label: "Automatically" },
-    { value: "ask", label: "Always ask" },
-    { value: "never", label: "Never" },
-  ];
+  { value: "always", label: "Automatically" },
+  { value: "ask", label: "Always ask" },
+  { value: "never", label: "Never" },
+];
 
 /** Browser-style clear ranges: hours to delete, or null for all time. */
 const CLEAR_HISTORY_RANGES: { withinHours: number | null; label: string }[] = [
@@ -104,27 +115,44 @@ const CLEAR_HISTORY_RANGES: { withinHours: number | null; label: string }[] = [
 export function PreferencesModal() {
   const open = useLibrarySettingsStore((s) => s.preferencesOpen);
   const setOpen = useLibrarySettingsStore((s) => s.setPreferencesOpen);
-  const preferencesFocusSection = useLibrarySettingsStore(
-    (s) => s.preferencesFocusSection,
-  );
   const consumePreferencesFocusSection = useLibrarySettingsStore(
     (s) => s.consumePreferencesFocusSection,
   );
   const settings = useLibrarySettingsStore((s) => s.settings);
-  const saveLibrarySettings = useLibrarySettingsStore((s) => s.saveLibrarySettings);
-  const applyLibrarySettings = useLibrarySettingsStore((s) => s.applyLibrarySettings);
+  const saveLibrarySettings = useLibrarySettingsStore(
+    (s) => s.saveLibrarySettings,
+  );
+  const applyLibrarySettings = useLibrarySettingsStore(
+    (s) => s.applyLibrarySettings,
+  );
   const crossfadeEnabled = usePlaybackSettingsStore((s) => s.crossfadeEnabled);
   const crossfadeSeconds = usePlaybackSettingsStore((s) => s.crossfadeSeconds);
   const crossfadeOnSkip = usePlaybackSettingsStore((s) => s.crossfadeOnSkip);
   const crossfadeVisualEnabled = usePlaybackSettingsStore(
     (s) => s.crossfadeVisualEnabled,
   );
-  const setCrossfadeEnabled = usePlaybackSettingsStore((s) => s.setCrossfadeEnabled);
-  const setCrossfadeSeconds = usePlaybackSettingsStore((s) => s.setCrossfadeSeconds);
-  const setCrossfadeOnSkip = usePlaybackSettingsStore((s) => s.setCrossfadeOnSkip);
+  const setCrossfadeEnabled = usePlaybackSettingsStore(
+    (s) => s.setCrossfadeEnabled,
+  );
+  const setCrossfadeSeconds = usePlaybackSettingsStore(
+    (s) => s.setCrossfadeSeconds,
+  );
+  const setCrossfadeOnSkip = usePlaybackSettingsStore(
+    (s) => s.setCrossfadeOnSkip,
+  );
   const setCrossfadeVisualEnabled = usePlaybackSettingsStore(
     (s) => s.setCrossfadeVisualEnabled,
   );
+  const automaticChecksEnabled = useUpdaterStore(
+    (s) => s.automaticChecksEnabled,
+  );
+  const setAutomaticChecksEnabled = useUpdaterStore(
+    (s) => s.setAutomaticChecksEnabled,
+  );
+  const checkForUpdates = useUpdaterStore((s) => s.checkForUpdates);
+  const availableUpdate = useUpdaterStore((s) => s.availableUpdate);
+  const updaterStatus = useUpdaterStore((s) => s.status);
+  const { t } = useTranslation(["preferences", "common"]);
 
   const titleId = useId();
   const importModeLabelId = useId();
@@ -134,12 +162,6 @@ export function PreferencesModal() {
 
   const [activeSection, setActiveSection] =
     useState<PreferencesSectionId>("library");
-
-  useEffect(() => {
-    if (!open || preferencesFocusSection == null) return;
-    setActiveSection(preferencesFocusSection);
-    consumePreferencesFocusSection();
-  }, [open, preferencesFocusSection, consumePreferencesFocusSection]);
   const [libraryRoot, setLibraryRoot] = useState("");
   const [organizePathFormat, setOrganizePathFormat] = useState("");
   const [previewSample, setPreviewSample] = useState<OrganizePathSample>(
@@ -193,7 +215,8 @@ export function PreferencesModal() {
     if (!open) return;
     const current = useLibrarySettingsStore.getState().settings;
     if (!current) return;
-    setActiveSection("library");
+    const focus = consumePreferencesFocusSection();
+    setActiveSection(focus ?? "library");
     setLibraryRoot(current.libraryRoot);
     setOrganizePathFormat(current.organizePathFormat);
     setError(null);
@@ -214,7 +237,7 @@ export function PreferencesModal() {
     } else {
       setPreviewSample(GENERIC_ORGANIZE_PATH_SAMPLE);
     }
-  }, [open, closeClearRangeMenu]);
+  }, [open, closeClearRangeMenu, consumePreferencesFocusSection]);
 
   useEffect(() => {
     if (!open || activeSection !== "studio" || defaultAuthorIdLoaded) return;
@@ -496,7 +519,8 @@ export function PreferencesModal() {
                     <Button
                       size="sm"
                       disabled={
-                        relocateBusy || libraryRoot === settings.defaultLibraryRoot
+                        relocateBusy ||
+                        libraryRoot === settings.defaultLibraryRoot
                       }
                       onClick={() => {
                         const next = settings.defaultLibraryRoot;
@@ -560,10 +584,12 @@ export function PreferencesModal() {
                     </div>
                   </FormField>
                   <p className="preferences__hint">
-                    <span className="preferences__hint-label">Placeholders:</span>{" "}
-                    <code>{"{albumArtist}"}</code>,{" "}
-                    <code>{"{artist}"}</code>, <code>{"{album}"}</code>,{" "}
-                    <code>{"{title}"}</code>, <code>{"{trackNumber:02}"}</code>,{" "}
+                    <span className="preferences__hint-label">
+                      Placeholders:
+                    </span>{" "}
+                    <code>{"{albumArtist}"}</code>, <code>{"{artist}"}</code>,{" "}
+                    <code>{"{album}"}</code>, <code>{"{title}"}</code>,{" "}
+                    <code>{"{trackNumber:02}"}</code>,{" "}
                     <code>{"{discNumber:02}"}</code>, <code>{"{year}"}</code>,{" "}
                     <code>{"{genre}"}</code>, <code>{"{ext}"}</code>
                   </p>
@@ -571,7 +597,10 @@ export function PreferencesModal() {
 
                 <Separator />
 
-                <FormField label="When importing files…" labelId={importModeLabelId}>
+                <FormField
+                  label="When importing files…"
+                  labelId={importModeLabelId}
+                >
                   <RadioGroup
                     name="importMode"
                     value={settings.importMode}
@@ -822,7 +851,10 @@ export function PreferencesModal() {
                     ))}
                   </RadioGroup>
                   <FieldDescription>
-                    Look up metadata from <TextLink href="https://musicbrainz.org" target="_blank">MusicBrainz</TextLink>
+                    Look up metadata from{" "}
+                    <TextLink href="https://musicbrainz.org" target="_blank">
+                      MusicBrainz
+                    </TextLink>
                   </FieldDescription>
                 </Field>
 
@@ -927,6 +959,53 @@ export function PreferencesModal() {
               </div>
             )}
 
+            {activeSection === "updates" && (
+              <div className="preferences__panel">
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="pref-automatic-updates"
+                    checked={automaticChecksEnabled}
+                    onChange={(e) => {
+                      void setAutomaticChecksEnabled(e.target.checked);
+                    }}
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor="pref-automatic-updates">
+                      {t("preferences:updates.automatic.label")}
+                    </FieldLabel>
+                    <FieldDescription>
+                      {t("preferences:updates.automatic.description")}
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
+
+                {availableUpdate ? (
+                  <p className="preferences__hint" role="status">
+                    {t("preferences:updates.pending", {
+                      version: availableUpdate.version,
+                    })}
+                  </p>
+                ) : null}
+
+                <Button
+                  variant="secondary"
+                  className="preferences__action-btn"
+                  disabled={
+                    updaterStatus === "checking" ||
+                    updaterStatus === "downloading"
+                  }
+                  onClick={() => {
+                    void checkForUpdates({ reason: "manual" });
+                  }}
+                >
+                  <IconRefresh aria-hidden />
+                  {updaterStatus === "checking"
+                    ? t("common:updates.checking")
+                    : t("preferences:updates.checkButton")}
+                </Button>
+              </div>
+            )}
+
             {error && (
               <div className="preferences__status">
                 <p className="preferences__error" role="alert">
@@ -957,10 +1036,11 @@ export function PreferencesModal() {
             ? undefined
             : relocateInfo && relocateInfo.audioFileCount > 0
               ? {
-                label: `Import ${relocateInfo.audioFileCount} found file${relocateInfo.audioFileCount === 1 ? "" : "s"
+                  label: `Import ${relocateInfo.audioFileCount} found file${
+                    relocateInfo.audioFileCount === 1 ? "" : "s"
                   }`,
-                mode: "freshImport",
-              }
+                  mode: "freshImport",
+                }
               : { label: "Start empty library", mode: "fresh" }
         }
         busy={relocateBusy}
@@ -974,7 +1054,8 @@ export function PreferencesModal() {
       >
         {relocateInfo?.hasDatabase ? (
           <p>
-            A Spiral library already exists here. Your current library will stay at its old location.
+            A Spiral library already exists here. Your current library will stay
+            at its old location.
           </p>
         ) : relocateInfo && relocateInfo.audioFileCount > 0 ? (
           <p>
@@ -984,9 +1065,7 @@ export function PreferencesModal() {
             start a new library and import those files in place.
           </p>
         ) : (
-          <p>
-            Or start a new empty library here.
-          </p>
+          <p>Or start a new empty library here.</p>
         )}
       </LibraryRelocateDialog>
 

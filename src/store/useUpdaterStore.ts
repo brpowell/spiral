@@ -9,7 +9,10 @@ import {
 } from "../lib/updater";
 import { saveLibrarySettings } from "../lib/tauri";
 import { isTauri } from "../lib/windowRole";
-import { useBackgroundTasksStore } from "./useBackgroundTasksStore";
+import {
+  useBackgroundTasksStore,
+  type BackgroundTaskAction,
+} from "./useBackgroundTasksStore";
 
 export type UpdaterStatus =
   | "idle"
@@ -20,6 +23,9 @@ export type UpdaterStatus =
   | "ready"
   | "error";
 
+const UPDATER_TOAST_KEY = "updater";
+const UPDATER_INSTALL_TASK_KEY = "updater-install";
+
 interface UpdaterState {
   status: UpdaterStatus;
   availableUpdate: AvailableUpdateInfo | null;
@@ -27,6 +33,11 @@ interface UpdaterState {
   downloadedBytes: number;
   contentLength: number | null;
   automaticChecksEnabled: boolean;
+  /**
+   * Version whose "update available" toast was already shown.
+   * Periodic automatic re-checks of the same version must not re-nag.
+   */
+  notifiedUpdateVersion: string | null;
   /** Sync from loaded library settings (default on until settings arrive). */
   applyAutomaticChecksEnabled: (enabled: boolean) => void;
   setAutomaticChecksEnabled: (enabled: boolean) => Promise<void>;
@@ -34,12 +45,14 @@ interface UpdaterState {
     reason?: UpdateCheckReason;
   }) => Promise<AvailableUpdateInfo | null>;
   installAvailableUpdate: () => Promise<void>;
+  /** Re-show the Update / Later confirmation for a pending version. */
+  promptAvailableUpdate: () => void;
   startAutomaticUpdateChecks: () => () => void;
 }
 
 function surfaceUpdaterError(label: string, detail?: string): void {
   useBackgroundTasksStore.getState().showErrorToast({
-    key: "updater",
+    key: UPDATER_TOAST_KEY,
     label,
     detail,
   });
@@ -51,6 +64,43 @@ function errorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+function availableUpdateActions(): BackgroundTaskAction[] {
+  return [
+    {
+      id: "update",
+      label: t("common:updates.available.update"),
+      variant: "primary",
+      onClick: () => {
+        void useUpdaterStore.getState().installAvailableUpdate();
+      },
+    },
+    {
+      id: "later",
+      label: t("common:updates.available.later"),
+      variant: "ghost",
+      onClick: () => {
+        /* Pending state + More badge carry the signal after Later. */
+      },
+    },
+  ];
+}
+
+function availableUpdatePresentation(update: AvailableUpdateInfo) {
+  return {
+    status: "info" as const,
+    label: t("common:updates.available.label"),
+    detail: t("common:updates.available.detail", { version: update.version }),
+    actions: availableUpdateActions(),
+  };
+}
+
+function showAvailableUpdateToast(update: AvailableUpdateInfo): void {
+  useBackgroundTasksStore.getState().showToast({
+    key: UPDATER_TOAST_KEY,
+    ...availableUpdatePresentation(update),
+  });
+}
+
 export const useUpdaterStore = create<UpdaterState>((set, get) => ({
   status: "idle",
   availableUpdate: null,
@@ -58,6 +108,7 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
   downloadedBytes: 0,
   contentLength: null,
   automaticChecksEnabled: true,
+  notifiedUpdateVersion: null,
 
   applyAutomaticChecksEnabled: (enabled) => {
     set({ automaticChecksEnabled: enabled });
@@ -83,40 +134,120 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
     if (reason === "automatic" && !get().automaticChecksEnabled) return null;
 
     const previousStatus = get().status;
+    const previousAvailable = get().availableUpdate;
     set({
       status: "checking",
       lastError: null,
     });
 
-    try {
-      const available = await checkForAvailableUpdate();
-      if (available) {
-        set({
-          status: "available",
-          availableUpdate: available,
-          lastError: null,
-        });
-        return available;
+    const applyAvailable = (
+      available: AvailableUpdateInfo,
+      notify: boolean,
+    ): void => {
+      set({
+        status: "available",
+        availableUpdate: available,
+        lastError: null,
+      });
+      if (notify) {
+        set({ notifiedUpdateVersion: available.version });
       }
+    };
 
+    const applyUpToDate = (): void => {
       set({
         status: "upToDate",
         availableUpdate: null,
         lastError: null,
+        notifiedUpdateVersion: null,
       });
+    };
+
+    const applyCheckFailure = (message: string): boolean => {
+      const keepPending =
+        previousStatus === "available" || previousAvailable != null;
+      set({
+        status: keepPending ? "available" : "error",
+        lastError: message,
+        availableUpdate: keepPending ? previousAvailable : null,
+      });
+      return keepPending;
+    };
+
+    if (reason === "manual") {
+      return await new Promise<AvailableUpdateInfo | null>((resolve) => {
+        useBackgroundTasksStore.getState().runInBackground({
+          key: UPDATER_TOAST_KEY,
+          label: t("common:updates.checking"),
+          run: async (ctx) => {
+            try {
+              const available = await checkForAvailableUpdate();
+
+              if (available) {
+                applyAvailable(available, true);
+                ctx.settleAs(availableUpdatePresentation(available));
+                resolve(available);
+                return;
+              }
+
+              applyUpToDate();
+              ctx.settleAs({
+                status: "success",
+                label: t("common:updates.upToDate"),
+              });
+              resolve(null);
+            } catch (err) {
+              const message = errorMessage(
+                err,
+                t("common:updates.error.check"),
+              );
+              applyCheckFailure(message);
+              ctx.settleAs({
+                status: "error",
+                label: t("common:updates.error.check"),
+                detail: message,
+              });
+              resolve(null);
+            }
+          },
+        });
+      });
+    }
+
+    try {
+      const available = await checkForAvailableUpdate();
+
+      if (available) {
+        const alreadyNotified =
+          get().notifiedUpdateVersion === available.version;
+        const shouldNotify = !alreadyNotified;
+        applyAvailable(available, shouldNotify);
+        if (shouldNotify) {
+          showAvailableUpdateToast(available);
+        }
+        return available;
+      }
+
+      applyUpToDate();
       return null;
     } catch (err) {
       const message = errorMessage(err, t("common:updates.error.check"));
-      set({
-        status: "error",
-        lastError: message,
-        // Keep prior available metadata if a re-check failed mid-pending.
-        availableUpdate:
-          previousStatus === "available" ? get().availableUpdate : null,
-      });
-      surfaceUpdaterError(t("common:updates.error.check"), message);
+      // Avoid nagging on background re-check failures while an update is pending.
+      if (!applyCheckFailure(message)) {
+        surfaceUpdaterError(t("common:updates.error.check"), message);
+      }
       return null;
     }
+  },
+
+  promptAvailableUpdate: () => {
+    const available = get().availableUpdate;
+    if (!available) {
+      void get().checkForUpdates({ reason: "manual" });
+      return;
+    }
+    showAvailableUpdateToast(available);
+    set({ notifiedUpdateVersion: available.version });
   },
 
   installAvailableUpdate: async () => {
@@ -135,23 +266,45 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
       contentLength: null,
     });
 
-    try {
-      await downloadAndInstallPendingUpdate(
-        ({ downloadedBytes, contentLength }) => {
-          set({
-            status: "downloading",
-            downloadedBytes,
-            contentLength,
-          });
+    await new Promise<void>((resolve) => {
+      useBackgroundTasksStore.getState().runInBackground({
+        key: UPDATER_INSTALL_TASK_KEY,
+        label: t("common:updates.downloading"),
+        run: async (ctx) => {
+          try {
+            await downloadAndInstallPendingUpdate(
+              ({ downloadedBytes, contentLength }) => {
+                set({
+                  status: "downloading",
+                  downloadedBytes,
+                  contentLength,
+                });
+                if (contentLength != null && contentLength > 0) {
+                  ctx.setProgress(downloadedBytes, contentLength);
+                }
+              },
+            );
+            // relaunch() normally ends the process; if it returns, mark ready.
+            set({
+              status: "ready",
+              availableUpdate: null,
+              notifiedUpdateVersion: null,
+            });
+            ctx.dismissSilently();
+            resolve();
+          } catch (err) {
+            const message = errorMessage(
+              err,
+              t("common:updates.error.install"),
+            );
+            set({ status: "error", lastError: message });
+            ctx.setLabel(t("common:updates.error.install"));
+            resolve();
+            throw new Error(message);
+          }
         },
-      );
-      // relaunch() normally ends the process; if it returns, mark ready.
-      set({ status: "ready" });
-    } catch (err) {
-      const message = errorMessage(err, t("common:updates.error.install"));
-      set({ status: "error", lastError: message });
-      surfaceUpdaterError(t("common:updates.error.install"), message);
-    }
+      });
+    });
   },
 
   startAutomaticUpdateChecks: () => {

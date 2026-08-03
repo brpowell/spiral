@@ -1,0 +1,23 @@
+.status-indicator {
+  display: block;
+  width: 0.45rem;
+  height: 0.45rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.status-indicator-anchor {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-indicator-anchor > .status-indicator {
+  position: absolute;
+  top: -0.1rem;
+  right: -0.15rem;
+  box-shadow: 0 0 0 2px var(--status-indicator-ring, var(--color-bg));
+}

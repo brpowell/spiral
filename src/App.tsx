@@ -101,6 +101,9 @@ function App() {
     newPlaylist: () => openPlaylistEditor("new"),
     openPreferences: () => setPreferencesOpen(true),
     openSpiralCard: () => openSpiralCard(),
+    checkForUpdates: () => {
+      void useUpdaterStore.getState().checkForUpdates({ reason: "manual" });
+    },
     openSkinMode: () => {
       void openSkinMode();
     },

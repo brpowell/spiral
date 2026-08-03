@@ -114,6 +114,9 @@ function createCtx(): BackgroundTaskRunContext & {
     dismissSilently: () => {
       dismissedSilently = true;
     },
+    settleAs: () => {
+      /* unused in lyrics fetch queue tests */
+    },
   };
 }
 
@@ -229,9 +232,9 @@ describe("enqueueLyricsFetch", () => {
     enqueueLyricsFetch(2, "Song Two", params, { priority: "auto" });
     const ctx = await runCapturedProcessor();
 
-    expect(ctx.labels.some((label) => label.startsWith("Fetching lyrics…"))).toBe(
-      true,
-    );
+    expect(
+      ctx.labels.some((label) => label.startsWith("Fetching lyrics…")),
+    ).toBe(true);
     expect(ctx.labels.at(-1)).toBe("Lyrics: fetched 1, 1 not found");
     expect(ctx.progress.some((entry) => entry.total === 2)).toBe(true);
   });

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { Button } from "../common/Button/Button";
-import { IconCancel, IconCheck, IconClose } from "../icons";
+import { IconCancel, IconCheck, IconClose, IconRefresh } from "../icons";
 import { LYRICS_FETCH_MISSING_KEY } from "../../lib/fetchMissingLyrics";
 import { panelMotion } from "../../lib/motion";
 import { cancelLyricsFetch } from "../../lib/tauri";
@@ -25,20 +25,39 @@ function TaskStatusIcon({ status }: { status: BackgroundTask["status"] }) {
   }
   if (status === "success") {
     return (
-      <span className="background-tasks__icon background-tasks__icon--success" aria-hidden>
+      <span
+        className="background-tasks__icon background-tasks__icon--success"
+        aria-hidden
+      >
         <IconCheck />
+      </span>
+    );
+  }
+  if (status === "info") {
+    return (
+      <span
+        className="background-tasks__icon background-tasks__icon--info"
+        aria-hidden
+      >
+        <IconRefresh />
       </span>
     );
   }
   if (status === "cancelled") {
     return (
-      <span className="background-tasks__icon background-tasks__icon--cancelled" aria-hidden>
+      <span
+        className="background-tasks__icon background-tasks__icon--cancelled"
+        aria-hidden
+      >
         <IconCancel />
       </span>
     );
   }
   return (
-    <span className="background-tasks__icon background-tasks__icon--error" aria-hidden>
+    <span
+      className="background-tasks__icon background-tasks__icon--error"
+      aria-hidden
+    >
       !
     </span>
   );
@@ -53,8 +72,11 @@ function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
   const meta = progress ?? task.detail;
   const isDone = task.status !== "running";
   const showCancel = task.status === "running" && task.cancellable;
+  const hasActions = Boolean(task.actions?.length);
   const cancelRequested =
-    task.key === "cd-import" ? cdCancelRequested : Boolean(task.cancelRequested);
+    task.key === "cd-import"
+      ? cdCancelRequested
+      : Boolean(task.cancelRequested);
 
   return (
     <motion.div
@@ -74,6 +96,24 @@ function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
             {meta}
           </span>
         )}
+        {hasActions ? (
+          <div className="background-tasks__actions">
+            {task.actions!.map((action) => (
+              <Button
+                key={action.id}
+                variant={action.variant ?? "ghost"}
+                size="sm"
+                className="background-tasks__action"
+                onClick={() => {
+                  dismissTask(task.id);
+                  action.onClick();
+                }}
+              >
+                {action.label}
+              </Button>
+            ))}
+          </div>
+        ) : null}
       </div>
       {showCancel && (
         <Button

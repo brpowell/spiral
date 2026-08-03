@@ -5,12 +5,18 @@ const {
   mockCheckForAvailableUpdate,
   mockDownloadAndInstallPendingUpdate,
   mockShowErrorToast,
+  mockShowToast,
+  mockRunInBackground,
+  mockDismissTask,
   mockSaveLibrarySettings,
   mockIsTauri,
 } = vi.hoisted(() => ({
   mockCheckForAvailableUpdate: vi.fn(),
   mockDownloadAndInstallPendingUpdate: vi.fn(),
   mockShowErrorToast: vi.fn(),
+  mockShowToast: vi.fn(),
+  mockRunInBackground: vi.fn(),
+  mockDismissTask: vi.fn(),
   mockSaveLibrarySettings: vi.fn(() => Promise.resolve({})),
   mockIsTauri: vi.fn(() => true),
 }));
@@ -33,18 +39,45 @@ vi.mock("./useBackgroundTasksStore", () => ({
   useBackgroundTasksStore: {
     getState: () => ({
       showErrorToast: mockShowErrorToast,
+      showToast: mockShowToast,
+      runInBackground: mockRunInBackground,
+      dismissTask: mockDismissTask,
+      tasks: [],
     }),
   },
 }));
 
 vi.mock("../lib/i18n", () => ({
-  t: (key: string) => key,
+  t: (key: string, opts?: { version?: string }) =>
+    opts?.version ? `${key}:${opts.version}` : key,
 }));
 
+type RunCtx = {
+  setProgress: ReturnType<typeof vi.fn>;
+  setLabel: ReturnType<typeof vi.fn>;
+  dismissSilently: ReturnType<typeof vi.fn>;
+  settleAs: ReturnType<typeof vi.fn>;
+};
+
 describe("useUpdaterStore", () => {
+  let lastCtx: RunCtx;
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsTauri.mockReturnValue(true);
+    mockRunInBackground.mockImplementation(
+      ({ run }: { run: (ctx: RunCtx) => Promise<void> }) => {
+        lastCtx = {
+          setProgress: vi.fn(),
+          setLabel: vi.fn(),
+          dismissSilently: vi.fn(),
+          settleAs: vi.fn(),
+        };
+        // Match real runInBackground: fire-and-forget with internal error handling.
+        const done = run(lastCtx).catch(() => {});
+        return done.then(() => "task-id");
+      },
+    );
     useUpdaterStore.setState({
       status: "idle",
       availableUpdate: null,
@@ -52,6 +85,7 @@ describe("useUpdaterStore", () => {
       downloadedBytes: 0,
       contentLength: null,
       automaticChecksEnabled: true,
+      notifiedUpdateVersion: null,
     });
   });
 
@@ -79,9 +113,20 @@ describe("useUpdaterStore", () => {
 
     expect(mockCheckForAvailableUpdate).toHaveBeenCalledOnce();
     expect(useUpdaterStore.getState().status).toBe("upToDate");
+    expect(mockRunInBackground).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "updater",
+        label: "common:updates.checking",
+      }),
+    );
+    expect(lastCtx.settleAs).toHaveBeenCalledWith({
+      status: "success",
+      label: "common:updates.upToDate",
+    });
+    expect(mockShowToast).not.toHaveBeenCalled();
   });
 
-  it("sets available status when a newer release is found", async () => {
+  it("sets available status and settles the same toast as a confirmation", async () => {
     const available = {
       version: "0.2.0",
       currentVersion: "0.1.0",
@@ -96,10 +141,56 @@ describe("useUpdaterStore", () => {
       status: "available",
       availableUpdate: available,
       lastError: null,
+      notifiedUpdateVersion: "0.2.0",
     });
+    expect(lastCtx.settleAs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "info",
+        label: "common:updates.available.label",
+        detail: "common:updates.available.detail:0.2.0",
+        actions: expect.arrayContaining([
+          expect.objectContaining({ id: "update" }),
+          expect.objectContaining({ id: "later" }),
+        ]),
+      }),
+    );
+    expect(mockShowToast).not.toHaveBeenCalled();
   });
 
-  it("surfaces check failures via error toast", async () => {
+  it("does not re-toast the same version on automatic re-checks", async () => {
+    const available = {
+      version: "0.2.0",
+      currentVersion: "0.1.0",
+    };
+    mockCheckForAvailableUpdate.mockResolvedValue(available);
+
+    await useUpdaterStore.getState().checkForUpdates({ reason: "automatic" });
+    expect(mockShowToast).toHaveBeenCalledTimes(1);
+
+    await useUpdaterStore.getState().checkForUpdates({ reason: "automatic" });
+    expect(mockShowToast).toHaveBeenCalledTimes(1);
+    expect(useUpdaterStore.getState().status).toBe("available");
+  });
+
+  it("re-toasts the same version on an explicit manual check", async () => {
+    const available = {
+      version: "0.2.0",
+      currentVersion: "0.1.0",
+    };
+    mockCheckForAvailableUpdate.mockResolvedValue(available);
+    useUpdaterStore.setState({ notifiedUpdateVersion: "0.2.0" });
+
+    await useUpdaterStore.getState().checkForUpdates({ reason: "manual" });
+
+    expect(lastCtx.settleAs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "info",
+        label: "common:updates.available.label",
+      }),
+    );
+  });
+
+  it("surfaces check failures via settleAs error on the checking toast", async () => {
     mockCheckForAvailableUpdate.mockRejectedValue(new Error("network down"));
 
     await useUpdaterStore.getState().checkForUpdates();
@@ -108,11 +199,12 @@ describe("useUpdaterStore", () => {
       status: "error",
       lastError: "network down",
     });
-    expect(mockShowErrorToast).toHaveBeenCalledWith({
-      key: "updater",
+    expect(lastCtx.settleAs).toHaveBeenCalledWith({
+      status: "error",
       label: "common:updates.error.check",
       detail: "network down",
     });
+    expect(mockShowErrorToast).not.toHaveBeenCalled();
   });
 
   it("downloads, installs, and reports progress", async () => {
@@ -138,6 +230,12 @@ describe("useUpdaterStore", () => {
     await useUpdaterStore.getState().installAvailableUpdate();
 
     expect(mockDownloadAndInstallPendingUpdate).toHaveBeenCalledOnce();
+    expect(mockRunInBackground).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "updater-install",
+        label: "common:updates.downloading",
+      }),
+    );
     expect(useUpdaterStore.getState()).toMatchObject({
       status: "ready",
       downloadedBytes: 100,
@@ -145,7 +243,7 @@ describe("useUpdaterStore", () => {
     });
   });
 
-  it("surfaces install failures via error toast", async () => {
+  it("surfaces install failures via background task error", async () => {
     useUpdaterStore.setState({
       status: "available",
       availableUpdate: {
@@ -163,11 +261,7 @@ describe("useUpdaterStore", () => {
       status: "error",
       lastError: "signature failed",
     });
-    expect(mockShowErrorToast).toHaveBeenCalledWith({
-      key: "updater",
-      label: "common:updates.error.install",
-      detail: "signature failed",
-    });
+    expect(mockRunInBackground).toHaveBeenCalledOnce();
   });
 
   it("persists the automatic-checks toggle", async () => {

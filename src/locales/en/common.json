@@ -7,6 +7,24 @@
   "revealInFileExplorer": "Show in File Explorer",
   "revealInFileManager": "Show in File Manager",
   "updates": {
+    "available": {
+      "label": "Update available",
+      "detail": "Spiral {{version}} is ready to install.",
+      "update": "Update",
+      "later": "Later"
+    },
+    "checking": "Checking for updates…",
+    "upToDate": "You're up to date",
+    "downloading": "Downloading update…",
+    "menu": {
+      "check": "Check for Updates…"
+    },
+    "sidebar": {
+      "more": "More",
+      "pendingAria": "More, new update available",
+      "check": "Check for updates…",
+      "available": "Install new update…"
+    },
     "error": {
       "check": "Couldn't check for updates",
       "install": "Couldn't install the update",

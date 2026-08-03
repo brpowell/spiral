@@ -29,16 +29,43 @@
   overflow: hidden;
 }
 
-.background-tasks__item--success {
-  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+.background-tasks__item--success,
+.background-tasks__item--info {
+  border-color: color-mix(
+    in srgb,
+    var(--color-accent) 35%,
+    var(--color-border)
+  );
 }
 
 .background-tasks__item--error {
-  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
+  border-color: color-mix(
+    in srgb,
+    var(--color-danger) 40%,
+    var(--color-border)
+  );
+}
+
+.background-tasks__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.background-tasks__action {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  min-height: 1.5rem;
+  padding-inline: 0.55rem;
 }
 
 .background-tasks__item--cancelled {
-  border-color: color-mix(in srgb, var(--color-text-secondary) 35%, var(--color-border));
+  border-color: color-mix(
+    in srgb,
+    var(--color-text-secondary) 35%,
+    var(--color-border)
+  );
 }
 
 .background-tasks__spinner {
@@ -74,7 +101,8 @@
   height: 1rem;
 }
 
-.background-tasks__icon--success {
+.background-tasks__icon--success,
+.background-tasks__icon--info {
   color: var(--color-accent);
 }
 
@@ -132,4 +160,3 @@
   width: 0.9rem;
   height: 0.9rem;
 }
-

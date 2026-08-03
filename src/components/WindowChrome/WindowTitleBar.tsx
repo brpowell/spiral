@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -18,6 +24,7 @@ import {
   type AppMenuHandlers,
 } from "../../lib/appMenu";
 import { LINKED_PACKS_CHANGED_EVENT } from "../../lib/appearanceWindow";
+import { t } from "../../lib/i18n";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import "./WindowTitleBar.css";
 
@@ -162,6 +169,10 @@ export function WindowTitleBar({
           label="Spiral Card…"
           onClick={run(handlers.openSpiralCard)}
         />
+        <ContextMenuItem
+          label={t("common:updates.menu.check")}
+          onClick={run(handlers.checkForUpdates)}
+        />
         <ContextMenuSeparator />
         <ContextMenuItem label="Exit" onClick={run(handlers.quit)} />
       </>
@@ -169,12 +180,27 @@ export function WindowTitleBar({
   } else if (handlers && activeMenu === "edit") {
     menuContent = (
       <>
-        <ContextMenuItem label="Undo" onClick={run(() => runEditCommand("undo"))} />
-        <ContextMenuItem label="Redo" onClick={run(() => runEditCommand("redo"))} />
+        <ContextMenuItem
+          label="Undo"
+          onClick={run(() => runEditCommand("undo"))}
+        />
+        <ContextMenuItem
+          label="Redo"
+          onClick={run(() => runEditCommand("redo"))}
+        />
         <ContextMenuSeparator />
-        <ContextMenuItem label="Cut" onClick={run(() => runEditCommand("cut"))} />
-        <ContextMenuItem label="Copy" onClick={run(() => runEditCommand("copy"))} />
-        <ContextMenuItem label="Paste" onClick={run(() => runEditCommand("paste"))} />
+        <ContextMenuItem
+          label="Cut"
+          onClick={run(() => runEditCommand("cut"))}
+        />
+        <ContextMenuItem
+          label="Copy"
+          onClick={run(() => runEditCommand("copy"))}
+        />
+        <ContextMenuItem
+          label="Paste"
+          onClick={run(() => runEditCommand("paste"))}
+        />
         <ContextMenuItem
           label="Select All"
           onClick={run(() => runEditCommand("selectAll"))}
@@ -184,15 +210,24 @@ export function WindowTitleBar({
   } else if (handlers && activeMenu === "view") {
     menuContent = (
       <>
-        <ContextMenuItem label="Skin Mode" onClick={run(handlers.openSkinMode)} />
-        <ContextMenuItem label="Studio" onClick={run(handlers.openAppearance)} />
+        <ContextMenuItem
+          label="Skin Mode"
+          onClick={run(handlers.openSkinMode)}
+        />
+        <ContextMenuItem
+          label="Studio"
+          onClick={run(handlers.openAppearance)}
+        />
         <ContextMenuItem
           label="Reload Linked Packs"
           disabled={!reloadLinkedEnabled}
           onClick={run(handlers.reloadLinkedPacks)}
         />
         <ContextMenuSeparator />
-        <ContextMenuItem label="Equalizer" onClick={run(handlers.openEqualizer)} />
+        <ContextMenuItem
+          label="Equalizer"
+          onClick={run(handlers.openEqualizer)}
+        />
         <ContextMenuItem
           label="Activity Logs"
           onClick={run(handlers.openActivityLogs)}
@@ -223,7 +258,9 @@ export function WindowTitleBar({
                 type="button"
                 className={[
                   "window-titlebar__menu-btn",
-                  activeMenu === item.id ? "window-titlebar__menu-btn--active" : "",
+                  activeMenu === item.id
+                    ? "window-titlebar__menu-btn--active"
+                    : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}

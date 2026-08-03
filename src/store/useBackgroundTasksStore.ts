@@ -3,7 +3,15 @@ import { isBackgroundTaskCancelledError } from "../lib/backgroundTaskCancel";
 import { isCdImportCancelledError } from "../lib/cdImport";
 import { waitForPaint, yieldToMain } from "../lib/scheduling";
 
-export type BackgroundTaskStatus = "running" | "success" | "error" | "cancelled";
+export type BackgroundTaskStatus =
+  "running" | "success" | "error" | "cancelled" | "info";
+
+export interface BackgroundTaskAction {
+  id: string;
+  label: string;
+  variant?: "primary" | "ghost";
+  onClick: () => void;
+}
 
 export interface BackgroundTask {
   id: string;
@@ -14,7 +22,21 @@ export interface BackgroundTask {
   progress?: { current: number; total: number };
   cancellable?: boolean;
   cancelRequested?: boolean;
+  /** Confirmation / choice buttons (e.g. Update / Later). */
+  actions?: BackgroundTaskAction[];
   createdAt: number;
+}
+
+export interface BackgroundTaskSettleAsOptions {
+  status: Extract<BackgroundTaskStatus, "success" | "error" | "info">;
+  label?: string;
+  detail?: string;
+  actions?: BackgroundTaskAction[];
+  /**
+   * Auto-dismiss delay. `null` keeps the toast until the user acts or dismisses.
+   * Defaults match `showToast` (brief success/info, longer errors, sticky with actions).
+   */
+  dismissMs?: number | null;
 }
 
 export interface BackgroundTaskRunContext {
@@ -25,6 +47,11 @@ export interface BackgroundTaskRunContext {
   clearProgress: () => void;
   /** Remove the task when it completes instead of showing a success toast. */
   dismissSilently: () => void;
+  /**
+   * Settle the same toast into a terminal status (e.g. info + actions)
+   * instead of the default success transition.
+   */
+  settleAs: (options: BackgroundTaskSettleAsOptions) => void;
   isCancelRequested: () => boolean;
 }
 
@@ -40,8 +67,14 @@ interface ShowToastOptions {
   detail?: string;
   /** Replaces any existing toast with the same key. */
   key?: string;
-  dismissMs?: number;
-  status?: Extract<BackgroundTaskStatus, "success" | "error">;
+  /**
+   * Auto-dismiss delay. `null` keeps the toast until the user acts or dismisses.
+   * Defaults to a short delay for success, longer for errors, and no dismiss when
+   * `actions` are present.
+   */
+  dismissMs?: number | null;
+  status?: Extract<BackgroundTaskStatus, "success" | "error" | "info">;
+  actions?: BackgroundTaskAction[];
 }
 
 interface BackgroundTasksState {
@@ -61,13 +94,27 @@ function scheduleAutoDismiss(
   get: () => BackgroundTasksState,
   id: string,
   ms: number,
-  status: "success" | "cancelled" | "error",
+  status: Extract<
+    BackgroundTaskStatus,
+    "success" | "cancelled" | "error" | "info"
+  >,
 ): void {
   window.setTimeout(() => {
     if (get().tasks.some((t) => t.id === id && t.status === status)) {
       get().dismissTask(id);
     }
   }, ms);
+}
+
+function defaultToastDismissMs(
+  status: Extract<BackgroundTaskStatus, "success" | "error" | "info">,
+  hasActions: boolean,
+  dismissMs: number | null | undefined,
+): number | null {
+  if (dismissMs !== undefined) return dismissMs;
+  if (hasActions) return null;
+  if (status === "error") return ERROR_DISMISS_MS;
+  return BRIEF_TOAST_DISMISS_MS;
 }
 
 function patchTask(
@@ -88,10 +135,15 @@ function createRunContext(
       | ((state: BackgroundTasksState) => Partial<BackgroundTasksState>),
   ) => void,
   get: () => BackgroundTasksState,
-): { ctx: BackgroundTaskRunContext; shouldDismissSilently: () => boolean } {
+): {
+  ctx: BackgroundTaskRunContext;
+  shouldDismissSilently: () => boolean;
+  getSettleAs: () => BackgroundTaskSettleAsOptions | null;
+} {
   let lastProgressAt = 0;
   let lastProgressPercent = -1;
   let dismissSilently = false;
+  let settleAs: BackgroundTaskSettleAsOptions | null = null;
 
   const ctx: BackgroundTaskRunContext = {
     setLabel: (label) =>
@@ -129,132 +181,189 @@ function createRunContext(
     },
     dismissSilently: () => {
       dismissSilently = true;
+      settleAs = null;
+    },
+    settleAs: (options) => {
+      settleAs = options;
+      dismissSilently = false;
     },
     isCancelRequested: () =>
       get().tasks.find((task) => task.id === id)?.cancelRequested === true,
   };
 
-  return { ctx, shouldDismissSilently: () => dismissSilently };
+  return {
+    ctx,
+    shouldDismissSilently: () => dismissSilently,
+    getSettleAs: () => settleAs,
+  };
 }
 
-export const useBackgroundTasksStore = create<BackgroundTasksState>((set, get) => ({
-  tasks: [],
+export const useBackgroundTasksStore = create<BackgroundTasksState>(
+  (set, get) => ({
+    tasks: [],
 
-  runInBackground: ({ label, key, cancellable, run }) => {
-    if (key) {
-      const existing = get().tasks.find(
-        (task) => task.key === key && task.status === "running",
-      );
-      if (existing) return existing.id;
-    }
-
-    const id = crypto.randomUUID();
-    const task: BackgroundTask = {
-      id,
-      key,
-      label,
-      status: "running",
-      cancellable,
-      createdAt: Date.now(),
-    };
-
-    set((state) => ({ tasks: [...state.tasks, task] }));
-
-    const { ctx, shouldDismissSilently } = createRunContext(id, set, get);
-
-    void (async () => {
-      await waitForPaint();
-      await yieldToMain();
-      try {
-        await run(ctx);
-        if (shouldDismissSilently()) {
-          get().dismissTask(id);
-          return;
-        }
-        set((state) => ({
-          tasks: patchTask(state.tasks, id, {
-            status: "success",
-            progress: undefined,
-          }),
-        }));
-        scheduleAutoDismiss(get, id, SUCCESS_DISMISS_MS, "success");
-      } catch (err) {
-        if (isCdImportCancelledError(err)) {
-          set((state) => ({
-            tasks: patchTask(state.tasks, id, {
-              status: "cancelled",
-              label: "Import cancelled",
-              detail: undefined,
-              progress: undefined,
-            }),
-          }));
-          scheduleAutoDismiss(get, id, SUCCESS_DISMISS_MS, "cancelled");
-          return;
-        }
-
-        if (isBackgroundTaskCancelledError(err)) {
-          set((state) => ({
-            tasks: patchTask(state.tasks, id, {
-              status: "cancelled",
-              label: err.toastLabel,
-              detail: undefined,
-              progress: undefined,
-            }),
-          }));
-          scheduleAutoDismiss(get, id, SUCCESS_DISMISS_MS, "cancelled");
-          return;
-        }
-
-        const message = err instanceof Error ? err.message : String(err);
-        set((state) => ({
-          tasks: patchTask(state.tasks, id, {
-            status: "error",
-            detail: message,
-            progress: undefined,
-          }),
-        }));
+    runInBackground: ({ label, key, cancellable, run }) => {
+      if (key) {
+        const existing = get().tasks.find(
+          (task) => task.key === key && task.status === "running",
+        );
+        if (existing) return existing.id;
       }
-    })();
 
-    return id;
-  },
+      const id = crypto.randomUUID();
+      const task: BackgroundTask = {
+        id,
+        key,
+        label,
+        status: "running",
+        cancellable,
+        createdAt: Date.now(),
+      };
 
-  showToast: ({
-    label,
-    detail,
-    key,
-    status = "success",
-    dismissMs = status === "error" ? ERROR_DISMISS_MS : BRIEF_TOAST_DISMISS_MS,
-  }) => {
-    const id = crypto.randomUUID();
-    const task: BackgroundTask = {
-      id,
-      key,
+      set((state) => ({
+        tasks: [
+          ...(key ? state.tasks.filter((t) => t.key !== key) : state.tasks),
+          task,
+        ],
+      }));
+
+      const { ctx, shouldDismissSilently, getSettleAs } = createRunContext(
+        id,
+        set,
+        get,
+      );
+
+      void (async () => {
+        await waitForPaint();
+        await yieldToMain();
+        try {
+          await run(ctx);
+          if (shouldDismissSilently()) {
+            get().dismissTask(id);
+            return;
+          }
+
+          const settle = getSettleAs();
+          if (settle) {
+            const resolvedDismissMs = defaultToastDismissMs(
+              settle.status,
+              Boolean(settle.actions?.length),
+              settle.dismissMs,
+            );
+            set((state) => {
+              const current = state.tasks.find((t) => t.id === id);
+              return {
+                tasks: patchTask(state.tasks, id, {
+                  status: settle.status,
+                  label: settle.label ?? current?.label ?? label,
+                  detail: settle.detail,
+                  actions: settle.actions,
+                  progress: undefined,
+                  cancellable: undefined,
+                  cancelRequested: undefined,
+                }),
+              };
+            });
+            if (resolvedDismissMs != null) {
+              scheduleAutoDismiss(get, id, resolvedDismissMs, settle.status);
+            }
+            return;
+          }
+
+          set((state) => ({
+            tasks: patchTask(state.tasks, id, {
+              status: "success",
+              progress: undefined,
+            }),
+          }));
+          scheduleAutoDismiss(get, id, SUCCESS_DISMISS_MS, "success");
+        } catch (err) {
+          if (isCdImportCancelledError(err)) {
+            set((state) => ({
+              tasks: patchTask(state.tasks, id, {
+                status: "cancelled",
+                label: "Import cancelled",
+                detail: undefined,
+                progress: undefined,
+              }),
+            }));
+            scheduleAutoDismiss(get, id, SUCCESS_DISMISS_MS, "cancelled");
+            return;
+          }
+
+          if (isBackgroundTaskCancelledError(err)) {
+            set((state) => ({
+              tasks: patchTask(state.tasks, id, {
+                status: "cancelled",
+                label: err.toastLabel,
+                detail: undefined,
+                progress: undefined,
+              }),
+            }));
+            scheduleAutoDismiss(get, id, SUCCESS_DISMISS_MS, "cancelled");
+            return;
+          }
+
+          const message = err instanceof Error ? err.message : String(err);
+          set((state) => ({
+            tasks: patchTask(state.tasks, id, {
+              status: "error",
+              detail: message,
+              progress: undefined,
+            }),
+          }));
+        }
+      })();
+
+      return id;
+    },
+
+    showToast: ({
       label,
       detail,
-      status,
-      createdAt: Date.now(),
-    };
+      key,
+      status = "success",
+      actions,
+      dismissMs,
+    }) => {
+      const id = crypto.randomUUID();
+      const resolvedDismissMs = defaultToastDismissMs(
+        status,
+        Boolean(actions?.length),
+        dismissMs,
+      );
+      const task: BackgroundTask = {
+        id,
+        key,
+        label,
+        detail,
+        status,
+        actions,
+        createdAt: Date.now(),
+      };
 
-    set((state) => ({
-      tasks: [
-        ...(key ? state.tasks.filter((t) => t.key !== key) : state.tasks),
-        task,
-      ],
-    }));
+      set((state) => ({
+        tasks: [
+          ...(key ? state.tasks.filter((t) => t.key !== key) : state.tasks),
+          task,
+        ],
+      }));
 
-    scheduleAutoDismiss(get, id, dismissMs, status);
-    return id;
-  },
+      if (resolvedDismissMs != null) {
+        scheduleAutoDismiss(get, id, resolvedDismissMs, status);
+      }
+      return id;
+    },
 
-  showErrorToast: (options) =>
-    get().showToast({ ...options, status: "error" }),
+    showErrorToast: (options) =>
+      get().showToast({ ...options, status: "error" }),
 
-  requestCancel: (id) =>
-    set((state) => ({
-      tasks: patchTask(state.tasks, id, { cancelRequested: true }),
-    })),
+    requestCancel: (id) =>
+      set((state) => ({
+        tasks: patchTask(state.tasks, id, { cancelRequested: true }),
+      })),
 
-  dismissTask: (id) =>
-    set((state) => ({ tasks: state.tasks.filter((task) => task.id !== id) })),
-}));
+    dismissTask: (id) =>
+      set((state) => ({ tasks: state.tasks.filter((task) => task.id !== id) })),
+  }),
+);

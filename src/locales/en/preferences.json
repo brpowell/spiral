@@ -5,6 +5,15 @@
     "playback": "Playback",
     "listening": "Privacy",
     "metadata": "Metadata",
-    "studio": "Studio"
+    "studio": "Studio",
+    "updates": "Updates"
+  },
+  "updates": {
+    "automatic": {
+      "label": "Check for updates automatically",
+      "description": "Check for updates on launch and every few hours while Spiral is open."
+    },
+    "checkButton": "Check for Updates",
+    "pending": "Version {{version}} is available."
   }
 }

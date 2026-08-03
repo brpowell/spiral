@@ -7,6 +7,7 @@ import {
   IconInfo,
   IconOpenFolder,
   IconPalette,
+  IconRefresh,
 } from "../icons";
 
 export type PreferencesSectionId =
@@ -15,7 +16,8 @@ export type PreferencesSectionId =
   | "playback"
   | "listening"
   | "metadata"
-  | "studio";
+  | "studio"
+  | "updates";
 
 export interface PreferencesSectionConfig {
   id: PreferencesSectionId;
@@ -53,5 +55,10 @@ export const PREFERENCES_SECTIONS: PreferencesSectionConfig[] = [
     id: "studio",
     label: t("preferences:sections.studio"),
     icon: <IconPalette />,
+  },
+  {
+    id: "updates",
+    label: t("preferences:sections.updates"),
+    icon: <IconRefresh />,
   },
 ];
