@@ -3,6 +3,9 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { connectEngineOutput, disconnectEngineOutput } from "./audioOutput";
 import { decodePcmBase64 } from "./pcmDecode";
 import { PCM_STREAM_PROCESSOR_NAME } from "./pcmStreamConstants";
+// Vite must emit a real JS chunk (`?worker&url`). Plain `new URL(..., import.meta.url)`
+// inlines the .ts as a data: URL, which production CSP script-src blocks.
+import pcmStreamProcessorUrl from "./pcmStreamProcessor.ts?worker&url";
 
 export interface PcmStreamConfig<TSession, TPcm extends TSession> {
   ackCommand: string;
@@ -102,8 +105,7 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
 
     if (!this.workletReady) {
       this.workletReady = (async () => {
-        const url = new URL("./pcmStreamProcessor.ts", import.meta.url);
-        await this.ctx!.audioWorklet.addModule(url);
+        await this.ctx!.audioWorklet.addModule(pcmStreamProcessorUrl);
         this.worklet = new AudioWorkletNode(
           this.ctx!,
           PCM_STREAM_PROCESSOR_NAME,
