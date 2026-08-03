@@ -161,7 +161,7 @@ jobs:
           prerelease: false
           updaterJsonPreferNsis: true
           # Spiral serves manifests from spiralpowered.com, not GitHub latest.json.
-          includeUpdaterJson: false
+          uploadUpdaterJson: false
           args: ${{ matrix.args }}
 
   # Fan-in gate (#185). Runs even when `build` failed so the check is red (not
