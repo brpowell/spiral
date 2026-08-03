@@ -37,10 +37,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
 
-          meta="$(gh release view "$TAG" --json isDraft,assets,url)"
+          meta="$(gh release view "$TAG" --repo "$REPO" --json isDraft,assets,url)"
           echo "$meta" | jq .
 
           is_draft="$(echo "$meta" | jq -r '.isDraft')"
@@ -76,9 +77,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh release edit "$TAG" --draft=false
-          url="$(gh release view "$TAG" --json url --jq '.url')"
+          gh release edit "$TAG" --repo "$REPO" --draft=false
+          url="$(gh release view "$TAG" --repo "$REPO" --json url --jq '.url')"
           echo "Published $TAG — $url"
           echo "Direct-channel auto-update goes live for this version once the marketing-site update route serves published releases."
