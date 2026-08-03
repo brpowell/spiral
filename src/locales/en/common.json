@@ -5,5 +5,13 @@
   "untitledTheme": "Untitled Theme",
   "revealInFinder": "Reveal in Finder",
   "revealInFileExplorer": "Show in File Explorer",
-  "revealInFileManager": "Show in File Manager"
+  "revealInFileManager": "Show in File Manager",
+  "updates": {
+    "error": {
+      "check": "Couldn't check for updates",
+      "install": "Couldn't install the update",
+      "noUpdate": "No update is ready to install",
+      "savePreference": "Couldn't save update preferences"
+    }
+  }
 }

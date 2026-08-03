@@ -57,6 +57,8 @@
         { "path": "$DOWNLOAD/**/*" },
         { "path": "$DESKTOP/**/*" }
       ]
-    }
+    },
+    "updater:default",
+    "process:allow-restart"
   ]
 }

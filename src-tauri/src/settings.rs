@@ -141,6 +141,25 @@ impl Default for ListeningHistorySettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct UpdateSettings {
+    #[serde(default = "default_automatic_update_checks_enabled")]
+    pub automatic_checks_enabled: bool,
+}
+
+fn default_automatic_update_checks_enabled() -> bool {
+    true
+}
+
+impl Default for UpdateSettings {
+    fn default() -> Self {
+        Self {
+            automatic_checks_enabled: default_automatic_update_checks_enabled(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LyricsSettings {
     #[serde(default = "default_lyrics_sidecar_sync_enabled")]
     pub sidecar_sync_enabled: bool,
@@ -317,6 +336,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub playback: PlaybackSettings,
     #[serde(default)]
+    pub updates: UpdateSettings,
+    #[serde(default)]
     pub acknowledged_crash_report_ids: Vec<String>,
 }
 
@@ -365,6 +386,7 @@ impl Default for AppSettings {
             cd: CdSettings::default(),
             equalizer: EqualizerSettings::default(),
             playback: PlaybackSettings::default(),
+            updates: UpdateSettings::default(),
             acknowledged_crash_report_ids: Vec::new(),
         }
     }
@@ -388,6 +410,7 @@ pub struct LibrarySettingsResponse {
     pub lyrics_auto_fetch_in_lightbox: bool,
     pub cd_metadata_fetch_mode: String,
     pub cd_import_profile_id: String,
+    pub automatic_update_checks_enabled: bool,
 }
 
 const MAX_ACKNOWLEDGED_CRASH_REPORTS: usize = 50;
@@ -492,6 +515,7 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
     let listening_history = app_settings.listening_history;
     let lyrics = app_settings.lyrics;
     let cd = app_settings.cd;
+    let updates = app_settings.updates;
     let default_root = default_library_root(app);
 
     let organize_path_format = resolved_organize_path_format(&stored);
@@ -527,6 +551,7 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
         lyrics_auto_fetch_in_lightbox: lyrics.auto_fetch_in_lightbox,
         cd_metadata_fetch_mode: cd.metadata_fetch_mode,
         cd_import_profile_id: resolved_cd_import_profile_id(&cd.import_profile_id),
+        automatic_update_checks_enabled: updates.automatic_checks_enabled,
     }
 }
 
@@ -555,6 +580,8 @@ pub struct LibrarySettingsPatch {
     pub cd_metadata_fetch_mode: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cd_import_profile_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub automatic_update_checks_enabled: Option<bool>,
 }
 
 pub fn merge_library_settings(
@@ -614,6 +641,9 @@ pub fn merge_library_settings(
             settings.cd.import_profile_id = profile_id;
         }
     }
+    if let Some(enabled) = patch.automatic_update_checks_enabled {
+        settings.updates.automatic_checks_enabled = enabled;
+    }
 
     write_settings(app, &settings)?;
     let resolved = resolved_library_settings(app);
@@ -645,6 +675,12 @@ mod tests {
     fn default_listening_history_settings_are_enabled() {
         let settings = ListeningHistorySettings::default();
         assert!(settings.enabled);
+    }
+
+    #[test]
+    fn default_update_settings_enable_automatic_checks() {
+        let settings = UpdateSettings::default();
+        assert!(settings.automatic_checks_enabled);
     }
 
     #[test]

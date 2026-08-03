@@ -48,6 +48,7 @@ import { useVisualizerDataProvider } from "./hooks/useVisualizerDataProvider";
 import { useLibrarySettingsStore } from "./store/useLibrarySettingsStore";
 import { useLicenseStore } from "./store/useLicenseStore";
 import { usePlayerStore } from "./store/usePlayerStore";
+import { useUpdaterStore } from "./store/useUpdaterStore";
 import "./App.css";
 
 const showCustomWindowChrome = usesCustomWindowChrome();
@@ -59,13 +60,25 @@ function App() {
   const openPlaylistEditor = usePlaylistStore((s) => s.openPlaylistEditor);
   const addToLibrary = usePlayerStore((s) => s.addToLibrary);
   const loadSettings = useLibrarySettingsStore((s) => s.loadSettings);
-  const setPreferencesOpen = useLibrarySettingsStore((s) => s.setPreferencesOpen);
+  const setPreferencesOpen = useLibrarySettingsStore(
+    (s) => s.setPreferencesOpen,
+  );
   const loadLicense = useLicenseStore((s) => s.loadLicense);
   const openSpiralCard = useLicenseStore((s) => s.openSpiralCard);
   const importError = usePlayerStore((s) => s.importError);
   const clearImportError = usePlayerStore((s) => s.clearImportError);
-  const { open: crashModalOpen, report: crashReport, crashReportId, dismiss: dismissCrashReport } =
-    useStartupCrashReport();
+  const applyAutomaticChecksEnabled = useUpdaterStore(
+    (s) => s.applyAutomaticChecksEnabled,
+  );
+  const startAutomaticUpdateChecks = useUpdaterStore(
+    (s) => s.startAutomaticUpdateChecks,
+  );
+  const {
+    open: crashModalOpen,
+    report: crashReport,
+    crashReportId,
+    dismiss: dismissCrashReport,
+  } = useStartupCrashReport();
 
   useMediaHotkeys();
   useAudioWakeRecovery();
@@ -109,7 +122,14 @@ function App() {
   };
 
   useEffect(() => {
-    void loadSettings();
+    let cancelled = false;
+    let stopAutomaticChecks: (() => void) | undefined;
+
+    void loadSettings().then((settings) => {
+      if (cancelled) return;
+      applyAutomaticChecksEnabled(settings.automaticUpdateChecksEnabled);
+      stopAutomaticChecks = startAutomaticUpdateChecks();
+    });
     void loadTrackListPreferences();
     void loadLicense().then(async () => {
       const paths = await takePendingSpcardOpens();
@@ -123,12 +143,19 @@ function App() {
     loadLibrary();
     void loadPlaylists();
     void loadArtistImages();
+
+    return () => {
+      cancelled = true;
+      stopAutomaticChecks?.();
+    };
   }, [
     loadLibrary,
     loadSettings,
     loadLicense,
     loadPlaylists,
     loadArtistImages,
+    applyAutomaticChecksEnabled,
+    startAutomaticUpdateChecks,
   ]);
 
   useEffect(() => {
