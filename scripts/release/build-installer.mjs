@@ -26,8 +26,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const BUNDLES = {
   dmg: {
     host: "darwin",
-    args: ["--bundles", "dmg"],
-    outHint: "src-tauri/target/**/bundle/dmg/",
+    // Keep `app` so createUpdaterArtifacts can emit .app.tar.gz + .sig
+    // (same as CI — `--bundles dmg` alone cleans Spiral.app afterward).
+    args: ["--bundles", "app,dmg"],
+    outHint: "src-tauri/target/**/bundle/{dmg,macos}/",
   },
   nsis: {
     host: "win32",

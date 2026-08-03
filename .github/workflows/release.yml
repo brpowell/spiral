@@ -53,11 +53,14 @@ jobs:
         include:
           - label: macos-aarch64
             platform: macos-latest
-            args: --target aarch64-apple-darwin --bundles dmg
+            # `app` must be explicit: `--bundles dmg` alone builds then deletes
+            # Spiral.app, so createUpdaterArtifacts never leaves .app.tar.gz/.sig
+            # for tauri-action to upload (you get "Signature not found…").
+            args: --target aarch64-apple-darwin --bundles app,dmg
             rust_targets: aarch64-apple-darwin
           - label: macos-x86_64
             platform: macos-latest
-            args: --target x86_64-apple-darwin --bundles dmg
+            args: --target x86_64-apple-darwin --bundles app,dmg
             rust_targets: x86_64-apple-darwin
           - label: windows-x64
             platform: windows-latest
@@ -157,6 +160,8 @@ jobs:
           releaseDraft: true
           prerelease: false
           updaterJsonPreferNsis: true
+          # Spiral serves manifests from spiralpowered.com, not GitHub latest.json.
+          includeUpdaterJson: false
           args: ${{ matrix.args }}
 
   # Fan-in gate (#185). Runs even when `build` failed so the check is red (not
