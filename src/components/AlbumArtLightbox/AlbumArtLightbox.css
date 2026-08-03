@@ -56,13 +56,6 @@
   }
 }
 
-.album-art-lightbox__art-shadow {
-  filter: drop-shadow(
-    0 24px 48px color-mix(in srgb, var(--color-bg) 50%, transparent)
-  );
-  pointer-events: auto;
-}
-
 .album-art-lightbox__art {
   display: block;
   width: var(--lightbox-art-size);
@@ -73,6 +66,8 @@
   overflow: hidden;
   cursor: zoom-out;
   background: var(--color-surface-raised);
+  box-shadow: 0 24px 48px color-mix(in srgb, var(--color-bg) 50%, transparent);
+  pointer-events: auto;
 }
 
 .album-art-lightbox__img {

@@ -8,7 +8,11 @@ import {
 import { lightboxCompanionMotionProps } from "../../lib/motion";
 import type { LyricsFetchFeedback } from "../../lib/lyricsFetch";
 import type { TrackLyrics } from "../../types/lyrics";
-import { LyricsEmptyPanel, LyricsLoadingPanel, LyricsPanel } from "./LyricsPanel";
+import {
+  LyricsEmptyPanel,
+  LyricsLoadingPanel,
+  LyricsPanel,
+} from "./LyricsPanel";
 import "./AlbumArtLightbox.css";
 
 export const NOW_PLAYING_ART_LAYOUT_ID = "now-playing-album-art";
@@ -18,6 +22,10 @@ export const albumArtLayoutTransition = {
   stiffness: 380,
   damping: 34,
 };
+
+/** Matches `--radius-sm` / `--radius-card` for Motion scale correction. */
+export const NOW_PLAYING_ART_RADIUS = 6;
+export const LIGHTBOX_ART_RADIUS = 10;
 
 interface AlbumArtLightboxProps {
   open: boolean;
@@ -104,8 +112,7 @@ export function AlbumArtLightbox({
     };
   }, [open, onClose]);
 
-  const displayLyrics =
-    lyrics && lyrics.plainText.trim() ? lyrics : null;
+  const displayLyrics = lyrics && lyrics.plainText.trim() ? lyrics : null;
   const showLyricsColumn =
     displayLyrics != null ||
     lyricsLoading ||
@@ -150,34 +157,33 @@ export function AlbumArtLightbox({
               .join(" ")}
           >
             <div className="album-art-lightbox__art-column">
-              <div className="album-art-lightbox__art-shadow">
-                <motion.button
-                  type="button"
-                  className="album-art-lightbox__art"
-                  layoutId={NOW_PLAYING_ART_LAYOUT_ID}
-                  transition={albumArtLayoutTransition}
-                  onClick={(e: MouseEvent<HTMLButtonElement>) => {
-                    e.stopPropagation();
-                    onClose();
-                  }}
-                  aria-label={alt ? `Close ${alt} album art` : "Close album art"}
-                >
-                  <img
-                    src={artSrc}
-                    alt={alt}
-                    className="album-art-lightbox__img"
-                  />
-                </motion.button>
-              </div>
+              <motion.button
+                type="button"
+                className="album-art-lightbox__art"
+                layoutId={NOW_PLAYING_ART_LAYOUT_ID}
+                layoutCrossfade={false}
+                transition={albumArtLayoutTransition}
+                style={{ borderRadius: LIGHTBOX_ART_RADIUS }}
+                onClick={(e: MouseEvent<HTMLButtonElement>) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
+                aria-label={alt ? `Close ${alt} album art` : "Close album art"}
+              >
+                <img
+                  src={artSrc}
+                  alt={alt}
+                  className="album-art-lightbox__img"
+                  draggable={false}
+                />
+              </motion.button>
               {showTrackInfo ? (
                 <motion.div
                   className="album-art-lightbox__track-info"
                   {...companionMotion}
                 >
                   {title?.trim() ? (
-                    <p className="album-art-lightbox__track-title">
-                      {title}
-                    </p>
+                    <p className="album-art-lightbox__track-title">{title}</p>
                   ) : null}
                   {caption?.trim() ? (
                     <p className="album-art-lightbox__track-subtitle">

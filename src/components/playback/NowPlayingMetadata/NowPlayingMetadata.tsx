@@ -27,6 +27,7 @@ import {
   AlbumArtLightbox,
   albumArtLayoutTransition,
   NOW_PLAYING_ART_LAYOUT_ID,
+  NOW_PLAYING_ART_RADIUS,
 } from "../../AlbumArtLightbox/AlbumArtLightbox";
 import { ScrollingText } from "../../ScrollingText/ScrollingText";
 import { IconAlbumPlaceholder } from "../../icons";
@@ -56,8 +57,7 @@ function CrossfadeOpacity({
 }) {
   if (reduceMotion) {
     const showIncoming = progress >= 0.5;
-    const visible =
-      role === "incoming" ? showIncoming : !showIncoming;
+    const visible = role === "incoming" ? showIncoming : !showIncoming;
     if (!visible) return null;
     return <>{children}</>;
   }
@@ -77,9 +77,7 @@ function CrossfadeOpacity({
 }
 
 function AlbumArtImage({ src }: { src: string }) {
-  return (
-    <img src={src} alt="" className="now-playing-metadata__art-img" />
-  );
+  return <img src={src} alt="" className="now-playing-metadata__art-img" />;
 }
 
 function AlbumArtPlaceholder({ inactive }: { inactive?: boolean }) {
@@ -96,6 +94,22 @@ function AlbumArtPlaceholder({ inactive }: { inactive?: boolean }) {
       <div className="now-playing-metadata__art-placeholder" aria-hidden>
         <IconAlbumPlaceholder />
       </div>
+    </div>
+  );
+}
+
+/** Reserves bar space; unmounts the shared-layout node while the lightbox owns it. */
+function SharedArtSlot({
+  artOpen,
+  children,
+}: {
+  artOpen: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="now-playing-metadata__art-slot">
+      <div className="now-playing-metadata__art-sizer" aria-hidden />
+      {!artOpen ? children : null}
     </div>
   );
 }
@@ -133,8 +147,7 @@ export function NowPlayingMetadata({
   }, []);
 
   const currentTrack = useMemo(
-    () =>
-      findPlaybackTrack({ library, playbackTracks, currentTrackId }),
+    () => findPlaybackTrack({ library, playbackTracks, currentTrackId }),
     [library, playbackTracks, currentTrackId],
   );
 
@@ -199,7 +212,7 @@ export function NowPlayingMetadata({
     metadataTrack != null &&
     !lyricsLoading &&
     !isInstrumental &&
-    !(trackLyrics?.plainText.trim()) &&
+    !trackLyrics?.plainText.trim() &&
     canFetchLyricsForTrack(metadataTrack);
   const autoFetchEligible =
     artOpen &&
@@ -210,10 +223,7 @@ export function NowPlayingMetadata({
     !fetchingLyrics &&
     autoFetchedTrackIdRef.current !== metadataTrackId;
   const lyricsFetchPending =
-    fetchingLyrics ||
-    lyricsQueued ||
-    prepareInFlight ||
-    autoFetchEligible;
+    fetchingLyrics || lyricsQueued || prepareInFlight || autoFetchEligible;
   const lyricsFetchFeedbackFromStore = useLyricsFetchStore((s) =>
     metadataTrackId != null
       ? (s.pendingByTrackId[metadataTrackId]?.feedback ?? null)
@@ -330,62 +340,59 @@ export function NowPlayingMetadata({
 
     if (showCrossfadeVisual && (outgoingArtSrc || incomingArtSrc)) {
       return (
-        <motion.button
-          type="button"
-          className={[
-            "now-playing-metadata__art",
-            artOpen && "now-playing-metadata__art--lightbox-open",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          layoutId={artOpen ? undefined : NOW_PLAYING_ART_LAYOUT_ID}
-          transition={albumArtLayoutTransition}
-          disabled
-          aria-label="Crossfading between tracks"
-        >
-          <div className="now-playing-metadata__art-stack">
-            {outgoingArtSrc ? (
-              <CrossfadeOpacity
-                progress={crossfadeProgress}
-                role="outgoing"
-                reduceMotion={reduceMotion}
-              >
-                <AlbumArtImage src={outgoingArtSrc} />
-              </CrossfadeOpacity>
-            ) : null}
-            {incomingArtSrc ? (
-              <CrossfadeOpacity
-                progress={crossfadeProgress}
-                role="incoming"
-                reduceMotion={reduceMotion}
-              >
-                <AlbumArtImage src={incomingArtSrc} />
-              </CrossfadeOpacity>
-            ) : null}
-          </div>
-        </motion.button>
+        <SharedArtSlot artOpen={artOpen}>
+          <motion.button
+            type="button"
+            className="now-playing-metadata__art now-playing-metadata__art--shared"
+            layoutId={NOW_PLAYING_ART_LAYOUT_ID}
+            layoutCrossfade={false}
+            transition={albumArtLayoutTransition}
+            style={{ borderRadius: NOW_PLAYING_ART_RADIUS }}
+            disabled
+            aria-label="Crossfading between tracks"
+          >
+            <div className="now-playing-metadata__art-stack">
+              {outgoingArtSrc ? (
+                <CrossfadeOpacity
+                  progress={crossfadeProgress}
+                  role="outgoing"
+                  reduceMotion={reduceMotion}
+                >
+                  <AlbumArtImage src={outgoingArtSrc} />
+                </CrossfadeOpacity>
+              ) : null}
+              {incomingArtSrc ? (
+                <CrossfadeOpacity
+                  progress={crossfadeProgress}
+                  role="incoming"
+                  reduceMotion={reduceMotion}
+                >
+                  <AlbumArtImage src={incomingArtSrc} />
+                </CrossfadeOpacity>
+              ) : null}
+            </div>
+          </motion.button>
+        </SharedArtSlot>
       );
     }
 
     if (artSrc) {
       return (
-        <motion.button
-          type="button"
-          className={[
-            "now-playing-metadata__art",
-            "now-playing-metadata__art--zoomable",
-            artOpen && "now-playing-metadata__art--lightbox-open",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          layoutId={artOpen ? undefined : NOW_PLAYING_ART_LAYOUT_ID}
-          transition={albumArtLayoutTransition}
-          onClick={handleArtClick}
-          disabled={!currentTrack}
-          aria-label={artLabel}
-        >
-          <AlbumArtImage src={artSrc} />
-        </motion.button>
+        <SharedArtSlot artOpen={artOpen}>
+          <motion.button
+            type="button"
+            className="now-playing-metadata__art now-playing-metadata__art--zoomable now-playing-metadata__art--shared"
+            layoutId={NOW_PLAYING_ART_LAYOUT_ID}
+            layoutCrossfade={false}
+            transition={albumArtLayoutTransition}
+            style={{ borderRadius: NOW_PLAYING_ART_RADIUS }}
+            onClick={handleArtClick}
+            disabled={!currentTrack}
+            aria-label={artLabel}
+          >
+            <AlbumArtImage src={artSrc} />
+          </motion.button>
+        </SharedArtSlot>
       );
     }
 

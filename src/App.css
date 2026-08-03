@@ -34,16 +34,30 @@ textarea,
 }
 
 .app-header {
+  position: relative;
   flex-shrink: 0;
   height: var(--app-header-height);
-  overflow: hidden;
-  border-bottom: 1px solid var(--color-border);
+  /* Visible so shared-layout art can project over the header edge on close. */
+  overflow: visible;
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--color-surface-raised) 40%, var(--color-surface)) 0%,
     var(--color-surface) 100%
   );
   z-index: 15;
+}
+
+/* Header rule drawn above the bar fill; projecting album art stacks above it. */
+.app-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--color-border);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .error-banner {
@@ -54,7 +68,8 @@ textarea,
   padding: 0.6rem 1.25rem;
   background: var(--color-danger-bg);
   color: var(--color-danger);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--color-danger) 35%, transparent);
   font-size: 0.85rem;
   flex-shrink: 0;
 }
