@@ -36,7 +36,6 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 rfd = "0.15"
 walkdir = "2"
 chrono = { version = "0.4", features = ["serde"] }
-thiserror = "2"
 id3 = "1"
 metaflac = "0.2"
 mp4ameta = "0.13"

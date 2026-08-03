@@ -45,8 +45,6 @@
     "@dnd-kit/react": "^0.5.0",
     "@tanstack/react-virtual": "^3.14.2",
     "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-fs": "^2",
-    "@tauri-apps/plugin-global-shortcut": "^2.3.1",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-updater": "^2.10.1",
@@ -55,7 +53,7 @@
     "howler": "^2.2.4",
     "i18next": "^26.3.6",
     "node-vibrant": "^4.0.4",
-    "postcss": "^8.5.16",
+    "postcss": "^8.5.25",
     "postcss-prefix-selector": "^2.1.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -64,6 +62,10 @@
     "remark-gfm": "^4.0.1",
     "three": "^0.184.0",
     "zustand": "^5.0.5"
+  },
+  "overrides": {
+    "fast-uri": "^3.1.5",
+    "file-type": "^21.3.1"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.1",
