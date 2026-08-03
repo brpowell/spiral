@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Spiral",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.spiralpowered.music",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -119,13 +119,22 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "rpm", "appimage", "nsis", "app", "dmg"],
+    "targets": [
+      "deb",
+      "rpm",
+      "appimage",
+      "nsis",
+      "app",
+      "dmg"
+    ],
     "windows": {
       "nsis": {
         "installMode": "currentUser"
       }
     },
-    "resources": ["packs/builtin/**/*"],
+    "resources": [
+      "packs/builtin/**/*"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -135,7 +144,9 @@
     ],
     "fileAssociations": [
       {
-        "ext": ["spcard"],
+        "ext": [
+          "spcard"
+        ],
         "name": "Spiral Card",
         "description": "Spiral registration card",
         "mimeType": "application/vnd.spiral.spcard+json",
@@ -143,7 +154,10 @@
         "rank": "Owner",
         "exportedType": {
           "identifier": "com.spiralpowered.music.spcard",
-          "conformsTo": ["public.json", "public.data"]
+          "conformsTo": [
+            "public.json",
+            "public.data"
+          ]
         }
       }
     ]
