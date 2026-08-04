@@ -73,6 +73,7 @@ function shouldListenForThemeChanges(role: WindowRole): boolean {
     role === "main" ||
     role === "activity-logs" ||
     role === "equalizer" ||
+    role === "toast-lab" ||
     isAnySkinWindow() ||
     isAppearanceWindow()
   );
@@ -86,9 +87,12 @@ export async function initThemeBridge(role: WindowRole): Promise<() => void> {
   const reloadThemes = () => {
     // Skip while an unsaved editor draft is live-previewed.
     if (livePreview) return;
-    void useThemeStore.getState().loadThemes().catch((err: unknown) => {
-      console.error("Failed to reload themes:", err);
-    });
+    void useThemeStore
+      .getState()
+      .loadThemes()
+      .catch((err: unknown) => {
+        console.error("Failed to reload themes:", err);
+      });
   };
 
   // Appearance blurs frequently (native color picker, file dialogs). Reloading

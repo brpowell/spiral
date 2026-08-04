@@ -33,6 +33,7 @@ import { openSkinMode, quitApplication } from "./lib/skinModeWindow";
 import { openActivityLogsWindow } from "./lib/activityLogsWindow";
 import { openAppearanceWindow } from "./lib/appearanceWindow";
 import { openEqualizerWindow } from "./lib/equalizerWindow";
+import { toggleToastLabWindow } from "./lib/toastLabWindow";
 import { reloadLinkedPacksWithRefresh } from "./lib/packs/refreshPackStores";
 import { usesCustomWindowChrome } from "./lib/windowChrome";
 import { SPCARD_OPENED_EVENT, takePendingSpcardOpens } from "./lib/tauri";
@@ -122,6 +123,13 @@ function App() {
     quit: () => {
       void quitApplication();
     },
+    ...(import.meta.env.DEV
+      ? {
+          toggleToastLab: () => {
+            void toggleToastLabWindow();
+          },
+        }
+      : {}),
   };
 
   useEffect(() => {
@@ -203,6 +211,11 @@ function App() {
       if (key === "l" && e.shiftKey && !e.altKey) {
         e.preventDefault();
         void openActivityLogsWindow();
+        return;
+      }
+      if (import.meta.env.DEV && key === "t" && e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        void toggleToastLabWindow();
         return;
       }
       if (key === "r" && e.altKey && !e.shiftKey) {

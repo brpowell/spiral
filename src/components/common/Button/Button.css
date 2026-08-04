@@ -16,7 +16,7 @@
     color 0.15s ease;
 }
 
-/* Icons as children inherit button font size (sm/md/lg). */
+/* Icons as children inherit button font size (xs/sm/md/lg). */
 .btn > svg {
   width: 1em;
   height: 1em;
@@ -29,6 +29,11 @@
 }
 
 /* Sizes */
+.btn--xs {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.5rem;
+}
+
 .btn--sm {
   font-size: 0.8rem;
   padding: 0.35rem 0.65rem;
@@ -51,6 +56,18 @@
 .btn--icon-only > svg {
   width: 1.05rem;
   height: 1.05rem;
+}
+
+.btn--icon-only.btn--xs {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+}
+
+.btn--icon-only.btn--xs > svg {
+  width: 0.85rem;
+  height: 0.85rem;
 }
 
 .btn--icon-only.btn--sm {
@@ -83,12 +100,20 @@
 
 .btn--secondary:hover:not(:disabled) {
   color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface-raised));
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 6%,
+    var(--color-surface-raised)
+  );
 }
 
 .btn--secondary[aria-expanded="true"] {
   color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface-raised));
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 6%,
+    var(--color-surface-raised)
+  );
 }
 
 .btn--primary {
@@ -121,12 +146,17 @@
 .btn--danger {
   color: var(--color-danger);
   background: var(--color-danger-bg);
-  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, var(--color-border));
+  border: 1px solid
+    color-mix(in srgb, var(--color-danger) 35%, var(--color-border));
 }
 
 .btn--danger:hover:not(:disabled) {
   color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger) 10%, var(--color-danger-bg));
+  background: color-mix(
+    in srgb,
+    var(--color-danger) 10%,
+    var(--color-danger-bg)
+  );
 }
 
 .btn:focus-visible {
@@ -135,5 +165,6 @@
 }
 
 .btn--icon-only.btn--primary:focus-visible {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent-text, #fff) 70%, transparent);
+  box-shadow: 0 0 0 1px
+    color-mix(in srgb, var(--color-accent-text, #fff) 70%, transparent);
 }

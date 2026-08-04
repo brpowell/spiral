@@ -286,6 +286,7 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
       useBackgroundTasksStore.getState().runInBackground({
         key: UPDATER_INSTALL_TASK_KEY,
         label: t("common:updates.downloading"),
+        progressDisplay: "bar",
         run: async (ctx) => {
           try {
             await downloadAndInstallPendingUpdate(

@@ -11,7 +11,8 @@ export type WindowRole =
   | "skin-aux"
   | "appearance"
   | "equalizer"
-  | "activity-logs";
+  | "activity-logs"
+  | "toast-lab";
 
 let role: WindowRole = "main";
 let skinAuxContext: SkinAuxContext | null = null;
@@ -33,13 +34,20 @@ export async function bootstrapWindowRole(): Promise<WindowRole> {
       role = "equalizer";
     } else if (label === "activity-logs") {
       role = "activity-logs";
+    } else if (label === "toast-lab") {
+      role = "toast-lab";
     } else {
       role = "main";
     }
   } catch {
     inTauri = false;
-    role = "main";
     skinAuxContext = null;
+    // Browser / Vite-only: allow ?toast-lab=1 for the design lab.
+    role =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("toast-lab") === "1"
+        ? "toast-lab"
+        : "main";
   }
   return role;
 }
@@ -74,6 +82,10 @@ export function isEqualizerWindow(): boolean {
 
 export function isActivityLogsWindow(): boolean {
   return role === "activity-logs";
+}
+
+export function isToastLabWindow(): boolean {
+  return role === "toast-lab";
 }
 
 export function isTauri(): boolean {

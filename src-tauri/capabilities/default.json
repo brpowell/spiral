@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for Spiral windows",
-  "windows": ["main", "skin-mode", "skin-aux-*", "appearance", "equalizer", "activity-logs"],
+  "windows": ["main", "skin-mode", "skin-aux-*", "appearance", "equalizer", "activity-logs", "toast-lab"],
   "permissions": [
     "core:default",
     "core:webview:allow-create-webview-window",

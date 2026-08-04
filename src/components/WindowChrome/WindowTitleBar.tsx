@@ -32,6 +32,9 @@ const MENU_ITEMS: { id: AppMenuBarId; label: string }[] = [
   { id: "file", label: "File" },
   { id: "edit", label: "Edit" },
   { id: "view", label: "View" },
+  ...(import.meta.env.DEV
+    ? [{ id: "developer" as const, label: "Developer" }]
+    : []),
 ];
 
 function runEditCommand(
@@ -231,6 +234,19 @@ export function WindowTitleBar({
         <ContextMenuItem
           label="Activity Logs"
           onClick={run(handlers.openActivityLogs)}
+        />
+      </>
+    );
+  } else if (
+    handlers &&
+    activeMenu === "developer" &&
+    handlers.toggleToastLab
+  ) {
+    menuContent = (
+      <>
+        <ContextMenuItem
+          label="Toast Lab"
+          onClick={run(handlers.toggleToastLab)}
         />
       </>
     );

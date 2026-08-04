@@ -14,7 +14,10 @@ import { initEqBridge } from "./lib/eqBridge";
 import { bootstrapSkin } from "./lib/skinBootstrap";
 import { bootstrapSkinAux } from "./lib/skinAuxBootstrap";
 import { emitSkinAuxReady } from "./lib/skinAuxEvents";
-import { preloadSkinSwitchAssets, preloadSkinViewAssets } from "./lib/skinViewAssetPreload";
+import {
+  preloadSkinSwitchAssets,
+  preloadSkinViewAssets,
+} from "./lib/skinViewAssetPreload";
 import { resolveAuxStartupRequirements } from "./lib/skinAuxStartupRequirements";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useSkinStore } from "./store/useSkinStore";
@@ -22,10 +25,9 @@ import { bootstrapTheme } from "./lib/themeBootstrap";
 import { bootstrapVisualizer } from "./lib/visualizerBootstrap";
 import { bootstrapEqualizer } from "./lib/equalizerBootstrap";
 import { bootstrapPlaybackSettings } from "./lib/playbackSettingsBootstrap";
-import {
-  initCrashHandlers,
-  installCrashDevConsole,
-} from "./lib/crashReport";
+import { ToastLabApp } from "./ToastLabApp";
+import { initCrashHandlers, installCrashDevConsole } from "./lib/crashReport";
+import { installToastDevConsole } from "./lib/toastDevConsole";
 import {
   bootstrapWindowRole,
   getSkinAuxContext,
@@ -35,6 +37,7 @@ import {
   isAnySkinWindow,
   isSkinAuxWindow,
   isSkinModeWindow,
+  isToastLabWindow,
 } from "./lib/windowRole";
 import { applyCustomWindowChrome } from "./lib/windowChrome";
 import { i18n } from "./lib/i18n";
@@ -54,6 +57,7 @@ function renderRoot(node: React.ReactNode) {
 async function start() {
   initCrashHandlers();
   installCrashDevConsole();
+  installToastDevConsole();
 
   const role = await bootstrapWindowRole();
 
@@ -62,9 +66,17 @@ async function start() {
     role === "main" ||
     role === "appearance" ||
     role === "equalizer" ||
-    role === "activity-logs"
+    role === "activity-logs" ||
+    role === "toast-lab"
   ) {
     await applyCustomWindowChrome();
+  }
+
+  if (isToastLabWindow()) {
+    await bootstrapTheme();
+    await initThemeBridge(role);
+    renderRoot(<ToastLabApp />);
+    return;
   }
 
   if (isActivityLogsWindow()) {

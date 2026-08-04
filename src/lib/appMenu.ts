@@ -24,9 +24,11 @@ export interface AppMenuHandlers {
   reloadLinkedPacks: () => void;
   /** Custom chrome File → Exit (macOS uses the system Quit item). */
   quit: () => void;
+  /** DEV-only: toggle the Toast Lab window. */
+  toggleToastLab?: () => void;
 }
 
-export type AppMenuBarId = "file" | "edit" | "view";
+export type AppMenuBarId = "file" | "edit" | "view" | "developer";
 
 const RELOAD_LINKED_PACKS_ID = "reload-linked-packs";
 
@@ -186,8 +188,24 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
     ],
   });
 
+  const menuItems = [spiralSubmenu, fileSubmenu, editSubmenu, viewSubmenu];
+
+  if (import.meta.env.DEV && handlers.toggleToastLab) {
+    const toastLab = await MenuItem.new({
+      id: "toast-lab",
+      text: "Toast Lab",
+      accelerator: "CmdOrCtrl+Shift+T",
+      action: handlers.toggleToastLab,
+    });
+    const developerSubmenu = await Submenu.new({
+      text: "Developer",
+      items: [toastLab],
+    });
+    menuItems.push(developerSubmenu);
+  }
+
   const menu = await Menu.new({
-    items: [spiralSubmenu, fileSubmenu, editSubmenu, viewSubmenu],
+    items: menuItems,
   });
   await menu.setAsAppMenu();
 

@@ -8,8 +8,8 @@
   "revealInFileManager": "Show in File Manager",
   "updates": {
     "available": {
-      "label": "Update available",
-      "detail": "Spiral {{version}} is ready to install.",
+      "label": "New Spiral just dropped",
+      "detail": "Version {{version}} is ready to install.",
       "update": "Update",
       "later": "Later"
     },

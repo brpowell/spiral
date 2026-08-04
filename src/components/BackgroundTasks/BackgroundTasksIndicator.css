@@ -14,7 +14,7 @@
 .background-tasks__item {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.5rem;
   padding: 0.55rem 0.7rem;
   border-radius: var(--radius-card);
   border: 1px solid var(--color-border);
@@ -27,6 +27,30 @@
   min-width: 12rem;
   max-width: min(22rem, calc(100vw - 2rem));
   overflow: hidden;
+}
+
+/*
+ * Trailing dismiss sits beside the content column (not inside the title row)
+ * so its taller hit target can't inflate the title→subtitle gap.
+ * Multi-line: top-align dismiss with the title row.
+ */
+.background-tasks__item--multiline {
+  align-items: flex-start;
+}
+
+.background-tasks__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.background-tasks__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
 .background-tasks__item--success,
@@ -44,20 +68,6 @@
     var(--color-danger) 40%,
     var(--color-border)
   );
-}
-
-.background-tasks__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.35rem;
-}
-
-.background-tasks__action {
-  flex-shrink: 0;
-  font-size: 0.75rem;
-  min-height: 1.5rem;
-  padding-inline: 0.55rem;
 }
 
 .background-tasks__item--cancelled {
@@ -114,15 +124,18 @@
   color: var(--color-text-secondary);
 }
 
+/* Subtitle + action buttons, indented under the title (icon width + title-row gap). */
 .background-tasks__body {
   display: flex;
   flex-direction: column;
-  gap: 0.1rem;
+  gap: 0.45rem;
   min-width: 0;
-  flex: 1;
+  margin-left: calc(1rem + 0.65rem);
 }
 
 .background-tasks__label {
+  flex: 1;
+  min-width: 0;
   font-size: 0.82rem;
   font-weight: 500;
   color: var(--color-text-primary);
@@ -142,21 +155,42 @@
   overflow: hidden;
 }
 
+.background-tasks__progress {
+  margin-top: 0.1rem;
+}
+
+.background-tasks__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.background-tasks__actions--bottom {
+  width: 100%;
+}
+
+.background-tasks__actions--end {
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  /* Optically center on the title row when the toast is multi-line. */
+  margin-top: -0.05rem;
+}
+
+.background-tasks__action {
+  flex-shrink: 0;
+}
+
+.background-tasks__action--end {
+  margin-left: auto;
+}
+
 .background-tasks__dismiss {
   flex-shrink: 0;
-  width: 1.5rem;
-  height: 1.5rem;
-  min-width: 1.5rem;
 }
 
-.background-tasks__cancel {
-  flex-shrink: 0;
-  font-size: 0.75rem;
-  min-height: 1.5rem;
-  padding-inline: 0.45rem;
-}
-
-.background-tasks__dismiss svg {
-  width: 0.9rem;
-  height: 0.9rem;
+.background-tasks__item--multiline .background-tasks__dismiss {
+  /* Optically center on the title row, not the taller hit target. */
+  margin-top: -0.05rem;
 }

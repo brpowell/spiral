@@ -6,10 +6,24 @@ import { waitForPaint, yieldToMain } from "../lib/scheduling";
 export type BackgroundTaskStatus =
   "running" | "success" | "error" | "cancelled" | "info";
 
+/** Where the toast renders its action buttons. */
+export type BackgroundTaskActionsPlacement = "bottom" | "end";
+
+/** How running-task progress is presented in the toast. */
+export type BackgroundTaskProgressDisplay = "text" | "bar";
+
 export interface BackgroundTaskAction {
   id: string;
   label: string;
   variant?: "primary" | "ghost";
+  /** Push this action to the trailing edge within the actions group. */
+  align?: "start" | "end";
+  disabled?: boolean;
+  /**
+   * When false, keep the toast after click (e.g. Cancel while work continues).
+   * Defaults to true.
+   */
+  dismissOnClick?: boolean;
   onClick: () => void;
 }
 
@@ -20,10 +34,14 @@ export interface BackgroundTask {
   status: BackgroundTaskStatus;
   detail?: string;
   progress?: { current: number; total: number };
+  /** Defaults to `text` (`current / total`). */
+  progressDisplay?: BackgroundTaskProgressDisplay;
   cancellable?: boolean;
   cancelRequested?: boolean;
   /** Confirmation / choice buttons (e.g. Update / Later). */
   actions?: BackgroundTaskAction[];
+  /** Defaults to `bottom`; cancellable-only toasts default to `end`. */
+  actionsPlacement?: BackgroundTaskActionsPlacement;
   createdAt: number;
 }
 
@@ -32,6 +50,7 @@ export interface BackgroundTaskSettleAsOptions {
   label?: string;
   detail?: string;
   actions?: BackgroundTaskAction[];
+  actionsPlacement?: BackgroundTaskActionsPlacement;
   /**
    * Auto-dismiss delay. `null` keeps the toast until the user acts or dismisses.
    * Defaults match `showToast` (brief success/info, longer errors, sticky with actions).
@@ -59,6 +78,9 @@ interface RunInBackgroundOptions {
   label: string;
   key?: string;
   cancellable?: boolean;
+  actionsPlacement?: BackgroundTaskActionsPlacement;
+  /** Defaults to `text`. Use `bar` for determinate download-style progress. */
+  progressDisplay?: BackgroundTaskProgressDisplay;
   run: (ctx: BackgroundTaskRunContext) => Promise<void>;
 }
 
@@ -73,8 +95,12 @@ interface ShowToastOptions {
    * `actions` are present.
    */
   dismissMs?: number | null;
-  status?: Extract<BackgroundTaskStatus, "success" | "error" | "info">;
+  status?: Extract<
+    BackgroundTaskStatus,
+    "success" | "error" | "info" | "cancelled"
+  >;
   actions?: BackgroundTaskAction[];
+  actionsPlacement?: BackgroundTaskActionsPlacement;
 }
 
 interface BackgroundTasksState {
@@ -107,13 +133,17 @@ function scheduleAutoDismiss(
 }
 
 function defaultToastDismissMs(
-  status: Extract<BackgroundTaskStatus, "success" | "error" | "info">,
+  status: Extract<
+    BackgroundTaskStatus,
+    "success" | "error" | "info" | "cancelled"
+  >,
   hasActions: boolean,
   dismissMs: number | null | undefined,
 ): number | null {
   if (dismissMs !== undefined) return dismissMs;
   if (hasActions) return null;
   if (status === "error") return ERROR_DISMISS_MS;
+  if (status === "cancelled") return SUCCESS_DISMISS_MS;
   return BRIEF_TOAST_DISMISS_MS;
 }
 
@@ -202,7 +232,14 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>(
   (set, get) => ({
     tasks: [],
 
-    runInBackground: ({ label, key, cancellable, run }) => {
+    runInBackground: ({
+      label,
+      key,
+      cancellable,
+      actionsPlacement,
+      progressDisplay,
+      run,
+    }) => {
       if (key) {
         const existing = get().tasks.find(
           (task) => task.key === key && task.status === "running",
@@ -217,6 +254,8 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>(
         label,
         status: "running",
         cancellable,
+        actionsPlacement,
+        progressDisplay,
         createdAt: Date.now(),
       };
 
@@ -258,6 +297,7 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>(
                   label: settle.label ?? current?.label ?? label,
                   detail: settle.detail,
                   actions: settle.actions,
+                  actionsPlacement: settle.actionsPlacement,
                   progress: undefined,
                   cancellable: undefined,
                   cancelRequested: undefined,
@@ -300,7 +340,11 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>(
                 progress: undefined,
               }),
             }));
-            scheduleAutoDismiss(get, id, SUCCESS_DISMISS_MS, "cancelled");
+            const resolvedDismissMs =
+              err.dismissMs !== undefined ? err.dismissMs : SUCCESS_DISMISS_MS;
+            if (resolvedDismissMs != null) {
+              scheduleAutoDismiss(get, id, resolvedDismissMs, "cancelled");
+            }
             return;
           }
 
@@ -324,6 +368,7 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>(
       key,
       status = "success",
       actions,
+      actionsPlacement,
       dismissMs,
     }) => {
       const id = crypto.randomUUID();
@@ -339,6 +384,7 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>(
         detail,
         status,
         actions,
+        actionsPlacement,
         createdAt: Date.now(),
       };
 

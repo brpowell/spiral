@@ -1,0 +1,118 @@
+.toast-lab {
+  display: grid;
+  grid-template-columns: minmax(18rem, 22rem) 1fr;
+  height: 100%;
+  min-height: 0;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-ui);
+}
+
+.toast-lab__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.1rem 1.25rem;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.toast-lab__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.toast-lab__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.toast-lab__subtitle {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.toast-lab__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.toast-lab__section-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
+
+.toast-lab__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.toast-lab__hint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.toast-lab__hint code {
+  font-size: 0.7rem;
+}
+
+.toast-lab__stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 70% 80%,
+      color-mix(in srgb, var(--color-accent) 8%, transparent),
+      transparent 60%
+    ),
+    var(--color-bg);
+  overflow: hidden;
+}
+
+.toast-lab__stage-chrome {
+  position: absolute;
+  top: 0.85rem;
+  left: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  pointer-events: none;
+}
+
+.toast-lab__stage-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
+
+.toast-lab__stage-meta {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+  opacity: 0.8;
+}
+
+/* Same corner stack as the app, scoped to the stage panel. */
+.toast-lab__stack.background-tasks {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1;
+}
