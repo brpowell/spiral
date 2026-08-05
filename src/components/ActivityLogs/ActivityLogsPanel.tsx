@@ -1,15 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../common/Button/Button";
 import { Checkbox } from "../common/Checkbox/Checkbox";
-import {
-  ContextMenu,
-  ContextMenuItem,
-} from "../ContextMenu/ContextMenu";
-import {
-  IconChevronDown,
-  IconChevronRight,
-  IconCopy,
-} from "../icons";
+import { ContextMenu, ContextMenuItem } from "../ContextMenu/ContextMenu";
+import { IconChevronDown, IconChevronRight, IconCopy } from "../icons";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { copyTextToClipboard } from "../../lib/clipboard";
 import {
@@ -22,9 +15,10 @@ import {
   filterActivityLogEntries,
   useActivityLogStore,
 } from "../../store/useActivityLogStore";
-import type {
-  LogLevel,
-  ActivityLogEntry,
+import {
+  ACTIVITY_LOG_DOMAIN_OPTIONS,
+  type ActivityLogEntry,
+  type LogLevel,
 } from "../../types/activityLog";
 import { Select } from "../common/Select/Select";
 import { ActivityLogDomainChipField } from "./ActivityLogDomainChipField";
@@ -68,6 +62,7 @@ function formatTimestamp(timestampMs: number): string {
   });
 }
 
+/** Override catalog labels when group headers need a different phrasing. */
 const DOMAIN_GROUP_LABELS: Record<string, string> = {
   "metadata.musicbrainz": "Metadata fetch",
   "metadata.coverArt": "Cover art fetch",
@@ -75,14 +70,21 @@ const DOMAIN_GROUP_LABELS: Record<string, string> = {
   "library.import": "Library import",
   "library.refresh": "Library refresh",
   "lyrics.fetch": "Lyrics fetch",
-  "skin.load": "Skin load",
-  "visualizer.load": "Visualizer load",
 };
+
+function domainGroupLabel(domain: string): string {
+  return (
+    DOMAIN_GROUP_LABELS[domain] ??
+    ACTIVITY_LOG_DOMAIN_OPTIONS.find((option) => option.value === domain)
+      ?.label ??
+    domain
+  );
+}
 
 function formatGroupLabel(entry: ActivityLogEntry): string {
   const discId = entry.context?.discId;
   const driveId = entry.context?.driveId;
-  const domainLabel = DOMAIN_GROUP_LABELS[entry.domain] ?? entry.domain;
+  const domainLabel = domainGroupLabel(entry.domain);
 
   if (discId) return `${domainLabel} · disc ${discId}`;
   if (driveId) return `${domainLabel} · drive ${driveId}`;
@@ -120,9 +122,8 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
 function isTextTarget(target: EventTarget | null): boolean {
   return (
     target instanceof Element &&
-    target.closest(
-      ".activity-logs-panel__body, .activity-logs-panel__json",
-    ) != null
+    target.closest(".activity-logs-panel__body, .activity-logs-panel__json") !=
+      null
   );
 }
 
@@ -138,9 +139,11 @@ function LogEntryRow({
 }: LogEntryRowProps) {
   return (
     <div
-      className={`activity-logs-panel__entry${selected ? " activity-logs-panel__entry--selected" : ""
-        }${expanded ? " activity-logs-panel__entry--expanded" : ""}${dragSelecting ? " activity-logs-panel__entry--drag-selecting" : ""
-        }`}
+      className={`activity-logs-panel__entry${
+        selected ? " activity-logs-panel__entry--selected" : ""
+      }${expanded ? " activity-logs-panel__entry--expanded" : ""}${
+        dragSelecting ? " activity-logs-panel__entry--drag-selecting" : ""
+      }`}
       data-entry-id={entry.id}
       data-entry-index={entryIndex}
       data-selected={selected ? "true" : "false"}
@@ -375,8 +378,10 @@ export function ActivityLogsPanel() {
       if (!pending || event.buttons !== 1) return;
 
       const moved =
-        Math.hypot(event.clientX - pending.originX, event.clientY - pending.originY) >
-        DRAG_SELECT_THRESHOLD_PX;
+        Math.hypot(
+          event.clientX - pending.originX,
+          event.clientY - pending.originY,
+        ) > DRAG_SELECT_THRESHOLD_PX;
 
       if (!dragSelectActiveRef.current) {
         if (!moved) return;
@@ -402,11 +407,7 @@ export function ActivityLogsPanel() {
             pending.additive,
           );
         } else if (!pending.additive) {
-          applyRangeSelection(
-            pending.anchorIndex,
-            pending.anchorIndex,
-            false,
-          );
+          applyRangeSelection(pending.anchorIndex, pending.anchorIndex, false);
         }
       }
 
@@ -444,12 +445,7 @@ export function ActivityLogsPanel() {
       document.removeEventListener("mousemove", handleDocumentMouseMove);
       document.removeEventListener("mouseup", handleDocumentMouseUp);
     };
-  }, [
-    applyRangeSelection,
-    filteredEntries,
-    finishRowDrag,
-    handleSelectEntry,
-  ]);
+  }, [applyRangeSelection, filteredEntries, finishRowDrag, handleSelectEntry]);
 
   const copySelected = useCallback(() => {
     if (selectedEntries.length === 0) return;
@@ -554,8 +550,9 @@ export function ActivityLogsPanel() {
 
       <div
         ref={listRef}
-        className={`activity-logs-panel__list${dragSelecting ? " activity-logs-panel__list--drag-selecting" : ""
-          }`}
+        className={`activity-logs-panel__list${
+          dragSelecting ? " activity-logs-panel__list--drag-selecting" : ""
+        }`}
         tabIndex={0}
         aria-label="Activity logs"
         onScroll={handleListScroll}
@@ -574,9 +571,7 @@ export function ActivityLogsPanel() {
         }}
       >
         {filteredEntries.length === 0 ? (
-          <p className="activity-logs-panel__empty">
-            No logs yet...
-          </p>
+          <p className="activity-logs-panel__empty">No logs yet...</p>
         ) : (
           filteredEntries.map((entry, index) => {
             const previous = filteredEntries[index - 1];

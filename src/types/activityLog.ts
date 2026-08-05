@@ -57,6 +57,7 @@ const ACTIVITY_LOG_DOMAIN_DEFS = {
   lyricsFetch: { value: "lyrics.fetch", label: "Lyrics" },
   skinLoad: { value: "skin.load", label: "Skin load" },
   visualizerLoad: { value: "visualizer.load", label: "Visualizer load" },
+  packScan: { value: "pack.scan", label: "Pack scan" },
   licenseRegistration: {
     value: "license.registration",
     label: "Registration",
@@ -72,6 +73,7 @@ export const ACTIVITY_LOG_DOMAINS = {
   lyricsFetch: ACTIVITY_LOG_DOMAIN_DEFS.lyricsFetch.value,
   skinLoad: ACTIVITY_LOG_DOMAIN_DEFS.skinLoad.value,
   visualizerLoad: ACTIVITY_LOG_DOMAIN_DEFS.visualizerLoad.value,
+  packScan: ACTIVITY_LOG_DOMAIN_DEFS.packScan.value,
   licenseRegistration: ACTIVITY_LOG_DOMAIN_DEFS.licenseRegistration.value,
 } as const;
 

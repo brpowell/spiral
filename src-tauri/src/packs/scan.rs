@@ -9,12 +9,20 @@ use super::{
     get_contribution_type_handler, pack_identity, parse_pack_manifest_json, PackManifest,
     PackZone, CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME,
 };
+use crate::activity_log::{self, LogLevel};
 use crate::settings;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
-use tauri::AppHandle;
+use std::sync::Mutex;
+use tauri::{AppHandle, Emitter};
+
+/// Matches frontend `LINKED_PACKS_CHANGED_EVENT` — menu / UI refresh after auto-unlink.
+const LINKED_PACKS_CHANGED_EVENT: &str = "packs://linked-changed";
+
+/// Serializes missing-path prune so parallel theme/skin/visualizer scans log once.
+static LINKED_PATH_PRUNE_LOCK: Mutex<()> = Mutex::new(());
 
 /// App semver used for `minAppVersion` checks (Cargo package version).
 pub fn app_version() -> &'static str {
@@ -359,6 +367,54 @@ fn merge_contribution(
     }
 }
 
+/// Drop linked pack paths that are missing (or not directories) from settings.
+/// Logs each removal once as an activity-log warning so scans do not keep retrying.
+fn prune_missing_linked_pack_paths(app: &AppHandle) {
+    let _guard = LINKED_PATH_PRUNE_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    let mut app_settings = settings::read_settings(app);
+    let mut removed: Vec<String> = Vec::new();
+    app_settings.linked_pack_paths.retain(|raw| {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return true;
+        }
+        if PathBuf::from(trimmed).is_dir() {
+            true
+        } else {
+            removed.push(trimmed.to_string());
+            false
+        }
+    });
+
+    if removed.is_empty() {
+        return;
+    }
+
+    if let Err(e) = settings::write_settings(app, &app_settings) {
+        activity_log::log(
+            LogLevel::Error,
+            "pack.scan",
+            format!("failed to unlink missing linked pack paths: {e}"),
+            None,
+        );
+        return;
+    }
+
+    for path in &removed {
+        activity_log::log(
+            LogLevel::Warn,
+            "pack.scan",
+            format!("Linked pack path not found or not a directory; unlinked: {path}"),
+            Some(serde_json::json!({ "path": path })),
+        );
+    }
+
+    let _ = app.emit(LINKED_PACKS_CHANGED_EVENT, ());
+}
+
 /// Scan all pack zones. On effective-id collision, higher-priority zone wins
 /// (workshop/linked > installed > builtin). Linked vs workshop pack identity collision
 /// is a soft-fail warning (linked path skipped), not silent override.
@@ -366,6 +422,8 @@ pub fn scan_all_packs(app: &AppHandle) -> ScanResult {
     let mut warnings = Vec::new();
     let mut by_id: HashMap<String, ScannedContribution> = HashMap::new();
     let mut workshop_pack_identities: HashSet<String> = HashSet::new();
+
+    prune_missing_linked_pack_paths(app);
 
     let zones = [
         (PackZone::Builtin, paths::builtin_packs_root(app)),
@@ -399,10 +457,8 @@ pub fn scan_all_packs(app: &AppHandle) -> ScanResult {
             continue;
         }
         let path = PathBuf::from(trimmed);
+        // Pruned above; skip quietly if a failed write left a stale entry.
         if !path.is_dir() {
-            warnings.push(ScanWarning {
-                message: format!("linked pack path not found or not a directory: {trimmed}"),
-            });
             continue;
         }
         if !path.join(PACK_MANIFEST_FILENAME).is_file() {
