@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use crate::activity_log::{self, LogLevel};
+use crate::artist_tags::join_artist_field;
 
 use serde::{Deserialize, Serialize};
 
@@ -359,25 +360,18 @@ fn parse_tracks_from_medium(
 
 fn artist_credit_name(value: Option<&serde_json::Value>) -> Option<String> {
     let credits = value?.as_array()?;
-    let names = credits
-        .iter()
-        .filter_map(|entry| {
-            entry
-                .get("name")
-                .and_then(|name| name.as_str())
-                .or_else(|| {
-                    entry
-                        .get("artist")
-                        .and_then(|artist| artist.get("name"))
-                        .and_then(|name| name.as_str())
-                })
-        })
-        .collect::<Vec<_>>();
-    if names.is_empty() {
-        None
-    } else {
-        Some(names.join(", "))
-    }
+    let names = credits.iter().filter_map(|entry| {
+        entry
+            .get("name")
+            .and_then(|name| name.as_str())
+            .or_else(|| {
+                entry
+                    .get("artist")
+                    .and_then(|artist| artist.get("name"))
+                    .and_then(|name| name.as_str())
+            })
+    });
+    join_artist_field(names)
 }
 
 fn parse_year(date: &str) -> Option<i32> {
@@ -426,7 +420,7 @@ mod tests {
         ]);
         assert_eq!(
             artist_credit_name(Some(&value)),
-            Some("Artist A, Artist B".to_string())
+            Some("Artist A; Artist B".to_string())
         );
     }
 
