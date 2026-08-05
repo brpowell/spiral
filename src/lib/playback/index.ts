@@ -23,10 +23,7 @@ export {
 } from "./audioOutput";
 export { CdPlaybackEngine } from "./cdPlaybackEngine";
 export { FilePlaybackEngine } from "./filePlaybackEngine";
-export {
-  canHowlerCrossfade,
-  effectiveFadeSeconds,
-} from "./canCrossfade";
+export { canHowlerCrossfade, effectiveFadeSeconds } from "./canCrossfade";
 export {
   CrossfadeController,
   crossfadeController,
@@ -95,10 +92,7 @@ export function startCrossfadeNow(
   crossfadeController.startCrossfadeNow(ctx);
 }
 
-export function fadeOutAndStop(
-  fadeSec: number,
-  onComplete: () => void,
-): void {
+export function fadeOutAndStop(fadeSec: number, onComplete: () => void): void {
   crossfadeController.fadeOutAndStop(fadeSec, onComplete);
 }
 
@@ -177,6 +171,12 @@ export function isPlaying(): boolean {
 export function onEnd(callback: () => void): void {
   manager.onEnd(callback);
   crossfadeController.onEnd(callback);
+}
+
+export function onCdError(
+  callback: Parameters<PlaybackEngineManager["onCdError"]>[0],
+): void {
+  manager.onCdError(callback);
 }
 
 export function setVolume(volume: number): void {

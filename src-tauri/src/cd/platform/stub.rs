@@ -48,6 +48,12 @@ pub fn is_optical_disc_volume(_volume_path: &str) -> bool {
 
 pub fn note_volume_mounted(_volume_path: &str) {}
 
-pub fn note_volume_unmounted(_volume_path: &str) {}
+pub fn note_volume_unmounted(_volume_path: &str) -> bool {
+    false
+}
 
 pub fn note_device_status_changed() {}
+
+pub fn prune_missing_drive_sessions(_drives: &[CdDrive]) -> bool {
+    false
+}

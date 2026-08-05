@@ -6,8 +6,13 @@ use std::path::{Path, PathBuf};
 use crate::cd::platform;
 
 pub fn find_track_aiff_path(drive_id: &str, track_number: u32) -> Result<PathBuf, String> {
-    let volume_path = platform::mounted_volume_path(drive_id)
-        .ok_or_else(|| "No audio CD in drive".to_string())?;
+    let volume_path = platform::mounted_volume_path(drive_id).ok_or_else(|| {
+        if platform::optical_drive_connected(drive_id) {
+            "No audio CD in drive".to_string()
+        } else {
+            "Disc drive disconnected".to_string()
+        }
+    })?;
     find_track_file(Path::new(&volume_path), track_number)
 }
 

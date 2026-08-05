@@ -19,6 +19,12 @@ import type {
   RecoverResult,
 } from "./types";
 
+export interface CdPlaybackStreamError {
+  driveId: string;
+  trackNumber: number;
+  message: string;
+}
+
 const CD_CAPABILITIES: PlaybackCapabilities = {
   seek: true,
   scrubPreview: true,
@@ -44,6 +50,7 @@ export class CdPlaybackEngine implements PlaybackEngine {
   private balance = 0;
   private muted = false;
   private endCallback: (() => void) | null = null;
+  private errorCallback: ((error: CdPlaybackStreamError) => void) | null = null;
   private listeners: Promise<UnlistenFn[]> | null = null;
   private readonly pcm = new CdPcmPipeline();
 
@@ -66,7 +73,11 @@ export class CdPlaybackEngine implements PlaybackEngine {
         if (!isCdPlaybackTrack(this.current, event.payload)) return;
         console.error("CD playback error:", event.payload.message);
         this.playing = false;
-        this.endCallback?.();
+        this.errorCallback?.({
+          driveId: event.payload.driveId,
+          trackNumber: event.payload.trackNumber,
+          message: event.payload.message ?? "Failed to read CD audio data",
+        });
       }),
     ]);
     return this.listeners;
@@ -74,7 +85,9 @@ export class CdPlaybackEngine implements PlaybackEngine {
 
   async load(source: PlaybackSource): Promise<void> {
     if (source.kind !== "cd") {
-      throw new Error(`CdPlaybackEngine cannot load source kind: ${source.kind}`);
+      throw new Error(
+        `CdPlaybackEngine cannot load source kind: ${source.kind}`,
+      );
     }
 
     await this.ensureListeners();
@@ -151,6 +164,10 @@ export class CdPlaybackEngine implements PlaybackEngine {
 
   onEnd(callback: () => void): void {
     this.endCallback = callback;
+  }
+
+  onError(callback: ((error: CdPlaybackStreamError) => void) | null): void {
+    this.errorCallback = callback;
   }
 
   setVolume(volume: number): void {

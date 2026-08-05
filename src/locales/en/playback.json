@@ -12,5 +12,17 @@
       "bass": "Bass",
       "treble": "Treble"
     }
+  },
+  "cd": {
+    "disconnected": {
+      "label": "Playback stopped",
+      "detail": "Disc drive disconnected"
+    },
+    "noDisc": {
+      "detail": "No audio CD in the drive"
+    },
+    "playbackFailed": {
+      "label": "Playback failed"
+    }
   }
 }

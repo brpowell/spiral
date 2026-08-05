@@ -113,8 +113,11 @@ fn apply_wake(wake: &MonitorWake, state: &mut MonitorState) {
             bump_if_optical(path);
         }
         MonitorWake::VolumeUnmounted { path } => {
-            platform::note_volume_unmounted(path);
-            bump_if_optical(path);
+            // Bump even when diskutil can't classify a yanked volume path.
+            let cleared = platform::note_volume_unmounted(path);
+            if cleared || platform::is_optical_disc_volume(path) {
+                state.disc_revision = state.disc_revision.saturating_add(1);
+            }
         }
         MonitorWake::DeviceStatusChanged => {
             platform::note_device_status_changed();
@@ -139,10 +142,8 @@ fn refresh_drives(
     state: &Arc<Mutex<MonitorState>>,
     force_presence_probe: bool,
 ) -> Option<Vec<CdDrive>> {
-    if platform::is_drive_busy() {
-        return None;
-    }
-
+    // Always enumerate so a USB yank can clear busy sessions; skip deep probes
+    // only while a remaining drive is still busy.
     let mut drives = match platform::list_drives_try()? {
         Ok(drives) => drives,
         Err(err) => {
@@ -150,6 +151,13 @@ fn refresh_drives(
             return None;
         }
     };
+
+    if platform::prune_missing_drive_sessions(&drives) {
+        let mut guard = state.lock().expect("cd monitor state poisoned");
+        guard.disc_revision = guard.disc_revision.saturating_add(1);
+    }
+
+    let busy = platform::is_drive_busy();
 
     let mut guard = state.lock().expect("cd monitor state poisoned");
     let list_sig = drive_list_signature(&drives);
@@ -159,7 +167,8 @@ fn refresh_drives(
     }
 
     let fallback_due = guard.last_presence_probe.elapsed() >= FALLBACK_PRESENCE_PROBE_INTERVAL;
-    let should_probe_presence = force_presence_probe || list_changed || fallback_due;
+    let should_probe_presence =
+        !busy && (force_presence_probe || list_changed || fallback_due);
 
     if should_probe_presence {
         apply_presence_probes(&mut drives, &mut guard);
@@ -168,6 +177,13 @@ fn refresh_drives(
             drive.has_disc = platform::cached_disc_presence(&drive.id)
                 .or_else(|| guard.known_has_disc.get(&drive.id).copied())
                 .unwrap_or(false);
+        }
+        if list_changed {
+            guard.known_has_disc = drives
+                .iter()
+                .map(|drive| (drive.id.clone(), drive.has_disc))
+                .collect();
+            guard.disc_revision = guard.disc_revision.saturating_add(1);
         }
     }
 

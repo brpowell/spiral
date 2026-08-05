@@ -39,7 +39,9 @@ export class PlaybackEngineManager {
       case "cd":
         return this.cdEngine;
       case "remote":
-        throw new Error(`Playback not implemented for source kind: ${source.kind}`);
+        throw new Error(
+          `Playback not implemented for source kind: ${source.kind}`,
+        );
     }
   }
 
@@ -95,6 +97,10 @@ export class PlaybackEngineManager {
     this.fileEngine.onEnd(callback);
     this.pcmFileEngine.onEnd(callback);
     this.cdEngine.onEnd(callback);
+  }
+
+  onCdError(callback: Parameters<CdPlaybackEngine["onError"]>[0]): void {
+    this.cdEngine.onError(callback);
   }
 
   setVolume(volume: number): void {

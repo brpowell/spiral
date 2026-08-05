@@ -241,12 +241,13 @@ fn normalize_volume_path(path: &str) -> String {
 }
 
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-pub fn clear_drive_on_unmount(normalized_volume_path: &str, bsd_name: Option<&str>) {
+pub fn clear_drive_on_unmount(normalized_volume_path: &str, bsd_name: Option<&str>) -> bool {
     if normalized_volume_path.is_empty() {
-        return;
+        return false;
     }
 
     with_sessions(|store| {
+        let mut cleared = false;
         for (drive_id, session) in store.drives.iter_mut() {
             let matches_volume = session.cache.volume_path.as_ref().is_some_and(|cached_path| {
                 normalize_volume_path(cached_path) == normalized_volume_path
@@ -258,14 +259,39 @@ pub fn clear_drive_on_unmount(normalized_volume_path: &str, bsd_name: Option<&st
             session.cache.has_audio_cd = Some(false);
             session.cache.volume_path = None;
             session.cache.updated_at = Instant::now();
+            cleared = true;
         }
-    });
+        cleared
+    })
 }
 
 pub fn remove_drive(drive_id: &str) {
     with_sessions(|store| {
         store.drives.remove(drive_id);
     });
+}
+
+/// Drop sessions for drives that no longer enumerate (USB yank while playing/busy).
+/// Returns true when any session was removed.
+pub fn prune_missing_drives(present_ids: &[String]) -> bool {
+    with_sessions(|store| {
+        let before = store.drives.len();
+        store
+            .drives
+            .retain(|id, _| present_ids.iter().any(|present| present == id));
+        store.drives.len() != before
+    })
+}
+
+/// True when any drive session still thinks an audio CD is present within TTL.
+#[cfg(target_os = "macos")]
+pub fn any_cached_disc_present() -> bool {
+    with_sessions(|store| {
+        store
+            .drives
+            .values()
+            .any(|session| cached_has_audio_cd(&session.cache, PRESENCE_CACHE_TTL) == Some(true))
+    })
 }
 
 pub struct DriveSessionGuard {

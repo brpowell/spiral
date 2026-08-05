@@ -12,9 +12,15 @@ import { buildPlaybackOrder } from "../lib/playbackOrder";
 import { findPlaybackTrack } from "../lib/playbackTrack";
 import { groupTracksIntoAlbums } from "../lib/albums";
 import { groupTracksIntoArtists, type ArtistBrowseMode } from "../lib/artists";
-import { pickAndImportLibraryPaths, startLibraryImport } from "../lib/libraryImport";
+import {
+  pickAndImportLibraryPaths,
+  startLibraryImport,
+} from "../lib/libraryImport";
 import { isCdImportBlockingPlayback } from "../lib/cdImportGuard";
-import { showQueueAddedToast, showQueueAddedToastForTracks } from "../lib/queueToast";
+import {
+  showQueueAddedToast,
+  showQueueAddedToastForTracks,
+} from "../lib/queueToast";
 import { seekRatioToPositionSeconds } from "../lib/playbackSeek";
 import { parseRepeatMode, prunePlaybackSession } from "../lib/playbackSession";
 import {
@@ -47,10 +53,7 @@ import {
   shuffleNewTrackList,
   shuffleTrackList,
 } from "../lib/playbackQueue";
-import {
-  isPendingTrackId,
-  isTrackImporting,
-} from "../lib/pendingImportTrack";
+import { isPendingTrackId, isTrackImporting } from "../lib/pendingImportTrack";
 import { fileExists } from "../lib/artPath";
 import {
   mergeLibraryClientState,
@@ -58,6 +61,10 @@ import {
   withTrackMissingFile,
 } from "../lib/missingFileTrack";
 import { showPlaybackFileMissingToast } from "../lib/playbackToast";
+import {
+  errorMessageFromUnknown,
+  reportCdPlaybackFailure,
+} from "../lib/cdPlaybackFailure";
 import {
   findNextPlayableInOrder,
   getNextSkippingKnownUnplayable,
@@ -112,10 +119,7 @@ interface PlayerState {
   ) => void;
   addToLibrary: () => Promise<void>;
   importFromPaths: (paths: string[]) => void;
-  playTrack: (
-    id: number,
-    options?: PlaybackAdvanceOptions,
-  ) => Promise<void>;
+  playTrack: (id: number, options?: PlaybackAdvanceOptions) => Promise<void>;
   playTracks: (ids: number[], startId: number) => Promise<void>;
   playCdTracks: (
     driveId: string,
@@ -198,8 +202,7 @@ function pruneIdsMany(ids: number[], removed: Set<number>): number[] {
 function applyActiveTrackHandoff(
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   get: () => PlayerState,
   incomingPlayable: PlayableRef,
@@ -248,8 +251,7 @@ let positionInterval: ReturnType<typeof setTimeout> | null = null;
 function stopPositionPoll(
   set?: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
 ): void {
   if (positionInterval !== null) {
@@ -284,8 +286,7 @@ function positionPollIntervalMs(
 function tryScheduleCrossfade(
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   get: () => PlayerState,
   positionSeconds: number,
@@ -323,8 +324,7 @@ function buildCrossfadeScheduleContext(
   get: () => PlayerState,
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   nextPlayable: PlayableRef,
   nextTrackId: number,
@@ -371,8 +371,7 @@ function getManualAdvanceFromTrackId(get: () => PlayerState): number | null {
 function tryStartManualCrossfade(
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   get: () => PlayerState,
   nextPlayable: PlayableRef,
@@ -388,7 +387,12 @@ function tryStartManualCrossfade(
   }
   if (state.repeatMode === "one") return false;
 
-  const ctx = buildCrossfadeScheduleContext(get, set, nextPlayable, nextTrackId);
+  const ctx = buildCrossfadeScheduleContext(
+    get,
+    set,
+    nextPlayable,
+    nextTrackId,
+  );
   if (!ctx) return false;
 
   audio.startCrossfadeNow(ctx);
@@ -398,8 +402,7 @@ function tryStartManualCrossfade(
 function stopPlaybackAtQueueEnd(
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
 ): void {
   stopPositionPoll(set);
@@ -414,8 +417,7 @@ function stopPlaybackAtQueueEnd(
 function handleQueueEnd(
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
 ): void {
   const settings = usePlaybackSettingsStore.getState();
@@ -425,7 +427,10 @@ function handleQueueEnd(
     !audio.isCrossfadeInProgress()
   ) {
     const duration = audio.getDurationSeconds();
-    const fadeSec = audio.effectiveFadeSeconds(duration, settings.crossfadeSeconds);
+    const fadeSec = audio.effectiveFadeSeconds(
+      duration,
+      settings.crossfadeSeconds,
+    );
     audio.fadeOutAndStop(fadeSec, () => {
       stopPlaybackAtQueueEnd(set);
     });
@@ -438,8 +443,7 @@ function handleQueueEnd(
 function startPositionPoll(
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   get: () => PlayerState,
 ): void {
@@ -458,7 +462,10 @@ function startPositionPoll(
     positionInterval = setTimeout(tick, intervalMs);
   };
 
-  positionInterval = setTimeout(tick, positionPollIntervalMs(get, get().positionSeconds));
+  positionInterval = setTimeout(
+    tick,
+    positionPollIntervalMs(get, get().positionSeconds),
+  );
 }
 
 interface PlaybackAdvanceOptions {
@@ -502,8 +509,7 @@ let playResolvedGeneration = 0;
 function setLibraryTrackMissingFile(
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   trackId: number,
   missing: boolean,
@@ -518,8 +524,7 @@ function setLibraryTrackMissingFile(
 function handlePlaybackFileMissing(
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   get: () => PlayerState,
   trackId: number,
@@ -549,8 +554,7 @@ function shouldPreserveCurrentPlayback(
 async function advanceToPlayableInOrder(
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   get: () => PlayerState,
   fromTrackId: number,
@@ -583,19 +587,16 @@ async function advanceToPlayableInOrder(
     return;
   }
 
-  await playResolvedPlayable(
-    { type: "library", trackId: nextId },
-    set,
-    get,
-    { advanceOnMissing: true, getNextId },
-  );
+  await playResolvedPlayable({ type: "library", trackId: nextId }, set, get, {
+    advanceOnMissing: true,
+    getNextId,
+  });
 }
 
 async function handleMissingLibraryPlayback(
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   get: () => PlayerState,
   trackId: number,
@@ -621,8 +622,7 @@ async function playResolvedPlayable(
   playable: PlayableRef,
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   get: () => PlayerState,
   options?: PlayResolvedPlayableOptions,
@@ -663,11 +663,7 @@ async function playResolvedPlayable(
   }
 
   try {
-    const useCrossfade = shouldUseCrossfadeController(
-      source,
-      state,
-      playable,
-    );
+    const useCrossfade = shouldUseCrossfadeController(source, state, playable);
 
     if (useCrossfade) {
       await audio.crossfadeLoadAndPlay(source, {
@@ -721,7 +717,9 @@ async function playResolvedPlayable(
       ...(options?.playbackTracks !== undefined
         ? { playbackTracks: options.playbackTracks }
         : {}),
-      ...(options?.cdDriveId !== undefined ? { cdDriveId: options.cdDriveId } : {}),
+      ...(options?.cdDriveId !== undefined
+        ? { cdDriveId: options.cdDriveId }
+        : {}),
       ...(playable.type === "library"
         ? { cdDriveId: null, playbackTracks: [] }
         : {}),
@@ -729,7 +727,7 @@ async function playResolvedPlayable(
     startPositionPoll(set, get);
   } catch (err) {
     if (generation !== playResolvedGeneration) return;
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessageFromUnknown(err);
     console.error("Playback failed:", err);
     if (playable.type === "library" && isMissingFileError(err)) {
       await handleMissingLibraryPlayback(
@@ -740,6 +738,18 @@ async function playResolvedPlayable(
         generation,
         options,
       );
+      return;
+    }
+    if (playable.type === "cd") {
+      reportCdPlaybackFailure({
+        message,
+        driveId: playable.driveId,
+        trackNumber: playable.trackNumber,
+      });
+      set({
+        playbackState: "stopped",
+        importError: null,
+      });
       return;
     }
     set({
@@ -775,11 +785,16 @@ async function primeCdTrackPaused(
       seekPreviewRatio: null,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessageFromUnknown(err);
     console.error("Failed to load CD track:", err);
+    reportCdPlaybackFailure({
+      message,
+      driveId,
+      trackNumber,
+    });
     set({
       playbackState: "stopped",
-      importError: `Playback failed: ${message}`,
+      importError: null,
     });
   }
 }
@@ -789,8 +804,7 @@ async function primeTrackPaused(
   library: Track[],
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   get: () => PlayerState,
 ): Promise<void> {
@@ -848,8 +862,7 @@ function refreshLibraryPreservingPlayback(
   library: Track[],
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
   get: () => PlayerState,
 ): void {
@@ -947,8 +960,7 @@ async function restorePlaybackSession(
   library: Track[],
   set: (
     partial:
-      | Partial<PlayerState>
-      | ((state: PlayerState) => Partial<PlayerState>),
+      Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
   ) => void,
 ): Promise<void> {
   let session;
@@ -1053,7 +1065,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     const { currentTrackId, repeatMode } = get();
     if (!currentTrackId) {
       stopPositionPoll(set);
-      set({ playbackState: "stopped", positionSeconds: 0, seekPreviewRatio: null });
+      set({
+        playbackState: "stopped",
+        positionSeconds: 0,
+        seekPreviewRatio: null,
+      });
       return;
     }
 
@@ -1078,6 +1094,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     }
 
     handleQueueEnd(set);
+  });
+
+  audio.onCdError((error) => {
+    reportCdPlaybackFailure({
+      message: error.message,
+      driveId: error.driveId,
+      trackNumber: error.trackNumber,
+    });
+    stopPositionPoll(set);
+    set({
+      playbackState: "stopped",
+      importError: null,
+      seekPreviewRatio: null,
+    });
   });
 
   return {
@@ -1207,7 +1237,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     selectTracksInList: (id, orderedIds, modifiers) => {
       if (isPendingTrackId(id)) return;
       const { selectedTrackIds, selectionAnchorId } = get();
-      const interactiveIds = orderedIds.filter((trackId) => !isPendingTrackId(trackId));
+      const interactiveIds = orderedIds.filter(
+        (trackId) => !isPendingTrackId(trackId),
+      );
       const result = applyTrackSelection(
         id,
         interactiveIds,
@@ -1216,7 +1248,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         modifiers,
       );
       set({
-        selectedTrackIds: result.selectedIds.filter((trackId) => !isPendingTrackId(trackId)),
+        selectedTrackIds: result.selectedIds.filter(
+          (trackId) => !isPendingTrackId(trackId),
+        ),
         selectionAnchorId:
           result.anchorId != null && isPendingTrackId(result.anchorId)
             ? null
@@ -1347,15 +1381,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         set({ playContextIds: shuffleTrackList(get().playContextIds, id) });
       }
 
-      await playResolvedPlayable(
-        { type: "library", trackId: id },
-        set,
-        get,
-        {
-          advanceOnMissing: options?.advanceOnMissing,
-          getNextId: options?.getNextId,
-        },
-      );
+      await playResolvedPlayable({ type: "library", trackId: id }, set, get, {
+        advanceOnMissing: options?.advanceOnMissing,
+        getNextId: options?.getNextId,
+      });
     },
 
     pause: () => {
@@ -1451,8 +1480,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             currentTrackId: state.currentTrackId,
           })?.durationSeconds ?? 0;
       }
-      const ratio =
-        duration > 0 ? state.positionSeconds / duration : 0;
+      const ratio = duration > 0 ? state.positionSeconds / duration : 0;
       set({ seekPreviewRatio: ratio });
     },
 
@@ -1505,7 +1533,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
           getManualPreviousId,
         );
         if (prevId !== null) {
-          const prevPlayable: PlayableRef = { type: "library", trackId: prevId };
+          const prevPlayable: PlayableRef = {
+            type: "library",
+            trackId: prevId,
+          };
           if (tryStartManualCrossfade(set, get, prevPlayable, prevId)) {
             return;
           }

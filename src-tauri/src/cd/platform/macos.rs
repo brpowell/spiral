@@ -1,10 +1,10 @@
 use super::disc_recording;
 use super::session::{
-    begin_phase, cached_has_audio_cd_for_drive, cached_volume_path, drive_had_successful_read,
-    invalidate_all_presence_cache, invalidate_presence_cache, is_any_drive_busy,
-    is_read_in_progress, mark_drive_read_success, remove_drive, should_defer_user_disc_read,
-    update_status_cache,
-    DriveSessionPhase, PRESENCE_CACHE_TTL,
+    any_cached_disc_present, begin_phase, cached_has_audio_cd_for_drive, cached_volume_path,
+    drive_had_successful_read, invalidate_all_presence_cache, invalidate_presence_cache,
+    is_any_drive_busy, is_read_in_progress, mark_drive_read_success, prune_missing_drives,
+    remove_drive, should_defer_user_disc_read, update_status_cache, DriveSessionPhase,
+    PRESENCE_CACHE_TTL,
 };
 
 use crate::cd::types::{CdDisc, CdDiscCdText, CdDrive, CdTrackTitle};
@@ -27,6 +27,11 @@ pub fn is_drive_busy() -> bool {
 }
 
 pub use super::session::{cached_disc_presence, set_detail_view_drive, should_skip_monitor_probe};
+
+/// Whether DiscRecording still lists this optical device (cheap — no media I/O).
+pub(crate) fn optical_drive_connected(drive_id: &str) -> bool {
+    disc_recording::device_exists(drive_id)
+}
 
 fn normalize_volume_path(path: &str) -> String {
     let trimmed = path.trim();
@@ -102,11 +107,27 @@ pub fn note_device_status_changed() {
     invalidate_all_presence_cache();
 }
 
-/// NSWorkspace unmount hint — clear disc presence for the matching drive.
-pub fn note_volume_unmounted(volume_path: &str) {
+/// NSWorkspace unmount hint — clear matching drive presence.
+/// Returns true when the UI should refresh (session cleared, or stale presence
+/// wiped after a yank where diskutil can no longer resolve the path).
+pub fn note_volume_unmounted(volume_path: &str) -> bool {
     let normalized = normalize_volume_path(volume_path);
     let bsd_name = bsd_name_from_volume_path(&normalized);
-    super::session::clear_drive_on_unmount(&normalized, bsd_name.as_deref());
+    if super::session::clear_drive_on_unmount(&normalized, bsd_name.as_deref()) {
+        return true;
+    }
+    // Unmatched unmount + positive cache ≈ USB yank with a dead volume path.
+    if any_cached_disc_present() {
+        invalidate_all_presence_cache();
+        return true;
+    }
+    is_optical_disc_volume(&normalized)
+}
+
+/// Remove sessions for drives that disappeared from enumeration (e.g. USB unplug).
+pub fn prune_missing_drive_sessions(drives: &[CdDrive]) -> bool {
+    let ids: Vec<String> = drives.iter().map(|d| d.id.clone()).collect();
+    prune_missing_drives(&ids)
 }
 
 fn run_command(program: &str, args: &[&str]) -> Result<String, String> {
@@ -253,15 +274,29 @@ fn cached_probe_presence(drive_id: &str) -> Option<bool> {
     cached_has_audio_cd_for_drive(drive_id, PRESENCE_CACHE_TTL)
 }
 
+/// Resolve a cached presence value, clearing stale positives when the device is gone.
+fn resolve_cached_presence(drive_id: &str) -> Option<bool> {
+    let cached = cached_probe_presence(drive_id)?;
+    if !cached {
+        return Some(false);
+    }
+    if disc_recording::device_exists(drive_id) {
+        return Some(true);
+    }
+    update_status_cache(drive_id, Some(false), None);
+    Some(false)
+}
+
 /// Single status probe via DiscRecording (no subprocess).
+///
+/// Missing drives return `Ok(false)` (not `Err`) so the UI can drop sidebar ghosts.
 pub fn probe_disc_presence(drive_id: &str) -> Result<bool, String> {
-    if let Some(cached) = cached_probe_presence(drive_id) {
+    if let Some(cached) = resolve_cached_presence(drive_id) {
         return Ok(cached);
     }
 
     with_drive_lock(|| {
-        let has_disc = disc_recording::probe_presence(drive_id)
-            .ok_or_else(|| format!("Drive {drive_id} not found"))?;
+        let has_disc = disc_recording::probe_presence(drive_id).unwrap_or(false);
         update_status_cache(drive_id, Some(has_disc), None);
         Ok(has_disc)
     })?
@@ -270,21 +305,24 @@ pub fn probe_disc_presence(drive_id: &str) -> Result<bool, String> {
 /// Background presence probe — yields if the drive lock is busy.
 pub fn probe_disc_presence_try(drive_id: &str) -> Option<Result<bool, String>> {
     if should_skip_monitor_probe(drive_id) {
+        // Still refuse a positive cache for a vanished device.
+        if let Some(false) = resolve_cached_presence(drive_id) {
+            return Some(Ok(false));
+        }
         return Some(Ok(
             cached_has_audio_cd_for_drive(drive_id, PRESENCE_CACHE_TTL).unwrap_or(true),
         ));
     }
-    if let Some(cached) = cached_probe_presence(drive_id) {
+    if let Some(cached) = resolve_cached_presence(drive_id) {
         return Some(Ok(cached));
     }
 
     let has_disc = match try_with_drive_lock(|| {
-        disc_recording::probe_presence(drive_id).map(|present| {
-            update_status_cache(drive_id, Some(present), None);
-            present
-        })
+        let has_disc = disc_recording::probe_presence(drive_id).unwrap_or(false);
+        update_status_cache(drive_id, Some(has_disc), None);
+        has_disc
     }) {
-        Some(result) => result?,
+        Some(has_disc) => has_disc,
         None => return None,
     };
     Some(Ok(has_disc))

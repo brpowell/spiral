@@ -24,8 +24,8 @@ use windows::Win32::System::WindowsProgramming::DRIVE_CDROM;
 use super::session::{
     begin_phase, cached_has_audio_cd_for_drive, drive_had_successful_read, invalidate_all_presence_cache,
     invalidate_presence_cache, is_any_drive_busy, is_read_in_progress, mark_drive_read_success,
-    remove_drive, should_defer_user_disc_read, update_status_cache, DriveSessionPhase,
-    PRESENCE_CACHE_TTL,
+    prune_missing_drives, remove_drive, should_defer_user_disc_read, update_status_cache,
+    DriveSessionPhase, PRESENCE_CACHE_TTL,
 };
 use crate::cd::types::{CdDisc, CdDiscCdText, CdDrive, CdTrackTitle};
 
@@ -602,17 +602,25 @@ pub fn note_volume_mounted(volume_path: &str) {
     }
 }
 
-pub fn note_volume_unmounted(volume_path: &str) {
+pub fn note_volume_unmounted(volume_path: &str) -> bool {
     if let Some(id) = normalize_drive_id(volume_path) {
         update_status_cache(&id, Some(false), None);
         invalidate_presence_cache(&id);
+        true
     } else {
         invalidate_all_presence_cache();
+        true
     }
 }
 
 pub fn note_device_status_changed() {
     invalidate_all_presence_cache();
+}
+
+/// Remove sessions for drives that disappeared from enumeration (e.g. USB unplug).
+pub fn prune_missing_drive_sessions(drives: &[CdDrive]) -> bool {
+    let ids: Vec<String> = drives.iter().map(|d| d.id.clone()).collect();
+    prune_missing_drives(&ids)
 }
 
 #[cfg(test)]

@@ -17,7 +17,10 @@ import {
 } from "../lib/cdTracks";
 import { discFromActivePlayback } from "../lib/cdActivePlaybackDisc";
 import { isCdImportBlockingPlayback } from "../lib/cdImportGuard";
-import { startCdHeroArtFetch, startCdMetadataFetch } from "../lib/cdMetadataFetch";
+import {
+  startCdHeroArtFetch,
+  startCdMetadataFetch,
+} from "../lib/cdMetadataFetch";
 import { syncCdHeroArtToPlayback } from "../lib/cdPlaybackArt";
 import { logActivity } from "../lib/activityLog";
 import { isNetworkLikelyAvailable } from "../lib/network";
@@ -79,8 +82,7 @@ function patchFromMetadataLookup(
 ): Partial<CdState> {
   const candidates = lookup.candidates;
   const selected =
-    lookup.preferred ??
-    (candidates.length === 1 ? candidates[0] : undefined);
+    lookup.preferred ?? (candidates.length === 1 ? candidates[0] : undefined);
 
   const patch: Partial<CdState> = {
     metadataCandidatesByDriveId: {
@@ -288,7 +290,33 @@ async function verifyDriveStillAbsent(
 ): Promise<void> {
   const state = get();
   if (!state.drives.some((entry) => entry.id === drive.id)) return;
-  if (isDriveDiscLoadBusy(drive.id, state)) return;
+
+  const loading =
+    state.loadingDriveIds.has(drive.id) || inflightDiscLoads.has(drive.id);
+  const quietOnly =
+    !loading && (driveMonitorQuietUntil.get(drive.id) ?? 0) > Date.now();
+
+  // In-flight TOC/CD-Text: keep the absent signal alive until reads finish.
+  if (loading) {
+    scheduleAbsentVerification(drive, set, get);
+    return;
+  }
+
+  // Quiet window ignores remount flicker; a vanished device is not flicker.
+  if (quietOnly) {
+    try {
+      const listed = await listCdDrives();
+      if (!listed.some((entry) => entry.id === drive.id)) {
+        driveMonitorQuietUntil.delete(drive.id);
+        removeDriveNow(drive.id, set);
+        return;
+      }
+    } catch (err) {
+      console.warn("verifyDriveStillAbsent: list during quiet failed:", err);
+    }
+    scheduleAbsentVerification(drive, set, get);
+    return;
+  }
 
   const hasCachedDisc = state.discsByDriveId[drive.id] != null;
   const attempts = hasCachedDisc ? ABSENT_VERIFY_ATTEMPTS_CACHED : 1;
@@ -298,11 +326,19 @@ async function verifyDriveStillAbsent(
       await sleep(ABSENT_VERIFY_RETRY_MS);
     }
 
-    if (isDriveDiscLoadBusy(drive.id, get())) return;
+    if (isDriveDiscLoadBusy(drive.id, get())) {
+      scheduleAbsentVerification(drive, set, get);
+      return;
+    }
 
     try {
       const hasDisc = await probeCdDrive(drive.id);
       if (hasDisc) {
+        // Cross-check enumeration — stale positive cache can outlive a yank.
+        const listed = await listCdDrives();
+        if (!listed.some((entry) => entry.id === drive.id)) {
+          break;
+        }
         cancelDriveRemoval(drive.id);
         set((current) => ({
           drives: upsertDrive(current.drives, { ...drive, hasDisc: true }),
@@ -310,12 +346,15 @@ async function verifyDriveStillAbsent(
         return;
       }
     } catch (err) {
-      console.error("verifyDriveStillAbsent failed:", err);
-      return;
+      // Probe IPC failure on a missing drive — treat as confirmed absence.
+      console.warn(
+        "verifyDriveStillAbsent: probe failed, removing drive:",
+        err,
+      );
+      break;
     }
   }
 
-  // Confirmed eject — close the detail view and drop the drive immediately.
   driveMonitorQuietUntil.delete(drive.id);
   removeDriveNow(drive.id, set);
 }
@@ -376,8 +415,7 @@ function shouldDeferDriveDiscRead(driveId: string): boolean {
   const playbackActive =
     playbackState !== "stopped" &&
     (cdDriveId === driveId ||
-      (currentPlayable?.type === "cd" &&
-        currentPlayable.driveId === driveId));
+      (currentPlayable?.type === "cd" && currentPlayable.driveId === driveId));
 
   return playbackActive || isCdImportBlockingPlayback(driveId);
 }
@@ -488,9 +526,8 @@ function applyDrivesWithDisc(
 
     const state = get();
     if (isDrivePinned(drive.id, state)) {
-      if (!isDriveDiscLoadBusy(drive.id, state)) {
-        scheduleAbsentVerification(drive, set, get);
-      }
+      // Reschedule while quiet/loading — don't drop the absent signal.
+      scheduleAbsentVerification(drive, set, get);
       continue;
     }
 
@@ -596,7 +633,9 @@ async function maybeLoadDiscMetadata(
         message: "Prompting user to fetch metadata",
         context: logContext,
       });
-      useCdStore.setState((state) => enqueueMetadataFetchPrompt(driveId, state));
+      useCdStore.setState((state) =>
+        enqueueMetadataFetchPrompt(driveId, state),
+      );
     } catch (err) {
       logActivity({
         level: "error",
@@ -760,7 +799,9 @@ export const useCdStore = create<CdState>((set, get) => ({
 
     const loadPromise = (async (): Promise<void> => {
       set((state) => ({
-        cdtextLoadingDriveIds: new Set(state.cdtextLoadingDriveIds).add(driveId),
+        cdtextLoadingDriveIds: new Set(state.cdtextLoadingDriveIds).add(
+          driveId,
+        ),
       }));
 
       try {
@@ -785,7 +826,9 @@ export const useCdStore = create<CdState>((set, get) => ({
         set((state) => {
           const cdtextLoadingDriveIds = new Set(state.cdtextLoadingDriveIds);
           cdtextLoadingDriveIds.delete(driveId);
-          const cdtextAttemptedDriveIds = new Set(state.cdtextAttemptedDriveIds);
+          const cdtextAttemptedDriveIds = new Set(
+            state.cdtextAttemptedDriveIds,
+          );
           cdtextAttemptedDriveIds.add(driveId);
           return { cdtextLoadingDriveIds, cdtextAttemptedDriveIds };
         });
@@ -818,14 +861,10 @@ export const useCdStore = create<CdState>((set, get) => ({
 
     const loadPromise = (async (): Promise<void> => {
       try {
-        const lookup = await lookupDiscMetadata(
-          driveId,
-          discTocTracks(disc),
-          {
-            force: options?.force,
-            logContext: options?.logContext ?? { driveId, discId },
-          },
-        );
+        const lookup = await lookupDiscMetadata(driveId, discTocTracks(disc), {
+          force: options?.force,
+          logContext: options?.logContext ?? { driveId, discId },
+        });
         set((state) => patchFromMetadataLookup(driveId, discId, lookup, state));
         set((state) => markMetadataFetched(driveId, discId, state));
       } catch (err) {
@@ -853,7 +892,9 @@ export const useCdStore = create<CdState>((set, get) => ({
     set((state) => ({
       metadataByDriveId: { ...state.metadataByDriveId, [driveId]: metadata },
       metadataPickDriveId:
-        state.metadataPickDriveId === driveId ? null : state.metadataPickDriveId,
+        state.metadataPickDriveId === driveId
+          ? null
+          : state.metadataPickDriveId,
     }));
 
     const disc = get().discsByDriveId[driveId];
@@ -872,7 +913,9 @@ export const useCdStore = create<CdState>((set, get) => ({
   dismissDiscMetadataPick: (driveId) => {
     set((state) => ({
       metadataPickDriveId:
-        state.metadataPickDriveId === driveId ? null : state.metadataPickDriveId,
+        state.metadataPickDriveId === driveId
+          ? null
+          : state.metadataPickDriveId,
     }));
   },
 

@@ -197,6 +197,11 @@ fn device_for_id(drive_id: &str) -> Option<Retained<DRDevice>> {
     .flatten()
 }
 
+/// Cheap check: drive still appears in DiscRecording's device list (no media I/O).
+pub fn device_exists(drive_id: &str) -> bool {
+    device_for_id(drive_id).is_some()
+}
+
 pub fn probe_presence(drive_id: &str) -> Option<bool> {
     catch_dr("probe_presence", || {
         let device = device_for_id(drive_id)?;

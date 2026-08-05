@@ -62,6 +62,7 @@ const ACTIVITY_LOG_DOMAIN_DEFS = {
     value: "license.registration",
     label: "Registration",
   },
+  cdPlayback: { value: "cd.playback", label: "CD playback" },
 } as const;
 
 export const ACTIVITY_LOG_DOMAINS = {
@@ -75,6 +76,7 @@ export const ACTIVITY_LOG_DOMAINS = {
   visualizerLoad: ACTIVITY_LOG_DOMAIN_DEFS.visualizerLoad.value,
   packScan: ACTIVITY_LOG_DOMAIN_DEFS.packScan.value,
   licenseRegistration: ACTIVITY_LOG_DOMAIN_DEFS.licenseRegistration.value,
+  cdPlayback: ACTIVITY_LOG_DOMAIN_DEFS.cdPlayback.value,
 } as const;
 
 export const ACTIVITY_LOG_DOMAIN_OPTIONS: ReadonlyArray<{
