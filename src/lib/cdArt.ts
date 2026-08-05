@@ -1,9 +1,14 @@
-import { fetchAlbumArtPath, resolveAlbumArtPath } from "./albumArtFetch";
+import {
+  fetchAlbumArtPreferringRelease,
+  resolveAlbumArtPath,
+} from "./albumArtFetch";
 import { resolveArtPathIfExists } from "./artPath";
 import { cdHeroArtPath } from "./cdPlaybackArt";
 import { useCdStore } from "../store/useCdStore";
 
-export async function ensureCdHeroArtValid(driveId: string): Promise<string | null> {
+export async function ensureCdHeroArtValid(
+  driveId: string,
+): Promise<string | null> {
   const heroPath = cdHeroArtPath(driveId);
   if (!heroPath) return null;
   const valid = await resolveArtPathIfExists(heroPath);
@@ -17,10 +22,17 @@ export async function resolveCdSharedArtPath(options: {
   existingAlbumArtPath?: string | null;
   albumArtist?: string | null;
   albumTitle?: string | null;
+  releaseMbid?: string | null;
   onFetching?: () => void;
 }): Promise<string | null> {
-  const { driveId, existingAlbumArtPath, albumArtist, albumTitle, onFetching } =
-    options;
+  const {
+    driveId,
+    existingAlbumArtPath,
+    albumArtist,
+    albumTitle,
+    releaseMbid,
+    onFetching,
+  } = options;
 
   const validHero = await resolveArtPathIfExists(cdHeroArtPath(driveId));
   if (validHero) return validHero;
@@ -31,18 +43,21 @@ export async function resolveCdSharedArtPath(options: {
   const validAlbumArt = await resolveArtPathIfExists(existingAlbumArtPath);
   if (validAlbumArt) return validAlbumArt;
 
-  if (albumArtist && albumTitle) {
-    const cacheLabel = `${albumArtist} - ${albumTitle}`;
-    let artPath = await resolveAlbumArtPath(cacheLabel);
-    if (!artPath) {
-      onFetching?.();
-      artPath = await fetchAlbumArtPath(albumArtist, albumTitle);
-    }
-    if (artPath) {
-      useCdStore.getState().setHeroArt(driveId, artPath);
-    }
-    return artPath;
-  }
+  if (!albumArtist || !albumTitle) return null;
 
-  return null;
+  const cacheLabel = `${albumArtist} - ${albumTitle}`;
+  let artPath = await resolveAlbumArtPath(cacheLabel);
+  if (!artPath) {
+    onFetching?.();
+    artPath = await fetchAlbumArtPreferringRelease({
+      artist: albumArtist,
+      album: albumTitle,
+      releaseMbid,
+      cacheLabel,
+    });
+  }
+  if (artPath) {
+    useCdStore.getState().setHeroArt(driveId, artPath);
+  }
+  return artPath;
 }

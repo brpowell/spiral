@@ -124,7 +124,9 @@ describe("captureReturnContext", () => {
 
   it("captures disc title when opening album from CD detail", () => {
     useCdStore.setState({
-      drives: [{ id: "drive-1", name: "HL-DT-ST BD-RE BP60NB10", hasDisc: true }],
+      drives: [
+        { id: "drive-1", name: "HL-DT-ST BD-RE BP60NB10", hasDisc: true },
+      ],
       discsByDriveId: {
         "drive-1": {
           driveId: "drive-1",
@@ -182,7 +184,9 @@ describe("detailReturnLabel", () => {
 
   it("labels CD return with disc title, not drive name", () => {
     useCdStore.setState({
-      drives: [{ id: "drive-1", name: "HL-DT-ST BD-RE BP60NB10", hasDisc: true }],
+      drives: [
+        { id: "drive-1", name: "HL-DT-ST BD-RE BP60NB10", hasDisc: true },
+      ],
       discsByDriveId: {
         "drive-1": {
           driveId: "drive-1",
@@ -204,13 +208,38 @@ describe("detailReturnLabel", () => {
       ),
     ).toBe("CALL ME IF YOU GET LOST");
   });
+
+  it("labels unknown CD return as Unknown Disc, not drive name", () => {
+    useCdStore.setState({
+      drives: [
+        { id: "drive-1", name: "HL-DT-ST BD-RE BP60NB10", hasDisc: true },
+      ],
+      discsByDriveId: {
+        "drive-1": {
+          driveId: "drive-1",
+          album: null,
+          artist: null,
+          tracks: [],
+        },
+      },
+    });
+
+    expect(
+      detailReturnLabel(
+        {
+          kind: "cd",
+          driveId: "drive-1",
+          title: "HL-DT-ST BD-RE BP60NB10",
+        },
+        artists,
+      ),
+    ).toBe("Unknown Disc");
+  });
 });
 
 describe("stateAfterCloseAlbum", () => {
   it("restores library view after closing album opened from track list", () => {
-    expect(
-      stateAfterCloseAlbum({ kind: "sidebar", view: "library" }),
-    ).toEqual({
+    expect(stateAfterCloseAlbum({ kind: "sidebar", view: "library" })).toEqual({
       albumKey: null,
       artistKey: null,
       playlistId: null,
@@ -231,27 +260,27 @@ describe("stateAfterCloseAlbum", () => {
 
 describe("stateAfterCloseArtist", () => {
   it("restores library view after closing artist opened from track list", () => {
-    expect(
-      stateAfterCloseArtist({ kind: "sidebar", view: "library" }),
-    ).toEqual({
-      artistKey: null,
-      albumKey: null,
-      playlistId: null,
-      cdDriveId: null,
-      view: "library",
-    });
+    expect(stateAfterCloseArtist({ kind: "sidebar", view: "library" })).toEqual(
+      {
+        artistKey: null,
+        albumKey: null,
+        playlistId: null,
+        cdDriveId: null,
+        view: "library",
+      },
+    );
   });
 
   it("restores artists list after closing artist opened from artists view", () => {
-    expect(
-      stateAfterCloseArtist({ kind: "sidebar", view: "artists" }),
-    ).toEqual({
-      artistKey: null,
-      albumKey: null,
-      playlistId: null,
-      cdDriveId: null,
-      view: "artists",
-    });
+    expect(stateAfterCloseArtist({ kind: "sidebar", view: "artists" })).toEqual(
+      {
+        artistKey: null,
+        albumKey: null,
+        playlistId: null,
+        cdDriveId: null,
+        view: "artists",
+      },
+    );
   });
 
   it("restores album detail after closing artist opened from album", () => {

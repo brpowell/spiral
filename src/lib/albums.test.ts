@@ -23,6 +23,9 @@ function track(overrides: Partial<Track> & Pick<Track, "id">): Track {
     year: overrides.year ?? null,
     genre: overrides.genre ?? null,
     durationSeconds: overrides.durationSeconds ?? 180,
+    sampleRate: overrides.sampleRate ?? null,
+    bitrate: overrides.bitrate ?? null,
+    codec: overrides.codec ?? null,
     artPath: overrides.artPath ?? null,
     filePath: overrides.filePath ?? `/music/${overrides.id}.mp3`,
     dateAdded: overrides.dateAdded ?? "2024-01-01",
@@ -34,6 +37,7 @@ function track(overrides: Partial<Track> & Pick<Track, "id">): Track {
 
 function disc(overrides: Partial<CdDisc> = {}): CdDisc {
   return {
+    driveId: "drive-1",
     discId: null,
     album: "OK Computer",
     artist: "Radiohead",
@@ -61,9 +65,7 @@ describe("groupAlbumTracksByDisc", () => {
       track({ id: 1, discNumber: 1, trackNumber: 1 }),
       track({ id: 2, discNumber: null, trackNumber: 2 }),
     ];
-    expect(groupAlbumTracksByDisc(tracks)).toEqual([
-      { discNumber: 1, tracks },
-    ]);
+    expect(groupAlbumTracksByDisc(tracks)).toEqual([{ discNumber: 1, tracks }]);
   });
 
   it("splits tracks into ordered disc groups", () => {

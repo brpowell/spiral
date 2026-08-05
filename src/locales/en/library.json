@@ -1,4 +1,45 @@
 {
+  "cd": {
+    "actions": {
+      "ariaLabel": "Disc actions",
+      "addToQueue": "Add to Queue",
+      "addToQueueBulk": "Add {{count}} to Queue",
+      "viewDetails": "View Details",
+      "viewDetailsBulk": "View Details ({{count}})",
+      "fetchMetadata": "Fetch release metadata",
+      "refetchMetadata": "Refetch Metadata",
+      "fetchingMetadata": "Fetching metadata…",
+      "eject": "Eject",
+      "ejecting": "Ejecting…"
+    },
+    "editor": {
+      "editAlbum": "Edit Album",
+      "editAlbumDescription": "Changes apply to the import plan for all {{count}} tracks.",
+      "editTracks": "Edit {{count}} tracks",
+      "editTracksDescription": "Changes apply to all {{count}} tracks in the import plan.",
+      "discardSingle": "Unsaved edits to this track will be lost.",
+      "discardBulk": "Unsaved edits to {{count}} tracks will be lost.",
+      "discardAlbum": "Unsaved edits to {{title}} will be lost.",
+      "saving": "Saving…",
+      "missingDiscId": "This disc has no disc ID yet. Wait for the disc to finish reading, then try again.",
+      "dropArtFailed": "Could not read the dropped image path.",
+      "noArtResults": "No results found",
+      "addArt": "Add art",
+      "fetchArt": "Fetch Art",
+      "fetchingArt": "Fetching…",
+      "fetchingArtStatus": "Fetching artwork…",
+      "coverOptions": "Cover art options",
+      "album": "Album",
+      "albumArtist": "Album Artist",
+      "year": "Year",
+      "genre": "Genre"
+    },
+    "refetchOverrideConfirm": {
+      "title": "Replace your edits?",
+      "body": "Refetching MusicBrainz metadata will discard the changes you made to this disc’s import plan.",
+      "confirm": "Replace edits"
+    }
+  },
   "empty": {
     "title": "Add some music",
     "description": "Drag files or folders here, or choose them with the button below.",

@@ -3,7 +3,9 @@ use crate::cd::playback;
 use crate::cd::playback::CdPlaybackStarted;
 use crate::cd::{cleanup_rip_temp, rip_cd_track as rip_cd_track_impl};
 use crate::cd::types::{CdDisc, CdDiscCdText, CdDrive};
-use crate::disc_metadata_cache::{self, DiscMetadataCachePeek};
+use crate::disc_metadata_cache::{
+    self, DiscMetadataCachePeek, DiscMetadataOverride,
+};
 use crate::models::TrackMetadataUpdate;
 use crate::musicbrainz_disc::DiscMetadataLookup;
 use crate::activity_log::{self, ActivityLogContext};
@@ -187,6 +189,43 @@ pub async fn save_disc_metadata_preference(
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         disc_metadata_cache::save_disc_metadata_preference(&app, &disc_id, &release_mbid)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn get_disc_metadata_override(
+    app: AppHandle,
+    disc_id: String,
+) -> Result<Option<DiscMetadataOverride>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        disc_metadata_cache::get_disc_metadata_override(&app, &disc_id)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn save_disc_metadata_override(
+    app: AppHandle,
+    disc_id: String,
+    patch: DiscMetadataOverride,
+) -> Result<DiscMetadataOverride, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        disc_metadata_cache::save_disc_metadata_override(&app, &disc_id, patch)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn clear_disc_metadata_override(
+    app: AppHandle,
+    disc_id: String,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        disc_metadata_cache::clear_disc_metadata_override(&app, &disc_id)
     })
     .await
     .map_err(|err| err.to_string())?

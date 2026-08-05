@@ -5,6 +5,8 @@ import { ImportDropZone } from "./components/ImportDropZone/ImportDropZone";
 import { PlayerDock } from "./components/PlayerDock/PlayerDock";
 import { AlbumEditor } from "./components/AlbumEditor/AlbumEditor";
 import { ArtistEditor } from "./components/ArtistEditor/ArtistEditor";
+import { CdAlbumEditor } from "./components/CdAlbumEditor/CdAlbumEditor";
+import { CdTrackEditor } from "./components/CdTrackEditor/CdTrackEditor";
 import { TrackEditor } from "./components/TrackEditor/TrackEditor";
 import { MainContent } from "./components/layout/MainContent";
 import { Sidebar } from "./components/layout/Sidebar";
@@ -264,7 +266,9 @@ function App() {
       </div>
 
       <TrackEditor />
+      <CdTrackEditor />
       <AlbumEditor />
+      <CdAlbumEditor />
       <ArtistEditor />
       <PlaylistEditorModal />
       <ImportDropZone />

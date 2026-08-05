@@ -54,7 +54,7 @@ export function pendingTrackFromInput(
     dateAdded: new Date().toISOString(),
     playCount: 0,
     lastPlayedAt: null,
-    rating: 0,
+    rating: input.rating ?? 0,
     importStatus: "importing",
     importSourcePath: sourcePath,
   };

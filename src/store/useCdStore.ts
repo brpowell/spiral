@@ -7,6 +7,7 @@ import {
   type CdDrive,
   type DiscMetadata,
   type DiscMetadataLookup,
+  type DiscMetadataOverride,
 } from "../types/cd";
 import type { ActivityLogContext } from "../types/activityLog";
 import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
@@ -17,6 +18,7 @@ import {
 } from "../lib/cdTracks";
 import { discFromActivePlayback } from "../lib/cdActivePlaybackDisc";
 import { isCdImportBlockingPlayback } from "../lib/cdImportGuard";
+import { discMetadataOverrideHasEdits } from "../lib/cdMetadata";
 import {
   startCdHeroArtFetch,
   startCdMetadataFetch,
@@ -25,13 +27,16 @@ import { syncCdHeroArtToPlayback } from "../lib/cdPlaybackArt";
 import { logActivity } from "../lib/activityLog";
 import { isNetworkLikelyAvailable } from "../lib/network";
 import {
+  clearDiscMetadataOverride,
   ejectCdDisc,
   getDiscCdText,
   getDiscInfo,
+  getDiscMetadataOverride,
   listCdDrives,
   lookupDiscMetadata,
   peekDiscMetadataCache,
   probeCdDrive,
+  saveDiscMetadataOverride,
   saveDiscMetadataPreference,
 } from "../lib/tauri";
 import { useLibrarySettingsStore } from "./useLibrarySettingsStore";
@@ -44,6 +49,8 @@ interface CdState {
   metadataByDriveId: Record<string, DiscMetadata | undefined>;
   metadataCandidatesByDriveId: Record<string, DiscMetadata[]>;
   metadataFetchedDiscIdByDriveId: Record<string, string | undefined>;
+  /** User overrides keyed by drive (hydrated from discId-backed cache). */
+  overridesByDriveId: Record<string, DiscMetadataOverride | undefined>;
   metadataPickDriveId: string | null;
   metadataFetchPromptDriveId: string | null;
   metadataFetchPromptQueue: string[];
@@ -52,6 +59,10 @@ interface CdState {
   cdtextLoadingDriveIds: Set<string>;
   cdtextAttemptedDriveIds: Set<string>;
   ejectingDriveIds: Set<string>;
+  /** Synthetic CD track list ids currently open in CdTrackEditor. */
+  editingCdTrackIds: number[];
+  editingCdDriveId: string | null;
+  editingCdAlbumDriveId: string | null;
   initialized: boolean;
   refreshDrives: () => Promise<void>;
   probeDriveDisc: (drive: CdDrive) => Promise<void>;
@@ -64,12 +75,22 @@ interface CdState {
     driveId: string,
     options?: { force?: boolean; logContext?: ActivityLogContext },
   ) => Promise<void>;
+  loadDiscOverride: (driveId: string) => Promise<void>;
+  saveDiscOverride: (
+    driveId: string,
+    patch: DiscMetadataOverride,
+  ) => Promise<DiscMetadataOverride | null>;
+  clearDiscOverride: (driveId: string) => Promise<void>;
   selectDiscMetadata: (driveId: string, metadata: DiscMetadata) => void;
   dismissDiscMetadataPick: (driveId: string) => void;
   confirmMetadataFetch: (driveId: string, remember: boolean) => void;
   cancelMetadataFetch: (driveId: string, remember: boolean) => void;
   resetMetadataCacheState: () => void;
   setHeroArt: (driveId: string, artPath: string | null) => void;
+  openCdTrackEditor: (driveId: string, ids: number | number[]) => void;
+  closeCdTrackEditor: () => void;
+  openCdAlbumEditor: (driveId: string) => void;
+  closeCdAlbumEditor: () => void;
   ejectDrive: (driveId: string) => Promise<void>;
   init: () => Promise<UnlistenFn>;
 }
@@ -367,6 +388,8 @@ function clearDriveDiscDerivedState(
   delete discsByDriveId[driveId];
   const metadataByDriveId = { ...state.metadataByDriveId };
   delete metadataByDriveId[driveId];
+  const overridesByDriveId = { ...state.overridesByDriveId };
+  delete overridesByDriveId[driveId];
   const metadataCandidatesByDriveId = { ...state.metadataCandidatesByDriveId };
   delete metadataCandidatesByDriveId[driveId];
   const metadataFetchedDiscIdByDriveId = {
@@ -391,6 +414,7 @@ function clearDriveDiscDerivedState(
   return {
     discsByDriveId,
     metadataByDriveId,
+    overridesByDriveId,
     metadataCandidatesByDriveId,
     metadataFetchedDiscIdByDriveId,
     metadataPickDriveId,
@@ -399,6 +423,14 @@ function clearDriveDiscDerivedState(
     heroArtByDriveId,
     cdtextAttemptedDriveIds,
     cdtextLoadingDriveIds,
+    editingCdTrackIds:
+      state.editingCdDriveId === driveId ? [] : state.editingCdTrackIds,
+    editingCdDriveId:
+      state.editingCdDriveId === driveId ? null : state.editingCdDriveId,
+    editingCdAlbumDriveId:
+      state.editingCdAlbumDriveId === driveId
+        ? null
+        : state.editingCdAlbumDriveId,
   };
 }
 
@@ -677,6 +709,7 @@ export const useCdStore = create<CdState>((set, get) => ({
   metadataByDriveId: {},
   metadataCandidatesByDriveId: {},
   metadataFetchedDiscIdByDriveId: {},
+  overridesByDriveId: {},
   metadataPickDriveId: null,
   metadataFetchPromptDriveId: null,
   metadataFetchPromptQueue: [],
@@ -685,6 +718,9 @@ export const useCdStore = create<CdState>((set, get) => ({
   cdtextLoadingDriveIds: new Set(),
   cdtextAttemptedDriveIds: new Set(),
   ejectingDriveIds: new Set(),
+  editingCdTrackIds: [],
+  editingCdDriveId: null,
+  editingCdAlbumDriveId: null,
   initialized: false,
 
   refreshDrives: async () => {
@@ -722,6 +758,9 @@ export const useCdStore = create<CdState>((set, get) => ({
     if (!force && get().discsByDriveId[driveId] != null) {
       if (!shouldDeferDriveDiscRead(driveId)) {
         scheduleDiscCdTextLoad(driveId, get);
+      }
+      if (get().overridesByDriveId[driveId] === undefined) {
+        void get().loadDiscOverride(driveId);
       }
       void maybeLoadDiscMetadata(driveId, get);
       return get().discsByDriveId[driveId] ?? null;
@@ -762,6 +801,7 @@ export const useCdStore = create<CdState>((set, get) => ({
         }));
         if (disc != null) {
           scheduleDiscCdTextLoad(driveId, get);
+          void get().loadDiscOverride(driveId);
           void maybeLoadDiscMetadata(driveId, get);
         }
         return disc;
@@ -888,6 +928,88 @@ export const useCdStore = create<CdState>((set, get) => ({
     return loadPromise;
   },
 
+  loadDiscOverride: async (driveId) => {
+    const disc = get().discsByDriveId[driveId];
+    const discId = disc?.discId?.trim();
+    if (!discId) {
+      set((state) => {
+        const overridesByDriveId = { ...state.overridesByDriveId };
+        delete overridesByDriveId[driveId];
+        return { overridesByDriveId };
+      });
+      return;
+    }
+
+    try {
+      const override = await getDiscMetadataOverride(discId);
+      set((state) => {
+        const overridesByDriveId = { ...state.overridesByDriveId };
+        if (override == null) {
+          delete overridesByDriveId[driveId];
+        } else {
+          overridesByDriveId[driveId] = override;
+        }
+        return { overridesByDriveId };
+      });
+      if (override?.artPath) {
+        get().setHeroArt(driveId, override.artPath);
+      }
+    } catch (err) {
+      console.error("loadDiscOverride failed:", err);
+    }
+  },
+
+  saveDiscOverride: async (driveId, patch) => {
+    const disc = get().discsByDriveId[driveId];
+    const discId = disc?.discId?.trim();
+    if (!discId) return null;
+
+    try {
+      const saved = await saveDiscMetadataOverride(discId, patch);
+      set((state) => {
+        const overridesByDriveId = { ...state.overridesByDriveId };
+        if (!discMetadataOverrideHasEdits(saved)) {
+          delete overridesByDriveId[driveId];
+        } else {
+          overridesByDriveId[driveId] = saved;
+        }
+        return { overridesByDriveId };
+      });
+      if (patch.artPath !== undefined) {
+        get().setHeroArt(driveId, patch.artPath);
+      }
+      return saved;
+    } catch (err) {
+      console.error("saveDiscOverride failed:", err);
+      throw err;
+    }
+  },
+
+  clearDiscOverride: async (driveId) => {
+    const disc = get().discsByDriveId[driveId];
+    const discId = disc?.discId?.trim();
+    if (!discId) {
+      set((state) => {
+        const overridesByDriveId = { ...state.overridesByDriveId };
+        delete overridesByDriveId[driveId];
+        return { overridesByDriveId };
+      });
+      return;
+    }
+
+    try {
+      await clearDiscMetadataOverride(discId);
+      set((state) => {
+        const overridesByDriveId = { ...state.overridesByDriveId };
+        delete overridesByDriveId[driveId];
+        return { overridesByDriveId };
+      });
+    } catch (err) {
+      console.error("clearDiscOverride failed:", err);
+      throw err;
+    }
+  },
+
   selectDiscMetadata: (driveId, metadata) => {
     set((state) => ({
       metadataByDriveId: { ...state.metadataByDriveId, [driveId]: metadata },
@@ -963,6 +1085,32 @@ export const useCdStore = create<CdState>((set, get) => ({
       return { heroArtByDriveId };
     });
     syncCdHeroArtToPlayback(driveId, artPath);
+  },
+
+  openCdTrackEditor: (driveId, ids) => {
+    const list = Array.isArray(ids) ? ids : [ids];
+    if (list.length === 0) return;
+    set({
+      editingCdDriveId: driveId,
+      editingCdTrackIds: list,
+      editingCdAlbumDriveId: null,
+    });
+  },
+
+  closeCdTrackEditor: () => {
+    set({ editingCdTrackIds: [], editingCdDriveId: null });
+  },
+
+  openCdAlbumEditor: (driveId) => {
+    set({
+      editingCdAlbumDriveId: driveId,
+      editingCdTrackIds: [],
+      editingCdDriveId: null,
+    });
+  },
+
+  closeCdAlbumEditor: () => {
+    set({ editingCdAlbumDriveId: null });
   },
 
   ejectDrive: async (driveId) => {

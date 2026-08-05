@@ -9,6 +9,8 @@ export interface CdTrack {
   title: string;
   artist?: string | null;
   durationSeconds?: number | null;
+  /** Canonical 0–255 rating from user override; 0 / omitted = unrated. */
+  rating?: number | null;
 }
 
 export interface CdDisc {
@@ -16,6 +18,8 @@ export interface CdDisc {
   discId?: string | null;
   album?: string | null;
   artist?: string | null;
+  year?: number | null;
+  genre?: string | null;
   tracks: CdTrack[];
 }
 
@@ -49,6 +53,7 @@ export interface DiscMetadata {
   album?: string | null;
   albumArtist?: string | null;
   year?: number | null;
+  genre?: string | null;
   country?: string | null;
   label?: string | null;
   releaseMbid?: string | null;
@@ -69,4 +74,21 @@ export interface DiscMetadataCachePeek {
 export interface DiscTocTrack {
   number: number;
   durationSeconds: number;
+}
+
+export interface DiscTrackOverride {
+  title?: string | null;
+  artist?: string | null;
+  rating?: number | null;
+}
+
+/** User metadata edits for a disc, keyed by TOC disc id. Independent of library. */
+export interface DiscMetadataOverride {
+  album?: string | null;
+  albumArtist?: string | null;
+  year?: number | null;
+  genre?: string | null;
+  artPath?: string | null;
+  /** Track number as decimal string → field overrides. */
+  tracks?: Record<string, DiscTrackOverride>;
 }

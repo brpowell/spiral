@@ -7,7 +7,17 @@ import type {
   LibrarySettings,
   LibrarySettingsPatch,
 } from "../types/library";
-import type { CdDisc, CdDiscCdText, CdDrive, DiscMetadata, DiscMetadataCachePeek, DiscMetadataLookup, DiscTocTrack } from "../types/cd";
+import type {
+  CdDisc,
+  CdDiscCdText,
+  CdDrive,
+  DiscMetadata,
+  DiscMetadataCachePeek,
+  DiscMetadataLookup,
+  DiscMetadataOverride,
+  DiscTocTrack,
+  DiscTrackOverride,
+} from "../types/cd";
 import type { TrackMetadataUpdate } from "../types/metadata";
 import { parseRepeatMode } from "./playbackSession";
 import type { PlaybackSession } from "../types/playbackSession";
@@ -102,8 +112,7 @@ function normalizeTrack(raw: Record<string, unknown>): Track {
       ((raw.lastPlayedAt as string | null | undefined) ??
         (raw.last_played_at as string | null | undefined)) ||
       null,
-    rating:
-      (raw.rating as number | undefined) ?? 0,
+    rating: (raw.rating as number | undefined) ?? 0,
     lyricsFormat:
       (raw.lyricsFormat as LyricsFormat | null | undefined) ??
       (raw.lyrics_format as LyricsFormat | null | undefined) ??
@@ -219,10 +228,7 @@ function normalizeLyricsFetchOutcome(
 }
 
 export type LyricsFetchCachePeek =
-  | "notCached"
-  | "miss"
-  | "hit"
-  | "instrumental";
+  "notCached" | "miss" | "hit" | "instrumental";
 
 export async function peekLyricsFetchCache(params: {
   artist: string;
@@ -319,12 +325,15 @@ export async function replaceTrackFromImport(options: {
   mode: "copy" | "reference";
   track: TrackInput;
 }): Promise<Track> {
-  const row = await invoke<Record<string, unknown>>("replace_track_from_import", {
-    trackId: options.trackId,
-    sourcePath: options.sourcePath,
-    mode: options.mode,
-    track: options.track,
-  });
+  const row = await invoke<Record<string, unknown>>(
+    "replace_track_from_import",
+    {
+      trackId: options.trackId,
+      sourcePath: options.sourcePath,
+      mode: options.mode,
+      track: options.track,
+    },
+  );
   return normalizeTrack(row);
 }
 
@@ -389,14 +398,13 @@ function normalizePlaylist(raw: Record<string, unknown>): Playlist {
   return {
     id: raw.id as number,
     title: raw.title as string,
-    description:
-      (raw.description as string | null | undefined) ?? null,
+    description: (raw.description as string | null | undefined) ?? null,
     dateCreated: (raw.dateCreated ?? raw.date_created) as string,
     lastUsedAt: (raw.lastUsedAt ?? raw.last_used_at) as string,
     trackIds: (raw.trackIds ?? raw.track_ids ?? []) as number[],
     imageMode: normalizePlaylistImageMode(raw),
-    customImagePath:
-      (raw.customImagePath ?? raw.custom_image_path ?? null) as string | null,
+    customImagePath: (raw.customImagePath ?? raw.custom_image_path ?? null) as
+      string | null,
   };
 }
 
@@ -544,10 +552,8 @@ export interface ArtistImageRecord {
 
 function normalizeArtistImage(raw: Record<string, unknown>): ArtistImageRecord {
   return {
-    artistKey:
-      (raw.artistKey as string) ?? (raw.artist_key as string) ?? "",
-    browseMode:
-      (raw.browseMode as string) ?? (raw.browse_mode as string) ?? "",
+    artistKey: (raw.artistKey as string) ?? (raw.artist_key as string) ?? "",
+    browseMode: (raw.browseMode as string) ?? (raw.browse_mode as string) ?? "",
     artPath: (raw.artPath as string) ?? (raw.art_path as string) ?? "",
   };
 }
@@ -746,9 +752,12 @@ export interface DeleteWorkshopContributionResult {
 export async function deleteWorkshopContribution(
   contributionId: string,
 ): Promise<DeleteWorkshopContributionResult> {
-  return invoke<DeleteWorkshopContributionResult>("delete_workshop_contribution", {
-    contributionId,
-  });
+  return invoke<DeleteWorkshopContributionResult>(
+    "delete_workshop_contribution",
+    {
+      contributionId,
+    },
+  );
 }
 
 export async function uninstallPack(
@@ -1003,8 +1012,12 @@ function normalizePlaybackSession(
 ): PlaybackSession | null {
   if (!raw) return null;
   return {
-    playContextIds: (raw.playContextIds ?? raw.play_context_ids ?? []) as number[],
-    manualQueueIds: (raw.manualQueueIds ?? raw.manual_queue_ids ?? []) as number[],
+    playContextIds: (raw.playContextIds ??
+      raw.play_context_ids ??
+      []) as number[],
+    manualQueueIds: (raw.manualQueueIds ??
+      raw.manual_queue_ids ??
+      []) as number[],
     currentTrackId:
       (raw.currentTrackId as number | null | undefined) ??
       (raw.current_track_id as number | null | undefined) ??
@@ -1079,9 +1092,7 @@ function normalizeTrackListPreferences(
   }
 
   const hiddenByPresetRaw =
-    (raw.hiddenColumnsByPreset as
-      | Record<string, unknown>
-      | undefined) ??
+    (raw.hiddenColumnsByPreset as Record<string, unknown> | undefined) ??
     (raw.hidden_columns_by_preset as Record<string, unknown> | undefined);
   const hiddenColumnsByPreset: TrackListPreferencesPayload["hiddenColumnsByPreset"] =
     {};
@@ -1107,9 +1118,7 @@ function normalizeTrackListPreferences(
   }
 
   const orderRaw =
-    (raw.columnOrderByPreset as
-      | Record<string, unknown>
-      | undefined) ??
+    (raw.columnOrderByPreset as Record<string, unknown> | undefined) ??
     (raw.column_order_by_preset as Record<string, unknown> | undefined);
   const columnOrderByPreset: TrackListPreferencesPayload["columnOrderByPreset"] =
     {};
@@ -1125,7 +1134,9 @@ function normalizeTrackListPreferences(
 }
 
 export async function getTrackListPreferences(): Promise<TrackListPreferencesPayload> {
-  const raw = await invoke<Record<string, unknown>>("get_track_list_preferences");
+  const raw = await invoke<Record<string, unknown>>(
+    "get_track_list_preferences",
+  );
   return normalizeTrackListPreferences(raw);
 }
 
@@ -1143,7 +1154,9 @@ function normalizeCdDrive(raw: Record<string, unknown>): CdDrive {
   };
 }
 
-function normalizeCdTrack(raw: Record<string, unknown>): CdDisc["tracks"][number] {
+function normalizeCdTrack(
+  raw: Record<string, unknown>,
+): CdDisc["tracks"][number] {
   return {
     number: raw.number as number,
     title: raw.title as string,
@@ -1211,9 +1224,7 @@ export async function ejectCdDisc(driveId: string): Promise<void> {
   await invoke("eject_cd_disc", { driveId });
 }
 
-export async function setCdDetailDrive(
-  driveId: string | null,
-): Promise<void> {
+export async function setCdDetailDrive(driveId: string | null): Promise<void> {
   await invoke("set_cd_detail_drive", { driveId });
 }
 
@@ -1228,8 +1239,7 @@ function normalizeDiscTrackMetadata(
 }
 
 function normalizeDiscMetadata(raw: Record<string, unknown>): DiscMetadata {
-  const tracksRaw =
-    (raw.tracks as Record<string, unknown>[] | undefined) ?? [];
+  const tracksRaw = (raw.tracks as Record<string, unknown>[] | undefined) ?? [];
   return {
     discId: (raw.discId ?? raw.disc_id ?? null) as string | null,
     album: (raw.album as string | null | undefined) ?? null,
@@ -1238,6 +1248,7 @@ function normalizeDiscMetadata(raw: Record<string, unknown>): DiscMetadata {
       (raw.album_artist as string | null | undefined) ??
       null,
     year: (raw.year as number | null | undefined) ?? null,
+    genre: (raw.genre as string | null | undefined) ?? null,
     country: (raw.country as string | null | undefined) ?? null,
     label: (raw.label as string | null | undefined) ?? null,
     releaseMbid:
@@ -1253,7 +1264,8 @@ function normalizeDiscMetadataLookup(
 ): DiscMetadataLookup {
   const candidatesRaw =
     (raw.candidates as Record<string, unknown>[] | undefined) ?? [];
-  const preferredRaw = raw.preferred as Record<string, unknown> | null | undefined;
+  const preferredRaw = raw.preferred as
+    Record<string, unknown> | null | undefined;
   return {
     discId: (raw.discId ?? raw.disc_id ?? null) as string | null,
     candidates: candidatesRaw.map(normalizeDiscMetadata),
@@ -1264,8 +1276,7 @@ function normalizeDiscMetadataLookup(
 function normalizeDiscMetadataCachePeek(
   raw: Record<string, unknown>,
 ): DiscMetadataCachePeek {
-  const lookupRaw =
-    (raw.lookup as Record<string, unknown> | undefined) ?? {};
+  const lookupRaw = (raw.lookup as Record<string, unknown> | undefined) ?? {};
   return {
     lookup: normalizeDiscMetadataLookup(lookupRaw),
     needsNetworkFetch: Boolean(
@@ -1279,11 +1290,14 @@ export async function peekDiscMetadataCache(
   tracks: DiscTocTrack[],
   logContext?: ActivityLogContext,
 ): Promise<DiscMetadataCachePeek> {
-  const raw = await invoke<Record<string, unknown>>("peek_disc_metadata_cache", {
-    driveId,
-    tracks,
-    logContext: logContext ?? null,
-  });
+  const raw = await invoke<Record<string, unknown>>(
+    "peek_disc_metadata_cache",
+    {
+      driveId,
+      tracks,
+      logContext: logContext ?? null,
+    },
+  );
   return normalizeDiscMetadataCachePeek(raw);
 }
 
@@ -1306,6 +1320,81 @@ export async function saveDiscMetadataPreference(
   releaseMbid: string,
 ): Promise<void> {
   await invoke("save_disc_metadata_preference", { discId, releaseMbid });
+}
+
+function normalizeDiscTrackOverride(
+  raw: Record<string, unknown> | null | undefined,
+): DiscTrackOverride {
+  if (raw == null) return {};
+  return {
+    title: (raw.title as string | null | undefined) ?? null,
+    artist: (raw.artist as string | null | undefined) ?? null,
+    rating:
+      raw.rating == null
+        ? null
+        : Number.isFinite(Number(raw.rating))
+          ? Number(raw.rating)
+          : null,
+  };
+}
+
+function normalizeDiscMetadataOverride(
+  raw: Record<string, unknown> | null | undefined,
+): DiscMetadataOverride {
+  if (raw == null) return {};
+  const tracksRaw = (raw.tracks ?? {}) as Record<
+    string,
+    Record<string, unknown>
+  >;
+  const tracks: Record<string, DiscTrackOverride> = {};
+  for (const [number, track] of Object.entries(tracksRaw)) {
+    tracks[number] = normalizeDiscTrackOverride(track);
+  }
+  return {
+    album: (raw.album as string | null | undefined) ?? null,
+    albumArtist:
+      (raw.albumArtist as string | null | undefined) ??
+      (raw.album_artist as string | null | undefined) ??
+      null,
+    year:
+      raw.year == null
+        ? null
+        : Number.isFinite(Number(raw.year))
+          ? Number(raw.year)
+          : null,
+    genre: (raw.genre as string | null | undefined) ?? null,
+    artPath:
+      (raw.artPath as string | null | undefined) ??
+      (raw.art_path as string | null | undefined) ??
+      null,
+    tracks,
+  };
+}
+
+export async function getDiscMetadataOverride(
+  discId: string,
+): Promise<DiscMetadataOverride | null> {
+  const raw = await invoke<Record<string, unknown> | null>(
+    "get_disc_metadata_override",
+    { discId },
+  );
+  if (raw == null) return null;
+  return normalizeDiscMetadataOverride(raw);
+}
+
+export async function saveDiscMetadataOverride(
+  discId: string,
+  patch: DiscMetadataOverride,
+): Promise<DiscMetadataOverride> {
+  const raw = await invoke<Record<string, unknown>>(
+    "save_disc_metadata_override",
+    { discId, patch },
+  );
+  return normalizeDiscMetadataOverride(raw);
+}
+
+export async function clearDiscMetadataOverride(discId: string): Promise<void> {
+  await invoke("clear_disc_metadata_override", { discId });
 }
 
 export async function clearMetadataCache(): Promise<void> {

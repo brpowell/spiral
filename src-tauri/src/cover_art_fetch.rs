@@ -11,7 +11,7 @@ const MAX_RESULTS: usize = 12;
 /// Rank floor for release-group fallback art so it never outranks release-specific fronts.
 const RELEASE_GROUP_RANK_OFFSET: u32 = 50_000;
 /// Cache key version — bump when empty-result behavior changes (e.g. new fallbacks).
-const CACHE_KEY_VERSION: &str = "v4";
+const CACHE_KEY_VERSION: &str = "v5";
 
 #[derive(Clone, Copy)]
 enum CaaEntity {
@@ -513,23 +513,50 @@ fn fetch_caa_front_images(
         return Ok(vec![]);
     };
 
+    let candidates = parse_caa_front_candidates(images, entity_idx);
+
+    activity_log::log(
+        LogLevel::Debug,
+        "metadata.coverArt",
+        format!(
+            "Parsed {} front image(s) from Cover Art Archive for {} {mbid}",
+            candidates.len(),
+            entity.label()
+        ),
+        Some(serde_json::json!({
+            "entity": entity.path(),
+            "mbid": mbid,
+            "imageCount": candidates.len(),
+        })),
+    );
+
+    Ok(candidates)
+}
+
+/// CAA sets `front: true` on only one primary image. Additional fronts still have
+/// `types: ["Front"]` with `front: false` — include all of those for the picker.
+fn caa_image_is_front(image: &serde_json::Value) -> bool {
+    let types = image
+        .get("types")
+        .and_then(|t| t.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
+        .unwrap_or_default();
+
+    types
+        .iter()
+        .any(|t| t.eq_ignore_ascii_case("front"))
+        || image.get("front").and_then(|f| f.as_bool()).unwrap_or(false)
+        || types.is_empty()
+}
+
+fn parse_caa_front_candidates(
+    images: &[serde_json::Value],
+    entity_idx: usize,
+) -> Vec<CoverArtCandidate> {
     let mut candidates = Vec::new();
 
     for (image_idx, image) in images.iter().enumerate() {
-        let types = image
-            .get("types")
-            .and_then(|t| t.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
-            .unwrap_or_default();
-
-        let is_front = image
-            .get("front")
-            .and_then(|f| f.as_bool())
-            .unwrap_or_else(|| {
-                types.iter().any(|t| t.eq_ignore_ascii_case("front")) || types.is_empty()
-            });
-
-        if !is_front {
+        if !caa_image_is_front(image) {
             continue;
         }
 
@@ -542,8 +569,13 @@ fn fetch_caa_front_images(
         }
 
         let approved = image.get("approved").and_then(|a| a.as_bool()).unwrap_or(true);
+        let primary_front = image.get("front").and_then(|f| f.as_bool()).unwrap_or(false);
         let mut canonical_rank = u32::try_from(entity_idx).unwrap_or(u32::MAX) * 1000
             + u32::try_from(image_idx).unwrap_or(u32::MAX);
+        // Keep the CAA primary front ahead of other Front-typed images.
+        if !primary_front {
+            canonical_rank += 100;
+        }
         if !approved {
             canonical_rank += 500;
         }
@@ -577,22 +609,7 @@ fn fetch_caa_front_images(
         });
     }
 
-    activity_log::log(
-        LogLevel::Debug,
-        "metadata.coverArt",
-        format!(
-            "Parsed {} front image(s) from Cover Art Archive for {} {mbid}",
-            candidates.len(),
-            entity.label()
-        ),
-        Some(serde_json::json!({
-            "entity": entity.path(),
-            "mbid": mbid,
-            "imageCount": candidates.len(),
-        })),
-    );
-
-    Ok(candidates)
+    candidates
 }
 
 fn sort_and_truncate_candidates(candidates: &mut Vec<CoverArtCandidate>) {
@@ -796,6 +813,55 @@ mod tests {
             unique_release_group_mbids(&releases),
             vec!["AAAA".to_string(), "BBBB".to_string()]
         );
+    }
+
+    #[test]
+    fn includes_all_front_typed_images_not_only_primary_flag() {
+        // Thriller Special Edition: two Front images, only one with front: true.
+        let images = vec![
+            serde_json::json!({
+                "front": true,
+                "types": ["Front"],
+                "approved": true,
+                "image": "https://caa.example/special-edition.jpg",
+                "thumbnails": { "small": "https://caa.example/special-edition-250.jpg" }
+            }),
+            serde_json::json!({
+                "front": false,
+                "types": ["Front"],
+                "approved": true,
+                "image": "https://caa.example/original.jpg",
+                "thumbnails": { "small": "https://caa.example/original-250.jpg" }
+            }),
+            serde_json::json!({
+                "front": false,
+                "types": ["Back", "Spine"],
+                "approved": true,
+                "image": "https://caa.example/back.jpg"
+            }),
+        ];
+
+        let candidates = parse_caa_front_candidates(&images, 0);
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[0].url, "https://caa.example/special-edition.jpg");
+        assert_eq!(candidates[1].url, "https://caa.example/original.jpg");
+        assert!(candidates[0].canonical_rank < candidates[1].canonical_rank);
+    }
+
+    #[test]
+    fn caa_image_is_front_uses_types_over_primary_flag() {
+        assert!(caa_image_is_front(&serde_json::json!({
+            "front": false,
+            "types": ["Front"]
+        })));
+        assert!(!caa_image_is_front(&serde_json::json!({
+            "front": false,
+            "types": ["Back", "Spine"]
+        })));
+        assert!(caa_image_is_front(&serde_json::json!({
+            "front": true,
+            "types": []
+        })));
     }
 
     #[test]

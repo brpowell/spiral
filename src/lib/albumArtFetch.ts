@@ -8,6 +8,7 @@ import {
 } from "./tauri";
 import type { ActivityLogContext } from "../types/activityLog";
 import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+import type { CoverArtCandidate } from "../types/coverArt";
 
 async function cacheBestCoverArtCandidate(
   candidates: Awaited<ReturnType<typeof fetchCoverArt>>,
@@ -16,6 +17,49 @@ async function cacheBestCoverArtCandidate(
   const best = candidates[0];
   if (!best?.url) return null;
   return cacheArtFromUrl(best.url, cacheLabel);
+}
+
+/**
+ * Prefer Cover Art Archive for a known release MBID; fall back to
+ * artist/album MusicBrainz search when MBID is missing or yields nothing.
+ */
+export async function fetchCoverArtCandidates(options: {
+  artist: string;
+  album: string;
+  releaseMbid?: string | null;
+  logContext?: ActivityLogContext;
+}): Promise<CoverArtCandidate[]> {
+  const releaseMbid = options.releaseMbid?.trim() || null;
+  if (releaseMbid) {
+    const byRelease = await fetchCoverArtForRelease(
+      releaseMbid,
+      options.logContext,
+    );
+    if (byRelease.length > 0) {
+      return byRelease;
+    }
+  }
+  return fetchCoverArt(options.artist, options.album, options.logContext);
+}
+
+/** Cache the best cover, preferring a known release MBID over title search. */
+export async function fetchAlbumArtPreferringRelease(options: {
+  artist: string;
+  album: string;
+  releaseMbid?: string | null;
+  cacheLabel: string;
+  logContext?: ActivityLogContext;
+}): Promise<string | null> {
+  const releaseMbid = options.releaseMbid?.trim() || null;
+  if (releaseMbid) {
+    const artPath = await fetchAlbumArtForRelease(
+      releaseMbid,
+      options.cacheLabel,
+      options.logContext,
+    );
+    if (artPath) return artPath;
+  }
+  return fetchAlbumArtPath(options.artist, options.album, options.logContext);
 }
 
 export async function resolveAlbumArtPath(

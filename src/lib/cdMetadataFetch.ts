@@ -1,6 +1,5 @@
 import {
-  fetchAlbumArtForRelease,
-  fetchAlbumArtPath,
+  fetchAlbumArtPreferringRelease,
   resolveAlbumArtPath,
 } from "./albumArtFetch";
 import { ensureCdHeroArtValid } from "./cdArt";
@@ -115,16 +114,13 @@ async function fetchAndSetHeroArt(
       return;
     }
 
-    if (query.releaseMbid?.trim()) {
-      artPath = await fetchAlbumArtForRelease(
-        query.releaseMbid.trim(),
-        cacheLabel,
-        context,
-      );
-    }
-    if (!artPath) {
-      artPath = await fetchAlbumArtPath(query.artist, query.album, context);
-    }
+    artPath = await fetchAlbumArtPreferringRelease({
+      artist: query.artist,
+      album: query.album,
+      releaseMbid: query.releaseMbid,
+      cacheLabel,
+      logContext: context,
+    });
   }
 
   if (artPath) {

@@ -28,6 +28,9 @@ describe("pendingImportTrack", () => {
       year: null,
       genre: null,
       durationSeconds: null,
+      sampleRate: null,
+      bitrate: null,
+      codec: null,
       filePath: "/music/a.mp3",
       artPath: null,
     });

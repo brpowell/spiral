@@ -41,6 +41,79 @@ struct CachedLookupEntry {
     lookup: DiscMetadataLookup,
 }
 
+/// Per-track user edits for a disc (pre-import plan), keyed by track number.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscTrackOverride {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artist: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rating: Option<u8>,
+}
+
+/// User metadata overrides for a disc, independent of MusicBrainz / library.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscMetadataOverride {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub album: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub album_artist: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub year: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub genre: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub art_path: Option<String>,
+    /// Track number (as decimal string) → field overrides.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub tracks: HashMap<String, DiscTrackOverride>,
+}
+
+impl DiscMetadataOverride {
+    pub fn is_empty(&self) -> bool {
+        self.album.is_none()
+            && self.album_artist.is_none()
+            && self.year.is_none()
+            && self.genre.is_none()
+            && self.art_path.is_none()
+            && self.tracks.is_empty()
+    }
+
+    /// Deep-merge `patch` onto `self` (patch wins for set fields; track maps merge).
+    pub fn merge_patch(&mut self, patch: &DiscMetadataOverride) {
+        if patch.album.is_some() {
+            self.album = patch.album.clone();
+        }
+        if patch.album_artist.is_some() {
+            self.album_artist = patch.album_artist.clone();
+        }
+        if patch.year.is_some() {
+            self.year = patch.year;
+        }
+        if patch.genre.is_some() {
+            self.genre = patch.genre.clone();
+        }
+        if patch.art_path.is_some() {
+            self.art_path = patch.art_path.clone();
+        }
+        for (number, track_patch) in &patch.tracks {
+            let entry = self.tracks.entry(number.clone()).or_default();
+            if track_patch.title.is_some() {
+                entry.title = track_patch.title.clone();
+            }
+            if track_patch.artist.is_some() {
+                entry.artist = track_patch.artist.clone();
+            }
+            if track_patch.rating.is_some() {
+                entry.rating = track_patch.rating;
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct DiscMetadataCacheFile {
@@ -48,6 +121,8 @@ struct DiscMetadataCacheFile {
     lookups: HashMap<String, CachedLookupEntry>,
     #[serde(default)]
     preferences: HashMap<String, String>,
+    #[serde(default)]
+    overrides: HashMap<String, DiscMetadataOverride>,
 }
 
 static CACHE: LazyLock<Mutex<Option<DiscMetadataCacheFile>>> =
@@ -410,6 +485,78 @@ pub fn save_disc_metadata_preference(
     Ok(())
 }
 
+pub fn get_disc_metadata_override(
+    app: &AppHandle,
+    disc_id: &str,
+) -> Result<Option<DiscMetadataOverride>, String> {
+    if disc_id.trim().is_empty() {
+        return Err("disc id is required".to_string());
+    }
+    ensure_loaded(app)?;
+    let guard = CACHE.lock().map_err(|err| err.to_string())?;
+    Ok(guard
+        .as_ref()
+        .and_then(|cache| cache.overrides.get(disc_id).cloned())
+        .filter(|override_| !override_.is_empty()))
+}
+
+pub fn save_disc_metadata_override(
+    app: &AppHandle,
+    disc_id: &str,
+    patch: DiscMetadataOverride,
+) -> Result<DiscMetadataOverride, String> {
+    if disc_id.trim().is_empty() {
+        return Err("disc id is required".to_string());
+    }
+
+    let saved = with_cache_mut(app, |cache| {
+        let entry = cache
+            .overrides
+            .entry(disc_id.to_string())
+            .or_default();
+        entry.merge_patch(&patch);
+        if entry.is_empty() {
+            cache.overrides.remove(disc_id);
+            Ok(DiscMetadataOverride::default())
+        } else {
+            Ok(entry.clone())
+        }
+    })?;
+
+    activity_log::log(
+        LogLevel::Info,
+        "metadata.musicbrainz",
+        format!("Saved metadata override for disc {disc_id}"),
+        Some(serde_json::json!({
+            "discId": disc_id,
+            "empty": saved.is_empty(),
+            "trackOverrideCount": saved.tracks.len(),
+        })),
+    );
+
+    Ok(saved)
+}
+
+pub fn clear_disc_metadata_override(app: &AppHandle, disc_id: &str) -> Result<(), String> {
+    if disc_id.trim().is_empty() {
+        return Err("disc id is required".to_string());
+    }
+
+    with_cache_mut(app, |cache| {
+        cache.overrides.remove(disc_id);
+        Ok(())
+    })?;
+
+    activity_log::log(
+        LogLevel::Info,
+        "metadata.musicbrainz",
+        format!("Cleared metadata override for disc {disc_id}"),
+        Some(serde_json::json!({ "discId": disc_id })),
+    );
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -422,6 +569,7 @@ mod tests {
                 album: Some(album.to_string()),
                 album_artist: Some("Artist".to_string()),
                 year: Some(1999),
+                genre: None,
                 country: None,
                 label: None,
                 release_mbid: Some("release-1".to_string()),
@@ -467,7 +615,7 @@ mod tests {
     }
 
     #[test]
-    fn clear_lookups_preserves_preferences() {
+    fn clear_lookups_preserves_preferences_and_overrides() {
         let mut cache = DiscMetadataCacheFile::default();
         cache.lookups.insert(
             "disc-a".to_string(),
@@ -480,6 +628,13 @@ mod tests {
         cache
             .preferences
             .insert("disc-a".to_string(), "release-1".to_string());
+        cache.overrides.insert(
+            "disc-a".to_string(),
+            DiscMetadataOverride {
+                album: Some("Edited".to_string()),
+                ..Default::default()
+            },
+        );
 
         let cleared = clear_lookups(&mut cache);
 
@@ -489,6 +644,45 @@ mod tests {
             cache.preferences.get("disc-a"),
             Some(&"release-1".to_string())
         );
+        assert_eq!(
+            cache.overrides.get("disc-a").and_then(|o| o.album.as_deref()),
+            Some("Edited")
+        );
+    }
+
+    #[test]
+    fn merge_patch_merges_album_and_tracks() {
+        let mut base = DiscMetadataOverride {
+            album: Some("A".to_string()),
+            tracks: HashMap::from([(
+                "1".to_string(),
+                DiscTrackOverride {
+                    title: Some("T1".to_string()),
+                    artist: None,
+                    rating: Some(128),
+                },
+            )]),
+            ..Default::default()
+        };
+        let patch = DiscMetadataOverride {
+            album_artist: Some("Artist".to_string()),
+            tracks: HashMap::from([(
+                "1".to_string(),
+                DiscTrackOverride {
+                    title: Some("T1b".to_string()),
+                    artist: Some("Solo".to_string()),
+                    rating: None,
+                },
+            )]),
+            ..Default::default()
+        };
+        base.merge_patch(&patch);
+        assert_eq!(base.album.as_deref(), Some("A"));
+        assert_eq!(base.album_artist.as_deref(), Some("Artist"));
+        let track = base.tracks.get("1").unwrap();
+        assert_eq!(track.title.as_deref(), Some("T1b"));
+        assert_eq!(track.artist.as_deref(), Some("Solo"));
+        assert_eq!(track.rating, Some(128));
     }
 
     #[test]

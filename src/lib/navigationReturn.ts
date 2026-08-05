@@ -1,7 +1,7 @@
 import { mergeRemoteMetadataIntoDisc } from "./cdMetadata";
-import { cdDiscTitle } from "./cdTracks";
+import { cdSidebarDiscLabel } from "./cdTracks";
 import { getPlaylistById } from "./playlists";
-import { getCdDriveById, useCdStore } from "../store/useCdStore";
+import { useCdStore } from "../store/useCdStore";
 import type { Artist } from "../types/artist";
 import type { Playlist } from "../types/playlist";
 import type { NavView } from "../store/useNavigationStore";
@@ -37,16 +37,14 @@ const SIDEBAR_VIEW_LABELS: Record<NavView, string> = {
 
 function cdNavigationTitle(driveId: string): string {
   const cdState = useCdStore.getState();
-  const drive = getCdDriveById(cdState.drives, driveId);
-  const fallback = drive?.name ?? "Disc Drive";
   const rawDisc = cdState.discsByDriveId[driveId];
-  if (rawDisc == null) return fallback;
+  if (rawDisc == null) return cdSidebarDiscLabel(null);
   const remoteMetadata = cdState.metadataByDriveId[driveId] ?? null;
-  const disc =
+  return cdSidebarDiscLabel(
     remoteMetadata != null
       ? mergeRemoteMetadataIntoDisc(rawDisc, remoteMetadata)
-      : rawDisc;
-  return cdDiscTitle(disc, fallback);
+      : rawDisc,
+  );
 }
 
 export function captureReturnContext(

@@ -1,4 +1,9 @@
-import { albumKey, albumImportMetadata, findMatchingLibraryAlbum, groupTracksIntoAlbums } from "./albums";
+import {
+  albumKey,
+  albumImportMetadata,
+  findMatchingLibraryAlbum,
+  groupTracksIntoAlbums,
+} from "./albums";
 import { resolveCdSharedArtPath } from "./cdArt";
 import { isCdImportCancelRequested } from "./cdImportGuard";
 import { t } from "./i18n";
@@ -22,10 +27,7 @@ import {
   resetPendingTrackIds,
 } from "./pendingImportTrack";
 import { yieldForInteraction } from "./scheduling";
-import {
-  cleanupCdImportTemp,
-  ripCdTrack,
-} from "./tauri";
+import { cleanupCdImportTemp, ripCdTrack } from "./tauri";
 import {
   blockIfTrialLibraryAtCap,
   isTrialLibraryCapError,
@@ -33,6 +35,7 @@ import {
 } from "./trialGate";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useCdImportStore } from "../store/useCdImportStore";
+import { useCdStore } from "../store/useCdStore";
 import {
   isImportCancelledError,
   useImportDedupeStore,
@@ -61,6 +64,7 @@ interface CdImportTrackPlan {
   metadata: TrackMetadataUpdate;
   durationSeconds: number | null;
   pendingId: number;
+  rating: number;
 }
 
 async function exitCancelledImport(
@@ -166,13 +170,18 @@ export function startCdImport(options: {
           (await useLibrarySettingsStore.getState().loadSettings());
         const profileId = settings.cdImportProfileId;
 
-        const albumArtist = plansToImport[0].metadata.albumArtist ?? plansToImport[0].metadata.artist;
+        const albumArtist =
+          plansToImport[0].metadata.albumArtist ??
+          plansToImport[0].metadata.artist;
         const albumTitle = plansToImport[0].metadata.album;
+        const releaseMbid =
+          useCdStore.getState().metadataByDriveId[driveId]?.releaseMbid ?? null;
         const sharedArtPath = await resolveCdSharedArtPath({
           driveId,
           existingAlbumArtPath: existingAlbum?.artPath,
           albumArtist,
           albumTitle,
+          releaseMbid,
           onFetching: () => ctx.setDetail("Fetching album art…"),
         });
         ctx.clearDetail();
@@ -234,9 +243,11 @@ export function startCdImport(options: {
           };
           entries.push(entry);
 
-          usePlayerStore.getState().stagePendingImportTracks([
-            pendingTrackFromInput(plan.pendingId, filePath, trackInput),
-          ]);
+          usePlayerStore
+            .getState()
+            .stagePendingImportTracks([
+              pendingTrackFromInput(plan.pendingId, filePath, trackInput),
+            ]);
 
           const trackResult = await commitImportEntries([entry], {
             mode: "copy",
@@ -299,12 +310,15 @@ export function startCdImport(options: {
               year: firstEntry.year,
               genre: firstEntry.genre,
               durationSeconds: firstEntry.durationSeconds,
+              sampleRate: null,
+              bitrate: null,
+              codec: null,
               filePath: firstEntry.filePath,
               artPath: firstEntry.artPath,
               dateAdded: "",
               playCount: 0,
               lastPlayedAt: null,
-              rating: 0,
+              rating: firstEntry.rating ?? 0,
             });
             useNavigationStore.getState().openAlbum(key);
           }
@@ -370,10 +384,11 @@ function planMetadataToTrackInput(plan: CdImportTrackPlan): TrackInput {
     codec: null,
     filePath: "",
     artPath: plan.metadata.artPath,
+    rating: plan.rating,
   };
 }
 
-function buildImportPlans(
+export function buildImportPlans(
   disc: CdDisc,
   year: number | null,
   checkedTrackNumbers: number[],
@@ -384,8 +399,8 @@ function buildImportPlans(
   const album =
     canonical?.album ?? (disc.album?.trim() || t("common:unknownAlbum"));
   const albumArtist = canonical?.albumArtist ?? (disc.artist?.trim() || null);
-  const importYear = canonical?.year ?? year;
-  const genre = canonical?.genre ?? null;
+  const importYear = canonical?.year ?? year ?? disc.year ?? null;
+  const genre = canonical?.genre ?? disc.genre ?? null;
   const defaultTrackArtist = canonical?.defaultTrackArtist ?? albumArtist;
 
   return disc.tracks
@@ -409,5 +424,6 @@ function buildImportPlans(
         artChanged: false,
       },
       durationSeconds: track.durationSeconds ?? null,
+      rating: track.rating ?? 0,
     }));
 }

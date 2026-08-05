@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { DetailArtistLink } from "../components/DetailArtistLink/DetailArtistLink";
 import { EntityArt } from "../components/EntityArt/EntityArt";
 import { Button } from "../components/common/Button/Button";
-import { ContextMenuItem, ContextMenuSeparator } from "../components/ContextMenu/ContextMenu";
+import {
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "../components/ContextMenu/ContextMenu";
 import { MenuButton } from "../components/MenuButton/MenuButton";
 import { TrackList } from "../components/TrackList/TrackList";
 import {
@@ -10,38 +13,49 @@ import {
   IconBack,
   IconEject,
   IconImport,
+  IconPencil,
   IconPlay,
+  IconRefresh,
 } from "../components/icons";
-import { mergeRemoteMetadataIntoDisc } from "../lib/cdMetadata";
+import {
+  discMetadataOverrideHasEdits,
+  mergeDiscDisplayLayers,
+} from "../lib/cdMetadata";
 import { ensureCdHeroArtValid } from "../lib/cdArt";
-import { startCdHeroArtFetch } from "../lib/cdMetadataFetch";
+import {
+  startCdHeroArtFetch,
+  startCdMetadataFetch,
+} from "../lib/cdMetadataFetch";
 import {
   albumTotalDurationSecondsFromCd,
-  cdDiscTitle,
+  cdSidebarDiscLabel,
   cdTrackListId,
   cdTrackNumberFromListId,
   cdTracksForList,
 } from "../lib/cdTracks";
+import { t } from "../lib/i18n";
 import { startCdImport } from "../lib/cdImport";
 import { formatTime } from "../lib/format";
 import { setCdDetailDrive } from "../lib/tauri";
-import {
-  isAlbumInLibrary,
-  linkableArtistKey,
-} from "../lib/trackNavigation";
+import { isAlbumInLibrary, linkableArtistKey } from "../lib/trackNavigation";
 import {
   setAllTracksChecked,
   toggleTrackChecked,
 } from "../lib/trackCheckSelection";
 import { getCdDriveById, useCdStore } from "../store/useCdStore";
 import { useCdImportBlockingPlayback } from "../hooks/useCdImportBlockingPlayback";
-import { useCdImportStore, cdImportRowIndicators } from "../store/useCdImportStore";
+import {
+  useCdImportStore,
+  cdImportRowIndicators,
+} from "../store/useCdImportStore";
+import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useDetailReturnLabel } from "../hooks/useDetailReturnLabel";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Album } from "../types/album";
 import type { Artist } from "../types/artist";
 import type { Track } from "../types/track";
+import { AlertConfirmation } from "../components/common/AlertConfirmation/AlertConfirmation";
 import "./CdDetailView.css";
 import "./DetailViewShared.css";
 
@@ -58,12 +72,15 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
   const drives = useCdStore((s) => s.drives);
   const discsByDriveId = useCdStore((s) => s.discsByDriveId);
   const metadataByDriveId = useCdStore((s) => s.metadataByDriveId);
+  const overridesByDriveId = useCdStore((s) => s.overridesByDriveId);
   const heroArtByDriveId = useCdStore((s) => s.heroArtByDriveId);
   const loadingDriveIds = useCdStore((s) => s.loadingDriveIds);
   const cdtextLoadingDriveIds = useCdStore((s) => s.cdtextLoadingDriveIds);
   const ejectingDriveIds = useCdStore((s) => s.ejectingDriveIds);
   const loadDisc = useCdStore((s) => s.loadDisc);
   const ejectDrive = useCdStore((s) => s.ejectDrive);
+  const openCdAlbumEditor = useCdStore((s) => s.openCdAlbumEditor);
+  const clearDiscOverride = useCdStore((s) => s.clearDiscOverride);
 
   const playCdTracks = usePlayerStore((s) => s.playCdTracks);
   const addCdToQueue = usePlayerStore((s) => s.addCdToQueue);
@@ -73,6 +90,12 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
   const storeCurrentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
   const cdImportBlockingPlayback = useCdImportBlockingPlayback(driveId);
+  const isFetchingMetadata = useBackgroundTasksStore((s) =>
+    s.tasks.some(
+      (task) =>
+        task.key === `cd-metadata-${driveId}` && task.status === "running",
+    ),
+  );
   const cdImportProgress = useCdImportStore((s) =>
     s.progress?.driveId === driveId ? s.progress : null,
   );
@@ -104,18 +127,21 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
   );
 
   const [checkedTrackIds, setCheckedTrackIds] = useState<number[]>([]);
+  const [refetchOverrideConfirmOpen, setRefetchOverrideConfirmOpen] =
+    useState(false);
 
   const drive = getCdDriveById(drives, driveId);
   const rawDisc = discsByDriveId[driveId];
   const remoteMetadata = metadataByDriveId[driveId] ?? null;
+  const discOverride = overridesByDriveId[driveId];
   const disc = useMemo(() => {
     if (rawDisc == null) return rawDisc;
-    if (remoteMetadata == null) return rawDisc;
-    return mergeRemoteMetadataIntoDisc(rawDisc, remoteMetadata);
-  }, [rawDisc, remoteMetadata]);
+    return mergeDiscDisplayLayers(rawDisc, remoteMetadata, discOverride);
+  }, [rawDisc, remoteMetadata, discOverride]);
   const isLoading = loadingDriveIds.has(driveId) || disc === undefined;
   const isLoadingCdText = cdtextLoadingDriveIds.has(driveId);
-  const heroArtPath = heroArtByDriveId[driveId] ?? null;
+  const heroArtPath =
+    discOverride?.artPath?.trim() || heroArtByDriveId[driveId] || null;
   const isEjecting = ejectingDriveIds.has(driveId);
   const showBack =
     cdReturnContext != null && cdReturnContext.kind !== "sidebar";
@@ -158,10 +184,7 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
     };
   }, [driveId]);
 
-  const tracks = useMemo(
-    () => (disc ? cdTracksForList(disc) : []),
-    [disc],
-  );
+  const tracks = useMemo(() => (disc ? cdTracksForList(disc) : []), [disc]);
 
   const heroArtistKey = useMemo(
     () => linkableArtistKey(tracks[0], libraryArtistKeys, artistBrowseMode),
@@ -223,21 +246,33 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
     startCdImport({
       driveId,
       disc,
-      year: remoteMetadata?.year ?? null,
+      year: disc.year ?? remoteMetadata?.year ?? null,
       checkedTrackNumbers: checkedTrackIds.map(cdTrackNumberFromListId),
     });
   }, [checkedTrackIds, disc, driveId, remoteMetadata?.year]);
+
+  const handleRefetchMetadata = useCallback(() => {
+    if (discMetadataOverrideHasEdits(discOverride)) {
+      setRefetchOverrideConfirmOpen(true);
+      return;
+    }
+    startCdMetadataFetch(driveId);
+  }, [discOverride, driveId]);
+
+  const handleConfirmRefetchOverrides = useCallback(async () => {
+    await clearDiscOverride(driveId);
+    startCdMetadataFetch(driveId);
+  }, [clearDiscOverride, driveId]);
 
   if (!drive) {
     return null;
   }
 
-  const title = disc ? cdDiscTitle(disc, drive.name) : drive.name;
-  const artistLine =
-    disc?.album?.trim() && disc.artist?.trim() ? disc.artist.trim() : null;
-  const totalDuration = disc
-    ? albumTotalDurationSecondsFromCd(disc.tracks)
-    : 0;
+  const title = cdSidebarDiscLabel(disc);
+  const artistLine = disc
+    ? disc.artist?.trim() || t("common:unknownArtist")
+    : null;
+  const totalDuration = disc ? albumTotalDurationSecondsFromCd(disc.tracks) : 0;
   const hasTracks = disc != null && disc.tracks.length > 0;
   const checkedCount = checkedTrackIds.length;
   const allTracksChecked =
@@ -252,107 +287,147 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
     <div className="cd-detail detail-view">
       <div className="detail-view__body">
         <div className="detail-view__chrome">
-        {showBack ? (
-          <div className="cd-detail__toolbar">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="cd-detail__back"
-              onClick={closeCdDrive}
-            >
-              <IconBack />
-              {backLabel}
-            </Button>
-          </div>
-        ) : null}
-
-        <section className="cd-detail__hero">
-          <EntityArt
-            artPath={heroArtPath}
-            alt={title}
-            className="album-art--hero cd-detail__art"
-          />
-          <div className="cd-detail__meta">
-            <h1 className="cd-detail__title">{title}</h1>
-            {artistLine ? (
-              <DetailArtistLink
-                className="cd-detail__artist"
-                name={artistLine}
-                artistKey={heroArtistKey}
-              />
-            ) : null}
-            {hasTracks ? (
-              <p className="cd-detail__stats">
-                {[
-                  `${disc.tracks.length} ${disc.tracks.length === 1 ? "track" : "tracks"}`,
-                  formatTime(totalDuration),
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-            ) : null}
-            <div className="detail-view__actions">
-              {hasTracks ? (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={cdImportBlockingPlayback}
-                    onClick={handlePlayDisc}
-                  >
-                    <IconPlay />
-                    Play All
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    disabled={checkedCount === 0 || cdImportBlockingPlayback}
-                    onClick={handleStartImport}
-                  >
-                    <IconImport />
-                    {importLabel}
-                  </Button>
-                </>
-              ) : null}
-              <MenuButton
-                ariaLabel="Disc actions"
-                layoutDeps={[
-                  tracks.length,
-                  isEjecting,
-                  cdImportBlockingPlayback,
-                ]}
+          {showBack ? (
+            <div className="cd-detail__toolbar">
+              <Button
+                variant="ghost"
                 size="sm"
-                variant="secondary"
+                className="cd-detail__back"
+                onClick={closeCdDrive}
               >
-                {(close) => (
+                <IconBack />
+                {backLabel}
+              </Button>
+            </div>
+          ) : null}
+
+          <section className="cd-detail__hero">
+            <EntityArt
+              artPath={heroArtPath}
+              alt={title}
+              className="album-art--hero cd-detail__art"
+            />
+            <div className="cd-detail__meta">
+              <h1 className="cd-detail__title">{title}</h1>
+              {artistLine ? (
+                <DetailArtistLink
+                  className="cd-detail__artist"
+                  name={artistLine}
+                  artistKey={heroArtistKey}
+                />
+              ) : null}
+              {hasTracks ? (
+                <p className="cd-detail__stats">
+                  {[
+                    disc.year != null ? String(disc.year) : null,
+                    `${disc.tracks.length} ${disc.tracks.length === 1 ? "track" : "tracks"}`,
+                    formatTime(totalDuration),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              ) : null}
+              <div className="detail-view__actions">
+                {hasTracks ? (
                   <>
-                    {hasTracks ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={cdImportBlockingPlayback}
+                      onClick={handlePlayDisc}
+                    >
+                      <IconPlay />
+                      Play All
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={checkedCount === 0 || cdImportBlockingPlayback}
+                      onClick={handleStartImport}
+                    >
+                      <IconImport />
+                      {importLabel}
+                    </Button>
+                  </>
+                ) : null}
+                <MenuButton
+                  ariaLabel={t("library:cd.actions.ariaLabel")}
+                  triggerPlacement="below-start"
+                  layoutDeps={[
+                    tracks.length,
+                    isEjecting,
+                    isFetchingMetadata,
+                    remoteMetadata != null,
+                    cdImportBlockingPlayback,
+                  ]}
+                  size="sm"
+                  variant="secondary"
+                >
+                  {(close) => (
+                    <>
                       <ContextMenuItem
-                        icon={<IconAddToQueue />}
-                        label="Add to Queue"
-                        disabled={cdImportBlockingPlayback}
+                        icon={<IconPencil />}
+                        label={t("library:cd.editor.editAlbum")}
+                        disabled={disc == null || isLoading || isEjecting}
                         onClick={() => {
                           close();
-                          handleAddToQueue();
+                          openCdAlbumEditor(driveId);
                         }}
                       />
-                    ) : null}
-                    {hasTracks ? <ContextMenuSeparator /> : null}
-                    <ContextMenuItem
-                      icon={<IconEject />}
-                      label={isEjecting ? "Ejecting…" : "Eject"}
-                      disabled={isEjecting}
-                      onClick={() => {
-                        close();
-                        void ejectDrive(driveId);
-                      }}
-                    />
-                  </>
-                )}
-              </MenuButton>
+                      <ContextMenuItem
+                        icon={<IconRefresh />}
+                        label={
+                          isFetchingMetadata
+                            ? t("library:cd.actions.fetchingMetadata")
+                            : remoteMetadata != null
+                              ? t("library:cd.actions.refetchMetadata")
+                              : t("library:cd.actions.fetchMetadata")
+                        }
+                        disabled={
+                          disc == null ||
+                          isLoading ||
+                          isEjecting ||
+                          isFetchingMetadata
+                        }
+                        onClick={() => {
+                          close();
+                          handleRefetchMetadata();
+                        }}
+                      />
+                      {hasTracks ? (
+                        <>
+                          <ContextMenuSeparator />
+                          <ContextMenuItem
+                            icon={<IconAddToQueue />}
+                            label={t("library:cd.actions.addToQueue")}
+                            disabled={cdImportBlockingPlayback}
+                            onClick={() => {
+                              close();
+                              handleAddToQueue();
+                            }}
+                          />
+                        </>
+                      ) : null}
+                      <ContextMenuSeparator />
+                      <ContextMenuItem
+                        icon={<IconEject />}
+                        label={
+                          isEjecting
+                            ? t("library:cd.actions.ejecting")
+                            : t("library:cd.actions.eject")
+                        }
+                        disabled={isEjecting}
+                        onClick={() => {
+                          close();
+                          void ejectDrive(driveId);
+                        }}
+                      />
+                    </>
+                  )}
+                </MenuButton>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
         </div>
 
         <div className="detail-view__tracks">
@@ -377,27 +452,37 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
                 presetId="cd"
                 fillHeight={false}
                 tracks={tracks}
-              selectedTrackIds={selectedTrackIds}
-              currentTrackId={currentTrackId}
-              playbackState={activePlaybackState}
-              onSelectTrack={handleSelectTrack}
-              onPlayTrack={handlePlayTrack}
-              canNavigateAlbum={canNavigateAlbum}
-              cdDriveId={driveId}
-              checkMode
-              checkedTrackIds={checkedTrackIds}
-              onToggleChecked={handleToggleChecked}
-              onToggleAllChecked={handleToggleAllChecked}
-              cdImportingTrackIds={cdImportingTrackIds}
-              cdImportingActiveTrackId={cdImportingActiveTrackId}
-              cdImportCompletedTrackIds={cdImportCompletedTrackIds}
-              readOnly
-              emptyMessage="No tracks on this disc."
-            />
-          </>
-        )}
+                selectedTrackIds={selectedTrackIds}
+                currentTrackId={currentTrackId}
+                playbackState={activePlaybackState}
+                onSelectTrack={handleSelectTrack}
+                onPlayTrack={handlePlayTrack}
+                canNavigateAlbum={canNavigateAlbum}
+                cdDriveId={driveId}
+                checkMode
+                checkedTrackIds={checkedTrackIds}
+                onToggleChecked={handleToggleChecked}
+                onToggleAllChecked={handleToggleAllChecked}
+                cdImportingTrackIds={cdImportingTrackIds}
+                cdImportingActiveTrackId={cdImportingActiveTrackId}
+                cdImportCompletedTrackIds={cdImportCompletedTrackIds}
+                readOnly
+                emptyMessage="No tracks on this disc."
+              />
+            </>
+          )}
         </div>
       </div>
+
+      <AlertConfirmation
+        open={refetchOverrideConfirmOpen}
+        onClose={() => setRefetchOverrideConfirmOpen(false)}
+        title={t("library:cd.refetchOverrideConfirm.title")}
+        confirmLabel={t("library:cd.refetchOverrideConfirm.confirm")}
+        onConfirm={handleConfirmRefetchOverrides}
+      >
+        {t("library:cd.refetchOverrideConfirm.body")}
+      </AlertConfirmation>
     </div>
   );
 }

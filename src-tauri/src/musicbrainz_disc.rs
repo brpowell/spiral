@@ -23,6 +23,8 @@ pub struct DiscMetadata {
     pub album: Option<String>,
     pub album_artist: Option<String>,
     pub year: Option<i32>,
+    #[serde(default)]
+    pub genre: Option<String>,
     pub country: Option<String>,
     pub label: Option<String>,
     pub release_mbid: Option<String>,
@@ -53,8 +55,9 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
 
     let disc_id = crate::cd::disc_id::compute_disc_id(tracks);
     let toc = crate::cd::disc_id::toc_query_string(tracks);
+    // release-groups+genres: genres live on the release group, not the release.
     let url = format!(
-        "https://musicbrainz.org/ws/2/discid/-?toc={toc}&inc=recordings+artist-credits+labels&fmt=json"
+        "https://musicbrainz.org/ws/2/discid/-?toc={toc}&inc=recordings+artist-credits+labels+release-groups+genres&fmt=json"
     );
 
     activity_log::log(
@@ -232,15 +235,25 @@ fn parse_release(
         .get("id")
         .and_then(|id| id.as_str())
         .map(str::to_string);
-    let album = release
+    let title = release
         .get("title")
         .and_then(|title| title.as_str())
         .map(str::to_string);
+    let disambiguation = release
+        .get("disambiguation")
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let album = title.map(|title| match disambiguation {
+        Some(comment) => format!("{title} ({})", title_case_words(comment)),
+        None => title,
+    });
     let album_artist = artist_credit_name(release.get("artist-credit"));
     let year = release
         .get("date")
         .and_then(|date| date.as_str())
         .and_then(parse_year);
+    let genre = release_genre(release);
     let country = release
         .get("country")
         .and_then(|value| value.as_str())
@@ -264,6 +277,7 @@ fn parse_release(
         album,
         album_artist,
         year,
+        genre,
         country,
         label,
         release_mbid,
@@ -378,6 +392,50 @@ fn parse_year(date: &str) -> Option<i32> {
     date.get(0..4)?.parse().ok()
 }
 
+/// Prefer release-group genres (where votes live); fall back to release genres.
+fn release_genre(release: &serde_json::Value) -> Option<String> {
+    let release_group = release.get("release-group");
+    top_genre_name(release_group.and_then(|rg| rg.get("genres")))
+        .or_else(|| top_genre_name(release.get("genres")))
+}
+
+fn top_genre_name(genres: Option<&serde_json::Value>) -> Option<String> {
+    let genres = genres?.as_array()?;
+    let mut best: Option<(&str, i64)> = None;
+    for entry in genres {
+        let Some(name) = entry.get("name").and_then(|n| n.as_str()).map(str::trim) else {
+            continue;
+        };
+        if name.is_empty() {
+            continue;
+        }
+        let count = entry.get("count").and_then(|c| c.as_i64()).unwrap_or(0);
+        match best {
+            Some((_, best_count)) if count <= best_count => {}
+            _ => best = Some((name, count)),
+        }
+    }
+    best.map(|(name, _)| title_case_words(name))
+}
+
+fn title_case_words(value: &str) -> String {
+    value
+        .split_whitespace()
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(first) => {
+                    let mut titled = first.to_uppercase().collect::<String>();
+                    titled.push_str(chars.as_str());
+                    titled
+                }
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 fn release_label(release: &serde_json::Value) -> Option<String> {
     let labels = release.get("label-info")?.as_array()?;
     let mut names = Vec::new();
@@ -455,9 +513,78 @@ mod tests {
         assert_eq!(metadata.album.as_deref(), Some("Test Album"));
         assert_eq!(metadata.country.as_deref(), Some("US"));
         assert_eq!(metadata.label.as_deref(), Some("Test Label"));
+        assert!(metadata.genre.is_none());
         assert_eq!(metadata.tracks.len(), 2);
         assert_eq!(metadata.tracks[0].title, "First Song");
         assert_eq!(metadata.tracks[1].title, "Second Song");
+    }
+
+    #[test]
+    fn appends_title_cased_disambiguation_to_album() {
+        let release = serde_json::json!({
+            "id": "release-thriller",
+            "title": "Thriller",
+            "disambiguation": "special edition",
+            "artist-credit": [{ "name": "Michael Jackson" }],
+            "media": [{
+                "format": "CD",
+                "track-count": 1,
+                "tracks": [{ "position": 1, "recording": { "title": "Wanna Be Startin' Somethin'" } }]
+            }]
+        });
+
+        let metadata = parse_release(&release, "disc-id", &[(1, 360.0)]).expect("parse release");
+        assert_eq!(
+            metadata.album.as_deref(),
+            Some("Thriller (Special Edition)")
+        );
+    }
+
+    #[test]
+    fn picks_top_release_group_genre() {
+        let release = serde_json::json!({
+            "id": "release-mbid",
+            "title": "Abbey Road",
+            "artist-credit": [{ "name": "The Beatles" }],
+            "genres": [{ "name": "ignored release genre", "count": 99 }],
+            "release-group": {
+                "genres": [
+                    { "name": "pop", "count": 11 },
+                    { "name": "rock", "count": 26 },
+                    { "name": "pop rock", "count": 13 }
+                ]
+            },
+            "media": [{
+                "format": "CD",
+                "track-count": 1,
+                "tracks": [{ "position": 1, "recording": { "title": "Come Together" } }]
+            }]
+        });
+
+        let metadata = parse_release(&release, "disc-id", &[(1, 240.0)]).expect("parse release");
+        assert_eq!(metadata.genre.as_deref(), Some("Rock"));
+    }
+
+    #[test]
+    fn falls_back_to_release_genres_when_release_group_empty() {
+        let release = serde_json::json!({
+            "id": "release-mbid",
+            "title": "Test Album",
+            "artist-credit": [{ "name": "Test Artist" }],
+            "genres": [
+                { "name": "jazz", "count": 3 },
+                { "name": "bebop", "count": 1 }
+            ],
+            "release-group": { "genres": [] },
+            "media": [{
+                "format": "CD",
+                "track-count": 1,
+                "tracks": [{ "position": 1, "recording": { "title": "Song" } }]
+            }]
+        });
+
+        let metadata = parse_release(&release, "disc-id", &[(1, 180.0)]).expect("parse release");
+        assert_eq!(metadata.genre.as_deref(), Some("Jazz"));
     }
 
     #[test]

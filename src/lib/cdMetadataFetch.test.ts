@@ -4,15 +4,13 @@ import type { CdDisc, DiscMetadata } from "../types/cd";
 const {
   ensureCdHeroArtValidMock,
   resolveAlbumArtPathMock,
-  fetchAlbumArtPathMock,
-  fetchAlbumArtForReleaseMock,
+  fetchAlbumArtPreferringReleaseMock,
   runInBackgroundMock,
   isNetworkLikelyAvailableMock,
 } = vi.hoisted(() => ({
   ensureCdHeroArtValidMock: vi.fn(),
   resolveAlbumArtPathMock: vi.fn(),
-  fetchAlbumArtPathMock: vi.fn(),
-  fetchAlbumArtForReleaseMock: vi.fn(),
+  fetchAlbumArtPreferringReleaseMock: vi.fn(),
   runInBackgroundMock: vi.fn(),
   isNetworkLikelyAvailableMock: vi.fn(() => true),
 }));
@@ -23,8 +21,7 @@ vi.mock("./cdArt", () => ({
 
 vi.mock("./albumArtFetch", () => ({
   resolveAlbumArtPath: resolveAlbumArtPathMock,
-  fetchAlbumArtPath: fetchAlbumArtPathMock,
-  fetchAlbumArtForRelease: fetchAlbumArtForReleaseMock,
+  fetchAlbumArtPreferringRelease: fetchAlbumArtPreferringReleaseMock,
 }));
 
 vi.mock("./network", () => ({
@@ -96,8 +93,7 @@ describe("startCdHeroArtFetch", () => {
     vi.clearAllMocks();
     ensureCdHeroArtValidMock.mockResolvedValue(null);
     resolveAlbumArtPathMock.mockResolvedValue(null);
-    fetchAlbumArtPathMock.mockResolvedValue(null);
-    fetchAlbumArtForReleaseMock.mockResolvedValue(null);
+    fetchAlbumArtPreferringReleaseMock.mockResolvedValue(null);
     isNetworkLikelyAvailableMock.mockReturnValue(true);
     runInBackgroundMock.mockImplementation(
       ({ run }: { run: () => Promise<void> }) => {
@@ -118,8 +114,7 @@ describe("startCdHeroArtFetch", () => {
     });
 
     expect(runInBackgroundMock).not.toHaveBeenCalled();
-    expect(fetchAlbumArtPathMock).not.toHaveBeenCalled();
-    expect(fetchAlbumArtForReleaseMock).not.toHaveBeenCalled();
+    expect(fetchAlbumArtPreferringReleaseMock).not.toHaveBeenCalled();
   });
 
   it("starts a background cover-art fetch when MusicBrainz metadata is present", async () => {
@@ -153,6 +148,6 @@ describe("startCdHeroArtFetch", () => {
     });
 
     expect(runInBackgroundMock).not.toHaveBeenCalled();
-    expect(fetchAlbumArtPathMock).not.toHaveBeenCalled();
+    expect(fetchAlbumArtPreferringReleaseMock).not.toHaveBeenCalled();
   });
 });
