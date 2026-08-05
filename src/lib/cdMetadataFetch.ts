@@ -1,4 +1,8 @@
-import { fetchAlbumArtForRelease, fetchAlbumArtPath, resolveAlbumArtPath } from "./albumArtFetch";
+import {
+  fetchAlbumArtForRelease,
+  fetchAlbumArtPath,
+  resolveAlbumArtPath,
+} from "./albumArtFetch";
 import { ensureCdHeroArtValid } from "./cdArt";
 import { createOperationId, logActivity, withLogContext } from "./activityLog";
 import { isNetworkLikelyAvailable } from "./network";
@@ -47,6 +51,27 @@ async function resolveCdHeroArtCachePath(
   return resolveAlbumArtPath(`${query.artist} - ${query.album}`, context);
 }
 
+/** Remote cover-art lookup follows MusicBrainz metadata consent — not CD-Text alone. */
+function hasDiscMetadata(driveId: string): boolean {
+  return useCdStore.getState().metadataByDriveId[driveId] != null;
+}
+
+function skipRemoteHeroArtWithoutMetadata(
+  driveId: string,
+  logContext?: ActivityLogContext,
+): boolean {
+  if (hasDiscMetadata(driveId)) return false;
+  logActivity({
+    level: "info",
+    domain: ACTIVITY_LOG_DOMAINS.coverArt,
+    message:
+      "Skipped CD hero art network fetch: no MusicBrainz metadata (user may have declined)",
+    operationId: logContext?.operationId,
+    context: logContext,
+  });
+  return true;
+}
+
 async function fetchAndSetHeroArt(
   driveId: string,
   logContext?: ActivityLogContext,
@@ -73,11 +98,17 @@ async function fetchAndSetHeroArt(
   let artPath = await resolveAlbumArtPath(cacheLabel, context);
 
   if (!artPath) {
+    // Also covers startCdMetadataFetch when the lookup failed and left no metadata.
+    if (skipRemoteHeroArtWithoutMetadata(driveId, context)) {
+      return;
+    }
+
     if (!isNetworkLikelyAvailable()) {
       logActivity({
         level: "warn",
         domain: ACTIVITY_LOG_DOMAINS.coverArt,
-        message: "Skipped hero art fetch: network unavailable and no local cache",
+        message:
+          "Skipped hero art fetch: network unavailable and no local cache",
         operationId: logContext?.operationId,
         context: logContext,
       });
@@ -130,6 +161,11 @@ export function startCdHeroArtFetch(driveId: string): void {
     const cachedPath = await resolveCdHeroArtCachePath(driveId, logContext);
     if (cachedPath) {
       useCdStore.getState().setHeroArt(driveId, cachedPath);
+      return;
+    }
+
+    // Require MB metadata before network fetch (CD-Text alone is not consent).
+    if (skipRemoteHeroArtWithoutMetadata(driveId, logContext)) {
       return;
     }
 
