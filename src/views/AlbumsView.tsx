@@ -2,9 +2,10 @@ import { useMemo, useState } from "react";
 import { AlbumCard } from "../components/AlbumCard/AlbumCard";
 import { BrowseView } from "../components/BrowseView/BrowseView";
 import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
+import { BrowseGridBody } from "../components/BrowseView/BrowseGridBody";
+import { LibraryEmptyState } from "../components/LibraryEmptyState/LibraryEmptyState";
 import { SearchField } from "../components/SearchField/SearchField";
 import type { Album } from "../types/album";
-import { BrowseGridBody } from "../components/BrowseView/BrowseGridBody";
 
 interface AlbumsViewProps {
   albums: Album[];
@@ -30,8 +31,8 @@ export function AlbumsView({ albums }: AlbumsViewProps) {
 
   if (albums.length === 0) {
     return (
-      <BrowseView className="browse-view--empty">
-        <p>No albums yet. Import some music to get started.</p>
+      <BrowseView>
+        <LibraryEmptyState />
       </BrowseView>
     );
   }

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { BrowseView } from "../components/BrowseView/BrowseView";
 import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
+import { LibraryEmptyState } from "../components/LibraryEmptyState/LibraryEmptyState";
 import { SearchField } from "../components/SearchField/SearchField";
 import { TrackList } from "../components/TrackList/TrackList";
 import {
@@ -24,7 +24,6 @@ interface TracksViewProps {
 }
 
 export function TracksView({ tracks }: TracksViewProps) {
-  const { t } = useTranslation("library");
   const playTracks = usePlayerStore((s) => s.playTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
@@ -49,7 +48,9 @@ export function TracksView({ tracks }: TracksViewProps) {
 
   const sortedTracks = useMemo(() => {
     const filtered = tracks.filter((t) => matchesTrackSearch(t, search));
-    return [...filtered].sort((a, b) => compareTracks(a, b, sortField, sortDir));
+    return [...filtered].sort((a, b) =>
+      compareTracks(a, b, sortField, sortDir),
+    );
   }, [tracks, search, sortField, sortDir]);
 
   const sortedTrackIds = useMemo(
@@ -97,6 +98,14 @@ export function TracksView({ tracks }: TracksViewProps) {
     [playTracks, playbackContextIds],
   );
 
+  if (tracks.length === 0) {
+    return (
+      <BrowseView>
+        <LibraryEmptyState />
+      </BrowseView>
+    );
+  }
+
   return (
     <BrowseView className="tracks-view">
       <BrowseViewHeader
@@ -117,25 +126,21 @@ export function TracksView({ tracks }: TracksViewProps) {
         }
       />
 
-      {tracks.length === 0 ? (
-        <p className="browse-view__empty">{t("empty.tracks")}</p>
-      ) : (
-        <TrackList
-          presetId="library"
-          showAlbumArt
-          tracks={sortedTracks}
-          selectedTrackIds={selectedTrackIds}
-          currentTrackId={currentTrackId}
-          playbackState={playbackState}
-          onSelectTrack={handleSelectRow}
-          onPlayTrack={handlePlayRow}
-          onRatingChange={handleRatingChange}
-          sortField={sortField}
-          sortDir={sortDir}
-          onSort={handleSort}
-          emptyMessage="No tracks match your search."
-        />
-      )}
+      <TrackList
+        presetId="library"
+        showAlbumArt
+        tracks={sortedTracks}
+        selectedTrackIds={selectedTrackIds}
+        currentTrackId={currentTrackId}
+        playbackState={playbackState}
+        onSelectTrack={handleSelectRow}
+        onPlayTrack={handlePlayRow}
+        onRatingChange={handleRatingChange}
+        sortField={sortField}
+        sortDir={sortDir}
+        onSort={handleSort}
+        emptyMessage="No tracks match your search."
+      />
     </BrowseView>
   );
 }

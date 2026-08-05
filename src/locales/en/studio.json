@@ -1,0 +1,12 @@
+{
+  "packs": {
+    "managed": {
+      "empty": "No managed packs",
+      "listLabel": "Managed packs"
+    },
+    "custom": {
+      "empty": "No custom packs",
+      "listLabel": "Custom packs"
+    }
+  }
+}

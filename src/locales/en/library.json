@@ -1,6 +1,8 @@
 {
   "empty": {
-    "tracks": "No tracks yet. Import some music to get started."
+    "title": "Add some music",
+    "description": "Drag files or folders here, or choose them with the button below.",
+    "addButton": "Add files to library…"
   },
   "columns": {
     "index": "#",

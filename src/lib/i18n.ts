@@ -5,6 +5,7 @@ import common from "../locales/en/common.json";
 import library from "../locales/en/library.json";
 import playback from "../locales/en/playback.json";
 import preferences from "../locales/en/preferences.json";
+import studio from "../locales/en/studio.json";
 
 void i18n.use(initReactI18next).init({
   resources: {
@@ -13,11 +14,12 @@ void i18n.use(initReactI18next).init({
       library,
       playback,
       preferences,
+      studio,
     },
   },
   lng: "en",
   fallbackLng: "en",
-  ns: ["common", "library", "playback", "preferences"],
+  ns: ["common", "library", "playback", "preferences", "studio"],
   defaultNS: "common",
   interpolation: { escapeValue: false },
   returnNull: false,

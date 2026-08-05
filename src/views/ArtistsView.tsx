@@ -14,6 +14,7 @@ import { useNavigationStore } from "../store/useNavigationStore";
 import type { Album } from "../types/album";
 import type { Artist } from "../types/artist";
 import { BrowseGridBody } from "../components/BrowseView/BrowseGridBody";
+import { LibraryEmptyState } from "../components/LibraryEmptyState/LibraryEmptyState";
 import "./ArtistsView.css";
 
 interface ArtistsViewProps {
@@ -34,12 +35,9 @@ function artistCardMeta(
   browseMode: ArtistBrowseMode,
 ): string {
   const trackLabel =
-    artist.tracks.length === 1
-      ? "1 track"
-      : `${artist.tracks.length} tracks`;
+    artist.tracks.length === 1 ? "1 track" : `${artist.tracks.length} tracks`;
   if (browseMode === "performers") {
-    const albumLabel =
-      albumCount === 1 ? "1 album" : `${albumCount} albums`;
+    const albumLabel = albumCount === 1 ? "1 album" : `${albumCount} albums`;
     return `${trackLabel} · ${albumLabel}`;
   }
   return albumCount === 1 ? "1 album" : `${albumCount} albums`;
@@ -99,8 +97,8 @@ export function ArtistsView({ artists, albums, browseMode }: ArtistsViewProps) {
 
   if (artists.length === 0) {
     return (
-      <BrowseView className="browse-view--empty">
-        <p>No artists yet. Import some music to get started.</p>
+      <BrowseView>
+        <LibraryEmptyState />
       </BrowseView>
     );
   }
@@ -126,7 +124,6 @@ export function ArtistsView({ artists, albums, browseMode }: ArtistsViewProps) {
                   )
                 }
               />
-
             </Field>
             <SearchField
               className="artists-view__search"

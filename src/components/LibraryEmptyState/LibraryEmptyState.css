@@ -1,0 +1,272 @@
+.library-empty-state {
+  --mx: 50%;
+  --my: 50%;
+  --pattern-base: 0.02;
+  --pattern-spotlight: 0;
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 12rem;
+  width: 100%;
+  padding-inline: var(--main-content-padding-x);
+  overflow: hidden;
+}
+
+.library-empty-state--lit {
+  --pattern-base: 0.03;
+  --pattern-spotlight: 0.06;
+}
+
+.library-empty-state__pattern {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.library-empty-state__pattern::before,
+.library-empty-state__pattern::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.4s ease;
+}
+
+.library-empty-state__pattern::before {
+  background-color: var(--color-text-secondary);
+  opacity: var(--pattern-base);
+  -webkit-mask-image: url("./notes-tile.svg");
+  mask-image: url("./notes-tile.svg");
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 240px 240px;
+  mask-size: 240px 240px;
+}
+
+.library-empty-state__pattern::after {
+  background-color: var(--color-accent);
+  opacity: var(--pattern-spotlight);
+  -webkit-mask-image:
+    radial-gradient(
+      20rem circle at var(--mx) var(--my),
+      #000 0%,
+      #000 12%,
+      rgba(0, 0, 0, 0.55) 40%,
+      transparent 72%
+    ),
+    url("./notes-tile.svg");
+  mask-image:
+    radial-gradient(
+      20rem circle at var(--mx) var(--my),
+      #000 0%,
+      #000 12%,
+      rgba(0, 0, 0, 0.55) 40%,
+      transparent 72%
+    ),
+    url("./notes-tile.svg");
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-repeat: no-repeat, repeat;
+  mask-repeat: no-repeat, repeat;
+  -webkit-mask-size:
+    auto,
+    240px 240px;
+  mask-size:
+    auto,
+    240px 240px;
+  -webkit-mask-position:
+    center,
+    0 0;
+  mask-position:
+    center,
+    0 0;
+}
+
+.library-empty-state__discs {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.library-empty-state__disc {
+  position: absolute;
+  border-radius: 50%;
+  background-color: var(--color-bg);
+}
+
+.library-empty-state__disc-body,
+.library-empty-state__disc-glint {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.library-empty-state__disc-body {
+  animation: library-empty-state-spin linear infinite;
+  opacity: 0.22;
+}
+
+.library-empty-state__disc-body::before,
+.library-empty-state__disc-body::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.library-empty-state__disc-glint {
+  background: linear-gradient(
+    125deg,
+    transparent 28%,
+    color-mix(in srgb, white 55%, transparent) 46%,
+    transparent 58%
+  );
+  mix-blend-mode: soft-light;
+  opacity: 0.85;
+  -webkit-mask-image: radial-gradient(
+    circle at center,
+    #000 0 99%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(circle at center, #000 0 99%, transparent 100%);
+}
+
+.library-empty-state__disc--vinyl {
+  width: 28rem;
+  height: 28rem;
+  top: -9rem;
+  right: -11rem;
+}
+
+.library-empty-state__disc--vinyl .library-empty-state__disc-body {
+  animation-duration: 36s;
+}
+
+.library-empty-state__disc--vinyl .library-empty-state__disc-body::before {
+  background:
+    conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      color-mix(in srgb, white 35%, transparent) 28deg,
+      transparent 70deg,
+      transparent 180deg,
+      color-mix(in srgb, var(--color-text-secondary) 40%, transparent) 210deg,
+      transparent 250deg,
+      transparent 360deg
+    ),
+    radial-gradient(
+      120% 90% at 32% 24%,
+      color-mix(in srgb, var(--color-accent) 45%, transparent) 0%,
+      transparent 48%
+    ),
+    repeating-radial-gradient(
+      circle at center,
+      var(--color-text-secondary) 0,
+      var(--color-text-secondary) 1.5px,
+      transparent 1.5px,
+      transparent 11px
+    );
+  -webkit-mask-image: radial-gradient(
+    circle at center,
+    transparent 0 27%,
+    #000 27.5%
+  );
+  mask-image: radial-gradient(circle at center, transparent 0 27%, #000 27.5%);
+}
+
+.library-empty-state__disc--vinyl .library-empty-state__disc-body::after {
+  background:
+    radial-gradient(
+      ellipse 28% 18% at 62% 40%,
+      color-mix(in srgb, var(--color-bg) 55%, transparent) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      circle at center,
+      var(--color-bg) 0 2.2%,
+      var(--color-text-secondary) 2.3% 27%,
+      transparent 27.4%
+    );
+}
+
+.library-empty-state__disc--cd {
+  width: 20rem;
+  height: 20rem;
+  bottom: -8rem;
+  left: -7rem;
+}
+
+.library-empty-state__disc--cd .library-empty-state__disc-body {
+  animation-duration: 10s;
+  animation-direction: reverse;
+  opacity: 0.28;
+}
+
+.library-empty-state__disc--cd .library-empty-state__disc-body::before {
+  background:
+    radial-gradient(
+      circle at center,
+      transparent 0 14%,
+      color-mix(in srgb, var(--color-text-secondary) 55%, transparent) 14.5%
+        100%
+    ),
+    conic-gradient(
+      from 20deg,
+      color-mix(in srgb, var(--color-accent) 50%, transparent) 0deg,
+      transparent 45deg,
+      color-mix(in srgb, cyan 40%, transparent) 90deg,
+      transparent 135deg,
+      color-mix(in srgb, magenta 32%, transparent) 180deg,
+      transparent 225deg,
+      color-mix(in srgb, var(--color-accent) 45%, transparent) 270deg,
+      transparent 315deg,
+      color-mix(in srgb, cyan 28%, transparent) 360deg
+    );
+  -webkit-mask-image: radial-gradient(
+    circle at center,
+    transparent 0 14%,
+    #000 14.5%
+  );
+  mask-image: radial-gradient(circle at center, transparent 0 14%, #000 14.5%);
+}
+
+.library-empty-state__disc--cd .library-empty-state__disc-body::after {
+  background: radial-gradient(
+    circle at center,
+    var(--color-bg) 0 5%,
+    color-mix(in srgb, var(--color-text-secondary) 35%, transparent) 5.2% 14%,
+    transparent 14.4%
+  );
+}
+
+.library-empty-state__disc--cd .library-empty-state__disc-glint {
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    color-mix(in srgb, white 70%, transparent) 48%,
+    transparent 62%
+  );
+  opacity: 1;
+}
+
+@keyframes library-empty-state-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-empty-state__disc-body {
+    animation: none;
+  }
+}
+
+.library-empty-state__card {
+  position: relative;
+  z-index: 2;
+  max-width: 22rem;
+}

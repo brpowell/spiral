@@ -7,16 +7,6 @@
   padding-top: 1rem;
 }
 
-.browse-view--empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  min-height: 12rem;
-  padding-inline: var(--main-content-padding-x);
-  color: var(--color-text-secondary);
-}
-
 .browse-view__header {
   display: flex;
   flex-wrap: wrap;

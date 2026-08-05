@@ -6,6 +6,9 @@
   "revealInFinder": "Reveal in Finder",
   "revealInFileExplorer": "Show in File Explorer",
   "revealInFileManager": "Show in File Manager",
+  "sidebar": {
+    "playlistsEmpty": "No playlists yet"
+  },
   "updates": {
     "available": {
       "label": "New Spiral just dropped",

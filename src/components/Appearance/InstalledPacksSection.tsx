@@ -7,6 +7,7 @@ import {
 } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { AnimatePresence, motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { RELOAD_LINKED_PACKS_EVENT } from "../../lib/appearanceWindow";
 import { revealInFileManagerLabel } from "../../lib/fileManager";
 import { packIconUrl } from "../../lib/packs/packIcon";
@@ -35,7 +36,6 @@ import {
   type PackSummary,
 } from "../../types/pack";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
-import { Button } from "../common/Button/Button";
 import {
   SectionedList,
   SectionedListGroup,
@@ -72,10 +72,7 @@ import {
 import { MenuButton } from "../MenuButton/MenuButton";
 import { SearchField } from "../SearchField/SearchField";
 import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
-import {
-  CreatePackModal,
-  type CreatePackModalResult,
-} from "./CreatePackModal";
+import { CreatePackModal, type CreatePackModalResult } from "./CreatePackModal";
 import { EditPackModal, type EditPackModalResult } from "./EditPackModal";
 import { PackAboutPanel } from "./PackAboutPanel";
 import "./AppearanceSection.css";
@@ -91,7 +88,10 @@ function matchesPackSearch(pack: PackSummary, query: string): boolean {
   return haystack.includes(q);
 }
 
-function contributionTypeMeta(type: string): { label: string; icon: ReactNode } {
+function contributionTypeMeta(type: string): {
+  label: string;
+  icon: ReactNode;
+} {
   switch (type) {
     case "theme":
       return { label: "Themes", icon: <IconPalette /> };
@@ -195,7 +195,9 @@ function PackMetaLine({
   }
 
   return (
-    <span className={["installed-packs__meta", className].filter(Boolean).join(" ")}>
+    <span
+      className={["installed-packs__meta", className].filter(Boolean).join(" ")}
+    >
       {parts.map((part, index) => (
         <span key={part.key} className="installed-packs__meta-part">
           {index > 0 ? (
@@ -227,17 +229,14 @@ function PackListRow({
 }) {
   const canEdit = isAuthoringPackZone(pack.zone);
   const canUnlink = pack.zone === "linked";
-  const canRemove =
-    pack.zone === "workshop" || pack.zone === "installed";
+  const canRemove = pack.zone === "workshop" || pack.zone === "installed";
   const removeLabel = pack.zone === "installed" ? "Uninstall" : "Delete";
   const hasActions = canEdit || canUnlink || canRemove;
   const description = pack.description.trim();
 
   return (
     <SectionedListItem
-      leading={
-        <PackIcon pack={pack} className="installed-packs__row-icon" />
-      }
+      leading={<PackIcon pack={pack} className="installed-packs__row-icon" />}
       onSelect={onSelect}
       aria-label={pack.name}
       actions={
@@ -334,8 +333,7 @@ function PackDetailView({
   const openThemeEditor = useOpenAppearanceThemeEditor();
   const canEdit = isAuthoringPackZone(pack.zone);
   const canUnlink = pack.zone === "linked";
-  const canRemove =
-    pack.zone === "workshop" || pack.zone === "installed";
+  const canRemove = pack.zone === "workshop" || pack.zone === "installed";
   const removeLabel = pack.zone === "installed" ? "Uninstall" : "Delete";
 
   return (
@@ -355,7 +353,10 @@ function PackDetailView({
                 <div className="installed-packs__hero-titles">
                   <div className="installed-packs__name-row">
                     <h3 className="installed-packs__name">{pack.name}</h3>
-                    <code className="installed-packs__code-badge" title="Pack ID">
+                    <code
+                      className="installed-packs__code-badge"
+                      title="Pack ID"
+                    >
                       {pack.packId}
                     </code>
                   </div>
@@ -466,7 +467,10 @@ function PackDetailView({
             >
               <PackAboutPanel pack={pack} busy={busy} />
             </TabPanel>
-            <TabPanel value="contributions" className="installed-packs__tab-panel">
+            <TabPanel
+              value="contributions"
+              className="installed-packs__tab-panel"
+            >
               {pack.contributions.length === 0 ? (
                 <p className="appearance-section__status">No contributions.</p>
               ) : (
@@ -624,6 +628,7 @@ export function InstalledPacksSection({
   selectedKey: string | null;
   onSelectedKeyChange: (key: string | null) => void;
 }) {
+  const { t } = useTranslation("studio");
   const [packs, setPacks] = useState<PackSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [search, setSearch] = useState("");
@@ -908,13 +913,13 @@ export function InstalledPacksSection({
       const nextPackId =
         editTarget.zone === "linked"
           ? await updateLinkedPackMetadataWithRefresh(
-            editTarget.packDir,
-            result,
-          )
+              editTarget.packDir,
+              result,
+            )
           : await updateWorkshopPackMetadataWithRefresh(
-            editTarget.packId,
-            result,
-          );
+              editTarget.packId,
+              result,
+            );
       if (nextPackId) {
         const next = await reload();
         const match = next.find(
@@ -989,25 +994,32 @@ export function InstalledPacksSection({
                       className="installed-packs__search"
                     />
                     <div className="installed-packs__toolbar-actions">
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        disabled={actionsBusy}
-                        onClick={() => setCreateOpen(true)}
-                      >
-                        <IconPackagePlus />
-                        Create Pack
-                      </Button>
                       <MenuButton
                         ariaLabel="Pack actions"
                         title="Actions"
-                        layoutDeps={[actionsBusy, importing, linking, reloading]}
+                        layoutDeps={[
+                          actionsBusy,
+                          importing,
+                          linking,
+                          reloading,
+                        ]}
                       >
                         {(close) => (
                           <>
                             <ContextMenuItem
+                              icon={<IconPackagePlus />}
+                              label="Create Pack…"
+                              onClick={() => {
+                                close();
+                                setCreateOpen(true);
+                              }}
+                            />
+                            <ContextMenuSeparator />
+                            <ContextMenuItem
                               icon={<IconImport />}
-                              label={importing ? "Installing…" : "Install Pack…"}
+                              label={
+                                importing ? "Installing…" : "Install Pack…"
+                              }
                               disabled={actionsBusy}
                               onClick={() => {
                                 close();
@@ -1061,16 +1073,16 @@ export function InstalledPacksSection({
                           title: "Managed",
                           icon: <IconPackage />,
                           packs: managedPacks,
-                          empty: "No managed packs.",
-                          listLabel: "Managed packs",
+                          empty: t("packs.managed.empty"),
+                          listLabel: t("packs.managed.listLabel"),
                         },
                         {
                           id: "custom",
                           title: "Custom",
                           icon: <IconFolderLink />,
                           packs: customPacks,
-                          empty: "No custom packs.",
-                          listLabel: "Custom packs",
+                          empty: t("packs.custom.empty"),
+                          listLabel: t("packs.custom.listLabel"),
                         },
                       ] as const
                     ).map((category) => {
@@ -1093,7 +1105,9 @@ export function InstalledPacksSection({
                                   key={packKey(pack)}
                                   pack={pack}
                                   busy={busy}
-                                  onSelect={() => onSelectedKeyChange(packKey(pack))}
+                                  onSelect={() =>
+                                    onSelectedKeyChange(packKey(pack))
+                                  }
                                   onEdit={() => setEditTarget(pack)}
                                   onDelete={() => requestDelete(pack)}
                                   onUnlink={() => void handleUnlink(pack)}
@@ -1138,9 +1152,8 @@ export function InstalledPacksSection({
         confirmLabel="Uninstall"
         onConfirm={handleUninstall}
       >
-        This removes {uninstallTarget?.name} v{uninstallTarget?.version} and
-        all of its contributions from Studio pickers. The pack directory is
-        deleted.
+        This removes {uninstallTarget?.name} v{uninstallTarget?.version} and all
+        of its contributions from Studio pickers. The pack directory is deleted.
       </AlertConfirmation>
 
       <AlertConfirmation
@@ -1162,8 +1175,8 @@ export function InstalledPacksSection({
         onConfirm={handleDeleteContribution}
       >
         {selected != null &&
-          isAuthoringPackZone(selected.zone) &&
-          selected.contributions.length <= 1
+        isAuthoringPackZone(selected.zone) &&
+        selected.contributions.length <= 1
           ? selected.zone === "linked"
             ? `This removes “${deleteContributionTarget?.name}” from the linked pack “${selected.name}”. The folder on disk is left in place. This cannot be undone.`
             : `This removes “${deleteContributionTarget?.name}” and deletes the workshop pack “${selected.name}” because it has no other contributions. This cannot be undone.`

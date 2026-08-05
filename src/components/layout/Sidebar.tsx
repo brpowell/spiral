@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { DragDropProvider } from "@dnd-kit/react";
 import { move } from "@dnd-kit/helpers";
+import { useTranslation } from "react-i18next";
 import { isCdSidebarDiscReady } from "../../lib/cdTracks";
 import {
   CLICKABLE_ITEM_POINTER_SENSOR,
@@ -12,12 +13,7 @@ import {
 } from "../../store/useNavigationStore";
 import { usePlaylistStore } from "../../store/usePlaylistStore";
 import { useCdStore } from "../../store/useCdStore";
-import {
-  IconAlbums,
-  IconArtists,
-  IconTracks,
-  IconPlaylistAdd,
-} from "../icons";
+import { IconAlbums, IconArtists, IconTracks, IconPlaylistAdd } from "../icons";
 import {
   SidebarFooter,
   SidebarFrame,
@@ -49,6 +45,7 @@ const NAV_ITEMS: {
 
 /** Main-window library navigation rail. */
 export function Sidebar() {
+  const { t } = useTranslation("common");
   const view = useNavigationStore((s) => s.view);
   const playlistId = useNavigationStore((s) => s.playlistId);
   const cdDriveId = useNavigationStore((s) => s.cdDriveId);
@@ -100,7 +97,9 @@ export function Sidebar() {
       <SidebarSection label="Playlists" grow>
         <div className="sidebar__playlist-body">
           {playlists.length === 0 ? (
-            <p className="sidebar__playlists-empty">No playlists yet</p>
+            <p className="sidebar__playlists-empty">
+              {t("sidebar.playlistsEmpty")}
+            </p>
           ) : (
             <DragDropProvider
               sensors={PLAYLIST_SORT_SENSORS}
