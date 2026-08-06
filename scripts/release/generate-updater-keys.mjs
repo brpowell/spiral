@@ -3,9 +3,9 @@
  * Generate a Tauri updater signing keypair (same tool CI uses via env vars).
  *
  * Usage:
- *   npm run release:keys:generate
- *   npm run release:keys:generate -- --out ~/.tauri/spiral-updater.key
- *   npm run release:keys:generate -- --force
+ *   npm run release -- keys
+ *   npm run release -- keys -- --out ~/.tauri/spiral-updater.key
+ *   npm run release -- keys -- --force
  *
  * Writes private key + `.pub`. Does not touch git, GitHub secrets, or tauri.conf.json —
  * follow docs/signing-and-keys.md to rotate those.
@@ -22,7 +22,7 @@ function usage(exitCode = 0) {
   console.log(`Generate a Spiral updater signing keypair.
 
 Usage:
-  npm run release:keys:generate [-- --out <path>] [--force]
+  npm run release -- keys [-- --out <path>] [--force]
 
 Defaults:
   --out  ${DEFAULT_OUT}

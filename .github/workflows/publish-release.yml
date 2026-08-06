@@ -11,7 +11,7 @@
 # protection rules, enable required reviewers on `production-release` and the
 # same job can also be attached to release.yml with `needs: platforms-green`.
 #
-# Local equivalent: `npm run release:publish -- vX.Y.Z`
+# Local equivalent: `npm run release -- publish vX.Y.Z`
 name: Publish Release
 
 on:
@@ -33,50 +33,13 @@ jobs:
     environment: production-release
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Require draft has installers and updater artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.tag }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-
-          meta="$(gh release view "$TAG" --repo "$REPO" --json isDraft,assets,url)"
-          echo "$meta" | jq .
-
-          is_draft="$(echo "$meta" | jq -r '.isDraft')"
-          if [ "$is_draft" != "true" ]; then
-            echo "::error::$TAG is not a draft — refusing to re-publish."
-            exit 1
-          fi
-
-          assets="$(echo "$meta" | jq -r '.assets[].name')"
-          echo "Assets on $TAG:"
-          echo "$assets"
-
-          missing=0
-          require() {
-            local pattern="$1"
-            local label="$2"
-            if ! printf '%s\n' "$assets" | grep -E "$pattern" >/dev/null; then
-              echo "::error::Missing $label (expected asset matching /$pattern/)"
-              missing=1
-            fi
-          }
-
-          require '_aarch64\.dmg$' 'macOS aarch64 DMG'
-          require '_(x64|x86_64)\.dmg$' 'macOS x64 DMG'
-          require '-setup\.exe$' 'Windows NSIS installer'
-          require '_aarch64\.app\.tar\.gz$' 'macOS aarch64 updater bundle'
-          require '_aarch64\.app\.tar\.gz\.sig$' 'macOS aarch64 updater signature'
-          require '_(x64|x86_64)\.app\.tar\.gz$' 'macOS x64 updater bundle'
-          require '_(x64|x86_64)\.app\.tar\.gz\.sig$' 'macOS x64 updater signature'
-          require '-setup\.exe\.sig$' 'Windows NSIS updater signature'
-
-          if [ "$missing" -ne 0 ]; then
-            echo "::error::Draft release is missing platform artifacts — not publishing."
-            exit 1
-          fi
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/release/check-release-assets.mjs "${{ inputs.tag }}"
 
       - name: Publish release
         env:
@@ -85,6 +48,12 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          # Refuse if someone published between the asset check and now.
+          is_draft="$(gh release view "$TAG" --repo "$REPO" --json isDraft --jq '.isDraft')"
+          if [ "$is_draft" != "true" ]; then
+            echo "::error::$TAG is not a draft — refusing to re-publish."
+            exit 1
+          fi
           gh release edit "$TAG" --repo "$REPO" --draft=false
           url="$(gh release view "$TAG" --repo "$REPO" --json url --jq '.url')"
           echo "Published $TAG — $url"

@@ -3,8 +3,8 @@
  * Sign a file with the Tauri updater key (same as CI / tauri build).
  *
  * Usage:
- *   npm run release:sign -- <file>
- *   npm run release:sign -- <file> --key-path ~/.tauri/spiral-updater.key
+ *   npm run release -- sign <file>
+ *   npm run release -- sign <file> --key-path ~/.tauri/spiral-updater.key
  *
  * Auth (first match wins):
  *   TAURI_SIGNING_PRIVATE_KEY       — key contents (CI)
@@ -25,7 +25,7 @@ function usage(exitCode = 0) {
   console.log(`Sign a file for tauri-plugin-updater.
 
 Usage:
-  npm run release:sign -- <file> [--key-path <path>] [--password <pw>]
+  npm run release -- sign <file> [--key-path <path>] [--password <pw>]
 
 Environment (same names as .github/workflows/release.yml):
   TAURI_SIGNING_PRIVATE_KEY

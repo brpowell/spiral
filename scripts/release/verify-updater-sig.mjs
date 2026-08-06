@@ -3,8 +3,8 @@
  * Verify a Tauri updater `.sig` against a minisign public key.
  *
  * Usage:
- *   npm run release:verify -- <file> [<file.sig>]
- *   npm run release:verify -- <file> --pubkey src-tauri/keys/updater/spiral-updater.pub
+ *   npm run release -- verify <file> [<file.sig>]
+ *   npm run release -- verify <file> --pubkey src-tauri/keys/updater/spiral-updater.pub
  *
  * Default pubkey: src-tauri/keys/updater/spiral-updater.pub
  * Signature defaults to <file>.sig
@@ -34,7 +34,7 @@ function usage(exitCode = 0) {
   console.log(`Verify a Tauri updater signature.
 
 Usage:
-  npm run release:verify -- <file> [<file.sig>] [--pubkey <path>]
+  npm run release -- verify <file> [<file.sig>] [--pubkey <path>]
 
 Defaults:
   signature  <file>.sig

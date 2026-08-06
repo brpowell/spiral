@@ -11,7 +11,7 @@ This keypair is dedicated to `tauri-plugin-updater`. It is **not** shared with t
 Generate / rotate:
 
 ```bash
-npm run release:keys:generate
+npm run release -- keys
 ```
 
 Then replace `spiral-updater.pub` and `plugins.updater.pubkey` with the new `.pub` contents, update the Environment secret, and store the new private key in the vault before discarding the old one.
@@ -19,8 +19,8 @@ Then replace `spiral-updater.pub` and `plugins.updater.pubkey` with the new `.pu
 Sign / verify a local artifact:
 
 ```bash
-npm run release:sign -- path/to/artifact
-npm run release:verify -- path/to/artifact
+npm run release -- sign path/to/artifact
+npm run release -- verify path/to/artifact
 ```
 
 Full runbook: `docs/signing-and-keys.md`.

@@ -60,7 +60,25 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    // Must be registered first on Windows/Linux: OS file-association opens spawn a
+    // second process with the path in argv; this forwards that argv to the primary
+    // instance (macOS uses RunEvent::Opened instead — see below).
+    #[cfg(any(windows, target_os = "linux"))]
+    let builder = tauri::Builder::default().plugin(tauri_plugin_single_instance::init(
+        |app, argv, _cwd| {
+            let files = commands::license::spcard_paths_from_args(argv);
+            commands::license::handle_opened_spcard_paths(app, files);
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        },
+    ));
+
+    #[cfg(not(any(windows, target_os = "linux")))]
+    let builder = tauri::Builder::default();
+
+    let app = builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
@@ -278,9 +296,14 @@ pub fn run() {
             media_session::update_media_session,
         ])
         .build(tauri::generate_context!())
-        .expect("error while building tauri application")
-        .run(|app, event| {
-            #[cfg(any(target_os = "macos", target_os = "ios"))]
+        .expect("error while building tauri application");
+
+    // macOS/iOS deliver document opens via AppKit openURLs → RunEvent::Opened
+    // (including when Spiral is already running). Windows/Linux use argv +
+    // tauri-plugin-single-instance instead.
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    {
+        app.run(|app, event| {
             if let tauri::RunEvent::Opened { urls } = event {
                 let files = urls
                     .into_iter()
@@ -289,4 +312,10 @@ pub fn run() {
                 commands::license::handle_opened_spcard_paths(app, files);
             }
         });
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+    {
+        app.run(|_app, _event| {});
+    }
 }

@@ -1,5 +1,6 @@
 use tauri::AppHandle;
 
+#[cfg(debug_assertions)]
 use crate::activity_log::{self, LogLevel};
 use crate::crash_report::{self, CrashReport, CrashReportSummary, CrashSource};
 

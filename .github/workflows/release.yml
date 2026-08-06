@@ -1,5 +1,5 @@
-# Builds release installers for every platform (macOS + Windows) and attaches
-# them to the draft GitHub Release — it never publishes anything itself.
+# Builds release installers for every platform (macOS + Windows + Linux) and
+# attaches them to the draft GitHub Release — it never publishes anything itself.
 #
 # Trigger: the v* tag that release-please creates alongside its draft release.
 # For that tag push to actually reach this workflow, release-please must be
@@ -18,13 +18,14 @@
 #
 # Fan-in: `platforms-green` is the single required check — it only goes green
 # once every matrix cell has succeeded and the draft has installers *and*
-# updater artifacts (macOS .app.tar.gz + .sig; Windows NSIS .sig) for all
-# platforms. It intentionally still runs (rather than being skipped) when a
-# build fails, since a skipped check can read as green to required-check
-# gating and downstream `needs:`. Operators should treat this job as the
-# signal for "ready to publish"; the actual publish step lives in a separate
-# workflow (publish-release.yml) and this file never auto-undrafts a release.
-# Updater artifacts come from bundle.createUpdaterArtifacts + TAURI_SIGNING_*.
+# updater artifacts (macOS .app.tar.gz + .sig; Windows NSIS .sig; Linux
+# x64 + aarch64 AppImage + .sig) for all platforms. It intentionally still runs (rather than
+# being skipped) when a build fails, since a skipped check can read as green
+# to required-check gating and downstream `needs:`. Operators should treat
+# this job as the signal for "ready to publish"; the actual publish step
+# lives in a separate workflow (publish-release.yml) and this file never
+# auto-undrafts a release. Updater artifacts come from
+# bundle.createUpdaterArtifacts + TAURI_SIGNING_*.
 name: Release
 
 on:
@@ -66,6 +67,17 @@ jobs:
             platform: windows-latest
             args: --bundles nsis
             rust_targets: ""
+          # ubuntu-22.04: older glibc baseline than -latest (Tauri Linux guidance).
+          # AppImage is the updater payload; deb is the browser-download installer.
+          # Native runners (not cross-compile) — WebKit/AppImage tooling is host-arch.
+          - label: linux-x64
+            platform: ubuntu-22.04
+            args: --bundles appimage,deb
+            rust_targets: ""
+          - label: linux-aarch64
+            platform: ubuntu-22.04-arm
+            args: --bundles appimage,deb
+            rust_targets: ""
 
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 90
@@ -98,6 +110,23 @@ jobs:
         with:
           workspaces: src-tauri -> target
           key: ${{ matrix.label }}
+
+      - name: Install Linux webkit / bundler deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libfuse2
+          # AppImage tooling (linuxdeploy) needs FUSE or extract-and-run on
+          # runners without /dev/fuse. Prefer a disk-backed TMPDIR so
+          # extract-and-run does not fill a small /tmp tmpfs.
+          echo "APPIMAGE_EXTRACT_AND_RUN=1" >> "$GITHUB_ENV"
+          echo "TMPDIR=${{ github.workspace }}/src-tauri/target/tmp" >> "$GITHUB_ENV"
+          mkdir -p "${{ github.workspace }}/src-tauri/target/tmp"
 
       - name: Install frontend dependencies
         run: npm ci
@@ -184,41 +213,12 @@ jobs:
           fi
           echo "All platform builds succeeded."
 
+      - uses: actions/checkout@v4
+
       - name: Verify draft has installers and updater artifacts
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          set -euo pipefail
-          assets="$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[].name')"
-          echo "Assets on $TAG:"
-          echo "$assets"
-
-          missing=0
-          require() {
-            local pattern="$1"
-            local label="$2"
-            if ! printf '%s\n' "$assets" | grep -E "$pattern" >/dev/null; then
-              echo "::error::Missing $label (expected asset matching /$pattern/)"
-              missing=1
-            fi
-          }
-
-          # Installers (browser download)
-          require '_aarch64\.dmg$' 'macOS aarch64 DMG'
-          require '_(x64|x86_64)\.dmg$' 'macOS x64 DMG'
-          require '-setup\.exe$' 'Windows NSIS installer'
-
-          # Updater payloads (in-app auto-update). macOS uses .app.tar.gz;
-          # Windows reuses NSIS (updaterJsonPreferNsis) and needs its .sig.
-          require '_aarch64\.app\.tar\.gz$' 'macOS aarch64 updater bundle'
-          require '_aarch64\.app\.tar\.gz\.sig$' 'macOS aarch64 updater signature'
-          require '_(x64|x86_64)\.app\.tar\.gz$' 'macOS x64 updater bundle'
-          require '_(x64|x86_64)\.app\.tar\.gz\.sig$' 'macOS x64 updater signature'
-          require '-setup\.exe\.sig$' 'Windows NSIS updater signature'
-
-          if [ "$missing" -ne 0 ]; then
-            echo "::error::Draft release is missing one or more platform artifacts — not release-ready."
-            exit 1
-          fi
-          echo "Draft has installers and updater artifacts for every platform."
+          tag="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          node scripts/release/check-release-assets.mjs "$tag"
