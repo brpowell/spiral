@@ -1,21 +1,34 @@
-//! Raw CD-DA sector reader for Windows optical drives.
+//! Raw CD-DA sector reader for Windows / Linux optical drives.
 //!
-//! Reads 2352-byte audio sectors via `IOCTL_CDROM_RAW_READ` and yields
-//! interleaved little-endian 16-bit samples as f32 for the shared engine,
-//! or as a full-track `PcmStream` for ripping.
-#![cfg(target_os = "windows")]
+//! Reads 2352-byte audio sectors and yields interleaved little-endian 16-bit
+//! samples as f32 for the shared engine, or as a full-track `PcmStream` for ripping.
+//!
+//! - Windows: `IOCTL_CDROM_RAW_READ`
+//! - Linux: `CDROMREADAUDIO`
+#![cfg(any(target_os = "windows", target_os = "linux"))]
 
-use std::mem::size_of;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-
-use windows::Win32::Devices::Cdrom::{IOCTL_CDROM_RAW_READ, RAW_READ_INFO, CDDA};
-use windows::Win32::Foundation::{CloseHandle, HANDLE};
-use windows::Win32::System::IO::DeviceIoControl;
 
 use super::source::CdPcmSource;
 use crate::cd::platform::{open_drive_handle, read_track_bounds, with_drive_lock, TrackBounds};
 use crate::transcoder::PcmStream;
+
+#[cfg(target_os = "windows")]
+use std::mem::size_of;
+#[cfg(target_os = "windows")]
+use windows::Win32::Devices::Cdrom::{IOCTL_CDROM_RAW_READ, RAW_READ_INFO, CDDA};
+#[cfg(target_os = "windows")]
+use windows::Win32::Foundation::{CloseHandle, HANDLE};
+#[cfg(target_os = "windows")]
+use windows::Win32::System::IO::DeviceIoControl;
+
+#[cfg(target_os = "linux")]
+use std::fs::File;
+#[cfg(target_os = "linux")]
+use std::os::fd::AsRawFd;
+#[cfg(target_os = "linux")]
+use crate::cd::platform::read_cdda_sectors;
 
 /// Bytes per raw CD-DA sector (pure PCM for CDDA track mode).
 const CDDA_SECTOR_BYTES: usize = 2352;
@@ -24,11 +37,14 @@ const FRAMES_PER_SECTOR: usize = 588;
 const CHANNELS: u16 = 2;
 const SAMPLE_RATE: u32 = 44_100;
 const BYTES_PER_SAMPLE: usize = 2;
-/// How many sectors to read per DeviceIoControl call.
+/// How many sectors to read per ioctl call.
 const SECTORS_PER_READ: u32 = 16;
 
 pub struct CddaTrackSource {
+    #[cfg(target_os = "windows")]
     handle: HANDLE,
+    #[cfg(target_os = "linux")]
+    file: File,
     bounds: TrackBounds,
     /// Absolute LBA of the next sector to read.
     next_lba: u32,
@@ -42,18 +58,25 @@ pub struct CddaTrackSource {
     read_failed: Arc<AtomicBool>,
 }
 
-// HANDLE is a raw pointer; ownership is exclusive to this source.
+// Windows HANDLE is a raw pointer; ownership is exclusive to this source.
+#[cfg(target_os = "windows")]
 unsafe impl Send for CddaTrackSource {}
 
 impl CddaTrackSource {
     pub fn open(drive_id: &str, track_number: u32) -> Result<Self, String> {
         let bounds = with_drive_lock(|| read_track_bounds(drive_id, track_number))??;
+        #[cfg(target_os = "windows")]
         let handle = with_drive_lock(|| open_drive_handle(drive_id))??;
+        #[cfg(target_os = "linux")]
+        let file = with_drive_lock(|| open_drive_handle(drive_id))??;
         let sector_count = bounds.sector_count() as u64;
         let total_samples = sector_count * FRAMES_PER_SECTOR as u64 * CHANNELS as u64;
 
         Ok(Self {
+            #[cfg(target_os = "windows")]
             handle,
+            #[cfg(target_os = "linux")]
+            file,
             bounds,
             next_lba: bounds.start_lba,
             buf_pos: 0,
@@ -76,31 +99,48 @@ impl CddaTrackSource {
         let count = remaining.min(SECTORS_PER_READ);
         let byte_len = (count as usize) * CDDA_SECTOR_BYTES;
 
-        // DiskOffset is in bytes using 2048-byte cooked sectors (Windows convention).
-        let info = RAW_READ_INFO {
-            DiskOffset: (self.next_lba as i64) * 2048,
-            SectorCount: count,
-            TrackMode: CDDA,
-        };
+        #[cfg(target_os = "windows")]
+        {
+            // DiskOffset is in bytes using 2048-byte cooked sectors (Windows convention).
+            let info = RAW_READ_INFO {
+                DiskOffset: (self.next_lba as i64) * 2048,
+                SectorCount: count,
+                TrackMode: CDDA,
+            };
 
-        let mut returned = 0u32;
-        unsafe {
-            DeviceIoControl(
-                self.handle,
-                IOCTL_CDROM_RAW_READ,
-                Some((&info as *const RAW_READ_INFO).cast()),
-                size_of::<RAW_READ_INFO>() as u32,
-                Some(self.buf.as_mut_ptr().cast()),
-                byte_len as u32,
-                Some(&mut returned),
-                None,
-            )
-            .map_err(|err| format!("CD-DA read failed at LBA {}: {err}", self.next_lba))?;
+            let mut returned = 0u32;
+            unsafe {
+                DeviceIoControl(
+                    self.handle,
+                    IOCTL_CDROM_RAW_READ,
+                    Some((&info as *const RAW_READ_INFO).cast()),
+                    size_of::<RAW_READ_INFO>() as u32,
+                    Some(self.buf.as_mut_ptr().cast()),
+                    byte_len as u32,
+                    Some(&mut returned),
+                    None,
+                )
+                .map_err(|err| format!("CD-DA read failed at LBA {}: {err}", self.next_lba))?;
+            }
+
+            self.next_lba += count;
+            self.buf_pos = 0;
+            self.buf_len = (returned as usize).min(byte_len);
         }
 
-        self.next_lba += count;
-        self.buf_pos = 0;
-        self.buf_len = (returned as usize).min(byte_len);
+        #[cfg(target_os = "linux")]
+        {
+            let read = read_cdda_sectors(
+                self.file.as_raw_fd(),
+                self.next_lba,
+                count,
+                &mut self.buf[..byte_len],
+            )?;
+            self.next_lba += count;
+            self.buf_pos = 0;
+            self.buf_len = read.min(byte_len);
+        }
+
         if self.buf_len < BYTES_PER_SAMPLE {
             return Ok(false);
         }
@@ -148,6 +188,7 @@ pub fn read_track_pcm(drive_id: &str, track_number: u32) -> Result<PcmStream, St
     })
 }
 
+#[cfg(target_os = "windows")]
 impl Drop for CddaTrackSource {
     fn drop(&mut self) {
         unsafe {

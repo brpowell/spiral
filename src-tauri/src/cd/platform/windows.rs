@@ -29,7 +29,7 @@ use super::session::{
 };
 use crate::cd::types::{CdDisc, CdDiscCdText, CdDrive, CdTrackTitle};
 
-use super::windows_cd_text::parse_cd_text_response;
+use super::cd_text_packs::parse_cd_text_response;
 
 const DISC_READ_ATTEMPTS: u32 = 4;
 const DISC_READ_ATTEMPTS_KNOWN: u32 = 2;

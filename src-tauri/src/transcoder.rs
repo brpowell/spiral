@@ -12,8 +12,8 @@ mod wav;
 
 pub use pipeline::transcode_file_with_metadata;
 
-// CD rip encodes from PCM on both platforms (macOS: cddafs AIFF → PCM; Windows: CD-DA sectors).
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+// CD rip encodes from PCM (macOS: cddafs AIFF → PCM; Windows/Linux: CD-DA sectors).
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 pub use pipeline::encode_pcm_with_metadata;
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 pub use pcm_stream::PcmStream;

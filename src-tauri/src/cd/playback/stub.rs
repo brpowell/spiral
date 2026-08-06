@@ -1,5 +1,5 @@
 //! CD playback stub for platforms without optical support.
-#![cfg(not(any(target_os = "macos", target_os = "windows")))]
+#![cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 
 use super::CdPlaybackStarted;
 use tauri::AppHandle;

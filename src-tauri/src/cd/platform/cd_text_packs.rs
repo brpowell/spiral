@@ -1,5 +1,5 @@
-//! Parse MMC CD-Text packs from `IOCTL_CDROM_READ_TOC_EX` (Format = CDTEXT).
-#![cfg(target_os = "windows")]
+//! Parse MMC CD-Text packs (Format = CDTEXT / READ TOC Format 5).
+//! Shared by Windows IOCTL and Linux SG_IO paths.
 
 use std::collections::HashMap;
 
@@ -23,7 +23,7 @@ impl ParsedCdText {
     }
 }
 
-/// Parse a full `CDROM_TOC_CD_TEXT_DATA` buffer (Length + reserved + packs).
+/// Parse a full CD-Text TOC response (Length + reserved + packs).
 pub fn parse_cd_text_response(raw: &[u8]) -> ParsedCdText {
     if raw.len() < HEADER_LEN {
         return ParsedCdText::default();

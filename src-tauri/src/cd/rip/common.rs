@@ -6,15 +6,15 @@ use std::path::PathBuf;
 use crate::library_organize::sanitize_filename;
 use crate::models::TrackMetadataUpdate;
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use crate::cd::platform::session::{begin_phase, DriveSessionPhase};
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use crate::cd::playback::read_track_pcm;
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use crate::encoding_profiles;
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use crate::metadata_backup::MetadataBackupConfig;
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use crate::transcoder::{self, PcmStream};
 
 pub fn cleanup_rip_temp(drive_id: &str) {
@@ -47,7 +47,7 @@ fn rip_output_path(
 }
 
 /// Encode CD-DA PCM with the given profile and write tags (no metadata backups).
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 fn encode_rip_pcm(
     pcm: &PcmStream,
     drive_id: &str,
@@ -67,8 +67,8 @@ fn encode_rip_pcm(
 
 /// Rip one track: platform `read_track_pcm` → shared encode.
 ///
-/// macOS reads cddafs AIFF; Windows reads raw CD-DA sectors. Both feed the same encoder.
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+/// macOS reads cddafs AIFF; Windows/Linux read raw CD-DA sectors. Both feed the same encoder.
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 pub fn rip_cd_track(
     drive_id: &str,
     track_number: u32,

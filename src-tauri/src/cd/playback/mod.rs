@@ -1,6 +1,6 @@
 //! Native CD audio playback.
 //!
-//! Platforms supply a PCM source (macOS: cddafs AIFF; Windows: raw CD-DA sectors).
+//! Platforms supply a PCM source (macOS: cddafs AIFF; Windows/Linux: raw CD-DA sectors).
 //! The shared engine streams f32 chunks to the frontend Web Audio pipeline.
 //! Position / end / error updates reach the frontend as Tauri events.
 
@@ -71,12 +71,16 @@ mod aiff;
 #[cfg(target_os = "macos")]
 mod macos;
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "linux"))]
 mod cdda;
+
 #[cfg(target_os = "windows")]
 mod windows;
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(target_os = "linux")]
+mod linux;
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 mod stub;
 
 #[cfg(target_os = "macos")]
@@ -88,6 +92,12 @@ pub use windows::{ack_pcm_chunks, pause, resume, seek, start, stop, stop_for_dri
 #[cfg(target_os = "windows")]
 pub use cdda::read_track_pcm;
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(target_os = "linux")]
+pub use linux::{ack_pcm_chunks, pause, resume, seek, start, stop, stop_for_drive};
+
+#[cfg(target_os = "linux")]
+pub use cdda::read_track_pcm;
+
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 #[allow(unused_imports)]
 pub use stub::{ack_pcm_chunks, pause, resume, seek, start, stop, stop_for_drive};

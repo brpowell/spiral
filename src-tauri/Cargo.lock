@@ -16,6 +16,7 @@ dependencies = [
  "hex",
  "id3",
  "image",
+ "libc",
  "lofty",
  "metaflac",
  "mp3-duration",

@@ -29,4 +29,4 @@ If a Rust link step fails with `unable to find library -lstdc++` (Rust's bundled
 
 - `npm test` runs both suites: frontend `vitest` (~600 tests) and backend `cargo test` (~340 tests). The `.husky/pre-commit` hook runs `npm test`, so commits build and run the whole Rust backend — expect it to be slow on a cold cargo cache.
 - `npm run build` (`tsc && vite build`) currently FAILS at the `tsc` step on pre-existing type errors in `*.test.ts` files (the strict type-check gate includes test files). This is a repo code issue, not an environment problem: `npm run tauri dev` and plain `npx vite build` both succeed. Do not try to "fix the environment" for this.
-- CD ripping and some native audio paths are macOS/Windows-first and stubbed on Linux.
+- CD ripping works on macOS, Windows, and Linux (`/dev/sr*`); some other native audio paths remain macOS-first.
