@@ -43,6 +43,8 @@ interface AlbumArtLightboxProps {
   lyricsFetchFeedback?: LyricsFetchFeedback | null;
   onFetchLyrics?: () => void;
   onAddLyricsManually?: () => void;
+  /** When false, Escape / backdrop / art click do not close. Default true. */
+  dismissible?: boolean;
 }
 
 export function AlbumArtLightbox({
@@ -61,21 +63,22 @@ export function AlbumArtLightbox({
   lyricsFetchFeedback = null,
   onFetchLyrics,
   onAddLyricsManually,
+  dismissible = true,
 }: AlbumArtLightboxProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !dismissible) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onClose, dismissible]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !dismissible) return;
 
     let pressedOutsidePanel = false;
 
@@ -110,7 +113,7 @@ export function AlbumArtLightbox({
       window.removeEventListener("mousedown", onMouseDown, true);
       window.removeEventListener("mouseup", onMouseUp, true);
     };
-  }, [open, onClose]);
+  }, [open, onClose, dismissible]);
 
   const displayLyrics = lyrics && lyrics.plainText.trim() ? lyrics : null;
   const showLyricsColumn =
@@ -166,6 +169,7 @@ export function AlbumArtLightbox({
                 style={{ borderRadius: LIGHTBOX_ART_RADIUS }}
                 onClick={(e: MouseEvent<HTMLButtonElement>) => {
                   e.stopPropagation();
+                  if (!dismissible) return;
                   onClose();
                 }}
                 aria-label={alt ? `Close ${alt} album art` : "Close album art"}

@@ -106,7 +106,9 @@ export function LyricsCandidatePicker({
           ) : null}
 
           <div className="lyrics-candidate-picker__results">
-            <h3 className="lyrics-candidate-picker__results-heading">Results</h3>
+            <h3 className="lyrics-candidate-picker__results-heading">
+              Results
+            </h3>
             <ul className="lyrics-candidate-picker__list">
               {candidates.map((candidate) => (
                 <li key={candidate.id}>

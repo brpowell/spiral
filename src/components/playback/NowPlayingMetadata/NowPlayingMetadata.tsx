@@ -16,12 +16,19 @@ import {
   prepareLyricsFetchForLightbox,
   startLyricsFetchForTrack,
 } from "../../../lib/lyricsFetchToast";
-import { LYRICS_FETCH_INSTRUMENTAL } from "../../../lib/lyricsFetch";
+import { commitFetchedLyricsForTrack } from "../../../lib/lyricsFetchCommit";
+import {
+  createLyricsFetchFeedback,
+  LYRICS_FETCH_INSTRUMENTAL,
+  LYRICS_FETCH_NOT_FOUND,
+  type LyricsLibraryTrackRef,
+} from "../../../lib/lyricsFetch";
+import { missingFileErrorDetail } from "../../../lib/missingFileTrack";
 import { useLibrarySettingsStore } from "../../../store/useLibrarySettingsStore";
 import { usePlaybackSettingsStore } from "../../../store/usePlaybackSettingsStore";
 import { useLyricsFetchStore } from "../../../store/useLyricsFetchStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
-import type { TrackLyrics } from "../../../types/lyrics";
+import type { LyricsSearchCandidate, TrackLyrics } from "../../../types/lyrics";
 import type { Track } from "../../../types/track";
 import {
   AlbumArtLightbox,
@@ -29,9 +36,13 @@ import {
   NOW_PLAYING_ART_LAYOUT_ID,
   NOW_PLAYING_ART_RADIUS,
 } from "../../AlbumArtLightbox/AlbumArtLightbox";
+import { LyricsCandidatePicker } from "../../LyricsCandidatePicker/LyricsCandidatePicker";
 import { ScrollingText } from "../../ScrollingText/ScrollingText";
 import { IconAlbumPlaceholder } from "../../icons";
 import "./NowPlayingMetadata.css";
+
+/** Stable fallback so Zustand selectors don't return a fresh `[]` each read. */
+const EMPTY_LYRICS_CANDIDATES: LyricsSearchCandidate[] = [];
 
 interface NowPlayingMetadataProps {
   className?: string;
@@ -229,9 +240,25 @@ export function NowPlayingMetadata({
       ? (s.pendingByTrackId[metadataTrackId]?.feedback ?? null)
       : null,
   );
+  const lyricsCandidates = useLyricsFetchStore((s) =>
+    metadataTrackId != null
+      ? (s.pendingByTrackId[metadataTrackId]?.candidates ??
+        EMPTY_LYRICS_CANDIDATES)
+      : EMPTY_LYRICS_CANDIDATES,
+  );
   const lyricsFetchFeedback = isInstrumental
     ? LYRICS_FETCH_INSTRUMENTAL
     : lyricsFetchFeedbackFromStore;
+  const showLyricsCandidatePicker = artOpen && lyricsCandidates.length > 1;
+  const lyricsLibraryTrack = useMemo((): LyricsLibraryTrackRef | null => {
+    if (!metadataTrack) return null;
+    return {
+      title: metadataTrack.title,
+      artist: metadataTrack.artist?.trim() || "",
+      album: metadataTrack.album?.trim() || "",
+      durationSeconds: metadataTrack.durationSeconds ?? null,
+    };
+  }, [metadataTrack]);
   const artSrc = useAssetUrl(metadataTrack?.artPath);
   const { displayPosition } = usePlaybackProgress(
     metadataTrack?.durationSeconds ?? 0,
@@ -277,6 +304,43 @@ export function NowPlayingMetadata({
     if (!metadataTrack || lyricsFetchPending) return;
     startLyricsFetchForTrack(metadataTrack);
   }, [lyricsFetchPending, metadataTrack]);
+
+  const handleSelectLyricsCandidate = useCallback(
+    async (candidate: LyricsSearchCandidate) => {
+      if (!metadataTrack) return;
+      useLyricsFetchStore.getState().clearPending(metadataTrack.id);
+      const result = await commitFetchedLyricsForTrack(metadataTrack, {
+        plainText: candidate.lyrics.plainText,
+        lines: candidate.lyrics.lines,
+        format: candidate.lyrics.format,
+      });
+      if (result.status === "ok") return;
+      if (result.status === "missing_file") {
+        useLyricsFetchStore.getState().applyOutcome(metadataTrack.id, {
+          feedback: createLyricsFetchFeedback(
+            missingFileErrorDetail(metadataTrack),
+          ),
+          candidates: [],
+        });
+        return;
+      }
+      useLyricsFetchStore.getState().applyOutcome(metadataTrack.id, {
+        feedback: createLyricsFetchFeedback(
+          "Fetched lyrics couldn't be saved. Try again or use Save.",
+        ),
+        candidates: [],
+      });
+    },
+    [metadataTrack],
+  );
+
+  const handleDismissLyricsCandidates = useCallback(() => {
+    if (metadataTrackId == null) return;
+    useLyricsFetchStore.getState().applyOutcome(metadataTrackId, {
+      feedback: LYRICS_FETCH_NOT_FOUND,
+      candidates: [],
+    });
+  }, [metadataTrackId]);
 
   const handleAddLyricsManually = useCallback(() => {
     if (metadataTrackId == null) return;
@@ -494,8 +558,17 @@ export function NowPlayingMetadata({
           lyricsFetchFeedback={lyricsFetchFeedback}
           onFetchLyrics={handleFetchLyrics}
           onAddLyricsManually={handleAddLyricsManually}
+          dismissible={!showLyricsCandidatePicker}
         />
       ) : null}
+
+      <LyricsCandidatePicker
+        open={showLyricsCandidatePicker}
+        candidates={lyricsCandidates}
+        libraryTrack={lyricsLibraryTrack}
+        onSelect={handleSelectLyricsCandidate}
+        onClose={handleDismissLyricsCandidates}
+      />
     </LayoutGroup>
   );
 }

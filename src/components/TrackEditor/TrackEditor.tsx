@@ -5,7 +5,10 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
 import { parseArtistField } from "../../lib/artistNames";
 import { collectArtistNameSuggestions } from "../../lib/artistNameSuggestions";
-import { collectGenreSuggestions, collectAlbumSuggestions } from "../../lib/trackFieldSuggestions";
+import {
+  collectGenreSuggestions,
+  collectAlbumSuggestions,
+} from "../../lib/trackFieldSuggestions";
 import { parseTrackMetadata } from "../../lib/metadata";
 import {
   buildTrackMetadataFromForm,
@@ -42,11 +45,19 @@ import {
   setTrackRating,
   writeTrackMetadata,
 } from "../../lib/tauri";
-import { usePlayerStore, type TrackEditorTab } from "../../store/usePlayerStore";
+import {
+  usePlayerStore,
+  type TrackEditorTab,
+} from "../../store/usePlayerStore";
 import { useLyricsFetchStore } from "../../store/useLyricsFetchStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
-import type { LyricsFormat, LyricsLine, LyricsSearchCandidate, LyricsSource } from "../../types/lyrics";
+import type {
+  LyricsFormat,
+  LyricsLine,
+  LyricsSearchCandidate,
+  LyricsSource,
+} from "../../types/lyrics";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import {
   Modal,
@@ -63,7 +74,7 @@ import { EntityArt } from "../EntityArt/EntityArt";
 import { TrackEditorDetailsTab } from "./TrackEditorDetailsTab";
 import { TrackEditorFileTab } from "./TrackEditorFileTab";
 import { TrackEditorLyricsTab } from "./TrackEditorLyricsTab";
-import { LyricsCandidatePicker } from "./LyricsCandidatePicker";
+import { LyricsCandidatePicker } from "../LyricsCandidatePicker/LyricsCandidatePicker";
 import "./TrackEditor.css";
 
 type LoadedTrackLyrics = {
@@ -94,8 +105,7 @@ async function loadTrackLyrics(track: Track): Promise<LoadedTrackLyrics> {
     if (dbLyrics?.plainText) {
       return {
         text: dbLyrics.plainText,
-        syncedLines:
-          dbLyrics.format === "line_synced" ? dbLyrics.lines : null,
+        syncedLines: dbLyrics.format === "line_synced" ? dbLyrics.lines : null,
         source: dbLyrics.source,
         instrumental: false,
       };
@@ -138,7 +148,9 @@ export function TrackEditor() {
   const closeTrackEditor = usePlayerStore((s) => s.closeTrackEditor);
   const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
   const updateTracksInLibrary = usePlayerStore((s) => s.updateTracksInLibrary);
-  const notifyTrackLyricsUpdated = usePlayerStore((s) => s.notifyTrackLyricsUpdated);
+  const notifyTrackLyricsUpdated = usePlayerStore(
+    (s) => s.notifyTrackLyricsUpdated,
+  );
 
   const tracks = useMemo(
     () =>
@@ -166,7 +178,9 @@ export function TrackEditor() {
   const dialogRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<TrackEditorTab>("details");
   const [form, setForm] = useState<TrackEditorForm | null>(null);
-  const [originalForm, setOriginalForm] = useState<TrackEditorForm | null>(null);
+  const [originalForm, setOriginalForm] = useState<TrackEditorForm | null>(
+    null,
+  );
   const [pendingArtPath, setPendingArtPath] = useState<string | null>(null);
   const [originalArtPath, setOriginalArtPath] = useState<string | null>(null);
   const [artSourcePath, setArtSourcePath] = useState<string | null>(null);
@@ -177,23 +191,26 @@ export function TrackEditor() {
     total: number;
   } | null>(null);
   const [fetchingArt, setFetchingArt] = useState(false);
-  const [coverCandidates, setCoverCandidates] = useState<CoverArtCandidate[]>([]);
+  const [coverCandidates, setCoverCandidates] = useState<CoverArtCandidate[]>(
+    [],
+  );
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [lyricsFetchFeedback, setLyricsFetchFeedback] =
     useState<LyricsFetchFeedback | null>(null);
   const [committingLyrics, setCommittingLyrics] = useState(false);
-  const [lyricsCandidates, setLyricsCandidates] = useState<LyricsSearchCandidate[]>(
-    [],
-  );
+  const [lyricsCandidates, setLyricsCandidates] = useState<
+    LyricsSearchCandidate[]
+  >([]);
   const [artDragOver, setArtDragOver] = useState(false);
 
-  const isOpen = editingTrackIds.length > 0 && tracks.length > 0 && form != null;
+  const isOpen =
+    editingTrackIds.length > 0 && tracks.length > 0 && form != null;
 
   const lyricsFetchPending = useLyricsFetchStore((s) =>
     referenceTrack
       ? s.fetchingTrackIds.has(referenceTrack.id) ||
-      s.queuedTrackIds.has(referenceTrack.id)
+        s.queuedTrackIds.has(referenceTrack.id)
       : false,
   );
 
@@ -232,7 +249,9 @@ export function TrackEditor() {
     setSaveProgress(null);
 
     if (!isBulk && referenceTrack) {
-      const pending = useLyricsFetchStore.getState().takePending(referenceTrack.id);
+      const pending = useLyricsFetchStore
+        .getState()
+        .takePending(referenceTrack.id);
       setLyricsFetchFeedback(pending?.feedback ?? null);
       setLyricsCandidates(pending?.candidates ?? []);
     } else {
@@ -358,32 +377,35 @@ export function TrackEditor() {
     [originalForm],
   );
 
-  const setLyricsInstrumental = useCallback((instrumental: boolean) => {
-    setForm((prev) => {
-      if (!prev || !originalForm) return prev;
-      if (instrumental === prev.lyricsInstrumental) return prev;
+  const setLyricsInstrumental = useCallback(
+    (instrumental: boolean) => {
+      setForm((prev) => {
+        if (!prev || !originalForm) return prev;
+        if (instrumental === prev.lyricsInstrumental) return prev;
 
-      // Keep lyrics in form state while marked instrumental so a quick
-      // retoggle restores them; save ignores text when instrumental is set.
-      const next = {
-        ...prev,
-        lyricsInstrumental: instrumental,
-      };
-
-      if (lyricsEditorStateEqual(next, originalForm)) {
-        return {
+        // Keep lyrics in form state while marked instrumental so a quick
+        // retoggle restores them; save ignores text when instrumental is set.
+        const next = {
           ...prev,
-          lyrics: originalForm.lyrics,
-          lyricsSyncedLines: originalForm.lyricsSyncedLines,
-          lyricsSource: originalForm.lyricsSource,
-          lyricsInstrumental: originalForm.lyricsInstrumental,
+          lyricsInstrumental: instrumental,
         };
-      }
 
-      return next;
-    });
-    setLyricsFetchFeedback(null);
-  }, [originalForm]);
+        if (lyricsEditorStateEqual(next, originalForm)) {
+          return {
+            ...prev,
+            lyrics: originalForm.lyrics,
+            lyricsSyncedLines: originalForm.lyricsSyncedLines,
+            lyricsSource: originalForm.lyricsSource,
+            lyricsInstrumental: originalForm.lyricsInstrumental,
+          };
+        }
+
+        return next;
+      });
+      setLyricsFetchFeedback(null);
+    },
+    [originalForm],
+  );
 
   const commitFetchedLyrics = useCallback(
     async (input: {
@@ -395,8 +417,7 @@ export function TrackEditor() {
 
       const lyricsState = {
         lyrics: input.plainText,
-        lyricsSyncedLines:
-          input.format === "line_synced" ? input.lines : null,
+        lyricsSyncedLines: input.format === "line_synced" ? input.lines : null,
         lyricsSource: "lrclib" as const,
         lyricsInstrumental: false,
       };
@@ -433,15 +454,15 @@ export function TrackEditor() {
 
     const artist = form?.artist.trim() || referenceTrack.artist?.trim() || "";
     const albumArtist =
-      form?.albumArtist.trim() ||
-      referenceTrack.albumArtist?.trim() ||
-      "";
+      form?.albumArtist.trim() || referenceTrack.albumArtist?.trim() || "";
     const title = form?.title.trim() || referenceTrack.title.trim();
     const album = form?.album.trim() || referenceTrack.album?.trim() || "";
 
     if (!artist || !title) {
       setLyricsFetchFeedback(
-        createLyricsFetchFeedback("Artist and title are required to fetch lyrics."),
+        createLyricsFetchFeedback(
+          "Artist and title are required to fetch lyrics.",
+        ),
       );
       return;
     }
@@ -502,7 +523,10 @@ export function TrackEditor() {
     if (!referenceTrack) return;
     setSaveError(null);
     try {
-      const cached = await cacheArtFromFile(sourcePath, referenceTrack.filePath);
+      const cached = await cacheArtFromFile(
+        sourcePath,
+        referenceTrack.filePath,
+      );
       setArtSourcePath(sourcePath);
       setSelectedCoverUrl(null);
       setPendingArtPath(cached);
@@ -568,7 +592,9 @@ export function TrackEditor() {
     setArtSourcePath(null);
   };
 
-  const resolveArtPathForTrack = async (track: Track): Promise<string | null> => {
+  const resolveArtPathForTrack = async (
+    track: Track,
+  ): Promise<string | null> => {
     if (selectedCoverUrl) {
       return cacheArtFromUrl(selectedCoverUrl, track.filePath);
     }
@@ -708,9 +734,7 @@ export function TrackEditor() {
     }
   };
 
-  const displayArtSrc = useAssetUrl(
-    selectedCoverUrl ? null : pendingArtPath,
-  );
+  const displayArtSrc = useAssetUrl(selectedCoverUrl ? null : pendingArtPath);
   const previewSrc = selectedCoverUrl ?? displayArtSrc;
 
   const saveLabel = saving
@@ -750,9 +774,7 @@ export function TrackEditor() {
             inert={discardPrompt || undefined}
           >
             <ModalHeader
-              className={
-                isBulk ? undefined : "track-editor__identity-header"
-              }
+              className={isBulk ? undefined : "track-editor__identity-header"}
             >
               {isBulk ? (
                 <ModalHeaderMain>
