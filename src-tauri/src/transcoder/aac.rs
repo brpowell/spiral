@@ -53,6 +53,13 @@ pub fn encode_pcm_to_aac_m4a(
     write_aac_m4a(file, pcm, &encoded)
         .map_err(|err| format!("Failed to write {}: {err}", dest.display()))?;
 
+    crate::itunes_smpb::write_itunes_smpb(
+        dest,
+        encoded.encoder_delay,
+        encoded.padding_frames,
+        u64::from(encoded.pcm_frames),
+    )?;
+
     if !dest.is_file() {
         return Err(error::format_missing_output(dest));
     }
@@ -71,6 +78,10 @@ struct EncodedAac {
     packets: Vec<AacPacket>,
     /// Original PCM frames (per channel), used for movie/media duration.
     pcm_frames: u32,
+    /// FDK encoder delay (priming frames) for gapless `iTunSMPB`.
+    encoder_delay: u32,
+    /// Trailing padding frames advertised in `iTunSMPB`.
+    padding_frames: u32,
 }
 
 fn encode_aac_packets(pcm: &PcmStream) -> Result<EncodedAac, String> {
@@ -132,8 +143,12 @@ fn encode_aac_packets(pcm: &PcmStream) -> Result<EncodedAac, String> {
         }
     }
 
-    // Keep frames covering the original PCM length (drop flush padding).
-    let frames_needed = pcm_frames.div_ceil(frame_length).max(1) as usize;
+    // Keep enough packets for encoder delay + original PCM (drop only flush padding).
+    let encoder_delay = delay as u32;
+    let frames_needed = pcm_frames
+        .saturating_add(encoder_delay)
+        .div_ceil(frame_length)
+        .max(1) as usize;
     if packets.len() < frames_needed {
         return Err(format!(
             "AAC encoder produced {} packets, need at least {frames_needed}",
@@ -142,10 +157,17 @@ fn encode_aac_packets(pcm: &PcmStream) -> Result<EncodedAac, String> {
     }
     packets.truncate(frames_needed);
 
+    let encoded_samples = (packets.len() as u32).saturating_mul(frame_length);
+    let padding_frames = encoded_samples
+        .saturating_sub(encoder_delay)
+        .saturating_sub(pcm_frames);
+
     Ok(EncodedAac {
         audio_specific_config,
         packets,
         pcm_frames,
+        encoder_delay,
+        padding_frames,
     })
 }
 
@@ -493,11 +515,58 @@ mod tests {
         assert!(dest.is_file());
         assert!(dest.metadata().unwrap().len() > 64);
 
+        let smpb = crate::itunes_smpb::read_itunes_smpb(&dest).expect("iTunSMPB");
+        assert!(smpb.delay_frames > 0);
+        assert_eq!(smpb.original_frames, Some((44_100 / 5) as u64));
+
         let decoded = decode::pcm_from_audio_file(&dest).expect("decode aac m4a");
         assert_eq!(decoded.channels, 2);
         assert_eq!(decoded.sample_rate, 44_100);
         // Lossy: allow a little length slack from framing.
         assert!(decoded.samples.len() > 44_100 / 5);
+
+        let _ = std::fs::remove_file(&dest);
+    }
+
+    #[test]
+    fn streaming_decoder_trims_aac_itunes_smpb() {
+        let pcm_frames = 22_050u32;
+        let mut samples = vec![0i16; pcm_frames as usize * 2];
+        samples[0] = i16::MAX / 2;
+        samples[1] = i16::MAX / 2;
+        let pcm = PcmStream {
+            channels: 2,
+            sample_rate: 44_100,
+            samples,
+        };
+        let dest = std::env::temp_dir().join(format!(
+            "spiral-gapless-aac-{}.m4a",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&dest);
+        encode_pcm_to_aac_m4a(&pcm, &dest, &sample_profile()).expect("encode aac");
+
+        let smpb = crate::itunes_smpb::read_itunes_smpb(&dest).expect("iTunSMPB written");
+        assert!(smpb.delay_frames > 0, "FDK should report encoder delay");
+        assert_eq!(smpb.original_frames, Some(u64::from(pcm_frames)));
+
+        let mut source = crate::file_playback::decoder::StreamingDecoder::open(&dest)
+            .expect("open aac");
+        assert!(
+            (source.duration_seconds() - f64::from(pcm_frames) / 44_100.0).abs() < 0.05,
+            "duration should match original PCM length"
+        );
+        let channels = u64::from(source.channels().max(1));
+        let mut sample_count = 0u64;
+        while source.next_sample().is_some() {
+            sample_count += 1;
+        }
+        let emitted = sample_count / channels;
+        assert_eq!(
+            emitted,
+            u64::from(pcm_frames),
+            "AAC trim should emit exactly original frame count"
+        );
 
         let _ = std::fs::remove_file(&dest);
     }

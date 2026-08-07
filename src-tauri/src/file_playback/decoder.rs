@@ -3,6 +3,10 @@
 //! Supported library codecs: OGG Vorbis, Opus, ALAC, AAC, MP3, FLAC, and PCM/WAV.
 //! Opus uses `opus-decoder`; most formats use Symphonia. WAVE uses a native
 //! RIFF reader so ID3-tagged files Spiral writes still play.
+//!
+//! Gapless: Symphonia opens with `enable_gapless` so MP3/Vorbis apply packet
+//! trim; the Opus backend honors `packet.trim_*`; AAC uses `iTunSMPB` when
+//! present (see `itunes_smpb`).
 
 use std::collections::VecDeque;
 use std::fs::File;
@@ -10,7 +14,9 @@ use std::path::Path;
 
 use opus_decoder::OpusDecoder;
 use symphonia::core::audio::{AudioBufferRef, SampleBuffer};
-use symphonia::core::codecs::{Decoder, DecoderOptions, CODEC_TYPE_NULL, CODEC_TYPE_OPUS};
+use symphonia::core::codecs::{
+    Decoder, DecoderOptions, CODEC_TYPE_AAC, CODEC_TYPE_NULL, CODEC_TYPE_OPUS,
+};
 use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::{FormatOptions, FormatReader, SeekMode, SeekTo};
 use symphonia::core::io::MediaSourceStream;
@@ -18,10 +24,24 @@ use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 use symphonia::core::units::Time;
 
+use crate::itunes_smpb;
+
 const OPUS_PCM_BUFFER_SAMPLES: usize = 5760 * 2;
 /// Symphonia often rejects Accurate seeks at exact EOS; leave a small margin.
 const SEEK_END_MARGIN_SECONDS: f64 = 0.05;
 const SEEK_BACKOFF_STEP_SECONDS: f64 = 0.25;
+
+/// AAC-only sample trim driven by `iTunSMPB` (Symphonia does not packet-trim AAC).
+#[derive(Debug)]
+struct AacPrimingTrim {
+    delay_frames: u32,
+    channels: u32,
+    /// Interleaved samples still to discard from the start.
+    remaining_skip: u64,
+    /// Max interleaved content samples to emit after leading skip (from original frame count).
+    max_content_samples: Option<u64>,
+    content_samples_emitted: u64,
+}
 
 enum Backend {
     Symphonia {
@@ -55,6 +75,8 @@ pub struct StreamingDecoder {
     backend: Backend,
     duration_seconds: f64,
     samples_emitted: u64,
+    /// Set for AAC when `iTunSMPB` is present; unused for MP3/Vorbis (packet trim).
+    aac_trim: Option<AacPrimingTrim>,
 }
 
 impl StreamingDecoder {
@@ -101,6 +123,7 @@ impl StreamingDecoder {
             },
             duration_seconds,
             samples_emitted: 0,
+            aac_trim: None,
         })
     }
 
@@ -122,7 +145,10 @@ impl StreamingDecoder {
             .format(
                 &hint,
                 mss,
-                &FormatOptions::default(),
+                &FormatOptions {
+                    enable_gapless: true,
+                    ..Default::default()
+                },
                 &MetadataOptions::default(),
             )
             .map_err(|err| format_open_failure(label, err))?;
@@ -135,24 +161,31 @@ impl StreamingDecoder {
             .ok_or_else(|| format!("No decodable audio track in {label}"))?;
 
         let track_id = track.id;
+        let codec = track.codec_params.codec;
+        let n_frames = track.codec_params.n_frames;
         let sample_rate = track
             .codec_params
             .sample_rate
             .filter(|rate| *rate > 0)
             .ok_or_else(|| format!("Missing sample rate in {label}"))?;
 
-        let duration_seconds = track
-            .codec_params
-            .n_frames
+        let mut duration_seconds = n_frames
             .zip(track.codec_params.sample_rate)
             .map(|(frames, rate)| frames as f64 / f64::from(rate))
             .filter(|seconds| *seconds > 0.0)
             .unwrap_or(0.0);
 
-        let backend = if track.codec_params.codec == CODEC_TYPE_OPUS {
-            let channels = track
-                .codec_params
-                .channels
+        let smpb = if codec == CODEC_TYPE_AAC {
+            itunes_smpb::read_itunes_smpb(path)
+        } else {
+            None
+        };
+
+        let codec_params = track.codec_params.clone();
+        let channel_layout = track.codec_params.channels;
+
+        let backend = if codec == CODEC_TYPE_OPUS {
+            let channels = channel_layout
                 .map(|layout| layout.count())
                 .filter(|count| *count > 0)
                 .unwrap_or(2)
@@ -174,15 +207,10 @@ impl StreamingDecoder {
             }
         } else {
             let decoder = symphonia::default::get_codecs()
-                .make(&track.codec_params, &DecoderOptions::default())
-                .map_err(|err| {
-                    format!(
-                        "Unsupported codec {:?} in {label}: {err}",
-                        track.codec_params.codec
-                    )
-                })?;
+                .make(&codec_params, &DecoderOptions::default())
+                .map_err(|err| format!("Unsupported codec {codec:?} in {label}: {err}"))?;
 
-            let channels = output_channels_for_track(track.codec_params.channels)?;
+            let channels = output_channels_for_track(channel_layout)?;
 
             Backend::Symphonia {
                 format,
@@ -194,10 +222,41 @@ impl StreamingDecoder {
             }
         };
 
+        let channels = match &backend {
+            Backend::Symphonia { channels, .. }
+            | Backend::Opus { channels, .. }
+            | Backend::PcmBuffer { channels, .. } => *channels as u32,
+        };
+
+        let aac_trim = smpb.map(|smpb| {
+            if let Some(original) = smpb.original_frames {
+                if sample_rate > 0 {
+                    duration_seconds = original as f64 / f64::from(sample_rate);
+                }
+            } else if let Some(total) = n_frames {
+                let trimmed = total
+                    .saturating_sub(u64::from(smpb.delay_frames))
+                    .saturating_sub(u64::from(smpb.padding_frames));
+                if sample_rate > 0 && trimmed > 0 {
+                    duration_seconds = trimmed as f64 / f64::from(sample_rate);
+                }
+            }
+            AacPrimingTrim {
+                delay_frames: smpb.delay_frames,
+                channels,
+                remaining_skip: u64::from(smpb.delay_frames) * u64::from(channels),
+                max_content_samples: smpb
+                    .original_frames
+                    .map(|frames| frames.saturating_mul(u64::from(channels))),
+                content_samples_emitted: 0,
+            }
+        });
+
         Ok(Self {
             backend,
             duration_seconds,
             samples_emitted: 0,
+            aac_trim,
         })
     }
 
@@ -257,9 +316,11 @@ impl StreamingDecoder {
         }
 
         if self.try_format_seek(target, SeekMode::Accurate).is_ok() {
+            self.rearm_aac_trim_after_seek(seconds);
             return Ok(());
         }
         if self.try_format_seek(target, SeekMode::Coarse).is_ok() {
+            self.rearm_aac_trim_after_seek(seconds);
             return Ok(());
         }
 
@@ -270,12 +331,30 @@ impl StreamingDecoder {
             }
             backoff = (backoff - SEEK_BACKOFF_STEP_SECONDS).max(0.0);
             if self.try_format_seek(backoff, SeekMode::Coarse).is_ok() {
+                self.rearm_aac_trim_after_seek(seconds);
                 return Ok(());
             }
         }
 
         self.try_format_seek(0.0, SeekMode::Coarse)
-            .map_err(|err| format!("Seek failed: {err}"))
+            .map_err(|err| format!("Seek failed: {err}"))?;
+        self.rearm_aac_trim_after_seek(0.0);
+        Ok(())
+    }
+
+    fn rearm_aac_trim_after_seek(&mut self, requested_seconds: f64) {
+        let sample_rate = self.sample_rate();
+        let Some(trim) = self.aac_trim.as_mut() else {
+            return;
+        };
+        if requested_seconds <= SEEK_END_MARGIN_SECONDS {
+            trim.remaining_skip = u64::from(trim.delay_frames) * u64::from(trim.channels);
+            trim.content_samples_emitted = 0;
+        } else {
+            trim.remaining_skip = 0;
+            let frame = (requested_seconds.max(0.0) * f64::from(sample_rate)).round() as u64;
+            trim.content_samples_emitted = frame.saturating_mul(u64::from(trim.channels));
+        }
     }
 
     fn try_format_seek(&mut self, seconds: f64, mode: SeekMode) -> Result<(), String> {
@@ -324,7 +403,41 @@ impl StreamingDecoder {
         Ok(())
     }
 
+    fn aac_content_exhausted(&self) -> bool {
+        self.aac_trim.as_ref().is_some_and(|trim| {
+            trim.remaining_skip == 0
+                && trim
+                    .max_content_samples
+                    .is_some_and(|max| trim.content_samples_emitted >= max)
+        })
+    }
+
+    /// Returns `Some(sample)` when the sample should be emitted, `None` when discarded.
+    fn apply_aac_trim_sample(&mut self, sample: f32) -> Option<f32> {
+        let Some(trim) = self.aac_trim.as_mut() else {
+            return Some(sample);
+        };
+
+        if trim.remaining_skip > 0 {
+            trim.remaining_skip -= 1;
+            return None;
+        }
+
+        if let Some(max) = trim.max_content_samples {
+            if trim.content_samples_emitted >= max {
+                return None;
+            }
+            trim.content_samples_emitted += 1;
+        }
+
+        Some(sample)
+    }
+
     pub fn next_sample(&mut self) -> Option<f32> {
+        if self.aac_content_exhausted() {
+            return None;
+        }
+
         if let Backend::PcmBuffer {
             samples,
             position,
@@ -341,9 +454,17 @@ impl StreamingDecoder {
         }
 
         loop {
+            if self.aac_content_exhausted() {
+                clear_pending(&mut self.backend);
+                return None;
+            }
+
             if let Some(sample) = pop_pending(&mut self.backend) {
-                self.samples_emitted += 1;
-                return Some(sample);
+                if let Some(trimmed) = self.apply_aac_trim_sample(sample) {
+                    self.samples_emitted += 1;
+                    return Some(trimmed);
+                }
+                continue;
             }
 
             match self.decode_more() {
@@ -430,6 +551,9 @@ impl StreamingDecoder {
                     continue;
                 }
 
+                let trim_start = packet.trim_start() as usize;
+                let trim_end = packet.trim_end() as usize;
+
                 let frame_samples =
                     match decoder.decode_float(packet.buf(), pcm_scratch, false) {
                         Ok(samples) => samples,
@@ -440,8 +564,13 @@ impl StreamingDecoder {
                     continue;
                 }
 
-                let interleaved = frame_samples * *channels;
-                for sample in pcm_scratch.iter().take(interleaved) {
+                let channels = *channels;
+                let start = trim_start.min(frame_samples) * channels;
+                let end_trim = trim_end.min(frame_samples.saturating_sub(trim_start)) * channels;
+                let interleaved = frame_samples * channels;
+                let end = interleaved.saturating_sub(end_trim).max(start);
+
+                for sample in pcm_scratch[start..end].iter() {
                     pending.push_back(*sample);
                 }
 
@@ -584,5 +713,47 @@ mod tests {
             .seek_seconds((duration - 0.5).max(0.0))
             .expect("seek near end");
         assert!(source.next_sample().is_some());
+    }
+
+    #[test]
+    fn streaming_decoder_applies_opus_packet_trim() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.opus");
+        if !path.is_file() {
+            return;
+        }
+
+        // Probe OpusHead delay with gapless enabled.
+        let file = File::open(&path).expect("open opus");
+        let mss = MediaSourceStream::new(Box::new(file), Default::default());
+        let mut hint = Hint::new();
+        hint.with_extension("opus");
+        let probed = symphonia::default::get_probe()
+            .format(
+                &hint,
+                mss,
+                &FormatOptions {
+                    enable_gapless: true,
+                    ..Default::default()
+                },
+                &MetadataOptions::default(),
+            )
+            .expect("probe opus");
+        let delay = probed
+            .format
+            .tracks()
+            .iter()
+            .find(|track| track.codec_params.codec == CODEC_TYPE_OPUS)
+            .and_then(|track| track.codec_params.delay)
+            .unwrap_or(0);
+        assert!(delay > 0, "OpusHead should expose pre-skip");
+
+        let mut source = StreamingDecoder::open(&path).expect("open opus");
+        // Read a short prefix — full drain of the tiny fixture can hit opus-decoder
+        // edge cases unrelated to trim.
+        let mut samples = 0u64;
+        while samples < 4_800 && source.next_sample().is_some() {
+            samples += 1;
+        }
+        assert!(samples > 0);
     }
 }

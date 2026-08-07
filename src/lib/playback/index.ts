@@ -20,7 +20,12 @@ export {
   getAnalyser,
 } from "./audioOutput";
 export { CdPlaybackEngine } from "./cdPlaybackEngine";
-export { canCrossfade, effectiveFadeSeconds } from "./canCrossfade";
+export {
+  canCrossfade,
+  canGapless,
+  effectiveFadeSeconds,
+  GAPLESS_PRELOAD_HEADROOM_SECONDS,
+} from "./canCrossfade";
 export { PcmFilePlaybackEngine } from "./pcmFilePlaybackEngine";
 export {
   CrossfadeController,
@@ -82,6 +87,12 @@ export function maybeScheduleCrossfade(
   ctx: import("./crossfadeController").CrossfadeScheduleContext,
 ): void {
   crossfadeController.maybeScheduleCrossfade(ctx);
+}
+
+export function maybeScheduleGapless(
+  ctx: import("./crossfadeController").CrossfadeScheduleContext,
+): void {
+  crossfadeController.maybeScheduleGapless(ctx);
 }
 
 export function startCrossfadeNow(
@@ -175,6 +186,7 @@ export function onCdError(
   callback: Parameters<PlaybackEngineManager["onCdError"]>[0],
 ): void {
   manager.onCdError(callback);
+  crossfadeController.onCdError(callback);
 }
 
 export function setVolume(volume: number): void {

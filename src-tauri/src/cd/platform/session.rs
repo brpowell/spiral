@@ -45,6 +45,8 @@ impl CachedDriveStatus {
 #[derive(Debug)]
 struct DriveSession {
     phase: DriveSessionPhase,
+    /// Concurrent `Playing` guards (dual CD sessions for gapless preload).
+    playing_refcount: u32,
     detail_view_open: bool,
     cache: CachedDriveStatus,
 }
@@ -53,6 +55,7 @@ impl DriveSession {
     fn new() -> Self {
         Self {
             phase: DriveSessionPhase::Idle,
+            playing_refcount: 0,
             detail_view_open: false,
             cache: CachedDriveStatus::new_stale(),
         }
@@ -303,6 +306,15 @@ impl Drop for DriveSessionGuard {
     fn drop(&mut self) {
         with_sessions(|store| {
             if let Some(session) = store.drives.get_mut(&self.drive_id) {
+                if self.phase == DriveSessionPhase::Playing {
+                    session.playing_refcount = session.playing_refcount.saturating_sub(1);
+                    if session.playing_refcount == 0
+                        && session.phase == DriveSessionPhase::Playing
+                    {
+                        session.phase = DriveSessionPhase::Idle;
+                    }
+                    return;
+                }
                 if session.phase == self.phase {
                     session.phase = DriveSessionPhase::Idle;
                 }
@@ -314,10 +326,38 @@ impl Drop for DriveSessionGuard {
 pub fn begin_phase(drive_id: &str, phase: DriveSessionPhase) -> DriveSessionGuard {
     with_sessions(|store| {
         let session = store.entry_mut(drive_id);
+        if phase == DriveSessionPhase::Playing {
+            session.playing_refcount = session.playing_refcount.saturating_add(1);
+        }
         session.phase = phase;
     });
     DriveSessionGuard {
         drive_id: drive_id.to_string(),
         phase,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn playing_refcount_keeps_phase_until_last_guard_drops() {
+        let drive = "test-drive-refcount";
+        remove_drive(drive);
+
+        let first = begin_phase(drive, DriveSessionPhase::Playing);
+        let second = begin_phase(drive, DriveSessionPhase::Playing);
+        assert!(is_playing(drive));
+
+        drop(first);
+        assert!(
+            is_playing(drive),
+            "phase should stay Playing while a second guard is live"
+        );
+
+        drop(second);
+        assert!(!is_playing(drive));
+        remove_drive(drive);
     }
 }

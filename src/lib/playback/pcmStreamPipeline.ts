@@ -6,12 +6,15 @@ import {
   type DeckId,
 } from "./audioOutput";
 import { decodePcmBase64 } from "./pcmDecode";
-import { resampleInterleavedPcm } from "./pcmResample";
+import { PcmResampler } from "./pcmResample";
 import {
   ensureSharedPcmWorkletModule,
   getSharedPcmAudioContext,
 } from "./pcmSharedContext";
-import { PCM_STREAM_PROCESSOR_NAME } from "./pcmStreamConstants";
+import {
+  PCM_STREAM_MIN_READ_AHEAD_FRAMES,
+  PCM_STREAM_PROCESSOR_NAME,
+} from "./pcmStreamConstants";
 // Vite must emit a real JS chunk (`?worker&url`). Plain `new URL(..., import.meta.url)`
 // inlines the .ts as a data: URL, which production CSP script-src blocks.
 import pcmStreamProcessorUrl from "./pcmStreamProcessor.ts?worker&url";
@@ -29,10 +32,26 @@ export interface PcmStreamConfig<TSession, TPcm extends TSession> {
   getChannels: (payload: TPcm) => number;
   getPcmB64: (payload: TPcm) => string;
   /**
-   * `shared` — library file decks share one AudioContext (required for crossfade).
-   * `owned` — CD (and similar) keep a private context at the stream sample rate.
+   * `shared` — dual decks share one AudioContext (required for gapless splice /
+   * crossfade; used by library files and CD).
+   * `owned` — private context at the stream sample rate (legacy / special cases).
    */
   contextMode: "shared" | "owned";
+  /**
+   * Target seconds of decoded audio held in the worklet. Sized to the medium's
+   * worst delivery stall: local files arrive predictably, optical drives seek.
+   */
+  readAheadSeconds: number;
+}
+
+/** Seam signals from the worklet, used to splice two decks without silence. */
+export interface PcmSeamCallbacks {
+  /** Absolute context frame at which the buffered tail runs out. */
+  onDrainAt?: (frame: number) => void;
+  /** The buffered tail has finished playing. */
+  onDrained?: () => void;
+  /** A gated stream reached its scheduled start frame and began playing. */
+  onStarted?: () => void;
 }
 
 /**
@@ -56,9 +75,16 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
   private balance = 0;
   private muted = false;
   private deckId: DeckId = "a";
+  private resampler: PcmResampler | null = null;
+  private resamplerChannels = 0;
+  private seam: PcmSeamCallbacks = {};
 
   constructor(config: PcmStreamConfig<TSession, TPcm>) {
     this.config = config;
+  }
+
+  setSeamCallbacks(seam: PcmSeamCallbacks): void {
+    this.seam = seam;
   }
 
   setDeckId(deckId: DeckId): void {
@@ -89,6 +115,21 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
     );
   }
 
+  /** Stateful only when the stream rate differs from the context rate. */
+  private ensureResampler(channels: number): PcmResampler | null {
+    if (!this.ctx || this.sourceSampleRate <= 0) return null;
+    if (this.ctx.sampleRate === this.sourceSampleRate) return null;
+    if (!this.resampler || this.resamplerChannels !== channels) {
+      this.resampler = new PcmResampler(
+        channels,
+        this.sourceSampleRate,
+        this.ctx.sampleRate,
+      );
+      this.resamplerChannels = channels;
+    }
+    return this.resampler;
+  }
+
   private ensureListeners(): Promise<UnlistenFn[]> {
     this.listeners ??= Promise.all([
       listen<TPcm>(this.config.pcmEvent, (event) => {
@@ -100,19 +141,13 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
           return;
         }
         const channels = this.config.getChannels(event.payload);
-        let samples = decodePcmBase64(this.config.getPcmB64(event.payload));
-        if (
-          this.sourceSampleRate > 0 &&
-          this.ctx.sampleRate !== this.sourceSampleRate
-        ) {
-          samples = resampleInterleavedPcm(
-            samples,
-            channels,
-            this.sourceSampleRate,
-            this.ctx.sampleRate,
-          );
-        }
+        const decoded = decodePcmBase64(this.config.getPcmB64(event.payload));
+        const resampler = this.ensureResampler(channels);
+        const samples = resampler ? resampler.process(decoded) : decoded;
+        // Count every chunk so back-pressure acks keep flowing even when the
+        // resampler holds a boundary frame back.
         this.chunksReceived += 1;
+        if (samples.length === 0) return;
         this.worklet.port.postMessage({
           type: "pcm",
           samples,
@@ -128,6 +163,7 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
         }
         this.chunksReceived = 0;
         this.chunksAcked = 0;
+        this.resampler?.reset();
         this.worklet.port.postMessage({ type: "flush" });
       }),
     ]);
@@ -170,10 +206,19 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
           },
         );
         this.worklet.port.onmessage = (
-          event: MessageEvent<{ type: string }>,
+          event: MessageEvent<{ type: string; frame?: number }>,
         ) => {
-          if (event.data.type === "needData") {
+          const data = event.data;
+          if (data.type === "needData") {
             this.maybeAck();
+          } else if (data.type === "drainAt") {
+            if (typeof data.frame === "number") {
+              this.seam.onDrainAt?.(data.frame);
+            }
+          } else if (data.type === "drained") {
+            this.seam.onDrained?.();
+          } else if (data.type === "started") {
+            this.seam.onStarted?.();
           }
         };
         this.gain = this.ctx!.createGain();
@@ -187,10 +232,18 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
 
     await this.workletReady;
     const workletRate = this.ctx!.sampleRate;
+    const readAheadFrames = Math.max(
+      PCM_STREAM_MIN_READ_AHEAD_FRAMES,
+      Math.round(this.config.readAheadSeconds * workletRate),
+    );
     this.worklet?.port.postMessage({
       type: "configure",
       channels,
-      sampleRate: workletRate,
+      readAheadFrames,
+      // Rust may push its whole in-flight allowance on top of the target (the
+      // gated deck's initial prime does exactly that); leave room so a full
+      // buffer never drops queued frames.
+      maxBufferFrames: readAheadFrames + workletRate,
     });
     return this.ctx!;
   }
@@ -205,7 +258,39 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
     this.session = session;
     this.chunksReceived = 0;
     this.chunksAcked = 0;
+    this.resampler = null;
+    this.resamplerChannels = 0;
     await this.ensureAudio(sampleRate, channels);
+  }
+
+  /** Buffer incoming PCM without playing it until `startAtFrame` is reached. */
+  gate(): void {
+    this.worklet?.port.postMessage({ type: "gate" });
+  }
+
+  startAtFrame(frame: number): void {
+    this.worklet?.port.postMessage({ type: "startAt", frame });
+  }
+
+  startNow(): void {
+    this.worklet?.port.postMessage({ type: "startNow" });
+  }
+
+  /**
+   * The decoder is done, but the worklet still holds a tail. Push the
+   * resampler's held-back frame and let the worklet announce its drain point.
+   */
+  signalEndOfStream(): void {
+    if (!this.worklet) return;
+    const tail = this.resampler?.flush();
+    if (tail && tail.length > 0) {
+      this.worklet.port.postMessage({
+        type: "pcm",
+        samples: tail,
+        channels: this.resamplerChannels,
+      });
+    }
+    this.worklet.port.postMessage({ type: "endOfStream" });
   }
 
   async resumeContext(): Promise<void> {
@@ -279,5 +364,7 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
     this.sourceSampleRate = 0;
     this.chunksReceived = 0;
     this.chunksAcked = 0;
+    this.resampler = null;
+    this.resamplerChannels = 0;
   }
 }

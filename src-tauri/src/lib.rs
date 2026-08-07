@@ -16,6 +16,7 @@ mod commands;
 mod db;
 mod diagnostics_export;
 mod file_playback;
+mod itunes_smpb;
 mod file_scan;
 mod import_files;
 mod library_organize;

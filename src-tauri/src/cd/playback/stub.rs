@@ -12,17 +12,17 @@ pub fn start(
     Err("CD playback is not supported on this platform".into())
 }
 
-pub fn pause() {}
+pub fn pause(_session_id: u64) {}
 
-pub fn resume() {}
+pub fn resume(_session_id: u64) {}
 
-pub fn seek(_seconds: f64) -> Result<(), String> {
+pub fn seek(_session_id: u64, _seconds: f64) -> Result<(), String> {
     Ok(())
 }
 
-pub fn ack_pcm_chunks(_count: u32) {}
+pub fn ack_pcm_chunks(_session_id: u64, _count: u32) {}
 
-pub fn stop() {}
+pub fn stop(_session_id: u64) {}
 
 #[allow(dead_code)]
 pub fn stop_for_drive(_drive_id: &str) {}

@@ -1,2 +1,12 @@
 npx lint-staged
-npm run test
+
+# Skip the full suite when only docs / workflow files are staged.
+code_changes=$(
+  git diff --cached --name-only --diff-filter=ACMR |
+    grep -vE '\.(md|mdc)$|^docs/|^\.github/workflows/' || true
+)
+if [ -n "$code_changes" ]; then
+  npm run test
+else
+  echo "Docs/workflow-only commit — skipping tests"
+fi

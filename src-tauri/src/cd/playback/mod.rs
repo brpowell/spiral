@@ -16,6 +16,7 @@ pub const CD_PLAYBACK_FLUSH_EVENT: &str = "cd-playback-flush";
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CdPlaybackStarted {
+    pub session_id: u64,
     pub duration_seconds: f64,
     pub sample_rate: u32,
     pub channels: u16,
@@ -24,6 +25,7 @@ pub struct CdPlaybackStarted {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CdPlaybackPosition {
+    pub session_id: u64,
     pub drive_id: String,
     pub track_number: u32,
     pub position_seconds: f64,
@@ -34,6 +36,7 @@ pub struct CdPlaybackPosition {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CdPlaybackEnded {
+    pub session_id: u64,
     pub drive_id: String,
     pub track_number: u32,
 }
@@ -41,6 +44,7 @@ pub struct CdPlaybackEnded {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CdPlaybackError {
+    pub session_id: u64,
     pub drive_id: String,
     pub track_number: u32,
     pub message: String,
@@ -50,6 +54,7 @@ pub struct CdPlaybackError {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CdPlaybackPcm {
+    pub session_id: u64,
     pub drive_id: String,
     pub track_number: u32,
     pub channels: u16,
@@ -59,6 +64,7 @@ pub struct CdPlaybackPcm {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CdPlaybackFlush {
+    pub session_id: u64,
     pub drive_id: String,
     pub track_number: u32,
 }

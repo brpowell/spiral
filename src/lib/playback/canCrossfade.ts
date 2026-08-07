@@ -1,14 +1,38 @@
 import type { PlaybackSource } from "./types";
 
 /**
+ * Seconds before EOS to start loading the next track for gapless handoff.
+ * Measured against the decode cursor, which already leads audible playback by
+ * the worklet read-ahead, so this only has to cover decode/session start.
+ */
+export const GAPLESS_PRELOAD_HEADROOM_SECONDS = 2;
+
+/**
  * Whether dual-deck PCM crossfade can run for this pair.
- * Library file ↔ file only; CD stays hard-cut (separate singleton session).
+ * Library file ↔ file only; CD stays gapless-only (no CD↔CD fade yet).
  */
 export function canCrossfade(
   outgoing: PlaybackSource,
   incoming: PlaybackSource,
 ): boolean {
   return outgoing.kind === "file" && incoming.kind === "file";
+}
+
+/**
+ * Whether dual-deck instant (gapless) handoff can run for this pair.
+ * Same-medium only: library↔library, or CD↔CD on the same drive.
+ */
+export function canGapless(
+  outgoing: PlaybackSource,
+  incoming: PlaybackSource,
+): boolean {
+  if (outgoing.kind === "file" && incoming.kind === "file") {
+    return true;
+  }
+  if (outgoing.kind === "cd" && incoming.kind === "cd") {
+    return outgoing.driveId === incoming.driveId;
+  }
+  return false;
 }
 
 export function effectiveFadeSeconds(

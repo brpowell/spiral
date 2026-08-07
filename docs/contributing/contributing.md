@@ -11,7 +11,7 @@ npm run format        # Prettier write
 npm run format:check  # Prettier check (not required in CI yet)
 ```
 
-A Husky `pre-commit` hook runs [lint-staged](https://github.com/lint-staged/lint-staged) so only staged files are linted/formatted, then the full test suite. That keeps formatting adoption incremental without a repo-wide reformat.
+A Husky `pre-commit` hook runs [lint-staged](https://github.com/lint-staged/lint-staged) so only staged files are linted/formatted, then the full test suite (skipped when the commit only touches docs or workflows: `*.md`, `*.mdc`, `docs/**`, or `.github/workflows/**`). CI’s Tests workflow uses the same paths filter. That keeps formatting adoption incremental without a repo-wide reformat.
 
 Editor extensions are recommended in `.vscode/extensions.json` (ESLint + Prettier).
 

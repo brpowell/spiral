@@ -266,8 +266,7 @@ function positionPollIntervalMs(
 ): number {
   if (audio.isCrossfadeInProgress()) return 75;
 
-  const settings = usePlaybackSettingsStore.getState();
-  if (!settings.crossfadeEnabled || !audio.isCrossfadeControllerActive()) {
+  if (!audio.isCrossfadeControllerActive()) {
     return 500;
   }
 
@@ -277,8 +276,12 @@ function positionPollIntervalMs(
   const duration = audio.getDurationSeconds();
   if (!duration) return 500;
 
+  const settings = usePlaybackSettingsStore.getState();
   const remaining = duration - positionSeconds;
-  if (remaining <= settings.crossfadeSeconds + 1) return 75;
+  const nearEndHeadroom = settings.crossfadeEnabled
+    ? settings.crossfadeSeconds + 1
+    : audio.GAPLESS_PRELOAD_HEADROOM_SECONDS + 1;
+  if (remaining <= nearEndHeadroom) return 75;
   return 500;
 }
 
@@ -290,8 +293,7 @@ function tryScheduleCrossfade(
   get: () => PlayerState,
   positionSeconds: number,
 ): void {
-  const settings = usePlaybackSettingsStore.getState();
-  if (!settings.crossfadeEnabled || !audio.isCrossfadeControllerActive()) {
+  if (!audio.isCrossfadeControllerActive()) {
     return;
   }
   if (audio.isCrossfadeInProgress()) return;
@@ -312,11 +314,18 @@ function tryScheduleCrossfade(
   );
   if (nextId === null) return;
 
-  const nextPlayable: PlayableRef = { type: "library", trackId: nextId };
+  const nextPlayable = playableRefFromTrackListId(nextId, state.cdDriveId);
+  if (!nextPlayable) return;
+
   const ctx = buildCrossfadeScheduleContext(get, set, nextPlayable, nextId);
   if (!ctx) return;
 
-  audio.maybeScheduleCrossfade({ ...ctx, positionSeconds });
+  const settings = usePlaybackSettingsStore.getState();
+  if (settings.crossfadeEnabled) {
+    audio.maybeScheduleCrossfade({ ...ctx, positionSeconds });
+  } else {
+    audio.maybeScheduleGapless({ ...ctx, positionSeconds });
+  }
 }
 
 function buildCrossfadeScheduleContext(
@@ -336,7 +345,11 @@ function buildCrossfadeScheduleContext(
   const currentSource = resolvePlaybackSource(currentPlayable, state.library);
   const nextSource = resolvePlaybackSource(nextPlayable, state.library);
   if (!currentSource || !nextSource) return null;
-  if (!audio.canCrossfade(currentSource, nextSource)) return null;
+
+  const eligible = settings.crossfadeEnabled
+    ? audio.canCrossfade(currentSource, nextSource)
+    : audio.canGapless(currentSource, nextSource);
+  if (!eligible) return null;
 
   const outgoingDuration = audio.getDurationSeconds();
   if (!outgoingDuration) return null;
@@ -479,13 +492,13 @@ interface PlayResolvedPlayableOptions extends PlaybackAdvanceOptions {
   cdDriveId?: string | null;
 }
 
+/** Dual-deck handoff controller for library files and CD (crossfade or gapless). */
 function shouldUseCrossfadeController(
   source: PlaybackSource,
   _state: PlayerState,
   _playable: PlayableRef,
 ): boolean {
-  if (source.kind !== "file") return false;
-  return usePlaybackSettingsStore.getState().crossfadeEnabled;
+  return source.kind === "file" || source.kind === "cd";
 }
 
 let playResolvedGeneration = 0;
@@ -1086,6 +1099,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       driveId: error.driveId,
       trackNumber: error.trackNumber,
     });
+    audio.unload();
     stopPositionPoll(set);
     set({
       playbackState: "stopped",

@@ -19,6 +19,7 @@ import {
   isPcmFileSession,
 } from "./pcmFilePlaybackEvents";
 import { PositionSeekGuard } from "./positionSeekGuard";
+import { FILE_PCM_READ_AHEAD_SECONDS } from "./pcmStreamConstants";
 import type {
   PlaybackCapabilities,
   PlaybackEngine,
@@ -30,13 +31,20 @@ import type {
 const PCM_FILE_CAPABILITIES: PlaybackCapabilities = {
   seek: true,
   scrubPreview: true,
-  gapless: false,
+  /** Sample-accurate dual-deck splice when crossfade is off; lossy files also trim tagged encoder delay. */
+  gapless: true,
   visualizer: true,
   recoverAfterWake: false,
 };
 
 /** Match Rust `SEEK_END_MARGIN_SECONDS` — Symphonia rejects exact-EOS seeks. */
 const SEEK_END_MARGIN_SECONDS = 0.05;
+
+/**
+ * Safety net if the worklet never reports its drain (e.g. the node was
+ * disconnected). Must outlast maxBufferFrames (read-ahead + ~1s headroom).
+ */
+const DRAIN_FALLBACK_MS = 1500;
 
 const pcmConfig = {
   ackCommand: "ack_file_playback_pcm",
@@ -50,6 +58,7 @@ const pcmConfig = {
   getChannels: (payload: PcmFilePlaybackPcmPayload) => payload.channels,
   getPcmB64: (payload: PcmFilePlaybackPcmPayload) => payload.pcmB64,
   contextMode: "shared" as const,
+  readAheadSeconds: FILE_PCM_READ_AHEAD_SECONDS,
 };
 
 /**
@@ -72,9 +81,30 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
   private crossfadeMix = 1;
   private deckId: DeckId = "a";
   private endCallback: (() => void) | null = null;
+  private drainAtCallback: ((frame: number) => void) | null = null;
+  private startedCallback: (() => void) | null = null;
+  private drainFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Decoder is done; the worklet tail has not finished playing yet. */
+  private endOfStreamPending = false;
+  /** Primed but held silent by the worklet until its scheduled start frame. */
+  private gated = false;
   private listeners: Promise<UnlistenFn[]> | null = null;
   private loadGeneration = 0;
   private readonly pcm = new PcmStreamPipeline(pcmConfig);
+
+  constructor() {
+    this.pcm.setSeamCallbacks({
+      onDrainAt: (frame) => {
+        this.drainAtCallback?.(frame);
+      },
+      onDrained: () => {
+        this.handleDrained();
+      },
+      onStarted: () => {
+        this.handleStarted();
+      },
+    });
+  }
 
   setDeckId(deckId: DeckId): void {
     this.deckId = deckId;
@@ -100,6 +130,9 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
         (event) => {
           if (!isPcmFileSession(this.current, event.payload)) return;
           this.durationSeconds = event.payload.durationSeconds;
+          // Gated priming decodes ahead of audible start — ignore decode cursor
+          // and isPlaying so the UI does not interpolate from load time.
+          if (this.gated) return;
           this.playing = event.payload.isPlaying;
           if (
             !this.positionSeekGuard.shouldAccept(event.payload.positionSeconds)
@@ -117,10 +150,52 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
         // Rust removes the session on natural end; drop the local key so seek
         // does not target a dead session id.
         this.current = null;
-        this.endCallback?.();
+        // The decoder is exhausted but the worklet still holds up to a second of
+        // PCM. Let it play out — cutting here truncates the tail mid-waveform.
+        this.endOfStreamPending = true;
+        this.pcm.signalEndOfStream();
+        // A gated deck cannot drain yet; it gets its fallback once it starts.
+        if (!this.gated) this.armDrainFallback();
       }),
     ]);
     return this.listeners;
+  }
+
+  private armDrainFallback(): void {
+    this.clearDrainFallback();
+    this.drainFallbackTimer = setTimeout(() => {
+      this.drainFallbackTimer = null;
+      this.finishEndOfStream();
+    }, DRAIN_FALLBACK_MS);
+  }
+
+  private clearDrainFallback(): void {
+    if (this.drainFallbackTimer === null) return;
+    clearTimeout(this.drainFallbackTimer);
+    this.drainFallbackTimer = null;
+  }
+
+  private finishEndOfStream(): void {
+    if (!this.endOfStreamPending) return;
+    this.endOfStreamPending = false;
+    this.clearDrainFallback();
+    this.endCallback?.();
+  }
+
+  private handleStarted(): void {
+    this.gated = false;
+    this.playing = true;
+    // Audible playback begins at the start of the primed buffer (track 0), not
+    // at load-time / decode-ahead. Reset the interpolator so handoff UI does
+    // not jump to ~GAPLESS_PRELOAD_HEADROOM_SECONDS.
+    this.lastPositionSeconds = 0;
+    this.lastPositionAtMs = performance.now();
+    if (this.endOfStreamPending) this.armDrainFallback();
+    this.startedCallback?.();
+  }
+
+  private handleDrained(): void {
+    this.finishEndOfStream();
   }
 
   async load(source: PlaybackSource): Promise<void> {
@@ -131,6 +206,9 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
     }
 
     const generation = ++this.loadGeneration;
+    this.clearDrainFallback();
+    this.endOfStreamPending = false;
+    this.gated = false;
     await this.ensureListeners();
     const previousSessionId = this.current?.sessionId ?? null;
     this.pcm.destroy();
@@ -203,8 +281,42 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
     await this.pcm.resumeContext();
     // Connect only — do not re-apply mix (that cancels crossfade ramps).
     this.connectToOutputBus();
+    this.pcm.startNow();
+    this.gated = false;
     this.playing = true;
     await invoke("resume_file_playback", { sessionId });
+  }
+
+  /**
+   * Decode and buffer silently so a scheduled splice has no start latency.
+   * The worklet holds the PCM without consuming it until `scheduleStartAtFrame`.
+   */
+  async primeGaplessStart(): Promise<void> {
+    if (!this.current) return;
+    const sessionId = this.current.sessionId;
+    await this.pcm.resumeContext();
+    this.gated = true;
+    this.pcm.gate();
+    await invoke("resume_file_playback", { sessionId });
+  }
+
+  /** Begin playing at an absolute frame on the shared context clock. */
+  scheduleStartAtFrame(frame: number): void {
+    this.pcm.startAtFrame(frame);
+  }
+
+  /** Give up on the scheduled frame and start on the next render block. */
+  forceGaplessStart(): void {
+    this.pcm.startNow();
+    this.handleStarted();
+  }
+
+  onDrainAt(callback: (frame: number) => void): void {
+    this.drainAtCallback = callback;
+  }
+
+  onGaplessStarted(callback: () => void): void {
+    this.startedCallback = callback;
   }
 
   pause(): void {
@@ -232,6 +344,8 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
   }
 
   getPositionSeconds(): number {
+    // Primed but silent — audible transport has not started.
+    if (this.gated) return 0;
     if (!this.playing) return this.lastPositionSeconds;
     const elapsed = (performance.now() - this.lastPositionAtMs) / 1000;
     const duration = this.durationSeconds > 0 ? this.durationSeconds : Infinity;
@@ -275,6 +389,11 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
 
   destroy(): void {
     this.loadGeneration += 1;
+    this.clearDrainFallback();
+    this.endOfStreamPending = false;
+    this.gated = false;
+    this.drainAtCallback = null;
+    this.startedCallback = null;
     const sessionId = this.current?.sessionId ?? null;
     this.current = null;
     this.filePath = null;

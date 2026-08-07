@@ -13,3 +13,9 @@ declare function registerProcessor(
   name: string,
   processorCtor: new () => AudioWorkletProcessor,
 ): void;
+
+/**
+ * Frame index of the first sample of the block being rendered. Shared by every
+ * node on the same AudioContext, so two decks can agree on a splice point.
+ */
+declare const currentFrame: number;

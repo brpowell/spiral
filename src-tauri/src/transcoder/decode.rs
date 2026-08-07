@@ -52,7 +52,10 @@ fn decode_with_symphonia(path: &Path) -> Result<PcmStream, String> {
         .format(
             &hint,
             mss,
-            &FormatOptions::default(),
+            &FormatOptions {
+                enable_gapless: true,
+                ..Default::default()
+            },
             &MetadataOptions::default(),
         )
         .map_err(|err| format_decode_failure(path, err))?;

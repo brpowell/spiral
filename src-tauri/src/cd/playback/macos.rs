@@ -30,24 +30,24 @@ pub fn read_track_pcm(drive_id: &str, track_number: u32) -> Result<PcmStream, St
     AiffSource::read_pcm(&track_path)
 }
 
-pub fn pause() {
-    engine::pause();
+pub fn pause(session_id: u64) {
+    engine::pause(session_id);
 }
 
-pub fn resume() {
-    engine::resume();
+pub fn resume(session_id: u64) {
+    engine::resume(session_id);
 }
 
-pub fn seek(seconds: f64) -> Result<(), String> {
-    engine::seek(seconds)
+pub fn seek(session_id: u64, seconds: f64) -> Result<(), String> {
+    engine::seek(session_id, seconds)
 }
 
-pub fn ack_pcm_chunks(count: u32) {
-    engine::ack_pcm_chunks(count);
+pub fn ack_pcm_chunks(session_id: u64, count: u32) {
+    engine::ack_pcm_chunks(session_id, count);
 }
 
-pub fn stop() {
-    engine::stop();
+pub fn stop(session_id: u64) {
+    engine::stop(session_id);
 }
 
 pub fn stop_for_drive(drive_id: &str) {

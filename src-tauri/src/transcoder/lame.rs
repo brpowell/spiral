@@ -1,7 +1,8 @@
 //! Encode interleaved PCM to MP3 via bundled libmp3lame.
 
 use std::fs::File;
-use std::io::Write;
+use std::io::{Seek, SeekFrom, Write};
+use std::mem::MaybeUninit;
 use std::path::Path;
 
 use mp3lame_encoder::{
@@ -56,9 +57,43 @@ pub fn encode_pcm_to_mp3(
             .map_err(|err| format!("Failed to finalize MP3 data: {err}"))?;
     }
 
+    // LAME reserves an empty first frame when VBR/Info tags are enabled; replace it
+    // with the final Xing/Info+LAME frame so decoders can trim encoder delay.
+    write_lame_info_tag(&encoder, &mut output)?;
+
     if !dest.is_file() {
         return Err(format!("MP3 output missing: {}", dest.display()));
     }
+
+    Ok(())
+}
+
+/// Overwrite the placeholder first MPEG frame with the final LAME/Xing Info tag.
+fn write_lame_info_tag(encoder: &Encoder, output: &mut File) -> Result<(), String> {
+    let tag_size = encoder.lame_tag_size();
+    if tag_size == 0 || !encoder.is_lame_tag_written() {
+        return Ok(());
+    }
+
+    let mut tag_buf = vec![MaybeUninit::<u8>::uninit(); tag_size];
+    let written = encoder
+        .lame_tag_encode(&mut tag_buf)
+        .ok_or_else(|| "Failed to encode LAME Info/Xing tag".to_string())?
+        .get();
+
+    let id3v2 = encoder.id3v2_tag_size() as u64;
+    output
+        .seek(SeekFrom::Start(id3v2))
+        .map_err(|err| format!("Failed to seek for LAME tag: {err}"))?;
+
+    // SAFETY: lame_tag_encode initialized `written` bytes.
+    let tag_bytes = unsafe { std::slice::from_raw_parts(tag_buf.as_ptr() as *const u8, written) };
+    output
+        .write_all(tag_bytes)
+        .map_err(|err| format!("Failed to write LAME tag: {err}"))?;
+    output
+        .flush()
+        .map_err(|err| format!("Failed to flush LAME tag: {err}"))?;
 
     Ok(())
 }
@@ -82,11 +117,16 @@ fn build_encoder(
     builder = match profile.id {
         "mp3-high" => builder
             .with_brate(Bitrate::Kbps320)
+            .map_err(map_build_error)?
+            // CBR still needs an Info/LAME frame for enc_delay / enc_padding.
+            .with_to_write_vbr_tag(true)
             .map_err(map_build_error)?,
         "mp3-compact" => builder
             .with_vbr_mode(VbrMode::Mtrh)
             .map_err(map_build_error)?
             .with_vbr_quality(Quality::Good)
+            .map_err(map_build_error)?
+            .with_to_write_vbr_tag(true)
             .map_err(map_build_error)?,
         other => return Err(format!("Profile {other} is not an MP3 profile")),
     };
@@ -214,6 +254,74 @@ mod tests {
             .expect("open mp3 for streaming playback");
         assert_eq!(stream.sample_rate(), pcm.sample_rate);
         assert!(stream.next_sample().is_some());
+
+        let _ = std::fs::remove_file(&dest);
+    }
+
+    #[test]
+    fn streaming_decoder_trims_lame_mp3_encoder_delay() {
+        let profile = profile_from_id("mp3-high").unwrap();
+        let pcm_frames = 22_050u32;
+        let mut samples = vec![0i16; pcm_frames as usize * 2];
+        samples[0] = i16::MAX / 2;
+        samples[1] = i16::MAX / 2;
+        let pcm = PcmStream {
+            channels: 2,
+            sample_rate: 44_100,
+            samples,
+        };
+        let dest = std::env::temp_dir().join(format!(
+            "spiral-gapless-mp3-{}.mp3",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&dest);
+        encode_pcm_to_mp3(&pcm, &dest, profile).expect("encode mp3");
+
+        // Re-probe: LAME Info tag must expose encoder delay for gapless trim.
+        let gapless_frames = {
+            use symphonia::core::codecs::CODEC_TYPE_NULL;
+            use symphonia::core::formats::FormatOptions;
+            use symphonia::core::io::MediaSourceStream;
+            use symphonia::core::meta::MetadataOptions;
+            use symphonia::core::probe::Hint;
+            let file = std::fs::File::open(&dest).expect("open encoded");
+            let mss = MediaSourceStream::new(Box::new(file), Default::default());
+            let mut hint = Hint::new();
+            hint.with_extension("mp3");
+            let probed = symphonia::default::get_probe()
+                .format(
+                    &hint,
+                    mss,
+                    &FormatOptions {
+                        enable_gapless: true,
+                        ..Default::default()
+                    },
+                    &MetadataOptions::default(),
+                )
+                .expect("probe");
+            let track = probed
+                .format
+                .tracks()
+                .iter()
+                .find(|t| t.codec_params.codec != CODEC_TYPE_NULL)
+                .expect("track");
+            let delay = track.codec_params.delay.expect("expected LAME enc_delay");
+            assert!(delay > 0, "enc_delay should be positive, got {delay}");
+            track.codec_params.n_frames.expect("n_frames")
+        };
+
+        let mut source = crate::file_playback::decoder::StreamingDecoder::open(&dest)
+            .expect("open mp3");
+        let channels = u64::from(source.channels().max(1));
+        let mut sample_count = 0u64;
+        while source.next_sample().is_some() {
+            sample_count += 1;
+        }
+        let emitted = sample_count / channels;
+        assert_eq!(
+            emitted, gapless_frames,
+            "decoder should emit gapless n_frames after delay trim"
+        );
 
         let _ = std::fs::remove_file(&dest);
     }

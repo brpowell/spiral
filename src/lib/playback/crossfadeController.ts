@@ -1,11 +1,70 @@
 import type { PlayableRef } from "../../types/playable";
 import type { RepeatMode } from "../../types/track";
 import { rampDeckGain, setDeckGain, type DeckId } from "./audioMixer";
-import { canCrossfade, effectiveFadeSeconds } from "./canCrossfade";
+import {
+  canCrossfade,
+  canGapless,
+  effectiveFadeSeconds,
+  GAPLESS_PRELOAD_HEADROOM_SECONDS,
+} from "./canCrossfade";
+import {
+  CdPlaybackEngine,
+  type CdPlaybackStreamError,
+} from "./cdPlaybackEngine";
 import { PcmFilePlaybackEngine } from "./pcmFilePlaybackEngine";
-import type { PlaybackSource } from "./types";
+import type {
+  PlaybackSource,
+  RecoverOptions,
+  RecoverResult,
+} from "./types";
 
 const FADE_COMPLETE_BUFFER_MS = 50;
+
+/**
+ * If the incoming deck never reports that it hit its scheduled start frame,
+ * un-gate it rather than leaving playback stalled on a drained deck.
+ */
+const GAPLESS_START_FALLBACK_MS = 250;
+
+type HandoffState =
+  | "idle"
+  | "preloading"
+  | "fading"
+  | "fadeOut"
+  /** Incoming gated at full mix; wait for outgoing drain frame to splice. */
+  | "gaplessPrimed";
+
+/** Only one medium's dual decks are active at a time (file XOR CD). */
+type DeckMedium = "file" | "cd";
+
+/**
+ * Deck engine surface used by the dual-deck handoff controller.
+ * Implemented by both {@link PcmFilePlaybackEngine} and {@link CdPlaybackEngine}.
+ */
+export interface DualDeckEngine {
+  load(source: PlaybackSource): Promise<void>;
+  play(): void | Promise<void>;
+  pause(): void;
+  seek(seconds: number): void;
+  getPositionSeconds(): number;
+  getDurationSeconds(): number;
+  isPlaying(): boolean;
+  setVolume(volume: number): void;
+  setMuted(muted: boolean): void;
+  setBalance(balance: number): void;
+  setDeckId(deckId: DeckId): void;
+  getDeckId(): DeckId;
+  setCrossfadeMix(mix: number): void;
+  connectToOutputBus(options?: { applyMix?: boolean }): AnalyserNode | null;
+  destroy(): void;
+  onEnd(callback: () => void): void;
+  primeGaplessStart(): Promise<void>;
+  scheduleStartAtFrame(frame: number): void;
+  forceGaplessStart(): void;
+  onDrainAt(callback: (frame: number) => void): void;
+  onGaplessStarted(callback: () => void): void;
+  recover(options: RecoverOptions): Promise<RecoverResult>;
+}
 
 export interface CrossfadeHandoff {
   incomingPlayable: PlayableRef;
@@ -41,7 +100,20 @@ function inactiveDeck(active: DeckId): DeckId {
   return active === "a" ? "b" : "a";
 }
 
-function createDeckEngines(): Record<DeckId, PcmFilePlaybackEngine> {
+function mediumForSource(source: PlaybackSource): DeckMedium | null {
+  if (source.kind === "file") return "file";
+  if (source.kind === "cd") return "cd";
+  return null;
+}
+
+function createDeckEngines(medium: DeckMedium): Record<DeckId, DualDeckEngine> {
+  if (medium === "cd") {
+    const deckA = new CdPlaybackEngine();
+    const deckB = new CdPlaybackEngine();
+    deckA.setDeckId("a");
+    deckB.setDeckId("b");
+    return { a: deckA, b: deckB };
+  }
   const deckA = new PcmFilePlaybackEngine();
   const deckB = new PcmFilePlaybackEngine();
   deckA.setDeckId("a");
@@ -50,9 +122,10 @@ function createDeckEngines(): Record<DeckId, PcmFilePlaybackEngine> {
 }
 
 export class CrossfadeController {
-  private readonly decks: Record<DeckId, PcmFilePlaybackEngine>;
+  private decks: Record<DeckId, DualDeckEngine>;
+  private medium: DeckMedium = "file";
   private activeDeck: DeckId = "a";
-  private fadeState: "idle" | "preloading" | "fading" | "fadeOut" = "idle";
+  private fadeState: HandoffState = "idle";
   private fadeOutCompleteCallback: (() => void) | null = null;
   private handledEnd = false;
   private scheduleGeneration = 0;
@@ -67,6 +140,8 @@ export class CrossfadeController {
   /** Incoming target while preloading (before activeFadeContext is set). */
   private pendingIncomingTrackId: number | null = null;
   private onEndCallback: (() => void) | null = null;
+  private onCdErrorCallback: ((error: CdPlaybackStreamError) => void) | null =
+    null;
   private controllerActive = false;
   private userVolume = 1;
   private userMuted = false;
@@ -75,14 +150,40 @@ export class CrossfadeController {
   private fadePaused = false;
 
   constructor(
-    decks: Record<DeckId, PcmFilePlaybackEngine> = createDeckEngines(),
+    decks: Record<DeckId, DualDeckEngine> = createDeckEngines("file"),
+    medium: DeckMedium = "file",
   ) {
     this.decks = decks;
+    this.medium = medium;
+    this.wireDeckCallbacks();
+  }
+
+  private wireDeckCallbacks(): void {
     for (const engine of Object.values(this.decks)) {
       engine.onEnd(() => {
         this.handleDeckEnd(engine);
       });
+      if (engine instanceof CdPlaybackEngine) {
+        engine.onError((error) => {
+          this.onCdErrorCallback?.(error);
+        });
+      }
     }
+  }
+
+  /**
+   * Tear down current decks and create a pair for `medium`.
+   * Enforces the capacity policy: only one medium's dual sessions are live.
+   */
+  private ensureMedium(medium: DeckMedium): void {
+    if (this.medium === medium) return;
+    this.cancelCrossfade();
+    this.decks.a.destroy();
+    this.decks.b.destroy();
+    this.decks = createDeckEngines(medium);
+    this.medium = medium;
+    this.activeDeck = "a";
+    this.wireDeckCallbacks();
   }
 
   isControllerActive(): boolean {
@@ -93,9 +194,13 @@ export class CrossfadeController {
     return this.fadeState !== "idle";
   }
 
-  /** Target track of an in-flight crossfade (preload or fade), if any. */
+  /** Target track of an in-flight handoff (preload, fade, or gapless wait), if any. */
   getCrossfadeIncomingTrackId(): number | null {
-    if (this.fadeState !== "preloading" && this.fadeState !== "fading") {
+    if (
+      this.fadeState !== "preloading" &&
+      this.fadeState !== "fading" &&
+      this.fadeState !== "gaplessPrimed"
+    ) {
       return null;
     }
     return this.activeFadeContext?.nextTrackId ?? this.pendingIncomingTrackId;
@@ -131,22 +236,26 @@ export class CrossfadeController {
     this.onEndCallback = callback;
   }
 
-  getActiveEngine(): PcmFilePlaybackEngine {
+  onCdError(callback: ((error: CdPlaybackStreamError) => void) | null): void {
+    this.onCdErrorCallback = callback;
+  }
+
+  getActiveEngine(): DualDeckEngine {
     return this.decks[this.activeDeck];
   }
 
-  private engine(deckId: DeckId): PcmFilePlaybackEngine {
+  private engine(deckId: DeckId): DualDeckEngine {
     return this.decks[deckId];
   }
 
   private applyUserMixToAllActiveEngines(): void {
     this.applyUserMixToEngine(this.engine(this.activeDeck));
-    if (this.fadeState === "fading") {
+    if (this.fadeState === "fading" || this.fadeState === "gaplessPrimed") {
       this.applyUserMixToEngine(this.engine(inactiveDeck(this.activeDeck)));
     }
   }
 
-  private applyUserMixToEngine(engine: PcmFilePlaybackEngine): void {
+  private applyUserMixToEngine(engine: DualDeckEngine): void {
     engine.setVolume(this.userVolume);
     engine.setMuted(this.userMuted);
     engine.setBalance(this.userBalance);
@@ -156,6 +265,13 @@ export class CrossfadeController {
     source: PlaybackSource,
     options: { volume: number; muted: boolean; balance: number },
   ): Promise<void> {
+    const medium = mediumForSource(source);
+    if (!medium) {
+      throw new Error(
+        `CrossfadeController cannot load source kind: ${source.kind}`,
+      );
+    }
+    this.ensureMedium(medium);
     this.cancelCrossfade();
     this.userVolume = options.volume;
     this.userMuted = options.muted;
@@ -207,7 +323,7 @@ export class CrossfadeController {
     // Outgoing may have already hit EOS (session dead). Promote incoming before
     // cancel so we do not keep a dead deck and destroy the live one.
     if (
-      this.fadeState === "fading" &&
+      (this.fadeState === "fading" || this.fadeState === "gaplessPrimed") &&
       !this.dominantTrackPromoted &&
       this.fadeOutgoingDeck !== null &&
       this.fadeIncomingDeck !== null &&
@@ -270,8 +386,8 @@ export class CrossfadeController {
   pause(): void {
     if (!this.controllerActive) return;
 
-    if (this.fadeState === "preloading") {
-      // Drop the incomplete preload so resume is a clean single-deck pause.
+    if (this.fadeState === "preloading" || this.fadeState === "gaplessPrimed") {
+      // Drop the incomplete / waiting handoff so resume is a clean single-deck pause.
       this.cancelCrossfade();
       this.getActiveEngine().pause();
       return;
@@ -459,6 +575,23 @@ export class CrossfadeController {
     this.startCrossfadeNow(ctx);
   }
 
+  /**
+   * Near EOS with crossfade off: preload the next file into a gated worklet and
+   * splice on the outgoing deck's drain frame (no timed fade, no gain step).
+   */
+  maybeScheduleGapless(ctx: CrossfadeScheduleContext): void {
+    if (!this.controllerActive) return;
+    if (this.fadeState !== "idle") return;
+    if (ctx.repeatMode === "one") return;
+    if (ctx.nextTrackId === ctx.currentTrackId) return;
+    if (!canGapless(ctx.currentSource, ctx.nextSource)) return;
+
+    const remaining = ctx.outgoingDuration - ctx.positionSeconds;
+    if (remaining > GAPLESS_PRELOAD_HEADROOM_SECONDS) return;
+
+    this.startGaplessPreload(ctx);
+  }
+
   /** Manual skip crossfade — starts immediately regardless of remaining time. */
   startCrossfadeNow(ctx: CrossfadeScheduleContext): void {
     if (!this.controllerActive) return;
@@ -472,6 +605,18 @@ export class CrossfadeController {
       ctx.outgoingDuration,
       ctx.crossfadeSeconds,
     );
+    this.beginDualDeckPreload(ctx, { mode: "crossfade", fadeSec });
+  }
+
+  private startGaplessPreload(ctx: CrossfadeScheduleContext): void {
+    this.cancelCrossfade();
+    this.beginDualDeckPreload(ctx, { mode: "gapless" });
+  }
+
+  private beginDualDeckPreload(
+    ctx: CrossfadeScheduleContext,
+    options: { mode: "crossfade"; fadeSec: number } | { mode: "gapless" },
+  ): void {
     const generation = ++this.scheduleGeneration;
     const outgoingDeck = this.activeDeck;
     const incomingDeck = inactiveDeck(outgoingDeck);
@@ -496,27 +641,44 @@ export class CrossfadeController {
         // Wire both decks and set starting mixes BEFORE play/ramps.
         // Ramping a missing deck gain no-ops; setCrossfadeMix after a ramp
         // cancels scheduled AudioParam values.
-        incomingEngine.setCrossfadeMix(0);
+        //
+        // Gapless rides at full mix the whole time — the incoming deck is silent
+        // because its worklet is gated, so the splice needs no gain change and
+        // therefore introduces no step discontinuity.
+        incomingEngine.setCrossfadeMix(options.mode === "gapless" ? 1 : 0);
         incomingEngine.connectToOutputBus({ applyMix: true });
         outgoingEngine.setCrossfadeMix(1);
         outgoingEngine.connectToOutputBus({ applyMix: true });
+
+        if (options.mode === "gapless") {
+          await incomingEngine.primeGaplessStart();
+          if (generation !== this.scheduleGeneration) return;
+          this.beginGaplessWait(ctx, generation, outgoingDeck, incomingDeck);
+          return;
+        }
 
         await incomingEngine.play();
         if (generation !== this.scheduleGeneration) return;
 
         this.beginCrossfadeTransition(
           ctx,
-          fadeSec,
+          options.fadeSec,
           generation,
           outgoingDeck,
           incomingDeck,
         );
       } catch (err) {
-        console.error("Crossfade preload failed:", err);
+        console.error(
+          options.mode === "gapless"
+            ? "Gapless preload failed:"
+            : "Crossfade preload failed:",
+          err,
+        );
         if (generation !== this.scheduleGeneration) return;
         incomingEngine.destroy();
         this.fadeState = "idle";
         this.handledEnd = false;
+        this.pendingIncomingTrackId = null;
       }
     })();
   }
@@ -595,6 +757,67 @@ export class CrossfadeController {
     );
   }
 
+  /**
+   * Both decks share one AudioContext, so they share `currentFrame`. The
+   * outgoing worklet reports the exact frame its tail runs out and the incoming
+   * worklet starts on that frame — no silence and no gain step at the join.
+   */
+  private beginGaplessWait(
+    ctx: CrossfadeScheduleContext,
+    generation: number,
+    outgoingDeck: DeckId,
+    incomingDeck: DeckId,
+  ): void {
+    this.fadeState = "gaplessPrimed";
+    this.handledEnd = false;
+    this.fadeOutgoingDeck = outgoingDeck;
+    this.fadeIncomingDeck = incomingDeck;
+    this.activeFadeContext = ctx;
+    this.dominantTrackPromoted = false;
+
+    this.engine(outgoingDeck).onDrainAt((frame) => {
+      if (generation !== this.scheduleGeneration) return;
+      if (this.fadeState !== "gaplessPrimed") return;
+      this.engine(incomingDeck).scheduleStartAtFrame(frame);
+    });
+
+    this.engine(incomingDeck).onGaplessStarted(() => {
+      if (generation !== this.scheduleGeneration) return;
+      if (this.fadeState !== "gaplessPrimed") return;
+      this.completeGaplessHandoff();
+    });
+  }
+
+  private completeGaplessHandoff(): void {
+    // Reachable from the incoming deck's start signal and from the fallback
+    // timer; whichever lands first owns the swap.
+    if (this.fadeState !== "gaplessPrimed") return;
+
+    const ctx = this.activeFadeContext;
+    const incomingDeck = this.fadeIncomingDeck;
+    const outgoingDeck = this.fadeOutgoingDeck;
+    this.clearFadeTimers();
+
+    if (!ctx || incomingDeck === null || outgoingDeck === null) {
+      this.fadeState = "idle";
+      this.clearFadeSession();
+      this.handledEnd = false;
+      this.onEndCallback?.();
+      return;
+    }
+
+    // No gain changes here: the incoming deck already sits at full mix and
+    // started itself on the scheduled frame; the outgoing deck is drained.
+    this.promoteIncomingToActive(incomingDeck, ctx);
+    this.engine(outgoingDeck).destroy();
+    this.activeDeck = incomingDeck;
+    this.fadeState = "idle";
+    this.clearFadeSession();
+    // Outgoing end was handled here (no onEndCallback); do not leave a stale
+    // handledEnd that would swallow the next track's natural end.
+    this.handledEnd = false;
+  }
+
   private promoteIncomingToActive(
     incomingDeck: DeckId,
     ctx: CrossfadeScheduleContext,
@@ -623,12 +846,34 @@ export class CrossfadeController {
     this.activeDeck = incomingDeck;
     this.fadeState = "idle";
     this.clearFadeSession();
+    // Fade owned the outgoing end; clear so the next natural end can advance.
+    this.handledEnd = false;
   }
 
-  private handleDeckEnd(engine: PcmFilePlaybackEngine): void {
+  private handleDeckEnd(engine: DualDeckEngine): void {
     if (!this.controllerActive) return;
 
     const deck: DeckId = engine === this.decks.a ? "a" : "b";
+
+    if (this.fadeState === "gaplessPrimed") {
+      if (deck !== this.fadeOutgoingDeck) return;
+      // The outgoing tail has finished; the incoming deck should already have
+      // spliced in on the scheduled frame. Suppress the store advance and only
+      // force the swap if that signal never arrived.
+      this.handledEnd = true;
+      const generation = this.scheduleGeneration;
+      const incomingDeck = this.fadeIncomingDeck;
+      this.clearFadeTimers();
+      this.fadeCompleteTimer = setTimeout(() => {
+        if (generation !== this.scheduleGeneration) return;
+        if (this.fadeState !== "gaplessPrimed") return;
+        if (incomingDeck !== null) {
+          this.engine(incomingDeck).forceGaplessStart();
+        }
+        this.completeGaplessHandoff();
+      }, GAPLESS_START_FALLBACK_MS);
+      return;
+    }
 
     if (this.fadeState === "fading" || this.fadeState === "fadeOut") {
       if (deck === this.fadeOutgoingDeck) {

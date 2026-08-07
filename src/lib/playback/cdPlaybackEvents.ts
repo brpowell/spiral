@@ -4,12 +4,17 @@ export const CD_PLAYBACK_ERROR_EVENT = "cd-playback-error";
 export const CD_PLAYBACK_PCM_EVENT = "cd-playback-pcm";
 export const CD_PLAYBACK_FLUSH_EVENT = "cd-playback-flush";
 
-export interface CdPlaybackTrackKey {
+export interface CdPlaybackSessionKey {
+  sessionId: number;
+}
+
+export interface CdPlaybackTrackKey extends CdPlaybackSessionKey {
   driveId: string;
   trackNumber: number;
 }
 
 export interface CdPlaybackStarted {
+  sessionId: number;
   durationSeconds: number;
   sampleRate: number;
   channels: number;
@@ -32,13 +37,9 @@ export interface CdPlaybackPcmPayload extends CdPlaybackTrackKey {
 
 export type CdPlaybackFlushPayload = CdPlaybackTrackKey;
 
-export function isCdPlaybackTrack(
-  track: CdPlaybackTrackKey | null,
-  payload: CdPlaybackTrackKey,
+export function isCdPlaybackSession(
+  session: CdPlaybackSessionKey | null,
+  payload: CdPlaybackSessionKey,
 ): boolean {
-  return (
-    track !== null &&
-    track.driveId === payload.driveId &&
-    track.trackNumber === payload.trackNumber
-  );
+  return session !== null && session.sessionId === payload.sessionId;
 }
