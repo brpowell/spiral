@@ -32,6 +32,18 @@
   color: var(--color-text-secondary);
 }
 
+.field__label--sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 label.field__label {
   color: var(--color-text-primary);
   font-weight: 500;
@@ -58,6 +70,10 @@ label.field__label {
 
 .field > .field__label + .radio-group {
   margin-top: 0.25rem;
+}
+
+.field > .field__label--sr-only + .radio-group {
+  margin-top: 0;
 }
 
 .field--description-below-label > .field__label + .field__description {

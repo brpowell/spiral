@@ -2,7 +2,34 @@
   margin-bottom: 1rem;
 }
 
+.convert-confirm-modal__profile-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.convert-confirm-modal__source-format {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.convert-confirm-modal__profile-arrow {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+  opacity: 0.65;
+  line-height: 1;
+}
+
 .convert-confirm-modal__profile-field .select {
+  flex: 1 1 auto;
+  min-width: 10rem;
   max-width: 18rem;
 }
 

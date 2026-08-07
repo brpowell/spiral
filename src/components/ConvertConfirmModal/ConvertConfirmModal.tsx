@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import {
   formatSourceEncodingProfileLabel,
@@ -10,11 +17,7 @@ import type { ConvertMode } from "../../lib/convertTracks";
 import { useConvertStore } from "../../store/useConvertStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { Button } from "../common/Button/Button";
-import {
-  Field,
-  FieldLabel,
-  FormField,
-} from "../common/Field/Field";
+import { Field, FieldLabel, FormField } from "../common/Field/Field";
 import {
   Modal,
   ModalBody,
@@ -147,25 +150,19 @@ export function ConvertConfirmModal() {
       <ModalHeader>
         <ModalHeaderMain>
           <ModalTitle id={titleId}>
-            {trackCount === 1 ? "Convert track" : `Convert ${trackCount} tracks`}
+            {trackCount === 1
+              ? "Convert track"
+              : `Convert ${trackCount} tracks`}
           </ModalTitle>
           {sampleTrack != null ? (
             <ModalDescription>
               {trackCount === 1
                 ? formatTrackSummary(
-                  sampleTrack.title,
-                  sampleTrack.artist,
-                  sampleTrack.album,
-                )
+                    sampleTrack.title,
+                    sampleTrack.artist,
+                    sampleTrack.album,
+                  )
                 : `${trackCount} selected tracks will be transcoded.`}
-              {sourceFormatLabel != null ? (
-                <>
-                  {" "}
-                  <span className="convert-confirm-modal__source-format">
-                    Current format: {sourceFormatLabel}
-                  </span>
-                </>
-              ) : null}
             </ModalDescription>
           ) : null}
         </ModalHeaderMain>
@@ -173,24 +170,36 @@ export function ConvertConfirmModal() {
 
       {sampleTrack != null && (
         <ModalBody>
-          <FormField
-            label="Convert to"
-            className="convert-confirm-modal__profile-field"
-          >
-            <Select
-              value={profileId}
-              onChange={setProfileId}
-              options={profileOptions}
-              disabled={profilesLoading || profileOptions.length === 0}
-              aria-label="Convert encoding profile"
-            />
-          </FormField>
+          <div className="convert-confirm-modal__profile-field">
+            <div className="convert-confirm-modal__profile-row">
+              {sourceFormatLabel != null ? (
+                <>
+                  <span className="convert-confirm-modal__source-format">
+                    {sourceFormatLabel}
+                  </span>
+                  <span
+                    className="convert-confirm-modal__profile-arrow"
+                    aria-hidden
+                  >
+                    →
+                  </span>
+                </>
+              ) : null}
+              <Select
+                value={profileId}
+                onChange={setProfileId}
+                options={profileOptions}
+                disabled={profilesLoading || profileOptions.length === 0}
+                aria-label="Convert to"
+              />
+            </div>
+          </div>
 
           <FormField
             label="Library outcome"
             labelId={outcomeLabelId}
+            srOnly
             description="Both options preserve track metadata and playlist entries."
-            descriptionPosition="below-control"
             className="convert-confirm-modal__outcome"
           >
             <RadioGroup

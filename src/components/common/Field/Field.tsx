@@ -29,15 +29,20 @@ export function Field({
 
 export type FieldLabelProps = ComponentPropsWithoutRef<"span"> & {
   htmlFor?: string;
+  /** Visually hide the label while keeping it available to assistive tech. */
+  srOnly?: boolean;
 };
 
 export function FieldLabel({
   className,
   children,
   htmlFor,
+  srOnly = false,
   ...props
 }: FieldLabelProps) {
-  const classes = ["field__label", className].filter(Boolean).join(" ");
+  const classes = ["field__label", srOnly && "field__label--sr-only", className]
+    .filter(Boolean)
+    .join(" ");
 
   if (htmlFor != null) {
     return (
@@ -56,7 +61,11 @@ export function FieldLabel({
 
 export type FieldContentProps = ComponentPropsWithoutRef<"div">;
 
-export function FieldContent({ className, children, ...props }: FieldContentProps) {
+export function FieldContent({
+  className,
+  children,
+  ...props
+}: FieldContentProps) {
   const classes = ["field__content", className].filter(Boolean).join(" ");
   return (
     <div className={classes} {...props}>
@@ -89,6 +98,8 @@ export type FormFieldProps = {
   children: ReactNode;
   className?: string;
   labelId?: string;
+  /** Visually hide the label while keeping it available to assistive tech. */
+  srOnly?: boolean;
 };
 
 export function FormField({
@@ -98,6 +109,7 @@ export function FormField({
   children,
   className,
   labelId: labelIdProp,
+  srOnly = false,
 }: FormFieldProps) {
   const autoLabelId = useId();
   const labelId = labelIdProp ?? autoLabelId;
@@ -118,7 +130,9 @@ export function FormField({
         .filter(Boolean)
         .join(" ")}
     >
-      <FieldLabel id={labelId}>{label}</FieldLabel>
+      <FieldLabel id={labelId} srOnly={srOnly}>
+        {label}
+      </FieldLabel>
       {descriptionPosition === "below-label" ? descriptionNode : null}
       {children}
       {descriptionPosition === "below-control" ? descriptionNode : null}
