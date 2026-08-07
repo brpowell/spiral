@@ -85,7 +85,7 @@ pub fn move_sidecar(from: &Path, dest: &Path) {
     if let Some(parent) = sidecar_to.parent() {
         let _ = fs::create_dir_all(parent);
     }
-    if let Err(e) = fs::rename(&sidecar_from, &sidecar_to) {
+    if let Err(e) = crate::fs_move::rename_or_copy_file(&sidecar_from, &sidecar_to) {
         eprintln!("failed to move lyrics sidecar: {e}");
     }
 }

@@ -520,9 +520,11 @@ fn build_convert_dest_path(
     }
 }
 
-fn convert_temp_path(track_id: i64, extension: &str) -> PathBuf {
-    std::env::temp_dir()
-        .join("spiral-convert")
+/// Write under the media folder so the final relocate is same-volume when possible
+/// (`std::env::temp_dir()` is often a different mount on Linux, e.g. tmpfs `/tmp`).
+fn convert_temp_path(media_folder: &Path, track_id: i64, extension: &str) -> PathBuf {
+    media_folder
+        .join(".spiral-convert")
         .join(format!("{track_id}.{extension}"))
 }
 
@@ -604,7 +606,7 @@ fn convert_track_impl(
         &resolved.organize_path_format,
     )?;
 
-    let temp_path = convert_temp_path(track_id, profile.extension);
+    let temp_path = convert_temp_path(media_folder, track_id, profile.extension);
     if let Some(parent) = temp_path.parent() {
         fs::create_dir_all(parent)
             .map_err(|err| format!("Failed to create convert temp folder: {err}"))?;
@@ -632,6 +634,9 @@ fn convert_track_impl(
             let _ = fs::remove_file(&temp_path);
             err
         })?;
+    if let Some(parent) = temp_path.parent() {
+        library_organize::prune_empty_dirs(parent, media_folder);
+    }
     let new_path = final_path.to_string_lossy().into_owned();
 
     if mode == "add_new" {

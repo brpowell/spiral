@@ -18,6 +18,7 @@ mod diagnostics_export;
 mod file_playback;
 mod itunes_smpb;
 mod file_scan;
+mod fs_move;
 mod import_files;
 mod library_organize;
 mod library_paths;

@@ -1,3 +1,4 @@
+use crate::fs_move;
 use crate::metadata_backup;
 use crate::lyrics_sidecar;
 use crate::models::TrackMetadataUpdate;
@@ -347,7 +348,7 @@ pub fn move_track_file(
     }
 
     let dest = unique_path(dest, None);
-    fs::rename(from, &dest).map_err(|e| format!("failed to move track file: {e}"))?;
+    fs_move::rename_or_copy_file(from, &dest)?;
 
     let backup_from = metadata_backup::backup_path_for(from);
     if backup_from.is_file() {
@@ -359,7 +360,7 @@ pub fn move_track_file(
         if let Some(parent) = backup_to.parent() {
             let _ = fs::create_dir_all(parent);
         }
-        if let Err(e) = fs::rename(&backup_from, &backup_to) {
+        if let Err(e) = fs_move::rename_or_copy_file(&backup_from, &backup_to) {
             eprintln!("failed to move metadata backup: {e}");
         }
     }
