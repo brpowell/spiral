@@ -24,6 +24,12 @@ function isSeekKey(key: string): boolean {
   );
 }
 
+function ratioFromClientX(el: HTMLInputElement, clientX: number): number {
+  const rect = el.getBoundingClientRect();
+  if (rect.width <= 0) return 0;
+  return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+}
+
 export function SeekBar({ className }: SeekBarProps) {
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
@@ -53,7 +59,7 @@ export function SeekBar({ className }: SeekBarProps) {
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
-    handleSeekEnd(Number(e.currentTarget.value));
+    handleSeekEnd(ratioFromClientX(e.currentTarget, e.clientX));
   };
 
   return (
@@ -68,8 +74,14 @@ export function SeekBar({ className }: SeekBarProps) {
         disabled={disabled}
         aria-label="Seek"
         onPointerDown={(e) => {
+          if (disabled || e.button !== 0) return;
           e.currentTarget.setPointerCapture(e.pointerId);
           handleSeekStart();
+          handleSeekChange(ratioFromClientX(e.currentTarget, e.clientX));
+        }}
+        onPointerMove={(e) => {
+          if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+          handleSeekChange(ratioFromClientX(e.currentTarget, e.clientX));
         }}
         onChange={(e) => handleSeekChange(Number(e.currentTarget.value))}
         onPointerUp={finishPointer}

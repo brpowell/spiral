@@ -6,6 +6,10 @@
   min-width: 0;
 }
 
+.seek-bar__slider {
+  touch-action: none;
+}
+
 .seek-bar__time {
   font-size: 0.62rem;
   color: var(--color-text-secondary);
