@@ -1,7 +1,7 @@
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import {
   playlistGradientStyle,
-  uniqueTrackArtPaths,
+  uniqueAlbumArtPaths,
 } from "../../lib/playlistArt";
 import type { Track } from "../../types/track";
 import { IconPlaylistPlaceholder } from "../icons";
@@ -30,7 +30,7 @@ export function PlaylistGeneratedArt({
   className = "",
   alt = "",
 }: PlaylistGeneratedArtProps) {
-  const artPaths = uniqueTrackArtPaths(tracks);
+  const artPaths = uniqueAlbumArtPaths(tracks);
   const gradient = playlistGradientStyle(playlistId, title);
 
   if (artPaths.length === 0) {

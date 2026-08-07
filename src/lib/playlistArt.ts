@@ -1,17 +1,25 @@
 import type { Playlist, PlaylistImageMode } from "../types/playlist";
 import type { Track } from "../types/track";
+import { albumKey } from "./albums";
 
 /** Stable cache key for playlist cover art in the art cache. */
 export function playlistArtCacheKey(playlistId: number): string {
   return `playlist:${playlistId}`;
 }
 
-export function uniqueTrackArtPaths(tracks: Track[], limit = 4): string[] {
+/**
+ * Art paths for generated playlist mosaics: one tile per unique album
+ * (playlist order), up to `limit`. Same-album tracks share one tile even when
+ * their cached `artPath` values differ.
+ */
+export function uniqueAlbumArtPaths(tracks: Track[], limit = 4): string[] {
   const seen = new Set<string>();
   const paths: string[] = [];
   for (const track of tracks) {
-    if (!track.artPath || seen.has(track.artPath)) continue;
-    seen.add(track.artPath);
+    if (!track.artPath) continue;
+    const key = albumKey(track);
+    if (seen.has(key)) continue;
+    seen.add(key);
     paths.push(track.artPath);
     if (paths.length >= limit) break;
   }
