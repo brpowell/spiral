@@ -7,26 +7,26 @@ pub fn start_file_playback(app: AppHandle, path: String) -> Result<FilePlaybackS
 }
 
 #[tauri::command]
-pub fn pause_file_playback() {
-    file_playback::pause();
+pub fn pause_file_playback(session_id: u64) {
+    file_playback::pause(session_id)
 }
 
 #[tauri::command]
-pub fn resume_file_playback() {
-    file_playback::resume();
+pub fn resume_file_playback(session_id: u64) {
+    file_playback::resume(session_id)
 }
 
 #[tauri::command]
-pub fn seek_file_playback(position_seconds: f64) -> Result<(), String> {
-    file_playback::seek(position_seconds)
+pub fn seek_file_playback(session_id: u64, position_seconds: f64) -> Result<(), String> {
+    file_playback::seek(session_id, position_seconds)
 }
 
 #[tauri::command]
-pub fn stop_file_playback() {
-    file_playback::stop();
+pub fn stop_file_playback(session_id: u64) {
+    file_playback::stop(session_id)
 }
 
 #[tauri::command]
-pub fn ack_file_playback_pcm(count: u32) {
-    file_playback::ack_pcm_chunks(count);
+pub fn ack_file_playback_pcm(session_id: u64, count: u32) {
+    file_playback::ack_pcm_chunks(session_id, count)
 }

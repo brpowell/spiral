@@ -302,20 +302,16 @@ pub fn run() {
     // (including when Spiral is already running). Windows/Linux use argv +
     // tauri-plugin-single-instance instead.
     #[cfg(any(target_os = "macos", target_os = "ios"))]
-    {
-        app.run(|app, event| {
-            if let tauri::RunEvent::Opened { urls } = event {
-                let files = urls
-                    .into_iter()
-                    .filter_map(|url| url.to_file_path().ok())
-                    .collect::<Vec<_>>();
-                commands::license::handle_opened_spcard_paths(app, files);
-            }
-        });
-    }
+    app.run(|app, event| {
+        if let tauri::RunEvent::Opened { urls } = event {
+            let files = urls
+                .into_iter()
+                .filter_map(|url| url.to_file_path().ok())
+                .collect::<Vec<_>>();
+            commands::license::handle_opened_spcard_paths(app, files);
+        }
+    });
 
     #[cfg(not(any(target_os = "macos", target_os = "ios")))]
-    {
-        app.run(|_app, _event| {});
-    }
+    app.run(|_app, _event| {});
 }

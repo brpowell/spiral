@@ -17,3 +17,6 @@ pub use pipeline::transcode_file_with_metadata;
 pub use pipeline::encode_pcm_with_metadata;
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 pub use pcm_stream::PcmStream;
+
+/// Shared by file PCM playback when Symphonia rejects ID3-tagged WAVE files.
+pub(crate) use wav::read_pcm_from_wav;

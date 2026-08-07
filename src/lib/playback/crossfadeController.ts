@@ -1,14 +1,8 @@
 import type { PlayableRef } from "../../types/playable";
 import type { RepeatMode } from "../../types/track";
-import {
-  rampDeckGain,
-  type DeckId,
-} from "./audioMixer";
-import {
-  canHowlerCrossfade,
-  effectiveFadeSeconds,
-} from "./canCrossfade";
-import { FilePlaybackEngine } from "./filePlaybackEngine";
+import { rampDeckGain, setDeckGain, type DeckId } from "./audioMixer";
+import { canCrossfade, effectiveFadeSeconds } from "./canCrossfade";
+import { PcmFilePlaybackEngine } from "./pcmFilePlaybackEngine";
 import type { PlaybackSource } from "./types";
 
 const FADE_COMPLETE_BUFFER_MS = 50;
@@ -47,16 +41,16 @@ function inactiveDeck(active: DeckId): DeckId {
   return active === "a" ? "b" : "a";
 }
 
-function createDeckEngines(): Record<DeckId, FilePlaybackEngine> {
-  const deckA = new FilePlaybackEngine();
-  const deckB = new FilePlaybackEngine();
+function createDeckEngines(): Record<DeckId, PcmFilePlaybackEngine> {
+  const deckA = new PcmFilePlaybackEngine();
+  const deckB = new PcmFilePlaybackEngine();
   deckA.setDeckId("a");
   deckB.setDeckId("b");
   return { a: deckA, b: deckB };
 }
 
 export class CrossfadeController {
-  private readonly decks: Record<DeckId, FilePlaybackEngine>;
+  private readonly decks: Record<DeckId, PcmFilePlaybackEngine>;
   private activeDeck: DeckId = "a";
   private fadeState: "idle" | "preloading" | "fading" | "fadeOut" = "idle";
   private fadeOutCompleteCallback: (() => void) | null = null;
@@ -77,8 +71,12 @@ export class CrossfadeController {
   private userVolume = 1;
   private userMuted = false;
   private userBalance = 0;
+  /** True while a dual-deck fade is frozen by pause (timers cleared, gains held). */
+  private fadePaused = false;
 
-  constructor(decks: Record<DeckId, FilePlaybackEngine> = createDeckEngines()) {
+  constructor(
+    decks: Record<DeckId, PcmFilePlaybackEngine> = createDeckEngines(),
+  ) {
     this.decks = decks;
     for (const engine of Object.values(this.decks)) {
       engine.onEnd(() => {
@@ -107,14 +105,20 @@ export class CrossfadeController {
     if (this.fadeState !== "fading" || !this.activeFadeContext) return null;
     if (this.fadeStartedAtMs === null || this.fadeDurationSec <= 0) return null;
 
-    const elapsedSec = (Date.now() - this.fadeStartedAtMs) / 1000;
-    const progress = Math.min(1, Math.max(0, elapsedSec / this.fadeDurationSec));
+    const progress = this.getFadeProgress();
 
     return {
       outgoingTrackId: this.activeFadeContext.currentTrackId,
       incomingTrackId: this.activeFadeContext.nextTrackId,
       progress,
     };
+  }
+
+  /** Linear 0–1 fade progress; frozen while pause holds the transition. */
+  private getFadeProgress(): number {
+    if (this.fadeStartedAtMs === null || this.fadeDurationSec <= 0) return 0;
+    const elapsedSec = (Date.now() - this.fadeStartedAtMs) / 1000;
+    return Math.min(1, Math.max(0, elapsedSec / this.fadeDurationSec));
   }
 
   consumeHandledEnd(): boolean {
@@ -127,11 +131,11 @@ export class CrossfadeController {
     this.onEndCallback = callback;
   }
 
-  getActiveEngine(): FilePlaybackEngine {
+  getActiveEngine(): PcmFilePlaybackEngine {
     return this.decks[this.activeDeck];
   }
 
-  private engine(deckId: DeckId): FilePlaybackEngine {
+  private engine(deckId: DeckId): PcmFilePlaybackEngine {
     return this.decks[deckId];
   }
 
@@ -142,7 +146,7 @@ export class CrossfadeController {
     }
   }
 
-  private applyUserMixToEngine(engine: FilePlaybackEngine): void {
+  private applyUserMixToEngine(engine: PcmFilePlaybackEngine): void {
     engine.setVolume(this.userVolume);
     engine.setMuted(this.userMuted);
     engine.setBalance(this.userBalance);
@@ -160,7 +164,8 @@ export class CrossfadeController {
     const engine = this.getActiveEngine();
     await engine.load(source);
     this.applyUserMixToEngine(engine);
-    engine.play();
+    engine.setCrossfadeMix(1);
+    await engine.play();
     this.controllerActive = true;
     this.handledEnd = false;
   }
@@ -193,12 +198,29 @@ export class CrossfadeController {
     this.fadeDurationSec = 0;
     this.dominantTrackPromoted = false;
     this.pendingIncomingTrackId = null;
+    this.fadePaused = false;
   }
 
-  private cancelCrossfadeIfFading(): void {
-    if (this.fadeState === "fading") {
-      this.cancelCrossfade();
+  private cancelCrossfadeOnSeek(): void {
+    if (this.fadeState === "idle") return;
+
+    // Outgoing may have already hit EOS (session dead). Promote incoming before
+    // cancel so we do not keep a dead deck and destroy the live one.
+    if (
+      this.fadeState === "fading" &&
+      !this.dominantTrackPromoted &&
+      this.fadeOutgoingDeck !== null &&
+      this.fadeIncomingDeck !== null &&
+      this.activeFadeContext &&
+      !this.engine(this.fadeOutgoingDeck).isPlaying()
+    ) {
+      this.promoteIncomingToActive(
+        this.fadeIncomingDeck,
+        this.activeFadeContext,
+      );
     }
+
+    this.cancelCrossfade();
   }
 
   cancelCrossfade(): void {
@@ -209,7 +231,6 @@ export class CrossfadeController {
 
     if (this.fadeState === "fadeOut") {
       const outgoingDeck = this.fadeOutgoingDeck ?? this.activeDeck;
-      this.engine(outgoingDeck).setSuppressEndCallback(false);
       this.engine(outgoingDeck).setCrossfadeMix(1);
       rampDeckGain(outgoingDeck, 1, 0);
       this.fadeState = "idle";
@@ -224,11 +245,9 @@ export class CrossfadeController {
 
     if (this.dominantTrackPromoted) {
       this.engine(outgoingDeck).destroy();
-      this.engine(incomingDeck).setSuppressEndCallback(false);
       this.engine(incomingDeck).setCrossfadeMix(1);
       this.activeDeck = incomingDeck;
     } else {
-      this.engine(outgoingDeck).setSuppressEndCallback(false);
       this.engine(incomingDeck).destroy();
       this.engine(outgoingDeck).setCrossfadeMix(1);
       this.activeDeck = outgoingDeck;
@@ -241,28 +260,155 @@ export class CrossfadeController {
 
   play(): void {
     if (!this.controllerActive) return;
-    this.getActiveEngine().play();
+    if (this.fadePaused && this.fadeState === "fading") {
+      void this.resumeFrozenFade();
+      return;
+    }
+    void this.getActiveEngine().play();
   }
 
   pause(): void {
     if (!this.controllerActive) return;
-    if (this.fadeState === "fading") {
-      this.engine(this.activeDeck).pause();
-      this.engine(inactiveDeck(this.activeDeck)).pause();
+
+    if (this.fadeState === "preloading") {
+      // Drop the incomplete preload so resume is a clean single-deck pause.
+      this.cancelCrossfade();
+      this.getActiveEngine().pause();
       return;
     }
+
+    if (this.fadeState === "fading") {
+      this.freezeFade();
+      return;
+    }
+
+    if (this.fadeState === "fadeOut") {
+      this.settleFadeOutOnPause();
+      return;
+    }
+
     this.getActiveEngine().pause();
+  }
+
+  /**
+   * Hold both decks and gain ramps in place. Timers are cleared so handoff
+   * cannot fire while the UI is paused; resumeFrozenFade continues the rest.
+   */
+  private freezeFade(): void {
+    if (this.fadeState !== "fading" || this.fadePaused) return;
+    if (this.fadeOutgoingDeck === null || this.fadeIncomingDeck === null)
+      return;
+
+    const progress = this.getFadeProgress();
+    this.fadePaused = true;
+    this.clearFadeTimers();
+
+    // Snap mixes to the wall-clock progress (AudioParam.value is unreliable
+    // mid-automation) and stop both decode sessions.
+    setDeckGain(this.fadeOutgoingDeck, 1 - progress);
+    setDeckGain(this.fadeIncomingDeck, progress);
+    this.engine(this.fadeOutgoingDeck).setCrossfadeMix(1 - progress);
+    this.engine(this.fadeIncomingDeck).setCrossfadeMix(progress);
+
+    this.engine(this.fadeOutgoingDeck).pause();
+    this.engine(this.fadeIncomingDeck).pause();
+
+    // Keep fadeStartedAtMs consistent with frozen progress for visuals / resume.
+    if (this.fadeDurationSec > 0) {
+      this.fadeStartedAtMs =
+        Date.now() - progress * this.fadeDurationSec * 1000;
+    }
+  }
+
+  private async resumeFrozenFade(): Promise<void> {
+    if (!this.fadePaused || this.fadeState !== "fading") return;
+    if (
+      this.fadeOutgoingDeck === null ||
+      this.fadeIncomingDeck === null ||
+      !this.activeFadeContext
+    ) {
+      this.fadePaused = false;
+      return;
+    }
+
+    const progress = this.getFadeProgress();
+    const remainingSec = Math.max(0.05, this.fadeDurationSec * (1 - progress));
+    const generation = this.scheduleGeneration;
+    const outgoingDeck = this.fadeOutgoingDeck;
+    const incomingDeck = this.fadeIncomingDeck;
+    const ctx = this.activeFadeContext;
+
+    this.fadePaused = false;
+    this.fadeStartedAtMs = Date.now() - progress * this.fadeDurationSec * 1000;
+
+    await this.engine(outgoingDeck).play();
+    await this.engine(incomingDeck).play();
+    if (generation !== this.scheduleGeneration || this.fadePaused) return;
+
+    rampDeckGain(outgoingDeck, 0, remainingSec);
+    rampDeckGain(incomingDeck, 1, remainingSec);
+
+    if (!this.dominantTrackPromoted) {
+      const remainingToDominance =
+        this.fadeDurationSec / 2 - progress * this.fadeDurationSec;
+      if (remainingToDominance <= 0) {
+        this.promoteIncomingToActive(incomingDeck, ctx);
+      } else {
+        this.dominanceTimer = setTimeout(() => {
+          if (generation !== this.scheduleGeneration) return;
+          if (this.fadeState !== "fading" || this.fadePaused) return;
+          this.promoteIncomingToActive(incomingDeck, ctx);
+        }, remainingToDominance * 1000);
+      }
+    }
+
+    this.fadeCompleteTimer = setTimeout(
+      () => {
+        if (generation !== this.scheduleGeneration) return;
+        if (this.fadePaused) return;
+        this.completeHandoff(incomingDeck, ctx);
+      },
+      remainingSec * 1000 + FADE_COMPLETE_BUFFER_MS,
+    );
+  }
+
+  /** Queue-end fade: jump to silence and finish rather than resume mid-fade-out. */
+  private settleFadeOutOnPause(): void {
+    this.clearFadeTimers();
+    const outgoingDeck = this.fadeOutgoingDeck ?? this.activeDeck;
+    const outgoingEngine = this.engine(outgoingDeck);
+    outgoingEngine.pause();
+    setDeckGain(outgoingDeck, 0);
+    outgoingEngine.setCrossfadeMix(0);
+    this.fadeState = "idle";
+    this.handledEnd = false;
+    const callback = this.fadeOutCompleteCallback;
+    this.fadeOutCompleteCallback = null;
+    this.clearFadeSession();
+    callback?.();
+  }
+
+  isPlaying(): boolean {
+    if (!this.controllerActive) return false;
+    if (this.fadePaused) return false;
+    if (this.fadeState === "fading") {
+      return (
+        this.engine(this.activeDeck).isPlaying() ||
+        this.engine(inactiveDeck(this.activeDeck)).isPlaying()
+      );
+    }
+    return this.getActiveEngine().isPlaying();
   }
 
   seek(seconds: number): void {
     if (!this.controllerActive) return;
-    this.cancelCrossfadeIfFading();
+    this.cancelCrossfadeOnSeek();
     this.getActiveEngine().seek(seconds);
   }
 
   seekRatio(ratio: number): void {
     if (!this.controllerActive) return;
-    this.cancelCrossfadeIfFading();
+    this.cancelCrossfadeOnSeek();
     const duration = this.getDurationSeconds();
     if (!duration || !Number.isFinite(duration)) return;
     this.getActiveEngine().seek(Math.max(0, Math.min(1, ratio)) * duration);
@@ -276,17 +422,6 @@ export class CrossfadeController {
   getDurationSeconds(): number {
     if (!this.controllerActive) return 0;
     return this.getActiveEngine().getDurationSeconds();
-  }
-
-  isPlaying(): boolean {
-    if (!this.controllerActive) return false;
-    if (this.fadeState === "fading") {
-      return (
-        this.engine(this.activeDeck).isPlaying() ||
-        this.engine(inactiveDeck(this.activeDeck)).isPlaying()
-      );
-    }
-    return this.getActiveEngine().isPlaying();
   }
 
   setVolume(volume: number): void {
@@ -312,7 +447,7 @@ export class CrossfadeController {
     if (this.fadeState !== "idle") return;
     if (ctx.repeatMode === "one") return;
     if (ctx.nextTrackId === ctx.currentTrackId) return;
-    if (!canHowlerCrossfade(ctx.currentSource, ctx.nextSource)) return;
+    if (!canCrossfade(ctx.currentSource, ctx.nextSource)) return;
 
     const fadeSec = effectiveFadeSeconds(
       ctx.outgoingDuration,
@@ -329,7 +464,7 @@ export class CrossfadeController {
     if (!this.controllerActive) return;
     if (ctx.repeatMode === "one") return;
     if (ctx.nextTrackId === ctx.currentTrackId) return;
-    if (!canHowlerCrossfade(ctx.currentSource, ctx.nextSource)) return;
+    if (!canCrossfade(ctx.currentSource, ctx.nextSource)) return;
 
     this.cancelCrossfade();
 
@@ -357,13 +492,17 @@ export class CrossfadeController {
 
         this.applyUserMixToEngine(outgoingEngine);
         this.applyUserMixToEngine(incomingEngine);
-        incomingEngine.setSuppressEndCallback(true);
-        outgoingEngine.setSuppressEndCallback(true);
 
-        incomingEngine.play();
+        // Wire both decks and set starting mixes BEFORE play/ramps.
+        // Ramping a missing deck gain no-ops; setCrossfadeMix after a ramp
+        // cancels scheduled AudioParam values.
         incomingEngine.setCrossfadeMix(0);
-        outgoingEngine.connectToOutputBus();
+        incomingEngine.connectToOutputBus({ applyMix: true });
         outgoingEngine.setCrossfadeMix(1);
+        outgoingEngine.connectToOutputBus({ applyMix: true });
+
+        await incomingEngine.play();
+        if (generation !== this.scheduleGeneration) return;
 
         this.beginCrossfadeTransition(
           ctx,
@@ -376,7 +515,6 @@ export class CrossfadeController {
         console.error("Crossfade preload failed:", err);
         if (generation !== this.scheduleGeneration) return;
         incomingEngine.destroy();
-        outgoingEngine.setSuppressEndCallback(false);
         this.fadeState = "idle";
         this.handledEnd = false;
       }
@@ -394,7 +532,6 @@ export class CrossfadeController {
 
     const outgoingDeck = this.activeDeck;
     const outgoingEngine = this.engine(outgoingDeck);
-    outgoingEngine.setSuppressEndCallback(true);
     outgoingEngine.connectToOutputBus();
     outgoingEngine.setCrossfadeMix(1);
 
@@ -405,19 +542,21 @@ export class CrossfadeController {
     this.fadeOutCompleteCallback = onComplete;
     rampDeckGain(outgoingDeck, 0, fadeSec);
 
-    this.fadeCompleteTimer = setTimeout(() => {
-      if (generation !== this.scheduleGeneration) return;
-      if (this.fadeState !== "fadeOut") return;
+    this.fadeCompleteTimer = setTimeout(
+      () => {
+        if (generation !== this.scheduleGeneration) return;
+        if (this.fadeState !== "fadeOut") return;
 
-      outgoingEngine.setSuppressEndCallback(false);
-      outgoingEngine.pause();
-      this.fadeState = "idle";
-      this.handledEnd = false;
-      const callback = this.fadeOutCompleteCallback;
-      this.fadeOutCompleteCallback = null;
-      this.clearFadeSession();
-      callback?.();
-    }, fadeSec * 1000 + FADE_COMPLETE_BUFFER_MS);
+        outgoingEngine.pause();
+        this.fadeState = "idle";
+        this.handledEnd = false;
+        const callback = this.fadeOutCompleteCallback;
+        this.fadeOutCompleteCallback = null;
+        this.clearFadeSession();
+        callback?.();
+      },
+      fadeSec * 1000 + FADE_COMPLETE_BUFFER_MS,
+    );
   }
 
   private beginCrossfadeTransition(
@@ -438,16 +577,22 @@ export class CrossfadeController {
     rampDeckGain(outgoingDeck, 0, fadeSec);
     rampDeckGain(incomingDeck, 1, fadeSec);
 
-    this.dominanceTimer = setTimeout(() => {
-      if (generation !== this.scheduleGeneration) return;
-      if (this.fadeState !== "fading") return;
-      this.promoteIncomingToActive(incomingDeck, ctx);
-    }, (fadeSec / 2) * 1000);
+    this.dominanceTimer = setTimeout(
+      () => {
+        if (generation !== this.scheduleGeneration) return;
+        if (this.fadeState !== "fading") return;
+        this.promoteIncomingToActive(incomingDeck, ctx);
+      },
+      (fadeSec / 2) * 1000,
+    );
 
-    this.fadeCompleteTimer = setTimeout(() => {
-      if (generation !== this.scheduleGeneration) return;
-      this.completeHandoff(incomingDeck, ctx);
-    }, fadeSec * 1000 + FADE_COMPLETE_BUFFER_MS);
+    this.fadeCompleteTimer = setTimeout(
+      () => {
+        if (generation !== this.scheduleGeneration) return;
+        this.completeHandoff(incomingDeck, ctx);
+      },
+      fadeSec * 1000 + FADE_COMPLETE_BUFFER_MS,
+    );
   }
 
   private promoteIncomingToActive(
@@ -473,16 +618,14 @@ export class CrossfadeController {
 
     this.promoteIncomingToActive(incomingDeck, ctx);
 
-    this.engine(outgoingDeck).setSuppressEndCallback(false);
     this.engine(outgoingDeck).destroy();
     this.engine(incomingDeck).setCrossfadeMix(1);
-    this.engine(incomingDeck).setSuppressEndCallback(false);
     this.activeDeck = incomingDeck;
     this.fadeState = "idle";
     this.clearFadeSession();
   }
 
-  private handleDeckEnd(engine: FilePlaybackEngine): void {
+  private handleDeckEnd(engine: PcmFilePlaybackEngine): void {
     if (!this.controllerActive) return;
 
     const deck: DeckId = engine === this.decks.a ? "a" : "b";

@@ -80,3 +80,12 @@ pub mod opus {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.opus")
     }
 }
+
+#[cfg(test)]
+pub mod flac {
+    use std::path::PathBuf;
+
+    pub fn minimal_fixture_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.flac")
+    }
+}

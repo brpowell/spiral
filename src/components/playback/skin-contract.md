@@ -628,7 +628,7 @@ Unset slots receive the V1 default Spiral layout. Skins override individual slot
 
 ## Visualizer cross-window data pipe
 
-The Web Audio `AnalyserNode` is created in the main window on the shared playback bus (`src/lib/playback/audioOutput.ts`, consumed by `VisualizerSlot` / `SceneRenderer`). File playback taps Howler's master gain; CD playback taps the PCM pipeline gain — both route through the same analyser.
+The Web Audio `AnalyserNode` is created in the main window on the shared playback bus (`src/lib/playback/audioOutput.ts`, consumed by `VisualizerSlot` / `SceneRenderer`). Library file and CD PCM pipelines route through per-deck gains into the same analyser.
 
 When skin mode runs in a **second Tauri webview**, it must not instantiate a second analyser. Plan:
 

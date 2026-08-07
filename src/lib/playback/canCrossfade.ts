@@ -1,16 +1,14 @@
-import { requiresPcmPlayback } from "../supportedAudio";
 import type { PlaybackSource } from "./types";
 
-export function canHowlerCrossfade(
+/**
+ * Whether dual-deck PCM crossfade can run for this pair.
+ * Library file ↔ file only; CD stays hard-cut (separate singleton session).
+ */
+export function canCrossfade(
   outgoing: PlaybackSource,
   incoming: PlaybackSource,
 ): boolean {
-  if (outgoing.kind === "cd" || incoming.kind === "cd") return false;
-  if (outgoing.kind !== "file" || incoming.kind !== "file") return false;
-  return (
-    !requiresPcmPlayback(outgoing.path, outgoing.codec) &&
-    !requiresPcmPlayback(incoming.path, incoming.codec)
-  );
+  return outgoing.kind === "file" && incoming.kind === "file";
 }
 
 export function effectiveFadeSeconds(

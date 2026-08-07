@@ -32,7 +32,6 @@ import {
   type ListenCompletion,
   type ListenEventPayload,
 } from "../lib/listenSession";
-import { requiresPcmPlayback } from "../lib/supportedAudio";
 import { usePlaybackSettingsStore } from "./usePlaybackSettingsStore";
 import {
   getLibrary,
@@ -337,7 +336,7 @@ function buildCrossfadeScheduleContext(
   const currentSource = resolvePlaybackSource(currentPlayable, state.library);
   const nextSource = resolvePlaybackSource(nextPlayable, state.library);
   if (!currentSource || !nextSource) return null;
-  if (!audio.canHowlerCrossfade(currentSource, nextSource)) return null;
+  if (!audio.canCrossfade(currentSource, nextSource)) return null;
 
   const outgoingDuration = audio.getDurationSeconds();
   if (!outgoingDuration) return null;
@@ -482,26 +481,11 @@ interface PlayResolvedPlayableOptions extends PlaybackAdvanceOptions {
 
 function shouldUseCrossfadeController(
   source: PlaybackSource,
-  state: PlayerState,
-  playable: PlayableRef,
+  _state: PlayerState,
+  _playable: PlayableRef,
 ): boolean {
-  const settings = usePlaybackSettingsStore.getState();
-  if (!settings.crossfadeEnabled) return false;
-  if (
-    source.kind !== "file" ||
-    requiresPcmPlayback(source.path, source.codec)
-  ) {
-    return false;
-  }
-
-  const isRepeatOneReplay =
-    state.repeatMode === "one" &&
-    playable.type === "library" &&
-    state.currentPlayable?.type === "library" &&
-    playable.trackId === state.currentPlayable.trackId;
-  if (isRepeatOneReplay) return false;
-
-  return true;
+  if (source.kind !== "file") return false;
+  return usePlaybackSettingsStore.getState().crossfadeEnabled;
 }
 
 let playResolvedGeneration = 0;

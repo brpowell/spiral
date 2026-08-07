@@ -11,6 +11,7 @@ import {
   type CdPlaybackTrackPayload,
   isCdPlaybackTrack,
 } from "./cdPlaybackEvents";
+import { PositionSeekGuard } from "./positionSeekGuard";
 import type {
   PlaybackCapabilities,
   PlaybackEngine,
@@ -45,6 +46,7 @@ export class CdPlaybackEngine implements PlaybackEngine {
   private durationSeconds = 0;
   private lastPositionSeconds = 0;
   private lastPositionAtMs = 0;
+  private readonly positionSeekGuard = new PositionSeekGuard();
   private playing = false;
   private volume = 1;
   private balance = 0;
@@ -58,10 +60,15 @@ export class CdPlaybackEngine implements PlaybackEngine {
     this.listeners ??= Promise.all([
       listen<CdPlaybackPositionPayload>(CD_PLAYBACK_POSITION_EVENT, (event) => {
         if (!isCdPlaybackTrack(this.current, event.payload)) return;
-        this.lastPositionSeconds = event.payload.positionSeconds;
-        this.lastPositionAtMs = performance.now();
         this.durationSeconds = event.payload.durationSeconds;
         this.playing = event.payload.isPlaying;
+        if (
+          !this.positionSeekGuard.shouldAccept(event.payload.positionSeconds)
+        ) {
+          return;
+        }
+        this.lastPositionSeconds = event.payload.positionSeconds;
+        this.lastPositionAtMs = performance.now();
       }),
       listen<CdPlaybackTrackPayload>(CD_PLAYBACK_ENDED_EVENT, (event) => {
         if (!isCdPlaybackTrack(this.current, event.payload)) return;
@@ -113,6 +120,7 @@ export class CdPlaybackEngine implements PlaybackEngine {
       this.durationSeconds = started.durationSeconds;
       this.lastPositionSeconds = 0;
       this.lastPositionAtMs = performance.now();
+      this.positionSeekGuard.clear();
       this.playing = false;
     } catch (err) {
       void invoke("stop_cd_playback");
@@ -140,6 +148,7 @@ export class CdPlaybackEngine implements PlaybackEngine {
     const clamped = Math.max(0, Math.min(seconds, this.durationSeconds));
     this.lastPositionSeconds = clamped;
     this.lastPositionAtMs = performance.now();
+    this.positionSeekGuard.noteSeek(clamped);
     void invoke("seek_cd_playback", { positionSeconds: clamped }).catch(
       (err) => {
         console.error("CD seek failed:", err);
@@ -202,6 +211,7 @@ export class CdPlaybackEngine implements PlaybackEngine {
     this.playing = false;
     this.lastPositionSeconds = 0;
     this.durationSeconds = 0;
+    this.positionSeekGuard.clear();
     this.pcm.destroy();
     void invoke("stop_cd_playback");
   }

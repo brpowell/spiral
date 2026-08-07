@@ -9,12 +9,14 @@ import {
 
 const cdPcmConfig = {
   ackCommand: "ack_cd_playback_pcm",
+  buildAckPayload: (_session: CdPlaybackTrackKey, count: number) => ({ count }),
   pcmEvent: CD_PLAYBACK_PCM_EVENT,
   flushEvent: CD_PLAYBACK_FLUSH_EVENT,
   matchSession: isCdPlaybackTrack,
   getChannels: (payload: CdPlaybackPcmPayload) => payload.channels,
   getPcmB64: (payload: CdPlaybackPcmPayload) => payload.pcmB64,
-} as const;
+  contextMode: "owned" as const,
+};
 
 /** CD-specific wrapper around the shared PCM stream pipeline. */
 export class CdPcmPipeline {

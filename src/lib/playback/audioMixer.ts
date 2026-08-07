@@ -42,9 +42,7 @@ function resetOutputBusIfContextChanged(
   }
 }
 
-function ensureOutputBus(
-  ctx: AudioContext | OfflineAudioContext,
-): OutputBus {
+function ensureOutputBus(ctx: AudioContext | OfflineAudioContext): OutputBus {
   resetOutputBusIfContextChanged(ctx);
   if (outputBus) return outputBus;
 
@@ -102,7 +100,7 @@ export function connectDeckOutput(
     try {
       source.disconnect();
     } catch {
-      // e.g. Howler may have connected source → destination
+      // e.g. source may have been connected → destination
     }
 
     const deckGain = source.context.createGain();

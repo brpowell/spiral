@@ -1,10 +1,7 @@
 import type { CdPlaybackEngine } from "./cdPlaybackEngine";
 import { CdPlaybackEngine as CdPlaybackEngineImpl } from "./cdPlaybackEngine";
-import type { FilePlaybackEngine } from "./filePlaybackEngine";
-import { FilePlaybackEngine as FilePlaybackEngineImpl } from "./filePlaybackEngine";
 import type { PcmFilePlaybackEngine } from "./pcmFilePlaybackEngine";
 import { PcmFilePlaybackEngine as PcmFilePlaybackEngineImpl } from "./pcmFilePlaybackEngine";
-import { requiresPcmPlayback } from "../supportedAudio";
 import type {
   PlaybackEngine,
   PlaybackSource,
@@ -13,29 +10,23 @@ import type {
 } from "./types";
 
 export class PlaybackEngineManager {
-  private readonly fileEngine: FilePlaybackEngine;
   private readonly pcmFileEngine: PcmFilePlaybackEngine;
   private readonly cdEngine: CdPlaybackEngine;
   private activeEngine: PlaybackEngine;
 
   constructor(
-    fileEngine: FilePlaybackEngine = new FilePlaybackEngineImpl(),
     pcmFileEngine: PcmFilePlaybackEngine = new PcmFilePlaybackEngineImpl(),
     cdEngine: CdPlaybackEngine = new CdPlaybackEngineImpl(),
   ) {
-    this.fileEngine = fileEngine;
     this.pcmFileEngine = pcmFileEngine;
     this.cdEngine = cdEngine;
-    this.activeEngine = fileEngine;
+    this.activeEngine = pcmFileEngine;
   }
 
   private resolveEngine(source: PlaybackSource): PlaybackEngine {
     switch (source.kind) {
       case "file":
-        if (requiresPcmPlayback(source.path, source.codec)) {
-          return this.pcmFileEngine;
-        }
-        return this.fileEngine;
+        return this.pcmFileEngine;
       case "cd":
         return this.cdEngine;
       case "remote":
@@ -60,7 +51,7 @@ export class PlaybackEngineManager {
 
   unload(): void {
     this.activeEngine.destroy();
-    this.activeEngine = this.fileEngine;
+    this.activeEngine = this.pcmFileEngine;
   }
 
   play(): void {
@@ -94,7 +85,6 @@ export class PlaybackEngineManager {
   }
 
   onEnd(callback: () => void): void {
-    this.fileEngine.onEnd(callback);
     this.pcmFileEngine.onEnd(callback);
     this.cdEngine.onEnd(callback);
   }
@@ -132,14 +122,12 @@ export class PlaybackEngineManager {
   }
 
   async resumeAudioContext(): Promise<void> {
-    await this.fileEngine.resumeAudioContext();
     await this.pcmFileEngine.resumeAudioContext();
     await this.cdEngine.resumeAudioContext();
   }
 
   restartPlaybackAt(positionSeconds: number): void {
-    if (this.activeEngine === this.fileEngine) {
-      this.fileEngine.restartPlaybackAt(positionSeconds);
-    }
+    this.activeEngine.seek(positionSeconds);
+    this.activeEngine.play();
   }
 }

@@ -648,17 +648,15 @@ export function PreferencesModal() {
                   />
                   <FieldContent>
                     <FieldLabel htmlFor="pref-crossfade-enabled">
-                      Crossfade between tracks
+                      {t("preferences:playback.crossfade.enabled")}
                     </FieldLabel>
                     <FieldDescription>
-                      Crossfade applies between mp3, flac, aac, wav, and AAC m4a
-                      tracks. OGG, Opus, ALAC, and CD transitions are not
-                      supported and will instantly switch.
+                      {t("preferences:playback.crossfade.description")}
                     </FieldDescription>
                   </FieldContent>
                 </Field>
 
-                <FormField label="Crossfade duration">
+                <FormField label={t("preferences:playback.crossfade.duration")}>
                   <Slider
                     min={MIN_CROSSFADE_SECONDS}
                     max={MAX_CROSSFADE_SECONDS}
@@ -668,9 +666,15 @@ export function PreferencesModal() {
                     onChange={(e) =>
                       setCrossfadeSeconds(Number.parseInt(e.target.value, 10))
                     }
-                    aria-label="Crossfade duration in seconds"
+                    aria-label={t(
+                      "preferences:playback.crossfade.durationAria",
+                    )}
                     showValueTooltip
-                    formatValueTooltip={(value) => `${value} s`}
+                    formatValueTooltip={(value) =>
+                      t("preferences:playback.crossfade.durationValue", {
+                        value,
+                      })
+                    }
                   />
                 </FormField>
 
@@ -681,7 +685,7 @@ export function PreferencesModal() {
                   disabled={!crossfadeEnabled}
                   onChange={(e) => setCrossfadeOnSkip(e.target.checked)}
                 >
-                  Crossfade when skipping tracks
+                  {t("preferences:playback.crossfade.onSkip")}
                 </Checkbox>
 
                 <Checkbox
@@ -691,7 +695,7 @@ export function PreferencesModal() {
                   disabled={!crossfadeEnabled}
                   onChange={(e) => setCrossfadeVisualEnabled(e.target.checked)}
                 >
-                  Animate now playing during crossfade
+                  {t("preferences:playback.crossfade.visual")}
                 </Checkbox>
               </div>
             )}

@@ -193,4 +193,28 @@ mod tests {
         let err = encode_pcm_to_mp3(&pcm, Path::new("out.mp3"), profile).unwrap_err();
         assert!(err.contains("mono and stereo only"));
     }
+
+    #[test]
+    fn streaming_decoder_opens_encoded_mp3() {
+        let profile = profile_from_id("mp3-high").unwrap();
+        let pcm = PcmStream {
+            channels: 2,
+            sample_rate: 44_100,
+            samples: vec![0i16; 44_100 * 2 / 5],
+        };
+        let dest = std::env::temp_dir().join(format!(
+            "spiral-mp3-stream-{}.mp3",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&dest);
+
+        encode_pcm_to_mp3(&pcm, &dest, profile).expect("encode mp3");
+
+        let mut stream = crate::file_playback::decoder::StreamingDecoder::open(&dest)
+            .expect("open mp3 for streaming playback");
+        assert_eq!(stream.sample_rate(), pcm.sample_rate);
+        assert!(stream.next_sample().is_some());
+
+        let _ = std::fs::remove_file(&dest);
+    }
 }

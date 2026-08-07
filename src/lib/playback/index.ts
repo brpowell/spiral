@@ -17,13 +17,11 @@ export type {
 export {
   ANALYSER_FFT_SIZE,
   ANALYSER_FREQUENCY_BIN_COUNT,
-  connectEngineOutput,
-  disconnectEngineOutput,
   getAnalyser,
 } from "./audioOutput";
 export { CdPlaybackEngine } from "./cdPlaybackEngine";
-export { FilePlaybackEngine } from "./filePlaybackEngine";
-export { canHowlerCrossfade, effectiveFadeSeconds } from "./canCrossfade";
+export { canCrossfade, effectiveFadeSeconds } from "./canCrossfade";
+export { PcmFilePlaybackEngine } from "./pcmFilePlaybackEngine";
 export {
   CrossfadeController,
   crossfadeController,
@@ -217,7 +215,9 @@ export async function resumeAudioContext(): Promise<void> {
 
 export function restartPlaybackAt(positionSeconds: number): void {
   if (isCrossfadeControllerActive()) {
-    crossfadeController.getActiveEngine().restartPlaybackAt(positionSeconds);
+    const engine = crossfadeController.getActiveEngine();
+    engine.seek(positionSeconds);
+    engine.play();
     return;
   }
   manager.restartPlaybackAt(positionSeconds);

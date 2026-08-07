@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { effectiveFadeSeconds } from "./canCrossfade";
 import { CrossfadeController } from "./crossfadeController";
-import type { FilePlaybackEngine } from "./filePlaybackEngine";
+import type { PcmFilePlaybackEngine } from "./pcmFilePlaybackEngine";
 import type { DeckId } from "./audioMixer";
 import type { PlaybackSource } from "./types";
 
@@ -10,6 +10,15 @@ vi.mock("./audioMixer", () => ({
   setDeckGain: vi.fn(),
   getDeckGainNode: vi.fn(() => null),
 }));
+
+// Mock eligibility so this suite exercises dual-deck crossfade controller logic.
+vi.mock("./canCrossfade", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./canCrossfade")>();
+  return {
+    ...actual,
+    canCrossfade: vi.fn(() => true),
+  };
+});
 
 describe("effectiveFadeSeconds", () => {
   it("caps fade at half the outgoing track duration", () => {
@@ -27,9 +36,8 @@ function createMockEngine(deckId: DeckId) {
     deckId,
     setDeckId: vi.fn(),
     getDeckId: () => deckId,
-    setSuppressEndCallback: vi.fn(),
     load: vi.fn(async () => {}),
-    play: vi.fn(),
+    play: vi.fn(async () => {}),
     pause: vi.fn(),
     seek: vi.fn(),
     getPositionSeconds: vi.fn(() => 0),
@@ -47,20 +55,22 @@ function createMockEngine(deckId: DeckId) {
     emitEnd: () => {
       for (const listener of listeners) listener();
     },
-  } satisfies Partial<FilePlaybackEngine> & {
+  } satisfies Partial<PcmFilePlaybackEngine> & {
     deckId: DeckId;
     emitEnd: () => void;
   };
 }
 
 function crossfadeScheduleArgs(
-  overrides: Partial<Parameters<CrossfadeController["maybeScheduleCrossfade"]>[0]> = {},
+  overrides: Partial<
+    Parameters<CrossfadeController["maybeScheduleCrossfade"]>[0]
+  > = {},
 ) {
   return {
     crossfadeSeconds: 7,
     currentPlayable: { type: "library" as const, trackId: 1 },
     currentTrackId: 1,
-    currentSource: { kind: "file" as const, path: "/a.mp3" },
+    currentSource: { kind: "file" as const, path: "/a.wav" },
     nextPlayable: { type: "library" as const, trackId: 2 },
     nextSource: { kind: "file" as const, path: "/b.flac" },
     nextTrackId: 2,
@@ -89,20 +99,23 @@ describe("CrossfadeController", () => {
     const deckA = createMockEngine("a");
     const deckB = createMockEngine("b");
     const controller = new CrossfadeController({
-      a: deckA as unknown as FilePlaybackEngine,
-      b: deckB as unknown as FilePlaybackEngine,
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
     });
 
     const onEnd = vi.fn();
     controller.onEnd(onEnd);
 
-    await controller.loadAndPlay({ kind: "file", path: "/a.mp3" }, {
-      volume: 1,
-      muted: false,
-      balance: 0,
-    });
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      {
+        volume: 1,
+        muted: false,
+        balance: 0,
+      },
+    );
 
-    const currentSource: PlaybackSource = { kind: "file", path: "/a.mp3" };
+    const currentSource: PlaybackSource = { kind: "file", path: "/a.wav" };
     const nextSource: PlaybackSource = { kind: "file", path: "/b.flac" };
 
     controller.maybeScheduleCrossfade(
@@ -114,6 +127,8 @@ describe("CrossfadeController", () => {
 
     await vi.waitFor(() => {
       expect(deckB.load).toHaveBeenCalledWith(nextSource);
+      expect(deckB.play).toHaveBeenCalled();
+      expect(controller.isCrossfadeInProgress()).toBe(true);
     });
 
     deckA.emitEnd();
@@ -125,17 +140,20 @@ describe("CrossfadeController", () => {
     const deckA = createMockEngine("a");
     const deckB = createMockEngine("b");
     const controller = new CrossfadeController({
-      a: deckA as unknown as FilePlaybackEngine,
-      b: deckB as unknown as FilePlaybackEngine,
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
     });
 
     const onActiveTrackChange = vi.fn();
 
-    await controller.loadAndPlay({ kind: "file", path: "/a.mp3" }, {
-      volume: 1,
-      muted: false,
-      balance: 0,
-    });
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      {
+        volume: 1,
+        muted: false,
+        balance: 0,
+      },
+    );
 
     controller.maybeScheduleCrossfade(
       crossfadeScheduleArgs({ onActiveTrackChange }),
@@ -163,15 +181,18 @@ describe("CrossfadeController", () => {
     const deckA = createMockEngine("a");
     const deckB = createMockEngine("b");
     const controller = new CrossfadeController({
-      a: deckA as unknown as FilePlaybackEngine,
-      b: deckB as unknown as FilePlaybackEngine,
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
     });
 
-    await controller.loadAndPlay({ kind: "file", path: "/a.mp3" }, {
-      volume: 1,
-      muted: false,
-      balance: 0,
-    });
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      {
+        volume: 1,
+        muted: false,
+        balance: 0,
+      },
+    );
 
     expect(controller.getCrossfadeVisualState()).toBeNull();
 
@@ -199,15 +220,18 @@ describe("CrossfadeController", () => {
     const deckA = createMockEngine("a");
     const deckB = createMockEngine("b");
     const controller = new CrossfadeController({
-      a: deckA as unknown as FilePlaybackEngine,
-      b: deckB as unknown as FilePlaybackEngine,
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
     });
 
-    await controller.loadAndPlay({ kind: "file", path: "/a.mp3" }, {
-      volume: 1,
-      muted: false,
-      balance: 0,
-    });
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      {
+        volume: 1,
+        muted: false,
+        balance: 0,
+      },
+    );
 
     controller.maybeScheduleCrossfade(crossfadeScheduleArgs());
 
@@ -221,19 +245,95 @@ describe("CrossfadeController", () => {
     expect(controller.getActiveEngine()).toBe(deckB);
   });
 
+  it("cancels preload when seeking before fade starts", async () => {
+    const deckA = createMockEngine("a");
+    const deckB = createMockEngine("b");
+    let resolveLoad: (() => void) | null = null;
+    deckB.load = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveLoad = resolve;
+        }),
+    );
+    const controller = new CrossfadeController({
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
+    });
+
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      {
+        volume: 1,
+        muted: false,
+        balance: 0,
+      },
+    );
+
+    controller.maybeScheduleCrossfade(crossfadeScheduleArgs());
+    expect(controller.isCrossfadeInProgress()).toBe(true);
+
+    controller.seekRatio(0.25);
+
+    expect(deckB.destroy).toHaveBeenCalled();
+    expect(deckA.seek).toHaveBeenCalledWith(45);
+    expect(controller.getActiveEngine()).toBe(deckA);
+    expect(controller.isCrossfadeInProgress()).toBe(false);
+
+    resolveLoad?.();
+    await Promise.resolve();
+  });
+
+  it("keeps incoming when seeking after outgoing ends mid-fade", async () => {
+    const deckA = createMockEngine("a");
+    const deckB = createMockEngine("b");
+    deckB.getDurationSeconds = vi.fn(() => 200);
+    const controller = new CrossfadeController({
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
+    });
+
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      {
+        volume: 1,
+        muted: false,
+        balance: 0,
+      },
+    );
+
+    controller.maybeScheduleCrossfade(crossfadeScheduleArgs());
+
+    await vi.waitFor(() => {
+      expect(deckB.play).toHaveBeenCalled();
+    });
+
+    deckA.isPlaying = vi.fn(() => false);
+    deckA.emitEnd();
+
+    controller.seekRatio(0.1);
+
+    expect(deckA.destroy).toHaveBeenCalled();
+    expect(deckB.seek).toHaveBeenCalledWith(20);
+    expect(controller.getActiveEngine()).toBe(deckB);
+    expect(controller.isCrossfadeInProgress()).toBe(false);
+  });
+
   it("cancels crossfade and seeks the outgoing deck before dominance", async () => {
     const deckA = createMockEngine("a");
     const deckB = createMockEngine("b");
     const controller = new CrossfadeController({
-      a: deckA as unknown as FilePlaybackEngine,
-      b: deckB as unknown as FilePlaybackEngine,
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
     });
 
-    await controller.loadAndPlay({ kind: "file", path: "/a.mp3" }, {
-      volume: 1,
-      muted: false,
-      balance: 0,
-    });
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      {
+        volume: 1,
+        muted: false,
+        balance: 0,
+      },
+    );
 
     controller.maybeScheduleCrossfade(crossfadeScheduleArgs());
 
@@ -254,15 +354,18 @@ describe("CrossfadeController", () => {
     const deckB = createMockEngine("b");
     deckB.getDurationSeconds = vi.fn(() => 200);
     const controller = new CrossfadeController({
-      a: deckA as unknown as FilePlaybackEngine,
-      b: deckB as unknown as FilePlaybackEngine,
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
     });
 
-    await controller.loadAndPlay({ kind: "file", path: "/a.mp3" }, {
-      volume: 1,
-      muted: false,
-      balance: 0,
-    });
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      {
+        volume: 1,
+        muted: false,
+        balance: 0,
+      },
+    );
 
     controller.maybeScheduleCrossfade(crossfadeScheduleArgs());
 
@@ -283,20 +386,23 @@ describe("CrossfadeController", () => {
     const deckA = createMockEngine("a");
     const deckB = createMockEngine("b");
     const controller = new CrossfadeController({
-      a: deckA as unknown as FilePlaybackEngine,
-      b: deckB as unknown as FilePlaybackEngine,
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
     });
 
-    await controller.loadAndPlay({ kind: "file", path: "/a.mp3" }, {
-      volume: 1,
-      muted: false,
-      balance: 0,
-    });
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      {
+        volume: 1,
+        muted: false,
+        balance: 0,
+      },
+    );
 
     controller.maybeScheduleCrossfade(
       crossfadeScheduleArgs({
         nextPlayable: { type: "library", trackId: 1 },
-        nextSource: { kind: "file", path: "/a.mp3" },
+        nextSource: { kind: "file", path: "/a.wav" },
         nextTrackId: 1,
         repeatMode: "one",
       }),
@@ -309,15 +415,18 @@ describe("CrossfadeController", () => {
     const deckA = createMockEngine("a");
     const deckB = createMockEngine("b");
     const controller = new CrossfadeController({
-      a: deckA as unknown as FilePlaybackEngine,
-      b: deckB as unknown as FilePlaybackEngine,
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
     });
 
-    await controller.loadAndPlay({ kind: "file", path: "/a.mp3" }, {
-      volume: 1,
-      muted: false,
-      balance: 0,
-    });
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      {
+        volume: 1,
+        muted: false,
+        balance: 0,
+      },
+    );
 
     controller.maybeScheduleCrossfade(
       crossfadeScheduleArgs({
@@ -332,11 +441,14 @@ describe("CrossfadeController", () => {
 
     await vi.advanceTimersByTimeAsync(7050);
 
-    await controller.loadAndPlay({ kind: "file", path: "/a.mp3" }, {
-      volume: 1,
-      muted: false,
-      balance: 0,
-    });
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      {
+        volume: 1,
+        muted: false,
+        balance: 0,
+      },
+    );
 
     expect(controller.isControllerActive()).toBe(true);
     expect(controller.isCrossfadeInProgress()).toBe(false);
@@ -358,15 +470,18 @@ describe("CrossfadeController", () => {
     const deckA = createMockEngine("a");
     const deckB = createMockEngine("b");
     const controller = new CrossfadeController({
-      a: deckA as unknown as FilePlaybackEngine,
-      b: deckB as unknown as FilePlaybackEngine,
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
     });
 
-    await controller.loadAndPlay({ kind: "file", path: "/a.mp3" }, {
-      volume: 1,
-      muted: false,
-      balance: 0,
-    });
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      {
+        volume: 1,
+        muted: false,
+        balance: 0,
+      },
+    );
 
     controller.startCrossfadeNow(
       crossfadeScheduleArgs({
@@ -381,19 +496,65 @@ describe("CrossfadeController", () => {
     });
   });
 
+  it("connects decks and sets mixes before scheduling gain ramps", async () => {
+    const { rampDeckGain } = await import("./audioMixer");
+    const deckA = createMockEngine("a");
+    const deckB = createMockEngine("b");
+    const controller = new CrossfadeController({
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
+    });
+
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      { volume: 1, muted: false, balance: 0 },
+    );
+
+    vi.mocked(rampDeckGain).mockClear();
+    deckB.connectToOutputBus.mockClear();
+    deckB.setCrossfadeMix.mockClear();
+    deckA.connectToOutputBus.mockClear();
+    deckA.setCrossfadeMix.mockClear();
+
+    controller.startCrossfadeNow(
+      crossfadeScheduleArgs({
+        positionSeconds: 10,
+        outgoingDuration: 180,
+      }),
+    );
+
+    await vi.waitFor(() => {
+      expect(rampDeckGain).toHaveBeenCalled();
+    });
+
+    const firstRampOrder = vi.mocked(rampDeckGain).mock.invocationCallOrder[0]!;
+    expect(deckB.setCrossfadeMix.mock.invocationCallOrder[0]).toBeLessThan(
+      firstRampOrder,
+    );
+    expect(deckB.connectToOutputBus.mock.invocationCallOrder[0]).toBeLessThan(
+      firstRampOrder,
+    );
+    expect(deckB.play.mock.invocationCallOrder[0]).toBeLessThan(firstRampOrder);
+    expect(deckB.setCrossfadeMix).toHaveBeenCalledWith(0);
+    expect(deckA.setCrossfadeMix).toHaveBeenCalledWith(1);
+  });
+
   it("chains rapid skip crossfades using the in-flight incoming track", async () => {
     const deckA = createMockEngine("a");
     const deckB = createMockEngine("b");
     const controller = new CrossfadeController({
-      a: deckA as unknown as FilePlaybackEngine,
-      b: deckB as unknown as FilePlaybackEngine,
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
     });
 
-    await controller.loadAndPlay({ kind: "file", path: "/a.mp3" }, {
-      volume: 1,
-      muted: false,
-      balance: 0,
-    });
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      {
+        volume: 1,
+        muted: false,
+        balance: 0,
+      },
+    );
 
     controller.startCrossfadeNow(crossfadeScheduleArgs());
 
@@ -429,16 +590,19 @@ describe("CrossfadeController", () => {
     const deckA = createMockEngine("a");
     const deckB = createMockEngine("b");
     const controller = new CrossfadeController({
-      a: deckA as unknown as FilePlaybackEngine,
-      b: deckB as unknown as FilePlaybackEngine,
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
     });
     const onComplete = vi.fn();
 
-    await controller.loadAndPlay({ kind: "file", path: "/a.mp3" }, {
-      volume: 1,
-      muted: false,
-      balance: 0,
-    });
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      {
+        volume: 1,
+        muted: false,
+        balance: 0,
+      },
+    );
 
     controller.fadeOutAndStop(7, onComplete);
 
@@ -450,5 +614,98 @@ describe("CrossfadeController", () => {
     expect(deckA.pause).toHaveBeenCalled();
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(controller.isCrossfadeInProgress()).toBe(false);
+  });
+
+  it("pause mid-fade freezes both decks; play resumes the remaining ramp", async () => {
+    const { rampDeckGain, setDeckGain } = await import("./audioMixer");
+    const deckA = createMockEngine("a");
+    const deckB = createMockEngine("b");
+    const controller = new CrossfadeController({
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
+    });
+
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      { volume: 1, muted: false, balance: 0 },
+    );
+
+    controller.startCrossfadeNow(crossfadeScheduleArgs());
+
+    await vi.waitFor(() => {
+      expect(controller.isCrossfadeInProgress()).toBe(true);
+      expect(deckB.play).toHaveBeenCalled();
+    });
+
+    vi.mocked(rampDeckGain).mockClear();
+    vi.mocked(setDeckGain).mockClear();
+    deckA.pause.mockClear();
+    deckB.pause.mockClear();
+    deckA.play.mockClear();
+    deckB.play.mockClear();
+
+    // Halfway through a 7s fade
+    await vi.advanceTimersByTimeAsync(3500);
+    controller.pause();
+
+    expect(deckA.pause).toHaveBeenCalled();
+    expect(deckB.pause).toHaveBeenCalled();
+    expect(controller.isPlaying()).toBe(false);
+    expect(controller.isCrossfadeInProgress()).toBe(true);
+    expect(setDeckGain).toHaveBeenCalled();
+
+    // Handoff must not complete while frozen
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(deckA.destroy).not.toHaveBeenCalled();
+    expect(controller.isCrossfadeInProgress()).toBe(true);
+
+    controller.play();
+
+    await vi.waitFor(() => {
+      expect(deckA.play).toHaveBeenCalled();
+      expect(deckB.play).toHaveBeenCalled();
+      expect(rampDeckGain).toHaveBeenCalled();
+    });
+
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(deckA.destroy).toHaveBeenCalled();
+    expect(controller.isCrossfadeInProgress()).toBe(false);
+  });
+
+  it("pause during preload cancels incoming and leaves outgoing paused", async () => {
+    const deckA = createMockEngine("a");
+    const deckB = createMockEngine("b");
+    let resolveLoad!: () => void;
+    deckB.load.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveLoad = resolve;
+        }),
+    );
+
+    const controller = new CrossfadeController({
+      a: deckA as unknown as PcmFilePlaybackEngine,
+      b: deckB as unknown as PcmFilePlaybackEngine,
+    });
+
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      { volume: 1, muted: false, balance: 0 },
+    );
+
+    controller.startCrossfadeNow(crossfadeScheduleArgs());
+    await vi.waitFor(() => {
+      expect(deckB.load).toHaveBeenCalled();
+    });
+
+    controller.pause();
+
+    expect(controller.isCrossfadeInProgress()).toBe(false);
+    expect(deckA.pause).toHaveBeenCalled();
+    expect(deckB.destroy).toHaveBeenCalled();
+
+    resolveLoad();
+    await Promise.resolve();
+    expect(deckB.play).not.toHaveBeenCalled();
   });
 });

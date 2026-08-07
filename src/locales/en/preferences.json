@@ -8,6 +8,17 @@
     "studio": "Studio",
     "updates": "Updates"
   },
+  "playback": {
+    "crossfade": {
+      "enabled": "Crossfade between tracks",
+      "description": "Overlaps library tracks with a volume ramp. CD transitions still switch instantly.",
+      "duration": "Crossfade duration",
+      "durationAria": "Crossfade duration in seconds",
+      "durationValue": "{{value}} s",
+      "onSkip": "Crossfade when skipping tracks",
+      "visual": "Animate now playing during crossfade"
+    }
+  },
   "updates": {
     "automatic": {
       "label": "Check for updates automatically",

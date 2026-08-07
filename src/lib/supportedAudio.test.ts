@@ -2,24 +2,21 @@ import { describe, expect, it } from "vitest";
 import {
   audioExtensionFromPath,
   isSupportedAudioPath,
-  requiresPcmPlayback,
+  SUPPORTED_AUDIO_EXTENSIONS,
 } from "./supportedAudio";
 
-describe("supportedAudio ogg/opus", () => {
+describe("supportedAudio", () => {
   it("accepts ogg and opus paths", () => {
     expect(isSupportedAudioPath("/music/track.ogg")).toBe(true);
     expect(isSupportedAudioPath("/music/track.opus")).toBe(true);
   });
 
-  it("requires PCM playback for ogg and opus only", () => {
-    expect(requiresPcmPlayback("/music/a.ogg")).toBe(true);
-    expect(requiresPcmPlayback("/music/a.opus")).toBe(true);
-    expect(requiresPcmPlayback("/music/a.flac")).toBe(false);
-    expect(requiresPcmPlayback("/music/a.mp3")).toBe(false);
-    expect(requiresPcmPlayback("/music/a.m4a")).toBe(false);
-    expect(requiresPcmPlayback("/music/a.m4a", "aac")).toBe(false);
-    expect(requiresPcmPlayback("/music/a.m4a", "alac")).toBe(true);
-    expect(requiresPcmPlayback("/music/a.m4a", "ALAC")).toBe(true);
+  it("accepts every library allowlist format", () => {
+    for (const ext of SUPPORTED_AUDIO_EXTENSIONS) {
+      expect(isSupportedAudioPath(`/music/a.${ext}`)).toBe(true);
+    }
+    expect(isSupportedAudioPath("/music/a.m4p")).toBe(false);
+    expect(isSupportedAudioPath("/music/readme.txt")).toBe(false);
   });
 
   it("parses extensions case-insensitively", () => {

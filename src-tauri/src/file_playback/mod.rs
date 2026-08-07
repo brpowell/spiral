@@ -1,4 +1,4 @@
-//! Native PCM streaming playback for OGG Vorbis, Opus, and ALAC library files.
+//! Native PCM streaming playback for library audio files (all supported formats).
 
 pub mod decoder;
 mod engine;

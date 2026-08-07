@@ -1,7 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { connectEngineOutput, disconnectEngineOutput } from "./audioOutput";
+import {
+  connectDeckOutput,
+  disconnectDeckOutput,
+  type DeckId,
+} from "./audioOutput";
 import { decodePcmBase64 } from "./pcmDecode";
+import { resampleInterleavedPcm } from "./pcmResample";
+import {
+  ensureSharedPcmWorkletModule,
+  getSharedPcmAudioContext,
+} from "./pcmSharedContext";
 import { PCM_STREAM_PROCESSOR_NAME } from "./pcmStreamConstants";
 // Vite must emit a real JS chunk (`?worker&url`). Plain `new URL(..., import.meta.url)`
 // inlines the .ts as a data: URL, which production CSP script-src blocks.
@@ -9,11 +18,21 @@ import pcmStreamProcessorUrl from "./pcmStreamProcessor.ts?worker&url";
 
 export interface PcmStreamConfig<TSession, TPcm extends TSession> {
   ackCommand: string;
+  /** Build invoke payload for back-pressure acks (include session id when required). */
+  buildAckPayload: (
+    session: TSession,
+    count: number,
+  ) => Record<string, unknown>;
   pcmEvent: string;
   flushEvent: string;
   matchSession: (session: TSession | null, payload: TSession) => boolean;
   getChannels: (payload: TPcm) => number;
   getPcmB64: (payload: TPcm) => string;
+  /**
+   * `shared` — library file decks share one AudioContext (required for crossfade).
+   * `owned` — CD (and similar) keep a private context at the stream sample rate.
+   */
+  contextMode: "shared" | "owned";
 }
 
 /**
@@ -23,20 +42,31 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
   private readonly config: PcmStreamConfig<TSession, TPcm>;
 
   private ctx: AudioContext | null = null;
+  private ownsContext = false;
   private gain: GainNode | null = null;
   private panner: StereoPannerNode | null = null;
   private worklet: AudioWorkletNode | null = null;
   private workletReady: Promise<void> | null = null;
   private session: TSession | null = null;
+  private sourceSampleRate = 0;
   private chunksReceived = 0;
   private chunksAcked = 0;
   private listeners: Promise<UnlistenFn[]> | null = null;
   private volume = 1;
   private balance = 0;
   private muted = false;
+  private deckId: DeckId = "a";
 
   constructor(config: PcmStreamConfig<TSession, TPcm>) {
     this.config = config;
+  }
+
+  setDeckId(deckId: DeckId): void {
+    this.deckId = deckId;
+  }
+
+  getDeckId(): DeckId {
+    return this.deckId;
   }
 
   private applyGain(): void {
@@ -51,9 +81,12 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
 
   private maybeAck(): void {
     const pending = this.chunksReceived - this.chunksAcked;
-    if (pending <= 0) return;
+    if (pending <= 0 || !this.session) return;
     this.chunksAcked += 1;
-    void invoke(this.config.ackCommand, { count: 1 });
+    void invoke(
+      this.config.ackCommand,
+      this.config.buildAckPayload(this.session, 1),
+    );
   }
 
   private ensureListeners(): Promise<UnlistenFn[]> {
@@ -61,16 +94,29 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
       listen<TPcm>(this.config.pcmEvent, (event) => {
         if (
           !this.config.matchSession(this.session, event.payload) ||
-          !this.worklet
+          !this.worklet ||
+          !this.ctx
         ) {
           return;
         }
-        const samples = decodePcmBase64(this.config.getPcmB64(event.payload));
+        const channels = this.config.getChannels(event.payload);
+        let samples = decodePcmBase64(this.config.getPcmB64(event.payload));
+        if (
+          this.sourceSampleRate > 0 &&
+          this.ctx.sampleRate !== this.sourceSampleRate
+        ) {
+          samples = resampleInterleavedPcm(
+            samples,
+            channels,
+            this.sourceSampleRate,
+            this.ctx.sampleRate,
+          );
+        }
         this.chunksReceived += 1;
         this.worklet.port.postMessage({
           type: "pcm",
           samples,
-          channels: this.config.getChannels(event.payload),
+          channels,
         });
       }),
       listen<TSession>(this.config.flushEvent, (event) => {
@@ -92,11 +138,19 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
     sampleRate: number,
     channels: number,
   ): Promise<AudioContext> {
-    if (!this.ctx) {
+    this.sourceSampleRate = sampleRate;
+
+    if (this.config.contextMode === "shared") {
+      this.ctx = getSharedPcmAudioContext();
+      this.ownsContext = false;
+      await ensureSharedPcmWorkletModule(this.ctx);
+    } else if (!this.ctx) {
       this.ctx = new AudioContext({ sampleRate });
+      this.ownsContext = true;
     } else if (this.ctx.sampleRate !== sampleRate) {
       await this.ctx.close();
       this.ctx = new AudioContext({ sampleRate });
+      this.ownsContext = true;
       this.workletReady = null;
       this.worklet = null;
       this.gain = null;
@@ -105,7 +159,9 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
 
     if (!this.workletReady) {
       this.workletReady = (async () => {
-        await this.ctx!.audioWorklet.addModule(pcmStreamProcessorUrl);
+        if (this.config.contextMode === "owned") {
+          await this.ctx!.audioWorklet.addModule(pcmStreamProcessorUrl);
+        }
         this.worklet = new AudioWorkletNode(
           this.ctx!,
           PCM_STREAM_PROCESSOR_NAME,
@@ -130,8 +186,13 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
     }
 
     await this.workletReady;
-    this.worklet?.port.postMessage({ type: "configure", channels, sampleRate });
-    return this.ctx;
+    const workletRate = this.ctx!.sampleRate;
+    this.worklet?.port.postMessage({
+      type: "configure",
+      channels,
+      sampleRate: workletRate,
+    });
+    return this.ctx!;
   }
 
   async prepare(
@@ -158,7 +219,7 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
 
   connectToOutputBus(): AnalyserNode | null {
     if (!this.panner) return null;
-    return connectEngineOutput(this.panner);
+    return connectDeckOutput(this.deckId, this.panner);
   }
 
   setVolume(volume: number): void {
@@ -195,20 +256,27 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
 
   releaseBackpressure(): void {
     const pending = this.chunksReceived - this.chunksAcked;
-    if (pending <= 0) return;
+    if (pending <= 0 || !this.session) return;
     this.chunksAcked += pending;
-    void invoke(this.config.ackCommand, { count: pending });
+    void invoke(
+      this.config.ackCommand,
+      this.config.buildAckPayload(this.session, pending),
+    );
   }
 
   destroy(): void {
     this.releaseBackpressure();
     this.destroyNodes();
-    disconnectEngineOutput();
-    if (this.ctx) {
+    disconnectDeckOutput(this.deckId);
+    if (this.ownsContext && this.ctx) {
       void this.ctx.close();
       this.ctx = null;
+    } else {
+      this.ctx = null;
     }
+    this.ownsContext = false;
     this.session = null;
+    this.sourceSampleRate = 0;
     this.chunksReceived = 0;
     this.chunksAcked = 0;
   }
