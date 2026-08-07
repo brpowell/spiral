@@ -1,0 +1,120 @@
+# Releasing Spiral
+
+How a version goes from `main` to installers on a GitHub Release. For the full decision history (channels, signing, updater UX), see [`release-process-plan.md`](./release-process-plan.md). Signing keys, secret layout, and local sign/verify: [`signing-and-keys.md`](./signing-and-keys.md).
+
+## At a glance
+
+1. Merge normal PRs into `main` — nothing ships yet.
+2. **release-please** keeps a standing release PR updated with the version bump and changelog.
+3. Merge that release PR when you’re ready to cut a version.
+4. CI creates the `vX.Y.Z` tag and a **draft** GitHub Release, then builds macOS + Windows + Linux installers and attaches them.
+5. **All platforms green** must pass before treating the draft as ready.
+6. Publish via the **Publish Release** workflow (manual gate) when you’re ready for it to go live.
+
+Merging a feature PR never releases by itself. Only merging the release PR starts the cut.
+
+## Day to day (steps 1–2)
+
+Work lands on `main` through PRs. Titles must be [Conventional Commits](./contributing.md) — that title becomes the squash commit, which is what release-please reads.
+
+On every push to `main`, [release-please](https://github.com/googleapis/release-please) opens or updates a single PR, roughly titled `chore(main): release X.Y.Z`. It:
+
+- Bumps `package.json` and `src-tauri/tauri.conf.json` together
+- Regenerates the changelog from commits since the last tag
+
+That PR just accumulates. Land as many features/fixes as you want before shipping.
+
+## Cutting a release (steps 3–4)
+
+1. Open the standing release PR. Skim the changelog; fix anything misleading before merge.
+2. Merge it.
+3. release-please creates the `vX.Y.Z` tag and a **draft** GitHub Release (notes, no publish yet).
+4. The [Release](../.github/workflows/release.yml) workflow builds:
+   - macOS arm64 + x64 → `--bundles app,dmg` (DMG installer + updater `.app.tar.gz` / `.sig`; `app` must be explicit or the bundler deletes `Spiral.app` and no updater tarball is left)
+   - Windows x64 → NSIS (`*-setup.exe` + `.sig`; NSIS is also the updater payload)
+   - Linux x64 (`ubuntu-22.04`) + aarch64 (`ubuntu-22.04-arm`) → `--bundles appimage,deb` (`.deb` for download; AppImage + `.sig` for the updater — Tauri’s Linux update format)
+5. The **All platforms green** job (`platforms-green`) only passes when every matrix cell succeeded **and** the draft has installers **and** updater signatures for every platform. Treat the draft as ready only when that check is green — a partial matrix never counts. Asset expectations live in [`scripts/release/required-release-assets.mjs`](../scripts/release/required-release-assets.mjs). Updater artifacts require `bundle.createUpdaterArtifacts` and `TAURI_SIGNING_PRIVATE_KEY` on the `production-release` environment.
+
+**Re-run a build** (e.g. one platform failed): Actions → **Release** → Run workflow → enter the tag (`v0.2.0`).
+
+## Publishing (step 6)
+
+Only after **All platforms green** is green:
+
+1. Actions → **Publish Release** → Run workflow → enter the tag (`v0.2.0`), **or**
+2. Locally: `npm run release -- publish v0.2.0`
+
+Both re-check that the draft has installers and updater artifacts, then undraft the GitHub Release. That publish is the go-live moment for Direct-channel auto-update once the marketing-site update route serves published releases.
+
+The job uses the `production-release` Environment. Required reviewers are the intended long-term approval UI; they are not available on this private repo’s current GitHub plan, so **running the workflow is the human gate**. Details: [`signing-and-keys.md`](./signing-and-keys.md).
+
+## Local release tooling
+
+One npm script, subcommands via `--`:
+
+```bash
+npm run release -- installer              # native for this OS (dmg / nsis / linux)
+npm run release -- installer deb          # Linux deb only (skip AppImage)
+npm run release -- installer dmg -- --target aarch64-apple-darwin
+npm run release -- publish v0.2.0
+npm run release -- check v0.2.0
+npm run release -- sign path/to/artifact
+npm run release -- verify path/to/artifact
+npm run release -- keys
+```
+
+`npm run release -- --help` lists commands. Output lands under `src-tauri/target/**/bundle/`. Apple/Windows code signing is optional; **updater** signing is required for a full local bundle (`TAURI_SIGNING_PRIVATE_KEY` / `_PATH`) because `createUpdaterArtifacts` is on.
+
+On Linux, install the `.deb` for a system install (desktop file + file associations), or run the AppImage directly. CI ships both arches: `_amd64.deb` / `_amd64.AppImage` and `_arm64.deb` / `_aarch64.AppImage`.
+
+Linux installer commands set `APPIMAGE_EXTRACT_AND_RUN=1` (when building AppImage) and a disk-backed `TMPDIR` under `src-tauri/target/tmp`. That avoids two common VM footguns: no FUSE for linuxdeploy, and `/tmp` mounted as tmpfs **with usrquota** (Cursor’s sandbox cache can exhaust the quota so `df` still shows free space while every write returns `Disk quota exceeded (os error 122)`). If you invoke `tauri build` directly, export the same env first:
+
+```bash
+export TMPDIR="$PWD/src-tauri/target/tmp" TMP="$TMPDIR" TEMP="$TMPDIR"
+mkdir -p "$TMPDIR"
+```
+
+Reclaim disk after big builds: `npm run clean:target` (`cargo clean` in `src-tauri`).
+
+## Debug builds and the updater
+
+`tauri dev` (Vite `import.meta.env.DEV`) **does not** check for or install live updates by default.
+
+**Why:** debug binaries live under `src-tauri/target/debug/`. The packaged app version is usually still behind a published release, so a live update prompt is common. Accepting it can unpack a release bundle over the debug tree, relaunch outside the Vite session, and migrate the shared library DB in ways an older local binary can't read.
+
+**Override** (only when you intentionally want the debug session to hit the update endpoint):
+
+```bash
+SPIRAL_ENABLE_UPDATER=1 npm run tauri dev
+```
+
+(`true` also works. Vite exposes `SPIRAL_*` via `envPrefix` in `vite.config.ts`.)
+
+Packaged / release builds are unaffected — the gate only applies in DEV. End-to-end update testing still wants two **installed** builds (older → newer published or local signed release), not `tauri dev`; see [release-process-plan.md](./release-process-plan.md).
+
+## What you don’t do by hand
+
+- Don’t bump versions in a feature PR — release-please owns that.
+- Don’t create the `v*` tag yourself — merging the release PR does it.
+- Don’t upload installers manually — the matrix attaches them to the draft.
+
+## Secrets (operators)
+
+| Secret | Where | Purpose |
+| --- | --- | --- |
+| `RELEASE_PLEASE_TOKEN` | **Repo** secret (PAT with `contents: write`) | Lets release-please’s tag push trigger the build workflow (`GITHUB_TOKEN` events cannot) |
+| `TAURI_SIGNING_PRIVATE_KEY` | `production-release` Environment | Updater artifact signing (no password when generated with `--ci`) |
+| Apple / Windows signing vars | `production-release` Environment | Code signing + notarization — optional until those setups land; unset = unsigned builds (never export empty `APPLE_CERTIFICATE`) |
+
+Full runbook (generate/rotate/sign/verify, enrollment checklists): [`signing-and-keys.md`](./signing-and-keys.md). Key layout: [`src-tauri/keys/updater/README.md`](../src-tauri/keys/updater/README.md).
+
+## Workflows & config
+
+| File | Role |
+| --- | --- |
+| [`.github/workflows/release-please.yml`](../.github/workflows/release-please.yml) | Standing release PR; tag + draft on merge |
+| [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Platform matrix → attach installers → `platforms-green` gate |
+| [`.github/workflows/publish-release.yml`](../.github/workflows/publish-release.yml) | Manual publish gate (undraft) |
+| [`scripts/release/required-release-assets.mjs`](../scripts/release/required-release-assets.mjs) | Required draft assets (single source of truth) |
+| [`release-please-config.json`](../release-please-config.json) | release-please package config |
+| [`.release-please-manifest.json`](../.release-please-manifest.json) | Last released version |
