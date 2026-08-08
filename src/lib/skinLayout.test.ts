@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -85,7 +85,7 @@ describe("resolveAbsoluteBounds", () => {
   });
 
   it("sums nested parent origins (Headspace eq-panel chain)", () => {
-    const headspace = loadManifest("packs/iconic/skins/headspace/skin.json");
+    const headspace = loadManifest("packs/headspace/skins/headspace/skin.json");
     const view = headspace.views.main!;
     const stageSize = {
       width: view.canvas?.width ?? 753,
@@ -148,7 +148,7 @@ describe("resolveAbsoluteBounds", () => {
   });
 
   it("round-trips every Headspace nested group without drift", () => {
-    const headspace = loadManifest("packs/iconic/skins/headspace/skin.json");
+    const headspace = loadManifest("packs/headspace/skins/headspace/skin.json");
     const view = headspace.views.main!;
     const stageSize = {
       width: view.canvas?.width ?? 753,
@@ -386,18 +386,15 @@ describe("validateLayoutTree", () => {
 });
 
 describe("pack layout lint", () => {
-  it("validates all iconic skin manifests (errors only)", () => {
-    const skinsDir = join(repoRoot, "packs/iconic/skins");
-    const skinIds = readdirSync(skinsDir, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name);
+  it("validates all WMP skin pack manifests (errors only)", () => {
+    const packIds = ["headspace", "t3", "xbox"];
 
-    expect(skinIds.length).toBeGreaterThan(0);
-
-    for (const skinId of skinIds) {
-      const manifest = loadManifest(`packs/iconic/skins/${skinId}/skin.json`);
+    for (const packId of packIds) {
+      const manifest = loadManifest(
+        `packs/${packId}/skins/${packId}/skin.json`,
+      );
       const result = validateSkinManifestLayouts(manifest.views);
-      expect(result.ok, `${skinId}: ${JSON.stringify(result.errors)}`).toBe(
+      expect(result.ok, `${packId}: ${JSON.stringify(result.errors)}`).toBe(
         true,
       );
     }

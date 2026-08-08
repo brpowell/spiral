@@ -14,11 +14,11 @@ import {
 
 const SLIDER_DIR = join(
   process.cwd(),
-  "packs/iconic/skins/t3/assets/sliders",
+  "packs/t3/skins/t3/assets/sliders",
 );
 const XBOX_SLIDER_DIR = join(
   process.cwd(),
-  "packs/iconic/skins/xbox/assets/sliders",
+  "packs/xbox/skins/xbox/assets/sliders",
 );
 
 function loadPng(relativePath: string): {

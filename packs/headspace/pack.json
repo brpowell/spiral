@@ -1,0 +1,9 @@
+{
+  "manifestVersion": 1,
+  "packId": "wmp-headspace",
+  "authorId": "spiral",
+  "version": "1.0.0",
+  "name": "Headspace",
+  "description": "(2000) The green head...",
+  "icon": "icon.png"
+}

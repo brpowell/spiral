@@ -2046,15 +2046,15 @@ mod tests {
 
     #[test]
     fn t3_mini_switch_preserves_view_id() {
-        let pack_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packs/iconic");
+        let pack_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packs/t3");
         let mut warnings = Vec::new();
         let contribs = crate::packs::scan::scan_pack_dir(&pack_dir, PackZone::Builtin, &mut warnings);
         let t3 = contribs
             .iter()
-            .find(|c| c.effective_id == "spiral.iconic.skin.t3")
+            .find(|c| c.effective_id == "spiral.wmp-t3.skin.t3")
             .unwrap_or_else(|| {
                 panic!(
-                    "spiral.iconic.skin.t3; warnings={:?} ids={:?}",
+                    "spiral.wmp-t3.skin.t3; warnings={:?} ids={:?}",
                     warnings,
                     contribs.iter().map(|c| &c.effective_id).collect::<Vec<_>>()
                 )

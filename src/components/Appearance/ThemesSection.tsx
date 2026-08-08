@@ -55,8 +55,6 @@ function ThemeSwatch({
       active={active}
       name={theme.name}
       author={theme.author || "Unknown"}
-      packName={theme.packName || theme.packId}
-      packId={theme.packId}
       description={theme.description}
       ariaLabel={`${theme.name} by ${theme.author || "Unknown"}`}
       preview={<ThemeSwatchPreview theme={theme} />}
@@ -75,7 +73,6 @@ function ThemeSwatch({
         ) : undefined
       }
       onApply={onSelect}
-      onOpenPack={onOpenPack}
     />
   );
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Import Headspace WMP skin assets into the builtin headspace skin pack.
+# Import Headspace WMP skin assets into the headspace pack.
 # skin.json must reference explicit paths under assets/ including extensions.
 # Usage: ./scripts/import-headspace-wmp-assets.sh [path-to-Headspace-folder]
 
@@ -7,10 +7,11 @@ set -euo pipefail
 
 HEADSPACE="${1:-$(cd "$(dirname "$0")/.." && pwd)/wmp-skins/Headspace}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="$ROOT/src-tauri/skins/builtin/headspace/assets"
+SKIN="$ROOT/packs/headspace/skins/headspace"
+OUT="$SKIN/assets"
 BTN="$OUT/buttons"
 SLIDERS="$OUT/sliders"
-PREVIEW="$ROOT/src-tauri/skins/builtin/headspace/preview.png"
+PREVIEW="$SKIN/preview.png"
 
 if [[ ! -d "$HEADSPACE" ]]; then
   echo "Headspace skin folder not found: $HEADSPACE" >&2

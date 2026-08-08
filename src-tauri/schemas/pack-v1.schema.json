@@ -56,7 +56,7 @@
     "icon": {
       "type": "string",
       "minLength": 1,
-      "description": "Optional pack icon path relative to the pack root (e.g. icon.png)."
+      "description": "Optional pack icon path relative to the pack root (e.g. icon.png). Prefer a square PNG at 128×128 or 256×256 (256 for sharp 2×)."
     },
     "minAppVersion": {
       "type": "string",

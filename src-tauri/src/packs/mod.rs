@@ -90,6 +90,7 @@ pub struct PackManifest {
     pub version: String,
     pub name: String,
     pub description: String,
+    /// Optional path relative to the pack root. Prefer square 128×128 or 256×256.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

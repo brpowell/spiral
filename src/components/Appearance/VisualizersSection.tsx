@@ -83,8 +83,6 @@ function VizCard({
       active={active}
       name={pack.name}
       author={pack.author}
-      packName={pack.packName || pack.packId}
-      packId={pack.packId}
       description={pack.description}
       ariaLabel={`${pack.name} by ${pack.author}`}
       preview={<VizCardPreview pack={pack} live={live} />}
@@ -99,7 +97,6 @@ function VizCard({
         ) : undefined
       }
       onApply={onSelect}
-      onOpenPack={onOpenPack}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
     />

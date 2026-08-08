@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Import a subset of T3 Skynet WMP skin assets into the builtin T3 skin pack.
+# Import a subset of T3 Skynet WMP skin assets into the t3 pack.
 # skin.json must reference explicit paths under assets/ including extensions
 # (e.g. buttons/play.png, buttons/play-hover.gif).
 # Usage: ./scripts/import-skynet-wmp-assets.sh "/path/to/T3 Skynet Media Player"
@@ -15,11 +15,12 @@ if [[ -z "$SKYNET" ]]; then
     SKYNET="$HOME/Desktop/T3 Skynet Media Player"
   fi
 fi
-OUT="$ROOT/src-tauri/skins/builtin/t3/assets"
+SKIN="$ROOT/packs/t3/skins/t3"
+OUT="$SKIN/assets"
 BTN="$OUT/buttons"
 SLIDERS="$OUT/sliders"
 TIME="$OUT/time"
-PREVIEW="$ROOT/src-tauri/skins/builtin/t3/preview.png"
+PREVIEW="$SKIN/preview.png"
 
 if [[ ! -d "$SKYNET" ]]; then
   echo "Skynet skin folder not found: $SKYNET" >&2

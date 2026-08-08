@@ -234,7 +234,8 @@ mod tests {
             "poc-mid-session-unlock",
             LicenseChannel::Direct,
             "2026-07-25T12:00:00Z",
-            Some("2026-08-08T12:00:00Z".into()),
+            // Far-future expiry so wall-clock now stays Provisional (not ReadyToFinalize).
+            Some("2099-01-01T12:00:00Z".into()),
         )
         .unwrap();
         fs::write(&path, serialize_spcard(&card).unwrap()).unwrap();

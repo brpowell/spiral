@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Import Xbox WMP skin assets into the builtin xbox skin pack.
+# Import Xbox WMP skin assets into the xbox pack.
 # skin.json must reference explicit paths under assets/ including extensions.
 # Usage: ./scripts/import-xbox-wmp-assets.sh [path-to-XBOX-folder]
 
@@ -7,11 +7,12 @@ set -euo pipefail
 
 XBOX="${1:-$(cd "$(dirname "$0")/.." && pwd)/wmp-skins/XBOX}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="$ROOT/src-tauri/skins/builtin/xbox/assets"
+SKIN="$ROOT/packs/xbox/skins/xbox"
+OUT="$SKIN/assets"
 BTN="$OUT/buttons"
 SLIDERS="$OUT/sliders"
 FRAME="$OUT/frame"
-PREVIEW="$ROOT/src-tauri/skins/builtin/xbox/preview.png"
+PREVIEW="$SKIN/preview.png"
 
 if [[ ! -d "$XBOX" ]]; then
   echo "Xbox skin folder not found: $XBOX" >&2
@@ -137,7 +138,7 @@ import_simple_button() {
 
 # Main chrome
 chroma "$XBOX/main.png" "$OUT/background.png"
-PREVIEW_TMP="$ROOT/src-tauri/skins/builtin/xbox/preview.tmp.png"
+PREVIEW_TMP="$SKIN/preview.tmp.png"
 jpg_to_png "$XBOX/preview.jpg" "$PREVIEW_TMP"
 ffmpeg -y -loglevel error -i "$PREVIEW_TMP" \
   -vf "scale=320:200:force_original_aspect_ratio=increase,crop=320:200" \

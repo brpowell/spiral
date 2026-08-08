@@ -6,9 +6,6 @@ export interface AppearancePackCardProps {
   active: boolean;
   name: string;
   author: string;
-  /** Pack display name shown before the author as `[Pack] ∙ [Author]`. */
-  packName?: string;
-  packId?: string;
   description?: string;
   ariaLabel: string;
   preview: ReactNode;
@@ -17,8 +14,6 @@ export interface AppearancePackCardProps {
   /** Optional overflow actions (e.g. edit / delete). Hidden when omitted. */
   actions?: ReactNode;
   onApply: () => void;
-  /** Opens Packs focused on this pack when the pack name is clicked. */
-  onOpenPack?: (packId: string) => void;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
 }
@@ -31,8 +26,6 @@ export function AppearancePackCard({
   active,
   name,
   author,
-  packName,
-  packId,
   description,
   ariaLabel,
   preview,
@@ -40,11 +33,9 @@ export function AppearancePackCard({
   previewClassName,
   actions,
   onApply,
-  onOpenPack,
   onPointerEnter,
   onPointerLeave,
 }: AppearancePackCardProps) {
-  const packLabel = packName?.trim() || packId?.trim() || "";
   const authorLabel = author.trim() || "Unknown";
 
   return (
@@ -101,34 +92,7 @@ export function AppearancePackCard({
               </div>
             ) : null}
           </div>
-          <p className="appearance-pack-card__author">
-            {packLabel ? (
-              <>
-                {packId && onOpenPack ? (
-                  <button
-                    type="button"
-                    className="appearance-pack-card__pack"
-                    onClick={(event) => {
-                      stopCardActivate(event);
-                      onOpenPack(packId);
-                    }}
-                  >
-                    {packLabel}
-                  </button>
-                ) : (
-                  <span className="appearance-pack-card__pack">
-                    {packLabel}
-                  </span>
-                )}
-                <span className="appearance-pack-card__sep" aria-hidden>
-                  ∙
-                </span>
-              </>
-            ) : null}
-            <span className="appearance-pack-card__author-name">
-              {authorLabel}
-            </span>
-          </p>
+          <p className="appearance-pack-card__author">{authorLabel}</p>
           <div className="appearance-pack-card__description">
             <span className="appearance-pack-card__description-text">
               {description ?? ""}

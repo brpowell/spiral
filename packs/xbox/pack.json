@@ -1,0 +1,9 @@
+{
+  "manifestVersion": 1,
+  "packId": "wmp-xbox",
+  "authorId": "spiral",
+  "version": "1.0.0",
+  "name": "Xbox",
+  "description": "(2002) The official Xbox skin for Windows Media Player.",
+  "icon": "icon.png"
+}

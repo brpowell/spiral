@@ -31,8 +31,6 @@ function SkinCard({
       active={active}
       name={skin.name}
       author={skin.author}
-      packName={skin.packName || skin.packId}
-      packId={skin.packId}
       description={skin.description}
       ariaLabel={`${skin.name} by ${skin.author}`}
       preview={<SkinCardPreview skin={skin} />}
@@ -48,7 +46,6 @@ function SkinCard({
         ) : undefined
       }
       onApply={onSelect}
-      onOpenPack={onOpenPack}
     />
   );
 }

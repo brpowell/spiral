@@ -37,6 +37,7 @@ pub struct PackSummary {
     pub name: String,
     pub description: String,
     /// Optional pack icon path relative to the pack root.
+    /// Prefer a square PNG at 128×128 or 256×256 (256 for sharp 2×).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon: Option<String>,
     pub zone: PackZone,

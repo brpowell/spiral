@@ -52,11 +52,11 @@ describe("skinAuxContext", () => {
   });
 
   it("encodes dots in pack contribution ids for Tauri labels", () => {
-    expect(skinAuxWindowLabel("spiral.iconic.skin.xbox", "playlist")).toBe(
-      "skin-aux-spiral:iconic:skin:xbox_playlist",
+    expect(skinAuxWindowLabel("spiral.xbox.skin.xbox", "playlist")).toBe(
+      "skin-aux-spiral:xbox:skin:xbox_playlist",
     );
-    expect(parseSkinAuxWindowLabel("skin-aux-spiral:iconic:skin:xbox_playlist")).toEqual({
-      skinId: "spiral.iconic.skin.xbox",
+    expect(parseSkinAuxWindowLabel("skin-aux-spiral:xbox:skin:xbox_playlist")).toEqual({
+      skinId: "spiral.xbox.skin.xbox",
       viewId: "playlist",
     });
   });

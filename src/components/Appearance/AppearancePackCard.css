@@ -77,41 +77,11 @@
 
 .appearance-pack-card__author {
   margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.2em;
   min-width: 0;
   font-size: 0.78rem;
   font-weight: 500;
   line-height: 1.25;
   color: var(--color-text-primary);
-}
-
-.appearance-pack-card__pack,
-.appearance-pack-card__author-name {
-  flex: 0 1 auto;
-  min-width: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  font: inherit;
-  color: inherit;
-  text-align: left;
-}
-
-button.appearance-pack-card__pack {
-  cursor: pointer;
-}
-
-button.appearance-pack-card__pack:hover {
-  color: var(--color-accent);
-  text-decoration: underline;
-}
-
-.appearance-pack-card__sep {
-  flex: 0 0 auto;
-  opacity: 0.7;
 }
 
 .appearance-pack-card__description {

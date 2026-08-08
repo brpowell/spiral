@@ -16,7 +16,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 function gifBuffer(name: string): ArrayBuffer {
   const filePath = path.join(
     repoRoot,
-    "packs/iconic/skins/t3/assets/animations",
+    "packs/t3/skins/t3/assets/animations",
     `${name}.gif`,
   );
   const bytes = readFileSync(filePath);
@@ -68,7 +68,7 @@ describe("loadSkinGif", () => {
   it("composites transparent GIF deltas without clearing prior pixels", () => {
     const filePath = path.join(
       repoRoot,
-      "packs/iconic/skins/xbox/assets/animations/vis-idle.gif",
+      "packs/xbox/skins/xbox/assets/animations/vis-idle.gif",
     );
     const bytes = readFileSync(filePath);
     const buffer = bytes.buffer.slice(
