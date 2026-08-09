@@ -122,6 +122,22 @@
   background: var(--color-interactive-selected);
 }
 
+.activity-logs-panel__entry--revealed {
+  animation: activity-logs-reveal-pulse 1.4s ease-out;
+}
+
+@keyframes activity-logs-reveal-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 55%, transparent);
+  }
+  40% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 35%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
 .activity-logs-panel__entry--expanded {
   background: var(--color-surface-raised);
 }

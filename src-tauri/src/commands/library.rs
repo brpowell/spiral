@@ -215,6 +215,9 @@ fn refresh_library_metadata_blocking(app: &AppHandle) -> Result<RefreshLibraryMe
 
         if !Path::new(&track.file_path).is_file() {
             missing += 1;
+            if errors.len() < REFRESH_METADATA_MAX_ERRORS {
+                errors.push(format!("{label}: File not found"));
+            }
             continue;
         }
 

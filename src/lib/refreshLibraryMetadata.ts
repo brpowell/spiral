@@ -1,36 +1,87 @@
 import { createOperationId, logActivity } from "./activityLog";
-import { formatFailureDetail } from "./formatFailureDetail";
-import { refreshLibraryMetadataFromFiles } from "./tauri";
+import { t } from "./i18n";
+import {
+  refreshLibraryMetadataFromFiles,
+  type RefreshLibraryMetadataResult,
+} from "./tauri";
+import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
+import type { BackgroundTaskSettleAsOptions } from "../store/useBackgroundTasksStore";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
-import type { RefreshLibraryMetadataResult } from "./tauri";
 
-function formatRefreshSummary(result: RefreshLibraryMetadataResult): string {
-  const { updated, missing, failed } = result;
-  if (failed === 0 && missing === 0) {
-    return updated === 1
-      ? "Updated metadata for 1 track"
-      : `Updated metadata for ${updated} tracks`;
+/**
+ * Library refresh toast (toast-conventions peer counters).
+ * `missing` counts as unresolved with `failed` — the update was requested
+ * and could not complete. 1 unresolved → inline detail; 2+ → View logs.
+ */
+export function libraryRefreshSettleOptions(
+  result: Pick<
+    RefreshLibraryMetadataResult,
+    "updated" | "missing" | "failed" | "errors"
+  >,
+  operationId: string,
+): BackgroundTaskSettleAsOptions & { label: string } {
+  const { updated, missing, failed, errors } = result;
+  const unresolved = missing + failed;
+
+  const label = formatPeerOutcomeTitle(
+    [
+      ...(updated > 0
+        ? [
+            {
+              text: t("toasts:libraryRefresh.updated", { count: updated }),
+              anchored: true,
+            },
+          ]
+        : []),
+      ...(missing > 0
+        ? [
+            {
+              text: t("toasts:libraryRefresh.missing", { count: missing }),
+            },
+          ]
+        : []),
+      ...(failed > 0
+        ? [
+            {
+              text: t("toasts:libraryRefresh.failed", { count: failed }),
+            },
+          ]
+        : []),
+    ],
+    {
+      operation: t("toasts:libraryRefresh.operation"),
+      fallback: t("toasts:libraryRefresh.finished"),
+    },
+  );
+
+  const status =
+    unresolved === 0 ? "success" : updated > 0 ? "warning" : "error";
+
+  if (unresolved === 0) {
+    return { status, label };
   }
 
-  const parts: string[] = [];
-  if (updated > 0) {
-    parts.push(`updated ${updated}`);
+  if (unresolved === 1) {
+    return {
+      status,
+      label,
+      detail: errors[0] || t("toasts:libraryRefresh.finished"),
+    };
   }
-  if (missing > 0) {
-    parts.push(`${missing} missing`);
-  }
-  if (failed > 0) {
-    parts.push(`${failed} failed`);
-  }
-  return `Refresh complete (${parts.join(", ")})`;
+
+  return {
+    status,
+    label,
+    logLink: { operationId },
+  };
 }
 
 export function refreshLibraryMetadata(): void {
   useBackgroundTasksStore.getState().runInBackground({
     key: "library-metadata-refresh",
-    label: "Refreshing library metadata…",
+    label: t("toasts:libraryRefresh.running"),
     run: async (ctx) => {
       const operationId = createOperationId();
 
@@ -45,11 +96,11 @@ export function refreshLibraryMetadata(): void {
 
       await usePlayerStore.getState().loadLibrary({ preservePlayback: true });
 
-      const summary = formatRefreshSummary(result);
-      ctx.setLabel(summary);
+      const settle = libraryRefreshSettleOptions(result, operationId);
+      ctx.setLabel(settle.label);
 
       logActivity({
-        level: result.failed > 0 ? "warn" : "info",
+        level: result.failed > 0 || result.missing > 0 ? "warn" : "info",
         domain: ACTIVITY_LOG_DOMAINS.refresh,
         message: "Library metadata refresh completed",
         operationId,
@@ -61,21 +112,7 @@ export function refreshLibraryMetadata(): void {
         },
       });
 
-      if (result.failed > 0) {
-        const detail = formatFailureDetail(result.errors);
-        ctx.setDetail(detail);
-        throw new Error(summary);
-      }
-
-      if (result.missing > 0 && result.updated === 0) {
-        ctx.setDetail(
-          result.missing === 1
-            ? "1 track file was missing on disk"
-            : `${result.missing} track files were missing on disk`,
-        );
-      } else {
-        ctx.clearDetail();
-      }
+      ctx.settleAs(settle);
     },
   });
 }

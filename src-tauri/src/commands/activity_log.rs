@@ -1,8 +1,8 @@
 use crate::activity_log::{self, ActivityLogDraft, ActivityLogEntry};
 
 #[tauri::command]
-pub fn append_activity_log(draft: ActivityLogDraft) {
-    activity_log::append_draft(draft);
+pub fn append_activity_log(draft: ActivityLogDraft) -> ActivityLogEntry {
+    activity_log::append_draft(draft)
 }
 
 #[tauri::command]

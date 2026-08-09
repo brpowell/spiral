@@ -1,0 +1,103 @@
+---
+description: Peer-counter toast title, color, and action conventions for operation results
+alwaysApply: true
+---
+
+# Toast Conventions
+
+Rules for toasts that report the result of an operation (single-item or bulk). Applies to queue, conversion, import, lyrics fetch, and any future success/failure/other outcome toast. Keep new toast types consistent with this — do not invent per-feature formatting.
+
+Canonical helpers: `src/lib/toastPeerOutcomes.ts`, `src/lib/toastPayloads.ts`. Toast Lab scenarios should match these rules.
+
+## Peer outcome counters (§1)
+
+Operations with more than one possible per-item outcome use **peer counters**. No outcome is a default/headline unless the operation can *guarantee* that counter is never zero when the toast fires. Title, color, and subtitle/button strategy derive from counters — not hand-written per scenario.
+
+Single-subject actions (one track, or one homogeneous unit like a whole album/playlist) skip this model — see §6.
+
+## Title format (§2)
+
+Number-first, middot-joined, zero-suppressed:
+
+```
+{count} {outcome} · {count} {outcome} · ...
+```
+
+- Render only nonzero outcomes. Never `· 0 skipped`.
+- One surviving clause → that clause alone. Multiple → join with `·` (not commas).
+- Number-first: `8 converted`, not `Converted 8`.
+- Do **not** split a “primary” into the title and demote peers to a subtitle unless that primary is structurally guaranteed nonzero when the toast fires (import/convert do not guarantee this).
+
+### Operation prefix (post-suppression, per toast)
+
+- If any surviving clause uses an **operation-specific verb** (`imported`, `replaced`, `skipped`, `converted`), no prefix.
+- If every surviving clause is a **generic/shared word** (`fetched`, `failed`, `not found`, `need review`), prepend `{Operation}: `.
+
+| Scenario | Title |
+|---|---|
+| Convert, partial | `8 converted · 2 failed` |
+| Convert, all fail | `Convert: 10 failed` |
+| Import, 0 new | `5 replaced · 2 skipped` |
+| Lyrics, mixed | `Lyrics: 1 fetched · 1 not found · 1 need review · 1 failed` |
+| Queue, multi | `5 tracks added to queue` |
+
+## Color (§3)
+
+Driven only by **true error** counters (`failed`), never by “not everything succeeded”:
+
+- `failed == 0` → success (even with not-found / skipped / need-review)
+- `success > 0 && failed > 0` → warning
+- `success == 0 && failed > 0` → error
+
+## Subtitle & buttons (§4)
+
+Use the existing primary/secondary (filled vs text) multi-action pattern when two actions are needed.
+
+1. `need review > 0` and `failed == 0` → `[Review]` / `[Choose]` only (primary).
+2. `need review > 0` and `failed >= 1` → `[Review]` primary + `[View logs]` secondary.
+3. `need review == 0`:
+   - `failed == 1` + **known/expected** error (tagged at throw site) → inline subtitle only, no button.
+   - `failed == 1` + **generic/unhandled** → inline subtitle + `[View logs]`.
+   - `failed >= 2` → `[View logs]` only; never concatenate multiple error strings into the subtitle.
+4. Else → no button, no subtitle.
+
+Secondary informational breakdowns (e.g. lyrics-source provenance on import)
+live in the Activity Log entry for the operation — do not add `[View logs]` on
+pure success toasts just to surface them. Tag known-vs-generic at the error
+throw site — toast layer reads the flag, does not infer from message text.
+
+## Activity Log (§5)
+
+Bulk toasts with `[View logs]` or `[Review]` must link to a corresponding Activity Log entry with full per-item detail. Do not build a separate bulk-job report surface.
+
+## Single-subject exception (§6)
+
+```
+✓ Added to queue
+  {Track Title}
+
+⚠ Multiple lyrics found for Song
+  [Choose]
+```
+
+- Subtitle names the subject when there is exactly one coherent subject.
+- Heterogeneous multi-select: no subtitle — count stays in the title (`5 tracks added to queue`, not title/subtitle split).
+- Needs-review on a single item still gets a button.
+
+## Zero-op (§7)
+
+Nothing-to-do cases (e.g. “No tracks missing lyrics”) are plain info toasts — not peer-counter formatting.
+
+## Reference shapes (§8)
+
+```
+✓ 8 converted
+⚠ 8 converted · 2 failed          (+ inline if 1 known failure, else [View logs])
+✕ Convert: 10 failed              [View logs]
+✓ 8 imported · 2 replaced · 2 skipped
+✓ Lyrics: 8 fetched
+⚠ Lyrics: 1 fetched · 1 not found · 1 need review · 1 failed
+  [Review]  [View logs]
+✓ No tracks missing lyrics        (zero-op)
+! Playback failed                 (+ [View logs] only if generic/unhandled)
+```

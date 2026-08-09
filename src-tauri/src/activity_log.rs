@@ -161,7 +161,7 @@ fn merge_context(
     }
 }
 
-pub fn append_draft(draft: ActivityLogDraft) {
+pub fn append_draft(draft: ActivityLogDraft) -> ActivityLogEntry {
     let context = merge_context(draft.context, draft.operation_id.clone());
     let operation_id = draft
         .operation_id
@@ -190,6 +190,8 @@ pub fn append_draft(draft: ActivityLogDraft) {
             let _ = app.emit(ACTIVITY_LOG_EVENT, &entry);
         }
     }
+
+    entry
 }
 
 pub fn log(

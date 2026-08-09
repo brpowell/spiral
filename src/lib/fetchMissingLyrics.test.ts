@@ -75,7 +75,10 @@ let library: Track[] = [];
 
 vi.mock("../store/usePlayerStore", () => ({
   usePlayerStore: {
-    getState: () => ({ library }),
+    getState: () => ({
+      library,
+      openTrackEditor: vi.fn(),
+    }),
   },
 }));
 
@@ -205,7 +208,7 @@ describe("formatFetchMissingLyricsToastLabel", () => {
     mixed.ambiguous = 1;
     mixed.failed = 1;
     expect(formatFetchMissingLyricsToastLabel(mixed)).toBe(
-      "Lyrics: fetched 1, 1 not found, 1 need review, 1 failed",
+      "Lyrics: 1 fetched · 1 not found · 1 need review · 1 failed",
     );
   });
 

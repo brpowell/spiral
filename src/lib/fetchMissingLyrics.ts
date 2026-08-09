@@ -7,6 +7,12 @@ import {
   RETRY_DETAIL,
   runSingleLyricsFetch,
 } from "./lyricsFetchRunner";
+import { t } from "./i18n";
+import {
+  formatLyricsFetchPeerTitle,
+  lyricsFetchBulkSettleOptions,
+} from "./lyricsFetchToastSettle";
+import { lyricsNoneMissingPayload } from "./toastPayloads";
 import { yieldForInteraction } from "./scheduling";
 import { clearLyricsFetchCancel, peekLyricsFetchCache } from "./tauri";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
@@ -18,12 +24,7 @@ import type { Track } from "../types/track";
 export const LYRICS_FETCH_MISSING_KEY = "lyrics-fetch-missing";
 
 type FetchMissingLyricsTrackStatus =
-  | "found"
-  | "not_found"
-  | "instrumental"
-  | "ambiguous"
-  | "failed"
-  | "skipped";
+  "found" | "not_found" | "instrumental" | "ambiguous" | "failed" | "skipped";
 
 type FetchMissingLyricsSkipReason =
   | "insufficient_metadata"
@@ -184,84 +185,54 @@ export function recordTrackResult(
 export function formatFetchMissingLyricsToastLabel(
   summary: FetchMissingLyricsSummary,
 ): string {
-  const {
-    cancelled,
-    found,
-    notFound,
-    instrumental,
-    ambiguous,
-    failed,
-    skipped,
-    attempted,
-  } = summary;
+  const { cancelled, skipped, attempted } = summary;
 
   if (cancelled) {
     if (attempted === 0 && skipped === 0) {
-      return "Lyrics fetch cancelled";
+      return t("toasts:lyricsMissing.cancelled");
     }
-    return `Lyrics fetch cancelled (${attempted} attempted)`;
+    return t("toasts:lyricsMissing.cancelledAttempted", { count: attempted });
   }
 
   if (attempted === 0 && skipped > 0) {
     const cachedMissCount = summary.tracks.filter(
-      (t) => t.status === "skipped" && t.reason === "cached_miss",
+      (track) => track.status === "skipped" && track.reason === "cached_miss",
     ).length;
     if (cachedMissCount === skipped) {
-      return skipped === 1
-        ? "1 track recently checked, no lyrics"
-        : `${skipped} tracks recently checked, no lyrics`;
+      return t("toasts:lyricsMissing.recentlyChecked", { count: skipped });
     }
-    return skipped === 1
-      ? "1 track missing lyrics could not be fetched"
-      : `${skipped} tracks missing lyrics could not be fetched`;
+    return t("toasts:lyricsMissing.couldNotFetch", { count: skipped });
   }
 
-  if (failed > 0 && found === 0 && ambiguous === 0 && instrumental === 0) {
-    return failed === 1
-      ? "Lyrics fetch failed"
-      : `Lyrics fetch failed (${failed})`;
-  }
-
-  if (
-    found === attempted &&
-    notFound === 0 &&
-    instrumental === 0 &&
-    ambiguous === 0 &&
-    failed === 0 &&
-    attempted > 0
-  ) {
-    return found === 1
-      ? "Lyrics fetched for 1 track"
-      : `Lyrics fetched for ${found} tracks`;
-  }
-
-  if (
-    found === 0 &&
-    ambiguous === 0 &&
-    instrumental === 0 &&
-    failed === 0 &&
-    notFound === attempted &&
-    attempted > 0
-  ) {
-    return attempted === 1
-      ? "No lyrics found"
-      : `No lyrics found (${attempted} tracks)`;
-  }
-
-  const parts: string[] = [];
-  if (found > 0) parts.push(`fetched ${found}`);
-  if (instrumental > 0) parts.push(`${instrumental} instrumental`);
-  if (notFound > 0) parts.push(`${notFound} not found`);
-  if (ambiguous > 0) parts.push(`${ambiguous} need review`);
-  if (failed > 0) parts.push(`${failed} failed`);
-  if (skipped > 0) parts.push(`${skipped} skipped`);
-  return `Lyrics: ${parts.join(", ")}`;
+  return formatLyricsFetchPeerTitle({
+    found: summary.found,
+    notFound: summary.notFound,
+    ambiguous: summary.ambiguous,
+    failed: summary.failed,
+    instrumental: summary.instrumental,
+    skipped: summary.skipped,
+  });
 }
 
-function trackResultBase(track: Track): Pick<
-  FetchMissingLyricsTrackResult,
-  "trackId" | "title" | "artist"
-> {
+function firstAmbiguousTrackId(
+  summary: FetchMissingLyricsSummary,
+): number | null {
+  const track = summary.tracks.find((item) => item.status === "ambiguous");
+  return track?.trackId ?? null;
+}
+
+function failureDetailLines(summary: FetchMissingLyricsSummary): string[] {
+  return summary.tracks
+    .filter((track) => track.status === "failed")
+    .map((track) => {
+      const reason = track.reason?.trim();
+      return reason ? `${track.title}: ${reason}` : track.title;
+    });
+}
+
+function trackResultBase(
+  track: Track,
+): Pick<FetchMissingLyricsTrackResult, "trackId" | "title" | "artist"> {
   return {
     trackId: track.id,
     title: track.title,
@@ -273,8 +244,7 @@ function logSummary(
   operationId: string,
   summary: FetchMissingLyricsSummary,
 ): void {
-  const level =
-    summary.cancelled || summary.failed > 0 ? "warn" : "info";
+  const level = summary.cancelled || summary.failed > 0 ? "warn" : "info";
   logActivity({
     level,
     domain: ACTIVITY_LOG_DOMAINS.lyricsFetch,
@@ -342,9 +312,7 @@ export function fetchMissingLyrics(): void {
   const totalMissing = eligible.length + ineligible.length;
 
   if (totalMissing === 0) {
-    useBackgroundTasksStore.getState().showToast({
-      label: "No tracks missing lyrics",
-    });
+    useBackgroundTasksStore.getState().showToast(lyricsNoneMissingPayload());
     return;
   }
 
@@ -370,8 +338,9 @@ export function fetchMissingLyrics(): void {
 
   useBackgroundTasksStore.getState().runInBackground({
     key: LYRICS_FETCH_MISSING_KEY,
-    label: "Fetching missing lyrics…",
+    label: t("toasts:lyricsMissing.fetching"),
     cancellable: true,
+    progressDisplay: "bar",
     run: async (ctx) => {
       await clearLyricsFetchCancel();
 
@@ -392,7 +361,7 @@ export function fetchMissingLyrics(): void {
       });
 
       try {
-        ctx.setDetail("Checking recent lookups…");
+        ctx.setDetail(t("toasts:lyricsMissing.checkingCache"));
         const { toFetch, cachedMiss, cachedInstrumental } =
           await filterEligibleByFetchCache(eligible, {
             isCancelRequested: () => ctx.isCancelRequested(),
@@ -465,7 +434,7 @@ export function fetchMissingLyrics(): void {
               respectMissCache: true,
               onRetry: () => {
                 if (!ctx.isCancelRequested()) {
-                  ctx.setDetail(RETRY_DETAIL);
+                  ctx.setDetail(RETRY_DETAIL());
                 }
               },
             });
@@ -525,9 +494,21 @@ export function fetchMissingLyrics(): void {
           throw new BackgroundTaskCancelledError(toastLabel);
         }
 
-        if (summary.failed > 0 && summary.found === 0) {
-          throw new Error(toastLabel);
-        }
+        ctx.settleAs(
+          lyricsFetchBulkSettleOptions({
+            tally: {
+              found: summary.found,
+              notFound: summary.notFound,
+              ambiguous: summary.ambiguous,
+              failed: summary.failed,
+              instrumental: summary.instrumental,
+              skipped: summary.skipped,
+            },
+            errorLines: failureDetailLines(summary),
+            operationId,
+            reviewTrackId: firstAmbiguousTrackId(summary),
+          }),
+        );
       } finally {
         await clearLyricsFetchCancel().catch(() => {});
       }

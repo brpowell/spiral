@@ -1,10 +1,13 @@
 import { create } from "zustand";
+import type { ActivityLogRevealTarget } from "../lib/activityLogsWindow";
 import { isBackgroundTaskCancelledError } from "../lib/backgroundTaskCancel";
 import { isCdImportCancelledError } from "../lib/cdImport";
+import { t } from "../lib/i18n";
 import { waitForPaint, yieldToMain } from "../lib/scheduling";
+import { withLogLinkAction } from "../lib/toastLogLink";
 
 export type BackgroundTaskStatus =
-  "running" | "success" | "error" | "cancelled" | "info";
+  "running" | "success" | "warning" | "error" | "cancelled" | "info";
 
 /** Where the toast renders its action buttons. */
 export type BackgroundTaskActionsPlacement = "bottom" | "end";
@@ -15,7 +18,7 @@ export type BackgroundTaskProgressDisplay = "text" | "bar";
 export interface BackgroundTaskAction {
   id: string;
   label: string;
-  variant?: "primary" | "ghost";
+  variant?: "primary" | "secondary" | "ghost";
   /** Push this action to the trailing edge within the actions group. */
   align?: "start" | "end";
   disabled?: boolean;
@@ -46,14 +49,18 @@ export interface BackgroundTask {
 }
 
 export interface BackgroundTaskSettleAsOptions {
-  status: Extract<BackgroundTaskStatus, "success" | "error" | "info">;
+  status: Extract<
+    BackgroundTaskStatus,
+    "success" | "warning" | "error" | "info"
+  >;
   label?: string;
   detail?: string;
   actions?: BackgroundTaskAction[];
   actionsPlacement?: BackgroundTaskActionsPlacement;
+  logLink?: ActivityLogRevealTarget;
   /**
    * Auto-dismiss delay. `null` keeps the toast until the user acts or dismisses.
-   * Defaults match `showToast` (brief success/info, longer errors, sticky with actions).
+   * Defaults match `showToast` (brief success/info, longer errors/warnings, sticky with actions).
    */
   dismissMs?: number | null;
 }
@@ -97,11 +104,15 @@ interface ShowToastOptions {
   dismissMs?: number | null;
   status?: Extract<
     BackgroundTaskStatus,
-    "success" | "error" | "info" | "cancelled"
+    "success" | "warning" | "error" | "info" | "cancelled"
   >;
   actions?: BackgroundTaskAction[];
   actionsPlacement?: BackgroundTaskActionsPlacement;
+  /** When set, synthesizes a View logs action that reveals this target. */
+  logLink?: ActivityLogRevealTarget;
 }
+
+export type { ShowToastOptions };
 
 interface BackgroundTasksState {
   tasks: BackgroundTask[];
@@ -122,7 +133,7 @@ function scheduleAutoDismiss(
   ms: number,
   status: Extract<
     BackgroundTaskStatus,
-    "success" | "cancelled" | "error" | "info"
+    "success" | "warning" | "cancelled" | "error" | "info"
   >,
 ): void {
   window.setTimeout(() => {
@@ -135,14 +146,14 @@ function scheduleAutoDismiss(
 function defaultToastDismissMs(
   status: Extract<
     BackgroundTaskStatus,
-    "success" | "error" | "info" | "cancelled"
+    "success" | "warning" | "error" | "info" | "cancelled"
   >,
   hasActions: boolean,
   dismissMs: number | null | undefined,
 ): number | null {
   if (dismissMs !== undefined) return dismissMs;
   if (hasActions) return null;
-  if (status === "error") return ERROR_DISMISS_MS;
+  if (status === "error" || status === "warning") return ERROR_DISMISS_MS;
   if (status === "cancelled") return SUCCESS_DISMISS_MS;
   return BRIEF_TOAST_DISMISS_MS;
 }
@@ -284,9 +295,10 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>(
 
           const settle = getSettleAs();
           if (settle) {
+            const actions = withLogLinkAction(settle.actions, settle.logLink);
             const resolvedDismissMs = defaultToastDismissMs(
               settle.status,
-              Boolean(settle.actions?.length),
+              Boolean(actions?.length),
               settle.dismissMs,
             );
             set((state) => {
@@ -296,7 +308,7 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>(
                   status: settle.status,
                   label: settle.label ?? current?.label ?? label,
                   detail: settle.detail,
-                  actions: settle.actions,
+                  actions,
                   actionsPlacement: settle.actionsPlacement,
                   progress: undefined,
                   cancellable: undefined,
@@ -322,7 +334,7 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>(
             set((state) => ({
               tasks: patchTask(state.tasks, id, {
                 status: "cancelled",
-                label: "Import cancelled",
+                label: t("toasts:import.cancelled"),
                 detail: undefined,
                 progress: undefined,
               }),
@@ -367,11 +379,13 @@ export const useBackgroundTasksStore = create<BackgroundTasksState>(
       detail,
       key,
       status = "success",
-      actions,
+      actions: explicitActions,
       actionsPlacement,
+      logLink,
       dismissMs,
     }) => {
       const id = crypto.randomUUID();
+      const actions = withLogLinkAction(explicitActions, logLink);
       const resolvedDismissMs = defaultToastDismissMs(
         status,
         Boolean(actions?.length),

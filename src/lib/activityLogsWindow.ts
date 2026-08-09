@@ -1,8 +1,17 @@
+import { emit } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { applyCustomWindowChrome } from "./windowChrome";
 import { isTauri } from "./windowRole";
 
 const ACTIVITY_LOGS_LABEL = "activity-logs";
+
+export const ACTIVITY_LOGS_REVEAL_EVENT = "activity-logs://reveal";
+
+/** Target for deep-linking into the activity logs panel. */
+export interface ActivityLogRevealTarget {
+  entryId?: string;
+  operationId?: string;
+}
 
 async function getActivityLogsWindow(): Promise<WebviewWindow | null> {
   try {
@@ -12,7 +21,9 @@ async function getActivityLogsWindow(): Promise<WebviewWindow | null> {
   }
 }
 
-export async function openActivityLogsWindow(): Promise<void> {
+export async function openActivityLogsWindow(
+  target?: ActivityLogRevealTarget,
+): Promise<void> {
   if (!isTauri()) {
     console.warn("openActivityLogsWindow: not running in Tauri");
     return;
@@ -39,6 +50,10 @@ export async function openActivityLogsWindow(): Promise<void> {
 
     await applyCustomWindowChrome(window);
     await window.setFocus();
+
+    if (target?.entryId != null || target?.operationId != null) {
+      void emit(ACTIVITY_LOGS_REVEAL_EVENT, target);
+    }
   } catch (err) {
     console.error("openActivityLogsWindow: failed to show logs window", err);
   }

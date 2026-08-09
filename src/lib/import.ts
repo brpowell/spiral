@@ -1,6 +1,10 @@
 import { parseTrackMetadata } from "./metadata";
-import { allocPendingTrackId, resetPendingTrackIds } from "./pendingImportTrack";
+import {
+  allocPendingTrackId,
+  resetPendingTrackIds,
+} from "./pendingImportTrack";
 import { yieldForInteraction } from "./scheduling";
+import { t } from "./i18n";
 import {
   findLibraryDuplicate,
   countRemainingBatchDuplicates,
@@ -14,17 +18,17 @@ import {
   saveTrack,
 } from "./tauri";
 import { shouldAutoReplaceMissingDuplicate } from "./missingFileTrack";
-import {
-  importLyricsConflict,
-  trackLyricsToInput,
-} from "./lyrics";
+import { importLyricsConflict, trackLyricsToInput } from "./lyrics";
 import {
   applyBatchRule,
   useImportDedupeStore,
   isImportCancelledError,
 } from "../store/useImportDedupeStore";
+import type { BackgroundTaskSettleAsOptions } from "../store/useBackgroundTasksStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Track, TrackInput } from "../types/track";
+import { BackgroundTaskCancelledError } from "./backgroundTaskCancel";
+import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
 
 export interface ImportResult {
   imported: number;
@@ -52,6 +56,8 @@ export interface CommitImportOptions {
   onTrackFailed?: (pendingId: number) => void;
   onTrackSkipped?: (pendingId: number) => void;
   onTrackReplaced?: (pendingId: number, track: Track) => void;
+  /** When set, throw BackgroundTaskCancelledError if cancel is requested mid-loop. */
+  isCancelRequested?: () => boolean;
 }
 
 export interface ResolveImportDuplicatesResult {
@@ -71,6 +77,7 @@ export interface ParseImportMetadataResult {
 export async function parseImportMetadata(
   paths: string[],
   onProgress?: (current: number, total: number) => void,
+  isCancelRequested?: () => boolean,
 ): Promise<ParseImportMetadataResult> {
   resetPendingTrackIds();
   const entries: ParsedImportEntry[] = [];
@@ -78,6 +85,9 @@ export async function parseImportMetadata(
   const total = paths.length;
 
   for (let i = 0; i < paths.length; i++) {
+    if (isCancelRequested?.()) {
+      throw new BackgroundTaskCancelledError(t("toasts:import.cancelled"));
+    }
     const sourcePath = paths[i];
     try {
       const metadata = await parseTrackMetadata(sourcePath);
@@ -113,7 +123,10 @@ async function detectImportLyricsConflict(
   if (!existingLyrics) {
     return false;
   }
-  return importLyricsConflict(incoming.lyrics, trackLyricsToInput(existingLyrics));
+  return importLyricsConflict(
+    incoming.lyrics,
+    trackLyricsToInput(existingLyrics),
+  );
 }
 
 async function resolveDuplicateAction(
@@ -143,13 +156,12 @@ async function buildDuplicatePromptContext(
     existing,
     pendingId: entry.pendingId,
     sourcePath: entry.sourcePath,
-    remainingDuplicates: countRemainingBatchDuplicates(
-      entries,
-      index,
-      library,
-    ),
+    remainingDuplicates: countRemainingBatchDuplicates(entries, index, library),
     incomingPendingRip,
-    hasLyricsConflict: await detectImportLyricsConflict(entry.metadata, existing),
+    hasLyricsConflict: await detectImportLyricsConflict(
+      entry.metadata,
+      existing,
+    ),
   };
 }
 
@@ -225,53 +237,95 @@ export function formatImportSummary(result: {
   imported: number;
   skipped: number;
   replaced: number;
+  failed?: number;
 }): string {
-  const parts: string[] = [];
-  if (result.imported > 0) {
-    parts.push(
-      result.imported === 1
-        ? "Imported 1 track"
-        : `Imported ${result.imported} tracks`,
-    );
-  }
-  if (result.replaced > 0) {
-    parts.push(
-      result.replaced === 1
-        ? "Replaced 1 track"
-        : `Replaced ${result.replaced} tracks`,
-    );
-  }
-  if (result.skipped > 0) {
-    parts.push(
-      result.skipped === 1
-        ? "Skipped 1 duplicate"
-        : `Skipped ${result.skipped} duplicates`,
-    );
-  }
-  return parts.length > 0 ? parts.join(", ") : "Import finished";
+  return formatPeerOutcomeTitle(
+    [
+      ...(result.imported > 0
+        ? [
+            {
+              text: t("toasts:import.imported", { count: result.imported }),
+              anchored: true,
+            },
+          ]
+        : []),
+      ...(result.replaced > 0
+        ? [
+            {
+              text: t("toasts:import.replaced", { count: result.replaced }),
+              anchored: true,
+            },
+          ]
+        : []),
+      ...(result.skipped > 0
+        ? [
+            {
+              text: t("toasts:import.skippedDuplicate", {
+                count: result.skipped,
+              }),
+              anchored: true,
+            },
+          ]
+        : []),
+      ...((result.failed ?? 0) > 0
+        ? [
+            {
+              text: t("toasts:import.failedCount", { count: result.failed }),
+            },
+          ]
+        : []),
+    ],
+    {
+      operation: t("toasts:import.operation"),
+      fallback: t("toasts:import.finished"),
+    },
+  );
 }
 
-export function formatImportLyricsDetail(result: {
-  lyricsFromTags: number;
-  lyricsFromSidecar: number;
-  lyricsNone: number;
-}): string | null {
-  const total =
-    result.lyricsFromTags + result.lyricsFromSidecar + result.lyricsNone;
-  if (total === 0) {
-    return null;
+/** Warning settle when a library import finds no audio files. */
+export function importNoAudioSettleOptions(): BackgroundTaskSettleAsOptions & {
+  label: string;
+} {
+  return {
+    status: "warning",
+    label: t("toasts:import.noAudio"),
+  };
+}
+
+/**
+ * Import completion toast: flat peer title (including failed).
+ * View logs only for failures (1 known → inline; 2+ → link) — replace/skip
+ * are success-side and stay out of the action slot.
+ */
+export function importCompletionSettleOptions(
+  result: Pick<
+    ImportResult,
+    "imported" | "skipped" | "replaced" | "failed" | "errors"
+  >,
+  operationId: string,
+): BackgroundTaskSettleAsOptions & { label: string } {
+  const label = formatImportSummary(result);
+  const hasWins = result.imported > 0 || result.replaced > 0;
+  const status =
+    result.failed === 0 ? "success" : hasWins ? "warning" : "error";
+
+  if (result.failed === 0) {
+    return { status, label };
   }
-  const parts: string[] = [];
-  if (result.lyricsFromTags > 0) {
-    parts.push(`${result.lyricsFromTags} from tags`);
+
+  if (result.failed === 1) {
+    return {
+      status,
+      label,
+      detail: result.errors[0] || t("toasts:import.failed"),
+    };
   }
-  if (result.lyricsFromSidecar > 0) {
-    parts.push(`${result.lyricsFromSidecar} from .lrc`);
-  }
-  if (result.lyricsNone > 0) {
-    parts.push(`${result.lyricsNone} none`);
-  }
-  return `Lyrics: ${parts.join(", ")}`;
+
+  return {
+    status,
+    label,
+    logLink: { operationId },
+  };
 }
 
 export async function commitImportEntries(
@@ -291,6 +345,9 @@ export async function commitImportEntries(
   const total = entries.length;
 
   for (let i = 0; i < entries.length; i++) {
+    if (options.isCancelRequested?.()) {
+      throw new BackgroundTaskCancelledError(t("toasts:import.cancelled"));
+    }
     const { sourcePath, metadata, pendingId } = entries[i];
     try {
       const library = usePlayerStore.getState().library;

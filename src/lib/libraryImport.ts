@@ -1,7 +1,7 @@
 import {
   commitImportEntries,
-  formatImportLyricsDetail,
-  formatImportSummary,
+  importCompletionSettleOptions,
+  importNoAudioSettleOptions,
   parseImportMetadata,
 } from "./import";
 import {
@@ -11,6 +11,7 @@ import {
   resetImportActivationQueue,
 } from "./importActivationQueue";
 import { createOperationId, logActivity } from "./activityLog";
+import { BackgroundTaskCancelledError } from "./backgroundTaskCancel";
 import { isTrackImporting, pendingTrackFromInput } from "./pendingImportTrack";
 import {
   filterPathsForLibraryImport,
@@ -18,6 +19,7 @@ import {
   isZipPath,
 } from "./supportedAudio";
 import { waitForPaint, yieldForInteraction, yieldToMain } from "./scheduling";
+import { t } from "./i18n";
 import {
   cleanupZipImport,
   pickLibraryPaths,
@@ -46,12 +48,16 @@ interface ResolvedImportPaths {
 async function resolveImportPaths(
   paths: string[],
   onProgress?: (current: number, total: number) => void,
+  isCancelRequested?: () => boolean,
 ): Promise<ResolvedImportPaths> {
   const audioPaths: string[] = [];
   const zipExtractDirs: string[] = [];
   const total = paths.length;
 
   for (let i = 0; i < paths.length; i++) {
+    if (isCancelRequested?.()) {
+      throw new BackgroundTaskCancelledError(t("toasts:import.cancelled"));
+    }
     const path = paths[i];
     if (isZipPath(path)) {
       try {
@@ -108,7 +114,9 @@ export function startLibraryImport(paths: string[]): void {
 
   useBackgroundTasksStore.getState().runInBackground({
     key: "library-import",
-    label: "Importing library…",
+    label: t("toasts:import.library"),
+    cancellable: true,
+    progressDisplay: "bar",
     run: async (ctx) => {
       let zipExtractDirs: string[] = [];
       let outcomeLogged = false;
@@ -125,6 +133,11 @@ export function startLibraryImport(paths: string[]): void {
           operationId,
         });
       };
+      const clearImportingTracks = () => {
+        usePlayerStore.setState((state) => ({
+          library: state.library.filter((track) => !isTrackImporting(track)),
+        }));
+      };
 
       try {
         logActivity({
@@ -138,18 +151,18 @@ export function startLibraryImport(paths: string[]): void {
           },
         });
 
-        ctx.setLabel("Scanning files…");
+        ctx.setLabel(t("toasts:import.scanning"));
         const resolved = await resolveImportPaths(
           pathsToImport,
           (current, total) => {
             ctx.setProgress(current, total);
           },
+          () => ctx.isCancelRequested(),
         );
         zipExtractDirs = resolved.zipExtractDirs;
         const audioPaths = resolved.audioPaths;
 
         if (audioPaths.length === 0) {
-          ctx.setDetail("No audio files found");
           logActivity({
             level: "warn",
             domain: ACTIVITY_LOG_DOMAINS.import,
@@ -157,6 +170,7 @@ export function startLibraryImport(paths: string[]): void {
             operationId,
             details: { paths: pathsToImport },
           });
+          ctx.settleAs(importNoAudioSettleOptions());
           return;
         }
 
@@ -168,7 +182,7 @@ export function startLibraryImport(paths: string[]): void {
         try {
           importMode = await settingsStore.resolveImportMode();
         } catch {
-          ctx.setDetail("Import cancelled");
+          ctx.setDetail(t("toasts:import.cancelled"));
           logImportCancelled();
           return;
         }
@@ -180,21 +194,27 @@ export function startLibraryImport(paths: string[]): void {
         await waitForPaint();
         await yieldToMain();
 
+        if (ctx.isCancelRequested()) {
+          logImportCancelled();
+          throw new BackgroundTaskCancelledError(t("toasts:import.cancelled"));
+        }
+
         ctx.clearProgress();
         ctx.setLabel(
-          audioPaths.length === 1
-            ? "Reading metadata for 1 track…"
-            : `Reading metadata for ${audioPaths.length} tracks…`,
+          t("toasts:import.readingMetadata", { count: audioPaths.length }),
         );
 
         const player = usePlayerStore.getState();
         const { entries, errors: metadataErrors } = await parseImportMetadata(
           audioPaths,
           (current, total) => ctx.setProgress(current, total),
+          () => ctx.isCancelRequested(),
         );
 
         if (entries.length === 0) {
-          throw new Error(metadataErrors[0] ?? "Could not read track metadata");
+          throw new Error(
+            metadataErrors[0] ?? t("toasts:import.metadataUnread"),
+          );
         }
 
         const pendingTracks = entries.map((entry) =>
@@ -207,11 +227,7 @@ export function startLibraryImport(paths: string[]): void {
         player.stagePendingImportTracks(pendingTracks);
 
         ctx.clearProgress();
-        ctx.setLabel(
-          entries.length === 1
-            ? "Importing 1 track…"
-            : `Importing ${entries.length} tracks…`,
-        );
+        ctx.setLabel(t("toasts:import.importing", { count: entries.length }));
 
         let result;
         const removePending = (pendingId: number) => {
@@ -222,6 +238,7 @@ export function startLibraryImport(paths: string[]): void {
           result = await commitImportEntries(entries, {
             mode: importMode,
             onProgress: (current, total) => ctx.setProgress(current, total),
+            isCancelRequested: () => ctx.isCancelRequested(),
             onTrackActivated: (pendingId, track) => {
               queueImportedTrackActivation(pendingId, track);
             },
@@ -235,12 +252,14 @@ export function startLibraryImport(paths: string[]): void {
         } catch (err) {
           flushImportActivationQueue();
           if (isImportCancelledError(err)) {
-            usePlayerStore.setState((state) => ({
-              library: state.library.filter((track) => !isTrackImporting(track)),
-            }));
-            ctx.setLabel("Import cancelled");
+            clearImportingTracks();
+            ctx.setLabel(t("toasts:import.cancelled"));
             logImportCancelled();
             return;
+          }
+          if (err instanceof BackgroundTaskCancelledError) {
+            clearImportingTracks();
+            logImportCancelled();
           }
           throw err;
         }
@@ -250,12 +269,7 @@ export function startLibraryImport(paths: string[]): void {
         result.errors.unshift(...metadataErrors);
         result.failed += metadataErrors.length;
 
-        const summary = formatImportSummary(result);
-        ctx.setLabel(summary);
-        const lyricsDetail = formatImportLyricsDetail(result);
-        if (lyricsDetail) {
-          ctx.setDetail(lyricsDetail);
-        }
+        const settle = importCompletionSettleOptions(result, operationId);
 
         logActivity({
           level: result.failed > 0 ? "warn" : "info",
@@ -268,6 +282,9 @@ export function startLibraryImport(paths: string[]): void {
             replaced: result.replaced,
             skipped: result.skipped,
             failed: result.failed,
+            lyricsFromTags: result.lyricsFromTags,
+            lyricsFromSidecar: result.lyricsFromSidecar,
+            lyricsNone: result.lyricsNone,
             ...(result.errors.length > 0 ? { errors: result.errors } : {}),
           },
         });
@@ -284,15 +301,18 @@ export function startLibraryImport(paths: string[]): void {
             }
           } else {
             usePlayerStore.setState({
-              importError: `${summary}; failed ${result.failed}. ${result.errors[0] ?? ""}`,
+              importError: `${settle.label}; failed ${result.failed}. ${result.errors[0] ?? ""}`,
             });
-            if (result.imported === 0 && result.replaced === 0) {
-              throw new Error(result.errors[0] ?? "Import failed");
-            }
           }
         }
+
+        ctx.settleAs(settle);
       } catch (err) {
-        if (!isImportCancelledError(err) && !outcomeLogged) {
+        if (
+          !(err instanceof BackgroundTaskCancelledError) &&
+          !isImportCancelledError(err) &&
+          !outcomeLogged
+        ) {
           const message = err instanceof Error ? err.message : String(err);
           logActivity({
             level: "error",

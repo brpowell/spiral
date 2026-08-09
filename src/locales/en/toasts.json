@@ -1,0 +1,160 @@
+{
+  "actions": {
+    "viewLogs": "View logs"
+  },
+  "queue": {
+    "added_one": "Added to queue",
+    "added_other": "{{count}} tracks added to queue"
+  },
+  "playlist": {
+    "added_one": "Added to {{playlist}}",
+    "added_other": "{{count}} tracks added to {{playlist}}"
+  },
+  "playback": {
+    "fileMissing": "File not found"
+  },
+  "trackMetadata": {
+    "operation": "Metadata",
+    "updated": "{{count}} updated",
+    "missing": "{{count}} missing",
+    "failed": "{{count}} failed",
+    "saveFailed": "Could not save track metadata"
+  },
+  "activityLog": {
+    "copied_one": "Copied {{count}} line",
+    "copied_other": "Copied {{count}} lines"
+  },
+  "diagnostics": {
+    "copied": "Logs copied",
+    "exported": "Exported to {{fileName}}"
+  },
+  "failureDetail": {
+    "more": "+{{count}} more"
+  },
+  "progress": {
+    "trackOf": "Track {{current}} of {{total}}"
+  },
+  "peer": {
+    "prefixed": "{{operation}}: {{parts}}"
+  },
+  "lyrics": {
+    "fetching": "Fetching lyrics…",
+    "fetchingFor": "Fetching lyrics for {{title}}",
+    "fetchedFor": "Lyrics fetched for {{title}}",
+    "ambiguousFor": "Multiple lyrics found for {{title}}",
+    "retryDetail": "Still working, trying another approach…",
+    "operation": "Lyrics",
+    "partFetched": "{{count}} fetched",
+    "partNotFound": "{{count}} not found",
+    "partNeedReview": "{{count}} need review",
+    "partFailed": "{{count}} failed",
+    "partInstrumental": "{{count}} instrumental",
+    "partSkipped": "{{count}} skipped",
+    "review": "Review",
+    "choose": "Choose"
+  },
+  "lyricsMissing": {
+    "noneMissing": "No tracks missing lyrics",
+    "fetching": "Fetching missing lyrics…",
+    "checkingCache": "Checking recent lookups…",
+    "cancelled": "Lyrics fetch cancelled",
+    "cancelledAttempted": "Lyrics fetch cancelled ({{count}} attempted)",
+    "recentlyChecked_one": "{{count}} track recently checked, no lyrics",
+    "recentlyChecked_other": "{{count}} tracks recently checked, no lyrics",
+    "couldNotFetch_one": "{{count}} track missing lyrics could not be fetched",
+    "couldNotFetch_other": "{{count}} tracks missing lyrics could not be fetched"
+  },
+  "import": {
+    "library": "Importing library…",
+    "scanning": "Scanning files…",
+    "noAudio": "No audio files found for import",
+    "cancelled": "Import cancelled",
+    "readingMetadata_one": "Reading metadata for {{count}} track…",
+    "readingMetadata_other": "Reading metadata for {{count}} tracks…",
+    "importing_one": "Importing {{count}} track…",
+    "importing_other": "Importing {{count}} tracks…",
+    "operation": "Import",
+    "imported": "{{count}} imported",
+    "replaced": "{{count}} replaced",
+    "skippedDuplicate": "{{count}} skipped",
+    "failedCount": "{{count}} failed",
+    "finished": "Import finished",
+    "metadataUnread": "Could not read track metadata",
+    "failed": "Import failed",
+    "cd": "Importing CD",
+    "checkingDuplicates": "Checking for duplicates…",
+    "fetchingArt": "Fetching album art…",
+    "noTracksSelected": "No tracks selected to import"
+  },
+  "cdMetadata": {
+    "lookingUp": "Looking up album metadata…",
+    "fetchingArt": "Fetching album art…"
+  },
+  "libraryRefresh": {
+    "running": "Refreshing library metadata…",
+    "operation": "Refresh",
+    "updated": "{{count}} updated",
+    "missing": "{{count}} missing",
+    "failed": "{{count}} failed",
+    "finished": "Refresh finished"
+  },
+  "convert": {
+    "running_one": "Converting track…",
+    "running_other": "Converting tracks…",
+    "operation": "Convert",
+    "converted": "{{count}} converted",
+    "failed": "{{count}} failed",
+    "failedFallback": "Convert failed"
+  },
+  "spiralCard": {
+    "installed": "Spiral Card installed",
+    "replaced": "Spiral Card replaced",
+    "installFailed": "Failed to install Spiral Card",
+    "finalized": "Card finalized",
+    "finalizedDetail": "Your Spiral card is permanent.",
+    "finalizeFailed": "Failed to finalize",
+    "finalizeOffline": "You're offline, connect and try again.",
+    "finalizeConnection": "Check your connection and try again.",
+    "wrapTooLarge": "Wrap image is too large",
+    "wrapTooLargeDetail": "Try art around 856×540. Spiral stores wraps under 2 MB after compression.",
+    "wrapUndecodable": "Couldn't read that wrap image",
+    "wrapUndecodableDetail": "Use a JPEG, PNG, or WebP of your card art.",
+    "wrapFailed": "Couldn't apply wrap",
+    "wrapFailedDetail": "Try another image around 856×540."
+  },
+  "packs": {
+    "installed": "Installed {{name}} ({{version}})",
+    "installFailed": "Failed to install pack",
+    "created": "Created {{name}}",
+    "createFailed": "Failed to create pack",
+    "linked": "Linked pack folder",
+    "linkFailed": "Failed to link pack folder",
+    "unlinked": "Unlinked {{name}}",
+    "unlinkFailed": "Failed to unlink pack",
+    "reloaded": "Reloaded linked packs",
+    "reloadFailed": "Failed to reload linked packs",
+    "uninstalled": "Uninstalled {{name}} ({{version}})",
+    "uninstallFailed": "Failed to uninstall pack",
+    "rolledBack": "Rolled back {{name}} to {{version}} (removed {{removed}})",
+    "rollbackFailed": "Failed to roll back pack",
+    "contributionHidden": "Contribution hidden",
+    "contributionShown": "Contribution shown",
+    "hideFailed": "Failed to hide contribution",
+    "showFailed": "Failed to show contribution",
+    "updated": "Updated {{name}}",
+    "updateFailed": "Failed to update pack",
+    "deleted": "Deleted {{name}}",
+    "deletedWithPack": "Deleted {{name}} and empty pack",
+    "deleteFailed": "Failed to delete pack",
+    "contribDeleteFailed": "Failed to delete contribution"
+  },
+  "themes": {
+    "createFailed": "Failed to create theme",
+    "applyFailed": "Cannot apply theme",
+    "saved": "Theme saved",
+    "saveFailed": "Failed to save theme",
+    "activated": "Theme activated",
+    "activateFailed": "Failed to activate theme",
+    "deleted": "Theme deleted"
+  }
+}

@@ -16,6 +16,7 @@ vi.mock("../store/useBackgroundTasksStore", () => ({
 
 vi.mock("./activityLog", () => ({
   logActivity: mockLogActivity,
+  createOperationId: () => "op-cd-playback-test",
 }));
 
 vi.mock("./i18n", () => ({
@@ -87,7 +88,7 @@ describe("reportCdPlaybackFailure", () => {
     );
   });
 
-  it("toasts generic failures with the raw message as detail", () => {
+  it("toasts generic failures with the raw message and View logs", () => {
     reportCdPlaybackFailure({
       message: "Track 3 not found on disc",
       driveId: "disk4",
@@ -97,13 +98,29 @@ describe("reportCdPlaybackFailure", () => {
       key: "cd-playback-error",
       label: "playback:cd.playbackFailed.label",
       detail: "Track 3 not found on disc",
+      logLink: { operationId: "op-cd-playback-test" },
     });
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         level: "error",
         domain: ACTIVITY_LOG_DOMAINS.cdPlayback,
+        operationId: "op-cd-playback-test",
       }),
     );
+  });
+
+  it("does not attach View logs for known disconnect/no-disc failures", () => {
+    reportCdPlaybackFailure({
+      message: "No audio CD in drive",
+      driveId: "disk4",
+    });
+
+    expect(mockShowErrorToast).toHaveBeenCalledWith({
+      key: "cd-playback-error",
+      label: "playback:cd.playbackFailed.label",
+      detail: "playback:cd.noDisc.detail",
+    });
+    expect(mockShowErrorToast.mock.calls[0][0].logLink).toBeUndefined();
   });
 
   it("dedupes rapid reports for the same drive", () => {

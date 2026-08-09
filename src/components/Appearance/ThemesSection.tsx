@@ -1,4 +1,8 @@
 import { useState } from "react";
+import {
+  themeApplyFailedPayload,
+  themeCreateFailedPayload,
+} from "../../lib/toastPayloads";
 import { resolveThemeTokens } from "../../lib/theme";
 import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
 import { useThemeStore } from "../../store/useThemeStore";
@@ -11,10 +15,7 @@ import { WorkshopThemeActions } from "../ThemeEditor/WorkshopThemeActions";
 import { AppearancePackActions } from "./AppearancePackActions";
 import { AppearancePackCard } from "./AppearancePackCard";
 import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
-import {
-  NewThemeModal,
-  type NewThemeModalResult,
-} from "./NewThemeModal";
+import { NewThemeModal, type NewThemeModalResult } from "./NewThemeModal";
 import "./ThemesSection.css";
 import "./AppearanceSection.css";
 
@@ -104,10 +105,7 @@ export function ThemesSection({
       setModalOpen(false);
       openThemeEditor(theme.id);
     } catch (err) {
-      showErrorToast({
-        label: err instanceof Error ? err.message : "Failed to create theme",
-        key: "theme-create",
-      });
+      showErrorToast(themeCreateFailedPayload(err));
     } finally {
       setCreating(false);
     }
@@ -117,10 +115,7 @@ export function ThemesSection({
     try {
       await setTheme(theme.id);
     } catch (err) {
-      showErrorToast({
-        label: err instanceof Error ? err.message : "Cannot apply theme",
-        key: "theme-apply",
-      });
+      showErrorToast(themeApplyFailedPayload(err));
     }
   };
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { listPacks } from "../../lib/tauri";
+import { themeDeletedPayload } from "../../lib/toastPayloads";
 import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
 import { useThemeStore } from "../../store/useThemeStore";
 import { isAuthoringPackZone } from "../../types/pack";
@@ -88,11 +89,7 @@ export function WorkshopThemeActions({
         confirmLabel="Delete"
         onConfirm={async () => {
           await deleteTheme(theme.id);
-          showToast({
-            label: "Theme deleted",
-            status: "success",
-            key: "theme-delete",
-          });
+          showToast(themeDeletedPayload());
         }}
       >
         {deleteMessage}

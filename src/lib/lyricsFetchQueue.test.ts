@@ -56,6 +56,19 @@ vi.mock("../store/useLyricsFetchStore", () => ({
   },
 }));
 
+vi.mock("./activityLog", () => ({
+  createOperationId: () => "op-lyrics-test",
+  logActivity: vi.fn(),
+}));
+
+vi.mock("../store/usePlayerStore", () => ({
+  usePlayerStore: {
+    getState: () => ({
+      openTrackEditor: vi.fn(),
+    }),
+  },
+}));
+
 vi.mock("./lyricsFetchRunner", async (importOriginal) => {
   const original = await importOriginal<typeof import("./lyricsFetchRunner")>();
   return {
@@ -82,17 +95,32 @@ function createCtx(): BackgroundTaskRunContext & {
   labels: string[];
   details: string[];
   progress: Array<{ current: number; total: number }>;
+  settleCalls: Array<{
+    status: string;
+    label?: string;
+    detail?: string;
+    logLink?: { operationId?: string };
+    actions?: Array<{ id: string; label: string }>;
+  }>;
   dismissedSilently: boolean;
 } {
   const labels: string[] = [];
   const details: string[] = [];
   const progress: Array<{ current: number; total: number }> = [];
+  const settleCalls: Array<{
+    status: string;
+    label?: string;
+    detail?: string;
+    logLink?: { operationId?: string };
+    actions?: Array<{ id: string; label: string }>;
+  }> = [];
   let dismissedSilently = false;
 
   return {
     labels,
     details,
     progress,
+    settleCalls,
     get dismissedSilently() {
       return dismissedSilently;
     },
@@ -114,8 +142,17 @@ function createCtx(): BackgroundTaskRunContext & {
     dismissSilently: () => {
       dismissedSilently = true;
     },
-    settleAs: () => {
-      /* unused in lyrics fetch queue tests */
+    settleAs: (options) => {
+      settleCalls.push({
+        status: options.status,
+        label: options.label,
+        detail: options.detail,
+        logLink: options.logLink,
+        actions: options.actions?.map((action) => ({
+          id: action.id,
+          label: action.label,
+        })),
+      });
     },
   };
 }
@@ -232,11 +269,75 @@ describe("enqueueLyricsFetch", () => {
     enqueueLyricsFetch(2, "Song Two", params, { priority: "auto" });
     const ctx = await runCapturedProcessor();
 
-    expect(
-      ctx.labels.some((label) => label.startsWith("Fetching lyrics…")),
-    ).toBe(true);
-    expect(ctx.labels.at(-1)).toBe("Lyrics: fetched 1, 1 not found");
+    expect(ctx.labels.at(-1)).toBe("Fetching lyrics…");
     expect(ctx.progress.some((entry) => entry.total === 2)).toBe(true);
+    expect(ctx.settleCalls).toEqual([
+      {
+        status: "success",
+        label: "Lyrics: 1 fetched · 1 not found",
+      },
+    ]);
+  });
+
+  it("settles bulk all-failed as an error toast with View logs", async () => {
+    runSingleLyricsFetchMock
+      .mockResolvedValueOnce({
+        status: "error",
+        error: new Error("network timeout"),
+      })
+      .mockResolvedValueOnce({
+        status: "error",
+        error: new Error("connection refused"),
+      });
+
+    enqueueLyricsFetch(1, "Song One", params, { priority: "manual" });
+    enqueueLyricsFetch(2, "Song Two", params, { priority: "manual" });
+    const ctx = await runCapturedProcessor();
+
+    expect(ctx.settleCalls).toEqual([
+      {
+        status: "error",
+        label: "Lyrics: 2 failed",
+        logLink: { operationId: "op-lyrics-test" },
+      },
+    ]);
+  });
+
+  it("settles need-review + failure with Review and View logs", async () => {
+    runSingleLyricsFetchMock
+      .mockResolvedValueOnce({ status: "ambiguous" })
+      .mockResolvedValueOnce({
+        status: "error",
+        error: new Error("network timeout"),
+      });
+
+    enqueueLyricsFetch(1, "Song One", params, { priority: "manual" });
+    enqueueLyricsFetch(2, "Song Two", params, { priority: "manual" });
+    const ctx = await runCapturedProcessor();
+
+    expect(ctx.settleCalls).toEqual([
+      {
+        status: "error",
+        label: "Lyrics: 1 need review · 1 failed",
+        actions: [{ id: "lyrics-review", label: "Review" }],
+        logLink: { operationId: "op-lyrics-test" },
+      },
+    ]);
+  });
+
+  it("settles solo ambiguous as warning with Choose", async () => {
+    runSingleLyricsFetchMock.mockResolvedValue({ status: "ambiguous" });
+
+    enqueueLyricsFetch(1, "Song", params, { priority: "manual" });
+    const ctx = await runCapturedProcessor();
+
+    expect(ctx.settleCalls).toEqual([
+      {
+        status: "warning",
+        label: "Multiple lyrics found for Song",
+        actions: [{ id: "lyrics-choose", label: "Choose" }],
+      },
+    ]);
   });
 
   it("starts the shared bulk background task with a stable key", () => {

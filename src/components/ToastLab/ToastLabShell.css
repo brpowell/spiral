@@ -1,6 +1,6 @@
 .toast-lab {
   display: grid;
-  grid-template-columns: minmax(18rem, 22rem) 1fr;
+  grid-template-columns: minmax(20rem, 26rem) 1fr;
   height: 100%;
   min-height: 0;
   background: var(--color-bg);
@@ -54,10 +54,26 @@
   color: var(--color-text-secondary);
 }
 
+.toast-lab__group-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
 .toast-lab__row {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+}
+
+.toast-lab__row--dense {
+  gap: 0.28rem;
+}
+
+.toast-lab__row--dense .btn {
+  font-size: 0.72rem;
+  padding-inline: 0.55rem;
 }
 
 .toast-lab__hint {
@@ -69,6 +85,20 @@
 
 .toast-lab__hint code {
   font-size: 0.7rem;
+}
+
+.toast-lab__production {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.toast-lab__production-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .toast-lab__stage {

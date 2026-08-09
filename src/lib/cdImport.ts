@@ -9,8 +9,8 @@ import { isCdImportCancelRequested } from "./cdImportGuard";
 import { t } from "./i18n";
 import {
   commitImportEntries,
-  formatImportLyricsDetail,
   formatImportSummary,
+  importCompletionSettleOptions,
   resolveImportDuplicates,
   type ImportResult,
   type ParsedImportEntry,
@@ -26,6 +26,7 @@ import {
   pendingTrackFromInput,
   resetPendingTrackIds,
 } from "./pendingImportTrack";
+import { createOperationId, logActivity } from "./activityLog";
 import { yieldForInteraction } from "./scheduling";
 import { cleanupCdImportTemp, ripCdTrack } from "./tauri";
 import {
@@ -43,6 +44,7 @@ import {
 import { useNavigationStore } from "../store/useNavigationStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { useLibrarySettingsStore } from "../store/useLibrarySettingsStore";
+import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
 import type { Album } from "../types/album";
 import type { CdDisc } from "../types/cd";
 import type { TrackMetadataUpdate } from "../types/metadata";
@@ -50,7 +52,7 @@ import type { Track, TrackInput } from "../types/track";
 
 export class CdImportCancelledError extends Error {
   constructor() {
-    super("Import cancelled");
+    super(t("toasts:import.cancelled"));
     this.name = "CdImportCancelledError";
   }
 }
@@ -102,14 +104,28 @@ export function startCdImport(options: {
   resetPendingTrackIds();
   useImportDedupeStore.getState().resetImportDedupeSession();
 
+  const operationId = createOperationId();
+
   useBackgroundTasksStore.getState().runInBackground({
     key: "cd-import",
-    label: "Importing CD",
+    label: t("toasts:import.cd"),
     cancellable: true,
+    progressDisplay: "bar",
     run: async (ctx) => {
       const cdImport = useCdImportStore.getState();
       let cancelled = false;
       try {
+        logActivity({
+          level: "info",
+          domain: ACTIVITY_LOG_DOMAINS.import,
+          message: "Starting CD import",
+          operationId,
+          details: {
+            driveId,
+            trackCount: checkedTrackNumbers.length,
+          },
+        });
+
         const library = usePlayerStore.getState().library;
         const existingAlbum = findMatchingLibraryAlbum(
           groupTracksIntoAlbums(library),
@@ -123,10 +139,10 @@ export function startCdImport(options: {
         );
 
         if (plans.length === 0) {
-          throw new Error("No tracks selected to import");
+          throw new Error(t("toasts:import.noTracksSelected"));
         }
 
-        ctx.setLabel("Checking for duplicates…");
+        ctx.setLabel(t("toasts:import.checkingDuplicates"));
         let duplicateResolutions;
         try {
           duplicateResolutions = await resolveImportDuplicates(
@@ -139,7 +155,7 @@ export function startCdImport(options: {
           );
         } catch (err) {
           if (isImportCancelledError(err)) {
-            ctx.setLabel("Import cancelled");
+            ctx.setLabel(t("toasts:import.cancelled"));
             return;
           }
           throw err;
@@ -182,7 +198,7 @@ export function startCdImport(options: {
           albumArtist,
           albumTitle,
           releaseMbid,
-          onFetching: () => ctx.setDetail("Fetching album art…"),
+          onFetching: () => ctx.setDetail(t("toasts:import.fetchingArt")),
         });
         ctx.clearDetail();
 
@@ -206,9 +222,14 @@ export function startCdImport(options: {
 
           const plan = plansToImport[i];
           cdImport.setRipIndex(i);
-          ctx.setLabel("Importing CD");
+          ctx.setLabel(t("toasts:import.cd"));
           if (plansToImport.length > 1) {
-            ctx.setDetail(`Track ${i + 1} of ${plansToImport.length}`);
+            ctx.setDetail(
+              t("toasts:progress.trackOf", {
+                current: i + 1,
+                total: plansToImport.length,
+              }),
+            );
           } else {
             ctx.clearDetail();
           }
@@ -324,14 +345,24 @@ export function startCdImport(options: {
           }
         }
 
-        const summary = formatImportSummary(result);
-        ctx.setLabel(summary);
-        const lyricsDetail = formatImportLyricsDetail(result);
-        if (lyricsDetail) {
-          ctx.setDetail(lyricsDetail);
-        } else {
-          ctx.clearDetail();
-        }
+        const settle = importCompletionSettleOptions(result, operationId);
+        logActivity({
+          level: result.failed > 0 ? "warn" : "info",
+          domain: ACTIVITY_LOG_DOMAINS.import,
+          message: "CD import completed",
+          operationId,
+          details: {
+            driveId,
+            imported: result.imported,
+            replaced: result.replaced,
+            skipped: result.skipped,
+            failed: result.failed,
+            lyricsFromTags: result.lyricsFromTags,
+            lyricsFromSidecar: result.lyricsFromSidecar,
+            lyricsNone: result.lyricsNone,
+            ...(result.errors.length > 0 ? { errors: result.errors } : {}),
+          },
+        });
 
         if (result.failed > 0) {
           const trialCapHit = result.errors.some(isTrialLibraryCapError);
@@ -343,13 +374,12 @@ export function startCdImport(options: {
             }
           } else {
             usePlayerStore.setState({
-              importError: `${summary}; failed ${result.failed}. ${result.errors[0] ?? ""}`,
+              importError: `${settle.label}; failed ${result.failed}. ${result.errors[0] ?? ""}`,
             });
-            if (result.imported === 0 && result.replaced === 0) {
-              throw new Error(result.errors[0] ?? "Import failed");
-            }
           }
         }
+
+        ctx.settleAs(settle);
       } catch (err) {
         if (isCdImportCancelledError(err)) {
           cancelled = true;

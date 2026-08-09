@@ -20,6 +20,12 @@ import {
   isThemeApplicable,
   validateThemeForApply,
 } from "../../lib/themeValidation";
+import {
+  themeActivatedPayload,
+  themeActivateFailedPayload,
+  themeSavedPayload,
+  themeSaveFailedPayload,
+} from "../../lib/toastPayloads";
 import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
@@ -99,11 +105,7 @@ const COLOR_TOKEN_GROUPS: ColorTokenGroup[] = [
   },
   {
     title: "Text",
-    keys: [
-      "color-text-primary",
-      "color-text-secondary",
-      "color-text-muted",
-    ],
+    keys: ["color-text-primary", "color-text-secondary", "color-text-muted"],
   },
   {
     title: "Accent",
@@ -214,7 +216,7 @@ function ThemePreviewSamples({ inputId }: { inputId: string }) {
         aria-label={`Preview input (${inputId})`}
       />
       <div className="theme-editor__preview-row">
-        <Chip label="Chip" onRemove={() => { }} />
+        <Chip label="Chip" onRemove={() => {}} />
         <Switch defaultChecked tabIndex={-1}>
           Switch
         </Switch>
@@ -273,11 +275,8 @@ export function ThemeEditor({
   const hasChanges = !themesEqual(draft, baseline);
   const editorTitle = formatThemeEditorTitle(draft.name);
 
-  const {
-    discardPrompt,
-    requestClose,
-    dismissDiscardPrompt,
-  } = useEditorDiscardPrompt(hasChanges, onClose);
+  const { discardPrompt, requestClose, dismissDiscardPrompt } =
+    useEditorDiscardPrompt(hasChanges, onClose);
 
   const handleKeepEditing = useCallback(() => {
     onCloseRequestCancelled?.();
@@ -324,13 +323,16 @@ export function ThemeEditor({
     return () => window.removeEventListener("keydown", onKey);
   }, [busy, discardPrompt, requestClose]);
 
-  const persistDraft = useCallback(async (next: Theme): Promise<Theme> => {
-    const saved = await saveTheme(next);
-    sessionThemeIdRef.current = saved.id;
-    setDraft(cloneTheme(saved));
-    setBaseline(cloneTheme(saved));
-    return saved;
-  }, [saveTheme]);
+  const persistDraft = useCallback(
+    async (next: Theme): Promise<Theme> => {
+      const saved = await saveTheme(next);
+      sessionThemeIdRef.current = saved.id;
+      setDraft(cloneTheme(saved));
+      setBaseline(cloneTheme(saved));
+      return saved;
+    },
+    [saveTheme],
+  );
 
   const handleDiscard = useCallback(() => {
     if (activeThemeId === baseline.id) {
@@ -344,18 +346,11 @@ export function ThemeEditor({
     setSaving(true);
     try {
       await persistDraft(draft);
-      showToast({
-        label: "Theme saved",
-        status: "success",
-        key: "theme-editor-save",
-      });
+      showToast(themeSavedPayload());
       dismissDiscardPrompt();
       onClose();
     } catch (err) {
-      showErrorToast({
-        label: err instanceof Error ? err.message : "Failed to save theme",
-        key: "theme-editor-save",
-      });
+      showErrorToast(themeSaveFailedPayload(err));
     } finally {
       setSaving(false);
     }
@@ -374,16 +369,9 @@ export function ThemeEditor({
       await setTheme(draft.id);
       // Keep unsaved draft tokens visible now that this theme is active.
       emitThemePreview(draft);
-      showToast({
-        label: "Theme activated",
-        status: "success",
-        key: "theme-editor-activate",
-      });
+      showToast(themeActivatedPayload());
     } catch (err) {
-      showErrorToast({
-        label: err instanceof Error ? err.message : "Failed to activate theme",
-        key: "theme-editor-activate",
-      });
+      showErrorToast(themeActivateFailedPayload(err));
     } finally {
       setApplying(false);
     }
@@ -405,7 +393,12 @@ export function ThemeEditor({
   const updateContributionId = (nextLocalId: string) => {
     setDraft((prev) => ({
       ...prev,
-      id: effectiveContributionId(prev.authorId, prev.packId, "theme", nextLocalId),
+      id: effectiveContributionId(
+        prev.authorId,
+        prev.packId,
+        "theme",
+        nextLocalId,
+      ),
     }));
   };
 
@@ -427,11 +420,7 @@ export function ThemeEditor({
   ) as CSSProperties;
 
   return (
-    <div
-      className="theme-editor"
-      role="region"
-      aria-label={editorTitle}
-    >
+    <div className="theme-editor" role="region" aria-label={editorTitle}>
       <BrowseView className="theme-editor__browse">
         <BrowseViewHeader
           className="browse-view__header--single-row"
@@ -468,168 +457,171 @@ export function ThemeEditor({
                     disabled={busy}
                   />
                 </FormField>
-                <FormField label="Author" className="theme-editor__field--block">
+                <FormField
+                  label="Author"
+                  className="theme-editor__field--block"
+                >
                   <TextInput
                     value={draft.author}
                     onChange={(e) => updateMeta("author", e.target.value)}
                   />
                 </FormField>
-              <FormField
-                label="Description"
-                className="theme-editor__field--block"
-              >
-                <Textarea
-                  value={draft.description}
-                  onChange={(e) => updateMeta("description", e.target.value)}
-                  rows={3}
-                  autoSize
-                />
-              </FormField>
-            </section>
+                <FormField
+                  label="Description"
+                  className="theme-editor__field--block"
+                >
+                  <Textarea
+                    value={draft.description}
+                    onChange={(e) => updateMeta("description", e.target.value)}
+                    rows={3}
+                    autoSize
+                  />
+                </FormField>
+              </section>
 
-            {COLOR_TOKEN_GROUPS.map((group) => (
-              <section key={group.title} className="theme-editor__section">
-                <h3 className="theme-editor__section-title">{group.title}</h3>
-                {group.keys.map((key) => {
-                  const value =
-                    draft.tokens[key] ??
-                    OBSIDIAN_DEFAULT_TOKENS[key] ??
-                    "";
-                  const baselineValue =
-                    baseline.tokens[key] ??
-                    OBSIDIAN_DEFAULT_TOKENS[key] ??
-                    "";
-                  const isDirty = value !== baselineValue;
+              {COLOR_TOKEN_GROUPS.map((group) => (
+                <section key={group.title} className="theme-editor__section">
+                  <h3 className="theme-editor__section-title">{group.title}</h3>
+                  {group.keys.map((key) => {
+                    const value =
+                      draft.tokens[key] ?? OBSIDIAN_DEFAULT_TOKENS[key] ?? "";
+                    const baselineValue =
+                      baseline.tokens[key] ??
+                      OBSIDIAN_DEFAULT_TOKENS[key] ??
+                      "";
+                    const isDirty = value !== baselineValue;
+                    return (
+                      <FormField key={key} label={TOKEN_LABELS[key] ?? key}>
+                        <ColorField
+                          value={value}
+                          onChange={(next) => updateToken(key, next)}
+                          onReset={
+                            isDirty
+                              ? () => updateToken(key, baselineValue)
+                              : undefined
+                          }
+                          resetLabel={`Reset ${TOKEN_LABELS[key] ?? key}`}
+                          swatchLabel={`Pick ${group.title} ${TOKEN_LABELS[key] ?? key}`}
+                        />
+                      </FormField>
+                    );
+                  })}
+                </section>
+              ))}
+
+              <section className="theme-editor__section">
+                <h3 className="theme-editor__section-title">Radius</h3>
+                {RADIUS_TOKEN_KEYS.map((key) => {
+                  const label = TOKEN_LABELS[key] ?? key;
                   return (
-                    <FormField key={key} label={TOKEN_LABELS[key] ?? key}>
-                      <ColorField
-                        value={value}
-                        onChange={(next) => updateToken(key, next)}
-                        onReset={
-                          isDirty
-                            ? () => updateToken(key, baselineValue)
-                            : undefined
+                    <FormField key={key} label={label}>
+                      <Slider
+                        value={parsePx(
+                          draft.tokens[key] ?? OBSIDIAN_DEFAULT_TOKENS[key],
+                        )}
+                        onChange={(e) =>
+                          updateToken(key, formatPx(Number(e.target.value)))
                         }
-                        resetLabel={`Reset ${TOKEN_LABELS[key] ?? key}`}
-                        swatchLabel={`Pick ${group.title} ${TOKEN_LABELS[key] ?? key}`}
+                        min={0}
+                        max={32}
+                        step={1}
+                        aria-label={label}
+                        showValueTooltip
+                        formatValueTooltip={(value) =>
+                          `${Math.round(value)} px`
+                        }
                       />
                     </FormField>
                   );
                 })}
               </section>
-            ))}
 
-            <section className="theme-editor__section">
-              <h3 className="theme-editor__section-title">Radius</h3>
-              {RADIUS_TOKEN_KEYS.map((key) => {
-                const label = TOKEN_LABELS[key] ?? key;
-                return (
-                  <FormField key={key} label={label}>
-                    <Slider
-                      value={parsePx(
-                        draft.tokens[key] ?? OBSIDIAN_DEFAULT_TOKENS[key],
-                      )}
-                      onChange={(e) =>
-                        updateToken(key, formatPx(Number(e.target.value)))
-                      }
-                      min={0}
-                      max={32}
-                      step={1}
-                      aria-label={label}
-                      showValueTooltip
-                      formatValueTooltip={(value) => `${Math.round(value)} px`}
-                    />
-                  </FormField>
-                );
-              })}
-            </section>
+              <section className="theme-editor__section">
+                <h3 className="theme-editor__section-title">Typography</h3>
+                <FormField
+                  label={TOKEN_LABELS["font-ui"]}
+                  className="theme-editor__field--block"
+                >
+                  <Textarea
+                    value={
+                      draft.tokens["font-ui"] ??
+                      OBSIDIAN_DEFAULT_TOKENS["font-ui"] ??
+                      ""
+                    }
+                    onChange={(e) => updateToken("font-ui", e.target.value)}
+                    rows={3}
+                    autoSize
+                  />
+                </FormField>
+              </section>
+            </div>
 
-            <section className="theme-editor__section">
-              <h3 className="theme-editor__section-title">Typography</h3>
-              <FormField
-                label={TOKEN_LABELS["font-ui"]}
-                className="theme-editor__field--block"
+            <aside className="theme-editor__preview" aria-label="Live preview">
+              <div
+                className="theme-editor__preview-frame"
+                style={previewStyle}
+                aria-hidden
               >
-                <Textarea
-                  value={
-                    draft.tokens["font-ui"] ??
-                    OBSIDIAN_DEFAULT_TOKENS["font-ui"] ??
-                    ""
-                  }
-                  onChange={(e) => updateToken("font-ui", e.target.value)}
-                  rows={3}
-                  autoSize
-                />
-              </FormField>
-            </section>
-          </div>
+                <div className="theme-editor__preview-chrome">
+                  <span className="theme-editor__preview-dot" />
+                  <span className="theme-editor__preview-dot" />
+                  <span className="theme-editor__preview-dot" />
+                </div>
 
-          <aside className="theme-editor__preview" aria-label="Live preview">
-            <div
-              className="theme-editor__preview-frame"
-              style={previewStyle}
-              aria-hidden
-            >
-              <div className="theme-editor__preview-chrome">
-                <span className="theme-editor__preview-dot" />
-                <span className="theme-editor__preview-dot" />
-                <span className="theme-editor__preview-dot" />
-              </div>
+                <div className="theme-editor__preview-shell">
+                  <nav className="theme-editor__preview-rail">
+                    <p className="theme-editor__preview-rail-label">Library</p>
+                    <SidebarItem active tabIndex={-1}>
+                      Albums
+                    </SidebarItem>
+                    <SidebarItem tabIndex={-1}>Artists</SidebarItem>
+                    <SidebarItem tabIndex={-1}>Playlists</SidebarItem>
+                  </nav>
 
-              <div className="theme-editor__preview-shell">
-                <nav className="theme-editor__preview-rail">
-                  <p className="theme-editor__preview-rail-label">Library</p>
-                  <SidebarItem active tabIndex={-1}>
-                    Albums
-                  </SidebarItem>
-                  <SidebarItem tabIndex={-1}>Artists</SidebarItem>
-                  <SidebarItem tabIndex={-1}>Playlists</SidebarItem>
-                </nav>
-
-                <div className="theme-editor__preview-main">
-                  <div className="theme-editor__preview-header">
-                    <p className="theme-editor__preview-title">
-                      {draft.name.trim() || t("common:untitledTheme")}
-                    </p>
-                    <div className="theme-editor__preview-badges">
-                      <Badge>Neutral</Badge>
-                      <Badge variant="accent">Accent</Badge>
+                  <div className="theme-editor__preview-main">
+                    <div className="theme-editor__preview-header">
+                      <p className="theme-editor__preview-title">
+                        {draft.name.trim() || t("common:untitledTheme")}
+                      </p>
+                      <div className="theme-editor__preview-badges">
+                        <Badge>Neutral</Badge>
+                        <Badge variant="accent">Accent</Badge>
+                      </div>
                     </div>
-                  </div>
 
-                  <p className="theme-editor__preview-body">
-                    Secondary text with a{" "}
-                    <TextLink href="#theme-preview" tabIndex={-1}>
-                      link
-                    </TextLink>
-                    .
-                  </p>
-
-                  <div className="theme-editor__preview-panel">
-                    <p className="theme-editor__preview-panel-label">
-                      On surface
+                    <p className="theme-editor__preview-body">
+                      Secondary text with a{" "}
+                      <TextLink href="#theme-preview" tabIndex={-1}>
+                        link
+                      </TextLink>
+                      .
                     </p>
-                    <ThemePreviewSamples inputId="surface" />
-                  </div>
 
-                  <div className="theme-editor__preview-card">
-                    <p className="theme-editor__preview-panel-label">
-                      On raised
-                    </p>
-                    <ThemePreviewSamples inputId="raised" />
-                  </div>
+                    <div className="theme-editor__preview-panel">
+                      <p className="theme-editor__preview-panel-label">
+                        On surface
+                      </p>
+                      <ThemePreviewSamples inputId="surface" />
+                    </div>
 
-                  <Separator />
+                    <div className="theme-editor__preview-card">
+                      <p className="theme-editor__preview-panel-label">
+                        On raised
+                      </p>
+                      <ThemePreviewSamples inputId="raised" />
+                    </div>
 
-                  <div className="theme-editor__preview-alerts">
-                    <Alert variant="info">Info alert</Alert>
-                    <Alert variant="success">Success alert</Alert>
-                    <Alert variant="warning">Warning alert</Alert>
-                    <Alert variant="error">Error alert</Alert>
+                    <Separator />
+
+                    <div className="theme-editor__preview-alerts">
+                      <Alert variant="info">Info alert</Alert>
+                      <Alert variant="success">Success alert</Alert>
+                      <Alert variant="warning">Warning alert</Alert>
+                      <Alert variant="error">Error alert</Alert>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
             </aside>
           </div>
         </BrowseGridBody>
@@ -643,9 +635,7 @@ export function ThemeEditor({
             title={
               canActivate || !storedTheme
                 ? undefined
-                : formatThemeValidationError(
-                    validateThemeForApply(storedTheme),
-                  )
+                : formatThemeValidationError(validateThemeForApply(storedTheme))
             }
             onClick={() => void handleActivate()}
           >

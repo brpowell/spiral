@@ -9,10 +9,12 @@ import {
   type UpdateCheckReason,
 } from "../lib/updater";
 import { saveLibrarySettings } from "../lib/tauri";
+import { availableUpdatePayload } from "../lib/toastPayloads";
 import { isTauri } from "../lib/windowRole";
 import {
   useBackgroundTasksStore,
   type BackgroundTaskAction,
+  type BackgroundTaskSettleAsOptions,
 } from "./useBackgroundTasksStore";
 
 export type UpdaterStatus =
@@ -86,20 +88,28 @@ function availableUpdateActions(): BackgroundTaskAction[] {
   ];
 }
 
-function availableUpdatePresentation(update: AvailableUpdateInfo) {
+function availableUpdatePresentation(
+  update: AvailableUpdateInfo,
+): BackgroundTaskSettleAsOptions {
+  const { label, detail, actions } = availableUpdatePayload(
+    update.version,
+    availableUpdateActions(),
+    { dismissMs: null },
+  );
   return {
-    status: "info" as const,
-    label: t("common:updates.available.label"),
-    detail: t("common:updates.available.detail", { version: update.version }),
-    actions: availableUpdateActions(),
+    status: "info",
+    label,
+    detail,
+    actions,
   };
 }
 
 function showAvailableUpdateToast(update: AvailableUpdateInfo): void {
-  useBackgroundTasksStore.getState().showToast({
-    key: UPDATER_TOAST_KEY,
-    ...availableUpdatePresentation(update),
-  });
+  useBackgroundTasksStore.getState().showToast(
+    availableUpdatePayload(update.version, availableUpdateActions(), {
+      dismissMs: null,
+    }),
+  );
 }
 
 export const useUpdaterStore = create<UpdaterState>((set, get) => ({

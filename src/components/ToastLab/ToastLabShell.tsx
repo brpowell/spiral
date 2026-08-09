@@ -4,8 +4,20 @@ import { Button } from "../common/Button/Button";
 import { FormField } from "../common/Field/Field";
 import { TextInput } from "../common/TextInput/TextInput";
 import { BackgroundTaskCancelledError } from "../../lib/backgroundTaskCancel";
+import { joinPeerOutcomeClauses } from "../../lib/toastPeerOutcomes";
 import { t } from "../../lib/i18n";
+import {
+  playbackFileMissingPayload,
+  playlistAddedPayload,
+  queueAddedPayload,
+} from "../../lib/toastPayloads";
 import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
+import {
+  toastLabScenarioFireCtx,
+  toastLabScenarioGroups,
+  toastLabUpdateAvailableActions,
+  type ToastLabFireContext,
+} from "./toastLabScenarios";
 import "./ToastLabShell.css";
 
 const LAB_MERGE_KEY = "lab-merge";
@@ -28,26 +40,7 @@ function parseDismissMs(raw: string): number | null | undefined {
   return Math.floor(n);
 }
 
-function updateAvailableActions() {
-  return [
-    {
-      id: "update",
-      label: t("common:updates.available.update"),
-      variant: "primary" as const,
-      onClick: () => {
-        /* Lab preview — no install. */
-      },
-    },
-    {
-      id: "later",
-      label: t("common:updates.available.later"),
-      variant: "ghost" as const,
-      onClick: () => {
-        /* Lab preview. */
-      },
-    },
-  ];
-}
+const SCENARIO_GROUPS = toastLabScenarioGroups();
 
 export function ToastLabShell() {
   const showToast = useBackgroundTasksStore((s) => s.showToast);
@@ -59,6 +52,14 @@ export function ToastLabShell() {
 
   const dismissMs = parseDismissMs(dismissMsRaw);
 
+  const fireCtx: ToastLabFireContext = {
+    showToast,
+    showErrorToast,
+    runInBackground,
+    dismissMs,
+    sleep,
+  };
+
   const dismissAll = useCallback(() => {
     for (const task of useBackgroundTasksStore.getState().tasks) {
       dismissTask(task.id);
@@ -66,19 +67,22 @@ export function ToastLabShell() {
   }, [dismissTask]);
 
   const fireSuccess = () => {
-    showToast({
-      key: `lab-success-${crypto.randomUUID().slice(0, 8)}`,
-      label: "Added to queue",
-      detail: "Example Track Title",
-      status: "success",
+    const payload = queueAddedPayload([{ title: "Example Track Title" }], {
       dismissMs,
     });
+    if (payload) {
+      showToast({
+        ...payload,
+        key: `lab-success-${crypto.randomUUID().slice(0, 8)}`,
+        status: "success",
+      });
+    }
   };
 
   const fireError = () => {
     showErrorToast({
       key: `lab-error-${crypto.randomUUID().slice(0, 8)}`,
-      label: "Couldn't check for updates",
+      label: t("common:updates.error.check"),
       detail: "network offline (simulated)",
       dismissMs,
     });
@@ -93,10 +97,23 @@ export function ToastLabShell() {
     });
   };
 
+  const fireWarning = () => {
+    showToast({
+      key: `lab-warning-${crypto.randomUUID().slice(0, 8)}`,
+      label: joinPeerOutcomeClauses([
+        t("toasts:trackMetadata.updated", { count: 2 }),
+        t("toasts:trackMetadata.failed", { count: 1 }),
+      ]),
+      detail: "Track: Permission denied",
+      status: "warning",
+      dismissMs,
+    });
+  };
+
   const fireLabelOnly = () => {
     showToast({
       key: `lab-label-only-${crypto.randomUUID().slice(0, 8)}`,
-      label: "You're up to date",
+      label: t("common:updates.upToDate"),
       status: "success",
       dismissMs,
     });
@@ -105,7 +122,7 @@ export function ToastLabShell() {
   const fireInfo = () => {
     showToast({
       key: `lab-info-${crypto.randomUUID().slice(0, 8)}`,
-      label: "Update available",
+      label: t("common:updates.available.label"),
       detail: t("common:updates.available.detail", { version: "0.9.9" }),
       status: "info",
       dismissMs,
@@ -119,7 +136,7 @@ export function ToastLabShell() {
       detail: t("common:updates.available.detail", { version: "0.9.9" }),
       status: "info",
       dismissMs: null,
-      actions: updateAvailableActions(),
+      actions: toastLabUpdateAvailableActions(),
     });
   };
 
@@ -137,25 +154,39 @@ export function ToastLabShell() {
 
   const fireStack = () => {
     const stamp = crypto.randomUUID().slice(0, 6);
-    showToast({
-      key: `lab-stack-a-${stamp}`,
-      label: "Added to queue",
-      detail: "Track One",
-      status: "success",
-      dismissMs: dismissMs ?? null,
+    const sticky = dismissMs ?? null;
+    const queue = queueAddedPayload([{ title: "Track One" }], {
+      dismissMs: sticky,
     });
-    showToast({
-      key: `lab-stack-b-${stamp}`,
-      label: "Added to Favorites",
-      detail: "Track Two",
-      status: "success",
-      dismissMs: dismissMs ?? null,
-    });
+    if (queue) {
+      showToast({
+        ...queue,
+        key: `lab-stack-a-${stamp}`,
+        status: "success",
+      });
+    }
+    const playlist = playlistAddedPayload(
+      [{ title: "Track Two" }],
+      "Favorites",
+      {
+        dismissMs: sticky,
+      },
+    );
+    if (playlist) {
+      showToast({
+        ...playlist,
+        key: `lab-stack-b-${stamp}`,
+        status: "success",
+      });
+    }
     showErrorToast({
+      ...playbackFileMissingPayload(
+        { title: "Track Three" },
+        {
+          dismissMs: sticky,
+        },
+      ),
       key: `lab-stack-c-${stamp}`,
-      label: "File not found",
-      detail: "Track Three",
-      dismissMs: dismissMs ?? null,
     });
   };
 
@@ -164,14 +195,24 @@ export function ToastLabShell() {
     const sticky = dismissMs === undefined ? null : dismissMs;
     showToast({
       key: "lab-gallery-success",
-      label: "You're up to date",
+      label: t("common:updates.upToDate"),
       status: "success",
       dismissMs: sticky,
     });
     showErrorToast({
       key: "lab-gallery-error",
-      label: "Couldn't install the update",
+      label: t("common:updates.error.install"),
       detail: "Signature verification failed",
+      dismissMs: sticky,
+    });
+    showToast({
+      key: "lab-gallery-warning",
+      label: joinPeerOutcomeClauses([
+        t("toasts:trackMetadata.updated", { count: 2 }),
+        t("toasts:trackMetadata.failed", { count: 1 }),
+      ]),
+      detail: "Track: Permission denied",
+      status: "warning",
       dismissMs: sticky,
     });
     showToast({
@@ -180,7 +221,7 @@ export function ToastLabShell() {
       detail: t("common:updates.available.detail", { version: "0.9.9" }),
       status: "info",
       dismissMs: sticky,
-      actions: updateAvailableActions(),
+      actions: toastLabUpdateAvailableActions(),
     });
     showToast({
       key: "lab-gallery-cancelled",
@@ -190,7 +231,7 @@ export function ToastLabShell() {
     });
     runInBackground({
       key: "lab-gallery-running",
-      label: "Downloading update…",
+      label: t("common:updates.downloading"),
       cancellable: true,
       progressDisplay: "bar",
       run: async (ctx) => {
@@ -223,7 +264,7 @@ export function ToastLabShell() {
   const fireProgress = () => {
     runInBackground({
       key: LAB_PROGRESS_KEY,
-      label: "Downloading update…",
+      label: t("common:updates.downloading"),
       cancellable: true,
       progressDisplay: "bar",
       run: async (ctx) => {
@@ -249,17 +290,22 @@ export function ToastLabShell() {
   const fireCancellable = () => {
     runInBackground({
       key: LAB_CANCEL_KEY,
-      label: "Importing files…",
+      label: t("toasts:import.importing", { count: 40 }),
       cancellable: true,
       run: async (ctx) => {
         const total = 40;
         for (let i = 1; i <= total; i++) {
           if (ctx.isCancelRequested()) {
-            throw new BackgroundTaskCancelledError("Import cancelled", {
-              dismissMs,
-            });
+            throw new BackgroundTaskCancelledError(
+              t("toasts:import.cancelled"),
+              {
+                dismissMs,
+              },
+            );
           }
-          ctx.setLabel(`Importing files… (${i}/${total})`);
+          ctx.setLabel(
+            `${t("toasts:import.importing", { count: total })} (${i}/${total})`,
+          );
           ctx.setProgress(i, total);
           await sleep(200);
         }
@@ -277,7 +323,7 @@ export function ToastLabShell() {
           status: "info",
           label: t("common:updates.available.label"),
           detail: t("common:updates.available.detail", { version: "0.9.9" }),
-          actions: updateAvailableActions(),
+          actions: toastLabUpdateAvailableActions(),
           dismissMs: null,
         });
       },
@@ -298,7 +344,7 @@ export function ToastLabShell() {
       detail: t("common:updates.available.detail", { version: "0.9.9" }),
       status: "info",
       dismissMs: null,
-      actions: updateAvailableActions(),
+      actions: toastLabUpdateAvailableActions(),
     });
   };
 
@@ -337,6 +383,9 @@ export function ToastLabShell() {
             </Button>
             <Button size="sm" onClick={fireError}>
               Error
+            </Button>
+            <Button size="sm" onClick={fireWarning}>
+              Warning
             </Button>
             <Button size="sm" onClick={fireCancelled}>
               Cancelled
@@ -403,6 +452,38 @@ export function ToastLabShell() {
             </Button>
           </div>
         </section>
+
+        <div className="toast-lab__production">
+          <header className="toast-lab__production-header">
+            <h2 className="toast-lab__section-title">Production scenarios</h2>
+            <p className="toast-lab__hint">
+              Presets mirroring real toast copy (i18n keys). Source noted on
+              hover. Each scenario keeps its own key so variants can stack side
+              by side.
+            </p>
+          </header>
+          {SCENARIO_GROUPS.map(({ group, scenarios }) => (
+            <section key={group} className="toast-lab__section">
+              <h3 className="toast-lab__group-title">{group}</h3>
+              <div className="toast-lab__row toast-lab__row--dense">
+                {scenarios.map((scenario) => (
+                  <Button
+                    key={scenario.id}
+                    size="sm"
+                    title={`${scenario.source} · ${scenario.id}`}
+                    onClick={() => {
+                      void scenario.fire(
+                        toastLabScenarioFireCtx(fireCtx, scenario.id),
+                      );
+                    }}
+                  >
+                    {scenario.buttonLabel}
+                  </Button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       </aside>
 
       <div className="toast-lab__stage" aria-label="Toast stage">

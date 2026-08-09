@@ -1,9 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import type { LyricsFetchOutcome } from "../types/lyrics";
-import {
-  ACTIVITY_LOG_DOMAINS,
-  ACTIVITY_LOG_EVENT,
-} from "../types/activityLog";
+import { ACTIVITY_LOG_DOMAINS, ACTIVITY_LOG_EVENT } from "../types/activityLog";
 import {
   createLyricsFetchFeedback,
   LYRICS_FETCH_INSTRUMENTAL,
@@ -15,6 +12,7 @@ import {
   commitInstrumentalMarkForTrack,
 } from "./lyricsFetchCommit";
 import { normalizeActivityLogEntry } from "./activityLogLine";
+import { t } from "./i18n";
 import { fetchLyricsLrclib, getTrackLyrics } from "./tauri";
 import { useLyricsFetchStore } from "../store/useLyricsFetchStore";
 import { usePlayerStore } from "../store/usePlayerStore";
@@ -29,12 +27,13 @@ const RETRY_APPROACH_MESSAGES = new Set([
   "Retrying LRCLIB search without parenthetical title",
 ]);
 
-export const RETRY_DETAIL = "Still working, trying another approach…";
+export const RETRY_DETAIL = (): string => t("toasts:lyrics.retryDetail");
 
 function isLyricsFetchRetryMessage(message: string): boolean {
   if (RETRY_APPROACH_MESSAGES.has(message)) return true;
   return (
-    message.startsWith("LRCLIB ") && message.includes("timed out, retrying once")
+    message.startsWith("LRCLIB ") &&
+    message.includes("timed out, retrying once")
   );
 }
 
@@ -86,7 +85,10 @@ function applyFetchOutcome(
   trackId: number,
   ui: {
     feedback: ReturnType<typeof createLyricsFetchFeedback> | null;
-    candidates: Extract<LyricsFetchOutcome, { status: "ambiguous" }>["candidates"];
+    candidates: Extract<
+      LyricsFetchOutcome,
+      { status: "ambiguous" }
+    >["candidates"];
   },
 ): void {
   useLyricsFetchStore.getState().applyOutcome(trackId, {
@@ -99,7 +101,9 @@ async function handleFoundLyrics(
   trackId: number,
   result: Extract<LyricsFetchOutcome, { status: "found" }>,
 ): Promise<void> {
-  const track = usePlayerStore.getState().library.find((entry) => entry.id === trackId);
+  const track = usePlayerStore
+    .getState()
+    .library.find((entry) => entry.id === trackId);
   if (!track) return;
 
   const commit = await commitFetchedLyricsForTrack(track, {

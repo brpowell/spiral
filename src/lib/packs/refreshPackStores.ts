@@ -15,6 +15,12 @@ import {
   type InstallPackResult,
 } from "../tauri";
 import { emit } from "@tauri-apps/api/event";
+import { t } from "../i18n";
+import {
+  packInstalledPayload,
+  packInstallFailedPayload,
+  packReloadedPayload,
+} from "../toastPayloads";
 import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
 import { useSkinStore } from "../../store/useSkinStore";
 import { useThemeStore } from "../../store/useThemeStore";
@@ -49,17 +55,12 @@ export async function importPackWithRefresh(): Promise<InstallPackResult | null>
     const result = await installPack();
     if (!result) return null;
     await refreshPackContributionStores();
-    showToast({
-      label: `Installed ${result.name} (${result.version})`,
-      status: "success",
-      key: "pack-install",
-    });
+    showToast(
+      packInstalledPayload(result.name, result.version),
+    );
     return result;
   } catch (err) {
-    showErrorToast({
-      label: formatInvokeError(err, "Failed to install pack"),
-      key: "pack-install",
-    });
+    showErrorToast(packInstallFailedPayload(err));
     return null;
   }
 }
@@ -74,14 +75,14 @@ export async function createWorkshopPackWithRefresh(args: {
     const packId = await createWorkshopPack(args);
     await refreshPackContributionStores();
     showToast({
-      label: `Created ${args.name}`,
+      label: t("toasts:packs.created", { name: args.name }),
       status: "success",
       key: "pack-create",
     });
     return packId;
   } catch (err) {
     showErrorToast({
-      label: formatInvokeError(err, "Failed to create pack"),
+      label: formatInvokeError(err, t("toasts:packs.createFailed")),
       key: "pack-create",
     });
     return null;
@@ -97,14 +98,14 @@ export async function linkPackFolderWithRefresh(): Promise<string | null> {
     await refreshPackContributionStores();
     await emit(LINKED_PACKS_CHANGED_EVENT);
     showToast({
-      label: "Linked pack folder",
+      label: t("toasts:packs.linked"),
       status: "success",
       key: "pack-link",
     });
     return path;
   } catch (err) {
     showErrorToast({
-      label: formatInvokeError(err, "Failed to link pack folder"),
+      label: formatInvokeError(err, t("toasts:packs.linkFailed")),
       key: "pack-link",
     });
     return null;
@@ -121,14 +122,14 @@ export async function unlinkPackWithRefresh(
     await refreshPackContributionStores();
     await emit(LINKED_PACKS_CHANGED_EVENT);
     showToast({
-      label: `Unlinked ${displayName}`,
+      label: t("toasts:packs.unlinked", { name: displayName }),
       status: "success",
       key: "pack-unlink",
     });
     return true;
   } catch (err) {
     showErrorToast({
-      label: formatInvokeError(err, "Failed to unlink pack"),
+      label: formatInvokeError(err, t("toasts:packs.unlinkFailed")),
       key: "pack-unlink",
     });
     return false;
@@ -150,16 +151,12 @@ export async function reloadLinkedPacksWithRefresh(): Promise<void> {
         key: "pack-reload",
       });
     } else {
-      showToast({
-        label: "Reloaded linked packs",
-        status: "success",
-        key: "pack-reload",
-      });
+      showToast(packReloadedPayload());
     }
     await emit(RELOAD_LINKED_PACKS_EVENT);
   } catch (err) {
     showErrorToast({
-      label: formatInvokeError(err, "Failed to reload linked packs"),
+      label: formatInvokeError(err, t("toasts:packs.reloadFailed")),
       key: "pack-reload",
     });
   }
@@ -175,14 +172,17 @@ export async function uninstallPackWithRefresh(
     await uninstallPack(packId, version);
     await refreshPackContributionStores();
     showToast({
-      label: `Uninstalled ${displayName} (${version})`,
+      label: t("toasts:packs.uninstalled", {
+        name: displayName,
+        version,
+      }),
       status: "success",
       key: "pack-uninstall",
     });
     return true;
   } catch (err) {
     showErrorToast({
-      label: formatInvokeError(err, "Failed to uninstall pack"),
+      label: formatInvokeError(err, t("toasts:packs.uninstallFailed")),
       key: "pack-uninstall",
     });
     return false;
@@ -199,14 +199,18 @@ export async function rollbackPackWithRefresh(
     const removed = await rollbackPack(packId, version);
     await refreshPackContributionStores();
     showToast({
-      label: `Rolled back ${displayName} to ${version} (removed ${removed.join(", ")})`,
+      label: t("toasts:packs.rolledBack", {
+        name: displayName,
+        version,
+        removed: removed.join(", "),
+      }),
       status: "success",
       key: "pack-rollback",
     });
     return true;
   } catch (err) {
     showErrorToast({
-      label: formatInvokeError(err, "Failed to roll back pack"),
+      label: formatInvokeError(err, t("toasts:packs.rollbackFailed")),
       key: "pack-rollback",
     });
     return false;
@@ -222,7 +226,9 @@ export async function setContributionHiddenWithRefresh(
     await setContributionHidden(contributionId, hidden);
     await refreshPackContributionStores();
     showToast({
-      label: hidden ? "Contribution hidden" : "Contribution shown",
+      label: hidden
+        ? t("toasts:packs.contributionHidden")
+        : t("toasts:packs.contributionShown"),
       status: "success",
       key: "pack-hide",
     });
@@ -231,7 +237,7 @@ export async function setContributionHiddenWithRefresh(
     showErrorToast({
       label: formatInvokeError(
         err,
-        hidden ? "Failed to hide contribution" : "Failed to show contribution",
+        hidden ? t("toasts:packs.hideFailed") : t("toasts:packs.showFailed"),
       ),
       key: "pack-hide",
     });
@@ -254,14 +260,14 @@ export async function updateWorkshopPackMetadataWithRefresh(
     const nextPackId = await updateWorkshopPackMetadata(packId, metadata);
     await refreshPackContributionStores();
     showToast({
-      label: `Updated ${metadata.name}`,
+      label: t("toasts:packs.updated", { name: metadata.name }),
       status: "success",
       key: "pack-edit",
     });
     return nextPackId;
   } catch (err) {
     showErrorToast({
-      label: formatInvokeError(err, "Failed to update pack"),
+      label: formatInvokeError(err, t("toasts:packs.updateFailed")),
       key: "pack-edit",
     });
     return null;
@@ -283,14 +289,14 @@ export async function updateLinkedPackMetadataWithRefresh(
     const nextPackId = await updateLinkedPackMetadata(packDir, metadata);
     await refreshPackContributionStores();
     showToast({
-      label: `Updated ${metadata.name}`,
+      label: t("toasts:packs.updated", { name: metadata.name }),
       status: "success",
       key: "pack-edit",
     });
     return nextPackId;
   } catch (err) {
     showErrorToast({
-      label: formatInvokeError(err, "Failed to update pack"),
+      label: formatInvokeError(err, t("toasts:packs.updateFailed")),
       key: "pack-edit",
     });
     return null;
@@ -306,14 +312,14 @@ export async function deleteWorkshopPackWithRefresh(
     await deleteWorkshopPack(packId);
     await refreshPackContributionStores();
     showToast({
-      label: `Deleted ${displayName}`,
+      label: t("toasts:packs.deleted", { name: displayName }),
       status: "success",
       key: "pack-delete",
     });
     return true;
   } catch (err) {
     showErrorToast({
-      label: formatInvokeError(err, "Failed to delete pack"),
+      label: formatInvokeError(err, t("toasts:packs.deleteFailed")),
       key: "pack-delete",
     });
     return false;
@@ -330,15 +336,15 @@ export async function deleteWorkshopContributionWithRefresh(
     await refreshPackContributionStores();
     showToast({
       label: result.packRemoved
-        ? `Deleted ${displayName} and empty pack`
-        : `Deleted ${displayName}`,
+        ? t("toasts:packs.deletedWithPack", { name: displayName })
+        : t("toasts:packs.deleted", { name: displayName }),
       status: "success",
       key: "pack-contrib-delete",
     });
     return result;
   } catch (err) {
     showErrorToast({
-      label: formatInvokeError(err, "Failed to delete contribution"),
+      label: formatInvokeError(err, t("toasts:packs.contribDeleteFailed")),
       key: "pack-contrib-delete",
     });
     return null;

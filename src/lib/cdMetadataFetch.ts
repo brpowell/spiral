@@ -4,6 +4,7 @@ import {
 } from "./albumArtFetch";
 import { ensureCdHeroArtValid } from "./cdArt";
 import { createOperationId, logActivity, withLogContext } from "./activityLog";
+import { t } from "./i18n";
 import { isNetworkLikelyAvailable } from "./network";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useCdStore } from "../store/useCdStore";
@@ -175,7 +176,7 @@ export function startCdHeroArtFetch(driveId: string): void {
 
     useBackgroundTasksStore.getState().runInBackground({
       key: `cd-hero-art-${driveId}`,
-      label: "Fetching album art…",
+      label: t("toasts:cdMetadata.fetchingArt"),
       run: async () => {
         await fetchAndSetHeroArt(driveId, logContext);
       },
@@ -197,7 +198,7 @@ export function startCdMetadataFetch(driveId: string): void {
 
   useBackgroundTasksStore.getState().runInBackground({
     key: `cd-metadata-${driveId}`,
-    label: "Looking up album metadata…",
+    label: t("toasts:cdMetadata.lookingUp"),
     run: async (ctx) => {
       try {
         await useCdStore.getState().loadDiscMetadata(driveId, {
@@ -208,7 +209,7 @@ export function startCdMetadataFetch(driveId: string): void {
         const needsRemoteArt =
           (await resolveCdHeroArtCachePath(driveId, logContext)) == null;
         if (needsRemoteArt) {
-          ctx.setDetail("Fetching album art…");
+          ctx.setDetail(t("toasts:cdMetadata.fetchingArt"));
         }
         await fetchAndSetHeroArt(driveId, logContext);
         ctx.clearDetail();

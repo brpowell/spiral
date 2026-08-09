@@ -6,6 +6,7 @@ import library from "../locales/en/library.json";
 import playback from "../locales/en/playback.json";
 import preferences from "../locales/en/preferences.json";
 import studio from "../locales/en/studio.json";
+import toasts from "../locales/en/toasts.json";
 
 void i18n.use(initReactI18next).init({
   resources: {
@@ -15,11 +16,12 @@ void i18n.use(initReactI18next).init({
       playback,
       preferences,
       studio,
+      toasts,
     },
   },
   lng: "en",
   fallbackLng: "en",
-  ns: ["common", "library", "playback", "preferences", "studio"],
+  ns: ["common", "library", "playback", "preferences", "studio", "toasts"],
   defaultNS: "common",
   interpolation: { escapeValue: false },
   returnNull: false,

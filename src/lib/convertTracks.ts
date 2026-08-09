@@ -2,6 +2,7 @@ import { convertTrack } from "./tauri";
 import { createOperationId, logActivity } from "./activityLog";
 import { formatFailureDetail } from "./formatFailureDetail";
 import { getEncodingProfile } from "./encodingProfiles";
+import { t } from "./i18n";
 import {
   discoverTrackFileMissing,
   isTrackMissingFile,
@@ -14,13 +15,71 @@ import {
   isTrialLibraryCapError,
   notifyTrialLibraryCap,
 } from "./trialGate";
+import type { BackgroundTaskSettleAsOptions } from "../store/useBackgroundTasksStore";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useConvertStore } from "../store/useConvertStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
 import type { Track } from "../types/track";
+import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
 
 export type ConvertMode = "replace" | "add_new";
+
+/**
+ * Bulk convert toast rules (see Bulk Operation Reporting toast spec):
+ * - Title: number-first peer clauses, middot-joined, zero-suppressed.
+ * - Prefix `{Operation}:` when every surviving clause is generic (e.g. all-fail).
+ * - Exactly 1 failure → inline detail; 2+ → View logs.
+ * - Color from success/fail: all ok → success; mixed → warning; zero success → error.
+ */
+export function convertTracksSettleOptions(options: {
+  converted: number;
+  failed: number;
+  errors: string[];
+  operationId: string;
+}): BackgroundTaskSettleAsOptions & { label: string } {
+  const { converted, failed, errors, operationId } = options;
+
+  const label = formatPeerOutcomeTitle(
+    [
+      ...(converted > 0
+        ? [
+            {
+              text: t("toasts:convert.converted", { count: converted }),
+              anchored: true,
+            },
+          ]
+        : []),
+      ...(failed > 0
+        ? [{ text: t("toasts:convert.failed", { count: failed }) }]
+        : []),
+    ],
+    {
+      operation: t("toasts:convert.operation"),
+      fallback: t("toasts:convert.failedFallback"),
+    },
+  );
+
+  if (failed === 0) {
+    return { status: "success", label };
+  }
+
+  const status = converted > 0 ? "warning" : "error";
+
+  if (failed === 1) {
+    return {
+      status,
+      label,
+      detail: errors[0] || t("toasts:convert.failedFallback"),
+    };
+  }
+
+  return {
+    status,
+    label,
+    logLink: { operationId },
+  };
+}
 
 export function filterConvertibleTrackIds(
   trackIds: number[],
@@ -29,9 +88,7 @@ export function filterConvertibleTrackIds(
   return [...new Set(trackIds)].filter((id) => {
     const track = library.find((item) => item.id === id);
     return (
-      track != null &&
-      isTrackConvertible(track) &&
-      !isTrackMissingFile(track)
+      track != null && isTrackConvertible(track) && !isTrackMissingFile(track)
     );
   });
 }
@@ -56,12 +113,7 @@ async function resolveConvertibleCandidatesOnDisk(
   return resolved;
 }
 
-function notifyConvertFailure(summary: string, detail: string): void {
-  useBackgroundTasksStore.getState().showErrorToast({
-    key: "convert-tracks-error",
-    label: summary,
-    detail,
-  });
+function setConvertImportError(summary: string, detail?: string): void {
   usePlayerStore.setState({
     importError: detail ? `${summary}. ${detail}` : summary,
   });
@@ -86,7 +138,9 @@ export function openConvertForTrackIds(trackIds: number[]): void {
       return;
     }
 
-    const result = await useConvertStore.getState().promptConvert(convertibleIds);
+    const result = await useConvertStore
+      .getState()
+      .promptConvert(convertibleIds);
     if (result) {
       startConvertTracks({
         trackIds: convertibleIds,
@@ -112,7 +166,8 @@ export function startConvertTracks(options: {
 
   useBackgroundTasksStore.getState().runInBackground({
     key: "convert-tracks",
-    label: trackIds.length === 1 ? "Converting track…" : "Converting tracks…",
+    label: t("toasts:convert.running", { count: trackIds.length }),
+    progressDisplay: "bar",
     run: async (ctx) => {
       logActivity({
         level: "info",
@@ -135,7 +190,12 @@ export function startConvertTracks(options: {
       for (let i = 0; i < trackIds.length; i++) {
         const trackId = trackIds[i];
         if (trackIds.length > 1) {
-          ctx.setDetail(`Track ${i + 1} of ${trackIds.length}`);
+          ctx.setDetail(
+            t("toasts:progress.trackOf", {
+              current: i + 1,
+              total: trackIds.length,
+            }),
+          );
         } else {
           ctx.clearDetail();
         }
@@ -177,16 +237,14 @@ export function startConvertTracks(options: {
 
       await usePlayerStore.getState().loadLibrary({ preservePlayback: true });
 
-      const summary =
-        failed === 0
-          ? converted === 1
-            ? "Converted 1 track"
-            : `Converted ${converted} tracks`
-          : converted === 0
-            ? `Convert failed (${failed})`
-            : `Converted ${converted}, failed ${failed}`;
+      const settle = convertTracksSettleOptions({
+        converted,
+        failed,
+        errors,
+        operationId,
+      });
 
-      ctx.setLabel(summary);
+      ctx.setLabel(settle.label);
 
       logActivity({
         level: failed > 0 ? "warn" : "info",
@@ -209,10 +267,14 @@ export function startConvertTracks(options: {
           ctx.dismissSilently();
           return;
         }
-        const detail = formatFailureDetail(errors);
-        ctx.setDetail(detail);
-        notifyConvertFailure(summary, detail || errors[0] || "Convert failed");
-        throw new Error(summary);
+
+        const bannerDetail =
+          failed === 1
+            ? settle.detail
+            : formatFailureDetail(errors) || undefined;
+        setConvertImportError(settle.label, bannerDetail);
+        ctx.settleAs(settle);
+        return;
       }
 
       ctx.clearDetail();

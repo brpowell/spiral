@@ -24,7 +24,7 @@
     0 0 0 1px color-mix(in srgb, var(--color-border) 40%, transparent);
   backdrop-filter: blur(10px);
   pointer-events: auto;
-  min-width: 12rem;
+  min-width: 16rem;
   max-width: min(22rem, calc(100vw - 2rem));
   overflow: hidden;
 }
@@ -58,6 +58,14 @@
   border-color: color-mix(
     in srgb,
     var(--color-accent) 35%,
+    var(--color-border)
+  );
+}
+
+.background-tasks__item--warning {
+  border-color: color-mix(
+    in srgb,
+    var(--color-alert-warning) 45%,
     var(--color-border)
   );
 }
@@ -116,6 +124,10 @@
   color: var(--color-accent);
 }
 
+.background-tasks__icon--warning {
+  color: var(--color-alert-warning);
+}
+
 .background-tasks__icon--error {
   color: var(--color-danger);
 }
@@ -131,6 +143,11 @@
   gap: 0.45rem;
   min-width: 0;
   margin-left: calc(1rem + 0.65rem);
+}
+
+/* Title → actions with no subtitle: give the button row a bit more air. */
+.background-tasks__body--actions-only {
+  margin-top: 0.3rem;
 }
 
 .background-tasks__label {

@@ -7,6 +7,12 @@ import { copyTextToClipboard } from "../../lib/clipboard";
 import { formatDateAdded } from "../../lib/format";
 import { isNetworkLikelyAvailable } from "../../lib/network";
 import {
+  classifySpiralCardWrapError,
+  spiralCardFinalizedPayload,
+  spiralCardFinalizeNetworkErrorPayload,
+  spiralCardWrapErrorPayload,
+} from "../../lib/toastPayloads";
+import {
   exportRegistrationCard,
   getRegistrationSpcardPath,
   revealPathInFileManager,
@@ -90,7 +96,9 @@ function PurchaseIdRow({ purchaseId }: { purchaseId: string }) {
         className="spiral-card-modal__purchase-id"
         onClick={() => void copyPurchaseId()}
         title={copied ? "Copied" : "Copy purchase ID"}
-        aria-label={copied ? "Copied purchase ID" : `Copy purchase ID ${purchaseId}`}
+        aria-label={
+          copied ? "Copied purchase ID" : `Copy purchase ID ${purchaseId}`
+        }
       >
         {copied ? "Copied" : purchaseId}
       </Button>
@@ -104,15 +112,6 @@ function isFinalizeNetworkFailure(raw: string): boolean {
     raw.includes("could not reach") ||
     !isNetworkLikelyAvailable()
   );
-}
-
-function finalizeNetworkToast(): { label: string; detail: string } {
-  return {
-    label: "Failed to finalize",
-    detail: !isNetworkLikelyAvailable()
-      ? "You're offline, connect and try again."
-      : "Check your connection and try again.",
-  };
 }
 
 function SupportEmailLink() {
@@ -163,28 +162,6 @@ function finalizeBusinessErrorCopy(raw: string): ReactNode {
       {support}
     </>
   );
-}
-
-/** User-facing copy for wrap sanitize / apply failures. */
-function wrapErrorToast(raw: string): { label: string; detail: string } {
-  const msg = raw.replace(/^invalid_wrap:\s*/i, "").trim();
-  if (/exceeds .+ bytes|too large/i.test(msg)) {
-    return {
-      label: "Wrap image is too large",
-      detail:
-        "Try art around 856×540. Spiral stores wraps under 2 MB after compression.",
-    };
-  }
-  if (/could not decode|not valid Base64|zero dimensions/i.test(msg)) {
-    return {
-      label: "Couldn't read that wrap image",
-      detail: "Use a JPEG, PNG, or WebP of your card art.",
-    };
-  }
-  return {
-    label: "Couldn't apply wrap",
-    detail: "Try another image around 856×540.",
-  };
 }
 
 /** Short status copy shown under the card preview. */
@@ -260,8 +237,11 @@ export function SpiralCardModal() {
   const [stampingCard, setStampingCard] = useState(false);
   const [draftColor, setDraftColor] = useState(DEFAULT_COLOR);
   const [draftCardholderName, setDraftCardholderName] = useState("");
-  const { className: tiltClassName, style: tiltStyle, ...cardTilt } =
-    usePointerTiltArt();
+  const {
+    className: tiltClassName,
+    style: tiltStyle,
+    ...cardTilt
+  } = usePointerTiltArt();
 
   const hasCard =
     snapshot.status === "provisional" ||
@@ -331,11 +311,9 @@ export function SpiralCardModal() {
     setError(null);
     try {
       await finalizeRegistration();
-      useBackgroundTasksStore.getState().showToast({
-        key: "spiral-card-finalize",
-        label: "Card finalized",
-        detail: "Your Spiral card is permanent.",
-      });
+      useBackgroundTasksStore
+        .getState()
+        .showToast(spiralCardFinalizedPayload());
       setStampingCard(true);
       if (stampTimeoutRef.current != null) {
         window.clearTimeout(stampTimeoutRef.current);
@@ -347,12 +325,11 @@ export function SpiralCardModal() {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       if (isFinalizeNetworkFailure(message)) {
-        const { label, detail } = finalizeNetworkToast();
-        useBackgroundTasksStore.getState().showErrorToast({
-          key: "spiral-card-finalize",
-          label,
-          detail,
-        });
+        useBackgroundTasksStore
+          .getState()
+          .showErrorToast(
+            spiralCardFinalizeNetworkErrorPayload(!isNetworkLikelyAvailable()),
+          );
       } else {
         setFinalizeError(finalizeBusinessErrorCopy(message));
       }
@@ -402,12 +379,11 @@ export function SpiralCardModal() {
       await setWrapFromPicker();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      const { label, detail } = wrapErrorToast(message);
-      useBackgroundTasksStore.getState().showErrorToast({
-        key: "spiral-card-wrap",
-        label,
-        detail,
-      });
+      useBackgroundTasksStore
+        .getState()
+        .showErrorToast(
+          spiralCardWrapErrorPayload(classifySpiralCardWrapError(message)),
+        );
     } finally {
       setSavingCosmetic(false);
     }
@@ -421,12 +397,11 @@ export function SpiralCardModal() {
       await clearWrap();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      const { label, detail } = wrapErrorToast(message);
-      useBackgroundTasksStore.getState().showErrorToast({
-        key: "spiral-card-wrap",
-        label,
-        detail,
-      });
+      useBackgroundTasksStore
+        .getState()
+        .showErrorToast(
+          spiralCardWrapErrorPayload(classifySpiralCardWrapError(message)),
+        );
     } finally {
       setSavingCosmetic(false);
     }
@@ -477,7 +452,9 @@ export function SpiralCardModal() {
       panelRef={panelRef}
       labelledBy={titleId}
       panelClassName={
-        hasCard ? "spiral-card-modal spiral-card-modal--with-card" : "spiral-card-modal"
+        hasCard
+          ? "spiral-card-modal spiral-card-modal--with-card"
+          : "spiral-card-modal"
       }
     >
       <ModalHeader>
@@ -529,8 +506,8 @@ export function SpiralCardModal() {
                     ["--spiral-card-color" as string]: cosmetic.colorHex,
                     ...(wrapUrl
                       ? {
-                        ["--spiral-card-wrap" as string]: `url(${wrapUrl})`,
-                      }
+                          ["--spiral-card-wrap" as string]: `url(${wrapUrl})`,
+                        }
                       : {}),
                   }}
                   {...cardTilt}

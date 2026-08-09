@@ -18,8 +18,9 @@ vi.mock("./tauri", () => ({
 
 import {
   commitImportEntries,
-  formatImportLyricsDetail,
   formatImportSummary,
+  importCompletionSettleOptions,
+  importNoAudioSettleOptions,
   resolveImportDuplicates,
 } from "./import";
 import { fileExists } from "./artPath";
@@ -62,10 +63,7 @@ function embeddedLyrics(plainText: string): TrackLyricsInput {
   };
 }
 
-function libraryLyrics(
-  trackId: number,
-  plainText: string,
-): TrackLyrics {
+function libraryLyrics(trackId: number, plainText: string): TrackLyrics {
   return {
     trackId,
     format: "plain",
@@ -101,42 +99,141 @@ function libraryTrack(overrides: Partial<Track> & Pick<Track, "id">): Track {
 }
 
 describe("formatImportSummary", () => {
-  it("includes imported, replaced, and skipped counts", () => {
+  it("joins nonzero peer outcomes with a middot", () => {
+    expect(formatImportSummary({ imported: 2, replaced: 1, skipped: 3 })).toBe(
+      "2 imported · 1 replaced · 3 skipped",
+    );
+  });
+
+  it("zero-suppresses missing peers", () => {
+    expect(formatImportSummary({ imported: 0, replaced: 5, skipped: 2 })).toBe(
+      "5 replaced · 2 skipped",
+    );
+  });
+
+  it("includes failed as a peer clause", () => {
     expect(
-      formatImportSummary({ imported: 2, replaced: 1, skipped: 3 }),
-    ).toBe("Imported 2 tracks, Replaced 1 track, Skipped 3 duplicates");
+      formatImportSummary({ imported: 3, replaced: 0, skipped: 0, failed: 1 }),
+    ).toBe("3 imported · 1 failed");
+  });
+
+  it("prefixes all-failed titles (generic outcome only)", () => {
+    expect(
+      formatImportSummary({ imported: 0, replaced: 0, skipped: 0, failed: 3 }),
+    ).toBe("Import: 3 failed");
   });
 });
 
-describe("formatImportLyricsDetail", () => {
-  it("returns null when no tracks were tallied", () => {
+describe("importNoAudioSettleOptions", () => {
+  it("warns with no-audio copy", () => {
+    expect(importNoAudioSettleOptions()).toEqual({
+      status: "warning",
+      label: "No audio files found for import",
+    });
+  });
+});
+
+describe("importCompletionSettleOptions", () => {
+  const base = {
+    imported: 8,
+    replaced: 2,
+    skipped: 2,
+    failed: 0,
+    errors: [] as string[],
+  };
+
+  it("clean import → success title only", () => {
     expect(
-      formatImportLyricsDetail({
-        lyricsFromTags: 0,
-        lyricsFromSidecar: 0,
-        lyricsNone: 0,
-      }),
-    ).toBeNull();
+      importCompletionSettleOptions(
+        { ...base, imported: 12, replaced: 0, skipped: 0 },
+        "op-1",
+      ),
+    ).toEqual({
+      status: "success",
+      label: "12 imported",
+    });
   });
 
-  it("formats tags, sidecar, and none counts", () => {
+  it("success peers (incl. replace/skip) → title only, no View logs", () => {
     expect(
-      formatImportLyricsDetail({
-        lyricsFromTags: 310,
-        lyricsFromSidecar: 482,
-        lyricsNone: 412,
-      }),
-    ).toBe("Lyrics: 310 from tags, 482 from .lrc, 412 none");
+      importCompletionSettleOptions(
+        {
+          ...base,
+          imported: 0,
+          replaced: 5,
+          skipped: 3,
+        },
+        "op-1",
+      ),
+    ).toEqual({
+      status: "success",
+      label: "5 replaced · 3 skipped",
+    });
+
+    expect(importCompletionSettleOptions(base, "op-1")).toEqual({
+      status: "success",
+      label: "8 imported · 2 replaced · 2 skipped",
+    });
   });
 
-  it("omits zero buckets", () => {
+  it("partial with one failure → warning + inline detail", () => {
     expect(
-      formatImportLyricsDetail({
-        lyricsFromTags: 0,
-        lyricsFromSidecar: 5,
-        lyricsNone: 0,
-      }),
-    ).toBe("Lyrics: 5 from .lrc");
+      importCompletionSettleOptions(
+        {
+          ...base,
+          imported: 3,
+          replaced: 0,
+          skipped: 0,
+          failed: 1,
+          errors: ["Track X: Permission denied"],
+        },
+        "op-1",
+      ),
+    ).toEqual({
+      status: "warning",
+      label: "3 imported · 1 failed",
+      detail: "Track X: Permission denied",
+    });
+  });
+
+  it("partial with multiple failures → warning + View logs", () => {
+    expect(
+      importCompletionSettleOptions(
+        {
+          ...base,
+          imported: 2,
+          replaced: 0,
+          skipped: 0,
+          failed: 2,
+          errors: ["a", "b"],
+        },
+        "op-1",
+      ),
+    ).toEqual({
+      status: "warning",
+      label: "2 imported · 2 failed",
+      logLink: { operationId: "op-1" },
+    });
+  });
+
+  it("all failed → error + View logs", () => {
+    expect(
+      importCompletionSettleOptions(
+        {
+          ...base,
+          imported: 0,
+          replaced: 0,
+          skipped: 0,
+          failed: 3,
+          errors: ["a", "b", "c"],
+        },
+        "op-1",
+      ),
+    ).toEqual({
+      status: "error",
+      label: "Import: 3 failed",
+      logLink: { operationId: "op-1" },
+    });
   });
 });
 
@@ -242,14 +339,13 @@ describe("resolveImportDuplicates", () => {
     await vi.waitFor(() => {
       expect(useImportDedupeStore.getState().prompt).not.toBeNull();
     });
-    expect(useImportDedupeStore.getState().prompt?.context.hasLyricsConflict).toBe(
-      true,
-    );
+    expect(
+      useImportDedupeStore.getState().prompt?.context.hasLyricsConflict,
+    ).toBe(true);
 
-    await useImportDedupeStore.getState().resolveImportDedupe(
-      { action: "replace", replaceLyrics: false },
-      false,
-    );
+    await useImportDedupeStore
+      .getState()
+      .resolveImportDedupe({ action: "replace", replaceLyrics: false }, false);
 
     const result = await resolutionPromise;
     expect(result.duplicateActions.get(10)).toEqual({
@@ -284,12 +380,17 @@ describe("commitImportEntries", () => {
     );
 
     expect(result.imported).toBe(1);
-    expect(prepareImportFile).toHaveBeenCalledWith("/incoming/song.mp3", "copy");
+    expect(prepareImportFile).toHaveBeenCalledWith(
+      "/incoming/song.mp3",
+      "copy",
+    );
     expect(saveTrack).toHaveBeenCalledWith({
       ...metadata,
       filePath: "/library/imported.mp3",
     });
-    expect(vi.mocked(saveTrack).mock.calls[0]?.[0].lyrics).toEqual(metadata.lyrics);
+    expect(vi.mocked(saveTrack).mock.calls[0]?.[0].lyrics).toEqual(
+      metadata.lyrics,
+    );
     expect(result.lyricsFromTags).toBe(1);
     expect(result.lyricsFromSidecar).toBe(0);
     expect(result.lyricsNone).toBe(0);

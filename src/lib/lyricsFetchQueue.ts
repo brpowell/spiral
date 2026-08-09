@@ -1,12 +1,18 @@
 import type { BackgroundTaskRunContext } from "../store/useBackgroundTasksStore";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useLyricsFetchStore } from "../store/useLyricsFetchStore";
-import { formatFailureDetail } from "./formatFailureDetail";
+import { createOperationId, logActivity } from "./activityLog";
+import { t } from "./i18n";
+import {
+  lyricsAmbiguousSettleOptions,
+  lyricsFetchBulkSettleOptions,
+} from "./lyricsFetchToastSettle";
 import {
   RETRY_DETAIL,
   runSingleLyricsFetch,
   type LyricsFetchParams,
 } from "./lyricsFetchRunner";
+import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
 
 export const LYRICS_FETCH_BULK_KEY = "lyrics-fetch-bulk";
 
@@ -41,6 +47,8 @@ type ProcessorState = {
     failed: number;
   };
   errorLines: string[];
+  ambiguousTrackIds: number[];
+  soloAmbiguous: { trackId: number; displayTitle: string } | null;
   dismissSilently: boolean;
 };
 
@@ -118,55 +126,11 @@ function refreshActiveBulkToast(): void {
   if (total <= 1) return;
 
   state.bulkMode = true;
-  ctx.setLabel("Fetching lyrics…");
+  ctx.setLabel(t("toasts:lyrics.fetching"));
   ctx.setProgress(state.processedCount, total);
   if (state.currentDisplayTitle) {
     ctx.setDetail(state.currentDisplayTitle);
   }
-}
-
-function buildBulkSummary(tally: {
-  found: number;
-  notFound: number;
-  ambiguous: number;
-  failed: number;
-}): string {
-  const { found, notFound, ambiguous, failed } = tally;
-  const total = found + notFound + ambiguous + failed;
-
-  if (failed > 0 && found === 0 && ambiguous === 0) {
-    return failed === 1
-      ? "Lyrics fetch failed"
-      : `Lyrics fetch failed (${failed})`;
-  }
-
-  if (found === total) {
-    return found === 1
-      ? "Lyrics fetched"
-      : `Lyrics fetched for ${found} tracks`;
-  }
-
-  if (found === 0 && ambiguous === 0 && notFound === total) {
-    return total === 1
-      ? "No lyrics found"
-      : `No lyrics found (${total} tracks)`;
-  }
-
-  const parts: string[] = [];
-  if (found > 0) {
-    parts.push(`fetched ${found}`);
-  }
-  if (notFound > 0) {
-    parts.push(`${notFound} not found`);
-  }
-  if (ambiguous > 0) {
-    parts.push(`${ambiguous} need review`);
-  }
-  if (failed > 0) {
-    parts.push(`${failed} failed`);
-  }
-
-  return `Lyrics: ${parts.join(", ")}`;
 }
 
 async function processQueueItem(
@@ -186,11 +150,11 @@ async function processQueueItem(
   if (bulk) {
     state.bulkMode = true;
     const total = totalItemsInRun(state.processedCount);
-    ctx.setLabel("Fetching lyrics…");
+    ctx.setLabel(t("toasts:lyrics.fetching"));
     ctx.setProgress(state.processedCount, total);
     ctx.setDetail(displayTitle);
   } else {
-    ctx.setLabel(`Fetching lyrics for ${displayTitle}`);
+    ctx.setLabel(t("toasts:lyrics.fetchingFor", { title: displayTitle }));
     ctx.clearDetail();
     ctx.clearProgress();
   }
@@ -198,7 +162,7 @@ async function processQueueItem(
   const result = await runSingleLyricsFetch(trackId, params, {
     respectMissCache,
     skipIfHasLyrics,
-    onRetry: () => ctx.setDetail(RETRY_DETAIL),
+    onRetry: () => ctx.setDetail(RETRY_DETAIL()),
   });
 
   store.setFetching(trackId, false);
@@ -221,7 +185,7 @@ async function processQueueItem(
     case "found":
       state.tally.found += 1;
       if (!state.bulkMode) {
-        ctx.setLabel(`Lyrics fetched for ${displayTitle}`);
+        ctx.setLabel(t("toasts:lyrics.fetchedFor", { title: displayTitle }));
         ctx.clearDetail();
       }
       break;
@@ -234,9 +198,9 @@ async function processQueueItem(
       break;
     case "ambiguous":
       state.tally.ambiguous += 1;
+      state.ambiguousTrackIds.push(trackId);
       if (!state.bulkMode) {
-        ctx.setLabel(`Multiple lyrics matches for ${displayTitle}`);
-        ctx.clearDetail();
+        state.soloAmbiguous = { trackId, displayTitle };
       }
       break;
     case "error": {
@@ -266,6 +230,8 @@ async function runProcessorLoop(ctx: BackgroundTaskRunContext): Promise<void> {
       failed: 0,
     },
     errorLines: [],
+    ambiguousTrackIds: [],
+    soloAmbiguous: null,
     dismissSilently: false,
   };
 
@@ -280,22 +246,42 @@ async function runProcessorLoop(ctx: BackgroundTaskRunContext): Promise<void> {
     }
 
     if (state.bulkMode) {
-      ctx.setLabel(buildBulkSummary(state.tally));
-      if (state.errorLines.length > 0) {
-        ctx.setDetail(formatFailureDetail(state.errorLines));
-      } else {
-        ctx.clearDetail();
-      }
-      ctx.clearProgress();
+      const operationId = createOperationId();
+      logActivity({
+        level: state.tally.failed > 0 ? "warn" : "info",
+        domain: ACTIVITY_LOG_DOMAINS.lyricsFetch,
+        message: "Lyrics fetch completed",
+        operationId,
+        details: {
+          ...state.tally,
+          errors: state.errorLines,
+          ambiguousTrackIds: state.ambiguousTrackIds,
+        },
+      });
 
-      if (state.tally.failed > 0) {
-        throw new Error(buildBulkSummary(state.tally));
-      }
+      const settle = lyricsFetchBulkSettleOptions({
+        tally: state.tally,
+        errorLines: state.errorLines,
+        operationId,
+        reviewTrackId: state.ambiguousTrackIds[0] ?? null,
+      });
+      ctx.clearProgress();
+      ctx.settleAs(settle);
       return;
     }
 
     if (state.dismissSilently) {
       ctx.dismissSilently();
+      return;
+    }
+
+    if (state.soloAmbiguous) {
+      ctx.settleAs(
+        lyricsAmbiguousSettleOptions(
+          state.soloAmbiguous.displayTitle,
+          state.soloAmbiguous.trackId,
+        ),
+      );
     }
   } finally {
     activeProcessor = null;
@@ -305,7 +291,8 @@ async function runProcessorLoop(ctx: BackgroundTaskRunContext): Promise<void> {
 function ensureProcessorRunning(): void {
   useBackgroundTasksStore.getState().runInBackground({
     key: LYRICS_FETCH_BULK_KEY,
-    label: "Fetching lyrics…",
+    label: t("toasts:lyrics.fetching"),
+    progressDisplay: "bar",
     run: async (ctx) => {
       if (processorPromise) return;
 

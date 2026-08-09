@@ -1,9 +1,8 @@
-import { logActivity } from "./activityLog";
-import { t } from "./i18n";
+import { createOperationId, logActivity } from "./activityLog";
+import { cdPlaybackFailurePayload } from "./toastPayloads";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
 
-const CD_PLAYBACK_TOAST_KEY = "cd-playback-error";
 const DEDUPE_MS = 2_500;
 
 let lastReportAt = 0;
@@ -39,6 +38,7 @@ export function errorMessageFromUnknown(err: unknown): string {
 /**
  * Toast + activity log for a CD playback failure (no sticky import-error banner).
  * Dedupes rapid repeats for the same drive.
+ * Known kinds (disconnect / no disc) are toast-only; generic/unhandled gets View logs.
  */
 export function reportCdPlaybackFailure(options: {
   message: string;
@@ -58,22 +58,13 @@ export function reportCdPlaybackFailure(options: {
   lastReportAt = now;
   lastReportDriveId = driveId;
 
-  const label =
-    kind === "disconnected"
-      ? t("playback:cd.disconnected.label")
-      : t("playback:cd.playbackFailed.label");
-  const detail =
-    kind === "disconnected"
-      ? t("playback:cd.disconnected.detail")
-      : kind === "no_disc"
-        ? t("playback:cd.noDisc.detail")
-        : options.message;
+  const operationId = kind === "generic" ? createOperationId() : undefined;
 
-  useBackgroundTasksStore.getState().showErrorToast({
-    key: CD_PLAYBACK_TOAST_KEY,
-    label,
-    detail,
-  });
+  useBackgroundTasksStore.getState().showErrorToast(
+    cdPlaybackFailurePayload(kind, options.message, {
+      ...(operationId ? { logLink: { operationId } } : {}),
+    }),
+  );
 
   const logMessage =
     kind === "disconnected"
@@ -86,6 +77,7 @@ export function reportCdPlaybackFailure(options: {
     level: kind === "generic" ? "error" : "warn",
     domain: ACTIVITY_LOG_DOMAINS.cdPlayback,
     message: logMessage,
+    ...(operationId ? { operationId } : {}),
     context: driveId != null ? { driveId } : undefined,
     details: {
       kind,

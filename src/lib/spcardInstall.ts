@@ -1,24 +1,20 @@
+import {
+  spiralCardInstallErrorPayload,
+  spiralCardInstallSuccessPayload,
+} from "./toastPayloads";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useLicenseStore } from "../store/useLicenseStore";
 
-function formatInstallError(err: unknown): string {
-  if (err instanceof Error && err.message) return err.message;
-  if (typeof err === "string" && err.trim()) return err;
-  return "Failed to install Spiral Card";
-}
-
 export function showSpcardInstallSuccessToast(replaced: boolean) {
-  useBackgroundTasksStore.getState().showToast({
-    key: "spiral-card-install",
-    label: replaced ? "Spiral Card replaced" : "Spiral Card installed",
-  });
+  useBackgroundTasksStore
+    .getState()
+    .showToast(spiralCardInstallSuccessPayload(replaced));
 }
 
 function showInstallErrorToast(err: unknown) {
-  useBackgroundTasksStore.getState().showErrorToast({
-    key: "spiral-card-install",
-    label: formatInstallError(err),
-  });
+  useBackgroundTasksStore
+    .getState()
+    .showErrorToast(spiralCardInstallErrorPayload(err));
 }
 
 /**

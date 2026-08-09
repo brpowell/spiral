@@ -2,6 +2,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { normalizeActivityLogEntry } from "./activityLogLine";
 import { copyTextToClipboard } from "./clipboard";
 import { normalizeCrashReport } from "./crashReport";
+import {
+  diagnosticsCopiedPayload,
+  diagnosticsSavedPayload,
+} from "./toastPayloads";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import type {
   DiagnosticsBundle,
@@ -91,16 +95,12 @@ export async function saveDiagnosticsToFile(
 }
 
 function showDiagnosticsCopiedToast(): void {
-  useBackgroundTasksStore.getState().showToast({
-    key: "diagnostics-export-copied",
-    label: "Logs copied",
-  });
+  useBackgroundTasksStore.getState().showToast(diagnosticsCopiedPayload());
 }
 
 function showDiagnosticsSavedToast(path: string): void {
   const fileName = path.split(/[/\\]/).pop() ?? path;
-  useBackgroundTasksStore.getState().showToast({
-    key: "diagnostics-export-saved",
-    label: `Exported to ${fileName}`,
-  });
+  useBackgroundTasksStore
+    .getState()
+    .showToast(diagnosticsSavedPayload(fileName));
 }

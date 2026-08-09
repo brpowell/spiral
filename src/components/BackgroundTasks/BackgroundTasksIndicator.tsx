@@ -8,6 +8,7 @@ import {
   IconClose,
   IconErrorAlert,
   IconRefresh,
+  IconWarningAlert,
 } from "../icons";
 import { LYRICS_FETCH_MISSING_KEY } from "../../lib/fetchMissingLyrics";
 import { panelMotion } from "../../lib/motion";
@@ -67,6 +68,16 @@ function TaskStatusIcon({ status }: { status: BackgroundTask["status"] }) {
         aria-hidden
       >
         <IconCancel />
+      </span>
+    );
+  }
+  if (status === "warning") {
+    return (
+      <span
+        className="background-tasks__icon background-tasks__icon--warning"
+        aria-hidden
+      >
+        <IconWarningAlert />
       </span>
     );
   }
@@ -192,7 +203,11 @@ function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
   const hasBottomActions = actions.length > 0 && actionsPlacement === "bottom";
   const hasEndActions = actions.length > 0 && actionsPlacement === "end";
   const hasFooter = Boolean(meta) || showProgressBar || hasBottomActions;
-  const showDismiss = isDone && actions.length === 0;
+  const actionsOnlyFooter = hasBottomActions && !meta && !showProgressBar;
+  // Keep an X when actions are non-dismissing (e.g. View logs). Choice toasts
+  // with Update/Later already dismiss via those buttons.
+  const showDismiss =
+    isDone && actions.every((action) => action.dismissOnClick === false);
 
   const onAction = (action: BackgroundTaskAction) => {
     if (action.dismissOnClick !== false) {
@@ -223,7 +238,14 @@ function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
           </span>
         </div>
         {hasFooter && (
-          <div className="background-tasks__body">
+          <div
+            className={[
+              "background-tasks__body",
+              actionsOnlyFooter ? "background-tasks__body--actions-only" : null,
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
             {meta ? (
               <span className="background-tasks__meta" title={meta}>
                 {meta}
