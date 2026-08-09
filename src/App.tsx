@@ -8,6 +8,7 @@ import { ArtistEditor } from "./components/ArtistEditor/ArtistEditor";
 import { CdAlbumEditor } from "./components/CdAlbumEditor/CdAlbumEditor";
 import { CdTrackEditor } from "./components/CdTrackEditor/CdTrackEditor";
 import { TrackEditor } from "./components/TrackEditor/TrackEditor";
+import { LyricsReviewQueue } from "./components/LyricsReviewQueue/LyricsReviewQueue";
 import { MainContent } from "./components/layout/MainContent";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Button } from "./components/common/Button/Button";
@@ -266,6 +267,7 @@ function App() {
       </div>
 
       <TrackEditor />
+      <LyricsReviewQueue />
       <CdTrackEditor />
       <AlbumEditor />
       <CdAlbumEditor />

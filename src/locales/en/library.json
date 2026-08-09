@@ -96,5 +96,15 @@
       "label": "MP3 - Compact (128)",
       "subtitle": "Smaller files, more songs per device"
     }
+  },
+  "lyrics": {
+    "candidatePicker": {
+      "title": "Match lyrics",
+      "description": "Choose the correct match below.",
+      "queueProgress": "Track {{current}} of {{total}}",
+      "yourTrack": "Your track",
+      "results": "Results",
+      "skip": "Skip for now"
+    }
   }
 }

@@ -2,7 +2,7 @@ import type {
   BackgroundTaskAction,
   BackgroundTaskSettleAsOptions,
 } from "../store/useBackgroundTasksStore";
-import { usePlayerStore } from "../store/usePlayerStore";
+import { useLyricsFetchStore } from "../store/useLyricsFetchStore";
 import { t } from "./i18n";
 import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
 
@@ -87,26 +87,24 @@ function lyricsFetchBulkStatus(
   return successes > 0 ? "warning" : "error";
 }
 
-function reviewLyricsAction(trackId: number): BackgroundTaskAction {
+function reviewLyricsAction(trackIds: number[]): BackgroundTaskAction {
   return {
     id: "lyrics-review",
     label: t("toasts:lyrics.review"),
     variant: "primary",
     onClick: () => {
-      if (trackId <= 0) return;
-      usePlayerStore.getState().openTrackEditor(trackId, { tab: "lyrics" });
+      useLyricsFetchStore.getState().openReviewQueue(trackIds);
     },
   };
 }
 
-export function chooseLyricsAction(trackId: number): BackgroundTaskAction {
+function chooseLyricsAction(trackIds: number[]): BackgroundTaskAction {
   return {
     id: "lyrics-choose",
     label: t("toasts:lyrics.choose"),
     variant: "primary",
     onClick: () => {
-      if (trackId <= 0) return;
-      usePlayerStore.getState().openTrackEditor(trackId, { tab: "lyrics" });
+      useLyricsFetchStore.getState().openReviewQueue(trackIds);
     },
   };
 }
@@ -115,18 +113,18 @@ export function lyricsFetchBulkSettleOptions(options: {
   tally: LyricsFetchPeerTally;
   errorLines?: string[];
   operationId?: string;
-  /** First track that needs candidate review, if any. */
-  reviewTrackId?: number | null;
+  /** Tracks that need candidate review, if any. */
+  reviewTrackIds?: number[];
 }): BackgroundTaskSettleAsOptions & { label: string } {
-  const { tally, errorLines = [], operationId, reviewTrackId } = options;
+  const { tally, errorLines = [], operationId, reviewTrackIds = [] } = options;
   const label = formatLyricsFetchPeerTitle(tally);
   const status = lyricsFetchBulkStatus(tally);
 
-  if (tally.ambiguous > 0 && reviewTrackId != null) {
+  if (tally.ambiguous > 0 && reviewTrackIds.length > 0) {
     return {
       status,
       label,
-      actions: [reviewLyricsAction(reviewTrackId)],
+      actions: [reviewLyricsAction(reviewTrackIds)],
       ...(tally.failed >= 1 && operationId ? { logLink: { operationId } } : {}),
     };
   }
@@ -155,8 +153,8 @@ export function lyricsAmbiguousSettleOptions(
   trackId: number,
 ): BackgroundTaskSettleAsOptions & { label: string } {
   return {
-    status: "warning",
+    status: "success",
     label: t("toasts:lyrics.ambiguousFor", { title }),
-    actions: [chooseLyricsAction(trackId)],
+    actions: [chooseLyricsAction([trackId])],
   };
 }

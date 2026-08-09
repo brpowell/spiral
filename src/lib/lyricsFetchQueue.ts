@@ -263,7 +263,7 @@ async function runProcessorLoop(ctx: BackgroundTaskRunContext): Promise<void> {
         tally: state.tally,
         errorLines: state.errorLines,
         operationId,
-        reviewTrackId: state.ambiguousTrackIds[0] ?? null,
+        reviewTrackIds: state.ambiguousTrackIds,
       });
       ctx.clearProgress();
       ctx.settleAs(settle);
@@ -368,5 +368,8 @@ export function resetLyricsFetchQueueForTests(): void {
   useLyricsFetchStore.setState({
     queuedTrackIds: new Set(),
     fetchingTrackIds: new Set(),
+    reviewQueueTrackIds: [],
+    reviewQueueIndex: 0,
+    pendingByTrackId: {},
   });
 }

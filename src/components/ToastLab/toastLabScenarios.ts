@@ -33,10 +33,14 @@ import {
 } from "../../lib/import";
 import { libraryRefreshSettleOptions } from "../../lib/refreshLibraryMetadata";
 import { ACTIVITY_LOG_DOMAINS } from "../../types/activityLog";
+import type { LyricsSearchCandidate } from "../../types/lyrics";
+import type { Track } from "../../types/track";
 import type {
   BackgroundTaskRunContext,
   useBackgroundTasksStore,
 } from "../../store/useBackgroundTasksStore";
+import { useLyricsFetchStore } from "../../store/useLyricsFetchStore";
+import { usePlayerStore } from "../../store/usePlayerStore";
 
 type Store = ReturnType<typeof useBackgroundTasksStore.getState>;
 
@@ -56,6 +60,94 @@ export type ToastLabScenario = {
   source: string;
   fire: (ctx: ToastLabFireContext) => void | Promise<void>;
 };
+
+/** Lab-only stub tracks so the review picker can show “Your track”. */
+function toastLabStubTrack(
+  overrides: Partial<Track> & Pick<Track, "id" | "title">,
+): Track {
+  return {
+    artist: "Lab Artist",
+    album: "Lab Album",
+    albumArtist: "Lab Artist",
+    trackNumber: 1,
+    totalTracks: null,
+    discNumber: 1,
+    totalDiscs: null,
+    year: 2024,
+    genre: "Lab",
+    durationSeconds: 200,
+    sampleRate: 44_100,
+    bitrate: 320,
+    codec: "mp3",
+    filePath: `/toast-lab/${overrides.id}.mp3`,
+    artPath: null,
+    dateAdded: "2026-01-01T00:00:00.000Z",
+    playCount: 0,
+    lastPlayedAt: null,
+    rating: 0,
+    lyricsFormat: null,
+    ...overrides,
+  };
+}
+
+function toastLabCandidate(
+  id: number,
+  overrides: Partial<LyricsSearchCandidate> = {},
+): LyricsSearchCandidate {
+  return {
+    id,
+    trackName: overrides.trackName ?? `Lab Match ${id}`,
+    artistName: overrides.artistName ?? "Lab Artist",
+    albumName: overrides.albumName ?? `Album ${id}`,
+    duration: overrides.duration ?? 200,
+    lyrics: overrides.lyrics ?? {
+      format: "plain",
+      source: "lrclib",
+      lines: [],
+      plainText: `toast-lab lyrics ${id}`,
+    },
+    ...overrides,
+  };
+}
+
+/**
+ * Seed pending candidates (+ stub library rows) for review-queue demos.
+ * Toast Lab is a separate webview, so this does not touch the main app library.
+ */
+function seedToastLabLyricsReview(
+  items: Array<{
+    trackId: number;
+    title: string;
+    artist?: string;
+    album?: string;
+    durationSeconds?: number;
+    candidates: LyricsSearchCandidate[];
+  }>,
+): number[] {
+  const store = useLyricsFetchStore.getState();
+  const stubs = items.map((item) =>
+    toastLabStubTrack({
+      id: item.trackId,
+      title: item.title,
+      artist: item.artist ?? "Lab Artist",
+      album: item.album ?? "Lab Album",
+      durationSeconds: item.durationSeconds ?? 200,
+    }),
+  );
+  usePlayerStore.setState((state) => {
+    const keep = state.library.filter(
+      (track) => !stubs.some((stub) => stub.id === track.id),
+    );
+    return { library: [...keep, ...stubs] };
+  });
+  for (const item of items) {
+    store.applyOutcome(item.trackId, {
+      feedback: null,
+      candidates: item.candidates,
+    });
+  }
+  return items.map((item) => item.trackId);
+}
 
 async function simulateTrackProgress(
   ctx: BackgroundTaskRunContext,
@@ -612,7 +704,129 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Solo · ambiguous",
     source: "lyricsFetchQueue.ts",
     fire: ({ showToast, dismissMs }) => {
-      showToast(lyricsAmbiguousPayload("Song", { dismissMs }));
+      const [trackId] = seedToastLabLyricsReview([
+        {
+          trackId: 7,
+          title: "Song",
+          candidates: [
+            toastLabCandidate(101, {
+              trackName: "Song",
+              artistName: "Artist A",
+              albumName: "Album A",
+              duration: 200,
+            }),
+            toastLabCandidate(102, {
+              trackName: "Song",
+              artistName: "Artist B",
+              albumName: "Album B",
+              duration: 198,
+              lyrics: {
+                format: "line_synced",
+                source: "lrclib",
+                lines: [],
+                plainText: "version b",
+              },
+            }),
+          ],
+        },
+      ]);
+      showToast(lyricsAmbiguousPayload("Song", { dismissMs, trackId }));
+    },
+  },
+  {
+    id: "lyrics-review-queue",
+    group: "Lyrics",
+    buttonLabel: "Review queue · 3 tracks",
+    source: "lyricsFetchToastSettle.ts",
+    fire: ({ showToast, dismissMs }) => {
+      const trackIds = seedToastLabLyricsReview([
+        {
+          trackId: 901,
+          title: "Neon Highways",
+          artist: "Circuit Bloom",
+          album: "Night Drive",
+          durationSeconds: 214,
+          candidates: [
+            toastLabCandidate(9011, {
+              trackName: "Neon Highways",
+              artistName: "Circuit Bloom",
+              albumName: "Night Drive",
+              duration: 214,
+            }),
+            toastLabCandidate(9012, {
+              trackName: "Neon Highways",
+              artistName: "Circuit Bloom",
+              albumName: "Night Drive (Deluxe)",
+              duration: 218,
+            }),
+          ],
+        },
+        {
+          trackId: 902,
+          title: "Static Bloom",
+          artist: "Violet Static",
+          album: "Afterimage",
+          durationSeconds: 189,
+          candidates: [
+            toastLabCandidate(9021, {
+              trackName: "Static Bloom",
+              artistName: "Violet Static",
+              albumName: "Afterimage",
+              duration: 189,
+              lyrics: {
+                format: "line_synced",
+                source: "lrclib",
+                lines: [],
+                plainText: "synced take",
+              },
+            }),
+            toastLabCandidate(9022, {
+              trackName: "Static Bloom",
+              artistName: "Violet Static Feat.",
+              albumName: "Afterimage",
+              duration: 191,
+            }),
+            toastLabCandidate(9023, {
+              trackName: "Static Bloom (Live)",
+              artistName: "Violet Static",
+              albumName: "Afterimage Live",
+              duration: 203,
+            }),
+          ],
+        },
+        {
+          trackId: 903,
+          title: "Glass Harbor",
+          artist: "Marina Echo",
+          album: "Tide Charts",
+          durationSeconds: 241,
+          candidates: [
+            toastLabCandidate(9031, {
+              trackName: "Glass Harbor",
+              artistName: "Marina Echo",
+              albumName: "Tide Charts",
+              duration: 241,
+            }),
+            toastLabCandidate(9032, {
+              trackName: "Glass Harbour",
+              artistName: "Marina Echo",
+              albumName: "Tide Charts",
+              duration: 240,
+            }),
+          ],
+        },
+      ]);
+      const settle = lyricsFetchBulkSettleOptions({
+        tally: { found: 0, notFound: 0, ambiguous: 3, failed: 0 },
+        reviewTrackIds: trackIds,
+      });
+      showToast({
+        key: "lyrics-fetch-bulk",
+        label: settle.label,
+        status: settle.status,
+        actions: settle.actions,
+        dismissMs,
+      });
     },
   },
   {
@@ -623,6 +837,36 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     fire: async ({ runInBackground, dismissMs, sleep }) => {
       const operationId = createOperationId();
       const errorLines = ["Song D: network timeout"];
+      seedToastLabLyricsReview([
+        {
+          trackId: 3,
+          title: "Song C",
+          candidates: [
+            toastLabCandidate(201, {
+              trackName: "Song C",
+              albumName: "Album One",
+              duration: 210,
+              lyrics: {
+                format: "plain",
+                source: "lrclib",
+                lines: [],
+                plainText: "match one",
+              },
+            }),
+            toastLabCandidate(202, {
+              trackName: "Song C",
+              albumName: "Album Two",
+              duration: 205,
+              lyrics: {
+                format: "plain",
+                source: "lrclib",
+                lines: [],
+                plainText: "match two",
+              },
+            }),
+          ],
+        },
+      ]);
       await seedToastLabLog(
         ACTIVITY_LOG_DOMAINS.lyricsFetch,
         operationId,
@@ -658,7 +902,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
               },
               errorLines,
               operationId,
-              reviewTrackId: 3,
+              reviewTrackIds: [3],
             }),
             dismissMs,
           });

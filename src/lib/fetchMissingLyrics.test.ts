@@ -77,7 +77,6 @@ vi.mock("../store/usePlayerStore", () => ({
   usePlayerStore: {
     getState: () => ({
       library,
-      openTrackEditor: vi.fn(),
     }),
   },
 }));
@@ -126,13 +125,16 @@ function mockRunContext(isCancelRequested: () => boolean = () => false) {
     clearDetail: vi.fn(),
     setProgress: vi.fn(),
     clearProgress: vi.fn(),
+    settleAs: vi.fn(),
+    dismissSilently: vi.fn(),
     isCancelRequested,
   };
 }
 
 async function runBackgroundJob(
   isCancelRequested: () => boolean = () => false,
-): Promise<void> {
+): Promise<ReturnType<typeof mockRunContext>> {
+  const ctx = mockRunContext(isCancelRequested);
   runInBackgroundMock.mockImplementation(
     async ({
       run,
@@ -140,7 +142,7 @@ async function runBackgroundJob(
       run: (ctx: ReturnType<typeof mockRunContext>) => Promise<void>;
     }) => {
       try {
-        await run(mockRunContext(isCancelRequested));
+        await run(ctx);
       } catch {
         // BackgroundTaskCancelledError expected for cancel paths
       }
@@ -148,6 +150,7 @@ async function runBackgroundJob(
   );
   fetchMissingLyrics();
   await runInBackgroundMock.mock.results[0]?.value;
+  return ctx;
 }
 
 describe("partitionMissingLyricsTracks", () => {
@@ -374,6 +377,33 @@ describe("fetchMissingLyrics", () => {
       }),
     ]);
     expect(summary.tracks.some((t) => t.trackId === 2)).toBe(false);
+  });
+
+  it("settles cancel with Review when ambiguous matches remain", async () => {
+    library = [
+      track({ id: 1, title: "One" }),
+      track({ id: 2, title: "Two" }),
+      track({ id: 3, title: "Three" }),
+    ];
+
+    let cancelRequested = false;
+    runSingleLyricsFetchMock
+      .mockImplementationOnce(async () => {
+        return { status: "ambiguous" };
+      })
+      .mockImplementationOnce(async () => {
+        cancelRequested = true;
+        return { status: "found" };
+      });
+
+    const ctx = await runBackgroundJob(() => cancelRequested);
+
+    expect(ctx.settleAs).toHaveBeenCalledWith(
+      expect.objectContaining({
+        label: "Lyrics: 1 fetched · 1 need review",
+        actions: [expect.objectContaining({ id: "lyrics-review" })],
+      }),
+    );
   });
 
   it("skips cached misses and only fetches uncached tracks", async () => {

@@ -11,17 +11,44 @@ interface LyricsFetchState {
   pendingByTrackId: Record<number, TrackLyricsFetchUI>;
   fetchingTrackIds: Set<number>;
   queuedTrackIds: Set<number>;
+  /** Ordered track IDs for the post-fetch candidate review pass. */
+  reviewQueueTrackIds: number[];
+  reviewQueueIndex: number;
   applyOutcome: (trackId: number, ui: TrackLyricsFetchUI) => void;
   takePending: (trackId: number) => TrackLyricsFetchUI | null;
   clearPending: (trackId: number) => void;
   setFetching: (trackId: number, isFetching: boolean) => void;
   setQueued: (trackId: number, isQueued: boolean) => void;
+  /**
+   * Start a review pass over tracks that still have pending candidates.
+   * Empty after filtering → no-op (queue stays closed).
+   */
+  openReviewQueue: (trackIds: number[]) => void;
+  /**
+   * Drop the current track's pending candidates and advance.
+   * Clears the queue when past the last item.
+   */
+  advanceReviewQueue: () => void;
+  /**
+   * Close the review UI without clearing remaining pending candidates
+   * so a later Review click can resume them.
+   */
+  closeReviewQueue: () => void;
+}
+
+function clearReviewQueueState(): Pick<
+  LyricsFetchState,
+  "reviewQueueTrackIds" | "reviewQueueIndex"
+> {
+  return { reviewQueueTrackIds: [], reviewQueueIndex: 0 };
 }
 
 export const useLyricsFetchStore = create<LyricsFetchState>((set, get) => ({
   pendingByTrackId: {},
   fetchingTrackIds: new Set(),
   queuedTrackIds: new Set(),
+  reviewQueueTrackIds: [],
+  reviewQueueIndex: 0,
 
   applyOutcome: (trackId, ui) =>
     set((state) => ({
@@ -41,7 +68,8 @@ export const useLyricsFetchStore = create<LyricsFetchState>((set, get) => ({
   clearPending: (trackId) =>
     set((state) => {
       if (!(trackId in state.pendingByTrackId)) return state;
-      const { [trackId]: _removed, ...pendingByTrackId } = state.pendingByTrackId;
+      const { [trackId]: _removed, ...pendingByTrackId } =
+        state.pendingByTrackId;
       return { pendingByTrackId };
     }),
 
@@ -70,4 +98,35 @@ export const useLyricsFetchStore = create<LyricsFetchState>((set, get) => ({
       }
       return { queuedTrackIds };
     }),
+
+  openReviewQueue: (trackIds) => {
+    const pending = get().pendingByTrackId;
+    const filtered = trackIds.filter(
+      (id) => (pending[id]?.candidates.length ?? 0) > 0,
+    );
+    if (filtered.length === 0) {
+      set(clearReviewQueueState());
+      return;
+    }
+    set({ reviewQueueTrackIds: filtered, reviewQueueIndex: 0 });
+  },
+
+  advanceReviewQueue: () => {
+    const { reviewQueueTrackIds, reviewQueueIndex } = get();
+    if (reviewQueueTrackIds.length === 0) return;
+
+    const currentId = reviewQueueTrackIds[reviewQueueIndex];
+    if (currentId != null) {
+      get().clearPending(currentId);
+    }
+
+    const nextIndex = reviewQueueIndex + 1;
+    if (nextIndex >= reviewQueueTrackIds.length) {
+      set(clearReviewQueueState());
+      return;
+    }
+    set({ reviewQueueIndex: nextIndex });
+  },
+
+  closeReviewQueue: () => set(clearReviewQueueState()),
 }));

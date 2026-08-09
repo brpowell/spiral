@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../store/usePlayerStore", () => ({
-  usePlayerStore: {
+const openReviewQueue = vi.fn();
+
+vi.mock("../store/useLyricsFetchStore", () => ({
+  useLyricsFetchStore: {
     getState: () => ({
-      openTrackEditor: vi.fn(),
+      openReviewQueue,
     }),
   },
 }));
@@ -74,7 +76,7 @@ describe("lyricsFetchBulkSettleOptions", () => {
       tally: { found: 1, notFound: 0, ambiguous: 1, failed: 1 },
       errorLines: ["Song D: network timeout"],
       operationId: "op-1",
-      reviewTrackId: 42,
+      reviewTrackIds: [42],
     });
     expect(settle).toMatchObject({
       status: "warning",
@@ -90,7 +92,7 @@ describe("lyricsFetchBulkSettleOptions", () => {
       lyricsFetchBulkSettleOptions({
         tally: { found: 0, notFound: 0, ambiguous: 2, failed: 0 },
         operationId: "op-1",
-        reviewTrackId: 7,
+        reviewTrackIds: [7, 8],
       }),
     ).toMatchObject({
       status: "success",
@@ -101,9 +103,19 @@ describe("lyricsFetchBulkSettleOptions", () => {
       lyricsFetchBulkSettleOptions({
         tally: { found: 0, notFound: 0, ambiguous: 2, failed: 0 },
         operationId: "op-1",
-        reviewTrackId: 7,
+        reviewTrackIds: [7, 8],
       }).logLink,
     ).toBeUndefined();
+  });
+
+  it("opens the review queue with all ambiguous track ids", () => {
+    openReviewQueue.mockClear();
+    const settle = lyricsFetchBulkSettleOptions({
+      tally: { found: 0, notFound: 0, ambiguous: 2, failed: 0 },
+      reviewTrackIds: [7, 8],
+    });
+    settle.actions?.[0]?.onClick();
+    expect(openReviewQueue).toHaveBeenCalledWith([7, 8]);
   });
 
   it("uses inline detail for one failure and View logs for two+", () => {
@@ -134,11 +146,15 @@ describe("lyricsFetchBulkSettleOptions", () => {
 });
 
 describe("lyricsAmbiguousSettleOptions", () => {
-  it("settles as warning with Choose", () => {
-    expect(lyricsAmbiguousSettleOptions("Song", 7)).toMatchObject({
-      status: "warning",
+  it("settles as success with Choose that opens the review queue", () => {
+    openReviewQueue.mockClear();
+    const settle = lyricsAmbiguousSettleOptions("Song", 7);
+    expect(settle).toMatchObject({
+      status: "success",
       label: "Multiple lyrics found for Song",
       actions: [{ id: "lyrics-choose", label: "Choose" }],
     });
+    settle.actions?.[0]?.onClick();
+    expect(openReviewQueue).toHaveBeenCalledWith([7]);
   });
 });

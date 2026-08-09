@@ -61,14 +61,6 @@ vi.mock("./activityLog", () => ({
   logActivity: vi.fn(),
 }));
 
-vi.mock("../store/usePlayerStore", () => ({
-  usePlayerStore: {
-    getState: () => ({
-      openTrackEditor: vi.fn(),
-    }),
-  },
-}));
-
 vi.mock("./lyricsFetchRunner", async (importOriginal) => {
   const original = await importOriginal<typeof import("./lyricsFetchRunner")>();
   return {
@@ -325,7 +317,7 @@ describe("enqueueLyricsFetch", () => {
     ]);
   });
 
-  it("settles solo ambiguous as warning with Choose", async () => {
+  it("settles solo ambiguous as success with Choose", async () => {
     runSingleLyricsFetchMock.mockResolvedValue({ status: "ambiguous" });
 
     enqueueLyricsFetch(1, "Song", params, { priority: "manual" });
@@ -333,7 +325,7 @@ describe("enqueueLyricsFetch", () => {
 
     expect(ctx.settleCalls).toEqual([
       {
-        status: "warning",
+        status: "success",
         label: "Multiple lyrics found for Song",
         actions: [{ id: "lyrics-choose", label: "Choose" }],
       },

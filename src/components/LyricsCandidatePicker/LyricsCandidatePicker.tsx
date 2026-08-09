@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { LyricsSearchCandidate } from "../../types/lyrics";
 import { formatLyricsFormatLabel } from "../../lib/lyrics";
 import {
@@ -8,6 +9,8 @@ import {
   type LyricsLibraryTrackRef,
 } from "../../lib/lyricsFetch";
 import { Badge } from "../common/Badge/Badge";
+import { ChoiceList, ChoiceOption } from "../common/ChoiceOption/ChoiceOption";
+import { Separator } from "../common/Separator/Separator";
 import {
   Modal,
   ModalBody,
@@ -24,37 +27,44 @@ export type LyricsCandidatePickerProps = {
   candidates: LyricsSearchCandidate[];
   libraryTrack?: LyricsLibraryTrackRef | null;
   onSelect: (candidate: LyricsSearchCandidate) => void;
+  /** Backdrop / Escape / X — leave remaining work intact when used from a queue. */
   onClose: () => void;
+  /**
+   * Footer "Skip for now". Defaults to `onClose` for single-item callers
+   * (Track Editor, Now Playing).
+   */
+  onSkip?: () => void;
+  /**
+   * When reviewing multiple ambiguous tracks, show “Track N of M” in the header.
+   * Omitted (or total ≤ 1) for solo Choose flows.
+   */
+  queuePosition?: { current: number; total: number };
 };
 
-function LibraryTrackFields({ track }: { track: LyricsLibraryTrackRef }) {
+function LibraryTrackCard({ track }: { track: LyricsLibraryTrackRef }) {
+  const album = track.album.trim();
+  const metaParts = [
+    album || null,
+    track.durationSeconds != null
+      ? formatLyricsDuration(track.durationSeconds)
+      : null,
+  ].filter((part): part is string => Boolean(part));
+
   return (
-    <dl className="lyrics-candidate-picker__library-fields">
-      <div>
-        <dt className="lyrics-candidate-picker__field-label">Title</dt>
-        <dd className="lyrics-candidate-picker__field-value">{track.title}</dd>
-      </div>
-      <div>
-        <dt className="lyrics-candidate-picker__field-label">Artist</dt>
-        <dd className="lyrics-candidate-picker__field-value">
-          {track.artist.trim() || "—"}
-        </dd>
-      </div>
-      <div>
-        <dt className="lyrics-candidate-picker__field-label">Album</dt>
-        <dd className="lyrics-candidate-picker__field-value">
-          {track.album.trim() || "—"}
-        </dd>
-      </div>
-      {track.durationSeconds != null ? (
-        <div>
-          <dt className="lyrics-candidate-picker__field-label">Duration</dt>
-          <dd className="lyrics-candidate-picker__field-value">
-            {formatLyricsDuration(track.durationSeconds)}
-          </dd>
-        </div>
+    <div className="lyrics-candidate-picker__library-card">
+      <p className="lyrics-candidate-picker__library-title">{track.title}</p>
+      <p className="lyrics-candidate-picker__library-artist">
+        {track.artist.trim() || "—"}
+      </p>
+      {metaParts.length > 0 ? (
+        <>
+          <Separator />
+          <p className="lyrics-candidate-picker__library-meta">
+            {metaParts.join(" · ")}
+          </p>
+        </>
       ) : null}
-    </dl>
+    </div>
   );
 }
 
@@ -73,7 +83,12 @@ export function LyricsCandidatePicker({
   libraryTrack,
   onSelect,
   onClose,
+  onSkip,
+  queuePosition,
 }: LyricsCandidatePickerProps) {
+  const { t } = useTranslation("library");
+  const showQueueProgress = queuePosition != null && queuePosition.total > 1;
+
   return (
     <Modal
       open={open}
@@ -84,10 +99,21 @@ export function LyricsCandidatePicker({
     >
       <ModalHeader>
         <ModalHeaderMain>
-          <ModalTitle id="lyrics-candidate-title">Match lyrics</ModalTitle>
+          <div className="lyrics-candidate-picker__title-row">
+            <ModalTitle id="lyrics-candidate-title">
+              {t("lyrics.candidatePicker.title")}
+            </ModalTitle>
+            {showQueueProgress ? (
+              <Badge aria-live="polite">
+                {t("lyrics.candidatePicker.queueProgress", {
+                  current: queuePosition.current,
+                  total: queuePosition.total,
+                })}
+              </Badge>
+            ) : null}
+          </div>
           <ModalDescription>
-            Multiple LRCLIB results matched this track. Choose the correct
-            lyrics to use.
+            {t("lyrics.candidatePicker.description")}
           </ModalDescription>
         </ModalHeaderMain>
       </ModalHeader>
@@ -96,52 +122,46 @@ export function LyricsCandidatePicker({
           {libraryTrack ? (
             <section
               className="lyrics-candidate-picker__library"
-              aria-label="Your track"
+              aria-label={t("lyrics.candidatePicker.yourTrack")}
             >
               <h3 className="lyrics-candidate-picker__library-heading">
-                Your track
+                {t("lyrics.candidatePicker.yourTrack")}
               </h3>
-              <LibraryTrackFields track={libraryTrack} />
+              <LibraryTrackCard track={libraryTrack} />
             </section>
           ) : null}
 
           <div className="lyrics-candidate-picker__results">
             <h3 className="lyrics-candidate-picker__results-heading">
-              Results
+              {t("lyrics.candidatePicker.results")}
             </h3>
-            <ul className="lyrics-candidate-picker__list">
+            <ChoiceList className="lyrics-candidate-picker__list">
               {candidates.map((candidate) => (
                 <li key={candidate.id}>
-                  <button
-                    type="button"
-                    className="lyrics-candidate-picker__option"
-                    onClick={() => onSelect(candidate)}
-                  >
-                    <span className="lyrics-candidate-picker__option-main">
-                      <span className="lyrics-candidate-picker__option-title">
-                        {lyricsCandidateLabel(candidate)}
-                      </span>
-                      <span className="lyrics-candidate-picker__option-details">
-                        {lyricsCandidateDetails(candidate)}
-                      </span>
-                    </span>
-                    <span className="lyrics-candidate-picker__option-meta">
-                      {candidateFormatBadge(candidate)}
-                      <span className="lyrics-candidate-picker__option-duration">
+                  <ChoiceOption
+                    title={lyricsCandidateLabel(candidate)}
+                    details={lyricsCandidateDetails(candidate)}
+                    meta={
+                      <>
+                        {candidateFormatBadge(candidate)}
                         {lyricsCandidateDurationMeta(
                           candidate,
                           libraryTrack?.durationSeconds,
                         )}
-                      </span>
-                    </span>
-                  </button>
+                      </>
+                    }
+                    onClick={() => onSelect(candidate)}
+                  />
                 </li>
               ))}
-            </ul>
+            </ChoiceList>
           </div>
         </div>
       </ModalBody>
-      <ModalFooter onCancel={onClose} cancelLabel="Skip for now">
+      <ModalFooter
+        onCancel={onSkip ?? onClose}
+        cancelLabel={t("lyrics.candidatePicker.skip")}
+      >
         {null}
       </ModalFooter>
     </Modal>

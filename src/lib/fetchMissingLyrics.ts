@@ -214,11 +214,10 @@ export function formatFetchMissingLyricsToastLabel(
   });
 }
 
-function firstAmbiguousTrackId(
-  summary: FetchMissingLyricsSummary,
-): number | null {
-  const track = summary.tracks.find((item) => item.status === "ambiguous");
-  return track?.trackId ?? null;
+function ambiguousTrackIds(summary: FetchMissingLyricsSummary): number[] {
+  return summary.tracks
+    .filter((item) => item.status === "ambiguous")
+    .map((item) => item.trackId);
 }
 
 function failureDetailLines(summary: FetchMissingLyricsSummary): string[] {
@@ -490,7 +489,27 @@ export function fetchMissingLyrics(): void {
         ctx.clearProgress();
         logSummary(operationId, summary);
 
+        const reviewIds = ambiguousTrackIds(summary);
         if (summary.cancelled) {
+          // Preserve Review when cancel interrupted after ambiguous matches.
+          if (reviewIds.length > 0) {
+            ctx.settleAs(
+              lyricsFetchBulkSettleOptions({
+                tally: {
+                  found: summary.found,
+                  notFound: summary.notFound,
+                  ambiguous: summary.ambiguous,
+                  failed: summary.failed,
+                  instrumental: summary.instrumental,
+                  skipped: summary.skipped,
+                },
+                errorLines: failureDetailLines(summary),
+                operationId,
+                reviewTrackIds: reviewIds,
+              }),
+            );
+            return;
+          }
           throw new BackgroundTaskCancelledError(toastLabel);
         }
 
@@ -506,7 +525,7 @@ export function fetchMissingLyrics(): void {
             },
             errorLines: failureDetailLines(summary),
             operationId,
-            reviewTrackId: firstAmbiguousTrackId(summary),
+            reviewTrackIds: reviewIds,
           }),
         );
       } finally {

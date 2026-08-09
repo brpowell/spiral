@@ -6,7 +6,11 @@ import {
   ModalHeader,
   ModalTitle,
 } from "../common/Modal/Modal";
-import { discMetadataLabel, discMetadataReleaseDetails } from "../../lib/cdMetadata";
+import { ChoiceList, ChoiceOption } from "../common/ChoiceOption/ChoiceOption";
+import {
+  discMetadataLabel,
+  discMetadataReleaseDetails,
+} from "../../lib/cdMetadata";
 import { useCdStore } from "../../store/useCdStore";
 import "./CdMetadataPicker.css";
 
@@ -29,7 +33,12 @@ export function CdMetadataPicker() {
   };
 
   return (
-    <Modal open={open} onClose={handleClose} size="md" labelledBy="cd-metadata-title">
+    <Modal
+      open={open}
+      onClose={handleClose}
+      size="md"
+      labelledBy="cd-metadata-title"
+    >
       <ModalHeader>
         <ModalTitle id="cd-metadata-title">Match this disc</ModalTitle>
       </ModalHeader>
@@ -38,39 +47,30 @@ export function CdMetadataPicker() {
           Multiple albums matched this disc. Choose the correct release to use
           for track titles and album details.
         </ModalDescription>
-        <ul className="cd-metadata-picker__list">
+        <ChoiceList className="cd-metadata-picker__list">
           {candidates.map((candidate) => {
             const key = candidate.releaseMbid ?? discMetadataLabel(candidate);
             const releaseDetails = discMetadataReleaseDetails(candidate);
             return (
               <li key={key}>
-                <button
-                  type="button"
-                  className="cd-metadata-picker__option"
+                <ChoiceOption
+                  title={discMetadataLabel(candidate)}
+                  details={releaseDetails}
+                  meta={
+                    <>
+                      {candidate.tracks.length}{" "}
+                      {candidate.tracks.length === 1 ? "track" : "tracks"}
+                    </>
+                  }
                   onClick={() => {
                     if (driveId == null) return;
                     selectDiscMetadata(driveId, candidate);
                   }}
-                >
-                  <span className="cd-metadata-picker__option-main">
-                    <span className="cd-metadata-picker__option-title">
-                      {discMetadataLabel(candidate)}
-                    </span>
-                    {releaseDetails ? (
-                      <span className="cd-metadata-picker__option-details">
-                        {releaseDetails}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="cd-metadata-picker__option-meta">
-                    {candidate.tracks.length}{" "}
-                    {candidate.tracks.length === 1 ? "track" : "tracks"}
-                  </span>
-                </button>
+                />
               </li>
             );
           })}
-        </ul>
+        </ChoiceList>
       </ModalBody>
       <ModalFooter onCancel={handleClose} cancelLabel="Skip for now">
         {null}
