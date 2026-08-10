@@ -39,8 +39,7 @@ pub async fn list_published_versions(
     author_id: Option<&str>,
     contribution_type: Option<&str>,
 ) -> Result<Vec<PackVersionRow>> {
-    // SQLite has no native JSON array contains; filter in SQL with LIKE for the
-    // compact JSON we store (`["skin","theme"]`), then refine in Rust.
+    // contribution_types is JSON text; filter that field in Rust after fetch.
     let rows = if let Some(author) = author_id {
         sqlx::query_as::<_, PackVersionRow>(
             r#"

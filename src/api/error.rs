@@ -21,14 +21,6 @@ impl ApiError {
         }
     }
 
-    pub fn bad_request(message: impl Into<String>) -> Self {
-        Self {
-            status: StatusCode::BAD_REQUEST,
-            code: "bad_request",
-            message: message.into(),
-        }
-    }
-
     pub fn internal(err: impl std::fmt::Display) -> Self {
         tracing::error!("internal error: {err}");
         Self {
