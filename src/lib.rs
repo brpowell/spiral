@@ -3,11 +3,14 @@
 pub mod api;
 pub mod config;
 pub mod db;
+pub mod icons;
 pub mod models;
+pub mod publish;
 pub mod storage;
 
 use std::sync::Arc;
 
+use axum::extract::DefaultBodyLimit;
 use axum::Router;
 use sqlx::SqlitePool;
 
@@ -22,5 +25,9 @@ pub struct AppState {
 }
 
 pub fn app_router(state: AppState) -> Router {
-    api::router().with_state(state)
+    // Axum defaults to a 2 MiB body limit; raise it for .spk uploads (+ multipart overhead).
+    let body_limit = (state.config.max_upload_bytes as usize).saturating_add(256 * 1024);
+    api::router()
+        .layer(DefaultBodyLimit::max(body_limit))
+        .with_state(state)
 }

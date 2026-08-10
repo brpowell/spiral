@@ -1,5 +1,7 @@
 //! HTTP API (`/v1/...`).
 
+mod admin;
+mod auth;
 mod error;
 mod meta;
 mod packs;
@@ -14,4 +16,5 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .merge(meta::router())
         .merge(packs::router())
+        .merge(admin::router())
 }

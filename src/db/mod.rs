@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS pack_versions (
     size_bytes INTEGER NOT NULL,
     sha256 TEXT NOT NULL,
     storage_key TEXT NOT NULL,
+    icon_storage_key TEXT,
     published_at TEXT NOT NULL,
     yanked_at TEXT,
     PRIMARY KEY (author_id, pack_id, version)
@@ -29,6 +30,19 @@ CREATE INDEX IF NOT EXISTS idx_pack_versions_author
 
 CREATE INDEX IF NOT EXISTS idx_pack_versions_published
     ON pack_versions (author_id, pack_id, published_at);
+
+CREATE TABLE IF NOT EXISTS takedown_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    purged_at TEXT NOT NULL,
+    author_id TEXT NOT NULL,
+    pack_id TEXT NOT NULL,
+    version TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    notice_ref TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_takedown_log_identity
+    ON takedown_log (author_id, pack_id, version);
 "#;
 
 pub async fn connect(database_url: &str) -> Result<SqlitePool> {
@@ -45,7 +59,14 @@ pub async fn connect(database_url: &str) -> Result<SqlitePool> {
     sqlx::query(SCHEMA)
         .execute(&pool)
         .await
-        .context("apply pack_versions schema")?;
+        .context("apply pack_versions / takedown_log schema")?;
+
+    // Upgrade DBs created before icon_storage_key existed.
+    let _ = sqlx::query(
+        "ALTER TABLE pack_versions ADD COLUMN icon_storage_key TEXT",
+    )
+    .execute(&pool)
+    .await;
 
     Ok(pool)
 }

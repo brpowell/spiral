@@ -2,19 +2,27 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use sqlx::SqlitePool;
 
-use crate::models::PackVersionRow;
+use crate::models::{PackVersionRow, TakedownLogRow};
+
+#[derive(Debug, thiserror::Error)]
+pub enum InsertPackError {
+    #[error("pack version already exists")]
+    Duplicate,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
 
 /// Insert a published (or already-yanked) pack version row. Used by the seed tool and tests.
 pub async fn insert_pack_version(
     pool: &SqlitePool,
     row: &PackVersionRow,
-) -> Result<()> {
-    sqlx::query(
+) -> Result<(), InsertPackError> {
+    let result = sqlx::query(
         r#"
         INSERT INTO pack_versions (
             author_id, pack_id, version, min_app_version, contribution_types,
-            size_bytes, sha256, storage_key, published_at, yanked_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         "#,
     )
     .bind(&row.author_id)
@@ -25,12 +33,19 @@ pub async fn insert_pack_version(
     .bind(row.size_bytes)
     .bind(&row.sha256)
     .bind(&row.storage_key)
+    .bind(&row.icon_storage_key)
     .bind(row.published_at)
     .bind(row.yanked_at)
     .execute(pool)
-    .await
-    .context("insert pack_versions row")?;
-    Ok(())
+    .await;
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
+            Err(InsertPackError::Duplicate)
+        }
+        Err(e) => Err(InsertPackError::Other(anyhow::Error::new(e).context("insert pack_versions row"))),
+    }
 }
 
 /// All non-yanked versions, optionally filtered.
@@ -44,7 +59,7 @@ pub async fn list_published_versions(
         sqlx::query_as::<_, PackVersionRow>(
             r#"
             SELECT author_id, pack_id, version, min_app_version, contribution_types,
-                   size_bytes, sha256, storage_key, published_at, yanked_at
+               size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
             FROM pack_versions
             WHERE yanked_at IS NULL AND author_id = ?
             ORDER BY author_id, pack_id, published_at DESC
@@ -57,7 +72,7 @@ pub async fn list_published_versions(
         sqlx::query_as::<_, PackVersionRow>(
             r#"
             SELECT author_id, pack_id, version, min_app_version, contribution_types,
-                   size_bytes, sha256, storage_key, published_at, yanked_at
+               size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
             FROM pack_versions
             WHERE yanked_at IS NULL
             ORDER BY author_id, pack_id, published_at DESC
@@ -79,7 +94,7 @@ pub async fn list_published_versions_for_pack(
     let rows = sqlx::query_as::<_, PackVersionRow>(
         r#"
         SELECT author_id, pack_id, version, min_app_version, contribution_types,
-               size_bytes, sha256, storage_key, published_at, yanked_at
+               size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
         FROM pack_versions
         WHERE yanked_at IS NULL AND author_id = ? AND pack_id = ?
         "#,
@@ -103,7 +118,7 @@ pub async fn get_published_version(
     let row = sqlx::query_as::<_, PackVersionRow>(
         r#"
         SELECT author_id, pack_id, version, min_app_version, contribution_types,
-               size_bytes, sha256, storage_key, published_at, yanked_at
+               size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
         FROM pack_versions
         WHERE author_id = ? AND pack_id = ? AND version = ? AND yanked_at IS NULL
         "#,
@@ -127,7 +142,7 @@ pub async fn get_version_for_download(
     let row = sqlx::query_as::<_, PackVersionRow>(
         r#"
         SELECT author_id, pack_id, version, min_app_version, contribution_types,
-               size_bytes, sha256, storage_key, published_at, yanked_at
+               size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
         FROM pack_versions
         WHERE author_id = ? AND pack_id = ? AND version = ?
         "#,
@@ -206,7 +221,184 @@ pub fn group_packs_latest(rows: Vec<PackVersionRow>) -> Vec<(String, String, Pac
         .collect()
 }
 
+/// All versions for admin listing (published + yanked), newest first per pack.
+pub async fn list_all_versions(pool: &SqlitePool) -> Result<Vec<PackVersionRow>> {
+    let rows = sqlx::query_as::<_, PackVersionRow>(
+        r#"
+        SELECT author_id, pack_id, version, min_app_version, contribution_types,
+               size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
+        FROM pack_versions
+        ORDER BY author_id, pack_id, published_at DESC
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    .context("list all pack versions")?;
+    Ok(rows)
+}
+
+/// Soft-delete: set `yanked_at`. Returns `false` if the version does not exist.
+pub async fn yank_version(
+    pool: &SqlitePool,
+    author_id: &str,
+    pack_id: &str,
+    version: &str,
+    yanked_at: DateTime<Utc>,
+) -> Result<bool> {
+    let result = sqlx::query(
+        r#"
+        UPDATE pack_versions
+        SET yanked_at = ?
+        WHERE author_id = ? AND pack_id = ? AND version = ? AND yanked_at IS NULL
+        "#,
+    )
+    .bind(yanked_at)
+    .bind(author_id)
+    .bind(pack_id)
+    .bind(version)
+    .execute(pool)
+    .await
+    .context("yank pack version")?;
+    Ok(result.rows_affected() > 0)
+}
+
+/// Clear `yanked_at` so the version reappears in the public catalog.
+/// Returns `false` if the version does not exist or is not currently yanked.
+pub async fn unyank_version(
+    pool: &SqlitePool,
+    author_id: &str,
+    pack_id: &str,
+    version: &str,
+) -> Result<bool> {
+    let result = sqlx::query(
+        r#"
+        UPDATE pack_versions
+        SET yanked_at = NULL
+        WHERE author_id = ? AND pack_id = ? AND version = ? AND yanked_at IS NOT NULL
+        "#,
+    )
+    .bind(author_id)
+    .bind(pack_id)
+    .bind(version)
+    .execute(pool)
+    .await
+    .context("unyank pack version")?;
+    Ok(result.rows_affected() > 0)
+}
+
+/// Delete one version row. Returns the deleted row if it existed.
+pub async fn delete_version(
+    pool: &SqlitePool,
+    author_id: &str,
+    pack_id: &str,
+    version: &str,
+) -> Result<Option<PackVersionRow>> {
+    let row = get_version_for_download(pool, author_id, pack_id, version).await?;
+    if row.is_none() {
+        return Ok(None);
+    }
+    sqlx::query(
+        r#"
+        DELETE FROM pack_versions
+        WHERE author_id = ? AND pack_id = ? AND version = ?
+        "#,
+    )
+    .bind(author_id)
+    .bind(pack_id)
+    .bind(version)
+    .execute(pool)
+    .await
+    .context("delete pack version")?;
+    Ok(row)
+}
+
+/// Delete every version of a pack. Returns the deleted rows.
+pub async fn delete_pack_versions(
+    pool: &SqlitePool,
+    author_id: &str,
+    pack_id: &str,
+) -> Result<Vec<PackVersionRow>> {
+    let rows = sqlx::query_as::<_, PackVersionRow>(
+        r#"
+        SELECT author_id, pack_id, version, min_app_version, contribution_types,
+               size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
+        FROM pack_versions
+        WHERE author_id = ? AND pack_id = ?
+        "#,
+    )
+    .bind(author_id)
+    .bind(pack_id)
+    .fetch_all(pool)
+    .await
+    .context("list pack versions for purge")?;
+
+    if rows.is_empty() {
+        return Ok(rows);
+    }
+
+    sqlx::query(
+        r#"
+        DELETE FROM pack_versions
+        WHERE author_id = ? AND pack_id = ?
+        "#,
+    )
+    .bind(author_id)
+    .bind(pack_id)
+    .execute(pool)
+    .await
+    .context("delete pack versions")?;
+
+    Ok(rows)
+}
+
+pub async fn insert_takedown_log(
+    pool: &SqlitePool,
+    row: &TakedownLogRow,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO takedown_log (
+            purged_at, author_id, pack_id, version, reason, notice_ref
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        "#,
+    )
+    .bind(row.purged_at)
+    .bind(&row.author_id)
+    .bind(&row.pack_id)
+    .bind(&row.version)
+    .bind(&row.reason)
+    .bind(&row.notice_ref)
+    .execute(pool)
+    .await
+    .context("insert takedown_log row")?;
+    Ok(())
+}
+
+/// True if this exact version (or a pack-level `*`) was purged.
+pub async fn was_purged(
+    pool: &SqlitePool,
+    author_id: &str,
+    pack_id: &str,
+    version: &str,
+) -> Result<bool> {
+    let count: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*) FROM takedown_log
+        WHERE author_id = ? AND pack_id = ?
+          AND (version = ? OR version = '*')
+        "#,
+    )
+    .bind(author_id)
+    .bind(pack_id)
+    .bind(version)
+    .fetch_one(pool)
+    .await
+    .context("query takedown_log")?;
+    Ok(count > 0)
+}
+
 /// Helper for tests / seed: build a row with JSON contribution_types.
+#[allow(clippy::too_many_arguments)]
 pub fn pack_version_row(
     author_id: &str,
     pack_id: &str,
@@ -227,6 +419,7 @@ pub fn pack_version_row(
         size_bytes,
         sha256: sha256.to_string(),
         storage_key: storage_key.to_string(),
+        icon_storage_key: None,
         published_at,
         yanked_at,
     }

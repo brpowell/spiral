@@ -3,6 +3,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::icons::icon_url_path;
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetaResponse {
@@ -41,6 +43,9 @@ pub struct VersionSummary {
     pub size_bytes: i64,
     pub sha256: String,
     pub published_at: DateTime<Utc>,
+    /// Relative path to the pack icon, when the published archive declared one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -54,6 +59,8 @@ pub struct VersionDetailResponse {
     pub size_bytes: i64,
     pub sha256: String,
     pub published_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon_url: Option<String>,
 }
 
 /// Internal row from `pack_versions`.
@@ -67,8 +74,23 @@ pub struct PackVersionRow {
     pub size_bytes: i64,
     pub sha256: String,
     pub storage_key: String,
+    pub icon_storage_key: Option<String>,
     pub published_at: DateTime<Utc>,
     pub yanked_at: Option<DateTime<Utc>>,
+}
+
+/// Append-only purge / takedown audit row.
+#[derive(Debug, Clone, sqlx::FromRow, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TakedownLogRow {
+    pub id: i64,
+    pub purged_at: DateTime<Utc>,
+    pub author_id: String,
+    pub pack_id: String,
+    /// Specific semver, or `*` for a pack-level purge.
+    pub version: String,
+    pub reason: String,
+    pub notice_ref: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -78,9 +100,52 @@ pub struct PackListQuery {
     pub author_id: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PurgeRequest {
+    pub confirm: String,
+    pub reason: String,
+    #[serde(default)]
+    pub notice_ref: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminVersionSummary {
+    pub author_id: String,
+    pub pack_id: String,
+    pub version: String,
+    pub min_app_version: Option<String>,
+    pub contribution_types: Vec<String>,
+    pub size_bytes: i64,
+    pub sha256: String,
+    pub published_at: DateTime<Utc>,
+    pub yanked_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminPackListResponse {
+    pub versions: Vec<AdminVersionSummary>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PurgeResponse {
+    pub purged: Vec<String>,
+}
+
 impl PackVersionRow {
     pub fn contribution_types_vec(&self) -> Vec<String> {
         serde_json::from_str(&self.contribution_types).unwrap_or_default()
+    }
+
+    pub fn icon_url(&self) -> Option<String> {
+        self.icon_storage_key.as_ref().map(|_| {
+            icon_url_path(&self.author_id, &self.pack_id, &self.version)
+        })
     }
 
     pub fn to_summary(&self) -> VersionSummary {
@@ -91,6 +156,7 @@ impl PackVersionRow {
             size_bytes: self.size_bytes,
             sha256: self.sha256.clone(),
             published_at: self.published_at,
+            icon_url: self.icon_url(),
         }
     }
 
@@ -104,6 +170,22 @@ impl PackVersionRow {
             size_bytes: self.size_bytes,
             sha256: self.sha256.clone(),
             published_at: self.published_at,
+            icon_url: self.icon_url(),
+        }
+    }
+
+    pub fn to_admin_summary(&self) -> AdminVersionSummary {
+        AdminVersionSummary {
+            author_id: self.author_id.clone(),
+            pack_id: self.pack_id.clone(),
+            version: self.version.clone(),
+            min_app_version: self.min_app_version.clone(),
+            contribution_types: self.contribution_types_vec(),
+            size_bytes: self.size_bytes,
+            sha256: self.sha256.clone(),
+            published_at: self.published_at,
+            yanked_at: self.yanked_at,
+            icon_url: self.icon_url(),
         }
     }
 }

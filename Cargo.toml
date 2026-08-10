@@ -19,13 +19,14 @@ path = "src/bin/seed.rs"
 [dependencies]
 anyhow = "1"
 async-trait = "0.1"
-axum = "0.8"
+axum = { version = "0.8", features = ["multipart"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 hex = "0.4"
 semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
+spk-format = { git = "https://github.com/spiral-powered/spk-format.git", rev = "e349868e84202831f1b726430c052293f202fba8" }
 sqlx = { version = "0.8", default-features = false, features = [
   "runtime-tokio",
   "sqlite",
@@ -33,6 +34,7 @@ sqlx = { version = "0.8", default-features = false, features = [
   "migrate",
   "chrono",
 ] }
+tempfile = "3"
 thiserror = "2"
 tokio = { version = "1", features = ["fs", "io-util", "macros", "rt-multi-thread", "signal"] }
 tokio-util = { version = "0.7", features = ["io"] }
@@ -44,4 +46,3 @@ zip = "2"
 [dev-dependencies]
 http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }
-tempfile = "3"

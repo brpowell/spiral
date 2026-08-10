@@ -1,5 +1,6 @@
 //! End-to-end read-path tests against an in-memory SQLite DB + temp local storage.
 
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use axum::body::Body;
@@ -32,19 +33,19 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
     let now = Utc::now();
 
     storage
-        .put("spiral/demo-skin/1.0.0.spk", bytes)
+        .put("spiral/demo-skin/1.0.0/pack.spk", bytes)
         .await
         .unwrap();
     storage
-        .put("spiral/demo-skin/1.1.0.spk", bytes)
+        .put("spiral/demo-skin/1.1.0/pack.spk", bytes)
         .await
         .unwrap();
     storage
-        .put("spiral/demo-skin/0.9.0.spk", bytes)
+        .put("spiral/demo-skin/0.9.0/pack.spk", bytes)
         .await
         .unwrap();
     storage
-        .put("other/theme-pack/1.0.0.spk", bytes)
+        .put("other/theme-pack/1.0.0/pack.spk", bytes)
         .await
         .unwrap();
 
@@ -57,7 +58,7 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
             &["skin"],
             size,
             &sha,
-            "spiral/demo-skin/1.0.0.spk",
+            "spiral/demo-skin/1.0.0/pack.spk",
             now - Duration::days(14),
             None,
         ),
@@ -73,7 +74,7 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
             &["skin"],
             size,
             &sha,
-            "spiral/demo-skin/1.1.0.spk",
+            "spiral/demo-skin/1.1.0/pack.spk",
             now - Duration::days(1),
             None,
         ),
@@ -89,7 +90,7 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
             &["skin"],
             size,
             &sha,
-            "spiral/demo-skin/0.9.0.spk",
+            "spiral/demo-skin/0.9.0/pack.spk",
             now - Duration::days(30),
             Some(now - Duration::days(7)),
         ),
@@ -105,7 +106,7 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
             &["theme"],
             size,
             &sha,
-            "other/theme-pack/1.0.0.spk",
+            "other/theme-pack/1.0.0/pack.spk",
             now,
             None,
         ),
@@ -121,6 +122,8 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
             storage: StorageConfig::Local {
                 root: tmp.path().join("objects"),
             },
+            admin_token: "test-admin-token".into(),
+            max_upload_bytes: 5 * 1024 * 1024,
         },
         db: pool,
         storage: storage.clone(),
@@ -234,4 +237,401 @@ async fn filters_by_contribution_type_and_author() {
     let packs = body["packs"].as_array().unwrap();
     assert_eq!(packs.len(), 1);
     assert_eq!(packs[0]["authorId"], "spiral");
+}
+
+// --- Phase 2: admin upload / yank / purge ---------------------------------
+
+fn fixture_valid_theme_dir() -> PathBuf {
+    let candidates = [
+        PathBuf::from("fixtures/valid-theme"),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/valid-theme"),
+    ];
+    for path in candidates {
+        if path.join("pack.json").is_file() {
+            return path;
+        }
+    }
+    panic!("fixtures/valid-theme not found");
+}
+
+fn zip_dir_to_bytes(pack_dir: &Path) -> Vec<u8> {
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+    use zip::ZipWriter;
+
+    fn add_dir(
+        zip: &mut ZipWriter<&mut std::io::Cursor<Vec<u8>>>,
+        abs: &Path,
+        rel: &Path,
+        options: SimpleFileOptions,
+    ) {
+        for entry in std::fs::read_dir(abs).unwrap() {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            let child_rel = rel.join(entry.file_name());
+            let zip_name = child_rel.to_str().unwrap().replace('\\', "/");
+            if path.is_dir() {
+                zip.add_directory(format!("{zip_name}/"), options).unwrap();
+                add_dir(zip, &path, &child_rel, options);
+            } else {
+                let data = std::fs::read(&path).unwrap();
+                zip.start_file(zip_name, options).unwrap();
+                zip.write_all(&data).unwrap();
+            }
+        }
+    }
+
+    let mut cursor = std::io::Cursor::new(Vec::new());
+    {
+        let mut zip = ZipWriter::new(&mut cursor);
+        let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        add_dir(&mut zip, pack_dir, Path::new(""), options);
+        zip.finish().unwrap();
+    }
+    cursor.into_inner()
+}
+
+fn zip_slip_bytes() -> Vec<u8> {
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+    use zip::ZipWriter;
+
+    let mut cursor = std::io::Cursor::new(Vec::new());
+    {
+        let mut zip = ZipWriter::new(&mut cursor);
+        let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        // enclosed_name() rejects this as escaping the extract root.
+        zip.start_file("../../../evil.txt", options).unwrap();
+        zip.write_all(b"pwned").unwrap();
+        zip.finish().unwrap();
+    }
+    cursor.into_inner()
+}
+
+fn multipart_spk(filename: &str, bytes: &[u8]) -> (String, Vec<u8>) {
+    let boundary = "----spkboundary7MA4YWxk";
+    let mut body = Vec::new();
+    body.extend_from_slice(
+        format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"spk\"; filename=\"{filename}\"\r\nContent-Type: application/zip\r\n\r\n"
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(bytes);
+    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+    (format!("multipart/form-data; boundary={boundary}"), body)
+}
+
+async fn admin_upload(app: &axum::Router, bytes: &[u8]) -> (StatusCode, Value) {
+    let (content_type, body) = multipart_spk("pack.spk", bytes);
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/admin/packs")
+                .header("Authorization", "Bearer test-admin-token")
+                .header("Content-Type", content_type)
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let value: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    (status, value)
+}
+
+async fn admin_json(
+    app: &axum::Router,
+    method: &str,
+    path: &str,
+    body: Option<Value>,
+) -> (StatusCode, Value) {
+    let mut builder = Request::builder()
+        .method(method)
+        .uri(path)
+        .header("Authorization", "Bearer test-admin-token");
+    let req_body = if let Some(v) = body {
+        builder = builder.header("Content-Type", "application/json");
+        Body::from(serde_json::to_vec(&v).unwrap())
+    } else {
+        Body::empty()
+    };
+    let response = app
+        .clone()
+        .oneshot(builder.body(req_body).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let value: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    (status, value)
+}
+
+#[tokio::test]
+async fn upload_valid_spk_appears_in_catalog() {
+    let (app, _tmp, _) = test_app().await;
+    let spk = zip_dir_to_bytes(&fixture_valid_theme_dir());
+
+    let (status, body) = admin_upload(&app, &spk).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["authorId"], "spiral");
+    assert_eq!(body["packId"], "demo-theme");
+    assert_eq!(body["version"], "1.0.0");
+    assert!(body["sha256"].as_str().unwrap().len() == 64);
+    assert!(body["sizeBytes"].as_i64().unwrap() > 0);
+    assert_eq!(
+        body["iconUrl"],
+        "/v1/packs/spiral/demo-theme/versions/1.0.0/icon"
+    );
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/v1/packs/spiral/demo-theme/versions/1.0.0/icon")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get("content-type").unwrap(),
+        "image/png"
+    );
+    let icon_bytes = response.into_body().collect().await.unwrap().to_bytes();
+    assert!(icon_bytes.starts_with(b"\x89PNG"), "expected PNG magic");
+
+    let (status, list) = json_get(&app, "/v1/packs?contributionType=theme").await;
+    assert_eq!(status, StatusCode::OK);
+    let packs = list["packs"].as_array().unwrap();
+    assert!(
+        packs.iter().any(|p| p["packId"] == "demo-theme"),
+        "uploaded pack should appear immediately: {list}"
+    );
+}
+
+#[tokio::test]
+async fn upload_zip_slip_rejected() {
+    let (app, _tmp, _) = test_app().await;
+    let (status, body) = admin_upload(&app, &zip_slip_bytes()).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["code"], "invalid_pack");
+    let msg = body["message"].as_str().unwrap().to_ascii_lowercase();
+    assert!(
+        msg.contains("invalid path") || msg.contains("evil"),
+        "expected zip-slip style error, got: {msg}"
+    );
+}
+
+#[tokio::test]
+async fn upload_duplicate_version_conflicts() {
+    let (app, _tmp, _) = test_app().await;
+    let spk = zip_dir_to_bytes(&fixture_valid_theme_dir());
+    let (status, _) = admin_upload(&app, &spk).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = admin_upload(&app, &spk).await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+    assert_eq!(body["code"], "conflict");
+}
+
+#[tokio::test]
+async fn upload_rejects_oversized_body() {
+    let (app, _tmp, _) = test_app().await;
+    // Build a multipart body larger than the 5 MiB test limit.
+    let huge = vec![0u8; 5 * 1024 * 1024 + 64];
+    let (status, body) = admin_upload(&app, &huge).await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE, "{body}");
+    assert_eq!(body["code"], "payload_too_large");
+}
+
+#[tokio::test]
+async fn yank_hides_from_catalog_but_download_still_works() {
+    let (app, _tmp, _) = test_app().await;
+    let spk = zip_dir_to_bytes(&fixture_valid_theme_dir());
+    let (status, uploaded) = admin_upload(&app, &spk).await;
+    assert_eq!(status, StatusCode::OK);
+    let sha = uploaded["sha256"].as_str().unwrap().to_string();
+
+    let (status, _) = admin_json(
+        &app,
+        "POST",
+        "/v1/admin/packs/spiral/demo-theme/versions/1.0.0/yank",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, _) = json_get(&app, "/v1/packs/spiral/demo-theme/versions/1.0.0").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    let (status, list) = json_get(&app, "/v1/packs?contributionType=theme").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(list["packs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|p| p["packId"] != "demo-theme"));
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/v1/packs/spiral/demo-theme/versions/1.0.0/download")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let downloaded_sha = hex::encode(Sha256::digest(&bytes));
+    assert_eq!(downloaded_sha, sha);
+}
+
+#[tokio::test]
+async fn unyank_restores_version_to_catalog() {
+    let (app, _tmp, _) = test_app().await;
+    let spk = zip_dir_to_bytes(&fixture_valid_theme_dir());
+    let (status, _) = admin_upload(&app, &spk).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, _) = admin_json(
+        &app,
+        "POST",
+        "/v1/admin/packs/spiral/demo-theme/versions/1.0.0/yank",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = admin_json(
+        &app,
+        "POST",
+        "/v1/admin/packs/spiral/demo-theme/versions/1.0.0/unyank",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["yanked"], false);
+
+    let (status, detail) = json_get(&app, "/v1/packs/spiral/demo-theme/versions/1.0.0").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(detail["version"], "1.0.0");
+
+    // Unyanking a live version is a conflict, not a silent no-op.
+    let (status, body) = admin_json(
+        &app,
+        "POST",
+        "/v1/admin/packs/spiral/demo-theme/versions/1.0.0/unyank",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CONFLICT, "{body}");
+}
+
+#[tokio::test]
+async fn purge_deletes_object_returns_410_and_writes_audit_log() {
+    let (app, _tmp, storage) = test_app().await;
+    let spk = zip_dir_to_bytes(&fixture_valid_theme_dir());
+    let (status, _) = admin_upload(&app, &spk).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = admin_json(
+        &app,
+        "POST",
+        "/v1/admin/packs/spiral/demo-theme/versions/1.0.0/purge",
+        Some(serde_json::json!({
+            "confirm": "spiral/demo-theme@1.0.0",
+            "reason": "test takedown"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (status, list) = json_get(&app, "/v1/packs?contributionType=theme").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(list["packs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|p| p["packId"] != "demo-theme"));
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/v1/packs/spiral/demo-theme/versions/1.0.0/download")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::GONE);
+
+    assert!(storage
+        .get_download_url("spiral/demo-theme/1.0.0/pack.spk")
+        .await
+        .is_err());
+}
+
+#[tokio::test]
+async fn purge_without_matching_confirm_is_noop() {
+    let (app, _tmp, storage) = test_app().await;
+    let spk = zip_dir_to_bytes(&fixture_valid_theme_dir());
+    let (status, _) = admin_upload(&app, &spk).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = admin_json(
+        &app,
+        "POST",
+        "/v1/admin/packs/spiral/demo-theme/versions/1.0.0/purge",
+        Some(serde_json::json!({
+            "confirm": "wrong/confirm@1.0.0",
+            "reason": "should not delete"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["code"], "confirm_mismatch");
+
+    let (status, detail) = json_get(&app, "/v1/packs/spiral/demo-theme/versions/1.0.0").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(detail["version"], "1.0.0");
+    assert!(storage
+        .get_download_url("spiral/demo-theme/1.0.0/pack.spk")
+        .await
+        .is_ok());
+}
+
+#[tokio::test]
+async fn admin_panel_and_list_require_token() {
+    let (app, _tmp, _) = test_app().await;
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/admin")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/v1/admin/packs")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }

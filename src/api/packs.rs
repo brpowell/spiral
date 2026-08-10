@@ -7,6 +7,7 @@ use axum::{Json, Router};
 use tokio_util::io::ReaderStream;
 
 use crate::db;
+use crate::icons::content_type_for_icon_key;
 use crate::models::{PackDetailResponse, PackListQuery, PackListResponse, PackSummary};
 use crate::storage::DownloadTarget;
 use crate::AppState;
@@ -24,6 +25,10 @@ pub fn router() -> Router<AppState> {
         .route(
             "/v1/packs/{author_id}/{pack_id}/versions/{version}/download",
             get(download_version),
+        )
+        .route(
+            "/v1/packs/{author_id}/{pack_id}/versions/{version}/icon",
+            get(download_icon),
         )
 }
 
@@ -103,13 +108,27 @@ async fn download_version(
     };
 
     // Yanked versions remain downloadable by direct URL.
-    let row = db::get_version_for_download(&state.db, &author_id, &pack_id, &resolved_version)
-        .await?
-        .ok_or_else(|| {
-            ApiError::not_found(format!(
+    // Purged versions are gone from pack_versions; consult takedown_log for 410.
+    let row = match db::get_version_for_download(
+        &state.db,
+        &author_id,
+        &pack_id,
+        &resolved_version,
+    )
+    .await?
+    {
+        Some(row) => row,
+        None => {
+            if db::was_purged(&state.db, &author_id, &pack_id, &resolved_version).await? {
+                return Err(ApiError::gone(format!(
+                    "version {author_id}/{pack_id}@{resolved_version} was purged"
+                )));
+            }
+            return Err(ApiError::not_found(format!(
                 "version {author_id}/{pack_id}@{resolved_version} not found"
-            ))
-        })?;
+            )));
+        }
+    };
 
     let target = state
         .storage
@@ -150,6 +169,91 @@ async fn download_version(
                 header::CONTENT_LENGTH,
                 row.size_bytes.to_string().parse().unwrap(),
             );
+            Ok(response)
+        }
+    }
+}
+
+async fn download_icon(
+    State(state): State<AppState>,
+    Path((author_id, pack_id, version)): Path<(String, String, String)>,
+) -> ApiResult<Response> {
+    let resolved_version = if version == "latest" {
+        let row = db::get_latest_published_version(&state.db, &author_id, &pack_id)
+            .await?
+            .ok_or_else(|| {
+                ApiError::not_found(format!("version {author_id}/{pack_id}@latest not found"))
+            })?;
+        row.version
+    } else {
+        version
+    };
+
+    // Same availability as download: yanked still resolves; purged → 410.
+    let row = match db::get_version_for_download(
+        &state.db,
+        &author_id,
+        &pack_id,
+        &resolved_version,
+    )
+    .await?
+    {
+        Some(row) => row,
+        None => {
+            if db::was_purged(&state.db, &author_id, &pack_id, &resolved_version).await? {
+                return Err(ApiError::gone(format!(
+                    "version {author_id}/{pack_id}@{resolved_version} was purged"
+                )));
+            }
+            return Err(ApiError::not_found(format!(
+                "version {author_id}/{pack_id}@{resolved_version} not found"
+            )));
+        }
+    };
+
+    let Some(icon_key) = row.icon_storage_key.as_deref() else {
+        return Err(ApiError::not_found(format!(
+            "pack {author_id}/{pack_id}@{} has no icon",
+            row.version
+        )));
+    };
+
+    let target = state
+        .storage
+        .get_download_url(icon_key)
+        .await
+        .map_err(|e| {
+            tracing::error!("storage get_download_url for icon failed: {e:#}");
+            ApiError::not_found(format!(
+                "icon for {author_id}/{pack_id}@{} missing",
+                row.version
+            ))
+        })?;
+
+    match target {
+        DownloadTarget::Redirect(url) => Ok(Redirect::temporary(&url).into_response()),
+        DownloadTarget::LocalPath(path) => {
+            let file = tokio::fs::File::open(&path).await.map_err(|e| {
+                tracing::error!("open {}: {e}", path.display());
+                ApiError::not_found(format!(
+                    "icon for {author_id}/{pack_id}@{} missing",
+                    row.version
+                ))
+            })?;
+            let meta = tokio::fs::metadata(&path).await.ok();
+            let stream = ReaderStream::new(file);
+            let body = Body::from_stream(stream);
+            let mut response = Response::new(body);
+            *response.status_mut() = StatusCode::OK;
+            let headers = response.headers_mut();
+            headers.insert(
+                header::CONTENT_TYPE,
+                content_type_for_icon_key(icon_key).parse().unwrap(),
+            );
+            headers.insert(header::CACHE_CONTROL, "public, max-age=86400".parse().unwrap());
+            if let Some(len) = meta.map(|m| m.len()) {
+                headers.insert(header::CONTENT_LENGTH, len.to_string().parse().unwrap());
+            }
             Ok(response)
         }
     }

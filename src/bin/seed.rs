@@ -42,9 +42,9 @@ async fn async_main() -> Result<()> {
 
     let author_id = "spiral";
     let pack_id = "demo-skin";
-    let storage_key_v1 = format!("{author_id}/{pack_id}/1.0.0.spk");
-    let storage_key_v2 = format!("{author_id}/{pack_id}/1.1.0.spk");
-    let storage_key_yanked = format!("{author_id}/{pack_id}/0.9.0.spk");
+    let storage_key_v1 = format!("{author_id}/{pack_id}/1.0.0/pack.spk");
+    let storage_key_v2 = format!("{author_id}/{pack_id}/1.1.0/pack.spk");
+    let storage_key_yanked = format!("{author_id}/{pack_id}/0.9.0/pack.spk");
 
     storage.put(&storage_key_v1, &bytes).await?;
     storage.put(&storage_key_v2, &bytes).await?;
@@ -73,7 +73,8 @@ async fn async_main() -> Result<()> {
             None,
         ),
     )
-    .await?;
+    .await
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     db::insert_pack_version(
         &pool,
@@ -89,7 +90,8 @@ async fn async_main() -> Result<()> {
             None,
         ),
     )
-    .await?;
+    .await
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     db::insert_pack_version(
         &pool,
@@ -105,7 +107,8 @@ async fn async_main() -> Result<()> {
             Some(now - Duration::days(7)),
         ),
     )
-    .await?;
+    .await
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
 
     println!("Seeded pack {author_id}/{pack_id}");
     println!("  versions: 1.0.0, 1.1.0 (published), 0.9.0 (yanked)");

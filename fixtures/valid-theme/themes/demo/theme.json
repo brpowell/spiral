@@ -1,0 +1,19 @@
+{
+  "id": "demo",
+  "name": "Demo Theme",
+  "author": "spiral",
+  "description": "Minimal valid theme",
+  "tokens": {
+    "color-bg": "#111111",
+    "color-surface": "#1a1a1a",
+    "color-text-primary": "#eeeeee",
+    "color-text-secondary": "#aaaaaa",
+    "color-accent": "#6cb6ff",
+    "color-accent-muted": "#3a5f80",
+    "color-border": "#333333",
+    "color-danger": "#f07178",
+    "radius-card": "8px",
+    "radius-button": "6px",
+    "font-ui": "system-ui, sans-serif"
+  }
+}
