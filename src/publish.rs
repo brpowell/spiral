@@ -8,15 +8,15 @@ use std::path::{Path, PathBuf};
 use chrono::Utc;
 use sha2::{Digest, Sha256};
 use spk_format::{
-    cleanup_pack_extract_dir, contribution_id_from_manifest_json, extract_pack_archive,
-    find_pack_root, get_contribution_type_handler, parse_pack_manifest_json,
+    cleanup_pack_extract_dir, contribution_id_from_manifest_json, effective_contribution_id,
+    extract_pack_archive, find_pack_root, get_contribution_type_handler, parse_pack_manifest_json,
     validate_renderer_contribution_at, validate_skin_contribution_at,
     validate_theme_contribution_at, validate_visualizer_contribution_at, PackManifest,
-    CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME,
+    CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME, PACK_README_FILENAME, PACK_README_MAX_BYTES,
 };
 
 use crate::icons::{icon_storage_key, pack_storage_key, read_pack_icon};
-use crate::models::PackVersionRow;
+use crate::models::{ContributionSummary, PackVersionRow};
 
 #[derive(Debug)]
 pub struct ValidatedUpload {
@@ -58,8 +58,8 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
 
     let result = (|| {
         let pack_dir = find_pack_root(&extract_dir).map_err(PublishError::invalid)?;
-        let (pack, contribution_types) = validate_pack_for_publish(&pack_dir)?;
-        if contribution_types.is_empty() {
+        let (pack, contribution_summaries) = validate_pack_for_publish(&pack_dir)?;
+        if contribution_summaries.is_empty() {
             return Err(PublishError::invalid(format!(
                 "pack \"{}\" has no contributions",
                 pack.pack_id
@@ -67,8 +67,17 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
         }
 
         let storage_key = pack_storage_key(&pack.author_id, &pack.pack_id, &pack.version);
-        let types_json = serde_json::to_string(&contribution_types)
+        let mut types: Vec<String> = contribution_summaries
+            .iter()
+            .map(|c| c.r#type.clone())
+            .collect();
+        types.sort();
+        types.dedup();
+        let types_json = serde_json::to_string(&types)
             .map_err(|e| PublishError::invalid(format!("serialize contribution types: {e}")))?;
+        let contributions_json = serde_json::to_string(&contribution_summaries).map_err(|e| {
+            PublishError::invalid(format!("serialize contributions: {e}"))
+        })?;
 
         let icon = read_pack_icon(&pack_dir, pack.icon.as_deref())?;
         let (icon_bytes, icon_storage_key) = match icon {
@@ -84,6 +93,8 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
             None => (None, None),
         };
 
+        let readme = read_pack_readme(&pack_dir)?;
+
         Ok(ValidatedUpload {
             row: PackVersionRow {
                 author_id: pack.author_id,
@@ -95,6 +106,10 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
                 sha256,
                 storage_key,
                 icon_storage_key,
+                name: pack.name,
+                description: pack.description,
+                readme,
+                contributions: contributions_json,
                 published_at: Utc::now(),
                 yanked_at: None,
             },
@@ -109,7 +124,7 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
 
 fn validate_pack_for_publish(
     pack_dir: &Path,
-) -> Result<(PackManifest, Vec<String>), PublishError> {
+) -> Result<(PackManifest, Vec<ContributionSummary>), PublishError> {
     let manifest_path = pack_dir.join(PACK_MANIFEST_FILENAME);
     if !manifest_path.is_file() {
         return Err(PublishError::invalid(format!(
@@ -124,7 +139,8 @@ fn validate_pack_for_publish(
         parse_pack_manifest_json(&contents).map_err(|e| PublishError::invalid(e.to_string()))?;
 
     let contributions = collect_contributions(pack_dir, &pack)?;
-    for (contrib_type, rel_path, manifest) in &contributions {
+    let mut summaries = Vec::with_capacity(contributions.len());
+    for (contrib_type, rel_path, manifest, local_id) in &contributions {
         if get_contribution_type_handler(contrib_type).is_none() {
             return Err(PublishError::invalid(format!(
                 "pack \"{}\": unknown contribution type \"{contrib_type}\" at {rel_path}",
@@ -137,12 +153,26 @@ fn validate_pack_for_publish(
                 pack.pack_id
             ))
         })?;
+
+        let (peeked_name, peeked_author) = peek_contribution_fields(manifest);
+        let name = peeked_name.unwrap_or_else(|| local_id.clone());
+        let author = peeked_author.unwrap_or_default();
+        let effective_id = effective_contribution_id(
+            &pack.author_id,
+            &pack.pack_id,
+            contrib_type,
+            local_id,
+        );
+        summaries.push(ContributionSummary {
+            r#type: contrib_type.clone(),
+            local_id: local_id.clone(),
+            effective_id,
+            name,
+            author,
+        });
     }
 
-    let mut types: Vec<String> = contributions.into_iter().map(|(ty, _, _)| ty).collect();
-    types.sort();
-    types.dedup();
-    Ok((pack, types))
+    Ok((pack, summaries))
 }
 
 fn validate_contribution(contrib_type: &str, manifest_path: &Path) -> Result<(), String> {
@@ -155,10 +185,50 @@ fn validate_contribution(contrib_type: &str, manifest_path: &Path) -> Result<(),
     }
 }
 
+fn peek_contribution_fields(manifest_path: &Path) -> (Option<String>, Option<String>) {
+    let Ok(contents) = fs::read_to_string(manifest_path) else {
+        return (None, None);
+    };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(&contents) else {
+        return (None, None);
+    };
+    let peek = |key: &str| {
+        value
+            .get(key)
+            .and_then(|n| n.as_str())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+    };
+    (peek("name"), peek("author"))
+}
+
+fn read_pack_readme(pack_dir: &Path) -> Result<Option<String>, PublishError> {
+    let path = pack_dir.join(PACK_README_FILENAME);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let meta = fs::metadata(&path).map_err(|e| {
+        PublishError::invalid(format!("failed to stat {PACK_README_FILENAME}: {e}"))
+    })?;
+    if meta.len() > PACK_README_MAX_BYTES {
+        return Err(PublishError::invalid(format!(
+            "{PACK_README_FILENAME} exceeds max size of {PACK_README_MAX_BYTES} bytes"
+        )));
+    }
+    let contents = fs::read_to_string(&path).map_err(|e| {
+        PublishError::invalid(format!("failed to read {PACK_README_FILENAME}: {e}"))
+    })?;
+    if contents.trim().is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(contents))
+}
+
 fn collect_contributions(
     pack_dir: &Path,
     pack: &PackManifest,
-) -> Result<Vec<(String, String, PathBuf)>, PublishError> {
+) -> Result<Vec<(String, String, PathBuf, String)>, PublishError> {
     let mut out = Vec::new();
     let mut seen_type_local_ids: HashMap<String, PathBuf> = HashMap::new();
 
@@ -210,7 +280,12 @@ fn collect_contributions(
                 .strip_prefix(pack_dir)
                 .map(|p| p.to_string_lossy().replace('\\', "/"))
                 .unwrap_or_else(|_| contrib_manifest.to_string_lossy().into_owned());
-            out.push((contrib_type.to_string(), rel, contrib_manifest));
+            out.push((
+                contrib_type.to_string(),
+                rel,
+                contrib_manifest,
+                local_id,
+            ));
         }
     }
 

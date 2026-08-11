@@ -34,12 +34,27 @@ pub struct PackDetailResponse {
     pub versions: Vec<VersionSummary>,
 }
 
+/// Contribution summary extracted at publish time for catalog browsing.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ContributionSummary {
+    #[serde(rename = "type")]
+    pub r#type: String,
+    pub local_id: String,
+    pub effective_id: String,
+    pub name: String,
+    pub author: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VersionSummary {
     pub version: String,
+    pub name: String,
+    pub description: String,
     pub min_app_version: Option<String>,
     pub contribution_types: Vec<String>,
+    pub contributions: Vec<ContributionSummary>,
     pub size_bytes: i64,
     pub sha256: String,
     pub published_at: DateTime<Utc>,
@@ -54,13 +69,19 @@ pub struct VersionDetailResponse {
     pub author_id: String,
     pub pack_id: String,
     pub version: String,
+    pub name: String,
+    pub description: String,
     pub min_app_version: Option<String>,
     pub contribution_types: Vec<String>,
+    pub contributions: Vec<ContributionSummary>,
     pub size_bytes: i64,
     pub sha256: String,
     pub published_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon_url: Option<String>,
+    /// Pack README.md contents extracted at publish (omitted when absent).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub readme: Option<String>,
 }
 
 /// Internal row from `pack_versions`.
@@ -75,6 +96,10 @@ pub struct PackVersionRow {
     pub sha256: String,
     pub storage_key: String,
     pub icon_storage_key: Option<String>,
+    pub name: String,
+    pub description: String,
+    pub readme: Option<String>,
+    pub contributions: String,
     pub published_at: DateTime<Utc>,
     pub yanked_at: Option<DateTime<Utc>>,
 }
@@ -115,8 +140,11 @@ pub struct AdminVersionSummary {
     pub author_id: String,
     pub pack_id: String,
     pub version: String,
+    pub name: String,
+    pub description: String,
     pub min_app_version: Option<String>,
     pub contribution_types: Vec<String>,
+    pub contributions: Vec<ContributionSummary>,
     pub size_bytes: i64,
     pub sha256: String,
     pub published_at: DateTime<Utc>,
@@ -137,9 +165,21 @@ pub struct PurgeResponse {
     pub purged: Vec<String>,
 }
 
+/// Columns selected for every `PackVersionRow` query.
+pub const PACK_VERSION_COLUMNS: &str = r#"
+    author_id, pack_id, version, min_app_version, contribution_types,
+    size_bytes, sha256, storage_key, icon_storage_key,
+    name, description, readme, contributions,
+    published_at, yanked_at
+"#;
+
 impl PackVersionRow {
     pub fn contribution_types_vec(&self) -> Vec<String> {
         serde_json::from_str(&self.contribution_types).unwrap_or_default()
+    }
+
+    pub fn contributions_vec(&self) -> Vec<ContributionSummary> {
+        serde_json::from_str(&self.contributions).unwrap_or_default()
     }
 
     pub fn icon_url(&self) -> Option<String> {
@@ -151,8 +191,11 @@ impl PackVersionRow {
     pub fn to_summary(&self) -> VersionSummary {
         VersionSummary {
             version: self.version.clone(),
+            name: self.name.clone(),
+            description: self.description.clone(),
             min_app_version: self.min_app_version.clone(),
             contribution_types: self.contribution_types_vec(),
+            contributions: self.contributions_vec(),
             size_bytes: self.size_bytes,
             sha256: self.sha256.clone(),
             published_at: self.published_at,
@@ -165,12 +208,16 @@ impl PackVersionRow {
             author_id: self.author_id.clone(),
             pack_id: self.pack_id.clone(),
             version: self.version.clone(),
+            name: self.name.clone(),
+            description: self.description.clone(),
             min_app_version: self.min_app_version.clone(),
             contribution_types: self.contribution_types_vec(),
+            contributions: self.contributions_vec(),
             size_bytes: self.size_bytes,
             sha256: self.sha256.clone(),
             published_at: self.published_at,
             icon_url: self.icon_url(),
+            readme: self.readme.clone(),
         }
     }
 
@@ -179,8 +226,11 @@ impl PackVersionRow {
             author_id: self.author_id.clone(),
             pack_id: self.pack_id.clone(),
             version: self.version.clone(),
+            name: self.name.clone(),
+            description: self.description.clone(),
             min_app_version: self.min_app_version.clone(),
             contribution_types: self.contribution_types_vec(),
+            contributions: self.contributions_vec(),
             size_bytes: self.size_bytes,
             sha256: self.sha256.clone(),
             published_at: self.published_at,

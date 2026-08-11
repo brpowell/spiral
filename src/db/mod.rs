@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS pack_versions (
     sha256 TEXT NOT NULL,
     storage_key TEXT NOT NULL,
     icon_storage_key TEXT,
+    name TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    readme TEXT,
+    contributions TEXT NOT NULL DEFAULT '[]',
     published_at TEXT NOT NULL,
     yanked_at TEXT,
     PRIMARY KEY (author_id, pack_id, version)
@@ -61,12 +65,16 @@ pub async fn connect(database_url: &str) -> Result<SqlitePool> {
         .await
         .context("apply pack_versions / takedown_log schema")?;
 
-    // Upgrade DBs created before icon_storage_key existed.
-    let _ = sqlx::query(
+    // Upgrade DBs created before these columns existed.
+    for stmt in [
         "ALTER TABLE pack_versions ADD COLUMN icon_storage_key TEXT",
-    )
-    .execute(&pool)
-    .await;
+        "ALTER TABLE pack_versions ADD COLUMN name TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE pack_versions ADD COLUMN description TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE pack_versions ADD COLUMN readme TEXT",
+        "ALTER TABLE pack_versions ADD COLUMN contributions TEXT NOT NULL DEFAULT '[]'",
+    ] {
+        let _ = sqlx::query(stmt).execute(&pool).await;
+    }
 
     Ok(pool)
 }

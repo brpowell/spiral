@@ -380,12 +380,24 @@ async fn upload_valid_spk_appears_in_catalog() {
     assert_eq!(body["authorId"], "spiral");
     assert_eq!(body["packId"], "demo-theme");
     assert_eq!(body["version"], "1.0.0");
+    assert_eq!(body["name"], "Demo Theme");
+    assert_eq!(
+        body["description"],
+        "Valid theme fixture for admin upload testing."
+    );
     assert!(body["sha256"].as_str().unwrap().len() == 64);
     assert!(body["sizeBytes"].as_i64().unwrap() > 0);
     assert_eq!(
         body["iconUrl"],
         "/v1/packs/spiral/demo-theme/versions/1.0.0/icon"
     );
+    let contributions = body["contributions"].as_array().expect("contributions");
+    assert_eq!(contributions.len(), 1);
+    assert_eq!(contributions[0]["type"], "theme");
+    assert_eq!(contributions[0]["localId"], "demo");
+    assert_eq!(contributions[0]["effectiveId"], "spiral.demo-theme.theme.demo");
+    assert_eq!(contributions[0]["name"], "Demo Theme");
+    assert_eq!(contributions[0]["author"], "spiral");
 
     let response = app
         .clone()
@@ -408,10 +420,33 @@ async fn upload_valid_spk_appears_in_catalog() {
     let (status, list) = json_get(&app, "/v1/packs?contributionType=theme").await;
     assert_eq!(status, StatusCode::OK);
     let packs = list["packs"].as_array().unwrap();
-    assert!(
-        packs.iter().any(|p| p["packId"] == "demo-theme"),
-        "uploaded pack should appear immediately: {list}"
+    let uploaded = packs
+        .iter()
+        .find(|p| p["packId"] == "demo-theme")
+        .expect("uploaded pack should appear immediately");
+    assert_eq!(uploaded["latestVersion"]["name"], "Demo Theme");
+    assert_eq!(
+        uploaded["latestVersion"]["description"],
+        "Valid theme fixture for admin upload testing."
     );
+    assert!(uploaded["latestVersion"]["readme"].is_null());
+    assert_eq!(
+        uploaded["latestVersion"]["contributions"][0]["name"],
+        "Demo Theme"
+    );
+
+    let (status, detail) =
+        json_get(&app, "/v1/packs/spiral/demo-theme/versions/1.0.0").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(detail["name"], "Demo Theme");
+    assert!(
+        detail["readme"]
+            .as_str()
+            .unwrap_or("")
+            .contains("Demo Theme"),
+        "version detail should include README: {detail}"
+    );
+    assert!(detail["contributions"].as_array().unwrap().len() == 1);
 }
 
 #[tokio::test]

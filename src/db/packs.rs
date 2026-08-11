@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use sqlx::SqlitePool;
 
-use crate::models::{PackVersionRow, TakedownLogRow};
+use crate::models::{PackVersionRow, TakedownLogRow, PACK_VERSION_COLUMNS};
 
 #[derive(Debug, thiserror::Error)]
 pub enum InsertPackError {
@@ -21,8 +21,10 @@ pub async fn insert_pack_version(
         r#"
         INSERT INTO pack_versions (
             author_id, pack_id, version, min_app_version, contribution_types,
-            size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            size_bytes, sha256, storage_key, icon_storage_key,
+            name, description, readme, contributions,
+            published_at, yanked_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         "#,
     )
     .bind(&row.author_id)
@@ -34,6 +36,10 @@ pub async fn insert_pack_version(
     .bind(&row.sha256)
     .bind(&row.storage_key)
     .bind(&row.icon_storage_key)
+    .bind(&row.name)
+    .bind(&row.description)
+    .bind(&row.readme)
+    .bind(&row.contributions)
     .bind(row.published_at)
     .bind(row.yanked_at)
     .execute(pool)
@@ -56,28 +62,26 @@ pub async fn list_published_versions(
 ) -> Result<Vec<PackVersionRow>> {
     // contribution_types is JSON text; filter that field in Rust after fetch.
     let rows = if let Some(author) = author_id {
-        sqlx::query_as::<_, PackVersionRow>(
+        sqlx::query_as::<_, PackVersionRow>(&format!(
             r#"
-            SELECT author_id, pack_id, version, min_app_version, contribution_types,
-               size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
+            SELECT {PACK_VERSION_COLUMNS}
             FROM pack_versions
             WHERE yanked_at IS NULL AND author_id = ?
             ORDER BY author_id, pack_id, published_at DESC
-            "#,
-        )
+            "#
+        ))
         .bind(author)
         .fetch_all(pool)
         .await
     } else {
-        sqlx::query_as::<_, PackVersionRow>(
+        sqlx::query_as::<_, PackVersionRow>(&format!(
             r#"
-            SELECT author_id, pack_id, version, min_app_version, contribution_types,
-               size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
+            SELECT {PACK_VERSION_COLUMNS}
             FROM pack_versions
             WHERE yanked_at IS NULL
             ORDER BY author_id, pack_id, published_at DESC
-            "#,
-        )
+            "#
+        ))
         .fetch_all(pool)
         .await
     }
@@ -91,14 +95,13 @@ pub async fn list_published_versions_for_pack(
     author_id: &str,
     pack_id: &str,
 ) -> Result<Vec<PackVersionRow>> {
-    let rows = sqlx::query_as::<_, PackVersionRow>(
+    let rows = sqlx::query_as::<_, PackVersionRow>(&format!(
         r#"
-        SELECT author_id, pack_id, version, min_app_version, contribution_types,
-               size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
+        SELECT {PACK_VERSION_COLUMNS}
         FROM pack_versions
         WHERE yanked_at IS NULL AND author_id = ? AND pack_id = ?
-        "#,
-    )
+        "#
+    ))
     .bind(author_id)
     .bind(pack_id)
     .fetch_all(pool)
@@ -115,14 +118,13 @@ pub async fn get_published_version(
     pack_id: &str,
     version: &str,
 ) -> Result<Option<PackVersionRow>> {
-    let row = sqlx::query_as::<_, PackVersionRow>(
+    let row = sqlx::query_as::<_, PackVersionRow>(&format!(
         r#"
-        SELECT author_id, pack_id, version, min_app_version, contribution_types,
-               size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
+        SELECT {PACK_VERSION_COLUMNS}
         FROM pack_versions
         WHERE author_id = ? AND pack_id = ? AND version = ? AND yanked_at IS NULL
-        "#,
-    )
+        "#
+    ))
     .bind(author_id)
     .bind(pack_id)
     .bind(version)
@@ -139,14 +141,13 @@ pub async fn get_version_for_download(
     pack_id: &str,
     version: &str,
 ) -> Result<Option<PackVersionRow>> {
-    let row = sqlx::query_as::<_, PackVersionRow>(
+    let row = sqlx::query_as::<_, PackVersionRow>(&format!(
         r#"
-        SELECT author_id, pack_id, version, min_app_version, contribution_types,
-               size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
+        SELECT {PACK_VERSION_COLUMNS}
         FROM pack_versions
         WHERE author_id = ? AND pack_id = ? AND version = ?
-        "#,
-    )
+        "#
+    ))
     .bind(author_id)
     .bind(pack_id)
     .bind(version)
@@ -223,14 +224,13 @@ pub fn group_packs_latest(rows: Vec<PackVersionRow>) -> Vec<(String, String, Pac
 
 /// All versions for admin listing (published + yanked), newest first per pack.
 pub async fn list_all_versions(pool: &SqlitePool) -> Result<Vec<PackVersionRow>> {
-    let rows = sqlx::query_as::<_, PackVersionRow>(
+    let rows = sqlx::query_as::<_, PackVersionRow>(&format!(
         r#"
-        SELECT author_id, pack_id, version, min_app_version, contribution_types,
-               size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
+        SELECT {PACK_VERSION_COLUMNS}
         FROM pack_versions
         ORDER BY author_id, pack_id, published_at DESC
-        "#,
-    )
+        "#
+    ))
     .fetch_all(pool)
     .await
     .context("list all pack versions")?;
@@ -318,14 +318,13 @@ pub async fn delete_pack_versions(
     author_id: &str,
     pack_id: &str,
 ) -> Result<Vec<PackVersionRow>> {
-    let rows = sqlx::query_as::<_, PackVersionRow>(
+    let rows = sqlx::query_as::<_, PackVersionRow>(&format!(
         r#"
-        SELECT author_id, pack_id, version, min_app_version, contribution_types,
-               size_bytes, sha256, storage_key, icon_storage_key, published_at, yanked_at
+        SELECT {PACK_VERSION_COLUMNS}
         FROM pack_versions
         WHERE author_id = ? AND pack_id = ?
-        "#,
-    )
+        "#
+    ))
     .bind(author_id)
     .bind(pack_id)
     .fetch_all(pool)
@@ -420,6 +419,10 @@ pub fn pack_version_row(
         sha256: sha256.to_string(),
         storage_key: storage_key.to_string(),
         icon_storage_key: None,
+        name: String::new(),
+        description: String::new(),
+        readme: None,
+        contributions: "[]".to_string(),
         published_at,
         yanked_at,
     }
