@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::icons::icon_url_path;
+use crate::preview::preview_url_path;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,9 +58,9 @@ pub struct VersionSummary {
     pub size_bytes: i64,
     pub sha256: String,
     pub published_at: DateTime<Utc>,
-    /// Relative path to the pack icon, when the published archive declared one.
+    /// Relative path to the pack preview, when present.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub icon_url: Option<String>,
+    pub preview_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -78,7 +78,7 @@ pub struct VersionDetailResponse {
     pub sha256: String,
     pub published_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub icon_url: Option<String>,
+    pub preview_url: Option<String>,
     /// Pack README.md contents extracted at publish (omitted when absent).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub readme: Option<String>,
@@ -95,7 +95,7 @@ pub struct PackVersionRow {
     pub size_bytes: i64,
     pub sha256: String,
     pub storage_key: String,
-    pub icon_storage_key: Option<String>,
+    pub preview_storage_key: Option<String>,
     pub name: String,
     pub description: String,
     pub readme: Option<String>,
@@ -150,7 +150,7 @@ pub struct AdminVersionSummary {
     pub published_at: DateTime<Utc>,
     pub yanked_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub icon_url: Option<String>,
+    pub preview_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -168,7 +168,7 @@ pub struct PurgeResponse {
 /// Columns selected for every `PackVersionRow` query.
 pub const PACK_VERSION_COLUMNS: &str = r#"
     author_id, pack_id, version, min_app_version, contribution_types,
-    size_bytes, sha256, storage_key, icon_storage_key,
+    size_bytes, sha256, storage_key, preview_storage_key,
     name, description, readme, contributions,
     published_at, yanked_at
 "#;
@@ -182,9 +182,9 @@ impl PackVersionRow {
         serde_json::from_str(&self.contributions).unwrap_or_default()
     }
 
-    pub fn icon_url(&self) -> Option<String> {
-        self.icon_storage_key.as_ref().map(|_| {
-            icon_url_path(&self.author_id, &self.pack_id, &self.version)
+    pub fn preview_url(&self) -> Option<String> {
+        self.preview_storage_key.as_ref().map(|_| {
+            preview_url_path(&self.author_id, &self.pack_id, &self.version)
         })
     }
 
@@ -199,7 +199,7 @@ impl PackVersionRow {
             size_bytes: self.size_bytes,
             sha256: self.sha256.clone(),
             published_at: self.published_at,
-            icon_url: self.icon_url(),
+            preview_url: self.preview_url(),
         }
     }
 
@@ -216,7 +216,7 @@ impl PackVersionRow {
             size_bytes: self.size_bytes,
             sha256: self.sha256.clone(),
             published_at: self.published_at,
-            icon_url: self.icon_url(),
+            preview_url: self.preview_url(),
             readme: self.readme.clone(),
         }
     }
@@ -235,7 +235,7 @@ impl PackVersionRow {
             sha256: self.sha256.clone(),
             published_at: self.published_at,
             yanked_at: self.yanked_at,
-            icon_url: self.icon_url(),
+            preview_url: self.preview_url(),
         }
     }
 }

@@ -110,7 +110,7 @@ pub const ADMIN_HTML: &str = r#"<!DOCTYPE html>
     <h2 style="margin-top:0">Upload pack</h2>
     <label for="spk">.spk archive</label>
     <input id="spk" type="file" accept=".spk,application/zip" />
-    <p class="muted">Pack icon is taken from <code>pack.json</code> <code>icon</code> inside the archive — no separate upload.</p>
+    <p class="muted">Pack preview is taken from <code>pack.json</code> <code>preview</code> (or the first contribution preview when omitted) — no separate upload.</p>
     <button type="button" id="upload">Upload</button>
   </section>
 
@@ -197,7 +197,7 @@ async function refresh() {
       : '<span class="badge live">live</span>';
     return '<tr>' +
       '<td>' +
-        (v.iconUrl ? '<img src="' + v.iconUrl + '" alt="" width="32" height="32" style="border-radius:4px;vertical-align:middle;margin-right:0.5rem;object-fit:cover;background:#111" />' : '') +
+        (v.previewUrl ? '<img src="' + v.previewUrl + '" alt="" width="32" height="32" style="border-radius:4px;vertical-align:middle;margin-right:0.5rem;object-fit:cover;background:#111" />' : '') +
         '<code>' + id + '</code><div class="muted">' + (v.contributionTypes || []).join(', ') + '</div></td>' +
       '<td>' + badge + '</td>' +
       '<td class="muted">' + (v.sizeBytes || 0) + ' B<br/><code style="font-size:0.7rem">' + (v.sha256 || '').slice(0, 12) + '…</code></td>' +
@@ -306,8 +306,8 @@ document.getElementById('upload').onclick = async () => {
   try {
     setStatus('Uploading…');
     const body = await api('/v1/admin/packs', { method: 'POST', body: fd });
-    const iconNote = body.iconUrl ? ' · icon ' + body.iconUrl : '';
-    setStatus('Published ' + body.authorId + '/' + body.packId + '@' + body.version + ' (sha256 ' + body.sha256.slice(0, 12) + '…)' + iconNote, true);
+    const previewNote = body.previewUrl ? ' · preview ' + body.previewUrl : '';
+    setStatus('Published ' + body.authorId + '/' + body.packId + '@' + body.version + ' (sha256 ' + body.sha256.slice(0, 12) + '…)' + previewNote, true);
     await refresh();
   } catch (e) {
     setStatus(String(e.message || e), false);

@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS pack_versions (
     size_bytes INTEGER NOT NULL,
     sha256 TEXT NOT NULL,
     storage_key TEXT NOT NULL,
-    icon_storage_key TEXT,
+    preview_storage_key TEXT,
     name TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL DEFAULT '',
     readme TEXT,
@@ -67,7 +67,7 @@ pub async fn connect(database_url: &str) -> Result<SqlitePool> {
 
     // Upgrade DBs created before these columns existed.
     for stmt in [
-        "ALTER TABLE pack_versions ADD COLUMN icon_storage_key TEXT",
+        "ALTER TABLE pack_versions ADD COLUMN preview_storage_key TEXT",
         "ALTER TABLE pack_versions ADD COLUMN name TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE pack_versions ADD COLUMN description TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE pack_versions ADD COLUMN readme TEXT",

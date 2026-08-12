@@ -7,7 +7,7 @@ use axum::{Json, Router};
 use tokio_util::io::ReaderStream;
 
 use crate::db;
-use crate::icons::content_type_for_icon_key;
+use crate::preview::content_type_for_preview_key;
 use crate::models::{PackDetailResponse, PackListQuery, PackListResponse, PackSummary};
 use crate::storage::DownloadTarget;
 use crate::AppState;
@@ -27,8 +27,8 @@ pub fn router() -> Router<AppState> {
             get(download_version),
         )
         .route(
-            "/v1/packs/{author_id}/{pack_id}/versions/{version}/icon",
-            get(download_icon),
+            "/v1/packs/{author_id}/{pack_id}/versions/{version}/preview",
+            get(download_preview),
         )
 }
 
@@ -174,7 +174,7 @@ async fn download_version(
     }
 }
 
-async fn download_icon(
+async fn download_preview(
     State(state): State<AppState>,
     Path((author_id, pack_id, version)): Path<(String, String, String)>,
 ) -> ApiResult<Response> {
@@ -211,21 +211,21 @@ async fn download_icon(
         }
     };
 
-    let Some(icon_key) = row.icon_storage_key.as_deref() else {
+    let Some(preview_key) = row.preview_storage_key.as_deref() else {
         return Err(ApiError::not_found(format!(
-            "pack {author_id}/{pack_id}@{} has no icon",
+            "pack {author_id}/{pack_id}@{} has no preview",
             row.version
         )));
     };
 
     let target = state
         .storage
-        .get_download_url(icon_key)
+        .get_download_url(preview_key)
         .await
         .map_err(|e| {
-            tracing::error!("storage get_download_url for icon failed: {e:#}");
+            tracing::error!("storage get_download_url for preview failed: {e:#}");
             ApiError::not_found(format!(
-                "icon for {author_id}/{pack_id}@{} missing",
+                "preview for {author_id}/{pack_id}@{} missing",
                 row.version
             ))
         })?;
@@ -236,7 +236,7 @@ async fn download_icon(
             let file = tokio::fs::File::open(&path).await.map_err(|e| {
                 tracing::error!("open {}: {e}", path.display());
                 ApiError::not_found(format!(
-                    "icon for {author_id}/{pack_id}@{} missing",
+                    "preview for {author_id}/{pack_id}@{} missing",
                     row.version
                 ))
             })?;
@@ -248,7 +248,7 @@ async fn download_icon(
             let headers = response.headers_mut();
             headers.insert(
                 header::CONTENT_TYPE,
-                content_type_for_icon_key(icon_key).parse().unwrap(),
+                content_type_for_preview_key(preview_key).parse().unwrap(),
             );
             headers.insert(header::CACHE_CONTROL, "public, max-age=86400".parse().unwrap());
             if let Some(len) = meta.map(|m| m.len()) {

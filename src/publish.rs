@@ -10,20 +10,20 @@ use sha2::{Digest, Sha256};
 use spk_format::{
     cleanup_pack_extract_dir, contribution_id_from_manifest_json, effective_contribution_id,
     extract_pack_archive, find_pack_root, get_contribution_type_handler, parse_pack_manifest_json,
-    validate_renderer_contribution_at, validate_skin_contribution_at,
+    resolve_preview_file, validate_renderer_contribution_at, validate_skin_contribution_at,
     validate_theme_contribution_at, validate_visualizer_contribution_at, PackManifest,
     CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME, PACK_README_FILENAME, PACK_README_MAX_BYTES,
 };
 
-use crate::icons::{icon_storage_key, pack_storage_key, read_pack_icon};
 use crate::models::{ContributionSummary, PackVersionRow};
+use crate::preview::{pack_storage_key, preview_storage_key, read_pack_preview};
 
 #[derive(Debug)]
 pub struct ValidatedUpload {
     pub row: PackVersionRow,
     pub bytes: Vec<u8>,
-    /// Pack icon bytes extracted from the archive, if `pack.json` declared one.
-    pub icon: Option<Vec<u8>>,
+    /// Pack preview bytes extracted from the archive, when present.
+    pub preview: Option<Vec<u8>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -79,11 +79,12 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
             PublishError::invalid(format!("serialize contributions: {e}"))
         })?;
 
-        let icon = read_pack_icon(&pack_dir, pack.icon.as_deref())?;
-        let (icon_bytes, icon_storage_key) = match icon {
+        let preview_rel = resolve_publish_preview_rel(&pack_dir, &pack)?;
+        let preview_asset = read_pack_preview(&pack_dir, preview_rel.as_deref())?;
+        let (preview_bytes, preview_key) = match preview_asset {
             Some((bytes, ext)) => (
                 Some(bytes),
-                Some(icon_storage_key(
+                Some(preview_storage_key(
                     &pack.author_id,
                     &pack.pack_id,
                     &pack.version,
@@ -105,7 +106,7 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
                 size_bytes,
                 sha256,
                 storage_key,
-                icon_storage_key,
+                preview_storage_key: preview_key,
                 name: pack.name,
                 description: pack.description,
                 readme,
@@ -114,7 +115,7 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
                 yanked_at: None,
             },
             bytes: bytes.to_vec(),
-            icon: icon_bytes,
+            preview: preview_bytes,
         })
     })();
 
@@ -223,6 +224,62 @@ fn read_pack_readme(pack_dir: &Path) -> Result<Option<String>, PublishError> {
         return Ok(None);
     }
     Ok(Some(contents))
+}
+
+fn peek_contribution_preview(manifest_path: &Path) -> Option<String> {
+    let contents = fs::read_to_string(manifest_path).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&contents).ok()?;
+    value
+        .get("preview")
+        .and_then(|n| n.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
+/// Explicit `pack.json` preview, else first contribution preview in canonical folder order.
+fn resolve_publish_preview_rel(
+    pack_dir: &Path,
+    pack: &PackManifest,
+) -> Result<Option<String>, PublishError> {
+    if let Some(preview) = pack
+        .preview
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        return Ok(Some(preview.to_string()));
+    }
+
+    for &(folder, _contrib_type, manifest_filename) in CONTRIBUTION_TYPE_FOLDERS {
+        let type_root = pack_dir.join(folder);
+        if !type_root.is_dir() {
+            continue;
+        }
+        let Ok(entries) = fs::read_dir(&type_root) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let contribution_dir = entry.path();
+            if !contribution_dir.is_dir() {
+                continue;
+            }
+            let contrib_manifest = contribution_dir.join(manifest_filename);
+            if !contrib_manifest.is_file() {
+                continue;
+            }
+            let explicit = peek_contribution_preview(&contrib_manifest);
+            let Some(abs) = resolve_preview_file(&contribution_dir, explicit.as_deref()) else {
+                continue;
+            };
+            let rel = abs
+                .strip_prefix(pack_dir)
+                .map(|p| p.to_string_lossy().replace('\\', "/"))
+                .unwrap_or_else(|_| abs.to_string_lossy().replace('\\', "/"));
+            return Ok(Some(rel));
+        }
+    }
+    Ok(None)
 }
 
 fn collect_contributions(

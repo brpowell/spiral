@@ -3,8 +3,8 @@
 pub mod api;
 pub mod config;
 pub mod db;
-pub mod icons;
 pub mod models;
+pub mod preview;
 pub mod publish;
 pub mod storage;
 

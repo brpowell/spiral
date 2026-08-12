@@ -1604,7 +1604,7 @@ dependencies = [
 [[package]]
 name = "spk-format"
 version = "0.1.0"
-source = "git+https://github.com/spiral-powered/spk-format.git?rev=e349868e84202831f1b726430c052293f202fba8#e349868e84202831f1b726430c052293f202fba8"
+source = "git+https://github.com/spiral-powered/spk-format.git?rev=6831e99b27ba8568e628d9b95658b9b8c61de22c#6831e99b27ba8568e628d9b95658b9b8c61de22c"
 dependencies = [
  "serde",
  "serde_json",

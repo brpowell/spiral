@@ -94,12 +94,12 @@ async fn upload_pack(
         .await
         .map_err(ApiError::from)?;
 
-    if let (Some(icon_key), Some(icon_bytes)) =
-        (validated.row.icon_storage_key.as_ref(), validated.icon.as_ref())
+    if let (Some(preview_key), Some(preview_bytes)) =
+        (validated.row.preview_storage_key.as_ref(), validated.preview.as_ref())
     {
         state
             .storage
-            .put(icon_key, icon_bytes)
+            .put(preview_key, preview_bytes)
             .await
             .map_err(ApiError::from)?;
     }
@@ -108,8 +108,8 @@ async fn upload_pack(
         Ok(()) => Ok(Json(validated.row.to_detail())),
         Err(InsertPackError::Duplicate) => {
             let _ = state.storage.delete(&validated.row.storage_key).await;
-            if let Some(icon_key) = &validated.row.icon_storage_key {
-                let _ = state.storage.delete(icon_key).await;
+            if let Some(preview_key) = &validated.row.preview_storage_key {
+                let _ = state.storage.delete(preview_key).await;
             }
             Err(ApiError::conflict(format!(
                 "pack version {}/{}@{} already exists",
@@ -224,8 +224,8 @@ async fn purge_version(
         .delete(&row.storage_key)
         .await
         .map_err(ApiError::from)?;
-    if let Some(icon_key) = &row.icon_storage_key {
-        let _ = state.storage.delete(icon_key).await;
+    if let Some(preview_key) = &row.preview_storage_key {
+        let _ = state.storage.delete(preview_key).await;
     }
 
     db::insert_takedown_log(
@@ -266,8 +266,8 @@ async fn purge_pack(
     let mut purged = Vec::new();
     for row in &rows {
         let _ = state.storage.delete(&row.storage_key).await;
-        if let Some(icon_key) = &row.icon_storage_key {
-            let _ = state.storage.delete(icon_key).await;
+        if let Some(preview_key) = &row.preview_storage_key {
+            let _ = state.storage.delete(preview_key).await;
         }
         purged.push(format!("{}/{}/{}", row.author_id, row.pack_id, row.version));
     }

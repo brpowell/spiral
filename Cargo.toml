@@ -26,7 +26,7 @@ semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
-spk-format = { git = "https://github.com/spiral-powered/spk-format.git", rev = "e349868e84202831f1b726430c052293f202fba8" }
+spk-format = { git = "https://github.com/spiral-powered/spk-format.git", rev = "6831e99b27ba8568e628d9b95658b9b8c61de22c" }
 sqlx = { version = "0.8", default-features = false, features = [
   "runtime-tokio",
   "sqlite",

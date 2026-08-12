@@ -388,8 +388,8 @@ async fn upload_valid_spk_appears_in_catalog() {
     assert!(body["sha256"].as_str().unwrap().len() == 64);
     assert!(body["sizeBytes"].as_i64().unwrap() > 0);
     assert_eq!(
-        body["iconUrl"],
-        "/v1/packs/spiral/demo-theme/versions/1.0.0/icon"
+        body["previewUrl"],
+        "/v1/packs/spiral/demo-theme/versions/1.0.0/preview"
     );
     let contributions = body["contributions"].as_array().expect("contributions");
     assert_eq!(contributions.len(), 1);
@@ -403,7 +403,7 @@ async fn upload_valid_spk_appears_in_catalog() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/v1/packs/spiral/demo-theme/versions/1.0.0/icon")
+                .uri("/v1/packs/spiral/demo-theme/versions/1.0.0/preview")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -414,8 +414,8 @@ async fn upload_valid_spk_appears_in_catalog() {
         response.headers().get("content-type").unwrap(),
         "image/png"
     );
-    let icon_bytes = response.into_body().collect().await.unwrap().to_bytes();
-    assert!(icon_bytes.starts_with(b"\x89PNG"), "expected PNG magic");
+    let preview_bytes = response.into_body().collect().await.unwrap().to_bytes();
+    assert!(preview_bytes.starts_with(b"\x89PNG"), "expected PNG magic");
 
     let (status, list) = json_get(&app, "/v1/packs?contributionType=theme").await;
     assert_eq!(status, StatusCode::OK);

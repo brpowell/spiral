@@ -21,7 +21,7 @@ pub async fn insert_pack_version(
         r#"
         INSERT INTO pack_versions (
             author_id, pack_id, version, min_app_version, contribution_types,
-            size_bytes, sha256, storage_key, icon_storage_key,
+            size_bytes, sha256, storage_key, preview_storage_key,
             name, description, readme, contributions,
             published_at, yanked_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -35,7 +35,7 @@ pub async fn insert_pack_version(
     .bind(row.size_bytes)
     .bind(&row.sha256)
     .bind(&row.storage_key)
-    .bind(&row.icon_storage_key)
+    .bind(&row.preview_storage_key)
     .bind(&row.name)
     .bind(&row.description)
     .bind(&row.readme)
@@ -418,7 +418,7 @@ pub fn pack_version_row(
         size_bytes,
         sha256: sha256.to_string(),
         storage_key: storage_key.to_string(),
-        icon_storage_key: None,
+        preview_storage_key: None,
         name: String::new(),
         description: String::new(),
         readme: None,
