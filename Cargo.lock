@@ -1713,7 +1713,7 @@ dependencies = [
 [[package]]
 name = "spk-format"
 version = "0.1.0"
-source = "git+https://github.com/spiral-powered/spk-format.git?rev=9d1fcf2df6157621b7c5a56274a624091b827eea#9d1fcf2df6157621b7c5a56274a624091b827eea"
+source = "git+https://github.com/spiral-powered/spk-format.git?rev=8a175f066ad65fd32cf95d1bb1b42efa0c212263#8a175f066ad65fd32cf95d1bb1b42efa0c212263"
 dependencies = [
  "serde",
  "serde_json",
@@ -2424,7 +2424,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

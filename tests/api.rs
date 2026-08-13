@@ -137,12 +137,7 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
 async fn json_get(app: &axum::Router, path: &str) -> (StatusCode, Value) {
     let response = app
         .clone()
-        .oneshot(
-            Request::builder()
-                .uri(path)
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(Request::builder().uri(path).body(Body::empty()).unwrap())
         .await
         .unwrap();
     let status = response.status();
@@ -176,12 +171,7 @@ async fn security_headers_on_api_and_admin_html() {
     );
 
     let html = app
-        .oneshot(
-            Request::builder()
-                .uri("/rgad")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(Request::builder().uri("/rgad").body(Body::empty()).unwrap())
         .await
         .unwrap();
     assert_eq!(html.status(), StatusCode::OK);
@@ -226,8 +216,7 @@ async fn list_detail_download_end_to_end() {
     assert_eq!(versions.len(), 2);
     assert!(versions.iter().all(|v| v["version"] != "0.9.0"));
 
-    let (status, latest) =
-        json_get(&app, "/v1/packs/spiral/demo-skin/versions/latest").await;
+    let (status, latest) = json_get(&app, "/v1/packs/spiral/demo-skin/versions/latest").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(latest["version"], "1.1.0");
 
@@ -330,7 +319,8 @@ fn zip_dir_to_bytes(pack_dir: &Path) -> Vec<u8> {
     let mut cursor = std::io::Cursor::new(Vec::new());
     {
         let mut zip = ZipWriter::new(&mut cursor);
-        let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
         add_dir(&mut zip, pack_dir, Path::new(""), options);
         zip.finish().unwrap();
     }
@@ -345,7 +335,8 @@ fn zip_slip_bytes() -> Vec<u8> {
     let mut cursor = std::io::Cursor::new(Vec::new());
     {
         let mut zip = ZipWriter::new(&mut cursor);
-        let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
         // enclosed_name() rejects this as escaping the extract root.
         zip.start_file("../../../evil.txt", options).unwrap();
         zip.write_all(b"pwned").unwrap();
@@ -449,7 +440,10 @@ async fn upload_valid_spk_appears_in_catalog() {
     assert_eq!(contributions.len(), 1);
     assert_eq!(contributions[0]["type"], "theme");
     assert_eq!(contributions[0]["localId"], "demo");
-    assert_eq!(contributions[0]["effectiveId"], "spiral.demo-theme.theme.demo");
+    assert_eq!(
+        contributions[0]["effectiveId"],
+        "spiral.demo-theme.theme.demo"
+    );
     assert_eq!(contributions[0]["name"], "Demo Theme");
     assert_eq!(contributions[0]["author"], "spiral");
 
@@ -464,10 +458,7 @@ async fn upload_valid_spk_appears_in_catalog() {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(
-        response.headers().get("content-type").unwrap(),
-        "image/png"
-    );
+    assert_eq!(response.headers().get("content-type").unwrap(), "image/png");
     let preview_bytes = response.into_body().collect().await.unwrap().to_bytes();
     assert!(preview_bytes.starts_with(b"\x89PNG"), "expected PNG magic");
 
@@ -490,8 +481,7 @@ async fn upload_valid_spk_appears_in_catalog() {
         "Demo Theme"
     );
 
-    let (status, detail) =
-        json_get(&app, "/v1/packs/spiral/demo-theme/versions/1.0.0").await;
+    let (status, detail) = json_get(&app, "/v1/packs/spiral/demo-theme/versions/1.0.0").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(detail["name"], "Demo Theme");
     assert!(
@@ -502,10 +492,7 @@ async fn upload_valid_spk_appears_in_catalog() {
         "version detail should include README: {detail}"
     );
     assert!(
-        detail["changelog"]
-            .as_str()
-            .unwrap_or("")
-            .contains("1.0.0"),
+        detail["changelog"].as_str().unwrap_or("").contains("1.0.0"),
         "version detail should include CHANGELOG: {detail}"
     );
     assert!(detail["contributions"].as_array().unwrap().len() == 1);
@@ -720,12 +707,7 @@ async fn admin_panel_and_list_require_token() {
 
     let response = app
         .clone()
-        .oneshot(
-            Request::builder()
-                .uri("/rgad")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(Request::builder().uri("/rgad").body(Body::empty()).unwrap())
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);

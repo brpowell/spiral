@@ -15,7 +15,8 @@ const CSP_HTML: HeaderValue = HeaderValue::from_static(
 );
 
 /// JSON, images, downloads: do not treat the response as an executable document.
-const CSP_OTHER: HeaderValue = HeaderValue::from_static("default-src 'none'; frame-ancestors 'none'");
+const CSP_OTHER: HeaderValue =
+    HeaderValue::from_static("default-src 'none'; frame-ancestors 'none'");
 
 pub(crate) async fn security_headers(request: Request, next: Next) -> Response {
     let mut response = next.run(request).await;

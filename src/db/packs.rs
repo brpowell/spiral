@@ -51,7 +51,9 @@ pub async fn insert_pack_version(
         Err(sqlx::Error::Database(db_err)) if db_err.is_unique_violation() => {
             Err(InsertPackError::Duplicate)
         }
-        Err(e) => Err(InsertPackError::Other(anyhow::Error::new(e).context("insert pack_versions row"))),
+        Err(e) => Err(InsertPackError::Other(
+            anyhow::Error::new(e).context("insert pack_versions row"),
+        )),
     }
 }
 
@@ -175,11 +177,7 @@ fn filter_by_contribution_type(
         return rows;
     };
     rows.into_iter()
-        .filter(|row| {
-            row.contribution_types_vec()
-                .iter()
-                .any(|t| t == wanted)
-        })
+        .filter(|row| row.contribution_types_vec().iter().any(|t| t == wanted))
         .collect()
 }
 
@@ -209,8 +207,7 @@ pub fn group_packs_latest(rows: Vec<PackVersionRow>) -> Vec<(String, String, Pac
                 best.insert(key, row);
             }
             Some(existing) => {
-                if compare_version_desc(&row.version, &existing.version)
-                    == std::cmp::Ordering::Less
+                if compare_version_desc(&row.version, &existing.version) == std::cmp::Ordering::Less
                 {
                     best.insert(key, row);
                 }
@@ -351,10 +348,7 @@ pub async fn delete_pack_versions(
     Ok(rows)
 }
 
-pub async fn insert_takedown_log(
-    pool: &SqlitePool,
-    row: &TakedownLogRow,
-) -> Result<()> {
+pub async fn insert_takedown_log(pool: &SqlitePool, row: &TakedownLogRow) -> Result<()> {
     sqlx::query(
         r#"
         INSERT INTO takedown_log (

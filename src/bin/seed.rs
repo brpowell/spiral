@@ -146,8 +146,8 @@ struct BrowseMetadata {
 
 /// Lightweight pack.json + contribution peek for seeding (fixture may not pass full validators).
 fn browse_metadata_from_pack_dir(pack_dir: &Path) -> Result<BrowseMetadata> {
-    let contents = fs::read_to_string(pack_dir.join(PACK_MANIFEST_FILENAME))
-        .context("read pack.json")?;
+    let contents =
+        fs::read_to_string(pack_dir.join(PACK_MANIFEST_FILENAME)).context("read pack.json")?;
     let pack = parse_pack_manifest_json(&contents).map_err(|e| anyhow::anyhow!("{e}"))?;
 
     let mut contributions = Vec::new();
@@ -167,8 +167,8 @@ fn browse_metadata_from_pack_dir(pack_dir: &Path) -> Result<BrowseMetadata> {
                 continue;
             }
             let text = fs::read_to_string(&manifest_path)?;
-            let local_id = contribution_id_from_manifest_json(&text)
-                .map_err(|e| anyhow::anyhow!("{e}"))?;
+            let local_id =
+                contribution_id_from_manifest_json(&text).map_err(|e| anyhow::anyhow!("{e}"))?;
             let value: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
             let peek = |key: &str| {
                 value
@@ -180,12 +180,8 @@ fn browse_metadata_from_pack_dir(pack_dir: &Path) -> Result<BrowseMetadata> {
             };
             let name = peek("name").unwrap_or_else(|| local_id.clone());
             let author = peek("author").unwrap_or_default();
-            let effective_id = effective_contribution_id(
-                &pack.author_id,
-                &pack.pack_id,
-                contrib_type,
-                &local_id,
-            );
+            let effective_id =
+                effective_contribution_id(&pack.author_id, &pack.pack_id, contrib_type, &local_id);
             contributions.push(ContributionSummary {
                 r#type: contrib_type.to_string(),
                 local_id,
@@ -252,7 +248,8 @@ fn build_spk_bytes(pack_dir: &Path) -> Result<Vec<u8>> {
     let mut cursor = std::io::Cursor::new(Vec::new());
     {
         let mut zip = ZipWriter::new(&mut cursor);
-        let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
         add_dir_to_zip(&mut zip, pack_dir, Path::new(""), options)?;
         zip.finish().context("finish zip")?;
     }

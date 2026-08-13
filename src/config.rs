@@ -47,7 +47,9 @@ impl std::fmt::Debug for Config {
 
 #[derive(Debug, Clone)]
 pub enum StorageConfig {
-    Local { root: PathBuf },
+    Local {
+        root: PathBuf,
+    },
     /// Stub — not implemented in Phase 1.
     S3,
 }
@@ -179,6 +181,9 @@ mod tests {
         };
         let debug = format!("{config:?}");
         assert!(debug.contains("<redacted>"), "{debug}");
-        assert!(!debug.contains(&"a".repeat(MIN_ADMIN_TOKEN_BYTES)), "{debug}");
+        assert!(
+            !debug.contains(&"a".repeat(MIN_ADMIN_TOKEN_BYTES)),
+            "{debug}"
+        );
     }
 }

@@ -7,8 +7,8 @@ use axum::{Json, Router};
 use tokio_util::io::ReaderStream;
 
 use crate::db;
-use crate::preview::content_type_for_preview_key;
 use crate::models::{PackDetailResponse, PackListQuery, PackListResponse, PackSummary};
+use crate::preview::content_type_for_preview_key;
 use crate::storage::DownloadTarget;
 use crate::AppState;
 
@@ -109,13 +109,8 @@ async fn download_version(
 
     // Yanked versions remain downloadable by direct URL.
     // Purged versions are gone from pack_versions; consult takedown_log for 410.
-    let row = match db::get_version_for_download(
-        &state.db,
-        &author_id,
-        &pack_id,
-        &resolved_version,
-    )
-    .await?
+    let row = match db::get_version_for_download(&state.db, &author_id, &pack_id, &resolved_version)
+        .await?
     {
         Some(row) => row,
         None => {
@@ -130,10 +125,7 @@ async fn download_version(
         }
     };
 
-    let missing = format!(
-        "artifact for {author_id}/{pack_id}@{} missing",
-        row.version
-    );
+    let missing = format!("artifact for {author_id}/{pack_id}@{} missing", row.version);
     let target = state
         .storage
         .get_download_url(&row.storage_key)
@@ -184,13 +176,8 @@ async fn download_preview(
     };
 
     // Same availability as download: yanked still resolves; purged → 410.
-    let row = match db::get_version_for_download(
-        &state.db,
-        &author_id,
-        &pack_id,
-        &resolved_version,
-    )
-    .await?
+    let row = match db::get_version_for_download(&state.db, &author_id, &pack_id, &resolved_version)
+        .await?
     {
         Some(row) => row,
         None => {
@@ -212,10 +199,7 @@ async fn download_preview(
         )));
     };
 
-    let missing = format!(
-        "preview for {author_id}/{pack_id}@{} missing",
-        row.version
-    );
+    let missing = format!("preview for {author_id}/{pack_id}@{} missing", row.version);
     let target = state
         .storage
         .get_download_url(preview_key)
@@ -238,7 +222,10 @@ async fn download_preview(
                 header::CONTENT_TYPE,
                 content_type_for_preview_key(preview_key).parse().unwrap(),
             );
-            headers.insert(header::CACHE_CONTROL, "public, max-age=86400".parse().unwrap());
+            headers.insert(
+                header::CACHE_CONTROL,
+                "public, max-age=86400".parse().unwrap(),
+            );
             if let Some(len) = meta.map(|m| m.len()) {
                 headers.insert(header::CONTENT_LENGTH, len.to_string().parse().unwrap());
             }
@@ -250,20 +237,22 @@ async fn download_preview(
 /// DB row exists but blob is gone → 404 + warn (integrity drift). Other storage
 /// failures → 500 via [`ApiError::internal`].
 fn map_storage_lookup_error(err: anyhow::Error, missing_message: &str) -> ApiError {
-    if err.chain().any(|cause| cause.to_string().starts_with("object not found:")) {
+    if err
+        .chain()
+        .any(|cause| cause.to_string().starts_with("object not found:"))
+    {
         tracing::warn!("storage object missing for published version: {err:#}");
         return ApiError::not_found(missing_message.to_string());
     }
     ApiError::internal(err)
 }
 
-fn map_open_error(
-    err: std::io::Error,
-    path: &std::path::Path,
-    missing_message: &str,
-) -> ApiError {
+fn map_open_error(err: std::io::Error, path: &std::path::Path, missing_message: &str) -> ApiError {
     if err.kind() == std::io::ErrorKind::NotFound {
-        tracing::warn!("storage file missing for published version: {}: {err}", path.display());
+        tracing::warn!(
+            "storage file missing for published version: {}: {err}",
+            path.display()
+        );
         return ApiError::not_found(missing_message.to_string());
     }
     ApiError::internal(anyhow::anyhow!("open {}: {err}", path.display()))

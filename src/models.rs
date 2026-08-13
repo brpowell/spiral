@@ -190,9 +190,9 @@ impl PackVersionRow {
     }
 
     pub fn preview_url(&self) -> Option<String> {
-        self.preview_storage_key.as_ref().map(|_| {
-            preview_url_path(&self.author_id, &self.pack_id, &self.version)
-        })
+        self.preview_storage_key
+            .as_ref()
+            .map(|_| preview_url_path(&self.author_id, &self.pack_id, &self.version))
     }
 
     pub fn to_summary(&self) -> VersionSummary {

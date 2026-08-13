@@ -80,6 +80,9 @@ mod tests {
     #[test]
     fn mismatched_tokens_reject() {
         assert!(!admin_token_matches("provided", "expected"));
-        assert!(!admin_token_matches("short", "a-much-longer-expected-token"));
+        assert!(!admin_token_matches(
+            "short",
+            "a-much-longer-expected-token"
+        ));
     }
 }

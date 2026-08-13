@@ -31,12 +31,19 @@ fn asset_response(path: &str) -> Response {
         Some(file) => {
             let mime = content_type(path);
             (
-                [(header::CONTENT_TYPE, mime), (header::CACHE_CONTROL, cache_control(path))],
+                [
+                    (header::CONTENT_TYPE, mime),
+                    (header::CACHE_CONTROL, cache_control(path)),
+                ],
                 file.data,
             )
                 .into_response()
         }
-        None => (StatusCode::NOT_FOUND, "admin asset missing — rebuild admin/dist").into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            "admin asset missing — rebuild admin/dist",
+        )
+            .into_response(),
     }
 }
 

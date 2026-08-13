@@ -25,7 +25,9 @@ impl LocalDiskStorage {
     fn resolve_key(&self, key: &str) -> Result<PathBuf> {
         if key.is_empty()
             || key.contains('\0')
-            || key.split('/').any(|seg| seg.is_empty() || seg == "." || seg == "..")
+            || key
+                .split('/')
+                .any(|seg| seg.is_empty() || seg == "." || seg == "..")
         {
             bail!("invalid storage key: {key:?}");
         }

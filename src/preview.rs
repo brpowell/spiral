@@ -7,7 +7,8 @@ use crate::publish::PublishError;
 /// Max bytes accepted for a pack preview sidecar (5 MiB).
 pub const MAX_PREVIEW_BYTES: u64 = 5 * 1024 * 1024;
 
-const ALLOWED_PREVIEW_EXTS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "svg"];
+// Raster-only; SVG is not permitted (executable when opened as a document).
+const ALLOWED_PREVIEW_EXTS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif"];
 
 /// Storage object key for a version's `.spk` archive.
 pub fn pack_storage_key(author_id: &str, pack_id: &str, version: &str) -> String {
@@ -36,7 +37,6 @@ pub fn content_type_for_preview_key(storage_key: &str) -> &'static str {
         "jpg" | "jpeg" => "image/jpeg",
         "webp" => "image/webp",
         "gif" => "image/gif",
-        "svg" => "image/svg+xml",
         _ => "application/octet-stream",
     }
 }
@@ -156,6 +156,33 @@ mod tests {
         assert_eq!(
             preview_storage_key("a", "b", "1.0.0", "webp"),
             "a/b/1.0.0/preview.webp"
+        );
+    }
+
+    #[test]
+    fn read_pack_preview_rejects_svg() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("spk-registry-preview-svg-{nanos}"));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("preview.svg"), b"<svg></svg>").unwrap();
+        let err = read_pack_preview(&dir, Some("preview.svg")).unwrap_err();
+        assert!(err.to_string().contains("unsupported extension"), "{err}");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn content_type_does_not_serve_svg_as_image() {
+        assert_eq!(
+            content_type_for_preview_key("a/b/1.0.0/preview.png"),
+            "image/png"
+        );
+        assert_eq!(
+            content_type_for_preview_key("a/b/1.0.0/preview.svg"),
+            "application/octet-stream"
         );
     }
 }

@@ -54,8 +54,7 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
         .map_err(|e| PublishError::invalid(format!("failed to flush temp archive: {e}")))?;
 
     let archive_path = tmp.path().to_path_buf();
-    let extract_dir =
-        extract_pack_archive(&archive_path).map_err(PublishError::invalid)?;
+    let extract_dir = extract_pack_archive(&archive_path).map_err(PublishError::invalid)?;
 
     let result = (|| {
         let pack_dir = find_pack_root(&extract_dir).map_err(PublishError::invalid)?;
@@ -84,9 +83,8 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
         types.dedup();
         let types_json = serde_json::to_string(&types)
             .map_err(|e| PublishError::invalid(format!("serialize contribution types: {e}")))?;
-        let contributions_json = serde_json::to_string(&contribution_summaries).map_err(|e| {
-            PublishError::invalid(format!("serialize contributions: {e}"))
-        })?;
+        let contributions_json = serde_json::to_string(&contribution_summaries)
+            .map_err(|e| PublishError::invalid(format!("serialize contributions: {e}")))?;
 
         let preview_rel = resolve_publish_preview_rel(&pack_dir, &pack)?;
         let preview_asset = read_pack_preview(&pack_dir, preview_rel.as_deref())?;
@@ -147,9 +145,8 @@ pub fn directory_size_bytes(root: &Path) -> Result<u64, PublishError> {
     let mut total: u64 = 0;
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
-        let entries = fs::read_dir(&dir).map_err(|e| {
-            PublishError::invalid(format!("failed to read {}: {e}", dir.display()))
-        })?;
+        let entries = fs::read_dir(&dir)
+            .map_err(|e| PublishError::invalid(format!("failed to read {}: {e}", dir.display())))?;
         for entry in entries {
             let entry = entry.map_err(|e| {
                 PublishError::invalid(format!("failed to read entry under {}: {e}", dir.display()))
@@ -209,12 +206,8 @@ fn validate_pack_for_publish(
         let (peeked_name, peeked_author) = peek_contribution_fields(manifest);
         let name = peeked_name.unwrap_or_else(|| local_id.clone());
         let author = peeked_author.unwrap_or_default();
-        let effective_id = effective_contribution_id(
-            &pack.author_id,
-            &pack.pack_id,
-            contrib_type,
-            local_id,
-        );
+        let effective_id =
+            effective_contribution_id(&pack.author_id, &pack.pack_id, contrib_type, local_id);
         summaries.push(ContributionSummary {
             r#type: contrib_type.clone(),
             local_id: local_id.clone(),
@@ -256,19 +249,11 @@ fn peek_contribution_fields(manifest_path: &Path) -> (Option<String>, Option<Str
 }
 
 fn read_pack_readme(pack_dir: &Path) -> Result<Option<String>, PublishError> {
-    read_optional_pack_text(
-        pack_dir,
-        PACK_README_FILENAME,
-        PACK_README_MAX_BYTES,
-    )
+    read_optional_pack_text(pack_dir, PACK_README_FILENAME, PACK_README_MAX_BYTES)
 }
 
 fn read_pack_changelog(pack_dir: &Path) -> Result<Option<String>, PublishError> {
-    read_optional_pack_text(
-        pack_dir,
-        PACK_CHANGELOG_FILENAME,
-        PACK_CHANGELOG_MAX_BYTES,
-    )
+    read_optional_pack_text(pack_dir, PACK_CHANGELOG_FILENAME, PACK_CHANGELOG_MAX_BYTES)
 }
 
 fn read_optional_pack_text(
@@ -280,17 +265,15 @@ fn read_optional_pack_text(
     if !path.is_file() {
         return Ok(None);
     }
-    let meta = fs::metadata(&path).map_err(|e| {
-        PublishError::invalid(format!("failed to stat {filename}: {e}"))
-    })?;
+    let meta = fs::metadata(&path)
+        .map_err(|e| PublishError::invalid(format!("failed to stat {filename}: {e}")))?;
     if meta.len() > max_bytes {
         return Err(PublishError::invalid(format!(
             "{filename} exceeds max size of {max_bytes} bytes"
         )));
     }
-    let contents = fs::read_to_string(&path).map_err(|e| {
-        PublishError::invalid(format!("failed to read {filename}: {e}"))
-    })?;
+    let contents = fs::read_to_string(&path)
+        .map_err(|e| PublishError::invalid(format!("failed to read {filename}: {e}")))?;
     if contents.trim().is_empty() {
         return Ok(None);
     }
@@ -408,12 +391,7 @@ fn collect_contributions(
                 .strip_prefix(pack_dir)
                 .map(|p| p.to_string_lossy().replace('\\', "/"))
                 .unwrap_or_else(|_| contrib_manifest.to_string_lossy().into_owned());
-            out.push((
-                contrib_type.to_string(),
-                rel,
-                contrib_manifest,
-                local_id,
-            ));
+            out.push((contrib_type.to_string(), rel, contrib_manifest, local_id));
         }
     }
 
