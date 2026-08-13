@@ -40,7 +40,13 @@ pub fn is_safe_media_asset_path(asset: &str) -> bool {
 }
 
 /// `asset` is contribution-relative (`assets/foo.webm`), including prefix and extension.
-fn validate_media_asset(pack_dir: &Path, asset: &str, kind: &str, prefix: &str, errors: &mut Vec<String>) {
+fn validate_media_asset(
+    pack_dir: &Path,
+    asset: &str,
+    kind: &str,
+    prefix: &str,
+    errors: &mut Vec<String>,
+) {
     if !is_safe_media_asset_path(asset) {
         errors.push(format!(
             "{prefix}.asset \"{asset}\" must be a relative path under assets/ (no .., absolute, or drive paths)"
@@ -104,9 +110,7 @@ fn validate_media_asset(pack_dir: &Path, asset: &str, kind: &str, prefix: &str, 
 /// Effective renderer id: `authorId.packId.renderer.contributionId`.
 pub fn is_renderer_effective_id(value: &str) -> bool {
     let parts: Vec<&str> = value.split('.').collect();
-    parts.len() == 4
-        && parts.iter().all(|p| is_kebab_slug(p))
-        && parts[2] == "renderer"
+    parts.len() == 4 && parts.iter().all(|p| is_kebab_slug(p)) && parts[2] == "renderer"
 }
 
 pub fn is_safe_pack_relative_js(path: &str) -> bool {
@@ -124,6 +128,8 @@ pub struct VizManifest {
     pub name: String,
     pub author: String,
     pub description: String,
+    /// Optional preview image path relative to the contribution directory.
+    /// Raster only (`ALLOWED_PREVIEW_EXTENSIONS`); SVG is not permitted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
     pub surfaces: HashMap<String, VizSurfaceProfile>,
@@ -141,9 +147,7 @@ pub fn normalize_surfaces(
 ) -> Result<HashMap<String, VizSurfaceProfile>, String> {
     for key in resolved.keys() {
         if key.as_str() != SURFACE_DEFAULT {
-            return Err(format!(
-                "{prefix}.{key} is not a known surface (default)"
-            ));
+            return Err(format!("{prefix}.{key} is not a known surface (default)"));
         }
     }
 
@@ -187,10 +191,7 @@ fn validate_scene_layer(
 
     match kind {
         "canvas" | "webgl" => {
-            let renderer = layer
-                .get("renderer")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let renderer = layer.get("renderer").and_then(|v| v.as_str()).unwrap_or("");
             if !is_renderer_effective_id(renderer) {
                 errors.push(format!(
                     "{prefix}.renderer \"{renderer}\" must be a fully-qualified renderer id (authorId.packId.renderer.id)"
@@ -278,15 +279,8 @@ fn validate_manifest(manifest: &VizManifest, pack_dir: &Path) -> Result<(), Stri
     }
 
     if let Some(preview) = &manifest.preview {
-        if preview.contains("..") || preview.starts_with('/') {
-            errors.push(format!(
-                "preview \"{preview}\" must be a relative path under the pack root"
-            ));
-        } else {
-            let path = pack_dir.join(preview);
-            if !path.is_file() {
-                errors.push(format!("preview not found: {}", path.display()));
-            }
+        if let Err(message) = crate::validate_preview_file(pack_dir, preview) {
+            errors.push(message);
         }
     }
 
@@ -315,8 +309,12 @@ pub fn validate_renderer_contribution_at(manifest_path: &Path) -> Result<(), Str
     })?;
     let contents = fs::read_to_string(manifest_path)
         .map_err(|e| format!("could not read {}: {e}", manifest_path.display()))?;
-    let manifest: RendererManifestFile = serde_json::from_str(&contents)
-        .map_err(|e| format!("{} is not valid renderer JSON: {e}", manifest_path.display()))?;
+    let manifest: RendererManifestFile = serde_json::from_str(&contents).map_err(|e| {
+        format!(
+            "{} is not valid renderer JSON: {e}",
+            manifest_path.display()
+        )
+    })?;
 
     if manifest.engine != "canvas2d" && manifest.engine != "webgl" {
         return Err(format!(
@@ -354,11 +352,7 @@ mod tests {
         let entry = dir.join("main.js");
         std::fs::write(&entry, "export default {};").unwrap();
         let path = dir.join("renderer.json");
-        std::fs::write(
-            &path,
-            r#"{"id":"bars","engine":"nope","entry":"main.js"}"#,
-        )
-        .unwrap();
+        std::fs::write(&path, r#"{"id":"bars","engine":"nope","entry":"main.js"}"#).unwrap();
         let err = validate_renderer_contribution_at(&path).unwrap_err();
         assert!(err.contains("unsupported engine"));
         let _ = std::fs::remove_dir_all(&dir);
@@ -394,10 +388,7 @@ mod tests {
 
     #[test]
     fn validate_media_asset_accepts_pack_file_and_rejects_escape() {
-        let pack_dir = std::env::temp_dir().join(format!(
-            "spk-viz-asset-{}",
-            std::process::id()
-        ));
+        let pack_dir = std::env::temp_dir().join(format!("spk-viz-asset-{}", std::process::id()));
         let assets = pack_dir.join("assets");
         std::fs::create_dir_all(&assets).unwrap();
         std::fs::write(assets.join("bg.png"), b"png").unwrap();

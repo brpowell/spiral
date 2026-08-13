@@ -5,7 +5,7 @@
 //! Contributions are discovered by scanning type folders (`themes/`, `skins/`, `visualizers/`, `renderers/`).
 
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Current pack.json wrapper shape version (`manifestVersion`).
 pub const PACK_MANIFEST_VERSION: u32 = 1;
@@ -21,6 +21,12 @@ pub const PACK_README_FILENAME: &str = "README.md";
 
 /// Max README.md size accepted for read/write (bytes).
 pub const PACK_README_MAX_BYTES: u64 = 256 * 1024;
+
+/// Optional release history at the pack root (rendered in Studio Changelog).
+pub const PACK_CHANGELOG_FILENAME: &str = "CHANGELOG.md";
+
+/// Max CHANGELOG.md size accepted for read/write (bytes).
+pub const PACK_CHANGELOG_MAX_BYTES: u64 = 256 * 1024;
 
 /// Fixed type-folder → contribution type mapping used by the scanner.
 pub const CONTRIBUTION_TYPE_FOLDERS: &[(&str, &str, &str)] = &[
@@ -40,11 +46,80 @@ pub struct PackManifest {
     pub version: String,
     pub name: String,
     pub description: String,
-    /// Optional path relative to the pack root. Prefer square 128×128 or 256×256.
+    /// Optional preview image path relative to the pack root.
+    /// Raster only (`ALLOWED_PREVIEW_EXTENSIONS`); SVG is not permitted.
+    /// Prefer a wide image around 1280×800 (16:10). When omitted, clients may
+    /// default to the first contribution that declares a `preview` in its manifest.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub icon: Option<String>,
+    pub preview: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_app_version: Option<String>,
+}
+
+/// Raster image extensions allowed for pack and contribution `preview` fields.
+///
+/// SVG is omitted: `image/svg+xml` is executable when opened as a document.
+pub const ALLOWED_PREVIEW_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif"];
+
+fn allowed_preview_exts_list() -> String {
+    ALLOWED_PREVIEW_EXTENSIONS.join(", ")
+}
+
+/// Validate a declared preview path (shape + extension, no disk).
+///
+/// Rejects empty, traversal / absolute paths, missing extensions, and anything
+/// outside [`ALLOWED_PREVIEW_EXTENSIONS`] (including SVG).
+pub fn validate_preview_relpath(preview: &str) -> Result<(), String> {
+    let trimmed = preview.trim();
+    if trimmed.is_empty() {
+        return Err("must be a non-empty string when present".to_string());
+    }
+    if trimmed.contains("..") || trimmed.starts_with('/') || trimmed.starts_with('\\') {
+        return Err(format!(
+            "must be a relative path (no .. or absolute), got: {preview}"
+        ));
+    }
+    let ext = Path::new(trimmed)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase())
+        .filter(|e| !e.is_empty());
+    let Some(ext) = ext else {
+        return Err(format!(
+            "must have an image extension ({}), got: {preview}",
+            allowed_preview_exts_list()
+        ));
+    };
+    if !ALLOWED_PREVIEW_EXTENSIONS
+        .iter()
+        .any(|a| *a == ext.as_str())
+    {
+        return Err(format!(
+            "has unsupported extension \".{ext}\" (allowed: {})",
+            allowed_preview_exts_list()
+        ));
+    }
+    Ok(())
+}
+
+/// Validate a declared preview path and that the file exists under `dir`.
+pub fn validate_preview_file(dir: &Path, preview: &str) -> Result<(), String> {
+    validate_preview_relpath(preview).map_err(|message| format!("preview {message}"))?;
+    let path = dir.join(preview.trim());
+    if !path.is_file() {
+        return Err(format!("preview not found: {}", path.display()));
+    }
+    Ok(())
+}
+
+/// Resolve an explicitly declared preview image relative to `dir`.
+///
+/// Contribution and pack previews must be declared in the manifest — there is
+/// no filename convention fallback.
+pub fn resolve_preview_file(dir: &Path, explicit: Option<&str>) -> Option<PathBuf> {
+    let name = explicit.map(str::trim).filter(|s| !s.is_empty())?;
+    let p = dir.join(name);
+    p.is_file().then_some(p)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -164,7 +239,9 @@ pub fn assert_pack_manifest_version(value: &serde_json::Value) -> Result<(), Pac
     let version_num = version.as_u64().ok_or_else(|| {
         err(
             "unsupported_manifest_version",
-            format!("unsupported pack manifestVersion: {version} (expected {PACK_MANIFEST_VERSION})"),
+            format!(
+                "unsupported pack manifestVersion: {version} (expected {PACK_MANIFEST_VERSION})"
+            ),
         )
     })?;
     if version_num != u64::from(PACK_MANIFEST_VERSION) {
@@ -247,11 +324,11 @@ pub fn parse_pack_manifest_value(
             ));
         }
     }
-    if let Some(icon) = &pack.icon {
-        if icon.trim().is_empty() {
+    if let Some(preview) = &pack.preview {
+        if let Err(message) = validate_preview_relpath(preview) {
             return Err(err(
                 "invalid_field",
-                "pack.json field \"icon\" must be a non-empty string when present",
+                format!("pack.json field \"preview\" {message}"),
             ));
         }
     }
@@ -284,8 +361,12 @@ pub fn contribution_id_from_manifest_value(
 }
 
 pub fn contribution_id_from_manifest_json(json: &str) -> Result<String, PackManifestError> {
-    let value: serde_json::Value = serde_json::from_str(json)
-        .map_err(|e| err("invalid_json", format!("contribution manifest is not valid JSON: {e}")))?;
+    let value: serde_json::Value = serde_json::from_str(json).map_err(|e| {
+        err(
+            "invalid_json",
+            format!("contribution manifest is not valid JSON: {e}"),
+        )
+    })?;
     contribution_id_from_manifest_value(&value)
 }
 
@@ -445,11 +526,123 @@ mod tests {
         assert!(schema["properties"].get("contributions").is_none());
         assert!(schema["properties"].get("authorId").is_some());
         assert!(schema["properties"].get("author").is_none());
+        assert!(schema["properties"].get("preview").is_some());
+        assert!(schema["properties"].get("icon").is_none());
         assert!(schema["required"]
             .as_array()
             .unwrap()
             .iter()
             .any(|v| v == "authorId"));
+    }
+
+    #[test]
+    fn parses_optional_preview() {
+        let pack = parse_pack_manifest_json(
+            r#"{
+            "manifestVersion": 1,
+            "packId": "midnight-drive",
+            "authorId": "bryan",
+            "version": "1.0.0",
+            "name": "X",
+            "description": "",
+            "preview": "preview.png"
+        }"#,
+        )
+        .expect("preview ok");
+        assert_eq!(pack.preview.as_deref(), Some("preview.png"));
+    }
+
+    #[test]
+    fn rejects_empty_preview() {
+        let err = parse_pack_manifest_json(
+            r#"{
+            "manifestVersion": 1,
+            "packId": "midnight-drive",
+            "authorId": "bryan",
+            "version": "1.0.0",
+            "name": "X",
+            "description": "",
+            "preview": "   "
+        }"#,
+        )
+        .expect_err("empty preview");
+        assert_eq!(err.code, "invalid_field");
+        assert!(err.message.contains("preview"));
+    }
+
+    #[test]
+    fn rejects_svg_preview() {
+        let err = parse_pack_manifest_json(
+            r#"{
+            "manifestVersion": 1,
+            "packId": "midnight-drive",
+            "authorId": "bryan",
+            "version": "1.0.0",
+            "name": "X",
+            "description": "",
+            "preview": "preview.svg"
+        }"#,
+        )
+        .expect_err("svg preview");
+        assert_eq!(err.code, "invalid_field");
+        assert!(err.message.contains("unsupported extension"));
+        assert!(err.message.contains(".svg"));
+    }
+
+    #[test]
+    fn validate_preview_relpath_allows_raster_rejects_svg() {
+        assert!(validate_preview_relpath("preview.png").is_ok());
+        assert!(validate_preview_relpath("art/hero.webp").is_ok());
+        assert!(validate_preview_relpath("Preview.JPG").is_ok());
+        assert!(validate_preview_relpath("preview.svg").is_err());
+        assert!(validate_preview_relpath("preview.SVG").is_err());
+        assert!(validate_preview_relpath("../preview.png").is_err());
+        assert!(validate_preview_relpath("/tmp/preview.png").is_err());
+    }
+
+    #[test]
+    fn validate_preview_file_rejects_svg_even_when_present() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("spk-format-preview-svg-{nanos}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("preview.svg"), b"<svg></svg>").unwrap();
+        std::fs::write(dir.join("preview.png"), b"y").unwrap();
+        assert!(validate_preview_file(&dir, "preview.png").is_ok());
+        let err = validate_preview_file(&dir, "preview.svg").unwrap_err();
+        assert!(err.contains("unsupported extension"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn schema_preview_excludes_svg() {
+        let schema: serde_json::Value = serde_json::from_str(SCHEMA).unwrap();
+        let pattern = schema["properties"]["preview"]["pattern"]
+            .as_str()
+            .expect("preview pattern");
+        assert!(pattern.contains("png"));
+        assert!(!pattern.contains("svg"));
+    }
+
+    #[test]
+    fn resolve_preview_file_requires_explicit() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("spk-format-preview-{nanos}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("custom.webp"), b"x").unwrap();
+        std::fs::write(dir.join("preview.png"), b"y").unwrap();
+        let resolved = resolve_preview_file(&dir, Some("custom.webp")).unwrap();
+        assert_eq!(resolved.file_name().unwrap(), "custom.webp");
+        assert!(resolve_preview_file(&dir, None).is_none());
+        assert!(resolve_preview_file(&dir, Some("missing.png")).is_none());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

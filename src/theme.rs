@@ -39,18 +39,10 @@ pub const REQUIRED_THEME_TOKEN_KEYS: &[&str] = &[
 
 /// Strict theme contribution check used by pack install/export.
 pub fn validate_theme_contribution_at(manifest_path: &Path) -> Result<(), String> {
-    let contents = fs::read_to_string(manifest_path).map_err(|e| {
-        format!(
-            "could not read theme {}: {e}",
-            manifest_path.display()
-        )
-    })?;
-    let file: ThemeFile = serde_json::from_str(&contents).map_err(|e| {
-        format!(
-            "{} is not valid theme JSON: {e}",
-            manifest_path.display()
-        )
-    })?;
+    let contents = fs::read_to_string(manifest_path)
+        .map_err(|e| format!("could not read theme {}: {e}", manifest_path.display()))?;
+    let file: ThemeFile = serde_json::from_str(&contents)
+        .map_err(|e| format!("{} is not valid theme JSON: {e}", manifest_path.display()))?;
     let declared_id = file
         .id
         .as_deref()
@@ -77,10 +69,7 @@ pub fn validate_theme_contribution_at(manifest_path: &Path) -> Result<(), String
         }
     }
     if !missing.is_empty() {
-        return Err(format!(
-            "missing required tokens: {}",
-            missing.join(", ")
-        ));
+        return Err(format!("missing required tokens: {}", missing.join(", ")));
     }
     Ok(())
 }

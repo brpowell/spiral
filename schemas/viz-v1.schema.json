@@ -36,7 +36,9 @@
     },
     "preview": {
       "type": "string",
-      "description": "Preview image path relative to pack root (e.g. preview.png)."
+      "minLength": 1,
+      "pattern": "^(?!.*\\.\\.)(?!/).+\\.(png|jpg|jpeg|webp|gif)$",
+      "description": "Optional preview image path relative to the contribution directory. Raster only: png, jpg, jpeg, webp, gif."
     },
     "surfaces": {
       "type": "object",

@@ -53,10 +53,11 @@
       "maxLength": 280,
       "description": "Short summary for lists/hero; use README.md for longer notes."
     },
-    "icon": {
+    "preview": {
       "type": "string",
       "minLength": 1,
-      "description": "Optional pack icon path relative to the pack root (e.g. icon.png). Prefer a square PNG at 128×128 or 256×256 (256 for sharp 2×)."
+      "pattern": "^(?!.*\\.\\.)(?!/).+\\.(png|jpg|jpeg|webp|gif)$",
+      "description": "Optional preview image path relative to the contribution directory. Raster only: png, jpg, jpeg, webp, gif."
     },
     "minAppVersion": {
       "type": "string",
