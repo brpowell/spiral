@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use spk_registry::config::Config;
+use spk_registry::config::{Config, StorageConfig};
 use spk_registry::db;
 use spk_registry::storage::build_storage;
 use spk_registry::{app_router, AppState};
@@ -29,11 +29,7 @@ async fn main() -> Result<()> {
         .await
         .with_context(|| format!("bind {}", config.bind_addr))?;
 
-    tracing::info!(
-        "spk-registry listening on http://{} (protocol v{})",
-        config.bind_addr,
-        spk_registry::config::PROTOCOL_VERSION
-    );
+    print_startup_banner(&config);
 
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
@@ -41,6 +37,32 @@ async fn main() -> Result<()> {
         .context("server error")?;
 
     Ok(())
+}
+
+fn print_startup_banner(config: &Config) {
+    let version = env!("CARGO_PKG_VERSION");
+    let protocol = spk_registry::config::PROTOCOL_VERSION;
+    let storage = match &config.storage {
+        StorageConfig::Local { root } => format!("local · {}", root.display()),
+        StorageConfig::S3 => "s3".to_string(),
+    };
+    let admin = if config.admin_enabled() {
+        "enabled"
+    } else {
+        "disabled (set ADMIN_TOKEN)"
+    };
+
+    // Printed outside tracing so the banner isn't prefixed with timestamps.
+    eprintln!();
+    eprintln!("  spk-registry  v{version}");
+    eprintln!("  {}", config.instance_name);
+    eprintln!();
+    eprintln!("  ➜  Listening   http://{}", config.bind_addr);
+    eprintln!("  ➜  Admin       http://{}/admin", config.bind_addr);
+    eprintln!("  ➜  Protocol    v{protocol}");
+    eprintln!("  ➜  Storage     {storage}");
+    eprintln!("  ➜  Auth        {admin}");
+    eprintln!();
 }
 
 async fn shutdown_signal() {
