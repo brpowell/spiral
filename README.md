@@ -72,7 +72,7 @@ PY
 | `GET` | `/v1/packs/:authorId/:packId/versions/:version/preview` | Pack preview image (from `pack.json` `preview` or first contribution preview; `latest` alias; yanked ok; purged → `410`) |
 | `GET` | `/admin` | Minimal admin panel (token entered in-page) |
 | `GET` | `/v1/admin/packs` | Admin list (includes yanked). Requires token. |
-| `POST` | `/v1/admin/packs` | Multipart upload (`spk` required). Validates via `spk-format`, computes sha256 + size, extracts pack preview when present. |
+| `POST` | `/v1/admin/packs` | Multipart upload (`spk` required). Validates via `spk-format`, computes sha256 + uncompressed on-disk `sizeBytes`, extracts pack preview when present. |
 | `POST` | `/v1/admin/packs/:authorId/:packId/versions/:version/yank` | Soft-delete (catalog hide; download kept) |
 | `POST` | `/v1/admin/packs/:authorId/:packId/versions/:version/unyank` | Clear yank — version reappears in catalog |
 | `POST` | `/v1/admin/packs/:authorId/:packId/versions/:version/purge` | Hard delete. Body: `{ "confirm": "author/pack@version", "reason": "…" }` |

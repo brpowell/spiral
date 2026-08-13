@@ -55,6 +55,7 @@ pub struct VersionSummary {
     pub min_app_version: Option<String>,
     pub contribution_types: Vec<String>,
     pub contributions: Vec<ContributionSummary>,
+    /// Uncompressed on-disk size of the pack root (not `.spk` archive length).
     pub size_bytes: i64,
     pub sha256: String,
     pub published_at: DateTime<Utc>,
@@ -74,6 +75,7 @@ pub struct VersionDetailResponse {
     pub min_app_version: Option<String>,
     pub contribution_types: Vec<String>,
     pub contributions: Vec<ContributionSummary>,
+    /// Uncompressed on-disk size of the pack root (not `.spk` archive length).
     pub size_bytes: i64,
     pub sha256: String,
     pub published_at: DateTime<Utc>,
@@ -92,6 +94,7 @@ pub struct PackVersionRow {
     pub version: String,
     pub min_app_version: Option<String>,
     pub contribution_types: String,
+    /// Uncompressed on-disk size of the pack root (not `.spk` archive length).
     pub size_bytes: i64,
     pub sha256: String,
     pub storage_key: String,

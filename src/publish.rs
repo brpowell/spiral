@@ -39,9 +39,9 @@ impl PublishError {
 }
 
 /// Hash + extract + validate a `.spk` body. Caller owns storing the object and inserting the row.
+/// Catalog `size_bytes` is the uncompressed pack-root size (not `.spk` archive length).
 pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError> {
     let sha256 = hex::encode(Sha256::digest(bytes));
-    let size_bytes = bytes.len() as i64;
 
     let mut tmp = tempfile::Builder::new()
         .suffix(".spk")
@@ -62,6 +62,14 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
         if contribution_summaries.is_empty() {
             return Err(PublishError::invalid(format!(
                 "pack \"{}\" has no contributions",
+                pack.pack_id
+            )));
+        }
+
+        let size_bytes = directory_size_bytes(&pack_dir)? as i64;
+        if size_bytes <= 0 {
+            return Err(PublishError::invalid(format!(
+                "pack \"{}\" has empty on-disk size",
                 pack.pack_id
             )));
         }
@@ -121,6 +129,46 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
 
     cleanup_pack_extract_dir(&extract_dir);
     result
+}
+
+/// Total size of all regular files under `root` (does not follow symlinks).
+/// Matches desktop `get_directory_size` so catalog and installed sizes agree.
+pub fn directory_size_bytes(root: &Path) -> Result<u64, PublishError> {
+    if !root.is_dir() {
+        return Err(PublishError::invalid(format!(
+            "not a directory: {}",
+            root.display()
+        )));
+    }
+
+    let mut total: u64 = 0;
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let entries = fs::read_dir(&dir).map_err(|e| {
+            PublishError::invalid(format!("failed to read {}: {e}", dir.display()))
+        })?;
+        for entry in entries {
+            let entry = entry.map_err(|e| {
+                PublishError::invalid(format!("failed to read entry under {}: {e}", dir.display()))
+            })?;
+            let path = entry.path();
+            let file_type = entry.file_type().map_err(|e| {
+                PublishError::invalid(format!("failed to stat {}: {e}", path.display()))
+            })?;
+            if file_type.is_symlink() {
+                continue;
+            }
+            if file_type.is_dir() {
+                stack.push(path);
+            } else if file_type.is_file() {
+                let meta = entry.metadata().map_err(|e| {
+                    PublishError::invalid(format!("failed to stat {}: {e}", path.display()))
+                })?;
+                total = total.saturating_add(meta.len());
+            }
+        }
+    }
+    Ok(total)
 }
 
 fn validate_pack_for_publish(

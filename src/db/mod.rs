@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS pack_versions (
     version TEXT NOT NULL,
     min_app_version TEXT,
     contribution_types TEXT NOT NULL,
+    -- Uncompressed on-disk size of the pack root (not .spk archive length).
     size_bytes INTEGER NOT NULL,
     sha256 TEXT NOT NULL,
     storage_key TEXT NOT NULL,

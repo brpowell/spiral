@@ -152,6 +152,7 @@ async fn download_version(
                     row.version
                 ))
             })?;
+            let meta = tokio::fs::metadata(&path).await.ok();
             let stream = ReaderStream::new(file);
             let body = Body::from_stream(stream);
             let filename = format!("{author_id}-{pack_id}-{}.spk", row.version);
@@ -165,10 +166,9 @@ async fn download_version(
                     .parse()
                     .unwrap(),
             );
-            headers.insert(
-                header::CONTENT_LENGTH,
-                row.size_bytes.to_string().parse().unwrap(),
-            );
+            if let Some(len) = meta.map(|m| m.len()) {
+                headers.insert(header::CONTENT_LENGTH, len.to_string().parse().unwrap());
+            }
             Ok(response)
         }
     }

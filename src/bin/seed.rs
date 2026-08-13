@@ -44,7 +44,8 @@ async fn async_main() -> Result<()> {
     let browse = browse_metadata_from_pack_dir(&fixture_dir)?;
     let bytes = build_spk_bytes(&fixture_dir)?;
     let sha256 = hex::encode(Sha256::digest(&bytes));
-    let size_bytes = bytes.len() as i64;
+    let size_bytes = spk_registry::publish::directory_size_bytes(&fixture_dir)
+        .map_err(|e| anyhow::anyhow!("{e}"))? as i64;
 
     let author_id = browse.author_id.as_str();
     let pack_id = browse.pack_id.as_str();

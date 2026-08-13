@@ -386,7 +386,15 @@ async fn upload_valid_spk_appears_in_catalog() {
         "Valid theme fixture for admin upload testing."
     );
     assert!(body["sha256"].as_str().unwrap().len() == 64);
-    assert!(body["sizeBytes"].as_i64().unwrap() > 0);
+    let fixture = fixture_valid_theme_dir();
+    let expected_size =
+        spk_registry::publish::directory_size_bytes(&fixture).expect("fixture size") as i64;
+    assert_eq!(
+        body["sizeBytes"].as_i64().unwrap(),
+        expected_size,
+        "sizeBytes must be uncompressed pack size, not archive length ({})",
+        spk.len()
+    );
     assert_eq!(
         body["previewUrl"],
         "/v1/packs/spiral/demo-theme/versions/1.0.0/preview"
@@ -522,7 +530,17 @@ async fn yank_hides_from_catalog_but_download_still_works() {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
+    let content_length = response
+        .headers()
+        .get("content-length")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse::<usize>().ok());
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(
+        content_length,
+        Some(bytes.len()),
+        "Content-Length must be archive wire size, not catalog sizeBytes"
+    );
     let downloaded_sha = hex::encode(Sha256::digest(&bytes));
     assert_eq!(downloaded_sha, sha);
 }
