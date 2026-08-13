@@ -17,7 +17,8 @@ use chrono::{Duration, Utc};
 use sha2::{Digest, Sha256};
 use spk_format::{
     contribution_id_from_manifest_json, effective_contribution_id, parse_pack_manifest_json,
-    CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME, PACK_README_FILENAME,
+    CONTRIBUTION_TYPE_FOLDERS, PACK_CHANGELOG_FILENAME, PACK_MANIFEST_FILENAME,
+    PACK_README_FILENAME,
 };
 use spk_registry::config::Config;
 use spk_registry::db::{self, pack_version_row};
@@ -107,6 +108,7 @@ async fn async_main() -> Result<()> {
         row.name = browse.name.clone();
         row.description = browse.description.clone();
         row.readme = browse.readme.clone();
+        row.changelog = browse.changelog.clone();
         row.contributions = contributions_json.clone();
         db::insert_pack_version(&pool, &row)
             .await
@@ -137,6 +139,7 @@ struct BrowseMetadata {
     name: String,
     description: String,
     readme: Option<String>,
+    changelog: Option<String>,
     contribution_types: Vec<String>,
     contributions: Vec<ContributionSummary>,
 }
@@ -208,12 +211,25 @@ fn browse_metadata_from_pack_dir(pack_dir: &Path) -> Result<BrowseMetadata> {
         None
     };
 
+    let changelog_path = pack_dir.join(PACK_CHANGELOG_FILENAME);
+    let changelog = if changelog_path.is_file() {
+        let text = fs::read_to_string(&changelog_path)?;
+        if text.trim().is_empty() {
+            None
+        } else {
+            Some(text)
+        }
+    } else {
+        None
+    };
+
     Ok(BrowseMetadata {
         author_id: pack.author_id,
         pack_id: pack.pack_id,
         name: pack.name,
         description: pack.description,
         readme,
+        changelog,
         contribution_types: types,
         contributions,
     })

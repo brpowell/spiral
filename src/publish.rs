@@ -12,7 +12,8 @@ use spk_format::{
     extract_pack_archive, find_pack_root, get_contribution_type_handler, parse_pack_manifest_json,
     resolve_preview_file, validate_renderer_contribution_at, validate_skin_contribution_at,
     validate_theme_contribution_at, validate_visualizer_contribution_at, PackManifest,
-    CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME, PACK_README_FILENAME, PACK_README_MAX_BYTES,
+    CONTRIBUTION_TYPE_FOLDERS, PACK_CHANGELOG_FILENAME, PACK_CHANGELOG_MAX_BYTES,
+    PACK_MANIFEST_FILENAME, PACK_README_FILENAME, PACK_README_MAX_BYTES,
 };
 
 use crate::models::{ContributionSummary, PackVersionRow};
@@ -103,6 +104,7 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
         };
 
         let readme = read_pack_readme(&pack_dir)?;
+        let changelog = read_pack_changelog(&pack_dir)?;
 
         Ok(ValidatedUpload {
             row: PackVersionRow {
@@ -118,6 +120,7 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
                 name: pack.name,
                 description: pack.description,
                 readme,
+                changelog,
                 contributions: contributions_json,
                 published_at: Utc::now(),
                 yanked_at: None,
@@ -253,20 +256,40 @@ fn peek_contribution_fields(manifest_path: &Path) -> (Option<String>, Option<Str
 }
 
 fn read_pack_readme(pack_dir: &Path) -> Result<Option<String>, PublishError> {
-    let path = pack_dir.join(PACK_README_FILENAME);
+    read_optional_pack_text(
+        pack_dir,
+        PACK_README_FILENAME,
+        PACK_README_MAX_BYTES,
+    )
+}
+
+fn read_pack_changelog(pack_dir: &Path) -> Result<Option<String>, PublishError> {
+    read_optional_pack_text(
+        pack_dir,
+        PACK_CHANGELOG_FILENAME,
+        PACK_CHANGELOG_MAX_BYTES,
+    )
+}
+
+fn read_optional_pack_text(
+    pack_dir: &Path,
+    filename: &str,
+    max_bytes: u64,
+) -> Result<Option<String>, PublishError> {
+    let path = pack_dir.join(filename);
     if !path.is_file() {
         return Ok(None);
     }
     let meta = fs::metadata(&path).map_err(|e| {
-        PublishError::invalid(format!("failed to stat {PACK_README_FILENAME}: {e}"))
+        PublishError::invalid(format!("failed to stat {filename}: {e}"))
     })?;
-    if meta.len() > PACK_README_MAX_BYTES {
+    if meta.len() > max_bytes {
         return Err(PublishError::invalid(format!(
-            "{PACK_README_FILENAME} exceeds max size of {PACK_README_MAX_BYTES} bytes"
+            "{filename} exceeds max size of {max_bytes} bytes"
         )));
     }
     let contents = fs::read_to_string(&path).map_err(|e| {
-        PublishError::invalid(format!("failed to read {PACK_README_FILENAME}: {e}"))
+        PublishError::invalid(format!("failed to read {filename}: {e}"))
     })?;
     if contents.trim().is_empty() {
         return Ok(None);

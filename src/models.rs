@@ -84,6 +84,9 @@ pub struct VersionDetailResponse {
     /// Pack README.md contents extracted at publish (omitted when absent).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub readme: Option<String>,
+    /// Pack CHANGELOG.md contents extracted at publish (omitted when absent).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub changelog: Option<String>,
 }
 
 /// Internal row from `pack_versions`.
@@ -102,6 +105,7 @@ pub struct PackVersionRow {
     pub name: String,
     pub description: String,
     pub readme: Option<String>,
+    pub changelog: Option<String>,
     pub contributions: String,
     pub published_at: DateTime<Utc>,
     pub yanked_at: Option<DateTime<Utc>>,
@@ -172,7 +176,7 @@ pub struct PurgeResponse {
 pub const PACK_VERSION_COLUMNS: &str = r#"
     author_id, pack_id, version, min_app_version, contribution_types,
     size_bytes, sha256, storage_key, preview_storage_key,
-    name, description, readme, contributions,
+    name, description, readme, changelog, contributions,
     published_at, yanked_at
 "#;
 
@@ -221,6 +225,7 @@ impl PackVersionRow {
             published_at: self.published_at,
             preview_url: self.preview_url(),
             readme: self.readme.clone(),
+            changelog: self.changelog.clone(),
         }
     }
 

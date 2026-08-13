@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS pack_versions (
     name TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL DEFAULT '',
     readme TEXT,
+    changelog TEXT,
     contributions TEXT NOT NULL DEFAULT '[]',
     published_at TEXT NOT NULL,
     yanked_at TEXT,
@@ -72,6 +73,7 @@ pub async fn connect(database_url: &str) -> Result<SqlitePool> {
         "ALTER TABLE pack_versions ADD COLUMN name TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE pack_versions ADD COLUMN description TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE pack_versions ADD COLUMN readme TEXT",
+        "ALTER TABLE pack_versions ADD COLUMN changelog TEXT",
         "ALTER TABLE pack_versions ADD COLUMN contributions TEXT NOT NULL DEFAULT '[]'",
     ] {
         let _ = sqlx::query(stmt).execute(&pool).await;

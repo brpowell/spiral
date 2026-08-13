@@ -438,6 +438,7 @@ async fn upload_valid_spk_appears_in_catalog() {
         "Valid theme fixture for admin upload testing."
     );
     assert!(uploaded["latestVersion"]["readme"].is_null());
+    assert!(uploaded["latestVersion"]["changelog"].is_null());
     assert_eq!(
         uploaded["latestVersion"]["contributions"][0]["name"],
         "Demo Theme"
@@ -453,6 +454,13 @@ async fn upload_valid_spk_appears_in_catalog() {
             .unwrap_or("")
             .contains("Demo Theme"),
         "version detail should include README: {detail}"
+    );
+    assert!(
+        detail["changelog"]
+            .as_str()
+            .unwrap_or("")
+            .contains("1.0.0"),
+        "version detail should include CHANGELOG: {detail}"
     );
     assert!(detail["contributions"].as_array().unwrap().len() == 1);
 }
