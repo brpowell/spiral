@@ -16,6 +16,8 @@ use spk_registry::{app_router, AppState};
 use tempfile::TempDir;
 use tower::ServiceExt;
 
+const TEST_ADMIN_TOKEN: &str = "test-admin-token-xxxxxxxxxxxxxxxx";
+
 async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
     let tmp = TempDir::new().expect("tempdir");
     let db_path = tmp.path().join("test.db");
@@ -122,7 +124,7 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
             storage: StorageConfig::Local {
                 root: tmp.path().join("objects"),
             },
-            admin_token: "test-admin-token".into(),
+            admin_token: TEST_ADMIN_TOKEN.into(),
             max_upload_bytes: 5 * 1024 * 1024,
         },
         db: pool,
@@ -147,6 +149,50 @@ async fn json_get(app: &axum::Router, path: &str) -> (StatusCode, Value) {
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     let value: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
     (status, value)
+}
+
+#[tokio::test]
+async fn security_headers_on_api_and_admin_html() {
+    let (app, _tmp, _) = test_app().await;
+
+    let api = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/v1/meta")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(api.status(), StatusCode::OK);
+    let api_headers = api.headers();
+    assert_eq!(api_headers["x-content-type-options"], "nosniff");
+    assert_eq!(api_headers["referrer-policy"], "no-referrer");
+    assert_eq!(api_headers["x-frame-options"], "DENY");
+    assert_eq!(
+        api_headers["content-security-policy"],
+        "default-src 'none'; frame-ancestors 'none'"
+    );
+
+    let html = app
+        .oneshot(
+            Request::builder()
+                .uri("/rgad")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(html.status(), StatusCode::OK);
+    let html_headers = html.headers();
+    assert_eq!(html_headers["x-content-type-options"], "nosniff");
+    assert_eq!(html_headers["referrer-policy"], "no-referrer");
+    assert_eq!(html_headers["x-frame-options"], "DENY");
+    let csp = html_headers["content-security-policy"].to_str().unwrap();
+    assert!(csp.contains("default-src 'self'"), "{csp}");
+    assert!(csp.contains("frame-ancestors 'none'"), "{csp}");
+    assert!(csp.contains("style-src 'self' 'unsafe-inline'"), "{csp}");
 }
 
 #[tokio::test]
@@ -330,7 +376,7 @@ async fn admin_upload(app: &axum::Router, bytes: &[u8]) -> (StatusCode, Value) {
             Request::builder()
                 .method("POST")
                 .uri("/v1/rgad/packs")
-                .header("Authorization", "Bearer test-admin-token")
+                .header("Authorization", format!("Bearer {TEST_ADMIN_TOKEN}"))
                 .header("Content-Type", content_type)
                 .body(Body::from(body))
                 .unwrap(),
@@ -352,7 +398,7 @@ async fn admin_json(
     let mut builder = Request::builder()
         .method(method)
         .uri(path)
-        .header("Authorization", "Bearer test-admin-token");
+        .header("Authorization", format!("Bearer {TEST_ADMIN_TOKEN}"));
     let req_body = if let Some(v) = body {
         builder = builder.header("Content-Type", "application/json");
         Body::from(serde_json::to_vec(&v).unwrap())
@@ -695,4 +741,36 @@ async fn admin_panel_and_list_require_token() {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/v1/rgad/packs")
+                .header("Authorization", "Bearer wrong-token")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn non_upload_route_rejects_oversized_body() {
+    let (app, _tmp, _) = test_app().await;
+    // Json extractors use Axum's 2 MiB default; only POST /v1/rgad/packs raises it.
+    let huge = vec![b'x'; 2 * 1024 * 1024 + 1];
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/rgad/packs/spiral/demo-skin/versions/1.1.0/purge")
+                .header("Authorization", format!("Bearer {TEST_ADMIN_TOKEN}"))
+                .header("Content-Type", "application/json")
+                .body(Body::from(huge))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
 }

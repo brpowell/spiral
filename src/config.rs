@@ -11,7 +11,10 @@ pub const PROTOCOL_VERSION: u32 = 1;
 /// Default max `.spk` upload size (50 MiB).
 pub const DEFAULT_MAX_UPLOAD_BYTES: u64 = 50 * 1024 * 1024;
 
-#[derive(Debug, Clone)]
+/// Minimum `ADMIN_TOKEN` length when admin is enabled (empty still disables writes).
+const MIN_ADMIN_TOKEN_BYTES: usize = 32;
+
+#[derive(Clone)]
 pub struct Config {
     pub bind_addr: String,
     pub instance_name: String,
@@ -20,6 +23,26 @@ pub struct Config {
     /// Shared admin bearer token. Empty disables admin write endpoints.
     pub admin_token: String,
     pub max_upload_bytes: u64,
+}
+
+impl std::fmt::Debug for Config {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Config")
+            .field("bind_addr", &self.bind_addr)
+            .field("instance_name", &self.instance_name)
+            .field("database_url", &self.database_url)
+            .field("storage", &self.storage)
+            .field(
+                "admin_token",
+                &if self.admin_token.is_empty() {
+                    "<empty>"
+                } else {
+                    "<redacted>"
+                },
+            )
+            .field("max_upload_bytes", &self.max_upload_bytes)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -62,13 +85,17 @@ impl Config {
             Err(_) => DEFAULT_MAX_UPLOAD_BYTES,
         };
 
+        let admin_token = env::var("ADMIN_TOKEN").unwrap_or_default();
+        let admin_token = admin_token.trim().to_string();
+        validate_admin_token(&admin_token)?;
+
         Ok(Self {
             bind_addr: env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:8787".to_string()),
             instance_name: env::var("INSTANCE_NAME")
                 .unwrap_or_else(|_| "Spiral Pack Registry".to_string()),
             database_url,
             storage,
-            admin_token: env::var("ADMIN_TOKEN").unwrap_or_default(),
+            admin_token,
             max_upload_bytes,
         })
     }
@@ -93,6 +120,20 @@ impl Config {
     }
 }
 
+/// Empty token disables admin. A non-empty token must meet [`MIN_ADMIN_TOKEN_BYTES`].
+fn validate_admin_token(token: &str) -> Result<()> {
+    if token.is_empty() {
+        return Ok(());
+    }
+    if token.len() < MIN_ADMIN_TOKEN_BYTES {
+        bail!(
+            "ADMIN_TOKEN must be at least {MIN_ADMIN_TOKEN_BYTES} bytes when set (empty disables admin); got {} bytes",
+            token.len()
+        );
+    }
+    Ok(())
+}
+
 fn sqlite_file_path(url: &str) -> Option<PathBuf> {
     let rest = url.strip_prefix("sqlite:")?;
     let path = rest.split('?').next()?;
@@ -100,4 +141,44 @@ fn sqlite_file_path(url: &str) -> Option<PathBuf> {
         return None;
     }
     Some(PathBuf::from(path))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_admin_token_is_allowed() {
+        validate_admin_token("").unwrap();
+    }
+
+    #[test]
+    fn short_admin_token_is_rejected() {
+        let err = validate_admin_token("dev-secret").unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("32"), "{msg}");
+        assert!(!msg.contains("dev-secret"), "{msg}");
+    }
+
+    #[test]
+    fn long_enough_admin_token_is_accepted() {
+        validate_admin_token(&"a".repeat(MIN_ADMIN_TOKEN_BYTES)).unwrap();
+    }
+
+    #[test]
+    fn debug_redacts_admin_token() {
+        let config = Config {
+            bind_addr: "127.0.0.1:8787".into(),
+            instance_name: "Test".into(),
+            database_url: "sqlite::memory:".into(),
+            storage: StorageConfig::Local {
+                root: PathBuf::from("data/objects"),
+            },
+            admin_token: "a".repeat(MIN_ADMIN_TOKEN_BYTES),
+            max_upload_bytes: DEFAULT_MAX_UPLOAD_BYTES,
+        };
+        let debug = format!("{config:?}");
+        assert!(debug.contains("<redacted>"), "{debug}");
+        assert!(!debug.contains(&"a".repeat(MIN_ADMIN_TOKEN_BYTES)), "{debug}");
+    }
 }

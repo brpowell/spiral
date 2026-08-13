@@ -2,7 +2,7 @@
 
 mod panel;
 
-use axum::extract::{Multipart, Path, State};
+use axum::extract::{DefaultBodyLimit, Multipart, Path, State};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
@@ -17,12 +17,17 @@ use crate::AppState;
 
 use super::{ApiError, ApiResult};
 
-pub fn router() -> Router<AppState> {
+pub fn router(upload_body_limit: usize) -> Router<AppState> {
+    let upload = Router::new()
+        .route("/v1/rgad/packs", post(upload_pack))
+        .layer(DefaultBodyLimit::max(upload_body_limit));
+
     Router::new()
         .route("/rgad", get(panel::index))
         .route("/rgad/", get(panel::index))
         .route("/rgad/{*path}", get(panel::static_file))
-        .route("/v1/rgad/packs", get(list_admin_packs).post(upload_pack))
+        .route("/v1/rgad/packs", get(list_admin_packs))
+        .merge(upload)
         .route(
             "/v1/rgad/packs/{author_id}/{pack_id}/versions/{version}/yank",
             post(yank_version),

@@ -8,11 +8,13 @@ Companion crate [`spk-format`](https://github.com/spiral-powered/spk-format) own
 
 Admin upload + integrity is implemented. Publishing no longer requires hand-editing the database.
 
+Security assessment and hardening gates (read before a second operator or open publish): [`docs/security/assessment.md`](docs/security/assessment.md).
+
 ## Quick start
 
 ```bash
-# Required for admin write endpoints / panel
-export ADMIN_TOKEN=dev-secret
+# Required for admin write endpoints / panel (≥32 bytes; empty disables writes)
+export ADMIN_TOKEN="$(openssl rand -base64 32)"
 
 # Optional: hand-seed demo rows for read-path smoke tests
 cargo run --bin spk-registry-seed
@@ -68,8 +70,8 @@ See [`admin/README.md`](admin/README.md).
 | `DATABASE_URL` | `sqlite:data/registry.db?mode=rwc` | SQLite only for now; Postgres URL fails fast |
 | `STORAGE_BACKEND` | `local` | `s3` is stubbed |
 | `STORAGE_LOCAL_PATH` | `data/objects` | Object root for `local` |
-| `ADMIN_TOKEN` | _(empty)_ | Shared admin bearer token; empty disables write endpoints |
-| `MAX_UPLOAD_BYTES` | `52428800` (50 MiB) | Hard limit for multipart uploads |
+| `ADMIN_TOKEN` | _(empty)_ | Shared admin bearer token; empty disables write endpoints. When set, must be ≥32 bytes. Do not log `Authorization` at the proxy. |
+| `MAX_UPLOAD_BYTES` | `52428800` (50 MiB) | Hard limit for `POST /v1/rgad/packs` only; other routes stay at Axum’s 2 MiB default |
 
 ## HTTP API (`/v1`)
 
