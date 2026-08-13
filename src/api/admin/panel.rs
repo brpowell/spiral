@@ -182,7 +182,7 @@ async function api(path, opts = {}) {
 
 async function refresh() {
   setStatus('Loading…');
-  const data = await api('/v1/admin/packs');
+  const data = await api('/v1/rgad/packs');
   const versions = data.versions || [];
   if (!versions.length) {
     listEl.innerHTML = '<p class="muted">No versions yet.</p>';
@@ -217,7 +217,7 @@ async function refresh() {
       const [authorId, rest] = btn.dataset.yank.split('/');
       const [packId, version] = rest.split('@');
       try {
-        await api('/v1/admin/packs/' + authorId + '/' + packId + '/versions/' + version + '/yank', { method: 'POST' });
+        await api('/v1/rgad/packs/' + authorId + '/' + packId + '/versions/' + version + '/yank', { method: 'POST' });
         setStatus('Yanked ' + btn.dataset.yank, true);
         await refresh();
       } catch (e) { setStatus(String(e.message || e), false); }
@@ -229,7 +229,7 @@ async function refresh() {
       const [authorId, rest] = btn.dataset.unyank.split('/');
       const [packId, version] = rest.split('@');
       try {
-        await api('/v1/admin/packs/' + authorId + '/' + packId + '/versions/' + version + '/unyank', { method: 'POST' });
+        await api('/v1/rgad/packs/' + authorId + '/' + packId + '/versions/' + version + '/unyank', { method: 'POST' });
         setStatus('Unyanked ' + btn.dataset.unyank, true);
         await refresh();
       } catch (e) { setStatus(String(e.message || e), false); }
@@ -242,7 +242,7 @@ async function refresh() {
       path: (() => {
         const [authorId, rest] = btn.dataset.purgeVersion.split('/');
         const [packId, version] = rest.split('@');
-        return '/v1/admin/packs/' + authorId + '/' + packId + '/versions/' + version + '/purge';
+        return '/v1/rgad/packs/' + authorId + '/' + packId + '/versions/' + version + '/purge';
       })(),
     });
   });
@@ -250,7 +250,7 @@ async function refresh() {
   listEl.querySelectorAll('[data-purge-pack]').forEach(btn => {
     btn.onclick = () => openPurge({
       confirm: btn.dataset.purgePack,
-      path: '/v1/admin/packs/' + btn.dataset.purgePack + '/purge',
+      path: '/v1/rgad/packs/' + btn.dataset.purgePack + '/purge',
     });
   });
 }
@@ -305,7 +305,7 @@ document.getElementById('upload').onclick = async () => {
   fd.append('spk', file);
   try {
     setStatus('Uploading…');
-    const body = await api('/v1/admin/packs', { method: 'POST', body: fd });
+    const body = await api('/v1/rgad/packs', { method: 'POST', body: fd });
     const previewNote = body.previewUrl ? ' · preview ' + body.previewUrl : '';
     setStatus('Published ' + body.authorId + '/' + body.packId + '@' + body.version + ' (sha256 ' + body.sha256.slice(0, 12) + '…)' + previewNote, true);
     await refresh();

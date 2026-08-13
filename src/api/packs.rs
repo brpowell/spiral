@@ -130,28 +130,22 @@ async fn download_version(
         }
     };
 
+    let missing = format!(
+        "artifact for {author_id}/{pack_id}@{} missing",
+        row.version
+    );
     let target = state
         .storage
         .get_download_url(&row.storage_key)
         .await
-        .map_err(|e| {
-            tracing::error!("storage get_download_url failed: {e:#}");
-            ApiError::not_found(format!(
-                "artifact for {author_id}/{pack_id}@{} missing",
-                row.version
-            ))
-        })?;
+        .map_err(|e| map_storage_lookup_error(e, &missing))?;
 
     match target {
         DownloadTarget::Redirect(url) => Ok(Redirect::temporary(&url).into_response()),
         DownloadTarget::LocalPath(path) => {
-            let file = tokio::fs::File::open(&path).await.map_err(|e| {
-                tracing::error!("open {}: {e}", path.display());
-                ApiError::not_found(format!(
-                    "artifact for {author_id}/{pack_id}@{} missing",
-                    row.version
-                ))
-            })?;
+            let file = tokio::fs::File::open(&path)
+                .await
+                .map_err(|e| map_open_error(e, &path, &missing))?;
             let meta = tokio::fs::metadata(&path).await.ok();
             let stream = ReaderStream::new(file);
             let body = Body::from_stream(stream);
@@ -218,28 +212,22 @@ async fn download_preview(
         )));
     };
 
+    let missing = format!(
+        "preview for {author_id}/{pack_id}@{} missing",
+        row.version
+    );
     let target = state
         .storage
         .get_download_url(preview_key)
         .await
-        .map_err(|e| {
-            tracing::error!("storage get_download_url for preview failed: {e:#}");
-            ApiError::not_found(format!(
-                "preview for {author_id}/{pack_id}@{} missing",
-                row.version
-            ))
-        })?;
+        .map_err(|e| map_storage_lookup_error(e, &missing))?;
 
     match target {
         DownloadTarget::Redirect(url) => Ok(Redirect::temporary(&url).into_response()),
         DownloadTarget::LocalPath(path) => {
-            let file = tokio::fs::File::open(&path).await.map_err(|e| {
-                tracing::error!("open {}: {e}", path.display());
-                ApiError::not_found(format!(
-                    "preview for {author_id}/{pack_id}@{} missing",
-                    row.version
-                ))
-            })?;
+            let file = tokio::fs::File::open(&path)
+                .await
+                .map_err(|e| map_open_error(e, &path, &missing))?;
             let meta = tokio::fs::metadata(&path).await.ok();
             let stream = ReaderStream::new(file);
             let body = Body::from_stream(stream);
@@ -257,4 +245,26 @@ async fn download_preview(
             Ok(response)
         }
     }
+}
+
+/// DB row exists but blob is gone → 404 + warn (integrity drift). Other storage
+/// failures → 500 via [`ApiError::internal`].
+fn map_storage_lookup_error(err: anyhow::Error, missing_message: &str) -> ApiError {
+    if err.chain().any(|cause| cause.to_string().starts_with("object not found:")) {
+        tracing::warn!("storage object missing for published version: {err:#}");
+        return ApiError::not_found(missing_message.to_string());
+    }
+    ApiError::internal(err)
+}
+
+fn map_open_error(
+    err: std::io::Error,
+    path: &std::path::Path,
+    missing_message: &str,
+) -> ApiError {
+    if err.kind() == std::io::ErrorKind::NotFound {
+        tracing::warn!("storage file missing for published version: {}: {err}", path.display());
+        return ApiError::not_found(missing_message.to_string());
+    }
+    ApiError::internal(anyhow::anyhow!("open {}: {err}", path.display()))
 }

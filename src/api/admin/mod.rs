@@ -20,22 +20,22 @@ use super::{ApiError, ApiResult};
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/admin", get(admin_panel))
-        .route("/v1/admin/packs", get(list_admin_packs).post(upload_pack))
+        .route("/rgad", get(admin_panel))
+        .route("/v1/rgad/packs", get(list_admin_packs).post(upload_pack))
         .route(
-            "/v1/admin/packs/{author_id}/{pack_id}/versions/{version}/yank",
+            "/v1/rgad/packs/{author_id}/{pack_id}/versions/{version}/yank",
             post(yank_version),
         )
         .route(
-            "/v1/admin/packs/{author_id}/{pack_id}/versions/{version}/unyank",
+            "/v1/rgad/packs/{author_id}/{pack_id}/versions/{version}/unyank",
             post(unyank_version),
         )
         .route(
-            "/v1/admin/packs/{author_id}/{pack_id}/versions/{version}/purge",
+            "/v1/rgad/packs/{author_id}/{pack_id}/versions/{version}/purge",
             post(purge_version),
         )
         .route(
-            "/v1/admin/packs/{author_id}/{pack_id}/purge",
+            "/v1/rgad/packs/{author_id}/{pack_id}/purge",
             post(purge_pack),
         )
 }
@@ -94,9 +94,10 @@ async fn upload_pack(
         .await
         .map_err(ApiError::from)?;
 
-    if let (Some(preview_key), Some(preview_bytes)) =
-        (validated.row.preview_storage_key.as_ref(), validated.preview.as_ref())
-    {
+    if let (Some(preview_key), Some(preview_bytes)) = (
+        validated.row.preview_storage_key.as_ref(),
+        validated.preview.as_ref(),
+    ) {
         state
             .storage
             .put(preview_key, preview_bytes)

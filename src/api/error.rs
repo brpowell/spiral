@@ -70,7 +70,8 @@ impl ApiError {
     }
 
     pub fn internal(err: impl std::fmt::Display) -> Self {
-        tracing::error!("internal error: {err}");
+        // Prefer `{err:#}` so anyhow context chains show up in ops logs.
+        tracing::error!("internal error: {err:#}");
         Self {
             status: StatusCode::INTERNAL_SERVER_ERROR,
             code: "internal",
