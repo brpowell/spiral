@@ -23,9 +23,7 @@ impl FromRequestParts<AppState> for AdminAuth {
 
 fn require_admin(parts: &Parts, state: &AppState) -> ApiResult<()> {
     if !state.config.admin_enabled() {
-        return Err(ApiError::service_unavailable(
-            "admin endpoints disabled: set ADMIN_TOKEN",
-        ));
+        return Err(ApiError::service_unavailable("admin endpoints disabled"));
     }
 
     let expected = &state.config.admin_token;
@@ -39,15 +37,15 @@ fn require_admin(parts: &Parts, state: &AppState) -> ApiResult<()> {
 
     match provided {
         Some(token) if token == *expected => Ok(()),
-        _ => Err(ApiError::unauthorized(
-            "missing or invalid admin token (Authorization: Bearer … or X-Admin-Token)",
-        )),
+        _ => Err(ApiError::unauthorized("Invalid token")),
     }
 }
 
 fn bearer_token(parts: &Parts) -> Option<String> {
     let value = parts.headers.get(axum::http::header::AUTHORIZATION)?;
     let value = value.to_str().ok()?;
-    let token = value.strip_prefix("Bearer ").or_else(|| value.strip_prefix("bearer "))?;
+    let token = value
+        .strip_prefix("Bearer ")
+        .or_else(|| value.strip_prefix("bearer "))?;
     Some(token.trim().to_string())
 }

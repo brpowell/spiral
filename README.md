@@ -24,11 +24,11 @@ cargo run
 curl -s http://127.0.0.1:8787/v1/meta | jq
 curl -s http://127.0.0.1:8787/v1/packs | jq
 
-# Admin panel
-open http://127.0.0.1:8787/admin
+# Admin panel (Preact SPA; rebuild with `cd admin && npm run build`)
+open http://127.0.0.1:8787/rgad
 
 # Or upload via curl
-curl -s -X POST http://127.0.0.1:8787/v1/admin/packs \
+curl -s -X POST http://127.0.0.1:8787/v1/rgad/packs \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -F "spk=@fixtures/valid-theme.spk" | jq
 ```
@@ -47,6 +47,17 @@ with zipfile.ZipFile('fixtures/valid-theme.spk', 'w') as z:
 print('wrote fixtures/valid-theme.spk')
 PY
 ```
+
+## Admin SPA
+
+The `/rgad` panel is a Preact + Vite app under [`admin/`](admin/). Built files in `admin/dist/` are embedded into the binary (`rust-embed`).
+
+```bash
+cd admin && npm install && npm run build   # after UI changes
+cd admin && npm run dev                    # HMR; proxies /v1 → :8787
+```
+
+See [`admin/README.md`](admin/README.md).
 
 ## Configuration
 
@@ -70,13 +81,13 @@ PY
 | `GET` | `/v1/packs/:authorId/:packId/versions/:version` | Version detail (`latest` alias) |
 | `GET` | `/v1/packs/:authorId/:packId/versions/:version/download` | Stream `.spk` (yanked still resolves; purged → `410 Gone`) |
 | `GET` | `/v1/packs/:authorId/:packId/versions/:version/preview` | Pack preview image (from `pack.json` `preview` or first contribution preview; `latest` alias; yanked ok; purged → `410`) |
-| `GET` | `/admin` | Minimal admin panel (token entered in-page) |
-| `GET` | `/v1/admin/packs` | Admin list (includes yanked). Requires token. |
-| `POST` | `/v1/admin/packs` | Multipart upload (`spk` required). Validates via `spk-format`, computes sha256 + uncompressed on-disk `sizeBytes`, extracts pack preview when present. |
-| `POST` | `/v1/admin/packs/:authorId/:packId/versions/:version/yank` | Soft-delete (catalog hide; download kept) |
-| `POST` | `/v1/admin/packs/:authorId/:packId/versions/:version/unyank` | Clear yank — version reappears in catalog |
-| `POST` | `/v1/admin/packs/:authorId/:packId/versions/:version/purge` | Hard delete. Body: `{ "confirm": "author/pack@version", "reason": "…" }` |
-| `POST` | `/v1/admin/packs/:authorId/:packId/purge` | Pack-level hard delete. Body: `{ "confirm": "author/pack", "reason": "…" }` |
+| `GET` | `/rgad` | Admin SPA (token entered in-page; opaque login until authenticated) |
+| `GET` | `/v1/rgad/packs` | Admin list (includes yanked). Requires token. |
+| `POST` | `/v1/rgad/packs` | Multipart upload (`spk` required). Validates via `spk-format`, computes sha256 + uncompressed on-disk `sizeBytes`, extracts pack preview when present. |
+| `POST` | `/v1/rgad/packs/:authorId/:packId/versions/:version/yank` | Soft-delete (catalog hide; download kept) |
+| `POST` | `/v1/rgad/packs/:authorId/:packId/versions/:version/unyank` | Clear yank — version reappears in catalog |
+| `POST` | `/v1/rgad/packs/:authorId/:packId/versions/:version/purge` | Hard delete. Body: `{ "confirm": "author/pack@version", "reason": "…" }` |
+| `POST` | `/v1/rgad/packs/:authorId/:packId/purge` | Pack-level hard delete. Body: `{ "confirm": "author/pack", "reason": "…" }` |
 
 Admin auth: `Authorization: Bearer <ADMIN_TOKEN>` or `X-Admin-Token: <ADMIN_TOKEN>`.
 

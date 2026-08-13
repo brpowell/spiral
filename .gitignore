@@ -1,5 +1,6 @@
 /target
 /data
+/admin/node_modules
 .env
 .DS_Store
 *.db

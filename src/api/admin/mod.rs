@@ -1,9 +1,8 @@
-//! Admin write API + minimal HTML panel.
+//! Admin write API + Preact SPA (embedded from `admin/dist`).
 
 mod panel;
 
 use axum::extract::{Multipart, Path, State};
-use axum::response::Html;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
@@ -20,7 +19,9 @@ use super::{ApiError, ApiResult};
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/rgad", get(admin_panel))
+        .route("/rgad", get(panel::index))
+        .route("/rgad/", get(panel::index))
+        .route("/rgad/{*path}", get(panel::static_file))
         .route("/v1/rgad/packs", get(list_admin_packs).post(upload_pack))
         .route(
             "/v1/rgad/packs/{author_id}/{pack_id}/versions/{version}/yank",
@@ -38,10 +39,6 @@ pub fn router() -> Router<AppState> {
             "/v1/rgad/packs/{author_id}/{pack_id}/purge",
             post(purge_pack),
         )
-}
-
-async fn admin_panel() -> Html<&'static str> {
-    Html(panel::ADMIN_HTML)
 }
 
 async fn list_admin_packs(

@@ -329,7 +329,7 @@ async fn admin_upload(app: &axum::Router, bytes: &[u8]) -> (StatusCode, Value) {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/v1/admin/packs")
+                .uri("/v1/rgad/packs")
                 .header("Authorization", "Bearer test-admin-token")
                 .header("Content-Type", content_type)
                 .body(Body::from(body))
@@ -510,7 +510,7 @@ async fn yank_hides_from_catalog_but_download_still_works() {
     let (status, _) = admin_json(
         &app,
         "POST",
-        "/v1/admin/packs/spiral/demo-theme/versions/1.0.0/yank",
+        "/v1/rgad/packs/spiral/demo-theme/versions/1.0.0/yank",
         None,
     )
     .await;
@@ -563,7 +563,7 @@ async fn unyank_restores_version_to_catalog() {
     let (status, _) = admin_json(
         &app,
         "POST",
-        "/v1/admin/packs/spiral/demo-theme/versions/1.0.0/yank",
+        "/v1/rgad/packs/spiral/demo-theme/versions/1.0.0/yank",
         None,
     )
     .await;
@@ -572,7 +572,7 @@ async fn unyank_restores_version_to_catalog() {
     let (status, body) = admin_json(
         &app,
         "POST",
-        "/v1/admin/packs/spiral/demo-theme/versions/1.0.0/unyank",
+        "/v1/rgad/packs/spiral/demo-theme/versions/1.0.0/unyank",
         None,
     )
     .await;
@@ -587,7 +587,7 @@ async fn unyank_restores_version_to_catalog() {
     let (status, body) = admin_json(
         &app,
         "POST",
-        "/v1/admin/packs/spiral/demo-theme/versions/1.0.0/unyank",
+        "/v1/rgad/packs/spiral/demo-theme/versions/1.0.0/unyank",
         None,
     )
     .await;
@@ -604,7 +604,7 @@ async fn purge_deletes_object_returns_410_and_writes_audit_log() {
     let (status, body) = admin_json(
         &app,
         "POST",
-        "/v1/admin/packs/spiral/demo-theme/versions/1.0.0/purge",
+        "/v1/rgad/packs/spiral/demo-theme/versions/1.0.0/purge",
         Some(serde_json::json!({
             "confirm": "spiral/demo-theme@1.0.0",
             "reason": "test takedown"
@@ -649,7 +649,7 @@ async fn purge_without_matching_confirm_is_noop() {
     let (status, body) = admin_json(
         &app,
         "POST",
-        "/v1/admin/packs/spiral/demo-theme/versions/1.0.0/purge",
+        "/v1/rgad/packs/spiral/demo-theme/versions/1.0.0/purge",
         Some(serde_json::json!({
             "confirm": "wrong/confirm@1.0.0",
             "reason": "should not delete"
@@ -676,7 +676,7 @@ async fn admin_panel_and_list_require_token() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/admin")
+                .uri("/rgad")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -688,7 +688,7 @@ async fn admin_panel_and_list_require_token() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/v1/admin/packs")
+                .uri("/v1/rgad/packs")
                 .body(Body::empty())
                 .unwrap(),
         )
