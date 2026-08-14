@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { openAppearanceWindow } from "../../lib/appearanceWindow";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { useLicenseStore } from "../../store/useLicenseStore";
+import { usePackUpdatesStore } from "../../store/usePackUpdatesStore";
 import { useUpdaterStore } from "../../store/useUpdaterStore";
 import {
   ContextMenu,
@@ -31,9 +32,13 @@ export function SidebarMoreMenu() {
   const status = useUpdaterStore((s) => s.status);
   const checkForUpdates = useUpdaterStore((s) => s.checkForUpdates);
   const promptAvailableUpdate = useUpdaterStore((s) => s.promptAvailableUpdate);
-  const updatePending =
+  const packUpdatesPending = usePackUpdatesStore(
+    (s) => s.pendingUpdates.length > 0,
+  );
+  const appUpdatePending =
     availableUpdate != null &&
     (status === "available" || status === "downloading" || status === "error");
+  const updatePending = appUpdatePending || packUpdatesPending;
   const {
     open,
     anchor,
@@ -47,6 +52,15 @@ export function SidebarMoreMenu() {
     triggerPlacement: "above-start",
   });
 
+  const moreAria = (() => {
+    if (appUpdatePending && packUpdatesPending) {
+      return t("updates.sidebar.pendingAria");
+    }
+    if (appUpdatePending) return t("updates.sidebar.pendingAppAria");
+    if (packUpdatesPending) return t("updates.sidebar.pendingPacksAria");
+    return t("updates.sidebar.more");
+  })();
+
   return (
     <>
       <SidebarItem
@@ -57,11 +71,7 @@ export function SidebarMoreMenu() {
             {updatePending && !open ? <StatusIndicator /> : null}
           </StatusIndicatorAnchor>
         }
-        aria-label={
-          updatePending
-            ? t("updates.sidebar.pendingAria")
-            : t("updates.sidebar.more")
-        }
+        aria-label={moreAria}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={(e) =>
@@ -80,18 +90,18 @@ export function SidebarMoreMenu() {
         <ContextMenuItem
           icon={
             <StatusIndicatorAnchor>
-              {updatePending ? <IconDownload /> : <IconRefresh />}
-              {updatePending ? <StatusIndicator /> : null}
+              {appUpdatePending ? <IconDownload /> : <IconRefresh />}
+              {appUpdatePending ? <StatusIndicator /> : null}
             </StatusIndicatorAnchor>
           }
           label={
-            updatePending
+            appUpdatePending
               ? t("updates.sidebar.available")
               : t("updates.sidebar.check")
           }
           onClick={() => {
             closeMenu();
-            if (updatePending) {
+            if (appUpdatePending) {
               promptAvailableUpdate();
             } else {
               void checkForUpdates({ reason: "manual" });
@@ -100,11 +110,16 @@ export function SidebarMoreMenu() {
         />
         <ContextMenuSeparator />
         <ContextMenuItem
-          icon={<IconPalette />}
+          icon={
+            <StatusIndicatorAnchor>
+              <IconPalette />
+              {packUpdatesPending ? <StatusIndicator /> : null}
+            </StatusIndicatorAnchor>
+          }
           label="Studio"
           onClick={() => {
             closeMenu();
-            void openAppearanceWindow();
+            void openAppearanceWindow(packUpdatesPending ? "packs" : undefined);
           }}
         />
         <ContextMenuItem

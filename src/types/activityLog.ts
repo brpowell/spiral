@@ -59,6 +59,7 @@ const ACTIVITY_LOG_DOMAIN_DEFS = {
   skinLoad: { value: "skin.load", label: "Skin load" },
   visualizerLoad: { value: "visualizer.load", label: "Visualizer load" },
   packScan: { value: "pack.scan", label: "Pack scan" },
+  packInstall: { value: "pack.install", label: "Pack install" },
   licenseRegistration: {
     value: "license.registration",
     label: "Registration",
@@ -77,6 +78,7 @@ export const ACTIVITY_LOG_DOMAINS = {
   skinLoad: ACTIVITY_LOG_DOMAIN_DEFS.skinLoad.value,
   visualizerLoad: ACTIVITY_LOG_DOMAIN_DEFS.visualizerLoad.value,
   packScan: ACTIVITY_LOG_DOMAIN_DEFS.packScan.value,
+  packInstall: ACTIVITY_LOG_DOMAIN_DEFS.packInstall.value,
   licenseRegistration: ACTIVITY_LOG_DOMAIN_DEFS.licenseRegistration.value,
   cdPlayback: ACTIVITY_LOG_DOMAIN_DEFS.cdPlayback.value,
 } as const;

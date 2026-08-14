@@ -21,8 +21,8 @@ export function AppearancePackActions({
   return (
     <MenuButton
       ariaLabel={`Actions for ${name}`}
-      className="appearance-pack-card__actions"
       title="Actions"
+      variant="ghost"
     >
       {(close) => {
         const viewPackItem = (

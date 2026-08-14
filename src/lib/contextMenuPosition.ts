@@ -6,6 +6,14 @@ export interface FitContextMenuPositionOptions {
   /** When flipping downward from an above placement, align the menu top to this Y. */
   flipDownAlignTopY?: number;
   /**
+   * When flipping to the left (not enough room to open rightward), align the
+   * menu's right edge to this X instead of `anchorX` (e.g. a submenu flyout
+   * should hug the left edge of its *parent panel*, not its trigger item —
+   * otherwise it lands on top of the parent panel when the trigger sits near
+   * the panel's own right edge).
+   */
+  flipLeftAlignRightX?: number;
+  /**
    * Horizontal align relative to `anchorX`.
    * - `start` (default): menu left edge at X (Radix/shadcn `align="start"`)
    * - `end`: menu right edge at X (Radix/shadcn `align="end"`)
@@ -34,8 +42,12 @@ export function fitContextMenuPosition(
   let left = options.align === "end" ? anchorX - width : anchorX;
   let top = preferAbove ? anchorY - height : anchorY;
 
-  if (options.align !== "end" && left + width > window.innerWidth - VIEWPORT_PADDING) {
-    left = anchorX - width;
+  if (
+    options.align !== "end" &&
+    left + width > window.innerWidth - VIEWPORT_PADDING
+  ) {
+    const flipAnchorX = options.flipLeftAlignRightX ?? anchorX;
+    left = flipAnchorX - width;
   }
   if (!preferAbove && top + height > window.innerHeight - VIEWPORT_PADDING) {
     const flipAnchorY = options.flipUpAlignBottomY ?? anchorY;

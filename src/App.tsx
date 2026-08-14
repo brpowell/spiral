@@ -34,7 +34,10 @@ import { fetchMissingLyrics } from "./lib/fetchMissingLyrics";
 import { refreshLibraryMetadata } from "./lib/refreshLibraryMetadata";
 import { openSkinMode, quitApplication } from "./lib/skinModeWindow";
 import { openActivityLogsWindow } from "./lib/activityLogsWindow";
-import { openAppearanceWindow } from "./lib/appearanceWindow";
+import {
+  openAppearanceWindow,
+  PACK_UPDATES_CHANGED_EVENT,
+} from "./lib/appearanceWindow";
 import { openEqualizerWindow } from "./lib/equalizerWindow";
 import { toggleToastLabWindow } from "./lib/toastLabWindow";
 import { reloadLinkedPacksWithRefresh } from "./lib/packs/refreshPackStores";
@@ -53,6 +56,8 @@ import { useLibrarySettingsStore } from "./store/useLibrarySettingsStore";
 import { useLicenseStore } from "./store/useLicenseStore";
 import { usePlayerStore } from "./store/usePlayerStore";
 import { useUpdaterStore } from "./store/useUpdaterStore";
+import { usePackUpdatesStore } from "./store/usePackUpdatesStore";
+import type { CatalogPackEntry } from "./types/packRegistry";
 import "./App.css";
 
 const showCustomWindowChrome = usesCustomWindowChrome();
@@ -76,6 +81,12 @@ function App() {
   );
   const startAutomaticUpdateChecks = useUpdaterStore(
     (s) => s.startAutomaticUpdateChecks,
+  );
+  const applyAutomaticPackChecksEnabled = usePackUpdatesStore(
+    (s) => s.applyAutomaticPackChecksEnabled,
+  );
+  const startAutomaticPackUpdateChecks = usePackUpdatesStore(
+    (s) => s.startAutomaticPackUpdateChecks,
   );
   const {
     open: crashModalOpen,
@@ -138,11 +149,16 @@ function App() {
   useEffect(() => {
     let cancelled = false;
     let stopAutomaticChecks: (() => void) | undefined;
+    let stopAutomaticPackChecks: (() => void) | undefined;
 
     void loadSettings().then((settings) => {
       if (cancelled) return;
       applyAutomaticChecksEnabled(settings.automaticUpdateChecksEnabled);
+      applyAutomaticPackChecksEnabled(
+        settings.automaticPackUpdateChecksEnabled,
+      );
       stopAutomaticChecks = startAutomaticUpdateChecks();
+      stopAutomaticPackChecks = startAutomaticPackUpdateChecks();
     });
     void loadTrackListPreferences();
     void loadLicense().then(async () => {
@@ -161,6 +177,7 @@ function App() {
     return () => {
       cancelled = true;
       stopAutomaticChecks?.();
+      stopAutomaticPackChecks?.();
     };
   }, [
     loadLibrary,
@@ -170,6 +187,8 @@ function App() {
     loadArtistImages,
     applyAutomaticChecksEnabled,
     startAutomaticUpdateChecks,
+    applyAutomaticPackChecksEnabled,
+    startAutomaticPackUpdateChecks,
   ]);
 
   useEffect(() => {
@@ -180,6 +199,21 @@ function App() {
       for (const path of paths) {
         void requestSpcardInstall(path);
       }
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void listen<CatalogPackEntry[]>(PACK_UPDATES_CHANGED_EVENT, (event) => {
+      usePackUpdatesStore.getState().applyPendingUpdates(event.payload ?? []);
     }).then((fn) => {
       if (cancelled) fn();
       else unlisten = fn;

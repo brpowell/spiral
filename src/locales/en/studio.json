@@ -1,4 +1,7 @@
 {
+  "nav": {
+    "collection": "Collection"
+  },
   "packs": {
     "managed": {
       "empty": "No managed packs",
@@ -7,6 +10,62 @@
     "custom": {
       "empty": "No custom packs",
       "listLabel": "Custom packs"
-    }
+    },
+    "cardAria": "{{name}} by {{author}}",
+    "cardActionsAria": "Actions for {{name}}",
+    "actionEdit": "Edit details",
+    "actionUnlink": "Unlink",
+    "actionDelete": "Delete",
+    "actionUpdateAll": "Update all packs",
+    "cardUpdateAria": "Update {{name}}",
+    "rollbackConfirmTitle": "Switch to this version?",
+    "rollbackConfirmLabel": "Install",
+    "rollbackConfirmBody": "This will remove newer versions of {{name}} and keep v{{version}} as the installed version."
+  },
+  "catalog": {
+    "sidebar": "Get more…",
+    "title": "Get more",
+    "loading": "Loading catalog…",
+    "empty": "No packs in the catalog.",
+    "unreachableTitle": "Couldn't reach the catalog",
+    "unreachableDescription": "Spiral couldn't connect to any pack registries. Check your connection and try again.",
+    "retry": "Try again",
+    "partialErrors": "Some registries couldn't be reached.",
+    "noContributions": "No contributions.",
+    "readmeLoading": "Loading About…",
+    "readmeLoadFailed": "Couldn't load pack About.",
+    "readmeEmpty": "No About for this pack.",
+    "tabAbout": "About",
+    "tabChangelog": "Changelog",
+    "tabContributions": "Contributions",
+    "detailTabsAria": "Pack detail sections",
+    "changelogLoading": "Loading Changelog…",
+    "changelogLoadFailed": "Couldn't load pack Changelog.",
+    "changelogEmpty": "No Changelog for this pack.",
+    "changelogLabel": "CHANGELOG",
+    "changelogEditing": "Editing CHANGELOG.md",
+    "changelogPlaceholder": "Write a changelog for this pack (Markdown supported).",
+    "changelogAdd": "Add Changelog",
+    "changelogEdit": "Edit Changelog",
+    "changelogEditAction": "Edit",
+    "changelogCancel": "Cancel",
+    "changelogSave": "Save",
+    "changelogSaving": "Saving…",
+    "changelogSaveFailed": "Failed to save CHANGELOG.",
+    "statusUpdate": "Update",
+    "statusRequiresUpdate": "Requires update",
+    "actionInstall": "Install",
+    "actionUpdate": "Update",
+    "actionUninstall": "Uninstall",
+    "menuInstallVersion": "More pack actions",
+    "menuInstallVersionHeading": "Install version",
+    "uninstallConfirmTitle": "Uninstall pack?",
+    "uninstallConfirmBody": "{{name}} and all of its contributions will be deleted from your collection.",
+    "versionLabel": "v{{version}}",
+    "detailVersion": "Version",
+    "detailSize": "Size",
+    "detailId": "ID",
+    "cardAria": "{{name}} by {{author}}",
+    "cardActionsAria": "Actions for {{name}}"
   }
 }

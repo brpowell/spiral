@@ -1,5 +1,5 @@
 {
-  "$schema": "../../../../../schemas/theme-v1.schema.json",
+  "$schema": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/theme-v1.schema.json",
   "id": "parchment",
   "name": "Parchment",
   "author": "Spiral",

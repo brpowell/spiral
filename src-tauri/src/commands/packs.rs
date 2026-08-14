@@ -1,6 +1,5 @@
 //! Pack install / export / management Tauri commands.
 
-use crate::commands::{skins, themes, visualizers};
 use crate::packs::export::{
     export_pack_dir_to_spk, read_workshop_export_defaults, ExportPackMetadata,
 };
@@ -9,8 +8,9 @@ use crate::packs::manage::{rollback_installed_pack, uninstall_installed_pack};
 use crate::packs::scan::scan_all_packs;
 use crate::packs::{
     self, builtin_packs_root, ensure_workshop_root, installed_packs_root, is_kebab_slug,
-    pack_id_prefix, pack_identity, parse_pack_manifest_json, slugify_id, workshop_packs_root,
-    ExportPackResult, InstallPackResult, PackSummary, PackZone, PACK_ARCHIVE_EXTENSION,
+    pack_id_prefix, pack_identity, parse_pack_manifest_json, slugify_id, validate_contribution,
+    workshop_packs_root, ExportPackResult, InstallPackResult, PackSummary, PackZone,
+    PACK_ARCHIVE_EXTENSION, PACK_CHANGELOG_FILENAME, PACK_CHANGELOG_MAX_BYTES,
     PACK_MANIFEST_FILENAME, PACK_MANIFEST_VERSION, PACK_README_FILENAME, PACK_README_MAX_BYTES,
 };
 use crate::settings;
@@ -162,7 +162,7 @@ pub fn create_workshop_pack(
         version: "0.0.0".to_string(),
         name: name.to_string(),
         description: description.to_string(),
-        icon: None,
+        preview: None,
         min_app_version: None,
     };
     write_pack_json(&pack_dir.join(PACK_MANIFEST_FILENAME), &pack)?;
@@ -176,35 +176,82 @@ fn normalize_linked_path(path: &Path) -> Result<String, String> {
     Ok(canonical.to_string_lossy().into_owned())
 }
 
-fn read_readme_at(pack_dir: &Path) -> Result<Option<String>, String> {
-    let readme_path = pack_dir.join(PACK_README_FILENAME);
-    if !readme_path.is_file() {
+fn read_pack_text_at(
+    pack_dir: &Path,
+    filename: &str,
+    max_bytes: u64,
+) -> Result<Option<String>, String> {
+    let path = pack_dir.join(filename);
+    if !path.is_file() {
         return Ok(None);
     }
-    let meta = fs::metadata(&readme_path)
-        .map_err(|e| format!("failed to read {PACK_README_FILENAME}: {e}"))?;
-    if meta.len() > PACK_README_MAX_BYTES {
-        return Err(format!(
-            "{PACK_README_FILENAME} exceeds {PACK_README_MAX_BYTES} byte limit"
-        ));
+    let meta =
+        fs::metadata(&path).map_err(|e| format!("failed to read {filename}: {e}"))?;
+    if meta.len() > max_bytes {
+        return Err(format!("{filename} exceeds {max_bytes} byte limit"));
     }
-    let contents = fs::read_to_string(&readme_path)
-        .map_err(|e| format!("failed to read {PACK_README_FILENAME}: {e}"))?;
+    let contents =
+        fs::read_to_string(&path).map_err(|e| format!("failed to read {filename}: {e}"))?;
     Ok(Some(contents))
 }
 
-fn validate_contribution(
-    contrib_type: &str,
-    _pack_dir: &Path,
-    manifest_path: &Path,
+fn read_readme_at(pack_dir: &Path) -> Result<Option<String>, String> {
+    read_pack_text_at(pack_dir, PACK_README_FILENAME, PACK_README_MAX_BYTES)
+}
+
+fn read_changelog_at(pack_dir: &Path) -> Result<Option<String>, String> {
+    read_pack_text_at(
+        pack_dir,
+        PACK_CHANGELOG_FILENAME,
+        PACK_CHANGELOG_MAX_BYTES,
+    )
+}
+
+fn authoring_pack_writable(app: &AppHandle, dir: &Path) -> bool {
+    let workshop_ok = workshop_packs_root(app)
+        .ok()
+        .and_then(|root| {
+            root.canonicalize().ok().map(|w| {
+                dir.starts_with(&w) && dir.parent().is_some_and(|p| p == w)
+            })
+        })
+        .unwrap_or(false);
+    let linked_ok = settings::read_settings(app)
+        .linked_pack_paths
+        .iter()
+        .any(|raw| paths_equal_canonical(&PathBuf::from(raw.trim()), dir));
+    workshop_ok || linked_ok
+}
+
+fn write_pack_text_at(
+    app: &AppHandle,
+    pack_dir: &str,
+    filename: &str,
+    max_bytes: u64,
+    content: String,
+    edit_denied_message: &str,
 ) -> Result<(), String> {
-    match contrib_type {
-        "theme" => themes::validate_theme_contribution_at(manifest_path),
-        "skin" => skins::validate_skin_contribution_at(manifest_path),
-        "visualizer" => visualizers::validate_visualizer_contribution_at(manifest_path),
-        "renderer" => visualizers::validate_renderer_contribution_at(manifest_path),
-        other => Err(format!("unknown contribution type \"{other}\"")),
+    packs::ensure_packs_ready(app)?;
+
+    let dir = resolve_known_pack_dir(app, pack_dir)?;
+    if !authoring_pack_writable(app, &dir) {
+        return Err(edit_denied_message.to_string());
     }
+
+    let path = dir.join(filename);
+    if content.trim().is_empty() {
+        if path.exists() {
+            fs::remove_file(&path)
+                .map_err(|e| format!("failed to remove {filename}: {e}"))?;
+        }
+        return Ok(());
+    }
+
+    if content.len() as u64 > max_bytes {
+        return Err(format!("{filename} exceeds {max_bytes} byte limit"));
+    }
+
+    fs::write(&path, content).map_err(|e| format!("failed to write {filename}: {e}"))
 }
 
 fn hidden_contribution_set(app: &AppHandle) -> HashSet<String> {
@@ -214,7 +261,7 @@ fn hidden_contribution_set(app: &AppHandle) -> HashSet<String> {
         .collect()
 }
 
-/// Install a `.spk` (or path) into `packs/installed/<packId>@<version>/`.
+/// Install a `.spk` (or path) into `packs/installed/<authorId>.<packId>@<version>/`.
 /// When `path` is omitted, opens a file picker.
 #[tauri::command]
 pub fn install_pack(
@@ -651,44 +698,39 @@ pub fn write_pack_readme(
     pack_dir: String,
     content: String,
 ) -> Result<(), String> {
-    packs::ensure_packs_ready(&app)?;
+    write_pack_text_at(
+        &app,
+        &pack_dir,
+        PACK_README_FILENAME,
+        PACK_README_MAX_BYTES,
+        content,
+        "README can only be edited for workshop or linked packs",
+    )
+}
 
+/// Read optional pack-root `CHANGELOG.md`. Returns `None` when the file is absent.
+#[tauri::command]
+pub fn read_pack_changelog(app: AppHandle, pack_dir: String) -> Result<Option<String>, String> {
     let dir = resolve_known_pack_dir(&app, &pack_dir)?;
+    read_changelog_at(&dir)
+}
 
-    // Writable only for workshop children or linked paths.
-    let workshop_ok = workshop_packs_root(&app)
-        .ok()
-        .and_then(|root| {
-            root.canonicalize().ok().map(|w| {
-                dir.starts_with(&w) && dir.parent().is_some_and(|p| p == w)
-            })
-        })
-        .unwrap_or(false);
-    let linked_ok = settings::read_settings(&app).linked_pack_paths.iter().any(|raw| {
-        paths_equal_canonical(&PathBuf::from(raw.trim()), &dir)
-    });
-    if !workshop_ok && !linked_ok {
-        return Err("README can only be edited for workshop or linked packs".into());
-    }
-
-    let readme_path = dir.join(PACK_README_FILENAME);
-    if content.trim().is_empty() {
-        if readme_path.exists() {
-            fs::remove_file(&readme_path).map_err(|e| {
-                format!("failed to remove {PACK_README_FILENAME}: {e}")
-            })?;
-        }
-        return Ok(());
-    }
-
-    if content.len() as u64 > PACK_README_MAX_BYTES {
-        return Err(format!(
-            "{PACK_README_FILENAME} exceeds {PACK_README_MAX_BYTES} byte limit"
-        ));
-    }
-
-    fs::write(&readme_path, content)
-        .map_err(|e| format!("failed to write {PACK_README_FILENAME}: {e}"))
+/// Create, update, or remove pack-root `CHANGELOG.md` for workshop or linked packs.
+/// Whitespace-only content deletes the file so the Changelog tab stays empty.
+#[tauri::command]
+pub fn write_pack_changelog(
+    app: AppHandle,
+    pack_dir: String,
+    content: String,
+) -> Result<(), String> {
+    write_pack_text_at(
+        &app,
+        &pack_dir,
+        PACK_CHANGELOG_FILENAME,
+        PACK_CHANGELOG_MAX_BYTES,
+        content,
+        "CHANGELOG can only be edited for workshop or linked packs",
+    )
 }
 
 /// Delete an entire workshop pack directory (all contributions).
@@ -905,23 +947,23 @@ pub(crate) fn remap_contribution_id_references(
     Ok(())
 }
 
-/// Uninstall one installed pack version directory.
+/// Uninstall every installed version of a pack (no rollback leftover).
 #[tauri::command]
 pub fn uninstall_pack(
     app: AppHandle,
+    author_id: String,
     pack_id: String,
     version: String,
 ) -> Result<(), String> {
     packs::ensure_packs_ready(&app)?;
+    let author_id = author_id.trim();
     let pack_id = pack_id.trim();
     let version = version.trim();
-    let installed = installed_packs_root(&app)?;
-    let pack_dir = crate::packs::install::installed_pack_path(&installed, pack_id, version);
-    let author_id = read_pack_author_id(&pack_dir).unwrap_or_default();
-    uninstall_installed_pack(&app, pack_id, version)?;
-    if !author_id.is_empty() {
-        forget_pack_references(&app, &author_id, pack_id)?;
+    if author_id.is_empty() {
+        return Err("authorId is required".into());
     }
+    uninstall_installed_pack(&app, author_id, pack_id, version)?;
+    forget_pack_references(&app, author_id, pack_id)?;
     Ok(())
 }
 
@@ -929,20 +971,20 @@ pub fn uninstall_pack(
 #[tauri::command]
 pub fn rollback_pack(
     app: AppHandle,
+    author_id: String,
     pack_id: String,
     version: String,
 ) -> Result<Vec<String>, String> {
     packs::ensure_packs_ready(&app)?;
+    let author_id = author_id.trim();
     let pack_id = pack_id.trim();
     let version = version.trim();
-    let installed = installed_packs_root(&app)?;
-    let pack_dir = crate::packs::install::installed_pack_path(&installed, pack_id, version);
-    let author_id = read_pack_author_id(&pack_dir).unwrap_or_default();
-    let removed = rollback_installed_pack(&app, pack_id, version)?;
-    // Actives / hidden ids may still point at removed contribution ids from newer versions.
-    if !author_id.is_empty() {
-        forget_pack_references(&app, &author_id, pack_id)?;
+    if author_id.is_empty() {
+        return Err("authorId is required".into());
     }
+    let removed = rollback_installed_pack(&app, author_id, pack_id, version)?;
+    // Actives / hidden ids may still point at removed contribution ids from newer versions.
+    forget_pack_references(&app, author_id, pack_id)?;
     Ok(removed)
 }
 

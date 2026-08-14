@@ -81,11 +81,10 @@ class PcmStreamProcessor extends AudioWorkletProcessor {
 
     this.buffer.set(samples, this.writeIndex);
     this.writeIndex += samples.length;
-
-    const maxSamples = this.maxBufferFrames * this.channels;
-    if (this.writeIndex - this.readIndex > maxSamples) {
-      this.readIndex = this.writeIndex - maxSamples;
-    }
+    // Never discard PCM here. Dropping oldest scrubbed track start; dropping
+    // newest left a hole around read-ahead depth. Rust in-flight + needData
+    // acks are the backpressure; a startup burst may briefly hold a couple
+    // seconds of audio, which is fine.
   }
 
   /**

@@ -33,6 +33,7 @@ import { usePlaybackSettingsStore } from "../../store/usePlaybackSettingsStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { usePlaylistStore } from "../../store/usePlaylistStore";
 import { useUpdaterStore } from "../../store/useUpdaterStore";
+import { usePackUpdatesStore } from "../../store/usePackUpdatesStore";
 import {
   MIN_CROSSFADE_SECONDS,
   MAX_CROSSFADE_SECONDS,
@@ -148,6 +149,12 @@ export function PreferencesModal() {
   );
   const setAutomaticChecksEnabled = useUpdaterStore(
     (s) => s.setAutomaticChecksEnabled,
+  );
+  const automaticPackChecksEnabled = usePackUpdatesStore(
+    (s) => s.automaticPackChecksEnabled,
+  );
+  const setAutomaticPackChecksEnabled = usePackUpdatesStore(
+    (s) => s.setAutomaticPackChecksEnabled,
   );
   const checkForUpdates = useUpdaterStore((s) => s.checkForUpdates);
   const availableUpdate = useUpdaterStore((s) => s.availableUpdate);
@@ -979,6 +986,24 @@ export function PreferencesModal() {
                     </FieldLabel>
                     <FieldDescription>
                       {t("preferences:updates.automatic.description")}
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
+
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="pref-automatic-pack-updates"
+                    checked={automaticPackChecksEnabled}
+                    onChange={(e) => {
+                      void setAutomaticPackChecksEnabled(e.target.checked);
+                    }}
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor="pref-automatic-pack-updates">
+                      {t("preferences:updates.automaticPacks.label")}
+                    </FieldLabel>
+                    <FieldDescription>
+                      {t("preferences:updates.automaticPacks.description")}
                     </FieldDescription>
                   </FieldContent>
                 </Field>

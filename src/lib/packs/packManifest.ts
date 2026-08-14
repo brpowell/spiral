@@ -2,6 +2,14 @@ import { PACK_MANIFEST_VERSION, type PackManifest } from "../../types/pack";
 
 const PACK_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SEMVER_PATTERN = /^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$/;
+/** Raster-only; SVG is omitted (executable when opened as a document). */
+const ALLOWED_PREVIEW_EXTENSIONS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "webp",
+  "gif",
+]);
 
 /** Kebab-case pack / author / contribution id (`my-pack`). */
 export function isPackId(value: string): boolean {
@@ -27,6 +35,11 @@ export class PackManifestError extends Error {
     this.name = "PackManifestError";
     this.code = code;
   }
+}
+
+/** Full pack identity = `authorId.packId`. */
+export function packIdentity(authorId: string, packId: string): string {
+  return `${authorId}.${packId}`;
 }
 
 /** Effective contribution id = `authorId.packId.type.contributionId`. */
@@ -112,6 +125,40 @@ function requireNonEmptyString(
   return value;
 }
 
+function validatePreviewRelpath(preview: string): void {
+  const trimmed = preview.trim();
+  if (trimmed.length === 0) {
+    throw new PackManifestError(
+      "invalid_field",
+      'pack.json field "preview" must be a non-empty string when present',
+    );
+  }
+  if (
+    trimmed.includes("..") ||
+    trimmed.startsWith("/") ||
+    trimmed.startsWith("\\")
+  ) {
+    throw new PackManifestError(
+      "invalid_field",
+      `pack.json field "preview" must be a relative path (no .. or absolute), got: ${preview}`,
+    );
+  }
+  const dot = trimmed.lastIndexOf(".");
+  const ext = dot >= 0 ? trimmed.slice(dot + 1).toLowerCase() : "";
+  if (!ext) {
+    throw new PackManifestError(
+      "invalid_field",
+      `pack.json field "preview" must have an image extension (png, jpg, jpeg, webp, gif), got: ${preview}`,
+    );
+  }
+  if (!ALLOWED_PREVIEW_EXTENSIONS.has(ext)) {
+    throw new PackManifestError(
+      "invalid_field",
+      `pack.json field "preview" has unsupported extension ".${ext}" (allowed: png, jpg, jpeg, webp, gif)`,
+    );
+  }
+}
+
 /**
  * Parse and validate a pack.json value against the v1 contract.
  * Does not load contribution files or check minAppVersion against the app.
@@ -168,15 +215,16 @@ export function parsePackManifest(value: unknown): PackManifest {
     );
   }
 
-  let icon: string | undefined;
-  if ("icon" in obj && obj.icon !== undefined) {
-    if (typeof obj.icon !== "string" || obj.icon.trim().length === 0) {
+  let preview: string | undefined;
+  if ("preview" in obj && obj.preview !== undefined) {
+    if (typeof obj.preview !== "string") {
       throw new PackManifestError(
         "invalid_field",
-        'pack.json field "icon" must be a non-empty string when present',
+        'pack.json field "preview" must be a non-empty string when present',
       );
     }
-    icon = obj.icon;
+    validatePreviewRelpath(obj.preview);
+    preview = obj.preview;
   }
 
   let minAppVersion: string | undefined;
@@ -200,7 +248,7 @@ export function parsePackManifest(value: unknown): PackManifest {
     version,
     name,
     description,
-    ...(icon !== undefined ? { icon } : {}),
+    ...(preview !== undefined ? { preview } : {}),
     ...(minAppVersion !== undefined ? { minAppVersion } : {}),
   };
 }

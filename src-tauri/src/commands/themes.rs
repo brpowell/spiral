@@ -121,69 +121,6 @@ fn normalize_theme_file(file: ThemeFile, contrib: &packs::ScannedContribution) -
     }
 }
 
-/// Required token keys for installing / applying a theme (mirrors theme-v1 / TS).
-const REQUIRED_THEME_TOKEN_KEYS: &[&str] = &[
-    "color-bg",
-    "color-surface",
-    "color-text-primary",
-    "color-text-secondary",
-    "color-accent",
-    "color-accent-muted",
-    "color-border",
-    "color-danger",
-    "radius-card",
-    "radius-button",
-    "font-ui",
-];
-
-/// Strict theme contribution check used by pack install/export.
-pub(crate) fn validate_theme_contribution_at(manifest_path: &Path) -> Result<(), String> {
-    let contents = fs::read_to_string(manifest_path).map_err(|e| {
-        format!(
-            "could not read theme {}: {e}",
-            manifest_path.display()
-        )
-    })?;
-    let file: ThemeFile = serde_json::from_str(&contents).map_err(|e| {
-        format!(
-            "{} is not valid theme JSON: {e}",
-            manifest_path.display()
-        )
-    })?;
-    let declared_id = file
-        .id
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| "theme id is required".to_string())?;
-    if !is_kebab_slug(declared_id) {
-        return Err(format!(
-            "theme id must be a kebab-case slug, got: {declared_id}"
-        ));
-    }
-    if file.name.trim().is_empty() {
-        return Err("theme name is required".into());
-    }
-    let mut missing = Vec::new();
-    for key in REQUIRED_THEME_TOKEN_KEYS {
-        let ok = file
-            .tokens
-            .get(*key)
-            .map(|v| !v.trim().is_empty())
-            .unwrap_or(false);
-        if !ok {
-            missing.push(*key);
-        }
-    }
-    if !missing.is_empty() {
-        return Err(format!(
-            "missing required tokens: {}",
-            missing.join(", ")
-        ));
-    }
-    Ok(())
-}
-
 fn load_theme_from_contribution(
     contrib: &packs::ScannedContribution,
 ) -> Result<Theme, String> {
@@ -347,7 +284,7 @@ fn scaffold_workshop_theme_pack(
         version: "0.0.0".to_string(),
         name: theme.pack_name.clone(),
         description: theme.description.clone(),
-        icon: None,
+        preview: None,
         min_app_version: None,
     };
     write_pack_manifest(&pack_dir, &pack)?;

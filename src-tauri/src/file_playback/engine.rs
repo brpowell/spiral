@@ -25,6 +25,10 @@ pub const FILE_PLAYBACK_FLUSH_EVENT: &str = "file-playback-flush";
 /// Outgoing + incoming decks during crossfade.
 const MAX_SESSIONS: usize = 2;
 
+/// ~0.5s+ of 2048-frame chunks at 48kHz so the worklet read-ahead can fill
+/// (pack-install IPC stalls measured up to ~460ms; 10 chunks ≈ 0.43s at 48k).
+const MAX_CHUNKS_IN_FLIGHT: usize = 24;
+
 static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Reply to `start_file_playback` — playback begins paused.
@@ -69,7 +73,6 @@ pub struct FilePlaybackFlush {
 const POSITION_EVENT_INTERVAL: Duration = Duration::from_millis(250);
 const ENGINE_START_TIMEOUT: Duration = Duration::from_secs(10);
 const CHUNK_FRAMES: usize = 2048;
-const MAX_CHUNKS_IN_FLIGHT: usize = 10;
 
 enum PlaybackCommand {
     Seek(f64),

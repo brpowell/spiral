@@ -3,14 +3,16 @@ import {
   useContextMenu,
   type ContextMenuTriggerPlacement,
 } from "../../hooks/useContextMenu";
-import { Button, type ButtonSize, type ButtonVariant } from "../common/Button/Button";
+import {
+  Button,
+  type ButtonSize,
+  type ButtonVariant,
+} from "../common/Button/Button";
 import { ContextMenu } from "../ContextMenu/ContextMenu";
 import { IconChevronDown, IconMore } from "../icons";
 import "./MenuButton.css";
 
-export type MenuButtonChildren =
-  | ReactNode
-  | ((close: () => void) => ReactNode);
+export type MenuButtonChildren = ReactNode | ((close: () => void) => ReactNode);
 
 export interface MenuButtonProps {
   /** Accessible name for the trigger button */
@@ -23,6 +25,7 @@ export interface MenuButtonProps {
   triggerClassName?: string;
   variant?: ButtonVariant;
   size?: ButtonSize;
+  disabled?: boolean;
   /** Re-run viewport fit when menu content size may change */
   layoutDeps?: unknown[];
   title?: string;
@@ -45,6 +48,7 @@ export function MenuButton({
   triggerClassName,
   variant = "secondary",
   size = "sm",
+  disabled = false,
   layoutDeps = [],
   title,
   triggerPlacement = "below-end",
@@ -75,6 +79,7 @@ export function MenuButton({
         variant={variant}
         size={size}
         iconOnly={iconOnly}
+        disabled={disabled}
         className={["menu-button__trigger", triggerClassName]
           .filter(Boolean)
           .join(" ")}
@@ -82,9 +87,10 @@ export function MenuButton({
         aria-expanded={open}
         aria-haspopup="menu"
         title={title}
-        onClick={(e) =>
-          toggleFromTrigger(triggerRef.current, { keyboard: e.detail === 0 })
-        }
+        onClick={(e) => {
+          if (disabled) return;
+          toggleFromTrigger(triggerRef.current, { keyboard: e.detail === 0 });
+        }}
       >
         {iconOnly ? (
           (icon ?? <IconMore />)

@@ -35,7 +35,6 @@ pub struct ScannedContribution {
     pub zone: PackZone,
     pub author_id: String,
     pub pack_id: String,
-    #[allow(dead_code)] // Exposed for install/management UI
     pub pack_version: String,
     pub pack_name: String,
     pub pack_dir: PathBuf,
@@ -65,7 +64,7 @@ fn zone_priority(zone: PackZone) -> u8 {
         PackZone::Builtin => 0,
         PackZone::Installed => 1,
         // Workshop and Linked share the authoring priority band (beat installed/builtin).
-        // Pack-id collision between them is an error, not silent precedence.
+        // authorId.packId collision between them is an error, not silent precedence.
         PackZone::Workshop | PackZone::Linked => 2,
     }
 }
@@ -116,11 +115,6 @@ pub fn meets_min_app_version(min_app_version: &str, current: &str) -> bool {
 pub(crate) fn peek_pack_identity(pack_dir: &Path) -> Result<String, String> {
     let pack = peek_pack_manifest(pack_dir)?;
     Ok(pack_identity(&pack.author_id, &pack.pack_id))
-}
-
-#[allow(dead_code)]
-pub(crate) fn peek_pack_id(pack_dir: &Path) -> Result<String, String> {
-    Ok(peek_pack_manifest(pack_dir)?.pack_id)
 }
 
 fn peek_pack_manifest(pack_dir: &Path) -> Result<PackManifest, String> {
@@ -605,9 +599,9 @@ mod tests {
             pack_id: "demo".into(),
             pack_version: "1.0.0".into(),
             pack_name: "Demo".into(),
-            pack_dir: PathBuf::from("/installed/demo@1.0.0"),
-            contribution_dir: PathBuf::from("/installed/demo@1.0.0/themes/theme"),
-            manifest_path: PathBuf::from("/installed/demo@1.0.0/themes/theme/theme.json"),
+            pack_dir: PathBuf::from("/installed/bryan.demo@1.0.0"),
+            contribution_dir: PathBuf::from("/installed/bryan.demo@1.0.0/themes/theme"),
+            manifest_path: PathBuf::from("/installed/bryan.demo@1.0.0/themes/theme/theme.json"),
             r#type: "theme".into(),
             local_id: "theme".into(),
             effective_id: "bryan.demo.theme.theme".into(),
@@ -645,10 +639,10 @@ mod tests {
             pack_id: "midnight-drive".into(),
             pack_version: "1.0.0".into(),
             pack_name: "Midnight Drive".into(),
-            pack_dir: PathBuf::from("/installed/midnight-drive@1.0.0"),
-            contribution_dir: PathBuf::from("/installed/midnight-drive@1.0.0/themes/theme"),
+            pack_dir: PathBuf::from("/installed/bryan.midnight-drive@1.0.0"),
+            contribution_dir: PathBuf::from("/installed/bryan.midnight-drive@1.0.0/themes/theme"),
             manifest_path: PathBuf::from(
-                "/installed/midnight-drive@1.0.0/themes/theme/theme.json",
+                "/installed/bryan.midnight-drive@1.0.0/themes/theme/theme.json",
             ),
             r#type: "theme".into(),
             local_id: "theme".into(),
@@ -661,10 +655,10 @@ mod tests {
             pack_id: "midnight-drive".into(),
             pack_version: "1.1.0".into(),
             pack_name: "Midnight Drive".into(),
-            pack_dir: PathBuf::from("/installed/midnight-drive@1.1.0"),
-            contribution_dir: PathBuf::from("/installed/midnight-drive@1.1.0/themes/theme"),
+            pack_dir: PathBuf::from("/installed/bryan.midnight-drive@1.1.0"),
+            contribution_dir: PathBuf::from("/installed/bryan.midnight-drive@1.1.0/themes/theme"),
             manifest_path: PathBuf::from(
-                "/installed/midnight-drive@1.1.0/themes/theme/theme.json",
+                "/installed/bryan.midnight-drive@1.1.0/themes/theme/theme.json",
             ),
             r#type: "theme".into(),
             local_id: "theme".into(),
@@ -677,5 +671,18 @@ mod tests {
         }
 
         assert_eq!(by_id["bryan.midnight-drive.theme.theme"].pack_version, "1.1.0");
+    }
+
+    #[test]
+    fn different_authors_same_pack_id_do_not_share_identity() {
+        let alice = pack_identity("alice", "midnight-drive");
+        let bob = pack_identity("bob", "midnight-drive");
+        assert_ne!(alice, bob);
+        assert_eq!(alice, "alice.midnight-drive");
+        assert_eq!(bob, "bob.midnight-drive");
+
+        let mut workshop_pack_identities = HashSet::new();
+        workshop_pack_identities.insert(alice);
+        assert!(!workshop_pack_identities.contains(&bob));
     }
 }

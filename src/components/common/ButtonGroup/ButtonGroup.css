@@ -1,0 +1,141 @@
+.button-group {
+  display: inline-flex;
+  align-items: stretch;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.button-group[data-orientation="horizontal"] {
+  flex-direction: row;
+}
+
+.button-group[data-orientation="vertical"] {
+  flex-direction: column;
+}
+
+/* Direct Button or MenuButton (.menu-button) children */
+.button-group > .btn,
+.button-group > .menu-button {
+  position: relative;
+}
+
+.button-group > .menu-button {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.button-group > .menu-button > .btn {
+  position: relative;
+}
+
+/* Overlap adjacent borders so the group reads as one control */
+.button-group[data-orientation="horizontal"] > .btn + .btn,
+.button-group[data-orientation="horizontal"] > .btn + .menu-button,
+.button-group[data-orientation="horizontal"] > .menu-button + .btn,
+.button-group[data-orientation="horizontal"] > .menu-button + .menu-button,
+.button-group[data-orientation="horizontal"] > .btn + .button-group__separator,
+.button-group[data-orientation="horizontal"]
+  > .menu-button
+  + .button-group__separator,
+.button-group[data-orientation="horizontal"] > .button-group__separator + .btn,
+.button-group[data-orientation="horizontal"]
+  > .button-group__separator
+  + .menu-button {
+  margin-inline-start: -1px;
+}
+
+.button-group[data-orientation="vertical"] > .btn + .btn,
+.button-group[data-orientation="vertical"] > .btn + .menu-button,
+.button-group[data-orientation="vertical"] > .menu-button + .btn,
+.button-group[data-orientation="vertical"] > .menu-button + .menu-button,
+.button-group[data-orientation="vertical"] > .btn + .button-group__separator,
+.button-group[data-orientation="vertical"]
+  > .menu-button
+  + .button-group__separator,
+.button-group[data-orientation="vertical"] > .button-group__separator + .btn,
+.button-group[data-orientation="vertical"]
+  > .button-group__separator
+  + .menu-button {
+  margin-block-start: -1px;
+}
+
+/* Shared outer radius; square inner corners */
+.button-group[data-orientation="horizontal"] > .btn:first-child,
+.button-group[data-orientation="horizontal"] > .menu-button:first-child > .btn {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.button-group[data-orientation="horizontal"] > .btn:last-child,
+.button-group[data-orientation="horizontal"] > .menu-button:last-child > .btn {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+
+.button-group[data-orientation="horizontal"]
+  > .btn:not(:first-child):not(:last-child),
+.button-group[data-orientation="horizontal"]
+  > .menu-button:not(:first-child):not(:last-child)
+  > .btn {
+  border-radius: 0;
+}
+
+.button-group[data-orientation="vertical"] > .btn:first-child,
+.button-group[data-orientation="vertical"] > .menu-button:first-child > .btn {
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.button-group[data-orientation="vertical"] > .btn:last-child,
+.button-group[data-orientation="vertical"] > .menu-button:last-child > .btn {
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+}
+
+.button-group[data-orientation="vertical"]
+  > .btn:not(:first-child):not(:last-child),
+.button-group[data-orientation="vertical"]
+  > .menu-button:not(:first-child):not(:last-child)
+  > .btn {
+  border-radius: 0;
+}
+
+.button-group .btn:focus-visible,
+.button-group .menu-button > .btn:focus-visible {
+  z-index: 1;
+}
+
+.button-group[data-orientation="horizontal"] > .menu-button > .btn--icon-only {
+  width: auto;
+  min-width: unset;
+  height: auto;
+  align-self: stretch;
+  padding-inline: 0.4rem;
+}
+
+.button-group__separator {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  align-self: stretch;
+  width: 1px;
+  background: color-mix(
+    in srgb,
+    var(--color-accent-text, #fff) 35%,
+    transparent
+  );
+}
+
+.button-group__separator[data-orientation="horizontal"] {
+  width: auto;
+  height: 1px;
+}
+
+/* Secondary / non-primary groups: softer divider */
+.button-group:has(.btn--secondary) > .button-group__separator {
+  background: var(--color-border);
+}
+
+.button-group:has(.btn--danger) > .button-group__separator {
+  background: color-mix(in srgb, var(--color-danger) 45%, transparent);
+}

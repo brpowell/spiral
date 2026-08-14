@@ -25,3 +25,6 @@ dist-ssr
 
 # Tauri updater signing private keys (never commit; .pub files are fine)
 *.key
+
+# Local overrides (copy from .env.example)
+.env

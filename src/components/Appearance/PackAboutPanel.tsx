@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { RELOAD_LINKED_PACKS_EVENT } from "../../lib/appearanceWindow";
 import {
   invalidatePackReadmeCache,
   peekPackReadme,
@@ -8,10 +9,7 @@ import {
 } from "../../lib/packs/packReadmeCache";
 import { WORKSHOP_CHANGED_EVENT } from "../../lib/themeBridge";
 import { writePackReadme } from "../../lib/tauri";
-import {
-  isAuthoringPackZone,
-  type PackSummary,
-} from "../../types/pack";
+import { isAuthoringPackZone, type PackSummary } from "../../types/pack";
 import { Button } from "../common/Button/Button";
 import { Textarea } from "../common/Textarea/Textarea";
 import { PackReadmeMarkdown } from "./PackReadmeMarkdown";
@@ -42,7 +40,9 @@ export function PackAboutPanel({
   const canEdit = isAuthoringPackZone(pack.zone);
   const initial = readmeStateFromCache(pack.packDir);
   const [readme, setReadme] = useState<string | null>(initial.readme);
-  const [loadState, setLoadState] = useState<ReadmeLoadState>(initial.loadState);
+  const [loadState, setLoadState] = useState<ReadmeLoadState>(
+    initial.loadState,
+  );
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
@@ -81,11 +81,17 @@ export function PackAboutPanel({
   }, [loadReadme, pack.packDir]);
 
   useEffect(() => {
-    // File-watch live reload is workshop-only; linked packs use Reload Linked Packs.
-    if (pack.zone !== "workshop") return;
+    // Workshop: file-watch. Linked: Reload Linked Packs (no watch).
+    const event =
+      pack.zone === "workshop"
+        ? WORKSHOP_CHANGED_EVENT
+        : pack.zone === "linked"
+          ? RELOAD_LINKED_PACKS_EVENT
+          : null;
+    if (event == null) return;
     let disposed = false;
     let unlisten: (() => void) | undefined;
-    void listen(WORKSHOP_CHANGED_EVENT, () => {
+    void listen(event, () => {
       if (editing) return;
       void loadReadme({ silent: true, force: true });
     }).then((fn) => {

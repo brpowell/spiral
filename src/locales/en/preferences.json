@@ -21,8 +21,12 @@
   },
   "updates": {
     "automatic": {
-      "label": "Check for updates automatically",
-      "description": "Check for updates on launch and every few hours while Spiral is open."
+      "label": "Check for app updates automatically",
+      "description": "Check for Spiral updates on launch and every few hours while Spiral is open."
+    },
+    "automaticPacks": {
+      "label": "Check for pack updates automatically",
+      "description": "Check installed packs against the catalog on launch and every few hours while Spiral is open."
     },
     "checkButton": "Check for Updates",
     "pending": "Version {{version}} is available."

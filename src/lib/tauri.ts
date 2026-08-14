@@ -1,6 +1,13 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { PackSummary } from "../types/pack";
+import type {
+  PackDownloadProgress,
+  RegistryPackDetail,
+  RegistryPackList,
+  RegistrySource,
+  RegistryVersionDetail,
+} from "../types/packRegistry";
 import type {
   LibraryDestinationInfo,
   LibraryRelocateMode,
@@ -312,6 +319,10 @@ export async function cleanupZipImport(extractDir: string): Promise<void> {
 
 export async function getFileSize(path: string): Promise<number> {
   return invoke<number>("get_file_size", { path });
+}
+
+export async function getDirectorySize(path: string): Promise<number> {
+  return invoke<number>("get_directory_size", { path });
 }
 
 export async function saveTrack(track: TrackInput): Promise<Track> {
@@ -646,6 +657,117 @@ export async function installPack(
   });
 }
 
+/** Official pack registry source only (extra settings entries ignored until multi-registry UI). */
+export async function getPackRegistries(): Promise<RegistrySource[]> {
+  return invoke<RegistrySource[]>("get_pack_registries");
+}
+
+/** Persist pack registry sources. Official Spiral URL is always retained. */
+export async function savePackRegistries(
+  registries: RegistrySource[],
+): Promise<RegistrySource[]> {
+  return invoke<RegistrySource[]>("save_pack_registries", { registries });
+}
+
+/** `GET /v1/packs` against every configured registry (partial failure → `errors[]`). */
+export async function fetchPackCatalog(options?: {
+  contributionType?: string | null;
+  authorId?: string | null;
+}): Promise<RegistryPackList> {
+  return invoke<RegistryPackList>("fetch_pack_catalog", {
+    contributionType: options?.contributionType ?? null,
+    authorId: options?.authorId ?? null,
+  });
+}
+
+/** `GET /v1/packs/:author/:pack` — all published (non-yanked) versions. */
+export async function fetchRegistryPack(args: {
+  registryUrl: string;
+  authorId: string;
+  packId: string;
+}): Promise<RegistryPackDetail> {
+  return invoke<RegistryPackDetail>("fetch_registry_pack", {
+    registryUrl: args.registryUrl,
+    authorId: args.authorId,
+    packId: args.packId,
+  });
+}
+
+/** `GET .../versions/:version` including README for pre-install About browsing. */
+export async function fetchRegistryPackVersion(args: {
+  registryUrl: string;
+  authorId: string;
+  packId: string;
+  version: string;
+}): Promise<RegistryVersionDetail> {
+  return invoke<RegistryVersionDetail>("fetch_registry_pack_version", {
+    registryUrl: args.registryUrl,
+    authorId: args.authorId,
+    packId: args.packId,
+    version: args.version,
+  });
+}
+
+/** Running app semver used for catalog `minAppVersion` checks. */
+export async function getAppVersion(): Promise<string> {
+  return invoke<string>("get_app_version");
+}
+
+/** Whether the running app satisfies an optional catalog `minAppVersion`. */
+export async function packMeetsMinAppVersion(
+  minAppVersion?: string | null,
+): Promise<boolean> {
+  return invoke<boolean>("pack_meets_min_app_version", {
+    minAppVersion: minAppVersion ?? null,
+  });
+}
+
+/** Download + install by catalog identity from a configured registry base URL. */
+export async function installPackFromRegistry(args: {
+  registryUrl: string;
+  authorId: string;
+  packId: string;
+  version: string;
+  sha256: string;
+  sizeBytes: number;
+  minAppVersion?: string | null;
+  /** Optional; invoke still requires a channel, so a no-op is used when omitted. */
+  onProgress?: Channel<PackDownloadProgress>;
+}): Promise<InstallPackResult> {
+  return invoke<InstallPackResult>("install_pack_from_registry", {
+    registryUrl: args.registryUrl,
+    authorId: args.authorId,
+    packId: args.packId,
+    version: args.version,
+    sha256: args.sha256,
+    sizeBytes: args.sizeBytes,
+    minAppVersion: args.minAppVersion ?? null,
+    onProgress: args.onProgress ?? new Channel<PackDownloadProgress>(),
+  });
+}
+
+export async function cancelPackDownload(): Promise<void> {
+  await invoke("cancel_pack_download");
+}
+
+export async function clearPackDownloadCancel(): Promise<void> {
+  await invoke("clear_pack_download_cancel");
+}
+
+/**
+ * Fetch a catalog pack preview into the local registry-asset cache.
+ * Returns a filesystem path for `convertFileSrc`, or null on soft failure.
+ */
+export async function resolveRegistryPackPreview(args: {
+  registryUrl: string;
+  previewUrl?: string | null;
+}): Promise<string | null> {
+  return invoke<string | null>("resolve_registry_pack_preview", {
+    registryUrl: args.registryUrl,
+    previewUrl: args.previewUrl ?? null,
+  });
+}
+
 export async function listPacks(): Promise<PackSummary[]> {
   return invoke<PackSummary[]>("list_packs");
 }
@@ -740,6 +862,21 @@ export async function writePackReadme(
   return invoke<void>("write_pack_readme", { packDir, content });
 }
 
+/** Optional pack-root CHANGELOG.md; `null` when the file is absent. */
+export async function readPackChangelog(
+  packDir: string,
+): Promise<string | null> {
+  return invoke<string | null>("read_pack_changelog", { packDir });
+}
+
+/** Write or delete pack-root CHANGELOG.md for workshop/linked (empty/whitespace deletes). */
+export async function writePackChangelog(
+  packDir: string,
+  content: string,
+): Promise<void> {
+  return invoke<void>("write_pack_changelog", { packDir, content });
+}
+
 export async function deleteWorkshopPack(packId: string): Promise<void> {
   return invoke<void>("delete_workshop_pack", { packId });
 }
@@ -761,17 +898,19 @@ export async function deleteWorkshopContribution(
 }
 
 export async function uninstallPack(
+  authorId: string,
   packId: string,
   version: string,
 ): Promise<void> {
-  return invoke<void>("uninstall_pack", { packId, version });
+  return invoke<void>("uninstall_pack", { authorId, packId, version });
 }
 
 export async function rollbackPack(
+  authorId: string,
   packId: string,
   version: string,
 ): Promise<string[]> {
-  return invoke<string[]>("rollback_pack", { packId, version });
+  return invoke<string[]>("rollback_pack", { authorId, packId, version });
 }
 
 export async function setContributionHidden(

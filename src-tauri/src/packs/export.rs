@@ -1,6 +1,6 @@
 //! Export a workshop pack directory to a `.spk` build artifact.
 
-use super::archive::write_pack_archive;
+use super::write_pack_archive;
 use super::install::validate_pack_for_install;
 use super::{parse_pack_manifest_json, PackManifest, PACK_MANIFEST_FILENAME};
 use serde::Serialize;
@@ -140,7 +140,7 @@ pub fn read_workshop_export_defaults(pack_dir: &Path) -> Result<PackManifest, St
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::packs::archive::{extract_pack_archive, find_pack_root};
+    use crate::packs::{extract_pack_archive, find_pack_root};
     use crate::packs::install::{atomic_install_pack_dir, validate_pack_for_install};
     use crate::packs::PACK_MANIFEST_VERSION;
 
@@ -178,7 +178,7 @@ mod tests {
             version: "0.0.0".into(),
             name: "Draft Theme".into(),
             description: "".into(),
-            icon: None,
+            preview: None,
             min_app_version: None,
         };
         fs::write(
@@ -228,10 +228,10 @@ mod tests {
         let installed = root.join("installed");
         fs::create_dir_all(&installed).unwrap();
         let dest = atomic_install_pack_dir(&installed, &pack_root, &stamped).unwrap();
-        assert!(dest.ends_with("draft-theme@1.2.0"));
+        assert!(dest.ends_with("bryan.draft-theme@1.2.0"));
         assert!(dest.join("themes/theme/theme.json").is_file());
 
-        crate::packs::archive::cleanup_pack_extract_dir(&extract);
+        crate::packs::cleanup_pack_extract_dir(&extract);
         let _ = fs::remove_dir_all(&root);
     }
 }

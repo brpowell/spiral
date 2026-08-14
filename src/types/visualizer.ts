@@ -22,6 +22,7 @@ export interface VizManifest {
   name: string;
   author: string;
   description: string;
+  /** Optional contribution preview. Raster only (png/jpg/jpeg/webp/gif). */
   preview?: string;
   surfaces: Record<VisualizerSurface, VizSurfaceProfile>;
 }

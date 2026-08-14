@@ -5,15 +5,15 @@ alwaysApply: true
 
 # Toast Conventions
 
-Rules for toasts that report the result of an operation (single-item or bulk). Applies to queue, conversion, import, lyrics fetch, and any future success/failure/other outcome toast. Keep new toast types consistent with this — do not invent per-feature formatting.
+Rules for toasts that report the result of an operation (single-item or bulk). Applies to queue, conversion, import, lyrics fetch, pack install/download, and any future success/failure/other outcome toast. Keep new toast types consistent with this — do not invent per-feature formatting.
 
-Canonical helpers: `src/lib/toastPeerOutcomes.ts`, `src/lib/toastPayloads.ts`. Toast Lab scenarios should match these rules.
+Canonical helpers: `src/lib/toastPeerOutcomes.ts`, `src/lib/toastPayloads.ts`. Toast Lab scenarios must match these rules (see §9).
 
 ## Peer outcome counters (§1)
 
 Operations with more than one possible per-item outcome use **peer counters**. No outcome is a default/headline unless the operation can *guarantee* that counter is never zero when the toast fires. Title, color, and subtitle/button strategy derive from counters — not hand-written per scenario.
 
-Single-subject actions (one track, or one homogeneous unit like a whole album/playlist) skip this model — see §6.
+Single-subject actions (one track, or one homogeneous unit like a whole album/playlist/pack) skip this model — see §6.
 
 ## Title format (§2)
 
@@ -57,7 +57,7 @@ Use the existing primary/secondary (filled vs text) multi-action pattern when tw
 2. `need review > 0` and `failed >= 1` → `[Review]` primary + `[View logs]` secondary.
 3. `need review == 0`:
    - `failed == 1` + **known/expected** error (tagged at throw site) → inline subtitle only, no button.
-   - `failed == 1` + **generic/unhandled** → inline subtitle + `[View logs]`.
+   - `failed == 1` + **generic/unhandled** → friendly inline subtitle + `[View logs]`.
    - `failed >= 2` → `[View logs]` only; never concatenate multiple error strings into the subtitle.
 4. Else → no button, no subtitle.
 
@@ -66,9 +66,18 @@ live in the Activity Log entry for the operation — do not add `[View logs]` on
 pure success toasts just to surface them. Tag known-vs-generic at the error
 throw site — toast layer reads the flag, does not infer from message text.
 
+### Friendly copy; raw errors stay out of the toast (§4a)
+
+- Never put raw backend / invoke / URL / exception strings in the toast **label** or **detail**.
+- Toast copy is i18n’d and user-facing (e.g. “Couldn't download Xbox” / “Check your connection and try again.”).
+- Put the technical message (URLs, status codes, Rust errors) in the Activity Log `message` / `details` for that operation.
+- Progress toasts that fail must `settleAs` into the friendly terminal payload — do not leave the running label (e.g. “Downloading…”) with a raw `err.message` as detail.
+
 ## Activity Log (§5)
 
-Bulk toasts with `[View logs]` or `[Review]` must link to a corresponding Activity Log entry with full per-item detail. Do not build a separate bulk-job report surface.
+- Bulk toasts with `[View logs]` or `[Review]` must link to a corresponding Activity Log entry with full per-item detail. Do not build a separate bulk-job report surface.
+- Single-subject **generic/unhandled** failures (§4.3 / §6) must also write an Activity Log entry and pass `logLink` so `[View logs]` opens it.
+- Successful operations that matter for support/audit (e.g. pack install) should log provenance (`source`, registry URL, ids, version, paths) even when the success toast has no `[View logs]` button.
 
 ## Single-subject exception (§6)
 
@@ -78,11 +87,15 @@ Bulk toasts with `[View logs]` or `[Review]` must link to a corresponding Activi
 
 ✓ Multiple lyrics found for Song
   [Choose]
+
+✕ Couldn't download Xbox
+  Check your connection and try again.  [View logs]
 ```
 
-- Subtitle names the subject when there is exactly one coherent subject.
+- Subtitle names the subject when there is exactly one coherent subject — or carries a short friendly explanation when the subject is already in the title.
 - Heterogeneous multi-select: no subtitle — count stays in the title (`5 tracks added to queue`, not title/subtitle split).
 - Needs-review on a single item still gets a button.
+- Generic/unhandled single-subject failures **always** get `[View logs]` + an Activity Log entry (§4.3 / §5). Known/expected kinds (tagged at the throw site) stay toast-only with friendly detail.
 
 ## Zero-op (§7)
 
@@ -100,4 +113,17 @@ Nothing-to-do cases (e.g. “No tracks missing lyrics”) are plain info toasts 
   [Review]  [View logs]
 ✓ No tracks missing lyrics        (zero-op)
 ! Playback failed                 (+ [View logs] only if generic/unhandled)
+✕ Couldn't download Xbox          (+ friendly detail + [View logs])
+✓ Installed Xbox (1.0.0)
 ```
+
+## Toast Lab (§9)
+
+Every real production toast scenario must be registered in Toast Lab (`src/components/ToastLab/toastLabScenarios.ts`) for visual auditing.
+
+- Add a scenario when introducing or changing a production toast (success, failure, partial, cancel, progress→settle).
+- Prefer calling the same payload / `settleAs` helpers production uses (`toastPayloads.ts`, settle option builders) — do not hand-roll divergent lab-only copy.
+- If the production toast includes `[View logs]`, the lab scenario must seed an Activity Log entry and pass `logLink` the same way.
+- Lab button labels should name the outcome clearly (e.g. “Registry download → failed”, not only “Pack error”).
+- Skipping Toast Lab for a “quick” toast is a conventions violation — treat it as part of the implementation, not optional polish.
+- Remove scenarios from toast lab when they are no longer mirrored in production

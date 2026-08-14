@@ -1,11 +1,11 @@
-//! Atomic pack install into `packs/installed/<packId>@<version>/`.
+//! Atomic pack install into `packs/installed/<authorId>.<packId>@<version>/`.
 
-use super::archive::{cleanup_pack_extract_dir, extract_pack_archive, find_pack_root};
+use super::{cleanup_pack_extract_dir, extract_pack_archive, find_pack_root};
 use super::paths::{ensure_packs_ready, installed_packs_root};
 use super::scan::{app_version, meets_min_app_version};
 use super::{
-    contribution_id_from_manifest_json, get_contribution_type_handler, parse_pack_manifest_json,
-    PackManifest, CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME,
+    contribution_id_from_manifest_json, get_contribution_type_handler, pack_identity,
+    parse_pack_manifest_json, PackManifest, CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME,
 };
 use serde::Serialize;
 use std::collections::HashMap;
@@ -23,13 +23,18 @@ pub struct InstallPackResult {
     pub contribution_count: usize,
 }
 
-/// Directory name for an installed pack version: `<packId>@<version>`.
-pub fn installed_pack_dirname(pack_id: &str, version: &str) -> String {
-    format!("{pack_id}@{version}")
+/// Directory name for an installed pack version: `<authorId>.<packId>@<version>`.
+pub fn installed_pack_dirname(author_id: &str, pack_id: &str, version: &str) -> String {
+    format!("{}@{version}", pack_identity(author_id, pack_id))
 }
 
-pub fn installed_pack_path(installed_root: &Path, pack_id: &str, version: &str) -> PathBuf {
-    installed_root.join(installed_pack_dirname(pack_id, version))
+pub fn installed_pack_path(
+    installed_root: &Path,
+    author_id: &str,
+    pack_id: &str,
+    version: &str,
+) -> PathBuf {
+    installed_root.join(installed_pack_dirname(author_id, pack_id, version))
 }
 
 /// Validate pack.json + contribution files for install (strict).
@@ -187,7 +192,12 @@ pub(crate) fn atomic_install_pack_dir(
     fs::create_dir_all(installed_root)
         .map_err(|e| format!("failed to create installed packs directory: {e}"))?;
 
-    let dest = installed_pack_path(installed_root, &pack.pack_id, &pack.version);
+    let dest = installed_pack_path(
+        installed_root,
+        &pack.author_id,
+        &pack.pack_id,
+        &pack.version,
+    );
     if dest.exists() {
         return Err(format!(
             "{} ({}) is already installed",
@@ -197,7 +207,7 @@ pub(crate) fn atomic_install_pack_dir(
 
     let staging = installed_root.join(format!(
         ".staging-{}-{}-{}",
-        pack.pack_id,
+        pack_identity(&pack.author_id, &pack.pack_id),
         pack.version.replace(['+', '/'], "_"),
         std::process::id()
     ));
@@ -344,7 +354,7 @@ mod tests {
             version: "1.0.0".into(),
             name: "Test Theme".into(),
             description: "".into(),
-            icon: None,
+            preview: None,
             min_app_version: None,
         };
         fs::write(
@@ -355,10 +365,10 @@ mod tests {
     }
 
     #[test]
-    fn installed_dirname_includes_version() {
+    fn installed_dirname_includes_author_and_version() {
         assert_eq!(
-            installed_pack_dirname("midnight-drive", "1.2.3"),
-            "midnight-drive@1.2.3"
+            installed_pack_dirname("bryan", "midnight-drive", "1.2.3"),
+            "bryan.midnight-drive@1.2.3"
         );
     }
 
@@ -394,7 +404,51 @@ mod tests {
         })
         .unwrap_err();
         assert!(validate_err.contains("missing required tokens"));
-        assert!(!installed.join("test-theme@1.0.0").exists());
+        assert!(!installed.join("test.test-theme@1.0.0").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn different_authors_same_pack_id_install_side_by_side() {
+        let root = std::env::temp_dir().join(format!(
+            "spiral-install-authors-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let installed = root.join("installed");
+        fs::create_dir_all(&installed).unwrap();
+
+        let alice_src = root.join("alice");
+        write_minimal_theme_pack(&alice_src);
+        let mut alice = validate_pack_for_install(&alice_src, |_, _, _| Ok(())).unwrap();
+        alice.author_id = "alice".into();
+        alice.pack_id = "midnight-drive".into();
+        fs::write(
+            alice_src.join(PACK_MANIFEST_FILENAME),
+            serde_json::to_string_pretty(&alice).unwrap(),
+        )
+        .unwrap();
+        let alice = validate_pack_for_install(&alice_src, |_, _, _| Ok(())).unwrap();
+        let alice_dest = atomic_install_pack_dir(&installed, &alice_src, &alice).unwrap();
+
+        let bob_src = root.join("bob");
+        write_minimal_theme_pack(&bob_src);
+        let mut bob = validate_pack_for_install(&bob_src, |_, _, _| Ok(())).unwrap();
+        bob.author_id = "bob".into();
+        bob.pack_id = "midnight-drive".into();
+        fs::write(
+            bob_src.join(PACK_MANIFEST_FILENAME),
+            serde_json::to_string_pretty(&bob).unwrap(),
+        )
+        .unwrap();
+        let bob = validate_pack_for_install(&bob_src, |_, _, _| Ok(())).unwrap();
+        let bob_dest = atomic_install_pack_dir(&installed, &bob_src, &bob).unwrap();
+
+        assert!(alice_dest.exists());
+        assert!(bob_dest.exists());
+        assert_ne!(alice_dest, bob_dest);
+        assert!(alice_dest.ends_with("alice.midnight-drive@1.0.0"));
+        assert!(bob_dest.ends_with("bob.midnight-drive@1.0.0"));
         let _ = fs::remove_dir_all(&root);
     }
 

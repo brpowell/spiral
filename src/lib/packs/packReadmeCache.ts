@@ -24,6 +24,11 @@ export function invalidatePackReadmeCache(packDir: string): void {
   cache.delete(packDir);
 }
 
+/** Drop every cached README (e.g. after Reload Linked Packs). */
+export function invalidateAllPackReadmeCaches(): void {
+  cache.clear();
+}
+
 /**
  * Start (or reuse) a README fetch for `packDir`. Safe to call before the
  * About panel mounts — later callers share the same promise/result.

@@ -11,6 +11,7 @@ import {
   assertPackManifestVersion,
   effectiveContributionId,
   PackManifestError,
+  packIdentity,
   parsePackManifest,
   parsePackManifestJson,
   slugifyId,
@@ -24,8 +25,8 @@ const samplePackPath = join(
 );
 
 const schemaPath = join(
-  repoRoot,
-  "src-tauri/schemas/pack-v1.schema.json",
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures/pack-v1.schema.json",
 );
 
 describe("pack archive convention", () => {
@@ -36,6 +37,10 @@ describe("pack archive convention", () => {
 });
 
 describe("id helpers", () => {
+  it("builds pack identity as authorId.packId", () => {
+    expect(packIdentity("bryan", "midnight-drive")).toBe("bryan.midnight-drive");
+  });
+
   it("builds effective id as authorId.packId.type.contributionId", () => {
     expect(
       effectiveContributionId("bryan", "midnight-drive", "theme", "theme"),
@@ -124,6 +129,47 @@ describe("parsePackManifest", () => {
       }),
     ).toThrow(/authorId/);
   });
+
+  it("accepts optional preview", () => {
+    const pack = parsePackManifest({
+      manifestVersion: 1,
+      packId: "midnight-drive",
+      authorId: "bryan",
+      version: "1.0.0",
+      name: "Midnight Drive",
+      description: "",
+      preview: "preview.png",
+    });
+    expect(pack.preview).toBe("preview.png");
+  });
+
+  it("rejects empty preview", () => {
+    expect(() =>
+      parsePackManifest({
+        manifestVersion: 1,
+        packId: "midnight-drive",
+        authorId: "bryan",
+        version: "1.0.0",
+        name: "Midnight Drive",
+        description: "",
+        preview: "  ",
+      }),
+    ).toThrow(/preview/);
+  });
+
+  it("rejects svg preview", () => {
+    expect(() =>
+      parsePackManifest({
+        manifestVersion: 1,
+        packId: "midnight-drive",
+        authorId: "bryan",
+        version: "1.0.0",
+        name: "Midnight Drive",
+        description: "",
+        preview: "preview.svg",
+      }),
+    ).toThrow(/unsupported extension/);
+  });
 });
 
 describe("pack-v1.schema.json", () => {
@@ -133,6 +179,8 @@ describe("pack-v1.schema.json", () => {
       properties: {
         manifestVersion: { const: number };
         authorId: Record<string, unknown>;
+        preview?: unknown;
+        icon?: unknown;
         contributions?: unknown;
         author?: unknown;
       };
@@ -140,6 +188,8 @@ describe("pack-v1.schema.json", () => {
     expect(schema.properties.manifestVersion.const).toBe(1);
     expect(schema.required).toContain("authorId");
     expect(schema.properties.authorId).toBeDefined();
+    expect(schema.properties.preview).toBeDefined();
+    expect(schema.properties.icon).toBeUndefined();
     expect(schema.properties.contributions).toBeUndefined();
     expect(schema.properties.author).toBeUndefined();
   });

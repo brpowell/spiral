@@ -42,9 +42,9 @@ const SEEK_END_MARGIN_SECONDS = 0.05;
 
 /**
  * Safety net if the worklet never reports its drain (e.g. the node was
- * disconnected). Must outlast maxBufferFrames (read-ahead + ~1s headroom).
+ * disconnected). Must outlast maxBufferFrames (read-ahead + in-flight burst).
  */
-const DRAIN_FALLBACK_MS = 1500;
+const DRAIN_FALLBACK_MS = 3500;
 
 const pcmConfig = {
   ackCommand: "ack_file_playback_pcm",

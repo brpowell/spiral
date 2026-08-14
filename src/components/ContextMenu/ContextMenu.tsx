@@ -110,7 +110,9 @@ export function ContextMenuOptionItem({
       <span className="context-menu__option-content">
         <span className="context-menu__item-label">{label}</span>
         {description != null ? (
-          <span className="context-menu__option-description">{description}</span>
+          <span className="context-menu__option-description">
+            {description}
+          </span>
         ) : null}
       </span>
       <span className="context-menu__option-check" aria-hidden>
@@ -152,9 +154,10 @@ export function ContextMenuSubmenu({
   const internalPanelRef = useRef<HTMLDivElement>(null);
   const resolvedPanelRef = panelRef ?? internalPanelRef;
   const openFromKeyboardRef = useRef(false);
-  const [position, setPosition] = useState<{ left: number; top: number } | null>(
-    null,
-  );
+  const [position, setPosition] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
 
   const openFromKeyboard = useCallback(() => {
     openFromKeyboardRef.current = true;
@@ -169,17 +172,29 @@ export function ContextMenuSubmenu({
   useLayoutEffect(() => {
     if (!flyoutOpen || !itemRef.current || !resolvedPanelRef.current) return;
     const itemRect = itemRef.current.getBoundingClientRect();
-    const { width, height } =
-      resolvedPanelRef.current.getBoundingClientRect();
+    const { width, height } = resolvedPanelRef.current.getBoundingClientRect();
+    // Flip against the parent panel's left edge, not the trigger item's own
+    // edge — the item can sit flush with the panel's right edge, and flipping
+    // relative to it would stack the flyout on top of the parent panel.
+    const parentPanelRect = itemRef.current
+      .closest<HTMLElement>(".context-menu")
+      ?.getBoundingClientRect();
     setPosition(
       fitContextMenuPosition(itemRect.right - 2, itemRect.top, width, height, {
         flipUpAlignBottomY: itemRect.bottom,
+        flipLeftAlignRightX: parentPanelRect
+          ? parentPanelRect.left + 2
+          : undefined,
       }),
     );
   }, [flyoutOpen, children, resolvedPanelRef]);
 
   useLayoutEffect(() => {
-    if (!flyoutOpen || !openFromKeyboardRef.current || !resolvedPanelRef.current) {
+    if (
+      !flyoutOpen ||
+      !openFromKeyboardRef.current ||
+      !resolvedPanelRef.current
+    ) {
       return;
     }
     openFromKeyboardRef.current = false;

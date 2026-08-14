@@ -1,5 +1,5 @@
 {
-  "$schema": "../../../../../schemas/renderer-v1.schema.json",
+  "$schema": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/renderer-v1.schema.json",
   "id": "neon-tunnel",
   "name": "Neon Tunnel",
   "author": "Spiral",

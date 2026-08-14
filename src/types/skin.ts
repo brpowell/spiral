@@ -28,12 +28,7 @@ export type SkinCondition =
   | { not: SkinCondition };
 
 export type ShellSlot =
-  | "header"
-  | "art"
-  | "info"
-  | "controls"
-  | "visualizer"
-  | "footer";
+  "header" | "art" | "info" | "controls" | "visualizer" | "footer";
 
 export interface SkinSummary {
   id: string;
@@ -60,6 +55,8 @@ export interface SkinManifest {
   name: string;
   author: string;
   description: string;
+  /** Optional preview image path relative to the contribution directory. Raster only (png/jpg/jpeg/webp/gif). */
+  preview?: string;
   defaultView: string;
   views: Record<string, SkinView>;
   visualizer?: SkinVisualizer;
@@ -366,8 +363,7 @@ export interface TiledFrameExplicitPresentation {
 }
 
 export type TiledFramePresentation =
-  | TiledFramePresetPresentation
-  | TiledFrameExplicitPresentation;
+  TiledFramePresetPresentation | TiledFrameExplicitPresentation;
 
 export function isTiledFrameExplicit(
   presentation: TiledFramePresentation,

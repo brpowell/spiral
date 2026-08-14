@@ -30,6 +30,7 @@ export interface LibrarySettings {
   lyricsSidecarSyncEnabled: boolean;
   lyricsAutoFetchInLightbox: boolean;
   automaticUpdateChecksEnabled: boolean;
+  automaticPackUpdateChecksEnabled: boolean;
 }
 
 export interface LibrarySettingsPatch {
@@ -45,4 +46,5 @@ export interface LibrarySettingsPatch {
   lyricsSidecarSyncEnabled?: boolean;
   lyricsAutoFetchInLightbox?: boolean;
   automaticUpdateChecksEnabled?: boolean;
+  automaticPackUpdateChecksEnabled?: boolean;
 }

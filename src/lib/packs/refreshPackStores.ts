@@ -15,6 +15,7 @@ import {
   type InstallPackResult,
 } from "../tauri";
 import { emit } from "@tauri-apps/api/event";
+import { createOperationId } from "../activityLog";
 import { t } from "../i18n";
 import {
   packInstalledPayload,
@@ -29,6 +30,12 @@ import {
   LINKED_PACKS_CHANGED_EVENT,
   RELOAD_LINKED_PACKS_EVENT,
 } from "../appearanceWindow";
+import {
+  logPackInstallFailure,
+  logPackInstallSuccess,
+} from "./packInstallActivity";
+import { invalidateAllPackChangelogCaches } from "./packChangelogCache";
+import { invalidateAllPackReadmeCaches } from "./packReadmeCache";
 
 function formatInvokeError(err: unknown, fallback: string): string {
   if (typeof err === "string" && err.trim()) return err;
@@ -51,16 +58,27 @@ export async function refreshPackContributionStores(): Promise<void> {
  */
 export async function importPackWithRefresh(): Promise<InstallPackResult | null> {
   const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
+  const operationId = createOperationId();
   try {
     const result = await installPack();
     if (!result) return null;
     await refreshPackContributionStores();
-    showToast(
-      packInstalledPayload(result.name, result.version),
-    );
+    logPackInstallSuccess({
+      operationId,
+      source: "file",
+      result,
+    });
+    showToast(packInstalledPayload(result.name, result.version));
     return result;
   } catch (err) {
-    showErrorToast(packInstallFailedPayload(err));
+    logPackInstallFailure({
+      operationId,
+      source: "file",
+      err,
+    });
+    showErrorToast(
+      packInstallFailedPayload({ logLink: { operationId } }),
+    );
     return null;
   }
 }
@@ -141,6 +159,9 @@ export async function reloadLinkedPacksWithRefresh(): Promise<void> {
   const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
   try {
     await refreshPackContributionStores();
+    // Linked packs are not file-watched; drop doc caches so Studio re-reads disk.
+    invalidateAllPackReadmeCaches();
+    invalidateAllPackChangelogCaches();
     const warnings = await getPackScanWarnings();
     const linkedWarnings = warnings.filter((w) =>
       w.toLowerCase().includes("linked"),
@@ -163,18 +184,18 @@ export async function reloadLinkedPacksWithRefresh(): Promise<void> {
 }
 
 export async function uninstallPackWithRefresh(
+  authorId: string,
   packId: string,
   version: string,
   displayName: string,
 ): Promise<boolean> {
   const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
   try {
-    await uninstallPack(packId, version);
+    await uninstallPack(authorId, packId, version);
     await refreshPackContributionStores();
     showToast({
       label: t("toasts:packs.uninstalled", {
         name: displayName,
-        version,
       }),
       status: "success",
       key: "pack-uninstall",
@@ -190,23 +211,14 @@ export async function uninstallPackWithRefresh(
 }
 
 export async function rollbackPackWithRefresh(
+  authorId: string,
   packId: string,
   version: string,
-  displayName: string,
 ): Promise<boolean> {
-  const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
+  const { showErrorToast } = useBackgroundTasksStore.getState();
   try {
-    const removed = await rollbackPack(packId, version);
+    await rollbackPack(authorId, packId, version);
     await refreshPackContributionStores();
-    showToast({
-      label: t("toasts:packs.rolledBack", {
-        name: displayName,
-        version,
-        removed: removed.join(", "),
-      }),
-      status: "success",
-      key: "pack-rollback",
-    });
     return true;
   } catch (err) {
     showErrorToast({

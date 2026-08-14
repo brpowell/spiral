@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { AppearanceSection } from "../../lib/appearanceWindow";
 import {
+  IconDownload,
   IconPackage,
   IconPalette,
   IconSkinMode,
@@ -13,7 +14,8 @@ export interface AppearanceSectionConfig {
   icon: ReactNode;
 }
 
-export const APPEARANCE_SECTIONS: AppearanceSectionConfig[] = [
+/** Themes → Visualizers → Skins → Packs (single content rail). */
+export const APPEARANCE_CONTENT_SECTIONS: AppearanceSectionConfig[] = [
   {
     id: "themes",
     label: "Themes",
@@ -36,12 +38,17 @@ export const APPEARANCE_SECTIONS: AppearanceSectionConfig[] = [
   },
 ];
 
-export const APPEARANCE_CONTENT_SECTIONS: AppearanceSectionConfig[] =
-  APPEARANCE_SECTIONS.filter((item) => item.id !== "packs");
+/** Catalog browse — own sidebar section below the separator. */
+export const APPEARANCE_CATALOG_SECTION: AppearanceSectionConfig = {
+  id: "catalog",
+  label: "Get more…",
+  icon: <IconDownload />,
+};
 
-export const APPEARANCE_MANAGE_SECTION = APPEARANCE_SECTIONS.find(
-  (item) => item.id === "packs",
-)!;
+export const APPEARANCE_SECTIONS: AppearanceSectionConfig[] = [
+  ...APPEARANCE_CONTENT_SECTIONS,
+  APPEARANCE_CATALOG_SECTION,
+];
 
 export function getAppearanceSectionConfig(
   section: AppearanceSection,

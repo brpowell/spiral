@@ -12,14 +12,8 @@ import {
   stripFrameToRatio,
 } from "./skinStripSliderMap";
 
-const SLIDER_DIR = join(
-  process.cwd(),
-  "packs/t3/skins/t3/assets/sliders",
-);
-const XBOX_SLIDER_DIR = join(
-  process.cwd(),
-  "packs/xbox/skins/xbox/assets/sliders",
-);
+const SLIDER_DIR = join(process.cwd(), "testdata/skins/sliders");
+const XBOX_SLIDER_DIR = join(process.cwd(), "testdata/skins/sliders");
 
 function loadPng(relativePath: string): {
   data: Uint8ClampedArray;

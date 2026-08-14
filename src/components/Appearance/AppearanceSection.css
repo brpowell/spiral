@@ -11,6 +11,11 @@
   padding-inline: var(--main-content-padding-x);
 }
 
+.appearance-pack-grid > [role="listitem"] {
+  display: flex;
+  min-width: 0;
+}
+
 @media (min-width: 52rem) {
   .appearance-pack-grid {
     grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));

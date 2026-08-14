@@ -57,11 +57,28 @@ mod test_fixtures;
 
 use commands::library::DbState;
 use rating_sync::RatingSync;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::Manager;
 
+fn load_dev_dotenv() {
+    let candidates = [
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.env"),
+        PathBuf::from(".env"),
+        PathBuf::from("../.env"),
+    ];
+    for path in candidates {
+        if path.is_file() {
+            let _ = dotenvy::from_path(&path);
+            return;
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    load_dev_dotenv();
+
     // Must be registered first on Windows/Linux: OS file-association opens spawn a
     // second process with the path in argv; this forwards that argv to the primary
     // instance (macOS uses RunEvent::Opened instead — see below).
@@ -147,6 +164,7 @@ pub fn run() {
             zip_import::cleanup_zip_import,
             commands::files::pick_folder,
             commands::files::get_file_size,
+            commands::files::get_directory_size,
             commands::files::get_file_modified_ms,
             commands::files::file_exists,
             commands::library::save_track,
@@ -208,6 +226,8 @@ pub fn run() {
             commands::packs::update_linked_pack_metadata,
             commands::packs::read_pack_readme,
             commands::packs::write_pack_readme,
+            commands::packs::read_pack_changelog,
+            commands::packs::write_pack_changelog,
             commands::packs::delete_workshop_pack,
             commands::packs::delete_workshop_contribution,
             commands::packs::uninstall_pack,
@@ -215,6 +235,19 @@ pub fn run() {
             commands::packs::set_contribution_hidden,
             commands::packs::get_default_author_id,
             commands::packs::save_default_author_id,
+            commands::registry::get_pack_registries,
+            commands::registry::save_pack_registries,
+            commands::registry::fetch_pack_catalog,
+            commands::registry::fetch_registry_pack,
+            commands::registry::fetch_registry_pack_version,
+            commands::registry::get_app_version,
+            commands::registry::pack_meets_min_app_version,
+            commands::registry::is_pack_installed,
+            commands::registry::install_pack_from_url,
+            commands::registry::install_pack_from_registry,
+            commands::registry::resolve_registry_pack_preview,
+            commands::registry::cancel_pack_download,
+            commands::registry::clear_pack_download_cancel,
             commands::skins::list_skins,
             commands::skins::load_skin_pack,
             commands::skins::save_active_skin_id,

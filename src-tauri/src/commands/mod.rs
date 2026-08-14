@@ -17,6 +17,7 @@ pub mod track_list_preferences;
 pub mod skin_preferences;
 pub mod themes;
 pub mod packs;
+pub mod registry;
 pub mod skins;
 pub mod visualizers;
 pub mod equalizer;

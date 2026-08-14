@@ -5,6 +5,7 @@ import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
 import type { ActivityLogRevealTarget } from "./activityLogsWindow";
 import type {
   BackgroundTaskAction,
+  BackgroundTaskSettleAsOptions,
   ShowToastOptions,
 } from "../store/useBackgroundTasksStore";
 
@@ -359,14 +360,39 @@ export function packInstalledPayload(
   );
 }
 
-export function packInstallFailedPayload(
-  err?: unknown,
-  options?: { dismissMs?: number | null },
-): ToastPayload {
+/** File / picker install failure — friendly copy; raw errors go to the activity log. */
+export function packInstallFailedPayload(options?: {
+  dismissMs?: number | null;
+  logLink?: ActivityLogRevealTarget;
+}): ToastPayload {
   return withOptionalDismiss(
     {
       key: "pack-install",
-      label: labelFromError(err, "toasts:packs.installFailed"),
+      label: t("toasts:packs.installFailed"),
+      detail: t("toasts:packs.installFailedDetail"),
+      ...(options?.logLink ? { logLink: options.logLink } : {}),
+    },
+    options?.dismissMs,
+  );
+}
+
+/**
+ * Registry download/install failure (§6 single-subject + §4.3 generic).
+ * Friendly copy in the toast; technical detail lives in the linked activity log.
+ */
+export function packDownloadFailedPayload(
+  name: string,
+  options?: {
+    dismissMs?: number | null;
+    logLink?: ActivityLogRevealTarget;
+  },
+): ToastPayload {
+  return withOptionalDismiss(
+    {
+      key: "pack-registry-download",
+      label: t("toasts:packs.downloadFailed", { name }),
+      detail: t("toasts:packs.downloadFailedDetail"),
+      ...(options?.logLink ? { logLink: options.logLink } : {}),
     },
     options?.dismissMs,
   );
@@ -383,6 +409,64 @@ export function packReloadedPayload(options?: {
     },
     options?.dismissMs,
   );
+}
+
+/**
+ * Bulk pack update toast rules (peer counters — see toast-conventions.mdc §1–4).
+ * - Title: number-first peer clauses, middot-joined, zero-suppressed.
+ * - Prefix `Update:` when every surviving clause is generic (all-fail).
+ * - Color from success/fail: all ok → success; mixed → warning; zero success → error.
+ * - Exactly 1 failure → inline detail; 2+ → View logs.
+ */
+export function packUpdatesSettleOptions(options: {
+  updated: number;
+  failed: number;
+  /** Per-item error strings (activity log); not shown inline for 2+ failures. */
+  errors: string[];
+  operationId: string;
+}): BackgroundTaskSettleAsOptions & { label: string } {
+  const { updated, failed, operationId } = options;
+
+  const label = formatPeerOutcomeTitle(
+    [
+      ...(updated > 0
+        ? [
+            {
+              text: t("toasts:packs.updatedCount", { count: updated }),
+              anchored: true,
+            },
+          ]
+        : []),
+      ...(failed > 0
+        ? [{ text: t("toasts:packs.updateFailedCount", { count: failed }) }]
+        : []),
+    ],
+    {
+      operation: t("toasts:packs.updateOperation"),
+      fallback: t("toasts:packs.updateFailedFallback"),
+    },
+  );
+
+  if (failed === 0) {
+    return { status: "success", label };
+  }
+
+  const status = updated > 0 ? "warning" : "error";
+
+  if (failed === 1) {
+    return {
+      status,
+      label,
+      detail: t("toasts:packs.downloadFailedDetail"),
+      logLink: { operationId },
+    };
+  }
+
+  return {
+    status,
+    label,
+    logLink: { operationId },
+  };
 }
 
 // —— Themes ——

@@ -130,8 +130,8 @@ Subscribers use `useVisualizerFrameRef()` in the skin webview. Renderer drawing 
 
 ## Pack manifests
 
-- Visualizer: [visualizer-pack-guide.md](../../docs/guides/visualizer-pack-guide.md), `src-tauri/schemas/viz-v1.schema.json`
-- Renderer: `src-tauri/schemas/renderer-v1.schema.json`
+- Visualizer: [visualizer-pack-guide.md](../../docs/guides/visualizer-pack-guide.md), [`viz-v1.schema.json`](https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/viz-v1.schema.json)
+- Renderer: [`renderer-v1.schema.json`](https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/renderer-v1.schema.json)
 
 Canvas `renderer` fields must be fully-qualified renderer ids (e.g. `spiral.core.renderer.bars`). Params are validated on load (bounds, asset paths).
 
@@ -147,4 +147,4 @@ Contributions are discovered under type folders (`visualizers/`, `renderers/`, �
 ## Related
 
 - [Playback skin contract](../playback/skin-contract.md) — visualizer slot placement in skins
-- [Spiral pack format](../../docs/guides/spiral-pack-format.md) — pack wrapper and type folders
+- [Spiral pack format](../../docs/guides/spk-format.md) — pack wrapper and type folders

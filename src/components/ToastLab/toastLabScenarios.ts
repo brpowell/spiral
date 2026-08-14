@@ -14,7 +14,9 @@ import {
   lyricsNoneMissingPayload,
   packInstalledPayload,
   packInstallFailedPayload,
+  packDownloadFailedPayload,
   packReloadedPayload,
+  packUpdatesSettleOptions,
   playbackFileMissingPayload,
   playlistAddedPayload,
   queueAddedPayload,
@@ -27,6 +29,7 @@ import {
   themeSavedPayload,
   updaterCheckErrorPayload,
 } from "../../lib/toastPayloads";
+import { PACK_UPDATES_BULK_KEY } from "../../lib/packRegistry";
 import {
   importCompletionSettleOptions,
   importNoAudioSettleOptions,
@@ -1516,10 +1519,109 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
   {
     id: "pack-install",
     group: "Packs & themes",
-    buttonLabel: "Pack installed",
+    buttonLabel: "Pack installed (file)",
     source: "refreshPackStores.ts",
     fire: ({ showToast, dismissMs }) => {
       showToast(packInstalledPayload("Example Pack", "1.2.0", { dismissMs }));
+    },
+  },
+  {
+    id: "pack-install-fail",
+    group: "Packs & themes",
+    buttonLabel: "Pack install failed (file)",
+    source: "refreshPackStores.ts",
+    fire: async ({ showErrorToast, dismissMs }) => {
+      const operationId = createOperationId();
+      await seedToastLabLog(
+        ACTIVITY_LOG_DOMAINS.packInstall,
+        operationId,
+        "Toast Lab: pack install failed for Example Pack: sample corrupt archive",
+        {
+          source: "file",
+          name: "Example Pack",
+          error: "sample corrupt archive",
+        },
+        "error",
+      );
+      showErrorToast(
+        packInstallFailedPayload({
+          dismissMs,
+          logLink: { operationId },
+        }),
+      );
+    },
+  },
+  {
+    id: "pack-download-ok",
+    group: "Packs & themes",
+    buttonLabel: "Registry download → installed",
+    source: "packRegistry.ts",
+    fire: ({ runInBackground, dismissMs, sleep }) => {
+      void runInBackground({
+        key: "pack-registry-download",
+        label: t("toasts:packs.downloading", { name: "Xbox" }),
+        progressDisplay: "bar",
+        run: async (ctx) => {
+          for (let i = 1; i <= 8; i++) {
+            ctx.setProgress(i, 8);
+            await sleep(120);
+          }
+          ctx.settleAs({
+            status: "success",
+            label: t("toasts:packs.installed", {
+              name: "Xbox",
+              version: "1.0.0",
+            }),
+            dismissMs,
+          });
+        },
+      });
+    },
+  },
+  {
+    id: "pack-download-fail",
+    group: "Packs & themes",
+    buttonLabel: "Registry download → failed",
+    source: "packRegistry.ts",
+    fire: async ({ runInBackground, dismissMs, sleep }) => {
+      const operationId = createOperationId();
+      await seedToastLabLog(
+        ACTIVITY_LOG_DOMAINS.packInstall,
+        operationId,
+        "Toast Lab: pack download failed for Xbox: could not download pack (http://127.0.0.1:8787/…)",
+        {
+          source: "registry",
+          name: "Xbox",
+          registryUrl: "http://127.0.0.1:8787",
+          authorId: "spiral",
+          packId: "xbox",
+          version: "1.0.0",
+          error: "could not download pack (http://127.0.0.1:8787/…)",
+        },
+        "error",
+      );
+      void runInBackground({
+        key: "pack-registry-download",
+        label: t("toasts:packs.downloading", { name: "Xbox" }),
+        progressDisplay: "bar",
+        run: async (ctx) => {
+          for (let i = 1; i <= 4; i++) {
+            ctx.setProgress(i, 10);
+            await sleep(120);
+          }
+          const failed = packDownloadFailedPayload("Xbox", {
+            dismissMs,
+            logLink: { operationId },
+          });
+          ctx.settleAs({
+            status: "error",
+            label: failed.label,
+            detail: failed.detail,
+            logLink: failed.logLink,
+            dismissMs: failed.dismissMs,
+          });
+        },
+      });
     },
   },
   {
@@ -1532,12 +1634,101 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     },
   },
   {
-    id: "pack-error",
+    id: "pack-updates-ok",
     group: "Packs & themes",
-    buttonLabel: "Pack install failed",
-    source: "refreshPackStores.ts",
-    fire: ({ showErrorToast, dismissMs }) => {
-      showErrorToast(packInstallFailedPayload(undefined, { dismissMs }));
+    buttonLabel: "Update all packs → success",
+    source: "usePackUpdatesStore.ts",
+    fire: ({ runInBackground, dismissMs, sleep }) => {
+      void runInBackground({
+        key: PACK_UPDATES_BULK_KEY,
+        label: t("toasts:packs.updating"),
+        progressDisplay: "bar",
+        run: async (ctx) => {
+          for (let i = 1; i <= 3; i++) {
+            ctx.setProgress(i, 3);
+            await sleep(100);
+          }
+          const settle = packUpdatesSettleOptions({
+            updated: 3,
+            failed: 0,
+            errors: [],
+            operationId: createOperationId(),
+          });
+          ctx.settleAs({ ...settle, dismissMs });
+        },
+      });
+    },
+  },
+  {
+    id: "pack-updates-mixed",
+    group: "Packs & themes",
+    buttonLabel: "Update all packs → mixed",
+    source: "usePackUpdatesStore.ts",
+    fire: async ({ runInBackground, dismissMs, sleep }) => {
+      const operationId = createOperationId();
+      await seedToastLabLog(
+        ACTIVITY_LOG_DOMAINS.packInstall,
+        operationId,
+        "Toast Lab: pack update failed for Xbox: sample network error",
+        {
+          source: "registry",
+          name: "Xbox",
+          error: "sample network error",
+        },
+        "error",
+      );
+      void runInBackground({
+        key: PACK_UPDATES_BULK_KEY,
+        label: t("toasts:packs.updating"),
+        progressDisplay: "bar",
+        run: async (ctx) => {
+          for (let i = 1; i <= 4; i++) {
+            ctx.setProgress(i, 4);
+            await sleep(100);
+          }
+          const settle = packUpdatesSettleOptions({
+            updated: 2,
+            failed: 1,
+            errors: ["Xbox: sample network error"],
+            operationId,
+          });
+          ctx.settleAs({ ...settle, dismissMs });
+        },
+      });
+    },
+  },
+  {
+    id: "pack-updates-fail",
+    group: "Packs & themes",
+    buttonLabel: "Update all packs → failed",
+    source: "usePackUpdatesStore.ts",
+    fire: async ({ runInBackground, dismissMs, sleep }) => {
+      const operationId = createOperationId();
+      await seedToastLabLog(
+        ACTIVITY_LOG_DOMAINS.packInstall,
+        operationId,
+        "Toast Lab: pack updates failed for 2 packs",
+        { source: "registry", failed: 2 },
+        "error",
+      );
+      void runInBackground({
+        key: PACK_UPDATES_BULK_KEY,
+        label: t("toasts:packs.updating"),
+        progressDisplay: "bar",
+        run: async (ctx) => {
+          for (let i = 1; i <= 2; i++) {
+            ctx.setProgress(i, 2);
+            await sleep(100);
+          }
+          const settle = packUpdatesSettleOptions({
+            updated: 0,
+            failed: 2,
+            errors: ["Xbox: fail", "T3: fail"],
+            operationId,
+          });
+          ctx.settleAs({ ...settle, dismissMs });
+        },
+      });
     },
   },
   {

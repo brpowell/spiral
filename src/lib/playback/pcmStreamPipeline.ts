@@ -14,6 +14,7 @@ import {
 import {
   PCM_STREAM_MIN_READ_AHEAD_FRAMES,
   PCM_STREAM_PROCESSOR_NAME,
+  pcmStreamMaxBufferFrames,
 } from "./pcmStreamConstants";
 // Vite must emit a real JS chunk (`?worker&url`). Plain `new URL(..., import.meta.url)`
 // inlines the .ts as a data: URL, which production CSP script-src blocks.
@@ -240,10 +241,13 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
       type: "configure",
       channels,
       readAheadFrames,
-      // Rust may push its whole in-flight allowance on top of the target (the
-      // gated deck's initial prime does exactly that); leave room so a full
-      // buffer never drops queued frames.
-      maxBufferFrames: readAheadFrames + workletRate,
+      // Rust may push its whole in-flight allowance (and a short ack-race tail)
+      // before the audio thread drains; size so we never discard track start.
+      maxBufferFrames: pcmStreamMaxBufferFrames(
+        readAheadFrames,
+        workletRate,
+        this.sourceSampleRate || workletRate,
+      ),
     });
     return this.ctx!;
   }

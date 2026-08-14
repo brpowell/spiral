@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import type { AppearanceSection } from "../../lib/appearanceWindow";
 import { useAppearanceSection } from "../../hooks/useAppearanceSection";
 import { useAppearanceThemeEditor } from "../../hooks/useAppearanceThemeEditor";
 import { viewTransition } from "../../lib/motion";
+import { usePackUpdatesStore } from "../../store/usePackUpdatesStore";
 import { useThemeStore } from "../../store/useThemeStore";
 import {
   SidebarFrame,
@@ -11,13 +13,18 @@ import {
   SidebarSection,
 } from "../layout/SidebarChrome";
 import { SidebarItem } from "../layout/SidebarItem/SidebarItem";
+import {
+  StatusIndicator,
+  StatusIndicatorAnchor,
+} from "../common/StatusIndicator/StatusIndicator";
 import { ThemeEditor } from "../ThemeEditor/ThemeEditor";
 import {
+  APPEARANCE_CATALOG_SECTION,
   APPEARANCE_CONTENT_SECTIONS,
-  APPEARANCE_MANAGE_SECTION,
   getAppearanceSectionConfig,
 } from "./appearanceSections";
 import { AppearanceThemeEditorProvider } from "./AppearanceThemeEditorContext";
+import { GetMoreSection } from "./GetMoreSection";
 import { InstalledPacksSection } from "./InstalledPacksSection";
 import { SkinsSection } from "./SkinsSection";
 import { ThemesSection } from "./ThemesSection";
@@ -61,14 +68,20 @@ function AppearanceSectionPanel({
           onSelectedKeyChange={onPackSelectedKeyChange}
         />
       );
+    case "catalog":
+      return <GetMoreSection />;
   }
 }
 
 export function AppearanceShell() {
+  const { t } = useTranslation("studio");
   const [section, setSection, eventFocusPackId, clearEventFocusPackId] =
     useAppearanceSection();
-  const { session: editorSession, openEditor, closeEditor } =
-    useAppearanceThemeEditor();
+  const {
+    session: editorSession,
+    openEditor,
+    closeEditor,
+  } = useAppearanceThemeEditor();
   const themes = useThemeStore((s) => s.themes);
 
   const [localFocusPackId, setLocalFocusPackId] = useState<string | null>(null);
@@ -192,30 +205,49 @@ export function AppearanceShell() {
     ? `editor-${editorSession.themeId}`
     : `list-${section}`;
 
+  const catalogLabel = t("catalog.sidebar");
+  const collectionLabel = t("nav.collection");
+  const packUpdatesPending = usePackUpdatesStore(
+    (s) => s.pendingUpdates.length > 0,
+  );
+
   return (
     <div className="appearance-shell">
       <aside className="appearance-shell__sidebar">
         <SidebarFrame embedded aria-label="Studio sections">
-          <SidebarList>
-            {APPEARANCE_CONTENT_SECTIONS.map((item) => (
-              <li key={item.id}>
-                <SidebarItem
-                  icon={item.icon}
-                  active={section === item.id}
-                  onClick={() => handleSectionClick(item.id)}
-                >
-                  {item.label}
-                </SidebarItem>
-              </li>
-            ))}
-          </SidebarList>
-          <SidebarSection aria-label="Packs">
+          <SidebarSection
+            label={collectionLabel}
+            className="appearance-shell__sidebar-section--first"
+          >
+            <SidebarList>
+              {APPEARANCE_CONTENT_SECTIONS.map((item) => {
+                const showPackDot = item.id === "packs" && packUpdatesPending;
+                return (
+                  <li key={item.id}>
+                    <SidebarItem
+                      leading={
+                        <StatusIndicatorAnchor className="sidebar-item__icon">
+                          {item.icon}
+                          {showPackDot ? <StatusIndicator /> : null}
+                        </StatusIndicatorAnchor>
+                      }
+                      active={section === item.id}
+                      onClick={() => handleSectionClick(item.id)}
+                    >
+                      {item.label}
+                    </SidebarItem>
+                  </li>
+                );
+              })}
+            </SidebarList>
+          </SidebarSection>
+          <SidebarSection aria-label={catalogLabel}>
             <SidebarItem
-              icon={APPEARANCE_MANAGE_SECTION.icon}
-              active={section === APPEARANCE_MANAGE_SECTION.id}
-              onClick={() => handleSectionClick(APPEARANCE_MANAGE_SECTION.id)}
+              icon={APPEARANCE_CATALOG_SECTION.icon}
+              active={section === APPEARANCE_CATALOG_SECTION.id}
+              onClick={() => handleSectionClick(APPEARANCE_CATALOG_SECTION.id)}
             >
-              {APPEARANCE_MANAGE_SECTION.label}
+              {catalogLabel}
             </SidebarItem>
           </SidebarSection>
         </SidebarFrame>

@@ -45,6 +45,33 @@ pub fn get_file_size(path: String) -> Result<u64, String> {
     Ok(meta.len())
 }
 
+/// Total size of all files under a directory (does not follow symlinks).
+#[tauri::command]
+pub fn get_directory_size(path: String) -> Result<u64, String> {
+    directory_size_bytes(Path::new(&path))
+}
+
+fn directory_size_bytes(root: &Path) -> Result<u64, String> {
+    if !root.is_dir() {
+        return Err(format!("Not a directory: {}", root.display()));
+    }
+
+    let mut total: u64 = 0;
+    for entry in walkdir::WalkDir::new(root)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let path = entry.path();
+        if path.is_file() {
+            let meta = std::fs::metadata(path)
+                .map_err(|e| format!("Cannot stat {}: {e}", path.display()))?;
+            total = total.saturating_add(meta.len());
+        }
+    }
+    Ok(total)
+}
+
 /// File modification time in milliseconds since UNIX epoch (for asset URL cache busting).
 #[tauri::command]
 pub fn get_file_modified_ms(path: String) -> Result<u64, String> {
@@ -82,5 +109,42 @@ pub fn pick_library_paths() -> Result<Vec<String>, String> {
     #[cfg(not(target_os = "macos"))]
     {
         pick_audio_files()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::directory_size_bytes;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn directory_size_sums_nested_files() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("spiral-dir-size-{nanos}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("nested")).unwrap();
+        fs::write(root.join("a.txt"), b"aaaa").unwrap();
+        fs::write(root.join("nested/b.txt"), b"bbbbbb").unwrap();
+
+        let size = directory_size_bytes(&root).unwrap();
+        assert_eq!(size, 10);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn directory_size_rejects_file_path() {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let file = std::env::temp_dir().join(format!("spiral-dir-size-file-{nanos}"));
+        fs::write(&file, b"x").unwrap();
+        assert!(directory_size_bytes(&file).is_err());
+        let _ = fs::remove_file(&file);
     }
 }

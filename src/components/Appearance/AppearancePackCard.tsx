@@ -82,15 +82,13 @@ export function AppearancePackCard({
         <div className="appearance-pack-card__meta">
           <div className="appearance-pack-card__meta-header">
             <span className="appearance-pack-card__name">{name}</span>
-            {actions ? (
-              <div
-                className="appearance-pack-card__actions-slot"
-                onClick={stopCardActivate}
-                onKeyDown={stopCardActivate}
-              >
-                {actions}
-              </div>
-            ) : null}
+            <div
+              className="appearance-pack-card__actions-slot"
+              onClick={actions ? stopCardActivate : undefined}
+              onKeyDown={actions ? stopCardActivate : undefined}
+            >
+              {actions}
+            </div>
           </div>
           <p className="appearance-pack-card__author">{authorLabel}</p>
           <div className="appearance-pack-card__description">
@@ -101,5 +99,47 @@ export function AppearancePackCard({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Shared browse card for Packs + Get more (preview, optional status badge, meta). */
+export function PackListCard({
+  name,
+  author,
+  description,
+  ariaLabel,
+  preview,
+  badge,
+  actions,
+  onOpen,
+}: {
+  name: string;
+  author: string;
+  description?: string;
+  ariaLabel: string;
+  preview: ReactNode;
+  badge?: ReactNode;
+  actions?: ReactNode;
+  onOpen: () => void;
+}) {
+  return (
+    <AppearancePackCard
+      active={false}
+      name={name}
+      author={author}
+      description={description}
+      ariaLabel={ariaLabel}
+      preview={
+        <>
+          {preview}
+          {badge ? (
+            <div className="appearance-pack-card__badge-slot">{badge}</div>
+          ) : null}
+        </>
+      }
+      previewClassName="appearance-pack-card__preview--pack"
+      actions={actions}
+      onApply={onOpen}
+    />
   );
 }

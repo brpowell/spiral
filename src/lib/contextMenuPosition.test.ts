@@ -69,6 +69,29 @@ describe("fitContextMenuPosition", () => {
     expect(position.top).toBe(280);
   });
 
+  it("flips left against flipLeftAlignRightX instead of anchorX when given", () => {
+    vi.stubGlobal("window", {
+      innerWidth: 800,
+      innerHeight: 600,
+    });
+
+    // Simulates a submenu trigger sitting flush with its parent panel's
+    // right edge (anchorX ~= parent panel's own right edge), near the
+    // viewport edge so the flyout must flip. Without flipLeftAlignRightX,
+    // flipping relative to anchorX would land the flyout on top of the
+    // parent panel instead of to its left.
+    const parentPanelLeft = 500;
+    const anchorX = 780; // trigger item's right edge, flush with viewport edge
+    const menuWidth = 220;
+
+    const position = fitContextMenuPosition(anchorX, 100, menuWidth, 120, {
+      flipLeftAlignRightX: parentPanelLeft + 2,
+    });
+
+    expect(position.left).toBe(parentPanelLeft + 2 - menuWidth);
+    expect(position.left + menuWidth).toBeLessThanOrEqual(parentPanelLeft + 2);
+  });
+
   it("vertical=above flips below when there is not enough room above", () => {
     vi.stubGlobal("window", {
       innerWidth: 800,

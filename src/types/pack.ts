@@ -32,8 +32,8 @@ export interface PackManifest {
   version: string;
   name: string;
   description: string;
-  /** Optional pack icon path relative to the pack root. Prefer square 128×128 or 256×256. */
-  icon?: string;
+  /** Optional pack preview image path relative to the pack root. Raster only (png/jpg/jpeg/webp/gif). Prefer ~1280×800 (16:10). */
+  preview?: string;
   /** Optional semver floor; checked after parse (Phase 1+). */
   minAppVersion?: string;
 }
@@ -70,11 +70,10 @@ export interface PackSummary {
   version: string;
   name: string;
   description: string;
-  /** Optional pack icon path relative to the pack root. Prefer square 128×128 or 256×256. */
-  icon?: string;
+  /** Optional pack preview image path relative to the pack root. Raster only (png/jpg/jpeg/webp/gif). Prefer ~1280×800 (16:10). */
+  preview?: string;
   zone: PackZone;
   packDir: string;
   contributions: PackContributionSummary[];
   active: boolean;
-  rollbackVersion?: string;
 }

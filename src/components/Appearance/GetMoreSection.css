@@ -1,0 +1,46 @@
+.get-more {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.get-more__list,
+.get-more__detail-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.get-more__banner {
+  padding-inline: var(--main-content-padding-x);
+  margin-bottom: 0.5rem;
+}
+
+.get-more__error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(20rem, 55vh);
+  padding-inline: var(--main-content-padding-x);
+  padding-block: 2.5rem 3rem;
+}
+
+.get-more__error .empty-state {
+  max-width: 20rem;
+}
+
+.get-more__card-skeleton {
+  pointer-events: none;
+}
+
+.get-more__card-skeleton-preview {
+  display: block;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-button);
+}
+
+.get-more__card-skeleton .appearance-pack-card__meta {
+  gap: 0.45rem;
+}

@@ -282,4 +282,24 @@ describe("PcmStreamProcessor", () => {
     // for CD gapless so the primed deck does not steal the drive head).
     expect(deck.take("needData")).toHaveLength(0);
   });
+
+  it("keeps a contiguous startup burst even when it exceeds maxBufferFrames", () => {
+    // maxBufferFrames is advisory capacity for configure/drain sizing — the
+    // worklet must not punch holes by discarding PCM when a resume burst
+    // overshoots (that clicked at ~2s after the read-ahead bump).
+    const maxBufferFrames = BLOCK_FRAMES * 2;
+    const deck = new Deck({
+      readAheadFrames: maxBufferFrames,
+      maxBufferFrames,
+    });
+    deck.feed(BLOCK_FRAMES, 0.1);
+    deck.feed(BLOCK_FRAMES, 0.2);
+    deck.feed(BLOCK_FRAMES, 0.3);
+    const first = deck.render(0);
+    const second = deck.render(BLOCK_FRAMES);
+    const third = deck.render(BLOCK_FRAMES * 2);
+    expect(first.every((sample) => Math.abs(sample - 0.1) < 1e-5)).toBe(true);
+    expect(second.every((sample) => Math.abs(sample - 0.2) < 1e-5)).toBe(true);
+    expect(third.every((sample) => Math.abs(sample - 0.3) < 1e-5)).toBe(true);
+  });
 });

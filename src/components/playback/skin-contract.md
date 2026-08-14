@@ -2,7 +2,7 @@
 
 Shared playback UI lives under `src/components/playback/` (`PlaybackTransport`, `NowPlayingMetadata`, `SeekBar`, `VolumeControl`, `QueueButton`, `VisualizerSlot`) and composes through `SkinShell` slot wrappers. Import from `src/components/playback` (barrel) or individual subfolders.
 
-V1 components read `usePlayerStore` directly. **V2:** skin mode uses manifests (`skin.json` v1) that bind to the action catalog and data paths below via `SkinLayoutRenderer` — see `src/components/playback/skin/` and `src-tauri/schemas/skin-v1.schema.json`.
+V1 components read `usePlayerStore` directly. **V2:** skin mode uses manifests (`skin.json` v1) that bind to the action catalog and data paths below via `SkinLayoutRenderer` — see `src/components/playback/skin/` and [`skin-v1.schema.json`](https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/skin-v1.schema.json).
 
 ## Action catalog
 

@@ -3,6 +3,7 @@
   "name": "Vanilla",
   "author": "Spiral",
   "description": "Default skin out of the box, batteries included.",
+  "preview": "preview.png",
   "defaultView": "standard",
   "stylesheet": "skin.css",
   "visualizer": {

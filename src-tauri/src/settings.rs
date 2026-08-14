@@ -144,9 +144,15 @@ impl Default for ListeningHistorySettings {
 pub struct UpdateSettings {
     #[serde(default = "default_automatic_update_checks_enabled")]
     pub automatic_checks_enabled: bool,
+    #[serde(default = "default_automatic_pack_checks_enabled")]
+    pub automatic_pack_checks_enabled: bool,
 }
 
 fn default_automatic_update_checks_enabled() -> bool {
+    true
+}
+
+fn default_automatic_pack_checks_enabled() -> bool {
     true
 }
 
@@ -154,6 +160,7 @@ impl Default for UpdateSettings {
     fn default() -> Self {
         Self {
             automatic_checks_enabled: default_automatic_update_checks_enabled(),
+            automatic_pack_checks_enabled: default_automatic_pack_checks_enabled(),
         }
     }
 }
@@ -321,6 +328,11 @@ pub struct AppSettings {
     /// Seeded once from the OS account name; copied into new workshop packs as `authorId`.
     #[serde(default = "default_default_author_id")]
     pub default_author_id: String,
+    /// Pack registry sources. Spiral's official instance is always present first
+    /// (matched by URL). Extra entries are ignored until the multi-registry
+    /// Preferences UI ships.
+    #[serde(default = "default_registries")]
+    pub registries: Vec<RegistrySource>,
     #[serde(default)]
     pub library: LibrarySettings,
     #[serde(default)]
@@ -361,6 +373,57 @@ fn default_default_author_id() -> String {
     slugify_os_username()
 }
 
+/// Display name for Spiral's official pack registry entry.
+pub const SPIRAL_REGISTRY_NAME: &str = "Spiral";
+
+/// Official hosted pack registry URL.
+pub const DEFAULT_REGISTRY_URL: &str = "https://spk-registry.spiralpowered.com";
+
+/// Previous placeholder for [`DEFAULT_REGISTRY_URL`]. Rewritten on load.
+pub const LEGACY_DEFAULT_REGISTRY_URL: &str = "https://spk.spiralpowered.com";
+
+/// Temporary env override for the official registry base (local QA against
+/// `spk-registry`). Remove when multi-registry Preferences UI ships — see
+/// `docs/impl/pack-registry-impl.md`.
+pub const PACK_REGISTRY_URL_ENV: &str = "SPIRAL_PACK_REGISTRY_URL";
+
+/// One configured pack registry (official or self-hosted).
+/// Identity is the normalized `url`. The official Spiral entry is recognized by URL.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistrySource {
+    /// Base URL (`GET /v1/packs`, downloads). Trailing slash stripped on save.
+    pub url: String,
+    /// Short display label for Preferences / catalog chrome.
+    pub name: String,
+}
+
+/// Optional override from [`PACK_REGISTRY_URL_ENV`] (trimmed, no trailing slash).
+pub fn registry_url_override() -> Option<String> {
+    std::env::var(PACK_REGISTRY_URL_ENV)
+        .ok()
+        .map(|s| s.trim().trim_end_matches('/').to_string())
+        .filter(|s| {
+            !s.is_empty() && (s.starts_with("http://") || s.starts_with("https://"))
+        })
+}
+
+/// Official Spiral registry base: env override when set, else [`DEFAULT_REGISTRY_URL`].
+pub fn effective_registry_url() -> String {
+    registry_url_override().unwrap_or_else(|| DEFAULT_REGISTRY_URL.to_string())
+}
+
+pub fn spiral_registry_source() -> RegistrySource {
+    RegistrySource {
+        url: effective_registry_url(),
+        name: SPIRAL_REGISTRY_NAME.to_string(),
+    }
+}
+
+pub fn default_registries() -> Vec<RegistrySource> {
+    vec![spiral_registry_source()]
+}
+
 /// Normalize the current OS username into a kebab-case authorId seed.
 pub fn slugify_os_username() -> String {
     let raw = std::env::var("USER")
@@ -379,6 +442,7 @@ impl Default for AppSettings {
             hidden_contribution_ids: Vec::new(),
             linked_pack_paths: Vec::new(),
             default_author_id: default_default_author_id(),
+            registries: default_registries(),
             library: LibrarySettings::default(),
             metadata_backups: MetadataBackupSettings::default(),
             listening_history: ListeningHistorySettings::default(),
@@ -411,6 +475,7 @@ pub struct LibrarySettingsResponse {
     pub cd_metadata_fetch_mode: String,
     pub cd_import_profile_id: String,
     pub automatic_update_checks_enabled: bool,
+    pub automatic_pack_update_checks_enabled: bool,
 }
 
 const MAX_ACKNOWLEDGED_CRASH_REPORTS: usize = 50;
@@ -552,6 +617,7 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
         cd_metadata_fetch_mode: cd.metadata_fetch_mode,
         cd_import_profile_id: resolved_cd_import_profile_id(&cd.import_profile_id),
         automatic_update_checks_enabled: updates.automatic_checks_enabled,
+        automatic_pack_update_checks_enabled: updates.automatic_pack_checks_enabled,
     }
 }
 
@@ -582,6 +648,8 @@ pub struct LibrarySettingsPatch {
     pub cd_import_profile_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub automatic_update_checks_enabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub automatic_pack_update_checks_enabled: Option<bool>,
 }
 
 pub fn merge_library_settings(
@@ -644,6 +712,9 @@ pub fn merge_library_settings(
     if let Some(enabled) = patch.automatic_update_checks_enabled {
         settings.updates.automatic_checks_enabled = enabled;
     }
+    if let Some(enabled) = patch.automatic_pack_update_checks_enabled {
+        settings.updates.automatic_pack_checks_enabled = enabled;
+    }
 
     write_settings(app, &settings)?;
     let resolved = resolved_library_settings(app);
@@ -681,6 +752,15 @@ mod tests {
     fn default_update_settings_enable_automatic_checks() {
         let settings = UpdateSettings::default();
         assert!(settings.automatic_checks_enabled);
+        assert!(settings.automatic_pack_checks_enabled);
+    }
+
+    #[test]
+    fn missing_pack_checks_field_defaults_enabled() {
+        let settings: UpdateSettings =
+            serde_json::from_str(r#"{"automaticChecksEnabled":false}"#).unwrap();
+        assert!(!settings.automatic_checks_enabled);
+        assert!(settings.automatic_pack_checks_enabled);
     }
 
     #[test]

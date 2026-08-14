@@ -4,10 +4,7 @@ import { applyCustomWindowChrome } from "./windowChrome";
 import { isTauri } from "./windowRole";
 
 export type AppearanceSection =
-  | "themes"
-  | "visualizers"
-  | "skins"
-  | "packs";
+  "themes" | "visualizers" | "skins" | "packs" | "catalog";
 
 export const APPEARANCE_NAVIGATE_EVENT = "appearance://navigate";
 export const APPEARANCE_REFRESH_EVENT = "appearance://refresh";
@@ -16,6 +13,9 @@ export const RELOAD_LINKED_PACKS_EVENT = "packs://reload-linked";
 
 /** Fired when a pack is linked or unlinked so the app menu can update. */
 export const LINKED_PACKS_CHANGED_EVENT = "packs://linked-changed";
+
+/** Cross-window sync of pending pack updates (main ↔ Studio). */
+export const PACK_UPDATES_CHANGED_EVENT = "packs://updates-changed";
 
 export interface AppearanceNavigatePayload {
   section: AppearanceSection;
@@ -31,7 +31,8 @@ function isAppearanceSection(value: string): value is AppearanceSection {
     value === "themes" ||
     value === "visualizers" ||
     value === "skins" ||
-    value === "packs"
+    value === "packs" ||
+    value === "catalog"
   );
 }
 
@@ -101,7 +102,10 @@ export async function openAppearanceWindow(
     } satisfies AppearanceNavigatePayload);
     void emit(APPEARANCE_REFRESH_EVENT, {});
   } catch (err) {
-    console.error("openAppearanceWindow: failed to show appearance window", err);
+    console.error(
+      "openAppearanceWindow: failed to show appearance window",
+      err,
+    );
   }
 }
 
