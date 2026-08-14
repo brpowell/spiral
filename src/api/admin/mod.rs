@@ -17,15 +17,12 @@ use crate::AppState;
 
 use super::{ApiError, ApiResult};
 
-pub fn router(upload_body_limit: usize) -> Router<AppState> {
+pub fn api_router(upload_body_limit: usize) -> Router<AppState> {
     let upload = Router::new()
         .route("/v1/rgad/packs", post(upload_pack))
         .layer(DefaultBodyLimit::max(upload_body_limit));
 
     Router::new()
-        .route("/rgad", get(panel::index))
-        .route("/rgad/", get(panel::index))
-        .route("/rgad/{*path}", get(panel::static_file))
         .route("/v1/rgad/packs", get(list_admin_packs))
         .merge(upload)
         .route(
@@ -44,6 +41,13 @@ pub fn router(upload_body_limit: usize) -> Router<AppState> {
             "/v1/rgad/packs/{author_id}/{pack_id}/purge",
             post(purge_pack),
         )
+}
+
+pub fn panel_router() -> Router<AppState> {
+    Router::new()
+        .route("/rgad", get(panel::index))
+        .route("/rgad/", get(panel::index))
+        .route("/rgad/{*path}", get(panel::static_file))
 }
 
 async fn list_admin_packs(

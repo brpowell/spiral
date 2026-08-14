@@ -23,6 +23,8 @@ axum = { version = "0.8", features = ["multipart"] }
 rust-embed = "8"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 constant_time_eq = "0.3"
+governor = "0.10"
+http-body-util = "0.1"
 hex = "0.4"
 semver = "1"
 serde = { version = "1", features = ["derive"] }
@@ -46,5 +48,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 zip = "2"
 
 [dev-dependencies]
-http-body-util = "0.1"
 tower = { version = "0.5", features = ["util"] }

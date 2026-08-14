@@ -126,6 +126,7 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
             },
             admin_token: TEST_ADMIN_TOKEN.into(),
             max_upload_bytes: 5 * 1024 * 1024,
+            client_ip_header: "x-client-ip".into(),
         },
         db: pool,
         storage: storage.clone(),
@@ -755,4 +756,128 @@ async fn non_upload_route_rejects_oversized_body() {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+}
+
+#[tokio::test]
+async fn admin_api_rate_limit_is_per_ip() {
+    let (app, _tmp, _) = test_app().await;
+    let ip = "203.0.113.10";
+    let other = "203.0.113.11";
+
+    for i in 0..10 {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/rgad/packs")
+                    .header("x-client-ip", ip)
+                    .header("Authorization", "Bearer wrong-token")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            StatusCode::UNAUTHORIZED,
+            "request {i} should still be 401"
+        );
+    }
+
+    let limited = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/v1/rgad/packs")
+                .header("x-client-ip", ip)
+                .header("Authorization", "Bearer wrong-token")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(limited.status(), StatusCode::TOO_MANY_REQUESTS);
+    let body: Value =
+        serde_json::from_slice(&limited.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(body["code"], "rate_limited");
+
+    let other_ip = app
+        .oneshot(
+            Request::builder()
+                .uri("/v1/rgad/packs")
+                .header("x-client-ip", other)
+                .header("Authorization", "Bearer wrong-token")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(other_ip.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn download_concurrency_is_per_ip() {
+    let (app, _tmp, _) = test_app().await;
+    let uri = "/v1/packs/spiral/demo-skin/versions/1.1.0/download";
+    let ip = "203.0.113.20";
+
+    let mut held = Vec::new();
+    for i in 0..4 {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(uri)
+                    .header("x-client-ip", ip)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK, "download {i}");
+        held.push(response);
+    }
+
+    let limited = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(uri)
+                .header("x-client-ip", ip)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(limited.status(), StatusCode::TOO_MANY_REQUESTS);
+    let body: Value =
+        serde_json::from_slice(&limited.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(body["code"], "rate_limited");
+
+    held.pop();
+
+    let after_release = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(uri)
+                .header("x-client-ip", ip)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(after_release.status(), StatusCode::OK);
+
+    let other_ip = app
+        .oneshot(
+            Request::builder()
+                .uri(uri)
+                .header("x-client-ip", "203.0.113.21")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(other_ip.status(), StatusCode::OK);
 }

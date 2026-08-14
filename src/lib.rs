@@ -27,5 +27,7 @@ pub fn app_router(state: AppState) -> Router {
     // Axum's 2 MiB default applies everywhere. Only POST /v1/rgad/packs raises it
     // for .spk uploads (+ multipart overhead).
     let upload_body_limit = (state.config.max_upload_bytes as usize).saturating_add(256 * 1024);
-    api::router(upload_body_limit).with_state(state)
+    let client_ip = api::ClientIpSource::new(&state.config.client_ip_header)
+        .expect("client_ip_header validated at boot");
+    api::router(upload_body_limit, client_ip).with_state(state)
 }

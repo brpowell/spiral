@@ -72,6 +72,15 @@ See [`admin/README.md`](admin/README.md).
 | `STORAGE_LOCAL_PATH` | `data/objects` | Object root for `local` |
 | `ADMIN_TOKEN` | _(empty)_ | Shared admin bearer token; empty disables write endpoints. When set, must be ≥32 bytes. Do not log `Authorization` at the proxy. |
 | `MAX_UPLOAD_BYTES` | `52428800` (50 MiB) | Hard limit for `POST /v1/rgad/packs` only; other routes stay at Axum’s 2 MiB default |
+| `CLIENT_IP_HEADER` | `fly-client-ip` | Trusted proxy header for rate-limit keys (`cf-connecting-ip`, `x-real-ip`, …). Empty = peer address only. Do not use `X-Forwarded-For`. |
+
+Per-IP limits (keyed on `CLIENT_IP_HEADER`, then the peer address):
+
+- `/v1/rgad/*`: 10 requests/minute
+- Catalog / meta / preview: 120 requests/minute
+- `/download`: 4 concurrent `.spk` transfers
+
+No JS challenges on `/v1/*` (desktop is a non-browser client).
 
 ## HTTP API (`/v1`)
 

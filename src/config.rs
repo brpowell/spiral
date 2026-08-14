@@ -11,6 +11,9 @@ pub const PROTOCOL_VERSION: u32 = 1;
 /// Default max `.spk` upload size (50 MiB).
 pub const DEFAULT_MAX_UPLOAD_BYTES: u64 = 50 * 1024 * 1024;
 
+/// Default trusted proxy header for client IP (Fly today; override via `CLIENT_IP_HEADER`).
+pub const DEFAULT_CLIENT_IP_HEADER: &str = "fly-client-ip";
+
 /// Minimum `ADMIN_TOKEN` length when admin is enabled (empty still disables writes).
 const MIN_ADMIN_TOKEN_BYTES: usize = 32;
 
@@ -23,6 +26,9 @@ pub struct Config {
     /// Shared admin bearer token. Empty disables admin write endpoints.
     pub admin_token: String,
     pub max_upload_bytes: u64,
+    /// Trusted proxy header for rate-limit keys (e.g. `fly-client-ip`, `cf-connecting-ip`).
+    /// Empty means peer address only. Do not set this to `X-Forwarded-For`.
+    pub client_ip_header: String,
 }
 
 impl std::fmt::Debug for Config {
@@ -41,6 +47,7 @@ impl std::fmt::Debug for Config {
                 },
             )
             .field("max_upload_bytes", &self.max_upload_bytes)
+            .field("client_ip_header", &self.client_ip_header)
             .finish()
     }
 }
@@ -91,6 +98,11 @@ impl Config {
         let admin_token = admin_token.trim().to_string();
         validate_admin_token(&admin_token)?;
 
+        let client_ip_header =
+            env::var("CLIENT_IP_HEADER").unwrap_or_else(|_| DEFAULT_CLIENT_IP_HEADER.to_string());
+        let client_ip_header = client_ip_header.trim().to_ascii_lowercase();
+        validate_client_ip_header(&client_ip_header)?;
+
         Ok(Self {
             bind_addr: env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:8787".to_string()),
             instance_name: env::var("INSTANCE_NAME")
@@ -99,6 +111,7 @@ impl Config {
             storage,
             admin_token,
             max_upload_bytes,
+            client_ip_header,
         })
     }
 
@@ -120,6 +133,16 @@ impl Config {
     pub fn admin_enabled(&self) -> bool {
         !self.admin_token.is_empty()
     }
+}
+
+/// Empty means peer address only. A non-empty value must be a valid HTTP header name.
+fn validate_client_ip_header(name: &str) -> Result<()> {
+    if name.is_empty() {
+        return Ok(());
+    }
+    axum::http::HeaderName::try_from(name)
+        .map(|_| ())
+        .with_context(|| format!("invalid CLIENT_IP_HEADER={name:?}"))
 }
 
 /// Empty token disables admin. A non-empty token must meet [`MIN_ADMIN_TOKEN_BYTES`].
@@ -168,6 +191,17 @@ mod tests {
     }
 
     #[test]
+    fn empty_client_ip_header_is_allowed() {
+        validate_client_ip_header("").unwrap();
+    }
+
+    #[test]
+    fn invalid_client_ip_header_is_rejected() {
+        let err = validate_client_ip_header("not a header").unwrap_err();
+        assert!(err.to_string().contains("CLIENT_IP_HEADER"), "{err}");
+    }
+
+    #[test]
     fn debug_redacts_admin_token() {
         let config = Config {
             bind_addr: "127.0.0.1:8787".into(),
@@ -178,6 +212,7 @@ mod tests {
             },
             admin_token: "a".repeat(MIN_ADMIN_TOKEN_BYTES),
             max_upload_bytes: DEFAULT_MAX_UPLOAD_BYTES,
+            client_ip_header: DEFAULT_CLIENT_IP_HEADER.into(),
         };
         let debug = format!("{config:?}");
         assert!(debug.contains("<redacted>"), "{debug}");

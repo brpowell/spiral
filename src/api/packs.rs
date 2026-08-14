@@ -14,7 +14,7 @@ use crate::AppState;
 
 use super::{ApiError, ApiResult};
 
-pub fn router() -> Router<AppState> {
+pub fn catalog_router() -> Router<AppState> {
     Router::new()
         .route("/v1/packs", get(list_packs))
         .route("/v1/packs/{author_id}/{pack_id}", get(pack_detail))
@@ -23,13 +23,16 @@ pub fn router() -> Router<AppState> {
             get(version_detail),
         )
         .route(
-            "/v1/packs/{author_id}/{pack_id}/versions/{version}/download",
-            get(download_version),
-        )
-        .route(
             "/v1/packs/{author_id}/{pack_id}/versions/{version}/preview",
             get(download_preview),
         )
+}
+
+pub fn download_router() -> Router<AppState> {
+    Router::new().route(
+        "/v1/packs/{author_id}/{pack_id}/versions/{version}/download",
+        get(download_version),
+    )
 }
 
 async fn list_packs(

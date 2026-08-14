@@ -29,7 +29,8 @@ async fn main() -> Result<()> {
     };
 
     // Ops-oriented request logging: quiet on success; warn on odd 4xx; error on 5xx.
-    // Skips routine 401/404 noise. No headers/bodies — method + path come from the span.
+    // Skips routine 401/404/429 noise (auth + limiters log those themselves).
+    // No headers/bodies — method + path come from the span.
     let trace = TraceLayer::new_for_http()
         .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
         .on_request(())
@@ -39,7 +40,7 @@ async fn main() -> Result<()> {
                 let latency_ms = latency.as_millis();
                 if status >= 500 {
                     tracing::error!(status, latency_ms, "request");
-                } else if status >= 400 && status != 401 && status != 404 {
+                } else if status >= 400 && status != 401 && status != 404 && status != 429 {
                     tracing::warn!(status, latency_ms, "request");
                 }
             },
