@@ -99,7 +99,6 @@ export function startCdImport(options: {
   if (blockIfTrialLibraryAtCap()) return;
 
   usePlayerStore.getState().stopCdPlaybackForDrive(driveId);
-  usePlayerStore.setState({ importError: null });
   resetImportActivationQueue();
   resetPendingTrackIds();
   useImportDedupeStore.getState().resetImportDedupeSession();
@@ -372,10 +371,6 @@ export function startCdImport(options: {
               ctx.dismissSilently();
               return;
             }
-          } else {
-            usePlayerStore.setState({
-              importError: `${settle.label}; failed ${result.failed}. ${result.errors[0] ?? ""}`,
-            });
           }
         }
 

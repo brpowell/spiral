@@ -65,6 +65,8 @@ const ACTIVITY_LOG_DOMAIN_DEFS = {
     label: "Registration",
   },
   cdPlayback: { value: "cd.playback", label: "CD playback" },
+  libraryPlayback: { value: "library.playback", label: "Library playback" },
+  libraryLoad: { value: "library.load", label: "Library load" },
 } as const;
 
 export const ACTIVITY_LOG_DOMAINS = {
@@ -81,6 +83,8 @@ export const ACTIVITY_LOG_DOMAINS = {
   packInstall: ACTIVITY_LOG_DOMAIN_DEFS.packInstall.value,
   licenseRegistration: ACTIVITY_LOG_DOMAIN_DEFS.licenseRegistration.value,
   cdPlayback: ACTIVITY_LOG_DOMAIN_DEFS.cdPlayback.value,
+  libraryPlayback: ACTIVITY_LOG_DOMAIN_DEFS.libraryPlayback.value,
+  libraryLoad: ACTIVITY_LOG_DOMAIN_DEFS.libraryLoad.value,
 } as const;
 
 export const ACTIVITY_LOG_DOMAIN_OPTIONS: ReadonlyArray<{

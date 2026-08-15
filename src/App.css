@@ -60,34 +60,6 @@ textarea,
   z-index: 1;
 }
 
-.error-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.6rem 1.25rem;
-  background: var(--color-danger-bg);
-  color: var(--color-danger);
-  border-bottom: 1px solid
-    color-mix(in srgb, var(--color-danger) 35%, transparent);
-  font-size: 0.85rem;
-  flex-shrink: 0;
-}
-
-.error-banner__message {
-  flex: 1;
-  min-width: 0;
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-.error-banner__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.15rem;
-  flex-shrink: 0;
-}
-
 .app-body {
   display: flex;
   flex: 1;

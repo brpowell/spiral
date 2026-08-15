@@ -113,12 +113,6 @@ async function resolveConvertibleCandidatesOnDisk(
   return resolved;
 }
 
-function setConvertImportError(summary: string, detail?: string): void {
-  usePlayerStore.setState({
-    importError: detail ? `${summary}. ${detail}` : summary,
-  });
-}
-
 export function openConvertForTrackIds(trackIds: number[]): void {
   void (async () => {
     const library = usePlayerStore.getState().library;
@@ -268,11 +262,6 @@ export function startConvertTracks(options: {
           return;
         }
 
-        const bannerDetail =
-          failed === 1
-            ? settle.detail
-            : formatFailureDetail(errors) || undefined;
-        setConvertImportError(settle.label, bannerDetail);
         ctx.settleAs(settle);
         return;
       }

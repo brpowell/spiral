@@ -18,6 +18,9 @@ import {
   packReloadedPayload,
   packUpdatesSettleOptions,
   playbackFileMissingPayload,
+  libraryPlaybackFailedPayload,
+  libraryLoadFailedPayload,
+  importPickerFailedPayload,
   playlistAddedPayload,
   queueAddedPayload,
   spiralCardFinalizedPayload,
@@ -414,6 +417,78 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
       );
       showErrorToast(
         cdPlaybackFailurePayload("generic", "SCSI sense: medium error", {
+          dismissMs,
+          logLink: { operationId },
+        }),
+      );
+    },
+  },
+  {
+    id: "library-playback-failed",
+    group: "Playback",
+    buttonLabel: "Library · playback failed",
+    source: "unexpectedErrorToast.ts",
+    fire: async ({ showErrorToast, dismissMs }) => {
+      const operationId = createOperationId();
+      await seedToastLabLog(
+        ACTIVITY_LOG_DOMAINS.libraryPlayback,
+        operationId,
+        "Toast Lab: sample library playback failure",
+        {
+          rawMessage: "Decoder error: unsupported codec",
+        },
+        "error",
+      );
+      showErrorToast(
+        libraryPlaybackFailedPayload({
+          dismissMs,
+          logLink: { operationId },
+        }),
+      );
+    },
+  },
+  {
+    id: "library-load-failed",
+    group: "Library",
+    buttonLabel: "Library load failed",
+    source: "unexpectedErrorToast.ts",
+    fire: async ({ showErrorToast, dismissMs }) => {
+      const operationId = createOperationId();
+      await seedToastLabLog(
+        ACTIVITY_LOG_DOMAINS.libraryLoad,
+        operationId,
+        "Toast Lab: sample library load failure",
+        {
+          rawMessage: "database is locked",
+        },
+        "error",
+      );
+      showErrorToast(
+        libraryLoadFailedPayload({
+          dismissMs,
+          logLink: { operationId },
+        }),
+      );
+    },
+  },
+  {
+    id: "import-picker-failed",
+    group: "Import",
+    buttonLabel: "Import picker failed",
+    source: "unexpectedErrorToast.ts",
+    fire: async ({ showErrorToast, dismissMs }) => {
+      const operationId = createOperationId();
+      await seedToastLabLog(
+        ACTIVITY_LOG_DOMAINS.import,
+        operationId,
+        "Toast Lab: sample import picker failure",
+        {
+          rawMessage: "dialog cancelled unexpectedly",
+        },
+        "error",
+      );
+      showErrorToast(
+        importPickerFailedPayload({
           dismissMs,
           logLink: { operationId },
         }),

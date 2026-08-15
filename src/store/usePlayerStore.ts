@@ -64,6 +64,7 @@ import {
   errorMessageFromUnknown,
   reportCdPlaybackFailure,
 } from "../lib/cdPlaybackFailure";
+import { reportUnexpectedError } from "../lib/unexpectedErrorToast";
 import {
   findNextPlayableInOrder,
   getNextSkippingKnownUnplayable,
@@ -101,7 +102,6 @@ interface PlayerState {
   balance: number;
   repeatMode: RepeatMode;
   shuffle: boolean;
-  importError: string | null;
   editingTrackIds: number[];
   trackEditorInitialTab: TrackEditorTab;
   editingAlbumKey: string | null;
@@ -153,7 +153,6 @@ interface PlayerState {
   cycleRepeat: () => void;
   toggleRepeat: () => void;
   toggleShuffle: () => void;
-  clearImportError: () => void;
   openTrackEditor: (
     ids: number | number[],
     options?: { tab?: TrackEditorTab },
@@ -631,17 +630,20 @@ async function playResolvedPlayable(
   const state = get();
   const source = resolvePlaybackSource(playable, state.library);
   if (!source) {
+    reportUnexpectedError({
+      kind: "libraryPlayback",
+      err: "track not found",
+      logMessage: "Playback failed: track not found",
+      details: { reason: "source_missing" },
+    });
     set({
       playbackState: "stopped",
-      importError: "Playback failed: track not found",
     });
     return;
   }
 
   const trackListId = trackListIdForPlayable(playable);
   const generation = ++playResolvedGeneration;
-
-  set({ importError: null });
 
   if (source.kind === "file" && playable.type === "library") {
     const exists = await fileExists(source.path);
@@ -745,13 +747,16 @@ async function playResolvedPlayable(
       });
       set({
         playbackState: "stopped",
-        importError: null,
       });
       return;
     }
+    reportUnexpectedError({
+      kind: "libraryPlayback",
+      err,
+      logMessage: `Playback failed: ${message}`,
+    });
     set({
       playbackState: "stopped",
-      importError: `Playback failed: ${message}`,
     });
   }
 }
@@ -765,7 +770,6 @@ async function primeCdTrackPaused(
   const trackNumber = cdTrackNumberFromListId(trackId);
   const playable = { type: "cd" as const, driveId, trackNumber };
   const playbackTracks = cdPlaybackTracks(driveId, tracks);
-  set({ importError: null });
   try {
     await audio.loadSource({
       kind: "cd",
@@ -791,7 +795,6 @@ async function primeCdTrackPaused(
     });
     set({
       playbackState: "stopped",
-      importError: null,
     });
   }
 }
@@ -808,7 +811,6 @@ async function primeTrackPaused(
   const track = library.find((t) => t.id === id);
   if (!track) return;
 
-  set({ importError: null });
   try {
     const exists = await fileExists(track.filePath);
     if (!exists) {
@@ -833,9 +835,13 @@ async function primeTrackPaused(
       handlePlaybackFileMissing(set, get, id);
       return;
     }
+    reportUnexpectedError({
+      kind: "libraryPlayback",
+      err,
+      logMessage: `Playback failed: ${message}`,
+    });
     set({
       playbackState: "stopped",
-      importError: `Playback failed: ${message}`,
     });
   }
 }
@@ -943,11 +949,16 @@ function refreshLibraryPreservingPlayback(
       if (isMissingFileError(err)) {
         setLibraryTrackMissingFile(set, updatedTrack.id, true);
       }
+      reportUnexpectedError({
+        kind: "libraryPlayback",
+        err,
+        logMessage: `Playback failed after convert: ${message}`,
+        details: { afterConvert: true, trackId: updatedTrack.id },
+      });
       set({
         playbackState: "stopped",
         positionSeconds: 0,
         seekPreviewRatio: null,
-        importError: `Playback failed after convert: ${message}`,
       });
     }
   })();
@@ -1103,7 +1114,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     stopPositionPoll(set);
     set({
       playbackState: "stopped",
-      importError: null,
       seekPreviewRatio: null,
     });
   });
@@ -1128,7 +1138,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     balance: 0,
     repeatMode: "off",
     shuffle: false,
-    importError: null,
     editingTrackIds: [],
     trackEditorInitialTab: "details",
     editingAlbumKey: null,
@@ -1148,9 +1157,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         set({ library });
         await restorePlaybackSession(library, set);
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
         console.error("loadLibrary failed:", err);
-        set({ importError: `Failed to load library: ${message}` });
+        reportUnexpectedError({
+          kind: "libraryLoad",
+          err,
+        });
       }
     },
 
@@ -1720,8 +1731,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         ),
       });
     },
-
-    clearImportError: () => set({ importError: null }),
 
     openTrackEditor: (ids, options) => {
       const list = (Array.isArray(ids) ? ids : [ids])

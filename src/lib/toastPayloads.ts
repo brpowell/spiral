@@ -82,6 +82,54 @@ export function playbackFileMissingPayload(
   );
 }
 
+/** Library playback unexpected failure (§6 + §4.3 generic). */
+export function libraryPlaybackFailedPayload(options?: {
+  dismissMs?: number | null;
+  logLink?: ActivityLogRevealTarget;
+}): ToastPayload {
+  return withOptionalDismiss(
+    {
+      key: "library-playback-error",
+      label: t("toasts:playback.failed"),
+      detail: t("toasts:playback.failedDetail"),
+      ...(options?.logLink ? { logLink: options.logLink } : {}),
+    },
+    options?.dismissMs,
+  );
+}
+
+/** Library load unexpected failure (§6 + §4.3 generic). */
+export function libraryLoadFailedPayload(options?: {
+  dismissMs?: number | null;
+  logLink?: ActivityLogRevealTarget;
+}): ToastPayload {
+  return withOptionalDismiss(
+    {
+      key: "library-load-error",
+      label: t("toasts:library.loadFailed"),
+      detail: t("toasts:library.loadFailedDetail"),
+      ...(options?.logLink ? { logLink: options.logLink } : {}),
+    },
+    options?.dismissMs,
+  );
+}
+
+/** File-picker / pre-import unexpected failure (§6 + §4.3 generic). */
+export function importPickerFailedPayload(options?: {
+  dismissMs?: number | null;
+  logLink?: ActivityLogRevealTarget;
+}): ToastPayload {
+  return withOptionalDismiss(
+    {
+      key: "import-picker-error",
+      label: t("toasts:import.pickerFailed"),
+      detail: t("toasts:import.pickerFailedDetail"),
+      ...(options?.logLink ? { logLink: options.logLink } : {}),
+    },
+    options?.dismissMs,
+  );
+}
+
 export function cdPlaybackFailurePayload(
   kind: "disconnected" | "no_disc" | "generic",
   message: string,

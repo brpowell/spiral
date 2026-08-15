@@ -31,6 +31,7 @@ import {
   isTrialLibraryCapError,
   notifyTrialLibraryCap,
 } from "./trialGate";
+import { reportUnexpectedError } from "./unexpectedErrorToast";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import {
   isImportCancelledError,
@@ -86,8 +87,6 @@ async function resolveImportPaths(
 }
 
 export async function pickAndImportLibraryPaths(): Promise<void> {
-  usePlayerStore.setState({ importError: null });
-
   if (blockIfTrialLibraryAtCap()) return;
 
   try {
@@ -95,8 +94,10 @@ export async function pickAndImportLibraryPaths(): Promise<void> {
     if (paths.length === 0) return;
     usePlayerStore.getState().importFromPaths(paths);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    usePlayerStore.setState({ importError: `Import failed: ${message}` });
+    reportUnexpectedError({
+      kind: "importPicker",
+      err,
+    });
   }
 }
 
@@ -106,7 +107,6 @@ export function startLibraryImport(paths: string[]): void {
 
   if (blockIfTrialLibraryAtCap()) return;
 
-  usePlayerStore.setState({ importError: null });
   resetImportActivationQueue();
   useImportDedupeStore.getState().resetImportDedupeSession();
 
@@ -293,16 +293,12 @@ export function startLibraryImport(paths: string[]): void {
         if (result.failed > 0) {
           const trialCapHit = result.errors.some(isTrialLibraryCapError);
           if (trialCapHit) {
-            // Expected product limit — Spiral Card modal only (no banner/toast).
+            // Expected product limit — Spiral Card modal only (no toast).
             notifyTrialLibraryCap();
             if (result.imported === 0 && result.replaced === 0) {
               ctx.dismissSilently();
               return;
             }
-          } else {
-            usePlayerStore.setState({
-              importError: `${settle.label}; failed ${result.failed}. ${result.errors[0] ?? ""}`,
-            });
           }
         }
 

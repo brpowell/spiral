@@ -36,7 +36,7 @@ export function errorMessageFromUnknown(err: unknown): string {
 }
 
 /**
- * Toast + activity log for a CD playback failure (no sticky import-error banner).
+ * Toast + activity log for a CD playback failure.
  * Dedupes rapid repeats for the same drive.
  * Known kinds (disconnect / no disc) are toast-only; generic/unhandled gets View logs.
  */

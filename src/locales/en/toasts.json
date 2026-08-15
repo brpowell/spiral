@@ -11,7 +11,13 @@
     "added_other": "{{count}} tracks added to {{playlist}}"
   },
   "playback": {
-    "fileMissing": "File not found"
+    "fileMissing": "File not found",
+    "failed": "Playback failed",
+    "failedDetail": "Something went wrong. Try again, or check the logs for details."
+  },
+  "library": {
+    "loadFailed": "Couldn't load library",
+    "loadFailedDetail": "Something went wrong. Try again, or check the logs for details."
   },
   "trackMetadata": {
     "operation": "Metadata",
@@ -81,6 +87,8 @@
     "finished": "Import finished",
     "metadataUnread": "Could not read track metadata",
     "failed": "Import failed",
+    "pickerFailed": "Couldn't import",
+    "pickerFailedDetail": "Something went wrong. Try again, or check the logs for details.",
     "cd": "Importing CD",
     "checkingDuplicates": "Checking for duplicates…",
     "fetchingArt": "Fetching album art…",

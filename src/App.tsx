@@ -11,9 +11,6 @@ import { TrackEditor } from "./components/TrackEditor/TrackEditor";
 import { LyricsReviewQueue } from "./components/LyricsReviewQueue/LyricsReviewQueue";
 import { MainContent } from "./components/layout/MainContent";
 import { Sidebar } from "./components/layout/Sidebar";
-import { Button } from "./components/common/Button/Button";
-import { CopyButton } from "./components/common/CopyButton/CopyButton";
-import { IconClose } from "./components/icons";
 import { ImportChoiceModal } from "./components/ImportChoiceModal/ImportChoiceModal";
 import { ImportDedupeModal } from "./components/ImportDedupeModal/ImportDedupeModal";
 import { ConvertConfirmModal } from "./components/ConvertConfirmModal/ConvertConfirmModal";
@@ -74,8 +71,6 @@ function App() {
   );
   const loadLicense = useLicenseStore((s) => s.loadLicense);
   const openSpiralCard = useLicenseStore((s) => s.openSpiralCard);
-  const importError = usePlayerStore((s) => s.importError);
-  const clearImportError = usePlayerStore((s) => s.clearImportError);
   const applyAutomaticChecksEnabled = useUpdaterStore(
     (s) => s.applyAutomaticChecksEnabled,
   );
@@ -270,30 +265,6 @@ function App() {
       <header className="app-header">
         <PlayerDock />
       </header>
-
-      {importError && (
-        <div className="error-banner" role="alert">
-          <span className="error-banner__message">{importError}</span>
-          <div className="error-banner__actions">
-            <CopyButton
-              text={importError}
-              aria-label="Copy error message"
-              copiedAriaLabel="Copied error message"
-              title="Copy error message"
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              iconOnly
-              onClick={clearImportError}
-              aria-label="Dismiss"
-              title="Dismiss"
-            >
-              <IconClose />
-            </Button>
-          </div>
-        </div>
-      )}
 
       <div className="app-body">
         <Sidebar />
