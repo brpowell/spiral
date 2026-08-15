@@ -1,4 +1,4 @@
-import { useMemo, type KeyboardEvent, type PointerEvent } from "react";
+import { useMemo, useRef, type KeyboardEvent, type PointerEvent } from "react";
 import { Slider } from "../../common/Slider/Slider";
 import * as audio from "../../../lib/playback";
 import { formatRemainingTime, formatTime } from "../../../lib/format";
@@ -34,10 +34,11 @@ export function SeekBar({ className }: SeekBarProps) {
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
+  /** Pointer seeks use clientX ratios only; native range onChange disagrees (thumb centering). */
+  const pointerSeekActiveRef = useRef(false);
 
   const currentTrack = useMemo(
-    () =>
-      findPlaybackTrack({ library, playbackTracks, currentTrackId }),
+    () => findPlaybackTrack({ library, playbackTracks, currentTrackId }),
     [library, playbackTracks, currentTrackId],
   );
 
@@ -59,6 +60,7 @@ export function SeekBar({ className }: SeekBarProps) {
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
+    pointerSeekActiveRef.current = false;
     handleSeekEnd(ratioFromClientX(e.currentTarget, e.clientX));
   };
 
@@ -76,6 +78,7 @@ export function SeekBar({ className }: SeekBarProps) {
         onPointerDown={(e) => {
           if (disabled || e.button !== 0) return;
           e.currentTarget.setPointerCapture(e.pointerId);
+          pointerSeekActiveRef.current = true;
           handleSeekStart();
           handleSeekChange(ratioFromClientX(e.currentTarget, e.clientX));
         }}
@@ -83,7 +86,12 @@ export function SeekBar({ className }: SeekBarProps) {
           if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
           handleSeekChange(ratioFromClientX(e.currentTarget, e.clientX));
         }}
-        onChange={(e) => handleSeekChange(Number(e.currentTarget.value))}
+        onChange={(e) => {
+          // Ignore during pointer seeks — native range value uses thumb centering
+          // and fights ratioFromClientX (~1–3s flicker on click-to-seek).
+          if (pointerSeekActiveRef.current) return;
+          handleSeekChange(Number(e.currentTarget.value));
+        }}
         onPointerUp={finishPointer}
         onPointerCancel={finishPointer}
         onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {

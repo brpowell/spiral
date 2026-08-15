@@ -14,7 +14,6 @@ import {
 import {
   PCM_STREAM_MIN_READ_AHEAD_FRAMES,
   PCM_STREAM_PROCESSOR_NAME,
-  pcmStreamMaxBufferFrames,
 } from "./pcmStreamConstants";
 // Vite must emit a real JS chunk (`?worker&url`). Plain `new URL(..., import.meta.url)`
 // inlines the .ts as a data: URL, which production CSP script-src blocks.
@@ -53,6 +52,12 @@ export interface PcmSeamCallbacks {
   onDrained?: () => void;
   /** A gated stream reached its scheduled start frame and began playing. */
   onStarted?: () => void;
+  /**
+   * Context frame of the first sample emitted after a transport restart
+   * (start, resume, seek flush) — the exact instant the current source position
+   * became audible.
+   */
+  onPlaybackAnchor?: (frame: number) => void;
 }
 
 /**
@@ -220,6 +225,10 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
             this.seam.onDrained?.();
           } else if (data.type === "started") {
             this.seam.onStarted?.();
+          } else if (data.type === "playbackAnchor") {
+            if (typeof data.frame === "number") {
+              this.seam.onPlaybackAnchor?.(data.frame);
+            }
           }
         };
         this.gain = this.ctx!.createGain();
@@ -241,13 +250,6 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
       type: "configure",
       channels,
       readAheadFrames,
-      // Rust may push its whole in-flight allowance (and a short ack-race tail)
-      // before the audio thread drains; size so we never discard track start.
-      maxBufferFrames: pcmStreamMaxBufferFrames(
-        readAheadFrames,
-        workletRate,
-        this.sourceSampleRate || workletRate,
-      ),
     });
     return this.ctx!;
   }
@@ -295,6 +297,21 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
       });
     }
     this.worklet.port.postMessage({ type: "endOfStream" });
+  }
+
+  /** Re-post drainAt after a late gapless subscriber attaches. */
+  reannounceDrain(): void {
+    this.worklet?.port.postMessage({ type: "reannounceDrain" });
+  }
+
+  /** Audio-thread clock. Advances only while the context renders, so it is the
+   * only wall clock that matches what the listener actually hears. */
+  getContextTime(): number {
+    return this.ctx?.currentTime ?? 0;
+  }
+
+  getContextSampleRate(): number {
+    return this.ctx?.sampleRate ?? 0;
   }
 
   async resumeContext(): Promise<void> {

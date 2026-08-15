@@ -24,5 +24,12 @@
     "playbackFailed": {
       "label": "Playback failed"
     }
+  },
+  "skinMode": {
+    "contextMenu": {
+      "pinWindow": "Pin window",
+      "studio": "Studio…",
+      "returnToLibrary": "Return to library mode"
+    }
   }
 }

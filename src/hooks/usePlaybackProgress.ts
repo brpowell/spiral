@@ -3,6 +3,14 @@ import * as audio from "../lib/playback";
 import { isSkinModeWindow } from "../lib/windowRole";
 import { usePlayerStore } from "../store/usePlayerStore";
 
+/**
+ * The engine playhead is authoritative and monotonic; the store only samples it
+ * every ~500ms. Adopt a store value only when it differs by more than a poll
+ * interval — that means a real discontinuity (seek, track change) rather than
+ * poll lag, which would otherwise rewind the RAF position for a frame.
+ */
+const POSITION_DISCONTINUITY_SECONDS = 0.5;
+
 export function usePlaybackProgress(durationSeconds: number) {
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
@@ -19,9 +27,13 @@ export function usePlaybackProgress(durationSeconds: number) {
     seekPreviewRatio ??
     (durationSeconds > 0 ? positionSeconds / durationSeconds : 0);
 
-  // Keep RAF position in sync with store commits (seek, track change) before paint.
+  // Adopt store commits (seek, track change) before paint.
   useLayoutEffect(() => {
-    setLivePosition(positionSeconds);
+    setLivePosition((current) =>
+      Math.abs(positionSeconds - current) > POSITION_DISCONTINUITY_SECONDS
+        ? positionSeconds
+        : current,
+    );
   }, [positionSeconds]);
 
   useEffect(() => {
@@ -44,8 +56,7 @@ export function usePlaybackProgress(durationSeconds: number) {
       ? livePosition
       : positionSeconds;
 
-  const progress =
-    durationSeconds > 0 ? displayPosition / durationSeconds : 0;
+  const progress = durationSeconds > 0 ? displayPosition / durationSeconds : 0;
 
   const handleSeekEnd = (value: number) => {
     if (usePlayerStore.getState().seekPreviewRatio === null) return;

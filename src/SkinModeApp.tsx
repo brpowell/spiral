@@ -2,9 +2,9 @@ import { SkinLayoutRenderer } from "./components/playback/skin/SkinLayoutRendere
 import { SkinStylesheet } from "./components/playback/skin/SkinStylesheet";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { onSkinModeContextMenu } from "./lib/skinModeNativeContextMenu";
 import { useSkinAuxWindowPersistence } from "./hooks/useSkinAuxWindowPersistence";
 import { useSkinAuxViewStateReset } from "./hooks/useSkinAuxViewStateReset";
+import { useSkinModeContextMenu } from "./hooks/useSkinModeContextMenu";
 import { useSkinModeWindowPersistence } from "./hooks/useSkinModeWindowPersistence";
 import {
   applyPackWindowLayout,
@@ -12,7 +12,10 @@ import {
   resolveViewWindowChrome,
 } from "./lib/skinModeWindowChrome";
 import { applySkinAuxViewWindowLayout } from "./lib/skinAuxWindow";
-import { startSkinClickThrough, isSkinPanelInteractionActive } from "./lib/skinClickThrough";
+import {
+  startSkinClickThrough,
+  isSkinPanelInteractionActive,
+} from "./lib/skinClickThrough";
 import { listSwitchableViewIds } from "./lib/skinWindowPresentation";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useSkinStore } from "./store/useSkinStore";
@@ -24,6 +27,7 @@ export function SkinModeApp() {
   useSkinAuxWindowPersistence();
   useSkinAuxViewStateReset();
 
+  const { onContextMenu, contextMenu } = useSkinModeContextMenu();
   const loadPlaylists = usePlaylistStore((s) => s.loadPlaylists);
   const activePack = useSkinStore((s) => s.activePack);
   const activeViewId = useSkinStore((s) => s.activeViewId);
@@ -59,8 +63,7 @@ export function SkinModeApp() {
   // Headspace-style canvas skins reserve transparent stage margins for panel
   // drawers. Fixed-size views (T3 main/mini/eq aux) match their window exactly
   // and must not toggle OS click-through — it blocks slider/button input.
-  const enableClickThrough =
-    isCanvasLayout && Boolean(view?.panels) && !isAux;
+  const enableClickThrough = isCanvasLayout && Boolean(view?.panels) && !isAux;
 
   const panelOpen = useSkinStore((s) => s.panelOpen);
   const panelRevealed = useSkinStore((s) => s.panelRevealed);
@@ -129,7 +132,10 @@ export function SkinModeApp() {
   }, [activePack?.summary.id, activeViewId, packReloadGeneration, isAux]);
 
   return (
-    <div className="skin-mode-app" data-resizable={resizable ? "true" : "false"}>
+    <div
+      className="skin-mode-app"
+      data-resizable={resizable ? "true" : "false"}
+    >
       {activePack ? (
         <div
           className={[
@@ -139,7 +145,7 @@ export function SkinModeApp() {
           ]
             .filter(Boolean)
             .join(" ")}
-          onContextMenu={onSkinModeContextMenu}
+          onContextMenu={onContextMenu}
         >
           <SkinStylesheet pack={activePack} />
           {useViewLayers ? (
@@ -174,6 +180,7 @@ export function SkinModeApp() {
           )}
         </div>
       ) : null}
+      {contextMenu}
     </div>
   );
 }

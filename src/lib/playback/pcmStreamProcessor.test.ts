@@ -45,10 +45,7 @@ class Deck {
   readonly processor: Processor;
   readonly messages: Outbound[] = [];
 
-  constructor(options?: {
-    readAheadFrames?: number;
-    maxBufferFrames?: number;
-  }) {
+  constructor(options?: { readAheadFrames?: number }) {
     this.processor = new ProcessorClass();
     this.processor.port.postMessage = (message) => {
       this.messages.push(message as Outbound);
@@ -58,7 +55,6 @@ class Deck {
       channels: CHANNELS,
       readAheadFrames:
         options?.readAheadFrames ?? PCM_STREAM_MIN_READ_AHEAD_FRAMES,
-      maxBufferFrames: options?.maxBufferFrames ?? 48000,
     });
   }
 
@@ -132,6 +128,25 @@ describe("PcmStreamProcessor", () => {
     // Nothing was consumed, so the same audio is still queued.
     deck.send({ type: "startNow" });
     expect(Array.from(deck.render(BLOCK_FRAMES))).toEqual(
+      Array(BLOCK_FRAMES).fill(0.5),
+    );
+  });
+
+  it("pause-style gate holds already-buffered PCM across silent blocks", () => {
+    const deck = new Deck();
+    deck.feed(BLOCK_FRAMES * 3, 0.5);
+    expect(Array.from(deck.render(0))).toEqual(Array(BLOCK_FRAMES).fill(0.5));
+
+    deck.send({ type: "gate" });
+    expect(Array.from(deck.render(BLOCK_FRAMES))).toEqual(
+      Array(BLOCK_FRAMES).fill(0),
+    );
+    expect(Array.from(deck.render(BLOCK_FRAMES * 2))).toEqual(
+      Array(BLOCK_FRAMES).fill(0),
+    );
+
+    deck.send({ type: "startNow" });
+    expect(Array.from(deck.render(BLOCK_FRAMES * 3))).toEqual(
       Array(BLOCK_FRAMES).fill(0.5),
     );
   });
@@ -251,7 +266,7 @@ describe("PcmStreamProcessor", () => {
     // CD-depth target (~0.5s at 48 kHz). Below this the worklet used to sit on
     // the 2048-frame floor and underrun when the optical drive stalled.
     const readAheadFrames = 24_000;
-    const deck = new Deck({ readAheadFrames, maxBufferFrames: 72_000 });
+    const deck = new Deck({ readAheadFrames });
 
     deck.feed(readAheadFrames / 2, 0.5);
     deck.messages.length = 0;
@@ -266,7 +281,7 @@ describe("PcmStreamProcessor", () => {
 
   it("while gated, stops requesting once the minimum read-ahead is buffered", () => {
     const readAheadFrames = 24_000;
-    const deck = new Deck({ readAheadFrames, maxBufferFrames: 72_000 });
+    const deck = new Deck({ readAheadFrames });
     deck.send({ type: "gate" });
 
     deck.feed(PCM_STREAM_MIN_READ_AHEAD_FRAMES - BLOCK_FRAMES, 0.5);
@@ -283,15 +298,10 @@ describe("PcmStreamProcessor", () => {
     expect(deck.take("needData")).toHaveLength(0);
   });
 
-  it("keeps a contiguous startup burst even when it exceeds maxBufferFrames", () => {
-    // maxBufferFrames is advisory capacity for configure/drain sizing — the
-    // worklet must not punch holes by discarding PCM when a resume burst
-    // overshoots (that clicked at ~2s after the read-ahead bump).
-    const maxBufferFrames = BLOCK_FRAMES * 2;
-    const deck = new Deck({
-      readAheadFrames: maxBufferFrames,
-      maxBufferFrames,
-    });
+  it("keeps a contiguous startup burst without discarding overflow", () => {
+    // Worklet must not punch holes by discarding PCM when a resume burst
+    // overshoots the read-ahead target (that clicked at ~2s after the bump).
+    const deck = new Deck({ readAheadFrames: BLOCK_FRAMES * 2 });
     deck.feed(BLOCK_FRAMES, 0.1);
     deck.feed(BLOCK_FRAMES, 0.2);
     deck.feed(BLOCK_FRAMES, 0.3);

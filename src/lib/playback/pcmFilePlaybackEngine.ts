@@ -18,8 +18,13 @@ import {
   type PcmFileSessionKey,
   isPcmFileSession,
 } from "./pcmFilePlaybackEvents";
-import { PositionSeekGuard } from "./positionSeekGuard";
 import { FILE_PCM_READ_AHEAD_SECONDS } from "./pcmStreamConstants";
+import {
+  closeReplacedPcmAudioContext,
+  recreateSharedPcmAudioContextSync,
+  sharedPcmContextNeedsRebuild,
+  unlockAudioContext,
+} from "./pcmSharedContext";
 import type {
   PlaybackCapabilities,
   PlaybackEngine,
@@ -42,9 +47,10 @@ const SEEK_END_MARGIN_SECONDS = 0.05;
 
 /**
  * Safety net if the worklet never reports its drain (e.g. the node was
- * disconnected). Must outlast maxBufferFrames (read-ahead + in-flight burst).
+ * disconnected). Must outlast worst-case worklet FIFO (read-ahead plus a full
+ * Rust in-flight burst after upsample).
  */
-const DRAIN_FALLBACK_MS = 3500;
+const DRAIN_FALLBACK_MS = 6_500;
 
 const pcmConfig = {
   ackCommand: "ack_file_playback_pcm",
@@ -71,9 +77,14 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
   private current: PcmFileSessionKey | null = null;
   private filePath: string | null = null;
   private durationSeconds = 0;
-  private lastPositionSeconds = 0;
-  private lastPositionAtMs = 0;
-  private readonly positionSeekGuard = new PositionSeekGuard();
+  /**
+   * Source position that was audible at `anchorContextTime`. While
+   * `anchorContextTime` is null the transport is restarting (load, seek, resume)
+   * and this value *is* the playhead — it holds until the worklet reports the
+   * frame on which it resumed emitting samples.
+   */
+  private anchorSourceSeconds = 0;
+  private anchorContextTime: number | null = null;
   private playing = false;
   private volume = 1;
   private balance = 0;
@@ -103,6 +114,9 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
       onStarted: () => {
         this.handleStarted();
       },
+      onPlaybackAnchor: (frame) => {
+        this.handlePlaybackAnchor(frame);
+      },
     });
   }
 
@@ -130,28 +144,22 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
         (event) => {
           if (!isPcmFileSession(this.current, event.payload)) return;
           this.durationSeconds = event.payload.durationSeconds;
-          // Gated priming decodes ahead of audible start — ignore decode cursor
-          // and isPlaying so the UI does not interpolate from load time.
+          // The reported position is the *decoder* cursor. It leads audible
+          // output by the worklet FIFO depth, which swings by over a second
+          // whenever the buffer refills, so it must never drive the playhead —
+          // only duration and transport state come from here.
           if (this.gated) return;
           this.playing = event.payload.isPlaying;
-          if (
-            !this.positionSeekGuard.shouldAccept(event.payload.positionSeconds)
-          ) {
-            return;
-          }
-          this.lastPositionSeconds = event.payload.positionSeconds;
-          this.lastPositionAtMs = performance.now();
         },
       ),
       listen<PcmFileSessionKey>(PCM_FILE_PLAYBACK_ENDED_EVENT, (event) => {
         if (!isPcmFileSession(this.current, event.payload)) return;
-        this.playing = false;
-        this.lastPositionSeconds = this.durationSeconds;
         // Rust removes the session on natural end; drop the local key so seek
         // does not target a dead session id.
         this.current = null;
-        // The decoder is exhausted but the worklet still holds up to a second of
-        // PCM. Let it play out — cutting here truncates the tail mid-waveform.
+        // Decoder is done but the worklet still holds ~read-ahead of PCM. Keep
+        // the audible clock running so gapless preload sees real remaining time
+        // instead of snapping to duration (which made remaining=0 too early).
         this.endOfStreamPending = true;
         this.pcm.signalEndOfStream();
         // A gated deck cannot drain yet; it gets its fallback once it starts.
@@ -185,13 +193,24 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
   private handleStarted(): void {
     this.gated = false;
     this.playing = true;
-    // Audible playback begins at the start of the primed buffer (track 0), not
-    // at load-time / decode-ahead. Reset the interpolator so handoff UI does
-    // not jump to ~GAPLESS_PRELOAD_HEADROOM_SECONDS.
-    this.lastPositionSeconds = 0;
-    this.lastPositionAtMs = performance.now();
+    // Deliberately leaves the anchor alone: a primed deck is already at source
+    // position 0 from load(), and the worklet posts its `playbackAnchor` for
+    // this same render block *before* this `started` message. Resetting here
+    // would discard that anchor, and no replacement is ever sent.
     if (this.endOfStreamPending) this.armDrainFallback();
     this.startedCallback?.();
+  }
+
+  /**
+   * The worklet emitted its first sample after a transport restart, so
+   * `anchorSourceSeconds` became audible exactly at `frame`. From here the
+   * playhead is pure context-clock arithmetic — no further correction, and no
+   * way for it to move backwards.
+   */
+  private handlePlaybackAnchor(frame: number): void {
+    const sampleRate = this.pcm.getContextSampleRate();
+    if (!sampleRate) return;
+    this.anchorContextTime = frame / sampleRate;
   }
 
   private handleDrained(): void {
@@ -247,9 +266,8 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
 
       this.current = session;
       this.durationSeconds = started.durationSeconds;
-      this.lastPositionSeconds = 0;
-      this.lastPositionAtMs = performance.now();
-      this.positionSeekGuard.clear();
+      this.anchorSourceSeconds = 0;
+      this.anchorContextTime = null;
       this.playing = false;
     } catch (err) {
       if (startedSessionId !== null && generation === this.loadGeneration) {
@@ -276,15 +294,26 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
   }
 
   async play(): Promise<void> {
-    if (!this.current) return;
-    const sessionId = this.current.sessionId;
-    await this.pcm.resumeContext();
-    // Connect only — do not re-apply mix (that cancels crossfade ramps).
-    this.connectToOutputBus();
-    this.pcm.startNow();
-    this.gated = false;
-    this.playing = true;
-    await invoke("resume_file_playback", { sessionId });
+    const rebuild = sharedPcmContextNeedsRebuild();
+    try {
+      if (rebuild) {
+        const ctx = recreateSharedPcmAudioContextSync();
+        await ctx.resume();
+        unlockAudioContext(ctx);
+        await this.reloadCurrentFileAtPosition();
+      }
+      if (!this.current) return;
+      const sessionId = this.current.sessionId;
+      await this.pcm.resumeContext();
+      // Connect only — do not re-apply mix (that cancels crossfade ramps).
+      this.connectToOutputBus();
+      this.pcm.startNow();
+      this.gated = false;
+      this.playing = true;
+      await invoke("resume_file_playback", { sessionId });
+    } finally {
+      if (rebuild) closeReplacedPcmAudioContext();
+    }
   }
 
   /**
@@ -319,9 +348,25 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
     this.startedCallback = callback;
   }
 
+  isEndOfStreamPending(): boolean {
+    return this.endOfStreamPending;
+  }
+
+  reannounceDrain(): void {
+    this.pcm.reannounceDrain();
+  }
+
   pause(): void {
     if (!this.current) return;
+    // Freeze the playhead where it is; the context clock keeps running while
+    // the worklet is gated, so it cannot stay the time base across a pause.
+    this.anchorSourceSeconds = this.getPositionSeconds();
+    this.anchorContextTime = null;
     this.playing = false;
+    // Hold the worklet FIFO so pause is instant and resume has PCM ready.
+    // Do not set this.gated — that flag means "primed, never started" and
+    // would zero getPositionSeconds().
+    this.pcm.gate();
     void invoke("pause_file_playback", { sessionId: this.current.sessionId });
   }
 
@@ -332,9 +377,11 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
         ? this.durationSeconds - SEEK_END_MARGIN_SECONDS
         : this.durationSeconds;
     const clamped = Math.max(0, Math.min(seconds, maxSeek));
-    this.lastPositionSeconds = clamped;
-    this.lastPositionAtMs = performance.now();
-    this.positionSeekGuard.noteSeek(clamped);
+    // Hold the target until the worklet flushes and reports the frame the new
+    // position becomes audible. Anchoring on the current clock instead would
+    // start counting during the ~100ms of pre-seek audio still in the FIFO.
+    this.anchorSourceSeconds = clamped;
+    this.anchorContextTime = null;
     void invoke("seek_file_playback", {
       sessionId: this.current.sessionId,
       positionSeconds: clamped,
@@ -346,10 +393,17 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
   getPositionSeconds(): number {
     // Primed but silent — audible transport has not started.
     if (this.gated) return 0;
-    if (!this.playing) return this.lastPositionSeconds;
-    const elapsed = (performance.now() - this.lastPositionAtMs) / 1000;
+    if (this.anchorContextTime === null) {
+      return this.anchorSourceSeconds;
+    }
+    // After decoder EOS the Rust session reports not-playing, but the worklet
+    // tail is still audible — keep the context clock until drained.
+    if (!this.playing && !this.endOfStreamPending) {
+      return this.anchorSourceSeconds;
+    }
+    const elapsed = this.pcm.getContextTime() - this.anchorContextTime;
     const duration = this.durationSeconds > 0 ? this.durationSeconds : Infinity;
-    return Math.min(this.lastPositionSeconds + elapsed, duration);
+    return Math.min(this.anchorSourceSeconds + Math.max(0, elapsed), duration);
   }
 
   getDurationSeconds(): number {
@@ -398,9 +452,9 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
     this.current = null;
     this.filePath = null;
     this.playing = false;
-    this.lastPositionSeconds = 0;
+    this.anchorSourceSeconds = 0;
+    this.anchorContextTime = null;
     this.durationSeconds = 0;
-    this.positionSeekGuard.clear();
     this.pcm.destroy();
     disconnectDeckOutput(this.deckId);
     if (sessionId !== null) {
@@ -409,31 +463,41 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
   }
 
   async recover(options: RecoverOptions): Promise<RecoverResult> {
-    const filePath =
-      options.source?.kind === "file" ? options.source.path : this.filePath;
-    if (!filePath || !options.wasPlaying) {
-      return { restarted: false, reloaded: false };
+    // PCM keeps outputting while the window is hidden; tearing down a live
+    // session to reload is what caused the refocus hitch. After sleep the
+    // context can sit at `running` with a frozen clock — rebuild on play()
+    // so resume() runs inside a user gesture.
+    if (sharedPcmContextNeedsRebuild()) {
+      return {
+        restarted: false,
+        reloaded: false,
+        alreadyHealthy: options.wasPlaying,
+      };
     }
-
-    try {
-      await this.load({ kind: "file", path: filePath });
-      const duration = this.getDurationSeconds();
-      const positionSeconds =
-        options.positionSeconds > 0 && duration > 0
-          ? Math.min(options.positionSeconds, duration)
-          : 0;
-      if (positionSeconds > 0) {
-        this.seek(positionSeconds);
-      }
-      await this.play();
-      return { restarted: true, reloaded: true };
-    } catch (err) {
-      console.error("PCM file wake recovery reload failed:", err);
-      return { restarted: false, reloaded: false };
+    if (options.wasPlaying && this.current !== null) {
+      await this.pcm.resumeContext();
+      return { restarted: false, reloaded: false, alreadyHealthy: true };
     }
+    return { restarted: false, reloaded: false };
   }
 
   async resumeAudioContext(): Promise<void> {
     await this.pcm.resumeContext();
+  }
+
+  private async reloadCurrentFileAtPosition(
+    positionSeconds = this.getPositionSeconds(),
+  ): Promise<void> {
+    const path = this.filePath;
+    if (!path) return;
+    await this.load({ kind: "file", path });
+    const duration = this.getDurationSeconds();
+    const clamped =
+      positionSeconds > 0 && duration > 0
+        ? Math.min(positionSeconds, duration)
+        : 0;
+    if (clamped > 0) {
+      this.seek(clamped);
+    }
   }
 }

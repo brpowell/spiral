@@ -16,13 +16,18 @@ class PcmStreamProcessor extends AudioWorkletProcessor {
   private writeIndex = 0;
   private channels = 2;
   private readAheadFrames = MIN_READ_AHEAD_FRAMES;
-  private maxBufferFrames = 44100;
   /** Gated streams buffer PCM without consuming it, primed for a scheduled start. */
   private gated = false;
   private startFrame: number | null = null;
   private endOfStream = false;
   private announcedDrainFrame: number | null = null;
   private drainReported = false;
+  /**
+   * Set whenever the transport restarts (initial configure, seek flush, gate).
+   * The next block that actually emits a sample reports its context frame, which
+   * is the only exact anchor for "this source position became audible now".
+   */
+  private pendingAnchorReport = true;
 
   constructor() {
     super();
@@ -36,13 +41,14 @@ class PcmStreamProcessor extends AudioWorkletProcessor {
         this.endOfStream = false;
         this.announcedDrainFrame = null;
         this.drainReported = false;
+        this.pendingAnchorReport = true;
       } else if (data.type === "configure") {
         this.channels = data.channels;
         this.readAheadFrames = data.readAheadFrames;
-        this.maxBufferFrames = data.maxBufferFrames;
       } else if (data.type === "gate") {
         this.gated = true;
         this.startFrame = null;
+        this.pendingAnchorReport = true;
       } else if (data.type === "startAt") {
         this.startFrame = data.frame;
       } else if (data.type === "startNow") {
@@ -50,6 +56,10 @@ class PcmStreamProcessor extends AudioWorkletProcessor {
         this.startFrame = null;
       } else if (data.type === "endOfStream") {
         this.endOfStream = true;
+      } else if (data.type === "reannounceDrain") {
+        // Subscriber may have attached after the first drainAt posts were dropped.
+        this.announcedDrainFrame = null;
+        this.drainReported = false;
       }
     };
   }
@@ -153,6 +163,7 @@ class PcmStreamProcessor extends AudioWorkletProcessor {
     const startOffset = this.startOffset(frames, blockStart);
 
     let filledThrough = 0;
+    let firstFilled = -1;
     for (let frame = 0; frame < frames; frame++) {
       for (let ch = 0; ch < output.length; ch++) {
         output[ch]![frame] = 0;
@@ -165,8 +176,17 @@ class PcmStreamProcessor extends AudioWorkletProcessor {
           output[ch]![frame] = this.buffer[this.readIndex + ch] ?? 0;
         }
         this.readIndex += channels;
+        if (firstFilled < 0) firstFilled = frame;
         filledThrough = frame + 1;
       }
+    }
+
+    if (this.pendingAnchorReport && firstFilled >= 0) {
+      this.pendingAnchorReport = false;
+      this.port.postMessage({
+        type: "playbackAnchor",
+        frame: blockStart + firstFilled,
+      } satisfies PcmStreamMainMessage);
     }
 
     if (this.gated && startOffset < frames) {
@@ -188,18 +208,19 @@ type PcmStreamWorkletMessage =
       type: "configure";
       channels: number;
       readAheadFrames: number;
-      maxBufferFrames: number;
     }
   | { type: "gate" }
   | { type: "startAt"; frame: number }
   | { type: "startNow" }
-  | { type: "endOfStream" };
+  | { type: "endOfStream" }
+  | { type: "reannounceDrain" };
 
 type PcmStreamMainMessage =
   | { type: "needData" }
   | { type: "drainAt"; frame: number }
   | { type: "drained" }
-  | { type: "started" };
+  | { type: "started" }
+  | { type: "playbackAnchor"; frame: number };
 
 registerProcessor(PCM_STREAM_PROCESSOR_NAME, PcmStreamProcessor);
 

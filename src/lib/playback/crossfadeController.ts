@@ -12,11 +12,7 @@ import {
   type CdPlaybackStreamError,
 } from "./cdPlaybackEngine";
 import { PcmFilePlaybackEngine } from "./pcmFilePlaybackEngine";
-import type {
-  PlaybackSource,
-  RecoverOptions,
-  RecoverResult,
-} from "./types";
+import type { PlaybackSource, RecoverOptions, RecoverResult } from "./types";
 
 const FADE_COMPLETE_BUFFER_MS = 50;
 
@@ -63,6 +59,10 @@ export interface DualDeckEngine {
   forceGaplessStart(): void;
   onDrainAt(callback: (frame: number) => void): void;
   onGaplessStarted(callback: () => void): void;
+  /** True while the worklet is still playing after decoder EOS. */
+  isEndOfStreamPending(): boolean;
+  /** Ask the worklet to re-emit drainAt (late gapless subscribe). */
+  reannounceDrain(): void;
   recover(options: RecoverOptions): Promise<RecoverResult>;
 }
 
@@ -786,6 +786,12 @@ export class CrossfadeController {
       if (this.fadeState !== "gaplessPrimed") return;
       this.completeGaplessHandoff();
     });
+
+    // Decoder may already be past EOS (deep read-ahead); re-emit drainAt so we
+    // do not wait for the 250ms force-start fallback.
+    if (this.engine(outgoingDeck).isEndOfStreamPending()) {
+      this.engine(outgoingDeck).reannounceDrain();
+    }
   }
 
   private completeGaplessHandoff(): void {

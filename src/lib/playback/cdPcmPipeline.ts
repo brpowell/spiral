@@ -1,8 +1,5 @@
 import type { DeckId } from "./audioOutput";
-import {
-  PcmStreamPipeline,
-  type PcmSeamCallbacks,
-} from "./pcmStreamPipeline";
+import { PcmStreamPipeline, type PcmSeamCallbacks } from "./pcmStreamPipeline";
 import {
   CD_PLAYBACK_FLUSH_EVENT,
   CD_PLAYBACK_PCM_EVENT,
@@ -70,6 +67,10 @@ export class CdPcmPipeline {
 
   signalEndOfStream(): void {
     this.pipeline.signalEndOfStream();
+  }
+
+  reannounceDrain(): void {
+    this.pipeline.reannounceDrain();
   }
 
   async resumeContext(): Promise<void> {

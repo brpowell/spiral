@@ -63,6 +63,8 @@ function createMockEngine(deckId: DeckId) {
     onGaplessStarted: vi.fn((callback: () => void) => {
       startedCallback = callback;
     }),
+    isEndOfStreamPending: vi.fn(() => false),
+    reannounceDrain: vi.fn(),
     onEnd: vi.fn((callback: () => void) => {
       listeners.push(callback);
     }),

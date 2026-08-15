@@ -25,9 +25,11 @@ pub const FILE_PLAYBACK_FLUSH_EVENT: &str = "file-playback-flush";
 /// Outgoing + incoming decks during crossfade.
 const MAX_SESSIONS: usize = 2;
 
-/// ~0.5s+ of 2048-frame chunks at 48kHz so the worklet read-ahead can fill
-/// (pack-install IPC stalls measured up to ~460ms; 10 chunks ≈ 0.43s at 48k).
-const MAX_CHUNKS_IN_FLIGHT: usize = 24;
+/// ~2s+ of 2048-frame chunks at 48kHz so the worklet read-ahead can fill.
+/// macOS window minimize stalls main-thread PCM event delivery long enough to
+/// drain a 0.5s cushion (audible underrun at minimize-complete); pack-install
+/// IPC stalls were already ~460ms.
+const MAX_CHUNKS_IN_FLIGHT: usize = 64;
 
 static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -345,7 +347,12 @@ fn playback_thread(
         while let Ok(PlaybackCommand::Seek(seconds)) = cmd_rx.try_recv() {
             chunk.clear();
             in_flight.reset();
-            if let Err(err) = source.seek_seconds(seconds) {
+            // Coalesce rapid scrubs to the latest target.
+            let mut latest = seconds;
+            while let Ok(PlaybackCommand::Seek(next)) = cmd_rx.try_recv() {
+                latest = next;
+            }
+            if let Err(err) = source.seek_seconds(latest) {
                 eprintln!("file playback: seek failed: {err}");
             }
             emit_flush(app.as_ref(), session_id);
@@ -437,6 +444,10 @@ pub fn resume(session_id: u64) {
 
 pub fn seek(session_id: u64, seconds: f64) -> Result<(), String> {
     with_session(session_id, |active| {
+        // Unblock `wait_for_capacity` so the playback thread can drain this
+        // Seek. With a deep read-ahead the worklet stops acking while full, so
+        // seeks otherwise sit in the channel for hundreds of ms–seconds.
+        active.in_flight.reset();
         active.cmd_tx.send(PlaybackCommand::Seek(seconds))
     })
     .ok_or_else(|| "No file is playing".to_string())?

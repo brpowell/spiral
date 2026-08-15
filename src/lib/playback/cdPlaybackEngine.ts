@@ -309,9 +309,21 @@ export class CdPlaybackEngine implements PlaybackEngine {
     this.startedCallback = callback;
   }
 
+  isEndOfStreamPending(): boolean {
+    return this.endOfStreamPending;
+  }
+
+  reannounceDrain(): void {
+    this.pcm.reannounceDrain();
+  }
+
   pause(): void {
     if (!this.current) return;
     this.playing = false;
+    // Hold the worklet FIFO so pause is instant and resume has PCM ready.
+    // Do not set this.gated — that flag means "primed, never started" and
+    // would zero getPositionSeconds().
+    this.pcm.gate();
     void invoke("pause_cd_playback", { sessionId: this.current.sessionId });
   }
 
