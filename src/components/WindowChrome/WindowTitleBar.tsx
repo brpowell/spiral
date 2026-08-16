@@ -29,11 +29,11 @@ import { useContextMenu } from "../../hooks/useContextMenu";
 import "./WindowTitleBar.css";
 
 const MENU_ITEMS: { id: AppMenuBarId; label: string }[] = [
-  { id: "file", label: "File" },
-  { id: "edit", label: "Edit" },
-  { id: "view", label: "View" },
+  { id: "file", label: t("menus:bar.file") },
+  { id: "edit", label: t("menus:bar.edit") },
+  { id: "view", label: t("menus:bar.view") },
   ...(import.meta.env.DEV
-    ? [{ id: "developer" as const, label: "Developer" }]
+    ? [{ id: "developer" as const, label: t("menus:bar.developer") }]
     : []),
 ];
 
@@ -44,7 +44,7 @@ function runEditCommand(
 }
 
 export interface WindowTitleBarProps {
-  /** Shown in the title bar; defaults to "Spiral". */
+  /** Shown in the title bar; defaults to the app name. */
   title?: string;
   /** When set, File / Edit / View menus are shown (main library window). */
   handlers?: AppMenuHandlers;
@@ -53,7 +53,7 @@ export interface WindowTitleBarProps {
 }
 
 export function WindowTitleBar({
-  title = "Spiral",
+  title = t("menus:app.name"),
   handlers,
   showMaximize = true,
 }: WindowTitleBarProps) {
@@ -147,29 +147,29 @@ export function WindowTitleBar({
     menuContent = (
       <>
         <ContextMenuItem
-          label="Add Files to Library…"
+          label={t("menus:file.addToLibrary")}
           onClick={run(handlers.addToLibrary)}
         />
         <ContextMenuItem
-          label="New Playlist…"
+          label={t("menus:file.newPlaylist")}
           onClick={run(handlers.newPlaylist)}
         />
         <ContextMenuSeparator />
         <ContextMenuItem
-          label="Refresh Library Metadata"
+          label={t("menus:file.refreshLibraryMetadata")}
           onClick={run(handlers.refreshLibraryMetadata)}
         />
         <ContextMenuItem
-          label="Fetch Missing Lyrics"
+          label={t("menus:file.fetchMissingLyrics")}
           onClick={run(handlers.fetchMissingLyrics)}
         />
         <ContextMenuSeparator />
         <ContextMenuItem
-          label="Preferences"
+          label={t("menus:app.preferences")}
           onClick={run(handlers.openPreferences)}
         />
         <ContextMenuItem
-          label="Spiral Card…"
+          label={t("menus:app.spiralCard")}
           onClick={run(handlers.openSpiralCard)}
         />
         <ContextMenuItem
@@ -177,35 +177,38 @@ export function WindowTitleBar({
           onClick={run(handlers.checkForUpdates)}
         />
         <ContextMenuSeparator />
-        <ContextMenuItem label="Exit" onClick={run(handlers.quit)} />
+        <ContextMenuItem
+          label={t("menus:file.exit")}
+          onClick={run(handlers.quit)}
+        />
       </>
     );
   } else if (handlers && activeMenu === "edit") {
     menuContent = (
       <>
         <ContextMenuItem
-          label="Undo"
+          label={t("menus:edit.undo")}
           onClick={run(() => runEditCommand("undo"))}
         />
         <ContextMenuItem
-          label="Redo"
+          label={t("menus:edit.redo")}
           onClick={run(() => runEditCommand("redo"))}
         />
         <ContextMenuSeparator />
         <ContextMenuItem
-          label="Cut"
+          label={t("menus:edit.cut")}
           onClick={run(() => runEditCommand("cut"))}
         />
         <ContextMenuItem
-          label="Copy"
+          label={t("menus:edit.copy")}
           onClick={run(() => runEditCommand("copy"))}
         />
         <ContextMenuItem
-          label="Paste"
+          label={t("menus:edit.paste")}
           onClick={run(() => runEditCommand("paste"))}
         />
         <ContextMenuItem
-          label="Select All"
+          label={t("menus:edit.selectAll")}
           onClick={run(() => runEditCommand("selectAll"))}
         />
       </>
@@ -214,25 +217,25 @@ export function WindowTitleBar({
     menuContent = (
       <>
         <ContextMenuItem
-          label="Skin Mode"
+          label={t("menus:view.skinMode")}
           onClick={run(handlers.openSkinMode)}
         />
         <ContextMenuItem
-          label="Studio"
+          label={t("menus:view.studio")}
           onClick={run(handlers.openAppearance)}
         />
         <ContextMenuItem
-          label="Reload Linked Packs"
+          label={t("menus:view.reloadLinkedPacks")}
           disabled={!reloadLinkedEnabled}
           onClick={run(handlers.reloadLinkedPacks)}
         />
         <ContextMenuSeparator />
         <ContextMenuItem
-          label="Equalizer"
+          label={t("menus:view.equalizer")}
           onClick={run(handlers.openEqualizer)}
         />
         <ContextMenuItem
-          label="Activity Logs"
+          label={t("menus:view.activityLogs")}
           onClick={run(handlers.openActivityLogs)}
         />
       </>
@@ -245,12 +248,16 @@ export function WindowTitleBar({
     menuContent = (
       <>
         <ContextMenuItem
-          label="Toast Lab"
+          label={t("menus:developer.toastLab")}
           onClick={run(handlers.toggleToastLab)}
         />
       </>
     );
   }
+
+  const restoreLabel = t("menus:window.restore");
+  const maximizeLabel = t("menus:window.maximize");
+  const maximizeOrRestore = maximized ? restoreLabel : maximizeLabel;
 
   return (
     <div className="window-titlebar" role="banner">
@@ -265,7 +272,7 @@ export function WindowTitleBar({
           <nav
             ref={menusRef}
             className="window-titlebar__menus"
-            aria-label="Application"
+            aria-label={t("menus:bar.applicationAria")}
             data-tauri-drag-region="false"
           >
             {MENU_ITEMS.map((item) => (
@@ -296,8 +303,8 @@ export function WindowTitleBar({
         <button
           type="button"
           className="window-titlebar__control"
-          aria-label="Minimize"
-          title="Minimize"
+          aria-label={t("menus:window.minimize")}
+          title={t("menus:window.minimize")}
           onClick={() => void getCurrentWindow().minimize()}
         >
           <IconWindowMinimize />
@@ -306,8 +313,8 @@ export function WindowTitleBar({
           <button
             type="button"
             className="window-titlebar__control"
-            aria-label={maximized ? "Restore" : "Maximize"}
-            title={maximized ? "Restore" : "Maximize"}
+            aria-label={maximizeOrRestore}
+            title={maximizeOrRestore}
             onClick={() => void getCurrentWindow().toggleMaximize()}
           >
             {maximized ? <IconWindowRestore /> : <IconWindowMaximize />}
@@ -316,8 +323,8 @@ export function WindowTitleBar({
         <button
           type="button"
           className="window-titlebar__control window-titlebar__control--close"
-          aria-label="Close"
-          title="Close"
+          aria-label={t("menus:window.close")}
+          title={t("menus:window.close")}
           onClick={() => void getCurrentWindow().close()}
         >
           <IconClose />

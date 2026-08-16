@@ -3,6 +3,7 @@ import { initReactI18next } from "react-i18next";
 
 import common from "../locales/en/common.json";
 import library from "../locales/en/library.json";
+import menus from "../locales/en/menus.json";
 import playback from "../locales/en/playback.json";
 import preferences from "../locales/en/preferences.json";
 import studio from "../locales/en/studio.json";
@@ -13,6 +14,7 @@ void i18n.use(initReactI18next).init({
     en: {
       common,
       library,
+      menus,
       playback,
       preferences,
       studio,
@@ -21,7 +23,15 @@ void i18n.use(initReactI18next).init({
   },
   lng: "en",
   fallbackLng: "en",
-  ns: ["common", "library", "playback", "preferences", "studio", "toasts"],
+  ns: [
+    "common",
+    "library",
+    "menus",
+    "playback",
+    "preferences",
+    "studio",
+    "toasts",
+  ],
   defaultNS: "common",
   interpolation: { escapeValue: false },
   returnNull: false,

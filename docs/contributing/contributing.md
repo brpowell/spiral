@@ -22,7 +22,7 @@ User-facing copy belongs in `src/locales/en/` and is referenced via `t` / `useTr
 - Follow [`.cursor/rules/i18n-ui-strings.mdc`](../.cursor/rules/i18n-ui-strings.mdc) for all **new and touched** UI strings.
 - React: `useTranslation()` / `<Trans>`. Non-React (`src/lib/`, menus, toasts): `t` / `i18n` from `src/lib/i18n`.
 - Untouched screens may still have inline English until a Phase 3+ sweep or boy-scout extract on touch.
-- **Plan / cutoff / backlog:** [`docs/localization-investigation.md`](./localization-investigation.md).
+- **Plan / cutoff / backlog:** [`docs/impl/i18n-impl.md`](../impl/i18n-impl.md).
 
 Exceptions: pack/skin author content, non-UI activity-log internals, and Rust log strings (unless shown as UI).
 

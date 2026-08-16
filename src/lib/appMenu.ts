@@ -67,13 +67,13 @@ async function syncReloadLinkedPacksMenuEnabled(): Promise<void> {
 export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   const preferences = await MenuItem.new({
     id: "preferences",
-    text: "Preferences",
+    text: t("menus:app.preferences"),
     accelerator: "CmdOrCtrl+,",
     action: handlers.openPreferences,
   });
   const spiralCard = await MenuItem.new({
     id: "spiral-card",
-    text: "Spiral Card…",
+    text: t("menus:app.spiralCard"),
     action: handlers.openSpiralCard,
   });
   const checkForUpdates = await MenuItem.new({
@@ -85,19 +85,19 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   const spiralSeparator = await PredefinedMenuItem.new({ item: "Separator" });
 
   const spiralSubmenu = await Submenu.new({
-    text: "Spiral",
+    text: t("menus:app.name"),
     items: [preferences, spiralCard, checkForUpdates, spiralSeparator, quit],
   });
 
   const addToLibrary = await MenuItem.new({
     id: "add-to-library",
-    text: "Add Files to Library…",
+    text: t("menus:file.addToLibrary"),
     action: handlers.addToLibrary,
   });
 
   const newPlaylist = await MenuItem.new({
     id: "new-playlist",
-    text: "New Playlist…",
+    text: t("menus:file.newPlaylist"),
     action: handlers.newPlaylist,
   });
 
@@ -105,18 +105,18 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
 
   const refreshLibraryMetadata = await MenuItem.new({
     id: "refresh-library-metadata",
-    text: "Refresh Library Metadata",
+    text: t("menus:file.refreshLibraryMetadata"),
     action: handlers.refreshLibraryMetadata,
   });
 
   const fetchMissingLyrics = await MenuItem.new({
     id: "fetch-missing-lyrics",
-    text: "Fetch Missing Lyrics",
+    text: t("menus:file.fetchMissingLyrics"),
     action: handlers.fetchMissingLyrics,
   });
 
   const fileSubmenu = await Submenu.new({
-    text: "File",
+    text: t("menus:bar.file"),
     items: [
       addToLibrary,
       newPlaylist,
@@ -135,26 +135,26 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   const selectAll = await PredefinedMenuItem.new({ item: "SelectAll" });
 
   const editSubmenu = await Submenu.new({
-    text: "Edit",
+    text: t("menus:bar.edit"),
     items: [undo, redo, editSeparator, cut, copy, paste, selectAll],
   });
 
   const skinMode = await MenuItem.new({
     id: "skin-mode",
-    text: "Skin Mode",
+    text: t("menus:view.skinMode"),
     action: handlers.openSkinMode,
   });
 
   const appearance = await MenuItem.new({
     id: "appearance",
-    text: "Studio",
+    text: t("menus:view.studio"),
     action: handlers.openAppearance,
   });
 
   const linked = await hasLinkedPacks();
   const reloadLinkedPacks = await MenuItem.new({
     id: RELOAD_LINKED_PACKS_ID,
-    text: "Reload Linked Packs",
+    text: t("menus:view.reloadLinkedPacks"),
     accelerator: "CmdOrCtrl+Alt+R",
     enabled: linked,
     action: handlers.reloadLinkedPacks,
@@ -165,19 +165,19 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
 
   const equalizer = await MenuItem.new({
     id: "equalizer",
-    text: "Equalizer",
+    text: t("menus:view.equalizer"),
     action: handlers.openEqualizer,
   });
 
   const activityLogs = await MenuItem.new({
     id: "activity-logs",
-    text: "Activity Logs",
+    text: t("menus:view.activityLogs"),
     accelerator: "CmdOrCtrl+Shift+L",
     action: handlers.openActivityLogs,
   });
 
   const viewSubmenu = await Submenu.new({
-    text: "View",
+    text: t("menus:bar.view"),
     items: [
       skinMode,
       appearance,
@@ -193,12 +193,12 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   if (import.meta.env.DEV && handlers.toggleToastLab) {
     const toastLab = await MenuItem.new({
       id: "toast-lab",
-      text: "Toast Lab",
+      text: t("menus:developer.toastLab"),
       accelerator: "CmdOrCtrl+Shift+T",
       action: handlers.toggleToastLab,
     });
     const developerSubmenu = await Submenu.new({
-      text: "Developer",
+      text: t("menus:bar.developer"),
       items: [toastLab],
     });
     menuItems.push(developerSubmenu);

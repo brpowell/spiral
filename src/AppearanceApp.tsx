@@ -8,6 +8,7 @@ import {
   PACK_UPDATES_CHANGED_EVENT,
   RELOAD_LINKED_PACKS_EVENT,
 } from "./lib/appearanceWindow";
+import { t } from "./lib/i18n";
 import { refreshPackContributionStores } from "./lib/packs/refreshPackStores";
 import { usePackUpdatesStore } from "./store/usePackUpdatesStore";
 import { useSkinStore } from "./store/useSkinStore";
@@ -87,7 +88,10 @@ export function AppearanceApp() {
   // (theme://changed, workshop://changed, skin events, etc.).
 
   return (
-    <CustomWindowFrame title="Studio" className="appearance-app">
+    <CustomWindowFrame
+      title={t("menus:view.studio")}
+      className="appearance-app"
+    >
       <AppearanceShell />
       <BackgroundTasksIndicator />
     </CustomWindowFrame>

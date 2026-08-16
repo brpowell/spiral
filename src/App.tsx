@@ -27,6 +27,7 @@ import { useStartupCrashReport } from "./hooks/useStartupCrashReport";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useArtistImageStore } from "./store/useArtistImageStore";
 import { setupAppMenu, type AppMenuHandlers } from "./lib/appMenu";
+import { t } from "./lib/i18n";
 import { fetchMissingLyrics } from "./lib/fetchMissingLyrics";
 import { refreshLibraryMetadata } from "./lib/refreshLibraryMetadata";
 import { openSkinMode, quitApplication } from "./lib/skinModeWindow";
@@ -261,7 +262,11 @@ function App() {
   }, [setPreferencesOpen]);
 
   return (
-    <CustomWindowFrame title="Spiral" handlers={menuHandlers} className="app">
+    <CustomWindowFrame
+      title={t("menus:app.name")}
+      handlers={menuHandlers}
+      className="app"
+    >
       <header className="app-header">
         <PlayerDock />
       </header>

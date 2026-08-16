@@ -4,6 +4,7 @@ import { ActivityLogsPanel } from "./components/ActivityLogs/ActivityLogsPanel";
 import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
 import { useActivityLogsWindowClose } from "./hooks/useActivityLogsWindowClose";
 import { initActivityLogBridge } from "./lib/activityLogBridge";
+import { t } from "./lib/i18n";
 import "./ActivityLogsApp.css";
 
 export function ActivityLogsApp() {
@@ -29,7 +30,10 @@ export function ActivityLogsApp() {
   }, []);
 
   return (
-    <CustomWindowFrame title="Activity Logs" className="activity-logs-app">
+    <CustomWindowFrame
+      title={t("menus:view.activityLogs")}
+      className="activity-logs-app"
+    >
       <main className="activity-logs-app__main">
         <ActivityLogsPanel />
       </main>

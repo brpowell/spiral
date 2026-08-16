@@ -1,0 +1,45 @@
+{
+  "app": {
+    "name": "Spiral",
+    "preferences": "Preferences",
+    "spiralCard": "Spiral Card…"
+  },
+  "bar": {
+    "file": "File",
+    "edit": "Edit",
+    "view": "View",
+    "developer": "Developer",
+    "applicationAria": "Application"
+  },
+  "file": {
+    "addToLibrary": "Add Files to Library…",
+    "newPlaylist": "New Playlist…",
+    "refreshLibraryMetadata": "Refresh Library Metadata",
+    "fetchMissingLyrics": "Fetch Missing Lyrics",
+    "exit": "Exit"
+  },
+  "edit": {
+    "undo": "Undo",
+    "redo": "Redo",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select All"
+  },
+  "view": {
+    "skinMode": "Skin Mode",
+    "studio": "Studio",
+    "reloadLinkedPacks": "Reload Linked Packs",
+    "equalizer": "Equalizer",
+    "activityLogs": "Activity Logs"
+  },
+  "developer": {
+    "toastLab": "Toast Lab"
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  }
+}
