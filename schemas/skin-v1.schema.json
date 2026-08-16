@@ -49,18 +49,13 @@
     "visualizer": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Optional pin to a visualizer contribution. Layout size/chrome live in the layout tree + skin CSS; skins always render the full panel surface (the library Now Playing strip owns mini+expand).",
       "properties": {
         "id": {
           "type": "string",
           "minLength": 1,
-          "description": "Effective visualizer contribution id (authorId.packId.type.contributionId), or \"global\" to follow the user's active visualizer picker. Omit id to use global."
-        },
-        "display": {
-          "type": "string",
-          "enum": ["mini", "panel"],
-          "description": "mini = compact strip; panel = fills its layout container."
-        },
-        "size": { "$ref": "#/$defs/visualizerSize" }
+          "description": "Effective visualizer contribution id (authorId.packId.type.contributionId), or \"global\" to follow the user's active visualizer picker. Omit id (or this whole object) to use global."
+        }
       }
     },
     "animations": {
@@ -1325,28 +1320,6 @@
           ]
         },
         "x": { "type": "number", "minimum": 0 }
-      }
-    },
-    "visualizerSize": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "width": {
-          "oneOf": [
-            { "type": "string", "const": "fill" },
-            { "type": "integer", "minimum": 1 }
-          ],
-          "description": "fill = 100% of container width; integer = fixed px"
-        },
-        "height": {
-          "oneOf": [
-            { "type": "string", "enum": ["flex", "fill"] },
-            { "type": "integer", "minimum": 1 }
-          ],
-          "description": "flex = grow in flex parent; fill = 100% of container; integer = fixed px"
-        },
-        "minHeight": { "type": "integer", "minimum": 1 },
-        "maxHeight": { "type": "integer", "minimum": 1 }
       }
     },
     "windowChrome": {

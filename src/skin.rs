@@ -925,32 +925,9 @@ pub struct WindowChrome {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkinVisualizer {
+    /// Pin a contribution id, or `"global"` / omit to follow the picker.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub display: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub size: Option<SkinVisualizerSize>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SkinVisualizerSize {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub width: Option<SkinVisualizerDimension>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub height: Option<SkinVisualizerDimension>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub min_height: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_height: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum SkinVisualizerDimension {
-    Keyword(String),
-    Pixels(u32),
 }
 
 pub fn read_skin_manifest(path: &Path) -> Result<SkinManifest, String> {
@@ -1663,40 +1640,6 @@ fn validate_layout_node(
     }
 }
 
-fn validate_visualizer_dimension(
-    dim: Option<&SkinVisualizerDimension>,
-    field: &str,
-    errors: &mut Vec<String>,
-) {
-    let Some(dim) = dim else {
-        return;
-    };
-    match dim {
-        SkinVisualizerDimension::Pixels(n) => {
-            if *n == 0 {
-                errors.push(format!("{field} pixel value must be at least 1"));
-            }
-        }
-        SkinVisualizerDimension::Keyword(k) => {
-            let valid_width = ["fill"];
-            let valid_height = ["flex", "fill"];
-            let ok = if field.ends_with(".width") {
-                valid_width.contains(&k.as_str())
-            } else {
-                valid_height.contains(&k.as_str())
-            };
-            if !ok {
-                let allowed = if field.ends_with(".width") {
-                    "fill or a positive pixel number"
-                } else {
-                    "flex, fill, or a positive pixel number"
-                };
-                errors.push(format!("{field} \"{k}\" must be {allowed}"));
-            }
-        }
-    }
-}
-
 pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Result<(), String> {
     let mut errors: Vec<String> = Vec::new();
 
@@ -1732,25 +1675,6 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
             if trimmed.is_empty() {
                 errors.push("visualizer.id cannot be empty".to_string());
             }
-        }
-        if let Some(display) = &viz.display {
-            if display != "mini" && display != "panel" {
-                errors.push(format!(
-                    "visualizer.display \"{display}\" must be mini or panel"
-                ));
-            }
-        }
-        if let Some(size) = &viz.size {
-            validate_visualizer_dimension(
-                size.width.as_ref(),
-                "visualizer.size.width",
-                &mut errors,
-            );
-            validate_visualizer_dimension(
-                size.height.as_ref(),
-                "visualizer.size.height",
-                &mut errors,
-            );
         }
     }
     if let Some(sounds) = &manifest.sound_effects {

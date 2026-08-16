@@ -21,7 +21,7 @@ pub use skin::{
     ScrollStripItem, ScrollStripPresentation, ScrollStripSlide, ScrollStripSlideItem,
     SkinCanvasSpec, SkinCondition, SkinPanel, SkinPanelMotion, SkinPanelWindowOverride, SkinView,
     SkinViewActivateEffect, SkinViewStateSpec, SkinViewStateTransition, SkinVisualizer,
-    SkinVisualizerDimension, SkinVisualizerSize, SlideshowDeck, SlideshowFields,
+    SlideshowDeck, SlideshowFields,
     SlideshowPresentation, StretchLayoutBounds, SubviewFields, TextControlFields, TiledFrameAssets,
     TiledFrameContentInset, TiledFrameExplicitPresentation, TiledFrameFields,
     TiledFramePresentation, TiledFramePresetPresentation, TiledFrameTileDef, TiledFrameTileSize,
