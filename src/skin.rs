@@ -113,8 +113,6 @@ const KNOWN_BINDS: &[&str] = &[
     "eq.band.10",
 ];
 
-const SHELL_SLOTS: &[&str] = &["header", "art", "info", "controls", "visualizer", "footer"];
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkinManifest {
@@ -305,8 +303,6 @@ pub enum LayoutNode {
     Canvas(ContainerFields),
     #[serde(rename = "subview")]
     Subview(SubviewFields),
-    #[serde(rename = "region")]
-    Region(RegionFields),
     #[serde(rename = "decoration")]
     Decoration(DecorationFields),
     #[serde(rename = "button")]
@@ -350,6 +346,8 @@ pub enum LayoutNode {
 pub struct ContainerFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
     pub children: Vec<LayoutNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<String>,
@@ -370,6 +368,8 @@ pub struct ContainerFields {
 pub struct SubviewFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
     pub bounds: LayoutBounds,
     pub children: Vec<LayoutNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -384,26 +384,11 @@ pub struct SubviewFields {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RegionFields {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
-    pub slot: String,
-    pub children: Vec<LayoutNode>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds: Option<LayoutBounds>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub visible_when: Option<SkinCondition>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub drag_region: Option<bool>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct DecorationFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
     pub presentation: Presentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
@@ -420,6 +405,8 @@ pub struct DecorationFields {
 pub struct HitAreaFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
     pub bounds: LayoutBounds,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
@@ -555,6 +542,8 @@ pub struct TiledFramePresetPresentation {
 pub struct TiledFrameFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
     pub presentation: TiledFramePresentation,
     pub children: Vec<LayoutNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -593,6 +582,8 @@ pub struct ButtonGroupElement {
 pub struct ButtonGroupFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
     pub presentation: Presentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
@@ -624,6 +615,8 @@ pub struct SlideshowPresentation {
 pub struct SlideshowFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
     pub presentation: SlideshowPresentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
@@ -667,6 +660,8 @@ pub struct ScrollStripPresentation {
 pub struct ScrollStripFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
     pub presentation: ScrollStripPresentation,
     pub bounds: LayoutBounds,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -678,6 +673,8 @@ pub struct ScrollStripFields {
 pub struct ControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -722,6 +719,8 @@ pub struct EqBandFields {
 pub struct TextControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -771,8 +770,6 @@ pub enum Presentation {
     #[serde(rename = "primitive", rename_all = "camelCase")]
     Primitive {
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        class_prefix: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         variant: Option<String>,
     },
     #[serde(rename = "css", rename_all = "camelCase")]
@@ -796,8 +793,6 @@ pub enum Presentation {
         value_frames: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         map_frames: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        class_prefix: Option<String>,
     },
     #[serde(rename = "bitmapSeekbar", rename_all = "camelCase")]
     BitmapSeekbar {
@@ -809,8 +804,6 @@ pub enum Presentation {
         track_height: f64,
         thumb_width: f64,
         thumb_height: f64,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        class_prefix: Option<String>,
     },
     #[serde(rename = "bitmapVerticalSlider", rename_all = "camelCase")]
     BitmapVerticalSlider {
@@ -831,8 +824,6 @@ pub enum Presentation {
         border_size: Option<f64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fill_from_bottom: Option<bool>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        class_prefix: Option<String>,
     },
     #[serde(rename = "bitmapHorizontalSlider", rename_all = "camelCase")]
     BitmapHorizontalSlider {
@@ -846,8 +837,6 @@ pub enum Presentation {
         thumb_height: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         border_size: Option<f64>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        class_prefix: Option<String>,
     },
     #[serde(rename = "digitStrip", rename_all = "camelCase")]
     DigitStrip {
@@ -859,8 +848,6 @@ pub enum Presentation {
         sign_frame_elapsed: Option<u32>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         sign_frame_remaining: Option<u32>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        class_prefix: Option<String>,
     },
     #[serde(rename = "buttonGroup", rename_all = "camelCase")]
     ButtonGroup {
@@ -886,8 +873,6 @@ pub enum Presentation {
         frame: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         content_inset: Option<FramedPanelInset>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        class_prefix: Option<String>,
     },
     #[serde(rename = "compact", rename_all = "camelCase")]
     Compact {
@@ -942,8 +927,6 @@ pub struct WindowChrome {
 pub struct SkinVisualizer {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub placement: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1550,22 +1533,6 @@ fn validate_layout_node(
                 validate_layout_node(child, pack_dir, errors, false);
             }
         }
-        LayoutNode::Region(f) => {
-            if !SHELL_SLOTS.contains(&f.slot.as_str()) {
-                errors.push(format!(
-                    "region slot \"{}\" must be one of: {}",
-                    f.slot,
-                    SHELL_SLOTS.join(", ")
-                ));
-            }
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
-            if let Some(bounds) = &f.bounds {
-                validate_bounds(bounds, "bounds", errors);
-            }
-            for child in &f.children {
-                validate_layout_node(child, pack_dir, errors, false);
-            }
-        }
         LayoutNode::Decoration(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
@@ -1766,13 +1733,6 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
                 errors.push("visualizer.id cannot be empty".to_string());
             }
         }
-        if let Some(placement) = &viz.placement {
-            if placement != "top" && placement != "bottom" {
-                errors.push(format!(
-                    "visualizer.placement \"{placement}\" must be top or bottom"
-                ));
-            }
-        }
         if let Some(display) = &viz.display {
             if display != "mini" && display != "panel" {
                 errors.push(format!(
@@ -1827,9 +1787,9 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
             }
         }
         if let Some(mode) = &view.layout_mode {
-            if mode != "slots" && mode != "canvas" {
+            if mode != "flow" && mode != "canvas" {
                 errors.push(format!(
-                    "views.{view_name}.layoutMode \"{mode}\" must be slots or canvas"
+                    "views.{view_name}.layoutMode \"{mode}\" must be flow or canvas"
                 ));
             }
             if mode == "canvas" {

@@ -55,15 +55,10 @@
           "minLength": 1,
           "description": "Effective visualizer contribution id (authorId.packId.type.contributionId), or \"global\" to follow the user's active visualizer picker. Omit id to use global."
         },
-        "placement": {
-          "type": "string",
-          "enum": ["top", "bottom"],
-          "description": "Where the visualizer band sits in the skin shell."
-        },
         "display": {
           "type": "string",
           "enum": ["mini", "panel"],
-          "description": "mini = compact strip; panel = fills the visualizer slot."
+          "description": "mini = compact strip; panel = fills its layout container."
         },
         "size": { "$ref": "#/$defs/visualizerSize" }
       }
@@ -123,14 +118,14 @@
         },
         "layoutMode": {
           "type": "string",
-          "enum": ["slots", "canvas"],
-          "default": "slots",
-          "description": "slots = SkinShell regions (default); canvas = absolute bounds. Canvas views default to dragInference auto."
+          "enum": ["flow", "canvas"],
+          "default": "flow",
+          "description": "flow = flex tree (column/row/stack; default); canvas = absolute bounds. Canvas views default to dragInference auto."
         },
         "dragInference": {
           "type": "string",
           "enum": ["auto", "manual"],
-          "description": "Window drag inference. Runtime default: auto when layoutMode is canvas, manual for slots. Override per view or via window.dragInference."
+          "description": "Window drag inference. Runtime default: auto when layoutMode is canvas, manual for flow. Override per view or via window.dragInference."
         },
         "canvas": { "$ref": "#/$defs/canvasSpec" },
         "panels": {
@@ -299,7 +294,6 @@
       "oneOf": [
         { "$ref": "#/$defs/containerNode" },
         { "$ref": "#/$defs/subviewNode" },
-        { "$ref": "#/$defs/regionNode" },
         { "$ref": "#/$defs/decorationNode" },
         { "$ref": "#/$defs/hitAreaNode" },
         { "$ref": "#/$defs/tiledFrameNode" },
@@ -353,6 +347,11 @@
       "type": "object",
       "properties": {
         "id": { "type": "string", "minLength": 1 },
+        "className": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional CSS class on the node root. Prefer id for one-off targeting."
+        },
         "bounds": { "$ref": "#/$defs/layoutBounds" },
         "boundsWhen": {
           "type": "object",
@@ -383,6 +382,7 @@
           "additionalProperties": false,
           "properties": {
             "id": { "type": "string", "minLength": 1 },
+            "className": { "type": "string", "minLength": 1 },
             "type": {
               "type": "string",
               "enum": ["stack", "row", "column", "overlay", "canvas"],
@@ -419,6 +419,7 @@
           "additionalProperties": false,
           "properties": {
             "id": { "type": "string", "minLength": 1 },
+            "className": { "type": "string", "minLength": 1 },
             "type": { "const": "subview" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "boundsWhen": {
@@ -443,42 +444,6 @@
         }
       ]
     },
-    "regionNode": {
-      "allOf": [
-        { "$ref": "#/$defs/nodeBase" },
-        {
-          "type": "object",
-          "required": ["type", "slot", "children"],
-          "additionalProperties": false,
-          "properties": {
-            "id": { "type": "string" },
-            "type": { "const": "region" },
-            "slot": {
-              "type": "string",
-              "enum": [
-                "header",
-                "art",
-                "info",
-                "controls",
-                "visualizer",
-                "footer"
-              ]
-            },
-            "children": {
-              "type": "array",
-              "items": { "$ref": "#/$defs/layoutNode" }
-            },
-            "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "dragRegion": {
-              "type": "boolean",
-              "description": "When true, the region is a window drag handle."
-            },
-            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
-          }
-        }
-      ]
-    },
     "decorationNode": {
       "allOf": [
         { "$ref": "#/$defs/nodeBase" },
@@ -488,6 +453,7 @@
           "additionalProperties": false,
           "properties": {
             "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
             "type": { "const": "decoration" },
             "presentation": { "$ref": "#/$defs/presentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
@@ -515,6 +481,7 @@
           "additionalProperties": false,
           "properties": {
             "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
             "type": { "const": "hitArea" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "boundsWhen": {
@@ -536,6 +503,7 @@
           "additionalProperties": false,
           "properties": {
             "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
             "type": { "const": "tiledFrame" },
             "presentation": { "$ref": "#/$defs/tiledFramePresentation" },
             "children": {
@@ -705,6 +673,7 @@
           "additionalProperties": false,
           "properties": {
             "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
             "type": {
               "type": "string",
               "enum": [
@@ -779,6 +748,7 @@
           "additionalProperties": false,
           "properties": {
             "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
             "type": { "const": "buttonGroup" },
             "presentation": { "$ref": "#/$defs/buttonGroupPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
@@ -797,6 +767,7 @@
           "additionalProperties": false,
           "properties": {
             "id": { "type": "string", "minLength": 1 },
+            "className": { "type": "string", "minLength": 1 },
             "type": { "const": "slideshow" },
             "presentation": { "$ref": "#/$defs/slideshowPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
@@ -846,6 +817,7 @@
           "additionalProperties": false,
           "properties": {
             "id": { "type": "string", "minLength": 1 },
+            "className": { "type": "string", "minLength": 1 },
             "type": { "const": "scrollStrip" },
             "presentation": { "$ref": "#/$defs/scrollStripPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
@@ -913,6 +885,7 @@
           "additionalProperties": false,
           "properties": {
             "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
             "type": { "const": "eqBand" },
             "band": { "type": "integer", "minimum": 1, "maximum": 10 },
             "action": { "type": "string" },
@@ -952,6 +925,7 @@
           "additionalProperties": false,
           "properties": {
             "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
             "type": { "const": "balance" },
             "action": { "type": "string" },
             "panelId": { "type": "string", "minLength": 1 },
@@ -1114,7 +1088,6 @@
       "additionalProperties": false,
       "properties": {
         "kind": { "const": "primitive" },
-        "classPrefix": { "type": "string" },
         "variant": { "type": "string" }
       }
     },
@@ -1153,8 +1126,7 @@
           "type": "string",
           "enum": ["ascending", "descending"],
           "description": "How position-map colors map to frame indices along the interaction axis. ascending (default): horizontal left / vertical bottom = frame 0."
-        },
-        "classPrefix": { "type": "string" }
+        }
       }
     },
     "bitmapVerticalSliderPresentation": {
@@ -1201,8 +1173,7 @@
         "fillFromBottom": {
           "type": "boolean",
           "description": "When true, the track image is a bottom-anchored value fill (WMP foregroundImage) revealed up to the current value; the empty groove is expected in the window background."
-        },
-        "classPrefix": { "type": "string" }
+        }
       }
     },
     "bitmapHorizontalSliderPresentation": {
@@ -1241,8 +1212,7 @@
           "type": "number",
           "minimum": 0,
           "description": "Cap size and thumb travel inset (WMP borderSize); enables 3-slice tiling when > 0"
-        },
-        "classPrefix": { "type": "string" }
+        }
       }
     },
     "bitmapSeekbarPresentation": {
@@ -1272,8 +1242,7 @@
         "trackWidth": { "type": "number", "minimum": 1 },
         "trackHeight": { "type": "number", "minimum": 1 },
         "thumbWidth": { "type": "number", "minimum": 1 },
-        "thumbHeight": { "type": "number", "minimum": 1 },
-        "classPrefix": { "type": "string" }
+        "thumbHeight": { "type": "number", "minimum": 1 }
       }
     },
     "digitStripPresentation": {
@@ -1299,8 +1268,7 @@
           "type": "integer",
           "minimum": 0,
           "description": "Strip frame for remaining prefix (WMP default 11)"
-        },
-        "classPrefix": { "type": "string" }
+        }
       }
     },
     "framedPanelPresentation": {
@@ -1311,8 +1279,7 @@
         "kind": { "const": "framedPanel" },
         "mask": { "$ref": "#/$defs/skinAssetFile" },
         "frame": { "$ref": "#/$defs/skinAssetFile" },
-        "contentInset": { "$ref": "#/$defs/framedPanelInset" },
-        "classPrefix": { "type": "string" }
+        "contentInset": { "$ref": "#/$defs/framedPanelInset" }
       }
     },
     "compactPlaylistPresentation": {
@@ -1369,14 +1336,14 @@
             { "type": "string", "const": "fill" },
             { "type": "integer", "minimum": 1 }
           ],
-          "description": "fill = 100% of slot width; integer = fixed px"
+          "description": "fill = 100% of container width; integer = fixed px"
         },
         "height": {
           "oneOf": [
             { "type": "string", "enum": ["flex", "fill"] },
             { "type": "integer", "minimum": 1 }
           ],
-          "description": "flex = grow in shell; fill = 100% of slot; integer = fixed px"
+          "description": "flex = grow in flex parent; fill = 100% of container; integer = fixed px"
         },
         "minHeight": { "type": "integer", "minimum": 1 },
         "maxHeight": { "type": "integer", "minimum": 1 }

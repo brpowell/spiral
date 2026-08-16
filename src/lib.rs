@@ -17,7 +17,7 @@ pub use skin::{
 pub use skin::{
     ButtonGroupElement, ButtonGroupFields, ContainerFields, ControlFields, DecorationFields,
     DigitStripSlot, EqBandFields, FramedPanelInset, HitAreaFields, InteractiveAssets, LayoutBounds,
-    LayoutBoundsOverride, LayoutNode, Presentation, RegionFields, ScrollStripFields,
+    LayoutBoundsOverride, LayoutNode, Presentation, ScrollStripFields,
     ScrollStripItem, ScrollStripPresentation, ScrollStripSlide, ScrollStripSlideItem,
     SkinCanvasSpec, SkinCondition, SkinPanel, SkinPanelMotion, SkinPanelWindowOverride, SkinView,
     SkinViewActivateEffect, SkinViewStateSpec, SkinViewStateTransition, SkinVisualizer,
