@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BrowseView } from "../components/BrowseView/BrowseView";
 import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
 import { LibraryEmptyState } from "../components/LibraryEmptyState/LibraryEmptyState";
@@ -24,6 +25,7 @@ interface TracksViewProps {
 }
 
 export function TracksView({ tracks }: TracksViewProps) {
+  const { t } = useTranslation("library");
   const playTracks = usePlayerStore((s) => s.playTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
@@ -109,19 +111,21 @@ export function TracksView({ tracks }: TracksViewProps) {
   return (
     <BrowseView className="tracks-view">
       <BrowseViewHeader
-        title="Tracks"
+        title={t("views.tracks.title")}
         count={
-          <>
-            ({liveCount}
-            {importingCount > 0 ? `, ${importingCount} importing` : ""})
-          </>
+          importingCount > 0
+            ? t("views.headerCountImporting", {
+                live: liveCount,
+                count: importingCount,
+              })
+            : t("views.headerCount", { count: liveCount })
         }
         actions={
           <SearchField
             value={search}
             onChange={setSearch}
-            placeholder="Search title, artist, or album…"
-            aria-label="Search tracks"
+            placeholder={t("views.tracks.searchPlaceholder")}
+            aria-label={t("views.tracks.searchAria")}
           />
         }
       />
@@ -139,7 +143,7 @@ export function TracksView({ tracks }: TracksViewProps) {
         sortField={sortField}
         sortDir={sortDir}
         onSort={handleSort}
-        emptyMessage="No tracks match your search."
+        emptyMessage={t("views.tracks.emptySearch")}
       />
     </BrowseView>
   );

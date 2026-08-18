@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { findPlaybackTrack } from "../../lib/playbackTrack";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import {
@@ -23,12 +24,12 @@ export function NowPlayingBar({
   visualizerExpanded,
   onToggleVisualizer,
 }: NowPlayingBarProps) {
+  const { t } = useTranslation("playback");
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const currentTrack = useMemo(
-    () =>
-      findPlaybackTrack({ library, playbackTracks, currentTrackId }),
+    () => findPlaybackTrack({ library, playbackTracks, currentTrackId }),
     [library, playbackTracks, currentTrackId],
   );
 
@@ -42,7 +43,7 @@ export function NowPlayingBar({
   );
 
   return (
-    <div className="now-playing-bar" aria-label="Now playing">
+    <div className="now-playing-bar" aria-label={t("nowPlaying.aria")}>
       <div
         className="now-playing-bar__left"
         style={{ opacity: currentTrackId ? 1 : 0.5 }}
@@ -58,7 +59,10 @@ export function NowPlayingBar({
         <div className="now-playing-bar__center-inner">
           <SkinModeOpenButton />
           {currentTrack ? (
-            <TrackRowMenu track={currentTrack} className="now-playing-bar__widget">
+            <TrackRowMenu
+              track={currentTrack}
+              className="now-playing-bar__widget"
+            >
               {widget}
             </TrackRowMenu>
           ) : (
@@ -77,10 +81,7 @@ export function NowPlayingBar({
         />
       </div>
 
-      <SetListModal
-        open={setListOpen}
-        onClose={() => setSetListOpen(false)}
-      />
+      <SetListModal open={setListOpen} onClose={() => setSetListOpen(false)} />
     </div>
   );
 }

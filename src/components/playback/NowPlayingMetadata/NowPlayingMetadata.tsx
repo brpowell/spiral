@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useAssetUrl } from "../../../hooks/useAssetUrl";
 import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
+import { t } from "../../../lib/i18n";
 import { findPlaybackTrack } from "../../../lib/playbackTrack";
 import { getTrackLyrics } from "../../../lib/tauri";
 import {
@@ -396,8 +397,8 @@ export function NowPlayingMetadata({
   ]);
 
   const artLabel = metadataTrack?.album
-    ? `View album art for ${metadataTrack.album}`
-    : "View album art";
+    ? t("playback:nowPlaying.viewAlbumArtFor", { album: metadataTrack.album })
+    : t("playback:nowPlaying.viewAlbumArt");
 
   const renderArt = () => {
     if (!showArt) return null;
@@ -413,7 +414,7 @@ export function NowPlayingMetadata({
             transition={albumArtLayoutTransition}
             style={{ borderRadius: NOW_PLAYING_ART_RADIUS }}
             disabled
-            aria-label="Crossfading between tracks"
+            aria-label={t("playback:nowPlaying.crossfading")}
           >
             <div className="now-playing-metadata__art-stack">
               {outgoingArtSrc ? (
@@ -490,7 +491,11 @@ export function NowPlayingMetadata({
     return (
       <div className="now-playing-metadata__text">
         <div className="now-playing-metadata__text-sizer" aria-hidden>
-          {renderTextLayer(sizerTrack, "No track selected", "Unknown artist")}
+          {renderTextLayer(
+            sizerTrack,
+            t("playback:nowPlaying.noTrack"),
+            t("playback:nowPlaying.unknownArtist"),
+          )}
         </div>
         <div className="now-playing-metadata__text-overlay">
           {showCrossfadeVisual && (outgoingTrack || incomingTrack) ? (
@@ -502,8 +507,8 @@ export function NowPlayingMetadata({
               >
                 {renderTextLayer(
                   outgoingTrack,
-                  "No track selected",
-                  "Unknown artist",
+                  t("playback:nowPlaying.noTrack"),
+                  t("playback:nowPlaying.unknownArtist"),
                 )}
               </CrossfadeOpacity>
               <CrossfadeOpacity
@@ -513,13 +518,17 @@ export function NowPlayingMetadata({
               >
                 {renderTextLayer(
                   incomingTrack,
-                  "No track selected",
-                  "Unknown artist",
+                  t("playback:nowPlaying.noTrack"),
+                  t("playback:nowPlaying.unknownArtist"),
                 )}
               </CrossfadeOpacity>
             </>
           ) : (
-            renderTextLayer(currentTrack, "No track selected", "Unknown artist")
+            renderTextLayer(
+              currentTrack,
+              t("playback:nowPlaying.noTrack"),
+              t("playback:nowPlaying.unknownArtist"),
+            )
           )}
         </div>
       </div>

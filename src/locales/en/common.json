@@ -4,10 +4,16 @@
   "unknownDisc": "Unknown Disc",
   "untitledPlaylist": "Untitled Playlist",
   "untitledTheme": "Untitled Theme",
+  "back": "Back",
+  "cancel": "Cancel",
+  "close": "Close",
+  "delete": "Delete",
+  "edit": "Edit",
   "revealInFinder": "Reveal in Finder",
   "revealInFileExplorer": "Show in File Explorer",
   "revealInFileManager": "Show in File Manager",
   "sidebar": {
+    "navAria": "Main navigation",
     "playlistsEmpty": "No playlists yet"
   },
   "updates": {

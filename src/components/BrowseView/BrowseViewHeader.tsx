@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { t } from "../../lib/i18n";
 import { Button } from "../common/Button/Button";
 import { IconBack } from "../icons";
 import "./BrowseView.css";
@@ -20,7 +21,7 @@ export function BrowseViewHeader({
   actions,
   className = "",
   onBack,
-  backAriaLabel = "Back",
+  backAriaLabel = t("common:back"),
 }: BrowseViewHeaderProps) {
   return (
     <header

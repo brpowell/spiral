@@ -1,5 +1,6 @@
 import { mergeRemoteMetadataIntoDisc } from "./cdMetadata";
 import { cdSidebarDiscLabel } from "./cdTracks";
+import { t } from "./i18n";
 import { getPlaylistById } from "./playlists";
 import { useCdStore } from "../store/useCdStore";
 import type { Artist } from "../types/artist";
@@ -16,9 +17,9 @@ export type DetailReturnContext =
 /** Album keys are `${title}\0${albumArtist}` — title is enough for back labels. */
 export function albumTitleFromKey(albumKey: string): string {
   const separator = albumKey.indexOf("\0");
-  if (separator === -1) return "Album";
+  if (separator === -1) return t("library:entity.album");
   const title = albumKey.slice(0, separator).trim();
-  return title || "Album";
+  return title || t("library:entity.album");
 }
 
 export interface NavigationSnapshot {
@@ -29,11 +30,38 @@ export interface NavigationSnapshot {
   cdDriveId: string | null;
 }
 
-const SIDEBAR_VIEW_LABELS: Record<NavView, string> = {
-  library: "Tracks",
-  albums: "Albums",
-  artists: "Artists",
-};
+export function detailReturnLabel(
+  ctx: DetailReturnContext | null,
+  artists: Artist[],
+): string {
+  if (!ctx) return t("common:back");
+
+  switch (ctx.kind) {
+    case "playlist":
+      return ctx.title;
+    case "cd":
+      return cdNavigationTitle(ctx.driveId);
+    case "album":
+      return ctx.title;
+    case "artist": {
+      const artist = artists.find((a) => a.key === ctx.artistKey);
+      return artist?.name ?? t("library:entity.artist");
+    }
+    case "sidebar":
+      return sidebarViewLabel(ctx.view);
+  }
+}
+
+function sidebarViewLabel(view: NavView): string {
+  switch (view) {
+    case "library":
+      return t("library:views.tracks.title");
+    case "albums":
+      return t("library:views.albums.title");
+    case "artists":
+      return t("library:views.artists.title");
+  }
+}
 
 function cdNavigationTitle(driveId: string): string {
   const cdState = useCdStore.getState();
@@ -63,7 +91,7 @@ export function captureReturnContext(
     return {
       kind: "playlist",
       playlistId: state.playlistId,
-      title: playlist?.title ?? "Playlist",
+      title: playlist?.title ?? t("library:entity.playlist"),
     };
   }
   if (state.albumKey != null) {
@@ -77,28 +105,6 @@ export function captureReturnContext(
     return { kind: "artist", artistKey: state.artistKey };
   }
   return { kind: "sidebar", view: state.view };
-}
-
-export function detailReturnLabel(
-  ctx: DetailReturnContext | null,
-  artists: Artist[],
-): string {
-  if (!ctx) return "Back";
-
-  switch (ctx.kind) {
-    case "playlist":
-      return ctx.title;
-    case "cd":
-      return cdNavigationTitle(ctx.driveId);
-    case "album":
-      return ctx.title;
-    case "artist": {
-      const artist = artists.find((a) => a.key === ctx.artistKey);
-      return artist?.name ?? "Artist";
-    }
-    case "sidebar":
-      return SIDEBAR_VIEW_LABELS[ctx.view];
-  }
 }
 
 export function stateAfterCloseAlbum(

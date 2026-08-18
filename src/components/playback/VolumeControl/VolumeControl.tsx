@@ -1,4 +1,5 @@
 import { usePlayerStore } from "../../../store/usePlayerStore";
+import { t } from "../../../lib/i18n";
 import { Button } from "../../common/Button/Button";
 import { Slider } from "../../common/Slider/Slider";
 import { IconVolume, IconVolumeMute } from "../../icons";
@@ -23,7 +24,9 @@ export function VolumeControl({ className }: VolumeControlProps) {
         iconOnly
         className="playback-btn playback-btn--volume"
         onClick={toggleMute}
-        aria-label={muted ? "Unmute" : "Mute"}
+        aria-label={
+          muted ? t("playback:volume.unmute") : t("playback:volume.mute")
+        }
       >
         {muted ? <IconVolumeMute /> : <IconVolume />}
       </Button>
@@ -33,7 +36,7 @@ export function VolumeControl({ className }: VolumeControlProps) {
         max={1}
         step={0.01}
         value={volume}
-        aria-label="Volume"
+        aria-label={t("playback:volume.slider")}
         onChange={(e) => setVolume(Number(e.currentTarget.value))}
       />
     </div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { applyTrackRating } from "../lib/applyTrackRating";
 import { albumTotalDurationSeconds } from "../lib/albums";
 import { formatTime } from "../lib/format";
@@ -31,6 +32,7 @@ interface PlaylistDetailViewProps {
 }
 
 export function PlaylistDetailView({ playlistId }: PlaylistDetailViewProps) {
+  const { t } = useTranslation("library");
   const playlists = usePlaylistStore((s) => s.playlists);
   const touchPlaylist = usePlaylistStore((s) => s.touchPlaylist);
   const playlist = getPlaylistById(playlists, playlistId);
@@ -42,7 +44,7 @@ export function PlaylistDetailView({ playlistId }: PlaylistDetailViewProps) {
   if (!playlist) {
     return (
       <div className="playlist-detail playlist-detail--missing">
-        <p>Playlist not found.</p>
+        <p>{t("views.playlists.notFound")}</p>
       </div>
     );
   }
@@ -51,6 +53,7 @@ export function PlaylistDetailView({ playlistId }: PlaylistDetailViewProps) {
 }
 
 function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
+  const { t } = useTranslation("library");
   const openPlaylistEditor = usePlaylistStore((s) => s.openPlaylistEditor);
   const library = usePlayerStore((s) => s.library);
   const playTracks = usePlayerStore((s) => s.playTracks);
@@ -60,7 +63,9 @@ function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
   const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
-  const reorderPlaylistTracks = usePlaylistStore((s) => s.reorderPlaylistTracks);
+  const reorderPlaylistTracks = usePlaylistStore(
+    (s) => s.reorderPlaylistTracks,
+  );
   const { requestDelete, deleteDialog } = useDeletePlaylistDialog(playlist);
 
   const tracks = useMemo(
@@ -116,11 +121,13 @@ function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
             <div className="playlist-detail__meta">
               <h1 className="playlist-detail__title">{playlist.title}</h1>
               {playlist.description ? (
-                <p className="playlist-detail__description">{playlist.description}</p>
+                <p className="playlist-detail__description">
+                  {playlist.description}
+                </p>
               ) : null}
               <p className="playlist-detail__stats">
                 {[
-                  `${tracks.length} ${tracks.length === 1 ? "track" : "tracks"}`,
+                  t("counts.tracks", { count: tracks.length }),
                   formatTime(totalDuration),
                 ]
                   .filter(Boolean)
@@ -133,11 +140,11 @@ function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
                   onClick={() => openPlaylistEditor(playlist.id)}
                 >
                   <IconPencil />
-                  Edit Playlist
+                  {t("actions.editPlaylist")}
                 </Button>
                 <MenuButton
                   triggerPlacement="below-start"
-                  ariaLabel="Playlist actions"
+                  ariaLabel={t("views.playlists.actionsAria")}
                   layoutDeps={[tracks.length]}
                   size="sm"
                   variant="secondary"
@@ -147,7 +154,7 @@ function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
                       {tracks.length > 0 ? (
                         <ContextMenuItem
                           icon={<IconAddToQueue />}
-                          label="Add to Queue"
+                          label={t("actions.addToQueue")}
                           onClick={() => {
                             close();
                             handleAddToQueue();
@@ -156,7 +163,7 @@ function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
                       ) : null}
                       <ContextMenuItem
                         icon={<IconPlay />}
-                        label="Play All"
+                        label={t("actions.playAll")}
                         disabled={tracks.length === 0}
                         onClick={() => {
                           close();
@@ -166,7 +173,7 @@ function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
                       <ContextMenuSeparator />
                       <ContextMenuItem
                         icon={<IconDelete />}
-                        label="Delete Playlist"
+                        label={t("actions.deletePlaylist")}
                         className="context-menu__danger"
                         onClick={() => {
                           close();
@@ -183,10 +190,7 @@ function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
 
         <div className="detail-view__tracks">
           {tracks.length === 0 ? (
-            <p className="detail-view__empty">
-              No tracks in this playlist. Add tracks from the library using the
-              track context menu.
-            </p>
+            <p className="detail-view__empty">{t("views.playlists.empty")}</p>
           ) : (
             <TrackList
               presetId="playlist"

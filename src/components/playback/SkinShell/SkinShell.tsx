@@ -9,6 +9,7 @@ import { SeekBar } from "../SeekBar/SeekBar";
 import { SetListModal } from "../../SetListModal/SetListModal";
 import { VisualizerSlot } from "../VisualizerSlot/VisualizerSlot";
 import { VolumeControl } from "../VolumeControl/VolumeControl";
+import { t } from "../../../lib/i18n";
 import "./SkinShell.css";
 
 export interface SkinShellSlots {
@@ -72,10 +73,7 @@ function DefaultFooter({ showVolume }: { showVolume: boolean }) {
         {showVolume ? <VolumeControl /> : null}
         <QueueButton onClick={() => setSetListOpen(true)} />
       </div>
-      <SetListModal
-        open={setListOpen}
-        onClose={() => setSetListOpen(false)}
-      />
+      <SetListModal open={setListOpen} onClose={() => setSetListOpen(false)} />
     </>
   );
 }
@@ -105,7 +103,8 @@ export function SkinShell({
     [manifest],
   );
 
-  const visualizerExpanded = visualizerExpandedProp ?? visualizerExpandedInternal;
+  const visualizerExpanded =
+    visualizerExpandedProp ?? visualizerExpandedInternal;
   const onToggleVisualizer =
     onToggleVisualizerProp ?? (() => setVisualizerExpandedInternal((v) => !v));
 
@@ -126,12 +125,21 @@ export function SkinShell({
     .join(" ");
 
   const visualizerSlotStyle: CSSProperties | undefined =
-    Object.keys(vizLayout.slotStyle).length > 0 ? vizLayout.slotStyle : undefined;
+    Object.keys(vizLayout.slotStyle).length > 0
+      ? vizLayout.slotStyle
+      : undefined;
 
   const slotOrder =
     vizLayout.placement === "top"
       ? (["header", "visualizer", "art", "info", "controls", "footer"] as const)
-      : (["header", "art", "info", "controls", "visualizer", "footer"] as const);
+      : ([
+          "header",
+          "art",
+          "info",
+          "controls",
+          "visualizer",
+          "footer",
+        ] as const);
 
   const slotNodes: Record<
     (typeof slotOrder)[number],
@@ -146,7 +154,7 @@ export function SkinShell({
   };
 
   return (
-    <div className={shellClass} aria-label="Skin mode player">
+    <div className={shellClass} aria-label={t("playback:skinMode.playerAria")}>
       {slotOrder.map((area) => {
         const { node, style } = slotNodes[area];
         return node ? (

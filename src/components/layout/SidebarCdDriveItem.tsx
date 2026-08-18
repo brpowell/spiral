@@ -6,6 +6,7 @@ import { IconDisc, IconEject } from "../icons";
 import { useCdDriveMenu } from "../../hooks/useCdDriveMenu";
 import { mergeRemoteMetadataIntoDisc } from "../../lib/cdMetadata";
 import { cdSidebarDiscLabel } from "../../lib/cdTracks";
+import { t } from "../../lib/i18n";
 import { useCdImportStore } from "../../store/useCdImportStore";
 import { useCdStore } from "../../store/useCdStore";
 import { useNavigationStore } from "../../store/useNavigationStore";
@@ -46,7 +47,11 @@ export function SidebarCdDriveItem({ drive }: SidebarCdDriveItemProps) {
         size="sm"
         iconOnly
         className="sidebar-cd-drive-item__eject"
-        aria-label={isEjecting ? "Ejecting disc" : "Eject disc"}
+        aria-label={
+          isEjecting
+            ? t("library:cd.actions.ejectingDiscAria")
+            : t("library:cd.actions.ejectDiscAria")
+        }
         disabled={isEjecting}
         onClick={(event) => {
           event.stopPropagation();

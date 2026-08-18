@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { t } from "../../lib/i18n";
 import {
   formatSourceEncodingProfileLabel,
   loadConvertProfileOptions,
@@ -150,9 +151,7 @@ export function ConvertConfirmModal() {
       <ModalHeader>
         <ModalHeaderMain>
           <ModalTitle id={titleId}>
-            {trackCount === 1
-              ? "Convert track"
-              : `Convert ${trackCount} tracks`}
+            {t("dialogs:convert.title", { count: trackCount })}
           </ModalTitle>
           {sampleTrack != null ? (
             <ModalDescription>
@@ -162,7 +161,7 @@ export function ConvertConfirmModal() {
                     sampleTrack.artist,
                     sampleTrack.album,
                   )
-                : `${trackCount} selected tracks will be transcoded.`}
+                : t("dialogs:convert.descriptionBulk", { count: trackCount })}
             </ModalDescription>
           ) : null}
         </ModalHeaderMain>
@@ -190,16 +189,16 @@ export function ConvertConfirmModal() {
                 onChange={setProfileId}
                 options={profileOptions}
                 disabled={profilesLoading || profileOptions.length === 0}
-                aria-label="Convert to"
+                aria-label={t("dialogs:convert.convertToAria")}
               />
             </div>
           </div>
 
           <FormField
-            label="Library outcome"
+            label={t("dialogs:convert.outcomeLabel")}
             labelId={outcomeLabelId}
             srOnly
-            description="Both options preserve track metadata and playlist entries."
+            description={t("dialogs:convert.outcomeDescription")}
             className="convert-confirm-modal__outcome"
           >
             <RadioGroup
@@ -212,13 +211,13 @@ export function ConvertConfirmModal() {
               <Field orientation="horizontal">
                 <RadioGroupItem value="add_new" id="convert-mode-add-new" />
                 <FieldLabel htmlFor="convert-mode-add-new">
-                  Add as new tracks
+                  {t("dialogs:convert.addNew")}
                 </FieldLabel>
               </Field>
               <Field orientation="horizontal">
                 <RadioGroupItem value="replace" id="convert-mode-replace" />
                 <FieldLabel htmlFor="convert-mode-replace">
-                  Replace existing with new versions
+                  {t("dialogs:convert.replace")}
                 </FieldLabel>
               </Field>
             </RadioGroup>
@@ -232,7 +231,9 @@ export function ConvertConfirmModal() {
           onClick={() => void handleConfirm()}
           disabled={profilesLoading || profileOptions.length === 0}
         >
-          {mode === "replace" ? "Convert & Replace" : "Convert & Add"}
+          {mode === "replace"
+            ? t("dialogs:convert.confirmReplace")
+            : t("dialogs:convert.confirmAdd")}
         </Button>
       </ModalFooter>
     </Modal>

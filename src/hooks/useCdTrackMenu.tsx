@@ -45,8 +45,6 @@ export function useCdTrackMenu(
     [contextTrackIds, tracks],
   );
 
-  const bulkAdd = contextTracks.length > 1;
-
   const onBeforeOpen = useCallback(() => {
     if (!selectedTrackIds.includes(track.id)) {
       selectTracksInList(
@@ -62,7 +60,7 @@ export function useCdTrackMenu(
 
   const { onContextMenu, closeMenu, open, anchor, position, menuRef } =
     useContextMenu({
-      layoutDeps: [bulkAdd, contextTracks.length, cdImportBlockingPlayback],
+      layoutDeps: [contextTracks.length, cdImportBlockingPlayback],
       onBeforeOpen,
     });
 
@@ -85,24 +83,16 @@ export function useCdTrackMenu(
     >
       <ContextMenuItem
         icon={<IconInfo />}
-        label={
-          bulkAdd
-            ? t("library:cd.actions.viewDetailsBulk", {
-                count: contextTracks.length,
-              })
-            : t("library:cd.actions.viewDetails")
-        }
+        label={t("library:actions.viewDetails", {
+          count: contextTracks.length,
+        })}
         onClick={handleOpenEditor}
       />
       <ContextMenuItem
         icon={<IconAddToQueue />}
-        label={
-          bulkAdd
-            ? t("library:cd.actions.addToQueueBulk", {
-                count: contextTracks.length,
-              })
-            : t("library:cd.actions.addToQueue")
-        }
+        label={t("library:actions.addToQueue", {
+          count: contextTracks.length,
+        })}
         disabled={cdImportBlockingPlayback}
         onClick={handleAddToQueue}
       />

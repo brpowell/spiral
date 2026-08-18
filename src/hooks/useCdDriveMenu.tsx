@@ -4,6 +4,7 @@ import {
   ContextMenuItem,
 } from "../components/ContextMenu/ContextMenu";
 import { IconEject } from "../components/icons";
+import { t } from "../lib/i18n";
 import { useCdStore } from "../store/useCdStore";
 import type { CdDrive } from "../types/cd";
 import { useContextMenu } from "./useContextMenu";
@@ -29,7 +30,11 @@ export function useCdDriveMenu(drive: CdDrive) {
     >
       <ContextMenuItem
         icon={<IconEject />}
-        label={isEjecting ? "Ejecting…" : "Eject Disc"}
+        label={
+          isEjecting
+            ? t("library:cd.actions.ejecting")
+            : t("library:cd.actions.ejectDisc")
+        }
         disabled={isEjecting}
         onClick={handleEject}
       />

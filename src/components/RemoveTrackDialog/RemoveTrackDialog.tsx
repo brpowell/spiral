@@ -1,4 +1,5 @@
 import { useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { Track } from "../../types/track";
 import { Button } from "../common/Button/Button";
@@ -24,6 +25,7 @@ export function RemoveTrackDialog({
   onClose,
   onRemove,
 }: RemoveTrackDialogProps) {
+  const { t } = useTranslation("dialogs");
   const dialogRef = useRef<HTMLDivElement>(null);
   const removingRef = useRef(false);
 
@@ -45,10 +47,7 @@ export function RemoveTrackDialog({
   );
 
   const count = tracks.length;
-  const heading =
-    count === 1
-      ? "Remove from library?"
-      : `Remove ${count} tracks from library?`;
+  const heading = t("removeTracks.title", { count });
 
   return (
     <Modal
@@ -79,14 +78,11 @@ export function RemoveTrackDialog({
       </ModalBody>
 
       <ModalFooter onCancel={onClose}>
-        <Button
-          variant="secondary"
-          onClick={() => void handleRemove(false)}
-        >
-          Remove from library
+        <Button variant="secondary" onClick={() => void handleRemove(false)}>
+          {t("removeTracks.removeFromLibrary")}
         </Button>
         <Button variant="danger" onClick={() => void handleRemove(true)}>
-          Remove and delete file{count > 1 ? "s" : ""}
+          {t("removeTracks.deleteFiles", { count })}
         </Button>
       </ModalFooter>
     </Modal>

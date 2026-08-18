@@ -10,10 +10,12 @@ import { move, arrayMove } from "@dnd-kit/helpers";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { albumKey } from "../../lib/albums";
 import { groupTracksIntoArtists } from "../../lib/artists";
+import { t } from "../../lib/i18n";
+import { HANDLE_POINTER_SENSOR } from "../../lib/dndSortSensors";
 import {
-  HANDLE_POINTER_SENSOR,
-} from "../../lib/dndSortSensors";
-import { isTrackImporting, isTrackInteractive } from "../../lib/pendingImportTrack";
+  isTrackImporting,
+  isTrackInteractive,
+} from "../../lib/pendingImportTrack";
 import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { TrackListColumnMenu } from "./TrackListColumnMenu";
@@ -177,7 +179,7 @@ export function TrackList({
   sortField,
   sortDir,
   onSort,
-  emptyMessage = "No tracks.",
+  emptyMessage = t("library:views.tracks.emptyList"),
   className = "",
   showAlbumArt = false,
   playlistId,
@@ -217,7 +219,9 @@ export function TrackList({
   const linkableArtistKeys = useMemo(() => {
     const liveLibrary = library.filter((track) => !isTrackImporting(track));
     return new Set(
-      groupTracksIntoArtists(liveLibrary, "performers").map((artist) => artist.key),
+      groupTracksIntoArtists(liveLibrary, "performers").map(
+        (artist) => artist.key,
+      ),
     );
   }, [library]);
 
@@ -427,8 +431,7 @@ export function TrackList({
     const showHeaderCheckbox =
       checkMode && col.id === "check" && onToggleAllChecked != null;
 
-    const width =
-      columnWidths[col.id] ?? DEFAULT_COLUMN_WIDTHS[col.id] ?? 80;
+    const width = columnWidths[col.id] ?? DEFAULT_COLUMN_WIDTHS[col.id] ?? 80;
 
     if (showHeaderCheckbox) {
       return (
@@ -570,8 +573,7 @@ export function TrackList({
     displayIndex: number,
     virtualStyle?: CSSProperties,
   ) => {
-    const isSelected =
-      !track.importStatus && selectedTrackIdSet.has(track.id);
+    const isSelected = !track.importStatus && selectedTrackIdSet.has(track.id);
     const isChecked = checkMode && checkedTrackIdSet.has(track.id);
     const isNowPlaying = track.id === currentTrackId;
     const isActivelyPlaying = isNowPlaying && playbackState === "playing";
@@ -694,9 +696,7 @@ export function TrackList({
         onFocus={onListFocus}
         onBlur={onBodyBlur}
       >
-        {tracks.map((track, displayIndex) =>
-          renderRow(track, displayIndex),
-        )}
+        {tracks.map((track, displayIndex) => renderRow(track, displayIndex))}
       </ol>
     );
 

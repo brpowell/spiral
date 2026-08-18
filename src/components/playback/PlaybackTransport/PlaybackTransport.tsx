@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { buildPlaybackOrder } from "../../../lib/playbackOrder";
 import { getManualNextId } from "../../../lib/playbackQueue";
 import { getNextSkippingKnownUnplayable } from "../../../lib/playbackSkip";
@@ -22,13 +23,17 @@ interface PlaybackTransportProps {
   className?: string;
 }
 
-const repeatLabel: Record<RepeatMode, string> = {
-  off: "Repeat off",
-  all: "Repeat all",
-  one: "Repeat one",
+const REPEAT_LABEL_KEYS: Record<
+  RepeatMode,
+  "transport.repeatOff" | "transport.repeatAll" | "transport.repeatOne"
+> = {
+  off: "transport.repeatOff",
+  all: "transport.repeatAll",
+  one: "transport.repeatOne",
 };
 
 export function PlaybackTransport({ className }: PlaybackTransportProps) {
+  const { t } = useTranslation("playback");
   const library = usePlayerStore((s) => s.library);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
@@ -80,8 +85,10 @@ export function PlaybackTransport({ className }: PlaybackTransportProps) {
         iconOnly
         className={`playback-btn playback-btn--shuffle${shuffle ? " playback-btn--shuffle-active" : ""}`}
         onClick={toggleShuffle}
-        aria-label={shuffle ? "Turn shuffle off" : "Turn shuffle on"}
-        title={shuffle ? "Turn shuffle off" : "Turn shuffle on"}
+        aria-label={
+          shuffle ? t("transport.shuffleOff") : t("transport.shuffleOn")
+        }
+        title={shuffle ? t("transport.shuffleOff") : t("transport.shuffleOn")}
       >
         <IconShuffle />
       </Button>
@@ -93,7 +100,7 @@ export function PlaybackTransport({ className }: PlaybackTransportProps) {
         className="playback-btn"
         onClick={previousTrack}
         disabled={!canGoPrevious}
-        aria-label="Previous track"
+        aria-label={t("transport.previous")}
       >
         <IconPrevious />
       </Button>
@@ -105,7 +112,11 @@ export function PlaybackTransport({ className }: PlaybackTransportProps) {
         className="playback-btn playback-btn--play"
         onClick={handlePlayPause}
         disabled={!currentTrackId}
-        aria-label={playbackState === "playing" ? "Pause" : "Play"}
+        aria-label={
+          playbackState === "playing"
+            ? t("transport.pause")
+            : t("transport.play")
+        }
       >
         <AnimatePresence mode="wait" initial={false}>
           {playbackState === "playing" ? (
@@ -141,7 +152,7 @@ export function PlaybackTransport({ className }: PlaybackTransportProps) {
         className="playback-btn"
         onClick={nextTrack}
         disabled={!canGoNext}
-        aria-label="Next track"
+        aria-label={t("transport.next")}
       >
         <IconNext />
       </Button>
@@ -152,8 +163,8 @@ export function PlaybackTransport({ className }: PlaybackTransportProps) {
         iconOnly
         className={`playback-btn playback-btn--repeat${repeatMode !== "off" ? " playback-btn--repeat-active" : ""}`}
         onClick={cycleRepeat}
-        aria-label={repeatLabel[repeatMode]}
-        title={repeatLabel[repeatMode]}
+        aria-label={t(REPEAT_LABEL_KEYS[repeatMode])}
+        title={t(REPEAT_LABEL_KEYS[repeatMode])}
       >
         {repeatMode === "one" ? <IconRepeatOne /> : <IconRepeat />}
       </Button>

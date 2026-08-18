@@ -1,0 +1,55 @@
+{
+  "removeTracks": {
+    "title_one": "Remove from library?",
+    "title_other": "Remove {{count}} tracks from library?",
+    "removeFromLibrary": "Remove from library",
+    "deleteFiles_one": "Remove and delete file",
+    "deleteFiles_other": "Remove and delete files"
+  },
+  "convert": {
+    "title_one": "Convert track",
+    "title_other": "Convert {{count}} tracks",
+    "descriptionBulk": "{{count}} selected tracks will be transcoded.",
+    "convertToAria": "Convert to",
+    "outcomeLabel": "Library outcome",
+    "outcomeDescription": "Both options preserve track metadata and playlist entries.",
+    "addNew": "Add as new tracks",
+    "replace": "Replace existing with new versions",
+    "confirmAdd": "Convert & Add",
+    "confirmReplace": "Convert & Replace"
+  },
+  "importChoice": {
+    "title": "Add to library",
+    "description": "Do you want to copy these files into your Spiral media folder, or keep them at their current location?",
+    "dontAskAgain": "Don't ask again",
+    "keepLocation": "Keep original location",
+    "copyToLibrary": "Copy to library"
+  },
+  "importDedupe": {
+    "title": "Duplicate track during import",
+    "incoming": "Incoming",
+    "inLibrary": "In library",
+    "notRipped": "Not ripped yet",
+    "lyrics": "Lyrics",
+    "replaceNote": "Replacing this file will keep the original play count, rating, and playlist entries.",
+    "replaceLyrics": "Replace lyrics with incoming",
+    "applyRemaining_one": "Apply to remaining duplicate in this import",
+    "applyRemaining_other": "Apply to remaining {{count}} duplicates in this import",
+    "cancelImport": "Cancel import",
+    "skip": "Skip",
+    "importAnyway": "Import anyway",
+    "replace": "Replace"
+  },
+  "cdImportCancel": {
+    "title": "Import cancelled",
+    "keepQuestion_one": "Keep this imported track in your library?",
+    "keepQuestion_other": "Keep these {{count}} imported tracks in your library?",
+    "keep": "Keep",
+    "delete": "Delete"
+  },
+  "deletePlaylist": {
+    "title": "Delete playlist?",
+    "confirm": "Delete playlist",
+    "body": "<strong>{{title}}</strong> will be permanently deleted. Tracks in this playlist will stay in your library."
+  }
+}

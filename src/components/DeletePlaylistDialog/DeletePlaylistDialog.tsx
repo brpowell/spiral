@@ -1,3 +1,4 @@
+import { Trans, useTranslation } from "react-i18next";
 import type { Playlist } from "../../types/playlist";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
 
@@ -14,18 +15,22 @@ export function DeletePlaylistDialog({
   onClose,
   onConfirm,
 }: DeletePlaylistDialogProps) {
+  const { t } = useTranslation("dialogs");
   return (
     <AlertConfirmation
       open={open}
       onClose={onClose}
-      title="Delete playlist?"
+      title={t("deletePlaylist.title")}
       titleId="delete-playlist-title"
-      confirmLabel="Delete playlist"
+      confirmLabel={t("deletePlaylist.confirm")}
       onConfirm={onConfirm}
     >
       <p>
-        <strong>{playlist.title}</strong> will be permanently deleted. Tracks in this
-        playlist will stay in your library.
+        <Trans
+          i18nKey="deletePlaylist.body"
+          values={{ title: playlist.title }}
+          components={{ strong: <strong /> }}
+        />
       </p>
     </AlertConfirmation>
   );

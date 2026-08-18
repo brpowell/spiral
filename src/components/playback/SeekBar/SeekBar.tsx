@@ -2,6 +2,7 @@ import { useMemo, useRef, type KeyboardEvent, type PointerEvent } from "react";
 import { Slider } from "../../common/Slider/Slider";
 import * as audio from "../../../lib/playback";
 import { formatRemainingTime, formatTime } from "../../../lib/format";
+import { t } from "../../../lib/i18n";
 import { findPlaybackTrack } from "../../../lib/playbackTrack";
 import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
 import { usePlayerStore } from "../../../store/usePlayerStore";
@@ -74,7 +75,7 @@ export function SeekBar({ className }: SeekBarProps) {
         step={0.001}
         value={isSeeking ? seekValue : progress}
         disabled={disabled}
-        aria-label="Seek"
+        aria-label={t("playback:seek.aria")}
         onPointerDown={(e) => {
           if (disabled || e.button !== 0) return;
           e.currentTarget.setPointerCapture(e.pointerId);

@@ -17,6 +17,7 @@ import {
   pushModalLayer,
 } from "../../../lib/modalStack";
 import { backdropMotion, panelMotion } from "../../../lib/motion";
+import { t } from "../../../lib/i18n";
 import { Button } from "../Button/Button";
 import { IconClose } from "../../icons";
 import "./Modal.css";
@@ -122,11 +123,7 @@ export function Modal({
     };
   }, [open, onClose, dismissible]);
 
-  const panelClasses = [
-    "modal-panel",
-    `modal-panel--${size}`,
-    panelClassName,
-  ]
+  const panelClasses = ["modal-panel", `modal-panel--${size}`, panelClassName]
     .filter(Boolean)
     .join(" ");
 
@@ -163,9 +160,7 @@ export function ModalHeader({
   className?: string;
 }) {
   return (
-    <header
-      className={["modal-header", className].filter(Boolean).join(" ")}
-    >
+    <header className={["modal-header", className].filter(Boolean).join(" ")}>
       {children}
     </header>
   );
@@ -213,7 +208,10 @@ export function ModalTitle({
   className?: string;
 }) {
   return (
-    <h2 id={id} className={["modal-title", className].filter(Boolean).join(" ")}>
+    <h2
+      id={id}
+      className={["modal-title", className].filter(Boolean).join(" ")}
+    >
       {children}
     </h2>
   );
@@ -227,9 +225,7 @@ export function ModalDescription({
   className?: string;
 }) {
   return (
-    <p
-      className={["modal-description", className].filter(Boolean).join(" ")}
-    >
+    <p className={["modal-description", className].filter(Boolean).join(" ")}>
       {children}
     </p>
   );
@@ -238,7 +234,7 @@ export function ModalDescription({
 export function ModalCloseButton({
   onClick,
   className,
-  label = "Close",
+  label = t("common:close"),
 }: {
   onClick: () => void;
   className?: string;
@@ -266,9 +262,7 @@ export function ModalBody({
   className?: string;
 }) {
   return (
-    <div
-      className={["modal-body", className].filter(Boolean).join(" ")}
-    >
+    <div className={["modal-body", className].filter(Boolean).join(" ")}>
       {children}
     </div>
   );
@@ -276,7 +270,7 @@ export function ModalBody({
 
 export function ModalFooter({
   children,
-  cancelLabel = "Cancel",
+  cancelLabel = t("common:cancel"),
   onCancel,
   cancelDisabled = false,
 }: {

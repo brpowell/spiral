@@ -5,6 +5,7 @@ import {
   ContextMenuSeparator,
 } from "../components/ContextMenu/ContextMenu";
 import { IconAddToQueue, IconDelete, IconPencil } from "../components/icons";
+import { t } from "../lib/i18n";
 import { resolvePlaylistTracks } from "../lib/playlists";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { usePlaylistStore } from "../store/usePlaylistStore";
@@ -46,13 +47,13 @@ export function usePlaylistSidebarMenu(playlist: Playlist) {
     >
       <ContextMenuItem
         icon={<IconPencil />}
-        label="Edit"
+        label={t("common:edit")}
         onClick={openEditor}
       />
       {trackIds.length > 0 ? (
         <ContextMenuItem
           icon={<IconAddToQueue />}
-          label="Add to Queue"
+          label={t("library:actions.addToQueue")}
           onClick={() => {
             closeMenu();
             addToQueue(trackIds);
@@ -62,7 +63,7 @@ export function usePlaylistSidebarMenu(playlist: Playlist) {
       <ContextMenuSeparator />
       <ContextMenuItem
         icon={<IconDelete />}
-        label="Delete"
+        label={t("common:delete")}
         className="context-menu__danger"
         onClick={openDelete}
       />

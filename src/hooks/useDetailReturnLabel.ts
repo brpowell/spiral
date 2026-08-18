@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { t } from "../lib/i18n";
 import {
   detailReturnLabel,
   type DetailReturnContext,
@@ -13,7 +14,7 @@ export function useDetailReturnLabel(
   ctx: DetailReturnContext | null,
   artists: Artist[],
 ): string {
-  const lastNonNull = useRef("Back");
+  const lastNonNull = useRef(t("common:back"));
   if (ctx != null) {
     lastNonNull.current = detailReturnLabel(ctx, artists);
   }

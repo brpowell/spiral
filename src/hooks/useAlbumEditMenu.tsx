@@ -10,6 +10,7 @@ import {
   IconRemoveFromQueue,
 } from "../components/icons";
 import { openConvertForTrackIds } from "../lib/convertTracks";
+import { t } from "../lib/i18n";
 import { isTrackConvertible } from "../lib/pendingImportTrack";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Album } from "../types/album";
@@ -51,15 +52,13 @@ export function useAlbumEditMenu(album: Album) {
     >
       <ContextMenuItem
         icon={<IconPencil />}
-        label="Edit Album"
+        label={t("library:actions.editAlbum")}
         onClick={openEditor}
       />
       {trackCount > 0 ? (
         <ContextMenuItem
           icon={<IconAddToQueue />}
-          label={
-            trackCount > 1 ? `Add ${trackCount} to Queue` : "Add to Queue"
-          }
+          label={t("library:actions.addToQueue", { count: trackCount })}
           onClick={() => {
             closeMenu();
             addToQueue(albumTrackIds);
@@ -69,11 +68,7 @@ export function useAlbumEditMenu(album: Album) {
       {anyInQueue ? (
         <ContextMenuItem
           icon={<IconRemoveFromQueue />}
-          label={
-            trackCount > 1
-              ? `Remove ${trackCount} from Queue`
-              : "Remove from Queue"
-          }
+          label={t("library:actions.removeFromQueue", { count: trackCount })}
           onClick={() => {
             closeMenu();
             for (const id of albumTrackIds) {
@@ -85,11 +80,7 @@ export function useAlbumEditMenu(album: Album) {
       {convertibleCount > 0 ? (
         <ContextMenuItem
           icon={<IconConvert />}
-          label={
-            convertibleCount > 1
-              ? `Convert ${convertibleCount} Tracks…`
-              : "Convert Album…"
-          }
+          label={t("library:actions.convertAlbum", { count: convertibleCount })}
           onClick={() => {
             closeMenu();
             openConvertForTrackIds(albumTrackIds);

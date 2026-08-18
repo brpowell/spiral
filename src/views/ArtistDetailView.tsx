@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { DiscographyTimeline } from "../components/DiscographyTimeline/DiscographyTimeline";
 import { EntityArt } from "../components/EntityArt/EntityArt";
 import { Button } from "../components/common/Button/Button";
@@ -43,6 +44,7 @@ export function ArtistDetailView({
   artistKey,
   browseMode,
 }: ArtistDetailViewProps) {
+  const { t } = useTranslation("library");
   const closeArtist = useNavigationStore((s) => s.closeArtist);
   const artistReturnContext = useNavigationStore((s) => s.artistReturnContext);
   const setArtistBrowseMode = useNavigationStore((s) => s.setArtistBrowseMode);
@@ -51,8 +53,7 @@ export function ArtistDetailView({
   const openArtistEditor = usePlayerStore((s) => s.openArtistEditor);
 
   const browseArtist = getArtistByKey(artists, artistKey);
-  const artist =
-    browseArtist ?? getArtistByKey(performerArtists, artistKey);
+  const artist = browseArtist ?? getArtistByKey(performerArtists, artistKey);
   const editorBrowseMode = browseArtist != null ? browseMode : "performers";
   const albumArtistsOnly = browseMode === "discography";
   const backLabel = useDetailReturnLabel(artistReturnContext, artists);
@@ -73,7 +74,7 @@ export function ArtistDetailView({
           <IconBack />
           {backLabel}
         </Button>
-        <p>Artist not found.</p>
+        <p>{t("views.artists.notFound")}</p>
       </div>
     );
   }
@@ -81,11 +82,11 @@ export function ArtistDetailView({
   const trackIds = artist.tracks.map((t) => t.id);
   const totalDuration = artistTotalDurationSeconds(artist.tracks);
   const discographySectionTitle = albumArtistsOnly
-    ? "Discography"
-    : "Appears on";
+    ? t("views.artists.discography")
+    : t("views.artists.appearsOn");
   const emptyDiscographyMessage = albumArtistsOnly
-    ? "No albums in library."
-    : "No albums in library for this performer.";
+    ? t("views.artists.emptyDiscography")
+    : t("views.artists.emptyPerformer");
 
   const handlePlayAll = () => {
     const first = artist.tracks[0];
@@ -121,8 +122,8 @@ export function ArtistDetailView({
           <h1 className="artist-detail__title">{artist.name}</h1>
           <p className="artist-detail__stats">
             {[
-              `${discography.length} ${discography.length === 1 ? "album" : "albums"}`,
-              `${artist.tracks.length} ${artist.tracks.length === 1 ? "track" : "tracks"}`,
+              t("counts.albums", { count: discography.length }),
+              t("counts.tracks", { count: artist.tracks.length }),
               formatDurationNatural(totalDuration),
             ]
               .filter(Boolean)
@@ -135,11 +136,11 @@ export function ArtistDetailView({
               onClick={() => openArtistEditor(artist.key, editorBrowseMode)}
             >
               <IconPencil />
-              Edit Artist
+              {t("actions.editArtist")}
             </Button>
             <MenuButton
               triggerPlacement="below-start"
-              ariaLabel="Artist actions"
+              ariaLabel={t("views.artists.actionsAria")}
               layoutDeps={[artist.tracks.length]}
               size="sm"
               variant="secondary"
@@ -149,7 +150,7 @@ export function ArtistDetailView({
                   {artist.tracks.length > 0 ? (
                     <ContextMenuItem
                       icon={<IconAddToQueue />}
-                      label="Add to Queue"
+                      label={t("actions.addToQueue")}
                       onClick={() => {
                         close();
                         handleAddToQueue();
@@ -158,7 +159,7 @@ export function ArtistDetailView({
                   ) : null}
                   <ContextMenuItem
                     icon={<IconPlay />}
-                    label="Play All"
+                    label={t("actions.playAll")}
                     disabled={artist.tracks.length === 0}
                     onClick={() => {
                       close();
@@ -179,7 +180,7 @@ export function ArtistDetailView({
           </h2>
           <Field orientation="horizontal" className="artist-detail__filter">
             <FieldLabel htmlFor="artist-detail-album-only">
-              Album artist only
+              {t("views.artists.albumArtistOnly")}
             </FieldLabel>
             <Switch
               id="artist-detail-album-only"

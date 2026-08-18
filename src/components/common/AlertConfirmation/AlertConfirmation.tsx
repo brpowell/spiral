@@ -1,5 +1,6 @@
 import { useCallback, useId, useRef, type ReactNode } from "react";
 import { useFocusTrap } from "../../../hooks/useFocusTrap";
+import { t } from "../../../lib/i18n";
 import { Button, type ButtonVariant } from "../Button/Button";
 import {
   Modal,
@@ -30,7 +31,7 @@ export function AlertConfirmation({
   confirmLabel,
   onConfirm,
   confirmVariant = "danger",
-  cancelLabel = "Cancel",
+  cancelLabel = t("common:cancel"),
   titleId: titleIdProp,
 }: AlertConfirmationProps) {
   const generatedTitleId = useId();
@@ -71,10 +72,7 @@ export function AlertConfirmation({
       </ModalBody>
 
       <ModalFooter onCancel={onClose} cancelLabel={cancelLabel}>
-        <Button
-          variant={confirmVariant}
-          onClick={() => void handleConfirm()}
-        >
+        <Button variant={confirmVariant} onClick={() => void handleConfirm()}>
           {confirmLabel}
         </Button>
       </ModalFooter>

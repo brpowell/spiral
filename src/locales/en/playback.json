@@ -26,10 +26,56 @@
     }
   },
   "skinMode": {
+    "openAria": "Open skin mode",
+    "openTitle": "Skin mode",
+    "playerAria": "Skin mode player",
     "contextMenu": {
       "pinWindow": "Pin window",
       "studio": "Studio…",
       "returnToLibrary": "Return to library mode"
     }
+  },
+  "nowPlaying": {
+    "aria": "Now playing",
+    "noTrack": "No track selected",
+    "unknownArtist": "Unknown artist",
+    "viewAlbumArt": "View album art",
+    "viewAlbumArtFor": "View album art for {{album}}",
+    "crossfading": "Crossfading between tracks"
+  },
+  "transport": {
+    "shuffleOn": "Turn shuffle on",
+    "shuffleOff": "Turn shuffle off",
+    "previous": "Previous track",
+    "play": "Play",
+    "pause": "Pause",
+    "next": "Next track",
+    "repeatOff": "Repeat off",
+    "repeatAll": "Repeat all",
+    "repeatOne": "Repeat one"
+  },
+  "volume": {
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "slider": "Volume"
+  },
+  "seek": {
+    "aria": "Seek"
+  },
+  "visualizer": {
+    "expand": "Expand visualizer",
+    "collapse": "Collapse visualizer"
+  },
+  "queue": {
+    "view": "View set list",
+    "title": "Set list",
+    "clear": "Clear",
+    "empty": "Nothing on the set list.",
+    "nowPlaying": "Now playing",
+    "nothingPlaying": "Nothing playing",
+    "upNext": "Up next",
+    "noMore": "No more tracks",
+    "remove": "Remove",
+    "removeAria": "Remove from set list"
   }
 }

@@ -278,10 +278,8 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
   const allTracksChecked =
     disc != null && checkedCount > 0 && checkedCount === disc.tracks.length;
   const importLabel = allTracksChecked
-    ? "Import to Library"
-    : checkedCount === 1
-      ? "Import 1 track"
-      : `Import ${checkedCount} tracks`;
+    ? t("library:cd.import.toLibrary")
+    : t("library:cd.import.tracks", { count: checkedCount });
 
   return (
     <div className="cd-detail detail-view">
@@ -320,7 +318,7 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
                 <p className="cd-detail__stats">
                   {[
                     disc.year != null ? String(disc.year) : null,
-                    `${disc.tracks.length} ${disc.tracks.length === 1 ? "track" : "tracks"}`,
+                    t("library:counts.tracks", { count: disc.tracks.length }),
                     formatTime(totalDuration),
                   ]
                     .filter(Boolean)
@@ -337,7 +335,7 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
                       onClick={handlePlayDisc}
                     >
                       <IconPlay />
-                      Play All
+                      {t("library:actions.playAll")}
                     </Button>
                     <Button
                       variant="secondary"
@@ -432,20 +430,22 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
 
         <div className="detail-view__tracks">
           {isLoading ? (
-            <p className="detail-view__status">Reading disc…</p>
+            <p className="detail-view__status">
+              {t("library:cd.status.readingDisc")}
+            </p>
           ) : disc == null ? (
             <p className="detail-view__status">
-              No audio CD detected in this drive.
+              {t("library:cd.status.noAudioCd")}
             </p>
           ) : disc.tracks.length === 0 ? (
             <p className="detail-view__status">
-              Could not read tracks from this disc.
+              {t("library:cd.status.couldNotReadTracks")}
             </p>
           ) : (
             <>
               {isLoadingCdText ? (
                 <p className="cd-detail__status cd-detail__status--secondary">
-                  Reading track titles…
+                  {t("library:cd.status.readingTrackTitles")}
                 </p>
               ) : null}
               <TrackList
@@ -467,7 +467,7 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
                 cdImportingActiveTrackId={cdImportingActiveTrackId}
                 cdImportCompletedTrackIds={cdImportCompletedTrackIds}
                 readOnly
-                emptyMessage="No tracks on this disc."
+                emptyMessage={t("library:cd.status.emptyDisc")}
               />
             </>
           )}

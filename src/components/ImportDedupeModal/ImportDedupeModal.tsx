@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useFileSize } from "../../hooks/useFileSize";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { t } from "../../lib/i18n";
 import { formatLyricsFormatLabel } from "../../lib/lyrics";
 import type {
   ImportDedupeAction,
@@ -56,13 +57,18 @@ function ImportFileCard({
     <div className="import-dedupe-modal__file">
       <span className="import-dedupe-modal__file-label">{label}</span>
       {pendingRip ? (
-        <AudioFileSpecs formatLabel="FLAC" sizeLabel="Not ripped yet" />
+        <AudioFileSpecs
+          formatLabel="FLAC"
+          sizeLabel={t("dialogs:importDedupe.notRipped")}
+        />
       ) : (
         <AudioFileSpecs filePath={filePath!} sizeBytes={sizeBytes ?? null} />
       )}
       {lyricsFormat != null && (
         <div className="import-dedupe-modal__lyrics">
-          <span className="import-dedupe-modal__lyrics-label">Lyrics</span>
+          <span className="import-dedupe-modal__lyrics-label">
+            {t("dialogs:importDedupe.lyrics")}
+          </span>
           <LyricsFormatBadge format={lyricsFormat} />
         </div>
       )}
@@ -72,7 +78,9 @@ function ImportFileCard({
 
 export function ImportDedupeModal() {
   const context = useImportDedupeStore((s) => s.prompt?.context ?? null);
-  const resolveImportDedupe = useImportDedupeStore((s) => s.resolveImportDedupe);
+  const resolveImportDedupe = useImportDedupeStore(
+    (s) => s.resolveImportDedupe,
+  );
   const rejectImportDedupe = useImportDedupeStore((s) => s.rejectImportDedupe);
 
   const titleId = useId();
@@ -112,7 +120,12 @@ export function ImportDedupeModal() {
         resolvingRef.current = false;
       }
     },
-    [applyToRemaining, context?.hasLyricsConflict, replaceLyrics, resolveImportDedupe],
+    [
+      applyToRemaining,
+      context?.hasLyricsConflict,
+      replaceLyrics,
+      resolveImportDedupe,
+    ],
   );
 
   const handleCancelImport = useCallback(() => {
@@ -124,10 +137,9 @@ export function ImportDedupeModal() {
     resolvingRef.current = false;
   }, [rejectImportDedupe]);
 
-  const incomingLyricsFormat =
-    context?.incoming.lyrics?.plainText.trim()
-      ? (context.incoming.lyrics.format ?? null)
-      : null;
+  const incomingLyricsFormat = context?.incoming.lyrics?.plainText.trim()
+    ? (context.incoming.lyrics.format ?? null)
+    : null;
   const existingLyricsFormat = context?.existing.lyricsFormat ?? null;
 
   return (
@@ -141,7 +153,9 @@ export function ImportDedupeModal() {
     >
       <ModalHeader>
         <ModalHeaderMain>
-          <ModalTitle id={titleId}>Duplicate track during import</ModalTitle>
+          <ModalTitle id={titleId}>
+            {t("dialogs:importDedupe.title")}
+          </ModalTitle>
         </ModalHeaderMain>
       </ModalHeader>
 
@@ -158,22 +172,21 @@ export function ImportDedupeModal() {
           </div>
           <div className="import-dedupe-modal__files">
             <ImportFileCard
-              label="Incoming"
+              label={t("dialogs:importDedupe.incoming")}
               pendingRip={context.incomingPendingRip}
               filePath={context.sourcePath}
               sizeBytes={incomingSizeBytes}
               lyricsFormat={incomingLyricsFormat}
             />
             <ImportFileCard
-              label="In library"
+              label={t("dialogs:importDedupe.inLibrary")}
               filePath={context.existing.filePath}
               sizeBytes={existingSizeBytes}
               lyricsFormat={existingLyricsFormat}
             />
           </div>
           <p className="import-dedupe-modal__replace-note">
-            Replacing this file will keep the original play count, rating, and
-            playlist entries.
+            {t("dialogs:importDedupe.replaceNote")}
           </p>
           {(context.hasLyricsConflict || context.remainingDuplicates > 0) && (
             <div className="import-dedupe-modal__options">
@@ -183,7 +196,7 @@ export function ImportDedupeModal() {
                   checked={replaceLyrics}
                   onChange={(e) => setReplaceLyrics(e.target.checked)}
                 >
-                  Replace lyrics with incoming
+                  {t("dialogs:importDedupe.replaceLyrics")}
                 </Checkbox>
               )}
               {context.remainingDuplicates > 0 && (
@@ -192,9 +205,9 @@ export function ImportDedupeModal() {
                   checked={applyToRemaining}
                   onChange={(e) => setApplyToRemaining(e.target.checked)}
                 >
-                  {context.remainingDuplicates === 1
-                    ? "Apply to remaining duplicate in this import"
-                    : `Apply to remaining ${context.remainingDuplicates} duplicates in this import`}
+                  {t("dialogs:importDedupe.applyRemaining", {
+                    count: context.remainingDuplicates,
+                  })}
                 </Checkbox>
               )}
             </div>
@@ -202,15 +215,18 @@ export function ImportDedupeModal() {
         </ModalBody>
       )}
 
-      <ModalFooter onCancel={handleCancelImport} cancelLabel="Cancel import">
+      <ModalFooter
+        onCancel={handleCancelImport}
+        cancelLabel={t("dialogs:importDedupe.cancelImport")}
+      >
         <Button variant="secondary" onClick={() => void handleChoice("skip")}>
-          Skip
+          {t("dialogs:importDedupe.skip")}
         </Button>
         <Button variant="secondary" onClick={() => void handleChoice("import")}>
-          Import anyway
+          {t("dialogs:importDedupe.importAnyway")}
         </Button>
         <Button variant="danger" onClick={() => void handleChoice("replace")}>
-          Replace
+          {t("dialogs:importDedupe.replace")}
         </Button>
       </ModalFooter>
     </Modal>

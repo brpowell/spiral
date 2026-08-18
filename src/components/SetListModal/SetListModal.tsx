@@ -1,4 +1,5 @@
 import { useId, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { buildPlaybackOrder } from "../../lib/playbackOrder";
 import { formatTime } from "../../lib/format";
@@ -25,6 +26,7 @@ interface SetListModalProps {
 }
 
 export function SetListModal({ open, onClose }: SetListModalProps) {
+  const { t } = useTranslation("playback");
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const cdQueueContext = usePlayerStore((s) => s.cdQueueContext);
@@ -105,7 +107,7 @@ export function SetListModal({ open, onClose }: SetListModalProps) {
       labelledBy={titleId}
     >
       <ModalHeader>
-        <ModalTitle id={titleId}>Set list</ModalTitle>
+        <ModalTitle id={titleId}>{t("queue.title")}</ModalTitle>
         <ModalHeaderActions>
           <Button
             variant="ghost"
@@ -113,7 +115,7 @@ export function SetListModal({ open, onClose }: SetListModalProps) {
             onClick={handleClear}
             disabled={activeIds.length === 0}
           >
-            Clear
+            {t("queue.clear")}
           </Button>
           <ModalCloseButton onClick={onClose} />
         </ModalHeaderActions>
@@ -121,11 +123,13 @@ export function SetListModal({ open, onClose }: SetListModalProps) {
 
       <ModalBody>
         {activeIds.length === 0 ? (
-          <p className="set-list-modal__empty">Nothing on the set list.</p>
+          <p className="set-list-modal__empty">{t("queue.empty")}</p>
         ) : (
           <>
             <section className="set-list-modal__section">
-              <h3 className="set-list-modal__section-title">Now playing</h3>
+              <h3 className="set-list-modal__section-title">
+                {t("queue.nowPlaying")}
+              </h3>
               {nowPlaying ? (
                 <SetListRow
                   track={nowPlaying}
@@ -139,15 +143,19 @@ export function SetListModal({ open, onClose }: SetListModalProps) {
                   }
                 />
               ) : (
-                <p className="set-list-modal__empty-section">Nothing playing</p>
+                <p className="set-list-modal__empty-section">
+                  {t("queue.nothingPlaying")}
+                </p>
               )}
             </section>
 
             <section className="set-list-modal__section">
-              <h3 className="set-list-modal__section-title">Up next</h3>
+              <h3 className="set-list-modal__section-title">
+                {t("queue.upNext")}
+              </h3>
               {upNextIds.length === 0 ? (
                 <p className="set-list-modal__empty-section">
-                  No more tracks
+                  {t("queue.noMore")}
                 </p>
               ) : (
                 <ul className="set-list-modal__list">
@@ -198,14 +206,20 @@ function SetListRow({
   onPlay,
   onRemoveFromQueue,
 }: SetListRowProps) {
+  const { t } = useTranslation("playback");
   const subtitle = [track.artist, track.album].filter(Boolean).join(" — ");
 
   return (
     <div
-      className={`set-list-modal__row${playing ? " set-list-modal__row--playing" : ""
-        }${queued ? " set-list-modal__row--queued" : ""}`}
+      className={`set-list-modal__row${
+        playing ? " set-list-modal__row--playing" : ""
+      }${queued ? " set-list-modal__row--queued" : ""}`}
     >
-      <button type="button" className="set-list-modal__row-main" onClick={onPlay}>
+      <button
+        type="button"
+        className="set-list-modal__row-main"
+        onClick={onPlay}
+      >
         <EntityArt
           artPath={track.artPath}
           alt=""
@@ -233,9 +247,9 @@ function SetListRow({
           size="sm"
           className="set-list-modal__row-remove"
           onClick={onRemoveFromQueue}
-          aria-label="Remove from set list"
+          aria-label={t("queue.removeAria")}
         >
-          Remove
+          {t("queue.remove")}
         </Button>
       ) : null}
     </div>

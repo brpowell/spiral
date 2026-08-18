@@ -5,6 +5,7 @@ import {
   artistTrackCountOnAlbum,
   type ArtistBrowseMode,
 } from "../../lib/artists";
+import { t } from "../../lib/i18n";
 import { useAlbumEditMenu } from "../../hooks/useAlbumEditMenu";
 import { useNavigationStore } from "../../store/useNavigationStore";
 import { EntityArt } from "../EntityArt/EntityArt";
@@ -27,8 +28,7 @@ function TimelineAlbumEntry({
 }) {
   const openAlbum = useNavigationStore((s) => s.openAlbum);
   const { onContextMenu, contextMenu } = useAlbumEditMenu(album);
-  const trackLabel =
-    trackCount === 1 ? "1 track" : `${trackCount} tracks`;
+  const trackLabel = t("library:counts.tracks", { count: trackCount });
 
   return (
     <>
@@ -44,7 +44,9 @@ function TimelineAlbumEntry({
           <EntityArt artPath={album.artPath} alt={album.title} />
         </div>
         <div className="discography-timeline__entry-meta">
-          <span className="discography-timeline__entry-title">{album.title}</span>
+          <span className="discography-timeline__entry-title">
+            {album.title}
+          </span>
           <span className="discography-timeline__entry-sub">{trackLabel}</span>
         </div>
       </motion.button>

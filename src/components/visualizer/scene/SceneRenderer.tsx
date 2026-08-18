@@ -15,22 +15,17 @@ import { useSkinVisible } from "../../../lib/skinBinds";
 import type { VizRendererEngine } from "../../../types/renderer";
 import { Button } from "../../common/Button/Button";
 import { IconMaximize, IconMinimize } from "../../icons";
+import { t } from "../../../lib/i18n";
 import { useVisualizerContextBuilder } from "../context";
 import { SandboxedVizRenderer } from "../sandbox/SandboxedVizRenderer";
 import "../audioVisualizer.css";
-import {
-  sampleFrequencyData,
-  sampleTimeDomainData,
-} from "../rendererUtils";
+import { sampleFrequencyData, sampleTimeDomainData } from "../rendererUtils";
 import type {
   VisualizerContext,
   VisualizerDrawState,
   VisualizerRendererProps,
 } from "../types";
-import {
-  buildVizFrame,
-  isRendererContributionId,
-} from "../vizRendererApi";
+import { buildVizFrame, isRendererContributionId } from "../vizRendererApi";
 import { resolveLayerTransform } from "./resolveLayerTransform";
 import type { LayoutRect, VizScene, VizSceneLayer } from "./types";
 import { resolveLayout } from "./types";
@@ -412,12 +407,11 @@ function SceneViewport({
   }, [measure]);
 
   const sampled = sampleFrequencyData(frequencyDataRef, remoteBins);
-  const bins: readonly number[] =
-    !sampled
-      ? []
-      : Array.isArray(sampled)
-        ? sampled
-        : Array.from(sampled);
+  const bins: readonly number[] = !sampled
+    ? []
+    : Array.isArray(sampled)
+      ? sampled
+      : Array.from(sampled);
 
   const context = useMemo((): VisualizerContext => {
     const base = buildContext(viewport, bins);
@@ -449,7 +443,11 @@ function SceneViewport({
   return (
     <div className="scene-viewport" ref={containerRef}>
       {scene.map((layer, index) => {
-        const rect = resolveLayout(layer.layout, viewport.width, viewport.height);
+        const rect = resolveLayout(
+          layer.layout,
+          viewport.width,
+          viewport.height,
+        );
         const transform = resolveLayerTransform(layer, driveContext);
         return (
           <VizSceneLayerView
@@ -510,7 +508,11 @@ export function SceneRenderer({
           iconOnly
           className="audio-visualizer__toggle"
           onClick={onToggleExpand}
-          aria-label={expanded ? "Collapse visualizer" : "Expand visualizer"}
+          aria-label={
+            expanded
+              ? t("playback:visualizer.collapse")
+              : t("playback:visualizer.expand")
+          }
           aria-pressed={expanded}
         >
           {expanded ? <IconMinimize /> : <IconMaximize />}
@@ -523,10 +525,7 @@ export function SceneRenderer({
     return (
       <>
         {!showExpanded &&
-          renderScene(
-            containerRef,
-            "audio-visualizer audio-visualizer--mini",
-          )}
+          renderScene(containerRef, "audio-visualizer audio-visualizer--mini")}
         {showExpanded &&
           createPortal(
             renderScene(

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import {
   useCdImportStore,
@@ -16,6 +17,7 @@ import "../RemoveTrackDialog/RemoveTrackDialog.css";
 import "./CdImportCancelDialog.css";
 
 export function CdImportCancelDialog() {
+  const { t } = useTranslation("dialogs");
   const cancelPrompt = useCdImportStore((s) => s.cancelPrompt);
   const resolveCancelPrompt = useCdImportStore((s) => s.resolveCancelPrompt);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -45,10 +47,7 @@ export function CdImportCancelDialog() {
     [resolveCancelPrompt],
   );
 
-  const heading =
-    count === 1
-      ? "Keep this imported track in your library?"
-      : `Keep these ${count} imported tracks in your library?`;
+  const heading = t("dialogs:cdImportCancel.keepQuestion", { count });
 
   return (
     <Modal
@@ -60,7 +59,9 @@ export function CdImportCancelDialog() {
       labelledBy="cd-import-cancel-title"
     >
       <ModalHeader>
-        <ModalTitle id="cd-import-cancel-title">Import cancelled</ModalTitle>
+        <ModalTitle id="cd-import-cancel-title">
+          {t("dialogs:cdImportCancel.title")}
+        </ModalTitle>
       </ModalHeader>
 
       <ModalBody>
@@ -82,10 +83,10 @@ export function CdImportCancelDialog() {
 
       <ModalFooter>
         <Button variant="secondary" onClick={() => void handleChoice("keep")}>
-          Keep
+          {t("dialogs:cdImportCancel.keep")}
         </Button>
         <Button variant="danger" onClick={() => void handleChoice("delete")}>
-          Delete
+          {t("dialogs:cdImportCancel.delete")}
         </Button>
       </ModalFooter>
     </Modal>

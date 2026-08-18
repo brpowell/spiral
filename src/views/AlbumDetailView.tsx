@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   albumTotalDurationSeconds,
   getAlbumByKey,
@@ -41,6 +42,7 @@ export function AlbumDetailView({
   artists,
   albumKey,
 }: AlbumDetailViewProps) {
+  const { t } = useTranslation("library");
   const closeAlbum = useNavigationStore((s) => s.closeAlbum);
   const albumReturnContext = useNavigationStore((s) => s.albumReturnContext);
   const artistBrowseMode = useNavigationStore((s) => s.artistBrowseMode);
@@ -156,7 +158,7 @@ export function AlbumDetailView({
               <p className="album-detail__stats">
                 {[
                   album.year != null ? String(album.year) : null,
-                  `${album.tracks.length} ${album.tracks.length === 1 ? "track" : "tracks"}`,
+                  t("counts.tracks", { count: album.tracks.length }),
                   formatDurationNatural(totalDuration),
                 ]
                   .filter(Boolean)
@@ -169,10 +171,10 @@ export function AlbumDetailView({
                   onClick={() => openAlbumEditor(album.key)}
                 >
                   <IconPencil />
-                  Edit Album
+                  {t("actions.editAlbum")}
                 </Button>
                 <MenuButton
-                  ariaLabel="Album actions"
+                  ariaLabel={t("views.albums.actionsAria")}
                   layoutDeps={[album.tracks.length]}
                   size="sm"
                   triggerPlacement="below-start"
@@ -183,7 +185,7 @@ export function AlbumDetailView({
                       {album.tracks.length > 0 ? (
                         <ContextMenuItem
                           icon={<IconAddToQueue />}
-                          label="Add to Queue"
+                          label={t("actions.addToQueue")}
                           onClick={() => {
                             close();
                             handleAddToQueue();
@@ -192,7 +194,7 @@ export function AlbumDetailView({
                       ) : null}
                       <ContextMenuItem
                         icon={<IconPlay />}
-                        label="Play All"
+                        label={t("actions.playAll")}
                         disabled={album.tracks.length === 0}
                         onClick={() => {
                           close();
@@ -214,7 +216,7 @@ export function AlbumDetailView({
                 <section key={discNumber} className="album-detail__disc">
                   <h2 className="album-detail__disc-label">
                     <IconDisc aria-hidden />
-                    Disc {discNumber}
+                    {t("entity.disc", { number: discNumber })}
                   </h2>
                   <TrackList
                     {...trackListProps}

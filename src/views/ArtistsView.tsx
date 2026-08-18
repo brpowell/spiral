@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BrowseView } from "../components/BrowseView/BrowseView";
 import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
 import { EntityArt } from "../components/EntityArt/EntityArt";
@@ -8,6 +9,7 @@ import { Switch } from "../components/common/Switch/Switch";
 import { SearchField } from "../components/SearchField/SearchField";
 import { IconArtistPlaceholder } from "../components/icons";
 import { albumsForArtist, type ArtistBrowseMode } from "../lib/artists";
+import { t } from "../lib/i18n";
 import { useArtistEditMenu } from "../hooks/useArtistEditMenu";
 import { usePointerTiltArt } from "../hooks/usePointerTiltArt";
 import { useNavigationStore } from "../store/useNavigationStore";
@@ -34,13 +36,14 @@ function artistCardMeta(
   albumCount: number,
   browseMode: ArtistBrowseMode,
 ): string {
-  const trackLabel =
-    artist.tracks.length === 1 ? "1 track" : `${artist.tracks.length} tracks`;
+  const trackLabel = t("library:counts.tracks", {
+    count: artist.tracks.length,
+  });
   if (browseMode === "performers") {
-    const albumLabel = albumCount === 1 ? "1 album" : `${albumCount} albums`;
+    const albumLabel = t("library:counts.albums", { count: albumCount });
     return `${trackLabel} · ${albumLabel}`;
   }
-  return albumCount === 1 ? "1 album" : `${albumCount} albums`;
+  return t("library:counts.albums", { count: albumCount });
 }
 
 function ArtistCard({
@@ -87,6 +90,7 @@ function ArtistCard({
 }
 
 export function ArtistsView({ artists, albums, browseMode }: ArtistsViewProps) {
+  const { t } = useTranslation("library");
   const [search, setSearch] = useState("");
   const setArtistBrowseMode = useNavigationStore((s) => s.setArtistBrowseMode);
 
@@ -107,13 +111,13 @@ export function ArtistsView({ artists, albums, browseMode }: ArtistsViewProps) {
     <BrowseView>
       <BrowseViewHeader
         className="browse-view__header--single-row"
-        title="Artists"
-        count={`(${artists.length})`}
+        title={t("views.artists.title")}
+        count={t("views.headerCount", { count: artists.length })}
         actions={
           <div className="artists-view__controls">
             <Field orientation="horizontal" className="artists-view__filter">
               <FieldLabel htmlFor="artists-album-only">
-                Album artists only
+                {t("views.artists.albumArtistsOnly")}
               </FieldLabel>
               <Switch
                 id="artists-album-only"
@@ -129,8 +133,8 @@ export function ArtistsView({ artists, albums, browseMode }: ArtistsViewProps) {
               className="artists-view__search"
               value={search}
               onChange={setSearch}
-              placeholder="Search artists…"
-              aria-label="Search artists"
+              placeholder={t("views.artists.searchPlaceholder")}
+              aria-label={t("views.artists.searchAria")}
             />
           </div>
         }
@@ -138,7 +142,7 @@ export function ArtistsView({ artists, albums, browseMode }: ArtistsViewProps) {
 
       <BrowseGridBody>
         {filteredArtists.length === 0 ? (
-          <p className="browse-view__empty">No artists match your search.</p>
+          <p className="browse-view__empty">{t("views.artists.emptySearch")}</p>
         ) : (
           <div className="browse-grid" role="list">
             {filteredArtists.map((artist) => (

@@ -14,20 +14,25 @@ import {
   IconAlbums,
   IconArtists,
   IconConvert,
-  IconDelete, IconOpenFolder,
+  IconDelete,
+  IconOpenFolder,
   IconPlaylistAdd,
   IconPlaylists,
   IconRemoveFromPlaylist,
   IconRemoveFromQueue,
-  IconInfo
+  IconInfo,
 } from "../components/icons";
 import { applyTrackRating } from "../lib/applyTrackRating";
 import {
   revealInFileManagerLabel,
   revealTrackInFileManager,
 } from "../lib/fileManager";
+import { t } from "../lib/i18n";
 import type { CanonicalRating } from "../lib/trackRating";
-import { openConvertForTrackIds, filterConvertibleTrackIds } from "../lib/convertTracks";
+import {
+  openConvertForTrackIds,
+  filterConvertibleTrackIds,
+} from "../lib/convertTracks";
 import { isTrackMissingFile } from "../lib/missingFileTrack";
 import {
   PlaylistContextMenuIcon,
@@ -64,7 +69,9 @@ export function useTrackMenu(
   const openTrackEditor = usePlayerStore((s) => s.openTrackEditor);
   const addToQueue = usePlayerStore((s) => s.addToQueue);
   const removeFromQueue = usePlayerStore((s) => s.removeFromQueue);
-  const removeTracksFromLibrary = usePlayerStore((s) => s.removeTracksFromLibrary);
+  const removeTracksFromLibrary = usePlayerStore(
+    (s) => s.removeTracksFromLibrary,
+  );
   const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
   const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
   const openAlbum = useNavigationStore((s) => s.openAlbum);
@@ -197,9 +204,9 @@ export function useTrackMenu(
     >
       <ContextMenuItem
         icon={<IconInfo />}
-        label={
-          bulkRemove ? `View Details (${contextTracks.length})` : "View Details"
-        }
+        label={t("library:actions.viewDetails", {
+          count: contextTracks.length,
+        })}
         onClick={openEditor}
       />
       <ContextMenuRatingItem
@@ -211,7 +218,7 @@ export function useTrackMenu(
       {hasNavigableArtist(track) ? (
         <ContextMenuItem
           icon={<IconArtists />}
-          label="Go to Artist"
+          label={t("library:actions.goToArtist")}
           onClick={() => {
             closeMenu();
             openArtist(navigationArtistKey(track, artistBrowseMode));
@@ -221,7 +228,7 @@ export function useTrackMenu(
       {hasNavigableAlbum(track) ? (
         <ContextMenuItem
           icon={<IconAlbums />}
-          label="Go to Album"
+          label={t("library:actions.goToAlbum")}
           onClick={() => {
             closeMenu();
             openAlbum(albumKey(track));
@@ -240,11 +247,9 @@ export function useTrackMenu(
       <ContextMenuSeparator />
       <ContextMenuItem
         icon={<IconAddToQueue />}
-        label={
-          bulkRemove
-            ? `Add ${contextTracks.length} to Queue`
-            : "Add to Queue"
-        }
+        label={t("library:actions.addToQueue", {
+          count: contextTracks.length,
+        })}
         disabled={anyKnownMissingFile}
         onClick={() => {
           closeMenu();
@@ -254,11 +259,9 @@ export function useTrackMenu(
       {anyInQueue ? (
         <ContextMenuItem
           icon={<IconRemoveFromQueue />}
-          label={
-            bulkRemove
-              ? `Remove ${contextTracks.length} from Queue`
-              : "Remove from Queue"
-          }
+          label={t("library:actions.removeFromQueue", {
+            count: contextTracks.length,
+          })}
           onClick={() => {
             closeMenu();
             for (const id of contextTrackIds) {
@@ -269,26 +272,30 @@ export function useTrackMenu(
       ) : null}
       <ContextMenuSeparator />
       <ContextMenuSubmenu
-        label="Add to Playlist"
+        label={t("library:actions.addToPlaylist")}
         icon={<IconPlaylists />}
         panelRef={submenuPanelRef}
       >
         <ContextMenuItem
           icon={<IconPlaylistAdd />}
-          label="New Playlist…"
+          label={t("library:actions.newPlaylist")}
           onClick={handleNewPlaylist}
         />
         {recent.length > 0 ? (
           <>
             <ContextMenuSeparator />
-            <ContextMenuHeading>Recent playlists</ContextMenuHeading>
+            <ContextMenuHeading>
+              {t("library:actions.recentPlaylists")}
+            </ContextMenuHeading>
             {recent.map(renderPlaylistItem)}
           </>
         ) : null}
         {allSorted.length > 0 ? (
           <>
             <ContextMenuSeparator />
-            <ContextMenuHeading>All playlists</ContextMenuHeading>
+            <ContextMenuHeading>
+              {t("library:actions.allPlaylists")}
+            </ContextMenuHeading>
             {allSorted.map(renderPlaylistItem)}
           </>
         ) : null}
@@ -296,11 +303,9 @@ export function useTrackMenu(
       {playlistId != null ? (
         <ContextMenuItem
           icon={<IconRemoveFromPlaylist />}
-          label={
-            bulkRemove
-              ? `Remove ${contextTracks.length} from Playlist`
-              : "Remove from Playlist"
-          }
+          label={t("library:actions.removeFromPlaylist", {
+            count: contextTracks.length,
+          })}
           onClick={() => {
             closeMenu();
             void removeTracksFromPlaylist(playlistId, contextTrackIds);
@@ -310,11 +315,7 @@ export function useTrackMenu(
       {convertibleCount > 0 ? (
         <ContextMenuItem
           icon={<IconConvert />}
-          label={
-            convertibleCount > 1
-              ? `Convert ${convertibleCount} Tracks…`
-              : "Convert…"
-          }
+          label={t("library:actions.convert", { count: convertibleCount })}
           onClick={() => {
             closeMenu();
             openConvertForTrackIds(contextTrackIds);
@@ -324,11 +325,9 @@ export function useTrackMenu(
       <ContextMenuSeparator />
       <ContextMenuItem
         icon={<IconDelete />}
-        label={
-          bulkRemove
-            ? `Remove ${contextTracks.length} from Library`
-            : "Remove from Library"
-        }
+        label={t("library:actions.removeFromLibrary", {
+          count: contextTracks.length,
+        })}
         className="context-menu__danger"
         onClick={() => {
           closeMenu();
@@ -340,19 +339,19 @@ export function useTrackMenu(
 
   const removeDialog = removeDialogOpen
     ? createPortal(
-      <RemoveTrackDialog
-        open={removeDialogOpen}
-        tracks={contextTracks}
-        onClose={() => setRemoveDialogOpen(false)}
-        onRemove={(deleteFromDisk) =>
-          removeTracksFromLibrary(
-            contextTracks.map((t) => t.id),
-            deleteFromDisk,
-          )
-        }
-      />,
-      document.body,
-    )
+        <RemoveTrackDialog
+          open={removeDialogOpen}
+          tracks={contextTracks}
+          onClose={() => setRemoveDialogOpen(false)}
+          onRemove={(deleteFromDisk) =>
+            removeTracksFromLibrary(
+              contextTracks.map((t) => t.id),
+              deleteFromDisk,
+            )
+          }
+        />,
+        document.body,
+      )
     : null;
 
   return {

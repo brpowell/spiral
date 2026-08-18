@@ -3,14 +3,26 @@
     "actions": {
       "ariaLabel": "Disc actions",
       "addToQueue": "Add to Queue",
-      "addToQueueBulk": "Add {{count}} to Queue",
-      "viewDetails": "View Details",
-      "viewDetailsBulk": "View Details ({{count}})",
       "fetchMetadata": "Fetch release metadata",
       "refetchMetadata": "Refetch Metadata",
       "fetchingMetadata": "Fetching metadata…",
       "eject": "Eject",
-      "ejecting": "Ejecting…"
+      "ejecting": "Ejecting…",
+      "ejectDisc": "Eject Disc",
+      "ejectDiscAria": "Eject disc",
+      "ejectingDiscAria": "Ejecting disc"
+    },
+    "import": {
+      "toLibrary": "Import to Library",
+      "tracks_one": "Import {{count}} track",
+      "tracks_other": "Import {{count}} tracks"
+    },
+    "status": {
+      "readingDisc": "Reading disc…",
+      "noAudioCd": "No audio CD detected in this drive.",
+      "couldNotReadTracks": "Could not read tracks from this disc.",
+      "readingTrackTitles": "Reading track titles…",
+      "emptyDisc": "No tracks on this disc."
     },
     "editor": {
       "editAlbum": "Edit Album",
@@ -44,6 +56,88 @@
     "title": "Add some music",
     "description": "Drag files or folders here, or choose them with the button below.",
     "addButton": "Add files to library…"
+  },
+  "views": {
+    "headerCount": "({{count}})",
+    "headerCountImporting": "({{live}}, {{count}} importing)",
+    "tracks": {
+      "title": "Tracks",
+      "searchPlaceholder": "Search title, artist, or album…",
+      "searchAria": "Search tracks",
+      "emptySearch": "No tracks match your search.",
+      "emptyList": "No tracks."
+    },
+    "albums": {
+      "title": "Albums",
+      "searchPlaceholder": "Search title or artist…",
+      "searchAria": "Search albums",
+      "emptySearch": "No albums match your search.",
+      "actionsAria": "Album actions"
+    },
+    "artists": {
+      "title": "Artists",
+      "searchPlaceholder": "Search artists…",
+      "searchAria": "Search artists",
+      "emptySearch": "No artists match your search.",
+      "albumArtistsOnly": "Album artists only",
+      "albumArtistOnly": "Album artist only",
+      "notFound": "Artist not found.",
+      "discography": "Discography",
+      "appearsOn": "Appears on",
+      "emptyDiscography": "No albums in library.",
+      "emptyPerformer": "No albums in library for this performer.",
+      "actionsAria": "Artist actions"
+    },
+    "playlists": {
+      "title": "Playlists",
+      "new": "New Playlist",
+      "notFound": "Playlist not found.",
+      "empty": "No tracks in this playlist. Add tracks from the library using the track context menu.",
+      "actionsAria": "Playlist actions"
+    },
+    "devices": {
+      "title": "Devices"
+    }
+  },
+  "entity": {
+    "album": "Album",
+    "artist": "Artist",
+    "playlist": "Playlist",
+    "disc": "Disc {{number}}"
+  },
+  "counts": {
+    "tracks_one": "{{count}} track",
+    "tracks_other": "{{count}} tracks",
+    "albums_one": "{{count}} album",
+    "albums_other": "{{count}} albums"
+  },
+  "actions": {
+    "playAll": "Play All",
+    "editAlbum": "Edit Album",
+    "editArtist": "Edit Artist",
+    "editPlaylist": "Edit Playlist",
+    "deletePlaylist": "Delete Playlist",
+    "addToQueue": "Add to Queue",
+    "addToQueue_one": "Add to Queue",
+    "addToQueue_other": "Add {{count}} to Queue",
+    "removeFromQueue_one": "Remove from Queue",
+    "removeFromQueue_other": "Remove {{count}} from Queue",
+    "viewDetails_one": "View Details",
+    "viewDetails_other": "View Details ({{count}})",
+    "goToArtist": "Go to Artist",
+    "goToAlbum": "Go to Album",
+    "addToPlaylist": "Add to Playlist",
+    "newPlaylist": "New Playlist…",
+    "recentPlaylists": "Recent playlists",
+    "allPlaylists": "All playlists",
+    "removeFromPlaylist_one": "Remove from Playlist",
+    "removeFromPlaylist_other": "Remove {{count}} from Playlist",
+    "convert_one": "Convert…",
+    "convert_other": "Convert {{count}} Tracks…",
+    "convertAlbum_one": "Convert Album…",
+    "convertAlbum_other": "Convert {{count}} Tracks…",
+    "removeFromLibrary_one": "Remove from Library",
+    "removeFromLibrary_other": "Remove {{count}} from Library"
   },
   "columns": {
     "index": "#",
