@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
@@ -10,14 +11,19 @@ export function SkinsSection({
 }: {
   onOpenPack: (packId: string) => void;
 }) {
+  const { t } = useTranslation(["studio", "library"]);
   const skins = useSkinStore((s) => s.skins);
   const skinsLoaded = useSkinStore((s) => s.skinsLoaded);
 
   return (
     <BrowseView>
       <BrowseViewHeader
-        title="Skins"
-        count={skinsLoaded ? `(${skins.length})` : undefined}
+        title={t("skins.title")}
+        count={
+          skinsLoaded
+            ? t("library:views.headerCount", { count: skins.length })
+            : undefined
+        }
       />
 
       <BrowseGridBody>

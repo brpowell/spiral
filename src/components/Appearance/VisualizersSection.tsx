@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { skinPreviewUrl } from "../../lib/skinAssets";
 import { useVisualizerStore } from "../../store/useVisualizerStore";
 import type { VizSummary } from "../../types/visualizer";
@@ -16,13 +17,7 @@ import "./AppearanceSection.css";
 const HOVER_ENTER_MS = 50;
 const HOVER_LEAVE_MS = 300;
 
-function VizCardPreview({
-  pack,
-  live,
-}: {
-  pack: VizSummary;
-  live: boolean;
-}) {
+function VizCardPreview({ pack, live }: { pack: VizSummary; live: boolean }) {
   const authored = skinPreviewUrl(pack.previewPath);
   // Skip snapshot queue when an authored preview image exists.
   const snapshotSrc = useVizCardSnapshot(authored ? "" : pack.id);
@@ -78,13 +73,14 @@ function VizCard({
   onPointerEnter: () => void;
   onPointerLeave: () => void;
 }) {
+  const { t } = useTranslation("studio");
   return (
     <AppearancePackCard
       active={active}
       name={pack.name}
       author={pack.author}
       description={pack.description}
-      ariaLabel={`${pack.name} by ${pack.author}`}
+      ariaLabel={t("packs.cardAria", { name: pack.name, author: pack.author })}
       preview={<VizCardPreview pack={pack} live={live} />}
       previewClassName="visualizer-picker__preview"
       actions={
@@ -108,6 +104,7 @@ export function VisualizersSection({
 }: {
   onOpenPack: (packId: string) => void;
 }) {
+  const { t } = useTranslation(["studio", "library"]);
   const visualizers = useVisualizerStore((s) => s.visualizers);
   const activeVisualizerId = useVisualizerStore((s) => s.activeVisualizerId);
   const setActiveVisualizer = useVisualizerStore((s) => s.setActiveVisualizer);
@@ -165,20 +162,22 @@ export function VisualizersSection({
     }, HOVER_LEAVE_MS);
   }, []);
 
-  const liveId = reducedMotion
-    ? null
-    : (hoveredId ?? activeVisualizerId);
+  const liveId = reducedMotion ? null : (hoveredId ?? activeVisualizerId);
 
   return (
     <BrowseView>
       <BrowseViewHeader
-        title="Visualizers"
-        count={visualizers.length > 0 ? `(${visualizers.length})` : undefined}
+        title={t("visualizers.title")}
+        count={
+          visualizers.length > 0
+            ? t("library:views.headerCount", { count: visualizers.length })
+            : undefined
+        }
       />
 
       <BrowseGridBody>
         {visualizers.length === 0 ? (
-          <p className="browse-view__empty">Loading visualizers…</p>
+          <p className="browse-view__empty">{t("visualizers.loading")}</p>
         ) : (
           <div className="appearance-pack-grid" role="list">
             {visualizers.map((pack) => (

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { listPacks } from "../../lib/tauri";
 import { themeDeletedPayload } from "../../lib/toastPayloads";
 import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
@@ -21,6 +22,7 @@ export function WorkshopThemeActions({
   theme: Theme;
   onOpenPack: (packId: string) => void;
 }) {
+  const { t } = useTranslation(["studio", "common"]);
   const deleteTheme = useThemeStore((s) => s.deleteTheme);
   const showToast = useBackgroundTasksStore((s) => s.showToast);
   const openThemeEditor = useOpenAppearanceThemeEditor();
@@ -46,9 +48,9 @@ export function WorkshopThemeActions({
   const packLabel = theme.packName || theme.packId;
   const deleteMessage = isLastContribution
     ? theme.zone === "linked"
-      ? `This removes “${theme.name}” from the linked pack “${packLabel}”. The folder on disk is left in place. This cannot be undone.`
-      : `This removes “${theme.name}” and deletes the workshop pack “${packLabel}” from disk. This cannot be undone.`
-    : `This removes “${theme.name}” from the pack “${packLabel}”. This cannot be undone.`;
+      ? t("themes.deleteLinkedLast", { name: theme.name, pack: packLabel })
+      : t("themes.deleteWorkshopLast", { name: theme.name, pack: packLabel })
+    : t("themes.deleteFromPack", { name: theme.name, pack: packLabel });
 
   return (
     <>
@@ -61,7 +63,7 @@ export function WorkshopThemeActions({
           <>
             <ContextMenuItem
               icon={<IconPencil />}
-              label="Edit"
+              label={t("common:edit")}
               onClick={() => {
                 close();
                 openThemeEditor(theme.id);
@@ -71,7 +73,7 @@ export function WorkshopThemeActions({
             <ContextMenuSeparator />
             <ContextMenuItem
               icon={<IconDelete />}
-              label="Delete"
+              label={t("common:delete")}
               className="context-menu__danger"
               onClick={() => {
                 close();
@@ -85,8 +87,8 @@ export function WorkshopThemeActions({
       <AlertConfirmation
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
-        title="Delete theme?"
-        confirmLabel="Delete"
+        title={t("themes.deleteTitle")}
+        confirmLabel={t("common:delete")}
         onConfirm={async () => {
           await deleteTheme(theme.id);
           showToast(themeDeletedPayload());

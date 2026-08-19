@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { skinPreviewUrl } from "../../lib/skinAssets";
 import { useSkinStore } from "../../store/useSkinStore";
 import type { SkinSummary } from "../../types/skin";
@@ -26,13 +27,14 @@ function SkinCard({
   onSelect: () => void;
   onOpenPack: (packId: string) => void;
 }) {
+  const { t } = useTranslation("studio");
   return (
     <AppearancePackCard
       active={active}
       name={skin.name}
       author={skin.author}
       description={skin.description}
-      ariaLabel={`${skin.name} by ${skin.author}`}
+      ariaLabel={t("packs.cardAria", { name: skin.name, author: skin.author })}
       preview={<SkinCardPreview skin={skin} />}
       className="skin-picker__card-wrap"
       previewClassName="skin-picker__preview"
@@ -55,17 +57,18 @@ export function SkinsGrid({
 }: {
   onOpenPack: (packId: string) => void;
 }) {
+  const { t } = useTranslation("studio");
   const skins = useSkinStore((s) => s.skins);
   const activeSkinId = useSkinStore((s) => s.activeSkinId);
   const setSkin = useSkinStore((s) => s.setSkin);
   const skinsLoaded = useSkinStore((s) => s.skinsLoaded);
 
   if (!skinsLoaded) {
-    return <p className="browse-view__empty">Loading skins…</p>;
+    return <p className="browse-view__empty">{t("skins.loading")}</p>;
   }
 
   if (skins.length === 0) {
-    return <p className="browse-view__empty">No skins found.</p>;
+    return <p className="browse-view__empty">{t("skins.empty")}</p>;
   }
 
   return (

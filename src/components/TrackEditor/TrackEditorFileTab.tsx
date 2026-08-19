@@ -1,7 +1,11 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useFileSize } from "../../hooks/useFileSize";
 import { useFileExists } from "../../hooks/useFileExists";
-import { revealInFileManagerLabel, revealTrackInFileManager } from "../../lib/fileManager";
+import {
+  revealInFileManagerLabel,
+  revealTrackInFileManager,
+} from "../../lib/fileManager";
 import {
   discoverTrackFileMissing,
   isTrackMissingFile,
@@ -22,10 +26,10 @@ export function TrackEditorFileTab({
   track,
   updateTrackInLibrary,
 }: TrackEditorFileTabProps) {
+  const { t } = useTranslation(["library", "common"]);
   const fileSizeBytes = useFileSize(track.filePath);
   const fileExistsOnDisk = useFileExists(track.filePath);
-  const isMissingFile =
-    isTrackMissingFile(track) || fileExistsOnDisk === false;
+  const isMissingFile = isTrackMissingFile(track) || fileExistsOnDisk === false;
 
   useEffect(() => {
     if (fileExistsOnDisk !== false) {
@@ -46,14 +50,14 @@ export function TrackEditorFileTab({
       />
 
       <div className="field">
-        <FieldLabel>Location</FieldLabel>
+        <FieldLabel>{t("library:editor.fileLocation")}</FieldLabel>
         {isMissingFile ? (
           <p className="track-editor__file-missing" role="status">
             <IconWarning
               className="track-editor__file-missing-icon"
               aria-hidden
             />
-            File not found at this location
+            {t("library:editor.fileMissing")}
           </p>
         ) : null}
         <div className="track-editor__file-location">
@@ -68,7 +72,7 @@ export function TrackEditorFileTab({
             value={track.filePath}
             rows={1}
             spellCheck={false}
-            aria-label="Track file path"
+            aria-label={t("library:editor.filePathAria")}
           />
           <Button
             size="sm"
@@ -78,7 +82,7 @@ export function TrackEditorFileTab({
               void revealTrackInFileManager(track, updateTrackInLibrary)
             }
           >
-            Reveal
+            {t("common:reveal")}
           </Button>
         </div>
       </div>

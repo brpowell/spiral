@@ -88,7 +88,7 @@ function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
 
   return (
     <span className="track-editor__cover-meta">
-      {meta || "Loading details…"}
+      {meta || t("library:editor.loadingDetails")}
     </span>
   );
 }
@@ -472,14 +472,14 @@ export function CdAlbumEditor() {
             <ModalFooter
               onCancel={requestClose}
               cancelDisabled={saving}
-              cancelLabel="Cancel"
+              cancelLabel={t("common:cancel")}
             >
               <Button
                 variant="primary"
                 onClick={() => void handleSave()}
                 disabled={!hasChanges || saving || discardPrompt || !discId}
               >
-                {saving ? t("library:cd.editor.saving") : "Save"}
+                {saving ? t("library:cd.editor.saving") : t("common:save")}
               </Button>
             </ModalFooter>
           </div>

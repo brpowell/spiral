@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { listPacks } from "../../lib/tauri";
 import { isAuthoringPackZone, type PackSummary } from "../../types/pack";
 import { Button } from "../common/Button/Button";
@@ -37,6 +38,7 @@ export function NewThemeModal({
   onClose,
   onCreate,
 }: NewThemeModalProps) {
+  const { t } = useTranslation(["studio", "common"]);
   const titleId = useId();
 
   const [themeName, setThemeName] = useState("");
@@ -116,15 +118,15 @@ export function NewThemeModal({
   };
 
   const packOptions = [
-    { value: PACK_UNSELECTED, label: "Select a pack…", disabled: true },
+    { value: PACK_UNSELECTED, label: t("themes.selectPack"), disabled: true },
     ...authoringPacks.map((pack) => ({
       value: pack.packId,
       label:
         pack.zone === "linked"
-          ? `${pack.name || pack.packId} (Linked)`
+          ? t("linkedSuffix", { name: pack.name || pack.packId })
           : pack.name || pack.packId,
     })),
-    { value: CREATE_NEW_PACK, label: "Create a new pack" },
+    { value: CREATE_NEW_PACK, label: t("themes.createPack") },
   ];
 
   return (
@@ -136,15 +138,15 @@ export function NewThemeModal({
     >
       <ModalHeader>
         <ModalHeaderMain>
-          <ModalTitle id={titleId}>New Theme</ModalTitle>
+          <ModalTitle id={titleId}>{t("themes.newTitle")}</ModalTitle>
         </ModalHeaderMain>
       </ModalHeader>
       <ModalBody>
-        <FormField label="Name">
+        <FormField label={t("common:name")}>
           <TextInput
             value={themeName}
             onChange={(e) => handleThemeNameChange(e.target.value)}
-            placeholder="My theme"
+            placeholder={t("themes.namePlaceholder")}
             autoFocus
             disabled={creating}
             onKeyDown={(e) => {
@@ -158,11 +160,11 @@ export function NewThemeModal({
 
         {hasAuthoringPacks ? (
           <FormField
-            label="Pack"
-            description="Add this theme to an existing pack, or create a new one."
+            label={t("themes.pack")}
+            description={t("themes.packDescription")}
           >
             <NativeSelect
-              aria-label="Pack"
+              aria-label={t("themes.pack")}
               value={packSelection}
               onChange={setPackSelection}
               disabled={creating || packsLoading}
@@ -172,13 +174,11 @@ export function NewThemeModal({
         ) : null}
 
         {creatingNewPack ? (
-          <FormField
-            label="Pack name"
-          >
+          <FormField label={t("themes.packName")}>
             <TextInput
               value={packName}
               onChange={(e) => handlePackNameChange(e.target.value)}
-              placeholder="My theme"
+              placeholder={t("themes.namePlaceholder")}
               disabled={creating}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -191,12 +191,8 @@ export function NewThemeModal({
         ) : null}
       </ModalBody>
       <ModalFooter onCancel={onClose} cancelDisabled={creating}>
-        <Button
-          variant="primary"
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-        >
-          {creating ? "Creating…" : "Create"}
+        <Button variant="primary" disabled={!canSubmit} onClick={handleSubmit}>
+          {creating ? t("common:creating") : t("common:create")}
         </Button>
       </ModalFooter>
     </Modal>

@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import {
@@ -88,30 +88,6 @@ import {
   type PreferencesSectionId,
 } from "./preferencesSections";
 import "./PreferencesModal.css";
-
-const IMPORT_MODE_OPTIONS: { value: ImportMode; label: string }[] = [
-  { value: "copy", label: "Copy into library" },
-  { value: "reference", label: "Reference from source" },
-  { value: "ask", label: "Always ask" },
-];
-
-const CD_METADATA_FETCH_MODE_OPTIONS: {
-  value: CdMetadataFetchMode;
-  label: string;
-}[] = [
-  { value: "always", label: "Automatically" },
-  { value: "ask", label: "Always ask" },
-  { value: "never", label: "Never" },
-];
-
-/** Browser-style clear ranges: hours to delete, or null for all time. */
-const CLEAR_HISTORY_RANGES: { withinHours: number | null; label: string }[] = [
-  { withinHours: 1, label: "Last hour" },
-  { withinHours: 24, label: "Last 24 hours" },
-  { withinHours: 24 * 7, label: "Last 7 days" },
-  { withinHours: 24 * 7 * 4, label: "Last 4 weeks" },
-  { withinHours: null, label: "All time" },
-];
 
 export function PreferencesModal() {
   const open = useLibrarySettingsStore((s) => s.preferencesOpen);
@@ -275,6 +251,31 @@ export function PreferencesModal() {
 
   if (!settings) return null;
 
+  const IMPORT_MODE_OPTIONS: { value: ImportMode; label: string }[] = [
+    { value: "copy", label: t("preferences:library.importCopy") },
+    { value: "reference", label: t("preferences:library.importReference") },
+    { value: "ask", label: t("preferences:library.importAsk") },
+  ];
+
+  const CD_METADATA_FETCH_MODE_OPTIONS: {
+    value: CdMetadataFetchMode;
+    label: string;
+  }[] = [
+    { value: "always", label: t("preferences:metadata.cdFetchAlways") },
+    { value: "ask", label: t("preferences:metadata.cdFetchAsk") },
+    { value: "never", label: t("preferences:metadata.cdFetchNever") },
+  ];
+
+  /** Browser-style clear ranges: hours to delete, or null for all time. */
+  const CLEAR_HISTORY_RANGES: { withinHours: number | null; label: string }[] =
+    [
+      { withinHours: 1, label: t("preferences:listening.rangeHour") },
+      { withinHours: 24, label: t("preferences:listening.rangeDay") },
+      { withinHours: 24 * 7, label: t("preferences:listening.rangeWeek") },
+      { withinHours: 24 * 7 * 4, label: t("preferences:listening.rangeMonth") },
+      { withinHours: null, label: t("preferences:listening.rangeAll") },
+    ];
+
   const patchSettings = (patch: LibrarySettingsPatch) => {
     setError(null);
     void saveLibrarySettings(patch).catch((err: unknown) => {
@@ -333,7 +334,7 @@ export function PreferencesModal() {
         await reloadAfterRelocate();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        setError(`Library moved, but reload failed: ${message}`);
+        setError(t("preferences:library.reloadFailed", { message }));
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -475,14 +476,14 @@ export function PreferencesModal() {
         labelledBy={titleId}
       >
         <ModalHeader>
-          <ModalTitle id={titleId}>Preferences</ModalTitle>
+          <ModalTitle id={titleId}>{t("preferences:title")}</ModalTitle>
           <ModalCloseButton onClick={handleClose} />
         </ModalHeader>
 
         <ModalBody className="preferences__body">
           <SidebarFrame
             as="aside"
-            aria-label="Preference categories"
+            aria-label={t("preferences:categoriesAria")}
             className="preferences__sidebar"
           >
             <SidebarList>
@@ -504,8 +505,8 @@ export function PreferencesModal() {
             {activeSection === "library" && (
               <div className="preferences__panel">
                 <FormField
-                  label="Library location"
-                  description="Media files and the database are stored in this folder."
+                  label={t("preferences:library.location")}
+                  description={t("preferences:library.locationDescription")}
                 >
                   <div className="preferences__path-row">
                     <TextInput
@@ -521,7 +522,7 @@ export function PreferencesModal() {
                       disabled={relocateBusy}
                     >
                       <IconOpenFolder />
-                      Choose…
+                      {t("common:chooseEllipsis")}
                     </Button>
                     <Button
                       size="sm"
@@ -536,7 +537,7 @@ export function PreferencesModal() {
                       }}
                     >
                       <IconReset />
-                      Reset
+                      {t("common:reset")}
                     </Button>
                   </div>
                 </FormField>
@@ -551,12 +552,12 @@ export function PreferencesModal() {
                     patchSettings({ autoOrganize: e.target.checked })
                   }
                 >
-                  Automatically organize music in the media folder
+                  {t("preferences:library.autoOrganize")}
                 </Checkbox>
 
                 <div className="preferences__organize-path">
                   <FormField
-                    label="Path format"
+                    label={t("preferences:library.pathFormat")}
                     description={
                       organizePreviewPath != null ? (
                         <span aria-live="polite">
@@ -586,13 +587,13 @@ export function PreferencesModal() {
                         }}
                       >
                         <IconReset />
-                        Reset
+                        {t("common:reset")}
                       </Button>
                     </div>
                   </FormField>
                   <p className="preferences__hint">
                     <span className="preferences__hint-label">
-                      Placeholders:
+                      {t("preferences:library.placeholders")}
                     </span>{" "}
                     <code>{"{albumArtist}"}</code>, <code>{"{artist}"}</code>,{" "}
                     <code>{"{album}"}</code>, <code>{"{title}"}</code>,{" "}
@@ -605,7 +606,7 @@ export function PreferencesModal() {
                 <Separator />
 
                 <FormField
-                  label="When importing files…"
+                  label={t("preferences:library.importMode")}
                   labelId={importModeLabelId}
                 >
                   <RadioGroup
@@ -628,7 +629,7 @@ export function PreferencesModal() {
 
             {activeSection === "cd" && (
               <div className="preferences__panel">
-                <FormField label="Encode CD audio to…">
+                <FormField label={t("preferences:cd.encodeTo")}>
                   <Select
                     value={
                       isKnownEncodingProfileId(settings.cdImportProfileId)
@@ -639,7 +640,7 @@ export function PreferencesModal() {
                       patchSettings({ cdImportProfileId: value })
                     }
                     options={ENCODING_PROFILE_SELECT_OPTIONS}
-                    aria-label="CD import encoding profile"
+                    aria-label={t("preferences:cd.encodeAria")}
                   />
                 </FormField>
               </div>
@@ -721,15 +722,14 @@ export function PreferencesModal() {
                   />
                   <FieldContent>
                     <FieldLabel htmlFor="pref-listening-history">
-                      Record listening history
+                      {t("preferences:listening.record")}
                     </FieldLabel>
                     <FieldDescription>
-                      Spiral can record listening history for play counts and
-                      personal insights.{" "}
-                      <strong>
-                        Your history is yours, stored locally, and never shared
-                        with Spiral.
-                      </strong>
+                      <Trans
+                        i18nKey="listening.description"
+                        ns="preferences"
+                        components={{ strong: <strong /> }}
+                      />
                     </FieldDescription>
                   </FieldContent>
                 </Field>
@@ -753,15 +753,15 @@ export function PreferencesModal() {
                     aria-expanded={clearRangeMenuOpen}
                   >
                     {clearingHistory ? (
-                      "Clearing…"
+                      t("preferences:listening.clearing")
                     ) : historyCleared ? (
                       <>
                         <IconCheck aria-hidden />
-                        History cleared
+                        {t("preferences:listening.cleared")}
                       </>
                     ) : (
                       <>
-                        Clear listening history
+                        {t("preferences:listening.clear")}
                         <IconChevronDown aria-hidden />
                       </>
                     )}
@@ -776,7 +776,7 @@ export function PreferencesModal() {
                     {CLEAR_HISTORY_RANGES.flatMap((range) => {
                       const item = (
                         <ContextMenuItem
-                          key={range.label}
+                          key={range.withinHours ?? "all"}
                           label={range.label}
                           disabled={clearingHistory}
                           onClick={() => handleClearRange(range.withinHours)}
@@ -805,18 +805,19 @@ export function PreferencesModal() {
                   />
                   <FieldContent>
                     <FieldLabel htmlFor="pref-metadata-backups">
-                      Keep backups before metadata edits
+                      {t("preferences:metadata.backups")}
                     </FieldLabel>
                     <FieldDescription>
-                      When you edit tags, Spiral can keep a copy of the original
-                      file next to the track (e.g. <code>song.m4a.bak</code>).
-                      This can help recover from accidental edits, or corrupted
-                      files.
+                      <Trans
+                        i18nKey="metadata.backupsDescription"
+                        ns="preferences"
+                        components={{ code: <code /> }}
+                      />
                     </FieldDescription>
                   </FieldContent>
                 </Field>
 
-                <FormField label="Retention (days)">
+                <FormField label={t("preferences:metadata.retention")}>
                   <TextInput
                     type="number"
                     min={1}
@@ -835,7 +836,7 @@ export function PreferencesModal() {
                     }}
                   />
                   <FieldDescription>
-                    Remove backups after the specified number of days.
+                    {t("preferences:metadata.retentionDescription")}
                   </FieldDescription>
                 </FormField>
 
@@ -843,7 +844,7 @@ export function PreferencesModal() {
 
                 <Field>
                   <FieldLabel htmlFor="pref-cd-metadata-fetch-mode">
-                    Fetch album metadata when inserting a CD
+                    {t("preferences:metadata.cdFetch")}
                   </FieldLabel>
                   <RadioGroup
                     name="cdMetadataFetchMode"
@@ -862,10 +863,18 @@ export function PreferencesModal() {
                     ))}
                   </RadioGroup>
                   <FieldDescription>
-                    Look up metadata from{" "}
-                    <TextLink href="https://musicbrainz.org" target="_blank">
-                      MusicBrainz
-                    </TextLink>
+                    <Trans
+                      i18nKey="metadata.cdFetchDescription"
+                      ns="preferences"
+                      components={{
+                        musicBrainz: (
+                          <TextLink
+                            href="https://musicbrainz.org"
+                            target="_blank"
+                          />
+                        ),
+                      }}
+                    />
                   </FieldDescription>
                 </Field>
 
@@ -883,14 +892,21 @@ export function PreferencesModal() {
                   />
                   <FieldContent>
                     <FieldLabel htmlFor="pref-lyrics-auto-fetch">
-                      Automatically fetch lyrics in lightbox mode
+                      {t("preferences:metadata.lyricsAutoFetch")}
                     </FieldLabel>
                     <FieldDescription>
-                      Look up lyrics from{" "}
-                      <TextLink href="https://lrclib.net" target="_blank">
-                        LRCLIB
-                      </TextLink>
-                      .
+                      <Trans
+                        i18nKey="metadata.lyricsAutoFetchDescription"
+                        ns="preferences"
+                        components={{
+                          lrclib: (
+                            <TextLink
+                              href="https://lrclib.net"
+                              target="_blank"
+                            />
+                          ),
+                        }}
+                      />
                     </FieldDescription>
                   </FieldContent>
                 </Field>
@@ -907,10 +923,14 @@ export function PreferencesModal() {
                   />
                   <FieldContent>
                     <FieldLabel htmlFor="pref-lyrics-sidecar">
-                      Sync timed lyrics to LRC sidecar files
+                      {t("preferences:metadata.lyricsSidecar")}
                     </FieldLabel>
                     <FieldDescription>
-                      <code>.lrc</code> files are kept next to track files.
+                      <Trans
+                        i18nKey="metadata.lyricsSidecarDescription"
+                        ns="preferences"
+                        components={{ code: <code /> }}
+                      />
                     </FieldDescription>
                   </FieldContent>
                 </Field>
@@ -928,14 +948,14 @@ export function PreferencesModal() {
                   disabled={clearingMetadataCache}
                 >
                   {clearingMetadataCache ? (
-                    "Clearing…"
+                    t("preferences:metadata.clearingCache")
                   ) : metadataCacheCleared ? (
                     <>
                       <IconCheck aria-hidden />
-                      Cache cleared
+                      {t("preferences:metadata.cacheCleared")}
                     </>
                   ) : (
-                    "Clear remote metadata cache"
+                    t("preferences:metadata.clearCache")
                   )}
                 </Button>
               </div>
@@ -944,11 +964,11 @@ export function PreferencesModal() {
             {activeSection === "studio" && (
               <div className="preferences__panel">
                 <FormField
-                  label="Default Author ID"
+                  label={t("preferences:studio.defaultAuthorId")}
                   description={
                     defaultAuthorId.length > 0 && !defaultAuthorIdValid
-                      ? "Use lowercase letters, numbers, and hyphens (e.g. jane-doe)."
-                      : "Seeded into new workshop packs as authorId. Changing this does not rewrite existing packs."
+                      ? t("preferences:studio.slugHint")
+                      : t("preferences:studio.defaultAuthorIdDescription")
                   }
                 >
                   <TextInput
@@ -961,7 +981,7 @@ export function PreferencesModal() {
                         void persistDefaultAuthorId();
                       }
                     }}
-                    placeholder="jane-doe"
+                    placeholder={t("preferences:studio.authorIdPlaceholder")}
                     spellCheck={false}
                     autoComplete="off"
                     disabled={!defaultAuthorIdLoaded || savingDefaultAuthorId}
@@ -1050,27 +1070,27 @@ export function PreferencesModal() {
         open={relocateInfo != null}
         title={
           relocateInfo?.hasDatabase
-            ? "Switch library location?"
+            ? t("preferences:relocate.switchTitle")
             : relocateInfo && relocateInfo.audioFileCount > 0
-              ? "Change library location?"
-              : "Move library?"
+              ? t("preferences:relocate.changeTitle")
+              : t("preferences:relocate.moveTitle")
         }
         primary={
           relocateInfo?.hasDatabase
-            ? { label: "Switch to this library", mode: "switch" }
-            : { label: "Move library here", mode: "move" }
+            ? { label: t("preferences:relocate.switchPrimary"), mode: "switch" }
+            : { label: t("preferences:relocate.movePrimary"), mode: "move" }
         }
         secondary={
           relocateInfo?.hasDatabase
             ? undefined
             : relocateInfo && relocateInfo.audioFileCount > 0
               ? {
-                  label: `Import ${relocateInfo.audioFileCount} found file${
-                    relocateInfo.audioFileCount === 1 ? "" : "s"
-                  }`,
+                  label: t("preferences:relocate.importFound", {
+                    count: relocateInfo.audioFileCount,
+                  }),
                   mode: "freshImport",
                 }
-              : { label: "Start empty library", mode: "fresh" }
+              : { label: t("preferences:relocate.freshPrimary"), mode: "fresh" }
         }
         busy={relocateBusy}
         onClose={() => {
@@ -1082,19 +1102,22 @@ export function PreferencesModal() {
         onConfirm={confirmRelocate}
       >
         {relocateInfo?.hasDatabase ? (
-          <p>
-            A Spiral library already exists here. Your current library will stay
-            at its old location.
-          </p>
+          <p>{t("preferences:relocate.hasDatabase")}</p>
         ) : relocateInfo && relocateInfo.audioFileCount > 0 ? (
           <p>
-            Found {relocateInfo.audioFileCount} audio file
-            {relocateInfo.audioFileCount === 1 ? "" : "s"} at{" "}
-            <code>{relocateInfo.path}</code>. Move your current library here, or
-            start a new library and import those files in place.
+            <Trans
+              i18nKey="relocate.foundFiles"
+              ns="preferences"
+              count={relocateInfo.audioFileCount}
+              values={{
+                count: relocateInfo.audioFileCount,
+                path: relocateInfo.path,
+              }}
+              components={{ code: <code /> }}
+            />
           </p>
         ) : (
-          <p>Or start a new empty library here.</p>
+          <p>{t("preferences:relocate.empty")}</p>
         )}
       </LibraryRelocateDialog>
 
@@ -1104,11 +1127,15 @@ export function PreferencesModal() {
           if (clearingHistory) return;
           setClearHistoryOpen(false);
         }}
-        title="Clear all listening history?"
-        confirmLabel={clearingHistory ? "Clearing…" : "Clear all history"}
+        title={t("preferences:listening.clearAllTitle")}
+        confirmLabel={
+          clearingHistory
+            ? t("preferences:listening.clearing")
+            : t("preferences:listening.clearAllConfirm")
+        }
         onConfirm={() => handleClearListeningHistory(null)}
       >
-        <p>All personal insights will be permanently lost.</p>
+        <p>{t("preferences:listening.clearAllBody")}</p>
       </AlertConfirmation>
     </>
   );

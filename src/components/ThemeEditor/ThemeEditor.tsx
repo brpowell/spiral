@@ -6,8 +6,9 @@ import {
   type CSSProperties,
   type MutableRefObject,
 } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import type { Theme, ThemeTokens } from "../../types/theme";
-import { t } from "../../lib/i18n";
+import { t as translate } from "../../lib/i18n";
 import {
   effectiveContributionId,
   isContributionId,
@@ -60,67 +61,45 @@ function contributionIdFromTheme(theme: Theme): string {
   return parts[parts.length - 1] ?? "";
 }
 
-const TOKEN_LABELS: Record<string, string> = {
-  "color-bg": "Background",
-  "color-surface": "Surface",
-  "color-surface-raised": "Surface raised",
-  "color-text-primary": "Primary",
-  "color-text-secondary": "Secondary",
-  "color-text-muted": "Muted",
-  "color-accent": "Accent",
-  "color-accent-muted": "Muted",
-  "color-accent-text": "On accent",
-  "color-border": "Border",
-  "color-danger": "Foreground",
-  "color-danger-bg": "Background",
-  "color-interactive": "Interactive",
-  "color-interactive-selected-text": "Selected text",
-  "color-alert-info": "Foreground",
-  "color-alert-info-bg": "Background",
-  "color-alert-info-border": "Border",
-  "color-alert-success": "Foreground",
-  "color-alert-success-bg": "Background",
-  "color-alert-success-border": "Border",
-  "color-alert-warning": "Foreground",
-  "color-alert-warning-bg": "Background",
-  "color-alert-warning-border": "Border",
-  "color-alert-error": "Foreground",
-  "color-alert-error-bg": "Background",
-  "color-alert-error-border": "Border",
-  "radius-card": "Card",
-  "radius-button": "Button",
-  "radius-input": "Input & controls",
-  "font-ui": "UI font",
-};
+type ColorTokenGroupId =
+  | "surfaces"
+  | "text"
+  | "accent"
+  | "interactive"
+  | "danger"
+  | "alertInfo"
+  | "alertSuccess"
+  | "alertWarning"
+  | "alertError";
 
 type ColorTokenGroup = {
-  title: string;
+  id: ColorTokenGroupId;
   keys: readonly string[];
 };
 
 const COLOR_TOKEN_GROUPS: ColorTokenGroup[] = [
   {
-    title: "Surfaces",
+    id: "surfaces",
     keys: ["color-bg", "color-surface", "color-surface-raised", "color-border"],
   },
   {
-    title: "Text",
+    id: "text",
     keys: ["color-text-primary", "color-text-secondary", "color-text-muted"],
   },
   {
-    title: "Accent",
+    id: "accent",
     keys: ["color-accent", "color-accent-muted", "color-accent-text"],
   },
   {
-    title: "Interactive",
+    id: "interactive",
     keys: ["color-interactive", "color-interactive-selected-text"],
   },
   {
-    title: "Danger",
+    id: "danger",
     keys: ["color-danger", "color-danger-bg"],
   },
   {
-    title: "Alert — Info",
+    id: "alertInfo",
     keys: [
       "color-alert-info",
       "color-alert-info-bg",
@@ -128,7 +107,7 @@ const COLOR_TOKEN_GROUPS: ColorTokenGroup[] = [
     ],
   },
   {
-    title: "Alert — Success",
+    id: "alertSuccess",
     keys: [
       "color-alert-success",
       "color-alert-success-bg",
@@ -136,7 +115,7 @@ const COLOR_TOKEN_GROUPS: ColorTokenGroup[] = [
     ],
   },
   {
-    title: "Alert — Warning",
+    id: "alertWarning",
     keys: [
       "color-alert-warning",
       "color-alert-warning-bg",
@@ -144,7 +123,7 @@ const COLOR_TOKEN_GROUPS: ColorTokenGroup[] = [
     ],
   },
   {
-    title: "Alert — Error",
+    id: "alertError",
     keys: [
       "color-alert-error",
       "color-alert-error-bg",
@@ -193,35 +172,36 @@ function themesEqual(a: Theme, b: Theme): boolean {
 }
 
 function ThemePreviewSamples({ inputId }: { inputId: string }) {
+  const { t } = useTranslation("studio");
   return (
     <>
       <div className="theme-editor__preview-actions">
         <Button variant="primary" size="sm" tabIndex={-1}>
-          Primary
+          {t("themeEditor.primary")}
         </Button>
         <Button variant="secondary" size="sm" tabIndex={-1}>
-          Secondary
+          {t("themeEditor.secondary")}
         </Button>
         <Button variant="ghost" size="sm" tabIndex={-1}>
-          Ghost
+          {t("themeEditor.ghost")}
         </Button>
         <Button variant="danger" size="sm" tabIndex={-1}>
-          Danger
+          {t("themeEditor.danger")}
         </Button>
       </div>
       <TextInput
-        value="Input sample"
+        value={t("themeEditor.previewInput")}
         readOnly
         tabIndex={-1}
-        aria-label={`Preview input (${inputId})`}
+        aria-label={t("themeEditor.previewInputAria", { id: inputId })}
       />
       <div className="theme-editor__preview-row">
-        <Chip label="Chip" onRemove={() => {}} />
+        <Chip label={t("themeEditor.chip")} onRemove={() => {}} />
         <Switch defaultChecked tabIndex={-1}>
-          Switch
+          {t("themeEditor.switch")}
         </Switch>
         <Checkbox defaultChecked tabIndex={-1}>
-          Check
+          {t("themeEditor.check")}
         </Checkbox>
       </div>
     </>
@@ -230,7 +210,9 @@ function ThemePreviewSamples({ inputId }: { inputId: string }) {
 
 /** Browse header title while editing a theme. */
 export function formatThemeEditorTitle(name: string): string {
-  return `Edit theme (${name.trim() || t("common:untitledTheme")})`;
+  return translate("studio:themes.editorTitle", {
+    name: name.trim() || translate("common:untitledTheme"),
+  });
 }
 
 export type ThemeEditorProps = {
@@ -247,10 +229,11 @@ export type ThemeEditorProps = {
 export function ThemeEditor({
   theme,
   onClose,
-  backAriaLabel = "Back",
+  backAriaLabel = translate("common:back"),
   requestCloseRef,
   onCloseRequestCancelled,
 }: ThemeEditorProps) {
+  const { t } = useTranslation(["studio", "common", "library"]);
   const saveTheme = useThemeStore((s) => s.saveTheme);
   const setTheme = useThemeStore((s) => s.setTheme);
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
@@ -378,7 +361,7 @@ export function ThemeEditor({
   }, [draft, setTheme, showErrorToast, showToast]);
 
   const previewTokens = resolveThemeTokens(draft);
-  const storedTheme = themes.find((t) => t.id === draft.id);
+  const storedTheme = themes.find((item) => item.id === draft.id);
   const canActivate = storedTheme ? isThemeApplicable(storedTheme) : false;
   const contributionId = contributionIdFromTheme(draft);
   const contributionIdValid = isContributionId(contributionId);
@@ -432,20 +415,25 @@ export function ThemeEditor({
           <div className="theme-editor__layout">
             <div className="theme-editor__form">
               <section className="theme-editor__section">
-                <h3 className="theme-editor__section-title">Details</h3>
-                <FormField label="Name" className="theme-editor__field--block">
+                <h3 className="theme-editor__section-title">
+                  {t("themeEditor.details")}
+                </h3>
+                <FormField
+                  label={t("common:name")}
+                  className="theme-editor__field--block"
+                >
                   <TextInput
                     value={draft.name}
                     onChange={(e) => updateMeta("name", e.target.value)}
                   />
                 </FormField>
                 <FormField
-                  label="Contribution ID"
+                  label={t("themeEditor.contributionId")}
                   className="theme-editor__field--block"
                   description={
                     contributionId.length > 0 && !contributionIdValid
-                      ? "Use lowercase letters, numbers, and hyphens (e.g. my-theme)."
-                      : "Kebab slug used in the theme’s effective id."
+                      ? t("themeEditor.contributionIdInvalid")
+                      : t("themeEditor.contributionIdHint")
                   }
                 >
                   <SlugField
@@ -453,12 +441,12 @@ export function ThemeEditor({
                     onChange={updateContributionId}
                     suggestedFrom={draft.name}
                     autoSyncKey={theme.id}
-                    placeholder="my-theme"
+                    placeholder={t("themeEditor.contributionIdPlaceholder")}
                     disabled={busy}
                   />
                 </FormField>
                 <FormField
-                  label="Author"
+                  label={t("themeEditor.author")}
                   className="theme-editor__field--block"
                 >
                   <TextInput
@@ -467,7 +455,7 @@ export function ThemeEditor({
                   />
                 </FormField>
                 <FormField
-                  label="Description"
+                  label={t("common:description")}
                   className="theme-editor__field--block"
                 >
                   <Textarea
@@ -479,40 +467,51 @@ export function ThemeEditor({
                 </FormField>
               </section>
 
-              {COLOR_TOKEN_GROUPS.map((group) => (
-                <section key={group.title} className="theme-editor__section">
-                  <h3 className="theme-editor__section-title">{group.title}</h3>
-                  {group.keys.map((key) => {
-                    const value =
-                      draft.tokens[key] ?? OBSIDIAN_DEFAULT_TOKENS[key] ?? "";
-                    const baselineValue =
-                      baseline.tokens[key] ??
-                      OBSIDIAN_DEFAULT_TOKENS[key] ??
-                      "";
-                    const isDirty = value !== baselineValue;
-                    return (
-                      <FormField key={key} label={TOKEN_LABELS[key] ?? key}>
-                        <ColorField
-                          value={value}
-                          onChange={(next) => updateToken(key, next)}
-                          onReset={
-                            isDirty
-                              ? () => updateToken(key, baselineValue)
-                              : undefined
-                          }
-                          resetLabel={`Reset ${TOKEN_LABELS[key] ?? key}`}
-                          swatchLabel={`Pick ${group.title} ${TOKEN_LABELS[key] ?? key}`}
-                        />
-                      </FormField>
-                    );
-                  })}
-                </section>
-              ))}
+              {COLOR_TOKEN_GROUPS.map((group) => {
+                const groupTitle = t(`themeEditor.groups.${group.id}`);
+                return (
+                  <section key={group.id} className="theme-editor__section">
+                    <h3 className="theme-editor__section-title">
+                      {groupTitle}
+                    </h3>
+                    {group.keys.map((key) => {
+                      const label = t(`themeEditor.tokens.${key}`);
+                      const value =
+                        draft.tokens[key] ?? OBSIDIAN_DEFAULT_TOKENS[key] ?? "";
+                      const baselineValue =
+                        baseline.tokens[key] ??
+                        OBSIDIAN_DEFAULT_TOKENS[key] ??
+                        "";
+                      const isDirty = value !== baselineValue;
+                      return (
+                        <FormField key={key} label={label}>
+                          <ColorField
+                            value={value}
+                            onChange={(next) => updateToken(key, next)}
+                            onReset={
+                              isDirty
+                                ? () => updateToken(key, baselineValue)
+                                : undefined
+                            }
+                            resetLabel={t("themeEditor.resetToken", { label })}
+                            swatchLabel={t("themeEditor.pickToken", {
+                              group: groupTitle,
+                              label,
+                            })}
+                          />
+                        </FormField>
+                      );
+                    })}
+                  </section>
+                );
+              })}
 
               <section className="theme-editor__section">
-                <h3 className="theme-editor__section-title">Radius</h3>
+                <h3 className="theme-editor__section-title">
+                  {t("themeEditor.radius")}
+                </h3>
                 {RADIUS_TOKEN_KEYS.map((key) => {
-                  const label = TOKEN_LABELS[key] ?? key;
+                  const label = t(`themeEditor.tokens.${key}`);
                   return (
                     <FormField key={key} label={label}>
                       <Slider
@@ -528,7 +527,7 @@ export function ThemeEditor({
                         aria-label={label}
                         showValueTooltip
                         formatValueTooltip={(value) =>
-                          `${Math.round(value)} px`
+                          t("themeEditor.pxValue", { value: Math.round(value) })
                         }
                       />
                     </FormField>
@@ -537,9 +536,11 @@ export function ThemeEditor({
               </section>
 
               <section className="theme-editor__section">
-                <h3 className="theme-editor__section-title">Typography</h3>
+                <h3 className="theme-editor__section-title">
+                  {t("themeEditor.typography")}
+                </h3>
                 <FormField
-                  label={TOKEN_LABELS["font-ui"]}
+                  label={t("themeEditor.tokens.font-ui")}
                   className="theme-editor__field--block"
                 >
                   <Textarea
@@ -556,7 +557,10 @@ export function ThemeEditor({
               </section>
             </div>
 
-            <aside className="theme-editor__preview" aria-label="Live preview">
+            <aside
+              className="theme-editor__preview"
+              aria-label={t("themeEditor.livePreview")}
+            >
               <div
                 className="theme-editor__preview-frame"
                 style={previewStyle}
@@ -570,12 +574,18 @@ export function ThemeEditor({
 
                 <div className="theme-editor__preview-shell">
                   <nav className="theme-editor__preview-rail">
-                    <p className="theme-editor__preview-rail-label">Library</p>
+                    <p className="theme-editor__preview-rail-label">
+                      {t("themeEditor.previewLibrary")}
+                    </p>
                     <SidebarItem active tabIndex={-1}>
-                      Albums
+                      {t("library:views.albums.title")}
                     </SidebarItem>
-                    <SidebarItem tabIndex={-1}>Artists</SidebarItem>
-                    <SidebarItem tabIndex={-1}>Playlists</SidebarItem>
+                    <SidebarItem tabIndex={-1}>
+                      {t("library:views.artists.title")}
+                    </SidebarItem>
+                    <SidebarItem tabIndex={-1}>
+                      {t("library:views.playlists.title")}
+                    </SidebarItem>
                   </nav>
 
                   <div className="theme-editor__preview-main">
@@ -584,29 +594,35 @@ export function ThemeEditor({
                         {draft.name.trim() || t("common:untitledTheme")}
                       </p>
                       <div className="theme-editor__preview-badges">
-                        <Badge>Neutral</Badge>
-                        <Badge variant="accent">Accent</Badge>
+                        <Badge>{t("themeEditor.neutral")}</Badge>
+                        <Badge variant="accent">
+                          {t("themeEditor.accent")}
+                        </Badge>
                       </div>
                     </div>
 
                     <p className="theme-editor__preview-body">
-                      Secondary text with a{" "}
-                      <TextLink href="#theme-preview" tabIndex={-1}>
-                        link
-                      </TextLink>
-                      .
+                      <Trans
+                        t={t}
+                        i18nKey="themeEditor.previewSecondary"
+                        components={{
+                          link: (
+                            <TextLink href="#theme-preview" tabIndex={-1} />
+                          ),
+                        }}
+                      />
                     </p>
 
                     <div className="theme-editor__preview-panel">
                       <p className="theme-editor__preview-panel-label">
-                        On surface
+                        {t("themeEditor.onSurface")}
                       </p>
                       <ThemePreviewSamples inputId="surface" />
                     </div>
 
                     <div className="theme-editor__preview-card">
                       <p className="theme-editor__preview-panel-label">
-                        On raised
+                        {t("themeEditor.onRaised")}
                       </p>
                       <ThemePreviewSamples inputId="raised" />
                     </div>
@@ -614,10 +630,16 @@ export function ThemeEditor({
                     <Separator />
 
                     <div className="theme-editor__preview-alerts">
-                      <Alert variant="info">Info alert</Alert>
-                      <Alert variant="success">Success alert</Alert>
-                      <Alert variant="warning">Warning alert</Alert>
-                      <Alert variant="error">Error alert</Alert>
+                      <Alert variant="info">{t("themeEditor.alertInfo")}</Alert>
+                      <Alert variant="success">
+                        {t("themeEditor.alertSuccess")}
+                      </Alert>
+                      <Alert variant="warning">
+                        {t("themeEditor.alertWarning")}
+                      </Alert>
+                      <Alert variant="error">
+                        {t("themeEditor.alertError")}
+                      </Alert>
                     </div>
                   </div>
                 </div>
@@ -639,7 +661,7 @@ export function ThemeEditor({
             }
             onClick={() => void handleActivate()}
           >
-            {applying ? "Activating…" : "Activate theme"}
+            {applying ? t("themeEditor.activating") : t("themeEditor.activate")}
           </Button>
         ) : null}
         <Button
@@ -647,17 +669,17 @@ export function ThemeEditor({
           disabled={busy || !hasChanges || !contributionIdValid}
           onClick={() => void handleSaveAndClose()}
         >
-          {saving ? "Saving…" : "Save"}
+          {saving ? t("common:saving") : t("common:save")}
         </Button>
       </footer>
 
       <EditorDiscardOverlay
         open={discardPrompt}
-        description="Save your theme edits, or discard them and revert."
+        description={t("themeEditor.discardDescription")}
         onKeepEditing={handleKeepEditing}
         onDiscard={handleDiscard}
         onSave={() => void handleSaveAndClose()}
-        saveLabel={saving ? "Saving…" : "Save"}
+        saveLabel={saving ? t("common:saving") : t("common:save")}
         saveDisabled={busy || !contributionIdValid}
       />
     </div>

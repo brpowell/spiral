@@ -1,5 +1,10 @@
 import { useEffect, useId, useState } from "react";
-import { isAuthorId, isPackId, isPackSemver } from "../../lib/packs/packManifest";
+import { useTranslation } from "react-i18next";
+import {
+  isAuthorId,
+  isPackId,
+  isPackSemver,
+} from "../../lib/packs/packManifest";
 import type { PackSummary } from "../../types/pack";
 import { Button } from "../common/Button/Button";
 import { FormField } from "../common/Field/Field";
@@ -37,6 +42,7 @@ export function EditPackModal({
   onClose,
   onSave,
 }: EditPackModalProps) {
+  const { t } = useTranslation(["studio", "common"]);
   const titleId = useId();
   const [packId, setPackId] = useState("");
   const [name, setName] = useState("");
@@ -86,15 +92,15 @@ export function EditPackModal({
     >
       <ModalHeader>
         <ModalHeaderMain>
-          <ModalTitle id={titleId}>Edit Pack</ModalTitle>
+          <ModalTitle id={titleId}>{t("packs.editTitle")}</ModalTitle>
         </ModalHeaderMain>
       </ModalHeader>
       <ModalBody>
-        <FormField label="Name">
+        <FormField label={t("common:name")}>
           <TextInput
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Pack name"
+            placeholder={t("packs.namePlaceholder")}
             autoFocus
             disabled={saving}
             onKeyDown={(e) => {
@@ -106,17 +112,17 @@ export function EditPackModal({
           />
         </FormField>
         <FormField
-          label="Pack ID"
+          label={t("packs.packId")}
           description={
             packId.length > 0 && !packIdValid
-              ? "Use lowercase letters, numbers, and hyphens (e.g. my-pack)."
-              : "Lowercase letters, numbers, and hyphens."
+              ? t("packs.packIdInvalid")
+              : t("packs.packIdHint")
           }
         >
           <TextInput
             value={packId}
             onChange={(e) => setPackId(e.target.value)}
-            placeholder="my-pack"
+            placeholder={t("packs.packIdPlaceholder")}
             disabled={saving}
             spellCheck={false}
             autoComplete="off"
@@ -129,17 +135,17 @@ export function EditPackModal({
           />
         </FormField>
         <FormField
-          label="Author ID"
+          label={t("packs.authorId")}
           description={
             authorId.length > 0 && !authorIdValid
-              ? "Use lowercase letters, numbers, and hyphens (e.g. jane-doe)."
-              : "Kebab slug identifying who maintains this pack."
+              ? t("packs.authorIdInvalid")
+              : t("packs.authorIdHint")
           }
         >
           <TextInput
             value={authorId}
             onChange={(e) => setAuthorId(e.target.value)}
-            placeholder="jane-doe"
+            placeholder={t("packs.authorIdPlaceholder")}
             disabled={saving}
             spellCheck={false}
             autoComplete="off"
@@ -152,17 +158,17 @@ export function EditPackModal({
           />
         </FormField>
         <FormField
-          label="Version"
+          label={t("packs.version")}
           description={
             version.length > 0 && !versionValid
-              ? "Use semver MAJOR.MINOR.PATCH (e.g. 1.0.0)."
-              : "Semver, e.g. 1.0.0"
+              ? t("packs.versionInvalid")
+              : t("packs.versionHint")
           }
         >
           <TextInput
             value={version}
             onChange={(e) => setVersion(e.target.value)}
-            placeholder="0.0.0"
+            placeholder={t("packs.versionPlaceholder")}
             disabled={saving}
             spellCheck={false}
             autoComplete="off"
@@ -174,11 +180,11 @@ export function EditPackModal({
             }}
           />
         </FormField>
-        <FormField label="Description">
+        <FormField label={t("common:description")}>
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Short description"
+            placeholder={t("packs.descriptionPlaceholder")}
             rows={2}
             disabled={saving}
             autoSize
@@ -186,12 +192,8 @@ export function EditPackModal({
         </FormField>
       </ModalBody>
       <ModalFooter onCancel={onClose} cancelDisabled={saving}>
-        <Button
-          variant="primary"
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-        >
-          {saving ? "Saving…" : "Save"}
+        <Button variant="primary" disabled={!canSubmit} onClick={handleSubmit}>
+          {saving ? t("common:saving") : t("common:save")}
         </Button>
       </ModalFooter>
     </Modal>

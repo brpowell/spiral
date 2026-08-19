@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   themeApplyFailedPayload,
   themeCreateFailedPayload,
@@ -51,13 +52,18 @@ function ThemeSwatch({
   onSelect: () => void;
   onOpenPack: (packId: string) => void;
 }) {
+  const { t } = useTranslation(["studio", "common"]);
+  const unknown = t("common:unknown");
   return (
     <AppearancePackCard
       active={active}
       name={theme.name}
-      author={theme.author || "Unknown"}
+      author={theme.author || unknown}
       description={theme.description}
-      ariaLabel={`${theme.name} by ${theme.author || "Unknown"}`}
+      ariaLabel={t("packs.cardAria", {
+        name: theme.name,
+        author: theme.author || unknown,
+      })}
       preview={<ThemeSwatchPreview theme={theme} />}
       previewClassName="theme-picker__preview"
       actions={
@@ -83,6 +89,7 @@ export function ThemesSection({
 }: {
   onOpenPack: (packId: string) => void;
 }) {
+  const { t } = useTranslation(["studio", "library"]);
   const themes = useThemeStore((s) => s.themes);
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const themesLoaded = useThemeStore((s) => s.themesLoaded);
@@ -123,8 +130,12 @@ export function ThemesSection({
     <BrowseView>
       <BrowseViewHeader
         className="browse-view__header--single-row"
-        title="Themes"
-        count={themesLoaded ? `(${themes.length})` : undefined}
+        title={t("themes.title")}
+        count={
+          themesLoaded
+            ? t("library:views.headerCount", { count: themes.length })
+            : undefined
+        }
         actions={
           <Button
             variant="primary"
@@ -132,16 +143,16 @@ export function ThemesSection({
             disabled={creating}
             onClick={() => setModalOpen(true)}
           >
-            New Theme
+            {t("themes.new")}
           </Button>
         }
       />
 
       <BrowseGridBody>
         {!themesLoaded ? (
-          <p className="browse-view__empty">Loading themes…</p>
+          <p className="browse-view__empty">{t("themes.loading")}</p>
         ) : themes.length === 0 ? (
-          <p className="browse-view__empty">No themes found.</p>
+          <p className="browse-view__empty">{t("themes.empty")}</p>
         ) : (
           <div className="appearance-pack-grid" role="list">
             {themes.map((theme) => (

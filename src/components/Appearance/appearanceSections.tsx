@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { AppearanceSection } from "../../lib/appearanceWindow";
+import { t } from "../../lib/i18n";
 import {
   IconDownload,
   IconPackage,
@@ -18,22 +19,22 @@ export interface AppearanceSectionConfig {
 export const APPEARANCE_CONTENT_SECTIONS: AppearanceSectionConfig[] = [
   {
     id: "themes",
-    label: "Themes",
+    label: t("studio:nav.themes"),
     icon: <IconPalette />,
   },
   {
     id: "visualizers",
-    label: "Visualizers",
+    label: t("studio:nav.visualizers"),
     icon: <IconVisualizer />,
   },
   {
     id: "skins",
-    label: "Skins",
+    label: t("studio:nav.skins"),
     icon: <IconSkinMode />,
   },
   {
     id: "packs",
-    label: "Packs",
+    label: t("studio:nav.packs"),
     icon: <IconPackage />,
   },
 ];
@@ -41,7 +42,7 @@ export const APPEARANCE_CONTENT_SECTIONS: AppearanceSectionConfig[] = [
 /** Catalog browse — own sidebar section below the separator. */
 export const APPEARANCE_CATALOG_SECTION: AppearanceSectionConfig = {
   id: "catalog",
-  label: "Get more…",
+  label: t("studio:catalog.sidebar"),
   icon: <IconDownload />,
 };
 

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
 import { backdropMotion, panelMotion } from "../../lib/motion";
 import { Button } from "../common/Button/Button";
@@ -21,18 +22,19 @@ export function EditorDiscardOverlay({
   onKeepEditing,
   onDiscard,
   onSave,
-  saveLabel = "Save",
+  saveLabel,
   saveDisabled = false,
 }: EditorDiscardOverlayProps) {
+  const { t } = useTranslation("common");
+  const resolvedSaveLabel = saveLabel ?? t("save");
   const titleId = useId();
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    const firstButton =
-      overlayRef.current?.querySelector<HTMLElement>(
-        "button:not([disabled])",
-      );
+    const firstButton = overlayRef.current?.querySelector<HTMLElement>(
+      "button:not([disabled])",
+    );
     firstButton?.focus();
   }, [open]);
 
@@ -50,7 +52,7 @@ export function EditorDiscardOverlay({
         >
           <motion.div className="track-editor__discard-dialog" {...panelMotion}>
             <p id={titleId} className="track-editor__discard-title">
-              {onSave ? "Save changes?" : "Discard changes?"}
+              {onSave ? t("saveChanges") : t("discardChanges")}
             </p>
             <p className="track-editor__discard-desc">{description}</p>
             <div className="track-editor__discard-actions">
@@ -60,10 +62,10 @@ export function EditorDiscardOverlay({
                 className="track-editor__discard-keep"
                 onClick={onKeepEditing}
               >
-                Keep editing
+                {t("keepEditing")}
               </Button>
               <Button variant="danger" size="sm" onClick={onDiscard}>
-                Discard
+                {t("discard")}
               </Button>
               {onSave ? (
                 <Button
@@ -72,7 +74,7 @@ export function EditorDiscardOverlay({
                   disabled={saveDisabled}
                   onClick={onSave}
                 >
-                  {saveLabel}
+                  {resolvedSaveLabel}
                 </Button>
               ) : null}
             </div>

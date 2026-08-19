@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
 import { artistArtCacheKey, applyArtistImages } from "../../lib/artistArt";
+import { t as translate } from "../../lib/i18n";
 import {
   artistFormsEqual,
   artistKeyAfterRename,
@@ -11,10 +13,7 @@ import {
   buildTrackArtistMetadata,
   type ArtistEditorForm,
 } from "../../lib/artistMetadata";
-import {
-  getArtistByKey,
-  groupTracksIntoArtists,
-} from "../../lib/artists";
+import { getArtistByKey, groupTracksIntoArtists } from "../../lib/artists";
 import { formatBytes, formatDimensions } from "../../lib/formatBytes";
 import {
   cacheArtFromFile,
@@ -46,6 +45,7 @@ import { TextInput } from "../common/TextInput/TextInput";
 import "../TrackEditor/TrackEditor.css";
 
 function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
+  const { t } = useTranslation("library");
   const [dims, setDims] = useState<{ w: number; h: number } | null>(() =>
     candidate.width != null && candidate.height != null
       ? { w: candidate.width, h: candidate.height }
@@ -82,12 +82,13 @@ function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
 
   return (
     <span className="track-editor__cover-meta">
-      {meta || "Loading details…"}
+      {meta || t("editor.loadingDetails")}
     </span>
   );
 }
 
 export function ArtistEditor() {
+  const { t } = useTranslation(["library", "common"]);
   const editingArtistKey = usePlayerStore((s) => s.editingArtistKey);
   const editingArtistBrowseMode = usePlayerStore(
     (s) => s.editingArtistBrowseMode,
@@ -97,15 +98,14 @@ export function ArtistEditor() {
   const updateTracksInLibrary = usePlayerStore((s) => s.updateTracksInLibrary);
   const imagesByKey = useArtistImageStore((s) => s.imagesByKey);
   const saveArtistImage = useArtistImageStore((s) => s.saveArtistImage);
-  const renameArtistImageKey = useArtistImageStore((s) => s.renameArtistImageKey);
+  const renameArtistImageKey = useArtistImageStore(
+    (s) => s.renameArtistImageKey,
+  );
 
   const artist = useMemo(() => {
     if (!editingArtistKey) return null;
     const artists = groupTracksIntoArtists(library, editingArtistBrowseMode);
-    const withImages = applyArtistImages(
-      artists,
-      imagesByKey,
-    );
+    const withImages = applyArtistImages(artists, imagesByKey);
     return getArtistByKey(withImages, editingArtistKey) ?? null;
   }, [editingArtistKey, editingArtistBrowseMode, library, imagesByKey]);
 
@@ -113,7 +113,9 @@ export function ArtistEditor() {
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<ArtistEditorForm | null>(null);
-  const [originalForm, setOriginalForm] = useState<ArtistEditorForm | null>(null);
+  const [originalForm, setOriginalForm] = useState<ArtistEditorForm | null>(
+    null,
+  );
   const [pendingArtPath, setPendingArtPath] = useState<string | null>(null);
   const [originalArtPath, setOriginalArtPath] = useState<string | null>(null);
   const [artSourcePath, setArtSourcePath] = useState<string | null>(null);
@@ -124,7 +126,9 @@ export function ArtistEditor() {
     total: number;
   } | null>(null);
   const [fetchingArt, setFetchingArt] = useState(false);
-  const [coverCandidates, setCoverCandidates] = useState<CoverArtCandidate[]>([]);
+  const [coverCandidates, setCoverCandidates] = useState<CoverArtCandidate[]>(
+    [],
+  );
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
@@ -207,7 +211,7 @@ export function ArtistEditor() {
       return;
     }
 
-    setSaveError("Could not read the dropped image path.");
+    setSaveError(t("library:editor.dropArtFailed"));
   };
 
   useArtFileDrop(isOpen && !!artCacheKey, applyArtPath);
@@ -222,7 +226,7 @@ export function ArtistEditor() {
     try {
       const candidates = await fetchArtistArt(form.name);
       if (candidates.length === 0) {
-        setFetchMessage("No results found");
+        setFetchMessage(t("library:editor.noArtResults"));
       } else {
         setCoverCandidates(candidates);
       }
@@ -240,7 +244,9 @@ export function ArtistEditor() {
     setArtSourcePath(null);
   };
 
-  const resolveArtistArtPath = async (cacheKey: string): Promise<string | null> => {
+  const resolveArtistArtPath = async (
+    cacheKey: string,
+  ): Promise<string | null> => {
     if (selectedCoverUrl) {
       return cacheArtFromUrl(selectedCoverUrl, cacheKey);
     }
@@ -251,13 +257,7 @@ export function ArtistEditor() {
   };
 
   const handleSave = async () => {
-    if (
-      !artist ||
-      !form ||
-      !originalForm ||
-      !hasChanges ||
-      !editingArtistKey
-    ) {
+    if (!artist || !form || !originalForm || !hasChanges || !editingArtistKey) {
       return;
     }
 
@@ -308,7 +308,11 @@ export function ArtistEditor() {
           setSaveError(
             errors.length === tracks.length
               ? errors[0]
-              : `Updated ${updated.length} of ${tracks.length} tracks. ${errors[0]}`,
+              : t("library:editor.partialSave", {
+                  updated: updated.length,
+                  total: tracks.length,
+                  error: errors[0],
+                }),
           );
           return;
         }
@@ -340,16 +344,17 @@ export function ArtistEditor() {
     }
   };
 
-  const displayArtSrc = useAssetUrl(
-    selectedCoverUrl ? null : pendingArtPath,
-  );
+  const displayArtSrc = useAssetUrl(selectedCoverUrl ? null : pendingArtPath);
   const previewSrc = selectedCoverUrl ?? displayArtSrc;
 
   const saveLabel = saving
     ? saveProgress
-      ? `Saving ${saveProgress.current}/${saveProgress.total}…`
-      : "Saving…"
-    : "Save";
+      ? t("library:editor.savingProgress", {
+          current: saveProgress.current,
+          total: saveProgress.total,
+        })
+      : t("common:saving")
+    : t("common:save");
 
   return (
     <Modal
@@ -368,9 +373,16 @@ export function ArtistEditor() {
           >
             <ModalHeader>
               <ModalHeaderMain>
-                <ModalTitle id="artist-editor-title">Edit artist</ModalTitle>
+                <ModalTitle id="artist-editor-title">
+                  {t("library:editor.editArtist")}
+                </ModalTitle>
                 <ModalDescription>
-                  {nameChangedDescription(form!, originalForm!, tracks.length, artChanged)}
+                  {nameChangedDescription(
+                    form!,
+                    originalForm!,
+                    tracks.length,
+                    artChanged,
+                  )}
                 </ModalDescription>
               </ModalHeaderMain>
             </ModalHeader>
@@ -411,7 +423,7 @@ export function ArtistEditor() {
                     className="track-editor__art-btn"
                     onClick={() => void handleChangeArt()}
                   >
-                    Add art
+                    {t("library:editor.addArt")}
                   </Button>
                   <Button
                     size="sm"
@@ -419,7 +431,9 @@ export function ArtistEditor() {
                     onClick={() => void handleFetchArt()}
                     disabled={fetchingArt}
                   >
-                    {fetchingArt ? "Fetching…" : "Fetch Art"}
+                    {fetchingArt
+                      ? t("library:editor.fetchingArt")
+                      : t("library:editor.fetchArt")}
                   </Button>
                   {fetchMessage && !fetchingArt && (
                     <p className="track-editor__fetch-msg">{fetchMessage}</p>
@@ -434,16 +448,17 @@ export function ArtistEditor() {
                         className="track-editor__fetching-spinner"
                         aria-hidden
                       />
-                      <span>Fetching artwork…</span>
+                      <span>{t("library:editor.fetchingArtStatus")}</span>
                     </div>
                   )}
                   {coverCandidates.length > 0 && (
                     <div
                       className="track-editor__cover-picker"
-                      aria-label="Artist image options"
+                      aria-label={t("library:editor.artistImageOptions")}
                     >
                       {coverCandidates.map((candidate) => {
-                        const thumbSrc = candidate.thumbnailUrl ?? candidate.url;
+                        const thumbSrc =
+                          candidate.thumbnailUrl ?? candidate.url;
 
                         return (
                           <button
@@ -469,7 +484,7 @@ export function ArtistEditor() {
                 </div>
 
                 <div className="track-editor__fields">
-                  <FormField label="Artist">
+                  <FormField label={t("library:editor.fields.artist")}>
                     <TextInput
                       value={form.name}
                       onChange={(e) =>
@@ -492,7 +507,7 @@ export function ArtistEditor() {
             <ModalFooter
               onCancel={requestClose}
               cancelDisabled={saving}
-              cancelLabel="Cancel"
+              cancelLabel={t("common:cancel")}
             >
               <Button
                 variant="primary"
@@ -506,7 +521,7 @@ export function ArtistEditor() {
 
           <EditorDiscardOverlay
             open={discardPrompt}
-            description="Unsaved edits to this artist will be lost."
+            description={t("library:editor.discardArtist")}
             onKeepEditing={dismissDiscardPrompt}
             onDiscard={closeArtistEditor}
           />
@@ -524,10 +539,14 @@ function nameChangedDescription(
 ): string {
   const nameChanged = form.name !== originalForm.name;
   if (nameChanged && artChanged) {
-    return `Name changes apply to all ${trackCount} ${trackCount === 1 ? "track" : "tracks"}. Artist images are stored separately from album art.`;
+    return translate("library:editor.artistRenameWithArt", {
+      count: trackCount,
+    });
   }
   if (nameChanged) {
-    return `Changes apply to all ${trackCount} ${trackCount === 1 ? "track" : "tracks"}.`;
+    return translate("library:editor.artistRenameDescription", {
+      count: trackCount,
+    });
   }
-  return "Artist images are stored separately from album art.";
+  return translate("library:editor.artistImagesNote");
 }

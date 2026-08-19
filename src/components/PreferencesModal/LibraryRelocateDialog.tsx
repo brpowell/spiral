@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { LibraryRelocateMode } from "../../types/library";
 import { Button } from "../common/Button/Button";
@@ -36,6 +37,7 @@ export function LibraryRelocateDialog({
   onClose,
   onConfirm,
 }: LibraryRelocateDialogProps) {
+  const { t } = useTranslation("common");
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const [activeMode, setActiveMode] = useState<LibraryRelocateMode | null>(
@@ -76,10 +78,10 @@ export function LibraryRelocateDialog({
   };
 
   const primaryLabel =
-    busy && activeMode === primary.mode ? "Working…" : primary.label;
+    busy && activeMode === primary.mode ? t("working") : primary.label;
   const secondaryLabel =
     secondary && busy && activeMode === secondary.mode
-      ? "Working…"
+      ? t("working")
       : secondary?.label;
 
   return (

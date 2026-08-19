@@ -1,4 +1,5 @@
 import type { LyricsSearchCandidate } from "../types/lyrics";
+import { t } from "./i18n";
 
 export type LyricsFetchFeedback = {
   text: string;
@@ -6,12 +7,12 @@ export type LyricsFetchFeedback = {
 };
 
 export const LYRICS_FETCH_NOT_FOUND: LyricsFetchFeedback = {
-  text: "No lyrics found on LRCLIB for this track.",
+  text: t("library:editor.lyrics.notFound"),
   variant: "info",
 };
 
 export const LYRICS_FETCH_INSTRUMENTAL: LyricsFetchFeedback = {
-  text: "You can still mimic the instruments with your mouth.",
+  text: t("library:editor.lyrics.instrumentalJoke"),
   variant: "info",
 };
 
@@ -32,46 +33,40 @@ export function lyricsFetchFailureFeedback(
     raw.includes("Artist and title are required") ||
     raw.includes("Track duration is required")
   ) {
-    return createLyricsFetchFeedback(raw);
+    return createLyricsFetchFeedback(
+      raw.includes("Track duration is required")
+        ? t("library:editor.lyrics.durationRequired")
+        : t("library:editor.lyrics.artistTitleRequired"),
+    );
   }
 
   if (
     raw.includes("LRCLIB request failed") ||
     /connection|timed out|timeout|dns|network/i.test(raw)
   ) {
-    return createLyricsFetchFeedback(
-      "Couldn't reach LRCLIB. Check your connection and try again.",
-    );
+    return createLyricsFetchFeedback(t("library:editor.lyrics.networkError"));
   }
 
   if (raw.includes("failed to parse LRCLIB response")) {
-    return createLyricsFetchFeedback(
-      "Received an unexpected response from LRCLIB. Try again later.",
-    );
+    return createLyricsFetchFeedback(t("library:editor.lyrics.parseError"));
   }
 
   if (
     raw.includes("LRCLIB returned HTTP") ||
     raw.startsWith("LRCLIB returned")
   ) {
-    return createLyricsFetchFeedback(
-      "LRCLIB returned an error. Try again later.",
-    );
+    return createLyricsFetchFeedback(t("library:editor.lyrics.httpError"));
   }
 
   if (raw.includes("failed to create HTTP client")) {
-    return createLyricsFetchFeedback(
-      "Couldn't start a lyrics lookup. Try again.",
-    );
+    return createLyricsFetchFeedback(t("library:editor.lyrics.clientError"));
   }
 
   if (raw.includes("lyrics fetch cache")) {
-    return createLyricsFetchFeedback(
-      "Couldn't read the lyrics lookup cache. Try again.",
-    );
+    return createLyricsFetchFeedback(t("library:editor.lyrics.cacheError"));
   }
 
-  return createLyricsFetchFeedback("Couldn't fetch lyrics. Try again later.");
+  return createLyricsFetchFeedback(t("library:editor.lyrics.genericError"));
 }
 
 export function formatLyricsDuration(seconds: number): string {
@@ -97,7 +92,7 @@ export function lyricsCandidateDetails(
 ): string {
   const album = candidate.albumName.trim();
   if (!album || album.toLowerCase() === "null") {
-    return "Unknown album";
+    return t("common:unknownAlbum");
   }
   return album;
 }

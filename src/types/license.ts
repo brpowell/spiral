@@ -1,8 +1,7 @@
+import { t } from "../lib/i18n";
+
 export type LicenseStatus =
-  | "trial"
-  | "provisional"
-  | "readyToFinalize"
-  | "licensed";
+  "trial" | "provisional" | "readyToFinalize" | "licensed";
 
 /** Commercial / cohort variant of a product grant. */
 export type LicenseSku = "standard" | "founder";
@@ -46,12 +45,12 @@ export function defaultLicenseSnapshot(): LicenseSnapshot {
 export function licenseStatusLabel(status: LicenseStatus): string {
   switch (status) {
     case "trial":
-      return "Trial";
+      return t("common:spiralCard.status.trial");
     case "provisional":
-      return "Provisional";
+      return t("common:spiralCard.status.provisional");
     case "readyToFinalize":
-      return "Ready to finalize";
+      return t("common:spiralCard.status.readyToFinalize");
     case "licensed":
-      return "Permanent";
+      return t("common:spiralCard.status.licensed");
   }
 }

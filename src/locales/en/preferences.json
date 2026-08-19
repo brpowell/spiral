@@ -1,4 +1,6 @@
 {
+  "title": "Preferences",
+  "categoriesAria": "Preference categories",
   "sections": {
     "library": "Library",
     "cd": "CD",
@@ -7,6 +9,36 @@
     "metadata": "Metadata",
     "studio": "Studio",
     "updates": "Updates"
+  },
+  "library": {
+    "location": "Library location",
+    "locationDescription": "Media files and the database are stored in this folder.",
+    "autoOrganize": "Automatically organize music in the media folder",
+    "pathFormat": "Path format",
+    "placeholders": "Placeholders:",
+    "importMode": "When importing files…",
+    "importCopy": "Copy into library",
+    "importReference": "Reference from source",
+    "importAsk": "Always ask",
+    "reloadFailed": "Library moved, but reload failed: {{message}}"
+  },
+  "relocate": {
+    "switchTitle": "Switch library location?",
+    "changeTitle": "Change library location?",
+    "moveTitle": "Move library?",
+    "switchPrimary": "Switch to this library",
+    "movePrimary": "Move library here",
+    "freshPrimary": "Start empty library",
+    "importFound_one": "Import {{count}} found file",
+    "importFound_other": "Import {{count}} found files",
+    "hasDatabase": "A Spiral library already exists here. Your current library will stay at its old location.",
+    "foundFiles_one": "Found {{count}} audio file at <code>{{path}}</code>. Move your current library here, or start a new library and import those files in place.",
+    "foundFiles_other": "Found {{count}} audio files at <code>{{path}}</code>. Move your current library here, or start a new library and import those files in place.",
+    "empty": "Or start a new empty library here."
+  },
+  "cd": {
+    "encodeTo": "Encode CD audio to…",
+    "encodeAria": "CD import encoding profile"
   },
   "playback": {
     "crossfade": {
@@ -18,6 +50,45 @@
       "onSkip": "Crossfade when skipping tracks",
       "visual": "Animate now playing during crossfade"
     }
+  },
+  "listening": {
+    "record": "Record listening history",
+    "description": "Spiral can record listening history for play counts and personal insights. <strong>Your history is yours, stored locally, and never shared with Spiral.</strong>",
+    "clear": "Clear listening history",
+    "clearing": "Clearing…",
+    "cleared": "History cleared",
+    "rangeHour": "Last hour",
+    "rangeDay": "Last 24 hours",
+    "rangeWeek": "Last 7 days",
+    "rangeMonth": "Last 4 weeks",
+    "rangeAll": "All time",
+    "clearAllTitle": "Clear all listening history?",
+    "clearAllConfirm": "Clear all history",
+    "clearAllBody": "All personal insights will be permanently lost."
+  },
+  "metadata": {
+    "backups": "Keep backups before metadata edits",
+    "backupsDescription": "When you edit tags, Spiral can keep a copy of the original file next to the track (e.g. <code>song.m4a.bak</code>). This can help recover from accidental edits, or corrupted files.",
+    "retention": "Retention (days)",
+    "retentionDescription": "Remove backups after the specified number of days.",
+    "cdFetch": "Fetch album metadata when inserting a CD",
+    "cdFetchDescription": "Look up metadata from <musicBrainz>MusicBrainz</musicBrainz>",
+    "cdFetchAlways": "Automatically",
+    "cdFetchAsk": "Always ask",
+    "cdFetchNever": "Never",
+    "lyricsAutoFetch": "Automatically fetch lyrics in lightbox mode",
+    "lyricsAutoFetchDescription": "Look up lyrics from <lrclib>LRCLIB</lrclib>.",
+    "lyricsSidecar": "Sync timed lyrics to LRC sidecar files",
+    "lyricsSidecarDescription": "<code>.lrc</code> files are kept next to track files.",
+    "clearCache": "Clear remote metadata cache",
+    "clearingCache": "Clearing…",
+    "cacheCleared": "Cache cleared"
+  },
+  "studio": {
+    "defaultAuthorId": "Default Author ID",
+    "defaultAuthorIdDescription": "Seeded into new workshop packs as authorId. Changing this does not rewrite existing packs.",
+    "slugHint": "Use lowercase letters, numbers, and hyphens (e.g. jane-doe).",
+    "authorIdPlaceholder": "jane-doe"
   },
   "updates": {
     "automatic": {

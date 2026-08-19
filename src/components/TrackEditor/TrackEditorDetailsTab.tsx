@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { formatBytes, formatDimensions } from "../../lib/formatBytes";
 import {
   mixedFieldPlaceholder,
@@ -16,6 +17,7 @@ import { AutocompleteInput } from "../common/AutocompleteInput/AutocompleteInput
 import { TextInput } from "../common/TextInput/TextInput";
 
 function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
+  const { t } = useTranslation("library");
   const [dims, setDims] = useState<{ w: number; h: number } | null>(() =>
     candidate.width != null && candidate.height != null
       ? { w: candidate.width, h: candidate.height }
@@ -52,7 +54,7 @@ function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
 
   return (
     <span className="track-editor__cover-meta">
-      {meta || "Loading details…"}
+      {meta || t("editor.loadingDetails")}
     </span>
   );
 }
@@ -82,7 +84,9 @@ function TrackEditorField({
     type,
     min,
     value: form[field],
-    placeholder: isBulk ? mixedFieldPlaceholder(tracks, field, form) : undefined,
+    placeholder: isBulk
+      ? mixedFieldPlaceholder(tracks, field, form)
+      : undefined,
     onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
       onChange(field, e.target.value),
   };
@@ -115,6 +119,7 @@ function TrackEditorNumberPairField({
   isBulk: boolean;
   onChange: (field: TrackEditorFormField, value: string) => void;
 }) {
+  const { t } = useTranslation("library");
   return (
     <FormField label={label}>
       <div className="track-editor__number-pair">
@@ -131,7 +136,7 @@ function TrackEditorNumberPairField({
           aria-label={label}
         />
         <span className="track-editor__number-pair-of" aria-hidden>
-          of
+          {t("editor.of")}
         </span>
         <TextInput
           type="number"
@@ -141,7 +146,7 @@ function TrackEditorNumberPairField({
             isBulk ? mixedFieldPlaceholder(tracks, totalField, form) : undefined
           }
           onChange={(e) => onChange(totalField, e.target.value)}
-          aria-label={`${label} total`}
+          aria-label={t("editor.numberTotalAria", { label })}
         />
       </div>
     </FormField>
@@ -191,6 +196,7 @@ export function TrackEditorDetailsTab({
   genreSuggestions,
   albumSuggestions,
 }: TrackEditorDetailsTabProps) {
+  const { t } = useTranslation("library");
   return (
     <div className="track-editor__body">
       <div className="track-editor__art-col">
@@ -222,7 +228,7 @@ export function TrackEditorDetailsTab({
           className="track-editor__art-btn"
           onClick={onChangeArt}
         >
-          Add art
+          {t("editor.addArt")}
         </Button>
         <Button
           size="sm"
@@ -230,19 +236,26 @@ export function TrackEditorDetailsTab({
           onClick={onFetchArt}
           disabled={fetchingArt}
         >
-          {fetchingArt ? "Fetching…" : "Fetch Art"}
+          {fetchingArt ? t("editor.fetchingArt") : t("editor.fetchArt")}
         </Button>
         {fetchMessage && !fetchingArt && (
           <p className="track-editor__fetch-msg">{fetchMessage}</p>
         )}
         {fetchingArt && (
-          <div className="track-editor__fetching" role="status" aria-live="polite">
+          <div
+            className="track-editor__fetching"
+            role="status"
+            aria-live="polite"
+          >
             <span className="track-editor__fetching-spinner" aria-hidden />
-            <span>Fetching artwork…</span>
+            <span>{t("editor.fetchingArtStatus")}</span>
           </div>
         )}
         {coverCandidates.length > 0 && (
-          <div className="track-editor__cover-picker" aria-label="Cover art options">
+          <div
+            className="track-editor__cover-picker"
+            aria-label={t("editor.coverOptions")}
+          >
             {coverCandidates.map((candidate) => {
               const thumbSrc = candidate.thumbnailUrl ?? candidate.url;
 
@@ -271,14 +284,14 @@ export function TrackEditorDetailsTab({
 
       <div className="track-editor__fields">
         <TrackEditorField
-          label="Title"
+          label={t("editor.fields.title")}
           field="title"
           form={form}
           tracks={tracks}
           isBulk={isBulk}
           onChange={onFieldChange}
         />
-        <FormField label="Artist">
+        <FormField label={t("editor.fields.artist")}>
           <ArtistChipField
             value={form.artist}
             onChange={(value) => onFieldChange("artist", value)}
@@ -286,11 +299,11 @@ export function TrackEditorDetailsTab({
               isBulk ? mixedFieldPlaceholder(tracks, "artist", form) : undefined
             }
             suggestions={artistSuggestions}
-            inputAriaLabel="Track artist"
+            inputAriaLabel={t("editor.artistAria")}
           />
         </FormField>
         <TrackEditorField
-          label="Album"
+          label={t("editor.fields.album")}
           field="album"
           form={form}
           tracks={tracks}
@@ -299,7 +312,7 @@ export function TrackEditorDetailsTab({
           suggestions={albumSuggestions}
         />
         <TrackEditorField
-          label="Album Artist"
+          label={t("editor.fields.albumArtist")}
           field="albumArtist"
           form={form}
           tracks={tracks}
@@ -308,7 +321,7 @@ export function TrackEditorDetailsTab({
           suggestions={artistSuggestions}
         />
         <TrackEditorField
-          label="Year"
+          label={t("editor.fields.year")}
           field="year"
           type="number"
           min={1}
@@ -318,7 +331,7 @@ export function TrackEditorDetailsTab({
           onChange={onFieldChange}
         />
         <TrackEditorNumberPairField
-          label="Track Number"
+          label={t("editor.fields.trackNumber")}
           numberField="trackNumber"
           totalField="totalTracks"
           form={form}
@@ -327,7 +340,7 @@ export function TrackEditorDetailsTab({
           onChange={onFieldChange}
         />
         <TrackEditorNumberPairField
-          label="Disc Number"
+          label={t("editor.fields.discNumber")}
           numberField="discNumber"
           totalField="totalDiscs"
           form={form}
@@ -336,7 +349,7 @@ export function TrackEditorDetailsTab({
           onChange={onFieldChange}
         />
         <TrackEditorField
-          label="Genre"
+          label={t("editor.fields.genre")}
           field="genre"
           form={form}
           tracks={tracks}
@@ -345,7 +358,7 @@ export function TrackEditorDetailsTab({
           suggestions={genreSuggestions}
         />
         {!isBulk ? (
-          <FormField label="Rating">
+          <FormField label={t("editor.fields.rating")}>
             <TrackRating
               value={form.rating}
               size="comfortable"

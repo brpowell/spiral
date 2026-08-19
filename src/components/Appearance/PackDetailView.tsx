@@ -154,11 +154,12 @@ function ContributionActions({
   onToggleHidden?: (contributionId: string, hidden: boolean) => void;
   onDeleteContribution?: (contribution: PackContributionSummary) => void;
 }) {
+  const { t } = useTranslation(["studio", "common"]);
   const openThemeEditor = useOpenAppearanceThemeEditor();
   return (
     <MenuButton
-      ariaLabel={`Actions for ${c.name}`}
-      title="Actions"
+      ariaLabel={t("packs.cardActionsAria", { name: c.name })}
+      title={t("common:actions")}
       variant="ghost"
       layoutDeps={[pack.zone, c.type, c.hidden, busy]}
     >
@@ -170,7 +171,7 @@ function ContributionActions({
             {canEditContribution ? (
               <ContextMenuItem
                 icon={<IconPencil />}
-                label="Edit"
+                label={t("common:edit")}
                 disabled={busy}
                 onClick={() => {
                   close();
@@ -183,7 +184,7 @@ function ContributionActions({
                 {canEditContribution ? <ContextMenuSeparator /> : null}
                 <ContextMenuItem
                   icon={<IconDelete />}
-                  label="Delete"
+                  label={t("common:delete")}
                   className="context-menu__danger"
                   disabled={busy}
                   onClick={() => {
@@ -195,7 +196,7 @@ function ContributionActions({
             ) : (
               <ContextMenuItem
                 icon={<IconHide />}
-                label={c.hidden ? "Show" : "Hide"}
+                label={c.hidden ? t("common:show") : t("common:hide")}
                 disabled={busy}
                 onClick={() => {
                   close();
@@ -265,8 +266,8 @@ function ContributionList({
                     {c.hidden ? (
                       <span
                         className="installed-packs__hidden-icon"
-                        title="Hidden"
-                        aria-label="Hidden"
+                        title={t("packs.hidden")}
+                        aria-label={t("packs.hidden")}
                       >
                         <IconHide />
                       </span>
@@ -286,7 +287,7 @@ function ContributionList({
                       ) : null}
                       <code
                         className="installed-packs__code-badge"
-                        title="Contribution ID"
+                        title={t("packs.contributionId")}
                       >
                         {c.effectiveId}
                       </code>
@@ -656,7 +657,7 @@ export function PackDetailView({
     <BrowseView>
       <BrowseViewHeader
         className="browse-view__header--single-row"
-        title="Pack Details"
+        title={t("detail.title")}
         backAriaLabel={backAriaLabel}
         onBack={onBack}
       />

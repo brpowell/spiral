@@ -383,14 +383,14 @@ export function CdTrackEditor() {
             <ModalFooter
               onCancel={requestClose}
               cancelDisabled={saving}
-              cancelLabel="Cancel"
+              cancelLabel={t("common:cancel")}
             >
               <Button
                 variant="primary"
                 onClick={() => void handleSave()}
                 disabled={!hasChanges || saving || discardPrompt || !discId}
               >
-                {saving ? t("library:cd.editor.saving") : "Save"}
+                {saving ? t("library:cd.editor.saving") : t("common:save")}
               </Button>
             </ModalFooter>
           </div>

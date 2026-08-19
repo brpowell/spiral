@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { ContextMenuItem } from "../ContextMenu/ContextMenu";
 import { IconPackage } from "../icons";
 import { MenuButton } from "../MenuButton/MenuButton";
@@ -18,17 +19,18 @@ export function AppearancePackActions({
    */
   children?: (close: () => void, viewPackItem: ReactNode) => ReactNode;
 }) {
+  const { t } = useTranslation(["studio", "common"]);
   return (
     <MenuButton
-      ariaLabel={`Actions for ${name}`}
-      title="Actions"
+      ariaLabel={t("packs.cardActionsAria", { name })}
+      title={t("common:actions")}
       variant="ghost"
     >
       {(close) => {
         const viewPackItem = (
           <ContextMenuItem
             icon={<IconPackage />}
-            label="View pack"
+            label={t("viewPack")}
             onClick={() => {
               close();
               onOpenPack(packId);

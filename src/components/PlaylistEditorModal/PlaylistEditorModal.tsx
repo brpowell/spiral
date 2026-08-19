@@ -45,8 +45,7 @@ export function PlaylistEditorModal() {
     [editingPlaylistId, playlists],
   );
 
-  const isOpen =
-    editingPlaylistId != null && (isNew || existing != null);
+  const isOpen = editingPlaylistId != null && (isNew || existing != null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -84,7 +83,7 @@ export function PlaylistEditorModal() {
   const previewPlaylist: Playlist = useMemo(() => {
     const pendingCustomPath =
       imageMode === "custom"
-        ? customImagePath ?? customImageSourcePath
+        ? (customImagePath ?? customImageSourcePath)
         : null;
     return {
       id: existing?.id ?? 0,
@@ -170,10 +169,7 @@ export function PlaylistEditorModal() {
           customImagePath: null,
         });
         const image = await resolveImageForSave(id);
-        if (
-          image.imageMode !== "generated" ||
-          image.customImagePath != null
-        ) {
+        if (image.imageMode !== "generated" || image.customImagePath != null) {
           await updatePlaylist(id, trimmedTitle, desc, image);
         }
         openPlaylist(id);
@@ -210,12 +206,14 @@ export function PlaylistEditorModal() {
     >
       <ModalHeader>
         <ModalTitle id={titleId}>
-          {isNew ? "New Playlist" : "Edit Playlist"}
+          {isNew
+            ? t("library:views.playlists.new")
+            : t("library:actions.editPlaylist")}
         </ModalTitle>
       </ModalHeader>
 
       <ModalBody>
-        <FormField label="Cover">
+        <FormField label={t("library:editor.fields.cover")}>
           <div className="playlist-editor__image-section">
             <div className="playlist-editor__preview-row">
               <div className="playlist-editor__preview">
@@ -232,17 +230,18 @@ export function PlaylistEditorModal() {
                   onChange={setImageMode}
                   variant="button"
                   orientation="horizontal"
-                  aria-label="Cover image source"
+                  aria-label={t("library:editor.playlist.coverSourceAria")}
                 >
-                  <RadioGroupItem value="generated">From playlist</RadioGroupItem>
-                  <RadioGroupItem value="custom">Custom image</RadioGroupItem>
+                  <RadioGroupItem value="generated">
+                    {t("library:editor.playlist.fromPlaylist")}
+                  </RadioGroupItem>
+                  <RadioGroupItem value="custom">
+                    {t("library:editor.playlist.customImage")}
+                  </RadioGroupItem>
                 </RadioGroup>
                 {showCustomActions ? (
-                  <Button
-                    size="sm"
-                    onClick={() => void handlePickImage()}
-                  >
-                    Choose Image
+                  <Button size="sm" onClick={() => void handlePickImage()}>
+                    {t("library:editor.playlist.chooseImage")}
                   </Button>
                 ) : null}
               </div>
@@ -250,7 +249,7 @@ export function PlaylistEditorModal() {
           </div>
         </FormField>
 
-        <FormField label="Title">
+        <FormField label={t("library:editor.fields.title")}>
           <TextInput
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -260,12 +259,12 @@ export function PlaylistEditorModal() {
             autoFocus
           />
         </FormField>
-        <FormField label="Description">
+        <FormField label={t("library:editor.fields.description")}>
           <Textarea
             value={description}
             rows={3}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Optional"
+            placeholder={t("common:optional")}
           />
         </FormField>
       </ModalBody>
@@ -277,7 +276,7 @@ export function PlaylistEditorModal() {
           onClick={() => void handleSave()}
           disabled={saving || !title.trim()}
         >
-          {saving ? "Saving…" : "Save"}
+          {saving ? t("common:saving") : t("common:save")}
         </Button>
       </ModalFooter>
     </Modal>

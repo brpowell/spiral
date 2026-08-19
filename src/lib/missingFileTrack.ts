@@ -1,5 +1,6 @@
 import type { Track } from "../types/track";
 import { fileExists } from "./artPath";
+import { t } from "./i18n";
 
 export function isTrackMissingFile(track: Track): boolean {
   return track.missingFile === true;
@@ -13,11 +14,11 @@ export function isMissingFileError(err: unknown): boolean {
 }
 
 export function missingFileErrorDetail(track: Pick<Track, "title">): string {
-  return `${track.title}: File not found`;
+  return t("library:editor.fileNotFound", { title: track.title });
 }
 
 export function isMissingFileErrorDetail(detail: string): boolean {
-  return detail.endsWith(": File not found");
+  return detail.endsWith(`: ${t("library:editor.fileNotFoundSuffix")}`);
 }
 
 /** Resolve whether a track file exists, flagging the library row when it does not. */
@@ -58,10 +59,7 @@ export function mergeLibraryClientState(
   const priorById = new Map(previous.map((track) => [track.id, track]));
   return loaded.map((track) => {
     const prior = priorById.get(track.id);
-    if (
-      prior?.missingFile &&
-      prior.filePath === track.filePath
-    ) {
+    if (prior?.missingFile && prior.filePath === track.filePath) {
       return { ...track, missingFile: true };
     }
     return track;

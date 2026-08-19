@@ -4,6 +4,7 @@ import {
   parseArtistField,
   serializeArtistField,
 } from "./artistNames";
+import { t } from "./i18n";
 import type { TrackMetadataUpdate } from "../types/metadata";
 import type { Track } from "../types/track";
 import type { LyricsLine, LyricsSource } from "../types/lyrics";
@@ -47,15 +48,15 @@ export type TrackEditorFormField = Exclude<
   | "lyricsInstrumental"
 >;
 
-const MIXED_PLACEHOLDER = "Multiple values";
-
 export function mixedFieldPlaceholder(
   tracks: Track[],
   field: TrackEditorFormField,
   form: TrackEditorForm,
 ): string | undefined {
   if (tracks.length <= 1 || form[field] !== "") return undefined;
-  return isTrackEditorFieldMixed(tracks, field) ? MIXED_PLACEHOLDER : undefined;
+  return isTrackEditorFieldMixed(tracks, field)
+    ? t("library:editor.mixedValues")
+    : undefined;
 }
 
 function normalizeOptionalString(value: string | null): string {
@@ -81,7 +82,8 @@ export function sharedArtistField(
   if (tracks.length === 0) return "";
   const first = parseArtistField(getter(tracks[0]));
   for (let i = 1; i < tracks.length; i++) {
-    if (!artistNamesEqual(first, parseArtistField(getter(tracks[i])))) return "";
+    if (!artistNamesEqual(first, parseArtistField(getter(tracks[i]))))
+      return "";
   }
   return serializeArtistField(first) ?? "";
 }
@@ -126,8 +128,7 @@ function sharedRating(tracks: Track[]): CanonicalRating {
 
 function sharedLyricsInstrumental(tracks: Track[]): boolean {
   return (
-    tracks.length > 0 &&
-    tracks.every((t) => t.lyricsFormat === "instrumental")
+    tracks.length > 0 && tracks.every((t) => t.lyricsFormat === "instrumental")
   );
 }
 
@@ -228,8 +229,14 @@ export function parseOptionalInt(value: string): number | null {
 }
 
 export function lyricsEditorStateEqual(
-  a: Pick<TrackEditorForm, "lyrics" | "lyricsSyncedLines" | "lyricsInstrumental">,
-  b: Pick<TrackEditorForm, "lyrics" | "lyricsSyncedLines" | "lyricsInstrumental">,
+  a: Pick<
+    TrackEditorForm,
+    "lyrics" | "lyricsSyncedLines" | "lyricsInstrumental"
+  >,
+  b: Pick<
+    TrackEditorForm,
+    "lyrics" | "lyricsSyncedLines" | "lyricsInstrumental"
+  >,
 ): boolean {
   if (Boolean(a.lyricsInstrumental) !== Boolean(b.lyricsInstrumental)) {
     return false;
@@ -279,7 +286,12 @@ export function buildTrackMetadataFromForm(
   const pickString = (
     field: Exclude<
       TrackEditorFormField,
-      "title" | "year" | "trackNumber" | "totalTracks" | "discNumber" | "totalDiscs"
+      | "title"
+      | "year"
+      | "trackNumber"
+      | "totalTracks"
+      | "discNumber"
+      | "totalDiscs"
     >,
     current: string | null,
   ): string | null => {

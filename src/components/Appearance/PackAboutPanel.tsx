@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { RELOAD_LINKED_PACKS_EVENT } from "../../lib/appearanceWindow";
 import {
@@ -37,6 +38,7 @@ export function PackAboutPanel({
   pack: PackSummary;
   busy: boolean;
 }) {
+  const { t } = useTranslation(["studio", "common"]);
   const canEdit = isAuthoringPackZone(pack.zone);
   const initial = readmeStateFromCache(pack.packDir);
   const [readme, setReadme] = useState<string | null>(initial.readme);
@@ -132,9 +134,7 @@ export function PackAboutPanel({
       setDraft("");
     } catch (err) {
       console.error("Failed to save pack README:", err);
-      setSaveError(
-        err instanceof Error ? err.message : "Failed to save README.",
-      );
+      setSaveError(err instanceof Error ? err.message : t("about.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -145,7 +145,7 @@ export function PackAboutPanel({
       <div className="installed-packs__about">
         <div className="installed-packs__about-toolbar">
           <span className="installed-packs__about-toolbar-label">
-            Editing README.md
+            {t("about.editing")}
           </span>
           <div className="installed-packs__about-toolbar-actions">
             <Button
@@ -153,14 +153,14 @@ export function PackAboutPanel({
               disabled={saving || busy}
               onClick={cancelEditing}
             >
-              Cancel
+              {t("common:cancel")}
             </Button>
             <Button
               variant="primary"
               disabled={saving || busy}
               onClick={() => void saveReadme()}
             >
-              {saving ? "Saving…" : "Save"}
+              {saving ? t("common:saving") : t("common:save")}
             </Button>
           </div>
         </div>
@@ -171,7 +171,7 @@ export function PackAboutPanel({
           rows={14}
           disabled={saving || busy}
           spellCheck
-          placeholder="Write a README for this pack (Markdown supported)."
+          placeholder={t("about.placeholder")}
           autoFocus
           autoSize
         />
@@ -187,7 +187,7 @@ export function PackAboutPanel({
   if (loadState === "loading") {
     return (
       <div className="installed-packs__about">
-        <p className="appearance-section__status">Loading README…</p>
+        <p className="appearance-section__status">{t("about.loading")}</p>
       </div>
     );
   }
@@ -195,10 +195,10 @@ export function PackAboutPanel({
   if (loadState === "error") {
     return (
       <div className="installed-packs__about">
-        <p className="appearance-section__status">Couldn’t load README.</p>
+        <p className="appearance-section__status">{t("about.loadFailed")}</p>
         {canEdit ? (
           <Button variant="ghost" disabled={busy} onClick={startEditing}>
-            Edit README
+            {t("about.edit")}
           </Button>
         ) : null}
       </div>
@@ -209,10 +209,10 @@ export function PackAboutPanel({
     return (
       <div className="installed-packs__about">
         <div className="installed-packs__about-empty">
-          <p className="appearance-section__status">No README.</p>
+          <p className="appearance-section__status">{t("about.empty")}</p>
           {canEdit ? (
             <Button variant="secondary" disabled={busy} onClick={startEditing}>
-              Add README
+              {t("about.add")}
             </Button>
           ) : null}
         </div>
@@ -224,10 +224,12 @@ export function PackAboutPanel({
     <div className="installed-packs__about">
       {canEdit ? (
         <div className="installed-packs__about-toolbar">
-          <span className="installed-packs__about-toolbar-label">README</span>
+          <span className="installed-packs__about-toolbar-label">
+            {t("about.label")}
+          </span>
           <div className="installed-packs__about-toolbar-actions">
             <Button variant="ghost" disabled={busy} onClick={startEditing}>
-              Edit
+              {t("common:edit")}
             </Button>
           </div>
         </div>

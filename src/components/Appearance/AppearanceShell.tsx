@@ -198,9 +198,9 @@ export function AppearanceShell() {
     packReturnSection ?? "packs",
   ).label;
   const editorBackAriaLabel = viewingPackDetail
-    ? "Back to Pack Details"
-    : "Back to Themes";
-  const packDetailBackAriaLabel = `Back to ${packBackLabel}`;
+    ? t("backToPackDetails")
+    : t("backToThemes");
+  const packDetailBackAriaLabel = t("backTo", { section: packBackLabel });
   const contentKey = editing
     ? `editor-${editorSession.themeId}`
     : `list-${section}`;
@@ -214,7 +214,7 @@ export function AppearanceShell() {
   return (
     <div className="appearance-shell">
       <aside className="appearance-shell__sidebar">
-        <SidebarFrame embedded aria-label="Studio sections">
+        <SidebarFrame embedded aria-label={t("nav.sectionsAria")}>
           <SidebarSection
             label={collectionLabel}
             className="appearance-shell__sidebar-section--first"

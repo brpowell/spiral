@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   cancelPendingSpcardReplace,
   confirmPendingSpcardReplace,
@@ -6,6 +7,7 @@ import { useLicenseStore } from "../../store/useLicenseStore";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
 
 export function ReplaceSpiralCardDialog() {
+  const { t } = useTranslation("common");
   const pendingReplacePath = useLicenseStore((s) => s.pendingReplacePath);
   const open = pendingReplacePath != null;
 
@@ -13,14 +15,12 @@ export function ReplaceSpiralCardDialog() {
     <AlertConfirmation
       open={open}
       onClose={cancelPendingSpcardReplace}
-      title="Replace Spiral Card?"
+      title={t("spiralCard.replaceTitle")}
       titleId="replace-spiral-card-title"
-      confirmLabel="Replace Card"
+      confirmLabel={t("spiralCard.replaceConfirm")}
       onConfirm={confirmPendingSpcardReplace}
     >
-      <p>
-        The current license and design will be replaced by the new one.
-      </p>
+      <p>{t("spiralCard.replaceBody")}</p>
     </AlertConfirmation>
   );
 }

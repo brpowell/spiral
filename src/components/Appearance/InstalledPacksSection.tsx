@@ -106,7 +106,7 @@ function InstalledPackCard({
   onUnlink: () => void;
   onUpdate: () => void;
 }) {
-  const { t } = useTranslation("studio");
+  const { t } = useTranslation(["studio", "common"]);
   const canEdit = isAuthoringPackZone(pack.zone);
   const canUnlink = pack.zone === "linked";
   const canRemove = pack.zone === "workshop" || pack.zone === "installed";
@@ -120,7 +120,7 @@ function InstalledPackCard({
       : t("packs.actionDelete");
   const hasOverflow = canEdit || canUnlink || canRemove;
   const hasActions = hasOverflow || canUpdate;
-  const author = pack.authorId.trim() || "Unknown";
+  const author = pack.authorId.trim() || t("common:unknown");
   const description = pack.description.trim() || undefined;
 
   return (
@@ -215,7 +215,7 @@ export function InstalledPacksSection({
   focusPackId,
   onFocusConsumed,
   onLeaveDetail,
-  detailBackAriaLabel = "Back to Packs",
+  detailBackAriaLabel,
   selectedKey,
   onSelectedKeyChange,
 }: {
@@ -227,7 +227,8 @@ export function InstalledPacksSection({
   selectedKey: string | null;
   onSelectedKeyChange: (key: string | null) => void;
 }) {
-  const { t } = useTranslation("studio");
+  const { t } = useTranslation(["studio", "common", "library"]);
+  const packListBackAriaLabel = detailBackAriaLabel ?? t("backToPacks");
   const [packs, setPacks] = useState<PackSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [search, setSearch] = useState("");
@@ -678,7 +679,7 @@ export function InstalledPacksSection({
               pack={selected}
               catalogEntry={catalogEntry}
               busy={busy || savingEdit || reloading}
-              backAriaLabel={detailBackAriaLabel}
+              backAriaLabel={packListBackAriaLabel}
               onBack={onLeaveDetail}
               onReveal={() => void openPathInFileManager(selected.packDir)}
               onEdit={() => setEditTarget(selected)}
@@ -701,21 +702,25 @@ export function InstalledPacksSection({
             <BrowseView>
               <BrowseViewHeader
                 className="browse-view__header--single-row"
-                title="Packs"
-                count={loaded ? `(${packs.length})` : undefined}
+                title={t("packs.title")}
+                count={
+                  loaded
+                    ? t("library:views.headerCount", { count: packs.length })
+                    : undefined
+                }
                 actions={
                   <div className="installed-packs__header-actions">
                     <SearchField
                       value={search}
                       onChange={setSearch}
-                      placeholder="Search packs…"
-                      aria-label="Search packs"
+                      placeholder={t("packs.searchPlaceholder")}
+                      aria-label={t("packs.searchAria")}
                       className="installed-packs__search"
                     />
                     <div className="installed-packs__toolbar-actions">
                       <MenuButton
-                        ariaLabel="Pack actions"
-                        title="Actions"
+                        ariaLabel={t("packs.actionsAria")}
+                        title={t("common:actions")}
                         layoutDeps={[
                           actionsBusy,
                           importing,
@@ -749,7 +754,7 @@ export function InstalledPacksSection({
                             ) : null}
                             <ContextMenuItem
                               icon={<IconPackagePlus />}
-                              label="Create Pack…"
+                              label={t("packs.create")}
                               onClick={() => {
                                 close();
                                 setCreateOpen(true);
@@ -759,7 +764,9 @@ export function InstalledPacksSection({
                             <ContextMenuItem
                               icon={<IconImport />}
                               label={
-                                importing ? "Installing…" : "Install Pack…"
+                                importing
+                                  ? t("packs.installing")
+                                  : t("packs.install")
                               }
                               disabled={actionsBusy}
                               onClick={() => {
@@ -769,7 +776,11 @@ export function InstalledPacksSection({
                             />
                             <ContextMenuItem
                               icon={<IconFolderLink />}
-                              label={linking ? "Linking…" : "Link a Folder…"}
+                              label={
+                                linking
+                                  ? t("packs.linking")
+                                  : t("packs.linkFolder")
+                              }
                               disabled={actionsBusy}
                               onClick={() => {
                                 close();
@@ -780,7 +791,9 @@ export function InstalledPacksSection({
                             <ContextMenuItem
                               icon={<IconRefresh />}
                               label={
-                                reloading ? "Reloading…" : "Reload Linked Packs"
+                                reloading
+                                  ? t("packs.reloading")
+                                  : t("packs.reloadLinked")
                               }
                               disabled={actionsBusy}
                               onClick={() => {
@@ -798,20 +811,18 @@ export function InstalledPacksSection({
 
               <BrowseGridBody>
                 {!loaded ? (
-                  <p className="browse-view__empty">Loading packs…</p>
+                  <p className="browse-view__empty">{t("packs.loading")}</p>
                 ) : packs.length === 0 ? (
-                  <p className="browse-view__empty">No packs found.</p>
+                  <p className="browse-view__empty">{t("packs.empty")}</p>
                 ) : managedPacks.length === 0 && customPacks.length === 0 ? (
-                  <p className="browse-view__empty">
-                    No packs match your search.
-                  </p>
+                  <p className="browse-view__empty">{t("packs.emptySearch")}</p>
                 ) : (
                   <SectionedList className="installed-packs__sectioned-list">
                     {(
                       [
                         {
                           id: "managed",
-                          title: "Managed",
+                          title: t("packs.managed.title"),
                           icon: <IconPackage />,
                           packs: managedPacks,
                           empty: t("packs.managed.empty"),
@@ -819,7 +830,7 @@ export function InstalledPacksSection({
                         },
                         {
                           id: "custom",
-                          title: "Custom",
+                          title: t("packs.custom.title"),
                           icon: <IconFolderLink />,
                           packs: customPacks,
                           empty: t("packs.custom.empty"),
@@ -921,28 +932,35 @@ export function InstalledPacksSection({
       <AlertConfirmation
         open={deleteTarget != null}
         onClose={() => setDeleteTarget(null)}
-        title="Delete pack?"
-        confirmLabel="Delete"
+        title={t("packs.deleteTitle")}
+        confirmLabel={t("common:delete")}
         onConfirm={handleDeleteWorkshop}
       >
-        This permanently deletes the workshop pack “{deleteTarget?.name}” and
-        all of its contributions. This cannot be undone.
+        {t("packs.deleteBody", { name: deleteTarget?.name ?? "" })}
       </AlertConfirmation>
 
       <AlertConfirmation
         open={deleteContributionTarget != null}
         onClose={() => setDeleteContributionTarget(null)}
-        title="Delete contribution?"
-        confirmLabel="Delete"
+        title={t("packs.deleteContributionTitle")}
+        confirmLabel={t("common:delete")}
         onConfirm={handleDeleteContribution}
       >
         {selected != null &&
         isAuthoringPackZone(selected.zone) &&
         selected.contributions.length <= 1
           ? selected.zone === "linked"
-            ? `This removes “${deleteContributionTarget?.name}” from the linked pack “${selected.name}”. The folder on disk is left in place. This cannot be undone.`
-            : `This removes “${deleteContributionTarget?.name}” and deletes the workshop pack “${selected.name}” because it has no other contributions. This cannot be undone.`
-          : `This removes “${deleteContributionTarget?.name}” from the pack. This cannot be undone.`}
+            ? t("packs.deleteContributionLinkedLast", {
+                name: deleteContributionTarget?.name ?? "",
+                pack: selected.name,
+              })
+            : t("packs.deleteContributionWorkshopLast", {
+                name: deleteContributionTarget?.name ?? "",
+                pack: selected.name,
+              })
+          : t("packs.deleteContribution", {
+              name: deleteContributionTarget?.name ?? "",
+            })}
       </AlertConfirmation>
 
       <AlertConfirmation

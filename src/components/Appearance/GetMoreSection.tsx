@@ -96,9 +96,9 @@ function CatalogPackCard({
   onUpdate?: () => void;
   onUninstall?: () => void;
 }) {
-  const { t } = useTranslation("studio");
+  const { t } = useTranslation(["studio", "common"]);
   const name = catalogDisplayName(entry);
-  const author = entry.authorId.trim() || "Unknown";
+  const author = entry.authorId.trim() || t("common:unknown");
   const description = entry.latestVersion.description?.trim() || undefined;
   const canUninstall = onUninstall != null;
   const canUpdate =
@@ -201,7 +201,7 @@ function CatalogGridSkeleton() {
 }
 
 export function GetMoreSection() {
-  const { t } = useTranslation("studio");
+  const { t } = useTranslation(["studio", "library"]);
   const [entries, setEntries] = useState<CatalogPackEntry[]>(
     () => catalogSnapshot?.entries ?? [],
   );
@@ -376,7 +376,7 @@ export function GetMoreSection() {
               pack={selectedLocal}
               catalogEntry={selectedEntry}
               busy={busy}
-              backAriaLabel={`Back to ${t("catalog.title")}`}
+              backAriaLabel={t("backTo", { section: t("catalog.title") })}
               onBack={() => setSelectedKey(null)}
               onInstall={() => void handleInstallOrUpdate(selectedEntry)}
               onUpdate={() => void handleInstallOrUpdate(selectedEntry)}
@@ -404,7 +404,9 @@ export function GetMoreSection() {
                 className="browse-view__header--single-row"
                 title={t("catalog.title")}
                 count={
-                  !showSkeleton && !error ? `(${entries.length})` : undefined
+                  !showSkeleton && !error
+                    ? t("library:views.headerCount", { count: entries.length })
+                    : undefined
                 }
               />
               <BrowseGridBody>

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { revealInFileManagerLabel } from "../../lib/fileManager";
 import { ContextMenuItem } from "../ContextMenu/ContextMenu";
 import { IconOpenFolder, IconReplace, IconSquareExport } from "../icons";
@@ -24,13 +25,14 @@ export function SpiralCardActionsMenu({
   onExport,
   onReplace,
 }: SpiralCardActionsMenuProps) {
+  const { t } = useTranslation("common");
   const busy = revealing || exporting || replacing || disabled;
 
   return (
     <MenuButton
       className={className}
-      ariaLabel="Manage Card"
-      label="Manage Card"
+      ariaLabel={t("spiralCard.manage")}
+      label={t("spiralCard.manage")}
       layoutDeps={[revealing, exporting, replacing, disabled]}
     >
       {(close) => (
@@ -38,7 +40,7 @@ export function SpiralCardActionsMenu({
           <ContextMenuItem
             icon={<IconOpenFolder />}
             label={
-              revealing ? "Revealing…" : revealInFileManagerLabel()
+              revealing ? t("spiralCard.revealing") : revealInFileManagerLabel()
             }
             disabled={busy}
             onClick={() => {
@@ -48,7 +50,9 @@ export function SpiralCardActionsMenu({
           />
           <ContextMenuItem
             icon={<IconSquareExport />}
-            label={exporting ? "Exporting…" : "Export Card…"}
+            label={
+              exporting ? t("spiralCard.exporting") : t("spiralCard.export")
+            }
             disabled={busy}
             onClick={() => {
               close();
@@ -57,7 +61,9 @@ export function SpiralCardActionsMenu({
           />
           <ContextMenuItem
             icon={<IconReplace />}
-            label={replacing ? "Installing…" : "Replace Card…"}
+            label={
+              replacing ? t("spiralCard.installing") : t("spiralCard.replace")
+            }
             disabled={busy}
             onClick={() => {
               close();

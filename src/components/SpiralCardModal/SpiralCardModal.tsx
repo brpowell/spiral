@@ -1,6 +1,8 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { motion } from "framer-motion";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import type { TFunction } from "i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { usePointerTiltArt } from "../../hooks/usePointerTiltArt";
 import { copyTextToClipboard } from "../../lib/clipboard";
@@ -55,6 +57,7 @@ const CARDHOLDER_NAME_MAX = 40;
 const COPY_FEEDBACK_MS = 2000;
 
 function PurchaseIdRow({ purchaseId }: { purchaseId: string }) {
+  const { t } = useTranslation("common");
   const [copied, setCopied] = useState(false);
   const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -89,18 +92,22 @@ function PurchaseIdRow({ purchaseId }: { purchaseId: string }) {
 
   return (
     <div className="spiral-card-modal__purchase">
-      <span className="spiral-card-modal__purchase-label">Purchase ID</span>
+      <span className="spiral-card-modal__purchase-label">
+        {t("spiralCard.purchaseId")}
+      </span>
       <Button
         variant="ghost"
         size="sm"
         className="spiral-card-modal__purchase-id"
         onClick={() => void copyPurchaseId()}
-        title={copied ? "Copied" : "Copy purchase ID"}
+        title={copied ? t("spiralCard.copied") : t("spiralCard.copyPurchaseId")}
         aria-label={
-          copied ? "Copied purchase ID" : `Copy purchase ID ${purchaseId}`
+          copied
+            ? t("spiralCard.copiedAria")
+            : t("spiralCard.copyPurchaseIdAria", { id: purchaseId })
         }
       >
-        {copied ? "Copied" : purchaseId}
+        {copied ? t("spiralCard.copied") : purchaseId}
       </Button>
     </div>
   );
@@ -114,7 +121,7 @@ function isFinalizeNetworkFailure(raw: string): boolean {
   );
 }
 
-function SupportEmailLink() {
+function SupportEmailLink({ children }: { children?: ReactNode }) {
   const href = `mailto:${SUPPORT_EMAIL}`;
   return (
     <TextLink
@@ -125,24 +132,26 @@ function SupportEmailLink() {
         void openUrl(href);
       }}
     >
-      {SUPPORT_EMAIL}
+      {children ?? SUPPORT_EMAIL}
     </TextLink>
   );
 }
 
 /** Sticky inline copy for non-network finalize failures (near Submit & finalize). */
-function finalizeBusinessErrorCopy(raw: string): ReactNode {
+function FinalizeBusinessError({ raw }: { raw: string }) {
+  const { t } = useTranslation("common");
   const support = (
-    <>
-      {" "}
-      Otherwise, contact <SupportEmailLink />.
-    </>
+    <Trans
+      i18nKey="spiralCard.errorSupport"
+      t={t}
+      values={{ email: SUPPORT_EMAIL }}
+      components={{ email: <SupportEmailLink /> }}
+    />
   );
   if (raw.includes("unknown_purchase")) {
     return (
       <>
-        We couldn&apos;t find your purchase, double-check this card matches your
-        order.
+        {t("spiralCard.errorUnknownPurchase")}
         {support}
       </>
     );
@@ -150,8 +159,7 @@ function finalizeBusinessErrorCopy(raw: string): ReactNode {
   if (raw.includes("refunded")) {
     return (
       <>
-        This purchase was refunded, so permanent registration can&apos;t be
-        issued.
+        {t("spiralCard.errorRefunded")}
         {support}
       </>
     );
@@ -165,40 +173,45 @@ function finalizeBusinessErrorCopy(raw: string): ReactNode {
 }
 
 /** Short status copy shown under the card preview. */
-function registrationStatusCopy(
-  status: LicenseStatus,
-  expiresAt: string | null,
-): ReactNode | null {
+function RegistrationStatusCopy({
+  status,
+  expiresAt,
+}: {
+  status: LicenseStatus;
+  expiresAt: string | null;
+}): ReactNode {
+  const { t } = useTranslation("common");
   switch (status) {
     case "provisional": {
       const date = expiresAt ? formatDateAdded(expiresAt) : null;
       return date ? (
-        <>
-          Your provisional card grants full access to Spiral. After{" "}
-          <strong className="spiral-card-modal__registration-date">
-            {date}
-          </strong>
-          , you can convert it into a permanent card.
-        </>
+        <Trans
+          i18nKey="spiralCard.provisionalCopyDated"
+          t={t}
+          values={{ date }}
+          components={{
+            date: <strong className="spiral-card-modal__registration-date" />,
+          }}
+        />
       ) : (
-        "Your provisional card grants full access to Spiral. After the refund window ends, you can convert it into a permanent card."
+        t("spiralCard.provisionalCopy")
       );
     }
     case "readyToFinalize":
-      return "We'll stamp it as permanent — Spiral is yours, forever. You can change how it looks at any time.";
+      return t("spiralCard.readyCopy");
     default:
       return null;
   }
 }
 
-function modalTitleFor(status: LicenseStatus): string {
+function modalTitleFor(status: LicenseStatus, t: TFunction<"common">): string {
   switch (status) {
     case "trial":
-      return "Unlock the full experience";
+      return t("spiralCard.titleTrial");
     case "readyToFinalize":
-      return "Your card is ready to be finalized";
+      return t("spiralCard.titleReady");
     default:
-      return "Your Spiral card";
+      return t("spiralCard.title");
   }
 }
 
@@ -212,6 +225,7 @@ function wrapDataUrl(cosmetic: LicenseCosmetic): string | null {
 }
 
 export function SpiralCardModal() {
+  const { t } = useTranslation("common");
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const stampTimeoutRef = useRef<number | null>(null);
@@ -233,7 +247,7 @@ export function SpiralCardModal() {
   const [revealingCard, setRevealingCard] = useState(false);
   const [exportingCard, setExportingCard] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [finalizeError, setFinalizeError] = useState<ReactNode>(null);
+  const [finalizeError, setFinalizeError] = useState<string | null>(null);
   const [stampingCard, setStampingCard] = useState(false);
   const [draftColor, setDraftColor] = useState(DEFAULT_COLOR);
   const [draftCardholderName, setDraftCardholderName] = useState("");
@@ -255,9 +269,6 @@ export function SpiralCardModal() {
     wrapData: null,
   };
   const wrapUrl = wrapDataUrl(cosmetic);
-  const statusCopy = hasCard
-    ? registrationStatusCopy(snapshot.status, snapshot.expiresAt)
-    : null;
 
   useFocusTrap(panelRef, open);
 
@@ -331,7 +342,7 @@ export function SpiralCardModal() {
             spiralCardFinalizeNetworkErrorPayload(!isNetworkLikelyAvailable()),
           );
       } else {
-        setFinalizeError(finalizeBusinessErrorCopy(message));
+        setFinalizeError(message);
       }
     } finally {
       setConfirmingFinalize(false);
@@ -418,7 +429,7 @@ export function SpiralCardModal() {
       const message = err instanceof Error ? err.message : String(err);
       setError(
         message === "no_registration_card"
-          ? "Couldn't find the installed Spiral Card file."
+          ? t("spiralCard.missingFile")
           : message,
       );
     } finally {
@@ -436,7 +447,7 @@ export function SpiralCardModal() {
       const message = err instanceof Error ? err.message : String(err);
       setError(
         message === "no_registration_card"
-          ? "Couldn't find the installed Spiral Card file."
+          ? t("spiralCard.missingFile")
           : message,
       );
     } finally {
@@ -459,7 +470,9 @@ export function SpiralCardModal() {
     >
       <ModalHeader>
         <ModalHeaderMain>
-          <ModalTitle id={titleId}>{modalTitleFor(snapshot.status)}</ModalTitle>
+          <ModalTitle id={titleId}>
+            {modalTitleFor(snapshot.status, t)}
+          </ModalTitle>
         </ModalHeaderMain>
         <ModalCloseButton onClick={close} />
       </ModalHeader>
@@ -474,9 +487,7 @@ export function SpiralCardModal() {
         {!hasCard ? (
           <div className="spiral-card-modal__trial">
             <p className="spiral-card-modal__copy">
-              We hope you&apos;re enjoying the free trial, which includes adding
-              up to {TRIAL_LIBRARY_TRACK_CAP} tracks to your library. Purchase a
-              Spiral Card, or add your existing one, to unlock more tracks.
+              {t("spiralCard.trialBody", { count: TRIAL_LIBRARY_TRACK_CAP })}
             </p>
             {snapshot.error && (
               <p className="spiral-card-modal__error" role="alert">
@@ -533,7 +544,7 @@ export function SpiralCardModal() {
                       <span className="spiral-card-modal__status-pill">
                         {loaded
                           ? licenseStatusLabel(snapshot.status)
-                          : "Loading…"}
+                          : t("loading")}
                       </span>
                     </div>
                     <div className="spiral-card-modal__preview-footer">
@@ -544,7 +555,7 @@ export function SpiralCardModal() {
                       )}
                       {snapshot.sku === "founder" && (
                         <span className="spiral-card-modal__founder">
-                          Founder
+                          {t("spiralCard.founder")}
                         </span>
                       )}
                     </div>
@@ -556,10 +567,14 @@ export function SpiralCardModal() {
                 <PurchaseIdRow purchaseId={snapshot.originalPurchaseId} />
               )}
 
-              {statusCopy && (
+              {(snapshot.status === "provisional" ||
+                snapshot.status === "readyToFinalize") && (
                 <div className="spiral-card-modal__registration">
                   <p className="spiral-card-modal__registration-copy">
-                    {statusCopy}
+                    <RegistrationStatusCopy
+                      status={snapshot.status}
+                      expiresAt={snapshot.expiresAt}
+                    />
                   </p>
                   {snapshot.status === "readyToFinalize" && (
                     <>
@@ -570,15 +585,15 @@ export function SpiralCardModal() {
                         onClick={() => void confirmFinalize()}
                       >
                         {confirmingFinalize
-                          ? "Confirming…"
-                          : "Submit & finalize"}
+                          ? t("spiralCard.confirming")
+                          : t("spiralCard.submit")}
                       </Button>
                       {finalizeError && (
                         <p
                           className="spiral-card-modal__error spiral-card-modal__finalize-error"
                           role="alert"
                         >
-                          {finalizeError}
+                          <FinalizeBusinessError raw={finalizeError} />
                         </p>
                       )}
                     </>
@@ -596,7 +611,7 @@ export function SpiralCardModal() {
 
               <div className="spiral-card-modal__controls-header">
                 <h3 className="spiral-card-modal__controls-title">
-                  Personalize
+                  {t("spiralCard.personalize")}
                 </h3>
                 <SpiralCardActionsMenu
                   className="spiral-card-modal__actions"
@@ -611,11 +626,11 @@ export function SpiralCardModal() {
               </div>
 
               <div className="spiral-card-modal__studio">
-                <FormField label="Name">
+                <FormField label={t("name")}>
                   <TextInput
                     value={draftCardholderName}
                     maxLength={CARDHOLDER_NAME_MAX}
-                    placeholder="Your name"
+                    placeholder={t("spiralCard.namePlaceholder")}
                     disabled={savingCosmetic || confirmingFinalize}
                     onChange={(e) => setDraftCardholderName(e.target.value)}
                     onBlur={(e) => commitCardholderName(e.target.value)}
@@ -626,7 +641,7 @@ export function SpiralCardModal() {
                     }}
                   />
                 </FormField>
-                <FormField label="Color">
+                <FormField label={t("spiralCard.color")}>
                   <ColorField
                     value={draftColor}
                     onChange={commitColor}
@@ -636,12 +651,12 @@ export function SpiralCardModal() {
                         ? () => commitColor(DEFAULT_COLOR)
                         : undefined
                     }
-                    resetLabel="Reset to default color"
+                    resetLabel={t("spiralCard.resetColor")}
                   />
                 </FormField>
                 <FormField
-                  label="Wrap"
-                  description="Full-bleed art for the card face (856×540 recommended)."
+                  label={t("spiralCard.wrap")}
+                  description={t("spiralCard.wrapDescription")}
                 >
                   <div className="spiral-card-modal__wrap-actions">
                     <Button
@@ -650,7 +665,9 @@ export function SpiralCardModal() {
                       onClick={() => void chooseWrap()}
                       size="sm"
                     >
-                      {savingCosmetic ? "Saving…" : "Choose image…"}
+                      {savingCosmetic
+                        ? t("saving")
+                        : t("spiralCard.chooseImage")}
                     </Button>
                     {cosmetic.wrapRef === "custom" && (
                       <Button
@@ -659,7 +676,7 @@ export function SpiralCardModal() {
                         disabled={savingCosmetic || confirmingFinalize}
                         onClick={() => void resetWrap()}
                       >
-                        Use default
+                        {t("spiralCard.useDefault")}
                       </Button>
                     )}
                   </div>
@@ -677,13 +694,15 @@ export function SpiralCardModal() {
             disabled={installingCard}
             onClick={() => void installCard()}
           >
-            {installingCard ? "Adding…" : "Add existing card…"}
+            {installingCard
+              ? t("spiralCard.adding")
+              : t("spiralCard.addExisting")}
           </Button>
           <Button
             variant="primary"
             onClick={() => void openUrl(TRIAL_PURCHASE_URL)}
           >
-            Purchase new card
+            {t("spiralCard.purchase")}
           </Button>
         </ModalFooter>
       )}

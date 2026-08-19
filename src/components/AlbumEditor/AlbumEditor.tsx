@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -9,7 +10,11 @@ import {
   buildTrackAlbumMetadata,
   type AlbumEditorForm,
 } from "../../lib/albumMetadata";
-import { albumKey, getAlbumByKey, groupTracksIntoAlbums } from "../../lib/albums";
+import {
+  albumKey,
+  getAlbumByKey,
+  groupTracksIntoAlbums,
+} from "../../lib/albums";
 import { formatBytes, formatDimensions } from "../../lib/formatBytes";
 import {
   cacheArtFromFile,
@@ -40,6 +45,7 @@ import "../TrackEditor/TrackEditor.css";
 import "./AlbumEditor.css";
 
 function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
+  const { t } = useTranslation("library");
   const [dims, setDims] = useState<{ w: number; h: number } | null>(() =>
     candidate.width != null && candidate.height != null
       ? { w: candidate.width, h: candidate.height }
@@ -76,12 +82,13 @@ function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
 
   return (
     <span className="track-editor__cover-meta">
-      {meta || "Loading details…"}
+      {meta || t("editor.loadingDetails")}
     </span>
   );
 }
 
 export function AlbumEditor() {
+  const { t } = useTranslation(["library", "common"]);
   const editingAlbumKey = usePlayerStore((s) => s.editingAlbumKey);
   const library = usePlayerStore((s) => s.library);
   const closeAlbumEditor = usePlayerStore((s) => s.closeAlbumEditor);
@@ -98,7 +105,9 @@ export function AlbumEditor() {
 
   const dialogRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState<AlbumEditorForm | null>(null);
-  const [originalForm, setOriginalForm] = useState<AlbumEditorForm | null>(null);
+  const [originalForm, setOriginalForm] = useState<AlbumEditorForm | null>(
+    null,
+  );
   const [pendingArtPath, setPendingArtPath] = useState<string | null>(null);
   const [originalArtPath, setOriginalArtPath] = useState<string | null>(null);
   const [artSourcePath, setArtSourcePath] = useState<string | null>(null);
@@ -109,7 +118,9 @@ export function AlbumEditor() {
     total: number;
   } | null>(null);
   const [fetchingArt, setFetchingArt] = useState(false);
-  const [coverCandidates, setCoverCandidates] = useState<CoverArtCandidate[]>([]);
+  const [coverCandidates, setCoverCandidates] = useState<CoverArtCandidate[]>(
+    [],
+  );
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
@@ -163,7 +174,10 @@ export function AlbumEditor() {
     if (!referenceTrack) return;
     setSaveError(null);
     try {
-      const cached = await cacheArtFromFile(sourcePath, referenceTrack.filePath);
+      const cached = await cacheArtFromFile(
+        sourcePath,
+        referenceTrack.filePath,
+      );
       setArtSourcePath(sourcePath);
       setSelectedCoverUrl(null);
       setPendingArtPath(cached);
@@ -192,7 +206,7 @@ export function AlbumEditor() {
       return;
     }
 
-    setSaveError("Could not read the dropped image path.");
+    setSaveError(t("library:editor.dropArtFailed"));
   };
 
   useArtFileDrop(isOpen && !!referenceTrack, applyArtPath);
@@ -207,7 +221,7 @@ export function AlbumEditor() {
     try {
       const candidates = await fetchCoverArt(form.artist, form.title);
       if (candidates.length === 0) {
-        setFetchMessage("No results found");
+        setFetchMessage(t("library:editor.noArtResults"));
       } else {
         setCoverCandidates(candidates);
       }
@@ -225,7 +239,9 @@ export function AlbumEditor() {
     setArtSourcePath(null);
   };
 
-  const resolveArtPathForTrack = async (track: Track): Promise<string | null> => {
+  const resolveArtPathForTrack = async (
+    track: Track,
+  ): Promise<string | null> => {
     if (selectedCoverUrl) {
       return cacheArtFromUrl(selectedCoverUrl, track.filePath);
     }
@@ -279,7 +295,11 @@ export function AlbumEditor() {
         setSaveError(
           errors.length === tracks.length
             ? errors[0]
-            : `Updated ${updated.length} of ${tracks.length} tracks. ${errors[0]}`,
+            : t("library:editor.partialSave", {
+                updated: updated.length,
+                total: tracks.length,
+                error: errors[0],
+              }),
         );
         return;
       }
@@ -295,16 +315,17 @@ export function AlbumEditor() {
     }
   };
 
-  const displayArtSrc = useAssetUrl(
-    selectedCoverUrl ? null : pendingArtPath,
-  );
+  const displayArtSrc = useAssetUrl(selectedCoverUrl ? null : pendingArtPath);
   const previewSrc = selectedCoverUrl ?? displayArtSrc;
 
   const saveLabel = saving
     ? saveProgress
-      ? `Saving ${saveProgress.current}/${saveProgress.total}…`
-      : "Saving…"
-    : "Save";
+      ? t("library:editor.savingProgress", {
+          current: saveProgress.current,
+          total: saveProgress.total,
+        })
+      : t("common:saving")
+    : t("common:save");
 
   return (
     <Modal
@@ -323,10 +344,13 @@ export function AlbumEditor() {
           >
             <ModalHeader>
               <ModalHeaderMain>
-                <ModalTitle id="album-editor-title">Edit album</ModalTitle>
+                <ModalTitle id="album-editor-title">
+                  {t("library:editor.editAlbum")}
+                </ModalTitle>
                 <ModalDescription>
-                  Changes apply to all {tracks.length}{" "}
-                  {tracks.length === 1 ? "track" : "tracks"}.
+                  {t("library:editor.editAlbumDescription", {
+                    count: tracks.length,
+                  })}
                 </ModalDescription>
               </ModalHeaderMain>
             </ModalHeader>
@@ -366,7 +390,7 @@ export function AlbumEditor() {
                     className="track-editor__art-btn"
                     onClick={() => void handleChangeArt()}
                   >
-                    Add art
+                    {t("library:editor.addArt")}
                   </Button>
                   <Button
                     size="sm"
@@ -374,7 +398,9 @@ export function AlbumEditor() {
                     onClick={() => void handleFetchArt()}
                     disabled={fetchingArt}
                   >
-                    {fetchingArt ? "Fetching…" : "Fetch Art"}
+                    {fetchingArt
+                      ? t("library:editor.fetchingArt")
+                      : t("library:editor.fetchArt")}
                   </Button>
                   {fetchMessage && !fetchingArt && (
                     <p className="track-editor__fetch-msg">{fetchMessage}</p>
@@ -389,16 +415,17 @@ export function AlbumEditor() {
                         className="track-editor__fetching-spinner"
                         aria-hidden
                       />
-                      <span>Fetching artwork…</span>
+                      <span>{t("library:editor.fetchingArtStatus")}</span>
                     </div>
                   )}
                   {coverCandidates.length > 0 && (
                     <div
                       className="track-editor__cover-picker"
-                      aria-label="Cover art options"
+                      aria-label={t("library:editor.coverOptions")}
                     >
                       {coverCandidates.map((candidate) => {
-                        const thumbSrc = candidate.thumbnailUrl ?? candidate.url;
+                        const thumbSrc =
+                          candidate.thumbnailUrl ?? candidate.url;
 
                         return (
                           <button
@@ -424,19 +451,19 @@ export function AlbumEditor() {
                 </div>
 
                 <div className="track-editor__fields">
-                  <FormField label="Album">
+                  <FormField label={t("library:editor.fields.album")}>
                     <TextInput
                       value={form.title}
                       onChange={(e) => setField("title", e.target.value)}
                     />
                   </FormField>
-                  <FormField label="Album Artist">
+                  <FormField label={t("library:editor.fields.albumArtist")}>
                     <TextInput
                       value={form.artist}
                       onChange={(e) => setField("artist", e.target.value)}
                     />
                   </FormField>
-                  <FormField label="Year">
+                  <FormField label={t("library:editor.fields.year")}>
                     <TextInput
                       type="number"
                       value={form.year}
@@ -456,7 +483,7 @@ export function AlbumEditor() {
             <ModalFooter
               onCancel={requestClose}
               cancelDisabled={saving}
-              cancelLabel="Cancel"
+              cancelLabel={t("common:cancel")}
             >
               <Button
                 variant="primary"
@@ -470,7 +497,7 @@ export function AlbumEditor() {
 
           <EditorDiscardOverlay
             open={discardPrompt}
-            description="Unsaved edits to this album will be lost."
+            description={t("library:editor.discardAlbum")}
             onKeepEditing={dismissDiscardPrompt}
             onDiscard={closeAlbumEditor}
           />

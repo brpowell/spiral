@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -142,6 +143,7 @@ function lyricsFormFieldsFromLoaded(loaded: LoadedTrackLyrics) {
 }
 
 export function TrackEditor() {
+  const { t } = useTranslation(["library", "common"]);
   const editingTrackIds = usePlayerStore((s) => s.editingTrackIds);
   const trackEditorInitialTab = usePlayerStore((s) => s.trackEditorInitialTab);
   const library = usePlayerStore((s) => s.library);
@@ -438,12 +440,10 @@ export function TrackEditor() {
 
       setSaveError(result.message);
       setLyricsFetchFeedback(
-        createLyricsFetchFeedback(
-          "Fetched lyrics couldn't be saved. Try again or use Save.",
-        ),
+        createLyricsFetchFeedback(t("library:editor.lyrics.commitFailed")),
       );
     },
-    [originalForm, referenceTrack],
+    [originalForm, referenceTrack, t],
   );
 
   const handleFetchLyrics = useCallback(async () => {
@@ -461,7 +461,7 @@ export function TrackEditor() {
     if (!artist || !title) {
       setLyricsFetchFeedback(
         createLyricsFetchFeedback(
-          "Artist and title are required to fetch lyrics.",
+          t("library:editor.lyrics.artistTitleRequired"),
         ),
       );
       return;
@@ -469,9 +469,7 @@ export function TrackEditor() {
 
     if (!referenceTrack.durationSeconds) {
       setLyricsFetchFeedback(
-        createLyricsFetchFeedback(
-          "Track duration is required to fetch lyrics from LRCLIB.",
-        ),
+        createLyricsFetchFeedback(t("library:editor.lyrics.durationRequired")),
       );
       return;
     }
@@ -484,7 +482,7 @@ export function TrackEditor() {
       album,
       durationSeconds: referenceTrack.durationSeconds,
     });
-  }, [lyricsFetchPending, form, referenceTrack]);
+  }, [lyricsFetchPending, form, referenceTrack, t]);
 
   const handleSelectLyricsCandidate = useCallback(
     async (candidate: LyricsSearchCandidate) => {
@@ -555,7 +553,7 @@ export function TrackEditor() {
       return;
     }
 
-    setSaveError("Could not read the dropped image path.");
+    setSaveError(t("library:editor.dropArtFailed"));
   };
 
   useArtFileDrop(isOpen && !!referenceTrack, applyArtPath);
@@ -574,7 +572,7 @@ export function TrackEditor() {
         form.artist;
       const candidates = await fetchCoverArt(primaryArtist, form.album);
       if (candidates.length === 0) {
-        setFetchMessage("No results found");
+        setFetchMessage(t("library:editor.noArtResults"));
       } else {
         setCoverCandidates(candidates);
       }
@@ -739,18 +737,21 @@ export function TrackEditor() {
 
   const saveLabel = saving
     ? saveProgress
-      ? `Saving ${saveProgress.current}/${saveProgress.total}…`
-      : "Saving…"
-    : "Save";
+      ? t("library:editor.savingProgress", {
+          current: saveProgress.current,
+          total: saveProgress.total,
+        })
+      : t("common:saving")
+    : t("common:save");
 
   const discardDescription = isBulk
-    ? `Unsaved edits to ${tracks.length} tracks will be lost.`
-    : "Unsaved edits to this track will be lost.";
+    ? t("library:editor.discardBulk", { count: tracks.length })
+    : t("library:editor.discardSingle");
 
   const hasLyrics =
     (form?.lyrics.trim().length ?? 0) > 0 || Boolean(form?.lyricsInstrumental);
 
-  const identityTitle = form?.title.trim() || "Untitled";
+  const identityTitle = form?.title.trim() || t("common:untitled");
   const identitySubtitle = [
     form ? parseArtistField(form.artist).join(", ") : "",
     form?.album.trim() ?? "",
@@ -779,10 +780,12 @@ export function TrackEditor() {
               {isBulk ? (
                 <ModalHeaderMain>
                   <ModalTitle id="track-editor-title">
-                    {`Edit ${tracks.length} tracks`}
+                    {t("library:editor.editTracks", { count: tracks.length })}
                   </ModalTitle>
                   <ModalDescription>
-                    Changes apply to all {tracks.length} tracks.
+                    {t("library:editor.editTracksDescription", {
+                      count: tracks.length,
+                    })}
                   </ModalDescription>
                 </ModalHeaderMain>
               ) : (
@@ -825,12 +828,14 @@ export function TrackEditor() {
               variant="underline"
             >
               <div className="track-editor__tab-bar">
-                <TabList aria-label="Track editor sections">
-                  <Tab value="details">Details</Tab>
+                <TabList aria-label={t("library:editor.tabsAria")}>
+                  <Tab value="details">{t("library:editor.tabDetails")}</Tab>
                   <Tab value="lyrics" badge={hasLyrics ? "•" : undefined}>
-                    Lyrics
+                    {t("library:editor.tabLyrics")}
                   </Tab>
-                  {!isBulk ? <Tab value="file">File</Tab> : null}
+                  {!isBulk ? (
+                    <Tab value="file">{t("library:editor.tabFile")}</Tab>
+                  ) : null}
                 </TabList>
               </div>
 
@@ -901,7 +906,7 @@ export function TrackEditor() {
             <ModalFooter
               onCancel={requestClose}
               cancelDisabled={saving}
-              cancelLabel="Cancel"
+              cancelLabel={t("common:cancel")}
             >
               <Button
                 variant="primary"

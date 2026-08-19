@@ -5,6 +5,7 @@ import type {
   TrackLyrics,
   TrackLyricsInput,
 } from "../types/lyrics";
+import { t } from "./i18n";
 import {
   createTrackLyricsInputFromText,
   isLrcContent,
@@ -43,8 +44,7 @@ function parseLyricsLine(raw: Record<string, unknown>): LyricsLine {
       (raw.startMs as number | undefined) ??
       (raw.start_ms as number | undefined),
     endMs:
-      (raw.endMs as number | undefined) ??
-      (raw.end_ms as number | undefined),
+      (raw.endMs as number | undefined) ?? (raw.end_ms as number | undefined),
     words: Array.isArray(raw.words)
       ? raw.words.map((word) => {
           const entry = word as Record<string, unknown>;
@@ -81,7 +81,9 @@ export function normalizeTrackLyricsInput(
 }
 
 /** Normalize lyrics JSON from the Tauri IPC boundary. */
-export function normalizeTrackLyrics(raw: Record<string, unknown>): TrackLyrics {
+export function normalizeTrackLyrics(
+  raw: Record<string, unknown>,
+): TrackLyrics {
   const lines = Array.isArray(raw.lines)
     ? raw.lines.map((line) => parseLyricsLine(line as Record<string, unknown>))
     : [];
@@ -266,13 +268,13 @@ export function createPlainTrackLyrics(
 export function formatLyricsFormatLabel(format: LyricsFormat): string {
   switch (format) {
     case "plain":
-      return "Plain";
+      return t("library:editor.lyrics.formatPlain");
     case "line_synced":
-      return "Line Synced";
+      return t("library:editor.lyrics.formatLineSynced");
     case "word_synced":
-      return "Word Synced";
+      return t("library:editor.lyrics.formatWordSynced");
     case "instrumental":
-      return "Instrumental";
+      return t("library:editor.lyrics.formatInstrumental");
   }
 }
 

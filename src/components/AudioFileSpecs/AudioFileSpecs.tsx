@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { audioExtensionFromPath } from "../../lib/supportedAudio";
 import {
   formatBitrate,
@@ -56,23 +57,20 @@ export function AudioFileSpecs({
   formatLabel?: string;
   sizeLabel?: string;
 }) {
+  const { t } = useTranslation("library");
   const codecValue =
     formatLabel ??
     formatCodec(codec) ??
     (audioExtensionFromPath(filePath ?? "").toUpperCase() || null);
-  const sampleRateValue = formatLabel
-    ? null
-    : formatSampleRate(sampleRate);
+  const sampleRateValue = formatLabel ? null : formatSampleRate(sampleRate);
   const bitrateValue = formatLabel ? null : formatBitrate(bitrate);
   const sizeValue =
     sizeLabel ??
     (sizeBytes != null && sizeBytes > 0
       ? formatBytes(sizeBytes)
-      : "Size unknown");
+      : t("editor.specs.sizeUnknown"));
   const dateAddedValue =
-    dateAdded != null && dateAdded !== ""
-      ? formatDateAdded(dateAdded)
-      : null;
+    dateAdded != null && dateAdded !== "" ? formatDateAdded(dateAdded) : null;
   const rootClassName = className
     ? `audio-file-specs ${className}`
     : "audio-file-specs";
@@ -80,22 +78,34 @@ export function AudioFileSpecs({
   return (
     <dl className={rootClassName}>
       {codecValue ? (
-        <SpecItem label="Codec" value={codecValue} icon={IconFileMusic} />
+        <SpecItem
+          label={t("editor.specs.codec")}
+          value={codecValue}
+          icon={IconFileMusic}
+        />
       ) : null}
       {sampleRateValue ? (
         <SpecItem
-          label="Sample Rate"
+          label={t("editor.specs.sampleRate")}
           value={sampleRateValue}
           icon={IconAudioWaveform}
         />
       ) : null}
       {bitrateValue ? (
-        <SpecItem label="Bitrate" value={bitrateValue} icon={IconBitrate} />
+        <SpecItem
+          label={t("editor.specs.bitrate")}
+          value={bitrateValue}
+          icon={IconBitrate}
+        />
       ) : null}
-      <SpecItem label="Size" value={sizeValue} icon={IconHardDrive} />
+      <SpecItem
+        label={t("editor.specs.size")}
+        value={sizeValue}
+        icon={IconHardDrive}
+      />
       {dateAddedValue && dateAddedValue !== "—" ? (
         <SpecItem
-          label="Date Added"
+          label={t("editor.specs.dateAdded")}
           value={dateAddedValue}
           icon={IconCalendarPlus}
         />

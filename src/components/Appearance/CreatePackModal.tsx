@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "../common/Button/Button";
 import { FormField } from "../common/Field/Field";
 import {
@@ -30,6 +31,7 @@ export function CreatePackModal({
   onClose,
   onCreate,
 }: CreatePackModalProps) {
+  const { t } = useTranslation(["studio", "common"]);
   const titleId = useId();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -59,15 +61,15 @@ export function CreatePackModal({
     >
       <ModalHeader>
         <ModalHeaderMain>
-          <ModalTitle id={titleId}>Create Pack</ModalTitle>
+          <ModalTitle id={titleId}>{t("packs.createTitle")}</ModalTitle>
         </ModalHeaderMain>
       </ModalHeader>
       <ModalBody>
-        <FormField label="Name">
+        <FormField label={t("common:name")}>
           <TextInput
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Pack name"
+            placeholder={t("packs.namePlaceholder")}
             autoFocus
             disabled={creating}
             onKeyDown={(e) => {
@@ -78,11 +80,11 @@ export function CreatePackModal({
             }}
           />
         </FormField>
-        <FormField label="Description">
+        <FormField label={t("common:description")}>
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Short description"
+            placeholder={t("packs.descriptionPlaceholder")}
             rows={2}
             disabled={creating}
             autoSize
@@ -90,12 +92,8 @@ export function CreatePackModal({
         </FormField>
       </ModalBody>
       <ModalFooter onCancel={onClose} cancelDisabled={creating}>
-        <Button
-          variant="primary"
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-        >
-          {creating ? "Creating…" : "Create"}
+        <Button variant="primary" disabled={!canSubmit} onClick={handleSubmit}>
+          {creating ? t("common:creating") : t("common:create")}
         </Button>
       </ModalFooter>
     </Modal>

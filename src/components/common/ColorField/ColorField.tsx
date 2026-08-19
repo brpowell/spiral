@@ -1,8 +1,5 @@
-import {
-  useId,
-  type ChangeEvent,
-  type ComponentPropsWithoutRef,
-} from "react";
+import { useId, type ChangeEvent, type ComponentPropsWithoutRef } from "react";
+import { t } from "../../../lib/i18n";
 import { IconReset } from "../../icons";
 import {
   InputGroup,
@@ -55,7 +52,9 @@ export function cssColorToHex(input: string): string | null {
   const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(computed);
   if (!rgb) return null;
   const toHex = (n: string) =>
-    Math.max(0, Math.min(255, Number(n))).toString(16).padStart(2, "0");
+    Math.max(0, Math.min(255, Number(n)))
+      .toString(16)
+      .padStart(2, "0");
   return `#${toHex(rgb[1])}${toHex(rgb[2])}${toHex(rgb[3])}`;
 }
 
@@ -66,7 +65,7 @@ export function ColorField({
   id: idProp,
   swatchLabel = "Open color picker",
   onReset,
-  resetLabel = "Reset to original",
+  resetLabel = t("common:resetToOriginal"),
   disabled,
   ...props
 }: ColorFieldProps) {

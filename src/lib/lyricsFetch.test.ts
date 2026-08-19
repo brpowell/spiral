@@ -12,7 +12,9 @@ import {
 describe("lyricsFetchFailureFeedback", () => {
   it("maps network failures to a friendly message", () => {
     expect(
-      lyricsFetchFailureFeedback(new Error("LRCLIB request failed: connection refused")),
+      lyricsFetchFailureFeedback(
+        new Error("LRCLIB request failed: connection refused"),
+      ),
     ).toEqual({
       text: "Couldn't reach LRCLIB. Check your connection and try again.",
       variant: "error",
@@ -22,7 +24,9 @@ describe("lyricsFetchFailureFeedback", () => {
   it("maps parse failures to a friendly message", () => {
     expect(
       lyricsFetchFailureFeedback(
-        new Error("failed to parse LRCLIB response: expected value at line 1 column 1"),
+        new Error(
+          "failed to parse LRCLIB response: expected value at line 1 column 1",
+        ),
       ),
     ).toEqual({
       text: "Received an unexpected response from LRCLIB. Try again later.",
@@ -30,13 +34,21 @@ describe("lyricsFetchFailureFeedback", () => {
     });
   });
 
-  it("keeps validation errors as-is", () => {
+  it("maps validation errors to catalog copy", () => {
     expect(
       lyricsFetchFailureFeedback(
         new Error("Artist and title are required to fetch lyrics"),
       ),
     ).toEqual({
-      text: "Artist and title are required to fetch lyrics",
+      text: "Artist and title are required to fetch lyrics.",
+      variant: "error",
+    });
+    expect(
+      lyricsFetchFailureFeedback(
+        new Error("Track duration is required to fetch lyrics from LRCLIB."),
+      ),
+    ).toEqual({
+      text: "Track duration is required to fetch lyrics from LRCLIB.",
       variant: "error",
     });
   });

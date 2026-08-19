@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { t } from "../../lib/i18n";
 import { packPreviewUrl } from "../../lib/packs/packPreview";
 import {
   CONTRIBUTION_TYPE_FOLDERS,
@@ -28,13 +29,13 @@ export function contributionTypeMeta(type: string): {
 } {
   switch (type) {
     case "theme":
-      return { label: "Themes", icon: <IconPalette /> };
+      return { label: t("studio:types.theme"), icon: <IconPalette /> };
     case "skin":
-      return { label: "Skins", icon: <IconSkinMode /> };
+      return { label: t("studio:types.skin"), icon: <IconSkinMode /> };
     case "visualizer":
-      return { label: "Visualizers", icon: <IconVisualizer /> };
+      return { label: t("studio:types.visualizer"), icon: <IconVisualizer /> };
     case "renderer":
-      return { label: "Renderers", icon: <IconGpu /> };
+      return { label: t("studio:types.renderer"), icon: <IconGpu /> };
     default:
       return { label: type, icon: <IconPackage /> };
   }

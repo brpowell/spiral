@@ -1,5 +1,6 @@
 import type { Theme, ThemeTokens } from "../types/theme";
 import { REQUIRED_THEME_TOKEN_KEYS } from "../types/theme";
+import { t } from "./i18n";
 
 export type ThemeValidationIssue = {
   field: string;
@@ -10,15 +11,21 @@ export type ThemeValidationIssue = {
 export function validateThemeForSave(theme: Theme): ThemeValidationIssue[] {
   const issues: ThemeValidationIssue[] = [];
   if (!theme.id.trim()) {
-    issues.push({ field: "id", message: "Theme id is required." });
+    issues.push({
+      field: "id",
+      message: t("studio:themeEditor.validation.idRequired"),
+    });
   }
   if (!theme.packId.trim()) {
-    issues.push({ field: "packId", message: "Pack id is required." });
+    issues.push({
+      field: "packId",
+      message: t("studio:themeEditor.validation.packIdRequired"),
+    });
   }
   if (!theme.mutable) {
     issues.push({
       field: "mutable",
-      message: "Only mutable drafts can be saved.",
+      message: t("studio:themeEditor.validation.mutableOnly"),
     });
   }
   return issues;
@@ -36,14 +43,17 @@ export function validateThemeForApply(theme: Theme): ThemeValidationIssue[] {
   const issues: ThemeValidationIssue[] = [];
 
   if (!theme.name.trim()) {
-    issues.push({ field: "name", message: "Name is required to apply a theme." });
+    issues.push({
+      field: "name",
+      message: t("studio:themeEditor.validation.nameRequired"),
+    });
   }
 
   for (const key of REQUIRED_THEME_TOKEN_KEYS) {
     if (tokenValue(theme.tokens, key) == null) {
       issues.push({
         field: `tokens.${key}`,
-        message: `Token "${key}" is required to apply a theme.`,
+        message: t("studio:themeEditor.validation.tokenRequired", { key }),
       });
     }
   }
@@ -56,7 +66,10 @@ export function formatThemeValidationError(
 ): string {
   if (issues.length === 0) return "";
   if (issues.length === 1) return issues[0].message;
-  return `${issues[0].message} (+${issues.length - 1} more)`;
+  return t("studio:themeEditor.validation.moreIssues", {
+    message: issues[0].message,
+    count: issues.length - 1,
+  });
 }
 
 export function isThemeApplicable(theme: Theme): boolean {

@@ -1,7 +1,11 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { LyricsFormat, LyricsLine } from "../../types/lyrics";
 import type { LyricsFetchFeedback } from "../../lib/lyricsFetch";
-import { formatLyricsFormatLabel, parseEditorLyricsChange } from "../../lib/lyrics";
+import {
+  formatLyricsFormatLabel,
+  parseEditorLyricsChange,
+} from "../../lib/lyrics";
 import { serializeLrc } from "../../lib/lyricsLrc";
 import { hasSyncedTimestamps } from "../../lib/lyricsScroll";
 import { Button } from "../common/Button/Button";
@@ -46,6 +50,7 @@ export function TrackEditorLyricsTab({
   onInstrumentalChange,
   onChange,
 }: TrackEditorLyricsTabProps) {
+  const { t } = useTranslation("library");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [focused, setFocused] = useState(false);
   const isSynced = syncedLines != null && hasSyncedTimestamps(syncedLines);
@@ -157,10 +162,10 @@ export function TrackEditorLyricsTab({
                   className="track-editor-lyrics-tab__spinner"
                   aria-hidden
                 />
-                Fetching…
+                {t("editor.lyrics.fetching")}
               </>
             ) : (
-              "Fetch lyrics"
+              t("editor.lyrics.fetch")
             )}
           </Button>
         ) : null}
@@ -169,7 +174,7 @@ export function TrackEditorLyricsTab({
           disabled={fetchingLyrics}
           onChange={(e) => onInstrumentalChange(e.target.checked)}
         >
-          Instrumental
+          {t("editor.lyrics.instrumental")}
         </Switch>
         {formatLabel ? (
           <Badge
@@ -182,10 +187,7 @@ export function TrackEditorLyricsTab({
         ) : null}
       </div>
       {bulk && instrumentalMixed && !instrumental ? (
-        <Alert variant="info">
-          Some selected tracks are marked instrumental. Turn on Instrumental to
-          mark all, or paste lyrics to replace.
-        </Alert>
+        <Alert variant="info">{t("editor.lyrics.instrumentalMixed")}</Alert>
       ) : null}
       {fetchFeedback && !instrumental && !bulk ? (
         <Alert variant={fetchFeedback.variant}>{fetchFeedback.text}</Alert>
@@ -194,11 +196,11 @@ export function TrackEditorLyricsTab({
         <EmptyState
           className="track-editor-lyrics-tab__instrumental"
           icon={<IconMicrophone />}
-          title="Instrumental"
+          title={t("editor.lyrics.instrumental")}
           description={
             bulk
-              ? "These tracks are marked as having no lyrics."
-              : "This track is marked as having no lyrics. Auto-fetch will skip it."
+              ? t("editor.lyrics.instrumentalEmptyBulk")
+              : t("editor.lyrics.instrumentalEmpty")
           }
         />
       ) : (
@@ -219,10 +221,12 @@ export function TrackEditorLyricsTab({
           onPaste={handlePaste}
           placeholder={
             bulk
-              ? "Paste or type lyrics to apply to all tracks…"
-              : "Paste or type lyrics…"
+              ? t("editor.lyrics.placeholderBulk")
+              : t("editor.lyrics.placeholder")
           }
-          aria-label={bulk ? "Lyrics for all selected tracks" : "Track lyrics"}
+          aria-label={
+            bulk ? t("editor.lyrics.ariaBulk") : t("editor.lyrics.aria")
+          }
           rows={LYRICS_TEXTAREA_ROWS}
         />
       )}

@@ -1,4 +1,5 @@
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { IconCheck } from "../icons";
 import "./AppearancePackCard.css";
 
@@ -36,7 +37,8 @@ export function AppearancePackCard({
   onPointerEnter,
   onPointerLeave,
 }: AppearancePackCardProps) {
-  const authorLabel = author.trim() || "Unknown";
+  const { t } = useTranslation("common");
+  const authorLabel = author.trim() || t("unknown");
 
   return (
     <div
