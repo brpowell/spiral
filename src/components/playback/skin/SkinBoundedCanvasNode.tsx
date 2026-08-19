@@ -3,10 +3,9 @@ import { useSkinBindState, useSkinVisible } from "../../../lib/skinBinds";
 import {
   getNodeBoundsWhen,
   resolveNodeBounds,
-} from "../../../lib/skinPanels";
-import type { PanelOpenState } from "../../../lib/skinPanels";
+} from "../../../lib/skinBoundsWhen";
 import { resolveLocalBounds } from "../../../lib/skinLayout";
-import { useSkinStore } from "../../../store/useSkinStore";
+import { resolveSkinWindowHitKind } from "../../../lib/skinWindowHit";
 import { SkinBounds } from "./SkinBounds";
 import { useButtonGroupElevationDelta } from "./SkinButtonGroupHitRegistry";
 import {
@@ -18,25 +17,14 @@ import { SkinLayoutNode } from "./SkinLayoutNode";
 export interface SkinBoundedCanvasNodeProps {
   node: LayoutNode;
   pack: LoadedSkinPack;
-  visualizerExpanded: boolean;
-  onToggleVisualizer: () => void;
-  onOpenQueue: () => void;
-  panelOpen: PanelOpenState;
 }
 
 export function SkinBoundedCanvasNode({
   node,
   pack,
-  visualizerExpanded,
-  onToggleVisualizer,
-  onOpenQueue,
-  panelOpen,
 }: SkinBoundedCanvasNodeProps) {
   const visible = useSkinVisible(node.visibleWhen);
   const { viewState } = useSkinBindState();
-  const panelRevealed = useSkinStore((s) => s.panelRevealed);
-  const panelSettled = useSkinStore((s) => s.panelSettled);
-  const panelCtx = { panelOpen, panelRevealed, panelSettled, viewState };
   const parentLayout = useSkinLayoutContext();
   const elevationDelta = useButtonGroupElevationDelta(
     node.type === "buttonGroup" ? node.id : undefined,
@@ -46,35 +34,11 @@ export function SkinBoundedCanvasNode({
   const hasMotion =
     boundsWhen !== undefined && Object.keys(boundsWhen).length > 0;
 
-  if (node.type === "hitArea") {
-    const bounds = resolveNodeBounds(node.bounds, boundsWhen, panelCtx);
-    if (!bounds) return null;
-    return (
-      <SkinBounds
-        bounds={bounds}
-        boundsFor={node.id}
-        debugLabel={node.id ? undefined : "hit"}
-        motion={hasMotion}
-      >
-        {null}
-      </SkinBounds>
-    );
-  }
-
   if (!visible) return null;
 
-  const inner = (
-    <SkinLayoutNode
-      node={node}
-      pack={pack}
-      visualizerExpanded={visualizerExpanded}
-      onToggleVisualizer={onToggleVisualizer}
-      onOpenQueue={onOpenQueue}
-      panelOpen={panelOpen}
-    />
-  );
+  const inner = <SkinLayoutNode node={node} pack={pack} />;
 
-  const bounds = resolveNodeBounds(node.bounds, boundsWhen, panelCtx);
+  const bounds = resolveNodeBounds(node.bounds, boundsWhen, viewState);
 
   if (bounds) {
     const passthrough =
@@ -102,9 +66,10 @@ export function SkinBoundedCanvasNode({
     return (
       <SkinLayoutContextProvider value={childLayout}>
         <SkinBounds
-          bounds={effectiveBounds}
+          bounds={local}
           boundsFor={node.id}
           motion={hasMotion}
+          windowHit={resolveSkinWindowHitKind(node)}
           className={passthrough ? "skin-bounds--passthrough" : undefined}
         >
           {inner}

@@ -3,21 +3,32 @@
   "name": "Mini-switch fixture",
   "author": "Spiral",
   "description": "Minimal skin that preserves viewId on a switchView button.",
-  "defaultView": "main",
   "views": {
     "main": {
       "presentation": "primary",
-      "layoutMode": "canvas",
-      "canvas": { "width": 64, "height": 64 },
       "layout": {
         "type": "canvas",
+        "width": 64,
+        "height": 64,
         "children": [
           {
             "type": "button",
             "id": "mini-switch",
-            "action": "skin.switchView",
-            "viewId": "mini",
-            "bounds": { "x": 0, "y": 0, "w": 21, "h": 21, "zIndex": 1 },
+            "onClick": [
+              {
+                "action": "skin.switchView",
+                "payload": {
+                  "viewId": "mini"
+                }
+              }
+            ],
+            "bounds": {
+              "x": 0,
+              "y": 0,
+              "w": 21,
+              "h": 21,
+              "zIndex": 1
+            },
             "presentation": {
               "kind": "bitmap",
               "width": 21,
@@ -34,10 +45,10 @@
     },
     "mini": {
       "presentation": "exclusive",
-      "layoutMode": "canvas",
-      "canvas": { "width": 32, "height": 32 },
       "layout": {
         "type": "canvas",
+        "width": 32,
+        "height": 32,
         "children": []
       }
     }

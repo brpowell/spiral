@@ -62,19 +62,13 @@
   height: 100%;
 }
 
-.skin-mode-app[data-resizable="true"] .skin-layout__shell {
+.skin-mode-app[data-resizable="true"] .skin-layout__flow {
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
 }
 
-.skin-mode-app[data-resizable="true"] .skin-shell {
-  flex: 1 1 auto;
-  min-height: 0;
-  height: 100%;
-}
-
-/* Fixed-size slot and canvas skins: shrink-wrap to layout, left-aligned so
+/* Fixed-size flow and canvas skins: shrink-wrap to layout, left-aligned so
    a wide canvas stage clips cleanly when the native window is narrower. */
 .skin-mode-app[data-resizable="false"] {
   height: auto;
@@ -87,22 +81,6 @@
 .skin-mode-app[data-resizable="false"] .skin-layout,
 .skin-mode-app[data-resizable="false"] .skin-canvas-layout {
   flex: 0 0 auto;
-}
-
-.skin-mode-app[data-resizable="false"] .skin-shell {
-  flex: 0 0 auto;
-}
-
-.skin-mode-app .skin-shell__slot--header {
-  display: flex;
-  width: 100%;
-  justify-content: stretch;
-}
-
-.skin-region-drag {
-  width: 100%;
-  min-height: 1.5rem;
-  user-select: none;
 }
 
 .skin-mode-app .skin-layout,

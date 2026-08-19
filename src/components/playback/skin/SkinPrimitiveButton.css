@@ -2,7 +2,7 @@
   color: var(--color-text-muted);
 }
 
-.skin-primitive-btn:hover {
+.skin-primitive-btn:hover:not(.skin-primitive-btn--plain) {
   color: var(--color-text-primary);
 }
 
@@ -14,14 +14,50 @@
   color: var(--color-danger, #e55);
 }
 
-.skin-primitive-btn--compact {
-  padding: 0.1rem;
-}
-
 .skin-primitive-btn--text {
   min-width: 0;
   padding: 0;
   font: inherit;
   text-transform: none;
   letter-spacing: normal;
+}
+
+/* Chrome-less hit target (`presentation.variant: "plain"`). Not an app Button. */
+.skin-primitive-btn--plain {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  color: inherit;
+}
+
+.skin-primitive-btn--plain:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.skin-primitive-btn--plain:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.skin-primitive-btn__asset-icon {
+  width: 1em;
+  height: 1em;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.btn--icon-only > .skin-primitive-btn__asset-icon {
+  width: 1.05rem;
+  height: 1.05rem;
 }

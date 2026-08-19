@@ -1,11 +1,9 @@
 import { useMemo, type CSSProperties } from "react";
 import { VisualizerSlot } from "../VisualizerSlot/VisualizerSlot";
-import { resolveVisualizerLayout } from "../../../lib/skinVisualizerLayout";
 import { skinAssetFileUrl } from "../../../lib/skinAssets";
 import type {
   FramedPanelPresentation,
   LoadedSkinPack,
-  SkinManifest,
   VisualizerNode,
 } from "../../../types/skin";
 import "./SkinFramedVisualizer.css";
@@ -13,18 +11,11 @@ import "./SkinFramedVisualizer.css";
 export function SkinFramedVisualizer({
   node,
   pack,
-  manifest,
-  visualizerExpanded,
-  onToggleVisualizer,
 }: {
   node: VisualizerNode;
   pack: LoadedSkinPack;
-  manifest?: SkinManifest;
-  visualizerExpanded: boolean;
-  onToggleVisualizer: () => void;
 }) {
   const presentation = node.presentation as FramedPanelPresentation;
-  const vizLayout = resolveVisualizerLayout(manifest);
   const maskUrl = skinAssetFileUrl(pack.packDir, presentation.mask);
   const frameUrl = presentation.frame
     ? skinAssetFileUrl(pack.packDir, presentation.frame)
@@ -52,12 +43,7 @@ export function SkinFramedVisualizer({
 
   return (
     <div
-      className={[
-        "skin-framed-viz",
-        presentation.classPrefix,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      className={["skin-framed-viz", node.className].filter(Boolean).join(" ")}
       data-node-id={node.id}
     >
       <div
@@ -69,14 +55,7 @@ export function SkinFramedVisualizer({
           .join(" ")}
         style={contentStyle}
       >
-        <VisualizerSlot
-          variant={vizLayout.variant}
-          expanded={visualizerExpanded}
-          onToggleExpand={onToggleVisualizer}
-          showExpandToggle={vizLayout.showExpandToggle}
-          fillContainer={vizLayout.fillContainer}
-          className={vizLayout.slotClassName}
-        />
+        <VisualizerSlot variant="dock" showExpandToggle={false} fillContainer />
       </div>
       {frameUrl ? (
         <img

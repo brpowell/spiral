@@ -1,34 +1,31 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useSkinDebug } from "../../../hooks/useSkinDebug";
-import type { LayoutBounds } from "../../../types/skin";
+import type { AbsoluteBounds } from "../../../lib/skinLayout";
+import type { SkinWindowHitKind } from "../../../lib/skinWindowHit";
 import "./SkinBounds.css";
 
 export function SkinBounds({
   bounds,
   children,
   className,
-  debugLabel,
   boundsFor,
   motion,
+  windowHit,
 }: {
-  bounds: LayoutBounds;
+  /** Resolved absolute box (callers must resolve stretch / right anchors first). */
+  bounds: AbsoluteBounds;
   children: ReactNode;
   className?: string;
-  /** Fallback debug overlay label when `boundsFor` is unset (e.g. anonymous hit areas). */
-  debugLabel?: string;
   /** Stable node id for bounds-box CSS (e.g. motion timing on `.skin-bounds`). */
   boundsFor?: string;
   /** When true, position changes animate (panel drawer slides). */
   motion?: boolean;
+  /** How this box participates in OS click-through. */
+  windowHit?: SkinWindowHitKind;
 }) {
   const skinDebug = useSkinDebug();
   const style: CSSProperties = {
-    ...(bounds.right !== undefined
-      ? {
-          right: `${bounds.right - bounds.w}px`,
-          left: "auto",
-        }
-      : { left: `${bounds.x ?? 0}px` }),
+    left: `${bounds.x}px`,
     top: `${bounds.y}px`,
     width: `${bounds.w}px`,
     height: `${bounds.h}px`,
@@ -47,10 +44,11 @@ export function SkinBounds({
         .join(" ")}
       style={style}
       data-bounds-for={boundsFor}
+      data-skin-window-hit={windowHit}
     >
-      {skinDebug && (boundsFor ?? debugLabel) ? (
+      {skinDebug && boundsFor ? (
         <span className="skin-bounds__debug-label" aria-hidden>
-          {boundsFor ?? debugLabel}
+          {boundsFor}
         </span>
       ) : null}
       {children}

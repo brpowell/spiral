@@ -7,7 +7,6 @@ import { getManualNextId } from "./playbackQueue";
 import { getNextSkippingKnownUnplayable } from "./playbackSkip";
 import { formatMetadataLine, playbackStatus } from "./skinMetadataLine";
 import { useSkinModeAlwaysOnTop } from "./skinModeAlwaysOnTop";
-import { evaluatePanelBind } from "./skinPanels";
 import { evaluateSlideshowBind } from "./skinSlideshow";
 import { evaluateScrollStripBind } from "./skinScrollStrip";
 import { evaluateViewBind, useSkinViewState } from "./skinViewStateContext";
@@ -17,10 +16,7 @@ import {
   labelForSkinPlaylistSource,
   resolveSkinPlaylistTrackCount,
 } from "./skinPlaylist";
-import {
-  activeVisualizerName,
-  canCycleVisualizers,
-} from "./visualizerCycle";
+import { activeVisualizerName, canCycleVisualizers } from "./visualizerCycle";
 import { useAssetUrl } from "../hooks/useAssetUrl";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { usePlaylistStore } from "../store/usePlaylistStore";
@@ -40,7 +36,6 @@ import type {
 } from "../types/skin";
 import type { Track } from "../types/track";
 import type { Playlist } from "../types/playlist";
-import type { PanelOpenState } from "./skinPanels";
 import type { ScrollStripStateMap } from "./skinScrollStrip";
 import type { SlideshowStateMap } from "./skinSlideshow";
 import type { ViewStateValues } from "./skinViewStateContext";
@@ -63,9 +58,6 @@ export interface SkinBindState {
   currentTrackId: number | null;
   alwaysOnTop: boolean;
   currentPlayable: PlayableRef | null;
-  panelOpen: PanelOpenState;
-  panelRevealed: PanelOpenState;
-  panelSettled: PanelOpenState;
   /** View ids with open auxiliary windows for the active skin. */
   openAuxiliaryViews: string[];
   visualizerName: string;
@@ -107,16 +99,6 @@ export function evaluateSkinBind(
   path: SkinBindPath | string,
   state: SkinBindState,
 ): SkinBindValue {
-  const panelValue = evaluatePanelBind(
-    path,
-    state.panelOpen,
-    state.panelRevealed,
-    state.panelSettled,
-  );
-  if (panelValue !== null) {
-    return panelValue;
-  }
-
   const auxViewValue = evaluateAuxViewBind(path, state.openAuxiliaryViews);
   if (auxViewValue !== null) {
     return auxViewValue;
@@ -226,7 +208,10 @@ export function evaluateSkinBind(
     case "visualizer.canGoNext":
       return state.canCycleVisualizer;
     case "playlist.sourceLabel":
-      return labelForSkinPlaylistSource(state.playlistSourceId, state.playlists);
+      return labelForSkinPlaylistSource(
+        state.playlistSourceId,
+        state.playlists,
+      );
     case "playlist.trackCount":
       return playlistTrackCount(state);
     case "playlist.hasTracks":
@@ -297,9 +282,6 @@ export function useSkinBindState(): SkinBindState {
     useSkinSlideshowState();
   const { state: scrollStripState, presentations: scrollStripPresentations } =
     useSkinScrollStripState();
-  const panelOpen = useSkinStore((s) => s.panelOpen);
-  const panelRevealed = useSkinStore((s) => s.panelRevealed);
-  const panelSettled = useSkinStore((s) => s.panelSettled);
   const openAuxiliaryViews = useSkinStore((s) => s.openAuxiliaryViews);
   const playlistSourceId = useSkinStore((s) => s.playlistSourceId);
   const library = usePlayerStore((s) => s.library);
@@ -325,7 +307,8 @@ export function useSkinBindState(): SkinBindState {
   const eqCustomPresets = useEqualizerStore((s) => s.customPresets);
   const crossfadeEnabled = usePlaybackSettingsStore((s) => s.crossfadeEnabled);
   const skinPreferences = useSkinPreferencesStore((s) => s.preferences);
-  const soundEffectsEnabled = soundEffectsEnabledFromPreferences(skinPreferences);
+  const soundEffectsEnabled =
+    soundEffectsEnabledFromPreferences(skinPreferences);
 
   const visualizerName = useMemo(
     () => activeVisualizerName(visualizers, activeVisualizerId),
@@ -384,9 +367,6 @@ export function useSkinBindState(): SkinBindState {
       currentTrackId,
       alwaysOnTop,
       currentPlayable,
-      panelOpen,
-      panelRevealed,
-      panelSettled,
       openAuxiliaryViews,
       visualizerName,
       canCycleVisualizer,
@@ -425,9 +405,6 @@ export function useSkinBindState(): SkinBindState {
       currentTrackId,
       alwaysOnTop,
       currentPlayable,
-      panelOpen,
-      panelRevealed,
-      panelSettled,
       openAuxiliaryViews,
       visualizerName,
       canCycleVisualizer,
@@ -463,7 +440,9 @@ export function useSkinBindValue(path: string | undefined): SkinBindValue {
 }
 
 /** True when `visibleWhen` condition is truthy (or unset). */
-export function useSkinVisible(visibleWhen: SkinCondition | undefined): boolean {
+export function useSkinVisible(
+  visibleWhen: SkinCondition | undefined,
+): boolean {
   const bindState = useSkinBindState();
   if (!visibleWhen) return true;
   return evaluateSkinCondition(visibleWhen, bindState);

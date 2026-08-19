@@ -30,22 +30,11 @@ import {
   viewWindowGrows,
   viewWindowSizeChanged,
 } from "../lib/skinWindowPresentation";
-import {
-  resolveViewForPack,
-  writeViewForSkin,
-} from "../lib/skinViewState";
-import type { PanelOpenState } from "../lib/skinPanels";
-import {
-  panelMotionStateForView,
-  runPanelClose,
-  runPanelOpen,
-  runPanelToggle,
-  type PanelMotionState,
-} from "../lib/skinPanelMotion";
+import { resolveViewForPack, writeViewForSkin } from "../lib/skinViewState";
 import { SKIN_PLAYLIST_SOURCE_ALL } from "../lib/skinPlaylist";
 import { preloadSkinStylesheet } from "../lib/skinStylesheetCache";
 import { preloadSkinSwitchAssets } from "../lib/skinViewAssetPreload";
-import type { LoadedSkinPack, SkinSummary, SkinView } from "../types/skin";
+import type { LoadedSkinPack, SkinSummary } from "../types/skin";
 import { isAppearanceWindow, isSkinModeWindow } from "../lib/windowRole";
 import { useSkinPreferencesStore } from "./useSkinPreferencesStore";
 
@@ -126,15 +115,7 @@ async function commitSkinModeSwitch(
   return true;
 }
 
-function motionStateForView(
-  pack: LoadedSkinPack | null,
-  viewId: string,
-): PanelMotionState {
-  const view = pack?.manifest.views[viewId];
-  return view ? panelMotionStateForView(view) : { panelOpen: {}, panelRevealed: {}, panelSettled: {} };
-}
-
-interface SkinState extends PanelMotionState {
+interface SkinState {
   skins: SkinSummary[];
   activePack: LoadedSkinPack | null;
   activeSkinId: string;
@@ -162,10 +143,6 @@ interface SkinState extends PanelMotionState {
   openView: (viewId: string) => Promise<void>;
   closeView: (viewId: string) => Promise<void>;
   toggleView: (viewId: string) => Promise<void>;
-  togglePanel: (panelId: string) => Promise<void>;
-  openPanel: (panelId: string) => Promise<void>;
-  closePanel: (panelId: string) => Promise<void>;
-  resetPanelsForView: (view: SkinView) => void;
   setPlaylistSource: (sourceId: string) => void;
 }
 
@@ -178,13 +155,15 @@ export const useSkinStore = create<SkinState>((set, get) => ({
   playlistSourceId: SKIN_PLAYLIST_SOURCE_ALL,
   packReloadGeneration: 0,
   skinSwapPending: false,
-  panelOpen: {},
-  panelRevealed: {},
-  panelSettled: {},
   skinsLoaded: false,
 
-  initializeFromBootstrap: (skins, pack, activeSkinId, activeViewId, openAuxiliaryViews) => {
-    const motion = motionStateForView(pack, activeViewId);
+  initializeFromBootstrap: (
+    skins,
+    pack,
+    activeSkinId,
+    activeViewId,
+    openAuxiliaryViews,
+  ) => {
     set({
       skins,
       activePack: pack,
@@ -192,7 +171,6 @@ export const useSkinStore = create<SkinState>((set, get) => ({
       activeViewId,
       openAuxiliaryViews:
         openAuxiliaryViews ?? readOpenAuxViewsForSkin(activeSkinId),
-      ...motion,
       skinsLoaded: true,
     });
   },
@@ -208,9 +186,7 @@ export const useSkinStore = create<SkinState>((set, get) => ({
     const viewId = resolveViewForPack(pack);
     const previousId = get().activePack?.summary.id;
     const isSkinSwitch =
-      isSkinModeWindow() &&
-      previousId != null &&
-      previousId !== resolvedId;
+      isSkinModeWindow() && previousId != null && previousId !== resolvedId;
 
     const patch = {
       skins: summaries,
@@ -218,7 +194,6 @@ export const useSkinStore = create<SkinState>((set, get) => ({
       activeSkinId: resolvedId,
       activeViewId: viewId,
       openAuxiliaryViews: readOpenAuxViewsForSkin(resolvedId),
-      ...motionStateForView(pack, viewId),
       skinsLoaded: true,
     };
 
@@ -258,7 +233,6 @@ export const useSkinStore = create<SkinState>((set, get) => ({
       activeViewId: viewId,
       openAuxiliaryViews: readOpenAuxViewsForSkin(skinId),
       playlistSourceId: SKIN_PLAYLIST_SOURCE_ALL,
-      ...motionStateForView(pack, viewId),
     };
 
     const isSkinSwitch =
@@ -287,8 +261,15 @@ export const useSkinStore = create<SkinState>((set, get) => ({
     await useSkinPreferencesStore.getState().loadForSkin(skinId);
 
     if (isAppearanceWindow()) {
-      await emit(SKIN_CHANGED_EVENT, { skinId, viewId } satisfies SkinChangedPayload);
-    } else if (isSkinModeWindow() && !isSkinSwitch && (await isSkinModeVisible())) {
+      await emit(SKIN_CHANGED_EVENT, {
+        skinId,
+        viewId,
+      } satisfies SkinChangedPayload);
+    } else if (
+      isSkinModeWindow() &&
+      !isSkinSwitch &&
+      (await isSkinModeVisible())
+    ) {
       await applySkinChangeWindowLayout(pack, viewId);
       await restoreOpenSkinAuxWindows(pack);
     }
@@ -313,13 +294,17 @@ export const useSkinStore = create<SkinState>((set, get) => ({
       set({
         activeViewId: viewId,
         playlistSourceId: SKIN_PLAYLIST_SOURCE_ALL,
-        ...motionStateForView(activePack, viewId),
       });
       await saveActiveSkinView(viewId);
       if (!growing) {
-        void applySwitchViewWindowLayout(activePack, viewId).catch((err: unknown) => {
-          console.error("Failed to resize skin window after view switch:", err);
-        });
+        void applySwitchViewWindowLayout(activePack, viewId).catch(
+          (err: unknown) => {
+            console.error(
+              "Failed to resize skin window after view switch:",
+              err,
+            );
+          },
+        );
       }
       return;
     }
@@ -327,7 +312,6 @@ export const useSkinStore = create<SkinState>((set, get) => ({
     set({
       activeViewId: viewId,
       playlistSourceId: SKIN_PLAYLIST_SOURCE_ALL,
-      ...motionStateForView(activePack, viewId),
     });
     await saveActiveSkinView(viewId);
 
@@ -382,76 +366,7 @@ export const useSkinStore = create<SkinState>((set, get) => ({
     }
   },
 
-  resetPanelsForView: (view) => {
-    set({
-      ...panelMotionStateForView(view),
-      playlistSourceId: SKIN_PLAYLIST_SOURCE_ALL,
-    });
-  },
-
   setPlaylistSource: (sourceId) => {
     set({ playlistSourceId: sourceId });
   },
-
-  togglePanel: async (panelId) => {
-    const { activePack, activeViewId, panelOpen, panelRevealed, panelSettled } = get();
-    const view = activePack?.manifest.views[activeViewId];
-    if (!activePack || !view?.panels?.[panelId]) return;
-
-    const nextOpen = !(panelOpen[panelId] ?? false);
-    await runPanelToggle(
-      activePack,
-      view,
-      panelId,
-      nextOpen,
-      { panelOpen, panelRevealed, panelSettled },
-      (patch) =>
-        set((current) => ({
-          panelOpen: patch.panelOpen ?? current.panelOpen,
-          panelRevealed: patch.panelRevealed ?? current.panelRevealed,
-          panelSettled: patch.panelSettled ?? current.panelSettled,
-        })),
-    );
-  },
-
-  openPanel: async (panelId) => {
-    const { activePack, activeViewId, panelOpen, panelRevealed, panelSettled } = get();
-    const view = activePack?.manifest.views[activeViewId];
-    if (!activePack || !view?.panels?.[panelId]) return;
-
-    await runPanelOpen(
-      activePack,
-      view,
-      panelId,
-      { panelOpen, panelRevealed, panelSettled },
-      (patch) =>
-        set((current) => ({
-          panelOpen: patch.panelOpen ?? current.panelOpen,
-          panelRevealed: patch.panelRevealed ?? current.panelRevealed,
-          panelSettled: patch.panelSettled ?? current.panelSettled,
-        })),
-    );
-  },
-
-  closePanel: async (panelId) => {
-    const { activePack, activeViewId, panelOpen, panelRevealed, panelSettled } = get();
-    const view = activePack?.manifest.views[activeViewId];
-    if (!activePack || !view?.panels?.[panelId]) return;
-
-    await runPanelClose(
-      activePack,
-      view,
-      panelId,
-      { panelOpen, panelRevealed, panelSettled },
-      (patch) =>
-        set((current) => ({
-          panelOpen: patch.panelOpen ?? current.panelOpen,
-          panelRevealed: patch.panelRevealed ?? current.panelRevealed,
-          panelSettled: patch.panelSettled ?? current.panelSettled,
-        })),
-    );
-  },
-
 }));
-
-export type { PanelOpenState };

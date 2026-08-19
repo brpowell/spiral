@@ -1,89 +1,235 @@
-/* Auto-scoped to this skin at runtime — write selectors without [data-skin-id]. */
-
-.skin-shell {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md, 0 4px 24px rgb(0 0 0 / 0.18));
+/* Molded chassis — inset so the curve reads; theme-border rim keeps light skins soft. */
+[data-node-id="root"] {
+  --chassis-gutter: 6px;
+  margin: var(--chassis-gutter);
+  width: calc(100% - 2 * var(--chassis-gutter));
+  height: calc(100% - 2 * var(--chassis-gutter));
   overflow: hidden;
-  padding: 0.75rem;
-  gap: 0.625rem;
-}
-
-.skin-region-drag {
-  display: flex;
-  align-items: center;
-  min-height: 1.75rem;
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--color-surface) 90%, white) 0%,
+      var(--color-surface) 46%,
+      color-mix(in srgb, var(--color-surface) 94%, black) 100%
+    );
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-border) 75%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 32%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-border) 45%, transparent),
+    inset 1px 0 0 color-mix(in srgb, white 14%, transparent),
+    inset -1px 0 0 color-mix(in srgb, var(--color-border) 40%, transparent);
 }
 
 [data-node-id="window-chrome"] {
-  display: flex;
   justify-content: flex-end;
-  gap: 0.15rem;
-  width: 100%;
+  min-height: 2.25rem;
+  padding: 0 0.5rem;
 }
 
-/* Art + info row: artwork left, title/artist stacked right, top-aligned. */
-.skin-shell__slot--art,
-.skin-shell__slot--info {
-  align-self: start;
+[data-node-id="contents"] {
+  flex: 1 1 auto;
+  padding: 0 0.75rem 0.75rem;
+  gap: 0.8rem;
 }
 
-.skin-shell__slot--info {
-  align-items: flex-start;
-  justify-content: flex-start;
-}
+/* CRT housing + cycle tongue. Soft theme rims (not heavy black bevels). */
+[data-node-id="visualizer-stack"] {
+  --crt-bezel: 0.55rem;
+  --crt-screen-radius: 0.28rem;
+  --crt-bezel-radius: 0.9rem;
+  --crt-housing: var(--color-surface-raised);
+  --crt-housing-hi: color-mix(in srgb, var(--crt-housing) 88%, white);
+  --crt-housing-lo: color-mix(in srgb, var(--crt-housing) 92%, black);
+  --crt-housing-fill: linear-gradient(
+    165deg,
+    var(--crt-housing-hi) 0%,
+    var(--crt-housing) 48%,
+    var(--crt-housing-lo) 100%
+  );
+  --crt-rim-line: color-mix(in srgb, var(--color-border) 70%, transparent);
+  /* Matches bezel bottom hairline density so the tongue outline continues it. */
+  --crt-rim-edge: color-mix(in srgb, var(--color-border) 86%, transparent);
+  --crt-rim:
+    inset 0 1px 0 color-mix(in srgb, white 28%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--color-border) 55%, transparent),
+    inset 0 0 0 1px var(--crt-rim-line);
 
-.skin-shell__slot--info .skin-slot-stack {
-  align-items: flex-start;
-  gap: 0.125rem;
-  width: 100%;
-}
-
-.skin-spiral-default.now-playing-metadata .now-playing-metadata__art {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-}
-
-.skin-spiral-default.now-playing-metadata .now-playing-metadata__art-placeholder svg {
-  width: 24px;
-  height: 24px;
-}
-
-/* Controls: left-aligned transport, full-width seek below. */
-.skin-shell__slot--controls .skin-slot-stack {
-  width: 100%;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
-
-.skin-spiral-default.playback-transport {
-  gap: 0.25rem;
-}
-
-.skin-spiral-default.seek-bar {
-  width: 100%;
-}
-
-/* Footer: volume left, queue right. */
-.skin-shell__slot--footer {
-  width: 100%;
-}
-
-[data-node-id="footer-row"] {
+  position: relative;
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 7.5rem;
   width: 100%;
-  gap: 0.5rem;
+  gap: 0;
+  overflow: visible;
 }
 
-[data-node-id="track-title"],
-[data-node-id="track-artist"] {
+[data-node-id="crt-screen"] {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
+}
+
+[data-node-id="visualizer"] {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  padding: var(--crt-bezel);
+  border-radius: var(--crt-bezel-radius);
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--crt-housing-fill);
+  /* No outer drop shadow — it seams against the tongue join. */
+  box-shadow: var(--crt-rim);
+}
+
+/* Tongue tucked under the bezel rim; same housing shade as the bezel bottom. */
+[data-node-id="viz-cycle"] {
+  --crt-tongue-tuck: calc(var(--crt-bezel) - 0.1rem);
+
+  position: relative;
+  z-index: 3;
+  margin-top: calc(-1 * var(--crt-tongue-tuck));
+  margin-right: 0.74rem;
+  width: fit-content;
+  align-self: flex-end;
+  min-height: 0;
+  gap: 0;
+  padding: calc(var(--crt-tongue-tuck) + 0.06rem) 0.12rem 0.12rem;
+  border-radius: 0 0 0.55rem 0.55rem;
+  background: var(--crt-housing-lo);
+}
+
+/* Rim/shade on the exposed part only — continues the bezel outline past the join. */
+[data-node-id="viz-cycle"]::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--crt-tongue-tuck) - 1px) 0 0;
+  z-index: -1;
+  border-radius: 0 0 0.55rem 0.55rem;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, black 6%, transparent) 100%
+  );
+  box-shadow:
+    inset 1px 0 0 var(--crt-rim-edge),
+    inset -1px 0 0 var(--crt-rim-edge),
+    inset 0 -1px 0 var(--crt-rim-edge);
+}
+
+.viz-btn {
+  width: 1.35rem;
+  height: 1.15rem;
   min-width: 0;
+  padding: 0.1rem;
+  color: var(--color-text-muted);
+}
+
+.viz-btn:hover:not(:disabled) {
+  color: var(--color-text-primary);
+}
+
+.viz-btn:disabled {
+  opacity: 0.35;
+}
+
+[data-node-id="visualizer"] .audio-visualizer--panel {
+  border-radius: var(--crt-screen-radius);
+  background: #050507;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, black 55%, transparent),
+    inset 0 0 18px color-mix(in srgb, black 40%, transparent),
+    inset 0 1px 1px color-mix(in srgb, white 8%, transparent);
+}
+
+/* Screen glass — depth on the CRT, not the housing. */
+[data-node-id="visualizer"]::after {
+  content: "";
+  position: absolute;
+  inset: var(--crt-bezel);
+  border-radius: var(--crt-screen-radius);
+  pointer-events: none;
+  z-index: 2;
+  box-shadow:
+    inset 0 0 12px color-mix(in srgb, black 35%, transparent),
+    inset 0 10px 14px color-mix(in srgb, white 6%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, white 8%, transparent) 0%,
+    transparent 30%,
+    transparent 74%,
+    color-mix(in srgb, black 14%, transparent) 100%
+  );
+}
+
+[data-node-id="playlist-overlay"] {
+  position: absolute;
+  inset: var(--crt-bezel);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--crt-screen-radius);
+  color: #f2f3f5;
+  background: color-mix(in srgb, #050507 70%, transparent);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 180ms ease,
+    visibility 180ms ease;
+}
+
+[data-view-playlist="open"] [data-node-id="playlist-overlay"] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-node-id="playlist-overlay"] {
+    transition: none;
+  }
+}
+
+[data-node-id="playlist-view"] {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-top: 0.35rem;
+  padding-left: 0.4rem;
+  padding-right: 0.4rem;
+  font-size: 0.72rem;
+}
+
+[data-node-id="playlist-view"] .skin-playlist-view__row:hover {
+  background: color-mix(in srgb, white 12%, transparent);
+}
+
+[data-node-id="playlist-view"] .skin-playlist-view__row--current {
+  color: var(--color-accent, #9ad);
+}
+
+[data-view-playlist="open"] [data-node-id="viz-cycle"] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+[data-node-id="artwork"] {
+  width: 44px;
+  height: 44px;
+}
+
+[data-node-id="track-info"] {
+  flex: 1 1 0;
+  overflow: hidden;
 }
 
 [data-node-id="track-title"] {
@@ -97,6 +243,6 @@
   font-size: 0.8rem;
 }
 
-.volume-control__slider {
-  width: 72px;
+[data-node-id="footer-row"] {
+  justify-content: space-between;
 }

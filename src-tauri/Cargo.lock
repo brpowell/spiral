@@ -1345,7 +1345,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4035,7 +4035,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4091,7 +4091,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4598,7 +4598,7 @@ dependencies = [
 [[package]]
 name = "spk-format"
 version = "0.1.0"
-source = "git+https://github.com/spiral-powered/spk-format.git?rev=8a175f066ad65fd32cf95d1bb1b42efa0c212263#8a175f066ad65fd32cf95d1bb1b42efa0c212263"
+source = "git+https://github.com/spiral-powered/spk-format.git?rev=d848432e9613d9c8ffe7ee82776661c1dba22c09#d848432e9613d9c8ffe7ee82776661c1dba22c09"
 dependencies = [
  "serde",
  "serde_json",
@@ -5328,7 +5328,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

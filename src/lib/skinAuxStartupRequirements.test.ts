@@ -22,7 +22,6 @@ function makePack(views: LoadedSkinPack["manifest"]["views"]): LoadedSkinPack {
       name: "Test",
       author: "Test",
       description: "",
-      defaultView: "main",
       views,
     },
   };
@@ -32,9 +31,10 @@ describe("resolveAuxStartupRequirements", () => {
   it("detects T3-style canvas EQ view from eqBand nodes", () => {
     const pack = makePack({
       eq: {
-        layoutMode: "canvas",
         layout: {
           type: "canvas",
+          width: 100,
+          height: 80,
           children: [
             {
               type: "eqBand",
@@ -62,9 +62,10 @@ describe("resolveAuxStartupRequirements", () => {
   it("detects visualizer view from layout nodes", () => {
     const pack = makePack({
       vis: {
-        layoutMode: "canvas",
         layout: {
           type: "canvas",
+          width: 100,
+          height: 80,
           children: [
             {
               type: "visualizer",
@@ -96,7 +97,6 @@ describe("resolveAuxStartupRequirements", () => {
           children: [
             {
               type: "playlist",
-              presentation: { kind: "compact" },
             },
           ],
         },
@@ -115,9 +115,10 @@ describe("resolveAuxStartupRequirements", () => {
   it("detects playlist nodes nested inside tiledFrame", () => {
     const pack = makePack({
       playlist: {
-        layoutMode: "canvas",
         layout: {
           type: "canvas",
+          width: 100,
+          height: 80,
           children: [
             {
               type: "tiledFrame",
@@ -151,7 +152,6 @@ describe("resolveAuxStartupRequirements", () => {
               children: [
                 {
                   type: "playlist",
-                  presentation: { kind: "compact" },
                 },
               ],
             },
@@ -160,15 +160,18 @@ describe("resolveAuxStartupRequirements", () => {
       },
     });
 
-    expect(resolveAuxStartupRequirements(pack, "playlist").playlists).toBe(true);
+    expect(resolveAuxStartupRequirements(pack, "playlist").playlists).toBe(
+      true,
+    );
   });
 
   it("detects visualizer nodes nested inside tiledFrame", () => {
     const pack = makePack({
       vis: {
-        layoutMode: "canvas",
         layout: {
           type: "canvas",
+          width: 100,
+          height: 80,
           children: [
             {
               type: "tiledFrame",
@@ -217,9 +220,10 @@ describe("resolveAuxStartupRequirements", () => {
   it("detects eq from eqBand nodes", () => {
     const pack = makePack({
       eqPanel: {
-        layoutMode: "canvas",
         layout: {
           type: "canvas",
+          width: 100,
+          height: 80,
           children: [
             {
               type: "eqBand",

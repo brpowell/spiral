@@ -18,7 +18,10 @@ import {
 } from "../../../lib/skinStripSliderMap";
 import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
 import { useSkinDebug } from "../../../hooks/useSkinDebug";
-import { useSkinBindState, useSkinControlEnabled } from "../../../lib/skinBinds";
+import {
+  useSkinBindState,
+  useSkinControlEnabled,
+} from "../../../lib/skinBinds";
 import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import { useEqualizerStore } from "../../../store/useEqualizerStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
@@ -55,7 +58,6 @@ export function SkinStripSlider({
     direction = mode === "volume" || mode === "eq" ? "vertical" : "horizontal",
     valueFrames = "ascending",
     mapFrames = "ascending",
-    classPrefix,
   } = presentation;
 
   const hitRef = useRef<HTMLButtonElement>(null);
@@ -126,7 +128,16 @@ export function SkinStripSlider({
     return () => {
       cancelled = true;
     };
-  }, [mapUrl, stripUrl, frameCount, frameWidth, frameHeight, direction, mapFrames, mode]);
+  }, [
+    mapUrl,
+    stripUrl,
+    frameCount,
+    frameWidth,
+    frameHeight,
+    direction,
+    mapFrames,
+    mode,
+  ]);
 
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
@@ -140,8 +151,7 @@ export function SkinStripSlider({
   const setBand = useEqualizerStore((s) => s.setBand);
 
   const currentTrack = useMemo(
-    () =>
-      findPlaybackTrack({ library, playbackTracks, currentTrackId }),
+    () => findPlaybackTrack({ library, playbackTracks, currentTrackId }),
     [library, playbackTracks, currentTrackId],
   );
   const durationSeconds =
@@ -228,22 +238,24 @@ export function SkinStripSlider({
         handleSeekChange(ratio);
       }
     },
-    [
-      mode,
-      eqBand,
-      setBand,
-      setVolume,
-      handleSeekChange,
-      handleSeekEnd,
-    ],
+    [mode, eqBand, setBand, setVolume, handleSeekChange, handleSeekEnd],
   );
 
   const applyPointer = useCallback(
-    (clientX: number, clientY: number, anchorFrame: number, commit: boolean) => {
+    (
+      clientX: number,
+      clientY: number,
+      anchorFrame: number,
+      commit: boolean,
+    ) => {
       const ratio = pointerToRatio(clientX, clientY, anchorFrame);
       if (ratio === null) return;
       applyRatio(ratio, commit);
-      dragAnchorFrameRef.current = ratioToStripFrame(ratio, frameCount, valueFrames);
+      dragAnchorFrameRef.current = ratioToStripFrame(
+        ratio,
+        frameCount,
+        valueFrames,
+      );
     },
     [pointerToRatio, applyRatio, frameCount, valueFrames],
   );
@@ -270,11 +282,7 @@ export function SkinStripSlider({
 
   const onPointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (disabled) return;
-    const sample = samplePointer(
-      event.clientX,
-      event.clientY,
-      displayFrame,
-    );
+    const sample = samplePointer(event.clientX, event.clientY, displayFrame);
     if (!sample) return;
     setMapHitActive(true);
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -316,8 +324,8 @@ export function SkinStripSlider({
 
   const className = [
     "skin-strip-slider",
+    node.className,
     skinDebug && "skin-strip-slider--debug",
-    classPrefix,
   ]
     .filter(Boolean)
     .join(" ");
@@ -355,15 +363,19 @@ export function SkinStripSlider({
           eqBand: eqBand ?? undefined,
         },
       ),
-    [node.id, node.tooltip, node.tooltipWhen, bindState, mode, liveRatio, eqBand],
+    [
+      node.id,
+      node.tooltip,
+      node.tooltipWhen,
+      bindState,
+      mode,
+      liveRatio,
+      eqBand,
+    ],
   );
 
   return (
-    <div
-      className={className}
-      data-node-id={node.id}
-      data-frame={displayFrame}
-    >
+    <div className={className} data-node-id={node.id} data-frame={displayFrame}>
       <div className="skin-strip-slider__display" style={displayStyle} />
       {skinDebug && mapUrl ? (
         <div
@@ -392,7 +404,11 @@ export function SkinStripSlider({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerEnter={(event) => {
-          const sample = samplePointer(event.clientX, event.clientY, displayFrame);
+          const sample = samplePointer(
+            event.clientX,
+            event.clientY,
+            displayFrame,
+          );
           updateMapHitState(event.clientX, event.clientY, displayFrame, false);
           if (sample) setHoverRatio(sample.ratio);
         }}

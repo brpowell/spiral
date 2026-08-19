@@ -1,5 +1,5 @@
 import type {
-  LayoutNode,
+  LayoutTreeNode,
   ScrollStripNode,
   ScrollStripPresentation,
 } from "../types/skin";
@@ -22,10 +22,12 @@ const SCROLL_STRIP_NAV_BINDS = new Set([
   "atLast",
 ]);
 
-export function collectScrollStripNodes(node: LayoutNode): ScrollStripDefinition[] {
+export function collectScrollStripNodes(
+  node: LayoutTreeNode,
+): ScrollStripDefinition[] {
   const found: ScrollStripDefinition[] = [];
 
-  const walk = (current: LayoutNode): void => {
+  const walk = (current: LayoutTreeNode): void => {
     if (current.type === "scrollStrip" && current.id) {
       found.push({ id: current.id, presentation: current.presentation });
     }
@@ -109,7 +111,8 @@ export function resolveScrollStripSlideLayout(
   node: ScrollStripNode,
   slide: number,
 ): Record<string, { y: number }> {
-  const index = clampScrollStripSlide(slide, node.presentation.slides.length) - 1;
+  const index =
+    clampScrollStripSlide(slide, node.presentation.slides.length) - 1;
   return node.presentation.slides[index]?.items ?? {};
 }
 

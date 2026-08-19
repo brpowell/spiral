@@ -1,11 +1,6 @@
-import { useMemo, useRef, useState } from "react";
-import { useSkinStore } from "../../../store/useSkinStore";
-import type {
-  LoadedSkinPack,
-  SkinView,
-} from "../../../types/skin";
+import { useMemo, useRef } from "react";
+import type { CanvasNode, LoadedSkinPack, SkinView } from "../../../types/skin";
 import { resolveViewWindowChrome } from "../../../lib/skinModeWindowChrome";
-import { resolveCanvasSize } from "../../../lib/skinPanels";
 import { sortChildrenByZIndex } from "../../../lib/skinLayout";
 import { resolveViewDragInference } from "../../../lib/skinWindowPresentation";
 import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
@@ -19,7 +14,7 @@ import "./SkinCanvasLayout.css";
 
 export interface SkinCanvasLayoutProps {
   pack: LoadedSkinPack;
-  view: SkinView;
+  view: SkinView & { layout: CanvasNode };
   viewId: string;
   className?: string;
   registerGlobalApi?: boolean;
@@ -32,9 +27,8 @@ export function SkinCanvasLayout({
   className,
   registerGlobalApi = false,
 }: SkinCanvasLayoutProps) {
-  const panelOpen = useSkinStore((s) => s.panelOpen);
-  const [visualizerExpanded, setVisualizerExpanded] = useState(false);
-  const fallbackSize = resolveCanvasSize(view);
+  const root = view.layout;
+  const fallbackSize = { width: root.width, height: root.height };
   const chrome = resolveViewWindowChrome(pack, viewId);
   const resizable = chrome.resizable !== false;
   const stageDragProps =
@@ -46,13 +40,7 @@ export function SkinCanvasLayout({
   const layoutSize = resizable ? stageSize : fallbackSize;
   const { width, height } = layoutSize;
 
-  const onToggleVisualizer = () => setVisualizerExpanded((v) => !v);
-  const onOpenQueue = () => { };
-
-  const stageContext = useMemo(
-    () => ({ stageSize: layoutSize }),
-    [layoutSize],
-  );
+  const stageContext = useMemo(() => ({ stageSize: layoutSize }), [layoutSize]);
 
   const rootLayoutContext = useMemo(
     () => ({
@@ -64,12 +52,7 @@ export function SkinCanvasLayout({
   );
 
   const { nodes, shellClass } = useMemo(() => {
-    const root = view.layout;
-    const container =
-      root.type === "canvas" || root.type === "overlay" ? root : null;
-    const children = container
-      ? sortChildrenByZIndex(container)
-      : [root];
+    const children = sortChildrenByZIndex(root);
 
     return {
       nodes: children.map((child, index) => (
@@ -77,10 +60,6 @@ export function SkinCanvasLayout({
           key={child.id ?? `canvas-node-${index}`}
           node={child}
           pack={pack}
-          visualizerExpanded={visualizerExpanded}
-          onToggleVisualizer={onToggleVisualizer}
-          onOpenQueue={onOpenQueue}
-          panelOpen={panelOpen}
         />
       )),
       shellClass: [
@@ -91,14 +70,7 @@ export function SkinCanvasLayout({
         .filter(Boolean)
         .join(" "),
     };
-  }, [
-    view.layout,
-    pack,
-    visualizerExpanded,
-    panelOpen,
-    className,
-    resizable,
-  ]);
+  }, [root, pack, className, resizable]);
 
   return (
     <SkinViewRuntimeProviders

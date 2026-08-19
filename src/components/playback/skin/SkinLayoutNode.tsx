@@ -1,5 +1,4 @@
 import type { LayoutNode, LoadedSkinPack } from "../../../types/skin";
-import type { PanelOpenState } from "../../../lib/skinPanels";
 import { useSkinVisible } from "../../../lib/skinBinds";
 import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
 import { sortChildrenByZIndex } from "../../../lib/skinLayout";
@@ -19,47 +18,28 @@ import { SkinFramedVisualizer } from "./SkinFramedVisualizer";
 import { SkinTiledFrame } from "./SkinTiledFrame";
 import { SkinSlideshow } from "./SkinSlideshow";
 import { SkinScrollStrip } from "./SkinScrollStrip";
+import { styleFromSkinNode } from "../../../lib/skinNodeStyle";
 import { SkinText } from "./SkinText";
-import "./SkinLayoutNode.css";
 
 export interface SkinLayoutNodeProps {
   node: LayoutNode;
   pack: LoadedSkinPack;
-  visualizerExpanded: boolean;
-  onToggleVisualizer: () => void;
-  onOpenQueue: () => void;
-  panelOpen?: PanelOpenState;
 }
 
-function renderBoundedChildren(
-  children: LayoutNode[],
-  pack: LoadedSkinPack,
-  visualizerExpanded: boolean,
-  onToggleVisualizer: () => void,
-  onOpenQueue: () => void,
-  panelOpen: PanelOpenState,
-) {
+function nodeClassName(
+  ...parts: Array<string | undefined | false>
+): string | undefined {
+  const joined = parts.filter(Boolean).join(" ");
+  return joined || undefined;
+}
+
+function renderBoundedChildren(children: LayoutNode[], pack: LoadedSkinPack) {
   return children.map((child, index) => (
-    <SkinBoundedCanvasNode
-      key={child.id ?? index}
-      node={child}
-      pack={pack}
-      visualizerExpanded={visualizerExpanded}
-      onToggleVisualizer={onToggleVisualizer}
-      onOpenQueue={onOpenQueue}
-      panelOpen={panelOpen}
-    />
+    <SkinBoundedCanvasNode key={child.id ?? index} node={child} pack={pack} />
   ));
 }
 
-export function SkinLayoutNode({
-  node,
-  pack,
-  visualizerExpanded,
-  onToggleVisualizer,
-  onOpenQueue,
-  panelOpen = {},
-}: SkinLayoutNodeProps) {
+export function SkinLayoutNode({ node, pack }: SkinLayoutNodeProps) {
   const visible = useSkinVisible(node.visibleWhen);
   if (!visible) return null;
 
@@ -76,7 +56,7 @@ export function SkinLayoutNode({
   }
 
   if (node.type === "button" && node.presentation.kind === "primitive") {
-    return <SkinPrimitiveButton node={node} />;
+    return <SkinPrimitiveButton node={node} pack={pack} />;
   }
 
   if (node.type === "buttonGroup" && node.presentation.kind === "buttonGroup") {
@@ -87,7 +67,10 @@ export function SkinLayoutNode({
     return <SkinSlideshow node={node} pack={pack} />;
   }
 
-  if (node.type === "scrollStrip" && node.presentation.kind === "bitmapVertical") {
+  if (
+    node.type === "scrollStrip" &&
+    node.presentation.kind === "bitmapVertical"
+  ) {
     return <SkinScrollStrip node={node} pack={pack} />;
   }
 
@@ -95,18 +78,16 @@ export function SkinLayoutNode({
     const children = sortChildrenByZIndex(node);
     return (
       <div
-        className="skin-layout-node skin-layout-node--subview"
+        className={nodeClassName(
+          "skin-layout-node",
+          "skin-layout-node--subview",
+          node.className,
+        )}
         data-node-id={node.id}
+        style={styleFromSkinNode(node.style)}
         {...(node.dragRegion ? skinDragRegionDeepProps() : {})}
       >
-        {renderBoundedChildren(
-          children,
-          pack,
-          visualizerExpanded,
-          onToggleVisualizer,
-          onOpenQueue,
-          panelOpen,
-        )}
+        {renderBoundedChildren(children, pack)}
       </div>
     );
   }
@@ -115,40 +96,29 @@ export function SkinLayoutNode({
     const children = sortChildrenByZIndex(node);
     return (
       <SkinTiledFrame node={node} pack={pack}>
-        {renderBoundedChildren(
-          children,
-          pack,
-          visualizerExpanded,
-          onToggleVisualizer,
-          onOpenQueue,
-          panelOpen,
-        )}
+        {renderBoundedChildren(children, pack)}
       </SkinTiledFrame>
     );
   }
 
   if (
-    node.type === "stack" ||
     node.type === "row" ||
     node.type === "column" ||
     node.type === "overlay"
   ) {
-    const layoutClass = `skin-layout-node skin-layout-node--${node.type}`;
     const children = sortChildrenByZIndex(node);
     return (
       <div
-        className={layoutClass}
+        className={nodeClassName(
+          "skin-layout-node",
+          `skin-layout-node--${node.type}`,
+          node.className,
+        )}
         data-node-id={node.id}
+        style={styleFromSkinNode(node.style)}
         {...(node.dragRegion ? skinDragRegionDeepProps() : {})}
       >
-        {renderBoundedChildren(
-          children,
-          pack,
-          visualizerExpanded,
-          onToggleVisualizer,
-          onOpenQueue,
-          panelOpen,
-        )}
+        {renderBoundedChildren(children, pack)}
       </div>
     );
   }
@@ -157,14 +127,11 @@ export function SkinLayoutNode({
     return <SkinDigitTime node={node} pack={pack} />;
   }
 
-  if (node.type === "playlist" && node.presentation.kind === "compact") {
-    return <SkinPlaylistView presentation={node.presentation} nodeId={node.id} />;
+  if (node.type === "playlist") {
+    return <SkinPlaylistView node={node} />;
   }
 
-  if (
-    node.type === "seekbar" &&
-    node.presentation.kind === "bitmapSeekbar"
-  ) {
+  if (node.type === "seekbar" && node.presentation.kind === "bitmapSeekbar") {
     return <SkinBitmapSeekbar node={node} pack={pack} />;
   }
 
@@ -181,7 +148,10 @@ export function SkinLayoutNode({
     );
   }
 
-  if (node.type === "eqBand" && node.presentation.kind === "bitmapVerticalSlider") {
+  if (
+    node.type === "eqBand" &&
+    node.presentation.kind === "bitmapVerticalSlider"
+  ) {
     return <SkinEqBandSlider node={node} pack={pack} />;
   }
 
@@ -196,19 +166,8 @@ export function SkinLayoutNode({
     return <SkinStripSlider node={node} pack={pack} mode="eq" />;
   }
 
-  if (
-    node.type === "visualizer" &&
-    node.presentation.kind === "framedPanel"
-  ) {
-    return (
-      <SkinFramedVisualizer
-        node={node}
-        pack={pack}
-        manifest={pack.manifest}
-        visualizerExpanded={visualizerExpanded}
-        onToggleVisualizer={onToggleVisualizer}
-      />
-    );
+  if (node.type === "visualizer" && node.presentation.kind === "framedPanel") {
+    return <SkinFramedVisualizer node={node} pack={pack} />;
   }
 
   if (
@@ -216,18 +175,9 @@ export function SkinLayoutNode({
     node.type === "artwork" ||
     node.type === "transport" ||
     node.type === "visualizer" ||
-    node.type === "volume" ||
-    node.type === "queue"
+    node.type === "volume"
   ) {
-    return (
-      <SkinPrimitiveControl
-        node={node}
-        manifest={pack.manifest}
-        visualizerExpanded={visualizerExpanded}
-        onToggleVisualizer={onToggleVisualizer}
-        onOpenQueue={onOpenQueue}
-      />
-    );
+    return <SkinPrimitiveControl node={node} />;
   }
 
   return null;

@@ -1,12 +1,29 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
-import { skinAssetFileUrl, resolveInteractiveAssetUrl } from "../../../lib/skinAssets";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+} from "react";
+import {
+  skinAssetFileUrl,
+  resolveInteractiveAssetUrl,
+} from "../../../lib/skinAssets";
 import {
   loadButtonGroupPositionMap,
   parseMappingColor,
   type ButtonGroupPositionMap,
 } from "../../../lib/skinButtonGroupMap";
-import { runSkinAction, skinControlPayload } from "../../../lib/skinActions";
-import { playSkinSound } from "../../../lib/skinSoundEffects";
+import {
+  primaryClickAction,
+  primaryClickViewId,
+  scheduleSkinEffects,
+} from "../../../lib/skinEffects";
+import {
+  playSkinSound,
+  resolveSkinClickSound,
+} from "../../../lib/skinSoundEffects";
 import {
   evaluateSkinCondition,
   isSkinControlEnabled,
@@ -75,7 +92,7 @@ export function SkinButtonGroup({
 
   const playColorKey = useMemo(() => {
     for (const [key, element] of keyToElement) {
-      if (element.action === "player.play") return key;
+      if (primaryClickAction(element.onClick) === "player.play") return key;
     }
     return null;
   }, [keyToElement]);
@@ -118,7 +135,7 @@ export function SkinButtonGroup({
     (element: ButtonGroupElement): boolean =>
       Boolean(
         element.activeWhen &&
-          evaluateSkinCondition(element.activeWhen, bindState),
+        evaluateSkinCondition(element.activeWhen, bindState),
       ),
     [bindState],
   );
@@ -128,9 +145,9 @@ export function SkinButtonGroup({
       if (!key) return "(none)";
       const element = keyToElement.get(key);
       if (!element) return "(none)";
-      return element.viewId
-        ? `${element.action} (${element.viewId})`
-        : element.action;
+      const action = primaryClickAction(element.onClick);
+      const viewId = primaryClickViewId(element.onClick);
+      return viewId ? `${action} (${viewId})` : action;
     },
     [keyToElement],
   );
@@ -268,7 +285,8 @@ export function SkinButtonGroup({
     const layers: Array<{ key: string; src: string }> = [];
     for (const [key, element] of keyToElement) {
       if (isElementDisabled(element)) continue;
-      if (isPlaying && element.action === "player.play") continue;
+      if (isPlaying && primaryClickAction(element.onClick) === "player.play")
+        continue;
 
       const isPressed = pressedKey === key;
       const isHovered = hoveredKey === key && !hoverSuppressed;
@@ -299,9 +317,8 @@ export function SkinButtonGroup({
   const hitTooltip = hoveredElement
     ? resolveSkinTooltip(
         {
-          action: hoveredElement.action,
-          panelId: hoveredElement.panelId,
-          viewId: hoveredElement.viewId,
+          action: primaryClickAction(hoveredElement.onClick),
+          viewId: primaryClickViewId(hoveredElement.onClick),
           tooltip: hoveredElement.tooltip,
           tooltipWhen: hoveredElement.tooltipWhen,
         },
@@ -338,17 +355,21 @@ export function SkinButtonGroup({
       if (pending !== null && keyAtRelease === pending) {
         const element = keyToElement.get(pending);
         if (element && !isElementDisabled(element)) {
-          playSkinSound(pack, element.sound ?? presentation.sound);
+          playSkinSound(
+            pack,
+            resolveSkinClickSound(
+              element.sound ?? presentation.sound,
+              element.soundWhen,
+              bindState,
+            ),
+          );
           if (element.activeWhen) {
             setSettlingToggle({
               key: pending,
               prevSticky: isElementSticky(element),
             });
           }
-          runSkinAction(element.action, {
-            ...skinControlPayload(element),
-            ...element.payload,
-          });
+          scheduleSkinEffects(element.onClick, () => bindState);
           suppressSkinButtonHoverUntilPointerMove();
         }
       }
@@ -365,6 +386,7 @@ export function SkinButtonGroup({
       isElementSticky,
       pack,
       presentation.sound,
+      bindState,
       hitRegistry,
       setPressedNodeId,
     ],

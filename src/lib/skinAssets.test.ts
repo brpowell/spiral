@@ -37,9 +37,6 @@ const bindState = {
   currentTrackId: 1,
   alwaysOnTop: false,
   currentPlayable: null,
-  panelOpen: {},
-  panelRevealed: {},
-  panelSettled: {},
   visualizerName: "Bars",
   canCycleVisualizer: true,
   playlistSourceId: "all",
@@ -68,9 +65,9 @@ describe("skinAssetFileUrl", () => {
 
 describe("resolveInteractiveAssets", () => {
   it("returns base assets when no assetsWhen matches", () => {
-    expect(
-      resolveInteractiveAssets(baseAssets, undefined, bindState),
-    ).toEqual(baseAssets);
+    expect(resolveInteractiveAssets(baseAssets, undefined, bindState)).toEqual(
+      baseAssets,
+    );
   });
 
   it("uses last matching assetsWhen entry", () => {
@@ -81,9 +78,9 @@ describe("resolveInteractiveAssets", () => {
         pressed: "buttons/pause-pressed.png",
       },
     };
-    expect(
-      resolveInteractiveAssets(baseAssets, assetsWhen, bindState),
-    ).toEqual(assetsWhen["player.isPlaying"]);
+    expect(resolveInteractiveAssets(baseAssets, assetsWhen, bindState)).toEqual(
+      assetsWhen["player.isPlaying"],
+    );
   });
 
   it("falls back to default for missing hover/pressed", () => {
@@ -140,9 +137,9 @@ describe("isSkinGifUrl", () => {
 
 describe("interactiveAssetsUseGif", () => {
   it("returns true when any resolved state is a gif", () => {
-    expect(
-      interactiveAssetsUseGif(baseAssets, undefined, bindState),
-    ).toBe(true);
+    expect(interactiveAssetsUseGif(baseAssets, undefined, bindState)).toBe(
+      true,
+    );
     expect(
       interactiveAssetsUseGif(
         { default: "buttons/stop.png", pressed: "buttons/stop-pressed.png" },

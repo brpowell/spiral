@@ -1,4 +1,5 @@
 import type { LoadedSkinPack } from "../types/skin";
+import { primaryViewId } from "./skinWindowPresentation";
 
 const STORAGE_KEY = "spiral:skin-view-by-skin";
 
@@ -27,16 +28,16 @@ export function writeViewForSkin(skinId: string, viewId: string): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
 }
 
-/** Per-skin view id; falls back to manifest defaultView (not a global view name). */
+/** Per-skin view id; falls back to the primary view (not a global view name). */
 export function resolveViewForPack(pack: LoadedSkinPack): string {
   const saved = readViewForSkin(pack.summary.id);
 
   if (saved && pack.manifest.views[saved]) {
     return saved;
   }
-  if (pack.manifest.views[pack.manifest.defaultView]) {
-    return pack.manifest.defaultView;
-  }
-  const first = Object.keys(pack.manifest.views)[0];
-  return first ?? "standard";
+  return (
+    primaryViewId(pack.manifest.views) ??
+    Object.keys(pack.manifest.views)[0] ??
+    "standard"
+  );
 }

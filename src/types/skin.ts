@@ -27,9 +27,6 @@ export type SkinCondition =
   | { any: SkinCondition[] }
   | { not: SkinCondition };
 
-export type ShellSlot =
-  "header" | "art" | "info" | "controls" | "visualizer" | "footer";
-
 export interface SkinSummary {
   id: string;
   name: string;
@@ -57,7 +54,6 @@ export interface SkinManifest {
   description: string;
   /** Optional preview image path relative to the contribution directory. Raster only (png/jpg/jpeg/webp/gif). */
   preview?: string;
-  defaultView: string;
   views: Record<string, SkinView>;
   visualizer?: SkinVisualizer;
   animations?: unknown;
@@ -68,55 +64,26 @@ export interface SkinManifest {
   soundEffects?: Record<string, string>;
 }
 
-export type LayoutMode = "slots" | "canvas";
-
 /** How the runtime infers window drag handles on canvas views. */
 export type DragInference = "auto" | "manual";
-
-export interface SkinCanvasSpec {
-  width: number;
-  height: number;
-  /** Bind path → width when condition is true (e.g. `skin.panel.playlist.open`). */
-  widthWhen?: Record<string, number>;
-  heightWhen?: Record<string, number>;
-}
-
-export interface SkinPanelWindowOverride {
-  width?: number;
-  height?: number;
-}
-
-export interface SkinPanel {
-  defaultOpen?: boolean;
-  /** Window size overrides while this panel is open (merged with max across open panels). */
-  windowWhenOpen?: SkinPanelWindowOverride;
-  /** Slide animation duration in ms. */
-  motion?: { durationMs?: number };
-}
 
 export type SkinViewPresentation = "primary" | "exclusive" | "auxiliary";
 
 export interface SkinView {
-  /** How the runtime manages the native window for this view. */
+  /** How the runtime manages the native window for this view. Omit on a single-view skin. */
   presentation?: SkinViewPresentation;
-  /** `slots` (default) uses SkinShell regions; `canvas` uses absolute bounds. */
-  layoutMode?: LayoutMode;
   /**
    * Window drag inference mode. Default `"auto"` for canvas views (stage-level
-   * `deep` drag); `"manual"` for slots or when explicit drag flags are required.
+   * `deep` drag); `"manual"` for flow or when explicit drag flags are required.
    */
   dragInference?: DragInference;
-  /** Logical size of the canvas stage when `layoutMode` is `canvas`. */
-  canvas?: SkinCanvasSpec;
-  /** In-view overlays toggled via `skin.togglePanel` (drawers, dropdowns). */
-  panels?: Record<string, SkinPanel>;
-  /** Ephemeral in-view variables (menu/content screens, etc.). */
+  /** Ephemeral in-view variables (menu/content screens, drawers, etc.). */
   state?: Record<string, SkinViewStateSpec>;
   /** Effects run once when the skin-mode window becomes visible. */
-  onActivate?: SkinViewActivateEffect[];
-  /** Native window constraints and optional slots-mode background. */
+  onActivate?: SkinLifecycleEffect[];
+  /** Native window constraints. */
   window?: WindowChrome;
-  layout: LayoutNode;
+  layout: ViewLayout;
 }
 
 export interface SkinViewStateSpec {
@@ -129,54 +96,51 @@ export interface SkinViewStateTransition {
   /** Current values that allow this branch (omit = any). */
   from?: Array<string | number | boolean>;
   set: string | number | boolean;
-  /** Manifest soundEffects key played before set. */
-  sound?: string;
 }
 
-export interface SkinViewActivateEffect {
+export interface SkinClickEffect {
   /** Condition; effect runs only when truthy (same evaluator as visibleWhen). */
   when?: SkinCondition;
-  /** Wait after activate before dispatch (default 0). */
+  /** Wait before dispatch (default 0). */
   delayMs?: number;
   action: string;
   payload?: SkinActionPayloadFields;
+}
+
+export interface SkinLifecycleEffect extends SkinClickEffect {
   /** Manifest soundEffects key played before the action. */
   sound?: string;
 }
 
 export interface LayoutBounds {
-  /** Offset from the stage left edge. */
+  /** Offset from the context left edge. */
   x?: number;
-  /** WMP-style right anchor: inset of the node's left edge from the stage right (`view.width - N`). */
-  right?: number;
-  y: number;
-  w: number;
-  h: number;
-  zIndex?: number;
-}
-
-/**
- * WMP subview-style bounds for frame tiles that resize with the stage.
- * Omit `w` when `x` + `right` are set (horizontal stretch); omit `h` when `y` + `bottom` are set.
- */
-export interface StretchLayoutBounds {
-  x?: number;
+  /**
+   * Inset of the node's right edge from the context right (CSS).
+   * With `x` and no `w`: horizontal stretch. With `w` and no `x`: right-anchored fixed width.
+   */
   right?: number;
   y?: number;
+  /**
+   * Inset of the node's bottom edge from the context bottom (CSS).
+   * With `y` and no `h`: vertical stretch. With `h` and no `y`: bottom-anchored fixed height.
+   */
   bottom?: number;
   w?: number;
   h?: number;
   zIndex?: number;
 }
 
+export type ViewLayout = CanvasNode | RowNode | ColumnNode;
+
+/** View root or any descendant. Walkers that start at `view.layout` take this. */
+export type LayoutTreeNode = CanvasNode | LayoutNode;
+
 export type LayoutNode =
-  | StackNode
   | RowNode
   | ColumnNode
   | OverlayNode
-  | CanvasNode
   | SubviewNode
-  | RegionNode
   | DecorationNode
   | ButtonNode
   | ButtonGroupNode
@@ -188,30 +152,23 @@ export type LayoutNode =
   | VolumeNode
   | BalanceNode
   | EqBandNode
-  | QueueNode
   | TimeNode
   | PlaylistNode
-  | HitAreaNode
   | TiledFrameNode
   | SlideshowNode
   | ScrollStripNode;
 
 interface NodeBase {
   id?: string;
+  /** Optional CSS class on the node root. Prefer `id` for one-off targeting. */
+  className?: string;
+  /** Closed panel-writable paint. Omitting a field cedes it to CSS. */
+  style?: NodeStyle;
   visibleWhen?: SkinCondition;
   /** Absolute placement on a canvas view (logical px). */
   bounds?: LayoutBounds;
-  /** Override `bounds` when a bind path is true (typically `skin.panel.*`). */
+  /** Override `bounds` when a bind path is true (typically `view.*`). */
   boundsWhen?: Record<string, Partial<LayoutBounds>>;
-}
-
-export interface StackNode extends NodeBase {
-  type: "stack";
-  children: LayoutNode[];
-  position?: "relative" | "absolute";
-  zIndex?: number;
-  /** When true, pointer events on this container move the skin window. */
-  dragRegion?: boolean;
 }
 
 export interface RowNode extends NodeBase {
@@ -238,14 +195,21 @@ export interface OverlayNode extends NodeBase {
   dragRegion?: boolean;
 }
 
-export interface CanvasNode extends NodeBase {
+export interface CanvasNode {
   type: "canvas";
+  id?: string;
+  className?: string;
+  style?: NodeStyle;
+  width: number;
+  height: number;
   children: LayoutNode[];
+  visibleWhen?: SkinCondition;
+  dragRegion?: boolean;
 }
 
 /**
  * Bounded nested group (WMS subview). Parent-relative `bounds` required.
- * Not valid as a view layout root — use `canvas` (or `tiledFrame`) for roots.
+ * Not valid as a view layout root — use `canvas`, `row`, or `column`.
  */
 export interface SubviewNode extends NodeBase {
   type: "subview";
@@ -260,25 +224,11 @@ export interface SubviewNode extends NodeBase {
   dragRegion?: boolean;
 }
 
-export interface RegionNode extends NodeBase {
-  type: "region";
-  slot: ShellSlot;
-  children: LayoutNode[];
-  /** When true, the region is a window drag handle (Tauri drag region). */
-  dragRegion?: boolean;
-}
-
 export interface DecorationNode extends NodeBase {
   type: "decoration";
   presentation: Presentation;
   /** When true on a canvas view, this decoration is a window drag handle. */
   dragRegion?: boolean;
-}
-
-/** Solid canvas hit target without a Tauri drag attribute (e.g. click-through margins). */
-export interface HitAreaNode extends NodeBase {
-  type: "hitArea";
-  bounds: LayoutBounds;
 }
 
 /** WMP-style 9-slice window frame that stretches on resize (pl/vis/info views). */
@@ -337,7 +287,7 @@ export interface TiledFrameContentInset {
 /** Explicit WMP-style frame tile (subview equivalent). */
 export interface TiledFrameTileDef {
   asset: string;
-  bounds: StretchLayoutBounds;
+  bounds: LayoutBounds;
   repeat?: "horizontal" | "vertical";
   tileUnit?: { w: number; h: number };
   /** Visible chrome band height within the source asset; stretched to display band at runtime. */
@@ -421,15 +371,8 @@ export interface ScrollStripSlide {
 }
 
 export interface ControlNodeBase extends NodeBase {
-  action?: string;
-  /** Target panel for `skin.*Panel` actions. */
-  panelId?: string;
-  /** Target view for `skin.*View` actions. */
-  viewId?: string;
-  /** Target URL for `app.openUrl`. */
-  url?: string;
-  /** Extra action payload merged at dispatch (e.g. view screen transitions). */
-  payload?: SkinActionPayloadFields;
+  /** Ordered click effects. Click wavs stay on `sound` / `soundWhen`. */
+  onClick?: SkinClickEffect[];
   bind?: string;
   /** When truthy, the control is interactive. */
   enabledWhen?: SkinCondition;
@@ -437,6 +380,8 @@ export interface ControlNodeBase extends NodeBase {
   activeWhen?: SkinCondition;
   /** Manifest `soundEffects` key played on click. */
   sound?: string;
+  /** Bind path → soundEffects key when truthy (last match wins). */
+  soundWhen?: Record<string, string>;
   /** OS tooltip text; supports `{bind.path}` placeholders. */
   tooltip?: string;
   /** Bind path → tooltip when truthy (last match wins). */
@@ -457,21 +402,15 @@ export interface ButtonGroupNode extends NodeBase {
 export interface ButtonGroupElement {
   /** Hex color matching a region in the position map, e.g. "#0000ff". */
   mappingColor: string;
-  action: string;
-  /** Target panel for `skin.*Panel` actions. */
-  panelId?: string;
-  /** Target view for `skin.*View` actions. */
-  viewId?: string;
-  /** Target URL for `app.openUrl`. */
-  url?: string;
+  onClick: SkinClickEffect[];
   /** When the bind is truthy, keep the pressed overlay (WMP sticky buttons). */
   activeWhen?: SkinCondition;
   /** When truthy, the element is interactive. */
   enabledWhen?: SkinCondition;
   /** Manifest `soundEffects` key; overrides group-level `sound`. */
   sound?: string;
-  /** Extra action payload merged at dispatch (e.g. slideshow deck id). */
-  payload?: SkinActionPayloadFields;
+  /** Bind path → soundEffects key when truthy (last match wins). */
+  soundWhen?: Record<string, string>;
   /** OS tooltip text; supports `{bind.path}` placeholders. */
   tooltip?: string;
   /** Bind path → tooltip when truthy (last match wins). */
@@ -484,7 +423,6 @@ export interface SkinActionPayloadFields {
   volume?: number;
   balance?: number;
   albumKey?: string;
-  panelId?: string;
   viewId?: string;
   sourceId?: string;
   trackId?: number;
@@ -558,16 +496,24 @@ export interface EqBandNode extends ControlNodeBase {
   band: number;
 }
 
-export interface QueueNode extends ControlNodeBase {
-  type: "queue";
-}
-
 export interface TimeNode extends ControlNodeBase {
   type: "time";
 }
 
-export interface PlaylistNode extends ControlNodeBase {
+export interface PlaylistNode extends NodeBase {
   type: "playlist";
+  /** Show the source dropdown (All tracks, Up Next, user playlists). Default true. */
+  showDropdown?: boolean;
+  /** Show duration column. Default true. */
+  showDuration?: boolean;
+  /** Show album artwork on each track row. Default false. */
+  showArtwork?: boolean;
+  /** Initial source (`all` or `upNext`). Default `all`. */
+  defaultSource?: "all" | "upNext";
+  /** Panel-writable paint for the playing track row (`__row--playing`). */
+  playingRowStyle?: NodeStyle;
+  /** Panel-writable paint for the current track row (`__row--current`). */
+  currentRowStyle?: NodeStyle;
 }
 
 export type TextOverflow = "visible" | "clip" | "scroll" | "scroll-bounce";
@@ -578,11 +524,19 @@ export interface TextNode extends NodeBase {
   /** Static label when `bind` is omitted. */
   value?: string;
   /**
-   * Runtime overflow behavior. Typography (size, color, weight, align) belongs
-   * in the skin stylesheet — target via `id` (`data-node-id`).
+   * Runtime overflow behavior. Typography (size, color, weight, align) lives
+   * in `style`; omitting a field cedes it to CSS.
    */
   overflow?: TextOverflow;
-  presentation: Presentation;
+}
+
+/** Closed panel-writable paint. Numbers are px. */
+export interface NodeStyle {
+  color?: string;
+  fontSize?: number;
+  fontWeight?: "normal" | "bold" | number;
+  textAlign?: "left" | "center" | "right";
+  backgroundColor?: string;
 }
 
 export type Presentation =
@@ -595,8 +549,7 @@ export type Presentation =
   | BitmapHorizontalSliderPresentation
   | BitmapSeekbarPresentation
   | DigitStripPresentation
-  | FramedPanelPresentation
-  | CompactPlaylistPresentation;
+  | FramedPanelPresentation;
 
 export interface BitmapPresentation {
   kind: "bitmap";
@@ -612,7 +565,7 @@ export interface GifPresentation {
   asset: SkinAssetFile;
   /**
    * Target loop duration in ms. Scales frame timing to match (all frames kept).
-   * When set with `completeAction`, the action fires after one scaled loop.
+   * When set with `onComplete`, those effects fire after one scaled loop.
    */
   durationMs?: number;
   /**
@@ -620,16 +573,25 @@ export interface GifPresentation {
    * Ignored when `durationMs` is set.
    */
   playbackRate?: number;
-  /** Action dispatched after the first scaled animation loop completes. */
-  completeAction?: string;
-  /** Payload merged when `completeAction` fires (e.g. `view.setVariable`). */
-  completePayload?: SkinActionPayloadFields;
+  /** Effects dispatched after the first scaled animation loop completes. */
+  onComplete?: SkinLifecycleEffect[];
 }
+
+/** Primitive `button` chrome. App Button variants, or `plain` (no hover fill). Default: ghost. */
+export type PrimitiveButtonVariant =
+  "primary" | "secondary" | "ghost" | "danger" | "plain";
 
 export interface PrimitivePresentation {
   kind: "primitive";
-  classPrefix?: string;
-  variant?: string;
+  /**
+   * Button only. Spiral icon library id (`setList` → `IconSetList`) or
+   * pack-relative raster under `assets/` (e.g. `icons/foo.png`).
+   */
+  icon?: string;
+  /** Button only. Visible label (author content). */
+  text?: string;
+  /** Button only. App Button variant, or `plain` for a chrome-less hit target. Default ghost. */
+  variant?: PrimitiveButtonVariant;
 }
 
 export interface CssPresentation {
@@ -662,22 +624,23 @@ export interface BitmapVerticalSliderPresentation {
    * track. The empty groove is expected in the window background.
    */
   fillFromBottom?: boolean;
-  classPrefix?: string;
 }
 
 /** WMP-style tiled horizontal track + movable thumb (balance, volume). */
 export interface BitmapHorizontalSliderPresentation {
   kind: "bitmapHorizontalSlider";
-  track: SkinAssetFile;
+  /** Omitted for thumb-only sliders (groove baked into panel background). */
+  track?: SkinAssetFile;
   thumb: SkinAssetFile;
-  trackTileWidth: number;
-  trackTileHeight: number;
+  /** Source tile width in px. Required when `track` is set. */
+  trackTileWidth?: number;
+  /** Source tile height in px. Required when `track` is set. */
+  trackTileHeight?: number;
   trackWidth: number;
   trackHeight: number;
   thumbWidth: number;
   thumbHeight: number;
   borderSize?: number;
-  classPrefix?: string;
 }
 
 /** WMP-style track + fill + thumb seek bar. */
@@ -692,7 +655,6 @@ export interface BitmapSeekbarPresentation {
   trackHeight: number;
   thumbWidth: number;
   thumbHeight: number;
-  classPrefix?: string;
 }
 
 /** WMP-style filmstrip slider: one frame per discrete value step. */
@@ -709,7 +671,6 @@ export interface StripSliderPresentation {
   valueFrames?: "ascending" | "descending";
   /** How position-map colors map to frame indices along the interaction axis (default ascending). */
   mapFrames?: "ascending" | "descending";
-  classPrefix?: string;
 }
 
 /** WMP-style horizontal digit strip for MM:SS (and sign) display. */
@@ -724,7 +685,6 @@ export interface DigitStripPresentation {
   signFrameElapsed?: number;
   /** Strip frame index for remaining-mode prefix (default 11). */
   signFrameRemaining?: number;
-  classPrefix?: string;
 }
 
 export interface DigitStripSlot {
@@ -739,7 +699,6 @@ export interface FramedPanelPresentation {
   frame?: SkinAssetFile;
   /** Optional inner content rect when viz/video is inset within the outer frame bounds. */
   contentInset?: FramedPanelInset;
-  classPrefix?: string;
 }
 
 export interface FramedPanelInset {
@@ -747,15 +706,6 @@ export interface FramedPanelInset {
   y: number;
   w: number;
   h: number;
-}
-
-/** Compact WMP-style playlist panel with source dropdown and track rows. */
-export interface CompactPlaylistPresentation {
-  kind: "compact";
-  /** Show the source dropdown (All tracks, Up Next, user playlists). Default true. */
-  showDropdown?: boolean;
-  /** Show duration column. Default true. */
-  showDuration?: boolean;
 }
 
 export interface WindowChrome {
@@ -771,29 +721,14 @@ export interface WindowChrome {
   snapEnabled?: boolean;
 }
 
-export type VisualizerPlacement = "top" | "bottom";
-export type VisualizerDisplay = "mini" | "panel";
-export type VisualizerSizeWidth = "fill" | number;
-export type VisualizerSizeHeight = "flex" | "fill" | number;
-
-export interface SkinVisualizerSize {
-  width?: VisualizerSizeWidth;
-  height?: VisualizerSizeHeight;
-  minHeight?: number;
-  maxHeight?: number;
-}
-
 export interface SkinVisualizer {
   /**
    * Effective visualizer contribution id (`authorId.packId.type.contributionId`),
    * or `"global"` / omit to follow the user's active visualizer picker.
+   * Skins always render the full panel surface; mini+expand lives on the library
+   * Now Playing bar only.
    */
   id?: string;
-  /** Band position in the skin shell. Default `bottom`. */
-  placement?: VisualizerPlacement;
-  /** `mini` = compact strip; `panel` = full slot with optional flex height. Default `mini`. */
-  display?: VisualizerDisplay;
-  size?: SkinVisualizerSize;
 }
 
 export type SkinActionId =
@@ -816,15 +751,11 @@ export type SkinActionId =
   | "player.toggleCrossfade"
   | "player.clearSetList"
   | "navigation.openAlbum"
-  | "queue.openSetList"
   | "skin.openPicker"
   | "skin.exit"
   | "skin.minimize"
   | "skin.toggleAlwaysOnTop"
   | "skin.restoreMainWindow"
-  | "skin.togglePanel"
-  | "skin.openPanel"
-  | "skin.closePanel"
   | "skin.switchView"
   | "skin.openView"
   | "skin.closeView"

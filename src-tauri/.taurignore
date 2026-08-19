@@ -1,5 +1,4 @@
-# Live-edited in dev; debug builds read from source (see builtin_skins_root).
-skins/builtin/**
-
-# Same pattern as skins — avoid dev restarts when tweaking built-in visualizers.
-visualizers/builtin/**
+# Live-edited in `tauri dev`; debug builds read from source
+# (see packs::paths::builtin_packs_root). Keep the CLI from restarting
+# the app when builtin pack CSS/JSON/assets change.
+packs/builtin/

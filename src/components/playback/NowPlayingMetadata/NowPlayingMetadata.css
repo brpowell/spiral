@@ -19,21 +19,7 @@
   pointer-events: none;
 }
 
-.now-playing-metadata__art {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  background: var(--color-surface-raised);
-  cursor: default;
-  /* Opacity is owned by shared-layout projection — don't CSS-transition it. */
-  transition: box-shadow 0.15s ease;
-}
-
-.now-playing-metadata__art--shared {
+.now-playing-metadata .now-playing-art--shared {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -41,58 +27,17 @@
   z-index: 2;
 }
 
-.now-playing-metadata__art--zoomable {
+.now-playing-metadata .now-playing-art--zoomable {
   cursor: zoom-in;
 }
 
-.now-playing-metadata__art--zoomable:hover:not(:disabled) {
+.now-playing-metadata .now-playing-art--zoomable:hover:not(:disabled) {
   box-shadow: 0 0 0 1px var(--color-accent-muted);
 }
 
-.now-playing-metadata__art--inactive {
-  opacity: 0.7;
-}
-
-.now-playing-metadata__art--zoomable:disabled {
+.now-playing-metadata .now-playing-art--zoomable:disabled {
   cursor: default;
   opacity: 0.7;
-}
-
-.now-playing-metadata__art-stack {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-.now-playing-metadata__crossfade-layer {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.now-playing-metadata__art-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  border-radius: inherit;
-}
-
-.now-playing-metadata__art-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-secondary);
-  background: var(--color-surface-raised);
-}
-
-.now-playing-metadata__art-placeholder svg {
-  width: 20px;
-  height: 20px;
 }
 
 .now-playing-metadata__text {
@@ -124,9 +69,7 @@
   width: 100%;
 }
 
-.now-playing-metadata__text-overlay .now-playing-metadata__crossfade-layer {
-  position: absolute;
-  inset: 0;
+.now-playing-metadata__text-overlay .now-playing-crossfade {
   display: flex;
   flex-direction: column;
   align-items: center;

@@ -25,9 +25,6 @@
 .skin-framed-viz__content .visualizer-slot {
   width: 100%;
   height: 100%;
-}
-
-.skin-framed-viz__content .visualizer-slot--panel {
   flex: 1 1 auto;
   min-height: 0;
 }

@@ -1,4 +1,5 @@
 .skin-playlist-view {
+  --skin-playlist-art-size: 24px;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -7,18 +8,49 @@
   overflow: hidden;
 }
 
-.skin-playlist-view__source {
+.skin-playlist-view__source-wrap {
+  --skin-playlist-source-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='black' d='M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z'/%3E%3C/svg%3E");
+  position: relative;
   flex: 0 0 auto;
+  width: 100%;
+  margin: 0 0 3px;
+}
+
+.skin-playlist-view__source {
   width: 100%;
   margin: 0;
   border: 0;
-  background: transparent;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 34%, transparent);
+  border-radius: 2px 2px 0 0;
+  background: color-mix(in srgb, currentColor 14%, transparent);
   color: inherit;
   font: inherit;
-  padding: 2px 4px;
+  font-weight: 600;
+  padding: 3px 18px 3px 6px;
   cursor: pointer;
   outline: none;
   box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.skin-playlist-view__source-wrap:hover .skin-playlist-view__source {
+  background: color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.skin-playlist-view__source-wrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  width: 10px;
+  height: 10px;
+  pointer-events: none;
+  transform: translateY(-50%);
+  background: currentColor;
+  opacity: 0.72;
+  mask: var(--skin-playlist-source-chevron) center / contain no-repeat;
+  -webkit-mask: var(--skin-playlist-source-chevron) center / contain no-repeat;
 }
 
 .skin-playlist-view__source:focus,
@@ -31,9 +63,14 @@
 
 .skin-playlist-view__list {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
-  overflow-y: auto;
   overflow-x: hidden;
+  /* `overlay` keeps a WebKit layout scrollbar from eating width next to a
+     full-bleed sibling (the source picker). Maps to `auto` elsewhere. */
+  overflow-y: overlay;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, currentColor 40%, transparent) transparent;
 }
 
 .skin-playlist-view__empty {
@@ -56,6 +93,27 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.skin-playlist-view__row--with-art {
+  grid-template-columns: var(--skin-playlist-art-size) minmax(0, 1fr) auto;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.skin-playlist-view__art {
+  width: var(--skin-playlist-art-size);
+  height: var(--skin-playlist-art-size);
+  overflow: hidden;
+  border-radius: 2px;
+  background: color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.skin-playlist-view__art-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .skin-playlist-view__row:hover {

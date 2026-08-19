@@ -1,12 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { applyViewStateEvent } from "./skinViewStateEvents";
-import * as skinSoundEffects from "./skinSoundEffects";
 import type { SkinViewStateSpec } from "../types/skin";
 import type { SkinViewStateApi } from "./skinViewStateContext";
 
 const shutterToggle = [
-  { from: ["intro", "closed"], set: "opening", sound: "open" },
-  { from: ["open"], set: "closing", sound: "close" },
+  { from: ["intro", "closed"], set: "opening" },
+  { from: ["open"], set: "closing" },
 ];
 
 const shutterStateSpec: Record<string, SkinViewStateSpec> = {
@@ -35,38 +34,26 @@ function mockViewState(initial: Record<string, string | number | boolean>): {
 }
 
 describe("applyViewStateEvent", () => {
-  beforeEach(() => {
-    vi.spyOn(skinSoundEffects, "playActiveSkinSound").mockImplementation(
-      () => {},
-    );
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("transitions intro and closed to opening with open sound", () => {
+  it("transitions intro and closed to opening", () => {
     const { api, values } = mockViewState({ shutter: "intro" });
 
     expect(
       applyViewStateEvent("shutter", "toggle", shutterStateSpec, api),
     ).toBe(true);
     expect(values.shutter).toBe("opening");
-    expect(skinSoundEffects.playActiveSkinSound).toHaveBeenCalledWith("open");
 
     values.shutter = "closed";
     applyViewStateEvent("shutter", "toggle", shutterStateSpec, api);
     expect(values.shutter).toBe("opening");
   });
 
-  it("transitions open to closing with close sound", () => {
+  it("transitions open to closing", () => {
     const { api, values } = mockViewState({ shutter: "open" });
 
     expect(
       applyViewStateEvent("shutter", "toggle", shutterStateSpec, api),
     ).toBe(true);
     expect(values.shutter).toBe("closing");
-    expect(skinSoundEffects.playActiveSkinSound).toHaveBeenCalledWith("close");
   });
 
   it("no-ops while animating", () => {
@@ -76,30 +63,11 @@ describe("applyViewStateEvent", () => {
       applyViewStateEvent("shutter", "toggle", shutterStateSpec, api),
     ).toBe(false);
     expect(values.shutter).toBe("opening");
-    expect(skinSoundEffects.playActiveSkinSound).not.toHaveBeenCalled();
 
     values.shutter = "closing";
     expect(
       applyViewStateEvent("shutter", "toggle", shutterStateSpec, api),
     ).toBe(false);
-  });
-
-  it("plays sound before setVariable", () => {
-    const callOrder: string[] = [];
-    vi.mocked(skinSoundEffects.playActiveSkinSound).mockImplementation(() => {
-      callOrder.push("sound");
-    });
-    const { api, values } = mockViewState({ shutter: "open" });
-    const originalSetVariable = api.setVariable;
-    api.setVariable = (name, value) => {
-      callOrder.push("set");
-      originalSetVariable(name, value);
-    };
-
-    applyViewStateEvent("shutter", "toggle", shutterStateSpec, api);
-
-    expect(callOrder).toEqual(["sound", "set"]);
-    expect(values.shutter).toBe("closing");
   });
 
   it("returns false when event or variable is unknown", () => {

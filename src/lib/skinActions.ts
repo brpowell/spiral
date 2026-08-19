@@ -1,4 +1,3 @@
-import { useCallback } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { albumKey as albumKeyFromTrack } from "./albums";
 import { useNavigationStore } from "../store/useNavigationStore";
@@ -32,18 +31,6 @@ import { getSkinViewStateApi } from "./skinViewStateContext";
 import { applyViewStateEvent } from "./skinViewStateEvents";
 
 export type SkinActionPayload = SkinActionPayloadFields;
-
-export function skinControlPayload(source: {
-  panelId?: string;
-  viewId?: string;
-  url?: string;
-}): SkinActionPayload {
-  return {
-    panelId: source.panelId,
-    viewId: source.viewId,
-    url: source.url,
-  };
-}
 
 export function runSkinAction(
   actionId: string | undefined,
@@ -138,8 +125,6 @@ export function runSkinAction(
       }
       break;
     }
-    case "queue.openSetList":
-      break;
     case "skin.openPicker":
       void openAppearanceWindow("skins");
       break;
@@ -158,21 +143,6 @@ export function runSkinAction(
     case "skin.toggleAlwaysOnTop":
       void readSkinModeAlwaysOnTop().then((on) => setSkinModeAlwaysOnTop(!on));
       break;
-    case "skin.togglePanel": {
-      const panelId = payload?.panelId;
-      if (panelId) void useSkinStore.getState().togglePanel(panelId);
-      break;
-    }
-    case "skin.openPanel": {
-      const panelId = payload?.panelId;
-      if (panelId) void useSkinStore.getState().openPanel(panelId);
-      break;
-    }
-    case "skin.closePanel": {
-      const panelId = payload?.panelId;
-      if (panelId) void useSkinStore.getState().closePanel(panelId);
-      break;
-    }
     case "skin.switchView": {
       const viewId = payload?.viewId;
       if (viewId) void useSkinStore.getState().switchView(viewId);
@@ -328,18 +298,4 @@ export function runSkinAction(
     default:
       break;
   }
-}
-
-export function useSkinAction(
-  actionId: string | undefined,
-  source?: { panelId?: string; viewId?: string; url?: string },
-) {
-  return useCallback(
-    (payload?: SkinActionPayload) => {
-      runSkinAction(actionId, { ...skinControlPayload(source ?? {}), ...payload });
-    },
-    // Depend on source fields, not object identity (callers often pass `node`).
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable by field
-    [actionId, source?.panelId, source?.viewId, source?.url],
-  );
 }

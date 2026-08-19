@@ -1,4 +1,4 @@
-import type { LayoutNode, LoadedSkinPack } from "../types/skin";
+import type { LayoutTreeNode, LoadedSkinPack } from "../types/skin";
 
 export interface AuxStartupRequirements {
   /** Player store bridge — always true for aux windows today. */
@@ -20,17 +20,15 @@ interface LayoutFeatureFlags {
 }
 
 function walkLayoutFeatures(
-  node: LayoutNode,
+  node: LayoutTreeNode,
   flags: LayoutFeatureFlags,
 ): void {
   switch (node.type) {
     case "canvas":
     case "subview":
-    case "stack":
     case "row":
     case "column":
     case "overlay":
-    case "region":
     case "tiledFrame":
       for (const child of node.children) {
         walkLayoutFeatures(child, flags);
@@ -72,7 +70,7 @@ export function resolveAuxStartupRequirements(
   };
   walkLayoutFeatures(view.layout, flags);
 
-  const isCanvasView = view.layoutMode === "canvas";
+  const isCanvasView = view.layout.type === "canvas";
 
   return {
     player: true,

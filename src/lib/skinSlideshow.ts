@@ -1,5 +1,5 @@
 import type {
-  LayoutNode,
+  LayoutTreeNode,
   SlideshowDeck,
   SlideshowNode,
   SlideshowPresentation,
@@ -25,10 +25,12 @@ const SLIDESHOW_NAV_BINDS = new Set([
   "atLast",
 ]);
 
-export function collectSlideshowNodes(node: LayoutNode): SlideshowDefinition[] {
+export function collectSlideshowNodes(
+  node: LayoutTreeNode,
+): SlideshowDefinition[] {
   const found: SlideshowDefinition[] = [];
 
-  const walk = (current: LayoutNode): void => {
+  const walk = (current: LayoutTreeNode): void => {
     if (current.type === "slideshow" && current.id) {
       found.push({ id: current.id, presentation: current.presentation });
     }

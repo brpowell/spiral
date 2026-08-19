@@ -45,8 +45,7 @@
   pointer-events: auto;
 }
 
-.skin-tiled-frame__content > .skin-layout-node--overlay,
-.skin-tiled-frame__content > .skin-bounds > .skin-layout-node--overlay {
+.skin-tiled-frame__content > .skin-layout-node--overlay {
   position: relative;
   width: 100%;
   height: 100%;

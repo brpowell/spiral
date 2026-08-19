@@ -2,7 +2,14 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { LayoutNode, SkinManifest, SkinView } from "../types/skin";
+import type {
+  LayoutBounds,
+  LayoutNode,
+  LayoutTreeNode,
+  SkinManifest,
+  SkinView,
+  CanvasNode,
+} from "../types/skin";
 import {
   flattenLayout,
   localizeBounds,
@@ -17,31 +24,76 @@ import {
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
 function loadManifest(relativePath: string): SkinManifest {
-  return JSON.parse(readFileSync(join(repoRoot, relativePath), "utf8")) as SkinManifest;
+  return JSON.parse(
+    readFileSync(join(repoRoot, relativePath), "utf8"),
+  ) as SkinManifest;
 }
 
-function findById(root: LayoutNode, id: string): {
-  node: LayoutNode;
-  ancestors: LayoutNode[];
-} | undefined {
+function findById(
+  root: LayoutTreeNode,
+  id: string,
+):
+  | {
+      node: LayoutTreeNode;
+      ancestors: LayoutTreeNode[];
+    }
+  | undefined {
   for (const entry of walkLayoutTree(root)) {
     if (entry.node.id === id) return entry;
   }
   return undefined;
 }
 
-describe("resolveLocalBounds / localizeBounds", () => {
-  it("resolves x and right anchors against context size", () => {
-    expect(
-      resolveLocalBounds({ x: 10, y: 20, w: 30, h: 40 }, { width: 200, height: 100 }),
-    ).toEqual({ x: 10, y: 20, w: 30, h: 40, zIndex: undefined });
+const dummyBitmap = {
+  kind: "bitmap" as const,
+  assets: { default: "x.png" },
+};
 
+function canvasRoot(children: LayoutNode[]): CanvasNode {
+  return { type: "canvas", width: 100, height: 80, children };
+}
+
+function canvasStageSize(view: SkinView): { width: number; height: number } {
+  if (view.layout.type !== "canvas") {
+    throw new Error(`expected canvas layout root, got ${view.layout.type}`);
+  }
+  return { width: view.layout.width, height: view.layout.height };
+}
+
+function deco(id: string | undefined, bounds: LayoutBounds): LayoutNode {
+  return {
+    type: "decoration",
+    ...(id ? { id } : {}),
+    bounds,
+    presentation: dummyBitmap,
+  };
+}
+
+describe("resolveLocalBounds / localizeBounds", () => {
+  it("resolves x and right-anchored boxes against context size", () => {
     expect(
       resolveLocalBounds(
-        { right: 50, y: 20, w: 30, h: 40, zIndex: 2 },
+        { x: 10, y: 20, w: 30, h: 40 },
+        { width: 200, height: 100 },
+      ),
+    ).toEqual({ x: 10, y: 20, w: 30, h: 40, zIndex: undefined });
+
+    // CSS `right`: inset of the node's right edge → x = contextW - right - w
+    expect(
+      resolveLocalBounds(
+        { right: 20, y: 20, w: 30, h: 40, zIndex: 2 },
         { width: 200, height: 100 },
       ),
     ).toEqual({ x: 150, y: 20, w: 30, h: 40, zIndex: 2 });
+  });
+
+  it("resolves stretch width and bottom-pinned height", () => {
+    expect(
+      resolveLocalBounds(
+        { x: 0, right: 0, bottom: 0, h: 20, zIndex: 1 },
+        { width: 232, height: 179 },
+      ),
+    ).toEqual({ x: 0, y: 159, w: 232, h: 20, zIndex: 1 });
   });
 
   it("round-trips absolute ↔ local without drift", () => {
@@ -63,17 +115,14 @@ describe("resolveAbsoluteBounds", () => {
   const stage = { width: 753, height: 432 };
 
   it("keeps root-level children stage-absolute", () => {
-    const root: LayoutNode = {
-      type: "canvas",
-      children: [
-        {
-          type: "decoration",
-          id: "bg",
-          bounds: { x: 100, y: 50, w: 20, h: 10, zIndex: 1 },
-          presentation: { kind: "bitmap", assets: { default: "x.png" } },
-        },
-      ],
-    };
+    const root = canvasRoot([
+      {
+        type: "decoration",
+        id: "bg",
+        bounds: { x: 100, y: 50, w: 20, h: 10, zIndex: 1 },
+        presentation: { kind: "bitmap", assets: { default: "x.png" } },
+      },
+    ]);
     const child = root.children[0]!;
     expect(resolveAbsoluteBounds(child, [root], stage)).toEqual({
       x: 100,
@@ -85,12 +134,11 @@ describe("resolveAbsoluteBounds", () => {
   });
 
   it("sums nested parent origins (Headspace eq-panel chain)", () => {
-    const headspace = loadManifest("testdata/skins/manifests/headspace.skin.json");
+    const headspace = loadManifest(
+      "testdata/skins/manifests/headspace.skin.json",
+    );
     const view = headspace.views.main!;
-    const stageSize = {
-      width: view.canvas?.width ?? 753,
-      height: view.canvas?.height ?? 432,
-    };
+    const stageSize = canvasStageSize(view);
 
     const eqDrawer = findById(view.layout, "eq-drawer");
     const eqPanel = findById(view.layout, "eq-panel");
@@ -148,17 +196,21 @@ describe("resolveAbsoluteBounds", () => {
   });
 
   it("round-trips every Headspace nested group without drift", () => {
-    const headspace = loadManifest("testdata/skins/manifests/headspace.skin.json");
+    const headspace = loadManifest(
+      "testdata/skins/manifests/headspace.skin.json",
+    );
     const view = headspace.views.main!;
-    const stageSize = {
-      width: view.canvas?.width ?? 753,
-      height: view.canvas?.height ?? 432,
-    };
+    const stageSize = canvasStageSize(view);
 
     for (const { node, ancestors } of walkLayoutTree(view.layout)) {
-      if (!node.bounds || ancestors.length === 0) continue;
+      if (!("bounds" in node) || !node.bounds || ancestors.length === 0)
+        continue;
       const parent = ancestors[ancestors.length - 1]!;
-      if (!parent.bounds && parent.type === "canvas" && ancestors.length === 1) {
+      if (
+        !("bounds" in parent && parent.bounds) &&
+        parent.type === "canvas" &&
+        ancestors.length === 1
+      ) {
         // Direct child of stage root: parent-relative === absolute
         const abs = resolveAbsoluteBounds(node, ancestors, stageSize)!;
         expect(localizeBounds(abs, { x: 0, y: 0 }).x).toBe(abs.x);
@@ -169,19 +221,25 @@ describe("resolveAbsoluteBounds", () => {
       const abs = resolveAbsoluteBounds(node, ancestors, stageSize);
       if (!abs) continue;
 
-      const parentAbs = parent.bounds
-        ? resolveAbsoluteBounds(parent, ancestors.slice(0, -1), stageSize)
-        : { x: 0, y: 0, w: stageSize.width, h: stageSize.height };
+      const parentAbs =
+        "bounds" in parent && parent.bounds
+          ? resolveAbsoluteBounds(parent, ancestors.slice(0, -1), stageSize)
+          : { x: 0, y: 0, w: stageSize.width, h: stageSize.height };
       if (!parentAbs) continue;
 
       const local = localizeBounds(abs, { x: parentAbs.x, y: parentAbs.y });
       const authoredX =
         node.bounds.x ??
-        (node.bounds.right !== undefined
-          ? parentAbs.w - node.bounds.right
+        (node.bounds.right !== undefined && node.bounds.w !== undefined
+          ? parentAbs.w - node.bounds.right - node.bounds.w
+          : 0);
+      const authoredY =
+        node.bounds.y ??
+        (node.bounds.bottom !== undefined && node.bounds.h !== undefined
+          ? parentAbs.h - node.bounds.bottom - node.bounds.h
           : 0);
       expect(local.x).toBe(authoredX);
-      expect(local.y).toBe(node.bounds.y);
+      expect(local.y).toBe(authoredY);
       expect(local.w).toBe(node.bounds.w);
       expect(local.h).toBe(node.bounds.h);
 
@@ -194,23 +252,14 @@ describe("resolveAbsoluteBounds", () => {
 
 describe("walkLayoutTree / sortChildrenByZIndex / flattenLayout", () => {
   it("walks depth-first with ancestor chains", () => {
-    const root: LayoutNode = {
-      type: "canvas",
-      children: [
-        {
-          type: "subview",
-          id: "group",
-          bounds: { x: 0, y: 0, w: 10, h: 10 },
-          children: [
-            {
-              type: "hitArea",
-              id: "hit",
-              bounds: { x: 1, y: 2, w: 3, h: 4 },
-            },
-          ],
-        },
-      ],
-    };
+    const root = canvasRoot([
+      {
+        type: "subview",
+        id: "group",
+        bounds: { x: 0, y: 0, w: 10, h: 10 },
+        children: [deco("hit", { x: 1, y: 2, w: 3, h: 4 })],
+      },
+    ]);
     const ids = [...walkLayoutTree(root)].map((e) => ({
       id: e.node.id ?? e.node.type,
       depth: e.depth,
@@ -228,21 +277,9 @@ describe("walkLayoutTree / sortChildrenByZIndex / flattenLayout", () => {
       type: "subview",
       bounds: { x: 0, y: 0, w: 10, h: 10 },
       children: [
-        {
-          type: "hitArea",
-          id: "a",
-          bounds: { x: 0, y: 0, w: 1, h: 1, zIndex: 5 },
-        },
-        {
-          type: "hitArea",
-          id: "b",
-          bounds: { x: 0, y: 0, w: 1, h: 1 },
-        },
-        {
-          type: "hitArea",
-          id: "c",
-          bounds: { x: 0, y: 0, w: 1, h: 1, zIndex: 2 },
-        },
+        deco("a", { x: 0, y: 0, w: 1, h: 1, zIndex: 5 }),
+        deco("b", { x: 0, y: 0, w: 1, h: 1 }),
+        deco("c", { x: 0, y: 0, w: 1, h: 1, zIndex: 2 }),
       ],
     };
     expect(sortChildrenByZIndex(container).map((n) => n.id)).toEqual([
@@ -254,25 +291,14 @@ describe("walkLayoutTree / sortChildrenByZIndex / flattenLayout", () => {
 
   it("flattens with absolute bounds", () => {
     const view: SkinView = {
-      layoutMode: "canvas",
-      canvas: { width: 100, height: 80 },
-      layout: {
-        type: "canvas",
-        children: [
-          {
-            type: "subview",
-            id: "g",
-            bounds: { x: 10, y: 20, w: 50, h: 40 },
-            children: [
-              {
-                type: "hitArea",
-                id: "h",
-                bounds: { x: 5, y: 6, w: 7, h: 8 },
-              },
-            ],
-          },
-        ],
-      },
+      layout: canvasRoot([
+        {
+          type: "subview",
+          id: "g",
+          bounds: { x: 10, y: 20, w: 50, h: 40 },
+          children: [deco("h", { x: 5, y: 6, w: 7, h: 8 })],
+        },
+      ]),
     };
     const flat = flattenLayout(view, { width: 100, height: 80 });
     const hit = flat.find((e) => e.node.id === "h");
@@ -289,78 +315,26 @@ describe("walkLayoutTree / sortChildrenByZIndex / flattenLayout", () => {
 describe("validateLayoutTree", () => {
   it("flags duplicate ids", () => {
     const view: SkinView = {
-      layout: {
-        type: "canvas",
-        children: [
-          {
-            type: "hitArea",
-            id: "same",
-            bounds: { x: 0, y: 0, w: 1, h: 1 },
-          },
-          {
-            type: "hitArea",
-            id: "same",
-            bounds: { x: 1, y: 1, w: 1, h: 1 },
-          },
-        ],
-      },
+      layout: canvasRoot([
+        deco("same", { x: 0, y: 0, w: 1, h: 1 }),
+        deco("same", { x: 1, y: 1, w: 1, h: 1 }),
+      ]),
     };
     const result = validateLayoutTree(view);
     expect(result.ok).toBe(false);
     expect(result.errors.some((e) => e.code === "duplicate-id")).toBe(true);
   });
 
-  it("rejects nested canvas", () => {
-    const view: SkinView = {
-      layout: {
-        type: "canvas",
-        children: [
-          {
-            type: "canvas",
-            id: "nested",
-            bounds: { x: 0, y: 0, w: 10, h: 10 },
-            children: [],
-          },
-        ],
-      },
-    };
-    const result = validateLayoutTree(view);
-    expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.code === "nested-canvas")).toBe(true);
-  });
-
-  it("rejects subview as root", () => {
-    const view: SkinView = {
-      layout: {
-        type: "subview",
-        bounds: { x: 0, y: 0, w: 10, h: 10 },
-        children: [],
-      },
-    };
-    const result = validateLayoutTree(view);
-    expect(result.ok).toBe(false);
-    expect(result.errors.some((e) => e.code === "subview-as-root")).toBe(true);
-  });
-
   it("accepts nested subview groups", () => {
     const view: SkinView = {
-      layout: {
-        type: "canvas",
-        children: [
-          {
-            type: "subview",
-            id: "cluster",
-            bounds: { x: 0, y: 0, w: 10, h: 10 },
-            children: [
-              {
-                type: "hitArea",
-                id: "hit",
-                bounds: { x: 1, y: 1, w: 2, h: 2 },
-              },
-            ],
-          },
-        ],
-      },
+      layout: canvasRoot([
+        {
+          type: "subview",
+          id: "cluster",
+          bounds: { x: 0, y: 0, w: 10, h: 10 },
+          children: [deco("hit", { x: 1, y: 1, w: 2, h: 2 })],
+        },
+      ]),
     };
     const result = validateLayoutTree(view);
     expect(result.ok).toBe(true);
@@ -369,15 +343,7 @@ describe("validateLayoutTree", () => {
 
   it("warns on missing ids", () => {
     const view: SkinView = {
-      layout: {
-        type: "canvas",
-        children: [
-          {
-            type: "hitArea",
-            bounds: { x: 0, y: 0, w: 1, h: 1 },
-          },
-        ],
-      },
+      layout: canvasRoot([deco(undefined, { x: 0, y: 0, w: 1, h: 1 })]),
     };
     const result = validateLayoutTree(view);
     expect(result.ok).toBe(true);

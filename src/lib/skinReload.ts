@@ -1,4 +1,3 @@
-import { panelMotionStateForView } from "./skinPanelMotion";
 import { resolveViewForPack } from "./skinViewState";
 import { loadSkinPack } from "./tauri";
 import { useSkinStore } from "../store/useSkinStore";
@@ -14,12 +13,10 @@ export async function reloadActiveSkinPack(): Promise<void> {
   const viewId = pack.manifest.views[preferredViewId]
     ? preferredViewId
     : resolveViewForPack(pack);
-  const view = pack.manifest.views[viewId];
 
   useSkinStore.setState({
     activePack: pack,
     activeViewId: viewId,
     packReloadGeneration: packReloadGeneration + 1,
-    ...(view ? panelMotionStateForView(view) : {}),
   });
 }

@@ -5,8 +5,10 @@ import {
   resolveInteractiveAssetFile,
   resolveInteractiveAssetUrl,
 } from "../../../lib/skinAssets";
-import { useSkinAction } from "../../../lib/skinActions";
-import { playSkinSound } from "../../../lib/skinSoundEffects";
+import {
+  playSkinSound,
+  resolveSkinClickSound,
+} from "../../../lib/skinSoundEffects";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
 import {
   evaluateSkinCondition,
@@ -19,6 +21,11 @@ import {
   useSkinButtonHoverSuppressed,
 } from "../../../lib/skinButtonHoverSuppression";
 import { useSkinTooltip } from "../../../lib/skinTooltips";
+import {
+  primaryClickAction,
+  primaryClickViewId,
+  scheduleSkinEffects,
+} from "../../../lib/skinEffects";
 import type {
   ButtonNode,
   InteractiveAssetState,
@@ -34,8 +41,8 @@ export function SkinBitmapButton({
   node: ButtonNode;
   pack: LoadedSkinPack;
 }) {
-  const invoke = useSkinAction(node.action, node);
   const bindState = useSkinBindState();
+  const clickAction = primaryClickAction(node.onClick);
   const hasTrack = useSkinBindValue("player.hasTrack");
   const canGoPrevious = useSkinBindValue("player.canGoPrevious");
   const canGoNext = useSkinBindValue("player.canGoNext");
@@ -97,20 +104,18 @@ export function SkinBitmapButton({
 
   const actionDisabled =
     !interactionEnabled ||
-    (node.action === "player.previousTrack" && !canGoPrevious) ||
-    (node.action === "player.nextTrack" && !canGoNext) ||
-    (node.action === "player.togglePlayPause" && !hasTrack) ||
-    (node.action === "player.play" && !hasTrack) ||
-    (node.action === "player.pause" && !hasTrack);
+    (clickAction === "player.previousTrack" && !canGoPrevious) ||
+    (clickAction === "player.nextTrack" && !canGoNext) ||
+    (clickAction === "player.togglePlayPause" && !hasTrack) ||
+    (clickAction === "player.play" && !hasTrack) ||
+    (clickAction === "player.pause" && !hasTrack);
 
   const isSticky =
-    node.activeWhen &&
-    evaluateSkinCondition(node.activeWhen, bindState);
+    node.activeWhen && evaluateSkinCondition(node.activeWhen, bindState);
 
   const tooltip = useSkinTooltip({
-    action: node.action,
-    panelId: node.panelId,
-    viewId: node.viewId,
+    action: clickAction,
+    viewId: primaryClickViewId(node.onClick),
     id: node.id,
     tooltip: node.tooltip,
     tooltipWhen: node.tooltipWhen,
@@ -231,7 +236,7 @@ export function SkinBitmapButton({
       data-node-id={node.id}
       {...skinDragRegionNoneProps()}
       disabled={Boolean(actionDisabled)}
-      aria-label={tooltip || node.id || node.action}
+      aria-label={tooltip || node.id || clickAction}
       title={tooltip || undefined}
       style={
         {
@@ -252,13 +257,16 @@ export function SkinBitmapButton({
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
       onClick={() => {
-        playSkinSound(pack, node.sound);
+        playSkinSound(
+          pack,
+          resolveSkinClickSound(node.sound, node.soundWhen, bindState),
+        );
         if (node.activeWhen) {
           setSettlingToggle({ prevSticky: Boolean(isSticky) });
           setPressed(false);
         }
         suppressSkinButtonHoverUntilPointerMove();
-        invoke(node.payload);
+        scheduleSkinEffects(node.onClick, () => bindState);
       }}
     >
       {usesGif ? (

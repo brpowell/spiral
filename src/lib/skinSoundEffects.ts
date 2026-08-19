@@ -3,7 +3,26 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
 import { useSkinStore } from "../store/useSkinStore";
 import { soundEffectsEnabledFromPreferences } from "../types/skinPreferences";
+import { evaluateSkinBind, type SkinBindState } from "./skinBinds";
 import type { LoadedSkinPack } from "../types/skin";
+
+/** Bind path → soundEffects key when truthy (last match wins). Falls back to `sound`. */
+export function resolveSkinClickSound(
+  sound: string | undefined,
+  soundWhen: Record<string, string> | undefined,
+  state: SkinBindState,
+): string | undefined {
+  if (soundWhen) {
+    let resolved: string | undefined;
+    for (const [condition, key] of Object.entries(soundWhen)) {
+      if (evaluateSkinBind(condition, state)) {
+        resolved = key;
+      }
+    }
+    if (resolved !== undefined) return resolved;
+  }
+  return sound;
+}
 
 const soundCache = new Map<string, Howl>();
 

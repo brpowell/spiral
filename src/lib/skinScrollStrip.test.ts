@@ -9,7 +9,7 @@ import {
   resolveScrollStripSlideLayout,
   scrollStripSlideCount,
 } from "./skinScrollStrip";
-import type { LayoutNode, ScrollStripNode } from "../types/skin";
+import type { LayoutTreeNode, ScrollStripNode } from "../types/skin";
 
 const scrollStripNode: ScrollStripNode = {
   type: "scrollStrip",
@@ -146,8 +146,10 @@ describe("evaluateScrollStripBind", () => {
 
 describe("collectScrollStripNodes", () => {
   it("finds scrollStrip nodes in nested layouts", () => {
-    const layout: LayoutNode = {
+    const layout: LayoutTreeNode = {
       type: "canvas",
+      width: 100,
+      height: 80,
       children: [
         {
           type: "overlay",

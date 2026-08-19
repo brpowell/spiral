@@ -2,7 +2,10 @@ import { useCallback, useMemo, useState, type PointerEvent } from "react";
 import { skinAssetFileUrl } from "../../../lib/skinAssets";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
 import { wmpTiledTrackStyle } from "../../../lib/wmpTiledTrack";
-import { useSkinBindState, useSkinControlEnabled } from "../../../lib/skinBinds";
+import {
+  useSkinBindState,
+  useSkinControlEnabled,
+} from "../../../lib/skinBinds";
 import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import type {
@@ -41,15 +44,16 @@ export function SkinBitmapHorizontalSlider({
   const {
     track,
     thumb,
-    trackTileWidth,
-    trackTileHeight,
+    trackTileWidth: trackTileWidthRaw,
+    trackTileHeight: trackTileHeightRaw,
     trackWidth,
     trackHeight,
     thumbWidth,
     thumbHeight,
     borderSize = 0,
-    classPrefix,
   } = presentation;
+  const trackTileWidth = trackTileWidthRaw ?? trackWidth;
+  const trackTileHeight = trackTileHeightRaw ?? trackHeight;
 
   const volume = usePlayerStore((s) => s.volume);
   const setVolume = usePlayerStore((s) => s.setVolume);
@@ -59,15 +63,14 @@ export function SkinBitmapHorizontalSlider({
   const interactionEnabled = useSkinControlEnabled(node.enabledWhen);
   const [hoverRatio, setHoverRatio] = useState<number | null>(null);
 
-  const ratio =
-    mode === "balance" ? balanceToRatio(balance) : clamp01(volume);
+  const ratio = mode === "balance" ? balanceToRatio(balance) : clamp01(volume);
 
   const travel = Math.max(0, trackWidth - borderSize * 2 - thumbWidth);
   const thumbLeft = borderSize + ratio * travel;
   const thumbTop = (trackHeight - thumbHeight) / 2;
   const trackTop = (trackHeight - trackTileHeight) / 2;
 
-  const trackUrl = skinAssetFileUrl(pack.packDir, track);
+  const trackUrl = track ? skinAssetFileUrl(pack.packDir, track) : null;
   const thumbUrl = skinAssetFileUrl(pack.packDir, thumb);
 
   const pointerToRatio = useCallback(
@@ -93,7 +96,12 @@ export function SkinBitmapHorizontalSlider({
   const onPointerDown = (event: PointerEvent<HTMLButtonElement>) => {
     if (!interactionEnabled) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    applyRatio(pointerToRatio(event.clientX, event.currentTarget.getBoundingClientRect()));
+    applyRatio(
+      pointerToRatio(
+        event.clientX,
+        event.currentTarget.getBoundingClientRect(),
+      ),
+    );
   };
 
   const onPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
@@ -102,7 +110,11 @@ export function SkinBitmapHorizontalSlider({
       event.currentTarget.getBoundingClientRect(),
     );
     setHoverRatio(nextRatio);
-    if (!event.currentTarget.hasPointerCapture(event.pointerId) || !interactionEnabled) return;
+    if (
+      !event.currentTarget.hasPointerCapture(event.pointerId) ||
+      !interactionEnabled
+    )
+      return;
     applyRatio(nextRatio);
   };
 
@@ -110,10 +122,15 @@ export function SkinBitmapHorizontalSlider({
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    applyRatio(pointerToRatio(event.clientX, event.currentTarget.getBoundingClientRect()));
+    applyRatio(
+      pointerToRatio(
+        event.clientX,
+        event.currentTarget.getBoundingClientRect(),
+      ),
+    );
   };
 
-  const className = ["skin-bitmap-horizontal-slider", classPrefix]
+  const className = ["skin-bitmap-horizontal-slider", node.className]
     .filter(Boolean)
     .join(" ");
 
@@ -129,27 +146,25 @@ export function SkinBitmapHorizontalSlider({
   );
 
   return (
-    <div
-      className={className}
-      data-node-id={node.id}
-      style={{ width: "100%", height: "100%" }}
-    >
-      <div
-        className="skin-bitmap-horizontal-slider__track"
-        style={{
-          top: `${trackTop}px`,
-          ...wmpTiledTrackStyle({
-            trackUrl,
-            trackTileWidth,
-            trackTileHeight,
-            trackWidth,
-            trackHeight: trackTileHeight,
-            borderSize,
-            direction: "horizontal",
-          }),
-        }}
-        aria-hidden
-      />
+    <div className={className} data-node-id={node.id}>
+      {trackUrl && (
+        <div
+          className="skin-bitmap-horizontal-slider__track"
+          style={{
+            top: `${trackTop}px`,
+            ...wmpTiledTrackStyle({
+              trackUrl,
+              trackTileWidth,
+              trackTileHeight,
+              trackWidth,
+              trackHeight: trackTileHeight,
+              borderSize,
+              direction: "horizontal",
+            }),
+          }}
+          aria-hidden
+        />
+      )}
       <img
         className="skin-bitmap-horizontal-slider__thumb"
         src={thumbUrl}
@@ -176,7 +191,10 @@ export function SkinBitmapHorizontalSlider({
         onPointerCancel={finishPointer}
         onPointerEnter={(event) =>
           setHoverRatio(
-            pointerToRatio(event.clientX, event.currentTarget.getBoundingClientRect()),
+            pointerToRatio(
+              event.clientX,
+              event.currentTarget.getBoundingClientRect(),
+            ),
           )
         }
         onPointerLeave={() => setHoverRatio(null)}

@@ -50,6 +50,8 @@ mod vorbis_container;
 mod packs;
 mod zip_import;
 mod skin_preferences;
+mod skin_click_through;
+mod skin_drag;
 #[cfg(test)]
 mod ogg_opus_tests;
 #[cfg(test)]
@@ -254,6 +256,8 @@ pub fn run() {
             commands::skins::get_active_skin_id,
             commands::skins::save_active_skin_view,
             commands::skins::get_active_skin_view,
+            commands::skins::set_skin_ignore_cursor_events,
+            commands::skins::start_skin_window_drag,
             commands::visualizers::list_visualizers,
             commands::visualizers::load_visualizer,
             commands::visualizers::read_viz_renderer_source,

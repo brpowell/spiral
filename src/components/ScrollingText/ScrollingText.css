@@ -5,6 +5,7 @@
   width: 100%;
 }
 
+/* Wins over inherited node `style.textAlign` (e.g. idle center) without !important. */
 .scrolling-text--active {
   text-align: left;
 }
@@ -55,6 +56,7 @@
   text-overflow: ellipsis;
 }
 
-.scrolling-text--marquee.scrolling-text--truncated .scrolling-text__segment[aria-hidden] {
+.scrolling-text--marquee.scrolling-text--truncated
+  .scrolling-text__segment[aria-hidden] {
   display: none;
 }

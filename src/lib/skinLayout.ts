@@ -3,14 +3,15 @@
  * and structural validation. Consumed by runtime tooling and WMS port work.
  *
  * Coordinate rules (see skin-contract.md):
- * - View stage root (`layoutMode: "canvas"`) is `canvas`; children are stage-absolute.
+ * - View stage root (`layout.type: "canvas"`) children are stage-absolute.
  * - Nested bounded groups are `subview` with parent-relative `bounds`.
- * - `bounds.right` / stretch resolve against the **current** layout context size.
+ * - `bounds.right` / `bounds.bottom` / stretch resolve against the **current** layout context size.
  */
 
 import type {
   LayoutBounds,
   LayoutNode,
+  LayoutTreeNode,
   SkinView,
 } from "../types/skin";
 
@@ -40,9 +41,9 @@ export interface AbsoluteBounds {
 }
 
 export interface LayoutWalkEntry {
-  node: LayoutNode;
+  node: LayoutTreeNode;
   /** Ancestors from root down to the immediate parent (empty for the root). */
-  ancestors: LayoutNode[];
+  ancestors: LayoutTreeNode[];
   depth: number;
 }
 
@@ -50,12 +51,7 @@ export type SkinLayoutValidationSeverity = "error" | "warning";
 
 export interface SkinLayoutValidationIssue {
   severity: SkinLayoutValidationSeverity;
-  code:
-    | "duplicate-id"
-    | "missing-bounds"
-    | "missing-id"
-    | "nested-canvas"
-    | "subview-as-root";
+  code: "duplicate-id" | "missing-bounds" | "missing-id";
   message: string;
   nodeId?: string;
   path: string;
@@ -68,21 +64,23 @@ export interface ValidateLayoutTreeResult {
 }
 
 export interface FlattenedLayoutNode {
-  node: LayoutNode;
+  node: LayoutTreeNode;
   absoluteBounds: AbsoluteBounds | undefined;
   path: string;
 }
 
-function nodeLabel(node: LayoutNode): string {
+function nodeLabel(node: LayoutTreeNode): string {
   return node.id ?? node.type;
 }
 
-function nodePath(ancestors: LayoutNode[], node: LayoutNode): string {
+function nodePath(ancestors: LayoutTreeNode[], node: LayoutTreeNode): string {
   return [...ancestors.map(nodeLabel), nodeLabel(node)].join("/");
 }
 
 /** Direct children of container nodes (undefined for leaves). */
-export function getLayoutChildren(node: LayoutNode): LayoutNode[] | undefined {
+export function getLayoutChildren(
+  node: LayoutTreeNode,
+): LayoutNode[] | undefined {
   if ("children" in node && Array.isArray(node.children)) {
     return node.children;
   }
@@ -93,10 +91,12 @@ export function getLayoutChildren(node: LayoutNode): LayoutNode[] | undefined {
  * Depth-first walk of a layout tree with parent chain.
  * Yields the root first, then descendants.
  */
-export function* walkLayoutTree(root: LayoutNode): Generator<LayoutWalkEntry> {
+export function* walkLayoutTree(
+  root: LayoutTreeNode,
+): Generator<LayoutWalkEntry> {
   function* visit(
-    node: LayoutNode,
-    ancestors: LayoutNode[],
+    node: LayoutTreeNode,
+    ancestors: LayoutTreeNode[],
   ): Generator<LayoutWalkEntry> {
     yield { node, ancestors, depth: ancestors.length };
     const children = getLayoutChildren(node);
@@ -109,27 +109,53 @@ export function* walkLayoutTree(root: LayoutNode): Generator<LayoutWalkEntry> {
   yield* visit(root, []);
 }
 
-/** Resolve local `bounds` against a containing block size (parent or stage). */
+/**
+ * Resolve local `bounds` against a containing block size (parent, content, or stage).
+ * `right` / `bottom` are CSS edge insets.
+ */
 export function resolveLocalBounds(
   bounds: LayoutBounds,
   contextSize: SkinLayoutSize,
 ): AbsoluteBounds {
+  const { width: stageW, height: stageH } = contextSize;
+
+  let y: number;
+  let h: number;
+
+  if (bounds.y !== undefined) {
+    y = bounds.y;
+    if (bounds.bottom !== undefined && bounds.h === undefined) {
+      h = Math.max(0, stageH - bounds.y - bounds.bottom);
+    } else {
+      h = bounds.h ?? 0;
+    }
+  } else if (bounds.bottom !== undefined) {
+    h = bounds.h ?? 0;
+    y = stageH - bounds.bottom - h;
+  } else {
+    y = 0;
+    h = bounds.h ?? 0;
+  }
+
   let x: number;
+  let w: number;
+
   if (bounds.x !== undefined) {
     x = bounds.x;
+    if (bounds.right !== undefined && bounds.w === undefined) {
+      w = Math.max(0, stageW - bounds.x - bounds.right);
+    } else {
+      w = bounds.w ?? 0;
+    }
   } else if (bounds.right !== undefined) {
-    // `right` = inset of the node's left edge from the context's right edge.
-    x = contextSize.width - bounds.right;
+    w = bounds.w ?? 0;
+    x = stageW - bounds.right - w;
   } else {
     x = 0;
+    w = bounds.w ?? 0;
   }
-  return {
-    x,
-    y: bounds.y,
-    w: bounds.w,
-    h: bounds.h,
-    zIndex: bounds.zIndex,
-  };
+
+  return { x, y, w, h, zIndex: bounds.zIndex };
 }
 
 /**
@@ -137,7 +163,7 @@ export function resolveLocalBounds(
  * Nested bounded groups push `parent` spaces; root contributes `stage`.
  */
 export function layoutContextStack(
-  ancestors: LayoutNode[],
+  ancestors: LayoutTreeNode[],
   stageSize: SkinLayoutSize,
 ): SkinLayoutContext[] {
   const stack: SkinLayoutContext[] = [
@@ -150,11 +176,12 @@ export function layoutContextStack(
 
   for (const ancestor of ancestors) {
     const parentCtx = stack[stack.length - 1]!;
-    if (!ancestor.bounds) {
+    const bounds = "bounds" in ancestor ? ancestor.bounds : undefined;
+    if (!bounds) {
       // Unbounded container (e.g. root canvas): children stay in current space.
       continue;
     }
-    const local = resolveLocalBounds(ancestor.bounds, parentCtx.size);
+    const local = resolveLocalBounds(bounds, parentCtx.size);
     stack.push({
       origin: {
         x: parentCtx.origin.x + local.x,
@@ -173,14 +200,15 @@ export function layoutContextStack(
  * `ancestors` is the chain from the view layout root to the node's parent.
  */
 export function resolveAbsoluteBounds(
-  node: LayoutNode,
-  ancestors: LayoutNode[],
+  node: LayoutTreeNode,
+  ancestors: LayoutTreeNode[],
   stageSize: SkinLayoutSize,
 ): AbsoluteBounds | undefined {
-  if (!node.bounds) return undefined;
+  const bounds = "bounds" in node ? node.bounds : undefined;
+  if (!bounds) return undefined;
   const stack = layoutContextStack(ancestors, stageSize);
   const ctx = stack[stack.length - 1]!;
-  const local = resolveLocalBounds(node.bounds, ctx.size);
+  const local = resolveLocalBounds(bounds, ctx.size);
   return {
     x: ctx.origin.x + local.x,
     y: ctx.origin.y + local.y,
@@ -208,24 +236,20 @@ export function localizeBounds(
 }
 
 /** Sort container children by `bounds.zIndex` ascending (missing → 0). */
-export function sortChildrenByZIndex(container: LayoutNode): LayoutNode[] {
+export function sortChildrenByZIndex(container: LayoutTreeNode): LayoutNode[] {
   const children = getLayoutChildren(container);
   if (!children) return [];
   return children
     .slice()
-    .sort((a, b) => (a.bounds?.zIndex ?? 0) - (b.bounds?.zIndex ?? 0));
-}
-
-function isNestedCanvasGroup(
-  node: LayoutNode,
-  ancestors: LayoutNode[],
-): boolean {
-  return node.type === "canvas" && ancestors.length > 0;
+    .sort(
+      (a, b) =>
+        (("bounds" in a ? a.bounds?.zIndex : undefined) ?? 0) -
+        (("bounds" in b ? b.bounds?.zIndex : undefined) ?? 0),
+    );
 }
 
 /**
  * Structural layout lint for a view.
- * Nested groups must be `subview`; nested `canvas` is rejected.
  */
 export function validateLayoutTree(view: SkinView): ValidateLayoutTreeResult {
   const errors: SkinLayoutValidationIssue[] = [];
@@ -233,16 +257,6 @@ export function validateLayoutTree(view: SkinView): ValidateLayoutTreeResult {
   const seenIds = new Map<string, string>();
 
   const root = view.layout;
-
-  if (root.type === "subview") {
-    errors.push({
-      severity: "error",
-      code: "subview-as-root",
-      message: "subview cannot be a view layout root; use canvas (or tiledFrame)",
-      path: root.id ?? "subview",
-      nodeId: root.id,
-    });
-  }
 
   for (const { node, ancestors } of walkLayoutTree(root)) {
     const path = nodePath(ancestors, node);
@@ -266,17 +280,6 @@ export function validateLayoutTree(view: SkinView): ValidateLayoutTreeResult {
         severity: "warning",
         code: "missing-id",
         message: `layout node type "${node.type}" should have a unique id`,
-        path,
-      });
-    }
-
-    if (isNestedCanvasGroup(node, ancestors)) {
-      errors.push({
-        severity: "error",
-        code: "nested-canvas",
-        message:
-          "nested canvas is invalid; use subview (canvas is view stage root only)",
-        nodeId: node.id,
         path,
       });
     }

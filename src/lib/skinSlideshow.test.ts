@@ -6,7 +6,7 @@ import {
   resolveSlideshowAssetForState,
   resolveSlideshowAssetPath,
 } from "./skinSlideshow";
-import type { LayoutNode, SlideshowNode } from "../types/skin";
+import type { LayoutTreeNode, SlideshowNode } from "../types/skin";
 
 const slideshowNode: SlideshowNode = {
   type: "slideshow",
@@ -77,8 +77,10 @@ describe("resolveSlideshowAssetForState", () => {
 
 describe("collectSlideshowNodes", () => {
   it("finds slideshow nodes in nested layouts", () => {
-    const layout: LayoutNode = {
+    const layout: LayoutTreeNode = {
       type: "canvas",
+      width: 100,
+      height: 80,
       children: [
         {
           type: "overlay",

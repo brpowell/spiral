@@ -10,6 +10,8 @@ import "./SeekBar.css";
 
 interface SeekBarProps {
   className?: string;
+  nodeId?: string;
+  interactionEnabled?: boolean;
 }
 
 function isSeekKey(key: string): boolean {
@@ -31,7 +33,11 @@ function ratioFromClientX(el: HTMLInputElement, clientX: number): number {
   return Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
 }
 
-export function SeekBar({ className }: SeekBarProps) {
+export function SeekBar({
+  className,
+  nodeId,
+  interactionEnabled = true,
+}: SeekBarProps) {
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
@@ -66,7 +72,12 @@ export function SeekBar({ className }: SeekBarProps) {
   };
 
   return (
-    <div className={["seek-bar", className].filter(Boolean).join(" ")}>
+    <div
+      className={["seek-bar", className].filter(Boolean).join(" ")}
+      data-node-id={nodeId}
+      aria-disabled={interactionEnabled ? undefined : true}
+      style={interactionEnabled ? undefined : { pointerEvents: "none" }}
+    >
       <span className="seek-bar__time">{formatTime(displayPosition)}</span>
       <Slider
         className="seek-bar__slider"

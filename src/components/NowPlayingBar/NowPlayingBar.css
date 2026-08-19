@@ -56,7 +56,7 @@
   display: contents;
 }
 
-.now-playing-bar__widget .now-playing-metadata__art,
+.now-playing-bar__widget .now-playing-art,
 .now-playing-bar__widget .now-playing-metadata__art-slot {
   grid-row: 1 / -1;
   grid-column: 1;

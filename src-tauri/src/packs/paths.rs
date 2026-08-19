@@ -9,7 +9,9 @@ use tauri::{AppHandle, Manager};
 pub fn builtin_packs_root(app: &AppHandle) -> PathBuf {
     let manifest_builtin = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("packs/builtin");
 
-    // Dev builds prefer the live source tree so edits apply without a full resource rebuild.
+    // Dev builds prefer the live source tree so edits apply without bundling
+    // resources (build.rs clears bundle.resources when `tauri_build::is_dev()`;
+    // src-tauri/.taurignore keeps the CLI from rebuilding on pack file changes).
     #[cfg(debug_assertions)]
     if manifest_builtin.is_dir() {
         return manifest_builtin;

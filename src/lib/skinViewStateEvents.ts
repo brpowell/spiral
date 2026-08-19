@@ -1,9 +1,7 @@
-import type {
-  SkinViewStateSpec,
-  SkinViewStateTransition,
-} from "../types/skin";
-import { playActiveSkinSound } from "./skinSoundEffects";
+import type { SkinViewStateSpec, SkinViewStateTransition } from "../types/skin";
 import type { SkinViewStateApi } from "./skinViewStateContext";
+
+const VIEW_MOTION_VALUES = new Set(["opening", "closing"]);
 
 function matchStateTransitionBranch(
   branches: SkinViewStateTransition[],
@@ -17,6 +15,16 @@ function matchStateTransitionBranch(
   }
 
   return undefined;
+}
+
+/** True while a view-state variable is in a slide/intro transient. */
+export function isViewStateMotionActive(
+  values: Record<string, string | number | boolean> | undefined,
+): boolean {
+  if (!values) return false;
+  return Object.values(values).some(
+    (value) => typeof value === "string" && VIEW_MOTION_VALUES.has(value),
+  );
 }
 
 export function applyViewStateEvent(
@@ -34,7 +42,6 @@ export function applyViewStateEvent(
   const branch = matchStateTransitionBranch(branches, current);
   if (!branch) return false;
 
-  if (branch.sound) playActiveSkinSound(branch.sound);
   api.setVariable(variable, branch.set);
   return true;
 }

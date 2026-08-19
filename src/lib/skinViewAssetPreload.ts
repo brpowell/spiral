@@ -2,6 +2,7 @@ import type {
   InteractiveAssets,
   InteractiveAssetsWhen,
   LayoutNode,
+  LayoutTreeNode,
   LoadedSkinPack,
   StripSliderPresentation,
 } from "../types/skin";
@@ -38,18 +39,16 @@ function addStripSliderAssets(
 }
 
 function collectLayoutAssetUrls(
-  node: LayoutNode,
+  node: LayoutTreeNode,
   packDir: string,
   urls: Set<string>,
 ): void {
   switch (node.type) {
     case "canvas":
     case "subview":
-    case "stack":
     case "row":
     case "column":
     case "overlay":
-    case "region":
       for (const child of node.children) {
         collectLayoutAssetUrls(child, packDir, urls);
       }
@@ -170,17 +169,15 @@ function stripSliderDirection(
 }
 
 async function warmLayoutStripSliderMaps(
-  node: LayoutNode,
+  node: LayoutTreeNode,
   packDir: string,
 ): Promise<void> {
   switch (node.type) {
     case "canvas":
     case "subview":
-    case "stack":
     case "row":
     case "column":
     case "overlay":
-    case "region":
     case "tiledFrame":
       await Promise.all(
         node.children.map((child) => warmLayoutStripSliderMaps(child, packDir)),

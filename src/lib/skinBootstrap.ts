@@ -24,13 +24,15 @@ export async function bootstrapSkin(): Promise<void> {
     const viewId = resolveViewForPack(pack);
     const openAuxiliaryViews = readOpenAuxViewsForSkin(resolvedId);
 
-    useSkinStore.getState().initializeFromBootstrap(
-      summaries,
-      pack,
-      resolvedId,
-      viewId,
-      openAuxiliaryViews,
-    );
+    useSkinStore
+      .getState()
+      .initializeFromBootstrap(
+        summaries,
+        pack,
+        resolvedId,
+        viewId,
+        openAuxiliaryViews,
+      );
     await useSkinPreferencesStore.getState().loadForSkin(resolvedId);
 
     if (isSkinModeWindow()) {
@@ -67,7 +69,6 @@ export async function bootstrapSkin(): Promise<void> {
           name: "Spiral Default",
           author: "Spiral",
           description: "",
-          defaultView: "standard",
           views: {
             standard: {
               layout: { type: "column", children: [] },

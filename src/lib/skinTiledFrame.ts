@@ -1,4 +1,4 @@
-import { resolveStretchBounds } from "./skinPanels";
+import { resolveLocalBounds } from "./skinLayout";
 import type {
   TiledFrameContentInset,
   TiledFramePresentation,
@@ -79,7 +79,9 @@ export function computeChromeClipPath(
   );
 }
 
-function presetZIndex(layer: "stretchSecondary" | "stretch" | "chrome" | "grip"): number {
+function presetZIndex(
+  layer: "stretchSecondary" | "stretch" | "chrome" | "grip",
+): number {
   if (layer === "stretchSecondary" || layer === "stretch") return 0;
   if (layer === "chrome") return 2;
   return 3;
@@ -273,7 +275,10 @@ export function computeExplicitTiledFrameRects(
   tiles: TiledFrameTileDef[],
 ): FrameRect[] {
   return tiles.map((tile, tileIndex) => {
-    const resolved = resolveStretchBounds(tile.bounds, windowW, windowH);
+    const resolved = resolveLocalBounds(tile.bounds, {
+      width: windowW,
+      height: windowH,
+    });
     const tiled =
       tile.repeat === "horizontal"
         ? "horizontal"

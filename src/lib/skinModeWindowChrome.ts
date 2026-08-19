@@ -40,8 +40,7 @@ export interface ResolvedSkinModeWindowChrome {
 export function resolveWindowChrome(
   w: WindowChrome | undefined,
 ): ResolvedSkinModeWindowChrome {
-  const defaultWidth =
-    w?.defaultWidth ?? DEFAULT_SKIN_MODE_CHROME.defaultWidth;
+  const defaultWidth = w?.defaultWidth ?? DEFAULT_SKIN_MODE_CHROME.defaultWidth;
   const defaultHeight =
     w?.defaultHeight ?? DEFAULT_SKIN_MODE_CHROME.defaultHeight;
   const minWidth = w?.minWidth ?? Math.min(defaultWidth, 240);
@@ -125,7 +124,11 @@ export function isSkinModeSnapSuppressed(): boolean {
 /** Safety cap when manifest omits maxWidth/maxHeight (prevents runaway persisted sizes). */
 const ABSOLUTE_MAX_WINDOW_DIMENSION = 4096;
 
-function clampLogical(value: number, min: number, max: number | undefined): number {
+function clampLogical(
+  value: number,
+  min: number,
+  max: number | undefined,
+): number {
   const clampedMin = Math.max(Math.round(value), min);
   return max !== undefined ? Math.min(clampedMin, max) : clampedMin;
 }
@@ -198,9 +201,14 @@ export async function applySkinModeWindowChrome(
   await tryWindowOp("setResizable", () =>
     window.setResizable(chrome.resizable),
   );
-  await tryWindowOp("setSizeConstraints", () =>
-    window.setSizeConstraints(windowSizeLimitsFromChrome(chrome)),
-  );
+  // Size constraints must succeed — without them the window falls back to the
+  // weak tauri.conf.json floor (skin-mode is 200×120) and skins become unusable.
+  try {
+    await window.setSizeConstraints(windowSizeLimitsFromChrome(chrome));
+  } catch (err) {
+    console.error("skin mode window: setSizeConstraints failed", err);
+    throw err;
+  }
   setSkinModeSnapEnabled(chrome.snapEnabled);
 }
 
@@ -216,7 +224,8 @@ export async function applySkinModeWindowLayout(
 
   const persisted = readPersistedSkinModeState(skinId);
   const { width, height } =
-    persisted && isPlausibleWindowSize(persisted.width, persisted.height, chrome)
+    persisted &&
+    isPlausibleWindowSize(persisted.width, persisted.height, chrome)
       ? sanitizeWindowSize(persisted.width, persisted.height, chrome)
       : defaultWindowSize(chrome);
 

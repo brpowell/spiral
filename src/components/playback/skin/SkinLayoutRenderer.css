@@ -5,27 +5,23 @@
   flex-direction: column;
 }
 
-.skin-layout__overlays {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.skin-layout__shell {
+.skin-layout__flow {
   position: relative;
   z-index: 1;
   flex: 1;
   min-height: 0;
-  background: transparent;
-  border: none;
-}
-
-.skin-slot-stack {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
   width: 100%;
+  height: 100%;
+}
+
+/* Flow root column must fill the stage so descendant flex:1 (e.g. visualizer) can grow. */
+.skin-layout__flow > .skin-layout-node--column {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  gap: 0;
 }
 
 .skin-layout-node--row {
@@ -34,10 +30,40 @@
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Let flexible row children (e.g. track title column) shrink below content
+   intrinsic width so overflow:scroll text can measure and marquee. */
+.skin-layout-node--row > .skin-layout-node--column {
+  min-width: 0;
+}
+
+/* Intrinsic controls in a row must not shrink into neighboring text. */
+.skin-layout-node--row > .now-playing-art,
+.skin-layout-node--row > .playback-transport,
+.skin-layout-node--row > .volume-control,
+.skin-layout-node--row > .playback-btn,
+.skin-layout-node--row > .skin-primitive-btn {
+  flex-shrink: 0;
+}
+
+/* Column children stretch to the flow width. */
+.skin-layout-node--column > .seek-bar,
+.skin-layout-node--column > .visualizer-slot,
+.skin-layout-node--column > .playback-transport,
+.skin-layout-node--column > .volume-control {
+  width: 100%;
 }
 
 .skin-layout-node--column {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-height: 0;
+}
+
+.skin-layout-node--overlay {
+  position: relative;
 }

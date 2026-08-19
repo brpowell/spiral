@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { skinAssetFileUrl } from "../../../lib/skinAssets";
-import { isSkinBitmapReady, loadSkinBitmap } from "../../../lib/skinBitmapCache";
-import { runSkinAction } from "../../../lib/skinActions";
+import {
+  isSkinBitmapReady,
+  loadSkinBitmap,
+} from "../../../lib/skinBitmapCache";
 import { loadSkinGif, playSkinGifOnCanvas } from "../../../lib/skinGifPlayback";
+import { scheduleSkinEffects } from "../../../lib/skinEffects";
+import { useSkinBindState } from "../../../lib/skinBinds";
 import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
 import type {
   DecorationNode,
@@ -20,12 +24,14 @@ function SkinGifDecoration({
   pack: LoadedSkinPack;
   presentation: GifPresentation;
 }) {
+  const bindState = useSkinBindState();
+  const bindStateRef = useRef(bindState);
+  bindStateRef.current = bindState;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [playKey] = useState(() => Date.now());
   const [frameReady, setFrameReady] = useState(false);
   const baseSrc = skinAssetFileUrl(pack.packDir, presentation.asset);
-  const { durationMs, playbackRate, completeAction, completePayload } =
-    presentation;
+  const { durationMs, playbackRate, onComplete } = presentation;
 
   useEffect(() => {
     setFrameReady(false);
@@ -36,9 +42,9 @@ function SkinGifDecoration({
     let completionTimer: ReturnType<typeof setTimeout> | undefined;
     let cancelled = false;
 
-    const fireCompleteAction = () => {
-      if (!completeAction) return;
-      runSkinAction(completeAction, completePayload);
+    const fireComplete = () => {
+      if (!onComplete?.length) return;
+      scheduleSkinEffects(onComplete, () => bindStateRef.current);
     };
 
     loadSkinGif(baseSrc)
@@ -48,20 +54,23 @@ function SkinGifDecoration({
         const handle = playSkinGifOnCanvas(canvas, decoded, {
           targetDurationMs: durationMs,
           playbackRate,
-          loopForever: !completeAction,
+          loopForever: !onComplete?.length,
           onFirstFrameDrawn: () => setFrameReady(true),
-          ...(completeAction
+          ...(onComplete?.length
             ? {
-              onLoopComplete: (loopIndex) => {
-                if (loopIndex === 0) fireCompleteAction();
-              },
-            }
+                onLoopComplete: (loopIndex) => {
+                  if (loopIndex === 0) fireComplete();
+                },
+              }
             : {}),
         });
         playbackStop = handle.stop;
       })
       .catch((err) => {
-        console.warn("SkinGifDecoration: canvas playback failed, using <img>", err);
+        console.warn(
+          "SkinGifDecoration: canvas playback failed, using <img>",
+          err,
+        );
         if (cancelled) return;
 
         const img = document.createElement("img");
@@ -75,8 +84,8 @@ function SkinGifDecoration({
           setFrameReady(true);
         };
 
-        if (completeAction && durationMs) {
-          completionTimer = setTimeout(fireCompleteAction, durationMs);
+        if (onComplete?.length && durationMs) {
+          completionTimer = setTimeout(fireComplete, durationMs);
         }
       });
 
@@ -85,14 +94,7 @@ function SkinGifDecoration({
       playbackStop?.();
       if (completionTimer) clearTimeout(completionTimer);
     };
-  }, [
-    baseSrc,
-    playKey,
-    durationMs,
-    playbackRate,
-    completeAction,
-    completePayload,
-  ]);
+  }, [baseSrc, playKey, durationMs, playbackRate, onComplete]);
 
   return (
     <canvas
@@ -171,12 +173,11 @@ export function SkinDecoration({
   const presentation = node.presentation;
 
   if (presentation.kind === "primitive") {
-    const prefix = presentation.classPrefix ?? "skin-decoration";
     return (
       <div
         className={[
           "skin-decoration",
-          prefix,
+          node.className ?? "skin-decoration--default",
           node.dragRegion && "skin-decoration--drag",
         ]
           .filter(Boolean)

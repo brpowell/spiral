@@ -1,160 +1,222 @@
 {
+  "$schema": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/skin-v1.schema.json",
   "id": "vanilla",
   "name": "Vanilla",
   "author": "Spiral",
-  "description": "Default skin out of the box, batteries included.",
+  "description": "Default skin out of the box.",
   "preview": "preview.png",
-  "defaultView": "standard",
   "stylesheet": "skin.css",
-  "visualizer": {
-    "id": "global",
-    "placement": "top",
-    "display": "panel",
-    "size": {
-      "width": "fill",
-      "height": "flex"
-    }
-  },
   "views": {
     "standard": {
+      "state": {
+        "playlist": {
+          "default": "closed",
+          "on": {
+            "toggle": [
+              {
+                "from": [
+                  "closed"
+                ],
+                "set": "open"
+              },
+              {
+                "from": [
+                  "open"
+                ],
+                "set": "closed"
+              }
+            ]
+          }
+        }
+      },
       "window": {
         "defaultWidth": 320,
         "defaultHeight": 468,
-        "minWidth": 280,
-        "minHeight": 388,
+        "minWidth": 256,
+        "minHeight": 386,
         "maxWidth": 420,
         "maxHeight": 588,
         "resizable": true,
         "snapEnabled": true
       },
       "layout": {
+        "id": "root",
         "type": "column",
         "children": [
           {
-            "type": "region",
-            "slot": "header",
+            "type": "row",
+            "id": "window-chrome",
             "dragRegion": true,
             "children": [
               {
-                "type": "row",
-                "id": "window-chrome",
-                "children": [
+                "type": "button",
+                "id": "chrome-picker",
+                "onClick": [
                   {
-                    "type": "button",
-                    "id": "chrome-picker",
-                    "action": "skin.openPicker",
-                    "presentation": {
-                      "kind": "primitive"
-                    }
-                  },
-                  {
-                    "type": "button",
-                    "id": "chrome-pin",
-                    "action": "skin.toggleAlwaysOnTop",
-                    "presentation": {
-                      "kind": "primitive"
-                    }
-                  },
-                  {
-                    "type": "button",
-                    "id": "chrome-restore",
-                    "action": "skin.restoreMainWindow",
-                    "presentation": {
-                      "kind": "primitive"
-                    }
-                  },
-                  {
-                    "type": "button",
-                    "id": "chrome-close",
-                    "action": "skin.exit",
-                    "presentation": {
-                      "kind": "primitive"
-                    }
+                    "action": "skin.openPicker"
                   }
-                ]
-              }
-            ]
-          },
-          {
-            "type": "region",
-            "slot": "visualizer",
-            "children": [
-              {
-                "type": "visualizer",
+                ],
                 "presentation": {
                   "kind": "primitive",
-                  "classPrefix": "skin-spiral-default"
+                  "icon": "palette"
+                }
+              },
+              {
+                "type": "button",
+                "id": "chrome-pin",
+                "onClick": [
+                  {
+                    "action": "skin.toggleAlwaysOnTop"
+                  }
+                ],
+                "presentation": {
+                  "kind": "primitive",
+                  "icon": "alwaysOnTop"
+                }
+              },
+              {
+                "type": "button",
+                "id": "chrome-restore",
+                "onClick": [
+                  {
+                    "action": "skin.restoreMainWindow"
+                  }
+                ],
+                "presentation": {
+                  "kind": "primitive",
+                  "icon": "maximize"
+                }
+              },
+              {
+                "type": "button",
+                "id": "chrome-close",
+                "onClick": [
+                  {
+                    "action": "app.quit"
+                  }
+                ],
+                "presentation": {
+                  "kind": "primitive",
+                  "icon": "close"
                 }
               }
             ]
           },
           {
-            "type": "row",
+            "type": "column",
+            "id": "contents",
             "children": [
               {
-                "type": "region",
-                "slot": "art",
+                "type": "overlay",
+                "id": "visualizer-stack",
+                "children": [
+                  {
+                    "type": "overlay",
+                    "id": "crt-screen",
+                    "children": [
+                      {
+                        "type": "visualizer",
+                        "id": "visualizer",
+                        "presentation": {
+                          "kind": "primitive"
+                        }
+                      },
+                      {
+                        "type": "overlay",
+                        "id": "playlist-overlay",
+                        "children": [
+                          {
+                            "type": "playlist",
+                            "id": "playlist-view",
+                            "defaultSource": "upNext",
+                            "showArtwork": true
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "row",
+                    "id": "viz-cycle",
+                    "children": [
+                      {
+                        "type": "button",
+                        "className": "viz-btn",
+                        "onClick": [
+                          {
+                            "action": "visualizer.previous"
+                          }
+                        ],
+                        "enabledWhen": "visualizer.canGoPrevious",
+                        "presentation": {
+                          "kind": "primitive",
+                          "icon": "chevronLeft"
+                        }
+                      },
+                      {
+                        "type": "button",
+                        "className": "viz-btn",
+                        "onClick": [
+                          {
+                            "action": "visualizer.next"
+                          }
+                        ],
+                        "enabledWhen": "visualizer.canGoNext",
+                        "presentation": {
+                          "kind": "primitive",
+                          "icon": "chevronRight"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "row",
+                "id": "now-playing",
                 "children": [
                   {
                     "type": "artwork",
-                    "presentation": {
-                      "kind": "primitive",
-                      "classPrefix": "skin-spiral-default"
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "region",
-                "slot": "info",
-                "children": [
-                  {
-                    "type": "text",
-                    "id": "track-title",
-                    "bind": "track.title",
-                    "overflow": "scroll-bounce",
+                    "id": "artwork",
                     "presentation": {
                       "kind": "primitive"
                     }
                   },
                   {
-                    "type": "text",
-                    "id": "track-artist",
-                    "bind": "track.artist",
-                    "overflow": "scroll-bounce",
-                    "presentation": {
-                      "kind": "primitive"
-                    },
-                    "visibleWhen": "player.hasTrack"
+                    "type": "column",
+                    "id": "track-info",
+                    "children": [
+                      {
+                        "type": "text",
+                        "id": "track-title",
+                        "bind": "track.title",
+                        "overflow": "scroll-bounce"
+                      },
+                      {
+                        "type": "text",
+                        "id": "track-artist",
+                        "bind": "track.artist",
+                        "overflow": "scroll-bounce",
+                        "visibleWhen": "player.hasTrack"
+                      }
+                    ]
                   }
                 ]
-              }
-            ]
-          },
-          {
-            "type": "region",
-            "slot": "controls",
-            "children": [
-              {
-                "type": "transport",
-                "presentation": {
-                  "kind": "primitive",
-                  "classPrefix": "skin-spiral-default"
-                }
               },
               {
                 "type": "seekbar",
+                "id": "seekbar",
                 "presentation": {
-                  "kind": "primitive",
-                  "classPrefix": "skin-spiral-default"
+                  "kind": "primitive"
                 }
-              }
-            ]
-          },
-          {
-            "type": "region",
-            "slot": "footer",
-            "children": [
+              },
+              {
+                "type": "transport",
+                "id": "transport",
+                "presentation": {
+                  "kind": "primitive"
+                }
+              },
               {
                 "type": "row",
                 "id": "footer-row",
@@ -166,10 +228,22 @@
                     }
                   },
                   {
-                    "type": "queue",
-                    "action": "queue.openSetList",
+                    "type": "button",
+                    "id": "playlist-toggle",
+                    "onClick": [
+                      {
+                        "action": "view.applyStateEvent",
+                        "payload": {
+                          "variable": "playlist",
+                          "event": "toggle"
+                        }
+                      }
+                    ],
+                    "activeWhen": "view.playlist.open",
+                    "tooltip": "Playlist",
                     "presentation": {
-                      "kind": "primitive"
+                      "kind": "primitive",
+                      "icon": "setList"
                     }
                   }
                 ]

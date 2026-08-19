@@ -8,16 +8,27 @@ import "./VolumeControl.css";
 
 interface VolumeControlProps {
   className?: string;
+  nodeId?: string;
+  interactionEnabled?: boolean;
 }
 
-export function VolumeControl({ className }: VolumeControlProps) {
+export function VolumeControl({
+  className,
+  nodeId,
+  interactionEnabled = true,
+}: VolumeControlProps) {
   const volume = usePlayerStore((s) => s.volume);
   const muted = usePlayerStore((s) => s.muted);
   const setVolume = usePlayerStore((s) => s.setVolume);
   const toggleMute = usePlayerStore((s) => s.toggleMute);
 
   return (
-    <div className={["volume-control", className].filter(Boolean).join(" ")}>
+    <div
+      className={["volume-control", className].filter(Boolean).join(" ")}
+      data-node-id={nodeId}
+      aria-disabled={interactionEnabled ? undefined : true}
+      style={interactionEnabled ? undefined : { pointerEvents: "none" }}
+    >
       <Button
         variant="ghost"
         size="sm"

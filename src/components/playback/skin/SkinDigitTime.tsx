@@ -57,15 +57,13 @@ function SkinDigitTimeInner({
     slots,
     signFrameElapsed = 10,
     signFrameRemaining = 11,
-    classPrefix,
   } = presentation;
 
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const currentTrack = useMemo(
-    () =>
-      findPlaybackTrack({ library, playbackTracks, currentTrackId }),
+    () => findPlaybackTrack({ library, playbackTracks, currentTrackId }),
     [library, playbackTracks, currentTrackId],
   );
   const durationSeconds =
@@ -85,7 +83,7 @@ function SkinDigitTimeInner({
   const digitFrames = mmssDigitFrames(seconds);
   const signFrame = showElapsed ? signFrameElapsed : signFrameRemaining;
 
-  const className = ["skin-digit-time", classPrefix]
+  const className = ["skin-digit-time", node.className]
     .filter(Boolean)
     .join(" ");
 

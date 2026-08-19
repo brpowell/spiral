@@ -13,7 +13,6 @@ import {
 
 export interface SkinTooltipConfig {
   action?: string;
-  panelId?: string;
   viewId?: string;
   id?: string;
   tooltip?: string;
@@ -79,7 +78,7 @@ function viewActionLabel(
   state: SkinBindState,
 ): string {
   if (!viewId) return prefix;
-  const open = evaluateSkinBind(`skin.panel.${viewId}.open`, state);
+  const open = evaluateSkinBind(`skin.view.${viewId}.open`, state);
   if (typeof open === "boolean") {
     return open ? `Close ${viewId}` : `Open ${viewId}`;
   }
@@ -90,7 +89,7 @@ function defaultActionTooltip(
   config: SkinTooltipConfig,
   state: SkinBindState,
 ): string | null {
-  const { action, viewId, panelId, id } = config;
+  const { action, viewId, id } = config;
   if (!action) return id ?? null;
 
   switch (action) {
@@ -114,8 +113,6 @@ function defaultActionTooltip(
       return state.shuffle ? "Turn shuffle off" : "Turn shuffle on";
     case "player.clearSetList":
       return "Stop";
-    case "queue.openSetList":
-      return "View set list";
     case "navigation.openAlbum":
       return "Open album";
     case "skin.openPicker":
@@ -128,12 +125,6 @@ function defaultActionTooltip(
       return "Exit skin mode";
     case "skin.minimize":
       return "Minimize window";
-    case "skin.togglePanel":
-      return panelId ? `Toggle ${panelId}` : "Toggle panel";
-    case "skin.openPanel":
-      return panelId ? `Open ${panelId}` : "Open panel";
-    case "skin.closePanel":
-      return panelId ? `Close ${panelId}` : "Close panel";
     case "skin.switchView":
       return viewActionLabel("Switch to", viewId, state);
     case "skin.openView":
@@ -266,19 +257,18 @@ export function useSkinTooltip(
   live: SkinTooltipLiveContext = {},
 ): string {
   const bindState = useSkinBindState();
-  const { action, panelId, viewId, id, tooltip, tooltipWhen } = config;
+  const { action, viewId, id, tooltip, tooltipWhen } = config;
   const { sliderMode, ratio, eqBand, showElapsed } = live;
 
   return useMemo(
     () =>
       resolveSkinTooltip(
-        { action, panelId, viewId, id, tooltip, tooltipWhen },
+        { action, viewId, id, tooltip, tooltipWhen },
         bindState,
         { sliderMode, ratio, eqBand, showElapsed },
       ),
     [
       action,
-      panelId,
       viewId,
       id,
       tooltip,

@@ -1,7 +1,6 @@
 import { SkinLayoutRenderer } from "./components/playback/skin/SkinLayoutRenderer";
 import { SkinStylesheet } from "./components/playback/skin/SkinStylesheet";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useSkinAuxWindowPersistence } from "./hooks/useSkinAuxWindowPersistence";
 import { useSkinAuxViewStateReset } from "./hooks/useSkinAuxViewStateReset";
 import { useSkinModeContextMenu } from "./hooks/useSkinModeContextMenu";
@@ -12,10 +11,10 @@ import {
   resolveViewWindowChrome,
 } from "./lib/skinModeWindowChrome";
 import { applySkinAuxViewWindowLayout } from "./lib/skinAuxWindow";
-import {
-  startSkinClickThrough,
-  isSkinPanelInteractionActive,
-} from "./lib/skinClickThrough";
+import { startSkinClickThrough } from "./lib/skinClickThrough";
+import { isViewStateMotionActive } from "./lib/skinViewStateEvents";
+import { getSkinViewStateApi } from "./lib/skinViewStateContext";
+import { startSkinDragRegions } from "./lib/skinDragRegion";
 import { listSwitchableViewIds } from "./lib/skinWindowPresentation";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useSkinStore } from "./store/useSkinStore";
@@ -42,7 +41,7 @@ export function SkinModeApp() {
     ? resolveViewWindowChrome(activePack, activeViewId)
     : null;
   const resizable = chrome?.resizable !== false;
-  const isCanvasLayout = view?.layoutMode === "canvas";
+  const isCanvasLayout = view?.layout.type === "canvas";
   const switchableViewIds = useMemo(
     () => (activePack && !isAux ? listSwitchableViewIds(activePack) : []),
     [activePack, isAux],
@@ -60,34 +59,21 @@ export function SkinModeApp() {
     void loadPlaylists();
   }, [loadPlaylists, isAux]);
 
-  // Headspace-style canvas skins reserve transparent stage margins for panel
-  // drawers. Fixed-size views (T3 main/mini/eq aux) match their window exactly
-  // and must not toggle OS click-through — it blocks slider/button input.
-  const enableClickThrough = isCanvasLayout && Boolean(view?.panels) && !isAux;
-
-  const panelOpen = useSkinStore((s) => s.panelOpen);
-  const panelRevealed = useSkinStore((s) => s.panelRevealed);
-  const panelSettled = useSkinStore((s) => s.panelSettled);
-  const suspendClickThroughRef = useRef(false);
-
-  useEffect(() => {
-    const suspend = isSkinPanelInteractionActive(
-      panelOpen,
-      panelRevealed,
-      panelSettled,
-    );
-    suspendClickThroughRef.current = suspend;
-    if (suspend && enableClickThrough) {
-      void getCurrentWindow().setIgnoreCursorEvents(false);
-    }
-  }, [panelOpen, panelRevealed, panelSettled, enableClickThrough]);
+  // Canvas skins use a transparent frameless window. Click-through follows
+  // opaque artwork and control bounds so irregular silhouettes (Headspace)
+  // pass clicks to the desktop. Controls stay AABB-solid so sliders/buttons
+  // are never stolen by OS pass-through.
+  const enableClickThrough = isCanvasLayout;
 
   useEffect(() => {
     if (!enableClickThrough) return;
     return startSkinClickThrough({
-      shouldSuspend: () => suspendClickThroughRef.current,
+      shouldSuspend: () =>
+        isViewStateMotionActive(getSkinViewStateApi()?.values),
     });
   }, [enableClickThrough]);
+
+  useEffect(() => startSkinDragRegions(), []);
 
   useLayoutEffect(() => {
     if (!activePack) return;

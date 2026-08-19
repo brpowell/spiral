@@ -1,19 +1,14 @@
 import { describe, expect, it } from "vitest";
-import {
-  parseSkinAuxWindowLabel,
-  skinAuxWindowLabel,
-} from "./skinAuxContext";
+import { parseSkinAuxWindowLabel, skinAuxWindowLabel } from "./skinAuxContext";
 import {
   canSwitchView,
   isAuxiliaryView,
   isExclusiveView,
   isPrimaryView,
+  primaryViewId,
   resolveViewDragInference,
-  resolveViewPresentation,
 } from "./skinWindowPresentation";
-import {
-  resolveViewWindowChrome,
-} from "./skinModeWindowChrome";
+import { resolveViewWindowChrome } from "./skinModeWindowChrome";
 import type { LoadedSkinPack } from "../types/skin";
 
 function makePack(views: LoadedSkinPack["manifest"]["views"]): LoadedSkinPack {
@@ -36,7 +31,6 @@ function makePack(views: LoadedSkinPack["manifest"]["views"]): LoadedSkinPack {
       name: "T3",
       author: "Test",
       description: "",
-      defaultView: "main",
       views,
     },
   };
@@ -55,7 +49,9 @@ describe("skinAuxContext", () => {
     expect(skinAuxWindowLabel("spiral.xbox.skin.xbox", "playlist")).toBe(
       "skin-aux-spiral:xbox:skin:xbox_playlist",
     );
-    expect(parseSkinAuxWindowLabel("skin-aux-spiral:xbox:skin:xbox_playlist")).toEqual({
+    expect(
+      parseSkinAuxWindowLabel("skin-aux-spiral:xbox:skin:xbox_playlist"),
+    ).toEqual({
       skinId: "spiral.xbox.skin.xbox",
       viewId: "playlist",
     });
@@ -79,6 +75,7 @@ describe("skinWindowPresentation", () => {
   });
 
   it("classifies view presentations", () => {
+    expect(primaryViewId(pack.manifest.views)).toBe("main");
     expect(isPrimaryView(pack, "main")).toBe(true);
     expect(isExclusiveView(pack, "mini")).toBe(true);
     expect(isAuxiliaryView(pack, "eq")).toBe(true);
@@ -86,37 +83,29 @@ describe("skinWindowPresentation", () => {
     expect(canSwitchView(pack, "eq")).toBe(false);
   });
 
-  it("defaults missing presentation from defaultView", () => {
-    const legacy = makePack({
+  it("assumes primary when a skin has one view", () => {
+    const solo = makePack({
       standard: { layout: { type: "column", children: [] } },
-      compact: { layout: { type: "column", children: [] } },
     });
-    expect(resolveViewPresentation(
-      legacy.manifest.views.standard,
-      "standard",
-      "standard",
-    )).toBe("primary");
-    expect(resolveViewPresentation(
-      legacy.manifest.views.compact,
-      "compact",
-      "standard",
-    )).toBe("exclusive");
+    expect(primaryViewId(solo.manifest.views)).toBe("standard");
+    expect(isPrimaryView(solo, "standard")).toBe(true);
   });
 
   it("resolves drag inference defaults and overrides", () => {
-    const slotsView = { layout: { type: "column" as const, children: [] } };
-    expect(resolveViewDragInference(slotsView)).toBe("manual");
+    const flowView = { layout: { type: "column" as const, children: [] } };
+    expect(resolveViewDragInference(flowView)).toBe("manual");
 
     const canvasView = {
-      layoutMode: "canvas" as const,
-      layout: { type: "canvas" as const, children: [] },
+      layout: { type: "canvas" as const, width: 100, height: 80, children: [] },
     };
     expect(resolveViewDragInference(canvasView)).toBe("auto");
 
-    expect(resolveViewDragInference({
-      ...canvasView,
-      dragInference: "manual" as const,
-    })).toBe("manual");
+    expect(
+      resolveViewDragInference({
+        ...canvasView,
+        dragInference: "manual" as const,
+      }),
+    ).toBe("manual");
   });
 });
 

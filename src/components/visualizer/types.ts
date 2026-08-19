@@ -56,8 +56,9 @@ export interface VisualizerDrawState {
 
 export interface VisualizerRendererProps {
   variant?: "mini" | "dock";
-  expanded: boolean;
-  onToggleExpand: () => void;
+  /** Mini-strip expand state; only used when `showExpandToggle` is true. */
+  expanded?: boolean;
+  onToggleExpand?: () => void;
   showExpandToggle?: boolean;
   fillContainer?: boolean;
   remoteFrameRef?: RefObject<VisualizerRemoteFrame>;

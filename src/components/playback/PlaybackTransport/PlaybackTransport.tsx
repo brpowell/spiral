@@ -21,6 +21,8 @@ import "./PlaybackTransport.css";
 
 interface PlaybackTransportProps {
   className?: string;
+  nodeId?: string;
+  interactionEnabled?: boolean;
 }
 
 const REPEAT_LABEL_KEYS: Record<
@@ -32,7 +34,11 @@ const REPEAT_LABEL_KEYS: Record<
   one: "transport.repeatOne",
 };
 
-export function PlaybackTransport({ className }: PlaybackTransportProps) {
+export function PlaybackTransport({
+  className,
+  nodeId,
+  interactionEnabled = true,
+}: PlaybackTransportProps) {
   const { t } = useTranslation("playback");
   const library = usePlayerStore((s) => s.library);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
@@ -78,6 +84,9 @@ export function PlaybackTransport({ className }: PlaybackTransportProps) {
   return (
     <div
       className={["playback-transport", className].filter(Boolean).join(" ")}
+      data-node-id={nodeId}
+      aria-disabled={interactionEnabled ? undefined : true}
+      style={interactionEnabled ? undefined : { pointerEvents: "none" }}
     >
       <Button
         variant="ghost"

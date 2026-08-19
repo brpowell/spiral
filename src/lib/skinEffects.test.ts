@@ -1,20 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  dispatchViewActivateEffect,
-  scheduleViewActivateEffects,
-} from "./skinViewActivateEffects";
+import { dispatchSkinEffect, scheduleSkinEffects } from "./skinEffects";
 import * as skinActions from "./skinActions";
 import * as skinSoundEffects from "./skinSoundEffects";
-import type { SkinViewActivateEffect } from "../types/skin";
+import type { SkinLifecycleEffect } from "../types/skin";
 import { minimalBindState } from "../test/skinBindFixtures";
 
-const introLightEffect: SkinViewActivateEffect = {
+const introLightEffect: SkinLifecycleEffect = {
   when: "view.introLight.pending",
   action: "view.setVariable",
   payload: { variable: "introLight", value: "playing" },
 };
 
-const shutterIntroEffect: SkinViewActivateEffect = {
+const shutterIntroEffect: SkinLifecycleEffect = {
   when: "view.shutter.intro",
   delayMs: 1000,
   action: "view.setVariable",
@@ -22,7 +19,7 @@ const shutterIntroEffect: SkinViewActivateEffect = {
   sound: "open",
 };
 
-describe("dispatchViewActivateEffect", () => {
+describe("dispatchSkinEffect", () => {
   beforeEach(() => {
     vi.spyOn(skinActions, "runSkinAction").mockImplementation(() => {});
     vi.spyOn(skinSoundEffects, "playActiveSkinSound").mockImplementation(
@@ -35,7 +32,7 @@ describe("dispatchViewActivateEffect", () => {
   });
 
   it("runs action when when guard is truthy", () => {
-    dispatchViewActivateEffect(introLightEffect, () =>
+    dispatchSkinEffect(introLightEffect, () =>
       minimalBindState({ viewState: { introLight: "pending" } }),
     );
 
@@ -46,7 +43,7 @@ describe("dispatchViewActivateEffect", () => {
   });
 
   it("skips action when when guard is false at fire time", () => {
-    dispatchViewActivateEffect(introLightEffect, () =>
+    dispatchSkinEffect(introLightEffect, () =>
       minimalBindState({ viewState: { introLight: "playing" } }),
     );
 
@@ -62,7 +59,7 @@ describe("dispatchViewActivateEffect", () => {
       callOrder.push("action");
     });
 
-    dispatchViewActivateEffect(shutterIntroEffect, () =>
+    dispatchSkinEffect(shutterIntroEffect, () =>
       minimalBindState({ viewState: { shutter: "intro" } }),
     );
 
@@ -71,26 +68,26 @@ describe("dispatchViewActivateEffect", () => {
   });
 
   it("evaluates compound when guards", () => {
-    const effect: SkinViewActivateEffect = {
+    const effect: SkinLifecycleEffect = {
       when: { all: ["view.shutter.open", "view.xIntro.done"] },
       action: "view.setVariable",
       payload: { variable: "chrome", value: "ready" },
     };
 
-    dispatchViewActivateEffect(effect, () =>
+    dispatchSkinEffect(effect, () =>
       minimalBindState({ viewState: { shutter: "open", xIntro: "done" } }),
     );
     expect(skinActions.runSkinAction).toHaveBeenCalledTimes(1);
 
     vi.mocked(skinActions.runSkinAction).mockClear();
-    dispatchViewActivateEffect(effect, () =>
+    dispatchSkinEffect(effect, () =>
       minimalBindState({ viewState: { shutter: "open", xIntro: "playing" } }),
     );
     expect(skinActions.runSkinAction).not.toHaveBeenCalled();
   });
 });
 
-describe("scheduleViewActivateEffects", () => {
+describe("scheduleSkinEffects", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.spyOn(skinActions, "runSkinAction").mockImplementation(() => {});
@@ -105,7 +102,7 @@ describe("scheduleViewActivateEffects", () => {
   });
 
   it("runs immediate effects without delay", () => {
-    scheduleViewActivateEffects([introLightEffect], () =>
+    scheduleSkinEffects([introLightEffect], () =>
       minimalBindState({ viewState: { introLight: "pending" } }),
     );
     vi.runAllTimers();
@@ -114,7 +111,7 @@ describe("scheduleViewActivateEffects", () => {
   });
 
   it("runs delayed effects after delayMs", () => {
-    scheduleViewActivateEffects([shutterIntroEffect], () =>
+    scheduleSkinEffects([shutterIntroEffect], () =>
       minimalBindState({ viewState: { shutter: "intro" } }),
     );
     expect(skinActions.runSkinAction).not.toHaveBeenCalled();
@@ -130,7 +127,7 @@ describe("scheduleViewActivateEffects", () => {
     const viewState = { shutter: "intro" };
     const getBindState = () => minimalBindState({ viewState });
 
-    scheduleViewActivateEffects([shutterIntroEffect], getBindState);
+    scheduleSkinEffects([shutterIntroEffect], getBindState);
     viewState.shutter = "opening";
 
     vi.advanceTimersByTime(1000);
@@ -138,7 +135,7 @@ describe("scheduleViewActivateEffects", () => {
   });
 
   it("cancel clears pending timers", () => {
-    const cancel = scheduleViewActivateEffects([shutterIntroEffect], () =>
+    const cancel = scheduleSkinEffects([shutterIntroEffect], () =>
       minimalBindState({ viewState: { shutter: "intro" } }),
     );
     cancel();

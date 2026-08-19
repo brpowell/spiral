@@ -4,7 +4,7 @@ use crate::settings;
 use serde::{Deserialize, Serialize};
 use spk_format::{read_skin_manifest, resolve_preview_file, validate_skin_manifest, SkinManifest};
 #[cfg(test)]
-use spk_format::{ControlFields, LayoutNode};
+use spk_format::{ControlFields, LayoutNode, ViewLayout};
 use std::collections::HashSet;
 use tauri::AppHandle;
 
@@ -184,6 +184,22 @@ pub fn get_active_skin_view(app: AppHandle) -> Result<String, String> {
     Ok(settings::read_settings(&app).active_skin_view)
 }
 
+/// Enable or disable OS click-through for the calling skin window.
+/// On macOS this also resigns key status so a focused skin actually passes clicks.
+#[tauri::command]
+pub fn set_skin_ignore_cursor_events(
+    window: tauri::WebviewWindow,
+    ignore: bool,
+) -> Result<(), String> {
+    crate::skin_click_through::set_ignore_cursor_events(&window, ignore)
+}
+
+/// Begin dragging a skin window from a skin drag region.
+#[tauri::command]
+pub fn start_skin_window_drag(window: tauri::WebviewWindow) -> Result<(), String> {
+    crate::skin_drag::start_drag(&window)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,32 +252,45 @@ mod tests {
         let main = &pack.manifest.views["main"];
         let mini_switch = find_control_by_id(&main.layout, "mini-switch")
             .expect("main view should include mini-switch button");
-        assert_eq!(mini_switch.view_id.as_deref(), Some("mini"));
+        assert_eq!(
+            mini_switch
+                .on_click
+                .as_ref()
+                .and_then(|effects| effects.first())
+                .and_then(|effect| effect.payload.as_ref())
+                .and_then(|payload| payload.get("viewId"))
+                .and_then(|value| value.as_str()),
+            Some("mini")
+        );
     }
 
-    fn find_control_by_id<'a>(node: &'a LayoutNode, id: &str) -> Option<&'a ControlFields> {
+    fn find_control_by_id<'a>(layout: &'a ViewLayout, id: &str) -> Option<&'a ControlFields> {
+        let children = match layout {
+            ViewLayout::Canvas(f) => &f.children,
+            ViewLayout::Row(f) | ViewLayout::Column(f) => &f.children,
+        };
+        children.iter().find_map(|child| find_control_in_node(child, id))
+    }
+
+    fn find_control_in_node<'a>(node: &'a LayoutNode, id: &str) -> Option<&'a ControlFields> {
         match node {
             LayoutNode::Button(f) | LayoutNode::Seekbar(f) | LayoutNode::Artwork(f)
             | LayoutNode::Transport(f) | LayoutNode::Visualizer(f) | LayoutNode::Volume(f)
-            | LayoutNode::Balance(f) | LayoutNode::Queue(f) | LayoutNode::Time(f)
-            | LayoutNode::Playlist(f) if f.id.as_deref() == Some(id) => Some(f),
-            LayoutNode::Stack(f) | LayoutNode::Row(f) | LayoutNode::Column(f)
-            | LayoutNode::Overlay(f) | LayoutNode::Canvas(f) => f
+            | LayoutNode::Balance(f) | LayoutNode::Time(f)
+            if f.id.as_deref() == Some(id) => Some(f),
+            LayoutNode::Row(f) | LayoutNode::Column(f)
+            | LayoutNode::Overlay(f) => f
                 .children
                 .iter()
-                .find_map(|child| find_control_by_id(child, id)),
+                .find_map(|child| find_control_in_node(child, id)),
             LayoutNode::Subview(f) => f
                 .children
                 .iter()
-                .find_map(|child| find_control_by_id(child, id)),
-            LayoutNode::Region(f) => f
-                .children
-                .iter()
-                .find_map(|child| find_control_by_id(child, id)),
+                .find_map(|child| find_control_in_node(child, id)),
             LayoutNode::TiledFrame(f) => f
                 .children
                 .iter()
-                .find_map(|child| find_control_by_id(child, id)),
+                .find_map(|child| find_control_in_node(child, id)),
             _ => None,
         }
     }

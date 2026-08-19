@@ -10,9 +10,16 @@ import "./QueueButton.css";
 interface QueueButtonProps {
   onClick: () => void;
   className?: string;
+  nodeId?: string;
+  interactionEnabled?: boolean;
 }
 
-export function QueueButton({ onClick, className }: QueueButtonProps) {
+export function QueueButton({
+  onClick,
+  className,
+  nodeId,
+  interactionEnabled = true,
+}: QueueButtonProps) {
   const { t } = useTranslation("playback");
   const library = usePlayerStore((s) => s.library);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
@@ -38,8 +45,9 @@ export function QueueButton({ onClick, className }: QueueButtonProps) {
       className={["playback-btn playback-btn--set-list", className]
         .filter(Boolean)
         .join(" ")}
+      data-node-id={nodeId}
       onClick={onClick}
-      disabled={activeQueue.length === 0}
+      disabled={!interactionEnabled || activeQueue.length === 0}
       aria-label={t("queue.view")}
       title={t("queue.view")}
     >

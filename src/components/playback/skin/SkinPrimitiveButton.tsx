@@ -1,11 +1,10 @@
+import type { ReactNode } from "react";
 import { Button } from "../../common/Button/Button";
+import { skinAssetFileUrl } from "../../../lib/skinAssets";
 import {
-  IconAlwaysOnTop,
-  IconClose,
-  IconPalette,
-  IconMaximize,
-} from "../../icons";
-import { useSkinAction } from "../../../lib/skinActions";
+  isSkinAssetIconPath,
+  resolveSkinLibraryIcon,
+} from "../../../lib/skinLibraryIcons";
 import { useSkinModeAlwaysOnTop } from "../../../lib/skinModeAlwaysOnTop";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
 import {
@@ -13,109 +12,140 @@ import {
   useSkinBindState,
   useSkinControlEnabled,
 } from "../../../lib/skinBinds";
+import {
+  playSkinSound,
+  resolveSkinClickSound,
+} from "../../../lib/skinSoundEffects";
 import { useSkinTooltip } from "../../../lib/skinTooltips";
-import type { ButtonNode } from "../../../types/skin";
+import { styleFromSkinNode } from "../../../lib/skinNodeStyle";
+import {
+  primaryClickAction,
+  primaryClickViewId,
+  scheduleSkinEffects,
+} from "../../../lib/skinEffects";
+import type { ButtonNode, LoadedSkinPack } from "../../../types/skin";
 import "./SkinPrimitiveButton.css";
 
-function ActionIcon({
-  action,
-  width = 14,
-  height = 14,
+function PrimitiveIcon({
+  icon,
+  packDir,
 }: {
-  action: string | undefined;
-  width?: number;
-  height?: number;
+  icon: string;
+  packDir: string;
+}): ReactNode {
+  if (isSkinAssetIconPath(icon)) {
+    return (
+      <img
+        className="skin-primitive-btn__asset-icon"
+        src={skinAssetFileUrl(packDir, icon)}
+        alt=""
+        draggable={false}
+      />
+    );
+  }
+  const Icon = resolveSkinLibraryIcon(icon);
+  return Icon ? <Icon /> : null;
+}
+
+function hasResolvableIcon(icon: string | undefined): boolean {
+  if (!icon) return false;
+  if (isSkinAssetIconPath(icon)) return true;
+  return resolveSkinLibraryIcon(icon) != null;
+}
+
+export function SkinPrimitiveButton({
+  node,
+  pack,
+}: {
+  node: ButtonNode;
+  pack: LoadedSkinPack;
 }) {
-  switch (action) {
-    case "skin.openPicker":
-      return <IconPalette width={width} height={height} />;
-    case "skin.toggleAlwaysOnTop":
-      return <IconAlwaysOnTop width={width} height={height} />;
-    case "skin.restoreMainWindow":
-      return <IconMaximize width={width} height={height} />;
-    case "skin.exit":
-    case "app.quit":
-      return <IconClose width={width} height={height} />;
-    case "skin.minimize":
-      return (
-        <svg viewBox="0 0 24 24" width={width} height={height} aria-hidden>
-          <path fill="currentColor" d="M5 19h14v-2H5v2z" />
-        </svg>
-      );
-    default:
-      return null;
-  }
-}
-
-function actionHasIcon(action: string | undefined): boolean {
-  switch (action) {
-    case "skin.openPicker":
-    case "skin.toggleAlwaysOnTop":
-    case "skin.restoreMainWindow":
-    case "skin.exit":
-    case "app.quit":
-    case "skin.minimize":
-      return true;
-    default:
-      return false;
-  }
-}
-
-export function SkinPrimitiveButton({ node }: { node: ButtonNode }) {
-  const invoke = useSkinAction(node.action);
   const bindState = useSkinBindState();
   const alwaysOnTop = useSkinModeAlwaysOnTop();
   const interactionEnabled = useSkinControlEnabled(node.enabledWhen);
   const presentation = node.presentation;
+  const clickAction = primaryClickAction(node.onClick);
 
   if (presentation.kind !== "primitive") return null;
 
   const label = useSkinTooltip({
-    action: node.action,
-    panelId: node.panelId,
-    viewId: node.viewId,
+    action: clickAction,
+    viewId: primaryClickViewId(node.onClick),
     id: node.id,
     tooltip: node.tooltip,
     tooltipWhen: node.tooltipWhen,
   });
   const isSticky =
-    node.activeWhen &&
-    evaluateSkinCondition(node.activeWhen, bindState);
+    node.activeWhen && evaluateSkinCondition(node.activeWhen, bindState);
   const active =
-    (node.action === "skin.toggleAlwaysOnTop" && alwaysOnTop) || Boolean(isSticky);
-  const hasIcon = actionHasIcon(node.action);
+    (clickAction === "skin.toggleAlwaysOnTop" && alwaysOnTop) ||
+    Boolean(isSticky);
 
+  const icon = presentation.icon;
+  const text = presentation.text;
+  const hasIcon = hasResolvableIcon(icon);
+  const hasText = Boolean(text);
+  const showTooltipAsLabel = !hasIcon && !hasText;
+  const iconOnly = hasIcon && !hasText;
+  const chrome = presentation.variant ?? "ghost";
   const className = [
     "skin-primitive-btn",
-    presentation.classPrefix,
+    chrome === "plain" && "skin-primitive-btn--plain",
+    node.className,
     active && "skin-primitive-btn--active",
-    node.action === "skin.exit" || node.action === "app.quit"
+    clickAction === "skin.exit" || clickAction === "app.quit"
       ? "skin-primitive-btn--close"
       : null,
-    !hasIcon && "skin-primitive-btn--text",
-    presentation.variant ? `skin-primitive-btn--${presentation.variant}` : null,
+    (hasText || showTooltipAsLabel) &&
+      chrome !== "plain" &&
+      "skin-primitive-btn--text",
   ]
     .filter(Boolean)
     .join(" ");
 
+  const body = (
+    <>
+      {hasIcon && icon ? (
+        <PrimitiveIcon icon={icon} packDir={pack.packDir} />
+      ) : null}
+      {hasText ? text : null}
+      {showTooltipAsLabel ? label : null}
+    </>
+  );
+
+  const buttonProps = {
+    className,
+    "data-node-id": node.id,
+    style: styleFromSkinNode(node.style),
+    ...skinDragRegionNoneProps(),
+    disabled: !interactionEnabled,
+    onClick: () => {
+      if (!interactionEnabled) return;
+      playSkinSound(
+        pack,
+        resolveSkinClickSound(node.sound, node.soundWhen, bindState),
+      );
+      scheduleSkinEffects(node.onClick, () => bindState);
+    },
+    "aria-label": label,
+    "aria-pressed":
+      clickAction === "skin.toggleAlwaysOnTop" || node.activeWhen
+        ? active
+        : undefined,
+    title: label,
+  };
+
+  if (chrome === "plain") {
+    return (
+      <button type="button" {...buttonProps}>
+        {body}
+      </button>
+    );
+  }
+
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      iconOnly={hasIcon}
-      className={className}
-      data-node-id={node.id}
-      {...skinDragRegionNoneProps()}
-      disabled={!interactionEnabled}
-      onClick={() => {
-        if (!interactionEnabled) return;
-        invoke();
-      }}
-      aria-label={label}
-      aria-pressed={node.action === "skin.toggleAlwaysOnTop" ? active : undefined}
-      title={label}
-    >
-      {hasIcon ? <ActionIcon action={node.action} /> : label}
+    <Button variant={chrome} size="sm" iconOnly={iconOnly} {...buttonProps}>
+      {body}
     </Button>
   );
 }

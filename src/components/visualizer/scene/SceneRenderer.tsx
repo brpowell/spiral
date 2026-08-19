@@ -474,7 +474,7 @@ export function SceneRenderer({
   scene,
   packDir,
   variant = "dock",
-  expanded,
+  expanded = false,
   onToggleExpand,
   showExpandToggle = true,
   fillContainer = false,
@@ -501,7 +501,7 @@ export function SceneRenderer({
         previewForcePlaying={previewForcePlaying}
         onFirstFrame={onFirstFrame}
       />
-      {showExpandToggle ? (
+      {showExpandToggle && onToggleExpand ? (
         <Button
           variant="secondary"
           size="sm"

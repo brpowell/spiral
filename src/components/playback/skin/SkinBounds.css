@@ -5,29 +5,26 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
   overflow: hidden;
 }
 
-.skin-bounds:has(> .skin-text) {
-  align-items: stretch;
-  justify-content: flex-start;
-}
-
-.skin-bounds:has(> .skin-button-group-wrap) {
-  align-items: stretch;
-  justify-content: stretch;
-}
-
-.skin-bounds:has(> .skin-primitive-control) {
-  align-items: stretch;
-  justify-content: stretch;
+/* Canvas controls fill the authored box. Debug chrome is out of flow. */
+.skin-bounds > *:not(.skin-bounds__debug-label) {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .skin-bounds--motion {
-  transition: left 120ms linear, right 120ms linear, top 120ms linear,
-    width 120ms linear, height 120ms linear;
+  transition:
+    left 120ms linear,
+    top 120ms linear,
+    width 120ms linear,
+    height 120ms linear;
 }
 
 .skin-bounds .skin-layout-node--row {
@@ -52,7 +49,11 @@
   right: 0;
   z-index: 9999;
   padding: 1px 3px;
-  font: 9px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    9px/1.2 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
   color: #ffe08a;
   background: rgba(0, 0, 0, 0.72);
   pointer-events: none;

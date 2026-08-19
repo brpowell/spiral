@@ -8,7 +8,10 @@ import {
 import { skinAssetFileUrl } from "../../../lib/skinAssets";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
 import { wmpTiledTrackStyle } from "../../../lib/wmpTiledTrack";
-import { useSkinBindState, useSkinControlEnabled } from "../../../lib/skinBinds";
+import {
+  useSkinBindState,
+  useSkinControlEnabled,
+} from "../../../lib/skinBinds";
 import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import { useEqualizerStore } from "../../../store/useEqualizerStore";
 import type { EqBandNode, LoadedSkinPack } from "../../../types/skin";
@@ -40,7 +43,6 @@ export function SkinEqBandSlider({
     thumbHeight,
     borderSize = 0,
     fillFromBottom = false,
-    classPrefix,
   } = presentation;
   const trackTileWidth = trackTileWidthRaw ?? trackWidth;
   const trackTileHeight = trackTileHeightRaw ?? trackHeight;
@@ -86,7 +88,12 @@ export function SkinEqBandSlider({
     if (!interactionEnabled) return;
     setDragging(true);
     event.currentTarget.setPointerCapture(event.pointerId);
-    applyRatio(pointerToRatio(event.clientY, event.currentTarget.getBoundingClientRect()));
+    applyRatio(
+      pointerToRatio(
+        event.clientY,
+        event.currentTarget.getBoundingClientRect(),
+      ),
+    );
   };
 
   const onPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
@@ -95,7 +102,11 @@ export function SkinEqBandSlider({
       event.currentTarget.getBoundingClientRect(),
     );
     setHoverRatio(nextRatio);
-    if (!event.currentTarget.hasPointerCapture(event.pointerId) || !interactionEnabled) return;
+    if (
+      !event.currentTarget.hasPointerCapture(event.pointerId) ||
+      !interactionEnabled
+    )
+      return;
     applyRatio(nextRatio);
   };
 
@@ -104,10 +115,17 @@ export function SkinEqBandSlider({
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    applyRatio(pointerToRatio(event.clientY, event.currentTarget.getBoundingClientRect()));
+    applyRatio(
+      pointerToRatio(
+        event.clientY,
+        event.currentTarget.getBoundingClientRect(),
+      ),
+    );
   };
 
-  const className = ["skin-eq-band-slider", classPrefix].filter(Boolean).join(" ");
+  const className = ["skin-eq-band-slider", node.className]
+    .filter(Boolean)
+    .join(" ");
 
   const liveRatio = hoverRatio ?? ratio;
   const tooltip = useMemo(
@@ -121,11 +139,7 @@ export function SkinEqBandSlider({
   );
 
   return (
-    <div
-      className={className}
-      data-node-id={node.id}
-      style={{ width: "100%", height: "100%" }}
-    >
+    <div className={className} data-node-id={node.id}>
       {trackUrl &&
         (fillFromBottom ? (
           <div
@@ -189,7 +203,10 @@ export function SkinEqBandSlider({
         onPointerCancel={finishPointer}
         onPointerEnter={(event) =>
           setHoverRatio(
-            pointerToRatio(event.clientY, event.currentTarget.getBoundingClientRect()),
+            pointerToRatio(
+              event.clientY,
+              event.currentTarget.getBoundingClientRect(),
+            ),
           )
         }
         onPointerLeave={() => setHoverRatio(null)}

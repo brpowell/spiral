@@ -17,13 +17,15 @@ export async function bootstrapSkinAux(): Promise<void> {
     const { skinId, viewId } = auxContext;
     const pack = await loadSkinPack(skinId);
 
-    useSkinStore.getState().initializeFromBootstrap(
-      [pack.summary],
-      pack,
-      skinId,
-      viewId,
-      readOpenAuxViewsForSkin(skinId),
-    );
+    useSkinStore
+      .getState()
+      .initializeFromBootstrap(
+        [pack.summary],
+        pack,
+        skinId,
+        viewId,
+        readOpenAuxViewsForSkin(skinId),
+      );
     await useSkinPreferencesStore.getState().loadForSkin(skinId);
 
     installSkinDevConsole();
@@ -51,7 +53,6 @@ export async function bootstrapSkinAux(): Promise<void> {
           name: "Spiral Default",
           author: "Spiral",
           description: "",
-          defaultView: "standard",
           views: {
             standard: {
               layout: { type: "column", children: [] },
@@ -64,4 +65,3 @@ export async function bootstrapSkinAux(): Promise<void> {
     );
   }
 }
-

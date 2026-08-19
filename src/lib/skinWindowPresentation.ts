@@ -1,19 +1,17 @@
-import type {
-  DragInference,
-  LoadedSkinPack,
-  SkinView,
-  SkinViewPresentation,
-} from "../types/skin";
+import type { DragInference, LoadedSkinPack, SkinView } from "../types/skin";
 import { resolveViewWindowChrome } from "./skinModeWindowChrome";
 
+/** Home view: the sole view, or the one marked `presentation: "primary"`. */
+export function primaryViewId(
+  views: Record<string, SkinView>,
+): string | undefined {
+  const ids = Object.keys(views);
+  if (ids.length === 1) return ids[0];
+  return ids.find((id) => views[id]?.presentation === "primary");
+}
+
 export function isPrimaryView(pack: LoadedSkinPack, viewId: string): boolean {
-  const view = pack.manifest.views[viewId];
-  if (!view) return false;
-  if (view.presentation === "auxiliary" || view.presentation === "exclusive") {
-    return false;
-  }
-  if (view.presentation === "primary") return true;
-  return viewId === pack.manifest.defaultView;
+  return primaryViewId(pack.manifest.views) === viewId;
 }
 
 export function isExclusiveView(pack: LoadedSkinPack, viewId: string): boolean {
@@ -39,7 +37,11 @@ export function viewWindowSizeChanged(
   fromViewId: string,
   toViewId: string,
 ): boolean {
-  const { grows, shrinks } = compareViewWindowResize(pack, fromViewId, toViewId);
+  const { grows, shrinks } = compareViewWindowResize(
+    pack,
+    fromViewId,
+    toViewId,
+  );
   return grows || shrinks;
 }
 
@@ -68,22 +70,7 @@ function compareViewWindowResize(
   };
 }
 
-export function resolveViewPresentation(
-  view: SkinView,
-  viewId: string,
-  defaultViewId: string,
-): SkinViewPresentation {
-  if (view.presentation) return view.presentation;
-  return viewId === defaultViewId ? "primary" : "exclusive";
-}
-
-export function resolveViewLayoutMode(view: SkinView): "slots" | "canvas" {
-  return view.layoutMode === "canvas" ? "canvas" : "slots";
-}
-
-export function resolveViewDragInference(
-  view: SkinView,
-): DragInference {
+export function resolveViewDragInference(view: SkinView): DragInference {
   if (view.dragInference) return view.dragInference;
-  return resolveViewLayoutMode(view) === "canvas" ? "auto" : "manual";
+  return view.layout.type === "canvas" ? "auto" : "manual";
 }

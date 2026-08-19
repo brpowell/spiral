@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveStretchBounds } from "./skinPanels";
+import { resolveLocalBounds } from "./skinLayout";
 import {
   computeChromeClipPath,
   computeContentRect,
@@ -51,9 +51,14 @@ const plPresentation: TiledFramePresetPresentation = {
   },
 };
 
-describe("resolveStretchBounds", () => {
+describe("resolveLocalBounds (tiled frame / stretch)", () => {
   it("resolves fixed left bounds", () => {
-    expect(resolveStretchBounds({ x: 77, y: 24, w: 153, h: 36 }, 448, 316)).toEqual({
+    expect(
+      resolveLocalBounds(
+        { x: 77, y: 24, w: 153, h: 36 },
+        { width: 448, height: 316 },
+      ),
+    ).toEqual({
       x: 77,
       y: 24,
       w: 153,
@@ -63,7 +68,12 @@ describe("resolveStretchBounds", () => {
   });
 
   it("resolves horizontal stretch from x and right insets", () => {
-    expect(resolveStretchBounds({ x: 230, right: 163, y: 24, h: 36 }, 448, 316)).toEqual({
+    expect(
+      resolveLocalBounds(
+        { x: 230, right: 163, y: 24, h: 36 },
+        { width: 448, height: 316 },
+      ),
+    ).toEqual({
       x: 230,
       y: 24,
       w: 55,
@@ -73,7 +83,12 @@ describe("resolveStretchBounds", () => {
   });
 
   it("resolves vertical stretch from y and bottom insets", () => {
-    expect(resolveStretchBounds({ x: 24, y: 177, w: 36, bottom: 133 }, 448, 316)).toEqual({
+    expect(
+      resolveLocalBounds(
+        { x: 24, y: 177, w: 36, bottom: 133 },
+        { width: 448, height: 316 },
+      ),
+    ).toEqual({
       x: 24,
       y: 177,
       w: 36,
@@ -83,7 +98,12 @@ describe("resolveStretchBounds", () => {
   });
 
   it("resolves bottom-anchored fixed caps", () => {
-    expect(resolveStretchBounds({ x: 0, bottom: 77, w: 77, h: 77 }, 448, 316)).toEqual({
+    expect(
+      resolveLocalBounds(
+        { x: 0, bottom: 0, w: 77, h: 77 },
+        { width: 448, height: 316 },
+      ),
+    ).toEqual({
       x: 0,
       y: 239,
       w: 77,
@@ -93,7 +113,12 @@ describe("resolveStretchBounds", () => {
   });
 
   it("resolves right-anchored fixed caps", () => {
-    expect(resolveStretchBounds({ right: 163, y: 24, w: 86, h: 36 }, 448, 316)).toEqual({
+    expect(
+      resolveLocalBounds(
+        { right: 77, y: 24, w: 86, h: 36 },
+        { width: 448, height: 316 },
+      ),
+    ).toEqual({
       x: 285,
       y: 24,
       w: 86,
@@ -221,11 +246,16 @@ describe("computeTiledFramePresetRects", () => {
 
   it("layers content between stretch bands and chrome caps", () => {
     const rects = computeTiledFramePresetRects(279, 245, plPresentation);
-    const { underContentTiles, overContentTiles } = partitionTiledFrameRects(rects);
+    const { underContentTiles, overContentTiles } =
+      partitionTiledFrameRects(rects);
     expect(underContentTiles.length).toBeGreaterThan(0);
     expect(overContentTiles.length).toBeGreaterThan(0);
-    expect(underContentTiles.every((t) => t.zIndex < TILED_FRAME_CONTENT_Z)).toBe(true);
-    expect(overContentTiles.every((t) => t.zIndex > TILED_FRAME_CONTENT_Z)).toBe(true);
+    expect(
+      underContentTiles.every((t) => t.zIndex < TILED_FRAME_CONTENT_Z),
+    ).toBe(true);
+    expect(
+      overContentTiles.every((t) => t.zIndex > TILED_FRAME_CONTENT_Z),
+    ).toBe(true);
   });
 });
 
@@ -251,7 +281,7 @@ const xboxExplicitPresentation: TiledFrameExplicitPresentation = {
     },
     {
       asset: "frame/f_outer_bot.png",
-      bounds: { x: 65, right: 65, bottom: 24, h: 24 },
+      bounds: { x: 65, right: 65, bottom: 0, h: 24 },
       repeat: "horizontal",
       tileUnit: { w: 276, h: 24 },
     },
@@ -263,7 +293,7 @@ const xboxExplicitPresentation: TiledFrameExplicitPresentation = {
     },
     {
       asset: "frame/f_right_s.png",
-      bounds: { right: 24, y: 65, w: 24, bottom: 77 },
+      bounds: { right: 0, y: 65, w: 24, bottom: 77 },
       repeat: "vertical",
       tileUnit: { w: 24, h: 184 },
     },
@@ -275,7 +305,7 @@ const xboxExplicitPresentation: TiledFrameExplicitPresentation = {
     },
     {
       asset: "frame/f_bot_s.png",
-      bounds: { x: 230, right: 163, bottom: 60, h: 47 },
+      bounds: { x: 230, right: 163, bottom: 13, h: 47 },
       repeat: "horizontal",
       tileUnit: { w: 5, h: 47 },
     },
@@ -287,7 +317,7 @@ const xboxExplicitPresentation: TiledFrameExplicitPresentation = {
     },
     {
       asset: "frame/f_inner_right_s.png",
-      bounds: { right: 60, y: 177, w: 36, bottom: 133 },
+      bounds: { right: 24, y: 177, w: 36, bottom: 133 },
       repeat: "vertical",
       tileUnit: { w: 36, h: 6 },
     },
@@ -298,12 +328,12 @@ const xboxExplicitPresentation: TiledFrameExplicitPresentation = {
     },
     {
       asset: "frame/f_top_right.png",
-      bounds: { right: 77, y: 0, w: 77, h: 77 },
+      bounds: { right: 0, y: 0, w: 77, h: 77 },
       zIndex: 2,
     },
     {
       asset: "frame/f_bot_left.png",
-      bounds: { x: 0, bottom: 77, w: 77, h: 77 },
+      bounds: { x: 0, bottom: 0, w: 77, h: 77 },
       zIndex: 2,
     },
     {
@@ -313,17 +343,17 @@ const xboxExplicitPresentation: TiledFrameExplicitPresentation = {
     },
     {
       asset: "frame/f_top_s_2.png",
-      bounds: { right: 163, y: 24, w: 86, h: 36 },
+      bounds: { right: 77, y: 24, w: 86, h: 36 },
       zIndex: 2,
     },
     {
       asset: "frame/f_bot_center.png",
-      bounds: { x: 77, bottom: 60, w: 153, h: 47 },
+      bounds: { x: 77, bottom: 13, w: 153, h: 47 },
       zIndex: 2,
     },
     {
       asset: "frame/f_bot_s_2.png",
-      bounds: { right: 163, bottom: 60, w: 86, h: 47 },
+      bounds: { right: 77, bottom: 13, w: 86, h: 47 },
       zIndex: 2,
     },
     {
@@ -333,22 +363,22 @@ const xboxExplicitPresentation: TiledFrameExplicitPresentation = {
     },
     {
       asset: "frame/f_inner_left2.png",
-      bounds: { x: 24, bottom: 133, w: 36, h: 56 },
+      bounds: { x: 24, bottom: 77, w: 36, h: 56 },
       zIndex: 2,
     },
     {
       asset: "frame/f_inner_right.png",
-      bounds: { right: 60, y: 77, w: 36, h: 100 },
+      bounds: { right: 24, y: 77, w: 36, h: 100 },
       zIndex: 2,
     },
     {
       asset: "frame/f_inner_right2.png",
-      bounds: { right: 60, bottom: 133, w: 36, h: 56 },
+      bounds: { right: 24, bottom: 77, w: 36, h: 56 },
       zIndex: 2,
     },
     {
       asset: "frame/f_bot_right.png",
-      bounds: { right: 77, bottom: 77, w: 77, h: 77 },
+      bounds: { right: 0, bottom: 0, w: 77, h: 77 },
       zIndex: 2,
     },
   ],
@@ -356,15 +386,23 @@ const xboxExplicitPresentation: TiledFrameExplicitPresentation = {
 
 describe("computeExplicitTiledFrameRects", () => {
   it("matches WMS plBox layout at default size", () => {
-    const rects = computeExplicitTiledFrameRects(448, 316, xboxExplicitPresentation.tiles);
-    expect(rects.find((r) => r.asset === "frame/f_top_center.png")).toMatchObject({
+    const rects = computeExplicitTiledFrameRects(
+      448,
+      316,
+      xboxExplicitPresentation.tiles,
+    );
+    expect(
+      rects.find((r) => r.asset === "frame/f_top_center.png"),
+    ).toMatchObject({
       x: 65,
       y: 0,
       w: 318,
       h: 24,
       tiled: "horizontal",
     });
-    expect(rects.find((r) => r.asset === "frame/f_inner_top.png")).toMatchObject({
+    expect(
+      rects.find((r) => r.asset === "frame/f_inner_top.png"),
+    ).toMatchObject({
       x: 77,
       y: 24,
       w: 153,
@@ -378,7 +416,9 @@ describe("computeExplicitTiledFrameRects", () => {
       h: 36,
       tiled: "horizontal",
     });
-    expect(rects.find((r) => r.asset === "frame/f_inner_left_s.png")).toMatchObject({
+    expect(
+      rects.find((r) => r.asset === "frame/f_inner_left_s.png"),
+    ).toMatchObject({
       x: 24,
       y: 177,
       w: 36,
@@ -388,7 +428,11 @@ describe("computeExplicitTiledFrameRects", () => {
   });
 
   it("routes explicit tiles through computeTiledFrameLayoutRects", () => {
-    const rects = computeTiledFrameLayoutRects(448, 316, xboxExplicitPresentation);
+    const rects = computeTiledFrameLayoutRects(
+      448,
+      316,
+      xboxExplicitPresentation,
+    );
     expect(rects.some((r) => r.asset === "frame/f_outer_bot.png")).toBe(true);
   });
 });
