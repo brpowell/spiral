@@ -59,11 +59,11 @@
     },
     "animations": {
       "type": "object",
-      "description": "Reserved for declarative timelines (#17)."
+      "description": "Reserved for host-driven motion. Not free-form JS."
     },
     "timelines": {
       "type": "object",
-      "description": "Reserved for declarative timelines (#17)."
+      "description": "Reserved for host-driven motion. Not free-form JS."
     },
     "stylesheet": {
       "type": "string",
@@ -92,13 +92,25 @@
       "properties": {
         "default": { "$ref": "#/$defs/skinAssetFile" },
         "hover": { "$ref": "#/$defs/skinAssetFile" },
-        "pressed": { "$ref": "#/$defs/skinAssetFile" }
+        "pressed": { "$ref": "#/$defs/skinAssetFile" },
+        "disabled": { "$ref": "#/$defs/skinAssetFile" }
       }
     },
     "interactiveAssetsWhen": {
       "type": "object",
       "additionalProperties": { "$ref": "#/$defs/interactiveAssets" },
       "description": "Bind path → asset set when truthy (last match wins)."
+    },
+    "thumbAssets": {
+      "type": "object",
+      "required": ["default"],
+      "additionalProperties": false,
+      "description": "Slider thumb sprite set. default is WMP thumbImage; hover / pressed map thumbHoverImage / thumbDownImage.",
+      "properties": {
+        "default": { "$ref": "#/$defs/skinAssetFile" },
+        "hover": { "$ref": "#/$defs/skinAssetFile" },
+        "pressed": { "$ref": "#/$defs/skinAssetFile" }
+      }
     },
     "view": {
       "type": "object",
@@ -177,7 +189,8 @@
             { "type": "boolean" }
           ],
           "description": "New value for the variable."
-        }
+        },
+        "transition": { "$ref": "#/$defs/layoutTransition" }
       }
     },
     "skinClickEffect": {
@@ -290,6 +303,7 @@
         },
         "visibleWhen": { "$ref": "#/$defs/skinCondition" },
         "animations": { "type": "object" },
+        "transition": { "$ref": "#/$defs/layoutTransition" },
         "dragRegion": {
           "type": "boolean",
           "description": "When true, pointer events on this container move the skin window."
@@ -324,6 +338,7 @@
             "zIndex": { "type": "integer" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
             "dragRegion": {
               "type": "boolean",
               "description": "When true, pointer events on this container move the skin window."
@@ -360,6 +375,7 @@
             "zIndex": { "type": "integer" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
             "dragRegion": {
               "type": "boolean",
               "description": "When true, pointer events on this container move the skin window."
@@ -493,7 +509,26 @@
           "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
         },
         "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-        "animations": { "type": "object" }
+        "animations": { "type": "object" },
+        "transition": { "$ref": "#/$defs/layoutTransition" }
+      }
+    },
+    "layoutTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["durationMs"],
+      "description": "Host-driven interpolation when resolved bounds (or later, a view-state change) retarget. Omit the object, or set durationMs to 0, to snap. Same shape on layout nodes and view.state branches. Today's CSS path reads the node field; duration on a state-event branch is reserved for the host interpolator.",
+      "properties": {
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Interpolation duration in milliseconds. 0 snaps. Omitting `transition` is the same as 0."
+        },
+        "easing": {
+          "type": "string",
+          "enum": ["linear", "ease", "ease-in", "ease-out", "ease-in-out"],
+          "description": "CSS timing function. Default linear."
+        }
       }
     },
     "layoutBoundsPartial": {
@@ -537,6 +572,7 @@
             "zIndex": { "type": "integer" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
             "dragRegion": {
               "type": "boolean",
               "description": "When true, pointer events on this container move the skin window."
@@ -569,6 +605,7 @@
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
             "passthrough": {
               "type": "boolean",
               "description": "When true, the group bounds box does not capture pointer events (children still do)."
@@ -604,7 +641,8 @@
               "description": "When true on a canvas view, marks a window drag handle"
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -628,7 +666,8 @@
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -824,7 +863,13 @@
               "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "objectFit": {
+              "type": "string",
+              "enum": ["cover", "contain", "fill"],
+              "description": "Artwork only: CSS object-fit for the cover image. Default cover. Invalid on other control types."
+            }
           }
         }
       ]
@@ -855,7 +900,8 @@
               "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -879,6 +925,18 @@
             "currentRowStyle": {
               "$ref": "#/$defs/nodeStyle",
               "description": "Panel-writable paint for the current track row. Host applies it as inline style on __row--current. When the row is also playing, playingRowStyle is merged on top."
+            },
+            "sourceStyle": {
+              "$ref": "#/$defs/nodeStyle",
+              "description": "Panel-writable paint for the source dropdown. Host applies it as inline style on __source."
+            },
+            "sourceHoverStyle": {
+              "$ref": "#/$defs/nodeStyle",
+              "description": "Panel-writable paint for the source dropdown while hovered. Host merges on top of sourceStyle."
+            },
+            "rowHoverStyle": {
+              "$ref": "#/$defs/nodeStyle",
+              "description": "Panel-writable paint for a track row while hovered. Host merges under currentRowStyle / playingRowStyle when those also apply."
             },
             "type": { "const": "playlist" },
             "showDropdown": {
@@ -904,7 +962,8 @@
               "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -924,7 +983,8 @@
             "presentation": { "$ref": "#/$defs/buttonGroupPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -944,7 +1004,8 @@
             "presentation": { "$ref": "#/$defs/slideshowPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -995,7 +1056,8 @@
             "presentation": { "$ref": "#/$defs/scrollStripPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -1062,6 +1124,10 @@
             "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "eqBand" },
             "band": { "type": "integer", "minimum": 1, "maximum": 10 },
+            "spread": {
+              "const": "linear",
+              "description": "This slider is a control point of a linear tilt across the 10-band EQ. All eqBand nodes with spread:linear in the skin form the endpoints (Plus! Nature bass/treble). Dragging one interpolates unoccupied bands between those endpoints."
+            },
             "bind": { "type": "string" },
             "enabledWhen": { "$ref": "#/$defs/skinCondition" },
             "tooltip": {
@@ -1076,12 +1142,14 @@
             "presentation": {
               "oneOf": [
                 { "$ref": "#/$defs/stripSliderPresentation" },
-                { "$ref": "#/$defs/bitmapVerticalSliderPresentation" }
+                { "$ref": "#/$defs/bitmapVerticalSliderPresentation" },
+                { "$ref": "#/$defs/bitmapHorizontalSliderPresentation" }
               ]
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -1116,7 +1184,8 @@
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -1131,7 +1200,6 @@
         { "$ref": "#/$defs/stripSliderPresentation" },
         { "$ref": "#/$defs/bitmapVerticalSliderPresentation" },
         { "$ref": "#/$defs/bitmapHorizontalSliderPresentation" },
-        { "$ref": "#/$defs/bitmapSeekbarPresentation" },
         { "$ref": "#/$defs/digitStripPresentation" },
         { "$ref": "#/$defs/framedPanelPresentation" }
       ]
@@ -1178,7 +1246,7 @@
           "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["mappingColor", "onClick"],
+            "required": ["mappingColor"],
             "additionalProperties": false,
             "properties": {
               "mappingColor": {
@@ -1188,7 +1256,7 @@
               "onClick": {
                 "type": "array",
                 "minItems": 1,
-                "description": "Ordered click effects. Omit sound here; use element sound / soundWhen.",
+                "description": "Ordered click effects. Omit for unmapped WMS hits; use element sound / soundWhen, not effect-level sound.",
                 "items": { "$ref": "#/$defs/skinClickEffect" }
               },
               "activeWhen": {
@@ -1331,11 +1399,11 @@
           "$ref": "#/$defs/skinAssetFile",
           "description": "Omitted for thumb-only sliders (groove baked into panel background)."
         },
-        "thumb": { "$ref": "#/$defs/skinAssetFile" },
-        "thumbPressed": {
+        "fill": {
           "$ref": "#/$defs/skinAssetFile",
-          "description": "WMP thumbDownImage; shown while dragging."
+          "description": "Optional value fill clipped along the slider axis (WMP foregroundImage). Empty groove may be `track` or baked into the panel."
         },
+        "thumb": { "$ref": "#/$defs/thumbAssets" },
         "trackTileWidth": {
           "type": "number",
           "minimum": 1,
@@ -1354,10 +1422,6 @@
           "type": "number",
           "minimum": 0,
           "description": "Cap size and thumb travel inset (WMP borderSize); enables 3-slice tiling when > 0"
-        },
-        "fillFromBottom": {
-          "type": "boolean",
-          "description": "When true, the track image is a bottom-anchored value fill (WMP foregroundImage) revealed up to the current value; the empty groove is expected in the window background."
         }
       }
     },
@@ -1378,7 +1442,11 @@
           "$ref": "#/$defs/skinAssetFile",
           "description": "Omitted for thumb-only sliders (groove baked into panel background)."
         },
-        "thumb": { "$ref": "#/$defs/skinAssetFile" },
+        "fill": {
+          "$ref": "#/$defs/skinAssetFile",
+          "description": "Optional value fill clipped along the slider axis (WMP foregroundImage). Empty groove may be `track` or baked into the panel."
+        },
+        "thumb": { "$ref": "#/$defs/thumbAssets" },
         "trackTileWidth": {
           "type": "number",
           "minimum": 1,
@@ -1398,36 +1466,6 @@
           "minimum": 0,
           "description": "Cap size and thumb travel inset (WMP borderSize); enables 3-slice tiling when > 0"
         }
-      }
-    },
-    "bitmapSeekbarPresentation": {
-      "type": "object",
-      "required": [
-        "kind",
-        "track",
-        "fill",
-        "thumbAssets",
-        "borderSize",
-        "trackWidth",
-        "trackHeight",
-        "thumbWidth",
-        "thumbHeight"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "kind": { "const": "bitmapSeekbar" },
-        "track": { "$ref": "#/$defs/skinAssetFile" },
-        "fill": { "$ref": "#/$defs/skinAssetFile" },
-        "thumbAssets": { "$ref": "#/$defs/interactiveAssets" },
-        "borderSize": {
-          "type": "number",
-          "minimum": 0,
-          "description": "Inset from each track edge for thumb travel (WMP borderSize)"
-        },
-        "trackWidth": { "type": "number", "minimum": 1 },
-        "trackHeight": { "type": "number", "minimum": 1 },
-        "thumbWidth": { "type": "number", "minimum": 1 },
-        "thumbHeight": { "type": "number", "minimum": 1 }
       }
     },
     "digitStripPresentation": {

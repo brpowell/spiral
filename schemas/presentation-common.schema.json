@@ -22,7 +22,8 @@
       "properties": {
         "default": { "$ref": "#/$defs/skinAssetFile" },
         "hover": { "$ref": "#/$defs/skinAssetFile" },
-        "pressed": { "$ref": "#/$defs/skinAssetFile" }
+        "pressed": { "$ref": "#/$defs/skinAssetFile" },
+        "disabled": { "$ref": "#/$defs/skinAssetFile" }
       }
     },
     "interactiveAssetsWhen": {
@@ -68,7 +69,7 @@
     "timelineClip": {
       "type": "object",
       "additionalProperties": true,
-      "description": "Reserved for skin animation timelines (#17)."
+      "description": "Reserved. Unused — do not treat as a clip sequencer."
     }
   }
 }
