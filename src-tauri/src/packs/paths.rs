@@ -17,10 +17,7 @@ pub fn builtin_packs_root(app: &AppHandle) -> PathBuf {
         return manifest_builtin;
     }
 
-    if let Ok(path) = app
-        .path()
-        .resolve("packs/builtin", BaseDirectory::Resource)
-    {
+    if let Ok(path) = app.path().resolve("packs/builtin", BaseDirectory::Resource) {
         if path.is_dir() {
             return path;
         }

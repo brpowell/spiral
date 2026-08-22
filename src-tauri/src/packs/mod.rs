@@ -27,8 +27,8 @@ pub use spk_format::{
     effective_contribution_id, extract_pack_archive, find_pack_root, get_contribution_type_handler,
     is_kebab_slug, pack_id_prefix, pack_identity, parse_pack_manifest_json, slugify_id,
     write_pack_archive, PackManifest, CONTRIBUTION_TYPE_FOLDERS, PACK_ARCHIVE_EXTENSION,
-    PACK_MANIFEST_FILENAME, PACK_MANIFEST_VERSION, PACK_README_FILENAME, PACK_README_MAX_BYTES,
-    PACK_CHANGELOG_FILENAME, PACK_CHANGELOG_MAX_BYTES,
+    PACK_CHANGELOG_FILENAME, PACK_CHANGELOG_MAX_BYTES, PACK_MANIFEST_FILENAME,
+    PACK_MANIFEST_VERSION, PACK_README_FILENAME, PACK_README_MAX_BYTES,
 };
 
 use serde::{Deserialize, Serialize};

@@ -11,13 +11,7 @@ pub const DEFAULT_RETENTION_DAYS: u32 = 14;
 pub const MIN_RETENTION_DAYS: u32 = 1;
 pub const MAX_RETENTION_DAYS: u32 = 3650;
 
-const BACKUP_SUFFIXES: &[&str] = &[
-    ".m4a.bak",
-    ".mp4.bak",
-    ".mp3.bak",
-    ".flac.bak",
-    ".aac.bak",
-];
+const BACKUP_SUFFIXES: &[&str] = &[".m4a.bak", ".mp4.bak", ".mp3.bak", ".flac.bak", ".aac.bak"];
 
 #[derive(Debug, Clone, Copy)]
 pub struct MetadataBackupConfig {
@@ -29,7 +23,9 @@ impl From<&MetadataBackupSettings> for MetadataBackupConfig {
     fn from(s: &MetadataBackupSettings) -> Self {
         Self {
             enabled: s.enabled,
-            retention_days: s.retention_days.clamp(MIN_RETENTION_DAYS, MAX_RETENTION_DAYS),
+            retention_days: s
+                .retention_days
+                .clamp(MIN_RETENTION_DAYS, MAX_RETENTION_DAYS),
         }
     }
 }
@@ -50,14 +46,15 @@ pub fn is_spiral_metadata_backup(path: &Path) -> bool {
 pub fn backup_path_for(path: &Path) -> PathBuf {
     path.with_extension(format!(
         "{}.bak",
-        path.extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("audio")
+        path.extension().and_then(|e| e.to_str()).unwrap_or("audio")
     ))
 }
 
 /// Remove Spiral metadata backups under `root` (recursive). Honors enabled + retention.
-pub fn cleanup_backups_under(root: &Path, config: &MetadataBackupConfig) -> Result<CleanupStats, String> {
+pub fn cleanup_backups_under(
+    root: &Path,
+    config: &MetadataBackupConfig,
+) -> Result<CleanupStats, String> {
     if !root.is_dir() {
         return Ok(CleanupStats::default());
     }
@@ -90,14 +87,18 @@ pub fn cleanup_backups_under(root: &Path, config: &MetadataBackupConfig) -> Resu
 }
 
 /// Remove eligible backups in a single directory (non-recursive).
-pub fn cleanup_backups_in_dir(dir: &Path, config: &MetadataBackupConfig) -> Result<CleanupStats, String> {
+pub fn cleanup_backups_in_dir(
+    dir: &Path,
+    config: &MetadataBackupConfig,
+) -> Result<CleanupStats, String> {
     if !dir.is_dir() {
         return Ok(CleanupStats::default());
     }
 
     let mut stats = CleanupStats::default();
     let retention = retention_duration(config.retention_days);
-    let entries = fs::read_dir(dir).map_err(|e| format!("Failed to read {}: {e}", dir.display()))?;
+    let entries =
+        fs::read_dir(dir).map_err(|e| format!("Failed to read {}: {e}", dir.display()))?;
 
     for entry in entries.flatten() {
         let path = entry.path();

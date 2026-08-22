@@ -6,8 +6,8 @@
 use super::paths;
 use super::{
     contribution_id_from_manifest_json, contribution_type_for_folder, effective_contribution_id,
-    get_contribution_type_handler, pack_identity, parse_pack_manifest_json, PackManifest,
-    PackZone, CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME,
+    get_contribution_type_handler, pack_identity, parse_pack_manifest_json, PackManifest, PackZone,
+    CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME,
 };
 use crate::activity_log::{self, LogLevel};
 use crate::settings;
@@ -198,10 +198,7 @@ fn contributions_from_pack(
             Ok(e) => e,
             Err(e) => {
                 warnings.push(ScanWarning {
-                    message: format!(
-                        "pack \"{}\": could not read {}/: {e}",
-                        pack.pack_id, folder
-                    ),
+                    message: format!("pack \"{}\": could not read {}/: {e}", pack.pack_id, folder),
                 });
                 continue;
             }
@@ -438,7 +435,8 @@ pub fn scan_all_packs(app: &AppHandle) -> ScanResult {
         }
         for contrib in scan_zone_root(&root, zone, &mut warnings) {
             if zone == PackZone::Workshop {
-                workshop_pack_identities.insert(pack_identity(&contrib.author_id, &contrib.pack_id));
+                workshop_pack_identities
+                    .insert(pack_identity(&contrib.author_id, &contrib.pack_id));
             }
             merge_contribution(&mut by_id, contrib);
         }
@@ -457,9 +455,7 @@ pub fn scan_all_packs(app: &AppHandle) -> ScanResult {
         }
         if !path.join(PACK_MANIFEST_FILENAME).is_file() {
             warnings.push(ScanWarning {
-                message: format!(
-                    "linked pack path is missing {PACK_MANIFEST_FILENAME}: {trimmed}"
-                ),
+                message: format!("linked pack path is missing {PACK_MANIFEST_FILENAME}: {trimmed}"),
             });
             continue;
         }
@@ -504,9 +500,7 @@ pub fn scan_all_packs(app: &AppHandle) -> ScanResult {
 
 pub fn scan_contributions_of_type(app: &AppHandle, contrib_type: &str) -> ScanResult {
     let mut result = scan_all_packs(app);
-    result
-        .contributions
-        .retain(|c| c.r#type == contrib_type);
+    result.contributions.retain(|c| c.r#type == contrib_type);
     result
 }
 
@@ -532,14 +526,19 @@ mod tests {
         }
         let themes: Vec<_> = contribs.iter().filter(|c| c.r#type == "theme").collect();
         let skins: Vec<_> = contribs.iter().filter(|c| c.r#type == "skin").collect();
-        let viz: Vec<_> = contribs.iter().filter(|c| c.r#type == "visualizer").collect();
+        let viz: Vec<_> = contribs
+            .iter()
+            .filter(|c| c.r#type == "visualizer")
+            .collect();
         assert!(themes
             .iter()
             .any(|c| c.effective_id == "spiral.core.theme.obsidian"));
         assert!(skins
             .iter()
             .any(|c| c.effective_id == "spiral.core.skin.vanilla"));
-        assert!(viz.iter().any(|c| c.effective_id == "spiral.core.visualizer.bars"));
+        assert!(viz
+            .iter()
+            .any(|c| c.effective_id == "spiral.core.visualizer.bars"));
         assert_eq!(themes.len(), 5, "expected 5 builtin themes");
         assert_eq!(skins.len(), 1, "expected 1 builtin skin in core");
         assert_eq!(viz.len(), 4, "expected 4 builtin visualizers");
@@ -670,7 +669,10 @@ mod tests {
             merge_contribution(&mut by_id, contrib);
         }
 
-        assert_eq!(by_id["bryan.midnight-drive.theme.theme"].pack_version, "1.1.0");
+        assert_eq!(
+            by_id["bryan.midnight-drive.theme.theme"].pack_version,
+            "1.1.0"
+        );
     }
 
     #[test]

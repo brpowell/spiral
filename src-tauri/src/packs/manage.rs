@@ -139,12 +139,8 @@ fn summarize_pack_dir(
             let Ok(local_id) = contribution_id_from_manifest_json(&manifest_text) else {
                 continue;
             };
-            let effective_id = effective_contribution_id(
-                &pack.author_id,
-                &pack.pack_id,
-                contrib_type,
-                &local_id,
-            );
+            let effective_id =
+                effective_contribution_id(&pack.author_id, &pack.pack_id, contrib_type, &local_id);
             let (peeked_name, peeked_author) = peek_contribution_fields(&contrib_manifest);
             let name = peeked_name.unwrap_or_else(|| local_id.clone());
             let author = peeked_author.unwrap_or_default();
@@ -277,18 +273,16 @@ fn guard_installed_pack_path(app: &AppHandle, pack_dir: &Path) -> Result<(), Str
     }
     if let Ok(workshop) = workshop_packs_root(app) {
         if pack_dir.starts_with(&workshop) {
-            return Err("workshop packs cannot be uninstalled here; delete the draft instead".into());
+            return Err(
+                "workshop packs cannot be uninstalled here; delete the draft instead".into(),
+            );
         }
     }
     Ok(())
 }
 
 /// Every `installed/<authorId>.<packId>@<version>/` directory for a pack identity.
-fn installed_version_dirs(
-    installed_root: &Path,
-    author_id: &str,
-    pack_id: &str,
-) -> Vec<PathBuf> {
+fn installed_version_dirs(installed_root: &Path, author_id: &str, pack_id: &str) -> Vec<PathBuf> {
     let identity_prefix = format!("{}@", pack_identity(author_id, pack_id));
     let Ok(entries) = fs::read_dir(installed_root) else {
         return Vec::new();
@@ -489,7 +483,10 @@ mod tests {
         assert_eq!(summary.contributions.len(), 1);
         assert_eq!(summary.contributions[0].name, "Theme Demo Pack");
         assert_eq!(summary.contributions[0].author, "test");
-        assert_eq!(summary.contributions[0].effective_id, "test.demo.theme.theme");
+        assert_eq!(
+            summary.contributions[0].effective_id,
+            "test.demo.theme.theme"
+        );
         assert!(summary.preview.is_none());
         let _ = fs::remove_dir_all(&pack_dir);
     }
@@ -550,10 +547,7 @@ mod tests {
         let hidden = HashSet::new();
         let active = HashSet::new();
         let summary = summarize_pack_dir(&pack_dir, PackZone::Workshop, &hidden, &active).unwrap();
-        assert_eq!(
-            summary.preview.as_deref(),
-            Some("skins/skin/preview.png")
-        );
+        assert_eq!(summary.preview.as_deref(), Some("skins/skin/preview.png"));
         let _ = fs::remove_dir_all(&pack_dir);
     }
 

@@ -11,6 +11,7 @@ import { loadSkinGif } from "./skinGifPlayback";
 import { loadSkinBitmap } from "./skinBitmapCache";
 import {
   collectBitmapAssetFiles,
+  collectThumbAssetFiles,
   isSkinGifUrl,
   skinAssetFileUrl,
 } from "./skinAssets";
@@ -97,22 +98,12 @@ function collectLayoutAssetUrls(
         if (node.presentation.track) {
           urls.add(skinAssetFileUrl(packDir, node.presentation.track));
         }
-        urls.add(skinAssetFileUrl(packDir, node.presentation.thumb));
-        if (
-          node.presentation.kind === "bitmapVerticalSlider" &&
-          node.presentation.thumbPressed
-        ) {
-          urls.add(skinAssetFileUrl(packDir, node.presentation.thumbPressed));
+        if (node.presentation.fill) {
+          urls.add(skinAssetFileUrl(packDir, node.presentation.fill));
         }
-      } else if (node.presentation.kind === "bitmapSeekbar") {
-        urls.add(skinAssetFileUrl(packDir, node.presentation.track));
-        urls.add(skinAssetFileUrl(packDir, node.presentation.fill));
-        addBitmapAssetUrls(
-          packDir,
-          node.presentation.thumbAssets,
-          undefined,
-          urls,
-        );
+        for (const file of collectThumbAssetFiles(node.presentation.thumb)) {
+          urls.add(skinAssetFileUrl(packDir, file));
+        }
       } else if (node.presentation.kind === "stripSlider") {
         addStripSliderAssets(packDir, node.presentation, urls);
       }

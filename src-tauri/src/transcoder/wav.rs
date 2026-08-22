@@ -16,12 +16,8 @@ fn is_pcm_wave_format(audio_format: u16, fmt_body: &[u8]) -> bool {
     }
 
     if audio_format == WAVE_FORMAT_EXTENSIBLE && fmt_body.len() >= 28 {
-        let subformat_tag = u32::from_le_bytes([
-            fmt_body[24],
-            fmt_body[25],
-            fmt_body[26],
-            fmt_body[27],
-        ]);
+        let subformat_tag =
+            u32::from_le_bytes([fmt_body[24], fmt_body[25], fmt_body[26], fmt_body[27]]);
         return subformat_tag == 1;
     }
 
@@ -30,8 +26,7 @@ fn is_pcm_wave_format(audio_format: u16, fmt_body: &[u8]) -> bool {
 
 pub fn read_pcm_from_wav(path: &Path) -> Result<PcmStream, String> {
     let label = error::file_label(path);
-    let mut file =
-        File::open(path).map_err(|err| format!("Failed to open {label}: {err}"))?;
+    let mut file = File::open(path).map_err(|err| format!("Failed to open {label}: {err}"))?;
     let mut data = Vec::new();
     file.read_to_end(&mut data)
         .map_err(|err| error::format_wav_read_failure(path, &err.to_string()))?;
@@ -78,12 +73,10 @@ pub fn read_pcm_from_wav(path: &Path) -> Result<PcmStream, String> {
         offset += chunk_size + (chunk_size % 2);
     }
 
-    let audio_format = audio_format.ok_or_else(|| {
-        error::format_wav_read_failure(path, "missing fmt chunk")
-    })?;
-    let fmt_body = fmt_body.ok_or_else(|| {
-        error::format_wav_read_failure(path, "missing fmt chunk")
-    })?;
+    let audio_format =
+        audio_format.ok_or_else(|| error::format_wav_read_failure(path, "missing fmt chunk"))?;
+    let fmt_body =
+        fmt_body.ok_or_else(|| error::format_wav_read_failure(path, "missing fmt chunk"))?;
     if !is_pcm_wave_format(audio_format, fmt_body) {
         return Err(error::format_wav_read_failure(
             path,
@@ -91,12 +84,10 @@ pub fn read_pcm_from_wav(path: &Path) -> Result<PcmStream, String> {
         ));
     }
 
-    let channels = channels.ok_or_else(|| {
-        error::format_wav_read_failure(path, "missing channel count")
-    })?;
-    let sample_rate = sample_rate.ok_or_else(|| {
-        error::format_wav_read_failure(path, "missing sample rate")
-    })?;
+    let channels =
+        channels.ok_or_else(|| error::format_wav_read_failure(path, "missing channel count"))?;
+    let sample_rate =
+        sample_rate.ok_or_else(|| error::format_wav_read_failure(path, "missing sample rate"))?;
     let bits_per_sample = bits_per_sample.unwrap_or(16);
     if bits_per_sample != 16 {
         return Err(error::format_wav_read_failure(
@@ -105,9 +96,8 @@ pub fn read_pcm_from_wav(path: &Path) -> Result<PcmStream, String> {
         ));
     }
 
-    let data_offset = data_offset.ok_or_else(|| {
-        error::format_wav_read_failure(path, "missing data chunk")
-    })?;
+    let data_offset =
+        data_offset.ok_or_else(|| error::format_wav_read_failure(path, "missing data chunk"))?;
     let data_size = data_size.unwrap_or(0);
     if data_size == 0 || data_offset + data_size > data.len() {
         return Err(error::format_wav_read_failure(path, "empty audio data"));
@@ -150,8 +140,8 @@ pub fn write_pcm_to_wav(pcm: &PcmStream, path: &Path) -> Result<(), String> {
 
     let block_align = u32::from(pcm.channels) * 2;
     let byte_rate = pcm.sample_rate.saturating_mul(block_align);
-    let mut file = File::create(path)
-        .map_err(|err| format!("Failed to create {}: {err}", path.display()))?;
+    let mut file =
+        File::create(path).map_err(|err| format!("Failed to create {}: {err}", path.display()))?;
     let map_write = |err| format!("Failed to write {}: {err}", path.display());
     file.write_all(b"RIFF").map_err(&map_write)?;
     file.write_all(&(36u32 + data.len() as u32).to_le_bytes())
@@ -165,7 +155,8 @@ pub fn write_pcm_to_wav(pcm: &PcmStream, path: &Path) -> Result<(), String> {
         .map_err(&map_write)?;
     file.write_all(&pcm.sample_rate.to_le_bytes())
         .map_err(&map_write)?;
-    file.write_all(&byte_rate.to_le_bytes()).map_err(&map_write)?;
+    file.write_all(&byte_rate.to_le_bytes())
+        .map_err(&map_write)?;
     file.write_all(&(block_align as u16).to_le_bytes())
         .map_err(&map_write)?;
     file.write_all(&16u16.to_le_bytes()).map_err(&map_write)?;
@@ -220,7 +211,8 @@ mod tests {
         file.write_all(b"WAVE").unwrap();
         file.write_all(b"fmt ").unwrap();
         file.write_all(&fmt_chunk_size.to_le_bytes()).unwrap();
-        file.write_all(&WAVE_FORMAT_EXTENSIBLE.to_le_bytes()).unwrap();
+        file.write_all(&WAVE_FORMAT_EXTENSIBLE.to_le_bytes())
+            .unwrap();
         file.write_all(&channels.to_le_bytes()).unwrap();
         file.write_all(&sample_rate.to_le_bytes()).unwrap();
         file.write_all(&byte_rate.to_le_bytes()).unwrap();
@@ -230,8 +222,10 @@ mod tests {
         file.write_all(&16u16.to_le_bytes()).unwrap(); // valid bits
         file.write_all(&3u32.to_le_bytes()).unwrap(); // stereo channel mask
         file.write_all(&1u32.to_le_bytes()).unwrap(); // PCM subformat tag
-        file.write_all(&[0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71])
-            .unwrap();
+        file.write_all(&[
+            0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71,
+        ])
+        .unwrap();
         file.write_all(b"data").unwrap();
         file.write_all(&(pcm.len() as u32).to_le_bytes()).unwrap();
         file.write_all(&pcm).unwrap();

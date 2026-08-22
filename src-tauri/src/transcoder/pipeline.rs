@@ -155,10 +155,8 @@ mod tests {
 
     #[test]
     fn encode_pcm_to_profile_routes_alac() {
-        let dest = std::env::temp_dir().join(format!(
-            "spiral-pipeline-alac-{}.m4a",
-            std::process::id()
-        ));
+        let dest =
+            std::env::temp_dir().join(format!("spiral-pipeline-alac-{}.m4a", std::process::id()));
         let _ = fs::remove_file(&dest);
 
         encode_pcm_to_profile(&silence_pcm(), &dest, "apple-alac").expect("alac encode");
@@ -190,10 +188,8 @@ mod tests {
 
     #[test]
     fn encode_pcm_to_profile_routes_flac() {
-        let dest = std::env::temp_dir().join(format!(
-            "spiral-pipeline-flac-{}.flac",
-            std::process::id()
-        ));
+        let dest =
+            std::env::temp_dir().join(format!("spiral-pipeline-flac-{}.flac", std::process::id()));
         let _ = fs::remove_file(&dest);
 
         encode_pcm_to_profile(&silence_pcm(), &dest, "lossless-flac").expect("flac encode");
@@ -207,10 +203,8 @@ mod tests {
 
     #[test]
     fn encode_pcm_to_profile_routes_aac() {
-        let dest = std::env::temp_dir().join(format!(
-            "spiral-pipeline-aac-{}.m4a",
-            std::process::id()
-        ));
+        let dest =
+            std::env::temp_dir().join(format!("spiral-pipeline-aac-{}.m4a", std::process::id()));
         let _ = fs::remove_file(&dest);
 
         encode_pcm_to_profile(&silence_pcm(), &dest, "apple-aac").expect("aac encode");
@@ -226,12 +220,8 @@ mod tests {
 
     #[test]
     fn encode_pcm_to_profile_rejects_unknown_id() {
-        let err = encode_pcm_to_profile(
-            &silence_pcm(),
-            Path::new("out.mp3"),
-            "unknown",
-        )
-        .unwrap_err();
+        let err =
+            encode_pcm_to_profile(&silence_pcm(), Path::new("out.mp3"), "unknown").unwrap_err();
         assert!(err.contains("Unknown encoding profile"));
     }
 
@@ -255,10 +245,7 @@ mod tests {
             return;
         }
 
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-mp3-flac-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("spiral-mp3-flac-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -294,10 +281,7 @@ mod tests {
             return;
         }
 
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-aac-flac-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("spiral-aac-flac-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -336,10 +320,7 @@ mod tests {
 
     #[test]
     fn mp3_converts_to_aac_with_metadata() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-aac-from-mp3-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("spiral-aac-from-mp3-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -382,10 +363,7 @@ mod tests {
 
     #[test]
     fn wav_fixture_converts_to_mp3_high() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-mp3-wav-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("spiral-mp3-wav-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -416,10 +394,7 @@ mod tests {
 
     #[test]
     fn wav_fixture_converts_to_lossless_flac_with_metadata() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-flac-wav-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("spiral-flac-wav-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -461,4 +436,3 @@ mod tests {
         let _ = fs::remove_dir_all(dir);
     }
 }
-

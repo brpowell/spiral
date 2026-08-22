@@ -22,7 +22,7 @@ Code-first authors use `skin.json` for structure and behavior and put styling in
 
 | Concern                                                                                     | Owner                                                                                                                                    |
 | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Position, size, z-order, and state-driven changes to them (`bounds`, `boundsWhen`, `zIndex`) | `skin.json` — the runtime **computes** with these: nested coordinate spaces, native window sizing, paint order, WMS import diffing, lint |
+| Position, size, z-order, and state-driven changes to them (`bounds`, `boundsWhen`, `zIndex`, `transition`) | `skin.json` — the runtime **computes** with these: nested coordinate spaces, native window sizing, paint order, WMS import diffing, lint |
 | Tagged renderer config (`presentation.*`: `kind`, assets, icon, strip, …)                     | `skin.json`                                                                                                                              |
 | Panel-writable paint (`style.*`)                                                             | `skin.json` — write target for a property panel                                                                                          |
 | Cascade-dependent styling, pseudo-states, shared looks across many nodes                     | `skin.css`                                                                                                                               |
@@ -40,6 +40,7 @@ JSON-declared geometry and style emit as **inline styles** (see `SkinBounds.tsx`
 - **Do not add drag-based editing to flow.** In flow the engine owns geometry — there is no `x` to write back. Direct manipulation of derived layout means guessing author intent on every gesture.
 - **Do not optimize canvas `skin.json` for machine authorship.** Reformatting, flattening `subview` groups, or stripping readable structure would break the hand-authoring path that produced every pack shipped today.
 - **Do not let a property panel write CSS.** Attributing a computed value back to a source declaration is cascade provenance — the reason devtools style editing is a scratchpad, not a source editor.
+- **Do not use `framer-motion` in the skin engine.** Skin motion is CSS and (later) a host interpolator over the scene tree. App chrome may keep the library independently.
 
 ### Canvas bounds box
 
@@ -52,9 +53,10 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 
 | Action ID                 | Description                                                                                                                  |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `player.togglePlayPause`  | Toggle play/pause for the current track                                                                                      |
-| `player.play`             | Start or resume playback for the current track                                                                               |
+| `player.togglePlayPause`  | Toggle play/pause. With an empty set list, starts the current playlist source (or all tracks)                                |
+| `player.play`             | Start or resume playback. With an empty set list, starts the current playlist source (or all tracks)                         |
 | `player.pause`            | Pause playback when playing                                                                                                  |
+| `player.stop`             | Stop playback and clear the set list (same as the set list modal Clear action)                                               |
 | `player.previousTrack`    | Go to previous track                                                                                                         |
 | `player.nextTrack`        | Go to next track                                                                                                             |
 | `player.cycleRepeat`      | Cycle repeat mode: off → all → one                                                                                           |
@@ -64,7 +66,6 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | `player.setVolume`        | Set volume 0–1 (payload: `{ volume: number }`)                                                                               |
 | `player.setBalance`       | Set stereo balance −1…1 (payload: `{ balance: number }`; 0 = center)                                                         |
 | `player.toggleMute`       | Toggle mute                                                                                                                  |
-| `player.clearSetList`     | Stop playback and clear the set list (same as the set list modal Clear action)                                               |
 | `navigation.openAlbum`    | Open album view for current track (payload: `{ albumKey: string }`)                                                          |
 | `skin.openPicker`         | Open Studio (Skins section)                                                                                                  |
 | `skin.exit`               | Exit skin mode                                                                                                               |
@@ -80,7 +81,7 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | `visualizer.next`         | Cycle to the next global visualizer                                                                                          |
 | `playlist.setSource`      | Select playlist view source (payload: `{ sourceId: string }` — `all`, `upNext`, or `playlist:{id}`)                          |
 | `playlist.playTrack`      | Play a track from the active playlist view (payload: `{ trackId: number }`)                                                  |
-| `eq.setBand`              | Set EQ band gain (payload: `{ band: number; gain: number }` — **band is 1-based**, gain in dB −14…+14; forces manual preset) |
+| `eq.setBand`              | Set EQ band gain (payload: `{ band: number; gain: number }` — **band is 1-based**, gain in dB −14…+14; enables EQ and forces manual preset) |
 | `eq.applyPreset`          | Apply a named preset (payload: `{ presetId: string }`)                                                                       |
 | `eq.reset`                | Flatten all bands to 0 dB and set preset to manual                                                                           |
 | `eq.setEnabled`           | Toggle EQ processing (payload: `{ enabled: boolean }`; band values preserved when disabled)                                  |
@@ -89,6 +90,11 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | `app.quit`                | Quit Spiral (saves session and closes the app)                                                                               |
 | `app.openUrl`             | Open an external URL in the system browser (payload: `{ url: string }`)                                                      |
 | `app.openFile`            | Open the library import picker and import selected audio files or folders                                                    |
+
+
+
+
+`eqBand` nodes may set `spread: "linear"`. Those sliders are endpoints of a linear tilt across the 10-band EQ (WMP Plus! Nature bass/treble). Dragging one writes all ten bands as a straight line between the spread control points and forces the manual preset. Independent `eqBand` sliders omit `spread`.
 
 
 
@@ -336,14 +342,14 @@ Classic WMP skins often use a composite **button group** (`presentation.kind`: `
 
 | Field         | Purpose                                                                                                      |
 | ------------- | ------------------------------------------------------------------------------------------------------------ |
-| `assets`      | `{ default, hover?, pressed? }` — explicit paths under `assets/` including extension                         |
+| `assets`      | `{ default, hover?, pressed?, disabled? }` — explicit paths under `assets/` including extension. `disabled` is composited per button-group element whose `enabledWhen` is false; bitmap buttons use it instead of opacity when present |
 | `assetsWhen`  | Optional bind path → asset set when truthy (last match wins)                                                 |
 | `positionMap` | Color-key PNG for hit testing (e.g. `buttons/window-chrome-map.png`) — **authoritative**; WMP `mappingImage` |
-| `elements`    | `{ mappingColor, onClick }` pairs — hex colors match map pixels                                              |
+| `elements`    | `{ mappingColor, onClick? }` pairs — hex colors match map pixels. `onClick` may be omitted for unmapped WMS hits |
 | `elevateWhen` | Optional list of sibling `buttonGroup` node ids — co-elevate above those groups on hover/press (see below)   |
 
 
-**Overlapping button groups:** WMP transport chrome often stacks groups whose `bounds` rects overlap but whose `positionMap` regions do not (e.g. a play+stop composite sheet under a pause overlay). The runtime resolves hits from map pixels (not bounding boxes) and dynamically raises the active group's `zIndex` on hover or press. When a sibling overlay must stay painted above part of the active sheet — pause over a play+stop composite while hovering stop — set `elevateWhen` on the overlay group to the composite group's node id. The overlay co-elevates one step higher so its artwork wins in the shared region.
+**Overlapping button groups:** WMP transport chrome often stacks groups whose `bounds` rects overlap but whose `positionMap` regions do not (e.g. a play+stop composite sheet under a pause overlay). The runtime hit-tests from map pixels (not the group `bounds` box) and uses each mapping color’s AABB as the pointer target so unmapped pixels (magenta / white) pass through to controls underneath — e.g. Nature’s seek thumb under the play-controls sheet. The active group’s `zIndex` rises on hover or press. When a sibling overlay must stay painted above part of the active sheet — pause over a play+stop composite while hovering stop — set `elevateWhen` on the overlay group to the composite group's node id. The overlay co-elevates one step higher so its artwork wins in the shared region.
 
 ### Transparent click-through
 
@@ -392,7 +398,7 @@ Rules:
 
 - Only the view layout root may be `canvas` (`row`/`column` for flow). Nested clusters use `subview` with required `bounds` (parent-relative). Nested `canvas` is schema-invalid.
 - `subview` is never valid as a view layout root.
-- Optional `passthrough: true` on `subview` makes the group bounds box ignore pointer events (children still receive them) — WMS passthrough subviews.
+- Grouping `subview` bounds boxes ignore pointer events (children still receive them). Overlapping chrome — e.g. Nature’s leaf over the drawer close control — cannot steal clicks from controls underneath. Optional `passthrough: true` additionally leaves overflow visible for alpha-fringed frames (WMS passthrough).
 - `bounds.x` / `bounds.y` are offsets within the **current** layout context. `bounds.right` / `bounds.bottom` are CSS edge insets (distance from the node's far edge to the context edge). Pin or stretch by omitting the near-edge or size: `x`+`right` (no `w`), `right`+`w` (no `x`), and the same for `y`/`bottom`/`h`.
 - Container children are paint-sorted by `bounds.zIndex` at every level (`sortChildrenByZIndex`), including nested `subview` / flex / `tiledFrame` children.
 - Stretch / edge-pin sizing for **`tiledFrame` tiles** uses the same `layoutBounds` rules (`resolveLocalBounds`). Ordinary nodes may use the same form (e.g. a title bar with `bottom: 0`).
@@ -461,12 +467,6 @@ Code-first skins may omit `style` and keep type in `skin.css`. CSS leftovers a p
 
 /* Glow — no round-trippable panel control */
 [data-node-id="vis-effect-title"] { text-shadow: 0 0 6px black; }
-
-/* Motion timing (host `.skin-bounds--motion` default is 120ms) */
-.vis-btn,
-.skin-bounds--motion {
-  transition: top 500ms linear;
-}
 
 /* Pseudo-state — not a rest-state style bag */
 .viz-btn:hover:not(:disabled) {
@@ -557,9 +557,18 @@ Stretch bands use `zIndex` below content; corner caps use `zIndex` above content
 
 ## Bitmap sliders (`bitmapVerticalSlider` / `bitmapHorizontalSlider`)
 
-Tiled track + movable thumb. Used by `eqBand`, `balance`, and `volume` nodes.
+Tiled track + movable thumb. Used by `eqBand`, `balance`, `volume`, and `seekbar` nodes.
 
-`track` is optional on both kinds. Omit it when the groove is already painted in the panel background (T3 EQ balance). `trackTileWidth` / `trackTileHeight` are required only when `track` is set. `trackWidth` / `trackHeight` still define thumb travel.
+| Presentation | Typical nodes |
+| --- | --- |
+| `bitmapVerticalSlider` | `eqBand`; vertical `volume` (e.g. Plus! Nature ladybug thumb) |
+| `bitmapHorizontalSlider` | `balance`; horizontal `volume` / `eqBand`; thumb-only or track+fill `seekbar` (Nature, Headspace) |
+
+`track` is optional on both kinds. Omit it when the groove is already painted in the panel background (Nature volume/seek, T3 EQ balance, Xbox EQ). `fill` is an optional value clip along the slider axis (WMP `foregroundImage`): left-to-right on horizontal, bottom-to-top on vertical. T3 EQ bands are fill-only. Headspace seek sets both `track` (empty groove) and `fill`. `trackTileWidth` / `trackTileHeight` are required only when `track` is set. `trackWidth` / `trackHeight` define the control box. The WMS importer snaps the **cross axis** of a thumb-only slider down to the thumb when WMS is 1px larger (Nature seek `height` 17 vs 16px thumb; volume `width` 25 vs 24px thumb) so the thumb does not center on a half-pixel and clip. Layout `bounds` keep the WMS size.
+
+**`borderSize` (WMP):** insets the thumb **center** from each end (not the thumb’s top/left edge). Typical skins use ≥ half the thumb size on the travel axis so the full thumb stays visible at 0%/100%. Fill clips to that same center. `thumb` is a state set (`default` required; optional `hover` / `pressed` map WMP `thumbHoverImage` / `thumbDownImage`). Hover art applies only while the pointer is over the thumb sprite.
+
+`volume` + `bitmapVerticalSlider` renders via the shared bitmap vertical slider (same path as `eqBand`). `seekbar` / `eqBand` + `bitmapHorizontalSlider` uses the shared horizontal slider (same path as `balance` / horizontal `volume`).
 
 ## Strip slider (`presentation.kind`: `stripSlider`)
 
@@ -639,11 +648,11 @@ If both `icon` and `text` are omitted, the resolved tooltip is shown as the butt
 
 ## Bitmap button GIF playback
 
-Bitmap buttons (`presentation.kind`: `bitmap`) with `.gif` hover or pressed art use canvas playback (not CSS backgrounds) so file NETSCAPE loop metadata is honored. Encode button GIFs with ffmpeg `-loop -1` (no NETSCAPE extension = play once). On idle the runtime draws the last frame of the default asset; entering hover, press, or returning to default replays the animation from frame 0.
+Bitmap buttons (`presentation.kind`: `bitmap`) with `.gif` hover or pressed art use canvas playback (not CSS backgrounds) so file NETSCAPE loop metadata is honored. Encode button GIFs without a NETSCAPE loop extension (play once) — `wms-import` / `skin_convert` do this by default. On idle the runtime draws the last frame of the default asset; entering hover, press, or returning to default replays the animation from frame 0.
 
 ## Animated GIF (`presentation.kind`: `gif`)
 
-eleClassic WMP skins use looping GIFs for status chrome (e.g. T3 `m_idle.gif` / `m_playback.gif`). Use a `decoration` node with `gif` presentation:
+Classic WMP skins use looping GIFs for status chrome (e.g. T3 `m_idle.gif` / `m_playback.gif`). Use a `decoration` node with `gif` presentation:
 
 
 | Field        | Purpose                                                                  |
@@ -652,7 +661,7 @@ eleClassic WMP skins use looping GIFs for status chrome (e.g. T3 `m_idle.gif` / 
 | `onComplete` | Optional lifecycle effects after the first scaled loop (`durationMs`)    |
 
 
-WMP source GIFs use magenta (`#FF00FF`) as a fake transparent color — bake real alpha before bundling (see `chroma_gif` in `scripts/import-skynet-wmp-assets.sh`). Raw magenta GIFs render as solid pink.
+WMP source GIFs use magenta (`#FF00FF`) as a fake transparent color — bake real alpha before bundling via `wms-import` / `skin_convert` (or `--chroma` when the key differs). Raw magenta GIFs render as solid pink.
 
 Toggle with `visibleWhen` binds such as `player.isPlaying` and `player.notPlaying`.
 
@@ -670,6 +679,9 @@ Wire a `playlist` node. Feature flags live on the node — there is no `presenta
 | `showArtwork`     | Album artwork on each track row (default `false`)                                                |
 | `defaultSource`   | Initial source: `all` (default) or `upNext`. Applied on mount; later `playlist.setSource` wins. |
 | `style`           | Panel-writable list paint (`color`, `fontSize`, `backgroundColor`, …).                           |
+| `sourceStyle`     | Same closed bag on the source dropdown (`__source`).                                             |
+| `sourceHoverStyle`| Same closed bag while the source dropdown is hovered (merged on top of `sourceStyle`).           |
+| `rowHoverStyle`   | Same closed bag while a track row is hovered (merged under `currentRowStyle` / `playingRowStyle`). |
 | `playingRowStyle` | Same closed bag, applied as inline style on the playing row (`__row--playing`).                  |
 | `currentRowStyle` | Same closed bag, applied as inline style on the current row (`__row--current`). When the row is also playing, `playingRowStyle` is merged on top. |
 
@@ -688,6 +700,15 @@ Designer-first example. Feature flags and paint live on the node — no `present
     "color": "#7ec509",
     "fontSize": 11
   },
+  "sourceStyle": {
+    "backgroundColor": "#0a1200"
+  },
+  "sourceHoverStyle": {
+    "backgroundColor": "#142000"
+  },
+  "rowHoverStyle": {
+    "backgroundColor": "rgba(204, 255, 0, 0.12)"
+  },
   "playingRowStyle": {
     "color": "#ffffff",
     "backgroundColor": "#369108"
@@ -695,11 +716,32 @@ Designer-first example. Feature flags and paint live on the node — no `present
 }
 ```
 
-Set an `id` on the playlist node and target `[data-node-id="…"]` in `skin.css` for cascade leftover (code-first skins). Designer-first paint lives on `style` / `playingRowStyle` / `currentRowStyle`.
+Set an `id` on the playlist node and target `[data-node-id="…"]` in `skin.css` for cascade leftover (code-first skins). Designer-first paint lives on `style` / `sourceStyle` / `sourceHoverStyle` / `rowHoverStyle` / `playingRowStyle` / `currentRowStyle`.
 
 Dropdown changes invoke `playlist.setSource`; row clicks invoke `playlist.playTrack`. Bind `playlist.sourceLabel`, `playlist.trackCount`, or `playlist.hasTracks` for chrome text and visibility.
 
 To overlay the list on a visualizer (Vanilla), keep the playlist node mounted and fade with view-state attributes on the flow inner wrapper (`data-view-{variable}`). Do not use `visibleWhen` if you need a fade-out — that unmounts immediately. Example: `view.applyStateEvent` toggles `playlist` `open`/`closed`, then `[data-view-playlist="open"] [data-node-id="playlist-overlay"]` drives opacity.
+
+## Artwork (`type`: `artwork`)
+
+Current-track cover. Uses the shared `NowPlayingArt` host. In addition to the usual control fields (`style`, `presentation`, …):
+
+| Field | Purpose |
+| --- | --- |
+| `style` | Panel-writable paint on the art root (e.g. `backgroundColor` for letterbox / empty state). |
+| `objectFit` | CSS `object-fit` for the cover image: `cover` (default), `contain`, or `fill`. |
+
+```json
+{
+  "type": "artwork",
+  "id": "btnAlbumArt",
+  "objectFit": "contain",
+  "style": { "backgroundColor": "#000000" },
+  "presentation": { "kind": "css" }
+}
+```
+
+Cascade leftovers (border-radius, etc.) stay in `skin.css`.
 
 ## Skin window actions
 
@@ -838,32 +880,68 @@ No matching branch → no-op (e.g. `opening` / `closing` need no extra guards). 
 
 Fan-out is multiple `onClick` effects, each targeting one variable with the same event name — not `variable` as an array. Click lists do not take `sound`; use control `sound` / `soundWhen`.
 
-Headspace drawers stay mounted at closed bounds. Toggle sets `open` / `closed`; `boundsWhen` on `view.eq.open` drives the slide target (CSS `.skin-bounds--motion`).
+## Bounds interpolation (`transition`)
 
-**Incremental path:** [skin-view-effects-plan.md](../../../docs/skin-view-effects-plan.md) — Phase 3 adds full timelines (#17).
+`boundsWhen` is layout: the target box when a condition is true. It does **not** imply motion. Interpolation is opt-in via the same `transition` object on the layout node (live) and on `view.state` branches (reserved for the host interpolator):
 
-## Future: declarative skin animations (post-epic)
+```json
+"transition": { "durationMs": 120, "easing": "linear" }
+```
 
-Not in V1/V2 scope. Documented so the manifest/renderer do not assume static chrome only.
+| Field | Meaning |
+| --- | --- |
+| `durationMs` | Interpolation length. `0` snaps. Omitting `transition` is the same as `0`. |
+| `easing` | `linear` (default), `ease`, `ease-in`, `ease-out`, `ease-in-out` |
 
-Classic WMP skins used timed show/hide, frame sequences, and event-driven transitions (e.g. a “door opening” reveal on load or play). Spiral should support the same *feel* via **declarative timelines** — not skin scripting.
+Today the CSS path reads **node** `transition`. If `durationMs > 0`, the host adds `.skin-bounds--motion` and writes `--skin-bounds-duration` / `--skin-bounds-easing`. `prefers-reduced-motion: reduce` disables it. A later interpolator will also read `transition` on the triggering state-event branch (cube flip: one duration for the change); until then put duration on the nodes that slide.
 
-**Triggers** (presentation events, separate from the action catalog): e.g. `skin.loaded`, `view.activated`, `player.playbackState` transitions, `track.changed`.
+Headspace drawers stay mounted at closed bounds. Toggle sets `open` / `closed`; `boundsWhen` on `view.eq.open` is the slide target; `transition: { durationMs: 120 }` on those nodes is what interpolates. Plus-nature 320 ↔ small uses `boundsWhen` without `transition` and snaps.
 
-**Targets**: layout nodes with stable `id`s, especially on the **absolute overlay layer** (decorative chrome, masks, non-interactive regions).
+## Future: host-driven motion (not now)
 
-**Timeline backends** (pluggable, like `presentation.kind`):
+Authors stay declarative. The host owns the clock; CSS owns the paint. No skin JavaScript. The old #17 clip/backend table (`sprite` / `css` / `clip` / `video` timelines) is retired — sprite sheets and video stay asset presentations (`gif`, `slideshow`), not a parallel sequencer.
 
+| Motion kind | Owner | Typical use |
+| --- | --- | --- |
+| Ambient / hover / one-shot | `skin.css` (`@keyframes`, transitions) | Glow, hover wash, intro loop |
+| State-driven | Manifest `transition` on the layout node (today) and later on `view.state` branches; host interpolates | Drawer slide, cube flip |
+| Continuous / audio-reactive | Shared `drive` evaluator (same as viz layers) | Pulse with bass, idle float |
 
-| Kind     | Typical use                                                   |
-| -------- | ------------------------------------------------------------- |
-| `sprite` | Frame sequence from a sheet + grid descriptor (most WMP-like) |
-| `css`    | `@keyframes` driven by bind→`data-*` on trigger               |
-| `clip`   | Animated window mask / reveal (door opening)                  |
-| `video`  | Short WebM/WebP one-shot or loop in `assets/`                 |
+Host writes compositor-friendly results (`translate` / `scale` / `rotate`, or registered custom properties). Do not transition `left` / `top` / `width` / `height` (today’s `.skin-bounds--motion` does — a later fix). `framer-motion` stays out of the skin engine entirely — it is not a pack API and not a runtime dependency of skin rendering.
 
+`prefers-reduced-motion` still applies. Velocity-preserving interruption is optional polish, not a requirement — discrete state toggles retargeting from the current value is enough.
 
-**V2 guardrails** (keep iteration cheap later): absolute/overlay nodes in schema; node `id`s; sprite grid descriptor reserved; bind→attribute channel shared with CSS controls; respect `prefers-reduced-motion`.
+## Cheap reservations (not now)
 
-See spiral-desktop [#17](https://github.com/brpowell/spiral-desktop/issues/17) for full planning notes.
-See spiral-desktop [#17](https://github.com/brpowell/spiral-desktop/issues/17) for full planning notes.
+Small contract/runtime changes that keep a later 3D / game-UI skin tier from requiring a rewrite. None of this is needed for current bitmap or CSS skins. The durable asset is the **contract** (actions, binds, view state, conditions, pack format) — not the DOM presentation kinds. Adding a `scene` node later is the same move as adding `bitmapHorizontalSlider` beside `stripSlider`.
+
+Do not invent a second transform, visibility, or event vocabulary while waiting.
+
+### One transform vocabulary
+
+Visualizer scene layers already have `drive` (`opacity`, `scale`, `translateX`, `translateY`, `rotation`) evaluated by `resolveDrive` against audio buckets and skin binds — see the [presentation contract](../../../docs/guides/presentation-contract.md). Skin layout nodes use a parallel model (`bounds`, `boundsWhen`, `style`) and do not consume drives.
+
+When audio-reactive or 3D motion lands, reuse `LayerDriveMap` / `resolveDrive` on layout nodes. Extend `TransformDriveKey` with `z` / `rotateX` / `rotateY` / `perspective` rather than skin-only transform fields. `bounds` stays the layout box; drives compose on top (same split viz layers already have between `layout` and `drive`).
+
+A first 3D path can be CSS `preserve-3d` over the existing DOM renderer so playlist/text faces stay real controls. WebGL belongs under that for glass, particles, and geometry DOM cannot do — not as a replacement compositor for interactive chrome.
+
+### State-machine transitions
+
+View `state` already snaps via `view.applyStateEvent`. Node `transition` is the live interpolator stub: `.skin-bounds--motion` + CSS variables. A cube flip is “on `togglePlaylist`, interpolate `main → playlist` over 600ms” — same `transition` object on that state-event branch, honored when the host interpolator lands. Root/per-node `animations` / `timelines` stay reserved blobs until that shape is chosen. Do not invent a second duration field.
+
+### Version-gate before contribution parse
+
+`pack.json` `minAppVersion` is checked only after a successful parse. `LayoutNode` is a closed tagged enum, so an unknown `type` (a future `scene` node) fails serde before the version message can fire. Read pack-level `minAppVersion` before validating contribution trees so old apps can say “needs Spiral x.y” instead of a parse error.
+
+### Manifest capabilities
+
+GPU code with pointer input and action access is a different trust tier from a bitmap pack. Reserve a `capabilities` array on the skin (or pack) manifest — e.g. `scene`, `actions` — surfaced at install, and eventually gated by the registry. Easier to introduce before those packs exist than after.
+
+A scene-tier view should also declare a **declarative fallback view** (sandbox death, no WebGL, `prefers-reduced-motion`). The visualizer worker sandbox is already the GPU runtime; a scene-tier skin would invert containment (scene hosts DOM) and add two channels the viz sandbox does not have: pointer events in, validated `KNOWN_ACTIONS` out. Do not grow a second JS sandbox.
+
+### Already reserved — do not reuse
+
+| Field / surface | Hold for |
+| --- | --- |
+| Root and per-node `animations` / `timelines` | Host-driven motion specs (or unused). Not free-form JS, not a clip sequencer. |
+| `window.clipMask` | Irregular chrome / GPU hit silhouette (unimplemented). Click-through today alpha-tests decoration bitmaps; a rotating mesh needs a GPU-side hit source, not a new window API. |

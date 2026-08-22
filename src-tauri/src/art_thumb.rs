@@ -23,12 +23,7 @@ fn source_modified_ms(path: &Path) -> Result<u64, String> {
         .map_err(|e| format!("Invalid art modification time: {e}"))
 }
 
-fn row_thumb_path(
-    app_data_dir: &Path,
-    art_path: &str,
-    size: u32,
-    source_mtime_ms: u64,
-) -> PathBuf {
+fn row_thumb_path(app_data_dir: &Path, art_path: &str, size: u32, source_mtime_ms: u64) -> PathBuf {
     let key = art_cache::art_cache_key(art_path);
     art_thumb_dir(app_data_dir).join(format!("{key}-{size}-{source_mtime_ms}.jpg"))
 }
@@ -105,12 +100,7 @@ mod tests {
 
     fn write_test_image(path: &Path, width: u32, height: u32) {
         let img = image::RgbaImage::from_fn(width, height, |x, y| {
-            image::Rgba([
-                (x * 40) as u8,
-                (y * 40) as u8,
-                128,
-                255,
-            ])
+            image::Rgba([(x * 40) as u8, (y * 40) as u8, 128, 255])
         });
         img.save_with_format(path, ImageFormat::Png).unwrap();
     }

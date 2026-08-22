@@ -43,8 +43,7 @@ struct LyricsFetchCacheFile {
     lookups: HashMap<String, CachedLyricsEntry>,
 }
 
-static CACHE: LazyLock<Mutex<Option<LyricsFetchCacheFile>>> =
-    LazyLock::new(|| Mutex::new(None));
+static CACHE: LazyLock<Mutex<Option<LyricsFetchCacheFile>>> = LazyLock::new(|| Mutex::new(None));
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CachedLyricsLookup {
@@ -122,8 +121,7 @@ fn persist_cache(app: &AppHandle, cache: &LyricsFetchCacheFile) -> Result<(), St
     }
     let json = serde_json::to_string_pretty(cache)
         .map_err(|err| format!("failed to serialize lyrics fetch cache: {err}"))?;
-    fs::write(&path, json)
-        .map_err(|err| format!("failed to write lyrics fetch cache: {err}"))
+    fs::write(&path, json).map_err(|err| format!("failed to write lyrics fetch cache: {err}"))
 }
 
 fn with_cache_mut<R>(
@@ -140,10 +138,7 @@ fn with_cache_mut<R>(
     Ok(result)
 }
 
-pub fn get_cached_lookup(
-    app: &AppHandle,
-    fingerprint: &str,
-) -> Result<CachedLyricsLookup, String> {
+pub fn get_cached_lookup(app: &AppHandle, fingerprint: &str) -> Result<CachedLyricsLookup, String> {
     ensure_loaded(app)?;
     let guard = CACHE.lock().map_err(|err| err.to_string())?;
     let Some(cache) = guard.as_ref() else {

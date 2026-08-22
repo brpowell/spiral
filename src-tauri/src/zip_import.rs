@@ -36,10 +36,7 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
             .map_err(|e| format!("failed to read zip entry {i}: {e}"))?;
 
         let Some(entry_path) = entry.enclosed_name().map(|p| p.to_owned()) else {
-            return Err(format!(
-                "zip entry has an invalid path: {}",
-                entry.name()
-            ));
+            return Err(format!("zip entry has an invalid path: {}", entry.name()));
         };
 
         let outpath = dest.join(&entry_path);
@@ -51,12 +48,16 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
         }
 
         if let Some(parent) = outpath.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("failed to create parent directory for {}: {e}", outpath.display()))?;
+            fs::create_dir_all(parent).map_err(|e| {
+                format!(
+                    "failed to create parent directory for {}: {e}",
+                    outpath.display()
+                )
+            })?;
         }
 
-        let mut outfile =
-            File::create(&outpath).map_err(|e| format!("failed to create {}: {e}", outpath.display()))?;
+        let mut outfile = File::create(&outpath)
+            .map_err(|e| format!("failed to create {}: {e}", outpath.display()))?;
         copy(&mut entry, &mut outfile)
             .map_err(|e| format!("failed to extract {}: {e}", entry.name()))?;
     }
@@ -96,12 +97,11 @@ pub fn cleanup_zip_import_path(extract_dir: &str) -> Result<(), String> {
         return Ok(());
     }
 
-    let file_name = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("");
+    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     if !file_name.starts_with("spiral-zip-import-") {
-        return Err(format!("Refusing to delete non-import directory: {extract_dir}"));
+        return Err(format!(
+            "Refusing to delete non-import directory: {extract_dir}"
+        ));
     }
 
     fs::remove_dir_all(path).map_err(|e| format!("failed to remove zip extract directory: {e}"))

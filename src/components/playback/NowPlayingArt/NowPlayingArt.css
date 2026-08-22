@@ -45,7 +45,8 @@
   align-items: center;
   justify-content: center;
   color: var(--color-text-secondary);
-  background: var(--color-surface-raised);
+  /* Inherit panel paint from the artwork root (`style.backgroundColor`). */
+  background: transparent;
 }
 
 .now-playing-art__placeholder svg {

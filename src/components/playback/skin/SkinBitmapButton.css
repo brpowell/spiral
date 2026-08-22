@@ -19,12 +19,20 @@
 }
 
 .skin-bitmap-btn--pressed:not(:disabled) {
-  background-image: var(--skin-btn-img-pressed, var(--skin-btn-img-hover, var(--skin-btn-img)));
+  background-image: var(
+    --skin-btn-img-pressed,
+    var(--skin-btn-img-hover, var(--skin-btn-img))
+  );
 }
 
 .skin-bitmap-btn:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+.skin-bitmap-btn--has-disabled:disabled {
+  opacity: 1;
+  background-image: var(--skin-btn-img-disabled, var(--skin-btn-img));
 }
 
 .skin-bitmap-btn--canvas {

@@ -1,25 +1,28 @@
-.skin-eq-band-slider {
+.skin-bitmap-vertical-slider {
   position: relative;
+  width: 100%;
+  height: 100%;
   touch-action: none;
 }
 
-.skin-eq-band-slider__track {
+.skin-bitmap-vertical-slider__track {
   position: absolute;
   top: 0;
   pointer-events: none;
 }
 
-.skin-eq-band-slider__fill {
+.skin-bitmap-vertical-slider__fill {
+  position: absolute;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.skin-bitmap-vertical-slider__thumb {
   position: absolute;
   pointer-events: none;
 }
 
-.skin-eq-band-slider__thumb {
-  position: absolute;
-  pointer-events: none;
-}
-
-.skin-eq-band-slider__hit {
+.skin-bitmap-vertical-slider__hit {
   position: absolute;
   inset: 0;
   margin: 0;

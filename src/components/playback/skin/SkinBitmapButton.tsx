@@ -3,7 +3,9 @@ import {
   interactiveAssetsUseGif,
   isSkinGifAsset,
   resolveInteractiveAssetFile,
+  resolveInteractiveAssets,
   resolveInteractiveAssetUrl,
+  skinAssetFileUrl,
 } from "../../../lib/skinAssets";
 import {
   playSkinSound,
@@ -74,41 +76,35 @@ export function SkinBitmapButton({
     ? interactiveAssetsUseGif(assets, assetsWhen, bindState)
     : false;
 
-  const src = isBitmap
-    ? resolveInteractiveAssetUrl(
+  const resolvedAssets = isBitmap
+    ? resolveInteractiveAssets(assets, assetsWhen, bindState)
+    : null;
+  const src = resolvedAssets
+    ? skinAssetFileUrl(pack.packDir, resolvedAssets.default)
+    : "";
+  const hoverSrc = resolvedAssets
+    ? skinAssetFileUrl(
         pack.packDir,
-        assets,
-        assetsWhen,
-        bindState,
-        "default",
+        resolvedAssets.hover ?? resolvedAssets.default,
       )
     : "";
-  const hoverSrc = isBitmap
-    ? resolveInteractiveAssetUrl(
+  const pressedSrc = resolvedAssets
+    ? skinAssetFileUrl(
         pack.packDir,
-        assets,
-        assetsWhen,
-        bindState,
-        "hover",
+        resolvedAssets.pressed ?? resolvedAssets.default,
       )
     : "";
-  const pressedSrc = isBitmap
-    ? resolveInteractiveAssetUrl(
-        pack.packDir,
-        assets,
-        assetsWhen,
-        bindState,
-        "pressed",
-      )
+  const hasDisabledAsset = Boolean(resolvedAssets?.disabled);
+  const disabledSrc = resolvedAssets?.disabled
+    ? skinAssetFileUrl(pack.packDir, resolvedAssets.disabled)
     : "";
 
   const actionDisabled =
     !interactionEnabled ||
     (clickAction === "player.previousTrack" && !canGoPrevious) ||
     (clickAction === "player.nextTrack" && !canGoNext) ||
-    (clickAction === "player.togglePlayPause" && !hasTrack) ||
-    (clickAction === "player.play" && !hasTrack) ||
-    (clickAction === "player.pause" && !hasTrack);
+    (clickAction === "player.pause" && !hasTrack) ||
+    (clickAction === "player.stop" && !hasTrack);
 
   const isSticky =
     node.activeWhen && evaluateSkinCondition(node.activeWhen, bindState);
@@ -146,11 +142,13 @@ export function SkinBitmapButton({
     hovered && !hoverSuppressed && !pressed && !isSticky && !isSettling;
   const showPressed = pressed || Boolean(isSticky) || isSettling;
 
-  const visualState: InteractiveAssetState = showPressed
-    ? "pressed"
-    : showHover
-      ? "hover"
-      : "default";
+  const visualState: InteractiveAssetState = actionDisabled
+    ? "disabled"
+    : showPressed
+      ? "pressed"
+      : showHover
+        ? "hover"
+        : "default";
 
   const activeFile = resolveInteractiveAssetFile(
     assets,
@@ -228,6 +226,7 @@ export function SkinBitmapButton({
       className={[
         "skin-bitmap-btn",
         usesGif && "skin-bitmap-btn--canvas",
+        hasDisabledAsset && "skin-bitmap-btn--has-disabled",
         !usesGif && showHover && "skin-bitmap-btn--hover",
         !usesGif && showPressed && "skin-bitmap-btn--pressed",
       ]
@@ -247,6 +246,9 @@ export function SkinBitmapButton({
                 "--skin-btn-img": `url("${src}")`,
                 "--skin-btn-img-hover": `url("${hoverSrc}")`,
                 "--skin-btn-img-pressed": `url("${pressedSrc}")`,
+                ...(hasDisabledAsset
+                  ? { "--skin-btn-img-disabled": `url("${disabledSrc}")` }
+                  : {}),
               }
             : {}),
         } as React.CSSProperties

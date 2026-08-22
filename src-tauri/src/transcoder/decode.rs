@@ -39,8 +39,7 @@ pub fn pcm_from_audio_file(path: &Path) -> Result<PcmStream, String> {
 
 fn decode_with_symphonia(path: &Path) -> Result<PcmStream, String> {
     let label = error::file_label(path);
-    let file =
-        File::open(path).map_err(|err| format!("Failed to open {label}: {err}"))?;
+    let file = File::open(path).map_err(|err| format!("Failed to open {label}: {err}"))?;
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
 
     let mut hint = Hint::new();
@@ -105,8 +104,7 @@ fn decode_with_symphonia(path: &Path) -> Result<PcmStream, String> {
     let channels = channels
         .filter(|count| *count > 0)
         .ok_or_else(|| format!("Missing channel layout in {label}"))?;
-    let sample_rate =
-        sample_rate.ok_or_else(|| format!("Missing sample rate in {label}"))?;
+    let sample_rate = sample_rate.ok_or_else(|| format!("Missing sample rate in {label}"))?;
 
     Ok(PcmStream {
         channels,

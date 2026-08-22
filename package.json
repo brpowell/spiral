@@ -13,9 +13,14 @@
     "test:backend": "cd src-tauri && cargo test",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "npm run format:prettier && npm run format:rust",
+    "format:check": "npm run format:prettier:check && npm run format:rust:check",
+    "format:prettier": "prettier --write .",
+    "format:prettier:check": "prettier --check .",
+    "format:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
+    "format:rust:check": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
     "lint:skins": "vitest run src/lib/skinLayout.test.ts",
+    "wms-import": "cargo run --manifest-path src-tauri/Cargo.toml --bin wms_import --",
     "read-tags": "cargo run --manifest-path src-tauri/Cargo.toml --bin read_tags --",
     "remove-registration-card": "node scripts/remove-registration-card.mjs",
     "mint:provisional": "cargo run --manifest-path src-tauri/Cargo.toml --bin license_mint -- provisional",
@@ -92,6 +97,7 @@
     ],
     "*.{css,json,html,yml,yaml}": [
       "prettier --write"
-    ]
+    ],
+    "src-tauri/**/*.rs": "rustfmt"
   }
 }

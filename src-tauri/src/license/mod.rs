@@ -14,20 +14,19 @@ pub mod verifier;
 mod wrap;
 
 pub use crypto::{
-    sign_grant, signing_key_from_bytes, verifying_key_from_bytes, verify_grant_signature,
+    sign_grant, signing_key_from_bytes, verify_grant_signature, verifying_key_from_bytes,
     SigningKey, VerifyingKey,
 };
 pub use runtime::{
-    clear_registration_wrap, install_registration_card,
-    load_license_snapshot, merge_finalized_grant_json, registration_spcard_path_if_present,
-    set_registration_wrap_from_bytes, update_registration_cosmetic, LicenseSnapshot,
-    LicenseStatus,
+    clear_registration_wrap, install_registration_card, load_license_snapshot,
+    merge_finalized_grant_json, registration_spcard_path_if_present,
+    set_registration_wrap_from_bytes, update_registration_cosmetic, LicenseSnapshot, LicenseStatus,
 };
 pub use trial_gate::assert_can_add_library_track;
 pub use verifier::{
     DirectMintProof, DirectProofVerifier, FlatpakProof, FlatpakProofVerifier, MacAppStoreProof,
-    MacAppStoreProofVerifier, POC_DIRECT_MINT_GRANT, ProofOfPurchaseVerifier, SteamOwnershipProof,
-    SteamProofVerifier, VerifiedPurchase, WindowsStoreProof, WindowsStoreProofVerifier,
+    MacAppStoreProofVerifier, ProofOfPurchaseVerifier, SteamOwnershipProof, SteamProofVerifier,
+    VerifiedPurchase, WindowsStoreProof, WindowsStoreProofVerifier, POC_DIRECT_MINT_GRANT,
 };
 
 use serde::{Deserialize, Serialize};
@@ -52,8 +51,7 @@ pub const SKU_FOUNDER: &str = "founder";
 const FIELD_SEP: u8 = 0x1F;
 
 /// Bundled PoC Ed25519 public key (32 raw bytes).
-pub const POC_PUBLIC_KEY_BYTES: &[u8; 32] =
-    include_bytes!("../../keys/license/poc-ed25519.pub");
+pub const POC_PUBLIC_KEY_BYTES: &[u8; 32] = include_bytes!("../../keys/license/poc-ed25519.pub");
 
 /// Max Unicode scalar values for `cardholderName` (Studio write + repair).
 const CARDHOLDER_NAME_MAX_CHARS: usize = 40;
@@ -280,7 +278,11 @@ pub fn repair_cosmetic(raw: Option<&Value>) -> Cosmetic {
 
 /// Trim + cap cardholder display name (cosmetic only).
 fn normalize_cardholder_name(name: &str) -> String {
-    let trimmed: String = name.trim().chars().take(CARDHOLDER_NAME_MAX_CHARS).collect();
+    let trimmed: String = name
+        .trim()
+        .chars()
+        .take(CARDHOLDER_NAME_MAX_CHARS)
+        .collect();
     trimmed
 }
 
@@ -295,7 +297,12 @@ pub fn prepare_cosmetic_for_write(cosmetic: Cosmetic) -> Result<Cosmetic, Licens
             wrap_ref: "default".to_string(),
             wrap_data: None,
         })
-        .map_err(|e| err("invalid_cosmetic", format!("failed to encode cosmetic: {e}")))?;
+        .map_err(|e| {
+            err(
+                "invalid_cosmetic",
+                format!("failed to encode cosmetic: {e}"),
+            )
+        })?;
         // Preserve requested wrap ref for the branch below; repair only non-wrap fields.
         if let Some(obj) = value.as_object_mut() {
             obj.insert(
@@ -308,10 +315,7 @@ pub fn prepare_cosmetic_for_write(cosmetic: Cosmetic) -> Result<Cosmetic, Licens
 
     if cosmetic.wrap_ref == "custom" {
         let Some(data) = cosmetic.wrap_data.as_deref().filter(|s| !s.is_empty()) else {
-            return Err(err(
-                "invalid_wrap",
-                "custom wrap requires wrapData",
-            ));
+            return Err(err("invalid_wrap", "custom wrap requires wrapData"));
         };
         let sanitized = wrap::sanitize_wrap_base64(data)?;
         repaired.wrap_ref = "custom".to_string();
@@ -346,14 +350,14 @@ pub(crate) fn parse_sku(s: &str) -> Result<LicenseSku, LicenseError> {
     match s {
         SKU_STANDARD => Ok(LicenseSku::Standard),
         SKU_FOUNDER => Ok(LicenseSku::Founder),
-        other => Err(err(
-            "unsupported_sku",
-            format!("unsupported sku: {other}"),
-        )),
+        other => Err(err("unsupported_sku", format!("unsupported sku: {other}"))),
     }
 }
 
-fn require_nonempty_str(obj: &serde_json::Map<String, Value>, key: &str) -> Result<String, LicenseError> {
+fn require_nonempty_str(
+    obj: &serde_json::Map<String, Value>,
+    key: &str,
+) -> Result<String, LicenseError> {
     match obj.get(key) {
         Some(Value::String(s)) if !s.is_empty() => Ok(s.clone()),
         Some(Value::String(_)) => Err(err(
@@ -364,10 +368,7 @@ fn require_nonempty_str(obj: &serde_json::Map<String, Value>, key: &str) -> Resu
             "invalid_grant",
             format!("grant.{key} must be a string"),
         )),
-        None => Err(err(
-            "invalid_grant",
-            format!("grant missing {key}"),
-        )),
+        None => Err(err("invalid_grant", format!("grant missing {key}"))),
     }
 }
 
@@ -391,12 +392,7 @@ fn parse_grant(value: &Value) -> Result<Grant, LicenseError> {
     }
 
     let expires_at = match obj.get("expiresAt") {
-        None => {
-            return Err(err(
-                "invalid_grant",
-                "grant missing expiresAt",
-            ))
-        }
+        None => return Err(err("invalid_grant", "grant missing expiresAt")),
         Some(Value::Null) => None,
         Some(Value::String(s)) => {
             if !is_valid_timestamp(s) {
@@ -407,12 +403,7 @@ fn parse_grant(value: &Value) -> Result<Grant, LicenseError> {
             }
             Some(s.clone())
         }
-        Some(_) => {
-            return Err(err(
-                "invalid_grant",
-                "expiresAt must be a string or null",
-            ))
-        }
+        Some(_) => return Err(err("invalid_grant", "expiresAt must be a string or null")),
     };
 
     let signature = require_nonempty_str(obj, "signature")?;
@@ -492,12 +483,9 @@ pub fn parse_spcard(json: &str) -> Result<Spcard, LicenseError> {
     }
     let mut grants = Vec::with_capacity(grants_arr.len());
     for (i, item) in grants_arr.iter().enumerate() {
-        grants.push(parse_grant(item).map_err(|e| {
-            err(
-                e.code,
-                format!("grants[{i}]: {}", e.message),
-            )
-        })?);
+        grants.push(
+            parse_grant(item).map_err(|e| err(e.code, format!("grants[{i}]: {}", e.message)))?,
+        );
     }
 
     let cosmetic = repair_cosmetic(obj.get("cosmetic"));
@@ -511,24 +499,28 @@ pub fn parse_spcard(json: &str) -> Result<Spcard, LicenseError> {
 
 /// Serialize a card to pretty JSON (stable field order via serde rename).
 pub fn serialize_spcard(card: &Spcard) -> Result<String, LicenseError> {
-    serde_json::to_string_pretty(card)
-        .map_err(|e| err("serialize_failed", format!("failed to serialize .spcard: {e}")))
+    serde_json::to_string_pretty(card).map_err(|e| {
+        err(
+            "serialize_failed",
+            format!("failed to serialize .spcard: {e}"),
+        )
+    })
 }
 
 /// Serialize a grant object (camelCase) — finalize HTTP / CLI response.
 pub fn serialize_grant(grant: &Grant) -> Result<String, LicenseError> {
-    serde_json::to_string_pretty(grant)
-        .map_err(|e| err("serialize_failed", format!("failed to serialize grant: {e}")))
+    serde_json::to_string_pretty(grant).map_err(|e| {
+        err(
+            "serialize_failed",
+            format!("failed to serialize grant: {e}"),
+        )
+    })
 }
 
 /// Parse + verify a standalone grant JSON blob (finalize response).
 pub fn parse_and_verify_grant_poc(json: &str) -> Result<Grant, LicenseError> {
-    let value: Value = serde_json::from_str(json).map_err(|e| {
-        err(
-            "invalid_json",
-            format!("grant is not valid JSON: {e}"),
-        )
-    })?;
+    let value: Value = serde_json::from_str(json)
+        .map_err(|e| err("invalid_json", format!("grant is not valid JSON: {e}")))?;
     let grant = parse_grant(&value)?;
     let key = verifying_key_from_bytes(POC_PUBLIC_KEY_BYTES)?;
     verify_grant_signature(&grant, &key)?;
@@ -539,12 +531,8 @@ pub fn parse_and_verify_grant_poc(json: &str) -> Result<Grant, LicenseError> {
 /// Reads **only** grant fields for the signed concat; cosmetic is ignored.
 pub fn verify_spcard(card: &Spcard, public_key: &VerifyingKey) -> Result<(), LicenseError> {
     for (i, grant) in card.grants.iter().enumerate() {
-        verify_grant_signature(grant, public_key).map_err(|e| {
-            err(
-                e.code,
-                format!("grants[{i}]: {}", e.message),
-            )
-        })?;
+        verify_grant_signature(grant, public_key)
+            .map_err(|e| err(e.code, format!("grants[{i}]: {}", e.message)))?;
     }
     Ok(())
 }
@@ -661,10 +649,7 @@ mod tests {
         assert_eq!(grant.product_id, PRODUCT_ID_SPIRAL);
         assert_eq!(grant.sku, LicenseSku::Standard);
         assert_eq!(grant.channel, LicenseChannel::Direct);
-        assert_eq!(
-            grant.expires_at.as_deref(),
-            Some("2026-07-15T12:00:00Z")
-        );
+        assert_eq!(grant.expires_at.as_deref(), Some("2026-07-15T12:00:00Z"));
         assert_eq!(card.cosmetic.font_id, "mono-01");
     }
 

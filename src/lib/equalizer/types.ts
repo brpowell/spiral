@@ -42,6 +42,7 @@ export type EqualizerStateSnapshot = EqualizerState & {
 
 export type EqualizerRemoteAction =
   | { type: "setBand"; band: number; gain: number }
+  | { type: "setBands"; bands: EqualizerBandGains }
   | { type: "setPreampGain"; gain: number }
   | { type: "applyPreset"; presetId: string }
   | { type: "cyclePreset"; direction: "prev" | "next" }

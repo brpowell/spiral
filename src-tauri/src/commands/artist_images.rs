@@ -29,6 +29,5 @@ pub fn rename_artist_image_key(
     browse_mode: String,
 ) -> Result<(), String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::rename_artist_image_key(&conn, &old_key, &new_key, &browse_mode)
-        .map_err(|e| e.to_string())
+    db::rename_artist_image_key(&conn, &old_key, &new_key, &browse_mode).map_err(|e| e.to_string())
 }

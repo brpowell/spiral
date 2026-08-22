@@ -63,7 +63,8 @@ pub fn prepare_import_file(
     };
 
     if let Some(parent) = dest.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("failed to create destination folder: {e}"))?;
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("failed to create destination folder: {e}"))?;
     }
 
     let dest = library_organize::unique_path(dest, allow_overwrite);
@@ -116,10 +117,8 @@ mod tests {
 
     #[test]
     fn copy_mode_copies_sibling_lrc_when_enabled() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-import-sidecar-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("spiral-import-sidecar-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -155,10 +154,8 @@ mod tests {
 
     #[test]
     fn copy_mode_skips_sidecar_when_disabled() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-import-sidecar-off-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("spiral-import-sidecar-off-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -191,10 +188,8 @@ mod tests {
 
     #[test]
     fn copy_mode_with_organize_keeps_sidecar_beside_dest() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-import-sidecar-org-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("spiral-import-sidecar-org-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -240,10 +235,8 @@ mod tests {
 
     #[test]
     fn copy_mode_replace_reuses_existing_path() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-import-replace-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("spiral-import-replace-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         let media = dir.join("media");
         let incoming_dir = dir.join("incoming");

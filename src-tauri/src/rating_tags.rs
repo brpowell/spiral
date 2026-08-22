@@ -17,8 +17,7 @@ use std::path::Path;
 
 const POPM_USER: &str = "Spiral";
 
-const ITUNES_RATING: FreeformIdentStatic =
-    FreeformIdent::new_static(APPLE_ITUNES_MEAN, "rating");
+const ITUNES_RATING: FreeformIdentStatic = FreeformIdent::new_static(APPLE_ITUNES_MEAN, "rating");
 
 /// POPM stores canonical 0–255 directly (0 = unrated / unknown in ID3).
 pub fn canonical_to_popm(canonical: u8) -> u8 {
@@ -32,7 +31,11 @@ pub fn canonical_to_percent(canonical: u8) -> u8 {
 
 /// ID3 POPM rating byte is canonical 0–255; `0` means unrated.
 pub fn popm_to_canonical(popm: u8) -> Option<u8> {
-    if popm == 0 { None } else { Some(popm) }
+    if popm == 0 {
+        None
+    } else {
+        Some(popm)
+    }
 }
 
 pub fn percent_to_canonical(value: f64) -> Option<u8> {
@@ -146,10 +149,7 @@ fn write_flac_rating(
         if canonical == 0 {
             tag.remove_vorbis("RATING");
         } else {
-            tag.set_vorbis(
-                "RATING",
-                vec![canonical_to_percent(canonical).to_string()],
-            );
+            tag.set_vorbis("RATING", vec![canonical_to_percent(canonical).to_string()]);
         }
 
         tag.save()
@@ -204,7 +204,8 @@ fn write_wav_rating(
 ) -> Result<(), MetadataWriteError> {
     match Tag::read_from_path(path) {
         Err(id3::Error {
-            kind: ErrorKind::NoTag, ..
+            kind: ErrorKind::NoTag,
+            ..
         }) => Ok(()),
         Err(e) => Err(MetadataWriteError::Tag(format!(
             "Failed to read WAV ID3 tags: {e}"
@@ -334,10 +335,9 @@ mod tests {
         write_mp3_rating(&audio, 0, &backup_config).unwrap();
 
         let tag = Tag::read_from_path(&audio).expect("re-read");
-        assert!(
-            tag.frames()
-                .all(|frame| frame.content().popularimeter().is_none())
-        );
+        assert!(tag
+            .frames()
+            .all(|frame| frame.content().popularimeter().is_none()));
 
         let _ = fs::remove_dir_all(&dir);
     }

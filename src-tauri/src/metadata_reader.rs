@@ -249,7 +249,9 @@ fn read_wav_duration(path: &Path) -> Option<f64> {
         }
 
         if chunk_id == b"fmt " && chunk_size >= 16 {
-            byte_rate = Some(u32::from_le_bytes(data[offset + 8..offset + 12].try_into().ok()?));
+            byte_rate = Some(u32::from_le_bytes(
+                data[offset + 8..offset + 12].try_into().ok()?,
+            ));
         } else if chunk_id == b"data" {
             data_size = Some(chunk_size);
         }
@@ -304,16 +306,13 @@ pub fn parse_track_metadata(
         _ => (BasicTags::default(), None),
     };
 
-    let art_path = art.and_then(|(bytes, mime)| {
-        cache_embedded_art(app_data_dir, file_path, &bytes, &mime)
-    });
+    let art_path =
+        art.and_then(|(bytes, mime)| cache_embedded_art(app_data_dir, file_path, &bytes, &mime));
 
     let audio = audio_properties::read_audio_properties(&path);
 
     Ok(TrackInput {
-        title: tags
-            .title
-            .unwrap_or_else(|| filename_title(&path)),
+        title: tags.title.unwrap_or_else(|| filename_title(&path)),
         artist: tags.artist,
         album: tags.album,
         album_artist: tags.album_artist,
@@ -331,9 +330,7 @@ pub fn parse_track_metadata(
         art_path,
         rating: tags.rating,
         lyrics: {
-            let embedded = tags
-                .lyrics
-                .map(lyrics_normalize::normalize_embedded_lyrics);
+            let embedded = tags.lyrics.map(lyrics_normalize::normalize_embedded_lyrics);
             let sidecar = if lyrics_sidecar_enabled {
                 lyrics_sidecar::read_lyrics_sidecar(&path)
                     .map(lyrics_normalize::normalize_sidecar_lyrics)
@@ -353,18 +350,12 @@ mod tests {
 
     #[test]
     fn join_artist_field_joins_flac_values() {
-        assert_eq!(
-            join_artist_field(["A", " B "]),
-            Some("A; B".to_string())
-        );
+        assert_eq!(join_artist_field(["A", " B "]), Some("A; B".to_string()));
     }
 
     #[test]
     fn filename_title_strips_extension() {
-        assert_eq!(
-            filename_title(Path::new("/music/My Song.mp3")),
-            "My Song"
-        );
+        assert_eq!(filename_title(Path::new("/music/My Song.mp3")), "My Song");
     }
 
     #[test]
@@ -597,10 +588,8 @@ mod tests {
         use std::io::Write;
         use std::path::PathBuf;
 
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-meta-prefer-sidecar-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("spiral-meta-prefer-sidecar-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
 
@@ -632,10 +621,7 @@ mod tests {
         use std::io::Write;
         use std::path::PathBuf;
 
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-meta-tags-win-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("spiral-meta-tags-win-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
 
@@ -665,10 +651,8 @@ mod tests {
         use std::io::Write;
         use std::path::PathBuf;
 
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-meta-sidecar-off-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("spiral-meta-sidecar-off-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
 

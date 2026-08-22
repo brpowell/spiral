@@ -29,6 +29,7 @@ import { getSkinSlideshowStateApi } from "./skinSlideshowContext";
 import { getSkinScrollStripStateApi } from "./skinScrollStripContext";
 import { getSkinViewStateApi } from "./skinViewStateContext";
 import { applyViewStateEvent } from "./skinViewStateEvents";
+import { playOrResume } from "./playbackStart";
 
 export type SkinActionPayload = SkinActionPayloadFields;
 
@@ -42,20 +43,16 @@ export function runSkinAction(
     case "player.togglePlayPause":
       usePlayerStore.getState().togglePlayPause();
       break;
-    case "player.play": {
-      const { playbackState, currentTrackId } = usePlayerStore.getState();
-      if (playbackState === "playing") break;
-      if (currentTrackId && playbackState === "paused") {
-        usePlayerStore.getState().resume();
-      } else if (currentTrackId) {
-        void usePlayerStore.getState().playTrack(currentTrackId);
-      }
+    case "player.play":
+      playOrResume();
       break;
-    }
     case "player.pause":
       if (usePlayerStore.getState().playbackState === "playing") {
         usePlayerStore.getState().pause();
       }
+      break;
+    case "player.stop":
+      usePlayerStore.getState().clearSetList();
       break;
     case "player.previousTrack":
       usePlayerStore.getState().previousTrack();
@@ -108,9 +105,6 @@ export function runSkinAction(
       break;
     case "player.toggleCrossfade":
       usePlaybackSettingsStore.getState().toggleCrossfade();
-      break;
-    case "player.clearSetList":
-      usePlayerStore.getState().clearSetList();
       break;
     case "navigation.openAlbum": {
       const { library, playbackTracks, currentTrackId } =

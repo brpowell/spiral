@@ -25,6 +25,8 @@ export function SkinPrimitiveControl({ node }: { node: PrimitiveNode }) {
         className={className}
         nodeId={node.id}
         interactionEnabled={interactionEnabled}
+        style={node.style}
+        objectFit={node.objectFit}
       />
     );
   }

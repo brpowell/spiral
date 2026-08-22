@@ -30,10 +30,7 @@ pub fn read_lyrics_sidecar(audio_path: &Path) -> Option<RawLyrics> {
 }
 
 /// Write, update, or remove `{stem}.lrc` beside the audio file.
-pub fn sync_sidecar(
-    audio_path: &Path,
-    lyrics: Option<&TrackLyricsInput>,
-) -> Result<(), String> {
+pub fn sync_sidecar(audio_path: &Path, lyrics: Option<&TrackLyricsInput>) -> Result<(), String> {
     let path = sidecar_path_for(audio_path);
 
     if lyrics.is_some_and(|value| {
@@ -172,7 +169,8 @@ mod tests {
 
     #[test]
     fn sync_sidecar_removes_on_plain_or_clear() {
-        let dir = std::env::temp_dir().join(format!("spiral-sidecar-remove-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("spiral-sidecar-remove-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -204,7 +202,8 @@ mod tests {
 
     #[test]
     fn remove_sidecar_deletes_sibling_lrc() {
-        let dir = std::env::temp_dir().join(format!("spiral-sidecar-delete-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("spiral-sidecar-delete-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 

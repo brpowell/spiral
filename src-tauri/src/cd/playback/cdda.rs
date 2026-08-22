@@ -17,18 +17,18 @@ use crate::transcoder::PcmStream;
 #[cfg(target_os = "windows")]
 use std::mem::size_of;
 #[cfg(target_os = "windows")]
-use windows::Win32::Devices::Cdrom::{IOCTL_CDROM_RAW_READ, RAW_READ_INFO, CDDA};
+use windows::Win32::Devices::Cdrom::{CDDA, IOCTL_CDROM_RAW_READ, RAW_READ_INFO};
 #[cfg(target_os = "windows")]
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 #[cfg(target_os = "windows")]
 use windows::Win32::System::IO::DeviceIoControl;
 
 #[cfg(target_os = "linux")]
+use crate::cd::platform::read_cdda_sectors;
+#[cfg(target_os = "linux")]
 use std::fs::File;
 #[cfg(target_os = "linux")]
 use std::os::fd::AsRawFd;
-#[cfg(target_os = "linux")]
-use crate::cd::platform::read_cdda_sectors;
 
 /// Bytes per raw CD-DA sector (pure PCM for CDDA track mode).
 const CDDA_SECTOR_BYTES: usize = 2352;

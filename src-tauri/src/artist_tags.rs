@@ -77,10 +77,7 @@ mod tests {
 
     #[test]
     fn join_artist_field_uses_semicolon_delimiter() {
-        assert_eq!(
-            join_artist_field(["A", "B"]),
-            Some("A; B".to_string())
-        );
+        assert_eq!(join_artist_field(["A", "B"]), Some("A; B".to_string()));
         assert_eq!(join_artist_field(Vec::<&str>::new()), None);
     }
 }

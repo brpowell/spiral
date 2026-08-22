@@ -1,8 +1,8 @@
 //! Atomic pack install into `packs/installed/<authorId>.<packId>@<version>/`.
 
-use super::{cleanup_pack_extract_dir, extract_pack_archive, find_pack_root};
 use super::paths::{ensure_packs_ready, installed_packs_root};
 use super::scan::{app_version, meets_min_app_version};
+use super::{cleanup_pack_extract_dir, extract_pack_archive, find_pack_root};
 use super::{
     contribution_id_from_manifest_json, get_contribution_type_handler, pack_identity,
     parse_pack_manifest_json, PackManifest, CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME,
@@ -70,10 +70,7 @@ where
 
     let contributions = collect_install_contributions(pack_dir, &pack)?;
     if contributions.is_empty() {
-        return Err(format!(
-            "pack \"{}\" has no contributions",
-            pack.pack_id
-        ));
+        return Err(format!("pack \"{}\" has no contributions", pack.pack_id));
     }
 
     for (contrib_type, rel_path, manifest) in &contributions {
@@ -133,12 +130,8 @@ fn collect_install_contributions(
         if !type_root.is_dir() {
             continue;
         }
-        let entries = fs::read_dir(&type_root).map_err(|e| {
-            format!(
-                "pack \"{}\": could not read {folder}/: {e}",
-                pack.pack_id
-            )
-        })?;
+        let entries = fs::read_dir(&type_root)
+            .map_err(|e| format!("pack \"{}\": could not read {folder}/: {e}", pack.pack_id))?;
         for entry in entries.flatten() {
             let contribution_dir = entry.path();
             if !contribution_dir.is_dir() {
@@ -243,8 +236,7 @@ pub(crate) fn atomic_install_pack_dir(
 }
 
 fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> {
-    fs::create_dir_all(dest)
-        .map_err(|e| format!("failed to create {}: {e}", dest.display()))?;
+    fs::create_dir_all(dest).map_err(|e| format!("failed to create {}: {e}", dest.display()))?;
 
     for entry in fs::read_dir(src).map_err(|e| format!("failed to read {}: {e}", src.display()))? {
         let entry = entry.map_err(|e| format!("failed to read directory entry: {e}"))?;
@@ -317,8 +309,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::PACK_MANIFEST_VERSION;
+    use super::*;
 
     fn write_minimal_theme_pack(root: &Path) {
         fs::create_dir_all(root.join("themes/theme")).unwrap();
@@ -374,10 +366,7 @@ mod tests {
 
     #[test]
     fn failed_validation_leaves_no_installed_dir() {
-        let root = std::env::temp_dir().join(format!(
-            "spiral-install-fail-{}",
-            std::process::id()
-        ));
+        let root = std::env::temp_dir().join(format!("spiral-install-fail-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         let installed = root.join("installed");
         fs::create_dir_all(&installed).unwrap();
@@ -410,10 +399,8 @@ mod tests {
 
     #[test]
     fn different_authors_same_pack_id_install_side_by_side() {
-        let root = std::env::temp_dir().join(format!(
-            "spiral-install-authors-{}",
-            std::process::id()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("spiral-install-authors-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         let installed = root.join("installed");
         fs::create_dir_all(&installed).unwrap();
@@ -454,10 +441,7 @@ mod tests {
 
     #[test]
     fn keeps_previous_version_dir_on_update() {
-        let root = std::env::temp_dir().join(format!(
-            "spiral-install-keep-{}",
-            std::process::id()
-        ));
+        let root = std::env::temp_dir().join(format!("spiral-install-keep-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         let installed = root.join("installed");
         fs::create_dir_all(&installed).unwrap();

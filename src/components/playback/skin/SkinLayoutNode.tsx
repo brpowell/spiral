@@ -12,8 +12,7 @@ import { SkinDigitTime } from "./SkinDigitTime";
 import { SkinPlaylistView } from "../SkinPlaylistView/SkinPlaylistView";
 import { SkinStripSlider } from "./SkinStripSlider";
 import { SkinBitmapHorizontalSlider } from "./SkinBitmapHorizontalSlider";
-import { SkinEqBandSlider } from "./SkinEqBandSlider";
-import { SkinBitmapSeekbar } from "./SkinBitmapSeekbar";
+import { SkinBitmapVerticalSlider } from "./SkinBitmapVerticalSlider";
 import { SkinFramedVisualizer } from "./SkinFramedVisualizer";
 import { SkinTiledFrame } from "./SkinTiledFrame";
 import { SkinSlideshow } from "./SkinSlideshow";
@@ -131,10 +130,6 @@ export function SkinLayoutNode({ node, pack }: SkinLayoutNodeProps) {
     return <SkinPlaylistView node={node} />;
   }
 
-  if (node.type === "seekbar" && node.presentation.kind === "bitmapSeekbar") {
-    return <SkinBitmapSeekbar node={node} pack={pack} />;
-  }
-
   if (
     (node.type === "seekbar" || node.type === "volume") &&
     node.presentation.kind === "stripSlider"
@@ -149,14 +144,17 @@ export function SkinLayoutNode({ node, pack }: SkinLayoutNodeProps) {
   }
 
   if (
-    node.type === "eqBand" &&
+    (node.type === "eqBand" || node.type === "volume") &&
     node.presentation.kind === "bitmapVerticalSlider"
   ) {
-    return <SkinEqBandSlider node={node} pack={pack} />;
+    return <SkinBitmapVerticalSlider node={node} pack={pack} />;
   }
 
   if (
-    (node.type === "balance" || node.type === "volume") &&
+    (node.type === "balance" ||
+      node.type === "volume" ||
+      node.type === "seekbar" ||
+      node.type === "eqBand") &&
     node.presentation.kind === "bitmapHorizontalSlider"
   ) {
     return <SkinBitmapHorizontalSlider node={node} pack={pack} />;

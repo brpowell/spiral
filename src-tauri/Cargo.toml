@@ -23,6 +23,14 @@ path = "src/bin/read_tags.rs"
 name = "license_mint"
 path = "src/bin/license_mint.rs"
 
+[[bin]]
+name = "wms_import"
+path = "src/bin/wms_import.rs"
+
+[[bin]]
+name = "skin_convert_compare"
+path = "src/bin/skin_convert_compare.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -46,9 +54,13 @@ sha1 = "0.10"
 hex = "0.4"
 base64 = "0.22"
 ed25519-dalek = "2.1"
-image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+image = { version = "0.25", default-features = false, features = ["bmp", "gif", "jpeg", "png", "webp"] }
+color_quant = "1.1"
+gif = "0.14"
 zip = "2"
-spk-format = { git = "https://github.com/spiral-powered/spk-format.git", rev = "d848432e9613d9c8ffe7ee82776661c1dba22c09" }
+quick-xml = "0.37"
+encoding_rs = "0.8"
+spk-format = { git = "https://github.com/spiral-powered/spk-format.git", rev = "8df46d7d67081f89bb056d395c6ee69f86f11637" }
 mp3-duration = "0.1.10"
 alac-encoder = "0.3"
 mp3lame-encoder = "0.2.4"

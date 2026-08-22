@@ -10,11 +10,7 @@ pub fn rename_or_copy_file(from: &Path, to: &Path) -> Result<(), String> {
         Ok(()) => Ok(()),
         Err(err) if is_cross_device_rename_error(&err) => {
             fs::copy(from, to).map_err(|e| {
-                format!(
-                    "failed to copy {} → {}: {e}",
-                    from.display(),
-                    to.display()
-                )
+                format!("failed to copy {} → {}: {e}", from.display(), to.display())
             })?;
             fs::remove_file(from).map_err(|e| {
                 format!(

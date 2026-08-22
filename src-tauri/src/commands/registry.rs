@@ -64,13 +64,7 @@ pub fn fetch_registry_pack_version(
     pack_id: String,
     version: String,
 ) -> Result<SourcedRegistryVersionDetail, String> {
-    registry::fetch_pack_version_detail(
-        &app,
-        &registry_url,
-        &author_id,
-        &pack_id,
-        &version,
-    )
+    registry::fetch_pack_version_detail(&app, &registry_url, &author_id, &pack_id, &version)
 }
 
 /// Running app semver used for `minAppVersion` checks (`CARGO_PKG_VERSION`).
@@ -156,7 +150,9 @@ pub fn install_pack_from_registry(
         ));
     }
     if registry::is_pack_installed(&app, author_id, pack_id, version)? {
-        return Err(format!("{author_id}.{pack_id} ({version}) is already installed"));
+        return Err(format!(
+            "{author_id}.{pack_id} ({version}) is already installed"
+        ));
     }
     let source = registry::find_registry_by_url(&app, &registry_url)?;
     let url = registry::pack_download_url(&source.url, author_id, pack_id, version);

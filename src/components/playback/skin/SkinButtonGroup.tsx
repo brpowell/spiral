@@ -8,7 +8,7 @@ import {
 } from "react";
 import {
   skinAssetFileUrl,
-  resolveInteractiveAssetUrl,
+  resolveInteractiveAssets,
 } from "../../../lib/skinAssets";
 import {
   loadButtonGroupPositionMap,
@@ -64,7 +64,6 @@ export function SkinButtonGroup({
   const [debugLabel, setDebugLabel] = useState<string | null>(null);
   const pendingPressKeyRef = useRef<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const hitRef = useRef<HTMLButtonElement>(null);
   const hoverSuppressed = useSkinButtonHoverSuppressed();
   // Hold pressed graphic until activeWhen bind catches up (aux windows can lag).
   const [settlingToggle, setSettlingToggle] = useState<{
@@ -104,10 +103,23 @@ export function SkinButtonGroup({
     return keys;
   }, [validKeys, isPlaying, playColorKey]);
 
-  const defaultLayerMaskUrl = useMemo(() => {
-    if (!isPlaying || !playColorKey || !positionMap) return undefined;
-    return positionMap.excludeColorMasks.get(playColorKey);
-  }, [isPlaying, playColorKey, positionMap]);
+  const resolvedAssets = resolveInteractiveAssets(
+    presentation.assets,
+    presentation.assetsWhen,
+    bindState,
+  );
+  const src = skinAssetFileUrl(pack.packDir, resolvedAssets.default);
+  const hoverSrc = skinAssetFileUrl(
+    pack.packDir,
+    resolvedAssets.hover ?? resolvedAssets.default,
+  );
+  const pressedSrc = skinAssetFileUrl(
+    pack.packDir,
+    resolvedAssets.pressed ?? resolvedAssets.default,
+  );
+  const disabledSrc = resolvedAssets.disabled
+    ? skinAssetFileUrl(pack.packDir, resolvedAssets.disabled)
+    : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +143,17 @@ export function SkinButtonGroup({
     [bindState],
   );
 
+  const playElement = playColorKey ? keyToElement.get(playColorKey) : undefined;
+  const playUsesDisabledSheet =
+    Boolean(disabledSrc) &&
+    Boolean(playElement && isElementDisabled(playElement));
+
+  const defaultLayerMaskUrl = useMemo(() => {
+    if (playUsesDisabledSheet) return undefined;
+    if (!isPlaying || !playColorKey || !positionMap) return undefined;
+    return positionMap.excludeColorMasks.get(playColorKey);
+  }, [playUsesDisabledSheet, isPlaying, playColorKey, positionMap]);
+
   const isElementSticky = useCallback(
     (element: ButtonGroupElement): boolean =>
       Boolean(
@@ -147,7 +170,7 @@ export function SkinButtonGroup({
       if (!element) return "(none)";
       const action = primaryClickAction(element.onClick);
       const viewId = primaryClickViewId(element.onClick);
-      return viewId ? `${action} (${viewId})` : action;
+      return viewId ? `${action} (${viewId})` : (action ?? "(none)");
     },
     [keyToElement],
   );
@@ -248,28 +271,6 @@ export function SkinButtonGroup({
     }
   }, [hoverSuppressed]);
 
-  const src = resolveInteractiveAssetUrl(
-    pack.packDir,
-    presentation.assets,
-    presentation.assetsWhen,
-    bindState,
-    "default",
-  );
-  const hoverSrc = resolveInteractiveAssetUrl(
-    pack.packDir,
-    presentation.assets,
-    presentation.assetsWhen,
-    bindState,
-    "hover",
-  );
-  const pressedSrc = resolveInteractiveAssetUrl(
-    pack.packDir,
-    presentation.assets,
-    presentation.assetsWhen,
-    bindState,
-    "pressed",
-  );
-
   useEffect(() => {
     if (!settlingToggle) return;
     const element = keyToElement.get(settlingToggle.key);
@@ -284,7 +285,10 @@ export function SkinButtonGroup({
   const overlayLayers = useMemo(() => {
     const layers: Array<{ key: string; src: string }> = [];
     for (const [key, element] of keyToElement) {
-      if (isElementDisabled(element)) continue;
+      if (isElementDisabled(element)) {
+        if (disabledSrc) layers.push({ key, src: disabledSrc });
+        continue;
+      }
       if (isPlaying && primaryClickAction(element.onClick) === "player.play")
         continue;
 
@@ -310,21 +314,18 @@ export function SkinButtonGroup({
     settlingToggle,
     pressedSrc,
     hoverSrc,
+    disabledSrc,
     isPlaying,
   ]);
 
-  const hoveredElement = hoveredKey ? keyToElement.get(hoveredKey) : undefined;
-  const hitTooltip = hoveredElement
-    ? resolveSkinTooltip(
-        {
-          action: primaryClickAction(hoveredElement.onClick),
-          viewId: primaryClickViewId(hoveredElement.onClick),
-          tooltip: hoveredElement.tooltip,
-          tooltipWhen: hoveredElement.tooltipWhen,
-        },
-        bindState,
-      )
-    : undefined;
+  const hitRegions = useMemo(() => {
+    if (!positionMap) return [];
+    return positionMap.regions.filter((region) => {
+      if (!effectiveValidKeys.has(region.colorKey)) return false;
+      const element = keyToElement.get(region.colorKey);
+      return Boolean(element) && !isElementDisabled(element);
+    });
+  }, [positionMap, effectiveValidKeys, keyToElement, isElementDisabled]);
 
   const startPress = useCallback(
     (key: string, event: PointerEvent<HTMLButtonElement>) => {
@@ -334,8 +335,7 @@ export function SkinButtonGroup({
 
       event.preventDefault();
       event.stopPropagation();
-      const captureTarget = hitRef.current ?? event.currentTarget;
-      captureTarget.setPointerCapture(event.pointerId);
+      event.currentTarget.setPointerCapture(event.pointerId);
       pendingPressKeyRef.current = key;
       syncPressedFromPointer(event.clientX, event.clientY);
     },
@@ -345,9 +345,8 @@ export function SkinButtonGroup({
   const finishPress = useCallback(
     (event: PointerEvent<HTMLButtonElement>) => {
       const pending = pendingPressKeyRef.current;
-      const captureTarget = hitRef.current ?? event.currentTarget;
-      if (captureTarget.hasPointerCapture(event.pointerId)) {
-        captureTarget.releasePointerCapture(event.pointerId);
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
       }
 
       const keyAtRelease = keyAtPointer(event.clientX, event.clientY);
@@ -477,37 +476,59 @@ export function SkinButtonGroup({
         }}
         aria-hidden
       />
-      {positionMap ? (
-        <button
-          ref={hitRef}
-          type="button"
-          className="skin-button-group__hit"
-          data-node-id={node.id}
-          {...skinDragRegionNoneProps()}
-          aria-label={hitTooltip ?? node.id ?? "Button group"}
-          title={hitTooltip}
-          style={{ cursor: hoveredKey ? "pointer" : "default" }}
-          onPointerDown={beginPress}
-          onPointerEnter={(event) =>
-            syncPointerFromPointer(event.clientX, event.clientY)
-          }
-          onPointerMove={(event) =>
-            syncPointerFromPointer(event.clientX, event.clientY)
-          }
-          onPointerLeave={(event) => {
-            syncPressedFromPointer(event.clientX, event.clientY);
-            if (hitRegistry) {
-              hitRegistry.syncHoverAt(event.clientX, event.clientY);
-            } else {
-              setHoveredKey(null);
+      {hitRegions.map((region) => {
+        const element = keyToElement.get(region.colorKey);
+        const regionTooltip = element
+          ? resolveSkinTooltip(
+              {
+                action: primaryClickAction(element.onClick),
+                viewId: primaryClickViewId(element.onClick),
+                tooltip: element.tooltip,
+                tooltipWhen: element.tooltipWhen,
+              },
+              bindState,
+            )
+          : undefined;
+        const mapWidth = positionMap?.width ?? 1;
+        const mapHeight = positionMap?.height ?? 1;
+        return (
+          <button
+            key={region.colorKey}
+            type="button"
+            className="skin-button-group__hit"
+            data-node-id={node.id}
+            {...skinDragRegionNoneProps()}
+            aria-label={regionTooltip ?? node.id ?? "Button group"}
+            title={regionTooltip}
+            style={{
+              left: `${(region.x / mapWidth) * 100}%`,
+              top: `${(region.y / mapHeight) * 100}%`,
+              width: `${(region.w / mapWidth) * 100}%`,
+              height: `${(region.h / mapHeight) * 100}%`,
+              cursor: hoveredKey === region.colorKey ? "pointer" : "default",
+            }}
+            onPointerDown={beginPress}
+            onPointerEnter={(event) =>
+              syncPointerFromPointer(event.clientX, event.clientY)
             }
-            if (skinDebug) setDebugLabel("(none)");
-          }}
-          onPointerUp={finishPress}
-          onPointerCancel={finishPress}
-          onLostPointerCapture={onLostPointerCapture}
-        />
-      ) : null}
+            onPointerMove={(event) =>
+              syncPointerFromPointer(event.clientX, event.clientY)
+            }
+            onPointerLeave={(event) => {
+              syncPressedFromPointer(event.clientX, event.clientY);
+              if (hitRegistry) {
+                hitRegistry.syncHoverAt(event.clientX, event.clientY);
+              } else {
+                setHoveredKey(null);
+              }
+              if (skinDebug) setDebugLabel("(none)");
+            }}
+            onPointerUp={finishPress}
+            onPointerCancel={finishPress}
+            onLostPointerCapture={onLostPointerCapture}
+          />
+        );
+      })}
       {overlayLayers.map(({ key, src }) => {
         const maskUrl = positionMap?.colorMasks.get(key);
         if (!maskUrl) return null;

@@ -6,9 +6,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
-use fdk_aac::enc::{
-    AudioObjectType, BitRate, ChannelMode, Encoder, EncoderParams, Transport,
-};
+use fdk_aac::enc::{AudioObjectType, BitRate, ChannelMode, Encoder, EncoderParams, Transport};
 
 use crate::encoding_profiles::EncodingProfile;
 
@@ -48,8 +46,8 @@ pub fn encode_pcm_to_aac_m4a(
     }
 
     let encoded = encode_aac_packets(pcm)?;
-    let file = File::create(dest)
-        .map_err(|err| format!("Failed to create {}: {err}", dest.display()))?;
+    let file =
+        File::create(dest).map_err(|err| format!("Failed to create {}: {err}", dest.display()))?;
     write_aac_m4a(file, pcm, &encoded)
         .map_err(|err| format!("Failed to write {}: {err}", dest.display()))?;
 
@@ -171,11 +169,7 @@ fn encode_aac_packets(pcm: &PcmStream) -> Result<EncodedAac, String> {
     })
 }
 
-fn write_aac_m4a(
-    mut file: File,
-    pcm: &PcmStream,
-    encoded: &EncodedAac,
-) -> std::io::Result<()> {
+fn write_aac_m4a(mut file: File, pcm: &PcmStream, encoded: &EncodedAac) -> std::io::Result<()> {
     let duration_ms = ((encoded.pcm_frames as u64) * 1000 / pcm.sample_rate as u64) as u32;
 
     let mut mdat = Vec::new();
@@ -232,9 +226,9 @@ fn build_mvhd(duration_ms: u32) -> Vec<u8> {
     body.extend_from_slice(&[0; 2]);
     body.extend_from_slice(&[0; 8]);
     body.extend_from_slice(&[
-        0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00,
+        0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x40, 0x00, 0x00, 0x00,
     ]);
     body.extend_from_slice(&[0; 24]);
     body.extend_from_slice(&2u32.to_be_bytes());
@@ -256,12 +250,12 @@ fn build_trak(
 
 fn build_tkhd(duration_ms: u32) -> Vec<u8> {
     let mut body = vec![
-        0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x32, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x32, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
     body[20..24].copy_from_slice(&duration_ms.to_be_bytes());
     wrap_box(b"tkhd", &body)
@@ -503,10 +497,8 @@ mod tests {
 
     #[test]
     fn encode_silence_to_aac_m4a() {
-        let dest = std::env::temp_dir().join(format!(
-            "spiral-aac-silence-{}.m4a",
-            std::process::id()
-        ));
+        let dest =
+            std::env::temp_dir().join(format!("spiral-aac-silence-{}.m4a", std::process::id()));
         let _ = std::fs::remove_file(&dest);
 
         encode_pcm_to_aac_m4a(&silence_pcm(44_100 / 5), &dest, &sample_profile())
@@ -539,10 +531,8 @@ mod tests {
             sample_rate: 44_100,
             samples,
         };
-        let dest = std::env::temp_dir().join(format!(
-            "spiral-gapless-aac-{}.m4a",
-            std::process::id()
-        ));
+        let dest =
+            std::env::temp_dir().join(format!("spiral-gapless-aac-{}.m4a", std::process::id()));
         let _ = std::fs::remove_file(&dest);
         encode_pcm_to_aac_m4a(&pcm, &dest, &sample_profile()).expect("encode aac");
 
@@ -550,8 +540,8 @@ mod tests {
         assert!(smpb.delay_frames > 0, "FDK should report encoder delay");
         assert_eq!(smpb.original_frames, Some(u64::from(pcm_frames)));
 
-        let mut source = crate::file_playback::decoder::StreamingDecoder::open(&dest)
-            .expect("open aac");
+        let mut source =
+            crate::file_playback::decoder::StreamingDecoder::open(&dest).expect("open aac");
         assert!(
             (source.duration_seconds() - f64::from(pcm_frames) / 44_100.0).abs() < 0.05,
             "duration should match original PCM length"
@@ -579,10 +569,8 @@ mod tests {
         }
 
         let pcm = decode::pcm_from_audio_file(&source).expect("decode fixture");
-        let dest = std::env::temp_dir().join(format!(
-            "spiral-aac-fixture-{}.m4a",
-            std::process::id()
-        ));
+        let dest =
+            std::env::temp_dir().join(format!("spiral-aac-fixture-{}.m4a", std::process::id()));
         let _ = std::fs::remove_file(&dest);
 
         encode_pcm_to_aac_m4a(&pcm, &dest, &sample_profile()).expect("encode fixture");

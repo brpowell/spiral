@@ -12,7 +12,10 @@ pub fn format_missing_output(path: &Path) -> String {
 }
 
 pub fn format_wav_read_failure(path: &Path, detail: &str) -> String {
-    format!("Failed to read decoded audio for {}: {detail}", file_label(path))
+    format!(
+        "Failed to read decoded audio for {}: {detail}",
+        file_label(path)
+    )
 }
 
 #[cfg(test)]

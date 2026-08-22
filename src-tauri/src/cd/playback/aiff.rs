@@ -129,7 +129,9 @@ fn parse_header(reader: &mut (impl Read + Seek)) -> Result<AiffInfo, String> {
     let (data_start, ssnd_len) = ssnd.ok_or_else(|| "AIFF file has no SSND chunk".to_string())?;
 
     if bits_per_sample != 16 {
-        return Err(format!("Unsupported AIFF sample size: {bits_per_sample}-bit"));
+        return Err(format!(
+            "Unsupported AIFF sample size: {bits_per_sample}-bit"
+        ));
     }
     if channels == 0 || !(8000.0..=192_000.0).contains(&sample_rate) {
         return Err("Invalid AIFF format description".into());

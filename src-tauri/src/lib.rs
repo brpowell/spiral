@@ -1,25 +1,23 @@
+mod activity_log;
 mod art_cache;
 mod art_thumb;
+mod artist_art_fetch;
+mod artist_tags;
 mod audio_formats;
 mod audio_properties;
 mod cd;
-mod encoding_profiles;
-mod transcoder;
-mod artist_art_fetch;
-mod artist_tags;
-mod cover_art_fetch;
-mod disc_metadata_cache;
-mod musicbrainz_disc;
-mod activity_log;
-mod crash_report;
 mod commands;
+mod cover_art_fetch;
+mod crash_report;
 mod db;
 mod diagnostics_export;
+mod disc_metadata_cache;
+mod encoding_profiles;
 mod file_playback;
-mod itunes_smpb;
 mod file_scan;
 mod fs_move;
 mod import_files;
+mod itunes_smpb;
 mod library_organize;
 mod library_paths;
 mod library_relocate;
@@ -38,24 +36,28 @@ mod media_session;
 mod media_shortcuts;
 mod metadata_backup;
 pub mod metadata_reader;
-pub mod tag_inspector;
 mod metadata_writer;
-mod rating_sync;
-mod rating_tags;
 mod models;
-mod session;
-mod settings;
-mod track_list_prefs;
-mod vorbis_container;
-mod packs;
-mod zip_import;
-mod skin_preferences;
-mod skin_click_through;
-mod skin_drag;
+mod musicbrainz_disc;
 #[cfg(test)]
 mod ogg_opus_tests;
+mod packs;
+mod rating_sync;
+mod rating_tags;
+mod session;
+mod settings;
+mod skin_click_through;
+pub mod skin_convert;
+mod skin_drag;
+mod skin_preferences;
+pub mod tag_inspector;
 #[cfg(test)]
 mod test_fixtures;
+mod track_list_prefs;
+mod transcoder;
+mod vorbis_container;
+pub mod wms_import;
+mod zip_import;
 
 use commands::library::DbState;
 use rating_sync::RatingSync;
@@ -85,16 +87,15 @@ pub fn run() {
     // second process with the path in argv; this forwards that argv to the primary
     // instance (macOS uses RunEvent::Opened instead — see below).
     #[cfg(any(windows, target_os = "linux"))]
-    let builder = tauri::Builder::default().plugin(tauri_plugin_single_instance::init(
-        |app, argv, _cwd| {
+    let builder =
+        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             let files = commands::license::spcard_paths_from_args(argv);
             commands::license::handle_opened_spcard_paths(app, files);
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
                 let _ = window.set_focus();
             }
-        },
-    ));
+        }));
 
     #[cfg(not(any(windows, target_os = "linux")))]
     let builder = tauri::Builder::default();
@@ -106,8 +107,8 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(commands::license::PendingSpcardOpens::default())
         .setup(|app| {
-            let db_path =
-                library_paths::ensure_library_for_app(app.handle()).expect("failed to init library");
+            let db_path = library_paths::ensure_library_for_app(app.handle())
+                .expect("failed to init library");
             let conn = db::open(&db_path).expect("failed to open database");
             app.manage(DbState(Mutex::new(conn)));
             app.manage(RatingSync::new());
@@ -141,9 +142,7 @@ pub fn run() {
                 for label in ["main", "appearance", "equalizer", "activity-logs"] {
                     if let Some(window) = app.get_webview_window(label) {
                         if let Err(err) = window.set_decorations(false) {
-                            eprintln!(
-                                "failed to disable decorations on `{label}`: {err}"
-                            );
+                            eprintln!("failed to disable decorations on `{label}`: {err}");
                         }
                         if let Err(err) = window.set_shadow(true) {
                             eprintln!("failed to enable shadow on `{label}`: {err}");
@@ -258,6 +257,7 @@ pub fn run() {
             commands::skins::get_active_skin_view,
             commands::skins::set_skin_ignore_cursor_events,
             commands::skins::start_skin_window_drag,
+            commands::wms_import::import_wms_skin,
             commands::visualizers::list_visualizers,
             commands::visualizers::load_visualizer,
             commands::visualizers::read_viz_renderer_source,

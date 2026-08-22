@@ -194,10 +194,8 @@ mod tests {
 
     #[test]
     fn encode_pcm_to_flac_handles_non_dividing_frame_counts() {
-        let dest = std::env::temp_dir().join(format!(
-            "spiral-flac-odd-{}.flac",
-            std::process::id()
-        ));
+        let dest =
+            std::env::temp_dir().join(format!("spiral-flac-odd-{}.flac", std::process::id()));
         let _ = fs::remove_file(&dest);
 
         let pcm = PcmStream {

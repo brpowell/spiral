@@ -2,7 +2,7 @@ import type { PresentationEventName } from "./types";
 
 type Listener = () => void;
 
-/** Lightweight pub/sub for presentation triggers (viz scenes, future skin timelines). */
+/** Lightweight pub/sub for presentation triggers (viz scenes, future host-driven skin motion). */
 export class PresentationEventBus {
   private listeners = new Map<string, Set<Listener>>();
 

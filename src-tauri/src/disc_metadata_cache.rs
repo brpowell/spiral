@@ -8,8 +8,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
-use crate::musicbrainz_disc::{self, DiscMetadata, DiscMetadataLookup, LookupCacheKind};
 use crate::activity_log::{self, LogLevel};
+use crate::musicbrainz_disc::{self, DiscMetadata, DiscMetadataLookup, LookupCacheKind};
 use crate::settings;
 
 const HIT_TTL: Duration = Duration::from_secs(30 * 24 * 60 * 60);
@@ -125,8 +125,7 @@ struct DiscMetadataCacheFile {
     overrides: HashMap<String, DiscMetadataOverride>,
 }
 
-static CACHE: LazyLock<Mutex<Option<DiscMetadataCacheFile>>> =
-    LazyLock::new(|| Mutex::new(None));
+static CACHE: LazyLock<Mutex<Option<DiscMetadataCacheFile>>> = LazyLock::new(|| Mutex::new(None));
 
 fn cache_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     Ok(settings::app_data_dir(app)?.join("disc-metadata-cache.json"))
@@ -173,8 +172,7 @@ fn ensure_loaded(app: &AppHandle) -> Result<(), String> {
     };
 
     let now = SystemTime::now();
-    file.lookups
-        .retain(|_, entry| is_entry_valid(entry, now));
+    file.lookups.retain(|_, entry| is_entry_valid(entry, now));
 
     *guard = Some(file);
     Ok(())
@@ -202,8 +200,7 @@ fn persist_cache(app: &AppHandle, cache: &DiscMetadataCacheFile) -> Result<(), S
     }
     let json = serde_json::to_string_pretty(cache)
         .map_err(|err| format!("failed to serialize disc metadata cache: {err}"))?;
-    fs::write(&path, json)
-        .map_err(|err| format!("failed to write disc metadata cache: {err}"))
+    fs::write(&path, json).map_err(|err| format!("failed to write disc metadata cache: {err}"))
 }
 
 fn resolve_preferred(
@@ -437,10 +434,7 @@ pub fn lookup_disc_metadata_cached_with_options(
         })),
     );
 
-    Ok(lookup_with_preference(
-        lookup,
-        preference_mbid.as_deref(),
-    ))
+    Ok(lookup_with_preference(lookup, preference_mbid.as_deref()))
 }
 
 fn clear_lookups(cache: &mut DiscMetadataCacheFile) -> u32 {
@@ -510,10 +504,7 @@ pub fn save_disc_metadata_override(
     }
 
     let saved = with_cache_mut(app, |cache| {
-        let entry = cache
-            .overrides
-            .entry(disc_id.to_string())
-            .or_default();
+        let entry = cache.overrides.entry(disc_id.to_string()).or_default();
         entry.merge_patch(&patch);
         if entry.is_empty() {
             cache.overrides.remove(disc_id);
@@ -610,7 +601,10 @@ mod tests {
     fn resolve_preferred_matches_release_mbid() {
         let lookup = sample_lookup("disc-a", "Album");
         let preferred = resolve_preferred(&lookup, Some("release-1"));
-        assert_eq!(preferred.and_then(|meta| meta.album), Some("Album".to_string()));
+        assert_eq!(
+            preferred.and_then(|meta| meta.album),
+            Some("Album".to_string())
+        );
         assert!(resolve_preferred(&lookup, Some("missing")).is_none());
     }
 
@@ -645,7 +639,10 @@ mod tests {
             Some(&"release-1".to_string())
         );
         assert_eq!(
-            cache.overrides.get("disc-a").and_then(|o| o.album.as_deref()),
+            cache
+                .overrides
+                .get("disc-a")
+                .and_then(|o| o.album.as_deref()),
             Some("Edited")
         );
     }

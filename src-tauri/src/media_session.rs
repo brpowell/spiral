@@ -179,14 +179,9 @@ pub fn update_media_session(app: AppHandle, update: MediaSessionUpdate) -> Resul
         ensure_controls(&app)?;
         let state = app.state::<MediaSessionState>();
         let mut controls_guard = state.controls.lock().map_err(|err| err.to_string())?;
-        let controls = controls_guard
-            .as_mut()
-            .ok_or("media session unavailable")?;
+        let controls = controls_guard.as_mut().ok_or("media session unavailable")?;
 
-        let mut last_guard = state
-            .last_published
-            .lock()
-            .map_err(|err| err.to_string())?;
+        let mut last_guard = state.last_published.lock().map_err(|err| err.to_string())?;
         let last = &*last_guard;
 
         let metadata_changed = last.metadata_changed(&update);

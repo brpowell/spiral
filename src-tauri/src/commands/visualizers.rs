@@ -2,12 +2,12 @@ use crate::activity_log::{self, LogLevel};
 use crate::packs;
 use crate::settings;
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use spk_format::is_safe_media_asset_path;
 use spk_format::{
     is_renderer_effective_id, is_safe_pack_relative_js, normalize_viz_manifest,
     resolve_preview_file, RendererManifestFile, VizManifest,
 };
-#[cfg(test)]
-use spk_format::is_safe_media_asset_path;
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
@@ -157,10 +157,7 @@ pub fn list_visualizers(app: AppHandle) -> Result<Vec<VizSummary>, String> {
 }
 
 #[tauri::command]
-pub fn load_visualizer(
-    app: AppHandle,
-    visualizer_id: String,
-) -> Result<LoadedVisualizer, String> {
+pub fn load_visualizer(app: AppHandle, visualizer_id: String) -> Result<LoadedVisualizer, String> {
     let packs = list_all_visualizer_packs(&app);
     let known: HashSet<String> = packs.iter().map(|p| p.summary.id.clone()).collect();
     let resolved = resolve_visualizer_id(&visualizer_id, &known);
@@ -208,12 +205,8 @@ pub fn read_viz_renderer_source(
         .find(|c| c.effective_id == renderer_id)
         .ok_or_else(|| format!("renderer \"{renderer_id}\" was not found"))?;
 
-    let contents = fs::read_to_string(&contrib.manifest_path).map_err(|e| {
-        format!(
-            "could not read {}: {e}",
-            contrib.manifest_path.display()
-        )
-    })?;
+    let contents = fs::read_to_string(&contrib.manifest_path)
+        .map_err(|e| format!("could not read {}: {e}", contrib.manifest_path.display()))?;
     let manifest: RendererManifestFile = serde_json::from_str(&contents).map_err(|e| {
         format!(
             "{} is not valid renderer JSON: {e}",
@@ -244,7 +237,6 @@ pub fn read_viz_renderer_source(
         engine: manifest.engine,
     })
 }
-
 
 #[tauri::command]
 pub fn get_active_visualizer_id(app: AppHandle) -> Result<String, String> {
@@ -277,8 +269,7 @@ mod tests {
                 }
             }
         }"#;
-        let parsed: VizManifest =
-            serde_json::from_str(raw_json).expect("manifest should parse");
+        let parsed: VizManifest = serde_json::from_str(raw_json).expect("manifest should parse");
         let manifest = normalize_viz_manifest(parsed).expect("manifest should normalize");
         assert_eq!(
             manifest.surfaces["default"].scene[0]["params"]["barCount"].as_u64(),
@@ -306,8 +297,7 @@ mod tests {
                 }
             }
         }"#;
-        let parsed: VizManifest =
-            serde_json::from_str(raw_json).expect("manifest should parse");
+        let parsed: VizManifest = serde_json::from_str(raw_json).expect("manifest should parse");
         let err = normalize_viz_manifest(parsed).expect_err("unknown surface should fail");
         assert!(err.contains("surfaces.mini is not a known surface"));
     }
@@ -320,8 +310,7 @@ mod tests {
             "description": "Missing default surface",
             "surfaces": {}
         }"#;
-        let parsed: VizManifest =
-            serde_json::from_str(raw_json).expect("manifest should parse");
+        let parsed: VizManifest = serde_json::from_str(raw_json).expect("manifest should parse");
         let err = normalize_viz_manifest(parsed).expect_err("missing default should fail");
         assert!(err.contains("surfaces.default is required"));
     }
@@ -355,6 +344,4 @@ mod tests {
         assert!(!is_safe_media_asset_path("bg.png"));
         assert!(!is_safe_media_asset_path("assets//bg.png"));
     }
-
-
 }

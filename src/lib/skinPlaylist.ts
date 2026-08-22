@@ -63,8 +63,9 @@ export function labelForSkinPlaylistSource(
   playlists: Playlist[],
 ): string {
   return (
-    buildSkinPlaylistSourceOptions(playlists).find((option) => option.id === sourceId)
-      ?.label ?? "All tracks"
+    buildSkinPlaylistSourceOptions(playlists).find(
+      (option) => option.id === sourceId,
+    )?.label ?? "All tracks"
   );
 }
 
@@ -139,6 +140,17 @@ export function resolveSkinPlaylistTrackCount(
   ctx: SkinPlaylistTrackContext,
 ): number {
   return resolveSkinPlaylistTrackIds(sourceId, ctx).length;
+}
+
+/** Tracks to start when Play is pressed with an empty set list. */
+export function resolveIdlePlaybackTrackIds(
+  sourceId: string,
+  ctx: SkinPlaylistTrackContext,
+): number[] {
+  const fromSource = resolveSkinPlaylistTrackIds(sourceId, ctx);
+  if (fromSource.length > 0) return fromSource;
+  if (sourceId === SKIN_PLAYLIST_SOURCE_ALL) return [];
+  return resolveSkinPlaylistTrackIds(SKIN_PLAYLIST_SOURCE_ALL, ctx);
 }
 
 export function shouldReplacePlayContextForSkinPlaylistSource(

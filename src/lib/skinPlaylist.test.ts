@@ -4,6 +4,7 @@ import {
   SKIN_PLAYLIST_SOURCE_UP_NEXT,
   buildSkinPlaylistSourceOptions,
   playlistSourceIdForPlaylist,
+  resolveIdlePlaybackTrackIds,
   resolveSkinPlaylistTrackIds,
 } from "./skinPlaylist";
 import type { Playlist } from "../types/playlist";
@@ -102,5 +103,32 @@ describe("resolveSkinPlaylistTrackIds", () => {
         playlists: [playlist(9, "Mix", [3, 1])],
       }),
     ).toEqual([3, 1]);
+  });
+});
+
+describe("resolveIdlePlaybackTrackIds", () => {
+  const library = [track(1, "B"), track(2, "A"), track(3, "C")];
+  const emptyCtx = {
+    library,
+    playbackTracks: [],
+    playContextIds: [] as number[],
+    manualQueueIds: [] as number[],
+    currentTrackId: null,
+    playlists: [] as Playlist[],
+  };
+
+  it("uses the current playlist source when it has tracks", () => {
+    expect(
+      resolveIdlePlaybackTrackIds(playlistSourceIdForPlaylist(9), {
+        ...emptyCtx,
+        playlists: [playlist(9, "Mix", [3, 1])],
+      }),
+    ).toEqual([3, 1]);
+  });
+
+  it("falls back to all tracks when Up Next is empty", () => {
+    expect(
+      resolveIdlePlaybackTrackIds(SKIN_PLAYLIST_SOURCE_UP_NEXT, emptyCtx),
+    ).toEqual([2, 1, 3]);
   });
 });

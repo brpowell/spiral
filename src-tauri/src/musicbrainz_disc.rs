@@ -104,7 +104,12 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
             let error_body = resp.text().unwrap_or_default();
             let mb_error = serde_json::from_str::<serde_json::Value>(&error_body)
                 .ok()
-                .and_then(|value| value.get("error").and_then(|e| e.as_str()).map(str::to_string));
+                .and_then(|value| {
+                    value
+                        .get("error")
+                        .and_then(|e| e.as_str())
+                        .map(str::to_string)
+                });
             activity_log::log(
                 LogLevel::Error,
                 "metadata.musicbrainz",
@@ -507,8 +512,8 @@ mod tests {
             }]
         });
 
-        let metadata = parse_release(&release, "disc-id", &[(1, 180.0), (2, 200.0)])
-            .expect("parse release");
+        let metadata =
+            parse_release(&release, "disc-id", &[(1, 180.0), (2, 200.0)]).expect("parse release");
 
         assert_eq!(metadata.album.as_deref(), Some("Test Album"));
         assert_eq!(metadata.country.as_deref(), Some("US"));

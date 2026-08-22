@@ -213,9 +213,7 @@ fn strip_trailing_parenthetical(title: &str) -> Option<String> {
     }
 }
 
-fn outcome_from_search_candidates(
-    candidates: Vec<LyricsSearchCandidate>,
-) -> LyricsFetchOutcome {
+fn outcome_from_search_candidates(candidates: Vec<LyricsSearchCandidate>) -> LyricsFetchOutcome {
     match candidates.len() {
         0 => LyricsFetchOutcome::NotFound,
         1 => {
@@ -306,13 +304,8 @@ fn fetch_lrclib_search_outcome(
     );
 
     let hits = fetch_lrclib_search(&search_url)?;
-    let candidates = rank_search_candidates(
-        hits,
-        match_title,
-        match_artist,
-        match_album,
-        duration_secs,
-    );
+    let candidates =
+        rank_search_candidates(hits, match_title, match_artist, match_album, duration_secs);
     Ok(outcome_from_search_candidates(candidates))
 }
 
@@ -451,11 +444,7 @@ fn rank_search_candidates(
     scored.into_iter().map(|(_, candidate)| candidate).collect()
 }
 
-fn log_fetch_error(
-    url: Option<&str>,
-    error_message: &str,
-    extra: Option<serde_json::Value>,
-) {
+fn log_fetch_error(url: Option<&str>, error_message: &str, extra: Option<serde_json::Value>) {
     let mut details = match extra {
         Some(serde_json::Value::Object(map)) => serde_json::Value::Object(map),
         Some(value) => value,
@@ -525,10 +514,7 @@ fn format_lrclib_transport_error(err: &reqwest::Error, timeout: Duration) -> Str
     if let Some(status) = err.status() {
         return format!("LRCLIB returned HTTP {}", status.as_u16());
     }
-    format!(
-        "LRCLIB request failed ({}): {err}",
-        reqwest_error_kind(err)
-    )
+    format!("LRCLIB request failed ({}): {err}", reqwest_error_kind(err))
 }
 
 fn log_reqwest_error(url: &str, err: &reqwest::Error, timeout: Duration) {
@@ -767,8 +753,12 @@ fn fetch_lrclib_uncached(
     // 2. Optional /api/get with album artist when different
     if should_try_album_artist_get(artist, album_artist) {
         ensure_not_cancelled()?;
-        let album_get_url =
-            lrclib_get_url(&query_album_artist, &query_title, &query_album, duration_secs);
+        let album_get_url = lrclib_get_url(
+            &query_album_artist,
+            &query_title,
+            &query_album,
+            duration_secs,
+        );
         activity_log::log(
             LogLevel::Info,
             "lyrics.fetch",
@@ -952,7 +942,10 @@ mod tests {
             "unexpected message: {message}"
         );
         let details = reqwest_error_details(&err, Duration::from_millis(1));
-        assert_eq!(details["errorKind"].as_str().unwrap(), reqwest_error_kind(&err));
+        assert_eq!(
+            details["errorKind"].as_str().unwrap(),
+            reqwest_error_kind(&err)
+        );
         assert!(details["errorDetail"].as_str().is_some());
     }
 
@@ -999,22 +992,13 @@ mod tests {
 
     #[test]
     fn normalize_lrclib_text_field_strips_apostrophes_and_semicolons() {
-        assert_eq!(
-            normalize_lrclib_text_field("Don't Stop"),
-            "Dont Stop"
-        );
-        assert_eq!(
-            normalize_lrclib_text_field("Song; Remix"),
-            "Song Remix"
-        );
+        assert_eq!(normalize_lrclib_text_field("Don't Stop"), "Dont Stop");
+        assert_eq!(normalize_lrclib_text_field("Song; Remix"), "Song Remix");
     }
 
     #[test]
     fn normalize_lrclib_artist_uses_primary_credit() {
-        assert_eq!(
-            normalize_lrclib_artist("Alice; Bob"),
-            "Alice"
-        );
+        assert_eq!(normalize_lrclib_artist("Alice; Bob"), "Alice");
         assert_eq!(
             normalize_lrclib_artist("Tyler, the Creator"),
             "Tyler, the Creator"
@@ -1046,7 +1030,9 @@ mod tests {
             Some("Song Title".to_string())
         );
         assert_eq!(
-            strip_trailing_parenthetical("dodger blue (feat. Wallie the Sensei, Siete7x, & Roddy Rich)"),
+            strip_trailing_parenthetical(
+                "dodger blue (feat. Wallie the Sensei, Siete7x, & Roddy Rich)"
+            ),
             Some("dodger blue".to_string())
         );
         assert_eq!(strip_trailing_parenthetical("Plain Title"), None);
@@ -1116,13 +1102,7 @@ mod tests {
             },
         ];
 
-        let ranked = rank_search_candidates(
-            hits,
-            "Yesterday",
-            "The Beatles",
-            "Help!",
-            125,
-        );
+        let ranked = rank_search_candidates(hits, "Yesterday", "The Beatles", "Help!", 125);
 
         assert_eq!(ranked.len(), 1);
         assert_eq!(ranked[0].id, 1);

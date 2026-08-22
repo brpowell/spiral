@@ -6,11 +6,13 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 import {
   collectBitmapAssetFiles,
+  collectThumbAssetFiles,
   interactiveAssetsUseGif,
   isSkinGifAsset,
   isSkinGifUrl,
   resolveInteractiveAssetFile,
   resolveInteractiveAssets,
+  resolveThumbAssetFile,
   skinAssetFileUrl,
 } from "./skinAssets";
 import type { SkinBindState } from "./skinBinds";
@@ -83,13 +85,32 @@ describe("resolveInteractiveAssets", () => {
     );
   });
 
-  it("falls back to default for missing hover/pressed", () => {
+  it("falls back to default for missing hover/pressed/disabled", () => {
     expect(
       resolveInteractiveAssetFile(
         { default: "buttons/stop.png" },
         undefined,
         bindState,
         "hover",
+      ),
+    ).toBe("buttons/stop.png");
+    expect(
+      resolveInteractiveAssetFile(
+        {
+          default: "buttons/stop.png",
+          disabled: "buttons/stop-disabled.png",
+        },
+        undefined,
+        bindState,
+        "disabled",
+      ),
+    ).toBe("buttons/stop-disabled.png");
+    expect(
+      resolveInteractiveAssetFile(
+        { default: "buttons/stop.png" },
+        undefined,
+        bindState,
+        "disabled",
       ),
     ).toBe("buttons/stop.png");
   });
@@ -101,6 +122,7 @@ describe("collectBitmapAssetFiles", () => {
       "player.muted": {
         default: "buttons/mute-muted.png",
         hover: "buttons/mute-muted-hover.png",
+        disabled: "buttons/mute-muted-disabled.png",
       },
     });
     expect(files).toEqual(
@@ -110,6 +132,7 @@ describe("collectBitmapAssetFiles", () => {
         "buttons/play-pressed.png",
         "buttons/mute-muted.png",
         "buttons/mute-muted-hover.png",
+        "buttons/mute-muted-disabled.png",
       ]),
     );
   });
@@ -147,5 +170,45 @@ describe("interactiveAssetsUseGif", () => {
         bindState,
       ),
     ).toBe(false);
+  });
+});
+
+describe("resolveThumbAssetFile", () => {
+  const thumb = {
+    default: "sliders/thumb.png",
+    hover: "sliders/thumb-hover.png",
+    pressed: "sliders/thumb-pressed.png",
+  };
+
+  it("uses pressed while dragging, else hover while hovering, else default", () => {
+    expect(
+      resolveThumbAssetFile(thumb, { dragging: true, hovering: true }),
+    ).toBe(thumb.pressed);
+    expect(
+      resolveThumbAssetFile(thumb, { dragging: false, hovering: true }),
+    ).toBe(thumb.hover);
+    expect(
+      resolveThumbAssetFile(thumb, { dragging: false, hovering: false }),
+    ).toBe(thumb.default);
+  });
+
+  it("falls back to default when a state asset is omitted", () => {
+    expect(
+      resolveThumbAssetFile(
+        { default: "sliders/thumb.png" },
+        { dragging: true, hovering: true },
+      ),
+    ).toBe("sliders/thumb.png");
+  });
+});
+
+describe("collectThumbAssetFiles", () => {
+  it("includes default and optional hover/pressed", () => {
+    expect(
+      collectThumbAssetFiles({
+        default: "sliders/thumb.png",
+        hover: "sliders/thumb-hover.png",
+      }),
+    ).toEqual(["sliders/thumb.png", "sliders/thumb-hover.png"]);
   });
 });

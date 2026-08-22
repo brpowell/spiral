@@ -41,6 +41,10 @@ pub fn pick_library_paths() -> Option<Vec<String>> {
             }
         }
 
-        if paths.is_empty() { None } else { Some(paths) }
+        if paths.is_empty() {
+            None
+        } else {
+            Some(paths)
+        }
     })
 }

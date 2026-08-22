@@ -5,10 +5,19 @@ import type { PackZone } from "./pack";
 /** Pack-relative path under assets/, including extension (e.g. buttons/play.png). */
 export type SkinAssetFile = string;
 
-export type InteractiveAssetState = "default" | "hover" | "pressed";
+export type InteractiveAssetState =
+  "default" | "hover" | "pressed" | "disabled";
 
-/** Default / hover / pressed bitmap states for interactive controls. */
+/** Default / hover / pressed / disabled bitmap states for interactive controls. */
 export interface InteractiveAssets {
+  default: SkinAssetFile;
+  hover?: SkinAssetFile;
+  pressed?: SkinAssetFile;
+  disabled?: SkinAssetFile;
+}
+
+/** Slider thumb sprite set. `default` is WMP `thumbImage`; hover / pressed map `thumbHoverImage` / `thumbDownImage`. */
+export interface ThumbAssets {
   default: SkinAssetFile;
   hover?: SkinAssetFile;
   pressed?: SkinAssetFile;
@@ -92,10 +101,28 @@ export interface SkinViewStateSpec {
   on?: Record<string, SkinViewStateTransition[]>;
 }
 
+/** CSS timing functions the host interpolator / `.skin-bounds--motion` accept. */
+export type SkinTransitionEasing =
+  "linear" | "ease" | "ease-in" | "ease-out" | "ease-in-out";
+
+/**
+ * Host-driven interpolation when resolved bounds (or later, a view-state change)
+ * retarget. Omit, or `durationMs: 0`, to snap.
+ */
+export interface SkinLayoutTransition {
+  durationMs: number;
+  easing?: SkinTransitionEasing;
+}
+
 export interface SkinViewStateTransition {
   /** Current values that allow this branch (omit = any). */
   from?: Array<string | number | boolean>;
   set: string | number | boolean;
+  /**
+   * Same object as node `transition`. Reserved for the host interpolator;
+   * today's CSS path reads `transition` on the layout node.
+   */
+  transition?: SkinLayoutTransition;
 }
 
 export interface SkinClickEffect {
@@ -169,6 +196,11 @@ interface NodeBase {
   bounds?: LayoutBounds;
   /** Override `bounds` when a bind path is true (typically `view.*`). */
   boundsWhen?: Record<string, Partial<LayoutBounds>>;
+  /**
+   * Interpolate when resolved bounds change. Omit (or `durationMs: 0`) to snap.
+   * Presence of `boundsWhen` does not imply motion.
+   */
+  transition?: SkinLayoutTransition;
 }
 
 export interface RowNode extends NodeBase {
@@ -205,6 +237,7 @@ export interface CanvasNode {
   children: LayoutNode[];
   visibleWhen?: SkinCondition;
   dragRegion?: boolean;
+  transition?: SkinLayoutTransition;
 }
 
 /**
@@ -216,8 +249,9 @@ export interface SubviewNode extends NodeBase {
   bounds: LayoutBounds;
   children: LayoutNode[];
   /**
-   * When true, the group’s bounds box does not capture pointer events
-   * (children still do). Matches WMS passthrough subviews.
+   * When true, the group’s bounds box does not clip overflow (alpha-fringed
+   * frames). Group boxes already ignore pointer events; children still receive
+   * them. Matches WMS passthrough subviews.
    */
   passthrough?: boolean;
   /** When true, pointer events on empty group space move the skin window. */
@@ -402,7 +436,7 @@ export interface ButtonGroupNode extends NodeBase {
 export interface ButtonGroupElement {
   /** Hex color matching a region in the position map, e.g. "#0000ff". */
   mappingColor: string;
-  onClick: SkinClickEffect[];
+  onClick?: SkinClickEffect[];
   /** When the bind is truthy, keep the pressed overlay (WMP sticky buttons). */
   activeWhen?: SkinCondition;
   /** When truthy, the element is interactive. */
@@ -472,6 +506,8 @@ export interface SeekbarNode extends ControlNodeBase {
 
 export interface ArtworkNode extends ControlNodeBase {
   type: "artwork";
+  /** CSS object-fit for the cover image. Default `cover`. */
+  objectFit?: "cover" | "contain" | "fill";
 }
 
 export interface TransportNode extends ControlNodeBase {
@@ -494,6 +530,11 @@ export interface EqBandNode extends ControlNodeBase {
   type: "eqBand";
   /** 1-based band index (1 = 31 Hz … 10 = 16 kHz). */
   band: number;
+  /**
+   * Linear tilt control point. All `spread: "linear"` eqBand nodes in the skin
+   * are endpoints; dragging one interpolates the other 10-band gains between them.
+   */
+  spread?: "linear";
 }
 
 export interface TimeNode extends ControlNodeBase {
@@ -514,6 +555,15 @@ export interface PlaylistNode extends NodeBase {
   playingRowStyle?: NodeStyle;
   /** Panel-writable paint for the current track row (`__row--current`). */
   currentRowStyle?: NodeStyle;
+  /** Panel-writable paint for the source dropdown (`__source`). */
+  sourceStyle?: NodeStyle;
+  /** Panel-writable paint for the source dropdown while hovered. Merged on top of `sourceStyle`. */
+  sourceHoverStyle?: NodeStyle;
+  /**
+   * Panel-writable paint for a track row while hovered. Merged under
+   * `currentRowStyle` / `playingRowStyle` when those also apply.
+   */
+  rowHoverStyle?: NodeStyle;
 }
 
 export type TextOverflow = "visible" | "clip" | "scroll" | "scroll-bounce";
@@ -547,7 +597,6 @@ export type Presentation =
   | StripSliderPresentation
   | BitmapVerticalSliderPresentation
   | BitmapHorizontalSliderPresentation
-  | BitmapSeekbarPresentation
   | DigitStripPresentation
   | FramedPanelPresentation;
 
@@ -600,14 +649,14 @@ export interface CssPresentation {
   stylesheet?: string;
 }
 
-/** WMP-style tiled vertical track + movable thumb (graphic EQ bands). */
+/** WMP-style tiled vertical track + movable thumb (EQ bands, volume). */
 export interface BitmapVerticalSliderPresentation {
   kind: "bitmapVerticalSlider";
   /** Omitted for thumb-only sliders (groove baked into panel background). */
   track?: SkinAssetFile;
-  thumb: SkinAssetFile;
-  /** WMP `thumbDownImage`. */
-  thumbPressed?: SkinAssetFile;
+  /** Value fill clipped to the thumb center from the bottom (WMP `foregroundImage`). */
+  fill?: SkinAssetFile;
+  thumb: ThumbAssets;
   /** Source tile width in px (WMP backgroundImage width). Required when `track` is set. */
   trackTileWidth?: number;
   /** Source tile height in px; when less than trackHeight, runtime 3-slice tiling applies. */
@@ -616,22 +665,18 @@ export interface BitmapVerticalSliderPresentation {
   trackHeight: number;
   thumbWidth: number;
   thumbHeight: number;
-  /** Cap size and thumb travel inset (WMP borderSize); enables 3-slice tiling when > 0. */
+  /** Cap size for track tiling and thumb *center* travel inset (WMP borderSize). */
   borderSize?: number;
-  /**
-   * When true, the track image is a bottom-anchored value fill (WMP
-   * `foregroundImage`) revealed up to the current value, rather than a static
-   * track. The empty groove is expected in the window background.
-   */
-  fillFromBottom?: boolean;
 }
 
-/** WMP-style tiled horizontal track + movable thumb (balance, volume). */
+/** WMP-style tiled horizontal track + movable thumb (balance, volume, seek, eqBand). */
 export interface BitmapHorizontalSliderPresentation {
   kind: "bitmapHorizontalSlider";
   /** Omitted for thumb-only sliders (groove baked into panel background). */
   track?: SkinAssetFile;
-  thumb: SkinAssetFile;
+  /** Value fill clipped to the thumb center from the left (WMP `foregroundImage`). */
+  fill?: SkinAssetFile;
+  thumb: ThumbAssets;
   /** Source tile width in px. Required when `track` is set. */
   trackTileWidth?: number;
   /** Source tile height in px. Required when `track` is set. */
@@ -641,20 +686,6 @@ export interface BitmapHorizontalSliderPresentation {
   thumbWidth: number;
   thumbHeight: number;
   borderSize?: number;
-}
-
-/** WMP-style track + fill + thumb seek bar. */
-export interface BitmapSeekbarPresentation {
-  kind: "bitmapSeekbar";
-  track: SkinAssetFile;
-  fill: SkinAssetFile;
-  thumbAssets: InteractiveAssets;
-  /** Inset from each track edge for thumb travel (WMP borderSize). */
-  borderSize: number;
-  trackWidth: number;
-  trackHeight: number;
-  thumbWidth: number;
-  thumbHeight: number;
 }
 
 /** WMP-style filmstrip slider: one frame per discrete value step. */
@@ -735,6 +766,7 @@ export type SkinActionId =
   | "player.togglePlayPause"
   | "player.play"
   | "player.pause"
+  | "player.stop"
   | "player.previousTrack"
   | "player.nextTrack"
   | "player.cycleRepeat"
@@ -749,7 +781,6 @@ export type SkinActionId =
   | "player.setBalance"
   | "player.toggleMute"
   | "player.toggleCrossfade"
-  | "player.clearSetList"
   | "navigation.openAlbum"
   | "skin.openPicker"
   | "skin.exit"

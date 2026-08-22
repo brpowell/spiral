@@ -51,14 +51,11 @@ fn write_all(app: &AppHandle, preferences: &AllSkinPreferences) -> Result<(), St
     }
     let json = serde_json::to_string_pretty(preferences)
         .map_err(|e| format!("failed to serialize skin preferences: {e}"))?;
-    fs::write(&path, json)
-        .map_err(|e| format!("failed to write skin preferences: {e}"))
+    fs::write(&path, json).map_err(|e| format!("failed to write skin preferences: {e}"))
 }
 
 pub fn read_preferences(app: &AppHandle, skin_id: &str) -> SkinUserPreferences {
-    read_all(app)
-        .remove(skin_id)
-        .unwrap_or_default()
+    read_all(app).remove(skin_id).unwrap_or_default()
 }
 
 pub fn write_preferences(

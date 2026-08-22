@@ -58,7 +58,7 @@ export type PlayerRemoteAction =
   | { type: "importFromPaths"; paths: string[] }
   | { type: "toggleCrossfade" };
 
-const SYNC_KEYS: (keyof PlayerStateSnapshot)[] = [
+const PLAYER_SYNC_KEYS = [
   "library",
   "playbackTracks",
   "playContextIds",
@@ -71,11 +71,101 @@ const SYNC_KEYS: (keyof PlayerStateSnapshot)[] = [
   "balance",
   "repeatMode",
   "shuffle",
+] as const;
+
+const PLAYBACK_SETTINGS_SYNC_KEYS = [
   "crossfadeEnabled",
   "crossfadeSeconds",
   "crossfadeOnSkip",
   "crossfadeVisualEnabled",
+] as const;
+
+const SYNC_KEYS: (keyof PlayerStateSnapshot)[] = [
+  ...PLAYER_SYNC_KEYS,
+  ...PLAYBACK_SETTINGS_SYNC_KEYS,
 ];
+
+type PlayerSyncPatch = Partial<
+  Pick<PlayerStateSnapshot, (typeof PLAYER_SYNC_KEYS)[number]>
+>;
+
+/** Keys that differ by reference/value. IPC must send only these so remote
+ *  array identities (library, queues) stay stable across volume/balance ticks. */
+export function changedPlayerSnapshotFields(
+  prev: PlayerStateSnapshot,
+  next: PlayerStateSnapshot,
+): Partial<PlayerStateSnapshot> | null {
+  const patch: Partial<PlayerStateSnapshot> = {};
+  let changed = false;
+  for (const key of SYNC_KEYS) {
+    if (prev[key] !== next[key]) {
+      Object.assign(patch, { [key]: next[key] });
+      changed = true;
+    }
+  }
+  return changed ? patch : null;
+}
+
+function pickPlayerSyncPatch(
+  snapshot: Partial<PlayerStateSnapshot>,
+): PlayerSyncPatch {
+  const patch: PlayerSyncPatch = {};
+  for (const key of PLAYER_SYNC_KEYS) {
+    if (Object.hasOwn(snapshot, key)) {
+      Object.assign(patch, { [key]: snapshot[key] });
+    }
+  }
+  return patch;
+}
+
+function snapshotHasPlaybackSettings(
+  snapshot: Partial<PlayerStateSnapshot>,
+): boolean {
+  return PLAYBACK_SETTINGS_SYNC_KEYS.some((key) =>
+    Object.hasOwn(snapshot, key),
+  );
+}
+
+function applyRemotePlayerSnapshot(
+  state: ReturnType<typeof usePlayerStore.getState>,
+  snapshot: Partial<PlayerStateSnapshot>,
+): PlayerSyncPatch & { seekPreviewRatio?: number | null } {
+  const patch = pickPlayerSyncPatch(snapshot);
+  if (state.seekPreviewRatio === null) {
+    return patch;
+  }
+
+  const library = patch.library ?? state.library;
+  const playbackTracks = patch.playbackTracks ?? state.playbackTracks;
+  const currentTrackId = patch.currentTrackId ?? state.currentTrackId;
+  const positionSeconds = patch.positionSeconds ?? state.positionSeconds;
+  const pendingRatio = state.seekPreviewRatio;
+  const expected = seekRatioToPositionSeconds(
+    library,
+    currentTrackId,
+    pendingRatio,
+    playbackTracks,
+  );
+
+  if (
+    seekPositionMatchesRatio(
+      library,
+      currentTrackId,
+      positionSeconds,
+      pendingRatio,
+      1,
+      playbackTracks,
+    )
+  ) {
+    return { ...patch, seekPreviewRatio: null };
+  }
+
+  return {
+    ...patch,
+    positionSeconds: expected,
+    seekPreviewRatio: pendingRatio,
+  };
+}
 
 function pickSnapshot(
   playerState: ReturnType<typeof usePlayerStore.getState>,
@@ -96,13 +186,6 @@ function pickSnapshot(
     shuffle: playerState.shuffle,
     ...pickPlaybackSettingsSnapshot(playbackSettings),
   };
-}
-
-function snapshotChanged(
-  prev: PlayerStateSnapshot,
-  next: PlayerStateSnapshot,
-): boolean {
-  return SYNC_KEYS.some((key) => prev[key] !== next[key]);
 }
 
 function dispatchRemoteAction(action: PlayerRemoteAction): void {
@@ -202,8 +285,21 @@ function installRemoteActions(): void {
       },
       seekRelative: (deltaSeconds) =>
         emitRemoteAction({ type: "seekRelative", deltaSeconds }),
-      setVolume: (volume) => emitRemoteAction({ type: "setVolume", volume }),
-      setBalance: (balance) => emitRemoteAction({ type: "setBalance", balance }),
+      setVolume: (volume) => {
+        const clamped = Math.max(0, Math.min(1, volume));
+        const muted = usePlayerStore.getState().muted;
+        if (clamped > 0 && muted) {
+          usePlayerStore.setState({ volume: clamped, muted: false });
+        } else {
+          usePlayerStore.setState({ volume: clamped });
+        }
+        emitRemoteAction({ type: "setVolume", volume });
+      },
+      setBalance: (balance) => {
+        const clamped = Math.max(-1, Math.min(1, balance));
+        usePlayerStore.setState({ balance: clamped });
+        emitRemoteAction({ type: "setBalance", balance });
+      },
       toggleMute: () => emitRemoteAction({ type: "toggleMute" }),
       playTrack: async (id) => {
         emitRemoteAction({ type: "playTrack", id });
@@ -239,7 +335,7 @@ async function initMainBridge(): Promise<() => void> {
     usePlaybackSettingsStore.getState(),
   );
 
-  const emitSnapshot = (snapshot: PlayerStateSnapshot) => {
+  const emitSnapshot = (snapshot: Partial<PlayerStateSnapshot>) => {
     void emit(PLAYER_STATE_EVENT, { snapshot });
   };
 
@@ -248,9 +344,10 @@ async function initMainBridge(): Promise<() => void> {
       usePlayerStore.getState(),
       usePlaybackSettingsStore.getState(),
     );
-    if (!snapshotChanged(lastSnapshot, snapshot)) return;
+    const patch = changedPlayerSnapshotFields(lastSnapshot, snapshot);
+    if (!patch) return;
     lastSnapshot = snapshot;
-    emitSnapshot(snapshot);
+    emitSnapshot(patch);
   };
 
   const unsubscribePlayer = usePlayerStore.subscribe(() => {
@@ -269,12 +366,11 @@ async function initMainBridge(): Promise<() => void> {
   );
 
   const unlistenRequest = await listen(PLAYER_REQUEST_STATE_EVENT, () => {
-    emitSnapshot(
-      pickSnapshot(
-        usePlayerStore.getState(),
-        usePlaybackSettingsStore.getState(),
-      ),
+    lastSnapshot = pickSnapshot(
+      usePlayerStore.getState(),
+      usePlaybackSettingsStore.getState(),
     );
+    emitSnapshot(lastSnapshot);
   });
 
   return () => {
@@ -288,50 +384,27 @@ async function initMainBridge(): Promise<() => void> {
 async function initRemoteBridge(): Promise<() => void> {
   installRemoteActions();
 
-  const unlistenState = await listen<{ snapshot: PlayerStateSnapshot }>(
-    PLAYER_STATE_EVENT,
-    (event) => {
-      const snapshot = event.payload.snapshot;
+  const unlistenState = await listen<{
+    snapshot: Partial<PlayerStateSnapshot>;
+  }>(PLAYER_STATE_EVENT, (event) => {
+    const snapshot = event.payload.snapshot;
+    if (snapshotHasPlaybackSettings(snapshot)) {
+      const current = usePlaybackSettingsStore.getState();
       usePlaybackSettingsStore.getState().applySnapshot({
-        crossfadeEnabled: snapshot.crossfadeEnabled,
-        crossfadeSeconds: snapshot.crossfadeSeconds,
-        crossfadeOnSkip: snapshot.crossfadeOnSkip,
-        crossfadeVisualEnabled: snapshot.crossfadeVisualEnabled,
+        crossfadeEnabled: snapshot.crossfadeEnabled ?? current.crossfadeEnabled,
+        crossfadeSeconds: snapshot.crossfadeSeconds ?? current.crossfadeSeconds,
+        crossfadeOnSkip: snapshot.crossfadeOnSkip ?? current.crossfadeOnSkip,
+        crossfadeVisualEnabled:
+          snapshot.crossfadeVisualEnabled ?? current.crossfadeVisualEnabled,
       });
-      usePlayerStore.setState((state) => {
-        if (state.seekPreviewRatio === null) {
-          return snapshot;
-        }
-
-        const pendingRatio = state.seekPreviewRatio;
-        const expected = seekRatioToPositionSeconds(
-          state.library,
-          state.currentTrackId,
-          pendingRatio,
-          state.playbackTracks,
-        );
-
-        if (
-          seekPositionMatchesRatio(
-            snapshot.library,
-            snapshot.currentTrackId,
-            snapshot.positionSeconds,
-            pendingRatio,
-            1,
-            snapshot.playbackTracks,
-          )
-        ) {
-          return { ...snapshot, seekPreviewRatio: null };
-        }
-
-        return {
-          ...snapshot,
-          positionSeconds: expected,
-          seekPreviewRatio: pendingRatio,
-        };
-      }, false);
-    },
-  );
+    }
+    const playerPatch = pickPlayerSyncPatch(snapshot);
+    if (Object.keys(playerPatch).length === 0) return;
+    usePlayerStore.setState(
+      (state) => applyRemotePlayerSnapshot(state, snapshot),
+      false,
+    );
+  });
 
   void emit(PLAYER_REQUEST_STATE_EVENT, {});
 

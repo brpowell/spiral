@@ -6,10 +6,7 @@ use tauri::WebviewWindow;
 /// `ignoresMouseEvents` set (`resignKeyWindow` is a no-op if called directly).
 /// Deactivate the app so the hardware click goes to whatever is behind the
 /// skin. Windows and Linux only need the usual ignore-cursor flag.
-pub fn set_ignore_cursor_events(
-    window: &WebviewWindow,
-    ignore: bool,
-) -> Result<(), String> {
+pub fn set_ignore_cursor_events(window: &WebviewWindow, ignore: bool) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         set_ignore_macos(window, ignore)

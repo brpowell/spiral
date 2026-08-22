@@ -39,9 +39,7 @@ fn primary_tag_mut(tagged: &mut lofty::file::TaggedFile) -> &mut Tag {
     if tagged.primary_tag().is_none() {
         tagged.insert_tag(Tag::new(tagged.primary_tag_type()));
     }
-    tagged
-        .primary_tag_mut()
-        .expect("tag inserted above")
+    tagged.primary_tag_mut().expect("tag inserted above")
 }
 
 pub fn read_vorbis_container_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
@@ -110,7 +108,11 @@ pub fn read_vorbis_container_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, S
 fn duration_from_properties(tagged: &lofty::file::TaggedFile) -> Option<f64> {
     let duration = tagged.properties().duration();
     let seconds = duration.as_secs_f64();
-    if seconds > 0.0 { Some(seconds) } else { None }
+    if seconds > 0.0 {
+        Some(seconds)
+    } else {
+        None
+    }
 }
 
 fn set_multi_value(tag: &mut Tag, key: ItemKey, values: &[String]) {
@@ -188,9 +190,8 @@ pub fn write_vorbis_container_tag(
     if metadata.art_changed {
         tag.remove_picture_type(PictureType::CoverFront);
         if let Some(art_path) = &metadata.art_path {
-            let data = std::fs::read(art_path).map_err(|e| {
-                MetadataWriteError::Io(format!("Failed to read album art: {e}"))
-            })?;
+            let data = std::fs::read(art_path)
+                .map_err(|e| MetadataWriteError::Io(format!("Failed to read album art: {e}")))?;
             let picture = Picture::new_unchecked(
                 PictureType::CoverFront,
                 Some(picture_mime(art_path)),
@@ -202,10 +203,8 @@ pub fn write_vorbis_container_tag(
     }
 
     if metadata.lyrics_changed {
-        let (text, remove) = lyrics_tags::lyrics_text_for_embed(
-            metadata,
-            lyrics_tags::LyricsEmbedKind::SyncCapable,
-        );
+        let (text, remove) =
+            lyrics_tags::lyrics_text_for_embed(metadata, lyrics_tags::LyricsEmbedKind::SyncCapable);
         lyrics_tags::apply_lyrics_to_vorbis(tag, &text, remove);
     }
 
@@ -246,7 +245,10 @@ pub fn write_vorbis_container_rating(
     if canonical == 0 {
         tag.remove_key(&key);
     } else {
-        tag.insert_text(key, rating_tags::canonical_to_percent(canonical).to_string());
+        tag.insert_text(
+            key,
+            rating_tags::canonical_to_percent(canonical).to_string(),
+        );
     }
 
     tagged

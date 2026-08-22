@@ -1,11 +1,11 @@
 //! App-facing license state: load / install / merge `.spcard`, derive offline status.
 
+use super::wrap::sanitize_wrap_image_bytes;
 use super::{
     parse_and_verify_grant_poc, parse_and_verify_poc, prepare_cosmetic_for_write, serialize_spcard,
     spiral_grant, verify_grant_signature, verifying_key_from_bytes, Cosmetic, Grant, LicenseError,
     Spcard, POC_PUBLIC_KEY_BYTES, PRODUCT_ID_SPIRAL,
 };
-use super::wrap::sanitize_wrap_image_bytes;
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -130,18 +130,16 @@ fn user_facing_card_error(err: &LicenseError, installing: bool) -> String {
         "unknown_field" | "unsupported_manifest_version" => format!(
             "{subject} isn't recognized by this version of Spiral. Add a new card to continue."
         ),
-        "invalid_signature" => format!(
-            "{subject} couldn't be verified. Try adding it again, or contact support."
-        ),
+        "invalid_signature" => {
+            format!("{subject} couldn't be verified. Try adding it again, or contact support.")
+        }
         "unsupported_sku" | "unsupported_channel" => format!(
             "{subject} isn't supported by this version of Spiral. Add a new card to continue."
         ),
         "invalid_json" | "invalid_spcard" | "invalid_grant" | "missing_manifest_version" => {
             format!("{subject} doesn't look valid. Check the file and try again.")
         }
-        _ => format!(
-            "{subject} couldn't be read. Try adding it again, or contact support."
-        ),
+        _ => format!("{subject} couldn't be read. Try adding it again, or contact support."),
     }
 }
 
@@ -179,10 +177,7 @@ pub(crate) fn load_license_snapshot_at(path: &Path, now: DateTime<Utc>) -> Licen
             );
             return LicenseSnapshot::trial(
                 true,
-                Some(
-                    "Your installed Spiral Card couldn't be read. Try adding it again."
-                        .into(),
-                ),
+                Some("Your installed Spiral Card couldn't be read. Try adding it again.".into()),
             );
         }
     };
@@ -249,8 +244,8 @@ pub(crate) fn merge_finalized_grant_at(
         return Err("no registration card installed".into());
     }
 
-    let json = fs::read_to_string(path)
-        .map_err(|e| format!("failed to read registration card: {e}"))?;
+    let json =
+        fs::read_to_string(path).map_err(|e| format!("failed to read registration card: {e}"))?;
     let existing = parse_and_verify_poc(&json).map_err(|e| format_license_error(&e))?;
 
     let Some(idx) = existing
@@ -275,7 +270,8 @@ pub(crate) fn merge_finalized_grant_at(
         ));
     }
 
-    let key = verifying_key_from_bytes(POC_PUBLIC_KEY_BYTES).map_err(|e| format_license_error(&e))?;
+    let key =
+        verifying_key_from_bytes(POC_PUBLIC_KEY_BYTES).map_err(|e| format_license_error(&e))?;
     verify_grant_signature(&grant, &key).map_err(|e| format_license_error(&e))?;
 
     if grant.expires_at.is_some() {
@@ -320,8 +316,8 @@ pub(crate) fn update_registration_cosmetic_at(
         return Err("no registration card installed".into());
     }
 
-    let json = fs::read_to_string(path)
-        .map_err(|e| format!("failed to read registration card: {e}"))?;
+    let json =
+        fs::read_to_string(path).map_err(|e| format!("failed to read registration card: {e}"))?;
     let existing = parse_and_verify_poc(&json).map_err(|e| format_license_error(&e))?;
 
     let repaired = prepare_cosmetic_for_write(cosmetic).map_err(|e| format_license_error(&e))?;
@@ -353,8 +349,8 @@ pub(crate) fn set_registration_wrap_from_bytes_at(
         return Err("no registration card installed".into());
     }
 
-    let json = fs::read_to_string(path)
-        .map_err(|e| format!("failed to read registration card: {e}"))?;
+    let json =
+        fs::read_to_string(path).map_err(|e| format!("failed to read registration card: {e}"))?;
     let existing = parse_and_verify_poc(&json).map_err(|e| format_license_error(&e))?;
     let jpeg = sanitize_wrap_image_bytes(image_bytes).map_err(|e| format_license_error(&e))?;
 
@@ -387,14 +383,10 @@ pub fn clear_registration_wrap(app: &AppHandle) -> Result<LicenseSnapshot, Strin
 }
 
 fn write_registration_card_atomic(dest: &Path, card: &Spcard) -> Result<(), String> {
-    let parent = dest.parent().ok_or_else(|| {
-        format!(
-            "registration card path has no parent: {}",
-            dest.display()
-        )
-    })?;
-    fs::create_dir_all(parent)
-        .map_err(|e| format!("failed to create license directory: {e}"))?;
+    let parent = dest
+        .parent()
+        .ok_or_else(|| format!("registration card path has no parent: {}", dest.display()))?;
+    fs::create_dir_all(parent).map_err(|e| format!("failed to create license directory: {e}"))?;
 
     let json = serialize_spcard(card).map_err(|e| format_license_error(&e))?;
     let tmp = parent.join("registration.spcard.tmp");
@@ -581,10 +573,7 @@ mod tests {
             .with_timezone(&Utc);
         let snap = load_license_snapshot_at(&path, past);
         assert_eq!(snap.status, LicenseStatus::ReadyToFinalize);
-        assert_eq!(
-            snap.expires_at.as_deref(),
-            Some("2026-07-15T12:00:00Z")
-        );
+        assert_eq!(snap.expires_at.as_deref(), Some("2026-07-15T12:00:00Z"));
         let _ = fs::remove_dir_all(&dir);
     }
 

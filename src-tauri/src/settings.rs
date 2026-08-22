@@ -44,9 +44,7 @@ pub fn resolved_organize_path_format(stored: &LibrarySettings) -> String {
         }
     }
     let legacy = stored.track_filename_format.trim();
-    if !legacy.is_empty()
-        && legacy != crate::library_organize::DEFAULT_TRACK_FILENAME_FORMAT
-    {
+    if !legacy.is_empty() && legacy != crate::library_organize::DEFAULT_TRACK_FILENAME_FORMAT {
         return format!("{{albumArtist}}/{{album}}/{legacy}.{{ext}}");
     }
     default_organize_path_format()
@@ -403,9 +401,7 @@ pub fn registry_url_override() -> Option<String> {
     std::env::var(PACK_REGISTRY_URL_ENV)
         .ok()
         .map(|s| s.trim().trim_end_matches('/').to_string())
-        .filter(|s| {
-            !s.is_empty() && (s.starts_with("http://") || s.starts_with("https://"))
-        })
+        .filter(|s| !s.is_empty() && (s.starts_with("http://") || s.starts_with("https://")))
 }
 
 /// Official Spiral registry base: env override when set, else [`DEFAULT_REGISTRY_URL`].
@@ -489,7 +485,11 @@ pub fn is_crash_report_acknowledged(app: &AppHandle, id: &str) -> bool {
 
 pub fn push_acknowledged_crash_report_id(app: &AppHandle, id: &str) -> Result<(), String> {
     let mut settings = read_settings(app);
-    if settings.acknowledged_crash_report_ids.iter().any(|stored| stored == id) {
+    if settings
+        .acknowledged_crash_report_ids
+        .iter()
+        .any(|stored| stored == id)
+    {
         return Ok(());
     }
 

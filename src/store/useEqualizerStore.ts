@@ -33,6 +33,7 @@ interface EqualizerStoreState {
   initializeFromBootstrap: (settings: EqualizerSettings) => void;
   loadCustomPresets: (presets: EqualizerPreset[]) => void;
   setBand: (index: number, gain: number) => void;
+  setBands: (bands: EqualizerBandGains) => void;
   setPreampGain: (gain: number) => void;
   applyPreset: (presetId: string) => void;
   cyclePreset: (direction: "prev" | "next") => void;
@@ -151,9 +152,21 @@ export const useEqualizerStore = create<EqualizerStoreState>((set, get) => ({
     if (index < 0 || index >= get().bands.length) return;
 
     const next = {
-      enabled: get().enabled,
+      enabled: true,
       presetId: "manual",
       bands: updateBands(get().bands, index, gain),
+      preampGain: get().preampGain,
+    };
+
+    set(next);
+    commitStateChange(next);
+  },
+
+  setBands: (bands) => {
+    const next = {
+      enabled: true,
+      presetId: "manual",
+      bands: normalizeBandGains(bands),
       preampGain: get().preampGain,
     };
 

@@ -7,7 +7,7 @@ use objc2::exception::catch;
 use objc2::rc::{autoreleasepool, Retained};
 use objc2::runtime::AnyObject;
 use objc2::{extern_class, extern_methods};
-use objc2_foundation::{NSArray, NSDictionary, NSData, NSObject, NSString};
+use objc2_foundation::{NSArray, NSData, NSDictionary, NSObject, NSString};
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::panic::AssertUnwindSafe;
@@ -153,14 +153,8 @@ fn read_cdtext_inner(drive_id: &str) -> Option<CdTextData> {
         let mut size = CDTEXT_READ_BUFFER_SIZE;
         let mut sense = DRSenseBuffer { bytes: [0; 32] };
 
-        let status = unsafe {
-            DRDeviceReadCDText(
-                device,
-                buffer.as_mut_ptr(),
-                &mut size,
-                &mut sense,
-            )
-        };
+        let status =
+            unsafe { DRDeviceReadCDText(device, buffer.as_mut_ptr(), &mut size, &mut sense) };
         release_device_ref(device);
 
         if status != 0 {

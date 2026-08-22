@@ -84,7 +84,10 @@ mod tests {
     fn toc_uses_musicbrainz_api_format() {
         let toc = build_toc(&[(1, 180.0), (2, 200.0)]);
         assert_eq!(toc, vec![1, 2, 28650, 150, 13650]);
-        assert_eq!(toc_query_string(&[(1, 180.0), (2, 200.0)]), "1+2+28650+150+13650");
+        assert_eq!(
+            toc_query_string(&[(1, 180.0), (2, 200.0)]),
+            "1+2+28650+150+13650"
+        );
     }
 
     #[test]

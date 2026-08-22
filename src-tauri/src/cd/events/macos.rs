@@ -65,11 +65,7 @@ extern "C" {
 #[link(name = "CoreFoundation", kind = "framework")]
 extern "C" {
     fn CFRunLoopGetMain() -> CFRunLoopRef;
-    fn CFRunLoopAddSource(
-        rl: CFRunLoopRef,
-        source: CFRunLoopSourceRef,
-        mode: CFStringRef,
-    );
+    fn CFRunLoopAddSource(rl: CFRunLoopRef, source: CFRunLoopSourceRef, mode: CFStringRef);
     static kCFRunLoopDefaultMode: CFStringRef;
 }
 

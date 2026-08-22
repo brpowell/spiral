@@ -101,6 +101,8 @@ function defaultActionTooltip(
       return "Play";
     case "player.pause":
       return "Pause";
+    case "player.stop":
+      return "Stop";
     case "player.previousTrack":
       return "Previous";
     case "player.nextTrack":
@@ -111,8 +113,6 @@ function defaultActionTooltip(
       return state.repeatMode === "off" ? "Turn repeat on" : "Turn repeat off";
     case "player.toggleShuffle":
       return state.shuffle ? "Turn shuffle off" : "Turn shuffle on";
-    case "player.clearSetList":
-      return "Stop";
     case "navigation.openAlbum":
       return "Open album";
     case "skin.openPicker":

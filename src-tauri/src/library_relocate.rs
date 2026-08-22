@@ -6,9 +6,7 @@ use crate::library_paths;
 use crate::lyrics_normalize;
 use crate::metadata_reader;
 use crate::rating_sync::RatingSync;
-use crate::settings::{
-    self, LibrarySettingsPatch, LibrarySettingsResponse, DATABASE_FILE_NAME,
-};
+use crate::settings::{self, LibrarySettingsPatch, LibrarySettingsResponse, DATABASE_FILE_NAME};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -72,9 +70,7 @@ fn validate_destination(current_root: &Path, dest: &Path) -> Result<(), String> 
         );
     }
     if is_nested(current_root, dest) {
-        return Err(
-            "Choose a folder that isn't an ancestor of your current library".into(),
-        );
+        return Err("Choose a folder that isn't an ancestor of your current library".into());
     }
     Ok(())
 }
@@ -128,13 +124,17 @@ fn release_db_to_memory(state: &DbState) -> Result<(), String> {
         .0
         .lock()
         .map_err(|e| format!("database lock poisoned: {e}"))?;
-    *guard = Connection::open_in_memory().map_err(|e| format!("failed to release database: {e}"))?;
+    *guard =
+        Connection::open_in_memory().map_err(|e| format!("failed to release database: {e}"))?;
     Ok(())
 }
 
 fn copy_dir_recursive(from: &Path, to: &Path) -> Result<(), String> {
-    fs::create_dir_all(to).map_err(|e| format!("failed to create directory {}: {e}", to.display()))?;
-    for entry in fs::read_dir(from).map_err(|e| format!("failed to read {}: {e}", from.display()))? {
+    fs::create_dir_all(to)
+        .map_err(|e| format!("failed to create directory {}: {e}", to.display()))?;
+    for entry in
+        fs::read_dir(from).map_err(|e| format!("failed to read {}: {e}", from.display()))?
+    {
         let entry = entry.map_err(|e| e.to_string())?;
         let src = entry.path();
         let dest = to.join(entry.file_name());
@@ -148,11 +148,7 @@ fn copy_dir_recursive(from: &Path, to: &Path) -> Result<(), String> {
                 fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
             fs::copy(&src, &dest).map_err(|e| {
-                format!(
-                    "failed to copy {} → {}: {e}",
-                    src.display(),
-                    dest.display()
-                )
+                format!("failed to copy {} → {}: {e}", src.display(), dest.display())
             })?;
         }
     }
@@ -174,10 +170,7 @@ fn relocate_entry(from: &Path, to: &Path) -> Result<(), String> {
         return Ok(());
     }
     if to.exists() {
-        return Err(format!(
-            "Destination already exists: {}",
-            to.display()
-        ));
+        return Err(format!("Destination already exists: {}", to.display()));
     }
     if let Some(parent) = to.parent() {
         fs::create_dir_all(parent)
@@ -190,11 +183,7 @@ fn relocate_entry(from: &Path, to: &Path) -> Result<(), String> {
                 copy_dir_recursive(from, to)?;
             } else {
                 fs::copy(from, to).map_err(|e| {
-                    format!(
-                        "failed to copy {} → {}: {e}",
-                        from.display(),
-                        to.display()
-                    )
+                    format!("failed to copy {} → {}: {e}", from.display(), to.display())
                 })?;
             }
             remove_path_best_effort(from);
@@ -336,8 +325,7 @@ pub fn relocate_library(
         LibraryRelocateMode::Move => {
             if dest_db.is_file() {
                 return Err(
-                    "A Spiral library already exists here. Switch to it instead of moving."
-                        .into(),
+                    "A Spiral library already exists here. Switch to it instead of moving.".into(),
                 );
             }
             if dest_media.is_dir() {
@@ -423,10 +411,7 @@ pub fn relocate_library(
         }
         LibraryRelocateMode::Fresh | LibraryRelocateMode::FreshImport => {
             if dest_db.is_file() {
-                return Err(
-                    "A Spiral library already exists here. Switch to it instead."
-                        .into(),
-                );
+                return Err("A Spiral library already exists here. Switch to it instead.".into());
             }
             rating_sync.clear_pending();
             release_db_to_memory(state)?;
@@ -524,8 +509,7 @@ mod tests {
         // rewrite via rewrite_path_prefix + SQL (art cache needs AppHandle).
         let tracks = db::get_all_tracks(&conn).unwrap();
         assert_eq!(tracks.len(), 1);
-        let new_path =
-            rewrite_path_prefix(&tracks[0].file_path, &old_media, &new_media).unwrap();
+        let new_path = rewrite_path_prefix(&tracks[0].file_path, &old_media, &new_media).unwrap();
         conn.execute(
             "UPDATE tracks SET file_path = ?1 WHERE id = ?2",
             rusqlite::params![new_path, tracks[0].id],
@@ -550,7 +534,10 @@ mod tests {
         fs::write(from.join("sub").join("b.txt"), b"b").unwrap();
         copy_dir_recursive(&from, &to).unwrap();
         assert_eq!(fs::read_to_string(to.join("a.txt")).unwrap(), "a");
-        assert_eq!(fs::read_to_string(to.join("sub").join("b.txt")).unwrap(), "b");
+        assert_eq!(
+            fs::read_to_string(to.join("sub").join("b.txt")).unwrap(),
+            "b"
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 

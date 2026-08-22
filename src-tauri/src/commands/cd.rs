@@ -1,14 +1,12 @@
+use crate::activity_log::{self, ActivityLogContext};
 use crate::cd::platform;
 use crate::cd::playback;
 use crate::cd::playback::CdPlaybackStarted;
-use crate::cd::{cleanup_rip_temp, rip_cd_track as rip_cd_track_impl};
 use crate::cd::types::{CdDisc, CdDiscCdText, CdDrive};
-use crate::disc_metadata_cache::{
-    self, DiscMetadataCachePeek, DiscMetadataOverride,
-};
+use crate::cd::{cleanup_rip_temp, rip_cd_track as rip_cd_track_impl};
+use crate::disc_metadata_cache::{self, DiscMetadataCachePeek, DiscMetadataOverride};
 use crate::models::TrackMetadataUpdate;
 use crate::musicbrainz_disc::DiscMetadataLookup;
-use crate::activity_log::{self, ActivityLogContext};
 use serde::Deserialize;
 use tauri::AppHandle;
 
@@ -37,7 +35,10 @@ fn toc_tracks_from_payload(tracks: &[DiscTocTrack]) -> Vec<(u32, f64)> {
         .collect()
 }
 
-fn resolve_toc_tracks(drive_id: &str, tracks: Option<Vec<DiscTocTrack>>) -> Result<Vec<(u32, f64)>, String> {
+fn resolve_toc_tracks(
+    drive_id: &str,
+    tracks: Option<Vec<DiscTocTrack>>,
+) -> Result<Vec<(u32, f64)>, String> {
     if let Some(tracks) = tracks {
         let toc = toc_tracks_from_payload(&tracks);
         if !toc.is_empty() {
@@ -45,8 +46,8 @@ fn resolve_toc_tracks(drive_id: &str, tracks: Option<Vec<DiscTocTrack>>) -> Resu
         }
     }
 
-    let disc = platform::get_disc_info(drive_id)?
-        .ok_or_else(|| "No audio CD in drive".to_string())?;
+    let disc =
+        platform::get_disc_info(drive_id)?.ok_or_else(|| "No audio CD in drive".to_string())?;
     Ok(toc_tracks_from_disc(&disc))
 }
 
@@ -168,11 +169,7 @@ pub async fn lookup_disc_metadata(
         }
         let result = (|| {
             let toc_tracks = resolve_toc_tracks(&drive_id, tracks)?;
-            disc_metadata_cache::lookup_disc_metadata_cached_with_options(
-                &app,
-                &toc_tracks,
-                force,
-            )
+            disc_metadata_cache::lookup_disc_metadata_cached_with_options(&app, &toc_tracks, force)
         })();
         activity_log::clear_thread_context();
         result
@@ -220,10 +217,7 @@ pub async fn save_disc_metadata_override(
 }
 
 #[tauri::command]
-pub async fn clear_disc_metadata_override(
-    app: AppHandle,
-    disc_id: String,
-) -> Result<(), String> {
+pub async fn clear_disc_metadata_override(app: AppHandle, disc_id: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         disc_metadata_cache::clear_disc_metadata_override(&app, &disc_id)
     })

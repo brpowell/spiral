@@ -352,7 +352,7 @@ pub fn write_spcard_file(path: &Path, card: &Spcard) -> Result<(), LicenseError>
 mod tests {
     use super::*;
     use crate::license::{
-        parse_and_verify, signing_key_from_bytes, verifying_key_from_bytes, verify_grant_signature,
+        parse_and_verify, signing_key_from_bytes, verify_grant_signature, verifying_key_from_bytes,
         POC_PUBLIC_KEY_BYTES, PRODUCT_ID_SPIRAL,
     };
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -372,11 +372,8 @@ mod tests {
 
     fn with_store<F: FnOnce(&mut MintStore, &Path)>(f: F) {
         let seq = TEST_STORE_SEQ.fetch_add(1, Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-mint-test-{}-{}",
-            std::process::id(),
-            seq
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("spiral-mint-test-{}-{}", std::process::id(), seq));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("grants.json");
@@ -495,10 +492,7 @@ mod tests {
                 result.grant.original_purchase_id,
                 provisional.card.grants[0].original_purchase_id
             );
-            assert_ne!(
-                result.grant.signature,
-                provisional.card.grants[0].signature
-            );
+            assert_ne!(result.grant.signature, provisional.card.grants[0].signature);
             assert_eq!(result.grant.issued_at, "2026-08-14T12:00:00Z");
             verify_grant_signature(&result.grant, &verifying_key()).unwrap();
         });
@@ -522,7 +516,8 @@ mod tests {
             assert_eq!(first.grant, second.grant);
 
             let mut reloaded = MintStore::load(path).unwrap();
-            let third = finalize(&signing_key(), &mut reloaded, "finalize-idem-001", later).unwrap();
+            let third =
+                finalize(&signing_key(), &mut reloaded, "finalize-idem-001", later).unwrap();
             assert!(third.reused);
             assert_eq!(first.grant, third.grant);
         });

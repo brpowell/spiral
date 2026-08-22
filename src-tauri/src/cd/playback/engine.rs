@@ -113,9 +113,7 @@ fn with_session<R>(session_id: u64, f: impl FnOnce(&ActivePlayback) -> R) -> Opt
 
 /// Evict the oldest idle (not playing) session when at capacity.
 /// Returns an error if both slots are occupied by playing sessions.
-fn make_room_for_new_session(
-    sessions: &mut HashMap<u64, ActivePlayback>,
-) -> Result<(), String> {
+fn make_room_for_new_session(sessions: &mut HashMap<u64, ActivePlayback>) -> Result<(), String> {
     if sessions.len() < MAX_SESSIONS {
         return Ok(());
     }
@@ -254,22 +252,19 @@ fn start_inner(
         return Err(err);
     }
 
-    SESSIONS
-        .lock()
-        .expect("cd playback state poisoned")
-        .insert(
-            session_id,
-            ActivePlayback {
-                drive_id: drive_id.to_string(),
-                stop_requested,
-                is_playing,
-                cmd_tx,
-                in_flight,
-                thread,
-                started_at: Instant::now(),
-                _session_guard: session_guard,
-            },
-        );
+    SESSIONS.lock().expect("cd playback state poisoned").insert(
+        session_id,
+        ActivePlayback {
+            drive_id: drive_id.to_string(),
+            stop_requested,
+            is_playing,
+            cmd_tx,
+            in_flight,
+            thread,
+            started_at: Instant::now(),
+            _session_guard: session_guard,
+        },
+    );
 
     Ok(CdPlaybackStarted {
         session_id,
@@ -369,8 +364,7 @@ fn playback_thread(
         }
 
         if last_position_emit.elapsed() >= POSITION_EVENT_INTERVAL {
-            let position_seconds =
-                (frames_sent as f64 / sample_rate as f64).min(duration_seconds);
+            let position_seconds = (frames_sent as f64 / sample_rate as f64).min(duration_seconds);
             if let Some(app) = app.as_ref() {
                 let payload = CdPlaybackPosition {
                     session_id,
@@ -482,9 +476,7 @@ pub fn stop_for_drive(drive_id: &str) {
             .filter(|(_, active)| active.drive_id == drive_id)
             .map(|(id, _)| *id)
             .collect();
-        ids.into_iter()
-            .filter_map(|id| guard.remove(&id))
-            .collect()
+        ids.into_iter().filter_map(|id| guard.remove(&id)).collect()
     };
     for active in taken {
         shutdown_active(active);
@@ -662,12 +654,8 @@ mod tests {
             let b = start_inner(None, "drive-a", 2, InterleavedFixture::new(1.0), None)
                 .expect("start B");
 
-            with_session(a.session_id, |s| {
-                s.is_playing.store(true, Ordering::SeqCst)
-            });
-            with_session(b.session_id, |s| {
-                s.is_playing.store(true, Ordering::SeqCst)
-            });
+            with_session(a.session_id, |s| s.is_playing.store(true, Ordering::SeqCst));
+            with_session(b.session_id, |s| s.is_playing.store(true, Ordering::SeqCst));
 
             let err = start_inner(None, "drive-a", 3, InterleavedFixture::new(1.0), None)
                 .expect_err("third should fail");

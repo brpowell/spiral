@@ -121,9 +121,7 @@ fn normalize_theme_file(file: ThemeFile, contrib: &packs::ScannedContribution) -
     }
 }
 
-fn load_theme_from_contribution(
-    contrib: &packs::ScannedContribution,
-) -> Result<Theme, String> {
+fn load_theme_from_contribution(contrib: &packs::ScannedContribution) -> Result<Theme, String> {
     let contents = fs::read_to_string(&contrib.manifest_path).map_err(|e| {
         format!(
             "could not read theme {}: {e}",
@@ -320,8 +318,7 @@ fn add_theme_to_existing_authoring_pack(
 
     let local_id = unique_theme_local_id(&pack_dir, &slugify_theme_id(display_name));
     let theme_dir = pack_dir.join("themes").join(&local_id);
-    fs::create_dir_all(&theme_dir)
-        .map_err(|e| format!("failed to create theme dir: {e}"))?;
+    fs::create_dir_all(&theme_dir).map_err(|e| format!("failed to create theme dir: {e}"))?;
 
     let effective_id = effective_contribution_id(&author_id, pack_id, "theme", &local_id);
     let theme = Theme {
@@ -492,10 +489,7 @@ pub fn save_workshop_theme(app: AppHandle, theme: Theme) -> Result<Theme, String
 
     let contrib = if let Some(c) = contrib_by_id.filter(|c| c.mutable) {
         c
-    } else if let Some(idx) = candidates
-        .iter()
-        .position(|c| c.effective_id == theme.id)
-    {
+    } else if let Some(idx) = candidates.iter().position(|c| c.effective_id == theme.id) {
         candidates.swap_remove(idx)
     } else if candidates.len() == 1 {
         // Rename: only one theme in the pack — treat theme.id as the new effective id.
@@ -529,9 +523,7 @@ pub fn save_workshop_theme(app: AppHandle, theme: Theme) -> Result<Theme, String
             ));
         }
         fs::rename(&contrib.contribution_dir, &new_dir).map_err(|e| {
-            format!(
-                "failed to rename theme \"{old_local}\" → \"{desired_local}\": {e}"
-            )
+            format!("failed to rename theme \"{old_local}\" → \"{desired_local}\": {e}")
         })?;
         contrib.contribution_dir = new_dir;
         contrib.manifest_path = contrib.contribution_dir.join("theme.json");
@@ -565,19 +557,13 @@ pub fn delete_workshop_theme(app: AppHandle, theme_id: String) -> Result<(), Str
     let author_id = contrib.author_id.clone();
     let zone = contrib.zone;
 
-    remove_dir_all_with_context(
-        &contrib.contribution_dir,
-        &format!("theme \"{theme_id}\""),
-    )?;
+    remove_dir_all_with_context(&contrib.contribution_dir, &format!("theme \"{theme_id}\""))?;
 
     let mut app_settings = settings::read_settings(&app);
     let was_active = app_settings.active_theme == theme_id;
 
     if !pack_has_contributions(&pack_dir) && zone == PackZone::Workshop {
-        remove_dir_all_with_context(
-            &pack_dir,
-            &format!("workshop pack \"{pack_id}\""),
-        )?;
+        remove_dir_all_with_context(&pack_dir, &format!("workshop pack \"{pack_id}\""))?;
         // Clear any leftover pack-prefixed settings.
         let prefix = pack_id_prefix(&author_id, &pack_id);
         if app_settings.active_theme.starts_with(&prefix) {

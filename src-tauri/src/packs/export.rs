@@ -1,7 +1,7 @@
 //! Export a workshop pack directory to a `.spk` build artifact.
 
-use super::write_pack_archive;
 use super::install::validate_pack_for_install;
+use super::write_pack_archive;
 use super::{parse_pack_manifest_json, PackManifest, PACK_MANIFEST_FILENAME};
 use serde::Serialize;
 use std::fs;
@@ -140,9 +140,9 @@ pub fn read_workshop_export_defaults(pack_dir: &Path) -> Result<PackManifest, St
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::packs::{extract_pack_archive, find_pack_root};
     use crate::packs::install::{atomic_install_pack_dir, validate_pack_for_install};
     use crate::packs::PACK_MANIFEST_VERSION;
+    use crate::packs::{extract_pack_archive, find_pack_root};
 
     fn write_draft_theme_pack(root: &Path) {
         fs::create_dir_all(root.join("themes/theme")).unwrap();
@@ -190,10 +190,7 @@ mod tests {
 
     #[test]
     fn export_leaves_workshop_untouched_and_round_trips() {
-        let root = std::env::temp_dir().join(format!(
-            "spiral-export-rt-{}",
-            std::process::id()
-        ));
+        let root = std::env::temp_dir().join(format!("spiral-export-rt-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         let workshop = root.join("workshop/draft-theme");
         write_draft_theme_pack(&workshop);
@@ -216,7 +213,10 @@ mod tests {
         assert!(Path::new(&exported.path).is_file());
 
         let after = fs::read_to_string(workshop.join(PACK_MANIFEST_FILENAME)).unwrap();
-        assert_eq!(before, after, "workshop pack.json must not change on export");
+        assert_eq!(
+            before, after,
+            "workshop pack.json must not change on export"
+        );
 
         let extract = extract_pack_archive(Path::new(&exported.path)).unwrap();
         let pack_root = find_pack_root(&extract).unwrap();

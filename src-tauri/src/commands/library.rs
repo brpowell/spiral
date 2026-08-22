@@ -1,9 +1,9 @@
 use crate::art_cache;
+use crate::audio_properties;
 use crate::db;
 use crate::encoding_profiles;
 use crate::import_files;
 use crate::library_organize::{self, OrganizeMetadata};
-use crate::audio_properties;
 use crate::lyrics_normalize;
 use crate::lyrics_sidecar;
 use crate::metadata_backup;
@@ -190,7 +190,9 @@ pub fn get_library(state: State<DbState>) -> Result<Vec<Track>, String> {
 
 const REFRESH_METADATA_MAX_ERRORS: usize = 20;
 
-fn refresh_library_metadata_blocking(app: &AppHandle) -> Result<RefreshLibraryMetadataResult, String> {
+fn refresh_library_metadata_blocking(
+    app: &AppHandle,
+) -> Result<RefreshLibraryMetadataResult, String> {
     let app_data = settings::app_data_dir(app)?;
     let state = app.state::<DbState>();
     let tracks = {
@@ -263,7 +265,9 @@ fn refresh_library_metadata_blocking(app: &AppHandle) -> Result<RefreshLibraryMe
 }
 
 #[tauri::command]
-pub async fn refresh_library_metadata(app: AppHandle) -> Result<RefreshLibraryMetadataResult, String> {
+pub async fn refresh_library_metadata(
+    app: AppHandle,
+) -> Result<RefreshLibraryMetadataResult, String> {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || refresh_library_metadata_blocking(&app))
         .await
@@ -422,7 +426,9 @@ pub fn replace_track_from_import(
             track_id,
             &metadata,
             Some(new_path.as_str()),
-            Some(&audio_properties::read_audio_properties(Path::new(&new_path))),
+            Some(&audio_properties::read_audio_properties(Path::new(
+                &new_path,
+            ))),
         )
         .map_err(|e| {
             eprintln!("replace_track_from_import update error: {e}");
@@ -634,9 +640,9 @@ fn convert_track_impl(
         resolved.lyrics_sidecar_sync_enabled,
     )
     .map_err(|err| {
-            let _ = fs::remove_file(&temp_path);
-            err
-        })?;
+        let _ = fs::remove_file(&temp_path);
+        err
+    })?;
     if let Some(parent) = temp_path.parent() {
         library_organize::prune_empty_dirs(parent, media_folder);
     }
@@ -676,7 +682,9 @@ fn convert_track_impl(
             track_id,
             &metadata,
             Some(new_path.as_str()),
-            Some(&audio_properties::read_audio_properties(Path::new(&new_path))),
+            Some(&audio_properties::read_audio_properties(Path::new(
+                &new_path,
+            ))),
         )
         .map_err(|e| {
             eprintln!("convert_track update error: {e}");
@@ -689,7 +697,10 @@ fn convert_track_impl(
             if let Err(err) = fs::remove_file(&old_path) {
                 eprintln!("convert_track failed to delete old file: {err}");
             } else {
-                library_organize::prune_empty_dirs(old_path.parent().unwrap_or(&old_path), media_folder);
+                library_organize::prune_empty_dirs(
+                    old_path.parent().unwrap_or(&old_path),
+                    media_folder,
+                );
             }
         }
     }

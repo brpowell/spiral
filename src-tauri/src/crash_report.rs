@@ -122,12 +122,7 @@ fn prune_old_reports(dir: &Path) -> Result<(), String> {
     let mut entries: Vec<_> = fs::read_dir(dir)
         .map_err(|e| format!("failed to read crash-reports dir: {e}"))?
         .filter_map(|entry| entry.ok())
-        .filter(|entry| {
-            entry
-                .path()
-                .extension()
-                .is_some_and(|ext| ext == "json")
-        })
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
         .collect();
 
     if entries.len() <= MAX_CRASH_REPORTS {
@@ -169,10 +164,7 @@ fn write_panic_report(info: &std::panic::PanicHookInfo<'_>) {
         format!("{location}\n{stack_or_backtrace}")
     };
 
-    let app = APP_HANDLE
-        .lock()
-        .ok()
-        .and_then(|guard| guard.clone());
+    let app = APP_HANDLE.lock().ok().and_then(|guard| guard.clone());
     if let Some(app) = app {
         if let Err(err) = write_from_app(&app, CrashSource::Rust, message, full_stack) {
             eprintln!("failed to write crash report: {err}");
@@ -211,11 +203,7 @@ fn report_id_from_path(path: &Path) -> Option<String> {
 }
 
 fn is_valid_report_id(id: &str) -> bool {
-    if id.is_empty()
-        || id.contains('/')
-        || id.contains('\\')
-        || id.contains("..")
-    {
+    if id.is_empty() || id.contains('/') || id.contains('\\') || id.contains("..") {
         return false;
     }
 
@@ -370,10 +358,8 @@ mod tests {
 
     #[test]
     fn retention_prunes_oldest_reports() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-crash-retention-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("spiral-crash-retention-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -413,10 +399,8 @@ mod tests {
 
     #[test]
     fn write_report_round_trips_json() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-crash-roundtrip-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("spiral-crash-roundtrip-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -505,10 +489,8 @@ mod tests {
 
     #[test]
     fn list_and_read_reports_by_id() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-crash-list-read-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("spiral-crash-list-read-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 

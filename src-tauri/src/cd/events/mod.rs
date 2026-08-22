@@ -2,8 +2,12 @@
 #[derive(Debug, Clone)]
 #[allow(dead_code)] // VolumeMounted/Unmounted are constructed on macOS; Windows/Linux use DeviceStatusChanged.
 pub enum MonitorWake {
-    VolumeMounted { path: String },
-    VolumeUnmounted { path: String },
+    VolumeMounted {
+        path: String,
+    },
+    VolumeUnmounted {
+        path: String,
+    },
     /// Optical media insert/eject/state change (no filesystem mount required).
     DeviceStatusChanged,
 }
@@ -27,8 +31,6 @@ pub use windows::start_volume_events;
 pub use linux::start_volume_events;
 
 #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-pub fn start_volume_events(
-    _tx: std::sync::mpsc::Sender<MonitorWake>,
-) -> Result<(), String> {
+pub fn start_volume_events(_tx: std::sync::mpsc::Sender<MonitorWake>) -> Result<(), String> {
     Ok(())
 }

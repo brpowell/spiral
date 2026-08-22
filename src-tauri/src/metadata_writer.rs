@@ -83,7 +83,9 @@ fn mp4_artwork(art_path: &str, bytes: Vec<u8>) -> Result<Img<Vec<u8>>, MetadataW
         })?;
         let mut jpeg = Vec::new();
         img.write_to(&mut Cursor::new(&mut jpeg), ImageFormat::Jpeg)
-            .map_err(|e| MetadataWriteError::Tag(format!("Failed to encode cover art as JPEG: {e}")))?;
+            .map_err(|e| {
+                MetadataWriteError::Tag(format!("Failed to encode cover art as JPEG: {e}"))
+            })?;
         return Ok(Img::jpeg(jpeg));
     }
     Ok(Img::jpeg(bytes))
@@ -168,9 +170,8 @@ where
         })?;
     }
 
-    std::fs::rename(&temp, path).map_err(|e| {
-        MetadataWriteError::Io(format!("Failed to replace audio file: {e}"))
-    })?;
+    std::fs::rename(&temp, path)
+        .map_err(|e| MetadataWriteError::Io(format!("Failed to replace audio file: {e}")))?;
 
     Ok(())
 }
@@ -180,7 +181,8 @@ pub(crate) fn read_id3_tag(path: &Path) -> Result<Tag, MetadataWriteError> {
     match Tag::read_from_path(path) {
         Ok(tag) => Ok(tag),
         Err(id3::Error {
-            kind: ErrorKind::NoTag, ..
+            kind: ErrorKind::NoTag,
+            ..
         }) => Ok(Tag::new()),
         Err(e) => Err(MetadataWriteError::Tag(format!(
             "Failed to read ID3 tags: {e}"
@@ -195,7 +197,10 @@ pub(crate) fn verify_m4a_readable(path: &Path) -> Result<(), MetadataWriteError>
     Ok(())
 }
 
-fn apply_id3_metadata(tag: &mut Tag, metadata: &TrackMetadataUpdate) -> Result<(), MetadataWriteError> {
+fn apply_id3_metadata(
+    tag: &mut Tag,
+    metadata: &TrackMetadataUpdate,
+) -> Result<(), MetadataWriteError> {
     tag.set_title(metadata.title.clone());
     if let Some(artist) = &metadata.artist {
         if let Some(joined) = joined_artist_tag(artist) {
@@ -263,7 +268,9 @@ fn write_id3(
         let mut tag = read_id3_tag(target)?;
         apply_id3_metadata(&mut tag, metadata)?;
         tag.write_to_path(target, id3::Version::Id3v24)
-            .map_err(|e| MetadataWriteError::Tag(format!("Failed to write {format_label} tags: {e}")))?;
+            .map_err(|e| {
+                MetadataWriteError::Tag(format!("Failed to write {format_label} tags: {e}"))
+            })?;
         Ok(())
     })
 }
@@ -408,7 +415,9 @@ fn write_m4a(
     metadata: &TrackMetadataUpdate,
     backup_config: &MetadataBackupConfig,
 ) -> Result<(), MetadataWriteError> {
-    write_via_temp(path, backup_config, |target| write_m4a_tag(target, metadata))
+    write_via_temp(path, backup_config, |target| {
+        write_m4a_tag(target, metadata)
+    })
 }
 
 fn write_vorbis_container(
@@ -460,8 +469,9 @@ pub fn write_lyrics_projection(
                 lyrics_tags::LyricsEmbedKind::SyncCapable,
             );
             lyrics_tags::apply_lyrics_to_flac(&mut tag, &text, remove);
-            tag.save()
-                .map_err(|e| MetadataWriteError::Tag(format!("Failed to write FLAC lyrics: {e}")))?;
+            tag.save().map_err(|e| {
+                MetadataWriteError::Tag(format!("Failed to write FLAC lyrics: {e}"))
+            })?;
             Ok(())
         }),
         Some("m4a") | Some("aac") | Some("mp4") => write_via_temp(path, backup_config, |target| {
@@ -597,7 +607,9 @@ mod tests {
         let tag = Tag::read_from_path(&audio).expect("re-read after write");
         assert_eq!(tag.artist().as_deref(), Some("Alice; Bob"));
         assert_eq!(
-            tag.get("TPE2").and_then(|f| f.content().text()).map(|s| s.to_string()),
+            tag.get("TPE2")
+                .and_then(|f| f.content().text())
+                .map(|s| s.to_string()),
             Some("Band A; Band B".to_string())
         );
 
@@ -811,11 +823,7 @@ mod tests {
         img.save(&webp_path).expect("write webp");
 
         let bytes = fs::read(&webp_path).unwrap();
-        let artwork = mp4_artwork(
-            webp_path.to_str().unwrap(),
-            bytes,
-        )
-        .expect("convert webp");
+        let artwork = mp4_artwork(webp_path.to_str().unwrap(), bytes).expect("convert webp");
 
         assert_eq!(artwork.fmt, mp4ameta::ImgFmt::Jpeg);
         assert!(!artwork.data.is_empty());
@@ -1099,8 +1107,7 @@ mod tests {
 
     #[test]
     fn m4a_write_line_synced_lyrics_strips_timestamps() {
-        let dir =
-            std::env::temp_dir().join(format!("spiral-m4a-lrc-write-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("spiral-m4a-lrc-write-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -1155,10 +1162,8 @@ mod tests {
 
     #[test]
     fn write_lyrics_projection_updates_lyrics_only() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-lyrics-projection-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("spiral-lyrics-projection-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -1194,8 +1199,7 @@ mod tests {
         .expect("seed mp3");
 
         let projected = crate::lyrics_tags::track_lyrics_input_from_plain("Library lyrics");
-        write_lyrics_projection(&audio, Some(&projected), &backup_config)
-            .expect("project lyrics");
+        write_lyrics_projection(&audio, Some(&projected), &backup_config).expect("project lyrics");
 
         let tag = Tag::read_from_path(&audio).expect("re-read mp3");
         assert_eq!(tag.title().as_deref(), Some("Keep Title"));
@@ -1222,12 +1226,8 @@ mod tests {
             enabled: false,
             retention_days: 14,
         };
-        write_flac(
-            &audio,
-            &lyrics_metadata("FLAC lyric body"),
-            &backup_config,
-        )
-        .expect("write flac lyrics");
+        write_flac(&audio, &lyrics_metadata("FLAC lyric body"), &backup_config)
+            .expect("write flac lyrics");
 
         let tag = FlacTag::read_from_path(&audio).expect("re-read flac");
         let raw = crate::lyrics_tags::read_lyrics_from_flac(&tag).expect("read flac lyrics");
@@ -1251,12 +1251,8 @@ mod tests {
             enabled: false,
             retention_days: 14,
         };
-        write_m4a(
-            &audio,
-            &lyrics_metadata("M4A lyric body"),
-            &backup_config,
-        )
-        .expect("write m4a lyrics");
+        write_m4a(&audio, &lyrics_metadata("M4A lyric body"), &backup_config)
+            .expect("write m4a lyrics");
 
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read m4a");
         let raw = crate::lyrics_tags::read_lyrics_from_mp4(&tag).expect("read m4a lyrics");
@@ -1284,12 +1280,8 @@ mod tests {
             enabled: false,
             retention_days: 14,
         };
-        write_vorbis_container(
-            &audio,
-            &lyrics_metadata("OGG lyric body"),
-            &backup_config,
-        )
-        .expect("write ogg lyrics");
+        write_vorbis_container(&audio, &lyrics_metadata("OGG lyric body"), &backup_config)
+            .expect("write ogg lyrics");
 
         let tagged = Probe::open(&audio)
             .expect("open ogg")

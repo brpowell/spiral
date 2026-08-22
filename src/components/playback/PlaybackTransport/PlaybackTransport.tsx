@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { buildPlaybackOrder } from "../../../lib/playbackOrder";
 import { getManualNextId } from "../../../lib/playbackQueue";
 import { getNextSkippingKnownUnplayable } from "../../../lib/playbackSkip";
+import { isTrackImporting } from "../../../lib/pendingImportTrack";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import type { RepeatMode } from "../../../types/track";
 import { Button } from "../../common/Button/Button";
@@ -64,6 +65,10 @@ export function PlaybackTransport({
     [manualQueueIds, playContextIds, library, currentTrackId],
   );
 
+  const canPlay =
+    currentTrackId !== null ||
+    library.some((track) => !isTrackImporting(track));
+
   const canGoPrevious = currentTrackId !== null;
 
   const canGoNext =
@@ -120,7 +125,7 @@ export function PlaybackTransport({
         iconOnly
         className="playback-btn playback-btn--play"
         onClick={handlePlayPause}
-        disabled={!currentTrackId}
+        disabled={!canPlay}
         aria-label={
           playbackState === "playing"
             ? t("transport.pause")

@@ -75,6 +75,7 @@ import type { PlayableRef } from "../types/playable";
 import type { PlaybackSource } from "../lib/playback";
 import type { CrossfadeVisualState } from "../lib/playback";
 import type { PlaybackState, RepeatMode, Track } from "../types/track";
+import { playOrResume } from "../lib/playbackStart";
 
 export type TrackEditorTab = "details" | "file" | "lyrics";
 
@@ -1449,13 +1450,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     togglePlayPause: () => {
-      const { playbackState, currentTrackId } = get();
-      if (playbackState === "playing") {
+      if (get().playbackState === "playing") {
         get().pause();
-      } else if (currentTrackId && playbackState === "paused") {
-        get().resume();
-      } else if (currentTrackId) {
-        void get().playTrack(currentTrackId);
+      } else {
+        playOrResume();
       }
     },
 

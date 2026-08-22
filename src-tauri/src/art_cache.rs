@@ -101,11 +101,7 @@ pub fn guess_ext_from_url(url: &str) -> &'static str {
 }
 
 /// True when `art_path` is the cache file keyed by the track's `file_path`.
-pub fn art_path_is_track_owned(
-    app_data_dir: &Path,
-    track_file_path: &str,
-    art_path: &str,
-) -> bool {
+pub fn art_path_is_track_owned(app_data_dir: &Path, track_file_path: &str, art_path: &str) -> bool {
     find_cached_art_path(app_data_dir, track_file_path)
         .is_some_and(|owned| owned.to_string_lossy() == art_path)
 }
@@ -146,8 +142,7 @@ mod tests {
         let track_path = "/library/media/song.mp3";
         let owned = write_bytes_to_art_cache(&app_data, track_path, b"owned", "jpg").unwrap();
         let shared_label = "Artist - Album";
-        let shared =
-            write_bytes_to_art_cache(&app_data, shared_label, b"shared", "jpg").unwrap();
+        let shared = write_bytes_to_art_cache(&app_data, shared_label, b"shared", "jpg").unwrap();
 
         assert!(art_path_is_track_owned(
             &app_data,
@@ -188,8 +183,7 @@ mod tests {
 
     #[test]
     fn find_cached_art_path_returns_existing_file() {
-        let app_data =
-            std::env::temp_dir().join(format!("spiral-art-find-{}", std::process::id()));
+        let app_data = std::env::temp_dir().join(format!("spiral-art-find-{}", std::process::id()));
         let _ = fs::remove_dir_all(&app_data);
         let cache_dir = art_cache_dir(&app_data);
         fs::create_dir_all(&cache_dir).unwrap();

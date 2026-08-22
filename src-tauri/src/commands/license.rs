@@ -69,10 +69,7 @@ pub fn pick_card_wrap_file() -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
-pub fn install_registration_card(
-    app: AppHandle,
-    path: String,
-) -> Result<LicenseSnapshot, String> {
+pub fn install_registration_card(app: AppHandle, path: String) -> Result<LicenseSnapshot, String> {
     license::install_registration_card(&app, &path)
 }
 
@@ -138,8 +135,7 @@ pub fn set_registration_wrap_from_file(
     app: AppHandle,
     path: String,
 ) -> Result<LicenseSnapshot, String> {
-    let bytes =
-        fs::read(&path).map_err(|e| format!("failed to read wrap image: {e}"))?;
+    let bytes = fs::read(&path).map_err(|e| format!("failed to read wrap image: {e}"))?;
     license::set_registration_wrap_from_bytes(&app, &bytes)
 }
 
@@ -293,10 +289,7 @@ fn parse_error_body(body: &str, status: u16) -> (&'static str, String) {
                 "invalid_purchase_id" | "invalid_json" => "invalid_request",
                 "network_error" => "network_error",
                 other if !other.is_empty() => {
-                    return (
-                        "finalize_failed",
-                        format!("{other}: {message}"),
-                    );
+                    return ("finalize_failed", format!("{other}: {message}"));
                 }
                 _ => "finalize_failed",
             };

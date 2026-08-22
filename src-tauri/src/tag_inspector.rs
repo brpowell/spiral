@@ -122,10 +122,7 @@ fn raw_flac_lyrics_tags(path: &Path) -> Vec<RawLyricsTag> {
     ["LYRICS", "UNSYNCEDLYRICS"]
         .into_iter()
         .filter_map(|key| {
-            let values: Vec<String> = tag
-                .get_vorbis(key)?
-                .map(str::to_string)
-                .collect();
+            let values: Vec<String> = tag.get_vorbis(key)?.map(str::to_string).collect();
             if values.is_empty() {
                 return None;
             }
@@ -360,7 +357,10 @@ pub fn print_human_report(report: &TagFileReport) {
         println!("  (none)");
     } else {
         for raw in &report.raw_lyrics_tags {
-            let mut header = format!("  {} ({} lines, {} bytes)", raw.key, raw.line_count, raw.byte_len);
+            let mut header = format!(
+                "  {} ({} lines, {} bytes)",
+                raw.key, raw.line_count, raw.byte_len
+            );
             if let Some(lang) = &raw.lang {
                 header.push_str(&format!(", lang={lang}"));
             }

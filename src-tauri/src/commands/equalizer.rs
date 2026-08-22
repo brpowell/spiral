@@ -7,10 +7,7 @@ pub fn get_equalizer_settings(app: AppHandle) -> Result<EqualizerSettings, Strin
 }
 
 #[tauri::command]
-pub fn save_equalizer_settings(
-    app: AppHandle,
-    settings: EqualizerSettings,
-) -> Result<(), String> {
+pub fn save_equalizer_settings(app: AppHandle, settings: EqualizerSettings) -> Result<(), String> {
     let mut app_settings = settings::read_settings(&app);
     app_settings.equalizer.enabled = settings.enabled;
     app_settings.equalizer.preset_id = settings.preset_id;
@@ -20,9 +17,7 @@ pub fn save_equalizer_settings(
 }
 
 #[tauri::command]
-pub fn list_equalizer_custom_presets(
-    app: AppHandle,
-) -> Result<Vec<EqualizerPresetRecord>, String> {
+pub fn list_equalizer_custom_presets(app: AppHandle) -> Result<Vec<EqualizerPresetRecord>, String> {
     Ok(settings::read_settings(&app).equalizer.custom_presets)
 }
 

@@ -11,8 +11,8 @@ use objc2::exception::catch;
 use objc2::rc::{autoreleasepool, Retained};
 use objc2::runtime::AnyObject;
 use objc2::{extern_class, extern_methods};
-use std::panic::AssertUnwindSafe;
 use objc2_foundation::{NSArray, NSDictionary, NSNumber, NSObject, NSString};
+use std::panic::AssertUnwindSafe;
 
 extern_class!(
     #[unsafe(super(NSObject))]
@@ -111,8 +111,7 @@ unsafe fn dict_string(dict: &NSDictionary, key: *mut AnyObject) -> Option<String
 }
 
 unsafe fn dict_u32(dict: &NSDictionary, key: *mut AnyObject) -> Option<u32> {
-    dict.objectForKey(ns_key(key))
-        .and_then(|obj| ns_u32(&obj))
+    dict.objectForKey(ns_key(key)).and_then(|obj| ns_u32(&obj))
 }
 
 fn is_cd_media_class(value: &str) -> bool {

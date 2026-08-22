@@ -148,9 +148,7 @@ fn with_session<R>(session_id: u64, f: impl FnOnce(&ActivePlayback) -> R) -> Opt
 
 /// Evict the oldest idle (not playing) session when at capacity.
 /// Returns an error if both slots are occupied by playing sessions.
-fn make_room_for_new_session(
-    sessions: &mut HashMap<u64, ActivePlayback>,
-) -> Result<(), String> {
+fn make_room_for_new_session(sessions: &mut HashMap<u64, ActivePlayback>) -> Result<(), String> {
     if sessions.len() < MAX_SESSIONS {
         return Ok(());
     }
@@ -174,9 +172,7 @@ fn make_room_for_new_session(
             }
             Ok(())
         }
-        EvictionDecision::Full => {
-            Err("Maximum concurrent file playback sessions reached".into())
-        }
+        EvictionDecision::Full => Err("Maximum concurrent file playback sessions reached".into()),
     }
 }
 
@@ -188,7 +184,10 @@ enum EvictionDecision {
 }
 
 /// Pure eviction policy for dual-session capacity.
-fn pick_eviction_victim(sessions: &[(u64, bool, Instant)], max_sessions: usize) -> EvictionDecision {
+fn pick_eviction_victim(
+    sessions: &[(u64, bool, Instant)],
+    max_sessions: usize,
+) -> EvictionDecision {
     if sessions.len() < max_sessions {
         return EvictionDecision::HasRoom;
     }
@@ -238,7 +237,9 @@ fn start_inner(app: Option<AppHandle>, path: &str) -> Result<FilePlaybackStarted
         ext.as_str(),
         "ogg" | "opus" | "m4a" | "mp4" | "aac" | "mp3" | "flac" | "wav"
     ) {
-        return Err(format!("Native PCM playback is not supported for .{ext} files"));
+        return Err(format!(
+            "Native PCM playback is not supported for .{ext} files"
+        ));
     }
 
     {
@@ -366,7 +367,7 @@ fn playback_thread(
                 }
             }
 
-                if !chunk.is_empty() {
+            if !chunk.is_empty() {
                 in_flight.wait_for_capacity();
 
                 if stop_requested.load(Ordering::SeqCst) {
@@ -607,12 +608,8 @@ mod tests {
 
             // Mark both playing without resuming decode (short fixtures would
             // natural-end immediately). Eviction only inspects the flag.
-            with_session(a.session_id, |s| {
-                s.is_playing.store(true, Ordering::SeqCst)
-            });
-            with_session(b.session_id, |s| {
-                s.is_playing.store(true, Ordering::SeqCst)
-            });
+            with_session(a.session_id, |s| s.is_playing.store(true, Ordering::SeqCst));
+            with_session(b.session_id, |s| s.is_playing.store(true, Ordering::SeqCst));
 
             let err = start_inner(None, &ogg_path).expect_err("third should fail");
             assert!(

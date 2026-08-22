@@ -5,8 +5,7 @@ use std::path::Path;
 use mp4ameta::ident::{FreeformIdent, FreeformIdentStatic, APPLE_ITUNES_MEAN};
 use mp4ameta::{Data, Tag as Mp4Tag};
 
-const ITUNES_SMPB: FreeformIdentStatic =
-    FreeformIdent::new_static(APPLE_ITUNES_MEAN, "iTunSMPB");
+const ITUNES_SMPB: FreeformIdentStatic = FreeformIdent::new_static(APPLE_ITUNES_MEAN, "iTunSMPB");
 
 /// Encoder delay / padding / original length from an iTunes `iTunSMPB` tag.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

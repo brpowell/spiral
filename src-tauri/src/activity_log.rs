@@ -218,9 +218,7 @@ pub fn get_recent(limit: usize, domain_prefix: Option<&str>) -> Vec<ActivityLogE
     buffer
         .iter()
         .rev()
-        .filter(|entry| {
-            domain_prefix.is_none_or(|prefix| entry.domain.starts_with(prefix))
-        })
+        .filter(|entry| domain_prefix.is_none_or(|prefix| entry.domain.starts_with(prefix)))
         .take(limit)
         .cloned()
         .collect::<Vec<_>>()

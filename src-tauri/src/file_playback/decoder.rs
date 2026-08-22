@@ -439,9 +439,7 @@ impl StreamingDecoder {
         }
 
         if let Backend::PcmBuffer {
-            samples,
-            position,
-            ..
+            samples, position, ..
         } = &mut self.backend
         {
             if *position >= samples.len() {
@@ -554,11 +552,10 @@ impl StreamingDecoder {
                 let trim_start = packet.trim_start() as usize;
                 let trim_end = packet.trim_end() as usize;
 
-                let frame_samples =
-                    match decoder.decode_float(packet.buf(), pcm_scratch, false) {
-                        Ok(samples) => samples,
-                        Err(_) => continue,
-                    };
+                let frame_samples = match decoder.decode_float(packet.buf(), pcm_scratch, false) {
+                    Ok(samples) => samples,
+                    Err(_) => continue,
+                };
 
                 if frame_samples == 0 {
                     continue;
@@ -606,7 +603,11 @@ fn output_channels_for_track(
     Ok(count.min(2).max(1))
 }
 
-fn append_decoded(decoded: AudioBufferRef<'_>, output_channels: usize, pending: &mut VecDeque<f32>) {
+fn append_decoded(
+    decoded: AudioBufferRef<'_>,
+    output_channels: usize,
+    pending: &mut VecDeque<f32>,
+) {
     let spec = *decoded.spec();
     let duration = decoded.capacity() as u64;
     let mut sample_buf = SampleBuffer::<f32>::new(duration, spec);
@@ -660,8 +661,7 @@ mod tests {
     #[test]
     fn output_channels_caps_at_stereo() {
         assert_eq!(
-            output_channels_for_track(Some(symphonia::core::audio::Channels::FRONT_LEFT))
-                .unwrap(),
+            output_channels_for_track(Some(symphonia::core::audio::Channels::FRONT_LEFT)).unwrap(),
             1
         );
     }

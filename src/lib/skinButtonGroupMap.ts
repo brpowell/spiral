@@ -11,7 +11,7 @@ export interface ButtonGroupPositionMap {
   height: number;
   /** Bounding boxes per mapping color for transparent passthrough between buttons. */
   regions: ButtonGroupHitRegion[];
-  /** Alpha masks keyed by mapping color (`"r,g,b"`) for per-button hover/pressed overlays. */
+  /** Alpha masks keyed by mapping color (`"r,g,b"`) for per-button hover/pressed/disabled overlays. */
   colorMasks: Map<string, string>;
   /** Masks that hide a mapping color (show everything else) for composite sheets. */
   excludeColorMasks: Map<string, string>;
@@ -23,7 +23,9 @@ export interface ButtonGroupPositionMap {
   keyAt(x: number, y: number, validKeys: Set<string>): string | null;
 }
 
-export function parseMappingColor(color: string): { r: number; g: number; b: number } | null {
+export function parseMappingColor(
+  color: string,
+): { r: number; g: number; b: number } | null {
   const hex = color.trim().replace(/^#/, "");
   if (hex.length !== 6) return null;
   const value = Number.parseInt(hex, 16);
@@ -219,7 +221,12 @@ export async function loadButtonGroupPositionMap(
   if (!ctx) return null;
 
   ctx.drawImage(image, 0, 0);
-  const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const { data, width, height } = ctx.getImageData(
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  );
   const regions = buildRegions(data, width, height);
   const colorMasks = buildColorMasks(data, width, height);
   const excludeColorMasks = buildExcludeColorMasks(data, width, height);

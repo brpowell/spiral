@@ -3,17 +3,21 @@ mod ogg_opus_support {
     use crate::audio_formats;
     use crate::audio_properties;
     use crate::file_playback::decoder::StreamingDecoder;
+    use crate::metadata_backup::MetadataBackupConfig;
     use crate::metadata_reader;
     use crate::metadata_writer;
     use crate::models::TrackMetadataUpdate;
-    use crate::metadata_backup::MetadataBackupConfig;
     use crate::test_fixtures::{ogg, opus};
     use std::path::Path;
 
     #[test]
     fn ogg_opus_allowlist_accepts_extensions() {
-        assert!(audio_formats::is_supported_audio_file(Path::new("/music/a.ogg")));
-        assert!(audio_formats::is_supported_audio_file(Path::new("/music/a.opus")));
+        assert!(audio_formats::is_supported_audio_file(Path::new(
+            "/music/a.ogg"
+        )));
+        assert!(audio_formats::is_supported_audio_file(Path::new(
+            "/music/a.opus"
+        )));
     }
 
     #[test]
@@ -47,7 +51,8 @@ mod ogg_opus_support {
 
     #[test]
     fn parse_opus_fixture_metadata() {
-        let app_data = std::env::temp_dir().join(format!("spiral-opus-meta-{}", std::process::id()));
+        let app_data =
+            std::env::temp_dir().join(format!("spiral-opus-meta-{}", std::process::id()));
         let _ = std::fs::create_dir_all(&app_data);
         let result = metadata_reader::parse_track_metadata(
             &app_data,

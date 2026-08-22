@@ -107,9 +107,9 @@ pub fn lyrics_text_for_embed_input(
                 LyricsEmbedKind::Mp4 => lyrics.plain_text.clone(),
                 LyricsEmbedKind::SyncCapable => match lyrics.format {
                     LyricsFormat::LineSynced => lyrics_lrc::serialize_lrc(&lyrics.lines, 0),
-                    LyricsFormat::Plain
-                    | LyricsFormat::WordSynced
-                    | LyricsFormat::Instrumental => lyrics.plain_text.clone(),
+                    LyricsFormat::Plain | LyricsFormat::WordSynced | LyricsFormat::Instrumental => {
+                        lyrics.plain_text.clone()
+                    }
                 },
             };
             (text, false)
@@ -232,8 +232,7 @@ mod tests {
             lyrics_changed: true,
         };
 
-        let (sync_text, remove) =
-            lyrics_text_for_embed(&metadata, LyricsEmbedKind::SyncCapable);
+        let (sync_text, remove) = lyrics_text_for_embed(&metadata, LyricsEmbedKind::SyncCapable);
         assert!(!remove);
         assert!(sync_text.contains("[00:03.00] Synced"));
 
@@ -303,8 +302,8 @@ mod tests {
     }
 
     fn write_m4a_with_lyrics(path: &Path, lyrics: &str) {
-        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/moov_before_mdat.m4a");
+        let src =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/moov_before_mdat.m4a");
         fs::copy(src, path).expect("copy m4a fixture");
         let mut tag = Mp4Tag::read_from_path(path).expect("read m4a");
         tag.set_lyrics(lyrics);

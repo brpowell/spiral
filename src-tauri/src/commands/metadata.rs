@@ -1,20 +1,20 @@
 use super::library::DbState;
+use crate::activity_log::{self, LogLevel};
 use crate::art_cache::{self, guess_ext_from_url};
-use crate::lyrics_normalize;
-use crate::lyrics_sidecar;
-use crate::metadata_reader;
-use crate::models::TrackInput;
 use crate::artist_art_fetch;
 use crate::cover_art_fetch::{self, CoverArtCandidate};
-use crate::disc_metadata_cache;
-use crate::lyrics_fetch;
 use crate::db;
+use crate::disc_metadata_cache;
 use crate::library_organize;
+use crate::lyrics_fetch;
+use crate::lyrics_normalize;
+use crate::lyrics_sidecar;
 use crate::metadata_backup;
+use crate::metadata_reader;
 use crate::metadata_writer;
-use crate::activity_log::{self, LogLevel};
-use crate::settings;
+use crate::models::TrackInput;
 use crate::models::{Track, TrackMetadataUpdate};
+use crate::settings;
 use std::path::Path;
 use std::time::Duration;
 use tauri::{AppHandle, Manager, State};
@@ -22,10 +22,7 @@ use tauri::{AppHandle, Manager, State};
 const ART_DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[tauri::command]
-pub async fn parse_track_metadata(
-    app: AppHandle,
-    file_path: String,
-) -> Result<TrackInput, String> {
+pub async fn parse_track_metadata(app: AppHandle, file_path: String) -> Result<TrackInput, String> {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let app_data = app_data_dir(&app)?;
@@ -159,7 +156,10 @@ fn cache_art_from_url_blocking(
 }
 
 #[tauri::command]
-pub fn resolve_cached_art_path(app: AppHandle, file_path: String) -> Result<Option<String>, String> {
+pub fn resolve_cached_art_path(
+    app: AppHandle,
+    file_path: String,
+) -> Result<Option<String>, String> {
     let app_data = app_data_dir(&app)?;
     Ok(art_cache::find_cached_art_path(&app_data, &file_path)
         .map(|path| path.to_string_lossy().into_owned()))

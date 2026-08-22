@@ -6,6 +6,7 @@ import type {
   InteractiveAssetsWhen,
   InteractiveAssetState,
   SkinAssetFile,
+  ThumbAssets,
 } from "../types/skin";
 
 /** True when the asset path refers to an animated GIF. */
@@ -25,7 +26,7 @@ export function interactiveAssetsUseGif(
   bindState: SkinBindState,
 ): boolean {
   const resolved = resolveInteractiveAssets(assets, assetsWhen, bindState);
-  return [resolved.default, resolved.hover, resolved.pressed]
+  return [resolved.default, resolved.hover, resolved.pressed, resolved.disabled]
     .filter((file): file is SkinAssetFile => Boolean(file))
     .some(isSkinGifAsset);
 }
@@ -63,6 +64,7 @@ export function resolveInteractiveAssetFile(
   const active = resolveInteractiveAssets(assets, assetsWhen, bindState);
   if (state === "default") return active.default;
   if (state === "hover") return active.hover ?? active.default;
+  if (state === "disabled") return active.disabled ?? active.default;
   return active.pressed ?? active.default;
 }
 
@@ -89,6 +91,7 @@ export function collectBitmapAssetFiles(
     files.add(set.default);
     if (set.hover) files.add(set.hover);
     if (set.pressed) files.add(set.pressed);
+    if (set.disabled) files.add(set.disabled);
   };
   addSet(assets);
   if (assetsWhen) {
@@ -97,6 +100,23 @@ export function collectBitmapAssetFiles(
     }
   }
   return [...files];
+}
+
+/** Resting / hover / pressed thumb file for a bitmap slider. */
+export function resolveThumbAssetFile(
+  thumb: ThumbAssets,
+  state: { dragging: boolean; hovering: boolean },
+): SkinAssetFile {
+  if (state.dragging && thumb.pressed) return thumb.pressed;
+  if (state.hovering && thumb.hover) return thumb.hover;
+  return thumb.default;
+}
+
+export function collectThumbAssetFiles(thumb: ThumbAssets): SkinAssetFile[] {
+  const files = [thumb.default];
+  if (thumb.hover) files.push(thumb.hover);
+  if (thumb.pressed) files.push(thumb.pressed);
+  return files;
 }
 
 export function skinPreviewUrl(previewPath: string | null): string | null {

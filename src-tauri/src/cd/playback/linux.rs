@@ -14,8 +14,8 @@ pub fn start(
     drive_id: &str,
     track_number: u32,
 ) -> Result<CdPlaybackStarted, String> {
-    let drive_id = normalize_drive_id(drive_id)
-        .ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
+    let drive_id =
+        normalize_drive_id(drive_id).ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
 
     // Hold Playing before sector setup so background TOC probes defer.
     let session_guard = begin_phase(&drive_id, DriveSessionPhase::Playing);

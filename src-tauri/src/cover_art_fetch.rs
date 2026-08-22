@@ -97,16 +97,13 @@ pub fn fetch_cover_art_for_release_cached(
     let candidates = fetch_cover_art_for_release_uncached(mbid)?;
     let fetched_at = SystemTime::now();
 
-    FETCH_CACHE
-        .lock()
-        .map_err(|e| e.to_string())?
-        .insert(
-            key,
-            CacheEntry {
-                fetched_at,
-                candidates: candidates.clone(),
-            },
-        );
+    FETCH_CACHE.lock().map_err(|e| e.to_string())?.insert(
+        key,
+        CacheEntry {
+            fetched_at,
+            candidates: candidates.clone(),
+        },
+    );
 
     activity_log::log(
         if candidates.is_empty() {
@@ -128,7 +125,10 @@ pub fn fetch_cover_art_for_release_cached(
     Ok(candidates)
 }
 
-pub fn fetch_cover_art_cached(artist: String, album: String) -> Result<Vec<CoverArtCandidate>, String> {
+pub fn fetch_cover_art_cached(
+    artist: String,
+    album: String,
+) -> Result<Vec<CoverArtCandidate>, String> {
     if artist.trim().is_empty() && album.trim().is_empty() {
         return Ok(vec![]);
     }
@@ -167,16 +167,13 @@ pub fn fetch_cover_art_cached(artist: String, album: String) -> Result<Vec<Cover
     let candidates = fetch_cover_art_uncached(&artist, &album)?;
     let fetched_at = SystemTime::now();
 
-    FETCH_CACHE
-        .lock()
-        .map_err(|e| e.to_string())?
-        .insert(
-            key,
-            CacheEntry {
-                fetched_at,
-                candidates: candidates.clone(),
-            },
-        );
+    FETCH_CACHE.lock().map_err(|e| e.to_string())?.insert(
+        key,
+        CacheEntry {
+            fetched_at,
+            candidates: candidates.clone(),
+        },
+    );
 
     activity_log::log(
         if candidates.is_empty() {
@@ -230,10 +227,11 @@ fn http_client() -> Result<reqwest::blocking::Client, String> {
         .map_err(|e| e.to_string())
 }
 
-fn fetch_cover_art_for_release_uncached(release_mbid: &str) -> Result<Vec<CoverArtCandidate>, String> {
+fn fetch_cover_art_for_release_uncached(
+    release_mbid: &str,
+) -> Result<Vec<CoverArtCandidate>, String> {
     let client = http_client()?;
-    let mut candidates =
-        fetch_caa_front_images(&client, CaaEntity::Release, release_mbid, 0)?;
+    let mut candidates = fetch_caa_front_images(&client, CaaEntity::Release, release_mbid, 0)?;
 
     if candidates.is_empty() {
         if let Some(release_group_mbid) = lookup_release_group_mbid(&client, release_mbid) {
@@ -248,12 +246,8 @@ fn fetch_cover_art_for_release_uncached(release_mbid: &str) -> Result<Vec<CoverA
                     "releaseGroupMbid": release_group_mbid,
                 })),
             );
-            candidates = fetch_caa_front_images(
-                &client,
-                CaaEntity::ReleaseGroup,
-                &release_group_mbid,
-                0,
-            )?;
+            candidates =
+                fetch_caa_front_images(&client, CaaEntity::ReleaseGroup, &release_group_mbid, 0)?;
             apply_release_group_rank_offset(&mut candidates);
         }
     }
@@ -282,7 +276,10 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
             activity_log::log(
                 LogLevel::Error,
                 "metadata.coverArt",
-                format!("MusicBrainz release search failed with HTTP {}", resp.status()),
+                format!(
+                    "MusicBrainz release search failed with HTTP {}",
+                    resp.status()
+                ),
                 Some(serde_json::json!({
                     "artist": artist,
                     "album": album,
@@ -542,10 +539,11 @@ fn caa_image_is_front(image: &serde_json::Value) -> bool {
         .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
         .unwrap_or_default();
 
-    types
-        .iter()
-        .any(|t| t.eq_ignore_ascii_case("front"))
-        || image.get("front").and_then(|f| f.as_bool()).unwrap_or(false)
+    types.iter().any(|t| t.eq_ignore_ascii_case("front"))
+        || image
+            .get("front")
+            .and_then(|f| f.as_bool())
+            .unwrap_or(false)
         || types.is_empty()
 }
 
@@ -568,8 +566,14 @@ fn parse_caa_front_candidates(
             continue;
         }
 
-        let approved = image.get("approved").and_then(|a| a.as_bool()).unwrap_or(true);
-        let primary_front = image.get("front").and_then(|f| f.as_bool()).unwrap_or(false);
+        let approved = image
+            .get("approved")
+            .and_then(|a| a.as_bool())
+            .unwrap_or(true);
+        let primary_front = image
+            .get("front")
+            .and_then(|f| f.as_bool())
+            .unwrap_or(false);
         let mut canonical_rank = u32::try_from(entity_idx).unwrap_or(u32::MAX) * 1000
             + u32::try_from(image_idx).unwrap_or(u32::MAX);
         // Keep the CAA primary front ahead of other Front-typed images.
@@ -614,13 +618,11 @@ fn parse_caa_front_candidates(
 
 fn sort_and_truncate_candidates(candidates: &mut Vec<CoverArtCandidate>) {
     candidates.sort_by(|a, b| {
-        a.canonical_rank
-            .cmp(&b.canonical_rank)
-            .then_with(|| {
-                a.file_size
-                    .unwrap_or(u64::MAX)
-                    .cmp(&b.file_size.unwrap_or(u64::MAX))
-            })
+        a.canonical_rank.cmp(&b.canonical_rank).then_with(|| {
+            a.file_size
+                .unwrap_or(u64::MAX)
+                .cmp(&b.file_size.unwrap_or(u64::MAX))
+        })
     });
     candidates.truncate(MAX_RESULTS);
 }
@@ -670,19 +672,13 @@ fn head_content_length(client: &reqwest::blocking::Client, url: &str) -> Option<
 }
 
 fn range_content_length(client: &reqwest::blocking::Client, url: &str) -> Option<u64> {
-    let response = client
-        .get(url)
-        .header("Range", "bytes=0-0")
-        .send()
-        .ok()?;
+    let response = client.get(url).header("Range", "bytes=0-0").send().ok()?;
 
     if let Some(total) = parse_content_range_total(response.headers().get("content-range")?) {
         return Some(total);
     }
 
-    response
-        .content_length()
-        .filter(|len| *len > 0)
+    response.content_length().filter(|len| *len > 0)
 }
 
 fn parse_content_range_total(value: &reqwest::header::HeaderValue) -> Option<u64> {
@@ -712,16 +708,13 @@ mod tests {
 
     #[test]
     fn clear_fetch_cache_empties_entries() {
-        FETCH_CACHE
-            .lock()
-            .unwrap()
-            .insert(
-                format!("{CACHE_KEY_VERSION}|artist|album"),
-                CacheEntry {
-                    fetched_at: SystemTime::now(),
-                    candidates: vec![],
-                },
-            );
+        FETCH_CACHE.lock().unwrap().insert(
+            format!("{CACHE_KEY_VERSION}|artist|album"),
+            CacheEntry {
+                fetched_at: SystemTime::now(),
+                candidates: vec![],
+            },
+        );
         clear_fetch_cache();
         assert!(FETCH_CACHE.lock().unwrap().is_empty());
     }
@@ -775,13 +768,11 @@ mod tests {
             },
         ];
         items.sort_by(|a, b| {
-            a.canonical_rank
-                .cmp(&b.canonical_rank)
-                .then_with(|| {
-                    a.file_size
-                        .unwrap_or(u64::MAX)
-                        .cmp(&b.file_size.unwrap_or(u64::MAX))
-                })
+            a.canonical_rank.cmp(&b.canonical_rank).then_with(|| {
+                a.file_size
+                    .unwrap_or(u64::MAX)
+                    .cmp(&b.file_size.unwrap_or(u64::MAX))
+            })
         });
         assert_eq!(items[0].url, "c");
         assert_eq!(items[1].url, "a");

@@ -55,7 +55,9 @@ fn resolve_known_pack_dir(app: &AppHandle, pack_dir: &str) -> Result<PathBuf, St
             continue;
         };
         if canonical.starts_with(&root_canon)
-            && canonical.parent().is_some_and(|parent| parent == root_canon)
+            && canonical
+                .parent()
+                .is_some_and(|parent| parent == root_canon)
         {
             return Ok(canonical);
         }
@@ -185,8 +187,7 @@ fn read_pack_text_at(
     if !path.is_file() {
         return Ok(None);
     }
-    let meta =
-        fs::metadata(&path).map_err(|e| format!("failed to read {filename}: {e}"))?;
+    let meta = fs::metadata(&path).map_err(|e| format!("failed to read {filename}: {e}"))?;
     if meta.len() > max_bytes {
         return Err(format!("{filename} exceeds {max_bytes} byte limit"));
     }
@@ -200,20 +201,16 @@ fn read_readme_at(pack_dir: &Path) -> Result<Option<String>, String> {
 }
 
 fn read_changelog_at(pack_dir: &Path) -> Result<Option<String>, String> {
-    read_pack_text_at(
-        pack_dir,
-        PACK_CHANGELOG_FILENAME,
-        PACK_CHANGELOG_MAX_BYTES,
-    )
+    read_pack_text_at(pack_dir, PACK_CHANGELOG_FILENAME, PACK_CHANGELOG_MAX_BYTES)
 }
 
 fn authoring_pack_writable(app: &AppHandle, dir: &Path) -> bool {
     let workshop_ok = workshop_packs_root(app)
         .ok()
         .and_then(|root| {
-            root.canonicalize().ok().map(|w| {
-                dir.starts_with(&w) && dir.parent().is_some_and(|p| p == w)
-            })
+            root.canonicalize()
+                .ok()
+                .map(|w| dir.starts_with(&w) && dir.parent().is_some_and(|p| p == w))
         })
         .unwrap_or(false);
     let linked_ok = settings::read_settings(app)
@@ -241,8 +238,7 @@ fn write_pack_text_at(
     let path = dir.join(filename);
     if content.trim().is_empty() {
         if path.exists() {
-            fs::remove_file(&path)
-                .map_err(|e| format!("failed to remove {filename}: {e}"))?;
+            fs::remove_file(&path).map_err(|e| format!("failed to remove {filename}: {e}"))?;
         }
         return Ok(());
     }
@@ -401,10 +397,7 @@ pub fn list_packs(app: AppHandle) -> Result<Vec<PackSummary>, String> {
 /// Link an external pack folder (directory picker when `path` is omitted).
 /// Returns the canonical path, or `None` if the picker was cancelled.
 #[tauri::command]
-pub fn link_pack_folder(
-    app: AppHandle,
-    path: Option<String>,
-) -> Result<Option<String>, String> {
+pub fn link_pack_folder(app: AppHandle, path: Option<String>) -> Result<Option<String>, String> {
     packs::ensure_packs_ready(&app)?;
 
     let source = match path {
@@ -620,9 +613,10 @@ pub fn update_linked_pack_metadata(
     packs::ensure_packs_ready(&app)?;
 
     let dir = resolve_known_pack_dir(&app, &pack_dir)?;
-    let is_linked = settings::read_settings(&app).linked_pack_paths.iter().any(|raw| {
-        paths_equal_canonical(&PathBuf::from(raw.trim()), &dir)
-    });
+    let is_linked = settings::read_settings(&app)
+        .linked_pack_paths
+        .iter()
+        .any(|raw| paths_equal_canonical(&PathBuf::from(raw.trim()), &dir));
     if !is_linked {
         return Err("pack directory is not a linked pack".into());
     }
@@ -693,11 +687,7 @@ pub fn read_pack_readme(app: AppHandle, pack_dir: String) -> Result<Option<Strin
 /// Create, update, or remove pack-root `README.md` for workshop or linked packs.
 /// Whitespace-only content deletes the file so the About tab stays empty.
 #[tauri::command]
-pub fn write_pack_readme(
-    app: AppHandle,
-    pack_dir: String,
-    content: String,
-) -> Result<(), String> {
+pub fn write_pack_readme(app: AppHandle, pack_dir: String, content: String) -> Result<(), String> {
     write_pack_text_at(
         &app,
         &pack_dir,
@@ -764,11 +754,7 @@ fn write_pack_json(path: &Path, pack: &packs::PackManifest) -> Result<(), String
 }
 
 /// Clear active selections and hidden ids that belong to `authorId.packId.`.
-fn forget_pack_references(
-    app: &AppHandle,
-    author_id: &str,
-    pack_id: &str,
-) -> Result<(), String> {
+fn forget_pack_references(app: &AppHandle, author_id: &str, pack_id: &str) -> Result<(), String> {
     let prefix = pack_id_prefix(author_id, pack_id);
     let mut app_settings = settings::read_settings(app);
     let mut changed = false;
@@ -856,19 +842,15 @@ fn remap_pack_id_references(
     let mut app_settings = settings::read_settings(app);
     let mut changed = false;
 
-    if let Some(next) =
-        remap_prefixed_id(&app_settings.active_theme, &old_prefix, &new_prefix)
-    {
+    if let Some(next) = remap_prefixed_id(&app_settings.active_theme, &old_prefix, &new_prefix) {
         app_settings.active_theme = next;
         changed = true;
     }
-    if let Some(next) = remap_prefixed_id(&app_settings.active_skin, &old_prefix, &new_prefix)
-    {
+    if let Some(next) = remap_prefixed_id(&app_settings.active_skin, &old_prefix, &new_prefix) {
         app_settings.active_skin = next;
         changed = true;
     }
-    if let Some(next) =
-        remap_prefixed_id(&app_settings.active_visualizer, &old_prefix, &new_prefix)
+    if let Some(next) = remap_prefixed_id(&app_settings.active_visualizer, &old_prefix, &new_prefix)
     {
         app_settings.active_visualizer = next;
         changed = true;
@@ -1015,24 +997,20 @@ pub fn delete_workshop_contribution(
         .contributions
         .iter()
         .find(|c| c.effective_id == contribution_id && c.zone.is_mutable())
-        .ok_or_else(|| {
-            format!("mutable contribution \"{contribution_id}\" not found")
-        })?;
+        .ok_or_else(|| format!("mutable contribution \"{contribution_id}\" not found"))?;
 
     let pack_id = contrib.pack_id.clone();
     let author_id = contrib.author_id.clone();
     let pack_dir = contrib.pack_dir.clone();
     let zone = contrib.zone;
 
-    fs::remove_dir_all(&contrib.contribution_dir).map_err(|e| {
-        format!("failed to delete contribution \"{contribution_id}\": {e}")
-    })?;
+    fs::remove_dir_all(&contrib.contribution_dir)
+        .map_err(|e| format!("failed to delete contribution \"{contribution_id}\": {e}"))?;
 
     let pack_removed = !pack_has_contributions(&pack_dir) && zone == PackZone::Workshop;
     if pack_removed {
-        fs::remove_dir_all(&pack_dir).map_err(|e| {
-            format!("failed to delete empty workshop pack \"{pack_id}\": {e}")
-        })?;
+        fs::remove_dir_all(&pack_dir)
+            .map_err(|e| format!("failed to delete empty workshop pack \"{pack_id}\": {e}"))?;
         forget_pack_references(&app, &author_id, &pack_id)?;
     } else {
         forget_contribution_references(&app, contribution_id)?;
@@ -1057,7 +1035,11 @@ pub fn set_contribution_hidden(
     }
 
     let mut app_settings = settings::read_settings(&app);
-    let mut set: HashSet<String> = app_settings.hidden_contribution_ids.iter().cloned().collect();
+    let mut set: HashSet<String> = app_settings
+        .hidden_contribution_ids
+        .iter()
+        .cloned()
+        .collect();
     if hidden {
         set.insert(contribution_id.clone());
     } else {

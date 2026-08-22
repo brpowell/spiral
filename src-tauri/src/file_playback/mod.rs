@@ -3,6 +3,4 @@
 pub mod decoder;
 mod engine;
 
-pub use engine::{
-    ack_pcm_chunks, pause, resume, seek, start, stop, FilePlaybackStarted,
-};
+pub use engine::{ack_pcm_chunks, pause, resume, seek, start, stop, FilePlaybackStarted};

@@ -164,40 +164,22 @@ mod tests {
         // Album "My Album\0" + track1 "First Song\0" + track2 "Second\0" across packs.
         // "My Album\0First" = 8+1+5 = 14 → needs 2 packs for titles start.
         let mut packs = Vec::new();
-        packs.extend_from_slice(&pack(
-            PACK_TITLE,
-            0,
-            0,
-            0,
-            &text12("My Album\0Fir"),
-        ));
-        packs.extend_from_slice(&pack(
-            PACK_TITLE,
-            1,
-            1,
-            0,
-            &text12("st Song\0Seco"),
-        ));
-        packs.extend_from_slice(&pack(
-            PACK_TITLE,
-            2,
-            2,
-            0,
-            &text12("nd\0"),
-        ));
-        packs.extend_from_slice(&pack(
-            PACK_PERFORMER,
-            0,
-            3,
-            0,
-            &text12("My Artist\0"),
-        ));
+        packs.extend_from_slice(&pack(PACK_TITLE, 0, 0, 0, &text12("My Album\0Fir")));
+        packs.extend_from_slice(&pack(PACK_TITLE, 1, 1, 0, &text12("st Song\0Seco")));
+        packs.extend_from_slice(&pack(PACK_TITLE, 2, 2, 0, &text12("nd\0")));
+        packs.extend_from_slice(&pack(PACK_PERFORMER, 0, 3, 0, &text12("My Artist\0")));
 
         let parsed = parse_cd_text_packs(&packs);
         assert_eq!(parsed.album.as_deref(), Some("My Album"));
         assert_eq!(parsed.artist.as_deref(), Some("My Artist"));
-        assert_eq!(parsed.track_titles.get(&1).map(String::as_str), Some("First Song"));
-        assert_eq!(parsed.track_titles.get(&2).map(String::as_str), Some("Second"));
+        assert_eq!(
+            parsed.track_titles.get(&1).map(String::as_str),
+            Some("First Song")
+        );
+        assert_eq!(
+            parsed.track_titles.get(&2).map(String::as_str),
+            Some("Second")
+        );
     }
 
     #[test]

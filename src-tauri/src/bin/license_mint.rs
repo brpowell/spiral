@@ -12,7 +12,7 @@ use spiral_lib::license::mint::{
 };
 use spiral_lib::license::{
     serialize_grant, serialize_spcard, DirectMintProof, DirectProofVerifier, Grant, LicenseSku,
-    POC_DIRECT_MINT_GRANT, ProofOfPurchaseVerifier, SigningKey,
+    ProofOfPurchaseVerifier, SigningKey, POC_DIRECT_MINT_GRANT,
 };
 use std::env;
 use std::fs;
@@ -189,9 +189,7 @@ fn cmd_provisional(args: &[String]) {
             "--store" => store_path = Some(PathBuf::from(require_value(args, &mut i, "--store"))),
             "--refund-days" => refund_days = parse_u32_flag(args, &mut i, "--refund-days"),
             "--buffer-mins" => buffer_mins = parse_u32_flag(args, &mut i, "--buffer-mins"),
-            "--product-id" => {
-                product_id = Some(require_value(args, &mut i, "--product-id").into())
-            }
+            "--product-id" => product_id = Some(require_value(args, &mut i, "--product-id").into()),
             "--sku" => sku = parse_sku_flag(require_value(args, &mut i, "--sku")),
             other => {
                 eprintln!("Unknown option: {other}\n\n{}", usage());
@@ -352,14 +350,21 @@ struct ErrorBody {
 }
 
 fn json_response(status: StatusCode, body: String) -> Response<Cursor<Vec<u8>>> {
-    let header = Header::from_bytes(&b"Content-Type"[..], &b"application/json; charset=utf-8"[..])
-        .expect("valid header");
+    let header = Header::from_bytes(
+        &b"Content-Type"[..],
+        &b"application/json; charset=utf-8"[..],
+    )
+    .expect("valid header");
     Response::from_data(body.into_bytes())
         .with_status_code(status)
         .with_header(header)
 }
 
-fn error_response(status: StatusCode, code: &'static str, message: impl Into<String>) -> Response<Cursor<Vec<u8>>> {
+fn error_response(
+    status: StatusCode,
+    code: &'static str,
+    message: impl Into<String>,
+) -> Response<Cursor<Vec<u8>>> {
     let body = serde_json::to_string_pretty(&ErrorBody {
         code,
         message: message.into(),
@@ -400,7 +405,12 @@ fn handle_finalize_http(
         }
     };
 
-    match finalize(signing_key, &mut store, &parsed.original_purchase_id, Utc::now()) {
+    match finalize(
+        signing_key,
+        &mut store,
+        &parsed.original_purchase_id,
+        Utc::now(),
+    ) {
         Ok(result) => match serialize_grant(&result.grant) {
             Ok(json) => json_response(StatusCode(200), json),
             Err(e) => error_response(StatusCode(500), e.code, e.message),

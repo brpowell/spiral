@@ -23,9 +23,7 @@ const TRIAL_PURCHASE_URL: &str = "https://spiralpowered.com";
 fn license_unlocks_library(status: LicenseStatus) -> bool {
     matches!(
         status,
-        LicenseStatus::Provisional
-            | LicenseStatus::ReadyToFinalize
-            | LicenseStatus::Licensed
+        LicenseStatus::Provisional | LicenseStatus::ReadyToFinalize | LicenseStatus::Licensed
     )
 }
 
@@ -146,22 +144,16 @@ mod tests {
 
     #[test]
     fn trial_allows_under_cap() {
-        assert!(check_trial_library_add(
-            LicenseStatus::Trial,
-            TRIAL_LIBRARY_TRACK_CAP - 1,
-            false
-        )
-        .is_ok());
+        assert!(
+            check_trial_library_add(LicenseStatus::Trial, TRIAL_LIBRARY_TRACK_CAP - 1, false)
+                .is_ok()
+        );
     }
 
     #[test]
     fn trial_blocks_at_cap() {
-        let err = check_trial_library_add(
-            LicenseStatus::Trial,
-            TRIAL_LIBRARY_TRACK_CAP,
-            false,
-        )
-        .unwrap_err();
+        let err = check_trial_library_add(LicenseStatus::Trial, TRIAL_LIBRARY_TRACK_CAP, false)
+            .unwrap_err();
         assert!(err.starts_with(TRIAL_LIBRARY_CAP_ERROR_CODE));
         assert!(err.contains(&format!("{TRIAL_LIBRARY_TRACK_CAP} tracks")));
         assert!(err.contains(TRIAL_PURCHASE_URL));
@@ -169,12 +161,9 @@ mod tests {
 
     #[test]
     fn trial_allows_upsert_at_cap() {
-        assert!(check_trial_library_add(
-            LicenseStatus::Trial,
-            TRIAL_LIBRARY_TRACK_CAP,
-            true
-        )
-        .is_ok());
+        assert!(
+            check_trial_library_add(LicenseStatus::Trial, TRIAL_LIBRARY_TRACK_CAP, true).is_ok()
+        );
     }
 
     #[test]
@@ -215,10 +204,7 @@ mod tests {
         fs::create_dir_all(&license_dir).unwrap();
         let path = license_dir.join("registration.spcard");
 
-        assert_eq!(
-            status_from_registration_path(&path),
-            LicenseStatus::Trial
-        );
+        assert_eq!(status_from_registration_path(&path), LicenseStatus::Trial);
         assert!(check_trial_library_add(
             status_from_registration_path(&path),
             TRIAL_LIBRARY_TRACK_CAP,

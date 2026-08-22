@@ -13,10 +13,10 @@ use std::time::Duration;
 
 use super::cd_text_packs::parse_cd_text_response;
 use super::session::{
-    begin_phase, cached_has_audio_cd_for_drive, drive_had_successful_read, invalidate_all_presence_cache,
-    invalidate_presence_cache, is_any_drive_busy, is_read_in_progress, mark_drive_read_success,
-    prune_missing_drives, remove_drive, should_defer_user_disc_read, update_status_cache,
-    DriveSessionPhase, PRESENCE_CACHE_TTL,
+    begin_phase, cached_has_audio_cd_for_drive, drive_had_successful_read,
+    invalidate_all_presence_cache, invalidate_presence_cache, is_any_drive_busy,
+    is_read_in_progress, mark_drive_read_success, prune_missing_drives, remove_drive,
+    should_defer_user_disc_read, update_status_cache, DriveSessionPhase, PRESENCE_CACHE_TTL,
 };
 use crate::cd::types::{CdDisc, CdDiscCdText, CdDrive, CdTrackTitle};
 
@@ -151,8 +151,8 @@ struct DriveHandle {
 
 /// Open `/dev/srN` for ioctl / CD-DA reads (shared with playback).
 pub fn open_drive_handle(drive_id: &str) -> Result<File, String> {
-    let path = normalize_drive_id(drive_id)
-        .ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
+    let path =
+        normalize_drive_id(drive_id).ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
     OpenOptions::new()
         .read(true)
         .write(false)
@@ -292,7 +292,12 @@ pub fn read_track_bounds(drive_id: &str, track_number: u32) -> Result<TrackBound
 }
 
 /// Read `count` raw CD-DA sectors starting at absolute LBA into `buf` (2352 * count bytes).
-pub fn read_cdda_sectors(fd: RawFd, start_lba: u32, count: u32, buf: &mut [u8]) -> Result<usize, String> {
+pub fn read_cdda_sectors(
+    fd: RawFd,
+    start_lba: u32,
+    count: u32,
+    buf: &mut [u8],
+) -> Result<usize, String> {
     let need = (count as usize).saturating_mul(2352);
     if buf.len() < need {
         return Err("CD-DA read buffer too small".into());
@@ -437,16 +442,14 @@ pub fn list_drives_try() -> Option<Result<Vec<CdDrive>, String>> {
 
 fn cached_probe_presence(drive_id: &str) -> Option<bool> {
     if is_read_in_progress(drive_id) {
-        return Some(
-            cached_has_audio_cd_for_drive(drive_id, PRESENCE_CACHE_TTL).unwrap_or(true),
-        );
+        return Some(cached_has_audio_cd_for_drive(drive_id, PRESENCE_CACHE_TTL).unwrap_or(true));
     }
     cached_has_audio_cd_for_drive(drive_id, PRESENCE_CACHE_TTL)
 }
 
 pub fn probe_disc_presence(drive_id: &str) -> Result<bool, String> {
-    let drive_id = normalize_drive_id(drive_id)
-        .ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
+    let drive_id =
+        normalize_drive_id(drive_id).ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
     if let Some(cached) = cached_probe_presence(&drive_id) {
         return Ok(cached);
     }
@@ -464,9 +467,11 @@ pub fn probe_disc_presence_try(drive_id: &str) -> Option<Result<bool, String>> {
         None => return Some(Err(format!("Invalid drive id: {drive_id}"))),
     };
     if should_skip_monitor_probe(&drive_id) {
-        return Some(Ok(
-            cached_has_audio_cd_for_drive(&drive_id, PRESENCE_CACHE_TTL).unwrap_or(true),
-        ));
+        return Some(Ok(cached_has_audio_cd_for_drive(
+            &drive_id,
+            PRESENCE_CACHE_TTL,
+        )
+        .unwrap_or(true)));
     }
     if let Some(cached) = cached_probe_presence(&drive_id) {
         return Some(Ok(cached));
@@ -485,8 +490,8 @@ pub fn probe_disc_presence_try(drive_id: &str) -> Option<Result<bool, String>> {
 }
 
 pub fn eject_disc(drive_id: &str) -> Result<(), String> {
-    let drive_id = normalize_drive_id(drive_id)
-        .ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
+    let drive_id =
+        normalize_drive_id(drive_id).ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
 
     crate::cd::playback::stop_for_drive(&drive_id);
 
@@ -508,8 +513,8 @@ pub fn eject_disc(drive_id: &str) -> Result<(), String> {
 }
 
 pub fn get_disc_info(drive_id: &str) -> Result<Option<CdDisc>, String> {
-    let drive_id = normalize_drive_id(drive_id)
-        .ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
+    let drive_id =
+        normalize_drive_id(drive_id).ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
 
     if should_defer_user_disc_read(&drive_id) {
         return Err("Disc read deferred while drive is busy".into());
@@ -579,8 +584,8 @@ fn read_cd_text_raw(fd: RawFd) -> Result<Vec<u8>, String> {
 
 /// Background CD-Text read — merges into an existing disc on the frontend.
 pub fn get_disc_cdtext(drive_id: &str) -> Result<Option<CdDiscCdText>, String> {
-    let drive_id = normalize_drive_id(drive_id)
-        .ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
+    let drive_id =
+        normalize_drive_id(drive_id).ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
 
     if should_defer_user_disc_read(&drive_id) {
         return Err("CD-Text read deferred while drive is busy".into());
@@ -657,7 +662,10 @@ mod tests {
     fn normalize_drive_id_accepts_common_forms() {
         assert_eq!(normalize_drive_id("/dev/sr0").as_deref(), Some("/dev/sr0"));
         assert_eq!(normalize_drive_id("sr0").as_deref(), Some("/dev/sr0"));
-        assert_eq!(normalize_drive_id("  /dev/sr12 ").as_deref(), Some("/dev/sr12"));
+        assert_eq!(
+            normalize_drive_id("  /dev/sr12 ").as_deref(),
+            Some("/dev/sr12")
+        );
         assert_eq!(normalize_drive_id("").as_deref(), None);
         assert_eq!(normalize_drive_id("/dev/sda").as_deref(), None);
         assert_eq!(normalize_drive_id("sr").as_deref(), None);

@@ -1,8 +1,8 @@
 use crate::audio_properties::AudioProperties;
 use crate::models::{
-    ArtistImage, ClearListenHistoryResult, ListenEventInput, LyricsFormat, LyricsLine, LyricsSource,
-    Playlist, PlaylistImageMode, RecordListenEventResult, Track, TrackInput, TrackLyricsRecord,
-    TrackMetadataUpdate,
+    ArtistImage, ClearListenHistoryResult, ListenEventInput, LyricsFormat, LyricsLine,
+    LyricsSource, Playlist, PlaylistImageMode, RecordListenEventResult, Track, TrackInput,
+    TrackLyricsRecord, TrackMetadataUpdate,
 };
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, Row};
@@ -225,9 +225,8 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
             [],
         )?;
         let ids: Vec<i64> = {
-            let mut stmt = conn.prepare(
-                "SELECT id FROM playlists ORDER BY title COLLATE NOCASE, id ASC",
-            )?;
+            let mut stmt =
+                conn.prepare("SELECT id FROM playlists ORDER BY title COLLATE NOCASE, id ASC")?;
             let ids = stmt
                 .query_map([], |row| row.get(0))?
                 .collect::<Result<Vec<_>, _>>()?;
@@ -286,7 +285,10 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
                 [],
             )?;
         }
-        if !listen_columns.iter().any(|c| c == "library_listened_seconds") {
+        if !listen_columns
+            .iter()
+            .any(|c| c == "library_listened_seconds")
+        {
             conn.execute(
                 "ALTER TABLE listen_events ADD COLUMN library_listened_seconds REAL NOT NULL DEFAULT 0",
                 [],
@@ -730,15 +732,8 @@ pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::E
 
     let mut playlists = Vec::new();
     for row in rows {
-        let (
-            id,
-            title,
-            description,
-            date_created,
-            last_used_at,
-            image_mode,
-            custom_image_path,
-        ) = row?;
+        let (id, title, description, date_created, last_used_at, image_mode, custom_image_path) =
+            row?;
         let track_ids = playlist_track_ids(conn, id)?;
         playlists.push(Playlist {
             id,
@@ -921,10 +916,7 @@ fn all_playlist_ids(conn: &Connection) -> Result<Vec<i64>, rusqlite::Error> {
     Ok(ids)
 }
 
-pub fn reorder_playlists(
-    conn: &Connection,
-    playlist_ids: &[i64],
-) -> Result<(), rusqlite::Error> {
+pub fn reorder_playlists(conn: &Connection, playlist_ids: &[i64]) -> Result<(), rusqlite::Error> {
     let current = all_playlist_ids(conn)?;
     if current.len() != playlist_ids.len() {
         return Err(rusqlite::Error::InvalidParameterName(
@@ -1118,13 +1110,9 @@ pub fn upsert_track_lyrics(
     conn: &Connection,
     record: &TrackLyricsRecord,
 ) -> Result<(), rusqlite::Error> {
-    let lines_json = serde_json::to_string(&record.lines).map_err(|err| {
-        rusqlite::Error::ToSqlConversionFailure(Box::new(err))
-    })?;
-    let source = record
-        .source
-        .as_ref()
-        .map(lyrics_source_to_str);
+    let lines_json = serde_json::to_string(&record.lines)
+        .map_err(|err| rusqlite::Error::ToSqlConversionFailure(Box::new(err)))?;
+    let source = record.source.as_ref().map(lyrics_source_to_str);
     conn.execute(
         "INSERT INTO track_lyrics (track_id, format, source, lines_json, plain_text, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)
@@ -1147,7 +1135,10 @@ pub fn upsert_track_lyrics(
 }
 
 pub fn delete_track_lyrics(conn: &Connection, track_id: i64) -> Result<(), rusqlite::Error> {
-    conn.execute("DELETE FROM track_lyrics WHERE track_id = ?1", params![track_id])?;
+    conn.execute(
+        "DELETE FROM track_lyrics WHERE track_id = ?1",
+        params![track_id],
+    )?;
     Ok(())
 }
 
@@ -1272,10 +1263,16 @@ mod tests {
         let playlist_id =
             create_playlist(&conn, "Mix", None, PlaylistImageMode::Generated, None).unwrap();
         add_tracks_to_playlist(&conn, playlist_id, &[1, 2, 3]).unwrap();
-        assert_eq!(playlist_track_ids(&conn, playlist_id).unwrap(), vec![1, 2, 3]);
+        assert_eq!(
+            playlist_track_ids(&conn, playlist_id).unwrap(),
+            vec![1, 2, 3]
+        );
 
         reorder_playlist_tracks(&conn, playlist_id, &[3, 1, 2]).unwrap();
-        assert_eq!(playlist_track_ids(&conn, playlist_id).unwrap(), vec![3, 1, 2]);
+        assert_eq!(
+            playlist_track_ids(&conn, playlist_id).unwrap(),
+            vec![3, 1, 2]
+        );
     }
 
     #[test]

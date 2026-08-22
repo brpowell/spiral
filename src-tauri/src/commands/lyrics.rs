@@ -22,10 +22,7 @@ pub fn get_track_lyrics(
 
 /// Persist an instrumental marker in `track_lyrics` (DB only — no file tags).
 #[tauri::command]
-pub fn mark_track_instrumental(
-    state: State<'_, DbState>,
-    track_id: i64,
-) -> Result<Track, String> {
+pub fn mark_track_instrumental(state: State<'_, DbState>, track_id: i64) -> Result<Track, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let input = TrackLyricsInput {
         format: LyricsFormat::Instrumental,

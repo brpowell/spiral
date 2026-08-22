@@ -17,7 +17,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tauri::AppHandle;
 
-const USER_AGENT: &str = concat!("Spiral/", env!("CARGO_PKG_VERSION"), " (https://spiralpowered.com)");
+const USER_AGENT: &str = concat!(
+    "Spiral/",
+    env!("CARGO_PKG_VERSION"),
+    " (https://spiralpowered.com)"
+);
 const CATALOG_TIMEOUT: Duration = Duration::from_secs(20);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(120);
 const ASSET_TIMEOUT: Duration = Duration::from_secs(20);
@@ -439,11 +443,7 @@ pub fn fetch_pack_catalog(
     }
 
     for source in sources {
-        match fetch_pack_catalog_from_base(
-            &source.url,
-            contribution_type,
-            author_id,
-        ) {
+        match fetch_pack_catalog_from_base(&source.url, contribution_type, author_id) {
             Ok(remote_packs) => {
                 for pack in remote_packs {
                     packs.push(SourcedRegistryPackSummary {
@@ -847,10 +847,7 @@ where
         let total = response.content_length().unwrap_or(0);
 
         if let Some(cb) = on_progress {
-            cb(PackDownloadProgress {
-                current: 0,
-                total,
-            });
+            cb(PackDownloadProgress { current: 0, total });
         }
 
         loop {
@@ -863,9 +860,7 @@ where
             }
             let next = downloaded.saturating_add(n as u64);
             if total > 0 && next > total {
-                return Err(format!(
-                    "downloaded pack exceeded Content-Length ({total})"
-                ));
+                return Err(format!("downloaded pack exceeded Content-Length ({total})"));
             }
             file.write_all(&buf[..n])
                 .map_err(|e| format!("failed to write temp download file: {e}"))?;
@@ -894,9 +889,7 @@ where
 
         let actual_sha = hex::encode(hasher.finalize());
         if actual_sha != expected_sha256_lower {
-            return Err(
-                "downloaded pack failed integrity check (sha256 mismatch)".to_string(),
-            );
+            return Err("downloaded pack failed integrity check (sha256 mismatch)".to_string());
         }
 
         Ok(())
@@ -913,8 +906,7 @@ where
 /// Verify sha256 of an already-downloaded file (unit-test helper surface).
 #[cfg(test)]
 pub(crate) fn verify_spk_file(path: &Path, expected_sha256: &str) -> Result<(), String> {
-    let bytes =
-        fs::read(path).map_err(|e| format!("failed to read downloaded pack: {e}"))?;
+    let bytes = fs::read(path).map_err(|e| format!("failed to read downloaded pack: {e}"))?;
     if bytes.is_empty() {
         return Err("downloaded pack was empty".into());
     }
@@ -989,10 +981,7 @@ mod tests {
             over
         );
         assert_eq!(
-            apply_official_url_override_with(
-                "https://mirror.example".into(),
-                Some(over.clone())
-            ),
+            apply_official_url_override_with("https://mirror.example".into(), Some(over.clone())),
             "https://mirror.example"
         );
         assert_eq!(

@@ -267,9 +267,7 @@ pub fn list_drives_try() -> Option<Result<Vec<CdDrive>, String>> {
 
 fn cached_probe_presence(drive_id: &str) -> Option<bool> {
     if is_read_in_progress(drive_id) {
-        return Some(
-            cached_has_audio_cd_for_drive(drive_id, PRESENCE_CACHE_TTL).unwrap_or(true),
-        );
+        return Some(cached_has_audio_cd_for_drive(drive_id, PRESENCE_CACHE_TTL).unwrap_or(true));
     }
     cached_has_audio_cd_for_drive(drive_id, PRESENCE_CACHE_TTL)
 }
@@ -309,9 +307,11 @@ pub fn probe_disc_presence_try(drive_id: &str) -> Option<Result<bool, String>> {
         if let Some(false) = resolve_cached_presence(drive_id) {
             return Some(Ok(false));
         }
-        return Some(Ok(
-            cached_has_audio_cd_for_drive(drive_id, PRESENCE_CACHE_TTL).unwrap_or(true),
-        ));
+        return Some(Ok(cached_has_audio_cd_for_drive(
+            drive_id,
+            PRESENCE_CACHE_TTL,
+        )
+        .unwrap_or(true)));
     }
     if let Some(cached) = resolve_cached_presence(drive_id) {
         return Some(Ok(cached));
@@ -336,7 +336,9 @@ fn read_disc_tracks_user(drive_id: &str) -> Result<Vec<(u32, f64)>, String> {
     };
     let mut last_error = "Disc present but track info not ready yet".to_string();
     for attempt in 0..attempts {
-        let tracks = with_drive_lock(|| disc_recording::read_tracks(drive_id)).ok().flatten();
+        let tracks = with_drive_lock(|| disc_recording::read_tracks(drive_id))
+            .ok()
+            .flatten();
         match tracks {
             Some(tracks) if !tracks.is_empty() => {
                 update_status_cache(drive_id, Some(true), None);
@@ -410,18 +412,24 @@ pub fn get_disc_info(drive_id: &str) -> Result<Option<CdDisc>, String> {
     )))
 }
 
-fn cdtext_tuple(data: disc_recording::CdTextData) -> (Option<String>, Option<String>, HashMap<u32, String>) {
+fn cdtext_tuple(
+    data: disc_recording::CdTextData,
+) -> (Option<String>, Option<String>, HashMap<u32, String>) {
     (data.album, data.artist, data.track_titles)
 }
 
-fn read_cdtext_in_process(drive_id: &str) -> Option<(Option<String>, Option<String>, HashMap<u32, String>)> {
+fn read_cdtext_in_process(
+    drive_id: &str,
+) -> Option<(Option<String>, Option<String>, HashMap<u32, String>)> {
     with_drive_lock(|| disc_recording::read_cdtext(drive_id))
         .ok()
         .flatten()
         .map(cdtext_tuple)
 }
 
-fn read_cdtext_drutil(drive_id: &str) -> Option<(Option<String>, Option<String>, HashMap<u32, String>)> {
+fn read_cdtext_drutil(
+    drive_id: &str,
+) -> Option<(Option<String>, Option<String>, HashMap<u32, String>)> {
     let drutil_drive = disc_recording::drutil_drive_number(drive_id)?;
     let cdtext = with_drive_lock(|| {
         run_command(
@@ -489,7 +497,12 @@ mod tests {
         let drive = &with_disc[0];
         let cdtext = get_disc_cdtext(&drive.id).expect("get_disc_cdtext");
         let cdtext = cdtext.expect("expected CD-Text");
-        eprintln!("cdtext: album={:?} artist={:?} tracks={}", cdtext.album, cdtext.artist, cdtext.track_titles.len());
+        eprintln!(
+            "cdtext: album={:?} artist={:?} tracks={}",
+            cdtext.album,
+            cdtext.artist,
+            cdtext.track_titles.len()
+        );
         assert!(cdtext.album.is_some() || !cdtext.track_titles.is_empty());
     }
 
@@ -505,7 +518,11 @@ mod tests {
         assert!(!with_disc.is_empty(), "expected a drive with disc");
         for drive in with_disc {
             let disc = get_disc_info(&drive.id).expect("get_disc_info");
-            eprintln!("disc for {}: {:?}", drive.id, disc.as_ref().map(|d| d.tracks.len()));
+            eprintln!(
+                "disc for {}: {:?}",
+                drive.id,
+                disc.as_ref().map(|d| d.tracks.len())
+            );
             let disc = disc.expect("disc should be Some");
             assert!(!disc.tracks.is_empty(), "expected tracks");
         }

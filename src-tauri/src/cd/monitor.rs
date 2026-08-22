@@ -167,8 +167,7 @@ fn refresh_drives(
     }
 
     let fallback_due = guard.last_presence_probe.elapsed() >= FALLBACK_PRESENCE_PROBE_INTERVAL;
-    let should_probe_presence =
-        !busy && (force_presence_probe || list_changed || fallback_due);
+    let should_probe_presence = !busy && (force_presence_probe || list_changed || fallback_due);
 
     if should_probe_presence {
         apply_presence_probes(&mut drives, &mut guard);
@@ -214,9 +213,7 @@ fn emit_if_changed(app: &AppHandle, state: &Arc<Mutex<MonitorState>>, drives: Ve
 
 pub fn start_monitor(app: AppHandle) {
     let (tx, rx) = std::sync::mpsc::channel();
-    *MONITOR_WAKE_TX
-        .lock()
-        .expect("monitor wake tx poisoned") = Some(tx.clone());
+    *MONITOR_WAKE_TX.lock().expect("monitor wake tx poisoned") = Some(tx.clone());
 
     if let Err(err) = events::start_volume_events(tx) {
         eprintln!("cd monitor: volume events failed: {err}");

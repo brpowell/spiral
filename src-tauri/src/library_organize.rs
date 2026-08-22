@@ -1,6 +1,6 @@
 use crate::fs_move;
-use crate::metadata_backup;
 use crate::lyrics_sidecar;
+use crate::metadata_backup;
 use crate::models::TrackMetadataUpdate;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -303,9 +303,7 @@ pub fn unique_path(dest: PathBuf, allow_existing: Option<&Path>) -> PathBuf {
     let mut n = 2;
     loop {
         let candidate = parent.join(format!("{stem} ({n}){ext}"));
-        if !candidate.exists()
-            || allow_existing.is_some_and(|p| same_path(&candidate, p))
-        {
+        if !candidate.exists() || allow_existing.is_some_and(|p| same_path(&candidate, p)) {
             return candidate;
         }
         n += 1;
@@ -638,7 +636,12 @@ mod tests {
             .join("Album")
             .join("song.mp3");
         let moved = move_track_file(&from, dest, true).unwrap();
-        assert!(dir.join("new").join("Artist").join("Album").join("song.lrc").exists());
+        assert!(dir
+            .join("new")
+            .join("Artist")
+            .join("Album")
+            .join("song.lrc")
+            .exists());
         assert!(!dir.join("old").join("song.lrc").exists());
         assert!(moved.exists());
 
@@ -708,10 +711,7 @@ mod tests {
 
     #[test]
     fn unique_path_can_reuse_allowed_existing_file() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-unique-allow-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("spiral-unique-allow-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -722,10 +722,7 @@ mod tests {
             unique_path(existing.clone(), None),
             dir.join("My Song (2).mp3")
         );
-        assert_eq!(
-            unique_path(existing.clone(), Some(&existing)),
-            existing
-        );
+        assert_eq!(unique_path(existing.clone(), Some(&existing)), existing);
 
         let _ = fs::remove_dir_all(&dir);
     }

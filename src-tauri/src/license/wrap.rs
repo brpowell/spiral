@@ -26,20 +26,16 @@ const WRAP_JPEG_QUALITIES: &[u8] = &[85, 75, 65, 55];
 /// Decode raw image bytes, fit within wrap canvas, re-encode JPEG or PNG.
 /// Used on Studio set / write — not on every card load.
 pub(crate) fn sanitize_wrap_image_bytes(raw: &[u8]) -> Result<Vec<u8>, LicenseError> {
-    let img = image::load_from_memory(raw).map_err(|e| {
-        err(
-            "invalid_wrap",
-            format!("could not decode wrap image: {e}"),
-        )
-    })?;
+    let img = image::load_from_memory(raw)
+        .map_err(|e| err("invalid_wrap", format!("could not decode wrap image: {e}")))?;
     encode_capped_wrap(img)
 }
 
 /// Decode Base64 `wrapData`, sanitize, return fresh Base64 JPEG or PNG.
 pub(crate) fn sanitize_wrap_base64(data: &str) -> Result<String, LicenseError> {
-    let raw = BASE64.decode(data.trim()).map_err(|_| {
-        err("invalid_wrap", "wrapData is not valid Base64")
-    })?;
+    let raw = BASE64
+        .decode(data.trim())
+        .map_err(|_| err("invalid_wrap", "wrapData is not valid Base64"))?;
     let encoded = sanitize_wrap_image_bytes(&raw)?;
     Ok(BASE64.encode(encoded))
 }
@@ -52,19 +48,15 @@ pub(crate) fn try_accept_wrap_base64_for_load(data: &str) -> Option<String> {
 }
 
 fn accept_wrap_base64_for_load(data: &str) -> Result<String, LicenseError> {
-    let raw = BASE64.decode(data.trim()).map_err(|_| {
-        err("invalid_wrap", "wrapData is not valid Base64")
-    })?;
+    let raw = BASE64
+        .decode(data.trim())
+        .map_err(|_| err("invalid_wrap", "wrapData is not valid Base64"))?;
     if raw.is_empty() || raw.len() > WRAP_MAX_BYTES {
         return Err(too_large(raw.len().max(1)));
     }
 
-    let img = image::load_from_memory(&raw).map_err(|e| {
-        err(
-            "invalid_wrap",
-            format!("could not decode wrap image: {e}"),
-        )
-    })?;
+    let img = image::load_from_memory(&raw)
+        .map_err(|e| err("invalid_wrap", format!("could not decode wrap image: {e}")))?;
     let (w, h) = (img.width(), img.height());
     if w == 0 || h == 0 {
         return Err(err("invalid_wrap", "wrap image has zero dimensions"));
@@ -133,11 +125,8 @@ fn encode_capped_jpeg(rgba: &RgbaImage) -> Result<Vec<u8>, LicenseError> {
 
 fn encode_capped_png(rgba: &RgbaImage) -> Result<Vec<u8>, LicenseError> {
     let mut out = Cursor::new(Vec::new());
-    let encoder = PngEncoder::new_with_quality(
-        &mut out,
-        CompressionType::Best,
-        PngFilterType::Adaptive,
-    );
+    let encoder =
+        PngEncoder::new_with_quality(&mut out, CompressionType::Best, PngFilterType::Adaptive);
     encoder
         .write_image(
             rgba.as_raw(),

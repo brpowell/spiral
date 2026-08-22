@@ -174,7 +174,7 @@ export function evaluateSkinBind(
       return formatRemainingTime(state.positionSeconds, duration);
     }
     case "player.volumePercent":
-      return Math.round(state.volume * 100);
+      return Math.round(usePlayerStore.getState().volume * 100);
     case "player.repeatMode":
       return state.repeatMode;
     case "player.repeatOn":
@@ -184,9 +184,9 @@ export function evaluateSkinBind(
     case "player.crossfadeEnabled":
       return state.crossfadeEnabled;
     case "player.volume":
-      return state.volume;
+      return usePlayerStore.getState().volume;
     case "player.balance":
-      return state.balance;
+      return usePlayerStore.getState().balance;
     case "player.muted":
       return state.muted;
     case "player.canGoPrevious":
@@ -292,8 +292,6 @@ export function useSkinBindState(): SkinBindState {
   const positionSeconds = usePlayerStore((s) => s.positionSeconds);
   const repeatMode = usePlayerStore((s) => s.repeatMode);
   const shuffle = usePlayerStore((s) => s.shuffle);
-  const volume = usePlayerStore((s) => s.volume);
-  const balance = usePlayerStore((s) => s.balance);
   const muted = usePlayerStore((s) => s.muted);
   const playContextIds = usePlayerStore((s) => s.playContextIds);
   const manualQueueIds = usePlayerStore((s) => s.manualQueueIds);
@@ -350,7 +348,7 @@ export function useSkinBindState(): SkinBindState {
       getManualNextId,
     ) !== null;
 
-  return useMemo(
+  const bindState = useMemo(
     (): SkinBindState => ({
       currentTrack,
       artUrl,
@@ -358,8 +356,10 @@ export function useSkinBindState(): SkinBindState {
       positionSeconds,
       repeatMode,
       shuffle,
-      volume,
-      balance,
+      // Live store reads: subscribing here would re-render every bind consumer
+      // on each volume/balance pointermove (Headspace EQ + visualizer stutter).
+      volume: usePlayerStore.getState().volume,
+      balance: usePlayerStore.getState().balance,
       muted,
       canGoPrevious,
       canGoNext,
@@ -396,8 +396,6 @@ export function useSkinBindState(): SkinBindState {
       positionSeconds,
       repeatMode,
       shuffle,
-      volume,
-      balance,
       muted,
       canGoPrevious,
       canGoNext,
@@ -428,6 +426,7 @@ export function useSkinBindState(): SkinBindState {
       scrollStripState,
     ],
   );
+  return bindState;
 }
 
 export function useSkinBindValue(path: string | undefined): SkinBindValue {

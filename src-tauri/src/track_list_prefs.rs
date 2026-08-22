@@ -29,7 +29,10 @@ pub fn read_preferences(app: &AppHandle) -> Option<TrackListPreferences> {
     serde_json::from_str(&contents).ok()
 }
 
-pub fn write_preferences(app: &AppHandle, preferences: &TrackListPreferences) -> Result<(), String> {
+pub fn write_preferences(
+    app: &AppHandle,
+    preferences: &TrackListPreferences,
+) -> Result<(), String> {
     let path = preferences_path(app)?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
@@ -37,6 +40,5 @@ pub fn write_preferences(app: &AppHandle, preferences: &TrackListPreferences) ->
     }
     let json = serde_json::to_string_pretty(preferences)
         .map_err(|e| format!("failed to serialize track list preferences: {e}"))?;
-    fs::write(&path, json)
-        .map_err(|e| format!("failed to write track list preferences: {e}"))
+    fs::write(&path, json).map_err(|e| format!("failed to write track list preferences: {e}"))
 }

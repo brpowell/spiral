@@ -47,6 +47,25 @@ describe("useEqualizerStore", () => {
     expect(state.bands[4]).toBe(8);
   });
 
+  it("setBands writes all bands and forces manual", () => {
+    useEqualizerStore.getState().applyPreset("rock");
+    useEqualizerStore.getState().setBands([9, 7, 5, 3, 1, -1, -3, -5, -7, -9]);
+
+    const state = useEqualizerStore.getState();
+    expect(state.presetId).toBe("manual");
+    expect([...state.bands]).toEqual([9, 7, 5, 3, 1, -1, -3, -5, -7, -9]);
+  });
+
+  it("setBand and setBands enable processing", () => {
+    useEqualizerStore.setState({ enabled: false });
+    useEqualizerStore.getState().setBand(0, 4);
+    expect(useEqualizerStore.getState().enabled).toBe(true);
+
+    useEqualizerStore.setState({ enabled: false });
+    useEqualizerStore.getState().setBands([1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(useEqualizerStore.getState().enabled).toBe(true);
+  });
+
   it("applyPreset copies builtin bands and sets presetId", () => {
     const rock = getBuiltinPreset("rock");
     expect(rock).toBeDefined();

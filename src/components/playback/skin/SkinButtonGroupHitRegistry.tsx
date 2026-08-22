@@ -18,7 +18,10 @@ export interface SkinButtonGroupHitEntry {
   elevateWhen?: string[];
   sampleKeyAt: (clientX: number, clientY: number) => string | null;
   setHoveredKey: (key: string | null) => void;
-  startPress: (key: string, event: ReactPointerEvent<HTMLButtonElement>) => void;
+  startPress: (
+    key: string,
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) => void;
   finishPress: (event: ReactPointerEvent<HTMLButtonElement>) => void;
 }
 
@@ -108,26 +111,25 @@ export function SkinButtonGroupHitRegistryProvider({
 
   const resolveHitAt = useCallback(
     (clientX: number, clientY: number): ResolvedButtonGroupHit | null => {
-      let element = document.elementFromPoint(clientX, clientY);
-      const visited = new Set<string>();
+      let element: Element | null = document.elementFromPoint(clientX, clientY);
+      const visited = new Set<Element>();
 
-      while (element instanceof HTMLElement) {
-        if (!element.classList.contains("skin-button-group__hit")) break;
+      while (element instanceof Element) {
+        const hit = element.closest(".skin-button-group__hit");
+        if (!(hit instanceof HTMLElement) || visited.has(hit)) break;
+        visited.add(hit);
 
-        const nodeId = element.getAttribute("data-node-id");
-        if (!nodeId || visited.has(nodeId)) break;
-        visited.add(nodeId);
+        const nodeId = hit.getAttribute("data-node-id");
+        const entry = nodeId ? entriesRef.current.get(nodeId) : undefined;
+        if (entry) {
+          const key = entry.sampleKeyAt(clientX, clientY);
+          if (key) return { entry, key };
+        }
 
-        const entry = entriesRef.current.get(nodeId);
-        if (!entry) break;
-
-        const key = entry.sampleKeyAt(clientX, clientY);
-        if (key) return { entry, key };
-
-        element.style.pointerEvents = "none";
+        hit.style.pointerEvents = "none";
         const below = document.elementFromPoint(clientX, clientY);
-        element.style.pointerEvents = "auto";
-        element = below instanceof HTMLElement ? below : null;
+        hit.style.pointerEvents = "auto";
+        element = below instanceof Element ? below : null;
       }
 
       return null;
@@ -177,13 +179,13 @@ export function SkinButtonGroupHitRegistryProvider({
   );
 }
 
-export function useSkinButtonGroupHitRegistry():
-  | SkinButtonGroupHitRegistryValue
-  | null {
+export function useSkinButtonGroupHitRegistry(): SkinButtonGroupHitRegistryValue | null {
   return useContext(SkinButtonGroupHitRegistryContext);
 }
 
-export function useButtonGroupElevationDelta(nodeId: string | undefined): number {
+export function useButtonGroupElevationDelta(
+  nodeId: string | undefined,
+): number {
   const registry = useContext(SkinButtonGroupHitRegistryContext);
   if (nodeId === undefined || registry === null) return 0;
   return registry.elevationDeltas.get(nodeId) ?? 0;

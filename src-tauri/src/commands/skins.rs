@@ -113,7 +113,7 @@ fn list_all_skin_packs(app: &AppHandle) -> Vec<LoadedSkinPack> {
             Ok(pack) => packs.push(pack),
             Err(e) => {
                 activity_log::log(
-                    LogLevel::Debug,
+                    LogLevel::Error,
                     "skin.load",
                     format!("skin \"{}\" failed to load: {e}", contrib.effective_id),
                     Some(serde_json::json!({
@@ -203,8 +203,8 @@ pub fn start_skin_window_drag(window: tauri::WebviewWindow) -> Result<(), String
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::packs::PackZone;
     use crate::packs::scan::scan_zone_root;
+    use crate::packs::PackZone;
     use std::path::PathBuf;
 
     #[test]
@@ -215,10 +215,7 @@ mod tests {
         let mut loaded = 0usize;
         for contrib in contribs.iter().filter(|c| c.r#type == "skin") {
             load_pack_from_contribution(contrib).unwrap_or_else(|e| {
-                panic!(
-                    "built-in skin {} should load: {e}",
-                    contrib.effective_id
-                )
+                panic!("built-in skin {} should load: {e}", contrib.effective_id)
             });
             loaded += 1;
         }
@@ -233,8 +230,8 @@ mod tests {
 
     #[test]
     fn mini_switch_fixture_preserves_view_id() {
-        let pack_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../testdata/packs/mini-switch");
+        let pack_dir =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../testdata/packs/mini-switch");
         let mut warnings = Vec::new();
         let contribs =
             crate::packs::scan::scan_pack_dir(&pack_dir, PackZone::Builtin, &mut warnings);
@@ -269,17 +266,26 @@ mod tests {
             ViewLayout::Canvas(f) => &f.children,
             ViewLayout::Row(f) | ViewLayout::Column(f) => &f.children,
         };
-        children.iter().find_map(|child| find_control_in_node(child, id))
+        children
+            .iter()
+            .find_map(|child| find_control_in_node(child, id))
     }
 
     fn find_control_in_node<'a>(node: &'a LayoutNode, id: &str) -> Option<&'a ControlFields> {
         match node {
-            LayoutNode::Button(f) | LayoutNode::Seekbar(f) | LayoutNode::Artwork(f)
-            | LayoutNode::Transport(f) | LayoutNode::Visualizer(f) | LayoutNode::Volume(f)
-            | LayoutNode::Balance(f) | LayoutNode::Time(f)
-            if f.id.as_deref() == Some(id) => Some(f),
-            LayoutNode::Row(f) | LayoutNode::Column(f)
-            | LayoutNode::Overlay(f) => f
+            LayoutNode::Button(f)
+            | LayoutNode::Seekbar(f)
+            | LayoutNode::Artwork(f)
+            | LayoutNode::Transport(f)
+            | LayoutNode::Visualizer(f)
+            | LayoutNode::Volume(f)
+            | LayoutNode::Balance(f)
+            | LayoutNode::Time(f)
+                if f.id.as_deref() == Some(id) =>
+            {
+                Some(f)
+            }
+            LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => f
                 .children
                 .iter()
                 .find_map(|child| find_control_in_node(child, id)),

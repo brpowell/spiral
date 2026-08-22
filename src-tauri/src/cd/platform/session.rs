@@ -74,8 +74,11 @@ impl DriveSessionStore {
     }
 }
 
-static SESSIONS: LazyLock<Mutex<DriveSessionStore>> =
-    LazyLock::new(|| Mutex::new(DriveSessionStore { drives: HashMap::new() }));
+static SESSIONS: LazyLock<Mutex<DriveSessionStore>> = LazyLock::new(|| {
+    Mutex::new(DriveSessionStore {
+        drives: HashMap::new(),
+    })
+});
 
 fn with_sessions<R>(f: impl FnOnce(&mut DriveSessionStore) -> R) -> R {
     let mut guard = SESSIONS.lock().expect("drive sessions poisoned");
@@ -252,9 +255,13 @@ pub fn clear_drive_on_unmount(normalized_volume_path: &str, bsd_name: Option<&st
     with_sessions(|store| {
         let mut cleared = false;
         for (drive_id, session) in store.drives.iter_mut() {
-            let matches_volume = session.cache.volume_path.as_ref().is_some_and(|cached_path| {
-                normalize_volume_path(cached_path) == normalized_volume_path
-            });
+            let matches_volume = session
+                .cache
+                .volume_path
+                .as_ref()
+                .is_some_and(|cached_path| {
+                    normalize_volume_path(cached_path) == normalized_volume_path
+                });
             let matches_bsd = bsd_name.is_some_and(|bsd| bsd == drive_id.as_str());
             if !matches_volume && !matches_bsd {
                 continue;
@@ -308,8 +315,7 @@ impl Drop for DriveSessionGuard {
             if let Some(session) = store.drives.get_mut(&self.drive_id) {
                 if self.phase == DriveSessionPhase::Playing {
                     session.playing_refcount = session.playing_refcount.saturating_sub(1);
-                    if session.playing_refcount == 0
-                        && session.phase == DriveSessionPhase::Playing
+                    if session.playing_refcount == 0 && session.phase == DriveSessionPhase::Playing
                     {
                         session.phase = DriveSessionPhase::Idle;
                     }

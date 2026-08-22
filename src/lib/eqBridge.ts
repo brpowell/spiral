@@ -1,6 +1,7 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import {
   normalizeBandGains,
+  type EqualizerBandGains,
   type EqualizerPreset,
   type EqualizerRemoteAction,
   type EqualizerStateSnapshot,
@@ -40,7 +41,12 @@ function presetsEqual(
 }
 
 function shouldSyncEqualizer(role: WindowRole): boolean {
-  return role === "main" || role === "skin-mode" || role === "skin-aux" || role === "equalizer";
+  return (
+    role === "main" ||
+    role === "skin-mode" ||
+    role === "skin-aux" ||
+    role === "equalizer"
+  );
 }
 
 function dispatchRemoteAction(action: EqualizerRemoteAction): void {
@@ -48,6 +54,9 @@ function dispatchRemoteAction(action: EqualizerRemoteAction): void {
   switch (action.type) {
     case "setBand":
       store.setBand(action.band, action.gain);
+      break;
+    case "setBands":
+      store.setBands(action.bands);
       break;
     case "setPreampGain":
       store.setPreampGain(action.gain);
@@ -85,7 +94,19 @@ function applyRemoteBandOptimistic(band: number, gain: number): void {
     if (band < 0 || band >= state.bands.length) return state;
     const bands = [...state.bands] as number[];
     bands[band] = gain;
-    return { presetId: "manual", bands: normalizeBandGains(bands) };
+    return {
+      enabled: true,
+      presetId: "manual",
+      bands: normalizeBandGains(bands),
+    };
+  });
+}
+
+function applyRemoteBandsOptimistic(bands: EqualizerBandGains): void {
+  useEqualizerStore.setState({
+    enabled: true,
+    presetId: "manual",
+    bands: normalizeBandGains(bands),
   });
 }
 
@@ -95,6 +116,10 @@ function installRemoteActions(): void {
       setBand: (band, gain) => {
         applyRemoteBandOptimistic(band, gain);
         emitRemoteAction({ type: "setBand", band, gain });
+      },
+      setBands: (bands) => {
+        applyRemoteBandsOptimistic(bands);
+        emitRemoteAction({ type: "setBands", bands });
       },
       setPreampGain: (gain) =>
         emitRemoteAction({ type: "setPreampGain", gain }),
@@ -130,7 +155,9 @@ async function initMainBridge(): Promise<() => void> {
       snapshot.enabled === lastSnapshot.enabled &&
       snapshot.presetId === lastSnapshot.presetId &&
       snapshot.preampGain === lastSnapshot.preampGain &&
-      snapshot.bands.every((gain, index) => gain === lastSnapshot.bands[index]) &&
+      snapshot.bands.every(
+        (gain, index) => gain === lastSnapshot.bands[index],
+      ) &&
       presetsEqual(snapshot.customPresets, lastSnapshot.customPresets)
     ) {
       return;

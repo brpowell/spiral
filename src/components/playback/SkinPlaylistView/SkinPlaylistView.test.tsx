@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   SKIN_PLAYLIST_SOURCE_ALL,
@@ -239,6 +239,56 @@ describe("SkinPlaylistView", () => {
     expect(row).toHaveStyle({
       color: "rgb(255, 255, 255)",
       backgroundColor: "rgb(54, 145, 8)",
+    });
+  });
+
+  it("applies sourceStyle and merges sourceHoverStyle on hover", () => {
+    const { container } = render(
+      <SkinPlaylistView
+        node={playlistNode({
+          sourceStyle: { backgroundColor: "rgb(10, 18, 0)" },
+          sourceHoverStyle: { backgroundColor: "rgb(20, 32, 0)" },
+        })}
+      />,
+    );
+
+    const wrap = container.querySelector(".skin-playlist-view__source-wrap");
+    const source = container.querySelector(".skin-playlist-view__source");
+    expect(source).toHaveStyle({ backgroundColor: "rgb(10, 18, 0)" });
+
+    fireEvent.mouseEnter(wrap!);
+    expect(source).toHaveStyle({ backgroundColor: "rgb(20, 32, 0)" });
+
+    fireEvent.mouseLeave(wrap!);
+    expect(source).toHaveStyle({ backgroundColor: "rgb(10, 18, 0)" });
+  });
+
+  it("applies rowHoverStyle on hover under current/playing paint", () => {
+    usePlayerStore.setState({
+      library: [track({ id: 1 }), track({ id: 2, title: "Paranoid Android" })],
+      currentTrackId: 1,
+      playbackState: "paused",
+    });
+    const { container } = render(
+      <SkinPlaylistView
+        node={playlistNode({
+          currentRowStyle: { color: "rgb(238, 255, 102)" },
+          rowHoverStyle: { backgroundColor: "rgba(204, 255, 0, 0.12)" },
+        })}
+      />,
+    );
+
+    const rows = container.querySelectorAll(".skin-playlist-view__row");
+    fireEvent.mouseEnter(rows[1]!);
+    expect(rows[1]).toHaveStyle({
+      backgroundColor: "rgba(204, 255, 0, 0.12)",
+    });
+    expect(rows[1]).not.toHaveStyle({ color: "rgb(238, 255, 102)" });
+
+    fireEvent.mouseEnter(rows[0]!);
+    expect(rows[0]).toHaveStyle({
+      color: "rgb(238, 255, 102)",
+      backgroundColor: "rgba(204, 255, 0, 0.12)",
     });
   });
 

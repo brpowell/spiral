@@ -41,9 +41,7 @@ pub use windows::{
 };
 
 #[cfg(target_os = "windows")]
-pub(crate) use windows::{
-    open_drive_handle, read_track_bounds, with_drive_lock, TrackBounds,
-};
+pub(crate) use windows::{open_drive_handle, read_track_bounds, with_drive_lock, TrackBounds};
 
 #[cfg(target_os = "linux")]
 pub use linux::{

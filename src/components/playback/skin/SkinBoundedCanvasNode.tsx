@@ -1,5 +1,5 @@
 import type { LayoutNode, LoadedSkinPack } from "../../../types/skin";
-import { useSkinBindState, useSkinVisible } from "../../../lib/skinBinds";
+import { useSkinVisible } from "../../../lib/skinBinds";
 import {
   getNodeBoundsWhen,
   resolveNodeBounds,
@@ -13,6 +13,7 @@ import {
   useSkinLayoutContext,
 } from "./SkinLayoutContext";
 import { SkinLayoutNode } from "./SkinLayoutNode";
+import { useSkinViewState } from "../../../lib/skinViewStateContext";
 
 export interface SkinBoundedCanvasNodeProps {
   node: LayoutNode;
@@ -24,15 +25,13 @@ export function SkinBoundedCanvasNode({
   pack,
 }: SkinBoundedCanvasNodeProps) {
   const visible = useSkinVisible(node.visibleWhen);
-  const { viewState } = useSkinBindState();
+  const { values: viewState } = useSkinViewState();
   const parentLayout = useSkinLayoutContext();
   const elevationDelta = useButtonGroupElevationDelta(
     node.type === "buttonGroup" ? node.id : undefined,
   );
 
   const boundsWhen = getNodeBoundsWhen(node);
-  const hasMotion =
-    boundsWhen !== undefined && Object.keys(boundsWhen).length > 0;
 
   if (!visible) return null;
 
@@ -41,7 +40,13 @@ export function SkinBoundedCanvasNode({
   const bounds = resolveNodeBounds(node.bounds, boundsWhen, viewState);
 
   if (bounds) {
+    // Subview boxes never capture; only nested controls do. Authored
+    // `passthrough` additionally leaves overflow unclipped.
     const passthrough =
+      node.type === "decoration" ||
+      node.type === "buttonGroup" ||
+      node.type === "subview";
+    const unclipped =
       node.type === "decoration" ||
       node.type === "buttonGroup" ||
       (node.type === "subview" && node.passthrough === true);
@@ -68,9 +73,16 @@ export function SkinBoundedCanvasNode({
         <SkinBounds
           bounds={local}
           boundsFor={node.id}
-          motion={hasMotion}
+          transition={node.transition}
           windowHit={resolveSkinWindowHitKind(node)}
-          className={passthrough ? "skin-bounds--passthrough" : undefined}
+          className={
+            [
+              passthrough && "skin-bounds--passthrough",
+              unclipped && "skin-bounds--unclipped",
+            ]
+              .filter(Boolean)
+              .join(" ") || undefined
+          }
         >
           {inner}
         </SkinBounds>

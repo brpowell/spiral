@@ -50,18 +50,12 @@ pub fn verify_grant_signature(
     let sig_arr: [u8; 64] = sig_bytes.as_slice().try_into().map_err(|_| {
         err(
             "invalid_signature",
-            format!(
-                "signature must decode to 64 bytes, got {}",
-                sig_bytes.len()
-            ),
+            format!("signature must decode to 64 bytes, got {}", sig_bytes.len()),
         )
     })?;
     let signature = Signature::from_bytes(&sig_arr);
     let message = grant_signing_bytes(grant);
-    public_key.verify(&message, &signature).map_err(|_| {
-        err(
-            "invalid_signature",
-            "grant signature verification failed",
-        )
-    })
+    public_key
+        .verify(&message, &signature)
+        .map_err(|_| err("invalid_signature", "grant signature verification failed"))
 }

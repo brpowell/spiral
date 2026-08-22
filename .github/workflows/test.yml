@@ -32,6 +32,8 @@ jobs:
           cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -58,6 +60,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Check Rust formatting
+        run: npm run format:rust:check
 
       - name: Run tests
         run: npm test

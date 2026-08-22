@@ -21,10 +21,16 @@
 
 .skin-bounds--motion {
   transition:
-    left 120ms linear,
-    top 120ms linear,
-    width 120ms linear,
-    height 120ms linear;
+    left var(--skin-bounds-duration, 0ms) var(--skin-bounds-easing, linear),
+    top var(--skin-bounds-duration, 0ms) var(--skin-bounds-easing, linear),
+    width var(--skin-bounds-duration, 0ms) var(--skin-bounds-easing, linear),
+    height var(--skin-bounds-duration, 0ms) var(--skin-bounds-easing, linear);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skin-bounds--motion {
+    transition: none;
+  }
 }
 
 .skin-bounds .skin-layout-node--row {
@@ -34,6 +40,9 @@
 
 .skin-bounds--passthrough {
   pointer-events: none;
+}
+
+.skin-bounds--unclipped {
   /* Frame/backdrop decorations may carry outer-edge alpha; don't clip it. */
   overflow: visible;
 }

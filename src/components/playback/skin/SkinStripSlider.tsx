@@ -5,6 +5,7 @@ import {
   gainDbToRatio,
   ratioToGainDb,
 } from "../../../lib/equalizer/types";
+import { applyEqBandSliderGain } from "../../../lib/eqBandInput";
 import * as audio from "../../../lib/playback";
 import { findPlaybackTrack } from "../../../lib/playbackTrack";
 import { skinAssetFileUrl } from "../../../lib/skinAssets";
@@ -142,13 +143,12 @@ export function SkinStripSlider({
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
-  const volume = usePlayerStore((s) => s.volume);
+  const volume = usePlayerStore((s) => (mode === "volume" ? s.volume : 0));
   const setVolume = usePlayerStore((s) => s.setVolume);
 
   const bandGain = useEqualizerStore((s) =>
     eqBand !== null ? s.bands[eqBand - 1] : 0,
   );
-  const setBand = useEqualizerStore((s) => s.setBand);
 
   const currentTrack = useMemo(
     () => findPlaybackTrack({ library, playbackTracks, currentTrackId }),
@@ -228,8 +228,8 @@ export function SkinStripSlider({
   const applyRatio = useCallback(
     (ratio: number, commit: boolean) => {
       if (mode === "eq") {
-        if (eqBand === null) return;
-        setBand(eqBand - 1, ratioToGainDb(ratio));
+        if (node.type !== "eqBand") return;
+        applyEqBandSliderGain(node, pack, ratioToGainDb(ratio));
       } else if (mode === "volume") {
         setVolume(ratio);
       } else if (commit) {
@@ -238,7 +238,7 @@ export function SkinStripSlider({
         handleSeekChange(ratio);
       }
     },
-    [mode, eqBand, setBand, setVolume, handleSeekChange, handleSeekEnd],
+    [mode, node, pack, setVolume, handleSeekChange, handleSeekEnd],
   );
 
   const applyPointer = useCallback(

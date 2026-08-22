@@ -183,7 +183,10 @@ fn infer_default_convert_profile_id(
 }
 
 fn read_source_codec(path: &Path) -> Option<&'static str> {
-    match audio_properties::read_audio_properties(path).codec.as_deref()? {
+    match audio_properties::read_audio_properties(path)
+        .codec
+        .as_deref()?
+    {
         "alac" => Some("alac"),
         "aac" => Some("aac"),
         "flac" => Some("flac"),

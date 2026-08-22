@@ -28,8 +28,8 @@ pub fn encode_pcm_to_mp3(
     }
 
     let mut encoder = build_encoder(pcm.channels, pcm.sample_rate, profile)?;
-    let mut output = File::create(dest)
-        .map_err(|err| format!("Failed to create {}: {err}", dest.display()))?;
+    let mut output =
+        File::create(dest).map_err(|err| format!("Failed to create {}: {err}", dest.display()))?;
 
     let frame_samples = pcm.channels as usize;
     if frame_samples == 0 {
@@ -242,10 +242,8 @@ mod tests {
             sample_rate: 44_100,
             samples: vec![0i16; 44_100 * 2 / 5],
         };
-        let dest = std::env::temp_dir().join(format!(
-            "spiral-mp3-stream-{}.mp3",
-            std::process::id()
-        ));
+        let dest =
+            std::env::temp_dir().join(format!("spiral-mp3-stream-{}.mp3", std::process::id()));
         let _ = std::fs::remove_file(&dest);
 
         encode_pcm_to_mp3(&pcm, &dest, profile).expect("encode mp3");
@@ -270,10 +268,8 @@ mod tests {
             sample_rate: 44_100,
             samples,
         };
-        let dest = std::env::temp_dir().join(format!(
-            "spiral-gapless-mp3-{}.mp3",
-            std::process::id()
-        ));
+        let dest =
+            std::env::temp_dir().join(format!("spiral-gapless-mp3-{}.mp3", std::process::id()));
         let _ = std::fs::remove_file(&dest);
         encode_pcm_to_mp3(&pcm, &dest, profile).expect("encode mp3");
 
@@ -310,8 +306,8 @@ mod tests {
             track.codec_params.n_frames.expect("n_frames")
         };
 
-        let mut source = crate::file_playback::decoder::StreamingDecoder::open(&dest)
-            .expect("open mp3");
+        let mut source =
+            crate::file_playback::decoder::StreamingDecoder::open(&dest).expect("open mp3");
         let channels = u64::from(source.channels().max(1));
         let mut sample_count = 0u64;
         while source.next_sample().is_some() {

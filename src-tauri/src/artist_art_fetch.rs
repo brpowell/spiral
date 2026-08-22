@@ -39,16 +39,13 @@ pub fn fetch_artist_art_cached(artist: String) -> Result<Vec<CoverArtCandidate>,
     let candidates = fetch_artist_art_uncached(trimmed)?;
     let fetched_at = SystemTime::now();
 
-    FETCH_CACHE
-        .lock()
-        .map_err(|e| e.to_string())?
-        .insert(
-            key,
-            CacheEntry {
-                fetched_at,
-                candidates: candidates.clone(),
-            },
-        );
+    FETCH_CACHE.lock().map_err(|e| e.to_string())?.insert(
+        key,
+        CacheEntry {
+            fetched_at,
+            candidates: candidates.clone(),
+        },
+    );
 
     Ok(candidates)
 }
@@ -135,13 +132,11 @@ fn fetch_artist_art_uncached(artist: &str) -> Result<Vec<CoverArtCandidate>, Str
     enrich_candidates(&client, &mut candidates);
 
     candidates.sort_by(|a, b| {
-        a.canonical_rank
-            .cmp(&b.canonical_rank)
-            .then_with(|| {
-                a.file_size
-                    .unwrap_or(u64::MAX)
-                    .cmp(&b.file_size.unwrap_or(u64::MAX))
-            })
+        a.canonical_rank.cmp(&b.canonical_rank).then_with(|| {
+            a.file_size
+                .unwrap_or(u64::MAX)
+                .cmp(&b.file_size.unwrap_or(u64::MAX))
+        })
     });
 
     candidates.truncate(MAX_RESULTS);
@@ -203,16 +198,13 @@ mod tests {
 
     #[test]
     fn clear_fetch_cache_empties_entries() {
-        FETCH_CACHE
-            .lock()
-            .unwrap()
-            .insert(
-                "artist|test".to_string(),
-                CacheEntry {
-                    fetched_at: SystemTime::now(),
-                    candidates: vec![],
-                },
-            );
+        FETCH_CACHE.lock().unwrap().insert(
+            "artist|test".to_string(),
+            CacheEntry {
+                fetched_at: SystemTime::now(),
+                candidates: vec![],
+            },
+        );
         clear_fetch_cache();
         assert!(FETCH_CACHE.lock().unwrap().is_empty());
     }

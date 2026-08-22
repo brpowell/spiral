@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useEntityArtSrc } from "../../EntityArt/useEntityArtSrc";
 import { formatTime } from "../../../lib/format";
 import { runSkinAction } from "../../../lib/skinActions";
@@ -10,7 +10,7 @@ import {
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import { usePlaylistStore } from "../../../store/usePlaylistStore";
 import { useSkinStore } from "../../../store/useSkinStore";
-import type { PlaylistNode } from "../../../types/skin";
+import type { NodeStyle, PlaylistNode } from "../../../types/skin";
 import { styleFromSkinNode } from "../../../lib/skinNodeStyle";
 import "./SkinPlaylistView.css";
 
@@ -32,6 +32,19 @@ function SkinPlaylistRowArt({ artPath }: { artPath: string | null }) {
   );
 }
 
+function mergeNodeStyles(
+  ...parts: Array<NodeStyle | undefined>
+): NodeStyle | undefined {
+  const merged: NodeStyle = {};
+  let any = false;
+  for (const part of parts) {
+    if (!part) continue;
+    Object.assign(merged, part);
+    any = true;
+  }
+  return any ? merged : undefined;
+}
+
 export function SkinPlaylistView({ node }: { node: PlaylistNode }) {
   const sourceId = useSkinStore((s) => s.playlistSourceId);
   const library = usePlayerStore((s) => s.library);
@@ -43,6 +56,8 @@ export function SkinPlaylistView({ node }: { node: PlaylistNode }) {
   const playbackState = usePlayerStore((s) => s.playbackState);
   const playlists = usePlaylistStore((s) => s.playlists);
   const setPlaylistSource = useSkinStore((s) => s.setPlaylistSource);
+  const [sourceHovered, setSourceHovered] = useState(false);
+  const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!node.defaultSource) return;
@@ -80,6 +95,11 @@ export function SkinPlaylistView({ node }: { node: PlaylistNode }) {
   const showDropdown = node.showDropdown !== false;
   const showDuration = node.showDuration !== false;
   const showArtwork = node.showArtwork === true;
+  const sourceStyle = styleFromSkinNode(
+    sourceHovered
+      ? mergeNodeStyles(node.sourceStyle, node.sourceHoverStyle)
+      : node.sourceStyle,
+  );
 
   return (
     <div
@@ -89,11 +109,16 @@ export function SkinPlaylistView({ node }: { node: PlaylistNode }) {
       {...skinDragRegionNoneProps()}
     >
       {showDropdown ? (
-        <div className="skin-playlist-view__source-wrap">
+        <div
+          className="skin-playlist-view__source-wrap"
+          onMouseEnter={() => setSourceHovered(true)}
+          onMouseLeave={() => setSourceHovered(false)}
+        >
           <select
             className="skin-playlist-view__source"
             value={sourceId}
             aria-label="Playlist source"
+            style={sourceStyle}
             onChange={(event) => {
               runSkinAction("playlist.setSource", {
                 sourceId: event.target.value,
@@ -121,11 +146,12 @@ export function SkinPlaylistView({ node }: { node: PlaylistNode }) {
             const isPlaying =
               track.id === currentTrackId && playbackState === "playing";
             const isCurrent = track.id === currentTrackId;
-            const rowStyle = isPlaying
-              ? { ...node.currentRowStyle, ...node.playingRowStyle }
-              : isCurrent
-                ? node.currentRowStyle
-                : undefined;
+            const isHovered = hoveredRowId === track.id;
+            const rowStyle = mergeNodeStyles(
+              isHovered ? node.rowHoverStyle : undefined,
+              isCurrent ? node.currentRowStyle : undefined,
+              isPlaying ? node.playingRowStyle : undefined,
+            );
 
             return (
               <button
@@ -142,6 +168,10 @@ export function SkinPlaylistView({ node }: { node: PlaylistNode }) {
                   .filter(Boolean)
                   .join(" ")}
                 style={styleFromSkinNode(rowStyle)}
+                onMouseEnter={() => setHoveredRowId(track.id)}
+                onMouseLeave={() =>
+                  setHoveredRowId((id) => (id === track.id ? null : id))
+                }
                 onClick={() => {
                   runSkinAction("playlist.playTrack", { trackId: track.id });
                 }}

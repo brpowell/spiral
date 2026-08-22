@@ -177,10 +177,7 @@ fn read_flac_properties(path: &Path) -> AudioProperties {
         props.sample_rate = Some(streaminfo.sample_rate);
     }
 
-    if streaminfo.bits_per_sample > 0
-        && streaminfo.num_channels > 0
-        && streaminfo.sample_rate > 0
-    {
+    if streaminfo.bits_per_sample > 0 && streaminfo.num_channels > 0 && streaminfo.sample_rate > 0 {
         let bitrate = u64::from(streaminfo.bits_per_sample)
             * u64::from(streaminfo.num_channels)
             * u64::from(streaminfo.sample_rate);
@@ -237,9 +234,8 @@ fn read_wav_properties(path: &Path) -> AudioProperties {
                 props.sample_rate = Some(sample_rate);
             }
             if bits_per_sample > 0 && channels > 0 && sample_rate > 0 {
-                let bitrate = u64::from(bits_per_sample)
-                    * u64::from(channels)
-                    * u64::from(sample_rate);
+                let bitrate =
+                    u64::from(bits_per_sample) * u64::from(channels) * u64::from(sample_rate);
                 props.bitrate = Some(bitrate.min(u64::from(u32::MAX)) as u32);
             }
         }
@@ -320,9 +316,7 @@ fn skip_id3v2_offset(data: &[u8]) -> usize {
         | ((u32::from(data[8]) & 0x7F) << 7)
         | (u32::from(data[9]) & 0x7F);
     let footer = if data[5] & 0x10 != 0 { 10usize } else { 0 };
-    let offset = 10usize
-        .saturating_add(size as usize)
-        .saturating_add(footer);
+    let offset = 10usize.saturating_add(size as usize).saturating_add(footer);
     offset.min(data.len())
 }
 
@@ -466,10 +460,7 @@ mod tests {
 
     #[test]
     fn parse_hz_value_reads_sample_rate() {
-        assert_eq!(
-            parse_hz_value("2 ch,  44100 Hz, FLAC"),
-            Some(44_100)
-        );
+        assert_eq!(parse_hz_value("2 ch,  44100 Hz, FLAC"), Some(44_100));
     }
 
     #[test]
@@ -491,7 +482,10 @@ mod tests {
     #[test]
     fn parse_bitrate_number_reads_first_number() {
         assert_eq!(parse_bitrate_number("256000 bits/sec"), Some(256_000));
-        assert_eq!(parse_bitrate_number("193239.6 bits per second"), Some(193_240));
+        assert_eq!(
+            parse_bitrate_number("193239.6 bits per second"),
+            Some(193_240)
+        );
     }
 
     #[test]

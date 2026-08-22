@@ -104,10 +104,7 @@ impl ProofOfPurchaseVerifier for DirectProofVerifier {
         }
         let original_purchase_id = proof.original_purchase_id.trim();
         if original_purchase_id.is_empty() {
-            return Err(err(
-                "invalid_proof",
-                "originalPurchaseId must be non-empty",
-            ));
+            return Err(err("invalid_proof", "originalPurchaseId must be non-empty"));
         }
         let product_id = proof
             .product_id
@@ -270,7 +267,9 @@ mod tests {
         let cases: &[(&str, Result<VerifiedPurchase, LicenseError>)] = &[
             (
                 "steam",
-                SteamProofVerifier.verify(&SteamOwnershipProof { ticket: vec![1, 2, 3] }),
+                SteamProofVerifier.verify(&SteamOwnershipProof {
+                    ticket: vec![1, 2, 3],
+                }),
             ),
             (
                 "mac_app_store",
