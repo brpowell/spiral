@@ -257,6 +257,7 @@ pub fn run() {
             commands::skins::get_active_skin_view,
             commands::skins::set_skin_ignore_cursor_events,
             commands::skins::start_skin_window_drag,
+            commands::skins::get_skin_cursor_client_position,
             commands::wms_import::import_wms_skin,
             commands::visualizers::list_visualizers,
             commands::visualizers::load_visualizer,

@@ -109,4 +109,56 @@ describe("isOverSkinWindowContent", () => {
       isOverSkinWindowContent(80, 100, document, { width: 279, height: 245 }),
     ).toBe(true);
   });
+
+  it("samples artwork from authored bounds when the img box is empty", () => {
+    const bounds = document.createElement("div");
+    bounds.className = "skin-bounds";
+    bounds.setAttribute(SKIN_WINDOW_HIT_ATTR, "artwork");
+    const img = document.createElement("img");
+    img.className = "skin-decoration skin-decoration--bitmap";
+    img.src = "https://example.test/head.png";
+    bounds.append(img);
+    document.body.append(bounds);
+
+    stubRect(bounds, { left: 261, top: 0, right: 495, bottom: 394 });
+    stubRect(img, { left: 0, top: 0, right: 0, bottom: 0 });
+    setSkinArtworkAlphaForTest(img.currentSrc || img.src, {
+      width: 2,
+      height: 2,
+      alpha: new Uint8Array([0, 0, 0, 255]),
+    });
+
+    expect(
+      isOverSkinWindowContent(270, 10, document, { width: 760, height: 394 }),
+    ).toBe(false);
+    expect(
+      isOverSkinWindowContent(450, 350, document, { width: 760, height: 394 }),
+    ).toBe(true);
+  });
+
+  it("ignores hit targets in inactive view layers", () => {
+    const layer = document.createElement("div");
+    layer.className = "skin-view-layer skin-view-layer--inactive";
+    const bounds = document.createElement("div");
+    bounds.className = "skin-bounds";
+    bounds.setAttribute(SKIN_WINDOW_HIT_ATTR, "artwork");
+    const img = document.createElement("img");
+    img.className = "skin-decoration skin-decoration--bitmap";
+    img.src = "https://example.test/mini.png";
+    bounds.append(img);
+    layer.append(bounds);
+    document.body.append(layer);
+
+    stubRect(bounds, { left: 0, top: 0, right: 400, bottom: 81 });
+    stubRect(img, { left: 0, top: 0, right: 400, bottom: 81 });
+    setSkinArtworkAlphaForTest(img.currentSrc || img.src, {
+      width: 1,
+      height: 1,
+      alpha: new Uint8Array([255]),
+    });
+
+    expect(
+      isOverSkinWindowContent(40, 20, document, { width: 317, height: 330 }),
+    ).toBe(false);
+  });
 });

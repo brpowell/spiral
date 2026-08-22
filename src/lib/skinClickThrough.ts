@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import { cursorPosition, getCurrentWindow } from "@tauri-apps/api/window";
 import {
   isOverSkinWindowContent,
   primeSkinArtworkAlphaFromDom,
@@ -16,6 +15,10 @@ import {
  * for the per-pixel hit test. On macOS a focused app still receives clicks
  * unless it deactivates — `set_skin_ignore_cursor_events` ignores mouse
  * events and deactivates so the hardware click goes through immediately.
+ *
+ * Polling uses a native AppKit (or Tauri) cursor→client mapping. JS
+ * `cursorPosition()` / `innerPosition()` / `window.screenX` disagree on a
+ * left-of-primary display; an out-of-view poll must not change ignore state.
  */
 
 const POLL_INTERVAL_MS = 40;
@@ -29,10 +32,42 @@ export function setSkinClickThroughIgnore(ignore: boolean): Promise<void> {
   return invoke("set_skin_ignore_cursor_events", { ignore });
 }
 
+export function clientPointInViewport(
+  clientX: number,
+  clientY: number,
+  viewport: { width: number; height: number },
+): boolean {
+  return (
+    clientX >= 0 &&
+    clientY >= 0 &&
+    clientX <= viewport.width &&
+    clientY <= viewport.height
+  );
+}
+
+export type SkinPassThroughDecision = "ignore" | "interactive" | "hold";
+
+/**
+ * Poll may change ignore-cursor only when the mapped point is inside the
+ * webview. An out-of-view poll is untrusted and must not force interactive.
+ */
+export function decidePolledPassThrough(args: {
+  inView: boolean;
+  overContent: boolean;
+  stayInteractive: boolean;
+}): SkinPassThroughDecision {
+  if (args.stayInteractive) return "interactive";
+  if (!args.inView) return "hold";
+  return args.overContent ? "interactive" : "ignore";
+}
+
+function getSkinCursorClientPosition(): Promise<{ x: number; y: number }> {
+  return invoke("get_skin_cursor_client_position");
+}
+
 export function startSkinClickThrough(
   options: SkinClickThroughOptions = {},
 ): () => void {
-  const appWindow = getCurrentWindow();
   let ignoring = false;
   let disposed = false;
   let pollTimer: number | null = null;
@@ -53,12 +88,24 @@ export function startSkinClickThrough(
   const shouldStayInteractive = () =>
     activePointers > 0 || options.shouldSuspend?.() === true;
 
-  const syncPassThrough = (clientX: number, clientY: number) => {
-    if (shouldStayInteractive() || isOverSkinWindowContent(clientX, clientY)) {
-      setIgnore(false);
-      return;
-    }
-    setIgnore(true);
+  const syncPassThrough = (
+    clientX: number,
+    clientY: number,
+    viewport: { width: number; height: number } = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    },
+  ) => {
+    const inView = clientPointInViewport(clientX, clientY, viewport);
+    const overContent =
+      inView && isOverSkinWindowContent(clientX, clientY, document, viewport);
+    const decision = decidePolledPassThrough({
+      inView,
+      overContent,
+      stayInteractive: shouldStayInteractive(),
+    });
+    if (decision === "hold") return;
+    setIgnore(decision === "ignore");
   };
 
   // Poll even while interactive: holes must start ignoring before the click
@@ -67,13 +114,7 @@ export function startSkinClickThrough(
   const poll = async () => {
     if (disposed) return;
     try {
-      const [cursor, innerOrigin, scaleFactor] = await Promise.all([
-        cursorPosition(),
-        appWindow.innerPosition(),
-        appWindow.scaleFactor(),
-      ]);
-      const clientX = (cursor.x - innerOrigin.x) / scaleFactor;
-      const clientY = (cursor.y - innerOrigin.y) / scaleFactor;
+      const { x: clientX, y: clientY } = await getSkinCursorClientPosition();
       syncPassThrough(clientX, clientY);
     } catch {
       // Transient IPC failures are non-fatal; the next tick retries.

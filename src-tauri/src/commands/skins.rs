@@ -200,6 +200,14 @@ pub fn start_skin_window_drag(window: tauri::WebviewWindow) -> Result<(), String
     crate::skin_drag::start_drag(&window)
 }
 
+/// OS cursor in CSS client coordinates of the calling skin window.
+#[tauri::command]
+pub fn get_skin_cursor_client_position(
+    window: tauri::WebviewWindow,
+) -> Result<crate::skin_click_through::ClientPoint, String> {
+    crate::skin_click_through::cursor_client_point(&window)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

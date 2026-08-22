@@ -21,6 +21,9 @@ const SKIN_WINDOW_HIT_QUERY = [
   ".skin-tiled-frame__content",
 ].join(", ");
 
+/** Inactive stacked views stay in the DOM; they must not steal hit tests. */
+const SKIN_WINDOW_HIT_INACTIVE = ".skin-view-layer--inactive, [inert]";
+
 /** Anti-aliased fringe stays hittable; fully (or nearly) clear pixels pass through. */
 export const SKIN_ARTWORK_ALPHA_HIT = 16;
 
@@ -246,16 +249,18 @@ function groupBoundsPaints(el: Element): boolean {
 
 function isOpaqueBitmapAt(
   img: HTMLImageElement,
+  boundsRect: SkinWindowHitRect,
   clientX: number,
   clientY: number,
 ): boolean {
-  const rect = clientRect(img);
   const url = img.currentSrc || img.src;
   if (!url) return true;
   const map = getSkinArtworkAlphaSync(url);
   if (!map) return true;
+  // Authored box is the source of truth (`object-fit: fill`). The <img> box
+  // can be 0×0 before layout; using it punches a hole through the whole skin.
   const pixel = clientPointToImagePixel(
-    rect,
+    boundsRect,
     map.width,
     map.height,
     clientX,
@@ -267,13 +272,13 @@ function isOpaqueBitmapAt(
 
 function isOpaqueCanvasAt(
   canvas: HTMLCanvasElement,
+  boundsRect: SkinWindowHitRect,
   clientX: number,
   clientY: number,
 ): boolean {
-  const rect = clientRect(canvas);
   if (canvas.width <= 0 || canvas.height <= 0) return true;
   const pixel = clientPointToImagePixel(
-    rect,
+    boundsRect,
     canvas.width,
     canvas.height,
     clientX,
@@ -295,12 +300,13 @@ function artworkOpaqueInBounds(
   clientX: number,
   clientY: number,
 ): boolean {
+  const boundsRect = clientRect(boundsEl);
   const bitmaps = boundsEl.querySelectorAll<HTMLImageElement>(
     "img.skin-decoration--bitmap",
   );
   if (bitmaps.length > 0) {
     for (const img of bitmaps) {
-      if (isOpaqueBitmapAt(img, clientX, clientY)) return true;
+      if (isOpaqueBitmapAt(img, boundsRect, clientX, clientY)) return true;
     }
     return false;
   }
@@ -310,7 +316,7 @@ function artworkOpaqueInBounds(
   );
   if (gifs.length > 0) {
     for (const canvas of gifs) {
-      if (isOpaqueCanvasAt(canvas, clientX, clientY)) return true;
+      if (isOpaqueCanvasAt(canvas, boundsRect, clientX, clientY)) return true;
     }
     return false;
   }
@@ -353,6 +359,7 @@ export function isOverSkinWindowContent(
 
   const samples: SkinWindowHitSample[] = [];
   for (const el of root.querySelectorAll(SKIN_WINDOW_HIT_QUERY)) {
+    if (el.closest(SKIN_WINDOW_HIT_INACTIVE)) continue;
     const kind =
       (el.getAttribute(SKIN_WINDOW_HIT_ATTR) as SkinWindowHitKind | null) ??
       "control";
