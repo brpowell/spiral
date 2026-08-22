@@ -2,9 +2,11 @@ import { useMemo } from "react";
 import {
   EQ_BAND_FREQUENCIES_HZ,
   formatEqBandFrequency,
+  formatEqGainDb,
   ratioToGainDb,
 } from "./equalizer/types";
 import { formatRemainingTime, formatTime } from "./format";
+import { t } from "./i18n";
 import {
   evaluateSkinBind,
   type SkinBindState,
@@ -64,25 +66,29 @@ function resolveTooltipWhen(
 function repeatModeLabel(mode: string): string {
   switch (mode) {
     case "one":
-      return "Repeat one";
+      return t("playback:transport.repeatOne");
     case "all":
-      return "Repeat all";
+      return t("playback:transport.repeatAll");
     default:
-      return "Repeat off";
+      return t("playback:transport.repeatOff");
   }
 }
 
+type ViewActionPrefix = "switchTo" | "open" | "close" | "toggle";
+
 function viewActionLabel(
-  prefix: string,
+  prefix: ViewActionPrefix,
   viewId: string | undefined,
   state: SkinBindState,
 ): string {
-  if (!viewId) return prefix;
+  if (!viewId) return t(`playback:skinTooltips.${prefix}`);
   const open = evaluateSkinBind(`skin.view.${viewId}.open`, state);
   if (typeof open === "boolean") {
-    return open ? `Close ${viewId}` : `Open ${viewId}`;
+    return open
+      ? t("playback:skinTooltips.closeNamed", { view: viewId })
+      : t("playback:skinTooltips.openNamed", { view: viewId });
   }
-  return `${prefix} ${viewId}`;
+  return t(`playback:skinTooltips.${prefix}Named`, { view: viewId });
 }
 
 function defaultActionTooltip(
@@ -94,73 +100,85 @@ function defaultActionTooltip(
 
   switch (action) {
     case "player.toggleMute":
-      return state.muted ? "Unmute" : "Mute";
+      return state.muted
+        ? t("playback:volume.unmute")
+        : t("playback:volume.mute");
     case "player.togglePlayPause":
-      return state.playbackState === "playing" ? "Pause" : "Play";
+      return state.playbackState === "playing"
+        ? t("playback:transport.pause")
+        : t("playback:transport.play");
     case "player.play":
-      return "Play";
+      return t("playback:transport.play");
     case "player.pause":
-      return "Pause";
+      return t("playback:transport.pause");
     case "player.stop":
-      return "Stop";
+      return t("playback:skinTooltips.stop");
     case "player.previousTrack":
-      return "Previous";
+      return t("playback:skinTooltips.previous");
     case "player.nextTrack":
-      return "Next";
+      return t("playback:skinTooltips.next");
     case "player.cycleRepeat":
-      return `Repeat: ${repeatModeLabel(String(state.repeatMode))}`;
+      return t("playback:skinTooltips.repeat", {
+        mode: repeatModeLabel(String(state.repeatMode)),
+      });
     case "player.toggleRepeat":
-      return state.repeatMode === "off" ? "Turn repeat on" : "Turn repeat off";
+      return state.repeatMode === "off"
+        ? t("playback:skinTooltips.turnRepeatOn")
+        : t("playback:skinTooltips.turnRepeatOff");
     case "player.toggleShuffle":
-      return state.shuffle ? "Turn shuffle off" : "Turn shuffle on";
+      return state.shuffle
+        ? t("playback:transport.shuffleOff")
+        : t("playback:transport.shuffleOn");
     case "navigation.openAlbum":
-      return "Open album";
+      return t("playback:skinTooltips.openAlbum");
     case "skin.openPicker":
-      return "Choose skin";
+      return t("playback:skinTooltips.chooseSkin");
     case "skin.toggleAlwaysOnTop":
-      return state.alwaysOnTop ? "Unpin window" : "Pin window on top";
+      return state.alwaysOnTop
+        ? t("playback:skinTooltips.unpinWindow")
+        : t("playback:skinTooltips.pinWindow");
     case "skin.restoreMainWindow":
-      return "Restore main window";
+      return t("playback:skinTooltips.restoreMainWindow");
     case "skin.exit":
-      return "Exit skin mode";
+      return t("playback:skinTooltips.exitSkinMode");
     case "skin.minimize":
-      return "Minimize window";
+      return t("playback:skinTooltips.minimizeWindow");
     case "skin.switchView":
-      return viewActionLabel("Switch to", viewId, state);
+      return viewActionLabel("switchTo", viewId, state);
     case "skin.openView":
-      return viewActionLabel("Open", viewId, state);
+      return viewActionLabel("open", viewId, state);
     case "skin.closeView":
-      return viewActionLabel("Close", viewId, state);
+      return viewActionLabel("close", viewId, state);
     case "skin.toggleView":
-      return viewActionLabel("Toggle", viewId, state);
+      return viewActionLabel("toggle", viewId, state);
     case "skin.toggleSoundEffects":
       return state.soundEffectsEnabled
-        ? "Disable sound effects"
-        : "Enable sound effects";
+        ? t("playback:skinTooltips.disableSoundEffects")
+        : t("playback:skinTooltips.enableSoundEffects");
     case "visualizer.previous":
-      return "Previous visualizer";
+      return t("playback:skinTooltips.previousVisualizer");
     case "visualizer.next":
-      return "Next visualizer";
+      return t("playback:skinTooltips.nextVisualizer");
     case "eq.reset":
-      return "Reset EQ";
+      return t("playback:skinTooltips.resetEq");
     case "eq.previousPreset":
-      return "Previous EQ preset";
+      return t("playback:skinTooltips.previousEqPreset");
     case "eq.nextPreset":
-      return "Next EQ preset";
+      return t("playback:skinTooltips.nextEqPreset");
     case "app.quit":
-      return "Quit Spiral";
+      return t("playback:skinTooltips.quit");
     case "app.openUrl":
-      return "Open link";
+      return t("playback:skinTooltips.openLink");
     case "app.openFile":
-      return "Import files";
+      return t("playback:skinTooltips.importFiles");
     case "slideshow.prev":
-      return "Previous page";
+      return t("playback:skinTooltips.previousPage");
     case "slideshow.next":
-      return "Next page";
+      return t("playback:skinTooltips.nextPage");
     case "scrollStrip.prev":
-      return "Previous";
+      return t("playback:skinTooltips.previous");
     case "scrollStrip.next":
-      return "Next";
+      return t("playback:skinTooltips.next");
     default:
       return id ?? action;
   }
@@ -176,13 +194,17 @@ function defaultSliderTooltip(
   switch (sliderMode) {
     case "volume": {
       const vol = ratio ?? state.volume;
-      return `Volume: ${Math.round(vol * 100)}%`;
+      return t("playback:skinTooltips.volume", {
+        percent: Math.round(vol * 100),
+      });
     }
     case "balance": {
       const bal = ratio !== undefined ? ratio * 2 - 1 : state.balance;
-      if (Math.abs(bal) < 0.05) return "Balance: Center";
+      if (Math.abs(bal) < 0.05) return t("playback:skinTooltips.balanceCenter");
       const pct = Math.round(Math.abs(bal) * 100);
-      return bal < 0 ? `Balance: L${pct}` : `Balance: R${pct}`;
+      return bal < 0
+        ? t("playback:skinTooltips.balanceLeft", { percent: pct })
+        : t("playback:skinTooltips.balanceRight", { percent: pct });
     }
     case "seek": {
       const duration =
@@ -202,8 +224,10 @@ function defaultSliderTooltip(
           ? ratioToGainDb(ratio)
           : (evaluateSkinBind(`eq.band.${eqBand}`, state) as number);
       const freq = formatEqBandFrequency(EQ_BAND_FREQUENCIES_HZ[eqBand - 1]);
-      const sign = gain >= 0 ? "+" : "";
-      return `${freq}: ${sign}${gain.toFixed(1)} dB`;
+      return t("playback:skinTooltips.eqBand", {
+        freq,
+        gain: formatEqGainDb(gain),
+      });
     }
     default:
       return null;
@@ -220,9 +244,13 @@ function defaultDigitTimeTooltip(
       ? (evaluateSkinBind("track.durationSeconds", state) as number)
       : 0);
   if (showElapsed) {
-    return `Elapsed: ${formatTime(state.positionSeconds)} (click for remaining)`;
+    return t("playback:skinTooltips.elapsed", {
+      time: formatTime(state.positionSeconds),
+    });
   }
-  return `Remaining: ${formatRemainingTime(state.positionSeconds, duration)} (click for elapsed)`;
+  return t("playback:skinTooltips.remaining", {
+    time: formatRemainingTime(state.positionSeconds, duration),
+  });
 }
 
 export function resolveSkinTooltip(

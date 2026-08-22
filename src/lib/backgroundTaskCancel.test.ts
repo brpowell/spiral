@@ -19,4 +19,8 @@ describe("BackgroundTaskCancelledError", () => {
     });
     expect(err.dismissMs).toBeNull();
   });
+
+  it("defaults the toast label from catalogs", () => {
+    expect(new BackgroundTaskCancelledError().toastLabel).toBe("Cancelled");
+  });
 });

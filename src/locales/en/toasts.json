@@ -2,6 +2,12 @@
   "actions": {
     "viewLogs": "View logs"
   },
+  "cancelled": "Cancelled",
+  "lab": {
+    "cancelled": "Lab task cancelled",
+    "downloadCancelled": "Download cancelled",
+    "updateReady": "Update ready — restarting…"
+  },
   "queue": {
     "added_one": "Added to queue",
     "added_other": "{{count}} tracks added to queue"

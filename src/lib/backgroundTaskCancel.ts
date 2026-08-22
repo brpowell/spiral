@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 export class BackgroundTaskCancelledError extends Error {
   readonly toastLabel: string;
   /**
@@ -7,7 +9,7 @@ export class BackgroundTaskCancelledError extends Error {
   readonly dismissMs?: number | null;
 
   constructor(
-    toastLabel = "Cancelled",
+    toastLabel = t("toasts:cancelled"),
     options?: { dismissMs?: number | null },
   ) {
     super("cancelled");

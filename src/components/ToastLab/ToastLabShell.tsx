@@ -91,7 +91,7 @@ export function ToastLabShell() {
   const fireCancelled = () => {
     showToast({
       key: `lab-cancelled-${crypto.randomUUID().slice(0, 8)}`,
-      label: "Lab task cancelled",
+      label: t("toasts:lab.cancelled"),
       status: "cancelled",
       dismissMs,
     });
@@ -225,7 +225,7 @@ export function ToastLabShell() {
     });
     showToast({
       key: "lab-gallery-cancelled",
-      label: "Lab task cancelled",
+      label: t("toasts:lab.cancelled"),
       status: "cancelled",
       dismissMs: sticky,
     });
@@ -242,9 +242,12 @@ export function ToastLabShell() {
             if (ctx.isCancelRequested()) {
               window.clearInterval(id);
               reject(
-                new BackgroundTaskCancelledError("Download cancelled", {
-                  dismissMs,
-                }),
+                new BackgroundTaskCancelledError(
+                  t("toasts:lab.downloadCancelled"),
+                  {
+                    dismissMs,
+                  },
+                ),
               );
               return;
             }
@@ -271,16 +274,19 @@ export function ToastLabShell() {
         const total = 20;
         for (let i = 1; i <= total; i++) {
           if (ctx.isCancelRequested()) {
-            throw new BackgroundTaskCancelledError("Download cancelled", {
-              dismissMs,
-            });
+            throw new BackgroundTaskCancelledError(
+              t("toasts:lab.downloadCancelled"),
+              {
+                dismissMs,
+              },
+            );
           }
           ctx.setProgress(i, total);
           await sleep(120);
         }
         ctx.settleAs({
           status: "success",
-          label: "Update ready — restarting…",
+          label: t("toasts:lab.updateReady"),
           dismissMs,
         });
       },
