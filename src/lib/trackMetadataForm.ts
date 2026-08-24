@@ -63,7 +63,7 @@ function normalizeOptionalString(value: string | null): string {
   return value ?? "";
 }
 
-function sharedString(
+export function sharedString(
   tracks: Track[],
   getter: (track: Track) => string | null,
 ): string {
@@ -88,7 +88,7 @@ export function sharedArtistField(
   return serializeArtistField(first) ?? "";
 }
 
-function sharedInt(
+export function sharedInt(
   tracks: Track[],
   getter: (track: Track) => number | null,
 ): string {

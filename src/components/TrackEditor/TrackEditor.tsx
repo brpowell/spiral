@@ -4,6 +4,11 @@ import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
+import {
+  bulkSaveFooterProps,
+  bulkSaveLabel,
+  useCancellableBulkSave,
+} from "../../hooks/useCancellableBulkSave";
 import { parseArtistField } from "../../lib/artistNames";
 import { collectArtistNameSuggestions } from "../../lib/artistNameSuggestions";
 import {
@@ -59,6 +64,7 @@ import type {
   LyricsSearchCandidate,
   LyricsSource,
 } from "../../types/lyrics";
+import { EditorSaveButton } from "../EditorSaveButton/EditorSaveButton";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import {
   Modal,
@@ -69,7 +75,6 @@ import {
   ModalHeaderMain,
   ModalTitle,
 } from "../common/Modal/Modal";
-import { Button } from "../common/Button/Button";
 import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
 import { EntityArt } from "../EntityArt/EntityArt";
 import { TrackEditorDetailsTab } from "./TrackEditorDetailsTab";
@@ -187,11 +192,17 @@ export function TrackEditor() {
   const [originalArtPath, setOriginalArtPath] = useState<string | null>(null);
   const [artSourcePath, setArtSourcePath] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveProgress, setSaveProgress] = useState<{
-    current: number;
-    total: number;
-  } | null>(null);
+  const {
+    saving,
+    saveProgress,
+    cancelRequested,
+    begin,
+    beginQuick,
+    requestCancel,
+    isCancelled,
+    setProgress,
+    finish,
+  } = useCancellableBulkSave();
   const [fetchingArt, setFetchingArt] = useState(false);
   const [coverCandidates, setCoverCandidates] = useState<CoverArtCandidate[]>(
     [],
@@ -248,7 +259,7 @@ export function TrackEditor() {
     setFetchMessage(null);
     setSaveError(null);
     setDiscardPrompt(false);
-    setSaveProgress(null);
+    finish();
 
     if (!isBulk && referenceTrack) {
       const pending = useLyricsFetchStore
@@ -325,7 +336,16 @@ export function TrackEditor() {
     requestClose,
     handleBackdropClick,
     dismissDiscardPrompt,
-  } = useEditorDiscardPrompt(hasChanges, closeTrackEditor);
+  } = useEditorDiscardPrompt(hasChanges, closeTrackEditor, saving);
+
+  const footerCancel = bulkSaveFooterProps({
+    saving,
+    saveProgress,
+    cancelRequested,
+    requestCancel,
+    requestClose,
+    t,
+  });
 
   const setField = (field: TrackEditorFormField, value: string) => {
     setForm((prev) => (prev ? { ...prev, [field]: value } : prev));
@@ -606,7 +626,7 @@ export function TrackEditor() {
     if (!form || !originalForm || !hasChanges || tracks.length === 0) return;
 
     if (!isBulk && referenceTrack) {
-      setSaving(true);
+      beginQuick();
       setSaveError(null);
       try {
         const metadataDirty =
@@ -648,18 +668,18 @@ export function TrackEditor() {
         const message = err instanceof Error ? err.message : String(err);
         setSaveError(message);
       } finally {
-        setSaving(false);
+        finish();
       }
       return;
     }
 
-    setSaving(true);
+    begin(tracks.length);
     setSaveError(null);
-    setSaveProgress({ current: 0, total: tracks.length });
 
     const updated: Track[] = [];
     const missingTracks: Track[] = [];
     const errors: string[] = [];
+    let cancelled = false;
 
     const noteMissing = (track: Track) => {
       missingTracks.push(track);
@@ -668,8 +688,13 @@ export function TrackEditor() {
 
     try {
       for (let i = 0; i < tracks.length; i++) {
+        if (isCancelled()) {
+          cancelled = true;
+          break;
+        }
+
         const track = tracks[i];
-        setSaveProgress({ current: i + 1, total: tracks.length });
+        setProgress(i + 1, tracks.length);
 
         if (await discoverTrackFileMissing(track)) {
           noteMissing(track);
@@ -714,6 +739,16 @@ export function TrackEditor() {
         updateTracksInLibrary(libraryUpdates);
       }
 
+      if (cancelled) {
+        setSaveError(
+          t("library:editor.saveCancelled", {
+            updated: updated.length,
+            total: tracks.length,
+          }),
+        );
+        return;
+      }
+
       if (errors.length > 0) {
         showBulkTrackMetadataSaveToast({
           total: tracks.length,
@@ -726,22 +761,14 @@ export function TrackEditor() {
         closeTrackEditor();
       }
     } finally {
-      setSaving(false);
-      setSaveProgress(null);
+      finish();
     }
   };
 
   const displayArtSrc = useAssetUrl(selectedCoverUrl ? null : pendingArtPath);
   const previewSrc = selectedCoverUrl ?? displayArtSrc;
 
-  const saveLabel = saving
-    ? saveProgress
-      ? t("library:editor.savingProgress", {
-          current: saveProgress.current,
-          total: saveProgress.total,
-        })
-      : t("common:saving")
-    : t("common:save");
+  const saveLabel = bulkSaveLabel(saving, saveProgress, t);
 
   const discardDescription = isBulk
     ? t("library:editor.discardBulk", { count: tracks.length })
@@ -762,6 +789,7 @@ export function TrackEditor() {
     <Modal
       open={isOpen}
       onClose={handleBackdropClick}
+      dismissible={!saving}
       size="editor"
       panelClassName="track-editor-modal"
       panelRef={dialogRef}
@@ -769,151 +797,154 @@ export function TrackEditor() {
     >
       {isOpen && form && (
         <>
-          <div
-            className="track-editor-modal__content track-editor-modal__content--tabbed"
-            inert={discardPrompt || undefined}
-          >
-            <ModalHeader
-              className={isBulk ? undefined : "track-editor__identity-header"}
+          <div className="track-editor-modal__content track-editor-modal__content--tabbed">
+            <div
+              className="track-editor-modal__main"
+              inert={discardPrompt || saving || undefined}
             >
-              {isBulk ? (
-                <ModalHeaderMain>
-                  <ModalTitle id="track-editor-title">
-                    {t("library:editor.editTracks", { count: tracks.length })}
-                  </ModalTitle>
-                  <ModalDescription>
-                    {t("library:editor.editTracksDescription", {
-                      count: tracks.length,
-                    })}
-                  </ModalDescription>
-                </ModalHeaderMain>
-              ) : (
-                <div className="track-editor__identity">
-                  <div className="track-editor__identity-art" aria-hidden>
-                    {previewSrc ? (
-                      <img
-                        src={previewSrc}
-                        alt=""
-                        className="track-editor__identity-art-img"
-                      />
-                    ) : (
-                      <EntityArt
-                        artPath={null}
-                        className="track-editor__identity-art-placeholder"
-                      />
-                    )}
-                  </div>
-                  <ModalHeaderMain className="track-editor__identity-meta">
-                    <ModalTitle
-                      id="track-editor-title"
-                      className="track-editor__identity-title"
-                    >
-                      {identityTitle}
+              <ModalHeader
+                className={isBulk ? undefined : "track-editor__identity-header"}
+              >
+                {isBulk ? (
+                  <ModalHeaderMain>
+                    <ModalTitle id="track-editor-title">
+                      {t("library:editor.editTracks", { count: tracks.length })}
                     </ModalTitle>
-                    {identitySubtitle ? (
-                      <p className="track-editor__identity-subtitle">
-                        {identitySubtitle}
-                      </p>
-                    ) : null}
+                    <ModalDescription>
+                      {t("library:editor.editTracksDescription", {
+                        count: tracks.length,
+                      })}
+                    </ModalDescription>
                   </ModalHeaderMain>
+                ) : (
+                  <div className="track-editor__identity">
+                    <div className="track-editor__identity-art" aria-hidden>
+                      {previewSrc ? (
+                        <img
+                          src={previewSrc}
+                          alt=""
+                          className="track-editor__identity-art-img"
+                        />
+                      ) : (
+                        <EntityArt
+                          artPath={null}
+                          className="track-editor__identity-art-placeholder"
+                        />
+                      )}
+                    </div>
+                    <ModalHeaderMain className="track-editor__identity-meta">
+                      <ModalTitle
+                        id="track-editor-title"
+                        className="track-editor__identity-title"
+                      >
+                        {identityTitle}
+                      </ModalTitle>
+                      {identitySubtitle ? (
+                        <p className="track-editor__identity-subtitle">
+                          {identitySubtitle}
+                        </p>
+                      ) : null}
+                    </ModalHeaderMain>
+                  </div>
+                )}
+              </ModalHeader>
+
+              <Tabs
+                value={activeTab}
+                onChange={(tab) => setActiveTab(tab as TrackEditorTab)}
+                className="track-editor__tabs"
+                variant="underline"
+              >
+                <div className="track-editor__tab-bar">
+                  <TabList aria-label={t("library:editor.tabsAria")}>
+                    <Tab value="details">{t("library:editor.tabDetails")}</Tab>
+                    <Tab value="lyrics" badge={hasLyrics ? "•" : undefined}>
+                      {t("library:editor.tabLyrics")}
+                    </Tab>
+                    {!isBulk ? (
+                      <Tab value="file">{t("library:editor.tabFile")}</Tab>
+                    ) : null}
+                  </TabList>
                 </div>
-              )}
-            </ModalHeader>
 
-            <Tabs
-              value={activeTab}
-              onChange={(tab) => setActiveTab(tab as TrackEditorTab)}
-              className="track-editor__tabs"
-              variant="underline"
-            >
-              <div className="track-editor__tab-bar">
-                <TabList aria-label={t("library:editor.tabsAria")}>
-                  <Tab value="details">{t("library:editor.tabDetails")}</Tab>
-                  <Tab value="lyrics" badge={hasLyrics ? "•" : undefined}>
-                    {t("library:editor.tabLyrics")}
-                  </Tab>
-                  {!isBulk ? (
-                    <Tab value="file">{t("library:editor.tabFile")}</Tab>
-                  ) : null}
-                </TabList>
-              </div>
-
-              <ModalBody className="track-editor__tab-body">
-                <div className="track-editor__tab-stage">
-                  <TabPanel value="details" className="track-editor__tab-panel">
-                    <TrackEditorDetailsTab
-                      form={form}
-                      tracks={tracks}
-                      isBulk={isBulk}
-                      previewSrc={previewSrc}
-                      artDragOver={artDragOver}
-                      fetchingArt={fetchingArt}
-                      fetchMessage={fetchMessage}
-                      coverCandidates={coverCandidates}
-                      selectedCoverUrl={selectedCoverUrl}
-                      onArtDragOver={setArtDragOver}
-                      onArtDrop={(e) => void handleArtDrop(e)}
-                      onChangeArt={() => void handleChangeArt()}
-                      onFetchArt={() => void handleFetchArt()}
-                      onSelectCover={handleSelectCover}
-                      onFieldChange={setField}
-                      onRatingChange={setRating}
-                      artistSuggestions={artistSuggestions}
-                      genreSuggestions={genreSuggestions}
-                      albumSuggestions={albumSuggestions}
-                    />
-                  </TabPanel>
-
-                  <TabPanel
-                    value="lyrics"
-                    className="track-editor__tab-panel track-editor__tab-panel--lyrics"
-                  >
-                    <TrackEditorLyricsTab
-                      value={form.lyrics}
-                      syncedLines={form.lyricsSyncedLines}
-                      instrumental={form.lyricsInstrumental}
-                      bulk={isBulk}
-                      instrumentalMixed={isLyricsInstrumentalMixed(tracks)}
-                      fetchingLyrics={
-                        !isBulk && (lyricsFetchPending || committingLyrics)
-                      }
-                      fetchFeedback={isBulk ? null : lyricsFetchFeedback}
-                      onFetchLyrics={() => void handleFetchLyrics()}
-                      onInstrumentalChange={setLyricsInstrumental}
-                      onChange={setLyrics}
-                    />
-                  </TabPanel>
-
-                  {!isBulk && referenceTrack ? (
-                    <TabPanel value="file" className="track-editor__tab-panel">
-                      <TrackEditorFileTab
-                        track={referenceTrack}
-                        updateTrackInLibrary={updateTrackInLibrary}
+                <ModalBody className="track-editor__tab-body">
+                  <div className="track-editor__tab-stage">
+                    <TabPanel
+                      value="details"
+                      className="track-editor__tab-panel"
+                    >
+                      <TrackEditorDetailsTab
+                        form={form}
+                        tracks={tracks}
+                        isBulk={isBulk}
+                        previewSrc={previewSrc}
+                        artDragOver={artDragOver}
+                        fetchingArt={fetchingArt}
+                        fetchMessage={fetchMessage}
+                        coverCandidates={coverCandidates}
+                        selectedCoverUrl={selectedCoverUrl}
+                        onArtDragOver={setArtDragOver}
+                        onArtDrop={(e) => void handleArtDrop(e)}
+                        onChangeArt={() => void handleChangeArt()}
+                        onFetchArt={() => void handleFetchArt()}
+                        onSelectCover={handleSelectCover}
+                        onFieldChange={setField}
+                        onRatingChange={setRating}
+                        artistSuggestions={artistSuggestions}
+                        genreSuggestions={genreSuggestions}
+                        albumSuggestions={albumSuggestions}
                       />
                     </TabPanel>
+
+                    <TabPanel
+                      value="lyrics"
+                      className="track-editor__tab-panel track-editor__tab-panel--lyrics"
+                    >
+                      <TrackEditorLyricsTab
+                        value={form.lyrics}
+                        syncedLines={form.lyricsSyncedLines}
+                        instrumental={form.lyricsInstrumental}
+                        bulk={isBulk}
+                        instrumentalMixed={isLyricsInstrumentalMixed(tracks)}
+                        fetchingLyrics={
+                          !isBulk && (lyricsFetchPending || committingLyrics)
+                        }
+                        fetchFeedback={isBulk ? null : lyricsFetchFeedback}
+                        onFetchLyrics={() => void handleFetchLyrics()}
+                        onInstrumentalChange={setLyricsInstrumental}
+                        onChange={setLyrics}
+                      />
+                    </TabPanel>
+
+                    {!isBulk && referenceTrack ? (
+                      <TabPanel
+                        value="file"
+                        className="track-editor__tab-panel"
+                      >
+                        <TrackEditorFileTab
+                          track={referenceTrack}
+                          updateTrackInLibrary={updateTrackInLibrary}
+                        />
+                      </TabPanel>
+                    ) : null}
+                  </div>
+
+                  {saveError ? (
+                    <p className="track-editor__error" role="alert">
+                      {saveError}
+                    </p>
                   ) : null}
-                </div>
+                </ModalBody>
+              </Tabs>
+            </div>
 
-                {saveError ? (
-                  <p className="track-editor__error" role="alert">
-                    {saveError}
-                  </p>
-                ) : null}
-              </ModalBody>
-            </Tabs>
-
-            <ModalFooter
-              onCancel={requestClose}
-              cancelDisabled={saving}
-              cancelLabel={t("common:cancel")}
-            >
-              <Button
-                variant="primary"
+            <ModalFooter inert={discardPrompt || undefined} {...footerCancel}>
+              <EditorSaveButton
+                saving={saving}
+                label={saveLabel}
                 onClick={() => void handleSave()}
                 disabled={!hasChanges || saving || discardPrompt}
-              >
-                {saveLabel}
-              </Button>
+              />
             </ModalFooter>
           </div>
 

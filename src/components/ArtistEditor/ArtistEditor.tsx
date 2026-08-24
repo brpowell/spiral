@@ -4,6 +4,11 @@ import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
+import {
+  bulkSaveFooterProps,
+  bulkSaveLabel,
+  useCancellableBulkSave,
+} from "../../hooks/useCancellableBulkSave";
 import { artistArtCacheKey, applyArtistImages } from "../../lib/artistArt";
 import { t as translate } from "../../lib/i18n";
 import {
@@ -28,6 +33,7 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
 import { EntityArt } from "../EntityArt/EntityArt";
+import { EditorSaveButton } from "../EditorSaveButton/EditorSaveButton";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import { IconArtistPlaceholder } from "../icons";
 import {
@@ -120,11 +126,18 @@ export function ArtistEditor() {
   const [originalArtPath, setOriginalArtPath] = useState<string | null>(null);
   const [artSourcePath, setArtSourcePath] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveProgress, setSaveProgress] = useState<{
-    current: number;
-    total: number;
-  } | null>(null);
+  const {
+    saving,
+    saveProgress,
+    cancelRequested,
+    begin,
+    beginQuick,
+    requestCancel,
+    isCancelled,
+    setProgress,
+    enterQuickPhase,
+    finish,
+  } = useCancellableBulkSave();
   const [fetchingArt, setFetchingArt] = useState(false);
   const [coverCandidates, setCoverCandidates] = useState<CoverArtCandidate[]>(
     [],
@@ -150,7 +163,7 @@ export function ArtistEditor() {
     setFetchMessage(null);
     setSaveError(null);
     setDiscardPrompt(false);
-    setSaveProgress(null);
+    finish();
     // Reset only when switching artists — full `artist` would wipe in-progress edits
     // whenever library data refreshes. setDiscardPrompt is stable useState.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- key-gated form reset
@@ -172,7 +185,16 @@ export function ArtistEditor() {
     requestClose,
     handleBackdropClick,
     dismissDiscardPrompt,
-  } = useEditorDiscardPrompt(hasChanges, closeArtistEditor);
+  } = useEditorDiscardPrompt(hasChanges, closeArtistEditor, saving);
+
+  const footerCancel = bulkSaveFooterProps({
+    saving,
+    saveProgress,
+    cancelRequested,
+    requestCancel,
+    requestClose,
+    t,
+  });
 
   const artCacheKey = editingArtistKey
     ? artistArtCacheKey(editingArtistKey)
@@ -268,18 +290,27 @@ export function ArtistEditor() {
 
     if (nameChanged && tracks.length === 0) return;
 
-    setSaving(true);
-    setSaveError(null);
-
     const updated: Track[] = [];
     const errors: string[] = [];
+    let cancelled = false;
+
+    if (nameChanged) {
+      begin(tracks.length);
+    } else {
+      beginQuick();
+    }
+    setSaveError(null);
 
     try {
       if (nameChanged) {
-        setSaveProgress({ current: 0, total: tracks.length });
         for (let i = 0; i < tracks.length; i++) {
+          if (isCancelled()) {
+            cancelled = true;
+            break;
+          }
+
           const track = tracks[i];
-          setSaveProgress({ current: i + 1, total: tracks.length });
+          setProgress(i + 1, tracks.length);
           try {
             const metadata = buildTrackArtistMetadata(
               track,
@@ -304,6 +335,16 @@ export function ArtistEditor() {
           updateTracksInLibrary(updated);
         }
 
+        if (cancelled) {
+          setSaveError(
+            t("library:editor.saveCancelled", {
+              updated: updated.length,
+              total: tracks.length,
+            }),
+          );
+          return;
+        }
+
         if (errors.length > 0) {
           setSaveError(
             errors.length === tracks.length
@@ -323,6 +364,7 @@ export function ArtistEditor() {
       }
 
       if (artChanged) {
+        enterQuickPhase();
         const cacheKey = artistArtCacheKey(newKey);
         const finalArtPath = await resolveArtistArtPath(cacheKey);
         await saveArtistImage(newKey, browseMode, finalArtPath);
@@ -339,27 +381,20 @@ export function ArtistEditor() {
       const message = err instanceof Error ? err.message : String(err);
       setSaveError(message);
     } finally {
-      setSaving(false);
-      setSaveProgress(null);
+      finish();
     }
   };
 
   const displayArtSrc = useAssetUrl(selectedCoverUrl ? null : pendingArtPath);
   const previewSrc = selectedCoverUrl ?? displayArtSrc;
 
-  const saveLabel = saving
-    ? saveProgress
-      ? t("library:editor.savingProgress", {
-          current: saveProgress.current,
-          total: saveProgress.total,
-        })
-      : t("common:saving")
-    : t("common:save");
+  const saveLabel = bulkSaveLabel(saving, saveProgress, t);
 
   return (
     <Modal
       open={isOpen}
       onClose={handleBackdropClick}
+      dismissible={!saving}
       size="editor"
       panelClassName="track-editor-modal"
       panelRef={dialogRef}
@@ -367,155 +402,152 @@ export function ArtistEditor() {
     >
       {isOpen && (
         <>
-          <div
-            className="track-editor-modal__content"
-            inert={discardPrompt || undefined}
-          >
-            <ModalHeader>
-              <ModalHeaderMain>
-                <ModalTitle id="artist-editor-title">
-                  {t("library:editor.editArtist")}
-                </ModalTitle>
-                <ModalDescription>
-                  {nameChangedDescription(
-                    form!,
-                    originalForm!,
-                    tracks.length,
-                    artChanged,
-                  )}
-                </ModalDescription>
-              </ModalHeaderMain>
-            </ModalHeader>
+          <div className="track-editor-modal__content">
+            <div
+              className="track-editor-modal__main"
+              inert={discardPrompt || saving || undefined}
+            >
+              <ModalHeader>
+                <ModalHeaderMain>
+                  <ModalTitle id="artist-editor-title">
+                    {t("library:editor.editArtist")}
+                  </ModalTitle>
+                  <ModalDescription>
+                    {nameChangedDescription(
+                      form!,
+                      originalForm!,
+                      tracks.length,
+                      artChanged,
+                    )}
+                  </ModalDescription>
+                </ModalHeaderMain>
+              </ModalHeader>
 
-            <ModalBody>
-              <div className="track-editor__body">
-                <div className="track-editor__art-col">
-                  <div
-                    data-art-drop-zone
-                    className={
-                      artDragOver
-                        ? "track-editor__art-drop track-editor__art-drop--active track-editor__art-drop--round"
-                        : "track-editor__art-drop track-editor__art-drop--round"
-                    }
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setArtDragOver(true);
-                    }}
-                    onDragLeave={() => setArtDragOver(false)}
-                    onDrop={handleArtDrop}
-                  >
-                    {previewSrc ? (
-                      <img
-                        src={previewSrc}
-                        alt=""
-                        className="track-editor__art-img track-editor__art-img--round"
-                      />
-                    ) : (
-                      <EntityArt
-                        artPath={null}
-                        className="track-editor__art-placeholder album-art--round"
-                        placeholder={<IconArtistPlaceholder />}
-                      />
+              <ModalBody>
+                <div className="track-editor__body">
+                  <div className="track-editor__art-col">
+                    <div
+                      data-art-drop-zone
+                      className={
+                        artDragOver
+                          ? "track-editor__art-drop track-editor__art-drop--active track-editor__art-drop--round"
+                          : "track-editor__art-drop track-editor__art-drop--round"
+                      }
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setArtDragOver(true);
+                      }}
+                      onDragLeave={() => setArtDragOver(false)}
+                      onDrop={handleArtDrop}
+                    >
+                      {previewSrc ? (
+                        <img
+                          src={previewSrc}
+                          alt=""
+                          className="track-editor__art-img track-editor__art-img--round"
+                        />
+                      ) : (
+                        <EntityArt
+                          artPath={null}
+                          className="track-editor__art-placeholder album-art--round"
+                          placeholder={<IconArtistPlaceholder />}
+                        />
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      className="track-editor__art-btn"
+                      onClick={() => void handleChangeArt()}
+                    >
+                      {t("library:editor.addArt")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="track-editor__art-btn"
+                      onClick={() => void handleFetchArt()}
+                      disabled={fetchingArt}
+                    >
+                      {fetchingArt
+                        ? t("library:editor.fetchingArt")
+                        : t("library:editor.fetchArt")}
+                    </Button>
+                    {fetchMessage && !fetchingArt && (
+                      <p className="track-editor__fetch-msg">{fetchMessage}</p>
+                    )}
+                    {fetchingArt && (
+                      <div
+                        className="track-editor__fetching"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        <span
+                          className="track-editor__fetching-spinner"
+                          aria-hidden
+                        />
+                        <span>{t("library:editor.fetchingArtStatus")}</span>
+                      </div>
+                    )}
+                    {coverCandidates.length > 0 && (
+                      <div
+                        className="track-editor__cover-picker"
+                        aria-label={t("library:editor.artistImageOptions")}
+                      >
+                        {coverCandidates.map((candidate) => {
+                          const thumbSrc =
+                            candidate.thumbnailUrl ?? candidate.url;
+
+                          return (
+                            <button
+                              key={candidate.url}
+                              type="button"
+                              className={
+                                selectedCoverUrl === candidate.url
+                                  ? "track-editor__cover-option track-editor__cover-option--selected"
+                                  : "track-editor__cover-option"
+                              }
+                              onClick={() => handleSelectCover(candidate.url)}
+                              aria-pressed={selectedCoverUrl === candidate.url}
+                            >
+                              <span className="track-editor__cover-thumb track-editor__cover-thumb--round">
+                                <img src={thumbSrc} alt="" loading="lazy" />
+                              </span>
+                              <CoverOptionMeta candidate={candidate} />
+                            </button>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                  <Button
-                    size="sm"
-                    className="track-editor__art-btn"
-                    onClick={() => void handleChangeArt()}
-                  >
-                    {t("library:editor.addArt")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="track-editor__art-btn"
-                    onClick={() => void handleFetchArt()}
-                    disabled={fetchingArt}
-                  >
-                    {fetchingArt
-                      ? t("library:editor.fetchingArt")
-                      : t("library:editor.fetchArt")}
-                  </Button>
-                  {fetchMessage && !fetchingArt && (
-                    <p className="track-editor__fetch-msg">{fetchMessage}</p>
-                  )}
-                  {fetchingArt && (
-                    <div
-                      className="track-editor__fetching"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      <span
-                        className="track-editor__fetching-spinner"
-                        aria-hidden
+
+                  <div className="track-editor__fields">
+                    <FormField label={t("library:editor.fields.artist")}>
+                      <TextInput
+                        value={form.name}
+                        onChange={(e) =>
+                          setForm((prev) =>
+                            prev ? { ...prev, name: e.target.value } : prev,
+                          )
+                        }
                       />
-                      <span>{t("library:editor.fetchingArtStatus")}</span>
-                    </div>
-                  )}
-                  {coverCandidates.length > 0 && (
-                    <div
-                      className="track-editor__cover-picker"
-                      aria-label={t("library:editor.artistImageOptions")}
-                    >
-                      {coverCandidates.map((candidate) => {
-                        const thumbSrc =
-                          candidate.thumbnailUrl ?? candidate.url;
-
-                        return (
-                          <button
-                            key={candidate.url}
-                            type="button"
-                            className={
-                              selectedCoverUrl === candidate.url
-                                ? "track-editor__cover-option track-editor__cover-option--selected"
-                                : "track-editor__cover-option"
-                            }
-                            onClick={() => handleSelectCover(candidate.url)}
-                            aria-pressed={selectedCoverUrl === candidate.url}
-                          >
-                            <span className="track-editor__cover-thumb track-editor__cover-thumb--round">
-                              <img src={thumbSrc} alt="" loading="lazy" />
-                            </span>
-                            <CoverOptionMeta candidate={candidate} />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                    </FormField>
+                  </div>
                 </div>
 
-                <div className="track-editor__fields">
-                  <FormField label={t("library:editor.fields.artist")}>
-                    <TextInput
-                      value={form.name}
-                      onChange={(e) =>
-                        setForm((prev) =>
-                          prev ? { ...prev, name: e.target.value } : prev,
-                        )
-                      }
-                    />
-                  </FormField>
-                </div>
-              </div>
+                {saveError && (
+                  <p className="track-editor__error" role="alert">
+                    {saveError}
+                  </p>
+                )}
+              </ModalBody>
+            </div>
 
-              {saveError && (
-                <p className="track-editor__error" role="alert">
-                  {saveError}
-                </p>
-              )}
-            </ModalBody>
-
-            <ModalFooter
-              onCancel={requestClose}
-              cancelDisabled={saving}
-              cancelLabel={t("common:cancel")}
-            >
-              <Button
-                variant="primary"
+            <ModalFooter inert={discardPrompt || undefined} {...footerCancel}>
+              <EditorSaveButton
+                saving={saving}
+                label={saveLabel}
                 onClick={() => void handleSave()}
                 disabled={!hasChanges || saving || discardPrompt}
-              >
-                {saveLabel}
-              </Button>
+              />
             </ModalFooter>
           </div>
 

@@ -273,14 +273,16 @@ export function ModalFooter({
   cancelLabel = t("common:cancel"),
   onCancel,
   cancelDisabled = false,
+  inert,
 }: {
   children: ReactNode;
   cancelLabel?: string;
   onCancel?: () => void;
   cancelDisabled?: boolean;
+  inert?: boolean;
 }) {
   return (
-    <footer className="modal-footer">
+    <footer className="modal-footer" inert={inert}>
       <div className="modal-footer__start">
         {onCancel != null && (
           <Button

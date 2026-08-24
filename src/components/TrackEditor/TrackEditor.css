@@ -6,6 +6,13 @@
   padding-bottom: 0.5rem;
 }
 
+.track-editor-modal__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 .track-editor__identity-header {
   align-items: center;
   padding-block: 0.95rem 0.5rem;
@@ -148,7 +155,11 @@
 
 .track-editor__art-drop--active {
   border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface-raised));
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 8%,
+    var(--color-surface-raised)
+  );
 }
 
 .track-editor__art-img {
@@ -236,7 +247,11 @@
 
 .track-editor__cover-option--selected {
   border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface-raised));
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 10%,
+    var(--color-surface-raised)
+  );
 }
 
 .track-editor__cover-thumb {
@@ -341,7 +356,11 @@
 
 .track-editor__file-path--missing {
   color: var(--color-text-secondary);
-  border-color: color-mix(in srgb, var(--color-danger, #e55) 35%, var(--color-border));
+  border-color: color-mix(
+    in srgb,
+    var(--color-danger, #e55) 35%,
+    var(--color-border)
+  );
 }
 
 .track-editor__file-location .btn {
@@ -365,4 +384,3 @@
   background: var(--color-danger-bg);
   border-radius: var(--radius-sm);
 }
-
