@@ -27,7 +27,6 @@ import {
 import { stopPlaybackForLibraryRelocate } from "../../lib/libraryRelocatePlayback";
 import { isAuthorId } from "../../lib/packs/packManifest";
 import { useArtistImageStore } from "../../store/useArtistImageStore";
-import { useCdStore } from "../../store/useCdStore";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import { usePlaybackSettingsStore } from "../../store/usePlaybackSettingsStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
@@ -394,8 +393,6 @@ export function PreferencesModal() {
         setMetadataCacheCleared(false);
         metadataCacheClearedTimeoutRef.current = null;
       }, 2000);
-      useCdStore.getState().resetMetadataCacheState();
-      void useCdStore.getState().refreshDrives();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);

@@ -118,6 +118,10 @@ pub fn clear_thread_context() {
     });
 }
 
+pub fn thread_has_drive_id() -> bool {
+    current_thread_context().drive_id.is_some()
+}
+
 fn current_thread_context() -> ActivityLogContext {
     THREAD_CONTEXT.with(|cell| cell.borrow().clone())
 }

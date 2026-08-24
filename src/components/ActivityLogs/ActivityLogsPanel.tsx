@@ -58,7 +58,7 @@ interface PendingRowDrag {
   shiftKey: boolean;
   metaKey: boolean;
   ctrlKey: boolean;
-  startedOnText: boolean;
+  startedOnJson: boolean;
   originX: number;
   originY: number;
 }
@@ -129,12 +129,20 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
   );
 }
 
-function isTextTarget(target: EventTarget | null): boolean {
+function isJsonTarget(target: EventTarget | null): boolean {
   return (
     target instanceof Element &&
-    target.closest(".activity-logs-panel__body, .activity-logs-panel__json") !=
-      null
+    target.closest(".activity-logs-panel__json") != null
   );
+}
+
+function selectionIsInJson(): boolean {
+  const selection = window.getSelection();
+  if (selection == null || selection.isCollapsed) return false;
+  const node = selection.anchorNode;
+  if (node == null) return false;
+  const el = node instanceof Element ? node : node.parentElement;
+  return el?.closest(".activity-logs-panel__json") != null;
 }
 
 function LogEntryRow({
@@ -368,7 +376,7 @@ export function ActivityLogsPanel() {
         shiftKey: event.shiftKey,
         metaKey: event.metaKey,
         ctrlKey: event.ctrlKey,
-        startedOnText: isTextTarget(event.target),
+        startedOnJson: isJsonTarget(event.target),
         originX: event.clientX,
         originY: event.clientY,
       };
@@ -401,14 +409,10 @@ export function ActivityLogsPanel() {
       if (!dragSelectActiveRef.current) {
         if (!moved) return;
 
-        const deltaX = Math.abs(event.clientX - pending.originX);
-        const deltaY = Math.abs(event.clientY - pending.originY);
-
-        if (pending.startedOnText) {
-          if (deltaY <= deltaX || hasActiveTextSelection()) {
-            finishRowDrag();
-            return;
-          }
+        // Expanded JSON is the only selectable text; a drag there is copy,
+        // not row multi-select — including across later JSON blocks.
+        if (pending.startedOnJson) {
+          return;
         }
 
         dragSelectActiveRef.current = true;
@@ -675,7 +679,12 @@ export function ActivityLogsPanel() {
         aria-label="Activity logs"
         onScroll={handleListScroll}
         onKeyDown={handleListKeyDown}
-        onContextMenu={onContextMenu}
+        onContextMenu={(event) => {
+          if (isJsonTarget(event.target) && selectionIsInJson()) {
+            return;
+          }
+          onContextMenu(event);
+        }}
         onMouseDown={(event) => {
           if (event.button !== 0) return;
           if (

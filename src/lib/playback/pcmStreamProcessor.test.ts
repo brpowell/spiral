@@ -39,7 +39,8 @@ type Outbound =
   | { type: "needData" }
   | { type: "drainAt"; frame: number }
   | { type: "drained" }
-  | { type: "started" };
+  | { type: "started" }
+  | { type: "buffered" };
 
 class Deck {
   readonly processor: Processor;
@@ -295,6 +296,29 @@ describe("PcmStreamProcessor", () => {
     deck.render(BLOCK_FRAMES);
     // At the minimum — do not pull toward the full playing target (important
     // for CD gapless so the primed deck does not steal the drive head).
+    expect(deck.take("needData")).toHaveLength(0);
+  });
+
+  it("while gated with startWhenBuffered, pulls past the minimum then announces buffered", () => {
+    const startWhenBuffered = PCM_STREAM_MIN_READ_AHEAD_FRAMES * 4;
+    const deck = new Deck({ readAheadFrames: 24_000 });
+    deck.send({ type: "gate", startWhenBuffered });
+
+    deck.feed(PCM_STREAM_MIN_READ_AHEAD_FRAMES, 0.5);
+    deck.messages.length = 0;
+    deck.render(0);
+    expect(deck.take("needData").length).toBeGreaterThan(0);
+    expect(deck.take("buffered")).toHaveLength(0);
+    expect(Array.from(deck.render(BLOCK_FRAMES))).toEqual(
+      Array(BLOCK_FRAMES).fill(0),
+    );
+
+    deck.feed(startWhenBuffered, 0.5);
+    deck.messages.length = 0;
+    expect(Array.from(deck.render(BLOCK_FRAMES * 2))).toEqual(
+      Array(BLOCK_FRAMES).fill(0),
+    );
+    expect(deck.take("buffered")).toHaveLength(1);
     expect(deck.take("needData")).toHaveLength(0);
   });
 

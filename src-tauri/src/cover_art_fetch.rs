@@ -56,6 +56,14 @@ struct CacheEntry {
 static FETCH_CACHE: LazyLock<Mutex<HashMap<String, CacheEntry>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
+/// CD auto-fetch owns its own start/complete lines; keep only errors there.
+fn log_cover_art(level: LogLevel, message: impl Into<String>, details: Option<serde_json::Value>) {
+    if level != LogLevel::Error && activity_log::thread_has_drive_id() {
+        return;
+    }
+    activity_log::log(level, "metadata.coverArt", message, details);
+}
+
 pub fn fetch_cover_art_for_release_cached(
     release_mbid: String,
 ) -> Result<Vec<CoverArtCandidate>, String> {
@@ -74,9 +82,8 @@ pub fn fetch_cover_art_for_release_cached(
         .cloned()
     {
         if entry.fetched_at.elapsed().unwrap_or(CACHE_TTL) < CACHE_TTL {
-            activity_log::log(
+            log_cover_art(
                 LogLevel::Info,
-                "metadata.coverArt",
                 format!("In-memory cache hit for release {mbid}"),
                 Some(serde_json::json!({
                     "releaseMbid": mbid,
@@ -87,9 +94,8 @@ pub fn fetch_cover_art_for_release_cached(
         }
     }
 
-    activity_log::log(
+    log_cover_art(
         LogLevel::Info,
-        "metadata.coverArt",
         format!("Fetching cover art for release {mbid}"),
         Some(serde_json::json!({ "releaseMbid": mbid })),
     );
@@ -105,13 +111,12 @@ pub fn fetch_cover_art_for_release_cached(
         },
     );
 
-    activity_log::log(
+    log_cover_art(
         if candidates.is_empty() {
             LogLevel::Warn
         } else {
             LogLevel::Info
         },
-        "metadata.coverArt",
         format!(
             "Cover art fetch for release {mbid} returned {} candidate(s)",
             candidates.len()
@@ -143,9 +148,8 @@ pub fn fetch_cover_art_cached(
         .cloned()
     {
         if entry.fetched_at.elapsed().unwrap_or(CACHE_TTL) < CACHE_TTL {
-            activity_log::log(
+            log_cover_art(
                 LogLevel::Info,
-                "metadata.coverArt",
                 format!("In-memory cache hit for \"{artist}\" — \"{album}\""),
                 Some(serde_json::json!({
                     "artist": artist,
@@ -157,9 +161,8 @@ pub fn fetch_cover_art_cached(
         }
     }
 
-    activity_log::log(
+    log_cover_art(
         LogLevel::Info,
-        "metadata.coverArt",
         format!("Searching cover art for \"{artist}\" — \"{album}\""),
         Some(serde_json::json!({ "artist": artist, "album": album })),
     );
@@ -175,13 +178,12 @@ pub fn fetch_cover_art_cached(
         },
     );
 
-    activity_log::log(
+    log_cover_art(
         if candidates.is_empty() {
             LogLevel::Warn
         } else {
             LogLevel::Info
         },
-        "metadata.coverArt",
         format!(
             "Cover art search for \"{artist}\" — \"{album}\" returned {} candidate(s)",
             candidates.len()
@@ -235,9 +237,8 @@ fn fetch_cover_art_for_release_uncached(
 
     if candidates.is_empty() {
         if let Some(release_group_mbid) = lookup_release_group_mbid(&client, release_mbid) {
-            activity_log::log(
+            log_cover_art(
                 LogLevel::Info,
-                "metadata.coverArt",
                 format!(
                     "No front art for release {release_mbid}; trying release group {release_group_mbid}"
                 ),
@@ -273,9 +274,8 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
     let search: serde_json::Value = match client.get(&search_url).send() {
         Ok(resp) if resp.status().is_success() => resp.json().unwrap_or(serde_json::Value::Null),
         Ok(resp) => {
-            activity_log::log(
+            log_cover_art(
                 LogLevel::Error,
-                "metadata.coverArt",
                 format!(
                     "MusicBrainz release search failed with HTTP {}",
                     resp.status()
@@ -289,9 +289,8 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
             return Ok(vec![]);
         }
         Err(err) => {
-            activity_log::log(
+            log_cover_art(
                 LogLevel::Error,
-                "metadata.coverArt",
                 "MusicBrainz release search request failed",
                 Some(serde_json::json!({
                     "artist": artist,
@@ -309,9 +308,8 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
         .cloned()
         .unwrap_or_default();
 
-    activity_log::log(
+    log_cover_art(
         LogLevel::Info,
-        "metadata.coverArt",
         format!(
             "MusicBrainz release search found {} release(s)",
             releases.len()
@@ -342,9 +340,8 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
     if candidates.is_empty() {
         let release_group_mbids = unique_release_group_mbids(&releases);
         if !release_group_mbids.is_empty() {
-            activity_log::log(
+            log_cover_art(
                 LogLevel::Info,
-                "metadata.coverArt",
                 format!(
                     "No release front art for \"{artist}\" — \"{album}\"; trying {} release group(s)",
                     release_group_mbids.len()
@@ -411,9 +408,8 @@ fn lookup_release_group_mbid(
     let release: serde_json::Value = match client.get(&url).send() {
         Ok(resp) if resp.status().is_success() => resp.json().unwrap_or(serde_json::Value::Null),
         Ok(resp) => {
-            activity_log::log(
+            log_cover_art(
                 LogLevel::Warn,
-                "metadata.coverArt",
                 format!(
                     "MusicBrainz release lookup failed with HTTP {} while resolving release group",
                     resp.status()
@@ -426,9 +422,8 @@ fn lookup_release_group_mbid(
             return None;
         }
         Err(err) => {
-            activity_log::log(
+            log_cover_art(
                 LogLevel::Warn,
-                "metadata.coverArt",
                 "MusicBrainz release lookup failed while resolving release group",
                 Some(serde_json::json!({
                     "releaseMbid": release_mbid,
@@ -440,9 +435,8 @@ fn lookup_release_group_mbid(
     };
 
     let Some(rg) = release_group_id_from_value(&release) else {
-        activity_log::log(
+        log_cover_art(
             LogLevel::Warn,
-            "metadata.coverArt",
             format!("MusicBrainz release {release_mbid} has no release group id"),
             Some(serde_json::json!({ "releaseMbid": release_mbid })),
         );
@@ -461,9 +455,8 @@ fn fetch_caa_front_images(
     let caa: serde_json::Value = match client.get(&caa_url).send() {
         Ok(resp) if resp.status().is_success() => resp.json().unwrap_or(serde_json::Value::Null),
         Ok(resp) if resp.status().as_u16() == 404 => {
-            activity_log::log(
+            log_cover_art(
                 LogLevel::Warn,
-                "metadata.coverArt",
                 format!(
                     "Cover Art Archive has no images for {} {mbid}",
                     entity.label()
@@ -476,9 +469,8 @@ fn fetch_caa_front_images(
             return Ok(vec![]);
         }
         Ok(resp) => {
-            activity_log::log(
+            log_cover_art(
                 LogLevel::Error,
-                "metadata.coverArt",
                 format!(
                     "Cover Art Archive request failed with HTTP {}",
                     resp.status()
@@ -492,9 +484,8 @@ fn fetch_caa_front_images(
             return Ok(vec![]);
         }
         Err(err) => {
-            activity_log::log(
+            log_cover_art(
                 LogLevel::Error,
-                "metadata.coverArt",
                 "Cover Art Archive request failed",
                 Some(serde_json::json!({
                     "entity": entity.path(),
@@ -512,9 +503,8 @@ fn fetch_caa_front_images(
 
     let candidates = parse_caa_front_candidates(images, entity_idx);
 
-    activity_log::log(
+    log_cover_art(
         LogLevel::Debug,
-        "metadata.coverArt",
         format!(
             "Parsed {} front image(s) from Cover Art Archive for {} {mbid}",
             candidates.len(),

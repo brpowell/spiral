@@ -6,10 +6,17 @@ import { ensureCdHeroArtValid } from "./cdArt";
 import { createOperationId, logActivity, withLogContext } from "./activityLog";
 import { t } from "./i18n";
 import { isNetworkLikelyAvailable } from "./network";
+import { resolveCachedArtPath } from "./tauri";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useCdStore } from "../store/useCdStore";
 import type { ActivityLogContext } from "../types/activityLog";
 import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
+import { selectedDiscFromLookup } from "./cdMetadata";
+import {
+  cdMetadataFailedSettleOptions,
+  cdMetadataFoundSettleOptions,
+  cdMetadataNotFoundSettleOptions,
+} from "./toastPayloads";
 
 function resolveCdHeroArtQuery(
   driveId: string,
@@ -40,15 +47,20 @@ function buildLogContext(
 async function resolveCdHeroArtCachePath(
   driveId: string,
   logContext?: ActivityLogContext,
+  options?: { log?: boolean },
 ): Promise<string | null> {
   const query = resolveCdHeroArtQuery(driveId);
   if (!query) return null;
-  const context = withLogContext(logContext, {
-    artist: query.artist,
-    album: query.album,
-    releaseMbid: query.releaseMbid ?? undefined,
-  });
-  return resolveAlbumArtPath(`${query.artist} - ${query.album}`, context);
+  const cacheLabel = `${query.artist} - ${query.album}`;
+  if (options?.log) {
+    const context = withLogContext(logContext, {
+      artist: query.artist,
+      album: query.album,
+      releaseMbid: query.releaseMbid ?? undefined,
+    });
+    return resolveAlbumArtPath(cacheLabel, context);
+  }
+  return resolveCachedArtPath(cacheLabel);
 }
 
 /** Remote cover-art lookup follows MusicBrainz metadata consent — not CD-Text alone. */
@@ -98,7 +110,6 @@ async function fetchAndSetHeroArt(
   let artPath = await resolveAlbumArtPath(cacheLabel, context);
 
   if (!artPath) {
-    // Also covers startCdMetadataFetch when the lookup failed and left no metadata.
     if (skipRemoteHeroArtWithoutMetadata(driveId, context)) {
       return;
     }
@@ -126,14 +137,6 @@ async function fetchAndSetHeroArt(
 
   if (artPath) {
     useCdStore.getState().setHeroArt(driveId, artPath);
-    logActivity({
-      level: "info",
-      domain: ACTIVITY_LOG_DOMAINS.coverArt,
-      message: "Hero art cached for CD",
-      operationId: context.operationId,
-      context,
-      details: { artPath },
-    });
   } else {
     logActivity({
       level: "warn",
@@ -155,7 +158,9 @@ export function startCdHeroArtFetch(driveId: string): void {
     const existing = await ensureCdHeroArtValid(driveId);
     if (existing) return;
 
-    const cachedPath = await resolveCdHeroArtCachePath(driveId, logContext);
+    const cachedPath = await resolveCdHeroArtCachePath(driveId, logContext, {
+      log: true,
+    });
     if (cachedPath) {
       useCdStore.getState().setHeroArt(driveId, cachedPath);
       return;
@@ -165,14 +170,6 @@ export function startCdHeroArtFetch(driveId: string): void {
     if (skipRemoteHeroArtWithoutMetadata(driveId, logContext)) {
       return;
     }
-
-    logActivity({
-      level: "info",
-      domain: ACTIVITY_LOG_DOMAINS.coverArt,
-      message: "Starting CD hero art fetch",
-      operationId,
-      context: logContext,
-    });
 
     useBackgroundTasksStore.getState().runInBackground({
       key: `cd-hero-art-${driveId}`,
@@ -184,43 +181,58 @@ export function startCdHeroArtFetch(driveId: string): void {
   })();
 }
 
-export function startCdMetadataFetch(driveId: string): void {
+export function startCdMetadataFetch(
+  driveId: string,
+  options?: { openPicker?: boolean },
+): void {
   const operationId = createOperationId();
   const logContext = buildLogContext(driveId, operationId);
-
-  logActivity({
-    level: "info",
-    domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
-    message: "Starting CD metadata fetch",
-    operationId,
-    context: logContext,
-  });
 
   useBackgroundTasksStore.getState().runInBackground({
     key: `cd-metadata-${driveId}`,
     label: t("toasts:cdMetadata.lookingUp"),
     run: async (ctx) => {
       try {
-        await useCdStore.getState().loadDiscMetadata(driveId, {
+        const lookup = await useCdStore.getState().loadDiscMetadata(driveId, {
           force: true,
           logContext,
         });
 
-        const needsRemoteArt =
-          (await resolveCdHeroArtCachePath(driveId, logContext)) == null;
-        if (needsRemoteArt) {
-          ctx.setDetail(t("toasts:cdMetadata.fetchingArt"));
+        if (!lookup) {
+          ctx.dismissSilently();
+          return;
         }
-        await fetchAndSetHeroArt(driveId, logContext);
-        ctx.clearDetail();
 
-        logActivity({
-          level: "info",
-          domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
-          message: "CD metadata fetch completed",
-          operationId,
-          context: logContext,
-        });
+        if (lookup.kind === "error") {
+          ctx.settleAs(
+            cdMetadataFailedSettleOptions({ logLink: { operationId } }),
+          );
+          return;
+        }
+
+        if (lookup.kind === "miss" || lookup.candidates.length === 0) {
+          ctx.settleAs(cdMetadataNotFoundSettleOptions());
+          return;
+        }
+
+        if (options?.openPicker && lookup.candidates.length > 1) {
+          useCdStore.getState().openDiscMetadataPick(driveId);
+          ctx.dismissSilently();
+          return;
+        }
+
+        const selected = selectedDiscFromLookup(lookup);
+        if (selected) {
+          const needsRemoteArt =
+            (await resolveCdHeroArtCachePath(driveId, logContext)) == null;
+          if (needsRemoteArt) {
+            ctx.setDetail(t("toasts:cdMetadata.fetchingArt"));
+          }
+          await fetchAndSetHeroArt(driveId, logContext);
+          ctx.clearDetail();
+        }
+
+        ctx.settleAs(cdMetadataFoundSettleOptions({ album: selected?.album }));
       } catch (err) {
         logActivity({
           level: "error",
@@ -232,8 +244,15 @@ export function startCdMetadataFetch(driveId: string): void {
             error: err instanceof Error ? err.message : String(err),
           },
         });
-        throw err;
+        ctx.settleAs(
+          cdMetadataFailedSettleOptions({ logLink: { operationId } }),
+        );
       }
     },
   });
+}
+
+/** Force a MusicBrainz lookup and open the release picker so the user can switch. */
+export function startCdReleaseSearch(driveId: string): void {
+  startCdMetadataFetch(driveId, { openPicker: true });
 }

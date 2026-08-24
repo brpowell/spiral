@@ -27,7 +27,7 @@ describe("cdImportGuard", () => {
         {
           id: "task-1",
           key: "cd-import",
-          label: "Importing CD",
+          label: "Importing CD…",
           status: "running",
           createdAt: Date.now(),
         },

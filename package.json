@@ -17,7 +17,7 @@
     "format:check": "npm run format:prettier:check && npm run format:rust:check",
     "format:prettier": "prettier --write .",
     "format:prettier:check": "prettier --check .",
-    "format:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
+    "format:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml",
     "format:rust:check": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
     "lint:skins": "vitest run src/lib/skinLayout.test.ts",
     "wms-import": "cargo run --manifest-path src-tauri/Cargo.toml --bin wms_import --",

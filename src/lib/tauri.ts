@@ -509,11 +509,25 @@ export async function cacheArtFromBytes(
   return invoke<string>("cache_art_from_bytes", { bytes, filePath, format });
 }
 
+export type CachedArtFromUrl = {
+  path: string;
+  byteCount: number;
+};
+
 export async function cacheArtFromUrl(
   url: string,
   filePath: string,
-): Promise<string> {
-  return invoke<string>("cache_art_from_url", { url, filePath });
+  logContext?: ActivityLogContext,
+): Promise<CachedArtFromUrl> {
+  const raw = await invoke<Record<string, unknown>>("cache_art_from_url", {
+    url,
+    filePath,
+    logContext: logContext ?? null,
+  });
+  return {
+    path: String(raw.path ?? ""),
+    byteCount: Number(raw.byteCount ?? raw.byte_count ?? 0),
+  };
 }
 
 export async function resolveCachedArtPath(
@@ -1409,6 +1423,10 @@ function normalizeDiscMetadataLookup(
     discId: (raw.discId ?? raw.disc_id ?? null) as string | null,
     candidates: candidatesRaw.map(normalizeDiscMetadata),
     preferred: preferredRaw ? normalizeDiscMetadata(preferredRaw) : null,
+    kind:
+      raw.kind === "hit" || raw.kind === "miss" || raw.kind === "error"
+        ? raw.kind
+        : undefined,
   };
 }
 

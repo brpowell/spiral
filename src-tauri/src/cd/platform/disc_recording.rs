@@ -52,6 +52,19 @@ impl DRDevice {
 }
 
 extern_class!(
+    #[unsafe(super(NSObject))]
+    #[name = "DRTrack"]
+    pub struct DRTrack;
+);
+
+impl DRTrack {
+    extern_methods!(
+        #[unsafe(method(properties))]
+        pub fn properties(&self) -> Retained<NSDictionary>;
+    );
+}
+
+extern_class!(
     #[unsafe(super(NSNumber))]
     #[name = "DRMSF"]
     pub struct DRMSF;
@@ -76,6 +89,7 @@ extern "C" {
     static DRTrackNumberKey: *mut AnyObject;
     static DRTrackLengthKey: *mut AnyObject;
     static DRTrackModeKey: *mut AnyObject;
+    static DRSessionNumberKey: *mut AnyObject;
 }
 
 fn ns_key(ptr: *mut AnyObject) -> &'static NSString {
@@ -312,7 +326,7 @@ fn tracks_from_status(device: &DRDevice) -> Vec<(u32, f64)> {
         return Vec::new();
     };
 
-    let mut tracks = Vec::new();
+    let mut candidate_tracks = Vec::new();
     for track_ref in track_refs.iter() {
         let Some(info_obj) = track_info.objectForKey(&track_ref) else {
             continue;
@@ -320,30 +334,49 @@ fn tracks_from_status(device: &DRDevice) -> Vec<(u32, f64)> {
         let Some(info) = info_obj.downcast_ref::<NSDictionary>() else {
             continue;
         };
+        let properties = catch(AssertUnwindSafe(|| {
+            track_ref
+                .downcast_ref::<DRTrack>()
+                .map(|track| track.properties())
+        }))
+        .ok()
+        .flatten();
+        let properties_ref = properties.as_deref();
 
-        let mode = info
-            .objectForKey(unsafe { ns_key(DRTrackModeKey) })
-            .and_then(|obj| ns_u32(&obj));
+        let mode = u32_from_track_dicts(info, properties_ref, unsafe { DRTrackModeKey });
         if mode.is_some_and(|m| m != 0) {
             continue;
         }
 
-        let Some(number) = info
-            .objectForKey(unsafe { ns_key(DRTrackNumberKey) })
-            .and_then(|obj| ns_u32(&obj))
+        let session = u32_from_track_dicts(info, properties_ref, unsafe { DRSessionNumberKey });
+        let Some(number) = u32_from_track_dicts(info, properties_ref, unsafe { DRTrackNumberKey })
         else {
             continue;
         };
 
         let duration_seconds = info
             .objectForKey(unsafe { ns_key(DRTrackLengthKey) })
-            .and_then(|obj| track_length_seconds(&obj));
+            .or_else(|| {
+                properties_ref
+                    .and_then(|props| props.objectForKey(unsafe { ns_key(DRTrackLengthKey) }))
+            })
+            .as_ref()
+            .and_then(|obj| track_length_seconds(obj));
 
         if let Some(duration) = duration_seconds {
-            tracks.push((number, duration));
+            candidate_tracks.push((number, duration, session));
         }
     }
 
-    tracks.sort_by_key(|track| track.0);
-    tracks
+    candidate_tracks.sort_by_key(|track| track.0);
+    crate::cd::disc_id::keep_first_session(&candidate_tracks)
+}
+
+fn u32_from_track_dicts(
+    info: &NSDictionary,
+    properties: Option<&NSDictionary>,
+    key: *mut AnyObject,
+) -> Option<u32> {
+    unsafe { dict_u32(info, key) }
+        .or_else(|| properties.and_then(|props| unsafe { dict_u32(props, key) }))
 }

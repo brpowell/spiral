@@ -639,6 +639,50 @@ export function lyricsAmbiguousPayload(
   );
 }
 
+// —— CD metadata ——
+
+export function cdMetadataFoundSettleOptions(options?: {
+  album?: string | null;
+}): BackgroundTaskSettleAsOptions {
+  const album = options?.album?.trim();
+  return {
+    status: "success",
+    label: t("toasts:cdMetadata.found"),
+    ...(album ? { detail: album } : {}),
+  };
+}
+
+export function cdMetadataNotFoundSettleOptions(): BackgroundTaskSettleAsOptions {
+  return {
+    status: "info",
+    label: t("toasts:cdMetadata.notFound"),
+  };
+}
+
+/** Lookup transport / HTTP failure (§6 + §4.3 generic). Rust already logged the error. */
+export function cdMetadataFailedSettleOptions(options: {
+  logLink: ActivityLogRevealTarget;
+}): BackgroundTaskSettleAsOptions {
+  return {
+    status: "error",
+    label: t("toasts:cdMetadata.failed"),
+    detail: t("toasts:cdMetadata.failedDetail"),
+    logLink: options.logLink,
+  };
+}
+
+/** Unexpected CD import abort (§6 + §4.3 generic). Raw errors stay in the activity log. */
+export function cdImportFailedSettleOptions(options: {
+  logLink: ActivityLogRevealTarget;
+}): BackgroundTaskSettleAsOptions {
+  return {
+    status: "error",
+    label: t("toasts:import.cdFailed"),
+    detail: t("toasts:import.cdFailedDetail"),
+    logLink: options.logLink,
+  };
+}
+
 // —— Updates ——
 
 export function availableUpdatePayload(

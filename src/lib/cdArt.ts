@@ -46,6 +46,7 @@ export async function resolveCdSharedArtPath(options: {
   if (!albumArtist || !albumTitle) return null;
 
   const cacheLabel = `${albumArtist} - ${albumTitle}`;
+  const disc = useCdStore.getState().discsByDriveId[driveId];
   let artPath = await resolveAlbumArtPath(cacheLabel);
   if (!artPath) {
     onFetching?.();
@@ -54,6 +55,13 @@ export async function resolveCdSharedArtPath(options: {
       album: albumTitle,
       releaseMbid,
       cacheLabel,
+      logContext: {
+        driveId,
+        discId: disc?.discId,
+        artist: albumArtist,
+        album: albumTitle,
+        releaseMbid: releaseMbid ?? undefined,
+      },
     });
   }
   if (artPath) {

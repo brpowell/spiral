@@ -6,7 +6,7 @@ use crate::artist_tags::join_artist_field;
 use serde::{Deserialize, Serialize};
 
 const MUSICBRAINZ_USER_AGENT: &str = "Spiral/0.1.0 (https://github.com/brpowell/spiral)";
-const METADATA_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+const METADATA_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,6 +38,15 @@ pub struct DiscMetadataLookup {
     pub candidates: Vec<DiscMetadata>,
     #[serde(default)]
     pub preferred: Option<DiscMetadata>,
+    #[serde(default)]
+    pub kind: LookupCacheKind,
+}
+
+/// MusicBrainz TOC lookup URL (`discid/-?toc=…`).
+pub(crate) fn toc_lookup_url(toc: &str) -> String {
+    format!(
+        "https://musicbrainz.org/ws/2/discid/-?toc={toc}&inc=recordings+artist-credits+labels+release-groups+genres&fmt=json"
+    )
 }
 
 /// Direct MusicBrainz fetch without cache. Prefer [`crate::disc_metadata_cache::lookup_disc_metadata_cached_with_options`].
@@ -48,6 +57,7 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
                 disc_id: None,
                 candidates: Vec::new(),
                 preferred: None,
+                kind: LookupCacheKind::Miss,
             },
             LookupCacheKind::Miss,
         );
@@ -55,20 +65,7 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
 
     let disc_id = crate::cd::disc_id::compute_disc_id(tracks);
     let toc = crate::cd::disc_id::toc_query_string(tracks);
-    // release-groups+genres: genres live on the release group, not the release.
-    let url = format!(
-        "https://musicbrainz.org/ws/2/discid/-?toc={toc}&inc=recordings+artist-credits+labels+release-groups+genres&fmt=json"
-    );
-
-    activity_log::log(
-        LogLevel::Info,
-        "metadata.musicbrainz",
-        format!("MusicBrainz disc lookup started for {disc_id}"),
-        Some(serde_json::json!({
-            "discId": disc_id,
-            "trackCount": tracks.len(),
-        })),
-    );
+    let url = toc_lookup_url(&toc);
 
     let client = match reqwest::blocking::Client::builder()
         .user_agent(MUSICBRAINZ_USER_AGENT)
@@ -86,14 +83,7 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
                     "error": err.to_string(),
                 })),
             );
-            return (
-                DiscMetadataLookup {
-                    disc_id: Some(disc_id),
-                    candidates: Vec::new(),
-                    preferred: None,
-                },
-                LookupCacheKind::Error,
-            );
+            return error_lookup(disc_id);
         }
     };
 
@@ -121,14 +111,7 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
                     "musicBrainzError": mb_error,
                 })),
             );
-            return (
-                DiscMetadataLookup {
-                    disc_id: Some(disc_id),
-                    candidates: Vec::new(),
-                    preferred: None,
-                },
-                LookupCacheKind::Error,
-            );
+            return error_lookup(disc_id);
         }
         Err(err) => {
             activity_log::log(
@@ -140,59 +123,38 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
                     "error": err.to_string(),
                 })),
             );
-            return (
-                DiscMetadataLookup {
-                    disc_id: Some(disc_id),
-                    candidates: Vec::new(),
-                    preferred: None,
-                },
-                LookupCacheKind::Error,
-            );
+            return error_lookup(disc_id);
         }
     };
 
-    let lookup = parse_disc_response(&response, disc_id.clone(), tracks);
+    let mut lookup = parse_disc_response(&response, disc_id.clone(), tracks);
     let kind = if lookup.candidates.is_empty() {
         LookupCacheKind::Miss
     } else {
         LookupCacheKind::Hit
     };
-
-    let album_titles: Vec<_> = lookup
-        .candidates
-        .iter()
-        .filter_map(|candidate| candidate.album.clone())
-        .collect();
-
-    activity_log::log(
-        if kind == LookupCacheKind::Miss {
-            LogLevel::Warn
-        } else {
-            LogLevel::Info
-        },
-        "metadata.musicbrainz",
-        format!(
-            "MusicBrainz lookup returned {} candidate(s)",
-            lookup.candidates.len()
-        ),
-        Some(serde_json::json!({
-            "discId": disc_id,
-            "cacheKind": match kind {
-                LookupCacheKind::Hit => "hit",
-                LookupCacheKind::Miss => "miss",
-                LookupCacheKind::Error => "error",
-            },
-            "candidateCount": lookup.candidates.len(),
-            "albums": album_titles,
-        })),
-    );
+    lookup.kind = kind;
 
     (lookup, kind)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+fn error_lookup(disc_id: String) -> (DiscMetadataLookup, LookupCacheKind) {
+    (
+        DiscMetadataLookup {
+            disc_id: Some(disc_id),
+            candidates: Vec::new(),
+            preferred: None,
+            kind: LookupCacheKind::Error,
+        },
+        LookupCacheKind::Error,
+    )
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum LookupCacheKind {
     Hit,
+    #[default]
     Miss,
     Error,
 }
@@ -217,6 +179,7 @@ fn parse_disc_response(
         disc_id: Some(disc_id),
         candidates,
         preferred: None,
+        kind: LookupCacheKind::Miss,
     }
 }
 
@@ -294,7 +257,22 @@ fn is_cd_medium(medium: &serde_json::Value) -> bool {
     medium
         .get("format")
         .and_then(|format| format.as_str())
-        .is_some_and(|format| format.eq_ignore_ascii_case("CD"))
+        .is_some_and(is_cd_format)
+}
+
+/// MusicBrainz disc lookups return CD-family formats (`CD`, `Enhanced CD`, `HDCD`, …).
+fn is_cd_format(format: &str) -> bool {
+    let format = format.trim().to_ascii_lowercase();
+    if format.is_empty() {
+        return false;
+    }
+    if matches!(
+        format.as_str(),
+        "sacd" | "vcd" | "svcd" | "dvd" | "dvd-audio" | "dvd-video"
+    ) {
+        return false;
+    }
+    format.contains("cd")
 }
 
 fn select_cd_medium<'a>(
@@ -609,6 +587,27 @@ mod tests {
         });
 
         assert!(parse_release(&release, "disc-id", &[(1, 180.0), (2, 200.0)]).is_err());
+    }
+
+    #[test]
+    fn parse_release_accepts_enhanced_cd_medium() {
+        let release = serde_json::json!({
+            "id": "0c2b6134-3f1b-4567-8ba4-4828065917c6",
+            "title": "Gorillaz",
+            "artist-credit": [{ "name": "Gorillaz" }],
+            "media": [{
+                "format": "Enhanced CD",
+                "track-count": 19,
+                "tracks": [
+                    { "position": 1, "recording": { "title": "Re-Hash" } }
+                ]
+            }]
+        });
+
+        let metadata =
+            parse_release(&release, "disc-id", &[(1, 218.0); 19]).expect("parse release");
+        assert_eq!(metadata.album.as_deref(), Some("Gorillaz"));
+        assert_eq!(metadata.album_artist.as_deref(), Some("Gorillaz"));
     }
 
     #[test]

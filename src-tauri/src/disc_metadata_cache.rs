@@ -16,28 +16,10 @@ const HIT_TTL: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 const MISS_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 const ERROR_TTL: Duration = Duration::from_secs(10 * 60);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-enum CacheKind {
-    Hit,
-    Miss,
-    Error,
-}
-
-impl From<LookupCacheKind> for CacheKind {
-    fn from(kind: LookupCacheKind) -> Self {
-        match kind {
-            LookupCacheKind::Hit => Self::Hit,
-            LookupCacheKind::Miss => Self::Miss,
-            LookupCacheKind::Error => Self::Error,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CachedLookupEntry {
     fetched_at_ms: u64,
-    kind: CacheKind,
+    kind: LookupCacheKind,
     lookup: DiscMetadataLookup,
 }
 
@@ -142,11 +124,11 @@ fn entry_fetched_at(entry: &CachedLookupEntry) -> SystemTime {
     UNIX_EPOCH + Duration::from_millis(entry.fetched_at_ms)
 }
 
-fn ttl_for_kind(kind: CacheKind) -> Duration {
+fn ttl_for_kind(kind: LookupCacheKind) -> Duration {
     match kind {
-        CacheKind::Hit => HIT_TTL,
-        CacheKind::Miss => MISS_TTL,
-        CacheKind::Error => ERROR_TTL,
+        LookupCacheKind::Hit => HIT_TTL,
+        LookupCacheKind::Miss => MISS_TTL,
+        LookupCacheKind::Error => ERROR_TTL,
     }
 }
 
@@ -218,9 +200,59 @@ fn resolve_preferred(
 fn lookup_with_preference(
     mut lookup: DiscMetadataLookup,
     preference_mbid: Option<&str>,
+    kind: LookupCacheKind,
 ) -> DiscMetadataLookup {
     lookup.preferred = resolve_preferred(&lookup, preference_mbid);
+    lookup.kind = kind;
     lookup
+}
+
+fn selected_candidate(lookup: &DiscMetadataLookup) -> Option<(&DiscMetadata, &'static str)> {
+    if let Some(preferred) = lookup.preferred.as_ref() {
+        return Some((preferred, "savedPreference"));
+    }
+    if lookup.candidates.len() == 1 {
+        return Some((&lookup.candidates[0], "onlyCandidate"));
+    }
+    None
+}
+
+fn log_lookup_result(disc_id: &str, lookup: &DiscMetadataLookup) {
+    let album_titles: Vec<_> = lookup
+        .candidates
+        .iter()
+        .filter_map(|candidate| candidate.album.clone())
+        .collect();
+    let (selection, selected_album, selected_release_mbid) = match selected_candidate(lookup) {
+        Some((metadata, reason)) => (
+            reason,
+            metadata.album.clone(),
+            metadata.release_mbid.clone(),
+        ),
+        None if lookup.candidates.is_empty() => ("none", None, None),
+        None => ("needsPick", None, None),
+    };
+
+    activity_log::log(
+        if lookup.candidates.is_empty() {
+            LogLevel::Warn
+        } else {
+            LogLevel::Info
+        },
+        "metadata.musicbrainz",
+        format!(
+            "MusicBrainz lookup returned {} candidate(s)",
+            lookup.candidates.len()
+        ),
+        Some(serde_json::json!({
+            "discId": disc_id,
+            "candidateCount": lookup.candidates.len(),
+            "albums": album_titles,
+            "selection": selection,
+            "selectedAlbum": selected_album,
+            "selectedReleaseMbid": selected_release_mbid,
+        })),
+    );
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -235,6 +267,7 @@ fn empty_lookup(disc_id: Option<&str>) -> DiscMetadataLookup {
         disc_id: disc_id.map(str::to_string),
         candidates: Vec::new(),
         preferred: None,
+        kind: LookupCacheKind::Miss,
     }
 }
 
@@ -248,11 +281,11 @@ fn preference_mbid_for_disc(app: &AppHandle, disc_id: &str) -> Result<Option<Str
 
 fn should_serve_cached_entry(entry: &CachedLookupEntry) -> bool {
     match entry.kind {
-        CacheKind::Hit => !entry.lookup.candidates.is_empty(),
+        LookupCacheKind::Hit => !entry.lookup.candidates.is_empty(),
         // A miss with zero candidates means MusicBrainz has no match — don't retry every load.
-        CacheKind::Miss => true,
+        LookupCacheKind::Miss => true,
         // Transient failures should be retried instead of blocking lookups.
-        CacheKind::Error => false,
+        LookupCacheKind::Error => false,
     }
 }
 
@@ -299,7 +332,11 @@ pub fn peek_disc_metadata_cache(
                 })),
             );
             return Ok(DiscMetadataCachePeek {
-                lookup: lookup_with_preference(cached.lookup, preference_mbid.as_deref()),
+                lookup: lookup_with_preference(
+                    cached.lookup,
+                    preference_mbid.as_deref(),
+                    cached.kind,
+                ),
                 needs_network_fetch: false,
             });
         }
@@ -383,16 +420,10 @@ pub fn lookup_disc_metadata_cached_with_options(
                 return Ok(lookup_with_preference(
                     cached.lookup,
                     preference_mbid.as_deref(),
+                    cached.kind,
                 ));
             }
         }
-    } else {
-        activity_log::log(
-            LogLevel::Info,
-            "metadata.musicbrainz",
-            format!("Force refresh requested for disc {disc_id}"),
-            Some(serde_json::json!({ "discId": disc_id })),
-        );
     }
 
     activity_log::log(
@@ -402,7 +433,7 @@ pub fn lookup_disc_metadata_cached_with_options(
         Some(serde_json::json!({
             "discId": disc_id,
             "trackCount": tracks.len(),
-            "forceRefresh": force_refresh,
+            "url": musicbrainz_disc::toc_lookup_url(&crate::cd::disc_id::toc_query_string(tracks)),
         })),
     );
 
@@ -412,40 +443,31 @@ pub fn lookup_disc_metadata_cached_with_options(
             disc_id.clone(),
             CachedLookupEntry {
                 fetched_at_ms: now_ms(),
-                kind: kind.into(),
+                kind,
                 lookup: lookup.clone(),
             },
         );
         Ok(lookup)
     })?;
 
-    activity_log::log(
-        LogLevel::Info,
-        "metadata.musicbrainz",
-        format!("Lookup cached for disc {disc_id}"),
-        Some(serde_json::json!({
-            "discId": disc_id,
-            "cacheKind": match kind {
-                LookupCacheKind::Hit => "hit",
-                LookupCacheKind::Miss => "miss",
-                LookupCacheKind::Error => "error",
-            },
-            "candidateCount": lookup.candidates.len(),
-        })),
-    );
+    let lookup = lookup_with_preference(lookup, preference_mbid.as_deref(), kind);
+    if kind != LookupCacheKind::Error {
+        log_lookup_result(&disc_id, &lookup);
+    }
 
-    Ok(lookup_with_preference(lookup, preference_mbid.as_deref()))
+    Ok(lookup)
 }
 
-fn clear_lookups(cache: &mut DiscMetadataCacheFile) -> u32 {
+fn clear_remote_lookup_state(cache: &mut DiscMetadataCacheFile) -> u32 {
     let count = u32::try_from(cache.lookups.len()).unwrap_or(u32::MAX);
     cache.lookups.clear();
+    cache.preferences.clear();
     count
 }
 
 pub fn clear_lookup_cache(app: &AppHandle) -> Result<(), String> {
     with_cache_mut(app, |cache| {
-        clear_lookups(cache);
+        clear_remote_lookup_state(cache);
         Ok(())
     })
 }
@@ -567,6 +589,7 @@ mod tests {
                 tracks: vec![],
             }],
             preferred: None,
+            kind: LookupCacheKind::Hit,
         }
     }
 
@@ -574,7 +597,7 @@ mod tests {
     fn hit_entries_expire_after_hit_ttl() {
         let entry = CachedLookupEntry {
             fetched_at_ms: now_ms(),
-            kind: CacheKind::Hit,
+            kind: LookupCacheKind::Hit,
             lookup: sample_lookup("disc-a", "Album"),
         };
         assert!(is_entry_valid(&entry, SystemTime::now()));
@@ -586,7 +609,7 @@ mod tests {
     fn error_entries_expire_sooner_than_hits() {
         let entry = CachedLookupEntry {
             fetched_at_ms: now_ms(),
-            kind: CacheKind::Error,
+            kind: LookupCacheKind::Error,
             lookup: sample_lookup("disc-a", "Album"),
         };
         let after_error_ttl = entry_fetched_at(&entry) + ERROR_TTL + Duration::from_secs(1);
@@ -609,13 +632,29 @@ mod tests {
     }
 
     #[test]
-    fn clear_lookups_preserves_preferences_and_overrides() {
+    fn selected_candidate_prefers_saved_release_then_only_match() {
+        let mut lookup = sample_lookup("disc-a", "Album");
+        lookup.preferred = resolve_preferred(&lookup, Some("release-1"));
+        let (selected, reason) = selected_candidate(&lookup).expect("preferred");
+        assert_eq!(reason, "savedPreference");
+        assert_eq!(selected.release_mbid.as_deref(), Some("release-1"));
+
+        lookup.preferred = None;
+        let (_selected, reason) = selected_candidate(&lookup).expect("only candidate");
+        assert_eq!(reason, "onlyCandidate");
+
+        lookup.candidates.push(lookup.candidates[0].clone());
+        assert!(selected_candidate(&lookup).is_none());
+    }
+
+    #[test]
+    fn clear_remote_lookup_state_clears_preferences_and_preserves_overrides() {
         let mut cache = DiscMetadataCacheFile::default();
         cache.lookups.insert(
             "disc-a".to_string(),
             CachedLookupEntry {
                 fetched_at_ms: now_ms(),
-                kind: CacheKind::Hit,
+                kind: LookupCacheKind::Hit,
                 lookup: sample_lookup("disc-a", "Album"),
             },
         );
@@ -630,14 +669,11 @@ mod tests {
             },
         );
 
-        let cleared = clear_lookups(&mut cache);
+        let cleared = clear_remote_lookup_state(&mut cache);
 
         assert_eq!(cleared, 1);
         assert!(cache.lookups.is_empty());
-        assert_eq!(
-            cache.preferences.get("disc-a"),
-            Some(&"release-1".to_string())
-        );
+        assert!(cache.preferences.is_empty());
         assert_eq!(
             cache
                 .overrides
@@ -686,28 +722,28 @@ mod tests {
     fn should_serve_cached_entry_skips_errors_and_empty_hits() {
         let hit = CachedLookupEntry {
             fetched_at_ms: now_ms(),
-            kind: CacheKind::Hit,
+            kind: LookupCacheKind::Hit,
             lookup: sample_lookup("disc-a", "Album"),
         };
         assert!(should_serve_cached_entry(&hit));
 
         let empty_hit = CachedLookupEntry {
             fetched_at_ms: now_ms(),
-            kind: CacheKind::Hit,
+            kind: LookupCacheKind::Hit,
             lookup: empty_lookup(Some("disc-a")),
         };
         assert!(!should_serve_cached_entry(&empty_hit));
 
         let miss = CachedLookupEntry {
             fetched_at_ms: now_ms(),
-            kind: CacheKind::Miss,
+            kind: LookupCacheKind::Miss,
             lookup: empty_lookup(Some("disc-a")),
         };
         assert!(should_serve_cached_entry(&miss));
 
         let error = CachedLookupEntry {
             fetched_at_ms: now_ms(),
-            kind: CacheKind::Error,
+            kind: LookupCacheKind::Error,
             lookup: empty_lookup(Some("disc-a")),
         };
         assert!(!should_serve_cached_entry(&error));

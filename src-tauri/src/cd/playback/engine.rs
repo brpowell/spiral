@@ -30,7 +30,8 @@ const ENGINE_START_TIMEOUT: Duration = Duration::from_secs(10);
 /// 2048 frames per chunk (~46 ms at 44.1 kHz).
 const CHUNK_FRAMES: usize = 2048;
 /// Max chunks Rust may emit before the frontend acks (back-pressure).
-const MAX_CHUNKS_IN_FLIGHT: usize = 10;
+/// Sized so a CD cold-start can queue ~2s without stalling on acks while gated.
+const MAX_CHUNKS_IN_FLIGHT: usize = 48;
 
 /// Outgoing + incoming decks during CD gapless handoff.
 const MAX_SESSIONS: usize = 2;

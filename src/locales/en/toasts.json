@@ -95,14 +95,21 @@
     "failed": "Import failed",
     "pickerFailed": "Couldn't import",
     "pickerFailedDetail": "Something went wrong. Try again, or check the logs for details.",
-    "cd": "Importing CD",
+    "cd": "Importing CD…",
     "checkingDuplicates": "Checking for duplicates…",
     "fetchingArt": "Fetching album art…",
-    "noTracksSelected": "No tracks selected to import"
+    "noTracksSelected": "No tracks selected to import",
+    "cdFailed": "Couldn't import CD",
+    "cdFailedDetail": "Check the disc and try again.",
+    "cdTrackFailed": "{{title}} couldn't be ripped"
   },
   "cdMetadata": {
     "lookingUp": "Looking up album metadata…",
-    "fetchingArt": "Fetching album art…"
+    "fetchingArt": "Fetching album art…",
+    "found": "Found album metadata",
+    "notFound": "No matching release found",
+    "failed": "Couldn't look up album metadata",
+    "failedDetail": "Check your connection and try again."
   },
   "libraryRefresh": {
     "running": "Refreshing library metadata…",

@@ -32,6 +32,24 @@ export function getEntryOperationId(
   return entry.operationId ?? entry.context?.operationId;
 }
 
+function detailsWithDriveAndDisc(
+  entry: ActivityLogEntry,
+): Record<string, unknown> | undefined {
+  const driveId = entry.context?.driveId;
+  const discId = entry.context?.discId;
+  const existing = entry.details;
+  const hasExisting = existing != null && Object.keys(existing).length > 0;
+  if (driveId == null && discId == null && !hasExisting) {
+    return undefined;
+  }
+
+  return {
+    ...(driveId != null ? { driveId } : {}),
+    ...(discId != null ? { discId } : {}),
+    ...existing,
+  };
+}
+
 /** Canonical single-line JSON object for one log entry. */
 export function entryToLogLine(entry: ActivityLogEntry): ActivityLogLine {
   const operationId = getEntryOperationId(entry);
@@ -44,16 +62,13 @@ export function entryToLogLine(entry: ActivityLogEntry): ActivityLogLine {
   };
 
   if (operationId != null) line.operationId = operationId;
-  if (entry.context?.driveId != null) line.driveId = entry.context.driveId;
-  if (entry.context?.discId != null) line.discId = entry.context.discId;
   if (entry.context?.releaseMbid != null) {
     line.releaseMbid = entry.context.releaseMbid;
   }
   if (entry.context?.artist != null) line.artist = entry.context.artist;
   if (entry.context?.album != null) line.album = entry.context.album;
-  if (entry.details != null && Object.keys(entry.details).length > 0) {
-    line.details = entry.details;
-  }
+  const details = detailsWithDriveAndDisc(entry);
+  if (details != null) line.details = details;
 
   return line;
 }

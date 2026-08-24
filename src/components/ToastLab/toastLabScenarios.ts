@@ -8,6 +8,10 @@ import {
   availableUpdatePayload,
   bulkTrackMetadataSavePayload,
   cdPlaybackFailurePayload,
+  cdImportFailedSettleOptions,
+  cdMetadataFailedSettleOptions,
+  cdMetadataFoundSettleOptions,
+  cdMetadataNotFoundSettleOptions,
   diagnosticsCopiedPayload,
   diagnosticsSavedPayload,
   lyricsAmbiguousPayload,
@@ -256,6 +260,63 @@ function fireImportOutcome(
       } else {
         await sleep(sleepMs);
       }
+      ctx.settleAs({
+        ...importCompletionSettleOptions(result, operationId),
+        dismissMs,
+      });
+    },
+  });
+}
+
+function fireCdImportOutcome(
+  {
+    runInBackground,
+    dismissMs,
+    sleep,
+  }: Pick<ToastLabFireContext, "runInBackground" | "dismissMs" | "sleep">,
+  options: {
+    result: ImportLabResult;
+    operationId: string;
+    skipRip?: boolean;
+  },
+): void {
+  const { result, operationId, skipRip = false } = options;
+  const total =
+    result.imported + result.replaced + result.skipped + result.failed;
+  void runInBackground({
+    key: "cd-import",
+    label: t("toasts:import.cd"),
+    cancellable: true,
+    progressDisplay: "bar",
+    run: async (ctx) => {
+      ctx.setLabel(t("toasts:import.checkingDuplicates"));
+      await sleep(500);
+      if (skipRip) {
+        ctx.settleAs({
+          ...importCompletionSettleOptions(result, operationId),
+          dismissMs,
+        });
+        return;
+      }
+      ctx.setDetail(t("toasts:import.fetchingArt"));
+      await sleep(400);
+      ctx.clearDetail();
+      ctx.setLabel(t("toasts:import.cd"));
+      for (let i = 0; i < total; i++) {
+        if (ctx.isCancelRequested()) {
+          throw new BackgroundTaskCancelledError(t("toasts:import.cancelled"), {
+            dismissMs,
+          });
+        }
+        ctx.setProgress(i, total);
+        if (total > 1) {
+          ctx.setDetail(
+            t("toasts:progress.trackOf", { current: i + 1, total }),
+          );
+        }
+        await sleep(280);
+      }
+      ctx.setProgress(total, total);
       ctx.settleAs({
         ...importCompletionSettleOptions(result, operationId),
         dismissMs,
@@ -1305,22 +1366,112 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
   {
     id: "import-cd",
     group: "Import",
-    buttonLabel: "CD import",
+    buttonLabel: "CD import · success",
     source: "cdImport.ts",
-    fire: async ({ runInBackground, dismissMs, sleep }) => {
+    fire: async (ctx) => {
       const operationId = createOperationId();
-      const result = {
+      const result: ImportLabResult = {
         imported: 5,
         replaced: 0,
         skipped: 0,
         failed: 0,
-        errors: [] as string[],
+        errors: [],
       };
       await seedToastLabLog(
         ACTIVITY_LOG_DOMAINS.import,
         operationId,
         "Toast Lab: sample CD import",
         result,
+      );
+      fireCdImportOutcome(ctx, { result, operationId });
+    },
+  },
+  {
+    id: "import-cd-skip",
+    group: "Import",
+    buttonLabel: "CD import · skipped",
+    source: "cdImport.ts",
+    fire: async (ctx) => {
+      const operationId = createOperationId();
+      const result: ImportLabResult = {
+        imported: 0,
+        replaced: 0,
+        skipped: 5,
+        failed: 0,
+        errors: [],
+      };
+      await seedToastLabLog(
+        ACTIVITY_LOG_DOMAINS.import,
+        operationId,
+        "Toast Lab: sample CD import skipped",
+        result,
+      );
+      fireCdImportOutcome(ctx, { result, operationId, skipRip: true });
+    },
+  },
+  {
+    id: "import-cd-partial",
+    group: "Import",
+    buttonLabel: "CD import · partial (1 fail)",
+    source: "cdImport.ts",
+    fire: async (ctx) => {
+      const operationId = createOperationId();
+      const result: ImportLabResult = {
+        imported: 4,
+        replaced: 0,
+        skipped: 0,
+        failed: 1,
+        errors: ["Disorder couldn't be ripped"],
+      };
+      await seedToastLabLog(
+        ACTIVITY_LOG_DOMAINS.import,
+        operationId,
+        "Toast Lab: sample CD import one-fail",
+        result,
+      );
+      fireCdImportOutcome(ctx, { result, operationId });
+    },
+  },
+  {
+    id: "import-cd-all-fail",
+    group: "Import",
+    buttonLabel: "CD import · all failed",
+    source: "cdImport.ts",
+    fire: async (ctx) => {
+      const operationId = createOperationId();
+      const result: ImportLabResult = {
+        imported: 0,
+        replaced: 0,
+        skipped: 0,
+        failed: 3,
+        errors: [
+          "Track 1 couldn't be ripped",
+          "Track 2 couldn't be ripped",
+          "Track 3 couldn't be ripped",
+        ],
+      };
+      await seedToastLabLog(
+        ACTIVITY_LOG_DOMAINS.import,
+        operationId,
+        "Toast Lab: sample CD import all-failed",
+        result,
+      );
+      fireCdImportOutcome(ctx, { result, operationId });
+    },
+  },
+  {
+    id: "import-cd-failed",
+    group: "Import",
+    buttonLabel: "CD import → failed",
+    source: "cdImport.ts",
+    fire: async ({ runInBackground, dismissMs, sleep }) => {
+      const operationId = createOperationId();
+      await seedToastLabLog(
+        ACTIVITY_LOG_DOMAINS.import,
+        operationId,
+        "Toast Lab: CD import failed",
+        { error: "drive disappeared" },
+        "error",
       );
       void runInBackground({
         key: "cd-import",
@@ -1329,24 +1480,34 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         progressDisplay: "bar",
         run: async (ctx) => {
           ctx.setLabel(t("toasts:import.checkingDuplicates"));
-          await sleep(500);
-          ctx.setDetail(t("toasts:import.fetchingArt"));
           await sleep(400);
-          const total = 5;
-          for (let i = 1; i <= total; i++) {
-            if (ctx.isCancelRequested()) {
-              throw new BackgroundTaskCancelledError(
-                t("toasts:import.cancelled"),
-                { dismissMs },
-              );
-            }
-            ctx.setLabel(t("toasts:import.cd"));
-            ctx.setDetail(t("toasts:progress.trackOf", { current: i, total }));
-            ctx.setProgress(i, total);
-            await sleep(280);
-          }
+          ctx.setDetail(t("toasts:import.fetchingArt"));
+          await sleep(500);
           ctx.settleAs({
-            ...importCompletionSettleOptions(result, operationId),
+            ...cdImportFailedSettleOptions({ logLink: { operationId } }),
+            dismissMs,
+          });
+        },
+      });
+    },
+  },
+  {
+    id: "import-cd-cancelled",
+    group: "Import",
+    buttonLabel: "CD import · cancelled",
+    source: "cdImport.ts",
+    fire: ({ runInBackground, dismissMs, sleep }) => {
+      void runInBackground({
+        key: "cd-import",
+        label: t("toasts:import.cd"),
+        cancellable: true,
+        progressDisplay: "bar",
+        run: async (ctx) => {
+          ctx.setLabel(t("toasts:import.cd"));
+          ctx.setDetail(t("toasts:progress.trackOf", { current: 2, total: 8 }));
+          ctx.setProgress(1, 8);
+          await sleep(700);
+          throw new BackgroundTaskCancelledError(t("toasts:import.cancelled"), {
             dismissMs,
           });
         },
@@ -1356,7 +1517,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
   {
     id: "cd-metadata",
     group: "Import",
-    buttonLabel: "CD metadata lookup",
+    buttonLabel: "CD metadata lookup · found",
     source: "cdMetadataFetch.ts",
     fire: ({ runInBackground, dismissMs, sleep }) => {
       void runInBackground({
@@ -1367,8 +1528,56 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
           ctx.setDetail(t("toasts:cdMetadata.fetchingArt"));
           await sleep(800);
           ctx.clearDetail();
-          // Natural success keeps the looking-up label (same as production).
-          ctx.settleAs({ status: "success", dismissMs });
+          ctx.settleAs({
+            ...cdMetadataFoundSettleOptions({ album: "Unknown Pleasures" }),
+            dismissMs,
+          });
+        },
+      });
+    },
+  },
+  {
+    id: "cd-metadata-none",
+    group: "Import",
+    buttonLabel: "CD metadata lookup · none",
+    source: "cdMetadataFetch.ts",
+    fire: ({ runInBackground, dismissMs, sleep }) => {
+      void runInBackground({
+        key: "cd-metadata-lab",
+        label: t("toasts:cdMetadata.lookingUp"),
+        run: async (ctx) => {
+          await sleep(700);
+          ctx.settleAs({
+            ...cdMetadataNotFoundSettleOptions(),
+            dismissMs,
+          });
+        },
+      });
+    },
+  },
+  {
+    id: "cd-metadata-failed",
+    group: "Import",
+    buttonLabel: "CD metadata lookup → failed",
+    source: "cdMetadataFetch.ts",
+    fire: async ({ runInBackground, dismissMs, sleep }) => {
+      const operationId = createOperationId();
+      await seedToastLabLog(
+        ACTIVITY_LOG_DOMAINS.musicbrainz,
+        operationId,
+        "Toast Lab: MusicBrainz lookup request failed",
+        { error: "timed out" },
+        "error",
+      );
+      void runInBackground({
+        key: "cd-metadata-lab",
+        label: t("toasts:cdMetadata.lookingUp"),
+        run: async (ctx) => {
+          await sleep(700);
+          ctx.settleAs({
+            ...cdMetadataFailedSettleOptions({ logLink: { operationId } }),
+            dismissMs,
+          });
         },
       });
     },

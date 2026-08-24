@@ -243,7 +243,7 @@ export function AlbumEditor() {
     track: Track,
   ): Promise<string | null> => {
     if (selectedCoverUrl) {
-      return cacheArtFromUrl(selectedCoverUrl, track.filePath);
+      return (await cacheArtFromUrl(selectedCoverUrl, track.filePath)).path;
     }
     if (artSourcePath) {
       return cacheArtFromFile(artSourcePath, track.filePath);

@@ -22,15 +22,23 @@ vi.mock("./network", () => ({
 
 vi.mock("./activityLog", () => ({
   logActivity: vi.fn(),
-  withLogContext: (_base: unknown, extra: unknown) => extra,
+  withLogContext: (base: unknown, extra: unknown) => ({
+    ...(typeof base === "object" && base != null ? base : {}),
+    ...(typeof extra === "object" && extra != null ? extra : {}),
+  }),
 }));
 
+import { logActivity } from "./activityLog";
 import {
   fetchAlbumArtPreferringRelease,
   fetchCoverArtCandidates,
 } from "./albumArtFetch";
+import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
 
-function candidate(url: string): CoverArtCandidate {
+function candidate(
+  url: string,
+  extra?: Partial<CoverArtCandidate>,
+): CoverArtCandidate {
   return {
     url,
     thumbnailUrl: null,
@@ -38,8 +46,18 @@ function candidate(url: string): CoverArtCandidate {
     width: null,
     height: null,
     canonicalRank: 0,
+    ...extra,
   };
 }
+
+const cdLogContext = {
+  operationId: "op-1",
+  driveId: "disk4",
+  discId: "disc-1",
+  artist: "Taylor Swift",
+  album: "1989",
+  releaseMbid: "release-mbid",
+};
 
 describe("fetchCoverArtCandidates", () => {
   beforeEach(() => {
@@ -100,13 +118,17 @@ describe("fetchAlbumArtPreferringRelease", () => {
     fetchCoverArt.mockReset();
     fetchCoverArtForRelease.mockReset();
     cacheArtFromUrl.mockReset();
+    vi.mocked(logActivity).mockClear();
   });
 
   it("caches release art when MBID hits", async () => {
     fetchCoverArtForRelease.mockResolvedValue([
       candidate("https://caa/release.jpg"),
     ]);
-    cacheArtFromUrl.mockResolvedValue("/tmp/art.jpg");
+    cacheArtFromUrl.mockResolvedValue({
+      path: "/tmp/art.jpg",
+      byteCount: 100,
+    });
 
     const artPath = await fetchAlbumArtPreferringRelease({
       artist: "Artist",
@@ -121,12 +143,16 @@ describe("fetchAlbumArtPreferringRelease", () => {
     );
     expect(fetchCoverArt).not.toHaveBeenCalled();
     expect(artPath).toBe("/tmp/art.jpg");
+    expect(logActivity).not.toHaveBeenCalled();
   });
 
   it("falls back to search when release art is empty", async () => {
     fetchCoverArtForRelease.mockResolvedValue([]);
     fetchCoverArt.mockResolvedValue([candidate("https://caa/search.jpg")]);
-    cacheArtFromUrl.mockResolvedValue("/tmp/search.jpg");
+    cacheArtFromUrl.mockResolvedValue({
+      path: "/tmp/search.jpg",
+      byteCount: 200,
+    });
 
     const artPath = await fetchAlbumArtPreferringRelease({
       artist: "Artist",
@@ -137,5 +163,102 @@ describe("fetchAlbumArtPreferringRelease", () => {
 
     expect(fetchCoverArt).toHaveBeenCalledWith("Artist", "Album", undefined);
     expect(artPath).toBe("/tmp/search.jpg");
+  });
+
+  it("logs start and selected-candidate completion for CD auto-fetch", async () => {
+    const selected = candidate("https://caa/1989.jpg", {
+      width: 500,
+      height: 500,
+      canonicalRank: 0,
+    });
+    fetchCoverArtForRelease.mockResolvedValue([
+      selected,
+      candidate("https://caa/other.jpg", { canonicalRank: 100 }),
+    ]);
+    cacheArtFromUrl.mockResolvedValue({
+      path: "/tmp/1989.jpg",
+      byteCount: 89878,
+    });
+
+    const artPath = await fetchAlbumArtPreferringRelease({
+      artist: "Taylor Swift",
+      album: "1989",
+      releaseMbid: "release-mbid",
+      cacheLabel: "Taylor Swift - 1989",
+      logContext: cdLogContext,
+    });
+
+    expect(artPath).toBe("/tmp/1989.jpg");
+    expect(logActivity).toHaveBeenCalledTimes(2);
+    expect(logActivity).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        level: "info",
+        domain: ACTIVITY_LOG_DOMAINS.coverArt,
+        message: "Fetching cover art for CD '1989'",
+        operationId: "op-1",
+        details: {
+          releaseMbid: "release-mbid",
+          queryUrl: "https://coverartarchive.org/release/release-mbid",
+          driveId: "disk4",
+          discId: "disc-1",
+        },
+      }),
+    );
+    expect(logActivity).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        level: "info",
+        domain: ACTIVITY_LOG_DOMAINS.coverArt,
+        message: "Cover art fetched for '1989'",
+        operationId: "op-1",
+        details: {
+          byteCount: 89878,
+          imageUrl: "https://caa/1989.jpg",
+          cachePath: "/tmp/1989.jpg",
+          candidateCount: 2,
+          canonicalRank: 0,
+          width: 500,
+          height: 500,
+        },
+      }),
+    );
+  });
+
+  it("logs a MusicBrainz search URL when CD auto-fetch has no release MBID", async () => {
+    fetchCoverArt.mockResolvedValue([candidate("https://caa/search.jpg")]);
+    cacheArtFromUrl.mockResolvedValue({
+      path: "/tmp/search.jpg",
+      byteCount: 200,
+    });
+
+    await fetchAlbumArtPreferringRelease({
+      artist: "Joy Division",
+      album: "Unknown Pleasures",
+      cacheLabel: "Joy Division - Unknown Pleasures",
+      logContext: {
+        driveId: "disk4",
+        discId: "disc-1",
+        artist: "Joy Division",
+        album: "Unknown Pleasures",
+      },
+    });
+
+    expect(logActivity).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        message: "Fetching cover art for CD 'Unknown Pleasures'",
+        details: expect.objectContaining({
+          queryUrl: expect.stringContaining(
+            "https://musicbrainz.org/ws/2/release?query=",
+          ),
+          driveId: "disk4",
+          discId: "disc-1",
+        }),
+      }),
+    );
+    expect(vi.mocked(logActivity).mock.calls[0][0].details).not.toHaveProperty(
+      "releaseMbid",
+    );
   });
 });

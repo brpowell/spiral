@@ -6,6 +6,7 @@
       "fetchMetadata": "Fetch release metadata",
       "refetchMetadata": "Refetch Metadata",
       "fetchingMetadata": "Fetching metadata…",
+      "searchForRelease": "Search for release",
       "eject": "Eject",
       "ejecting": "Ejecting…",
       "ejectDisc": "Eject Disc",
@@ -50,6 +51,13 @@
       "title": "Replace your edits?",
       "body": "Refetching MusicBrainz metadata will discard the changes you made to this disc’s import plan.",
       "confirm": "Replace edits"
+    },
+    "picker": {
+      "title": "Match this disc",
+      "description": "Multiple albums matched this disc. Choose the correct release to use for track titles and album details.",
+      "skip": "Skip for now",
+      "keepCurrent": "Keep current release",
+      "current": "Current"
     }
   },
   "editor": {

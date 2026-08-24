@@ -18,7 +18,10 @@ import {
 } from "../lib/cdTracks";
 import { discFromActivePlayback } from "../lib/cdActivePlaybackDisc";
 import { isCdImportBlockingPlayback } from "../lib/cdImportGuard";
-import { discMetadataOverrideHasEdits } from "../lib/cdMetadata";
+import {
+  discMetadataOverrideHasEdits,
+  selectedDiscFromLookup,
+} from "../lib/cdMetadata";
 import {
   startCdHeroArtFetch,
   startCdMetadataFetch,
@@ -74,7 +77,7 @@ interface CdState {
   loadDiscMetadata: (
     driveId: string,
     options?: { force?: boolean; logContext?: ActivityLogContext },
-  ) => Promise<void>;
+  ) => Promise<DiscMetadataLookup | undefined>;
   loadDiscOverride: (driveId: string) => Promise<void>;
   saveDiscOverride: (
     driveId: string,
@@ -82,10 +85,10 @@ interface CdState {
   ) => Promise<DiscMetadataOverride | null>;
   clearDiscOverride: (driveId: string) => Promise<void>;
   selectDiscMetadata: (driveId: string, metadata: DiscMetadata) => void;
+  openDiscMetadataPick: (driveId: string) => void;
   dismissDiscMetadataPick: (driveId: string) => void;
   confirmMetadataFetch: (driveId: string, remember: boolean) => void;
   cancelMetadataFetch: (driveId: string, remember: boolean) => void;
-  resetMetadataCacheState: () => void;
   setHeroArt: (driveId: string, artPath: string | null) => void;
   openCdTrackEditor: (driveId: string, ids: number | number[]) => void;
   closeCdTrackEditor: () => void;
@@ -102,8 +105,7 @@ function patchFromMetadataLookup(
   state: CdState,
 ): Partial<CdState> {
   const candidates = lookup.candidates;
-  const selected =
-    lookup.preferred ?? (candidates.length === 1 ? candidates[0] : undefined);
+  const selected = selectedDiscFromLookup(lookup);
 
   const patch: Partial<CdState> = {
     metadataCandidatesByDriveId: {
@@ -567,7 +569,10 @@ function applyDrivesWithDisc(
   }
 }
 
-const inflightMetadataLoads = new Map<string, Promise<void>>();
+const inflightMetadataLoads = new Map<
+  string,
+  Promise<DiscMetadataLookup | undefined>
+>();
 
 async function maybeLoadDiscMetadata(
   driveId: string,
@@ -609,15 +614,6 @@ async function maybeLoadDiscMetadata(
       );
 
       if (!peek.needsNetworkFetch) {
-        logActivity({
-          level: "info",
-          domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
-          message: "Metadata served from cache on disc load",
-          context: logContext,
-          details: {
-            candidateCount: peek.lookup.candidates.length,
-          },
-        });
         markFetched();
         if (useCdStore.getState().metadataByDriveId[driveId] != null) {
           startCdHeroArtFetch(driveId);
@@ -648,23 +644,11 @@ async function maybeLoadDiscMetadata(
         return;
       }
       if (mode === "always") {
-        logActivity({
-          level: "info",
-          domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
-          message: "Starting automatic metadata fetch",
-          context: logContext,
-        });
         markFetched();
         startCdMetadataFetch(driveId);
         return;
       }
 
-      logActivity({
-        level: "info",
-        domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
-        message: "Prompting user to fetch metadata",
-        context: logContext,
-      });
       useCdStore.setState((state) =>
         enqueueMetadataFetchPrompt(driveId, state),
       );
@@ -899,7 +883,7 @@ export const useCdStore = create<CdState>((set, get) => ({
       return inflight;
     }
 
-    const loadPromise = (async (): Promise<void> => {
+    const loadPromise = (async (): Promise<DiscMetadataLookup | undefined> => {
       try {
         const lookup = await lookupDiscMetadata(driveId, discTocTracks(disc), {
           force: options?.force,
@@ -907,18 +891,10 @@ export const useCdStore = create<CdState>((set, get) => ({
         });
         set((state) => patchFromMetadataLookup(driveId, discId, lookup, state));
         set((state) => markMetadataFetched(driveId, discId, state));
+        return lookup;
       } catch (err) {
-        logActivity({
-          level: "error",
-          domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
-          message: "Disc metadata lookup failed",
-          operationId: options?.logContext?.operationId,
-          context: options?.logContext ?? { driveId, discId },
-          details: {
-            error: err instanceof Error ? err.message : String(err),
-          },
-        });
         console.error("loadDiscMetadata failed:", err);
+        throw err;
       } finally {
         inflightMetadataLoads.delete(driveId);
       }
@@ -1032,6 +1008,12 @@ export const useCdStore = create<CdState>((set, get) => ({
     startCdHeroArtFetch(driveId);
   },
 
+  openDiscMetadataPick: (driveId) => {
+    const candidates = get().metadataCandidatesByDriveId[driveId] ?? [];
+    if (candidates.length <= 1) return;
+    set({ metadataPickDriveId: driveId });
+  },
+
   dismissDiscMetadataPick: (driveId) => {
     set((state) => ({
       metadataPickDriveId:
@@ -1042,36 +1024,11 @@ export const useCdStore = create<CdState>((set, get) => ({
   },
 
   confirmMetadataFetch: (driveId, remember) => {
-    logActivity({
-      level: "info",
-      domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
-      message: "User confirmed metadata fetch",
-      context: { driveId },
-      details: { remember },
-    });
     finishMetadataFetchPrompt(driveId, remember, "always", true, get, set);
   },
 
   cancelMetadataFetch: (driveId, remember) => {
-    logActivity({
-      level: "info",
-      domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
-      message: "User declined metadata fetch",
-      context: { driveId },
-      details: { remember },
-    });
     finishMetadataFetchPrompt(driveId, remember, "never", false, get, set);
-  },
-
-  resetMetadataCacheState: () => {
-    set({
-      metadataByDriveId: {},
-      metadataCandidatesByDriveId: {},
-      metadataFetchedDiscIdByDriveId: {},
-      metadataPickDriveId: null,
-      metadataFetchPromptDriveId: null,
-      metadataFetchPromptQueue: [],
-    });
   },
 
   setHeroArt: (driveId, artPath) => {

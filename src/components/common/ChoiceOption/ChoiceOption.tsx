@@ -22,6 +22,8 @@ export type ChoiceOptionProps = Omit<
   details?: ReactNode;
   /** Trailing meta (count, duration, badges). Stacked top-right when multiple. */
   meta?: ReactNode;
+  /** Marks this row as the currently chosen option. */
+  selected?: boolean;
 };
 
 /**
@@ -32,13 +34,25 @@ export function ChoiceOption({
   title,
   details,
   meta,
+  selected = false,
   className,
   ...props
 }: ChoiceOptionProps) {
-  const classes = ["choice-option", className].filter(Boolean).join(" ");
+  const classes = [
+    "choice-option",
+    selected ? "choice-option--selected" : null,
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <button type="button" className={classes} {...props}>
+    <button
+      type="button"
+      className={classes}
+      {...props}
+      aria-pressed={selected ? true : undefined}
+    >
       <span className="choice-option__main">
         <span className="choice-option__title">{title}</span>
         {details != null ? (

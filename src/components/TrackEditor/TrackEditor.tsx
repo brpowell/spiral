@@ -594,7 +594,7 @@ export function TrackEditor() {
     track: Track,
   ): Promise<string | null> => {
     if (selectedCoverUrl) {
-      return cacheArtFromUrl(selectedCoverUrl, track.filePath);
+      return (await cacheArtFromUrl(selectedCoverUrl, track.filePath)).path;
     }
     if (artSourcePath) {
       return cacheArtFromFile(artSourcePath, track.filePath);
@@ -615,10 +615,9 @@ export function TrackEditor() {
 
         let artPath = pendingArtPath;
         if (selectedCoverUrl) {
-          artPath = await cacheArtFromUrl(
-            selectedCoverUrl,
-            referenceTrack.filePath,
-          );
+          artPath = (
+            await cacheArtFromUrl(selectedCoverUrl, referenceTrack.filePath)
+          ).path;
         }
 
         let updated = referenceTrack;

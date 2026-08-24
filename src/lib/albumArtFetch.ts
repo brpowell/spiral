@@ -10,13 +10,143 @@ import type { ActivityLogContext } from "../types/activityLog";
 import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
 import type { CoverArtCandidate } from "../types/coverArt";
 
+type CachedCoverArt = {
+  path: string;
+  byteCount: number;
+  candidate: CoverArtCandidate;
+  candidateCount: number;
+};
+
+function isCdAutoCoverArtFetch(logContext?: ActivityLogContext): boolean {
+  return logContext?.driveId != null;
+}
+
+function coverArtQueryUrl(options: {
+  artist: string;
+  album: string;
+  releaseMbid?: string | null;
+}): string {
+  const mbid = options.releaseMbid?.trim();
+  if (mbid) {
+    return `https://coverartarchive.org/release/${mbid}`;
+  }
+  const query = `release:"${options.album.replace(/"/g, '\\"')}" AND artist:"${options.artist.replace(/"/g, '\\"')}"`;
+  return `https://musicbrainz.org/ws/2/release?query=${encodeURIComponent(query)}&fmt=json&limit=5`;
+}
+
+function logCoverArtWarn(
+  logContext: ActivityLogContext | undefined,
+  message: string,
+  contextPatch: ActivityLogContext,
+): void {
+  if (isCdAutoCoverArtFetch(logContext)) return;
+  logActivity({
+    level: "warn",
+    domain: ACTIVITY_LOG_DOMAINS.coverArt,
+    message,
+    operationId: logContext?.operationId,
+    context: withLogContext(logContext, contextPatch),
+  });
+}
+
+function logCdCoverArtFetchStart(options: {
+  artist: string;
+  album: string;
+  releaseMbid?: string | null;
+  logContext?: ActivityLogContext;
+}): void {
+  const releaseMbid = options.releaseMbid?.trim() || undefined;
+  logActivity({
+    level: "info",
+    domain: ACTIVITY_LOG_DOMAINS.coverArt,
+    message: `Fetching cover art for CD '${options.album}'`,
+    operationId: options.logContext?.operationId,
+    context: options.logContext,
+    details: {
+      ...(releaseMbid != null ? { releaseMbid } : {}),
+      queryUrl: coverArtQueryUrl({
+        artist: options.artist,
+        album: options.album,
+        releaseMbid,
+      }),
+      ...(options.logContext?.driveId != null
+        ? { driveId: options.logContext.driveId }
+        : {}),
+      ...(options.logContext?.discId != null
+        ? { discId: options.logContext.discId }
+        : {}),
+    },
+  });
+}
+
+function logCdCoverArtFetched(
+  album: string,
+  logContext: ActivityLogContext | undefined,
+  cached: CachedCoverArt,
+): void {
+  const selected = cached.candidate;
+  logActivity({
+    level: "info",
+    domain: ACTIVITY_LOG_DOMAINS.coverArt,
+    message: `Cover art fetched for '${album}'`,
+    operationId: logContext?.operationId,
+    context: logContext,
+    details: {
+      byteCount: cached.byteCount,
+      imageUrl: selected.url,
+      cachePath: cached.path,
+      candidateCount: cached.candidateCount,
+      canonicalRank: selected.canonicalRank,
+      ...(selected.width != null ? { width: selected.width } : {}),
+      ...(selected.height != null ? { height: selected.height } : {}),
+    },
+  });
+}
+
 async function cacheBestCoverArtCandidate(
   candidates: Awaited<ReturnType<typeof fetchCoverArt>>,
   cacheLabel: string,
-): Promise<string | null> {
+  logContext?: ActivityLogContext,
+): Promise<CachedCoverArt | null> {
   const best = candidates[0];
   if (!best?.url) return null;
-  return cacheArtFromUrl(best.url, cacheLabel);
+  const cached = await cacheArtFromUrl(best.url, cacheLabel, logContext);
+  return {
+    path: cached.path,
+    byteCount: cached.byteCount,
+    candidate: best,
+    candidateCount: candidates.length,
+  };
+}
+
+async function cacheAndLogCoverArt(
+  candidates: CoverArtCandidate[],
+  cacheLabel: string,
+  logContext: ActivityLogContext | undefined,
+  album: string,
+  emptyMessage: string,
+  cacheFailedMessage: string,
+  contextPatch: ActivityLogContext,
+): Promise<string | null> {
+  if (candidates.length === 0) {
+    logCoverArtWarn(logContext, emptyMessage, contextPatch);
+    return null;
+  }
+
+  const cached = await cacheBestCoverArtCandidate(
+    candidates,
+    cacheLabel,
+    logContext,
+  );
+  if (!cached) {
+    logCoverArtWarn(logContext, cacheFailedMessage, contextPatch);
+    return null;
+  }
+
+  if (isCdAutoCoverArtFetch(logContext)) {
+    logCdCoverArtFetched(logContext?.album ?? album, logContext, cached);
+  }
+  return cached.path;
 }
 
 /**
@@ -51,15 +181,44 @@ export async function fetchAlbumArtPreferringRelease(options: {
   logContext?: ActivityLogContext;
 }): Promise<string | null> {
   const releaseMbid = options.releaseMbid?.trim() || null;
+  const logContext = options.logContext
+    ? withLogContext(options.logContext, {
+        artist: options.artist,
+        album: options.album,
+        ...(releaseMbid != null ? { releaseMbid } : {}),
+      })
+    : undefined;
+
+  if (isCdAutoCoverArtFetch(logContext)) {
+    logCdCoverArtFetchStart({
+      artist: options.artist,
+      album: options.album,
+      releaseMbid,
+      logContext,
+    });
+  }
+
   if (releaseMbid) {
     const artPath = await fetchAlbumArtForRelease(
       releaseMbid,
       options.cacheLabel,
-      options.logContext,
+      logContext,
     );
     if (artPath) return artPath;
   }
-  return fetchAlbumArtPath(options.artist, options.album, options.logContext);
+  return fetchAlbumArtPath(options.artist, options.album, logContext);
+}
+
+function discScopedLogContext(
+  logContext?: ActivityLogContext,
+): ActivityLogContext | undefined {
+  if (logContext?.driveId == null && logContext?.discId == null) {
+    return undefined;
+  }
+  return {
+    ...(logContext.driveId != null ? { driveId: logContext.driveId } : {}),
+    ...(logContext.discId != null ? { discId: logContext.discId } : {}),
+  };
 }
 
 export async function resolveAlbumArtPath(
@@ -72,10 +231,15 @@ export async function resolveAlbumArtPath(
       logActivity({
         level: "info",
         domain: ACTIVITY_LOG_DOMAINS.coverArt,
-        message: "Resolved album art from local cache",
-        operationId: logContext?.operationId,
-        context: logContext,
-        details: { artPath, cacheLabel },
+        message: "Resolved CD cover art from local cache",
+        context: discScopedLogContext(logContext),
+        details: {
+          ...(logContext?.releaseMbid != null
+            ? { releaseMbid: logContext.releaseMbid }
+            : {}),
+          artPath,
+          cacheLabel,
+        },
       });
     }
     return artPath;
@@ -84,9 +248,11 @@ export async function resolveAlbumArtPath(
       level: "warn",
       domain: ACTIVITY_LOG_DOMAINS.coverArt,
       message: "Failed to resolve cached album art",
-      operationId: logContext?.operationId,
-      context: logContext,
+      context: discScopedLogContext(logContext),
       details: {
+        ...(logContext?.releaseMbid != null
+          ? { releaseMbid: logContext.releaseMbid }
+          : {}),
         cacheLabel,
         error: err instanceof Error ? err.message : String(err),
       },
@@ -95,46 +261,33 @@ export async function resolveAlbumArtPath(
   }
 }
 
-export async function fetchAlbumArtForRelease(
+async function fetchAlbumArtForRelease(
   releaseMbid: string,
   cacheLabel: string,
   logContext?: ActivityLogContext,
 ): Promise<string | null> {
   if (!isNetworkLikelyAvailable()) {
-    logActivity({
-      level: "warn",
-      domain: ACTIVITY_LOG_DOMAINS.coverArt,
-      message: "Skipped cover art fetch: network unavailable",
-      operationId: logContext?.operationId,
-      context: withLogContext(logContext, { releaseMbid }),
-    });
+    logCoverArtWarn(
+      logContext,
+      "Skipped cover art fetch: network unavailable",
+      {
+        releaseMbid,
+      },
+    );
     return null;
   }
 
   try {
     const candidates = await fetchCoverArtForRelease(releaseMbid, logContext);
-    if (candidates.length === 0) {
-      logActivity({
-        level: "warn",
-        domain: ACTIVITY_LOG_DOMAINS.coverArt,
-        message: "No cover art candidates for release",
-        operationId: logContext?.operationId,
-        context: withLogContext(logContext, { releaseMbid }),
-      });
-      return null;
-    }
-
-    const artPath = await cacheBestCoverArtCandidate(candidates, cacheLabel);
-    if (!artPath) {
-      logActivity({
-        level: "warn",
-        domain: ACTIVITY_LOG_DOMAINS.coverArt,
-        message: "Failed to cache cover art for release",
-        operationId: logContext?.operationId,
-        context: withLogContext(logContext, { releaseMbid }),
-      });
-    }
-    return artPath;
+    return cacheAndLogCoverArt(
+      candidates,
+      cacheLabel,
+      logContext,
+      logContext?.album ?? "",
+      "No cover art candidates for release",
+      "Failed to cache cover art for release",
+      { releaseMbid },
+    );
   } catch (err) {
     logActivity({
       level: "error",
@@ -150,49 +303,34 @@ export async function fetchAlbumArtForRelease(
   }
 }
 
-export async function fetchAlbumArtPath(
+async function fetchAlbumArtPath(
   artist: string,
   album: string,
   logContext?: ActivityLogContext,
 ): Promise<string | null> {
   if (!isNetworkLikelyAvailable()) {
-    logActivity({
-      level: "warn",
-      domain: ACTIVITY_LOG_DOMAINS.coverArt,
-      message: "Skipped cover art fetch: network unavailable",
-      operationId: logContext?.operationId,
-      context: withLogContext(logContext, { artist, album }),
-    });
+    logCoverArtWarn(
+      logContext,
+      "Skipped cover art fetch: network unavailable",
+      {
+        artist,
+        album,
+      },
+    );
     return null;
   }
 
   try {
     const candidates = await fetchCoverArt(artist, album, logContext);
-    if (candidates.length === 0) {
-      logActivity({
-        level: "warn",
-        domain: ACTIVITY_LOG_DOMAINS.coverArt,
-        message: "No cover art candidates for artist/album search",
-        operationId: logContext?.operationId,
-        context: withLogContext(logContext, { artist, album }),
-      });
-      return null;
-    }
-
-    const artPath = await cacheBestCoverArtCandidate(
+    return cacheAndLogCoverArt(
       candidates,
       `${artist} - ${album}`,
+      logContext,
+      album,
+      "No cover art candidates for artist/album search",
+      "Failed to cache cover art from search results",
+      { artist, album },
     );
-    if (!artPath) {
-      logActivity({
-        level: "warn",
-        domain: ACTIVITY_LOG_DOMAINS.coverArt,
-        message: "Failed to cache cover art from search results",
-        operationId: logContext?.operationId,
-        context: withLogContext(logContext, { artist, album }),
-      });
-    }
-    return artPath;
   } catch (err) {
     logActivity({
       level: "error",

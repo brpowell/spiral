@@ -4,6 +4,7 @@ import {
   mergeDiscDisplayLayers,
   mergeOverridesIntoDisc,
   mergeRemoteMetadataIntoDisc,
+  selectedDiscFromLookup,
 } from "./cdMetadata";
 import type { CdDisc, DiscMetadata, DiscMetadataOverride } from "../types/cd";
 
@@ -134,5 +135,32 @@ describe("discMetadataOverrideHasEdits", () => {
         tracks: { "1": { rating: 128 } },
       }),
     ).toBe(true);
+  });
+});
+
+describe("selectedDiscFromLookup", () => {
+  const album = (releaseMbid: string): DiscMetadata => ({
+    discId: "disc-abc",
+    album: releaseMbid,
+    tracks: [],
+    releaseMbid,
+  });
+
+  it("prefers a saved release, then a lone candidate", () => {
+    const only = album("only");
+    expect(
+      selectedDiscFromLookup({ candidates: [only], preferred: only })
+        ?.releaseMbid,
+    ).toBe("only");
+
+    expect(selectedDiscFromLookup({ candidates: [only] })?.releaseMbid).toBe(
+      "only",
+    );
+
+    expect(
+      selectedDiscFromLookup({
+        candidates: [album("a"), album("b")],
+      }),
+    ).toBeUndefined();
   });
 });

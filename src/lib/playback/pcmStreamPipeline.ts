@@ -58,6 +58,11 @@ export interface PcmSeamCallbacks {
    * became audible.
    */
   onPlaybackAnchor?: (frame: number) => void;
+  /**
+   * A cold-start gate reached `startWhenBuffered` frames. The worklet is still
+   * silent; the engine should `startNow()` when it wants audible output.
+   */
+  onBuffered?: () => void;
 }
 
 /**
@@ -229,6 +234,8 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
             if (typeof data.frame === "number") {
               this.seam.onPlaybackAnchor?.(data.frame);
             }
+          } else if (data.type === "buffered") {
+            this.seam.onBuffered?.();
           }
         };
         this.gain = this.ctx!.createGain();
@@ -270,8 +277,11 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
   }
 
   /** Buffer incoming PCM without playing it until `startAtFrame` is reached. */
-  gate(): void {
-    this.worklet?.port.postMessage({ type: "gate" });
+  gate(options?: { startWhenBuffered?: number }): void {
+    this.worklet?.port.postMessage({
+      type: "gate",
+      startWhenBuffered: options?.startWhenBuffered,
+    });
   }
 
   startAtFrame(frame: number): void {

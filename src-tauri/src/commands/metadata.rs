@@ -15,6 +15,7 @@ use crate::metadata_writer;
 use crate::models::TrackInput;
 use crate::models::{Track, TrackMetadataUpdate};
 use crate::settings;
+use serde::Serialize;
 use std::path::Path;
 use std::time::Duration;
 use tauri::{AppHandle, Manager, State};
@@ -72,23 +73,38 @@ pub fn cache_art_from_bytes(
 
 const MUSICBRAINZ_USER_AGENT: &str = "Spiral/0.1.0 (https://github.com/brpowell/spiral)";
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CachedArtFromUrl {
+    path: String,
+    byte_count: u64,
+}
+
 #[tauri::command]
 pub async fn cache_art_from_url(
     app: AppHandle,
     url: String,
     file_path: String,
-) -> Result<String, String> {
+    log_context: Option<activity_log::ActivityLogContext>,
+) -> Result<CachedArtFromUrl, String> {
     let app = app.clone();
-    tauri::async_runtime::spawn_blocking(move || cache_art_from_url_blocking(app, url, file_path))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Some(ctx) = log_context {
+            activity_log::set_thread_context(ctx);
+        }
+        let result = cache_art_from_url_blocking(app, url, file_path);
+        activity_log::clear_thread_context();
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 fn cache_art_from_url_blocking(
     app: AppHandle,
     url: String,
     file_path: String,
-) -> Result<String, String> {
+) -> Result<CachedArtFromUrl, String> {
     let client = reqwest::blocking::Client::builder()
         .user_agent(MUSICBRAINZ_USER_AGENT)
         .timeout(ART_DOWNLOAD_TIMEOUT)
@@ -135,24 +151,34 @@ fn cache_art_from_url_blocking(
 
     let ext = guess_ext_from_url(&url);
     let app_data = app_data_dir(&app)?;
+    let byte_count = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
     if let Some(existing) = art_cache::find_cached_art_path(&app_data, &file_path) {
-        return Ok(existing.to_string_lossy().into_owned());
+        return Ok(CachedArtFromUrl {
+            path: existing.to_string_lossy().into_owned(),
+            byte_count,
+        });
     }
     let dest = art_cache::write_bytes_to_art_cache(&app_data, &file_path, &bytes, ext)?;
     let dest_str = dest.to_string_lossy().into_owned();
 
-    activity_log::log(
-        LogLevel::Info,
-        "metadata.coverArt",
-        format!("Cached cover art to {dest_str}"),
-        Some(serde_json::json!({
-            "url": url,
-            "cachePath": dest_str,
-            "byteCount": bytes.len(),
-        })),
-    );
+    // CD auto-fetch logs its own completion line from the frontend.
+    if !activity_log::thread_has_drive_id() {
+        activity_log::log(
+            LogLevel::Info,
+            "metadata.coverArt",
+            format!("Cached cover art to {dest_str}"),
+            Some(serde_json::json!({
+                "url": url,
+                "cachePath": dest_str,
+                "byteCount": byte_count,
+            })),
+        );
+    }
 
-    Ok(dest_str)
+    Ok(CachedArtFromUrl {
+        path: dest_str,
+        byte_count,
+    })
 }
 
 #[tauri::command]

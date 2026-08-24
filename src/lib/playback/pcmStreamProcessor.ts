@@ -18,6 +18,12 @@ class PcmStreamProcessor extends AudioWorkletProcessor {
   private readAheadFrames = MIN_READ_AHEAD_FRAMES;
   /** Gated streams buffer PCM without consuming it, primed for a scheduled start. */
   private gated = false;
+  /**
+   * When gated for a cold start, pull until this many frames are queued, then
+   * announce `buffered`. `null` means the gapless/pause floor (MIN).
+   */
+  private startWhenBuffered: number | null = null;
+  private bufferedReported = false;
   private startFrame: number | null = null;
   private endOfStream = false;
   private announcedDrainFrame: number | null = null;
@@ -42,6 +48,8 @@ class PcmStreamProcessor extends AudioWorkletProcessor {
         this.announcedDrainFrame = null;
         this.drainReported = false;
         this.pendingAnchorReport = true;
+        this.startWhenBuffered = null;
+        this.bufferedReported = false;
       } else if (data.type === "configure") {
         this.channels = data.channels;
         this.readAheadFrames = data.readAheadFrames;
@@ -49,11 +57,17 @@ class PcmStreamProcessor extends AudioWorkletProcessor {
         this.gated = true;
         this.startFrame = null;
         this.pendingAnchorReport = true;
+        this.startWhenBuffered =
+          typeof data.startWhenBuffered === "number"
+            ? data.startWhenBuffered
+            : null;
+        this.bufferedReported = false;
       } else if (data.type === "startAt") {
         this.startFrame = data.frame;
       } else if (data.type === "startNow") {
         this.gated = false;
         this.startFrame = null;
+        this.startWhenBuffered = null;
       } else if (data.type === "endOfStream") {
         this.endOfStream = true;
       } else if (data.type === "reannounceDrain") {
@@ -103,9 +117,24 @@ class PcmStreamProcessor extends AudioWorkletProcessor {
    * pulling the drive head away from the deck that is still playing.
    */
   private maybeRequestData(): void {
-    const target = this.gated ? MIN_READ_AHEAD_FRAMES : this.readAheadFrames;
+    const target = this.gated
+      ? (this.startWhenBuffered ?? MIN_READ_AHEAD_FRAMES)
+      : this.readAheadFrames;
     if (this.bufferedFrames() >= target) return;
     this.port.postMessage({ type: "needData" } satisfies PcmStreamMainMessage);
+  }
+
+  private maybeReportBuffered(): void {
+    if (
+      !this.gated ||
+      this.startWhenBuffered === null ||
+      this.bufferedReported ||
+      this.bufferedFrames() < this.startWhenBuffered
+    ) {
+      return;
+    }
+    this.bufferedReported = true;
+    this.port.postMessage({ type: "buffered" } satisfies PcmStreamMainMessage);
   }
 
   /** Frames into this block before a gated stream begins consuming. */
@@ -196,6 +225,7 @@ class PcmStreamProcessor extends AudioWorkletProcessor {
     }
 
     this.reportSeam(blockStart, frames, filledThrough);
+    this.maybeReportBuffered();
     this.maybeRequestData();
     return true;
   }
@@ -209,7 +239,7 @@ type PcmStreamWorkletMessage =
       channels: number;
       readAheadFrames: number;
     }
-  | { type: "gate" }
+  | { type: "gate"; startWhenBuffered?: number }
   | { type: "startAt"; frame: number }
   | { type: "startNow" }
   | { type: "endOfStream" }
@@ -220,7 +250,8 @@ type PcmStreamMainMessage =
   | { type: "drainAt"; frame: number }
   | { type: "drained" }
   | { type: "started" }
-  | { type: "playbackAnchor"; frame: number };
+  | { type: "playbackAnchor"; frame: number }
+  | { type: "buffered" };
 
 registerProcessor(PCM_STREAM_PROCESSOR_NAME, PcmStreamProcessor);
 

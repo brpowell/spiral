@@ -14,6 +14,15 @@ export const PCM_STREAM_MIN_READ_AHEAD_FRAMES = 2048;
 export const CD_PCM_READ_AHEAD_SECONDS = 0.5;
 
 /**
+ * Hold the first play silent until this much PCM is queued. Cold-start spin-up
+ * delivers a cached first chunk in milliseconds, then stalls 1–3s; starting on
+ * that first chunk underruns (seekbar ticks, audio stutters) until the drive
+ * is up to speed. Gapless priming still uses the 2048-frame floor so the
+ * incoming deck does not steal the head.
+ */
+export const CD_PCM_START_BUFFER_SECONDS = 2;
+
+/**
  * Library-file worklet target. Pack install (sync extract + contribution rescan)
  * and macOS window minimize both stall main-thread PCM event/ack delivery; a
  * 0.5s cushion underran at minimize-complete — keep ~2s so the audio thread

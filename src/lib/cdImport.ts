@@ -6,10 +6,10 @@ import {
 } from "./albums";
 import { resolveCdSharedArtPath } from "./cdArt";
 import { isCdImportCancelRequested } from "./cdImportGuard";
+import { errorMessageFromUnknown } from "./cdPlaybackFailure";
 import { t } from "./i18n";
 import {
   commitImportEntries,
-  formatImportSummary,
   importCompletionSettleOptions,
   resolveImportDuplicates,
   type ImportResult,
@@ -29,6 +29,7 @@ import {
 import { createOperationId, logActivity } from "./activityLog";
 import { yieldForInteraction } from "./scheduling";
 import { cleanupCdImportTemp, ripCdTrack } from "./tauri";
+import { cdImportFailedSettleOptions } from "./toastPayloads";
 import {
   blockIfTrialLibraryAtCap,
   isTrialLibraryCapError,
@@ -113,6 +114,17 @@ export function startCdImport(options: {
     run: async (ctx) => {
       const cdImport = useCdImportStore.getState();
       let cancelled = false;
+      let outcomeLogged = false;
+      const result: ImportResult = {
+        imported: 0,
+        skipped: 0,
+        replaced: 0,
+        failed: 0,
+        errors: [],
+        lyricsFromTags: 0,
+        lyricsFromSidecar: 0,
+        lyricsNone: 0,
+      };
       try {
         logActivity({
           level: "info",
@@ -138,7 +150,19 @@ export function startCdImport(options: {
         );
 
         if (plans.length === 0) {
-          throw new Error(t("toasts:import.noTracksSelected"));
+          logActivity({
+            level: "warn",
+            domain: ACTIVITY_LOG_DOMAINS.import,
+            message: "CD import had no tracks selected",
+            operationId,
+            details: { driveId },
+          });
+          outcomeLogged = true;
+          ctx.settleAs({
+            status: "warning",
+            label: t("toasts:import.noTracksSelected"),
+          });
+          return;
         }
 
         ctx.setLabel(t("toasts:import.checkingDuplicates"));
@@ -154,8 +178,7 @@ export function startCdImport(options: {
           );
         } catch (err) {
           if (isImportCancelledError(err)) {
-            ctx.setLabel(t("toasts:import.cancelled"));
-            return;
+            throw new CdImportCancelledError();
           }
           throw err;
         }
@@ -165,13 +188,10 @@ export function startCdImport(options: {
         );
 
         if (plansToImport.length === 0) {
-          ctx.setLabel(
-            formatImportSummary({
-              imported: 0,
-              replaced: 0,
-              skipped: duplicateResolutions.skippedPendingIds.size,
-            }),
-          );
+          result.skipped = duplicateResolutions.skippedPendingIds.size;
+          logCdImportCompleted(result, operationId, driveId);
+          outcomeLogged = true;
+          ctx.settleAs(importCompletionSettleOptions(result, operationId));
           return;
         }
 
@@ -201,19 +221,12 @@ export function startCdImport(options: {
         });
         ctx.clearDetail();
 
+        result.skipped = duplicateResolutions.skippedPendingIds.size;
         const entries: ParsedImportEntry[] = [];
-        const result: ImportResult = {
-          imported: 0,
-          skipped: duplicateResolutions.skippedPendingIds.size,
-          replaced: 0,
-          failed: 0,
-          errors: [],
-          lyricsFromTags: 0,
-          lyricsFromSidecar: 0,
-          lyricsNone: 0,
-        };
         const importedTracks: Track[] = [];
+        const total = plansToImport.length;
 
+        ctx.setLabel(t("toasts:import.cd"));
         for (let i = 0; i < plansToImport.length; i++) {
           if (isCdImportCancelRequested()) {
             await exitCancelledImport(driveId, importedTracks);
@@ -221,79 +234,85 @@ export function startCdImport(options: {
 
           const plan = plansToImport[i];
           cdImport.setRipIndex(i);
-          ctx.setLabel(t("toasts:import.cd"));
-          if (plansToImport.length > 1) {
+          ctx.setProgress(i, total);
+          if (total > 1) {
             ctx.setDetail(
               t("toasts:progress.trackOf", {
                 current: i + 1,
-                total: plansToImport.length,
+                total,
               }),
             );
-          } else {
-            ctx.clearDetail();
           }
 
-          const metadata: TrackMetadataUpdate = {
-            ...plan.metadata,
-            artPath: sharedArtPath,
-            artChanged: sharedArtPath != null,
-          };
+          try {
+            const metadata: TrackMetadataUpdate = {
+              ...plan.metadata,
+              artPath: sharedArtPath,
+              artChanged: sharedArtPath != null,
+            };
 
-          const filePath = await ripCdTrack(
-            driveId,
-            plan.trackNumber,
-            profileId,
-            metadata,
-          );
+            const filePath = await ripCdTrack(
+              driveId,
+              plan.trackNumber,
+              profileId,
+              metadata,
+            );
 
-          if (isCdImportCancelRequested()) {
-            await exitCancelledImport(driveId, importedTracks);
-          }
+            if (isCdImportCancelRequested()) {
+              await exitCancelledImport(driveId, importedTracks);
+            }
 
-          const trackInput: TrackInput = {
-            ...planMetadataToTrackInput(plan),
-            filePath,
-            artPath: sharedArtPath,
-          };
+            const trackInput: TrackInput = {
+              ...planMetadataToTrackInput(plan),
+              filePath,
+              artPath: sharedArtPath,
+            };
 
-          const entry = {
-            sourcePath: filePath,
-            metadata: trackInput,
-            pendingId: plan.pendingId,
-          };
-          entries.push(entry);
+            const entry = {
+              sourcePath: filePath,
+              metadata: trackInput,
+              pendingId: plan.pendingId,
+            };
+            entries.push(entry);
 
-          usePlayerStore
-            .getState()
-            .stagePendingImportTracks([
-              pendingTrackFromInput(plan.pendingId, filePath, trackInput),
-            ]);
+            usePlayerStore
+              .getState()
+              .stagePendingImportTracks([
+                pendingTrackFromInput(plan.pendingId, filePath, trackInput),
+              ]);
 
-          const trackResult = await commitImportEntries([entry], {
-            mode: "copy",
-            duplicateActions: duplicateResolutions.duplicateActions,
-            onTrackActivated: (activatedId, track) => {
-              importedTracks.push(track);
-              queueImportedTrackActivation(activatedId, track);
-            },
-            onTrackFailed: (failedId) => {
-              queuePendingImportRemoval(failedId);
-            },
-            onTrackReplaced: (replacedId, track) => {
-              queuePendingImportRemoval(replacedId);
-              usePlayerStore.getState().updateTrackInLibrary(track);
-            },
-          });
-          result.imported += trackResult.imported;
-          result.replaced += trackResult.replaced;
-          result.failed += trackResult.failed;
-          result.errors.push(...trackResult.errors);
-          result.lyricsFromTags += trackResult.lyricsFromTags;
-          result.lyricsFromSidecar += trackResult.lyricsFromSidecar;
-          result.lyricsNone += trackResult.lyricsNone;
+            const trackResult = await commitImportEntries([entry], {
+              mode: "copy",
+              duplicateActions: duplicateResolutions.duplicateActions,
+              onTrackActivated: (activatedId, track) => {
+                importedTracks.push(track);
+                queueImportedTrackActivation(activatedId, track);
+              },
+              onTrackFailed: (failedId) => {
+                queuePendingImportRemoval(failedId);
+              },
+              onTrackReplaced: (replacedId, track) => {
+                queuePendingImportRemoval(replacedId);
+                usePlayerStore.getState().updateTrackInLibrary(track);
+              },
+            });
+            result.imported += trackResult.imported;
+            result.replaced += trackResult.replaced;
+            result.failed += trackResult.failed;
+            result.errors.push(...trackResult.errors);
+            result.lyricsFromTags += trackResult.lyricsFromTags;
+            result.lyricsFromSidecar += trackResult.lyricsFromSidecar;
+            result.lyricsNone += trackResult.lyricsNone;
 
-          if (trackResult.imported > 0 || trackResult.replaced > 0) {
-            cdImport.completeTrack(plan.trackNumber);
+            if (trackResult.imported > 0 || trackResult.replaced > 0) {
+              cdImport.completeTrack(plan.trackNumber);
+            }
+          } catch (err) {
+            if (isCdImportCancelledError(err) || isImportCancelledError(err)) {
+              throw err;
+            }
+            recordCdTrackFailure(result, operationId, plan, err);
+            queuePendingImportRemoval(plan.pendingId);
           }
 
           if (isCdImportCancelRequested()) {
@@ -345,23 +364,8 @@ export function startCdImport(options: {
         }
 
         const settle = importCompletionSettleOptions(result, operationId);
-        logActivity({
-          level: result.failed > 0 ? "warn" : "info",
-          domain: ACTIVITY_LOG_DOMAINS.import,
-          message: "CD import completed",
-          operationId,
-          details: {
-            driveId,
-            imported: result.imported,
-            replaced: result.replaced,
-            skipped: result.skipped,
-            failed: result.failed,
-            lyricsFromTags: result.lyricsFromTags,
-            lyricsFromSidecar: result.lyricsFromSidecar,
-            lyricsNone: result.lyricsNone,
-            ...(result.errors.length > 0 ? { errors: result.errors } : {}),
-          },
-        });
+        logCdImportCompleted(result, operationId, driveId);
+        outcomeLogged = true;
 
         if (result.failed > 0) {
           const trialCapHit = result.errors.some(isTrialLibraryCapError);
@@ -378,15 +382,86 @@ export function startCdImport(options: {
       } catch (err) {
         if (isCdImportCancelledError(err)) {
           cancelled = true;
-        } else {
-          await cleanupCdImportTemp(driveId);
+          throw err;
         }
-        throw err;
+        if (isImportCancelledError(err)) {
+          cancelled = true;
+          throw new CdImportCancelledError();
+        }
+        await cleanupCdImportTemp(driveId).catch(() => undefined);
+        if (!outcomeLogged) {
+          logActivity({
+            level: "error",
+            domain: ACTIVITY_LOG_DOMAINS.import,
+            message: "CD import failed",
+            operationId,
+            details: { driveId, error: errorMessageFromUnknown(err) },
+          });
+        }
+        if (
+          result.imported > 0 ||
+          result.replaced > 0 ||
+          result.skipped > 0 ||
+          result.failed > 0
+        ) {
+          ctx.settleAs(importCompletionSettleOptions(result, operationId));
+        } else {
+          ctx.settleAs(
+            cdImportFailedSettleOptions({ logLink: { operationId } }),
+          );
+        }
       } finally {
         cdImport.finishImport({ preserveCompletedDisplay: !cancelled });
         cdImport.clearCancelRequest();
         resetPendingTrackIds();
       }
+    },
+  });
+}
+
+function logCdImportCompleted(
+  result: ImportResult,
+  operationId: string,
+  driveId: string,
+): void {
+  logActivity({
+    level: result.failed > 0 ? "warn" : "info",
+    domain: ACTIVITY_LOG_DOMAINS.import,
+    message: "CD import completed",
+    operationId,
+    details: {
+      driveId,
+      imported: result.imported,
+      replaced: result.replaced,
+      skipped: result.skipped,
+      failed: result.failed,
+      lyricsFromTags: result.lyricsFromTags,
+      lyricsFromSidecar: result.lyricsFromSidecar,
+      lyricsNone: result.lyricsNone,
+      ...(result.errors.length > 0 ? { errors: result.errors } : {}),
+    },
+  });
+}
+
+function recordCdTrackFailure(
+  result: ImportResult,
+  operationId: string,
+  plan: CdImportTrackPlan,
+  err: unknown,
+): void {
+  result.failed += 1;
+  const message = errorMessageFromUnknown(err);
+  const title = plan.metadata.title ?? `Track ${plan.trackNumber}`;
+  result.errors.push(t("toasts:import.cdTrackFailed", { title }));
+  logActivity({
+    level: "warn",
+    domain: ACTIVITY_LOG_DOMAINS.import,
+    message: "CD track import failed",
+    operationId,
+    details: {
+      trackNumber: plan.trackNumber,
+      title,
+      error: message,
     },
   });
 }

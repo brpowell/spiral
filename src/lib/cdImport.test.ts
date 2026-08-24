@@ -1,9 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import {
-  CdImportCancelledError,
-  isCdImportCancelledError,
-} from "./cdImport";
+import { CdImportCancelledError, isCdImportCancelledError } from "./cdImport";
 import { isCdImportCancelRequested } from "./cdImportGuard";
+import { cdImportFailedSettleOptions } from "./toastPayloads";
 import { useCdImportStore } from "../store/useCdImportStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Track } from "../types/track";
@@ -36,6 +34,19 @@ describe("CdImportCancelledError", () => {
   it("is detected by isCdImportCancelledError", () => {
     expect(isCdImportCancelledError(new CdImportCancelledError())).toBe(true);
     expect(isCdImportCancelledError(new Error("Import cancelled"))).toBe(false);
+  });
+});
+
+describe("cdImportFailedSettleOptions", () => {
+  it("uses friendly copy and View logs for unexpected abort", () => {
+    expect(
+      cdImportFailedSettleOptions({ logLink: { operationId: "op-1" } }),
+    ).toEqual({
+      status: "error",
+      label: "Couldn't import CD",
+      detail: "Check the disc and try again.",
+      logLink: { operationId: "op-1" },
+    });
   });
 });
 
@@ -74,7 +85,9 @@ describe("cd import cancel store", () => {
   it("does not preserve completed display when finishImport is told to skip it", () => {
     useCdImportStore.getState().startImport("drive-a", [1, 2]);
     useCdImportStore.getState().completeTrack(1);
-    useCdImportStore.getState().finishImport({ preserveCompletedDisplay: false });
+    useCdImportStore
+      .getState()
+      .finishImport({ preserveCompletedDisplay: false });
 
     expect(useCdImportStore.getState().completedDisplayByDriveId).toEqual({});
   });
@@ -86,9 +99,14 @@ describe("cd import cancel store", () => {
     useCdImportStore.getState().startImport("drive-a", [1, 2]);
     useCdImportStore.getState().setCancelPrompt({
       driveId: "drive-a",
-      tracks: [makeTrack({ id: 10, trackNumber: 1 }), makeTrack({ id: 11, trackNumber: 2 })],
+      tracks: [
+        makeTrack({ id: 10, trackNumber: 1 }),
+        makeTrack({ id: 11, trackNumber: 2 }),
+      ],
     });
-    useCdImportStore.getState().finishImport({ preserveCompletedDisplay: false });
+    useCdImportStore
+      .getState()
+      .finishImport({ preserveCompletedDisplay: false });
 
     await useCdImportStore.getState().resolveCancelPrompt("keep");
 

@@ -62,9 +62,9 @@
 }
 
 .activity-logs-panel__entry--drag-selecting,
-.activity-logs-panel__list--drag-selecting .activity-logs-panel__body,
 .activity-logs-panel__list--drag-selecting .activity-logs-panel__json {
   user-select: none;
+  -webkit-user-select: none;
   cursor: default;
 }
 
@@ -92,6 +92,8 @@
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .activity-logs-panel__list-item:first-child .activity-logs-panel__group-header {
@@ -142,13 +144,19 @@
   background: var(--color-surface-raised);
 }
 
+.activity-logs-panel__time,
+.activity-logs-panel__level,
+.activity-logs-panel__body,
+.activity-logs-panel__actions {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .activity-logs-panel__body {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
-  user-select: text;
-  cursor: text;
 }
 
 .activity-logs-panel__actions {
@@ -227,6 +235,7 @@
   word-break: break-word;
   overflow-x: auto;
   user-select: text;
+  -webkit-user-select: text;
   cursor: text;
 }
 

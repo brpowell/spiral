@@ -64,6 +64,7 @@ export interface DiscMetadataLookup {
   discId?: string | null;
   candidates: DiscMetadata[];
   preferred?: DiscMetadata | null;
+  kind?: "hit" | "miss" | "error";
 }
 
 export interface DiscMetadataCachePeek {

@@ -248,7 +248,7 @@ export function ArtistEditor() {
     cacheKey: string,
   ): Promise<string | null> => {
     if (selectedCoverUrl) {
-      return cacheArtFromUrl(selectedCoverUrl, cacheKey);
+      return (await cacheArtFromUrl(selectedCoverUrl, cacheKey)).path;
     }
     if (artSourcePath) {
       return cacheArtFromFile(artSourcePath, cacheKey);

@@ -571,6 +571,7 @@ fn send_lrclib_request_with_retry(
 
 fn parse_lrclib_get_response(
     url: &str,
+    title: &str,
     response: reqwest::blocking::Response,
 ) -> Result<LrclibGetResult, String> {
     let status = response.status();
@@ -637,9 +638,9 @@ fn parse_lrclib_get_response(
         },
         "lyrics.fetch",
         if lyrics.is_some() {
-            "LRCLIB returned lyrics"
+            format!("Lyrics found for '{title}'")
         } else {
-            "LRCLIB response had no usable lyrics"
+            format!("No usable lyrics found for '{title}'")
         },
         Some(serde_json::json!({
             "url": url,
@@ -657,10 +658,10 @@ fn parse_lrclib_get_response(
     })
 }
 
-fn fetch_lrclib_get(url: &str) -> Result<LrclibGetResult, String> {
+fn fetch_lrclib_get(url: &str, title: &str) -> Result<LrclibGetResult, String> {
     let client = http_client()?;
     let response = send_lrclib_request_with_retry(&client, url, GET_TIMEOUT, "get")?;
-    parse_lrclib_get_response(url, response)
+    parse_lrclib_get_response(url, title, response)
 }
 
 fn fetch_lrclib_search(url: &str) -> Result<Vec<LrclibSearchHit>, String> {
@@ -729,7 +730,7 @@ fn fetch_lrclib_uncached(
     activity_log::log(
         LogLevel::Info,
         "lyrics.fetch",
-        "Fetching lyrics from LRCLIB",
+        format!("Fetching lyrics for '{query_title}'"),
         Some(serde_json::json!({
             "strategy": "get_track_artist",
             "artist": query_artist,
@@ -740,7 +741,7 @@ fn fetch_lrclib_uncached(
         })),
     );
 
-    match fetch_lrclib_get(&track_get_url)? {
+    match fetch_lrclib_get(&track_get_url, &query_title)? {
         LrclibGetResult::Found(lyrics) => {
             return Ok(LyricsFetchOutcome::Found { lyrics });
         }
@@ -773,7 +774,7 @@ fn fetch_lrclib_uncached(
             })),
         );
 
-        match fetch_lrclib_get(&album_get_url)? {
+        match fetch_lrclib_get(&album_get_url, &query_title)? {
             LrclibGetResult::Found(lyrics) => {
                 return Ok(LyricsFetchOutcome::Found { lyrics });
             }

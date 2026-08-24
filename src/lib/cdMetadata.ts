@@ -1,4 +1,9 @@
-import type { CdDisc, DiscMetadata, DiscMetadataOverride } from "../types/cd";
+import type {
+  CdDisc,
+  DiscMetadata,
+  DiscMetadataLookup,
+  DiscMetadataOverride,
+} from "../types/cd";
 import { formatCountryDisplay } from "./countryFlag";
 
 /** Overlay MusicBrainz (or user-selected) metadata onto a drive disc read. */
@@ -87,6 +92,15 @@ export function mergeDiscDisplayLayers(
     merged = mergeRemoteMetadataIntoDisc(merged, remoteMetadata);
   }
   return mergeOverridesIntoDisc(merged, override);
+}
+
+export function selectedDiscFromLookup(
+  lookup: DiscMetadataLookup,
+): DiscMetadata | undefined {
+  return (
+    lookup.preferred ??
+    (lookup.candidates.length === 1 ? lookup.candidates[0] : undefined)
+  );
 }
 
 export function discMetadataOverrideHasEdits(

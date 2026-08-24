@@ -28,8 +28,6 @@ export interface ActivityLogLine {
   domain: string;
   message: string;
   operationId?: string;
-  driveId?: string;
-  discId?: string;
   releaseMbid?: string;
   artist?: string;
   album?: string;

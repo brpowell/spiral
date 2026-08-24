@@ -63,6 +63,23 @@ pub fn compute_disc_id(tracks: &[(u32, f64)]) -> String {
     base64_disc_id(&digest)
 }
 
+/// MusicBrainz / libdiscid disc IDs use only the first session.
+/// When session numbers are unknown, the input list is kept as-is.
+pub fn keep_first_session(tracks: &[(u32, f64, Option<u32>)]) -> Vec<(u32, f64)> {
+    let first_session = tracks.iter().filter_map(|(_, _, session)| *session).min();
+    let Some(first_session) = first_session else {
+        return tracks
+            .iter()
+            .map(|(number, duration, _)| (*number, *duration))
+            .collect();
+    };
+    tracks
+        .iter()
+        .filter(|(_, _, session)| session.is_none_or(|session| session == first_session))
+        .map(|(number, duration, _)| (*number, *duration))
+        .collect()
+}
+
 fn duration_to_sectors(duration_seconds: f64) -> u32 {
     (duration_seconds * 75.0).round().max(0.0) as u32
 }
@@ -109,5 +126,22 @@ mod tests {
             (6, 14973.0 / 75.0),
         ];
         assert_eq!(compute_disc_id(&tracks), "49HHV7Eb8UKF3aQiNmu1GR8vKTY-");
+    }
+
+    #[test]
+    fn keep_first_session_drops_later_session_tracks() {
+        let tracks = [
+            (1, 218.0, Some(1)),
+            (15, 229.0, Some(1)),
+            (16, 282.0, Some(2)),
+            (20, 73.0, Some(2)),
+        ];
+        assert_eq!(keep_first_session(&tracks), vec![(1, 218.0), (15, 229.0)]);
+    }
+
+    #[test]
+    fn keep_first_session_keeps_all_when_session_unknown() {
+        let tracks = [(1, 180.0, None), (2, 200.0, None)];
+        assert_eq!(keep_first_session(&tracks), vec![(1, 180.0), (2, 200.0)]);
     }
 }

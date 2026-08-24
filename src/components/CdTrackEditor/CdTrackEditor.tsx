@@ -228,7 +228,8 @@ export function CdTrackEditor() {
   const resolveArtPath = async (): Promise<string | null> => {
     if (!discId) return pendingArtPath;
     if (selectedCoverUrl) {
-      return cacheArtFromUrl(selectedCoverUrl, cdArtCacheKey(discId));
+      return (await cacheArtFromUrl(selectedCoverUrl, cdArtCacheKey(discId)))
+        .path;
     }
     if (artSourcePath) {
       return cacheArtFromFile(artSourcePath, cdArtCacheKey(discId));

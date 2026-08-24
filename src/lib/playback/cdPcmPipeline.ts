@@ -53,8 +53,8 @@ export class CdPcmPipeline {
     await this.pipeline.prepare(session, sampleRate, channels);
   }
 
-  gate(): void {
-    this.pipeline.gate();
+  gate(options?: { startWhenBuffered?: number }): void {
+    this.pipeline.gate(options);
   }
 
   startAtFrame(frame: number): void {
@@ -75,6 +75,14 @@ export class CdPcmPipeline {
 
   async resumeContext(): Promise<void> {
     await this.pipeline.resumeContext();
+  }
+
+  getContextTime(): number {
+    return this.pipeline.getContextTime();
+  }
+
+  getContextSampleRate(): number {
+    return this.pipeline.getContextSampleRate();
   }
 
   connectToOutputBus(): AnalyserNode | null {

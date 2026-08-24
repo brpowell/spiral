@@ -17,7 +17,10 @@ import {
   type CdPlaybackTrackPayload,
   isCdPlaybackSession,
 } from "./cdPlaybackEvents";
-import { PositionSeekGuard } from "./positionSeekGuard";
+import {
+  CD_PCM_START_BUFFER_SECONDS,
+  PCM_STREAM_MIN_READ_AHEAD_FRAMES,
+} from "./pcmStreamConstants";
 import type {
   PlaybackCapabilities,
   PlaybackEngine,
@@ -57,9 +60,14 @@ export class CdPlaybackEngine implements PlaybackEngine {
 
   private current: CdPlaybackTrackKey | null = null;
   private durationSeconds = 0;
-  private lastPositionSeconds = 0;
-  private lastPositionAtMs = 0;
-  private readonly positionSeekGuard = new PositionSeekGuard();
+  /**
+   * Source position that was audible at `anchorContextTime`. While
+   * `anchorContextTime` is null the transport is restarting (load, seek, resume)
+   * and this value *is* the playhead — it holds until the worklet reports the
+   * frame on which it resumed emitting samples.
+   */
+  private anchorSourceSeconds = 0;
+  private anchorContextTime: number | null = null;
   private playing = false;
   private volume = 1;
   private balance = 0;
@@ -75,6 +83,10 @@ export class CdPlaybackEngine implements PlaybackEngine {
   private endOfStreamPending = false;
   /** Primed but held silent by the worklet until its scheduled start frame. */
   private gated = false;
+  /** True after load until the worklet emits its first audible sample. */
+  private awaitingFirstAudibleStart = false;
+  /** Cold-start gate is filling `CD_PCM_START_BUFFER_SECONDS` before `startNow`. */
+  private waitingForStartBuffer = false;
   private listeners: Promise<UnlistenFn[]> | null = null;
   private loadGeneration = 0;
   private readonly pcm = new CdPcmPipeline();
@@ -89,6 +101,12 @@ export class CdPlaybackEngine implements PlaybackEngine {
       },
       onStarted: () => {
         this.handleStarted();
+      },
+      onBuffered: () => {
+        this.releaseStartBuffer();
+      },
+      onPlaybackAnchor: (frame) => {
+        this.handlePlaybackAnchor(frame);
       },
     });
   }
@@ -115,26 +133,20 @@ export class CdPlaybackEngine implements PlaybackEngine {
       listen<CdPlaybackPositionPayload>(CD_PLAYBACK_POSITION_EVENT, (event) => {
         if (!isCdPlaybackSession(this.current, event.payload)) return;
         this.durationSeconds = event.payload.durationSeconds;
-        // Gated priming decodes ahead of audible start — ignore decode cursor
-        // and isPlaying so the UI does not interpolate from load time.
+        // Decoder cursor leads audible output by the worklet FIFO — only
+        // duration and transport state come from here.
         if (this.gated) return;
         this.playing = event.payload.isPlaying;
-        if (
-          !this.positionSeekGuard.shouldAccept(event.payload.positionSeconds)
-        ) {
-          return;
-        }
-        this.lastPositionSeconds = event.payload.positionSeconds;
-        this.lastPositionAtMs = performance.now();
       }),
       listen<CdPlaybackTrackPayload>(CD_PLAYBACK_ENDED_EVENT, (event) => {
         if (!isCdPlaybackSession(this.current, event.payload)) return;
-        this.playing = false;
-        this.lastPositionSeconds = this.durationSeconds;
         // Rust removes the session on natural end; drop the local key so seek
         // does not target a dead session id.
         this.current = null;
         this.endOfStreamPending = true;
+        if (this.waitingForStartBuffer) {
+          this.releaseStartBuffer();
+        }
         this.pcm.signalEndOfStream();
         if (!this.gated) this.armDrainFallback();
       }),
@@ -142,6 +154,7 @@ export class CdPlaybackEngine implements PlaybackEngine {
         if (!isCdPlaybackSession(this.current, event.payload)) return;
         console.error("CD playback error:", event.payload.message);
         this.playing = false;
+        this.waitingForStartBuffer = false;
         this.current = null;
         this.errorCallback?.({
           driveId: event.payload.driveId,
@@ -177,14 +190,29 @@ export class CdPlaybackEngine implements PlaybackEngine {
   private handleStarted(): void {
     this.gated = false;
     this.playing = true;
-    this.lastPositionSeconds = 0;
-    this.lastPositionAtMs = performance.now();
+    this.awaitingFirstAudibleStart = false;
+    this.waitingForStartBuffer = false;
     if (this.endOfStreamPending) this.armDrainFallback();
     this.startedCallback?.();
   }
 
   private handleDrained(): void {
     this.finishEndOfStream();
+  }
+
+  private handlePlaybackAnchor(frame: number): void {
+    const sampleRate = this.pcm.getContextSampleRate();
+    if (!sampleRate) return;
+    this.anchorContextTime = frame / sampleRate;
+    this.awaitingFirstAudibleStart = false;
+  }
+
+  private releaseStartBuffer(): void {
+    if (!this.waitingForStartBuffer) return;
+    this.waitingForStartBuffer = false;
+    this.pcm.startNow();
+    this.gated = false;
+    this.playing = true;
   }
 
   async load(source: PlaybackSource): Promise<void> {
@@ -198,6 +226,8 @@ export class CdPlaybackEngine implements PlaybackEngine {
     this.clearDrainFallback();
     this.endOfStreamPending = false;
     this.gated = false;
+    this.awaitingFirstAudibleStart = true;
+    this.waitingForStartBuffer = false;
     await this.ensureListeners();
     const previousSessionId = this.current?.sessionId ?? null;
     this.pcm.destroy();
@@ -238,9 +268,8 @@ export class CdPlaybackEngine implements PlaybackEngine {
 
       this.current = track;
       this.durationSeconds = started.durationSeconds;
-      this.lastPositionSeconds = 0;
-      this.lastPositionAtMs = performance.now();
-      this.positionSeekGuard.clear();
+      this.anchorSourceSeconds = 0;
+      this.anchorContextTime = null;
       this.playing = false;
     } catch (err) {
       if (startedSessionId !== null && generation === this.loadGeneration) {
@@ -271,8 +300,25 @@ export class CdPlaybackEngine implements PlaybackEngine {
     const sessionId = this.current.sessionId;
     await this.pcm.resumeContext();
     this.connectToOutputBus();
-    this.pcm.startNow();
-    this.gated = false;
+    if (this.awaitingFirstAudibleStart) {
+      const rate = this.pcm.getContextSampleRate() || 44100;
+      const seconds = Math.min(
+        CD_PCM_START_BUFFER_SECONDS,
+        this.durationSeconds > 0
+          ? this.durationSeconds
+          : CD_PCM_START_BUFFER_SECONDS,
+      );
+      const frames = Math.max(
+        PCM_STREAM_MIN_READ_AHEAD_FRAMES,
+        Math.round(seconds * rate),
+      );
+      this.waitingForStartBuffer = true;
+      this.gated = true;
+      this.pcm.gate({ startWhenBuffered: frames });
+    } else {
+      this.pcm.startNow();
+      this.gated = false;
+    }
     this.playing = true;
     await invoke("resume_cd_playback", { sessionId });
   }
@@ -285,6 +331,7 @@ export class CdPlaybackEngine implements PlaybackEngine {
     if (!this.current) return;
     const sessionId = this.current.sessionId;
     await this.pcm.resumeContext();
+    this.waitingForStartBuffer = false;
     this.gated = true;
     this.pcm.gate();
     await invoke("resume_cd_playback", { sessionId });
@@ -297,6 +344,7 @@ export class CdPlaybackEngine implements PlaybackEngine {
 
   /** Give up on the scheduled frame and start on the next render block. */
   forceGaplessStart(): void {
+    this.waitingForStartBuffer = false;
     this.pcm.startNow();
     this.handleStarted();
   }
@@ -319,7 +367,10 @@ export class CdPlaybackEngine implements PlaybackEngine {
 
   pause(): void {
     if (!this.current) return;
+    this.anchorSourceSeconds = this.getPositionSeconds();
+    this.anchorContextTime = null;
     this.playing = false;
+    this.waitingForStartBuffer = false;
     // Hold the worklet FIFO so pause is instant and resume has PCM ready.
     // Do not set this.gated — that flag means "primed, never started" and
     // would zero getPositionSeconds().
@@ -330,9 +381,13 @@ export class CdPlaybackEngine implements PlaybackEngine {
   seek(seconds: number): void {
     if (!this.current || !this.durationSeconds) return;
     const clamped = Math.max(0, Math.min(seconds, this.durationSeconds));
-    this.lastPositionSeconds = clamped;
-    this.lastPositionAtMs = performance.now();
-    this.positionSeekGuard.noteSeek(clamped);
+    this.waitingForStartBuffer = false;
+    this.anchorSourceSeconds = clamped;
+    this.anchorContextTime = null;
+    if (this.playing) {
+      this.gated = false;
+      this.pcm.startNow();
+    }
     void invoke("seek_cd_playback", {
       sessionId: this.current.sessionId,
       positionSeconds: clamped,
@@ -344,10 +399,15 @@ export class CdPlaybackEngine implements PlaybackEngine {
   getPositionSeconds(): number {
     // Primed but silent — audible transport has not started.
     if (this.gated) return 0;
-    if (!this.playing) return this.lastPositionSeconds;
-    const elapsed = (performance.now() - this.lastPositionAtMs) / 1000;
+    if (this.anchorContextTime === null) {
+      return this.anchorSourceSeconds;
+    }
+    if (!this.playing && !this.endOfStreamPending) {
+      return this.anchorSourceSeconds;
+    }
+    const elapsed = this.pcm.getContextTime() - this.anchorContextTime;
     const duration = this.durationSeconds > 0 ? this.durationSeconds : Infinity;
-    return Math.min(this.lastPositionSeconds + elapsed, duration);
+    return Math.min(this.anchorSourceSeconds + Math.max(0, elapsed), duration);
   }
 
   getDurationSeconds(): number {
@@ -394,14 +454,16 @@ export class CdPlaybackEngine implements PlaybackEngine {
     this.clearDrainFallback();
     this.endOfStreamPending = false;
     this.gated = false;
+    this.awaitingFirstAudibleStart = false;
+    this.waitingForStartBuffer = false;
     this.drainAtCallback = null;
     this.startedCallback = null;
     const sessionId = this.current?.sessionId ?? null;
     this.current = null;
     this.playing = false;
-    this.lastPositionSeconds = 0;
+    this.anchorSourceSeconds = 0;
+    this.anchorContextTime = null;
     this.durationSeconds = 0;
-    this.positionSeekGuard.clear();
     this.pcm.destroy();
     disconnectDeckOutput(this.deckId);
     if (sessionId !== null) {
