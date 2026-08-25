@@ -41,6 +41,10 @@ import {
   CrossfadeOpacity,
   NowPlayingArtVisual,
 } from "../NowPlayingArt/NowPlayingArt";
+import {
+  NowPlayingSubtitle,
+  nowPlayingSubtitleText,
+} from "./NowPlayingSubtitle";
 import "./NowPlayingMetadata.css";
 
 /** Stable fallback so Zustand selectors don't return a fresh `[]` each read. */
@@ -48,11 +52,6 @@ const EMPTY_LYRICS_CANDIDATES: LyricsSearchCandidate[] = [];
 
 interface NowPlayingMetadataProps {
   className?: string;
-}
-
-function trackSubtitle(track: Track | undefined): string | null {
-  if (!track) return null;
-  return [track.artist, track.album].filter(Boolean).join(" — ");
 }
 
 /** Reserves bar space; unmounts the shared-layout node while the lightbox owns it. */
@@ -154,7 +153,9 @@ export function NowPlayingMetadata({ className }: NowPlayingMetadataProps) {
     displayTrack?.durationSeconds ?? 0,
   );
 
-  const subtitle = trackSubtitle(displayTrack);
+  const subtitle = nowPlayingSubtitleText(displayTrack);
+  const noTrackLabel = t("playback:nowPlaying.noTrack");
+  const unknownArtistLabel = t("playback:nowPlaying.unknownArtist");
 
   useEffect(() => {
     if (!displayTrackId) {
@@ -351,15 +352,17 @@ export function NowPlayingMetadata({ className }: NowPlayingMetadataProps) {
     track: Track | undefined,
     fallbackTitle: string,
     fallbackSubtitle: string,
+    interactive: boolean,
   ) => (
     <>
       <ScrollingText
         className="now-playing-metadata__title"
         text={track?.title ?? fallbackTitle}
       />
-      <ScrollingText
-        className="now-playing-metadata__subtitle"
-        text={trackSubtitle(track) ?? fallbackSubtitle}
+      <NowPlayingSubtitle
+        track={track}
+        fallback={fallbackSubtitle}
+        interactive={interactive}
       />
     </>
   );
@@ -384,8 +387,9 @@ export function NowPlayingMetadata({ className }: NowPlayingMetadataProps) {
           <div className="now-playing-metadata__text-sizer" aria-hidden>
             {renderTextLayer(
               sizerTrack,
-              t("playback:nowPlaying.noTrack"),
-              t("playback:nowPlaying.unknownArtist"),
+              noTrackLabel,
+              unknownArtistLabel,
+              false,
             )}
           </div>
           <div className="now-playing-metadata__text-overlay">
@@ -398,8 +402,9 @@ export function NowPlayingMetadata({ className }: NowPlayingMetadataProps) {
                 >
                   {renderTextLayer(
                     outgoingTrack,
-                    t("playback:nowPlaying.noTrack"),
-                    t("playback:nowPlaying.unknownArtist"),
+                    noTrackLabel,
+                    unknownArtistLabel,
+                    false,
                   )}
                 </CrossfadeOpacity>
                 <CrossfadeOpacity
@@ -409,16 +414,18 @@ export function NowPlayingMetadata({ className }: NowPlayingMetadataProps) {
                 >
                   {renderTextLayer(
                     incomingTrack,
-                    t("playback:nowPlaying.noTrack"),
-                    t("playback:nowPlaying.unknownArtist"),
+                    noTrackLabel,
+                    unknownArtistLabel,
+                    false,
                   )}
                 </CrossfadeOpacity>
               </>
             ) : (
               renderTextLayer(
                 currentTrack,
-                t("playback:nowPlaying.noTrack"),
-                t("playback:nowPlaying.unknownArtist"),
+                noTrackLabel,
+                unknownArtistLabel,
+                true,
               )
             )}
           </div>

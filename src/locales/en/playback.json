@@ -41,6 +41,8 @@
     "unknownArtist": "Unknown artist",
     "viewAlbumArt": "View album art",
     "viewAlbumArtFor": "View album art for {{album}}",
+    "viewArtist": "View artist {{name}}",
+    "viewAlbum": "View album {{name}}",
     "crossfading": "Crossfading between tracks"
   },
   "transport": {

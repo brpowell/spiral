@@ -36,11 +36,16 @@
   --color-alert-warning-border: #5c4a2a;
   --color-alert-error: var(--color-danger);
   --color-alert-error-bg: var(--color-danger-bg);
-  --color-alert-error-border: color-mix(in srgb, var(--color-danger) 35%, var(--color-border));
+  --color-alert-error-border: color-mix(
+    in srgb,
+    var(--color-danger) 35%,
+    var(--color-border)
+  );
   --focus-ring-width: 1.5px;
   --focus-ring-offset: 1px;
   --focus-ring-color: var(--color-accent);
-  --focus-ring-inset: inset 0 0 0 var(--focus-ring-width) var(--focus-ring-color);
+  --focus-ring-inset: inset 0 0 0 var(--focus-ring-width)
+    var(--focus-ring-color);
   --radius-card: 10px;
   --radius-button: 6px;
   --radius-input: 6px;
@@ -61,10 +66,10 @@
   --z-modal: 1000;
 
   --window-titlebar-height: 32px;
-  --app-header-height: 68px;
+  --app-header-height: 72px;
   --now-playing-height: var(--app-header-height);
-  --visualizer-mini-height: 46px;
-  --visualizer-mini-width: 140px;
+  --visualizer-mini-height: 52px;
+  --visualizer-mini-width: 156px;
   --visualizer-height: 140px;
 
   --track-row-indicator-width: 0.85rem;
@@ -106,7 +111,9 @@
   outline-offset: var(--focus-ring-offset);
 }
 
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible,
+input:not([type="checkbox"]):not([type="radio"]):not(
+    [type="range"]
+  ):focus-visible,
 textarea:focus-visible,
 select:focus-visible {
   outline: none;

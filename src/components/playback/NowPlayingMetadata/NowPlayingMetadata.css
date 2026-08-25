@@ -55,7 +55,6 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
 }
 
 .now-playing-metadata__text-overlay {
@@ -78,6 +77,12 @@
   width: 100%;
 }
 
+.now-playing-metadata__text-sizer,
+.now-playing-metadata__text-overlay,
+.now-playing-metadata__text-overlay .now-playing-crossfade {
+  gap: 0.15rem;
+}
+
 .now-playing-metadata--crossfading .now-playing-metadata__title,
 .now-playing-metadata--crossfading .now-playing-metadata__subtitle {
   width: 100%;
@@ -94,4 +99,28 @@
   font-size: 0.68rem;
   color: var(--color-text-secondary);
   line-height: 1.25;
+}
+
+.now-playing-metadata__link {
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: inline;
+  vertical-align: baseline;
+}
+
+.now-playing-metadata__link:hover,
+.now-playing-metadata__link:focus-visible {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.now-playing-metadata__link:focus-visible {
+  outline: none;
 }

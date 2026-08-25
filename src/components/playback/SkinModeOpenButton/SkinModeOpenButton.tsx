@@ -10,9 +10,9 @@ export function SkinModeOpenButton() {
   return (
     <Button
       variant="ghost"
-      size="sm"
+      size="md"
       iconOnly
-      className="playback-btn playback-btn--pop-out"
+      className="playback-btn"
       onClick={() => void openSkinMode()}
       aria-label={t("playback:skinMode.openAria")}
       title={t("playback:skinMode.openTitle")}

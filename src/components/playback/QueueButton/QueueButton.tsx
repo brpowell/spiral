@@ -40,11 +40,9 @@ export function QueueButton({
   return (
     <Button
       variant="ghost"
-      size="sm"
+      size="md"
       iconOnly
-      className={["playback-btn playback-btn--set-list", className]
-        .filter(Boolean)
-        .join(" ")}
+      className={["playback-btn", className].filter(Boolean).join(" ")}
       data-node-id={nodeId}
       onClick={onClick}
       disabled={!interactionEnabled || activeQueue.length === 0}

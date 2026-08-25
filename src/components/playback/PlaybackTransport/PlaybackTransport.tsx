@@ -95,7 +95,7 @@ export function PlaybackTransport({
     >
       <Button
         variant="ghost"
-        size="sm"
+        size="md"
         iconOnly
         className={`playback-btn playback-btn--shuffle${shuffle ? " playback-btn--shuffle-active" : ""}`}
         onClick={toggleShuffle}
@@ -109,7 +109,7 @@ export function PlaybackTransport({
 
       <Button
         variant="ghost"
-        size="sm"
+        size="md"
         iconOnly
         className="playback-btn"
         onClick={previousTrack}
@@ -121,7 +121,7 @@ export function PlaybackTransport({
 
       <Button
         variant="primary"
-        size="sm"
+        size="md"
         iconOnly
         className="playback-btn playback-btn--play"
         onClick={handlePlayPause}
@@ -161,7 +161,7 @@ export function PlaybackTransport({
 
       <Button
         variant="ghost"
-        size="sm"
+        size="md"
         iconOnly
         className="playback-btn"
         onClick={nextTrack}
@@ -173,7 +173,7 @@ export function PlaybackTransport({
 
       <Button
         variant="ghost"
-        size="sm"
+        size="md"
         iconOnly
         className={`playback-btn playback-btn--repeat${repeatMode !== "off" ? " playback-btn--repeat-active" : ""}`}
         onClick={cycleRepeat}

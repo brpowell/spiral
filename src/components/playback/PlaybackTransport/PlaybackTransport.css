@@ -1,6 +1,6 @@
 .playback-transport {
   display: flex;
   align-items: center;
-  gap: 0.1rem;
+  gap: 0.15rem;
   flex-shrink: 0;
 }

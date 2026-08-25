@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import "./ScrollingText.css";
 
 const PAUSE_BEFORE_MS = 4_500;
@@ -17,13 +24,17 @@ interface ScrollingTextProps {
   className?: string;
   /** `bounce` = pause, scroll, pause, snap back (default). `marquee` = seamless loop. */
   mode?: ScrollingTextMode;
+  /** Inline content (e.g. links). Falls back to `text`. */
+  children?: ReactNode;
 }
 
 export function ScrollingText({
   text,
   className = "",
   mode = "bounce",
+  children,
 }: ScrollingTextProps) {
+  const content = children ?? text;
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLSpanElement>(null);
   const trackRef = useRef<HTMLSpanElement>(null);
@@ -68,7 +79,11 @@ export function ScrollingText({
     }
 
     setMarqueeLoopPx(loopPx);
-    setOverflow(textOverflows ? Math.max(1, first.scrollWidth - container.clientWidth) : 0);
+    setOverflow(
+      textOverflows
+        ? Math.max(1, first.scrollWidth - container.clientWidth)
+        : 0,
+    );
   }, []);
 
   const measure = mode === "marquee" ? measureMarquee : measureBounce;
@@ -170,14 +185,14 @@ export function ScrollingText({
       <div ref={containerRef} className={rootClass} title={text}>
         <span ref={trackRef} className="scrolling-text__track">
           <span ref={firstSegmentRef} className="scrolling-text__segment">
-            {text}
+            {content}
           </span>
           <span
             ref={secondSegmentRef}
             className="scrolling-text__segment"
             aria-hidden="true"
           >
-            {text}
+            {content}
           </span>
         </span>
       </div>
@@ -187,7 +202,7 @@ export function ScrollingText({
   return (
     <div ref={containerRef} className={rootClass} title={text}>
       <span ref={innerRef} className="scrolling-text__inner">
-        {text}
+        {content}
       </span>
     </div>
   );

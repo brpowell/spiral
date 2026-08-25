@@ -12,9 +12,9 @@
 }
 
 .playback-btn--play {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
 }
 
 .playback-btn--play:hover:not(:disabled) {
@@ -23,63 +23,20 @@
 
 .playback-btn--play svg,
 .playback-btn__play-icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-.playback-btn--repeat {
-  width: 26px;
-  height: 26px;
-}
-
-.playback-btn--repeat svg {
-  width: 15px;
-  height: 15px;
+  width: 19px;
+  height: 19px;
 }
 
 .playback-btn--repeat-active {
   color: var(--color-accent);
 }
 
-.playback-btn--shuffle {
-  width: 26px;
-  height: 26px;
-}
-
-.playback-btn--shuffle svg {
-  width: 15px;
-  height: 15px;
-}
-
 .playback-btn--shuffle-active {
   color: var(--color-accent);
-}
-
-.playback-btn--volume {
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
-}
-
-.playback-btn--volume svg {
-  width: 15px;
-  height: 15px;
 }
 
 .playback-btn__play-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.playback-btn--set-list {
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  color: var(--color-text-secondary);
-}
-
-.playback-btn--set-list svg {
-  width: 16px;
-  height: 16px;
 }

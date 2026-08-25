@@ -31,9 +31,9 @@ export function VolumeControl({
     >
       <Button
         variant="ghost"
-        size="sm"
+        size="md"
         iconOnly
-        className="playback-btn playback-btn--volume"
+        className="playback-btn"
         onClick={toggleMute}
         aria-label={
           muted ? t("playback:volume.unmute") : t("playback:volume.mute")
