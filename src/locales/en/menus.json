@@ -8,7 +8,6 @@
     "file": "File",
     "edit": "Edit",
     "view": "View",
-    "developer": "Developer",
     "applicationAria": "Application"
   },
   "file": {
@@ -32,9 +31,6 @@
     "reloadLinkedPacks": "Reload Linked Packs",
     "equalizer": "Equalizer",
     "activityLogs": "Activity Logs"
-  },
-  "developer": {
-    "toastLab": "Toast Lab"
   },
   "window": {
     "minimize": "Minimize",

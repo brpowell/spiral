@@ -17,6 +17,7 @@ export interface AppMenuHandlers {
   openPreferences: () => void;
   openSpiralCard: () => void;
   checkForUpdates: () => void;
+  openWhatsNew: () => void;
   openSkinMode: () => void;
   openAppearance: () => void;
   openEqualizer: () => void;
@@ -26,6 +27,8 @@ export interface AppMenuHandlers {
   quit: () => void;
   /** DEV-only: toggle the Toast Lab window. */
   toggleToastLab?: () => void;
+  /** DEV-only: seed a fake pending update for UX testing. */
+  simulateMockUpdate?: () => void;
 }
 
 export type AppMenuBarId = "file" | "edit" | "view" | "developer";
@@ -81,12 +84,24 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
     text: t("common:updates.menu.check"),
     action: handlers.checkForUpdates,
   });
+  const whatsNew = await MenuItem.new({
+    id: "whats-new",
+    text: t("common:updates.menu.whatsNew"),
+    action: handlers.openWhatsNew,
+  });
   const quit = await PredefinedMenuItem.new({ item: "Quit" });
   const spiralSeparator = await PredefinedMenuItem.new({ item: "Separator" });
 
   const spiralSubmenu = await Submenu.new({
     text: t("menus:app.name"),
-    items: [preferences, spiralCard, checkForUpdates, spiralSeparator, quit],
+    items: [
+      preferences,
+      spiralCard,
+      checkForUpdates,
+      whatsNew,
+      spiralSeparator,
+      quit,
+    ],
   });
 
   const addToLibrary = await MenuItem.new({
@@ -190,16 +205,33 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
 
   const menuItems = [spiralSubmenu, fileSubmenu, editSubmenu, viewSubmenu];
 
-  if (import.meta.env.DEV && handlers.toggleToastLab) {
-    const toastLab = await MenuItem.new({
-      id: "toast-lab",
-      text: t("menus:developer.toastLab"),
-      accelerator: "CmdOrCtrl+Shift+T",
-      action: handlers.toggleToastLab,
-    });
+  if (
+    import.meta.env.DEV &&
+    (handlers.toggleToastLab || handlers.simulateMockUpdate)
+  ) {
+    const developerItems = [];
+    if (handlers.toggleToastLab) {
+      developerItems.push(
+        await MenuItem.new({
+          id: "toast-lab",
+          text: "Toast Lab",
+          accelerator: "CmdOrCtrl+Shift+T",
+          action: handlers.toggleToastLab,
+        }),
+      );
+    }
+    if (handlers.simulateMockUpdate) {
+      developerItems.push(
+        await MenuItem.new({
+          id: "simulate-update",
+          text: "Simulate Update…",
+          action: handlers.simulateMockUpdate,
+        }),
+      );
+    }
     const developerSubmenu = await Submenu.new({
-      text: t("menus:bar.developer"),
-      items: [toastLab],
+      text: "Developer",
+      items: developerItems,
     });
     menuItems.push(developerSubmenu);
   }

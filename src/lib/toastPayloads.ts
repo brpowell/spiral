@@ -688,18 +688,40 @@ export function cdImportFailedSettleOptions(options: {
 export function availableUpdatePayload(
   version: string,
   actions: BackgroundTaskAction[],
-  options?: { dismissMs?: number | null },
+  options?: { dismissMs?: number | null; simulated?: boolean },
 ): ToastPayload {
   return withOptionalDismiss(
     {
       key: "updater",
       status: "info",
       label: t("common:updates.available.label"),
-      detail: t("common:updates.available.detail", { version }),
+      detail: options?.simulated
+        ? `Version ${version} is ready to install. (simulated)`
+        : t("common:updates.available.detail", { version }),
       actions,
     },
     options?.dismissMs,
   );
+}
+
+export function availableUpdateActions(handlers: {
+  onUpdate: () => void;
+  onWhatsNew: () => void;
+}): BackgroundTaskAction[] {
+  return [
+    {
+      id: "update",
+      label: t("common:updates.available.update"),
+      variant: "primary",
+      onClick: handlers.onUpdate,
+    },
+    {
+      id: "whats-new",
+      label: t("common:updates.available.whatsNew"),
+      variant: "secondary",
+      onClick: handlers.onWhatsNew,
+    },
+  ];
 }
 
 export function updaterCheckErrorPayload(

@@ -4,6 +4,8 @@ import { useUpdaterStore } from "./useUpdaterStore";
 const {
   mockCheckForAvailableUpdate,
   mockDownloadAndInstallPendingUpdate,
+  mockSimulateMockUpdateInstall,
+  mockCreateMockAvailableUpdate,
   mockIsUpdaterEnabled,
   mockShowErrorToast,
   mockShowToast,
@@ -14,6 +16,13 @@ const {
 } = vi.hoisted(() => ({
   mockCheckForAvailableUpdate: vi.fn(),
   mockDownloadAndInstallPendingUpdate: vi.fn(),
+  mockSimulateMockUpdateInstall: vi.fn(),
+  mockCreateMockAvailableUpdate: vi.fn(() => ({
+    version: "99.0.0",
+    currentVersion: "0.0.0",
+    date: "2026-08-26T12:00:00.000Z",
+    body: "### Features\n\n* Simulated",
+  })),
   mockIsUpdaterEnabled: vi.fn(() => true),
   mockShowErrorToast: vi.fn(),
   mockShowToast: vi.fn(),
@@ -27,6 +36,8 @@ vi.mock("../lib/updater", () => ({
   AUTOMATIC_UPDATE_INTERVAL_MS: 5 * 60 * 60 * 1000,
   checkForAvailableUpdate: mockCheckForAvailableUpdate,
   downloadAndInstallPendingUpdate: mockDownloadAndInstallPendingUpdate,
+  simulateMockUpdateInstall: mockSimulateMockUpdateInstall,
+  createMockAvailableUpdate: mockCreateMockAvailableUpdate,
   isUpdaterEnabled: () => mockIsUpdaterEnabled(),
 }));
 
@@ -85,6 +96,7 @@ describe("useUpdaterStore", () => {
     useUpdaterStore.setState({
       status: "idle",
       availableUpdate: null,
+      mockRelease: false,
       lastError: null,
       downloadedBytes: 0,
       contentLength: null,
@@ -200,10 +212,10 @@ describe("useUpdaterStore", () => {
         status: "info",
         label: "common:updates.available.label",
         detail: "common:updates.available.detail:0.2.0",
-        actions: expect.arrayContaining([
+        actions: [
           expect.objectContaining({ id: "update" }),
-          expect.objectContaining({ id: "later" }),
-        ]),
+          expect.objectContaining({ id: "whats-new" }),
+        ],
       }),
     );
     expect(mockShowToast).not.toHaveBeenCalled();
@@ -282,6 +294,7 @@ describe("useUpdaterStore", () => {
     await useUpdaterStore.getState().installAvailableUpdate();
 
     expect(mockDownloadAndInstallPendingUpdate).toHaveBeenCalledOnce();
+    expect(mockSimulateMockUpdateInstall).not.toHaveBeenCalled();
     expect(mockRunInBackground).toHaveBeenCalledWith(
       expect.objectContaining({
         key: "updater-install",
@@ -291,6 +304,28 @@ describe("useUpdaterStore", () => {
     expect(useUpdaterStore.getState()).toMatchObject({
       status: "ready",
       downloadedBytes: 100,
+      contentLength: 100,
+    });
+  });
+
+  it("does not start a second install while one is already downloading", async () => {
+    useUpdaterStore.setState({
+      status: "downloading",
+      availableUpdate: {
+        version: "0.2.0",
+        currentVersion: "0.1.0",
+      },
+      downloadedBytes: 40,
+      contentLength: 100,
+    });
+
+    await useUpdaterStore.getState().installAvailableUpdate();
+
+    expect(mockDownloadAndInstallPendingUpdate).not.toHaveBeenCalled();
+    expect(mockRunInBackground).not.toHaveBeenCalled();
+    expect(useUpdaterStore.getState()).toMatchObject({
+      status: "downloading",
+      downloadedBytes: 40,
       contentLength: 100,
     });
   });
@@ -314,6 +349,111 @@ describe("useUpdaterStore", () => {
       lastError: "signature failed",
     });
     expect(mockRunInBackground).toHaveBeenCalledOnce();
+  });
+
+  it("seeds a mock release and shows the simulated available toast", () => {
+    mockIsUpdaterEnabled.mockReturnValue(false);
+
+    useUpdaterStore.getState().simulateMockUpdate();
+
+    expect(mockCreateMockAvailableUpdate).toHaveBeenCalledOnce();
+    expect(useUpdaterStore.getState()).toMatchObject({
+      status: "available",
+      mockRelease: true,
+      availableUpdate: expect.objectContaining({ version: "99.0.0" }),
+      notifiedUpdateVersion: "99.0.0",
+    });
+    expect(mockShowToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "updater",
+        status: "info",
+        label: "common:updates.available.label",
+        detail: "Version 99.0.0 is ready to install. (simulated)",
+      }),
+    );
+    expect(mockCheckForAvailableUpdate).not.toHaveBeenCalled();
+  });
+
+  it("re-toasts when simulate is triggered while a mock is already pending", () => {
+    const available = {
+      version: "99.0.0",
+      currentVersion: "0.0.0",
+      body: "notes",
+    };
+    useUpdaterStore.setState({
+      status: "available",
+      availableUpdate: available,
+      mockRelease: true,
+      notifiedUpdateVersion: "99.0.0",
+    });
+
+    useUpdaterStore.getState().simulateMockUpdate();
+
+    expect(mockCreateMockAvailableUpdate).not.toHaveBeenCalled();
+    expect(mockShowToast).toHaveBeenCalledOnce();
+    expect(mockShowToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detail: "Version 99.0.0 is ready to install. (simulated)",
+      }),
+    );
+  });
+
+  it("installs a mock release via the simulate helper, not the live plugin", async () => {
+    mockIsUpdaterEnabled.mockReturnValue(false);
+    useUpdaterStore.setState({
+      status: "available",
+      mockRelease: true,
+      availableUpdate: {
+        version: "99.0.0",
+        currentVersion: "0.0.0",
+      },
+    });
+    mockSimulateMockUpdateInstall.mockImplementation(
+      async (
+        onProgress?: (progress: {
+          downloadedBytes: number;
+          contentLength: number | null;
+        }) => void,
+      ) => {
+        onProgress?.({ downloadedBytes: 50, contentLength: 100 });
+        onProgress?.({ downloadedBytes: 100, contentLength: 100 });
+      },
+    );
+
+    await useUpdaterStore.getState().installAvailableUpdate();
+
+    expect(mockSimulateMockUpdateInstall).toHaveBeenCalledOnce();
+    expect(mockDownloadAndInstallPendingUpdate).not.toHaveBeenCalled();
+    expect(useUpdaterStore.getState()).toMatchObject({
+      status: "ready",
+      availableUpdate: null,
+      mockRelease: false,
+      notifiedUpdateVersion: null,
+      downloadedBytes: 100,
+      contentLength: 100,
+    });
+  });
+
+  it("still blocks real installs when the debug gate is closed", async () => {
+    mockIsUpdaterEnabled.mockReturnValue(false);
+    useUpdaterStore.setState({
+      status: "available",
+      mockRelease: false,
+      availableUpdate: {
+        version: "0.2.0",
+        currentVersion: "0.1.0",
+      },
+    });
+
+    await useUpdaterStore.getState().installAvailableUpdate();
+
+    expect(mockDownloadAndInstallPendingUpdate).not.toHaveBeenCalled();
+    expect(mockSimulateMockUpdateInstall).not.toHaveBeenCalled();
+    expect(mockShowErrorToast).toHaveBeenCalledWith({
+      key: "updater",
+      label: "common:updates.error.disabledInDev",
+      detail: "common:updates.error.disabledInDevDetail",
+    });
   });
 
   it("persists the automatic-checks toggle", async () => {

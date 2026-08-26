@@ -22,6 +22,7 @@ import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal
 import { SpiralCardModal } from "./components/SpiralCardModal/SpiralCardModal";
 import { ReplaceSpiralCardDialog } from "./components/SpiralCardModal/ReplaceSpiralCardDialog";
 import { CrashReportModal } from "./components/ActivityLogs/CrashReportModal";
+import { WhatsNewModal } from "./components/WhatsNewModal/WhatsNewModal";
 import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
 import { useStartupCrashReport } from "./hooks/useStartupCrashReport";
 import { usePlaylistStore } from "./store/usePlaylistStore";
@@ -54,6 +55,7 @@ import { useLibrarySettingsStore } from "./store/useLibrarySettingsStore";
 import { useLicenseStore } from "./store/useLicenseStore";
 import { usePlayerStore } from "./store/usePlayerStore";
 import { useUpdaterStore } from "./store/useUpdaterStore";
+import { useWhatsNewStore } from "./store/useWhatsNewStore";
 import { usePackUpdatesStore } from "./store/usePackUpdatesStore";
 import type { CatalogPackEntry } from "./types/packRegistry";
 import "./App.css";
@@ -115,6 +117,9 @@ function App() {
     checkForUpdates: () => {
       void useUpdaterStore.getState().checkForUpdates({ reason: "manual" });
     },
+    openWhatsNew: () => {
+      useWhatsNewStore.getState().openWhatsNew();
+    },
     openSkinMode: () => {
       void openSkinMode();
     },
@@ -137,6 +142,9 @@ function App() {
       ? {
           toggleToastLab: () => {
             void toggleToastLabWindow();
+          },
+          simulateMockUpdate: () => {
+            useUpdaterStore.getState().simulateMockUpdate();
           },
         }
       : {}),
@@ -299,6 +307,7 @@ function App() {
         crashReportId={crashReportId}
         onDismiss={dismissCrashReport}
       />
+      <WhatsNewModal />
       <BackgroundTasksIndicator />
     </CustomWindowFrame>
   );

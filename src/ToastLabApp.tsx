@@ -1,17 +1,15 @@
 import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
 import { LyricsReviewQueue } from "./components/LyricsReviewQueue/LyricsReviewQueue";
 import { ToastLabShell } from "./components/ToastLab/ToastLabShell";
-import { t } from "./lib/i18n";
+import { WhatsNewModal } from "./components/WhatsNewModal/WhatsNewModal";
 import "./ToastLabApp.css";
 
 export function ToastLabApp() {
   return (
-    <CustomWindowFrame
-      title={t("menus:developer.toastLab")}
-      className="toast-lab-app"
-    >
+    <CustomWindowFrame title="Toast Lab" className="toast-lab-app">
       <ToastLabShell />
       <LyricsReviewQueue />
+      <WhatsNewModal />
     </CustomWindowFrame>
   );
 }

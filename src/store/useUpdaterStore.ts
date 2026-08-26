@@ -3,19 +3,25 @@ import { t } from "../lib/i18n";
 import {
   AUTOMATIC_UPDATE_INTERVAL_MS,
   checkForAvailableUpdate,
+  createMockAvailableUpdate,
   downloadAndInstallPendingUpdate,
   isUpdaterEnabled,
+  simulateMockUpdateInstall,
   type AvailableUpdateInfo,
   type UpdateCheckReason,
 } from "../lib/updater";
 import { saveLibrarySettings } from "../lib/tauri";
-import { availableUpdatePayload } from "../lib/toastPayloads";
+import {
+  availableUpdateActions,
+  availableUpdatePayload,
+} from "../lib/toastPayloads";
 import { isTauri } from "../lib/windowRole";
 import {
   useBackgroundTasksStore,
   type BackgroundTaskAction,
   type BackgroundTaskSettleAsOptions,
 } from "./useBackgroundTasksStore";
+import { useWhatsNewStore } from "./useWhatsNewStore";
 
 export type UpdaterStatus =
   | "idle"
@@ -32,6 +38,8 @@ const UPDATER_INSTALL_TASK_KEY = "updater-install";
 interface UpdaterState {
   status: UpdaterStatus;
   availableUpdate: AvailableUpdateInfo | null;
+  /** DEV-only: pending update was seeded by Simulate Update, not the live plugin. */
+  mockRelease: boolean;
   lastError: string | null;
   downloadedBytes: number;
   contentLength: number | null;
@@ -48,8 +56,11 @@ interface UpdaterState {
     reason?: UpdateCheckReason;
   }) => Promise<AvailableUpdateInfo | null>;
   installAvailableUpdate: () => Promise<void>;
-  /** Re-show the Update / Later confirmation for a pending version. */
-  promptAvailableUpdate: () => void;
+  /**
+   * DEV-only: seed a fake pending release and show the update toast.
+   * Does not call the live updater endpoint.
+   */
+  simulateMockUpdate: () => void;
   startAutomaticUpdateChecks: () => () => void;
 }
 
@@ -67,25 +78,16 @@ function errorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
-function availableUpdateActions(): BackgroundTaskAction[] {
-  return [
-    {
-      id: "update",
-      label: t("common:updates.available.update"),
-      variant: "primary",
-      onClick: () => {
-        void useUpdaterStore.getState().installAvailableUpdate();
-      },
+function updaterAvailableUpdateActions(): BackgroundTaskAction[] {
+  return availableUpdateActions({
+    onUpdate: () => {
+      void useUpdaterStore.getState().installAvailableUpdate();
     },
-    {
-      id: "later",
-      label: t("common:updates.available.later"),
-      variant: "ghost",
-      onClick: () => {
-        /* Pending state + More badge carry the signal after Later. */
-      },
+    onWhatsNew: () => {
+      const version = useUpdaterStore.getState().availableUpdate?.version;
+      useWhatsNewStore.getState().openWhatsNew(version);
     },
-  ];
+  });
 }
 
 function availableUpdatePresentation(
@@ -93,7 +95,7 @@ function availableUpdatePresentation(
 ): BackgroundTaskSettleAsOptions {
   const { label, detail, actions } = availableUpdatePayload(
     update.version,
-    availableUpdateActions(),
+    updaterAvailableUpdateActions(),
     { dismissMs: null },
   );
   return {
@@ -104,10 +106,14 @@ function availableUpdatePresentation(
   };
 }
 
-function showAvailableUpdateToast(update: AvailableUpdateInfo): void {
+function showAvailableUpdateToast(
+  update: AvailableUpdateInfo,
+  simulated = false,
+): void {
   useBackgroundTasksStore.getState().showToast(
-    availableUpdatePayload(update.version, availableUpdateActions(), {
+    availableUpdatePayload(update.version, updaterAvailableUpdateActions(), {
       dismissMs: null,
+      simulated,
     }),
   );
 }
@@ -115,6 +121,7 @@ function showAvailableUpdateToast(update: AvailableUpdateInfo): void {
 export const useUpdaterStore = create<UpdaterState>((set, get) => ({
   status: "idle",
   availableUpdate: null,
+  mockRelease: false,
   lastError: null,
   downloadedBytes: 0,
   contentLength: null,
@@ -166,6 +173,7 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
       set({
         status: "available",
         availableUpdate: available,
+        mockRelease: false,
         lastError: null,
       });
       if (notify) {
@@ -177,6 +185,7 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
       set({
         status: "upToDate",
         availableUpdate: null,
+        mockRelease: false,
         lastError: null,
         notifiedUpdateVersion: null,
       });
@@ -259,19 +268,35 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
     }
   },
 
-  promptAvailableUpdate: () => {
-    const available = get().availableUpdate;
-    if (!available) {
-      void get().checkForUpdates({ reason: "manual" });
+  simulateMockUpdate: () => {
+    if (!import.meta.env.DEV) return;
+    if (!isTauri()) return;
+
+    const existing = get().availableUpdate;
+    if (existing && get().mockRelease) {
+      showAvailableUpdateToast(existing, true);
+      set({ notifiedUpdateVersion: existing.version });
       return;
     }
-    showAvailableUpdateToast(available);
-    set({ notifiedUpdateVersion: available.version });
+
+    const available = createMockAvailableUpdate(
+      existing?.currentVersion ?? "0.0.0",
+    );
+    set({
+      status: "available",
+      availableUpdate: available,
+      mockRelease: true,
+      lastError: null,
+      notifiedUpdateVersion: available.version,
+    });
+    showAvailableUpdateToast(available, true);
   },
 
   installAvailableUpdate: async () => {
     if (!isTauri()) return;
-    if (!isUpdaterEnabled()) {
+    if (get().status === "downloading") return;
+    const isMock = get().mockRelease;
+    if (!isMock && !isUpdaterEnabled()) {
       const message = t("common:updates.error.disabledInDev");
       const detail = t("common:updates.error.disabledInDevDetail");
       set({ status: "error", lastError: message });
@@ -292,6 +317,10 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
       contentLength: null,
     });
 
+    const runInstall = isMock
+      ? simulateMockUpdateInstall
+      : downloadAndInstallPendingUpdate;
+
     await new Promise<void>((resolve) => {
       useBackgroundTasksStore.getState().runInBackground({
         key: UPDATER_INSTALL_TASK_KEY,
@@ -299,22 +328,22 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
         progressDisplay: "bar",
         run: async (ctx) => {
           try {
-            await downloadAndInstallPendingUpdate(
-              ({ downloadedBytes, contentLength }) => {
-                set({
-                  status: "downloading",
-                  downloadedBytes,
-                  contentLength,
-                });
-                if (contentLength != null && contentLength > 0) {
-                  ctx.setProgress(downloadedBytes, contentLength);
-                }
-              },
-            );
-            // relaunch() normally ends the process; if it returns, mark ready.
+            await runInstall(({ downloadedBytes, contentLength }) => {
+              set({
+                status: "downloading",
+                downloadedBytes,
+                contentLength,
+              });
+              if (contentLength != null && contentLength > 0) {
+                ctx.setProgress(downloadedBytes, contentLength);
+              }
+            });
+            // Real path: relaunch() ends the process. Mock path: location.reload().
+            // If either returns, clear pending state.
             set({
               status: "ready",
               availableUpdate: null,
+              mockRelease: false,
               notifiedUpdateVersion: null,
             });
             ctx.dismissSilently();

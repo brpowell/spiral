@@ -33,7 +33,7 @@ const MENU_ITEMS: { id: AppMenuBarId; label: string }[] = [
   { id: "edit", label: t("menus:bar.edit") },
   { id: "view", label: t("menus:bar.view") },
   ...(import.meta.env.DEV
-    ? [{ id: "developer" as const, label: t("menus:bar.developer") }]
+    ? [{ id: "developer" as const, label: "Developer" }]
     : []),
 ];
 
@@ -176,6 +176,10 @@ export function WindowTitleBar({
           label={t("common:updates.menu.check")}
           onClick={run(handlers.checkForUpdates)}
         />
+        <ContextMenuItem
+          label={t("common:updates.menu.whatsNew")}
+          onClick={run(handlers.openWhatsNew)}
+        />
         <ContextMenuSeparator />
         <ContextMenuItem
           label={t("menus:file.exit")}
@@ -243,14 +247,22 @@ export function WindowTitleBar({
   } else if (
     handlers &&
     activeMenu === "developer" &&
-    handlers.toggleToastLab
+    (handlers.toggleToastLab || handlers.simulateMockUpdate)
   ) {
     menuContent = (
       <>
-        <ContextMenuItem
-          label={t("menus:developer.toastLab")}
-          onClick={run(handlers.toggleToastLab)}
-        />
+        {handlers.toggleToastLab ? (
+          <ContextMenuItem
+            label="Toast Lab"
+            onClick={run(handlers.toggleToastLab)}
+          />
+        ) : null}
+        {handlers.simulateMockUpdate ? (
+          <ContextMenuItem
+            label="Simulate Update…"
+            onClick={run(handlers.simulateMockUpdate)}
+          />
+        ) : null}
       </>
     );
   }

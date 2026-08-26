@@ -6,6 +6,7 @@ import { lyricsFetchBulkSettleOptions } from "../../lib/lyricsFetchToastSettle";
 import {
   activityLogCopiedPayload,
   availableUpdatePayload,
+  availableUpdateActions,
   bulkTrackMetadataSavePayload,
   cdPlaybackFailurePayload,
   cdImportFailedSettleOptions,
@@ -51,6 +52,8 @@ import type {
 } from "../../store/useBackgroundTasksStore";
 import { useLyricsFetchStore } from "../../store/useLyricsFetchStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
+import { useUpdaterStore } from "../../store/useUpdaterStore";
+import { useWhatsNewStore } from "../../store/useWhatsNewStore";
 
 type Store = ReturnType<typeof useBackgroundTasksStore.getState>;
 
@@ -348,25 +351,39 @@ export function toastLabScenarioFireCtx(
   };
 }
 
+/** Matches lab update-available toasts so What's New can focus the pending row. */
+export const TOAST_LAB_UPDATE_VERSION = "0.9.9";
+
+function seedToastLabPendingUpdate() {
+  useUpdaterStore.setState({
+    status: "available",
+    availableUpdate: {
+      version: TOAST_LAB_UPDATE_VERSION,
+      currentVersion: "0.9.8",
+      date: "2026-08-26T12:00:00.000Z",
+      body: [
+        "### Features",
+        "",
+        "* Toast Lab preview of pending update notes",
+        "",
+        "### Bug Fixes",
+        "",
+        "* Example fix shown when this version is not in history yet",
+      ].join("\n"),
+    },
+  });
+}
+
 export function toastLabUpdateAvailableActions() {
-  return [
-    {
-      id: "update",
-      label: t("common:updates.available.update"),
-      variant: "primary" as const,
-      onClick: () => {
-        /* Lab preview — no install. */
-      },
+  return availableUpdateActions({
+    onUpdate: () => {
+      /* Lab preview — no install. */
     },
-    {
-      id: "later",
-      label: t("common:updates.available.later"),
-      variant: "ghost" as const,
-      onClick: () => {
-        /* Lab preview. */
-      },
+    onWhatsNew: () => {
+      seedToastLabPendingUpdate();
+      useWhatsNewStore.getState().openWhatsNew(TOAST_LAB_UPDATE_VERSION);
     },
-  ];
+  });
 }
 
 const EXAMPLE_TRACK = { title: "Example Track Title" };
@@ -1712,9 +1729,31 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "useUpdaterStore.ts",
     fire: ({ showToast }) => {
       showToast(
-        availableUpdatePayload("0.9.9", toastLabUpdateAvailableActions(), {
-          dismissMs: null,
-        }),
+        availableUpdatePayload(
+          TOAST_LAB_UPDATE_VERSION,
+          toastLabUpdateAvailableActions(),
+          {
+            dismissMs: null,
+          },
+        ),
+      );
+    },
+  },
+  {
+    id: "updates-available-simulated",
+    group: "Updates",
+    buttonLabel: "Available (simulated)",
+    source: "useUpdaterStore.ts",
+    fire: ({ showToast }) => {
+      showToast(
+        availableUpdatePayload(
+          TOAST_LAB_UPDATE_VERSION,
+          toastLabUpdateAvailableActions(),
+          {
+            dismissMs: null,
+            simulated: true,
+          },
+        ),
       );
     },
   },

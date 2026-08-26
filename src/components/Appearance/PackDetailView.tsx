@@ -57,7 +57,7 @@ import { MenuButton } from "../MenuButton/MenuButton";
 import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
 import { PackAboutPanel } from "./PackAboutPanel";
 import { PackChangelogPanel } from "./PackChangelogPanel";
-import { PackReadmeMarkdown } from "./PackReadmeMarkdown";
+import { MarkdownBody } from "../common/MarkdownBody/MarkdownBody";
 import {
   contributionTypeMeta,
   groupContributionsByType,
@@ -138,7 +138,7 @@ function CatalogMarkdownDocPanel({
   if (text == null) {
     return <p className="appearance-section__status">{t(emptyKey)}</p>;
   }
-  return <PackReadmeMarkdown source={text} />;
+  return <MarkdownBody source={text} />;
 }
 
 function ContributionActions({

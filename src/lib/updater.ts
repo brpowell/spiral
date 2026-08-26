@@ -12,6 +12,13 @@ export const AUTOMATIC_UPDATE_INTERVAL_MS = 5 * 60 * 60 * 1000;
  */
 export const UPDATER_ENABLE_ENV = "SPIRAL_ENABLE_UPDATER";
 
+/** Fake version used by Developer → Simulate Update (never a real release). */
+export const MOCK_UPDATE_VERSION = "99.0.0";
+
+const MOCK_INSTALL_TOTAL_BYTES = 20_000_000;
+const MOCK_INSTALL_STEPS = 20;
+const MOCK_INSTALL_STEP_MS = 100;
+
 export type UpdateCheckReason = "automatic" | "manual";
 
 export interface AvailableUpdateInfo {
@@ -19,6 +26,28 @@ export interface AvailableUpdateInfo {
   currentVersion: string;
   date?: string;
   body?: string;
+}
+
+/**
+ * In-memory pending update for DEV simulation. Does not touch the live plugin.
+ */
+export function createMockAvailableUpdate(
+  currentVersion = "0.0.0",
+): AvailableUpdateInfo {
+  return {
+    version: MOCK_UPDATE_VERSION,
+    currentVersion,
+    date: new Date().toISOString(),
+    body: [
+      "### Features",
+      "",
+      "* Simulated release for local update UX testing",
+      "",
+      "### Bug Fixes",
+      "",
+      "* Example fix shown only in Developer → Simulate Update",
+    ].join("\n"),
+  };
 }
 
 /** Thrown when check/install is attempted while the debug hard gate is active. */
@@ -126,4 +155,34 @@ export async function downloadAndInstallPendingUpdate(
 
   clearPendingUpdate();
   await relaunch();
+}
+
+/**
+ * Fake download progress then reload the window — DEV mock path only.
+ * Uses a webview reload (not process `relaunch`) so `tauri dev` stays alive.
+ * Never calls the updater plugin.
+ */
+export async function simulateMockUpdateInstall(
+  onProgress?: (progress: UpdateDownloadProgress) => void,
+): Promise<void> {
+  if (!isTauri()) {
+    throw new Error("Updater is only available in the desktop app");
+  }
+
+  const contentLength = MOCK_INSTALL_TOTAL_BYTES;
+  onProgress?.({ downloadedBytes: 0, contentLength });
+
+  for (let step = 1; step <= MOCK_INSTALL_STEPS; step++) {
+    await new Promise<void>((resolve) => {
+      globalThis.setTimeout(resolve, MOCK_INSTALL_STEP_MS);
+    });
+    const downloadedBytes = Math.round(
+      (contentLength * step) / MOCK_INSTALL_STEPS,
+    );
+    onProgress?.({ downloadedBytes, contentLength });
+  }
+
+  // Real updates call relaunch(); mock uses reload so the cargo/Vite session
+  // is not killed (relaunch exits the debug binary and leaves a white window).
+  globalThis.location.reload();
 }

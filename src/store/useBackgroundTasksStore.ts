@@ -41,7 +41,7 @@ export interface BackgroundTask {
   progressDisplay?: BackgroundTaskProgressDisplay;
   cancellable?: boolean;
   cancelRequested?: boolean;
-  /** Confirmation / choice buttons (e.g. Update / Later). */
+  /** Confirmation / choice buttons (e.g. Update / What's New). */
   actions?: BackgroundTaskAction[];
   /** Defaults to `bottom`; cancellable-only toasts default to `end`. */
   actionsPlacement?: BackgroundTaskActionsPlacement;

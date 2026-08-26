@@ -2,8 +2,8 @@ import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { TextLink } from "../common/TextLink/TextLink";
-import "./PackReadmeMarkdown.css";
+import { TextLink } from "../TextLink/TextLink";
+import "./MarkdownBody.css";
 
 function isExternalHref(href: string | undefined): boolean {
   if (!href) return false;
@@ -27,17 +27,17 @@ const components: Components = {
         </TextLink>
       );
     }
-    return <span className="pack-readme__link-plain">{children}</span>;
+    return <span className="markdown-body__link-plain">{children}</span>;
   },
 };
 
-interface PackReadmeMarkdownProps {
+export interface MarkdownBodyProps {
   source: string;
 }
 
-export function PackReadmeMarkdown({ source }: PackReadmeMarkdownProps) {
+export function MarkdownBody({ source }: MarkdownBodyProps) {
   return (
-    <div className="pack-readme">
+    <div className="markdown-body">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {source}
       </ReactMarkdown>

@@ -44,13 +44,24 @@
       "label": "New Spiral just dropped",
       "detail": "Version {{version}} is ready to install.",
       "update": "Update",
-      "later": "Later"
+      "whatsNew": "What's New"
     },
     "checking": "Checking for updates…",
     "upToDate": "You're up to date",
     "downloading": "Downloading update…",
     "menu": {
-      "check": "Check for Updates…"
+      "check": "Check for Updates…",
+      "whatsNew": "What's New"
+    },
+    "whatsNew": {
+      "title": "What's New",
+      "versionsAria": "Published versions",
+      "installed": "Installed",
+      "emptyNotes": "No notes for this release.",
+      "empty": "No releases to show yet.",
+      "loadError": "Couldn't load release notes",
+      "loadErrorDetail": "Check your connection and try again.",
+      "retry": "Try again"
     },
     "sidebar": {
       "more": "More",
@@ -66,7 +77,7 @@
       "noUpdate": "No update is ready to install",
       "savePreference": "Couldn't save update preferences",
       "disabledInDev": "Updates are disabled in debug builds",
-      "disabledInDevDetail": "Set SPIRAL_ENABLE_UPDATER=1 to override, or test with a packaged installer. See docs/release.md."
+      "disabledInDevDetail": "Use \"Simulate Update\" in the dev menu, or test with a packaged installer. See docs/release.md."
     }
   },
   "spiralCard": {

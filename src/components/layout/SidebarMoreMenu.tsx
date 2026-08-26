@@ -5,6 +5,7 @@ import { useContextMenu } from "../../hooks/useContextMenu";
 import { useLicenseStore } from "../../store/useLicenseStore";
 import { usePackUpdatesStore } from "../../store/usePackUpdatesStore";
 import { useUpdaterStore } from "../../store/useUpdaterStore";
+import { useWhatsNewStore } from "../../store/useWhatsNewStore";
 import {
   ContextMenu,
   ContextMenuItem,
@@ -17,6 +18,7 @@ import {
 import {
   IconDownload,
   IconIdCard,
+  IconInfo,
   IconMore,
   IconPalette,
   IconRefresh,
@@ -31,7 +33,10 @@ export function SidebarMoreMenu() {
   const availableUpdate = useUpdaterStore((s) => s.availableUpdate);
   const status = useUpdaterStore((s) => s.status);
   const checkForUpdates = useUpdaterStore((s) => s.checkForUpdates);
-  const promptAvailableUpdate = useUpdaterStore((s) => s.promptAvailableUpdate);
+  const installAvailableUpdate = useUpdaterStore(
+    (s) => s.installAvailableUpdate,
+  );
+  const openWhatsNew = useWhatsNewStore((s) => s.openWhatsNew);
   const packUpdatesPending = usePackUpdatesStore(
     (s) => s.pendingUpdates.length > 0,
   );
@@ -102,10 +107,18 @@ export function SidebarMoreMenu() {
           onClick={() => {
             closeMenu();
             if (appUpdatePending) {
-              promptAvailableUpdate();
+              void installAvailableUpdate();
             } else {
               void checkForUpdates({ reason: "manual" });
             }
+          }}
+        />
+        <ContextMenuItem
+          icon={<IconInfo />}
+          label={t("updates.menu.whatsNew")}
+          onClick={() => {
+            closeMenu();
+            openWhatsNew();
           }}
         />
         <ContextMenuSeparator />

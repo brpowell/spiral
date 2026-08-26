@@ -13,7 +13,7 @@ import { writePackReadme } from "../../lib/tauri";
 import { isAuthoringPackZone, type PackSummary } from "../../types/pack";
 import { Button } from "../common/Button/Button";
 import { Textarea } from "../common/Textarea/Textarea";
-import { PackReadmeMarkdown } from "./PackReadmeMarkdown";
+import { MarkdownBody } from "../common/MarkdownBody/MarkdownBody";
 
 type ReadmeLoadState = "loading" | "ready" | "error";
 
@@ -234,7 +234,7 @@ export function PackAboutPanel({
           </div>
         </div>
       ) : null}
-      <PackReadmeMarkdown source={readme} />
+      <MarkdownBody source={readme} />
     </div>
   );
 }

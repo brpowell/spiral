@@ -21,6 +21,7 @@ Spiral stores user-facing copy in locale catalogs and references it by key. Do n
 - Dual-maintain an English constant and an i18n key for the same user-facing string — replace the literal with `t()`.
 - Put pack/skin **author** content (manifest tooltips, pack README) into app catalogs.
 - Localize activity-log / developer log messages that are not shown as UI chrome (user-facing toasts still use i18n).
+- Put **DEV-only / developer tooling** copy into locale catalogs. Hardcode English instead when the string is only reachable under `import.meta.env.DEV` (Developer menu items, Toast Lab chrome, Simulate Update labels/banners, other debug UX). Production user-facing paths still use i18n.
 - Block unrelated features on finishing a full-app string port (Phases 3+ are opportunistic; see the investigation doc).
 
 ## References

@@ -21,7 +21,19 @@ jobs:
       # Until the PAT secret exists, falls back to GITHUB_TOKEN (matrix won't
       # auto-trigger — re-run Release via workflow_dispatch on the tag).
       - uses: googleapis/release-please-action@v4
+        id: release
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      # Draft body only — CHANGELOG.md stays the raw release-please record.
+      - uses: actions/checkout@v4
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+
+      - name: Sanitize draft release notes
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/release/sanitize-release-notes.mjs "${{ steps.release.outputs.tag_name }}"

@@ -214,10 +214,6 @@ function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
   const hasEndActions = actions.length > 0 && actionsPlacement === "end";
   const hasFooter = Boolean(meta) || showProgressBar || hasBottomActions;
   const actionsOnlyFooter = hasBottomActions && !meta && !showProgressBar;
-  // Keep an X when actions are non-dismissing (e.g. View logs). Choice toasts
-  // with Update/Later already dismiss via those buttons.
-  const showDismiss =
-    isDone && actions.every((action) => action.dismissOnClick === false);
 
   const onAction = (action: BackgroundTaskAction) => {
     if (action.dismissOnClick !== false) {
@@ -283,7 +279,7 @@ function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
       {hasEndActions ? (
         <TaskActions actions={actions} placement="end" onAction={onAction} />
       ) : null}
-      {showDismiss && (
+      {isDone && (
         <Button
           variant="ghost"
           size="sm"

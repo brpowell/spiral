@@ -5,11 +5,13 @@
  *   npm run release -- installer [dmg|nsis|linux|deb] [-- <tauri args>]
  *   npm run release -- publish <tag>
  *   npm run release -- check <tag>
+ *   npm run release -- sanitize-notes <tag>
+ *   npm run release -- sanitize-notes <tag> --dry-run
  *   npm run release -- sign <file>
  *   npm run release -- verify <file>
  *   npm run release -- keys [-- --out <path>] [--force]
  *
- * See docs/release.md.
+ * See docs/contributing/release.md.
  */
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -30,6 +32,10 @@ const COMMANDS = {
     script: "check-release-assets.mjs",
     summary: "Verify draft has every required installer + updater artifact",
   },
+  "sanitize-notes": {
+    script: "sanitize-release-notes.mjs",
+    summary: "Rewrite a GitHub Release body into user-facing notes",
+  },
   sign: {
     script: "sign-updater.mjs",
     summary: "Sign an updater artifact with TAURI_SIGNING_PRIVATE_KEY",
@@ -46,7 +52,7 @@ const COMMANDS = {
 
 function usage(exitCode = 0) {
   const lines = Object.entries(COMMANDS).map(
-    ([name, { summary }]) => `  ${name.padEnd(10)} ${summary}`,
+    ([name, { summary }]) => `  ${name.padEnd(16)} ${summary}`,
   );
   console.log(`Spiral release tooling.
 
@@ -62,6 +68,8 @@ Examples:
   npm run release -- installer linux -- --verbose
   npm run release -- publish v0.2.2
   npm run release -- check v0.2.2
+  npm run release -- sanitize-notes v0.2.2
+  npm run release -- sanitize-notes v0.2.2 --dry-run
   npm run release -- sign path/to/artifact
   npm run release -- keys
 `);

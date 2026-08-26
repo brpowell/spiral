@@ -16,6 +16,7 @@ import {
   toastLabScenarioFireCtx,
   toastLabScenarioGroups,
   toastLabUpdateAvailableActions,
+  TOAST_LAB_UPDATE_VERSION,
   type ToastLabFireContext,
 } from "./toastLabScenarios";
 import "./ToastLabShell.css";
@@ -123,7 +124,9 @@ export function ToastLabShell() {
     showToast({
       key: `lab-info-${crypto.randomUUID().slice(0, 8)}`,
       label: t("common:updates.available.label"),
-      detail: t("common:updates.available.detail", { version: "0.9.9" }),
+      detail: t("common:updates.available.detail", {
+        version: TOAST_LAB_UPDATE_VERSION,
+      }),
       status: "info",
       dismissMs,
     });
@@ -133,7 +136,9 @@ export function ToastLabShell() {
     showToast({
       key: "lab-update-actions",
       label: t("common:updates.available.label"),
-      detail: t("common:updates.available.detail", { version: "0.9.9" }),
+      detail: t("common:updates.available.detail", {
+        version: TOAST_LAB_UPDATE_VERSION,
+      }),
       status: "info",
       dismissMs: null,
       actions: toastLabUpdateAvailableActions(),
@@ -218,7 +223,9 @@ export function ToastLabShell() {
     showToast({
       key: "lab-gallery-info",
       label: t("common:updates.available.label"),
-      detail: t("common:updates.available.detail", { version: "0.9.9" }),
+      detail: t("common:updates.available.detail", {
+        version: TOAST_LAB_UPDATE_VERSION,
+      }),
       status: "info",
       dismissMs: sticky,
       actions: toastLabUpdateAvailableActions(),
@@ -328,7 +335,9 @@ export function ToastLabShell() {
         ctx.settleAs({
           status: "info",
           label: t("common:updates.available.label"),
-          detail: t("common:updates.available.detail", { version: "0.9.9" }),
+          detail: t("common:updates.available.detail", {
+            version: TOAST_LAB_UPDATE_VERSION,
+          }),
           actions: toastLabUpdateAvailableActions(),
           dismissMs: null,
         });
@@ -347,7 +356,9 @@ export function ToastLabShell() {
     showToast({
       key: LAB_REPLACE_KEY,
       label: t("common:updates.available.label"),
-      detail: t("common:updates.available.detail", { version: "0.9.9" }),
+      detail: t("common:updates.available.detail", {
+        version: TOAST_LAB_UPDATE_VERSION,
+      }),
       status: "info",
       dismissMs: null,
       actions: toastLabUpdateAvailableActions(),

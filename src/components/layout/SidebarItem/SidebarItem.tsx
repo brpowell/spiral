@@ -11,6 +11,10 @@ type SidebarItemShared = {
   active?: boolean;
   icon?: ReactNode;
   leading?: ReactNode;
+  /** Second line under the label (e.g. a date). */
+  subtitle?: ReactNode;
+  /** Trailing accessory (e.g. an installed check). */
+  trailing?: ReactNode;
   className?: string;
   children: ReactNode;
 };
@@ -28,10 +32,46 @@ export type SidebarItemLinkProps = SidebarItemShared &
 
 export type SidebarItemProps = SidebarItemButtonProps | SidebarItemLinkProps;
 
-function itemClassName(active?: boolean, className?: string): string {
-  return ["sidebar-item", active && "sidebar-item--active", className]
+function itemClassName(
+  active?: boolean,
+  className?: string,
+  detailed?: boolean,
+): string {
+  return [
+    "sidebar-item",
+    active && "sidebar-item--active",
+    detailed && "sidebar-item--detailed",
+    className,
+  ]
     .filter(Boolean)
     .join(" ");
+}
+
+function SidebarItemBody({
+  lead,
+  children,
+  subtitle,
+  trailing,
+}: {
+  lead: ReactNode;
+  children: ReactNode;
+  subtitle?: ReactNode;
+  trailing?: ReactNode;
+}) {
+  return (
+    <>
+      {lead}
+      <span className="sidebar-item__text">
+        <span className="sidebar-item__label">{children}</span>
+        {subtitle != null && subtitle !== "" ? (
+          <span className="sidebar-item__subtitle">{subtitle}</span>
+        ) : null}
+      </span>
+      {trailing != null ? (
+        <span className="sidebar-item__trailing">{trailing}</span>
+      ) : null}
+    </>
+  );
 }
 
 export const SidebarItem = forwardRef<
@@ -44,6 +84,8 @@ export const SidebarItem = forwardRef<
       active,
       icon,
       leading,
+      subtitle,
+      trailing,
       className,
       children,
       ...anchorProps
@@ -55,12 +97,17 @@ export const SidebarItem = forwardRef<
     return (
       <a
         ref={ref as Ref<HTMLAnchorElement>}
-        className={itemClassName(active, className)}
+        className={itemClassName(
+          active,
+          className,
+          subtitle != null && subtitle !== "",
+        )}
         aria-current={active ? "page" : undefined}
         {...anchorProps}
       >
-        {lead}
-        <span className="sidebar-item__label">{children}</span>
+        <SidebarItemBody lead={lead} subtitle={subtitle} trailing={trailing}>
+          {children}
+        </SidebarItemBody>
       </a>
     );
   }
@@ -70,6 +117,8 @@ export const SidebarItem = forwardRef<
     active,
     icon,
     leading,
+    subtitle,
+    trailing,
     className,
     children,
     type = "button",
@@ -85,12 +134,17 @@ export const SidebarItem = forwardRef<
       type={type}
       variant="ghost"
       size="sm"
-      className={itemClassName(active, className)}
+      className={itemClassName(
+        active,
+        className,
+        subtitle != null && subtitle !== "",
+      )}
       aria-current={active ? "page" : undefined}
       {...buttonProps}
     >
-      {lead}
-      <span className="sidebar-item__label">{children}</span>
+      <SidebarItemBody lead={lead} subtitle={subtitle} trailing={trailing}>
+        {children}
+      </SidebarItemBody>
     </Button>
   );
 });

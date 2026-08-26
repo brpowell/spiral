@@ -14,7 +14,7 @@ export default defineConfig(async () => ({
         extends: true,
         test: {
           name: "unit",
-          include: ["src/**/*.test.ts"],
+          include: ["src/**/*.test.ts", "scripts/**/*.test.mjs"],
           environment: "node",
           setupFiles: ["./src/test/setup.unit.ts"],
         },

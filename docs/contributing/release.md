@@ -26,9 +26,9 @@ That PR just accumulates. Land as many features/fixes as you want before shippin
 
 ## Cutting a release (steps 3–4)
 
-1. Open the standing release PR. Skim the changelog; fix anything misleading before merge.
+1. Open the standing release PR. Skim **`CHANGELOG.md`** in the PR — that file is the internal record (compare links, PR/commit SHAs, chore/ci/test noise). Fix anything misleading before merge; do not treat it as user-facing copy.
 2. Merge it.
-3. release-please creates the `vX.Y.Z` tag and a **draft** GitHub Release (notes, no publish yet).
+3. release-please creates the `vX.Y.Z` tag and a **draft** GitHub Release. CI then rewrites **only the draft body** (drop the version/compare header, keep Features / Bug Fixes, strip PR/commit links). `CHANGELOG.md` is left as release-please wrote it. The draft body is what users will see in What's New — wordsmith it freely before Publish if you want; that pass is not re-applied later.
 4. The [Release](../.github/workflows/release.yml) workflow builds:
    - macOS arm64 + x64 → `--bundles app,dmg` (DMG installer + updater `.app.tar.gz` / `.sig`; `app` must be explicit or the bundler deletes `Spiral.app` and no updater tarball is left)
    - Windows x64 → NSIS (`*-setup.exe` + `.sig`; NSIS is also the updater payload)
@@ -48,6 +48,8 @@ Both re-check that the draft has installers and updater artifacts, then undraft 
 
 The job uses the `production-release` Environment. Required reviewers are the intended long-term approval UI; they are not available on this private repo’s current GitHub plan, so **running the workflow is the human gate**. Details: [`signing-and-keys.md`](./signing-and-keys.md).
 
+To re-run the notes sanitizer or backfill an older published release that still has a raw changelog body, use `sanitize-notes` (commands below). `--dry-run` prints the result without editing. Skip a live rewrite if you already rewrote the body — it would drop freeform edits that are not Features / Bug Fixes headings.
+
 ## Local release tooling
 
 One npm script, subcommands via `--`:
@@ -58,6 +60,8 @@ npm run release -- installer deb          # Linux deb only (skip AppImage)
 npm run release -- installer dmg -- --target aarch64-apple-darwin
 npm run release -- publish v0.2.0
 npm run release -- check v0.2.0
+npm run release -- sanitize-notes v0.2.0            # re-run / backfill user-facing notes
+npm run release -- sanitize-notes v0.2.0 --dry-run  # print sanitized notes; no edit
 npm run release -- sign path/to/artifact
 npm run release -- verify path/to/artifact
 npm run release -- keys
@@ -92,6 +96,8 @@ SPIRAL_ENABLE_UPDATER=1 npm run tauri dev
 
 Packaged / release builds are unaffected — the gate only applies in DEV. End-to-end update testing still wants two **installed** builds (older → newer published or local signed release), not `tauri dev`; see [release-process-plan.md](./release-process-plan.md).
 
+**Simulate Update (DEV menu):** Developer → **Simulate Update…** seeds a fake pending release (`99.0.0`) in memory — update toast, What's New (with a simulation banner), download progress, then a window **reload** (not process `relaunch`, so `tauri dev` keeps running). It never contacts the live updater endpoint or unpacks a real build. Retrigger anytime after reload.
+
 ## What you don’t do by hand
 
 - Don’t bump versions in a feature PR — release-please owns that.
@@ -112,9 +118,10 @@ Full runbook (generate/rotate/sign/verify, enrollment checklists): [`signing-and
 
 | File | Role |
 | --- | --- |
-| [`.github/workflows/release-please.yml`](../.github/workflows/release-please.yml) | Standing release PR; tag + draft on merge |
+| [`.github/workflows/release-please.yml`](../.github/workflows/release-please.yml) | Standing release PR; tag + draft on merge; sanitizes the draft body |
 | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Platform matrix → attach installers → `platforms-green` gate |
 | [`.github/workflows/publish-release.yml`](../.github/workflows/publish-release.yml) | Manual publish gate (undraft) |
 | [`scripts/release/required-release-assets.mjs`](../scripts/release/required-release-assets.mjs) | Required draft assets (single source of truth) |
+| [`scripts/release/sanitize-release-notes.mjs`](../scripts/release/sanitize-release-notes.mjs) | Draft-body sanitizer (Features / Bug Fixes only) |
 | [`release-please-config.json`](../release-please-config.json) | release-please package config |
 | [`.release-please-manifest.json`](../.release-please-manifest.json) | Last released version |

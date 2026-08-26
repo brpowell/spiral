@@ -73,10 +73,47 @@ a.sidebar-item--active:hover {
   height: 100%;
 }
 
-.sidebar-item__label {
+.sidebar-item__text {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+}
+
+.sidebar-item__label {
+  min-width: 0;
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.sidebar-item__subtitle {
+  min-width: 0;
+  max-width: 100%;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.3;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-item__trailing {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.sidebar-item--detailed {
+  align-items: center;
+  white-space: normal;
+}
+
+.sidebar-item--detailed.btn--sm,
+a.sidebar-item--detailed {
+  padding-block: 0.45rem;
 }
