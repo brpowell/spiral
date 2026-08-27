@@ -144,7 +144,16 @@ fn apply_macos_ignore(window: &WebviewWindow, ignore: bool) {
     unsafe {
         let _: () = msg_send![ns_window, setIgnoresMouseEvents: ignore];
     }
-    if ignore {
+
+    // Deactivate is process-wide — skip unless this window is key and visible.
+    let deactivating = ignore
+        && unsafe {
+            let is_key: bool = msg_send![ns_window, isKeyWindow];
+            let is_visible: bool = msg_send![ns_window, isVisible];
+            is_key && is_visible
+        };
+
+    if deactivating {
         if let Some(mtm) = MainThreadMarker::new() {
             NSApplication::sharedApplication(mtm).deactivate();
         }
