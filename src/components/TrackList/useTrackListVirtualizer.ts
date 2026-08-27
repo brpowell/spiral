@@ -1,10 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  useCallback,
-  useLayoutEffect,
-  useState,
-  type RefObject,
-} from "react";
+import { useCallback, useLayoutEffect, useState, type RefObject } from "react";
 
 function measureScrollMargin(
   bodyEl: HTMLElement | null,
@@ -25,6 +20,7 @@ interface UseTrackListVirtualizerOptions {
   estimateSize: number;
   getItemKey?: (index: number) => string | number;
   overscan?: number;
+  initialRect?: { width: number; height: number };
 }
 
 export function useTrackListVirtualizer({
@@ -36,21 +32,17 @@ export function useTrackListVirtualizer({
   estimateSize,
   getItemKey,
   overscan = 8,
+  initialRect,
 }: UseTrackListVirtualizerOptions) {
   const [scrollMargin, setScrollMargin] = useState(0);
 
-  const getScrollElement = useCallback(
-    () => scrollRef.current,
-    [scrollRef],
-  );
+  const getScrollElement = useCallback(() => scrollRef.current, [scrollRef]);
 
   useLayoutEffect(() => {
     if (!enabled) return;
 
     const update = () => {
-      setScrollMargin(
-        measureScrollMargin(bodyRef.current, getScrollElement()),
-      );
+      setScrollMargin(measureScrollMargin(bodyRef.current, getScrollElement()));
     };
 
     update();
@@ -75,6 +67,7 @@ export function useTrackListVirtualizer({
     overscan,
     scrollMargin,
     getItemKey: getItemKey ? (index) => getItemKey(index) : undefined,
+    initialRect,
   });
 
   return virtualizer;

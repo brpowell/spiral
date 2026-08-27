@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { IconAlbumPlaceholder } from "../icons";
-import { useEntityArtSrc } from "./useEntityArtSrc";
+import { useEntityArtSrc, type EntityArtVariant } from "./useEntityArtSrc";
 import "./EntityArt.css";
 
 interface EntityArtProps {
@@ -9,8 +9,8 @@ interface EntityArtProps {
   className?: string;
   /** Optional custom placeholder when there is no art path. */
   placeholder?: ReactNode;
-  /** Row uses a cached JPEG thumbnail generated in Rust. */
-  variant?: "default" | "row";
+  /** Row/grid use cached JPEG thumbnails generated in Rust. */
+  variant?: EntityArtVariant;
 }
 
 export function EntityArt({

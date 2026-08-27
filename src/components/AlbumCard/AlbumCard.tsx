@@ -28,7 +28,7 @@ export function AlbumCard({ album }: AlbumCardProps) {
           className={`album-card__art-wrap ${tiltClassName}`}
           {...artMotion}
         >
-          <EntityArt artPath={album.artPath} alt={album.title} />
+          <EntityArt artPath={album.artPath} alt={album.title} variant="grid" />
         </motion.div>
         <span className="album-card__title">{album.title}</span>
         <span className="album-card__artist">{album.artist}</span>

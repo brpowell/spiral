@@ -76,8 +76,9 @@
     "nowPlaying": "Now playing",
     "nothingPlaying": "Nothing playing",
     "upNext": "Up next",
+    "later": "Later",
     "noMore": "No more tracks",
-    "remove": "Remove",
+    "queued": "Queued",
     "removeAria": "Remove from set list"
   },
   "skinTooltips": {

@@ -1,51 +1,70 @@
 import { invoke } from "@tauri-apps/api/core";
 import { assetUrlFromPath } from "./assetUrl";
+import { BROWSE_GRID_MIN_COL_PX } from "./browseGridLayout";
 
 /** Matches Rust `ROW_THUMB_SIZE` (2× `--track-list-art-size`). */
 export const ROW_ART_THUMB_SIZE = 72;
 
+/** 2× browse-grid min column — retina card covers. */
+export const GRID_ART_THUMB_SIZE = BROWSE_GRID_MIN_COL_PX * 2;
+
 const thumbPathCache = new Map<string, string>();
 const pendingThumbs = new Map<string, Promise<string | null>>();
+
+function thumbCacheKey(artPath: string, size: number): string {
+  return `${size}:${artPath}`;
+}
 
 export function resolveRowArtThumbPath(
   artPath: string,
   size = ROW_ART_THUMB_SIZE,
 ): Promise<string | null> {
-  const cached = thumbPathCache.get(artPath);
+  const key = thumbCacheKey(artPath, size);
+  const cached = thumbPathCache.get(key);
   if (cached) return Promise.resolve(cached);
 
-  let pending = pendingThumbs.get(artPath);
+  let pending = pendingThumbs.get(key);
   if (!pending) {
-    pending = invoke<string | null>("ensure_art_row_thumb", { artPath, size }).then(
-      (thumbPath) => {
-        pendingThumbs.delete(artPath);
-        if (thumbPath) thumbPathCache.set(artPath, thumbPath);
-        return thumbPath;
-      },
-    );
-    pendingThumbs.set(artPath, pending);
+    pending = invoke<string | null>("ensure_art_row_thumb", {
+      artPath,
+      size,
+    }).then((thumbPath) => {
+      pendingThumbs.delete(key);
+      if (thumbPath) thumbPathCache.set(key, thumbPath);
+      return thumbPath;
+    });
+    pendingThumbs.set(key, pending);
   }
 
   return pending;
 }
 
-export function getCachedRowArtThumbPath(artPath: string): string | null {
-  return thumbPathCache.get(artPath) ?? null;
+export function getCachedRowArtThumbPath(
+  artPath: string,
+  size = ROW_ART_THUMB_SIZE,
+): string | null {
+  return thumbPathCache.get(thumbCacheKey(artPath, size)) ?? null;
 }
 
 export function rowArtAssetUrl(thumbPath: string): string {
   return assetUrlFromPath(thumbPath);
 }
 
-export function getCachedRowArtAssetUrl(artPath: string): string | null {
-  const thumbPath = getCachedRowArtThumbPath(artPath);
+export function getCachedRowArtAssetUrl(
+  artPath: string,
+  size = ROW_ART_THUMB_SIZE,
+): string | null {
+  const thumbPath = getCachedRowArtThumbPath(artPath, size);
   return thumbPath ? rowArtAssetUrl(thumbPath) : null;
 }
 
 const decodedRowArtAssetUrls = new Set<string>();
 
-export function isRowArtAssetUrlDecoded(artPath: string): boolean {
-  const url = getCachedRowArtAssetUrl(artPath);
+export function isRowArtAssetUrlDecoded(
+  artPath: string,
+  size = ROW_ART_THUMB_SIZE,
+): boolean {
+  const url = getCachedRowArtAssetUrl(artPath, size);
   return url != null && decodedRowArtAssetUrls.has(url);
 }
 
@@ -134,7 +153,11 @@ function cancelScheduledDrain() {
 /** Queue row art paths for idle prefetch (deduped). */
 export function queueRowArtThumbPrefetch(artPaths: Iterable<string>): void {
   for (const artPath of artPaths) {
-    if (!artPath || isRowArtAssetUrlDecoded(artPath) || queuedArtPaths.has(artPath)) {
+    if (
+      !artPath ||
+      isRowArtAssetUrlDecoded(artPath) ||
+      queuedArtPaths.has(artPath)
+    ) {
       continue;
     }
     queuedArtPaths.add(artPath);

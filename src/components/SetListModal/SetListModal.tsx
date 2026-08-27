@@ -1,10 +1,19 @@
-import { useId, useMemo, useRef } from "react";
+import {
+  memo,
+  useCallback,
+  useId,
+  useMemo,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { buildPlaybackOrder } from "../../lib/playbackOrder";
+import { isCdTrackListId } from "../../lib/cdTracks";
 import { formatTime } from "../../lib/format";
-import { findPlaybackTrack } from "../../lib/playbackTrack";
-import { isPlaybackIdKnownUnplayable } from "../../lib/playbackSkip";
+import { buildPlaybackOrder } from "../../lib/playbackOrder";
+import { isTrackKnownUnplayable } from "../../lib/playbackSkip";
+import { indexPlaybackTracks } from "../../lib/playbackTrack";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { Track } from "../../types/track";
 import { Button } from "../common/Button/Button";
@@ -16,9 +25,18 @@ import {
   ModalHeaderActions,
   ModalTitle,
 } from "../common/Modal/Modal";
-import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
 import { EntityArt } from "../EntityArt/EntityArt";
+import { IconClose } from "../icons";
+import { TrackItemTitle } from "../TrackItemTitle/TrackItemTitle";
+import { usePrefetchVirtualRowArt } from "../TrackList/usePrefetchVirtualRowArt";
+import { useTrackListVirtualizer } from "../TrackList/useTrackListVirtualizer";
 import "./SetListModal.css";
+
+/** Same cutoff as TrackList — a shuffled library is well past this. */
+export const SET_LIST_VIRTUALIZE_AFTER = 40;
+
+/** Art (36px) + 0.5rem vertical padding on each side. */
+const SET_LIST_ROW_HEIGHT = 52;
 
 interface SetListModalProps {
   open: boolean;
@@ -39,6 +57,7 @@ export function SetListModal({ open, onClose }: SetListModalProps) {
 
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   useFocusTrap(panelRef, open);
 
   const activeIds = useMemo(
@@ -57,52 +76,98 @@ export function SetListModal({ open, onClose }: SetListModalProps) {
     [manualQueueIds],
   );
 
-  const { nowPlayingId, upNextIds } = useMemo(() => {
-    const playableUpNext = (ids: number[]) =>
-      ids.filter((id) => !isPlaybackIdKnownUnplayable(id, library));
+  const libraryById = useMemo(() => {
+    const map = new Map<number, Track>();
+    for (const track of library) {
+      map.set(track.id, track);
+    }
+    return map;
+  }, [library]);
 
-    if (activeIds.length === 0) {
-      return { nowPlayingId: null, upNextIds: [] as number[] };
-    }
-    if (currentTrackId === null) {
-      return { nowPlayingId: null, upNextIds: playableUpNext(activeIds) };
-    }
-    const idx = activeIds.indexOf(currentTrackId);
-    if (idx < 0) {
-      return {
-        nowPlayingId: currentTrackId,
-        upNextIds: playableUpNext(activeIds),
-      };
-    }
-    return {
-      nowPlayingId: currentTrackId,
-      upNextIds: playableUpNext(activeIds.slice(idx + 1)),
-    };
-  }, [activeIds, currentTrackId, library]);
-
-  const nowPlaying = nowPlayingId
-    ? findPlaybackTrack({
+  const trackById = useMemo(
+    () =>
+      indexPlaybackTracks({
         library,
         playbackTracks,
         cdQueueTracks: cdQueueContext?.tracks,
-        currentTrackId: nowPlayingId,
-      })
-    : undefined;
+      }),
+    [library, playbackTracks, cdQueueContext],
+  );
 
-  const handlePlay = (id: number) => {
-    void playTrack(id);
-  };
+  const { nowPlaying, queuedTracks, laterTracks } = useMemo(() => {
+    const isPlayable = (id: number) => {
+      if (isCdTrackListId(id)) return true;
+      return !isTrackKnownUnplayable(libraryById.get(id));
+    };
+
+    const resolvePlayable = (ids: number[]) => {
+      const tracks: Track[] = [];
+      for (const id of ids) {
+        if (!isPlayable(id)) continue;
+        const track = trackById.get(id);
+        if (track) tracks.push(track);
+      }
+      return tracks;
+    };
+
+    const splitUpcoming = (ids: number[]) => {
+      const upcoming = resolvePlayable(ids);
+      const queued: Track[] = [];
+      const later: Track[] = [];
+      for (const track of upcoming) {
+        if (manualQueueSet.has(track.id)) queued.push(track);
+        else later.push(track);
+      }
+      return { queuedTracks: queued, laterTracks: later };
+    };
+
+    if (activeIds.length === 0) {
+      return {
+        nowPlaying: undefined,
+        queuedTracks: [],
+        laterTracks: [],
+      };
+    }
+
+    if (currentTrackId === null) {
+      return {
+        nowPlaying: undefined,
+        ...splitUpcoming(activeIds),
+      };
+    }
+
+    const idx = activeIds.indexOf(currentTrackId);
+    const upcomingIds = idx < 0 ? activeIds : activeIds.slice(idx + 1);
+
+    return {
+      nowPlaying: trackById.get(currentTrackId),
+      ...splitUpcoming(upcomingIds),
+    };
+  }, [activeIds, currentTrackId, libraryById, manualQueueSet, trackById]);
+
+  const handlePlay = useCallback(
+    (id: number) => {
+      void playTrack(id);
+    },
+    [playTrack],
+  );
 
   const handleClear = () => {
     clearSetList();
     onClose();
   };
 
+  const showQueuedSection = queuedTracks.length > 0;
+  const upcomingTitle = showQueuedSection
+    ? t("queue.later")
+    : t("queue.upNext");
+
   return (
     <Modal
       open={open}
       onClose={onClose}
       size="md"
+      panelClassName="set-list-modal"
       panelRef={panelRef}
       labelledBy={titleId}
     >
@@ -121,88 +186,172 @@ export function SetListModal({ open, onClose }: SetListModalProps) {
         </ModalHeaderActions>
       </ModalHeader>
 
-      <ModalBody>
+      <ModalBody className="set-list-modal__body">
         {activeIds.length === 0 ? (
           <p className="set-list-modal__empty">{t("queue.empty")}</p>
         ) : (
-          <>
-            <section className="set-list-modal__section">
-              <h3 className="set-list-modal__section-title">
-                {t("queue.nowPlaying")}
-              </h3>
+          <div ref={scrollRef} className="set-list-modal__scroller">
+            <SetListSection title={t("queue.nowPlaying")}>
               {nowPlaying ? (
-                <SetListRow
-                  track={nowPlaying}
-                  playing
-                  queued={manualQueueSet.has(nowPlaying.id)}
-                  onPlay={() => handlePlay(nowPlaying.id)}
-                  onRemoveFromQueue={
-                    manualQueueSet.has(nowPlaying.id)
-                      ? () => removeFromQueue(nowPlaying.id)
-                      : undefined
-                  }
-                />
+                <SetListRow track={nowPlaying} playing onPlay={handlePlay} />
               ) : (
                 <p className="set-list-modal__empty-section">
                   {t("queue.nothingPlaying")}
                 </p>
               )}
-            </section>
+            </SetListSection>
 
-            <section className="set-list-modal__section">
-              <h3 className="set-list-modal__section-title">
-                {t("queue.upNext")}
-              </h3>
-              {upNextIds.length === 0 ? (
+            {showQueuedSection ? (
+              <SetListSection title={t("queue.queued")}>
+                <SetListStaticList
+                  tracks={queuedTracks}
+                  removable
+                  onPlay={handlePlay}
+                  onRemoveFromQueue={removeFromQueue}
+                />
+              </SetListSection>
+            ) : null}
+
+            <SetListSection title={upcomingTitle}>
+              {laterTracks.length === 0 ? (
                 <p className="set-list-modal__empty-section">
                   {t("queue.noMore")}
                 </p>
               ) : (
-                <ul className="set-list-modal__list">
-                  {upNextIds.map((id) => {
-                    const track = findPlaybackTrack({
-                      library,
-                      playbackTracks,
-                      cdQueueTracks: cdQueueContext?.tracks,
-                      currentTrackId: id,
-                    });
-                    if (!track) return null;
-                    const queued = manualQueueSet.has(id);
-                    return (
-                      <li key={id}>
-                        <SetListRow
-                          track={track}
-                          queued={queued}
-                          onPlay={() => handlePlay(id)}
-                          onRemoveFromQueue={
-                            queued ? () => removeFromQueue(id) : undefined
-                          }
-                        />
-                      </li>
-                    );
-                  })}
-                </ul>
+                <SetListUpcomingList
+                  tracks={laterTracks}
+                  scrollRef={scrollRef}
+                  onPlay={handlePlay}
+                />
               )}
-            </section>
-          </>
+            </SetListSection>
+          </div>
         )}
       </ModalBody>
     </Modal>
   );
 }
 
+function SetListSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="set-list-modal__section">
+      <h3 className="set-list-modal__section-title">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function SetListStaticList({
+  tracks,
+  removable = false,
+  onPlay,
+  onRemoveFromQueue,
+}: {
+  tracks: Track[];
+  removable?: boolean;
+  onPlay: (id: number) => void;
+  onRemoveFromQueue?: (id: number) => void;
+}) {
+  return (
+    <ul className="set-list-modal__list">
+      {tracks.map((track) => (
+        <li key={track.id}>
+          <SetListRow
+            track={track}
+            showRemove={removable}
+            onPlay={onPlay}
+            onRemoveFromQueue={onRemoveFromQueue}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SetListUpcomingList({
+  tracks,
+  scrollRef,
+  onPlay,
+}: {
+  tracks: Track[];
+  scrollRef: RefObject<HTMLDivElement | null>;
+  onPlay: (id: number) => void;
+}) {
+  const useVirtualRows = tracks.length > SET_LIST_VIRTUALIZE_AFTER;
+  const listRef = useRef<HTMLUListElement>(null);
+  const getItemKey = useCallback(
+    (index: number) => tracks[index]?.id ?? index,
+    [tracks],
+  );
+
+  const virtualizer = useTrackListVirtualizer({
+    enabled: useVirtualRows,
+    count: tracks.length,
+    listRef,
+    bodyRef: listRef,
+    scrollRef,
+    estimateSize: SET_LIST_ROW_HEIGHT,
+    getItemKey,
+    initialRect: { width: 432, height: 320 },
+  });
+
+  const virtualRows = virtualizer.getVirtualItems();
+
+  usePrefetchVirtualRowArt({
+    enabled: useVirtualRows,
+    tracks,
+    virtualRows,
+    isScrolling: virtualizer.isScrolling,
+  });
+
+  if (!useVirtualRows) {
+    return <SetListStaticList tracks={tracks} onPlay={onPlay} />;
+  }
+
+  return (
+    <ul
+      ref={listRef}
+      className="set-list-modal__list set-list-modal__list--virtual"
+      style={{ height: virtualizer.getTotalSize() }}
+    >
+      {virtualRows.map((virtualRow) => {
+        const track = tracks[virtualRow.index];
+        if (!track) return null;
+        return (
+          <li
+            key={virtualRow.key}
+            className="set-list-modal__item"
+            style={{
+              height: virtualRow.size,
+              transform: `translate3d(0, ${virtualRow.start - virtualizer.options.scrollMargin}px, 0)`,
+            }}
+          >
+            <SetListRow track={track} onPlay={onPlay} />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 interface SetListRowProps {
   track: Track;
   playing?: boolean;
-  queued?: boolean;
-  onPlay: () => void;
-  onRemoveFromQueue?: () => void;
+  showRemove?: boolean;
+  onPlay: (id: number) => void;
+  onRemoveFromQueue?: (id: number) => void;
 }
 
-function SetListRow({
+const SetListRow = memo(function SetListRow({
   track,
   playing = false,
-  queued = false,
+  showRemove = false,
   onPlay,
   onRemoveFromQueue,
 }: SetListRowProps) {
@@ -213,12 +362,12 @@ function SetListRow({
     <div
       className={`set-list-modal__row${
         playing ? " set-list-modal__row--playing" : ""
-      }${queued ? " set-list-modal__row--queued" : ""}`}
+      }`}
     >
       <button
         type="button"
         className="set-list-modal__row-main"
-        onClick={onPlay}
+        onClick={() => onPlay(track.id)}
       >
         <EntityArt
           artPath={track.artPath}
@@ -235,23 +384,23 @@ function SetListRow({
         {subtitle ? (
           <span className="set-list-modal__row-subtitle">{subtitle}</span>
         ) : null}
-        {track.durationSeconds != null && (
-          <span className="set-list-modal__row-duration">
-            {formatTime(track.durationSeconds)}
-          </span>
-        )}
       </button>
-      {onRemoveFromQueue ? (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="set-list-modal__row-remove"
-          onClick={onRemoveFromQueue}
-          aria-label={t("queue.removeAria")}
-        >
-          {t("queue.remove")}
-        </Button>
-      ) : null}
+      <span className="set-list-modal__row-duration">
+        {track.durationSeconds != null ? formatTime(track.durationSeconds) : ""}
+      </span>
+      <span className="set-list-modal__row-action">
+        {showRemove && onRemoveFromQueue ? (
+          <Button
+            variant="ghost"
+            size="xs"
+            iconOnly
+            onClick={() => onRemoveFromQueue(track.id)}
+            aria-label={t("queue.removeAria")}
+          >
+            <IconClose />
+          </Button>
+        ) : null}
+      </span>
     </div>
   );
-}
+});

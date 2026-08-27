@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BrowseView } from "../components/BrowseView/BrowseView";
 import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
@@ -16,6 +16,7 @@ import { useNavigationStore } from "../store/useNavigationStore";
 import type { Album } from "../types/album";
 import type { Artist } from "../types/artist";
 import { BrowseGridBody } from "../components/BrowseView/BrowseGridBody";
+import { BrowseVirtualGrid } from "../components/BrowseView/BrowseVirtualGrid";
 import { LibraryEmptyState } from "../components/LibraryEmptyState/LibraryEmptyState";
 import "./ArtistsView.css";
 
@@ -77,6 +78,7 @@ function ArtistCard({
             alt={artist.name}
             className="album-art--round"
             placeholder={<IconArtistPlaceholder />}
+            variant="grid"
           />
         </motion.div>
         <span className="artist-card__name">{artist.name}</span>
@@ -92,11 +94,24 @@ function ArtistCard({
 export function ArtistsView({ artists, albums, browseMode }: ArtistsViewProps) {
   const { t } = useTranslation("library");
   const [search, setSearch] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
   const setArtistBrowseMode = useNavigationStore((s) => s.setArtistBrowseMode);
 
   const filteredArtists = useMemo(
     () => artists.filter((a) => matchesArtistSearch(a, search)),
     [artists, search],
+  );
+
+  const getArtistKey = useCallback((artist: Artist) => artist.key, []);
+  const renderArtist = useCallback(
+    (artist: Artist) => (
+      <ArtistCard
+        artist={artist}
+        browseMode={browseMode}
+        albumCount={albumsForArtist(albums, artist, browseMode).length}
+      />
+    ),
+    [albums, browseMode],
   );
 
   if (artists.length === 0) {
@@ -140,20 +155,16 @@ export function ArtistsView({ artists, albums, browseMode }: ArtistsViewProps) {
         }
       />
 
-      <BrowseGridBody>
+      <BrowseGridBody bodyRef={scrollRef}>
         {filteredArtists.length === 0 ? (
           <p className="browse-view__empty">{t("views.artists.emptySearch")}</p>
         ) : (
-          <div className="browse-grid" role="list">
-            {filteredArtists.map((artist) => (
-              <ArtistCard
-                key={artist.key}
-                artist={artist}
-                browseMode={browseMode}
-                albumCount={albumsForArtist(albums, artist, browseMode).length}
-              />
-            ))}
-          </div>
+          <BrowseVirtualGrid
+            items={filteredArtists}
+            getItemKey={getArtistKey}
+            renderItem={renderArtist}
+            scrollRef={scrollRef}
+          />
         )}
       </BrowseGridBody>
     </BrowseView>

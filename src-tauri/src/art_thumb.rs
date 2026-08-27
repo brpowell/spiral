@@ -177,4 +177,34 @@ mod tests {
 
         let _ = fs::remove_dir_all(&app_data);
     }
+
+    #[test]
+    fn ensure_row_thumb_honors_grid_size() {
+        // Keep in sync with TS `GRID_ART_THUMB_SIZE` (2× browse min column).
+        const GRID_SIZE: u32 = 320;
+        let app_data =
+            std::env::temp_dir().join(format!("spiral-art-thumb-grid-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&app_data);
+
+        let source = app_data.join("cover.png");
+        fs::create_dir_all(&app_data).unwrap();
+        write_test_image(&source, 800, 800);
+
+        let source_str = source.to_string_lossy().into_owned();
+        let thumb = ensure_row_thumb(&app_data, &source_str, GRID_SIZE)
+            .unwrap()
+            .expect("grid thumb path");
+        let decoded = image::open(&thumb).unwrap();
+        assert_eq!(decoded.width(), GRID_SIZE);
+        assert_eq!(decoded.height(), GRID_SIZE);
+
+        let row = ensure_row_thumb(&app_data, &source_str, ROW_THUMB_SIZE)
+            .unwrap()
+            .expect("row thumb path");
+        assert_ne!(thumb, row);
+        let row_decoded = image::open(&row).unwrap();
+        assert_eq!(row_decoded.width(), ROW_THUMB_SIZE);
+
+        let _ = fs::remove_dir_all(&app_data);
+    }
 }

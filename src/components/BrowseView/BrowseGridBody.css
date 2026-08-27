@@ -35,8 +35,34 @@
 }
 
 .browse-grid {
+  --browse-grid-min-col: 160px;
+  --browse-grid-col-gap: 1.25rem;
+  --browse-grid-row-gap: 1.5rem;
+  /* Square art + card gaps + title + meta (~1.2 line-height). */
+  --browse-grid-text-block: 3.04rem;
   padding-inline: var(--main-content-padding-x);
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 1.5rem 1.25rem;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--browse-grid-min-col), 1fr)
+  );
+  gap: var(--browse-grid-row-gap) var(--browse-grid-col-gap);
+}
+
+.browse-grid--virtual {
+  position: relative;
+  width: 100%;
+}
+
+.browse-grid__row {
+  position: absolute;
+  top: 0;
+  left: var(--main-content-padding-x);
+  right: var(--main-content-padding-x);
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--browse-grid-min-col), 1fr)
+  );
+  column-gap: var(--browse-grid-col-gap);
 }

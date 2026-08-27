@@ -8,6 +8,28 @@ export interface PlaybackTrackLookup {
   currentTrackId: number | null;
 }
 
+export type PlaybackTrackIndex = Omit<PlaybackTrackLookup, "currentTrackId">;
+
+/**
+ * Id → track, matching {@link findPlaybackTrack} precedence
+ * (playback rows, then CD queue, then library).
+ */
+export function indexPlaybackTracks(
+  lookup: PlaybackTrackIndex,
+): Map<number, Track> {
+  const map = new Map<number, Track>();
+  for (const track of lookup.library) {
+    map.set(track.id, track);
+  }
+  for (const track of lookup.cdQueueTracks ?? []) {
+    map.set(track.id, track);
+  }
+  for (const track of lookup.playbackTracks) {
+    map.set(track.id, track);
+  }
+  return map;
+}
+
 /** Resolve the row for now-playing UI from library or ephemeral CD list rows. */
 export function findPlaybackTrack(
   lookup: PlaybackTrackLookup,
