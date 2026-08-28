@@ -829,13 +829,13 @@ Effects declared on a view run **once** when the skin-mode window becomes visibl
 | Field     | Required | Meaning                                                                     |
 | --------- | -------- | --------------------------------------------------------------------------- |
 | `when`    | no       | Condition; effect runs only when truthy (same evaluator as `visibleWhen`)   |
-| `delayMs` | no       | Wait after activate before dispatch (default `0`)                           |
+| `delayMs` | no       | Wait before dispatch (default `0`)                                          |
 | `action`  | yes      | Existing skin action id (e.g. `view.setVariable`)                           |
 | `payload` | no       | Merged into action payload                                                  |
 | `sound`   | no       | Manifest `soundEffects` key played **before** the action                    |
 
 
-Delayed effects re-evaluate `when` at **fire time** — if state changed during the delay, the effect no-ops. Effect-level `when` (bind path) is distinct from `payload.when` on `view.setVariable` (value equality guard).
+Immediate effects skip a false `when` at schedule. Delayed effects always start the timer and re-check `when` at fire time, using live view state (not the click snapshot). Effect-level `when` is distinct from `payload.when` on `view.setVariable`.
 
 ## State transition events (`views.*.state.*.on`)
 

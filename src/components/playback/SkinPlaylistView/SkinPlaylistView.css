@@ -1,5 +1,6 @@
 .skin-playlist-view {
   --skin-playlist-art-size: 24px;
+  --skin-playlist-scrollbar-gutter: 8px;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -69,6 +70,7 @@
   /* `overlay` keeps a WebKit layout scrollbar from eating width next to a
      full-bleed sibling (the source picker). Maps to `auto` elsewhere. */
   overflow-y: overlay;
+  padding-right: var(--skin-playlist-scrollbar-gutter);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, currentColor 40%, transparent) transparent;
 }

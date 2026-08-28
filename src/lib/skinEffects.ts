@@ -2,8 +2,17 @@ import type { SkinClickEffect, SkinLifecycleEffect } from "../types/skin";
 import { runSkinAction } from "./skinActions";
 import { evaluateSkinCondition, type SkinBindState } from "./skinBinds";
 import { playActiveSkinSound } from "./skinSoundEffects";
+import { getSkinViewStateApi } from "./skinViewStateContext";
 
 type SkinEffect = SkinClickEffect | SkinLifecycleEffect;
+
+/** Prefer live view state over a click-time snapshot. */
+function liveBindState(getBindState: () => SkinBindState): SkinBindState {
+  const snapshot = getBindState();
+  const liveView = getSkinViewStateApi()?.values;
+  if (!liveView) return snapshot;
+  return { ...snapshot, viewState: liveView };
+}
 
 function primarySkinEffect<T extends SkinClickEffect>(
   effects: T[] | undefined,
@@ -35,7 +44,9 @@ export function dispatchSkinEffect(
   effect: SkinEffect,
   getBindState: () => SkinBindState,
 ): void {
-  if (!isEffectWhenTruthy(effect.when, getBindState)) return;
+  if (!isEffectWhenTruthy(effect.when, () => liveBindState(getBindState))) {
+    return;
+  }
   if ("sound" in effect && effect.sound) playActiveSkinSound(effect.sound);
   runSkinAction(effect.action, effect.payload);
 }
@@ -48,11 +59,17 @@ export function scheduleSkinEffects(
   if (!effects?.length) return () => {};
 
   for (const effect of effects) {
-    if (!isEffectWhenTruthy(effect.when, getBindState)) continue;
+    const delayMs = effect.delayMs ?? 0;
+    if (
+      delayMs === 0 &&
+      !isEffectWhenTruthy(effect.when, () => liveBindState(getBindState))
+    ) {
+      continue;
+    }
 
     const timer = setTimeout(
       () => dispatchSkinEffect(effect, getBindState),
-      effect.delayMs ?? 0,
+      delayMs,
     );
     timers.push(timer);
   }

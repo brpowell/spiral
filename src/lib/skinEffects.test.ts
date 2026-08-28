@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { dispatchSkinEffect, scheduleSkinEffects } from "./skinEffects";
 import * as skinActions from "./skinActions";
 import * as skinSoundEffects from "./skinSoundEffects";
+import * as skinViewStateContext from "./skinViewStateContext";
 import type { SkinLifecycleEffect } from "../types/skin";
 import { minimalBindState } from "../test/skinBindFixtures";
 
@@ -142,5 +143,66 @@ describe("scheduleSkinEffects", () => {
 
     vi.advanceTimersByTime(1000);
     expect(skinActions.runSkinAction).not.toHaveBeenCalled();
+  });
+
+  it("skips immediate effects whose when is false", () => {
+    scheduleSkinEffects([introLightEffect], () =>
+      minimalBindState({ viewState: { introLight: "playing" } }),
+    );
+    vi.runAllTimers();
+    expect(skinActions.runSkinAction).not.toHaveBeenCalled();
+  });
+
+  it("fires delayed effects if when becomes true", () => {
+    const viewState = { drawer: "closed" };
+    scheduleSkinEffects(
+      [
+        {
+          delayMs: 120,
+          when: "view.drawer.playlist",
+          action: "view.setVariable",
+          payload: { variable: "playlistVisible", value: true },
+        },
+      ],
+      () => minimalBindState({ viewState }),
+    );
+
+    viewState.drawer = "playlist";
+    vi.advanceTimersByTime(119);
+    expect(skinActions.runSkinAction).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(skinActions.runSkinAction).toHaveBeenCalledWith("view.setVariable", {
+      variable: "playlistVisible",
+      value: true,
+    });
+  });
+
+  it("delayed when uses live view state", () => {
+    const liveValues: { drawer: string } = { drawer: "closed" };
+    vi.spyOn(skinViewStateContext, "getSkinViewStateApi").mockReturnValue({
+      get values() {
+        return liveValues;
+      },
+      setVariable: () => {},
+      setScreen: () => {},
+      reset: () => {},
+    });
+
+    scheduleSkinEffects(
+      [
+        {
+          delayMs: 120,
+          when: "view.drawer.playlist",
+          action: "view.setVariable",
+          payload: { variable: "playlistVisible", value: true },
+        },
+      ],
+      () => minimalBindState({ viewState: { drawer: "closed" } }),
+    );
+
+    liveValues.drawer = "playlist";
+    vi.advanceTimersByTime(120);
+    expect(skinActions.runSkinAction).toHaveBeenCalledTimes(1);
   });
 });
