@@ -84,3 +84,24 @@ export function serializeLogLines(entries: ActivityLogEntry[]): string {
 export function formatLogLinePretty(entry: ActivityLogEntry): string {
   return JSON.stringify(entryToLogLine(entry), null, 2);
 }
+
+/** Locale time shown in the activity logs list (and copied with it). */
+export function formatActivityLogTimestamp(timestampMs: number): string {
+  return new Date(timestampMs).toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+/** One list row as the user sees it: time, level, message. */
+export function formatActivityLogDisplayLine(entry: ActivityLogEntry): string {
+  return `${formatActivityLogTimestamp(entry.timestampMs)}  ${entry.level}  ${entry.message}`;
+}
+
+/** Visible log list text for the More menu Copy logs action. */
+export function formatActivityLogDisplayList(
+  entries: ActivityLogEntry[],
+): string {
+  return entries.map(formatActivityLogDisplayLine).join("\n");
+}

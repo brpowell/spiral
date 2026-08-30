@@ -1,4 +1,14 @@
 {
+  "activityLogs": {
+    "actionsAria": "Activity log actions",
+    "autoScroll": "Auto-scroll",
+    "copyLogs": "Copy logs",
+    "copying": "Copying…",
+    "exportLogs": "Export logs…",
+    "exporting": "Exporting…",
+    "clearLogs": "Clear logs",
+    "clearing": "Clearing logs…"
+  },
   "unknown": "Unknown",
   "unknownArtist": "Unknown Artist",
   "unknownAlbum": "Unknown Album",

@@ -1,12 +1,12 @@
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../common/Button/Button";
-import { Checkbox } from "../common/Checkbox/Checkbox";
 import { ContextMenu, ContextMenuItem } from "../ContextMenu/ContextMenu";
 import { IconChevronDown, IconChevronRight, IconCopy } from "../icons";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { copyTextToClipboard } from "../../lib/clipboard";
 import {
+  formatActivityLogTimestamp,
   formatLogLinePretty,
   getEntryOperationId,
   serializeLogLines,
@@ -61,14 +61,6 @@ interface PendingRowDrag {
   startedOnJson: boolean;
   originX: number;
   originY: number;
-}
-
-function formatTimestamp(timestampMs: number): string {
-  return new Date(timestampMs).toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
 }
 
 /** Override catalog labels when group headers need a different phrasing. */
@@ -175,7 +167,7 @@ function LogEntryRow({
       }}
     >
       <span className="activity-logs-panel__time">
-        {formatTimestamp(entry.timestampMs)}
+        {formatActivityLogTimestamp(entry.timestampMs)}
       </span>
       <span
         className={`activity-logs-panel__level activity-logs-panel__level--${entry.level}`}
@@ -550,22 +542,25 @@ export function ActivityLogsPanel() {
     let unlisten: (() => void) | undefined;
     let cancelled = false;
 
-    void listen<ActivityLogRevealTarget>(ACTIVITY_LOGS_REVEAL_EVENT, (event) => {
-      const target = event.payload;
-      if (target?.entryId == null && target?.operationId == null) return;
+    void listen<ActivityLogRevealTarget>(
+      ACTIVITY_LOGS_REVEAL_EVENT,
+      (event) => {
+        const target = event.payload;
+        if (target?.entryId == null && target?.operationId == null) return;
 
-      const resolved = resolveActivityLogRevealEntry(
-        useActivityLogStore.getState().entries,
-        target,
-      );
-      if (!resolved) {
-        // Entry may not be hydrated yet; retry once entries update.
-        pendingRevealRef.current = target;
-        return;
-      }
-      pendingRevealRef.current = null;
-      applyReveal(target);
-    }).then((fn) => {
+        const resolved = resolveActivityLogRevealEntry(
+          useActivityLogStore.getState().entries,
+          target,
+        );
+        if (!resolved) {
+          // Entry may not be hydrated yet; retry once entries update.
+          pendingRevealRef.current = target;
+          return;
+        }
+        pendingRevealRef.current = null;
+        applyReveal(target);
+      },
+    ).then((fn) => {
       if (cancelled) fn();
       else unlisten = fn;
     });
@@ -657,16 +652,7 @@ export function ActivityLogsPanel() {
             onChange={setMinLevel}
           />
 
-          <label className="activity-logs-panel__toggle">
-            <Checkbox
-              checked={autoScroll}
-              onChange={(event) => setAutoScroll(event.target.checked)}
-              aria-label="Auto-scroll"
-            />
-            Auto-scroll
-          </label>
-
-          <ActivityLogsActionsMenu includeClear />
+          <ActivityLogsActionsMenu entries={filteredEntries} includeClear />
         </div>
       </div>
 
