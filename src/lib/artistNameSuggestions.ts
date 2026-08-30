@@ -1,7 +1,5 @@
-import {
-  normalizeArtistName,
-  parseArtistField,
-} from "./artistNames";
+import { compareLocalized } from "./appLocale";
+import { normalizeArtistName, parseArtistField } from "./artistNames";
 import type { Track } from "../types/track";
 
 export function collectArtistNameSuggestions(tracks: Track[]): string[] {
@@ -17,7 +15,5 @@ export function collectArtistNameSuggestions(tracks: Track[]): string[] {
     }
   }
 
-  return [...byKey.values()].sort((a, b) =>
-    a.localeCompare(b, undefined, { sensitivity: "base" }),
-  );
+  return [...byKey.values()].sort((a, b) => compareLocalized(a, b));
 }

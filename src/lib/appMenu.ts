@@ -6,6 +6,7 @@ import {
   Submenu,
 } from "@tauri-apps/api/menu";
 import { LINKED_PACKS_CHANGED_EVENT } from "./appearanceWindow";
+import { stubLocaleMenuLabel } from "./appLocale";
 import { t } from "./i18n";
 import { listPacks } from "./tauri";
 
@@ -29,6 +30,8 @@ export interface AppMenuHandlers {
   toggleToastLab?: () => void;
   /** DEV-only: seed a fake pending update for UX testing. */
   simulateMockUpdate?: () => void;
+  /** DEV-only: persist the stub locale and reload to prove catalog switching. */
+  toggleStubLocale?: () => void;
 }
 
 export type AppMenuBarId = "file" | "edit" | "view" | "developer";
@@ -207,7 +210,9 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
 
   if (
     import.meta.env.DEV &&
-    (handlers.toggleToastLab || handlers.simulateMockUpdate)
+    (handlers.toggleToastLab ||
+      handlers.simulateMockUpdate ||
+      handlers.toggleStubLocale)
   ) {
     const developerItems = [];
     if (handlers.toggleToastLab) {
@@ -226,6 +231,15 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
           id: "simulate-update",
           text: "Simulate Update…",
           action: handlers.simulateMockUpdate,
+        }),
+      );
+    }
+    if (handlers.toggleStubLocale) {
+      developerItems.push(
+        await MenuItem.new({
+          id: "toggle-stub-locale",
+          text: stubLocaleMenuLabel(),
+          action: handlers.toggleStubLocale,
         }),
       );
     }

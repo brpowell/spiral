@@ -1,4 +1,5 @@
 import type { Track } from "../types/track";
+import { compareLocalized } from "./appLocale";
 
 function collectUniqueTrackStrings(
   tracks: Track[],
@@ -13,9 +14,7 @@ function collectUniqueTrackStrings(
     if (!byKey.has(key)) byKey.set(key, raw);
   }
 
-  return [...byKey.values()].sort((a, b) =>
-    a.localeCompare(b, undefined, { sensitivity: "base" }),
-  );
+  return [...byKey.values()].sort((a, b) => compareLocalized(a, b));
 }
 
 export function collectGenreSuggestions(tracks: Track[]): string[] {

@@ -11,7 +11,7 @@ Spiral stores user-facing copy in locale catalogs and references it by key. Do n
 
 - **React components / views:** `useTranslation()` (and `<Trans>` only when copy mixes markup/links).
 - **Non-React modules** (`src/lib/`, stores, menu setup): import `t` / `i18n` from `src/lib/i18n` — never `useTranslation` outside React.
-- **New strings:** add a stable key under `src/locales/en/<namespace>.json`, then call `t('namespace:key', opts)` (or the project’s agreed key shape).
+- **New strings:** add a stable key under `src/locales/en/<namespace>.json`, then call `t('namespace:key', opts)` (or the project’s agreed key shape). `t()` is typed from those JSON files (`TranslationKey`); use `tUnchecked` only for interpolated key paths. `npm run lint:i18n` (also part of `npm run lint`) rejects static keys missing from English catalogs.
 - **Keys:** descriptive and stable (e.g. `library.empty.tracks`), not the English sentence as the key.
 - **Plurals / interpolation:** use i18n plural forms and interpolation. Do not add new `count === 1 ? "…" : \`…${count}…\`` English branches for user-facing copy.
 - **Touched files:** when editing UI that still has hardcoded copy, extract the strings you change in the same PR (boy scout). Do not require extracting an entire feature.
@@ -22,7 +22,7 @@ Spiral stores user-facing copy in locale catalogs and references it by key. Do n
 - Put pack/skin **author** content (manifest tooltips, pack README) into app catalogs.
 - Localize activity-log / developer log messages that are not shown as UI chrome (user-facing toasts still use i18n).
 - Put **DEV-only / developer tooling** copy into locale catalogs. Hardcode English instead when the string is only reachable under `import.meta.env.DEV` (Developer menu items, Toast Lab chrome, Simulate Update labels/banners, other debug UX). Production user-facing paths still use i18n.
-- Block unrelated features on finishing a full-app string port (Phases 3+ are opportunistic; see the investigation doc).
+- Block unrelated features on finishing leftover inline-English extracts (boy-scout on touch; see the investigation doc).
 
 ## References
 

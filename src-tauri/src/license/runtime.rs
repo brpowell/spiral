@@ -39,7 +39,8 @@ pub struct LicenseSnapshot {
     pub issued_at: Option<String>,
     pub expires_at: Option<String>,
     pub cosmetic: Option<Cosmetic>,
-    /// Clear error when grant is missing/invalid; never crashes the app.
+    /// Catalog code (`license.installed.*`) when the card is missing/invalid.
+    /// Frontend maps via `errors:*`; never English display copy.
     pub error: Option<String>,
 }
 
@@ -61,12 +62,13 @@ impl LicenseSnapshot {
 
     fn from_card(card: &Spcard, now: DateTime<Utc>) -> Self {
         let Some(grant) = spiral_grant(card) else {
-            return Self::trial(
-                true,
-                Some(format!(
-                    "invalid_spcard: no grant for productId {PRODUCT_ID_SPIRAL}"
-                )),
+            crate::activity_log::log(
+                crate::activity_log::LogLevel::Error,
+                "license.registration",
+                format!("invalid_spcard: no grant for productId {PRODUCT_ID_SPIRAL}"),
+                Some(serde_json::json!({ "productId": PRODUCT_ID_SPIRAL })),
             );
+            return Self::trial(true, Some("license.installed.invalid".into()));
         };
         Self {
             status: derive_license_status(grant, now),
@@ -116,31 +118,25 @@ fn format_license_error(err: &LicenseError) -> String {
     format!("{}: {}", err.code, err.message)
 }
 
-/// User-facing copy for card load / install failures (never raw `code: message`).
-fn user_facing_card_error(err: &LicenseError, installing: bool) -> String {
-    let subject = if installing {
-        "This Spiral Card"
-    } else {
-        "Your installed Spiral Card"
-    };
-    match err.code {
-        "unknown_field" if err.message.contains("entitlement") => format!(
-            "{subject} uses an older format and can't be read. Add a newly minted card to continue."
-        ),
-        "unknown_field" | "unsupported_manifest_version" => format!(
-            "{subject} isn't recognized by this version of Spiral. Add a new card to continue."
-        ),
-        "invalid_signature" => {
-            format!("{subject} couldn't be verified. Try adding it again, or contact support.")
-        }
-        "unsupported_sku" | "unsupported_channel" => format!(
-            "{subject} isn't supported by this version of Spiral. Add a new card to continue."
-        ),
+/// Frontend catalog key for card load / install failures (never English copy).
+/// Logs keep `format_license_error`; the UI maps these codes via `errors:*`.
+fn user_facing_card_error_code(err: &LicenseError, installing: bool) -> String {
+    let kind = match err.code {
+        "unknown_field" if err.message.contains("entitlement") => "legacy_format",
+        "unknown_field" | "unsupported_manifest_version" => "unrecognized",
+        "invalid_signature" => "unverified",
+        "unsupported_sku" | "unsupported_channel" => "unsupported",
         "invalid_json" | "invalid_spcard" | "invalid_grant" | "missing_manifest_version" => {
-            format!("{subject} doesn't look valid. Check the file and try again.")
+            "invalid"
         }
-        _ => format!("{subject} couldn't be read. Try adding it again, or contact support."),
-    }
+        _ => "unreadable",
+    };
+    let scope = if installing {
+        "license.installing"
+    } else {
+        "license.installed"
+    };
+    format!("{scope}.{kind}")
 }
 
 fn log_card_error(err: &LicenseError, action: &str) {
@@ -175,10 +171,7 @@ pub(crate) fn load_license_snapshot_at(path: &Path, now: DateTime<Utc>) -> Licen
                 format!("Could not read registration card — {e}"),
                 None,
             );
-            return LicenseSnapshot::trial(
-                true,
-                Some("Your installed Spiral Card couldn't be read. Try adding it again.".into()),
-            );
+            return LicenseSnapshot::trial(true, Some("license.installed.unreadable".into()));
         }
     };
 
@@ -186,7 +179,7 @@ pub(crate) fn load_license_snapshot_at(path: &Path, now: DateTime<Utc>) -> Licen
         Ok(card) => LicenseSnapshot::from_card(&card, now),
         Err(e) => {
             log_card_error(&e, "Installed Spiral Card failed verification");
-            LicenseSnapshot::trial(true, Some(user_facing_card_error(&e, false)))
+            LicenseSnapshot::trial(true, Some(user_facing_card_error_code(&e, false)))
         }
     }
 }
@@ -198,7 +191,7 @@ pub fn install_registration_card(
 ) -> Result<LicenseSnapshot, String> {
     let source = Path::new(source_path);
     if !source.is_file() {
-        return Err("That Spiral Card file couldn't be found.".into());
+        return Err("license.installing.not_found".into());
     }
 
     let json = fs::read_to_string(source).map_err(|e| {
@@ -208,14 +201,14 @@ pub fn install_registration_card(
             format!("Failed to read Spiral Card for install — {e}"),
             Some(serde_json::json!({ "path": source_path })),
         );
-        "Couldn't read that Spiral Card file. Try again.".to_string()
+        "license.installing.unreadable".to_string()
     })?;
 
     let card = match parse_and_verify_poc(&json) {
         Ok(card) => card,
         Err(e) => {
             log_card_error(&e, "Spiral Card install rejected");
-            return Err(user_facing_card_error(&e, true));
+            return Err(user_facing_card_error_code(&e, true));
         }
     };
     let dest = registration_spcard_path(app)?;
@@ -402,8 +395,8 @@ fn write_registration_card_atomic(dest: &Path, card: &Spcard) -> Result<(), Stri
 mod tests {
     use super::*;
     use crate::license::{
-        mint_grant, mint_spcard, signing_key_from_bytes, Cosmetic, LicenseChannel, LicenseSku,
-        PRODUCT_ID_SPIRAL,
+        mint_grant, mint_spcard, signing_key_from_bytes, Cosmetic, LicenseChannel, LicenseError,
+        LicenseSku, PRODUCT_ID_SPIRAL,
     };
     use std::time::Duration;
 
@@ -507,8 +500,7 @@ mod tests {
         assert_eq!(snap.status, LicenseStatus::Trial);
         assert!(snap.installed);
         let err = snap.error.as_ref().unwrap();
-        assert!(!err.contains("invalid_signature"));
-        assert!(err.contains("couldn't be verified"));
+        assert_eq!(err, "license.installed.unverified");
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -539,9 +531,32 @@ mod tests {
         assert_eq!(snap.status, LicenseStatus::Trial);
         assert!(snap.installed);
         let err = snap.error.as_ref().unwrap();
-        assert!(!err.contains("unknown_field"));
-        assert!(err.contains("older format"));
+        assert_eq!(err, "license.installed.legacy_format");
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn card_error_codes_are_stable_catalog_keys() {
+        let unverified = LicenseError {
+            code: "invalid_signature",
+            message: "bad sig".into(),
+        };
+        assert_eq!(
+            user_facing_card_error_code(&unverified, false),
+            "license.installed.unverified"
+        );
+        assert_eq!(
+            user_facing_card_error_code(&unverified, true),
+            "license.installing.unverified"
+        );
+        let legacy = LicenseError {
+            code: "unknown_field",
+            message: "unknown field entitlement".into(),
+        };
+        assert_eq!(
+            user_facing_card_error_code(&legacy, false),
+            "license.installed.legacy_format"
+        );
     }
 
     #[test]

@@ -1,0 +1,10 @@
+{
+  "bar": {
+    "file": "Datei",
+    "edit": "Bearbeiten",
+    "view": "Ansicht"
+  },
+  "app": {
+    "name": "Spiral"
+  }
+}

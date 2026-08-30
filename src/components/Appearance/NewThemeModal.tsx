@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { compareLocalized } from "../../lib/appLocale";
 import { listPacks } from "../../lib/tauri";
 import { isAuthoringPackZone, type PackSummary } from "../../types/pack";
 import { Button } from "../common/Button/Button";
@@ -63,7 +64,7 @@ export function NewThemeModal({
         if (cancelled) return;
         const authoring = packs
           .filter((p) => isAuthoringPackZone(p.zone))
-          .sort((a, b) => a.name.localeCompare(b.name));
+          .sort((a, b) => compareLocalized(a.name, b.name));
         setAuthoringPacks(authoring);
       })
       .catch(() => {

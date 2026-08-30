@@ -6,7 +6,7 @@ import {
   ratioToGainDb,
 } from "./equalizer/types";
 import { formatRemainingTime, formatTime } from "./format";
-import { t } from "./i18n";
+import { t, tUnchecked } from "./i18n";
 import {
   evaluateSkinBind,
   type SkinBindState,
@@ -81,14 +81,14 @@ function viewActionLabel(
   viewId: string | undefined,
   state: SkinBindState,
 ): string {
-  if (!viewId) return t(`playback:skinTooltips.${prefix}`);
+  if (!viewId) return tUnchecked(`playback:skinTooltips.${prefix}`);
   const open = evaluateSkinBind(`skin.view.${viewId}.open`, state);
   if (typeof open === "boolean") {
     return open
       ? t("playback:skinTooltips.closeNamed", { view: viewId })
       : t("playback:skinTooltips.openNamed", { view: viewId });
   }
-  return t(`playback:skinTooltips.${prefix}Named`, { view: viewId });
+  return tUnchecked(`playback:skinTooltips.${prefix}Named`, { view: viewId });
 }
 
 function defaultActionTooltip(

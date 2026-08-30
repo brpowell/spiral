@@ -1,3 +1,4 @@
+import { compareLocalized } from "./appLocale";
 import { normalizeArtistName, parseArtistField } from "./artistNames";
 import { t } from "./i18n";
 import type { Album } from "../types/album";
@@ -24,9 +25,7 @@ export const ARTIST_BROWSE_MODES: {
 ];
 
 function sortTracksForArtist(a: Track, b: Track): number {
-  const albumCmp = (a.album ?? "").localeCompare(b.album ?? "", undefined, {
-    sensitivity: "base",
-  });
+  const albumCmp = compareLocalized(a.album ?? "", b.album ?? "");
   if (albumCmp !== 0) return albumCmp;
   const discA = a.discNumber ?? 1;
   const discB = b.discNumber ?? 1;
@@ -34,7 +33,7 @@ function sortTracksForArtist(a: Track, b: Track): number {
   const numA = a.trackNumber ?? Number.MAX_SAFE_INTEGER;
   const numB = b.trackNumber ?? Number.MAX_SAFE_INTEGER;
   if (numA !== numB) return numA - numB;
-  return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+  return compareLocalized(a.title, b.title);
 }
 
 /** Album-artist identity (matches album grouping). */
@@ -121,13 +120,15 @@ function buildArtistGroups(
     });
   }
 
-  return artists.sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-  );
+  return artists.sort((a, b) => compareLocalized(a.name, b.name));
 }
 
 function groupTracksByAlbumArtist(tracks: Track[]): Artist[] {
-  return buildArtistGroups(tracks, albumArtistKey, displayNameForAlbumArtistKey);
+  return buildArtistGroups(
+    tracks,
+    albumArtistKey,
+    displayNameForAlbumArtistKey,
+  );
 }
 
 function groupTracksIntoPerformers(tracks: Track[]): Artist[] {

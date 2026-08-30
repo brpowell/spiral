@@ -1,4 +1,5 @@
 import type { Album } from "../types/album";
+import { compareLocalized } from "./appLocale";
 
 export interface DiscographyYearGroup {
   year: number | null;
@@ -6,7 +7,9 @@ export interface DiscographyYearGroup {
   albums: Album[];
 }
 
-export function groupAlbumsForTimeline(albums: Album[]): DiscographyYearGroup[] {
+export function groupAlbumsForTimeline(
+  albums: Album[],
+): DiscographyYearGroup[] {
   const byYear = new Map<number | null, Album[]>();
 
   for (const album of albums) {
@@ -23,9 +26,7 @@ export function groupAlbumsForTimeline(albums: Album[]): DiscographyYearGroup[] 
 
   for (const year of knownYears) {
     const yearAlbums = byYear.get(year) ?? [];
-    yearAlbums.sort((a, b) =>
-      a.title.localeCompare(b.title, undefined, { sensitivity: "base" }),
-    );
+    yearAlbums.sort((a, b) => compareLocalized(a.title, b.title));
     groups.push({
       year,
       label: String(year),
@@ -35,9 +36,7 @@ export function groupAlbumsForTimeline(albums: Album[]): DiscographyYearGroup[] 
 
   const unknown = byYear.get(null);
   if (unknown?.length) {
-    unknown.sort((a, b) =>
-      a.title.localeCompare(b.title, undefined, { sensitivity: "base" }),
-    );
+    unknown.sort((a, b) => compareLocalized(a.title, b.title));
     groups.push({
       year: null,
       label: "—",

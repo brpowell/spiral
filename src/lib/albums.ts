@@ -1,6 +1,7 @@
 import type { Album } from "../types/album";
 import type { CdDisc } from "../types/cd";
 import type { Track } from "../types/track";
+import { compareLocalized } from "./appLocale";
 import { t } from "./i18n";
 
 export function albumKey(track: Track): string {
@@ -21,7 +22,7 @@ function compareTracks(a: Track, b: Track): number {
   const numB = b.trackNumber ?? Number.MAX_SAFE_INTEGER;
   if (numA !== numB) return numA - numB;
 
-  return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+  return compareLocalized(a.title, b.title);
 }
 
 export function pickArtPath(tracks: Track[]): string | null {
@@ -32,7 +33,9 @@ export function pickArtPath(tracks: Track[]): string | null {
 }
 
 function displayArtist(tracks: Track[]): string {
-  const albumArtist = tracks.find((t) => t.albumArtist?.trim())?.albumArtist?.trim();
+  const albumArtist = tracks
+    .find((t) => t.albumArtist?.trim())
+    ?.albumArtist?.trim();
   if (albumArtist) return albumArtist;
 
   const artist = tracks.find((t) => t.artist?.trim())?.artist?.trim();
@@ -72,9 +75,7 @@ export function groupTracksIntoAlbums(tracks: Track[]): Album[] {
     });
   }
 
-  return albums.sort((a, b) =>
-    a.title.localeCompare(b.title, undefined, { sensitivity: "base" }),
-  );
+  return albums.sort((a, b) => compareLocalized(a.title, b.title));
 }
 
 export function albumTotalDurationSeconds(tracks: Track[]): number {
@@ -107,7 +108,7 @@ export function getAlbumByKey(albums: Album[], key: string): Album | undefined {
 }
 
 function titlesEqual(a: string, b: string): boolean {
-  return a.localeCompare(b, undefined, { sensitivity: "base" }) === 0;
+  return compareLocalized(a, b) === 0;
 }
 
 function discArtistForMatch(disc: CdDisc): string | null {
@@ -206,7 +207,8 @@ export function albumImportMetadata(album: Album): AlbumImportMetadata {
     albumArtist: rep?.albumArtist?.trim() ?? null,
     defaultTrackArtist: rep?.artist?.trim() ?? null,
     year: album.year,
-    genre: album.tracks.find((track) => track.genre?.trim())?.genre?.trim() ?? null,
+    genre:
+      album.tracks.find((track) => track.genre?.trim())?.genre?.trim() ?? null,
     artPath: album.artPath,
   };
 }

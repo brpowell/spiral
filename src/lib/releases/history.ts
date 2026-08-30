@@ -1,3 +1,4 @@
+import { getIntlLocale } from "../appLocale";
 import type { AvailableUpdateInfo } from "../updater";
 
 export const RELEASES_HISTORY_URL = "https://spiralpowered.com/api/releases";
@@ -133,12 +134,11 @@ export function formatReleaseDate(iso: string, nowMs = Date.now()): string {
   if (Number.isNaN(date.getTime())) return "";
   const diffDays = Math.round((date.getTime() - nowMs) / DAY_MS);
   if (Math.abs(diffDays) < 7) {
-    return new Intl.RelativeTimeFormat(undefined, { numeric: "auto" }).format(
-      diffDays,
-      "day",
-    );
+    return new Intl.RelativeTimeFormat(getIntlLocale(), {
+      numeric: "auto",
+    }).format(diffDays, "day");
   }
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(getIntlLocale(), {
     year: "numeric",
     month: "short",
     day: "numeric",

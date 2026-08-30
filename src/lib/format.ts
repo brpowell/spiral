@@ -1,3 +1,5 @@
+import { getIntlLocale } from "./appLocale";
+
 export function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
   const m = Math.floor(seconds / 60);
@@ -26,10 +28,13 @@ export function formatRemainingTime(
   return `-${formatTime(remaining)}`;
 }
 
-export function formatDateAdded(iso: string): string {
+export function formatDateAdded(
+  iso: string,
+  locale: string = getIntlLocale(),
+): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString(locale, {
     year: "numeric",
     month: "short",
     day: "numeric",

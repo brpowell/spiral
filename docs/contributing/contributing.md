@@ -5,7 +5,8 @@
 Frontend TypeScript/React is checked with [ESLint](https://eslint.org/) and formatted with [Prettier](https://prettier.io/). Rust (`src-tauri`) is formatted with [rustfmt](https://github.com/rust-lang/rustfmt) (`edition = "2021"` in `src-tauri/rustfmt.toml`).
 
 ```bash
-npm run lint              # ESLint (CI + local)
+npm run lint              # ESLint + i18n missing-key check (CI + local)
+npm run lint:i18n         # Catalog key check only (`t("ns:key")` vs `src/locales/en`)
 npm run lint:fix          # ESLint with autofix
 npm run format            # Prettier write
 npm run format:check      # Prettier check (not required in CI yet)
@@ -23,7 +24,10 @@ User-facing copy belongs in `src/locales/en/` and is referenced via `t` / `useTr
 
 - Follow [`.cursor/rules/i18n-ui-strings.mdc`](../.cursor/rules/i18n-ui-strings.mdc) for all **new and touched** UI strings.
 - React: `useTranslation()` / `<Trans>`. Non-React (`src/lib/`, menus, toasts): `t` / `i18n` from `src/lib/i18n`.
-- Untouched screens may still have inline English until a Phase 3+ sweep or boy-scout extract on touch.
+- `t()` is typed from the English JSON catalogs (`TranslationKey` in `src/lib/i18nKeys.ts`). Use `tUnchecked` only for interpolated key paths.
+- `npm run lint:i18n` (also part of `npm run lint`) fails when a static `t("ns:key")` is missing from `src/locales/en`.
+- Date/sort helpers use the app locale (`getIntlLocale` / `compareLocalized`). A German stub catalog (`src/locales/de`) plus Developer → Language proves switching; it is not a product locale.
+- Untouched screens may still have inline English until a boy-scout extract on touch.
 - **Plan / cutoff / backlog:** [`docs/impl/i18n-impl.md`](../impl/i18n-impl.md).
 
 Exceptions: pack/skin author content, non-UI activity-log internals, and Rust log strings (unless shown as UI).

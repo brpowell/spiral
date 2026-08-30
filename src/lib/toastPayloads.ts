@@ -1,4 +1,5 @@
-import { t } from "./i18n";
+import { t, type TranslationKey } from "./i18n";
+import { translateUserError } from "./userError";
 import { isMissingFileErrorDetail } from "./missingFileTrack";
 import { lyricsAmbiguousSettleOptions } from "./lyricsFetchToastSettle";
 import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
@@ -20,7 +21,7 @@ function withOptionalDismiss(
   return { ...payload, dismissMs };
 }
 
-function labelFromError(err: unknown, fallbackKey: string): string {
+function labelFromError(err: unknown, fallbackKey: TranslationKey): string {
   if (typeof err === "string" && err.trim()) return err;
   if (err instanceof Error && err.message.trim()) return err.message;
   return t(fallbackKey);
@@ -309,7 +310,7 @@ export function spiralCardInstallErrorPayload(
   return withOptionalDismiss(
     {
       key: "spiral-card-install",
-      label: labelFromError(err, "toasts:spiralCard.installFailed"),
+      label: translateUserError(err) ?? t("toasts:spiralCard.installFailed"),
     },
     options?.dismissMs,
   );

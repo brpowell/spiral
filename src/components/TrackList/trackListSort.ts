@@ -1,4 +1,5 @@
 import type { Track } from "../../types/track";
+import { compareLocalized } from "../../lib/appLocale";
 import { lyricsFormatSortRank } from "../../lib/lyrics";
 import type { TrackListSortDir, TrackListSortField } from "./types";
 
@@ -12,17 +13,13 @@ export function compareTracks(
 
   switch (field) {
     case "title":
-      cmp = a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+      cmp = compareLocalized(a.title, b.title);
       break;
     case "artist":
-      cmp = (a.artist ?? "").localeCompare(b.artist ?? "", undefined, {
-        sensitivity: "base",
-      });
+      cmp = compareLocalized(a.artist ?? "", b.artist ?? "");
       break;
     case "album":
-      cmp = (a.album ?? "").localeCompare(b.album ?? "", undefined, {
-        sensitivity: "base",
-      });
+      cmp = compareLocalized(a.album ?? "", b.album ?? "");
       break;
     case "trackNumber": {
       const numA = a.trackNumber ?? Number.MAX_SAFE_INTEGER;
@@ -37,9 +34,7 @@ export function compareTracks(
       cmp = (a.year ?? 0) - (b.year ?? 0);
       break;
     case "genre":
-      cmp = (a.genre ?? "").localeCompare(b.genre ?? "", undefined, {
-        sensitivity: "base",
-      });
+      cmp = compareLocalized(a.genre ?? "", b.genre ?? "");
       break;
     case "dateAdded":
       cmp = a.dateAdded.localeCompare(b.dateAdded);
@@ -69,9 +64,7 @@ export function compareTracks(
       break;
     }
     case "codec":
-      cmp = (a.codec ?? "").localeCompare(b.codec ?? "", undefined, {
-        sensitivity: "base",
-      });
+      cmp = compareLocalized(a.codec ?? "", b.codec ?? "");
       break;
     case "sampleRate":
       cmp = (a.sampleRate ?? 0) - (b.sampleRate ?? 0);

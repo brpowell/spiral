@@ -24,6 +24,7 @@ export interface LicenseSnapshot {
   issuedAt: string | null;
   expiresAt: string | null;
   cosmetic: LicenseCosmetic | null;
+  /** Catalog code (`license.installed.*`) when the card is invalid. */
   error: string | null;
 }
 

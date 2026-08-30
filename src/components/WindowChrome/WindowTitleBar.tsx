@@ -24,6 +24,7 @@ import {
   type AppMenuHandlers,
 } from "../../lib/appMenu";
 import { LINKED_PACKS_CHANGED_EVENT } from "../../lib/appearanceWindow";
+import { stubLocaleMenuLabel } from "../../lib/appLocale";
 import { t } from "../../lib/i18n";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import "./WindowTitleBar.css";
@@ -247,7 +248,9 @@ export function WindowTitleBar({
   } else if (
     handlers &&
     activeMenu === "developer" &&
-    (handlers.toggleToastLab || handlers.simulateMockUpdate)
+    (handlers.toggleToastLab ||
+      handlers.simulateMockUpdate ||
+      handlers.toggleStubLocale)
   ) {
     menuContent = (
       <>
@@ -261,6 +264,12 @@ export function WindowTitleBar({
           <ContextMenuItem
             label="Simulate Update…"
             onClick={run(handlers.simulateMockUpdate)}
+          />
+        ) : null}
+        {handlers.toggleStubLocale ? (
+          <ContextMenuItem
+            label={stubLocaleMenuLabel()}
+            onClick={run(handlers.toggleStubLocale)}
           />
         ) : null}
       </>

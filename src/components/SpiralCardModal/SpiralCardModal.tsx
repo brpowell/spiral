@@ -7,6 +7,7 @@ import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { usePointerTiltArt } from "../../hooks/usePointerTiltArt";
 import { copyTextToClipboard } from "../../lib/clipboard";
 import { formatDateAdded } from "../../lib/format";
+import { translateUserError } from "../../lib/userError";
 import { isNetworkLikelyAvailable } from "../../lib/network";
 import {
   classifySpiralCardWrapError,
@@ -491,7 +492,8 @@ export function SpiralCardModal() {
             </p>
             {snapshot.error && (
               <p className="spiral-card-modal__error" role="alert">
-                {snapshot.error}
+                {translateUserError(snapshot.error) ??
+                  t("errors:license.generic")}
               </p>
             )}
             {error && (

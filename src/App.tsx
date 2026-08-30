@@ -28,6 +28,7 @@ import { useStartupCrashReport } from "./hooks/useStartupCrashReport";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useArtistImageStore } from "./store/useArtistImageStore";
 import { setupAppMenu, type AppMenuHandlers } from "./lib/appMenu";
+import { toggleStubLocaleAndReload } from "./lib/appLocale";
 import { t } from "./lib/i18n";
 import { fetchMissingLyrics } from "./lib/fetchMissingLyrics";
 import { refreshLibraryMetadata } from "./lib/refreshLibraryMetadata";
@@ -145,6 +146,9 @@ function App() {
           },
           simulateMockUpdate: () => {
             useUpdaterStore.getState().simulateMockUpdate();
+          },
+          toggleStubLocale: () => {
+            toggleStubLocaleAndReload();
           },
         }
       : {}),

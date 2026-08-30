@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { compareLocalized } from "../lib/appLocale";
 import {
   applyTheme,
   DEFAULT_THEME_ID,
@@ -27,10 +28,7 @@ interface ThemeState {
   activeThemeId: string;
   themesLoaded: boolean;
   loadThemes: (options?: { transition?: boolean }) => Promise<void>;
-  initializeFromBootstrap: (
-    themes: Theme[],
-    activeThemeId: string,
-  ) => void;
+  initializeFromBootstrap: (themes: Theme[], activeThemeId: string) => void;
   setTheme: (themeId: string) => Promise<void>;
   createTheme: (args?: {
     name?: string;
@@ -63,7 +61,7 @@ function applyActiveTheme(
 function upsertTheme(themes: Theme[], theme: Theme): Theme[] {
   const next = themes.filter((t) => t.id !== theme.id);
   next.push(theme);
-  next.sort((a, b) => a.name.localeCompare(b.name));
+  next.sort((a, b) => compareLocalized(a.name, b.name));
   return next;
 }
 
@@ -84,11 +82,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
       getActiveThemeId(),
     ]);
     const themes = [...builtin, ...user];
-    const resolvedId = applyActiveTheme(
-      themes,
-      storedActiveThemeId,
-      options,
-    );
+    const resolvedId = applyActiveTheme(themes, storedActiveThemeId, options);
     set({ themes, activeThemeId: resolvedId, themesLoaded: true });
 
     if (resolvedId !== storedActiveThemeId) {

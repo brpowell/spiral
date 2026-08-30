@@ -1,5 +1,6 @@
 import type { Playlist } from "../types/playlist";
 import type { Track } from "../types/track";
+import { compareLocalized } from "./appLocale";
 
 export const RECENT_PLAYLISTS_LIMIT = 5;
 
@@ -26,9 +27,7 @@ export function recentPlaylists(
 }
 
 export function sortedPlaylists(playlists: Playlist[]): Playlist[] {
-  return [...playlists].sort((a, b) =>
-    a.title.localeCompare(b.title, undefined, { sensitivity: "base" }),
-  );
+  return [...playlists].sort((a, b) => compareLocalized(a.title, b.title));
 }
 
 export function getPlaylistById(

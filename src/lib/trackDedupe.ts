@@ -1,4 +1,5 @@
 import type { Track, TrackInput } from "../types/track";
+import { compareLocalized } from "./appLocale";
 import { t } from "./i18n";
 
 export type ImportDedupeAction = "skip" | "replace" | "import";
@@ -42,14 +43,10 @@ function normalizeText(value: string): string {
 }
 
 function textsEqual(a: string, b: string): boolean {
-  return (
-    a.localeCompare(b, undefined, { sensitivity: "base" }) === 0
-  );
+  return compareLocalized(a, b) === 0;
 }
 
-function trackDedupeFields(
-  track: TrackInput | Track,
-): TrackDedupeFields {
+function trackDedupeFields(track: TrackInput | Track): TrackDedupeFields {
   return {
     albumArtist:
       track.albumArtist?.trim() ||
@@ -63,10 +60,7 @@ function trackDedupeFields(
   };
 }
 
-function durationsCompatible(
-  a: number | null,
-  b: number | null,
-): boolean {
+function durationsCompatible(a: number | null, b: number | null): boolean {
   if (a == null || b == null) return true;
   return Math.abs(a - b) <= DURATION_TOLERANCE_SECONDS;
 }
