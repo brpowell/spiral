@@ -115,6 +115,7 @@ const KNOWN_BINDS: &[&str] = &[
 ];
 
 const BUILTIN_SKIN_PREF_IDS: &[&str] = &["soundEffectsEnabled"];
+const RESERVED_STATE_VARIABLE_IDS: &[&str] = &["setVariable", "applyEvent"];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -1241,8 +1242,6 @@ fn is_known_input_bind(path: &str) -> bool {
     };
     !id.is_empty() && !id.contains('.') && matches!(prop, "value" | "empty")
 }
-
-const RESERVED_STATE_VARIABLE_IDS: &[&str] = &["setVariable", "applyEvent"];
 
 fn is_known_state_bind(path: &str) -> bool {
     let Some(rest) = path.strip_prefix("state.") else {
