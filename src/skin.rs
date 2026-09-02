@@ -51,9 +51,8 @@ const KNOWN_ACTIONS: &[&str] = &[
     "app.quit",
     "app.openUrl",
     "app.openFile",
-    "view.setScreen",
-    "view.setVariable",
-    "view.applyStateEvent",
+    "state.setVariable",
+    "state.applyEvent",
     "slideshow.setDeck",
     "slideshow.prev",
     "slideshow.next",
@@ -175,12 +174,7 @@ pub enum SkinCondition {
 }
 
 impl SkinCondition {
-    fn validate_leaves(
-        &self,
-        field: &str,
-        ctx: &SkinValidationCtx<'_>,
-        errors: &mut Vec<String>,
-    ) {
+    fn validate_leaves(&self, field: &str, ctx: &SkinValidationCtx<'_>, errors: &mut Vec<String>) {
         match self {
             SkinCondition::Bool(_) => {}
             SkinCondition::Leaf(path) => {
@@ -234,11 +228,8 @@ impl<T> OverlayWhen<T> {
             }
             OverlayWhen::List(rows) => {
                 for (index, row) in rows.iter().enumerate() {
-                    row.when.validate_leaves(
-                        &format!("{field}[{index}].when"),
-                        ctx,
-                        errors,
-                    );
+                    row.when
+                        .validate_leaves(&format!("{field}[{index}].when"), ctx, errors);
                     validate_overlay(&row.overlay, &format!("{field}[{index}]"), errors);
                 }
             }
@@ -1222,7 +1213,7 @@ fn validate_bind(
                 return;
             }
         }
-        if is_known_view_bind(p)
+        if is_known_state_bind(p)
             || is_known_slideshow_bind(p)
             || is_known_scroll_strip_bind(p)
             || is_known_hover_bind(p)
@@ -1251,13 +1242,17 @@ fn is_known_input_bind(path: &str) -> bool {
     !id.is_empty() && !id.contains('.') && matches!(prop, "value" | "empty")
 }
 
-fn is_known_view_bind(path: &str) -> bool {
-    let Some(rest) = path.strip_prefix("view.") else {
+const RESERVED_STATE_VARIABLE_IDS: &[&str] = &["setVariable", "applyEvent"];
+
+fn is_known_state_bind(path: &str) -> bool {
+    let Some(rest) = path.strip_prefix("state.") else {
         return false;
     };
     let parts: Vec<&str> = rest.split('.').collect();
     match parts.as_slice() {
+        [var] if RESERVED_STATE_VARIABLE_IDS.contains(var) => false,
         [var] => !var.is_empty(),
+        [var, _] if RESERVED_STATE_VARIABLE_IDS.contains(var) => false,
         [var, screen] if *var == "screen" => matches!(*screen, "menu" | "content"),
         [var, phase] if !var.is_empty() && !phase.is_empty() => *var != "screen",
         _ => false,
@@ -1361,7 +1356,12 @@ fn validate_interactive_assets_when(
     errors: &mut Vec<String>,
 ) {
     for (bind, assets) in assets_when {
-        validate_bind(Some(bind.as_str()), &format!("{label}.assetsWhen"), ctx, errors);
+        validate_bind(
+            Some(bind.as_str()),
+            &format!("{label}.assetsWhen"),
+            ctx,
+            errors,
+        );
         validate_interactive_assets(
             assets,
             pack_dir,
@@ -1848,9 +1848,7 @@ fn view_layout_style_when(layout: &ViewLayout) -> Option<&OverlayWhen<NodeStyle>
     }
 }
 
-fn view_layout_transition_when(
-    layout: &ViewLayout,
-) -> Option<&OverlayWhen<LayoutTransition>> {
+fn view_layout_transition_when(layout: &ViewLayout) -> Option<&OverlayWhen<LayoutTransition>> {
     match layout {
         ViewLayout::Canvas(f) => f.transition_when.as_ref(),
         ViewLayout::Row(f) | ViewLayout::Column(f) => f.transition_when.as_ref(),
@@ -1927,9 +1925,7 @@ fn layout_node_style_when(node: &LayoutNode) -> Option<&OverlayWhen<NodeStyle>> 
     }
 }
 
-fn layout_node_bounds_when(
-    node: &LayoutNode,
-) -> Option<&OverlayWhen<LayoutBoundsOverride>> {
+fn layout_node_bounds_when(node: &LayoutNode) -> Option<&OverlayWhen<LayoutBoundsOverride>> {
     match node {
         LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
             f.bounds_when.as_ref()
@@ -1947,15 +1943,11 @@ fn layout_node_bounds_when(
         LayoutNode::Text(f) => f.bounds_when.as_ref(),
         LayoutNode::Input(f) => f.bounds_when.as_ref(),
         LayoutNode::Playlist(f) => f.bounds_when.as_ref(),
-        LayoutNode::TiledFrame(_) | LayoutNode::Slideshow(_) | LayoutNode::ScrollStrip(_) => {
-            None
-        }
+        LayoutNode::TiledFrame(_) | LayoutNode::Slideshow(_) | LayoutNode::ScrollStrip(_) => None,
     }
 }
 
-fn layout_node_transition_when(
-    node: &LayoutNode,
-) -> Option<&OverlayWhen<LayoutTransition>> {
+fn layout_node_transition_when(node: &LayoutNode) -> Option<&OverlayWhen<LayoutTransition>> {
     match node {
         LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
             f.transition_when.as_ref()
@@ -2009,9 +2001,14 @@ fn validate_transition_when(
     let Some(when) = when else {
         return;
     };
-    when.validate("transitionWhen", ctx, errors, |transition, field, errors| {
-        validate_layout_transition(Some(transition), field, errors);
-    });
+    when.validate(
+        "transitionWhen",
+        ctx,
+        errors,
+        |transition, field, errors| {
+            validate_layout_transition(Some(transition), field, errors);
+        },
+    );
 }
 
 fn validate_bounds_when(
@@ -2433,7 +2430,10 @@ fn is_valid_skin_setting_id(id: &str) -> bool {
     }
 }
 
-fn validate_settings(settings: Option<&[SkinSetting]>, errors: &mut Vec<String>) -> HashSet<String> {
+fn validate_settings(
+    settings: Option<&[SkinSetting]>,
+    errors: &mut Vec<String>,
+) -> HashSet<String> {
     let mut declared = HashSet::new();
     let Some(settings) = settings else {
         return declared;
@@ -2563,6 +2563,13 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
         }
         validate_click_effects(view.on_activate.as_deref(), &ctx, &mut errors);
         if let Some(state) = &view.state {
+            for name in state.keys() {
+                if RESERVED_STATE_VARIABLE_IDS.contains(&name.as_str()) {
+                    errors.push(format!(
+                        "views.{view_name}.state.{name} collides with a state action id"
+                    ));
+                }
+            }
             for spec in state.values() {
                 if let Some(on) = &spec.on {
                     for branches in on.values() {
@@ -3348,8 +3355,8 @@ mod tests {
                       "bounds":{"x":0,"y":0,"w":10,"h":10},
                       "style":{"opacity":0},
                       "styleWhen":[
-                        {"when":"view.galleryPhase.grid","opacity":0.71},
-                        {"when":{"all":["view.galleryPhase.grid","hover.thumb1"]},"opacity":1}
+                        {"when":"state.galleryPhase.grid","opacity":0.71},
+                        {"when":{"all":["state.galleryPhase.grid","hover.thumb1"]},"opacity":1}
                       ],
                       "presentation":{"kind":"primitive","variant":"plain"}
                     }]
@@ -3484,10 +3491,10 @@ mod tests {
                     "height":10,
                     "children":[{
                       "type":"button",
-                      "onClick":[{"action":"view.applyStateEvent"}],
+                      "onClick":[{"action":"state.applyEvent"}],
                       "soundWhen":{
-                        "view.shutter.intro":"open",
-                        "view.shutter.open":"close"
+                        "state.shutter.intro":"open",
+                        "state.shutter.open":"close"
                       },
                       "presentation":{
                         "kind":"bitmap",
@@ -3510,11 +3517,11 @@ mod tests {
         };
         let sound_when = button.sound_when.as_ref().expect("soundWhen dropped");
         assert_eq!(
-            sound_when.get("view.shutter.intro").map(String::as_str),
+            sound_when.get("state.shutter.intro").map(String::as_str),
             Some("open")
         );
         assert_eq!(
-            sound_when.get("view.shutter.open").map(String::as_str),
+            sound_when.get("state.shutter.open").map(String::as_str),
             Some("close")
         );
         let _ = std::fs::remove_dir_all(&dir);
@@ -3540,7 +3547,7 @@ mod tests {
                       "bounds":{"x":0,"y":0,"w":10,"h":10},
                       "children":[],
                       "onHoverLeave":[{
-                        "action":"view.applyStateEvent",
+                        "action":"state.applyEvent",
                         "payload":{"variable":"menuMode","event":"collapse"}
                       }]
                     }]
@@ -3561,7 +3568,7 @@ mod tests {
             .on_hover_leave
             .as_ref()
             .expect("onHoverLeave dropped");
-        assert_eq!(effects[0].action.as_deref(), Some("view.applyStateEvent"));
+        assert_eq!(effects[0].action.as_deref(), Some("state.applyEvent"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3971,7 +3978,7 @@ mod tests {
                     "children":[{
                       "type":"decoration",
                       "bounds":{"x":0,"y":0,"w":10,"h":10},
-                      "boundsWhen":{"view.eq.open":{"x":0}},
+                      "boundsWhen":{"state.eq.open":{"x":0}},
                       "transition":{"durationMs":120,"easing":"linear"},
                       "presentation":{"kind":"bitmap","assets":{"default":"x.png"}}
                     }]
@@ -4028,7 +4035,7 @@ mod tests {
                       "type":"subview",
                       "bounds":{"x":0,"y":0,"w":10,"h":10},
                       "transition":{"durationMs":400,"easing":"linear"},
-                      "transitionWhen":{"view.intro.showing":{"durationMs":0}},
+                      "transitionWhen":{"state.intro.showing":{"durationMs":0}},
                       "children":[]
                     }]
                   }
@@ -4047,7 +4054,7 @@ mod tests {
         let OverlayWhen::Map(when) = node.transition_when.as_ref().unwrap() else {
             panic!("expected transitionWhen map");
         };
-        assert_eq!(when["view.intro.showing"].duration_ms, 0);
+        assert_eq!(when["state.intro.showing"].duration_ms, 0);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -4075,6 +4082,59 @@ mod tests {
             err.contains("transitionWhen") && err.contains("nope.foo"),
             "unexpected error: {err}"
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_state_variable_named_like_an_action() {
+        let (dir, path) = write_skin_json(
+            "reserved-state-id",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "state":{
+                    "setVariable":{"default":"idle"}
+                  },
+                  "layout":{"type":"row","children":[]}
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("setVariable") && err.contains("state action"),
+            "unexpected error: {err}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_state_action_id_used_as_a_bind() {
+        let (dir, path) = write_skin_json(
+            "state-action-as-bind",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"row",
+                    "children":[{
+                      "type":"text",
+                      "value":"x",
+                      "visibleWhen":"state.setVariable"
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(err.contains("state.setVariable"), "unexpected error: {err}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

@@ -255,7 +255,7 @@
         "action": {
           "type": "string",
           "minLength": 1,
-          "description": "Existing skin action id (e.g. view.applyStateEvent)."
+          "description": "Existing skin action id (e.g. state.applyEvent)."
         },
         "payload": {
           "type": "object",
