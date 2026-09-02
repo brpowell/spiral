@@ -25,6 +25,7 @@ import {
   updateLinkedPackMetadataWithRefresh,
   updateWorkshopPackMetadataWithRefresh,
 } from "../../lib/packs/refreshPackStores";
+import type { ClearableSkinSetting } from "../../lib/packs/packSkinSettings";
 import { viewTransition } from "../../lib/motion";
 import { afterUiTransition } from "../../lib/scheduling";
 import { listPacks, openPathInFileManager } from "../../lib/tauri";
@@ -74,6 +75,7 @@ import {
   PackPreview,
   packKey,
 } from "./packDetailShared";
+import { UninstallPackDialog } from "./UninstallPackDialog";
 import "./AppearanceSection.css";
 import "./InstalledPacksSection.css";
 
@@ -454,7 +456,7 @@ export function InstalledPacksSection({
     }
   };
 
-  const handleUninstall = async () => {
+  const handleUninstall = async (clearSkinSettings: ClearableSkinSetting[]) => {
     if (!uninstallTarget) return;
     setBusy(true);
     try {
@@ -463,6 +465,7 @@ export function InstalledPacksSection({
         uninstallTarget.packId,
         uninstallTarget.version,
         uninstallTarget.name,
+        clearSkinSettings,
       );
       if (ok) {
         onSelectedKeyChange(null);
@@ -917,17 +920,11 @@ export function InstalledPacksSection({
         onSave={(result) => void handleSaveEdit(result)}
       />
 
-      <AlertConfirmation
-        open={uninstallTarget != null}
+      <UninstallPackDialog
+        pack={uninstallTarget}
         onClose={() => setUninstallTarget(null)}
-        title={t("catalog.uninstallConfirmTitle")}
-        confirmLabel={t("catalog.actionUninstall")}
         onConfirm={handleUninstall}
-      >
-        {t("catalog.uninstallConfirmBody", {
-          name: uninstallTarget?.name ?? "",
-        })}
-      </AlertConfirmation>
+      />
 
       <AlertConfirmation
         open={deleteTarget != null}

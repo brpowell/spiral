@@ -3,17 +3,17 @@ import {
   evaluateSkinBind,
   evaluateSkinCondition,
   isSkinControlEnabled,
+  isSkinVisible,
 } from "./skinBinds";
 import { minimalBindState } from "../test/skinBindFixtures";
-import {
-  evaluateSlideshowBind,
-  initSlideshowState,
-} from "./skinSlideshow";
-import {
-  initScrollStripState,
-} from "./skinScrollStrip";
+import { evaluateSlideshowBind, initSlideshowState } from "./skinSlideshow";
+import { initScrollStripState } from "./skinScrollStrip";
 import { evaluateViewBind } from "./skinViewStateContext";
-import type { ScrollStripPresentation, SlideshowPresentation } from "../types/skin";
+import type {
+  ScrollStripPresentation,
+  SkinSetting,
+  SlideshowPresentation,
+} from "../types/skin";
 
 const promoPresentation: SlideshowPresentation = {
   kind: "imageSequence",
@@ -57,22 +57,40 @@ describe("evaluateSkinBind view state integration", () => {
 describe("evaluateSlideshowBind", () => {
   const presentations = { "info-promo": promoPresentation };
   const state = {
-    ...initSlideshowState([{ id: "info-promo", presentation: promoPresentation }]),
+    ...initSlideshowState([
+      { id: "info-promo", presentation: promoPresentation },
+    ]),
     "info-promo": { deck: "story", page: 3 },
   };
 
   it("matches deck and page", () => {
     expect(
-      evaluateSlideshowBind("slideshow.info-promo.deck.story", presentations, state),
+      evaluateSlideshowBind(
+        "slideshow.info-promo.deck.story",
+        presentations,
+        state,
+      ),
     ).toBe(true);
     expect(
-      evaluateSlideshowBind("slideshow.info-promo.deck.trailer", presentations, state),
+      evaluateSlideshowBind(
+        "slideshow.info-promo.deck.trailer",
+        presentations,
+        state,
+      ),
     ).toBe(false);
     expect(
-      evaluateSlideshowBind("slideshow.info-promo.page.3", presentations, state),
+      evaluateSlideshowBind(
+        "slideshow.info-promo.page.3",
+        presentations,
+        state,
+      ),
     ).toBe(true);
     expect(
-      evaluateSlideshowBind("slideshow.info-promo.page.4", presentations, state),
+      evaluateSlideshowBind(
+        "slideshow.info-promo.page.4",
+        presentations,
+        state,
+      ),
     ).toBe(false);
     expect(
       evaluateSlideshowBind(
@@ -99,16 +117,32 @@ describe("evaluateSlideshowBind", () => {
 
   it("reports navigation guards", () => {
     expect(
-      evaluateSlideshowBind("slideshow.info-promo.canPrev", presentations, state),
+      evaluateSlideshowBind(
+        "slideshow.info-promo.canPrev",
+        presentations,
+        state,
+      ),
     ).toBe(true);
     expect(
-      evaluateSlideshowBind("slideshow.info-promo.canNext", presentations, state),
+      evaluateSlideshowBind(
+        "slideshow.info-promo.canNext",
+        presentations,
+        state,
+      ),
     ).toBe(true);
     expect(
-      evaluateSlideshowBind("slideshow.info-promo.atFirst", presentations, state),
+      evaluateSlideshowBind(
+        "slideshow.info-promo.atFirst",
+        presentations,
+        state,
+      ),
     ).toBe(false);
     expect(
-      evaluateSlideshowBind("slideshow.info-promo.atLast", presentations, state),
+      evaluateSlideshowBind(
+        "slideshow.info-promo.atLast",
+        presentations,
+        state,
+      ),
     ).toBe(false);
   });
 
@@ -147,9 +181,9 @@ describe("evaluateScrollStripBind integration", () => {
     expect(
       evaluateSkinBind("scrollStrip.content-text.canPrev", bindState),
     ).toBe(true);
-    expect(
-      evaluateSkinBind("scrollStrip.content-text.atLast", bindState),
-    ).toBe(true);
+    expect(evaluateSkinBind("scrollStrip.content-text.atLast", bindState)).toBe(
+      true,
+    );
   });
 });
 
@@ -159,23 +193,26 @@ describe("slideshow page clamping via state transitions", () => {
     const presentations = { "info-promo": promoPresentation };
 
     expect(
-      evaluateSlideshowBind(
-        "slideshow.info-promo.canNext",
-        presentations,
-        { "info-promo": atLast },
-      ),
+      evaluateSlideshowBind("slideshow.info-promo.canNext", presentations, {
+        "info-promo": atLast,
+      }),
     ).toBe(false);
     expect(
-      evaluateSlideshowBind(
-        "slideshow.info-promo.atLast",
-        presentations,
-        { "info-promo": atLast },
-      ),
+      evaluateSlideshowBind("slideshow.info-promo.atLast", presentations, {
+        "info-promo": atLast,
+      }),
     ).toBe(true);
   });
 });
 
 describe("skin.pref binds", () => {
+  const hideHelpBubble: SkinSetting = {
+    id: "hideHelpBubble",
+    name: "Hide help bubble",
+    type: "boolean",
+    default: false,
+  };
+
   it("evaluates skin.pref.soundEffectsEnabled", () => {
     expect(
       evaluateSkinBind(
@@ -190,6 +227,64 @@ describe("skin.pref binds", () => {
       ),
     ).toBe(false);
   });
+
+  it("evaluates author-defined boolean prefs", () => {
+    expect(
+      evaluateSkinBind(
+        "skin.pref.hideHelpBubble",
+        minimalBindState({
+          skinSettings: [hideHelpBubble],
+          skinPreferences: { builtin: {}, custom: { hideHelpBubble: true } },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      evaluateSkinBind(
+        "skin.pref.hideHelpBubble",
+        minimalBindState({ skinSettings: [hideHelpBubble] }),
+      ),
+    ).toBe(false);
+  });
+
+  it("negates skin.pref.soundEffectsEnabled in conditions", () => {
+    expect(
+      evaluateSkinCondition(
+        { not: "skin.pref.soundEffectsEnabled" },
+        minimalBindState({ soundEffectsEnabled: true }),
+      ),
+    ).toBe(false);
+    expect(
+      evaluateSkinCondition(
+        { not: "skin.pref.soundEffectsEnabled" },
+        minimalBindState({ soundEffectsEnabled: false }),
+      ),
+    ).toBe(true);
+  });
+
+  it("skips help bubble reveal when hideHelpBubble pref is set", () => {
+    const when = {
+      all: ["view.intro.revealed", { not: "skin.pref.hideHelpBubble" }],
+    };
+    expect(
+      evaluateSkinCondition(
+        when,
+        minimalBindState({
+          skinSettings: [hideHelpBubble],
+          skinPreferences: { builtin: {}, custom: { hideHelpBubble: true } },
+          viewState: { intro: "revealed" },
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      evaluateSkinCondition(
+        when,
+        minimalBindState({
+          skinSettings: [hideHelpBubble],
+          viewState: { intro: "revealed" },
+        }),
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("evaluateSkinCondition", () => {
@@ -201,6 +296,11 @@ describe("evaluateSkinCondition", () => {
   });
   const shutterOpenIntroPlaying = minimalBindState({
     viewState: { shutter: "open", xIntro: "playing" },
+  });
+
+  it("evaluates literal booleans", () => {
+    expect(evaluateSkinCondition(false, shutterOpenIntroDone)).toBe(false);
+    expect(evaluateSkinCondition(true, shutterOpenIntroDone)).toBe(true);
   });
 
   it("evaluates leaf binds", () => {
@@ -217,7 +317,9 @@ describe("evaluateSkinCondition", () => {
       all: ["view.shutter.open", "view.xIntro.done"],
     };
     expect(evaluateSkinCondition(condition, shutterOpenIntroDone)).toBe(true);
-    expect(evaluateSkinCondition(condition, shutterClosedIntroDone)).toBe(false);
+    expect(evaluateSkinCondition(condition, shutterClosedIntroDone)).toBe(
+      false,
+    );
     expect(evaluateSkinCondition(condition, shutterOpenIntroPlaying)).toBe(
       false,
     );
@@ -245,12 +347,69 @@ describe("evaluateSkinCondition", () => {
   });
 });
 
+describe("evaluateSkinBind input and playlist filter", () => {
+  it("reads input.{id}.value and .empty", () => {
+    const empty = minimalBindState();
+    expect(evaluateSkinBind("input.plSearchEdit.value", empty)).toBe("");
+    expect(evaluateSkinBind("input.plSearchEdit.empty", empty)).toBe(true);
+
+    const typed = minimalBindState({
+      inputValues: { plSearchEdit: "Radio" },
+    });
+    expect(evaluateSkinBind("input.plSearchEdit.value", typed)).toBe("Radio");
+    expect(evaluateSkinBind("input.plSearchEdit.empty", typed)).toBe(false);
+  });
+
+  it("reads playlist.filterQuery and hasFilter", () => {
+    expect(evaluateSkinBind("playlist.filterQuery", minimalBindState())).toBe(
+      "",
+    );
+    expect(evaluateSkinBind("playlist.hasFilter", minimalBindState())).toBe(
+      false,
+    );
+    const filtered = minimalBindState({ playlistFilterQuery: "air" });
+    expect(evaluateSkinBind("playlist.filterQuery", filtered)).toBe("air");
+    expect(evaluateSkinBind("playlist.hasFilter", filtered)).toBe(true);
+  });
+});
+
+describe("evaluateSkinBind hover node ids", () => {
+  it("is true only while the pointer is over that node", () => {
+    expect(evaluateSkinBind("hover.visFrame", minimalBindState())).toBe(false);
+    expect(
+      evaluateSkinBind(
+        "hover.visFrame",
+        minimalBindState({ hoveredNodeIds: new Set(["visFrame"]) }),
+      ),
+    ).toBe(true);
+    expect(
+      evaluateSkinBind(
+        "hover.subview-6",
+        minimalBindState({ hoveredNodeIds: new Set(["visFrame"]) }),
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("isSkinControlEnabled", () => {
   it("is enabled when condition is truthy or unset", () => {
     const state = minimalBindState({ viewState: { shutter: "open" } });
     expect(isSkinControlEnabled("view.shutter.open", state)).toBe(true);
     expect(isSkinControlEnabled(undefined, state)).toBe(true);
     expect(isSkinControlEnabled("view.shutter.closed", state)).toBe(false);
+    expect(isSkinControlEnabled(false, state)).toBe(false);
+    expect(isSkinControlEnabled(true, state)).toBe(true);
+  });
+});
+
+describe("isSkinVisible", () => {
+  it("is visible when condition is truthy or unset", () => {
+    const state = minimalBindState({ viewState: { shutter: "open" } });
+    expect(isSkinVisible("view.shutter.open", state)).toBe(true);
+    expect(isSkinVisible(undefined, state)).toBe(true);
+    expect(isSkinVisible("view.shutter.closed", state)).toBe(false);
+    expect(isSkinVisible(false, state)).toBe(false);
+    expect(isSkinVisible(true, state)).toBe(true);
   });
 });
 
@@ -259,5 +418,47 @@ describe("bind path isolation", () => {
     const state = minimalBindState();
     expect(evaluateSkinBind("track.filePath", state)).toBeNull();
     expect(evaluateSkinBind("track.path", state)).toBeNull();
+  });
+});
+
+describe("track.rating binds", () => {
+  const ratedTrack = {
+    id: 1,
+    title: "Song",
+    artist: "Artist",
+    album: "Album",
+    albumArtist: "Artist",
+    trackNumber: 1,
+    totalTracks: null,
+    discNumber: 1,
+    totalDiscs: null,
+    year: null,
+    genre: null,
+    durationSeconds: 180,
+    sampleRate: null,
+    bitrate: null,
+    codec: null,
+    filePath: "/library/1.mp3",
+    artPath: null,
+    dateAdded: "2024-01-01",
+    playCount: 0,
+    lastPlayedAt: null,
+    rating: 128,
+  };
+
+  it("returns null when no track is loaded", () => {
+    expect(evaluateSkinBind("track.rating", minimalBindState())).toBeNull();
+  });
+
+  it("returns the canonical 0–255 rating", () => {
+    const state = minimalBindState({ currentTrack: ratedTrack });
+    expect(evaluateSkinBind("track.rating", state)).toBe(128);
+  });
+
+  it("returns 0 for an unrated track", () => {
+    const state = minimalBindState({
+      currentTrack: { ...ratedTrack, rating: 0 },
+    });
+    expect(evaluateSkinBind("track.rating", state)).toBe(0);
   });
 });

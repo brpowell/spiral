@@ -74,6 +74,7 @@ function VisualizerRendererView({
         showExpandToggle={showExpandToggle}
         fillContainer={fillContainer}
         remoteFrameRef={remoteFrameRef}
+        style={style}
       />
     </div>
   );

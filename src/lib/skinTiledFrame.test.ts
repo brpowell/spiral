@@ -8,6 +8,10 @@ import {
   computeTiledFrameLayoutRects,
   computeTiledFramePresetRects,
   partitionTiledFrameRects,
+  computeTilePaintSlices,
+  tiledFrameChromeShouldClip,
+  tiledFrameContentRadius,
+  tiledFrameTilesStackWithSiblings,
   TILED_FRAME_CONTENT_Z,
 } from "./skinTiledFrame";
 import type {
@@ -267,6 +271,170 @@ describe("computeChromeClipPath", () => {
         "24px 43px, 256px 43px, 256px 222px, 24px 222px, 24px 43px)",
     );
   });
+
+  it("does not clip when contentInset is zero", () => {
+    expect(
+      tiledFrameChromeShouldClip({ left: 0, top: 0, right: 0, bottom: 0 }),
+    ).toBe(false);
+    expect(
+      tiledFrameChromeShouldClip({ left: 16, top: 42, right: 16, bottom: 37 }),
+    ).toBe(true);
+  });
+
+  it("stacks zero-inset tiles with canvas siblings", () => {
+    expect(
+      tiledFrameTilesStackWithSiblings({
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+      }),
+    ).toBe(true);
+    expect(
+      tiledFrameTilesStackWithSiblings({
+        left: 16,
+        top: 42,
+        right: 16,
+        bottom: 37,
+      }),
+    ).toBe(false);
+  });
+
+  it("rounds the chrome hole from presentation.contentCornerRadius", () => {
+    const inset = { left: 16, top: 42, right: 16, bottom: 37 };
+    const presentation: TiledFrameExplicitPresentation = {
+      kind: "tiledFrame",
+      contentInset: inset,
+      tiles: [],
+      contentCornerRadius: 8,
+    };
+    expect(tiledFrameContentRadius(presentation)).toBe(8);
+    expect(
+      tiledFrameContentRadius({
+        ...presentation,
+        contentCornerRadius: undefined,
+      }),
+    ).toBe(0);
+    const path = computeChromeClipPath(
+      376,
+      216,
+      computeContentRect(376, 216, inset),
+      tiledFrameContentRadius(presentation),
+    );
+    expect(path.startsWith("polygon(evenodd,0px 0px, 376px 0px")).toBe(true);
+    expect(path).not.toContain("16px 42px");
+    expect(path).toContain("24px 42px");
+    expect(path).toContain("16px 50px");
+  });
+});
+
+const lostPlanetAuxTiles: TiledFrameExplicitPresentation["tiles"] = [
+  {
+    asset: "frame/f-top-left.png",
+    bounds: { x: 0, y: 0, w: 178, h: 104, zIndex: 5 },
+    zIndex: 5,
+  },
+  {
+    asset: "frame/f-top-right.png",
+    bounds: { y: 0, h: 104, right: 0, w: 178, zIndex: 5 },
+    zIndex: 5,
+  },
+  {
+    asset: "frame/f-top-tile.png",
+    bounds: { x: 178, y: 0, h: 38, right: 0, zIndex: 6 },
+    repeat: "horizontal",
+    tileUnit: { w: 138, h: 38 },
+    zIndex: 6,
+  },
+  {
+    asset: "frame/f-top-tile2.png",
+    bounds: { x: 178, y: 0, h: 104, right: 178, zIndex: 4 },
+    repeat: "horizontal",
+    tileUnit: { w: 20, h: 104 },
+    zIndex: 4,
+  },
+];
+
+describe("computeTilePaintSlices", () => {
+  it("masks the f-top-tile glaze with f-top-right where they overlap", () => {
+    const rects = computeExplicitTiledFrameRects(437, 304, lostPlanetAuxTiles);
+    const overlay = rects.find((r) => r.asset === "frame/f-top-tile.png");
+    expect(overlay).toMatchObject({ x: 178, y: 0, w: 259, h: 38 });
+    const slices = computeTilePaintSlices(overlay!, rects);
+    expect(slices).toHaveLength(2);
+    expect(slices.find((s) => !s.maskCap)).toMatchObject({
+      x: 178,
+      y: 0,
+      w: 81,
+      h: 38,
+    });
+    expect(slices.find((s) => s.maskCap)).toMatchObject({
+      x: 259,
+      y: 0,
+      w: 178,
+      h: 38,
+      maskCap: expect.objectContaining({ asset: "frame/f-top-right.png" }),
+    });
+  });
+
+  it("masks the glaze overlap when the window is wider", () => {
+    const rects = computeExplicitTiledFrameRects(565, 310, lostPlanetAuxTiles);
+    const overlay = rects.find((r) => r.asset === "frame/f-top-tile.png")!;
+    const masked = computeTilePaintSlices(overlay, rects).find(
+      (s) => s.maskCap,
+    );
+    expect(masked).toMatchObject({
+      x: 387,
+      y: 0,
+      w: 178,
+      h: 38,
+      maskCap: expect.objectContaining({ asset: "frame/f-top-right.png" }),
+    });
+  });
+
+  it("does not split Xbox-style frames whose stretch stops at the caps", () => {
+    const rects = computeExplicitTiledFrameRects(
+      448,
+      316,
+      xboxExplicitPresentation.tiles,
+    );
+    const stretch = rects.find((r) => r.asset === "frame/f_top_center.png")!;
+    const slices = computeTilePaintSlices(stretch, rects);
+    expect(slices).toHaveLength(1);
+    expect(slices[0]?.maskCap).toBeUndefined();
+    expect(slices[0]).toMatchObject({ x: 65, y: 0, w: 318, h: 24 });
+  });
+
+  it("does not mask under-tiles that sit below the cap", () => {
+    const rects = computeExplicitTiledFrameRects(437, 304, lostPlanetAuxTiles);
+    const under = rects.find((r) => r.asset === "frame/f-top-tile2.png")!;
+    const slices = computeTilePaintSlices(under, rects);
+    expect(slices).toHaveLength(1);
+    expect(slices[0]?.maskCap).toBeUndefined();
+  });
+
+  it("masks both ends when a glaze spans two caps", () => {
+    const rects = computeExplicitTiledFrameRects(437, 304, [
+      lostPlanetAuxTiles[0],
+      lostPlanetAuxTiles[1],
+      {
+        ...lostPlanetAuxTiles[2],
+        bounds: { x: 0, y: 0, h: 38, right: 0, zIndex: 6 },
+      },
+    ]);
+    const overlay = rects.find((r) => r.asset === "frame/f-top-tile.png")!;
+    const slices = computeTilePaintSlices(overlay, rects);
+    const masked = slices.filter((s) => s.maskCap).map((s) => s.maskCap?.asset);
+    expect(masked).toEqual(
+      expect.arrayContaining(["frame/f-top-left.png", "frame/f-top-right.png"]),
+    );
+    expect(slices.find((s) => !s.maskCap)).toMatchObject({
+      x: 178,
+      y: 0,
+      w: 81,
+      h: 38,
+    });
+  });
 });
 
 const xboxExplicitPresentation: TiledFrameExplicitPresentation = {
@@ -434,5 +602,27 @@ describe("computeExplicitTiledFrameRects", () => {
       xboxExplicitPresentation,
     );
     expect(rects.some((r) => r.asset === "frame/f_outer_bot.png")).toBe(true);
+  });
+
+  it("meets Lost Planet vis-top-right when vis-top-tile uses right: 127", () => {
+    const rects = computeExplicitTiledFrameRects(376, 216, [
+      {
+        asset: "decorations/vis-top-tile.png",
+        bounds: { x: 246, y: 43, h: 66, right: 127, zIndex: 40 },
+        repeat: "horizontal",
+        tileUnit: { w: 100, h: 66 },
+        zIndex: 40,
+      },
+      {
+        asset: "frame/vis-top-right.png",
+        bounds: { y: 43, h: 110, right: 19, w: 108, zIndex: 41 },
+        zIndex: 41,
+      },
+    ]);
+    const tile = rects.find((r) => r.asset === "decorations/vis-top-tile.png");
+    const corner = rects.find((r) => r.asset === "frame/vis-top-right.png");
+    expect(tile).toMatchObject({ x: 246, y: 43, w: 3, h: 66 });
+    expect(corner).toMatchObject({ x: 249, y: 43, w: 108 });
+    expect((tile?.x ?? 0) + (tile?.w ?? 0)).toBe(corner?.x);
   });
 });

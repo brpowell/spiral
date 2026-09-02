@@ -6,7 +6,7 @@ export interface SkinBuiltinPreferences {
 
 export interface SkinUserPreferences {
   builtin: SkinBuiltinPreferences;
-  /** Reserved for future author-defined settings from manifest `settings`. */
+  /** Author-defined settings from manifest `settings`. */
   custom?: Record<string, unknown>;
 }
 
@@ -19,4 +19,16 @@ export function soundEffectsEnabledFromPreferences(
   preferences: SkinUserPreferences,
 ): boolean {
   return preferences.builtin.soundEffectsEnabled ?? true;
+}
+
+export function toggledSoundEffectsPreferences(
+  preferences: SkinUserPreferences,
+): SkinUserPreferences {
+  return {
+    ...preferences,
+    builtin: {
+      ...preferences.builtin,
+      soundEffectsEnabled: !soundEffectsEnabledFromPreferences(preferences),
+    },
+  };
 }

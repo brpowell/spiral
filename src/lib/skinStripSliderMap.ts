@@ -24,6 +24,26 @@ export interface StripSliderPositionMap {
   dialPath?: DialPathGeometry;
   /** Sample map pixel → frame index (0..frameCount-1), or -1 if transparent. */
   frameAt(x: number, y: number): number;
+  /**
+   * Nearest mapped frame for a pixel, including transparent/chroma-key
+   * samples (clamped to the map). −1 only when the map has no hit pixels.
+   */
+  nearestFrameAt?(x: number, y: number): number;
+}
+
+function isGrayscaleColor(r: number, g: number, b: number): boolean {
+  return Math.abs(r - g) <= 5 && Math.abs(r - b) <= 5;
+}
+
+function grayscaleShare(colorKeys: Iterable<string>): number {
+  let total = 0;
+  let grayscaleLike = 0;
+  for (const key of colorKeys) {
+    total += 1;
+    const [r, g, b] = key.split(",").map(Number);
+    if (isGrayscaleColor(r, g, b)) grayscaleLike++;
+  }
+  return total === 0 ? 0 : grayscaleLike / total;
 }
 
 function isDialStripSliderMap(
@@ -32,12 +52,111 @@ function isDialStripSliderMap(
   colorKeys: Iterable<string>,
 ): boolean {
   if (colorCount <= frameCount * 1.5) return false;
-  let grayscaleLike = 0;
-  for (const key of colorKeys) {
-    const [r, g, b] = key.split(",").map(Number);
-    if (Math.abs(r - g) <= 5 && Math.abs(r - b) <= 5) grayscaleLike++;
+  return grayscaleShare(colorKeys) < 0.85;
+}
+
+/** WMP `positionImage` ramps: black = first frame, white = last (unless inverted). */
+function isGrayscaleRampMap(colorKeys: Iterable<string>): boolean {
+  return grayscaleShare(colorKeys) >= 0.85;
+}
+
+function pixelLuminance(r: number, g: number, b: number): number {
+  return (r + g + b) / 3;
+}
+
+function luminanceToFrame(
+  r: number,
+  g: number,
+  b: number,
+  frameCount: number,
+  mapFrames: StripSliderMapFrames,
+  minLum: number,
+  maxLum: number,
+): number {
+  if (frameCount <= 1) return 0;
+  const span = maxLum - minLum || 1;
+  const lum = (pixelLuminance(r, g, b) - minLum) / span;
+  const t = mapFrames === "descending" ? 1 - lum : lum;
+  return Math.round(Math.min(1, Math.max(0, t)) * (frameCount - 1));
+}
+
+function hasTransparentNeighbor(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  frameAt: (x: number, y: number) => number,
+): boolean {
+  if (x > 0 && frameAt(x - 1, y) < 0) return true;
+  if (x + 1 < width && frameAt(x + 1, y) < 0) return true;
+  if (y > 0 && frameAt(x, y - 1) < 0) return true;
+  if (y + 1 < height && frameAt(x, y + 1) < 0) return true;
+  return false;
+}
+
+function withNearestFrameLookup(
+  width: number,
+  height: number,
+  frameAt: (x: number, y: number) => number,
+): Pick<StripSliderPositionMap, "frameAt" | "nearestFrameAt"> {
+  const nearest = new Int16Array(width * height);
+  nearest.fill(-1);
+  const interior: number[] = [];
+  const mapped: number[] = [];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const frame = frameAt(x, y);
+      if (frame < 0) continue;
+      const idx = y * width + x;
+      mapped.push(idx);
+      if (!hasTransparentNeighbor(x, y, width, height, frameAt)) {
+        nearest[idx] = frame;
+        interior.push(idx);
+      }
+    }
   }
-  return grayscaleLike / colorCount < 0.85;
+  // Prefer the stroke interior so anti-aliased tip halos do not become the
+  // "nearest" end while dragging past a curved track.
+  const queue = interior.length > 0 ? interior : mapped;
+  if (interior.length === 0) {
+    for (const idx of mapped) {
+      const x = idx % width;
+      const y = (idx - x) / width;
+      nearest[idx] = frameAt(x, y);
+    }
+  }
+  let head = 0;
+  while (head < queue.length) {
+    const idx = queue[head++];
+    const x = idx % width;
+    const y = (idx - x) / width;
+    const frame = nearest[idx];
+    if (x > 0 && nearest[idx - 1] < 0) {
+      nearest[idx - 1] = frame;
+      queue.push(idx - 1);
+    }
+    if (x + 1 < width && nearest[idx + 1] < 0) {
+      nearest[idx + 1] = frame;
+      queue.push(idx + 1);
+    }
+    if (y > 0 && nearest[idx - width] < 0) {
+      nearest[idx - width] = frame;
+      queue.push(idx - width);
+    }
+    if (y + 1 < height && nearest[idx + width] < 0) {
+      nearest[idx + width] = frame;
+      queue.push(idx + width);
+    }
+  }
+
+  return {
+    frameAt,
+    nearestFrameAt(x: number, y: number) {
+      const px = Math.min(Math.max(Math.floor(x), 0), width - 1);
+      const py = Math.min(Math.max(Math.floor(y), 0), height - 1);
+      return nearest[py * width + px];
+    },
+  };
 }
 
 function pointerAngleForStripFrame(
@@ -315,6 +434,9 @@ export function buildStripSliderPositionMapFromPixels(
       frameAt() {
         return -1;
       },
+      nearestFrameAt() {
+        return -1;
+      },
     };
   }
 
@@ -324,38 +446,57 @@ export function buildStripSliderPositionMapFromPixels(
     avgY: stat.sumY / stat.count,
   }));
 
-  // Map each color to a frame by its normalized position along the slider axis
-  // rather than by rank index. Rank-index only works when the map has ~one
-  // distinct color per frame; smooth-gradient maps (e.g. vol-map with 90 grays
-  // for 30 frames) would otherwise cram the whole range into the first frames.
+  // WMP customSlider positionImage maps grayscale ramps by luminance
+  // (black = first frame, white = last). Spatial centroids are wrong on
+  // curved tracks: the leftmost anti-aliased gray becomes "min" while the
+  // true black tip sits inward and never reaches 0. Non-gray maps still
+  // use position along the interaction axis (Xbox/T3-style color keys).
+  const useLuminance = isGrayscaleRampMap(colorStats.keys());
   const positions = colorEntries.map((e) =>
     direction === "vertical" ? e.avgY : e.avgX,
   );
   const minPos = Math.min(...positions);
   const maxPos = Math.max(...positions);
+  let minLum = 255;
+  let maxLum = 0;
+  if (useLuminance) {
+    for (const key of colorStats.keys()) {
+      const [r, g, b] = key.split(",").map(Number);
+      const lum = pixelLuminance(r, g, b);
+      if (lum < minLum) minLum = lum;
+      if (lum > maxLum) maxLum = lum;
+    }
+  }
 
   const colorToFrame = new Map<string, number>();
-  colorEntries.forEach((entry) => {
-    const pos = direction === "vertical" ? entry.avgY : entry.avgX;
-    const t = mapPositionToFrameT(pos, minPos, maxPos, direction, mapFrames);
-    const frame = Math.round(Math.min(1, Math.max(0, t)) * (frameCount - 1));
-    colorToFrame.set(entry.key, frame);
-  });
+  if (!useLuminance) {
+    colorEntries.forEach((entry) => {
+      const pos = direction === "vertical" ? entry.avgY : entry.avgX;
+      const t = mapPositionToFrameT(pos, minPos, maxPos, direction, mapFrames);
+      const frame = Math.round(Math.min(1, Math.max(0, t)) * (frameCount - 1));
+      colorToFrame.set(entry.key, frame);
+    });
+  }
+
+  const frameAt = (x: number, y: number): number => {
+    const px = Math.min(Math.max(Math.floor(x), 0), width - 1);
+    const py = Math.min(Math.max(Math.floor(y), 0), height - 1);
+    const i = (py * width + px) * 4;
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const a = data[i + 3];
+    if (isTransparent(r, g, b, a)) return -1;
+    if (useLuminance) {
+      return luminanceToFrame(r, g, b, frameCount, mapFrames, minLum, maxLum);
+    }
+    return colorToFrame.get(colorKey(r, g, b)) ?? -1;
+  };
 
   return {
     width,
     height,
-    frameAt(x: number, y: number) {
-      const px = Math.min(Math.max(Math.floor(x), 0), width - 1);
-      const py = Math.min(Math.max(Math.floor(y), 0), height - 1);
-      const i = (py * width + px) * 4;
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const a = data[i + 3];
-      if (isTransparent(r, g, b, a)) return -1;
-      return colorToFrame.get(colorKey(r, g, b)) ?? -1;
-    },
+    ...withNearestFrameLookup(width, height, frameAt),
   };
 }
 
@@ -456,9 +597,7 @@ function mapPositionToFrameT(
 ): number {
   const span = maxPos - minPos || 1;
   const ascending =
-    direction === "vertical"
-      ? (maxPos - pos) / span
-      : (pos - minPos) / span;
+    direction === "vertical" ? (maxPos - pos) / span : (pos - minPos) / span;
   if (mapFrames === "descending") {
     return 1 - ascending;
   }
@@ -504,6 +643,8 @@ export interface StripSliderPointerSample {
   source: "map" | "dial" | "linear";
 }
 
+export type StripSliderOffMapFallback = "none" | "nearest";
+
 export function sampleStripSliderPointer(
   clientX: number,
   clientY: number,
@@ -513,6 +654,7 @@ export function sampleStripSliderPointer(
   direction: "horizontal" | "vertical",
   valueFrames: StripSliderValueFrames = "ascending",
   anchorFrame?: number,
+  offMapFallback: StripSliderOffMapFallback = "none",
 ): StripSliderPointerSample | null {
   const localX = clientX - rect.left;
   const localY = clientY - rect.top;
@@ -539,7 +681,12 @@ export function sampleStripSliderPointer(
     source = "dial";
   } else if (positionMapData) {
     raw = positionMapData.frameAt(mapX, mapY);
-    if (raw >= 0) source = "map";
+    if (raw >= 0) {
+      source = "map";
+    } else if (offMapFallback === "nearest") {
+      raw = positionMapData.nearestFrameAt?.(mapX, mapY) ?? -1;
+      if (raw >= 0) source = "map";
+    }
   }
   if (raw < 0) {
     if (positionMapData && !positionMapData.dialPath) {

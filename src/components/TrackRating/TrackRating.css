@@ -17,6 +17,15 @@
   cursor: default;
 }
 
+.track-rating--fill {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  align-self: stretch;
+  gap: 0;
+  justify-content: space-between;
+}
+
 .track-rating__glyph {
   position: relative;
   display: inline-block;
@@ -30,6 +39,13 @@
   height: 20px;
 }
 
+.track-rating--fill .track-rating__glyph {
+  height: 100%;
+  width: auto;
+  aspect-ratio: 1;
+  flex: 0 1 auto;
+}
+
 .track-rating__star {
   display: block;
   width: 100%;
@@ -38,31 +54,18 @@
 
 .track-rating__star--outline path {
   fill: none;
-  stroke: var(--color-text-secondary);
+  stroke: var(--track-rating-outline, var(--color-text-secondary));
   stroke-width: 1.25;
 }
 
-.track-rating__star-fill-mask {
+.track-rating__star--fill {
   position: absolute;
   left: 0;
   top: 0;
-  height: 100%;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.track-rating__glyph--comfortable .track-rating__star-fill-mask .track-rating__star {
-  width: 20px;
-}
-
-.track-rating__glyph:not(.track-rating__glyph--comfortable)
-  .track-rating__star-fill-mask
-  .track-rating__star {
-  width: 14px;
 }
 
 .track-rating__star--fill path {
-  fill: var(--color-accent);
+  fill: var(--track-rating-fill, var(--color-accent));
   stroke: none;
 }
 

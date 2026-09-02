@@ -38,6 +38,7 @@ const INTERACTIVE_ROLES = new Set([
   "radio",
   "switch",
   "option",
+  "slider",
 ]);
 
 function isClickableElement(el: HTMLElement): boolean {

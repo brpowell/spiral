@@ -87,10 +87,7 @@ function collectLayoutAssetUrls(
         urls.add(skinAssetFileUrl(packDir, node.presentation.positionMap));
       }
       return;
-    case "eqBand":
-    case "balance":
-    case "volume":
-    case "seekbar":
+    case "slider":
       if (
         node.presentation.kind === "bitmapVerticalSlider" ||
         node.presentation.kind === "bitmapHorizontalSlider"
@@ -150,11 +147,11 @@ function collectLayoutAssetUrls(
 }
 
 function stripSliderDirection(
-  node: Extract<LayoutNode, { type: "eqBand" | "volume" | "seekbar" }>,
+  node: Extract<LayoutNode, { type: "slider" }>,
   presentation: StripSliderPresentation,
 ): "horizontal" | "vertical" {
   if (presentation.direction) return presentation.direction;
-  return node.type === "volume" || node.type === "eqBand"
+  return node.control === "volume" || node.control === "eq"
     ? "vertical"
     : "horizontal";
 }
@@ -174,9 +171,7 @@ async function warmLayoutStripSliderMaps(
         node.children.map((child) => warmLayoutStripSliderMaps(child, packDir)),
       );
       return;
-    case "eqBand":
-    case "volume":
-    case "seekbar": {
+    case "slider": {
       const presentation = node.presentation;
       if (presentation.kind !== "stripSlider" || !presentation.positionMap) {
         return;
@@ -185,7 +180,7 @@ async function warmLayoutStripSliderMaps(
       const stripUrl = skinAssetFileUrl(packDir, presentation.strip);
       const direction = stripSliderDirection(node, presentation);
       const defaultFrameHeight =
-        node.type === "volume" ? 128 : node.type === "eqBand" ? 116 : 113;
+        node.control === "volume" ? 128 : node.control === "eq" ? 116 : 113;
       try {
         await loadStripSliderPositionMap(
           mapUrl,
@@ -213,6 +208,20 @@ function decodeAssetUrl(url: string, isGif = false): Promise<void> {
     return loadSkinGif(url).then(() => undefined);
   }
   return loadSkinBitmap(url).then(() => undefined);
+}
+
+/** Decode every file in an asset set (including `assetsWhen` variants). */
+export function preloadInteractiveBitmapAssets(
+  packDir: string,
+  assets: InteractiveAssets,
+  assetsWhen?: InteractiveAssetsWhen,
+): void {
+  for (const file of collectBitmapAssetFiles(assets, assetsWhen)) {
+    const url = skinAssetFileUrl(packDir, file);
+    void loadSkinBitmap(url).catch((err) => {
+      console.warn("preloadInteractiveBitmapAssets:", err);
+    });
+  }
 }
 
 export async function preloadSkinViewAssets(

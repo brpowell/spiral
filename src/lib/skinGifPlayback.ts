@@ -36,6 +36,7 @@ export interface SkinGifPlaybackHandle {
 }
 
 const decodeCache = new Map<string, Promise<DecodedSkinGif>>();
+const decodedCache = new Map<string, DecodedSkinGif>();
 
 function parseLoopCount(gif: ParsedGif): number | null {
   for (const frame of gif.frames) {
@@ -71,14 +72,27 @@ export function loadSkinGif(url: string): Promise<DecodedSkinGif> {
         }
         return response.arrayBuffer();
       })
-      .then(decodeSkinGif);
+      .then(decodeSkinGif)
+      .then((decoded) => {
+        decodedCache.set(url, decoded);
+        return decoded;
+      });
     decodeCache.set(url, pending);
   }
   return pending;
 }
 
+/**
+ * Already-decoded GIF, available without awaiting. Lets a caller paint in the
+ * same commit it mounts, rather than a tick later.
+ */
+export function getDecodedSkinGif(url: string): DecodedSkinGif | undefined {
+  return decodedCache.get(url);
+}
+
 export function clearSkinGifDecodeCache(): void {
   decodeCache.clear();
+  decodedCache.clear();
 }
 
 export function resolveGifPlaybackRate(

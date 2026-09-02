@@ -8,9 +8,47 @@ import { SkinBoundedCanvasNode } from "./SkinBoundedCanvasNode";
 import { SkinButtonGroupHitRegistryProvider } from "./SkinButtonGroupHitRegistry";
 import { SkinLayoutContextProvider } from "./SkinLayoutContext";
 import { SkinViewRuntimeProviders } from "./SkinViewRuntimeProviders";
+import {
+  useSkinViewState,
+  viewStateDataAttributes,
+} from "../../../lib/skinViewStateContext";
+import { hoverNodeDataAttributes } from "../../../lib/skinHover";
+import { useSkinHoveredNodeIds } from "../../../lib/skinHoverContext";
 import { useSkinCanvasStageSize } from "../../../hooks/useSkinCanvasStageSize";
 import { SkinCanvasStageContext } from "./SkinCanvasStageContext";
 import "./SkinCanvasLayout.css";
+
+/**
+ * Reads view state from inside `SkinViewRuntimeProviders` so `data-view-*`
+ * lands on a descendant of `[data-skin-id]`, as `skin.css` scoping requires.
+ */
+function SkinCanvasStage({
+  stageRef,
+  dragProps,
+  style,
+  children,
+}: {
+  stageRef: React.Ref<HTMLDivElement>;
+  dragProps: Record<string, string> | undefined;
+  style: React.CSSProperties | undefined;
+  children: React.ReactNode;
+}) {
+  const { values } = useSkinViewState();
+  const hoveredNodeIds = useSkinHoveredNodeIds();
+
+  return (
+    <div
+      ref={stageRef}
+      className="skin-canvas-layout__stage"
+      {...viewStateDataAttributes(values)}
+      {...hoverNodeDataAttributes(hoveredNodeIds)}
+      {...dragProps}
+      style={style}
+    >
+      {children}
+    </div>
+  );
+}
 
 export interface SkinCanvasLayoutProps {
   pack: LoadedSkinPack;
@@ -92,10 +130,9 @@ export function SkinCanvasLayout({
               data-view-id={viewId}
               data-resizable={resizable ? "true" : "false"}
             >
-              <div
-                ref={stageRef}
-                className="skin-canvas-layout__stage"
-                {...stageDragProps}
+              <SkinCanvasStage
+                stageRef={stageRef}
+                dragProps={stageDragProps}
                 style={
                   resizable
                     ? undefined
@@ -103,7 +140,7 @@ export function SkinCanvasLayout({
                 }
               >
                 {nodes}
-              </div>
+              </SkinCanvasStage>
             </div>
           </SkinButtonGroupHitRegistryProvider>
         </SkinLayoutContextProvider>

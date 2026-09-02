@@ -3,7 +3,7 @@ import type { LayoutTreeNode, LoadedSkinPack } from "../types/skin";
 export interface AuxStartupRequirements {
   /** Player store bridge — always true for aux windows today. */
   player: boolean;
-  /** EQ bridge for eq views or layouts with eqBand nodes. */
+  /** EQ bridge for eq views or layouts with EQ slider nodes. */
   eq: boolean;
   /** Visualizer bootstrap + bridge for viz views or visualizer nodes. */
   visualizer: boolean;
@@ -14,7 +14,7 @@ export interface AuxStartupRequirements {
 }
 
 interface LayoutFeatureFlags {
-  eqBand: boolean;
+  eq: boolean;
   visualizer: boolean;
   playlist: boolean;
 }
@@ -34,8 +34,10 @@ function walkLayoutFeatures(
         walkLayoutFeatures(child, flags);
       }
       return;
-    case "eqBand":
-      flags.eqBand = true;
+    case "slider":
+      if (node.control === "eq") {
+        flags.eq = true;
+      }
       return;
     case "visualizer":
       flags.visualizer = true;
@@ -64,7 +66,7 @@ export function resolveAuxStartupRequirements(
   }
 
   const flags: LayoutFeatureFlags = {
-    eqBand: false,
+    eq: false,
     visualizer: false,
     playlist: false,
   };
@@ -74,7 +76,7 @@ export function resolveAuxStartupRequirements(
 
   return {
     player: true,
-    eq: flags.eqBand,
+    eq: flags.eq,
     visualizer: flags.visualizer,
     playlists: flags.playlist,
     theme: !isCanvasView,

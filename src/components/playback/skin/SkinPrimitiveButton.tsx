@@ -17,7 +17,10 @@ import {
   resolveSkinClickSound,
 } from "../../../lib/skinSoundEffects";
 import { useSkinTooltip } from "../../../lib/skinTooltips";
-import { styleFromSkinNode } from "../../../lib/skinNodeStyle";
+import {
+  styleFromSkinNode,
+  useResolvedNodeStyle,
+} from "../../../lib/skinNodeStyle";
 import {
   primaryClickAction,
   primaryClickViewId,
@@ -63,6 +66,7 @@ export function SkinPrimitiveButton({
   const bindState = useSkinBindState();
   const alwaysOnTop = useSkinModeAlwaysOnTop();
   const interactionEnabled = useSkinControlEnabled(node.enabledWhen);
+  const resolvedStyle = useResolvedNodeStyle(node.style, node.styleWhen);
   const presentation = node.presentation;
   const clickAction = primaryClickAction(node.onClick);
 
@@ -116,7 +120,9 @@ export function SkinPrimitiveButton({
   const buttonProps = {
     className,
     "data-node-id": node.id,
-    style: styleFromSkinNode(node.style),
+    style: styleFromSkinNode(resolvedStyle, {
+      omitOpacity: node.bounds !== undefined,
+    }),
     ...skinDragRegionNoneProps(),
     disabled: !interactionEnabled,
     onClick: () => {

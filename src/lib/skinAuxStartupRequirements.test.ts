@@ -28,7 +28,7 @@ function makePack(views: LoadedSkinPack["manifest"]["views"]): LoadedSkinPack {
 }
 
 describe("resolveAuxStartupRequirements", () => {
-  it("detects T3-style canvas EQ view from eqBand nodes", () => {
+  it("detects T3-style canvas EQ view from eq slider nodes", () => {
     const pack = makePack({
       eq: {
         layout: {
@@ -37,12 +37,17 @@ describe("resolveAuxStartupRequirements", () => {
           height: 80,
           children: [
             {
-              type: "eqBand",
+              type: "slider",
+              control: "eq",
               band: 1,
               presentation: {
                 kind: "bitmapVerticalSlider",
                 track: "sliders/eq-track",
-                thumb: "sliders/eq-thumb",
+                thumb: { default: "sliders/eq-thumb" },
+                trackWidth: 11,
+                trackHeight: 76,
+                thumbWidth: 11,
+                thumbHeight: 15,
               },
             },
           ],
@@ -217,7 +222,7 @@ describe("resolveAuxStartupRequirements", () => {
     expect(resolveAuxStartupRequirements(pack, "vis").visualizer).toBe(true);
   });
 
-  it("detects eq from eqBand nodes", () => {
+  it("detects eq from eq slider nodes", () => {
     const pack = makePack({
       eqPanel: {
         layout: {
@@ -226,13 +231,15 @@ describe("resolveAuxStartupRequirements", () => {
           height: 80,
           children: [
             {
-              type: "eqBand",
+              type: "slider",
+              control: "eq",
               band: 3,
               presentation: {
                 kind: "stripSlider",
-                map: "eq-map",
-                width: 14,
-                height: 116,
+                strip: "eq-strip",
+                frameWidth: 14,
+                frameHeight: 116,
+                frameCount: 20,
               },
             },
           ],

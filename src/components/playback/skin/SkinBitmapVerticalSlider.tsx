@@ -26,26 +26,21 @@ import {
 import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import { useEqualizerStore } from "../../../store/useEqualizerStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
-import type {
-  EqBandNode,
-  LoadedSkinPack,
-  VolumeNode,
-} from "../../../types/skin";
+import type { LoadedSkinPack, SliderNode } from "../../../types/skin";
 import "./SkinBitmapVerticalSlider.css";
-
-type VerticalSliderNode = EqBandNode | VolumeNode;
 
 export function SkinBitmapVerticalSlider({
   node,
   pack,
 }: {
-  node: VerticalSliderNode;
+  node: SliderNode;
   pack: LoadedSkinPack;
 }) {
   const presentation = node.presentation;
   if (presentation.kind !== "bitmapVerticalSlider") return null;
+  if (node.control !== "eq" && node.control !== "volume") return null;
 
-  const mode = node.type === "eqBand" ? "eq" : "volume";
+  const mode = node.control === "eq" ? "eq" : "volume";
 
   const {
     track,
@@ -62,7 +57,7 @@ export function SkinBitmapVerticalSlider({
   const trackTileWidth = trackTileWidthRaw ?? trackWidth;
   const trackTileHeight = trackTileHeightRaw ?? trackHeight;
 
-  const band = node.type === "eqBand" ? node.band : 0;
+  const band = node.control === "eq" ? node.band : 0;
   const bandGain = useEqualizerStore((s) =>
     mode === "eq" ? s.bands[band - 1] : 0,
   );
@@ -125,7 +120,7 @@ export function SkinBitmapVerticalSlider({
 
   const applyRatio = useCallback(
     (nextRatio: number) => {
-      if (mode === "eq" && node.type === "eqBand") {
+      if (mode === "eq" && node.control === "eq") {
         applyEqBandSliderGain(node, pack, ratioToGainDb(nextRatio));
         return;
       }

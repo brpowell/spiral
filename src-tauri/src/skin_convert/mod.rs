@@ -118,14 +118,25 @@ fn decode_gif_frames(src: &Path) -> Result<Vec<Frame>, String> {
         .map_err(|e| format!("failed to read GIF frames {}: {e}", src.display()))
 }
 
+/// GIF frame delay is stored in centiseconds (10ms units).
+///
+/// Delays under 2cs mean "unspecified" in practice: GIF89a permits 0, and
+/// authoring tools of the WMP era routinely emitted 0 or 1. Every mainstream
+/// viewer — including WMP — renders those at 100ms, so normalize to that
+/// instead of preserving the literal value, which plays ~10x too fast. Explicit
+/// holds (2cs and up) are kept as authored.
 pub(crate) fn delay_to_centiseconds(delay: Delay) -> u16 {
+    const UNSPECIFIED_CS: u16 = 10;
     let (numer, denom) = delay.numer_denom_ms();
     if denom == 0 {
-        return 10;
+        return UNSPECIFIED_CS;
     }
     let ms = (u64::from(numer) + u64::from(denom) / 2) / u64::from(denom);
-    // GIF delay is in centiseconds (10 ms units).
-    ((ms + 5) / 10).clamp(1, u16::MAX as u64) as u16
+    let centiseconds = ((ms + 5) / 10).min(u64::from(u16::MAX)) as u16;
+    if centiseconds < 2 {
+        return UNSPECIFIED_CS;
+    }
+    centiseconds
 }
 
 /// Flatten a multi-frame GIF to its first frame as RGBA (for compare grids / SSIM).
@@ -159,6 +170,24 @@ mod tests {
             std::process::id()
         ));
         p
+    }
+
+    #[test]
+    fn unspecified_delays_normalize_to_the_viewer_default() {
+        for ms in [0, 10] {
+            assert_eq!(
+                delay_to_centiseconds(Delay::from_numer_denom_ms(ms, 1)),
+                10,
+                "{ms}ms should render at the 100ms viewer default"
+            );
+        }
+    }
+
+    #[test]
+    fn authored_delays_are_preserved() {
+        for (ms, cs) in [(20, 2), (100, 10), (200, 20), (1000, 100)] {
+            assert_eq!(delay_to_centiseconds(Delay::from_numer_denom_ms(ms, 1)), cs);
+        }
     }
 
     #[test]

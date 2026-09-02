@@ -1,3 +1,4 @@
+import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   commitImportEntries,
   importCompletionSettleOptions,
@@ -20,12 +21,14 @@ import {
 } from "./supportedAudio";
 import { waitForPaint, yieldForInteraction, yieldToMain } from "./scheduling";
 import { t } from "./i18n";
+import { SKIN_AUX_LABEL_PREFIX } from "./skinAuxContext";
 import {
   cleanupZipImport,
   pickLibraryPaths,
   scanFolder,
   scanZipImport,
 } from "./tauri";
+import { isTauri } from "./windowRole";
 import {
   blockIfTrialLibraryAtCap,
   isTrialLibraryCapError,
@@ -86,11 +89,51 @@ async function resolveImportPaths(
   return { audioPaths, zipExtractDirs };
 }
 
+/** Drop always-on-top so a modal file panel isn't covered by the skin. */
+async function withSkinAlwaysOnTopSuspended<T>(
+  run: () => Promise<T>,
+): Promise<T> {
+  if (!isTauri()) return run();
+
+  const restore: WebviewWindow[] = [];
+  try {
+    const windows = await WebviewWindow.getAll();
+    for (const window of windows) {
+      if (
+        window.label !== "skin-mode" &&
+        !window.label.startsWith(SKIN_AUX_LABEL_PREFIX)
+      ) {
+        continue;
+      }
+      try {
+        if (await window.isAlwaysOnTop()) {
+          await window.setAlwaysOnTop(false);
+          restore.push(window);
+        }
+      } catch {
+        /* window gone */
+      }
+    }
+  } catch {
+    /* getAll failed — still try the picker */
+  }
+
+  try {
+    return await run();
+  } finally {
+    await Promise.all(
+      restore.map((window) =>
+        window.setAlwaysOnTop(true).catch(() => undefined),
+      ),
+    );
+  }
+}
+
 export async function pickAndImportLibraryPaths(): Promise<void> {
   if (blockIfTrialLibraryAtCap()) return;
 
   try {
-    const paths = await pickLibraryPaths();
+    const paths = await withSkinAlwaysOnTopSuspended(() => pickLibraryPaths());
     if (paths.length === 0) return;
     usePlayerStore.getState().importFromPaths(paths);
   } catch (err) {

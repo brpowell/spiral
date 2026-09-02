@@ -104,6 +104,67 @@ describe("resolveSkinPlaylistTrackIds", () => {
       }),
     ).toEqual([3, 1]);
   });
+
+  it("filters All tracks by title, artist, album, and genre", () => {
+    const catalog = [
+      {
+        ...track(1, "Paranoid Android"),
+        artist: "Radiohead",
+        album: "OK Computer",
+        genre: "Rock",
+      },
+      {
+        ...track(2, "Airbag"),
+        artist: "Radiohead",
+        album: "OK Computer",
+      },
+      {
+        ...track(3, "Come As You Are"),
+        artist: "Nirvana",
+        album: "Nevermind",
+        genre: "Grunge",
+      },
+    ];
+    const ctx = {
+      library: catalog,
+      playbackTracks: [],
+      playContextIds: [],
+      manualQueueIds: [],
+      currentTrackId: null,
+      playlists: [],
+    };
+
+    expect(
+      resolveSkinPlaylistTrackIds(SKIN_PLAYLIST_SOURCE_ALL, {
+        ...ctx,
+        filterQuery: "air",
+      }),
+    ).toEqual([2]);
+    expect(
+      resolveSkinPlaylistTrackIds(SKIN_PLAYLIST_SOURCE_ALL, {
+        ...ctx,
+        filterQuery: "nirvana",
+      }),
+    ).toEqual([3]);
+    expect(
+      resolveSkinPlaylistTrackIds(SKIN_PLAYLIST_SOURCE_ALL, {
+        ...ctx,
+        filterQuery: "ok computer",
+      }),
+    ).toEqual([2, 1]);
+    expect(
+      resolveSkinPlaylistTrackIds(SKIN_PLAYLIST_SOURCE_ALL, {
+        ...ctx,
+        filterQuery: "grunge",
+      }),
+    ).toEqual([3]);
+    expect(
+      resolveSkinPlaylistTrackIds(SKIN_PLAYLIST_SOURCE_ALL, {
+        ...ctx,
+        filterQuery: "   ",
+      }),
+    ).toEqual([2, 3, 1]);
+  });
 });
 
 describe("resolveIdlePlaybackTrackIds", () => {

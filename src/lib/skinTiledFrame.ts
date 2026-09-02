@@ -62,21 +62,197 @@ export function computeContentRect(
   return { x: inset.left, y: inset.top, w, h };
 }
 
-/** Clip chrome caps so opaque inner fill in WMP tiles cannot paint over the content rect. */
+/** Zero inset punches a full-window hole, which would hide every chrome tile. */
+export function tiledFrameChromeShouldClip(
+  inset: TiledFrameContentInset,
+): boolean {
+  return inset.left > 0 || inset.top > 0 || inset.right > 0 || inset.bottom > 0;
+}
+
+/**
+ * Zero-inset explicit frames keep chrome as window-relative canvas siblings.
+ * Layer z-index 0/2 would trap tile `zIndex` inside the frame and bury the
+ * metal under those siblings.
+ */
+export function tiledFrameTilesStackWithSiblings(
+  inset: TiledFrameContentInset,
+): boolean {
+  return !tiledFrameChromeShouldClip(inset);
+}
+
+/** Radius for the content pane and matching chrome clip hole. */
+export function tiledFrameContentRadius(
+  presentation: TiledFramePresentation,
+): number {
+  const radius = presentation.contentCornerRadius;
+  if (radius == null || !Number.isFinite(radius) || radius <= 0) return 0;
+  return radius;
+}
+
+interface RectBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+function intersectRects(a: RectBox, b: RectBox): RectBox | null {
+  const x = Math.max(a.x, b.x);
+  const y = Math.max(a.y, b.y);
+  const r = Math.min(a.x + a.w, b.x + b.w);
+  const btm = Math.min(a.y + a.h, b.y + b.h);
+  const w = r - x;
+  const h = btm - y;
+  if (w <= 0 || h <= 0) return null;
+  return { x, y, w, h };
+}
+
+/** Axis-aligned subtract; returns 0–4 rectangles. */
+function subtractRect(rect: RectBox, hole: RectBox): RectBox[] {
+  const cut = intersectRects(rect, hole);
+  if (!cut) return [{ x: rect.x, y: rect.y, w: rect.w, h: rect.h }];
+  const pieces: RectBox[] = [];
+  if (cut.y > rect.y) {
+    pieces.push({ x: rect.x, y: rect.y, w: rect.w, h: cut.y - rect.y });
+  }
+  const rectBottom = rect.y + rect.h;
+  const cutBottom = cut.y + cut.h;
+  if (cutBottom < rectBottom) {
+    pieces.push({
+      x: rect.x,
+      y: cutBottom,
+      w: rect.w,
+      h: rectBottom - cutBottom,
+    });
+  }
+  if (cut.x > rect.x) {
+    pieces.push({ x: rect.x, y: cut.y, w: cut.x - rect.x, h: cut.h });
+  }
+  const rectRight = rect.x + rect.w;
+  const cutRight = cut.x + cut.w;
+  if (cutRight < rectRight) {
+    pieces.push({ x: cutRight, y: cut.y, w: rectRight - cutRight, h: cut.h });
+  }
+  return pieces.filter((p) => p.w > 0 && p.h > 0);
+}
+
+function subtractRects(rect: RectBox, holes: RectBox[]): RectBox[] {
+  let remainders = [{ x: rect.x, y: rect.y, w: rect.w, h: rect.h }];
+  for (const hole of holes) {
+    remainders = remainders.flatMap((piece) => subtractRect(piece, hole));
+  }
+  return remainders;
+}
+
+export interface TilePaintSlice extends RectBox {
+  /** Cap whose alpha masks this slice (overlay glaze over a chroma-keyed cap). */
+  maskCap?: FrameRect;
+}
+
+function tileBox(tile: FrameRect): RectBox {
+  return { x: tile.x, y: tile.y, w: tile.w, h: tile.h };
+}
+
+/**
+ * Stretch tiles stacked above a corner cap glaze the cap for blending, but
+ * must not fill the cap's transparent outer radius. Split those overlays:
+ * keep the open span unmasked, and mask the overlap with the cap PNG.
+ */
+export function computeTilePaintSlices(
+  tile: FrameRect,
+  all: FrameRect[],
+): TilePaintSlice[] {
+  if (!tile.tiled) {
+    return [tileBox(tile)];
+  }
+  const overlaps: { cap: FrameRect; overlap: RectBox }[] = [];
+  for (const cap of all) {
+    if (cap.tiled || cap.zIndex >= tile.zIndex) continue;
+    const overlap = intersectRects(tile, cap);
+    if (overlap) overlaps.push({ cap, overlap });
+  }
+  if (overlaps.length === 0) {
+    return [tileBox(tile)];
+  }
+  const remainders = subtractRects(
+    tileBox(tile),
+    overlaps.map((item) => item.overlap),
+  );
+  return [
+    ...remainders,
+    ...overlaps.map(({ cap, overlap }) => ({
+      ...overlap,
+      maskCap: cap,
+    })),
+  ];
+}
+
+function clipPathPx(n: number): string {
+  return `${Number(n.toFixed(2))}px`;
+}
+
+function clipPathArc(
+  cx: number,
+  cy: number,
+  radius: number,
+  startRad: number,
+  endRad: number,
+  steps: number,
+): string[] {
+  const pts: string[] = [];
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const a = startRad + (endRad - startRad) * t;
+    pts.push(
+      `${clipPathPx(cx + radius * Math.cos(a))} ${clipPathPx(cy + radius * Math.sin(a))}`,
+    );
+  }
+  return pts;
+}
+
+/**
+ * Clip chrome caps so opaque inner fill in WMP tiles cannot paint over the
+ * content rect. `radius` must match the content pane's border-radius or the
+ * corner wedges show the window background.
+ */
 export function computeChromeClipPath(
   windowW: number,
   windowH: number,
   contentRect: { x: number; y: number; w: number; h: number },
+  radius = 0,
 ): string {
   const l = contentRect.x;
   const t = contentRect.y;
   const r = contentRect.x + contentRect.w;
   const b = contentRect.y + contentRect.h;
-  return (
-    `polygon(evenodd,` +
-    `0px 0px, ${windowW}px 0px, ${windowW}px ${windowH}px, 0px ${windowH}px, 0px 0px,` +
-    `${l}px ${t}px, ${r}px ${t}px, ${r}px ${b}px, ${l}px ${b}px, ${l}px ${t}px)`
+  const outer = `0px 0px, ${windowW}px 0px, ${windowW}px ${windowH}px, 0px ${windowH}px, 0px 0px`;
+  const rad = Math.min(
+    Math.max(0, radius),
+    contentRect.w / 2,
+    contentRect.h / 2,
   );
+  if (rad <= 0) {
+    return (
+      `polygon(evenodd,` +
+      `${outer},` +
+      `${l}px ${t}px, ${r}px ${t}px, ${r}px ${b}px, ${l}px ${b}px, ${l}px ${t}px)`
+    );
+  }
+
+  const steps = 8;
+  const inner = [
+    `${clipPathPx(l + rad)} ${clipPathPx(t)}`,
+    `${clipPathPx(r - rad)} ${clipPathPx(t)}`,
+    ...clipPathArc(r - rad, t + rad, rad, -Math.PI / 2, 0, steps),
+    `${clipPathPx(r)} ${clipPathPx(b - rad)}`,
+    ...clipPathArc(r - rad, b - rad, rad, 0, Math.PI / 2, steps),
+    `${clipPathPx(l + rad)} ${clipPathPx(b)}`,
+    ...clipPathArc(l + rad, b - rad, rad, Math.PI / 2, Math.PI, steps),
+    `${clipPathPx(l)} ${clipPathPx(t + rad)}`,
+    ...clipPathArc(l + rad, t + rad, rad, Math.PI, (3 * Math.PI) / 2, steps),
+  ].join(", ");
+
+  return `polygon(evenodd,${outer},${inner})`;
 }
 
 function presetZIndex(

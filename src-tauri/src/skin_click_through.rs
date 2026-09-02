@@ -6,6 +6,9 @@ use tauri::WebviewWindow;
 pub struct ClientPoint {
     pub x: f64,
     pub y: f64,
+    /// `NSEvent.pressedMouseButtons` bitfield (0 when unknown / non-macOS).
+    #[serde(default)]
+    pub buttons: u32,
 }
 
 /// AppKit screen space (bottom-left, points) → CSS client (top-left).
@@ -20,6 +23,7 @@ pub fn client_point_from_appkit_screen(
     ClientPoint {
         x: cursor_x - content_x,
         y: content_height - (cursor_y - content_y),
+        buttons: 0,
     }
 }
 
@@ -57,6 +61,13 @@ fn macos_cursor_client(window: &WebviewWindow) -> Result<ClientPoint, String> {
 }
 
 #[cfg(target_os = "macos")]
+fn macos_pressed_mouse_buttons() -> u32 {
+    use objc2::{class, msg_send};
+    let buttons: usize = unsafe { msg_send![class!(NSEvent), pressedMouseButtons] };
+    buttons as u32
+}
+
+#[cfg(target_os = "macos")]
 fn macos_cursor_client_now(window: &WebviewWindow) -> Result<ClientPoint, String> {
     use objc2::runtime::AnyObject;
     use objc2::{class, msg_send};
@@ -71,13 +82,15 @@ fn macos_cursor_client_now(window: &WebviewWindow) -> Result<ClientPoint, String
         let frame: NSRect = msg_send![ns_window, frame];
         let content: NSRect = msg_send![ns_window, contentRectForFrameRect: frame];
         let cursor: NSPoint = msg_send![class!(NSEvent), mouseLocation];
-        Ok(client_point_from_appkit_screen(
+        let mut point = client_point_from_appkit_screen(
             cursor.x,
             cursor.y,
             content.origin.x,
             content.origin.y,
             content.size.height,
-        ))
+        );
+        point.buttons = macos_pressed_mouse_buttons();
+        Ok(point)
     }
 }
 
@@ -89,15 +102,17 @@ fn tauri_cursor_client(window: &WebviewWindow) -> Result<ClientPoint, String> {
     Ok(ClientPoint {
         x: (cursor.x - f64::from(origin.x)) / scale,
         y: (cursor.y - f64::from(origin.y)) / scale,
+        buttons: 0,
     })
 }
 
 /// Toggle OS click-through for a skin window.
 ///
-/// On macOS a *key* / active app still receives clicks even with
-/// `ignoresMouseEvents` set (`resignKeyWindow` is a no-op if called directly).
-/// Deactivate the app so the hardware click goes to whatever is behind the
-/// skin. Windows and Linux only need the usual ignore-cursor flag.
+/// `ignoresMouseEvents` alone is enough: the window server routes the click to
+/// whatever is behind the window regardless of key/active status. Do not also
+/// resign key or deactivate the app — AppKit then rebuilds focus on the next
+/// mouse-down, and that path makes a synchronous accessibility query that
+/// blocks the main thread.
 pub fn set_ignore_cursor_events(window: &WebviewWindow, ignore: bool) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
@@ -131,8 +146,6 @@ fn set_ignore_macos(window: &WebviewWindow, ignore: bool) -> Result<(), String> 
 fn apply_macos_ignore(window: &WebviewWindow, ignore: bool) {
     use objc2::msg_send;
     use objc2::runtime::AnyObject;
-    use objc2::MainThreadMarker;
-    use objc2_app_kit::NSApplication;
 
     let Ok(ptr) = window.ns_window() else {
         return;
@@ -143,20 +156,6 @@ fn apply_macos_ignore(window: &WebviewWindow, ignore: bool) {
     let ns_window = ptr.cast::<AnyObject>();
     unsafe {
         let _: () = msg_send![ns_window, setIgnoresMouseEvents: ignore];
-    }
-
-    // Deactivate is process-wide — skip unless this window is key and visible.
-    let deactivating = ignore
-        && unsafe {
-            let is_key: bool = msg_send![ns_window, isKeyWindow];
-            let is_visible: bool = msg_send![ns_window, isVisible];
-            is_key && is_visible
-        };
-
-    if deactivating {
-        if let Some(mtm) = MainThreadMarker::new() {
-            NSApplication::sharedApplication(mtm).deactivate();
-        }
     }
 }
 

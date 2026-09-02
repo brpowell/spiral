@@ -4,19 +4,31 @@ import { SeekBar } from "../SeekBar/SeekBar";
 import { VisualizerSlot } from "../VisualizerSlot/VisualizerSlot";
 import { VolumeControl } from "../VolumeControl/VolumeControl";
 import { useSkinControlEnabled } from "../../../lib/skinBinds";
+import {
+  styleFromSkinNode,
+  useResolvedNodeStyle,
+} from "../../../lib/skinNodeStyle";
 import type {
   ArtworkNode,
-  SeekbarNode,
+  SliderSeekNode,
+  SliderVolumeNode,
   TransportNode,
   VisualizerNode,
-  VolumeNode,
 } from "../../../types/skin";
 
 type PrimitiveNode =
-  ArtworkNode | SeekbarNode | TransportNode | VisualizerNode | VolumeNode;
+  | ArtworkNode
+  | TransportNode
+  | VisualizerNode
+  | SliderSeekNode
+  | SliderVolumeNode;
 
 export function SkinPrimitiveControl({ node }: { node: PrimitiveNode }) {
   const interactionEnabled = useSkinControlEnabled(node.enabledWhen);
+  const resolvedStyle = useResolvedNodeStyle(node.style, node.styleWhen);
+  const css = styleFromSkinNode(resolvedStyle, {
+    omitOpacity: node.bounds !== undefined,
+  });
   const className = node.className;
 
   if (node.type === "artwork") {
@@ -25,7 +37,7 @@ export function SkinPrimitiveControl({ node }: { node: PrimitiveNode }) {
         className={className}
         nodeId={node.id}
         interactionEnabled={interactionEnabled}
-        style={node.style}
+        style={resolvedStyle}
         objectFit={node.objectFit}
       />
     );
@@ -41,7 +53,7 @@ export function SkinPrimitiveControl({ node }: { node: PrimitiveNode }) {
     );
   }
 
-  if (node.type === "seekbar") {
+  if (node.type === "slider" && node.control === "seek") {
     return (
       <SeekBar
         className={className}
@@ -60,11 +72,12 @@ export function SkinPrimitiveControl({ node }: { node: PrimitiveNode }) {
         className={className}
         nodeId={node.id}
         interactionEnabled={interactionEnabled}
+        style={css}
       />
     );
   }
 
-  if (node.type === "volume") {
+  if (node.type === "slider" && node.control === "volume") {
     return (
       <VolumeControl
         className={className}

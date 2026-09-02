@@ -1,4 +1,5 @@
 import type { SkinBindState } from "../lib/skinBinds";
+import { defaultSkinUserPreferences } from "../types/skinPreferences";
 
 export function minimalBindState(
   overrides: Partial<SkinBindState> = {},
@@ -23,6 +24,8 @@ export function minimalBindState(
     visualizerName: "",
     canCycleVisualizer: false,
     playlistSourceId: "all",
+    playlistFilterQuery: "",
+    inputValues: {},
     playlists: [],
     library: [],
     playbackTracks: [],
@@ -33,11 +36,15 @@ export function minimalBindState(
     eqBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     eqCustomPresets: [],
     soundEffectsEnabled: true,
+    crossfadeEnabled: false,
+    skinSettings: [],
+    skinPreferences: defaultSkinUserPreferences(),
     viewState: {},
     slideshowPresentations: {},
     slideshowState: {},
     scrollStripPresentations: {},
     scrollStripState: {},
+    hoveredNodeIds: new Set(),
     ...overrides,
   };
 }

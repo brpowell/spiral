@@ -14,6 +14,7 @@ import {
   loadStripSliderPositionMap,
   ratioToStripFrame,
   sampleStripSliderPointer,
+  type StripSliderOffMapFallback,
   type StripSliderPointerSample,
   type StripSliderPositionMap,
 } from "../../../lib/skinStripSliderMap";
@@ -26,29 +27,22 @@ import {
 import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import { useEqualizerStore } from "../../../store/useEqualizerStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
-import type {
-  EqBandNode,
-  LoadedSkinPack,
-  SeekbarNode,
-  VolumeNode,
-} from "../../../types/skin";
+import type { LoadedSkinPack, SliderNode } from "../../../types/skin";
 import "./SkinStripSlider.css";
-
-type StripSliderNode = SeekbarNode | VolumeNode | EqBandNode;
 
 export function SkinStripSlider({
   node,
   pack,
   mode,
 }: {
-  node: StripSliderNode;
+  node: SliderNode;
   pack: LoadedSkinPack;
   mode: "seek" | "volume" | "eq";
 }) {
   const presentation = node.presentation;
   if (presentation.kind !== "stripSlider") return null;
 
-  const eqBand = mode === "eq" && node.type === "eqBand" ? node.band : null;
+  const eqBand = mode === "eq" && node.control === "eq" ? node.band : null;
 
   const {
     strip,
@@ -63,6 +57,8 @@ export function SkinStripSlider({
 
   const hitRef = useRef<HTMLButtonElement>(null);
   const dragAnchorFrameRef = useRef<number | null>(null);
+  const lastRatioRef = useRef<number | null>(null);
+  const draggingRef = useRef(false);
   const skinDebug = useSkinDebug();
   const [positionMapData, setPositionMapData] =
     useState<StripSliderPositionMap | null>(null);
@@ -202,6 +198,7 @@ export function SkinStripSlider({
       clientX: number,
       clientY: number,
       anchorFrame?: number,
+      offMapFallback: StripSliderOffMapFallback = "none",
     ): StripSliderPointerSample | null => {
       const el = hitRef.current;
       if (!el) return null;
@@ -214,21 +211,17 @@ export function SkinStripSlider({
         direction,
         valueFrames,
         anchorFrame,
+        offMapFallback,
       );
     },
     [positionMapData, frameCount, direction, valueFrames],
   );
 
-  const pointerToRatio = useCallback(
-    (clientX: number, clientY: number, anchorFrame?: number): number | null =>
-      samplePointer(clientX, clientY, anchorFrame)?.ratio ?? null,
-    [samplePointer],
-  );
-
   const applyRatio = useCallback(
     (ratio: number, commit: boolean) => {
+      lastRatioRef.current = ratio;
       if (mode === "eq") {
-        if (node.type !== "eqBand") return;
+        if (node.control !== "eq") return;
         applyEqBandSliderGain(node, pack, ratioToGainDb(ratio));
       } else if (mode === "volume") {
         setVolume(ratio);
@@ -247,17 +240,28 @@ export function SkinStripSlider({
       clientY: number,
       anchorFrame: number,
       commit: boolean,
+      offMapFallback: StripSliderOffMapFallback = "none",
     ) => {
-      const ratio = pointerToRatio(clientX, clientY, anchorFrame);
-      if (ratio === null) return;
-      applyRatio(ratio, commit);
-      dragAnchorFrameRef.current = ratioToStripFrame(
-        ratio,
-        frameCount,
-        valueFrames,
+      const sample = samplePointer(
+        clientX,
+        clientY,
+        anchorFrame,
+        offMapFallback,
       );
+      if (sample) {
+        applyRatio(sample.ratio, commit);
+        dragAnchorFrameRef.current = ratioToStripFrame(
+          sample.ratio,
+          frameCount,
+          valueFrames,
+        );
+        return;
+      }
+      if (commit && lastRatioRef.current !== null) {
+        applyRatio(lastRatioRef.current, true);
+      }
     },
-    [pointerToRatio, applyRatio, frameCount, valueFrames],
+    [samplePointer, applyRatio, frameCount, valueFrames],
   );
 
   const updateMapHitState = useCallback(
@@ -286,6 +290,7 @@ export function SkinStripSlider({
     if (!sample) return;
     setMapHitActive(true);
     event.currentTarget.setPointerCapture(event.pointerId);
+    draggingRef.current = true;
     if (mode === "seek") handleSeekStart();
     dragAnchorFrameRef.current = displayFrame;
     applyRatio(sample.ratio, false);
@@ -294,30 +299,43 @@ export function SkinStripSlider({
   const onPointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
     const anchorFrame = dragAnchorFrameRef.current ?? displayFrame;
     const dragging = event.currentTarget.hasPointerCapture(event.pointerId);
-    const sample = samplePointer(event.clientX, event.clientY, anchorFrame);
+    const offMapFallback: StripSliderOffMapFallback = dragging
+      ? "nearest"
+      : "none";
+    const sample = samplePointer(
+      event.clientX,
+      event.clientY,
+      anchorFrame,
+      offMapFallback,
+    );
     updateMapHitState(event.clientX, event.clientY, anchorFrame, dragging);
     if (sample) setHoverRatio(sample.ratio);
     if (skinDebug) {
       setDebugSample(sample);
     }
     if (!dragging || disabled) return;
-    applyPointer(event.clientX, event.clientY, anchorFrame, false);
+    applyPointer(event.clientX, event.clientY, anchorFrame, false, "nearest");
   };
 
   const onPointerLeave = () => {
+    if (draggingRef.current) return;
     setHoverRatio(null);
     setMapHitActive(false);
     if (skinDebug) setDebugSample(null);
   };
 
   const finishDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
-    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
     applyPointer(
       event.clientX,
       event.clientY,
       dragAnchorFrameRef.current ?? displayFrame,
       mode === "seek",
+      "nearest",
     );
     dragAnchorFrameRef.current = null;
   };

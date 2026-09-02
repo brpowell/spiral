@@ -10,6 +10,7 @@ import { useSkinModeAlwaysOnTop } from "./skinModeAlwaysOnTop";
 import { evaluateSlideshowBind } from "./skinSlideshow";
 import { evaluateScrollStripBind } from "./skinScrollStrip";
 import { evaluateViewBind, useSkinViewState } from "./skinViewStateContext";
+import { useSkinHoveredNodeIds } from "./skinHoverContext";
 import { useSkinSlideshowState } from "./skinSlideshowContext";
 import { useSkinScrollStripState } from "./skinScrollStripContext";
 import {
@@ -26,12 +27,15 @@ import { useEqualizerStore } from "../store/useEqualizerStore";
 import { usePlaybackSettingsStore } from "../store/usePlaybackSettingsStore";
 import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
 import { soundEffectsEnabledFromPreferences } from "../types/skinPreferences";
+import type { SkinUserPreferences } from "../types/skinPreferences";
+import { evaluateAuthorSkinPref } from "./skinPrefSettings";
 import type { EqualizerBandGains, EqualizerPreset } from "./equalizer/types";
 import type { PlayableRef } from "../types/playable";
 import type {
   ScrollStripPresentation,
   SkinBindPath,
   SkinCondition,
+  SkinSetting,
   SlideshowPresentation,
 } from "../types/skin";
 import type { Track } from "../types/track";
@@ -63,6 +67,8 @@ export interface SkinBindState {
   visualizerName: string;
   canCycleVisualizer: boolean;
   playlistSourceId: string;
+  playlistFilterQuery: string;
+  inputValues: Record<string, string>;
   playlists: Playlist[];
   library: Track[];
   playbackTracks: Track[];
@@ -75,11 +81,15 @@ export interface SkinBindState {
   eqCustomPresets: EqualizerPreset[];
   soundEffectsEnabled: boolean;
   crossfadeEnabled: boolean;
+  skinSettings: readonly SkinSetting[];
+  skinPreferences: SkinUserPreferences;
   viewState: ViewStateValues;
   slideshowPresentations: Record<string, SlideshowPresentation>;
   slideshowState: SlideshowStateMap;
   scrollStripPresentations: Record<string, ScrollStripPresentation>;
   scrollStripState: ScrollStripStateMap;
+  /** Node ids currently under the pointer (`hover.{nodeId}`). */
+  hoveredNodeIds: ReadonlySet<string>;
 }
 
 const AUX_VIEW_BIND_RE = /^skin\.view\.([^.]+)\.(open|closed)$/;
@@ -127,10 +137,28 @@ export function evaluateSkinBind(
     return scrollStripValue;
   }
 
+  if (path.startsWith("hover.")) {
+    const id = path.slice("hover.".length);
+    return id.length > 0 && !id.includes(".") && state.hoveredNodeIds.has(id);
+  }
+
+  const inputBind = evaluateInputBind(path, state.inputValues);
+  if (inputBind !== null) {
+    return inputBind;
+  }
+
   if (path.startsWith("skin.pref.")) {
     const key = path.slice("skin.pref.".length);
     if (key === "soundEffectsEnabled") {
       return state.soundEffectsEnabled;
+    }
+    const authorValue = evaluateAuthorSkinPref(
+      key,
+      state.skinSettings,
+      state.skinPreferences,
+    );
+    if (authorValue !== null) {
+      return authorValue;
     }
     return null;
   }
@@ -155,6 +183,8 @@ export function evaluateSkinBind(
       return state.artUrl;
     case "track.durationSeconds":
       return currentTrack?.durationSeconds ?? null;
+    case "track.rating":
+      return currentTrack?.rating ?? null;
     case "player.isPlaying":
       return state.playbackState === "playing";
     case "player.notPlaying":
@@ -216,6 +246,10 @@ export function evaluateSkinBind(
       return playlistTrackCount(state);
     case "playlist.hasTracks":
       return playlistTrackCount(state) > 0;
+    case "playlist.filterQuery":
+      return state.playlistFilterQuery;
+    case "playlist.hasFilter":
+      return state.playlistFilterQuery.trim().length > 0;
     case "eq.enabled":
       return state.eqEnabled;
     case "eq.presetId":
@@ -240,6 +274,9 @@ export function evaluateSkinCondition(
   condition: SkinCondition,
   state: SkinBindState,
 ): boolean {
+  if (typeof condition === "boolean") {
+    return condition;
+  }
   if (typeof condition === "string") {
     return Boolean(evaluateSkinBind(condition, state));
   }
@@ -263,6 +300,23 @@ export function isSkinControlEnabled(
   return evaluateSkinCondition(enabledWhen, state);
 }
 
+function evaluateInputBind(
+  path: string,
+  inputValues: Record<string, string>,
+): SkinBindValue | null {
+  if (!path.startsWith("input.")) return null;
+  const rest = path.slice("input.".length);
+  const dot = rest.indexOf(".");
+  if (dot <= 0) return null;
+  const id = rest.slice(0, dot);
+  const prop = rest.slice(dot + 1);
+  if (!id || id.includes(".")) return null;
+  const value = inputValues[id] ?? "";
+  if (prop === "value") return value;
+  if (prop === "empty") return value.trim().length === 0;
+  return null;
+}
+
 function playlistTrackCount(state: SkinBindState): number {
   return resolveSkinPlaylistTrackCount(state.playlistSourceId, {
     library: state.library,
@@ -272,6 +326,7 @@ function playlistTrackCount(state: SkinBindState): number {
     manualQueueIds: state.manualQueueIds,
     currentTrackId: state.currentTrackId,
     playlists: state.playlists,
+    filterQuery: state.playlistFilterQuery,
   });
 }
 
@@ -282,8 +337,11 @@ export function useSkinBindState(): SkinBindState {
     useSkinSlideshowState();
   const { state: scrollStripState, presentations: scrollStripPresentations } =
     useSkinScrollStripState();
+  const hoveredNodeIds = useSkinHoveredNodeIds();
   const openAuxiliaryViews = useSkinStore((s) => s.openAuxiliaryViews);
   const playlistSourceId = useSkinStore((s) => s.playlistSourceId);
+  const playlistFilterQuery = useSkinStore((s) => s.playlistFilterQuery);
+  const inputValues = useSkinStore((s) => s.inputValues);
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const cdQueueContext = usePlayerStore((s) => s.cdQueueContext);
@@ -307,6 +365,8 @@ export function useSkinBindState(): SkinBindState {
   const skinPreferences = useSkinPreferencesStore((s) => s.preferences);
   const soundEffectsEnabled =
     soundEffectsEnabledFromPreferences(skinPreferences);
+  const activePack = useSkinStore((s) => s.activePack);
+  const skinSettings = activePack?.manifest.settings ?? [];
 
   const visualizerName = useMemo(
     () => activeVisualizerName(visualizers, activeVisualizerId),
@@ -371,6 +431,8 @@ export function useSkinBindState(): SkinBindState {
       visualizerName,
       canCycleVisualizer,
       playlistSourceId,
+      playlistFilterQuery,
+      inputValues,
       library,
       playbackTracks,
       cdQueueTracks: cdQueueContext?.tracks,
@@ -383,11 +445,14 @@ export function useSkinBindState(): SkinBindState {
       eqCustomPresets,
       soundEffectsEnabled,
       crossfadeEnabled,
+      skinSettings,
+      skinPreferences,
       viewState,
       slideshowPresentations,
       slideshowState,
       scrollStripPresentations,
       scrollStripState,
+      hoveredNodeIds,
     }),
     [
       currentTrack,
@@ -407,6 +472,8 @@ export function useSkinBindState(): SkinBindState {
       visualizerName,
       canCycleVisualizer,
       playlistSourceId,
+      playlistFilterQuery,
+      inputValues,
       library,
       playbackTracks,
       cdQueueContext?.tracks,
@@ -419,11 +486,14 @@ export function useSkinBindState(): SkinBindState {
       eqCustomPresets,
       soundEffectsEnabled,
       crossfadeEnabled,
+      skinSettings,
+      skinPreferences,
       viewState,
       slideshowPresentations,
       slideshowState,
       scrollStripPresentations,
       scrollStripState,
+      hoveredNodeIds,
     ],
   );
   return bindState;
@@ -438,13 +508,20 @@ export function useSkinBindValue(path: string | undefined): SkinBindValue {
   }, [path, bindState]);
 }
 
+export function isSkinVisible(
+  visibleWhen: SkinCondition | undefined,
+  state: SkinBindState,
+): boolean {
+  if (visibleWhen === undefined) return true;
+  return evaluateSkinCondition(visibleWhen, state);
+}
+
 /** True when `visibleWhen` condition is truthy (or unset). */
 export function useSkinVisible(
   visibleWhen: SkinCondition | undefined,
 ): boolean {
   const bindState = useSkinBindState();
-  if (!visibleWhen) return true;
-  return evaluateSkinCondition(visibleWhen, bindState);
+  return isSkinVisible(visibleWhen, bindState);
 }
 
 export function useSkinControlEnabled(

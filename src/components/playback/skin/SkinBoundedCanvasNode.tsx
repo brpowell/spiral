@@ -1,10 +1,26 @@
-import type { LayoutNode, LoadedSkinPack } from "../../../types/skin";
-import { useSkinVisible } from "../../../lib/skinBinds";
+import { useMemo } from "react";
+import type {
+  LayoutNode,
+  LoadedSkinPack,
+  SkinCondition,
+} from "../../../types/skin";
+import {
+  evaluateSkinCondition,
+  useSkinBindState,
+  useSkinVisible,
+} from "../../../lib/skinBinds";
 import {
   getNodeBoundsWhen,
   resolveNodeBounds,
 } from "../../../lib/skinBoundsWhen";
+import {
+  useSkinHoverLeaveEffects,
+  useSkinHoverPointerHandlers,
+} from "../../../lib/skinHoverContext";
 import { resolveLocalBounds } from "../../../lib/skinLayout";
+import { resolveNodeStyle } from "../../../lib/skinNodeStyle";
+import { resolveNodeTransition } from "../../../lib/skinTransition";
+import { iterWhenOverlays } from "../../../lib/skinWhenOverlays";
 import { resolveSkinWindowHitKind } from "../../../lib/skinWindowHit";
 import { SkinBounds } from "./SkinBounds";
 import { useButtonGroupElevationDelta } from "./SkinButtonGroupHitRegistry";
@@ -13,7 +29,6 @@ import {
   useSkinLayoutContext,
 } from "./SkinLayoutContext";
 import { SkinLayoutNode } from "./SkinLayoutNode";
-import { useSkinViewState } from "../../../lib/skinViewStateContext";
 
 export interface SkinBoundedCanvasNodeProps {
   node: LayoutNode;
@@ -25,11 +40,18 @@ export function SkinBoundedCanvasNode({
   pack,
 }: SkinBoundedCanvasNodeProps) {
   const visible = useSkinVisible(node.visibleWhen);
-  const { values: viewState } = useSkinViewState();
+  const bindState = useSkinBindState();
   const parentLayout = useSkinLayoutContext();
   const elevationDelta = useButtonGroupElevationDelta(
     node.type === "buttonGroup" ? node.id : undefined,
   );
+  const hoverIds = useMemo(() => (node.id ? [node.id] : []), [node.id]);
+  const hoverPointer = useSkinHoverPointerHandlers(
+    hoverIds,
+    node.id ?? "",
+    visible,
+  );
+  useSkinHoverLeaveEffects(node.id, node.onHoverLeave, () => bindState);
 
   const boundsWhen = getNodeBoundsWhen(node);
 
@@ -37,7 +59,25 @@ export function SkinBoundedCanvasNode({
 
   const inner = <SkinLayoutNode node={node} pack={pack} />;
 
-  const bounds = resolveNodeBounds(node.bounds, boundsWhen, viewState);
+  const isConditionTrue = (condition: SkinCondition) =>
+    evaluateSkinCondition(condition, bindState);
+  const bounds = resolveNodeBounds(node.bounds, boundsWhen, isConditionTrue);
+  const resolvedStyle = resolveNodeStyle(
+    node.style,
+    node.styleWhen,
+    isConditionTrue,
+  );
+  const transition = resolveNodeTransition(
+    node.transition,
+    node.transitionWhen,
+    isConditionTrue,
+  );
+  const opacityAuthored =
+    node.style?.opacity !== undefined ||
+    iterWhenOverlays(node.styleWhen).some(
+      ({ overlay }) => overlay.opacity !== undefined,
+    );
+  const opacity = opacityAuthored ? (resolvedStyle?.opacity ?? 1) : undefined;
 
   if (bounds) {
     // Subview boxes never capture; only nested controls do. Authored
@@ -73,8 +113,12 @@ export function SkinBoundedCanvasNode({
         <SkinBounds
           bounds={local}
           boundsFor={node.id}
-          transition={node.transition}
+          transition={transition}
           windowHit={resolveSkinWindowHitKind(node)}
+          opacity={opacity}
+          pointerIdle={opacity === 0}
+          onPointerEnter={hoverPointer?.onPointerEnter}
+          onPointerLeave={hoverPointer?.onPointerLeave}
           className={
             [
               passthrough && "skin-bounds--passthrough",

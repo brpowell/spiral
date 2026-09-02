@@ -27,14 +27,26 @@ export interface ThumbAssets {
 export type InteractiveAssetsWhen = Record<string, InteractiveAssets>;
 
 /**
- * Boolean composition of skin bind paths for visibility and interaction guards.
+ * Boolean composition of skin bind paths for guards (`visibleWhen`,
+ * `enabledWhen`, click `when`) and overlay-row `when`.
  * A plain string is a leaf bind (truthy when evaluated value is truthy).
+ * A boolean is a constant (use `false` for controls that are never interactive).
  */
 export type SkinCondition =
+  | boolean
   | string
   | { all: SkinCondition[] }
   | { any: SkinCondition[] }
   | { not: SkinCondition };
+
+/** Overlay row: `when` is a {@link SkinCondition}; remaining fields are the patch. */
+export type WhenOverlay<T> = T & { when: SkinCondition };
+
+/**
+ * Bind map (legacy) or ordered list of {@link WhenOverlay} rows.
+ * List order is last-match-wins. A map key is a leaf bind path.
+ */
+export type WhenMapOrList<T> = Record<string, T> | WhenOverlay<T>[];
 
 export interface SkinSummary {
   id: string;
@@ -71,6 +83,17 @@ export interface SkinManifest {
   stylesheet?: string;
   /** Optional sound effect assets keyed by logical id (paths under assets/ without extension). */
   soundEffects?: Record<string, string>;
+  /** Author-defined user preferences (persisted under custom in skin-preferences.json). */
+  settings?: SkinSetting[];
+}
+
+/** Boolean author preference declared in `settings`. */
+export interface SkinSetting {
+  id: string;
+  name: string;
+  description?: string;
+  type: "boolean";
+  default: boolean;
 }
 
 /** How the runtime infers window drag handles on canvas views. */
@@ -130,14 +153,13 @@ export interface SkinClickEffect {
   when?: SkinCondition;
   /** Wait before dispatch (default 0). */
   delayMs?: number;
-  action: string;
+  action?: string;
   payload?: SkinActionPayloadFields;
-}
-
-export interface SkinLifecycleEffect extends SkinClickEffect {
-  /** Manifest soundEffects key played before the action. */
+  /** Manifest soundEffects key played when the effect fires (before the action). */
   sound?: string;
 }
+
+export type SkinLifecycleEffect = SkinClickEffect;
 
 export interface LayoutBounds {
   /** Offset from the context left edge. */
@@ -171,14 +193,13 @@ export type LayoutNode =
   | DecorationNode
   | ButtonNode
   | ButtonGroupNode
-  | SeekbarNode
   | TextNode
+  | InputNode
   | ArtworkNode
   | TransportNode
   | VisualizerNode
-  | VolumeNode
-  | BalanceNode
-  | EqBandNode
+  | RatingNode
+  | SliderNode
   | TimeNode
   | PlaylistNode
   | TiledFrameNode
@@ -191,16 +212,34 @@ interface NodeBase {
   className?: string;
   /** Closed panel-writable paint. Omitting a field cedes it to CSS. */
   style?: NodeStyle;
+  /**
+   * Style overlays when a condition is truthy (last match wins, shallow merge).
+   * Bind map or ordered `{ when, …style }` list.
+   */
+  styleWhen?: WhenMapOrList<NodeStyle>;
   visibleWhen?: SkinCondition;
   /** Absolute placement on a canvas view (logical px). */
   bounds?: LayoutBounds;
-  /** Override `bounds` when a bind path is true (typically `view.*`). */
-  boundsWhen?: Record<string, Partial<LayoutBounds>>;
+  /**
+   * Override `bounds` when a condition is true (`view.*`, `hover.*`, or a
+   * composed {@link SkinCondition} in list form).
+   */
+  boundsWhen?: WhenMapOrList<Partial<LayoutBounds>>;
   /**
    * Interpolate when resolved bounds change. Omit (or `durationMs: 0`) to snap.
    * Presence of `boundsWhen` does not imply motion.
    */
   transition?: SkinLayoutTransition;
+  /**
+   * Transition overlays when a condition is truthy (last match wins, shallow
+   * merge). Bind map or ordered `{ when, …transition }` list.
+   */
+  transitionWhen?: WhenMapOrList<SkinLayoutTransition>;
+  /**
+   * Effects when `hover.{id}` goes false (pointer leave or hide/unmount).
+   * Same shape as `onClick`. Requires `id`.
+   */
+  onHoverLeave?: SkinClickEffect[];
 }
 
 export interface RowNode extends NodeBase {
@@ -232,12 +271,14 @@ export interface CanvasNode {
   id?: string;
   className?: string;
   style?: NodeStyle;
+  styleWhen?: WhenMapOrList<NodeStyle>;
   width: number;
   height: number;
   children: LayoutNode[];
   visibleWhen?: SkinCondition;
   dragRegion?: boolean;
   transition?: SkinLayoutTransition;
+  transitionWhen?: WhenMapOrList<SkinLayoutTransition>;
 }
 
 /**
@@ -329,7 +370,7 @@ export interface TiledFrameTileDef {
   zIndex?: number;
 }
 
-/** T3-style 9-slice preset generated at runtime from assets + tileSizes. */
+/** WMP 9-slice preset generated at runtime from assets + tileSizes. */
 export interface TiledFramePresetPresentation {
   kind: "tiledFrame";
   contentInset: TiledFrameContentInset;
@@ -337,13 +378,17 @@ export interface TiledFramePresetPresentation {
   tileSizes: TiledFrameTileSizes;
   /** WMP top/bottom chrome band height (53 for plView). */
   frameThickness: number;
+  /** Round the content pane and matching chrome clip hole, in px. */
+  contentCornerRadius?: number;
 }
 
-/** Declarative multi-layer frame (Xbox-style stacked subviews). */
+/** Declarative multi-layer frame (stacked WMP subviews). */
 export interface TiledFrameExplicitPresentation {
   kind: "tiledFrame";
   contentInset: TiledFrameContentInset;
   tiles: TiledFrameTileDef[];
+  /** Round the content pane and matching chrome clip hole, in px. */
+  contentCornerRadius?: number;
 }
 
 export type TiledFramePresentation =
@@ -405,7 +450,7 @@ export interface ScrollStripSlide {
 }
 
 export interface ControlNodeBase extends NodeBase {
-  /** Ordered click effects. Click wavs stay on `sound` / `soundWhen`. */
+  /** Ordered click effects. Immediate click wavs stay on `sound` / `soundWhen`. */
   onClick?: SkinClickEffect[];
   bind?: string;
   /** When truthy, the control is interactive. */
@@ -460,6 +505,8 @@ export interface SkinActionPayloadFields {
   viewId?: string;
   sourceId?: string;
   trackId?: number;
+  /** Current input string for `playlist.setFilter` (host-injected on `onChange`). */
+  query?: string;
   band?: number;
   gain?: number;
   enabled?: boolean;
@@ -474,12 +521,14 @@ export interface SkinActionPayloadFields {
   screen?: string;
   /** Target view-state variable for `view.setVariable`. */
   variable?: string;
-  /** Value to assign for `view.setVariable`. */
+  /** Value for `view.setVariable` or `skin.setPref`. */
   value?: string | number | boolean;
   /** When set, `view.setVariable` only applies if the variable currently equals this. */
   when?: string | number | boolean;
   /** Named event for `view.applyStateEvent`. */
   event?: string;
+  /** Target setting for `skin.togglePref` / `skin.setPref`. */
+  settingId?: string;
 }
 
 export interface ButtonGroupPresentation {
@@ -500,10 +549,6 @@ export interface ButtonGroupPresentation {
   elements: ButtonGroupElement[];
 }
 
-export interface SeekbarNode extends ControlNodeBase {
-  type: "seekbar";
-}
-
 export interface ArtworkNode extends ControlNodeBase {
   type: "artwork";
   /** CSS object-fit for the cover image. Default `cover`. */
@@ -518,24 +563,52 @@ export interface VisualizerNode extends ControlNodeBase {
   type: "visualizer";
 }
 
-export interface VolumeNode extends ControlNodeBase {
-  type: "volume";
+export interface RatingNode extends ControlNodeBase {
+  type: "rating";
 }
 
-export interface BalanceNode extends ControlNodeBase {
-  type: "balance";
+/** What a slider writes. Omit for decorative/unbound thumbs. */
+export type SliderControl = "volume" | "seek" | "balance" | "eq";
+
+interface SliderNodeBase extends ControlNodeBase {
+  type: "slider";
 }
 
-export interface EqBandNode extends ControlNodeBase {
-  type: "eqBand";
+/** Decorative or unbound slider — no host write path. */
+export interface SliderUnboundNode extends SliderNodeBase {
+  control?: undefined;
+}
+
+export interface SliderVolumeNode extends SliderNodeBase {
+  control: "volume";
+}
+
+export interface SliderSeekNode extends SliderNodeBase {
+  control: "seek";
+}
+
+export interface SliderBalanceNode extends SliderNodeBase {
+  control: "balance";
+}
+
+export interface SliderEqNode extends SliderNodeBase {
+  control: "eq";
   /** 1-based band index (1 = 31 Hz … 10 = 16 kHz). */
   band: number;
   /**
-   * Linear tilt control point. All `spread: "linear"` eqBand nodes in the skin
-   * are endpoints; dragging one interpolates the other 10-band gains between them.
+   * Linear tilt control point. All `control: "eq"` nodes with `spread: "linear"`
+   * in the skin are endpoints; dragging one interpolates the other 10-band gains.
    */
   spread?: "linear";
 }
+
+/** Bitmap / strip / primitive slider. Discriminate on `control`. */
+export type SliderNode =
+  | SliderUnboundNode
+  | SliderVolumeNode
+  | SliderSeekNode
+  | SliderBalanceNode
+  | SliderEqNode;
 
 export interface TimeNode extends ControlNodeBase {
   type: "time";
@@ -543,7 +616,12 @@ export interface TimeNode extends ControlNodeBase {
 
 export interface PlaylistNode extends NodeBase {
   type: "playlist";
-  /** Show the source dropdown (All tracks, Up Next, user playlists). Default true. */
+  /**
+   * What the list shows. Default `tracks`. `sources` is a source picker
+   * (WMP `<listbox>` of Now Playing / user playlists) — no track rows.
+   */
+  items?: "tracks" | "sources";
+  /** Show the source dropdown (All tracks, Up Next, user playlists). Default true. Ignored when `items` is `sources`. */
   showDropdown?: boolean;
   /** Show duration column. Default true. */
   showDuration?: boolean;
@@ -580,6 +658,18 @@ export interface TextNode extends NodeBase {
   overflow?: TextOverflow;
 }
 
+/**
+ * Editable text field. No `presentation` — native input. `onChange` effects
+ * receive the current string as `payload.query`.
+ */
+export interface InputNode extends NodeBase {
+  type: "input";
+  placeholder?: string;
+  maxLength?: number;
+  enabledWhen?: SkinCondition;
+  onChange?: SkinClickEffect[];
+}
+
 /** Closed panel-writable paint. Numbers are px. */
 export interface NodeStyle {
   color?: string;
@@ -587,6 +677,8 @@ export interface NodeStyle {
   fontWeight?: "normal" | "bold" | number;
   textAlign?: "left" | "center" | "right";
   backgroundColor?: string;
+  /** 0–1. Interpolates with node `transition` when `styleWhen` retargets it. */
+  opacity?: number;
 }
 
 export type Presentation =
@@ -669,7 +761,7 @@ export interface BitmapVerticalSliderPresentation {
   borderSize?: number;
 }
 
-/** WMP-style tiled horizontal track + movable thumb (balance, volume, seek, eqBand). */
+/** WMP-style tiled horizontal track + movable thumb (slider controls). */
 export interface BitmapHorizontalSliderPresentation {
   kind: "bitmapHorizontalSlider";
   /** Omitted for thumb-only sliders (groove baked into panel background). */
@@ -700,7 +792,7 @@ export interface StripSliderPresentation {
   direction?: "horizontal" | "vertical";
   /** How normalized value maps to strip frame indices (default ascending). */
   valueFrames?: "ascending" | "descending";
-  /** How position-map colors map to frame indices along the interaction axis (default ascending). */
+  /** How position-map samples map to frames (luminance for grayscale ramps; axis position otherwise). */
   mapFrames?: "ascending" | "descending";
 }
 
@@ -792,10 +884,13 @@ export type SkinActionId =
   | "skin.closeView"
   | "skin.toggleView"
   | "skin.toggleSoundEffects"
+  | "skin.togglePref"
+  | "skin.setPref"
   | "visualizer.previous"
   | "visualizer.next"
   | "playlist.setSource"
   | "playlist.playTrack"
+  | "playlist.setFilter"
   | "eq.setBand"
   | "eq.applyPreset"
   | "eq.reset"
@@ -822,6 +917,7 @@ export type SkinBindPath =
   | "track.album"
   | "track.artUrl"
   | "track.durationSeconds"
+  | "track.rating"
   | "player.isPlaying"
   | "player.notPlaying"
   | "player.playbackState"
@@ -850,6 +946,8 @@ export type SkinBindPath =
   | "playlist.sourceLabel"
   | "playlist.trackCount"
   | "playlist.hasTracks"
+  | "playlist.filterQuery"
+  | "playlist.hasFilter"
   | "eq.enabled"
   | "eq.presetId"
   | "eq.isManual"

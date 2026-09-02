@@ -17,8 +17,13 @@ import { SkinFramedVisualizer } from "./SkinFramedVisualizer";
 import { SkinTiledFrame } from "./SkinTiledFrame";
 import { SkinSlideshow } from "./SkinSlideshow";
 import { SkinScrollStrip } from "./SkinScrollStrip";
-import { styleFromSkinNode } from "../../../lib/skinNodeStyle";
+import {
+  styleFromSkinNode,
+  useResolvedNodeStyle,
+} from "../../../lib/skinNodeStyle";
+import { SkinRating } from "./SkinRating";
 import { SkinText } from "./SkinText";
+import { SkinInput } from "./SkinInput";
 
 export interface SkinLayoutNodeProps {
   node: LayoutNode;
@@ -40,6 +45,10 @@ function renderBoundedChildren(children: LayoutNode[], pack: LoadedSkinPack) {
 
 export function SkinLayoutNode({ node, pack }: SkinLayoutNodeProps) {
   const visible = useSkinVisible(node.visibleWhen);
+  const resolvedStyle = useResolvedNodeStyle(node.style, node.styleWhen);
+  const css = styleFromSkinNode(resolvedStyle, {
+    omitOpacity: node.bounds !== undefined,
+  });
   if (!visible) return null;
 
   if (node.type === "decoration") {
@@ -48,6 +57,10 @@ export function SkinLayoutNode({ node, pack }: SkinLayoutNodeProps) {
 
   if (node.type === "text") {
     return <SkinText node={node} />;
+  }
+
+  if (node.type === "input") {
+    return <SkinInput node={node} />;
   }
 
   if (node.type === "button" && node.presentation.kind === "bitmap") {
@@ -83,7 +96,7 @@ export function SkinLayoutNode({ node, pack }: SkinLayoutNodeProps) {
           node.className,
         )}
         data-node-id={node.id}
-        style={styleFromSkinNode(node.style)}
+        style={css}
         {...(node.dragRegion ? skinDragRegionDeepProps() : {})}
       >
         {renderBoundedChildren(children, pack)}
@@ -114,7 +127,7 @@ export function SkinLayoutNode({ node, pack }: SkinLayoutNodeProps) {
           node.className,
         )}
         data-node-id={node.id}
-        style={styleFromSkinNode(node.style)}
+        style={css}
         {...(node.dragRegion ? skinDragRegionDeepProps() : {})}
       >
         {renderBoundedChildren(children, pack)}
@@ -130,50 +143,52 @@ export function SkinLayoutNode({ node, pack }: SkinLayoutNodeProps) {
     return <SkinPlaylistView node={node} />;
   }
 
-  if (
-    (node.type === "seekbar" || node.type === "volume") &&
-    node.presentation.kind === "stripSlider"
-  ) {
-    return (
-      <SkinStripSlider
-        node={node}
-        pack={pack}
-        mode={node.type === "volume" ? "volume" : "seek"}
-      />
-    );
+  if (node.type === "slider" && node.presentation.kind === "stripSlider") {
+    if (
+      node.control !== "volume" &&
+      node.control !== "seek" &&
+      node.control !== "eq"
+    ) {
+      return null;
+    }
+    const mode =
+      node.control === "volume"
+        ? "volume"
+        : node.control === "eq"
+          ? "eq"
+          : "seek";
+    return <SkinStripSlider node={node} pack={pack} mode={mode} />;
   }
 
   if (
-    (node.type === "eqBand" || node.type === "volume") &&
+    node.type === "slider" &&
     node.presentation.kind === "bitmapVerticalSlider"
   ) {
     return <SkinBitmapVerticalSlider node={node} pack={pack} />;
   }
 
   if (
-    (node.type === "balance" ||
-      node.type === "volume" ||
-      node.type === "seekbar" ||
-      node.type === "eqBand") &&
+    node.type === "slider" &&
     node.presentation.kind === "bitmapHorizontalSlider"
   ) {
     return <SkinBitmapHorizontalSlider node={node} pack={pack} />;
-  }
-
-  if (node.type === "eqBand" && node.presentation.kind === "stripSlider") {
-    return <SkinStripSlider node={node} pack={pack} mode="eq" />;
   }
 
   if (node.type === "visualizer" && node.presentation.kind === "framedPanel") {
     return <SkinFramedVisualizer node={node} pack={pack} />;
   }
 
+  if (node.type === "rating") {
+    return <SkinRating node={node} />;
+  }
+
   if (
-    node.type === "seekbar" ||
+    (node.type === "slider" &&
+      (node.control === "seek" || node.control === "volume") &&
+      node.presentation.kind === "primitive") ||
     node.type === "artwork" ||
     node.type === "transport" ||
-    node.type === "visualizer" ||
-    node.type === "volume"
+    node.type === "visualizer"
   ) {
     return <SkinPrimitiveControl node={node} />;
   }

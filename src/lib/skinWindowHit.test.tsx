@@ -11,6 +11,13 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
+function bitmapDecoration(url: string): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.className = "skin-decoration skin-decoration--bitmap";
+  canvas.dataset.assetUrl = url;
+  return canvas;
+}
+
 function stubRect(
   el: HTMLElement,
   rect: { left: number; top: number; right: number; bottom: number },
@@ -32,15 +39,13 @@ describe("isOverSkinWindowContent", () => {
     const bounds = document.createElement("div");
     bounds.className = "skin-bounds";
     bounds.setAttribute(SKIN_WINDOW_HIT_ATTR, "artwork");
-    const img = document.createElement("img");
-    img.className = "skin-decoration skin-decoration--bitmap";
-    img.src = "https://example.test/head.png";
-    bounds.append(img);
+    const canvas = bitmapDecoration("https://example.test/head.png");
+    bounds.append(canvas);
     document.body.append(bounds);
 
     stubRect(bounds, { left: 0, top: 0, right: 10, bottom: 10 });
-    stubRect(img, { left: 0, top: 0, right: 10, bottom: 10 });
-    setSkinArtworkAlphaForTest(img.currentSrc || img.src, {
+    stubRect(canvas, { left: 0, top: 0, right: 10, bottom: 10 });
+    setSkinArtworkAlphaForTest("https://example.test/head.png", {
       width: 2,
       height: 2,
       alpha: new Uint8Array([0, 0, 0, 255]),
@@ -110,19 +115,17 @@ describe("isOverSkinWindowContent", () => {
     ).toBe(true);
   });
 
-  it("samples artwork from authored bounds when the img box is empty", () => {
+  it("samples artwork from authored bounds when the decoration box is empty", () => {
     const bounds = document.createElement("div");
     bounds.className = "skin-bounds";
     bounds.setAttribute(SKIN_WINDOW_HIT_ATTR, "artwork");
-    const img = document.createElement("img");
-    img.className = "skin-decoration skin-decoration--bitmap";
-    img.src = "https://example.test/head.png";
-    bounds.append(img);
+    const canvas = bitmapDecoration("https://example.test/head.png");
+    bounds.append(canvas);
     document.body.append(bounds);
 
     stubRect(bounds, { left: 261, top: 0, right: 495, bottom: 394 });
-    stubRect(img, { left: 0, top: 0, right: 0, bottom: 0 });
-    setSkinArtworkAlphaForTest(img.currentSrc || img.src, {
+    stubRect(canvas, { left: 0, top: 0, right: 0, bottom: 0 });
+    setSkinArtworkAlphaForTest("https://example.test/head.png", {
       width: 2,
       height: 2,
       alpha: new Uint8Array([0, 0, 0, 255]),
@@ -142,16 +145,14 @@ describe("isOverSkinWindowContent", () => {
     const bounds = document.createElement("div");
     bounds.className = "skin-bounds";
     bounds.setAttribute(SKIN_WINDOW_HIT_ATTR, "artwork");
-    const img = document.createElement("img");
-    img.className = "skin-decoration skin-decoration--bitmap";
-    img.src = "https://example.test/mini.png";
-    bounds.append(img);
+    const canvas = bitmapDecoration("https://example.test/mini.png");
+    bounds.append(canvas);
     layer.append(bounds);
     document.body.append(layer);
 
     stubRect(bounds, { left: 0, top: 0, right: 400, bottom: 81 });
-    stubRect(img, { left: 0, top: 0, right: 400, bottom: 81 });
-    setSkinArtworkAlphaForTest(img.currentSrc || img.src, {
+    stubRect(canvas, { left: 0, top: 0, right: 400, bottom: 81 });
+    setSkinArtworkAlphaForTest("https://example.test/mini.png", {
       width: 1,
       height: 1,
       alpha: new Uint8Array([255]),

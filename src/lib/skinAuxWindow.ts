@@ -18,7 +18,7 @@ import {
   skinAuxWindowLabel,
   SKIN_AUX_LABEL_PREFIX,
 } from "./skinAuxContext";
-import { signalSkinAuxViewReset } from "./skinAuxEvents";
+import { emitSkinAuxShown, signalSkinAuxViewReset } from "./skinAuxEvents";
 import { createSkinAuxReadyWait } from "./skinAuxReady";
 import {
   readPersistedSkinAuxWindowState,
@@ -98,6 +98,17 @@ async function waitForSkinAuxWebview(
   });
 }
 
+async function showSkinAuxWindow(
+  skinId: string,
+  viewId: string,
+  window: WebviewWindow,
+): Promise<void> {
+  addOpenAuxView(skinId, viewId);
+  await window.show();
+  await window.setFocus();
+  emitSkinAuxShown(skinId, viewId);
+}
+
 async function revealSkinAuxWindow(
   pack: LoadedSkinPack,
   viewId: string,
@@ -106,9 +117,7 @@ async function revealSkinAuxWindow(
 ): Promise<void> {
   await applyAuxWindowLayout(pack, viewId, window);
   if (options?.deferShow) return;
-  addOpenAuxView(pack.summary.id, viewId);
-  await window.show();
-  await window.setFocus();
+  await showSkinAuxWindow(pack.summary.id, viewId, window);
 }
 
 async function openSkinAuxWindowInner(
@@ -168,9 +177,7 @@ async function openSkinAuxWindowInner(
 
   if (options?.prewarm) return;
 
-  addOpenAuxView(skinId, viewId);
-  await ready.show();
-  await ready.setFocus();
+  await showSkinAuxWindow(skinId, viewId, ready);
 }
 
 async function getSkinAuxWindow(
@@ -311,13 +318,14 @@ export async function closeSkinAuxWindow(
   removeOpenAuxView(skinId, viewId);
   openingAuxWindows.delete(auxWindowKey(skinId, viewId));
 
-  signalSkinAuxViewReset(skinId, viewId);
-
   try {
     await window.hide();
   } catch {
     /* already hidden or destroyed */
   }
+
+  // Reset after hide so view-state snaps (opacity, etc.) stay off-screen.
+  signalSkinAuxViewReset(skinId, viewId);
 }
 
 export async function closeAllSkinAuxWindows(

@@ -1,13 +1,17 @@
 import { spreadLinearBands } from "./equalizer/spread";
 import { walkLayoutTree } from "./skinLayout";
 import { useEqualizerStore } from "../store/useEqualizerStore";
-import type { EqBandNode, LoadedSkinPack } from "../types/skin";
+import type { LoadedSkinPack, SliderEqNode } from "../types/skin";
 
 function collectLinearEqSpreadBands(pack: LoadedSkinPack): number[] {
   const bands = new Set<number>();
   for (const view of Object.values(pack.manifest.views)) {
     for (const { node } of walkLayoutTree(view.layout)) {
-      if (node.type === "eqBand" && node.spread === "linear") {
+      if (
+        node.type === "slider" &&
+        node.control === "eq" &&
+        node.spread === "linear"
+      ) {
         bands.add(node.band);
       }
     }
@@ -15,9 +19,9 @@ function collectLinearEqSpreadBands(pack: LoadedSkinPack): number[] {
   return [...bands].sort((a, b) => a - b);
 }
 
-/** Write one eqBand slider, interpolating a linear tilt when `spread` is set. */
+/** Write one EQ slider, interpolating a linear tilt when `spread` is set. */
 export function applyEqBandSliderGain(
-  node: EqBandNode,
+  node: SliderEqNode,
   pack: LoadedSkinPack,
   gainDb: number,
 ): void {

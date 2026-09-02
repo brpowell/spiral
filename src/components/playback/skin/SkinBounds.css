@@ -6,7 +6,9 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  overflow: hidden;
+  /* `clip` (not `hidden`): `hidden` is a scrollport, so focusing a control
+     parked outside the box would scroll it into view. */
+  overflow: clip;
 }
 
 /* Canvas controls fill the authored box. Debug chrome is out of flow. */
@@ -24,7 +26,8 @@
     left var(--skin-bounds-duration, 0ms) var(--skin-bounds-easing, linear),
     top var(--skin-bounds-duration, 0ms) var(--skin-bounds-easing, linear),
     width var(--skin-bounds-duration, 0ms) var(--skin-bounds-easing, linear),
-    height var(--skin-bounds-duration, 0ms) var(--skin-bounds-easing, linear);
+    height var(--skin-bounds-duration, 0ms) var(--skin-bounds-easing, linear),
+    opacity var(--skin-bounds-duration, 0ms) var(--skin-bounds-easing, linear);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -40,6 +43,11 @@
 
 .skin-bounds--passthrough {
   pointer-events: none;
+}
+
+.skin-bounds--pointer-idle,
+.skin-bounds--pointer-idle * {
+  pointer-events: none !important;
 }
 
 .skin-bounds--unclipped {

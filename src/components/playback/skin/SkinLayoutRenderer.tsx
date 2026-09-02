@@ -3,6 +3,8 @@ import {
   useSkinViewState,
   viewStateDataAttributes,
 } from "../../../lib/skinViewStateContext";
+import { hoverNodeDataAttributes } from "../../../lib/skinHover";
+import { useSkinHoveredNodeIds } from "../../../lib/skinHoverContext";
 import { primaryViewId } from "../../../lib/skinWindowPresentation";
 import type {
   CanvasNode,
@@ -36,6 +38,7 @@ function SkinFlowLayout({
 }) {
   const { values } = useSkinViewState();
   const viewStateAttrs = viewStateDataAttributes(values);
+  const hoverAttrs = hoverNodeDataAttributes(useSkinHoveredNodeIds());
 
   const shellClass = useMemo(
     () =>
@@ -49,6 +52,7 @@ function SkinFlowLayout({
         className={`skin-layout__flow skin-layout__flow--${resolvedView}`}
         aria-label="Skin mode player"
         {...viewStateAttrs}
+        {...hoverAttrs}
       >
         <SkinLayoutNode node={view.layout} pack={pack} />
       </div>

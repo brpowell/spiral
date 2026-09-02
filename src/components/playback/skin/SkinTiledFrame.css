@@ -18,12 +18,19 @@
   z-index: 2;
 }
 
+/* Zero-inset frames: let each tile's z-index compete with canvas siblings. */
+.skin-tiled-frame__layer--stage-stack {
+  z-index: auto;
+}
+
 .skin-tiled-frame__tile {
   position: absolute;
   pointer-events: none;
   overflow: hidden;
   background-repeat: no-repeat;
   background-position: left top;
+  /* Match decorations: keep PNG edge AA instead of WebKit crisp-upscale. */
+  image-rendering: smooth;
 }
 
 .skin-tiled-frame__tile--tile-x {
@@ -37,7 +44,8 @@
 .skin-tiled-frame__content {
   position: absolute;
   z-index: 1;
-  overflow: hidden;
+  /* `clip` (not `hidden`): `hidden` is a scrollport and can take initial focus. */
+  overflow: clip;
   pointer-events: auto;
 }
 

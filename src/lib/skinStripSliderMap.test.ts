@@ -160,16 +160,22 @@ describe("xbox volume position map", () => {
     } as DOMRect;
 
     expect(
-      sampleStripSliderPointer(84, 0, rect, map, 30, "horizontal", "descending"),
+      sampleStripSliderPointer(
+        84,
+        0,
+        rect,
+        map,
+        30,
+        "horizontal",
+        "descending",
+      ),
     ).toBeNull();
   });
 });
 
 describe("t3 seek position map", () => {
   it("maps top above bottom with vertical descending map/value frames", () => {
-    const png = PNG.sync.read(
-      readFileSync(join(SLIDER_DIR, "seek-map.png")),
-    );
+    const png = PNG.sync.read(readFileSync(join(SLIDER_DIR, "seek-map.png")));
     const map = buildStripSliderPositionMapFromPixels(
       png.data,
       png.width,
@@ -214,6 +220,147 @@ describe("t3 seek position map", () => {
     expect(mid?.ratio).toBeGreaterThan(0.4);
     expect(mid?.ratio).toBeLessThan(0.7);
     expect(top!.ratio).toBeGreaterThan(mid!.ratio);
+  });
+});
+
+function makeRgba(
+  width: number,
+  height: number,
+  plot: (x: number, y: number) => [number, number, number, number],
+): Uint8ClampedArray {
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      const [r, g, b, a] = plot(x, y);
+      data[i] = r;
+      data[i + 1] = g;
+      data[i + 2] = b;
+      data[i + 3] = a;
+    }
+  }
+  return data;
+}
+
+describe("grayscale luminance maps", () => {
+  const width = 32;
+  const height = 12;
+
+  /** Curved-track style: leftmost pixels are mid-gray; true black sits inward. */
+  function curvedRampMap() {
+    const data = makeRgba(width, height, (x, y) => {
+      if (y < 3 || y > 8) return [255, 0, 255, 255];
+      if (x === 1) return [80, 80, 80, 255];
+      if (x >= 3 && x <= 5) return [0, 0, 0, 255];
+      if (x >= 26 && x <= 28) return [255, 255, 255, 255];
+      if (x > 5 && x < 26) {
+        const g = Math.round(((x - 5) / 21) * 255);
+        return [g, g, g, 255];
+      }
+      return [255, 0, 255, 255];
+    });
+    return buildStripSliderPositionMapFromPixels(
+      data,
+      width,
+      height,
+      27,
+      "horizontal",
+    );
+  }
+
+  it("maps black to frame 0 even when darker pixels are not the leftmost", () => {
+    const map = curvedRampMap();
+    expect(map).not.toBeNull();
+    expect(map!.frameAt(4, 5)).toBe(0);
+    expect(map!.frameAt(27, 5)).toBe(26);
+    expect(map!.frameAt(1, 5)).toBeGreaterThan(0);
+  });
+
+  it("snaps off-map samples to the nearest mapped frame while dragging", () => {
+    const map = curvedRampMap();
+    expect(map).not.toBeNull();
+    const rect = {
+      left: 0,
+      top: 0,
+      width,
+      height,
+      right: width,
+      bottom: height,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect;
+
+    expect(
+      sampleStripSliderPointer(0, 5, rect, map, 27, "horizontal"),
+    ).toBeNull();
+
+    const pastLeft = sampleStripSliderPointer(
+      0,
+      5,
+      rect,
+      map,
+      27,
+      "horizontal",
+      "ascending",
+      undefined,
+      "nearest",
+    );
+    expect(pastLeft?.rawFrame).toBe(0);
+    expect(pastLeft?.ratio).toBe(0);
+    expect(pastLeft?.source).toBe("map");
+
+    const pastRight = sampleStripSliderPointer(
+      31,
+      5,
+      rect,
+      map,
+      27,
+      "horizontal",
+      "ascending",
+      undefined,
+      "nearest",
+    );
+    expect(pastRight?.rawFrame).toBe(26);
+    expect(pastRight?.ratio).toBe(1);
+  });
+});
+
+describe("lost planet curved maps", () => {
+  function loadPackMap(name: string) {
+    const png = PNG.sync.read(readFileSync(join(SLIDER_DIR, name)));
+    return {
+      png,
+      map: buildStripSliderPositionMapFromPixels(
+        png.data,
+        png.width,
+        png.height,
+        27,
+        "horizontal",
+      ),
+    };
+  }
+
+  it("reaches frame 0 and last on seek and volume tips", () => {
+    for (const file of [
+      "lost-planet-seek-map.png",
+      "lost-planet-volume-map.png",
+    ]) {
+      const { png, map } = loadPackMap(file);
+      expect(map).not.toBeNull();
+      let minFrame = 99;
+      let maxFrame = -1;
+      for (let y = 0; y < png.height; y++) {
+        for (let x = 0; x < png.width; x++) {
+          const frame = map!.frameAt(x, y);
+          if (frame < 0) continue;
+          minFrame = Math.min(minFrame, frame);
+          maxFrame = Math.max(maxFrame, frame);
+        }
+      }
+      expect(minFrame, file).toBe(0);
+      expect(maxFrame, file).toBe(26);
+    }
   });
 });
 

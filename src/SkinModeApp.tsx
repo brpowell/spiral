@@ -15,6 +15,7 @@ import { startSkinClickThrough } from "./lib/skinClickThrough";
 import { isViewStateMotionActive } from "./lib/skinViewStateEvents";
 import { getSkinViewStateApi } from "./lib/skinViewStateContext";
 import { startSkinDragRegions } from "./lib/skinDragRegion";
+import { preloadSkinViewAssets } from "./lib/skinViewAssetPreload";
 import { listSwitchableViewIds } from "./lib/skinWindowPresentation";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useSkinStore } from "./store/useSkinStore";
@@ -58,6 +59,15 @@ export function SkinModeApp() {
     if (isAux) return;
     void loadPlaylists();
   }, [loadPlaylists, isAux]);
+
+  useEffect(() => {
+    if (!activePack) return;
+    void preloadSkinViewAssets(activePack, activeViewId).catch(
+      (err: unknown) => {
+        console.warn("preloadSkinViewAssets:", err);
+      },
+    );
+  }, [activePack, activeViewId, packReloadGeneration]);
 
   // Canvas skins use a transparent frameless window. Click-through follows
   // opaque artwork and control bounds so irregular silhouettes (Headspace)

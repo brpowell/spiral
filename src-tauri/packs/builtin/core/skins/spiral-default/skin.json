@@ -204,11 +204,12 @@
                 ]
               },
               {
-                "type": "seekbar",
+                "type": "slider",
                 "id": "seekbar",
                 "presentation": {
                   "kind": "primitive"
-                }
+                },
+                "control": "seek"
               },
               {
                 "type": "transport",
@@ -222,10 +223,11 @@
                 "id": "footer-row",
                 "children": [
                   {
-                    "type": "volume",
+                    "type": "slider",
                     "presentation": {
                       "kind": "primitive"
-                    }
+                    },
+                    "control": "volume"
                   },
                   {
                     "type": "button",

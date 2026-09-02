@@ -53,6 +53,8 @@ export interface SceneRendererProps extends VisualizerRendererProps {
   previewForcePlaying?: boolean;
   /** Fires once after the first sandboxed layer has painted a frame. */
   onFirstFrame?: () => void;
+  /** Host paint (e.g. skin `style.backgroundColor`) — overrides theme `--color-bg`. */
+  style?: CSSProperties;
 }
 
 function VizSceneLayerView({
@@ -481,6 +483,7 @@ export function SceneRenderer({
   remoteFrameRef,
   previewForcePlaying = false,
   onFirstFrame,
+  style,
 }: SceneRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const expandedContainerRef = useRef<HTMLDivElement>(null);
@@ -492,7 +495,7 @@ export function SceneRenderer({
     ref: RefObject<HTMLDivElement | null>,
     className: string,
   ) => (
-    <div className={className} ref={ref}>
+    <div className={className} ref={ref} style={style}>
       <SceneViewport
         scene={scene}
         packDir={packDir}

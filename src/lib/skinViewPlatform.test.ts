@@ -162,4 +162,25 @@ describe("resolveViewWindowChrome", () => {
     expect(chrome.maxWidth).toBe(317);
     expect(chrome.maxHeight).toBe(330);
   });
+
+  it("honors min larger than the WMS default size", () => {
+    const pack = makePack({
+      infoview: {
+        layout: { type: "column", children: [] },
+        window: {
+          defaultWidth: 376,
+          defaultHeight: 216,
+          minWidth: 437,
+          minHeight: 304,
+          resizable: true,
+        },
+      },
+    });
+
+    const chrome = resolveViewWindowChrome(pack, "infoview");
+    expect(chrome.minWidth).toBe(437);
+    expect(chrome.minHeight).toBe(304);
+    expect(chrome.defaultWidth).toBe(437);
+    expect(chrome.defaultHeight).toBe(304);
+  });
 });

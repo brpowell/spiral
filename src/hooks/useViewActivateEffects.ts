@@ -4,7 +4,7 @@ import { useSkinBindState } from "../lib/skinBinds";
 import { scheduleSkinEffects } from "../lib/skinEffects";
 import { useSkinModeShown } from "./useSkinModeShown";
 
-/** Run manifest `view.onActivate` effects when the skin-mode window becomes visible. */
+/** Run manifest `view.onActivate` effects when this view's window becomes visible. */
 export function useViewActivateEffects(view: SkinView): void {
   const effects = view.onActivate;
   const skinModeShown = useSkinModeShown(!!effects?.length);

@@ -18,6 +18,7 @@ import {
   versionCmp,
 } from "../../lib/packRegistry";
 import { uninstallPackWithRefresh } from "../../lib/packs/refreshPackStores";
+import type { ClearableSkinSetting } from "../../lib/packs/packSkinSettings";
 import { listPacks, openPathInFileManager } from "../../lib/tauri";
 import { usePackUpdatesStore } from "../../store/usePackUpdatesStore";
 import type { PackSummary } from "../../types/pack";
@@ -38,6 +39,7 @@ import { MenuButton } from "../MenuButton/MenuButton";
 import { PackListCard } from "./AppearancePackCard";
 import { PackDetailView } from "./PackDetailView";
 import { PackPreview } from "./packDetailShared";
+import { UninstallPackDialog } from "./UninstallPackDialog";
 import "./AppearanceSection.css";
 import "./GetMoreSection.css";
 
@@ -344,7 +346,7 @@ export function GetMoreSection() {
     setUninstallTarget(local);
   };
 
-  const handleUninstall = async () => {
+  const handleUninstall = async (clearSkinSettings: ClearableSkinSetting[]) => {
     if (!uninstallTarget) return;
     setBusy(true);
     try {
@@ -353,6 +355,7 @@ export function GetMoreSection() {
         uninstallTarget.packId,
         uninstallTarget.version,
         uninstallTarget.name,
+        clearSkinSettings,
       );
       await load();
     } finally {
@@ -472,17 +475,11 @@ export function GetMoreSection() {
         )}
       </AnimatePresence>
 
-      <AlertConfirmation
-        open={uninstallTarget != null}
+      <UninstallPackDialog
+        pack={uninstallTarget}
         onClose={() => setUninstallTarget(null)}
-        title={t("catalog.uninstallConfirmTitle")}
-        confirmLabel={t("catalog.actionUninstall")}
         onConfirm={handleUninstall}
-      >
-        {t("catalog.uninstallConfirmBody", {
-          name: uninstallTarget?.name ?? "",
-        })}
-      </AlertConfirmation>
+      />
 
       <AlertConfirmation
         open={versionInstallTarget != null}

@@ -1,19 +1,21 @@
-import type { LayoutBounds, LayoutNode } from "../types/skin";
-import { evaluateViewBind, type ViewStateValues } from "./skinViewStateContext";
+import type {
+  LayoutBounds,
+  LayoutNode,
+  SkinCondition,
+  WhenMapOrList,
+} from "../types/skin";
+import { iterWhenOverlays } from "./skinWhenOverlays";
 
 export function resolveNodeBounds(
   bounds: LayoutBounds | undefined,
-  boundsWhen: Record<string, Partial<LayoutBounds>> | undefined,
-  viewState: ViewStateValues = {},
+  boundsWhen: WhenMapOrList<Partial<LayoutBounds>> | undefined,
+  isConditionTrue: (condition: SkinCondition) => boolean,
 ): LayoutBounds | undefined {
   if (!bounds) return undefined;
   let resolved: LayoutBounds = { ...bounds };
-  if (boundsWhen) {
-    for (const [condition, override] of Object.entries(boundsWhen)) {
-      const viewValue = evaluateViewBind(condition, viewState);
-      if (viewValue) {
-        resolved = { ...resolved, ...override };
-      }
+  for (const { when, overlay } of iterWhenOverlays(boundsWhen)) {
+    if (isConditionTrue(when)) {
+      resolved = { ...resolved, ...overlay };
     }
   }
   return resolved;
@@ -21,6 +23,6 @@ export function resolveNodeBounds(
 
 export function getNodeBoundsWhen(
   node: LayoutNode,
-): Record<string, Partial<LayoutBounds>> | undefined {
+): WhenMapOrList<Partial<LayoutBounds>> | undefined {
   return node.boundsWhen;
 }

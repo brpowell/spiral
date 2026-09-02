@@ -4,6 +4,7 @@ import { collectSlideshowNodes } from "../../../lib/skinSlideshow";
 import { collectScrollStripNodes } from "../../../lib/skinScrollStrip";
 import { SkinSlideshowStateProvider } from "../../../lib/skinSlideshowContext";
 import { SkinScrollStripStateProvider } from "../../../lib/skinScrollStripContext";
+import { SkinHoverProvider } from "../../../lib/skinHoverContext";
 import { useViewActivateEffects } from "../../../hooks/useViewActivateEffects";
 import { setSkinClickThroughIgnore } from "../../../lib/skinClickThrough";
 import { isViewStateMotionActive } from "../../../lib/skinViewStateEvents";
@@ -56,13 +57,15 @@ export function SkinViewRuntimeProviders({
       defaults={viewDefaults}
       registerGlobalApi={registerGlobalApi}
     >
-      <SkinSlideshowStateProvider definitions={slideshowDefinitions}>
-        <SkinScrollStripStateProvider definitions={scrollStripDefinitions}>
-          <SkinViewActivateEffectsRunner view={view} />
-          <SkinViewMotionClickThrough enabled={registerGlobalApi} />
-          {children}
-        </SkinScrollStripStateProvider>
-      </SkinSlideshowStateProvider>
+      <SkinHoverProvider>
+        <SkinSlideshowStateProvider definitions={slideshowDefinitions}>
+          <SkinScrollStripStateProvider definitions={scrollStripDefinitions}>
+            <SkinViewActivateEffectsRunner view={view} />
+            <SkinViewMotionClickThrough enabled={registerGlobalApi} />
+            {children}
+          </SkinScrollStripStateProvider>
+        </SkinSlideshowStateProvider>
+      </SkinHoverProvider>
     </SkinViewStateProvider>
   );
 }

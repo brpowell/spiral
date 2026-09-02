@@ -37,7 +37,10 @@ export function trialSlotsRemaining(
   status: LicenseStatus,
 ): number | null {
   if (licenseUnlocksLibrary(status)) return null;
-  return Math.max(0, TRIAL_LIBRARY_TRACK_CAP - persistedLibraryTrackCount(library));
+  return Math.max(
+    0,
+    TRIAL_LIBRARY_TRACK_CAP - persistedLibraryTrackCount(library),
+  );
 }
 
 export function isTrialLibraryCapError(message: string): boolean {
@@ -46,8 +49,10 @@ export function isTrialLibraryCapError(message: string): boolean {
 
 /** Early UX gate: true when trial is at/over the library cap. */
 export function isTrialLibraryAtCap(): boolean {
-  const status = useLicenseStore.getState().snapshot.status;
-  if (licenseUnlocksLibrary(status)) return false;
+  const license = useLicenseStore.getState();
+  // Unloaded store defaults to `trial` (skin-mode never calls loadLicense).
+  if (!license.loaded) return false;
+  if (licenseUnlocksLibrary(license.snapshot.status)) return false;
   const library = usePlayerStore.getState().library;
   return persistedLibraryTrackCount(library) >= TRIAL_LIBRARY_TRACK_CAP;
 }

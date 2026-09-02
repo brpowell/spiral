@@ -124,6 +124,10 @@ interface SkinState {
   openAuxiliaryViews: string[];
   /** Active source for declarative skin playlist views (`all`, `upNext`, `playlist:{id}`). */
   playlistSourceId: string;
+  /** Active playlist filter query from `playlist.setFilter`. */
+  playlistFilterQuery: string;
+  /** Live values for `type: "input"` nodes, keyed by node id. */
+  inputValues: Record<string, string>;
   /** Bumped on dev hot-reload so layout/stylesheet effects re-run for the same skin id. */
   packReloadGeneration: number;
   /** True while a skin-mode switch veil is up. */
@@ -144,6 +148,8 @@ interface SkinState {
   closeView: (viewId: string) => Promise<void>;
   toggleView: (viewId: string) => Promise<void>;
   setPlaylistSource: (sourceId: string) => void;
+  setPlaylistFilter: (query: string) => void;
+  setInputValue: (id: string, value: string) => void;
 }
 
 export const useSkinStore = create<SkinState>((set, get) => ({
@@ -153,6 +159,8 @@ export const useSkinStore = create<SkinState>((set, get) => ({
   activeViewId: "standard",
   openAuxiliaryViews: [],
   playlistSourceId: SKIN_PLAYLIST_SOURCE_ALL,
+  playlistFilterQuery: "",
+  inputValues: {},
   packReloadGeneration: 0,
   skinSwapPending: false,
   skinsLoaded: false,
@@ -233,6 +241,8 @@ export const useSkinStore = create<SkinState>((set, get) => ({
       activeViewId: viewId,
       openAuxiliaryViews: readOpenAuxViewsForSkin(skinId),
       playlistSourceId: SKIN_PLAYLIST_SOURCE_ALL,
+      playlistFilterQuery: "",
+      inputValues: {},
     };
 
     const isSkinSwitch =
@@ -294,6 +304,8 @@ export const useSkinStore = create<SkinState>((set, get) => ({
       set({
         activeViewId: viewId,
         playlistSourceId: SKIN_PLAYLIST_SOURCE_ALL,
+        playlistFilterQuery: "",
+        inputValues: {},
       });
       await saveActiveSkinView(viewId);
       if (!growing) {
@@ -312,6 +324,8 @@ export const useSkinStore = create<SkinState>((set, get) => ({
     set({
       activeViewId: viewId,
       playlistSourceId: SKIN_PLAYLIST_SOURCE_ALL,
+      playlistFilterQuery: "",
+      inputValues: {},
     });
     await saveActiveSkinView(viewId);
 
@@ -368,5 +382,16 @@ export const useSkinStore = create<SkinState>((set, get) => ({
 
   setPlaylistSource: (sourceId) => {
     set({ playlistSourceId: sourceId });
+  },
+
+  setPlaylistFilter: (query) => {
+    set({ playlistFilterQuery: query });
+  },
+
+  setInputValue: (id, value) => {
+    if (!id) return;
+    set((state) => ({
+      inputValues: { ...state.inputValues, [id]: value },
+    }));
   },
 }));

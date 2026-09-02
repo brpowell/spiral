@@ -76,8 +76,8 @@ export function useSkinAuxWindowPersistence(): void {
           console.error("Failed to persist skin aux on close:", err);
         }
         removeOpenAuxView(pack.summary.id, viewId);
-        signalSkinAuxViewReset(pack.summary.id, viewId);
         await getCurrentWindow().hide();
+        signalSkinAuxViewReset(pack.summary.id, viewId);
       })
       .then((fn) => {
         if (cancelled) fn();

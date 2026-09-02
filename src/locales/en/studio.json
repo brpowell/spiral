@@ -247,6 +247,7 @@
     "menuInstallVersionHeading": "Install version",
     "uninstallConfirmTitle": "Uninstall pack?",
     "uninstallConfirmBody": "{{name}} and all of its contributions will be deleted from your collection.",
+    "uninstallClearSettings": "Clear saved skin settings",
     "versionLabel": "v{{version}}",
     "detailVersion": "Version",
     "detailSize": "Size",

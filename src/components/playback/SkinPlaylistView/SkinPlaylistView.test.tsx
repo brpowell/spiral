@@ -14,6 +14,15 @@ vi.mock("../../EntityArt/useEntityArtSrc", () => ({
   useEntityArtSrc: (path: string | null) => (path ? "asset://thumb" : null),
 }));
 
+vi.mock("../../../lib/skinNodeStyle", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../../lib/skinNodeStyle")>();
+  return {
+    ...actual,
+    useResolvedNodeStyle: (style: unknown) => style,
+  };
+});
+
 function track(overrides: Partial<Track> & Pick<Track, "id">): Track {
   return {
     title: "Airbag",
@@ -42,11 +51,13 @@ function track(overrides: Partial<Track> & Pick<Track, "id">): Track {
 
 afterEach(() => {
   useSkinStore.getState().setPlaylistSource(SKIN_PLAYLIST_SOURCE_ALL);
+  useSkinStore.getState().setPlaylistFilter("");
   usePlayerStore.setState({
     library: [],
     currentTrackId: null,
     playbackState: "stopped",
   });
+  vi.restoreAllMocks();
 });
 
 function playlistNode(overrides: Partial<PlaylistNode> = {}): PlaylistNode {
@@ -290,6 +301,87 @@ describe("SkinPlaylistView", () => {
       color: "rgb(238, 255, 102)",
       backgroundColor: "rgba(204, 255, 0, 0.12)",
     });
+  });
+
+  it("renders source options instead of tracks when items is sources", () => {
+    usePlayerStore.setState({ library: [track({ id: 1 })] });
+    useSkinStore.getState().setPlaylistSource(SKIN_PLAYLIST_SOURCE_UP_NEXT);
+    const { container } = render(
+      <SkinPlaylistView
+        node={playlistNode({
+          items: "sources",
+          showDropdown: true,
+          showDuration: true,
+        })}
+      />,
+    );
+
+    expect(container.querySelector(".skin-playlist-view")).toHaveAttribute(
+      "data-playlist-items",
+      "sources",
+    );
+    expect(
+      container.querySelector(".skin-playlist-view__source"),
+    ).not.toBeInTheDocument();
+    expect(
+      container.querySelector(".skin-playlist-view__duration"),
+    ).not.toBeInTheDocument();
+
+    const rows = container.querySelectorAll(".skin-playlist-view__row");
+    expect(rows.length).toBeGreaterThanOrEqual(2);
+    expect(rows[0]).toHaveTextContent("All tracks");
+    expect(rows[1]).toHaveTextContent("Up Next");
+    expect(rows[1]).toHaveClass("skin-playlist-view__row--current");
+
+    fireEvent.click(rows[0]!);
+    expect(useSkinStore.getState().playlistSourceId).toBe(
+      SKIN_PLAYLIST_SOURCE_ALL,
+    );
+  });
+
+  it("plays the full source when a filtered row is clicked", () => {
+    const playTracks = vi
+      .spyOn(usePlayerStore.getState(), "playTracks")
+      .mockResolvedValue(undefined);
+    usePlayerStore.setState({
+      library: [
+        track({ id: 1, title: "Airbag" }),
+        track({ id: 2, title: "Paranoid Android" }),
+      ],
+    });
+    useSkinStore.getState().setPlaylistFilter("air");
+    const { container } = render(<SkinPlaylistView node={playlistNode()} />);
+
+    fireEvent.click(container.querySelector(".skin-playlist-view__row")!);
+
+    expect(playTracks).toHaveBeenCalledWith([1, 2], 1);
+  });
+
+  it("filters track rows by playlistFilterQuery", () => {
+    usePlayerStore.setState({
+      library: [
+        track({ id: 1, title: "Airbag" }),
+        track({ id: 2, title: "Paranoid Android" }),
+      ],
+    });
+    useSkinStore.getState().setPlaylistFilter("air");
+    const { container } = render(<SkinPlaylistView node={playlistNode()} />);
+
+    const rows = container.querySelectorAll(".skin-playlist-view__row");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent("Airbag");
+  });
+
+  it("does not filter source lists", () => {
+    usePlayerStore.setState({ library: [track({ id: 1, title: "Airbag" })] });
+    useSkinStore.getState().setPlaylistFilter("air");
+    const { container } = render(
+      <SkinPlaylistView node={playlistNode({ items: "sources" })} />,
+    );
+
+    const rows = container.querySelectorAll(".skin-playlist-view__row");
+    expect(rows[0]).toHaveTextContent("All tracks");
+    expect(rows[1]).toHaveTextContent("Up Next");
   });
 
   it("renders row artwork when showArtwork is true", () => {

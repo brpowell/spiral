@@ -23,7 +23,7 @@ export interface SkinTooltipConfig {
 
 export interface SkinTooltipLiveContext {
   /** Slider mode for built-in defaults. */
-  sliderMode?: "seek" | "volume" | "balance" | "eq";
+  sliderMode?: "seek" | "volume" | "balance" | "eq" | "slider";
   /** Live pointer ratio 0–1 (sliders / seek). */
   ratio?: number;
   /** EQ band index (1-based) for eq sliders. */

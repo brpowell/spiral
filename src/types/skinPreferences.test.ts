@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   defaultSkinUserPreferences,
   soundEffectsEnabledFromPreferences,
+  toggledSoundEffectsPreferences,
 } from "../types/skinPreferences";
 
 describe("skinPreferences", () => {
   it("defaults sound effects to enabled when absent", () => {
-    expect(soundEffectsEnabledFromPreferences(defaultSkinUserPreferences())).toBe(
-      true,
-    );
+    expect(
+      soundEffectsEnabledFromPreferences(defaultSkinUserPreferences()),
+    ).toBe(true);
   });
 
   it("respects explicit soundEffectsEnabled false", () => {
@@ -25,5 +26,13 @@ describe("skinPreferences", () => {
         builtin: { soundEffectsEnabled: true },
       }),
     ).toBe(true);
+  });
+
+  it("flips default-on to explicit off", () => {
+    expect(
+      soundEffectsEnabledFromPreferences(
+        toggledSoundEffectsPreferences(defaultSkinUserPreferences()),
+      ),
+    ).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+mod accessibility_warmup;
 mod activity_log;
 mod art_cache;
 mod art_thumb;
@@ -128,6 +129,8 @@ pub fn run() {
 
             #[cfg(desktop)]
             media_session::init(app.handle());
+
+            accessibility_warmup::install();
 
             cd::monitor::start_monitor(app.handle().clone());
 

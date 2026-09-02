@@ -25,6 +25,7 @@ describe("decidePolledPassThrough", () => {
         inView: false,
         overContent: false,
         stayInteractive: false,
+        buttonsDown: false,
       }),
     ).toBe("hold");
   });
@@ -35,6 +36,7 @@ describe("decidePolledPassThrough", () => {
         inView: true,
         overContent: false,
         stayInteractive: false,
+        buttonsDown: false,
       }),
     ).toBe("ignore");
   });
@@ -45,6 +47,7 @@ describe("decidePolledPassThrough", () => {
         inView: true,
         overContent: true,
         stayInteractive: false,
+        buttonsDown: false,
       }),
     ).toBe("interactive");
     expect(
@@ -52,6 +55,29 @@ describe("decidePolledPassThrough", () => {
         inView: false,
         overContent: false,
         stayInteractive: true,
+        buttonsDown: false,
+      }),
+    ).toBe("interactive");
+  });
+
+  it("holds ignore while a mouse button is down, even over a hole", () => {
+    expect(
+      decidePolledPassThrough({
+        inView: true,
+        overContent: false,
+        stayInteractive: false,
+        buttonsDown: true,
+      }),
+    ).toBe("hold");
+  });
+
+  it("keeps pointer-driven interaction ahead of a held button", () => {
+    expect(
+      decidePolledPassThrough({
+        inView: true,
+        overContent: true,
+        stayInteractive: true,
+        buttonsDown: true,
       }),
     ).toBe("interactive");
   });

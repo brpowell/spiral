@@ -223,6 +223,7 @@ export function SkinBitmapButton({
     <button
       ref={btnRef}
       type="button"
+      tabIndex={-1}
       className={[
         "skin-bitmap-btn",
         usesGif && "skin-bitmap-btn--canvas",

@@ -11,7 +11,10 @@ import { usePlayerStore } from "../../../store/usePlayerStore";
 import { usePlaylistStore } from "../../../store/usePlaylistStore";
 import { useSkinStore } from "../../../store/useSkinStore";
 import type { NodeStyle, PlaylistNode } from "../../../types/skin";
-import { styleFromSkinNode } from "../../../lib/skinNodeStyle";
+import {
+  styleFromSkinNode,
+  useResolvedNodeStyle,
+} from "../../../lib/skinNodeStyle";
 import "./SkinPlaylistView.css";
 
 function SkinPlaylistRowArt({ artPath }: { artPath: string | null }) {
@@ -47,6 +50,7 @@ function mergeNodeStyles(
 
 export function SkinPlaylistView({ node }: { node: PlaylistNode }) {
   const sourceId = useSkinStore((s) => s.playlistSourceId);
+  const filterQuery = useSkinStore((s) => s.playlistFilterQuery);
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
   const cdQueueContext = usePlayerStore((s) => s.cdQueueContext);
@@ -57,7 +61,10 @@ export function SkinPlaylistView({ node }: { node: PlaylistNode }) {
   const playlists = usePlaylistStore((s) => s.playlists);
   const setPlaylistSource = useSkinStore((s) => s.setPlaylistSource);
   const [sourceHovered, setSourceHovered] = useState(false);
-  const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const resolvedStyle = useResolvedNodeStyle(node.style, node.styleWhen);
+  const listItems = node.items ?? "tracks";
+  const isSourceList = listItems === "sources";
 
   useEffect(() => {
     if (!node.defaultSource) return;
@@ -79,6 +86,7 @@ export function SkinPlaylistView({ node }: { node: PlaylistNode }) {
         manualQueueIds,
         currentTrackId,
         playlists,
+        filterQuery,
       }),
     [
       sourceId,
@@ -89,12 +97,13 @@ export function SkinPlaylistView({ node }: { node: PlaylistNode }) {
       manualQueueIds,
       currentTrackId,
       playlists,
+      filterQuery,
     ],
   );
 
-  const showDropdown = node.showDropdown !== false;
-  const showDuration = node.showDuration !== false;
-  const showArtwork = node.showArtwork === true;
+  const showDropdown = !isSourceList && node.showDropdown !== false;
+  const showDuration = !isSourceList && node.showDuration !== false;
+  const showArtwork = !isSourceList && node.showArtwork === true;
   const sourceStyle = styleFromSkinNode(
     sourceHovered
       ? mergeNodeStyles(node.sourceStyle, node.sourceHoverStyle)
@@ -103,9 +112,17 @@ export function SkinPlaylistView({ node }: { node: PlaylistNode }) {
 
   return (
     <div
-      className="skin-playlist-view"
+      className={[
+        "skin-playlist-view",
+        isSourceList && "skin-playlist-view--sources",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       data-node-id={node.id}
-      style={styleFromSkinNode(node.style)}
+      data-playlist-items={listItems}
+      style={styleFromSkinNode(resolvedStyle, {
+        omitOpacity: node.bounds !== undefined,
+      })}
       {...skinDragRegionNoneProps()}
     >
       {showDropdown ? (
@@ -137,16 +154,55 @@ export function SkinPlaylistView({ node }: { node: PlaylistNode }) {
       <div
         className="skin-playlist-view__list"
         role="listbox"
-        aria-label="Tracks"
+        aria-label={isSourceList ? "Playlist sources" : "Tracks"}
       >
-        {tracks.length === 0 ? (
+        {isSourceList ? (
+          sourceOptions.map((option) => {
+            const isCurrent = option.id === sourceId;
+            const isHovered = hoveredKey === option.id;
+            const rowStyle = mergeNodeStyles(
+              isHovered ? node.rowHoverStyle : undefined,
+              isCurrent ? node.currentRowStyle : undefined,
+            );
+
+            return (
+              <button
+                key={option.id}
+                type="button"
+                role="option"
+                aria-selected={isCurrent}
+                className={[
+                  "skin-playlist-view__row",
+                  isCurrent && "skin-playlist-view__row--current",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                style={styleFromSkinNode(rowStyle)}
+                onMouseEnter={() => setHoveredKey(option.id)}
+                onMouseLeave={() =>
+                  setHoveredKey((key) => (key === option.id ? null : key))
+                }
+                onClick={() => {
+                  runSkinAction("playlist.setSource", {
+                    sourceId: option.id,
+                  });
+                }}
+              >
+                <span className="skin-playlist-view__title">
+                  {option.label}
+                </span>
+              </button>
+            );
+          })
+        ) : tracks.length === 0 ? (
           <p className="skin-playlist-view__empty">No tracks</p>
         ) : (
           tracks.map((track) => {
+            const rowKey = String(track.id);
             const isPlaying =
               track.id === currentTrackId && playbackState === "playing";
             const isCurrent = track.id === currentTrackId;
-            const isHovered = hoveredRowId === track.id;
+            const isHovered = hoveredKey === rowKey;
             const rowStyle = mergeNodeStyles(
               isHovered ? node.rowHoverStyle : undefined,
               isCurrent ? node.currentRowStyle : undefined,
@@ -168,12 +224,14 @@ export function SkinPlaylistView({ node }: { node: PlaylistNode }) {
                   .filter(Boolean)
                   .join(" ")}
                 style={styleFromSkinNode(rowStyle)}
-                onMouseEnter={() => setHoveredRowId(track.id)}
+                onMouseEnter={() => setHoveredKey(rowKey)}
                 onMouseLeave={() =>
-                  setHoveredRowId((id) => (id === track.id ? null : id))
+                  setHoveredKey((key) => (key === rowKey ? null : key))
                 }
                 onClick={() => {
-                  runSkinAction("playlist.playTrack", { trackId: track.id });
+                  runSkinAction("playlist.playTrack", {
+                    trackId: track.id,
+                  });
                 }}
               >
                 {showArtwork ? (

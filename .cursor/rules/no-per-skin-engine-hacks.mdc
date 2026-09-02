@@ -1,0 +1,32 @@
+---
+description: Skin runtime, importer, and format must stay skin-agnostic — no per-skin engine hacks
+alwaysApply: true
+---
+
+# No per-skin engine hacks
+
+The skin runtime (`src/lib/skin*.ts`, `src/components/playback/skin/`), WMS importer, and `spk-format` schemas are a **general engine**. A bug in one pack is a missing pattern in the engine or missing data on the presentation — not an `if` for that pack.
+
+## Do not
+
+- Fingerprint a skin, pack, or view (`id === "lost-planet"`, inset tuples that only that pack uses, asset filenames as identity)
+- Hardcode radii, z-index, or layout that only one skin’s art happens to need
+- Add “just this pack” branches, feature flags, or special-case helpers named after a skin
+
+```ts
+// ❌ BAD — engine knows a product
+function isLostPlanetClientHole(inset: TiledFrameContentInset): boolean {
+  return inset.left === 16 && inset.top === 42 && …;
+}
+
+// ✅ GOOD — pack authors the pattern; engine reads it
+tiledFrameContentRadius(presentation) // presentation.contentCornerRadius ?? 0
+```
+
+## Do
+
+- Encode the **WMS/Spiral pattern** (overlay glaze vs corner cap, client-hole clip, stretch tiles)
+- Put skin-specific numbers on the **manifest / assets** (`contentCornerRadius`, masks, tiles)
+- Use pack names in **tests and comments as examples** of a general rule, not as runtime identity
+
+If a second skin would need the same `if`, the condition was never a skin check — lift it into the format.

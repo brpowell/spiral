@@ -1,14 +1,25 @@
-import { useEffect, useRef, useState } from "react";
-import { skinAssetFileUrl } from "../../../lib/skinAssets";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+  resolveInteractiveAssetUrl,
+  skinAssetFileUrl,
+} from "../../../lib/skinAssets";
+import {
+  getSkinBitmapIfReady,
   isSkinBitmapReady,
   loadSkinBitmap,
 } from "../../../lib/skinBitmapCache";
-import { loadSkinGif, playSkinGifOnCanvas } from "../../../lib/skinGifPlayback";
+import { preloadInteractiveBitmapAssets } from "../../../lib/skinViewAssetPreload";
+import {
+  getDecodedSkinGif,
+  loadSkinGif,
+  playSkinGifOnCanvas,
+  type DecodedSkinGif,
+} from "../../../lib/skinGifPlayback";
 import { scheduleSkinEffects } from "../../../lib/skinEffects";
 import { useSkinBindState } from "../../../lib/skinBinds";
 import { skinDragRegionDeepProps } from "../../../lib/skinDragRegion";
 import type {
+  BitmapPresentation,
   DecorationNode,
   GifPresentation,
   LoadedSkinPack,
@@ -29,12 +40,13 @@ function SkinGifDecoration({
   bindStateRef.current = bindState;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [playKey] = useState(() => Date.now());
-  const [frameReady, setFrameReady] = useState(false);
   const baseSrc = skinAssetFileUrl(pack.packDir, presentation.asset);
+  const [frameReady, setFrameReady] = useState(() =>
+    Boolean(getDecodedSkinGif(baseSrc)),
+  );
   const { durationMs, playbackRate, onComplete } = presentation;
 
-  useEffect(() => {
-    setFrameReady(false);
+  useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -47,25 +59,40 @@ function SkinGifDecoration({
       scheduleSkinEffects(onComplete, () => bindStateRef.current);
     };
 
-    loadSkinGif(baseSrc)
-      .then((decoded) => {
-        if (cancelled) return;
+    const play = (decoded: DecodedSkinGif) => {
+      if (cancelled) return;
 
-        const handle = playSkinGifOnCanvas(canvas, decoded, {
-          targetDurationMs: durationMs,
-          playbackRate,
-          loopForever: !onComplete?.length,
-          onFirstFrameDrawn: () => setFrameReady(true),
-          ...(onComplete?.length
-            ? {
-                onLoopComplete: (loopIndex) => {
-                  if (loopIndex === 0) fireComplete();
-                },
-              }
-            : {}),
-        });
-        playbackStop = handle.stop;
-      })
+      const handle = playSkinGifOnCanvas(canvas, decoded, {
+        targetDurationMs: durationMs,
+        playbackRate,
+        loopForever: !onComplete?.length,
+        onFirstFrameDrawn: () => setFrameReady(true),
+        ...(onComplete?.length
+          ? {
+              onLoopComplete: (loopIndex) => {
+                if (loopIndex === 0) fireComplete();
+              },
+            }
+          : {}),
+      });
+      playbackStop = handle.stop;
+    };
+
+    // Preloaded segments must paint in the commit that mounts them. Awaiting a
+    // tick leaves a transparent canvas over whatever the previous phase drew,
+    // which reads as a flash when view state chains one segment into the next.
+    const decoded = getDecodedSkinGif(baseSrc);
+    if (decoded) {
+      play(decoded);
+      return () => {
+        cancelled = true;
+        playbackStop?.();
+      };
+    }
+
+    setFrameReady(false);
+    loadSkinGif(baseSrc)
+      .then(play)
       .catch((err) => {
         console.warn(
           "SkinGifDecoration: canvas playback failed, using <img>",
@@ -114,26 +141,59 @@ function SkinGifDecoration({
   );
 }
 
+function drawBitmap(canvas: HTMLCanvasElement, image: HTMLImageElement): void {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+  ctx.drawImage(image, 0, 0);
+}
+
 function SkinBitmapDecoration({
   node,
-  src,
+  pack,
+  presentation,
 }: {
   node: DecorationNode;
-  src: string;
+  pack: LoadedSkinPack;
+  presentation: BitmapPresentation;
 }) {
+  const bindState = useSkinBindState();
+  const src = resolveInteractiveAssetUrl(
+    pack.packDir,
+    presentation.assets,
+    presentation.assetsWhen,
+    bindState,
+    "default",
+  );
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(() => isSkinBitmapReady(src));
 
   useEffect(() => {
-    if (isSkinBitmapReady(src)) {
+    preloadInteractiveBitmapAssets(
+      pack.packDir,
+      presentation.assets,
+      presentation.assetsWhen,
+    );
+  }, [pack.packDir, presentation.assets, presentation.assetsWhen]);
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    let cancelled = false;
+    const cached = getSkinBitmapIfReady(src);
+    if (cached) {
+      drawBitmap(canvas, cached);
       setReady(true);
       return;
     }
 
-    let cancelled = false;
-    setReady(false);
-    loadSkinBitmap(src)
-      .then(() => {
-        if (!cancelled) setReady(true);
+    void loadSkinBitmap(src)
+      .then((image) => {
+        if (cancelled) return;
+        drawBitmap(canvas, image);
+        setReady(true);
       })
       .catch((err) => {
         console.warn("SkinBitmapDecoration: failed to load bitmap", err);
@@ -145,7 +205,8 @@ function SkinBitmapDecoration({
   }, [src]);
 
   return (
-    <img
+    <canvas
+      ref={canvasRef}
       className={[
         "skin-decoration",
         "skin-decoration--bitmap",
@@ -154,9 +215,8 @@ function SkinBitmapDecoration({
         .filter(Boolean)
         .join(" ")}
       data-node-id={node.id}
+      data-asset-url={src}
       {...(node.dragRegion ? skinDragRegionDeepProps() : {})}
-      src={src}
-      alt=""
       style={{ opacity: ready ? 1 : 0 }}
       aria-hidden
     />
@@ -197,7 +257,7 @@ export function SkinDecoration({
 
   if (presentation.kind !== "bitmap") return null;
 
-  const src = skinAssetFileUrl(pack.packDir, presentation.assets.default);
-
-  return <SkinBitmapDecoration node={node} src={src} />;
+  return (
+    <SkinBitmapDecoration node={node} pack={pack} presentation={presentation} />
+  );
 }

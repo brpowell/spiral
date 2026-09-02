@@ -25,6 +25,10 @@
   touch-action: manipulation;
 }
 
+.skin-button-group__hit:focus-visible {
+  outline: none;
+}
+
 .skin-button-group-wrap--debug .skin-button-group__hit {
   outline: 1px dashed rgba(0, 255, 128, 0.85);
   outline-offset: -1px;

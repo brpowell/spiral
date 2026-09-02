@@ -495,6 +495,7 @@ export function SkinButtonGroup({
           <button
             key={region.colorKey}
             type="button"
+            tabIndex={-1}
             className="skin-button-group__hit"
             data-node-id={node.id}
             {...skinDragRegionNoneProps()}

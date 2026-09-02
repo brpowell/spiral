@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FLAT_BAND_GAINS } from "./equalizer/types";
 import { applyEqBandSliderGain } from "./eqBandInput";
 import { useEqualizerStore } from "../store/useEqualizerStore";
-import type { EqBandNode, LoadedSkinPack } from "../types/skin";
+import type { LoadedSkinPack, SliderEqNode } from "../types/skin";
 
 vi.mock("./windowRole", () => ({
   getWindowRole: vi.fn(() => "main"),
@@ -27,7 +27,7 @@ const sliderPresentation = {
   thumbHeight: 19,
 };
 
-function makePack(children: EqBandNode[]): LoadedSkinPack {
+function makePack(children: SliderEqNode[]): LoadedSkinPack {
   return {
     summary: {
       id: "test",
@@ -74,14 +74,16 @@ describe("eqBand linear spread", () => {
   });
 
   it("interpolates the 10-band curve when dragging a spread slider", () => {
-    const bass: EqBandNode = {
-      type: "eqBand",
+    const bass: SliderEqNode = {
+      type: "slider",
+      control: "eq",
       band: 1,
       spread: "linear",
       presentation: sliderPresentation,
     };
-    const treble: EqBandNode = {
-      type: "eqBand",
+    const treble: SliderEqNode = {
+      type: "slider",
+      control: "eq",
       band: 10,
       spread: "linear",
       presentation: sliderPresentation,
@@ -98,20 +100,23 @@ describe("eqBand linear spread", () => {
     expect(bands[4]).toBeCloseTo((5 * 9 + 4 * -9) / 9, 5);
   });
 
-  it("ignores eqBand nodes that omit spread when interpolating", () => {
-    const bass: EqBandNode = {
-      type: "eqBand",
+  it("ignores eq sliders that omit spread when interpolating", () => {
+    const bass: SliderEqNode = {
+      type: "slider",
+      control: "eq",
       band: 1,
       spread: "linear",
       presentation: sliderPresentation,
     };
-    const mid: EqBandNode = {
-      type: "eqBand",
+    const mid: SliderEqNode = {
+      type: "slider",
+      control: "eq",
       band: 5,
       presentation: sliderPresentation,
     };
-    const treble: EqBandNode = {
-      type: "eqBand",
+    const treble: SliderEqNode = {
+      type: "slider",
+      control: "eq",
       band: 10,
       spread: "linear",
       presentation: sliderPresentation,
@@ -125,8 +130,9 @@ describe("eqBand linear spread", () => {
   });
 
   it("writes a single band when spread is omitted or unpaired", () => {
-    const lone: EqBandNode = {
-      type: "eqBand",
+    const lone: SliderEqNode = {
+      type: "slider",
+      control: "eq",
       band: 1,
       presentation: sliderPresentation,
     };
@@ -135,8 +141,9 @@ describe("eqBand linear spread", () => {
       6, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     ]);
 
-    const spreadLone: EqBandNode = {
-      type: "eqBand",
+    const spreadLone: SliderEqNode = {
+      type: "slider",
+      control: "eq",
       band: 1,
       spread: "linear",
       presentation: sliderPresentation,

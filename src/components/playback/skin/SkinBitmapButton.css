@@ -10,6 +10,10 @@
   background-position: center;
 }
 
+.skin-bitmap-btn:focus-visible {
+  outline: none;
+}
+
 .skin-bitmap-btn:not(:disabled) {
   cursor: pointer;
 }

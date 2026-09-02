@@ -25,7 +25,7 @@
 
 .skin-canvas-layout__stage {
   position: relative;
-  overflow: hidden;
+  overflow: clip;
   isolation: isolate;
 }
 
@@ -46,6 +46,14 @@
   position: relative;
   width: 100%;
   height: 100%;
+}
+
+/* Clip group: decorations/buttonGroups leave overflow visible on their own
+   box, so this inner layer clips them. `clip` (not `hidden`) so focusing a
+   control parked outside the box cannot scroll it into view. Passthrough
+   subviews stay unclipped (parent is `.skin-bounds--unclipped`). */
+.skin-bounds:not(.skin-bounds--unclipped) > .skin-layout-node--subview {
+  overflow: clip;
 }
 
 /* Unbounded overlay children (e.g. T3 vis-viz) fill the overlay; bounded

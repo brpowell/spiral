@@ -77,6 +77,38 @@ export interface SkinPlaylistTrackContext {
   manualQueueIds: number[];
   currentTrackId: number | null;
   playlists: Playlist[];
+  /** Case-insensitive substring filter (title / artist / album / genre). */
+  filterQuery?: string;
+}
+
+function trackMatchesSkinPlaylistFilter(track: Track, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  const fields = [
+    track.title,
+    track.artist,
+    track.albumArtist,
+    track.album,
+    track.genre,
+  ];
+  return fields.some((field) => field?.toLowerCase().includes(needle));
+}
+
+function applySkinPlaylistFilter(
+  ids: number[],
+  ctx: SkinPlaylistTrackContext,
+): number[] {
+  const needle = ctx.filterQuery?.trim() ?? "";
+  if (!needle) return ids;
+  return ids.filter((id) => {
+    const track = findPlaybackTrack({
+      library: ctx.library,
+      playbackTracks: ctx.playbackTracks,
+      cdQueueTracks: ctx.cdQueueTracks,
+      currentTrackId: id,
+    });
+    return track != null && trackMatchesSkinPlaylistFilter(track, needle);
+  });
 }
 
 export function resolveSkinPlaylistTrackIds(
@@ -86,9 +118,12 @@ export function resolveSkinPlaylistTrackIds(
   const { kind, playlistId } = parsePlaylistSourceId(sourceId);
 
   if (kind === "all") {
-    return [...ctx.library]
-      .sort((a, b) => compareTracks(a, b, "title", "asc"))
-      .map((track) => track.id);
+    return applySkinPlaylistFilter(
+      [...ctx.library]
+        .sort((a, b) => compareTracks(a, b, "title", "asc"))
+        .map((track) => track.id),
+      ctx,
+    );
   }
 
   if (kind === "upNext") {
@@ -102,21 +137,27 @@ export function resolveSkinPlaylistTrackIds(
     if (activeIds.length === 0) return [];
 
     if (ctx.currentTrackId === null) {
-      return activeIds;
+      return applySkinPlaylistFilter(activeIds, ctx);
     }
 
     const currentIdx = activeIds.indexOf(ctx.currentTrackId);
     if (currentIdx < 0) {
-      return activeIds.filter((id) => id !== ctx.currentTrackId);
+      return applySkinPlaylistFilter(
+        activeIds.filter((id) => id !== ctx.currentTrackId),
+        ctx,
+      );
     }
 
-    return activeIds.slice(currentIdx + 1);
+    return applySkinPlaylistFilter(activeIds.slice(currentIdx + 1), ctx);
   }
 
   if (playlistId == null) return [];
   const playlist = getPlaylistById(ctx.playlists, playlistId);
   if (!playlist) return [];
-  return resolvePlaylistTracks(playlist, ctx.library).map((track) => track.id);
+  return applySkinPlaylistFilter(
+    resolvePlaylistTracks(playlist, ctx.library).map((track) => track.id),
+    ctx,
+  );
 }
 
 export function resolveSkinPlaylistTracks(

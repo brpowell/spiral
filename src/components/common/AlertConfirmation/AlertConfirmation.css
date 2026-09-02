@@ -26,3 +26,8 @@
 .alert-confirmation__message strong {
   font-weight: 600;
 }
+
+.alert-confirmation__option {
+  display: flex;
+  margin-top: 1rem;
+}

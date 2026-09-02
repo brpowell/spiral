@@ -125,7 +125,7 @@ export function NowPlayingArt({
   objectFit,
 }: NowPlayingArtProps) {
   const display = useNowPlayingDisplay();
-  const paint = styleFromSkinNode(style);
+  const paint = styleFromSkinNode(style, { omitOpacity: true });
   const rootStyle: CSSProperties | undefined = interactionEnabled
     ? paint
     : { ...paint, pointerEvents: "none" };

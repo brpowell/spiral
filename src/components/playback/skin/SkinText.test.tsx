@@ -5,6 +5,8 @@ import { SkinText } from "./SkinText";
 
 vi.mock("../../../lib/skinBinds", () => ({
   useSkinBindValue: () => null,
+  useSkinBindState: () => ({ viewState: {}, hoveredNodeIds: new Set() }),
+  evaluateSkinCondition: () => false,
 }));
 
 vi.mock("../../ScrollingText/ScrollingText", () => ({

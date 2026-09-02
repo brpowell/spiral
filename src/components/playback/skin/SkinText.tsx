@@ -1,14 +1,21 @@
 import { ScrollingText } from "../../ScrollingText/ScrollingText";
 import { useSkinBindValue } from "../../../lib/skinBinds";
-import { styleFromSkinNode } from "../../../lib/skinNodeStyle";
+import {
+  styleFromSkinNode,
+  useResolvedNodeStyle,
+} from "../../../lib/skinNodeStyle";
 import type { TextNode } from "../../../types/skin";
 import "./SkinText.css";
 
 export function SkinText({ node }: { node: TextNode }) {
   const bound = useSkinBindValue(node.bind);
+  const resolvedStyle = useResolvedNodeStyle(node.style, node.styleWhen);
   const text =
     node.value ?? (bound === null || bound === undefined ? "" : String(bound));
   const overflow = node.overflow ?? "visible";
+  const style = styleFromSkinNode(resolvedStyle, {
+    omitOpacity: node.bounds !== undefined,
+  });
 
   if (!text) return null;
 
@@ -23,7 +30,6 @@ export function SkinText({ node }: { node: TextNode }) {
     .join(" ");
 
   const nodeIdProps = node.id ? { "data-node-id": node.id } : undefined;
-  const style = styleFromSkinNode(node.style);
 
   if (overflow === "scroll" || overflow === "scroll-bounce") {
     return (

@@ -140,6 +140,9 @@ pub fn import_wms_skin(options: &ImportWmsOptions) -> Result<ImportWmsResult, St
             resolve_source: &mut resolve_source,
             jobs: &mut jobs,
             behavior: &behavior,
+            known_geom: HashMap::new(),
+            close_action: "skin.exit",
+            view_ids: Vec::new(),
         };
         let manifest = lower_theme(&theme, &mut deps, &skin_id)?;
 

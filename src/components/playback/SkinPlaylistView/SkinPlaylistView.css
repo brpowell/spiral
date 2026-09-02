@@ -142,3 +142,7 @@
   opacity: 0.85;
   font-variant-numeric: tabular-nums;
 }
+
+.skin-playlist-view--sources .skin-playlist-view__row {
+  grid-template-columns: minmax(0, 1fr);
+}

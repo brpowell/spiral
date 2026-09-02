@@ -50,27 +50,29 @@ export function resolveWindowChrome(
   const resizable = w?.resizable ?? true;
   const snapEnabled = w?.snapEnabled ?? true;
 
+  // WMS often declares a small `width`/`height` that JS immediately raises to
+  // `minWidth`/`minHeight` (Lost Planet info: 376×216 → 437×304). Honor the
+  // authored minimum and open at least that large — never clamp min down to
+  // the pre-script default.
   const resolvedMinWidth =
-    maxWidth !== undefined
-      ? Math.min(minWidth, defaultWidth, maxWidth)
-      : Math.min(minWidth, defaultWidth);
+    maxWidth !== undefined ? Math.min(minWidth, maxWidth) : minWidth;
   const resolvedMinHeight =
-    maxHeight !== undefined
-      ? Math.min(minHeight, defaultHeight, maxHeight)
-      : Math.min(minHeight, defaultHeight);
+    maxHeight !== undefined ? Math.min(minHeight, maxHeight) : minHeight;
+  const resolvedDefaultWidth = Math.max(defaultWidth, resolvedMinWidth);
+  const resolvedDefaultHeight = Math.max(defaultHeight, resolvedMinHeight);
 
   return {
-    defaultWidth,
-    defaultHeight,
+    defaultWidth: resolvedDefaultWidth,
+    defaultHeight: resolvedDefaultHeight,
     minWidth: resolvedMinWidth,
     minHeight: resolvedMinHeight,
     maxWidth:
       maxWidth !== undefined
-        ? Math.max(maxWidth, defaultWidth, resolvedMinWidth)
+        ? Math.max(maxWidth, resolvedDefaultWidth, resolvedMinWidth)
         : undefined,
     maxHeight:
       maxHeight !== undefined
-        ? Math.max(maxHeight, defaultHeight, resolvedMinHeight)
+        ? Math.max(maxHeight, resolvedDefaultHeight, resolvedMinHeight)
         : undefined,
     resizable,
     snapEnabled,

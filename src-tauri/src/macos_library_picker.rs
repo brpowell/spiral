@@ -4,11 +4,25 @@ use objc2::rc::autoreleasepool;
 use objc2::MainThreadMarker;
 use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
 use objc2_foundation::{NSArray, NSString};
+use tauri::AppHandle;
 
 use crate::audio_formats::SUPPORTED_AUDIO_EXTENSIONS;
 
 /// Native open panel that allows selecting multiple audio files and/or folders.
-pub fn pick_library_paths() -> Option<Vec<String>> {
+pub fn pick_library_paths(app: &AppHandle) -> Option<Vec<String>> {
+    if MainThreadMarker::new().is_some() {
+        return pick_library_paths_on_main();
+    }
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let _ = tx.send(pick_library_paths_on_main());
+    })
+    .ok()?;
+    rx.recv().ok().flatten()
+}
+
+fn pick_library_paths_on_main() -> Option<Vec<String>> {
     autoreleasepool(|_| {
         let mtm = MainThreadMarker::new()?;
         let panel = NSOpenPanel::openPanel(mtm);

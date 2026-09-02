@@ -175,14 +175,18 @@ export function getSkinArtworkAlphaSync(url: string): ArtworkAlphaMap | null {
   return null;
 }
 
+const BITMAP_DECORATION_SELECTOR = ".skin-decoration--bitmap";
+
+function bitmapDecorationUrl(el: Element): string {
+  return el instanceof HTMLCanvasElement ? (el.dataset.assetUrl ?? "") : "";
+}
+
 /** Kick off alpha decode for every mounted bitmap decoration. */
 export function primeSkinArtworkAlphaFromDom(
   root: ParentNode = document,
 ): void {
-  for (const img of root.querySelectorAll<HTMLImageElement>(
-    "img.skin-decoration--bitmap",
-  )) {
-    const url = img.currentSrc || img.src;
+  for (const el of root.querySelectorAll(BITMAP_DECORATION_SELECTOR)) {
+    const url = bitmapDecorationUrl(el);
     if (url) getSkinArtworkAlphaSync(url);
   }
 }
@@ -248,17 +252,17 @@ function groupBoundsPaints(el: Element): boolean {
 }
 
 function isOpaqueBitmapAt(
-  img: HTMLImageElement,
+  el: Element,
   boundsRect: SkinWindowHitRect,
   clientX: number,
   clientY: number,
 ): boolean {
-  const url = img.currentSrc || img.src;
+  const url = bitmapDecorationUrl(el);
   if (!url) return true;
   const map = getSkinArtworkAlphaSync(url);
   if (!map) return true;
-  // Authored box is the source of truth (`object-fit: fill`). The <img> box
-  // can be 0×0 before layout; using it punches a hole through the whole skin.
+  // Authored box is the source of truth. The decoration box can be 0×0 before
+  // layout; using it punches a hole through the whole skin.
   const pixel = clientPointToImagePixel(
     boundsRect,
     map.width,
@@ -301,12 +305,10 @@ function artworkOpaqueInBounds(
   clientY: number,
 ): boolean {
   const boundsRect = clientRect(boundsEl);
-  const bitmaps = boundsEl.querySelectorAll<HTMLImageElement>(
-    "img.skin-decoration--bitmap",
-  );
+  const bitmaps = boundsEl.querySelectorAll(BITMAP_DECORATION_SELECTOR);
   if (bitmaps.length > 0) {
-    for (const img of bitmaps) {
-      if (isOpaqueBitmapAt(img, boundsRect, clientX, clientY)) return true;
+    for (const bitmap of bitmaps) {
+      if (isOpaqueBitmapAt(bitmap, boundsRect, clientX, clientY)) return true;
     }
     return false;
   }

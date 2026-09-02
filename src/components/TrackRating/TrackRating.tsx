@@ -12,7 +12,7 @@ import "./TrackRating.css";
 const STAR_PATH =
   "M12 2.5l2.9 6.5 7.1.6-5.4 4.6 1.7 6.9L12 17.8 5.7 21.1l1.7-6.9L2 9.6l7.1-.6L12 2.5z";
 
-export type TrackRatingSize = "compact" | "comfortable";
+export type TrackRatingSize = "compact" | "comfortable" | "fill";
 
 export interface TrackRatingProps {
   value: CanonicalRating;
@@ -58,13 +58,7 @@ function bucketFromClientX(
   return Math.min(bucketCount, Math.ceil(ratio * bucketCount));
 }
 
-function RatingGlyph({
-  fill,
-  size,
-}: {
-  fill: number;
-  size: TrackRatingSize;
-}) {
+function RatingGlyph({ fill, size }: { fill: number; size: TrackRatingSize }) {
   const clampedFill = Math.max(0, Math.min(1, fill));
 
   return (
@@ -83,18 +77,20 @@ function RatingGlyph({
       >
         <path d={STAR_PATH} />
       </svg>
-      <span
-        className="track-rating__star-fill-mask"
-        style={{ width: `${clampedFill * 100}%` }}
-        aria-hidden
-      >
+      {clampedFill > 0 ? (
         <svg
           className="track-rating__star track-rating__star--fill"
           viewBox="0 0 24 24"
+          aria-hidden
+          style={
+            clampedFill < 1
+              ? { clipPath: `inset(0 ${(1 - clampedFill) * 100}% 0 0)` }
+              : undefined
+          }
         >
           <path d={STAR_PATH} />
         </svg>
-      </span>
+      ) : null}
     </span>
   );
 }
@@ -120,7 +116,11 @@ function TrackRatingComponent({
     (clientX: number): number => {
       const el = rootRef.current;
       if (!el) return committedBucket;
-      return bucketFromClientX(clientX, el.getBoundingClientRect(), bucketCount);
+      return bucketFromClientX(
+        clientX,
+        el.getBoundingClientRect(),
+        bucketCount,
+      );
     },
     [bucketCount, committedBucket],
   );
@@ -174,17 +174,14 @@ function TrackRatingComponent({
     [bucketFromPointer, commitBucket],
   );
 
-  const handlePointerCancel = useCallback(
-    (e: React.PointerEvent) => {
-      if (!draggingRef.current) return;
-      draggingRef.current = false;
-      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-        e.currentTarget.releasePointerCapture(e.pointerId);
-      }
-      setHoverBucket(null);
-    },
-    [],
-  );
+  const handlePointerCancel = useCallback((e: React.PointerEvent) => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    setHoverBucket(null);
+  }, []);
 
   const handlePointerLeave = useCallback(() => {
     if (!draggingRef.current) setHoverBucket(null);

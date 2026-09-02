@@ -4,6 +4,7 @@ vi.mock("../store/useLicenseStore", () => ({
   useLicenseStore: {
     getState: () => ({
       snapshot: mocks.licenseSnapshot,
+      loaded: mocks.licenseLoaded,
       openSpiralCard: mocks.openSpiralCard,
     }),
   },
@@ -21,6 +22,7 @@ vi.mock("../store/usePlayerStore", () => ({
 const mocks = vi.hoisted(() => ({
   openSpiralCard: vi.fn(),
   setPlayerState: vi.fn(),
+  licenseLoaded: true,
   licenseSnapshot: {
     status: "trial" as import("../types/license").LicenseStatus,
     installed: false,
@@ -81,17 +83,13 @@ describe("trialGate", () => {
   beforeEach(() => {
     mocks.openSpiralCard.mockReset();
     mocks.setPlayerState.mockReset();
+    mocks.licenseLoaded = true;
     mocks.licenseSnapshot.status = "trial";
     mocks.library = [];
   });
 
   it("counts only persisted library rows toward the cap", () => {
-    const library = [
-      track(1),
-      track(2),
-      track(-1, true),
-      track(3),
-    ];
+    const library = [track(1), track(2), track(-1, true), track(3)];
     expect(persistedLibraryTrackCount(library)).toBe(3);
   });
 
@@ -125,6 +123,16 @@ describe("trialGate", () => {
     expect(blockIfTrialLibraryAtCap()).toBe(true);
     expect(mocks.openSpiralCard).toHaveBeenCalled();
     expect(mocks.setPlayerState).not.toHaveBeenCalled();
+  });
+
+  it("does not treat an unloaded license store as a trial cap", () => {
+    mocks.library = Array.from({ length: TRIAL_LIBRARY_TRACK_CAP }, (_, i) =>
+      track(i + 1),
+    );
+    mocks.licenseLoaded = false;
+    expect(isTrialLibraryAtCap()).toBe(false);
+    expect(blockIfTrialLibraryAtCap()).toBe(false);
+    expect(mocks.openSpiralCard).not.toHaveBeenCalled();
   });
 
   it("lifts the frontend gate immediately when status is no longer trial", () => {

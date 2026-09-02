@@ -98,18 +98,17 @@ pub fn pick_folder() -> Result<Vec<String>, String> {
 }
 
 /// Open a picker for audio files and/or folders (platform-dependent capabilities).
+#[cfg(target_os = "macos")]
+#[tauri::command]
+pub fn pick_library_paths(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let paths = crate::macos_library_picker::pick_library_paths(&app).unwrap_or_default();
+    Ok(filter_library_import_paths(paths))
+}
+
+#[cfg(not(target_os = "macos"))]
 #[tauri::command]
 pub fn pick_library_paths() -> Result<Vec<String>, String> {
-    #[cfg(target_os = "macos")]
-    {
-        let paths = crate::macos_library_picker::pick_library_paths().unwrap_or_default();
-        return Ok(filter_library_import_paths(paths));
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        pick_audio_files()
-    }
+    pick_audio_files()
 }
 
 #[cfg(test)]

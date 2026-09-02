@@ -27,3 +27,7 @@
   background: transparent;
   cursor: pointer;
 }
+
+.skin-bitmap-horizontal-slider__hit:disabled {
+  cursor: default;
+}

@@ -1,0 +1,9 @@
+.skin-rating {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 0;
+  color: var(--color-accent);
+  --track-rating-fill: currentColor;
+  --track-rating-outline: color-mix(in srgb, currentColor 55%, transparent);
+}

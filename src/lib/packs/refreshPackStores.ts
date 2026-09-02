@@ -18,6 +18,10 @@ import { emit } from "@tauri-apps/api/event";
 import { createOperationId } from "../activityLog";
 import { t } from "../i18n";
 import {
+  clearPackAuthorSkinSettings,
+  type ClearableSkinSetting,
+} from "./packSkinSettings";
+import {
   packInstalledPayload,
   packInstallFailedPayload,
   packReloadedPayload,
@@ -188,9 +192,13 @@ export async function uninstallPackWithRefresh(
   packId: string,
   version: string,
   displayName: string,
+  clearSkinSettings: readonly ClearableSkinSetting[] = [],
 ): Promise<boolean> {
   const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
   try {
+    if (clearSkinSettings.length > 0) {
+      await clearPackAuthorSkinSettings(clearSkinSettings);
+    }
     await uninstallPack(authorId, packId, version);
     await refreshPackContributionStores();
     showToast({

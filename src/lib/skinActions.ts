@@ -1,4 +1,5 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { emit } from "@tauri-apps/api/event";
 import { albumKey as albumKeyFromTrack } from "./albums";
 import { useNavigationStore } from "../store/useNavigationStore";
 import { findPlaybackTrack } from "./playbackTrack";
@@ -24,7 +25,11 @@ import { useVisualizerStore } from "../store/useVisualizerStore";
 import { useEqualizerStore } from "../store/useEqualizerStore";
 import { usePlaybackSettingsStore } from "../store/usePlaybackSettingsStore";
 import { pickAndImportLibraryPaths } from "./libraryImport";
-import { getSkinAuxContext } from "./windowRole";
+import {
+  SKIN_PREFERENCES_ACTION_EVENT,
+  type SkinPreferencesActionPayload,
+} from "./skinBridge";
+import { getSkinAuxContext, getWindowRole } from "./windowRole";
 import { getSkinSlideshowStateApi } from "./skinSlideshowContext";
 import { getSkinScrollStripStateApi } from "./skinScrollStripContext";
 import { getSkinViewStateApi } from "./skinViewStateContext";
@@ -33,11 +38,42 @@ import { playOrResume } from "./playbackStart";
 
 export type SkinActionPayload = SkinActionPayloadFields;
 
+function dispatchSkinPreferencesAction(
+  payload: SkinPreferencesActionPayload,
+): void {
+  if (getWindowRole() === "main") {
+    const store = useSkinPreferencesStore.getState();
+    const skinId = useSkinStore.getState().activeSkinId;
+    switch (payload.type) {
+      case "toggleSoundEffects":
+        void store.toggleSoundEffects(skinId);
+        break;
+      case "togglePref":
+        void store.togglePref(payload.settingId, skinId);
+        break;
+      case "setPref":
+        void store.setPref(payload.settingId, payload.value, skinId);
+        break;
+    }
+    return;
+  }
+  void emit(SKIN_PREFERENCES_ACTION_EVENT, payload);
+}
+
 export function runSkinAction(
   actionId: string | undefined,
   payload?: SkinActionPayload,
-): void {
-  if (!actionId) return;
+): boolean {
+  if (!actionId) return false;
+
+  if ((actionId as SkinActionId) === "view.applyStateEvent") {
+    const api = getSkinViewStateApi();
+    const { variable, event } = payload ?? {};
+    if (!api || !variable || !event) return false;
+    const { activePack, activeViewId } = useSkinStore.getState();
+    const stateSpec = activePack?.manifest.views[activeViewId]?.state;
+    return applyViewStateEvent(variable, event, stateSpec, api);
+  }
 
   switch (actionId as SkinActionId) {
     case "player.togglePlayPause":
@@ -158,8 +194,26 @@ export function runSkinAction(
       break;
     }
     case "skin.toggleSoundEffects":
-      void useSkinPreferencesStore.getState().toggleSoundEffects();
+      dispatchSkinPreferencesAction({ type: "toggleSoundEffects" });
       break;
+    case "skin.togglePref": {
+      const settingId = payload?.settingId;
+      if (settingId) {
+        dispatchSkinPreferencesAction({ type: "togglePref", settingId });
+      }
+      break;
+    }
+    case "skin.setPref": {
+      const settingId = payload?.settingId;
+      if (settingId && payload?.value !== undefined) {
+        dispatchSkinPreferencesAction({
+          type: "setPref",
+          settingId,
+          value: payload.value,
+        });
+      }
+      break;
+    }
     case "visualizer.previous":
       void useVisualizerStore.getState().cycleActiveVisualizer("prev");
       break;
@@ -171,15 +225,22 @@ export function runSkinAction(
       if (sourceId) useSkinStore.getState().setPlaylistSource(sourceId);
       break;
     }
+    case "playlist.setFilter": {
+      useSkinStore.getState().setPlaylistFilter(payload?.query ?? "");
+      break;
+    }
     case "playlist.playTrack": {
       const trackId = payload?.trackId;
       if (trackId === undefined) break;
 
-      const sourceId = useSkinStore.getState().playlistSourceId;
+      const skin = useSkinStore.getState();
+      const sourceId = skin.playlistSourceId;
       const player = usePlayerStore.getState();
       const playlists = usePlaylistStore.getState().playlists;
 
       if (shouldReplacePlayContextForSkinPlaylistSource(sourceId)) {
+        // Search filters the visible list only — play context is the full
+        // source, same as library TracksView.
         const ids = resolveSkinPlaylistTrackIds(sourceId, {
           library: player.library,
           playbackTracks: player.playbackTracks,
@@ -241,15 +302,6 @@ export function runSkinAction(
       api.setVariable(variable, value);
       break;
     }
-    case "view.applyStateEvent": {
-      const api = getSkinViewStateApi();
-      const { variable, event } = payload ?? {};
-      if (!api || !variable || !event) break;
-      const { activePack, activeViewId } = useSkinStore.getState();
-      const stateSpec = activePack?.manifest.views[activeViewId]?.state;
-      applyViewStateEvent(variable, event, stateSpec, api);
-      break;
-    }
     case "slideshow.setDeck": {
       const slideshowId = payload?.id;
       const deck = payload?.deck;
@@ -292,4 +344,5 @@ export function runSkinAction(
     default:
       break;
   }
+  return true;
 }

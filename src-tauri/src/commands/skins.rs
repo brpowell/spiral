@@ -185,7 +185,6 @@ pub fn get_active_skin_view(app: AppHandle) -> Result<String, String> {
 }
 
 /// Enable or disable OS click-through for the calling skin window.
-/// On macOS this also resigns key status so a focused skin actually passes clicks.
 #[tauri::command]
 pub fn set_skin_ignore_cursor_events(
     window: tauri::WebviewWindow,
@@ -282,17 +281,16 @@ mod tests {
     fn find_control_in_node<'a>(node: &'a LayoutNode, id: &str) -> Option<&'a ControlFields> {
         match node {
             LayoutNode::Button(f)
-            | LayoutNode::Seekbar(f)
             | LayoutNode::Artwork(f)
             | LayoutNode::Transport(f)
             | LayoutNode::Visualizer(f)
-            | LayoutNode::Volume(f)
-            | LayoutNode::Balance(f)
+            | LayoutNode::Rating(f)
             | LayoutNode::Time(f)
                 if f.id.as_deref() == Some(id) =>
             {
                 Some(f)
             }
+            LayoutNode::Slider(f) if f.base.id.as_deref() == Some(id) => Some(&f.base),
             LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => f
                 .children
                 .iter()

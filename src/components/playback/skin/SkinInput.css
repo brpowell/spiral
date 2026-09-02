@@ -1,0 +1,23 @@
+.skin-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  min-width: 0;
+}
+
+.skin-input::placeholder {
+  color: inherit;
+  opacity: 0.55;
+}
+
+.skin-input:disabled {
+  opacity: 0.5;
+}

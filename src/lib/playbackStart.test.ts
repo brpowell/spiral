@@ -69,10 +69,16 @@ describe("playbackStart", () => {
       resume,
     });
     usePlaylistStore.setState({ playlists: [] });
-    useSkinStore.setState({ playlistSourceId: "all" });
+    useSkinStore.setState({ playlistSourceId: "all", playlistFilterQuery: "" });
   });
 
   it("starts all tracks from the first title when the set list is empty", () => {
+    playOrResume();
+    expect(playTracks).toHaveBeenCalledWith([2, 1, 3], 2);
+  });
+
+  it("does not shrink the play context to the skin playlist filter", () => {
+    useSkinStore.setState({ playlistFilterQuery: "A" });
     playOrResume();
     expect(playTracks).toHaveBeenCalledWith([2, 1, 3], 2);
   });

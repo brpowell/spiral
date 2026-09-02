@@ -1,10 +1,8 @@
-import type { SkinClickEffect, SkinLifecycleEffect } from "../types/skin";
+import type { SkinClickEffect } from "../types/skin";
 import { runSkinAction } from "./skinActions";
 import { evaluateSkinCondition, type SkinBindState } from "./skinBinds";
 import { playActiveSkinSound } from "./skinSoundEffects";
 import { getSkinViewStateApi } from "./skinViewStateContext";
-
-type SkinEffect = SkinClickEffect | SkinLifecycleEffect;
 
 /** Prefer live view state over a click-time snapshot. */
 function liveBindState(getBindState: () => SkinBindState): SkinBindState {
@@ -17,7 +15,7 @@ function liveBindState(getBindState: () => SkinBindState): SkinBindState {
 function primarySkinEffect<T extends SkinClickEffect>(
   effects: T[] | undefined,
 ): T | undefined {
-  return effects?.[0];
+  return effects?.find((effect) => effect.action);
 }
 
 export function primaryClickAction(
@@ -33,7 +31,7 @@ export function primaryClickViewId(
 }
 
 function isEffectWhenTruthy(
-  when: SkinEffect["when"],
+  when: SkinClickEffect["when"],
   getBindState: () => SkinBindState,
 ): boolean {
   if (!when) return true;
@@ -41,31 +39,45 @@ function isEffectWhenTruthy(
 }
 
 export function dispatchSkinEffect(
-  effect: SkinEffect,
+  effect: SkinClickEffect,
   getBindState: () => SkinBindState,
-): void {
+): boolean {
   if (!isEffectWhenTruthy(effect.when, () => liveBindState(getBindState))) {
-    return;
+    return false;
   }
-  if ("sound" in effect && effect.sound) playActiveSkinSound(effect.sound);
-  runSkinAction(effect.action, effect.payload);
+  if (effect.sound) playActiveSkinSound(effect.sound);
+  if (!effect.action) return true;
+  return runSkinAction(effect.action, effect.payload);
+}
+
+function isApplyStateEvent(effect: SkinClickEffect): boolean {
+  return effect.action === "view.applyStateEvent";
 }
 
 export function scheduleSkinEffects(
-  effects: SkinEffect[] | undefined,
+  effects: SkinClickEffect[] | undefined,
   getBindState: () => SkinBindState,
 ): () => void {
   const timers: ReturnType<typeof setTimeout>[] = [];
   if (!effects?.length) return () => {};
 
+  let applyAttempted = false;
+  let applySucceeded = false;
+
+  for (const effect of effects) {
+    if ((effect.delayMs ?? 0) !== 0) continue;
+    if (isApplyStateEvent(effect)) applyAttempted = true;
+    const applied = dispatchSkinEffect(effect, getBindState);
+    if (isApplyStateEvent(effect) && applied) applySucceeded = true;
+  }
+
+  if (applyAttempted && !applySucceeded) {
+    return () => {};
+  }
+
   for (const effect of effects) {
     const delayMs = effect.delayMs ?? 0;
-    if (
-      delayMs === 0 &&
-      !isEffectWhenTruthy(effect.when, () => liveBindState(getBindState))
-    ) {
-      continue;
-    }
+    if (delayMs === 0) continue;
 
     const timer = setTimeout(
       () => dispatchSkinEffect(effect, getBindState),

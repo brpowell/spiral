@@ -99,20 +99,89 @@ impl GapReport {
             }
             lines.push(format!("## {}", kind.as_str()));
             lines.push(String::new());
-            for item in list {
-                let loc = [item.node_id.as_deref(), item.attr.as_deref()]
-                    .into_iter()
-                    .flatten()
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                if loc.is_empty() {
-                    lines.push(format!("- {}", item.detail));
-                } else {
-                    lines.push(format!("- **{loc}** — {}", item.detail));
+            if kind == ReportKind::Jscript {
+                append_grouped_jscript(&mut lines, list);
+            } else {
+                for item in list {
+                    lines.push(format_item_line(item));
                 }
             }
             lines.push(String::new());
         }
         lines.join("\n")
+    }
+}
+
+fn format_item_line(item: &ReportItem) -> String {
+    let loc = item_loc(item);
+    if loc.is_empty() {
+        format!("- {}", item.detail)
+    } else {
+        format!("- **{loc}** — {}", item.detail)
+    }
+}
+
+fn item_loc(item: &ReportItem) -> String {
+    [item.node_id.as_deref(), item.attr.as_deref()]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn append_grouped_jscript(lines: &mut Vec<String>, items: &[&ReportItem]) {
+    let mut by_expr: BTreeMap<&str, Vec<&ReportItem>> = BTreeMap::new();
+    for item in items {
+        by_expr.entry(item.detail.as_str()).or_default().push(*item);
+    }
+    for (expr, group) in by_expr {
+        if group.len() == 1 {
+            lines.push(format_item_line(group[0]));
+            continue;
+        }
+        let locs: Vec<String> = group
+            .iter()
+            .map(|item| {
+                let loc = item_loc(item);
+                if loc.is_empty() {
+                    "(unnamed)".to_string()
+                } else {
+                    format!("**{loc}**")
+                }
+            })
+            .collect();
+        lines.push(format!("- `{expr}` ×{} — {}", group.len(), locs.join(", ")));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn groups_repeated_jscript_expressions() {
+        let mut report = GapReport::new();
+        report.add(
+            ReportKind::Jscript,
+            "jscript:cPos.left",
+            Some("thumb1"),
+            Some("left"),
+        );
+        report.add(
+            ReportKind::Jscript,
+            "jscript:cPos.left",
+            Some("thumb2"),
+            Some("left"),
+        );
+        report.add(
+            ReportKind::Jscript,
+            "jscript:eq.wowLevel=value",
+            Some("wowEffect"),
+            Some("onpositionchange"),
+        );
+        let md = report.to_markdown();
+        assert!(md.contains("- `jscript:cPos.left` ×2 — **thumb1 left**, **thumb2 left**"));
+        assert!(md.contains("**wowEffect onpositionchange** — jscript:eq.wowLevel=value"));
+        assert!(!md.contains("**thumb1 left** — jscript:cPos.left"));
     }
 }

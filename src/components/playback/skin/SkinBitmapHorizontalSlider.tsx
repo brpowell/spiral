@@ -21,6 +21,7 @@ import {
   wmpSliderFillSpan,
 } from "../../../lib/wmpBitmapSliderThumb";
 import {
+  evaluateSkinBind,
   useSkinBindState,
   useSkinControlEnabled,
 } from "../../../lib/skinBinds";
@@ -30,11 +31,12 @@ import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
 import { useEqualizerStore } from "../../../store/useEqualizerStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import type {
-  BalanceNode,
-  EqBandNode,
   LoadedSkinPack,
-  SeekbarNode,
-  VolumeNode,
+  SliderBalanceNode,
+  SliderEqNode,
+  SliderNode,
+  SliderSeekNode,
+  SliderVolumeNode,
 } from "../../../types/skin";
 import "./SkinBitmapHorizontalSlider.css";
 
@@ -46,35 +48,44 @@ function ratioToBalance(ratio: number): number {
   return ratio * 2 - 1;
 }
 
-type HorizontalSliderNode = BalanceNode | VolumeNode | SeekbarNode | EqBandNode;
-type HorizontalSliderMode = "seek" | "balance" | "volume" | "eq";
+/** Last drag position for unbound `slider` nodes (session-lived). */
+const genericSliderRatios = new Map<string, number>();
+
+function clamp01(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+type HorizontalSliderMode = "seek" | "balance" | "volume" | "eq" | "slider";
 
 export function SkinBitmapHorizontalSlider({
   node,
   pack,
 }: {
-  node: HorizontalSliderNode;
+  node: SliderNode;
   pack: LoadedSkinPack;
 }) {
   if (node.presentation.kind !== "bitmapHorizontalSlider") return null;
 
-  if (node.type === "seekbar") {
+  if (node.control === "seek") {
     return <HorizontalSeekSlider node={node} pack={pack} />;
   }
-  if (node.type === "balance") {
+  if (node.control === "balance") {
     return <HorizontalBalanceSlider node={node} pack={pack} />;
   }
-  if (node.type === "eqBand") {
+  if (node.control === "eq") {
     return <HorizontalEqBandSlider node={node} pack={pack} />;
   }
-  return <HorizontalVolumeSlider node={node} pack={pack} />;
+  if (node.control === "volume") {
+    return <HorizontalVolumeSlider node={node} pack={pack} />;
+  }
+  return <HorizontalGenericSlider node={node} pack={pack} />;
 }
 
 function HorizontalSeekSlider({
   node,
   pack,
 }: {
-  node: SeekbarNode;
+  node: SliderSeekNode;
   pack: LoadedSkinPack;
 }) {
   const library = usePlayerStore((s) => s.library);
@@ -124,7 +135,7 @@ function HorizontalVolumeSlider({
   node,
   pack,
 }: {
-  node: VolumeNode;
+  node: SliderVolumeNode;
   pack: LoadedSkinPack;
 }) {
   const volume = usePlayerStore((s) => s.volume);
@@ -151,7 +162,7 @@ function HorizontalBalanceSlider({
   node,
   pack,
 }: {
-  node: BalanceNode;
+  node: SliderBalanceNode;
   pack: LoadedSkinPack;
 }) {
   const balance = usePlayerStore((s) => s.balance);
@@ -178,7 +189,7 @@ function HorizontalEqBandSlider({
   node,
   pack,
 }: {
-  node: EqBandNode;
+  node: SliderEqNode;
   pack: LoadedSkinPack;
 }) {
   const band = node.band;
@@ -201,6 +212,39 @@ function HorizontalEqBandSlider({
   );
 }
 
+function HorizontalGenericSlider({
+  node,
+  pack,
+}: {
+  node: SliderNode;
+  pack: LoadedSkinPack;
+}) {
+  const bindState = useSkinBindState();
+  const bound = node.bind ? evaluateSkinBind(node.bind, bindState) : null;
+  const boundRatio =
+    typeof bound === "number" && Number.isFinite(bound) ? clamp01(bound) : null;
+  const stored = node.id ? genericSliderRatios.get(node.id) : undefined;
+  const [ratio, setRatio] = useState(() => boundRatio ?? stored ?? 0);
+  const applyRatio = useCallback(
+    (nextRatio: number) => {
+      const clamped = clamp01(nextRatio);
+      if (node.id) genericSliderRatios.set(node.id, clamped);
+      setRatio(clamped);
+    },
+    [node.id],
+  );
+
+  return (
+    <BitmapHorizontalSliderView
+      node={node}
+      pack={pack}
+      mode="slider"
+      ratio={boundRatio ?? ratio}
+      applyRatio={applyRatio}
+    />
+  );
+}
+
 function BitmapHorizontalSliderView({
   node,
   pack,
@@ -209,7 +253,7 @@ function BitmapHorizontalSliderView({
   hitDisabled: hitDisabledProp = false,
   applyRatio,
 }: {
-  node: HorizontalSliderNode;
+  node: SliderNode;
   pack: LoadedSkinPack;
   mode: HorizontalSliderMode;
   ratio: number;
@@ -327,8 +371,7 @@ function BitmapHorizontalSliderView({
     .join(" ");
 
   const liveRatio = hoverRatio ?? ratio;
-  const eqBand =
-    mode === "eq" && node.type === "eqBand" ? node.band : undefined;
+  const eqBand = mode === "eq" && node.control === "eq" ? node.band : undefined;
   const tooltip = useMemo(
     () =>
       resolveSkinTooltip(
@@ -354,7 +397,9 @@ function BitmapHorizontalSliderView({
         ? "Seek"
         : mode === "balance"
           ? "Balance"
-          : "Volume";
+          : mode === "slider"
+            ? "Slider"
+            : "Volume";
 
   return (
     <div className={className} data-node-id={node.id}>
