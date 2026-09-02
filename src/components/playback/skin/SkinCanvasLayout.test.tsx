@@ -34,16 +34,16 @@ function view(): SkinView & { layout: CanvasNode } {
 }
 
 describe("SkinCanvasLayout", () => {
-  it("exposes view state as data-view-* below data-skin-id for skin.css scoping", () => {
+  it("exposes view state as data-state-* below data-skin-id for skin.css scoping", () => {
     const { container } = render(
       <SkinCanvasLayout pack={pack} view={view()} viewId="mainview" />,
     );
 
     const stage = container.querySelector(".skin-canvas-layout__stage");
-    expect(stage).toHaveAttribute("data-view-shutter", "preroll");
-    expect(stage).toHaveAttribute("data-view-compartment", "closed");
+    expect(stage).toHaveAttribute("data-state-shutter", "preroll");
+    expect(stage).toHaveAttribute("data-state-compartment", "closed");
 
-    // Scoping rewrites author selectors to `[data-skin-id] [data-view-*]`, so
+    // Scoping rewrites author selectors to `[data-skin-id] [data-state-*]`, so
     // the attributes must not share a node with data-skin-id.
     expect(stage).not.toHaveAttribute("data-skin-id");
     expect(container.querySelector("[data-skin-id='demo']")).toContainElement(

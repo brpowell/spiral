@@ -221,7 +221,7 @@ interface NodeBase {
   /** Absolute placement on a canvas view (logical px). */
   bounds?: LayoutBounds;
   /**
-   * Override `bounds` when a condition is true (`view.*`, `hover.*`, or a
+   * Override `bounds` when a condition is true (`state.*`, `hover.*`, or a
    * composed {@link SkinCondition} in list form).
    */
   boundsWhen?: WhenMapOrList<Partial<LayoutBounds>>;
@@ -519,13 +519,13 @@ export interface SkinActionPayloadFields {
   slide?: number;
   /** View screen name for combined `slideshow.setDeck` + menu transitions. */
   screen?: string;
-  /** Target view-state variable for `view.setVariable`. */
+  /** Target view-state variable for `state.setVariable`. */
   variable?: string;
-  /** Value for `view.setVariable` or `skin.setPref`. */
+  /** Value for `state.setVariable` or `skin.setPref`. */
   value?: string | number | boolean;
-  /** When set, `view.setVariable` only applies if the variable currently equals this. */
+  /** When set, `state.setVariable` only applies if the variable currently equals this. */
   when?: string | number | boolean;
-  /** Named event for `view.applyStateEvent`. */
+  /** Named event for `state.applyEvent`. */
   event?: string;
   /** Target setting for `skin.togglePref` / `skin.setPref`. */
   settingId?: string;
@@ -900,9 +900,8 @@ export type SkinActionId =
   | "app.quit"
   | "app.openUrl"
   | "app.openFile"
-  | "view.setScreen"
-  | "view.setVariable"
-  | "view.applyStateEvent"
+  | "state.setVariable"
+  | "state.applyEvent"
   | "slideshow.setDeck"
   | "slideshow.prev"
   | "slideshow.next"

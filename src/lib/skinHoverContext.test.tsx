@@ -130,7 +130,7 @@ describe("useSkinHoverLeaveEffects", () => {
     vi.useFakeTimers();
     const effects: SkinClickEffect[] = [
       {
-        action: "view.applyStateEvent",
+        action: "state.applyEvent",
         payload: { variable: "menuMode", event: "collapse" },
       },
     ];

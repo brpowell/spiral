@@ -51,7 +51,7 @@ export function dispatchSkinEffect(
 }
 
 function isApplyStateEvent(effect: SkinClickEffect): boolean {
-  return effect.action === "view.applyStateEvent";
+  return effect.action === "state.applyEvent";
 }
 
 export function scheduleSkinEffects(

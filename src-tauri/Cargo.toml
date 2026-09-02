@@ -60,7 +60,7 @@ gif = "0.14"
 zip = "2"
 quick-xml = "0.37"
 encoding_rs = "0.8"
-spk-format = { git = "https://github.com/spiral-powered/spk-format.git", rev = "5fa668336d98a9d8bbe1e520c4d7bad40ee5f874" }
+spk-format = { git = "https://github.com/spiral-powered/spk-format.git", branch = "main" }
 mp3-duration = "0.1.10"
 alac-encoder = "0.3"
 mp3lame-encoder = "0.2.4"

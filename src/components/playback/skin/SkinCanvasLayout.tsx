@@ -19,7 +19,7 @@ import { SkinCanvasStageContext } from "./SkinCanvasStageContext";
 import "./SkinCanvasLayout.css";
 
 /**
- * Reads view state from inside `SkinViewRuntimeProviders` so `data-view-*`
+ * Reads view state from inside `SkinViewRuntimeProviders` so `data-state-*`
  * lands on a descendant of `[data-skin-id]`, as `skin.css` scoping requires.
  */
 function SkinCanvasStage({

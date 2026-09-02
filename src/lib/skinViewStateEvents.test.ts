@@ -25,9 +25,6 @@ function mockViewState(initial: Record<string, string | number | boolean>): {
     setVariable: (name, value) => {
       values[name] = value;
     },
-    setScreen: (screen) => {
-      values.screen = screen;
-    },
     reset: () => {},
   };
   return { api, values };

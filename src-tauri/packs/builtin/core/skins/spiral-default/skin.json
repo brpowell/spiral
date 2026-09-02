@@ -234,14 +234,14 @@
                     "id": "playlist-toggle",
                     "onClick": [
                       {
-                        "action": "view.applyStateEvent",
+                        "action": "state.applyEvent",
                         "payload": {
                           "variable": "playlist",
                           "event": "toggle"
                         }
                       }
                     ],
-                    "activeWhen": "view.playlist.open",
+                    "activeWhen": "state.playlist.open",
                     "tooltip": "Playlist",
                     "presentation": {
                       "kind": "primitive",

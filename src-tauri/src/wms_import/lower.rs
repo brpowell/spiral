@@ -3054,7 +3054,7 @@ function TogglePlaylist() {
         assert_eq!(events, vec!["toggleEq", "togglePlaylist"]);
         assert!(manifest["views"]["main"]["state"]["drawer"].is_object());
         assert_eq!(
-            find_id(layout, "svDrawer").unwrap()["boundsWhen"]["view.drawer.eq"]["y"].as_f64(),
+            find_id(layout, "svDrawer").unwrap()["boundsWhen"]["state.drawer.eq"]["y"].as_f64(),
             Some(317.0)
         );
         assert_eq!(

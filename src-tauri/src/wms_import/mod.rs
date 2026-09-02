@@ -573,7 +573,7 @@ mod tests {
     #[test]
     fn skin_json_leading_keys_come_first() {
         let value = json!({
-            "visibleWhen": "view.drawer.eq",
+            "visibleWhen": "state.drawer.eq",
             "onClick": [{ "action": "play" }],
             "presentation": { "kind": "bitmap" },
             "bounds": { "x": 1, "y": 2, "w": 3, "h": 4 },

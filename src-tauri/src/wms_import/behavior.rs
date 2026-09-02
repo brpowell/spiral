@@ -1,8 +1,8 @@
 //! Bounded matcher for WMP companion JS drawer / toggle / EQ-tilt idioms.
 //!
 //! Not a JScript VM. Recovers paired `moveTo` endpoints and `.visible` flips
-//! that a button actually clicks, then emits Spiral `view.state` +
-//! `applyStateEvent` / `boundsWhen` / `visibleWhen`. Also detects the
+//! that a button actually clicks, then emits Spiral `views.*.state` +
+//! `state.applyEvent` / `boundsWhen` / `visibleWhen`. Also detects the
 //! Nature/Optik bass–treble linear tilt so `eqBand` sliders can emit `spread`.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -648,10 +648,10 @@ fn bounds_when_json(slide: &Slide, var: &str, toggles: &[String], mutex: bool) -
     if mutex {
         for t in toggles {
             let value = panel_stem(t);
-            map.insert(format!("view.{var}.{value}"), json!({ key: slide.open }));
+            map.insert(format!("state.{var}.{value}"), json!({ key: slide.open }));
         }
     } else {
-        map.insert(format!("view.{var}.open"), json!({ key: slide.open }));
+        map.insert(format!("state.{var}.open"), json!({ key: slide.open }));
     }
     Value::Object(map)
 }
@@ -686,11 +686,11 @@ fn apply_vis_map(plan: &mut BehaviorPlan, vis_map: HashMap<String, BTreeSet<Stri
         }
         plan.target_ids.insert(id.clone());
         let cond = if values.len() == 1 {
-            json!(format!("view.{var}.{}", values.iter().next().unwrap()))
+            json!(format!("state.{var}.{}", values.iter().next().unwrap()))
         } else {
             let any: Vec<Value> = values
                 .iter()
-                .map(|v| json!(format!("view.{var}.{v}")))
+                .map(|v| json!(format!("state.{var}.{v}")))
                 .collect();
             json!({ "any": any })
         };
@@ -921,7 +921,7 @@ fn emit_visibility_toggles(
             plan.target_ids.insert(id.clone());
             plan.visible_when
                 .entry(id)
-                .or_insert_with(|| json!(format!("view.{var}.open")));
+                .or_insert_with(|| json!(format!("state.{var}.open")));
         }
         plan.notes.push(PlanNote {
             kind: ReportKind::Info,
@@ -951,7 +951,7 @@ fn looks_panel_vis_toggle(name: &str) -> bool {
 
 fn apply_event(variable: &str, event: &str) -> Value {
     json!({
-        "action": "view.applyStateEvent",
+        "action": "state.applyEvent",
         "payload": { "variable": variable, "event": event }
     })
 }
@@ -1664,10 +1664,13 @@ function TogglePlaylist() {
         assert!(plan.effects_for_statement("DrawerToggle()").is_some());
 
         let bw = &plan.bounds_when["svDrawer"];
-        assert_eq!(bw["view.drawer.eq"]["y"].as_f64(), Some(317.0));
-        assert_eq!(bw["view.drawer.playlist"]["y"].as_f64(), Some(317.0));
-        assert_eq!(plan.visible_when["playlist"], json!("view.drawer.playlist"));
-        assert_eq!(plan.visible_when["svEqualizer"], json!("view.drawer.eq"));
+        assert_eq!(bw["state.drawer.eq"]["y"].as_f64(), Some(317.0));
+        assert_eq!(bw["state.drawer.playlist"]["y"].as_f64(), Some(317.0));
+        assert_eq!(
+            plan.visible_when["playlist"],
+            json!("state.drawer.playlist")
+        );
+        assert_eq!(plan.visible_when["svEqualizer"], json!("state.drawer.eq"));
         let close_vis = &plan.visible_when["btnDrawerClose"];
         assert!(close_vis.get("any").is_some(), "{close_vis}");
     }
@@ -1713,11 +1716,11 @@ function TogglePlView() {
             plan.variables.keys()
         );
         assert_eq!(
-            plan.bounds_when["sEqEar"]["view.eq.open"]["x"].as_f64(),
+            plan.bounds_when["sEqEar"]["state.eq.open"]["x"].as_f64(),
             Some(0.0)
         );
         assert_eq!(
-            plan.bounds_when["sPlEar"]["view.playlist.open"]["x"].as_f64(),
+            plan.bounds_when["sPlEar"]["state.playlist.open"]["x"].as_f64(),
             Some(488.0)
         );
         assert_eq!(
@@ -1749,7 +1752,7 @@ function showEQ() {
             "{:?}",
             plan.variables.keys()
         );
-        assert_eq!(plan.visible_when["eqPanel"], json!("view.eq.open"));
+        assert_eq!(plan.visible_when["eqPanel"], json!("state.eq.open"));
         assert!(plan.effects_for_statement("showEQ()").is_some());
     }
 

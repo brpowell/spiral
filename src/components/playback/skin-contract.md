@@ -93,6 +93,8 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | `app.quit`                | Quit Spiral (saves session and closes the app)                                                                               |
 | `app.openUrl`             | Open an external URL in the system browser (payload: `{ url: string }`)                                                      |
 | `app.openFile`            | Open the library import picker and import selected audio files or folders                                                    |
+| `state.setVariable`       | Set a view-state variable (payload: `{ variable, value, when? }`). `when` is the current value required before applying     |
+| `state.applyEvent`        | Apply a named event from that variable’s `on` table (payload: `{ variable, event }`)                                         |
 
 
 
@@ -209,9 +211,9 @@ Gate the intro reveal in `onActivate`:
 
 ```json
 {
-  "when": { "all": ["view.intro.revealed", { "not": "skin.pref.hideHelpBubble" }] },
+  "when": { "all": ["state.intro.revealed", { "not": "skin.pref.hideHelpBubble" }] },
   "delayMs": 4100,
-  "action": "view.setVariable",
+  "action": "state.setVariable",
   "payload": { "variable": "helpBubble", "value": "shown" }
 }
 ```
@@ -226,7 +228,18 @@ Checkbox wiring:
 ```
 
 
-**Taxonomy:** `skin.`* = commands and chrome; `skin.pref.*` = per-skin user prefs; distinct from global `eq.*` and ephemeral `view.*` state.
+**Taxonomy:** `skin.`* = commands and chrome; `skin.pref.*` = per-skin user prefs; distinct from global `eq.*` and ephemeral `state.*` (authored on `views.*.state`).
+
+### View-state bind paths (`state.*`)
+
+Each key under `views.*.state` is a session variable for that view.
+
+| Bind path | Type | Description |
+| --- | --- | --- |
+| `state.{variable}` | current value | Raw value (`string` / `number` / `boolean`) |
+| `state.{variable}.{value}` | `boolean` | True when the variable equals that value (`state.shutter.open`) |
+
+`setVariable` and `applyEvent` are reserved variable ids. CSS exposes the same bag as `data-state-{variable}` on the view stage — not on `[data-skin-id]` or `[data-view-id]`.
 
 ### Skin conditions (`visibleWhen`, `enabledWhen`, `activeWhen`)
 
@@ -252,7 +265,7 @@ Example (Xbox seek/volume — interactive only after intro and while shutter is 
 
 ```json
 "enabledWhen": {
-  "all": ["view.shutter.open", "view.xIntro.done"]
+  "all": ["state.shutter.open", "state.xIntro.done"]
 }
 ```
 
@@ -280,12 +293,12 @@ Paths are under `assets/` without extension (`.wav` required on disk). Two place
 {
   "id": "shutter",
   "onClick": [
-    { "action": "view.applyStateEvent", "payload": { "variable": "shutter", "event": "toggle" } },
-    { "when": "view.shutter.fadingIn", "delayMs": 500, "sound": "inShutter", "action": "view.setVariable", "payload": { "variable": "shutter", "value": "plateOut", "when": "fadingIn" } }
+    { "action": "state.applyEvent", "payload": { "variable": "shutter", "event": "toggle" } },
+    { "when": "state.shutter.fadingIn", "delayMs": 500, "sound": "inShutter", "action": "state.setVariable", "payload": { "variable": "shutter", "value": "plateOut", "when": "fadingIn" } }
   ],
   "soundWhen": {
-    "view.shutter.aperture": "outShutter",
-    "view.shutter.shut": "outShutter"
+    "state.shutter.aperture": "outShutter",
+    "state.shutter.shut": "outShutter"
   }
 }
 ```
@@ -293,7 +306,7 @@ Paths are under `assets/` without extension (`.wav` required on disk). Two place
 ```json
 {
   "onClick": [
-    { "action": "view.applyStateEvent", "payload": { "variable": "compartment", "event": "toggle" } },
+    { "action": "state.applyEvent", "payload": { "variable": "compartment", "event": "toggle" } },
     { "delayMs": 500, "sound": "inShutter" }
   ]
 }
@@ -496,13 +509,13 @@ The runtime **auto-scopes** every rule to the active skin by prefixing selectors
 | `[data-node-id="track-title"] { … }`   | `[data-skin-id="my-skin"] [data-node-id="track-title"] { … }`   |
 | `[data-bounds-for="pl-view"] .foo { }` | `[data-skin-id="my-skin"] [data-bounds-for="pl-view"] .foo { }` |
 | `[data-view-id="playlist"] .foo { … }` | `[data-skin-id="my-skin"] [data-view-id="playlist"] .foo { … }` |
-| `[data-view-playlist="open"] .foo { }` | `[data-skin-id="my-skin"] [data-view-playlist="open"] .foo { }` |
+| `[data-state-playlist="open"] .foo { }` | `[data-skin-id="my-skin"] [data-state-playlist="open"] .foo { }` |
 | `[data-hover-visFrame] .foo { … }`     | `[data-skin-id="my-skin"] [data-hover-visFrame] .foo { … }`     |
 
 
 Rare unscoped rules (e.g. host chrome) may use `:global(.selector) { … }`. `@keyframes` and `@font-face` are not prefixed.
 
-View-state variables are exposed as `data-view-{name}` on the **flow inner wrapper** (a descendant of `[data-skin-id]`), so auto-scoped selectors like `[data-view-playlist="open"] [data-node-id="…"]` match. Do not put those attributes on the same node as `data-skin-id`.
+View-state variables are exposed as `data-state-{name}` on the **flow inner wrapper** (a descendant of `[data-skin-id]`), so auto-scoped selectors like `[data-state-playlist="open"] [data-node-id="…"]` match. Do not put those attributes on the same node as `data-skin-id`.
 
 **Use flat selectors** in `skin.css` (no CSS nesting). The scoping pipeline does not expand nested rules before prefixing.
 
@@ -565,11 +578,11 @@ Code-first skins may omit `style` and keep type in `skin.css`. CSS leftovers a p
 | Group box (padding / flex)        | `[data-node-id="contents"]`                                  |
 | Bounds box (position / motion)    | `[data-bounds-for="vis-prev"]`                               |
 | Child inside a bounds box         | `[data-bounds-for="pl-view"] .skin-playlist-view`             |
-| View state (stage)                | `[data-view-playlist="open"]`                                |
+| View state (stage)                | `[data-state-playlist="open"]`                                |
 | Hover occupancy (stage)           | `[data-hover-visFrame]`                                      |
 | Skin-wide text defaults           | `.skin-text`                                                 |
 
-`data-bounds-for` is on the canvas layout wrapper (`.skin-bounds`) when the node has an `id`. `[data-node-id]` stays on the control root (button, text, slider, etc.) so the two hooks never collide. `data-view-*` and `data-hover-{id}` are on the view stage — same place as each other, not on the node.
+`data-bounds-for` is on the canvas layout wrapper (`.skin-bounds`) when the node has an `id`. `[data-node-id]` stays on the control root (button, text, slider, etc.) so the two hooks never collide. `data-state-*` and `data-hover-{id}` are on the view stage — same place as each other, not on the node.
 
 
 Theme-following skins use app CSS variables directly (`var(--color-text-primary)`, etc.).
@@ -703,7 +716,7 @@ App-chrome `button` nodes use the design-system `Button`. Optional presentation 
 {
   "type": "button",
   "onClick": [
-    { "action": "view.applyStateEvent", "payload": { "variable": "playlist", "event": "toggle" } }
+    { "action": "state.applyEvent", "payload": { "variable": "playlist", "event": "toggle" } }
   ],
   "tooltip": "Playlist",
   "presentation": {
@@ -855,7 +868,7 @@ Set an `id` on the playlist node and target `[data-node-id="…"]` in `skin.css`
 
 Dropdown changes invoke `playlist.setSource`. Track-row clicks invoke `playlist.playTrack`. Source-list rows (`items: "sources"`) invoke `playlist.setSource`. Bind `playlist.sourceLabel`, `playlist.trackCount`, or `playlist.hasTracks` for chrome text and visibility. Wire a sibling `input` with `onChange: [{ "action": "playlist.setFilter" }]` to filter the track list as you type.
 
-To overlay the list on a visualizer (Vanilla), keep the playlist node mounted and fade with view-state attributes on the flow inner wrapper (`data-view-{variable}`). Do not use `visibleWhen` if you need a fade-out — that unmounts immediately. Example: `view.applyStateEvent` toggles `playlist` `open`/`closed`, then `[data-view-playlist="open"] [data-node-id="playlist-overlay"]` drives opacity.
+To overlay the list on a visualizer (Vanilla), keep the playlist node mounted and fade with view-state attributes on the flow inner wrapper (`data-state-{variable}`). Do not use `visibleWhen` if you need a fade-out — that unmounts immediately. Example: `state.applyEvent` toggles `playlist` `open`/`closed`, then `[data-state-playlist="open"] [data-node-id="playlist-overlay"]` drives opacity.
 
 ## Artwork (`type`: `artwork`)
 
@@ -969,14 +982,14 @@ Effects declared on a view run when **that view's window** becomes visible (skin
 ```json
 "onActivate": [
   {
-    "when": "view.introLight.pending",
-    "action": "view.setVariable",
+    "when": "state.introLight.pending",
+    "action": "state.setVariable",
     "payload": { "variable": "introLight", "value": "playing" }
   },
   {
-    "when": "view.shutter.intro",
+    "when": "state.shutter.intro",
     "delayMs": 1000,
-    "action": "view.setVariable",
+    "action": "state.setVariable",
     "payload": { "variable": "shutter", "value": "opening" },
     "sound": "open"
   }
@@ -993,13 +1006,13 @@ Effects declared on a view run when **that view's window** becomes visible (skin
 | `sound`   | no       | Manifest `soundEffects` key played when the effect fires (before `action`)  |
 
 
-Immediate effects skip a false `when` at schedule and run synchronously. Delayed effects start the timer and re-check `when` at fire time, using live view state (not the click snapshot). Effect-level `when` is distinct from `payload.when` on `view.setVariable`.
+Immediate effects skip a false `when` at schedule and run synchronously. Delayed effects start the timer and re-check `when` at fire time, using live view state (not the click snapshot). Effect-level `when` is distinct from `payload.when` on `state.setVariable`.
 
-If the list includes `view.applyStateEvent` and no branch applies (already in motion, unknown event), delayed siblings are not scheduled. That keeps one-shot transition cues (e.g. a delayed shutter wav) from stacking on repeat clicks.
+If the list includes `state.applyEvent` and no branch applies (already in motion, unknown event), delayed siblings are not scheduled. That keeps one-shot transition cues (e.g. a delayed shutter wav) from stacking on repeat clicks.
 
 ## State transition events (`views.*.state.*.on`)
 
-User-driven state changes are declared as ordered transition tables on view-state variables. Buttons dispatch `view.applyStateEvent` with `{ variable, event }`; the runtime evaluates branches in order and applies the first match.
+User-driven state changes are declared as ordered transition tables on view-state variables. Buttons dispatch `state.applyEvent` with `{ variable, event }`; the runtime evaluates branches in order and applies the first match.
 
 ```json
 "state": {
@@ -1019,12 +1032,12 @@ User-driven state changes are declared as ordered transition tables on view-stat
 {
   "type": "button",
   "onClick": [
-    { "action": "view.applyStateEvent", "payload": { "variable": "shutter", "event": "toggle" } }
+    { "action": "state.applyEvent", "payload": { "variable": "shutter", "event": "toggle" } }
   ],
   "soundWhen": {
-    "view.shutter.intro": "open",
-    "view.shutter.closed": "open",
-    "view.shutter.open": "close"
+    "state.shutter.intro": "open",
+    "state.shutter.closed": "open",
+    "state.shutter.open": "close"
   }
 }
 ```
@@ -1038,11 +1051,11 @@ User-driven state changes are declared as ordered transition tables on view-stat
 
 No matching branch → no-op (e.g. `opening` / `closing` need no extra guards). Presentation nodes (`visibleWhen`, GIF `onComplete`) remain unchanged.
 
-Fan-out is multiple `onClick` effects, each targeting one variable with the same event name — not `variable` as an array. Immediate click wavs stay on control `sound` / `soundWhen`. Timed cues use effect `sound` + `delayMs` (same as `onActivate`). A no-op `view.applyStateEvent` does not schedule those delayed cues.
+Fan-out is multiple `onClick` effects, each targeting one variable with the same event name — not `variable` as an array. Immediate click wavs stay on control `sound` / `soundWhen`. Timed cues use effect `sound` + `delayMs` (same as `onActivate`). A no-op `state.applyEvent` does not schedule those delayed cues.
 
 ## Bounds interpolation (`transition`)
 
-`boundsWhen` is layout: the target box when a bind path is true (`view.*`, `hover.*`, …). It does **not** imply motion. Interpolation is opt-in via the same `transition` object on the layout node (live) and on `view.state` branches (reserved for the host interpolator):
+`boundsWhen` is layout: the target box when a bind path is true (`state.*`, `hover.*`, …). It does **not** imply motion. Interpolation is opt-in via the same `transition` object on the layout node (live) and on `view.state` branches (reserved for the host interpolator):
 
 ```json
 "transition": { "durationMs": 120, "easing": "linear" }
@@ -1058,9 +1071,9 @@ Today the CSS path reads the **resolved** node `transition` (base object plus ma
 ```json
 "transition": { "durationMs": 400, "easing": "linear" },
 "transitionWhen": {
-  "view.intro.showing": { "durationMs": 0 },
-  "view.intro.fading": { "durationMs": 0 },
-  "view.intro.panel": { "durationMs": 0 }
+  "state.intro.showing": { "durationMs": 0 },
+  "state.intro.fading": { "durationMs": 0 },
+  "state.intro.panel": { "durationMs": 0 }
 }
 ```
 
@@ -1093,11 +1106,11 @@ Use the same `hover.{nodeId}` key in `visibleWhen`, `styleWhen`, `boundsWhen`, o
 ```json
 "styleWhen": [
   {
-    "when": { "any": ["view.infoType.textExit", "view.galleryPhase.grid"] },
+    "when": { "any": ["state.infoType.textExit", "state.galleryPhase.grid"] },
     "opacity": 0.71
   },
   {
-    "when": { "all": ["view.galleryPhase.grid", "hover.thumb1"] },
+    "when": { "all": ["state.galleryPhase.grid", "hover.thumb1"] },
     "opacity": 1
   }
 ]
@@ -1109,7 +1122,7 @@ Active ids are also exposed as `data-hover-{id}` on the view stage for CSS lefto
 
 Do not use pack CSS `:hover` to show or hide layout nodes — that cannot join sibling hotspots (prev/next buttons revealing a footer inside another group) and will not round-trip through a property panel.
 
-Headspace drawers stay mounted at closed bounds. Toggle sets `open` / `closed`; `boundsWhen` on `view.eq.open` is the slide target; `transition: { durationMs: 120 }` on those nodes is what interpolates. Plus-nature 320 ↔ small uses `boundsWhen` without `transition` and snaps.
+Headspace drawers stay mounted at closed bounds. Toggle sets `open` / `closed`; `boundsWhen` on `state.eq.open` is the slide target; `transition: { durationMs: 120 }` on those nodes is what interpolates. Plus-nature 320 ↔ small uses `boundsWhen` without `transition` and snaps.
 
 ## Future: host-driven motion (not now)
 
@@ -1141,7 +1154,7 @@ A first 3D path can be CSS `preserve-3d` over the existing DOM renderer so playl
 
 ### State-machine transitions
 
-View `state` already snaps via `view.applyStateEvent`. Node `transition` is the live interpolator stub: `.skin-bounds--motion` + CSS variables. Bind-dependent duration is `transitionWhen` — an overlay map like `styleWhen`, not a second duration field. A cube flip is “on `togglePlaylist`, interpolate `main → playlist` over 600ms” — same `transition` object on that state-event branch, honored when the host interpolator lands. Root/per-node `animations` / `timelines` stay reserved blobs until that shape is chosen. Do not invent a second duration field.
+View `state` already snaps via `state.applyEvent`. Node `transition` is the live interpolator stub: `.skin-bounds--motion` + CSS variables. Bind-dependent duration is `transitionWhen` — an overlay map like `styleWhen`, not a second duration field. A cube flip is “on `togglePlaylist`, interpolate `main → playlist` over 600ms” — same `transition` object on that state-event branch, honored when the host interpolator lands. Root/per-node `animations` / `timelines` stay reserved blobs until that shape is chosen. Do not invent a second duration field.
 
 ### Version-gate before contribution parse
 

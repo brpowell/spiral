@@ -46,8 +46,8 @@ function bitmapNode(): DecorationNode {
       kind: "bitmap",
       assets: { default: "hold-idle.png" },
       assetsWhen: {
-        "view.shutter.shut": { default: "hold-shut.png" },
-        "view.shutter.aperture": { default: "hold-aperture.png" },
+        "state.shutter.shut": { default: "hold-shut.png" },
+        "state.shutter.aperture": { default: "hold-aperture.png" },
       },
     },
   };

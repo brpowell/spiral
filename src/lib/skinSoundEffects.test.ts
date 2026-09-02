@@ -17,9 +17,9 @@ describe("resolveSkinClickSound", () => {
       resolveSkinClickSound(
         "button",
         {
-          "view.shutter.intro": "open",
-          "view.shutter.closed": "open",
-          "view.shutter.open": "close",
+          "state.shutter.intro": "open",
+          "state.shutter.closed": "open",
+          "state.shutter.open": "close",
         },
         state,
       ),
@@ -34,7 +34,7 @@ describe("resolveSkinClickSound", () => {
       resolveSkinClickSound(
         "button",
         {
-          "view.shutter.open": "close",
+          "state.shutter.open": "close",
         },
         state,
       ),
@@ -49,9 +49,9 @@ describe("resolveSkinClickSound", () => {
       resolveSkinClickSound(
         undefined,
         {
-          "view.shutter.intro": "open",
-          "view.shutter.closed": "open",
-          "view.shutter.open": "close",
+          "state.shutter.intro": "open",
+          "state.shutter.closed": "open",
+          "state.shutter.open": "close",
         },
         state,
       ),

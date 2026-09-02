@@ -44,7 +44,7 @@ const playlistToggle: ButtonNode = {
   id: "playlist-toggle",
   onClick: [
     {
-      action: "view.applyStateEvent",
+      action: "state.applyEvent",
       payload: { variable: "playlist", event: "toggle" },
     },
   ],

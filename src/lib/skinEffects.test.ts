@@ -11,15 +11,15 @@ import type { SkinLifecycleEffect } from "../types/skin";
 import { minimalBindState } from "../test/skinBindFixtures";
 
 const introLightEffect: SkinLifecycleEffect = {
-  when: "view.introLight.pending",
-  action: "view.setVariable",
+  when: "state.introLight.pending",
+  action: "state.setVariable",
   payload: { variable: "introLight", value: "playing" },
 };
 
 const shutterIntroEffect: SkinLifecycleEffect = {
-  when: "view.shutter.intro",
+  when: "state.shutter.intro",
   delayMs: 1000,
-  action: "view.setVariable",
+  action: "state.setVariable",
   payload: { variable: "shutter", value: "opening" },
   sound: "open",
 };
@@ -42,7 +42,7 @@ describe("dispatchSkinEffect", () => {
     );
 
     expect(skinActions.runSkinAction).toHaveBeenCalledWith(
-      "view.setVariable",
+      "state.setVariable",
       introLightEffect.payload,
     );
   });
@@ -75,8 +75,8 @@ describe("dispatchSkinEffect", () => {
 
   it("evaluates compound when guards", () => {
     const effect: SkinLifecycleEffect = {
-      when: { all: ["view.shutter.open", "view.xIntro.done"] },
-      action: "view.setVariable",
+      when: { all: ["state.shutter.open", "state.xIntro.done"] },
+      action: "state.setVariable",
       payload: { variable: "chrome", value: "ready" },
     };
 
@@ -138,7 +138,7 @@ describe("scheduleSkinEffects", () => {
 
     vi.advanceTimersByTime(1000);
     expect(skinActions.runSkinAction).toHaveBeenCalledWith(
-      "view.setVariable",
+      "state.setVariable",
       shutterIntroEffect.payload,
     );
   });
@@ -178,8 +178,8 @@ describe("scheduleSkinEffects", () => {
       [
         {
           delayMs: 120,
-          when: "view.drawer.playlist",
-          action: "view.setVariable",
+          when: "state.drawer.playlist",
+          action: "state.setVariable",
           payload: { variable: "playlistVisible", value: true },
         },
       ],
@@ -191,10 +191,13 @@ describe("scheduleSkinEffects", () => {
     expect(skinActions.runSkinAction).not.toHaveBeenCalled();
 
     vi.advanceTimersByTime(1);
-    expect(skinActions.runSkinAction).toHaveBeenCalledWith("view.setVariable", {
-      variable: "playlistVisible",
-      value: true,
-    });
+    expect(skinActions.runSkinAction).toHaveBeenCalledWith(
+      "state.setVariable",
+      {
+        variable: "playlistVisible",
+        value: true,
+      },
+    );
   });
 
   it("delayed when uses live view state", () => {
@@ -204,7 +207,6 @@ describe("scheduleSkinEffects", () => {
         return liveValues;
       },
       setVariable: () => {},
-      setScreen: () => {},
       reset: () => {},
     });
 
@@ -212,8 +214,8 @@ describe("scheduleSkinEffects", () => {
       [
         {
           delayMs: 120,
-          when: "view.drawer.playlist",
-          action: "view.setVariable",
+          when: "state.drawer.playlist",
+          action: "state.setVariable",
           payload: { variable: "playlistVisible", value: true },
         },
       ],
@@ -232,7 +234,6 @@ describe("scheduleSkinEffects", () => {
         return liveValues;
       },
       setVariable: () => {},
-      setScreen: () => {},
       reset: () => {},
     });
     vi.mocked(skinActions.runSkinAction).mockImplementation(
@@ -247,15 +248,15 @@ describe("scheduleSkinEffects", () => {
     scheduleSkinEffects(
       [
         {
-          when: "view.phase.start",
+          when: "state.phase.start",
           delayMs: 100,
-          action: "view.setVariable",
+          action: "state.setVariable",
           payload: { variable: "phase", value: "mid" },
         },
         {
-          when: "view.phase.mid",
+          when: "state.phase.mid",
           delayMs: 200,
-          action: "view.setVariable",
+          action: "state.setVariable",
           payload: { variable: "phase", value: "end" },
         },
       ],
@@ -275,14 +276,14 @@ describe("scheduleSkinEffects", () => {
   it("plays a delayed transition sound only once when retriggered", () => {
     let applied = true;
     vi.mocked(skinActions.runSkinAction).mockImplementation((action) => {
-      if (action !== "view.applyStateEvent") return true;
+      if (action !== "state.applyEvent") return true;
       const result = applied;
       applied = false;
       return result;
     });
     const effects = [
       {
-        action: "view.applyStateEvent",
+        action: "state.applyEvent",
         payload: { variable: "compartment", event: "toggle" },
       },
       { delayMs: 500, sound: "inShutter" },
@@ -300,13 +301,13 @@ describe("scheduleSkinEffects", () => {
     );
   });
 
-  it("does not schedule delayed siblings when applyStateEvent is a no-op", () => {
+  it("does not schedule delayed siblings when state.applyEvent is a no-op", () => {
     vi.mocked(skinActions.runSkinAction).mockReturnValue(false);
 
     scheduleSkinEffects(
       [
         {
-          action: "view.applyStateEvent",
+          action: "state.applyEvent",
           payload: { variable: "compartment", event: "toggle" },
         },
         { delayMs: 500, sound: "inShutter" },
@@ -324,8 +325,8 @@ describe("primaryClickAction", () => {
     expect(
       primaryClickAction([
         { delayMs: 500, sound: "inShutter" },
-        { action: "view.applyStateEvent" },
+        { action: "state.applyEvent" },
       ]),
-    ).toBe("view.applyStateEvent");
+    ).toBe("state.applyEvent");
   });
 });

@@ -15,7 +15,7 @@ describe("resolveNodeBounds", () => {
 
     const collapsed = resolveNodeBounds(
       bounds,
-      { "view.visMode.effects": { y: 146 } },
+      { "state.visMode.effects": { y: 146 } },
       (path) =>
         Boolean(
           evaluateSkinCondition(
@@ -28,7 +28,7 @@ describe("resolveNodeBounds", () => {
 
     const expanded = resolveNodeBounds(
       bounds,
-      { "view.visMode.effects": { y: 146 } },
+      { "state.visMode.effects": { y: 146 } },
       (path) =>
         Boolean(
           evaluateSkinCondition(

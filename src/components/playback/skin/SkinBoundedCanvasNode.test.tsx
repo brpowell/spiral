@@ -107,7 +107,7 @@ describe("SkinBoundedCanvasNode", () => {
 
   it("snaps when a matching transitionWhen overlay sets durationMs 0", () => {
     evaluateSkinCondition.mockImplementation(
-      (path) => path === "view.intro.showing",
+      (path) => path === "state.intro.showing",
     );
 
     const node: SubviewNode = {
@@ -116,7 +116,7 @@ describe("SkinBoundedCanvasNode", () => {
       bounds: { x: 19, y: 43, w: 400, h: 226 },
       style: { opacity: 1 },
       transition: { durationMs: 1000, easing: "linear" },
-      transitionWhen: { "view.intro.showing": { durationMs: 0 } },
+      transitionWhen: { "state.intro.showing": { durationMs: 0 } },
       children: [],
     };
 

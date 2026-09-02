@@ -9,7 +9,7 @@ import { formatMetadataLine, playbackStatus } from "./skinMetadataLine";
 import { useSkinModeAlwaysOnTop } from "./skinModeAlwaysOnTop";
 import { evaluateSlideshowBind } from "./skinSlideshow";
 import { evaluateScrollStripBind } from "./skinScrollStrip";
-import { evaluateViewBind, useSkinViewState } from "./skinViewStateContext";
+import { evaluateStateBind, useSkinViewState } from "./skinViewStateContext";
 import { useSkinHoveredNodeIds } from "./skinHoverContext";
 import { useSkinSlideshowState } from "./skinSlideshowContext";
 import { useSkinScrollStripState } from "./skinScrollStripContext";
@@ -114,7 +114,7 @@ export function evaluateSkinBind(
     return auxViewValue;
   }
 
-  const viewValue = evaluateViewBind(path, state.viewState);
+  const viewValue = evaluateStateBind(path, state.viewState);
   if (viewValue !== null) {
     return viewValue;
   }

@@ -188,7 +188,7 @@
     visibility 180ms ease;
 }
 
-[data-view-playlist="open"] [data-node-id="playlist-overlay"] {
+[data-state-playlist="open"] [data-node-id="playlist-overlay"] {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
@@ -217,7 +217,7 @@
   color: var(--color-accent, #9ad);
 }
 
-[data-view-playlist="open"] [data-node-id="viz-cycle"] {
+[data-state-playlist="open"] [data-node-id="viz-cycle"] {
   opacity: 0.4;
   pointer-events: none;
 }

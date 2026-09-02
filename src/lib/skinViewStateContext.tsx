@@ -12,13 +12,13 @@ import type { SkinViewStateSpec } from "../types/skin";
 
 export type ViewStateValues = Record<string, string | number | boolean>;
 
-/** `data-view-{name}` attrs for CSS. Put these on a descendant of `[data-skin-id]`. */
+/** `data-state-{name}` attrs for CSS. Put these on a descendant of `[data-skin-id]`. */
 export function viewStateDataAttributes(
   values: ViewStateValues,
 ): Record<string, string> {
   const attrs: Record<string, string> = {};
   for (const [name, value] of Object.entries(values)) {
-    attrs[`data-view-${name}`] = String(value);
+    attrs[`data-state-${name}`] = String(value);
   }
   return attrs;
 }
@@ -26,7 +26,6 @@ export function viewStateDataAttributes(
 export interface SkinViewStateApi {
   values: ViewStateValues;
   setVariable: (name: string, value: string | number | boolean) => void;
-  setScreen: (screen: string) => void;
   reset: () => void;
 }
 
@@ -35,7 +34,6 @@ const EMPTY_VALUES: ViewStateValues = {};
 const SkinViewStateContext = createContext<SkinViewStateApi>({
   values: EMPTY_VALUES,
   setVariable: () => {},
-  setScreen: () => {},
   reset: () => {},
 });
 
@@ -57,13 +55,13 @@ export function initViewStateDefaults(
   return values;
 }
 
-export function evaluateViewBind(
+export function evaluateStateBind(
   path: string,
   values: ViewStateValues,
 ): boolean | string | number | null {
-  if (!path.startsWith("view.")) return null;
+  if (!path.startsWith("state.")) return null;
 
-  const rest = path.slice("view.".length);
+  const rest = path.slice("state.".length);
   const dot = rest.indexOf(".");
   if (dot === -1) {
     return values[rest] ?? null;
@@ -102,28 +100,19 @@ export function SkinViewStateProvider({
     [],
   );
 
-  const setScreen = useCallback(
-    (screen: string) => {
-      setVariable("screen", screen);
-    },
-    [setVariable],
-  );
-
   const reset = useCallback(() => {
     valuesRef.current = defaults;
     setValues(defaults);
   }, [defaults]);
 
   const setVariableRef = useRef(setVariable);
-  const setScreenRef = useRef(setScreen);
   const resetRef = useRef(reset);
   setVariableRef.current = setVariable;
-  setScreenRef.current = setScreen;
   resetRef.current = reset;
 
   const api = useMemo(
-    (): SkinViewStateApi => ({ values, setVariable, setScreen, reset }),
-    [values, setVariable, setScreen, reset],
+    (): SkinViewStateApi => ({ values, setVariable, reset }),
+    [values, setVariable, reset],
   );
 
   useEffect(() => {
@@ -134,7 +123,6 @@ export function SkinViewStateProvider({
         return valuesRef.current;
       },
       setVariable: (name, value) => setVariableRef.current(name, value),
-      setScreen: (screen) => setScreenRef.current(screen),
       reset: () => resetRef.current(),
     };
     activeViewStateApi = globalApi;

@@ -74,12 +74,12 @@ describe("resolveNodeStyle", () => {
     const styleWhen = [
       {
         when: {
-          any: ["view.infoType.textExit", "view.galleryPhase.grid"],
+          any: ["state.infoType.textExit", "state.galleryPhase.grid"],
         },
         opacity: 0.71,
       },
       {
-        when: { all: ["view.galleryPhase.grid", "hover.thumb1"] },
+        when: { all: ["state.galleryPhase.grid", "hover.thumb1"] },
         opacity: 1,
       },
     ];

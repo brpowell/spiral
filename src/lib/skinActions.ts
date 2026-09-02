@@ -66,7 +66,7 @@ export function runSkinAction(
 ): boolean {
   if (!actionId) return false;
 
-  if ((actionId as SkinActionId) === "view.applyStateEvent") {
+  if ((actionId as SkinActionId) === "state.applyEvent") {
     const api = getSkinViewStateApi();
     const { variable, event } = payload ?? {};
     if (!api || !variable || !event) return false;
@@ -288,12 +288,7 @@ export function runSkinAction(
     case "app.openFile":
       void pickAndImportLibraryPaths();
       break;
-    case "view.setScreen":
-      if (payload?.screen) {
-        getSkinViewStateApi()?.setScreen(payload.screen);
-      }
-      break;
-    case "view.setVariable": {
+    case "state.setVariable": {
       const api = getSkinViewStateApi();
       if (!api || !payload) break;
       const { variable, value, when } = payload;
@@ -309,7 +304,7 @@ export function runSkinAction(
         getSkinSlideshowStateApi()?.setDeck(slideshowId, deck);
       }
       if (payload?.screen) {
-        getSkinViewStateApi()?.setScreen(payload.screen);
+        getSkinViewStateApi()?.setVariable("screen", payload.screen);
       }
       break;
     }
