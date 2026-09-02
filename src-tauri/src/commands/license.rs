@@ -14,7 +14,6 @@ use crate::license::{self, Cosmetic, LicenseSnapshot, LicenseStatus};
 const DEFAULT_LICENSE_SERVER: &str = "http://127.0.0.1:8787";
 const FINALIZE_PATH: &str = "/v1/license/finalize";
 const FINALIZE_TIMEOUT: Duration = Duration::from_secs(30);
-const USER_AGENT: &str = "Spiral/0.1.0 (https://github.com/brpowell/spiral)";
 
 /// Event + command surface for OS file-association opens of `.spcard`.
 pub const SPCARD_OPENED_EVENT: &str = "spiral:spcard-opened";
@@ -242,7 +241,7 @@ fn license_server_base() -> String {
 fn post_finalize(original_purchase_id: &str) -> Result<String, FinalizeHttpError> {
     let url = format!("{}{FINALIZE_PATH}", license_server_base());
     let client = reqwest::blocking::Client::builder()
-        .user_agent(USER_AGENT)
+        .user_agent(crate::USER_AGENT)
         .timeout(FINALIZE_TIMEOUT)
         .build()
         .map_err(|e| FinalizeHttpError {

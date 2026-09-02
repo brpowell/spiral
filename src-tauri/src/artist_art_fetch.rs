@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, SystemTime};
 
-const DEEZER_USER_AGENT: &str = "Spiral/0.1.0 (https://github.com/brpowell/spiral)";
 const CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 const MAX_RESULTS: usize = 12;
 
@@ -70,7 +69,7 @@ pub fn clear_fetch_cache() {
 
 fn fetch_artist_art_uncached(artist: &str) -> Result<Vec<CoverArtCandidate>, String> {
     let client = reqwest::blocking::Client::builder()
-        .user_agent(DEEZER_USER_AGENT)
+        .user_agent(crate::USER_AGENT)
         .build()
         .map_err(|e| e.to_string())?;
 

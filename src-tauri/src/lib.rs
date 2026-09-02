@@ -39,6 +39,7 @@ pub mod metadata_reader;
 mod metadata_writer;
 mod models;
 mod musicbrainz_disc;
+mod musicbrainz_http;
 #[cfg(test)]
 mod ogg_opus_tests;
 mod packs;
@@ -58,6 +59,13 @@ mod transcoder;
 mod vorbis_container;
 pub mod wms_import;
 mod zip_import;
+
+/// Outbound HTTP User-Agent. Version tracks Cargo.toml; contact is the product site.
+pub(crate) const USER_AGENT: &str = concat!(
+    "Spiral/",
+    env!("CARGO_PKG_VERSION"),
+    " (https://spiralpowered.com)"
+);
 
 use commands::library::DbState;
 use rating_sync::RatingSync;

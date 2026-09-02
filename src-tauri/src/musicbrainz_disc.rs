@@ -2,10 +2,10 @@ use std::time::Duration;
 
 use crate::activity_log::{self, LogLevel};
 use crate::artist_tags::join_artist_field;
+use crate::musicbrainz_http;
 
 use serde::{Deserialize, Serialize};
 
-const MUSICBRAINZ_USER_AGENT: &str = "Spiral/0.1.0 (https://github.com/brpowell/spiral)";
 const METADATA_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,7 +68,7 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
     let url = toc_lookup_url(&toc);
 
     let client = match reqwest::blocking::Client::builder()
-        .user_agent(MUSICBRAINZ_USER_AGENT)
+        .user_agent(crate::USER_AGENT)
         .timeout(METADATA_REQUEST_TIMEOUT)
         .build()
     {
@@ -87,7 +87,18 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
         }
     };
 
-    let response: serde_json::Value = match client.get(&url).send() {
+    let response: serde_json::Value = match musicbrainz_http::send_get(
+        &client,
+        &url,
+        musicbrainz_http::RetryContext {
+            log_domain: "metadata.musicbrainz",
+            operation: "MusicBrainz lookup",
+            details: serde_json::json!({
+                "discId": disc_id,
+                "toc": toc,
+            }),
+        },
+    ) {
         Ok(resp) if resp.status().is_success() => resp.json().unwrap_or(serde_json::Value::Null),
         Ok(resp) => {
             let status = resp.status();

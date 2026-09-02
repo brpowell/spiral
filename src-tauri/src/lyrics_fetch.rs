@@ -16,7 +16,6 @@ use crate::models::{
     TrackLyricsInput,
 };
 
-const LRCLIB_USER_AGENT: &str = "Spiral/0.1.0 (https://github.com/brpowell/spiral)";
 const LRCLIB_GET_URL: &str = "https://lrclib.net/api/get";
 const LRCLIB_SEARCH_URL: &str = "https://lrclib.net/api/search";
 /// `/api/get` may scrape external sources on cache miss; LRCLIB warns response time varies.
@@ -101,7 +100,7 @@ fn duration_secs_from_seconds(duration_seconds: Option<f64>) -> u32 {
 
 fn http_client() -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
-        .user_agent(LRCLIB_USER_AGENT)
+        .user_agent(crate::USER_AGENT)
         .build()
         .map_err(|err| format!("failed to create HTTP client: {err}"))
 }

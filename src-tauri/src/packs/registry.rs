@@ -17,11 +17,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use tauri::AppHandle;
 
-const USER_AGENT: &str = concat!(
-    "Spiral/",
-    env!("CARGO_PKG_VERSION"),
-    " (https://spiralpowered.com)"
-);
 const CATALOG_TIMEOUT: Duration = Duration::from_secs(20);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(120);
 const ASSET_TIMEOUT: Duration = Duration::from_secs(20);
@@ -332,7 +327,7 @@ fn http_client_with_redirect(
     redirect: reqwest::redirect::Policy,
 ) -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
-        .user_agent(USER_AGENT)
+        .user_agent(crate::USER_AGENT)
         .timeout(timeout)
         .redirect(redirect)
         .build()

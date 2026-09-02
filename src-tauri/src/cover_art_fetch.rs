@@ -1,10 +1,10 @@
 use crate::activity_log::{self, LogLevel};
+use crate::musicbrainz_http;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, SystemTime};
 
-const MUSICBRAINZ_USER_AGENT: &str = "Spiral/0.1.0 (https://github.com/brpowell/spiral)";
 const CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 const COVER_ART_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_RESULTS: usize = 12;
@@ -223,7 +223,7 @@ pub fn clear_fetch_cache() {
 
 fn http_client() -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
-        .user_agent(MUSICBRAINZ_USER_AGENT)
+        .user_agent(crate::USER_AGENT)
         .timeout(COVER_ART_REQUEST_TIMEOUT)
         .build()
         .map_err(|e| e.to_string())
@@ -271,7 +271,18 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
         urlencoding_simple(&query)
     );
 
-    let search: serde_json::Value = match client.get(&search_url).send() {
+    let search: serde_json::Value = match musicbrainz_http::send_get(
+        &client,
+        &search_url,
+        musicbrainz_http::RetryContext {
+            log_domain: "metadata.coverArt",
+            operation: "MusicBrainz release search",
+            details: serde_json::json!({
+                "artist": artist,
+                "album": album,
+            }),
+        },
+    ) {
         Ok(resp) if resp.status().is_success() => resp.json().unwrap_or(serde_json::Value::Null),
         Ok(resp) => {
             log_cover_art(
@@ -405,7 +416,15 @@ fn lookup_release_group_mbid(
     release_mbid: &str,
 ) -> Option<String> {
     let url = format!("https://musicbrainz.org/ws/2/release/{release_mbid}?fmt=json");
-    let release: serde_json::Value = match client.get(&url).send() {
+    let release: serde_json::Value = match musicbrainz_http::send_get(
+        client,
+        &url,
+        musicbrainz_http::RetryContext {
+            log_domain: "metadata.coverArt",
+            operation: "MusicBrainz release lookup",
+            details: serde_json::json!({ "releaseMbid": release_mbid }),
+        },
+    ) {
         Ok(resp) if resp.status().is_success() => resp.json().unwrap_or(serde_json::Value::Null),
         Ok(resp) => {
             log_cover_art(
@@ -713,7 +732,7 @@ mod tests {
     #[ignore = "network"]
     fn head_content_length_fetches_real_size() {
         let client = reqwest::blocking::Client::builder()
-            .user_agent(MUSICBRAINZ_USER_AGENT)
+            .user_agent(crate::USER_AGENT)
             .build()
             .unwrap();
         let url = "https://coverartarchive.org/release/da58fa17-c473-4da2-b424-fc4c4ef9345f/15993083208.jpg";

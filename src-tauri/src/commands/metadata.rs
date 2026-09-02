@@ -71,8 +71,6 @@ pub fn cache_art_from_bytes(
     Ok(dest.to_string_lossy().into_owned())
 }
 
-const MUSICBRAINZ_USER_AGENT: &str = "Spiral/0.1.0 (https://github.com/brpowell/spiral)";
-
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CachedArtFromUrl {
@@ -106,7 +104,7 @@ fn cache_art_from_url_blocking(
     file_path: String,
 ) -> Result<CachedArtFromUrl, String> {
     let client = reqwest::blocking::Client::builder()
-        .user_agent(MUSICBRAINZ_USER_AGENT)
+        .user_agent(crate::USER_AGENT)
         .timeout(ART_DOWNLOAD_TIMEOUT)
         .build()
         .map_err(|e| {
