@@ -76,9 +76,50 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "settings": {
+      "type": "array",
+      "description": "Optional author-defined user preferences persisted per skin session.",
+      "items": { "$ref": "#/$defs/skinSetting" }
     }
   },
   "$defs": {
+    "skinSetting": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["id", "name", "type", "default"],
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-z][a-zA-Z0-9]*$",
+              "maxLength": 64,
+              "description": "Stable camelCase id; exposed as skin.pref.{id}."
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "Display label for host UI and tooltips."
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 280,
+              "description": "Optional short help text."
+            },
+            "type": {
+              "const": "boolean",
+              "description": "Preference value type. v1 supports boolean only."
+            },
+            "default": {
+              "type": "boolean",
+              "description": "Value when the user has not changed this preference."
+            }
+          }
+        }
+      ]
+    },
     "skinAssetFile": {
       "type": "string",
       "minLength": 1,
@@ -195,35 +236,12 @@
     },
     "skinClickEffect": {
       "type": "object",
-      "required": ["action"],
       "additionalProperties": false,
-      "description": "Click-handler step. Click wavs stay on the control (sound / soundWhen), not here.",
-      "properties": {
-        "when": {
-          "$ref": "#/$defs/skinCondition",
-          "description": "Condition; effect runs only when truthy (same evaluator as visibleWhen)."
-        },
-        "delayMs": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Wait after click before dispatch (default 0)."
-        },
-        "action": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Existing skin action id (e.g. view.applyStateEvent)."
-        },
-        "payload": {
-          "type": "object",
-          "description": "Merged into action payload (viewId, url, variable, event, …)."
-        }
-      }
-    },
-    "skinLifecycleEffect": {
-      "type": "object",
-      "required": ["action"],
-      "additionalProperties": false,
-      "description": "View onActivate or GIF onComplete step. May play a sound with the action.",
+      "description": "Click, hover-leave, onChange, onActivate, or GIF onComplete step. Immediate click wavs stay on the control (sound / soundWhen). Effect-level sound is for timed cues.",
+      "anyOf": [
+        { "required": ["action"] },
+        { "required": ["sound"] }
+      ],
       "properties": {
         "when": {
           "$ref": "#/$defs/skinCondition",
@@ -237,18 +255,21 @@
         "action": {
           "type": "string",
           "minLength": 1,
-          "description": "Existing skin action id (e.g. view.setVariable)."
+          "description": "Existing skin action id (e.g. view.applyStateEvent)."
         },
         "payload": {
           "type": "object",
-          "description": "Merged into action payload."
+          "description": "Merged into action payload (viewId, url, variable, event, …)."
         },
         "sound": {
           "type": "string",
           "minLength": 1,
-          "description": "Manifest soundEffects key played before the action."
+          "description": "Manifest soundEffects key played when the effect fires (before the action, if any)."
         }
       }
+    },
+    "skinLifecycleEffect": {
+      "$ref": "#/$defs/skinClickEffect"
     },
     "viewLayout": {
       "description": "View layout root. canvas = absolute bounds stage; row/column = flow flex tree. overlay, tiledFrame, and subview are children only.",
@@ -302,8 +323,10 @@
           "items": { "$ref": "#/$defs/layoutNode" }
         },
         "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+        "styleWhen": { "$ref": "#/$defs/styleWhen" },
         "animations": { "type": "object" },
         "transition": { "$ref": "#/$defs/layoutTransition" },
+        "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
         "dragRegion": {
           "type": "boolean",
           "description": "When true, pointer events on this container move the skin window."
@@ -326,10 +349,7 @@
               "description": "Horizontal flex container. Valid as a view layout root or as a nested child."
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "children": {
               "type": "array",
               "items": { "$ref": "#/$defs/layoutNode" }
@@ -337,8 +357,10 @@
             "position": { "type": "string", "enum": ["relative", "absolute"] },
             "zIndex": { "type": "integer" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
             "dragRegion": {
               "type": "boolean",
               "description": "When true, pointer events on this container move the skin window."
@@ -363,10 +385,7 @@
               "description": "Vertical flex container. Valid as a view layout root or as a nested child."
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "children": {
               "type": "array",
               "items": { "$ref": "#/$defs/layoutNode" }
@@ -374,8 +393,10 @@
             "position": { "type": "string", "enum": ["relative", "absolute"] },
             "zIndex": { "type": "integer" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
             "dragRegion": {
               "type": "boolean",
               "description": "When true, pointer events on this container move the skin window."
@@ -414,17 +435,22 @@
         { "$ref": "#/$defs/tiledFrameNode" },
         { "$ref": "#/$defs/controlNode" },
         { "$ref": "#/$defs/textNode" },
+        { "$ref": "#/$defs/inputNode" },
         { "$ref": "#/$defs/playlistNode" },
         { "$ref": "#/$defs/buttonGroupNode" },
         { "$ref": "#/$defs/slideshowNode" },
         { "$ref": "#/$defs/scrollStripNode" },
-        { "$ref": "#/$defs/eqBandNode" },
-        { "$ref": "#/$defs/balanceNode" }
+        { "$ref": "#/$defs/sliderUnboundNode" },
+        { "$ref": "#/$defs/sliderVolumeNode" },
+        { "$ref": "#/$defs/sliderSeekNode" },
+        { "$ref": "#/$defs/sliderBalanceNode" },
+        { "$ref": "#/$defs/sliderEqNode" }
       ]
     },
     "skinCondition": {
-      "description": "Boolean composition of skin bind paths (leaf string or all/any/not).",
+      "description": "Boolean composition of skin bind paths (literal boolean, leaf string, or all/any/not).",
       "oneOf": [
+        { "type": "boolean" },
         { "type": "string", "minLength": 1 },
         {
           "type": "object",
@@ -490,6 +516,12 @@
           "type": "string",
           "minLength": 1,
           "description": "CSS color for the node fill."
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Opacity 0–1. Interpolates with node transition when styleWhen retargets it."
         }
       }
     },
@@ -504,13 +536,122 @@
         },
         "style": { "$ref": "#/$defs/nodeStyle" },
         "bounds": { "$ref": "#/$defs/layoutBounds" },
-        "boundsWhen": {
+        "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
+        "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+        "styleWhen": { "$ref": "#/$defs/styleWhen" },
+        "animations": { "type": "object" },
+        "transition": { "$ref": "#/$defs/layoutTransition" },
+        "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
+        "onHoverLeave": {
+          "type": "array",
+          "description": "Effects when hover.{id} goes false (pointer leave or hide). Same shape as onClick. Requires id.",
+          "items": { "$ref": "#/$defs/skinClickEffect" }
+        }
+      }
+    },
+    "styleWhen": {
+      "description": "Style overlays when a condition is truthy (last match wins, shallow merge onto style). Bind map or ordered { when, …style } list.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/nodeStyle" }
+        },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/styleWhenRow" }
+        }
+      ]
+    },
+    "styleWhenRow": {
+      "type": "object",
+      "required": ["when"],
+      "additionalProperties": false,
+      "properties": {
+        "when": { "$ref": "#/$defs/skinCondition" },
+        "color": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "fontWeight": {
+          "oneOf": [
+            { "type": "string", "enum": ["normal", "bold"] },
+            { "type": "integer", "minimum": 100, "maximum": 900 }
+          ]
+        },
+        "textAlign": {
+          "type": "string",
+          "enum": ["left", "center", "right"]
+        },
+        "backgroundColor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "transitionWhen": {
+      "description": "Transition overlays when a condition is truthy (last match wins, shallow merge onto transition). Bind map or ordered { when, …transition } list.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/layoutTransition" }
+        },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/transitionWhenRow" }
+        }
+      ]
+    },
+    "transitionWhenRow": {
+      "type": "object",
+      "required": ["when", "durationMs"],
+      "additionalProperties": false,
+      "properties": {
+        "when": { "$ref": "#/$defs/skinCondition" },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "easing": {
+          "type": "string",
+          "enum": ["linear", "ease", "ease-in", "ease-out", "ease-in-out"]
+        }
+      }
+    },
+    "boundsWhen": {
+      "description": "Bounds overlays when a condition is truthy (last match wins, shallow merge onto bounds). Bind map or ordered { when, …bounds } list.",
+      "oneOf": [
+        {
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
         },
-        "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-        "animations": { "type": "object" },
-        "transition": { "$ref": "#/$defs/layoutTransition" }
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/boundsWhenRow" }
+        }
+      ]
+    },
+    "boundsWhenRow": {
+      "type": "object",
+      "required": ["when"],
+      "additionalProperties": false,
+      "properties": {
+        "when": { "$ref": "#/$defs/skinCondition" },
+        "x": { "type": "number" },
+        "right": { "type": "number" },
+        "y": { "type": "number" },
+        "bottom": { "type": "number" },
+        "w": { "type": "number", "minimum": 1 },
+        "h": { "type": "number", "minimum": 1 },
+        "zIndex": { "type": "integer" }
       }
     },
     "layoutTransition": {
@@ -560,10 +701,7 @@
               "description": "Nested grouping container. Children overlay in place. Not valid as a view layout root."
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "children": {
               "type": "array",
               "items": { "$ref": "#/$defs/layoutNode" }
@@ -571,8 +709,10 @@
             "position": { "type": "string", "enum": ["relative", "absolute"] },
             "zIndex": { "type": "integer" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
             "dragRegion": {
               "type": "boolean",
               "description": "When true, pointer events on this container move the skin window."
@@ -595,17 +735,21 @@
             "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "subview" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "children": {
               "type": "array",
               "items": { "$ref": "#/$defs/layoutNode" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
+            "onHoverLeave": {
+              "type": "array",
+              "description": "Effects when hover.{id} goes false (pointer leave or hide). Same shape as onClick. Requires id.",
+              "items": { "$ref": "#/$defs/skinClickEffect" }
+            },
             "passthrough": {
               "type": "boolean",
               "description": "When true, the group bounds box does not capture pointer events (children still do)."
@@ -632,17 +776,16 @@
             "type": { "const": "decoration" },
             "presentation": { "$ref": "#/$defs/presentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "dragRegion": {
               "type": "boolean",
               "description": "When true on a canvas view, marks a window drag handle"
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -666,8 +809,10 @@
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -777,7 +922,8 @@
           }
         },
         "frameThickness": { "type": "number", "minimum": 1 },
-        "contentInset": { "$ref": "#/$defs/tiledFrameContentInset" }
+        "contentInset": { "$ref": "#/$defs/tiledFrameContentInset" },
+        "contentCornerRadius": { "type": "number", "minimum": 0 }
       }
     },
     "tiledFrameExplicitPresentation": {
@@ -787,6 +933,7 @@
       "properties": {
         "kind": { "const": "tiledFrame" },
         "contentInset": { "$ref": "#/$defs/tiledFrameContentInset" },
+        "contentCornerRadius": { "type": "number", "minimum": 0 },
         "tiles": {
           "type": "array",
           "minItems": 1,
@@ -815,12 +962,11 @@
               "type": "string",
               "enum": [
                 "button",
-                "seekbar",
                 "artwork",
                 "transport",
                 "visualizer",
-                "volume",
-                "time"
+                "time",
+                "rating"
               ]
             },
             "onClick": {
@@ -858,13 +1004,12 @@
             },
             "presentation": { "$ref": "#/$defs/presentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
             "objectFit": {
               "type": "string",
               "enum": ["cover", "contain", "fill"],
@@ -895,13 +1040,51 @@
               "description": "Runtime overflow behavior. Typography lives in style."
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
+          }
+        }
+      ]
+    },
+    "inputNode": {
+      "description": "Editable text field. Omit presentation — there is no drawing backend to pick. Typography lives in style. onChange effects receive the current string as payload.query.",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
+            "type": { "const": "input" },
+            "placeholder": { "type": "string" },
+            "maxLength": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Maximum character count (WMP textlimit)."
+            },
+            "enabledWhen": {
+              "$ref": "#/$defs/skinCondition",
+              "description": "When truthy, the field is editable."
+            },
+            "onChange": {
+              "type": "array",
+              "description": "Effects run after each edit. The host merges payload.query with the current string.",
+              "items": { "$ref": "#/$defs/skinClickEffect" }
+            },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -939,6 +1122,11 @@
               "description": "Panel-writable paint for a track row while hovered. Host merges under currentRowStyle / playingRowStyle when those also apply."
             },
             "type": { "const": "playlist" },
+            "items": {
+              "type": "string",
+              "enum": ["tracks", "sources"],
+              "description": "List contents. Default tracks. sources renders All tracks / Up Next / user playlists as rows (WMP listbox) and hides the track list and source dropdown."
+            },
             "showDropdown": {
               "type": "boolean",
               "description": "Show source dropdown (All tracks, Up Next, user playlists). Default true."
@@ -957,13 +1145,12 @@
               "description": "Initial playlist source. Default all. Runtime source still follows playlist.setSource after mount."
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -983,8 +1170,10 @@
             "presentation": { "$ref": "#/$defs/buttonGroupPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -1004,8 +1193,10 @@
             "presentation": { "$ref": "#/$defs/slideshowPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -1056,8 +1247,10 @@
             "presentation": { "$ref": "#/$defs/scrollStripPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -1111,50 +1304,23 @@
         }
       }
     },
-    "eqBandNode": {
-      "allOf": [
-        { "$ref": "#/$defs/nodeBase" },
-        {
-          "type": "object",
-          "required": ["type", "band", "presentation"],
-          "additionalProperties": false,
-          "properties": {
-            "id": { "type": "string" },
-            "className": { "type": "string", "minLength": 1 },
-            "style": { "$ref": "#/$defs/nodeStyle" },
-            "type": { "const": "eqBand" },
-            "band": { "type": "integer", "minimum": 1, "maximum": 10 },
-            "spread": {
-              "const": "linear",
-              "description": "This slider is a control point of a linear tilt across the 10-band EQ. All eqBand nodes with spread:linear in the skin form the endpoints (Plus! Nature bass/treble). Dragging one interpolates unoccupied bands between those endpoints."
-            },
-            "bind": { "type": "string" },
-            "enabledWhen": { "$ref": "#/$defs/skinCondition" },
-            "tooltip": {
-              "type": "string",
-              "description": "OS tooltip text; supports {bind.path} placeholders."
-            },
-            "tooltipWhen": {
-              "type": "object",
-              "description": "Bind path → tooltip when truthy (last match wins).",
-              "additionalProperties": { "type": "string" }
-            },
-            "presentation": {
-              "oneOf": [
-                { "$ref": "#/$defs/stripSliderPresentation" },
-                { "$ref": "#/$defs/bitmapVerticalSliderPresentation" },
-                { "$ref": "#/$defs/bitmapHorizontalSliderPresentation" }
-              ]
-            },
-            "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
-          }
-        }
+    "sliderBitmapStripPresentation": {
+      "oneOf": [
+        { "$ref": "#/$defs/stripSliderPresentation" },
+        { "$ref": "#/$defs/bitmapVerticalSliderPresentation" },
+        { "$ref": "#/$defs/bitmapHorizontalSliderPresentation" }
       ]
     },
-    "balanceNode": {
+    "sliderVolumeSeekPresentation": {
+      "oneOf": [
+        { "$ref": "#/$defs/stripSliderPresentation" },
+        { "$ref": "#/$defs/bitmapVerticalSliderPresentation" },
+        { "$ref": "#/$defs/bitmapHorizontalSliderPresentation" },
+        { "$ref": "#/$defs/primitivePresentation" }
+      ]
+    },
+    "sliderUnboundNode": {
+      "description": "Decorative or unbound slider. Omit control — no host write path.",
       "allOf": [
         { "$ref": "#/$defs/nodeBase" },
         {
@@ -1165,7 +1331,7 @@
             "id": { "type": "string" },
             "className": { "type": "string", "minLength": 1 },
             "style": { "$ref": "#/$defs/nodeStyle" },
-            "type": { "const": "balance" },
+            "type": { "const": "slider" },
             "bind": { "type": "string" },
             "enabledWhen": { "$ref": "#/$defs/skinCondition" },
             "tooltip": {
@@ -1177,15 +1343,167 @@
               "description": "Bind path → tooltip when truthy (last match wins).",
               "additionalProperties": { "type": "string" }
             },
-            "presentation": {
-              "oneOf": [
-                { "$ref": "#/$defs/bitmapHorizontalSliderPresentation" }
-              ]
-            },
+            "presentation": { "$ref": "#/$defs/sliderBitmapStripPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
+          }
+        }
+      ]
+    },
+    "sliderVolumeNode": {
+      "description": "Slider that drives player volume (0–1).",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "control", "presentation"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
+            "type": { "const": "slider" },
+            "control": { "const": "volume" },
+            "bind": { "type": "string" },
+            "enabledWhen": { "$ref": "#/$defs/skinCondition" },
+            "tooltip": {
+              "type": "string",
+              "description": "OS tooltip text; supports {bind.path} placeholders."
+            },
+            "tooltipWhen": {
+              "type": "object",
+              "description": "Bind path → tooltip when truthy (last match wins).",
+              "additionalProperties": { "type": "string" }
+            },
+            "presentation": { "$ref": "#/$defs/sliderVolumeSeekPresentation" },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
+          }
+        }
+      ]
+    },
+    "sliderSeekNode": {
+      "description": "Slider that seeks playback (preview on drag, commit on release).",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "control", "presentation"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
+            "type": { "const": "slider" },
+            "control": { "const": "seek" },
+            "bind": { "type": "string" },
+            "enabledWhen": { "$ref": "#/$defs/skinCondition" },
+            "tooltip": {
+              "type": "string",
+              "description": "OS tooltip text; supports {bind.path} placeholders."
+            },
+            "tooltipWhen": {
+              "type": "object",
+              "description": "Bind path → tooltip when truthy (last match wins).",
+              "additionalProperties": { "type": "string" }
+            },
+            "presentation": { "$ref": "#/$defs/sliderVolumeSeekPresentation" },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
+          }
+        }
+      ]
+    },
+    "sliderBalanceNode": {
+      "description": "Slider that drives stereo balance (−1…1).",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "control", "presentation"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
+            "type": { "const": "slider" },
+            "control": { "const": "balance" },
+            "bind": { "type": "string" },
+            "enabledWhen": { "$ref": "#/$defs/skinCondition" },
+            "tooltip": {
+              "type": "string",
+              "description": "OS tooltip text; supports {bind.path} placeholders."
+            },
+            "tooltipWhen": {
+              "type": "object",
+              "description": "Bind path → tooltip when truthy (last match wins).",
+              "additionalProperties": { "type": "string" }
+            },
+            "presentation": { "$ref": "#/$defs/sliderBitmapStripPresentation" },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
+          }
+        }
+      ]
+    },
+    "sliderEqNode": {
+      "description": "Slider that drives one EQ band. band is required; spread:linear marks a linear-tilt endpoint.",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "control", "band", "presentation"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
+            "type": { "const": "slider" },
+            "control": { "const": "eq" },
+            "band": { "type": "integer", "minimum": 1, "maximum": 10 },
+            "spread": {
+              "const": "linear",
+              "description": "This slider is a control point of a linear tilt across the 10-band EQ. All control:eq nodes with spread:linear in the skin form the endpoints (Plus! Nature bass/treble). Dragging one interpolates unoccupied bands between those endpoints."
+            },
+            "bind": { "type": "string" },
+            "enabledWhen": { "$ref": "#/$defs/skinCondition" },
+            "tooltip": {
+              "type": "string",
+              "description": "OS tooltip text; supports {bind.path} placeholders."
+            },
+            "tooltipWhen": {
+              "type": "object",
+              "description": "Bind path → tooltip when truthy (last match wins).",
+              "additionalProperties": { "type": "string" }
+            },
+            "presentation": { "$ref": "#/$defs/sliderBitmapStripPresentation" },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]

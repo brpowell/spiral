@@ -1,7 +1,7 @@
 //! Skin contribution types and validation (`skin.json`).
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
@@ -35,10 +35,13 @@ const KNOWN_ACTIONS: &[&str] = &[
     "skin.closeView",
     "skin.toggleView",
     "skin.toggleSoundEffects",
+    "skin.togglePref",
+    "skin.setPref",
     "visualizer.previous",
     "visualizer.next",
     "playlist.setSource",
     "playlist.playTrack",
+    "playlist.setFilter",
     "eq.setBand",
     "eq.applyPreset",
     "eq.reset",
@@ -66,6 +69,7 @@ const KNOWN_BINDS: &[&str] = &[
     "track.album",
     "track.artUrl",
     "track.durationSeconds",
+    "track.rating",
     "player.isPlaying",
     "player.notPlaying",
     "player.playbackState",
@@ -93,6 +97,8 @@ const KNOWN_BINDS: &[&str] = &[
     "playlist.sourceLabel",
     "playlist.trackCount",
     "playlist.hasTracks",
+    "playlist.filterQuery",
+    "playlist.hasFilter",
     "eq.enabled",
     "eq.presetId",
     "eq.isManual",
@@ -108,6 +114,20 @@ const KNOWN_BINDS: &[&str] = &[
     "eq.band.9",
     "eq.band.10",
 ];
+
+const BUILTIN_SKIN_PREF_IDS: &[&str] = &["soundEffectsEnabled"];
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SkinSetting {
+    pub id: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(rename = "type")]
+    pub setting_type: String,
+    pub default: serde_json::Value,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -130,11 +150,24 @@ pub struct SkinManifest {
     pub stylesheet: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sound_effects: Option<HashMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settings: Option<Vec<SkinSetting>>,
+}
+
+struct SkinValidationCtx<'a> {
+    declared_pref_ids: &'a HashSet<String>,
+}
+
+impl SkinValidationCtx<'_> {
+    fn is_known_skin_pref(&self, id: &str) -> bool {
+        BUILTIN_SKIN_PREF_IDS.contains(&id) || self.declared_pref_ids.contains(id)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SkinCondition {
+    Bool(bool),
     Leaf(String),
     All { all: Vec<SkinCondition> },
     Any { any: Vec<SkinCondition> },
@@ -142,20 +175,73 @@ pub enum SkinCondition {
 }
 
 impl SkinCondition {
-    pub fn validate_leaves(&self, field: &str, errors: &mut Vec<String>) {
+    fn validate_leaves(
+        &self,
+        field: &str,
+        ctx: &SkinValidationCtx<'_>,
+        errors: &mut Vec<String>,
+    ) {
         match self {
-            SkinCondition::Leaf(path) => validate_bind(Some(path.as_str()), field, errors),
+            SkinCondition::Bool(_) => {}
+            SkinCondition::Leaf(path) => {
+                validate_bind(Some(path.as_str()), field, ctx, errors);
+            }
             SkinCondition::All { all } => {
                 for child in all {
-                    child.validate_leaves(field, errors);
+                    child.validate_leaves(field, ctx, errors);
                 }
             }
             SkinCondition::Any { any } => {
                 for child in any {
-                    child.validate_leaves(field, errors);
+                    child.validate_leaves(field, ctx, errors);
                 }
             }
-            SkinCondition::Not { not } => not.validate_leaves(field, errors),
+            SkinCondition::Not { not } => not.validate_leaves(field, ctx, errors),
+        }
+    }
+}
+
+/// Bind map or ordered `{ when, …overlay }` list. Last match wins.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OverlayWhen<T> {
+    Map(HashMap<String, T>),
+    List(Vec<WhenOverlay<T>>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WhenOverlay<T> {
+    pub when: SkinCondition,
+    #[serde(flatten)]
+    pub overlay: T,
+}
+
+impl<T> OverlayWhen<T> {
+    fn validate(
+        &self,
+        field: &str,
+        ctx: &SkinValidationCtx<'_>,
+        errors: &mut Vec<String>,
+        mut validate_overlay: impl FnMut(&T, &str, &mut Vec<String>),
+    ) {
+        match self {
+            OverlayWhen::Map(map) => {
+                for (path, overlay) in map {
+                    validate_bind(Some(path.as_str()), field, ctx, errors);
+                    validate_overlay(overlay, &format!("{field}.{path}"), errors);
+                }
+            }
+            OverlayWhen::List(rows) => {
+                for (index, row) in rows.iter().enumerate() {
+                    row.when.validate_leaves(
+                        &format!("{field}[{index}].when"),
+                        ctx,
+                        errors,
+                    );
+                    validate_overlay(&row.overlay, &format!("{field}[{index}]"), errors);
+                }
+            }
         }
     }
 }
@@ -167,24 +253,15 @@ pub struct SkinClickEffect {
     pub when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delay_ms: Option<u64>,
-    pub action: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub payload: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct SkinLifecycleEffect {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub when: Option<SkinCondition>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delay_ms: Option<u64>,
-    pub action: String,
+    pub action: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payload: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sound: Option<String>,
 }
+
+pub type SkinLifecycleEffect = SkinClickEffect;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -242,6 +319,8 @@ pub struct CanvasFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub width: u32,
     pub height: u32,
     pub children: Vec<LayoutNode>,
@@ -251,6 +330,8 @@ pub struct CanvasFields {
     pub drag_region: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -319,6 +400,8 @@ pub struct NodeStyle {
     pub text_align: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -338,22 +421,20 @@ pub enum LayoutNode {
     Button(ControlFields),
     #[serde(rename = "buttonGroup")]
     ButtonGroup(ButtonGroupFields),
-    #[serde(rename = "seekbar")]
-    Seekbar(ControlFields),
     #[serde(rename = "text")]
     Text(TextControlFields),
+    #[serde(rename = "input")]
+    Input(InputControlFields),
     #[serde(rename = "artwork")]
     Artwork(ControlFields),
     #[serde(rename = "transport")]
     Transport(ControlFields),
     #[serde(rename = "visualizer")]
     Visualizer(ControlFields),
-    #[serde(rename = "volume")]
-    Volume(ControlFields),
-    #[serde(rename = "balance")]
-    Balance(ControlFields),
-    #[serde(rename = "eqBand")]
-    EqBand(EqBandFields),
+    #[serde(rename = "rating")]
+    Rating(ControlFields),
+    #[serde(rename = "slider")]
+    Slider(SliderFields),
     #[serde(rename = "time")]
     Time(ControlFields),
     #[serde(rename = "playlist")]
@@ -375,6 +456,8 @@ pub struct ContainerFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub children: Vec<LayoutNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<String>,
@@ -383,13 +466,15 @@ pub struct ContainerFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drag_region: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -401,10 +486,12 @@ pub struct SubviewFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub bounds: LayoutBounds,
     pub children: Vec<LayoutNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -413,6 +500,10 @@ pub struct SubviewFields {
     pub drag_region: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_hover_leave: Option<Vec<SkinClickEffect>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -424,17 +515,21 @@ pub struct DecorationFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub presentation: Presentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drag_region: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -529,6 +624,8 @@ pub struct TiledFrameExplicitPresentation {
     pub kind: String,
     pub content_inset: TiledFrameContentInset,
     pub tiles: Vec<TiledFrameTileDef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_corner_radius: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -539,6 +636,8 @@ pub struct TiledFramePresetPresentation {
     pub tile_sizes: TiledFrameTileSizes,
     pub frame_thickness: f64,
     pub content_inset: TiledFrameContentInset,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_corner_radius: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -550,6 +649,8 @@ pub struct TiledFrameFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub presentation: TiledFramePresentation,
     pub children: Vec<LayoutNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -558,6 +659,8 @@ pub struct TiledFrameFields {
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -589,15 +692,19 @@ pub struct ButtonGroupFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub presentation: Presentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -626,6 +733,8 @@ pub struct SlideshowFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub presentation: SlideshowPresentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
@@ -633,6 +742,8 @@ pub struct SlideshowFields {
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -675,12 +786,16 @@ pub struct ScrollStripFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub presentation: ScrollStripPresentation,
     pub bounds: LayoutBounds,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -692,6 +807,8 @@ pub struct ControlFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_click: Option<Vec<SkinClickEffect>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -712,7 +829,7 @@ pub struct ControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     /// Artwork only: CSS `object-fit`. Validated in `validate_layout_node`.
@@ -720,18 +837,35 @@ pub struct ControlFields {
     pub object_fit: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
+}
+
+/// What a slider writes. Omit for decorative/unbound thumbs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SliderControl {
+    Volume,
+    Seek,
+    Balance,
+    Eq,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct EqBandFields {
-    pub band: u8,
-    /// Linear tilt control point. All `spread: "linear"` eqBand nodes in the
-    /// skin are endpoints; dragging one interpolates the other bands.
+pub struct SliderFields {
+    /// Host write path. Omit for decorative/unbound thumbs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control: Option<SliderControl>,
+    /// 1-based EQ band (required when `control` is `Eq`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub band: Option<u8>,
+    /// Linear tilt control point when `control` is `Eq`. All `spread: "linear"`
+    /// eq sliders in the skin are endpoints; dragging one interpolates the other bands.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spread: Option<String>,
     #[serde(flatten)]
-    pub control: ControlFields,
+    pub base: ControlFields,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -744,6 +878,8 @@ pub struct TextControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
@@ -752,11 +888,44 @@ pub struct TextControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct InputControlFields {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub placeholder: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_length: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled_when: Option<SkinCondition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_change: Option<Vec<SkinClickEffect>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds: Option<LayoutBounds>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible_when: Option<SkinCondition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -921,6 +1090,8 @@ pub struct PlaylistFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub playing_row_style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_row_style: Option<NodeStyle>,
@@ -930,6 +1101,8 @@ pub struct PlaylistFields {
     pub source_hover_style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub row_hover_style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub items: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_dropdown: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -941,11 +1114,13 @@ pub struct PlaylistFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1014,28 +1189,66 @@ pub fn validate_skin_contribution_at(manifest_path: &Path) -> Result<(), String>
     validate_skin_manifest(&manifest, pack_dir)
 }
 
-fn validate_condition(condition: Option<&SkinCondition>, field: &str, errors: &mut Vec<String>) {
+fn validate_condition(
+    condition: Option<&SkinCondition>,
+    field: &str,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
     if let Some(cond) = condition {
-        cond.validate_leaves(field, errors);
+        cond.validate_leaves(field, ctx, errors);
     }
 }
 
-fn validate_bind(path: Option<&str>, field: &str, errors: &mut Vec<String>) {
+fn validate_bind(
+    path: Option<&str>,
+    field: &str,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
     if let Some(p) = path {
         if KNOWN_BINDS.contains(&p) {
             return;
         }
         if p.starts_with("skin.pref.") {
             let suffix = p.strip_prefix("skin.pref.").unwrap_or("");
+            if !suffix.is_empty() && !suffix.contains('.') && ctx.is_known_skin_pref(suffix) {
+                return;
+            }
             if !suffix.is_empty() && !suffix.contains('.') {
+                errors.push(format!(
+                    "{field} references unknown skin preference \"{suffix}\"."
+                ));
                 return;
             }
         }
-        if is_known_view_bind(p) || is_known_slideshow_bind(p) || is_known_scroll_strip_bind(p) {
+        if is_known_view_bind(p)
+            || is_known_slideshow_bind(p)
+            || is_known_scroll_strip_bind(p)
+            || is_known_hover_bind(p)
+            || is_known_input_bind(p)
+        {
             return;
         }
         errors.push(format!("{field} references unknown bind path \"{p}\"."));
     }
+}
+
+fn is_known_hover_bind(path: &str) -> bool {
+    let Some(id) = path.strip_prefix("hover.") else {
+        return false;
+    };
+    !id.is_empty() && !id.contains('.')
+}
+
+fn is_known_input_bind(path: &str) -> bool {
+    let Some(rest) = path.strip_prefix("input.") else {
+        return false;
+    };
+    let Some((id, prop)) = rest.split_once('.') else {
+        return false;
+    };
+    !id.is_empty() && !id.contains('.') && matches!(prop, "value" | "empty")
 }
 
 fn is_known_view_bind(path: &str) -> bool {
@@ -1144,9 +1357,11 @@ fn validate_interactive_assets_when(
     assets_when: &HashMap<String, InteractiveAssets>,
     pack_dir: &Path,
     label: &str,
+    ctx: &SkinValidationCtx<'_>,
     errors: &mut Vec<String>,
 ) {
     for (bind, assets) in assets_when {
+        validate_bind(Some(bind.as_str()), &format!("{label}.assetsWhen"), ctx, errors);
         validate_interactive_assets(
             assets,
             pack_dir,
@@ -1166,20 +1381,20 @@ fn validate_action(action: Option<&str>, errors: &mut Vec<String>) {
     }
 }
 
-fn validate_click_effects(effects: Option<&[SkinClickEffect]>, errors: &mut Vec<String>) {
+fn validate_click_effects(
+    effects: Option<&[SkinClickEffect]>,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
     if let Some(effects) = effects {
         for effect in effects {
-            validate_action(Some(effect.action.as_str()), errors);
-            validate_condition(effect.when.as_ref(), "when", errors);
-        }
-    }
-}
-
-fn validate_lifecycle_effects(effects: Option<&[SkinLifecycleEffect]>, errors: &mut Vec<String>) {
-    if let Some(effects) = effects {
-        for effect in effects {
-            validate_action(Some(effect.action.as_str()), errors);
-            validate_condition(effect.when.as_ref(), "when", errors);
+            let action = effect.action.as_deref().filter(|value| !value.is_empty());
+            let sound = effect.sound.as_deref().filter(|value| !value.is_empty());
+            if action.is_none() && sound.is_none() {
+                errors.push("effect must declare action and/or sound".to_string());
+            }
+            validate_action(action, errors);
+            validate_condition(effect.when.as_ref(), "when", ctx, errors);
         }
     }
 }
@@ -1272,6 +1487,12 @@ fn validate_tiled_frame_presentation(
             if explicit.tiles.is_empty() {
                 errors.push("tiledFrame tiles must not be empty".to_string());
             }
+            if explicit
+                .content_corner_radius
+                .is_some_and(|radius| radius < 0.0)
+            {
+                errors.push("tiledFrame contentCornerRadius must be non-negative".to_string());
+            }
             for (index, tile) in explicit.tiles.iter().enumerate() {
                 validate_tiled_frame_asset(
                     &tile.asset,
@@ -1290,6 +1511,12 @@ fn validate_tiled_frame_presentation(
             }
             if preset.frame_thickness <= 0.0 {
                 errors.push("tiledFrame frameThickness must be positive".to_string());
+            }
+            if preset
+                .content_corner_radius
+                .is_some_and(|radius| radius < 0.0)
+            {
+                errors.push("tiledFrame contentCornerRadius must be non-negative".to_string());
             }
             let assets = &preset.assets;
             validate_tiled_frame_asset(&assets.top_left, pack_dir, "assets.topLeft", errors);
@@ -1384,7 +1611,12 @@ fn validate_primitive_presentation(
     }
 }
 
-fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &mut Vec<String>) {
+fn validate_presentation(
+    presentation: &Presentation,
+    pack_dir: &Path,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
     match presentation {
         Presentation::Bitmap {
             assets,
@@ -1393,14 +1625,14 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
         } => {
             validate_interactive_assets(assets, pack_dir, "bitmap assets", errors);
             if let Some(when) = assets_when {
-                validate_interactive_assets_when(when, pack_dir, "bitmap", errors);
+                validate_interactive_assets_when(when, pack_dir, "bitmap", ctx, errors);
             }
         }
         Presentation::Gif {
             asset, on_complete, ..
         } => {
             validate_skin_asset_file(asset, pack_dir, "gif asset", errors);
-            validate_lifecycle_effects(on_complete.as_deref(), errors);
+            validate_click_effects(on_complete.as_deref(), ctx, errors);
         }
         Presentation::Css { stylesheet, .. } => {
             if let Some(sheet) = stylesheet {
@@ -1548,16 +1780,16 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
         } => {
             validate_interactive_assets(assets, pack_dir, "buttonGroup assets", errors);
             if let Some(when) = assets_when {
-                validate_interactive_assets_when(when, pack_dir, "buttonGroup", errors);
+                validate_interactive_assets_when(when, pack_dir, "buttonGroup", ctx, errors);
             }
             validate_skin_asset_file(position_map, pack_dir, "buttonGroup positionMap", errors);
             if elements.is_empty() {
                 errors.push("buttonGroup elements must not be empty".into());
             }
             for element in elements {
-                validate_click_effects(Some(&element.on_click), errors);
-                validate_condition(element.active_when.as_ref(), "activeWhen", errors);
-                validate_condition(element.enabled_when.as_ref(), "enabledWhen", errors);
+                validate_click_effects(Some(&element.on_click), ctx, errors);
+                validate_condition(element.active_when.as_ref(), "activeWhen", ctx, errors);
+                validate_condition(element.enabled_when.as_ref(), "enabledWhen", ctx, errors);
             }
         }
     }
@@ -1595,6 +1827,11 @@ fn validate_node_style(style: Option<&NodeStyle>, field: &str, errors: &mut Vec<
             ));
         }
     }
+    if let Some(opacity) = style.opacity {
+        if !(0.0..=1.0).contains(&opacity) {
+            errors.push(format!("{field}.opacity must be between 0 and 1"));
+        }
+    }
 }
 
 fn view_layout_style(layout: &ViewLayout) -> Option<&NodeStyle> {
@@ -1604,22 +1841,37 @@ fn view_layout_style(layout: &ViewLayout) -> Option<&NodeStyle> {
     }
 }
 
+fn view_layout_style_when(layout: &ViewLayout) -> Option<&OverlayWhen<NodeStyle>> {
+    match layout {
+        ViewLayout::Canvas(f) => f.style_when.as_ref(),
+        ViewLayout::Row(f) | ViewLayout::Column(f) => f.style_when.as_ref(),
+    }
+}
+
+fn view_layout_transition_when(
+    layout: &ViewLayout,
+) -> Option<&OverlayWhen<LayoutTransition>> {
+    match layout {
+        ViewLayout::Canvas(f) => f.transition_when.as_ref(),
+        ViewLayout::Row(f) | ViewLayout::Column(f) => f.transition_when.as_ref(),
+    }
+}
+
 fn layout_node_style(node: &LayoutNode) -> Option<&NodeStyle> {
     match node {
         LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => f.style.as_ref(),
         LayoutNode::Subview(f) => f.style.as_ref(),
         LayoutNode::Decoration(f) => f.style.as_ref(),
         LayoutNode::Button(f)
-        | LayoutNode::Seekbar(f)
         | LayoutNode::Artwork(f)
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
-        | LayoutNode::Volume(f)
-        | LayoutNode::Balance(f)
+        | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => f.style.as_ref(),
-        LayoutNode::EqBand(f) => f.control.style.as_ref(),
+        LayoutNode::Slider(f) => f.base.style.as_ref(),
         LayoutNode::ButtonGroup(f) => f.style.as_ref(),
         LayoutNode::Text(f) => f.style.as_ref(),
+        LayoutNode::Input(f) => f.style.as_ref(),
         LayoutNode::Playlist(f) => f.style.as_ref(),
         LayoutNode::TiledFrame(f) => f.style.as_ref(),
         LayoutNode::Slideshow(f) => f.style.as_ref(),
@@ -1635,20 +1887,95 @@ fn layout_node_transition(node: &LayoutNode) -> Option<&LayoutTransition> {
         LayoutNode::Subview(f) => f.transition.as_ref(),
         LayoutNode::Decoration(f) => f.transition.as_ref(),
         LayoutNode::Button(f)
-        | LayoutNode::Seekbar(f)
         | LayoutNode::Artwork(f)
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
-        | LayoutNode::Volume(f)
-        | LayoutNode::Balance(f)
+        | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => f.transition.as_ref(),
-        LayoutNode::EqBand(f) => f.control.transition.as_ref(),
+        LayoutNode::Slider(f) => f.base.transition.as_ref(),
         LayoutNode::ButtonGroup(f) => f.transition.as_ref(),
         LayoutNode::Text(f) => f.transition.as_ref(),
+        LayoutNode::Input(f) => f.transition.as_ref(),
         LayoutNode::Playlist(f) => f.transition.as_ref(),
         LayoutNode::TiledFrame(f) => f.transition.as_ref(),
         LayoutNode::Slideshow(f) => f.transition.as_ref(),
         LayoutNode::ScrollStrip(f) => f.transition.as_ref(),
+    }
+}
+
+fn layout_node_style_when(node: &LayoutNode) -> Option<&OverlayWhen<NodeStyle>> {
+    match node {
+        LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
+            f.style_when.as_ref()
+        }
+        LayoutNode::Subview(f) => f.style_when.as_ref(),
+        LayoutNode::Decoration(f) => f.style_when.as_ref(),
+        LayoutNode::Button(f)
+        | LayoutNode::Artwork(f)
+        | LayoutNode::Transport(f)
+        | LayoutNode::Visualizer(f)
+        | LayoutNode::Rating(f)
+        | LayoutNode::Time(f) => f.style_when.as_ref(),
+        LayoutNode::Slider(f) => f.base.style_when.as_ref(),
+        LayoutNode::ButtonGroup(f) => f.style_when.as_ref(),
+        LayoutNode::Text(f) => f.style_when.as_ref(),
+        LayoutNode::Input(f) => f.style_when.as_ref(),
+        LayoutNode::Playlist(f) => f.style_when.as_ref(),
+        LayoutNode::TiledFrame(f) => f.style_when.as_ref(),
+        LayoutNode::Slideshow(f) => f.style_when.as_ref(),
+        LayoutNode::ScrollStrip(f) => f.style_when.as_ref(),
+    }
+}
+
+fn layout_node_bounds_when(
+    node: &LayoutNode,
+) -> Option<&OverlayWhen<LayoutBoundsOverride>> {
+    match node {
+        LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
+            f.bounds_when.as_ref()
+        }
+        LayoutNode::Subview(f) => f.bounds_when.as_ref(),
+        LayoutNode::Decoration(f) => f.bounds_when.as_ref(),
+        LayoutNode::Button(f)
+        | LayoutNode::Artwork(f)
+        | LayoutNode::Transport(f)
+        | LayoutNode::Visualizer(f)
+        | LayoutNode::Rating(f)
+        | LayoutNode::Time(f) => f.bounds_when.as_ref(),
+        LayoutNode::Slider(f) => f.base.bounds_when.as_ref(),
+        LayoutNode::ButtonGroup(f) => f.bounds_when.as_ref(),
+        LayoutNode::Text(f) => f.bounds_when.as_ref(),
+        LayoutNode::Input(f) => f.bounds_when.as_ref(),
+        LayoutNode::Playlist(f) => f.bounds_when.as_ref(),
+        LayoutNode::TiledFrame(_) | LayoutNode::Slideshow(_) | LayoutNode::ScrollStrip(_) => {
+            None
+        }
+    }
+}
+
+fn layout_node_transition_when(
+    node: &LayoutNode,
+) -> Option<&OverlayWhen<LayoutTransition>> {
+    match node {
+        LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
+            f.transition_when.as_ref()
+        }
+        LayoutNode::Subview(f) => f.transition_when.as_ref(),
+        LayoutNode::Decoration(f) => f.transition_when.as_ref(),
+        LayoutNode::Button(f)
+        | LayoutNode::Artwork(f)
+        | LayoutNode::Transport(f)
+        | LayoutNode::Visualizer(f)
+        | LayoutNode::Rating(f)
+        | LayoutNode::Time(f) => f.transition_when.as_ref(),
+        LayoutNode::Slider(f) => f.base.transition_when.as_ref(),
+        LayoutNode::ButtonGroup(f) => f.transition_when.as_ref(),
+        LayoutNode::Text(f) => f.transition_when.as_ref(),
+        LayoutNode::Input(f) => f.transition_when.as_ref(),
+        LayoutNode::Playlist(f) => f.transition_when.as_ref(),
+        LayoutNode::TiledFrame(f) => f.transition_when.as_ref(),
+        LayoutNode::Slideshow(f) => f.transition_when.as_ref(),
+        LayoutNode::ScrollStrip(f) => f.transition_when.as_ref(),
     }
 }
 
@@ -1661,14 +1988,55 @@ fn view_layout_transition(layout: &ViewLayout) -> Option<&LayoutTransition> {
 
 const LAYOUT_EASINGS: &[&str] = &["linear", "ease", "ease-in", "ease-out", "ease-in-out"];
 
-fn validate_layout_transition(transition: Option<&LayoutTransition>, errors: &mut Vec<String>) {
+fn validate_style_when(
+    when: Option<&OverlayWhen<NodeStyle>>,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
+    let Some(when) = when else {
+        return;
+    };
+    when.validate("styleWhen", ctx, errors, |style, field, errors| {
+        validate_node_style(Some(style), field, errors);
+    });
+}
+
+fn validate_transition_when(
+    when: Option<&OverlayWhen<LayoutTransition>>,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
+    let Some(when) = when else {
+        return;
+    };
+    when.validate("transitionWhen", ctx, errors, |transition, field, errors| {
+        validate_layout_transition(Some(transition), field, errors);
+    });
+}
+
+fn validate_bounds_when(
+    when: Option<&OverlayWhen<LayoutBoundsOverride>>,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
+    let Some(when) = when else {
+        return;
+    };
+    when.validate("boundsWhen", ctx, errors, |_, _, _| {});
+}
+
+fn validate_layout_transition(
+    transition: Option<&LayoutTransition>,
+    field: &str,
+    errors: &mut Vec<String>,
+) {
     let Some(transition) = transition else {
         return;
     };
     if let Some(easing) = &transition.easing {
         if !LAYOUT_EASINGS.contains(&easing.as_str()) {
             errors.push(format!(
-                "transition.easing \"{easing}\" must be linear, ease, ease-in, ease-out, or ease-in-out"
+                "{field}.easing \"{easing}\" must be linear, ease, ease-in, ease-out, or ease-in-out"
             ));
         }
     }
@@ -1704,72 +2072,213 @@ fn validate_bounds(bounds: &LayoutBounds, field: &str, errors: &mut Vec<String>)
     }
 }
 
-fn validate_control_fields(f: &ControlFields, pack_dir: &Path, errors: &mut Vec<String>) {
-    validate_click_effects(f.on_click.as_deref(), errors);
-    validate_bind(f.bind.as_deref(), "bind", errors);
-    validate_condition(f.enabled_when.as_ref(), "enabledWhen", errors);
-    validate_condition(f.active_when.as_ref(), "activeWhen", errors);
-    validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+fn layout_where(view_name: &str, node_id: Option<&str>) -> String {
+    match node_id.map(str::trim).filter(|id| !id.is_empty()) {
+        Some(id) => format!("{view_name}/{id}"),
+        None => view_name.to_string(),
+    }
+}
+
+fn prefix_from(errors: &mut Vec<String>, start: usize, prefix: &str) {
+    for err in errors.iter_mut().skip(start) {
+        *err = format!("{prefix}: {err}");
+    }
+}
+
+fn view_layout_id(layout: &ViewLayout) -> Option<&str> {
+    match layout {
+        ViewLayout::Canvas(f) => f.id.as_deref(),
+        ViewLayout::Row(f) | ViewLayout::Column(f) => f.id.as_deref(),
+    }
+}
+
+fn view_layout_children(layout: &ViewLayout) -> &[LayoutNode] {
+    match layout {
+        ViewLayout::Canvas(f) => &f.children,
+        ViewLayout::Row(f) | ViewLayout::Column(f) => &f.children,
+    }
+}
+
+fn layout_node_id(node: &LayoutNode) -> Option<&str> {
+    match node {
+        LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => f.id.as_deref(),
+        LayoutNode::Subview(f) => f.id.as_deref(),
+        LayoutNode::Decoration(f) => f.id.as_deref(),
+        LayoutNode::Button(f)
+        | LayoutNode::Artwork(f)
+        | LayoutNode::Transport(f)
+        | LayoutNode::Visualizer(f)
+        | LayoutNode::Rating(f)
+        | LayoutNode::Time(f) => f.id.as_deref(),
+        LayoutNode::Slider(f) => f.base.id.as_deref(),
+        LayoutNode::ButtonGroup(f) => f.id.as_deref(),
+        LayoutNode::Text(f) => f.id.as_deref(),
+        LayoutNode::Input(f) => f.id.as_deref(),
+        LayoutNode::Playlist(f) => f.id.as_deref(),
+        LayoutNode::TiledFrame(f) => f.id.as_deref(),
+        LayoutNode::Slideshow(f) => f.id.as_deref(),
+        LayoutNode::ScrollStrip(f) => f.id.as_deref(),
+    }
+}
+
+fn layout_node_children(node: &LayoutNode) -> &[LayoutNode] {
+    match node {
+        LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => &f.children,
+        LayoutNode::Subview(f) => &f.children,
+        LayoutNode::TiledFrame(f) => &f.children,
+        _ => &[],
+    }
+}
+
+fn validate_control_fields(
+    f: &ControlFields,
+    pack_dir: &Path,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
+    validate_click_effects(f.on_click.as_deref(), ctx, errors);
+    validate_bind(f.bind.as_deref(), "bind", ctx, errors);
+    validate_condition(f.enabled_when.as_ref(), "enabledWhen", ctx, errors);
+    validate_condition(f.active_when.as_ref(), "activeWhen", ctx, errors);
+    validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
     if let Some(bounds) = &f.bounds {
         validate_bounds(bounds, "bounds", errors);
     }
-    validate_presentation(&f.presentation, pack_dir, errors);
+    validate_presentation(&f.presentation, pack_dir, ctx, errors);
 }
 
-fn validate_view_layout(layout: &ViewLayout, pack_dir: &Path, errors: &mut Vec<String>) {
+fn validate_slider_fields(
+    f: &SliderFields,
+    pack_dir: &Path,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
+    validate_control_fields(&f.base, pack_dir, ctx, errors);
+    if f.base.object_fit.is_some() {
+        errors.push("objectFit is only valid on artwork nodes".into());
+    }
+
+    let is_primitive = matches!(f.base.presentation, Presentation::Primitive { .. });
+    match &f.control {
+        Some(SliderControl::Eq) => {
+            match f.band {
+                Some(band) if (1..=10).contains(&band) => {}
+                Some(band) => {
+                    errors.push(format!(
+                        "slider control eq band must be between 1 and 10, got {band}"
+                    ));
+                }
+                None => {
+                    errors.push("slider control eq requires band (1–10)".into());
+                }
+            }
+            if let Some(spread) = &f.spread {
+                if spread != "linear" {
+                    errors.push(format!(
+                        "slider control eq spread must be \"linear\", got {spread}"
+                    ));
+                }
+            }
+            if is_primitive {
+                errors.push("slider control eq does not support primitive presentation".into());
+            }
+        }
+        Some(SliderControl::Volume) | Some(SliderControl::Seek) => {
+            if f.band.is_some() {
+                errors.push("slider band is only valid when control is eq".into());
+            }
+            if f.spread.is_some() {
+                errors.push("slider spread is only valid when control is eq".into());
+            }
+        }
+        Some(SliderControl::Balance) | None => {
+            if f.band.is_some() {
+                errors.push("slider band is only valid when control is eq".into());
+            }
+            if f.spread.is_some() {
+                errors.push("slider spread is only valid when control is eq".into());
+            }
+            if is_primitive {
+                errors.push(
+                    "slider primitive presentation is only valid when control is volume or seek"
+                        .into(),
+                );
+            }
+        }
+    }
+}
+
+fn validate_view_layout(
+    layout: &ViewLayout,
+    pack_dir: &Path,
+    view_name: &str,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
+    let start = errors.len();
     validate_node_style(view_layout_style(layout), "style", errors);
-    validate_layout_transition(view_layout_transition(layout), errors);
+    validate_style_when(view_layout_style_when(layout), ctx, errors);
+    validate_layout_transition(view_layout_transition(layout), "transition", errors);
+    validate_transition_when(view_layout_transition_when(layout), ctx, errors);
     match layout {
         ViewLayout::Canvas(f) => {
             if f.width == 0 || f.height == 0 {
                 errors.push("canvas root width and height must be at least 1".into());
             }
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
-            for child in &f.children {
-                validate_layout_node(child, pack_dir, errors);
-            }
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
         }
         ViewLayout::Row(f) | ViewLayout::Column(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
+            validate_bounds_when(f.bounds_when.as_ref(), ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
-            }
-            for child in &f.children {
-                validate_layout_node(child, pack_dir, errors);
             }
         }
     }
+    prefix_from(
+        errors,
+        start,
+        &layout_where(view_name, view_layout_id(layout)),
+    );
+    for child in view_layout_children(layout) {
+        validate_layout_node(child, pack_dir, view_name, ctx, errors);
+    }
 }
 
-fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<String>) {
+fn validate_layout_node(
+    node: &LayoutNode,
+    pack_dir: &Path,
+    view_name: &str,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
+    let start = errors.len();
     validate_node_style(layout_node_style(node), "style", errors);
-    validate_layout_transition(layout_node_transition(node), errors);
+    validate_style_when(layout_node_style_when(node), ctx, errors);
+    validate_layout_transition(layout_node_transition(node), "transition", errors);
+    validate_transition_when(layout_node_transition_when(node), ctx, errors);
+    validate_bounds_when(layout_node_bounds_when(node), ctx, errors);
     match node {
         LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
-            }
-            for child in &f.children {
-                validate_layout_node(child, pack_dir, errors);
             }
         }
         LayoutNode::Subview(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             validate_bounds(&f.bounds, "bounds", errors);
-            for child in &f.children {
-                validate_layout_node(child, pack_dir, errors);
-            }
+            validate_click_effects(f.on_hover_leave.as_deref(), ctx, errors);
         }
         LayoutNode::Decoration(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
-            validate_presentation(&f.presentation, pack_dir, errors);
+            validate_presentation(&f.presentation, pack_dir, ctx, errors);
         }
         LayoutNode::Artwork(f) => {
-            validate_control_fields(f, pack_dir, errors);
+            validate_control_fields(f, pack_dir, ctx, errors);
             if let Some(fit) = f.object_fit.as_deref() {
                 if !matches!(fit, "cover" | "contain" | "fill") {
                     errors.push(format!(
@@ -1779,13 +2288,11 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
             }
         }
         LayoutNode::Button(f)
-        | LayoutNode::Seekbar(f)
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
-        | LayoutNode::Volume(f)
-        | LayoutNode::Balance(f)
+        | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => {
-            validate_control_fields(f, pack_dir, errors);
+            validate_control_fields(f, pack_dir, ctx, errors);
             if f.object_fit.is_some() {
                 errors.push("objectFit is only valid on artwork nodes".into());
             }
@@ -1796,7 +2303,7 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
             validate_node_style(f.source_style.as_ref(), "sourceStyle", errors);
             validate_node_style(f.source_hover_style.as_ref(), "sourceHoverStyle", errors);
             validate_node_style(f.row_hover_style.as_ref(), "rowHoverStyle", errors);
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
@@ -1807,34 +2314,27 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
                     ));
                 }
             }
-        }
-        LayoutNode::EqBand(f) => {
-            if !(1..=10).contains(&f.band) {
-                errors.push(format!(
-                    "eqBand band must be between 1 and 10, got {}",
-                    f.band
-                ));
-            }
-            if let Some(spread) = &f.spread {
-                if spread != "linear" {
-                    errors.push(format!("eqBand spread must be \"linear\", got {spread}"));
+            if let Some(items) = &f.items {
+                if items != "tracks" && items != "sources" {
+                    errors.push(format!(
+                        "playlist items \"{items}\" must be tracks or sources"
+                    ));
                 }
             }
-            validate_control_fields(&f.control, pack_dir, errors);
-            if f.control.object_fit.is_some() {
-                errors.push("objectFit is only valid on artwork nodes".into());
-            }
+        }
+        LayoutNode::Slider(f) => {
+            validate_slider_fields(f, pack_dir, ctx, errors);
         }
         LayoutNode::ButtonGroup(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
-            validate_presentation(&f.presentation, pack_dir, errors);
+            validate_presentation(&f.presentation, pack_dir, ctx, errors);
         }
         LayoutNode::Text(f) => {
-            validate_bind(f.bind.as_deref(), "bind", errors);
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_bind(f.bind.as_deref(), "bind", ctx, errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(overflow) = &f.overflow {
                 const ALLOWED: &[&str] = &["visible", "clip", "scroll", "scroll-bounce"];
                 if !ALLOWED.contains(&overflow.as_str()) {
@@ -1847,18 +2347,28 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
                 validate_bounds(bounds, "bounds", errors);
             }
         }
+        LayoutNode::Input(f) => {
+            validate_click_effects(f.on_change.as_deref(), ctx, errors);
+            validate_condition(f.enabled_when.as_ref(), "enabledWhen", ctx, errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
+            if let Some(max_length) = f.max_length {
+                if max_length == 0 {
+                    errors.push("input maxLength must be >= 1".into());
+                }
+            }
+            if let Some(bounds) = &f.bounds {
+                validate_bounds(bounds, "bounds", errors);
+            }
+        }
         LayoutNode::TiledFrame(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
             validate_tiled_frame_presentation(&f.presentation, pack_dir, errors);
-            for child in &f.children {
-                validate_layout_node(child, pack_dir, errors);
-            }
         }
         LayoutNode::Slideshow(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
@@ -1878,7 +2388,7 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
             }
         }
         LayoutNode::ScrollStrip(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             validate_bounds(&f.bounds, "bounds", errors);
             if f.id.as_deref().unwrap_or("").is_empty() {
                 errors.push("scrollStrip id must not be empty".into());
@@ -1905,10 +2415,90 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
             }
         }
     }
+    prefix_from(
+        errors,
+        start,
+        &layout_where(view_name, layout_node_id(node)),
+    );
+    for child in layout_node_children(node) {
+        validate_layout_node(child, pack_dir, view_name, ctx, errors);
+    }
+}
+
+fn is_valid_skin_setting_id(id: &str) -> bool {
+    let mut chars = id.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_lowercase() => chars.all(|c| c.is_ascii_alphanumeric()),
+        _ => false,
+    }
+}
+
+fn validate_settings(settings: Option<&[SkinSetting]>, errors: &mut Vec<String>) -> HashSet<String> {
+    let mut declared = HashSet::new();
+    let Some(settings) = settings else {
+        return declared;
+    };
+    for (index, setting) in settings.iter().enumerate() {
+        let label = format!("settings[{index}]");
+        let id = setting.id.trim();
+        if id.is_empty() {
+            errors.push(format!("{label}.id cannot be empty"));
+            continue;
+        }
+        if !is_valid_skin_setting_id(id) {
+            errors.push(format!(
+                "{label}.id \"{id}\" must be camelCase starting with a lowercase letter"
+            ));
+            continue;
+        }
+        if BUILTIN_SKIN_PREF_IDS.contains(&id) {
+            errors.push(format!(
+                "{label}.id \"{id}\" collides with a built-in skin preference"
+            ));
+            continue;
+        }
+        if !declared.insert(id.to_string()) {
+            errors.push(format!("{label}.id \"{id}\" is duplicated"));
+            continue;
+        }
+        if setting.name.trim().is_empty() {
+            errors.push(format!("{label}.name cannot be empty"));
+        }
+        if setting.name.len() > 80 {
+            errors.push(format!("{label}.name must be at most 80 characters"));
+        }
+        if let Some(description) = &setting.description {
+            if description.len() > 280 {
+                errors.push(format!(
+                    "{label}.description must be at most 280 characters"
+                ));
+            }
+        }
+        match setting.setting_type.as_str() {
+            "boolean" => {
+                if !setting.default.is_boolean() {
+                    errors.push(format!(
+                        "{label}.default must be a boolean when type is boolean"
+                    ));
+                }
+            }
+            other => {
+                errors.push(format!(
+                    "{label}.type \"{other}\" is not supported (v1 allows boolean only)"
+                ));
+            }
+        }
+    }
+    declared
 }
 
 pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Result<(), String> {
     let mut errors: Vec<String> = Vec::new();
+
+    let declared_pref_ids = validate_settings(manifest.settings.as_deref(), &mut errors);
+    let ctx = SkinValidationCtx {
+        declared_pref_ids: &declared_pref_ids,
+    };
 
     if manifest.name.trim().is_empty() {
         errors.push("skin name cannot be empty".to_string());
@@ -1971,19 +2561,23 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
                 ));
             }
         }
-        validate_lifecycle_effects(view.on_activate.as_deref(), &mut errors);
+        validate_click_effects(view.on_activate.as_deref(), &ctx, &mut errors);
         if let Some(state) = &view.state {
             for spec in state.values() {
                 if let Some(on) = &spec.on {
                     for branches in on.values() {
                         for branch in branches {
-                            validate_layout_transition(branch.transition.as_ref(), &mut errors);
+                            validate_layout_transition(
+                                branch.transition.as_ref(),
+                                "transition",
+                                &mut errors,
+                            );
                         }
                     }
                 }
             }
         }
-        validate_view_layout(&view.layout, pack_dir, &mut errors);
+        validate_view_layout(&view.layout, pack_dir, view_name, &ctx, &mut errors);
     }
 
     let primary_count = manifest
@@ -2078,6 +2672,65 @@ mod tests {
             }"#,
         );
         validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_playlist_items_sources() {
+        let (dir, path) = write_skin_json(
+            "playlist-items-sources",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"column",
+                    "children":[
+                      {
+                        "type":"playlist",
+                        "items":"sources",
+                        "showDropdown":false
+                      }
+                    ]
+                  }
+                }
+              }
+            }"#,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_unknown_playlist_items() {
+        let (dir, path) = write_skin_json(
+            "playlist-bad-items",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"column",
+                    "children":[
+                      {
+                        "type":"playlist",
+                        "items":"albums"
+                      }
+                    ]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("items") || err.contains("valid skin JSON"),
+            "unexpected error: {err}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2287,6 +2940,64 @@ mod tests {
             }"#,
         );
         validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_input_node_with_placeholder_and_on_change() {
+        let (dir, path) = write_skin_json(
+            "input-playlist-filter",
+            r##"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"column",
+                    "children":[{
+                    "type":"input",
+                    "id":"plSearchEdit",
+                    "placeholder":"Search...",
+                    "style":{"color":"#C1D0E7","fontSize":8,"backgroundColor":"#000000"},
+                    "onChange":[{"action":"playlist.setFilter"}]
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_input_node_with_presentation() {
+        let (dir, path) = write_skin_json(
+            "input-with-presentation",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"column",
+                    "children":[{
+                    "type":"input",
+                    "placeholder":"Search...",
+                    "presentation":{"kind":"primitive"}
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("presentation") || err.contains("valid skin JSON"),
+            "unexpected error: {err}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2578,6 +3289,96 @@ mod tests {
     }
 
     #[test]
+    fn accepts_hover_bind_and_style_when() {
+        let (dir, path) = write_skin_json(
+            "hover-style-when",
+            r##"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"subview",
+                      "id":"visFrame",
+                      "bounds":{"x":0,"y":0,"w":100,"h":80},
+                      "children":[{
+                        "type":"subview",
+                        "id":"visMeta",
+                        "bounds":{"x":0,"y":0,"w":100,"h":20},
+                        "style":{"opacity":0},
+                        "styleWhen":{"hover.visFrame":{"opacity":1}},
+                        "transition":{"durationMs":200,"easing":"ease-out"},
+                        "children":[]
+                      }]
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_style_when_list_with_compound_condition() {
+        let (dir, path) = write_skin_json(
+            "style-when-list",
+            r##"{
+              "name":"Lost Planet",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "state":{
+                    "galleryPhase":{"default":"grid"}
+                  },
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"button",
+                      "id":"thumb1",
+                      "bounds":{"x":0,"y":0,"w":10,"h":10},
+                      "style":{"opacity":0},
+                      "styleWhen":[
+                        {"when":"view.galleryPhase.grid","opacity":0.71},
+                        {"when":{"all":["view.galleryPhase.grid","hover.thumb1"]},"opacity":1}
+                      ],
+                      "presentation":{"kind":"primitive","variant":"plain"}
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let manifest = read_skin_manifest(&path).unwrap();
+        let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
+            panic!("expected canvas");
+        };
+        let LayoutNode::Button(node) = &canvas.children[0] else {
+            panic!("expected button");
+        };
+        let OverlayWhen::List(rows) = node.style_when.as_ref().unwrap() else {
+            panic!("expected styleWhen list");
+        };
+        assert_eq!(rows.len(), 2);
+        assert!(matches!(
+            rows[1].when,
+            SkinCondition::All { ref all } if all.len() == 2
+        ));
+        assert_eq!(rows[1].overlay.opacity, Some(1.0));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn accepts_artwork_object_fit() {
         let (dir, path) = write_skin_json(
             "artwork-object-fit",
@@ -2597,6 +3398,36 @@ mod tests {
                       "objectFit":"contain",
                       "style":{"backgroundColor":"#000000"},
                       "presentation":{"kind":"css","className":"skin-artwork"}
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_rating_primitive() {
+        let (dir, path) = write_skin_json(
+            "rating-primitive",
+            r##"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"rating",
+                      "id":"visRatingStars",
+                      "style":{"color":"#F5A623"},
+                      "enabledWhen":"player.hasTrack",
+                      "presentation":{"kind":"primitive"}
                     }]
                   }
                 }
@@ -2690,6 +3521,51 @@ mod tests {
     }
 
     #[test]
+    fn preserves_subview_on_hover_leave() {
+        let (dir, path) = write_skin_json(
+            "hover-leave",
+            r#"{
+              "name":"T3",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":10,
+                    "height":10,
+                    "children":[{
+                      "type":"subview",
+                      "id":"cMenuHotspot",
+                      "bounds":{"x":0,"y":0,"w":10,"h":10},
+                      "children":[],
+                      "onHoverLeave":[{
+                        "action":"view.applyStateEvent",
+                        "payload":{"variable":"menuMode","event":"collapse"}
+                      }]
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let manifest = read_skin_manifest(&path).unwrap();
+        let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
+            panic!("expected canvas");
+        };
+        let LayoutNode::Subview(subview) = &canvas.children[0] else {
+            panic!("expected subview");
+        };
+        let effects = subview
+            .on_hover_leave
+            .as_ref()
+            .expect("onHoverLeave dropped");
+        assert_eq!(effects[0].action.as_deref(), Some("view.applyStateEvent"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn accepts_button_group_element_without_onclick() {
         let (dir, path) = write_skin_json(
             "bg-no-click",
@@ -2749,7 +3625,8 @@ mod tests {
                     "width":100,
                     "height":80,
                     "children":[{
-                      "type":"eqBand",
+                      "type":"slider",
+                      "control":"eq",
                       "band":1,
                       "presentation":{
                         "kind":"bitmapHorizontalSlider",
@@ -2770,13 +3647,14 @@ mod tests {
         let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
             panic!("expected canvas");
         };
-        let LayoutNode::EqBand(eq) = &canvas.children[0] else {
-            panic!("expected eqBand");
+        let LayoutNode::Slider(slider) = &canvas.children[0] else {
+            panic!("expected slider");
         };
-        assert_eq!(eq.band, 1);
-        assert!(eq.spread.is_none());
+        assert_eq!(slider.control, Some(SliderControl::Eq));
+        assert_eq!(slider.band, Some(1));
+        assert!(slider.spread.is_none());
         assert!(matches!(
-            eq.control.presentation,
+            slider.base.presentation,
             Presentation::BitmapHorizontalSlider { .. }
         ));
         let _ = std::fs::remove_dir_all(&dir);
@@ -2797,7 +3675,8 @@ mod tests {
                     "width":100,
                     "height":80,
                     "children":[{
-                      "type":"eqBand",
+                      "type":"slider",
+                      "control":"eq",
                       "band":1,
                       "spread":"linear",
                       "presentation":{
@@ -2819,10 +3698,10 @@ mod tests {
         let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
             panic!("expected canvas");
         };
-        let LayoutNode::EqBand(eq) = &canvas.children[0] else {
-            panic!("expected eqBand");
+        let LayoutNode::Slider(slider) = &canvas.children[0] else {
+            panic!("expected slider");
         };
-        assert_eq!(eq.spread.as_deref(), Some("linear"));
+        assert_eq!(slider.spread.as_deref(), Some("linear"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2841,7 +3720,8 @@ mod tests {
                     "width":100,
                     "height":80,
                     "children":[{
-                      "type":"volume",
+                      "type":"slider",
+                      "control":"volume",
                       "presentation":{
                         "kind":"bitmapVerticalSlider",
                         "thumb":{
@@ -2864,15 +3744,64 @@ mod tests {
         let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
             panic!("expected canvas");
         };
-        let LayoutNode::Volume(volume) = &canvas.children[0] else {
-            panic!("expected volume");
+        let LayoutNode::Slider(slider) = &canvas.children[0] else {
+            panic!("expected slider");
         };
-        let Presentation::BitmapVerticalSlider { thumb, .. } = &volume.presentation else {
+        assert_eq!(slider.control, Some(SliderControl::Volume));
+        let Presentation::BitmapVerticalSlider { thumb, .. } = &slider.base.presentation else {
             panic!("expected bitmapVerticalSlider");
         };
         assert_eq!(thumb.default, "sliders/t.png");
         assert_eq!(thumb.hover.as_deref(), Some("sliders/t-h.png"));
         assert_eq!(thumb.pressed.as_deref(), Some("sliders/t-p.png"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_slider_with_literal_false_enabled_when() {
+        let (dir, path) = write_skin_json(
+            "generic-slider",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "id":"truBass",
+                      "type":"slider",
+                      "enabledWhen":false,
+                      "presentation":{
+                        "kind":"bitmapHorizontalSlider",
+                        "thumb":{"default":"sliders/t.png"},
+                        "trackWidth":86,
+                        "trackHeight":7,
+                        "thumbWidth":7,
+                        "thumbHeight":7,
+                        "borderSize":4
+                      }
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let manifest = read_skin_manifest(&path).unwrap();
+        let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
+            panic!("expected canvas");
+        };
+        let LayoutNode::Slider(slider) = &canvas.children[0] else {
+            panic!("expected slider");
+        };
+        assert!(slider.control.is_none());
+        assert!(matches!(
+            slider.base.enabled_when,
+            Some(SkinCondition::Bool(false))
+        ));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2891,7 +3820,8 @@ mod tests {
                     "width":100,
                     "height":80,
                     "children":[{
-                      "type":"volume",
+                      "type":"slider",
+                      "control":"volume",
                       "presentation":{
                         "kind":"bitmapVerticalSlider",
                         "thumb":"sliders/t.png",
@@ -2912,7 +3842,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_sound_on_click_effect() {
+    fn accepts_sound_on_click_effect() {
         let (dir, path) = write_skin_json(
             "onclick-sound",
             r#"{
@@ -2925,7 +3855,48 @@ mod tests {
                     "type":"column",
                     "children":[{
                       "type":"button",
-                      "onClick":[{"action":"skin.openPicker","sound":"button"}],
+                      "onClick":[
+                        {"action":"skin.openPicker"},
+                        {"delayMs":500,"sound":"button"}
+                      ],
+                      "presentation":{"kind":"primitive"}
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let manifest = read_skin_manifest(&path).unwrap();
+        let ViewLayout::Column(column) = &manifest.views["main"].layout else {
+            panic!("expected column");
+        };
+        let LayoutNode::Button(button) = &column.children[0] else {
+            panic!("expected button");
+        };
+        let effects = button.on_click.as_ref().expect("onClick dropped");
+        assert_eq!(effects[0].action.as_deref(), Some("skin.openPicker"));
+        assert_eq!(effects[1].delay_ms, Some(500));
+        assert_eq!(effects[1].sound.as_deref(), Some("button"));
+        assert!(effects[1].action.is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_effect_without_action_or_sound() {
+        let (dir, path) = write_skin_json(
+            "empty-effect",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"column",
+                    "children":[{
+                      "type":"button",
+                      "onClick":[{"delayMs":500}],
                       "presentation":{"kind":"primitive"}
                     }]
                   }
@@ -2935,7 +3906,7 @@ mod tests {
         );
         let err = validate_skin_contribution_at(&path).unwrap_err();
         assert!(
-            err.contains("sound") || err.contains("valid skin JSON"),
+            err.contains("action") || err.contains("sound") || err.contains("valid skin JSON"),
             "unexpected error: {err}"
         );
         let _ = std::fs::remove_dir_all(&dir);
@@ -3036,6 +4007,74 @@ mod tests {
             .as_ref()
             .unwrap()["toggle"][0];
         assert_eq!(branch.transition.as_ref().unwrap().duration_ms, 120);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn preserves_transition_when() {
+        let (dir, path) = write_skin_json(
+            "transition-when",
+            r#"{
+              "name":"Headspace",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":10,
+                    "height":10,
+                    "children":[{
+                      "type":"subview",
+                      "bounds":{"x":0,"y":0,"w":10,"h":10},
+                      "transition":{"durationMs":400,"easing":"linear"},
+                      "transitionWhen":{"view.intro.showing":{"durationMs":0}},
+                      "children":[]
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let manifest = read_skin_manifest(&path).unwrap();
+        validate_skin_contribution_at(&path).unwrap();
+        let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
+            panic!("expected canvas");
+        };
+        let LayoutNode::Subview(node) = &canvas.children[0] else {
+            panic!("expected subview");
+        };
+        let OverlayWhen::Map(when) = node.transition_when.as_ref().unwrap() else {
+            panic!("expected transitionWhen map");
+        };
+        assert_eq!(when["view.intro.showing"].duration_ms, 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_unknown_transition_when_bind() {
+        let (dir, path) = write_skin_json(
+            "bad-transition-when",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"row",
+                    "children":[],
+                    "transitionWhen":{"nope.foo":{"durationMs":0}}
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("transitionWhen") && err.contains("nope.foo"),
+            "unexpected error: {err}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3154,6 +4193,182 @@ mod tests {
         );
         let err = validate_skin_contribution_at(&path).unwrap_err();
         assert!(err.contains("exactly one"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn layout_errors_include_view_and_node_id() {
+        let (dir, path) = write_skin_json(
+            "named-bounds",
+            r#"{
+              "name":"Lost Planet",
+              "author":"a",
+              "description":"",
+              "views":{
+                "plview":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":376,
+                    "height":216,
+                    "children":[{
+                      "type":"subview",
+                      "id":"botRight",
+                      "bounds":{"right":0,"bottom":0},
+                      "children":[]
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("plview/botRight: bounds: set w, or both x and right"),
+            "unexpected error: {err}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn asset_errors_include_view_and_node_id() {
+        let (dir, path) = write_skin_json(
+            "named-asset",
+            r#"{
+              "name":"Lost Planet",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"decoration",
+                      "id":"deco",
+                      "bounds":{"x":0,"y":0,"w":10,"h":10},
+                      "presentation":{"kind":"bitmap","assets":{"default":"missing.png"}}
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("main/deco: bitmap assets.default asset not found"),
+            "unexpected error: {err}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_boolean_skin_setting() {
+        let (dir, path) = write_skin_json(
+            "setting-boolean",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "settings":[{
+                "id":"hideHelpBubble",
+                "name":"Hide help bubble",
+                "description":"Skip the startup tip.",
+                "type":"boolean",
+                "default":false
+              }],
+              "views":{
+                "main":{
+                  "layout":{"type":"canvas","width":100,"height":80,"children":[]}
+                }
+              }
+            }"#,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_duplicate_skin_setting_ids() {
+        let (dir, path) = write_skin_json(
+            "setting-dup",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "settings":[
+                {"id":"foo","name":"Foo","type":"boolean","default":false},
+                {"id":"foo","name":"Foo again","type":"boolean","default":true}
+              ],
+              "views":{
+                "main":{
+                  "layout":{"type":"canvas","width":100,"height":80,"children":[]}
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(err.contains("duplicated"), "unexpected error: {err}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_builtin_skin_setting_id_collision() {
+        let (dir, path) = write_skin_json(
+            "setting-builtin",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "settings":[{
+                "id":"soundEffectsEnabled",
+                "name":"Sound FX",
+                "type":"boolean",
+                "default":true
+              }],
+              "views":{
+                "main":{
+                  "layout":{"type":"canvas","width":100,"height":80,"children":[]}
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(err.contains("built-in"), "unexpected error: {err}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_unknown_skin_pref_bind() {
+        let (dir, path) = write_skin_json(
+            "setting-bind",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"subview",
+                      "id":"panel",
+                      "visibleWhen":"skin.pref.notDeclared",
+                      "bounds":{"x":0,"y":0,"w":10,"h":10},
+                      "children":[]
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("unknown skin preference"),
+            "unexpected error: {err}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
