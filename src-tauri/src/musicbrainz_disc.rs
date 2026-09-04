@@ -87,18 +87,8 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
         }
     };
 
-    let response: serde_json::Value = match musicbrainz_http::send_get(
-        &client,
-        &url,
-        musicbrainz_http::RetryContext {
-            log_domain: "metadata.musicbrainz",
-            operation: "MusicBrainz lookup",
-            details: serde_json::json!({
-                "discId": disc_id,
-                "toc": toc,
-            }),
-        },
-    ) {
+    let get = musicbrainz_http::send_get(&client, &url);
+    let response: serde_json::Value = match get.result {
         Ok(resp) if resp.status().is_success() => resp.json().unwrap_or(serde_json::Value::Null),
         Ok(resp) => {
             let status = resp.status();
@@ -114,25 +104,38 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
             activity_log::log(
                 LogLevel::Error,
                 "metadata.musicbrainz",
-                format!("MusicBrainz lookup failed with HTTP {status}"),
+                musicbrainz_http::format_http_error("MusicBrainz lookup", status, get.attempts),
                 Some(serde_json::json!({
                     "discId": disc_id,
                     "httpStatus": status.as_u16(),
+                    "attempts": get.attempts,
+                    "maxAttempts": musicbrainz_http::MAX_ATTEMPTS,
                     "toc": toc,
+                    "url": url,
                     "musicBrainzError": mb_error,
                 })),
             );
             return error_lookup(disc_id);
         }
         Err(err) => {
+            let message = musicbrainz_http::format_transport_error(
+                "MusicBrainz lookup",
+                &err,
+                METADATA_REQUEST_TIMEOUT,
+                get.attempts,
+            );
+            let mut details = musicbrainz_http::transport_error_details(
+                &err,
+                METADATA_REQUEST_TIMEOUT,
+                get.attempts,
+            );
+            details["discId"] = serde_json::json!(disc_id);
+            details["url"] = serde_json::json!(url);
             activity_log::log(
                 LogLevel::Error,
                 "metadata.musicbrainz",
-                "MusicBrainz lookup request failed",
-                Some(serde_json::json!({
-                    "discId": disc_id,
-                    "error": err.to_string(),
-                })),
+                message,
+                Some(details),
             );
             return error_lookup(disc_id);
         }

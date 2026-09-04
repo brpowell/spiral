@@ -14,7 +14,8 @@ import {
 const TRIGGER_MENU_GAP = 4;
 
 /** Put on scroll containers whose scroll should not dismiss context menus. */
-export const CONTEXT_MENU_IGNORE_SCROLL_ATTR = "data-context-menu-ignore-scroll";
+export const CONTEXT_MENU_IGNORE_SCROLL_ATTR =
+  "data-context-menu-ignore-scroll";
 
 type MenuAnchor = {
   x: number;
@@ -24,10 +25,7 @@ type MenuAnchor = {
 };
 
 export type ContextMenuTriggerPlacement =
-  | "below-end"
-  | "below-start"
-  | "above-end"
-  | "above-start";
+  "below-end" | "below-start" | "above-end" | "above-start";
 
 export type OpenContextMenuOptions = {
   /** Focus first item instead of the menu root (keyboard opens). */
@@ -165,7 +163,11 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
       closeMenu();
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeMenu();
+      if (e.key !== "Escape") return;
+      // Capture so a parent modal's bubble Escape listener does not also dismiss.
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      closeMenu();
     };
     const onScroll = (e: Event) => {
       const target = e.target;
@@ -191,13 +193,13 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
       closeMenu();
     };
     window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, true);
     if (closeOnScroll) {
       window.addEventListener("scroll", onScroll, true);
     }
     return () => {
       window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keydown", onKeyDown, true);
       if (closeOnScroll) {
         window.removeEventListener("scroll", onScroll, true);
       }

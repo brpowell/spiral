@@ -1,0 +1,106 @@
+.album-editor__art-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.album-editor__art-slot {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  width: 180px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  overflow: hidden;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-bg) 35%, transparent);
+}
+
+.album-editor__art-slot:hover,
+.album-editor__art-slot:focus-visible,
+.album-editor__art-slot[aria-expanded="true"] {
+  border-color: color-mix(
+    in srgb,
+    var(--color-accent) 55%,
+    var(--color-border)
+  );
+}
+
+.album-editor__art-slot:focus-visible {
+  outline-offset: 2px;
+}
+
+.album-editor__art-slot--drop-active {
+  border-style: dashed;
+  border-color: var(--color-accent);
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 8%,
+    var(--color-surface-raised)
+  );
+}
+
+.album-editor__art-slot-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--color-surface-raised);
+}
+
+.album-editor__art-slot-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  pointer-events: none;
+  transition: background-color 0.15s ease;
+}
+
+.album-editor__art-slot:hover .album-editor__art-slot-frame::after,
+.album-editor__art-slot[aria-expanded="true"]
+  .album-editor__art-slot-frame::after {
+  background: color-mix(in srgb, var(--color-bg) 18%, transparent);
+}
+
+.album-editor__art-slot-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.album-editor__art-slot-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+.album-editor__art-slot-placeholder .album-art__placeholder svg {
+  width: 45%;
+  height: 45%;
+}
+
+.album-editor__art-slot-label {
+  display: block;
+  padding: 0.4rem 0.55rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--color-text-secondary);
+}
+
+.album-editor__art-slot:hover .album-editor__art-slot-label,
+.album-editor__art-slot[aria-expanded="true"] .album-editor__art-slot-label {
+  color: var(--color-text-primary);
+}

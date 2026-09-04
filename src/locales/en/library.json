@@ -64,7 +64,17 @@
     "mixedValues": "Multiple values",
     "loadingDetails": "Loading details…",
     "addArt": "Add art",
+    "chooseFromFile": "Choose from file",
     "fetchArt": "Fetch Art",
+    "artTypes": {
+      "front": "Front"
+    },
+    "artSlotMenuAria": "{{type}} art",
+    "artPicker": {
+      "title": "Choose {{type}} art",
+      "optionsAria": "{{type}} art options",
+      "fetchFailed": "Couldn't fetch artwork."
+    },
     "fetchingArt": "Fetching…",
     "fetchingArtStatus": "Fetching artwork…",
     "coverOptions": "Cover art options",
@@ -80,9 +90,6 @@
     "discardArtist": "Unsaved edits to this artist will be lost.",
     "editTracks": "Edit {{count}} tracks",
     "editTracksDescription": "Changes apply to all {{count}} tracks.",
-    "editAlbum": "Edit album",
-    "editAlbumDescription_one": "Changes apply to all {{count}} track.",
-    "editAlbumDescription_other": "Changes apply to all {{count}} tracks.",
     "editArtist": "Edit artist",
     "artistImagesNote": "Artist images are stored separately from album art.",
     "artistRenameDescription_one": "Changes apply to all {{count}} track.",
@@ -93,7 +100,9 @@
     "fileNotFound": "{{title}}: File not found",
     "fileNotFoundSuffix": "File not found",
     "tabsAria": "Track editor sections",
+    "albumTabsAria": "Album editor sections",
     "tabDetails": "Details",
+    "tabArt": "Art",
     "tabLyrics": "Lyrics",
     "tabFile": "File",
     "of": "of",

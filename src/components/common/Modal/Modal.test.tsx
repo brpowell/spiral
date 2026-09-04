@@ -1,8 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { ReactNode, Ref } from "react";
+import { useRef, type ReactNode, type Ref } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { releasedOutsidePanel } from "../../../lib/modalBackdropDismiss";
 import { resetModalStack } from "../../../lib/modalStack";
+import { useContextMenu } from "../../../hooks/useContextMenu";
+import { ContextMenu, ContextMenuItem } from "../../ContextMenu/ContextMenu";
 import { Modal } from "./Modal";
 
 vi.mock("framer-motion", () => ({
@@ -144,5 +146,48 @@ describe("Modal nested dismiss", () => {
 
     expect(onCloseTop).toHaveBeenCalledTimes(1);
     expect(onCloseBottom).not.toHaveBeenCalled();
+  });
+
+  it("Escape closes an open context menu without dismissing the modal", () => {
+    const onClose = vi.fn();
+
+    function ModalWithMenu() {
+      const triggerRef = useRef<HTMLButtonElement>(null);
+      const { open, anchor, position, menuRef, toggleFromTrigger, closeMenu } =
+        useContextMenu();
+
+      return (
+        <Modal open onClose={onClose} labelledBy="editor-title">
+          <h2 id="editor-title">Editor</h2>
+          <button
+            ref={triggerRef}
+            type="button"
+            onClick={() =>
+              toggleFromTrigger(triggerRef.current, { keyboard: true })
+            }
+          >
+            Art
+          </button>
+          <ContextMenu
+            open={open}
+            anchor={anchor}
+            position={position}
+            menuRef={menuRef}
+            focusFirstItem
+          >
+            <ContextMenuItem label="Choose from file" onClick={closeMenu} />
+          </ContextMenu>
+        </Modal>
+      );
+    }
+
+    render(<ModalWithMenu />);
+    fireEvent.click(screen.getByRole("button", { name: "Art" }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("menuitem"), { key: "Escape" });
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 });

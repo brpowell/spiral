@@ -38,7 +38,10 @@ import {
 } from "../common/Modal/Modal";
 import { Button } from "../common/Button/Button";
 import { EntityArt } from "../EntityArt/EntityArt";
-import { TrackEditorDetailsTab } from "../TrackEditor/TrackEditorDetailsTab";
+import {
+  TrackEditorDetailsTab,
+  TrackEditorInlineArt,
+} from "../TrackEditor/TrackEditorDetailsTab";
 import "../TrackEditor/TrackEditor.css";
 
 export function CdTrackEditor() {
@@ -353,27 +356,31 @@ export function CdTrackEditor() {
             </ModalHeader>
 
             <ModalBody>
-              <TrackEditorDetailsTab
-                form={form}
-                tracks={tracks}
-                isBulk={isBulk}
-                previewSrc={previewSrc}
-                artDragOver={artDragOver}
-                fetchingArt={fetchingArt}
-                fetchMessage={fetchMessage}
-                coverCandidates={coverCandidates}
-                selectedCoverUrl={selectedCoverUrl}
-                onArtDragOver={setArtDragOver}
-                onArtDrop={(e) => void handleArtDrop(e)}
-                onChangeArt={() => void handleChangeArt()}
-                onFetchArt={() => void handleFetchArt()}
-                onSelectCover={handleSelectCover}
-                onFieldChange={setField}
-                onRatingChange={setRating}
-                artistSuggestions={artistSuggestions}
-                genreSuggestions={genreSuggestions}
-                albumSuggestions={albumSuggestions}
-              />
+              <div className="track-editor__body">
+                <TrackEditorInlineArt
+                  previewSrc={previewSrc}
+                  artDragOver={artDragOver}
+                  fetchingArt={fetchingArt}
+                  fetchMessage={fetchMessage}
+                  coverCandidates={coverCandidates}
+                  selectedCoverUrl={selectedCoverUrl}
+                  onArtDragOver={setArtDragOver}
+                  onArtDrop={(e) => void handleArtDrop(e)}
+                  onChangeArt={() => void handleChangeArt()}
+                  onFetchArt={() => void handleFetchArt()}
+                  onSelectCover={handleSelectCover}
+                />
+                <TrackEditorDetailsTab
+                  form={form}
+                  tracks={tracks}
+                  isBulk={isBulk}
+                  onFieldChange={setField}
+                  onRatingChange={setRating}
+                  artistSuggestions={artistSuggestions}
+                  genreSuggestions={genreSuggestions}
+                  albumSuggestions={albumSuggestions}
+                />
+              </div>
               {saveError ? (
                 <p className="track-editor__error" role="alert">
                   {saveError}

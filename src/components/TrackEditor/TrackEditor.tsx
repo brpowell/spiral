@@ -42,6 +42,7 @@ import {
 import { runLyricsFetchInBackground } from "../../lib/lyricsFetchToast";
 import { commitFetchedLyricsForTrack } from "../../lib/lyricsFetchCommit";
 import { showBulkTrackMetadataSaveToast } from "../../lib/trackMetadataToast";
+import { preloadCoverArtThumbs } from "../../lib/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -77,6 +78,8 @@ import {
 } from "../common/Modal/Modal";
 import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
 import { EntityArt } from "../EntityArt/EntityArt";
+import { AlbumArtPicker } from "../AlbumEditor/AlbumArtPicker";
+import { AlbumEditorArtTab } from "../AlbumEditor/AlbumEditorArtTab";
 import { TrackEditorDetailsTab } from "./TrackEditorDetailsTab";
 import { TrackEditorFileTab } from "./TrackEditorFileTab";
 import { TrackEditorLyricsTab } from "./TrackEditorLyricsTab";
@@ -216,6 +219,8 @@ export function TrackEditor() {
     LyricsSearchCandidate[]
   >([]);
   const [artDragOver, setArtDragOver] = useState(false);
+  const [artPickerOpen, setArtPickerOpen] = useState(false);
+  const artFetchGenRef = useRef(0);
 
   const isOpen =
     editingTrackIds.length > 0 && tracks.length > 0 && form != null;
@@ -257,6 +262,8 @@ export function TrackEditor() {
     setCoverCandidates([]);
     setSelectedCoverUrl(null);
     setFetchMessage(null);
+    setArtPickerOpen(false);
+    artFetchGenRef.current += 1;
     setSaveError(null);
     setDiscardPrompt(false);
     finish();
@@ -578,12 +585,21 @@ export function TrackEditor() {
 
   useArtFileDrop(isOpen && !!referenceTrack, applyArtPath);
 
+  const closeArtPicker = () => {
+    artFetchGenRef.current += 1;
+    setArtPickerOpen(false);
+    setFetchingArt(false);
+    setCoverCandidates([]);
+    setFetchMessage(null);
+  };
+
   const handleFetchArt = async () => {
     if (!form) return;
+    const gen = ++artFetchGenRef.current;
+    setArtPickerOpen(true);
     setFetchingArt(true);
     setFetchMessage(null);
     setCoverCandidates([]);
-    setSelectedCoverUrl(null);
     setSaveError(null);
     try {
       const primaryArtist =
@@ -591,16 +607,19 @@ export function TrackEditor() {
         parseArtistField(form.albumArtist)[0] ??
         form.artist;
       const candidates = await fetchCoverArt(primaryArtist, form.album);
+      if (gen !== artFetchGenRef.current) return;
       if (candidates.length === 0) {
         setFetchMessage(t("library:editor.noArtResults"));
       } else {
+        await preloadCoverArtThumbs(candidates);
+        if (gen !== artFetchGenRef.current) return;
         setCoverCandidates(candidates);
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setSaveError(message);
+    } catch {
+      if (gen !== artFetchGenRef.current) return;
+      setFetchMessage(t("library:editor.artPicker.fetchFailed"));
     } finally {
-      setFetchingArt(false);
+      if (gen === artFetchGenRef.current) setFetchingArt(false);
     }
   };
 
@@ -608,6 +627,9 @@ export function TrackEditor() {
     setSaveError(null);
     setSelectedCoverUrl(url);
     setArtSourcePath(null);
+    setArtPickerOpen(false);
+    setCoverCandidates([]);
+    setFetchMessage(null);
   };
 
   const resolveArtPathForTrack = async (
@@ -789,7 +811,7 @@ export function TrackEditor() {
     <Modal
       open={isOpen}
       onClose={handleBackdropClick}
-      dismissible={!saving}
+      dismissible={!saving && !artPickerOpen}
       size="editor"
       panelClassName="track-editor-modal"
       panelRef={dialogRef}
@@ -858,6 +880,7 @@ export function TrackEditor() {
                 <div className="track-editor__tab-bar">
                   <TabList aria-label={t("library:editor.tabsAria")}>
                     <Tab value="details">{t("library:editor.tabDetails")}</Tab>
+                    <Tab value="art">{t("library:editor.tabArt")}</Tab>
                     <Tab value="lyrics" badge={hasLyrics ? "•" : undefined}>
                       {t("library:editor.tabLyrics")}
                     </Tab>
@@ -877,22 +900,23 @@ export function TrackEditor() {
                         form={form}
                         tracks={tracks}
                         isBulk={isBulk}
-                        previewSrc={previewSrc}
-                        artDragOver={artDragOver}
-                        fetchingArt={fetchingArt}
-                        fetchMessage={fetchMessage}
-                        coverCandidates={coverCandidates}
-                        selectedCoverUrl={selectedCoverUrl}
-                        onArtDragOver={setArtDragOver}
-                        onArtDrop={(e) => void handleArtDrop(e)}
-                        onChangeArt={() => void handleChangeArt()}
-                        onFetchArt={() => void handleFetchArt()}
-                        onSelectCover={handleSelectCover}
                         onFieldChange={setField}
                         onRatingChange={setRating}
                         artistSuggestions={artistSuggestions}
                         genreSuggestions={genreSuggestions}
                         albumSuggestions={albumSuggestions}
+                      />
+                    </TabPanel>
+
+                    <TabPanel value="art" className="track-editor__tab-panel">
+                      <AlbumEditorArtTab
+                        previewSrc={previewSrc}
+                        artDragOver={artDragOver}
+                        fetchingArt={fetchingArt}
+                        onArtDragOver={setArtDragOver}
+                        onArtDrop={(e) => void handleArtDrop(e)}
+                        onChangeArt={() => void handleChangeArt()}
+                        onFetchArt={() => void handleFetchArt()}
                       />
                     </TabPanel>
 
@@ -953,6 +977,24 @@ export function TrackEditor() {
             description={discardDescription}
             onKeepEditing={dismissDiscardPrompt}
             onDiscard={closeTrackEditor}
+          />
+
+          <AlbumArtPicker
+            open={artPickerOpen}
+            artType="front"
+            subtitle={[
+              form.albumArtist.trim() ||
+                parseArtistField(form.artist).join(", "),
+              form.album.trim(),
+            ]
+              .filter(Boolean)
+              .join(" • ")}
+            candidates={coverCandidates}
+            selectedUrl={selectedCoverUrl}
+            fetching={fetchingArt}
+            fetchMessage={fetchMessage}
+            onSelect={handleSelectCover}
+            onClose={closeArtPicker}
           />
 
           <LyricsCandidatePicker

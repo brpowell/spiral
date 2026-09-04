@@ -77,7 +77,7 @@ import type { CrossfadeVisualState } from "../lib/playback";
 import type { PlaybackState, RepeatMode, Track } from "../types/track";
 import { playOrResume } from "../lib/playbackStart";
 
-export type TrackEditorTab = "details" | "file" | "lyrics";
+export type TrackEditorTab = "details" | "art" | "file" | "lyrics";
 
 interface PlayerState {
   library: Track[];

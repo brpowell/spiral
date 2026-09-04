@@ -1,29 +1,105 @@
 //! Shared MusicBrainz HTTP helpers: user-agent and retry on transient errors.
 //!
-//! MusicBrainz often answers a brief 503 (cold start / overload) and then
-//! succeeds on an immediate retry. Retries stay inside the same lookup so the
-//! background toast copy is unchanged; each attempt is logged.
+//! MusicBrainz cold start / overload often surfaces as a brief 503 *or* a hung
+//! connection that times out; both usually succeed on the next attempt. Retries
+//! stay inside the same lookup (toast copy unchanged) and are not logged unless
+//! the caller reports a final failure.
 
+use std::error::Error as StdError;
 use std::time::Duration;
-
-use crate::activity_log::{self, LogLevel};
 
 /// Total attempts including the first request (two retries after a 503).
 pub const MAX_ATTEMPTS: u32 = 3;
 const BASE_RETRY_DELAY: Duration = Duration::from_secs(1);
 const MAX_RETRY_DELAY: Duration = Duration::from_secs(5);
 
-pub struct RetryContext<'a> {
-    pub log_domain: &'a str,
-    pub operation: &'a str,
-    pub details: serde_json::Value,
+/// One GET, including any silent retries.
+pub struct GetAttempt {
+    pub attempts: u32,
+    pub result: Result<reqwest::blocking::Response, reqwest::Error>,
 }
 
-pub fn is_retryable_status(status: reqwest::StatusCode) -> bool {
+fn is_retryable_status(status: reqwest::StatusCode) -> bool {
     matches!(status.as_u16(), 429 | 502 | 503 | 504)
 }
 
-pub fn delay_for_attempt(attempt: u32, retry_after: Option<Duration>) -> Duration {
+fn is_retryable_transport(err: &reqwest::Error) -> bool {
+    err.is_timeout() || err.is_connect()
+}
+
+fn reqwest_error_kind(err: &reqwest::Error) -> &'static str {
+    if err.is_timeout() {
+        "timeout"
+    } else if err.is_connect() {
+        "connect"
+    } else if err.is_request() {
+        "request"
+    } else if err.is_body() {
+        "body"
+    } else if err.is_decode() {
+        "decode"
+    } else if err.is_status() {
+        "status"
+    } else {
+        "other"
+    }
+}
+
+pub fn format_transport_error(
+    operation: &str,
+    err: &reqwest::Error,
+    timeout: Duration,
+    attempts: u32,
+) -> String {
+    let message = if err.is_timeout() {
+        format!("{operation} timed out after {} seconds", timeout.as_secs())
+    } else if err.is_connect() {
+        format!("{operation} connection failed: {err}")
+    } else if let Some(status) = err.status() {
+        format!("{operation} failed with HTTP {}", status.as_u16())
+    } else {
+        format!("{operation} failed ({}): {err}", reqwest_error_kind(err))
+    };
+    with_attempt_suffix(message, attempts)
+}
+
+pub fn format_http_error(operation: &str, status: reqwest::StatusCode, attempts: u32) -> String {
+    with_attempt_suffix(format!("{operation} failed with HTTP {status}"), attempts)
+}
+
+fn with_attempt_suffix(message: String, attempts: u32) -> String {
+    if attempts > 1 {
+        format!("{message} ({attempts} attempts)")
+    } else {
+        message
+    }
+}
+
+pub fn transport_error_details(
+    err: &reqwest::Error,
+    timeout: Duration,
+    attempts: u32,
+) -> serde_json::Value {
+    let mut details = serde_json::json!({
+        "errorKind": reqwest_error_kind(err),
+        "errorDetail": err.to_string(),
+        "timeoutSecs": timeout.as_secs(),
+        "attempts": attempts,
+        "maxAttempts": MAX_ATTEMPTS,
+    });
+    if let Some(status) = err.status() {
+        details["httpStatus"] = serde_json::json!(status.as_u16());
+    }
+    if let Some(url) = err.url() {
+        details["url"] = serde_json::json!(url.to_string());
+    }
+    if let Some(source) = StdError::source(err) {
+        details["source"] = serde_json::json!(source.to_string());
+    }
+    details
+}
+
+fn delay_for_attempt(attempt: u32, retry_after: Option<Duration>) -> Duration {
     if let Some(after) = retry_after {
         if !after.is_zero() && after <= MAX_RETRY_DELAY {
             return after;
@@ -34,7 +110,7 @@ pub fn delay_for_attempt(attempt: u32, retry_after: Option<Duration>) -> Duratio
         .min(MAX_RETRY_DELAY)
 }
 
-pub fn retry_after_header(headers: &reqwest::header::HeaderMap) -> Option<Duration> {
+fn retry_after_header(headers: &reqwest::header::HeaderMap) -> Option<Duration> {
     let raw = headers
         .get(reqwest::header::RETRY_AFTER)?
         .to_str()
@@ -43,51 +119,38 @@ pub fn retry_after_header(headers: &reqwest::header::HeaderMap) -> Option<Durati
     raw.parse::<u64>().ok().map(Duration::from_secs)
 }
 
-/// GET with retries on 429 / 502 / 503 / 504. Transport errors are not retried
-/// so a request timeout cannot stretch into several minutes.
-pub fn send_get(
-    client: &reqwest::blocking::Client,
-    url: &str,
-    retry: RetryContext<'_>,
-) -> Result<reqwest::blocking::Response, reqwest::Error> {
+/// GET with silent retries on 429 / 502 / 503 / 504 and on connect/timeout errors.
+pub fn send_get(client: &reqwest::blocking::Client, url: &str) -> GetAttempt {
     let mut attempt = 0u32;
     loop {
-        let response = client.get(url).send()?;
-        if is_retryable_status(response.status()) && attempt + 1 < MAX_ATTEMPTS {
-            let status = response.status();
-            let retry_after = retry_after_header(response.headers());
-            let delay = delay_for_attempt(attempt, retry_after);
-            log_retry(&retry, status, attempt, delay);
-            drop(response);
-            sleep_retry(delay);
-            attempt += 1;
-            continue;
+        match client.get(url).send() {
+            Ok(response) => {
+                if is_retryable_status(response.status()) && attempt + 1 < MAX_ATTEMPTS {
+                    let retry_after = retry_after_header(response.headers());
+                    let delay = delay_for_attempt(attempt, retry_after);
+                    drop(response);
+                    sleep_retry(delay);
+                    attempt += 1;
+                    continue;
+                }
+                return GetAttempt {
+                    attempts: attempt + 1,
+                    result: Ok(response),
+                };
+            }
+            Err(err) if is_retryable_transport(&err) && attempt + 1 < MAX_ATTEMPTS => {
+                let delay = delay_for_attempt(attempt, None);
+                sleep_retry(delay);
+                attempt += 1;
+            }
+            Err(err) => {
+                return GetAttempt {
+                    attempts: attempt + 1,
+                    result: Err(err),
+                };
+            }
         }
-        return Ok(response);
     }
-}
-
-fn log_retry(retry: &RetryContext<'_>, status: reqwest::StatusCode, attempt: u32, delay: Duration) {
-    let mut details = retry.details.clone();
-    if let serde_json::Value::Object(map) = &mut details {
-        map.insert("httpStatus".into(), status.as_u16().into());
-        map.insert("attempt".into(), (attempt + 1).into());
-        map.insert("maxAttempts".into(), MAX_ATTEMPTS.into());
-        map.insert(
-            "retryDelayMs".into(),
-            u64::try_from(delay.as_millis()).unwrap_or(u64::MAX).into(),
-        );
-    }
-    activity_log::log(
-        LogLevel::Warn,
-        retry.log_domain,
-        format!(
-            "{} returned HTTP {status}, retrying in {}ms",
-            retry.operation,
-            delay.as_millis()
-        ),
-        Some(details),
-    );
 }
 
 fn sleep_retry(delay: Duration) {
@@ -118,14 +181,6 @@ mod tests {
             .timeout(Duration::from_secs(5))
             .build()
             .expect("client")
-    }
-
-    fn retry_ctx() -> RetryContext<'static> {
-        RetryContext {
-            log_domain: "metadata.musicbrainz",
-            operation: "MusicBrainz lookup",
-            details: serde_json::json!({ "discId": "test-disc" }),
-        }
     }
 
     fn spawn_sequence(
@@ -216,7 +271,7 @@ mod tests {
     fn retries_after_503_then_succeeds() {
         let (url, hits, handle) =
             spawn_sequence(vec![(503, "busy", None), (200, r#"{"releases":[]}"#, None)]);
-        let response = send_get(&client(), &url, retry_ctx()).expect("request");
+        let response = send_get(&client(), &url).result.expect("request");
         assert!(response.status().is_success());
         let body: serde_json::Value = response.json().expect("json");
         assert!(body.get("releases").and_then(|v| v.as_array()).is_some());
@@ -227,7 +282,7 @@ mod tests {
     #[test]
     fn does_not_retry_client_errors() {
         let (url, hits, handle) = spawn_sequence(vec![(404, "missing", None)]);
-        let response = send_get(&client(), &url, retry_ctx()).expect("request");
+        let response = send_get(&client(), &url).result.expect("request");
         assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
         handle.join().expect("server thread");
         assert_eq!(hits.load(Ordering::SeqCst), 1);
@@ -240,9 +295,138 @@ mod tests {
             (503, "busy", None),
             (503, "busy", None),
         ]);
-        let response = send_get(&client(), &url, retry_ctx()).expect("request");
+        let got = send_get(&client(), &url);
+        let attempts = got.attempts;
+        let response = got.result.expect("request");
         assert_eq!(response.status(), reqwest::StatusCode::SERVICE_UNAVAILABLE);
         handle.join().expect("server thread");
         assert_eq!(hits.load(Ordering::SeqCst), MAX_ATTEMPTS);
+        assert_eq!(attempts, MAX_ATTEMPTS);
+    }
+
+    fn client_with_timeout(timeout: Duration) -> reqwest::blocking::Client {
+        reqwest::blocking::Client::builder()
+            .user_agent(crate::USER_AGENT)
+            .timeout(timeout)
+            .build()
+            .expect("client")
+    }
+
+    fn spawn_hang_then_http(
+        hang_count: u32,
+        body: &'static str,
+    ) -> (String, Arc<AtomicU32>, thread::JoinHandle<()>) {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().expect("addr");
+        let hits = Arc::new(AtomicU32::new(0));
+        let hits_for_thread = hits.clone();
+        let handle = thread::spawn(move || {
+            for _ in 0..hang_count {
+                let Ok((stream, _)) = listener.accept() else {
+                    return;
+                };
+                hits_for_thread.fetch_add(1, Ordering::SeqCst);
+                thread::spawn(move || {
+                    thread::sleep(Duration::from_secs(30));
+                    drop(stream);
+                });
+            }
+            let Ok((mut stream, _)) = listener.accept() else {
+                return;
+            };
+            hits_for_thread.fetch_add(1, Ordering::SeqCst);
+            let mut buf = [0u8; 1024];
+            let _ = stream.read(&mut buf);
+            let header = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            let _ = stream.write_all(header.as_bytes());
+            let _ = stream.write_all(body.as_bytes());
+        });
+        (format!("http://{addr}/"), hits, handle)
+    }
+
+    fn spawn_hangs(count: u32) -> (String, Arc<AtomicU32>, thread::JoinHandle<()>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let addr = listener.local_addr().expect("addr");
+        let hits = Arc::new(AtomicU32::new(0));
+        let hits_for_thread = hits.clone();
+        let handle = thread::spawn(move || {
+            for _ in 0..count {
+                let Ok((stream, _)) = listener.accept() else {
+                    return;
+                };
+                hits_for_thread.fetch_add(1, Ordering::SeqCst);
+                thread::spawn(move || {
+                    thread::sleep(Duration::from_secs(30));
+                    drop(stream);
+                });
+            }
+        });
+        (format!("http://{addr}/"), hits, handle)
+    }
+
+    #[test]
+    fn retries_after_timeout_then_succeeds() {
+        let (url, hits, handle) = spawn_hang_then_http(1, r#"{"releases":[]}"#);
+        let response = send_get(&client_with_timeout(Duration::from_millis(200)), &url)
+            .result
+            .expect("request");
+        assert!(response.status().is_success());
+        handle.join().expect("server thread");
+        assert_eq!(hits.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn exhausts_retries_on_persistent_timeout() {
+        let (url, hits, handle) = spawn_hangs(MAX_ATTEMPTS);
+        let got = send_get(&client_with_timeout(Duration::from_millis(200)), &url);
+        let err = got.result.expect_err("should time out");
+        assert!(err.is_timeout(), "unexpected error: {err}");
+        handle.join().expect("server thread");
+        assert_eq!(hits.load(Ordering::SeqCst), MAX_ATTEMPTS);
+        assert_eq!(got.attempts, MAX_ATTEMPTS);
+    }
+
+    #[test]
+    fn format_transport_error_names_timeout_and_connect() {
+        let err = client_with_timeout(Duration::from_millis(1))
+            .get("http://127.0.0.1:1")
+            .send()
+            .expect_err("request should fail");
+        let message = format_transport_error(
+            "MusicBrainz release search",
+            &err,
+            Duration::from_secs(10),
+            1,
+        );
+        assert!(
+            message.contains("timed out") || message.contains("connection failed"),
+            "unexpected message: {message}"
+        );
+        assert!(
+            !message.contains("attempts"),
+            "single attempt should not mention retries: {message}"
+        );
+        let retried = format_transport_error(
+            "MusicBrainz release search",
+            &err,
+            Duration::from_secs(10),
+            3,
+        );
+        assert!(
+            retried.contains("(3 attempts)"),
+            "unexpected retried message: {retried}"
+        );
+        let details = transport_error_details(&err, Duration::from_secs(10), 3);
+        assert_eq!(
+            details["errorKind"].as_str().unwrap(),
+            reqwest_error_kind(&err)
+        );
+        assert_eq!(details["timeoutSecs"], 10);
     }
 }

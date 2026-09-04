@@ -157,6 +157,14 @@ export type TrackEditorDetailsTabProps = {
   form: TrackEditorForm;
   tracks: Track[];
   isBulk: boolean;
+  onFieldChange: (field: TrackEditorFormField, value: string) => void;
+  onRatingChange: (rating: number) => void;
+  artistSuggestions: string[];
+  genreSuggestions: string[];
+  albumSuggestions: string[];
+};
+
+export type TrackEditorInlineArtProps = {
   previewSrc: string | null;
   artDragOver: boolean;
   fetchingArt: boolean;
@@ -168,17 +176,10 @@ export type TrackEditorDetailsTabProps = {
   onChangeArt: () => void;
   onFetchArt: () => void;
   onSelectCover: (url: string) => void;
-  onFieldChange: (field: TrackEditorFormField, value: string) => void;
-  onRatingChange: (rating: number) => void;
-  artistSuggestions: string[];
-  genreSuggestions: string[];
-  albumSuggestions: string[];
 };
 
-export function TrackEditorDetailsTab({
-  form,
-  tracks,
-  isBulk,
+/** Old inline art column — still used by the CD track editor. */
+export function TrackEditorInlineArt({
   previewSrc,
   artDragOver,
   fetchingArt,
@@ -190,6 +191,91 @@ export function TrackEditorDetailsTab({
   onChangeArt,
   onFetchArt,
   onSelectCover,
+}: TrackEditorInlineArtProps) {
+  const { t } = useTranslation("library");
+  return (
+    <div className="track-editor__art-col">
+      <div
+        data-art-drop-zone
+        className={
+          artDragOver
+            ? "track-editor__art-drop track-editor__art-drop--active"
+            : "track-editor__art-drop"
+        }
+        onDragOver={(e) => {
+          e.preventDefault();
+          onArtDragOver(true);
+        }}
+        onDragLeave={() => onArtDragOver(false)}
+        onDrop={onArtDrop}
+      >
+        {previewSrc ? (
+          <img src={previewSrc} alt="" className="track-editor__art-img" />
+        ) : (
+          <EntityArt artPath={null} className="track-editor__art-placeholder" />
+        )}
+      </div>
+      <Button size="sm" className="track-editor__art-btn" onClick={onChangeArt}>
+        {t("editor.addArt")}
+      </Button>
+      <Button
+        size="sm"
+        className="track-editor__art-btn"
+        onClick={onFetchArt}
+        disabled={fetchingArt}
+      >
+        {fetchingArt ? t("editor.fetchingArt") : t("editor.fetchArt")}
+      </Button>
+      {fetchMessage && !fetchingArt && (
+        <p className="track-editor__fetch-msg">{fetchMessage}</p>
+      )}
+      {fetchingArt && (
+        <div
+          className="track-editor__fetching"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="track-editor__fetching-spinner" aria-hidden />
+          <span>{t("editor.fetchingArtStatus")}</span>
+        </div>
+      )}
+      {coverCandidates.length > 0 && (
+        <div
+          className="track-editor__cover-picker"
+          aria-label={t("editor.coverOptions")}
+        >
+          {coverCandidates.map((candidate) => {
+            const thumbSrc = candidate.thumbnailUrl ?? candidate.url;
+
+            return (
+              <button
+                key={candidate.url}
+                type="button"
+                className={
+                  selectedCoverUrl === candidate.url
+                    ? "track-editor__cover-option track-editor__cover-option--selected"
+                    : "track-editor__cover-option"
+                }
+                onClick={() => onSelectCover(candidate.url)}
+                aria-pressed={selectedCoverUrl === candidate.url}
+              >
+                <span className="track-editor__cover-thumb">
+                  <img src={thumbSrc} alt="" loading="lazy" />
+                </span>
+                <CoverOptionMeta candidate={candidate} />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function TrackEditorDetailsTab({
+  form,
+  tracks,
+  isBulk,
   onFieldChange,
   onRatingChange,
   artistSuggestions,
@@ -198,175 +284,90 @@ export function TrackEditorDetailsTab({
 }: TrackEditorDetailsTabProps) {
   const { t } = useTranslation("library");
   return (
-    <div className="track-editor__body">
-      <div className="track-editor__art-col">
-        <div
-          data-art-drop-zone
-          className={
-            artDragOver
-              ? "track-editor__art-drop track-editor__art-drop--active"
-              : "track-editor__art-drop"
+    <div className="track-editor__fields">
+      <TrackEditorField
+        label={t("editor.fields.title")}
+        field="title"
+        form={form}
+        tracks={tracks}
+        isBulk={isBulk}
+        onChange={onFieldChange}
+      />
+      <FormField label={t("editor.fields.artist")}>
+        <ArtistChipField
+          value={form.artist}
+          onChange={(value) => onFieldChange("artist", value)}
+          placeholder={
+            isBulk ? mixedFieldPlaceholder(tracks, "artist", form) : undefined
           }
-          onDragOver={(e) => {
-            e.preventDefault();
-            onArtDragOver(true);
-          }}
-          onDragLeave={() => onArtDragOver(false)}
-          onDrop={onArtDrop}
-        >
-          {previewSrc ? (
-            <img src={previewSrc} alt="" className="track-editor__art-img" />
-          ) : (
-            <EntityArt
-              artPath={null}
-              className="track-editor__art-placeholder"
-            />
-          )}
-        </div>
-        <Button
-          size="sm"
-          className="track-editor__art-btn"
-          onClick={onChangeArt}
-        >
-          {t("editor.addArt")}
-        </Button>
-        <Button
-          size="sm"
-          className="track-editor__art-btn"
-          onClick={onFetchArt}
-          disabled={fetchingArt}
-        >
-          {fetchingArt ? t("editor.fetchingArt") : t("editor.fetchArt")}
-        </Button>
-        {fetchMessage && !fetchingArt && (
-          <p className="track-editor__fetch-msg">{fetchMessage}</p>
-        )}
-        {fetchingArt && (
-          <div
-            className="track-editor__fetching"
-            role="status"
-            aria-live="polite"
-          >
-            <span className="track-editor__fetching-spinner" aria-hidden />
-            <span>{t("editor.fetchingArtStatus")}</span>
-          </div>
-        )}
-        {coverCandidates.length > 0 && (
-          <div
-            className="track-editor__cover-picker"
-            aria-label={t("editor.coverOptions")}
-          >
-            {coverCandidates.map((candidate) => {
-              const thumbSrc = candidate.thumbnailUrl ?? candidate.url;
-
-              return (
-                <button
-                  key={candidate.url}
-                  type="button"
-                  className={
-                    selectedCoverUrl === candidate.url
-                      ? "track-editor__cover-option track-editor__cover-option--selected"
-                      : "track-editor__cover-option"
-                  }
-                  onClick={() => onSelectCover(candidate.url)}
-                  aria-pressed={selectedCoverUrl === candidate.url}
-                >
-                  <span className="track-editor__cover-thumb">
-                    <img src={thumbSrc} alt="" loading="lazy" />
-                  </span>
-                  <CoverOptionMeta candidate={candidate} />
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <div className="track-editor__fields">
-        <TrackEditorField
-          label={t("editor.fields.title")}
-          field="title"
-          form={form}
-          tracks={tracks}
-          isBulk={isBulk}
-          onChange={onFieldChange}
+          suggestions={artistSuggestions}
+          inputAriaLabel={t("editor.artistAria")}
         />
-        <FormField label={t("editor.fields.artist")}>
-          <ArtistChipField
-            value={form.artist}
-            onChange={(value) => onFieldChange("artist", value)}
-            placeholder={
-              isBulk ? mixedFieldPlaceholder(tracks, "artist", form) : undefined
-            }
-            suggestions={artistSuggestions}
-            inputAriaLabel={t("editor.artistAria")}
+      </FormField>
+      <TrackEditorField
+        label={t("editor.fields.album")}
+        field="album"
+        form={form}
+        tracks={tracks}
+        isBulk={isBulk}
+        onChange={onFieldChange}
+        suggestions={albumSuggestions}
+      />
+      <TrackEditorField
+        label={t("editor.fields.albumArtist")}
+        field="albumArtist"
+        form={form}
+        tracks={tracks}
+        isBulk={isBulk}
+        onChange={onFieldChange}
+        suggestions={artistSuggestions}
+      />
+      <TrackEditorField
+        label={t("editor.fields.year")}
+        field="year"
+        type="number"
+        min={1}
+        form={form}
+        tracks={tracks}
+        isBulk={isBulk}
+        onChange={onFieldChange}
+      />
+      <TrackEditorNumberPairField
+        label={t("editor.fields.trackNumber")}
+        numberField="trackNumber"
+        totalField="totalTracks"
+        form={form}
+        tracks={tracks}
+        isBulk={isBulk}
+        onChange={onFieldChange}
+      />
+      <TrackEditorNumberPairField
+        label={t("editor.fields.discNumber")}
+        numberField="discNumber"
+        totalField="totalDiscs"
+        form={form}
+        tracks={tracks}
+        isBulk={isBulk}
+        onChange={onFieldChange}
+      />
+      <TrackEditorField
+        label={t("editor.fields.genre")}
+        field="genre"
+        form={form}
+        tracks={tracks}
+        isBulk={isBulk}
+        onChange={onFieldChange}
+        suggestions={genreSuggestions}
+      />
+      {!isBulk ? (
+        <FormField label={t("editor.fields.rating")}>
+          <TrackRating
+            value={form.rating}
+            size="comfortable"
+            onChange={onRatingChange}
           />
         </FormField>
-        <TrackEditorField
-          label={t("editor.fields.album")}
-          field="album"
-          form={form}
-          tracks={tracks}
-          isBulk={isBulk}
-          onChange={onFieldChange}
-          suggestions={albumSuggestions}
-        />
-        <TrackEditorField
-          label={t("editor.fields.albumArtist")}
-          field="albumArtist"
-          form={form}
-          tracks={tracks}
-          isBulk={isBulk}
-          onChange={onFieldChange}
-          suggestions={artistSuggestions}
-        />
-        <TrackEditorField
-          label={t("editor.fields.year")}
-          field="year"
-          type="number"
-          min={1}
-          form={form}
-          tracks={tracks}
-          isBulk={isBulk}
-          onChange={onFieldChange}
-        />
-        <TrackEditorNumberPairField
-          label={t("editor.fields.trackNumber")}
-          numberField="trackNumber"
-          totalField="totalTracks"
-          form={form}
-          tracks={tracks}
-          isBulk={isBulk}
-          onChange={onFieldChange}
-        />
-        <TrackEditorNumberPairField
-          label={t("editor.fields.discNumber")}
-          numberField="discNumber"
-          totalField="totalDiscs"
-          form={form}
-          tracks={tracks}
-          isBulk={isBulk}
-          onChange={onFieldChange}
-        />
-        <TrackEditorField
-          label={t("editor.fields.genre")}
-          field="genre"
-          form={form}
-          tracks={tracks}
-          isBulk={isBulk}
-          onChange={onFieldChange}
-          suggestions={genreSuggestions}
-        />
-        {!isBulk ? (
-          <FormField label={t("editor.fields.rating")}>
-            <TrackRating
-              value={form.rating}
-              size="comfortable"
-              onChange={onRatingChange}
-            />
-          </FormField>
-        ) : null}
-      </div>
+      ) : null}
     </div>
   );
 }
