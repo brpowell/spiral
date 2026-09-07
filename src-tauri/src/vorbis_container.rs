@@ -11,6 +11,7 @@ use lofty::tag::{ItemKey, ItemValue, Tag, TagItem};
 
 use crate::artist_tags::{join_artist_field, parse_artist_field};
 use crate::lyrics_tags;
+use crate::mbid_tags;
 use crate::metadata_reader::BasicTags;
 use crate::metadata_writer::MetadataWriteError;
 use crate::models::TrackMetadataUpdate;
@@ -89,6 +90,7 @@ pub fn read_vorbis_container_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, S
     tags.genre = tag.genre().map(|s| s.to_string());
     tags.rating = rating_tags::read_vorbis_rating(tag);
     tags.lyrics = lyrics_tags::read_lyrics_from_vorbis(tag);
+    tags.apply_mbids(mbid_tags::read_vorbis_mbids(tag));
 
     if let Some(duration) = duration_from_properties(&tagged) {
         tags.duration_seconds = Some(duration);
@@ -207,6 +209,8 @@ pub fn write_vorbis_container_tag(
             lyrics_tags::lyrics_text_for_embed(metadata, lyrics_tags::LyricsEmbedKind::SyncCapable);
         lyrics_tags::apply_lyrics_to_vorbis(tag, &text, remove);
     }
+
+    mbid_tags::apply_mbids_to_vorbis(tag, &mbid_tags::FileMbids::from_metadata(metadata));
 
     tagged
         .save_to_path(target, WriteOptions::default())

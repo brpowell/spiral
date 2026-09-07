@@ -29,7 +29,7 @@
     "title": "Duplicate track during import",
     "incoming": "Incoming",
     "inLibrary": "In library",
-    "notRipped": "Not ripped yet",
+    "notRipped": "?",
     "lyrics": "Lyrics",
     "replaceNote": "Replacing this file will keep the original play count, rating, and playlist entries.",
     "replaceLyrics": "Replace lyrics with incoming",

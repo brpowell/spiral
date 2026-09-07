@@ -1,5 +1,5 @@
 import { isCdTrackListId } from "./cdTracks";
-import type { Track, TrackInput } from "../types/track";
+import { mbidFieldsFrom, type Track, type TrackInput } from "../types/track";
 
 let nextPendingId = -1;
 
@@ -57,5 +57,6 @@ export function pendingTrackFromInput(
     rating: input.rating ?? 0,
     importStatus: "importing",
     importSourcePath: sourcePath,
+    ...mbidFieldsFrom(input),
   };
 }

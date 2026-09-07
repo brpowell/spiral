@@ -225,7 +225,7 @@ describe("fetchAlbumArtPreferringRelease", () => {
     );
   });
 
-  it("logs a MusicBrainz search URL when CD auto-fetch has no release MBID", async () => {
+  it("logs a MusicBrainz release-group search URL when CD auto-fetch has no release MBID", async () => {
     fetchCoverArt.mockResolvedValue([candidate("https://caa/search.jpg")]);
     cacheArtFromUrl.mockResolvedValue({
       path: "/tmp/search.jpg",
@@ -250,7 +250,7 @@ describe("fetchAlbumArtPreferringRelease", () => {
         message: "Fetching cover art for CD 'Unknown Pleasures'",
         details: expect.objectContaining({
           queryUrl: expect.stringContaining(
-            "https://musicbrainz.org/ws/2/release?query=",
+            "https://musicbrainz.org/ws/2/release-group?query=",
           ),
           driveId: "disk4",
           discId: "disc-1",

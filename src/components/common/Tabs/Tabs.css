@@ -7,6 +7,7 @@
 .tabs__list {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 0.35rem;
   margin: 0;
   padding: 0;
@@ -16,6 +17,9 @@
 .tabs__tab {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-start;
+  flex: none;
+  width: auto;
   gap: 0.35rem;
   margin: 0;
   padding: 0.4rem 0.65rem;
@@ -25,11 +29,16 @@
   font: inherit;
   font-size: 0.85rem;
   color: var(--color-text-primary);
+  text-align: left;
   cursor: pointer;
 }
 
 .tabs__tab:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+  border-color: color-mix(
+    in srgb,
+    var(--color-accent) 50%,
+    var(--color-border)
+  );
 }
 
 .tabs__tab:focus-visible {
@@ -92,6 +101,7 @@
 .tabs__indicator {
   position: absolute;
   bottom: 0;
+  z-index: 1;
   height: 2px;
   background: var(--color-accent);
   pointer-events: none;

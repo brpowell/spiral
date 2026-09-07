@@ -18,10 +18,11 @@ import {
 } from "../common/Modal/Modal";
 import "./AlbumArtPicker.css";
 
-export type AlbumArtType = "front";
+export type AlbumArtType = "front" | "portrait";
 
-const ART_TYPE_LABEL_KEY = {
+export const ART_TYPE_LABEL_KEY = {
   front: "editor.artTypes.front",
+  portrait: "editor.artTypes.portrait",
 } as const;
 
 function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
@@ -67,7 +68,7 @@ function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
   );
 }
 
-function CoverThumb({ src }: { src: string }) {
+function CoverThumb({ src, round }: { src: string; round?: boolean }) {
   const imgRef = useRef<HTMLImageElement>(null);
   const [loaded, setLoaded] = useState(() => isCoverArtThumbReady(src));
 
@@ -77,7 +78,13 @@ function CoverThumb({ src }: { src: string }) {
   }, [src]);
 
   return (
-    <span className="album-art-picker__thumb">
+    <span
+      className={
+        round
+          ? "album-art-picker__thumb album-art-picker__thumb--round"
+          : "album-art-picker__thumb"
+      }
+    >
       <img
         ref={imgRef}
         src={src}
@@ -128,7 +135,7 @@ export function AlbumArtPicker({
       panelRef={panelRef}
       labelledBy="album-art-picker-title"
     >
-      <ModalHeader>
+      <ModalHeader fade>
         <ModalHeaderMain>
           <ModalTitle id="album-art-picker-title">
             {t("editor.artPicker.title", { type: typeLabel })}
@@ -172,7 +179,7 @@ export function AlbumArtPicker({
                     onClick={() => onSelect(candidate.url)}
                     aria-pressed={selected}
                   >
-                    <CoverThumb src={thumbSrc} />
+                    <CoverThumb src={thumbSrc} round={artType === "portrait"} />
                     <CoverOptionMeta candidate={candidate} />
                   </button>
                 </li>
@@ -182,7 +189,9 @@ export function AlbumArtPicker({
         )}
       </ModalBody>
 
-      <ModalFooter onCancel={onClose}>{null}</ModalFooter>
+      <ModalFooter fade onCancel={onClose}>
+        {null}
+      </ModalFooter>
     </Modal>
   );
 }

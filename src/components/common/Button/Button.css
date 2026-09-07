@@ -93,27 +93,39 @@
 
 /* Variants */
 .btn--secondary {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
   color: var(--color-text-primary);
 }
 
 .btn--secondary:hover:not(:disabled) {
   color: var(--color-accent);
-  background: color-mix(
-    in srgb,
-    var(--color-accent) 6%,
-    var(--color-surface-raised)
-  );
+  background: var(--color-control-hover);
+  border-color: var(--color-control-border-hover);
 }
 
 .btn--secondary[aria-expanded="true"] {
   color: var(--color-accent);
-  background: color-mix(
-    in srgb,
-    var(--color-accent) 6%,
-    var(--color-surface-raised)
-  );
+  background: var(--color-control-hover);
+  border-color: var(--color-control-border-hover);
+}
+
+.btn--outline {
+  background: transparent;
+  border: 1px solid var(--color-control-border);
+  color: var(--color-text-primary);
+}
+
+.btn--outline:hover:not(:disabled) {
+  color: var(--color-accent);
+  border-color: var(--color-control-border-hover);
+  background: var(--color-control-hover);
+}
+
+.btn--outline[aria-expanded="true"] {
+  color: var(--color-accent);
+  border-color: var(--color-control-border-hover);
+  background: var(--color-control-hover);
 }
 
 .btn--primary {
@@ -138,7 +150,7 @@
 }
 
 .btn--ghost:hover:not(:disabled) {
-  background: var(--color-surface-raised);
+  background: var(--color-control);
   color: var(--color-text-primary);
   border-color: transparent;
 }

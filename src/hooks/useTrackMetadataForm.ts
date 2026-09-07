@@ -62,6 +62,7 @@ export function useTrackMetadataForm(tracks: Track[], resetKey: string) {
     form,
     setForm,
     originalForm,
+    setOriginalForm,
     pendingArtPath,
     setPendingArtPath,
     originalArtPath,

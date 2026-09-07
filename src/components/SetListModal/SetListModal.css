@@ -1,11 +1,10 @@
 .set-list-modal {
-  --set-list-fade-height: 0.5rem;
   --set-list-duration-col: 5ch;
   --set-list-action-col: 1.5rem;
 }
 
 .set-list-modal .modal-header {
-  padding-block: 0.75rem 0.45rem;
+  padding-block: 0.75rem var(--modal-fade-padding);
 }
 
 .set-list-modal__empty {
@@ -22,29 +21,15 @@
   padding: 0;
 }
 
-.set-list-modal__body::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: var(--scrollbar-size);
-  height: var(--set-list-fade-height);
-  background: linear-gradient(
-    to bottom,
-    var(--color-surface) 0%,
-    var(--color-surface) 32%,
-    color-mix(in srgb, var(--color-surface) 88%, transparent) 62%,
-    transparent 100%
-  );
-  pointer-events: none;
-  z-index: 1;
+.modal-header + .set-list-modal__body {
+  padding-top: 0;
 }
 
 .set-list-modal__scroller {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--set-list-fade-height) var(--modal-padding-inline) 0.75rem;
+  padding: var(--modal-fade-padding) var(--modal-padding-inline) 0.75rem;
   padding-right: calc(var(--modal-padding-inline) + 0.35rem);
 }
 

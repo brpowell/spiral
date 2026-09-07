@@ -37,7 +37,6 @@ import {
 } from "./trialGate";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useCdImportStore } from "../store/useCdImportStore";
-import { useCdStore } from "../store/useCdStore";
 import {
   isImportCancelledError,
   useImportDedupeStore,
@@ -49,7 +48,7 @@ import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
 import type { Album } from "../types/album";
 import type { CdDisc } from "../types/cd";
 import type { TrackMetadataUpdate } from "../types/metadata";
-import type { Track, TrackInput } from "../types/track";
+import { mbidFieldsFrom, type Track, type TrackInput } from "../types/track";
 
 export class CdImportCancelledError extends Error {
   constructor() {
@@ -209,8 +208,7 @@ export function startCdImport(options: {
           plansToImport[0].metadata.albumArtist ??
           plansToImport[0].metadata.artist;
         const albumTitle = plansToImport[0].metadata.album;
-        const releaseMbid =
-          useCdStore.getState().metadataByDriveId[driveId]?.releaseMbid ?? null;
+        const releaseMbid = disc.releaseMbid?.trim() || null;
         const sharedArtPath = await resolveCdSharedArtPath({
           driveId,
           existingAlbumArtPath: existingAlbum?.artPath,
@@ -485,6 +483,7 @@ function planMetadataToTrackInput(plan: CdImportTrackPlan): TrackInput {
     filePath: "",
     artPath: plan.metadata.artPath,
     rating: plan.rating,
+    ...mbidFieldsFrom(plan.metadata),
   };
 }
 
@@ -522,6 +521,12 @@ export function buildImportPlans(
         genre,
         artPath: null,
         artChanged: false,
+        ...mbidFieldsFrom({
+          recordingMbid: track.recordingMbid?.trim() || null,
+          releaseMbid: disc.releaseMbid?.trim() || null,
+          artistMbids: track.artistMbids,
+          albumArtistMbids: disc.albumArtistMbids,
+        }),
       },
       durationSeconds: track.durationSeconds ?? null,
       rating: track.rating ?? 0,

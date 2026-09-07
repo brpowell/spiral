@@ -13,9 +13,10 @@
   flex-direction: column;
 }
 
-/* Direct Button or MenuButton (.menu-button) children */
+/* Direct Button, MenuButton, or TextInput children */
 .button-group > .btn,
-.button-group > .menu-button {
+.button-group > .menu-button,
+.button-group > .text-input {
   position: relative;
 }
 
@@ -26,6 +27,22 @@
 
 .button-group > .menu-button > .btn {
   position: relative;
+}
+
+/* Input + buttons: stretch full width like shadcn ButtonGroup + Input */
+.button-group:has(> .text-input) {
+  width: 100%;
+}
+
+.button-group > .text-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
+.button-group:has(> .text-input) > .btn {
+  height: var(--control-height);
+  border-radius: var(--radius-sm);
 }
 
 /* Overlap adjacent borders so the group reads as one control */
@@ -40,7 +57,12 @@
 .button-group[data-orientation="horizontal"] > .button-group__separator + .btn,
 .button-group[data-orientation="horizontal"]
   > .button-group__separator
-  + .menu-button {
+  + .menu-button,
+.button-group[data-orientation="horizontal"] > .text-input + .btn,
+.button-group[data-orientation="horizontal"] > .text-input + .menu-button,
+.button-group[data-orientation="horizontal"] > .btn + .text-input,
+.button-group[data-orientation="horizontal"] > .menu-button + .text-input,
+.button-group[data-orientation="horizontal"] > .text-input + .text-input {
   margin-inline-start: -1px;
 }
 
@@ -55,19 +77,26 @@
 .button-group[data-orientation="vertical"] > .button-group__separator + .btn,
 .button-group[data-orientation="vertical"]
   > .button-group__separator
-  + .menu-button {
+  + .menu-button,
+.button-group[data-orientation="vertical"] > .text-input + .btn,
+.button-group[data-orientation="vertical"] > .text-input + .menu-button,
+.button-group[data-orientation="vertical"] > .btn + .text-input,
+.button-group[data-orientation="vertical"] > .menu-button + .text-input,
+.button-group[data-orientation="vertical"] > .text-input + .text-input {
   margin-block-start: -1px;
 }
 
 /* Shared outer radius; square inner corners */
 .button-group[data-orientation="horizontal"] > .btn:first-child,
-.button-group[data-orientation="horizontal"] > .menu-button:first-child > .btn {
+.button-group[data-orientation="horizontal"] > .menu-button:first-child > .btn,
+.button-group[data-orientation="horizontal"] > .text-input:first-child {
   border-start-end-radius: 0;
   border-end-end-radius: 0;
 }
 
 .button-group[data-orientation="horizontal"] > .btn:last-child,
-.button-group[data-orientation="horizontal"] > .menu-button:last-child > .btn {
+.button-group[data-orientation="horizontal"] > .menu-button:last-child > .btn,
+.button-group[data-orientation="horizontal"] > .text-input:last-child {
   border-start-start-radius: 0;
   border-end-start-radius: 0;
 }
@@ -76,18 +105,22 @@
   > .btn:not(:first-child):not(:last-child),
 .button-group[data-orientation="horizontal"]
   > .menu-button:not(:first-child):not(:last-child)
-  > .btn {
+  > .btn,
+.button-group[data-orientation="horizontal"]
+  > .text-input:not(:first-child):not(:last-child) {
   border-radius: 0;
 }
 
 .button-group[data-orientation="vertical"] > .btn:first-child,
-.button-group[data-orientation="vertical"] > .menu-button:first-child > .btn {
+.button-group[data-orientation="vertical"] > .menu-button:first-child > .btn,
+.button-group[data-orientation="vertical"] > .text-input:first-child {
   border-end-start-radius: 0;
   border-end-end-radius: 0;
 }
 
 .button-group[data-orientation="vertical"] > .btn:last-child,
-.button-group[data-orientation="vertical"] > .menu-button:last-child > .btn {
+.button-group[data-orientation="vertical"] > .menu-button:last-child > .btn,
+.button-group[data-orientation="vertical"] > .text-input:last-child {
   border-start-start-radius: 0;
   border-start-end-radius: 0;
 }
@@ -96,12 +129,15 @@
   > .btn:not(:first-child):not(:last-child),
 .button-group[data-orientation="vertical"]
   > .menu-button:not(:first-child):not(:last-child)
-  > .btn {
+  > .btn,
+.button-group[data-orientation="vertical"]
+  > .text-input:not(:first-child):not(:last-child) {
   border-radius: 0;
 }
 
 .button-group .btn:focus-visible,
-.button-group .menu-button > .btn:focus-visible {
+.button-group .menu-button > .btn:focus-visible,
+.button-group > .text-input:focus {
   z-index: 1;
 }
 

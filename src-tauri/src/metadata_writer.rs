@@ -1,5 +1,6 @@
 use crate::artist_tags::{join_artist_field, parse_artist_field};
 use crate::lyrics_tags;
+use crate::mbid_tags;
 use crate::metadata_backup::{self, MetadataBackupConfig};
 use crate::metadata_reader::parse_number_pair;
 use crate::models::TrackMetadataUpdate;
@@ -254,6 +255,8 @@ fn apply_id3_metadata(
         lyrics_tags::apply_lyrics_to_id3(tag, &text, remove);
     }
 
+    mbid_tags::apply_mbids_to_id3(tag, &mbid_tags::FileMbids::from_metadata(metadata));
+
     Ok(())
 }
 
@@ -378,6 +381,8 @@ fn write_flac(
             lyrics_tags::apply_lyrics_to_flac(&mut tag, &text, remove);
         }
 
+        mbid_tags::apply_mbids_to_flac(&mut tag, &mbid_tags::FileMbids::from_metadata(metadata));
+
         tag.save()
             .map_err(|e| MetadataWriteError::Tag(format!("Failed to write FLAC tags: {e}")))?;
         Ok(())
@@ -403,6 +408,8 @@ fn write_m4a_tag(target: &Path, metadata: &TrackMetadataUpdate) -> Result<(), Me
             lyrics_tags::lyrics_text_for_embed(metadata, lyrics_tags::LyricsEmbedKind::Mp4);
         lyrics_tags::apply_lyrics_to_mp4(&mut tag, &text, remove);
     }
+
+    mbid_tags::apply_mbids_to_mp4(&mut tag, &mbid_tags::FileMbids::from_metadata(metadata));
 
     tag.write_to_path(target)
         .map_err(|e| MetadataWriteError::Tag(format!("Failed to write M4A tags: {e}")))?;
@@ -553,6 +560,7 @@ mod tests {
             art_changed: false,
             lyrics: None,
             lyrics_changed: false,
+            ..Default::default()
         };
 
         let backup_config = MetadataBackupConfig {
@@ -596,6 +604,7 @@ mod tests {
             art_changed: false,
             lyrics: None,
             lyrics_changed: false,
+            ..Default::default()
         };
 
         let backup_config = MetadataBackupConfig {
@@ -645,6 +654,7 @@ mod tests {
             art_changed: false,
             lyrics: None,
             lyrics_changed: false,
+            ..Default::default()
         };
 
         let backup_config = MetadataBackupConfig {
@@ -687,6 +697,7 @@ mod tests {
             art_changed: false,
             lyrics: None,
             lyrics_changed: false,
+            ..Default::default()
         };
 
         let backup_config = MetadataBackupConfig {
@@ -724,6 +735,7 @@ mod tests {
             art_changed: false,
             lyrics: None,
             lyrics_changed: false,
+            ..Default::default()
         };
 
         let backup_config = MetadataBackupConfig {
@@ -793,6 +805,7 @@ mod tests {
             art_changed: true,
             lyrics: None,
             lyrics_changed: false,
+            ..Default::default()
         };
 
         let backup_config = MetadataBackupConfig {
@@ -855,6 +868,7 @@ mod tests {
             art_changed: false,
             lyrics: None,
             lyrics_changed: false,
+            ..Default::default()
         };
 
         let backup_config = MetadataBackupConfig {
@@ -900,6 +914,7 @@ mod tests {
             art_changed: false,
             lyrics: None,
             lyrics_changed: false,
+            ..Default::default()
         };
 
         let backup_config = MetadataBackupConfig {
@@ -972,6 +987,7 @@ mod tests {
             art_changed: true,
             lyrics: None,
             lyrics_changed: false,
+            ..Default::default()
         };
 
         let backup_config = MetadataBackupConfig {
@@ -1003,6 +1019,7 @@ mod tests {
             art_changed: false,
             lyrics: Some(crate::lyrics_tags::track_lyrics_input_from_plain(plain)),
             lyrics_changed: true,
+            ..Default::default()
         }
     }
 
@@ -1022,6 +1039,7 @@ mod tests {
             art_changed: false,
             lyrics: None,
             lyrics_changed: true,
+            ..Default::default()
         }
     }
 
@@ -1053,6 +1071,7 @@ mod tests {
                 plain_text: "Synced line".to_string(),
             }),
             lyrics_changed: true,
+            ..Default::default()
         }
     }
 
@@ -1193,6 +1212,7 @@ mod tests {
                 art_changed: false,
                 lyrics: Some(crate::lyrics_tags::track_lyrics_input_from_plain("Old")),
                 lyrics_changed: true,
+                ..Default::default()
             },
             &backup_config,
         )

@@ -89,12 +89,27 @@ export function FieldDescription({
   );
 }
 
+export type FieldErrorProps = ComponentPropsWithoutRef<"span">;
+
+/** Inline validation / field-level error under a control. */
+export function FieldError({ className, children, ...props }: FieldErrorProps) {
+  if (children == null || children === false) return null;
+  const classes = ["field__error", className].filter(Boolean).join(" ");
+  return (
+    <span className={classes} role="alert" {...props}>
+      {children}
+    </span>
+  );
+}
+
 export type FormFieldDescriptionPosition = "below-label" | "below-control";
 
 export type FormFieldProps = {
   label: ReactNode;
   description?: ReactNode;
   descriptionPosition?: FormFieldDescriptionPosition;
+  /** Field-level validation error shown below the control. */
+  error?: ReactNode;
   children: ReactNode;
   className?: string;
   labelId?: string;
@@ -106,6 +121,7 @@ export function FormField({
   label,
   description,
   descriptionPosition = "below-control",
+  error,
   children,
   className,
   labelId: labelIdProp,
@@ -136,6 +152,7 @@ export function FormField({
       {descriptionPosition === "below-label" ? descriptionNode : null}
       {children}
       {descriptionPosition === "below-control" ? descriptionNode : null}
+      {error != null ? <FieldError>{error}</FieldError> : null}
     </div>
   );
 }

@@ -45,7 +45,7 @@ export function CdMetadataPicker() {
       size="md"
       labelledBy="cd-metadata-title"
     >
-      <ModalHeader>
+      <ModalHeader fade>
         <ModalTitle id="cd-metadata-title">{t("cd.picker.title")}</ModalTitle>
       </ModalHeader>
       <ModalBody>
@@ -82,6 +82,7 @@ export function CdMetadataPicker() {
         </ChoiceList>
       </ModalBody>
       <ModalFooter
+        fade
         onCancel={handleClose}
         cancelLabel={
           hasCurrentRelease ? t("cd.picker.keepCurrent") : t("cd.picker.skip")

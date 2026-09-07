@@ -104,6 +104,7 @@ mod tests {
             art_changed: false,
             lyrics: None,
             lyrics_changed: false,
+            ..Default::default()
         }
     }
 

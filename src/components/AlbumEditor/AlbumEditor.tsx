@@ -11,23 +11,31 @@ import {
 } from "../../hooks/useCancellableBulkSave";
 import {
   albumFormsEqual,
+  albumMixedFieldPlaceholder,
   albumToForm,
   buildTrackAlbumMetadata,
+  isReleaseMbidMixed,
   type AlbumEditorForm,
+  type AlbumReleaseRecordingOptions,
 } from "../../lib/albumMetadata";
 import {
   albumKey,
   getAlbumByKey,
   groupTracksIntoAlbums,
 } from "../../lib/albums";
+import { fetchCoverArtCandidates } from "../../lib/albumArtFetch";
+import { refreshArtDisplay } from "../../lib/artDisplayCache";
 import { preloadCoverArtThumbs } from "../../lib/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
-  fetchCoverArt,
+  getMusicBrainzEntity,
+  getOrFetchMusicBrainzEntity,
   pickImageFile,
   writeTrackMetadata,
 } from "../../lib/tauri";
+import { matchRecordingMbid } from "../../lib/musicBrainzReleaseRecordings";
+import type { MusicBrainzEntityLookup } from "../../types/musicbrainz";
 import { collectGenreSuggestions } from "../../lib/trackFieldSuggestions";
 import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
@@ -49,12 +57,20 @@ import "../TrackEditor/TrackEditor.css";
 import { AlbumArtPicker } from "./AlbumArtPicker";
 import { AlbumEditorArtTab } from "./AlbumEditorArtTab";
 import { AlbumEditorDetailsTab } from "./AlbumEditorDetailsTab";
+import { MusicBrainzEditorTab } from "../MusicBrainzEditorTab/MusicBrainzEditorTab";
 
-type AlbumEditorTab = "details" | "art";
+type AlbumEditorTab = "details" | "art" | "musicbrainz";
 
 export function AlbumEditor() {
   const { t } = useTranslation(["library", "common"]);
   const editingAlbumKey = usePlayerStore((s) => s.editingAlbumKey);
+  const albumEditorInitialTab = usePlayerStore((s) => s.albumEditorInitialTab);
+  const albumEditorAutoOpenMbSearch = usePlayerStore(
+    (s) => s.albumEditorAutoOpenMbSearch,
+  );
+  const clearAlbumEditorAutoOpenMbSearch = usePlayerStore(
+    (s) => s.clearAlbumEditorAutoOpenMbSearch,
+  );
   const library = usePlayerStore((s) => s.library);
   const closeAlbumEditor = usePlayerStore((s) => s.closeAlbumEditor);
   const updateTracksInLibrary = usePlayerStore((s) => s.updateTracksInLibrary);
@@ -107,9 +123,13 @@ export function AlbumEditor() {
   useFocusTrap(dialogRef, isOpen);
 
   useEffect(() => {
-    if (!album) return;
+    if (!album) {
+      setForm(null);
+      setOriginalForm(null);
+      return;
+    }
     const initial = albumToForm(album);
-    setActiveTab("details");
+    setActiveTab(albumEditorInitialTab);
     setForm(initial);
     setOriginalForm(initial);
     setPendingArtPath(album.artPath);
@@ -217,7 +237,11 @@ export function AlbumEditor() {
     setCoverCandidates([]);
     setSaveError(null);
     try {
-      const candidates = await fetchCoverArt(form.artist, form.title);
+      const candidates = await fetchCoverArtCandidates({
+        artist: form.artist,
+        album: form.title,
+        releaseMbid: form.releaseMbid.trim() || null,
+      });
       if (gen !== artFetchGenRef.current) return;
       if (candidates.length === 0) {
         setFetchMessage(t("library:editor.noArtResults"));
@@ -255,9 +279,95 @@ export function AlbumEditor() {
     return pendingArtPath;
   };
 
+  /** When Fetch warms a release that is already saved, stamp missing recordings. */
+  const stampRecordingsFromReleaseLookup = async (
+    lookup: MusicBrainzEntityLookup,
+  ) => {
+    if (!form || !originalForm || tracks.length === 0) return;
+    if (form.releaseMbid !== originalForm.releaseMbid) return;
+    const release = form.releaseMbid.trim();
+    if (!release || lookup.hit.mbid !== release) return;
+    const tracklist = lookup.tracklist ?? [];
+    if (tracklist.length === 0) return;
+
+    const updates: Track[] = [];
+    for (const track of tracks) {
+      const matched = matchRecordingMbid(track, tracklist);
+      if (!matched) continue;
+      if ((track.recordingMbid?.trim() || "") === matched) continue;
+      try {
+        const artPath = track.artPath;
+        const updated = await writeTrackMetadata(
+          track.id,
+          track.filePath,
+          buildTrackAlbumMetadata(track, form, originalForm, artPath, false, {
+            releaseChanged: true,
+            tracklist,
+          }),
+        );
+        updates.push(updated);
+      } catch {
+        // Best-effort backfill; album Save can retry.
+      }
+    }
+    if (updates.length > 0) {
+      updateTracksInLibrary(updates);
+    }
+  };
+
   const handleSave = async () => {
     if (!album || !form || !originalForm || !hasChanges || tracks.length === 0)
       return;
+
+    const releaseChanged = form.releaseMbid !== originalForm.releaseMbid;
+    let recordingOptions: AlbumReleaseRecordingOptions = {
+      releaseChanged: false,
+    };
+    if (releaseChanged) {
+      const nextRelease = form.releaseMbid.trim();
+      if (nextRelease) {
+        try {
+          const lookup = await getOrFetchMusicBrainzEntity(
+            "release",
+            nextRelease,
+          );
+          if (lookup == null) {
+            setSaveError(t("library:editor.musicBrainz.notFound"));
+            return;
+          }
+          recordingOptions = {
+            releaseChanged: true,
+            tracklist: lookup.tracklist ?? [],
+          };
+        } catch {
+          setSaveError(t("library:editor.musicBrainz.lookupError"));
+          return;
+        }
+      } else {
+        recordingOptions = { releaseChanged: true, tracklist: null };
+      }
+    } else if (
+      form.releaseMbid.trim() &&
+      tracks.some((track) => !track.recordingMbid?.trim())
+    ) {
+      // Release already assigned but some recordings never stamped (e.g. fetched
+      // entity after the ID was saved). Rematch from cache only — no network.
+      try {
+        const cached = await getMusicBrainzEntity(
+          "release",
+          form.releaseMbid.trim(),
+        );
+        if (cached?.tracklist != null && cached.tracklist.length > 0) {
+          recordingOptions = {
+            releaseChanged: true,
+            tracklist: cached.tracklist,
+          };
+        }
+      } catch {
+        // Leave recordings alone if cache read fails.
+      }
+    }
+
     begin(tracks.length);
     setSaveError(null);
 
@@ -285,6 +395,7 @@ export function AlbumEditor() {
             originalForm,
             artPath,
             artChanged,
+            recordingOptions,
           );
           const saved = await writeTrackMetadata(
             track.id,
@@ -300,6 +411,12 @@ export function AlbumEditor() {
 
       if (updated.length > 0) {
         updateTracksInLibrary(updated);
+        if (artChanged) {
+          refreshArtDisplay([
+            originalArtPath,
+            ...updated.map((track) => track.artPath),
+          ]);
+        }
       }
 
       if (cancelled) {
@@ -402,6 +519,9 @@ export function AlbumEditor() {
                   <TabList aria-label={t("library:editor.albumTabsAria")}>
                     <Tab value="details">{t("library:editor.tabDetails")}</Tab>
                     <Tab value="art">{t("library:editor.tabArt")}</Tab>
+                    <Tab value="musicbrainz">
+                      {t("library:editor.tabMusicBrainz")}
+                    </Tab>
                   </TabList>
                 </div>
 
@@ -430,6 +550,34 @@ export function AlbumEditor() {
                         onFetchArt={() => void handleFetchArt()}
                       />
                     </TabPanel>
+
+                    <TabPanel
+                      value="musicbrainz"
+                      className="track-editor__tab-panel"
+                      keepMounted
+                    >
+                      <MusicBrainzEditorTab
+                        key={album?.key}
+                        kind="release"
+                        mbid={form.releaseMbid}
+                        mixed={isReleaseMbidMixed(tracks)}
+                        placeholder={albumMixedFieldPlaceholder(
+                          tracks,
+                          "releaseMbid",
+                          form,
+                        )}
+                        onMbidChange={(value) => setField("releaseMbid", value)}
+                        onEntityLookup={(lookup) => {
+                          void stampRecordingsFromReleaseLookup(lookup);
+                        }}
+                        searchQuery={form.title}
+                        searchArtist={form.artist}
+                        autoOpenSearch={albumEditorAutoOpenMbSearch}
+                        onAutoOpenSearchConsumed={
+                          clearAlbumEditorAutoOpenMbSearch
+                        }
+                      />
+                    </TabPanel>
                   </div>
 
                   {saveError && (
@@ -441,7 +589,11 @@ export function AlbumEditor() {
               </Tabs>
             </div>
 
-            <ModalFooter inert={discardPrompt || undefined} {...footerCancel}>
+            <ModalFooter
+              fade
+              inert={discardPrompt || undefined}
+              {...footerCancel}
+            >
               <EditorSaveButton
                 saving={saving}
                 label={saveLabel}

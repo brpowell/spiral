@@ -104,3 +104,13 @@
 .album-editor__art-slot[aria-expanded="true"] .album-editor__art-slot-label {
   color: var(--color-text-primary);
 }
+
+.album-editor__art-slot--round .album-editor__art-slot-frame {
+  border-radius: 50%;
+  width: calc(100% - 1.25rem);
+  margin: 0.625rem;
+}
+
+.album-editor__art-slot--round .album-editor__art-slot-placeholder {
+  border-radius: 50%;
+}

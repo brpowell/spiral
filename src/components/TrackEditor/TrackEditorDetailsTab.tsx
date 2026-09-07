@@ -66,7 +66,6 @@ function TrackEditorField({
   min,
   form,
   tracks,
-  isBulk,
   onChange,
   suggestions,
 }: {
@@ -76,7 +75,6 @@ function TrackEditorField({
   min?: number;
   form: TrackEditorForm;
   tracks: Track[];
-  isBulk: boolean;
   onChange: (field: TrackEditorFormField, value: string) => void;
   suggestions?: string[];
 }) {
@@ -84,9 +82,7 @@ function TrackEditorField({
     type,
     min,
     value: form[field],
-    placeholder: isBulk
-      ? mixedFieldPlaceholder(tracks, field, form)
-      : undefined,
+    placeholder: mixedFieldPlaceholder(tracks, field, form),
     onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
       onChange(field, e.target.value),
   };
@@ -290,7 +286,6 @@ export function TrackEditorDetailsTab({
         field="title"
         form={form}
         tracks={tracks}
-        isBulk={isBulk}
         onChange={onFieldChange}
       />
       <FormField label={t("editor.fields.artist")}>
@@ -309,7 +304,6 @@ export function TrackEditorDetailsTab({
         field="album"
         form={form}
         tracks={tracks}
-        isBulk={isBulk}
         onChange={onFieldChange}
         suggestions={albumSuggestions}
       />
@@ -318,7 +312,6 @@ export function TrackEditorDetailsTab({
         field="albumArtist"
         form={form}
         tracks={tracks}
-        isBulk={isBulk}
         onChange={onFieldChange}
         suggestions={artistSuggestions}
       />
@@ -329,7 +322,6 @@ export function TrackEditorDetailsTab({
         min={1}
         form={form}
         tracks={tracks}
-        isBulk={isBulk}
         onChange={onFieldChange}
       />
       <TrackEditorNumberPairField
@@ -355,7 +347,6 @@ export function TrackEditorDetailsTab({
         field="genre"
         form={form}
         tracks={tracks}
-        isBulk={isBulk}
         onChange={onFieldChange}
         suggestions={genreSuggestions}
       />

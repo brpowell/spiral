@@ -4,6 +4,7 @@ use crate::audio_properties;
 use crate::lyrics_normalize;
 use crate::lyrics_sidecar;
 use crate::lyrics_tags;
+use crate::mbid_tags::{self, FileMbids};
 use crate::models::TrackInput;
 use crate::rating_tags;
 use id3::{Tag, TagLike};
@@ -26,6 +27,19 @@ pub struct BasicTags {
     pub duration_seconds: Option<f64>,
     pub rating: Option<u8>,
     pub lyrics: Option<lyrics_tags::RawLyrics>,
+    pub recording_mbid: Option<String>,
+    pub release_mbid: Option<String>,
+    pub artist_mbids: Vec<String>,
+    pub album_artist_mbids: Vec<String>,
+}
+
+impl BasicTags {
+    pub(crate) fn apply_mbids(&mut self, mbids: FileMbids) {
+        self.recording_mbid = mbids.recording;
+        self.release_mbid = mbids.release;
+        self.artist_mbids = mbids.artists;
+        self.album_artist_mbids = mbids.album_artists;
+    }
 }
 
 fn audio_extension(path: &Path) -> Option<String> {
@@ -97,6 +111,7 @@ fn read_id3_tags(
         tags.year = tag.year();
         tags.genre = tag.genre().map(|s| s.to_string());
         tags.rating = rating_tags::read_mp3_rating(&tag);
+        tags.apply_mbids(mbid_tags::read_id3_mbids(&tag));
 
         if let Some(milliseconds) = tag.duration() {
             if milliseconds > 0 {
@@ -175,6 +190,7 @@ fn read_flac_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
         tags.genre = v.next().map(|s| s.to_string());
     }
     tags.rating = rating_tags::read_flac_rating(&tag);
+    tags.apply_mbids(mbid_tags::read_flac_mbids(&tag));
 
     if let Some(streaminfo) = tag.get_streaminfo() {
         if streaminfo.sample_rate > 0 && streaminfo.total_samples > 0 {
@@ -211,6 +227,7 @@ fn read_mp4_tags(path: &Path) -> (BasicTags, Option<(Vec<u8>, String)>) {
     tags.year = tag.year().and_then(|value| parse_year(value));
     tags.genre = tag.genre().map(|s| s.to_string());
     tags.rating = rating_tags::read_m4a_rating(&tag);
+    tags.apply_mbids(mbid_tags::read_mp4_mbids(&tag));
     let duration = tag.duration().as_secs_f64();
     if duration > 0.0 {
         tags.duration_seconds = Some(duration);
@@ -339,6 +356,10 @@ pub fn parse_track_metadata(
             };
             lyrics_normalize::resolve_embedded_and_sidecar_lyrics(embedded, sidecar)
         },
+        recording_mbid: tags.recording_mbid,
+        release_mbid: tags.release_mbid,
+        artist_mbids: tags.artist_mbids,
+        album_artist_mbids: tags.album_artist_mbids,
     })
 }
 

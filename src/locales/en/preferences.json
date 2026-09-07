@@ -76,6 +76,8 @@
     "cdFetchAlways": "Automatically",
     "cdFetchAsk": "Always ask",
     "cdFetchNever": "Never",
+    "confirmMusicBrainzLinks": "Confirm before opening MusicBrainz",
+    "confirmMusicBrainzLinksDescription": "Ask before opening a MusicBrainz page in your browser from the editor.",
     "lyricsAutoFetch": "Automatically fetch lyrics in lightbox mode",
     "lyricsAutoFetchDescription": "Look up lyrics from <lrclib>LRCLIB</lrclib>.",
     "lyricsSidecar": "Sync timed lyrics to LRC sidecar files",

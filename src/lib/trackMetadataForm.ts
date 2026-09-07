@@ -6,7 +6,7 @@ import {
 } from "./artistNames";
 import { t } from "./i18n";
 import type { TrackMetadataUpdate } from "../types/metadata";
-import type { Track } from "../types/track";
+import { mbidFieldsFrom, type Track } from "../types/track";
 import type { LyricsLine, LyricsSource } from "../types/lyrics";
 import {
   buildTrackLyricsInputFromEditor,
@@ -37,6 +37,8 @@ export interface TrackEditorForm {
   lyricsSource: LyricsSource;
   /** Library mark: track has no vocals / no lyrics to fetch. */
   lyricsInstrumental: boolean;
+  /** MusicBrainz recording UUID. */
+  recordingMbid: string;
 }
 
 export type TrackEditorFormField = Exclude<
@@ -117,6 +119,7 @@ export function trackToForm(track: Track): TrackEditorForm {
     lyricsSyncedLines: null,
     lyricsSource: null,
     lyricsInstrumental: track.lyricsFormat === "instrumental",
+    recordingMbid: track.recordingMbid?.trim() || "",
   };
 }
 
@@ -157,6 +160,7 @@ export function tracksToForm(tracks: Track[]): TrackEditorForm {
     lyricsSyncedLines: null,
     lyricsSource: null,
     lyricsInstrumental: sharedLyricsInstrumental(tracks),
+    recordingMbid: sharedString(tracks, (t) => t.recordingMbid ?? ""),
   };
 }
 
@@ -204,6 +208,10 @@ export function isTrackEditorFieldMixed(
       return valuesDiffer(tracks, (t) => t.totalDiscs);
     case "genre":
       return valuesDiffer(tracks, (t) => normalizeOptionalString(t.genre));
+    case "recordingMbid":
+      return valuesDiffer(tracks, (t) =>
+        normalizeOptionalString(t.recordingMbid ?? null),
+      );
   }
 }
 
@@ -265,6 +273,7 @@ export function trackEditorMetadataFormsEqual(
     a.discNumber === b.discNumber &&
     a.totalDiscs === b.totalDiscs &&
     a.genre === b.genre &&
+    a.recordingMbid === b.recordingMbid &&
     lyricsEditorStateEqual(a, b)
   );
 }
@@ -282,6 +291,8 @@ export function buildTrackMetadataFromForm(
   initialForm: TrackEditorForm,
   artPath: string | null,
   artChanged: boolean,
+  /** When set (including null), overrides form/track recording MBID. */
+  recordingMbidOverride?: string | null,
 ): TrackMetadataUpdate {
   const pickString = (
     field: Exclude<
@@ -344,6 +355,13 @@ export function buildTrackMetadataFromForm(
     artChanged,
     lyricsChanged,
     lyrics: lyricsPayload,
+    ...mbidFieldsFrom(track),
+    recordingMbid:
+      recordingMbidOverride !== undefined
+        ? recordingMbidOverride
+        : form.recordingMbid === initialForm.recordingMbid
+          ? (track.recordingMbid ?? null)
+          : form.recordingMbid.trim() || null,
   };
 }
 
@@ -375,5 +393,6 @@ export function buildLyricsOnlyMetadataUpdate(
       lyrics.syncedLines,
       lyrics.source,
     ),
+    ...mbidFieldsFrom(track),
   };
 }

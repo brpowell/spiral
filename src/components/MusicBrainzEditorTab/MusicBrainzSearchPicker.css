@@ -1,0 +1,20 @@
+.musicbrainz-search-picker {
+  height: min(85vh, 680px);
+}
+
+.musicbrainz-search-picker__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.musicbrainz-search-picker__error,
+.musicbrainz-search-picker__empty {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.musicbrainz-search-picker__error {
+  color: var(--color-danger, var(--color-text-secondary));
+}

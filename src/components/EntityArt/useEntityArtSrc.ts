@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
+import { useArtDisplayEpoch } from "../../lib/artDisplayCache";
 import {
   getCachedRowArtAssetUrl,
   GRID_ART_THUMB_SIZE,
@@ -20,6 +21,7 @@ function useThumbArtUrl(
   path: string | null | undefined,
   size: number | null,
 ): string | null {
+  const epoch = useArtDisplayEpoch();
   const [url, setUrl] = useState<string | null>(() =>
     path && size != null ? getCachedRowArtAssetUrl(path, size) : null,
   );
@@ -45,7 +47,7 @@ function useThumbArtUrl(
     return () => {
       cancelled = true;
     };
-  }, [path, size]);
+  }, [path, size, epoch]);
 
   return url;
 }

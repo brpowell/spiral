@@ -8,10 +8,10 @@ use std::time::{Duration, SystemTime};
 const CACHE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 const COVER_ART_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_RESULTS: usize = 12;
-/// Rank floor for release-group fallback art so it never outranks release-specific fronts.
+/// Rank floor for release-group art so it never outranks release-specific fronts.
 const RELEASE_GROUP_RANK_OFFSET: u32 = 50_000;
 /// Cache key version — bump when empty-result behavior changes (e.g. new fallbacks).
-const CACHE_KEY_VERSION: &str = "v6";
+const CACHE_KEY_VERSION: &str = "v7";
 
 #[derive(Clone, Copy)]
 enum CaaEntity {
@@ -194,20 +194,23 @@ fn fetch_cover_art_for_release_uncached(
     let mut fetch_failed = None;
     let mut candidates = Vec::new();
     extend_caa_or_record_error(
-        fetch_caa_front_images(&client, CaaEntity::Release, release_mbid, 0),
+        fetch_caa_front_images(&client, CaaEntity::Release, release_mbid),
         &mut candidates,
         &mut fetch_failed,
     );
 
-    if candidates.is_empty() {
-        if let Some(release_group_mbid) = lookup_release_group_mbid(&client, release_mbid) {
-            extend_caa_or_record_error(
-                fetch_caa_front_images(&client, CaaEntity::ReleaseGroup, &release_group_mbid, 0),
-                &mut candidates,
-                &mut fetch_failed,
-            );
-            apply_release_group_rank_offset(&mut candidates);
-        }
+    // Always also query CAA by release group; release images stay first via rank offset.
+    if let Some(release_group_mbid) = lookup_release_group_mbid(&client, release_mbid) {
+        extend_caa_or_record_error(
+            fetch_caa_front_images(&client, CaaEntity::ReleaseGroup, &release_group_mbid).map(
+                |mut group_candidates| {
+                    apply_release_group_rank_offset(&mut group_candidates);
+                    group_candidates
+                },
+            ),
+            &mut candidates,
+            &mut fetch_failed,
+        );
     }
 
     if candidates.is_empty() {
@@ -247,11 +250,11 @@ fn fetch_cover_art_for_release_uncached(
 
 fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCandidate>, String> {
     let client = http_client()?;
-    let search_url = musicbrainz_release_search_url(artist, album);
+    let search_url = musicbrainz_release_group_search_url(artist, album);
 
     log_cover_art(
         LogLevel::Info,
-        format!("Searching cover art among releases for \"{artist}\" — \"{album}\""),
+        format!("Searching cover art among release groups for \"{artist}\" — \"{album}\""),
         Some(serde_json::json!({
             "artist": artist,
             "album": album,
@@ -274,7 +277,7 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
                         .map(str::to_string)
                 });
             let message = musicbrainz_http::format_http_error(
-                "MusicBrainz release search",
+                "MusicBrainz release-group search",
                 status,
                 get.attempts,
             );
@@ -295,7 +298,7 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
         }
         Err(err) => {
             let message = musicbrainz_http::format_transport_error(
-                "MusicBrainz release search",
+                "MusicBrainz release-group search",
                 &err,
                 COVER_ART_REQUEST_TIMEOUT,
                 get.attempts,
@@ -313,52 +316,24 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
         }
     };
 
-    let releases = search
-        .get("releases")
+    let release_group_mbid = search
+        .get("release-groups")
         .and_then(|r| r.as_array())
-        .cloned()
-        .unwrap_or_default();
+        .and_then(|arr| arr.first())
+        .and_then(|rg| rg.get("id"))
+        .and_then(|id| id.as_str())
+        .filter(|id| !id.is_empty())
+        .map(str::to_string);
 
     let mut candidates = Vec::new();
     let mut fetch_failed = None;
-    let mut release_count = 0usize;
 
-    for (release_idx, release) in releases.iter().enumerate() {
-        let Some(mbid) = release.get("id").and_then(|id| id.as_str()) else {
-            continue;
-        };
-        release_count += 1;
-
+    if let Some(ref rg_mbid) = release_group_mbid {
         extend_caa_or_record_error(
-            fetch_caa_front_images(&client, CaaEntity::Release, mbid, release_idx),
+            fetch_caa_front_images(&client, CaaEntity::ReleaseGroup, rg_mbid),
             &mut candidates,
             &mut fetch_failed,
         );
-    }
-
-    // Only when every matched release lacked front art — do not change the common case.
-    if candidates.is_empty() {
-        let release_group_mbids = unique_release_group_mbids(&releases);
-        for (rg_idx, release_group_mbid) in release_group_mbids.iter().enumerate() {
-            match fetch_caa_front_images(
-                &client,
-                CaaEntity::ReleaseGroup,
-                release_group_mbid,
-                rg_idx,
-            ) {
-                Ok(mut group_candidates) => {
-                    apply_release_group_rank_offset(&mut group_candidates);
-                    extend_caa_or_record_error(
-                        Ok(group_candidates),
-                        &mut candidates,
-                        &mut fetch_failed,
-                    );
-                }
-                Err(err) => {
-                    extend_caa_or_record_error(Err(err), &mut candidates, &mut fetch_failed);
-                }
-            }
-        }
     }
 
     if candidates.is_empty() {
@@ -370,7 +345,7 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
                     "artist": artist,
                     "album": album,
                     "url": search_url,
-                    "releaseCount": release_count,
+                    "releaseGroupMbid": release_group_mbid,
                 })),
             );
             return Err(err);
@@ -385,12 +360,17 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
         } else {
             LogLevel::Info
         },
-        cover_art_archive_search_message(artist, album, candidates.len(), release_count),
+        cover_art_archive_search_message(
+            artist,
+            album,
+            candidates.len(),
+            release_group_mbid.is_some(),
+        ),
         Some(serde_json::json!({
             "artist": artist,
             "album": album,
             "candidateCount": candidates.len(),
-            "releaseCount": release_count,
+            "releaseGroupMbid": release_group_mbid,
         })),
     );
     Ok(candidates)
@@ -416,29 +396,41 @@ fn cover_art_archive_search_message(
     artist: &str,
     album: &str,
     candidate_count: usize,
-    release_count: usize,
+    found_release_group: bool,
 ) -> String {
-    format!(
-        "Cover Art Archive returned {} for \"{artist}\" — \"{album}\" across {}",
-        counted_noun(candidate_count, "candidate", "candidates"),
-        counted_noun(release_count, "release", "releases"),
-    )
+    if found_release_group {
+        format!(
+            "Cover Art Archive returned {} for \"{artist}\" — \"{album}\" via release group",
+            counted_noun(candidate_count, "candidate", "candidates"),
+        )
+    } else {
+        format!("No MusicBrainz release group for \"{artist}\" — \"{album}\"")
+    }
 }
 
-fn musicbrainz_release_search_url(artist: &str, album: &str) -> String {
+fn musicbrainz_release_group_search_url(artist: &str, album: &str) -> String {
     let query = format!(
-        "release:\"{}\" AND artist:\"{}\"",
+        "releasegroup:\"{}\" AND artist:\"{}\"",
         album.replace('"', "\\\""),
         artist.replace('"', "\\\"")
     );
     format!(
-        "https://musicbrainz.org/ws/2/release?query={}&fmt=json&limit=5",
+        "https://musicbrainz.org/ws/2/release-group?query={}&fmt=json&limit=1",
         urlencoding_simple(&query)
     )
 }
 
 fn caa_entity_url(entity: CaaEntity, mbid: &str) -> String {
     format!("https://coverartarchive.org/{}/{mbid}", entity.path())
+}
+
+fn extend_caa_deduped(candidates: &mut Vec<CoverArtCandidate>, extra: Vec<CoverArtCandidate>) {
+    for candidate in extra {
+        if candidates.iter().any(|c| c.url == candidate.url) {
+            continue;
+        }
+        candidates.push(candidate);
+    }
 }
 
 fn extend_caa_or_record_error(
@@ -448,7 +440,7 @@ fn extend_caa_or_record_error(
 ) {
     match result {
         Ok(images) => {
-            candidates.extend(images);
+            extend_caa_deduped(candidates, images);
             if !candidates.is_empty() {
                 *fetch_failed = None;
             }
@@ -469,20 +461,6 @@ fn release_group_id_from_value(value: &serde_json::Value) -> Option<&str> {
         .filter(|id| !id.is_empty())
 }
 
-fn unique_release_group_mbids(releases: &[serde_json::Value]) -> Vec<String> {
-    let mut seen = std::collections::HashSet::new();
-    let mut out = Vec::new();
-    for release in releases {
-        let Some(id) = release_group_id_from_value(release) else {
-            continue;
-        };
-        if seen.insert(id.to_ascii_lowercase()) {
-            out.push(id.to_string());
-        }
-    }
-    out
-}
-
 fn lookup_release_group_mbid(
     client: &reqwest::blocking::Client,
     release_mbid: &str,
@@ -500,7 +478,6 @@ fn fetch_caa_front_images(
     client: &reqwest::blocking::Client,
     entity: CaaEntity,
     mbid: &str,
-    entity_idx: usize,
 ) -> Result<Vec<CoverArtCandidate>, String> {
     let caa_url = caa_entity_url(entity, mbid);
     let get = musicbrainz_http::send_get(client, &caa_url);
@@ -528,7 +505,7 @@ fn fetch_caa_front_images(
         return Ok(vec![]);
     };
 
-    Ok(parse_caa_front_candidates(images, entity_idx))
+    Ok(parse_caa_front_candidates(images))
 }
 
 /// CAA sets `front: true` on only one primary image. Additional fronts still have
@@ -548,10 +525,7 @@ fn caa_image_is_front(image: &serde_json::Value) -> bool {
         || types.is_empty()
 }
 
-fn parse_caa_front_candidates(
-    images: &[serde_json::Value],
-    entity_idx: usize,
-) -> Vec<CoverArtCandidate> {
+fn parse_caa_front_candidates(images: &[serde_json::Value]) -> Vec<CoverArtCandidate> {
     let mut candidates = Vec::new();
 
     for (image_idx, image) in images.iter().enumerate() {
@@ -575,8 +549,7 @@ fn parse_caa_front_candidates(
             .get("front")
             .and_then(|f| f.as_bool())
             .unwrap_or(false);
-        let mut canonical_rank = u32::try_from(entity_idx).unwrap_or(u32::MAX) * 1000
-            + u32::try_from(image_idx).unwrap_or(u32::MAX);
+        let mut canonical_rank = u32::try_from(image_idx).unwrap_or(u32::MAX);
         // Keep the CAA primary front ahead of other Front-typed images.
         if !primary_front {
             canonical_rank += 100;
@@ -732,22 +705,28 @@ mod tests {
     }
 
     #[test]
-    fn musicbrainz_release_search_url_includes_query() {
-        let url = musicbrainz_release_search_url("King Gizzard & The Lizard Wizard", "Alien Metal");
-        assert!(url.starts_with("https://musicbrainz.org/ws/2/release?query="));
+    fn musicbrainz_release_group_search_url_includes_query() {
+        let url =
+            musicbrainz_release_group_search_url("King Gizzard & The Lizard Wizard", "Alien Metal");
+        assert!(url.starts_with("https://musicbrainz.org/ws/2/release-group?query="));
         assert!(url.contains("Alien+Metal"));
         assert!(url.contains("fmt=json"));
+        assert!(url.contains("limit=1"));
     }
 
     #[test]
     fn cover_art_archive_search_message_names_counts() {
         assert_eq!(
-            cover_art_archive_search_message("My Chemical Romance", "The Black Parade", 12, 5),
-            "Cover Art Archive returned 12 candidates for \"My Chemical Romance\" — \"The Black Parade\" across 5 releases"
+            cover_art_archive_search_message("My Chemical Romance", "The Black Parade", 12, true),
+            "Cover Art Archive returned 12 candidates for \"My Chemical Romance\" — \"The Black Parade\" via release group"
         );
         assert_eq!(
-            cover_art_archive_search_message("Artist", "Album", 1, 1),
-            "Cover Art Archive returned 1 candidate for \"Artist\" — \"Album\" across 1 release"
+            cover_art_archive_search_message("Artist", "Album", 1, true),
+            "Cover Art Archive returned 1 candidate for \"Artist\" — \"Album\" via release group"
+        );
+        assert_eq!(
+            cover_art_archive_search_message("Artist", "Album", 0, false),
+            "No MusicBrainz release group for \"Artist\" — \"Album\""
         );
     }
 
@@ -756,7 +735,7 @@ mod tests {
         let mut candidates = Vec::new();
         let mut fetch_failed = None;
         extend_caa_or_record_error(
-            Err("MusicBrainz release search timed out after 10 seconds".into()),
+            Err("MusicBrainz release-group search timed out after 10 seconds".into()),
             &mut candidates,
             &mut fetch_failed,
         );
@@ -771,6 +750,21 @@ mod tests {
         );
         assert_eq!(candidates.len(), 1);
         assert!(fetch_failed.is_none());
+    }
+
+    #[test]
+    fn extend_caa_deduped_skips_duplicate_urls() {
+        let mut candidates = vec![sample_candidate("https://caa.example/front.jpg")];
+        extend_caa_deduped(
+            &mut candidates,
+            vec![
+                sample_candidate("https://caa.example/front.jpg"),
+                sample_candidate("https://caa.example/alt.jpg"),
+            ],
+        );
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[0].url, "https://caa.example/front.jpg");
+        assert_eq!(candidates[1].url, "https://caa.example/alt.jpg");
     }
 
     #[test]
@@ -847,20 +841,6 @@ mod tests {
     }
 
     #[test]
-    fn unique_release_group_mbids_dedupes_case_insensitively() {
-        let releases = vec![
-            serde_json::json!({ "release-group": { "id": "AAAA" } }),
-            serde_json::json!({ "release-group": { "id": "aaaa" } }),
-            serde_json::json!({ "release-group": { "id": "BBBB" } }),
-            serde_json::json!({ "id": "no-rg" }),
-        ];
-        assert_eq!(
-            unique_release_group_mbids(&releases),
-            vec!["AAAA".to_string(), "BBBB".to_string()]
-        );
-    }
-
-    #[test]
     fn includes_all_front_typed_images_not_only_primary_flag() {
         // Thriller Special Edition: two Front images, only one with front: true.
         let images = vec![
@@ -886,7 +866,7 @@ mod tests {
             }),
         ];
 
-        let candidates = parse_caa_front_candidates(&images, 0);
+        let candidates = parse_caa_front_candidates(&images);
         assert_eq!(candidates.len(), 2);
         assert_eq!(candidates[0].url, "https://caa.example/special-edition.jpg");
         assert_eq!(candidates[1].url, "https://caa.example/original.jpg");
@@ -934,5 +914,45 @@ mod tests {
         assert_eq!(items[0].url, "release");
         assert_eq!(items[1].url, "group");
         assert!(items[1].canonical_rank >= RELEASE_GROUP_RANK_OFFSET);
+    }
+
+    #[test]
+    fn concat_release_then_group_preserves_release_first_after_sort() {
+        let mut candidates = vec![CoverArtCandidate {
+            url: "https://caa.example/release-front.jpg".into(),
+            thumbnail_url: None,
+            file_size: Some(100),
+            width: None,
+            height: None,
+            canonical_rank: 0,
+        }];
+        let mut fetch_failed = None;
+        let mut group = vec![
+            CoverArtCandidate {
+                url: "https://caa.example/release-front.jpg".into(),
+                thumbnail_url: None,
+                file_size: Some(100),
+                width: None,
+                height: None,
+                canonical_rank: 0,
+            },
+            CoverArtCandidate {
+                url: "https://caa.example/group-front.jpg".into(),
+                thumbnail_url: None,
+                file_size: Some(200),
+                width: None,
+                height: None,
+                canonical_rank: 1,
+            },
+        ];
+        apply_release_group_rank_offset(&mut group);
+        extend_caa_or_record_error(Ok(group), &mut candidates, &mut fetch_failed);
+        sort_and_truncate_candidates(&mut candidates);
+
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[0].url, "https://caa.example/release-front.jpg");
+        assert_eq!(candidates[1].url, "https://caa.example/group-front.jpg");
+        assert!(candidates[0].canonical_rank < candidates[1].canonical_rank);
+        assert!(fetch_failed.is_none());
     }
 }

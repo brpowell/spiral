@@ -1,4 +1,4 @@
-import type { Track, TrackInput } from "../types/track";
+import { mbidFieldsFrom, type Track, type TrackInput } from "../types/track";
 import { compareLocalized } from "./appLocale";
 import { t } from "./i18n";
 
@@ -125,12 +125,16 @@ function syntheticLibraryTrack(
     year: metadata.year,
     genre: metadata.genre,
     durationSeconds: metadata.durationSeconds,
+    sampleRate: metadata.sampleRate ?? null,
+    bitrate: metadata.bitrate ?? null,
+    codec: metadata.codec ?? null,
     filePath: sourcePath,
     artPath: metadata.artPath,
     dateAdded: "",
     playCount: 0,
     lastPlayedAt: null,
     rating: 0,
+    ...mbidFieldsFrom(metadata),
   };
 }
 

@@ -1,8 +1,10 @@
 import { parseOptionalInt } from "./albumMetadata";
 import type { DiscMetadataOverride, DiscTrackOverride } from "../types/cd";
+import type { MusicBrainzTrackSlot } from "../types/musicbrainz";
 import type { TrackEditorForm } from "./trackMetadataForm";
 import type { Track } from "../types/track";
 import { cdTrackNumberFromListId } from "./cdTracks";
+import { matchRecordingMbid } from "./musicBrainzReleaseRecordings";
 
 /** Build a disc override patch from track editor form values for the given CD rows. */
 export function discOverridePatchFromTrackForm(
@@ -52,6 +54,11 @@ export function discOverridePatchFromAlbumForm(input: {
   genre: string;
   artPath: string | null | undefined;
   artChanged: boolean;
+  releaseMbid?: string;
+  /** TOC track numbers when stamping recordings after a release change. */
+  trackNumbers?: number[];
+  /** Cached release tracklist; null/omit with empty release clears recordings. */
+  tracklist?: MusicBrainzTrackSlot[] | null;
 }): DiscMetadataOverride {
   const patch: DiscMetadataOverride = {
     album: input.title.trim() || null,
@@ -61,6 +68,25 @@ export function discOverridePatchFromAlbumForm(input: {
   };
   if (input.artChanged) {
     patch.artPath = input.artPath ?? null;
+  }
+  if (input.releaseMbid !== undefined) {
+    const releaseMbid = input.releaseMbid.trim();
+    patch.releaseMbid = releaseMbid;
+    if (input.trackNumbers != null && input.trackNumbers.length > 0) {
+      const trackPatches: Record<string, DiscTrackOverride> = {};
+      for (const number of input.trackNumbers) {
+        const recordingMbid = !releaseMbid
+          ? ""
+          : input.tracklist != null
+            ? (matchRecordingMbid(
+                { discNumber: 1, trackNumber: number },
+                input.tracklist,
+              ) ?? "")
+            : "";
+        trackPatches[String(number)] = { recordingMbid };
+      }
+      patch.tracks = trackPatches;
+    }
   }
   return patch;
 }

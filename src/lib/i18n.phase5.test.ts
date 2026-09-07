@@ -66,9 +66,12 @@ function makeTheme(partial?: Partial<Theme>): Theme {
 
 describe("i18n Phase 5 catalogs", () => {
   it("resolves editor chrome, fields, and plurals", () => {
-    expect(t("library:editor.editArtist")).toBe("Edit artist");
+    expect(t("library:editor.discardArtist")).toBe(
+      "Unsaved edits to this artist will be lost.",
+    );
     expect(t("library:editor.editTracks", { count: 3 })).toBe("Edit 3 tracks");
     expect(t("library:editor.tabArt")).toBe("Art");
+    expect(t("library:editor.artTypes.portrait")).toBe("Portrait");
     expect(t("library:editor.chooseFromFile")).toBe("Choose from file");
     expect(t("library:editor.fields.albumArtist")).toBe("Album Artist");
     expect(t("library:editor.lyrics.fetch")).toBe("Fetch lyrics");

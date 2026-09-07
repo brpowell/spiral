@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -15,14 +15,16 @@ import {
   discOverridePatchFromTrackForm,
 } from "../../lib/cdOverrideFromForm";
 import { mergeDiscDisplayLayers } from "../../lib/cdMetadata";
-import { cdTracksForList } from "../../lib/cdTracks";
+import { cdTrackNumberFromListId, cdTracksForList } from "../../lib/cdTracks";
 import { t } from "../../lib/i18n";
 import { fetchCoverArtCandidates } from "../../lib/albumArtFetch";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
   pickImageFile,
+  warmMusicBrainzEntity,
 } from "../../lib/tauri";
+import { deriveRecordingFromCachedRelease } from "../../lib/musicBrainzReleaseRecordings";
 import { useCdStore } from "../../store/useCdStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
@@ -42,12 +44,18 @@ import {
   TrackEditorDetailsTab,
   TrackEditorInlineArt,
 } from "../TrackEditor/TrackEditorDetailsTab";
+import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
+import { MusicBrainzEditorTab } from "../MusicBrainzEditorTab/MusicBrainzEditorTab";
+import { isTrackEditorFieldMixed } from "../../lib/trackMetadataForm";
 import "../TrackEditor/TrackEditor.css";
+
+type CdTrackEditorTab = "details" | "musicbrainz";
 
 export function CdTrackEditor() {
   const editingCdTrackIds = useCdStore((s) => s.editingCdTrackIds);
   const editingCdDriveId = useCdStore((s) => s.editingCdDriveId);
   const closeCdTrackEditor = useCdStore((s) => s.closeCdTrackEditor);
+  const openCdAlbumEditor = useCdStore((s) => s.openCdAlbumEditor);
   const saveDiscOverride = useCdStore((s) => s.saveDiscOverride);
   const discsByDriveId = useCdStore((s) => s.discsByDriveId);
   const metadataByDriveId = useCdStore((s) => s.metadataByDriveId);
@@ -55,15 +63,20 @@ export function CdTrackEditor() {
   const heroArtByDriveId = useCdStore((s) => s.heroArtByDriveId);
   const library = usePlayerStore((s) => s.library);
 
-  const tracks = useMemo(() => {
-    if (editingCdDriveId == null || editingCdTrackIds.length === 0) return [];
+  const disc = useMemo(() => {
+    if (editingCdDriveId == null) return null;
     const raw = discsByDriveId[editingCdDriveId];
-    if (raw == null) return [];
-    const disc = mergeDiscDisplayLayers(
+    if (raw == null) return null;
+    return mergeDiscDisplayLayers(
       raw,
       metadataByDriveId[editingCdDriveId],
       overridesByDriveId[editingCdDriveId],
     );
+  }, [editingCdDriveId, discsByDriveId, metadataByDriveId, overridesByDriveId]);
+
+  const tracks = useMemo(() => {
+    if (editingCdDriveId == null || editingCdTrackIds.length === 0) return [];
+    if (disc == null) return [];
     const artPath =
       overridesByDriveId[editingCdDriveId]?.artPath?.trim() ||
       heroArtByDriveId[editingCdDriveId] ||
@@ -77,8 +90,7 @@ export function CdTrackEditor() {
   }, [
     editingCdDriveId,
     editingCdTrackIds,
-    discsByDriveId,
-    metadataByDriveId,
+    disc,
     overridesByDriveId,
     heroArtByDriveId,
   ]);
@@ -89,10 +101,6 @@ export function CdTrackEditor() {
   const discId =
     editingCdDriveId != null
       ? discsByDriveId[editingCdDriveId]?.discId?.trim() || null
-      : null;
-  const releaseMbid =
-    editingCdDriveId != null
-      ? metadataByDriveId[editingCdDriveId]?.releaseMbid?.trim() || null
       : null;
 
   const artistSuggestions = useMemo(
@@ -111,16 +119,22 @@ export function CdTrackEditor() {
   const dialogRef = useRef<HTMLDivElement>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<CdTrackEditorTab>("details");
   const [fetchingArt, setFetchingArt] = useState(false);
   const [coverCandidates, setCoverCandidates] = useState<CoverArtCandidate[]>(
     [],
   );
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
+  const [derivedEmptyKind, setDerivedEmptyKind] = useState<
+    "resolving" | "releaseCacheMiss" | "unmatched" | null
+  >(null);
 
   const {
     form,
+    setForm,
     originalForm,
+    setOriginalForm,
     pendingArtPath,
     setPendingArtPath,
     artSourcePath,
@@ -133,11 +147,99 @@ export function CdTrackEditor() {
     setRating,
   } = useTrackMetadataForm(tracks, editingKey);
 
+  useEffect(() => {
+    setActiveTab("details");
+  }, [editingKey]);
+
+  // Derive recording from cached disc release when never stamped.
+  useEffect(() => {
+    if (!form || !referenceTrack || isBulk) {
+      setDerivedEmptyKind(null);
+      return;
+    }
+    if (form.recordingMbid.trim()) {
+      setDerivedEmptyKind(null);
+      return;
+    }
+    const releaseMbid = disc?.releaseMbid?.trim() || "";
+    if (!releaseMbid) {
+      setDerivedEmptyKind(null);
+      return;
+    }
+
+    let cancelled = false;
+    setDerivedEmptyKind("resolving");
+    void deriveRecordingFromCachedRelease({
+      releaseMbid,
+      discNumberForm: form.discNumber,
+      trackNumberForm: form.trackNumber,
+      discNumber: 1,
+      trackNumber: referenceTrack.trackNumber,
+    }).then(async (result) => {
+      if (cancelled) return;
+      if (result.status === "cacheMiss" || result.status === "noRelease") {
+        setDerivedEmptyKind("releaseCacheMiss");
+        return;
+      }
+      if (result.status === "unmatched") {
+        setDerivedEmptyKind("unmatched");
+        return;
+      }
+
+      const matched = result.recordingMbid;
+      setDerivedEmptyKind(null);
+      setForm((prev) => (prev ? { ...prev, recordingMbid: matched } : prev));
+      setOriginalForm((prev) =>
+        prev ? { ...prev, recordingMbid: matched } : prev,
+      );
+      if (editingCdDriveId == null) return;
+      const number = cdTrackNumberFromListId(referenceTrack.id);
+      try {
+        await saveDiscOverride(editingCdDriveId, {
+          tracks: { [String(number)]: { recordingMbid: matched } },
+        });
+      } catch {
+        // Form still shows the derived ID; Save can persist.
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    editingKey,
+    isBulk,
+    disc?.releaseMbid,
+    form?.recordingMbid,
+    referenceTrack?.id,
+    referenceTrack?.trackNumber,
+    editingCdDriveId,
+    setForm,
+    setOriginalForm,
+    saveDiscOverride,
+  ]);
+
   const isOpen =
     editingCdDriveId != null &&
     editingCdTrackIds.length > 0 &&
     tracks.length > 0 &&
     form != null;
+
+  useEffect(() => {
+    if (!isOpen || isBulk) return;
+    warmMusicBrainzEntity("release", disc?.releaseMbid);
+    warmMusicBrainzEntity(
+      "recording",
+      form?.recordingMbid || referenceTrack?.recordingMbid,
+    );
+  }, [
+    isOpen,
+    isBulk,
+    editingKey,
+    disc?.releaseMbid,
+    form?.recordingMbid,
+    referenceTrack?.recordingMbid,
+  ]);
 
   useFocusTrap(dialogRef, isOpen);
 
@@ -207,7 +309,7 @@ export function CdTrackEditor() {
       const candidates = await fetchCoverArtCandidates({
         artist: primaryArtist,
         album: form.album,
-        releaseMbid,
+        releaseMbid: tracks[0]?.releaseMbid?.trim() || null,
       });
       if (candidates.length === 0) {
         setFetchMessage(t("library:cd.editor.noArtResults"));
@@ -303,7 +405,7 @@ export function CdTrackEditor() {
       {isOpen && form ? (
         <>
           <div
-            className="track-editor-modal__content"
+            className="track-editor-modal__content track-editor-modal__content--tabbed"
             inert={discardPrompt || undefined}
           >
             <ModalHeader
@@ -355,40 +457,87 @@ export function CdTrackEditor() {
               )}
             </ModalHeader>
 
-            <ModalBody>
-              <div className="track-editor__body">
-                <TrackEditorInlineArt
-                  previewSrc={previewSrc}
-                  artDragOver={artDragOver}
-                  fetchingArt={fetchingArt}
-                  fetchMessage={fetchMessage}
-                  coverCandidates={coverCandidates}
-                  selectedCoverUrl={selectedCoverUrl}
-                  onArtDragOver={setArtDragOver}
-                  onArtDrop={(e) => void handleArtDrop(e)}
-                  onChangeArt={() => void handleChangeArt()}
-                  onFetchArt={() => void handleFetchArt()}
-                  onSelectCover={handleSelectCover}
-                />
-                <TrackEditorDetailsTab
-                  form={form}
-                  tracks={tracks}
-                  isBulk={isBulk}
-                  onFieldChange={setField}
-                  onRatingChange={setRating}
-                  artistSuggestions={artistSuggestions}
-                  genreSuggestions={genreSuggestions}
-                  albumSuggestions={albumSuggestions}
-                />
+            <Tabs
+              value={activeTab}
+              onChange={(tab) => setActiveTab(tab as CdTrackEditorTab)}
+              className="track-editor__tabs"
+              variant="underline"
+            >
+              <div className="track-editor__tab-bar">
+                <TabList aria-label={t("library:editor.cdTrackTabsAria")}>
+                  <Tab value="details">{t("library:editor.tabDetails")}</Tab>
+                  <Tab value="musicbrainz">
+                    {t("library:editor.tabMusicBrainz")}
+                  </Tab>
+                </TabList>
               </div>
-              {saveError ? (
-                <p className="track-editor__error" role="alert">
-                  {saveError}
-                </p>
-              ) : null}
-            </ModalBody>
+
+              <ModalBody className="track-editor__tab-body">
+                <div className="track-editor__tab-stage">
+                  <TabPanel value="details" className="track-editor__tab-panel">
+                    <div className="track-editor__body">
+                      <TrackEditorInlineArt
+                        previewSrc={previewSrc}
+                        artDragOver={artDragOver}
+                        fetchingArt={fetchingArt}
+                        fetchMessage={fetchMessage}
+                        coverCandidates={coverCandidates}
+                        selectedCoverUrl={selectedCoverUrl}
+                        onArtDragOver={setArtDragOver}
+                        onArtDrop={(e) => void handleArtDrop(e)}
+                        onChangeArt={() => void handleChangeArt()}
+                        onFetchArt={() => void handleFetchArt()}
+                        onSelectCover={handleSelectCover}
+                      />
+                      <TrackEditorDetailsTab
+                        form={form}
+                        tracks={tracks}
+                        isBulk={isBulk}
+                        onFieldChange={setField}
+                        onRatingChange={setRating}
+                        artistSuggestions={artistSuggestions}
+                        genreSuggestions={genreSuggestions}
+                        albumSuggestions={albumSuggestions}
+                      />
+                    </div>
+                  </TabPanel>
+
+                  <TabPanel
+                    value="musicbrainz"
+                    className="track-editor__tab-panel"
+                    keepMounted
+                  >
+                    <MusicBrainzEditorTab
+                      kind="recording"
+                      assignment="derived"
+                      mbid={form.recordingMbid}
+                      mixed={isTrackEditorFieldMixed(tracks, "recordingMbid")}
+                      hasAlbum={Boolean(form.album.trim())}
+                      albumTitle={form.album.trim()}
+                      hasAlbumRelease={Boolean(disc?.releaseMbid?.trim())}
+                      derivedEmptyKind={derivedEmptyKind ?? undefined}
+                      onSearchAlbumRelease={() => {
+                        if (editingCdDriveId == null || !form.album.trim())
+                          return;
+                        openCdAlbumEditor(editingCdDriveId, {
+                          tab: "musicbrainz",
+                          autoOpenMbSearch:
+                            derivedEmptyKind !== "releaseCacheMiss",
+                        });
+                      }}
+                    />
+                  </TabPanel>
+                </div>
+                {saveError ? (
+                  <p className="track-editor__error" role="alert">
+                    {saveError}
+                  </p>
+                ) : null}
+              </ModalBody>
+            </Tabs>
 
             <ModalFooter
+              fade
               onCancel={requestClose}
               cancelDisabled={saving}
               cancelLabel={t("common:cancel")}

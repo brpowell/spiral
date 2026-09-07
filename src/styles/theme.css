@@ -25,6 +25,31 @@
     var(--color-interactive) 12%,
     transparent
   );
+  /*
+   * Control material — adaptive washes for form fields + secondary/outline
+   * buttons. Surfaces (bg / surface / surface-raised) stay for layout chrome;
+   * controls must not paint a solid surface token or they collide with cards.
+   */
+  --color-control: color-mix(
+    in srgb,
+    var(--color-text-primary) 9%,
+    transparent
+  );
+  --color-control-border: color-mix(
+    in srgb,
+    var(--color-text-primary) 5%,
+    transparent
+  );
+  --color-control-hover: color-mix(
+    in srgb,
+    var(--color-accent) 12%,
+    transparent
+  );
+  --color-control-border-hover: color-mix(
+    in srgb,
+    var(--color-accent) 40%,
+    var(--color-control-border)
+  );
   --color-alert-info: #9aa8e8;
   --color-alert-info-bg: #1a1f35;
   --color-alert-info-border: #3a4570;

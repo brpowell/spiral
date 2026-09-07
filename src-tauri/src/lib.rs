@@ -31,6 +31,8 @@ mod lyrics_sidecar;
 mod lyrics_tags;
 #[cfg(target_os = "macos")]
 mod macos_library_picker;
+mod mbid;
+mod mbid_tags;
 #[cfg(desktop)]
 mod media_session;
 #[cfg(desktop)]
@@ -40,6 +42,7 @@ pub mod metadata_reader;
 mod metadata_writer;
 mod models;
 mod musicbrainz_disc;
+mod musicbrainz_entity;
 mod musicbrainz_http;
 #[cfg(test)]
 mod ogg_opus_tests;
@@ -214,6 +217,9 @@ pub fn run() {
             commands::metadata::fetch_cover_art,
             commands::metadata::fetch_cover_art_for_release,
             commands::metadata::fetch_artist_art,
+            commands::metadata::search_musicbrainz_entities,
+            commands::metadata::get_musicbrainz_entity,
+            commands::metadata::fetch_musicbrainz_entity,
             commands::metadata::clear_metadata_cache,
             commands::artist_images::get_artist_images,
             commands::artist_images::save_artist_image,

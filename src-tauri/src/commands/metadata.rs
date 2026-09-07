@@ -150,12 +150,10 @@ fn cache_art_from_url_blocking(
     let ext = guess_ext_from_url(&url);
     let app_data = app_data_dir(&app)?;
     let byte_count = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
-    if let Some(existing) = art_cache::find_cached_art_path(&app_data, &file_path) {
-        return Ok(CachedArtFromUrl {
-            path: existing.to_string_lossy().into_owned(),
-            byte_count,
-        });
-    }
+
+    // Always replace any prior cache for this track — a hit with stale bytes was
+    // re-embedding the old image when the user picked a new cover URL.
+    art_cache::remove_cached_art(&app_data, &file_path)?;
     let dest = art_cache::write_bytes_to_art_cache(&app_data, &file_path, &bytes, ext)?;
     let dest_str = dest.to_string_lossy().into_owned();
 
@@ -229,6 +227,51 @@ pub async fn fetch_artist_art(artist: String) -> Result<Vec<CoverArtCandidate>, 
     tauri::async_runtime::spawn_blocking(move || artist_art_fetch::fetch_artist_art_cached(artist))
         .await
         .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn search_musicbrainz_entities(
+    kind: crate::musicbrainz_entity::MusicBrainzEntityKind,
+    query: String,
+    artist: Option<String>,
+) -> Result<Vec<crate::musicbrainz_entity::MusicBrainzEntityHit>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::musicbrainz_entity::search_entities(kind, query, artist)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn get_musicbrainz_entity(
+    state: State<DbState>,
+    kind: crate::musicbrainz_entity::MusicBrainzEntityKind,
+    mbid: String,
+) -> Result<Option<crate::musicbrainz_entity::MusicBrainzEntityLookup>, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    crate::musicbrainz_entity::get_entity(&conn, kind, mbid)
+}
+
+#[tauri::command]
+pub async fn fetch_musicbrainz_entity(
+    app: AppHandle,
+    kind: crate::musicbrainz_entity::MusicBrainzEntityKind,
+    mbid: String,
+) -> Result<Option<crate::musicbrainz_entity::MusicBrainzEntityLookup>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::musicbrainz_entity::fetch_entity_with_store(kind, mbid, |response| {
+            let state = app.state::<DbState>();
+            let conn = state.0.lock().map_err(|e| e.to_string())?;
+            let entity_mbid = response
+                .get("id")
+                .and_then(|id| id.as_str())
+                .and_then(|id| crate::mbid::parse_uuid_mbid(Some(id)))
+                .ok_or_else(|| "MusicBrainz response missing entity id".to_string())?;
+            crate::musicbrainz_entity::store_entity_document(&conn, kind, &entity_mbid, response)
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

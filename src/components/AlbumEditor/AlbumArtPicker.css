@@ -39,6 +39,14 @@
   }
 }
 
+.modal-header + .album-art-picker__body {
+  padding-top: 0;
+}
+
+.album-art-picker__body.modal-body:has(+ .modal-footer) {
+  padding-bottom: 0;
+}
+
 .album-art-picker__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
@@ -46,7 +54,8 @@
   flex: 1;
   min-height: 0;
   margin: 0;
-  padding: 0 calc(var(--scrollbar-size)) 0 0;
+  padding: var(--modal-fade-padding) calc(var(--scrollbar-size))
+    var(--modal-fade-padding) 0;
   overflow-y: auto;
   list-style: none;
 }
@@ -85,6 +94,12 @@
   aspect-ratio: 1;
   overflow: hidden;
   background: var(--color-bg);
+}
+
+.album-art-picker__thumb--round {
+  border-radius: 50%;
+  width: calc(100% - 1rem);
+  margin: 0.5rem auto 0;
 }
 
 .album-art-picker__thumb img {

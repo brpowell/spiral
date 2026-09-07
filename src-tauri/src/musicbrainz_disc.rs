@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use crate::activity_log::{self, LogLevel};
 use crate::artist_tags::join_artist_field;
+use crate::mbid::parse_uuid_mbid;
 use crate::musicbrainz_http;
 
 use serde::{Deserialize, Serialize};
@@ -14,6 +15,10 @@ pub struct DiscTrackMetadata {
     pub number: u32,
     pub title: String,
     pub artist: Option<String>,
+    #[serde(default)]
+    pub recording_mbid: Option<String>,
+    #[serde(default)]
+    pub artist_mbids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,6 +33,8 @@ pub struct DiscMetadata {
     pub country: Option<String>,
     pub label: Option<String>,
     pub release_mbid: Option<String>,
+    #[serde(default)]
+    pub album_artist_mbids: Vec<String>,
     pub tracks: Vec<DiscTrackMetadata>,
 }
 
@@ -50,7 +57,14 @@ pub(crate) fn toc_lookup_url(toc: &str) -> String {
 }
 
 /// Direct MusicBrainz fetch without cache. Prefer [`crate::disc_metadata_cache::lookup_disc_metadata_cached_with_options`].
-pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, LookupCacheKind) {
+/// The third value is the raw JSON response when the HTTP call succeeded (for entity caching).
+pub fn fetch_disc_metadata(
+    tracks: &[(u32, f64)],
+) -> (
+    DiscMetadataLookup,
+    LookupCacheKind,
+    Option<serde_json::Value>,
+) {
     if tracks.is_empty() {
         return (
             DiscMetadataLookup {
@@ -60,6 +74,7 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
                 kind: LookupCacheKind::Miss,
             },
             LookupCacheKind::Miss,
+            None,
         );
     }
 
@@ -83,7 +98,8 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
                     "error": err.to_string(),
                 })),
             );
-            return error_lookup(disc_id);
+            let (lookup, kind) = error_lookup(disc_id);
+            return (lookup, kind, None);
         }
     };
 
@@ -115,7 +131,8 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
                     "musicBrainzError": mb_error,
                 })),
             );
-            return error_lookup(disc_id);
+            let (lookup, kind) = error_lookup(disc_id);
+            return (lookup, kind, None);
         }
         Err(err) => {
             let message = musicbrainz_http::format_transport_error(
@@ -137,7 +154,8 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
                 message,
                 Some(details),
             );
-            return error_lookup(disc_id);
+            let (lookup, kind) = error_lookup(disc_id);
+            return (lookup, kind, None);
         }
     };
 
@@ -149,7 +167,7 @@ pub fn fetch_disc_metadata(tracks: &[(u32, f64)]) -> (DiscMetadataLookup, Lookup
     };
     lookup.kind = kind;
 
-    (lookup, kind)
+    (lookup, kind, Some(response))
 }
 
 fn error_lookup(disc_id: String) -> (DiscMetadataLookup, LookupCacheKind) {
@@ -215,8 +233,7 @@ fn parse_release(
 
     let release_mbid = release
         .get("id")
-        .and_then(|id| id.as_str())
-        .map(str::to_string);
+        .and_then(|id| parse_uuid_mbid(id.as_str()));
     let title = release
         .get("title")
         .and_then(|title| title.as_str())
@@ -230,7 +247,9 @@ fn parse_release(
         Some(comment) => format!("{title} ({})", title_case_words(comment)),
         None => title,
     });
-    let album_artist = artist_credit_name(release.get("artist-credit"));
+    let artist_credit = release.get("artist-credit");
+    let album_artist = artist_credit_name(artist_credit);
+    let album_artist_mbids = artist_credit_mbids(artist_credit);
     let year = release
         .get("date")
         .and_then(|date| date.as_str())
@@ -242,17 +261,8 @@ fn parse_release(
         .map(str::to_string);
     let label = release_label(release);
 
-    let mut tracks = parse_tracks_from_medium(medium, &album_artist, source_tracks);
-    if tracks.is_empty() {
-        tracks = source_tracks
-            .iter()
-            .map(|(number, _)| DiscTrackMetadata {
-                number: *number,
-                title: format!("Track {number}"),
-                artist: album_artist.clone(),
-            })
-            .collect();
-    }
+    let tracks =
+        parse_tracks_from_medium(medium, &album_artist, &album_artist_mbids, source_tracks);
 
     Ok(DiscMetadata {
         disc_id: Some(disc_id.to_string()),
@@ -263,6 +273,7 @@ fn parse_release(
         country,
         label,
         release_mbid,
+        album_artist_mbids,
         tracks,
     })
 }
@@ -304,13 +315,31 @@ fn select_cd_medium<'a>(
     })
 }
 
+fn placeholder_tracks(
+    source_tracks: &[(u32, f64)],
+    album_artist: &Option<String>,
+    album_artist_mbids: &[String],
+) -> Vec<DiscTrackMetadata> {
+    source_tracks
+        .iter()
+        .map(|(number, _)| DiscTrackMetadata {
+            number: *number,
+            title: format!("Track {number}"),
+            artist: album_artist.clone(),
+            recording_mbid: None,
+            artist_mbids: album_artist_mbids.to_vec(),
+        })
+        .collect()
+}
+
 fn parse_tracks_from_medium(
     medium: &serde_json::Value,
     album_artist: &Option<String>,
+    album_artist_mbids: &[String],
     source_tracks: &[(u32, f64)],
 ) -> Vec<DiscTrackMetadata> {
     let Some(mb_tracks) = medium.get("tracks").and_then(|value| value.as_array()) else {
-        return Vec::new();
+        return placeholder_tracks(source_tracks, album_artist, album_artist_mbids);
     };
 
     let mut tracks = Vec::new();
@@ -348,25 +377,55 @@ fn parse_tracks_from_medium(
                     .and_then(|recording| recording.get("artist-credit"))
                     .and_then(|value| artist_credit_name(Some(value)))
             });
+        let recording_mbid = track
+            .get("recording")
+            .and_then(|recording| recording.get("id"))
+            .and_then(|id| parse_uuid_mbid(id.as_str()));
+        let artist_mbids = track_artist_mbids(track, album_artist_mbids);
         tracks.push(DiscTrackMetadata {
             number,
             title,
             artist,
+            recording_mbid,
+            artist_mbids,
         });
     }
 
     if tracks.is_empty() {
-        tracks = source_tracks
-            .iter()
-            .map(|(number, _)| DiscTrackMetadata {
-                number: *number,
-                title: format!("Track {number}"),
-                artist: album_artist.clone(),
-            })
-            .collect();
+        tracks = placeholder_tracks(source_tracks, album_artist, album_artist_mbids);
     }
 
     tracks
+}
+
+fn artist_credit_mbids(value: Option<&serde_json::Value>) -> Vec<String> {
+    let Some(credits) = value.and_then(|value| value.as_array()) else {
+        return Vec::new();
+    };
+    credits
+        .iter()
+        .filter_map(|entry| {
+            entry
+                .get("artist")
+                .and_then(|artist| artist.get("id"))
+                .and_then(|id| parse_uuid_mbid(id.as_str()))
+        })
+        .collect()
+}
+
+fn track_artist_mbids(track: &serde_json::Value, album_artist_mbids: &[String]) -> Vec<String> {
+    let from_track = artist_credit_mbids(track.get("artist-credit"));
+    if !from_track.is_empty() {
+        return from_track;
+    }
+    let from_recording = track
+        .get("recording")
+        .map(|recording| artist_credit_mbids(recording.get("artist-credit")))
+        .unwrap_or_default();
+    if !from_recording.is_empty() {
+        return from_recording;
+    }
+    album_artist_mbids.to_vec()
 }
 
 fn artist_credit_name(value: Option<&serde_json::Value>) -> Option<String> {
@@ -461,10 +520,11 @@ mod tests {
 
     #[test]
     fn empty_track_list_returns_empty_lookup() {
-        let (result, kind) = fetch_disc_metadata(&[]);
+        let (result, kind, raw) = fetch_disc_metadata(&[]);
         assert!(result.candidates.is_empty());
         assert!(result.disc_id.is_none());
         assert_eq!(kind, LookupCacheKind::Miss);
+        assert!(raw.is_none());
     }
 
     #[test]
@@ -687,5 +747,107 @@ mod tests {
         assert_eq!(lookup.candidates.len(), 2);
         assert_eq!(lookup.candidates[0].album.as_deref(), Some("Album A"));
         assert_eq!(lookup.candidates[1].album.as_deref(), Some("Album B"));
+    }
+
+    #[test]
+    fn parses_release_recording_and_artist_mbids() {
+        const RELEASE: &str = "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b";
+        const RECORDING: &str = "550e8400-e29b-41d4-a716-446655440000";
+        const ALBUM_ARTIST: &str = "89ad4ac3-39f7-470e-963a-56509c546377";
+        const TRACK_ARTIST: &str = "a74b1b3a-d5ba-4d8a-b656-e59347b6780e";
+
+        let release = serde_json::json!({
+            "id": RELEASE,
+            "title": "Test Album",
+            "artist-credit": [{
+                "name": "Album Artist",
+                "artist": { "id": ALBUM_ARTIST, "name": "Album Artist" }
+            }],
+            "media": [{
+                "format": "CD",
+                "track-count": 2,
+                "tracks": [
+                    {
+                        "position": 1,
+                        "recording": {
+                            "id": RECORDING,
+                            "title": "First Song",
+                            "artist-credit": [{
+                                "name": "Guest",
+                                "artist": { "id": TRACK_ARTIST, "name": "Guest" }
+                            }]
+                        }
+                    },
+                    {
+                        "position": 2,
+                        "recording": { "id": "not-a-uuid", "title": "Second Song" }
+                    }
+                ]
+            }]
+        });
+
+        let metadata =
+            parse_release(&release, "disc-id", &[(1, 180.0), (2, 200.0)]).expect("parse release");
+
+        assert_eq!(metadata.release_mbid.as_deref(), Some(RELEASE));
+        assert_eq!(metadata.album_artist_mbids, vec![ALBUM_ARTIST.to_string()]);
+        assert_eq!(
+            metadata.tracks[0].recording_mbid.as_deref(),
+            Some(RECORDING)
+        );
+        assert_eq!(
+            metadata.tracks[0].artist_mbids,
+            vec![TRACK_ARTIST.to_string()]
+        );
+        assert_eq!(metadata.tracks[1].recording_mbid, None);
+        assert_eq!(
+            metadata.tracks[1].artist_mbids,
+            vec![ALBUM_ARTIST.to_string()]
+        );
+    }
+
+    #[test]
+    fn track_artist_credit_wins_over_recording_credit() {
+        const TRACK_ARTIST: &str = "a74b1b3a-d5ba-4d8a-b656-e59347b6780e";
+        const RECORDING_ARTIST: &str = "b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d";
+        const RECORDING: &str = "550e8400-e29b-41d4-a716-446655440000";
+
+        let release = serde_json::json!({
+            "id": "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
+            "title": "Test Album",
+            "artist-credit": [{
+                "name": "Album Artist",
+                "artist": { "id": "89ad4ac3-39f7-470e-963a-56509c546377", "name": "Album Artist" }
+            }],
+            "media": [{
+                "format": "CD",
+                "track-count": 1,
+                "tracks": [{
+                    "position": 1,
+                    "artist-credit": [{
+                        "name": "Track Artist",
+                        "artist": { "id": TRACK_ARTIST, "name": "Track Artist" }
+                    }],
+                    "recording": {
+                        "id": RECORDING,
+                        "title": "Song",
+                        "artist-credit": [{
+                            "name": "Recording Artist",
+                            "artist": { "id": RECORDING_ARTIST, "name": "Recording Artist" }
+                        }]
+                    }
+                }]
+            }]
+        });
+
+        let metadata = parse_release(&release, "disc-id", &[(1, 180.0)]).expect("parse release");
+        assert_eq!(
+            metadata.tracks[0].artist_mbids,
+            vec![TRACK_ARTIST.to_string()]
+        );
+        assert_eq!(
+            metadata.tracks[0].recording_mbid.as_deref(),
+            Some(RECORDING)
+        );
     }
 }

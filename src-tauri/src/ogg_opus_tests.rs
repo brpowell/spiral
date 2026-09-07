@@ -87,6 +87,7 @@ mod ogg_opus_support {
             art_changed: false,
             lyrics: None,
             lyrics_changed: false,
+            ..Default::default()
         };
         let backup = MetadataBackupConfig {
             enabled: false,

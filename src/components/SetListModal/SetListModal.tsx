@@ -171,7 +171,7 @@ export function SetListModal({ open, onClose }: SetListModalProps) {
       panelRef={panelRef}
       labelledBy={titleId}
     >
-      <ModalHeader>
+      <ModalHeader fade>
         <ModalTitle id={titleId}>{t("queue.title")}</ModalTitle>
         <ModalHeaderActions>
           <Button

@@ -230,6 +230,7 @@ mod tests {
                 plain_text: "Synced".to_string(),
             }),
             lyrics_changed: true,
+            ..Default::default()
         };
 
         let (sync_text, remove) = lyrics_text_for_embed(&metadata, LyricsEmbedKind::SyncCapable);

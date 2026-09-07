@@ -1,30 +1,12 @@
 import { useEffect, useState } from "react";
-import { toAssetUrl } from "../lib/assetUrl";
-
-const urlCache = new Map<string, string>();
-const pendingResolves = new Map<string, Promise<string>>();
-
-function resolveAssetUrl(path: string): Promise<string> {
-  const cached = urlCache.get(path);
-  if (cached) return Promise.resolve(cached);
-
-  let pending = pendingResolves.get(path);
-  if (!pending) {
-    pending = toAssetUrl(path).then((resolved) => {
-      urlCache.set(path, resolved);
-      pendingResolves.delete(path);
-      return resolved;
-    });
-    pendingResolves.set(path, pending);
-  }
-
-  return pending;
-}
+import { useArtDisplayEpoch } from "../lib/artDisplayCache";
+import { getCachedAssetUrl, resolveAssetUrl } from "../lib/assetUrlCache";
 
 /** Resolve a local file path to an asset URL for display in the WebView. */
 export function useAssetUrl(path: string | null | undefined): string | null {
+  const epoch = useArtDisplayEpoch();
   const [url, setUrl] = useState<string | null>(() =>
-    path ? (urlCache.get(path) ?? null) : null,
+    path ? getCachedAssetUrl(path) : null,
   );
 
   useEffect(() => {
@@ -33,7 +15,7 @@ export function useAssetUrl(path: string | null | undefined): string | null {
       return;
     }
 
-    const cached = urlCache.get(path);
+    const cached = getCachedAssetUrl(path);
     if (cached) {
       setUrl(cached);
       return;
@@ -47,7 +29,7 @@ export function useAssetUrl(path: string | null | undefined): string | null {
     return () => {
       cancelled = true;
     };
-  }, [path]);
+  }, [path, epoch]);
 
   return url;
 }

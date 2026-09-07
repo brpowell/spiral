@@ -10,16 +10,17 @@ import {
   useCancellableBulkSave,
 } from "../../hooks/useCancellableBulkSave";
 import { artistArtCacheKey, applyArtistImages } from "../../lib/artistArt";
-import { t as translate } from "../../lib/i18n";
 import {
   artistFormsEqual,
   artistKeyAfterRename,
+  artistMbidPlaceholder,
   artistToForm,
   buildTrackArtistMetadata,
+  isArtistMbidMixed,
   type ArtistEditorForm,
 } from "../../lib/artistMetadata";
 import { getArtistByKey, groupTracksIntoArtists } from "../../lib/artists";
-import { formatBytes, formatDimensions } from "../../lib/formatBytes";
+import { preloadCoverArtThumbs } from "../../lib/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -39,59 +40,20 @@ import { IconArtistPlaceholder } from "../icons";
 import {
   Modal,
   ModalBody,
-  ModalDescription,
   ModalFooter,
   ModalHeader,
   ModalHeaderMain,
   ModalTitle,
 } from "../common/Modal/Modal";
-import { Button } from "../common/Button/Button";
 import { FormField } from "../common/Field/Field";
 import { TextInput } from "../common/TextInput/TextInput";
+import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
+import { AlbumArtPicker } from "../AlbumEditor/AlbumArtPicker";
+import { AlbumEditorArtTab } from "../AlbumEditor/AlbumEditorArtTab";
+import { MusicBrainzEditorTab } from "../MusicBrainzEditorTab/MusicBrainzEditorTab";
 import "../TrackEditor/TrackEditor.css";
 
-function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
-  const { t } = useTranslation("library");
-  const [dims, setDims] = useState<{ w: number; h: number } | null>(() =>
-    candidate.width != null && candidate.height != null
-      ? { w: candidate.width, h: candidate.height }
-      : null,
-  );
-
-  useEffect(() => {
-    if (candidate.width != null && candidate.height != null) {
-      setDims({ w: candidate.width, h: candidate.height });
-      return;
-    }
-
-    const img = new Image();
-    img.onload = () => {
-      setDims({ w: img.naturalWidth, h: img.naturalHeight });
-    };
-    img.src = candidate.url;
-
-    return () => {
-      img.onload = null;
-      img.src = "";
-    };
-  }, [candidate.url, candidate.width, candidate.height]);
-
-  const sizeLabel =
-    candidate.fileSize != null && candidate.fileSize > 0
-      ? formatBytes(candidate.fileSize)
-      : null;
-  const dimLabel = dims
-    ? formatDimensions(dims.w, dims.h)
-    : formatDimensions(candidate.width, candidate.height);
-
-  const meta = [sizeLabel, dimLabel].filter(Boolean).join(" · ");
-
-  return (
-    <span className="track-editor__cover-meta">
-      {meta || t("editor.loadingDetails")}
-    </span>
-  );
-}
+type ArtistEditorTab = "details" | "art" | "musicbrainz";
 
 export function ArtistEditor() {
   const { t } = useTranslation(["library", "common"]);
@@ -118,6 +80,7 @@ export function ArtistEditor() {
   const tracks = artist?.tracks ?? [];
 
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<ArtistEditorTab>("details");
   const [form, setForm] = useState<ArtistEditorForm | null>(null);
   const [originalForm, setOriginalForm] = useState<ArtistEditorForm | null>(
     null,
@@ -145,14 +108,21 @@ export function ArtistEditor() {
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
+  const [artPickerOpen, setArtPickerOpen] = useState(false);
+  const artFetchGenRef = useRef(0);
 
   const isOpen = editingArtistKey != null && artist != null && form != null;
 
   useFocusTrap(dialogRef, isOpen);
 
   useEffect(() => {
-    if (!artist) return;
-    const initial = artistToForm(artist);
+    if (!artist) {
+      setForm(null);
+      setOriginalForm(null);
+      return;
+    }
+    const initial = artistToForm(artist, editingArtistBrowseMode);
+    setActiveTab("details");
     setForm(initial);
     setOriginalForm(initial);
     setPendingArtPath(artist.artPath);
@@ -161,6 +131,8 @@ export function ArtistEditor() {
     setCoverCandidates([]);
     setSelectedCoverUrl(null);
     setFetchMessage(null);
+    setArtPickerOpen(false);
+    artFetchGenRef.current += 1;
     setSaveError(null);
     setDiscardPrompt(false);
     finish();
@@ -238,25 +210,37 @@ export function ArtistEditor() {
 
   useArtFileDrop(isOpen && !!artCacheKey, applyArtPath);
 
+  const closeArtPicker = () => {
+    artFetchGenRef.current += 1;
+    setArtPickerOpen(false);
+    setFetchingArt(false);
+    setCoverCandidates([]);
+    setFetchMessage(null);
+  };
+
   const handleFetchArt = async () => {
     if (!form) return;
+    const gen = ++artFetchGenRef.current;
+    setArtPickerOpen(true);
     setFetchingArt(true);
     setFetchMessage(null);
     setCoverCandidates([]);
-    setSelectedCoverUrl(null);
     setSaveError(null);
     try {
       const candidates = await fetchArtistArt(form.name);
+      if (gen !== artFetchGenRef.current) return;
       if (candidates.length === 0) {
         setFetchMessage(t("library:editor.noArtResults"));
       } else {
+        await preloadCoverArtThumbs(candidates);
+        if (gen !== artFetchGenRef.current) return;
         setCoverCandidates(candidates);
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setSaveError(message);
+    } catch {
+      if (gen !== artFetchGenRef.current) return;
+      setFetchMessage(t("library:editor.artPicker.fetchFailed"));
     } finally {
-      setFetchingArt(false);
+      if (gen === artFetchGenRef.current) setFetchingArt(false);
     }
   };
 
@@ -264,6 +248,9 @@ export function ArtistEditor() {
     setSaveError(null);
     setSelectedCoverUrl(url);
     setArtSourcePath(null);
+    setArtPickerOpen(false);
+    setCoverCandidates([]);
+    setFetchMessage(null);
   };
 
   const resolveArtistArtPath = async (
@@ -287,14 +274,16 @@ export function ArtistEditor() {
     const browseMode = editingArtistBrowseMode;
     const newKey = artistKeyAfterRename(form.name, browseMode);
     const nameChanged = form.name !== originalForm.name;
+    const mbidChanged = form.artistMbid !== originalForm.artistMbid;
+    const metadataChanged = nameChanged || mbidChanged;
 
-    if (nameChanged && tracks.length === 0) return;
+    if (metadataChanged && tracks.length === 0) return;
 
     const updated: Track[] = [];
     const errors: string[] = [];
     let cancelled = false;
 
-    if (nameChanged) {
+    if (metadataChanged) {
       begin(tracks.length);
     } else {
       beginQuick();
@@ -302,7 +291,7 @@ export function ArtistEditor() {
     setSaveError(null);
 
     try {
-      if (nameChanged) {
+      if (metadataChanged) {
         for (let i = 0; i < tracks.length; i++) {
           if (isCancelled()) {
             cancelled = true;
@@ -389,159 +378,151 @@ export function ArtistEditor() {
   const previewSrc = selectedCoverUrl ?? displayArtSrc;
 
   const saveLabel = bulkSaveLabel(saving, saveProgress, t);
+  const identityTitle = form?.name.trim() || t("common:untitled");
+  const artistPlaceholder = <IconArtistPlaceholder />;
 
   return (
     <Modal
       open={isOpen}
       onClose={handleBackdropClick}
-      dismissible={!saving}
+      dismissible={!saving && !artPickerOpen}
       size="editor"
-      panelClassName="track-editor-modal"
+      panelClassName="track-editor-modal track-editor-modal--compact"
       panelRef={dialogRef}
       labelledBy="artist-editor-title"
     >
-      {isOpen && (
+      {isOpen && form && (
         <>
-          <div className="track-editor-modal__content">
+          <div className="track-editor-modal__content track-editor-modal__content--tabbed">
             <div
               className="track-editor-modal__main"
               inert={discardPrompt || saving || undefined}
             >
-              <ModalHeader>
-                <ModalHeaderMain>
-                  <ModalTitle id="artist-editor-title">
-                    {t("library:editor.editArtist")}
-                  </ModalTitle>
-                  <ModalDescription>
-                    {nameChangedDescription(
-                      form!,
-                      originalForm!,
-                      tracks.length,
-                      artChanged,
+              <ModalHeader className="track-editor__identity-header">
+                <div className="track-editor__identity">
+                  <div
+                    className="track-editor__identity-art track-editor__identity-art--round"
+                    aria-hidden
+                  >
+                    {previewSrc ? (
+                      <img
+                        src={previewSrc}
+                        alt=""
+                        className="track-editor__identity-art-img"
+                      />
+                    ) : (
+                      <EntityArt
+                        artPath={null}
+                        className="track-editor__identity-art-placeholder album-art--round"
+                        placeholder={artistPlaceholder}
+                      />
                     )}
-                  </ModalDescription>
-                </ModalHeaderMain>
+                  </div>
+                  <ModalHeaderMain className="track-editor__identity-meta">
+                    <ModalTitle
+                      id="artist-editor-title"
+                      className="track-editor__identity-title"
+                    >
+                      {identityTitle}
+                    </ModalTitle>
+                  </ModalHeaderMain>
+                </div>
               </ModalHeader>
 
-              <ModalBody>
-                <div className="track-editor__body">
-                  <div className="track-editor__art-col">
-                    <div
-                      data-art-drop-zone
-                      className={
-                        artDragOver
-                          ? "track-editor__art-drop track-editor__art-drop--active track-editor__art-drop--round"
-                          : "track-editor__art-drop track-editor__art-drop--round"
-                      }
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setArtDragOver(true);
-                      }}
-                      onDragLeave={() => setArtDragOver(false)}
-                      onDrop={handleArtDrop}
-                    >
-                      {previewSrc ? (
-                        <img
-                          src={previewSrc}
-                          alt=""
-                          className="track-editor__art-img track-editor__art-img--round"
-                        />
-                      ) : (
-                        <EntityArt
-                          artPath={null}
-                          className="track-editor__art-placeholder album-art--round"
-                          placeholder={<IconArtistPlaceholder />}
-                        />
-                      )}
-                    </div>
-                    <Button
-                      size="sm"
-                      className="track-editor__art-btn"
-                      onClick={() => void handleChangeArt()}
-                    >
-                      {t("library:editor.addArt")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="track-editor__art-btn"
-                      onClick={() => void handleFetchArt()}
-                      disabled={fetchingArt}
-                    >
-                      {fetchingArt
-                        ? t("library:editor.fetchingArt")
-                        : t("library:editor.fetchArt")}
-                    </Button>
-                    {fetchMessage && !fetchingArt && (
-                      <p className="track-editor__fetch-msg">{fetchMessage}</p>
-                    )}
-                    {fetchingArt && (
-                      <div
-                        className="track-editor__fetching"
-                        role="status"
-                        aria-live="polite"
-                      >
-                        <span
-                          className="track-editor__fetching-spinner"
-                          aria-hidden
-                        />
-                        <span>{t("library:editor.fetchingArtStatus")}</span>
-                      </div>
-                    )}
-                    {coverCandidates.length > 0 && (
-                      <div
-                        className="track-editor__cover-picker"
-                        aria-label={t("library:editor.artistImageOptions")}
-                      >
-                        {coverCandidates.map((candidate) => {
-                          const thumbSrc =
-                            candidate.thumbnailUrl ?? candidate.url;
-
-                          return (
-                            <button
-                              key={candidate.url}
-                              type="button"
-                              className={
-                                selectedCoverUrl === candidate.url
-                                  ? "track-editor__cover-option track-editor__cover-option--selected"
-                                  : "track-editor__cover-option"
-                              }
-                              onClick={() => handleSelectCover(candidate.url)}
-                              aria-pressed={selectedCoverUrl === candidate.url}
-                            >
-                              <span className="track-editor__cover-thumb track-editor__cover-thumb--round">
-                                <img src={thumbSrc} alt="" loading="lazy" />
-                              </span>
-                              <CoverOptionMeta candidate={candidate} />
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="track-editor__fields">
-                    <FormField label={t("library:editor.fields.artist")}>
-                      <TextInput
-                        value={form.name}
-                        onChange={(e) =>
-                          setForm((prev) =>
-                            prev ? { ...prev, name: e.target.value } : prev,
-                          )
-                        }
-                      />
-                    </FormField>
-                  </div>
+              <Tabs
+                value={activeTab}
+                onChange={(tab) => setActiveTab(tab as ArtistEditorTab)}
+                className="track-editor__tabs"
+                variant="underline"
+              >
+                <div className="track-editor__tab-bar">
+                  <TabList aria-label={t("library:editor.artistTabsAria")}>
+                    <Tab value="details">{t("library:editor.tabDetails")}</Tab>
+                    <Tab value="art">{t("library:editor.tabArt")}</Tab>
+                    <Tab value="musicbrainz">
+                      {t("library:editor.tabMusicBrainz")}
+                    </Tab>
+                  </TabList>
                 </div>
 
-                {saveError && (
-                  <p className="track-editor__error" role="alert">
-                    {saveError}
-                  </p>
-                )}
-              </ModalBody>
+                <ModalBody className="track-editor__tab-body">
+                  <div className="track-editor__tab-stage">
+                    <TabPanel
+                      value="details"
+                      className="track-editor__tab-panel"
+                    >
+                      <div className="track-editor__fields">
+                        <FormField label={t("library:editor.fields.artist")}>
+                          <TextInput
+                            value={form.name}
+                            onChange={(e) =>
+                              setForm((prev) =>
+                                prev ? { ...prev, name: e.target.value } : prev,
+                              )
+                            }
+                          />
+                        </FormField>
+                      </div>
+                    </TabPanel>
+
+                    <TabPanel value="art" className="track-editor__tab-panel">
+                      <AlbumEditorArtTab
+                        artType="portrait"
+                        previewSrc={previewSrc}
+                        placeholder={artistPlaceholder}
+                        artDragOver={artDragOver}
+                        fetchingArt={fetchingArt}
+                        onArtDragOver={setArtDragOver}
+                        onArtDrop={(e) => void handleArtDrop(e)}
+                        onChangeArt={() => void handleChangeArt()}
+                        onFetchArt={() => void handleFetchArt()}
+                      />
+                    </TabPanel>
+
+                    <TabPanel
+                      value="musicbrainz"
+                      className="track-editor__tab-panel"
+                      keepMounted
+                    >
+                      <MusicBrainzEditorTab
+                        key={editingArtistKey ?? artist?.key}
+                        kind="artist"
+                        mbid={form.artistMbid}
+                        mixed={isArtistMbidMixed(
+                          tracks,
+                          editingArtistKey ?? "",
+                          editingArtistBrowseMode,
+                        )}
+                        placeholder={artistMbidPlaceholder(
+                          tracks,
+                          editingArtistKey ?? "",
+                          editingArtistBrowseMode,
+                          form,
+                        )}
+                        onMbidChange={(value) =>
+                          setForm((prev) =>
+                            prev ? { ...prev, artistMbid: value } : prev,
+                          )
+                        }
+                        searchQuery={form.name}
+                      />
+                    </TabPanel>
+                  </div>
+
+                  {saveError && (
+                    <p className="track-editor__error" role="alert">
+                      {saveError}
+                    </p>
+                  )}
+                </ModalBody>
+              </Tabs>
             </div>
 
-            <ModalFooter inert={discardPrompt || undefined} {...footerCancel}>
+            <ModalFooter
+              fade
+              inert={discardPrompt || undefined}
+              {...footerCancel}
+            >
               <EditorSaveButton
                 saving={saving}
                 label={saveLabel}
@@ -557,28 +538,20 @@ export function ArtistEditor() {
             onKeepEditing={dismissDiscardPrompt}
             onDiscard={closeArtistEditor}
           />
+
+          <AlbumArtPicker
+            open={artPickerOpen}
+            artType="portrait"
+            subtitle={form.name.trim() || undefined}
+            candidates={coverCandidates}
+            selectedUrl={selectedCoverUrl}
+            fetching={fetchingArt}
+            fetchMessage={fetchMessage}
+            onSelect={handleSelectCover}
+            onClose={closeArtPicker}
+          />
         </>
       )}
     </Modal>
   );
-}
-
-function nameChangedDescription(
-  form: ArtistEditorForm,
-  originalForm: ArtistEditorForm,
-  trackCount: number,
-  artChanged: boolean,
-): string {
-  const nameChanged = form.name !== originalForm.name;
-  if (nameChanged && artChanged) {
-    return translate("library:editor.artistRenameWithArt", {
-      count: trackCount,
-    });
-  }
-  if (nameChanged) {
-    return translate("library:editor.artistRenameDescription", {
-      count: trackCount,
-    });
-  }
-  return translate("library:editor.artistImagesNote");
 }

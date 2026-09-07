@@ -28,10 +28,11 @@ function coverArtQueryUrl(options: {
 }): string {
   const mbid = options.releaseMbid?.trim();
   if (mbid) {
+    // Release path also queries CAA /release-group after resolving the RG id.
     return `https://coverartarchive.org/release/${mbid}`;
   }
-  const query = `release:"${options.album.replace(/"/g, '\\"')}" AND artist:"${options.artist.replace(/"/g, '\\"')}"`;
-  return `https://musicbrainz.org/ws/2/release?query=${encodeURIComponent(query)}&fmt=json&limit=5`;
+  const query = `releasegroup:"${options.album.replace(/"/g, '\\"')}" AND artist:"${options.artist.replace(/"/g, '\\"')}"`;
+  return `https://musicbrainz.org/ws/2/release-group?query=${encodeURIComponent(query)}&fmt=json&limit=1`;
 }
 
 function logCoverArtWarn(

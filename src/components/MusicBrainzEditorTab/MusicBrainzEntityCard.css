@@ -1,0 +1,99 @@
+.musicbrainz-entity-card {
+  font: inherit;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.musicbrainz-entity-card:not(.musicbrainz-entity-card--selectable) {
+  cursor: default;
+  border-color: var(--color-border);
+  background: var(--color-surface-raised, var(--color-surface));
+}
+
+.musicbrainz-entity-card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.musicbrainz-entity-card .choice-option__main {
+  gap: 0.35rem;
+}
+
+.musicbrainz-entity-facts {
+  display: block;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  /* Overlay scrollbars sit on the values; hide them and scroll with the pointer. */
+  scrollbar-width: none;
+}
+
+.musicbrainz-entity-facts::-webkit-scrollbar {
+  display: none;
+}
+
+.musicbrainz-entity-facts__row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.85rem 1.75rem;
+  width: max-content;
+}
+
+.musicbrainz-entity-facts__fact {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.musicbrainz-entity-facts__label {
+  margin: 0;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--color-text-muted, var(--color-text-secondary));
+}
+
+.musicbrainz-entity-facts__value {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+
+.musicbrainz-entity-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.musicbrainz-entity-card__skeleton-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.musicbrainz-entity-card[aria-busy="true"] {
+  pointer-events: none;
+}
+
+/* Not a selectable option — keep chrome stable on hover. */
+.musicbrainz-entity-card:not(.musicbrainz-entity-card--selectable):hover {
+  border-color: var(--color-border);
+  background: var(--color-surface-raised, var(--color-surface));
+}

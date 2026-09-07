@@ -1,5 +1,5 @@
 import type { CdDisc, CdDiscCdText, CdTrack, DiscTocTrack } from "../types/cd";
-import type { Track } from "../types/track";
+import { mbidFieldsFrom, type Track } from "../types/track";
 import { t } from "./i18n";
 
 const PLACEHOLDER_TRACK_TITLE = /^Track \d+$/;
@@ -78,6 +78,12 @@ function cdTrackToListRow(track: CdTrack, disc: CdDisc): Track {
     playCount: 0,
     lastPlayedAt: null,
     rating: track.rating ?? 0,
+    ...mbidFieldsFrom({
+      recordingMbid: track.recordingMbid,
+      releaseMbid: disc.releaseMbid,
+      artistMbids: track.artistMbids,
+      albumArtistMbids: disc.albumArtistMbids,
+    }),
   };
 }
 

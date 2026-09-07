@@ -1,13 +1,3 @@
-.import-dedupe-modal__track {
-  margin-bottom: 0.85rem;
-}
-
-.import-dedupe-modal__track-title {
-  margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.35;
-}
-
 .import-dedupe-modal__files {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

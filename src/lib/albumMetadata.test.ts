@@ -76,6 +76,26 @@ describe("albumToForm", () => {
     expect(form.totalTracks).toBe("");
     expect(form.totalDiscs).toBe("");
   });
+
+  it("uses a shared release MBID", () => {
+    const form = albumToForm(
+      album([
+        track({ id: 1, releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
+        track({ id: 2, releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
+      ]),
+    );
+    expect(form.releaseMbid).toBe("1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b");
+  });
+
+  it("leaves mixed release MBIDs empty", () => {
+    const form = albumToForm(
+      album([
+        track({ id: 1, releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
+        track({ id: 2, releaseMbid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }),
+      ]),
+    );
+    expect(form.releaseMbid).toBe("");
+  });
 });
 
 describe("albumMixedFieldPlaceholder", () => {
@@ -86,6 +106,17 @@ describe("albumMixedFieldPlaceholder", () => {
     ];
     const form = albumToForm(album(tracks));
     expect(albumMixedFieldPlaceholder(tracks, "genre", form)).toBe(
+      "Multiple values",
+    );
+  });
+
+  it("shows mixed-values placeholder for mixed release MBIDs", () => {
+    const tracks = [
+      track({ id: 1, releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
+      track({ id: 2, releaseMbid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }),
+    ];
+    const form = albumToForm(album(tracks));
+    expect(albumMixedFieldPlaceholder(tracks, "releaseMbid", form)).toBe(
       "Multiple values",
     );
   });
@@ -100,10 +131,17 @@ describe("albumFormsEqual", () => {
       genre: "Rock",
       totalTracks: "10",
       totalDiscs: "1",
+      releaseMbid: "",
     };
     expect(albumFormsEqual(a, { ...a, genre: "Pop" })).toBe(false);
     expect(albumFormsEqual(a, { ...a, totalTracks: "11" })).toBe(false);
     expect(albumFormsEqual(a, { ...a, totalDiscs: "2" })).toBe(false);
+    expect(
+      albumFormsEqual(a, {
+        ...a,
+        releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
+      }),
+    ).toBe(false);
     expect(albumFormsEqual(a, { ...a })).toBe(true);
   });
 });
@@ -198,5 +236,161 @@ describe("buildTrackAlbumMetadata", () => {
     expect(metadata.genre).toBeNull();
     expect(metadata.totalTracks).toBeNull();
     expect(metadata.totalDiscs).toBeNull();
+  });
+
+  it("fans out a release MBID and stamps the matched recording", () => {
+    const editedTrack = track({
+      id: 1,
+      trackNumber: 1,
+      discNumber: 1,
+      recordingMbid: "550e8400-e29b-41d4-a716-446655440000",
+      releaseMbid: null,
+    });
+    const initial = albumToForm(album([editedTrack]));
+    const edited = {
+      ...initial,
+      releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
+    };
+
+    const metadata = buildTrackAlbumMetadata(
+      editedTrack,
+      edited,
+      initial,
+      null,
+      false,
+      {
+        releaseChanged: true,
+        tracklist: [
+          {
+            discNumber: 1,
+            trackNumber: 1,
+            recordingMbid: "11111111-1111-1111-1111-111111111111",
+          },
+        ],
+      },
+    );
+
+    expect(metadata.releaseMbid).toBe("1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b");
+    expect(metadata.recordingMbid).toBe("11111111-1111-1111-1111-111111111111");
+  });
+
+  it("clears recordings when the release MBID is cleared", () => {
+    const editedTrack = track({
+      id: 1,
+      recordingMbid: "550e8400-e29b-41d4-a716-446655440000",
+      releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
+    });
+    const initial = albumToForm(album([editedTrack]));
+    const edited = { ...initial, releaseMbid: "" };
+
+    const metadata = buildTrackAlbumMetadata(
+      editedTrack,
+      edited,
+      initial,
+      null,
+      false,
+      { releaseChanged: true, tracklist: null },
+    );
+
+    expect(metadata.releaseMbid).toBeNull();
+    expect(metadata.recordingMbid).toBeNull();
+  });
+
+  it("preserves recordings when the release MBID is unchanged", () => {
+    const editedTrack = track({
+      id: 1,
+      recordingMbid: "550e8400-e29b-41d4-a716-446655440000",
+      releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
+    });
+    const initial = albumToForm(album([editedTrack]));
+    const edited = { ...initial, genre: "Jazz" };
+
+    const metadata = buildTrackAlbumMetadata(
+      editedTrack,
+      edited,
+      initial,
+      null,
+      false,
+    );
+
+    expect(metadata.releaseMbid).toBe("1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b");
+    expect(metadata.recordingMbid).toBe("550e8400-e29b-41d4-a716-446655440000");
+  });
+
+  it("backfills recordings when caller rematches an unchanged release", () => {
+    const editedTrack = track({
+      id: 1,
+      trackNumber: 1,
+      discNumber: 1,
+      recordingMbid: null,
+      releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
+    });
+    const initial = albumToForm(album([editedTrack]));
+    const edited = { ...initial, genre: "Jazz" };
+
+    const metadata = buildTrackAlbumMetadata(
+      editedTrack,
+      edited,
+      initial,
+      null,
+      false,
+      {
+        releaseChanged: true,
+        tracklist: [
+          {
+            discNumber: 1,
+            trackNumber: 1,
+            recordingMbid: "11111111-1111-1111-1111-111111111111",
+          },
+        ],
+      },
+    );
+
+    expect(metadata.releaseMbid).toBe("1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b");
+    expect(metadata.recordingMbid).toBe("11111111-1111-1111-1111-111111111111");
+  });
+
+  it("preserves per-track release MBIDs when the field is unchanged", () => {
+    const editedTrack = track({
+      id: 1,
+      releaseMbid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    });
+    const initial = albumToForm(
+      album([
+        track({ id: 1, releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b" }),
+        track({ id: 2, releaseMbid: "cccccccc-dddd-eeee-ffff-000000000000" }),
+      ]),
+    );
+    const edited = { ...initial, title: "New Title" };
+
+    const metadata = buildTrackAlbumMetadata(
+      editedTrack,
+      edited,
+      initial,
+      null,
+      false,
+    );
+
+    expect(metadata.album).toBe("New Title");
+    expect(metadata.releaseMbid).toBe("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+  });
+
+  it("clears the release MBID when the form field is emptied", () => {
+    const editedTrack = track({
+      id: 1,
+      releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
+    });
+    const initial = albumToForm(album([editedTrack]));
+    const edited = { ...initial, releaseMbid: "" };
+
+    const metadata = buildTrackAlbumMetadata(
+      editedTrack,
+      edited,
+      initial,
+      null,
+      false,
+    );
+
+    expect(metadata.releaseMbid).toBeNull();
   });
 });

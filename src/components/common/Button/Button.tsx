@@ -1,7 +1,8 @@
 import { forwardRef, type ComponentPropsWithoutRef } from "react";
 import "./Button.css";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+export type ButtonVariant =
+  "primary" | "secondary" | "outline" | "ghost" | "danger";
 export type ButtonSize = "xs" | "sm" | "md" | "lg";
 
 export type ButtonProps = ComponentPropsWithoutRef<"button"> & {

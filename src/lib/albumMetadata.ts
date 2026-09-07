@@ -1,6 +1,8 @@
 import type { TrackMetadataUpdate } from "../types/metadata";
-import type { Track } from "../types/track";
+import type { MusicBrainzTrackSlot } from "../types/musicbrainz";
+import { mbidFieldsFrom, type Track } from "../types/track";
 import { t } from "./i18n";
+import { matchRecordingMbid } from "./musicBrainzReleaseRecordings";
 import {
   isTrackEditorFieldMixed,
   sharedInt,
@@ -15,12 +17,13 @@ export interface AlbumEditorForm {
   genre: string;
   totalTracks: string;
   totalDiscs: string;
+  /** MusicBrainz release UUID. */
+  releaseMbid: string;
 }
 
-export type AlbumEditorMixedField = Extract<
-  TrackEditorFormField,
-  "genre" | "totalTracks" | "totalDiscs"
->;
+export type AlbumEditorMixedField =
+  | Extract<TrackEditorFormField, "genre" | "totalTracks" | "totalDiscs">
+  | "releaseMbid";
 
 export function albumToForm(album: {
   title: string;
@@ -35,6 +38,7 @@ export function albumToForm(album: {
     genre: sharedString(album.tracks, (track) => track.genre),
     totalTracks: sharedInt(album.tracks, (track) => track.totalTracks),
     totalDiscs: sharedInt(album.tracks, (track) => track.totalDiscs),
+    releaseMbid: sharedString(album.tracks, (track) => track.releaseMbid ?? ""),
   };
 }
 
@@ -55,8 +59,15 @@ export function albumFormsEqual(
     a.year === b.year &&
     a.genre === b.genre &&
     a.totalTracks === b.totalTracks &&
-    a.totalDiscs === b.totalDiscs
+    a.totalDiscs === b.totalDiscs &&
+    a.releaseMbid === b.releaseMbid
   );
+}
+
+export function isReleaseMbidMixed(tracks: Track[]): boolean {
+  if (tracks.length <= 1) return false;
+  const first = tracks[0].releaseMbid?.trim() || "";
+  return tracks.some((track) => (track.releaseMbid?.trim() || "") !== first);
 }
 
 export function albumMixedFieldPlaceholder(
@@ -65,9 +76,37 @@ export function albumMixedFieldPlaceholder(
   form: AlbumEditorForm,
 ): string | undefined {
   if (tracks.length <= 1 || form[field] !== "") return undefined;
-  return isTrackEditorFieldMixed(tracks, field)
-    ? t("library:editor.mixedValues")
-    : undefined;
+  const mixed =
+    field === "releaseMbid"
+      ? isReleaseMbidMixed(tracks)
+      : isTrackEditorFieldMixed(tracks, field);
+  return mixed ? t("library:editor.mixedValues") : undefined;
+}
+
+export type AlbumReleaseRecordingOptions =
+  | { releaseChanged: false }
+  | { releaseChanged: true; tracklist: MusicBrainzTrackSlot[] | null };
+
+/**
+ * When the album release MBID changes, stamp or clear each track's recording
+ * from the release tracklist. Unchanged release leaves recordings alone
+ * (`undefined` = do not write).
+ */
+function recordingMbidForAlbumSave(
+  track: Track,
+  form: AlbumEditorForm,
+  options: AlbumReleaseRecordingOptions,
+): string | null | undefined {
+  if (!options.releaseChanged) {
+    return undefined;
+  }
+  if (!form.releaseMbid.trim()) {
+    return null;
+  }
+  if (options.tracklist == null) {
+    return null;
+  }
+  return matchRecordingMbid(track, options.tracklist);
 }
 
 export function buildTrackAlbumMetadata(
@@ -76,6 +115,7 @@ export function buildTrackAlbumMetadata(
   originalForm: AlbumEditorForm,
   artPath: string | null,
   artChanged: boolean,
+  recordingOptions: AlbumReleaseRecordingOptions = { releaseChanged: false },
 ): TrackMetadataUpdate {
   const pickString = (
     field: "genre",
@@ -94,6 +134,14 @@ export function buildTrackAlbumMetadata(
     return parseOptionalInt(form[field]);
   };
 
+  const releaseMbidChanged = form.releaseMbid !== originalForm.releaseMbid;
+  // Caller decides when to rematch (release change, or backfill from cache).
+  const nextRecording = recordingMbidForAlbumSave(
+    track,
+    form,
+    recordingOptions,
+  );
+
   return {
     title: track.title,
     artist: track.artist,
@@ -108,5 +156,10 @@ export function buildTrackAlbumMetadata(
     artPath,
     artChanged,
     lyricsChanged: false,
+    ...mbidFieldsFrom(track),
+    releaseMbid: releaseMbidChanged
+      ? form.releaseMbid.trim() || null
+      : (track.releaseMbid ?? null),
+    ...(nextRecording !== undefined ? { recordingMbid: nextRecording } : {}),
   };
 }

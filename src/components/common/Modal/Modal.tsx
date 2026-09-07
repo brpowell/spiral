@@ -155,12 +155,19 @@ export function Modal({
 export function ModalHeader({
   children,
   className,
+  fade = false,
 }: {
   children: ReactNode;
   className?: string;
+  /** Soft edge into the body when content scrolls under the header. */
+  fade?: boolean;
 }) {
   return (
-    <header className={["modal-header", className].filter(Boolean).join(" ")}>
+    <header
+      className={["modal-header", fade && "modal-header--fade", className]
+        .filter(Boolean)
+        .join(" ")}
+    >
       {children}
     </header>
   );
@@ -274,15 +281,23 @@ export function ModalFooter({
   onCancel,
   cancelDisabled = false,
   inert,
+  fade = false,
 }: {
   children: ReactNode;
   cancelLabel?: string;
   onCancel?: () => void;
   cancelDisabled?: boolean;
   inert?: boolean;
+  /** Soft edge into the body when content scrolls under the footer. */
+  fade?: boolean;
 }) {
   return (
-    <footer className="modal-footer" inert={inert}>
+    <footer
+      className={["modal-footer", fade && "modal-footer--fade"]
+        .filter(Boolean)
+        .join(" ")}
+      inert={inert}
+    >
       <div className="modal-footer__start">
         {onCancel != null && (
           <Button

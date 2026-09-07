@@ -97,7 +97,7 @@ export function LyricsCandidatePicker({
       panelClassName="lyrics-candidate-picker__panel"
       labelledBy="lyrics-candidate-title"
     >
-      <ModalHeader>
+      <ModalHeader fade>
         <ModalHeaderMain>
           <div className="lyrics-candidate-picker__title-row">
             <ModalTitle id="lyrics-candidate-title">
@@ -159,6 +159,7 @@ export function LyricsCandidatePicker({
         </div>
       </ModalBody>
       <ModalFooter
+        fade
         onCancel={onSkip ?? onClose}
         cancelLabel={t("lyrics.candidatePicker.skip")}
       >

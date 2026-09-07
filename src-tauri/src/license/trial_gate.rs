@@ -128,6 +128,7 @@ mod tests {
             art_path: None,
             rating: None,
             lyrics: None,
+            ..Default::default()
         }
     }
 

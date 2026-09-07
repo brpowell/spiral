@@ -60,6 +60,21 @@ export function getCachedRowArtAssetUrl(
 
 const decodedRowArtAssetUrls = new Set<string>();
 
+/** Drop in-memory thumb mappings so the next resolve regenerates from source mtime. */
+export function invalidateRowArtThumbCache(artPaths: Iterable<string>): void {
+  for (const artPath of artPaths) {
+    for (const size of [ROW_ART_THUMB_SIZE, GRID_ART_THUMB_SIZE]) {
+      const key = thumbCacheKey(artPath, size);
+      const oldThumb = thumbPathCache.get(key);
+      thumbPathCache.delete(key);
+      pendingThumbs.delete(key);
+      if (oldThumb) {
+        decodedRowArtAssetUrls.delete(rowArtAssetUrl(oldThumb));
+      }
+    }
+  }
+}
+
 export function isRowArtAssetUrlDecoded(
   artPath: string,
   size = ROW_ART_THUMB_SIZE,

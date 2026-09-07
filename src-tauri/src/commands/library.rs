@@ -39,6 +39,10 @@ fn track_input_to_metadata(input: &TrackInput) -> TrackMetadataUpdate {
         art_changed: false,
         lyrics: None,
         lyrics_changed: false,
+        recording_mbid: input.recording_mbid.clone(),
+        release_mbid: input.release_mbid.clone(),
+        artist_mbids: input.artist_mbids.clone(),
+        album_artist_mbids: input.album_artist_mbids.clone(),
     }
 }
 
@@ -58,6 +62,10 @@ fn track_to_metadata(track: &Track) -> TrackMetadataUpdate {
         art_changed: false,
         lyrics: None,
         lyrics_changed: false,
+        recording_mbid: track.recording_mbid.clone(),
+        release_mbid: track.release_mbid.clone(),
+        artist_mbids: track.artist_mbids.clone(),
+        album_artist_mbids: track.album_artist_mbids.clone(),
     }
 }
 
@@ -82,6 +90,10 @@ fn track_to_input(track: &Track, file_path: String) -> TrackInput {
         art_path: track.art_path.clone(),
         rating: Some(track.rating),
         lyrics: None,
+        recording_mbid: track.recording_mbid.clone(),
+        release_mbid: track.release_mbid.clone(),
+        artist_mbids: track.artist_mbids.clone(),
+        album_artist_mbids: track.album_artist_mbids.clone(),
     }
 }
 
@@ -740,6 +752,7 @@ mod tests {
             last_played_at: None,
             rating: 0,
             lyrics_format: None,
+            ..Default::default()
         }
     }
 

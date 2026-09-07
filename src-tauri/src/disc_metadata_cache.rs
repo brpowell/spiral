@@ -6,7 +6,7 @@ use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::activity_log::{self, LogLevel};
 use crate::musicbrainz_disc::{self, DiscMetadata, DiscMetadataLookup, LookupCacheKind};
@@ -33,6 +33,8 @@ pub struct DiscTrackOverride {
     pub artist: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rating: Option<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recording_mbid: Option<String>,
 }
 
 /// User metadata overrides for a disc, independent of MusicBrainz / library.
@@ -49,6 +51,8 @@ pub struct DiscMetadataOverride {
     pub genre: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub art_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub release_mbid: Option<String>,
     /// Track number (as decimal string) → field overrides.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub tracks: HashMap<String, DiscTrackOverride>,
@@ -61,6 +65,7 @@ impl DiscMetadataOverride {
             && self.year.is_none()
             && self.genre.is_none()
             && self.art_path.is_none()
+            && self.release_mbid.is_none()
             && self.tracks.is_empty()
     }
 
@@ -81,6 +86,9 @@ impl DiscMetadataOverride {
         if patch.art_path.is_some() {
             self.art_path = patch.art_path.clone();
         }
+        if patch.release_mbid.is_some() {
+            self.release_mbid = patch.release_mbid.clone();
+        }
         for (number, track_patch) in &patch.tracks {
             let entry = self.tracks.entry(number.clone()).or_default();
             if track_patch.title.is_some() {
@@ -91,6 +99,9 @@ impl DiscMetadataOverride {
             }
             if track_patch.rating.is_some() {
                 entry.rating = track_patch.rating;
+            }
+            if track_patch.recording_mbid.is_some() {
+                entry.recording_mbid = track_patch.recording_mbid.clone();
             }
         }
     }
@@ -437,7 +448,22 @@ pub fn lookup_disc_metadata_cached_with_options(
         })),
     );
 
-    let (lookup, kind) = musicbrainz_disc::fetch_disc_metadata(tracks);
+    let (lookup, kind, raw_response) = musicbrainz_disc::fetch_disc_metadata(tracks);
+    if let Some(response) = raw_response.as_ref() {
+        if let Some(state) = app.try_state::<crate::commands::library::DbState>() {
+            if let Ok(conn) = state.0.lock() {
+                if let Err(err) = crate::musicbrainz_entity::cache_discid_releases(&conn, response)
+                {
+                    activity_log::log(
+                        LogLevel::Warn,
+                        "metadata.musicbrainz",
+                        "Failed to cache MusicBrainz release entities from disc lookup",
+                        Some(serde_json::json!({ "error": err })),
+                    );
+                }
+            }
+        }
+    }
     let lookup = with_cache_mut(app, |cache| {
         cache.lookups.insert(
             disc_id.clone(),
@@ -586,6 +612,7 @@ mod tests {
                 country: None,
                 label: None,
                 release_mbid: Some("release-1".to_string()),
+                album_artist_mbids: vec![],
                 tracks: vec![],
             }],
             preferred: None,
@@ -693,6 +720,7 @@ mod tests {
                     title: Some("T1".to_string()),
                     artist: None,
                     rating: Some(128),
+                    recording_mbid: None,
                 },
             )]),
             ..Default::default()
@@ -705,6 +733,7 @@ mod tests {
                     title: Some("T1b".to_string()),
                     artist: Some("Solo".to_string()),
                     rating: None,
+                    recording_mbid: None,
                 },
             )]),
             ..Default::default()

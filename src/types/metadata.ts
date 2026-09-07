@@ -19,4 +19,8 @@ export interface TrackMetadataUpdate {
   lyrics?: TrackLyricsInput | null;
   /** When true, embed or clear lyrics in the audio file and sync track_lyrics. */
   lyricsChanged?: boolean;
+  recordingMbid?: string | null;
+  releaseMbid?: string | null;
+  artistMbids?: string[];
+  albumArtistMbids?: string[];
 }

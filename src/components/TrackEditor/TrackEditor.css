@@ -2,6 +2,12 @@
   height: min(92vh, 820px);
 }
 
+.track-editor-modal.track-editor-modal--compact:has(
+    .track-editor-modal__content--tabbed
+  ) {
+  height: min(80vh, 520px);
+}
+
 .track-editor-modal__content--tabbed > .modal-header {
   padding-bottom: 0.5rem;
 }
@@ -34,6 +40,10 @@
   overflow: hidden;
   background: var(--color-surface-raised);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-bg) 35%, transparent);
+}
+
+.track-editor__identity-art--round {
+  border-radius: 50%;
 }
 
 .track-editor__identity-art-img {
@@ -85,8 +95,21 @@
 
 .track-editor__tab-bar {
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
   padding-left: var(--modal-padding-inline);
   padding-right: var(--modal-padding-inline);
+}
+
+.track-editor__tab-bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: var(--scrollbar-size);
+  top: 100%;
+  height: var(--modal-fade-height);
+  background: var(--modal-fade-overlay);
+  pointer-events: none;
 }
 
 .track-editor__tab-body.modal-body {
@@ -96,6 +119,7 @@
   min-height: 0;
   padding-top: 0;
   padding-right: 0;
+  padding-bottom: 0;
   overflow: hidden;
 }
 
@@ -113,6 +137,7 @@
   min-height: 0;
   overflow-y: auto;
   padding-top: 1rem;
+  padding-bottom: var(--modal-fade-padding);
   /* Reserve space so overlay scrollbars don't cover fields / badges. */
   padding-right: calc(var(--modal-padding-inline) + var(--scrollbar-size));
 }
@@ -167,14 +192,6 @@
   height: 100%;
   object-fit: cover;
   display: block;
-}
-
-.track-editor__art-drop--round {
-  border-radius: 50%;
-}
-
-.track-editor__art-img--round {
-  border-radius: 50%;
 }
 
 .track-editor__art-placeholder {
@@ -260,10 +277,6 @@
   height: 56px;
   overflow: hidden;
   border-radius: var(--radius-sm);
-}
-
-.track-editor__cover-thumb--round {
-  border-radius: 50%;
 }
 
 .track-editor__cover-thumb img {

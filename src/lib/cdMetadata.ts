@@ -25,6 +25,8 @@ export function mergeRemoteMetadataIntoDisc(
     artist,
     year: metadata.year ?? disc.year ?? null,
     genre: metadata.genre?.trim() || disc.genre || null,
+    releaseMbid: metadata.releaseMbid?.trim() || null,
+    albumArtistMbids: metadata.albumArtistMbids ?? [],
     tracks: disc.tracks.map((track) => {
       const remote = titleByNumber.get(track.number);
       return {
@@ -35,6 +37,8 @@ export function mergeRemoteMetadataIntoDisc(
           track.artist?.trim() ||
           artist ||
           track.artist,
+        recordingMbid: remote?.recordingMbid?.trim() || null,
+        artistMbids: remote?.artistMbids ?? [],
       };
     }),
   };
@@ -51,6 +55,10 @@ export function mergeOverridesIntoDisc(
 
   const album = override.album?.trim() || disc.album;
   const artist = override.albumArtist?.trim() || disc.artist;
+  const releaseMbid = overlayOptionalMbid(
+    disc.releaseMbid,
+    override.releaseMbid,
+  );
 
   return {
     ...disc,
@@ -61,6 +69,7 @@ export function mergeOverridesIntoDisc(
       override.genre !== undefined
         ? override.genre?.trim() || null
         : disc.genre,
+    releaseMbid,
     tracks: disc.tracks.map((track) => {
       const trackOverride = override.tracks?.[String(track.number)];
       if (trackOverride == null) return track;
@@ -76,9 +85,23 @@ export function mergeOverridesIntoDisc(
           trackOverride.rating !== undefined && trackOverride.rating !== null
             ? trackOverride.rating
             : track.rating,
+        recordingMbid: overlayOptionalMbid(
+          track.recordingMbid,
+          trackOverride.recordingMbid,
+        ),
       };
     }),
   };
+}
+
+/** `undefined`/`null` = not overridden; empty string = cleared. */
+function overlayOptionalMbid(
+  current: string | null | undefined,
+  override: string | null | undefined,
+): string | null {
+  if (override == null) return current?.trim() || null;
+  const trimmed = override.trim();
+  return trimmed || null;
 }
 
 /** Raw disc → MusicBrainz overlay → user overrides (display / import plan). */
@@ -113,13 +136,15 @@ export function discMetadataOverrideHasEdits(
   if (override.year != null) return true;
   if (override.genre != null && override.genre.trim() !== "") return true;
   if (override.artPath != null && override.artPath.trim() !== "") return true;
+  if (typeof override.releaseMbid === "string") return true;
   const tracks = override.tracks;
   if (tracks == null) return false;
   return Object.values(tracks).some(
     (track) =>
       (track.title != null && track.title.trim() !== "") ||
       (track.artist != null && track.artist.trim() !== "") ||
-      (track.rating != null && track.rating !== 0),
+      (track.rating != null && track.rating !== 0) ||
+      typeof track.recordingMbid === "string",
   );
 }
 

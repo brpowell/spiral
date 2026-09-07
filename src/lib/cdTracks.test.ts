@@ -65,4 +65,29 @@ describe("cdTracksForList", () => {
     );
     expect(row.artist).toBe("Featured");
   });
+
+  it("copies MusicBrainz IDs onto synthetic list rows", () => {
+    const [row] = cdTracksForList(
+      disc({
+        releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
+        albumArtistMbids: ["89ad4ac3-39f7-470e-963a-56509c546377"],
+        tracks: [
+          {
+            number: 1,
+            title: "Track 1",
+            artist: "Featured",
+            durationSeconds: 180,
+            recordingMbid: "550e8400-e29b-41d4-a716-446655440000",
+            artistMbids: ["a74b1b3a-d5ba-4d8a-b656-e59347b6780e"],
+          },
+        ],
+      }),
+    );
+    expect(row.recordingMbid).toBe("550e8400-e29b-41d4-a716-446655440000");
+    expect(row.releaseMbid).toBe("1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b");
+    expect(row.artistMbids).toEqual(["a74b1b3a-d5ba-4d8a-b656-e59347b6780e"]);
+    expect(row.albumArtistMbids).toEqual([
+      "89ad4ac3-39f7-470e-963a-56509c546377",
+    ]);
+  });
 });

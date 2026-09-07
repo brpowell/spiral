@@ -68,6 +68,13 @@ label.field__label {
   font-size: 0.78rem;
 }
 
+.field__error {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--color-danger);
+}
+
 .field > .field__label + .radio-group {
   margin-top: 0.25rem;
 }

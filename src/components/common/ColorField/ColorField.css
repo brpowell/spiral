@@ -13,7 +13,7 @@
   width: var(--control-height);
   height: var(--control-height);
   overflow: hidden;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-control-border);
   border-radius: var(--radius-sm);
   background-clip: padding-box;
   cursor: pointer;

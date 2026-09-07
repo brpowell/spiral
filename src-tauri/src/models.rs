@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Track {
     pub id: i64,
@@ -26,9 +26,19 @@ pub struct Track {
     pub rating: u8,
     #[serde(default)]
     pub lyrics_format: Option<LyricsFormat>,
+    /// MusicBrainz recording UUID. File tag is `MUSICBRAINZ_TRACKID` (Picard: the
+    /// Vorbis name says “track” but the value is a recording — not the release-track entity).
+    #[serde(default)]
+    pub recording_mbid: Option<String>,
+    #[serde(default)]
+    pub release_mbid: Option<String>,
+    #[serde(default)]
+    pub artist_mbids: Vec<String>,
+    #[serde(default)]
+    pub album_artist_mbids: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackMetadataUpdate {
     pub title: String,
@@ -49,6 +59,14 @@ pub struct TrackMetadataUpdate {
     /// When true, embed or remove lyrics in the audio file and sync `track_lyrics`.
     #[serde(default)]
     pub lyrics_changed: bool,
+    #[serde(default)]
+    pub recording_mbid: Option<String>,
+    #[serde(default)]
+    pub release_mbid: Option<String>,
+    #[serde(default)]
+    pub artist_mbids: Vec<String>,
+    #[serde(default)]
+    pub album_artist_mbids: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -182,7 +200,7 @@ pub struct TrackLyricsRecord {
     pub updated_at: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackInput {
     pub title: String,
@@ -203,6 +221,14 @@ pub struct TrackInput {
     pub art_path: Option<String>,
     pub rating: Option<u8>,
     pub lyrics: Option<TrackLyricsInput>,
+    #[serde(default)]
+    pub recording_mbid: Option<String>,
+    #[serde(default)]
+    pub release_mbid: Option<String>,
+    #[serde(default)]
+    pub artist_mbids: Vec<String>,
+    #[serde(default)]
+    pub album_artist_mbids: Vec<String>,
 }
 
 /// Append-only listen history row written when a library play closes.

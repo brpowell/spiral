@@ -43,6 +43,31 @@ describe("buildImportPlans", () => {
     expect(plans[0].rating).toBe(204);
     expect(plans[1].rating).toBe(0);
     expect(plans[0].metadata.title).toBe("One");
+    expect(plans[0].metadata.recordingMbid).toBeNull();
+    expect(plans[0].metadata.releaseMbid).toBeNull();
+    expect(plans[0].metadata.artistMbids).toEqual([]);
+    expect(plans[0].metadata.albumArtistMbids).toEqual([]);
+  });
+
+  it("copies MusicBrainz IDs from the merged disc into rip metadata", () => {
+    const disc = sampleDisc();
+    disc.releaseMbid = "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b";
+    disc.albumArtistMbids = ["89ad4ac3-39f7-470e-963a-56509c546377"];
+    disc.tracks[0].recordingMbid = "550e8400-e29b-41d4-a716-446655440000";
+    disc.tracks[0].artistMbids = ["a74b1b3a-d5ba-4d8a-b656-e59347b6780e"];
+    const [plan] = buildImportPlans(disc, null, [1]);
+    expect(plan.metadata.releaseMbid).toBe(
+      "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
+    );
+    expect(plan.metadata.albumArtistMbids).toEqual([
+      "89ad4ac3-39f7-470e-963a-56509c546377",
+    ]);
+    expect(plan.metadata.recordingMbid).toBe(
+      "550e8400-e29b-41d4-a716-446655440000",
+    );
+    expect(plan.metadata.artistMbids).toEqual([
+      "a74b1b3a-d5ba-4d8a-b656-e59347b6780e",
+    ]);
   });
 });
 
@@ -114,6 +139,7 @@ describe("discOverridePatchFromTrackForm", () => {
       lyricsSyncedLines: null,
       lyricsSource: null,
       lyricsInstrumental: false,
+      recordingMbid: "550e8400-e29b-41d4-a716-446655440000",
     };
     const patch = discOverridePatchFromTrackForm(
       tracks,

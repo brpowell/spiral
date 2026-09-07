@@ -875,6 +875,28 @@ export function PreferencesModal() {
                   </FieldDescription>
                 </Field>
 
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="pref-confirm-mb-links"
+                    checked={settings.confirmMusicBrainzExternalLinks ?? true}
+                    onChange={(e) =>
+                      patchSettings({
+                        confirmMusicBrainzExternalLinks: e.target.checked,
+                      })
+                    }
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor="pref-confirm-mb-links">
+                      {t("preferences:metadata.confirmMusicBrainzLinks")}
+                    </FieldLabel>
+                    <FieldDescription>
+                      {t(
+                        "preferences:metadata.confirmMusicBrainzLinksDescription",
+                      )}
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
+
                 <Separator />
 
                 <Field orientation="horizontal">

@@ -6,8 +6,8 @@
   min-width: 0;
   height: var(--control-height);
   padding: 0 var(--control-padding-x);
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
+  background: var(--color-control);
+  border: 1px solid var(--color-control-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
   outline: none;

@@ -33,6 +33,11 @@ import type { LoadedSkinPack, SkinSummary } from "../types/skin";
 import type { SkinUserPreferences } from "../types/skinPreferences";
 import type { LoadedVisualizer, VizSummary } from "../types/visualizer";
 import type { CoverArtCandidate } from "../types/coverArt";
+import type {
+  MusicBrainzEntityHit,
+  MusicBrainzEntityKind,
+  MusicBrainzEntityLookup,
+} from "../types/musicbrainz";
 import type { Playlist } from "../types/playlist";
 import type { PlaybackSettings } from "../types/playbackSettings";
 import type { LicenseCosmetic, LicenseSnapshot } from "../types/license";
@@ -124,7 +129,26 @@ function normalizeTrack(raw: Record<string, unknown>): Track {
       (raw.lyricsFormat as LyricsFormat | null | undefined) ??
       (raw.lyrics_format as LyricsFormat | null | undefined) ??
       null,
+    recordingMbid:
+      (raw.recordingMbid as string | null | undefined) ??
+      (raw.recording_mbid as string | null | undefined) ??
+      null,
+    releaseMbid:
+      (raw.releaseMbid as string | null | undefined) ??
+      (raw.release_mbid as string | null | undefined) ??
+      null,
+    artistMbids:
+      stringArray(raw.artistMbids) ?? stringArray(raw.artist_mbids) ?? [],
+    albumArtistMbids:
+      stringArray(raw.albumArtistMbids) ??
+      stringArray(raw.album_artist_mbids) ??
+      [],
   };
+}
+
+function stringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((item): item is string => typeof item === "string");
 }
 
 export type ListenEventInput = ListenEventPayload;
@@ -567,6 +591,156 @@ export async function fetchArtistArt(
     artist,
   });
   return rows.map(normalizeCoverArtCandidate);
+}
+
+export async function searchMusicBrainzEntities(
+  kind: MusicBrainzEntityKind,
+  query: string,
+  artist?: string | null,
+): Promise<MusicBrainzEntityHit[]> {
+  const rows = await invoke<Record<string, unknown>[]>(
+    "search_musicbrainz_entities",
+    {
+      kind,
+      query,
+      artist: artist?.trim() || null,
+    },
+  );
+  return rows.map(normalizeMusicBrainzEntityHit);
+}
+
+/** DB-only. Returns null on cache miss. Never contacts MusicBrainz. */
+const musicBrainzEntityMemory = new Map<
+  string,
+  MusicBrainzEntityLookup | null
+>();
+const musicBrainzEntityInflight = new Map<
+  string,
+  Promise<MusicBrainzEntityLookup | null>
+>();
+
+function musicBrainzEntityMemoryKey(
+  kind: MusicBrainzEntityKind,
+  mbid: string,
+): string {
+  return `${kind}:${mbid.trim().toLowerCase()}`;
+}
+
+/** Sync peek of an in-memory warm of a prior get/fetch (undefined = not warmed). */
+export function peekMusicBrainzEntity(
+  kind: MusicBrainzEntityKind,
+  mbid: string,
+): MusicBrainzEntityLookup | null | undefined {
+  const key = musicBrainzEntityMemoryKey(kind, mbid);
+  if (!musicBrainzEntityMemory.has(key)) return undefined;
+  return musicBrainzEntityMemory.get(key);
+}
+
+/** Fire-and-forget DB read so the MusicBrainz tab can paint without a flash. */
+export function warmMusicBrainzEntity(
+  kind: MusicBrainzEntityKind,
+  mbid: string | null | undefined,
+): void {
+  const trimmed = mbid?.trim();
+  if (!trimmed) return;
+  void getMusicBrainzEntity(kind, trimmed);
+}
+
+export async function getMusicBrainzEntity(
+  kind: MusicBrainzEntityKind,
+  mbid: string,
+): Promise<MusicBrainzEntityLookup | null> {
+  const key = musicBrainzEntityMemoryKey(kind, mbid);
+  if (musicBrainzEntityMemory.has(key)) {
+    return musicBrainzEntityMemory.get(key) ?? null;
+  }
+  const inflight = musicBrainzEntityInflight.get(key);
+  if (inflight) return inflight;
+
+  const pending = (async () => {
+    const raw = await invoke<Record<string, unknown> | null>(
+      "get_musicbrainz_entity",
+      { kind, mbid },
+    );
+    const lookup = raw == null ? null : normalizeMusicBrainzEntityLookup(raw);
+    musicBrainzEntityMemory.set(key, lookup);
+    return lookup;
+  })().finally(() => {
+    musicBrainzEntityInflight.delete(key);
+  });
+
+  musicBrainzEntityInflight.set(key, pending);
+  return pending;
+}
+
+/** Explicit network fetch; upserts into Library.db. */
+export async function fetchMusicBrainzEntity(
+  kind: MusicBrainzEntityKind,
+  mbid: string,
+): Promise<MusicBrainzEntityLookup | null> {
+  const raw = await invoke<Record<string, unknown> | null>(
+    "fetch_musicbrainz_entity",
+    { kind, mbid },
+  );
+  const lookup = raw == null ? null : normalizeMusicBrainzEntityLookup(raw);
+  musicBrainzEntityMemory.set(musicBrainzEntityMemoryKey(kind, mbid), lookup);
+  return lookup;
+}
+
+/**
+ * Prefer cache; fetch only when cold. Use when Save after assigning a release
+ * needs a tracklist and the pick path may not have warmed the cache.
+ */
+export async function getOrFetchMusicBrainzEntity(
+  kind: MusicBrainzEntityKind,
+  mbid: string,
+): Promise<MusicBrainzEntityLookup | null> {
+  const cached = await getMusicBrainzEntity(kind, mbid);
+  if (cached != null) return cached;
+  return fetchMusicBrainzEntity(kind, mbid);
+}
+
+function normalizeMusicBrainzEntityLookup(
+  raw: Record<string, unknown>,
+): MusicBrainzEntityLookup {
+  const hitRaw = (raw.hit as Record<string, unknown> | undefined) ?? raw;
+  const tracklistRaw = raw.tracklist;
+  const tracklist = Array.isArray(tracklistRaw)
+    ? tracklistRaw.map((slot) => {
+        const row = slot as Record<string, unknown>;
+        return {
+          discNumber: Number(row.discNumber ?? row.disc_number ?? 0),
+          trackNumber: Number(row.trackNumber ?? row.track_number ?? 0),
+          recordingMbid:
+            (row.recordingMbid as string | null | undefined) ??
+            (row.recording_mbid as string | null | undefined) ??
+            null,
+        };
+      })
+    : [];
+  return {
+    hit: normalizeMusicBrainzEntityHit(hitRaw),
+    tracklist,
+  };
+}
+
+function normalizeMusicBrainzEntityHit(
+  raw: Record<string, unknown>,
+): MusicBrainzEntityHit {
+  const kind = String(raw.kind ?? "") as MusicBrainzEntityKind;
+  return {
+    kind,
+    mbid: String(raw.mbid ?? ""),
+    title: String(raw.title ?? ""),
+    artist: (raw.artist as string | null | undefined) ?? null,
+    disambiguation: (raw.disambiguation as string | null | undefined) ?? null,
+    year: (raw.year as number | null | undefined) ?? null,
+    country: (raw.country as string | null | undefined) ?? null,
+    label: (raw.label as string | null | undefined) ?? null,
+    entityType: (raw.entityType as string | null | undefined) ?? null,
+    area: (raw.area as string | null | undefined) ?? null,
+    trackCount: (raw.trackCount as number | null | undefined) ?? null,
+  };
 }
 
 export interface ArtistImageRecord {
@@ -1381,6 +1555,21 @@ export async function setCdDetailDrive(driveId: string | null): Promise<void> {
   await invoke("set_cd_detail_drive", { driveId });
 }
 
+function normalizeMbidList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((value) => {
+    if (typeof value !== "string") return [];
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  });
+}
+
+function normalizeOptionalMbid(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return trimmed || null;
+}
+
 function normalizeDiscTrackMetadata(
   raw: Record<string, unknown>,
 ): import("../types/cd").DiscTrackMetadata {
@@ -1388,6 +1577,10 @@ function normalizeDiscTrackMetadata(
     number: raw.number as number,
     title: raw.title as string,
     artist: (raw.artist as string | null | undefined) ?? null,
+    recordingMbid: normalizeOptionalMbid(
+      raw.recordingMbid ?? raw.recording_mbid,
+    ),
+    artistMbids: normalizeMbidList(raw.artistMbids ?? raw.artist_mbids),
   };
 }
 
@@ -1404,10 +1597,10 @@ function normalizeDiscMetadata(raw: Record<string, unknown>): DiscMetadata {
     genre: (raw.genre as string | null | undefined) ?? null,
     country: (raw.country as string | null | undefined) ?? null,
     label: (raw.label as string | null | undefined) ?? null,
-    releaseMbid:
-      (raw.releaseMbid as string | null | undefined) ??
-      (raw.release_mbid as string | null | undefined) ??
-      null,
+    releaseMbid: normalizeOptionalMbid(raw.releaseMbid ?? raw.release_mbid),
+    albumArtistMbids: normalizeMbidList(
+      raw.albumArtistMbids ?? raw.album_artist_mbids,
+    ),
     tracks: tracksRaw.map(normalizeDiscTrackMetadata),
   };
 }
@@ -1479,10 +1672,24 @@ export async function saveDiscMetadataPreference(
   await invoke("save_disc_metadata_preference", { discId, releaseMbid });
 }
 
+function presentStringField(
+  raw: Record<string, unknown>,
+  camel: string,
+  snake: string,
+): string | undefined {
+  if (!(camel in raw) && !(snake in raw)) return undefined;
+  return String((raw[camel] ?? raw[snake] ?? "") as string);
+}
+
 function normalizeDiscTrackOverride(
   raw: Record<string, unknown> | null | undefined,
 ): DiscTrackOverride {
   if (raw == null) return {};
+  const recordingMbid = presentStringField(
+    raw,
+    "recordingMbid",
+    "recording_mbid",
+  );
   return {
     title: (raw.title as string | null | undefined) ?? null,
     artist: (raw.artist as string | null | undefined) ?? null,
@@ -1492,6 +1699,7 @@ function normalizeDiscTrackOverride(
         : Number.isFinite(Number(raw.rating))
           ? Number(raw.rating)
           : null,
+    ...(recordingMbid !== undefined ? { recordingMbid } : {}),
   };
 }
 
@@ -1507,6 +1715,7 @@ function normalizeDiscMetadataOverride(
   for (const [number, track] of Object.entries(tracksRaw)) {
     tracks[number] = normalizeDiscTrackOverride(track);
   }
+  const releaseMbid = presentStringField(raw, "releaseMbid", "release_mbid");
   return {
     album: (raw.album as string | null | undefined) ?? null,
     albumArtist:
@@ -1524,6 +1733,7 @@ function normalizeDiscMetadataOverride(
       (raw.artPath as string | null | undefined) ??
       (raw.art_path as string | null | undefined) ??
       null,
+    ...(releaseMbid !== undefined ? { releaseMbid } : {}),
     tracks,
   };
 }

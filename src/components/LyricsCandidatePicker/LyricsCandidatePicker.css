@@ -16,6 +16,14 @@
   overflow: hidden;
 }
 
+.modal-header + .lyrics-candidate-picker__body {
+  padding-top: 0;
+}
+
+.lyrics-candidate-picker__body.modal-body:has(+ .modal-footer) {
+  padding-bottom: 0;
+}
+
 .lyrics-candidate-picker__layout {
   display: grid;
   grid-template-columns: minmax(18rem, 0.5fr) minmax(0, 1fr);
@@ -98,6 +106,7 @@
 .lyrics-candidate-picker__list {
   flex: 1;
   min-height: 0;
-  padding: 0 calc(0.5rem + var(--scrollbar-size)) 0 0;
+  padding: var(--modal-fade-padding) calc(0.5rem + var(--scrollbar-size))
+    var(--modal-fade-padding) 0;
   overflow-y: auto;
 }

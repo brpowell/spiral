@@ -19,8 +19,10 @@ import { parseTrackMetadata } from "../../lib/metadata";
 import {
   buildTrackMetadataFromForm,
   isLyricsInstrumentalMixed,
+  isTrackEditorFieldMixed,
   lyricsEditorStateEqual,
   sharedArtPath,
+  sharedString,
   trackEditorFormsEqual,
   trackEditorMetadataFormsEqual,
   tracksToForm,
@@ -42,16 +44,23 @@ import {
 import { runLyricsFetchInBackground } from "../../lib/lyricsFetchToast";
 import { commitFetchedLyricsForTrack } from "../../lib/lyricsFetchCommit";
 import { showBulkTrackMetadataSaveToast } from "../../lib/trackMetadataToast";
+import { fetchCoverArtCandidates } from "../../lib/albumArtFetch";
+import { refreshArtDisplay } from "../../lib/artDisplayCache";
 import { preloadCoverArtThumbs } from "../../lib/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
-  fetchCoverArt,
   getTrackLyrics,
   pickImageFile,
   setTrackRating,
+  warmMusicBrainzEntity,
   writeTrackMetadata,
 } from "../../lib/tauri";
+import {
+  rematchRecordingFromCachedRelease,
+  deriveRecordingFromCachedRelease,
+} from "../../lib/musicBrainzReleaseRecordings";
+import { albumKey } from "../../lib/albums";
 import {
   usePlayerStore,
   type TrackEditorTab,
@@ -80,6 +89,7 @@ import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
 import { EntityArt } from "../EntityArt/EntityArt";
 import { AlbumArtPicker } from "../AlbumEditor/AlbumArtPicker";
 import { AlbumEditorArtTab } from "../AlbumEditor/AlbumEditorArtTab";
+import { MusicBrainzEditorTab } from "../MusicBrainzEditorTab/MusicBrainzEditorTab";
 import { TrackEditorDetailsTab } from "./TrackEditorDetailsTab";
 import { TrackEditorFileTab } from "./TrackEditorFileTab";
 import { TrackEditorLyricsTab } from "./TrackEditorLyricsTab";
@@ -156,6 +166,7 @@ export function TrackEditor() {
   const trackEditorInitialTab = usePlayerStore((s) => s.trackEditorInitialTab);
   const library = usePlayerStore((s) => s.library);
   const closeTrackEditor = usePlayerStore((s) => s.closeTrackEditor);
+  const openAlbumEditor = usePlayerStore((s) => s.openAlbumEditor);
   const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
   const updateTracksInLibrary = usePlayerStore((s) => s.updateTracksInLibrary);
   const notifyTrackLyricsUpdated = usePlayerStore(
@@ -172,6 +183,15 @@ export function TrackEditor() {
   const isBulk = tracks.length > 1;
   const referenceTrack = tracks[0] ?? null;
   const editingKey = editingTrackIds.join(",");
+  /** Shared release MBID across the whole album grouping (not just the selection). */
+  const albumReleaseMbid = useMemo(() => {
+    const anchor = referenceTrack;
+    if (anchor == null) return "";
+    const key = albumKey(anchor);
+    const albumTracks = library.filter((t) => albumKey(t) === key);
+    return sharedString(albumTracks, (t) => t.releaseMbid ?? "").trim();
+  }, [library, referenceTrack]);
+  const albumHasRelease = albumReleaseMbid !== "";
   const artistSuggestions = useMemo(
     () => collectArtistNameSuggestions(library),
     [library],
@@ -221,6 +241,9 @@ export function TrackEditor() {
   const [artDragOver, setArtDragOver] = useState(false);
   const [artPickerOpen, setArtPickerOpen] = useState(false);
   const artFetchGenRef = useRef(0);
+  const [derivedEmptyKind, setDerivedEmptyKind] = useState<
+    "resolving" | "releaseCacheMiss" | "unmatched" | null
+  >(null);
 
   const isOpen =
     editingTrackIds.length > 0 && tracks.length > 0 && form != null;
@@ -295,6 +318,101 @@ export function TrackEditor() {
     // in-progress edits on library refresh. setDiscardPrompt is stable useState.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- key-gated form reset
   }, [editingKey, trackEditorInitialTab]);
+
+  // Derive recording from cached album release when the track was never stamped.
+  useEffect(() => {
+    if (!form || !referenceTrack || isBulk) {
+      setDerivedEmptyKind(null);
+      return;
+    }
+    if (form.recordingMbid.trim()) {
+      setDerivedEmptyKind(null);
+      return;
+    }
+    if (!albumReleaseMbid) {
+      setDerivedEmptyKind(null);
+      return;
+    }
+
+    let cancelled = false;
+    setDerivedEmptyKind("resolving");
+    void deriveRecordingFromCachedRelease({
+      releaseMbid: albumReleaseMbid,
+      discNumberForm: form.discNumber,
+      trackNumberForm: form.trackNumber,
+      discNumber: referenceTrack.discNumber,
+      trackNumber: referenceTrack.trackNumber,
+    }).then(async (result) => {
+      if (cancelled) return;
+      if (result.status === "cacheMiss" || result.status === "noRelease") {
+        setDerivedEmptyKind("releaseCacheMiss");
+        return;
+      }
+      if (result.status === "unmatched") {
+        setDerivedEmptyKind("unmatched");
+        return;
+      }
+
+      const matched = result.recordingMbid;
+      setDerivedEmptyKind(null);
+      try {
+        const updated = await writeTrackMetadata(
+          referenceTrack.id,
+          referenceTrack.filePath,
+          buildTrackMetadataFromForm(
+            referenceTrack,
+            { ...form, recordingMbid: matched },
+            form,
+            referenceTrack.artPath,
+            false,
+            matched,
+          ),
+        );
+        if (cancelled) return;
+        updateTrackInLibrary(updated);
+        setForm((prev) => (prev ? { ...prev, recordingMbid: matched } : prev));
+        setOriginalForm((prev) =>
+          prev ? { ...prev, recordingMbid: matched } : prev,
+        );
+      } catch {
+        if (!cancelled) {
+          setForm((prev) =>
+            prev ? { ...prev, recordingMbid: matched } : prev,
+          );
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- derive when selection / release / empty recording
+  }, [
+    editingKey,
+    isBulk,
+    albumReleaseMbid,
+    form?.recordingMbid,
+    referenceTrack?.id,
+    referenceTrack?.discNumber,
+    referenceTrack?.trackNumber,
+  ]);
+
+  // Warm MusicBrainz entity cards while the details tab is visible.
+  useEffect(() => {
+    if (!isOpen || isBulk) return;
+    warmMusicBrainzEntity("release", albumReleaseMbid);
+    warmMusicBrainzEntity(
+      "recording",
+      form?.recordingMbid || referenceTrack?.recordingMbid,
+    );
+  }, [
+    isOpen,
+    isBulk,
+    editingKey,
+    albumReleaseMbid,
+    form?.recordingMbid,
+    referenceTrack?.recordingMbid,
+  ]);
 
   useEffect(() => {
     if (!referenceTrack || isBulk) return;
@@ -606,7 +724,12 @@ export function TrackEditor() {
         parseArtistField(form.artist)[0] ??
         parseArtistField(form.albumArtist)[0] ??
         form.artist;
-      const candidates = await fetchCoverArt(primaryArtist, form.album);
+      const releaseMbid = sharedString(tracks, (t) => t.releaseMbid ?? "");
+      const candidates = await fetchCoverArtCandidates({
+        artist: primaryArtist,
+        album: form.album,
+        releaseMbid: releaseMbid || null,
+      });
       if (gen !== artFetchGenRef.current) return;
       if (candidates.length === 0) {
         setFetchMessage(t("library:editor.noArtResults"));
@@ -664,12 +787,21 @@ export function TrackEditor() {
 
         let updated = referenceTrack;
         if (metadataDirty) {
+          const recordingOverride = await rematchRecordingFromCachedRelease({
+            releaseMbid: referenceTrack.releaseMbid,
+            discNumberForm: form.discNumber,
+            trackNumberForm: form.trackNumber,
+            numbersChanged:
+              form.trackNumber !== originalForm.trackNumber ||
+              form.discNumber !== originalForm.discNumber,
+          });
           const metadata = buildTrackMetadataFromForm(
             referenceTrack,
             form,
             originalForm,
             artPath,
             artChanged,
+            recordingOverride,
           );
           updated = await writeTrackMetadata(
             referenceTrack.id,
@@ -727,12 +859,21 @@ export function TrackEditor() {
           const artPath = artChanged
             ? await resolveArtPathForTrack(track)
             : track.artPath;
+          const recordingOverride = await rematchRecordingFromCachedRelease({
+            releaseMbid: track.releaseMbid,
+            discNumberForm: form.discNumber,
+            trackNumberForm: form.trackNumber,
+            numbersChanged:
+              form.trackNumber !== originalForm.trackNumber ||
+              form.discNumber !== originalForm.discNumber,
+          });
           const metadata = buildTrackMetadataFromForm(
             track,
             form,
             originalForm,
             artPath,
             artChanged,
+            recordingOverride,
           );
           const saved = await writeTrackMetadata(
             track.id,
@@ -759,6 +900,12 @@ export function TrackEditor() {
       ];
       if (libraryUpdates.length > 0) {
         updateTracksInLibrary(libraryUpdates);
+        if (artChanged) {
+          refreshArtDisplay([
+            originalArtPath,
+            ...updated.map((track) => track.artPath),
+          ]);
+        }
       }
 
       if (cancelled) {
@@ -795,9 +942,6 @@ export function TrackEditor() {
   const discardDescription = isBulk
     ? t("library:editor.discardBulk", { count: tracks.length })
     : t("library:editor.discardSingle");
-
-  const hasLyrics =
-    (form?.lyrics.trim().length ?? 0) > 0 || Boolean(form?.lyricsInstrumental);
 
   const identityTitle = form?.title.trim() || t("common:untitled");
   const identitySubtitle = [
@@ -881,8 +1025,9 @@ export function TrackEditor() {
                   <TabList aria-label={t("library:editor.tabsAria")}>
                     <Tab value="details">{t("library:editor.tabDetails")}</Tab>
                     <Tab value="art">{t("library:editor.tabArt")}</Tab>
-                    <Tab value="lyrics" badge={hasLyrics ? "•" : undefined}>
-                      {t("library:editor.tabLyrics")}
+                    <Tab value="lyrics">{t("library:editor.tabLyrics")}</Tab>
+                    <Tab value="musicbrainz">
+                      {t("library:editor.tabMusicBrainz")}
                     </Tab>
                     {!isBulk ? (
                       <Tab value="file">{t("library:editor.tabFile")}</Tab>
@@ -940,6 +1085,32 @@ export function TrackEditor() {
                       />
                     </TabPanel>
 
+                    <TabPanel
+                      value="musicbrainz"
+                      className="track-editor__tab-panel"
+                      keepMounted
+                    >
+                      <MusicBrainzEditorTab
+                        kind="recording"
+                        assignment="derived"
+                        mbid={form.recordingMbid}
+                        mixed={isTrackEditorFieldMixed(tracks, "recordingMbid")}
+                        hasAlbum={Boolean(form.album.trim())}
+                        albumTitle={form.album.trim()}
+                        hasAlbumRelease={albumHasRelease}
+                        derivedEmptyKind={derivedEmptyKind ?? undefined}
+                        onSearchAlbumRelease={() => {
+                          const track = referenceTrack ?? tracks[0];
+                          if (track == null || !form.album.trim()) return;
+                          openAlbumEditor(albumKey(track), {
+                            tab: "musicbrainz",
+                            autoOpenMbSearch:
+                              derivedEmptyKind !== "releaseCacheMiss",
+                          });
+                        }}
+                      />
+                    </TabPanel>
+
                     {!isBulk && referenceTrack ? (
                       <TabPanel
                         value="file"
@@ -962,7 +1133,11 @@ export function TrackEditor() {
               </Tabs>
             </div>
 
-            <ModalFooter inert={discardPrompt || undefined} {...footerCancel}>
+            <ModalFooter
+              fade
+              inert={discardPrompt || undefined}
+              {...footerCancel}
+            >
               <EditorSaveButton
                 saving={saving}
                 label={saveLabel}

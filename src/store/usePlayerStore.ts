@@ -77,7 +77,8 @@ import type { CrossfadeVisualState } from "../lib/playback";
 import type { PlaybackState, RepeatMode, Track } from "../types/track";
 import { playOrResume } from "../lib/playbackStart";
 
-export type TrackEditorTab = "details" | "art" | "file" | "lyrics";
+export type TrackEditorTab =
+  "details" | "art" | "file" | "lyrics" | "musicbrainz";
 
 interface PlayerState {
   library: Track[];
@@ -106,6 +107,9 @@ interface PlayerState {
   editingTrackIds: number[];
   trackEditorInitialTab: TrackEditorTab;
   editingAlbumKey: string | null;
+  albumEditorInitialTab: "details" | "art" | "musicbrainz";
+  /** When true, Album MusicBrainz tab opens the release search picker once. */
+  albumEditorAutoOpenMbSearch: boolean;
   editingArtistKey: string | null;
   editingArtistBrowseMode: ArtistBrowseMode;
   /** Bumped when lyrics are saved so now-playing UI can refetch. */
@@ -159,8 +163,15 @@ interface PlayerState {
     options?: { tab?: TrackEditorTab },
   ) => void;
   closeTrackEditor: () => void;
-  openAlbumEditor: (albumKey: string) => void;
+  openAlbumEditor: (
+    albumKey: string,
+    options?: {
+      tab?: "details" | "art" | "musicbrainz";
+      autoOpenMbSearch?: boolean;
+    },
+  ) => void;
   closeAlbumEditor: () => void;
+  clearAlbumEditorAutoOpenMbSearch: () => void;
   openArtistEditor: (artistKey: string, browseMode: ArtistBrowseMode) => void;
   closeArtistEditor: () => void;
   updateTrackInLibrary: (track: Track) => void;
@@ -1142,6 +1153,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     editingTrackIds: [],
     trackEditorInitialTab: "details",
     editingAlbumKey: null,
+    albumEditorInitialTab: "details",
+    albumEditorAutoOpenMbSearch: false,
     editingArtistKey: null,
     editingArtistBrowseMode: "discography",
     lyricsRevisionByTrackId: {},
@@ -1744,14 +1757,23 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
     closeTrackEditor: () =>
       set({ editingTrackIds: [], trackEditorInitialTab: "details" }),
-    openAlbumEditor: (albumKey) =>
+    openAlbumEditor: (albumKey, options) =>
       set({
         editingAlbumKey: albumKey,
+        albumEditorInitialTab: options?.tab ?? "details",
+        albumEditorAutoOpenMbSearch: options?.autoOpenMbSearch ?? false,
         editingTrackIds: [],
         trackEditorInitialTab: "details",
         editingArtistKey: null,
       }),
-    closeAlbumEditor: () => set({ editingAlbumKey: null }),
+    closeAlbumEditor: () =>
+      set({
+        editingAlbumKey: null,
+        albumEditorInitialTab: "details",
+        albumEditorAutoOpenMbSearch: false,
+      }),
+    clearAlbumEditorAutoOpenMbSearch: () =>
+      set({ albumEditorAutoOpenMbSearch: false }),
     openArtistEditor: (artistKey, browseMode) =>
       set({
         editingArtistKey: artistKey,

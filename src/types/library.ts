@@ -29,6 +29,8 @@ export interface LibrarySettings {
   listeningHistoryEnabled: boolean;
   lyricsSidecarSyncEnabled: boolean;
   lyricsAutoFetchInLightbox: boolean;
+  /** When true, confirm before opening musicbrainz.org from editors. */
+  confirmMusicBrainzExternalLinks: boolean;
   automaticUpdateChecksEnabled: boolean;
   automaticPackUpdateChecksEnabled: boolean;
 }
@@ -45,6 +47,7 @@ export interface LibrarySettingsPatch {
   listeningHistoryEnabled?: boolean;
   lyricsSidecarSyncEnabled?: boolean;
   lyricsAutoFetchInLightbox?: boolean;
+  confirmMusicBrainzExternalLinks?: boolean;
   automaticUpdateChecksEnabled?: boolean;
   automaticPackUpdateChecksEnabled?: boolean;
 }

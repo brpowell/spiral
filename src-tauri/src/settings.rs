@@ -189,6 +189,26 @@ impl Default for LyricsSettings {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MusicBrainzSettings {
+    /// When true, confirm before opening musicbrainz.org entity pages from editors.
+    #[serde(default = "default_confirm_musicbrainz_external_links")]
+    pub confirm_external_links: bool,
+}
+
+fn default_confirm_musicbrainz_external_links() -> bool {
+    true
+}
+
+impl Default for MusicBrainzSettings {
+    fn default() -> Self {
+        Self {
+            confirm_external_links: default_confirm_musicbrainz_external_links(),
+        }
+    }
+}
+
 impl Default for LibrarySettings {
     fn default() -> Self {
         Self {
@@ -340,6 +360,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub lyrics: LyricsSettings,
     #[serde(default)]
+    pub musicbrainz: MusicBrainzSettings,
+    #[serde(default)]
     pub cd: CdSettings,
     #[serde(default)]
     pub equalizer: EqualizerSettings,
@@ -443,6 +465,7 @@ impl Default for AppSettings {
             metadata_backups: MetadataBackupSettings::default(),
             listening_history: ListeningHistorySettings::default(),
             lyrics: LyricsSettings::default(),
+            musicbrainz: MusicBrainzSettings::default(),
             cd: CdSettings::default(),
             equalizer: EqualizerSettings::default(),
             playback: PlaybackSettings::default(),
@@ -468,6 +491,7 @@ pub struct LibrarySettingsResponse {
     pub listening_history_enabled: bool,
     pub lyrics_sidecar_sync_enabled: bool,
     pub lyrics_auto_fetch_in_lightbox: bool,
+    pub confirm_musicbrainz_external_links: bool,
     pub cd_metadata_fetch_mode: String,
     pub cd_import_profile_id: String,
     pub automatic_update_checks_enabled: bool,
@@ -614,6 +638,7 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
         listening_history_enabled: listening_history.enabled,
         lyrics_sidecar_sync_enabled: lyrics.sidecar_sync_enabled,
         lyrics_auto_fetch_in_lightbox: lyrics.auto_fetch_in_lightbox,
+        confirm_musicbrainz_external_links: app_settings.musicbrainz.confirm_external_links,
         cd_metadata_fetch_mode: cd.metadata_fetch_mode,
         cd_import_profile_id: resolved_cd_import_profile_id(&cd.import_profile_id),
         automatic_update_checks_enabled: updates.automatic_checks_enabled,
@@ -642,6 +667,8 @@ pub struct LibrarySettingsPatch {
     pub lyrics_sidecar_sync_enabled: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lyrics_auto_fetch_in_lightbox: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confirm_musicbrainz_external_links: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cd_metadata_fetch_mode: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -697,6 +724,9 @@ pub fn merge_library_settings(
     }
     if let Some(enabled) = patch.lyrics_auto_fetch_in_lightbox {
         settings.lyrics.auto_fetch_in_lightbox = enabled;
+    }
+    if let Some(enabled) = patch.confirm_musicbrainz_external_links {
+        settings.musicbrainz.confirm_external_links = enabled;
     }
     if let Some(mode) = patch.cd_metadata_fetch_mode {
         if !mode.is_empty() {

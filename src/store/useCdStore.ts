@@ -66,6 +66,8 @@ interface CdState {
   editingCdTrackIds: number[];
   editingCdDriveId: string | null;
   editingCdAlbumDriveId: string | null;
+  cdAlbumEditorInitialTab: "details" | "musicbrainz";
+  cdAlbumEditorAutoOpenMbSearch: boolean;
   initialized: boolean;
   refreshDrives: () => Promise<void>;
   probeDriveDisc: (drive: CdDrive) => Promise<void>;
@@ -92,8 +94,12 @@ interface CdState {
   setHeroArt: (driveId: string, artPath: string | null) => void;
   openCdTrackEditor: (driveId: string, ids: number | number[]) => void;
   closeCdTrackEditor: () => void;
-  openCdAlbumEditor: (driveId: string) => void;
+  openCdAlbumEditor: (
+    driveId: string,
+    options?: { tab?: "details" | "musicbrainz"; autoOpenMbSearch?: boolean },
+  ) => void;
   closeCdAlbumEditor: () => void;
+  clearCdAlbumEditorAutoOpenMbSearch: () => void;
   ejectDrive: (driveId: string) => Promise<void>;
   init: () => Promise<UnlistenFn>;
 }
@@ -705,6 +711,8 @@ export const useCdStore = create<CdState>((set, get) => ({
   editingCdTrackIds: [],
   editingCdDriveId: null,
   editingCdAlbumDriveId: null,
+  cdAlbumEditorInitialTab: "details",
+  cdAlbumEditorAutoOpenMbSearch: false,
   initialized: false,
 
   refreshDrives: async () => {
@@ -1058,16 +1066,26 @@ export const useCdStore = create<CdState>((set, get) => ({
     set({ editingCdTrackIds: [], editingCdDriveId: null });
   },
 
-  openCdAlbumEditor: (driveId) => {
+  openCdAlbumEditor: (driveId, options) => {
     set({
       editingCdAlbumDriveId: driveId,
+      cdAlbumEditorInitialTab: options?.tab ?? "details",
+      cdAlbumEditorAutoOpenMbSearch: options?.autoOpenMbSearch ?? false,
       editingCdTrackIds: [],
       editingCdDriveId: null,
     });
   },
 
   closeCdAlbumEditor: () => {
-    set({ editingCdAlbumDriveId: null });
+    set({
+      editingCdAlbumDriveId: null,
+      cdAlbumEditorInitialTab: "details",
+      cdAlbumEditorAutoOpenMbSearch: false,
+    });
+  },
+
+  clearCdAlbumEditorAutoOpenMbSearch: () => {
+    set({ cdAlbumEditorAutoOpenMbSearch: false });
   },
 
   ejectDrive: async (driveId) => {

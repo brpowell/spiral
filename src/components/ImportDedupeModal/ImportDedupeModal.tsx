@@ -16,6 +16,7 @@ import { Checkbox } from "../common/Checkbox/Checkbox";
 import {
   Modal,
   ModalBody,
+  ModalDescription,
   ModalFooter,
   ModalHeader,
   ModalHeaderMain,
@@ -156,20 +157,20 @@ export function ImportDedupeModal() {
           <ModalTitle id={titleId}>
             {t("dialogs:importDedupe.title")}
           </ModalTitle>
-        </ModalHeaderMain>
-      </ModalHeader>
-
-      {context != null && (
-        <ModalBody>
-          <div className="import-dedupe-modal__track">
-            <p className="import-dedupe-modal__track-title">
+          {context != null && (
+            <ModalDescription>
               {formatTrackSummary(
                 context.incoming.title,
                 context.incoming.artist,
                 context.incoming.album,
               )}
-            </p>
-          </div>
+            </ModalDescription>
+          )}
+        </ModalHeaderMain>
+      </ModalHeader>
+
+      {context != null && (
+        <ModalBody>
           <div className="import-dedupe-modal__files">
             <ImportFileCard
               label={t("dialogs:importDedupe.incoming")}

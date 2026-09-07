@@ -45,6 +45,37 @@ describe("mergeRemoteMetadataIntoDisc", () => {
     expect(merged.tracks[1].title).toBe("MB Two");
   });
 
+  it("copies release, recording, and artist MBIDs from MusicBrainz", () => {
+    const remote: DiscMetadata = {
+      discId: "disc-abc",
+      album: "MB Album",
+      albumArtist: "MB Artist",
+      releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
+      albumArtistMbids: ["89ad4ac3-39f7-470e-963a-56509c546377"],
+      tracks: [
+        {
+          number: 1,
+          title: "MB One",
+          recordingMbid: "550e8400-e29b-41d4-a716-446655440000",
+          artistMbids: ["a74b1b3a-d5ba-4d8a-b656-e59347b6780e"],
+        },
+        { number: 2, title: "MB Two" },
+      ],
+    };
+    const merged = mergeRemoteMetadataIntoDisc(sampleDisc(), remote);
+    expect(merged.releaseMbid).toBe("1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b");
+    expect(merged.albumArtistMbids).toEqual([
+      "89ad4ac3-39f7-470e-963a-56509c546377",
+    ]);
+    expect(merged.tracks[0].recordingMbid).toBe(
+      "550e8400-e29b-41d4-a716-446655440000",
+    );
+    expect(merged.tracks[0].artistMbids).toEqual([
+      "a74b1b3a-d5ba-4d8a-b656-e59347b6780e",
+    ]);
+    expect(merged.tracks[1].recordingMbid).toBeNull();
+  });
+
   it("keeps existing disc genre when MusicBrainz has none", () => {
     const remote: DiscMetadata = {
       album: "MB Album",
@@ -87,6 +118,38 @@ describe("mergeOverridesIntoDisc", () => {
     expect(merged.tracks[0].title).toBe("Edited One");
     expect(merged.tracks[0].rating).toBe(204);
     expect(merged.tracks[1].title).toBe("MB Two");
+  });
+
+  it("lets edited MusicBrainz IDs win over lookup, including clears", () => {
+    const remote: DiscMetadata = {
+      album: "MB Album",
+      releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
+      tracks: [
+        {
+          number: 1,
+          title: "MB One",
+          recordingMbid: "550e8400-e29b-41d4-a716-446655440000",
+        },
+        {
+          number: 2,
+          title: "MB Two",
+          recordingMbid: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+        },
+      ],
+    };
+    const withRemote = mergeRemoteMetadataIntoDisc(sampleDisc(), remote);
+    const override: DiscMetadataOverride = {
+      releaseMbid: "cccccccc-dddd-eeee-ffff-000000000000",
+      tracks: {
+        "1": { recordingMbid: "" },
+      },
+    };
+    const merged = mergeOverridesIntoDisc(withRemote, override);
+    expect(merged.releaseMbid).toBe("cccccccc-dddd-eeee-ffff-000000000000");
+    expect(merged.tracks[0].recordingMbid).toBeNull();
+    expect(merged.tracks[1].recordingMbid).toBe(
+      "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    );
   });
 
   it("is a no-op for empty overrides", () => {
@@ -133,6 +196,14 @@ describe("discMetadataOverrideHasEdits", () => {
     expect(
       discMetadataOverrideHasEdits({
         tracks: { "1": { rating: 128 } },
+      }),
+    ).toBe(true);
+    expect(discMetadataOverrideHasEdits({ releaseMbid: "" })).toBe(true);
+    expect(
+      discMetadataOverrideHasEdits({
+        tracks: {
+          "1": { recordingMbid: "550e8400-e29b-41d4-a716-446655440000" },
+        },
       }),
     ).toBe(true);
   });

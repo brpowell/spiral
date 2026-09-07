@@ -31,7 +31,11 @@ CREATE TABLE IF NOT EXISTS tracks (
   date_added TEXT NOT NULL,
   play_count INTEGER NOT NULL DEFAULT 0,
   last_played_at TEXT,
-  rating INTEGER NOT NULL DEFAULT 0
+  rating INTEGER NOT NULL DEFAULT 0,
+  recording_mbid TEXT,
+  release_mbid TEXT,
+  artist_mbids TEXT,
+  album_artist_mbids TEXT
 );
 
 CREATE TABLE IF NOT EXISTS listen_events (
@@ -87,11 +91,20 @@ CREATE TABLE IF NOT EXISTS track_lyrics (
   plain_text TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS musicbrainz_entities (
+  kind TEXT NOT NULL,
+  mbid TEXT NOT NULL,
+  json TEXT NOT NULL,
+  fetched_at TEXT NOT NULL,
+  PRIMARY KEY (kind, mbid)
+);
 ";
 
 const TRACK_SELECT: &str = "SELECT tracks.id, tracks.title, tracks.artist, tracks.album, tracks.album_artist, tracks.track_number, tracks.total_tracks, tracks.disc_number, tracks.total_discs,
                 tracks.year, tracks.genre, tracks.duration_seconds, tracks.sample_rate, tracks.bitrate, tracks.codec, tracks.file_path, tracks.art_path,
-                tracks.date_added, tracks.play_count, tracks.last_played_at, tracks.rating, track_lyrics.format";
+                tracks.date_added, tracks.play_count, tracks.last_played_at, tracks.rating,
+                tracks.recording_mbid, tracks.release_mbid, tracks.artist_mbids, tracks.album_artist_mbids, track_lyrics.format";
 
 const TRACK_FROM_JOIN: &str =
     "FROM tracks LEFT JOIN track_lyrics ON track_lyrics.track_id = tracks.id";
@@ -119,8 +132,14 @@ fn map_track_row(row: &Row<'_>) -> rusqlite::Result<Track> {
         play_count: row.get(18)?,
         last_played_at: row.get(19)?,
         rating: row.get(20)?,
+        recording_mbid: crate::mbid::normalize_mbid(row.get::<_, Option<String>>(21)?.as_deref()),
+        release_mbid: crate::mbid::normalize_mbid(row.get::<_, Option<String>>(22)?.as_deref()),
+        artist_mbids: crate::mbid::parse_mbid_list(row.get::<_, Option<String>>(23)?.as_deref()),
+        album_artist_mbids: crate::mbid::parse_mbid_list(
+            row.get::<_, Option<String>>(24)?.as_deref(),
+        ),
         lyrics_format: row
-            .get::<_, Option<String>>(21)?
+            .get::<_, Option<String>>(25)?
             .map(|value| parse_lyrics_format(&value)),
     })
 }
@@ -204,6 +223,18 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
     if !track_columns.iter().any(|c| c == "total_discs") {
         conn.execute("ALTER TABLE tracks ADD COLUMN total_discs INTEGER", [])?;
+    }
+    if !track_columns.iter().any(|c| c == "recording_mbid") {
+        conn.execute("ALTER TABLE tracks ADD COLUMN recording_mbid TEXT", [])?;
+    }
+    if !track_columns.iter().any(|c| c == "release_mbid") {
+        conn.execute("ALTER TABLE tracks ADD COLUMN release_mbid TEXT", [])?;
+    }
+    if !track_columns.iter().any(|c| c == "artist_mbids") {
+        conn.execute("ALTER TABLE tracks ADD COLUMN artist_mbids TEXT", [])?;
+    }
+    if !track_columns.iter().any(|c| c == "album_artist_mbids") {
+        conn.execute("ALTER TABLE tracks ADD COLUMN album_artist_mbids TEXT", [])?;
     }
 
     let playlist_columns = table_columns(conn, "playlists")?;
@@ -320,7 +351,70 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
         }
     }
 
+    if !table_exists(conn, "musicbrainz_entities")? {
+        conn.execute_batch(
+            "CREATE TABLE musicbrainz_entities (
+                kind TEXT NOT NULL,
+                mbid TEXT NOT NULL,
+                json TEXT NOT NULL,
+                fetched_at TEXT NOT NULL,
+                PRIMARY KEY (kind, mbid)
+            );",
+        )?;
+    }
+
     Ok(())
+}
+
+/// Cached MusicBrainz entity document (release / recording / artist).
+pub fn get_musicbrainz_entity_json(
+    conn: &Connection,
+    kind: &str,
+    mbid: &str,
+) -> Result<Option<String>, rusqlite::Error> {
+    conn.query_row(
+        "SELECT json FROM musicbrainz_entities WHERE kind = ?1 AND mbid = ?2",
+        params![kind, mbid],
+        |row| row.get(0),
+    )
+    .optional()
+}
+
+/// Overwrite (or insert) a MusicBrainz entity document.
+pub fn upsert_musicbrainz_entity(
+    conn: &Connection,
+    kind: &str,
+    mbid: &str,
+    json: &str,
+    fetched_at: &str,
+) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "INSERT INTO musicbrainz_entities (kind, mbid, json, fetched_at)
+         VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(kind, mbid) DO UPDATE SET
+            json = excluded.json,
+            fetched_at = excluded.fetched_at",
+        params![kind, mbid, json, fetched_at],
+    )?;
+    Ok(())
+}
+
+/// Insert a MusicBrainz entity only when no row exists for `(kind, mbid)`.
+/// Returns `true` when a row was inserted.
+pub fn insert_musicbrainz_entity_if_absent(
+    conn: &Connection,
+    kind: &str,
+    mbid: &str,
+    json: &str,
+    fetched_at: &str,
+) -> Result<bool, rusqlite::Error> {
+    let changed = conn.execute(
+        "INSERT INTO musicbrainz_entities (kind, mbid, json, fetched_at)
+         VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(kind, mbid) DO NOTHING",
+        params![kind, mbid, json, fetched_at],
+    )?;
+    Ok(changed > 0)
 }
 
 pub fn open(db_path: &Path) -> Result<Connection, rusqlite::Error> {
@@ -337,12 +431,19 @@ pub fn open(db_path: &Path) -> Result<Connection, rusqlite::Error> {
 pub fn save_track(conn: &Connection, input: &TrackInput) -> Result<i64, rusqlite::Error> {
     let date_added = Utc::now().to_rfc3339();
     let rating = input.rating.unwrap_or(0);
+    let (recording_mbid, release_mbid, artist_mbids, album_artist_mbids) = crate::mbid::sql_values(
+        input.recording_mbid.as_deref(),
+        input.release_mbid.as_deref(),
+        &input.artist_mbids,
+        &input.album_artist_mbids,
+    );
     conn.execute(
         "INSERT INTO tracks (
             title, artist, album, album_artist, track_number, total_tracks, disc_number, total_discs,
             year, genre, duration_seconds, sample_rate, bitrate, codec,
-            file_path, art_path, date_added, rating
-        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
+            file_path, art_path, date_added, rating,
+            recording_mbid, release_mbid, artist_mbids, album_artist_mbids
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)
         ON CONFLICT(file_path) DO UPDATE SET
             title = excluded.title,
             artist = excluded.artist,
@@ -359,6 +460,10 @@ pub fn save_track(conn: &Connection, input: &TrackInput) -> Result<i64, rusqlite
             bitrate = excluded.bitrate,
             codec = excluded.codec,
             art_path = excluded.art_path,
+            recording_mbid = excluded.recording_mbid,
+            release_mbid = excluded.release_mbid,
+            artist_mbids = excluded.artist_mbids,
+            album_artist_mbids = excluded.album_artist_mbids,
             rating = CASE
                 WHEN tracks.rating = 0 AND excluded.rating != 0
                 THEN excluded.rating
@@ -383,6 +488,10 @@ pub fn save_track(conn: &Connection, input: &TrackInput) -> Result<i64, rusqlite
             input.art_path,
             date_added,
             rating,
+            recording_mbid,
+            release_mbid,
+            artist_mbids,
+            album_artist_mbids,
         ],
     )?;
 
@@ -578,6 +687,12 @@ pub fn update_track(
     file_path: Option<&str>,
     audio_properties: Option<&AudioProperties>,
 ) -> Result<(), rusqlite::Error> {
+    let (recording_mbid, release_mbid, artist_mbids, album_artist_mbids) = crate::mbid::sql_values(
+        metadata.recording_mbid.as_deref(),
+        metadata.release_mbid.as_deref(),
+        &metadata.artist_mbids,
+        &metadata.album_artist_mbids,
+    );
     if let Some(path) = file_path {
         if let Some(audio) = audio_properties {
             conn.execute(
@@ -593,11 +708,15 @@ pub fn update_track(
                     year = ?9,
                     genre = ?10,
                     art_path = ?11,
-                    file_path = ?12,
-                    sample_rate = ?13,
-                    bitrate = ?14,
-                    codec = ?15
-                 WHERE id = ?16",
+                    recording_mbid = ?12,
+                    release_mbid = ?13,
+                    artist_mbids = ?14,
+                    album_artist_mbids = ?15,
+                    file_path = ?16,
+                    sample_rate = ?17,
+                    bitrate = ?18,
+                    codec = ?19
+                 WHERE id = ?20",
                 params![
                     metadata.title,
                     metadata.artist,
@@ -610,6 +729,10 @@ pub fn update_track(
                     metadata.year,
                     metadata.genre,
                     metadata.art_path,
+                    recording_mbid,
+                    release_mbid,
+                    artist_mbids,
+                    album_artist_mbids,
                     path,
                     audio.sample_rate,
                     audio.bitrate,
@@ -631,8 +754,12 @@ pub fn update_track(
                     year = ?9,
                     genre = ?10,
                     art_path = ?11,
-                    file_path = ?12
-                 WHERE id = ?13",
+                    recording_mbid = ?12,
+                    release_mbid = ?13,
+                    artist_mbids = ?14,
+                    album_artist_mbids = ?15,
+                    file_path = ?16
+                 WHERE id = ?17",
                 params![
                     metadata.title,
                     metadata.artist,
@@ -645,6 +772,10 @@ pub fn update_track(
                     metadata.year,
                     metadata.genre,
                     metadata.art_path,
+                    recording_mbid,
+                    release_mbid,
+                    artist_mbids,
+                    album_artist_mbids,
                     path,
                     id,
                 ],
@@ -663,8 +794,12 @@ pub fn update_track(
                 total_discs = ?8,
                 year = ?9,
                 genre = ?10,
-                art_path = ?11
-             WHERE id = ?12",
+                art_path = ?11,
+                recording_mbid = ?12,
+                release_mbid = ?13,
+                artist_mbids = ?14,
+                album_artist_mbids = ?15
+             WHERE id = ?16",
             params![
                 metadata.title,
                 metadata.artist,
@@ -677,6 +812,10 @@ pub fn update_track(
                 metadata.year,
                 metadata.genre,
                 metadata.art_path,
+                recording_mbid,
+                release_mbid,
+                artist_mbids,
+                album_artist_mbids,
                 id,
             ],
         )?;
@@ -1200,6 +1339,7 @@ mod tests {
             art_path: None,
             rating: None,
             lyrics: None,
+            ..Default::default()
         }
     }
 
@@ -1620,6 +1760,209 @@ mod tests {
         assert_eq!(after.rating, 128);
     }
 
+    const SAMPLE_RECORDING_MBID: &str = "550e8400-e29b-41d4-a716-446655440000";
+    const SAMPLE_RELEASE_MBID: &str = "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b";
+    const SAMPLE_ARTIST_MBID: &str = "a74b1b3a-d5ba-4d8a-b656-e59347b6780e";
+    const SAMPLE_ALBUM_ARTIST_MBID: &str = "b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d";
+
+    fn sample_mbid_input(path: &str) -> TrackInput {
+        let mut input = sample_input(path);
+        input.recording_mbid = Some("550E8400-E29B-41D4-A716-446655440000".into());
+        input.release_mbid = Some(SAMPLE_RELEASE_MBID.into());
+        input.artist_mbids = vec![SAMPLE_ARTIST_MBID.to_uppercase(), "  ".into()];
+        input.album_artist_mbids = vec![SAMPLE_ALBUM_ARTIST_MBID.into()];
+        input
+    }
+
+    #[test]
+    fn migrate_adds_mbid_columns_to_existing_tracks_table() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        conn.execute_batch(
+            "CREATE TABLE tracks (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              title TEXT NOT NULL,
+              artist TEXT,
+              album TEXT,
+              album_artist TEXT,
+              track_number INTEGER,
+              total_tracks INTEGER,
+              disc_number INTEGER,
+              total_discs INTEGER,
+              year INTEGER,
+              genre TEXT,
+              duration_seconds REAL,
+              sample_rate INTEGER,
+              bitrate INTEGER,
+              codec TEXT,
+              file_path TEXT NOT NULL UNIQUE,
+              art_path TEXT,
+              date_added TEXT NOT NULL,
+              play_count INTEGER NOT NULL DEFAULT 0,
+              last_played_at TEXT,
+              rating INTEGER NOT NULL DEFAULT 0
+            );",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO tracks (title, file_path, date_added)
+             VALUES ('Legacy', '/music/legacy.mp3', '2020-01-01T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+
+        conn.execute_batch(SCHEMA).unwrap();
+        migrate(&conn).unwrap();
+
+        let columns = table_columns(&conn, "tracks").unwrap();
+        for name in [
+            "recording_mbid",
+            "release_mbid",
+            "artist_mbids",
+            "album_artist_mbids",
+        ] {
+            assert!(
+                columns.iter().any(|c| c == name),
+                "missing migrated column {name}"
+            );
+        }
+
+        let track = get_track_by_id(&conn, 1).unwrap().unwrap();
+        assert_eq!(track.title, "Legacy");
+        assert_eq!(track.recording_mbid, None);
+        assert_eq!(track.release_mbid, None);
+        assert!(track.artist_mbids.is_empty());
+        assert!(track.album_artist_mbids.is_empty());
+    }
+
+    #[test]
+    fn save_track_round_trips_mbids() {
+        let conn = test_conn();
+        let id = save_track(&conn, &sample_mbid_input("/music/mbid.mp3")).unwrap();
+        let track = get_track_by_id(&conn, id).unwrap().unwrap();
+
+        assert_eq!(track.recording_mbid.as_deref(), Some(SAMPLE_RECORDING_MBID));
+        assert_eq!(track.release_mbid.as_deref(), Some(SAMPLE_RELEASE_MBID));
+        assert_eq!(track.artist_mbids, vec![SAMPLE_ARTIST_MBID.to_string()]);
+        assert_eq!(
+            track.album_artist_mbids,
+            vec![SAMPLE_ALBUM_ARTIST_MBID.to_string()]
+        );
+
+        let artist_sql: Option<String> = conn
+            .query_row(
+                "SELECT artist_mbids FROM tracks WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            artist_sql.as_deref(),
+            Some(r#"["a74b1b3a-d5ba-4d8a-b656-e59347b6780e"]"#)
+        );
+    }
+
+    #[test]
+    fn save_track_stores_empty_artist_mbids_as_null() {
+        let conn = test_conn();
+        let id = save_track(&conn, &sample_input("/music/no-mbid.mp3")).unwrap();
+        let artist_sql: Option<String> = conn
+            .query_row(
+                "SELECT artist_mbids FROM tracks WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let album_artist_sql: Option<String> = conn
+            .query_row(
+                "SELECT album_artist_mbids FROM tracks WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(artist_sql, None);
+        assert_eq!(album_artist_sql, None);
+    }
+
+    #[test]
+    fn save_track_on_conflict_updates_mbid_columns() {
+        let conn = test_conn();
+        let path = "/music/conflict-mbid.mp3";
+        save_track(&conn, &sample_mbid_input(path)).unwrap();
+
+        let mut updated = sample_input(path);
+        updated.title = "Retagged".into();
+        updated.recording_mbid = Some("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".into());
+        updated.release_mbid = None;
+        updated.artist_mbids = vec![];
+        updated.album_artist_mbids = vec!["CCCCCCCC-DDDD-EEEE-FFFF-000000000000".into()];
+        save_track(&conn, &updated).unwrap();
+
+        let track = get_track_by_id(&conn, 1).unwrap().unwrap();
+        assert_eq!(track.title, "Retagged");
+        assert_eq!(
+            track.recording_mbid.as_deref(),
+            Some("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+        );
+        assert_eq!(track.release_mbid, None);
+        assert!(track.artist_mbids.is_empty());
+        assert_eq!(
+            track.album_artist_mbids,
+            vec!["cccccccc-dddd-eeee-ffff-000000000000".to_string()]
+        );
+
+        let artist_sql: Option<String> = conn
+            .query_row("SELECT artist_mbids FROM tracks WHERE id = 1", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(artist_sql, None);
+    }
+
+    #[test]
+    fn update_track_writes_mbids() {
+        let conn = test_conn();
+        let id = save_track(&conn, &sample_input("/music/update-mbid.mp3")).unwrap();
+        let existing = get_track_by_id(&conn, id).unwrap().unwrap();
+
+        update_track(
+            &conn,
+            id,
+            &TrackMetadataUpdate {
+                title: existing.title.clone(),
+                artist: existing.artist.clone(),
+                album: existing.album.clone(),
+                album_artist: existing.album_artist.clone(),
+                track_number: existing.track_number,
+                total_tracks: existing.total_tracks,
+                disc_number: existing.disc_number,
+                total_discs: existing.total_discs,
+                year: existing.year,
+                genre: existing.genre.clone(),
+                art_path: existing.art_path.clone(),
+                art_changed: false,
+                lyrics: None,
+                lyrics_changed: false,
+                recording_mbid: Some(SAMPLE_RECORDING_MBID.into()),
+                release_mbid: Some(SAMPLE_RELEASE_MBID.into()),
+                artist_mbids: vec![SAMPLE_ARTIST_MBID.into()],
+                album_artist_mbids: vec![SAMPLE_ALBUM_ARTIST_MBID.into()],
+            },
+            None,
+            None,
+        )
+        .unwrap();
+
+        let track = get_track_by_id(&conn, id).unwrap().unwrap();
+        assert_eq!(track.recording_mbid.as_deref(), Some(SAMPLE_RECORDING_MBID));
+        assert_eq!(track.release_mbid.as_deref(), Some(SAMPLE_RELEASE_MBID));
+        assert_eq!(track.artist_mbids, vec![SAMPLE_ARTIST_MBID.to_string()]);
+        assert_eq!(
+            track.album_artist_mbids,
+            vec![SAMPLE_ALBUM_ARTIST_MBID.to_string()]
+        );
+    }
+
     #[test]
     fn convert_replace_updates_path_preserving_id() {
         let conn = test_conn();
@@ -1644,6 +1987,10 @@ mod tests {
                 art_changed: false,
                 lyrics: None,
                 lyrics_changed: false,
+                recording_mbid: existing.recording_mbid.clone(),
+                release_mbid: existing.release_mbid.clone(),
+                artist_mbids: existing.artist_mbids.clone(),
+                album_artist_mbids: existing.album_artist_mbids.clone(),
             },
             Some("/music/album/track.m4a"),
             None,
