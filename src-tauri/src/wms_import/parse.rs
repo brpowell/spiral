@@ -94,7 +94,7 @@ fn node_from_bytes(e: &quick_xml::events::BytesStart<'_>) -> Result<WmsNode, Str
         let attr = attr.map_err(|err| format!("WMS attribute error: {err}"))?;
         let key = String::from_utf8_lossy(attr.key.as_ref()).to_ascii_lowercase();
         let value = attr
-            .unescape_value()
+            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
             .map(|v| v.into_owned())
             .map_err(|err| format!("WMS attribute value error: {err}"))?;
         attrs.insert(key, value.trim().to_string());

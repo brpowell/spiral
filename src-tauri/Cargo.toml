@@ -58,7 +58,7 @@ image = { version = "0.25", default-features = false, features = ["bmp", "gif", 
 color_quant = "1.1"
 gif = "0.14"
 zip = "2"
-quick-xml = "0.37"
+quick-xml = "0.41"
 encoding_rs = "0.8"
 spk-format = { git = "https://github.com/spiral-powered/spk-format.git", branch = "main" }
 mp3-duration = "0.1.10"
