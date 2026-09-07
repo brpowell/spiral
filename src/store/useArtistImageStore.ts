@@ -1,8 +1,6 @@
 import { create } from "zustand";
-import {
-  artistImagesToRecord,
-} from "../lib/artistArt";
-import type { ArtistBrowseMode } from "../lib/artists";
+import { applyArtistImages } from "../lib/artistArt";
+import type { Artist } from "../types/artist";
 import {
   getArtistImages,
   renameArtistImageKey as renameArtistImageKeyApi,
@@ -12,16 +10,8 @@ import {
 interface ArtistImageState {
   imagesByKey: Record<string, string>;
   loadArtistImages: () => Promise<void>;
-  saveArtistImage: (
-    artistKey: string,
-    browseMode: ArtistBrowseMode,
-    artPath: string | null,
-  ) => Promise<void>;
-  renameArtistImageKey: (
-    oldKey: string,
-    newKey: string,
-    browseMode: ArtistBrowseMode,
-  ) => Promise<void>;
+  saveArtistImage: (artistKey: string, artPath: string | null) => Promise<void>;
+  renameArtistImageKey: (oldKey: string, newKey: string) => Promise<void>;
 }
 
 export const useArtistImageStore = create<ArtistImageState>((set) => ({
@@ -29,14 +19,15 @@ export const useArtistImageStore = create<ArtistImageState>((set) => ({
 
   loadArtistImages: async () => {
     const images = await getArtistImages();
-    set({ imagesByKey: artistImagesToRecord(images) });
+    const imagesByKey: Record<string, string> = {};
+    for (const image of images) {
+      imagesByKey[image.artistKey] = image.artPath;
+    }
+    set({ imagesByKey });
   },
 
-  saveArtistImage: async (artistKey, browseMode, artPath) => {
-    const otherMode: ArtistBrowseMode =
-      browseMode === "discography" ? "performers" : "discography";
-    await saveArtistImageApi(artistKey, browseMode, artPath);
-    await saveArtistImageApi(artistKey, otherMode, artPath);
+  saveArtistImage: async (artistKey, artPath) => {
+    await saveArtistImageApi(artistKey, artPath);
     set((state) => {
       const imagesByKey = { ...state.imagesByKey };
       if (artPath) {
@@ -48,11 +39,8 @@ export const useArtistImageStore = create<ArtistImageState>((set) => ({
     });
   },
 
-  renameArtistImageKey: async (oldKey, newKey, browseMode) => {
-    const otherMode: ArtistBrowseMode =
-      browseMode === "discography" ? "performers" : "discography";
-    await renameArtistImageKeyApi(oldKey, newKey, browseMode);
-    await renameArtistImageKeyApi(oldKey, newKey, otherMode);
+  renameArtistImageKey: async (oldKey, newKey) => {
+    await renameArtistImageKeyApi(oldKey, newKey);
     set((state) => {
       const path = state.imagesByKey[oldKey];
       if (!path) return state;
@@ -63,3 +51,10 @@ export const useArtistImageStore = create<ArtistImageState>((set) => ({
     });
   },
 }));
+
+export function withArtistImages(
+  artists: Artist[],
+  imagesByKey: Record<string, string>,
+): Artist[] {
+  return applyArtistImages(artists, imagesByKey);
+}

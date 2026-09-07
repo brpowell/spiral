@@ -8,7 +8,11 @@ pub fn ensure_spiral_library(resolved: &LibrarySettingsResponse) -> Result<(), S
     fs::create_dir_all(root).map_err(|e| format!("failed to create library folder: {e}"))?;
 
     let media = Path::new(&resolved.media_folder);
-    fs::create_dir_all(media).map_err(|e| format!("failed to create media folder: {e}"))?;
+    fs::create_dir_all(media).map_err(|e| format!("failed to create tracks folder: {e}"))?;
+
+    let artwork = Path::new(&resolved.artwork_folder);
+    fs::create_dir_all(artwork).map_err(|e| format!("failed to create artwork folder: {e}"))?;
+    crate::artwork_paths::ensure_artwork_dirs(root)?;
 
     Ok(())
 }

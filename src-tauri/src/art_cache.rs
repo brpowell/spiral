@@ -12,33 +12,6 @@ pub fn art_cache_key(file_path: &str) -> String {
     hex::encode(hasher.finalize())[..16].to_string()
 }
 
-fn extension_from_path(path: &Path) -> String {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_ascii_lowercase())
-        .filter(|e| matches!(e.as_str(), "jpg" | "jpeg" | "png" | "webp"))
-        .map(|e| if e == "jpeg" { "jpg".to_string() } else { e })
-        .unwrap_or_else(|| "jpg".to_string())
-}
-
-pub fn cached_art_path(app_data_dir: &Path, file_path: &str, source: &Path) -> PathBuf {
-    let ext = extension_from_path(source);
-    art_cache_dir(app_data_dir).join(format!("{}.{}", art_cache_key(file_path), ext.as_str()))
-}
-
-pub fn copy_to_art_cache(
-    app_data_dir: &Path,
-    file_path: &str,
-    source: &Path,
-) -> Result<PathBuf, String> {
-    let dest = cached_art_path(app_data_dir, file_path, source);
-    if let Some(parent) = dest.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    fs::copy(source, &dest).map_err(|e| format!("Failed to cache album art: {e}"))?;
-    Ok(dest)
-}
-
 pub fn write_bytes_to_art_cache(
     app_data_dir: &Path,
     file_path: &str,
@@ -100,12 +73,6 @@ pub fn guess_ext_from_url(url: &str) -> &'static str {
     }
 }
 
-/// True when `art_path` is the cache file keyed by the track's `file_path`.
-pub fn art_path_is_track_owned(app_data_dir: &Path, track_file_path: &str, art_path: &str) -> bool {
-    find_cached_art_path(app_data_dir, track_file_path)
-        .is_some_and(|owned| owned.to_string_lossy() == art_path)
-}
-
 /// Remove cached album art keyed by library `file_path` (all extensions).
 pub fn remove_cached_art(app_data_dir: &Path, file_path: &str) -> Result<(), String> {
     let dir = art_cache_dir(app_data_dir);
@@ -130,33 +97,6 @@ pub fn remove_cached_art(app_data_dir: &Path, file_path: &str) -> Result<(), Str
 mod tests {
     use super::*;
     use std::io::Write;
-
-    #[test]
-    fn art_path_is_track_owned_matches_track_key_only() {
-        let app_data =
-            std::env::temp_dir().join(format!("spiral-art-owned-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&app_data);
-        let cache_dir = art_cache_dir(&app_data);
-        fs::create_dir_all(&cache_dir).unwrap();
-
-        let track_path = "/library/media/song.mp3";
-        let owned = write_bytes_to_art_cache(&app_data, track_path, b"owned", "jpg").unwrap();
-        let shared_label = "Artist - Album";
-        let shared = write_bytes_to_art_cache(&app_data, shared_label, b"shared", "jpg").unwrap();
-
-        assert!(art_path_is_track_owned(
-            &app_data,
-            track_path,
-            &owned.to_string_lossy()
-        ));
-        assert!(!art_path_is_track_owned(
-            &app_data,
-            track_path,
-            &shared.to_string_lossy()
-        ));
-
-        let _ = fs::remove_dir_all(&app_data);
-    }
 
     #[test]
     fn remove_cached_art_deletes_all_extensions_for_key() {

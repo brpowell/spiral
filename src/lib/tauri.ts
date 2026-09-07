@@ -745,14 +745,12 @@ function normalizeMusicBrainzEntityHit(
 
 export interface ArtistImageRecord {
   artistKey: string;
-  browseMode: string;
   artPath: string;
 }
 
 function normalizeArtistImage(raw: Record<string, unknown>): ArtistImageRecord {
   return {
     artistKey: (raw.artistKey as string) ?? (raw.artist_key as string) ?? "",
-    browseMode: (raw.browseMode as string) ?? (raw.browse_mode as string) ?? "",
     artPath: (raw.artPath as string) ?? (raw.art_path as string) ?? "",
   };
 }
@@ -764,12 +762,10 @@ export async function getArtistImages(): Promise<ArtistImageRecord[]> {
 
 export async function saveArtistImage(
   artistKey: string,
-  browseMode: string,
   artPath: string | null,
 ): Promise<void> {
   await invoke<void>("save_artist_image", {
     artistKey,
-    browseMode,
     artPath,
   });
 }
@@ -777,12 +773,10 @@ export async function saveArtistImage(
 export async function renameArtistImageKey(
   oldKey: string,
   newKey: string,
-  browseMode: string,
 ): Promise<void> {
   await invoke<void>("rename_artist_image_key", {
     oldKey,
     newKey,
-    browseMode,
   });
 }
 
@@ -1241,6 +1235,25 @@ export async function writeTrackMetadata(
     metadata,
   });
   return normalizeTrack(raw);
+}
+
+/** Move Artwork/albums/{old} → {new} and rewrite relative art_path prefixes. */
+export async function renameAlbumArtwork(args: {
+  oldAlbumArtist?: string | null;
+  oldArtist?: string | null;
+  oldAlbum?: string | null;
+  newAlbumArtist?: string | null;
+  newArtist?: string | null;
+  newAlbum?: string | null;
+}): Promise<void> {
+  await invoke<void>("rename_album_artwork", {
+    oldAlbumArtist: args.oldAlbumArtist ?? null,
+    oldArtist: args.oldArtist ?? null,
+    oldAlbum: args.oldAlbum ?? null,
+    newAlbumArtist: args.newAlbumArtist ?? null,
+    newArtist: args.newArtist ?? null,
+    newAlbum: args.newAlbum ?? null,
+  });
 }
 
 export async function getLibrarySettings(): Promise<LibrarySettings> {

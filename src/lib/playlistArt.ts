@@ -2,9 +2,13 @@ import type { Playlist, PlaylistImageMode } from "../types/playlist";
 import type { Track } from "../types/track";
 import { albumKey } from "./albums";
 
-/** Stable cache key for playlist cover art in the art cache. */
-export function playlistArtCacheKey(playlistId: number): string {
-  return `playlist:${playlistId}`;
+/** Stable cache key for playlist cover art in Artwork/playlists/. */
+export function playlistArtCacheKey(
+  playlistId: number,
+  title?: string,
+): string {
+  const safe = (title ?? "playlist").trim() || "playlist";
+  return `playlist:${playlistId}:${safe}`;
 }
 
 /**

@@ -25,6 +25,7 @@ import {
 } from "../../lib/albums";
 import { fetchCoverArtCandidates } from "../../lib/albumArtFetch";
 import { refreshArtDisplay } from "../../lib/artDisplayCache";
+import { isAlbumArtOverride } from "../../lib/artistArt";
 import { preloadCoverArtThumbs } from "../../lib/coverArtThumbs";
 import {
   cacheArtFromFile,
@@ -32,6 +33,7 @@ import {
   getMusicBrainzEntity,
   getOrFetchMusicBrainzEntity,
   pickImageFile,
+  renameAlbumArtwork,
   writeTrackMetadata,
 } from "../../lib/tauri";
 import { matchRecordingMbid } from "../../lib/musicBrainzReleaseRecordings";
@@ -41,6 +43,7 @@ import { useNavigationStore } from "../../store/useNavigationStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
+import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
 import { EditorSaveButton } from "../EditorSaveButton/EditorSaveButton";
 import { EntityArt } from "../EntityArt/EntityArt";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
@@ -116,6 +119,7 @@ export function AlbumEditor() {
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
   const [artPickerOpen, setArtPickerOpen] = useState(false);
+  const [overwriteOverridesOpen, setOverwriteOverridesOpen] = useState(false);
   const artFetchGenRef = useRef(0);
 
   const isOpen = editingAlbumKey != null && album != null && form != null;
@@ -270,103 +274,79 @@ export function AlbumEditor() {
   const resolveArtPathForTrack = async (
     track: Track,
   ): Promise<string | null> => {
+    // Album assign writes one shared front.jpg (keyed by any album track path).
+    const cacheKey = referenceTrack?.filePath ?? track.filePath;
     if (selectedCoverUrl) {
-      return (await cacheArtFromUrl(selectedCoverUrl, track.filePath)).path;
+      return (await cacheArtFromUrl(selectedCoverUrl, cacheKey)).path;
     }
     if (artSourcePath) {
-      return cacheArtFromFile(artSourcePath, track.filePath);
+      return cacheArtFromFile(artSourcePath, cacheKey);
     }
     return pendingArtPath;
   };
 
-  /** When Fetch warms a release that is already saved, stamp missing recordings. */
-  const stampRecordingsFromReleaseLookup = async (
-    lookup: MusicBrainzEntityLookup,
-  ) => {
-    if (!form || !originalForm || tracks.length === 0) return;
-    if (form.releaseMbid !== originalForm.releaseMbid) return;
-    const release = form.releaseMbid.trim();
-    if (!release || lookup.hit.mbid !== release) return;
-    const tracklist = lookup.tracklist ?? [];
-    if (tracklist.length === 0) return;
+  const tracksWithArtOverrides = useMemo(
+    () => tracks.filter((track) => isAlbumArtOverride(track.artPath)),
+    [tracks],
+  );
 
-    const updates: Track[] = [];
-    for (const track of tracks) {
-      const matched = matchRecordingMbid(track, tracklist);
-      if (!matched) continue;
-      if ((track.recordingMbid?.trim() || "") === matched) continue;
-      try {
-        const artPath = track.artPath;
-        const updated = await writeTrackMetadata(
-          track.id,
-          track.filePath,
-          buildTrackAlbumMetadata(track, form, originalForm, artPath, false, {
-            releaseChanged: true,
-            tracklist,
-          }),
-        );
-        updates.push(updated);
-      } catch {
-        // Best-effort backfill; album Save can retry.
-      }
-    }
-    if (updates.length > 0) {
-      updateTracksInLibrary(updates);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!album || !form || !originalForm || !hasChanges || tracks.length === 0)
-      return;
-
-    const releaseChanged = form.releaseMbid !== originalForm.releaseMbid;
-    let recordingOptions: AlbumReleaseRecordingOptions = {
-      releaseChanged: false,
-    };
-    if (releaseChanged) {
-      const nextRelease = form.releaseMbid.trim();
-      if (nextRelease) {
-        try {
-          const lookup = await getOrFetchMusicBrainzEntity(
-            "release",
-            nextRelease,
-          );
-          if (lookup == null) {
-            setSaveError(t("library:editor.musicBrainz.notFound"));
-            return;
+  const resolveRecordingOptions =
+    async (): Promise<AlbumReleaseRecordingOptions | null> => {
+      if (!form || !originalForm) return null;
+      const releaseChanged = form.releaseMbid !== originalForm.releaseMbid;
+      let recordingOptions: AlbumReleaseRecordingOptions = {
+        releaseChanged: false,
+      };
+      if (releaseChanged) {
+        const nextRelease = form.releaseMbid.trim();
+        if (nextRelease) {
+          try {
+            const lookup = await getOrFetchMusicBrainzEntity(
+              "release",
+              nextRelease,
+            );
+            if (lookup == null) {
+              setSaveError(t("library:editor.musicBrainz.notFound"));
+              return null;
+            }
+            recordingOptions = {
+              releaseChanged: true,
+              tracklist: lookup.tracklist ?? [],
+            };
+          } catch {
+            setSaveError(t("library:editor.musicBrainz.lookupError"));
+            return null;
           }
-          recordingOptions = {
-            releaseChanged: true,
-            tracklist: lookup.tracklist ?? [],
-          };
+        } else {
+          recordingOptions = { releaseChanged: true, tracklist: null };
+        }
+      } else if (
+        form.releaseMbid.trim() &&
+        tracks.some((track) => !track.recordingMbid?.trim())
+      ) {
+        try {
+          const cached = await getMusicBrainzEntity(
+            "release",
+            form.releaseMbid.trim(),
+          );
+          if (cached?.tracklist != null && cached.tracklist.length > 0) {
+            recordingOptions = {
+              releaseChanged: true,
+              tracklist: cached.tracklist,
+            };
+          }
         } catch {
-          setSaveError(t("library:editor.musicBrainz.lookupError"));
-          return;
+          // Leave recordings alone if cache read fails.
         }
-      } else {
-        recordingOptions = { releaseChanged: true, tracklist: null };
       }
-    } else if (
-      form.releaseMbid.trim() &&
-      tracks.some((track) => !track.recordingMbid?.trim())
-    ) {
-      // Release already assigned but some recordings never stamped (e.g. fetched
-      // entity after the ID was saved). Rematch from cache only — no network.
-      try {
-        const cached = await getMusicBrainzEntity(
-          "release",
-          form.releaseMbid.trim(),
-        );
-        if (cached?.tracklist != null && cached.tracklist.length > 0) {
-          recordingOptions = {
-            releaseChanged: true,
-            tracklist: cached.tracklist,
-          };
-        }
-      } catch {
-        // Leave recordings alone if cache read fails.
-      }
-    }
+      return recordingOptions;
+    };
+
+  const runAlbumSave = async (
+    overwriteUniqueArt: boolean,
+    recordingOptions: AlbumReleaseRecordingOptions,
+  ) => {
+    if (!form || !originalForm || !album || tracks.length === 0) return;
 
     begin(tracks.length);
     setSaveError(null);
@@ -375,8 +355,24 @@ export function AlbumEditor() {
     const errors: string[] = [];
     const oldKey = album.key;
     let cancelled = false;
+    let sharedArtPath: string | null | undefined;
 
     try {
+      const identityChanged =
+        form.title !== originalForm.title ||
+        form.artist !== originalForm.artist;
+      if (identityChanged) {
+        const fallbackArtist = tracks[0]?.artist ?? null;
+        await renameAlbumArtwork({
+          oldAlbumArtist: originalForm.artist.trim() || null,
+          oldArtist: fallbackArtist,
+          oldAlbum: originalForm.title.trim() || null,
+          newAlbumArtist: form.artist.trim() || null,
+          newArtist: fallbackArtist,
+          newAlbum: form.title.trim() || null,
+        });
+      }
+
       for (let i = 0; i < tracks.length; i++) {
         if (isCancelled()) {
           cancelled = true;
@@ -386,15 +382,27 @@ export function AlbumEditor() {
         const track = tracks[i];
         setProgress(i + 1, tracks.length);
         try {
-          const artPath = artChanged
-            ? await resolveArtPathForTrack(track)
-            : track.artPath;
+          const hasOverride = isAlbumArtOverride(track.artPath);
+          let artPath = track.artPath;
+          let artChangedForTrack = false;
+          if (artChanged) {
+            if (hasOverride && !overwriteUniqueArt) {
+              artPath = track.artPath;
+              artChangedForTrack = false;
+            } else {
+              if (sharedArtPath === undefined) {
+                sharedArtPath = await resolveArtPathForTrack(track);
+              }
+              artPath = sharedArtPath;
+              artChangedForTrack = true;
+            }
+          }
           const metadata = buildTrackAlbumMetadata(
             track,
             form,
             originalForm,
             artPath,
-            artChanged,
+            artChangedForTrack,
             recordingOptions,
           );
           const saved = await writeTrackMetadata(
@@ -447,8 +455,66 @@ export function AlbumEditor() {
         useNavigationStore.setState({ albumKey: newKey });
       }
       closeAlbumEditor();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setSaveError(message);
     } finally {
       finish();
+    }
+  };
+
+  const pendingRecordingOptionsRef = useRef<AlbumReleaseRecordingOptions>({
+    releaseChanged: false,
+  });
+
+  const handleSave = async () => {
+    if (!album || !form || !originalForm || !hasChanges || tracks.length === 0)
+      return;
+
+    const recordingOptions = await resolveRecordingOptions();
+    if (!recordingOptions) return;
+    pendingRecordingOptionsRef.current = recordingOptions;
+
+    if (artChanged && tracksWithArtOverrides.length > 0) {
+      setOverwriteOverridesOpen(true);
+      return;
+    }
+    await runAlbumSave(false, recordingOptions);
+  };
+
+  /** When Fetch warms a release that is already saved, stamp missing recordings. */
+  const stampRecordingsFromReleaseLookup = async (
+    lookup: MusicBrainzEntityLookup,
+  ) => {
+    if (!form || !originalForm || tracks.length === 0) return;
+    if (form.releaseMbid !== originalForm.releaseMbid) return;
+    const release = form.releaseMbid.trim();
+    if (!release || lookup.hit.mbid !== release) return;
+    const tracklist = lookup.tracklist ?? [];
+    if (tracklist.length === 0) return;
+
+    const updates: Track[] = [];
+    for (const track of tracks) {
+      const matched = matchRecordingMbid(track, tracklist);
+      if (!matched) continue;
+      if ((track.recordingMbid?.trim() || "") === matched) continue;
+      try {
+        const artPath = track.artPath;
+        const updated = await writeTrackMetadata(
+          track.id,
+          track.filePath,
+          buildTrackAlbumMetadata(track, form, originalForm, artPath, false, {
+            releaseChanged: true,
+            tracklist,
+          }),
+        );
+        updates.push(updated);
+      } catch {
+        // Best-effort backfill; album Save can retry.
+      }
+    }
+    if (updates.length > 0) {
+      updateTracksInLibrary(updates);
     }
   };
 
@@ -623,6 +689,42 @@ export function AlbumEditor() {
             onSelect={handleSelectCover}
             onClose={closeArtPicker}
           />
+
+          <AlertConfirmation
+            open={overwriteOverridesOpen}
+            onClose={() => setOverwriteOverridesOpen(false)}
+            size="md"
+            deferActionUntilClosed
+            title={t("library:editor.overwriteUniqueArt.title")}
+            confirmLabel={t("library:editor.overwriteUniqueArt.confirm")}
+            secondaryLabel={t("library:editor.overwriteUniqueArt.keepUnique")}
+            confirmVariant="danger"
+            secondaryVariant="secondary"
+            onSecondary={async () => {
+              await runAlbumSave(false, pendingRecordingOptionsRef.current);
+            }}
+            onConfirm={async () => {
+              await runAlbumSave(true, pendingRecordingOptionsRef.current);
+            }}
+          >
+            <p>
+              {t("library:editor.overwriteUniqueArt.body", {
+                count: tracksWithArtOverrides.length,
+              })}
+            </p>
+            <ul className="alert-confirmation__track-list">
+              {tracksWithArtOverrides.map((track) => (
+                <li key={track.id} className="alert-confirmation__track">
+                  <div className="alert-confirmation__track-art">
+                    <EntityArt artPath={track.artPath} variant="row" alt="" />
+                  </div>
+                  <span className="alert-confirmation__track-title">
+                    {track.title.trim() || t("common:untitled")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </AlertConfirmation>
         </>
       )}
     </Modal>

@@ -1,33 +1,67 @@
+use crate::artwork_paths::{self, resolve_library_relative};
 use crate::db;
 use crate::models::{Playlist, PlaylistImageMode};
-use tauri::State;
+use crate::settings;
+use std::path::{Path, PathBuf};
+use tauri::{AppHandle, State};
 
 use super::library::DbState;
 
+fn hydrate_playlist_image(library_root: &Path, playlist: &mut Playlist) {
+    let Some(path) = playlist.custom_image_path.as_deref() else {
+        return;
+    };
+    if Path::new(path).is_absolute() {
+        return;
+    }
+    let abs = resolve_library_relative(library_root, path);
+    if abs.is_file() {
+        playlist.custom_image_path = Some(abs.to_string_lossy().into_owned());
+    }
+}
+
+fn store_playlist_image(library_root: &Path, path: Option<&str>) -> Option<String> {
+    let path = path?;
+    let p = Path::new(path);
+    if p.is_absolute() {
+        artwork_paths::to_library_relative(library_root, p).or_else(|| Some(path.to_string()))
+    } else {
+        Some(path.to_string())
+    }
+}
+
 #[tauri::command]
-pub fn get_playlists(state: State<DbState>) -> Result<Vec<Playlist>, String> {
+pub fn get_playlists(app: AppHandle, state: State<DbState>) -> Result<Vec<Playlist>, String> {
+    let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::get_all_playlists(&conn).map_err(|e| {
+    let mut playlists = db::get_all_playlists(&conn).map_err(|e| {
         eprintln!("get_playlists error: {e}");
         e.to_string()
-    })
+    })?;
+    for playlist in &mut playlists {
+        hydrate_playlist_image(&library_root, playlist);
+    }
+    Ok(playlists)
 }
 
 #[tauri::command]
 pub fn create_playlist(
+    app: AppHandle,
     state: State<DbState>,
     title: String,
     description: Option<String>,
     image_mode: PlaylistImageMode,
     custom_image_path: Option<String>,
 ) -> Result<i64, String> {
+    let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
+    let stored = store_playlist_image(&library_root, custom_image_path.as_deref());
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     db::create_playlist(
         &conn,
         &title,
         description.as_deref(),
         image_mode,
-        custom_image_path.as_deref(),
+        stored.as_deref(),
     )
     .map_err(|e| {
         eprintln!("create_playlist error: {e}");
@@ -37,6 +71,7 @@ pub fn create_playlist(
 
 #[tauri::command]
 pub fn update_playlist(
+    app: AppHandle,
     state: State<DbState>,
     id: i64,
     title: String,
@@ -44,14 +79,35 @@ pub fn update_playlist(
     image_mode: PlaylistImageMode,
     custom_image_path: Option<String>,
 ) -> Result<(), String> {
+    let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
+
+    let (old_title, old_image): (String, Option<String>) = conn
+        .query_row(
+            "SELECT title, custom_image_path FROM playlists WHERE id = ?1",
+            rusqlite::params![id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let mut stored = store_playlist_image(&library_root, custom_image_path.as_deref());
+    if old_title.trim() != title.trim() {
+        stored = crate::artwork_organize::rename_playlist_artwork_file(
+            &library_root,
+            id,
+            &old_title,
+            &title,
+            stored.as_deref().or(old_image.as_deref()),
+        )?;
+    }
+
     db::update_playlist(
         &conn,
         id,
         &title,
         description.as_deref(),
         image_mode,
-        custom_image_path.as_deref(),
+        stored.as_deref(),
     )
     .map_err(|e| {
         eprintln!("update_playlist error: {e}");

@@ -93,7 +93,6 @@ pub struct Playlist {
 #[serde(rename_all = "camelCase")]
 pub struct ArtistImage {
     pub artist_key: String,
-    pub browse_mode: String,
     pub art_path: String,
 }
 

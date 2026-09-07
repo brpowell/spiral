@@ -104,7 +104,7 @@ fn finalize_path_segment(segment: &str) -> String {
 fn ensure_stays_under_media_folder(dest: &Path, media_folder: &Path) -> Result<(), String> {
     if !dest.starts_with(media_folder) {
         return Err(format!(
-            "Organized path must stay inside the media folder: {}",
+            "Organized path must stay inside the tracks folder: {}",
             dest.display()
         ));
     }
@@ -162,7 +162,7 @@ fn expand_template(template: &str, meta: &OrganizeMetadata<'_>, ext: Option<&str
     out
 }
 
-/// Relative path under the media folder using `/` as the segment separator.
+/// Relative path under the tracks folder using `/` as the segment separator.
 pub fn format_organize_relative_path(
     path_format: &str,
     meta: &OrganizeMetadata<'_>,
@@ -324,7 +324,7 @@ pub fn is_under_media_folder(path: &Path, media_folder: &Path) -> bool {
     path.starts_with(&media)
 }
 
-fn same_path(a: &Path, b: &Path) -> bool {
+pub(crate) fn same_path(a: &Path, b: &Path) -> bool {
     a.canonicalize()
         .and_then(|ac| b.canonicalize().map(|bc| ac == bc))
         .unwrap_or_else(|_| a == b)
@@ -404,7 +404,9 @@ fn prune_empty_dirs_inner(mut dir: PathBuf, stop_at: PathBuf) {
     }
 }
 
-/// Rename cached art files when a library track path changes. Returns the new art path when one existed.
+/// Rename legacy app-data cached art when a library track path changes.
+/// Library-relative `Artwork/…` paths are left unchanged (identity moves use
+/// [`crate::artwork_organize`]).
 pub fn migrate_art_cache(
     app_data_dir: &Path,
     old_file_path: &str,
@@ -412,6 +414,13 @@ pub fn migrate_art_cache(
     current_art_path: Option<&str>,
 ) -> Result<Option<String>, String> {
     use crate::art_cache::{art_cache_dir, art_cache_key};
+
+    if let Some(p) = current_art_path {
+        let norm = p.replace('\\', "/");
+        if norm.starts_with("Artwork/") || norm.contains("/Artwork/") {
+            return Ok(Some(p.to_string()));
+        }
+    }
 
     let dir = art_cache_dir(app_data_dir);
     if !dir.is_dir() {
@@ -493,8 +502,8 @@ mod tests {
 
     #[test]
     fn build_organized_path_supports_custom_layout() {
-        let media = Path::new("/Music/Spiral Library/Media");
-        let source = Path::new("/Music/Spiral Library/Media/track.mp3");
+        let media = Path::new("/Music/Spiral Library/Tracks");
+        let source = Path::new("/Music/Spiral Library/Tracks/track.mp3");
         let meta = OrganizeMetadata {
             title: "Example Song",
             artist: Some("Example Artist"),
@@ -541,9 +550,9 @@ mod tests {
 
     #[test]
     fn build_organized_path_prefers_album_artist_for_folder() {
-        let media = Path::new("/Music/Spiral Library/Media");
+        let media = Path::new("/Music/Spiral Library/Tracks");
         let source =
-            Path::new("/Music/Spiral Library/Media/Unknown Artist/Unknown Album/track.mp3");
+            Path::new("/Music/Spiral Library/Tracks/Unknown Artist/Unknown Album/track.mp3");
         let meta = OrganizeMetadata {
             title: "LOYALTY.",
             artist: Some("Kendrick Lamar / Rihanna"),
@@ -567,9 +576,9 @@ mod tests {
 
     #[test]
     fn build_organized_path_uses_artist_album() {
-        let media = Path::new("/Music/Spiral Library/Media");
+        let media = Path::new("/Music/Spiral Library/Tracks");
         let source =
-            Path::new("/Music/Spiral Library/Media/Unknown Artist/Unknown Album/track.mp3");
+            Path::new("/Music/Spiral Library/Tracks/Unknown Artist/Unknown Album/track.mp3");
         let meta = OrganizeMetadata {
             title: "My Song",
             artist: Some("AC/DC"),
@@ -691,8 +700,8 @@ mod tests {
 
     #[test]
     fn build_organized_path_stays_under_media_when_format_has_dot_dot() {
-        let media = Path::new("/Music/Spiral Library/Media");
-        let source = Path::new("/Music/Spiral Library/Media/track.mp3");
+        let media = Path::new("/Music/Spiral Library/Tracks");
+        let source = Path::new("/Music/Spiral Library/Tracks/track.mp3");
         let meta = OrganizeMetadata {
             title: "Song",
             artist: Some("Artist"),

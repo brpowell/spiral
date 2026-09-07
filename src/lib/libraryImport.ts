@@ -312,6 +312,13 @@ export function startLibraryImport(paths: string[]): void {
         result.errors.unshift(...metadataErrors);
         result.failed += metadataErrors.length;
 
+        // Re-hydrate absolute Artwork display paths after import/replace.
+        if (result.imported > 0 || result.replaced > 0) {
+          await usePlayerStore
+            .getState()
+            .loadLibrary({ preservePlayback: true });
+        }
+
         const settle = importCompletionSettleOptions(result, operationId);
 
         logActivity({

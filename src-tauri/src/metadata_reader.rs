@@ -85,6 +85,27 @@ fn cache_embedded_art(
         .map(|p| p.to_string_lossy().into_owned())
 }
 
+fn library_embedded_art(
+    library_root: &Path,
+    tags: &BasicTags,
+    title_fallback: &str,
+    bytes: &[u8],
+    mime: &str,
+) -> Option<String> {
+    crate::artwork_extract::assign_track_art_on_import(
+        library_root,
+        tags.album_artist.as_deref(),
+        tags.artist.as_deref(),
+        tags.album.as_deref(),
+        tags.title.as_deref().unwrap_or(title_fallback),
+        tags.track_number,
+        Some(bytes),
+        mime,
+    )
+    .ok()
+    .flatten()
+}
+
 fn read_mp3_duration(path: &Path) -> Option<f64> {
     mp3_duration::from_path(path)
         .ok()
@@ -303,10 +324,33 @@ pub fn read_basic_tags(path: &Path) -> BasicTags {
     tags
 }
 
+pub fn read_embedded_art_bytes(path: &Path) -> Option<(Vec<u8>, String)> {
+    let ext = audio_extension(path)?;
+    let (_, art) = match ext.as_str() {
+        "mp3" => read_mp3_tags(path),
+        "flac" => read_flac_tags(path),
+        "m4a" | "aac" | "mp4" => read_mp4_tags(path),
+        "wav" => read_wav_tags(path),
+        "ogg" | "opus" => crate::vorbis_container::read_vorbis_container_tags(path),
+        _ => return None,
+    };
+    art
+}
+
 pub fn parse_track_metadata(
     app_data_dir: &Path,
     file_path: &str,
     lyrics_sidecar_enabled: bool,
+) -> Result<TrackInput, String> {
+    parse_track_metadata_for_library(app_data_dir, file_path, lyrics_sidecar_enabled, None)
+}
+
+/// When `library_root` is set, embedded art is written under `Artwork/` (no-clobber).
+pub fn parse_track_metadata_for_library(
+    app_data_dir: &Path,
+    file_path: &str,
+    lyrics_sidecar_enabled: bool,
+    library_root: Option<&Path>,
 ) -> Result<TrackInput, String> {
     let path = PathBuf::from(file_path);
     if !path.is_file() {
@@ -323,13 +367,19 @@ pub fn parse_track_metadata(
         _ => (BasicTags::default(), None),
     };
 
-    let art_path =
-        art.and_then(|(bytes, mime)| cache_embedded_art(app_data_dir, file_path, &bytes, &mime));
+    let title_fallback = filename_title(&path);
+    let art_path = art.and_then(|(bytes, mime)| {
+        if let Some(root) = library_root {
+            library_embedded_art(root, &tags, &title_fallback, &bytes, &mime)
+        } else {
+            cache_embedded_art(app_data_dir, file_path, &bytes, &mime)
+        }
+    });
 
     let audio = audio_properties::read_audio_properties(&path);
 
     Ok(TrackInput {
-        title: tags.title.unwrap_or_else(|| filename_title(&path)),
+        title: tags.title.unwrap_or(title_fallback),
         artist: tags.artist,
         album: tags.album,
         album_artist: tags.album_artist,

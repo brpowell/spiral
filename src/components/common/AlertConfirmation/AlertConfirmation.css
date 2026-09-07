@@ -31,3 +31,54 @@
   display: flex;
   margin-top: 1rem;
 }
+
+.alert-confirmation__track-list {
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-height: min(40vh, 16rem);
+  overflow-y: auto;
+}
+
+.alert-confirmation__track {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.alert-confirmation__track-art {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-xs, 4px);
+  overflow: hidden;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+}
+
+.alert-confirmation__track-art .album-art,
+.alert-confirmation__track-art .album-art__img,
+.alert-confirmation__track-art .album-art__placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.alert-confirmation__track-art .album-art__placeholder svg {
+  width: 55%;
+  height: 55%;
+}
+
+.alert-confirmation__track-title {
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

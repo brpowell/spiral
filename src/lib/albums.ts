@@ -1,8 +1,9 @@
+import { compareLocalized } from "./appLocale";
+import { isAlbumArtOverride } from "./artistArt";
+import { t } from "./i18n";
 import type { Album } from "../types/album";
 import type { CdDisc } from "../types/cd";
 import type { Track } from "../types/track";
-import { compareLocalized } from "./appLocale";
-import { t } from "./i18n";
 
 export function albumKey(track: Track): string {
   const album = track.album?.trim() || t("common:unknownAlbum");
@@ -26,6 +27,11 @@ function compareTracks(a: Track, b: Track): number {
 }
 
 export function pickArtPath(tracks: Track[]): string | null {
+  for (const track of tracks) {
+    if (track.artPath && !isAlbumArtOverride(track.artPath)) {
+      return track.artPath;
+    }
+  }
   for (const track of tracks) {
     if (track.artPath) return track.artPath;
   }

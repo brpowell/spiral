@@ -668,7 +668,7 @@ export function TrackEditor() {
     try {
       const cached = await cacheArtFromFile(
         sourcePath,
-        referenceTrack.filePath,
+        `track-override:${referenceTrack.filePath}`,
       );
       setArtSourcePath(sourcePath);
       setSelectedCoverUrl(null);
@@ -758,11 +758,12 @@ export function TrackEditor() {
   const resolveArtPathForTrack = async (
     track: Track,
   ): Promise<string | null> => {
+    const cacheKey = `track-override:${track.filePath}`;
     if (selectedCoverUrl) {
-      return (await cacheArtFromUrl(selectedCoverUrl, track.filePath)).path;
+      return (await cacheArtFromUrl(selectedCoverUrl, cacheKey)).path;
     }
     if (artSourcePath) {
-      return cacheArtFromFile(artSourcePath, track.filePath);
+      return cacheArtFromFile(artSourcePath, cacheKey);
     }
     return pendingArtPath;
   };
@@ -781,7 +782,10 @@ export function TrackEditor() {
         let artPath = pendingArtPath;
         if (selectedCoverUrl) {
           artPath = (
-            await cacheArtFromUrl(selectedCoverUrl, referenceTrack.filePath)
+            await cacheArtFromUrl(
+              selectedCoverUrl,
+              `track-override:${referenceTrack.filePath}`,
+            )
           ).path;
         }
 

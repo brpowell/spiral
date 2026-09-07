@@ -20,7 +20,7 @@
   },
   "importChoice": {
     "title": "Add to library",
-    "description": "Do you want to copy these files into your Spiral media folder, or keep them at their current location?",
+    "description": "Do you want to copy these files into your Spiral tracks folder, or keep them at their current location?",
     "dontAskAgain": "Don't ask again",
     "keepLocation": "Keep original location",
     "copyToLibrary": "Copy to library"

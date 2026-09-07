@@ -12,12 +12,13 @@ export interface LibraryDestinationInfo {
 }
 
 export interface LibrarySettings {
-  /** Root directory; media lives in `Media/` and the DB is `Library.db` here. */
+  /** Root directory; tracks live in `Tracks/`, artwork in `Artwork/`, DB is `Library.db`. */
   libraryRoot: string;
   mediaFolder: string;
+  artworkFolder: string;
   databasePath: string;
   autoOrganize: boolean;
-  /** Full relative path under the media folder. Use `/` between folders. */
+  /** Full relative path under the tracks folder. Use `/` between folders. */
   organizePathFormat: string;
   defaultOrganizePathFormat: string;
   importMode: ImportMode;

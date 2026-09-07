@@ -118,7 +118,7 @@ export function PlaylistEditorModal() {
       try {
         const cached = await cacheArtFromFile(
           picked,
-          playlistArtCacheKey(editingPlaylistId),
+          playlistArtCacheKey(editingPlaylistId, title),
         );
         setCustomImagePath(cached);
         setCustomImageSourcePath(null);
@@ -130,7 +130,7 @@ export function PlaylistEditorModal() {
       setCustomImageSourcePath(picked);
       setCustomImagePath(null);
     }
-  }, [editingPlaylistId]);
+  }, [editingPlaylistId, title]);
 
   const resolveImageForSave = useCallback(
     async (playlistId: number) => {
@@ -146,14 +146,14 @@ export function PlaylistEditorModal() {
       if (customImageSourcePath) {
         const cached = await cacheArtFromFile(
           customImageSourcePath,
-          playlistArtCacheKey(playlistId),
+          playlistArtCacheKey(playlistId, title),
         );
         return { imageMode: "custom" as const, customImagePath: cached };
       }
 
       return { imageMode: "generated" as const, customImagePath: null };
     },
-    [imageMode, customImagePath, customImageSourcePath],
+    [imageMode, customImagePath, customImageSourcePath, title],
   );
 
   const handleSave = useCallback(async () => {

@@ -91,6 +91,13 @@
     "editTracks": "Edit {{count}} tracks",
     "editTracksDescription": "Changes apply to all {{count}} tracks.",
     "partialSave": "Updated {{updated}} of {{total}} tracks. {{error}}",
+    "overwriteUniqueArt": {
+      "title": "Overwrite unique track art?",
+      "body_one": "This track has its own artwork. Apply the new album art to it too?",
+      "body_other": "These tracks have their own artwork. Apply the new album art to them too?",
+      "confirm": "Overwrite unique",
+      "keepUnique": "Keep unique"
+    },
     "fileNotFound": "{{title}}: File not found",
     "fileNotFoundSuffix": "File not found",
     "tabsAria": "Track editor sections",

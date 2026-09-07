@@ -21,6 +21,14 @@ export const backdropMotion = {
   transition: { duration: 0.14 },
 };
 
+/** Wait this long after closing a modal before starting heavy follow-up work. */
+export const MODAL_EXIT_MS = Math.ceil(
+  Math.max(
+    panelMotion.transition.duration,
+    backdropMotion.transition.duration,
+  ) * 1000,
+);
+
 /** Delayed fade for lightbox companions after shared-layout album art zoom. */
 const lightboxCompanionMotion = {
   initial: { opacity: 0, y: 8 },

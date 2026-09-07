@@ -8,20 +8,22 @@ pub const DEFAULT_SKIN_ID: &str = "spiral.core.skin.vanilla";
 pub const DEFAULT_VISUALIZER_ID: &str = "spiral.core.visualizer.bars";
 pub const DEFAULT_SKIN_VIEW_ID: &str = "standard";
 pub const SPIRAL_LIBRARY_DIR_NAME: &str = "Spiral Library";
-pub const MEDIA_DIR_NAME: &str = "Media";
+/// On-disk audio folder under the library root.
+pub const MEDIA_DIR_NAME: &str = "Tracks";
+pub const ARTWORK_DIR_NAME: &str = "Artwork";
 pub const DATABASE_FILE_NAME: &str = "Library.db";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LibrarySettings {
-    /// Root directory for the Spiral library (`Media/` + `Library.db` live here).
+    /// Root directory for the Spiral library (`Tracks/` + `Artwork/` + `Library.db`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub library_root: Option<String>,
     #[serde(default = "default_auto_organize")]
     pub auto_organize: bool,
     #[serde(default = "default_import_mode")]
     pub import_mode: String,
-    /// When set, controls the full relative path under the media folder.
+    /// When set, controls the full relative path under the tracks folder.
     #[serde(default)]
     pub organize_path_format: Option<String>,
     /// Legacy: filename-only format before `organize_path_format` existed.
@@ -480,6 +482,7 @@ impl Default for AppSettings {
 pub struct LibrarySettingsResponse {
     pub library_root: String,
     pub media_folder: String,
+    pub artwork_folder: String,
     pub database_path: String,
     pub auto_organize: bool,
     pub import_mode: String,
@@ -593,6 +596,10 @@ pub fn media_folder_for_root(library_root: &Path) -> PathBuf {
     library_root.join(MEDIA_DIR_NAME)
 }
 
+pub fn artwork_folder_for_root(library_root: &Path) -> PathBuf {
+    library_root.join(ARTWORK_DIR_NAME)
+}
+
 pub fn database_path_for_root(library_root: &Path) -> PathBuf {
     library_root.join(DATABASE_FILE_NAME)
 }
@@ -617,6 +624,9 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
     let media_folder = media_folder_for_root(root_path)
         .to_string_lossy()
         .into_owned();
+    let artwork_folder = artwork_folder_for_root(root_path)
+        .to_string_lossy()
+        .into_owned();
     let database_path = database_path_for_root(root_path)
         .to_string_lossy()
         .into_owned();
@@ -624,6 +634,7 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
     LibrarySettingsResponse {
         library_root,
         media_folder,
+        artwork_folder,
         database_path,
         auto_organize: stored.auto_organize,
         import_mode: stored.import_mode,

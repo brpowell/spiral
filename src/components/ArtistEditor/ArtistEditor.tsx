@@ -348,7 +348,7 @@ export function ArtistEditor() {
         }
 
         if (oldKey !== newKey && !artChanged) {
-          await renameArtistImageKey(oldKey, newKey, browseMode);
+          await renameArtistImageKey(oldKey, newKey);
         }
       }
 
@@ -356,9 +356,9 @@ export function ArtistEditor() {
         enterQuickPhase();
         const cacheKey = artistArtCacheKey(newKey);
         const finalArtPath = await resolveArtistArtPath(cacheKey);
-        await saveArtistImage(newKey, browseMode, finalArtPath);
+        await saveArtistImage(newKey, finalArtPath);
         if (nameChanged && oldKey !== newKey) {
-          await saveArtistImage(oldKey, browseMode, null);
+          await saveArtistImage(oldKey, null);
         }
       }
 

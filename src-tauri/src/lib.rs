@@ -4,6 +4,10 @@ mod art_cache;
 mod art_thumb;
 mod artist_art_fetch;
 mod artist_tags;
+mod artwork_extract;
+mod artwork_organize;
+mod artwork_paths;
+mod artwork_write;
 mod audio_formats;
 mod audio_properties;
 mod cd;
@@ -225,6 +229,7 @@ pub fn run() {
             commands::artist_images::save_artist_image,
             commands::artist_images::rename_artist_image_key,
             commands::metadata::write_track_metadata,
+            commands::metadata::rename_album_artwork,
             commands::themes::get_builtin_themes,
             commands::themes::load_user_themes,
             commands::themes::save_active_theme_id,

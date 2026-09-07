@@ -39,7 +39,7 @@ pub fn prepare_import_file(
     }
 
     let media = Path::new(media_folder);
-    fs::create_dir_all(media).map_err(|e| format!("failed to create media folder: {e}"))?;
+    fs::create_dir_all(media).map_err(|e| format!("failed to create tracks folder: {e}"))?;
 
     let tags = read_basic_tags(source);
     let dest = if auto_organize {

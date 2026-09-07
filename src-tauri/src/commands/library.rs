@@ -23,6 +23,23 @@ use tauri::{AppHandle, Manager, State};
 
 pub struct DbState(pub Mutex<rusqlite::Connection>);
 
+fn library_root(app: &AppHandle) -> PathBuf {
+    PathBuf::from(settings::resolved_library_settings(app).library_root)
+}
+
+/// Load a track row and resolve `art_path` to an absolute display path for the UI.
+fn track_for_ui(
+    conn: &rusqlite::Connection,
+    library_root: &Path,
+    track_id: i64,
+) -> Result<Track, String> {
+    let mut track = db::get_track_by_id(conn, track_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Track {track_id} not found"))?;
+    crate::artwork_paths::hydrate_track_art_path(library_root, &mut track);
+    Ok(track)
+}
+
 fn track_input_to_metadata(input: &TrackInput) -> TrackMetadataUpdate {
     TrackMetadataUpdate {
         title: input.title.clone(),
@@ -176,6 +193,7 @@ pub fn save_track(
     mut track: TrackInput,
 ) -> Result<Track, String> {
     fill_missing_audio_properties(&mut track);
+    let root = library_root(&app);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     crate::license::assert_can_add_library_track(&app, &conn, &track.file_path)?;
     let id = db::save_track(&conn, &track).map_err(|e| {
@@ -186,18 +204,19 @@ pub fn save_track(
         eprintln!("persist_import_lyrics error: {e}");
         e.to_string()
     })?;
-    db::get_track_by_id(&conn, id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Track {id} not found after save"))
+    track_for_ui(&conn, &root, id)
 }
 
 #[tauri::command]
-pub fn get_library(state: State<DbState>) -> Result<Vec<Track>, String> {
+pub fn get_library(app: AppHandle, state: State<DbState>) -> Result<Vec<Track>, String> {
+    let library_root = library_root(&app);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::get_all_tracks(&conn).map_err(|e| {
+    let mut tracks = db::get_all_tracks(&conn).map_err(|e| {
         eprintln!("get_library error: {e}");
         e.to_string()
-    })
+    })?;
+    crate::artwork_paths::hydrate_tracks_art_paths(&library_root, &mut tracks);
+    Ok(tracks)
 }
 
 const REFRESH_METADATA_MAX_ERRORS: usize = 20;
@@ -206,6 +225,7 @@ fn refresh_library_metadata_blocking(
     app: &AppHandle,
 ) -> Result<RefreshLibraryMetadataResult, String> {
     let app_data = settings::app_data_dir(app)?;
+    let library_root = PathBuf::from(settings::resolved_library_settings(app).library_root);
     let state = app.state::<DbState>();
     let tracks = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -236,12 +256,13 @@ fn refresh_library_metadata_blocking(
         }
 
         let lyrics_sidecar_enabled = settings::lyrics_sidecar_sync_enabled(app);
-        let parse_result = metadata_reader::parse_track_metadata(
+        let parse_result = metadata_reader::parse_track_metadata_for_library(
             &app_data,
             &track.file_path,
             lyrics_sidecar_enabled,
+            Some(&library_root),
         );
-        let input = match parse_result {
+        let mut input = match parse_result {
             Ok(input) => input,
             Err(err) => {
                 failed += 1;
@@ -251,6 +272,8 @@ fn refresh_library_metadata_blocking(
                 continue;
             }
         };
+        // Art is reconstructed per-album after all tracks are parsed.
+        input.art_path = track.art_path.clone();
 
         let save_result = {
             let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -265,6 +288,19 @@ fn refresh_library_metadata_blocking(
                     errors.push(format!("{label}: {err}"));
                 }
             }
+        }
+    }
+
+    {
+        let conn = state.0.lock().map_err(|e| e.to_string())?;
+        if let Err(err) =
+            crate::artwork_extract::reconstruct_all_album_artwork(&conn, &library_root)
+        {
+            eprintln!("refresh reconstruct artwork: {err}");
+            if errors.len() < REFRESH_METADATA_MAX_ERRORS {
+                errors.push(format!("Artwork rebuild: {err}"));
+            }
+            failed = failed.saturating_add(1);
         }
     }
 
@@ -369,16 +405,18 @@ pub fn remove_track(
         }
     }
 
+    let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
+
     if let Ok(app_data) = app.path().app_data_dir() {
         let _ = art_cache::remove_cached_art(&app_data, &track.file_path);
+    }
 
-        if let Some(art_path) = &track.art_path {
-            if art_cache::art_path_is_track_owned(&app_data, &track.file_path, art_path) {
-                let path = Path::new(art_path);
-                if path.exists() {
-                    let _ = fs::remove_file(path);
-                }
-            }
+    {
+        let conn = state.0.lock().map_err(|e| e.to_string())?;
+        if let Err(err) =
+            crate::artwork_organize::gc_art_after_track_removed(&conn, &library_root, &track)
+        {
+            eprintln!("artwork GC after remove_track: {err}");
         }
     }
 
@@ -477,9 +515,7 @@ pub fn replace_track_from_import(
     }
 
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::get_track_by_id(&conn, track_id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Track {track_id} not found after replace"))
+    track_for_ui(&conn, Path::new(&resolved.library_root), track_id)
 }
 
 /// After replace, project canonical DB lyrics onto the new audio file (tags + sidecar).
@@ -662,15 +698,14 @@ fn convert_track_impl(
 
     if mode == "add_new" {
         let input = track_to_input(&existing, new_path);
+        let root = PathBuf::from(&resolved.library_root);
         let conn = state.0.lock().map_err(|e| e.to_string())?;
         crate::license::assert_can_add_library_track(app, &conn, &input.file_path)?;
         let id = db::save_track(&conn, &input).map_err(|e| {
             eprintln!("convert_track save_track error: {e}");
             e.to_string()
         })?;
-        return db::get_track_by_id(&conn, id)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| format!("Track {id} not found after convert"));
+        return track_for_ui(&conn, &root, id);
     }
 
     let old_path = PathBuf::from(&existing.file_path);
@@ -718,9 +753,7 @@ fn convert_track_impl(
     }
 
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    db::get_track_by_id(&conn, track_id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Track {track_id} not found after convert"))
+    track_for_ui(&conn, Path::new(&resolved.library_root), track_id)
 }
 
 #[cfg(test)]

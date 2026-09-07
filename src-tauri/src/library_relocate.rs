@@ -75,7 +75,7 @@ fn validate_destination(current_root: &Path, dest: &Path) -> Result<(), String> 
     Ok(())
 }
 
-/// Count audio files under `root` (recursive). Includes `Media/` when present.
+/// Count audio files under `root` (recursive). Includes `Tracks/` when present.
 fn count_audio_unique(root: &Path) -> u32 {
     if !root.is_dir() {
         return 0;
@@ -192,7 +192,11 @@ fn relocate_entry(from: &Path, to: &Path) -> Result<(), String> {
     }
 }
 
-fn rewrite_path_prefix(file_path: &str, old_media: &Path, new_media: &Path) -> Option<String> {
+pub(crate) fn rewrite_path_prefix(
+    file_path: &str,
+    old_media: &Path,
+    new_media: &Path,
+) -> Option<String> {
     let old_path = Path::new(file_path);
     if !library_organize::is_under_media_folder(old_path, old_media) {
         return None;
@@ -226,7 +230,7 @@ fn rewrite_path_prefix(file_path: &str, old_media: &Path, new_media: &Path) -> O
     None
 }
 
-fn rewrite_media_paths(
+pub(crate) fn rewrite_media_paths(
     app: &AppHandle,
     conn: &Connection,
     old_media: &Path,
@@ -243,12 +247,19 @@ fn rewrite_media_paths(
             continue;
         }
 
-        let new_art = library_organize::migrate_art_cache(
-            &app_data,
-            &track.file_path,
-            &new_path_str,
-            track.art_path.as_deref(),
-        )?;
+        // Library-relative Artwork/ paths stay valid across Tracks/ relocate.
+        let new_art = match track.art_path.as_deref() {
+            Some(p) if p.starts_with("Artwork/") || p.starts_with("Artwork\\") => {
+                Some(p.to_string())
+            }
+            None => None,
+            Some(_) => library_organize::migrate_art_cache(
+                &app_data,
+                &track.file_path,
+                &new_path_str,
+                track.art_path.as_deref(),
+            )?,
+        };
 
         conn.execute(
             "UPDATE tracks SET file_path = ?1, art_path = ?2 WHERE id = ?3",
@@ -320,6 +331,8 @@ pub fn relocate_library(
 
     let dest_db = settings::database_path_for_root(&dest);
     let dest_media = settings::media_folder_for_root(&dest);
+    let old_artwork = settings::artwork_folder_for_root(&current_root);
+    let dest_artwork = settings::artwork_folder_for_root(&dest);
 
     match mode {
         LibraryRelocateMode::Move => {
@@ -334,7 +347,7 @@ pub fn relocate_library(
                     .unwrap_or(false);
                 if non_empty {
                     return Err(
-                        "Destination Media folder is not empty. Choose an empty folder or switch to an existing library."
+                        "Destination Tracks folder is not empty. Choose an empty folder or switch to an existing library."
                             .into(),
                     );
                 }
@@ -352,6 +365,9 @@ pub fn relocate_library(
                 }
                 if old_media.is_dir() {
                     relocate_entry(&old_media, &dest_media)?;
+                }
+                if old_artwork.is_dir() {
+                    relocate_entry(&old_artwork, &dest_artwork)?;
                 }
                 Ok(())
             })();
@@ -448,7 +464,7 @@ mod tests {
     #[test]
     fn validate_rejects_same_and_nested() {
         let root = PathBuf::from("/tmp/spiral-lib");
-        let nested = root.join("Media");
+        let nested = root.join("Tracks");
         assert!(validate_destination(&root, &root).is_err());
         assert!(validate_destination(&root, &nested).is_err());
         assert!(validate_destination(&nested, &root).is_err());
@@ -457,13 +473,13 @@ mod tests {
 
     #[test]
     fn rewrite_path_prefix_rewrites_under_media() {
-        let old_media = Path::new("/Music/Spiral Library/Media");
-        let new_media = Path::new("/Volumes/Big/Spiral Library/Media");
-        let old = "/Music/Spiral Library/Media/Artist/Album/song.mp3";
+        let old_media = Path::new("/Music/Spiral Library/Tracks");
+        let new_media = Path::new("/Volumes/Big/Spiral Library/Tracks");
+        let old = "/Music/Spiral Library/Tracks/Artist/Album/song.mp3";
         let next = rewrite_path_prefix(old, old_media, new_media).unwrap();
         assert_eq!(
             next,
-            "/Volumes/Big/Spiral Library/Media/Artist/Album/song.mp3"
+            "/Volumes/Big/Spiral Library/Tracks/Artist/Album/song.mp3"
         );
         assert!(rewrite_path_prefix("/elsewhere/song.mp3", old_media, new_media).is_none());
     }
@@ -471,8 +487,8 @@ mod tests {
     #[test]
     fn rewrite_media_paths_updates_db_rows() {
         let dir = unique_temp_dir("db-rewrite");
-        let old_media = dir.join("old").join("Media");
-        let new_media = dir.join("new").join("Media");
+        let old_media = dir.join("old").join("Tracks");
+        let new_media = dir.join("new").join("Tracks");
         fs::create_dir_all(&old_media).unwrap();
         fs::create_dir_all(&new_media).unwrap();
 

@@ -1,10 +1,7 @@
-import type { ArtistBrowseMode } from "./artists";
 import type { Artist } from "../types/artist";
 
-/** Stable cache key for artist cover art in the art cache. */
-export function artistArtCacheKey(
-  artistKey: string,
-): string {
+/** Stable cache key for artist cover art in the Artwork tree. */
+export function artistArtCacheKey(artistKey: string): string {
   return `artist:${artistKey}`;
 }
 
@@ -19,17 +16,12 @@ export function applyArtistImages(
   });
 }
 
-export function artistImagesToRecord(
-  images: { artistKey: string; browseMode: string; artPath: string }[],
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const image of images) {
-    const mode = image.browseMode as ArtistBrowseMode;
-    const existing = out[image.artistKey];
-    // Prefer discography if both modes exist for same artist key.
-    if (!existing || mode === "discography") {
-      out[image.artistKey] = image.artPath;
-    }
-  }
-  return out;
+/** True when a hydrated art path is a per-track override (not album front.jpg). */
+export function isAlbumArtOverride(
+  artPath: string | null | undefined,
+): boolean {
+  if (!artPath) return false;
+  const base = artPath.split(/[/\\]/).pop() ?? "";
+  const stem = base.includes(".") ? base.slice(0, base.lastIndexOf(".")) : base;
+  return stem.toLowerCase() !== "front";
 }
