@@ -1,6 +1,5 @@
 use crate::fs_move;
 use crate::lyrics_sidecar;
-use crate::metadata_backup;
 use crate::models::TrackMetadataUpdate;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -330,7 +329,7 @@ pub(crate) fn same_path(a: &Path, b: &Path) -> bool {
         .unwrap_or_else(|_| a == b)
 }
 
-/// Move audio file and its Spiral metadata backup (if present) to `dest`.
+/// Move audio file to `dest`.
 pub fn move_track_file(
     from: &Path,
     dest: PathBuf,
@@ -347,21 +346,6 @@ pub fn move_track_file(
 
     let dest = unique_path(dest, None);
     fs_move::rename_or_copy_file(from, &dest)?;
-
-    let backup_from = metadata_backup::backup_path_for(from);
-    if backup_from.is_file() {
-        let backup_to = metadata_backup::backup_path_for(&dest);
-        if backup_to.exists() {
-            fs::remove_file(&backup_to)
-                .map_err(|e| format!("failed to remove existing backup: {e}"))?;
-        }
-        if let Some(parent) = backup_to.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        if let Err(e) = fs_move::rename_or_copy_file(&backup_from, &backup_to) {
-            eprintln!("failed to move metadata backup: {e}");
-        }
-    }
 
     if move_lyrics_sidecar {
         lyrics_sidecar::move_sidecar(from, &dest);
@@ -601,7 +585,7 @@ mod tests {
     }
 
     #[test]
-    fn move_track_file_moves_backup() {
+    fn move_track_file_moves_audio() {
         let dir = std::env::temp_dir().join(format!("spiral-organize-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
@@ -611,9 +595,6 @@ mod tests {
         let mut f = fs::File::create(&from).unwrap();
         writeln!(f, "audio").unwrap();
 
-        let backup = metadata_backup::backup_path_for(&from);
-        fs::copy(&from, &backup).unwrap();
-
         let dest = dir
             .join("new")
             .join("Artist")
@@ -622,8 +603,6 @@ mod tests {
         let moved = move_track_file(&from, dest, true).unwrap();
         assert!(moved.exists());
         assert!(!from.exists());
-        assert!(metadata_backup::backup_path_for(&moved).exists());
-        assert!(!backup.exists());
 
         let _ = fs::remove_dir_all(&dir);
     }

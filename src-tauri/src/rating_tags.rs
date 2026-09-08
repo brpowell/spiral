@@ -1,4 +1,3 @@
-use crate::metadata_backup::MetadataBackupConfig;
 use crate::metadata_writer::{self, MetadataWriteError};
 use id3::frame::Popularimeter;
 use id3::{ErrorKind, Tag, TagLike, Version};
@@ -90,19 +89,15 @@ pub fn read_m4a_rating(tag: &Mp4Tag) -> Option<u8> {
         .and_then(parse_rating_string)
 }
 
-pub fn write_rating_to_file(
-    path: &Path,
-    canonical: u8,
-    backup_config: &MetadataBackupConfig,
-) -> Result<(), MetadataWriteError> {
+pub fn write_rating_to_file(path: &Path, canonical: u8) -> Result<(), MetadataWriteError> {
     metadata_writer::ensure_writable(path)?;
 
     match metadata_writer::audio_extension(path).as_deref() {
-        Some("mp3") => write_mp3_rating(path, canonical, backup_config),
-        Some("flac") => write_flac_rating(path, canonical, backup_config),
-        Some("m4a") | Some("aac") | Some("mp4") => write_m4a_rating(path, canonical, backup_config),
-        Some("wav") => write_wav_rating(path, canonical, backup_config),
-        Some("ogg") | Some("opus") => write_vorbis_container_rating(path, canonical, backup_config),
+        Some("mp3") => write_mp3_rating(path, canonical),
+        Some("flac") => write_flac_rating(path, canonical),
+        Some("m4a") | Some("aac") | Some("mp4") => write_m4a_rating(path, canonical),
+        Some("wav") => write_wav_rating(path, canonical),
+        Some("ogg") | Some("opus") => write_vorbis_container_rating(path, canonical),
         Some(ext) => Err(MetadataWriteError::UnsupportedFormat(format!(
             "Rating export is not supported for .{ext} files."
         ))),
@@ -123,12 +118,8 @@ fn apply_popm_to_tag(tag: &mut Tag, canonical: u8) {
     }
 }
 
-fn write_mp3_rating(
-    path: &Path,
-    canonical: u8,
-    backup_config: &MetadataBackupConfig,
-) -> Result<(), MetadataWriteError> {
-    metadata_writer::write_via_temp(path, backup_config, |target| {
+fn write_mp3_rating(path: &Path, canonical: u8) -> Result<(), MetadataWriteError> {
+    metadata_writer::write_via_temp(path, |target| {
         let mut tag = metadata_writer::read_id3_tag(target)?;
         apply_popm_to_tag(&mut tag, canonical);
         tag.write_to_path(target, Version::Id3v24)
@@ -137,12 +128,8 @@ fn write_mp3_rating(
     })
 }
 
-fn write_flac_rating(
-    path: &Path,
-    canonical: u8,
-    backup_config: &MetadataBackupConfig,
-) -> Result<(), MetadataWriteError> {
-    metadata_writer::write_via_temp(path, backup_config, |target| {
+fn write_flac_rating(path: &Path, canonical: u8) -> Result<(), MetadataWriteError> {
+    metadata_writer::write_via_temp(path, |target| {
         let mut tag = FlacTag::read_from_path(target)
             .map_err(|e| MetadataWriteError::Tag(format!("Failed to read FLAC tags: {e}")))?;
 
@@ -158,12 +145,8 @@ fn write_flac_rating(
     })
 }
 
-fn write_vorbis_container_rating(
-    path: &Path,
-    canonical: u8,
-    backup_config: &MetadataBackupConfig,
-) -> Result<(), MetadataWriteError> {
-    metadata_writer::write_via_temp(path, backup_config, |target| {
+fn write_vorbis_container_rating(path: &Path, canonical: u8) -> Result<(), MetadataWriteError> {
+    metadata_writer::write_via_temp(path, |target| {
         crate::vorbis_container::write_vorbis_container_rating(target, canonical)
     })
 }
@@ -187,21 +170,11 @@ fn write_m4a_rating_tag(target: &Path, canonical: u8) -> Result<(), MetadataWrit
     Ok(())
 }
 
-fn write_m4a_rating(
-    path: &Path,
-    canonical: u8,
-    backup_config: &MetadataBackupConfig,
-) -> Result<(), MetadataWriteError> {
-    metadata_writer::write_via_temp(path, backup_config, |target| {
-        write_m4a_rating_tag(target, canonical)
-    })
+fn write_m4a_rating(path: &Path, canonical: u8) -> Result<(), MetadataWriteError> {
+    metadata_writer::write_via_temp(path, |target| write_m4a_rating_tag(target, canonical))
 }
 
-fn write_wav_rating(
-    path: &Path,
-    canonical: u8,
-    backup_config: &MetadataBackupConfig,
-) -> Result<(), MetadataWriteError> {
+fn write_wav_rating(path: &Path, canonical: u8) -> Result<(), MetadataWriteError> {
     match Tag::read_from_path(path) {
         Err(id3::Error {
             kind: ErrorKind::NoTag,
@@ -210,7 +183,7 @@ fn write_wav_rating(
         Err(e) => Err(MetadataWriteError::Tag(format!(
             "Failed to read WAV ID3 tags: {e}"
         ))),
-        Ok(_) => metadata_writer::write_via_temp(path, backup_config, |target| {
+        Ok(_) => metadata_writer::write_via_temp(path, |target| {
             let mut tag = Tag::read_from_path(target).map_err(|e| {
                 MetadataWriteError::Tag(format!("Failed to read WAV ID3 tags: {e}"))
             })?;
@@ -225,9 +198,8 @@ fn write_wav_rating(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_fixtures::m4a;
+    use crate::test_fixtures::{m4a, mp3};
     use std::fs;
-    use std::io::Write;
 
     #[test]
     fn canonical_to_popm_is_identity() {
@@ -277,11 +249,7 @@ mod tests {
 
         let audio = m4a::copy_moov_before_mdat(&dir, "rated.mp4");
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_rating_to_file(&audio, 204, &backup_config).expect("write mp4 rating");
+        write_rating_to_file(&audio, 204).expect("write mp4 rating");
 
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read");
         assert_eq!(read_m4a_rating(&tag), Some(204));
@@ -295,16 +263,9 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let audio = dir.join("rated.mp3");
-        let mut f = fs::File::create(&audio).unwrap();
-        f.write_all(&[0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00])
-            .unwrap();
+        let audio = mp3::copy_minimal(&dir, "rated.mp3");
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_mp3_rating(&audio, 204, &backup_config).expect("write mp3 rating");
+        write_mp3_rating(&audio, 204).expect("write mp3 rating");
 
         let tag = Tag::read_from_path(&audio).expect("re-read");
         let popm = tag
@@ -322,19 +283,22 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let audio = dir.join("rated.mp3");
-        let mut f = fs::File::create(&audio).unwrap();
-        f.write_all(&[0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00])
-            .unwrap();
+        let audio = mp3::copy_minimal(&dir, "rated.mp3");
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_mp3_rating(&audio, 128, &backup_config).unwrap();
-        write_mp3_rating(&audio, 0, &backup_config).unwrap();
+        crate::metadata_writer::write_track_metadata(
+            &audio,
+            &crate::models::TrackMetadataUpdate {
+                title: "Keep Title".to_string(),
+                ..Default::default()
+            },
+        )
+        .expect("seed title");
+
+        write_mp3_rating(&audio, 128).unwrap();
+        write_mp3_rating(&audio, 0).unwrap();
 
         let tag = Tag::read_from_path(&audio).expect("re-read");
+        assert_eq!(tag.title().as_deref(), Some("Keep Title"));
         assert!(tag
             .frames()
             .all(|frame| frame.content().popularimeter().is_none()));

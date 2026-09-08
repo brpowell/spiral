@@ -13,6 +13,7 @@ import { artistArtCacheKey, applyArtistImages } from "../../lib/artistArt";
 import {
   artistFormsEqual,
   artistKeyAfterRename,
+  artistMetadataSaveTargets,
   artistMbidPlaceholder,
   artistToForm,
   buildTrackArtistMetadata,
@@ -277,14 +278,18 @@ export function ArtistEditor() {
     const mbidChanged = form.artistMbid !== originalForm.artistMbid;
     const metadataChanged = nameChanged || mbidChanged;
 
-    if (metadataChanged && tracks.length === 0) return;
+    const saveTargets = metadataChanged
+      ? artistMetadataSaveTargets(tracks, library, oldKey)
+      : [];
+
+    if (metadataChanged && saveTargets.length === 0) return;
 
     const updated: Track[] = [];
     const errors: string[] = [];
     let cancelled = false;
 
     if (metadataChanged) {
-      begin(tracks.length);
+      begin(saveTargets.length);
     } else {
       beginQuick();
     }
@@ -292,14 +297,14 @@ export function ArtistEditor() {
 
     try {
       if (metadataChanged) {
-        for (let i = 0; i < tracks.length; i++) {
+        for (let i = 0; i < saveTargets.length; i++) {
           if (isCancelled()) {
             cancelled = true;
             break;
           }
 
-          const track = tracks[i];
-          setProgress(i + 1, tracks.length);
+          const { track, scope } = saveTargets[i];
+          setProgress(i + 1, saveTargets.length);
           try {
             const metadata = buildTrackArtistMetadata(
               track,
@@ -307,6 +312,7 @@ export function ArtistEditor() {
               originalForm,
               oldKey,
               browseMode,
+              scope,
             );
             const saved = await writeTrackMetadata(
               track.id,
@@ -328,7 +334,7 @@ export function ArtistEditor() {
           setSaveError(
             t("library:editor.saveCancelled", {
               updated: updated.length,
-              total: tracks.length,
+              total: saveTargets.length,
             }),
           );
           return;
@@ -336,11 +342,11 @@ export function ArtistEditor() {
 
         if (errors.length > 0) {
           setSaveError(
-            errors.length === tracks.length
+            errors.length === saveTargets.length
               ? errors[0]
               : t("library:editor.partialSave", {
                   updated: updated.length,
-                  total: tracks.length,
+                  total: saveTargets.length,
                   error: errors[0],
                 }),
           );

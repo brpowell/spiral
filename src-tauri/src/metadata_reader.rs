@@ -469,24 +469,15 @@ mod tests {
 
     #[test]
     fn parse_track_metadata_reads_mp3_popm_rating() {
-        use crate::metadata_backup::MetadataBackupConfig;
         use std::fs;
-        use std::io::Write;
 
         let dir = std::env::temp_dir().join(format!("spiral-meta-popm-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let audio = dir.join("rated.mp3");
-        let mut f = fs::File::create(&audio).unwrap();
-        f.write_all(&[0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00])
-            .unwrap();
+        let audio = crate::test_fixtures::mp3::copy_minimal(&dir, "rated.mp3");
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        rating_tags::write_rating_to_file(&audio, 204, &backup_config).unwrap();
+        rating_tags::write_rating_to_file(&audio, 204).unwrap();
 
         let app_data = dir.join("appdata");
         let result = parse_track_metadata(&app_data, audio.to_str().unwrap(), true).unwrap();
@@ -549,8 +540,6 @@ mod tests {
 
     #[test]
     fn parse_track_metadata_reads_wav_id3_rating() {
-        use crate::metadata_backup::MetadataBackupConfig;
-
         let dir = std::env::temp_dir().join(format!("spiral-wav-popm-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
@@ -558,11 +547,7 @@ mod tests {
         let audio = dir.join("rated.wav");
         fs::copy(wav::tagged_fixture_path(), &audio).unwrap();
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        rating_tags::write_rating_to_file(&audio, 180, &backup_config).unwrap();
+        rating_tags::write_rating_to_file(&audio, 180).unwrap();
 
         let app_data = dir.join("appdata");
         let result = parse_track_metadata(&app_data, audio.to_str().unwrap(), true).unwrap();

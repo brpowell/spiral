@@ -150,8 +150,8 @@ pub fn run() {
 
             packs::start_workshop_watch(app.handle().clone());
 
-            if let Err(err) = metadata_backup::run_scheduled_cleanup(app.handle()) {
-                eprintln!("metadata backup cleanup on startup: {err}");
+            if let Err(err) = metadata_backup::purge_legacy_tag_backups(app.handle()) {
+                eprintln!("legacy tag backup cleanup on startup: {err}");
             }
 
             // Match frontend `usesCustomWindowChrome()` (Windows + Linux).

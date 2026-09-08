@@ -6,7 +6,6 @@ use crate::import_files;
 use crate::library_organize::{self, OrganizeMetadata};
 use crate::lyrics_normalize;
 use crate::lyrics_sidecar;
-use crate::metadata_backup;
 use crate::metadata_reader;
 use crate::metadata_writer;
 use crate::models::{
@@ -434,7 +433,6 @@ pub fn replace_track_from_import(
 ) -> Result<Track, String> {
     let resolved = settings::resolved_library_settings(&app);
     let sidecar_enabled = settings::lyrics_sidecar_sync_enabled(&app);
-    let backup_config = settings::metadata_backup_config(&app);
 
     let (existing, mut metadata) = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -493,12 +491,7 @@ pub fn replace_track_from_import(
             .map(lyrics_normalize::track_lyrics_record_to_input)
     };
 
-    project_replace_lyrics(
-        &new_path_buf,
-        canonical_lyrics.as_ref(),
-        &backup_config,
-        sidecar_enabled,
-    )?;
+    project_replace_lyrics(&new_path_buf, canonical_lyrics.as_ref(), sidecar_enabled)?;
 
     if old_path != new_path_buf {
         if sidecar_enabled {
@@ -522,10 +515,9 @@ pub fn replace_track_from_import(
 fn project_replace_lyrics(
     new_path: &Path,
     lyrics: Option<&TrackLyricsInput>,
-    backup_config: &metadata_backup::MetadataBackupConfig,
     sidecar_enabled: bool,
 ) -> Result<(), String> {
-    match metadata_writer::write_lyrics_projection(new_path, lyrics, backup_config) {
+    match metadata_writer::write_lyrics_projection(new_path, lyrics) {
         Ok(()) => {}
         Err(metadata_writer::MetadataWriteError::UnsupportedFormat(msg)) => {
             eprintln!("replace lyrics projection skipped: {msg}");
@@ -625,7 +617,6 @@ fn convert_track_impl(
 
     let profile = encoding_profiles::profile_from_id(profile_id)?;
     let resolved = settings::resolved_library_settings(&app);
-    let backup_config = settings::metadata_backup_config(&app);
 
     let existing = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -674,13 +665,7 @@ fn convert_track_impl(
     }
 
     let metadata = metadata_for_convert(app, &existing, &source)?;
-    transcoder::transcode_file_with_metadata(
-        &source,
-        &temp_path,
-        profile.id,
-        &metadata,
-        &backup_config,
-    )?;
+    transcoder::transcode_file_with_metadata(&source, &temp_path, profile.id, &metadata)?;
 
     let final_path = library_organize::move_track_file(
         &temp_path,

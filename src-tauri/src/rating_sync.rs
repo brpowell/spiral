@@ -1,8 +1,6 @@
 use crate::activity_log::{self, LogLevel};
-use crate::metadata_backup;
 use crate::metadata_writer::MetadataWriteError;
 use crate::rating_tags;
-use crate::settings;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -95,8 +93,7 @@ fn run_file_write(
     canonical: u8,
     is_retry: bool,
 ) {
-    let backup_config = settings::metadata_backup_config(app);
-    let result = rating_tags::write_rating_to_file(file_path, canonical, &backup_config);
+    let result = rating_tags::write_rating_to_file(file_path, canonical);
 
     match result {
         Ok(()) => {}
@@ -128,12 +125,6 @@ fn run_file_write(
                     run_file_write(&app, track_id, &file_path, canonical, true);
                 });
             }
-        }
-    }
-
-    if let Some(parent) = file_path.parent() {
-        if let Err(err) = metadata_backup::cleanup_backups_in_dir(parent, &backup_config) {
-            eprintln!("rating sync backup cleanup: {err}");
         }
     }
 }

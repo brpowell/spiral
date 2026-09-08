@@ -3,7 +3,6 @@ mod ogg_opus_support {
     use crate::audio_formats;
     use crate::audio_properties;
     use crate::file_playback::decoder::StreamingDecoder;
-    use crate::metadata_backup::MetadataBackupConfig;
     use crate::metadata_reader;
     use crate::metadata_writer;
     use crate::models::TrackMetadataUpdate;
@@ -89,11 +88,7 @@ mod ogg_opus_support {
             lyrics_changed: false,
             ..Default::default()
         };
-        let backup = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        metadata_writer::write_track_metadata(&audio, &metadata, &backup).expect("write ogg");
+        metadata_writer::write_track_metadata(&audio, &metadata).expect("write ogg");
 
         let tags = metadata_reader::read_basic_tags(&audio);
         assert_eq!(tags.title.as_deref(), Some("OGG Title"));

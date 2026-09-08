@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { applyArtistImages } from "../lib/artistArt";
+import { refreshArtDisplay } from "../lib/artDisplayCache";
 import type { Artist } from "../types/artist";
 import {
   getArtistImages,
@@ -14,7 +15,7 @@ interface ArtistImageState {
   renameArtistImageKey: (oldKey: string, newKey: string) => Promise<void>;
 }
 
-export const useArtistImageStore = create<ArtistImageState>((set) => ({
+export const useArtistImageStore = create<ArtistImageState>((set, get) => ({
   imagesByKey: {},
 
   loadArtistImages: async () => {
@@ -40,15 +41,19 @@ export const useArtistImageStore = create<ArtistImageState>((set) => ({
   },
 
   renameArtistImageKey: async (oldKey, newKey) => {
-    await renameArtistImageKeyApi(oldKey, newKey);
+    const oldPath = get().imagesByKey[oldKey];
+    const newPath = await renameArtistImageKeyApi(oldKey, newKey);
     set((state) => {
-      const path = state.imagesByKey[oldKey];
-      if (!path) return state;
       const imagesByKey = { ...state.imagesByKey };
       delete imagesByKey[oldKey];
-      imagesByKey[newKey] = path;
+      if (newPath) {
+        imagesByKey[newKey] = newPath;
+      } else {
+        delete imagesByKey[newKey];
+      }
       return { imagesByKey };
     });
+    refreshArtDisplay([oldPath, newPath]);
   },
 }));
 

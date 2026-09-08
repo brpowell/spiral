@@ -1,7 +1,7 @@
 use crate::artist_tags::{join_artist_field, parse_artist_field};
+use crate::file_playback::decoder::StreamingDecoder;
 use crate::lyrics_tags;
 use crate::mbid_tags;
-use crate::metadata_backup::{self, MetadataBackupConfig};
 use crate::metadata_reader::parse_number_pair;
 use crate::models::TrackMetadataUpdate;
 use id3::frame::{Picture, PictureType};
@@ -132,24 +132,20 @@ fn apply_common_mp4(tag: &mut Mp4Tag, metadata: &TrackMetadataUpdate) {
 }
 
 fn temp_path_for(path: &Path) -> PathBuf {
-    let name = path
-        .file_name()
+    let stem = path
+        .file_stem()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "audio".to_string());
-    path.with_file_name(format!(".{name}.spiral.tmp"))
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("tmp");
+    path.with_file_name(format!(".{stem}.spiral.tmp.{ext}"))
 }
 
-/// Write to a temp copy, verify, then atomically replace the original (optional `.bak`).
-pub(crate) fn write_via_temp<F>(
-    path: &Path,
-    backup_config: &MetadataBackupConfig,
-    write: F,
-) -> Result<(), MetadataWriteError>
+/// Write to a temp copy, verify a playback load, then atomically replace the original.
+pub(crate) fn write_via_temp<F>(path: &Path, write: F) -> Result<(), MetadataWriteError>
 where
     F: FnOnce(&Path) -> Result<(), MetadataWriteError>,
 {
     let temp = temp_path_for(path);
-    let backup = metadata_backup::backup_path_for(path);
 
     if temp.exists() {
         std::fs::remove_file(&temp)
@@ -159,21 +155,25 @@ where
     std::fs::copy(path, &temp)
         .map_err(|e| MetadataWriteError::Io(format!("Failed to copy file for safe write: {e}")))?;
 
-    write(&temp)?;
-
-    if backup_config.enabled {
-        if backup.exists() {
-            std::fs::remove_file(&backup)
-                .map_err(|e| MetadataWriteError::Io(format!("Failed to remove old backup: {e}")))?;
-        }
-        std::fs::copy(path, &backup).map_err(|e| {
-            MetadataWriteError::Io(format!("Failed to create backup {}: {e}", backup.display()))
-        })?;
+    let result = write(&temp).and_then(|()| verify_playback_load(&temp));
+    if let Err(err) = result {
+        let _ = std::fs::remove_file(&temp);
+        return Err(err);
     }
 
-    std::fs::rename(&temp, path)
-        .map_err(|e| MetadataWriteError::Io(format!("Failed to replace audio file: {e}")))?;
+    if let Err(e) = std::fs::rename(&temp, path) {
+        let _ = std::fs::remove_file(&temp);
+        return Err(MetadataWriteError::Io(format!(
+            "Failed to replace audio file: {e}"
+        )));
+    }
 
+    Ok(())
+}
+
+fn verify_playback_load(path: &Path) -> Result<(), MetadataWriteError> {
+    StreamingDecoder::open(path)
+        .map_err(|e| MetadataWriteError::Tag(format!("Written file failed playback load: {e}")))?;
     Ok(())
 }
 
@@ -263,11 +263,10 @@ fn apply_id3_metadata(
 fn write_id3(
     path: &Path,
     metadata: &TrackMetadataUpdate,
-    backup_config: &MetadataBackupConfig,
     format_label: &str,
 ) -> Result<(), MetadataWriteError> {
     // TODO: optional ID3v2.4 multi-TPE1 frames (player support is inconsistent).
-    write_via_temp(path, backup_config, |target| {
+    write_via_temp(path, |target| {
         let mut tag = read_id3_tag(target)?;
         apply_id3_metadata(&mut tag, metadata)?;
         tag.write_to_path(target, id3::Version::Id3v24)
@@ -278,20 +277,12 @@ fn write_id3(
     })
 }
 
-fn write_mp3(
-    path: &Path,
-    metadata: &TrackMetadataUpdate,
-    backup_config: &MetadataBackupConfig,
-) -> Result<(), MetadataWriteError> {
-    write_id3(path, metadata, backup_config, "MP3")
+fn write_mp3(path: &Path, metadata: &TrackMetadataUpdate) -> Result<(), MetadataWriteError> {
+    write_id3(path, metadata, "MP3")
 }
 
-fn write_wav(
-    path: &Path,
-    metadata: &TrackMetadataUpdate,
-    backup_config: &MetadataBackupConfig,
-) -> Result<(), MetadataWriteError> {
-    write_id3(path, metadata, backup_config, "WAV")
+fn write_wav(path: &Path, metadata: &TrackMetadataUpdate) -> Result<(), MetadataWriteError> {
+    write_id3(path, metadata, "WAV")
 }
 
 fn vorbis_slash_total(tag: &FlacTag, key: &str) -> Option<i32> {
@@ -319,12 +310,8 @@ fn write_flac_number_pair(
     }
 }
 
-fn write_flac(
-    path: &Path,
-    metadata: &TrackMetadataUpdate,
-    backup_config: &MetadataBackupConfig,
-) -> Result<(), MetadataWriteError> {
-    write_via_temp(path, backup_config, |target| {
+fn write_flac(path: &Path, metadata: &TrackMetadataUpdate) -> Result<(), MetadataWriteError> {
+    write_via_temp(path, |target| {
         let mut tag = FlacTag::read_from_path(target)
             .map_err(|e| MetadataWriteError::Tag(format!("Failed to read FLAC tags: {e}")))?;
 
@@ -417,22 +404,15 @@ fn write_m4a_tag(target: &Path, metadata: &TrackMetadataUpdate) -> Result<(), Me
     Ok(())
 }
 
-fn write_m4a(
-    path: &Path,
-    metadata: &TrackMetadataUpdate,
-    backup_config: &MetadataBackupConfig,
-) -> Result<(), MetadataWriteError> {
-    write_via_temp(path, backup_config, |target| {
-        write_m4a_tag(target, metadata)
-    })
+fn write_m4a(path: &Path, metadata: &TrackMetadataUpdate) -> Result<(), MetadataWriteError> {
+    write_via_temp(path, |target| write_m4a_tag(target, metadata))
 }
 
 fn write_vorbis_container(
     path: &Path,
     metadata: &TrackMetadataUpdate,
-    backup_config: &MetadataBackupConfig,
 ) -> Result<(), MetadataWriteError> {
-    write_via_temp(path, backup_config, |target| {
+    write_via_temp(path, |target| {
         crate::vorbis_container::write_vorbis_container_tag(target, metadata)
     })
 }
@@ -441,12 +421,11 @@ fn write_vorbis_container(
 pub fn write_lyrics_projection(
     path: &Path,
     lyrics: Option<&crate::models::TrackLyricsInput>,
-    backup_config: &MetadataBackupConfig,
 ) -> Result<(), MetadataWriteError> {
     ensure_writable(path)?;
 
     match audio_extension(path).as_deref() {
-        Some("mp3") => write_via_temp(path, backup_config, |target| {
+        Some("mp3") => write_via_temp(path, |target| {
             let mut tag = read_id3_tag(target)?;
             let (text, remove) = lyrics_tags::lyrics_text_for_embed_input(
                 lyrics,
@@ -457,7 +436,7 @@ pub fn write_lyrics_projection(
                 .map_err(|e| MetadataWriteError::Tag(format!("Failed to write MP3 lyrics: {e}")))?;
             Ok(())
         }),
-        Some("wav") => write_via_temp(path, backup_config, |target| {
+        Some("wav") => write_via_temp(path, |target| {
             let mut tag = read_id3_tag(target)?;
             let (text, remove) = lyrics_tags::lyrics_text_for_embed_input(
                 lyrics,
@@ -468,7 +447,7 @@ pub fn write_lyrics_projection(
                 .map_err(|e| MetadataWriteError::Tag(format!("Failed to write WAV lyrics: {e}")))?;
             Ok(())
         }),
-        Some("flac") => write_via_temp(path, backup_config, |target| {
+        Some("flac") => write_via_temp(path, |target| {
             let mut tag = FlacTag::read_from_path(target)
                 .map_err(|e| MetadataWriteError::Tag(format!("Failed to read FLAC tags: {e}")))?;
             let (text, remove) = lyrics_tags::lyrics_text_for_embed_input(
@@ -481,7 +460,7 @@ pub fn write_lyrics_projection(
             })?;
             Ok(())
         }),
-        Some("m4a") | Some("aac") | Some("mp4") => write_via_temp(path, backup_config, |target| {
+        Some("m4a") | Some("aac") | Some("mp4") => write_via_temp(path, |target| {
             let mut tag = Mp4Tag::read_from_path(target)
                 .map_err(|e| MetadataWriteError::Tag(format!("Failed to read M4A tags: {e}")))?;
             let (text, remove) =
@@ -492,7 +471,7 @@ pub fn write_lyrics_projection(
             verify_m4a_readable(target)?;
             Ok(())
         }),
-        Some("ogg") | Some("opus") => write_via_temp(path, backup_config, |target| {
+        Some("ogg") | Some("opus") => write_via_temp(path, |target| {
             crate::vorbis_container::write_vorbis_container_lyrics(target, lyrics)
         }),
         Some(ext) => Err(MetadataWriteError::UnsupportedFormat(format!(
@@ -507,16 +486,15 @@ pub fn write_lyrics_projection(
 pub fn write_track_metadata(
     path: &Path,
     metadata: &TrackMetadataUpdate,
-    backup_config: &MetadataBackupConfig,
 ) -> Result<(), MetadataWriteError> {
     ensure_writable(path)?;
 
     match audio_extension(path).as_deref() {
-        Some("mp3") => write_mp3(path, metadata, backup_config),
-        Some("flac") => write_flac(path, metadata, backup_config),
-        Some("m4a") | Some("aac") | Some("mp4") => write_m4a(path, metadata, backup_config),
-        Some("wav") => write_wav(path, metadata, backup_config),
-        Some("ogg") | Some("opus") => write_vorbis_container(path, metadata, backup_config),
+        Some("mp3") => write_mp3(path, metadata),
+        Some("flac") => write_flac(path, metadata),
+        Some("m4a") | Some("aac") | Some("mp4") => write_m4a(path, metadata),
+        Some("wav") => write_wav(path, metadata),
+        Some("ogg") | Some("opus") => write_vorbis_container(path, metadata),
         Some(ext) => Err(MetadataWriteError::UnsupportedFormat(format!(
             "Metadata editing is not supported for .{ext} files."
         ))),
@@ -529,7 +507,7 @@ pub fn write_track_metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_fixtures::{m4a, wav};
+    use crate::test_fixtures::{m4a, mp3, wav};
     use std::fs;
     use std::io::Write;
 
@@ -539,11 +517,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let audio = dir.join("tagless.mp3");
-        // Minimal MPEG-1 Layer III frame header (no ID3 tag).
-        let mut f = fs::File::create(&audio).unwrap();
-        f.write_all(&[0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00])
-            .unwrap();
+        let audio = mp3::copy_minimal(&dir, "tagless.mp3");
 
         let metadata = TrackMetadataUpdate {
             title: "Tagged Title".to_string(),
@@ -563,11 +537,7 @@ mod tests {
             ..Default::default()
         };
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_mp3(&audio, &metadata, &backup_config).expect("write mp3 metadata");
+        write_mp3(&audio, &metadata).expect("write mp3 metadata");
 
         let tag = Tag::read_from_path(&audio).expect("re-read after write");
         assert_eq!(tag.title().as_deref(), Some("Tagged Title"));
@@ -584,10 +554,7 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let audio = dir.join("multi.mp3");
-        let mut f = fs::File::create(&audio).unwrap();
-        f.write_all(&[0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00])
-            .unwrap();
+        let audio = mp3::copy_minimal(&dir, "multi.mp3");
 
         let metadata = TrackMetadataUpdate {
             title: "Title".to_string(),
@@ -607,11 +574,7 @@ mod tests {
             ..Default::default()
         };
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_mp3(&audio, &metadata, &backup_config).expect("write mp3 metadata");
+        write_mp3(&audio, &metadata).expect("write mp3 metadata");
 
         let tag = Tag::read_from_path(&audio).expect("re-read after write");
         assert_eq!(tag.artist().as_deref(), Some("Alice; Bob"));
@@ -626,9 +589,9 @@ mod tests {
     }
 
     fn copy_minimal_flac_fixture(dir: &Path) -> PathBuf {
-        let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.flac");
         let dest = dir.join("test.flac");
-        fs::copy(&src, &dest).expect("copy flac fixture");
+        fs::copy(crate::test_fixtures::flac::minimal_fixture_path(), &dest)
+            .expect("copy flac fixture");
         dest
     }
 
@@ -657,11 +620,7 @@ mod tests {
             ..Default::default()
         };
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_flac(&audio, &metadata, &backup_config).expect("write flac metadata");
+        write_flac(&audio, &metadata).expect("write flac metadata");
 
         let tag = FlacTag::read_from_path(&audio).expect("re-read after write");
         let artists: Vec<String> = tag
@@ -700,11 +659,7 @@ mod tests {
             ..Default::default()
         };
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_track_metadata(&audio, &metadata, &backup_config).expect("write mp4 metadata");
+        write_track_metadata(&audio, &metadata).expect("write mp4 metadata");
 
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read after write");
         assert_eq!(tag.title().as_deref(), Some("MP4 Title"));
@@ -738,11 +693,7 @@ mod tests {
             ..Default::default()
         };
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_m4a(&audio, &metadata, &backup_config).expect("write m4a metadata");
+        write_m4a(&audio, &metadata).expect("write m4a metadata");
 
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read after write");
         assert_eq!(tag.artist().as_deref(), Some("Alice; Bob"));
@@ -808,19 +759,18 @@ mod tests {
             ..Default::default()
         };
 
-        let backup_config = MetadataBackupConfig {
-            enabled: true,
-            retention_days: 14,
-        };
-        write_m4a(&audio, &metadata, &backup_config).expect("write m4a metadata");
+        write_m4a(&audio, &metadata).expect("write m4a metadata");
 
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read after write");
         assert_eq!(tag.title().as_deref(), Some("Test Track"));
         assert_eq!(tag.artist().as_deref(), Some("Test Artist"));
         assert!(tag.artwork().is_some());
 
-        let backup = metadata_backup::backup_path_for(&audio);
-        assert!(backup.exists(), "backup should be created");
+        let backup = audio.with_extension("m4a.bak");
+        assert!(
+            !backup.exists(),
+            "tag writes must not clone a sidecar backup"
+        );
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -871,11 +821,7 @@ mod tests {
             ..Default::default()
         };
 
-        let backup_config = MetadataBackupConfig {
-            enabled: true,
-            retention_days: 14,
-        };
-        write_m4a(&audio, &metadata, &backup_config).expect("write text-only metadata");
+        write_m4a(&audio, &metadata).expect("write text-only metadata");
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read");
         assert_eq!(tag.title().as_deref(), Some("Only Title"));
         assert!(tag.artwork().is_none());
@@ -917,11 +863,7 @@ mod tests {
             ..Default::default()
         };
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_wav(&audio, &metadata, &backup_config).expect("write wav metadata");
+        write_wav(&audio, &metadata).expect("write wav metadata");
 
         let tag = Tag::read_from_path(&audio).expect("re-read after write");
         assert_eq!(tag.title().as_deref(), Some("Tagged Title"));
@@ -990,11 +932,7 @@ mod tests {
             ..Default::default()
         };
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_wav(&audio, &metadata, &backup_config).expect("write wav art");
+        write_wav(&audio, &metadata).expect("write wav art");
 
         let tag = Tag::read_from_path(&audio).expect("re-read after write");
         assert_eq!(tag.title().as_deref(), Some("Art Track"));
@@ -1081,17 +1019,9 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let audio = dir.join("lyrics.mp3");
-        let mut f = fs::File::create(&audio).unwrap();
-        f.write_all(&[0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00])
-            .unwrap();
+        let audio = mp3::copy_minimal(&dir, "lyrics.mp3");
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_mp3(&audio, &line_synced_lyrics_metadata(), &backup_config)
-            .expect("write mp3 line-synced lyrics");
+        write_mp3(&audio, &line_synced_lyrics_metadata()).expect("write mp3 line-synced lyrics");
 
         let tag = Tag::read_from_path(&audio).expect("re-read mp3");
         let raw = crate::lyrics_tags::read_lyrics_from_id3(&tag).expect("read mp3 lyrics");
@@ -1109,12 +1039,7 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
 
         let audio = copy_minimal_flac_fixture(&dir);
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_flac(&audio, &line_synced_lyrics_metadata(), &backup_config)
-            .expect("write flac line-synced lyrics");
+        write_flac(&audio, &line_synced_lyrics_metadata()).expect("write flac line-synced lyrics");
 
         let tag = FlacTag::read_from_path(&audio).expect("re-read flac");
         let raw = crate::lyrics_tags::read_lyrics_from_flac(&tag).expect("read flac lyrics");
@@ -1131,12 +1056,7 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
 
         let audio = m4a::copy_moov_before_mdat(&dir, "lyrics.m4a");
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_m4a(&audio, &line_synced_lyrics_metadata(), &backup_config)
-            .expect("write m4a line-synced lyrics");
+        write_m4a(&audio, &line_synced_lyrics_metadata()).expect("write m4a line-synced lyrics");
 
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read m4a");
         let raw = crate::lyrics_tags::read_lyrics_from_mp4(&tag).expect("read m4a lyrics");
@@ -1152,27 +1072,15 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let audio = dir.join("lyrics.mp3");
-        let mut f = fs::File::create(&audio).unwrap();
-        f.write_all(&[0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00])
-            .unwrap();
+        let audio = mp3::copy_minimal(&dir, "lyrics.mp3");
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_mp3(
-            &audio,
-            &lyrics_metadata("Line one\nLine two"),
-            &backup_config,
-        )
-        .expect("write mp3 lyrics");
+        write_mp3(&audio, &lyrics_metadata("Line one\nLine two")).expect("write mp3 lyrics");
 
         let tag = Tag::read_from_path(&audio).expect("re-read mp3");
         let raw = crate::lyrics_tags::read_lyrics_from_id3(&tag).expect("read mp3 lyrics");
         assert_eq!(raw.text, "Line one\nLine two");
 
-        write_mp3(&audio, &clear_lyrics_metadata(), &backup_config).expect("clear mp3 lyrics");
+        write_mp3(&audio, &clear_lyrics_metadata()).expect("clear mp3 lyrics");
         let tag = Tag::read_from_path(&audio).expect("re-read cleared mp3");
         assert!(crate::lyrics_tags::read_lyrics_from_id3(&tag).is_none());
 
@@ -1186,15 +1094,8 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let audio = dir.join("song.mp3");
-        let mut f = fs::File::create(&audio).unwrap();
-        f.write_all(&[0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00])
-            .unwrap();
+        let audio = mp3::copy_minimal(&dir, "song.mp3");
 
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
         write_mp3(
             &audio,
             &TrackMetadataUpdate {
@@ -1214,12 +1115,11 @@ mod tests {
                 lyrics_changed: true,
                 ..Default::default()
             },
-            &backup_config,
         )
         .expect("seed mp3");
 
         let projected = crate::lyrics_tags::track_lyrics_input_from_plain("Library lyrics");
-        write_lyrics_projection(&audio, Some(&projected), &backup_config).expect("project lyrics");
+        write_lyrics_projection(&audio, Some(&projected)).expect("project lyrics");
 
         let tag = Tag::read_from_path(&audio).expect("re-read mp3");
         assert_eq!(tag.title().as_deref(), Some("Keep Title"));
@@ -1227,7 +1127,7 @@ mod tests {
         let raw = crate::lyrics_tags::read_lyrics_from_id3(&tag).expect("projected lyrics");
         assert_eq!(raw.text, "Library lyrics");
 
-        write_lyrics_projection(&audio, None, &backup_config).expect("clear projected lyrics");
+        write_lyrics_projection(&audio, None).expect("clear projected lyrics");
         let tag = Tag::read_from_path(&audio).expect("re-read cleared");
         assert_eq!(tag.title().as_deref(), Some("Keep Title"));
         assert!(crate::lyrics_tags::read_lyrics_from_id3(&tag).is_none());
@@ -1242,18 +1142,13 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
 
         let audio = copy_minimal_flac_fixture(&dir);
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_flac(&audio, &lyrics_metadata("FLAC lyric body"), &backup_config)
-            .expect("write flac lyrics");
+        write_flac(&audio, &lyrics_metadata("FLAC lyric body")).expect("write flac lyrics");
 
         let tag = FlacTag::read_from_path(&audio).expect("re-read flac");
         let raw = crate::lyrics_tags::read_lyrics_from_flac(&tag).expect("read flac lyrics");
         assert_eq!(raw.text, "FLAC lyric body");
 
-        write_flac(&audio, &clear_lyrics_metadata(), &backup_config).expect("clear flac lyrics");
+        write_flac(&audio, &clear_lyrics_metadata()).expect("clear flac lyrics");
         let tag = FlacTag::read_from_path(&audio).expect("re-read cleared flac");
         assert!(crate::lyrics_tags::read_lyrics_from_flac(&tag).is_none());
 
@@ -1267,18 +1162,13 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
 
         let audio = m4a::copy_moov_before_mdat(&dir, "lyrics.m4a");
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_m4a(&audio, &lyrics_metadata("M4A lyric body"), &backup_config)
-            .expect("write m4a lyrics");
+        write_m4a(&audio, &lyrics_metadata("M4A lyric body")).expect("write m4a lyrics");
 
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read m4a");
         let raw = crate::lyrics_tags::read_lyrics_from_mp4(&tag).expect("read m4a lyrics");
         assert_eq!(raw.text, "M4A lyric body");
 
-        write_m4a(&audio, &clear_lyrics_metadata(), &backup_config).expect("clear m4a lyrics");
+        write_m4a(&audio, &clear_lyrics_metadata()).expect("clear m4a lyrics");
         let tag = Mp4Tag::read_from_path(&audio).expect("re-read cleared m4a");
         assert!(crate::lyrics_tags::read_lyrics_from_mp4(&tag).is_none());
 
@@ -1296,11 +1186,7 @@ mod tests {
         fs::create_dir_all(&dir).unwrap();
 
         let audio = ogg::copy_minimal(&dir, "lyrics.ogg");
-        let backup_config = MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        };
-        write_vorbis_container(&audio, &lyrics_metadata("OGG lyric body"), &backup_config)
+        write_vorbis_container(&audio, &lyrics_metadata("OGG lyric body"))
             .expect("write ogg lyrics");
 
         let tagged = Probe::open(&audio)
@@ -1313,8 +1199,7 @@ mod tests {
         let raw = crate::lyrics_tags::read_lyrics_from_vorbis(tag).expect("read ogg lyrics");
         assert_eq!(raw.text, "OGG lyric body");
 
-        write_vorbis_container(&audio, &clear_lyrics_metadata(), &backup_config)
-            .expect("clear ogg lyrics");
+        write_vorbis_container(&audio, &clear_lyrics_metadata()).expect("clear ogg lyrics");
         let tagged = Probe::open(&audio)
             .expect("open cleared ogg")
             .guess_file_type()

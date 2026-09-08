@@ -9,7 +9,6 @@ use crate::library_organize;
 use crate::lyrics_fetch;
 use crate::lyrics_normalize;
 use crate::lyrics_sidecar;
-use crate::metadata_backup;
 use crate::metadata_reader;
 use crate::metadata_writer;
 use crate::models::TrackInput;
@@ -324,7 +323,6 @@ pub fn write_track_metadata(
     mut metadata: TrackMetadataUpdate,
 ) -> Result<Track, String> {
     let path = Path::new(&file_path);
-    let backup_config = settings::metadata_backup_config(&app);
     let library = settings::resolved_library_settings(&app);
     let library_root = PathBuf::from(&library.library_root);
 
@@ -335,8 +333,7 @@ pub fn write_track_metadata(
             .ok_or_else(|| format!("Track {track_id} not found"))?
     };
 
-    metadata_writer::write_track_metadata(path, &metadata, &backup_config)
-        .map_err(|e| e.to_message())?;
+    metadata_writer::write_track_metadata(path, &metadata).map_err(|e| e.to_message())?;
 
     let mut final_path = file_path.clone();
 
@@ -361,12 +358,6 @@ pub fn write_track_metadata(
             )? {
                 metadata.art_path = Some(new_art);
             }
-        }
-    }
-
-    if let Some(parent) = Path::new(&final_path).parent() {
-        if let Err(e) = metadata_backup::cleanup_backups_in_dir(parent, &backup_config) {
-            eprintln!("metadata backup cleanup after write: {e}");
         }
     }
 

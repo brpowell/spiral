@@ -13,8 +13,6 @@ use crate::cd::playback::read_track_pcm;
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use crate::encoding_profiles;
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
-use crate::metadata_backup::MetadataBackupConfig;
-#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use crate::transcoder::{self, PcmStream};
 
 pub fn cleanup_rip_temp(drive_id: &str) {
@@ -46,7 +44,7 @@ fn rip_output_path(
     Ok(rip_temp_dir(drive_id).join(file_name))
 }
 
-/// Encode CD-DA PCM with the given profile and write tags (no metadata backups).
+/// Encode CD-DA PCM with the given profile and write tags.
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 fn encode_rip_pcm(
     pcm: &PcmStream,
@@ -57,11 +55,7 @@ fn encode_rip_pcm(
 ) -> Result<PathBuf, String> {
     let profile = encoding_profiles::profile_from_id(profile_id)?;
     let dest = rip_output_path(drive_id, track_number, metadata, profile.extension)?;
-    let backup_config = MetadataBackupConfig {
-        enabled: false,
-        retention_days: 14,
-    };
-    transcoder::encode_pcm_with_metadata(pcm, &dest, profile_id, metadata, &backup_config)?;
+    transcoder::encode_pcm_with_metadata(pcm, &dest, profile_id, metadata)?;
     Ok(dest)
 }
 

@@ -4,7 +4,6 @@ use std::fs;
 use std::path::Path;
 
 use crate::encoding_profiles;
-use crate::metadata_backup::MetadataBackupConfig;
 use crate::metadata_writer;
 use crate::models::TrackMetadataUpdate;
 
@@ -20,13 +19,12 @@ pub fn transcode_file_with_metadata(
     dest: &Path,
     profile_id: &str,
     metadata: &TrackMetadataUpdate,
-    backup_config: &MetadataBackupConfig,
 ) -> Result<(), String> {
     // Resolve profile before decode so unknown profiles fail fast.
     let _ = encoding_profiles::profile_from_id(profile_id)?;
 
     let pcm = decode::pcm_from_audio_file(source)?;
-    encode_pcm_with_metadata(&pcm, dest, profile_id, metadata, backup_config)
+    encode_pcm_with_metadata(&pcm, dest, profile_id, metadata)
 }
 
 pub fn encode_pcm_with_metadata(
@@ -34,7 +32,6 @@ pub fn encode_pcm_with_metadata(
     dest: &Path,
     profile_id: &str,
     metadata: &TrackMetadataUpdate,
-    backup_config: &MetadataBackupConfig,
 ) -> Result<(), String> {
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent)
@@ -43,8 +40,7 @@ pub fn encode_pcm_with_metadata(
 
     encode_pcm_to_profile(pcm, dest, profile_id)?;
 
-    metadata_writer::write_track_metadata(dest, metadata, backup_config)
-        .map_err(|err| err.to_message())
+    metadata_writer::write_track_metadata(dest, metadata).map_err(|err| err.to_message())
 }
 
 pub(crate) fn encode_pcm_to_profile(
@@ -147,13 +143,6 @@ mod tests {
         .unwrap();
     }
 
-    fn disabled_backup() -> MetadataBackupConfig {
-        MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        }
-    }
-
     #[test]
     fn encode_pcm_to_profile_routes_alac() {
         let dest =
@@ -233,7 +222,6 @@ mod tests {
             Path::new("/out.mp3"),
             "unknown",
             &sample_metadata(),
-            &disabled_backup(),
         )
         .unwrap_err();
         assert!(err.contains("Unknown encoding profile"));
@@ -252,14 +240,8 @@ mod tests {
 
         for profile_id in ["mp3-high", "mp3-compact"] {
             let dest = dir.join(format!("{profile_id}.mp3"));
-            transcode_file_with_metadata(
-                &source,
-                &dest,
-                profile_id,
-                &sample_metadata(),
-                &disabled_backup(),
-            )
-            .unwrap_or_else(|err| panic!("{profile_id} convert failed: {err}"));
+            transcode_file_with_metadata(&source, &dest, profile_id, &sample_metadata())
+                .unwrap_or_else(|err| panic!("{profile_id} convert failed: {err}"));
 
             assert!(dest.is_file());
             assert!(dest.metadata().unwrap().len() > 64);
@@ -290,14 +272,8 @@ mod tests {
         write_minimal_jpeg(&art_path);
 
         let dest = dir.join("out.m4a");
-        transcode_file_with_metadata(
-            &source,
-            &dest,
-            "apple-aac",
-            &metadata_with_cover(&art_path),
-            &disabled_backup(),
-        )
-        .expect("flac to apple-aac");
+        transcode_file_with_metadata(&source, &dest, "apple-aac", &metadata_with_cover(&art_path))
+            .expect("flac to apple-aac");
 
         assert!(dest.is_file());
         assert!(dest.metadata().unwrap().len() > 64);
@@ -341,14 +317,8 @@ mod tests {
         .expect("write mp3 source");
 
         let dest = dir.join("out.m4a");
-        transcode_file_with_metadata(
-            &source,
-            &dest,
-            "apple-aac",
-            &sample_metadata(),
-            &disabled_backup(),
-        )
-        .expect("mp3 to apple-aac");
+        transcode_file_with_metadata(&source, &dest, "apple-aac", &sample_metadata())
+            .expect("mp3 to apple-aac");
 
         assert!(dest.is_file());
         let tags = metadata_reader::read_basic_tags(&dest);
@@ -377,14 +347,8 @@ mod tests {
         super::super::wav::write_pcm_to_wav(&pcm, &source).expect("write wav source");
 
         let dest = dir.join("out.mp3");
-        transcode_file_with_metadata(
-            &source,
-            &dest,
-            "mp3-high",
-            &sample_metadata(),
-            &disabled_backup(),
-        )
-        .expect("wav to mp3-high");
+        transcode_file_with_metadata(&source, &dest, "mp3-high", &sample_metadata())
+            .expect("wav to mp3-high");
 
         assert!(dest.is_file());
         let tags = metadata_reader::read_basic_tags(&dest);
@@ -410,14 +374,8 @@ mod tests {
         super::super::wav::write_pcm_to_wav(&pcm, &source).expect("write wav source");
 
         let dest = dir.join("out.flac");
-        transcode_file_with_metadata(
-            &source,
-            &dest,
-            "lossless-flac",
-            &sample_metadata(),
-            &disabled_backup(),
-        )
-        .expect("wav to lossless-flac");
+        transcode_file_with_metadata(&source, &dest, "lossless-flac", &sample_metadata())
+            .expect("wav to lossless-flac");
 
         assert!(dest.is_file());
         assert!(dest.metadata().unwrap().len() > 64);

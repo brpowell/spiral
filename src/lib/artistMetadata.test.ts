@@ -3,6 +3,7 @@ import type { Track } from "../types/track";
 import { normalizeArtistName } from "./artistNames";
 import {
   artistFormsEqual,
+  artistMetadataSaveTargets,
   artistMbidPlaceholder,
   artistToForm,
   buildTrackArtistMetadata,
@@ -215,6 +216,207 @@ describe("buildTrackArtistMetadata", () => {
     expect(metadata.albumArtistMbids).toEqual([ARTIST_A]);
   });
 
+  it("renames a matching Artist credit when discography Album Artist changes", () => {
+    const editedTrack = track({
+      id: 1,
+      artist: "Radiohead; Kid A Choir",
+      albumArtist: "Radiohead",
+      artistMbids: [ARTIST_A, ARTIST_B],
+      albumArtistMbids: [ARTIST_A],
+    });
+    const initial: ArtistEditorForm = {
+      name: "Radiohead",
+      artistMbid: ARTIST_A,
+    };
+    const edited: ArtistEditorForm = { name: "RH", artistMbid: ARTIST_A };
+
+    const metadata = buildTrackArtistMetadata(
+      editedTrack,
+      edited,
+      initial,
+      "Radiohead",
+      "discography",
+    );
+
+    expect(metadata.albumArtist).toBe("RH");
+    expect(metadata.artist).toBe("RH; Kid A Choir");
+    expect(metadata.artistMbids).toEqual([ARTIST_A, ARTIST_B]);
+    expect(metadata.albumArtistMbids).toEqual([ARTIST_A]);
+  });
+
+  it("does not rename a non-matching Artist credit in discography mode", () => {
+    const editedTrack = track({
+      id: 1,
+      artist: "Thom Yorke",
+      albumArtist: "Radiohead",
+    });
+    const initial: ArtistEditorForm = { name: "Radiohead", artistMbid: "" };
+    const edited: ArtistEditorForm = { name: "RH", artistMbid: "" };
+
+    const metadata = buildTrackArtistMetadata(
+      editedTrack,
+      edited,
+      initial,
+      "Radiohead",
+      "discography",
+    );
+
+    expect(metadata.albumArtist).toBe("RH");
+    expect(metadata.artist).toBe("Thom Yorke");
+  });
+
+  it("replaces Artist when it is the same multi-value string as Album Artist", () => {
+    const editedTrack = track({
+      id: 1,
+      artist: "Radiohead; Thom Yorke",
+      albumArtist: "Radiohead; Thom Yorke",
+    });
+    const initial: ArtistEditorForm = {
+      name: "Radiohead; Thom Yorke",
+      artistMbid: "",
+    };
+    const edited: ArtistEditorForm = { name: "RH", artistMbid: "" };
+
+    const metadata = buildTrackArtistMetadata(
+      editedTrack,
+      edited,
+      initial,
+      "Radiohead; Thom Yorke",
+      "discography",
+    );
+
+    expect(metadata.albumArtist).toBe("RH");
+    expect(metadata.artist).toBe("RH");
+  });
+
+  it("renames a matching Album Artist credit when a performer name changes", () => {
+    const editedTrack = track({
+      id: 1,
+      artist: "Radiohead; Thom Yorke",
+      albumArtist: "Radiohead",
+    });
+    const key = normalizeArtistName("Radiohead");
+    const initial: ArtistEditorForm = { name: "Radiohead", artistMbid: "" };
+    const edited: ArtistEditorForm = { name: "RH", artistMbid: "" };
+
+    const metadata = buildTrackArtistMetadata(
+      editedTrack,
+      edited,
+      initial,
+      key,
+      "performers",
+    );
+
+    expect(metadata.artist).toBe("RH; Thom Yorke");
+    expect(metadata.albumArtist).toBe("RH");
+  });
+
+  it("does not rename a non-matching Album Artist in performers mode", () => {
+    const editedTrack = track({
+      id: 1,
+      artist: "Radiohead; Thom Yorke",
+      albumArtist: "Various Artists",
+    });
+    const key = normalizeArtistName("Thom Yorke");
+    const initial: ArtistEditorForm = { name: "Thom Yorke", artistMbid: "" };
+    const edited: ArtistEditorForm = { name: "TY", artistMbid: "" };
+
+    const metadata = buildTrackArtistMetadata(
+      editedTrack,
+      edited,
+      initial,
+      key,
+      "performers",
+    );
+
+    expect(metadata.artist).toBe("Radiohead; TY");
+    expect(metadata.albumArtist).toBe("Various Artists");
+  });
+
+  it("writes a matching Artist MBID when a discography ID changes", () => {
+    const editedTrack = track({
+      id: 1,
+      artist: "Radiohead; Kid A Choir",
+      albumArtist: "Radiohead",
+      artistMbids: [ARTIST_C, ARTIST_B],
+      albumArtistMbids: [ARTIST_C],
+    });
+    const initial: ArtistEditorForm = { name: "Radiohead", artistMbid: "" };
+    const edited: ArtistEditorForm = {
+      name: "Radiohead",
+      artistMbid: ARTIST_A,
+    };
+
+    const metadata = buildTrackArtistMetadata(
+      editedTrack,
+      edited,
+      initial,
+      "Radiohead",
+      "discography",
+    );
+
+    expect(metadata.albumArtistMbids).toEqual([ARTIST_A]);
+    expect(metadata.artistMbids).toEqual([ARTIST_A, ARTIST_B]);
+    expect(metadata.artist).toBe("Radiohead; Kid A Choir");
+    expect(metadata.albumArtist).toBe("Radiohead");
+  });
+
+  it("writes a matching Album Artist MBID when a performer ID changes", () => {
+    const editedTrack = track({
+      id: 1,
+      artist: "Radiohead; Thom Yorke",
+      albumArtist: "Radiohead",
+      artistMbids: [ARTIST_C, ARTIST_B],
+      albumArtistMbids: [ARTIST_C],
+    });
+    const key = normalizeArtistName("Radiohead");
+    const initial: ArtistEditorForm = {
+      name: "Radiohead",
+      artistMbid: ARTIST_C,
+    };
+    const edited: ArtistEditorForm = {
+      name: "Radiohead",
+      artistMbid: ARTIST_A,
+    };
+
+    const metadata = buildTrackArtistMetadata(
+      editedTrack,
+      edited,
+      initial,
+      key,
+      "performers",
+    );
+
+    expect(metadata.artistMbids).toEqual([ARTIST_A, ARTIST_B]);
+    expect(metadata.albumArtistMbids).toEqual([ARTIST_A]);
+  });
+
+  it("clears a matching Artist MBID when a discography ID is cleared", () => {
+    const editedTrack = track({
+      id: 1,
+      artist: "Radiohead",
+      albumArtist: "Radiohead",
+      artistMbids: [ARTIST_A],
+      albumArtistMbids: [ARTIST_A],
+    });
+    const initial: ArtistEditorForm = {
+      name: "Radiohead",
+      artistMbid: ARTIST_A,
+    };
+    const edited: ArtistEditorForm = { name: "Radiohead", artistMbid: "" };
+
+    const metadata = buildTrackArtistMetadata(
+      editedTrack,
+      edited,
+      initial,
+      "Radiohead",
+      "discography",
+    );
+
+    expect(metadata.albumArtistMbids).toEqual([]);
+    expect(metadata.artistMbids).toEqual([]);
+  });
+
   it("clears a single discography ID", () => {
     const editedTrack = track({
       id: 1,
@@ -236,5 +438,96 @@ describe("buildTrackArtistMetadata", () => {
     );
 
     expect(metadata.albumArtistMbids).toEqual([]);
+  });
+
+  it("renames a featured Artist credit without changing another album's Album Artist", () => {
+    const editedTrack = track({
+      id: 2,
+      title: "Like That",
+      artist: "Future; Metro Boomin; Kendrick Lamar",
+      albumArtist: "Future; Metro Boomin",
+      artistMbids: [ARTIST_B, ARTIST_C, ARTIST_A],
+    });
+    const initial: ArtistEditorForm = {
+      name: "Kendrick Lamar",
+      artistMbid: ARTIST_A,
+    };
+    const edited: ArtistEditorForm = { name: "K-Dot", artistMbid: ARTIST_A };
+
+    const metadata = buildTrackArtistMetadata(
+      editedTrack,
+      edited,
+      initial,
+      "Kendrick Lamar",
+      "discography",
+      "appearance",
+    );
+
+    expect(metadata.artist).toBe("Future; Metro Boomin; K-Dot");
+    expect(metadata.albumArtist).toBe("Future; Metro Boomin");
+    expect(metadata.artistMbids).toEqual([ARTIST_B, ARTIST_C, ARTIST_A]);
+  });
+
+  it("writes a featured Artist MBID without touching another album's Album Artist IDs", () => {
+    const editedTrack = track({
+      id: 2,
+      artist: "Future; Metro Boomin; Kendrick Lamar",
+      albumArtist: "Future; Metro Boomin",
+      artistMbids: [ARTIST_B, ARTIST_C, ARTIST_C],
+      albumArtistMbids: [ARTIST_B, ARTIST_C],
+    });
+    const initial: ArtistEditorForm = {
+      name: "Kendrick Lamar",
+      artistMbid: "",
+    };
+    const edited: ArtistEditorForm = {
+      name: "Kendrick Lamar",
+      artistMbid: ARTIST_A,
+    };
+
+    const metadata = buildTrackArtistMetadata(
+      editedTrack,
+      edited,
+      initial,
+      "Kendrick Lamar",
+      "discography",
+      "appearance",
+    );
+
+    expect(metadata.artistMbids).toEqual([ARTIST_B, ARTIST_C, ARTIST_A]);
+    expect(metadata.albumArtistMbids).toEqual([ARTIST_B, ARTIST_C]);
+    expect(metadata.albumArtist).toBe("Future; Metro Boomin");
+  });
+});
+
+describe("artistMetadataSaveTargets", () => {
+  it("includes featured credits that are not in the discography group", () => {
+    const owned = track({
+      id: 1,
+      artist: "Kendrick Lamar",
+      albumArtist: "Kendrick Lamar",
+    });
+    const feature = track({
+      id: 2,
+      title: "Like That",
+      artist: "Future; Metro Boomin; Kendrick Lamar",
+      albumArtist: "Future; Metro Boomin",
+    });
+    const unrelated = track({
+      id: 3,
+      artist: "Future",
+      albumArtist: "Future",
+    });
+
+    expect(
+      artistMetadataSaveTargets(
+        [owned],
+        [owned, feature, unrelated],
+        "Kendrick Lamar",
+      ).map((target) => ({ id: target.track.id, scope: target.scope })),
+    ).toEqual([
+      { id: 1, scope: "owned" },
+      { id: 2, scope: "appearance" },
+    ]);
   });
 });

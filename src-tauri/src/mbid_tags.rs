@@ -280,12 +280,10 @@ pub fn apply_mbids_to_mp4(tag: &mut Mp4Tag, mbids: &FileMbids) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::metadata_backup::MetadataBackupConfig;
     use crate::metadata_reader;
     use crate::metadata_writer;
-    use crate::test_fixtures::{flac, m4a, ogg, opus, wav};
+    use crate::test_fixtures::{flac, m4a, mp3, ogg, opus, wav};
     use std::fs;
-    use std::io::Write;
     use std::path::{Path, PathBuf};
 
     const RECORDING: &str = "550e8400-e29b-41d4-a716-446655440000";
@@ -293,13 +291,6 @@ mod tests {
     const ARTIST_A: &str = "a74b1b3a-d5ba-4d8a-b656-e59347b6780e";
     const ARTIST_B: &str = "b10bbbfc-cf9e-42e0-be17-e2c3e1d2600d";
     const ALBUM_ARTIST: &str = "89ad4ac3-39f7-470e-963a-56509c546377";
-
-    fn backup_off() -> MetadataBackupConfig {
-        MetadataBackupConfig {
-            enabled: false,
-            retention_days: 14,
-        }
-    }
 
     fn sample_mbids() -> FileMbids {
         FileMbids {
@@ -335,12 +326,6 @@ mod tests {
         dir
     }
 
-    fn write_minimal_mp3(path: &Path) {
-        let mut f = fs::File::create(path).unwrap();
-        f.write_all(&[0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00])
-            .unwrap();
-    }
-
     fn copy_flac(dir: &Path) -> PathBuf {
         let dest = dir.join("test.flac");
         fs::copy(flac::minimal_fixture_path(), &dest).unwrap();
@@ -358,12 +343,8 @@ mod tests {
 
     fn round_trip_path(path: &Path) {
         let expected = sample_mbids();
-        metadata_writer::write_track_metadata(
-            path,
-            &metadata_with(expected.clone()),
-            &backup_off(),
-        )
-        .unwrap_or_else(|e| panic!("write mbids {}: {e:?}", path.display()));
+        metadata_writer::write_track_metadata(path, &metadata_with(expected.clone()))
+            .unwrap_or_else(|e| panic!("write mbids {}: {e:?}", path.display()));
         let tags = metadata_reader::read_basic_tags(path);
         assert_eq!(
             file_mbids_from(tags),
@@ -372,12 +353,8 @@ mod tests {
             path.display()
         );
 
-        metadata_writer::write_track_metadata(
-            path,
-            &metadata_with(FileMbids::default()),
-            &backup_off(),
-        )
-        .expect("clear mbids");
+        metadata_writer::write_track_metadata(path, &metadata_with(FileMbids::default()))
+            .expect("clear mbids");
         let tags = metadata_reader::read_basic_tags(path);
         assert!(tags.recording_mbid.is_none());
         assert!(tags.release_mbid.is_none());
@@ -434,8 +411,7 @@ mod tests {
     fn mp3_wav_flac_m4a_ogg_opus_write_read_clear() {
         let dir = unique_dir("formats");
 
-        let mp3 = dir.join("song.mp3");
-        write_minimal_mp3(&mp3);
+        let mp3 = mp3::copy_minimal(&dir, "song.mp3");
         round_trip_path(&mp3);
 
         let wav_path = dir.join("song.wav");
@@ -455,8 +431,7 @@ mod tests {
     #[test]
     fn missing_tags_are_empty() {
         let dir = unique_dir("missing");
-        let mp3 = dir.join("plain.mp3");
-        write_minimal_mp3(&mp3);
+        let mp3 = mp3::copy_minimal(&dir, "plain.mp3");
         let tags = metadata_reader::read_basic_tags(&mp3);
         assert!(tags.recording_mbid.is_none());
         assert!(tags.release_mbid.is_none());
@@ -496,15 +471,12 @@ mod tests {
     #[test]
     fn lyrics_projection_does_not_clear_mbids() {
         let dir = unique_dir("lyrics-keep");
-        let mp3 = dir.join("song.mp3");
-        write_minimal_mp3(&mp3);
-        metadata_writer::write_track_metadata(&mp3, &metadata_with(sample_mbids()), &backup_off())
-            .unwrap();
+        let mp3 = mp3::copy_minimal(&dir, "song.mp3");
+        metadata_writer::write_track_metadata(&mp3, &metadata_with(sample_mbids())).unwrap();
 
         metadata_writer::write_lyrics_projection(
             &mp3,
             Some(&crate::lyrics_tags::track_lyrics_input_from_plain("Keep")),
-            &backup_off(),
         )
         .unwrap();
 
@@ -517,8 +489,7 @@ mod tests {
     #[test]
     fn invalid_uuid_is_not_written() {
         let dir = unique_dir("invalid");
-        let mp3 = dir.join("song.mp3");
-        write_minimal_mp3(&mp3);
+        let mp3 = mp3::copy_minimal(&dir, "song.mp3");
         metadata_writer::write_track_metadata(
             &mp3,
             &TrackMetadataUpdate {
@@ -527,7 +498,6 @@ mod tests {
                 artist_mbids: vec!["also-bad".into()],
                 ..Default::default()
             },
-            &backup_off(),
         )
         .unwrap();
         let tags = metadata_reader::read_basic_tags(&mp3);

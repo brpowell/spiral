@@ -773,8 +773,8 @@ export async function saveArtistImage(
 export async function renameArtistImageKey(
   oldKey: string,
   newKey: string,
-): Promise<void> {
-  await invoke<void>("rename_artist_image_key", {
+): Promise<string | null> {
+  return invoke<string | null>("rename_artist_image_key", {
     oldKey,
     newKey,
   });

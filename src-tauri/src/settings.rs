@@ -96,32 +96,6 @@ impl Default for CdSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MetadataBackupSettings {
-    #[serde(default = "default_metadata_backups_enabled")]
-    pub enabled: bool,
-    #[serde(default = "default_metadata_backup_retention_days")]
-    pub retention_days: u32,
-}
-
-fn default_metadata_backups_enabled() -> bool {
-    true
-}
-
-fn default_metadata_backup_retention_days() -> u32 {
-    crate::metadata_backup::DEFAULT_RETENTION_DAYS
-}
-
-impl Default for MetadataBackupSettings {
-    fn default() -> Self {
-        Self {
-            enabled: default_metadata_backups_enabled(),
-            retention_days: default_metadata_backup_retention_days(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ListeningHistorySettings {
     #[serde(default = "default_listening_history_enabled")]
     pub enabled: bool,
@@ -356,8 +330,6 @@ pub struct AppSettings {
     #[serde(default)]
     pub library: LibrarySettings,
     #[serde(default)]
-    pub metadata_backups: MetadataBackupSettings,
-    #[serde(default)]
     pub listening_history: ListeningHistorySettings,
     #[serde(default)]
     pub lyrics: LyricsSettings,
@@ -464,7 +436,6 @@ impl Default for AppSettings {
             default_author_id: default_default_author_id(),
             registries: default_registries(),
             library: LibrarySettings::default(),
-            metadata_backups: MetadataBackupSettings::default(),
             listening_history: ListeningHistorySettings::default(),
             lyrics: LyricsSettings::default(),
             musicbrainz: MusicBrainzSettings::default(),
@@ -489,8 +460,6 @@ pub struct LibrarySettingsResponse {
     pub organize_path_format: String,
     pub default_organize_path_format: String,
     pub default_library_root: String,
-    pub metadata_backups_enabled: bool,
-    pub metadata_backup_retention_days: u32,
     pub listening_history_enabled: bool,
     pub lyrics_sidecar_sync_enabled: bool,
     pub lyrics_auto_fetch_in_lightbox: bool,
@@ -607,7 +576,6 @@ pub fn database_path_for_root(library_root: &Path) -> PathBuf {
 pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
     let app_settings = read_settings(app);
     let stored = app_settings.library.clone();
-    let backups = app_settings.metadata_backups;
     let listening_history = app_settings.listening_history;
     let lyrics = app_settings.lyrics;
     let cd = app_settings.cd;
@@ -641,11 +609,6 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
         organize_path_format,
         default_organize_path_format: default_organize_path_format(),
         default_library_root: default_root.to_string_lossy().into_owned(),
-        metadata_backups_enabled: backups.enabled,
-        metadata_backup_retention_days: backups.retention_days.clamp(
-            crate::metadata_backup::MIN_RETENTION_DAYS,
-            crate::metadata_backup::MAX_RETENTION_DAYS,
-        ),
         listening_history_enabled: listening_history.enabled,
         lyrics_sidecar_sync_enabled: lyrics.sidecar_sync_enabled,
         lyrics_auto_fetch_in_lightbox: lyrics.auto_fetch_in_lightbox,
@@ -668,10 +631,6 @@ pub struct LibrarySettingsPatch {
     pub import_mode: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub organize_path_format: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub metadata_backups_enabled: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub metadata_backup_retention_days: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub listening_history_enabled: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -718,15 +677,6 @@ pub fn merge_library_settings(
             organize_path_format
         });
     }
-    if let Some(enabled) = patch.metadata_backups_enabled {
-        settings.metadata_backups.enabled = enabled;
-    }
-    if let Some(days) = patch.metadata_backup_retention_days {
-        settings.metadata_backups.retention_days = days.clamp(
-            crate::metadata_backup::MIN_RETENTION_DAYS,
-            crate::metadata_backup::MAX_RETENTION_DAYS,
-        );
-    }
     if let Some(enabled) = patch.listening_history_enabled {
         settings.listening_history.enabled = enabled;
     }
@@ -758,21 +708,11 @@ pub fn merge_library_settings(
     }
 
     write_settings(app, &settings)?;
-    let resolved = resolved_library_settings(app);
-
-    if let Err(e) = crate::metadata_backup::run_scheduled_cleanup(app) {
-        eprintln!("metadata backup cleanup after settings save: {e}");
-    }
-
-    Ok(resolved)
+    Ok(resolved_library_settings(app))
 }
 
 pub fn listening_history_enabled(app: &AppHandle) -> bool {
     read_settings(app).listening_history.enabled
-}
-
-pub fn metadata_backup_config(app: &AppHandle) -> crate::metadata_backup::MetadataBackupConfig {
-    crate::metadata_backup::MetadataBackupConfig::from(&read_settings(app).metadata_backups)
 }
 
 pub fn lyrics_sidecar_sync_enabled(app: &AppHandle) -> bool {

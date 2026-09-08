@@ -67,10 +67,6 @@
     "clearAllBody": "All personal insights will be permanently lost."
   },
   "metadata": {
-    "backups": "Keep backups before metadata edits",
-    "backupsDescription": "When you edit tags, Spiral can keep a copy of the original file next to the track (e.g. <code>song.m4a.bak</code>). This can help recover from accidental edits, or corrupted files.",
-    "retention": "Retention (days)",
-    "retentionDescription": "Remove backups after the specified number of days.",
     "cdFetch": "Fetch album metadata when inserting a CD",
     "cdFetchDescription": "Look up metadata from <musicBrainz>MusicBrainz</musicBrainz>",
     "cdFetchAlways": "Automatically",

@@ -25,8 +25,6 @@ export interface LibrarySettings {
   cdMetadataFetchMode: CdMetadataFetchMode;
   cdImportProfileId: string;
   defaultLibraryRoot: string;
-  metadataBackupsEnabled: boolean;
-  metadataBackupRetentionDays: number;
   listeningHistoryEnabled: boolean;
   lyricsSidecarSyncEnabled: boolean;
   lyricsAutoFetchInLightbox: boolean;
@@ -43,8 +41,6 @@ export interface LibrarySettingsPatch {
   importMode?: ImportMode;
   cdMetadataFetchMode?: CdMetadataFetchMode;
   cdImportProfileId?: string;
-  metadataBackupsEnabled?: boolean;
-  metadataBackupRetentionDays?: number;
   listeningHistoryEnabled?: boolean;
   lyricsSidecarSyncEnabled?: boolean;
   lyricsAutoFetchInLightbox?: boolean;

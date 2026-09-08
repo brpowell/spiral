@@ -1,10 +1,19 @@
 use super::library::DbState;
-use crate::artwork_paths::{self, resolve_library_relative};
+use crate::artwork_paths;
 use crate::db;
 use crate::models::ArtistImage;
 use crate::settings;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, State};
+
+fn display_artist_art_path(
+    library_root: &Path,
+    artist_key: &str,
+    art_path: Option<&str>,
+) -> Option<String> {
+    artwork_paths::resolve_artist_art_absolute(library_root, artist_key, art_path)
+        .map(|p| p.to_string_lossy().into_owned())
+}
 
 #[tauri::command]
 pub fn get_artist_images(
@@ -15,12 +24,10 @@ pub fn get_artist_images(
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let mut images = db::get_all_artist_images(&conn).map_err(|e| e.to_string())?;
     for image in &mut images {
-        if Path::new(&image.art_path).is_absolute() {
-            continue;
-        }
-        let abs = resolve_library_relative(&library_root, &image.art_path);
-        if abs.is_file() {
-            image.art_path = abs.to_string_lossy().into_owned();
+        if let Some(abs) =
+            display_artist_art_path(&library_root, &image.artist_key, Some(&image.art_path))
+        {
+            image.art_path = abs;
         }
     }
     Ok(images)
@@ -52,14 +59,17 @@ pub fn rename_artist_image_key(
     state: State<DbState>,
     old_key: String,
     new_key: String,
-) -> Result<(), String> {
+) -> Result<Option<String>, String> {
     let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
     let new_rel =
         crate::artwork_organize::rename_artist_artwork_dir(&library_root, &old_key, &new_key)?;
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     db::rename_artist_image_key(&conn, &old_key, &new_key).map_err(|e| e.to_string())?;
-    if let Some(rel) = new_rel {
-        db::save_artist_image(&conn, &new_key, Some(&rel)).map_err(|e| e.to_string())?;
+    let display = display_artist_art_path(&library_root, &new_key, new_rel.as_deref());
+    if let Some(abs) = display.as_deref() {
+        let stored = artwork_paths::to_library_relative(&library_root, Path::new(abs))
+            .unwrap_or_else(|| abs.to_string());
+        db::save_artist_image(&conn, &new_key, Some(&stored)).map_err(|e| e.to_string())?;
     }
-    Ok(())
+    Ok(display)
 }

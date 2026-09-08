@@ -206,6 +206,26 @@ pub fn resolve_track_art_absolute(
     find_front_image(&dir)
 }
 
+/// Absolute path for display: stored portrait if it still exists, else
+/// `Artwork/artists/{key}/portrait.*` (so a renamed artist folder still hydrates).
+pub fn resolve_artist_art_absolute(
+    library_root: &Path,
+    artist_key: &str,
+    art_path: Option<&str>,
+) -> Option<PathBuf> {
+    if let Some(rel) = art_path.map(str::trim).filter(|s| !s.is_empty()) {
+        let candidate = if Path::new(rel).is_absolute() {
+            PathBuf::from(rel)
+        } else {
+            resolve_library_relative(library_root, rel)
+        };
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    find_portrait_image(&artist_artwork_dir(library_root, artist_key))
+}
+
 pub fn hydrate_track_art_path(library_root: &Path, track: &mut crate::models::Track) {
     let resolved = resolve_track_art_absolute(
         library_root,
@@ -269,5 +289,30 @@ mod tests {
         writeln!(f, "x").unwrap();
         assert_eq!(find_front_image(&dir).as_deref(), Some(path.as_path()));
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn resolve_artist_art_falls_back_to_current_key_folder() {
+        let root = std::env::temp_dir().join(format!(
+            "spiral-artist-hydrate-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+
+        let new_dir = artist_artwork_dir(&root, "The Fall Out Boy");
+        fs::create_dir_all(&new_dir).unwrap();
+        let portrait = new_dir.join(format!("{PORTRAIT_STEM}.jpg"));
+        fs::write(&portrait, b"art").unwrap();
+
+        let stale = format!("Artwork/{ARTISTS_DIR}/Fall Out Boy/{PORTRAIT_STEM}.jpg");
+        let resolved = resolve_artist_art_absolute(&root, "The Fall Out Boy", Some(&stale));
+        assert_eq!(resolved.as_deref(), Some(portrait.as_path()));
+
+        let _ = fs::remove_dir_all(&root);
     }
 }

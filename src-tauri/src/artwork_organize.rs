@@ -503,7 +503,8 @@ fn count_art_path_refs(conn: &Connection, art_path: &str) -> Result<usize, Strin
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artwork_paths::{override_art_filename, FRONT_STEM};
+    use crate::artwork_paths::{override_art_filename, ARTISTS_DIR, FRONT_STEM, PORTRAIT_STEM};
+    use crate::settings::ARTWORK_DIR_NAME;
     use std::io::Write;
 
     #[test]
@@ -651,6 +652,39 @@ mod tests {
             album.join(format!("{FRONT_STEM}.jpg")).is_file(),
             "front.jpg must remain"
         );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn rename_artist_dir_moves_portrait() {
+        let root = std::env::temp_dir().join(format!(
+            "spiral-art-artist-ren-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+
+        let old = artist_artwork_dir(&root, "Fall Out Boy");
+        fs::create_dir_all(&old).unwrap();
+        let portrait = old.join(format!("{PORTRAIT_STEM}.jpg"));
+        fs::write(&portrait, b"art").unwrap();
+
+        let new_rel = rename_artist_artwork_dir(&root, "Fall Out Boy", "The Fall Out Boy")
+            .unwrap()
+            .unwrap();
+
+        let new_dir = artist_artwork_dir(&root, "The Fall Out Boy");
+        assert!(new_dir.join(format!("{PORTRAIT_STEM}.jpg")).is_file());
+        assert!(!old.exists());
+        assert_eq!(
+            new_rel,
+            format!("{ARTWORK_DIR_NAME}/{ARTISTS_DIR}/The Fall Out Boy/{PORTRAIT_STEM}.jpg")
+        );
+
         let _ = fs::remove_dir_all(&root);
     }
 }

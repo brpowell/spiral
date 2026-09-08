@@ -138,13 +138,85 @@ export function artistKeyAfterRename(
   return trimmed;
 }
 
+/** Whole-field or slot match of `matchKey` in a credit tag. */
+function directCreditMatch(
+  raw: string | null,
+  matchKey: string,
+): { names: string[]; wholeField: boolean; slotIndexes: number[] } | null {
+  const names = parseArtistField(raw);
+  if (names.length === 0) return null;
+  const key = normalizeArtistName(matchKey);
+  const wholeField = normalizeArtistName(raw ?? "") === key;
+  const slotIndexes = names.flatMap((name, i) =>
+    normalizeArtistName(name) === key ? [i] : [],
+  );
+  if (!wholeField && slotIndexes.length === 0) return null;
+  return { names, wholeField, slotIndexes };
+}
+
+function renameDirectlyMatchingCredits(
+  raw: string | null,
+  matchKey: string,
+  newName: string,
+): string | null {
+  const match = directCreditMatch(raw, matchKey);
+  if (!match) return raw;
+  const trimmedNew = newName.trim();
+  if (match.wholeField) {
+    return trimmedNew ? serializeArtistField([trimmedNew]) : raw;
+  }
+  const slots = new Set(match.slotIndexes);
+  const updated = match.names.map((name, i) =>
+    slots.has(i) ? trimmedNew || name : name,
+  );
+  return serializeArtistField(updated.filter(Boolean));
+}
+
+function replaceMbidForDirectMatches(
+  raw: string | null,
+  ids: string[],
+  matchKey: string,
+  newId: string,
+): string[] | undefined {
+  const match = directCreditMatch(raw, matchKey);
+  if (!match) return undefined;
+  const trimmed = newId.trim();
+  if (match.wholeField || match.names.length === 1) {
+    return trimmed ? [trimmed] : [];
+  }
+  const next = match.names.map((_, i) => ids[i]?.trim() || "");
+  for (const index of match.slotIndexes) {
+    next[index] = trimmed;
+  }
+  return next;
+}
+
+function updateMatchingCreditNames(
+  track: Track,
+  artistKey: string,
+  newName: string,
+): { artist: string | null; albumArtist: string | null } {
+  return {
+    artist: renameDirectlyMatchingCredits(track.artist, artistKey, newName),
+    albumArtist: renameDirectlyMatchingCredits(
+      track.albumArtist,
+      artistKey,
+      newName,
+    ),
+  };
+}
+
 function updateDiscographyArtistName(
   track: Track,
+  artistKey: string,
   newName: string,
 ): { artist: string | null; albumArtist: string | null } {
   const trimmedNew = newName.trim() || null;
   if (track.albumArtist?.trim()) {
-    return { artist: track.artist, albumArtist: trimmedNew };
+    return {
+      artist: renameDirectlyMatchingCredits(track.artist, artistKey, newName),
+      albumArtist: trimmedNew,
+    };
   }
   return { artist: trimmedNew, albumArtist: track.albumArtist };
 }
@@ -153,16 +225,64 @@ function updatePerformerArtistName(
   track: Track,
   artistKey: string,
   newName: string,
-): string | null {
-  const trimmedNew = newName.trim();
-  const names = parseArtistField(track.artist);
-  if (names.length === 0) {
-    return trimmedNew || null;
+): { artist: string | null; albumArtist: string | null } {
+  const matching = updateMatchingCreditNames(track, artistKey, newName);
+  if (parseArtistField(track.artist).length === 0) {
+    return {
+      artist: newName.trim() || null,
+      albumArtist: matching.albumArtist,
+    };
   }
-  const updated = names.map((name) =>
-    normalizeArtistName(name) === artistKey ? trimmedNew || name : name,
+  return matching;
+}
+
+function applyMatchingCreditMbids(
+  track: Track,
+  artistKey: string,
+  newId: string,
+  mbids: ReturnType<typeof mbidFieldsFrom>,
+): void {
+  mbids.artistMbids =
+    replaceMbidForDirectMatches(
+      track.artist,
+      mbids.artistMbids,
+      artistKey,
+      newId,
+    ) ?? mbids.artistMbids;
+  mbids.albumArtistMbids =
+    replaceMbidForDirectMatches(
+      track.albumArtist,
+      mbids.albumArtistMbids,
+      artistKey,
+      newId,
+    ) ?? mbids.albumArtistMbids;
+}
+
+export type ArtistMetadataScope = "owned" | "appearance";
+
+function trackHasMatchingCredit(track: Track, artistKey: string): boolean {
+  return (
+    directCreditMatch(track.artist, artistKey) != null ||
+    directCreditMatch(track.albumArtist, artistKey) != null
   );
-  return serializeArtistField(updated.filter(Boolean));
+}
+
+/** Owned group first, then other library tracks that credit this artist. */
+export function artistMetadataSaveTargets(
+  ownedTracks: Track[],
+  library: Track[],
+  artistKey: string,
+): { track: Track; scope: ArtistMetadataScope }[] {
+  const ownedIds = new Set(ownedTracks.map((track) => track.id));
+  return [
+    ...ownedTracks.map((track) => ({ track, scope: "owned" as const })),
+    ...library
+      .filter(
+        (track) =>
+          !ownedIds.has(track.id) && trackHasMatchingCredit(track, artistKey),
+      )
+      .map((track) => ({ track, scope: "appearance" as const })),
+  ];
 }
 
 /** Name / artist-MBID metadata update — never touches album art or embedded file art. */
@@ -172,6 +292,7 @@ export function buildTrackArtistMetadata(
   originalForm: ArtistEditorForm,
   artistKey: string,
   browseMode: ArtistBrowseMode,
+  scope: ArtistMetadataScope = "owned",
 ): TrackMetadataUpdate {
   const nameChanged = form.name !== originalForm.name;
   const mbidChanged = form.artistMbid !== originalForm.artistMbid;
@@ -181,28 +302,34 @@ export function buildTrackArtistMetadata(
   const mbids = mbidFieldsFrom(track);
 
   if (nameChanged) {
-    if (browseMode === "discography") {
-      const updated = updateDiscographyArtistName(track, form.name);
-      artist = updated.artist;
-      albumArtist = updated.albumArtist;
-    } else {
-      artist = updatePerformerArtistName(track, artistKey, form.name);
-    }
+    const updated =
+      scope === "appearance"
+        ? updateMatchingCreditNames(track, artistKey, form.name)
+        : browseMode === "discography"
+          ? updateDiscographyArtistName(track, artistKey, form.name)
+          : updatePerformerArtistName(track, artistKey, form.name);
+    artist = updated.artist;
+    albumArtist = updated.albumArtist;
   }
 
   if (mbidChanged) {
-    const names = creditNamesForBrowseMode(track, browseMode);
-    const next = replaceMbidAtMatchingSlot(
-      names,
-      browseMode === "discography" ? mbids.albumArtistMbids : mbids.artistMbids,
-      artistKey,
-      form.artistMbid,
-    );
-    if (browseMode === "discography") {
-      mbids.albumArtistMbids = next;
-    } else {
-      mbids.artistMbids = next;
+    if (scope === "owned") {
+      const names = creditNamesForBrowseMode(track, browseMode);
+      const next = replaceMbidAtMatchingSlot(
+        names,
+        browseMode === "discography"
+          ? mbids.albumArtistMbids
+          : mbids.artistMbids,
+        artistKey,
+        form.artistMbid,
+      );
+      if (browseMode === "discography") {
+        mbids.albumArtistMbids = next;
+      } else {
+        mbids.artistMbids = next;
+      }
     }
+    applyMatchingCreditMbids(track, artistKey, form.artistMbid, mbids);
   }
 
   return {

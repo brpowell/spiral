@@ -82,6 +82,22 @@ pub mod opus {
 }
 
 #[cfg(test)]
+pub mod mp3 {
+    use std::path::{Path, PathBuf};
+
+    pub fn minimal_fixture_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.mp3")
+    }
+
+    pub fn copy_minimal(dir: &Path, dest_name: &str) -> PathBuf {
+        let dest = dir.join(dest_name);
+        std::fs::copy(minimal_fixture_path(), &dest)
+            .unwrap_or_else(|_| panic!("copy mp3 fixture to {}", dest.display()));
+        dest
+    }
+}
+
+#[cfg(test)]
 pub mod flac {
     use std::path::PathBuf;
 

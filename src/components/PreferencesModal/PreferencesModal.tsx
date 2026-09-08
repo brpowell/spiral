@@ -790,55 +790,6 @@ export function PreferencesModal() {
 
             {activeSection === "metadata" && (
               <div className="preferences__panel">
-                <Field orientation="horizontal">
-                  <Checkbox
-                    id="pref-metadata-backups"
-                    checked={settings.metadataBackupsEnabled}
-                    onChange={(e) =>
-                      patchSettings({
-                        metadataBackupsEnabled: e.target.checked,
-                      })
-                    }
-                  />
-                  <FieldContent>
-                    <FieldLabel htmlFor="pref-metadata-backups">
-                      {t("preferences:metadata.backups")}
-                    </FieldLabel>
-                    <FieldDescription>
-                      <Trans
-                        i18nKey="metadata.backupsDescription"
-                        ns="preferences"
-                        components={{ code: <code /> }}
-                      />
-                    </FieldDescription>
-                  </FieldContent>
-                </Field>
-
-                <FormField label={t("preferences:metadata.retention")}>
-                  <TextInput
-                    type="number"
-                    min={1}
-                    max={3650}
-                    value={settings.metadataBackupRetentionDays}
-                    disabled={!settings.metadataBackupsEnabled}
-                    onChange={(e) => {
-                      const n = Number.parseInt(e.target.value, 10);
-                      if (!Number.isFinite(n)) return;
-                      patchSettings({
-                        metadataBackupRetentionDays: Math.min(
-                          3650,
-                          Math.max(1, n),
-                        ),
-                      });
-                    }}
-                  />
-                  <FieldDescription>
-                    {t("preferences:metadata.retentionDescription")}
-                  </FieldDescription>
-                </FormField>
-
-                <Separator />
-
                 <Field>
                   <FieldLabel htmlFor="pref-cd-metadata-fetch-mode">
                     {t("preferences:metadata.cdFetch")}
