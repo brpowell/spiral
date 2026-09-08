@@ -49,6 +49,7 @@ export type ActivityLogDomain =
 const ACTIVITY_LOG_DOMAIN_DEFS = {
   musicbrainz: { value: "metadata.musicbrainz", label: "MusicBrainz" },
   coverArt: { value: "metadata.coverArt", label: "Cover Art" },
+  artistArt: { value: "metadata.artistArt", label: "Artist Art" },
   convert: { value: "library.convert", label: "Convert" },
   import: { value: "library.import", label: "Import" },
   refresh: { value: "library.refresh", label: "Refresh" },
@@ -70,6 +71,7 @@ const ACTIVITY_LOG_DOMAIN_DEFS = {
 export const ACTIVITY_LOG_DOMAINS = {
   musicbrainz: ACTIVITY_LOG_DOMAIN_DEFS.musicbrainz.value,
   coverArt: ACTIVITY_LOG_DOMAIN_DEFS.coverArt.value,
+  artistArt: ACTIVITY_LOG_DOMAIN_DEFS.artistArt.value,
   convert: ACTIVITY_LOG_DOMAIN_DEFS.convert.value,
   import: ACTIVITY_LOG_DOMAIN_DEFS.import.value,
   refresh: ACTIVITY_LOG_DOMAIN_DEFS.refresh.value,

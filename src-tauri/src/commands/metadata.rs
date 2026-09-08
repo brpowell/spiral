@@ -118,6 +118,12 @@ fn cache_art_from_url_blocking(
     url: String,
     file_path: String,
 ) -> Result<CachedArtFromUrl, String> {
+    let domain = artist_art_fetch::activity_log_domain_for_cache_key(&file_path);
+    let kind = if domain == "metadata.artistArt" {
+        "artist art"
+    } else {
+        "cover art"
+    };
     let client = reqwest::blocking::Client::builder()
         .user_agent(crate::USER_AGENT)
         .timeout(ART_DOWNLOAD_TIMEOUT)
@@ -125,8 +131,8 @@ fn cache_art_from_url_blocking(
         .map_err(|e| {
             activity_log::log(
                 LogLevel::Error,
-                "metadata.coverArt",
-                "Failed to build HTTP client for cover art download",
+                domain,
+                format!("Failed to build HTTP client for {kind} download"),
                 Some(serde_json::json!({ "error": e.to_string(), "url": url })),
             );
             e.to_string()
@@ -135,32 +141,39 @@ fn cache_art_from_url_blocking(
     let response = client.get(&url).send().map_err(|e| {
         activity_log::log(
             LogLevel::Error,
-            "metadata.coverArt",
-            "Failed to download cover art",
+            domain,
+            format!("Failed to download {kind}"),
             Some(serde_json::json!({ "error": e.to_string(), "url": url })),
         );
-        format!("Failed to download cover art: {e}")
+        format!("Failed to download {kind}: {e}")
     })?;
 
     if !response.status().is_success() {
         activity_log::log(
             LogLevel::Error,
-            "metadata.coverArt",
-            format!("Cover art download failed with HTTP {}", response.status()),
+            domain,
+            format!(
+                "{} download failed with HTTP {}",
+                match kind {
+                    "artist art" => "Artist art",
+                    _ => "Cover art",
+                },
+                response.status()
+            ),
             Some(serde_json::json!({
                 "url": url,
                 "httpStatus": response.status().as_u16(),
             })),
         );
         return Err(format!(
-            "Failed to download cover art (HTTP {})",
+            "Failed to download {kind} (HTTP {})",
             response.status()
         ));
     }
 
     let bytes = response
         .bytes()
-        .map_err(|e| format!("Failed to read cover art: {e}"))?;
+        .map_err(|e| format!("Failed to read {kind}: {e}"))?;
 
     let ext = guess_ext_from_url(&url);
     let app_data = app_data_dir(&app)?;
@@ -177,10 +190,22 @@ fn cache_art_from_url_blocking(
 
     // CD auto-fetch logs its own completion line from the frontend.
     if !activity_log::thread_has_drive_id() {
+        let cached_label = if domain == "metadata.artistArt" {
+            let artist = activity_log::thread_artist()
+                .or_else(|| {
+                    file_path
+                        .strip_prefix("artist:")
+                        .map(|name| name.to_string())
+                })
+                .unwrap_or_else(|| "artist".to_string());
+            format!("Saved artist art for \"{artist}\"")
+        } else {
+            format!("Cached cover art to {dest_str}")
+        };
         activity_log::log(
             LogLevel::Info,
-            "metadata.coverArt",
-            format!("Cached cover art to {dest_str}"),
+            domain,
+            cached_label,
             Some(serde_json::json!({
                 "url": url,
                 "cachePath": dest_str,
@@ -241,10 +266,21 @@ pub async fn fetch_cover_art_for_release(
 }
 
 #[tauri::command]
-pub async fn fetch_artist_art(artist: String) -> Result<Vec<CoverArtCandidate>, String> {
-    tauri::async_runtime::spawn_blocking(move || artist_art_fetch::fetch_artist_art_cached(artist))
-        .await
-        .map_err(|e| e.to_string())?
+pub async fn fetch_artist_art(
+    artist: String,
+    artist_mbid: Option<String>,
+    log_context: Option<activity_log::ActivityLogContext>,
+) -> Result<Vec<CoverArtCandidate>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Some(ctx) = log_context {
+            activity_log::set_thread_context(ctx);
+        }
+        let result = artist_art_fetch::fetch_artist_art_cached(artist, artist_mbid);
+        activity_log::clear_thread_context();
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

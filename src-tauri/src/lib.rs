@@ -65,6 +65,7 @@ mod test_fixtures;
 mod track_list_prefs;
 mod transcoder;
 mod vorbis_container;
+mod wikimedia_http;
 pub mod wms_import;
 mod zip_import;
 

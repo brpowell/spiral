@@ -67,6 +67,7 @@ interface PendingRowDrag {
 const DOMAIN_GROUP_LABELS: Record<string, string> = {
   "metadata.musicbrainz": "Metadata fetch",
   "metadata.coverArt": "Cover art fetch",
+  "metadata.artistArt": "Artist art fetch",
   "library.convert": "Track convert",
   "library.import": "Library import",
   "library.refresh": "Library refresh",

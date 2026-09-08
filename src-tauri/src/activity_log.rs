@@ -122,6 +122,10 @@ pub fn thread_has_drive_id() -> bool {
     current_thread_context().drive_id.is_some()
 }
 
+pub fn thread_artist() -> Option<String> {
+    current_thread_context().artist
+}
+
 fn current_thread_context() -> ActivityLogContext {
     THREAD_CONTEXT.with(|cell| cell.borrow().clone())
 }

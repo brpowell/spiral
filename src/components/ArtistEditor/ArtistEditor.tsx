@@ -10,6 +10,7 @@ import {
   useCancellableBulkSave,
 } from "../../hooks/useCancellableBulkSave";
 import { artistArtCacheKey, applyArtistImages } from "../../lib/artistArt";
+import { refreshArtDisplay } from "../../lib/artDisplayCache";
 import {
   artistFormsEqual,
   artistKeyAfterRename,
@@ -181,6 +182,7 @@ export function ArtistEditor() {
       setArtSourcePath(sourcePath);
       setSelectedCoverUrl(null);
       setPendingArtPath(cached);
+      refreshArtDisplay([pendingArtPath, cached]);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setSaveError(message);
@@ -228,7 +230,10 @@ export function ArtistEditor() {
     setCoverCandidates([]);
     setSaveError(null);
     try {
-      const candidates = await fetchArtistArt(form.name);
+      const candidates = await fetchArtistArt(
+        form.name,
+        form.artistMbid.trim() || null,
+      );
       if (gen !== artFetchGenRef.current) return;
       if (candidates.length === 0) {
         setFetchMessage(t("library:editor.noArtResults"));
@@ -258,7 +263,11 @@ export function ArtistEditor() {
     cacheKey: string,
   ): Promise<string | null> => {
     if (selectedCoverUrl) {
-      return (await cacheArtFromUrl(selectedCoverUrl, cacheKey)).path;
+      return (
+        await cacheArtFromUrl(selectedCoverUrl, cacheKey, {
+          artist: form?.name,
+        })
+      ).path;
     }
     if (artSourcePath) {
       return cacheArtFromFile(artSourcePath, cacheKey);

@@ -1,7 +1,5 @@
 import { create } from "zustand";
-import { applyArtistImages } from "../lib/artistArt";
 import { refreshArtDisplay } from "../lib/artDisplayCache";
-import type { Artist } from "../types/artist";
 import {
   getArtistImages,
   renameArtistImageKey as renameArtistImageKeyApi,
@@ -28,6 +26,7 @@ export const useArtistImageStore = create<ArtistImageState>((set, get) => ({
   },
 
   saveArtistImage: async (artistKey, artPath) => {
+    const previous = get().imagesByKey[artistKey];
     await saveArtistImageApi(artistKey, artPath);
     set((state) => {
       const imagesByKey = { ...state.imagesByKey };
@@ -38,6 +37,7 @@ export const useArtistImageStore = create<ArtistImageState>((set, get) => ({
       }
       return { imagesByKey };
     });
+    refreshArtDisplay([previous, artPath]);
   },
 
   renameArtistImageKey: async (oldKey, newKey) => {
@@ -56,10 +56,3 @@ export const useArtistImageStore = create<ArtistImageState>((set, get) => ({
     refreshArtDisplay([oldPath, newPath]);
   },
 }));
-
-export function withArtistImages(
-  artists: Artist[],
-  imagesByKey: Record<string, string>,
-): Artist[] {
-  return applyArtistImages(artists, imagesByKey);
-}

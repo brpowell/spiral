@@ -586,9 +586,13 @@ export async function fetchCoverArtForRelease(
 
 export async function fetchArtistArt(
   artist: string,
+  artistMbid?: string | null,
+  logContext?: ActivityLogContext,
 ): Promise<CoverArtCandidate[]> {
   const rows = await invoke<Record<string, unknown>[]>("fetch_artist_art", {
     artist,
+    artistMbid: artistMbid?.trim() || null,
+    logContext: logContext ?? null,
   });
   return rows.map(normalizeCoverArtCandidate);
 }
