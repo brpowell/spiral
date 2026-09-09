@@ -9,7 +9,9 @@
  * Dev-only tools are excluded. Inventory is name / version / SPDX only.
  * Special notices (LAME, FDK, Symphonia) stay in the About → Licenses UI.
  *
- * Usage: node scripts/generate-notice.mjs
+ * Usage:
+ *   node scripts/generate-notice.mjs           # write src-tauri/NOTICE
+ *   node scripts/generate-notice.mjs --check   # fail if NOTICE is stale
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -224,18 +226,70 @@ function formatNoticeText(packages, generatedAt) {
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
+/** Ignore the Generated timestamp so --check does not fail on a date-only drift. */
+function normalizeNotice(text) {
+  return text.replace(/^Generated: .+$/m, "Generated:");
+}
+
+function parseArgs(argv) {
+  let check = false;
+  for (const arg of argv) {
+    if (arg === "--check") {
+      check = true;
+      continue;
+    }
+    if (arg === "-h" || arg === "--help") {
+      console.log(`Generate src-tauri/NOTICE from production npm + Cargo deps.
+
+Usage:
+  npm run notice:generate
+  npm run notice:check
+`);
+      process.exit(0);
+    }
+    console.error(`Unknown argument: ${arg}`);
+    process.exit(1);
+  }
+  return { check };
+}
+
+function failStale() {
+  const rel = path.relative(root, outPath);
+  console.error(`${rel} is out of date with the current production npm and Cargo graph.
+
+Regenerate it and stage the result:
+
+  npm run notice:generate
+  git add ${rel}
+
+Skim the diff for new GPL, AGPL, or other copyleft licenses before committing.`);
+  process.exit(1);
+}
+
 function main() {
+  const { check } = parseArgs(process.argv.slice(2));
   const packages = dedupe([
     ...collectNpmPackages(),
     ...collectCargoPackages(),
   ]);
   const generatedAt = new Date().toISOString();
   const text = formatNoticeText(packages, generatedAt);
+  const rel = path.relative(root, outPath);
+
+  if (check) {
+    if (!fs.existsSync(outPath)) {
+      failStale();
+    }
+    const existing = fs.readFileSync(outPath, "utf8");
+    if (normalizeNotice(existing) !== normalizeNotice(text)) {
+      failStale();
+    }
+    console.log(`${rel} is up to date (${packages.length} packages)`);
+    return;
+  }
 
   fs.writeFileSync(outPath, text);
-  console.log(
-    `Wrote ${packages.length} packages to ${path.relative(root, outPath)}`,
-  );
+  console.log(`Wrote ${packages.length} packages to ${rel}`);
 }
 
 main();

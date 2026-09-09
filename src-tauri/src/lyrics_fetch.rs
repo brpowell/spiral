@@ -98,9 +98,19 @@ fn duration_secs_from_seconds(duration_seconds: Option<f64>) -> u32 {
         .unwrap_or(0)
 }
 
+fn lrclib_default_headers() -> reqwest::header::HeaderMap {
+    let mut headers = reqwest::header::HeaderMap::new();
+    headers.insert(
+        "X-Lrclib-Client",
+        reqwest::header::HeaderValue::from_static(crate::USER_AGENT),
+    );
+    headers
+}
+
 fn http_client() -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
         .user_agent(crate::USER_AGENT)
+        .default_headers(lrclib_default_headers())
         .build()
         .map_err(|err| format!("failed to create HTTP client: {err}"))
 }
@@ -923,6 +933,17 @@ mod tests {
             synced_lyrics: None,
             instrumental: false,
         }
+    }
+
+    #[test]
+    fn lrclib_client_header_matches_user_agent() {
+        let headers = lrclib_default_headers();
+        let value = headers
+            .get("X-Lrclib-Client")
+            .expect("X-Lrclib-Client")
+            .to_str()
+            .expect("utf-8");
+        assert_eq!(value, crate::USER_AGENT);
     }
 
     #[test]

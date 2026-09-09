@@ -27,8 +27,8 @@ export type ChoiceOptionProps = Omit<
 };
 
 /**
- * Selectable row for “pick one of these” surfaces (disc matching, lyrics
- * candidates, and similar). Raised surface, transparent border, accent hover.
+ * Selectable row for “pick one of these” surfaces (lyrics candidates and
+ * similar). Raised surface, transparent border, accent hover.
  */
 export function ChoiceOption({
   title,

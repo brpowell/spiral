@@ -58,11 +58,11 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Check NOTICE is up to date
+        run: npm run notice:check
+
       - name: Lint
         run: npm run lint
-
-      - name: Check Rust formatting
-        run: npm run format:rust:check
 
       - name: Run tests
         run: npm test

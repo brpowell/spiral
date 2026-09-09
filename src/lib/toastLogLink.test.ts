@@ -10,14 +10,14 @@ vi.mock("./i18n", () => ({
 }));
 
 describe("withLogLinkAction", () => {
-  it("appends view-logs when logLink is set", () => {
+  it("appends view-logs as a secondary action when logLink is set", () => {
     const actions = withLogLinkAction([], { operationId: "op-1" });
     expect(actions).toHaveLength(1);
     expect(actions?.[0].id).toBe("view-logs");
-    expect(actions?.[0].variant).toBe("primary");
+    expect(actions?.[0].variant).toBe("secondary");
   });
 
-  it("makes View logs secondary when another action is present", () => {
+  it("keeps View logs secondary when another action is present", () => {
     const actions = withLogLinkAction(
       [{ id: "lyrics-review", label: "Review", onClick: () => {} }],
       { operationId: "op-1" },

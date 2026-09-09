@@ -48,7 +48,12 @@ function artistFromValue(hit: MusicBrainzEntityHit): string | null {
 /** Labeled facts for assigned cards and search rows. Omits empty fields. */
 export function musicBrainzHitFacts(
   hit: MusicBrainzEntityHit,
+  options?: { omit?: readonly string[] },
 ): MusicBrainzHitFact[] {
+  const omitted = new Set(options?.omit ?? []);
+  const keep = (item: MusicBrainzHitFact | null): item is MusicBrainzHitFact =>
+    item != null && !omitted.has(item.key);
+
   if (hit.kind === "artist") {
     return [
       fact("type", t("library:editor.musicBrainz.facts.type"), hit.entityType),
@@ -57,10 +62,10 @@ export function musicBrainzHitFacts(
         t("library:editor.musicBrainz.facts.from"),
         artistFromValue(hit),
       ),
-    ].filter((item): item is MusicBrainzHitFact => item != null);
+    ].filter(keep);
   }
 
-  const facts = [
+  return [
     fact(
       "year",
       t("library:editor.fields.year"),
@@ -80,7 +85,5 @@ export function musicBrainzHitFacts(
       : null,
     fact("artist", t("library:editor.fields.artist"), hit.artist),
     fact("label", t("library:editor.musicBrainz.facts.label"), hit.label),
-  ].filter((item): item is MusicBrainzHitFact => item != null);
-
-  return facts;
+  ].filter(keep);
 }

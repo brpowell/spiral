@@ -653,9 +653,20 @@ export function cdMetadataFoundSettleOptions(options?: {
   };
 }
 
+export function cdHeroArtFetchedSettleOptions(options?: {
+  album?: string | null;
+}): BackgroundTaskSettleAsOptions {
+  const album = options?.album?.trim();
+  return {
+    status: "success",
+    label: t("toasts:cdMetadata.fetchedArt"),
+    ...(album ? { detail: album } : {}),
+  };
+}
+
 export function cdMetadataNotFoundSettleOptions(): BackgroundTaskSettleAsOptions {
   return {
-    status: "info",
+    status: "warning",
     label: t("toasts:cdMetadata.notFound"),
   };
 }

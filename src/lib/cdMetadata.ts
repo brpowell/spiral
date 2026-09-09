@@ -4,7 +4,7 @@ import type {
   DiscMetadataLookup,
   DiscMetadataOverride,
 } from "../types/cd";
-import { formatCountryDisplay } from "./countryFlag";
+import type { MusicBrainzEntityHit } from "../types/musicbrainz";
 
 /** Overlay MusicBrainz (or user-selected) metadata onto a drive disc read. */
 export function mergeRemoteMetadataIntoDisc(
@@ -148,21 +148,19 @@ export function discMetadataOverrideHasEdits(
   );
 }
 
-export function discMetadataLabel(metadata: DiscMetadata): string {
-  const album = metadata.album?.trim() || "Unknown album";
-  const artist = metadata.albumArtist?.trim();
-  const year = metadata.year != null ? String(metadata.year) : null;
-  const details = [artist, year].filter(Boolean).join(" · ");
-  return details ? `${album} — ${details}` : album;
-}
-
-export function discMetadataReleaseDetails(
+/** Map a disc lookup candidate onto the shared MusicBrainz entity card shape. */
+export function discMetadataToEntityHit(
   metadata: DiscMetadata,
-): string | null {
-  const country = metadata.country?.trim();
-  const parts = [
-    country ? formatCountryDisplay(country) : null,
-    metadata.label?.trim(),
-  ].filter(Boolean);
-  return parts.length > 0 ? parts.join(" · ") : null;
+  fallbackTitle: string,
+): MusicBrainzEntityHit {
+  return {
+    kind: "release",
+    mbid: metadata.releaseMbid?.trim() ?? "",
+    title: metadata.album?.trim() || fallbackTitle,
+    artist: metadata.albumArtist?.trim() || null,
+    year: metadata.year ?? null,
+    country: metadata.country?.trim() || null,
+    label: metadata.label?.trim() || null,
+    trackCount: metadata.tracks.length,
+  };
 }

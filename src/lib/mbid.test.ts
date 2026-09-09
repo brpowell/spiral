@@ -55,6 +55,15 @@ describe("musicBrainzEntityDisplay", () => {
     ]);
   });
 
+  it("can omit facts shown elsewhere as a subtitle", () => {
+    expect(musicBrainzHitFacts(release, { omit: ["artist"] })).toEqual([
+      { key: "year", label: "Year", value: "1997" },
+      { key: "country", label: "Country", value: "🇬🇧 GB" },
+      { key: "tracks", label: "Tracks", value: "12" },
+      { key: "label", label: "Label", value: "Parlophone" },
+    ]);
+  });
+
   it("omits empty assigned-card facts", () => {
     const recording: MusicBrainzEntityHit = {
       kind: "recording",

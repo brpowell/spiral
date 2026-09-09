@@ -5,16 +5,18 @@
 Frontend TypeScript/React is checked with [ESLint](https://eslint.org/) and formatted with [Prettier](https://prettier.io/). Rust (`src-tauri`) is formatted with [rustfmt](https://github.com/rust-lang/rustfmt) (`edition = "2021"` in `src-tauri/rustfmt.toml`).
 
 ```bash
-npm run lint              # ESLint + i18n missing-key check (CI + local)
+npm run lint              # ESLint + i18n keys + rustfmt check (CI + local)
 npm run lint:i18n         # Catalog key check only (`t("ns:key")` vs `src/locales/en`)
+npm run lint:rust         # rustfmt --check only
 npm run lint:fix          # ESLint with autofix
-npm run format            # Prettier write
+npm run format            # Prettier write + rustfmt write
 npm run format:check      # Prettier check (not required in CI yet)
 npm run format:rust       # rustfmt write
-npm run format:rust:check # rustfmt check (CI + local)
+npm run notice:check      # Fail if src-tauri/NOTICE is stale vs lockfiles
+npm run notice:generate   # Rewrite src-tauri/NOTICE from production npm + Cargo
 ```
 
-A Husky `pre-commit` hook runs [lint-staged](https://github.com/lint-staged/lint-staged) so only staged files are linted/formatted (Prettier/ESLint for frontend, rustfmt for `src-tauri/**/*.rs`), then the full test suite (skipped when the commit only touches docs or workflows: `*.md`, `*.mdc`, `docs/**`, or `.github/workflows/**`). CI’s Tests workflow uses the same paths filter. Frontend formatting adoption stays incremental without a repo-wide Prettier reformat; rustfmt is already clean across the crate and is checked in CI.
+A Husky `pre-commit` hook runs [lint-staged](https://github.com/lint-staged/lint-staged) so only staged files are linted/formatted (Prettier/ESLint for frontend, rustfmt for `src-tauri/**/*.rs`), then the full test suite (skipped when the commit only touches docs or workflows: `*.md`, `*.mdc`, `docs/**`, or `.github/workflows/**`). CI’s Tests workflow uses the same paths filter. When lockfiles, `package.json`, `src-tauri/Cargo.toml`, `src-tauri/NOTICE`, or `scripts/generate-notice.mjs` are staged, the hook also runs `npm run notice:check` (CI’s Tests job always does). If that fails: `npm run notice:generate`, `git add src-tauri/NOTICE`, and skim the diff for copyleft. Frontend formatting adoption stays incremental without a repo-wide Prettier reformat; rustfmt is already clean across the crate and is part of `npm run lint`.
 
 Editor extensions are recommended in `.vscode/extensions.json` (ESLint + Prettier + rust-analyzer). rustfmt ships with the stable Rust toolchain (`rustup component add rustfmt` if a commit fails because it is missing).
 

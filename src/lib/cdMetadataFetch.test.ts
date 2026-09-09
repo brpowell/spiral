@@ -62,6 +62,7 @@ import {
 } from "./cdMetadataFetch";
 import { logActivity } from "./activityLog";
 import {
+  cdHeroArtFetchedSettleOptions,
   cdMetadataFailedSettleOptions,
   cdMetadataFoundSettleOptions,
   cdMetadataNotFoundSettleOptions,
@@ -116,6 +117,22 @@ function resetCdStore(partial: {
 }
 
 describe("startCdHeroArtFetch", () => {
+  const settleAs = vi.fn();
+  const dismissSilently = vi.fn();
+
+  function fakeCtx(): BackgroundTaskRunContext {
+    return {
+      settleAs,
+      setDetail: vi.fn(),
+      clearDetail: vi.fn(),
+      dismissSilently,
+      setLabel: vi.fn(),
+      setProgress: vi.fn(),
+      clearProgress: vi.fn(),
+      isCancelRequested: () => false,
+    };
+  }
+
   beforeEach(() => {
     vi.clearAllMocks();
     ensureCdHeroArtValidMock.mockResolvedValue(null);
@@ -123,9 +140,12 @@ describe("startCdHeroArtFetch", () => {
     fetchAlbumArtPreferringReleaseMock.mockResolvedValue(null);
     isNetworkLikelyAvailableMock.mockReturnValue(true);
     runInBackgroundMock.mockImplementation(
-      ({ run }: { run: () => Promise<void> }) => {
-        void run();
-        return Promise.resolve();
+      async ({
+        run,
+      }: {
+        run: (ctx: BackgroundTaskRunContext) => Promise<void>;
+      }) => {
+        await run(fakeCtx());
       },
     );
   });
@@ -144,7 +164,8 @@ describe("startCdHeroArtFetch", () => {
     expect(fetchAlbumArtPreferringReleaseMock).not.toHaveBeenCalled();
   });
 
-  it("starts a background cover-art fetch when MusicBrainz metadata is present", async () => {
+  it("settles the cover-art toast as fetched instead of the in-progress label", async () => {
+    fetchAlbumArtPreferringReleaseMock.mockResolvedValue("/tmp/art.jpg");
     resetCdStore({
       discsByDriveId: { [driveId]: disc },
       metadataByDriveId: { [driveId]: metadata },
@@ -153,13 +174,35 @@ describe("startCdHeroArtFetch", () => {
     startCdHeroArtFetch(driveId);
 
     await vi.waitFor(() => {
-      expect(runInBackgroundMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          key: `cd-hero-art-${driveId}`,
-          label: "Fetching album art…",
-        }),
+      expect(settleAs).toHaveBeenCalledWith(
+        cdHeroArtFetchedSettleOptions({ album: "Unknown Pleasures" }),
       );
     });
+    expect(runInBackgroundMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: `cd-hero-art-${driveId}`,
+        label: "Fetching CD album art…",
+      }),
+    );
+    expect(dismissSilently).not.toHaveBeenCalled();
+    expect(useCdStore.getState().heroArtByDriveId[driveId]).toBe(
+      "/tmp/art.jpg",
+    );
+  });
+
+  it("dismisses the cover-art toast when no image is found", async () => {
+    resetCdStore({
+      discsByDriveId: { [driveId]: disc },
+      metadataByDriveId: { [driveId]: metadata },
+    });
+
+    startCdHeroArtFetch(driveId);
+
+    await vi.waitFor(() => {
+      expect(dismissSilently).toHaveBeenCalled();
+    });
+    expect(runInBackgroundMock).toHaveBeenCalled();
+    expect(settleAs).not.toHaveBeenCalled();
   });
 
   it("still applies a local art cache hit without MusicBrainz metadata", async () => {

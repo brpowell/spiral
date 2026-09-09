@@ -54,7 +54,7 @@
     },
     "picker": {
       "title": "Match this disc",
-      "description": "Multiple albums matched this disc. Choose the correct release to use for track titles and album details.",
+      "description": "Choose the release that fits best.",
       "skip": "Skip for now",
       "keepCurrent": "Keep current release",
       "current": "Current"

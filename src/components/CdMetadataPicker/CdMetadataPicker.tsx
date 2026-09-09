@@ -1,23 +1,25 @@
 import { useTranslation } from "react-i18next";
+import { discMetadataToEntityHit } from "../../lib/cdMetadata";
+import {
+  musicBrainzHitFacts,
+  musicBrainzHitTitle,
+} from "../../lib/musicBrainzEntityDisplay";
+import { useCdStore } from "../../store/useCdStore";
+import { Badge } from "../common/Badge/Badge";
+import { ChoiceList } from "../common/ChoiceOption/ChoiceOption";
 import {
   Modal,
   ModalBody,
   ModalDescription,
   ModalFooter,
   ModalHeader,
+  ModalHeaderMain,
   ModalTitle,
 } from "../common/Modal/Modal";
-import { Badge } from "../common/Badge/Badge";
-import { ChoiceList, ChoiceOption } from "../common/ChoiceOption/ChoiceOption";
-import {
-  discMetadataLabel,
-  discMetadataReleaseDetails,
-} from "../../lib/cdMetadata";
-import { useCdStore } from "../../store/useCdStore";
-import "./CdMetadataPicker.css";
+import { MusicBrainzEntityCard } from "../MusicBrainzEditorTab/MusicBrainzEntityCard";
 
 export function CdMetadataPicker() {
-  const { t } = useTranslation("library");
+  const { t } = useTranslation(["library", "common"]);
   const metadataPickDriveId = useCdStore((s) => s.metadataPickDriveId);
   const metadataCandidatesByDriveId = useCdStore(
     (s) => s.metadataCandidatesByDriveId,
@@ -42,34 +44,37 @@ export function CdMetadataPicker() {
     <Modal
       open={open}
       onClose={handleClose}
-      size="md"
+      size="xl"
       labelledBy="cd-metadata-title"
     >
       <ModalHeader fade>
-        <ModalTitle id="cd-metadata-title">{t("cd.picker.title")}</ModalTitle>
+        <ModalHeaderMain>
+          <ModalTitle id="cd-metadata-title">{t("cd.picker.title")}</ModalTitle>
+          <ModalDescription>{t("cd.picker.description")}</ModalDescription>
+        </ModalHeaderMain>
       </ModalHeader>
       <ModalBody>
-        <ModalDescription>{t("cd.picker.description")}</ModalDescription>
-        <ChoiceList className="cd-metadata-picker__list">
-          {candidates.map((candidate) => {
-            const key = candidate.releaseMbid ?? discMetadataLabel(candidate);
-            const releaseDetails = discMetadataReleaseDetails(candidate);
+        <ChoiceList>
+          {candidates.map((candidate, index) => {
+            const hit = discMetadataToEntityHit(
+              candidate,
+              t("common:unknownAlbum"),
+            );
+            const key = hit.mbid || `${hit.title}-${index}`;
             const selected =
               current?.releaseMbid != null &&
               candidate.releaseMbid === current.releaseMbid;
             return (
               <li key={key}>
-                <ChoiceOption
-                  title={discMetadataLabel(candidate)}
-                  details={releaseDetails}
+                <MusicBrainzEntityCard
+                  title={musicBrainzHitTitle(hit)}
+                  subtitle={hit.artist?.trim() || undefined}
+                  facts={musicBrainzHitFacts(hit, { omit: ["artist"] })}
                   selected={selected}
                   meta={
-                    <>
-                      {selected ? (
-                        <Badge variant="accent">{t("cd.picker.current")}</Badge>
-                      ) : null}
-                      {t("counts.tracks", { count: candidate.tracks.length })}
-                    </>
+                    selected ? (
+                      <Badge variant="accent">{t("cd.picker.current")}</Badge>
+                    ) : undefined
                   }
                   onClick={() => {
                     if (driveId == null) return;

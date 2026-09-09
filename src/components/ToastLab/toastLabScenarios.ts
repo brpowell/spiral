@@ -9,6 +9,7 @@ import {
   availableUpdateActions,
   bulkTrackMetadataSavePayload,
   cdPlaybackFailurePayload,
+  cdHeroArtFetchedSettleOptions,
   cdImportFailedSettleOptions,
   cdMetadataFailedSettleOptions,
   cdMetadataFoundSettleOptions,
@@ -1532,6 +1533,25 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     },
   },
   {
+    id: "cd-hero-art",
+    group: "Import",
+    buttonLabel: "CD album art · fetched",
+    source: "cdMetadataFetch.ts",
+    fire: ({ runInBackground, dismissMs, sleep }) => {
+      void runInBackground({
+        key: "cd-hero-art-lab",
+        label: t("toasts:cdMetadata.fetchingArt"),
+        run: async (ctx) => {
+          await sleep(700);
+          ctx.settleAs({
+            ...cdHeroArtFetchedSettleOptions({ album: "Unknown Pleasures" }),
+            dismissMs,
+          });
+        },
+      });
+    },
+  },
+  {
     id: "cd-metadata",
     group: "Import",
     buttonLabel: "CD metadata lookup · found",
@@ -1556,7 +1576,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
   {
     id: "cd-metadata-none",
     group: "Import",
-    buttonLabel: "CD metadata lookup · none",
+    buttonLabel: "CD metadata lookup · not found",
     source: "cdMetadataFetch.ts",
     fire: ({ runInBackground, dismissMs, sleep }) => {
       void runInBackground({

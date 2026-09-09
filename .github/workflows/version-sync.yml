@@ -19,4 +19,4 @@ jobs:
         with:
           node-version: "22"
       - name: Compare package.json and tauri.conf.json
-        run: node scripts/check-version-sync.mjs
+        run: npm run version:check

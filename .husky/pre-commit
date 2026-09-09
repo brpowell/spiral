@@ -1,4 +1,14 @@
 npx lint-staged
+
+# NOTICE inventory — only when the production graph (or the file itself) is staged.
+notice_inputs=$(
+  git diff --cached --name-only --diff-filter=ACMR |
+    grep -E '^(package\.json|package-lock\.json|src-tauri/Cargo\.(toml|lock)|src-tauri/NOTICE|scripts/generate-notice\.mjs)$' || true
+)
+if [ -n "$notice_inputs" ]; then
+  npm run notice:check
+fi
+
 npm run test
 
 # Skip the full suite when only docs / workflow files are staged.

@@ -21,11 +21,38 @@
   min-width: 0;
 }
 
+.musicbrainz-entity-card__meta {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
 .musicbrainz-entity-card .choice-option__main {
-  gap: 0.35rem;
+  flex: 1;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.musicbrainz-entity-card .choice-option__title,
+.musicbrainz-entity-card__subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.musicbrainz-entity-card .choice-option__title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.musicbrainz-entity-card__subtitle {
+  font-size: 0.8rem;
+  line-height: 1.3;
+  color: var(--color-text-secondary);
 }
 
 .musicbrainz-entity-facts {
+  --facts-overflow-fade: 1.75rem;
   display: block;
   min-width: 0;
   overflow-x: auto;
@@ -39,10 +66,58 @@
   display: none;
 }
 
+.musicbrainz-entity-facts--overflow-end {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 0,
+    #000 calc(100% - var(--facts-overflow-fade)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    #000 0,
+    #000 calc(100% - var(--facts-overflow-fade)),
+    transparent
+  );
+}
+
+.musicbrainz-entity-facts--overflow-start {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--facts-overflow-fade),
+    #000 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--facts-overflow-fade),
+    #000 100%
+  );
+}
+
+.musicbrainz-entity-facts--overflow-start.musicbrainz-entity-facts--overflow-end {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--facts-overflow-fade),
+    #000 calc(100% - var(--facts-overflow-fade)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--facts-overflow-fade),
+    #000 calc(100% - var(--facts-overflow-fade)),
+    transparent
+  );
+}
+
 .musicbrainz-entity-facts__row {
   display: flex;
   flex-wrap: nowrap;
-  gap: 0.85rem 1.75rem;
+  align-items: flex-start;
+  gap: 0.7rem 1.5rem;
   width: max-content;
 }
 
@@ -50,14 +125,14 @@
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.15rem;
 }
 
 .musicbrainz-entity-facts__label {
   margin: 0;
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   line-height: 1.2;
   white-space: nowrap;
@@ -66,8 +141,8 @@
 
 .musicbrainz-entity-facts__value {
   margin: 0;
-  font-size: 0.82rem;
-  font-weight: 500;
+  font-size: 0.75rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.25;
   white-space: nowrap;
@@ -83,7 +158,7 @@
 .musicbrainz-entity-card__skeleton-main {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.25rem;
   min-width: 0;
   flex: 1;
 }

@@ -104,11 +104,12 @@
     "cdTrackFailed": "{{title}} couldn't be ripped"
   },
   "cdMetadata": {
-    "lookingUp": "Looking up album metadata…",
-    "fetchingArt": "Fetching album art…",
-    "found": "Found album metadata",
+    "lookingUp": "Looking up CD metadata…",
+    "fetchingArt": "Fetching CD album art…",
+    "fetchedArt": "CD album art fetched",
+    "found": "CD metadata fetched",
     "notFound": "No matching release found",
-    "failed": "Couldn't look up album metadata",
+    "failed": "Couldn't look up CD metadata",
     "failedDetail": "Check your connection and try again."
   },
   "libraryRefresh": {

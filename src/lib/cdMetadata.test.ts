@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   discMetadataOverrideHasEdits,
+  discMetadataToEntityHit,
   mergeDiscDisplayLayers,
   mergeOverridesIntoDisc,
   mergeRemoteMetadataIntoDisc,
@@ -206,6 +207,44 @@ describe("discMetadataOverrideHasEdits", () => {
         },
       }),
     ).toBe(true);
+  });
+});
+
+describe("discMetadataToEntityHit", () => {
+  it("maps release fields onto a MusicBrainz entity hit", () => {
+    const hit = discMetadataToEntityHit(
+      {
+        album: "Sketches of Brunswick East",
+        albumArtist: "King Gizzard & the Lizard Wizard",
+        year: 2017,
+        country: "US",
+        label: "ATO Records",
+        releaseMbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
+        tracks: [
+          { number: 1, title: "Sketches" },
+          { number: 2, title: "Countdown" },
+        ],
+      },
+      "Unknown Album",
+    );
+    expect(hit).toEqual({
+      kind: "release",
+      mbid: "1b3ea5f0-3c5a-4f0a-9c0e-0c1d2e3f4a5b",
+      title: "Sketches of Brunswick East",
+      artist: "King Gizzard & the Lizard Wizard",
+      year: 2017,
+      country: "US",
+      label: "ATO Records",
+      trackCount: 2,
+    });
+  });
+
+  it("uses the fallback title when the album is missing", () => {
+    const hit = discMetadataToEntityHit({ tracks: [] }, "Unknown Album");
+    expect(hit.kind).toBe("release");
+    expect(hit.mbid).toBe("");
+    expect(hit.title).toBe("Unknown Album");
+    expect(hit.trackCount).toBe(0);
   });
 });
 

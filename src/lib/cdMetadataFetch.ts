@@ -13,6 +13,7 @@ import type { ActivityLogContext } from "../types/activityLog";
 import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
 import { selectedDiscFromLookup } from "./cdMetadata";
 import {
+  cdHeroArtFetchedSettleOptions,
   cdMetadataFailedSettleOptions,
   cdMetadataFoundSettleOptions,
   cdMetadataNotFoundSettleOptions,
@@ -87,7 +88,7 @@ function skipRemoteHeroArtWithoutMetadata(
 async function fetchAndSetHeroArt(
   driveId: string,
   logContext?: ActivityLogContext,
-): Promise<void> {
+): Promise<boolean> {
   const query = resolveCdHeroArtQuery(driveId);
   if (!query) {
     logActivity({
@@ -97,7 +98,7 @@ async function fetchAndSetHeroArt(
       operationId: logContext?.operationId,
       context: logContext,
     });
-    return;
+    return false;
   }
 
   const context = withLogContext(logContext, {
@@ -111,7 +112,7 @@ async function fetchAndSetHeroArt(
 
   if (!artPath) {
     if (skipRemoteHeroArtWithoutMetadata(driveId, context)) {
-      return;
+      return false;
     }
 
     if (!isNetworkLikelyAvailable()) {
@@ -123,7 +124,7 @@ async function fetchAndSetHeroArt(
         operationId: logContext?.operationId,
         context: logContext,
       });
-      return;
+      return false;
     }
 
     artPath = await fetchAlbumArtPreferringRelease({
@@ -137,19 +138,22 @@ async function fetchAndSetHeroArt(
 
   if (artPath) {
     useCdStore.getState().setHeroArt(driveId, artPath);
-  } else {
-    logActivity({
-      level: "warn",
-      domain: ACTIVITY_LOG_DOMAINS.coverArt,
-      message: "No hero art found for CD",
-      operationId: context.operationId,
-      context,
-    });
+    return true;
   }
+
+  logActivity({
+    level: "warn",
+    domain: ACTIVITY_LOG_DOMAINS.coverArt,
+    message: "No hero art found for CD",
+    operationId: context.operationId,
+    context,
+  });
+  return false;
 }
 
 export function startCdHeroArtFetch(driveId: string): void {
-  if (!resolveCdHeroArtQuery(driveId)) return;
+  const query = resolveCdHeroArtQuery(driveId);
+  if (!query) return;
 
   const operationId = createOperationId();
   const logContext = buildLogContext(driveId, operationId);
@@ -174,8 +178,13 @@ export function startCdHeroArtFetch(driveId: string): void {
     useBackgroundTasksStore.getState().runInBackground({
       key: `cd-hero-art-${driveId}`,
       label: t("toasts:cdMetadata.fetchingArt"),
-      run: async () => {
-        await fetchAndSetHeroArt(driveId, logContext);
+      run: async (ctx) => {
+        const applied = await fetchAndSetHeroArt(driveId, logContext);
+        if (applied) {
+          ctx.settleAs(cdHeroArtFetchedSettleOptions({ album: query.album }));
+          return;
+        }
+        ctx.dismissSilently();
       },
     });
   })();
