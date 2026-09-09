@@ -59,14 +59,17 @@ jobs:
             # for tauri-action to upload (you get "Signature not found…").
             args: --target aarch64-apple-darwin --bundles app,dmg
             rust_targets: aarch64-apple-darwin
+            lame_triple: aarch64-apple-darwin
           - label: macos-x86_64
             platform: macos-latest
             args: --target x86_64-apple-darwin --bundles app,dmg
             rust_targets: x86_64-apple-darwin
+            lame_triple: x86_64-apple-darwin
           - label: windows-x64
             platform: windows-latest
             args: --bundles nsis
             rust_targets: ""
+            lame_triple: x86_64-pc-windows-msvc
           # ubuntu-22.04: older glibc baseline than -latest (Tauri Linux guidance).
           # AppImage is the updater payload; deb is the browser-download installer.
           # Native runners (not cross-compile) — WebKit/AppImage tooling is host-arch.
@@ -74,10 +77,12 @@ jobs:
             platform: ubuntu-22.04
             args: --bundles appimage,deb
             rust_targets: ""
+            lame_triple: x86_64-unknown-linux-gnu
           - label: linux-aarch64
             platform: ubuntu-22.04-arm
             args: --bundles appimage,deb
             rust_targets: ""
+            lame_triple: aarch64-unknown-linux-gnu
 
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 90
@@ -120,6 +125,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf \
+            unzip \
             libfuse2
           # AppImage tooling (linuxdeploy) needs FUSE or extract-and-run on
           # runners without /dev/fuse. Prefer a disk-backed TMPDIR so
@@ -130,6 +136,18 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      # Private native-lame Releases: github.token cannot read another repo.
+      - name: Bootstrap native artifacts
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+        run: npm run bootstrap -- --target ${{ matrix.lame_triple }}
+
+      - name: Point linuxdeploy at bundled libmp3lame
+        if: runner.os == 'Linux'
+        run: |
+          runtime="${{ github.workspace }}/src-tauri/native/lame/runtime"
+          echo "LD_LIBRARY_PATH=${runtime}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
 
       # Optional until #182 fills Apple secrets. `secrets` is not allowed in
       # `if:`; gate on macOS only and append non-empty values to GITHUB_ENV so
@@ -192,6 +210,9 @@ jobs:
           # Spiral serves manifests from spiralpowered.com, not GitHub latest.json.
           uploadUpdaterJson: false
           args: ${{ matrix.args }}
+
+      - name: Verify packaged bundle
+        run: npm run release -- check-bundle
 
   # Fan-in gate (#185). Runs even when `build` failed so the check is red (not
   # skipped — skipped can look green to required-check / downstream needs).

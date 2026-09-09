@@ -1,0 +1,26 @@
+{
+  "repo": "spiral-powered/native-lame",
+  "tag": "3.100-r1",
+  "triples": {
+    "aarch64-apple-darwin": {
+      "asset": "libmp3lame-aarch64-apple-darwin.zip",
+      "sha256": "bab38b5a9fe5c67c564d77dade955fe0a8b7a6287a19be2a20c8d37618bc11ab"
+    },
+    "x86_64-apple-darwin": {
+      "asset": "libmp3lame-x86_64-apple-darwin.zip",
+      "sha256": "7cdbdf172f8353357a078a1d053f17ab8217e3857b1a7025f96660c79096495b"
+    },
+    "x86_64-pc-windows-msvc": {
+      "asset": "libmp3lame-x86_64-pc-windows-msvc.zip",
+      "sha256": "e1b5178269faf3e828986900261eeee247853430b82b2daf2fb2daaf1399e08d"
+    },
+    "x86_64-unknown-linux-gnu": {
+      "asset": "libmp3lame-x86_64-unknown-linux-gnu.zip",
+      "sha256": "895f097c6f7350fae37ca515b9d5f6651afbfaf97acd704fbdff96176066e479"
+    },
+    "aarch64-unknown-linux-gnu": {
+      "asset": "libmp3lame-aarch64-unknown-linux-gnu.zip",
+      "sha256": "a8884d8ed32dd17069bcafef09dd769760bf1abbc27d7a67a9ebfecc34873f71"
+    }
+  }
+}

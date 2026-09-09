@@ -15,21 +15,32 @@ default-run = "Spiral"
 name = "spiral_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# Developer CLIs. Tauri bundles every Cargo bin into the app, so these are
+# feature-gated and live outside src/bin/ (tauri-cli also disk-scans src/bin/
+# and ignores required-features: https://github.com/tauri-apps/tauri/issues/15325).
+# Never pass --features dev-bins to `tauri build`.
+[features]
+dev-bins = []
+
 [[bin]]
 name = "read_tags"
-path = "src/bin/read_tags.rs"
+path = "src/dev-bin/read_tags.rs"
+required-features = ["dev-bins"]
 
 [[bin]]
 name = "license_mint"
-path = "src/bin/license_mint.rs"
+path = "src/dev-bin/license_mint.rs"
+required-features = ["dev-bins"]
 
 [[bin]]
 name = "wms_import"
-path = "src/bin/wms_import.rs"
+path = "src/dev-bin/wms_import.rs"
+required-features = ["dev-bins"]
 
 [[bin]]
 name = "skin_convert_compare"
-path = "src/bin/skin_convert_compare.rs"
+path = "src/dev-bin/skin_convert_compare.rs"
+required-features = ["dev-bins"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -103,4 +114,8 @@ tauri-plugin-single-instance = "2"
 souvlaki = "0.8"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-updater = "2.10.1"
+
+# Bindings only — do not compile vendored LAME. Shared lib comes from native-lame.
+[patch.crates-io]
+mp3lame-sys = { path = "crates/mp3lame-sys" }
 

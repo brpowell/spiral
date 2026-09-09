@@ -60,12 +60,15 @@ npm run release -- installer deb          # Linux deb only (skip AppImage)
 npm run release -- installer dmg -- --target aarch64-apple-darwin
 npm run release -- publish v0.2.0
 npm run release -- check v0.2.0
+npm run release -- check-bundle           # local packaged tree (lame + no extra bins)
 npm run release -- sanitize-notes v0.2.0            # re-run / backfill user-facing notes
 npm run release -- sanitize-notes v0.2.0 --dry-run  # print sanitized notes; no edit
 npm run release -- sign path/to/artifact
 npm run release -- verify path/to/artifact
 npm run release -- keys
 ```
+
+`npm run release -- installer` runs `npm run bootstrap` first (needs `gh` with `contents: read` on `spiral-powered/native-lame`, same as `tauri dev`). Cross-compile with `-- --target <triple>` so the matching lib is fetched. After the bundle, it runs `check-bundle` (libmp3lame present, no developer Cargo bins). Same command as the Release workflow’s post-build step.
 
 `npm run release -- --help` lists commands. Output lands under `src-tauri/target/**/bundle/`. Apple/Windows code signing is optional; **updater** signing is required for a full local bundle (`TAURI_SIGNING_PRIVATE_KEY` / `_PATH`) because `createUpdaterArtifacts` is on.
 
@@ -108,7 +111,7 @@ Packaged / release builds are unaffected — the gate only applies in DEV. End-t
 
 | Secret | Where | Purpose |
 | --- | --- | --- |
-| `RELEASE_PLEASE_TOKEN` | **Repo** secret (PAT with `contents: write`) | Lets release-please’s tag push trigger the build workflow (`GITHUB_TOKEN` events cannot) |
+| `RELEASE_PLEASE_TOKEN` | **Repo** secret (PAT with `contents: write` on desktop + `native-lame`) | Lets release-please’s tag push trigger the build workflow (`GITHUB_TOKEN` events cannot); also fetches private `libmp3lame` in Tests and Release |
 | `TAURI_SIGNING_PRIVATE_KEY` | `production-release` Environment | Updater artifact signing (no password when generated with `--ci`) |
 | Apple / Windows signing vars | `production-release` Environment | Code signing + notarization — optional until those setups land; unset = unsigned builds (never export empty `APPLE_CERTIFICATE`) |
 
@@ -122,6 +125,7 @@ Full runbook (generate/rotate/sign/verify, enrollment checklists): [`signing-and
 | [`.github/workflows/release.yml`](../.github/workflows/release.yml) | Platform matrix → attach installers → `platforms-green` gate |
 | [`.github/workflows/publish-release.yml`](../.github/workflows/publish-release.yml) | Manual publish gate (undraft) |
 | [`scripts/release/required-release-assets.mjs`](../scripts/release/required-release-assets.mjs) | Required draft assets (single source of truth) |
+| [`scripts/release/check-bundle.mjs`](../scripts/release/check-bundle.mjs) | Packaged-tree checks (`npm run release -- check-bundle`) |
 | [`scripts/release/sanitize-release-notes.mjs`](../scripts/release/sanitize-release-notes.mjs) | Draft-body sanitizer (Features / Bug Fixes only) |
 | [`release-please-config.json`](../release-please-config.json) | release-please package config |
 | [`.release-please-manifest.json`](../.release-please-manifest.json) | Last released version |

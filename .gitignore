@@ -28,3 +28,6 @@ dist-ssr
 
 # Local overrides (copy from .env.example)
 .env
+
+# Fetched libmp3lame (see src-tauri/native/lame.lock.json)
+src-tauri/native/lame/

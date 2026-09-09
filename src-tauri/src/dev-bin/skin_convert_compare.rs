@@ -1,7 +1,7 @@
 //! Compare ffmpeg chromakey pipeline vs native Rust skin_convert across wmp-skins.
 //!
 //! Usage:
-//!   cargo run --manifest-path src-tauri/Cargo.toml --bin skin_convert_compare -- \
+//!   cargo run --manifest-path src-tauri/Cargo.toml --features dev-bins --bin skin_convert_compare -- \
 //!     --input wmp-skins --out /tmp/chroma-compare
 //!
 //! Optional: `--filter m_top_hov` to limit to matching paths.
