@@ -105,4 +105,17 @@ describe("Tabs", () => {
     expect(tablist).toHaveClass("tabs__list--underline");
     expect(tablist.querySelector(".tabs__indicator")).toBeInTheDocument();
   });
+
+  it("applies fade class when fade is set", () => {
+    render(
+      <Tabs value="one" onChange={() => {}} variant="underline">
+        <TabList fade>
+          <Tab value="one">One</Tab>
+          <Tab value="two">Two</Tab>
+        </TabList>
+      </Tabs>,
+    );
+
+    expect(screen.getByRole("tablist")).toHaveClass("tabs__list--fade");
+  });
 });

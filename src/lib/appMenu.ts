@@ -16,15 +16,14 @@ export interface AppMenuHandlers {
   fetchMissingLyrics: () => void;
   newPlaylist: () => void;
   openPreferences: () => void;
-  openSpiralCard: () => void;
   checkForUpdates: () => void;
-  openWhatsNew: () => void;
+  openAbout: () => void;
   openSkinMode: () => void;
   openAppearance: () => void;
   openEqualizer: () => void;
   openActivityLogs: () => void;
   reloadLinkedPacks: () => void;
-  /** Custom chrome File → Exit (macOS uses the system Quit item). */
+  /** Custom chrome Spiral → Exit (macOS uses the system Quit item). */
   quit: () => void;
   /** DEV-only: toggle the Toast Lab window. */
   toggleToastLab?: () => void;
@@ -34,7 +33,7 @@ export interface AppMenuHandlers {
   toggleStubLocale?: () => void;
 }
 
-export type AppMenuBarId = "file" | "edit" | "view" | "developer";
+export type AppMenuBarId = "app" | "file" | "edit" | "view" | "developer";
 
 const RELOAD_LINKED_PACKS_ID = "reload-linked-packs";
 
@@ -71,37 +70,33 @@ async function syncReloadLinkedPacksMenuEnabled(): Promise<void> {
  * {@link WindowTitleBar} instead.
  */
 export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
+  const about = await MenuItem.new({
+    id: "about",
+    text: t("menus:app.about"),
+    action: handlers.openAbout,
+  });
   const preferences = await MenuItem.new({
     id: "preferences",
     text: t("menus:app.preferences"),
     accelerator: "CmdOrCtrl+,",
     action: handlers.openPreferences,
   });
-  const spiralCard = await MenuItem.new({
-    id: "spiral-card",
-    text: t("menus:app.spiralCard"),
-    action: handlers.openSpiralCard,
-  });
   const checkForUpdates = await MenuItem.new({
     id: "check-for-updates",
     text: t("common:updates.menu.check"),
     action: handlers.checkForUpdates,
   });
-  const whatsNew = await MenuItem.new({
-    id: "whats-new",
-    text: t("common:updates.menu.whatsNew"),
-    action: handlers.openWhatsNew,
-  });
   const quit = await PredefinedMenuItem.new({ item: "Quit" });
+  const aboutSeparator = await PredefinedMenuItem.new({ item: "Separator" });
   const spiralSeparator = await PredefinedMenuItem.new({ item: "Separator" });
 
   const spiralSubmenu = await Submenu.new({
     text: t("menus:app.name"),
     items: [
-      preferences,
-      spiralCard,
+      about,
       checkForUpdates,
-      whatsNew,
+      aboutSeparator,
+      preferences,
       spiralSeparator,
       quit,
     ],

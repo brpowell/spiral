@@ -15,7 +15,7 @@ export function getDesktopPlatform(): DesktopPlatform {
 }
 
 /**
- * True when library / Studio / EQ / logs should use the in-app title bar.
+ * True when library / Studio / EQ / logs / About should use the in-app title bar.
  * macOS keeps the system menu bar / traffic lights.
  */
 export function usesCustomWindowChrome(): boolean {

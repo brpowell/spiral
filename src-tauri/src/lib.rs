@@ -158,7 +158,7 @@ pub fn run() {
             // Match frontend `usesCustomWindowChrome()` (Windows + Linux).
             #[cfg(any(windows, target_os = "linux"))]
             {
-                for label in ["main", "appearance", "equalizer", "activity-logs"] {
+                for label in ["main", "appearance", "equalizer", "activity-logs", "about"] {
                     if let Some(window) = app.get_webview_window(label) {
                         if let Err(err) = window.set_decorations(false) {
                             eprintln!("failed to disable decorations on `{label}`: {err}");

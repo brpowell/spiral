@@ -581,15 +581,17 @@ export function AlbumEditor() {
                 className="track-editor__tabs"
                 variant="underline"
               >
-                <div className="track-editor__tab-bar">
-                  <TabList aria-label={t("library:editor.albumTabsAria")}>
-                    <Tab value="details">{t("library:editor.tabDetails")}</Tab>
-                    <Tab value="art">{t("library:editor.tabArt")}</Tab>
-                    <Tab value="musicbrainz">
-                      {t("library:editor.tabMusicBrainz")}
-                    </Tab>
-                  </TabList>
-                </div>
+                <TabList
+                  fade
+                  aria-label={t("library:editor.albumTabsAria")}
+                  className="track-editor__tab-bar"
+                >
+                  <Tab value="details">{t("library:editor.tabDetails")}</Tab>
+                  <Tab value="art">{t("library:editor.tabArt")}</Tab>
+                  <Tab value="musicbrainz">
+                    {t("library:editor.tabMusicBrainz")}
+                  </Tab>
+                </TabList>
 
                 <ModalBody className="track-editor__tab-body">
                   <div className="track-editor__tab-stage">

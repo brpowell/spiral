@@ -120,6 +120,11 @@ export type TabListProps = {
   className?: string;
   "aria-label"?: string;
   "aria-labelledby"?: string;
+  /**
+   * Soft fade under the tab strip so scrolling panel content eases underneath
+   * (same idea as `ModalHeader fade`).
+   */
+  fade?: boolean;
   children: ReactNode;
 };
 
@@ -131,6 +136,7 @@ export function TabList({
   className,
   "aria-label": ariaLabel,
   "aria-labelledby": ariaLabelledBy,
+  fade = false,
   children,
 }: TabListProps) {
   const {
@@ -209,8 +215,7 @@ export function TabList({
         break;
       case "ArrowLeft":
       case "ArrowUp":
-        nextIndex =
-          (currentIndex - 1 + tabValues.length) % tabValues.length;
+        nextIndex = (currentIndex - 1 + tabValues.length) % tabValues.length;
         break;
       case "Home":
         nextIndex = 0;
@@ -231,6 +236,7 @@ export function TabList({
   const listClass = [
     "tabs__list",
     variant === "underline" && "tabs__list--underline",
+    fade && "tabs__list--fade",
     className,
   ]
     .filter(Boolean)
@@ -248,11 +254,7 @@ export function TabList({
     >
       {children}
       {variant === "underline" && indicatorStyle != null ? (
-        <span
-          className="tabs__indicator"
-          style={indicatorStyle}
-          aria-hidden
-        />
+        <span className="tabs__indicator" style={indicatorStyle} aria-hidden />
       ) : null}
     </div>
   );
@@ -283,11 +285,7 @@ export function Tab({
   const panelId = `${idPrefix}-panel-${value}`;
   const isSelected = selectedValue === value;
 
-  const tabClass = [
-    "tabs__tab",
-    isSelected && "tabs__tab--selected",
-    className,
-  ]
+  const tabClass = ["tabs__tab", isSelected && "tabs__tab--selected", className]
     .filter(Boolean)
     .join(" ");
 

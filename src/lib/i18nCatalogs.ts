@@ -1,3 +1,4 @@
+import enAbout from "../locales/en/about.json";
 import enCommon from "../locales/en/common.json";
 import enDialogs from "../locales/en/dialogs.json";
 import enErrors from "../locales/en/errors.json";
@@ -13,6 +14,7 @@ import deErrors from "../locales/de/errors.json";
 import deMenus from "../locales/de/menus.json";
 
 export const I18N_NAMESPACES = [
+  "about",
   "common",
   "dialogs",
   "errors",
@@ -28,6 +30,7 @@ export const DEFAULT_I18N_NAMESPACE = "common" as const;
 
 /** English catalogs — source of truth for keys and typed unions. */
 const enResources = {
+  about: enAbout,
   common: enCommon,
   dialogs: enDialogs,
   errors: enErrors,

@@ -30,6 +30,7 @@ import { useContextMenu } from "../../hooks/useContextMenu";
 import "./WindowTitleBar.css";
 
 const MENU_ITEMS: { id: AppMenuBarId; label: string }[] = [
+  { id: "app", label: t("menus:app.name") },
   { id: "file", label: t("menus:bar.file") },
   { id: "edit", label: t("menus:bar.edit") },
   { id: "view", label: t("menus:bar.view") },
@@ -47,7 +48,7 @@ function runEditCommand(
 export interface WindowTitleBarProps {
   /** Shown in the title bar; defaults to the app name. */
   title?: string;
-  /** When set, File / Edit / View menus are shown (main library window). */
+  /** When set, Spiral / File / Edit / View menus are shown (main library window). */
   handlers?: AppMenuHandlers;
   /** Hide maximize when the window is fixed-size (e.g. Equalizer). */
   showMaximize?: boolean;
@@ -144,7 +145,30 @@ export function WindowTitleBar({
   };
 
   let menuContent: ReactNode = null;
-  if (handlers && activeMenu === "file") {
+  if (handlers && activeMenu === "app") {
+    menuContent = (
+      <>
+        <ContextMenuItem
+          label={t("menus:app.about")}
+          onClick={run(handlers.openAbout)}
+        />
+        <ContextMenuItem
+          label={t("common:updates.menu.check")}
+          onClick={run(handlers.checkForUpdates)}
+        />
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          label={t("menus:app.preferences")}
+          onClick={run(handlers.openPreferences)}
+        />
+        <ContextMenuSeparator />
+        <ContextMenuItem
+          label={t("menus:file.exit")}
+          onClick={run(handlers.quit)}
+        />
+      </>
+    );
+  } else if (handlers && activeMenu === "file") {
     menuContent = (
       <>
         <ContextMenuItem
@@ -163,28 +187,6 @@ export function WindowTitleBar({
         <ContextMenuItem
           label={t("menus:file.fetchMissingLyrics")}
           onClick={run(handlers.fetchMissingLyrics)}
-        />
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          label={t("menus:app.preferences")}
-          onClick={run(handlers.openPreferences)}
-        />
-        <ContextMenuItem
-          label={t("menus:app.spiralCard")}
-          onClick={run(handlers.openSpiralCard)}
-        />
-        <ContextMenuItem
-          label={t("common:updates.menu.check")}
-          onClick={run(handlers.checkForUpdates)}
-        />
-        <ContextMenuItem
-          label={t("common:updates.menu.whatsNew")}
-          onClick={run(handlers.openWhatsNew)}
-        />
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          label={t("menus:file.exit")}
-          onClick={run(handlers.quit)}
         />
       </>
     );

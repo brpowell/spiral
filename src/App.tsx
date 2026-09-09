@@ -38,6 +38,7 @@ import {
   openAppearanceWindow,
   PACK_UPDATES_CHANGED_EVENT,
 } from "./lib/appearanceWindow";
+import { openAboutWindow } from "./lib/aboutWindow";
 import { openEqualizerWindow } from "./lib/equalizerWindow";
 import { toggleToastLabWindow } from "./lib/toastLabWindow";
 import { reloadLinkedPacksWithRefresh } from "./lib/packs/refreshPackStores";
@@ -56,7 +57,6 @@ import { useLibrarySettingsStore } from "./store/useLibrarySettingsStore";
 import { useLicenseStore } from "./store/useLicenseStore";
 import { usePlayerStore } from "./store/usePlayerStore";
 import { useUpdaterStore } from "./store/useUpdaterStore";
-import { useWhatsNewStore } from "./store/useWhatsNewStore";
 import { usePackUpdatesStore } from "./store/usePackUpdatesStore";
 import type { CatalogPackEntry } from "./types/packRegistry";
 import "./App.css";
@@ -74,7 +74,6 @@ function App() {
     (s) => s.setPreferencesOpen,
   );
   const loadLicense = useLicenseStore((s) => s.loadLicense);
-  const openSpiralCard = useLicenseStore((s) => s.openSpiralCard);
   const applyAutomaticChecksEnabled = useUpdaterStore(
     (s) => s.applyAutomaticChecksEnabled,
   );
@@ -114,12 +113,11 @@ function App() {
     },
     newPlaylist: () => openPlaylistEditor("new"),
     openPreferences: () => setPreferencesOpen(true),
-    openSpiralCard: () => openSpiralCard(),
     checkForUpdates: () => {
       void useUpdaterStore.getState().checkForUpdates({ reason: "manual" });
     },
-    openWhatsNew: () => {
-      useWhatsNewStore.getState().openWhatsNew();
+    openAbout: () => {
+      void openAboutWindow();
     },
     openSkinMode: () => {
       void openSkinMode();
@@ -238,7 +236,7 @@ function App() {
     // menuHandlers is a fresh object each render; store actions in the dep list
     // are stable and cover the callbacks that actually change.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- avoid rebinding the native menu every render
-  }, [addToLibrary, openPlaylistEditor, setPreferencesOpen, openSpiralCard]);
+  }, [addToLibrary, openPlaylistEditor, setPreferencesOpen]);
 
   // Native setAsAppMenu accelerators don't apply under custom chrome.
   useEffect(() => {

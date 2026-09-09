@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { I18nextProvider } from "react-i18next";
 import App from "./App";
+import { AboutApp } from "./AboutApp";
 import { ActivityLogsApp } from "./ActivityLogsApp";
 import { AppearanceApp } from "./AppearanceApp";
 import { EqualizerApp } from "./EqualizerApp";
@@ -31,6 +32,7 @@ import { installToastDevConsole } from "./lib/toastDevConsole";
 import {
   bootstrapWindowRole,
   getSkinAuxContext,
+  isAboutWindow,
   isActivityLogsWindow,
   isAppearanceWindow,
   isEqualizerWindow,
@@ -67,6 +69,7 @@ async function start() {
     role === "appearance" ||
     role === "equalizer" ||
     role === "activity-logs" ||
+    role === "about" ||
     role === "toast-lab"
   ) {
     await applyCustomWindowChrome();
@@ -76,6 +79,14 @@ async function start() {
     await bootstrapTheme();
     await initThemeBridge(role);
     renderRoot(<ToastLabApp />);
+    return;
+  }
+
+  if (isAboutWindow()) {
+    await bootstrapTheme();
+    await initThemeBridge(role);
+
+    renderRoot(<AboutApp />);
     return;
   }
 

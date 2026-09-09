@@ -36,6 +36,7 @@
     "prepare": "husky",
     "lint:commit": "commitlint --last --verbose",
     "check:version": "node scripts/check-version-sync.mjs",
+    "generate:notice": "node scripts/generate-notice.mjs",
     "clean:target": "cd src-tauri && cargo clean",
     "release": "node scripts/release/cli.mjs"
   },

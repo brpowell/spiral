@@ -5,6 +5,7 @@
     "view": "Ansicht"
   },
   "app": {
-    "name": "Spiral"
+    "name": "Spiral",
+    "about": "Über Spiral"
   }
 }

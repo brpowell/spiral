@@ -1,8 +1,8 @@
 {
   "app": {
     "name": "Spiral",
-    "preferences": "Preferences",
-    "spiralCard": "Spiral Card…"
+    "about": "About Spiral",
+    "preferences": "Preferences"
   },
   "bar": {
     "file": "File",

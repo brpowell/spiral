@@ -12,6 +12,7 @@ export type WindowRole =
   | "appearance"
   | "equalizer"
   | "activity-logs"
+  | "about"
   | "toast-lab";
 
 let role: WindowRole = "main";
@@ -34,6 +35,8 @@ export async function bootstrapWindowRole(): Promise<WindowRole> {
       role = "equalizer";
     } else if (label === "activity-logs") {
       role = "activity-logs";
+    } else if (label === "about") {
+      role = "about";
     } else if (label === "toast-lab") {
       role = "toast-lab";
     } else {
@@ -82,6 +85,10 @@ export function isEqualizerWindow(): boolean {
 
 export function isActivityLogsWindow(): boolean {
   return role === "activity-logs";
+}
+
+export function isAboutWindow(): boolean {
+  return role === "about";
 }
 
 export function isToastLabWindow(): boolean {

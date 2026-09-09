@@ -1,0 +1,62 @@
+{
+  "windowTitle": "About Spiral",
+  "tabsAria": "About content",
+  "tabs": {
+    "credits": "Credits",
+    "licenses": "Licenses"
+  },
+  "about": {
+    "name": "Spiral",
+    "version": "Version {{version}}",
+    "versionLoading": "Version…",
+    "copyright": "© {{year}} Spiral Powered LLC.",
+    "website": "spiralpowered.com",
+    "websiteAria": "Open spiralpowered.com"
+  },
+  "credits": {
+    "intro": "Spiral uses open-source software and community metadata services. Thank you to the projects and maintainers below.",
+    "bryan": {
+      "role": "Designed & built by",
+      "name": "Bryan Powell"
+    },
+    "entries": {
+      "musicbrainz": {
+        "role": "Album, Artist & CD Metadata",
+        "name": "MusicBrainz"
+      },
+      "coverArtArchive": {
+        "role": "Album Cover Art",
+        "name": "Cover Art Archive"
+      },
+      "wikimediaCommons": {
+        "role": "Artist Portraits",
+        "name": "Wikimedia Commons"
+      },
+      "wikidata": {
+        "role": "Artist Image Resolution",
+        "name": "Wikidata"
+      },
+      "lrclib": {
+        "role": "Lyric Fetching",
+        "name": "LRCLIB"
+      },
+      "lame": {
+        "role": "MP3 Encoding",
+        "name": "LAME"
+      }
+    }
+  },
+  "licenses": {
+    "special": {
+      "lame": {
+        "title": "LAME (libmp3lame)"
+      },
+      "fdk": {
+        "title": "Fraunhofer FDK AAC"
+      },
+      "symphonia": {
+        "title": "Symphonia"
+      }
+    }
+  }
+}
