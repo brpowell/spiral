@@ -22,6 +22,9 @@ export function useTrackMetadataForm(tracks: Track[], resetKey: string) {
   const [originalArtPath, setOriginalArtPath] = useState<string | null>(null);
   const [artSourcePath, setArtSourcePath] = useState<string | null>(null);
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
+  const [selectedCoverPreviewSrc, setSelectedCoverPreviewSrc] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     if (tracks.length === 0) {
@@ -37,6 +40,7 @@ export function useTrackMetadataForm(tracks: Track[], resetKey: string) {
     setOriginalArtPath(initialArt);
     setArtSourcePath(null);
     setSelectedCoverUrl(null);
+    setSelectedCoverPreviewSrc(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- key-gated form reset
   }, [resetKey]);
 
@@ -71,6 +75,8 @@ export function useTrackMetadataForm(tracks: Track[], resetKey: string) {
     setArtSourcePath,
     selectedCoverUrl,
     setSelectedCoverUrl,
+    selectedCoverPreviewSrc,
+    setSelectedCoverPreviewSrc,
     artChanged,
     hasChanges,
     setField,

@@ -46,7 +46,10 @@ import { commitFetchedLyricsForTrack } from "../../lib/lyricsFetchCommit";
 import { showBulkTrackMetadataSaveToast } from "../../lib/trackMetadataToast";
 import { fetchCoverArtCandidates } from "../../lib/albumArtFetch";
 import { refreshArtDisplay } from "../../lib/artDisplayCache";
-import { preloadCoverArtThumbs } from "../../lib/coverArtThumbs";
+import {
+  preloadCoverArtThumbs,
+  previewSrcForFetchedCover,
+} from "../../lib/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -231,6 +234,9 @@ export function TrackEditor() {
     [],
   );
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
+  const [selectedCoverPreviewSrc, setSelectedCoverPreviewSrc] = useState<
+    string | null
+  >(null);
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [lyricsFetchFeedback, setLyricsFetchFeedback] =
     useState<LyricsFetchFeedback | null>(null);
@@ -284,6 +290,7 @@ export function TrackEditor() {
     setArtSourcePath(null);
     setCoverCandidates([]);
     setSelectedCoverUrl(null);
+    setSelectedCoverPreviewSrc(null);
     setFetchMessage(null);
     setArtPickerOpen(false);
     artFetchGenRef.current += 1;
@@ -672,6 +679,7 @@ export function TrackEditor() {
       );
       setArtSourcePath(sourcePath);
       setSelectedCoverUrl(null);
+      setSelectedCoverPreviewSrc(null);
       setPendingArtPath(cached);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -749,6 +757,7 @@ export function TrackEditor() {
   const handleSelectCover = (url: string) => {
     setSaveError(null);
     setSelectedCoverUrl(url);
+    setSelectedCoverPreviewSrc(previewSrcForFetchedCover(url, coverCandidates));
     setArtSourcePath(null);
     setArtPickerOpen(false);
     setCoverCandidates([]);
@@ -939,7 +948,7 @@ export function TrackEditor() {
   };
 
   const displayArtSrc = useAssetUrl(selectedCoverUrl ? null : pendingArtPath);
-  const previewSrc = selectedCoverUrl ?? displayArtSrc;
+  const previewSrc = selectedCoverPreviewSrc ?? displayArtSrc;
 
   const saveLabel = bulkSaveLabel(saving, saveProgress, t);
 

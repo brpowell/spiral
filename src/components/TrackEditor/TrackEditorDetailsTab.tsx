@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { formatBytes, formatDimensions } from "../../lib/formatBytes";
+import {
+  coverArtThumbSrc,
+  coverOptionMetaText,
+} from "../../lib/coverArtThumbs";
 import {
   mixedFieldPlaceholder,
   type TrackEditorForm,
@@ -17,46 +19,9 @@ import { AutocompleteInput } from "../common/AutocompleteInput/AutocompleteInput
 import { TextInput } from "../common/TextInput/TextInput";
 
 function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
-  const { t } = useTranslation("library");
-  const [dims, setDims] = useState<{ w: number; h: number } | null>(() =>
-    candidate.width != null && candidate.height != null
-      ? { w: candidate.width, h: candidate.height }
-      : null,
-  );
-
-  useEffect(() => {
-    if (candidate.width != null && candidate.height != null) {
-      setDims({ w: candidate.width, h: candidate.height });
-      return;
-    }
-
-    const img = new Image();
-    img.onload = () => {
-      setDims({ w: img.naturalWidth, h: img.naturalHeight });
-    };
-    img.src = candidate.url;
-
-    return () => {
-      img.onload = null;
-      img.src = "";
-    };
-  }, [candidate.url, candidate.width, candidate.height]);
-
-  const sizeLabel =
-    candidate.fileSize != null && candidate.fileSize > 0
-      ? formatBytes(candidate.fileSize)
-      : null;
-  const dimLabel = dims
-    ? formatDimensions(dims.w, dims.h)
-    : formatDimensions(candidate.width, candidate.height);
-
-  const meta = [sizeLabel, dimLabel].filter(Boolean).join(" · ");
-
-  return (
-    <span className="track-editor__cover-meta">
-      {meta || t("editor.loadingDetails")}
-    </span>
-  );
+  const meta = coverOptionMetaText(candidate);
+  if (!meta) return null;
+  return <span className="track-editor__cover-meta">{meta}</span>;
 }
 
 function TrackEditorField({
@@ -241,7 +206,7 @@ export function TrackEditorInlineArt({
           aria-label={t("editor.coverOptions")}
         >
           {coverCandidates.map((candidate) => {
-            const thumbSrc = candidate.thumbnailUrl ?? candidate.url;
+            const thumbSrc = coverArtThumbSrc(candidate);
 
             return (
               <button

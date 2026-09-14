@@ -1,7 +1,9 @@
 use crate::activity_log::{self, LogLevel};
 use crate::musicbrainz_http;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde::Serialize;
 use std::collections::HashMap;
+use std::io::Read;
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, SystemTime};
 
@@ -229,6 +231,7 @@ fn fetch_cover_art_for_release_uncached(
 
     enrich_candidates(&client, &mut candidates);
     sort_and_truncate_candidates(&mut candidates);
+    embed_csp_safe_thumbnails(&mut candidates, |url| download_capped_image(&client, url));
     log_cover_art(
         if candidates.is_empty() {
             LogLevel::Warn
@@ -354,6 +357,7 @@ fn fetch_cover_art_uncached(artist: &str, album: &str) -> Result<Vec<CoverArtCan
 
     enrich_candidates(&client, &mut candidates);
     sort_and_truncate_candidates(&mut candidates);
+    embed_csp_safe_thumbnails(&mut candidates, |url| download_capped_image(&client, url));
     log_cover_art(
         if candidates.is_empty() {
             LogLevel::Warn
@@ -662,6 +666,101 @@ fn parse_content_range_total(value: &reqwest::header::HeaderValue) -> Option<u64
     total.parse().ok()
 }
 
+/// Cap for picker/editor display bytes. Full-resolution art is downloaded later via
+/// `cache_art_from_url` on save; WebView CSP `img-src` cannot load remote https.
+const MAX_THUMB_BYTES: usize = 512 * 1024;
+
+fn thumb_source_url(candidate: &CoverArtCandidate) -> &str {
+    candidate
+        .thumbnail_url
+        .as_deref()
+        .filter(|url| !url.is_empty())
+        .unwrap_or(candidate.url.as_str())
+}
+
+/// Replace remote thumbnail URLs with `data:` URLs so the WebView can render them
+/// under production CSP (`img-src` has no `https:`). Leaves `url` as the remote
+/// original for `cache_art_from_url`.
+pub(crate) fn embed_csp_safe_thumbnails<F>(candidates: &mut [CoverArtCandidate], mut download: F)
+where
+    F: FnMut(&str) -> Option<Vec<u8>>,
+{
+    for candidate in candidates.iter_mut() {
+        let src = thumb_source_url(candidate).to_string();
+        if src.starts_with("data:") {
+            continue;
+        }
+        let Some(bytes) = download(&src) else {
+            continue;
+        };
+        if let Some(data_url) = bytes_to_image_data_url(&bytes, &src) {
+            candidate.thumbnail_url = Some(data_url);
+        }
+    }
+}
+
+fn download_capped_image(client: &reqwest::blocking::Client, url: &str) -> Option<Vec<u8>> {
+    let response = client.get(url).send().ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    read_capped_image_body(response)
+}
+
+pub(crate) fn read_capped_image_body(response: reqwest::blocking::Response) -> Option<Vec<u8>> {
+    if let Some(len) = response.content_length() {
+        if len > MAX_THUMB_BYTES as u64 {
+            return None;
+        }
+    }
+    let mut reader = response;
+    let mut buf = Vec::new();
+    let mut chunk = [0u8; 8192];
+    loop {
+        let n = reader.read(&mut chunk).ok()?;
+        if n == 0 {
+            break;
+        }
+        if buf.len().saturating_add(n) > MAX_THUMB_BYTES {
+            return None;
+        }
+        buf.extend_from_slice(&chunk[..n]);
+    }
+    if buf.is_empty() {
+        return None;
+    }
+    Some(buf)
+}
+
+fn bytes_to_image_data_url(bytes: &[u8], url: &str) -> Option<String> {
+    if bytes.is_empty() {
+        return None;
+    }
+    let mime = match image::guess_format(bytes) {
+        Ok(image::ImageFormat::Png) => "image/png",
+        Ok(image::ImageFormat::Jpeg) => "image/jpeg",
+        Ok(image::ImageFormat::Gif) => "image/gif",
+        Ok(image::ImageFormat::WebP) => "image/webp",
+        _ => mime_from_url(url)?,
+    };
+    Some(format!("data:{mime};base64,{}", BASE64.encode(bytes)))
+}
+
+fn mime_from_url(url: &str) -> Option<&'static str> {
+    let path = url.split('?').next().unwrap_or(url).to_ascii_lowercase();
+    if path.ends_with(".png") {
+        Some("image/png")
+    } else if path.ends_with(".jpg") || path.ends_with(".jpeg") {
+        Some("image/jpeg")
+    } else if path.ends_with(".webp") {
+        Some("image/webp")
+    } else if path.ends_with(".gif") {
+        Some("image/gif")
+    } else {
+        None
+    }
+}
+
 fn urlencoding_simple(s: &str) -> String {
     let mut out = String::with_capacity(s.len() * 3);
     for b in s.bytes() {
@@ -954,5 +1053,77 @@ mod tests {
         assert_eq!(candidates[1].url, "https://caa.example/group-front.jpg");
         assert!(candidates[0].canonical_rank < candidates[1].canonical_rank);
         assert!(fetch_failed.is_none());
+    }
+
+    fn tiny_png() -> Vec<u8> {
+        BASE64
+            .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+            .unwrap()
+    }
+
+    #[test]
+    fn embed_csp_safe_thumbnails_rewrites_remote_thumbs_to_data_urls() {
+        let png = tiny_png();
+        let mut candidates = vec![CoverArtCandidate {
+            url: "https://caa.example/front.jpg".into(),
+            thumbnail_url: Some("https://caa.example/front-250.jpg".into()),
+            file_size: Some(12),
+            width: Some(250),
+            height: Some(250),
+            canonical_rank: 0,
+        }];
+        embed_csp_safe_thumbnails(&mut candidates, |_| Some(png.clone()));
+        let thumb = candidates[0].thumbnail_url.as_deref().unwrap();
+        assert!(
+            thumb.starts_with("data:image/png;base64,"),
+            "thumbnail should be a data URL, got {thumb}"
+        );
+        assert_eq!(candidates[0].url, "https://caa.example/front.jpg");
+    }
+
+    #[test]
+    fn embed_csp_safe_thumbnails_skips_existing_data_urls() {
+        let data = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+        let mut candidates = vec![CoverArtCandidate {
+            url: "https://caa.example/front.jpg".into(),
+            thumbnail_url: Some(data.into()),
+            file_size: None,
+            width: Some(1),
+            height: Some(1),
+            canonical_rank: 0,
+        }];
+        let mut downloads = 0;
+        embed_csp_safe_thumbnails(&mut candidates, |_| {
+            downloads += 1;
+            None
+        });
+        assert_eq!(downloads, 0);
+        assert_eq!(candidates[0].thumbnail_url.as_deref(), Some(data));
+    }
+
+    #[test]
+    fn embed_csp_safe_thumbnails_downloads_full_url_when_thumb_missing() {
+        let png = tiny_png();
+        let mut candidates = vec![sample_candidate("https://caa.example/front.jpg")];
+        let mut downloaded = Vec::new();
+        embed_csp_safe_thumbnails(&mut candidates, |url| {
+            downloaded.push(url.to_string());
+            Some(png.clone())
+        });
+        assert_eq!(downloaded, vec!["https://caa.example/front.jpg"]);
+        assert!(candidates[0]
+            .thumbnail_url
+            .as_deref()
+            .unwrap()
+            .starts_with("data:image/png;base64,"));
+    }
+
+    #[test]
+    fn bytes_to_image_data_url_rejects_svg() {
+        let svg = b"<svg xmlns='http://www.w3.org/2000/svg'></svg>";
+        assert_eq!(
+            bytes_to_image_data_url(svg, "https://upload.example/logo.svg"),
+            None
+        );
     }
 }

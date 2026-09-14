@@ -1,5 +1,5 @@
 use crate::activity_log::{self, LogLevel};
-use crate::cover_art_fetch::CoverArtCandidate;
+use crate::cover_art_fetch::{self, CoverArtCandidate};
 use crate::mbid::parse_uuid_mbid;
 use crate::musicbrainz_http;
 use crate::wikimedia_http;
@@ -375,7 +375,15 @@ fn fetch_artist_art_inner(
         info_files.extend(parse_imageinfo_files(&info_json));
     }
 
-    let candidates = filter_and_rank_candidates(&info_files, p18_title.as_deref());
+    let mut candidates = filter_and_rank_candidates(&info_files, p18_title.as_deref());
+    cover_art_fetch::embed_csp_safe_thumbnails(&mut candidates, |url| {
+        let get = wikimedia_http::send_get(&wm_client, url);
+        let response = get.result.ok()?;
+        if !response.status().is_success() {
+            return None;
+        }
+        cover_art_fetch::read_capped_image_body(response)
+    });
     let empty_reason = if candidates.is_empty() {
         Some(EmptyReason::FilteredEmpty)
     } else {

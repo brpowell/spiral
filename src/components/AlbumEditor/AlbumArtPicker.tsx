@@ -1,11 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import {
   coverArtThumbSrc,
+  coverOptionMetaText,
   isCoverArtThumbReady,
 } from "../../lib/coverArtThumbs";
-import { formatBytes, formatDimensions } from "../../lib/formatBytes";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import {
   Modal,
@@ -26,46 +26,9 @@ export const ART_TYPE_LABEL_KEY = {
 } as const;
 
 function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
-  const { t } = useTranslation("library");
-  const [dims, setDims] = useState<{ w: number; h: number } | null>(() =>
-    candidate.width != null && candidate.height != null
-      ? { w: candidate.width, h: candidate.height }
-      : null,
-  );
-
-  useEffect(() => {
-    if (candidate.width != null && candidate.height != null) {
-      setDims({ w: candidate.width, h: candidate.height });
-      return;
-    }
-
-    const img = new Image();
-    img.onload = () => {
-      setDims({ w: img.naturalWidth, h: img.naturalHeight });
-    };
-    img.src = candidate.url;
-
-    return () => {
-      img.onload = null;
-      img.src = "";
-    };
-  }, [candidate.url, candidate.width, candidate.height]);
-
-  const sizeLabel =
-    candidate.fileSize != null && candidate.fileSize > 0
-      ? formatBytes(candidate.fileSize)
-      : null;
-  const dimLabel = dims
-    ? formatDimensions(dims.w, dims.h)
-    : formatDimensions(candidate.width, candidate.height);
-
-  const meta = [sizeLabel, dimLabel].filter(Boolean).join(" · ");
-
-  return (
-    <span className="album-art-picker__meta">
-      {meta || t("editor.loadingDetails")}
-    </span>
-  );
+  const meta = coverOptionMetaText(candidate);
+  if (!meta) return null;
+  return <span className="album-art-picker__meta">{meta}</span>;
 }
 
 function CoverThumb({ src, round }: { src: string; round?: boolean }) {

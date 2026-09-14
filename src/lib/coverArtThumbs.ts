@@ -1,3 +1,4 @@
+import { formatBytes, formatDimensions } from "./formatBytes";
 import type { CoverArtCandidate } from "../types/coverArt";
 
 const MAX_CACHED_THUMBS = 64;
@@ -5,6 +6,28 @@ const thumbCache = new Map<string, HTMLImageElement>();
 
 export function coverArtThumbSrc(candidate: CoverArtCandidate): string {
   return candidate.thumbnailUrl ?? candidate.url;
+}
+
+/** Size · dimensions line for a fetch-art candidate, or null when both are missing. */
+export function coverOptionMetaText(
+  candidate: CoverArtCandidate,
+): string | null {
+  const sizeLabel =
+    candidate.fileSize != null && candidate.fileSize > 0
+      ? formatBytes(candidate.fileSize)
+      : null;
+  const dimLabel = formatDimensions(candidate.width, candidate.height);
+  const meta = [sizeLabel, dimLabel].filter(Boolean).join(" · ");
+  return meta || null;
+}
+
+/** CSP-safe preview for a picked fetch candidate (`data:` thumb, not remote `url`). */
+export function previewSrcForFetchedCover(
+  url: string,
+  candidates: CoverArtCandidate[],
+): string {
+  const match = candidates.find((candidate) => candidate.url === url);
+  return match ? coverArtThumbSrc(match) : url;
 }
 
 export function isCoverArtThumbReady(src: string): boolean {

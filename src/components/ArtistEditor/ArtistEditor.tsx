@@ -22,7 +22,10 @@ import {
   type ArtistEditorForm,
 } from "../../lib/artistMetadata";
 import { getArtistByKey, groupTracksIntoArtists } from "../../lib/artists";
-import { preloadCoverArtThumbs } from "../../lib/coverArtThumbs";
+import {
+  preloadCoverArtThumbs,
+  previewSrcForFetchedCover,
+} from "../../lib/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -108,6 +111,9 @@ export function ArtistEditor() {
     [],
   );
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
+  const [selectedCoverPreviewSrc, setSelectedCoverPreviewSrc] = useState<
+    string | null
+  >(null);
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
   const [artPickerOpen, setArtPickerOpen] = useState(false);
@@ -132,6 +138,7 @@ export function ArtistEditor() {
     setArtSourcePath(null);
     setCoverCandidates([]);
     setSelectedCoverUrl(null);
+    setSelectedCoverPreviewSrc(null);
     setFetchMessage(null);
     setArtPickerOpen(false);
     artFetchGenRef.current += 1;
@@ -181,6 +188,7 @@ export function ArtistEditor() {
       const cached = await cacheArtFromFile(sourcePath, artCacheKey);
       setArtSourcePath(sourcePath);
       setSelectedCoverUrl(null);
+      setSelectedCoverPreviewSrc(null);
       setPendingArtPath(cached);
       refreshArtDisplay([pendingArtPath, cached]);
     } catch (err) {
@@ -253,6 +261,7 @@ export function ArtistEditor() {
   const handleSelectCover = (url: string) => {
     setSaveError(null);
     setSelectedCoverUrl(url);
+    setSelectedCoverPreviewSrc(previewSrcForFetchedCover(url, coverCandidates));
     setArtSourcePath(null);
     setArtPickerOpen(false);
     setCoverCandidates([]);
@@ -390,7 +399,7 @@ export function ArtistEditor() {
   };
 
   const displayArtSrc = useAssetUrl(selectedCoverUrl ? null : pendingArtPath);
-  const previewSrc = selectedCoverUrl ?? displayArtSrc;
+  const previewSrc = selectedCoverPreviewSrc ?? displayArtSrc;
 
   const saveLabel = bulkSaveLabel(saving, saveProgress, t);
   const identityTitle = form?.name.trim() || t("common:untitled");

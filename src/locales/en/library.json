@@ -62,7 +62,6 @@
   },
   "editor": {
     "mixedValues": "Multiple values",
-    "loadingDetails": "Loading details…",
     "addArt": "Add art",
     "chooseFromFile": "Choose from file",
     "fetchArt": "Fetch Art",

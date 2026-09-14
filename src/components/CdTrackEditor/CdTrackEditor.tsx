@@ -18,6 +18,7 @@ import { mergeDiscDisplayLayers } from "../../lib/cdMetadata";
 import { cdTrackNumberFromListId, cdTracksForList } from "../../lib/cdTracks";
 import { t } from "../../lib/i18n";
 import { fetchCoverArtCandidates } from "../../lib/albumArtFetch";
+import { previewSrcForFetchedCover } from "../../lib/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -141,6 +142,8 @@ export function CdTrackEditor() {
     setArtSourcePath,
     selectedCoverUrl,
     setSelectedCoverUrl,
+    selectedCoverPreviewSrc,
+    setSelectedCoverPreviewSrc,
     artChanged,
     hasChanges,
     setField,
@@ -265,13 +268,20 @@ export function CdTrackEditor() {
         );
         setArtSourcePath(sourcePath);
         setSelectedCoverUrl(null);
+        setSelectedCoverPreviewSrc(null);
         setPendingArtPath(cached);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         setSaveError(message);
       }
     },
-    [discId, setArtSourcePath, setPendingArtPath, setSelectedCoverUrl],
+    [
+      discId,
+      setArtSourcePath,
+      setPendingArtPath,
+      setSelectedCoverUrl,
+      setSelectedCoverPreviewSrc,
+    ],
   );
 
   const handleChangeArt = async () => {
@@ -300,6 +310,7 @@ export function CdTrackEditor() {
     setFetchMessage(null);
     setCoverCandidates([]);
     setSelectedCoverUrl(null);
+    setSelectedCoverPreviewSrc(null);
     setSaveError(null);
     try {
       const primaryArtist =
@@ -327,6 +338,7 @@ export function CdTrackEditor() {
   const handleSelectCover = (url: string) => {
     setSaveError(null);
     setSelectedCoverUrl(url);
+    setSelectedCoverPreviewSrc(previewSrcForFetchedCover(url, coverCandidates));
     setArtSourcePath(null);
   };
 
@@ -379,7 +391,7 @@ export function CdTrackEditor() {
   };
 
   const displayArtSrc = useAssetUrl(selectedCoverUrl ? null : pendingArtPath);
-  const previewSrc = selectedCoverUrl ?? displayArtSrc;
+  const previewSrc = selectedCoverPreviewSrc ?? displayArtSrc;
 
   const identityTitle = form?.title.trim() || "Untitled";
   const identitySubtitle = [

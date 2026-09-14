@@ -26,7 +26,10 @@ import {
 import { fetchCoverArtCandidates } from "../../lib/albumArtFetch";
 import { refreshArtDisplay } from "../../lib/artDisplayCache";
 import { isAlbumArtOverride } from "../../lib/artistArt";
-import { preloadCoverArtThumbs } from "../../lib/coverArtThumbs";
+import {
+  preloadCoverArtThumbs,
+  previewSrcForFetchedCover,
+} from "../../lib/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -116,6 +119,9 @@ export function AlbumEditor() {
     [],
   );
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
+  const [selectedCoverPreviewSrc, setSelectedCoverPreviewSrc] = useState<
+    string | null
+  >(null);
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
   const [artPickerOpen, setArtPickerOpen] = useState(false);
@@ -141,6 +147,7 @@ export function AlbumEditor() {
     setArtSourcePath(null);
     setCoverCandidates([]);
     setSelectedCoverUrl(null);
+    setSelectedCoverPreviewSrc(null);
     setFetchMessage(null);
     setArtPickerOpen(false);
     artFetchGenRef.current += 1;
@@ -193,6 +200,7 @@ export function AlbumEditor() {
       );
       setArtSourcePath(sourcePath);
       setSelectedCoverUrl(null);
+      setSelectedCoverPreviewSrc(null);
       setPendingArtPath(cached);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -265,6 +273,7 @@ export function AlbumEditor() {
   const handleSelectCover = (url: string) => {
     setSaveError(null);
     setSelectedCoverUrl(url);
+    setSelectedCoverPreviewSrc(previewSrcForFetchedCover(url, coverCandidates));
     setArtSourcePath(null);
     setArtPickerOpen(false);
     setCoverCandidates([]);
@@ -519,7 +528,7 @@ export function AlbumEditor() {
   };
 
   const displayArtSrc = useAssetUrl(selectedCoverUrl ? null : pendingArtPath);
-  const previewSrc = selectedCoverUrl ?? displayArtSrc;
+  const previewSrc = selectedCoverPreviewSrc ?? displayArtSrc;
 
   const saveLabel = bulkSaveLabel(saving, saveProgress, t);
 

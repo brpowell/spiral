@@ -9,9 +9,13 @@ import {
 } from "../../lib/cdOverrideFromForm";
 import { mergeDiscDisplayLayers } from "../../lib/cdMetadata";
 import { cdSidebarDiscLabel } from "../../lib/cdTracks";
-import { formatBytes, formatDimensions } from "../../lib/formatBytes";
 import { t } from "../../lib/i18n";
 import { fetchCoverArtCandidates } from "../../lib/albumArtFetch";
+import {
+  coverArtThumbSrc,
+  coverOptionMetaText,
+  previewSrcForFetchedCover,
+} from "../../lib/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -64,45 +68,9 @@ function formsEqual(a: CdAlbumEditorForm, b: CdAlbumEditorForm): boolean {
 }
 
 function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
-  const [dims, setDims] = useState<{ w: number; h: number } | null>(() =>
-    candidate.width != null && candidate.height != null
-      ? { w: candidate.width, h: candidate.height }
-      : null,
-  );
-
-  useEffect(() => {
-    if (candidate.width != null && candidate.height != null) {
-      setDims({ w: candidate.width, h: candidate.height });
-      return;
-    }
-
-    const img = new Image();
-    img.onload = () => {
-      setDims({ w: img.naturalWidth, h: img.naturalHeight });
-    };
-    img.src = candidate.url;
-
-    return () => {
-      img.onload = null;
-      img.src = "";
-    };
-  }, [candidate.url, candidate.width, candidate.height]);
-
-  const sizeLabel =
-    candidate.fileSize != null && candidate.fileSize > 0
-      ? formatBytes(candidate.fileSize)
-      : null;
-  const dimLabel = dims
-    ? formatDimensions(dims.w, dims.h)
-    : formatDimensions(candidate.width, candidate.height);
-
-  const meta = [sizeLabel, dimLabel].filter(Boolean).join(" · ");
-
-  return (
-    <span className="track-editor__cover-meta">
-      {meta || t("library:editor.loadingDetails")}
-    </span>
-  );
+  const meta = coverOptionMetaText(candidate);
+  if (!meta) return null;
+  return <span className="track-editor__cover-meta">{meta}</span>;
 }
 
 export function CdAlbumEditor() {
@@ -160,6 +128,9 @@ export function CdAlbumEditor() {
     [],
   );
   const [selectedCoverUrl, setSelectedCoverUrl] = useState<string | null>(null);
+  const [selectedCoverPreviewSrc, setSelectedCoverPreviewSrc] = useState<
+    string | null
+  >(null);
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
 
@@ -188,6 +159,7 @@ export function CdAlbumEditor() {
     setArtSourcePath(null);
     setCoverCandidates([]);
     setSelectedCoverUrl(null);
+    setSelectedCoverPreviewSrc(null);
     setFetchMessage(null);
     setSaveError(null);
     setDiscardPrompt(false);
@@ -226,6 +198,7 @@ export function CdAlbumEditor() {
       const cached = await cacheArtFromFile(sourcePath, cdArtCacheKey(discId));
       setArtSourcePath(sourcePath);
       setSelectedCoverUrl(null);
+      setSelectedCoverPreviewSrc(null);
       setPendingArtPath(cached);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -259,6 +232,7 @@ export function CdAlbumEditor() {
     setFetchMessage(null);
     setCoverCandidates([]);
     setSelectedCoverUrl(null);
+    setSelectedCoverPreviewSrc(null);
     setSaveError(null);
     try {
       const candidates = await fetchCoverArtCandidates({
@@ -282,6 +256,7 @@ export function CdAlbumEditor() {
   const handleSelectCover = (url: string) => {
     setSaveError(null);
     setSelectedCoverUrl(url);
+    setSelectedCoverPreviewSrc(previewSrcForFetchedCover(url, coverCandidates));
     setArtSourcePath(null);
   };
 
@@ -414,7 +389,7 @@ export function CdAlbumEditor() {
   };
 
   const displayArtSrc = useAssetUrl(selectedCoverUrl ? null : pendingArtPath);
-  const previewSrc = selectedCoverUrl ?? displayArtSrc;
+  const previewSrc = selectedCoverPreviewSrc ?? displayArtSrc;
   const trackCount = disc?.tracks.length ?? 0;
 
   return (
@@ -537,8 +512,7 @@ export function CdAlbumEditor() {
                             aria-label={t("library:cd.editor.coverOptions")}
                           >
                             {coverCandidates.map((candidate) => {
-                              const thumbSrc =
-                                candidate.thumbnailUrl ?? candidate.url;
+                              const thumbSrc = coverArtThumbSrc(candidate);
                               return (
                                 <button
                                   key={candidate.url}
