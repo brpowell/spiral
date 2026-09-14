@@ -104,3 +104,10 @@ feat(ripper)!: require explicit output format
 echo "bad message" | npx commitlint
 echo "feat: add thing" | npx commitlint
 ```
+
+## Resource use and local profiling
+
+Spiral does not send performance telemetry.
+
+- **How to sample on-device** (symbolicated release build, samply / Instruments / Activity Monitor, `npm run profile:build`): [profiling.md](./profiling.md).
+- **What to attack** (ranked findings, regression risk, skin checklist): [resource-optimization.md](../general/resource-optimization.md). Attack order is **risk first** (skin hide/show, Web Audio ownership, click-through), not impact × effort alone.
