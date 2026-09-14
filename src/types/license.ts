@@ -10,8 +10,6 @@ export interface LicenseCosmetic {
   fontId: string;
   colorHex: string;
   cardholderName: string;
-  wrapRef: string;
-  wrapData: string | null;
 }
 
 export interface LicenseSnapshot {

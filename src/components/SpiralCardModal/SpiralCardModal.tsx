@@ -10,10 +10,8 @@ import { formatDateAdded } from "../../lib/format";
 import { translateUserError } from "../../lib/userError";
 import { isNetworkLikelyAvailable } from "../../lib/network";
 import {
-  classifySpiralCardWrapError,
   spiralCardFinalizedPayload,
   spiralCardFinalizeNetworkErrorPayload,
-  spiralCardWrapErrorPayload,
 } from "../../lib/toastPayloads";
 import {
   exportRegistrationCard,
@@ -216,15 +214,6 @@ function modalTitleFor(status: LicenseStatus, t: TFunction<"common">): string {
   }
 }
 
-function wrapDataUrl(cosmetic: LicenseCosmetic): string | null {
-  if (cosmetic.wrapRef !== "custom" || !cosmetic.wrapData) return null;
-  // Opaque wraps → JPEG (`/9j/…`); alpha wraps → PNG (`iVBOR…`).
-  const mime = cosmetic.wrapData.startsWith("iVBORw0KGgo")
-    ? "image/png"
-    : "image/jpeg";
-  return `data:${mime};base64,${cosmetic.wrapData}`;
-}
-
 export function SpiralCardModal() {
   const { t } = useTranslation("common");
   const titleId = useId();
@@ -239,8 +228,6 @@ export function SpiralCardModal() {
   const installFromPicker = useLicenseStore((s) => s.installFromPicker);
   const finalizeRegistration = useLicenseStore((s) => s.finalizeRegistration);
   const updateCosmetic = useLicenseStore((s) => s.updateCosmetic);
-  const setWrapFromPicker = useLicenseStore((s) => s.setWrapFromPicker);
-  const clearWrap = useLicenseStore((s) => s.clearWrap);
 
   const [installingCard, setInstallingCard] = useState(false);
   const [confirmingFinalize, setConfirmingFinalize] = useState(false);
@@ -266,10 +253,7 @@ export function SpiralCardModal() {
     fontId: "mono-01",
     colorHex: DEFAULT_COLOR,
     cardholderName: "",
-    wrapRef: "default",
-    wrapData: null,
   };
-  const wrapUrl = wrapDataUrl(cosmetic);
 
   useFocusTrap(panelRef, open);
 
@@ -383,42 +367,6 @@ export function SpiralCardModal() {
     void persistCosmetic({ ...cosmetic, cardholderName: next });
   };
 
-  const chooseWrap = async () => {
-    if (savingCosmetic || !hasCard) return;
-    setSavingCosmetic(true);
-    setError(null);
-    try {
-      await setWrapFromPicker();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      useBackgroundTasksStore
-        .getState()
-        .showErrorToast(
-          spiralCardWrapErrorPayload(classifySpiralCardWrapError(message)),
-        );
-    } finally {
-      setSavingCosmetic(false);
-    }
-  };
-
-  const resetWrap = async () => {
-    if (savingCosmetic || !hasCard || cosmetic.wrapRef === "default") return;
-    setSavingCosmetic(true);
-    setError(null);
-    try {
-      await clearWrap();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      useBackgroundTasksStore
-        .getState()
-        .showErrorToast(
-          spiralCardWrapErrorPayload(classifySpiralCardWrapError(message)),
-        );
-    } finally {
-      setSavingCosmetic(false);
-    }
-  };
-
   const revealCard = async () => {
     if (revealingCard || !hasCard) return;
     setRevealingCard(true);
@@ -498,7 +446,7 @@ export function SpiralCardModal() {
             )}
             {error && (
               <p className="spiral-card-modal__error" role="alert">
-                {error}
+                {translateUserError(error) ?? t("errors:license.generic")}
               </p>
             )}
           </div>
@@ -517,20 +465,9 @@ export function SpiralCardModal() {
                   style={{
                     ...tiltStyle,
                     ["--spiral-card-color" as string]: cosmetic.colorHex,
-                    ...(wrapUrl
-                      ? {
-                          ["--spiral-card-wrap" as string]: `url(${wrapUrl})`,
-                        }
-                      : {}),
                   }}
                   {...cardTilt}
                 >
-                  {wrapUrl && (
-                    <div
-                      className="spiral-card-modal__preview-wrap"
-                      aria-hidden
-                    />
-                  )}
                   <div className="spiral-card-modal__preview-inner">
                     <div className="spiral-card-modal__preview-meta">
                       <div className="spiral-card-modal__brand-row">
@@ -607,7 +544,7 @@ export function SpiralCardModal() {
             <div className="spiral-card-modal__controls">
               {error && (
                 <p className="spiral-card-modal__error" role="alert">
-                  {error}
+                  {translateUserError(error) ?? t("errors:license.generic")}
                 </p>
               )}
 
@@ -655,33 +592,6 @@ export function SpiralCardModal() {
                     }
                     resetLabel={t("spiralCard.resetColor")}
                   />
-                </FormField>
-                <FormField
-                  label={t("spiralCard.wrap")}
-                  description={t("spiralCard.wrapDescription")}
-                >
-                  <div className="spiral-card-modal__wrap-actions">
-                    <Button
-                      variant="secondary"
-                      disabled={savingCosmetic || confirmingFinalize}
-                      onClick={() => void chooseWrap()}
-                      size="sm"
-                    >
-                      {savingCosmetic
-                        ? t("saving")
-                        : t("spiralCard.chooseImage")}
-                    </Button>
-                    {cosmetic.wrapRef === "custom" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={savingCosmetic || confirmingFinalize}
-                        onClick={() => void resetWrap()}
-                      >
-                        {t("spiralCard.useDefault")}
-                      </Button>
-                    )}
-                  </div>
                 </FormField>
               </div>
             </div>

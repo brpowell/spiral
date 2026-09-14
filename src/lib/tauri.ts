@@ -1283,10 +1283,6 @@ export async function pickSpcardFile(): Promise<string | null> {
   return invoke<string | null>("pick_spcard_file");
 }
 
-export async function pickCardWrapFile(): Promise<string | null> {
-  return invoke<string | null>("pick_card_wrap_file");
-}
-
 export async function installRegistrationCard(
   path: string,
 ): Promise<LicenseSnapshot> {
@@ -1306,16 +1302,6 @@ export async function updateRegistrationCosmetic(
   cosmetic: LicenseCosmetic,
 ): Promise<LicenseSnapshot> {
   return invoke<LicenseSnapshot>("update_registration_cosmetic", { cosmetic });
-}
-
-export async function setRegistrationWrapFromFile(
-  path: string,
-): Promise<LicenseSnapshot> {
-  return invoke<LicenseSnapshot>("set_registration_wrap_from_file", { path });
-}
-
-export async function clearRegistrationWrap(): Promise<LicenseSnapshot> {
-  return invoke<LicenseSnapshot>("clear_registration_wrap");
 }
 
 export async function takePendingSpcardOpens(): Promise<string[]> {

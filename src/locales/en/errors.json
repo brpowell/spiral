@@ -7,7 +7,6 @@
       "unrecognized": "Your installed Spiral Card isn't recognized by this version of Spiral. Add a new card to continue.",
       "unverified": "Your installed Spiral Card couldn't be verified. Try adding it again, or contact support.",
       "unsupported": "Your installed Spiral Card isn't supported by this version of Spiral. Add a new card to continue.",
-      "invalid": "Your installed Spiral Card doesn't look valid. Check the file and try again.",
       "unreadable": "Your installed Spiral Card couldn't be read. Try adding it again."
     },
     "installing": {
@@ -15,7 +14,6 @@
       "unrecognized": "This Spiral Card isn't recognized by this version of Spiral. Add a new card to continue.",
       "unverified": "This Spiral Card couldn't be verified. Try adding it again, or contact support.",
       "unsupported": "This Spiral Card isn't supported by this version of Spiral. Add a new card to continue.",
-      "invalid": "This Spiral Card doesn't look valid. Check the file and try again.",
       "unreadable": "Couldn't read that Spiral Card file. Try again.",
       "not_found": "That Spiral Card file couldn't be found."
     }

@@ -24,6 +24,12 @@ describe("i18n Phase 7 catalogs and switching", () => {
     expect(t("errors:license.installing.not_found")).toBe(
       "That Spiral Card file couldn't be found.",
     );
+    expect(t("errors:license.installing.unreadable")).toBe(
+      "Couldn't read that Spiral Card file. Try again.",
+    );
+    expect(t("errors:license.installed.unreadable")).toBe(
+      "Your installed Spiral Card couldn't be read. Try adding it again.",
+    );
     expect(t("errors:license.installed.unverified")).toBe(
       "Your installed Spiral Card couldn't be verified. Try adding it again, or contact support.",
     );

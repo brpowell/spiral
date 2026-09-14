@@ -32,7 +32,6 @@ import {
   spiralCardFinalizedPayload,
   spiralCardFinalizeNetworkErrorPayload,
   spiralCardInstallSuccessPayload,
-  spiralCardWrapErrorPayload,
   themeCreateFailedPayload,
   themeDeletedPayload,
   themeSavedPayload,
@@ -1846,15 +1845,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
       showErrorToast(
         spiralCardFinalizeNetworkErrorPayload(true, { dismissMs }),
       );
-    },
-  },
-  {
-    id: "spcard-wrap",
-    group: "Spiral Card",
-    buttonLabel: "Wrap too large",
-    source: "SpiralCardModal.tsx",
-    fire: ({ showErrorToast, dismissMs }) => {
-      showErrorToast(spiralCardWrapErrorPayload("too_large", { dismissMs }));
     },
   },
 

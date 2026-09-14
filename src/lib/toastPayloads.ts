@@ -345,53 +345,6 @@ export function spiralCardFinalizeNetworkErrorPayload(
   );
 }
 
-export type SpiralCardWrapErrorKind = "too_large" | "undecodable" | "generic";
-
-export function classifySpiralCardWrapError(
-  raw: string,
-): SpiralCardWrapErrorKind {
-  const msg = raw.replace(/^invalid_wrap:\s*/i, "").trim();
-  if (/exceeds .+ bytes|too large/i.test(msg)) return "too_large";
-  if (/could not decode|not valid Base64|zero dimensions/i.test(msg)) {
-    return "undecodable";
-  }
-  return "generic";
-}
-
-export function spiralCardWrapErrorPayload(
-  kind: SpiralCardWrapErrorKind,
-  options?: { dismissMs?: number | null },
-): ToastPayload {
-  if (kind === "too_large") {
-    return withOptionalDismiss(
-      {
-        key: "spiral-card-wrap",
-        label: t("toasts:spiralCard.wrapTooLarge"),
-        detail: t("toasts:spiralCard.wrapTooLargeDetail"),
-      },
-      options?.dismissMs,
-    );
-  }
-  if (kind === "undecodable") {
-    return withOptionalDismiss(
-      {
-        key: "spiral-card-wrap",
-        label: t("toasts:spiralCard.wrapUndecodable"),
-        detail: t("toasts:spiralCard.wrapUndecodableDetail"),
-      },
-      options?.dismissMs,
-    );
-  }
-  return withOptionalDismiss(
-    {
-      key: "spiral-card-wrap",
-      label: t("toasts:spiralCard.wrapFailed"),
-      detail: t("toasts:spiralCard.wrapFailedDetail"),
-    },
-    options?.dismissMs,
-  );
-}
-
 // —— Packs ——
 
 export function packInstalledPayload(

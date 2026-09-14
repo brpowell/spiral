@@ -136,13 +136,7 @@
     "finalizedDetail": "Your Spiral card is permanent.",
     "finalizeFailed": "Failed to finalize",
     "finalizeOffline": "You're offline, connect and try again.",
-    "finalizeConnection": "Check your connection and try again.",
-    "wrapTooLarge": "Wrap image is too large",
-    "wrapTooLargeDetail": "Try art around 856×540. Spiral stores wraps under 2 MB after compression.",
-    "wrapUndecodable": "Couldn't read that wrap image",
-    "wrapUndecodableDetail": "Use a JPEG, PNG, or WebP of your card art.",
-    "wrapFailed": "Couldn't apply wrap",
-    "wrapFailedDetail": "Try another image around 856×540."
+    "finalizeConnection": "Check your connection and try again."
   },
   "packs": {
     "installed": "Installed {{name}} ({{version}})",

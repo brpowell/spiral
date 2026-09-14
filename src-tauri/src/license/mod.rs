@@ -11,16 +11,15 @@ pub mod mint;
 mod runtime;
 mod trial_gate;
 pub mod verifier;
-mod wrap;
 
 pub use crypto::{
     sign_grant, signing_key_from_bytes, verify_grant_signature, verifying_key_from_bytes,
     SigningKey, VerifyingKey,
 };
 pub use runtime::{
-    clear_registration_wrap, install_registration_card, load_license_snapshot,
-    merge_finalized_grant_json, registration_spcard_path_if_present,
-    set_registration_wrap_from_bytes, update_registration_cosmetic, LicenseSnapshot, LicenseStatus,
+    install_registration_card, load_license_snapshot, merge_finalized_grant_json,
+    registration_spcard_path_if_present, update_registration_cosmetic, LicenseSnapshot,
+    LicenseStatus,
 };
 pub use trial_gate::assert_can_add_library_track;
 pub use verifier::{
@@ -47,6 +46,16 @@ pub const SKU_STANDARD: &str = "standard";
 /// Early-access founder cohort SKU.
 pub const SKU_FOUNDER: &str = "founder";
 
+/// Max on-disk / in-memory `.spcard` size (UTF-8 bytes).
+///
+/// Typical cards are ~0.6 KiB. 64 KiB leaves headroom for pretty JSON and
+/// several grants without allowing large embedded payloads.
+pub const SPCARD_MAX_BYTES: usize = 64 * 1024;
+
+/// Max `grants[]` length. Unlock is one Spiral grant; extra slots are for a
+/// modest number of future addons — not an unbounded array.
+pub const SPCARD_MAX_GRANTS: usize = 16;
+
 /// U+001F UNIT SEPARATOR between signed grant fields.
 const FIELD_SEP: u8 = 0x1F;
 
@@ -62,16 +71,15 @@ pub fn default_cosmetic() -> Cosmetic {
         font_id: "mono-01".to_string(),
         color_hex: "#2b2b2b".to_string(),
         cardholder_name: String::new(),
-        wrap_ref: "default".to_string(),
-        wrap_data: None,
     }
 }
 
 /// PoC bundled font ids. Unknown → default `mono-01`.
 const KNOWN_FONT_IDS: &[&str] = &["mono-01"];
 
-/// PoC wrap preset ids (plus `"custom"`).
-const KNOWN_WRAP_PRESETS: &[&str] = &["default"];
+/// Allowed `cosmetic` object keys (`manifestVersion: 1`). Anything else
+/// (`wrapRef`, `wrapData`, …) is `unknown_field`.
+const KNOWN_COSMETIC_KEYS: &[&str] = &["fontId", "colorHex", "cardholderName"];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -113,13 +121,11 @@ pub struct Grant {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Cosmetic {
     pub font_id: String,
     pub color_hex: String,
     pub cardholder_name: String,
-    pub wrap_ref: String,
-    pub wrap_data: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
@@ -227,53 +233,59 @@ fn is_strict_color_hex(s: &str) -> bool {
     b[1..].iter().all(|c| c.is_ascii_hexdigit())
 }
 
+fn repaired_font_id(raw: Option<&str>) -> String {
+    match raw {
+        Some(font) if KNOWN_FONT_IDS.contains(&font) => font.to_string(),
+        _ => default_cosmetic().font_id,
+    }
+}
+
+fn repaired_color_hex(raw: Option<&str>) -> String {
+    match raw {
+        Some(color) if is_strict_color_hex(color) => {
+            format!("#{}", color[1..].to_ascii_lowercase())
+        }
+        _ => default_cosmetic().color_hex,
+    }
+}
+
+fn repaired_cardholder_name(raw: Option<&str>) -> String {
+    match raw {
+        Some(name) => normalize_cardholder_name(name),
+        None => String::new(),
+    }
+}
+
 /// Soft-repair cosmetic to defaults / normalized fields. Never fails.
 pub fn repair_cosmetic(raw: Option<&Value>) -> Cosmetic {
     let Some(obj) = raw.and_then(|v| v.as_object()) else {
         return default_cosmetic();
     };
 
-    let mut cosmetic = default_cosmetic();
+    Cosmetic {
+        font_id: repaired_font_id(obj.get("fontId").and_then(|v| v.as_str())),
+        color_hex: repaired_color_hex(obj.get("colorHex").and_then(|v| v.as_str())),
+        cardholder_name: repaired_cardholder_name(
+            obj.get("cardholderName").and_then(|v| v.as_str()),
+        ),
+    }
+}
 
-    if let Some(font) = obj.get("fontId").and_then(|v| v.as_str()) {
-        if KNOWN_FONT_IDS.contains(&font) {
-            cosmetic.font_id = font.to_string();
+/// Fail closed on unknown cosmetic keys (same code as unknown top-level fields).
+/// Missing / non-object cosmetic is left for [`repair_cosmetic`].
+fn reject_unknown_cosmetic_keys(raw: Option<&Value>) -> Result<(), LicenseError> {
+    let Some(Value::Object(obj)) = raw else {
+        return Ok(());
+    };
+    for key in obj.keys() {
+        if !KNOWN_COSMETIC_KEYS.contains(&key.as_str()) {
+            return Err(err(
+                "unknown_field",
+                format!("unknown cosmetic field: {key}"),
+            ));
         }
     }
-
-    if let Some(color) = obj.get("colorHex").and_then(|v| v.as_str()) {
-        if is_strict_color_hex(color) {
-            cosmetic.color_hex = format!("#{}", color[1..].to_ascii_lowercase());
-        }
-    }
-
-    if let Some(name) = obj.get("cardholderName").and_then(|v| v.as_str()) {
-        cosmetic.cardholder_name = normalize_cardholder_name(name);
-    }
-
-    let wrap_ref = obj
-        .get("wrapRef")
-        .and_then(|v| v.as_str())
-        .unwrap_or("default");
-
-    if wrap_ref == "custom" {
-        match obj.get("wrapData").and_then(|v| v.as_str()) {
-            // On load: validate decode + caps; pass through when already sanitized.
-            // Full re-encode happens on Studio write / set (see prepare_cosmetic_for_write).
-            Some(data) if !data.is_empty() => {
-                if let Some(accepted) = wrap::try_accept_wrap_base64_for_load(data) {
-                    cosmetic.wrap_ref = "custom".to_string();
-                    cosmetic.wrap_data = Some(accepted);
-                }
-            }
-            _ => {}
-        }
-    } else if KNOWN_WRAP_PRESETS.contains(&wrap_ref) {
-        cosmetic.wrap_ref = wrap_ref.to_string();
-        cosmetic.wrap_data = None;
-    }
-
-    cosmetic
+    Ok(())
 }
 
 /// Trim + cap cardholder display name (cosmetic only).
@@ -286,50 +298,23 @@ fn normalize_cardholder_name(name: &str) -> String {
     trimmed
 }
 
-/// Normalize cosmetic for write (Studio). Custom wraps are re-encoded once; failures error.
-pub fn prepare_cosmetic_for_write(cosmetic: Cosmetic) -> Result<Cosmetic, LicenseError> {
-    // Normalize font / color / name without the load-path wrap accept (we'd re-encode next).
-    let mut repaired = {
-        let mut value = serde_json::to_value(&Cosmetic {
-            font_id: cosmetic.font_id.clone(),
-            color_hex: cosmetic.color_hex.clone(),
-            cardholder_name: cosmetic.cardholder_name.clone(),
-            wrap_ref: "default".to_string(),
-            wrap_data: None,
-        })
-        .map_err(|e| {
-            err(
-                "invalid_cosmetic",
-                format!("failed to encode cosmetic: {e}"),
-            )
-        })?;
-        // Preserve requested wrap ref for the branch below; repair only non-wrap fields.
-        if let Some(obj) = value.as_object_mut() {
-            obj.insert(
-                "wrapRef".into(),
-                serde_json::Value::String(cosmetic.wrap_ref.clone()),
-            );
-        }
-        repair_cosmetic(Some(&value))
-    };
-
-    if cosmetic.wrap_ref == "custom" {
-        let Some(data) = cosmetic.wrap_data.as_deref().filter(|s| !s.is_empty()) else {
-            return Err(err("invalid_wrap", "custom wrap requires wrapData"));
-        };
-        let sanitized = wrap::sanitize_wrap_base64(data)?;
-        repaired.wrap_ref = "custom".to_string();
-        repaired.wrap_data = Some(sanitized);
-    } else {
-        repaired.wrap_ref = if KNOWN_WRAP_PRESETS.contains(&cosmetic.wrap_ref.as_str()) {
-            cosmetic.wrap_ref.clone()
-        } else {
-            "default".to_string()
-        };
-        repaired.wrap_data = None;
+/// Normalize cosmetic for write (Studio). Never fails grant verify; unknown fonts / colors repair.
+pub fn prepare_cosmetic_for_write(cosmetic: Cosmetic) -> Cosmetic {
+    Cosmetic {
+        font_id: repaired_font_id(Some(&cosmetic.font_id)),
+        color_hex: repaired_color_hex(Some(&cosmetic.color_hex)),
+        cardholder_name: repaired_cardholder_name(Some(&cosmetic.cardholder_name)),
     }
+}
 
-    Ok(repaired)
+pub(crate) fn reject_if_spcard_too_large(byte_len: u64) -> Result<(), LicenseError> {
+    if byte_len > SPCARD_MAX_BYTES as u64 {
+        return Err(err(
+            "spcard_too_large",
+            format!(".spcard exceeds max size ({byte_len} bytes, max {SPCARD_MAX_BYTES})"),
+        ));
+    }
+    Ok(())
 }
 
 pub(crate) fn parse_channel(s: &str) -> Result<LicenseChannel, LicenseError> {
@@ -422,6 +407,8 @@ fn parse_grant(value: &Value) -> Result<Grant, LicenseError> {
 /// Parse `.spcard` JSON. Unknown `manifestVersion` fails closed.
 /// Missing/corrupt `cosmetic` is repaired to defaults (does not fail).
 pub fn parse_spcard(json: &str) -> Result<Spcard, LicenseError> {
+    reject_if_spcard_too_large(json.len() as u64)?;
+
     let value: Value = serde_json::from_str(json)
         .map_err(|e| err("invalid_json", format!("invalid .spcard JSON: {e}")))?;
 
@@ -481,6 +468,15 @@ pub fn parse_spcard(json: &str) -> Result<Spcard, LicenseError> {
             "grants must contain at least one grant",
         ));
     }
+    if grants_arr.len() > SPCARD_MAX_GRANTS {
+        return Err(err(
+            "too_many_grants",
+            format!(
+                "grants has {} entries (max {SPCARD_MAX_GRANTS})",
+                grants_arr.len()
+            ),
+        ));
+    }
     let mut grants = Vec::with_capacity(grants_arr.len());
     for (i, item) in grants_arr.iter().enumerate() {
         grants.push(
@@ -488,6 +484,7 @@ pub fn parse_spcard(json: &str) -> Result<Spcard, LicenseError> {
         );
     }
 
+    reject_unknown_cosmetic_keys(obj.get("cosmetic"))?;
     let cosmetic = repair_cosmetic(obj.get("cosmetic"));
 
     Ok(Spcard {
@@ -706,7 +703,6 @@ mod tests {
         let mut value: Value = serde_json::from_str(PROVISIONAL).unwrap();
         value["cosmetic"]["colorHex"] = Value::String("#00ff00".into());
         value["cosmetic"]["fontId"] = Value::String("mono-01".into());
-        value["cosmetic"]["wrapRef"] = Value::String("default".into());
         value["cosmetic"]["cardholderName"] = Value::String("Ada".into());
         parse_and_verify(&value.to_string(), &poc_verifying_key()).unwrap();
     }
@@ -725,9 +721,7 @@ mod tests {
         value["cosmetic"] = serde_json::json!({
             "fontId": "not-a-font",
             "colorHex": "red",
-            "cardholderName": 123,
-            "wrapRef": "nope",
-            "wrapData": 123
+            "cardholderName": 123
         });
         let card = parse_and_verify(&value.to_string(), &poc_verifying_key()).unwrap();
         assert_eq!(card.cosmetic, default_cosmetic());
@@ -808,5 +802,74 @@ mod tests {
     fn parse_and_verify_poc_helper() {
         parse_and_verify_poc(PROVISIONAL).unwrap();
         parse_and_verify_poc(PERMANENT).unwrap();
+    }
+
+    #[test]
+    fn wrap_cosmetic_fields_fail_closed() {
+        for key in ["wrapRef", "wrapData"] {
+            let mut value: Value = serde_json::from_str(PROVISIONAL).unwrap();
+            value["cosmetic"][key] = Value::String("custom".into());
+            let err = parse_spcard(&value.to_string()).unwrap_err();
+            assert_eq!(err.code, "unknown_field", "{key}");
+            assert!(
+                err.message.contains(key),
+                "expected {key} in message, got {}",
+                err.message
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_cosmetic_field_fails_closed() {
+        let mut value: Value = serde_json::from_str(PROVISIONAL).unwrap();
+        value["cosmetic"]["noise"] = Value::String("x".into());
+        let err = parse_spcard(&value.to_string()).unwrap_err();
+        assert_eq!(err.code, "unknown_field");
+        assert!(err.message.contains("noise"));
+    }
+
+    fn fixture_with_n_grants(n: usize) -> String {
+        let mut value: Value = serde_json::from_str(PROVISIONAL).unwrap();
+        let grant = value["grants"][0].clone();
+        value["grants"] = Value::Array(vec![grant; n]);
+        value.to_string()
+    }
+
+    #[test]
+    fn grants_at_cap_parse() {
+        let json = fixture_with_n_grants(SPCARD_MAX_GRANTS);
+        assert!(json.len() < SPCARD_MAX_BYTES);
+        let card = parse_spcard(&json).unwrap();
+        assert_eq!(card.grants.len(), SPCARD_MAX_GRANTS);
+    }
+
+    #[test]
+    fn grants_over_cap_fail_closed() {
+        let json = fixture_with_n_grants(SPCARD_MAX_GRANTS + 1);
+        let err = parse_spcard(&json).unwrap_err();
+        assert_eq!(err.code, "too_many_grants");
+    }
+
+    #[test]
+    fn payload_under_byte_cap_parses() {
+        let mut json = PROVISIONAL.to_string();
+        json.push_str(&" ".repeat(8 * 1024));
+        assert!(json.len() < SPCARD_MAX_BYTES);
+        parse_spcard(&json).unwrap();
+    }
+
+    #[test]
+    fn payload_over_byte_cap_fails_closed_before_json() {
+        let oversized = "x".repeat(SPCARD_MAX_BYTES + 1);
+        let err = parse_spcard(&oversized).unwrap_err();
+        assert_eq!(err.code, "spcard_too_large");
+    }
+
+    #[test]
+    fn example_fixtures_are_well_under_byte_cap() {
+        assert!(PROVISIONAL.len() < 2048);
+        assert!(PERMANENT.len() < 2048);
+        assert!(PROVISIONAL.len() < SPCARD_MAX_BYTES);
+        assert!(PERMANENT.len() < SPCARD_MAX_BYTES);
     }
 }

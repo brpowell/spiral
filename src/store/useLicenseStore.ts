@@ -1,12 +1,9 @@
 import { create } from "zustand";
 import {
-  clearRegistrationWrap,
   finalizeRegistration as finalizeRegistrationInvoke,
   getLicenseState,
   installRegistrationCard,
-  pickCardWrapFile,
   pickSpcardFile,
-  setRegistrationWrapFromFile,
   updateRegistrationCosmetic,
 } from "../lib/tauri";
 import {
@@ -28,8 +25,6 @@ interface LicenseState {
   installFromPath: (path: string) => Promise<LicenseSnapshot>;
   finalizeRegistration: () => Promise<LicenseSnapshot>;
   updateCosmetic: (cosmetic: LicenseCosmetic) => Promise<LicenseSnapshot>;
-  setWrapFromPicker: () => Promise<LicenseSnapshot | null>;
-  clearWrap: () => Promise<LicenseSnapshot>;
   setPendingReplacePath: (path: string | null) => void;
   setSpiralCardOpen: (open: boolean) => void;
   openSpiralCard: () => void;
@@ -77,20 +72,6 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
 
   updateCosmetic: async (cosmetic) => {
     const snapshot = await updateRegistrationCosmetic(cosmetic);
-    set({ snapshot, loaded: true });
-    return snapshot;
-  },
-
-  setWrapFromPicker: async () => {
-    const path = await pickCardWrapFile();
-    if (!path) return null;
-    const snapshot = await setRegistrationWrapFromFile(path);
-    set({ snapshot, loaded: true });
-    return snapshot;
-  },
-
-  clearWrap: async () => {
-    const snapshot = await clearRegistrationWrap();
     set({ snapshot, loaded: true });
     return snapshot;
   },

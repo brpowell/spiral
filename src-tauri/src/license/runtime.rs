@@ -1,12 +1,11 @@
 //! App-facing license state: load / install / merge `.spcard`, derive offline status.
 
-use super::wrap::sanitize_wrap_image_bytes;
 use super::{
-    parse_and_verify_grant_poc, parse_and_verify_poc, prepare_cosmetic_for_write, serialize_spcard,
-    spiral_grant, verify_grant_signature, verifying_key_from_bytes, Cosmetic, Grant, LicenseError,
-    Spcard, POC_PUBLIC_KEY_BYTES, PRODUCT_ID_SPIRAL,
+    parse_and_verify_grant_poc, parse_and_verify_poc, prepare_cosmetic_for_write,
+    reject_if_spcard_too_large, serialize_spcard, spiral_grant, verify_grant_signature,
+    verifying_key_from_bytes, Cosmetic, Grant, LicenseError, Spcard, POC_PUBLIC_KEY_BYTES,
+    PRODUCT_ID_SPIRAL,
 };
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use std::fs;
@@ -62,13 +61,15 @@ impl LicenseSnapshot {
 
     fn from_card(card: &Spcard, now: DateTime<Utc>) -> Self {
         let Some(grant) = spiral_grant(card) else {
-            crate::activity_log::log(
-                crate::activity_log::LogLevel::Error,
-                "license.registration",
-                format!("invalid_spcard: no grant for productId {PRODUCT_ID_SPIRAL}"),
-                Some(serde_json::json!({ "productId": PRODUCT_ID_SPIRAL })),
+            log_card_error(
+                &LicenseError {
+                    code: "invalid_spcard",
+                    message: format!("no grant for productId {PRODUCT_ID_SPIRAL}"),
+                },
+                "Installed Spiral Card failed verification",
+                false,
             );
-            return Self::trial(true, Some("license.installed.invalid".into()));
+            return Self::trial(true, Some("license.installed.unreadable".into()));
         };
         Self {
             status: derive_license_status(grant, now),
@@ -118,37 +119,67 @@ fn format_license_error(err: &LicenseError) -> String {
     format!("{}: {}", err.code, err.message)
 }
 
-/// Frontend catalog key for card load / install failures (never English copy).
-/// Logs keep `format_license_error`; the UI maps these codes via `errors:*`.
-fn user_facing_card_error_code(err: &LicenseError, installing: bool) -> String {
-    let kind = match err.code {
+/// Catalog suffix (`errors:license.{installed,installing}.*`).
+///
+/// Size/grant caps and malformed cards share `unreadable` with IO failures —
+/// they are not distinct user-facing or activity-log categories.
+fn user_facing_card_error_kind(err: &LicenseError) -> &'static str {
+    match err.code {
         "unknown_field" if err.message.contains("entitlement") => "legacy_format",
         "unknown_field" | "unsupported_manifest_version" => "unrecognized",
         "invalid_signature" => "unverified",
         "unsupported_sku" | "unsupported_channel" => "unsupported",
-        "invalid_json" | "invalid_spcard" | "invalid_grant" | "missing_manifest_version" => {
-            "invalid"
-        }
         _ => "unreadable",
-    };
+    }
+}
+
+/// Frontend catalog key for card load / install failures (never English copy).
+fn user_facing_card_error_code(err: &LicenseError, installing: bool) -> String {
     let scope = if installing {
         "license.installing"
     } else {
         "license.installed"
     };
-    format!("{scope}.{kind}")
+    format!("{scope}.{}", user_facing_card_error_kind(err))
 }
 
-fn log_card_error(err: &LicenseError, action: &str) {
+fn log_card_error(err: &LicenseError, action: &str, installing: bool) {
+    let catalog = user_facing_card_error_code(err, installing);
+    let (message, details) = if user_facing_card_error_kind(err) == "unreadable" {
+        (
+            format!("{action} — {catalog}"),
+            serde_json::json!({ "code": catalog }),
+        )
+    } else {
+        (
+            format!("{action} — {}", format_license_error(err)),
+            serde_json::json!({
+                "code": err.code,
+                "message": err.message,
+            }),
+        )
+    };
     crate::activity_log::log(
         crate::activity_log::LogLevel::Error,
         "license.registration",
-        format!("{action} — {}", format_license_error(err)),
-        Some(serde_json::json!({
-            "code": err.code,
-            "message": err.message,
-        })),
+        message,
+        Some(details),
     );
+}
+
+/// Read `.spcard` text only after the on-disk size is within the contract cap.
+fn read_spcard_text_capped(path: &Path) -> Result<String, LicenseError> {
+    let meta = fs::metadata(path).map_err(|e| LicenseError {
+        code: "unreadable",
+        message: format!("could not stat .spcard: {e}"),
+    })?;
+    reject_if_spcard_too_large(meta.len())?;
+    let json = fs::read_to_string(path).map_err(|e| LicenseError {
+        code: "unreadable",
+        message: format!("could not read .spcard: {e}"),
+    })?;
+    reject_if_spcard_too_large(json.len() as u64)?;
+    Ok(json)
 }
 
 /// Load + verify the installed card (or return trial). Never panics.
@@ -162,23 +193,18 @@ pub(crate) fn load_license_snapshot_at(path: &Path, now: DateTime<Utc>) -> Licen
         return LicenseSnapshot::trial(false, None);
     }
 
-    let json = match fs::read_to_string(path) {
+    let json = match read_spcard_text_capped(path) {
         Ok(s) => s,
         Err(e) => {
-            crate::activity_log::log(
-                crate::activity_log::LogLevel::Error,
-                "license.registration",
-                format!("Could not read registration card — {e}"),
-                None,
-            );
-            return LicenseSnapshot::trial(true, Some("license.installed.unreadable".into()));
+            log_card_error(&e, "Could not read registration card", false);
+            return LicenseSnapshot::trial(true, Some(user_facing_card_error_code(&e, false)));
         }
     };
 
     match parse_and_verify_poc(&json) {
         Ok(card) => LicenseSnapshot::from_card(&card, now),
         Err(e) => {
-            log_card_error(&e, "Installed Spiral Card failed verification");
+            log_card_error(&e, "Installed Spiral Card failed verification", false);
             LicenseSnapshot::trial(true, Some(user_facing_card_error_code(&e, false)))
         }
     }
@@ -194,20 +220,18 @@ pub fn install_registration_card(
         return Err("license.installing.not_found".into());
     }
 
-    let json = fs::read_to_string(source).map_err(|e| {
-        crate::activity_log::log(
-            crate::activity_log::LogLevel::Error,
-            "license.registration",
-            format!("Failed to read Spiral Card for install — {e}"),
-            Some(serde_json::json!({ "path": source_path })),
-        );
-        "license.installing.unreadable".to_string()
-    })?;
+    let json = match read_spcard_text_capped(source) {
+        Ok(s) => s,
+        Err(e) => {
+            log_card_error(&e, "Spiral Card install rejected", true);
+            return Err(user_facing_card_error_code(&e, true));
+        }
+    };
 
     let card = match parse_and_verify_poc(&json) {
         Ok(card) => card,
         Err(e) => {
-            log_card_error(&e, "Spiral Card install rejected");
+            log_card_error(&e, "Spiral Card install rejected", true);
             return Err(user_facing_card_error_code(&e, true));
         }
     };
@@ -237,9 +261,9 @@ pub(crate) fn merge_finalized_grant_at(
         return Err("no registration card installed".into());
     }
 
-    let json =
-        fs::read_to_string(path).map_err(|e| format!("failed to read registration card: {e}"))?;
-    let existing = parse_and_verify_poc(&json).map_err(|e| format_license_error(&e))?;
+    let json = read_spcard_text_capped(path).map_err(|e| user_facing_card_error_code(&e, false))?;
+    let existing =
+        parse_and_verify_poc(&json).map_err(|e| user_facing_card_error_code(&e, false))?;
 
     let Some(idx) = existing
         .grants
@@ -309,11 +333,11 @@ pub(crate) fn update_registration_cosmetic_at(
         return Err("no registration card installed".into());
     }
 
-    let json =
-        fs::read_to_string(path).map_err(|e| format!("failed to read registration card: {e}"))?;
-    let existing = parse_and_verify_poc(&json).map_err(|e| format_license_error(&e))?;
+    let json = read_spcard_text_capped(path).map_err(|e| user_facing_card_error_code(&e, false))?;
+    let existing =
+        parse_and_verify_poc(&json).map_err(|e| user_facing_card_error_code(&e, false))?;
 
-    let repaired = prepare_cosmetic_for_write(cosmetic).map_err(|e| format_license_error(&e))?;
+    let repaired = prepare_cosmetic_for_write(cosmetic);
 
     let updated = Spcard {
         manifest_version: existing.manifest_version,
@@ -324,64 +348,15 @@ pub(crate) fn update_registration_cosmetic_at(
     Ok(LicenseSnapshot::from_card(&updated, now))
 }
 
-/// Set custom wrap from raw image bytes (re-encode pipeline). Preserves other cosmetics.
-pub fn set_registration_wrap_from_bytes(
-    app: &AppHandle,
-    image_bytes: &[u8],
-) -> Result<LicenseSnapshot, String> {
-    let dest = registration_spcard_path(app)?;
-    set_registration_wrap_from_bytes_at(&dest, image_bytes, Utc::now())
-}
-
-pub(crate) fn set_registration_wrap_from_bytes_at(
-    path: &Path,
-    image_bytes: &[u8],
-    now: DateTime<Utc>,
-) -> Result<LicenseSnapshot, String> {
-    if !path.exists() {
-        return Err("no registration card installed".into());
-    }
-
-    let json =
-        fs::read_to_string(path).map_err(|e| format!("failed to read registration card: {e}"))?;
-    let existing = parse_and_verify_poc(&json).map_err(|e| format_license_error(&e))?;
-    let jpeg = sanitize_wrap_image_bytes(image_bytes).map_err(|e| format_license_error(&e))?;
-
-    let next = Cosmetic {
-        font_id: existing.cosmetic.font_id.clone(),
-        color_hex: existing.cosmetic.color_hex.clone(),
-        cardholder_name: existing.cosmetic.cardholder_name.clone(),
-        wrap_ref: "custom".to_string(),
-        wrap_data: Some(BASE64.encode(&jpeg)),
-    };
-    update_registration_cosmetic_at(path, next, now)
-}
-
-/// Clear custom wrap back to the default preset (keeps cardholder name / color / font).
-pub fn clear_registration_wrap(app: &AppHandle) -> Result<LicenseSnapshot, String> {
-    let snap = load_license_snapshot(app)?;
-    let Some(cosmetic) = snap.cosmetic else {
-        return Err("no registration card installed".into());
-    };
-    update_registration_cosmetic(
-        app,
-        Cosmetic {
-            font_id: cosmetic.font_id,
-            color_hex: cosmetic.color_hex,
-            cardholder_name: cosmetic.cardholder_name,
-            wrap_ref: "default".to_string(),
-            wrap_data: None,
-        },
-    )
-}
-
 fn write_registration_card_atomic(dest: &Path, card: &Spcard) -> Result<(), String> {
     let parent = dest
         .parent()
         .ok_or_else(|| format!("registration card path has no parent: {}", dest.display()))?;
     fs::create_dir_all(parent).map_err(|e| format!("failed to create license directory: {e}"))?;
 
-    let json = serialize_spcard(card).map_err(|e| format_license_error(&e))?;
+    let json = serialize_spcard(card).map_err(|e| user_facing_card_error_code(&e, false))?;
+    reject_if_spcard_too_large(json.len() as u64)
+        .map_err(|e| user_facing_card_error_code(&e, false))?;
     let tmp = parent.join("registration.spcard.tmp");
     fs::write(&tmp, &json).map_err(|e| format!("failed to write registration card: {e}"))?;
     fs::rename(&tmp, dest).map_err(|e| {
@@ -395,8 +370,8 @@ fn write_registration_card_atomic(dest: &Path, card: &Spcard) -> Result<(), Stri
 mod tests {
     use super::*;
     use crate::license::{
-        mint_grant, mint_spcard, signing_key_from_bytes, Cosmetic, LicenseChannel, LicenseError,
-        LicenseSku, PRODUCT_ID_SPIRAL,
+        mint_grant, mint_spcard, signing_key_from_bytes, LicenseChannel, LicenseSku,
+        SPCARD_MAX_BYTES, SPCARD_MAX_GRANTS,
     };
     use std::time::Duration;
 
@@ -521,9 +496,7 @@ mod tests {
             "cosmetic": {
                 "fontId": "mono-01",
                 "colorHex": "#2b2b2b",
-                "cardholderName": "",
-                "wrapRef": "default",
-                "wrapData": null
+                "cardholderName": ""
             }
         });
         fs::write(&path, legacy.to_string()).unwrap();
@@ -566,8 +539,7 @@ mod tests {
         let mut value: serde_json::Value = serde_json::from_str(PERMANENT).unwrap();
         value["cosmetic"] = serde_json::json!({
             "fontId": "not-a-font",
-            "colorHex": "red",
-            "wrapRef": "nope"
+            "colorHex": "red"
         });
         fs::write(&path, value.to_string()).unwrap();
         let snap = load_license_snapshot_at(&path, now_fixed());
@@ -575,6 +547,23 @@ mod tests {
         let cosmetic = snap.cosmetic.unwrap();
         assert_eq!(cosmetic.font_id, "mono-01");
         assert_eq!(cosmetic.color_hex, "#2b2b2b");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn wrap_fields_are_unrecognized_on_load() {
+        let dir = temp_dir();
+        let path = dir.join("registration.spcard");
+        let mut value: serde_json::Value = serde_json::from_str(PERMANENT).unwrap();
+        value["cosmetic"]["wrapRef"] = serde_json::Value::String("default".into());
+        fs::write(&path, value.to_string()).unwrap();
+        let snap = load_license_snapshot_at(&path, now_fixed());
+        assert_eq!(snap.status, LicenseStatus::Trial);
+        assert!(snap.installed);
+        assert_eq!(
+            snap.error.as_deref(),
+            Some("license.installed.unrecognized")
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -624,8 +613,6 @@ mod tests {
             font_id: "mono-01".to_string(),
             color_hex: "#ff5500".to_string(),
             cardholder_name: String::new(),
-            wrap_ref: "default".to_string(),
-            wrap_data: None,
         };
         let provisional = Spcard {
             manifest_version: 1,
@@ -701,8 +688,6 @@ mod tests {
             font_id: "mono-01".to_string(),
             color_hex: "#AABBCC".to_string(),
             cardholder_name: String::new(),
-            wrap_ref: "default".to_string(),
-            wrap_data: None,
         };
         let snap = update_registration_cosmetic_at(&path, next, now_fixed()).unwrap();
         assert_eq!(snap.status, LicenseStatus::Licensed);
@@ -728,8 +713,6 @@ mod tests {
                 font_id: "mono-01".to_string(),
                 color_hex: "#112233".to_string(),
                 cardholder_name: String::new(),
-                wrap_ref: "default".to_string(),
-                wrap_data: None,
             },
             now_fixed(),
         )
@@ -739,47 +722,73 @@ mod tests {
     }
 
     #[test]
-    fn custom_wrap_survives_round_trip_and_preserves_grants() {
-        use image::{DynamicImage, ImageFormat, RgbaImage};
-        use std::io::Cursor;
-
-        let key = signing_key_from_bytes(POC_PRIVATE_KEY).unwrap();
-        let card = mint_spcard(
-            &key,
-            "spiral",
-            LicenseSku::Standard,
-            "wrap-roundtrip-001",
-            LicenseChannel::Direct,
-            "2026-07-01T12:00:00Z",
-            None,
-        )
-        .unwrap();
-        let grants_before = card.grants.clone();
-
+    fn oversized_file_is_trial_with_unreadable_error() {
         let dir = temp_dir();
         let path = dir.join("registration.spcard");
-        write_registration_card_atomic(&path, &card).unwrap();
-
-        let img = RgbaImage::from_pixel(128, 80, image::Rgba([200, 40, 40, 255]));
-        let mut buf = Cursor::new(Vec::new());
-        DynamicImage::ImageRgba8(img)
-            .write_to(&mut buf, ImageFormat::Png)
-            .unwrap();
-        let snap =
-            set_registration_wrap_from_bytes_at(&path, &buf.into_inner(), now_fixed()).unwrap();
-        assert_eq!(snap.cosmetic.as_ref().unwrap().wrap_ref, "custom");
-        assert!(snap.cosmetic.as_ref().unwrap().wrap_data.is_some());
-
-        let on_disk = fs::read_to_string(&path).unwrap();
-        let reloaded = parse_and_verify_poc(&on_disk).unwrap();
-        assert_eq!(reloaded.grants, grants_before);
-        assert_eq!(reloaded.cosmetic.wrap_ref, "custom");
-        assert!(reloaded.cosmetic.wrap_data.is_some());
-
-        let snap2 = load_license_snapshot_at(&path, now_fixed());
-        assert_eq!(snap2.status, LicenseStatus::Licensed);
-        assert_eq!(snap2.cosmetic.as_ref().unwrap().wrap_ref, "custom");
+        let blob = "x".repeat(SPCARD_MAX_BYTES + 1);
+        fs::write(&path, blob).unwrap();
+        let snap = load_license_snapshot_at(&path, now_fixed());
+        assert_eq!(snap.status, LicenseStatus::Trial);
+        assert!(snap.installed);
+        assert_eq!(snap.error.as_deref(), Some("license.installed.unreadable"));
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn too_many_grants_is_trial_with_unreadable_error() {
+        let dir = temp_dir();
+        let path = dir.join("registration.spcard");
+        let mut value: serde_json::Value = serde_json::from_str(PERMANENT).unwrap();
+        let grant = value["grants"][0].clone();
+        value["grants"] = serde_json::Value::Array(vec![grant; SPCARD_MAX_GRANTS + 1]);
+        fs::write(&path, value.to_string()).unwrap();
+        let snap = load_license_snapshot_at(&path, now_fixed());
+        assert_eq!(snap.status, LicenseStatus::Trial);
+        assert!(snap.installed);
+        assert_eq!(snap.error.as_deref(), Some("license.installed.unreadable"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn grants_at_cap_still_unlock() {
+        let dir = temp_dir();
+        let path = dir.join("registration.spcard");
+        let mut value: serde_json::Value = serde_json::from_str(PERMANENT).unwrap();
+        let grant = value["grants"][0].clone();
+        value["grants"] = serde_json::Value::Array(vec![grant; SPCARD_MAX_GRANTS]);
+        fs::write(&path, value.to_string()).unwrap();
+        let snap = load_license_snapshot_at(&path, now_fixed());
+        assert_eq!(snap.status, LicenseStatus::Licensed);
+        assert!(snap.error.is_none());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn card_error_codes_map_size_grants_and_invalid_to_unreadable() {
+        let too_large = LicenseError {
+            code: "spcard_too_large",
+            message: "big".into(),
+        };
+        assert_eq!(
+            user_facing_card_error_code(&too_large, true),
+            "license.installing.unreadable"
+        );
+        let too_many = LicenseError {
+            code: "too_many_grants",
+            message: "many".into(),
+        };
+        assert_eq!(
+            user_facing_card_error_code(&too_many, false),
+            "license.installed.unreadable"
+        );
+        let malformed = LicenseError {
+            code: "invalid_json",
+            message: "not json".into(),
+        };
+        assert_eq!(
+            user_facing_card_error_code(&malformed, true),
+            "license.installing.unreadable"
+        );
     }
 
     #[test]

@@ -55,19 +55,6 @@ pub fn pick_spcard_file() -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
-pub fn pick_card_wrap_file() -> Result<Option<String>, String> {
-    let path = rfd::FileDialog::new()
-        .set_title("Choose Spiral Card wrap")
-        .add_filter(
-            "Images",
-            &["jpg", "jpeg", "png", "webp", "JPG", "JPEG", "PNG", "WEBP"],
-        )
-        .pick_file();
-
-    Ok(path.map(|p| p.to_string_lossy().into_owned()))
-}
-
-#[tauri::command]
 pub fn install_registration_card(app: AppHandle, path: String) -> Result<LicenseSnapshot, String> {
     license::install_registration_card(&app, &path)
 }
@@ -126,21 +113,6 @@ pub fn update_registration_cosmetic(
     cosmetic: Cosmetic,
 ) -> Result<LicenseSnapshot, String> {
     license::update_registration_cosmetic(&app, cosmetic)
-}
-
-/// Custom wrap from a picked image path — re-encode / cap / EXIF-strip.
-#[tauri::command]
-pub fn set_registration_wrap_from_file(
-    app: AppHandle,
-    path: String,
-) -> Result<LicenseSnapshot, String> {
-    let bytes = fs::read(&path).map_err(|e| format!("failed to read wrap image: {e}"))?;
-    license::set_registration_wrap_from_bytes(&app, &bytes)
-}
-
-#[tauri::command]
-pub fn clear_registration_wrap(app: AppHandle) -> Result<LicenseSnapshot, String> {
-    license::clear_registration_wrap(&app)
 }
 
 /// Drain `.spcard` paths queued before the UI was ready (cold start).
