@@ -6,8 +6,8 @@
  *   npm run release -- installer              # native for this machine
  *   npm run release -- installer dmg
  *   npm run release -- installer nsis
- *   npm run release -- installer linux        # AppImage + deb
- *   npm run release -- installer deb          # deb only (smoke)
+ *   npm run release -- installer linux        # AppImage (v1 Direct)
+ *   npm run release -- installer deb          # deb only (optional later, #333)
  *   npm run release -- installer dmg -- --target aarch64-apple-darwin
  *
  * Extra args after `--` are passed to `tauri build`.
@@ -48,12 +48,12 @@ const BUNDLES = {
   linux: {
     host: "linux",
     hostLabel: "Linux",
-    args: ["--bundles", "appimage,deb"],
-    outHint: "src-tauri/target/**/bundle/{appimage,deb}/",
-    needle: join("bundle"),
-    matchName: (name) => name.endsWith(".AppImage") || name.endsWith(".deb"),
+    args: ["--bundles", "appimage"],
+    outHint: "src-tauri/target/**/bundle/appimage/",
+    needle: join("bundle", "appimage"),
+    matchName: (name) => name.endsWith(".AppImage"),
   },
-  // Deb-only smoke (skips linuxdeploy / AppImage). Same TMPDIR handling.
+  // Optional .deb smoke (#333). Same TMPDIR handling; skips linuxdeploy.
   deb: {
     host: "linux",
     hostLabel: "Linux",
@@ -72,7 +72,7 @@ Usage:
 
 Defaults to the native installer for this machine (${process.platform}).
 Cross-OS builds are not supported (need a Mac for DMG, Windows for NSIS,
-Linux for AppImage/deb).
+Linux for AppImage).
 `);
   process.exit(exitCode);
 }
@@ -187,6 +187,11 @@ const tauriArgs = ["run", "tauri", "--", "build", ...spec.args, ...passthrough];
 console.log(`$ npm ${tauriArgs.join(" ")}`);
 
 const env = { ...process.env };
+// --ci keys need an explicit empty password or tauri-bundler prompts on a TTY
+// and hangs (same as sign-updater.mjs). createUpdaterArtifacts is always on.
+if (env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD === undefined) {
+  env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "";
+}
 if (spec.host === "linux") {
   // linuxdeploy is an AppImage; force extract-and-run when FUSE is missing.
   if (kind !== "deb" && !env.APPIMAGE_EXTRACT_AND_RUN) {

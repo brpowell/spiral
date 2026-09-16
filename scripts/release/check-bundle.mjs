@@ -71,6 +71,42 @@ function packagedApps(paths) {
   );
 }
 
+function linuxAppDirs(paths) {
+  return paths.filter(
+    (p) => p.endsWith(".AppDir") && existsSync(p) && statSync(p).isDirectory(),
+  );
+}
+
+function linuxAppImages(paths) {
+  return paths.filter(
+    (p) => p.endsWith(".AppImage") && isBundlePath(p) && existsSync(p),
+  );
+}
+
+function linuxAppDirBinaries(appDir) {
+  const binDir = join(appDir, "usr", "bin");
+  if (!existsSync(binDir)) return [];
+  return readdirSync(binDir)
+    .filter((name) => name !== "." && name !== "..")
+    .map((name) => join(binDir, name))
+    .filter((p) => {
+      try {
+        return statSync(p).isFile();
+      } catch {
+        return false;
+      }
+    });
+}
+
+function checkLinuxLdd(bin) {
+  const ldd = execFileSync("ldd", [bin], { encoding: "utf8" });
+  const line = ldd.split("\n").find((row) => row.includes("libmp3lame.so.0"));
+  if (!line || /not found/.test(line)) {
+    fail(`${bin} does not resolve bundled libmp3lame.so.0:\n${ldd}`);
+  }
+  console.log(`ok ldd ${bin} → ${line.trim()}`);
+}
+
 function checkLame(paths, apps, debs) {
   const foundDylib = apps
     .map((app) => join(app, "Contents", "Frameworks", "libmp3lame.0.dylib"))
@@ -112,8 +148,30 @@ function checkLame(paths, apps, debs) {
     return;
   }
 
+  const appDirs = linuxAppDirs(paths);
+  const appImages = linuxAppImages(paths);
   let ok = Boolean(foundSo);
   if (foundSo) console.log(`ok ${foundSo}`);
+  for (const image of appImages) {
+    console.log(`ok ${image}`);
+    ok = true;
+  }
+  for (const appDir of appDirs) {
+    const so = join(appDir, "usr", "lib", "spiral", "libmp3lame.so.0");
+    if (!existsSync(so)) {
+      fail(`${appDir} is missing usr/lib/spiral/libmp3lame.so.0`);
+    }
+    console.log(`ok ${so}`);
+    const bins = linuxAppDirBinaries(appDir).filter((p) => {
+      const name = basename(p);
+      return name === "Spiral" || name === "spiral";
+    });
+    if (bins.length === 0) {
+      fail(`${appDir} usr/bin is missing the Spiral binary`);
+    }
+    for (const bin of bins) checkLinuxLdd(bin);
+    ok = true;
+  }
   for (const deb of debs) {
     const listing = execFileSync("dpkg-deb", ["-c", deb], { encoding: "utf8" });
     if (!listing.includes("libmp3lame.so.0")) {
@@ -124,7 +182,7 @@ function checkLame(paths, apps, debs) {
   }
   if (!ok) {
     fail(
-      "packaged Linux tree is missing usr/lib/spiral/libmp3lame.so.0 (AppDir) and no .deb listed it",
+      "packaged Linux tree is missing usr/lib/spiral/libmp3lame.so.0 (AppDir) and no AppImage/.deb listed it",
     );
   }
 }

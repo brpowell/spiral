@@ -54,7 +54,7 @@ Single entry: `npm run release -- <command> …` (`scripts/release/cli.mjs`).
 | `npm run release -- keys` | `generate-updater-keys.mjs` | `tauri signer generate --ci` |
 | `npm run release -- sign <file>` | `sign-updater.mjs` | `tauri signer sign` (same env vars as CI) |
 | `npm run release -- verify <file>` | `verify-updater-sig.mjs` | Verify `<file>.sig` against bundled pubkey |
-| `npm run release -- installer [kind]` | `build-installer.mjs` | Local installer (`dmg` / `nsis` / `linux` / `deb`); signs when env vars are set |
+| `npm run release -- installer [kind]` | `build-installer.mjs` | Local installer (`dmg` / `nsis` / `linux` AppImage / `deb`); signs when env vars are set |
 | `npm run release -- check vX.Y.Z` | `check-release-assets.mjs` | Same draft-asset gate as CI `platforms-green` |
 | `npm run release -- publish vX.Y.Z` | `publish-release.mjs` | Same checks + undraft as CI publish job |
 

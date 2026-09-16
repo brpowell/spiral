@@ -19,7 +19,8 @@
 # Fan-in: `platforms-green` is the single required check — it only goes green
 # once every matrix cell has succeeded and the draft has installers *and*
 # updater artifacts (macOS .app.tar.gz + .sig; Windows NSIS .sig; Linux
-# x64 + aarch64 AppImage + .sig) for all platforms. It intentionally still runs (rather than
+# x64 + aarch64 AppImage + .sig) for all platforms. Linux Direct v1 is
+# AppImage only (.deb is #333). It intentionally still runs (rather than
 # being skipped) when a build fails, since a skipped check can read as green
 # to required-check gating and downstream `needs:`. Operators should treat
 # this job as the signal for "ready to publish"; the actual publish step
@@ -71,16 +72,17 @@ jobs:
             rust_targets: ""
             lame_triple: x86_64-pc-windows-msvc
           # ubuntu-22.04: older glibc baseline than -latest (Tauri Linux guidance).
-          # AppImage is the updater payload; deb is the browser-download installer.
+          # AppImage is the v1 Direct download and the updater payload
+          # (createUpdaterArtifacts → .AppImage + .sig). .deb is #333.
           # Native runners (not cross-compile) — WebKit/AppImage tooling is host-arch.
           - label: linux-x64
             platform: ubuntu-22.04
-            args: --bundles appimage,deb
+            args: --bundles appimage
             rust_targets: ""
             lame_triple: x86_64-unknown-linux-gnu
           - label: linux-aarch64
             platform: ubuntu-22.04-arm
-            args: --bundles appimage,deb
+            args: --bundles appimage
             rust_targets: ""
             lame_triple: aarch64-unknown-linux-gnu
 

@@ -19,13 +19,17 @@ A local-first desktop app for managing and enjoying a personal music library. Yo
 - **Visualizations** — Audio-reactive visuals that make listening feel like an event. Spectrum analyzers, waveforms, and more.
 - **Themes** — Swap the entire look of the app with a theme file. Dark, light, warm, cold — make it yours.
 
+## Linux
+
+v1 Direct on Linux is an **AppImage** (x86_64 and aarch64). Download the matching file, `chmod +x`, and run. Details: [docs/guides/linux.md](docs/guides/linux.md).
+
 ## Known limitations
 
-Spiral is under active development. Some features are intentionally scoped or platform-limited. See [docs/known-limitations.md](docs/known-limitations.md) for the public list (crossfade scope, CD platform support, format gaps, and more).
+Spiral is under active development. Some features are intentionally scoped or platform-limited. See [docs/general/known-limitations.md](docs/general/known-limitations.md) for the public list (crossfade scope, CD platform support, format gaps, and more).
 
 ## Contributing
 
-Commits must follow [Conventional Commits](https://www.conventionalcommits.org/). See [docs/contributing.md](docs/contributing.md) for the format and the commitlint hook. Cutting a version: [docs/release.md](docs/release.md).
+Commits must follow [Conventional Commits](https://www.conventionalcommits.org/). See [docs/contributing/contributing.md](docs/contributing/contributing.md) for the format and the commitlint hook. Cutting a version: [docs/contributing/release.md](docs/contributing/release.md).
 
 ## Philosophy
 

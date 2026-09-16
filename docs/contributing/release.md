@@ -32,8 +32,8 @@ That PR just accumulates. Land as many features/fixes as you want before shippin
 4. The [Release](../.github/workflows/release.yml) workflow builds:
    - macOS arm64 + x64 → `--bundles app,dmg` (DMG installer + updater `.app.tar.gz` / `.sig`; `app` must be explicit or the bundler deletes `Spiral.app` and no updater tarball is left)
    - Windows x64 → NSIS (`*-setup.exe` + `.sig`; NSIS is also the updater payload)
-   - Linux x64 (`ubuntu-22.04`) + aarch64 (`ubuntu-22.04-arm`) → `--bundles appimage,deb` (`.deb` for download; AppImage + `.sig` for the updater — Tauri’s Linux update format)
-5. The **All platforms green** job (`platforms-green`) only passes when every matrix cell succeeded **and** the draft has installers **and** updater signatures for every platform. Treat the draft as ready only when that check is green — a partial matrix never counts. Asset expectations live in [`scripts/release/required-release-assets.mjs`](../scripts/release/required-release-assets.mjs). Updater artifacts require `bundle.createUpdaterArtifacts` and `TAURI_SIGNING_PRIVATE_KEY` on the `production-release` environment.
+   - Linux x64 (`ubuntu-22.04`) + aarch64 (`ubuntu-22.04-arm`) → `--bundles appimage` (AppImage is the v1 Direct download **and** the updater payload — Tauri `.AppImage` + `.sig`). Optional `.deb` is [#333](https://github.com/spiral-powered/spiral-desktop/issues/333), not a release gate.
+5. The **All platforms green** job (`platforms-green`) only passes when every matrix cell succeeded **and** the draft has installers **and** updater signatures for every platform. Treat the draft as ready only when that check is green — a partial matrix never counts. Asset expectations live in [`scripts/release/required-release-assets.mjs`](../../scripts/release/required-release-assets.mjs). Updater artifacts require `bundle.createUpdaterArtifacts` and `TAURI_SIGNING_PRIVATE_KEY` on the `production-release` environment.
 
 **Re-run a build** (e.g. one platform failed): Actions → **Release** → Run workflow → enter the tag (`v0.2.0`).
 
@@ -55,8 +55,8 @@ To re-run the notes sanitizer or backfill an older published release that still 
 One npm script, subcommands via `--`:
 
 ```bash
-npm run release -- installer              # native for this OS (dmg / nsis / linux)
-npm run release -- installer deb          # Linux deb only (skip AppImage)
+npm run release -- installer              # native for this OS (dmg / nsis / linux AppImage)
+npm run release -- installer deb          # Linux .deb only (optional later, #333)
 npm run release -- installer dmg -- --target aarch64-apple-darwin
 npm run release -- publish v0.2.0
 npm run release -- check v0.2.0
@@ -72,7 +72,7 @@ npm run release -- keys
 
 `npm run release -- --help` lists commands. Output lands under `src-tauri/target/**/bundle/`. Apple/Windows code signing is optional; **updater** signing is required for a full local bundle (`TAURI_SIGNING_PRIVATE_KEY` / `_PATH`) because `createUpdaterArtifacts` is on.
 
-On Linux, install the `.deb` for a system install (desktop file + file associations), or run the AppImage directly. CI ships both arches: `_amd64.deb` / `_amd64.AppImage` and `_arm64.deb` / `_aarch64.AppImage`.
+On Linux, the Direct download is the AppImage: `chmod +x` then run. CI ships both arches: `_amd64.AppImage` and `_aarch64.AppImage` (plus matching `.sig` updater signatures). User-facing download/run notes: [`docs/guides/linux.md`](../guides/linux.md).
 
 Linux installer commands set `APPIMAGE_EXTRACT_AND_RUN=1` (when building AppImage) and a disk-backed `TMPDIR` under `src-tauri/target/tmp`. That avoids two common VM footguns: no FUSE for linuxdeploy, and `/tmp` mounted as tmpfs **with usrquota** (Cursor’s sandbox cache can exhaust the quota so `df` still shows free space while every write returns `Disk quota exceeded (os error 122)`). If you invoke `tauri build` directly, export the same env first:
 
