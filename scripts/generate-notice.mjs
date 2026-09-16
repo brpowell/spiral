@@ -8,6 +8,7 @@
  *
  * Dev-only tools are excluded. Inventory is name / version / SPDX only.
  * Special notices (LAME, FDK, Symphonia) stay in the About → Licenses UI.
+ * First-party packages listed in IGNORE_PACKAGES are omitted.
  *
  * Usage:
  *   node scripts/generate-notice.mjs           # write src-tauri/NOTICE
@@ -23,6 +24,53 @@ const root = path.resolve(__dirname, "..");
 const outPath = path.join(root, "src-tauri/NOTICE");
 
 /** @typedef {{ name: string, version: string, license: string, ecosystem: 'npm' | 'cargo' }} NoticePackage */
+
+/**
+ * First-party packages omitted from NOTICE (this app and sibling Spiral packages).
+ *
+ * Patterns:
+ *   `name`       exact package name in either ecosystem
+ *   `eco:name`   exact name in one ecosystem (`npm:` or `cargo:`)
+ *   trailing `*` prefix match (`@spiral/*` for the whole npm scope)
+ */
+const IGNORE_PACKAGES = [
+  "@spiral/*",
+  "cargo:Spiral",
+  "spk-format",
+];
+
+/**
+ * @param {string} name
+ * @param {'npm' | 'cargo'} ecosystem
+ */
+function isIgnored(name, ecosystem) {
+  return IGNORE_PACKAGES.some((pattern) =>
+    matchesIgnore(pattern, name, ecosystem),
+  );
+}
+
+/**
+ * @param {string} pattern
+ * @param {string} name
+ * @param {'npm' | 'cargo'} ecosystem
+ */
+function matchesIgnore(pattern, name, ecosystem) {
+  let rest = pattern;
+  const colon = pattern.indexOf(":");
+  if (colon !== -1) {
+    const eco = pattern.slice(0, colon);
+    if (eco === "npm" || eco === "cargo") {
+      if (eco !== ecosystem) return false;
+      rest = pattern.slice(colon + 1);
+    }
+  }
+  const needle = ecosystem === "cargo" ? rest.toLowerCase() : rest;
+  const haystack = ecosystem === "cargo" ? name.toLowerCase() : name;
+  if (needle.endsWith("*")) {
+    return haystack.startsWith(needle.slice(0, -1));
+  }
+  return needle === haystack;
+}
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -138,7 +186,6 @@ function collectCargoPackages() {
 
   if (!resolveRoot || nodes.size === 0) {
     for (const pkg of metadata.packages) {
-      if (pkg.name === "spiral") continue;
       packages.push({
         name: pkg.name,
         version: pkg.version,
@@ -161,14 +208,12 @@ function collectCargoPackages() {
     const pkg = pkgById.get(id);
     if (!pkg) continue;
 
-    if (pkg.name !== "spiral") {
-      packages.push({
-        name: pkg.name,
-        version: pkg.version,
-        license: pkg.license ?? "UNKNOWN",
-        ecosystem: "cargo",
-      });
-    }
+    packages.push({
+      name: pkg.name,
+      version: pkg.version,
+      license: pkg.license ?? "UNKNOWN",
+      ecosystem: "cargo",
+    });
 
     for (const dep of node?.deps ?? []) {
       queue.push(dep.pkg);
@@ -271,7 +316,7 @@ function main() {
   const packages = dedupe([
     ...collectNpmPackages(),
     ...collectCargoPackages(),
-  ]);
+  ]).filter((pkg) => !isIgnored(pkg.name, pkg.ecosystem));
   const generatedAt = new Date().toISOString();
   const text = formatNoticeText(packages, generatedAt);
   const rel = path.relative(root, outPath);

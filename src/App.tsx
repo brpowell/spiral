@@ -43,8 +43,17 @@ import { openEqualizerWindow } from "./lib/equalizerWindow";
 import { toggleToastLabWindow } from "./lib/toastLabWindow";
 import { reloadLinkedPacksWithRefresh } from "./lib/packs/refreshPackStores";
 import { usesCustomWindowChrome } from "./lib/windowChrome";
-import { SPCARD_OPENED_EVENT, takePendingSpcardOpens } from "./lib/tauri";
-import { requestSpcardInstall } from "./lib/spcardInstall";
+import {
+  SPCARD_HANDOFF_EVENT,
+  SPCARD_OPENED_EVENT,
+  takePendingSpcardHandoffs,
+  takePendingSpcardOpens,
+  type SpcardHandoff,
+} from "./lib/tauri";
+import {
+  requestSpcardHandoff,
+  requestSpcardInstall,
+} from "./lib/spcardInstall";
 import { useAudioWakeRecovery } from "./hooks/useAudioWakeRecovery";
 import { useHiddenPlaybackKeepAlive } from "./hooks/useHiddenPlaybackKeepAlive";
 import { useCdMonitor } from "./hooks/useCdMonitor";
@@ -172,8 +181,14 @@ function App() {
       for (const path of paths) {
         await requestSpcardInstall(path);
       }
-      if (!useLicenseStore.getState().pendingReplacePath) {
-        useLicenseStore.getState().maybeOpenReadyToFinalizePrompt();
+      const handoffs = await takePendingSpcardHandoffs();
+      for (const handoff of handoffs) {
+        await requestSpcardHandoff(handoff);
+      }
+      const license = useLicenseStore.getState();
+      if (!license.pendingReplace) {
+        license.maybeOpenGraceDemotePrompt();
+        await license.maybeOpenReadyToUpdatePrompt("launch");
       }
     });
     loadLibrary();
@@ -199,7 +214,8 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
-    let unlisten: (() => void) | undefined;
+    let unlistenOpened: (() => void) | undefined;
+    let unlistenHandoff: (() => void) | undefined;
     void listen<string[]>(SPCARD_OPENED_EVENT, (event) => {
       const paths = event.payload ?? [];
       for (const path of paths) {
@@ -207,11 +223,38 @@ function App() {
       }
     }).then((fn) => {
       if (cancelled) fn();
-      else unlisten = fn;
+      else unlistenOpened = fn;
+    });
+    void listen<SpcardHandoff[]>(SPCARD_HANDOFF_EVENT, (event) => {
+      const handoffs = event.payload ?? [];
+      for (const handoff of handoffs) {
+        void requestSpcardHandoff(handoff);
+      }
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlistenHandoff = fn;
     });
     return () => {
       cancelled = true;
-      unlisten?.();
+      unlistenOpened?.();
+      unlistenHandoff?.();
+    };
+  }, []);
+
+  // While the app stays open: re-prompt the card update at most once per local
+  // calendar day on focus / visibility (launch always prompts separately).
+  useEffect(() => {
+    const maybePrompt = () => {
+      void useLicenseStore.getState().maybeOpenReadyToUpdatePrompt("session");
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") maybePrompt();
+    };
+    window.addEventListener("focus", maybePrompt);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", maybePrompt);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 

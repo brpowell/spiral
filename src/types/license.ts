@@ -1,7 +1,7 @@
 import { t } from "../lib/i18n";
 
 export type LicenseStatus =
-  "trial" | "provisional" | "readyToFinalize" | "licensed";
+  "trial" | "provisional" | "readyToUpdate" | "licensed";
 
 /** Commercial / cohort variant of a product grant. */
 export type LicenseSku = "standard" | "founder";
@@ -12,10 +12,12 @@ export interface LicenseCosmetic {
   cardholderName: string;
 }
 
+export type LicenseDemoted = "grace" | "refunded";
+
 export interface LicenseSnapshot {
   status: LicenseStatus;
   installed: boolean;
-  productId: string | null;
+  productKey: string | null;
   sku: LicenseSku | null;
   originalPurchaseId: string | null;
   channel: string | null;
@@ -24,13 +26,15 @@ export interface LicenseSnapshot {
   cosmetic: LicenseCosmetic | null;
   /** Catalog code (`license.installed.*`) when the card is invalid. */
   error: string | null;
+  /** Set when registration was removed and the user was returned to trial. */
+  demoted: LicenseDemoted | null;
 }
 
 export function defaultLicenseSnapshot(): LicenseSnapshot {
   return {
     status: "trial",
     installed: false,
-    productId: null,
+    productKey: null,
     sku: null,
     originalPurchaseId: null,
     channel: null,
@@ -38,18 +42,16 @@ export function defaultLicenseSnapshot(): LicenseSnapshot {
     expiresAt: null,
     cosmetic: null,
     error: null,
+    demoted: null,
   };
 }
 
-export function licenseStatusLabel(status: LicenseStatus): string {
+export function licenseStatusLabel(status: LicenseStatus): string | null {
   switch (status) {
-    case "trial":
-      return t("common:spiralCard.status.trial");
     case "provisional":
+    case "readyToUpdate":
       return t("common:spiralCard.status.provisional");
-    case "readyToFinalize":
-      return t("common:spiralCard.status.readyToFinalize");
-    case "licensed":
-      return t("common:spiralCard.status.licensed");
+    default:
+      return null;
   }
 }

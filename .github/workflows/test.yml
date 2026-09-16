@@ -25,6 +25,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Default extraheader is github.token, which cannot clone other private repos.
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -55,6 +58,19 @@ jobs:
             unzip \
             libwebkit2gtk-4.1-dev \
             libgtk-3-dev
+
+      # Private GitHub npm git deps: github.token cannot clone another repo.
+      # npm lockfiles resolve github: specs to git+ssh://, so rewrite SSH too.
+      # --add is required: the same url.*.insteadOf key otherwise overwrites.
+      - name: Allow private GitHub npm dependencies
+        shell: bash
+        env:
+          GH_REPO_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          authed="https://x-access-token:${GH_REPO_TOKEN}@github.com/"
+          git config --global --add url."${authed}".insteadOf "https://github.com/"
+          git config --global --add url."${authed}".insteadOf "ssh://git@github.com/"
+          git config --global --add url."${authed}".insteadOf "git@github.com:"
 
       - name: Install npm dependencies
         run: npm ci

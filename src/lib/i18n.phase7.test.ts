@@ -24,14 +24,14 @@ describe("i18n Phase 7 catalogs and switching", () => {
     expect(t("errors:license.installing.not_found")).toBe(
       "That Spiral Card file couldn't be found.",
     );
-    expect(t("errors:license.installing.unreadable")).toBe(
-      "Couldn't read that Spiral Card file. Try again.",
+    expect(t("errors:license.installing.unreadable.title")).toBe(
+      "Couldn't read that Spiral Card",
     );
-    expect(t("errors:license.installed.unreadable")).toBe(
-      "Your installed Spiral Card couldn't be read. Try adding it again.",
+    expect(t("errors:license.installed.unreadable.title")).toBe(
+      "Couldn't read that Spiral Card",
     );
-    expect(t("errors:license.installed.unverified")).toBe(
-      "Your installed Spiral Card couldn't be verified. Try adding it again, or contact support.",
+    expect(t("errors:license.installed.unverified.title")).toBe(
+      "This Spiral Card couldn't be verified",
     );
     expect(t("errors:license.installed.legacy_format")).toContain(
       "older format",
@@ -81,6 +81,9 @@ describe("Rust user-error codes", () => {
       "license.installing.unreadable",
     );
     expect(parseUserErrorCode("Couldn't read that file")).toBeNull();
+    expect(parseUserErrorCode("license.handoff.expired")).toBe(
+      "license.handoff.expired",
+    );
   });
 
   it("translates codes and ignores raw English", async () => {
@@ -101,5 +104,39 @@ describe("Rust user-error codes", () => {
     expect(
       spiralCardInstallErrorPayload(new Error("raw encoder failure")).label,
     ).toBe("Failed to install Spiral Card");
+    expect(
+      spiralCardInstallErrorPayload("license.handoff.network"),
+    ).toMatchObject({
+      label: "Something went wrong",
+      detail: "Check your connection and try adding your Spiral Card again.",
+    });
+    expect(
+      spiralCardInstallErrorPayload("license.handoff.expired"),
+    ).toMatchObject({
+      label: "Something went wrong",
+      detail: "Try adding your Spiral Card again.",
+    });
+    expect(
+      spiralCardInstallErrorPayload("license.installing.expired"),
+    ).toMatchObject({
+      label: "This Spiral Card copy is no longer valid",
+      detail: "Grab a fresh one from the member portal and add it.",
+    });
+    expect(
+      spiralCardInstallErrorPayload("license.installing.unverified"),
+    ).toMatchObject({
+      label: "This Spiral Card couldn't be verified",
+      detail: "Head to the member portal to grab a fresh copy",
+    });
+    expect(
+      spiralCardInstallErrorPayload("license.installing.unreadable")
+        .actions?.[0]?.label,
+    ).toBe("Go to member portal");
+    expect(
+      spiralCardInstallErrorPayload("license.handoff.invalid"),
+    ).toMatchObject({
+      label: "Something went wrong",
+      detail: "Try adding your Spiral Card again.",
+    });
   });
 });

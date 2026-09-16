@@ -1,0 +1,19 @@
+{
+  "manifestVersion": 1,
+  "grants": [
+    {
+      "productKey": "spiral",
+      "sku": "standard",
+      "originalPurchaseId": "poc-direct-0001",
+      "channel": "direct",
+      "issuedAt": "2026-07-15T12:05:00Z",
+      "expiresAt": null,
+      "signature": "9F6/d6SV6ceuyfMtOjYmgDZ6Wztws9jzHPXPp67HJ4d2hOp30NVqvghZST31K0VMriiG2ObLeXFYBRLMSSAGAg=="
+    }
+  ],
+  "cosmetic": {
+    "fontId": "mono-01",
+    "colorHex": "#2b2b2b",
+    "cardholderName": ""
+  }
+}

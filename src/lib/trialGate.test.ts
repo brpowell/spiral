@@ -26,7 +26,7 @@ const mocks = vi.hoisted(() => ({
   licenseSnapshot: {
     status: "trial" as import("../types/license").LicenseStatus,
     installed: false,
-    productId: null as string | null,
+    productKey: null as string | null,
     sku: null as import("../types/license").LicenseSku | null,
     originalPurchaseId: null as string | null,
     channel: null as string | null,
@@ -34,6 +34,7 @@ const mocks = vi.hoisted(() => ({
     expiresAt: null as string | null,
     cosmetic: null,
     error: null as string | null,
+    demoted: null as import("../types/license").LicenseDemoted | null,
   },
   library: [] as { id: number; importStatus?: string }[],
 }));
@@ -93,10 +94,10 @@ describe("trialGate", () => {
     expect(persistedLibraryTrackCount(library)).toBe(3);
   });
 
-  it("unlocks for provisional, readyToFinalize, and licensed", () => {
+  it("unlocks for provisional, readyToUpdate, and licensed", () => {
     const unlocked: LicenseStatus[] = [
       "provisional",
-      "readyToFinalize",
+      "readyToUpdate",
       "licensed",
     ];
     for (const status of unlocked) {

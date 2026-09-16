@@ -4,10 +4,9 @@
 //! membership, pending import rows, and replace/upsert of an existing
 //! `file_path` do not count as growth.
 
-use super::runtime::load_license_snapshot_at;
+use super::runtime::{license_paths, load_license_snapshot_at};
 use super::{LicenseStatus, TRIAL_LIBRARY_TRACK_CAP};
 use crate::db;
-use crate::settings;
 use chrono::Utc;
 use rusqlite::Connection;
 use std::path::Path;
@@ -16,14 +15,14 @@ use tauri::AppHandle;
 /// Stable error prefix so the UI can detect trial-cap failures.
 const TRIAL_LIBRARY_CAP_ERROR_CODE: &str = "trial_library_cap";
 
-/// Purchase / install CTA destination (checkout may still be stubbed in PoC).
+/// Purchase / install CTA destination.
 const TRIAL_PURCHASE_URL: &str = "https://spiralpowered.com";
 
 /// True when license status lifts the free-trial library cap.
 fn license_unlocks_library(status: LicenseStatus) -> bool {
     matches!(
         status,
-        LicenseStatus::Provisional | LicenseStatus::ReadyToFinalize | LicenseStatus::Licensed
+        LicenseStatus::Provisional | LicenseStatus::ReadyToUpdate | LicenseStatus::Licensed
     )
 }
 
@@ -67,30 +66,27 @@ pub fn assert_can_add_library_track(
 }
 
 fn load_license_status_for_gate(app: &AppHandle) -> Result<LicenseStatus, String> {
-    let path = settings::app_data_dir(app)?
-        .join("license")
-        .join("registration.spcard");
-    Ok(status_from_registration_path(&path))
+    let paths = license_paths(app)?;
+    Ok(status_from_registration_path(
+        &paths.wallet,
+        &paths.prompt_state,
+    ))
 }
 
-fn status_from_registration_path(path: &Path) -> LicenseStatus {
-    load_license_snapshot_at(path, Utc::now()).status
+fn status_from_registration_path(wallet: &Path, prompt: &Path) -> LicenseStatus {
+    load_license_snapshot_at(wallet, prompt, None, Utc::now()).status
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::db;
-    use crate::license::{
-        mint_spcard, serialize_spcard, signing_key_from_bytes, LicenseChannel, LicenseSku,
-        PRODUCT_ID_SPIRAL,
-    };
+    use crate::license::serialize_spcard;
     use crate::models::TrackInput;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    const POC_PRIVATE_KEY: &[u8; 32] =
-        include_bytes!("../../../docs/license/poc-keys/ed25519-private.raw");
+    const PERMANENT: &str = include_str!("fixtures/permanent.spcard");
 
     fn unique_temp_dir(prefix: &str) -> std::path::PathBuf {
         static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -136,7 +132,7 @@ mod tests {
     fn unlocked_statuses_lift_cap() {
         for status in [
             LicenseStatus::Provisional,
-            LicenseStatus::ReadyToFinalize,
+            LicenseStatus::ReadyToUpdate,
             LicenseStatus::Licensed,
         ] {
             assert!(check_trial_library_add(status, 10_000, false).is_ok());
@@ -201,34 +197,25 @@ mod tests {
     #[test]
     fn installing_card_lifts_gate_without_restart() {
         let dir = unique_temp_dir("spiral-trial-gate-card");
-        let license_dir = dir.join("license");
-        fs::create_dir_all(&license_dir).unwrap();
-        let path = license_dir.join("registration.spcard");
+        let wallet = dir.join("registration.spcard");
+        let prompt = dir.join("prompt-state.json");
 
-        assert_eq!(status_from_registration_path(&path), LicenseStatus::Trial);
+        assert_eq!(
+            status_from_registration_path(&wallet, &prompt),
+            LicenseStatus::Trial
+        );
         assert!(check_trial_library_add(
-            status_from_registration_path(&path),
+            status_from_registration_path(&wallet, &prompt),
             TRIAL_LIBRARY_TRACK_CAP,
             false
         )
         .is_err());
 
-        let key = signing_key_from_bytes(POC_PRIVATE_KEY).unwrap();
-        let card = mint_spcard(
-            &key,
-            PRODUCT_ID_SPIRAL,
-            LicenseSku::Standard,
-            "poc-mid-session-unlock",
-            LicenseChannel::Direct,
-            "2026-07-25T12:00:00Z",
-            // Far-future expiry so wall-clock now stays Provisional (not ReadyToFinalize).
-            Some("2099-01-01T12:00:00Z".into()),
-        )
-        .unwrap();
-        fs::write(&path, serialize_spcard(&card).unwrap()).unwrap();
+        let card = crate::license::parse_and_verify_bundled(PERMANENT).unwrap();
+        fs::write(&wallet, serialize_spcard(&card).unwrap()).unwrap();
 
-        let status = status_from_registration_path(&path);
-        assert_eq!(status, LicenseStatus::Provisional);
+        let status = status_from_registration_path(&wallet, &prompt);
+        assert_eq!(status, LicenseStatus::Licensed);
         assert!(check_trial_library_add(status, TRIAL_LIBRARY_TRACK_CAP, false).is_ok());
 
         let _ = fs::remove_dir_all(&dir);

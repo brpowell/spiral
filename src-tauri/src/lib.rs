@@ -122,7 +122,9 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_deep_link::init())
         .manage(commands::license::PendingSpcardOpens::default())
+        .manage(commands::license::PendingSpcardHandoffs::default())
         .setup(|app| {
             let db_path = library_paths::ensure_library_for_app(app.handle())
                 .expect("failed to init library");
@@ -153,6 +155,39 @@ pub fn run() {
 
             if let Err(err) = metadata_backup::purge_legacy_tag_backups(app.handle()) {
                 eprintln!("legacy tag backup cleanup on startup: {err}");
+            }
+
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                #[cfg(any(windows, target_os = "linux"))]
+                if let Err(err) = app.deep_link().register_all() {
+                    eprintln!("failed to register deep links: {err}");
+                }
+
+                match app.deep_link().get_current() {
+                    Ok(Some(urls)) => {
+                        commands::license::handle_opened_handoff_urls(
+                            app.handle(),
+                            urls.iter().map(|url| url.to_string()),
+                        );
+                    }
+                    Ok(None) => {}
+                    Err(err) => {
+                        eprintln!("failed to read startup deep link: {err}");
+                    }
+                }
+
+                let handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    commands::license::handle_opened_handoff_urls(
+                        &handle,
+                        event.urls().iter().map(|url| url.to_string()),
+                    );
+                    if let Some(window) = handle.get_webview_window("main") {
+                        let _ = window.unminimize();
+                        let _ = window.set_focus();
+                    }
+                });
             }
 
             // Match frontend `usesCustomWindowChrome()` (Windows + Linux).
@@ -304,10 +339,13 @@ pub fn run() {
             commands::license::get_registration_spcard_path,
             commands::license::pick_spcard_file,
             commands::license::install_registration_card,
-            commands::license::export_registration_card,
-            commands::license::update_registration_cosmetic,
+            commands::license::install_registration_card_json,
             commands::license::take_pending_spcard_opens,
-            commands::license::finalize_registration,
+            commands::license::take_pending_spcard_handoffs,
+            commands::license::redeem_card_handoff,
+            commands::license::pull_current_grant,
+            commands::license::get_license_prompt_state,
+            commands::license::set_license_prompt_state,
             commands::playback_session::get_playback_session,
             commands::playback_session::save_playback_session,
             commands::track_list_preferences::get_track_list_preferences,

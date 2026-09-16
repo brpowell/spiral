@@ -1,3 +1,4 @@
+import { MemberCard } from "@spiral/ui";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { motion } from "framer-motion";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -5,23 +6,28 @@ import type { TFunction } from "i18next";
 import { Trans, useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { usePointerTiltArt } from "../../hooks/usePointerTiltArt";
-import { copyTextToClipboard } from "../../lib/clipboard";
 import { formatDateAdded } from "../../lib/format";
-import { translateUserError } from "../../lib/userError";
 import { isNetworkLikelyAvailable } from "../../lib/network";
 import {
-  spiralCardFinalizedPayload,
-  spiralCardFinalizeNetworkErrorPayload,
+  spiralCardUpdatedPayload,
+  spiralCardUpdateFailedPayload,
+  spiralCardUpdateNetworkErrorPayload,
+  spiralCardUpdateRateLimitedPayload,
+  spiralCardInstallErrorPayload,
 } from "../../lib/toastPayloads";
 import {
-  exportRegistrationCard,
   getRegistrationSpcardPath,
   revealPathInFileManager,
 } from "../../lib/tauri";
 import { showSpcardInstallSuccessToast } from "../../lib/spcardInstall";
 import {
-  SUPPORT_EMAIL,
+  parseUserErrorCode,
+  isSpiralCardIntegrityError,
+  translateUserError,
+} from "../../lib/userError";
+import {
   TRIAL_LIBRARY_TRACK_CAP,
+  TRIAL_MEMBER_URL,
   TRIAL_PURCHASE_URL,
 } from "../../lib/trialGate";
 import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
@@ -29,11 +35,10 @@ import { useLicenseStore } from "../../store/useLicenseStore";
 import {
   licenseStatusLabel,
   type LicenseCosmetic,
+  type LicenseDemoted,
   type LicenseStatus,
 } from "../../types/license";
 import { Button } from "../common/Button/Button";
-import { ColorField } from "../common/ColorField/ColorField";
-import { FormField } from "../common/Field/Field";
 import {
   Modal,
   ModalBody,
@@ -43,76 +48,18 @@ import {
   ModalHeaderMain,
   ModalTitle,
 } from "../common/Modal/Modal";
-import { TextInput } from "../common/TextInput/TextInput";
-import { TextLink } from "../common/TextLink/TextLink";
-// Placeholder app mark — swap when real Spiral icons replace src-tauri/icons/.
-import spiralMarkUrl from "../../../src-tauri/icons/128x128.png";
-import { SpiralCardActionsMenu } from "./SpiralCardActionsMenu";
+import { IconExternalLink } from "../icons";
+import { SpiralCardActions } from "./SpiralCardActions";
+import "@spiral/ui/styles.css";
 import "./SpiralCardModal.css";
 
 const DEFAULT_COLOR = "#2b2b2b";
-const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
-const CARDHOLDER_NAME_MAX = 40;
-const COPY_FEEDBACK_MS = 2000;
 
-function PurchaseIdRow({ purchaseId }: { purchaseId: string }) {
-  const { t } = useTranslation("common");
-  const [copied, setCopied] = useState(false);
-  const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    setCopied(false);
-    if (resetTimeoutRef.current) {
-      clearTimeout(resetTimeoutRef.current);
-      resetTimeoutRef.current = null;
-    }
-  }, [purchaseId]);
-
-  useEffect(() => {
-    return () => {
-      if (resetTimeoutRef.current) {
-        clearTimeout(resetTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const copyPurchaseId = async () => {
-    const didCopy = await copyTextToClipboard(purchaseId);
-    if (!didCopy) return;
-    setCopied(true);
-    if (resetTimeoutRef.current) {
-      clearTimeout(resetTimeoutRef.current);
-    }
-    resetTimeoutRef.current = setTimeout(() => {
-      setCopied(false);
-      resetTimeoutRef.current = null;
-    }, COPY_FEEDBACK_MS);
-  };
-
-  return (
-    <div className="spiral-card-modal__purchase">
-      <span className="spiral-card-modal__purchase-label">
-        {t("spiralCard.purchaseId")}
-      </span>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="spiral-card-modal__purchase-id"
-        onClick={() => void copyPurchaseId()}
-        title={copied ? t("spiralCard.copied") : t("spiralCard.copyPurchaseId")}
-        aria-label={
-          copied
-            ? t("spiralCard.copiedAria")
-            : t("spiralCard.copyPurchaseIdAria", { id: purchaseId })
-        }
-      >
-        {copied ? t("spiralCard.copied") : purchaseId}
-      </Button>
-    </div>
-  );
+function isGrantPullRateLimited(raw: string): boolean {
+  return raw.includes("rate_limited");
 }
 
-function isFinalizeNetworkFailure(raw: string): boolean {
+function isGrantPullNetworkFailure(raw: string): boolean {
   return (
     raw.includes("network_error") ||
     raw.includes("could not reach") ||
@@ -120,58 +67,7 @@ function isFinalizeNetworkFailure(raw: string): boolean {
   );
 }
 
-function SupportEmailLink({ children }: { children?: ReactNode }) {
-  const href = `mailto:${SUPPORT_EMAIL}`;
-  return (
-    <TextLink
-      href={href}
-      className="spiral-card-modal__support-email"
-      onClick={(e) => {
-        e.preventDefault();
-        void openUrl(href);
-      }}
-    >
-      {children ?? SUPPORT_EMAIL}
-    </TextLink>
-  );
-}
-
-/** Sticky inline copy for non-network finalize failures (near Submit & finalize). */
-function FinalizeBusinessError({ raw }: { raw: string }) {
-  const { t } = useTranslation("common");
-  const support = (
-    <Trans
-      i18nKey="spiralCard.errorSupport"
-      t={t}
-      values={{ email: SUPPORT_EMAIL }}
-      components={{ email: <SupportEmailLink /> }}
-    />
-  );
-  if (raw.includes("unknown_purchase")) {
-    return (
-      <>
-        {t("spiralCard.errorUnknownPurchase")}
-        {support}
-      </>
-    );
-  }
-  if (raw.includes("refunded")) {
-    return (
-      <>
-        {t("spiralCard.errorRefunded")}
-        {support}
-      </>
-    );
-  }
-  return (
-    <>
-      {raw}
-      {support}
-    </>
-  );
-}
-
-/** Short status copy shown under the card preview. */
+/** Short status copy shown under the card for provisional / ready-to-update. */
 function RegistrationStatusCopy({
   status,
   expiresAt,
@@ -196,22 +92,43 @@ function RegistrationStatusCopy({
         t("spiralCard.provisionalCopy")
       );
     }
-    case "readyToFinalize":
+    case "readyToUpdate":
       return t("spiralCard.readyCopy");
     default:
       return null;
   }
 }
 
-function modalTitleFor(status: LicenseStatus, t: TFunction<"common">): string {
+function modalTitleFor(
+  status: LicenseStatus,
+  demoted: LicenseDemoted | null,
+  t: TFunction<"common">,
+): string {
+  if (status === "trial" && demoted === "refunded") {
+    return t("spiralCard.titleRefunded");
+  }
+  if (status === "trial" && demoted === "grace") {
+    return t("spiralCard.titleGrace");
+  }
   switch (status) {
     case "trial":
       return t("spiralCard.titleTrial");
-    case "readyToFinalize":
+    case "readyToUpdate":
       return t("spiralCard.titleReady");
     default:
       return t("spiralCard.title");
   }
+}
+
+function TrialOutcomeBody({ demoted }: { demoted: LicenseDemoted | null }) {
+  const { t } = useTranslation("common");
+  if (demoted === "refunded") {
+    return t("spiralCard.refundedBody");
+  }
+  if (demoted === "grace") {
+    return t("spiralCard.graceBody");
+  }
+  return t("spiralCard.trialBody", { count: TRIAL_LIBRARY_TRACK_CAP });
 }
 
 export function SpiralCardModal() {
@@ -226,19 +143,13 @@ export function SpiralCardModal() {
   const loaded = useLicenseStore((s) => s.loaded);
   const loadLicense = useLicenseStore((s) => s.loadLicense);
   const installFromPicker = useLicenseStore((s) => s.installFromPicker);
-  const finalizeRegistration = useLicenseStore((s) => s.finalizeRegistration);
-  const updateCosmetic = useLicenseStore((s) => s.updateCosmetic);
+  const pullCurrentGrant = useLicenseStore((s) => s.pullCurrentGrant);
 
   const [installingCard, setInstallingCard] = useState(false);
-  const [confirmingFinalize, setConfirmingFinalize] = useState(false);
-  const [savingCosmetic, setSavingCosmetic] = useState(false);
+  const [confirmingUpdate, setConfirmingUpdate] = useState(false);
   const [revealingCard, setRevealingCard] = useState(false);
-  const [exportingCard, setExportingCard] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [finalizeError, setFinalizeError] = useState<string | null>(null);
   const [stampingCard, setStampingCard] = useState(false);
-  const [draftColor, setDraftColor] = useState(DEFAULT_COLOR);
-  const [draftCardholderName, setDraftCardholderName] = useState("");
   const {
     className: tiltClassName,
     style: tiltStyle,
@@ -247,8 +158,9 @@ export function SpiralCardModal() {
 
   const hasCard =
     snapshot.status === "provisional" ||
-    snapshot.status === "readyToFinalize" ||
+    snapshot.status === "readyToUpdate" ||
     snapshot.status === "licensed";
+  const demoted = snapshot.demoted;
   const cosmetic: LicenseCosmetic = snapshot.cosmetic ?? {
     fontId: "mono-01",
     colorHex: DEFAULT_COLOR,
@@ -260,24 +172,30 @@ export function SpiralCardModal() {
   useEffect(() => {
     if (!open) return;
     setError(null);
-    setFinalizeError(null);
     setStampingCard(false);
-    void loadLicense().catch((err: unknown) => {
-      console.error("Failed to load license state:", err);
-    });
+    // Keep demoted outcomes from a just-completed grant pull / restore open —
+    // a fresh load would clear them (demoted is not persisted on disk).
+    if (demoted !== "refunded" && demoted !== "grace") {
+      void loadLicense().catch((err: unknown) => {
+        console.error("Failed to load license state:", err);
+      });
+    }
     return () => {
       if (stampTimeoutRef.current != null) {
         window.clearTimeout(stampTimeoutRef.current);
         stampTimeoutRef.current = null;
       }
     };
-  }, [open, loadLicense]);
+  }, [open, loadLicense, demoted]);
 
+  // Installed card failed verification — toast recovery CTA instead of inline raw copy.
   useEffect(() => {
-    if (!open || !snapshot.cosmetic) return;
-    setDraftColor(snapshot.cosmetic.colorHex);
-    setDraftCardholderName(snapshot.cosmetic.cardholderName);
-  }, [open, snapshot.cosmetic]);
+    if (!open || !snapshot.error) return;
+    if (!isSpiralCardIntegrityError(snapshot.error)) return;
+    useBackgroundTasksStore
+      .getState()
+      .showErrorToast(spiralCardInstallErrorPayload(snapshot.error));
+  }, [open, snapshot.error]);
 
   const close = () => setSpiralCardOpen(false);
 
@@ -286,13 +204,21 @@ export function SpiralCardModal() {
     const wasInstalled = snapshot.installed;
     setInstallingCard(true);
     setError(null);
-    setFinalizeError(null);
     try {
       const result = await installFromPicker();
       if (result) {
         showSpcardInstallSuccessToast(wasInstalled);
       }
     } catch (err) {
+      if (
+        parseUserErrorCode(err) === "license.installing.expired" ||
+        isSpiralCardIntegrityError(err)
+      ) {
+        useBackgroundTasksStore
+          .getState()
+          .showErrorToast(spiralCardInstallErrorPayload(err));
+        return;
+      }
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
     } finally {
@@ -300,16 +226,17 @@ export function SpiralCardModal() {
     }
   };
 
-  const confirmFinalize = async () => {
-    if (confirmingFinalize) return;
-    setConfirmingFinalize(true);
-    setFinalizeError(null);
+  const confirmUpdate = async () => {
+    if (confirmingUpdate) return;
+    setConfirmingUpdate(true);
     setError(null);
     try {
-      await finalizeRegistration();
-      useBackgroundTasksStore
-        .getState()
-        .showToast(spiralCardFinalizedPayload());
+      const result = await pullCurrentGrant();
+      if (result.demoted === "refunded") {
+        // Modal stays open on the warm refunded trial layout — no error toast.
+        return;
+      }
+      useBackgroundTasksStore.getState().showToast(spiralCardUpdatedPayload());
       setStampingCard(true);
       if (stampTimeoutRef.current != null) {
         window.clearTimeout(stampTimeoutRef.current);
@@ -320,51 +247,26 @@ export function SpiralCardModal() {
       }, 900);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      if (isFinalizeNetworkFailure(message)) {
+      if (isGrantPullRateLimited(message)) {
+        useBackgroundTasksStore
+          .getState()
+          .showErrorToast(spiralCardUpdateRateLimitedPayload());
+      } else if (isGrantPullNetworkFailure(message)) {
         useBackgroundTasksStore
           .getState()
           .showErrorToast(
-            spiralCardFinalizeNetworkErrorPayload(!isNetworkLikelyAvailable()),
+            spiralCardUpdateNetworkErrorPayload(!isNetworkLikelyAvailable()),
           );
       } else {
-        setFinalizeError(message);
+        // Raw hub codes stay in the activity log; toast is recovery-focused.
+        console.error("Spiral Card update failed:", message);
+        useBackgroundTasksStore
+          .getState()
+          .showErrorToast(spiralCardUpdateFailedPayload());
       }
     } finally {
-      setConfirmingFinalize(false);
+      setConfirmingUpdate(false);
     }
-  };
-
-  const persistCosmetic = async (next: LicenseCosmetic) => {
-    if (savingCosmetic || !hasCard) return;
-    setSavingCosmetic(true);
-    setError(null);
-    try {
-      await updateCosmetic(next);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(message);
-      if (snapshot.cosmetic) {
-        setDraftColor(snapshot.cosmetic.colorHex);
-        setDraftCardholderName(snapshot.cosmetic.cardholderName);
-      }
-    } finally {
-      setSavingCosmetic(false);
-    }
-  };
-
-  const commitColor = (value: string) => {
-    setDraftColor(value);
-    if (!HEX_COLOR_RE.test(value)) return;
-    const normalized = `#${value.slice(1).toLowerCase()}`;
-    if (normalized === cosmetic.colorHex) return;
-    void persistCosmetic({ ...cosmetic, colorHex: normalized });
-  };
-
-  const commitCardholderName = (raw: string) => {
-    const next = raw.trim().slice(0, CARDHOLDER_NAME_MAX);
-    setDraftCardholderName(next);
-    if (next === cosmetic.cardholderName) return;
-    void persistCosmetic({ ...cosmetic, cardholderName: next });
   };
 
   const revealCard = async () => {
@@ -386,29 +288,22 @@ export function SpiralCardModal() {
     }
   };
 
-  const exportCard = async () => {
-    if (exportingCard || !hasCard) return;
-    setExportingCard(true);
-    setError(null);
-    try {
-      await exportRegistrationCard();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(
-        message === "no_registration_card"
-          ? t("spiralCard.missingFile")
-          : message,
-      );
-    } finally {
-      setExportingCard(false);
-    }
-  };
+  const primaryTrialCta =
+    demoted === "grace"
+      ? {
+          label: t("spiralCard.openMemberPortal"),
+          url: TRIAL_MEMBER_URL,
+        }
+      : {
+          label: t("spiralCard.purchase"),
+          url: TRIAL_PURCHASE_URL,
+        };
 
   return (
     <Modal
       open={open}
       onClose={close}
-      size={hasCard ? "editor" : "md"}
+      size="md"
       panelRef={panelRef}
       labelledBy={titleId}
       panelClassName={
@@ -420,7 +315,7 @@ export function SpiralCardModal() {
       <ModalHeader>
         <ModalHeaderMain>
           <ModalTitle id={titleId}>
-            {modalTitleFor(snapshot.status, t)}
+            {modalTitleFor(snapshot.status, demoted, t)}
           </ModalTitle>
         </ModalHeaderMain>
         <ModalCloseButton onClick={close} />
@@ -436,9 +331,9 @@ export function SpiralCardModal() {
         {!hasCard ? (
           <div className="spiral-card-modal__trial">
             <p className="spiral-card-modal__copy">
-              {t("spiralCard.trialBody", { count: TRIAL_LIBRARY_TRACK_CAP })}
+              <TrialOutcomeBody demoted={demoted} />
             </p>
-            {snapshot.error && (
+            {snapshot.error && !isSpiralCardIntegrityError(snapshot.error) && (
               <p className="spiral-card-modal__error" role="alert">
                 {translateUserError(snapshot.error) ??
                   t("errors:license.generic")}
@@ -452,172 +347,104 @@ export function SpiralCardModal() {
           </div>
         ) : (
           <div className="spiral-card-modal__layout">
-            <div className="spiral-card-modal__card-column">
-              <div
-                className={
-                  stampingCard
-                    ? "spiral-card-modal__preview-stamp spiral-card-modal__preview-stamp--active"
-                    : "spiral-card-modal__preview-stamp"
-                }
+            <div
+              className={
+                stampingCard
+                  ? "spiral-card-modal__preview-stamp spiral-card-modal__preview-stamp--active"
+                  : "spiral-card-modal__preview-stamp"
+              }
+            >
+              <motion.div
+                className={`spiral-card-modal__preview-tilt ${tiltClassName}`}
+                style={tiltStyle}
+                {...cardTilt}
               >
-                <motion.div
-                  className={`spiral-card-modal__preview ${tiltClassName}`}
-                  style={{
-                    ...tiltStyle,
-                    ["--spiral-card-color" as string]: cosmetic.colorHex,
+                <MemberCard
+                  card={{
+                    cosmetic,
+                    sku: snapshot.sku,
                   }}
-                  {...cardTilt}
-                >
-                  <div className="spiral-card-modal__preview-inner">
-                    <div className="spiral-card-modal__preview-meta">
-                      <div className="spiral-card-modal__brand-row">
-                        <img
-                          className="spiral-card-modal__brand-mark"
-                          src={spiralMarkUrl}
-                          alt=""
-                          aria-hidden
-                          draggable={false}
-                        />
-                        <span className="spiral-card-modal__brand">Spiral</span>
-                      </div>
-                      <span className="spiral-card-modal__status-pill">
-                        {loaded
-                          ? licenseStatusLabel(snapshot.status)
-                          : t("loading")}
-                      </span>
-                    </div>
-                    <div className="spiral-card-modal__preview-footer">
-                      {(draftCardholderName || cosmetic.cardholderName) && (
-                        <span className="spiral-card-modal__cardholder">
-                          {draftCardholderName || cosmetic.cardholderName}
-                        </span>
-                      )}
-                      {snapshot.sku === "founder" && (
-                        <span className="spiral-card-modal__founder">
-                          {t("spiralCard.founder")}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-
-              {snapshot.originalPurchaseId && (
-                <PurchaseIdRow purchaseId={snapshot.originalPurchaseId} />
-              )}
-
-              {(snapshot.status === "provisional" ||
-                snapshot.status === "readyToFinalize") && (
-                <div className="spiral-card-modal__registration">
-                  <p className="spiral-card-modal__registration-copy">
-                    <RegistrationStatusCopy
-                      status={snapshot.status}
-                      expiresAt={snapshot.expiresAt}
-                    />
-                  </p>
-                  {snapshot.status === "readyToFinalize" && (
-                    <>
-                      <Button
-                        variant="primary"
-                        className="spiral-card-modal__confirm"
-                        disabled={confirmingFinalize}
-                        onClick={() => void confirmFinalize()}
-                      >
-                        {confirmingFinalize
-                          ? t("spiralCard.confirming")
-                          : t("spiralCard.submit")}
-                      </Button>
-                      {finalizeError && (
-                        <p
-                          className="spiral-card-modal__error spiral-card-modal__finalize-error"
-                          role="alert"
-                        >
-                          <FinalizeBusinessError raw={finalizeError} />
-                        </p>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
+                  statusLabel={
+                    loaded
+                      ? (licenseStatusLabel(snapshot.status) ?? undefined)
+                      : undefined
+                  }
+                  founderLabel={t("spiralCard.founder")}
+                />
+              </motion.div>
             </div>
 
             <div className="spiral-card-modal__controls">
+              <SpiralCardActions
+                revealing={revealingCard}
+                replacing={installingCard}
+                disabled={confirmingUpdate}
+                onReveal={() => void revealCard()}
+                onReplace={() => void installCard()}
+              />
+
               {error && (
                 <p className="spiral-card-modal__error" role="alert">
                   {translateUserError(error) ?? t("errors:license.generic")}
                 </p>
               )}
 
-              <div className="spiral-card-modal__controls-header">
-                <h3 className="spiral-card-modal__controls-title">
-                  {t("spiralCard.personalize")}
-                </h3>
-                <SpiralCardActionsMenu
-                  className="spiral-card-modal__actions"
-                  revealing={revealingCard}
-                  exporting={exportingCard}
-                  replacing={installingCard}
-                  disabled={confirmingFinalize}
-                  onReveal={() => void revealCard()}
-                  onExport={() => void exportCard()}
-                  onReplace={() => void installCard()}
-                />
-              </div>
-
-              <div className="spiral-card-modal__studio">
-                <FormField label={t("name")}>
-                  <TextInput
-                    value={draftCardholderName}
-                    maxLength={CARDHOLDER_NAME_MAX}
-                    placeholder={t("spiralCard.namePlaceholder")}
-                    disabled={savingCosmetic || confirmingFinalize}
-                    onChange={(e) => setDraftCardholderName(e.target.value)}
-                    onBlur={(e) => commitCardholderName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.currentTarget.blur();
-                      }
-                    }}
+              {(snapshot.status === "provisional" ||
+                snapshot.status === "readyToUpdate") && (
+                <p className="spiral-card-modal__registration-copy">
+                  <RegistrationStatusCopy
+                    status={snapshot.status}
+                    expiresAt={snapshot.expiresAt}
                   />
-                </FormField>
-                <FormField label={t("spiralCard.color")}>
-                  <ColorField
-                    value={draftColor}
-                    onChange={commitColor}
-                    disabled={savingCosmetic || confirmingFinalize}
-                    onReset={
-                      draftColor.toLowerCase() !== DEFAULT_COLOR
-                        ? () => commitColor(DEFAULT_COLOR)
-                        : undefined
-                    }
-                    resetLabel={t("spiralCard.resetColor")}
-                  />
-                </FormField>
-              </div>
+                </p>
+              )}
             </div>
           </div>
         )}
       </ModalBody>
 
-      {!hasCard && (
-        <ModalFooter>
-          <Button
-            variant="secondary"
-            disabled={installingCard}
-            onClick={() => void installCard()}
-          >
-            {installingCard
-              ? t("spiralCard.adding")
-              : t("spiralCard.addExisting")}
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => void openUrl(TRIAL_PURCHASE_URL)}
-          >
-            {t("spiralCard.purchase")}
-          </Button>
-        </ModalFooter>
-      )}
+      <ModalFooter>
+        {!hasCard ? (
+          <>
+            <Button
+              variant="secondary"
+              disabled={installingCard}
+              onClick={() => void installCard()}
+            >
+              {installingCard
+                ? t("spiralCard.adding")
+                : t("spiralCard.addExisting")}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => void openUrl(primaryTrialCta.url)}
+            >
+              {primaryTrialCta.label}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => void openUrl(TRIAL_MEMBER_URL)}
+            >
+              <IconExternalLink />
+              {t("spiralCard.openMemberPortal")}
+            </Button>
+            {snapshot.status === "readyToUpdate" ? (
+              <Button
+                variant="primary"
+                isLoading={confirmingUpdate}
+                onClick={() => void confirmUpdate()}
+              >
+                {confirmingUpdate
+                  ? t("spiralCard.confirming")
+                  : t("spiralCard.submit")}
+              </Button>
+            ) : null}
+          </>
+        )}
+      </ModalFooter>
     </Modal>
   );
 }

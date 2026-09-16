@@ -1,3 +1,0 @@
-# Local mint idempotency ledger (PoC). Do not commit.
-.mint-store/
-*.spcard

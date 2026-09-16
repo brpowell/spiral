@@ -8,8 +8,8 @@ import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation
 
 export function ReplaceSpiralCardDialog() {
   const { t } = useTranslation("common");
-  const pendingReplacePath = useLicenseStore((s) => s.pendingReplacePath);
-  const open = pendingReplacePath != null;
+  const pendingReplace = useLicenseStore((s) => s.pendingReplace);
+  const open = pendingReplace != null;
 
   return (
     <AlertConfirmation

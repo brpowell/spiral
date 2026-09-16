@@ -2,7 +2,8 @@
 /**
  * Single entry for local release tooling.
  *
- *   npm run release -- installer [dmg|nsis|linux|deb] [-- <tauri args>]
+ *   npm run release -- installer [dmg|nsis|linux|deb] [--dev-license] [-- <tauri args>]
+ *   npm run release:dev                       # installer --dev-license
  *   npm run release -- publish <tag>
  *   npm run release -- check <tag>
  *   npm run release -- check-bundle
@@ -23,7 +24,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const COMMANDS = {
   installer: {
     script: "build-installer.mjs",
-    summary: "Build native (or named) installer — same flags as CI",
+    summary:
+      "Build native (or named) installer — same flags as CI; --dev-license embeds the development license pubkey",
   },
   publish: {
     script: "publish-release.mjs",
@@ -69,6 +71,7 @@ ${lines.join("\n")}
 
 Examples:
   npm run release -- installer
+  npm run release -- installer --dev-license
   npm run release -- installer deb
   npm run release -- installer linux -- --verbose
   npm run release -- publish v0.2.2

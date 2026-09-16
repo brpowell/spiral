@@ -40,7 +40,7 @@ import type {
 } from "../types/musicbrainz";
 import type { Playlist } from "../types/playlist";
 import type { PlaybackSettings } from "../types/playbackSettings";
-import type { LicenseCosmetic, LicenseSnapshot } from "../types/license";
+import type { LicenseDemoted, LicenseSnapshot } from "../types/license";
 import type { Track, TrackInput } from "../types/track";
 import type {
   LyricsFetchOutcome,
@@ -1289,27 +1289,67 @@ export async function installRegistrationCard(
   return invoke<LicenseSnapshot>("install_registration_card", { path });
 }
 
-/** Copy the installed card to a user-chosen path. Cancel → `null`. */
-export async function exportRegistrationCard(): Promise<string | null> {
-  return invoke<string | null>("export_registration_card");
-}
-
-export async function finalizeRegistration(): Promise<LicenseSnapshot> {
-  return invoke<LicenseSnapshot>("finalize_registration");
-}
-
-export async function updateRegistrationCosmetic(
-  cosmetic: LicenseCosmetic,
+export async function installRegistrationCardJson(
+  json: string,
 ): Promise<LicenseSnapshot> {
-  return invoke<LicenseSnapshot>("update_registration_cosmetic", { cosmetic });
+  return invoke<LicenseSnapshot>("install_registration_card_json", { json });
+}
+
+export async function pullCurrentGrant(): Promise<LicenseSnapshot> {
+  return invoke<LicenseSnapshot>("pull_current_grant");
+}
+
+export interface LicensePromptState {
+  lastUpdatePromptDate?: string | null;
+  pendingDemoted?: LicenseDemoted | null;
+}
+
+export async function getLicensePromptState(): Promise<LicensePromptState> {
+  return invoke<LicensePromptState>("get_license_prompt_state");
+}
+
+/** Merge-patch prompt state so callers do not wipe unrelated fields. */
+export async function patchLicensePromptState(
+  patch: LicensePromptState,
+): Promise<void> {
+  const current = await getLicensePromptState();
+  const next: LicensePromptState = {
+    lastUpdatePromptDate:
+      patch.lastUpdatePromptDate !== undefined
+        ? patch.lastUpdatePromptDate
+        : (current.lastUpdatePromptDate ?? null),
+    pendingDemoted:
+      patch.pendingDemoted !== undefined
+        ? patch.pendingDemoted
+        : (current.pendingDemoted ?? null),
+  };
+  return invoke("set_license_prompt_state", { state: next });
 }
 
 export async function takePendingSpcardOpens(): Promise<string[]> {
   return invoke<string[]>("take_pending_spcard_opens");
 }
 
+export interface SpcardHandoff {
+  token: string;
+  origin: string;
+}
+
+export async function takePendingSpcardHandoffs(): Promise<SpcardHandoff[]> {
+  return invoke<SpcardHandoff[]>("take_pending_spcard_handoffs");
+}
+
+export async function redeemCardHandoff(
+  token: string,
+  origin: string,
+): Promise<string> {
+  return invoke<string>("redeem_card_handoff", { token, origin });
+}
+
 /** OS file-association opens of `.spcard` (payload: string[] paths). */
 export const SPCARD_OPENED_EVENT = "spiral:spcard-opened";
+/** `spiral://card/install` payloads. */
+export const SPCARD_HANDOFF_EVENT = "spiral:spcard-handoff";
 
 export async function prepareImportFile(
   sourcePath: string,

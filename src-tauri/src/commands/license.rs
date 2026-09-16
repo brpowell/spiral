@@ -1,5 +1,5 @@
+use std::collections::HashSet;
 use std::env;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -9,14 +9,19 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::activity_log::{self, LogLevel};
-use crate::license::{self, Cosmetic, LicenseSnapshot, LicenseStatus};
+use crate::license::handoff::{
+    card_grant_fetch_url, card_handoff_fetch_url, card_origin_from_env, parse_handoff_url,
+    ParsedHandoff,
+};
+use crate::license::{self, LicenseDemoted, LicensePromptState, LicenseSnapshot, LicenseStatus};
 
-const DEFAULT_LICENSE_SERVER: &str = "http://127.0.0.1:8787";
-const FINALIZE_PATH: &str = "/v1/license/finalize";
-const FINALIZE_TIMEOUT: Duration = Duration::from_secs(30);
+const GRANT_PULL_TIMEOUT: Duration = Duration::from_secs(30);
+const HANDOFF_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Event + command surface for OS file-association opens of `.spcard`.
 pub const SPCARD_OPENED_EVENT: &str = "spiral:spcard-opened";
+/// Event + command surface for `spiral://card/install` tokens.
+pub const SPCARD_HANDOFF_EVENT: &str = "spiral:spcard-handoff";
 
 /// Pending `.spcard` paths delivered before the frontend is ready.
 pub struct PendingSpcardOpens(pub Mutex<Vec<String>>);
@@ -27,9 +32,24 @@ impl Default for PendingSpcardOpens {
     }
 }
 
+/// Pending handoff requests delivered before the frontend is ready.
+pub struct PendingSpcardHandoffs {
+    queued: Mutex<Vec<ParsedHandoff>>,
+    seen: Mutex<HashSet<String>>,
+}
+
+impl Default for PendingSpcardHandoffs {
+    fn default() -> Self {
+        Self {
+            queued: Mutex::new(Vec::new()),
+            seen: Mutex::new(HashSet::new()),
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct FinalizeRequestBody<'a> {
+struct GrantRequestBody<'a> {
     original_purchase_id: &'a str,
 }
 
@@ -59,60 +79,12 @@ pub fn install_registration_card(app: AppHandle, path: String) -> Result<License
     license::install_registration_card(&app, &path)
 }
 
-/// Byte-copy the installed card to a user-chosen path (save dialog). Cancel → `Ok(None)`.
 #[tauri::command]
-pub fn export_registration_card(app: AppHandle) -> Result<Option<String>, String> {
-    let source = license::registration_spcard_path_if_present(&app)?;
-    let snapshot = license::load_license_snapshot(&app)?;
-    let cardholder = snapshot
-        .cosmetic
-        .as_ref()
-        .map(|c| c.cardholder_name.as_str())
-        .unwrap_or("");
-    let default_name = export_default_filename(cardholder);
-
-    let dest = rfd::FileDialog::new()
-        .set_title("Export Spiral Card")
-        .set_file_name(&default_name)
-        .add_filter("Spiral Card", &["spcard", "SPCARD"])
-        .save_file();
-
-    let dest = match dest {
-        Some(p) => p,
-        None => return Ok(None),
-    };
-
-    let dest = if dest
-        .extension()
-        .and_then(|e| e.to_str())
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("spcard"))
-    {
-        dest
-    } else {
-        dest.with_extension("spcard")
-    };
-
-    fs::copy(&source, &dest).map_err(|e| format!("failed to export Spiral Card: {e}"))?;
-    Ok(Some(dest.to_string_lossy().into_owned()))
-}
-
-/// Filename-safe stem from cardholder name, else `spiral-card.spcard`.
-fn export_default_filename(cardholder_name: &str) -> String {
-    let trimmed = cardholder_name.trim();
-    if trimmed.is_empty() {
-        return "spiral-card.spcard".into();
-    }
-    let stem = crate::library_organize::sanitize_filename(trimmed);
-    format!("{stem}.spcard")
-}
-
-/// Update local card cosmetics only (offline; never touches grants).
-#[tauri::command]
-pub fn update_registration_cosmetic(
+pub fn install_registration_card_json(
     app: AppHandle,
-    cosmetic: Cosmetic,
+    json: String,
 ) -> Result<LicenseSnapshot, String> {
-    license::update_registration_cosmetic(&app, cosmetic)
+    license::install_registration_card_json(&app, &json)
 }
 
 /// Drain `.spcard` paths queued before the UI was ready (cold start).
@@ -127,15 +99,43 @@ pub fn take_pending_spcard_opens(
     Ok(std::mem::take(&mut *guard))
 }
 
-/// User-initiated finalize: POST only `originalPurchaseId`, merge grant.
+/// Drain handoff requests queued before the UI was ready (cold start).
 #[tauri::command]
-pub fn finalize_registration(app: AppHandle) -> Result<LicenseSnapshot, String> {
+pub fn take_pending_spcard_handoffs(
+    pending: State<'_, PendingSpcardHandoffs>,
+) -> Result<Vec<ParsedHandoff>, String> {
+    let mut guard = pending
+        .queued
+        .lock()
+        .map_err(|_| "pending spcard handoff lock poisoned".to_string())?;
+    Ok(std::mem::take(&mut *guard))
+}
+
+/// Fetch a signed `.spcard` from the allowlisted handoff endpoint.
+#[tauri::command]
+pub async fn redeem_card_handoff(token: String, origin: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || fetch_card_handoff(&token, &origin))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// User-initiated pull of the current grant: POST only `originalPurchaseId`, merge.
+///
+/// A mapped `refunded` response strips the card and returns Ok(trial + demoted).
+#[tauri::command]
+pub async fn pull_current_grant(app: AppHandle) -> Result<LicenseSnapshot, String> {
+    tauri::async_runtime::spawn_blocking(move || pull_current_grant_blocking(app))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn pull_current_grant_blocking(app: AppHandle) -> Result<LicenseSnapshot, String> {
     let snapshot = license::load_license_snapshot(&app)?;
     match snapshot.status {
-        LicenseStatus::ReadyToFinalize | LicenseStatus::Licensed => {}
+        LicenseStatus::ReadyToUpdate | LicenseStatus::Licensed => {}
         other => {
             return Err(format!(
-                "registration is not ready to finalize (status: {})",
+                "registration is not ready to refresh (status: {})",
                 status_label(other)
             ));
         }
@@ -145,13 +145,26 @@ pub fn finalize_registration(app: AppHandle) -> Result<LicenseSnapshot, String> 
         return Err("installed card has no purchase id".into());
     };
 
-    let grant_json = match post_finalize(purchase_id) {
+    let grant_json = match post_current_grant(purchase_id) {
         Ok(body) => body,
         Err(e) => {
+            if e.code == "refunded" {
+                let stripped = license::remove_registration_card(&app, LicenseDemoted::Refunded)?;
+                activity_log::log(
+                    LogLevel::Info,
+                    "license.registration",
+                    "Registration stripped — purchase refunded",
+                    Some(serde_json::json!({
+                        "demoted": "refunded",
+                        "originalPurchaseId": purchase_id,
+                    })),
+                );
+                return Ok(stripped);
+            }
             activity_log::log(
                 LogLevel::Error,
                 "license.registration",
-                format!("Registration finalize failed — {}", e.message),
+                format!("Card grant refresh failed — {}", e.message),
                 Some(serde_json::json!({
                     "code": e.code,
                     "originalPurchaseId": purchase_id,
@@ -161,13 +174,13 @@ pub fn finalize_registration(app: AppHandle) -> Result<LicenseSnapshot, String> 
         }
     };
 
-    match license::merge_finalized_grant_json(&app, &grant_json) {
+    match license::merge_current_grant_json(&app, &grant_json) {
         Ok(merged) => {
             let timestamp = Utc::now().format("%Y-%m-%dT%H:%M:%SZ");
             activity_log::log(
                 LogLevel::Info,
                 "license.registration",
-                format!("Registration finalized — {timestamp}"),
+                format!("Card grant refreshed — {timestamp}"),
                 Some(serde_json::json!({
                     "originalPurchaseId": purchase_id,
                 })),
@@ -178,7 +191,7 @@ pub fn finalize_registration(app: AppHandle) -> Result<LicenseSnapshot, String> 
             activity_log::log(
                 LogLevel::Error,
                 "license.registration",
-                format!("Registration finalize merge failed — {e}"),
+                format!("Card grant merge failed — {e}"),
                 Some(serde_json::json!({
                     "originalPurchaseId": purchase_id,
                 })),
@@ -188,54 +201,60 @@ pub fn finalize_registration(app: AppHandle) -> Result<LicenseSnapshot, String> 
     }
 }
 
+#[tauri::command]
+pub fn get_license_prompt_state(app: AppHandle) -> Result<LicensePromptState, String> {
+    Ok(license::read_license_prompt_state(&app))
+}
+
+#[tauri::command]
+pub fn set_license_prompt_state(app: AppHandle, state: LicensePromptState) -> Result<(), String> {
+    license::write_license_prompt_state(&app, &state)
+}
+
 fn status_label(status: LicenseStatus) -> &'static str {
     match status {
         LicenseStatus::Trial => "trial",
         LicenseStatus::Provisional => "provisional",
-        LicenseStatus::ReadyToFinalize => "readyToFinalize",
+        LicenseStatus::ReadyToUpdate => "readyToUpdate",
         LicenseStatus::Licensed => "licensed",
     }
 }
 
-struct FinalizeHttpError {
+struct GrantHttpError {
     code: &'static str,
     message: String,
 }
 
-fn license_server_base() -> String {
-    env::var("SPIRAL_LICENSE_SERVER")
-        .ok()
-        .map(|s| s.trim().trim_end_matches('/').to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| DEFAULT_LICENSE_SERVER.to_string())
-}
-
-fn post_finalize(original_purchase_id: &str) -> Result<String, FinalizeHttpError> {
-    let url = format!("{}{FINALIZE_PATH}", license_server_base());
+fn post_current_grant(original_purchase_id: &str) -> Result<String, GrantHttpError> {
+    let origin = card_handoff_origin();
+    let url = card_grant_fetch_url(&origin).map_err(|e| GrantHttpError {
+        code: "network_error",
+        message: format!("invalid card origin: {e}"),
+    })?;
     let client = reqwest::blocking::Client::builder()
         .user_agent(crate::USER_AGENT)
-        .timeout(FINALIZE_TIMEOUT)
+        .timeout(GRANT_PULL_TIMEOUT)
         .build()
-        .map_err(|e| FinalizeHttpError {
+        .map_err(|e| GrantHttpError {
             code: "network_error",
             message: format!("failed to build HTTP client: {e}"),
         })?;
 
     let response = client
         .post(&url)
-        .json(&FinalizeRequestBody {
+        .json(&GrantRequestBody {
             original_purchase_id,
         })
         .send()
-        .map_err(|e| FinalizeHttpError {
+        .map_err(|e| GrantHttpError {
             code: "network_error",
-            message: format!("could not reach license server: {e}"),
+            message: format!("could not reach card origin: {e}"),
         })?;
 
     let status = response.status();
-    let body = response.text().map_err(|e| FinalizeHttpError {
+    let body = response.text().map_err(|e| GrantHttpError {
         code: "network_error",
-        message: format!("failed to read finalize response: {e}"),
+        message: format!("failed to read grant response: {e}"),
     })?;
 
     if status.is_success() {
@@ -243,7 +262,7 @@ fn post_finalize(original_purchase_id: &str) -> Result<String, FinalizeHttpError
     }
 
     let (code, message) = parse_error_body(&body, status.as_u16());
-    Err(FinalizeHttpError { code, message })
+    Err(GrantHttpError { code, message })
 }
 
 fn parse_error_body(body: &str, status: u16) -> (&'static str, String) {
@@ -259,10 +278,11 @@ fn parse_error_body(body: &str, status: u16) -> (&'static str, String) {
                 "refunded" => "refunded",
                 "invalid_purchase_id" | "invalid_json" => "invalid_request",
                 "network_error" => "network_error",
+                "rate_limited" => "rate_limited",
                 other if !other.is_empty() => {
-                    return ("finalize_failed", format!("{other}: {message}"));
+                    return ("grant_failed", format!("{other}: {message}"));
                 }
-                _ => "finalize_failed",
+                _ => "grant_failed",
             };
             return (mapped, message);
         }
@@ -272,10 +292,11 @@ fn parse_error_body(body: &str, status: u16) -> (&'static str, String) {
         404 => "unknown_purchase",
         403 => "refunded",
         400 => "invalid_request",
+        429 => "rate_limited",
         _ => "network_error",
     };
     let message = if body.trim().is_empty() {
-        format!("license server returned HTTP {status}")
+        format!("card origin returned HTTP {status}")
     } else {
         body.chars().take(200).collect()
     };
@@ -302,6 +323,123 @@ pub fn handle_opened_spcard_paths(app: &AppHandle, paths: Vec<PathBuf>) {
     }
 
     let _ = app.emit(SPCARD_OPENED_EVENT, &spcards);
+}
+
+/// Queue / emit tokens from `spiral://card/install` deep links.
+pub fn handle_opened_handoff_urls(app: &AppHandle, urls: impl IntoIterator<Item = String>) {
+    let default_origin = card_handoff_origin();
+    let parsed: Vec<ParsedHandoff> = urls
+        .into_iter()
+        .filter_map(|url| parse_handoff_url(&url, &default_origin))
+        .collect();
+
+    if parsed.is_empty() {
+        return;
+    }
+
+    let mut fresh = Vec::new();
+    if let Some(pending) = app.try_state::<PendingSpcardHandoffs>() {
+        let Ok(mut seen) = pending.seen.lock() else {
+            return;
+        };
+        let Ok(mut queued) = pending.queued.lock() else {
+            return;
+        };
+        for item in parsed {
+            if seen.insert(item.token.clone()) {
+                queued.push(item.clone());
+                fresh.push(item);
+            }
+        }
+    } else {
+        fresh = parsed;
+    }
+
+    if fresh.is_empty() {
+        return;
+    }
+
+    let _ = app.emit(SPCARD_HANDOFF_EVENT, &fresh);
+}
+
+fn card_handoff_origin() -> String {
+    card_origin_from_env(
+        env::var("SPIRAL_CARD_ORIGIN").ok().as_deref(),
+        cfg!(debug_assertions),
+    )
+}
+
+fn fetch_card_handoff(token: &str, origin: &str) -> Result<String, String> {
+    let origin = if crate::license::handoff::is_allowed_card_origin(origin) {
+        origin.trim().trim_end_matches('/').to_string()
+    } else {
+        card_handoff_origin()
+    };
+    let url = card_handoff_fetch_url(&origin, token)?;
+    let client = reqwest::blocking::Client::builder()
+        .user_agent(crate::USER_AGENT)
+        .timeout(HANDOFF_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|e| {
+            log_handoff_error(
+                "network",
+                &origin,
+                &format!("failed to build HTTP client: {e}"),
+            );
+            "license.handoff.network".to_string()
+        })?;
+
+    let response = client.get(&url).send().map_err(|e| {
+        log_handoff_error(
+            "network",
+            &origin,
+            &format!("could not reach card handoff: {e}"),
+        );
+        "license.handoff.network".to_string()
+    })?;
+
+    let status = response.status();
+    let body = response.text().map_err(|e| {
+        log_handoff_error(
+            "network",
+            &origin,
+            &format!("failed to read handoff response: {e}"),
+        );
+        "license.handoff.network".to_string()
+    })?;
+
+    if status.as_u16() == 404 {
+        log_handoff_error(
+            "expired",
+            &origin,
+            "handoff token missing, expired, or consumed",
+        );
+        return Err("license.handoff.expired".into());
+    }
+    if !status.is_success() {
+        log_handoff_error(
+            "network",
+            &origin,
+            &format!("card handoff returned HTTP {}", status.as_u16()),
+        );
+        return Err("license.handoff.network".into());
+    }
+    if body.trim().is_empty() {
+        log_handoff_error("network", &origin, "card handoff returned an empty body");
+        return Err("license.handoff.network".into());
+    }
+
+    Ok(body)
+}
+
+fn log_handoff_error(code: &str, origin: &str, message: &str) {
+    activity_log::log(
+        LogLevel::Error,
+        "license.registration",
+        format!("Spiral Card handoff failed — {message}"),
+        Some(serde_json::json!({ "code": code, "origin": origin })),
+    );
 }
 
 /// Parse argv paths that look like local `.spcard` files (Windows / Linux cold start).

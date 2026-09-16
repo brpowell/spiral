@@ -4,6 +4,8 @@
  *
  * Usage:
  *   npm run release -- installer              # native for this machine
+ *   npm run release -- installer --dev-license  # release profile, development license pubkey
+ *   npm run release:dev                       # same as installer --dev-license
  *   npm run release -- installer dmg
  *   npm run release -- installer nsis
  *   npm run release -- installer linux        # AppImage (v1 Direct)
@@ -68,9 +70,12 @@ function usage(exitCode = 0) {
   console.log(`Build a Spiral installer for the current OS.
 
 Usage:
-  npm run release -- installer [dmg|nsis|linux|deb] [-- <tauri build args>]
+  npm run release -- installer [dmg|nsis|linux|deb] [--dev-license] [-- <tauri build args>]
+  npm run release:dev [-- dmg|nsis|linux|deb] [-- <tauri build args>]
 
 Defaults to the native installer for this machine (${process.platform}).
+--dev-license embeds the development Spiral Card public key (Cargo feature
+license-dev-key) so a packaged build accepts sandbox-issued cards.
 Cross-OS builds are not supported (need a Mac for DMG, Windows for NSIS,
 Linux for AppImage).
 `);
@@ -107,6 +112,14 @@ function parseArgs(argv) {
 
   if (before.includes("-h") || before.includes("--help")) usage(0);
 
+  const unknownFlags = before.filter(
+    (a) => a.startsWith("-") && a !== "--dev-license",
+  );
+  if (unknownFlags.length > 0) {
+    console.error(`Unknown flag: ${unknownFlags[0]}`);
+    usage(1);
+  }
+
   const positional = before.filter((a) => !a.startsWith("-"));
   if (positional.length > 1) {
     console.error(`Unexpected args: ${positional.slice(1).join(" ")}`);
@@ -120,7 +133,7 @@ function parseArgs(argv) {
     );
     usage(1);
   }
-  return { kind, passthrough };
+  return { kind, passthrough, devLicense: before.includes("--dev-license") };
 }
 
 function listNewestUnder(dir, predicate) {
@@ -154,7 +167,7 @@ function printArtifacts(kind) {
   }
 }
 
-const { kind, passthrough } = parseArgs(process.argv.slice(2));
+const { kind, passthrough, devLicense } = parseArgs(process.argv.slice(2));
 const spec = BUNDLES[kind];
 
 if (process.platform !== spec.host) {
@@ -183,7 +196,21 @@ if (boot.status !== 0) {
   process.exit(boot.status ?? 1);
 }
 
-const tauriArgs = ["run", "tauri", "--", "build", ...spec.args, ...passthrough];
+const tauriPassthrough = [...passthrough];
+const usesDevLicenseKey =
+  devLicense || tauriPassthrough.some((a) => a.includes("license-dev-key"));
+if (devLicense && !tauriPassthrough.some((a) => a.includes("license-dev-key"))) {
+  tauriPassthrough.unshift("--features", "license-dev-key");
+}
+
+const tauriArgs = [
+  "run",
+  "tauri",
+  "--",
+  "build",
+  ...spec.args,
+  ...tauriPassthrough,
+];
 console.log(`$ npm ${tauriArgs.join(" ")}`);
 
 const env = { ...process.env };
@@ -191,6 +218,9 @@ const env = { ...process.env };
 // and hangs (same as sign-updater.mjs). createUpdaterArtifacts is always on.
 if (env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD === undefined) {
   env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "";
+}
+if (usesDevLicenseKey) {
+  env.SPIRAL_LICENSE_DEV_KEY = "1";
 }
 if (spec.host === "linux") {
   // linuxdeploy is an AppImage; force extract-and-run when FUSE is missing.
@@ -232,7 +262,7 @@ printArtifacts(kind);
 const check = spawnSync(
   process.execPath,
   [join(root, "scripts", "release", "check-bundle.mjs")],
-  { cwd: root, stdio: "inherit" },
+  { cwd: root, stdio: "inherit", env },
 );
 if (check.status !== 0) {
   process.exit(check.status ?? 1);

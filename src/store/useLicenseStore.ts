@@ -1,43 +1,78 @@
 import { create } from "zustand";
 import {
-  finalizeRegistration as finalizeRegistrationInvoke,
+  pullCurrentGrant as pullCurrentGrantInvoke,
+  getLicensePromptState,
   getLicenseState,
   installRegistrationCard,
+  installRegistrationCardJson,
+  patchLicensePromptState,
   pickSpcardFile,
-  updateRegistrationCosmetic,
 } from "../lib/tauri";
-import {
-  defaultLicenseSnapshot,
-  type LicenseCosmetic,
-  type LicenseSnapshot,
-} from "../types/license";
+import { defaultLicenseSnapshot, type LicenseSnapshot } from "../types/license";
+
+export type PendingSpcardReplace =
+  { kind: "path"; path: string } | { kind: "json"; json: string };
+
+/** Local calendar day `YYYY-MM-DD` for card-update prompt cadence. */
+export function localDateYmd(now = new Date()): string {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+async function markUpdatePromptShownToday(): Promise<void> {
+  const today = localDateYmd();
+  try {
+    const current = await getLicensePromptState();
+    if (current.lastUpdatePromptDate === today) return;
+    await patchLicensePromptState({ lastUpdatePromptDate: today });
+  } catch (err) {
+    console.error("Failed to persist license prompt state:", err);
+  }
+}
+
+async function clearPendingDemotedNotice(): Promise<void> {
+  try {
+    await patchLicensePromptState({ pendingDemoted: null });
+  } catch (err) {
+    console.error("Failed to clear pending demote notice:", err);
+  }
+}
 
 interface LicenseState {
   snapshot: LicenseSnapshot;
   loaded: boolean;
   spiralCardOpen: boolean;
-  /** Queued `.spcard` path awaiting replace confirmation. */
-  pendingReplacePath: string | null;
-  /** In-memory; resets each app launch. */
-  readyToFinalizePromptShown: boolean;
+  /** Queued card awaiting replace confirmation. */
+  pendingReplace: PendingSpcardReplace | null;
   loadLicense: () => Promise<LicenseSnapshot>;
   installFromPicker: () => Promise<LicenseSnapshot | null>;
   installFromPath: (path: string) => Promise<LicenseSnapshot>;
-  finalizeRegistration: () => Promise<LicenseSnapshot>;
-  updateCosmetic: (cosmetic: LicenseCosmetic) => Promise<LicenseSnapshot>;
-  setPendingReplacePath: (path: string | null) => void;
+  installFromJson: (json: string) => Promise<LicenseSnapshot>;
+  pullCurrentGrant: () => Promise<LicenseSnapshot>;
+  setPendingReplace: (source: PendingSpcardReplace | null) => void;
   setSpiralCardOpen: (open: boolean) => void;
   openSpiralCard: () => void;
-  /** Once per session when status is readyToFinalize. */
-  maybeOpenReadyToFinalizePrompt: () => void;
+  /** Trial restore layout after grace demote / expired install. */
+  openRestoreSpiralCard: () => void;
+  /**
+   * Open the ready-to-update modal when appropriate.
+   * - `launch`: always (every cold start / relaunch).
+   * - `session`: at most once per local calendar day (long-running app).
+   */
+  maybeOpenReadyToUpdatePrompt: (
+    reason?: "launch" | "session",
+  ) => Promise<void>;
+  /** Open restore layout once when load returns demoted=grace. */
+  maybeOpenGraceDemotePrompt: () => void;
 }
 
 export const useLicenseStore = create<LicenseState>((set, get) => ({
   snapshot: defaultLicenseSnapshot(),
   loaded: false,
   spiralCardOpen: false,
-  pendingReplacePath: null,
-  readyToFinalizePromptShown: false,
+  pendingReplace: null,
 
   loadLicense: async () => {
     const snapshot = await getLicenseState();
@@ -57,35 +92,81 @@ export const useLicenseStore = create<LicenseState>((set, get) => ({
       snapshot,
       loaded: true,
       spiralCardOpen: true,
-      readyToFinalizePromptShown:
-        get().readyToFinalizePromptShown ||
-        snapshot.status === "readyToFinalize",
     });
+    if (snapshot.status === "readyToUpdate") {
+      await markUpdatePromptShownToday();
+    }
     return snapshot;
   },
 
-  finalizeRegistration: async () => {
-    const snapshot = await finalizeRegistrationInvoke();
+  installFromJson: async (json) => {
+    const snapshot = await installRegistrationCardJson(json);
+    set({
+      snapshot,
+      loaded: true,
+      spiralCardOpen: true,
+    });
+    if (snapshot.status === "readyToUpdate") {
+      await markUpdatePromptShownToday();
+    }
+    return snapshot;
+  },
+
+  pullCurrentGrant: async () => {
+    const snapshot = await pullCurrentGrantInvoke();
     set({ snapshot, loaded: true });
     return snapshot;
   },
 
-  updateCosmetic: async (cosmetic) => {
-    const snapshot = await updateRegistrationCosmetic(cosmetic);
-    set({ snapshot, loaded: true });
-    return snapshot;
+  setPendingReplace: (source) => set({ pendingReplace: source }),
+
+  setSpiralCardOpen: (open) => {
+    if (!open) {
+      const { snapshot } = get();
+      // Clear demote outcomes on close so reopen shows normal trial copy.
+      if (snapshot.demoted) {
+        void clearPendingDemotedNotice();
+        set({
+          spiralCardOpen: false,
+          snapshot: { ...snapshot, demoted: null },
+        });
+        return;
+      }
+    }
+    set({ spiralCardOpen: open });
   },
-
-  setPendingReplacePath: (path) => set({ pendingReplacePath: path }),
-
-  setSpiralCardOpen: (open) => set({ spiralCardOpen: open }),
 
   openSpiralCard: () => set({ spiralCardOpen: true }),
 
-  maybeOpenReadyToFinalizePrompt: () => {
-    const { readyToFinalizePromptShown, snapshot } = get();
-    if (readyToFinalizePromptShown) return;
-    if (snapshot.status !== "readyToFinalize") return;
-    set({ spiralCardOpen: true, readyToFinalizePromptShown: true });
+  openRestoreSpiralCard: () => {
+    const { snapshot } = get();
+    set({
+      spiralCardOpen: true,
+      snapshot: { ...snapshot, demoted: "grace" },
+    });
+  },
+
+  maybeOpenReadyToUpdatePrompt: async (reason = "launch") => {
+    const { snapshot, pendingReplace, spiralCardOpen } = get();
+    if (pendingReplace || spiralCardOpen) return;
+    if (snapshot.status !== "readyToUpdate") return;
+    const today = localDateYmd();
+    try {
+      if (reason === "session") {
+        const prompt = await getLicensePromptState();
+        if (prompt.lastUpdatePromptDate === today) return;
+      }
+      set({ spiralCardOpen: true });
+      await patchLicensePromptState({ lastUpdatePromptDate: today });
+    } catch (err) {
+      console.error("Failed to check license update prompt:", err);
+    }
+  },
+
+  maybeOpenGraceDemotePrompt: () => {
+    const { snapshot, pendingReplace, spiralCardOpen } = get();
+    if (pendingReplace || spiralCardOpen) return;
+    if (snapshot.demoted !== "grace") return;
+    set({ spiralCardOpen: true });
   },
 }));

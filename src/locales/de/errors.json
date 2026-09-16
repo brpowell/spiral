@@ -8,6 +8,12 @@
     "installing": {
       "not_found": "Diese Spiral-Card-Datei wurde nicht gefunden.",
       "unreadable": "Diese Spiral-Card-Datei konnte nicht gelesen werden. Versuche es erneut."
+    },
+    "handoff": {
+      "title": "Etwas ist schiefgelaufen",
+      "network": "Prüfe die Verbindung und versuche, deine Spiral Card erneut hinzuzufügen.",
+      "expired": "Versuche, deine Spiral Card erneut hinzuzufügen.",
+      "invalid": "Versuche, deine Spiral Card erneut hinzuzufügen."
     }
   }
 }

@@ -135,10 +135,26 @@
   border-radius: 0;
 }
 
+.button-group .btn:hover:not(:disabled),
+.button-group .btn[aria-expanded="true"],
+.button-group .menu-button > .btn:hover:not(:disabled),
+.button-group .menu-button > .btn[aria-expanded="true"],
 .button-group .btn:focus-visible,
 .button-group .menu-button > .btn:focus-visible,
 .button-group > .text-input:focus {
   z-index: 1;
+}
+
+/* Hover fill should read flush with the segment, not as a ring inside the border. */
+.button-group .btn--secondary:hover:not(:disabled),
+.button-group .btn--secondary[aria-expanded="true"],
+.button-group .btn--outline:hover:not(:disabled),
+.button-group .btn--outline[aria-expanded="true"] {
+  border-color: var(--color-control-hover);
+}
+
+.button-group .btn--primary:hover:not(:disabled) {
+  border-color: color-mix(in srgb, #fff 10%, var(--color-accent));
 }
 
 .button-group[data-orientation="horizontal"] > .menu-button > .btn--icon-only {

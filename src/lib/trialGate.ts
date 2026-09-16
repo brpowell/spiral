@@ -12,7 +12,8 @@ export const TRIAL_LIBRARY_CAP_ERROR_CODE = "trial_library_cap";
 
 export const TRIAL_PURCHASE_URL = "https://spiralpowered.com";
 
-export const SUPPORT_EMAIL = "support@spiralpowered.com";
+/** Member portal — download a fresh Spiral Card after restore/grace. */
+export const TRIAL_MEMBER_URL = "https://spiralpowered.com/member";
 
 /**
  * Cap metric: persisted library track rows (`tracks` table / saved library
@@ -22,7 +23,7 @@ export const SUPPORT_EMAIL = "support@spiralpowered.com";
 export function licenseUnlocksLibrary(status: LicenseStatus): boolean {
   return (
     status === "provisional" ||
-    status === "readyToFinalize" ||
+    status === "readyToUpdate" ||
     status === "licensed"
   );
 }

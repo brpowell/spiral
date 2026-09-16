@@ -10,9 +10,11 @@
 }
 
 .track-editor-modal__content > .modal-footer {
+  box-sizing: border-box;
   flex-shrink: 0;
   margin-top: auto;
-  padding: 0.75rem var(--modal-padding-inline) var(--modal-padding-block);
+  min-height: var(--modal-chrome-height);
+  padding: var(--modal-padding-block) var(--modal-padding-inline);
 }
 
 .track-editor-modal__content > .modal-footer--fade {

@@ -29,7 +29,8 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--modal-fade-padding) var(--modal-padding-inline) 0.75rem;
+  padding: var(--modal-fade-padding) var(--modal-padding-inline)
+    var(--modal-section-gap);
   padding-right: calc(var(--modal-padding-inline) + 0.35rem);
 }
 

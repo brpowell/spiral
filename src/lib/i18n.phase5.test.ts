@@ -102,7 +102,7 @@ describe("i18n Phase 5 catalogs", () => {
     expect(t("common:spiralCard.titleTrial")).toBe(
       "Unlock the full experience",
     );
-    expect(t("common:spiralCard.submit")).toBe("Submit & finalize");
+    expect(t("common:spiralCard.submit")).toBe("Update Card");
   });
 });
 
@@ -138,7 +138,8 @@ describe("Phase 5 helpers use catalogs", () => {
   });
 
   it("resolves license status labels from catalogs", () => {
-    expect(licenseStatusLabel("trial")).toBe("Trial");
-    expect(licenseStatusLabel("licensed")).toBe("Permanent");
+    expect(licenseStatusLabel("trial")).toBeNull();
+    expect(licenseStatusLabel("readyToUpdate")).toBe("Provisional");
+    expect(licenseStatusLabel("licensed")).toBeNull();
   });
 });

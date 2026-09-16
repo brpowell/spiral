@@ -132,11 +132,15 @@
     "installed": "Spiral Card installed",
     "replaced": "Spiral Card replaced",
     "installFailed": "Failed to install Spiral Card",
-    "finalized": "Card finalized",
-    "finalizedDetail": "Your Spiral card is permanent.",
-    "finalizeFailed": "Failed to finalize",
-    "finalizeOffline": "You're offline, connect and try again.",
-    "finalizeConnection": "Check your connection and try again."
+    "updated": "Card updated",
+    "updatedDetail": "Spiral is yours forever - thank you and enjoy!",
+    "updateFailed": "Couldn't update card",
+    "updateOffline": "You're offline, connect and try again.",
+    "updateConnection": "Check your connection and try again.",
+    "updateCardProblem": "Something's wrong with your Spiral Card",
+    "updateCardProblemDetail": "Head to the member portal to grab a fresh copy",
+    "updateRateLimited": "Too many attempts. Try again in a few minutes.",
+    "openMemberPortal": "Go to member portal"
   },
   "packs": {
     "installed": "Installed {{name}} ({{version}})",

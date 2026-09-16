@@ -1,32 +1,23 @@
-//! `.spcard` grant library — parse, sign, verify + app license state.
+//! `.spcard` grant library — parse, verify + app license state.
 //!
-//! Contract: `docs/license/spcard-v1.md`. Each grant is independently signed
-//! over a fixed field concatenation; cosmetic is never signed.
-//!
-//! Channel adapters ([`verifier::ProofOfPurchaseVerifier`]) are **signer-side**
-//! only — see `docs/license/channel-adapter.md`. Offline unlock never calls them.
+//! Contract lives in spiral-powered `docs/license/spcard-v1.md`. Each grant is
+//! independently signed over a fixed field concatenation; cosmetic is never
+//! signed. This crate never mints or holds a private key.
 
 mod crypto;
-pub mod mint;
+mod file_lock;
+pub mod handoff;
 mod runtime;
 mod trial_gate;
-pub mod verifier;
 
-pub use crypto::{
-    sign_grant, signing_key_from_bytes, verify_grant_signature, verifying_key_from_bytes,
-    SigningKey, VerifyingKey,
-};
+pub use crypto::{verify_grant_signature, verifying_key_from_bytes, VerifyingKey};
 pub use runtime::{
-    install_registration_card, load_license_snapshot, merge_finalized_grant_json,
-    registration_spcard_path_if_present, update_registration_cosmetic, LicenseSnapshot,
-    LicenseStatus,
+    install_registration_card, install_registration_card_json, load_license_snapshot,
+    merge_current_grant_json, read_license_prompt_state, registration_spcard_path_if_present,
+    remove_registration_card, write_license_prompt_state, LicenseDemoted, LicensePromptState,
+    LicenseSnapshot, LicenseStatus, LICENSE_GRACE_PERIOD_DAYS,
 };
 pub use trial_gate::assert_can_add_library_track;
-pub use verifier::{
-    DirectMintProof, DirectProofVerifier, FlatpakProof, FlatpakProofVerifier, MacAppStoreProof,
-    MacAppStoreProofVerifier, ProofOfPurchaseVerifier, SteamOwnershipProof, SteamProofVerifier,
-    VerifiedPurchase, WindowsStoreProof, WindowsStoreProofVerifier, POC_DIRECT_MINT_GRANT,
-};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -34,11 +25,17 @@ use serde_json::Value;
 /// Current `.spcard` schema version (`manifestVersion`).
 pub const SPCARD_MANIFEST_VERSION: u32 = 1;
 
-/// Free-trial library track cap until a verified card unlocks (PoC).
+/// Free-trial library track cap until a verified card unlocks.
 pub const TRIAL_LIBRARY_TRACK_CAP: u32 = 24;
 
-/// PoC product id (unlock identity).
-pub const PRODUCT_ID_SPIRAL: &str = "spiral";
+/// Product key (unlock identity).
+pub const PRODUCT_KEY_SPIRAL: &str = "spiral";
+
+/// Org folder under the user data root for the shared registration wallet.
+///
+/// Wallet: `{data_dir}/com.spiralpowered/license/registration.spcard`
+/// Prompt state stays per-app under `{app_data}/license/prompt-state.json`.
+pub const LICENSE_ORG_ID: &str = "com.spiralpowered";
 
 /// Default commercial / cohort SKU.
 pub const SKU_STANDARD: &str = "standard";
@@ -59,13 +56,21 @@ pub const SPCARD_MAX_GRANTS: usize = 16;
 /// U+001F UNIT SEPARATOR between signed grant fields.
 const FIELD_SEP: u8 = 0x1F;
 
-/// Bundled PoC Ed25519 public key (32 raw bytes).
-pub const POC_PUBLIC_KEY_BYTES: &[u8; 32] = include_bytes!("../../keys/license/poc-ed25519.pub");
+/// Bundled Ed25519 public key (32 raw bytes). Debug, `cfg(test)`, and
+/// `--features license-dev-key` use the development key; a default release
+/// build uses the production key. Exactly one key is compiled in.
+#[cfg(any(debug_assertions, test, feature = "license-dev-key"))]
+pub const LICENSE_PUBLIC_KEY_BYTES: &[u8; 32] =
+    include_bytes!("../../keys/license/dev-ed25519.pub");
+
+#[cfg(not(any(debug_assertions, test, feature = "license-dev-key")))]
+pub const LICENSE_PUBLIC_KEY_BYTES: &[u8; 32] =
+    include_bytes!("../../keys/license/prod-ed25519.pub");
 
 /// Max Unicode scalar values for `cardholderName` (Studio write + repair).
 const CARDHOLDER_NAME_MAX_CHARS: usize = 40;
 
-/// Default cosmetic used on mint and soft-fail repair.
+/// Default cosmetic used on soft-fail repair.
 pub fn default_cosmetic() -> Cosmetic {
     Cosmetic {
         font_id: "mono-01".to_string(),
@@ -74,11 +79,10 @@ pub fn default_cosmetic() -> Cosmetic {
     }
 }
 
-/// PoC bundled font ids. Unknown → default `mono-01`.
+/// Bundled font ids. Unknown → default `mono-01`.
 const KNOWN_FONT_IDS: &[&str] = &["mono-01"];
 
-/// Allowed `cosmetic` object keys (`manifestVersion: 1`). Anything else
-/// (`wrapRef`, `wrapData`, …) is `unknown_field`.
+/// Allowed `cosmetic` object keys (`manifestVersion: 1`). Anything else is `unknown_field`.
 const KNOWN_COSMETIC_KEYS: &[&str] = &["fontId", "colorHex", "cardholderName"];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -109,7 +113,7 @@ impl LicenseSku {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Grant {
-    pub product_id: String,
+    pub product_key: String,
     pub sku: LicenseSku,
     pub original_purchase_id: String,
     pub channel: LicenseChannel,
@@ -174,7 +178,7 @@ fn err(code: &'static str, message: impl Into<String>) -> LicenseError {
 /// Fixed ordered concat of grant fields for Ed25519 (excludes `signature`).
 pub fn grant_signing_bytes(grant: &Grant) -> Vec<u8> {
     join_signing_fields([
-        grant.product_id.as_str(),
+        grant.product_key.as_str(),
         grant.sku.as_str(),
         grant.original_purchase_id.as_str(),
         grant.channel.as_str(),
@@ -198,7 +202,7 @@ fn join_signing_fields(parts: [&str; 6]) -> Vec<u8> {
 pub fn spiral_grant(card: &Spcard) -> Option<&Grant> {
     card.grants
         .iter()
-        .find(|g| g.product_id == PRODUCT_ID_SPIRAL)
+        .find(|g| g.product_key == PRODUCT_KEY_SPIRAL)
 }
 
 /// RFC 3339 UTC second precision with literal `Z` (`YYYY-MM-DDTHH:MM:SSZ`).
@@ -298,15 +302,6 @@ fn normalize_cardholder_name(name: &str) -> String {
     trimmed
 }
 
-/// Normalize cosmetic for write (Studio). Never fails grant verify; unknown fonts / colors repair.
-pub fn prepare_cosmetic_for_write(cosmetic: Cosmetic) -> Cosmetic {
-    Cosmetic {
-        font_id: repaired_font_id(Some(&cosmetic.font_id)),
-        color_hex: repaired_color_hex(Some(&cosmetic.color_hex)),
-        cardholder_name: repaired_cardholder_name(Some(&cosmetic.cardholder_name)),
-    }
-}
-
 pub(crate) fn reject_if_spcard_too_large(byte_len: u64) -> Result<(), LicenseError> {
     if byte_len > SPCARD_MAX_BYTES as u64 {
         return Err(err(
@@ -362,7 +357,7 @@ fn parse_grant(value: &Value) -> Result<Grant, LicenseError> {
         .as_object()
         .ok_or_else(|| err("invalid_grant", "grant must be an object"))?;
 
-    let product_id = require_nonempty_str(obj, "productId")?;
+    let product_key = require_nonempty_str(obj, "productKey")?;
     let sku_str = require_nonempty_str(obj, "sku")?;
     let sku = parse_sku(&sku_str)?;
     let original_purchase_id = require_nonempty_str(obj, "originalPurchaseId")?;
@@ -394,7 +389,7 @@ fn parse_grant(value: &Value) -> Result<Grant, LicenseError> {
     let signature = require_nonempty_str(obj, "signature")?;
 
     Ok(Grant {
-        product_id,
+        product_key,
         sku,
         original_purchase_id,
         channel,
@@ -504,22 +499,12 @@ pub fn serialize_spcard(card: &Spcard) -> Result<String, LicenseError> {
     })
 }
 
-/// Serialize a grant object (camelCase) — finalize HTTP / CLI response.
-pub fn serialize_grant(grant: &Grant) -> Result<String, LicenseError> {
-    serde_json::to_string_pretty(grant).map_err(|e| {
-        err(
-            "serialize_failed",
-            format!("failed to serialize grant: {e}"),
-        )
-    })
-}
-
-/// Parse + verify a standalone grant JSON blob (finalize response).
-pub fn parse_and_verify_grant_poc(json: &str) -> Result<Grant, LicenseError> {
+/// Parse + verify a standalone grant JSON blob (current-grant response).
+pub fn parse_and_verify_grant_bundled(json: &str) -> Result<Grant, LicenseError> {
     let value: Value = serde_json::from_str(json)
         .map_err(|e| err("invalid_json", format!("grant is not valid JSON: {e}")))?;
     let grant = parse_grant(&value)?;
-    let key = verifying_key_from_bytes(POC_PUBLIC_KEY_BYTES)?;
+    let key = verifying_key_from_bytes(LICENSE_PUBLIC_KEY_BYTES)?;
     verify_grant_signature(&grant, &key)?;
     Ok(grant)
 }
@@ -541,80 +526,10 @@ pub fn parse_and_verify(json: &str, public_key: &VerifyingKey) -> Result<Spcard,
     Ok(card)
 }
 
-/// Convenience: verify against the bundled PoC public key.
-pub fn parse_and_verify_poc(json: &str) -> Result<Spcard, LicenseError> {
-    let key = verifying_key_from_bytes(POC_PUBLIC_KEY_BYTES)?;
+/// Convenience: verify against the compile-selected bundled public key.
+pub fn parse_and_verify_bundled(json: &str) -> Result<Spcard, LicenseError> {
+    let key = verifying_key_from_bytes(LICENSE_PUBLIC_KEY_BYTES)?;
     parse_and_verify(json, &key)
-}
-
-/// Build a grant and attach a fresh signature (mint / finalize helpers).
-pub fn mint_grant(
-    signing_key: &SigningKey,
-    product_id: impl Into<String>,
-    sku: LicenseSku,
-    original_purchase_id: impl Into<String>,
-    channel: LicenseChannel,
-    issued_at: impl Into<String>,
-    expires_at: Option<String>,
-) -> Result<Grant, LicenseError> {
-    let issued_at = issued_at.into();
-    if !is_valid_timestamp(&issued_at) {
-        return Err(err(
-            "invalid_timestamp",
-            format!("issuedAt must be YYYY-MM-DDTHH:MM:SSZ, got {issued_at}"),
-        ));
-    }
-    if let Some(ref exp) = expires_at {
-        if !is_valid_timestamp(exp) {
-            return Err(err(
-                "invalid_timestamp",
-                format!("expiresAt must be YYYY-MM-DDTHH:MM:SSZ or null, got {exp}"),
-            ));
-        }
-    }
-
-    let mut grant = Grant {
-        product_id: product_id.into(),
-        sku,
-        original_purchase_id: original_purchase_id.into(),
-        channel,
-        issued_at,
-        expires_at,
-        signature: String::new(),
-    };
-    if grant.product_id.is_empty() || grant.original_purchase_id.is_empty() {
-        return Err(err(
-            "invalid_grant",
-            "productId and originalPurchaseId must be non-empty",
-        ));
-    }
-    grant.signature = sign_grant(signing_key, &grant)?;
-    Ok(grant)
-}
-
-/// Mint a full provisional/permanent `.spcard` with default cosmetic (one grant).
-pub fn mint_spcard(
-    signing_key: &SigningKey,
-    product_id: impl Into<String>,
-    sku: LicenseSku,
-    original_purchase_id: impl Into<String>,
-    channel: LicenseChannel,
-    issued_at: impl Into<String>,
-    expires_at: Option<String>,
-) -> Result<Spcard, LicenseError> {
-    Ok(Spcard {
-        manifest_version: SPCARD_MANIFEST_VERSION,
-        grants: vec![mint_grant(
-            signing_key,
-            product_id,
-            sku,
-            original_purchase_id,
-            channel,
-            issued_at,
-            expires_at,
-        )?],
-        cosmetic: default_cosmetic(),
-    })
 }
 
 #[cfg(test)]
@@ -622,28 +537,24 @@ mod tests {
     use super::*;
     use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 
-    const PROVISIONAL: &str = include_str!("../../../docs/license/examples/provisional.spcard");
-    const PERMANENT: &str = include_str!("../../../docs/license/examples/permanent.spcard");
-    const POC_PRIVATE_KEY: &[u8; 32] =
-        include_bytes!("../../../docs/license/poc-keys/ed25519-private.raw");
+    const PROVISIONAL: &str = include_str!("fixtures/provisional.spcard");
+    const PERMANENT: &str = include_str!("fixtures/permanent.spcard");
+    const FOUNDER: &str = include_str!("fixtures/founder-provisional.spcard");
+    const PROD_PUBLIC_KEY: &[u8; 32] = include_bytes!("../../keys/license/prod-ed25519.pub");
 
-    fn poc_verifying_key() -> VerifyingKey {
-        verifying_key_from_bytes(POC_PUBLIC_KEY_BYTES).expect("poc public key")
-    }
-
-    fn poc_signing_key() -> SigningKey {
-        signing_key_from_bytes(POC_PRIVATE_KEY).expect("poc private key")
+    fn bundled_verifying_key() -> VerifyingKey {
+        verifying_key_from_bytes(LICENSE_PUBLIC_KEY_BYTES).expect("bundled public key")
     }
 
     #[test]
     fn provisional_fixture_verifies() {
         assert_eq!(TRIAL_LIBRARY_TRACK_CAP, 24);
-        assert_eq!(PRODUCT_ID_SPIRAL, "spiral");
-        let card = parse_and_verify(PROVISIONAL, &poc_verifying_key()).unwrap();
+        assert_eq!(PRODUCT_KEY_SPIRAL, "spiral");
+        let card = parse_and_verify(PROVISIONAL, &bundled_verifying_key()).unwrap();
         assert_eq!(card.manifest_version, 1);
         assert_eq!(card.grants.len(), 1);
         let grant = &card.grants[0];
-        assert_eq!(grant.product_id, PRODUCT_ID_SPIRAL);
+        assert_eq!(grant.product_key, PRODUCT_KEY_SPIRAL);
         assert_eq!(grant.sku, LicenseSku::Standard);
         assert_eq!(grant.channel, LicenseChannel::Direct);
         assert_eq!(grant.expires_at.as_deref(), Some("2026-07-15T12:00:00Z"));
@@ -652,10 +563,20 @@ mod tests {
 
     #[test]
     fn permanent_fixture_verifies() {
-        let card = parse_and_verify(PERMANENT, &poc_verifying_key()).unwrap();
+        let card = parse_and_verify(PERMANENT, &bundled_verifying_key()).unwrap();
         assert!(card.grants[0].expires_at.is_none());
         assert_eq!(card.grants[0].issued_at, "2026-07-15T12:05:00Z");
         assert_eq!(card.grants[0].sku, LicenseSku::Standard);
+    }
+
+    #[test]
+    fn founder_fixture_verifies() {
+        let card = parse_and_verify(FOUNDER, &bundled_verifying_key()).unwrap();
+        assert_eq!(card.grants[0].sku, LicenseSku::Founder);
+        assert_eq!(
+            card.grants[0].expires_at.as_deref(),
+            Some("2026-07-15T12:00:00Z")
+        );
     }
 
     #[test]
@@ -686,15 +607,15 @@ mod tests {
         let mut sig = BASE64.decode(&card.grants[0].signature).unwrap();
         sig[0] ^= 0x01;
         card.grants[0].signature = BASE64.encode(&sig);
-        let err = verify_spcard(&card, &poc_verifying_key()).unwrap_err();
+        let err = verify_spcard(&card, &bundled_verifying_key()).unwrap_err();
         assert_eq!(err.code, "invalid_signature");
     }
 
     #[test]
     fn flipped_bit_in_signed_field_fails() {
         let mut card = parse_spcard(PROVISIONAL).unwrap();
-        card.grants[0].product_id = "spirax".to_string();
-        let err = verify_spcard(&card, &poc_verifying_key()).unwrap_err();
+        card.grants[0].product_key = "spirax".to_string();
+        let err = verify_spcard(&card, &bundled_verifying_key()).unwrap_err();
         assert_eq!(err.code, "invalid_signature");
     }
 
@@ -704,14 +625,14 @@ mod tests {
         value["cosmetic"]["colorHex"] = Value::String("#00ff00".into());
         value["cosmetic"]["fontId"] = Value::String("mono-01".into());
         value["cosmetic"]["cardholderName"] = Value::String("Ada".into());
-        parse_and_verify(&value.to_string(), &poc_verifying_key()).unwrap();
+        parse_and_verify(&value.to_string(), &bundled_verifying_key()).unwrap();
     }
 
     #[test]
     fn missing_cosmetic_defaults_and_still_verifies() {
         let mut value: Value = serde_json::from_str(PROVISIONAL).unwrap();
         value.as_object_mut().unwrap().remove("cosmetic");
-        let card = parse_and_verify(&value.to_string(), &poc_verifying_key()).unwrap();
+        let card = parse_and_verify(&value.to_string(), &bundled_verifying_key()).unwrap();
         assert_eq!(card.cosmetic, default_cosmetic());
     }
 
@@ -723,47 +644,8 @@ mod tests {
             "colorHex": "red",
             "cardholderName": 123
         });
-        let card = parse_and_verify(&value.to_string(), &poc_verifying_key()).unwrap();
+        let card = parse_and_verify(&value.to_string(), &bundled_verifying_key()).unwrap();
         assert_eq!(card.cosmetic, default_cosmetic());
-    }
-
-    #[test]
-    fn provisional_and_permanent_round_trip() {
-        let key = poc_signing_key();
-        let verify = key.verifying_key();
-
-        let provisional = mint_spcard(
-            &key,
-            "spiral",
-            LicenseSku::Standard,
-            "round-trip-001",
-            LicenseChannel::Direct,
-            "2026-07-25T12:00:00Z",
-            Some("2026-08-08T12:00:00Z".into()),
-        )
-        .unwrap();
-        let json = serialize_spcard(&provisional).unwrap();
-        let parsed = parse_and_verify(&json, &verify).unwrap();
-        assert_eq!(
-            parsed.grants[0].expires_at.as_deref(),
-            Some("2026-08-08T12:00:00Z")
-        );
-        assert_eq!(parsed.cosmetic, default_cosmetic());
-
-        let permanent = mint_spcard(
-            &key,
-            "spiral",
-            LicenseSku::Founder,
-            "round-trip-001",
-            LicenseChannel::Direct,
-            "2026-08-08T12:05:00Z",
-            None,
-        )
-        .unwrap();
-        let json = serialize_spcard(&permanent).unwrap();
-        let parsed = parse_and_verify(&json, &verify).unwrap();
-        assert!(parsed.grants[0].expires_at.is_none());
-        assert_eq!(parsed.grants[0].sku, LicenseSku::Founder);
     }
 
     #[test]
@@ -791,32 +673,18 @@ mod tests {
     }
 
     #[test]
-    fn wrong_public_key_fails() {
+    fn production_public_key_rejects_development_signed_fixture() {
         let card = parse_spcard(PROVISIONAL).unwrap();
-        let other = SigningKey::from_bytes(&[0x42u8; 32]);
-        let err = verify_spcard(&card, &other.verifying_key()).unwrap_err();
+        let other = verifying_key_from_bytes(PROD_PUBLIC_KEY).unwrap();
+        let err = verify_spcard(&card, &other).unwrap_err();
         assert_eq!(err.code, "invalid_signature");
     }
 
     #[test]
-    fn parse_and_verify_poc_helper() {
-        parse_and_verify_poc(PROVISIONAL).unwrap();
-        parse_and_verify_poc(PERMANENT).unwrap();
-    }
-
-    #[test]
-    fn wrap_cosmetic_fields_fail_closed() {
-        for key in ["wrapRef", "wrapData"] {
-            let mut value: Value = serde_json::from_str(PROVISIONAL).unwrap();
-            value["cosmetic"][key] = Value::String("custom".into());
-            let err = parse_spcard(&value.to_string()).unwrap_err();
-            assert_eq!(err.code, "unknown_field", "{key}");
-            assert!(
-                err.message.contains(key),
-                "expected {key} in message, got {}",
-                err.message
-            );
-        }
+    fn parse_and_verify_bundled_helper() {
+        parse_and_verify_bundled(PROVISIONAL).unwrap();
+        parse_and_verify_bundled(PERMANENT).unwrap();
+        parse_and_verify_bundled(FOUNDER).unwrap();
     }
 
     #[test]

@@ -23,6 +23,22 @@
   flex-shrink: 0;
 }
 
+.btn__spinner {
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+  border: 2px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;

@@ -1,9 +1,15 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { t, type TranslationKey } from "./i18n";
-import { translateUserError } from "./userError";
+import {
+  isSpiralCardIntegrityError,
+  parseUserErrorCode,
+  translateUserError,
+} from "./userError";
 import { isMissingFileErrorDetail } from "./missingFileTrack";
 import { lyricsAmbiguousSettleOptions } from "./lyricsFetchToastSettle";
 import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
 import type { ActivityLogRevealTarget } from "./activityLogsWindow";
+import { TRIAL_MEMBER_URL } from "./trialGate";
 import type {
   BackgroundTaskAction,
   BackgroundTaskSettleAsOptions,
@@ -303,10 +309,58 @@ export function spiralCardInstallSuccessPayload(
   );
 }
 
+const HANDOFF_ERROR_RE = /^license\.handoff\.(network|expired|invalid)$/;
+
+function openMemberPortalAction(
+  onOpenMemberPortal?: () => void,
+): BackgroundTaskAction {
+  return {
+    id: "open-member-portal",
+    label: t("toasts:spiralCard.openMemberPortal"),
+    variant: "primary",
+    onClick: onOpenMemberPortal ?? (() => void openUrl(TRIAL_MEMBER_URL)),
+  };
+}
+
 export function spiralCardInstallErrorPayload(
   err?: unknown,
-  options?: { dismissMs?: number | null },
+  options?: {
+    dismissMs?: number | null;
+    onOpenMemberPortal?: () => void;
+  },
 ): ToastPayload {
+  const code = parseUserErrorCode(err);
+  if (code === "license.installing.expired") {
+    return withOptionalDismiss(
+      {
+        key: "spiral-card-install",
+        label: t("errors:license.installing.expired.title"),
+        detail: t("errors:license.installing.expired.detail"),
+      },
+      options?.dismissMs,
+    );
+  }
+  if (code && isSpiralCardIntegrityError(code)) {
+    return withOptionalDismiss(
+      {
+        key: "spiral-card-install",
+        label: t(`errors:${code}.title` as TranslationKey),
+        detail: t(`errors:${code}.detail` as TranslationKey),
+        actions: [openMemberPortalAction(options?.onOpenMemberPortal)],
+      },
+      options?.dismissMs,
+    );
+  }
+  if (code && HANDOFF_ERROR_RE.test(code)) {
+    return withOptionalDismiss(
+      {
+        key: "spiral-card-install",
+        label: t("errors:license.handoff.title"),
+        detail: translateUserError(err) ?? undefined,
+      },
+      options?.dismissMs,
+    );
+  }
   return withOptionalDismiss(
     {
       key: "spiral-card-install",
@@ -316,30 +370,61 @@ export function spiralCardInstallErrorPayload(
   );
 }
 
-export function spiralCardFinalizedPayload(options?: {
+export function spiralCardUpdatedPayload(options?: {
   dismissMs?: number | null;
 }): ToastPayload {
+  // Celebratory copy — linger past the default brief success timeout (2s).
   return withOptionalDismiss(
     {
-      key: "spiral-card-finalize",
-      label: t("toasts:spiralCard.finalized"),
-      detail: t("toasts:spiralCard.finalizedDetail"),
+      key: "spiral-card-update",
+      label: t("toasts:spiralCard.updated"),
+      detail: t("toasts:spiralCard.updatedDetail"),
     },
-    options?.dismissMs,
+    options?.dismissMs !== undefined ? options.dismissMs : 6000,
   );
 }
 
-export function spiralCardFinalizeNetworkErrorPayload(
+export function spiralCardUpdateNetworkErrorPayload(
   offline: boolean,
   options?: { dismissMs?: number | null },
 ): ToastPayload {
   return withOptionalDismiss(
     {
-      key: "spiral-card-finalize",
-      label: t("toasts:spiralCard.finalizeFailed"),
+      key: "spiral-card-update",
+      label: t("toasts:spiralCard.updateFailed"),
       detail: offline
-        ? t("toasts:spiralCard.finalizeOffline")
-        : t("toasts:spiralCard.finalizeConnection"),
+        ? t("toasts:spiralCard.updateOffline")
+        : t("toasts:spiralCard.updateConnection"),
+    },
+    options?.dismissMs,
+  );
+}
+
+/** Known/expected throttle — toast-only, no Activity Log / View logs. */
+export function spiralCardUpdateRateLimitedPayload(options?: {
+  dismissMs?: number | null;
+}): ToastPayload {
+  return withOptionalDismiss(
+    {
+      key: "spiral-card-update",
+      label: t("toasts:spiralCard.updateFailed"),
+      detail: t("toasts:spiralCard.updateRateLimited"),
+    },
+    options?.dismissMs,
+  );
+}
+
+/** Non-network grant pull failure — recover via a fresh card from the member portal. */
+export function spiralCardUpdateFailedPayload(
+  handlers?: { onOpenMemberPortal?: () => void },
+  options?: { dismissMs?: number | null },
+): ToastPayload {
+  return withOptionalDismiss(
+    {
+      key: "spiral-card-update",
+      label: t("toasts:spiralCard.updateCardProblem"),
+      detail: t("toasts:spiralCard.updateCardProblemDetail"),
+      actions: [openMemberPortalAction(handlers?.onOpenMemberPortal)],
     },
     options?.dismissMs,
   );

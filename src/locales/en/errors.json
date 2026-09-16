@@ -5,17 +5,39 @@
     "installed": {
       "legacy_format": "Your installed Spiral Card uses an older format and can't be read. Add a newly minted card to continue.",
       "unrecognized": "Your installed Spiral Card isn't recognized by this version of Spiral. Add a new card to continue.",
-      "unverified": "Your installed Spiral Card couldn't be verified. Try adding it again, or contact support.",
+      "unverified": {
+        "title": "This Spiral Card couldn't be verified",
+        "detail": "Head to the member portal to grab a fresh copy"
+      },
       "unsupported": "Your installed Spiral Card isn't supported by this version of Spiral. Add a new card to continue.",
-      "unreadable": "Your installed Spiral Card couldn't be read. Try adding it again."
+      "unreadable": {
+        "title": "Couldn't read that Spiral Card",
+        "detail": "Head to the member portal to grab a fresh copy"
+      }
     },
     "installing": {
       "legacy_format": "This Spiral Card uses an older format and can't be read. Add a newly minted card to continue.",
       "unrecognized": "This Spiral Card isn't recognized by this version of Spiral. Add a new card to continue.",
-      "unverified": "This Spiral Card couldn't be verified. Try adding it again, or contact support.",
+      "unverified": {
+        "title": "This Spiral Card couldn't be verified",
+        "detail": "Head to the member portal to grab a fresh copy"
+      },
       "unsupported": "This Spiral Card isn't supported by this version of Spiral. Add a new card to continue.",
-      "unreadable": "Couldn't read that Spiral Card file. Try again.",
-      "not_found": "That Spiral Card file couldn't be found."
+      "unreadable": {
+        "title": "Couldn't read that Spiral Card",
+        "detail": "Head to the member portal to grab a fresh copy"
+      },
+      "not_found": "That Spiral Card file couldn't be found.",
+      "expired": {
+        "title": "This Spiral Card copy is no longer valid",
+        "detail": "Grab a fresh one from the member portal and add it."
+      }
+    },
+    "handoff": {
+      "title": "Something went wrong",
+      "network": "Check your connection and try adding your Spiral Card again.",
+      "expired": "Try adding your Spiral Card again.",
+      "invalid": "Try adding your Spiral Card again."
     }
   }
 }
