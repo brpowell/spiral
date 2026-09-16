@@ -331,7 +331,11 @@ export function startCdImport(options: {
         await cleanupCdImportTemp(driveId);
 
         if (result.imported > 0 || result.replaced > 0) {
-          await usePlayerStore.getState().loadLibrary();
+          // Same as file import: refresh rows without restoring the startup
+          // playback session over live audio (issue #324).
+          await usePlayerStore
+            .getState()
+            .loadLibrary({ preservePlayback: true });
           const firstEntry = entries[0]?.metadata;
           if (firstEntry) {
             const key = albumKey({

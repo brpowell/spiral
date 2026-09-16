@@ -111,6 +111,7 @@ describe("cd import cancel store", () => {
     await useCdImportStore.getState().resolveCancelPrompt("keep");
 
     expect(loadLibrary).toHaveBeenCalledOnce();
+    expect(loadLibrary).toHaveBeenCalledWith({ preservePlayback: true });
     expect(useCdImportStore.getState().cancelPrompt).toBeNull();
     expect(useCdImportStore.getState().completedDisplayByDriveId).toEqual({
       "drive-a": [1, 2],

@@ -115,6 +115,11 @@ interface PlayerState {
   /** Bumped when lyrics are saved so now-playing UI can refetch. */
   lyricsRevisionByTrackId: Record<number, number>;
 
+  /**
+   * Replace library rows from disk. Pass `{ preservePlayback: true }` for
+   * mid-session refreshes so the startup session snapshot is not applied
+   * over live audio.
+   */
   loadLibrary: (options?: { preservePlayback?: boolean }) => Promise<void>;
   stagePendingImportTracks: (tracks: Track[]) => void;
   applyImportTrackUpdates: (

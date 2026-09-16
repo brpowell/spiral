@@ -138,7 +138,8 @@ export const useCdImportStore = create<CdImportState>((set, get) => ({
 
   finishImport: (options) =>
     set((state) => {
-      const preserveCompletedDisplay = options?.preserveCompletedDisplay ?? true;
+      const preserveCompletedDisplay =
+        options?.preserveCompletedDisplay ?? true;
       const driveId = state.progress?.driveId ?? state.importingDriveId;
       const completed = state.progress?.completedTrackNumbers ?? [];
       const nextDisplay = { ...state.completedDisplayByDriveId };
@@ -185,7 +186,7 @@ export const useCdImportStore = create<CdImportState>((set, get) => ({
           },
         }));
       }
-      await usePlayerStore.getState().loadLibrary();
+      await usePlayerStore.getState().loadLibrary({ preservePlayback: true });
       return;
     }
 
