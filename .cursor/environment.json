@@ -1,0 +1,15 @@
+{
+  "name": "Spiral",
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "spiral",
+      "command": "export DISPLAY=:1 WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1; exec dbus-run-session -- npm run tauri dev",
+      "description": "Spiral Tauri dev app: Vite on http://localhost:1420 plus the native WebKitGTK window on DISPLAY :1. The first launch compiles the Rust backend and can take several minutes; the window appears once the build finishes."
+    }
+  ],
+  "repositoryDependencies": [
+    "github.com/spiral-powered/spiral-ui",
+    "github.com/spiral-powered/native-lame"
+  ]
+}
