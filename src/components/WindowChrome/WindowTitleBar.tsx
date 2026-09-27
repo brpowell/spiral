@@ -46,7 +46,7 @@ function runEditCommand(
 }
 
 export interface WindowTitleBarProps {
-  /** Shown in the title bar; defaults to the app name. */
+  /** Shown in the title bar when menus are hidden (aux windows). Defaults to the app name. */
   title?: string;
   /** When set, Spiral / File / Edit / View menus are shown (main library window). */
   handlers?: AppMenuHandlers;
@@ -289,7 +289,9 @@ export function WindowTitleBar({
         data-tauri-drag-region="deep"
         onDoubleClick={onDragDoubleClick}
       >
-        <span className="window-titlebar__title">{title}</span>
+        {showMenus ? null : (
+          <span className="window-titlebar__title">{title}</span>
+        )}
 
         {showMenus ? (
           <nav
