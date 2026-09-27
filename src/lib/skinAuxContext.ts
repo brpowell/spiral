@@ -40,15 +40,3 @@ export function parseSkinAuxContextFromUrl(): SkinAuxContext | null {
   if (!skinId || !viewId) return null;
   return { skinId, viewId };
 }
-
-export function buildSkinAuxWindowUrl(skinId: string, viewId: string): string {
-  const params = new URLSearchParams({
-    skinAux: "1",
-    skinId,
-    viewId,
-  });
-  if (import.meta.env.DEV) {
-    return `http://localhost:1420/?${params.toString()}`;
-  }
-  return `/?${params.toString()}`;
-}

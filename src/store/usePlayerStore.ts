@@ -1,4 +1,10 @@
 import { create } from "zustand";
+import { notifyCrossfadeVisual } from "../lib/crossfadeVisualClock";
+import { notifyLivePosition } from "../lib/livePosition";
+import {
+  pinPlaybackPosition,
+  resolvePlaybackDisplaySeconds,
+} from "../lib/playbackClockPin";
 import * as audio from "../lib/playback";
 import { cdPlaybackTracks } from "../lib/cdPlaybackArt";
 import {
@@ -273,7 +279,28 @@ function stopPositionPoll(
     clearTimeout(positionInterval);
     positionInterval = null;
   }
+  notifyCrossfadeVisual(null);
   set?.({ crossfadeVisual: null });
+}
+
+function sameCrossfadeIdentity(
+  prev: CrossfadeVisualState | null,
+  next: CrossfadeVisualState | null,
+): boolean {
+  if (prev === next) return true;
+  if (prev === null || next === null) return false;
+  return (
+    prev.outgoingTrackId === next.outgoingTrackId &&
+    prev.incomingTrackId === next.incomingTrackId
+  );
+}
+
+function crossedCrossfadeHalfway(
+  prev: CrossfadeVisualState | null,
+  next: CrossfadeVisualState | null,
+): boolean {
+  if (prev === null || next === null) return false;
+  return prev.progress >= 0.5 !== next.progress >= 0.5;
 }
 
 function positionPollIntervalMs(
@@ -478,12 +505,22 @@ function startPositionPoll(
   stopPositionPoll(set);
 
   const tick = () => {
-    const positionSeconds = audio.getPositionSeconds();
+    const positionSeconds = resolvePlaybackDisplaySeconds(
+      audio.getPositionSeconds(),
+    );
     const crossfadeVisual = usePlaybackSettingsStore.getState()
       .crossfadeVisualEnabled
       ? audio.getCrossfadeVisualState()
       : null;
-    set({ positionSeconds, crossfadeVisual });
+    notifyCrossfadeVisual(crossfadeVisual);
+    notifyLivePosition(positionSeconds);
+    const prevVisual = get().crossfadeVisual;
+    if (
+      !sameCrossfadeIdentity(prevVisual, crossfadeVisual) ||
+      crossedCrossfadeHalfway(prevVisual, crossfadeVisual)
+    ) {
+      set({ crossfadeVisual });
+    }
     tryScheduleCrossfade(set, get, positionSeconds);
 
     const intervalMs = positionPollIntervalMs(get, positionSeconds);
@@ -1416,10 +1453,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     pause: () => {
+      const positionSeconds = audio.getPositionSeconds();
       audio.pause();
       stopPositionPoll(set);
       pauseListenAccumulation();
-      set({ playbackState: "paused" });
+      set({ playbackState: "paused", positionSeconds });
     },
 
     resume: () => {
@@ -1447,7 +1485,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
       const result = await audio.recoverAfterWake({
         wasPlaying: state.playbackState === "playing",
-        positionSeconds: state.positionSeconds,
+        positionSeconds:
+          audio.getDurationSeconds() > 0
+            ? audio.getPositionSeconds()
+            : state.positionSeconds,
         filePath: track?.filePath ?? null,
       });
 
@@ -1464,7 +1505,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
       stopPositionPoll(set);
       pauseListenAccumulation();
-      set({ playbackState: "paused" });
+      set({
+        playbackState: "paused",
+        positionSeconds: audio.getPositionSeconds(),
+      });
     },
 
     togglePlayPause: () => {
@@ -1477,17 +1521,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     seek: (ratio) => {
       const state = get();
+      const requested = seekRatioToPositionSeconds(
+        state.library,
+        state.currentTrackId,
+        ratio,
+        state.playbackTracks,
+      );
       audio.seek(ratio);
       const fromAudio = audio.getPositionSeconds();
+      // The engine clamps near the end. Trust that reading only once it has
+      // arrived at the request — the pre-seek clock must not win.
       const positionSeconds =
-        fromAudio > 0
-          ? fromAudio
-          : seekRatioToPositionSeconds(
-              state.library,
-              state.currentTrackId,
-              ratio,
-              state.playbackTracks,
-            );
+        Math.abs(fromAudio - requested) <= 0.5 ? fromAudio : requested;
+      pinPlaybackPosition(positionSeconds);
+      notifyLivePosition(positionSeconds);
       set({
         positionSeconds,
         seekPreviewRatio: null,
@@ -1496,7 +1543,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     beginSeekPreview: () => {
       const state = get();
-      let duration = audio.getDurationSeconds();
+      const audioDuration = audio.getDurationSeconds();
+      let duration = audioDuration;
       if (!duration) {
         duration =
           findPlaybackTrack({
@@ -1505,7 +1553,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             currentTrackId: state.currentTrackId,
           })?.durationSeconds ?? 0;
       }
-      const ratio = duration > 0 ? state.positionSeconds / duration : 0;
+      const position =
+        audioDuration > 0 ? audio.getPositionSeconds() : state.positionSeconds;
+      const ratio = duration > 0 ? position / duration : 0;
       set({ seekPreviewRatio: ratio });
     },
 
@@ -1532,9 +1582,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
           })?.durationSeconds ?? 0;
       }
       if (!duration) return;
-      const position = audio.getPositionSeconds();
+      const position = resolvePlaybackDisplaySeconds(
+        audio.getPositionSeconds(),
+      );
       const next = Math.max(0, Math.min(duration, position + deltaSeconds));
       audio.seek(next / duration);
+      pinPlaybackPosition(next);
+      notifyLivePosition(next);
       set({ positionSeconds: next, seekPreviewRatio: null });
     },
 

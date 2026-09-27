@@ -30,6 +30,8 @@ export interface SkinTooltipLiveContext {
   eqBand?: number;
   /** Digit time display mode. */
   showElapsed?: boolean;
+  /** Live playhead, so the tooltip is not stuck on the last bind snapshot. */
+  positionSeconds?: number;
 }
 
 function formatBindValue(value: string | number | boolean | null): string {
@@ -237,19 +239,21 @@ function defaultSliderTooltip(
 function defaultDigitTimeTooltip(
   showElapsed: boolean | undefined,
   state: SkinBindState,
+  livePosition?: number,
 ): string {
   const duration =
     state.currentTrack?.durationSeconds ??
     (typeof evaluateSkinBind("track.durationSeconds", state) === "number"
       ? (evaluateSkinBind("track.durationSeconds", state) as number)
       : 0);
+  const position = livePosition ?? state.positionSeconds;
   if (showElapsed) {
     return t("playback:skinTooltips.elapsed", {
-      time: formatTime(state.positionSeconds),
+      time: formatTime(position),
     });
   }
   return t("playback:skinTooltips.remaining", {
-    time: formatRemainingTime(state.positionSeconds, duration),
+    time: formatRemainingTime(position, duration),
   });
 }
 
@@ -273,7 +277,11 @@ export function resolveSkinTooltip(
   }
 
   if (live.showElapsed !== undefined) {
-    return defaultDigitTimeTooltip(live.showElapsed, state);
+    return defaultDigitTimeTooltip(
+      live.showElapsed,
+      state,
+      live.positionSeconds,
+    );
   }
 
   const actionLabel = defaultActionTooltip(config, state);
@@ -286,14 +294,14 @@ export function useSkinTooltip(
 ): string {
   const bindState = useSkinBindState();
   const { action, viewId, id, tooltip, tooltipWhen } = config;
-  const { sliderMode, ratio, eqBand, showElapsed } = live;
+  const { sliderMode, ratio, eqBand, showElapsed, positionSeconds } = live;
 
   return useMemo(
     () =>
       resolveSkinTooltip(
         { action, viewId, id, tooltip, tooltipWhen },
         bindState,
-        { sliderMode, ratio, eqBand, showElapsed },
+        { sliderMode, ratio, eqBand, showElapsed, positionSeconds },
       ),
     [
       action,
@@ -306,6 +314,7 @@ export function useSkinTooltip(
       ratio,
       eqBand,
       showElapsed,
+      positionSeconds,
     ],
   );
 }

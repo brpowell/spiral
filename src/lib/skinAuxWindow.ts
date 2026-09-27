@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize, PhysicalPosition } from "@tauri-apps/api/dpi";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
@@ -13,7 +14,6 @@ import {
   writeOpenAuxViewsForSkin,
 } from "./skinAuxViewState";
 import {
-  buildSkinAuxWindowUrl,
   parseSkinAuxWindowLabel,
   skinAuxWindowLabel,
   SKIN_AUX_LABEL_PREFIX,
@@ -45,57 +45,6 @@ const openingAuxWindows = new Map<string, Promise<void>>();
 
 function auxWindowKey(skinId: string, viewId: string): string {
   return `${skinId}:${viewId}`;
-}
-
-async function waitForSkinAuxWebview(
-  skinId: string,
-  viewId: string,
-  webview: WebviewWindow,
-): Promise<WebviewWindow> {
-  const immediate = await getSkinAuxWindow(skinId, viewId);
-  if (immediate) {
-    return immediate;
-  }
-
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const finish = (window: WebviewWindow | null) => {
-      if (settled || !window) return;
-      settled = true;
-      resolve(window);
-    };
-    const fail = (err: Error) => {
-      if (settled) return;
-      settled = true;
-      reject(err);
-    };
-
-    webview.once("tauri://created", () => {
-      void getSkinAuxWindow(skinId, viewId).then(finish);
-    });
-    webview.once("tauri://error", (event) => {
-      fail(new Error(String(event.payload)));
-    });
-
-    void getSkinAuxWindow(skinId, viewId).then(finish);
-
-    void (async () => {
-      for (let attempt = 0; attempt < 120 && !settled; attempt++) {
-        await new Promise<void>((resolve) => {
-          requestAnimationFrame(() => resolve());
-        });
-        if (settled) return;
-        const window = await getSkinAuxWindow(skinId, viewId);
-        if (window) {
-          finish(window);
-          return;
-        }
-      }
-      if (!settled) {
-        fail(new Error(`Timed out waiting for aux window "${viewId}"`));
-      }
-    })();
-  });
 }
 
 async function showSkinAuxWindow(
@@ -143,25 +92,34 @@ async function openSkinAuxWindowInner(
   const label = skinAuxWindowLabel(skinId, viewId);
   const chrome = resolveViewWindowChrome(pack, viewId);
   const { width, height } = defaultWindowSize(chrome);
+  const limits = windowSizeLimitsFromChrome(chrome);
 
   const readyWait = await createSkinAuxReadyWait(skinId, viewId);
 
-  const webview = new WebviewWindow(label, {
-    url: buildSkinAuxWindowUrl(skinId, viewId),
-    title: `${pack.manifest.name} — ${viewId}`,
-    width,
-    height,
-    ...windowSizeLimitsFromChrome(chrome),
-    resizable: chrome.resizable,
-    decorations: false,
-    transparent: true,
-    shadow: false,
-    visible: false,
-    dragDropEnabled: false,
-    acceptFirstMouse: true,
-  });
-
-  const ready = await waitForSkinAuxWebview(skinId, viewId, webview);
+  let ready: WebviewWindow | null;
+  try {
+    await invoke("create_skin_aux_window", {
+      label,
+      title: `${pack.manifest.name} — ${viewId}`,
+      skinId,
+      viewId,
+      width,
+      height,
+      minWidth: limits.minWidth,
+      minHeight: limits.minHeight,
+      maxWidth: limits.maxWidth,
+      maxHeight: limits.maxHeight,
+      resizable: chrome.resizable,
+    });
+    ready = await WebviewWindow.getByLabel(label);
+  } catch (err) {
+    readyWait.cancel();
+    throw err;
+  }
+  if (!ready) {
+    readyWait.cancel();
+    throw new Error(`Aux view "${viewId}" window was not created`);
+  }
   await revealSkinAuxWindow(pack, viewId, ready, { deferShow: true });
 
   try {

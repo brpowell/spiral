@@ -26,11 +26,16 @@ export interface PcmStreamConfig<TSession, TPcm extends TSession> {
     session: TSession,
     count: number,
   ) => Record<string, unknown>;
-  pcmEvent: string;
+  /**
+   * Legacy event transport: base64 PCM inlined into a Tauri event. Omit when
+   * the engine feeds chunks through {@link PcmStreamPipeline.pushPcm} (Tauri
+   * channel carrying raw f32 bytes).
+   */
+  pcmEvent?: string;
   flushEvent: string;
   matchSession: (session: TSession | null, payload: TSession) => boolean;
-  getChannels: (payload: TPcm) => number;
-  getPcmB64: (payload: TPcm) => string;
+  getChannels?: (payload: TPcm) => number;
+  getPcmB64?: (payload: TPcm) => string;
   /**
    * `shared` — dual decks share one AudioContext (required for gapless splice /
    * crossfade; used by library files and CD).
@@ -76,6 +81,7 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
   private gain: GainNode | null = null;
   private panner: StereoPannerNode | null = null;
   private worklet: AudioWorkletNode | null = null;
+  private workletChannels = 0;
   private workletReady: Promise<void> | null = null;
   private session: TSession | null = null;
   private sourceSampleRate = 0;
@@ -141,30 +147,66 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
     return this.resampler;
   }
 
+  /**
+   * Feed one chunk of interleaved f32 PCM for `session`. Chunks for any other
+   * session (a deck that was torn down or replaced) are dropped. The buffer is
+   * handed to the worklet by transfer, so callers must not reuse it.
+   */
+  pushPcm(session: TSession, samples: Float32Array, channels: number): void {
+    if (
+      !this.config.matchSession(this.session, session) ||
+      !this.worklet ||
+      !this.ctx
+    ) {
+      return;
+    }
+    this.ingest(samples, channels);
+  }
+
+  private ingest(decoded: Float32Array, channels: number): void {
+    if (!this.worklet) return;
+    const resampler = this.ensureResampler(channels);
+    const samples = resampler ? resampler.process(decoded) : decoded;
+    // Count every chunk so back-pressure acks keep flowing even when the
+    // resampler holds a boundary frame back.
+    this.chunksReceived += 1;
+    if (samples.length === 0) return;
+    const transfer =
+      samples.buffer instanceof ArrayBuffer &&
+      samples.byteOffset === 0 &&
+      samples.byteLength === samples.buffer.byteLength
+        ? [samples.buffer]
+        : [];
+    this.worklet.port.postMessage(
+      {
+        type: "pcm",
+        samples,
+        channels,
+      },
+      transfer,
+    );
+  }
+
   private ensureListeners(): Promise<UnlistenFn[]> {
+    const { pcmEvent, getChannels, getPcmB64 } = this.config;
+    const pcmListener =
+      pcmEvent && getChannels && getPcmB64
+        ? listen<TPcm>(pcmEvent, (event) => {
+            if (
+              !this.config.matchSession(this.session, event.payload) ||
+              !this.worklet ||
+              !this.ctx
+            ) {
+              return;
+            }
+            this.ingest(
+              decodePcmBase64(getPcmB64(event.payload)),
+              getChannels(event.payload),
+            );
+          })
+        : null;
     this.listeners ??= Promise.all([
-      listen<TPcm>(this.config.pcmEvent, (event) => {
-        if (
-          !this.config.matchSession(this.session, event.payload) ||
-          !this.worklet ||
-          !this.ctx
-        ) {
-          return;
-        }
-        const channels = this.config.getChannels(event.payload);
-        const decoded = decodePcmBase64(this.config.getPcmB64(event.payload));
-        const resampler = this.ensureResampler(channels);
-        const samples = resampler ? resampler.process(decoded) : decoded;
-        // Count every chunk so back-pressure acks keep flowing even when the
-        // resampler holds a boundary frame back.
-        this.chunksReceived += 1;
-        if (samples.length === 0) return;
-        this.worklet.port.postMessage({
-          type: "pcm",
-          samples,
-          channels,
-        });
-      }),
+      ...(pcmListener ? [pcmListener] : []),
       listen<TSession>(this.config.flushEvent, (event) => {
         if (
           !this.config.matchSession(this.session, event.payload) ||
@@ -200,6 +242,7 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
       this.ownsContext = true;
       this.workletReady = null;
       this.worklet = null;
+      this.workletChannels = 0;
       this.gain = null;
       this.panner = null;
     }
@@ -216,8 +259,12 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
             outputChannelCount: [channels],
           },
         );
+        this.workletChannels = channels;
         this.worklet.port.onmessage = (
-          event: MessageEvent<{ type: string; frame?: number }>,
+          event: MessageEvent<{
+            type: string;
+            frame?: number;
+          }>,
         ) => {
           const data = event.data;
           if (data.type === "needData") {
@@ -261,13 +308,41 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
     return this.ctx!;
   }
 
+  /**
+   * Drop the current stream but keep the worklet, gain, and panner. The next
+   * prepare reuses them when the channel count still matches.
+   */
+  releaseForReuse(): void {
+    this.releaseBackpressure();
+    this.session = null;
+    this.chunksReceived = 0;
+    this.chunksAcked = 0;
+    this.resampler = null;
+    this.resamplerChannels = 0;
+    this.worklet?.port.postMessage({ type: "reset" });
+  }
+
   async prepare(
     session: TSession,
     sampleRate: number,
     channels: number,
   ): Promise<void> {
     await this.ensureListeners();
-    this.destroyNodes();
+    const reuse =
+      this.worklet !== null &&
+      this.workletReady !== null &&
+      this.workletChannels === channels &&
+      (this.config.contextMode === "shared" ||
+        this.ctx?.sampleRate === sampleRate);
+    if (reuse) {
+      this.chunksReceived = 0;
+      this.chunksAcked = 0;
+      this.resampler = null;
+      this.resamplerChannels = 0;
+      this.worklet?.port.postMessage({ type: "reset" });
+    } else {
+      this.destroyNodes();
+    }
     this.session = session;
     this.chunksReceived = 0;
     this.chunksAcked = 0;
@@ -368,6 +443,7 @@ export class PcmStreamPipeline<TSession, TPcm extends TSession> {
       this.panner = null;
     }
     this.workletReady = null;
+    this.workletChannels = 0;
   }
 
   releaseBackpressure(): void {

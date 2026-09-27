@@ -18,7 +18,10 @@ import {
   type StripSliderPointerSample,
   type StripSliderPositionMap,
 } from "../../../lib/skinStripSliderMap";
-import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
+import {
+  usePlaybackProgress,
+  usePlayheadSeconds,
+} from "../../../hooks/usePlaybackProgress";
 import { useSkinDebug } from "../../../hooks/useSkinDebug";
 import {
   useSkinBindState,
@@ -153,10 +156,11 @@ export function SkinStripSlider({
   const durationSeconds =
     currentTrack?.durationSeconds ?? audio.getDurationSeconds();
 
+  const playheadSeconds = usePlayheadSeconds(mode === "seek");
+  const progress = durationSeconds > 0 ? playheadSeconds / durationSeconds : 0;
   const {
     isSeeking,
     seekValue,
-    progress,
     disabled: seekDisabled,
     handleSeekStart,
     handleSeekChange,

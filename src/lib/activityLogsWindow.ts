@@ -1,5 +1,5 @@
 import { emit } from "@tauri-apps/api/event";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { ensureAppWindow, releaseAppWindow } from "./appWindows";
 import { applyCustomWindowChrome } from "./windowChrome";
 import { isTauri } from "./windowRole";
 
@@ -13,14 +13,6 @@ export interface ActivityLogRevealTarget {
   operationId?: string;
 }
 
-async function getActivityLogsWindow(): Promise<WebviewWindow | null> {
-  try {
-    return await WebviewWindow.getByLabel(ACTIVITY_LOGS_LABEL);
-  } catch {
-    return null;
-  }
-}
-
 export async function openActivityLogsWindow(
   target?: ActivityLogRevealTarget,
 ): Promise<void> {
@@ -29,13 +21,8 @@ export async function openActivityLogsWindow(
     return;
   }
 
-  const window = await getActivityLogsWindow();
-  if (!window) {
-    console.error(
-      `openActivityLogsWindow: no webview with label "${ACTIVITY_LOGS_LABEL}"`,
-    );
-    return;
-  }
+  const window = await ensureAppWindow(ACTIVITY_LOGS_LABEL);
+  if (!window) return;
 
   try {
     const visible = await window.isVisible();
@@ -61,13 +48,5 @@ export async function openActivityLogsWindow(
 
 export async function hideActivityLogsWindow(): Promise<void> {
   if (!isTauri()) return;
-
-  const window = await getActivityLogsWindow();
-  if (!window) return;
-
-  try {
-    await window.hide();
-  } catch (err) {
-    console.error("hideActivityLogsWindow:", err);
-  }
+  await releaseAppWindow(ACTIVITY_LOGS_LABEL);
 }

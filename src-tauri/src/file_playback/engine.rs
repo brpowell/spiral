@@ -11,16 +11,20 @@ use std::sync::{Arc, Condvar, LazyLock, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use serde::Serialize;
+use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, Emitter};
 
 use super::decoder::StreamingDecoder;
 
 pub const FILE_PLAYBACK_POSITION_EVENT: &str = "file-playback-position";
 pub const FILE_PLAYBACK_ENDED_EVENT: &str = "file-playback-ended";
-pub const FILE_PLAYBACK_PCM_EVENT: &str = "file-playback-pcm";
 pub const FILE_PLAYBACK_FLUSH_EVENT: &str = "file-playback-flush";
+
+/// Raw interleaved little-endian f32 PCM chunks, delivered over a Tauri
+/// channel. Events would inline every chunk into a unique `eval` script
+/// (base64 inside JS source); the channel hands the webview an `ArrayBuffer`.
+pub type PcmChannel = Channel<Response>;
 
 /// Outgoing + incoming decks during crossfade.
 const MAX_SESSIONS: usize = 2;
@@ -56,14 +60,6 @@ pub struct FilePlaybackPosition {
 #[serde(rename_all = "camelCase")]
 pub struct FilePlaybackEnded {
     pub session_id: u64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FilePlaybackPcm {
-    pub session_id: u64,
-    pub channels: u16,
-    pub pcm_b64: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -218,11 +214,15 @@ fn emit_event<T: Serialize + Clone>(app: Option<&AppHandle>, event: &str, payloa
     }
 }
 
-pub fn start(app: AppHandle, path: &str) -> Result<FilePlaybackStarted, String> {
-    start_inner(Some(app), path)
+pub fn start(app: AppHandle, path: &str, pcm: PcmChannel) -> Result<FilePlaybackStarted, String> {
+    start_inner(Some(app), path, Some(pcm))
 }
 
-fn start_inner(app: Option<AppHandle>, path: &str) -> Result<FilePlaybackStarted, String> {
+fn start_inner(
+    app: Option<AppHandle>,
+    path: &str,
+    pcm: Option<PcmChannel>,
+) -> Result<FilePlaybackStarted, String> {
     let file_path = PathBuf::from(path);
     if !file_path.is_file() {
         return Err(format!("File not found: {path}"));
@@ -269,6 +269,7 @@ fn start_inner(app: Option<AppHandle>, path: &str) -> Result<FilePlaybackStarted
             .spawn(move || {
                 playback_thread(
                     app,
+                    pcm,
                     session_id,
                     duration_seconds,
                     sample_rate,
@@ -321,6 +322,7 @@ fn start_inner(app: Option<AppHandle>, path: &str) -> Result<FilePlaybackStarted
 #[allow(clippy::too_many_arguments)]
 fn playback_thread(
     app: Option<AppHandle>,
+    pcm: Option<PcmChannel>,
     session_id: u64,
     duration_seconds: f64,
     sample_rate: u32,
@@ -374,23 +376,18 @@ fn playback_thread(
                     return;
                 }
 
-                if let Some(app) = app.as_ref() {
+                if let Some(pcm) = pcm.as_ref() {
                     let pcm_bytes: Vec<u8> = chunk
                         .iter()
                         .flat_map(|sample| sample.to_le_bytes())
                         .collect();
-                    let payload = FilePlaybackPcm {
-                        session_id,
-                        channels,
-                        pcm_b64: BASE64.encode(pcm_bytes),
-                    };
-                    if let Err(err) = app.emit(FILE_PLAYBACK_PCM_EVENT, payload) {
-                        eprintln!("file playback: pcm emit failed: {err}");
+                    if let Err(err) = pcm.send(Response::new(pcm_bytes)) {
+                        eprintln!("file playback: pcm send failed: {err}");
                     } else {
                         in_flight.chunk_sent();
                     }
                 }
-                // Without an AppHandle (tests), skip back-pressure — nothing will ack.
+                // Without a channel (tests), skip back-pressure — nothing will ack.
                 chunk.clear();
             } else {
                 break;
@@ -518,8 +515,8 @@ mod tests {
     fn two_sessions_can_run_side_by_side() {
         with_clean_sessions(|| {
             let (ogg_path, flac_path) = fixture_paths();
-            let a = start_inner(None, &ogg_path).expect("start ogg");
-            let b = start_inner(None, &flac_path).expect("start flac");
+            let a = start_inner(None, &ogg_path, None).expect("start ogg");
+            let b = start_inner(None, &flac_path, None).expect("start flac");
             assert_ne!(a.session_id, b.session_id);
 
             assert!(with_session(a.session_id, |_| ()).is_some());
@@ -568,8 +565,8 @@ mod tests {
     fn stop_one_session_does_not_stop_the_other() {
         with_clean_sessions(|| {
             let (ogg_path, flac_path) = fixture_paths();
-            let a = start_inner(None, &ogg_path).expect("start ogg");
-            let b = start_inner(None, &flac_path).expect("start flac");
+            let a = start_inner(None, &ogg_path, None).expect("start ogg");
+            let b = start_inner(None, &flac_path, None).expect("start flac");
 
             pause(a.session_id);
             pause(b.session_id);
@@ -587,12 +584,12 @@ mod tests {
     fn third_session_evicts_oldest_idle() {
         with_clean_sessions(|| {
             let (ogg_path, flac_path) = fixture_paths();
-            let a = start_inner(None, &ogg_path).expect("start A");
+            let a = start_inner(None, &ogg_path, None).expect("start A");
             thread::sleep(Duration::from_millis(5));
-            let b = start_inner(None, &flac_path).expect("start B");
+            let b = start_inner(None, &flac_path, None).expect("start B");
 
             // Both idle (paused). Starting C should evict oldest (A).
-            let c = start_inner(None, &ogg_path).expect("start C");
+            let c = start_inner(None, &ogg_path, None).expect("start C");
             assert!(with_session(a.session_id, |_| ()).is_none());
             assert!(with_session(b.session_id, |_| ()).is_some());
             assert!(with_session(c.session_id, |_| ()).is_some());
@@ -603,15 +600,15 @@ mod tests {
     fn third_session_fails_when_both_playing() {
         with_clean_sessions(|| {
             let (ogg_path, flac_path) = fixture_paths();
-            let a = start_inner(None, &ogg_path).expect("start A");
-            let b = start_inner(None, &flac_path).expect("start B");
+            let a = start_inner(None, &ogg_path, None).expect("start A");
+            let b = start_inner(None, &flac_path, None).expect("start B");
 
             // Mark both playing without resuming decode (short fixtures would
             // natural-end immediately). Eviction only inspects the flag.
             with_session(a.session_id, |s| s.is_playing.store(true, Ordering::SeqCst));
             with_session(b.session_id, |s| s.is_playing.store(true, Ordering::SeqCst));
 
-            let err = start_inner(None, &ogg_path).expect_err("third should fail");
+            let err = start_inner(None, &ogg_path, None).expect_err("third should fail");
             assert!(
                 err.contains("Maximum concurrent"),
                 "unexpected error: {err}"

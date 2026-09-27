@@ -101,6 +101,10 @@ export class CdPcmPipeline {
     this.pipeline.setMuted(muted);
   }
 
+  releaseForReuse(): void {
+    this.pipeline.releaseForReuse();
+  }
+
   destroy(): void {
     this.pipeline.destroy();
   }

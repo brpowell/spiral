@@ -1,5 +1,5 @@
 import { emit } from "@tauri-apps/api/event";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { ensureAppWindow, releaseAppWindow } from "./appWindows";
 import { applyCustomWindowChrome } from "./windowChrome";
 import { isTauri } from "./windowRole";
 
@@ -56,14 +56,6 @@ export function storeAppearanceSection(section: AppearanceSection): void {
   }
 }
 
-async function getAppearanceWindow(): Promise<WebviewWindow | null> {
-  try {
-    return await WebviewWindow.getByLabel(APPEARANCE_LABEL);
-  } catch {
-    return null;
-  }
-}
-
 export async function openAppearanceWindow(
   section?: AppearanceSection,
   packId?: string,
@@ -73,13 +65,8 @@ export async function openAppearanceWindow(
     return;
   }
 
-  const window = await getAppearanceWindow();
-  if (!window) {
-    console.error(
-      `openAppearanceWindow: no webview with label "${APPEARANCE_LABEL}"`,
-    );
-    return;
-  }
+  const window = await ensureAppWindow(APPEARANCE_LABEL);
+  if (!window) return;
 
   const resolvedSection = section ?? getStoredAppearanceSection();
 
@@ -111,13 +98,5 @@ export async function openAppearanceWindow(
 
 export async function hideAppearanceWindow(): Promise<void> {
   if (!isTauri()) return;
-
-  const window = await getAppearanceWindow();
-  if (!window) return;
-
-  try {
-    await window.hide();
-  } catch (err) {
-    console.error("hideAppearanceWindow:", err);
-  }
+  await releaseAppWindow(APPEARANCE_LABEL);
 }

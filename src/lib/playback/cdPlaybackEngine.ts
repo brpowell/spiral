@@ -230,7 +230,7 @@ export class CdPlaybackEngine implements PlaybackEngine {
     this.waitingForStartBuffer = false;
     await this.ensureListeners();
     const previousSessionId = this.current?.sessionId ?? null;
-    this.pcm.destroy();
+    this.pcm.releaseForReuse();
     this.current = null;
 
     if (previousSessionId !== null) {
@@ -449,7 +449,16 @@ export class CdPlaybackEngine implements PlaybackEngine {
     this.pcm.setMuted(this.muted);
   }
 
+  /** Stop this deck's track and keep its audio nodes for the next one. */
+  release(): void {
+    this.retire(false);
+  }
+
   destroy(): void {
+    this.retire(true);
+  }
+
+  private retire(destroyNodes: boolean): void {
     this.loadGeneration += 1;
     this.clearDrainFallback();
     this.endOfStreamPending = false;
@@ -464,7 +473,8 @@ export class CdPlaybackEngine implements PlaybackEngine {
     this.anchorSourceSeconds = 0;
     this.anchorContextTime = null;
     this.durationSeconds = 0;
-    this.pcm.destroy();
+    if (destroyNodes) this.pcm.destroy();
+    else this.pcm.releaseForReuse();
     disconnectDeckOutput(this.deckId);
     if (sessionId !== null) {
       void invoke("stop_cd_playback", { sessionId });

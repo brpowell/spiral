@@ -1,16 +1,8 @@
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { ensureAppWindow, releaseAppWindow } from "./appWindows";
 import { applyCustomWindowChrome } from "./windowChrome";
 import { isTauri } from "./windowRole";
 
 const EQUALIZER_LABEL = "equalizer";
-
-async function getEqualizerWindow(): Promise<WebviewWindow | null> {
-  try {
-    return await WebviewWindow.getByLabel(EQUALIZER_LABEL);
-  } catch {
-    return null;
-  }
-}
 
 export async function openEqualizerWindow(): Promise<void> {
   if (!isTauri()) {
@@ -18,13 +10,8 @@ export async function openEqualizerWindow(): Promise<void> {
     return;
   }
 
-  const window = await getEqualizerWindow();
-  if (!window) {
-    console.error(
-      `openEqualizerWindow: no webview with label "${EQUALIZER_LABEL}"`,
-    );
-    return;
-  }
+  const window = await ensureAppWindow(EQUALIZER_LABEL);
+  if (!window) return;
 
   try {
     const visible = await window.isVisible();
@@ -46,13 +33,5 @@ export async function openEqualizerWindow(): Promise<void> {
 
 export async function hideEqualizerWindow(): Promise<void> {
   if (!isTauri()) return;
-
-  const window = await getEqualizerWindow();
-  if (!window) return;
-
-  try {
-    await window.hide();
-  } catch (err) {
-    console.error("hideEqualizerWindow:", err);
-  }
+  await releaseAppWindow(EQUALIZER_LABEL);
 }

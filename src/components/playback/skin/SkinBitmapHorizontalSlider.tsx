@@ -27,7 +27,10 @@ import {
 } from "../../../lib/skinBinds";
 import { resolveSkinTooltip } from "../../../lib/skinTooltips";
 import * as audio from "../../../lib/playback";
-import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
+import {
+  usePlaybackProgress,
+  usePlayheadSeconds,
+} from "../../../hooks/usePlaybackProgress";
 import { useEqualizerStore } from "../../../store/useEqualizerStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import type {
@@ -97,10 +100,11 @@ function HorizontalSeekSlider({
   );
   const durationSeconds =
     currentTrack?.durationSeconds ?? audio.getDurationSeconds();
+  const playheadSeconds = usePlayheadSeconds();
+  const progress = durationSeconds > 0 ? playheadSeconds / durationSeconds : 0;
   const {
     isSeeking,
     seekValue,
-    progress,
     disabled: seekDisabled,
     handleSeekStart,
     handleSeekChange,

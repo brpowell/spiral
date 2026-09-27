@@ -1,39 +1,65 @@
-import type { CSSProperties, ReactNode } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import {
   useNowPlayingDisplay,
   type NowPlayingDisplay,
 } from "../../../hooks/useNowPlayingDisplay";
+import { subscribeCrossfadeVisual } from "../../../lib/crossfadeVisualClock";
+import type { CrossfadeVisualState } from "../../../lib/playback";
 import { styleFromSkinNode } from "../../../lib/skinNodeStyle";
 import type { ArtworkNode, NodeStyle } from "../../../types/skin";
 import { IconAlbumPlaceholder } from "../../icons";
 import "./NowPlayingArt.css";
 
+function applyCrossfadeOpacity(
+  el: HTMLDivElement,
+  role: "outgoing" | "incoming",
+  reduceMotion: boolean,
+  state: CrossfadeVisualState | null,
+): void {
+  const progress = state?.progress ?? (role === "incoming" ? 0 : 1);
+  if (reduceMotion) {
+    const showIncoming = progress >= 0.5;
+    const visible = role === "incoming" ? showIncoming : !showIncoming;
+    el.style.opacity = visible ? "1" : "0";
+    el.style.visibility = visible ? "visible" : "hidden";
+    el.ariaHidden = visible ? "false" : "true";
+    return;
+  }
+  const opacity = role === "incoming" ? progress : 1 - progress;
+  el.style.opacity = String(opacity);
+  el.style.visibility = opacity <= 0.01 ? "hidden" : "visible";
+  el.ariaHidden = opacity < 0.5 ? "true" : "false";
+}
+
 export function CrossfadeOpacity({
-  progress,
   role,
   reduceMotion,
   children,
 }: {
-  progress: number;
   role: "outgoing" | "incoming";
   reduceMotion: boolean;
   children: ReactNode;
 }) {
-  if (reduceMotion) {
-    const showIncoming = progress >= 0.5;
-    const visible = role === "incoming" ? showIncoming : !showIncoming;
-    if (!visible) return null;
-    return <>{children}</>;
-  }
+  const ref = useRef<HTMLDivElement>(null);
 
-  const opacity = role === "incoming" ? progress : 1 - progress;
-  if (opacity <= 0.01) return null;
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    return subscribeCrossfadeVisual((state) => {
+      applyCrossfadeOpacity(el, role, reduceMotion, state);
+    });
+  }, [role, reduceMotion]);
 
   return (
     <div
+      ref={ref}
       className="now-playing-crossfade"
-      style={{ opacity }}
-      aria-hidden={opacity < 0.5}
+      style={{ opacity: role === "incoming" ? 0 : 1 }}
     >
       {children}
     </div>
@@ -68,7 +94,6 @@ export function NowPlayingArtVisual({
     outgoingArtSrc,
     incomingArtSrc,
     showCrossfadeVisual,
-    crossfadeProgress,
     reduceMotion,
   } = display;
 
@@ -76,20 +101,12 @@ export function NowPlayingArtVisual({
     return (
       <div className="now-playing-art__stack">
         {outgoingArtSrc ? (
-          <CrossfadeOpacity
-            progress={crossfadeProgress}
-            role="outgoing"
-            reduceMotion={reduceMotion}
-          >
+          <CrossfadeOpacity role="outgoing" reduceMotion={reduceMotion}>
             <AlbumArtImage src={outgoingArtSrc} objectFit={objectFit} />
           </CrossfadeOpacity>
         ) : null}
         {incomingArtSrc ? (
-          <CrossfadeOpacity
-            progress={crossfadeProgress}
-            role="incoming"
-            reduceMotion={reduceMotion}
-          >
+          <CrossfadeOpacity role="incoming" reduceMotion={reduceMotion}>
             <AlbumArtImage src={incomingArtSrc} objectFit={objectFit} />
           </CrossfadeOpacity>
         ) : null}

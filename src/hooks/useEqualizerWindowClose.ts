@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { hideEqualizerWindow } from "../lib/equalizerWindow";
 
-/** Keep the equalizer webview alive; closing only hides it so it can reopen. */
+/** Closing destroys the equalizer webview. The next open creates it again. */
 export function useEqualizerWindowClose(): void {
   useEffect(() => {
     let unlisten: (() => void) | undefined;

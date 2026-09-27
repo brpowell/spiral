@@ -1,6 +1,14 @@
-import { useMemo, useRef, type KeyboardEvent, type PointerEvent } from "react";
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
 import { Slider } from "../../common/Slider/Slider";
 import * as audio from "../../../lib/playback";
+import { subscribePlaybackClock } from "../../../lib/playbackClock";
+import { resolvePlaybackDisplaySeconds } from "../../../lib/playbackClockPin";
 import { formatRemainingTime, formatTime } from "../../../lib/format";
 import { t } from "../../../lib/i18n";
 import { findPlaybackTrack } from "../../../lib/playbackTrack";
@@ -52,16 +60,57 @@ export function SeekBar({
   const durationSeconds =
     currentTrack?.durationSeconds ?? audio.getDurationSeconds();
 
+  const elapsedRef = useRef<HTMLSpanElement>(null);
+  const remainingRef = useRef<HTMLSpanElement>(null);
+  const sliderRef = useRef<HTMLInputElement>(null);
+  const ratioRef = useRef(0);
+
   const {
     isSeeking,
     seekValue,
-    progress,
-    displayPosition,
     disabled,
     handleSeekStart,
     handleSeekChange,
     handleSeekEnd,
   } = usePlaybackProgress(durationSeconds);
+
+  const scrubSeconds =
+    isSeeking && durationSeconds > 0 ? seekValue * durationSeconds : null;
+  const shownSeconds =
+    scrubSeconds ?? resolvePlaybackDisplaySeconds(audio.getPositionSeconds());
+
+  const paintPlayhead = (seconds: number) => {
+    const ratio =
+      durationSeconds > 0
+        ? Math.min(1, Math.max(0, seconds / durationSeconds))
+        : 0;
+    ratioRef.current = ratio;
+    if (elapsedRef.current) {
+      elapsedRef.current.textContent = formatTime(seconds);
+    }
+    if (remainingRef.current) {
+      remainingRef.current.textContent = formatRemainingTime(
+        seconds,
+        durationSeconds,
+      );
+    }
+    const slider = sliderRef.current;
+    if (!slider) return;
+    slider.value = String(ratio);
+    slider.style.setProperty("--slider-fill", `${ratio * 100}%`);
+  };
+
+  useLayoutEffect(() => {
+    if (scrubSeconds !== null) {
+      paintPlayhead(scrubSeconds);
+      return;
+    }
+    paintPlayhead(resolvePlaybackDisplaySeconds(audio.getPositionSeconds()));
+    return subscribePlaybackClock((seconds) => {
+      if (pointerSeekActiveRef.current) return;
+      paintPlayhead(seconds);
+    });
+  }, [durationSeconds, scrubSeconds]);
 
   const finishPointer = (e: PointerEvent<HTMLInputElement>) => {
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
@@ -78,13 +127,16 @@ export function SeekBar({
       aria-disabled={interactionEnabled ? undefined : true}
       style={interactionEnabled ? undefined : { pointerEvents: "none" }}
     >
-      <span className="seek-bar__time">{formatTime(displayPosition)}</span>
+      <span ref={elapsedRef} className="seek-bar__time">
+        {formatTime(shownSeconds)}
+      </span>
       <Slider
+        ref={sliderRef}
         className="seek-bar__slider"
         min={0}
         max={1}
         step={0.001}
-        value={isSeeking ? seekValue : progress}
+        value={isSeeking ? seekValue : ratioRef.current}
         disabled={disabled}
         aria-label={t("playback:seek.aria")}
         onPointerDown={(e) => {
@@ -115,8 +167,11 @@ export function SeekBar({
           }
         }}
       />
-      <span className="seek-bar__time seek-bar__time--remaining">
-        {formatRemainingTime(displayPosition, durationSeconds)}
+      <span
+        ref={remainingRef}
+        className="seek-bar__time seek-bar__time--remaining"
+      >
+        {formatRemainingTime(shownSeconds, durationSeconds)}
       </span>
     </div>
   );

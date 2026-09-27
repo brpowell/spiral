@@ -1,5 +1,6 @@
 mod accessibility_warmup;
 mod activity_log;
+mod app_windows;
 mod art_cache;
 mod art_thumb;
 mod artist_art_fetch;
@@ -126,6 +127,9 @@ pub fn run() {
         .manage(commands::license::PendingSpcardOpens::default())
         .manage(commands::license::PendingSpcardHandoffs::default())
         .setup(|app| {
+            app_windows::create_startup_windows(app.handle())
+                .map_err(|err| std::io::Error::other(err))?;
+
             let db_path = library_paths::ensure_library_for_app(app.handle())
                 .expect("failed to init library");
             let conn = db::open(&db_path).expect("failed to open database");
@@ -190,20 +194,8 @@ pub fn run() {
                 });
             }
 
-            // Match frontend `usesCustomWindowChrome()` (Windows + Linux).
             #[cfg(any(windows, target_os = "linux"))]
             {
-                for label in ["main", "appearance", "equalizer", "activity-logs", "about"] {
-                    if let Some(window) = app.get_webview_window(label) {
-                        if let Err(err) = window.set_decorations(false) {
-                            eprintln!("failed to disable decorations on `{label}`: {err}");
-                        }
-                        if let Err(err) = window.set_shadow(true) {
-                            eprintln!("failed to enable shadow on `{label}`: {err}");
-                        }
-                    }
-                }
-
                 let files = commands::license::spcard_paths_from_args(std::env::args().skip(1));
                 commands::license::handle_opened_spcard_paths(app.handle(), files);
             }
@@ -212,6 +204,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::app::quit_app,
+            app_windows::ensure_app_window,
+            app_windows::release_app_window,
+            app_windows::create_skin_aux_window,
             commands::files::pick_audio_files,
             commands::files::pick_library_paths,
             commands::files::scan_folder,

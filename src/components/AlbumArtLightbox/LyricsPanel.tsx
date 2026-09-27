@@ -1,5 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Fragment, useLayoutEffect, useMemo, useRef } from "react";
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { subscribePlaybackClock } from "../../lib/playbackClock";
+import * as audio from "../../lib/playback";
 import { plainTextToLines } from "../../lib/lyrics";
 import {
   findScrollLineIndex,
@@ -22,7 +31,6 @@ import "./LyricsPanel.css";
 
 interface LyricsPanelProps {
   lyrics: TrackLyrics;
-  playbackPositionSeconds?: number;
   reduceMotion?: boolean;
   companionMotion: LightboxCompanionMotionProps;
 }
@@ -82,8 +90,7 @@ export function LyricsEmptyPanel({
   feedback = null,
 }: LyricsEmptyPanelProps) {
   const hasFeedback = feedback != null;
-  const isInstrumental =
-    feedback?.text === LYRICS_FETCH_INSTRUMENTAL.text;
+  const isInstrumental = feedback?.text === LYRICS_FETCH_INSTRUMENTAL.text;
   const title = isInstrumental
     ? "Instrumental"
     : hasFeedback
@@ -167,13 +174,15 @@ export function LyricsLoadingPanel({
 
 export function LyricsPanel({
   lyrics,
-  playbackPositionSeconds = 0,
   reduceMotion = false,
   companionMotion,
 }: LyricsPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLParagraphElement | null)[]>([]);
   const previousScrollLineRef = useRef(-1);
+  const [playbackPositionSeconds, setPlaybackPositionSeconds] = useState(() =>
+    audio.getPositionSeconds(),
+  );
   const previousPositionRef = useRef(playbackPositionSeconds);
   const isInitialScrollRef = useRef(true);
 
@@ -185,8 +194,40 @@ export function LyricsPanel({
     [lyrics.lines, lyrics.plainText],
   );
 
-  const isSynced =
-    lyrics.format !== "plain" && hasSyncedTimestamps(lines);
+  const isSynced = lyrics.format !== "plain" && hasSyncedTimestamps(lines);
+
+  useEffect(() => {
+    if (!isSynced) return;
+    return subscribePlaybackClock((seconds) => {
+      setPlaybackPositionSeconds((prev) => {
+        if (Math.abs(seconds - prev) > 0.25) return seconds;
+        const prevMs = prev * 1000;
+        const nextMs = seconds * 1000;
+        if (
+          findSingingLineIndex(prevMs, lines) !==
+          findSingingLineIndex(nextMs, lines)
+        ) {
+          return seconds;
+        }
+        if (
+          findScrollLineIndex(prevMs, lines) !==
+          findScrollLineIndex(nextMs, lines)
+        ) {
+          return seconds;
+        }
+        const prevPreroll = getLyricsPrerollState(prevMs, lines);
+        const nextPreroll = getLyricsPrerollState(nextMs, lines);
+        if (
+          nextPreroll &&
+          (!prevPreroll ||
+            Math.abs(nextPreroll.progress - prevPreroll.progress) >= 0.02)
+        ) {
+          return seconds;
+        }
+        return prev;
+      });
+    });
+  }, [isSynced, lines]);
   const positionMs = playbackPositionSeconds * 1000;
   const singingLineIndex = isSynced
     ? findSingingLineIndex(positionMs, lines)
@@ -298,15 +339,15 @@ export function LyricsPanel({
               ref={
                 isSynced
                   ? (element) => {
-                    lineRefs.current[index] = element;
-                  }
+                      lineRefs.current[index] = element;
+                    }
                   : undefined
               }
               className={[
                 "album-art-lightbox__lyrics-line",
                 isSynced &&
-                index === singingLineIndex &&
-                "album-art-lightbox__lyrics-line--active",
+                  index === singingLineIndex &&
+                  "album-art-lightbox__lyrics-line--active",
               ]
                 .filter(Boolean)
                 .join(" ")}

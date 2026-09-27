@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { hideAboutWindow } from "../lib/aboutWindow";
 
-/** Keep the about webview alive; closing only hides it so it can reopen. */
+/** Closing destroys the about webview. The next open creates it again. */
 export function useAboutWindowClose(): void {
   useEffect(() => {
     let unlisten: (() => void) | undefined;

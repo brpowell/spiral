@@ -1,5 +1,6 @@
 import { emit } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { ensureAppWindow } from "./appWindows";
 import { availableMonitors, getCurrentWindow } from "@tauri-apps/api/window";
 import {
   closeAllSkinAuxWindows,
@@ -56,16 +57,11 @@ export async function openSkinMode(): Promise<void> {
   }
 
   const [skinModeWindow, main] = await Promise.all([
-    getSkinModeWindow(),
+    ensureAppWindow(SKIN_MODE_LABEL),
     getMainWindow(),
   ]);
 
-  if (!skinModeWindow) {
-    console.error(
-      `openSkinMode: no webview with label "${SKIN_MODE_LABEL}"`,
-    );
-    return;
-  }
+  if (!skinModeWindow) return;
 
   try {
     const skinId = await getActiveSkinId();
@@ -97,10 +93,7 @@ export async function restoreMainWindow(): Promise<void> {
 
   const pack = await loadSkinPack(await getActiveSkinId()).catch(() => null);
 
-  const [main, skinModeWindow] = await Promise.all([
-    getMainWindow(),
-    getSkinModeWindow(),
-  ]);
+  const main = await getMainWindow();
 
   if (pack) {
     await closeAllSkinAuxWindows(pack);
@@ -108,6 +101,7 @@ export async function restoreMainWindow(): Promise<void> {
     await closeAllSkinAuxWindows();
   }
 
+  const skinModeWindow = await getSkinModeWindow();
   if (skinModeWindow) {
     await skinModeWindow.hide();
   }

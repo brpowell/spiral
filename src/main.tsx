@@ -1,6 +1,9 @@
-import React from "react";
+import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
+import { emit } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { I18nextProvider } from "react-i18next";
+import { WINDOW_READY_EVENT } from "./lib/appWindows";
 import App from "./App";
 import { AboutApp } from "./AboutApp";
 import { ActivityLogsApp } from "./ActivityLogsApp";
@@ -29,6 +32,7 @@ import { bootstrapPlaybackSettings } from "./lib/playbackSettingsBootstrap";
 import { ToastLabApp } from "./ToastLabApp";
 import { initCrashHandlers, installCrashDevConsole } from "./lib/crashReport";
 import { installToastDevConsole } from "./lib/toastDevConsole";
+import { installDevUserTimingGuard } from "./lib/devUserTimingGuard";
 import {
   bootstrapWindowRole,
   getSkinAuxContext,
@@ -48,10 +52,33 @@ import "./styles/scrollbars.css";
 
 const root = document.getElementById("root") as HTMLElement;
 
+/**
+ * Signals openers that this webview's effects (event listeners) have run.
+ * Deferred so React Strict Mode's setup/cleanup/setup pass settles first.
+ */
+function WindowReadySignal() {
+  useEffect(() => {
+    let label: string;
+    try {
+      label = getCurrentWindow().label;
+    } catch {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void emit(WINDOW_READY_EVENT, { label });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+  return null;
+}
+
 function renderRoot(node: React.ReactNode) {
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
-      <I18nextProvider i18n={i18n}>{node}</I18nextProvider>
+      <I18nextProvider i18n={i18n}>
+        {node}
+        <WindowReadySignal />
+      </I18nextProvider>
     </React.StrictMode>,
   );
 }
@@ -60,6 +87,7 @@ async function start() {
   initCrashHandlers();
   installCrashDevConsole();
   installToastDevConsole();
+  installDevUserTimingGuard();
 
   const role = await bootstrapWindowRole();
 

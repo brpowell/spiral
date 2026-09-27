@@ -52,6 +52,8 @@ export interface DualDeckEngine {
   getDeckId(): DeckId;
   setCrossfadeMix(mix: number): void;
   connectToOutputBus(options?: { applyMix?: boolean }): AnalyserNode | null;
+  /** Stop the deck and keep its audio nodes for the next track. */
+  release(): void;
   destroy(): void;
   onEnd(callback: () => void): void;
   primeGaplessStart(): Promise<void>;
@@ -360,11 +362,11 @@ export class CrossfadeController {
     const incomingDeck = this.fadeIncomingDeck ?? inactiveDeck(outgoingDeck);
 
     if (this.dominantTrackPromoted) {
-      this.engine(outgoingDeck).destroy();
+      this.engine(outgoingDeck).release();
       this.engine(incomingDeck).setCrossfadeMix(1);
       this.activeDeck = incomingDeck;
     } else {
-      this.engine(incomingDeck).destroy();
+      this.engine(incomingDeck).release();
       this.engine(outgoingDeck).setCrossfadeMix(1);
       this.activeDeck = outgoingDeck;
     }
@@ -675,7 +677,7 @@ export class CrossfadeController {
           err,
         );
         if (generation !== this.scheduleGeneration) return;
-        incomingEngine.destroy();
+        incomingEngine.release();
         this.fadeState = "idle";
         this.handledEnd = false;
         this.pendingIncomingTrackId = null;
@@ -815,7 +817,7 @@ export class CrossfadeController {
     // No gain changes here: the incoming deck already sits at full mix and
     // started itself on the scheduled frame; the outgoing deck is drained.
     this.promoteIncomingToActive(incomingDeck, ctx);
-    this.engine(outgoingDeck).destroy();
+    this.engine(outgoingDeck).release();
     this.activeDeck = incomingDeck;
     this.fadeState = "idle";
     this.clearFadeSession();
@@ -847,7 +849,7 @@ export class CrossfadeController {
 
     this.promoteIncomingToActive(incomingDeck, ctx);
 
-    this.engine(outgoingDeck).destroy();
+    this.engine(outgoingDeck).release();
     this.engine(incomingDeck).setCrossfadeMix(1);
     this.activeDeck = incomingDeck;
     this.fadeState = "idle";

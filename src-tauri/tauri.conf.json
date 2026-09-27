@@ -11,77 +11,7 @@
   },
   "app": {
     "macOSPrivateApi": true,
-    "windows": [
-      {
-        "label": "main",
-        "title": "Spiral",
-        "width": 1200,
-        "height": 800,
-        "minWidth": 520,
-        "minHeight": 420,
-        "backgroundThrottling": "disabled"
-      },
-      {
-        "label": "skin-mode",
-        "title": "Spiral Skin Mode",
-        "width": 320,
-        "height": 440,
-        "decorations": false,
-        "transparent": true,
-        "shadow": false,
-        "visible": false,
-        "resizable": true,
-        "minWidth": 200,
-        "minHeight": 120,
-        "dragDropEnabled": false,
-        "acceptFirstMouse": true
-      },
-      {
-        "label": "appearance",
-        "title": "Studio",
-        "width": 1000,
-        "height": 720,
-        "visible": false,
-        "resizable": true,
-        "minWidth": 520,
-        "minHeight": 420,
-        "dragDropEnabled": false
-      },
-      {
-        "label": "equalizer",
-        "title": "Equalizer",
-        "width": 580,
-        "height": 260,
-        "visible": false,
-        "resizable": false,
-        "maximizable": false,
-        "minWidth": 580,
-        "minHeight": 260,
-        "maxWidth": 580,
-        "maxHeight": 260,
-        "dragDropEnabled": false
-      },
-      {
-        "label": "activity-logs",
-        "title": "Activity Logs",
-        "width": 720,
-        "height": 520,
-        "visible": false,
-        "resizable": true,
-        "minWidth": 480,
-        "minHeight": 320,
-        "dragDropEnabled": false
-      },
-      {
-        "label": "about",
-        "title": "About Spiral",
-        "width": 880,
-        "height": 600,
-        "visible": false,
-        "resizable": false,
-        "dragDropEnabled": false
-      }
-    ],
+    "windows": [],
     "security": {
       "dangerousDisableAssetCspModification": ["style-src"],
       "csp": {

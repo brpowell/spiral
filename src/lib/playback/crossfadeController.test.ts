@@ -53,6 +53,7 @@ function createMockEngine(deckId: DeckId) {
     setBalance: vi.fn(),
     setCrossfadeMix: vi.fn(),
     connectToOutputBus: vi.fn(() => null),
+    release: vi.fn(),
     destroy: vi.fn(),
     primeGaplessStart: vi.fn(async () => {}),
     scheduleStartAtFrame: vi.fn(),
@@ -202,7 +203,7 @@ describe("CrossfadeController", () => {
 
     await vi.advanceTimersByTimeAsync(3550);
 
-    expect(deckA.destroy).toHaveBeenCalled();
+    expect(deckA.release).toHaveBeenCalled();
     expect(onActiveTrackChange).toHaveBeenCalledTimes(1);
   });
 
@@ -264,7 +265,7 @@ describe("CrossfadeController", () => {
 
     await vi.advanceTimersByTimeAsync(7050);
 
-    expect(deckA.destroy).toHaveBeenCalled();
+    expect(deckA.release).toHaveBeenCalled();
     expect(controller.getActiveEngine()).toBe(deckB);
   });
 
@@ -294,7 +295,7 @@ describe("CrossfadeController", () => {
 
     controller.seekRatio(0.25);
 
-    expect(deckB.destroy).toHaveBeenCalled();
+    expect(deckB.release).toHaveBeenCalled();
     expect(deckA.seek).toHaveBeenCalledWith(45);
     expect(controller.getActiveEngine()).toBe(deckA);
     expect(controller.isCrossfadeInProgress()).toBe(false);
@@ -329,7 +330,7 @@ describe("CrossfadeController", () => {
 
     controller.seekRatio(0.1);
 
-    expect(deckA.destroy).toHaveBeenCalled();
+    expect(deckA.release).toHaveBeenCalled();
     expect(deckB.seek).toHaveBeenCalledWith(20);
     expect(controller.getActiveEngine()).toBe(deckB);
     expect(controller.isCrossfadeInProgress()).toBe(false);
@@ -357,7 +358,7 @@ describe("CrossfadeController", () => {
 
     controller.seekRatio(0.5);
 
-    expect(deckB.destroy).toHaveBeenCalled();
+    expect(deckB.release).toHaveBeenCalled();
     expect(deckA.seek).toHaveBeenCalledWith(90);
     expect(controller.getActiveEngine()).toBe(deckA);
     expect(controller.isCrossfadeInProgress()).toBe(false);
@@ -387,7 +388,7 @@ describe("CrossfadeController", () => {
     await vi.advanceTimersByTimeAsync(3500);
     controller.seekRatio(0.25);
 
-    expect(deckA.destroy).toHaveBeenCalled();
+    expect(deckA.release).toHaveBeenCalled();
     expect(deckB.seek).toHaveBeenCalledWith(50);
     expect(controller.getActiveEngine()).toBe(deckB);
     expect(controller.isCrossfadeInProgress()).toBe(false);
@@ -646,7 +647,7 @@ describe("CrossfadeController", () => {
 
     // Handoff must not complete while frozen
     await vi.advanceTimersByTimeAsync(10_000);
-    expect(deckA.destroy).not.toHaveBeenCalled();
+    expect(deckA.release).not.toHaveBeenCalled();
     expect(controller.isCrossfadeInProgress()).toBe(true);
 
     controller.play();
@@ -658,7 +659,7 @@ describe("CrossfadeController", () => {
     });
 
     await vi.advanceTimersByTimeAsync(4000);
-    expect(deckA.destroy).toHaveBeenCalled();
+    expect(deckA.release).toHaveBeenCalled();
     expect(controller.isCrossfadeInProgress()).toBe(false);
   });
 
@@ -689,7 +690,7 @@ describe("CrossfadeController", () => {
 
     expect(controller.isCrossfadeInProgress()).toBe(false);
     expect(deckA.pause).toHaveBeenCalled();
-    expect(deckB.destroy).toHaveBeenCalled();
+    expect(deckB.release).toHaveBeenCalled();
 
     resolveLoad();
     await Promise.resolve();
@@ -784,7 +785,7 @@ describe("CrossfadeController", () => {
     deckB.emitStarted();
 
     expect(setDeckGain).not.toHaveBeenCalled();
-    expect(deckA.destroy).toHaveBeenCalled();
+    expect(deckA.release).toHaveBeenCalled();
     expect(controller.getActiveEngine()).toBe(deckB);
     expect(onActiveTrackChange).toHaveBeenCalledWith({
       incomingPlayable: { type: "library", trackId: 2 },
@@ -845,7 +846,7 @@ describe("CrossfadeController", () => {
     await vi.advanceTimersByTimeAsync(300);
 
     expect(deckB.forceGaplessStart).toHaveBeenCalled();
-    expect(deckA.destroy).toHaveBeenCalled();
+    expect(deckA.release).toHaveBeenCalled();
     expect(controller.getActiveEngine()).toBe(deckB);
     expect(controller.isCrossfadeInProgress()).toBe(false);
   });
@@ -908,7 +909,7 @@ describe("CrossfadeController", () => {
 
     controller.seekRatio(0.25);
 
-    expect(deckB.destroy).toHaveBeenCalled();
+    expect(deckB.release).toHaveBeenCalled();
     expect(deckA.seek).toHaveBeenCalledWith(45);
     expect(controller.getActiveEngine()).toBe(deckA);
     expect(controller.isCrossfadeInProgress()).toBe(false);
@@ -1024,7 +1025,7 @@ describe("CrossfadeController", () => {
       },
       incomingTrackListId: -2,
     });
-    expect(deckA.destroy).toHaveBeenCalled();
+    expect(deckA.release).toHaveBeenCalled();
     expect(controller.getActiveEngine()).toBe(deckB);
   });
 });

@@ -1,9 +1,13 @@
-use crate::file_playback::{self, FilePlaybackStarted};
+use crate::file_playback::{self, FilePlaybackStarted, PcmChannel};
 use tauri::AppHandle;
 
 #[tauri::command]
-pub fn start_file_playback(app: AppHandle, path: String) -> Result<FilePlaybackStarted, String> {
-    file_playback::start(app, &path)
+pub fn start_file_playback(
+    app: AppHandle,
+    path: String,
+    pcm: PcmChannel,
+) -> Result<FilePlaybackStarted, String> {
+    file_playback::start(app, &path, pcm)
 }
 
 #[tauri::command]

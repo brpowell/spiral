@@ -41,7 +41,7 @@ class PcmStreamProcessor extends AudioWorkletProcessor {
       const data = event.data;
       if (data.type === "pcm") {
         this.appendSamples(data.samples, data.channels);
-      } else if (data.type === "flush") {
+      } else if (data.type === "flush" || data.type === "reset") {
         this.readIndex = 0;
         this.writeIndex = 0;
         this.endOfStream = false;
@@ -50,6 +50,10 @@ class PcmStreamProcessor extends AudioWorkletProcessor {
         this.pendingAnchorReport = true;
         this.startWhenBuffered = null;
         this.bufferedReported = false;
+        if (data.type === "reset") {
+          this.gated = false;
+          this.startFrame = null;
+        }
       } else if (data.type === "configure") {
         this.channels = data.channels;
         this.readAheadFrames = data.readAheadFrames;
@@ -234,6 +238,7 @@ class PcmStreamProcessor extends AudioWorkletProcessor {
 type PcmStreamWorkletMessage =
   | { type: "pcm"; samples: Float32Array; channels: number }
   | { type: "flush" }
+  | { type: "reset" }
   | {
       type: "configure";
       channels: number;

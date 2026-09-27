@@ -36,7 +36,6 @@ interface AlbumArtLightboxProps {
   caption?: string;
   lyrics?: TrackLyrics | null;
   lyricsLoading?: boolean;
-  playbackPositionSeconds?: number;
   reduceMotion?: boolean;
   canFetchLyrics?: boolean;
   fetchingLyrics?: boolean;
@@ -56,7 +55,6 @@ export function AlbumArtLightbox({
   caption,
   lyrics,
   lyricsLoading = false,
-  playbackPositionSeconds = 0,
   reduceMotion = false,
   canFetchLyrics = false,
   fetchingLyrics = false,
@@ -200,7 +198,6 @@ export function AlbumArtLightbox({
             {displayLyrics ? (
               <LyricsPanel
                 lyrics={displayLyrics}
-                playbackPositionSeconds={playbackPositionSeconds}
                 reduceMotion={reduceMotion}
                 companionMotion={companionMotion}
               />

@@ -7,7 +7,7 @@ import {
   mmssDigitFrames,
   type DigitSlotRole,
 } from "../../../lib/skinDigitTime";
-import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
+import { usePlayheadSeconds } from "../../../hooks/usePlaybackProgress";
 import { useSkinTooltip } from "../../../lib/skinTooltips";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import type {
@@ -69,7 +69,7 @@ function SkinDigitTimeInner({
   const durationSeconds =
     currentTrack?.durationSeconds ?? audio.getDurationSeconds();
 
-  const { displayPosition } = usePlaybackProgress(durationSeconds);
+  const displayPosition = usePlayheadSeconds();
   const [showElapsed, setShowElapsed] = useState(true);
 
   const stripUrl = skinAssetFileUrl(pack.packDir, strip);
@@ -93,7 +93,7 @@ function SkinDigitTimeInner({
       tooltip: node.tooltip,
       tooltipWhen: node.tooltipWhen,
     },
-    { showElapsed },
+    { showElapsed, positionSeconds: displayPosition },
   );
 
   return (

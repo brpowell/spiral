@@ -1,6 +1,8 @@
 import { emit, listen } from "@tauri-apps/api/event";
 import type { RepeatMode, Track } from "../types/track";
 import type { PlaybackState } from "../types/track";
+import * as audio from "./playback";
+import { setLivePositionPublisher } from "./livePosition";
 import {
   seekPositionMatchesRatio,
   seekRatioToPositionSeconds,
@@ -178,7 +180,10 @@ function pickSnapshot(
     manualQueueIds: playerState.manualQueueIds,
     currentTrackId: playerState.currentTrackId,
     playbackState: playerState.playbackState,
-    positionSeconds: playerState.positionSeconds,
+    positionSeconds:
+      playerState.playbackState === "playing" && audio.getDurationSeconds() > 0
+        ? audio.getPositionSeconds()
+        : playerState.positionSeconds,
     volume: playerState.volume,
     muted: playerState.muted,
     balance: playerState.balance,
@@ -350,6 +355,12 @@ async function initMainBridge(): Promise<() => void> {
     emitSnapshot(patch);
   };
 
+  setLivePositionPublisher((positionSeconds) => {
+    if (Object.is(lastSnapshot.positionSeconds, positionSeconds)) return;
+    lastSnapshot = { ...lastSnapshot, positionSeconds };
+    emitSnapshot({ positionSeconds });
+  });
+
   const unsubscribePlayer = usePlayerStore.subscribe(() => {
     publishSnapshot();
   });
@@ -374,6 +385,7 @@ async function initMainBridge(): Promise<() => void> {
   });
 
   return () => {
+    setLivePositionPublisher(null);
     unsubscribePlayer();
     unsubscribePlaybackSettings();
     unlistenAction();

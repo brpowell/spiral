@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import { useNowPlayingDisplay } from "../../../hooks/useNowPlayingDisplay";
-import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
 import { t } from "../../../lib/i18n";
 import { getTrackLyrics } from "../../../lib/tauri";
 import {
@@ -78,7 +77,6 @@ export function NowPlayingMetadata({ className }: NowPlayingMetadataProps) {
     incomingTrack,
     displayTrack,
     showCrossfadeVisual,
-    crossfadeProgress,
     reduceMotion,
     artSrc,
     outgoingArtSrc,
@@ -149,10 +147,6 @@ export function NowPlayingMetadata({ className }: NowPlayingMetadataProps) {
       durationSeconds: displayTrack.durationSeconds ?? null,
     };
   }, [displayTrack]);
-  const { displayPosition } = usePlaybackProgress(
-    displayTrack?.durationSeconds ?? 0,
-  );
-
   const subtitle = nowPlayingSubtitleText(displayTrack);
   const noTrackLabel = t("playback:nowPlaying.noTrack");
   const unknownArtistLabel = t("playback:nowPlaying.unknownArtist");
@@ -395,11 +389,7 @@ export function NowPlayingMetadata({ className }: NowPlayingMetadataProps) {
           <div className="now-playing-metadata__text-overlay">
             {showCrossfadeVisual && (outgoingTrack || incomingTrack) ? (
               <>
-                <CrossfadeOpacity
-                  progress={crossfadeProgress}
-                  role="outgoing"
-                  reduceMotion={reduceMotion}
-                >
+                <CrossfadeOpacity role="outgoing" reduceMotion={reduceMotion}>
                   {renderTextLayer(
                     outgoingTrack,
                     noTrackLabel,
@@ -407,11 +397,7 @@ export function NowPlayingMetadata({ className }: NowPlayingMetadataProps) {
                     false,
                   )}
                 </CrossfadeOpacity>
-                <CrossfadeOpacity
-                  progress={crossfadeProgress}
-                  role="incoming"
-                  reduceMotion={reduceMotion}
-                >
+                <CrossfadeOpacity role="incoming" reduceMotion={reduceMotion}>
                   {renderTextLayer(
                     incomingTrack,
                     noTrackLabel,
@@ -442,7 +428,6 @@ export function NowPlayingMetadata({ className }: NowPlayingMetadataProps) {
           caption={subtitle ?? undefined}
           lyrics={trackLyrics}
           lyricsLoading={lyricsLoading}
-          playbackPositionSeconds={displayPosition}
           reduceMotion={reduceMotion}
           canFetchLyrics={canFetchLyrics}
           fetchingLyrics={lyricsFetchPending}

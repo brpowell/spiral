@@ -1,4 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import * as audio from "./playback";
+import { subscribePlaybackClock } from "./playbackClock";
 import { presetLabel } from "./equalizer/builtinPresets";
 import { formatTime, formatRemainingTime } from "./format";
 import { buildPlaybackOrder } from "./playbackOrder";
@@ -7,6 +9,7 @@ import { getManualNextId } from "./playbackQueue";
 import { getNextSkippingKnownUnplayable } from "./playbackSkip";
 import { formatMetadataLine, playbackStatus } from "./skinMetadataLine";
 import { useSkinModeAlwaysOnTop } from "./skinModeAlwaysOnTop";
+import { isAnySkinWindow } from "./windowRole";
 import { evaluateSlideshowBind } from "./skinSlideshow";
 import { evaluateScrollStripBind } from "./skinScrollStrip";
 import { evaluateStateBind, useSkinViewState } from "./skinViewStateContext";
@@ -347,7 +350,6 @@ export function useSkinBindState(): SkinBindState {
   const cdQueueContext = usePlayerStore((s) => s.cdQueueContext);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
-  const positionSeconds = usePlayerStore((s) => s.positionSeconds);
   const repeatMode = usePlayerStore((s) => s.repeatMode);
   const shuffle = usePlayerStore((s) => s.shuffle);
   const muted = usePlayerStore((s) => s.muted);
@@ -413,7 +415,9 @@ export function useSkinBindState(): SkinBindState {
       currentTrack,
       artUrl,
       playbackState,
-      positionSeconds,
+      // Live read: subscribing would re-render every bind consumer on the
+      // playhead poll. Time labels refresh through useSkinBindValue.
+      positionSeconds: audio.getPositionSeconds(),
       repeatMode,
       shuffle,
       // Live store reads: subscribing here would re-render every bind consumer
@@ -458,7 +462,6 @@ export function useSkinBindState(): SkinBindState {
       currentTrack,
       artUrl,
       playbackState,
-      positionSeconds,
       repeatMode,
       shuffle,
       muted,
@@ -499,13 +502,43 @@ export function useSkinBindState(): SkinBindState {
   return bindState;
 }
 
+const PLAYHEAD_BINDS = new Set([
+  "player.positionSeconds",
+  "player.positionLabel",
+  "player.remainingLabel",
+]);
+
+function usePlayheadSecond(enabled: boolean): number {
+  const followsStore = isAnySkinWindow();
+  const storeSecond = usePlayerStore((s) =>
+    enabled && followsStore ? Math.floor(s.positionSeconds) : 0,
+  );
+  const [audioSecond, setAudioSecond] = useState(() =>
+    Math.floor(audio.getPositionSeconds()),
+  );
+  useEffect(() => {
+    if (!enabled || followsStore) return;
+    return subscribePlaybackClock((seconds) => {
+      const next = Math.floor(seconds);
+      setAudioSecond((prev) => (prev === next ? prev : next));
+    });
+  }, [enabled, followsStore]);
+  return followsStore ? storeSecond : audioSecond;
+}
+
 export function useSkinBindValue(path: string | undefined): SkinBindValue {
   const bindState = useSkinBindState();
+  const playheadBind = path !== undefined && PLAYHEAD_BINDS.has(path);
+  const playheadSecond = usePlayheadSecond(playheadBind);
 
   return useMemo((): SkinBindValue => {
     if (!path) return null;
-    return evaluateSkinBind(path as SkinBindPath, bindState);
-  }, [path, bindState]);
+    const positionSeconds = isAnySkinWindow()
+      ? usePlayerStore.getState().positionSeconds
+      : audio.getPositionSeconds();
+    const state = playheadBind ? { ...bindState, positionSeconds } : bindState;
+    return evaluateSkinBind(path as SkinBindPath, state);
+  }, [path, bindState, playheadBind, playheadSecond]);
 }
 
 export function isSkinVisible(

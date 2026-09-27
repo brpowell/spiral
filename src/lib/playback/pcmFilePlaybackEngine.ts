@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import {
   disconnectDeckOutput,
@@ -10,10 +10,8 @@ import { PcmStreamPipeline } from "./pcmStreamPipeline";
 import {
   PCM_FILE_PLAYBACK_ENDED_EVENT,
   PCM_FILE_PLAYBACK_FLUSH_EVENT,
-  PCM_FILE_PLAYBACK_PCM_EVENT,
   PCM_FILE_PLAYBACK_POSITION_EVENT,
   type PcmFilePlaybackPositionPayload,
-  type PcmFilePlaybackPcmPayload,
   type PcmFilePlaybackStarted,
   type PcmFileSessionKey,
   isPcmFileSession,
@@ -58,11 +56,8 @@ const pcmConfig = {
     sessionId: session.sessionId,
     count,
   }),
-  pcmEvent: PCM_FILE_PLAYBACK_PCM_EVENT,
   flushEvent: PCM_FILE_PLAYBACK_FLUSH_EVENT,
   matchSession: isPcmFileSession,
-  getChannels: (payload: PcmFilePlaybackPcmPayload) => payload.channels,
-  getPcmB64: (payload: PcmFilePlaybackPcmPayload) => payload.pcmB64,
   contextMode: "shared" as const,
   readAheadSeconds: FILE_PCM_READ_AHEAD_SECONDS,
 };
@@ -230,7 +225,7 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
     this.gated = false;
     await this.ensureListeners();
     const previousSessionId = this.current?.sessionId ?? null;
-    this.pcm.destroy();
+    this.pcm.releaseForReuse();
     this.current = null;
     this.filePath = source.path;
 
@@ -240,20 +235,30 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
 
     let startedSessionId: number | null = null;
     try {
+      // Raw f32 chunks arrive on this channel as ArrayBuffers. The session key
+      // is bound once `start` resolves; Rust starts paused, so nothing is sent
+      // before then, and anything after a later load() is dropped by pushPcm.
+      const session: PcmFileSessionKey = { sessionId: -1 };
+      let channelCount = 2;
+      const pcmChannel = new Channel<ArrayBuffer>((buffer) => {
+        this.pcm.pushPcm(session, new Float32Array(buffer), channelCount);
+      });
       const started = await invoke<PcmFilePlaybackStarted>(
         "start_file_playback",
         {
           path: source.path,
+          pcm: pcmChannel,
         },
       );
       startedSessionId = started.sessionId;
+      session.sessionId = started.sessionId;
+      channelCount = started.channels;
 
       if (generation !== this.loadGeneration) {
         void invoke("stop_file_playback", { sessionId: started.sessionId });
         return;
       }
 
-      const session = { sessionId: started.sessionId };
       this.pcm.setDeckId(this.deckId);
       await this.pcm.prepare(session, started.sampleRate, started.channels);
       if (generation !== this.loadGeneration) {
@@ -441,7 +446,16 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
     this.pcm.setMuted(this.muted);
   }
 
+  /** Stop this deck's file and keep its audio nodes for the next track. */
+  release(): void {
+    this.retire(false);
+  }
+
   destroy(): void {
+    this.retire(true);
+  }
+
+  private retire(destroyNodes: boolean): void {
     this.loadGeneration += 1;
     this.clearDrainFallback();
     this.endOfStreamPending = false;
@@ -455,7 +469,8 @@ export class PcmFilePlaybackEngine implements PlaybackEngine {
     this.anchorSourceSeconds = 0;
     this.anchorContextTime = null;
     this.durationSeconds = 0;
-    this.pcm.destroy();
+    if (destroyNodes) this.pcm.destroy();
+    else this.pcm.releaseForReuse();
     disconnectDeckOutput(this.deckId);
     if (sessionId !== null) {
       void invoke("stop_file_playback", { sessionId });
