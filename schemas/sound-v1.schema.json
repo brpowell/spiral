@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/sound-v1.schema.json",
+  "title": "Spiral Sound contribution manifest v1",
+  "type": "object",
+  "required": ["id", "name", "author", "description", "asset"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri-reference"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Declared contribution id."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "Human-readable display label."
+    },
+    "author": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "Freeform credit for the contribution's creator."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 280,
+      "description": "Short summary for lists/cards; keep longer notes in the pack README."
+    },
+    "asset": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!.*\\.\\.)(?!/).+\\.wav$",
+      "description": "Wav file path relative to the contribution directory (including .wav)."
+    }
+  }
+}

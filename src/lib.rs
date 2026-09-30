@@ -3,6 +3,7 @@
 mod archive;
 mod manifest;
 mod skin;
+mod sound;
 mod theme;
 mod visualizer;
 
@@ -26,6 +27,7 @@ pub use skin::{
     TiledFrameFields, TiledFramePresentation, TiledFramePresetPresentation, TiledFrameTileDef,
     TiledFrameTileSize, TiledFrameTileSizes, ViewLayout, WindowChrome,
 };
+pub use sound::validate_sound_contribution_at;
 pub use theme::{validate_theme_contribution_at, REQUIRED_THEME_TOKEN_KEYS};
 pub use visualizer::{
     is_renderer_effective_id, is_safe_media_asset_path, is_safe_pack_relative_js,
@@ -40,6 +42,7 @@ pub mod schemas {
     pub const SKIN_V1: &str = include_str!("../schemas/skin-v1.schema.json");
     pub const VIZ_V1: &str = include_str!("../schemas/viz-v1.schema.json");
     pub const RENDERER_V1: &str = include_str!("../schemas/renderer-v1.schema.json");
+    pub const SOUND_V1: &str = include_str!("../schemas/sound-v1.schema.json");
     pub const PRESENTATION_COMMON: &str =
         include_str!("../schemas/presentation-common.schema.json");
 }
