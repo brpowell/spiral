@@ -79,6 +79,7 @@ const KNOWN_BINDS: &[&str] = &[
     "player.volumePercent",
     "player.repeatMode",
     "player.repeatOn",
+    "player.repeatOne",
     "player.shuffle",
     "player.crossfadeEnabled",
     "player.volume",
@@ -419,8 +420,6 @@ pub enum LayoutNode {
     Input(InputControlFields),
     #[serde(rename = "artwork")]
     Artwork(ControlFields),
-    #[serde(rename = "transport")]
-    Transport(ControlFields),
     #[serde(rename = "visualizer")]
     Visualizer(ControlFields),
     #[serde(rename = "rating")]
@@ -969,6 +968,9 @@ pub enum Presentation {
         /// Library icon id (`setList` → `IconSetList`) or pack-relative asset under `assets/`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         icon: Option<String>,
+        /// Bind path → icon when truthy (last match wins). Same value rules as `icon`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        icon_when: Option<HashMap<String, String>>,
         /// Visible label on primitive buttons (author content).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         text: Option<String>,
@@ -1585,19 +1587,36 @@ fn is_library_icon_id(id: &str) -> bool {
 
 const PRIMITIVE_BUTTON_VARIANTS: &[&str] = &["primary", "secondary", "ghost", "danger", "plain"];
 
+fn validate_primitive_icon(icon: &str, pack_dir: &Path, field: &str, errors: &mut Vec<String>) {
+    if is_skin_asset_icon_path(icon) {
+        validate_skin_asset_file(icon, pack_dir, field, errors);
+    } else if !is_library_icon_id(icon) {
+        errors.push(format!(
+            "{field} \"{icon}\" must be a camelCase library id or a pack-relative asset under assets/"
+        ));
+    }
+}
+
 fn validate_primitive_presentation(
     icon: Option<&str>,
+    icon_when: Option<&HashMap<String, String>>,
     variant: Option<&str>,
     pack_dir: &Path,
+    ctx: &SkinValidationCtx<'_>,
     errors: &mut Vec<String>,
 ) {
     if let Some(icon) = icon {
-        if is_skin_asset_icon_path(icon) {
-            validate_skin_asset_file(icon, pack_dir, "primitive icon", errors);
-        } else if !is_library_icon_id(icon) {
-            errors.push(format!(
-                "primitive icon \"{icon}\" must be a camelCase library id or a pack-relative asset under assets/"
-            ));
+        validate_primitive_icon(icon, pack_dir, "primitive icon", errors);
+    }
+    if let Some(when) = icon_when {
+        for (bind, icon) in when {
+            validate_bind(Some(bind.as_str()), "primitive.iconWhen", ctx, errors);
+            validate_primitive_icon(
+                icon,
+                pack_dir,
+                &format!("primitive.iconWhen[\"{bind}\"]"),
+                errors,
+            );
         }
     }
     if let Some(variant) = variant {
@@ -1641,8 +1660,20 @@ fn validate_presentation(
                 }
             }
         }
-        Presentation::Primitive { icon, variant, .. } => {
-            validate_primitive_presentation(icon.as_deref(), variant.as_deref(), pack_dir, errors);
+        Presentation::Primitive {
+            icon,
+            icon_when,
+            variant,
+            ..
+        } => {
+            validate_primitive_presentation(
+                icon.as_deref(),
+                icon_when.as_ref(),
+                variant.as_deref(),
+                pack_dir,
+                ctx,
+                errors,
+            );
         }
         Presentation::StripSlider {
             strip,
@@ -1861,7 +1892,6 @@ fn layout_node_style(node: &LayoutNode) -> Option<&NodeStyle> {
         LayoutNode::Decoration(f) => f.style.as_ref(),
         LayoutNode::Button(f)
         | LayoutNode::Artwork(f)
-        | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
         | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => f.style.as_ref(),
@@ -1885,7 +1915,6 @@ fn layout_node_transition(node: &LayoutNode) -> Option<&LayoutTransition> {
         LayoutNode::Decoration(f) => f.transition.as_ref(),
         LayoutNode::Button(f)
         | LayoutNode::Artwork(f)
-        | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
         | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => f.transition.as_ref(),
@@ -1909,7 +1938,6 @@ fn layout_node_style_when(node: &LayoutNode) -> Option<&OverlayWhen<NodeStyle>> 
         LayoutNode::Decoration(f) => f.style_when.as_ref(),
         LayoutNode::Button(f)
         | LayoutNode::Artwork(f)
-        | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
         | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => f.style_when.as_ref(),
@@ -1933,7 +1961,6 @@ fn layout_node_bounds_when(node: &LayoutNode) -> Option<&OverlayWhen<LayoutBound
         LayoutNode::Decoration(f) => f.bounds_when.as_ref(),
         LayoutNode::Button(f)
         | LayoutNode::Artwork(f)
-        | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
         | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => f.bounds_when.as_ref(),
@@ -1955,7 +1982,6 @@ fn layout_node_transition_when(node: &LayoutNode) -> Option<&OverlayWhen<LayoutT
         LayoutNode::Decoration(f) => f.transition_when.as_ref(),
         LayoutNode::Button(f)
         | LayoutNode::Artwork(f)
-        | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
         | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => f.transition_when.as_ref(),
@@ -2102,7 +2128,6 @@ fn layout_node_id(node: &LayoutNode) -> Option<&str> {
         LayoutNode::Decoration(f) => f.id.as_deref(),
         LayoutNode::Button(f)
         | LayoutNode::Artwork(f)
-        | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
         | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => f.id.as_deref(),
@@ -2284,7 +2309,6 @@ fn validate_layout_node(
             }
         }
         LayoutNode::Button(f)
-        | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
         | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => {
@@ -2920,6 +2944,96 @@ mod tests {
         );
         let err = validate_skin_contribution_at(&path).unwrap_err();
         assert!(err.contains("primitive icon"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_primitive_icon_when() {
+        let (dir, path) = write_skin_json(
+            "primitive-icon-when",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"column",
+                    "children":[{
+                    "type":"button",
+                    "onClick":[{"action":"player.togglePlayPause"}],
+                    "presentation":{
+                      "kind":"primitive",
+                      "icon":"play",
+                      "iconWhen":{"player.isPlaying":"pause"}
+                    }
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_unknown_icon_when_bind() {
+        let (dir, path) = write_skin_json(
+            "primitive-icon-when-bad-bind",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"column",
+                    "children":[{
+                    "type":"button",
+                    "onClick":[{"action":"player.togglePlayPause"}],
+                    "presentation":{
+                      "kind":"primitive",
+                      "icon":"play",
+                      "iconWhen":{"player.notABind":"pause"}
+                    }
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(err.contains("iconWhen") || err.contains("unknown bind"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_transport_node() {
+        let (dir, path) = write_skin_json(
+            "transport-removed",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"column",
+                    "children":[{
+                    "type":"transport",
+                    "presentation":{"kind":"primitive"}
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("transport") || err.contains("unknown variant") || err.contains("denied"),
+            "unexpected error: {err}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

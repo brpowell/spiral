@@ -963,7 +963,6 @@
               "enum": [
                 "button",
                 "artwork",
-                "transport",
                 "visualizer",
                 "time",
                 "rating"
@@ -1650,6 +1649,20 @@
             },
             { "$ref": "#/$defs/skinAssetFile" }
           ]
+        },
+        "iconWhen": {
+          "type": "object",
+          "description": "Button only. Bind path → icon when truthy (last match wins). Same value rules as icon.",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z][a-zA-Z0-9]*$",
+                "description": "Spiral icon library id."
+              },
+              { "$ref": "#/$defs/skinAssetFile" }
+            ]
+          }
         },
         "text": {
           "type": "string",
