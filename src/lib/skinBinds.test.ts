@@ -464,3 +464,38 @@ describe("track.rating binds", () => {
     expect(evaluateSkinBind("track.rating", state)).toBe(0);
   });
 });
+
+describe("evaluateSkinBind repeat modes", () => {
+  it("exposes repeatOn and repeatOne booleans", () => {
+    expect(evaluateSkinBind("player.repeatOn", minimalBindState())).toBe(false);
+    expect(evaluateSkinBind("player.repeatOne", minimalBindState())).toBe(
+      false,
+    );
+
+    expect(
+      evaluateSkinBind(
+        "player.repeatOn",
+        minimalBindState({ repeatMode: "all" }),
+      ),
+    ).toBe(true);
+    expect(
+      evaluateSkinBind(
+        "player.repeatOne",
+        minimalBindState({ repeatMode: "all" }),
+      ),
+    ).toBe(false);
+
+    expect(
+      evaluateSkinBind(
+        "player.repeatOn",
+        minimalBindState({ repeatMode: "one" }),
+      ),
+    ).toBe(true);
+    expect(
+      evaluateSkinBind(
+        "player.repeatOne",
+        minimalBindState({ repeatMode: "one" }),
+      ),
+    ).toBe(true);
+  });
+});

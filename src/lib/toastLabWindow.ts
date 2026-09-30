@@ -3,7 +3,7 @@
  * with controls that drive a live BackgroundTasksIndicator stack.
  */
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { applyCustomWindowChrome } from "./windowChrome";
+import { applyCustomWindowChrome, getDesktopPlatform } from "./windowChrome";
 import { isTauri } from "./windowRole";
 
 export const TOAST_LAB_LABEL = "toast-lab";
@@ -124,6 +124,9 @@ export async function openToastLabWindow(): Promise<void> {
       resizable: true,
       visible: false,
       dragDropEnabled: false,
+      ...(getDesktopPlatform() === "macos"
+        ? { titleBarStyle: "overlay" as const, hiddenTitle: true }
+        : {}),
     });
     const ready = await waitForToastLabWebview(webview);
     await revealToastLabWindow(ready);

@@ -75,6 +75,11 @@ export const CONTRIBUTION_TYPE_HANDLERS: Record<
     manifestFilename: "renderer.json",
     summarize: stubSummarize("renderer"),
   },
+  sound: {
+    schema: { id: "sound-v1", version: 1 },
+    manifestFilename: "sound.json",
+    summarize: stubSummarize("sound"),
+  },
 };
 
 export function getContributionTypeHandler(

@@ -3,7 +3,10 @@ import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
 export type DesktopPlatform = "macos" | "windows" | "linux" | "unknown";
 
 /** Minimal surface shared by `Window` / `WebviewWindow` for chrome setup. */
-type WindowChromeTarget = Pick<Window, "setDecorations" | "setShadow">;
+type WindowChromeTarget = Pick<
+  Window,
+  "setDecorations" | "setShadow" | "setTitleBarStyle"
+>;
 
 export function getDesktopPlatform(): DesktopPlatform {
   if (typeof navigator === "undefined") return "unknown";
@@ -15,25 +18,40 @@ export function getDesktopPlatform(): DesktopPlatform {
 }
 
 /**
- * True when library / Studio / EQ / logs / About should use the in-app title bar.
- * macOS keeps the system menu bar / traffic lights.
+ * Windows/Linux draw min/max/close themselves.
+ * macOS keeps native traffic lights and paints under them instead.
  */
 export function usesCustomWindowChrome(): boolean {
   const platform = getDesktopPlatform();
   return platform === "windows" || platform === "linux";
 }
 
+/** macOS overlay title bar: themed content, native traffic lights. */
+export function usesMacOverlayChrome(): boolean {
+  return getDesktopPlatform() === "macos";
+}
+
 /**
- * Strip native decorations (and request a compositor shadow where supported).
+ * Apply the platform window chrome.
+ * Windows/Linux drop native decorations. macOS uses an overlay title bar so
+ * the webview paints the theme under the traffic lights.
  * On Linux, call after the window is visible — GTK often ignores decoration
  * changes while still hidden.
  */
 export async function applyCustomWindowChrome(
   target?: WindowChromeTarget,
 ): Promise<void> {
-  if (!usesCustomWindowChrome()) return;
+  const platform = getDesktopPlatform();
+  if (platform !== "macos" && platform !== "windows" && platform !== "linux") {
+    return;
+  }
   try {
     const window = target ?? getCurrentWindow();
+    if (platform === "macos") {
+      await window.setDecorations(true);
+      await window.setTitleBarStyle("overlay");
+      return;
+    }
     await window.setDecorations(false);
     try {
       await window.setShadow(true);

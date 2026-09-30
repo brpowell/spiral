@@ -1,0 +1,194 @@
+.sound-lab {
+  display: grid;
+  grid-template-columns: minmax(22rem, 28rem) 1fr;
+  height: 100%;
+  min-height: 0;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-ui);
+}
+
+.sound-lab__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.1rem 1.4rem;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.sound-lab__header,
+.sound-lab__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sound-lab__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.sound-lab__subtitle,
+.sound-lab__hint,
+.sound-lab__status,
+.sound-lab__wave-meta,
+.sound-lab__preset-desc {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.sound-lab__hint code {
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+}
+
+.sound-lab__status {
+  color: var(--color-text-primary);
+}
+
+.sound-lab__section-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
+
+.sound-lab__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.sound-lab__presets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.sound-lab__preset {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  color: var(--color-text-primary);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 0.45rem;
+  cursor: pointer;
+}
+
+.sound-lab__preset:hover {
+  border-color: color-mix(
+    in srgb,
+    var(--color-accent) 45%,
+    var(--color-border)
+  );
+}
+
+.sound-lab__preset--active {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg));
+}
+
+.sound-lab__preset-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.sound-lab__param {
+  display: grid;
+  grid-template-columns: 4.6rem 1fr 6.5rem;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.sound-lab__param label,
+.sound-lab__param-readout {
+  font-size: 0.72rem;
+  color: var(--color-text-secondary);
+}
+
+.sound-lab__param-readout {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sound-lab__param--disabled {
+  opacity: 0.45;
+}
+
+.sound-lab__stage {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 1.25rem;
+  background:
+    radial-gradient(
+      ellipse 80% 55% at 70% 20%,
+      color-mix(in srgb, var(--color-accent) 10%, transparent),
+      transparent 62%
+    ),
+    var(--color-bg);
+}
+
+.sound-lab__stage-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  max-width: 36rem;
+}
+
+.sound-lab__name {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sound-lab__wave-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sound-lab__wave {
+  width: 100%;
+  height: 7rem;
+  color: var(--color-accent);
+  border-top: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-text-primary) 4%, var(--color-bg));
+  border-radius: 0.5rem;
+}
+
+.sound-lab__transport {
+  align-self: flex-start;
+}
+
+.sound-lab__exports {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+@media (max-width: 860px) {
+  .sound-lab {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(16rem, 46%) 1fr;
+  }
+
+  .sound-lab__controls {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+}

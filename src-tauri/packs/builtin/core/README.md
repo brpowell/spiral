@@ -7,10 +7,11 @@ The stock pack shipped with Spiral — themes, skins, and visualizers you can us
 | Theme | Feel |
 | --- | --- |
 | **Obsidian** | Deep dark, cool blue |
-| **Noir** | True black, stark white, red accent |
+| **Noir** | Warm charcoal, stark white, red accent |
 | **Abyss** | Moonlit indigo, luminous aqua |
 | **Grove** | Dark green, soft sage |
 | **Parchment** | Warm off-white, sepia |
+| **Sprig** | Bright lime on cream paper |
 
 ## Skins
 

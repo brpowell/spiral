@@ -1,11 +1,24 @@
 .browse-grid-view__shell {
-  --browse-grid-fade-height: 1.125rem;
-  position: relative;
+  --browse-grid-fade-height: 0.35rem;
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /*
+   * Ease scrolling cards into the page. A painted --color-bg wash cannot
+   * match --fill-page, so the content itself fades and the gradient shows through.
+   */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--browse-grid-fade-height)
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--browse-grid-fade-height)
+  );
 }
 
 .browse-grid-view__body {
@@ -15,23 +28,6 @@
   padding-top: var(--browse-grid-fade-height);
   padding-bottom: var(--main-content-padding-y);
   -webkit-overflow-scrolling: touch;
-}
-
-.browse-grid-view__shell::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--browse-grid-fade-height);
-  background: linear-gradient(
-    to bottom,
-    var(--color-bg) 0%,
-    color-mix(in srgb, var(--color-bg) 92%, transparent) 38%,
-    transparent 100%
-  );
-  pointer-events: none;
-  z-index: 1;
 }
 
 .browse-grid {

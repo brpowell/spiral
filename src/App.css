@@ -5,7 +5,7 @@
 body {
   margin: 0;
   font-family: var(--font-ui);
-  background: var(--color-bg);
+  background: var(--fill-page);
   color: var(--color-text-primary);
   overflow: hidden;
   user-select: none;
@@ -23,7 +23,7 @@ textarea,
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: var(--color-bg);
+  background: var(--fill-page);
   min-width: 800px;
   min-height: 600px;
 }
@@ -33,17 +33,25 @@ textarea,
   min-height: 0;
 }
 
+/* macOS: player sits under the overlay bar, with room above the header rule. */
+.custom-window-frame--mac.app {
+  --app-header-height: 64px;
+}
+
+.custom-window-frame--mac.app .now-playing-bar {
+  padding-bottom: 8px;
+}
+
 .app-header {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   flex-shrink: 0;
   height: var(--app-header-height);
   /* Visible so shared-layout art can project over the header edge on close. */
   overflow: visible;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-surface-raised) 40%, var(--color-surface)) 0%,
-    var(--color-surface) 100%
-  );
+  background: var(--fill-chrome);
   z-index: 15;
 }
 

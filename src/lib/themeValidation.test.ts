@@ -7,15 +7,13 @@ import {
   validateThemeForSave,
 } from "./themeValidation";
 
-function makeTheme(partial?: Partial<Theme> & { replaceTokens?: boolean }): Theme {
+function makeTheme(
+  partial?: Partial<Theme> & { replaceTokens?: boolean },
+): Theme {
   const baseTokens = {
     "color-bg": "#000",
-    "color-surface": "#111",
     "color-text-primary": "#fff",
-    "color-text-secondary": "#aaa",
     "color-accent": "#00f",
-    "color-accent-muted": "#003",
-    "color-border": "#222",
     "color-danger": "#f00",
     "radius-card": "8px",
     "radius-button": "4px",

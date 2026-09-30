@@ -1,0 +1,24 @@
+.mac-overlay-titlebar {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: var(--mac-titlebar-height);
+  padding-left: var(--mac-traffic-inset);
+  background: var(--color-chrome);
+  border-bottom: 1px solid var(--color-border);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Library header continues the same chrome, so don't draw a seam. */
+.custom-window-frame--mac.app .mac-overlay-titlebar {
+  border-bottom: none;
+}
+
+.mac-overlay-titlebar__title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--color-text-primary);
+  pointer-events: none;
+}

@@ -76,7 +76,7 @@ Named actions invoked by shared playback components. Skin authors wire controls 
 | `skin.openView`           | Open an auxiliary view window (payload: `{ viewId: string }`)                                                                |
 | `skin.closeView`          | Close an auxiliary view window (payload: `{ viewId?: string }`; defaults to the current aux window)                          |
 | `skin.toggleView`         | Toggle an auxiliary view window open/closed (payload: `{ viewId: string }`)                                                  |
-| `skin.toggleSoundEffects` | Toggle skin sound effects for the active skin (no-op when manifest has no `soundEffects`)                                    |
+| `skin.toggleSoundEffects` | Toggle skin sound effects for the active skin                                                                                 |
 | `skin.togglePref`         | Toggle a boolean author preference (payload: `{ settingId: string }`)                                                      |
 | `skin.setPref`            | Set an author preference (payload: `{ settingId: string; value: boolean }`; v1 boolean settings only)                      |
 | `visualizer.previous`     | Cycle to the previous global visualizer                                                                                      |
@@ -127,6 +127,8 @@ Read-only paths for skin text, visibility, and interaction guards (`visibleWhen`
 | `player.remainingLabel`    | `string`                           | Remaining time formatted `-m:ss`                     |
 | `player.volumePercent`     | `number`                           | Volume as integer 0–100                              |
 | `player.repeatMode`        | `"off" | "all" | "one"`            | Repeat mode                                          |
+| `player.repeatOn`          | `boolean`                          | Repeat is all or one                                 |
+| `player.repeatOne`         | `boolean`                          | Repeat is one track                                  |
 | `player.shuffle`           | `boolean`                          | Shuffle enabled                                      |
 | `player.volume`            | `number`                           | Volume 0–1                                           |
 | `player.balance`           | `number`                           | Stereo balance −1…1 (0 = center)                     |
@@ -259,7 +261,7 @@ Fields that gate visibility or interaction accept a **literal boolean**, a **lea
 
 `activeWhen` — bitmap/primitive `button` nodes and `buttonGroup` elements only: keep the pressed overlay while truthy (WMP sticky buttons).
 
-All interactive renderers honor `enabledWhen`: bitmap and primitive buttons, button groups, strip/bitmap/vertical/horizontal sliders, primitive slot controls (transport, seek, volume, visualizer), `rating`, and `input`.
+All interactive renderers honor `enabledWhen`: bitmap and primitive buttons, button groups, strip/bitmap/vertical/horizontal sliders, primitive slot controls (seek, volume, visualizer), `rating`, and `input`.
 
 Example (Xbox seek/volume — interactive only after intro and while shutter is open):
 
@@ -284,10 +286,16 @@ Skins may declare optional short UI sounds under the pack root:
 }
 ```
 
-Paths are under `assets/` without extension (`.wav` required on disk). Two places can play a key:
+Paths are under `assets/` without extension (`.wav` required on disk). These keys are **private** to the skin — only that skin’s `sound` / `soundWhen` / effect `sound` fields may use them.
 
-- **Control `sound` / `soundWhen`** — immediate click feedback on `button` nodes and `buttonGroup` elements (group-level `sound` plays on any element click). `soundWhen` is the same last-match-wins bind map as `tooltipWhen`.
-- **Effect `sound`** — same field as `onActivate` / GIF `onComplete`. Plays when that effect fires, so `delayMs` times it with an animation. `action` may be omitted for a sound-only step.
+**Public** sound contributions live in pack folders `sounds/<id>/sound.json` with effective ids like `spiral.core.sound.play`. A sound string shaped `*.*.sound.*` resolves as a contribution (missing id plays nothing). Anything else stays a local `soundEffects` key.
+
+Two places can play a key or public id:
+
+- **Control `sound` / `soundWhen`** — immediate click feedback on `button` nodes and `buttonGroup` elements (group-level `sound` plays on any element click). `soundWhen` is the same last-match-wins bind map as `tooltipWhen`. Gated by `skin.pref.soundEffectsEnabled`.
+- **Effect `sound`** — same field as `onActivate` / GIF `onComplete`. Plays when that effect fires, so `delayMs` times it with an animation. `action` may be omitted for a sound-only step. Also gated by the skin sound preference.
+
+Library now-playing transport plays `spiral.core.sound.play` / `spiral.core.sound.control` directly and does **not** consult the skin sound preference — library chrome and skin chrome stay independent callers of the same clips.
 
 ```json
 {
@@ -707,6 +715,7 @@ App-chrome `button` nodes use the design-system `Button`. Optional presentation 
 | Field     | Purpose |
 | --------- | ------- |
 | `icon`    | Spiral icon library id **or** pack-relative raster under `assets/` |
+| `iconWhen` | Bind path → icon when truthy (last match wins). Same value rules as `icon`. |
 | `text`    | Visible label (author content). Distinct from `tooltip` / `aria-label`. |
 | `variant` | App Button variant: `primary` \| `secondary` \| `ghost` \| `danger`, or `plain` for a chrome-less hit target (no padding pill, no hover fill). Default `ghost`. |
 
@@ -726,6 +735,33 @@ App-chrome `button` nodes use the design-system `Button`. Optional presentation 
 }
 ```
 
+Play / pause and repeat-one swap icons with `iconWhen`:
+
+```json
+{
+  "type": "button",
+  "onClick": [{ "action": "player.togglePlayPause" }],
+  "presentation": {
+    "kind": "primitive",
+    "variant": "primary",
+    "icon": "play",
+    "iconWhen": { "player.isPlaying": "pause" }
+  }
+}
+```
+
+```json
+{
+  "type": "button",
+  "onClick": [{ "action": "player.cycleRepeat" }],
+  "activeWhen": "player.repeatOn",
+  "presentation": {
+    "kind": "primitive",
+    "icon": "repeat",
+    "iconWhen": { "player.repeatOne": "repeatOne" }
+  }
+}
+```
 If both `icon` and `text` are omitted, the resolved tooltip is shown as the button label. Paint sits beside `presentation` on `style`. Headspace EQ reset is `text` + `variant: "plain"` — a chrome-less hit target, not a ghost `Button`:
 
 ```json
@@ -1003,7 +1039,7 @@ Effects declared on a view run when **that view's window** becomes visible (skin
 | `delayMs` | no       | Wait before dispatch (default `0`)                                          |
 | `action`  | no       | Skin action id. Required unless `sound` is set.                             |
 | `payload` | no       | Merged into action payload                                                  |
-| `sound`   | no       | Manifest `soundEffects` key played when the effect fires (before `action`)  |
+| `sound`   | no       | Manifest `soundEffects` key or public sound id played when the effect fires (before `action`) |
 
 
 Immediate effects skip a false `when` at schedule and run synchronously. Delayed effects start the timer and re-check `when` at fire time, using live view state (not the click snapshot). Effect-level `when` is distinct from `payload.when` on `state.setVariable`.

@@ -121,8 +121,7 @@ export type TabListProps = {
   "aria-label"?: string;
   "aria-labelledby"?: string;
   /**
-   * Soft fade under the tab strip so scrolling panel content eases underneath
-   * (same idea as `ModalHeader fade`).
+   * Fade panel content under the tab strip using `--tabs-fade-height`.
    */
   fade?: boolean;
   children: ReactNode;

@@ -1,6 +1,61 @@
 .playback-transport {
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.5rem;
   flex-shrink: 0;
+}
+
+/*
+ * Side controls are secondary buttons. Only the latched shuffle / repeat
+ * face is transport-specific; the resting disk comes from the variant.
+ */
+.playback-transport .playback-btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+.playback-transport .playback-btn--shuffle-active,
+.playback-transport .playback-btn--repeat-active {
+  --btn-lip:
+    inset 0 1px 0 rgb(255 255 255 / 0.36),
+    0 1px 0 color-mix(in srgb, var(--color-accent) 45%, black);
+  color: var(--color-accent);
+  background-color: color-mix(
+    in srgb,
+    var(--color-accent) 14%,
+    var(--btn-face)
+  );
+  box-shadow: var(--btn-lip);
+}
+
+.playback-transport .playback-btn--shuffle-active:hover:not(:disabled),
+.playback-transport .playback-btn--repeat-active:hover:not(:disabled) {
+  --btn-lip:
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    0 1px 0 color-mix(in srgb, var(--color-accent) 45%, black);
+  color: var(--color-accent);
+  background-color: color-mix(
+    in srgb,
+    var(--color-accent) 22%,
+    var(--btn-face)
+  );
+  box-shadow: var(--btn-lip);
+}
+
+.playback-transport .playback-btn--shuffle-active:active:not(:disabled),
+.playback-transport .playback-btn--repeat-active:active:not(:disabled) {
+  --btn-lip: inset 0 1px 2px rgb(0 0 0 / 0.14);
+  top: 1px;
+  box-shadow: var(--btn-lip);
+}
+
+/* Keyboard focus must not replace the lip (primary icon buttons set their own). */
+.playback-transport .btn--icon-only.playback-btn:focus-visible {
+  box-shadow: var(--btn-lip);
+}
+
+.playback-transport .playback-btn:disabled {
+  top: 0;
+  background-image: none;
+  box-shadow: none;
 }

@@ -1,30 +1,124 @@
 :root {
-  /* Fallback values (Obsidian) until JS applies saved theme */
+  /* Authorable fallbacks (Obsidian) until JS applies saved theme */
   --color-bg: #0e0e10;
-  --color-surface: #1a1a1e;
-  --color-surface-raised: #242428;
-  --color-border: #2a2a32;
   --color-text-primary: #f0f0f0;
-  --color-text-secondary: #888899;
-  --color-text-muted: #6a6a7a;
   --color-accent: #7b8cde;
-  --color-accent-muted: #3a4170;
-  --color-accent-text: #ffffff;
   --color-danger: #e06c75;
-  --color-danger-bg: #2a1518;
-  --color-interactive: #7b8cde;
-  --color-interactive-selected-text: #7b8cde;
-  /* App-owned wash strengths — themes supply solid --color-interactive only */
+  --color-alert-info: #9aa8e8;
+  --color-alert-success: #7fd492;
+  --color-alert-warning: #e8c57b;
+}
+
+/*
+ * Derived from the authorable tokens. A nested scope that sets those tokens
+ * (theme card swatch, theme editor preview) must redeclare these mixes:
+ * custom properties inherit already substituted, so the :root values stay
+ * locked to the active theme.
+ */
+:root,
+.theme-derived {
+  /* Surface ladder — page stepped toward ink */
+  --color-surface: color-mix(
+    in oklch,
+    var(--color-text-primary) 6%,
+    var(--color-bg)
+  );
+  --color-surface-raised: color-mix(
+    in oklch,
+    var(--color-text-primary) 11%,
+    var(--color-bg)
+  );
+  --color-border: color-mix(
+    in oklch,
+    var(--color-text-primary) 16%,
+    var(--color-bg)
+  );
+
+  /*
+   * App-owned chrome depth — quiet gradients from the surface ladder.
+   * Themes keep solid tokens; these fills are engine material, not authorable.
+   *
+   * Rail starts at `--color-surface` so it meets the header bottom without a
+   * hard step, then settles slightly deeper down the column.
+   */
+  --fill-page: linear-gradient(
+    165deg,
+    var(--color-surface) 0%,
+    var(--color-bg) 38%,
+    var(--color-bg) 100%
+  );
+  /* Solid top stop of the chrome gradient (header, in-app title bar). */
+  --color-chrome: color-mix(
+    in oklch,
+    var(--color-surface-raised) 45%,
+    var(--color-surface)
+  );
+  --fill-chrome: linear-gradient(
+    180deg,
+    var(--color-chrome) 0%,
+    var(--color-surface) 100%
+  );
+  --fill-rail: linear-gradient(
+    180deg,
+    var(--color-surface) 0%,
+    color-mix(in oklch, var(--color-surface-raised) 50%, var(--color-surface))
+      100%
+  );
+  /* Raised chips — light top sheen over surface. */
+  --fill-raised: linear-gradient(
+    180deg,
+    color-mix(in oklch, white 8%, var(--color-surface)) 0%,
+    var(--color-surface) 100%
+  );
+
+  /* Text ladder — ink diluted with the page */
+  --color-text-secondary: color-mix(
+    in oklch,
+    var(--color-text-primary) 65%,
+    var(--color-bg)
+  );
+  --color-text-muted: color-mix(
+    in oklch,
+    var(--color-text-primary) 45%,
+    var(--color-bg)
+  );
+
+  /* Accent companions */
+  --color-accent-muted: color-mix(
+    in oklch,
+    var(--color-accent) 40%,
+    var(--color-bg)
+  );
+  /* Black or white label from accent lightness (threshold ~0.71) */
+  --color-accent-text: oklch(
+    from var(--color-accent) clamp(0, (0.71 - l) * 999, 1) 0 0
+  );
+
+  /* Danger washes */
+  --color-danger-bg: color-mix(
+    in oklch,
+    var(--color-danger) 18%,
+    var(--color-surface)
+  );
+  --color-danger-border: color-mix(
+    in oklch,
+    var(--color-danger) 40%,
+    var(--color-surface)
+  );
+
+  /* Interactive washes — sourced from accent */
   --color-interactive-hover: color-mix(
     in srgb,
-    var(--color-interactive) 7%,
+    var(--color-accent) 7%,
     transparent
   );
   --color-interactive-selected: color-mix(
     in srgb,
-    var(--color-interactive) 12%,
+    var(--color-accent) 12%,
     transparent
   );
+  --color-interactive-selected-text: var(--color-accent);
+
   /*
    * Control material — adaptive washes for form fields + secondary/outline
    * buttons. Surfaces (bg / surface / surface-raised) stay for layout chrome;
@@ -50,30 +144,50 @@
     var(--color-accent) 40%,
     var(--color-control-border)
   );
-  --color-alert-info: #9aa8e8;
-  --color-alert-info-bg: #1a1f35;
-  --color-alert-info-border: #3a4570;
-  --color-alert-success: #7fd492;
-  --color-alert-success-bg: #152418;
-  --color-alert-success-border: #2a5c38;
-  --color-alert-warning: #e8c57b;
-  --color-alert-warning-bg: #2a2418;
-  --color-alert-warning-border: #5c4a2a;
-  --color-alert-error: var(--color-danger);
-  --color-alert-error-bg: var(--color-danger-bg);
-  --color-alert-error-border: color-mix(
-    in srgb,
-    var(--color-danger) 35%,
-    var(--color-border)
+
+  /* Alert washes — foreground diluted into surface */
+  --color-alert-info-bg: color-mix(
+    in oklch,
+    var(--color-alert-info) 18%,
+    var(--color-surface)
   );
+  --color-alert-info-border: color-mix(
+    in oklch,
+    var(--color-alert-info) 40%,
+    var(--color-surface)
+  );
+  --color-alert-success-bg: color-mix(
+    in oklch,
+    var(--color-alert-success) 18%,
+    var(--color-surface)
+  );
+  --color-alert-success-border: color-mix(
+    in oklch,
+    var(--color-alert-success) 40%,
+    var(--color-surface)
+  );
+  --color-alert-warning-bg: color-mix(
+    in oklch,
+    var(--color-alert-warning) 18%,
+    var(--color-surface)
+  );
+  --color-alert-warning-border: color-mix(
+    in oklch,
+    var(--color-alert-warning) 40%,
+    var(--color-surface)
+  );
+}
+
+:root {
   --focus-ring-width: 1.5px;
   --focus-ring-offset: 1px;
   --focus-ring-color: var(--color-accent);
   --focus-ring-inset: inset 0 0 0 var(--focus-ring-width)
     var(--focus-ring-color);
-  --radius-card: 10px;
-  --radius-button: 6px;
-  --radius-input: 6px;
+  /* Sprig. Themes do not override these. */
+  --radius-card: 12px;
+  --radius-button: 8px;
+  --radius-input: 8px;
   --radius-sm: var(--radius-input);
   --radius-md: var(--radius-card);
   --font-ui: "Inter", system-ui, -apple-system, sans-serif;
@@ -91,9 +205,10 @@
   --z-modal: 1000;
 
   --window-titlebar-height: 32px;
+  --mac-titlebar-height: 28px;
+  --mac-traffic-inset: 78px;
   --app-header-height: 72px;
   --now-playing-height: var(--app-header-height);
-  --visualizer-mini-height: 52px;
   --visualizer-mini-width: 156px;
   --visualizer-height: 140px;
 
@@ -123,6 +238,20 @@
     in srgb,
     var(--color-text-secondary) 55%,
     var(--color-surface-raised)
+  );
+}
+
+/*
+ * Highlighted labels use the accent on a pale wash of itself. A bright
+ * accent (Sprig lime, Parchment amber) falls near 2:1 there. On light pages,
+ * mix toward black in the accent hue so the label clears the wash (~4.7:1)
+ * and stays inside sRGB. Dark pages keep the accent.
+ */
+:root[data-appearance="light"] {
+  --color-interactive-selected-text: color-mix(
+    in oklch,
+    var(--color-accent) 68%,
+    black
   );
 }
 

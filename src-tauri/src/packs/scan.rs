@@ -1,7 +1,7 @@
 //! Directory-walking pack scanner over builtin / workshop / installed / linked zones.
 //!
 //! Contributions are discovered by scanning fixed type folders (`themes/`, `skins/`,
-//! `visualizers/`). Each contribution manifest must declare an `id`.
+//! `visualizers/`, `renderers/`, `sounds/`). Each contribution manifest must declare an `id`.
 
 use super::paths;
 use super::{
@@ -533,13 +533,16 @@ mod tests {
         assert!(themes
             .iter()
             .any(|c| c.effective_id == "spiral.core.theme.obsidian"));
+        assert!(themes
+            .iter()
+            .any(|c| c.effective_id == "spiral.core.theme.sprig"));
         assert!(skins
             .iter()
             .any(|c| c.effective_id == "spiral.core.skin.vanilla"));
         assert!(viz
             .iter()
             .any(|c| c.effective_id == "spiral.core.visualizer.bars"));
-        assert_eq!(themes.len(), 5, "expected 5 builtin themes");
+        assert_eq!(themes.len(), 6, "expected 6 builtin themes");
         assert_eq!(skins.len(), 1, "expected 1 builtin skin in core");
         assert_eq!(viz.len(), 4, "expected 4 builtin visualizers");
         let renderers: Vec<_> = contribs.iter().filter(|c| c.r#type == "renderer").collect();

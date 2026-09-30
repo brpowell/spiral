@@ -8,6 +8,7 @@ import { isTrackImporting } from "../../../lib/pendingImportTrack";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import type { RepeatMode } from "../../../types/track";
 import { Button } from "../../common/Button/Button";
+import { playTransportCue } from "../../../lib/transportCues";
 import {
   IconNext,
   IconPause,
@@ -83,8 +84,9 @@ export function PlaybackTransport({
     ) !== null;
 
   const handlePlayPause = useCallback(() => {
+    playTransportCue(playbackState === "playing" ? "control" : "play");
     togglePlayPause();
-  }, [togglePlayPause]);
+  }, [playbackState, togglePlayPause]);
 
   return (
     <div
@@ -94,11 +96,14 @@ export function PlaybackTransport({
       style={interactionEnabled ? undefined : { pointerEvents: "none" }}
     >
       <Button
-        variant="ghost"
+        variant="secondary"
         size="md"
         iconOnly
         className={`playback-btn playback-btn--shuffle${shuffle ? " playback-btn--shuffle-active" : ""}`}
-        onClick={toggleShuffle}
+        onClick={() => {
+          playTransportCue("control");
+          toggleShuffle();
+        }}
         aria-label={
           shuffle ? t("transport.shuffleOff") : t("transport.shuffleOn")
         }
@@ -108,11 +113,14 @@ export function PlaybackTransport({
       </Button>
 
       <Button
-        variant="ghost"
+        variant="secondary"
         size="md"
         iconOnly
         className="playback-btn"
-        onClick={previousTrack}
+        onClick={() => {
+          playTransportCue("control");
+          previousTrack();
+        }}
         disabled={!canGoPrevious}
         aria-label={t("transport.previous")}
       >
@@ -160,11 +168,14 @@ export function PlaybackTransport({
       </Button>
 
       <Button
-        variant="ghost"
+        variant="secondary"
         size="md"
         iconOnly
         className="playback-btn"
-        onClick={nextTrack}
+        onClick={() => {
+          playTransportCue("control");
+          nextTrack();
+        }}
         disabled={!canGoNext}
         aria-label={t("transport.next")}
       >
@@ -172,11 +183,14 @@ export function PlaybackTransport({
       </Button>
 
       <Button
-        variant="ghost"
+        variant="secondary"
         size="md"
         iconOnly
         className={`playback-btn playback-btn--repeat${repeatMode !== "off" ? " playback-btn--repeat-active" : ""}`}
-        onClick={cycleRepeat}
+        onClick={() => {
+          playTransportCue("control");
+          cycleRepeat();
+        }}
         aria-label={t(REPEAT_LABEL_KEYS[repeatMode])}
         title={t(REPEAT_LABEL_KEYS[repeatMode])}
       >

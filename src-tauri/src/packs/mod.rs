@@ -45,6 +45,7 @@ pub(crate) fn validate_contribution(
         "skin" => spk_format::validate_skin_contribution_at(manifest_path),
         "visualizer" => spk_format::validate_visualizer_contribution_at(manifest_path),
         "renderer" => spk_format::validate_renderer_contribution_at(manifest_path),
+        "sound" => spk_format::validate_sound_contribution_at(manifest_path),
         other => Err(format!("unknown contribution type \"{other}\"")),
     }
 }

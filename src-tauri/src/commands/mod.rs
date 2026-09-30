@@ -19,6 +19,7 @@ pub mod playlists;
 pub mod registry;
 pub mod skin_preferences;
 pub mod skins;
+pub mod sounds;
 pub mod themes;
 pub mod track_list_preferences;
 pub mod visualizers;

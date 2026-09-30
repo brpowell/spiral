@@ -4,6 +4,10 @@ import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
 import { useSkinStore } from "../store/useSkinStore";
 import { soundEffectsEnabledFromPreferences } from "../types/skinPreferences";
 import { evaluateSkinBind, type SkinBindState } from "./skinBinds";
+import {
+  isPublicSoundContributionId,
+  resolveSoundAssetUrl,
+} from "./packSounds";
 import type { LoadedSkinPack } from "../types/skin";
 
 /** Bind path → soundEffects key when truthy (last match wins). Falls back to `sound`. */
@@ -44,22 +48,7 @@ function getOrCreateHowl(url: string): Howl {
   return howl;
 }
 
-export function playSkinSound(
-  pack: LoadedSkinPack | null,
-  soundKey: string | undefined,
-): void {
-  if (!pack || !soundKey) return;
-
-  const soundMap = pack.manifest.soundEffects;
-  if (!soundMap) return;
-
-  const assetPath = soundMap[soundKey];
-  if (!assetPath) return;
-
-  const preferences = useSkinPreferencesStore.getState().preferences;
-  if (!soundEffectsEnabledFromPreferences(preferences)) return;
-
-  const url = soundAssetUrl(pack.packDir, assetPath);
+function playHowl(url: string): void {
   const howl = getOrCreateHowl(url);
   const playLoaded = () => {
     howl.stop();
@@ -73,6 +62,33 @@ export function playSkinSound(
   howl.once("loaderror", (_id, err) => {
     console.error("Failed to load skin sound:", url, err);
   });
+}
+
+export function playSkinSound(
+  pack: LoadedSkinPack | null,
+  soundKey: string | undefined,
+): void {
+  if (!soundKey) return;
+
+  const preferences = useSkinPreferencesStore.getState().preferences;
+  if (!soundEffectsEnabledFromPreferences(preferences)) return;
+
+  if (isPublicSoundContributionId(soundKey)) {
+    void resolveSoundAssetUrl(soundKey).then((url) => {
+      if (url) playHowl(url);
+    });
+    return;
+  }
+
+  if (!pack) return;
+
+  const soundMap = pack.manifest.soundEffects;
+  if (!soundMap) return;
+
+  const assetPath = soundMap[soundKey];
+  if (!assetPath) return;
+
+  playHowl(soundAssetUrl(pack.packDir, assetPath));
 }
 
 export function playActiveSkinSound(soundKey: string | undefined): void {

@@ -49,12 +49,8 @@ function makeTheme(partial?: Partial<Theme>): Theme {
     mutable: true,
     tokens: {
       "color-bg": "#000",
-      "color-surface": "#111",
       "color-text-primary": "#fff",
-      "color-text-secondary": "#aaa",
       "color-accent": "#00f",
-      "color-accent-muted": "#003",
-      "color-border": "#222",
       "color-danger": "#f00",
       "radius-card": "8px",
       "radius-button": "4px",

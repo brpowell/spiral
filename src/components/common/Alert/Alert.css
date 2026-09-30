@@ -7,6 +7,7 @@
   border-radius: var(--radius-sm);
   border: 1px solid var(--alert-border);
   border-left-width: 3px;
+  border-left-color: var(--alert-fg);
   color: var(--alert-fg);
   background: var(--alert-bg);
 }
@@ -30,7 +31,7 @@
 }
 
 .alert--error {
-  --alert-fg: var(--color-alert-error);
-  --alert-bg: var(--color-alert-error-bg);
-  --alert-border: var(--color-alert-error-border);
+  --alert-fg: var(--color-danger);
+  --alert-bg: var(--color-danger-bg);
+  --alert-border: var(--color-danger-border);
 }

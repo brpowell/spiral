@@ -3,12 +3,15 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Theme } from "../types/theme";
 import {
   DEFAULT_THEME_ID,
+  FIXED_RADIUS_TOKEN_KEYS,
   OBSIDIAN_DEFAULT_TOKENS,
   applyTheme,
   findThemeById,
   mergeThemeTokens,
   resolveActiveThemeId,
   resolveThemeTokens,
+  stripDerivedThemeTokens,
+  windowAppearanceForBackground,
 } from "./theme";
 
 function makeTheme(id: string, name: string): Theme {
@@ -29,12 +32,8 @@ function makeTheme(id: string, name: string): Theme {
     mutable: false,
     tokens: {
       "color-bg": "#000",
-      "color-surface": "#111",
       "color-text-primary": "#fff",
-      "color-text-secondary": "#aaa",
       "color-accent": "#00f",
-      "color-accent-muted": "#003",
-      "color-border": "#222",
       "color-danger": "#f00",
       "radius-card": "8px",
       "radius-button": "4px",
@@ -80,55 +79,111 @@ describe("resolveActiveThemeId", () => {
   });
 });
 
-describe("mergeThemeTokens / applyTheme role tokens", () => {
+describe("mergeThemeTokens / applyTheme", () => {
   afterEach(() => {
     document.documentElement.style.cssText = "";
     document.documentElement.classList.remove("theme-transition");
+    delete document.documentElement.dataset.appearance;
     document.getElementById("spiral-theme-transition")?.remove();
   });
 
-  it("fills color-accent-text and role tokens from Obsidian defaults", () => {
+  it("fills authorable tokens from Obsidian defaults", () => {
     const merged = mergeThemeTokens({ "color-bg": "#000" });
-    expect(merged["color-accent-text"]).toBe(
-      OBSIDIAN_DEFAULT_TOKENS["color-accent-text"],
+    expect(merged["color-accent"]).toBe(
+      OBSIDIAN_DEFAULT_TOKENS["color-accent"],
     );
-    expect(merged["color-interactive"]).toBe(
-      OBSIDIAN_DEFAULT_TOKENS["color-interactive"],
+    expect(merged["color-danger"]).toBe(
+      OBSIDIAN_DEFAULT_TOKENS["color-danger"],
     );
-    expect(merged["color-interactive-selected-text"]).toBe(
-      OBSIDIAN_DEFAULT_TOKENS["color-interactive-selected-text"],
+    expect(merged["color-alert-info"]).toBe(
+      OBSIDIAN_DEFAULT_TOKENS["color-alert-info"],
     );
-    expect(merged["radius-input"]).toBe(OBSIDIAN_DEFAULT_TOKENS["radius-input"]);
-    expect(merged["color-text-muted"]).toBe(
-      OBSIDIAN_DEFAULT_TOKENS["color-text-muted"],
-    );
+    expect(merged["font-ui"]).toBe(OBSIDIAN_DEFAULT_TOKENS["font-ui"]);
   });
 
-  it("applyTheme writes merged role tokens (derived aliases stay in CSS)", () => {
-    const theme = makeTheme("core.test", "Test");
-    applyTheme(theme);
+  it("strips retired derived tokens from merge results", () => {
+    const merged = mergeThemeTokens({
+      "color-bg": "#000",
+      "color-danger-bg": "#2a1518",
+      "color-alert-error": "#e06c75",
+      "color-surface": "#1a1a1e",
+      "color-accent-text": "#ffffff",
+      "color-interactive": "#7b8cde",
+    });
+    expect(merged["color-danger-bg"]).toBeUndefined();
+    expect(merged["color-alert-error"]).toBeUndefined();
+    expect(merged["color-surface"]).toBeUndefined();
+    expect(merged["color-accent-text"]).toBeUndefined();
+    expect(merged["color-interactive"]).toBeUndefined();
+    expect(merged["color-bg"]).toBe("#000");
+  });
+
+  it("stripDerivedThemeTokens removes retired keys only", () => {
+    const stripped = stripDerivedThemeTokens({
+      "color-bg": "#111",
+      "color-text-muted": "#6a6a7a",
+      "color-border": "#222",
+    });
+    expect(stripped).toEqual({ "color-bg": "#111" });
+  });
+
+  it("applyTheme writes authorable tokens and clears derived overrides", () => {
     const root = document.documentElement;
+    root.style.setProperty("--color-danger-bg", "#2a1518");
+    root.style.setProperty("--color-alert-error", "#e06c75");
+    root.style.setProperty("--color-surface", "#1a1a1e");
+
+    const theme = makeTheme("core.test", "Test");
+    for (const key of FIXED_RADIUS_TOKEN_KEYS) {
+      root.style.setProperty(`--${key}`, "2px");
+    }
+    applyTheme(theme);
     const tokens = resolveThemeTokens(theme);
-    expect(root.style.getPropertyValue("--color-accent-text")).toBe(
-      tokens["color-accent-text"],
+
+    expect(root.style.getPropertyValue("--color-accent")).toBe(
+      tokens["color-accent"],
     );
-    expect(root.style.getPropertyValue("--color-interactive")).toBe(
-      tokens["color-interactive"],
+    expect(root.style.getPropertyValue("--color-danger")).toBe(
+      tokens["color-danger"],
     );
-    expect(root.style.getPropertyValue("--radius-input")).toBe(
-      tokens["radius-input"],
-    );
+    for (const key of FIXED_RADIUS_TOKEN_KEYS) {
+      expect(root.style.getPropertyValue(`--${key}`)).toBe("");
+    }
+    expect(root.style.getPropertyValue("--color-danger-bg")).toBe("");
+    expect(root.style.getPropertyValue("--color-alert-error")).toBe("");
+    expect(root.style.getPropertyValue("--color-surface")).toBe("");
+    expect(root.style.getPropertyValue("--color-accent-text")).toBe("");
+    expect(root.dataset.appearance).toBe("dark");
+  });
+
+  it("marks cream paper as a light appearance", () => {
+    const theme = makeTheme("core.test", "Test");
+    theme.tokens["color-bg"] = "#f3f1e4";
+    applyTheme(theme);
+    expect(document.documentElement.dataset.appearance).toBe("light");
   });
 
   it("applyTheme with transition toggles theme-transition on html", () => {
     const theme = makeTheme("core.test", "Test");
     applyTheme(theme, { transition: true });
-    expect(document.documentElement.classList.contains("theme-transition")).toBe(
-      true,
-    );
+    expect(
+      document.documentElement.classList.contains("theme-transition"),
+    ).toBe(true);
     applyTheme(theme, { transition: false });
-    expect(document.documentElement.classList.contains("theme-transition")).toBe(
-      false,
-    );
+    expect(
+      document.documentElement.classList.contains("theme-transition"),
+    ).toBe(false);
+  });
+});
+
+describe("windowAppearanceForBackground", () => {
+  it("maps cream paper to light and near-black to dark", () => {
+    expect(windowAppearanceForBackground("#f3f1e4")).toBe("light");
+    expect(windowAppearanceForBackground("#0e0e10")).toBe("dark");
+  });
+
+  it("defaults unknown colors to dark", () => {
+    expect(windowAppearanceForBackground(undefined)).toBe("dark");
+    expect(windowAppearanceForBackground("oklch(0.5 0.1 120)")).toBe("dark");
   });
 });

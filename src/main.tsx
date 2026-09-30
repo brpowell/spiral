@@ -44,6 +44,7 @@ import {
   isSkinAuxWindow,
   isSkinModeWindow,
   isToastLabWindow,
+  isSoundLabWindow,
 } from "./lib/windowRole";
 import { applyCustomWindowChrome } from "./lib/windowChrome";
 import { i18n } from "./lib/i18n";
@@ -88,6 +89,10 @@ async function start() {
   installCrashDevConsole();
   installToastDevConsole();
   installDevUserTimingGuard();
+  if (import.meta.env.DEV) {
+    const { installSoundDevConsole } = await import("./lib/soundDevConsole");
+    installSoundDevConsole();
+  }
 
   const role = await bootstrapWindowRole();
 
@@ -98,7 +103,8 @@ async function start() {
     role === "equalizer" ||
     role === "activity-logs" ||
     role === "about" ||
-    role === "toast-lab"
+    role === "toast-lab" ||
+    role === "sound-lab"
   ) {
     await applyCustomWindowChrome();
   }
@@ -107,6 +113,14 @@ async function start() {
     await bootstrapTheme();
     await initThemeBridge(role);
     renderRoot(<ToastLabApp />);
+    return;
+  }
+
+  if (import.meta.env.DEV && isSoundLabWindow()) {
+    await bootstrapTheme();
+    await initThemeBridge(role);
+    const { SoundLabApp } = await import("./SoundLabApp");
+    renderRoot(<SoundLabApp />);
     return;
   }
 

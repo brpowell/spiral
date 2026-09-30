@@ -33,5 +33,5 @@
 
 .context-menu--suggestions .suggestion-menu__item--active {
   background: var(--color-interactive-selected);
-  color: var(--color-interactive-selected-text, var(--color-accent));
+  color: var(--color-interactive-selected-text);
 }

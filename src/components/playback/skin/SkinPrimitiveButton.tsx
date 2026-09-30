@@ -8,7 +8,9 @@ import {
 import { useSkinModeAlwaysOnTop } from "../../../lib/skinModeAlwaysOnTop";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
 import {
+  evaluateSkinBind,
   evaluateSkinCondition,
+  type SkinBindState,
   useSkinBindState,
   useSkinControlEnabled,
 } from "../../../lib/skinBinds";
@@ -56,6 +58,21 @@ function hasResolvableIcon(icon: string | undefined): boolean {
   return resolveSkinLibraryIcon(icon) != null;
 }
 
+function resolvePrimitiveIcon(
+  icon: string | undefined,
+  iconWhen: Record<string, string> | undefined,
+  state: SkinBindState,
+): string | undefined {
+  let resolved = icon;
+  if (!iconWhen) return resolved;
+  for (const [condition, next] of Object.entries(iconWhen)) {
+    if (evaluateSkinBind(condition, state)) {
+      resolved = next;
+    }
+  }
+  return resolved;
+}
+
 export function SkinPrimitiveButton({
   node,
   pack,
@@ -85,7 +102,11 @@ export function SkinPrimitiveButton({
     (clickAction === "skin.toggleAlwaysOnTop" && alwaysOnTop) ||
     Boolean(isSticky);
 
-  const icon = presentation.icon;
+  const icon = resolvePrimitiveIcon(
+    presentation.icon,
+    presentation.iconWhen,
+    bindState,
+  );
   const text = presentation.text;
   const hasIcon = hasResolvableIcon(icon);
   const hasText = Boolean(text);

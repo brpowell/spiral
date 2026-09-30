@@ -5,6 +5,7 @@ import {
   DEFAULT_THEME_ID,
   findThemeById,
   resolveActiveThemeId,
+  stripDerivedThemeTokens,
 } from "../lib/theme";
 import { emitThemeChanged, getLiveThemePreview } from "../lib/themeBridge";
 import {
@@ -114,11 +115,15 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   },
 
   saveTheme: async (theme) => {
-    const issues = validateThemeForSave(theme);
+    const cleaned = {
+      ...theme,
+      tokens: stripDerivedThemeTokens(theme.tokens),
+    };
+    const issues = validateThemeForSave(cleaned);
     if (issues.length > 0) {
       throw new Error(formatThemeValidationError(issues));
     }
-    const saved = await saveWorkshopTheme(theme);
+    const saved = await saveWorkshopTheme(cleaned);
     const { themes, activeThemeId } = get();
     const nextThemes = upsertTheme(themes, saved);
     if (activeThemeId === saved.id) {

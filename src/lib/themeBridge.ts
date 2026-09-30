@@ -75,6 +75,7 @@ function shouldListenForThemeChanges(role: WindowRole): boolean {
     role === "about" ||
     role === "equalizer" ||
     role === "toast-lab" ||
+    role === "sound-lab" ||
     isAnySkinWindow() ||
     isAppearanceWindow()
   );

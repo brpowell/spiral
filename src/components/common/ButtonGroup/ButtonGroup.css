@@ -145,16 +145,16 @@
   z-index: 1;
 }
 
-/* Hover fill should read flush with the segment, not as a ring inside the border. */
-.button-group .btn--secondary:hover:not(:disabled),
-.button-group .btn--secondary[aria-expanded="true"],
+/* Outline hover fill should read flush with the segment, not as a ring inside the border. */
 .button-group .btn--outline:hover:not(:disabled),
 .button-group .btn--outline[aria-expanded="true"] {
   border-color: var(--color-control-hover);
 }
 
-.button-group .btn--primary:hover:not(:disabled) {
-  border-color: color-mix(in srgb, #fff 10%, var(--color-accent));
+/* Joined segments stay flush; the lip still presses in place. */
+.button-group > .btn:active:not(:disabled),
+.button-group > .menu-button > .btn:active:not(:disabled) {
+  top: 0;
 }
 
 .button-group[data-orientation="horizontal"] > .menu-button > .btn--icon-only {

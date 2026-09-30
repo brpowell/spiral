@@ -12,7 +12,7 @@
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  box-shadow: 0 8px 24px color-mix(in srgb, #000 35%, transparent);
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 20%, transparent);
 }
 
 /* Root is focused on pointer-open for arrow-key entry; ring belongs on items only. */
@@ -91,7 +91,7 @@
 .context-menu button:hover:not(:disabled),
 .context-menu button:focus-visible:not(:disabled) {
   background: var(--color-interactive-hover);
-  color: var(--color-accent);
+  color: var(--color-interactive-selected-text);
 }
 
 .context-menu button:focus-visible:not(:disabled) {
@@ -126,7 +126,7 @@
 
 .context-menu button[role="menuitemcheckbox"] .context-menu__item-icon {
   opacity: 1;
-  color: var(--color-accent);
+  color: var(--color-interactive-selected-text);
 }
 
 .context-menu__submenu-wrap {
@@ -188,7 +188,7 @@
   height: 1rem;
   margin-top: 0.1rem;
   margin-left: 0.35rem;
-  color: var(--color-accent);
+  color: var(--color-interactive-selected-text);
 }
 
 .context-menu__option-check svg {

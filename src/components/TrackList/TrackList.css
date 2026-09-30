@@ -37,7 +37,8 @@
   right: 0;
   z-index: 2;
   background: var(--color-surface-raised);
-  box-shadow: -6px 0 8px -6px color-mix(in srgb, var(--color-bg) 70%, transparent);
+  box-shadow: -6px 0 8px -6px
+    color-mix(in srgb, var(--color-bg) 70%, transparent);
 }
 
 .track-list__header {
@@ -96,14 +97,22 @@
 
 /* Keyboard: whole header bar reads as one focused control */
 .track-list__header:has(.track-list__header-cell:focus-visible) {
-  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-surface-raised));
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 7%,
+    var(--color-surface-raised)
+  );
   box-shadow: inset 0 1px 0 0
     color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .track-list__header:has(.track-list__header-cell:focus-visible)
   .track-list__header-actions {
-  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-surface-raised));
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 7%,
+    var(--color-surface-raised)
+  );
 }
 
 /* Active column within the focused header */
@@ -238,7 +247,8 @@
   padding: 0.2rem 0.4rem;
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--color-accent) 45%, transparent);
+  box-shadow: 0 0 0 1.5px
+    color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
 
 .track-list__row .track-list__checkbox:focus,
@@ -276,7 +286,9 @@
   width: 1px;
   transform: translateX(-50%);
   background: var(--color-border);
-  transition: background 0.12s ease, width 0.12s ease;
+  transition:
+    background 0.12s ease,
+    width 0.12s ease;
 }
 
 .track-list__resize-handle:hover::after,
@@ -329,7 +341,8 @@
   background: var(--track-row-bg-selected);
 }
 
-.track-list__body:has(.track-list__row:focus-visible) .track-list__row:focus-visible {
+.track-list__body:has(.track-list__row:focus-visible)
+  .track-list__row:focus-visible {
   box-shadow: none;
 }
 
@@ -442,7 +455,7 @@
 }
 
 .track-list__row--playing .track-item-title__text {
-  color: var(--color-accent);
+  color: var(--color-interactive-selected-text);
   font-weight: 500;
 }
 
@@ -524,7 +537,9 @@
   opacity: 0;
   touch-action: none;
   user-select: none;
-  transition: opacity 0.12s ease, color 0.12s ease;
+  transition:
+    opacity 0.12s ease,
+    color 0.12s ease;
 }
 
 .track-list__row:hover .track-list__drag-handle,

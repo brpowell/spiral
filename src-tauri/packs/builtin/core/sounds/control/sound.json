@@ -1,0 +1,8 @@
+{
+  "$schema": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/sound-v1.schema.json",
+  "id": "control",
+  "name": "Control",
+  "author": "Spiral",
+  "description": "Transport control cue (pause, skip, shuffle, repeat).",
+  "asset": "control.wav"
+}

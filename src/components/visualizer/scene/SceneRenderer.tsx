@@ -29,6 +29,10 @@ import { buildVizFrame, isRendererContributionId } from "../vizRendererApi";
 import { resolveLayerTransform } from "./resolveLayerTransform";
 import type { LayoutRect, VizScene, VizSceneLayer } from "./types";
 import { resolveLayout } from "./types";
+import {
+  useAppBodyFrame,
+  useVisualizerExpandMotion,
+} from "./useVisualizerExpandMotion";
 import "./SceneRenderer.css";
 
 function layerSandboxEngine(
@@ -485,69 +489,116 @@ export function SceneRenderer({
   onFirstFrame,
   style,
 }: SceneRendererProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const expandedContainerRef = useRef<HTMLDivElement>(null);
   const isMini = variant === "mini";
-  const showExpanded = isMini && expanded;
-  const useRemoteFrame = remoteFrameRef !== undefined;
-
-  const renderScene = (
-    ref: RefObject<HTMLDivElement | null>,
-    className: string,
-  ) => (
-    <div className={className} ref={ref} style={style}>
-      <SceneViewport
-        scene={scene}
-        packDir={packDir}
-        remoteFrameRef={remoteFrameRef}
-        useRemoteFrame={useRemoteFrame}
-        previewForcePlaying={previewForcePlaying}
-        onFirstFrame={onFirstFrame}
-      />
-      {showExpandToggle && onToggleExpand ? (
-        <Button
-          variant="secondary"
-          size="sm"
-          iconOnly
-          className="audio-visualizer__toggle"
-          onClick={onToggleExpand}
-          aria-label={
-            expanded
-              ? t("playback:visualizer.collapse")
-              : t("playback:visualizer.expand")
-          }
-          aria-pressed={expanded}
-        >
-          {expanded ? <IconMinimize /> : <IconMaximize />}
-        </Button>
-      ) : null}
-    </div>
+  const { stage, motion, onAnimationEnd } = useVisualizerExpandMotion(
+    expanded,
+    isMini,
   );
+  const expandedFrame = useAppBodyFrame(isMini);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusRef = useRef(false);
+  const useRemoteFrame = remoteFrameRef !== undefined;
+  const moving = motion !== "idle";
 
-  if (isMini) {
-    return (
-      <>
-        {!showExpanded &&
-          renderScene(containerRef, "audio-visualizer audio-visualizer--mini")}
-        {showExpanded &&
-          createPortal(
-            renderScene(
-              expandedContainerRef,
-              "audio-visualizer audio-visualizer--expanded",
-            ),
-            document.body,
-          )}
-      </>
-    );
-  }
+  useLayoutEffect(() => {
+    if (!restoreFocusRef.current) return;
+    const toggle = toggleRef.current;
+    if (!toggle) return;
+    toggle.focus({ preventScroll: true });
+    restoreFocusRef.current = false;
+  }, [stage, expandedFrame, motion]);
 
-  const dockClassName = [
+  const shellClassName = [
     "audio-visualizer",
-    fillContainer ? "audio-visualizer--panel" : "",
-    expanded ? "audio-visualizer--expanded" : "",
+    isMini
+      ? stage === "expanded"
+        ? "audio-visualizer--expanded"
+        : "audio-visualizer--mini"
+      : fillContainer
+        ? "audio-visualizer--panel"
+        : "",
+    isMini && motion === "recede" ? "audio-visualizer--recede" : "",
+    isMini && motion === "emerge" ? "audio-visualizer--emerge" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
-  return renderScene(containerRef, dockClassName);
+  const shell = (
+    <div
+      className={shellClassName}
+      style={style}
+      onAnimationEnd={isMini ? onAnimationEnd : undefined}
+    >
+      <div className="audio-visualizer__stage">
+        <SceneViewport
+          scene={scene}
+          packDir={packDir}
+          remoteFrameRef={remoteFrameRef}
+          useRemoteFrame={useRemoteFrame}
+          previewForcePlaying={previewForcePlaying}
+          onFirstFrame={onFirstFrame}
+        />
+        {showExpandToggle && onToggleExpand ? (
+          <Button
+            ref={toggleRef}
+            variant="secondary"
+            size="sm"
+            iconOnly
+            className="audio-visualizer__toggle"
+            onClick={(event) => {
+              restoreFocusRef.current = event.detail === 0;
+              onToggleExpand();
+            }}
+            aria-label={
+              expanded
+                ? t("playback:visualizer.collapse")
+                : t("playback:visualizer.expand")
+            }
+            aria-pressed={expanded}
+          >
+            {expanded ? <IconMinimize /> : <IconMaximize />}
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  if (!isMini) return shell;
+
+  if (stage === "expanded") {
+    if (!expandedFrame) return null;
+    return createPortal(
+      <div
+        className={[
+          "audio-visualizer-anchor",
+          "audio-visualizer-anchor--expanded",
+          moving ? "audio-visualizer-anchor--in-motion" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        style={{
+          top: expandedFrame.top,
+          left: expandedFrame.left,
+          width: expandedFrame.width,
+          height: expandedFrame.height,
+        }}
+      >
+        {shell}
+      </div>,
+      document.body,
+    );
+  }
+
+  return (
+    <div
+      className={[
+        "audio-visualizer-anchor",
+        moving ? "audio-visualizer-anchor--in-motion" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      {shell}
+    </div>
+  );
 }

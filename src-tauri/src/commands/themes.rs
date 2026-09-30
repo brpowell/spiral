@@ -42,38 +42,19 @@ struct ThemeFile {
     tokens: HashMap<String, String>,
 }
 
-/// Default tokens for a brand-new workshop theme (Obsidian baseline).
+/// Obsidian baseline, used when the active theme cannot be read.
 fn default_workshop_tokens() -> HashMap<String, String> {
     HashMap::from([
         ("color-bg".into(), "#0e0e10".into()),
-        ("color-surface".into(), "#1a1a1e".into()),
-        ("color-surface-raised".into(), "#242428".into()),
         ("color-text-primary".into(), "#f0f0f0".into()),
-        ("color-text-secondary".into(), "#888899".into()),
-        ("color-text-muted".into(), "#6a6a7a".into()),
         ("color-accent".into(), "#7b8cde".into()),
-        ("color-accent-muted".into(), "#3a4170".into()),
-        ("color-accent-text".into(), "#ffffff".into()),
-        ("color-border".into(), "#2a2a32".into()),
         ("color-danger".into(), "#e06c75".into()),
-        ("color-danger-bg".into(), "#2a1518".into()),
-        ("color-interactive".into(), "#7b8cde".into()),
-        ("color-interactive-selected-text".into(), "#7b8cde".into()),
         ("color-alert-info".into(), "#9aa8e8".into()),
-        ("color-alert-info-bg".into(), "#1a1f35".into()),
-        ("color-alert-info-border".into(), "#3a4570".into()),
         ("color-alert-success".into(), "#7fd492".into()),
-        ("color-alert-success-bg".into(), "#152418".into()),
-        ("color-alert-success-border".into(), "#2a5c38".into()),
         ("color-alert-warning".into(), "#e8c57b".into()),
-        ("color-alert-warning-bg".into(), "#2a2418".into()),
-        ("color-alert-warning-border".into(), "#5c4a2a".into()),
-        ("color-alert-error".into(), "#e06c75".into()),
-        ("color-alert-error-bg".into(), "#2a1518".into()),
-        ("color-alert-error-border".into(), "#5c2a30".into()),
-        ("radius-card".into(), "10px".into()),
-        ("radius-button".into(), "6px".into()),
-        ("radius-input".into(), "6px".into()),
+        ("radius-card".into(), "12px".into()),
+        ("radius-button".into(), "8px".into()),
+        ("radius-input".into(), "8px".into()),
         (
             "font-ui".into(),
             "'Inter', system-ui, -apple-system, sans-serif".into(),
@@ -186,6 +167,24 @@ fn find_theme_contribution(
         .into_iter()
         .find(|c| c.effective_id == theme_id)
         .ok_or_else(|| format!("theme \"{theme_id}\" not found"))
+}
+
+/// Tokens for a new theme: a copy of the resolved active theme, or the Obsidian baseline.
+fn tokens_cloned_from_active(themes: &[Theme], stored_active: &str) -> HashMap<String, String> {
+    let resolved = resolve_active_theme_id(themes, stored_active);
+    find_theme_by_id(themes, &resolved)
+        .filter(|theme| !theme.tokens.is_empty())
+        .map(|theme| theme.tokens.clone())
+        .unwrap_or_else(default_workshop_tokens)
+}
+
+fn seed_tokens_for_new_theme(app: &AppHandle) -> HashMap<String, String> {
+    let Ok((builtin, user)) = list_themes_from_scan(app) else {
+        return default_workshop_tokens();
+    };
+    let themes: Vec<_> = builtin.into_iter().chain(user).collect();
+    let stored = settings::read_settings(app).active_theme;
+    tokens_cloned_from_active(&themes, &stored)
 }
 
 /// Resolve a stored active-theme id, or fall back to the default / first theme.
@@ -326,7 +325,7 @@ fn add_theme_to_existing_authoring_pack(
         name: display_name.to_string(),
         author: String::new(),
         description: String::new(),
-        tokens: default_workshop_tokens(),
+        tokens: seed_tokens_for_new_theme(app),
         author_id: author_id.clone(),
         pack_id: pack_id.to_string(),
         pack_name: pack.name.clone(),
@@ -390,7 +389,8 @@ pub fn get_active_theme_id(app: AppHandle) -> Result<String, String> {
 }
 
 /// Scaffold a theme draft — either a new workshop pack, or a contribution inside
-/// an existing workshop or linked pack. No author/version prompts (those happen at export).
+/// an existing workshop or linked pack. Tokens are copied from the active theme.
+/// No author/version prompts (those happen at export).
 #[tauri::command]
 pub fn create_workshop_theme(
     app: AppHandle,
@@ -432,7 +432,7 @@ pub fn create_workshop_theme(
         name: display_name,
         author: String::new(),
         description: String::new(),
-        tokens: default_workshop_tokens(),
+        tokens: seed_tokens_for_new_theme(&app),
         author_id: author_id.clone(),
         pack_id: new_pack_id.clone(),
         pack_name: pack_display_name,
@@ -608,7 +608,7 @@ mod tests {
     fn builtin_themes_parse_with_namespaced_ids() {
         let mut themes = load_builtin_themes_from_disk();
         themes.sort_by(|a, b| a.id.cmp(&b.id));
-        assert_eq!(themes.len(), 5);
+        assert_eq!(themes.len(), 6);
         let ids: Vec<&str> = themes.iter().map(|t| t.id.as_str()).collect();
         assert_eq!(
             ids,
@@ -617,7 +617,8 @@ mod tests {
                 "spiral.core.theme.grove",
                 "spiral.core.theme.noir",
                 "spiral.core.theme.obsidian",
-                "spiral.core.theme.parchment"
+                "spiral.core.theme.parchment",
+                "spiral.core.theme.sprig",
             ]
         );
         for theme in &themes {
@@ -651,6 +652,36 @@ mod tests {
         assert_eq!(
             resolve_active_theme_id(&themes, "not-a-theme"),
             settings::DEFAULT_THEME_ID
+        );
+    }
+
+    #[test]
+    fn new_theme_clones_active_theme_tokens() {
+        let themes = load_builtin_themes_from_disk();
+        let noir = find_theme_by_id(&themes, "spiral.core.theme.noir").unwrap();
+        let cloned = tokens_cloned_from_active(&themes, "spiral.core.theme.noir");
+        assert_eq!(cloned, noir.tokens);
+        assert_ne!(
+            cloned.get("color-accent").map(String::as_str),
+            Some("#7b8cde")
+        );
+    }
+
+    #[test]
+    fn new_theme_clones_resolved_active_theme_when_stored_id_is_stale() {
+        let themes = load_builtin_themes_from_disk();
+        let obsidian = find_theme_by_id(&themes, settings::DEFAULT_THEME_ID).unwrap();
+        let cloned = tokens_cloned_from_active(&themes, "not-a-theme");
+        assert_eq!(cloned, obsidian.tokens);
+    }
+
+    #[test]
+    fn new_theme_falls_back_to_obsidian_tokens_when_none_resolve() {
+        let cloned = tokens_cloned_from_active(&[], "missing");
+        assert_eq!(cloned.get("color-bg").map(String::as_str), Some("#0e0e10"));
+        assert_eq!(
+            cloned.get("color-accent").map(String::as_str),
+            Some("#7b8cde")
         );
     }
 

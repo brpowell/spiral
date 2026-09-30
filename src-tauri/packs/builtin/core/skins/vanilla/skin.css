@@ -246,3 +246,38 @@
 [data-node-id="footer-row"] {
   justify-content: space-between;
 }
+
+/* Compact circular transport — no recessed well. */
+[data-node-id="transport-deck"] {
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+}
+
+[data-node-id="transport-deck"] > .skin-primitive-btn {
+  border-radius: 50%;
+}
+
+[data-node-id="shuffle"],
+[data-node-id="repeat"] {
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 1.75rem;
+  padding: 0;
+}
+
+[data-node-id="previous"],
+[data-node-id="next"] {
+  width: 2rem;
+  height: 2rem;
+  min-width: 2rem;
+  padding: 0;
+}
+
+[data-node-id="play"] {
+  width: 2.35rem;
+  height: 2.35rem;
+  min-width: 2.35rem;
+  padding: 0;
+}

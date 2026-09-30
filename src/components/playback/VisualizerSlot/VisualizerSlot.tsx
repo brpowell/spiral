@@ -22,10 +22,8 @@ interface VisualizerSlotProps {
 }
 
 function slotLayoutClass(
-  variant: "mini" | "dock",
   fillContainer: boolean | undefined,
 ): string | undefined {
-  if (variant === "mini") return "visualizer-slot--mini";
   if (fillContainer) return "visualizer-slot--panel";
   return undefined;
 }
@@ -53,11 +51,7 @@ function VisualizerRendererView({
 
   return (
     <div
-      className={[
-        "visualizer-slot",
-        slotLayoutClass(variant, fillContainer),
-        className,
-      ]
+      className={["visualizer-slot", slotLayoutClass(fillContainer), className]
         .filter(Boolean)
         .join(" ")}
       style={interactionEnabled ? style : { ...style, pointerEvents: "none" }}

@@ -2,8 +2,14 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ButtonNode, LoadedSkinPack } from "../../../types/skin";
 import { SkinPrimitiveButton } from "./SkinPrimitiveButton";
+import { minimalBindState } from "../../../test/skinBindFixtures";
 
 const invokeClick = vi.fn();
+const mockBindState = vi.hoisted(() => ({
+  current: {} as ReturnType<
+    typeof import("../../../test/skinBindFixtures").minimalBindState
+  >,
+}));
 
 vi.mock("../../../lib/skinEffects", async (importOriginal) => {
   const actual =
@@ -18,11 +24,16 @@ vi.mock("../../../lib/skinModeAlwaysOnTop", () => ({
   useSkinModeAlwaysOnTop: () => false,
 }));
 
-vi.mock("../../../lib/skinBinds", () => ({
-  evaluateSkinCondition: () => false,
-  useSkinBindState: () => ({}),
-  useSkinControlEnabled: () => true,
-}));
+vi.mock("../../../lib/skinBinds", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../../lib/skinBinds")>();
+  return {
+    ...actual,
+    evaluateSkinCondition: () => false,
+    useSkinBindState: () => mockBindState.current,
+    useSkinControlEnabled: () => true,
+  };
+});
 
 vi.mock("../../../lib/skinTooltips", () => ({
   useSkinTooltip: () => "Playlist",
@@ -54,6 +65,7 @@ const playlistToggle: ButtonNode = {
 describe("SkinPrimitiveButton", () => {
   beforeEach(() => {
     invokeClick.mockReset();
+    mockBindState.current = minimalBindState();
   });
 
   it("forwards onClick effects on click", () => {
@@ -183,5 +195,29 @@ describe("SkinPrimitiveButton", () => {
       <SkinPrimitiveButton node={node} pack={pack} />,
     );
     expect(container.querySelector("svg")).toBeTruthy();
+  });
+
+  it("swaps icon via iconWhen when the bind is truthy", () => {
+    const node: ButtonNode = {
+      ...playlistToggle,
+      presentation: {
+        kind: "primitive",
+        icon: "icons/play.png",
+        iconWhen: { "player.isPlaying": "icons/pause.png" },
+      },
+    };
+
+    const { container, rerender } = render(
+      <SkinPrimitiveButton node={node} pack={pack} />,
+    );
+    expect(
+      container.querySelector("img.skin-primitive-btn__asset-icon"),
+    ).toHaveAttribute("src", "asset://icons/play.png");
+
+    mockBindState.current = minimalBindState({ playbackState: "playing" });
+    rerender(<SkinPrimitiveButton node={node} pack={pack} />);
+    expect(
+      container.querySelector("img.skin-primitive-btn__asset-icon"),
+    ).toHaveAttribute("src", "asset://icons/pause.png");
   });
 });

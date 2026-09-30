@@ -27,6 +27,8 @@ export interface AppMenuHandlers {
   quit: () => void;
   /** DEV-only: toggle the Toast Lab window. */
   toggleToastLab?: () => void;
+  /** DEV-only: toggle the transport signature Sound Lab. */
+  toggleSoundLab?: () => void;
   /** DEV-only: seed a fake pending update for UX testing. */
   simulateMockUpdate?: () => void;
   /** DEV-only: persist the stub locale and reload to prove catalog switching. */
@@ -206,6 +208,7 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
   if (
     import.meta.env.DEV &&
     (handlers.toggleToastLab ||
+      handlers.toggleSoundLab ||
       handlers.simulateMockUpdate ||
       handlers.toggleStubLocale)
   ) {
@@ -217,6 +220,16 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
           text: "Toast Lab",
           accelerator: "CmdOrCtrl+Shift+T",
           action: handlers.toggleToastLab,
+        }),
+      );
+    }
+    if (handlers.toggleSoundLab) {
+      developerItems.push(
+        await MenuItem.new({
+          id: "sound-lab",
+          text: "Sound Lab",
+          accelerator: "CmdOrCtrl+Alt+S",
+          action: handlers.toggleSoundLab,
         }),
       );
     }

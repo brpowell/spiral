@@ -3,7 +3,7 @@
   align-items: stretch;
   flex-shrink: 0;
   height: var(--window-titlebar-height);
-  background: var(--color-surface);
+  background: var(--fill-chrome);
   border-bottom: 1px solid var(--color-border);
   color: var(--color-text-secondary);
   user-select: none;

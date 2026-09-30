@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for Spiral windows",
-  "windows": ["main", "skin-mode", "skin-aux-*", "appearance", "equalizer", "activity-logs", "about", "toast-lab"],
+  "windows": ["main", "skin-mode", "skin-aux-*", "appearance", "equalizer", "activity-logs", "about", "toast-lab", "sound-lab"],
   "permissions": [
     "core:default",
     "core:webview:allow-create-webview-window",
@@ -28,6 +28,9 @@
     "core:window:allow-is-maximized",
     "core:window:allow-set-decorations",
     "core:window:allow-set-shadow",
+    "core:window:allow-set-theme",
+    "core:app:allow-set-app-theme",
+    "core:window:allow-set-title-bar-style",
     "core:window:allow-close",
     "core:window:allow-is-visible",
     "core:window:allow-outer-position",

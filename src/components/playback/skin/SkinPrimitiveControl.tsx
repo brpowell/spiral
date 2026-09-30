@@ -1,5 +1,4 @@
 import { NowPlayingArt } from "../NowPlayingArt/NowPlayingArt";
-import { PlaybackTransport } from "../PlaybackTransport/PlaybackTransport";
 import { SeekBar } from "../SeekBar/SeekBar";
 import { VisualizerSlot } from "../VisualizerSlot/VisualizerSlot";
 import { VolumeControl } from "../VolumeControl/VolumeControl";
@@ -12,16 +11,11 @@ import type {
   ArtworkNode,
   SliderSeekNode,
   SliderVolumeNode,
-  TransportNode,
   VisualizerNode,
 } from "../../../types/skin";
 
 type PrimitiveNode =
-  | ArtworkNode
-  | TransportNode
-  | VisualizerNode
-  | SliderSeekNode
-  | SliderVolumeNode;
+  ArtworkNode | VisualizerNode | SliderSeekNode | SliderVolumeNode;
 
 export function SkinPrimitiveControl({ node }: { node: PrimitiveNode }) {
   const interactionEnabled = useSkinControlEnabled(node.enabledWhen);
@@ -39,16 +33,6 @@ export function SkinPrimitiveControl({ node }: { node: PrimitiveNode }) {
         interactionEnabled={interactionEnabled}
         style={resolvedStyle}
         objectFit={node.objectFit}
-      />
-    );
-  }
-
-  if (node.type === "transport") {
-    return (
-      <PlaybackTransport
-        className={className}
-        nodeId={node.id}
-        interactionEnabled={interactionEnabled}
       />
     );
   }

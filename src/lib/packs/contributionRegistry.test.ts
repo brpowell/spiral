@@ -17,14 +17,16 @@ const samplePack: PackManifest = {
 };
 
 describe("contribution type registry", () => {
-  it("registers stub handlers for theme, skin, visualizer, and renderer", () => {
+  it("registers stub handlers for theme, skin, visualizer, renderer, and sound", () => {
     expect(getContributionTypeHandler("theme")?.schema.id).toBe("theme-v1");
     expect(getContributionTypeHandler("skin")?.schema.id).toBe("skin-v1");
     expect(getContributionTypeHandler("visualizer")?.schema.id).toBe("viz-v1");
     expect(getContributionTypeHandler("renderer")?.schema.id).toBe("renderer-v1");
+    expect(getContributionTypeHandler("sound")?.schema.id).toBe("sound-v1");
     expect(Object.keys(CONTRIBUTION_TYPE_HANDLERS).sort()).toEqual([
       "renderer",
       "skin",
+      "sound",
       "theme",
       "visualizer",
     ]);

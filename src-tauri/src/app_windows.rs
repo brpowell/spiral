@@ -299,12 +299,17 @@ fn create_window(app: &AppHandle, label: &str) -> Result<(), String> {
     if spec.custom_chrome {
         builder = builder.decorations(false).shadow(true);
     }
-    #[cfg(not(any(windows, target_os = "linux")))]
-    let _ = spec.custom_chrome;
 
     #[cfg(target_os = "macos")]
     {
         builder = stamp_process_display_name(builder, process_display_name(spec.label))?;
+        // Overlay keeps traffic lights and lets the webview paint the theme
+        // in the title-bar region. Hidden title avoids a second system label.
+        if spec.custom_chrome {
+            builder = builder
+                .title_bar_style(tauri::TitleBarStyle::Overlay)
+                .hidden_title(true);
+        }
     }
 
     builder

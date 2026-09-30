@@ -212,11 +212,98 @@
                 "control": "seek"
               },
               {
-                "type": "transport",
-                "id": "transport",
-                "presentation": {
-                  "kind": "primitive"
-                }
+                "type": "row",
+                "id": "transport-deck",
+                "children": [
+                  {
+                    "type": "button",
+                    "id": "shuffle",
+                    "sound": "spiral.core.sound.control",
+                    "onClick": [
+                      {
+                        "action": "player.toggleShuffle"
+                      }
+                    ],
+                    "activeWhen": "player.shuffle",
+                    "presentation": {
+                      "kind": "primitive",
+                      "variant": "secondary",
+                      "icon": "shuffle"
+                    }
+                  },
+                  {
+                    "type": "button",
+                    "id": "previous",
+                    "sound": "spiral.core.sound.control",
+                    "onClick": [
+                      {
+                        "action": "player.previousTrack"
+                      }
+                    ],
+                    "enabledWhen": "player.canGoPrevious",
+                    "presentation": {
+                      "kind": "primitive",
+                      "variant": "secondary",
+                      "icon": "previous"
+                    }
+                  },
+                  {
+                    "type": "button",
+                    "id": "play",
+                    "sound": "spiral.core.sound.play",
+                    "soundWhen": {
+                      "player.isPlaying": "spiral.core.sound.control"
+                    },
+                    "onClick": [
+                      {
+                        "action": "player.togglePlayPause"
+                      }
+                    ],
+                    "presentation": {
+                      "kind": "primitive",
+                      "variant": "primary",
+                      "icon": "play",
+                      "iconWhen": {
+                        "player.isPlaying": "pause"
+                      }
+                    }
+                  },
+                  {
+                    "type": "button",
+                    "id": "next",
+                    "sound": "spiral.core.sound.control",
+                    "onClick": [
+                      {
+                        "action": "player.nextTrack"
+                      }
+                    ],
+                    "enabledWhen": "player.canGoNext",
+                    "presentation": {
+                      "kind": "primitive",
+                      "variant": "secondary",
+                      "icon": "next"
+                    }
+                  },
+                  {
+                    "type": "button",
+                    "id": "repeat",
+                    "sound": "spiral.core.sound.control",
+                    "onClick": [
+                      {
+                        "action": "player.cycleRepeat"
+                      }
+                    ],
+                    "activeWhen": "player.repeatOn",
+                    "presentation": {
+                      "kind": "primitive",
+                      "variant": "secondary",
+                      "icon": "repeat",
+                      "iconWhen": {
+                        "player.repeatOne": "repeatOne"
+                      }
+                    }
+                  }
+                ]
               },
               {
                 "type": "row",

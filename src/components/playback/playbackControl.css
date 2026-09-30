@@ -17,22 +17,10 @@
   min-width: 34px;
 }
 
-.playback-btn--play:hover:not(:disabled) {
-  background: var(--color-accent-muted);
-}
-
 .playback-btn--play svg,
 .playback-btn__play-icon svg {
   width: 19px;
   height: 19px;
-}
-
-.playback-btn--repeat-active {
-  color: var(--color-accent);
-}
-
-.playback-btn--shuffle-active {
-  color: var(--color-accent);
 }
 
 .playback-btn__play-icon {

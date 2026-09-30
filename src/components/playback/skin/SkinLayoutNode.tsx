@@ -187,7 +187,6 @@ export function SkinLayoutNode({ node, pack }: SkinLayoutNodeProps) {
       (node.control === "seek" || node.control === "volume") &&
       node.presentation.kind === "primitive") ||
     node.type === "artwork" ||
-    node.type === "transport" ||
     node.type === "visualizer"
   ) {
     return <SkinPrimitiveControl node={node} />;

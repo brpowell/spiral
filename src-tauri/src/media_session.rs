@@ -192,11 +192,7 @@ pub fn update_media_session(app: AppHandle, update: MediaSessionUpdate) -> Resul
         }
 
         if metadata_changed {
-            let cover_url_owned = update
-                .art_path
-                .as_ref()
-                .filter(|path| Path::new(path.as_str()).is_file())
-                .map(|path| format!("file://{}", path));
+            let cover_url_owned = update.art_path.as_deref().and_then(cover_url_for_art_path);
 
             let metadata = MediaMetadata {
                 title: update.title.as_deref(),
@@ -232,4 +228,106 @@ pub fn update_media_session(app: AppHandle, update: MediaSessionUpdate) -> Resul
 
     let _ = update;
     Ok(())
+}
+
+/// Now Playing cover URL for a library art file.
+///
+/// macOS `NSURL URLWithString:` treats `#` as a fragment, so an album path
+/// like `.../#1's/front.jpg` never loads. souvlaki then messages the null
+/// image and aborts the process. Percent-encode on macOS, and skip the URL
+/// when AppKit still cannot decode the file.
+fn cover_url_for_art_path(path: &str) -> Option<String> {
+    if !Path::new(path).is_file() {
+        return None;
+    }
+    platform_cover_url(path)
+}
+
+#[cfg(target_os = "macos")]
+fn platform_cover_url(path: &str) -> Option<String> {
+    let url = encode_file_url(path);
+    if macos_image_at_url_loads(&url) {
+        Some(url)
+    } else {
+        eprintln!("skipping Now Playing artwork; image failed to load: {path}");
+        None
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn platform_cover_url(path: &str) -> Option<String> {
+    // Windows souvlaki strips `file://` and opens the remainder as a path.
+    Some(format!("file://{path}"))
+}
+
+/// `file://` URL with every byte outside the URL path set percent-encoded.
+fn encode_file_url(path: &str) -> String {
+    let mut url = String::from("file://");
+    for byte in path.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'/' | b'-' | b'_' | b'.' | b'~' => {
+                url.push(byte as char);
+            }
+            _ => url.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    url
+}
+
+#[cfg(target_os = "macos")]
+fn macos_image_at_url_loads(file_url: &str) -> bool {
+    use objc2::runtime::AnyObject;
+    use objc2::{class, msg_send};
+    use objc2_foundation::{NSString, NSURL};
+
+    let Some(url) = NSURL::URLWithString(&NSString::from_str(file_url)) else {
+        return false;
+    };
+    unsafe {
+        let image: *mut AnyObject = msg_send![class!(NSImage), alloc];
+        let image: *mut AnyObject = msg_send![image, initWithContentsOfURL: &*url];
+        if image.is_null() {
+            return false;
+        }
+        let _: () = msg_send![image, release];
+        true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{cover_url_for_art_path, encode_file_url};
+
+    #[test]
+    fn artwork_url_escapes_hash_spaces_and_apostrophes() {
+        let url = encode_file_url(
+            "/Users/bryan/Music/Spiral Library/Artwork/albums/Destiny’s Child/#1's/front.jpg",
+        );
+        assert!(url.starts_with("file:///Users/bryan/Music/Spiral%20Library/"));
+        assert!(url.contains("%231%27s/front.jpg"), "{url}");
+        assert!(!url.contains('#'), "{url}");
+        assert!(url.contains("%E2%80%99"), "{url}");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn hashed_album_path_still_loads_and_garbage_does_not() {
+        let dir = std::env::temp_dir().join(format!("spiral-art-url-{}-#1's", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let image_path = dir.join("front.png");
+        image::RgbImage::from_pixel(1, 1, image::Rgb([8, 16, 32]))
+            .save(&image_path)
+            .unwrap();
+        let url = cover_url_for_art_path(image_path.to_str().unwrap()).expect("encoded cover url");
+        assert!(url.contains("%23"), "{url}");
+        assert!(!url.contains('#'), "{url}");
+
+        let garbage = dir.join("front.jpg");
+        std::fs::write(&garbage, b"not an image").unwrap();
+        assert!(cover_url_for_art_path(garbage.to_str().unwrap()).is_none());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

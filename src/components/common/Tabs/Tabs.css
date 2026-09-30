@@ -1,13 +1,5 @@
 .tabs {
   --tabs-fade-height: 0.5rem;
-  --tabs-fade-color: var(--color-bg);
-  --tabs-fade-overlay: linear-gradient(
-    to bottom,
-    var(--tabs-fade-color) 0%,
-    var(--tabs-fade-color) 32%,
-    color-mix(in srgb, var(--tabs-fade-color) 88%, transparent) 62%,
-    transparent 100%
-  );
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -107,26 +99,21 @@
   position: relative;
 }
 
-.tabs__list--fade {
-  position: relative;
-  z-index: 1;
-  background: var(--tabs-fade-color);
-}
-
-.tabs__list--fade::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: var(--scrollbar-size);
-  top: 100%;
-  height: var(--tabs-fade-height);
-  background: var(--tabs-fade-overlay);
-  pointer-events: none;
-}
-
-/* Sit below border-bottom so the solid head of the fade doesn't paint over it. */
-.tabs__list--fade.tabs__list--underline::after {
-  top: calc(100% + 1px);
+/*
+ * Panel content eases under the tab strip. A mask, not a painted color,
+ * so the fade matches whatever is behind it (page gradient or a solid modal).
+ */
+.tabs:has(.tabs__list--fade) .tabs__panel {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--tabs-fade-height)
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--tabs-fade-height)
+  );
 }
 
 .tabs__indicator {

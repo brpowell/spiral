@@ -35,7 +35,7 @@
   max-width: 3px;
   height: 100%;
   border-radius: 1px;
-  background: var(--color-accent);
+  background: var(--color-interactive-selected-text);
   transform-origin: bottom center;
   animation: playing-indicator-pulse 0.85s ease-in-out infinite;
 }

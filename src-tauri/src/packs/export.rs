@@ -155,12 +155,8 @@ mod tests {
                 "description": "",
                 "tokens": {
                     "color-bg": "#000",
-                    "color-surface": "#111",
                     "color-text-primary": "#fff",
-                    "color-text-secondary": "#aaa",
                     "color-accent": "#7b8cde",
-                    "color-accent-muted": "#333",
-                    "color-border": "#222",
                     "color-danger": "#e06c75",
                     "radius-card": "10px",
                     "radius-button": "6px",

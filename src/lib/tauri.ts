@@ -1122,6 +1122,12 @@ export async function listSkins(): Promise<SkinSummary[]> {
   return invoke<SkinSummary[]>("list_skins");
 }
 
+export async function resolveSoundAsset(
+  soundId: string,
+): Promise<string | null> {
+  return invoke<string | null>("resolve_sound_asset", { soundId });
+}
+
 export async function loadSkinPack(skinId: string): Promise<LoadedSkinPack> {
   const pack = await invoke<LoadedSkinPack>("load_skin_pack", { skinId });
   reportSkinLayoutValidation(pack);

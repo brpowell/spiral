@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import {
   themeApplyFailedPayload,
@@ -22,22 +22,21 @@ import "./AppearanceSection.css";
 
 function ThemeSwatchPreview({ theme }: { theme: Theme }) {
   const tokens = resolveThemeTokens(theme);
+  const previewVars = {
+    "--color-bg": tokens["color-bg"],
+    "--color-text-primary": tokens["color-text-primary"],
+    "--color-accent": tokens["color-accent"],
+  } as CSSProperties;
 
   return (
-    <>
-      <span
-        className="theme-picker__preview-bg"
-        style={{ background: tokens["color-bg"] }}
-      />
-      <span
-        className="theme-picker__preview-surface"
-        style={{ background: tokens["color-surface"] }}
-      />
-      <span
-        className="theme-picker__preview-accent"
-        style={{ background: tokens["color-accent"] }}
-      />
-    </>
+    <span
+      className="theme-picker__preview-vars theme-derived"
+      style={previewVars}
+    >
+      <span className="theme-picker__preview-bg" />
+      <span className="theme-picker__preview-surface" />
+      <span className="theme-picker__preview-accent" />
+    </span>
   );
 }
 

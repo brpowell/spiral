@@ -212,6 +212,8 @@ export function evaluateSkinBind(
       return state.repeatMode;
     case "player.repeatOn":
       return state.repeatMode !== "off";
+    case "player.repeatOne":
+      return state.repeatMode === "one";
     case "player.shuffle":
       return state.shuffle;
     case "player.crossfadeEnabled":

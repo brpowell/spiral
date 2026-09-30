@@ -151,6 +151,11 @@ function App() {
           toggleToastLab: () => {
             void toggleToastLabWindow();
           },
+          toggleSoundLab: () => {
+            void import("./lib/soundLabWindow").then((mod) =>
+              mod.toggleSoundLabWindow(),
+            );
+          },
           simulateMockUpdate: () => {
             useUpdaterStore.getState().simulateMockUpdate();
           },
@@ -304,6 +309,13 @@ function App() {
         void toggleToastLabWindow();
         return;
       }
+      if (import.meta.env.DEV && key === "s" && e.altKey && !e.shiftKey) {
+        e.preventDefault();
+        void import("./lib/soundLabWindow").then((mod) =>
+          mod.toggleSoundLabWindow(),
+        );
+        return;
+      }
       if (key === "r" && e.altKey && !e.shiftKey) {
         e.preventDefault();
         void reloadLinkedPacksWithRefresh();
@@ -318,6 +330,7 @@ function App() {
     <CustomWindowFrame
       title={t("menus:app.name")}
       handlers={menuHandlers}
+      showTitle={false}
       className="app"
     >
       <header className="app-header">

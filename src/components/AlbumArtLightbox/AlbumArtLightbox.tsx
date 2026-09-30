@@ -24,8 +24,8 @@ export const albumArtLayoutTransition = {
 };
 
 /** Matches `--radius-sm` / `--radius-card` for Motion scale correction. */
-export const NOW_PLAYING_ART_RADIUS = 6;
-export const LIGHTBOX_ART_RADIUS = 10;
+export const NOW_PLAYING_ART_RADIUS = 8;
+export const LIGHTBOX_ART_RADIUS = 12;
 
 interface AlbumArtLightboxProps {
   open: boolean;

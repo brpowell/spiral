@@ -51,13 +51,13 @@ a.sidebar-item:hover:not(.sidebar-item--active) {
 .sidebar-item--active.btn--ghost,
 a.sidebar-item--active {
   background: var(--color-interactive-selected);
-  color: var(--color-interactive-selected-text, var(--color-accent));
+  color: var(--color-interactive-selected-text);
 }
 
 .sidebar-item--active.btn--ghost:hover:not(:disabled),
 a.sidebar-item--active:hover {
   background: var(--color-interactive-selected);
-  color: var(--color-interactive-selected-text, var(--color-accent));
+  color: var(--color-interactive-selected-text);
   border-color: transparent;
 }
 

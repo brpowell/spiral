@@ -1,11 +1,13 @@
 .now-playing-bar {
   display: grid;
   grid-template-columns: auto minmax(300px, 1.5fr) var(--visualizer-mini-width);
-  align-items: center;
   gap: 0.75rem;
-  height: 100%;
+  /* Size to the now-playing widget so the viz column can stretch to match. */
+  height: auto;
+  width: 100%;
+  align-items: stretch;
   padding: 0 0.75rem;
-  background: var(--color-surface);
+  background: var(--fill-chrome);
 }
 
 .now-playing-bar__left {
@@ -44,11 +46,7 @@
   /* Grow inline padding with card radius so art/time don't sit in pill end-caps. */
   padding: 0.25rem max(0.45rem, calc(var(--radius-md) - 1rem));
   border-radius: var(--radius-md);
-  background: color-mix(
-    in srgb,
-    var(--color-surface-raised) 55%,
-    var(--color-surface)
-  );
+  background: var(--fill-raised);
   border: 1px solid var(--color-border);
 }
 
@@ -77,16 +75,41 @@
 }
 
 .now-playing-bar__right {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
+  position: relative;
   width: var(--visualizer-mini-width);
-  height: var(--visualizer-mini-height);
+  align-self: stretch;
   flex-shrink: 0;
+  min-height: 0;
   overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: color-mix(
+    in oklch,
+    var(--color-text-primary) 6%,
+    var(--color-bg)
+  );
+  background-clip: padding-box;
+}
+
+.now-playing-bar__right::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-text-primary) 9%, transparent) 0%,
+    transparent 26%
+  );
+  box-shadow: inset 0 1px 0
+    color-mix(in srgb, var(--color-text-primary) 14%, transparent);
 }
 
 .now-playing-bar__right .visualizer-slot {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
 }

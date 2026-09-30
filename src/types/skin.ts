@@ -155,7 +155,7 @@ export interface SkinClickEffect {
   delayMs?: number;
   action?: string;
   payload?: SkinActionPayloadFields;
-  /** Manifest soundEffects key played when the effect fires (before the action). */
+  /** Manifest soundEffects key or public sound id played when the effect fires (before the action). */
   sound?: string;
 }
 
@@ -196,7 +196,6 @@ export type LayoutNode =
   | TextNode
   | InputNode
   | ArtworkNode
-  | TransportNode
   | VisualizerNode
   | RatingNode
   | SliderNode
@@ -457,9 +456,15 @@ export interface ControlNodeBase extends NodeBase {
   enabledWhen?: SkinCondition;
   /** When truthy, keep the pressed overlay (WMP sticky buttons). */
   activeWhen?: SkinCondition;
-  /** Manifest `soundEffects` key played on click. */
+  /**
+   * Manifest `soundEffects` key, or a public sound contribution id
+   * (`author.pack.sound.id`).
+   */
   sound?: string;
-  /** Bind path → soundEffects key when truthy (last match wins). */
+  /**
+   * Bind path → soundEffects key or public sound id when truthy
+   * (last match wins).
+   */
   soundWhen?: Record<string, string>;
   /** OS tooltip text; supports `{bind.path}` placeholders. */
   tooltip?: string;
@@ -553,10 +558,6 @@ export interface ArtworkNode extends ControlNodeBase {
   type: "artwork";
   /** CSS object-fit for the cover image. Default `cover`. */
   objectFit?: "cover" | "contain" | "fill";
-}
-
-export interface TransportNode extends ControlNodeBase {
-  type: "transport";
 }
 
 export interface VisualizerNode extends ControlNodeBase {
@@ -729,6 +730,8 @@ export interface PrimitivePresentation {
    * pack-relative raster under `assets/` (e.g. `icons/foo.png`).
    */
   icon?: string;
+  /** Button only. Bind path → icon when truthy (last match wins). Same value rules as `icon`. */
+  iconWhen?: Record<string, string>;
   /** Button only. Visible label (author content). */
   text?: string;
   /** Button only. App Button variant, or `plain` for a chrome-less hit target. Default ghost. */
@@ -927,6 +930,7 @@ export type SkinBindPath =
   | "player.volumePercent"
   | "player.repeatMode"
   | "player.repeatOn"
+  | "player.repeatOne"
   | "player.shuffle"
   | "player.crossfadeEnabled"
   | "player.volume"

@@ -14,7 +14,12 @@ import {
   isContributionId,
   packIdPrefix,
 } from "../../lib/packs/packManifest";
-import { OBSIDIAN_DEFAULT_TOKENS, resolveThemeTokens } from "../../lib/theme";
+import {
+  FIXED_RADIUS_TOKEN_KEYS,
+  OBSIDIAN_DEFAULT_TOKENS,
+  resolveThemeTokens,
+  stripDerivedThemeTokens,
+} from "../../lib/theme";
 import { emitThemePreview } from "../../lib/themeBridge";
 import {
   formatThemeValidationError,
@@ -37,8 +42,6 @@ import { Checkbox } from "../common/Checkbox/Checkbox";
 import { Chip } from "../common/Chip/Chip";
 import { ColorField } from "../common/ColorField/ColorField";
 import { FormField } from "../common/Field/Field";
-import { Separator } from "../common/Separator/Separator";
-import { Slider } from "../common/Slider/Slider";
 import { SlugField } from "../common/SlugField/SlugField";
 import { Switch } from "../common/Switch/Switch";
 import { TextInput } from "../common/TextInput/TextInput";
@@ -48,7 +51,6 @@ import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverl
 import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
-import { SidebarItem } from "../layout/SidebarItem/SidebarItem";
 import "./ThemeEditor.css";
 
 /** Contribution id segment from an effective `authorId.packId.theme.contributionId`. */
@@ -61,99 +63,20 @@ function contributionIdFromTheme(theme: Theme): string {
   return parts[parts.length - 1] ?? "";
 }
 
-type ColorTokenGroupId =
-  | "surfaces"
-  | "text"
-  | "accent"
-  | "interactive"
-  | "danger"
-  | "alertInfo"
-  | "alertSuccess"
-  | "alertWarning"
-  | "alertError";
-
-type ColorTokenGroup = {
-  id: ColorTokenGroupId;
-  keys: readonly string[];
-};
-
-const COLOR_TOKEN_GROUPS: ColorTokenGroup[] = [
-  {
-    id: "surfaces",
-    keys: ["color-bg", "color-surface", "color-surface-raised", "color-border"],
-  },
-  {
-    id: "text",
-    keys: ["color-text-primary", "color-text-secondary", "color-text-muted"],
-  },
-  {
-    id: "accent",
-    keys: ["color-accent", "color-accent-muted", "color-accent-text"],
-  },
-  {
-    id: "interactive",
-    keys: ["color-interactive", "color-interactive-selected-text"],
-  },
-  {
-    id: "danger",
-    keys: ["color-danger", "color-danger-bg"],
-  },
-  {
-    id: "alertInfo",
-    keys: [
-      "color-alert-info",
-      "color-alert-info-bg",
-      "color-alert-info-border",
-    ],
-  },
-  {
-    id: "alertSuccess",
-    keys: [
-      "color-alert-success",
-      "color-alert-success-bg",
-      "color-alert-success-border",
-    ],
-  },
-  {
-    id: "alertWarning",
-    keys: [
-      "color-alert-warning",
-      "color-alert-warning-bg",
-      "color-alert-warning-border",
-    ],
-  },
-  {
-    id: "alertError",
-    keys: [
-      "color-alert-error",
-      "color-alert-error-bg",
-      "color-alert-error-border",
-    ],
-  },
-];
-
-const RADIUS_TOKEN_KEYS = [
-  "radius-card",
-  "radius-button",
-  "radius-input",
+const COLOR_TOKEN_KEYS = [
+  "color-bg",
+  "color-text-primary",
+  "color-accent",
+  "color-danger",
+  "color-alert-info",
+  "color-alert-success",
+  "color-alert-warning",
 ] as const;
-
-function parsePx(value: string | undefined): number {
-  if (!value) return 0;
-  const match = /^(-?\d+(?:\.\d+)?)px$/i.exec(value.trim());
-  if (match) return Number(match[1]);
-  const asNumber = Number(value);
-  return Number.isFinite(asNumber) ? asNumber : 0;
-}
-
-function formatPx(value: number): string {
-  return `${Math.round(value)}px`;
-}
 
 function cloneTheme(theme: Theme): Theme {
   return {
     ...theme,
-    tokens: { ...theme.tokens },
+    tokens: stripDerivedThemeTokens({ ...theme.tokens }),
   };
 }
 
@@ -171,21 +94,36 @@ function themesEqual(a: Theme, b: Theme): boolean {
   return themeSnapshot(a) === themeSnapshot(b);
 }
 
-function ThemePreviewSamples({ inputId }: { inputId: string }) {
+function PreviewSecondaryText() {
   const { t } = useTranslation("studio");
   return (
-    <>
+    <p className="theme-editor__preview-body">
+      <Trans
+        t={t}
+        i18nKey="themeEditor.previewSecondary"
+        components={{
+          link: <TextLink href="#theme-preview" tabIndex={-1} />,
+        }}
+      />
+    </p>
+  );
+}
+
+function ThemePreviewSamples() {
+  const { t } = useTranslation("studio");
+  return (
+    <div className="theme-editor__preview-samples">
       <div className="theme-editor__preview-actions">
-        <Button variant="primary" size="sm" tabIndex={-1}>
+        <Button variant="primary" tabIndex={-1}>
           {t("themeEditor.primary")}
         </Button>
-        <Button variant="secondary" size="sm" tabIndex={-1}>
+        <Button variant="secondary" tabIndex={-1}>
           {t("themeEditor.secondary")}
         </Button>
-        <Button variant="ghost" size="sm" tabIndex={-1}>
+        <Button variant="ghost" tabIndex={-1}>
           {t("themeEditor.ghost")}
         </Button>
-        <Button variant="danger" size="sm" tabIndex={-1}>
+        <Button variant="danger" tabIndex={-1}>
           {t("themeEditor.danger")}
         </Button>
       </div>
@@ -193,7 +131,7 @@ function ThemePreviewSamples({ inputId }: { inputId: string }) {
         value={t("themeEditor.previewInput")}
         readOnly
         tabIndex={-1}
-        aria-label={t("themeEditor.previewInputAria", { id: inputId })}
+        aria-label={t("themeEditor.previewInput")}
       />
       <div className="theme-editor__preview-row">
         <Chip label={t("themeEditor.chip")} onRemove={() => {}} />
@@ -204,7 +142,7 @@ function ThemePreviewSamples({ inputId }: { inputId: string }) {
           {t("themeEditor.check")}
         </Checkbox>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -233,7 +171,7 @@ export function ThemeEditor({
   requestCloseRef,
   onCloseRequestCancelled,
 }: ThemeEditorProps) {
-  const { t } = useTranslation(["studio", "common", "library"]);
+  const { t } = useTranslation(["studio", "common"]);
   const saveTheme = useThemeStore((s) => s.saveTheme);
   const setTheme = useThemeStore((s) => s.setTheme);
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
@@ -396,10 +334,12 @@ export function ThemeEditor({
   };
 
   const previewStyle = Object.fromEntries(
-    Object.entries(previewTokens).map(([key, value]) => [
-      `--${key}`,
-      value ?? "",
-    ]),
+    Object.entries(previewTokens)
+      .filter(
+        ([key]) =>
+          !(FIXED_RADIUS_TOKEN_KEYS as readonly string[]).includes(key),
+      )
+      .map(([key, value]) => [`--${key}`, value ?? ""]),
   ) as CSSProperties;
 
   return (
@@ -467,68 +407,29 @@ export function ThemeEditor({
                 </FormField>
               </section>
 
-              {COLOR_TOKEN_GROUPS.map((group) => {
-                const groupTitle = t(`themeEditor.groups.${group.id}`);
-                return (
-                  <section key={group.id} className="theme-editor__section">
-                    <h3 className="theme-editor__section-title">
-                      {groupTitle}
-                    </h3>
-                    {group.keys.map((key) => {
-                      const label = t(`themeEditor.tokens.${key}`);
-                      const value =
-                        draft.tokens[key] ?? OBSIDIAN_DEFAULT_TOKENS[key] ?? "";
-                      const baselineValue =
-                        baseline.tokens[key] ??
-                        OBSIDIAN_DEFAULT_TOKENS[key] ??
-                        "";
-                      const isDirty = value !== baselineValue;
-                      return (
-                        <FormField key={key} label={label}>
-                          <ColorField
-                            value={value}
-                            onChange={(next) => updateToken(key, next)}
-                            onReset={
-                              isDirty
-                                ? () => updateToken(key, baselineValue)
-                                : undefined
-                            }
-                            resetLabel={t("themeEditor.resetToken", { label })}
-                            swatchLabel={t("themeEditor.pickToken", {
-                              group: groupTitle,
-                              label,
-                            })}
-                          />
-                        </FormField>
-                      );
-                    })}
-                  </section>
-                );
-              })}
-
               <section className="theme-editor__section">
                 <h3 className="theme-editor__section-title">
-                  {t("themeEditor.radius")}
+                  {t("themeEditor.colors")}
                 </h3>
-                {RADIUS_TOKEN_KEYS.map((key) => {
+                {COLOR_TOKEN_KEYS.map((key) => {
                   const label = t(`themeEditor.tokens.${key}`);
+                  const value =
+                    draft.tokens[key] ?? OBSIDIAN_DEFAULT_TOKENS[key] ?? "";
+                  const baselineValue =
+                    baseline.tokens[key] ?? OBSIDIAN_DEFAULT_TOKENS[key] ?? "";
+                  const isDirty = value !== baselineValue;
                   return (
                     <FormField key={key} label={label}>
-                      <Slider
-                        value={parsePx(
-                          draft.tokens[key] ?? OBSIDIAN_DEFAULT_TOKENS[key],
-                        )}
-                        onChange={(e) =>
-                          updateToken(key, formatPx(Number(e.target.value)))
+                      <ColorField
+                        value={value}
+                        onChange={(next) => updateToken(key, next)}
+                        onReset={
+                          isDirty
+                            ? () => updateToken(key, baselineValue)
+                            : undefined
                         }
-                        min={0}
-                        max={32}
-                        step={1}
-                        aria-label={label}
-                        showValueTooltip
-                        formatValueTooltip={(value) =>
-                          t("themeEditor.pxValue", { value: Math.round(value) })
-                        }
+                        resetLabel={t("themeEditor.resetToken", { label })}
+                        swatchLabel={t("themeEditor.pickToken", { label })}
                       />
                     </FormField>
                   );
@@ -562,85 +463,47 @@ export function ThemeEditor({
               aria-label={t("themeEditor.livePreview")}
             >
               <div
-                className="theme-editor__preview-frame"
+                className="theme-editor__preview-frame theme-derived"
                 style={previewStyle}
                 aria-hidden
               >
-                <div className="theme-editor__preview-chrome">
-                  <span className="theme-editor__preview-dot" />
-                  <span className="theme-editor__preview-dot" />
-                  <span className="theme-editor__preview-dot" />
-                </div>
-
-                <div className="theme-editor__preview-shell">
-                  <nav className="theme-editor__preview-rail">
-                    <p className="theme-editor__preview-rail-label">
-                      {t("themeEditor.previewLibrary")}
+                <div className="theme-editor__preview-main">
+                  <div className="theme-editor__preview-header">
+                    <p className="theme-editor__preview-title">
+                      {draft.name.trim() || t("common:untitledTheme")}
                     </p>
-                    <SidebarItem active tabIndex={-1}>
-                      {t("library:views.albums.title")}
-                    </SidebarItem>
-                    <SidebarItem tabIndex={-1}>
-                      {t("library:views.artists.title")}
-                    </SidebarItem>
-                    <SidebarItem tabIndex={-1}>
-                      {t("library:views.playlists.title")}
-                    </SidebarItem>
-                  </nav>
-
-                  <div className="theme-editor__preview-main">
-                    <div className="theme-editor__preview-header">
-                      <p className="theme-editor__preview-title">
-                        {draft.name.trim() || t("common:untitledTheme")}
-                      </p>
-                      <div className="theme-editor__preview-badges">
-                        <Badge>{t("themeEditor.neutral")}</Badge>
-                        <Badge variant="accent">
-                          {t("themeEditor.accent")}
-                        </Badge>
-                      </div>
+                    <div className="theme-editor__preview-badges">
+                      <Badge>{t("themeEditor.neutral")}</Badge>
+                      <Badge variant="accent">{t("themeEditor.accent")}</Badge>
                     </div>
+                  </div>
 
-                    <p className="theme-editor__preview-body">
-                      <Trans
-                        t={t}
-                        i18nKey="themeEditor.previewSecondary"
-                        components={{
-                          link: (
-                            <TextLink href="#theme-preview" tabIndex={-1} />
-                          ),
-                        }}
-                      />
-                    </p>
+                  <ThemePreviewSamples />
 
+                  <div className="theme-editor__preview-surfaces">
                     <div className="theme-editor__preview-panel">
                       <p className="theme-editor__preview-panel-label">
                         {t("themeEditor.onSurface")}
                       </p>
-                      <ThemePreviewSamples inputId="surface" />
+                      <PreviewSecondaryText />
                     </div>
-
                     <div className="theme-editor__preview-card">
                       <p className="theme-editor__preview-panel-label">
                         {t("themeEditor.onRaised")}
                       </p>
-                      <ThemePreviewSamples inputId="raised" />
+                      <PreviewSecondaryText />
                     </div>
+                  </div>
 
-                    <Separator />
-
-                    <div className="theme-editor__preview-alerts">
-                      <Alert variant="info">{t("themeEditor.alertInfo")}</Alert>
-                      <Alert variant="success">
-                        {t("themeEditor.alertSuccess")}
-                      </Alert>
-                      <Alert variant="warning">
-                        {t("themeEditor.alertWarning")}
-                      </Alert>
-                      <Alert variant="error">
-                        {t("themeEditor.alertError")}
-                      </Alert>
-                    </div>
+                  <div className="theme-editor__preview-alerts">
+                    <Alert variant="info">{t("themeEditor.alertInfo")}</Alert>
+                    <Alert variant="success">
+                      {t("themeEditor.alertSuccess")}
+                    </Alert>
+                    <Alert variant="warning">
+                      {t("themeEditor.alertWarning")}
+                    </Alert>
+                    <Alert variant="error">{t("themeEditor.alertError")}</Alert>
                   </div>
                 </div>
               </div>

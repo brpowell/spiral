@@ -282,7 +282,6 @@ mod tests {
         match node {
             LayoutNode::Button(f)
             | LayoutNode::Artwork(f)
-            | LayoutNode::Transport(f)
             | LayoutNode::Visualizer(f)
             | LayoutNode::Rating(f)
             | LayoutNode::Time(f)

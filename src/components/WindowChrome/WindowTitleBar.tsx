@@ -251,6 +251,7 @@ export function WindowTitleBar({
     handlers &&
     activeMenu === "developer" &&
     (handlers.toggleToastLab ||
+      handlers.toggleSoundLab ||
       handlers.simulateMockUpdate ||
       handlers.toggleStubLocale)
   ) {
@@ -260,6 +261,12 @@ export function WindowTitleBar({
           <ContextMenuItem
             label="Toast Lab"
             onClick={run(handlers.toggleToastLab)}
+          />
+        ) : null}
+        {handlers.toggleSoundLab ? (
+          <ContextMenuItem
+            label="Sound Lab"
+            onClick={run(handlers.toggleSoundLab)}
           />
         ) : null}
         {handlers.simulateMockUpdate ? (

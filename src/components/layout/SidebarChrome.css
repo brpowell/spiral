@@ -6,7 +6,7 @@
   width: 200px;
   flex-shrink: 0;
   padding: 1rem 0.75rem;
-  background: var(--color-surface);
+  background: var(--fill-rail);
   border-right: 1px solid var(--color-border);
   font-family: var(--font-ui);
 }

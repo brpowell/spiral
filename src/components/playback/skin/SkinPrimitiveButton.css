@@ -1,12 +1,15 @@
-.skin-primitive-btn {
+.skin-primitive-btn.btn--ghost,
+.skin-primitive-btn.btn--secondary {
   color: var(--color-text-muted);
 }
 
-.skin-primitive-btn:hover:not(.skin-primitive-btn--plain) {
+.skin-primitive-btn.btn--ghost:hover:not(:disabled),
+.skin-primitive-btn.btn--secondary:hover:not(:disabled) {
   color: var(--color-text-primary);
 }
 
-.skin-primitive-btn--active {
+.skin-primitive-btn.btn--ghost.skin-primitive-btn--active,
+.skin-primitive-btn.btn--secondary.skin-primitive-btn--active {
   color: var(--color-accent);
 }
 

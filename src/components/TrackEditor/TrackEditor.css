@@ -86,7 +86,6 @@
 }
 
 .track-editor__tabs {
-  --tabs-fade-color: var(--color-surface);
   display: flex;
   flex-direction: column;
   flex: 1;

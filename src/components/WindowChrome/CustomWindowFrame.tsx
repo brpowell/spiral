@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 import type { AppMenuHandlers } from "../../lib/appMenu";
-import { usesCustomWindowChrome } from "../../lib/windowChrome";
+import {
+  usesCustomWindowChrome,
+  usesMacOverlayChrome,
+} from "../../lib/windowChrome";
+import { MacOverlayTitleBar } from "./MacOverlayTitleBar";
 import { WindowTitleBar } from "./WindowTitleBar";
 import "./CustomWindowFrame.css";
 
@@ -9,31 +13,53 @@ export interface CustomWindowFrameProps {
   children: ReactNode;
   /** Main window only — secondary windows use title + controls. */
   handlers?: AppMenuHandlers;
+  /** macOS overlay bar. Library window is a drag strip with no label. */
+  showTitle?: boolean;
   showMaximize?: boolean;
   className?: string;
 }
 
-/** In-app title bar on Windows/Linux; passthrough on macOS. */
+/** Windows/Linux in-app controls, or a macOS overlay bar under traffic lights. */
 export function CustomWindowFrame({
   title,
   children,
   handlers,
+  showTitle = true,
   showMaximize = true,
   className,
 }: CustomWindowFrameProps) {
-  if (!usesCustomWindowChrome()) {
-    return className ? <div className={className}>{children}</div> : <>{children}</>;
+  if (!usesCustomWindowChrome() && !usesMacOverlayChrome()) {
+    return className ? (
+      <div className={className}>{children}</div>
+    ) : (
+      <>{children}</>
+    );
   }
+
+  const macOverlay = usesMacOverlayChrome();
 
   return (
     <div
-      className={["custom-window-frame", className].filter(Boolean).join(" ")}
+      className={[
+        "custom-window-frame",
+        macOverlay ? "custom-window-frame--mac" : "",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
-      <WindowTitleBar
-        title={title}
-        handlers={handlers}
-        showMaximize={showMaximize}
-      />
+      {macOverlay ? (
+        <MacOverlayTitleBar
+          title={showTitle ? title : undefined}
+          showMaximize={showMaximize}
+        />
+      ) : (
+        <WindowTitleBar
+          title={title}
+          handlers={handlers}
+          showMaximize={showMaximize}
+        />
+      )}
       <div className="custom-window-frame__body">{children}</div>
     </div>
   );
