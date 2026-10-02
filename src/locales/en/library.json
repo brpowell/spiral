@@ -87,6 +87,7 @@
     "discardBulk": "Unsaved edits to {{count}} tracks will be lost.",
     "discardAlbum": "Unsaved edits to this album will be lost.",
     "discardArtist": "Unsaved edits to this artist will be lost.",
+    "discardPlaylist": "Unsaved edits to this playlist will be lost.",
     "editTracks": "Edit {{count}} tracks",
     "editTracksDescription": "Changes apply to all {{count}} tracks.",
     "partialSave": "Updated {{updated}} of {{total}} tracks. {{error}}",
@@ -101,6 +102,7 @@
     "fileNotFoundSuffix": "File not found",
     "tabsAria": "Track editor sections",
     "albumTabsAria": "Album editor sections",
+    "playlistTabsAria": "Playlist editor sections",
     "tabDetails": "Details",
     "tabArt": "Art",
     "tabLyrics": "Lyrics",
@@ -127,7 +129,6 @@
       "totalDiscs": "Total Discs",
       "genre": "Genre",
       "rating": "Rating",
-      "cover": "Cover",
       "description": "Description"
     },
     "musicBrainz": {
@@ -198,10 +199,24 @@
       "dateAdded": "Date Added"
     },
     "playlist": {
-      "coverSourceAria": "Cover image source",
-      "fromPlaylist": "From playlist",
-      "customImage": "Custom image",
-      "chooseImage": "Choose Image"
+      "coverSourceAria": "Cover style",
+      "fromTracks": "From Album Art",
+      "fromTracksHint": "Cover is driven by the album art of playlist tracks.",
+      "design": "Design",
+      "image": "Image",
+      "chooseImage": "Choose Image",
+      "chooseImageHint": "Pick a JPG, PNG, or WebP image",
+      "colorStart": "Color",
+      "colorEnd": "Secondary",
+      "addSecondColor": "Add second color",
+      "clearSecondColor": "Clear second color",
+      "swapColors": "Swap colors",
+      "randomizeColors": "Randomize colors",
+      "icon": "Icon",
+      "iconValue": "Icon: {{name}}",
+      "chooseIcon": "Choose icon",
+      "searchIcons": "Search icons",
+      "noIcons": "No matching icons"
     },
     "lyrics": {
       "fetch": "Fetch lyrics",

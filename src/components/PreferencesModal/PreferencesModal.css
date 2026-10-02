@@ -55,9 +55,6 @@
 .preferences__path-row .text-input {
   flex: 1;
   min-width: 0;
-  font-size: 0.82rem;
-  border-radius: var(--radius-button);
-  background: var(--color-bg);
 }
 
 .preferences__path-row .btn {
@@ -88,13 +85,6 @@
 .preferences__organize-path .field__description code {
   font-size: 0.78rem;
   word-break: break-all;
-}
-
-.preferences__panel .field .text-input[type="number"] {
-  width: 6rem;
-  font-size: 0.88rem;
-  border-radius: var(--radius-button);
-  background: var(--color-bg);
 }
 
 .preferences__checkbox {
@@ -137,5 +127,9 @@
 
 .preferences__action-btn--success {
   color: var(--color-accent);
-  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  border-color: color-mix(
+    in srgb,
+    var(--color-accent) 35%,
+    var(--color-border)
+  );
 }

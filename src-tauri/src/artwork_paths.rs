@@ -72,6 +72,28 @@ pub fn playlist_artwork_path_stem(library_root: &Path, playlist_id: i64, title: 
         .join(playlist_artwork_filename(playlist_id, title))
 }
 
+/// Display cover file for a stem — skips leftover `.source.*` / `.crop.json` if present.
+pub fn find_playlist_display_for_stem(stem: &Path) -> Option<PathBuf> {
+    let parent = stem.parent()?;
+    let prefix = stem.file_name()?.to_string_lossy().into_owned();
+    let needle = format!("{prefix}.");
+    let entries = fs::read_dir(parent).ok()?;
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let lower = name.to_ascii_lowercase();
+        if lower.contains(".source.") || lower.ends_with(".crop.json") {
+            continue;
+        }
+        if name.starts_with(&needle) && entry.path().is_file() {
+            let ext = name.rsplit_once('.').map(|(_, e)| e).unwrap_or("");
+            if IMAGE_EXTENSIONS.iter().any(|e| ext.eq_ignore_ascii_case(e)) {
+                return Some(entry.path());
+            }
+        }
+    }
+    None
+}
+
 /// Relative path under library root using `/` separators.
 pub fn to_library_relative(library_root: &Path, absolute: &Path) -> Option<String> {
     let rel = absolute.strip_prefix(library_root).ok()?;

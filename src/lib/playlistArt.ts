@@ -1,6 +1,8 @@
 import type { Playlist, PlaylistImageMode } from "../types/playlist";
 import type { Track } from "../types/track";
 import { albumKey } from "./albums";
+import { resolveIconId } from "./iconLibrary";
+import { defaultPlaylistDesignCover } from "./playlistCoverPresets";
 
 /** Stable cache key for playlist cover art in Artwork/playlists/. */
 export function playlistArtCacheKey(
@@ -30,30 +32,34 @@ export function uniqueAlbumArtPaths(tracks: Track[], limit = 4): string[] {
   return paths;
 }
 
-/** Deterministic accent colors for empty or art-less playlists. */
-export function playlistGradientStyle(
-  playlistId: number,
-  title: string,
-): { background: string } {
-  let hash = playlistId;
-  for (let i = 0; i < title.length; i++) {
-    hash = (hash * 31 + title.charCodeAt(i)) | 0;
-  }
-  const hue1 = Math.abs(hash % 360);
-  const hue2 = (hue1 + 40 + Math.abs((hash >> 8) % 80)) % 360;
-  return {
-    background: `linear-gradient(135deg, hsl(${hue1} 45% 42%), hsl(${hue2} 50% 32%))`,
-  };
+export function playlistUsesDesignCover(playlist: Playlist): boolean {
+  return playlist.imageMode === "design";
 }
 
-export function playlistUsesCustomImage(playlist: Playlist): boolean {
-  return playlist.imageMode === "custom" && playlist.customImagePath != null;
-}
-
-export function resolvePlaylistImageMode(
+/** Normalize design fields for save/preview; fills defaults when design is active. */
+export function resolvePlaylistDesignFields(
   mode: PlaylistImageMode,
-  customImagePath: string | null,
-): PlaylistImageMode {
-  if (mode === "custom" && !customImagePath) return "generated";
-  return mode;
+  coverBackground: string | null,
+  coverBackgroundEnd: string | null,
+  coverIcon: string | null,
+): {
+  coverBackground: string | null;
+  coverBackgroundEnd: string | null;
+  coverIcon: string | null;
+} {
+  if (mode !== "design") {
+    return {
+      coverBackground,
+      coverBackgroundEnd,
+      coverIcon,
+    };
+  }
+  const defaults = defaultPlaylistDesignCover();
+  const background = coverBackground?.trim() || defaults.coverBackground;
+  const end = coverBackgroundEnd?.trim() || null;
+  return {
+    coverBackground: background,
+    coverBackgroundEnd: end,
+    coverIcon: resolveIconId(coverIcon),
+  };
 }

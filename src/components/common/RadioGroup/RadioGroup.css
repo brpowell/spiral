@@ -50,43 +50,94 @@
   outline: none;
 }
 
+/*
+ * Button variant mirrors `.btn`: unselected sits up like secondary (face +
+ * lip), selected stays down like a held primary — the same toggle as the
+ * site ecosystem switch.
+ */
 .radio-group-item--button {
+  box-sizing: border-box;
   position: relative;
+  top: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
   padding: 0.4rem 0.65rem;
-  border: 1px solid var(--color-border);
+  border: 1px solid color-mix(in oklch, black 10%, var(--color-border));
   border-radius: var(--radius-button);
-  background: transparent;
+  font-family: var(--font-ui);
   font-size: 0.85rem;
   font-weight: 500;
-  color: var(--color-text-primary);
+  line-height: 1.25;
+  color: var(--color-text-secondary);
   cursor: pointer;
+  user-select: none;
+  --radio-btn-lip:
+    inset 0 1px 0 rgb(255 255 255 / 0.36), 0 1px 0 rgb(0 0 0 / 0.12);
+  background-color: color-mix(in oklch, white 14%, var(--color-surface));
+  box-shadow: var(--radio-btn-lip);
   transition:
-    border-color 0.12s ease,
-    background 0.12s ease,
-    box-shadow 0.12s ease;
+    top 0.12s ease,
+    box-shadow 0.12s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
-.radio-group-item--button:hover:not(.radio-group-item--disabled) {
-  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+.radio-group-item--button > svg {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+.radio-group-item--button:hover:not(.radio-group-item--disabled):not(
+    .radio-group-item--checked
+  ) {
+  --radio-btn-lip:
+    inset 0 1px 0 rgb(255 255 255 / 0.5), 0 1px 0 rgb(0 0 0 / 0.12);
+  color: var(--color-text-primary);
+  background-color: color-mix(in oklch, white 22%, var(--color-surface));
+}
+
+.radio-group-item--button:active:not(.radio-group-item--disabled):not(
+    .radio-group-item--checked
+  ) {
+  top: 1px;
+  --radio-btn-lip: inset 0 1px 2px rgb(0 0 0 / 0.14);
 }
 
 .radio-group-item--button.radio-group-item--checked {
-  border-color: var(--color-accent);
-  background: var(--color-interactive-selected);
+  top: 1px;
+  color: var(--color-accent-text, #fff);
+  background-color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 78%, black);
+  --radio-btn-lip: inset 0 1px 2px rgb(0 0 0 / 0.18);
+}
+
+.radio-group-item--button.radio-group-item--checked:hover:not(
+    .radio-group-item--disabled
+  ) {
+  background-color: color-mix(in srgb, #fff 8%, var(--color-accent));
 }
 
 .radio-group-item--button:has(.radio-group-item__input:focus-visible) {
-  border-color: var(--color-accent);
   outline: var(--focus-ring-width) solid var(--focus-ring-color);
   outline-offset: var(--focus-ring-offset);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
 .radio-group-item--button.radio-group-item--disabled {
+  top: 0;
   opacity: 0.5;
+  box-shadow: none;
   cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radio-group-item--button {
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
+  }
 }

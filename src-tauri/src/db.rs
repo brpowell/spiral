@@ -163,6 +163,7 @@ fn table_columns(conn: &Connection, table: &str) -> Result<Vec<String>, rusqlite
 fn parse_playlist_image_mode(value: &str) -> PlaylistImageMode {
     match value {
         "custom" => PlaylistImageMode::Custom,
+        "design" => PlaylistImageMode::Design,
         _ => PlaylistImageMode::Generated,
     }
 }
@@ -170,6 +171,7 @@ fn parse_playlist_image_mode(value: &str) -> PlaylistImageMode {
 fn playlist_image_mode_str(mode: PlaylistImageMode) -> &'static str {
     match mode {
         PlaylistImageMode::Generated => "generated",
+        PlaylistImageMode::Design => "design",
         PlaylistImageMode::Custom => "custom",
     }
 }
@@ -247,6 +249,18 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
             "ALTER TABLE playlists ADD COLUMN custom_image_path TEXT",
             [],
         )?;
+    }
+    if !playlist_columns.iter().any(|c| c == "cover_background") {
+        conn.execute("ALTER TABLE playlists ADD COLUMN cover_background TEXT", [])?;
+    }
+    if !playlist_columns.iter().any(|c| c == "cover_background_end") {
+        conn.execute(
+            "ALTER TABLE playlists ADD COLUMN cover_background_end TEXT",
+            [],
+        )?;
+    }
+    if !playlist_columns.iter().any(|c| c == "cover_icon") {
+        conn.execute("ALTER TABLE playlists ADD COLUMN cover_icon TEXT", [])?;
     }
     if !playlist_columns.iter().any(|c| c == "position") {
         conn.execute(
@@ -851,7 +865,8 @@ fn playlist_track_ids(conn: &Connection, playlist_id: i64) -> Result<Vec<i64>, r
 
 pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::Error> {
     let mut stmt = conn.prepare(
-        "SELECT id, title, description, date_created, last_used_at, image_mode, custom_image_path
+        "SELECT id, title, description, date_created, last_used_at, image_mode, custom_image_path,
+                cover_background, cover_background_end, cover_icon
          FROM playlists
          ORDER BY position ASC, id ASC",
     )?;
@@ -864,13 +879,26 @@ pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::E
             row.get::<_, String>(4)?,
             row.get::<_, String>(5)?,
             row.get::<_, Option<String>>(6)?,
+            row.get::<_, Option<String>>(7)?,
+            row.get::<_, Option<String>>(8)?,
+            row.get::<_, Option<String>>(9)?,
         ))
     })?;
 
     let mut playlists = Vec::new();
     for row in rows {
-        let (id, title, description, date_created, last_used_at, image_mode, custom_image_path) =
-            row?;
+        let (
+            id,
+            title,
+            description,
+            date_created,
+            last_used_at,
+            image_mode,
+            custom_image_path,
+            cover_background,
+            cover_background_end,
+            cover_icon,
+        ) = row?;
         let track_ids = playlist_track_ids(conn, id)?;
         playlists.push(Playlist {
             id,
@@ -881,6 +909,9 @@ pub fn get_all_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::E
             track_ids,
             image_mode: parse_playlist_image_mode(&image_mode),
             custom_image_path,
+            cover_background,
+            cover_background_end,
+            cover_icon,
         });
     }
     Ok(playlists)
@@ -892,6 +923,9 @@ pub fn create_playlist(
     description: Option<&str>,
     image_mode: PlaylistImageMode,
     custom_image_path: Option<&str>,
+    cover_background: Option<&str>,
+    cover_background_end: Option<&str>,
+    cover_icon: Option<&str>,
 ) -> Result<i64, rusqlite::Error> {
     let now = Utc::now().to_rfc3339();
     let position: i64 = conn
@@ -902,8 +936,11 @@ pub fn create_playlist(
         )
         .unwrap_or(0);
     conn.execute(
-        "INSERT INTO playlists (title, description, date_created, last_used_at, image_mode, custom_image_path, position)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO playlists (
+            title, description, date_created, last_used_at, image_mode, custom_image_path,
+            cover_background, cover_background_end, cover_icon, position
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             title,
             description,
@@ -911,6 +948,9 @@ pub fn create_playlist(
             now,
             playlist_image_mode_str(image_mode),
             custom_image_path,
+            cover_background,
+            cover_background_end,
+            cover_icon,
             position,
         ],
     )?;
@@ -924,15 +964,22 @@ pub fn update_playlist(
     description: Option<&str>,
     image_mode: PlaylistImageMode,
     custom_image_path: Option<&str>,
+    cover_background: Option<&str>,
+    cover_background_end: Option<&str>,
+    cover_icon: Option<&str>,
 ) -> Result<(), rusqlite::Error> {
     conn.execute(
-        "UPDATE playlists SET title = ?1, description = ?2, image_mode = ?3, custom_image_path = ?4
-         WHERE id = ?5",
+        "UPDATE playlists SET title = ?1, description = ?2, image_mode = ?3, custom_image_path = ?4,
+         cover_background = ?5, cover_background_end = ?6, cover_icon = ?7
+         WHERE id = ?8",
         params![
             title,
             description,
             playlist_image_mode_str(image_mode),
             custom_image_path,
+            cover_background,
+            cover_background_end,
+            cover_icon,
             id,
         ],
     )?;
@@ -1394,8 +1441,17 @@ mod tests {
         save_track(&conn, &sample_input("/music/b.mp3")).unwrap();
         save_track(&conn, &sample_input("/music/c.mp3")).unwrap();
 
-        let playlist_id =
-            create_playlist(&conn, "Mix", None, PlaylistImageMode::Generated, None).unwrap();
+        let playlist_id = create_playlist(
+            &conn,
+            "Mix",
+            None,
+            PlaylistImageMode::Generated,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
         add_tracks_to_playlist(&conn, playlist_id, &[1, 2, 3]).unwrap();
         assert_eq!(
             playlist_track_ids(&conn, playlist_id).unwrap(),
@@ -1412,12 +1468,39 @@ mod tests {
     #[test]
     fn reorder_playlists_updates_sidebar_order() {
         let conn = test_conn();
-        let zebra =
-            create_playlist(&conn, "Zebra", None, PlaylistImageMode::Generated, None).unwrap();
-        let alpha =
-            create_playlist(&conn, "Alpha", None, PlaylistImageMode::Generated, None).unwrap();
-        let middle =
-            create_playlist(&conn, "Middle", None, PlaylistImageMode::Generated, None).unwrap();
+        let zebra = create_playlist(
+            &conn,
+            "Zebra",
+            None,
+            PlaylistImageMode::Generated,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let alpha = create_playlist(
+            &conn,
+            "Alpha",
+            None,
+            PlaylistImageMode::Generated,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        let middle = create_playlist(
+            &conn,
+            "Middle",
+            None,
+            PlaylistImageMode::Generated,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
 
         assert_eq!(
             get_all_playlists(&conn)

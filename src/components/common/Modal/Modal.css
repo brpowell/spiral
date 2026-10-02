@@ -8,9 +8,39 @@
   padding: 1.5rem;
   background: color-mix(in srgb, var(--color-bg) 55%, transparent);
   backdrop-filter: blur(4px);
+  /* Scrim paints over the title bar. Hits there pass through for window
+     drags; ::before is the click target everywhere below that strip. */
+  pointer-events: none;
+}
+
+body:has(.window-titlebar) {
+  --modal-drag-inset: var(--window-titlebar-height);
+}
+
+body:has(.mac-overlay-titlebar) {
+  --modal-drag-inset: var(--mac-titlebar-height);
+}
+
+body:has(.window-titlebar) .modal-backdrop,
+body:has(.mac-overlay-titlebar) .modal-backdrop {
+  padding-top: max(1.5rem, var(--modal-drag-inset));
+}
+
+.modal-backdrop::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: var(--modal-drag-inset, 0px);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: auto;
 }
 
 .modal-panel {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
   --modal-padding-inline: 1.25rem;
   --modal-padding-block: 1.25rem;
   --modal-fade-height: 0.5rem;
@@ -57,6 +87,19 @@
 .modal-panel--editor {
   width: min(640px, 100%);
   max-height: min(92vh, 820px);
+}
+
+.modal-panel--fit {
+  --modal-fit-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    height 0.28s var(--modal-fit-ease),
+    margin-top 0.28s var(--modal-fit-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-panel--fit {
+    transition: none;
+  }
 }
 
 .modal-header {

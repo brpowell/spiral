@@ -10,7 +10,6 @@ import {
   createTrackLyricsInputFromText,
   isLrcContent,
   parseLrc,
-  plainTextFromSyncedLines,
   serializeLrc,
 } from "./lyricsLrc";
 
@@ -87,19 +86,22 @@ export function normalizeTrackLyrics(
   const lines = Array.isArray(raw.lines)
     ? raw.lines.map((line) => parseLyricsLine(line as Record<string, unknown>))
     : [];
+  const format = parseLyricsFormat(raw.format);
+  const storedPlainText =
+    (raw.plainText as string | undefined) ??
+    (raw.plain_text as string | undefined) ??
+    "";
 
   return {
     trackId:
       (raw.trackId as number | undefined) ??
       (raw.track_id as number | undefined) ??
       0,
-    format: parseLyricsFormat(raw.format),
+    format,
     source: parseLyricsSource(raw.source),
     lines,
     plainText:
-      (raw.plainText as string | undefined) ??
-      (raw.plain_text as string | undefined) ??
-      "",
+      format === "line_synced" ? linesToPlainText(lines) : storedPlainText,
     updatedAt:
       (raw.updatedAt as string | undefined) ??
       (raw.updated_at as string | undefined) ??
@@ -127,10 +129,8 @@ export function buildTrackLyricsInputFromEditor(
 
   const hasSyncedTimestamps =
     syncedLines?.some((line) => line.startMs !== undefined) ?? false;
-  const dedupedPlain = syncedLines
-    ? plainTextFromSyncedLines(syncedLines).trim()
-    : null;
-  const plainMatches = dedupedPlain === trimmed;
+  const syncedPlain = syncedLines ? linesToPlainText(syncedLines).trim() : null;
+  const plainMatches = syncedPlain === trimmed;
 
   if (syncedLines && hasSyncedTimestamps && plainMatches) {
     return {
@@ -232,7 +232,7 @@ export function parseEditorLyricsChange(
   if (
     previousSyncedLines &&
     previousSyncedLines.some((line) => line.startMs !== undefined) &&
-    plainTextFromSyncedLines(previousSyncedLines).trim() === trimmed
+    linesToPlainText(previousSyncedLines).trim() === trimmed
   ) {
     return {
       text: trimmed,

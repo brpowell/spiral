@@ -15,6 +15,12 @@
   display: block;
 }
 
+.playlist-art__img--cropped {
+  /* Positioned by inline crop frame style */
+  width: auto;
+  height: auto;
+}
+
 .playlist-art__placeholder {
   width: 100%;
   height: 100%;
@@ -81,26 +87,36 @@
   background: var(--color-surface-raised);
 }
 
-.playlist-art__empty-icon {
+.playlist-art--designed {
+  display: block;
+}
+
+.playlist-art__design-icon {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: color-mix(in srgb, var(--color-text-primary) 55%, transparent);
+  color: #fff;
 }
 
-.playlist-art__empty-icon svg {
-  width: 40%;
-  height: 40%;
-  opacity: 0.65;
+.playlist-art__design-icon svg {
+  width: 42%;
+  height: 42%;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.35));
 }
 
 /* Explicit sizes for constrained contexts */
 .playlist-art--sidebar {
-  width: 1.15rem;
-  height: 1.15rem;
-  border-radius: 3px;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 4px;
+}
+
+.playlist-art--sidebar .playlist-art__design-icon svg,
+.playlist-art--sidebar .playlist-art__placeholder svg {
+  width: 62%;
+  height: 62%;
 }
 
 .playlist-art--menu {

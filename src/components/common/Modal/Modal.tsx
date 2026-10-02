@@ -20,6 +20,8 @@ import { backdropMotion, panelMotion } from "../../../lib/motion";
 import { t } from "../../../lib/i18n";
 import { Button } from "../Button/Button";
 import { IconClose } from "../../icons";
+import { FitContentContext } from "./FitContentContext";
+import { useFitModalHeight } from "./useFitModalHeight";
 import "./Modal.css";
 
 export type ModalSize = "sm" | "md" | "lg" | "xl" | "editor";
@@ -34,6 +36,11 @@ export interface ModalProps {
   labelledBy?: string;
   /** When false, backdrop click and Escape do not call onClose. Default true. */
   dismissible?: boolean;
+  /**
+   * Hug the panel to its content, up to max-height, and animate height changes.
+   * The top edge stays put unless the new height would leave the backdrop.
+   */
+  fitContent?: boolean;
 }
 
 export function Modal({
@@ -45,6 +52,7 @@ export function Modal({
   panelRef,
   labelledBy,
   dismissible = true,
+  fitContent = false,
 }: ModalProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const panelNodeRef = useRef<HTMLDivElement | null>(null);
@@ -88,9 +96,15 @@ export function Modal({
     let pressedOutsidePanel = false;
 
     const onMouseDown = (e: MouseEvent) => {
+      const backdrop = backdropRef.current;
       const panel = panelNodeRef.current;
-      if (!panel) return;
-      pressedOutsidePanel = !panel.contains(e.target as Node);
+      if (!backdrop || !panel) return;
+      // A title-bar press passes through the scrim and must not arm dismiss.
+      pressedOutsidePanel = releasedOutsidePanel(
+        backdrop,
+        panel,
+        e.target as Node,
+      );
     };
 
     const onMouseUp = (e: MouseEvent) => {
@@ -123,7 +137,14 @@ export function Modal({
     };
   }, [open, onClose, dismissible]);
 
-  const panelClasses = ["modal-panel", `modal-panel--${size}`, panelClassName]
+  useFitModalHeight(open && fitContent, panelNodeRef, backdropRef);
+
+  const panelClasses = [
+    "modal-panel",
+    `modal-panel--${size}`,
+    fitContent && "modal-panel--fit",
+    panelClassName,
+  ]
     .filter(Boolean)
     .join(" ");
 
@@ -143,7 +164,9 @@ export function Modal({
             aria-labelledby={labelledBy}
             {...panelMotion}
           >
-            {children}
+            <FitContentContext.Provider value={fitContent}>
+              {children}
+            </FitContentContext.Provider>
           </motion.div>
         </motion.div>
       )}

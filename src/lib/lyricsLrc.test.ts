@@ -66,7 +66,7 @@ describe("lyricsLrc", () => {
       { text: "Chorus", startMs: 10_000 },
       { text: "Chorus", startMs: 50_000 },
     ]);
-    expect(parsed.plainText).toBe("Chorus");
+    expect(parsed.plainText).toBe("Chorus\nChorus");
   });
 
   it("serializes timed lines back to LRC", () => {
@@ -86,9 +86,7 @@ describe("lyricsLrc", () => {
       { text: "Chorus", startMs: 50_000 },
     ];
 
-    expect(serializeLrc(lines)).toBe(
-      "[00:10.00] Chorus\n[00:50.00] Chorus",
-    );
+    expect(serializeLrc(lines)).toBe("[00:10.00] Chorus\n[00:50.00] Chorus");
   });
 
   it("round-trips parsed LRC", () => {

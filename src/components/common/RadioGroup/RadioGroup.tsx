@@ -98,7 +98,7 @@ export type RadioGroupItemProps = Omit<
 
 export const RadioGroupItem = forwardRef<HTMLInputElement, RadioGroupItemProps>(
   function RadioGroupItem(
-    { value, id: idProp, disabled, className, children, ...props },
+    { value, id: idProp, disabled, className, title, children, ...props },
     ref,
   ) {
     const {
@@ -128,6 +128,7 @@ export const RadioGroupItem = forwardRef<HTMLInputElement, RadioGroupItemProps>(
         checked={checked}
         disabled={isDisabled}
         onChange={() => onChange(value)}
+        title={variant === "button" ? undefined : title}
         {...props}
       />
     );
@@ -144,7 +145,7 @@ export const RadioGroupItem = forwardRef<HTMLInputElement, RadioGroupItemProps>(
         .join(" ");
 
       return (
-        <label className={labelClass}>
+        <label className={labelClass} title={title}>
           {input}
           {children}
         </label>

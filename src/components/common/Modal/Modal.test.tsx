@@ -99,6 +99,23 @@ describe("Modal backdrop dismiss", () => {
 
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("does not close when the press lands on the click-through title bar", () => {
+    const { onClose, backdrop } = renderOpenModal();
+    const titlebar = document.createElement("div");
+    document.body.append(titlebar);
+
+    try {
+      fireEvent.mouseDown(titlebar);
+      fireEvent.mouseUp(titlebar);
+      fireEvent.mouseDown(titlebar);
+      fireEvent.mouseUp(backdrop);
+
+      expect(onClose).not.toHaveBeenCalled();
+    } finally {
+      titlebar.remove();
+    }
+  });
 });
 
 describe("Modal nested dismiss", () => {
@@ -189,5 +206,60 @@ describe("Modal nested dismiss", () => {
 
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+});
+
+describe("Modal fitContent", () => {
+  function mockLayout() {
+    const keys = ["offsetHeight", "clientHeight"] as const;
+    const previous = keys.map((key) => [
+      key,
+      Object.getOwnPropertyDescriptor(HTMLElement.prototype, key),
+    ]) as [(typeof keys)[number], PropertyDescriptor | undefined][];
+
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+      configurable: true,
+      get() {
+        const el = this as HTMLElement;
+        if (!el.classList?.contains("modal-panel")) return 24;
+        if (el.style.height === "auto") return 280;
+        const inline = Number.parseFloat(el.style.height);
+        return Number.isFinite(inline) ? inline : 400;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+      configurable: true,
+      get() {
+        const el = this as HTMLElement;
+        return el.classList?.contains("modal-backdrop") ? 900 : 100;
+      },
+    });
+
+    return () => {
+      for (const [key, descriptor] of previous) {
+        if (descriptor)
+          Object.defineProperty(HTMLElement.prototype, key, descriptor);
+        else Reflect.deleteProperty(HTMLElement.prototype, key);
+      }
+    };
+  }
+
+  it("sizes the panel to its content and pins the top edge", () => {
+    const restore = mockLayout();
+    try {
+      render(
+        <Modal open onClose={vi.fn()} fitContent>
+          <div className="modal-body">Details</div>
+        </Modal>,
+      );
+
+      const panel = document.querySelector(".modal-panel") as HTMLElement;
+      expect(panel).toHaveClass("modal-panel--fit");
+      expect(panel.style.height).toBe("280px");
+      expect(panel.style.alignSelf).toBe("flex-start");
+      expect(panel.style.marginTop).toBe("310px");
+    } finally {
+      restore();
+    }
   });
 });

@@ -10,7 +10,7 @@ import {
   IconGpu,
   IconPackage,
   IconPalette,
-  IconSkinMode,
+  IconBoombox,
   IconVisualizer,
 } from "../icons";
 
@@ -31,7 +31,7 @@ export function contributionTypeMeta(type: string): {
     case "theme":
       return { label: t("studio:types.theme"), icon: <IconPalette /> };
     case "skin":
-      return { label: t("studio:types.skin"), icon: <IconSkinMode /> };
+      return { label: t("studio:types.skin"), icon: <IconBoombox /> };
     case "visualizer":
       return { label: t("studio:types.visualizer"), icon: <IconVisualizer /> };
     case "renderer":

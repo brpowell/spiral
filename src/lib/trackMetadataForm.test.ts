@@ -167,9 +167,10 @@ describe("buildTrackMetadataFromForm", () => {
       { text: "Bob your head, rag top", startMs: 206_960 },
       { text: "Bob your head, rag top", startMs: 208_520 },
     ];
+    const lyrics = syncedLines.map((line) => line.text).join("\n");
     const edited = {
       ...initial,
-      lyrics: "Bob your head, rag top",
+      lyrics,
       lyricsSyncedLines: syncedLines,
     };
 
@@ -183,7 +184,7 @@ describe("buildTrackMetadataFromForm", () => {
 
     expect(metadata.lyrics).toMatchObject({
       format: "line_synced",
-      plainText: "Bob your head, rag top",
+      plainText: lyrics,
       lines: syncedLines,
     });
   });

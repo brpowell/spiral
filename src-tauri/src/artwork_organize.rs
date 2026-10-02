@@ -217,7 +217,7 @@ pub fn rename_playlist_artwork_file(
             }
         })
         .filter(|p| p.is_file())
-        .or_else(|| find_playlist_file_for_stem(&old_stem));
+        .or_else(|| artwork_paths::find_playlist_display_for_stem(&old_stem));
 
     let Some(src) = src else {
         return Ok(None);
@@ -227,19 +227,43 @@ pub fn rename_playlist_artwork_file(
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     let dest = PathBuf::from(format!("{}.{ext}", new_stem.to_string_lossy()));
-    if src != dest {
-        if dest.exists() {
-            let _ = fs::remove_file(&dest);
-        }
-        fs::rename(&src, &dest)
-            .or_else(|_| {
-                fs::copy(&src, &dest)
-                    .map(|_| ())
-                    .and_then(|_| fs::remove_file(&src))
-            })
-            .map_err(|e| format!("failed to rename playlist art: {e}"))?;
-    }
+    rename_art_file(&src, &dest)?;
+
     Ok(to_library_relative(library_root, &dest))
+}
+
+fn rename_art_file(src: &Path, dest: &Path) -> Result<(), String> {
+    if src == dest {
+        return Ok(());
+    }
+    if dest.exists() {
+        let _ = fs::remove_file(dest);
+    }
+    fs::rename(src, dest)
+        .or_else(|_| {
+            fs::copy(src, dest)
+                .map(|_| ())
+                .and_then(|_| fs::remove_file(src))
+        })
+        .map_err(|e| format!("failed to rename playlist art: {e}"))
+}
+
+/// Delete every cover file for this playlist. Names are `{id}-{title}.{ext}`, so the
+/// id prefix includes the hyphen and does not match a longer id (`1-` vs `10-`).
+pub fn remove_playlist_artwork(library_root: &Path, playlist_id: i64) -> Result<(), String> {
+    let dir = artwork_paths::artwork_root(library_root).join(artwork_paths::PLAYLISTS_DIR);
+    if !dir.is_dir() {
+        return Ok(());
+    }
+    let prefix = format!("{playlist_id}-");
+    for entry in fs::read_dir(&dir).map_err(|e| e.to_string())?.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with(&prefix) && entry.path().is_file() {
+            fs::remove_file(entry.path())
+                .map_err(|e| format!("failed to remove playlist artwork {name}: {e}"))?;
+        }
+    }
+    Ok(())
 }
 
 /// Delete an override file when no other track references it; never delete shared front.jpg
@@ -317,19 +341,6 @@ pub fn gc_unreferenced_override_file(
         }
     }
     Ok(())
-}
-
-fn find_playlist_file_for_stem(stem: &Path) -> Option<PathBuf> {
-    let parent = stem.parent()?;
-    let prefix = stem.file_name()?.to_string_lossy().into_owned();
-    let entries = fs::read_dir(parent).ok()?;
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if name.starts_with(&format!("{prefix}.")) && entry.path().is_file() {
-            return Some(entry.path());
-        }
-    }
-    None
 }
 
 fn normalize_stored_override(library_root: &Path, art: Option<&str>) -> Option<String> {
@@ -652,6 +663,31 @@ mod tests {
             album.join(format!("{FRONT_STEM}.jpg")).is_file(),
             "front.jpg must remain"
         );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn remove_playlist_artwork_deletes_only_that_playlist() {
+        let root = std::env::temp_dir().join(format!(
+            "spiral-art-playlist-rm-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let dir = artwork_paths::artwork_root(&root).join(artwork_paths::PLAYLISTS_DIR);
+        fs::create_dir_all(&dir).unwrap();
+        let own = dir.join("1-Summer.jpg");
+        let other = dir.join("10-Summer.jpg");
+        fs::write(&own, b"one").unwrap();
+        fs::write(&other, b"ten").unwrap();
+
+        remove_playlist_artwork(&root, 1).unwrap();
+
+        assert!(!own.exists());
+        assert!(other.is_file(), "playlist 10 art must remain");
         let _ = fs::remove_dir_all(&root);
     }
 

@@ -22,6 +22,9 @@ function playlist(id: number, title: string): Playlist {
     trackIds: [],
     imageMode: "generated",
     customImagePath: null,
+    coverBackground: null,
+    coverBackgroundEnd: null,
+    coverIcon: null,
   };
 }
 

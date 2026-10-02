@@ -88,7 +88,7 @@ describe("lyrics", () => {
     expect(linesToPlainText(lyrics.lines)).toBe(lyrics.plainText);
   });
 
-  it("builds line-synced input when editor text matches deduped LRC plain text", () => {
+  it("keeps repeated timed lines in plain text", () => {
     const parsed = parseLrc(
       "[03:25.54] Bob your head, rag top\n[03:27.40] Bob your head, rag top\n[03:28.96] Bob your head, rag top",
     );
@@ -101,9 +101,26 @@ describe("lyrics", () => {
 
     expect(input).toMatchObject({
       format: "line_synced",
-      plainText: "Bob your head, rag top",
+      plainText:
+        "Bob your head, rag top\nBob your head, rag top\nBob your head, rag top",
       lines: parsed.lines,
     });
+  });
+
+  it("rebuilds line-synced plain text from every cue when stored text was collapsed", () => {
+    const normalized = normalizeTrackLyrics({
+      trackId: 4,
+      format: "line_synced",
+      source: "lrclib",
+      lines: [
+        { text: "Rock, robot rock", startMs: 23_040 },
+        { text: "Rock, robot rock", startMs: 27_600 },
+      ],
+      plainText: "Rock, robot rock",
+      updatedAt: "2026-07-07T12:00:00.000Z",
+    });
+
+    expect(normalized.plainText).toBe("Rock, robot rock\nRock, robot rock");
   });
 
   it("builds line-synced input when plain text ends with timed empty line", () => {
@@ -174,7 +191,9 @@ describe("lyrics", () => {
 
   it("detects import lyrics conflicts only when both sides differ", () => {
     expect(importLyricsConflict(plainLyrics("A"), plainLyrics("B"))).toBe(true);
-    expect(importLyricsConflict(plainLyrics("A"), plainLyrics("A"))).toBe(false);
+    expect(importLyricsConflict(plainLyrics("A"), plainLyrics("A"))).toBe(
+      false,
+    );
     expect(importLyricsConflict(plainLyrics("A"), null)).toBe(false);
     expect(importLyricsConflict(null, plainLyrics("A"))).toBe(false);
   });

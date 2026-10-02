@@ -38,12 +38,14 @@ function playlist(id: number, title: string, trackIds: number[]): Playlist {
     id,
     title,
     description: null,
+    dateCreated: "2024-01-01",
+    lastUsedAt: "2024-01-01",
     trackIds,
     imageMode: "generated",
     customImagePath: null,
-    createdAt: "2024-01-01",
-    updatedAt: "2024-01-01",
-    lastUsedAt: "2024-01-01",
+    coverBackground: null,
+    coverBackgroundEnd: null,
+    coverIcon: null,
   };
 }
 

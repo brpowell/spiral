@@ -1,15 +1,10 @@
 import { useAssetUrl } from "../../hooks/useAssetUrl";
-import {
-  playlistGradientStyle,
-  uniqueAlbumArtPaths,
-} from "../../lib/playlistArt";
+import { uniqueAlbumArtPaths } from "../../lib/playlistArt";
 import type { Track } from "../../types/track";
-import { IconPlaylistPlaceholder } from "../icons";
+import { IconAlbums } from "../icons";
 import "./PlaylistArt.css";
 
 interface PlaylistGeneratedArtProps {
-  playlistId: number;
-  title: string;
   tracks: Track[];
   className?: string;
   alt?: string;
@@ -24,26 +19,22 @@ function MosaicTile({ artPath }: { artPath: string }) {
 }
 
 export function PlaylistGeneratedArt({
-  playlistId,
-  title,
   tracks,
   className = "",
   alt = "",
 }: PlaylistGeneratedArtProps) {
   const artPaths = uniqueAlbumArtPaths(tracks);
-  const gradient = playlistGradientStyle(playlistId, title);
 
   if (artPaths.length === 0) {
     return (
       <div
-        className={`playlist-art playlist-art--generated ${className}`.trim()}
-        style={gradient}
+        className={`playlist-art ${className}`.trim()}
         role={alt ? "img" : undefined}
         aria-label={alt || undefined}
       >
-        <span className="playlist-art__empty-icon" aria-hidden>
-          <IconPlaylistPlaceholder />
-        </span>
+        <div className="playlist-art__placeholder" aria-hidden>
+          <IconAlbums />
+        </div>
       </div>
     );
   }

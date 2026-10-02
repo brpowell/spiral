@@ -78,26 +78,6 @@ fn is_metadata_tag(inner: &str) -> bool {
     METADATA_TAG_KEYS.contains(&key.to_ascii_lowercase().as_str())
 }
 
-fn build_plain_text_from_lines(lines: &[LyricsLine]) -> String {
-    let mut parts = Vec::new();
-    let mut previous_text: Option<&str> = None;
-
-    for line in lines {
-        if line.text.is_empty() && line.start_ms.is_none() {
-            parts.push(String::new());
-            previous_text = None;
-            continue;
-        }
-
-        if previous_text != Some(line.text.as_str()) {
-            parts.push(line.text.clone());
-            previous_text = Some(&line.text);
-        }
-    }
-
-    parts.join("\n")
-}
-
 /// Parse LRC text into timed lyric lines.
 pub fn parse_lrc(text: &str) -> ParsedLrc {
     let mut offset_ms: i64 = 0;
@@ -167,7 +147,11 @@ pub fn parse_lrc(text: &str) -> ParsedLrc {
         }
     }
 
-    let plain_text = build_plain_text_from_lines(&lines);
+    let plain_text = lines
+        .iter()
+        .map(|line| line.text.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
     ParsedLrc {
         lines,
         plain_text,
@@ -258,7 +242,7 @@ mod tests {
         assert_eq!(parsed.lines.len(), 2);
         assert_eq!(parsed.lines[0].start_ms, Some(10_000));
         assert_eq!(parsed.lines[1].start_ms, Some(50_000));
-        assert_eq!(parsed.plain_text, "Chorus");
+        assert_eq!(parsed.plain_text, "Chorus\nChorus");
     }
 
     #[test]

@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Track } from "../types/track";
-import { uniqueAlbumArtPaths } from "./playlistArt";
+import { DEFAULT_LIBRARY_ICON_ID, resolveIconId } from "./iconLibrary";
+import {
+  resolvePlaylistDesignFields,
+  uniqueAlbumArtPaths,
+} from "./playlistArt";
+import {
+  defaultPlaylistDesignCover,
+  playlistDesignBackgroundStyle,
+  randomPlaylistCoverColors,
+} from "./playlistCoverPresets";
 
 function track(overrides: Partial<Track> & Pick<Track, "id">): Track {
   return {
@@ -129,5 +138,62 @@ describe("uniqueAlbumArtPaths", () => {
     ];
 
     expect(uniqueAlbumArtPaths(tracks)).toEqual(["/a.png", "/b.png"]);
+  });
+});
+
+describe("playlist design covers", () => {
+  it("randomizes a solid color without adding a second stop", () => {
+    const colors = randomPlaylistCoverColors(false);
+    expect(colors.coverBackground).toMatch(/^#[0-9a-f]{6}$/);
+    expect(colors.coverBackgroundEnd).toBeNull();
+  });
+
+  it("randomizes both stops when a gradient is already set", () => {
+    const colors = randomPlaylistCoverColors(true);
+    expect(colors.coverBackground).toMatch(/^#[0-9a-f]{6}$/);
+    expect(colors.coverBackgroundEnd).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  it("builds a solid background style", () => {
+    expect(playlistDesignBackgroundStyle("#4f46e5", null)).toEqual({
+      background: "#4f46e5",
+    });
+  });
+
+  it("builds a 135deg gradient when an end color is set", () => {
+    expect(playlistDesignBackgroundStyle("#f97316", "#db2777")).toEqual({
+      background: "linear-gradient(135deg, #f97316, #db2777)",
+    });
+  });
+
+  it("falls back to the default solid when the start color is empty", () => {
+    const defaults = defaultPlaylistDesignCover();
+    expect(playlistDesignBackgroundStyle("  ", null)).toEqual({
+      background: defaults.coverBackground,
+    });
+  });
+
+  it("fills design defaults when mode is design", () => {
+    expect(resolvePlaylistDesignFields("design", null, null, null)).toEqual(
+      defaultPlaylistDesignCover(),
+    );
+  });
+
+  it("preserves design fields for non-design modes", () => {
+    expect(
+      resolvePlaylistDesignFields("generated", "#111111", "#222222", "heart"),
+    ).toEqual({
+      coverBackground: "#111111",
+      coverBackgroundEnd: "#222222",
+      coverIcon: "heart",
+    });
+  });
+
+  it("resolves cover icons through the shared library", () => {
+    expect(resolveIconId("not-a-real-icon")).toBe(DEFAULT_LIBRARY_ICON_ID);
+    expect(resolveIconId("headphones")).toBe("headphones");
+    expect(defaultPlaylistDesignCover().coverIcon).toBe(
+      DEFAULT_LIBRARY_ICON_ID,
+    );
   });
 });

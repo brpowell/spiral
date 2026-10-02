@@ -15,6 +15,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { FitContentContext } from "../Modal/FitContentContext";
 import "./Tabs.css";
 
 export type TabsVariant = "default" | "underline";
@@ -326,6 +327,7 @@ export function TabPanel({
   children,
 }: TabPanelProps) {
   const { value: selectedValue, idPrefix } = useTabsContext();
+  const fitContent = useContext(FitContentContext);
   const panelId = `${idPrefix}-panel-${value}`;
   const tabId = `${idPrefix}-tab-${value}`;
   const isSelected = selectedValue === value;
@@ -340,7 +342,7 @@ export function TabPanel({
       aria-labelledby={tabId}
       hidden={!isSelected}
     >
-      {isSelected || keepMounted ? children : null}
+      {isSelected || keepMounted || fitContent ? children : null}
     </div>
   );
 }

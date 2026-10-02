@@ -39,6 +39,9 @@ export function syncTextareaAutoSize(
   el: HTMLTextAreaElement,
   rows?: number,
 ): void {
+  // A hidden tab has no box, and scrollHeight there is not the real content.
+  if (el.getClientRects().length === 0) return;
+
   el.style.height = "0px";
   let nextHeight = el.scrollHeight;
   if (rows != null) {
@@ -90,8 +93,23 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     }, [value, syncAutoSize]);
 
     useLayoutEffect(() => {
-      syncAutoSize();
-    }, [syncAutoSize, value]);
+      const el = textareaRef.current;
+      if (!el || !autoSize) return;
+
+      let lastWidth = -1;
+      const sync = () => {
+        if (el.getClientRects().length === 0) return;
+        const width = el.clientWidth;
+        if (width === lastWidth) return;
+        lastWidth = width;
+        syncTextareaAutoSize(el, rows);
+      };
+
+      sync();
+      const observer = new ResizeObserver(() => sync());
+      observer.observe(el);
+      return () => observer.disconnect();
+    }, [autoSize, rows, value]);
 
     const handleChange = useCallback(
       (e: React.ChangeEvent<HTMLTextAreaElement>) => {

@@ -1,11 +1,6 @@
-.track-editor-modal:has(.track-editor-modal__content--tabbed) {
-  height: min(92vh, 820px);
-}
-
-.track-editor-modal.track-editor-modal--compact:has(
-    .track-editor-modal__content--tabbed
-  ) {
-  height: min(80vh, 520px);
+/* Ceiling only. Modal fitContent animates the panel to the active tab. */
+.modal-panel.modal-panel--editor.track-editor-modal--compact {
+  max-height: min(80vh, 520px);
 }
 
 .track-editor-modal__content--tabbed > .modal-header {
@@ -15,7 +10,8 @@
 .track-editor-modal__main {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  /* basis auto so an auto-height panel hugs content; min-height 0 still scrolls at the cap. */
+  flex: 1 1 auto;
   min-height: 0;
 }
 
@@ -88,13 +84,15 @@
 .track-editor__tabs {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
 }
 
 .track-editor__tab-bar {
   flex-shrink: 0;
+  /* Room for the 1px focus ring. The tab strip's overflow clips anything above it. */
+  padding-top: 2px;
   padding-left: var(--modal-padding-inline);
   padding-right: var(--modal-padding-inline);
 }
@@ -102,7 +100,7 @@
 .track-editor__tab-body.modal-body {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   padding-top: 0;
   padding-right: 0;
@@ -111,14 +109,14 @@
 }
 
 .track-editor__tab-stage {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
 .track-editor__tab-panel.tabs__panel:not([hidden]) {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;

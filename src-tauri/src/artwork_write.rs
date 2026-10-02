@@ -160,21 +160,55 @@ fn write_playlist_art(
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     let ext = ext_from_key(mime_or_ext, bytes);
-    // Remove prior extensions for this playlist id.
-    if let Some(parent) = stem.parent() {
-        if parent.is_dir() {
-            let prefix = format!("{playlist_id}-");
-            for entry in fs::read_dir(parent).into_iter().flatten().flatten() {
-                let name = entry.file_name().to_string_lossy().into_owned();
-                if name.starts_with(&prefix) {
-                    let _ = fs::remove_file(entry.path());
-                }
-            }
-        }
-    }
+    // Remove prior files for this playlist id (keep room for a clean write).
+    clear_playlist_art_files(library_root, playlist_id)?;
     let dest = PathBuf::from(format!("{}.{ext}", stem.to_string_lossy()));
     fs::write(&dest, bytes).map_err(|e| e.to_string())?;
     Ok(dest.to_string_lossy().into_owned())
+}
+
+/// Bake a crop from `source_path` and write the display playlist cover only.
+pub fn store_cropped_playlist_art(
+    library_root: &Path,
+    playlist_id: i64,
+    title: &str,
+    source_path: &str,
+    crop: crate::image_crop::ImageCrop,
+) -> Result<String, String> {
+    let source = Path::new(source_path);
+    let source_bytes = fs::read(source).map_err(|e| format!("failed to read image source: {e}"))?;
+
+    let (baked, baked_ext) = crate::image_crop::bake_cropped_image(
+        &source_bytes,
+        crop,
+        crate::image_crop::MAX_DISPLAY_EDGE,
+    )?;
+
+    let stem = playlist_artwork_path_stem(library_root, playlist_id, title);
+    if let Some(parent) = stem.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    clear_playlist_art_files(library_root, playlist_id)?;
+
+    let display = PathBuf::from(format!("{}.{baked_ext}", stem.to_string_lossy()));
+    fs::write(&display, &baked).map_err(|e| format!("failed to write display art: {e}"))?;
+
+    Ok(display.to_string_lossy().into_owned())
+}
+
+fn clear_playlist_art_files(library_root: &Path, playlist_id: i64) -> Result<(), String> {
+    let dir = artwork_paths::artwork_root(library_root).join(artwork_paths::PLAYLISTS_DIR);
+    if !dir.is_dir() {
+        return Ok(());
+    }
+    let prefix = format!("{playlist_id}-");
+    for entry in fs::read_dir(&dir).map_err(|e| e.to_string())?.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with(&prefix) && entry.path().is_file() {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
+    Ok(())
 }
 
 fn ext_from_key(mime_or_ext: &str, bytes: &[u8]) -> &'static str {
@@ -209,4 +243,79 @@ pub fn track_art_path_for_db(library_root: &Path, absolute_or_rel: Option<&str>)
         return None;
     }
     to_library_relative(library_root, &abs).or_else(|| Some(path.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{Rgb, RgbImage};
+    use std::io::Cursor;
+
+    fn temp_root(label: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "spiral-crop-art-{label}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    #[test]
+    fn store_cropped_playlist_art_writes_display_only() {
+        let root = temp_root("store");
+        let mut img = RgbImage::new(4, 2);
+        for y in 0..2 {
+            for x in 0..4 {
+                img.put_pixel(
+                    x,
+                    y,
+                    if x < 2 {
+                        Rgb([255, 0, 0])
+                    } else {
+                        Rgb([0, 0, 255])
+                    },
+                );
+            }
+        }
+        let mut png = Vec::new();
+        image::DynamicImage::ImageRgb8(img)
+            .write_to(&mut Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        let source_path = root.join("pick.png");
+        fs::write(&source_path, &png).unwrap();
+
+        let crop = crate::image_crop::ImageCrop {
+            x: 0.5,
+            y: 0.0,
+            width: 0.5,
+            height: 1.0,
+        };
+        let display =
+            store_cropped_playlist_art(&root, 7, "Summer", source_path.to_str().unwrap(), crop)
+                .unwrap();
+
+        let display_path = PathBuf::from(&display);
+        assert!(display_path.is_file());
+        let stem = artwork_paths::playlist_artwork_path_stem(&root, 7, "Summer");
+        let parent = stem.parent().unwrap();
+        let entries: Vec<_> = fs::read_dir(parent)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            entries.len(),
+            1,
+            "expected only the display file, got {entries:?}"
+        );
+        assert!(!entries.iter().any(|n| n.contains(".source.")));
+        assert!(!entries.iter().any(|n| n.ends_with(".crop.json")));
+
+        let _ = fs::remove_dir_all(&root);
+    }
 }

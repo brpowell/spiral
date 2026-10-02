@@ -38,6 +38,7 @@ import type {
   MusicBrainzEntityKind,
   MusicBrainzEntityLookup,
 } from "../types/musicbrainz";
+import type { ImageCrop } from "./imageCrop";
 import type { Playlist } from "../types/playlist";
 import type { PlaybackSettings } from "../types/playbackSettings";
 import type { LicenseDemoted, LicenseSnapshot } from "../types/license";
@@ -426,7 +427,9 @@ function normalizePlaylistImageMode(
   raw: Record<string, unknown>,
 ): Playlist["imageMode"] {
   const mode = (raw.imageMode ?? raw.image_mode) as string | undefined;
-  return mode === "custom" ? "custom" : "generated";
+  if (mode === "custom") return "custom";
+  if (mode === "design") return "design";
+  return "generated";
 }
 
 function normalizePlaylist(raw: Record<string, unknown>): Playlist {
@@ -440,6 +443,12 @@ function normalizePlaylist(raw: Record<string, unknown>): Playlist {
     imageMode: normalizePlaylistImageMode(raw),
     customImagePath: (raw.customImagePath ?? raw.custom_image_path ?? null) as
       string | null,
+    coverBackground: (raw.coverBackground ?? raw.cover_background ?? null) as
+      string | null,
+    coverBackgroundEnd: (raw.coverBackgroundEnd ??
+      raw.cover_background_end ??
+      null) as string | null,
+    coverIcon: (raw.coverIcon ?? raw.cover_icon ?? null) as string | null,
   };
 }
 
@@ -451,6 +460,9 @@ export async function getPlaylists(): Promise<Playlist[]> {
 export interface PlaylistImageUpdate {
   imageMode: Playlist["imageMode"];
   customImagePath: string | null;
+  coverBackground: string | null;
+  coverBackgroundEnd: string | null;
+  coverIcon: string | null;
 }
 
 export async function createPlaylist(
@@ -463,6 +475,9 @@ export async function createPlaylist(
     description,
     imageMode: image.imageMode,
     customImagePath: image.customImagePath,
+    coverBackground: image.coverBackground,
+    coverBackgroundEnd: image.coverBackgroundEnd,
+    coverIcon: image.coverIcon,
   });
 }
 
@@ -478,6 +493,9 @@ export async function updatePlaylist(
     description,
     imageMode: image.imageMode,
     customImagePath: image.customImagePath,
+    coverBackground: image.coverBackground,
+    coverBackgroundEnd: image.coverBackgroundEnd,
+    coverIcon: image.coverIcon,
   });
 }
 
@@ -523,6 +541,20 @@ export async function cacheArtFromFile(
   filePath: string,
 ): Promise<string> {
   return invoke<string>("cache_art_from_file", { sourcePath, filePath });
+}
+
+export async function storeCroppedPlaylistArt(
+  playlistId: number,
+  title: string,
+  sourcePath: string,
+  crop: ImageCrop,
+): Promise<string> {
+  return invoke<string>("store_cropped_playlist_art", {
+    playlistId,
+    title,
+    sourcePath,
+    crop,
+  });
 }
 
 export async function cacheArtFromBytes(

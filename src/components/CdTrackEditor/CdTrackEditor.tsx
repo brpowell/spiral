@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useResetOnOpen } from "../../hooks/useResetOnOpen";
 import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
 import { useTrackMetadataForm } from "../../hooks/useTrackMetadataForm";
 import { parseArtistField } from "../../lib/artistNames";
@@ -227,6 +228,7 @@ export function CdTrackEditor() {
     editingCdTrackIds.length > 0 &&
     tracks.length > 0 &&
     form != null;
+  useResetOnOpen(isOpen, "details", activeTab, setActiveTab);
 
   useEffect(() => {
     if (!isOpen || isBulk) return;
@@ -410,6 +412,7 @@ export function CdTrackEditor() {
       open={isOpen}
       onClose={handleBackdropClick}
       size="editor"
+      fitContent
       panelClassName="track-editor-modal"
       panelRef={dialogRef}
       labelledBy="cd-track-editor-title"

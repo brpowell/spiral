@@ -1,0 +1,51 @@
+.image-cropper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.image-cropper__frame {
+  position: relative;
+  width: 100%;
+  max-width: 280px;
+  min-height: 12rem;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-bg) 35%, transparent);
+}
+
+.image-cropper__frame:active {
+  cursor: grabbing;
+}
+
+.image-cropper__img {
+  position: absolute;
+  max-width: none;
+  max-height: none;
+  pointer-events: none;
+  display: block;
+}
+
+.image-cropper__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 280px;
+}
+
+.image-cropper__zoom {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.image-cropper__zoom-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}

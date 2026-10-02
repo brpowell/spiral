@@ -1,22 +1,248 @@
-.playlist-editor__image-section {
+.playlist-art--identity {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.playlist-editor__description.textarea {
+  resize: none;
+}
+
+.playlist-editor__art {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.playlist-editor__art-preview {
+  position: sticky;
+  top: 0;
+}
+
+.playlist-editor__art-preview .playlist-art--editor {
+  width: 10rem;
+  height: 10rem;
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-bg) 35%, transparent);
+}
+
+.playlist-editor__art-controls {
   display: flex;
   flex-direction: column;
+  gap: 1.15rem;
+  min-width: 0;
+}
+
+/* Keep every art option laid out so the tab stays as tall as the tallest one. */
+.playlist-editor__option-stage {
+  display: grid;
+}
+
+.playlist-editor__option-stage > * {
+  grid-area: 1 / 1;
+  align-self: start;
+}
+
+.playlist-editor__option-stage > [inert] {
+  visibility: hidden;
+}
+
+.playlist-editor__style-cards.radio-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.playlist-editor__style-card.radio-group-item--button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.45rem;
+  min-width: 0;
+  height: auto;
+  border-radius: var(--radius-md);
+}
+
+.playlist-editor__style-thumb {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.playlist-editor__style-thumb .playlist-art,
+.playlist-art--style-card {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+}
+
+.playlist-editor__style-label {
+  font-size: 0.8rem;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.playlist-editor__hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.playlist-editor__design {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.playlist-editor__colors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: 0.75rem;
 }
 
-.playlist-editor__preview-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
+.playlist-editor__color-action {
+  margin-bottom: 0.55rem;
 }
 
-.playlist-editor__preview {
-  flex-shrink: 0;
+.playlist-editor__color-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  max-width: 2.75rem;
+}
+
+label.playlist-editor__color-picker {
+  cursor: pointer;
+}
+
+.playlist-editor__color-picker-label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.playlist-editor__swatch-hit {
+  position: relative;
+  display: block;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.playlist-editor__swatch.btn {
+  width: 2.75rem;
+  height: 2.75rem;
+  min-width: 2.75rem;
+  padding: 0;
+}
+
+.playlist-editor__swatch-hit > .playlist-editor__swatch.btn {
+  pointer-events: none;
+}
+
+.playlist-editor__color-add.btn {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+/* The system color panel anchors to this input, so it has to cover the swatch. */
+.playlist-editor__swatch-input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.playlist-editor__swatch-input:focus {
+  outline: none;
+}
+
+.playlist-editor__swatch-hit:hover > .btn--secondary {
+  --btn-lip: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 1px 0 rgb(0 0 0 / 0.12);
+  box-shadow: var(--btn-lip);
+}
+
+.playlist-editor__swatch-hit:active > .btn--secondary {
+  --btn-lip: inset 0 1px 2px rgb(0 0 0 / 0.14);
+  top: 1px;
+  box-shadow: var(--btn-lip);
+}
+
+.playlist-editor__color-swatch {
+  position: relative;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.playlist-editor__color-clear {
+  position: absolute;
+  z-index: 2;
+  top: -0.35rem;
+  right: -0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+.playlist-editor__color-clear:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-secondary);
+}
+
+.playlist-editor__color-clear svg {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+.playlist-editor__color-clear:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .playlist-editor__image-actions {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 0.5rem;
-  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .playlist-editor__art {
+    grid-template-columns: 1fr;
+    gap: 1.15rem;
+  }
+
+  .playlist-editor__art-preview {
+    position: static;
+    display: flex;
+    justify-content: center;
+  }
 }

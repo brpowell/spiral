@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useResetOnOpen } from "../../hooks/useResetOnOpen";
 import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
 import {
   cdArtCacheKey,
@@ -135,6 +136,7 @@ export function CdAlbumEditor() {
   const [artDragOver, setArtDragOver] = useState(false);
 
   const isOpen = editingCdAlbumDriveId != null && disc != null && form != null;
+  useResetOnOpen(isOpen, cdAlbumEditorInitialTab, activeTab, setActiveTab);
 
   useFocusTrap(dialogRef, isOpen);
 
@@ -397,6 +399,7 @@ export function CdAlbumEditor() {
       open={isOpen}
       onClose={handleBackdropClick}
       size="editor"
+      fitContent
       panelClassName="track-editor-modal"
       panelRef={dialogRef}
       labelledBy="cd-album-editor-title"

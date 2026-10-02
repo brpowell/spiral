@@ -5,7 +5,7 @@ import {
   IconDownload,
   IconPackage,
   IconPalette,
-  IconSkinMode,
+  IconBoombox,
   IconVisualizer,
 } from "../icons";
 
@@ -30,7 +30,7 @@ export const APPEARANCE_CONTENT_SECTIONS: AppearanceSectionConfig[] = [
   {
     id: "skins",
     label: t("studio:nav.skins"),
-    icon: <IconSkinMode />,
+    icon: <IconBoombox />,
   },
   {
     id: "packs",

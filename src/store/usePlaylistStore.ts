@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { refreshArtDisplay } from "../lib/artDisplayCache";
 import {
   addTracksToPlaylist as addTracksToPlaylistApi,
   removeTracksFromPlaylist as removeTracksFromPlaylistApi,
@@ -21,7 +22,10 @@ interface PlaylistState {
   pendingTrackIdsForNewPlaylist: number[];
 
   loadPlaylists: () => Promise<void>;
-  openPlaylistEditor: (target: number | "new", pendingTrackIds?: number[]) => void;
+  openPlaylistEditor: (
+    target: number | "new",
+    pendingTrackIds?: number[],
+  ) => void;
   closePlaylistEditor: () => void;
   createPlaylist: (
     title: string,
@@ -34,7 +38,10 @@ interface PlaylistState {
     description: string | null,
     image: PlaylistImageUpdate,
   ) => Promise<void>;
-  addTracksToPlaylist: (playlistId: number, trackIds: number[]) => Promise<void>;
+  addTracksToPlaylist: (
+    playlistId: number,
+    trackIds: number[],
+  ) => Promise<void>;
   removeTracksFromPlaylist: (
     playlistId: number,
     trackIds: number[],
@@ -84,8 +91,15 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
   },
 
   updatePlaylist: async (id, title, description, image) => {
+    const previousPath =
+      get().playlists.find((p) => p.id === id)?.customImagePath ?? null;
     await updatePlaylistApi(id, title, description, image);
     await get().loadPlaylists();
+    const nextPath =
+      get().playlists.find((p) => p.id === id)?.customImagePath ?? null;
+    // Same-path rebakes (and path renames) need a cache-bust so sidebar /
+    // detail / identity art pick up the new file bytes.
+    refreshArtDisplay([previousPath, nextPath, image.customImagePath]);
   },
 
   addTracksToPlaylist: async (playlistId, trackIds) => {
@@ -126,9 +140,12 @@ export const usePlaylistStore = create<PlaylistState>((set, get) => ({
   },
 
   deletePlaylist: async (id) => {
+    const previousPath =
+      get().playlists.find((p) => p.id === id)?.customImagePath ?? null;
     await deletePlaylistApi(id);
     const { editingPlaylistId } = get();
     await get().loadPlaylists();
+    refreshArtDisplay([previousPath]);
     if (editingPlaylistId === id) {
       set({ editingPlaylistId: null });
     }

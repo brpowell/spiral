@@ -1,0 +1,105 @@
+.playlist-icon-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  width: 2.75rem;
+  min-width: 2.75rem;
+  max-width: 2.75rem;
+}
+
+.playlist-icon-picker__label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.playlist-icon-picker__trigger.btn > svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.playlist-icon-picker__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: min(18.5rem, calc(100vw - 1rem));
+  padding: 0.5rem;
+}
+
+.playlist-icon-picker__panel .search-field {
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+
+.playlist-icon-picker__results {
+  display: flex;
+  flex-direction: column;
+  height: 14rem;
+}
+
+.playlist-icon-picker__status {
+  margin: auto;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.playlist-icon-picker__grid {
+  --playlist-icon-columns: 6;
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  align-content: start;
+  grid-template-columns: repeat(var(--playlist-icon-columns), minmax(0, 1fr));
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0.1rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.playlist-icon-picker__option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.playlist-icon-picker__option svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.playlist-icon-picker__option:hover,
+.playlist-icon-picker__option:focus-visible {
+  background: color-mix(in oklch, white 14%, transparent);
+  border-color: var(--color-border);
+}
+
+.playlist-icon-picker__option[aria-selected="true"] {
+  background: color-mix(in srgb, var(--color-accent) 24%, transparent);
+  border-color: var(--color-accent);
+}
+
+.playlist-icon-picker__option[aria-selected="true"]:hover,
+.playlist-icon-picker__option[aria-selected="true"]:focus-visible {
+  background: color-mix(in srgb, var(--color-accent) 34%, transparent);
+}
+
+.playlist-icon-picker__option:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}

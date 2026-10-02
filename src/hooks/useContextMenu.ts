@@ -116,7 +116,15 @@ export function useContextMenu(options: UseContextMenuOptions = {}) {
         );
         return;
       }
-      openAt(x, rect.bottom + TRIGGER_MENU_GAP, { align }, openOptions);
+      openAt(
+        x,
+        rect.bottom + TRIGGER_MENU_GAP,
+        {
+          align,
+          flipUpAlignBottomY: rect.top - TRIGGER_MENU_GAP,
+        },
+        openOptions,
+      );
     },
     [openAt, triggerPlacement],
   );

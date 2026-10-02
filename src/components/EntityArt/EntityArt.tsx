@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { IconAlbumPlaceholder } from "../icons";
+import { IconDisc2 } from "../icons";
 import { useEntityArtSrc, type EntityArtVariant } from "./useEntityArtSrc";
 import "./EntityArt.css";
 
@@ -34,7 +34,7 @@ export function EntityArt({
         />
       ) : (
         <div className="album-art__placeholder" aria-hidden>
-          {placeholder ?? <IconAlbumPlaceholder />}
+          {placeholder ?? <IconDisc2 />}
         </div>
       )}
     </div>

@@ -1,9 +1,5 @@
-import type { ComponentType, SVGProps } from "react";
-import * as Icons from "../components/icons";
-
-type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
-
-const ICON_MODULE = Icons as Record<string, IconComponent | undefined>;
+import { resolveIcon } from "./iconLibrary";
+import type { IconComponent } from "./iconLibrary";
 
 /** True when `icon` is a pack-relative raster asset under assets/. */
 export function isSkinAssetIconPath(icon: string): boolean {
@@ -11,11 +7,10 @@ export function isSkinAssetIconPath(icon: string): boolean {
 }
 
 /**
- * Resolve a skin library icon id to an `icons.tsx` component.
- * Id is the `Icon*` export with the prefix stripped (`setList` → `IconSetList`).
+ * Resolve a skin library icon id to a registry component.
+ * Id matches the icon library (`setList`, `headphones`); pack rasters return undefined.
  */
 export function resolveSkinLibraryIcon(id: string): IconComponent | undefined {
   if (!id || isSkinAssetIconPath(id)) return undefined;
-  const exportName = `Icon${id[0]!.toUpperCase()}${id.slice(1)}`;
-  return ICON_MODULE[exportName];
+  return resolveIcon(id);
 }

@@ -33,6 +33,12 @@
   "optional": "Optional",
   "reset": "Reset",
   "resetToOriginal": "Reset to original",
+  "imageCrop": {
+    "title": "Crop image",
+    "zoom": "Zoom",
+    "frameAria": "Crop image",
+    "apply": "Apply"
+  },
   "save": "Save",
   "saveChanges": "Save changes?",
   "saving": "Saving…",

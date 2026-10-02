@@ -69,10 +69,11 @@ pub struct TrackMetadataUpdate {
     pub album_artist_mbids: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PlaylistImageMode {
     Generated,
+    Design,
     Custom,
 }
 
@@ -87,6 +88,12 @@ pub struct Playlist {
     pub track_ids: Vec<i64>,
     pub image_mode: PlaylistImageMode,
     pub custom_image_path: Option<String>,
+    /// Solid fill or gradient start (`#rrggbb`). Used when `image_mode` is Design.
+    pub cover_background: Option<String>,
+    /// Gradient end (`#rrggbb`). None means solid.
+    pub cover_background_end: Option<String>,
+    /// Cover icon id from the designed-cover catalog.
+    pub cover_icon: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

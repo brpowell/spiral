@@ -133,7 +133,7 @@ export function IconVolumeMute(props: IconProps) {
   );
 }
 
-export function IconAlbumPlaceholder(props: IconProps) {
+export function IconDisc2(props: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -152,7 +152,7 @@ export function IconAlbumPlaceholder(props: IconProps) {
   );
 }
 
-export function IconPlaylistPlaceholder(props: IconProps) {
+export function IconCassette(props: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -202,6 +202,25 @@ export function IconTracks(props: IconProps) {
       <path d="M9 18V5l12-2v13" />
       <circle cx="6" cy="18" r="3" />
       <circle cx="18" cy="16" r="3" />
+    </svg>
+  );
+}
+
+export function IconImage(props: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <rect width="18" height="18" x="3" y="3" rx="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
     </svg>
   );
 }
@@ -832,7 +851,7 @@ export function IconPopOut(props: IconProps) {
   );
 }
 
-export function IconSkinMode(props: IconProps) {
+export function IconBoombox(props: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"

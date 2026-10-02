@@ -1,4 +1,8 @@
-import type { LyricsLine, LyricsSource, TrackLyricsInput } from "../types/lyrics";
+import type {
+  LyricsLine,
+  LyricsSource,
+  TrackLyricsInput,
+} from "../types/lyrics";
 import { linesToPlainText } from "./lyrics";
 
 const METADATA_TAG_KEYS = new Set([
@@ -112,27 +116,6 @@ function isMetadataTag(inner: string): boolean {
   return METADATA_TAG_KEYS.has(key);
 }
 
-/** Collapse repeated timed lines into one row per unique lyric (LRC plain text). */
-export function plainTextFromSyncedLines(lines: LyricsLine[]): string {
-  const parts: string[] = [];
-  let previousText: string | null = null;
-
-  for (const line of lines) {
-    if (line.text === "" && line.startMs === undefined) {
-      parts.push("");
-      previousText = null;
-      continue;
-    }
-
-    if (line.text !== previousText) {
-      parts.push(line.text);
-      previousText = line.text;
-    }
-  }
-
-  return parts.join("\n");
-}
-
 /** Parse LRC text into timed lyric lines. */
 export function parseLrc(text: string): ParsedLrc {
   let offsetMs = 0;
@@ -193,7 +176,7 @@ export function parseLrc(text: string): ParsedLrc {
 
   return {
     lines,
-    plainText: plainTextFromSyncedLines(lines),
+    plainText: linesToPlainText(lines),
     offsetMs,
   };
 }
@@ -207,10 +190,7 @@ function formatTimestamp(ms: number): string {
 }
 
 /** Serialize timed lines back to LRC. */
-export function serializeLrc(
-  lines: LyricsLine[],
-  offsetMs = 0,
-): string {
+export function serializeLrc(lines: LyricsLine[], offsetMs = 0): string {
   const output: string[] = [];
   if (offsetMs !== 0) {
     output.push(`[offset:${offsetMs}]`);

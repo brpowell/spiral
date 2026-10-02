@@ -1,0 +1,16 @@
+.image-crop-modal__body {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.image-crop-modal__cropper {
+  width: min(100%, 280px);
+  flex: 0 0 auto;
+}
+
+.image-crop-modal__cropper .image-cropper__frame,
+.image-crop-modal__cropper .image-cropper__controls {
+  max-width: none;
+  width: 100%;
+}

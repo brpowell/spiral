@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useResetOnOpen } from "../../hooks/useResetOnOpen";
 import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
 import {
   bulkSaveFooterProps,
@@ -253,6 +254,7 @@ export function TrackEditor() {
 
   const isOpen =
     editingTrackIds.length > 0 && tracks.length > 0 && form != null;
+  useResetOnOpen(isOpen, trackEditorInitialTab, activeTab, setActiveTab);
 
   const lyricsFetchPending = useLyricsFetchStore((s) =>
     referenceTrack
@@ -970,6 +972,7 @@ export function TrackEditor() {
       onClose={handleBackdropClick}
       dismissible={!saving && !artPickerOpen}
       size="editor"
+      fitContent
       panelClassName="track-editor-modal"
       panelRef={dialogRef}
       labelledBy="track-editor-title"

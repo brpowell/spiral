@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { useResetOnOpen } from "../../hooks/useResetOnOpen";
 import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
 import {
   bulkSaveFooterProps,
@@ -120,6 +121,7 @@ export function ArtistEditor() {
   const artFetchGenRef = useRef(0);
 
   const isOpen = editingArtistKey != null && artist != null && form != null;
+  useResetOnOpen(isOpen, "details", activeTab, setActiveTab);
 
   useFocusTrap(dialogRef, isOpen);
 
@@ -411,6 +413,7 @@ export function ArtistEditor() {
       onClose={handleBackdropClick}
       dismissible={!saving && !artPickerOpen}
       size="editor"
+      fitContent
       panelClassName="track-editor-modal track-editor-modal--compact"
       panelRef={dialogRef}
       labelledBy="artist-editor-title"

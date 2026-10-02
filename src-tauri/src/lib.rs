@@ -22,6 +22,7 @@ mod encoding_profiles;
 mod file_playback;
 mod file_scan;
 mod fs_move;
+mod image_crop;
 mod import_files;
 mod itunes_smpb;
 mod library_organize;
@@ -226,6 +227,7 @@ pub fn run() {
             commands::playlists::get_playlists,
             commands::playlists::create_playlist,
             commands::playlists::update_playlist,
+            commands::playlists::store_cropped_playlist_art,
             commands::playlists::touch_playlist,
             commands::playlists::add_tracks_to_playlist,
             commands::playlists::remove_tracks_from_playlist,

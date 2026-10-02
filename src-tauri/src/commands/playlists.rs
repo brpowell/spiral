@@ -31,6 +31,24 @@ fn store_playlist_image(library_root: &Path, path: Option<&str>) -> Option<Strin
 }
 
 #[tauri::command]
+pub fn store_cropped_playlist_art(
+    app: AppHandle,
+    playlist_id: i64,
+    title: String,
+    source_path: String,
+    crop: crate::image_crop::ImageCrop,
+) -> Result<String, String> {
+    let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
+    crate::artwork_write::store_cropped_playlist_art(
+        &library_root,
+        playlist_id,
+        &title,
+        &source_path,
+        crop,
+    )
+}
+
+#[tauri::command]
 pub fn get_playlists(app: AppHandle, state: State<DbState>) -> Result<Vec<Playlist>, String> {
     let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -52,6 +70,9 @@ pub fn create_playlist(
     description: Option<String>,
     image_mode: PlaylistImageMode,
     custom_image_path: Option<String>,
+    cover_background: Option<String>,
+    cover_background_end: Option<String>,
+    cover_icon: Option<String>,
 ) -> Result<i64, String> {
     let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
     let stored = store_playlist_image(&library_root, custom_image_path.as_deref());
@@ -62,6 +83,9 @@ pub fn create_playlist(
         description.as_deref(),
         image_mode,
         stored.as_deref(),
+        cover_background.as_deref(),
+        cover_background_end.as_deref(),
+        cover_icon.as_deref(),
     )
     .map_err(|e| {
         eprintln!("create_playlist error: {e}");
@@ -78,6 +102,9 @@ pub fn update_playlist(
     description: Option<String>,
     image_mode: PlaylistImageMode,
     custom_image_path: Option<String>,
+    cover_background: Option<String>,
+    cover_background_end: Option<String>,
+    cover_icon: Option<String>,
 ) -> Result<(), String> {
     let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
@@ -90,8 +117,12 @@ pub fn update_playlist(
         )
         .map_err(|e| e.to_string())?;
 
-    let mut stored = store_playlist_image(&library_root, custom_image_path.as_deref());
-    if old_title.trim() != title.trim() {
+    let mut stored = if image_mode == PlaylistImageMode::Custom {
+        store_playlist_image(&library_root, custom_image_path.as_deref())
+    } else {
+        None
+    };
+    if image_mode == PlaylistImageMode::Custom && old_title.trim() != title.trim() {
         stored = crate::artwork_organize::rename_playlist_artwork_file(
             &library_root,
             id,
@@ -99,6 +130,9 @@ pub fn update_playlist(
             &title,
             stored.as_deref().or(old_image.as_deref()),
         )?;
+    }
+    if stored.is_none() {
+        crate::artwork_organize::remove_playlist_artwork(&library_root, id)?;
     }
 
     db::update_playlist(
@@ -108,6 +142,9 @@ pub fn update_playlist(
         description.as_deref(),
         image_mode,
         stored.as_deref(),
+        cover_background.as_deref(),
+        cover_background_end.as_deref(),
+        cover_icon.as_deref(),
     )
     .map_err(|e| {
         eprintln!("update_playlist error: {e}");

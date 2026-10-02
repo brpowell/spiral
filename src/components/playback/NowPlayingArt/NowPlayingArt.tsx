@@ -12,7 +12,7 @@ import { subscribeCrossfadeVisual } from "../../../lib/crossfadeVisualClock";
 import type { CrossfadeVisualState } from "../../../lib/playback";
 import { styleFromSkinNode } from "../../../lib/skinNodeStyle";
 import type { ArtworkNode, NodeStyle } from "../../../types/skin";
-import { IconAlbumPlaceholder } from "../../icons";
+import { IconDisc2 } from "../../icons";
 import "./NowPlayingArt.css";
 
 function applyCrossfadeOpacity(
@@ -120,7 +120,7 @@ export function NowPlayingArtVisual({
 
   return (
     <div className="now-playing-art__placeholder" aria-hidden>
-      <IconAlbumPlaceholder />
+      <IconDisc2 />
     </div>
   );
 }
