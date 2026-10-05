@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 use spk_format::{
     cleanup_pack_extract_dir, contribution_id_from_manifest_json, effective_contribution_id,
     extract_pack_archive, find_pack_root, get_contribution_type_handler, parse_pack_manifest_json,
-    resolve_preview_file, validate_renderer_contribution_at, validate_skin_contribution_at,
+    resolve_preview_file, validate_skin_contribution_at, validate_sound_contribution_at,
     validate_theme_contribution_at, validate_visualizer_contribution_at, PackManifest,
     CONTRIBUTION_TYPE_FOLDERS, PACK_CHANGELOG_FILENAME, PACK_CHANGELOG_MAX_BYTES,
     PACK_MANIFEST_FILENAME, PACK_README_FILENAME, PACK_README_MAX_BYTES,
@@ -225,7 +225,7 @@ fn validate_contribution(contrib_type: &str, manifest_path: &Path) -> Result<(),
         "theme" => validate_theme_contribution_at(manifest_path),
         "skin" => validate_skin_contribution_at(manifest_path),
         "visualizer" => validate_visualizer_contribution_at(manifest_path),
-        "renderer" => validate_renderer_contribution_at(manifest_path),
+        "sound" => validate_sound_contribution_at(manifest_path),
         other => Err(format!("unknown contribution type \"{other}\"")),
     }
 }
