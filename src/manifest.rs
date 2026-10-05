@@ -2,7 +2,7 @@
 //!
 //! Contribution ids are declared in each contribution manifest.
 //! Effective id = `authorId.packId.type.contributionId`.
-//! Contributions are discovered by scanning type folders (`themes/`, `skins/`, `visualizers/`, `renderers/`).
+//! Contributions are discovered by scanning type folders (`themes/`, `skins/`, `visualizers/`, `sounds/`).
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -34,7 +34,6 @@ pub const CONTRIBUTION_TYPE_FOLDERS: &[(&str, &str, &str)] = &[
     ("themes", "theme", "theme.json"),
     ("skins", "skin", "skin.json"),
     ("visualizers", "visualizer", "viz.json"),
-    ("renderers", "renderer", "renderer.json"),
     ("sounds", "sound", "sound.json"),
 ];
 
@@ -391,7 +390,6 @@ pub fn get_contribution_type_handler(r#type: &str) -> Option<ContributionTypeHan
                 "theme" => "theme-v1",
                 "skin" => "skin-v1",
                 "visualizer" => "viz-v1",
-                "renderer" => "renderer-v1",
                 "sound" => "sound-v1",
                 _ => "unknown",
             };
@@ -514,11 +512,11 @@ mod tests {
         assert!(get_contribution_type_handler("theme").is_some());
         assert!(get_contribution_type_handler("skin").is_some());
         assert!(get_contribution_type_handler("visualizer").is_some());
-        assert!(get_contribution_type_handler("renderer").is_some());
         assert!(get_contribution_type_handler("sound").is_some());
+        assert!(get_contribution_type_handler("renderer").is_none());
         assert!(get_contribution_type_handler("lyrics-overlay").is_none());
         assert_eq!(contribution_type_for_folder("themes"), Some("theme"));
-        assert_eq!(contribution_type_for_folder("renderers"), Some("renderer"));
+        assert_eq!(contribution_type_for_folder("renderers"), None);
         assert_eq!(contribution_type_for_folder("lyrics"), None);
     }
 

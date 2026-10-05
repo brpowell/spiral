@@ -30,9 +30,8 @@ pub use skin::{
 pub use sound::validate_sound_contribution_at;
 pub use theme::{validate_theme_contribution_at, REQUIRED_THEME_TOKEN_KEYS};
 pub use visualizer::{
-    is_renderer_effective_id, is_safe_media_asset_path, is_safe_pack_relative_js,
-    normalize_viz_manifest, validate_renderer_contribution_at, validate_visualizer_contribution_at,
-    RendererManifestFile, VizManifest, VizSurfaceProfile,
+    is_safe_media_asset_path, is_safe_pack_relative_js, validate_visualizer_contribution_at,
+    VizManifest,
 };
 
 /// JSON Schema documents for pack and contribution manifests (source of truth).
@@ -41,7 +40,6 @@ pub mod schemas {
     pub const THEME_V1: &str = include_str!("../schemas/theme-v1.schema.json");
     pub const SKIN_V1: &str = include_str!("../schemas/skin-v1.schema.json");
     pub const VIZ_V1: &str = include_str!("../schemas/viz-v1.schema.json");
-    pub const RENDERER_V1: &str = include_str!("../schemas/renderer-v1.schema.json");
     pub const SOUND_V1: &str = include_str!("../schemas/sound-v1.schema.json");
     pub const PRESENTATION_COMMON: &str =
         include_str!("../schemas/presentation-common.schema.json");
