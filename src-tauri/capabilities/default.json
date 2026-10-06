@@ -42,6 +42,8 @@
     "core:window:allow-set-ignore-cursor-events",
     "core:window:allow-cursor-position",
     "opener:default",
+    "dialog:allow-ask",
+    "dialog:allow-message",
     {
       "identifier": "opener:allow-open-path",
       "allow": [

@@ -51,5 +51,12 @@
     "title": "Delete playlist?",
     "confirm": "Delete playlist",
     "body": "<strong>{{title}}</strong> will be permanently deleted. Tracks in this playlist will stay in your library."
+  },
+  "skinOpenUrl": {
+    "title": "Open this link?",
+    "body": "This skin wants to open:\n{{url}}",
+    "open": "Open",
+    "blockedTitle": "Can't open this link",
+    "blockedBody": "This address isn't a web page, so Spiral won't open it."
   }
 }

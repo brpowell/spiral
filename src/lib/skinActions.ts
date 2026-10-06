@@ -1,4 +1,3 @@
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { emit } from "@tauri-apps/api/event";
 import { albumKey as albumKeyFromTrack } from "./albums";
 import { useNavigationStore } from "../store/useNavigationStore";
@@ -25,6 +24,7 @@ import { useVisualizerStore } from "../store/useVisualizerStore";
 import { useEqualizerStore } from "../store/useEqualizerStore";
 import { usePlaybackSettingsStore } from "../store/usePlaybackSettingsStore";
 import { pickAndImportLibraryPaths } from "./libraryImport";
+import { confirmAndOpenSkinUrl } from "./skinOpenUrl";
 import {
   SKIN_PREFERENCES_ACTION_EVENT,
   type SkinPreferencesActionPayload,
@@ -282,7 +282,7 @@ export function runSkinAction(
       break;
     case "app.openUrl":
       if (payload?.url) {
-        void openUrl(payload.url);
+        void confirmAndOpenSkinUrl(payload.url);
       }
       break;
     case "app.openFile":
