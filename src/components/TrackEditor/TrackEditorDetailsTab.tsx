@@ -1,28 +1,15 @@
 import { useTranslation } from "react-i18next";
 import {
-  coverArtThumbSrc,
-  coverOptionMetaText,
-} from "../../lib/coverArtThumbs";
-import {
   mixedFieldPlaceholder,
   type TrackEditorForm,
   type TrackEditorFormField,
 } from "../../lib/trackMetadataForm";
-import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
 import { ArtistChipField } from "../ArtistChipField/ArtistChipField";
 import { TrackRating } from "../TrackRating/TrackRating";
-import { EntityArt } from "../EntityArt/EntityArt";
-import { Button } from "../common/Button/Button";
 import { FormField } from "../common/Field/Field";
 import { AutocompleteInput } from "../common/AutocompleteInput/AutocompleteInput";
 import { TextInput } from "../common/TextInput/TextInput";
-
-function CoverOptionMeta({ candidate }: { candidate: CoverArtCandidate }) {
-  const meta = coverOptionMetaText(candidate);
-  if (!meta) return null;
-  return <span className="track-editor__cover-meta">{meta}</span>;
-}
 
 function TrackEditorField({
   label,
@@ -124,114 +111,6 @@ export type TrackEditorDetailsTabProps = {
   genreSuggestions: string[];
   albumSuggestions: string[];
 };
-
-export type TrackEditorInlineArtProps = {
-  previewSrc: string | null;
-  artDragOver: boolean;
-  fetchingArt: boolean;
-  fetchMessage: string | null;
-  coverCandidates: CoverArtCandidate[];
-  selectedCoverUrl: string | null;
-  onArtDragOver: (active: boolean) => void;
-  onArtDrop: (e: React.DragEvent) => void;
-  onChangeArt: () => void;
-  onFetchArt: () => void;
-  onSelectCover: (url: string) => void;
-};
-
-/** Old inline art column — still used by the CD track editor. */
-export function TrackEditorInlineArt({
-  previewSrc,
-  artDragOver,
-  fetchingArt,
-  fetchMessage,
-  coverCandidates,
-  selectedCoverUrl,
-  onArtDragOver,
-  onArtDrop,
-  onChangeArt,
-  onFetchArt,
-  onSelectCover,
-}: TrackEditorInlineArtProps) {
-  const { t } = useTranslation("library");
-  return (
-    <div className="track-editor__art-col">
-      <div
-        data-art-drop-zone
-        className={
-          artDragOver
-            ? "track-editor__art-drop track-editor__art-drop--active"
-            : "track-editor__art-drop"
-        }
-        onDragOver={(e) => {
-          e.preventDefault();
-          onArtDragOver(true);
-        }}
-        onDragLeave={() => onArtDragOver(false)}
-        onDrop={onArtDrop}
-      >
-        {previewSrc ? (
-          <img src={previewSrc} alt="" className="track-editor__art-img" />
-        ) : (
-          <EntityArt artPath={null} className="track-editor__art-placeholder" />
-        )}
-      </div>
-      <Button size="sm" className="track-editor__art-btn" onClick={onChangeArt}>
-        {t("editor.addArt")}
-      </Button>
-      <Button
-        size="sm"
-        className="track-editor__art-btn"
-        onClick={onFetchArt}
-        disabled={fetchingArt}
-      >
-        {fetchingArt ? t("editor.fetchingArt") : t("editor.fetchArt")}
-      </Button>
-      {fetchMessage && !fetchingArt && (
-        <p className="track-editor__fetch-msg">{fetchMessage}</p>
-      )}
-      {fetchingArt && (
-        <div
-          className="track-editor__fetching"
-          role="status"
-          aria-live="polite"
-        >
-          <span className="track-editor__fetching-spinner" aria-hidden />
-          <span>{t("editor.fetchingArtStatus")}</span>
-        </div>
-      )}
-      {coverCandidates.length > 0 && (
-        <div
-          className="track-editor__cover-picker"
-          aria-label={t("editor.coverOptions")}
-        >
-          {coverCandidates.map((candidate) => {
-            const thumbSrc = coverArtThumbSrc(candidate);
-
-            return (
-              <button
-                key={candidate.url}
-                type="button"
-                className={
-                  selectedCoverUrl === candidate.url
-                    ? "track-editor__cover-option track-editor__cover-option--selected"
-                    : "track-editor__cover-option"
-                }
-                onClick={() => onSelectCover(candidate.url)}
-                aria-pressed={selectedCoverUrl === candidate.url}
-              >
-                <span className="track-editor__cover-thumb">
-                  <img src={thumbSrc} alt="" loading="lazy" />
-                </span>
-                <CoverOptionMeta candidate={candidate} />
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export function TrackEditorDetailsTab({
   form,

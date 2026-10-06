@@ -190,10 +190,7 @@ export function startCdHeroArtFetch(driveId: string): void {
   })();
 }
 
-export function startCdMetadataFetch(
-  driveId: string,
-  options?: { openPicker?: boolean },
-): void {
+export function startCdMetadataFetch(driveId: string): void {
   const operationId = createOperationId();
   const logContext = buildLogContext(driveId, operationId);
 
@@ -221,12 +218,6 @@ export function startCdMetadataFetch(
 
         if (lookup.kind === "miss" || lookup.candidates.length === 0) {
           ctx.settleAs(cdMetadataNotFoundSettleOptions());
-          return;
-        }
-
-        if (options?.openPicker && lookup.candidates.length > 1) {
-          useCdStore.getState().openDiscMetadataPick(driveId);
-          ctx.dismissSilently();
           return;
         }
 
@@ -259,9 +250,4 @@ export function startCdMetadataFetch(
       }
     },
   });
-}
-
-/** Force a MusicBrainz lookup and open the release picker so the user can switch. */
-export function startCdReleaseSearch(driveId: string): void {
-  startCdMetadataFetch(driveId, { openPicker: true });
 }

@@ -19,7 +19,10 @@ import { mergeDiscDisplayLayers } from "../../lib/cdMetadata";
 import { cdTrackNumberFromListId, cdTracksForList } from "../../lib/cdTracks";
 import { t } from "../../lib/i18n";
 import { fetchCoverArtCandidates } from "../../lib/albumArtFetch";
-import { previewSrcForFetchedCover } from "../../lib/coverArtThumbs";
+import {
+  preloadCoverArtThumbs,
+  previewSrcForFetchedCover,
+} from "../../lib/coverArtThumbs";
 import {
   cacheArtFromFile,
   cacheArtFromUrl,
@@ -30,6 +33,8 @@ import { deriveRecordingFromCachedRelease } from "../../lib/musicBrainzReleaseRe
 import { useCdStore } from "../../store/useCdStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
+import { AlbumArtPicker } from "../AlbumEditor/AlbumArtPicker";
+import { AlbumEditorArtTab } from "../AlbumEditor/AlbumEditorArtTab";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import {
   Modal,
@@ -42,16 +47,13 @@ import {
 } from "../common/Modal/Modal";
 import { Button } from "../common/Button/Button";
 import { EntityArt } from "../EntityArt/EntityArt";
-import {
-  TrackEditorDetailsTab,
-  TrackEditorInlineArt,
-} from "../TrackEditor/TrackEditorDetailsTab";
+import { TrackEditorDetailsTab } from "../TrackEditor/TrackEditorDetailsTab";
 import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
 import { MusicBrainzEditorTab } from "../MusicBrainzEditorTab/MusicBrainzEditorTab";
 import { isTrackEditorFieldMixed } from "../../lib/trackMetadataForm";
 import "../TrackEditor/TrackEditor.css";
 
-type CdTrackEditorTab = "details" | "musicbrainz";
+type CdTrackEditorTab = "details" | "art" | "musicbrainz";
 
 export function CdTrackEditor() {
   const editingCdTrackIds = useCdStore((s) => s.editingCdTrackIds);
@@ -128,6 +130,8 @@ export function CdTrackEditor() {
   );
   const [fetchMessage, setFetchMessage] = useState<string | null>(null);
   const [artDragOver, setArtDragOver] = useState(false);
+  const [artPickerOpen, setArtPickerOpen] = useState(false);
+  const artFetchGenRef = useRef(0);
   const [derivedEmptyKind, setDerivedEmptyKind] = useState<
     "resolving" | "releaseCacheMiss" | "unmatched" | null
   >(null);
@@ -153,6 +157,8 @@ export function CdTrackEditor() {
 
   useEffect(() => {
     setActiveTab("details");
+    setArtPickerOpen(false);
+    artFetchGenRef.current += 1;
   }, [editingKey]);
 
   // Derive recording from cached disc release when never stamped.
@@ -210,6 +216,7 @@ export function CdTrackEditor() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- derive when selection / release / empty recording
   }, [
     editingKey,
     isBulk,
@@ -301,18 +308,26 @@ export function CdTrackEditor() {
       await applyArtPath(path);
       return;
     }
-    setSaveError(t("library:cd.editor.dropArtFailed"));
+    setSaveError(t("library:editor.dropArtFailed"));
   };
 
   useArtFileDrop(isOpen && !!referenceTrack, applyArtPath);
 
+  const closeArtPicker = () => {
+    artFetchGenRef.current += 1;
+    setArtPickerOpen(false);
+    setFetchingArt(false);
+    setCoverCandidates([]);
+    setFetchMessage(null);
+  };
+
   const handleFetchArt = async () => {
     if (!form) return;
+    const gen = ++artFetchGenRef.current;
+    setArtPickerOpen(true);
     setFetchingArt(true);
     setFetchMessage(null);
     setCoverCandidates([]);
-    setSelectedCoverUrl(null);
-    setSelectedCoverPreviewSrc(null);
     setSaveError(null);
     try {
       const primaryArtist =
@@ -324,16 +339,19 @@ export function CdTrackEditor() {
         album: form.album,
         releaseMbid: tracks[0]?.releaseMbid?.trim() || null,
       });
+      if (gen !== artFetchGenRef.current) return;
       if (candidates.length === 0) {
-        setFetchMessage(t("library:cd.editor.noArtResults"));
+        setFetchMessage(t("library:editor.noArtResults"));
       } else {
+        await preloadCoverArtThumbs(candidates);
+        if (gen !== artFetchGenRef.current) return;
         setCoverCandidates(candidates);
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setSaveError(message);
+    } catch {
+      if (gen !== artFetchGenRef.current) return;
+      setFetchMessage(t("library:editor.artPicker.fetchFailed"));
     } finally {
-      setFetchingArt(false);
+      if (gen === artFetchGenRef.current) setFetchingArt(false);
     }
   };
 
@@ -342,6 +360,9 @@ export function CdTrackEditor() {
     setSelectedCoverUrl(url);
     setSelectedCoverPreviewSrc(previewSrcForFetchedCover(url, coverCandidates));
     setArtSourcePath(null);
+    setArtPickerOpen(false);
+    setCoverCandidates([]);
+    setFetchMessage(null);
   };
 
   const resolveArtPath = async (): Promise<string | null> => {
@@ -395,7 +416,7 @@ export function CdTrackEditor() {
   const displayArtSrc = useAssetUrl(selectedCoverUrl ? null : pendingArtPath);
   const previewSrc = selectedCoverPreviewSrc ?? displayArtSrc;
 
-  const identityTitle = form?.title.trim() || "Untitled";
+  const identityTitle = form?.title.trim() || t("common:untitled");
   const identitySubtitle = [
     form ? parseArtistField(form.artist).join(", ") : "",
     form?.album.trim() ?? "",
@@ -411,6 +432,7 @@ export function CdTrackEditor() {
     <Modal
       open={isOpen}
       onClose={handleBackdropClick}
+      dismissible={!saving && !artPickerOpen}
       size="editor"
       fitContent
       panelClassName="track-editor-modal"
@@ -419,93 +441,84 @@ export function CdTrackEditor() {
     >
       {isOpen && form ? (
         <>
-          <div
-            className="track-editor-modal__content track-editor-modal__content--tabbed"
-            inert={discardPrompt || undefined}
-          >
-            <ModalHeader
-              className={isBulk ? undefined : "track-editor__identity-header"}
+          <div className="track-editor-modal__content track-editor-modal__content--tabbed">
+            <div
+              className="track-editor-modal__main"
+              inert={discardPrompt || saving || undefined}
             >
-              {isBulk ? (
-                <ModalHeaderMain>
-                  <ModalTitle id="cd-track-editor-title">
-                    {t("library:cd.editor.editTracks", {
-                      count: tracks.length,
-                    })}
-                  </ModalTitle>
-                  <ModalDescription>
-                    {t("library:cd.editor.editTracksDescription", {
-                      count: tracks.length,
-                    })}
-                  </ModalDescription>
-                </ModalHeaderMain>
-              ) : (
-                <div className="track-editor__identity">
-                  <div className="track-editor__identity-art" aria-hidden>
-                    {previewSrc ? (
-                      <img
-                        src={previewSrc}
-                        alt=""
-                        className="track-editor__identity-art-img"
-                      />
-                    ) : (
-                      <EntityArt
-                        artPath={null}
-                        className="track-editor__identity-art-placeholder"
-                      />
-                    )}
-                  </div>
-                  <ModalHeaderMain className="track-editor__identity-meta">
-                    <ModalTitle
-                      id="cd-track-editor-title"
-                      className="track-editor__identity-title"
-                    >
-                      {identityTitle}
-                    </ModalTitle>
-                    {identitySubtitle ? (
-                      <p className="track-editor__identity-subtitle">
-                        {identitySubtitle}
-                      </p>
-                    ) : null}
-                  </ModalHeaderMain>
-                </div>
-              )}
-            </ModalHeader>
-
-            <Tabs
-              value={activeTab}
-              onChange={(tab) => setActiveTab(tab as CdTrackEditorTab)}
-              className="track-editor__tabs"
-              variant="underline"
-            >
-              <TabList
-                fade
-                aria-label={t("library:editor.cdTrackTabsAria")}
-                className="track-editor__tab-bar"
+              <ModalHeader
+                className={isBulk ? undefined : "track-editor__identity-header"}
               >
-                <Tab value="details">{t("library:editor.tabDetails")}</Tab>
-                <Tab value="musicbrainz">
-                  {t("library:editor.tabMusicBrainz")}
-                </Tab>
-              </TabList>
+                {isBulk ? (
+                  <ModalHeaderMain>
+                    <ModalTitle id="cd-track-editor-title">
+                      {t("library:cd.editor.editTracks", {
+                        count: tracks.length,
+                      })}
+                    </ModalTitle>
+                    <ModalDescription>
+                      {t("library:cd.editor.editTracksDescription", {
+                        count: tracks.length,
+                      })}
+                    </ModalDescription>
+                  </ModalHeaderMain>
+                ) : (
+                  <div className="track-editor__identity">
+                    <div className="track-editor__identity-art" aria-hidden>
+                      {previewSrc ? (
+                        <img
+                          src={previewSrc}
+                          alt=""
+                          className="track-editor__identity-art-img"
+                        />
+                      ) : (
+                        <EntityArt
+                          artPath={null}
+                          className="track-editor__identity-art-placeholder"
+                        />
+                      )}
+                    </div>
+                    <ModalHeaderMain className="track-editor__identity-meta">
+                      <ModalTitle
+                        id="cd-track-editor-title"
+                        className="track-editor__identity-title"
+                      >
+                        {identityTitle}
+                      </ModalTitle>
+                      {identitySubtitle ? (
+                        <p className="track-editor__identity-subtitle">
+                          {identitySubtitle}
+                        </p>
+                      ) : null}
+                    </ModalHeaderMain>
+                  </div>
+                )}
+              </ModalHeader>
 
-              <ModalBody className="track-editor__tab-body">
-                <div className="track-editor__tab-stage">
-                  <TabPanel value="details" className="track-editor__tab-panel">
-                    <div className="track-editor__body">
-                      <TrackEditorInlineArt
-                        previewSrc={previewSrc}
-                        artDragOver={artDragOver}
-                        fetchingArt={fetchingArt}
-                        fetchMessage={fetchMessage}
-                        coverCandidates={coverCandidates}
-                        selectedCoverUrl={selectedCoverUrl}
-                        onArtDragOver={setArtDragOver}
-                        onArtDrop={(e) => void handleArtDrop(e)}
-                        onChangeArt={() => void handleChangeArt()}
-                        onFetchArt={() => void handleFetchArt()}
-                        onSelectCover={handleSelectCover}
-                      />
+              <Tabs
+                value={activeTab}
+                onChange={(tab) => setActiveTab(tab as CdTrackEditorTab)}
+                className="track-editor__tabs"
+                variant="underline"
+              >
+                <TabList
+                  fade
+                  aria-label={t("library:editor.cdTrackTabsAria")}
+                  className="track-editor__tab-bar"
+                >
+                  <Tab value="details">{t("library:editor.tabDetails")}</Tab>
+                  <Tab value="art">{t("library:editor.tabArt")}</Tab>
+                  <Tab value="musicbrainz">
+                    {t("library:editor.tabMusicBrainz")}
+                  </Tab>
+                </TabList>
+
+                <ModalBody className="track-editor__tab-body">
+                  <div className="track-editor__tab-stage">
+                    <TabPanel
+                      value="details"
+                      className="track-editor__tab-panel"
+                    >
                       <TrackEditorDetailsTab
                         form={form}
                         tracks={tracks}
@@ -516,45 +529,58 @@ export function CdTrackEditor() {
                         genreSuggestions={genreSuggestions}
                         albumSuggestions={albumSuggestions}
                       />
-                    </div>
-                  </TabPanel>
+                    </TabPanel>
 
-                  <TabPanel
-                    value="musicbrainz"
-                    className="track-editor__tab-panel"
-                    keepMounted
-                  >
-                    <MusicBrainzEditorTab
-                      kind="recording"
-                      assignment="derived"
-                      mbid={form.recordingMbid}
-                      mixed={isTrackEditorFieldMixed(tracks, "recordingMbid")}
-                      hasAlbum={Boolean(form.album.trim())}
-                      albumTitle={form.album.trim()}
-                      hasAlbumRelease={Boolean(disc?.releaseMbid?.trim())}
-                      derivedEmptyKind={derivedEmptyKind ?? undefined}
-                      onSearchAlbumRelease={() => {
-                        if (editingCdDriveId == null || !form.album.trim())
-                          return;
-                        openCdAlbumEditor(editingCdDriveId, {
-                          tab: "musicbrainz",
-                          autoOpenMbSearch:
-                            derivedEmptyKind !== "releaseCacheMiss",
-                        });
-                      }}
-                    />
-                  </TabPanel>
-                </div>
-                {saveError ? (
-                  <p className="track-editor__error" role="alert">
-                    {saveError}
-                  </p>
-                ) : null}
-              </ModalBody>
-            </Tabs>
+                    <TabPanel value="art" className="track-editor__tab-panel">
+                      <AlbumEditorArtTab
+                        previewSrc={previewSrc}
+                        artDragOver={artDragOver}
+                        fetchingArt={fetchingArt}
+                        onArtDragOver={setArtDragOver}
+                        onArtDrop={(e) => void handleArtDrop(e)}
+                        onChangeArt={() => void handleChangeArt()}
+                        onFetchArt={() => void handleFetchArt()}
+                      />
+                    </TabPanel>
+
+                    <TabPanel
+                      value="musicbrainz"
+                      className="track-editor__tab-panel"
+                      keepMounted
+                    >
+                      <MusicBrainzEditorTab
+                        kind="recording"
+                        assignment="derived"
+                        mbid={form.recordingMbid}
+                        mixed={isTrackEditorFieldMixed(tracks, "recordingMbid")}
+                        hasAlbum={Boolean(form.album.trim())}
+                        albumTitle={form.album.trim()}
+                        hasAlbumRelease={Boolean(disc?.releaseMbid?.trim())}
+                        derivedEmptyKind={derivedEmptyKind ?? undefined}
+                        onSearchAlbumRelease={() => {
+                          if (editingCdDriveId == null || !form.album.trim())
+                            return;
+                          openCdAlbumEditor(editingCdDriveId, {
+                            tab: "musicbrainz",
+                            autoOpenMbSearch:
+                              derivedEmptyKind !== "releaseCacheMiss",
+                          });
+                        }}
+                      />
+                    </TabPanel>
+                  </div>
+                  {saveError ? (
+                    <p className="track-editor__error" role="alert">
+                      {saveError}
+                    </p>
+                  ) : null}
+                </ModalBody>
+              </Tabs>
+            </div>
 
             <ModalFooter
               fade
+              inert={discardPrompt || undefined}
               onCancel={requestClose}
               cancelDisabled={saving}
               cancelLabel={t("common:cancel")}
@@ -574,6 +600,24 @@ export function CdTrackEditor() {
             description={discardDescription}
             onKeepEditing={dismissDiscardPrompt}
             onDiscard={closeCdTrackEditor}
+          />
+
+          <AlbumArtPicker
+            open={artPickerOpen}
+            artType="front"
+            subtitle={[
+              form.albumArtist.trim() ||
+                parseArtistField(form.artist).join(", "),
+              form.album.trim(),
+            ]
+              .filter(Boolean)
+              .join(" • ")}
+            candidates={coverCandidates}
+            selectedUrl={selectedCoverUrl}
+            fetching={fetchingArt}
+            fetchMessage={fetchMessage}
+            onSelect={handleSelectCover}
+            onClose={closeArtPicker}
           />
         </>
       ) : null}

@@ -66,7 +66,7 @@ interface CdState {
   editingCdTrackIds: number[];
   editingCdDriveId: string | null;
   editingCdAlbumDriveId: string | null;
-  cdAlbumEditorInitialTab: "details" | "musicbrainz";
+  cdAlbumEditorInitialTab: "details" | "art" | "musicbrainz";
   cdAlbumEditorAutoOpenMbSearch: boolean;
   initialized: boolean;
   refreshDrives: () => Promise<void>;
@@ -87,7 +87,6 @@ interface CdState {
   ) => Promise<DiscMetadataOverride | null>;
   clearDiscOverride: (driveId: string) => Promise<void>;
   selectDiscMetadata: (driveId: string, metadata: DiscMetadata) => void;
-  openDiscMetadataPick: (driveId: string) => void;
   dismissDiscMetadataPick: (driveId: string) => void;
   confirmMetadataFetch: (driveId: string, remember: boolean) => void;
   cancelMetadataFetch: (driveId: string, remember: boolean) => void;
@@ -96,7 +95,10 @@ interface CdState {
   closeCdTrackEditor: () => void;
   openCdAlbumEditor: (
     driveId: string,
-    options?: { tab?: "details" | "musicbrainz"; autoOpenMbSearch?: boolean },
+    options?: {
+      tab?: "details" | "art" | "musicbrainz";
+      autoOpenMbSearch?: boolean;
+    },
   ) => void;
   closeCdAlbumEditor: () => void;
   clearCdAlbumEditorAutoOpenMbSearch: () => void;
@@ -1014,12 +1016,6 @@ export const useCdStore = create<CdState>((set, get) => ({
 
     get().setHeroArt(driveId, null);
     startCdHeroArtFetch(driveId);
-  },
-
-  openDiscMetadataPick: (driveId) => {
-    const candidates = get().metadataCandidatesByDriveId[driveId] ?? [];
-    if (candidates.length <= 1) return;
-    set({ metadataPickDriveId: driveId });
   },
 
   dismissDiscMetadataPick: (driveId) => {

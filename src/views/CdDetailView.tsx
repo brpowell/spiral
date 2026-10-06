@@ -16,7 +16,6 @@ import {
   IconPencil,
   IconPlay,
   IconRefresh,
-  IconSearch,
 } from "../components/icons";
 import {
   discMetadataOverrideHasEdits,
@@ -26,7 +25,6 @@ import { ensureCdHeroArtValid } from "../lib/cdArt";
 import {
   startCdHeroArtFetch,
   startCdMetadataFetch,
-  startCdReleaseSearch,
 } from "../lib/cdMetadataFetch";
 import {
   albumTotalDurationSecondsFromCd,
@@ -372,20 +370,6 @@ export function CdDetailView({ driveId, albums, artists }: CdDetailViewProps) {
                         onClick={() => {
                           close();
                           openCdAlbumEditor(driveId);
-                        }}
-                      />
-                      <ContextMenuItem
-                        icon={<IconSearch />}
-                        label={t("library:cd.actions.searchForRelease")}
-                        disabled={
-                          disc == null ||
-                          isLoading ||
-                          isEjecting ||
-                          isFetchingMetadata
-                        }
-                        onClick={() => {
-                          close();
-                          startCdReleaseSearch(driveId);
                         }}
                       />
                       <ContextMenuItem

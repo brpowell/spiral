@@ -55,11 +55,7 @@ vi.mock("../store/useBackgroundTasksStore", () => ({
   },
 }));
 
-import {
-  startCdHeroArtFetch,
-  startCdMetadataFetch,
-  startCdReleaseSearch,
-} from "./cdMetadataFetch";
+import { startCdHeroArtFetch, startCdMetadataFetch } from "./cdMetadataFetch";
 import { logActivity } from "./activityLog";
 import {
   cdHeroArtFetchedSettleOptions,
@@ -86,12 +82,6 @@ const metadata: DiscMetadata = {
   albumArtist: "Joy Division",
   releaseMbid: "release-mbid",
   tracks: [{ number: 1, title: "Disorder", artist: "Joy Division" }],
-};
-
-const otherMetadata: DiscMetadata = {
-  ...metadata,
-  album: "Closer",
-  releaseMbid: "release-mbid-2",
 };
 
 function resetCdStore(partial: {
@@ -330,47 +320,5 @@ describe("startCdMetadataFetch", () => {
     expect(settleAs).toHaveBeenCalledWith(
       cdMetadataFailedSettleOptions({ logLink: { operationId: "op-test" } }),
     );
-  });
-
-  it("opens the release picker when lookup returns multiple candidates", async () => {
-    loadDiscMetadata.mockImplementation(async () => {
-      const lookup = {
-        discId: "disc-1",
-        candidates: [metadata, otherMetadata],
-        preferred: metadata,
-        kind: "hit" as const,
-      };
-      useCdStore.setState((state) => ({
-        metadataCandidatesByDriveId: {
-          ...state.metadataCandidatesByDriveId,
-          [driveId]: lookup.candidates,
-        },
-      }));
-      return lookup;
-    });
-
-    startCdReleaseSearch(driveId);
-    await vi.waitFor(() => expect(dismissSilently).toHaveBeenCalled());
-
-    expect(useCdStore.getState().metadataPickDriveId).toBe(driveId);
-    expect(settleAs).not.toHaveBeenCalled();
-  });
-
-  it("settles found without opening the picker when only one candidate matches", async () => {
-    loadDiscMetadata.mockResolvedValue({
-      discId: "disc-1",
-      candidates: [metadata],
-      preferred: metadata,
-      kind: "hit",
-    });
-
-    startCdReleaseSearch(driveId);
-    await vi.waitFor(() => expect(settleAs).toHaveBeenCalled());
-
-    expect(useCdStore.getState().metadataPickDriveId).toBeNull();
-    expect(settleAs).toHaveBeenCalledWith(
-      cdMetadataFoundSettleOptions({ album: "Unknown Pleasures" }),
-    );
-    expect(dismissSilently).not.toHaveBeenCalled();
   });
 });
