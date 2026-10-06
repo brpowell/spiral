@@ -1,5 +1,5 @@
 /**
- * Memory / DoS budgets for sandboxed VizRenderers.
+ * Memory / DoS budgets for sandboxed visualizer draw modules.
  *
  * Viewport sizes are clamped (keep rendering). Clear abuse — oversized audio
  * transfers, pack-grown canvases, huge returned bitmaps, giant entry source —
@@ -28,6 +28,9 @@ export const MAX_AUDIO_WAVEFORM_SAMPLES = 2048;
 
 /** Pack entry JS size cap (host-supplied source string). */
 export const MAX_RENDERER_SOURCE_BYTES = 512 * 1024;
+
+/** Longest edge of album art and artist portraits copied into a viz worker. */
+export const MAX_VIZ_TRACK_IMAGE_EDGE = 512;
 
 export interface VizRenderSize {
   width: number;
@@ -149,7 +152,7 @@ export function assertRendererSourceWithinBudget(source: string): void {
   // UTF-16 code units ≈ upper bound on retained string memory in JS engines.
   if (source.length > MAX_RENDERER_SOURCE_BYTES) {
     throw new Error(
-      `[viz-sandbox] renderer source exceeded budget (${source.length} > ${MAX_RENDERER_SOURCE_BYTES} chars)`,
+      `[viz-sandbox] draw module source exceeded budget (${source.length} > ${MAX_RENDERER_SOURCE_BYTES} chars)`,
     );
   }
 }

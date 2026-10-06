@@ -1,8 +1,8 @@
 /**
- * Dedicated worker for pack VizRenderer modules (canvas2d + webgl).
+ * Dedicated worker for pack visualizer draw modules (canvas2d + webgl).
  *
- * canvas2d: create() → render(ctx, frame, params)
- * webgl:    create({ canvas, THREE }) → render(frame, params)
+ * canvas2d: create() → render(ctx, frame)
+ * webgl:    create({ canvas, THREE }) → render(frame)
  *
  * Draws to a transferred OffscreenCanvas, then returns an ImageBitmap each
  * frame for the host to blit onto the display canvas.
@@ -12,25 +12,34 @@
  */
 
 import * as THREE from "three";
-import type { VizRendererEngine } from "../../../types/renderer";
 import type {
+  VizFrame,
+  VizRendererEngine,
   VizRendererInstance,
   VizRendererModule,
   VizWebGLRendererInstance,
   VizWebGLRendererModule,
 } from "../vizRendererApi";
-import type { HostToWorkerMessage, WorkerToHostMessage } from "./protocol";
+import {
+  materializeVizTrack,
+  retainVizImages,
+  type VizTrackImagePayload,
+  type VizTrackWire,
+} from "../vizTrack";
+import type {
+  HostToWorkerMessage,
+  VizFrameMessage,
+  WorkerToHostMessage,
+} from "./protocol";
 import {
   assertAudioBuffersWithinBudget,
   assertCanvasWithinBudget,
   assertRendererSourceWithinBudget,
   clampVizRenderSize,
+  MAX_VIZ_TRACK_IMAGE_EDGE,
 } from "./resourceBudgets";
 import { assertVizRendererSourceAllowed } from "./vizSourceGuard";
-import {
-  lockDownWorkerGlobals,
-  sealBlobUrlApi,
-} from "./workerGlobalLockdown";
+import { lockDownWorkerGlobals, sealBlobUrlApi } from "./workerGlobalLockdown";
 
 const workerScope = self as unknown as {
   addEventListener: (
@@ -56,6 +65,9 @@ function post(msg: WorkerToHostMessage, transfer?: Transferable[]): void {
     nativePostMessage(msg);
   }
 }
+
+const trackArt = new Map<string, ImageBitmap>();
+const trackPortraits = new Map<string, ImageBitmap>();
 
 let engine: VizRendererEngine | null = null;
 let canvas2dInstance: VizRendererInstance | null = null;
@@ -125,15 +137,17 @@ async function handleInit(
 
       const mod = (await import(/* @vite-ignore */ url)) as VizRendererModule;
       if (typeof mod.create !== "function") {
-        throw new Error(`${msg.rendererId} must export a create() factory`);
+        throw new Error(`${msg.layerLabel} must export a create() factory`);
       }
       canvas2dInstance = mod.create();
     } else {
       applyWebglSize(msg.width, msg.height, msg.dpr);
 
-      const mod = (await import(/* @vite-ignore */ url)) as VizWebGLRendererModule;
+      const mod = (await import(
+        /* @vite-ignore */ url
+      )) as VizWebGLRendererModule;
       if (typeof mod.create !== "function") {
-        throw new Error(`${msg.rendererId} must export a create() factory`);
+        throw new Error(`${msg.layerLabel} must export a create() factory`);
       }
       webglInstance = mod.create({ canvas, THREE });
       webglInstance.resize?.(lastSize.width, lastSize.height, lastSize.dpr);
@@ -145,7 +159,7 @@ async function handleInit(
     sealBlobUrlApi();
   }
 
-  post({ type: "ready", rendererId: msg.rendererId });
+  post({ type: "ready", layerLabel: msg.layerLabel });
 }
 
 function handleResize(
@@ -158,6 +172,89 @@ function handleResize(
   if (engine === "webgl" && webglInstance) {
     applyWebglSize(msg.width, msg.height, msg.dpr);
   }
+}
+
+function acceptTrackImage(bitmap: ImageBitmap): ImageBitmap | null {
+  if (
+    bitmap.width < 1 ||
+    bitmap.height < 1 ||
+    bitmap.width > MAX_VIZ_TRACK_IMAGE_EDGE ||
+    bitmap.height > MAX_VIZ_TRACK_IMAGE_EDGE
+  ) {
+    bitmap.close();
+    return null;
+  }
+  return bitmap;
+}
+
+function storeTrackImage(
+  bitmaps: Map<string, ImageBitmap>,
+  id: string,
+  bitmap: ImageBitmap,
+): void {
+  const accepted = acceptTrackImage(bitmap);
+  if (!accepted) {
+    bitmaps.delete(id);
+    return;
+  }
+  const previous = bitmaps.get(id);
+  if (previous && previous !== accepted) previous.close();
+  bitmaps.set(id, accepted);
+}
+
+function pixelsToBitmap(payload: VizTrackImagePayload): ImageBitmap | null {
+  const { width, height, pixels } = payload;
+  if (
+    width < 1 ||
+    height < 1 ||
+    width > MAX_VIZ_TRACK_IMAGE_EDGE ||
+    height > MAX_VIZ_TRACK_IMAGE_EDGE ||
+    pixels.byteLength !== width * height * 4
+  ) {
+    return null;
+  }
+  try {
+    const scratch = new OffscreenCanvas(width, height);
+    const ctx = scratch.getContext("2d");
+    if (!ctx) return null;
+    ctx.putImageData(
+      new ImageData(new Uint8ClampedArray(pixels), width, height),
+      0,
+      0,
+    );
+    return scratch.transferToImageBitmap();
+  } catch {
+    return null;
+  }
+}
+
+function handleTrackMedia(
+  msg: Extract<HostToWorkerMessage, { type: "trackMedia" }>,
+): void {
+  if (msg.art) {
+    const bitmap = pixelsToBitmap(msg.art);
+    if (bitmap) storeTrackImage(trackArt, msg.art.id, bitmap);
+  }
+  for (const portrait of msg.portraits) {
+    const bitmap = pixelsToBitmap(portrait);
+    if (bitmap) storeTrackImage(trackPortraits, portrait.id, bitmap);
+  }
+}
+
+function authorFrame(frame: VizFrameMessage): VizFrame {
+  const wire: VizTrackWire = frame.trackMetadata;
+  const liveArt = new Set<string>();
+  const livePortraits = new Set<string>();
+  if (wire.artId) liveArt.add(wire.artId);
+  for (const artist of wire.artists) {
+    if (artist.portraitId) livePortraits.add(artist.portraitId);
+  }
+  retainVizImages(trackArt, liveArt);
+  retainVizImages(trackPortraits, livePortraits);
+  return {
+    ...frame,
+    trackMetadata: materializeVizTrack(wire, trackArt, trackPortraits),
+  };
 }
 
 function handleFrame(
@@ -174,16 +271,18 @@ function handleFrame(
 
   ensureBackingStore();
 
+  const frame = authorFrame(msg.frame);
+
   if (engine === "canvas2d") {
     if (!ctx2d || !canvas2dInstance) {
       throw new Error("canvas2d renderer not initialized");
     }
-    canvas2dInstance.render(ctx2d, msg.frame, msg.params);
+    canvas2dInstance.render(ctx2d, frame);
   } else if (engine === "webgl") {
     if (!webglInstance) {
       throw new Error("webgl renderer not initialized");
     }
-    webglInstance.render(msg.frame, msg.params);
+    webglInstance.render(frame);
   } else {
     throw new Error("renderer engine not set");
   }
@@ -210,6 +309,8 @@ function handleDispose(): void {
   ctx2d = null;
   canvas = null;
   engine = null;
+  retainVizImages(trackArt, new Set());
+  retainVizImages(trackPortraits, new Set());
   nativeClose();
 }
 
@@ -238,6 +339,9 @@ workerScope.addEventListener(
             break;
           case "resize":
             handleResize(msg);
+            break;
+          case "trackMedia":
+            handleTrackMedia(msg);
             break;
           case "frame":
             handleFrame(msg);

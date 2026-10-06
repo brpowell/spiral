@@ -80,7 +80,9 @@ describe("budget assertions", () => {
       ),
     ).toThrow(/waveform buffer/);
     expect(() =>
-      assertRendererSourceWithinBudget("x".repeat(MAX_RENDERER_SOURCE_BYTES + 1)),
-    ).toThrow(/renderer source/);
+      assertRendererSourceWithinBudget(
+        "x".repeat(MAX_RENDERER_SOURCE_BYTES + 1),
+      ),
+    ).toThrow(/draw module source/);
   });
 });

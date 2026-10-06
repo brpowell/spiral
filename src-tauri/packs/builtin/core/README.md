@@ -23,7 +23,9 @@ The stock pack shipped with Spiral — themes, skins, and visualizers you can us
 | --- | --- |
 | **Spectrum** | Log-filled frequency spectrum |
 | **Bars** | Mirrored frequency bars |
+| **Pixels** | Stereo-style block meter with falling peak caps |
 | **Wave** | Mirrored waveform line |
+| **Band** | Plucked rubber band in album colors |
 | **Neon Tunnel** | Reactive neon ring tunnel |
 
-Renderers for Spectrum, Bars, Wave, and Neon Tunnel live in this pack and can be reused by other visualizers.
+Each visualizer ships its draw script (`index.js`) next to `viz.json`.

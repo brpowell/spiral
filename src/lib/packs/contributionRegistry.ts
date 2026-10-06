@@ -70,11 +70,6 @@ export const CONTRIBUTION_TYPE_HANDLERS: Record<
     manifestFilename: "viz.json",
     summarize: stubSummarize("visualizer"),
   },
-  renderer: {
-    schema: { id: "renderer-v1", version: 1 },
-    manifestFilename: "renderer.json",
-    summarize: stubSummarize("renderer"),
-  },
   sound: {
     schema: { id: "sound-v1", version: 1 },
     manifestFilename: "sound.json",
@@ -129,7 +124,7 @@ export function resolvePackContributions(
   const packDir = options.packDir ?? "";
   const ids = options.contributionIdsByPath;
   const resolved: ResolvedContribution[] = [];
-  /** Uniqueness is per type so `renderers/wave` and `visualizers/wave` can coexist. */
+  /** Uniqueness is per type so `sounds/wave` and `visualizers/wave` can coexist. */
   const seenTypeLocalIds = new Set<string>();
 
   for (const entry of discovered) {

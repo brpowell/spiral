@@ -1,6 +1,6 @@
 # Visualizer host contract
 
-Sibling to [skin-contract.md](../playback/skin-contract.md). Describes what Spiral provides to VizScene layers each frame — visualizers declare a `scene` (VizScene) on `surfaces.default`; the host builds context.
+Sibling to [skin-contract.md](../playback/skin-contract.md). Describes what Spiral provides to VizScene layers each frame — visualizers declare `children` (VizScene); the host builds context.
 
 ## Resolution order (active visualizer)
 
@@ -9,33 +9,33 @@ Sibling to [skin-contract.md](../playback/skin-contract.md). Describes what Spir
 3. **Global default** — user preference from the visualizer picker.
 4. **Fallback** — built-in `spiral.core.visualizer.bars`.
 
-## Surfaces
+## Layers
 
-Visualizer manifests require `surfaces.default`. Only `default` is reserved for now; slot placement (`mini` / `panel` skin display, expand overlay) still uses layout variants, but they all render the same scene.
+Visualizer manifests list their layers in top-level `children`. Slot placement (`mini` / `panel` skin display, expand overlay) still uses layout variants, and every slot renders that same list.
 
-Renderers may still soften motion via `flags.reducedMotion` on the host context.
+Draw modules may still soften motion via `flags.reducedMotion` on the host context.
 
-## Visualizer vs VizScene vs VizRenderer
+## Visualizer vs VizScene vs draw module
 
-| Concept | Folder | Manifest | Job |
+| Concept | Folder | Manifest / file | Job |
 | --- | --- | --- | --- |
-| **Visualizer** | `visualizers/` | `viz.json` | Product composition: a VizScene on `surfaces.default` |
-| **VizScene** | (inside viz.json) | `surfaces.default.scene` | Layer tree for the reserved surface |
-| **VizRenderer** | `renderers/` | `renderer.json` + entry JS | Draw one canvas or webgl layer from a `VizFrame` |
+| **Visualizer** | `visualizers/` | `viz.json` | Product composition: a VizScene (`children`) |
+| **VizScene** | (inside viz.json) | `children` | Layer list |
+| **Draw module** | same visualizer folder | `entry` JS (e.g. `index.js`) | Draw one canvas or webgl layer from a `VizFrame` |
 
-Effective ids are fully qualified: `authorId.packId.type.contributionId` (e.g. `spiral.core.visualizer.wave`, `spiral.core.renderer.wave`).
+Effective visualizer ids are fully qualified: `authorId.packId.visualizer.contributionId` (e.g. `spiral.core.visualizer.wave`).
 
-Canvas and webgl layers both reference a fully-qualified renderer contribution id (e.g. `spiral.core.renderer.neon-tunnel`).
+Canvas and webgl layers name a relative `entry` script in the visualizer folder (e.g. `"entry": "index.js"`). Layer `kind` selects the backend (`canvas` → canvas2d, `webgl` → webgl). Tunables live as constants inside the entry script — `viz.json` does not pass a params bag.
 
 ## VisualizerContext (per frame)
 
 ```typescript
 interface VisualizerContext {
-  surface: "default";
+  scene: "default";
   size: { width: number; height: number; dpr: number };
 
   audio: {
-    bins: readonly number[];       // 64 frequency bins, 0–255
+    bins: readonly number[];       // 128 bins at fft size 256, values 0–255
     isPlaying: boolean;
     playbackState: "playing" | "paused" | "stopped";
     volume: number;                // 0–1
@@ -47,42 +47,96 @@ interface VisualizerContext {
 
   bind(path: SkinBindPath): string | number | boolean | null;
 
-  colors: {
-    palette: string[];             // album art extraction, or host fallback
+  theme: {
+    name: string;
     tokens: Record<string, string>; // active theme CSS tokens
   };
 
   flags: {
     reducedMotion: boolean;
   };
+
+  trackMetadata: VizFrameTrack;
 }
 ```
 
 Built via `src/components/visualizer/context.ts` from player store, theme, album palette, and skin bind resolver.
 
-## VizRenderer author API
+## Draw-module author API
 
-The host builds a normalized `VizFrame` each tick (`vizRendererApi.ts`) and loads source via `read_viz_renderer_source`. Both engines run in the same **Worker + OffscreenCanvas** sandbox (`sandbox/SandboxedVizRenderer.ts`): entry source is statically scanned for secondary code-loading patterns, network and code-loading APIs are stubbed in the worker, frames are transferable, and a frame-budget watchdog can terminate stuck workers. Init also has a hard timeout (2s canvas2d / 5s webgl); if `ready` never arrives the host terminates the worker. Effect cleanup aborts in-flight init so a hung `create()` cannot leak a thread. The worker returns an `ImageBitmap` for the host to blit. When the host receives a fatal terminate (watchdog, context loss, budget overrun), it recreates the sandbox automatically, capped at a short restart window so a broken pack cannot loop forever.
+The host builds a normalized `VizFrame` each tick (`vizRendererApi.ts`) and loads source via `read_viz_layer_source` (visualizer id + entry). Both engines run in the same **Worker + OffscreenCanvas** sandbox (`sandbox/SandboxedVizRenderer.ts`): entry source is statically scanned for secondary code-loading patterns, network and code-loading APIs are stubbed in the worker, frames are transferable, and a frame-budget watchdog can terminate stuck workers. Init also has a hard timeout (2s canvas2d / 5s webgl); if `ready` never arrives the host terminates the worker. Effect cleanup aborts in-flight init so a hung `create()` cannot leak a thread. The worker returns an `ImageBitmap` for the host to blit. When the host receives a fatal terminate (watchdog, context loss, budget overrun), it recreates the sandbox automatically, capped at a short restart window so a broken pack cannot loop forever.
 
 **Resource budgets** (`sandbox/resourceBudgets.ts`): CSS/DPR viewport is clamped so the backing store stays ≤ 2560×1440 and ≤ ~3.7MP; oversized audio transfers, pack-grown canvases, returned bitmaps, or entry source (>512KB) terminate the worker. Soft/hard frame-time budgets and consecutive overrun kills remain as before.
 
-**Worker globals** (`sandbox/workerGlobalLockdown.ts`): allowlist-first. Pack code sees language intrinsics, canvas/WebGL surface APIs, `navigator` (THREE capability probes), timers (no string eval), and message-event types — not `fetch`, `Worker`, `eval`/`Function`, `WebAssembly`, WebRTC, `SharedArrayBuffer`/`Atomics`, storage, `crypto`, or raw `postMessage`/`close` (host keeps native refs). Host shape-checks inbound worker messages and pixel-budgets returned bitmaps before blit. `webglcontextlost` terminates that renderer only. Add to the allowlist only when a concrete renderer need requires it.
+**Worker globals** (`sandbox/workerGlobalLockdown.ts`): allowlist-first. Pack code sees language intrinsics, canvas/WebGL surface APIs, `navigator` (THREE capability probes), timers (no string eval), and message-event types — not `fetch`, `Worker`, `eval`/`Function`, `WebAssembly`, WebRTC, `SharedArrayBuffer`/`Atomics`, storage, `crypto`, or raw `postMessage`/`close` (host keeps native refs). Host shape-checks inbound worker messages and pixel-budgets returned bitmaps before blit. `webglcontextlost` terminates that layer only. Add to the allowlist only when a concrete pack need requires it.
 
 WebView **CSP** (`src-tauri/tauri.conf.json`) reinforces this: production `connect-src` allows only IPC + the local asset protocol (no remote `https:`), `frame-src` / `object-src` are `'none'`, and `worker-src` is limited to `'self' blob:`. Pack media still loads via `asset:` / `asset.localhost` under `img-src` / `media-src`.
 
-Declarative **image/video** layers stay on the host DOM. Their `src` is built only from pack-relative `asset` (`assets/…`) after path checks — never from binds or track `filePath`. `track.artUrl` is an app-resolved cover URL for binds/drives only.
+Declarative **image/video** layers stay on the host DOM. Their `src` is built only from pack-relative `asset` (`assets/…`) after path checks — never from binds or track `filePath`. `track.artUrl` is an app-resolved cover URL for binds/drives only. Draw modules receive the cover as `frame.trackMetadata.art`, not that URL.
 
-### canvas2d (`engine: "canvas2d"`)
+### canvas (`kind: "canvas"` → canvas2d)
 
-`create() → { render(ctx, frame, params) }`
+`create() → { render(ctx, frame) }`
 
-### webgl (`engine: "webgl"`)
+`frame` is one draw tick. Field notes live on the types in `vizRendererApi.ts` and `vizTrack.ts`; the shape is:
 
-`create({ canvas, THREE }) → { render(frame, params), resize?, dispose? }`
+```typescript
+interface VizFrame {
+  audio: VizFrameAudio;
+  time: VizFrameTime;       // scene clock, not playback position
+  size: VizFrameSize;       // CSS pixels; dpr is already applied
+  theme: VizFrameTheme;     // { name, tokens }
+  flags: { reducedMotion }; // host still delivers every frame
+  trackMetadata: VizFrameTrack;
+}
+
+interface VizFrameAudio {
+  frequencies: Float32Array; // 0–1, low band first. 128 bins at fft size 256
+  waveform: Float32Array;    // −1..1, or empty. Not always a real waveform
+  isPlaying: boolean;
+  overallEnergy: number;     // RMS of every bin, 0–1
+  bassEnergy: number;        // lowest 8% of bins, 0–1
+  midEnergy: number;         // 8%–45%, 0–1
+  trebleEnergy: number;      // 45%–end, 0–1
+}
+
+interface VizFrameTime {
+  elapsedMs: number; // since the scene was shown. 0 on the first frame
+  deltaMs: number;   // since the previous frame, capped at 64
+}
+
+interface VizFrameSize {
+  width: number;  // CSS pixels
+  height: number; // CSS pixels
+  dpr: number;    // already applied, capped at 2.5. Do not scale coordinates by it
+}
+
+interface VizFrameTheme {
+  name: string;                    // "Obsidian", "Sprig", …
+  tokens: Record<string, string>; // color-bg, color-accent, font-ui, …
+}
+
+interface VizFrameTrack {
+  title: string;            // "" when nothing is loaded
+  album: string | null;
+  artists: {                // performer credits, in listed order
+    name: string;
+    portrait: ImageBitmap | null; // ≤512px. null when the library has none
+  }[];
+  art: ImageBitmap | null;  // album cover, ≤512px. null when there is none
+  artColors: string[];      // cover swatches, or the host fallback palette
+}
+```
+
+Covers and portraits are already decoded. Pass them to `ctx.drawImage`. Read them from the current frame; they stay valid only while that same image is still showing. Draw modules cannot fetch images themselves.
+
+### webgl (`kind: "webgl"`)
+
+`create({ canvas, THREE }) → { render(frame), resize?, dispose? }`
 
 The host injects the app’s bundled `three` — packs must not import or vendor three.js. Prefer `OffscreenCanvas` (not `document`) for scratch textures.
 
-Stock WebGL: `spiral.core.renderer.neon-tunnel`.
+Stock WebGL: `spiral.core.visualizer.neon-tunnel` (`entry`: `index.js`).
 
 ## Bind paths
 
@@ -126,14 +180,13 @@ interface VisualizerFramePayload {
 }
 ```
 
-Subscribers use `useVisualizerFrameRef()` in the skin webview. Renderer drawing merges remote bins with local palette/theme context.
+Subscribers use `useVisualizerFrameRef()` in the skin webview. Layer drawing merges remote bins with local palette/theme context.
 
 ## Pack manifests
 
 - Visualizer: [visualizer-pack-guide.md](../../docs/guides/visualizer-pack-guide.md), [`viz-v1.schema.json`](https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/viz-v1.schema.json)
-- Renderer: [`renderer-v1.schema.json`](https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/renderer-v1.schema.json)
 
-Canvas `renderer` fields must be fully-qualified renderer ids (e.g. `spiral.core.renderer.bars`). Params are validated on load (bounds, asset paths).
+Canvas and webgl `entry` fields must be a relative `.js` filename in the visualizer folder (e.g. `index.js`). Asset paths and layout are validated on load.
 
 ## Install paths
 
@@ -142,7 +195,7 @@ Canvas `renderer` fields must be fully-qualified renderer ids (e.g. `spiral.core
 | Built-in | `src-tauri/packs/builtin/<packId>/` |
 | User | `{app_data}/packs/{workshop,installed}/` |
 
-Contributions are discovered under type folders (`visualizers/`, `renderers/`, …). Effective id = `authorId.packId.type.contributionId`.
+Contributions are discovered under type folders (`visualizers/`, …). Effective id = `authorId.packId.type.contributionId`.
 
 ## Related
 

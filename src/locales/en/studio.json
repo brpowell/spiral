@@ -155,8 +155,7 @@
   "types": {
     "theme": "Themes",
     "skin": "Skins",
-    "visualizer": "Visualizers",
-    "renderer": "Renderers"
+    "visualizer": "Visualizers"
   },
   "about": {
     "label": "README",

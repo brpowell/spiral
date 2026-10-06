@@ -1,7 +1,7 @@
 //! Directory-walking pack scanner over builtin / workshop / installed / linked zones.
 //!
 //! Contributions are discovered by scanning fixed type folders (`themes/`, `skins/`,
-//! `visualizers/`, `renderers/`, `sounds/`). Each contribution manifest must declare an `id`.
+//! `visualizers/`, `sounds/`). Each contribution manifest must declare an `id`.
 
 use super::paths;
 use super::{
@@ -297,7 +297,7 @@ fn contributions_from_pack(
                 continue;
             }
             if contribution_type_for_folder(name).is_none()
-                && matches!(name, "themes" | "skins" | "visualizers" | "renderers")
+                && matches!(name, "themes" | "skins" | "visualizers" | "sounds")
             {
                 // Shouldn't happen given CONTRIBUTION_TYPE_FOLDERS, but keep symmetric.
                 warnings.push(ScanWarning {
@@ -542,14 +542,16 @@ mod tests {
         assert!(viz
             .iter()
             .any(|c| c.effective_id == "spiral.core.visualizer.bars"));
+        assert!(viz
+            .iter()
+            .any(|c| c.effective_id == "spiral.core.visualizer.dream-cube"));
         assert_eq!(themes.len(), 6, "expected 6 builtin themes");
         assert_eq!(skins.len(), 1, "expected 1 builtin skin in core");
-        assert_eq!(viz.len(), 4, "expected 4 builtin visualizers");
-        let renderers: Vec<_> = contribs.iter().filter(|c| c.r#type == "renderer").collect();
-        assert!(renderers
-            .iter()
-            .any(|c| c.effective_id == "spiral.core.renderer.wave"));
-        assert_eq!(renderers.len(), 4, "expected 4 builtin renderers");
+        assert_eq!(viz.len(), 6, "expected 6 builtin visualizers");
+        assert!(
+            !contribs.iter().any(|c| c.r#type == "renderer"),
+            "renderers are no longer a contribution type"
+        );
     }
 
     #[test]

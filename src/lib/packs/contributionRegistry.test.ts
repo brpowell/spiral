@@ -17,14 +17,13 @@ const samplePack: PackManifest = {
 };
 
 describe("contribution type registry", () => {
-  it("registers stub handlers for theme, skin, visualizer, renderer, and sound", () => {
+  it("registers stub handlers for theme, skin, visualizer, and sound", () => {
     expect(getContributionTypeHandler("theme")?.schema.id).toBe("theme-v1");
     expect(getContributionTypeHandler("skin")?.schema.id).toBe("skin-v1");
     expect(getContributionTypeHandler("visualizer")?.schema.id).toBe("viz-v1");
-    expect(getContributionTypeHandler("renderer")?.schema.id).toBe("renderer-v1");
     expect(getContributionTypeHandler("sound")?.schema.id).toBe("sound-v1");
+    expect(getContributionTypeHandler("renderer")).toBeUndefined();
     expect(Object.keys(CONTRIBUTION_TYPE_HANDLERS).sort()).toEqual([
-      "renderer",
       "skin",
       "sound",
       "theme",
@@ -35,16 +34,16 @@ describe("contribution type registry", () => {
   it("allows the same local id across contribution types", () => {
     const discovered = discoveredFromFolderTable([
       { typeFolder: "visualizers", folderName: "wave" },
-      { typeFolder: "renderers", folderName: "wave" },
+      { typeFolder: "sounds", folderName: "wave" },
     ]);
     const resolved = resolvePackContributions(samplePack, discovered, {
       contributionIdsByPath: {
         "visualizers/wave/viz.json": "wave",
-        "renderers/wave/renderer.json": "wave",
+        "sounds/wave/sound.json": "wave",
       },
     });
     expect(resolved.map((r) => r.effectiveId).sort()).toEqual([
-      "bryan.midnight-drive.renderer.wave",
+      "bryan.midnight-drive.sound.wave",
       "bryan.midnight-drive.visualizer.wave",
     ]);
   });

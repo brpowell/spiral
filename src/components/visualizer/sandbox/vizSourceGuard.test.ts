@@ -9,7 +9,7 @@ import {
 const VALID_CANVAS2D = `
 export function create() {
   return {
-    render(ctx, frame, params) {
+    render(ctx, frame) {
       ctx.fillRect(0, 0, 10, 10);
     },
   };
@@ -60,14 +60,23 @@ describe("findVizSourceViolations", () => {
     ).toEqual([]);
   });
 
-  it("allows stock builtin renderer sources", () => {
+  it("allows stock builtin visualizer entry sources", () => {
     const root = join(
       process.cwd(),
-      "src-tauri/packs/builtin/core/renderers",
+      "src-tauri/packs/builtin/core/visualizers",
     );
     const sources = readdirSync(root, { withFileTypes: true })
       .filter((dir) => dir.isDirectory())
-      .map((dir) => readFileSync(join(root, dir.name, "index.js"), "utf8"));
+      .map((dir) => join(root, dir.name, "index.js"))
+      .filter((path) => {
+        try {
+          readFileSync(path, "utf8");
+          return true;
+        } catch {
+          return false;
+        }
+      })
+      .map((path) => readFileSync(path, "utf8"));
     expect(sources.length).toBeGreaterThanOrEqual(4);
     for (const source of sources) {
       expect(findVizSourceViolations(source)).toEqual([]);
@@ -83,6 +92,6 @@ describe("assertVizRendererSourceAllowed", () => {
   it("throws with a sandbox-prefixed message", () => {
     expect(() =>
       assertVizRendererSourceAllowed("export function create() { eval('x'); }"),
-    ).toThrow(/\[viz-sandbox\] rejected renderer source/);
+    ).toThrow(/\[viz-sandbox\] rejected draw module source/);
   });
 });

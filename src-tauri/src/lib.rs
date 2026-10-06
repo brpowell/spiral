@@ -317,7 +317,7 @@ pub fn run() {
             commands::wms_import::import_wms_skin,
             commands::visualizers::list_visualizers,
             commands::visualizers::load_visualizer,
-            commands::visualizers::read_viz_renderer_source,
+            commands::visualizers::read_viz_layer_source,
             commands::visualizers::save_active_visualizer_id,
             commands::visualizers::get_active_visualizer_id,
             commands::equalizer::get_equalizer_settings,

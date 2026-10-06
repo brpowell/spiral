@@ -1,6 +1,5 @@
 import { useVisualizerFrameRef } from "../../../hooks/useVisualizerFrame";
 import { isAnySkinWindow } from "../../../lib/windowRole";
-import { resolveSurfaceScene } from "../../visualizer/fallbackVisualizer";
 import { SceneRenderer } from "../../visualizer/scene/SceneRenderer";
 import { useResolvedVisualizer } from "../../visualizer/useResolvedVisualizer";
 import type { VisualizerRendererProps } from "../../visualizer/types";
@@ -47,7 +46,7 @@ function VisualizerRendererView({
   } = props;
 
   const activeVisualizer = useResolvedVisualizer();
-  const scene = resolveSurfaceScene(activeVisualizer);
+  const scene = activeVisualizer.children;
 
   return (
     <div
@@ -61,6 +60,7 @@ function VisualizerRendererView({
       <SceneRenderer
         key={activeVisualizer.id}
         scene={scene}
+        visualizerId={activeVisualizer.id}
         packDir={activeVisualizer.packDir}
         variant={variant}
         expanded={expanded}

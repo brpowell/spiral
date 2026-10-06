@@ -3,18 +3,8 @@
 import type { VizScene } from "../components/visualizer/scene/types";
 import type { PackZone } from "./pack";
 
-/**
- * Canvas and webgl layers both reference a fully-qualified renderer contribution id
- * (`authorId.packId.renderer.id`).
- */
-export type VizRendererRef = string;
-
-/** Reserved surface key in viz.json. Additional surfaces may return later. */
-export type VisualizerSurface = "default";
-
-export interface VizSurfaceProfile {
-  scene: VizScene;
-}
+/** Host context scene. Visualizer manifests have a single layer list. */
+export type VisualizerScene = "default";
 
 export interface VizManifest {
   /** Declared contribution id (kebab slug). */
@@ -24,7 +14,7 @@ export interface VizManifest {
   description: string;
   /** Optional contribution preview. Raster only (png/jpg/jpeg/webp/gif). */
   preview?: string;
-  surfaces: Record<VisualizerSurface, VizSurfaceProfile>;
+  children: VizScene;
 }
 
 export interface VizSummary {

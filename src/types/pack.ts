@@ -17,7 +17,6 @@ export const CONTRIBUTION_TYPE_FOLDERS = [
   { folder: "themes", type: "theme", manifestFilename: "theme.json" },
   { folder: "skins", type: "skin", manifestFilename: "skin.json" },
   { folder: "visualizers", type: "visualizer", manifestFilename: "viz.json" },
-  { folder: "renderers", type: "renderer", manifestFilename: "renderer.json" },
   { folder: "sounds", type: "sound", manifestFilename: "sound.json" },
 ] as const;
 

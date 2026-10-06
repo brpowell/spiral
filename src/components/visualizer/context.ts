@@ -17,6 +17,7 @@ import { useThemeStore } from "../../store/useThemeStore";
 import type { SkinBindPath } from "../../types/skin";
 import { computeAudioEnergy } from "./rendererUtils";
 import type { VisualizerContext } from "./types";
+import { useVisualizerTrack } from "./vizTrackImages";
 
 export function usePrefersReducedMotion(): boolean {
   const [reducedMotion, setReducedMotion] = useState(() => {
@@ -71,7 +72,17 @@ export function useVisualizerPalette(): string[] {
   return palette;
 }
 
-function useResolvedThemeTokens(): Record<string, string> {
+function definedTokens(
+  tokens: Record<string, string | undefined>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(tokens).filter(
+      (entry): entry is [string, string] => entry[1] !== undefined,
+    ),
+  );
+}
+
+function useVisualizerTheme(): VisualizerContext["theme"] {
   const themes = useThemeStore((s) => s.themes);
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
 
@@ -81,28 +92,27 @@ function useResolvedThemeTokens(): Record<string, string> {
       findThemeById(themes, DEFAULT_THEME_ID) ??
       themes[0];
     if (!theme) {
-      return Object.fromEntries(
-        Object.entries(OBSIDIAN_DEFAULT_TOKENS).filter(
-          (entry): entry is [string, string] => entry[1] !== undefined,
-        ),
-      );
+      return {
+        name: "Obsidian",
+        tokens: definedTokens(OBSIDIAN_DEFAULT_TOKENS),
+      };
     }
-    return Object.fromEntries(
-      Object.entries(resolveThemeTokens(theme)).filter(
-        (entry): entry is [string, string] => entry[1] !== undefined,
-      ),
-    );
+    return {
+      name: theme.name,
+      tokens: definedTokens(resolveThemeTokens(theme)),
+    };
   }, [themes, activeThemeId]);
 }
 
 export function useVisualizerContextBuilder() {
   const palette = useVisualizerPalette();
-  const themeTokens = useResolvedThemeTokens();
+  const theme = useVisualizerTheme();
   const bindState = useSkinBindState();
   const reducedMotion = usePrefersReducedMotion();
   const playbackState = usePlayerStore((s) => s.playbackState);
   const volume = usePlayerStore((s) => s.volume);
   const muted = usePlayerStore((s) => s.muted);
+  const track = useVisualizerTrack();
 
   const bind = useCallback(
     (path: SkinBindPath) => evaluateSkinBind(path, bindState),
@@ -114,7 +124,7 @@ export function useVisualizerContextBuilder() {
       size: VisualizerContext["size"],
       bins: readonly number[],
     ): VisualizerContext => ({
-      surface: "default",
+      scene: "default",
       size,
       audio: {
         bins,
@@ -124,22 +134,15 @@ export function useVisualizerContextBuilder() {
         ...computeAudioEnergy(bins),
       },
       bind,
-      colors: {
-        palette,
-        tokens: themeTokens,
-      },
+      theme,
       flags: {
         reducedMotion,
       },
+      trackMetadata: {
+        ...track,
+        artColors: palette,
+      },
     }),
-    [
-      playbackState,
-      volume,
-      muted,
-      bind,
-      palette,
-      themeTokens,
-      reducedMotion,
-    ],
+    [playbackState, volume, muted, bind, palette, theme, reducedMotion, track],
   );
 }

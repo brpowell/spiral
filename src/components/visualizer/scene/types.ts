@@ -1,23 +1,15 @@
 import type { LayerDriveMap } from "../../../lib/presentation/types";
-import type { VizRendererRef } from "../../../types/visualizer";
 
-export type VizSceneLayerKind =
-  | "canvas"
-  | "webgl"
-  | "image"
-  | "video"
-  | "group";
+export type VizSceneLayerKind = "canvas" | "webgl" | "image" | "video";
 
 export type VizSceneLayout =
-  | "fill"
-  | { x: number; y: number; w: number; h: number };
+  "fill" | { x: number; y: number; w: number; h: number };
 
-/** One layer in a VizScene (canvas/webgl/media/group). */
+/** One layer in a VizScene (canvas/webgl/media). */
 export interface VizSceneLayer {
   id?: string;
   kind: VizSceneLayerKind;
   layout: VizSceneLayout;
-  visibleWhen?: string;
   blend?: string;
   drive?: LayerDriveMap;
   opacity?: number;
@@ -25,15 +17,13 @@ export interface VizSceneLayer {
   translateX?: number;
   translateY?: number;
   rotation?: number;
-  /** Fully-qualified renderer contribution id (`authorId.packId.renderer.id`). */
-  renderer?: VizRendererRef;
-  params?: Record<string, unknown>;
+  /** JS module path relative to the visualizer contribution folder. */
+  entry?: string;
   asset?: string;
   loop?: boolean;
-  children?: VizSceneLayer[];
 }
 
-/** Layer tree for one visualizer surface. */
+/** Layer list for a visualizer (`viz.json` `children`). */
 export type VizScene = VizSceneLayer[];
 
 export interface LayoutRect {

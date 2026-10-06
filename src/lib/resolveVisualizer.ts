@@ -7,8 +7,7 @@ export const DEFAULT_VISUALIZER_ID = "spiral.core.visualizer.bars";
 const SKIN_GLOBAL_VISUALIZER = "global";
 
 type SkinVisualizerRef =
-  | { mode: "global" }
-  | { mode: "fixed"; visualizerId: string };
+  { mode: "global" } | { mode: "fixed"; visualizerId: string };
 
 function resolveSkinVisualizerRef(
   visualizer: SkinVisualizer | undefined,
@@ -38,7 +37,7 @@ function manifestToVisualizer(
   return {
     id,
     packDir,
-    surfaces: manifest.surfaces,
+    children: manifest.children,
   };
 }
 

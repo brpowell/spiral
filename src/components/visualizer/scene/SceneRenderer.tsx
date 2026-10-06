@@ -11,8 +11,6 @@ import {
 import { createPortal } from "react-dom";
 import type { VisualizerRemoteFrame } from "../../../lib/visualizerDataBridge";
 import { vizMediaLayerUrl } from "../../../lib/presentation/assets";
-import { useSkinVisible } from "../../../lib/skinBinds";
-import type { VizRendererEngine } from "../../../types/renderer";
 import { Button } from "../../common/Button/Button";
 import { IconMaximize, IconMinimize } from "../../icons";
 import { t } from "../../../lib/i18n";
@@ -25,7 +23,11 @@ import type {
   VisualizerDrawState,
   VisualizerRendererProps,
 } from "../types";
-import { buildVizFrame, isRendererContributionId } from "../vizRendererApi";
+import {
+  buildVizFrame,
+  isSafeVizEntry,
+  type VizRendererEngine,
+} from "../vizRendererApi";
 import { resolveLayerTransform } from "./resolveLayerTransform";
 import type { LayoutRect, VizScene, VizSceneLayer } from "./types";
 import { resolveLayout } from "./types";
@@ -49,6 +51,8 @@ const SANDBOX_RESTART_WINDOW_MS = 30_000;
 
 export interface SceneRendererProps extends VisualizerRendererProps {
   scene: VizScene;
+  /** Effective visualizer contribution id (for loading layer entry scripts). */
+  visualizerId: string;
   packDir?: string;
   /**
    * When true, treat audio as playing for this host only (Appearance card
@@ -65,10 +69,10 @@ function VizSceneLayerView({
   layer,
   rect,
   transform,
+  visualizerId,
   packDir,
   context,
   drawState,
-  remoteBins,
   remoteWaveform,
   elapsedMs,
   deltaMs,
@@ -77,10 +81,10 @@ function VizSceneLayerView({
   layer: VizSceneLayer;
   rect: LayoutRect;
   transform: ReturnType<typeof resolveLayerTransform>;
+  visualizerId: string;
   packDir?: string;
   context: VisualizerContext;
   drawState: VisualizerDrawState;
-  remoteBins: number[] | null;
   remoteWaveform: number[] | null;
   elapsedMs: number;
   deltaMs: number;
@@ -91,7 +95,6 @@ function VizSceneLayerView({
   const [sandboxEpoch, setSandboxEpoch] = useState(0);
   const [sandboxGeneration, setSandboxGeneration] = useState(0);
   const restartStateRef = useRef({ count: 0, windowStart: 0 });
-  const visible = useSkinVisible(layer.visibleWhen);
   const dpr = context.size.dpr || window.devicePixelRatio || 1;
   const sizeReady = rect.w > 0 && rect.h > 0;
   const sandboxEngine = layerSandboxEngine(layer.kind);
@@ -115,10 +118,10 @@ function VizSceneLayerView({
 
   useEffect(() => {
     if (!sandboxEngine) return;
-    if (!visible || !sizeReady) return;
-    if (!isRendererContributionId(layer.renderer)) {
+    if (!sizeReady) return;
+    if (!isSafeVizEntry(layer.entry)) {
       console.error(
-        `[visualizer] ${layer.kind} layer requires a renderer contribution id, got: ${layer.renderer ?? "(missing)"}`,
+        `[visualizer] ${layer.kind} layer requires an entry .js filename, got: ${layer.entry ?? "(missing)"}`,
       );
       return;
     }
@@ -126,14 +129,16 @@ function VizSceneLayerView({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const rendererId = layer.renderer;
+    const entry = layer.entry;
+    const layerLabel = `${visualizerId}/${entry}`;
     let cancelled = false;
     let sandbox: SandboxedVizRenderer | null = null;
     const abort = new AbortController();
 
     SandboxedVizRenderer.create({
       canvas,
-      rendererId,
+      visualizerId,
+      entry,
       engine: sandboxEngine,
       width: rect.w,
       height: rect.h,
@@ -156,13 +161,13 @@ function VizSceneLayerView({
         }
         if (state.count >= SANDBOX_RESTART_LIMIT) {
           console.error(
-            `[visualizer] sandbox restart limit reached for ${rendererId}: ${reason}`,
+            `[visualizer] sandbox restart limit reached for ${layerLabel}: ${reason}`,
           );
           return;
         }
         state.count += 1;
         console.warn(
-          `[visualizer] restarting sandbox ${rendererId} (${state.count}/${SANDBOX_RESTART_LIMIT}): ${reason}`,
+          `[visualizer] restarting sandbox ${layerLabel} (${state.count}/${SANDBOX_RESTART_LIMIT}): ${reason}`,
         );
         setSandboxGeneration((g) => g + 1);
       },
@@ -180,7 +185,7 @@ function VizSceneLayerView({
       .catch((err) => {
         if (cancelled) return;
         console.error(
-          `[visualizer] failed to sandbox renderer ${rendererId}`,
+          `[visualizer] failed to sandbox layer ${layerLabel}`,
           err,
         );
       });
@@ -194,13 +199,13 @@ function VizSceneLayerView({
     };
     // Intentionally omit rect/dpr: resize is handled below. sizeReady gates first boot.
     // sandboxGeneration remounts after fatal terminate (watchdog / context loss).
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- boot once per renderer when sized
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- boot once per layer entry when sized
   }, [
     sandboxEngine,
     layer.kind,
-    layer.renderer,
+    layer.entry,
+    visualizerId,
     sizeReady,
-    visible,
     sandboxGeneration,
   ]);
 
@@ -226,7 +231,7 @@ function VizSceneLayerView({
       height: rect.h,
     });
 
-    sandbox.postFrame(frame, layer.params ?? {});
+    sandbox.postFrame(frame);
     // sandboxEpoch intentionally busts this callback after sandbox restart so the
     // layout effect re-posts a frame; the body reads sandboxRef, not the epoch.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- epoch triggers re-post
@@ -236,7 +241,6 @@ function VizSceneLayerView({
     deltaMs,
     drawState,
     elapsedMs,
-    layer,
     rect.h,
     rect.w,
     remoteWaveform,
@@ -249,38 +253,6 @@ function VizSceneLayerView({
       postSandboxFrame();
     }
   }, [postSandboxFrame, sandboxEngine]);
-
-  if (!visible) return null;
-
-  if (layer.kind === "group" && layer.children?.length) {
-    return (
-      <div className="scene-layer" style={style}>
-        {layer.children.map((child, index) => {
-          const childRect = resolveLayout(child.layout, rect.w, rect.h);
-          const childTransform = resolveLayerTransform(child, {
-            audio: context.audio,
-            bind: context.bind,
-          });
-          return (
-            <VizSceneLayerView
-              key={child.id ?? `${layer.id ?? "group"}-${index}`}
-              layer={child}
-              rect={childRect}
-              transform={childTransform}
-              packDir={packDir}
-              context={context}
-              drawState={drawState}
-              remoteBins={remoteBins}
-              remoteWaveform={remoteWaveform}
-              elapsedMs={elapsedMs}
-              deltaMs={deltaMs}
-              onFirstFrame={onFirstFrame}
-            />
-          );
-        })}
-      </div>
-    );
-  }
 
   if (sandboxEngine) {
     return (
@@ -333,6 +305,7 @@ function VizSceneLayerView({
 
 function SceneViewport({
   scene,
+  visualizerId,
   packDir,
   remoteFrameRef,
   useRemoteFrame,
@@ -340,6 +313,7 @@ function SceneViewport({
   onFirstFrame,
 }: {
   scene: VizScene;
+  visualizerId: string;
   packDir?: string;
   remoteFrameRef?: RefObject<VisualizerRemoteFrame | null>;
   useRemoteFrame: boolean;
@@ -461,10 +435,10 @@ function SceneViewport({
             layer={layer}
             rect={rect}
             transform={transform}
+            visualizerId={visualizerId}
             packDir={packDir}
             context={context}
             drawState={drawState}
-            remoteBins={remoteBins}
             remoteWaveform={remoteWaveform}
             elapsedMs={elapsedMs}
             deltaMs={deltaMs}
@@ -478,6 +452,7 @@ function SceneViewport({
 
 export function SceneRenderer({
   scene,
+  visualizerId,
   packDir,
   variant = "dock",
   expanded = false,
@@ -532,6 +507,7 @@ export function SceneRenderer({
       <div className="audio-visualizer__stage">
         <SceneViewport
           scene={scene}
+          visualizerId={visualizerId}
           packDir={packDir}
           remoteFrameRef={remoteFrameRef}
           useRemoteFrame={useRemoteFrame}

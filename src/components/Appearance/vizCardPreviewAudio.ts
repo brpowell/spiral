@@ -80,7 +80,8 @@ export function generateDemoVisualizerFrame(
     0.68 + 0.32 * (phraseCycle * 0.5 + 0.5) + 0.05 * hash(barIndex * 1.9);
 
   // Small mid "formant" bump drifts slowly rather than sitting still.
-  const bumpN = 0.36 + 0.06 * Math.sin(t * 0.35) + 0.03 * Math.sin(t * 0.9 + 1.3);
+  const bumpN =
+    0.36 + 0.06 * Math.sin(t * 0.35) + 0.03 * Math.sin(t * 0.9 + 1.3);
 
   const binCount = ANALYSER_FREQUENCY_BIN_COUNT;
   const bins = new Array<number>(binCount);
@@ -133,7 +134,7 @@ function writeDemoFrame(
 /**
  * Remote frame feed for the hover live preview: bridged live analyser when
  * playing, otherwise synthetic demo audio. `forcePlaying` is true in demo mode
- * so renderers that gate on isPlaying still animate.
+ * so draw modules that gate on isPlaying still animate.
  */
 export function useVizCardPreviewFrameRef(): {
   remoteFrameRef: RefObject<VisualizerRemoteFrame>;
@@ -141,7 +142,9 @@ export function useVizCardPreviewFrameRef(): {
 } {
   const playbackState = usePlayerStore((s) => s.playbackState);
   const playing = playbackState === "playing";
-  const remoteFrameRef = useRef<VisualizerRemoteFrame>({ ...EMPTY_REMOTE_FRAME });
+  const remoteFrameRef = useRef<VisualizerRemoteFrame>({
+    ...EMPTY_REMOTE_FRAME,
+  });
 
   useEffect(() => {
     if (playing) {

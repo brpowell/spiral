@@ -3,13 +3,13 @@ import { getDefaultPalette } from "../../lib/palette";
 import { vizMediaLayerUrl } from "../../lib/presentation/assets";
 import { OBSIDIAN_DEFAULT_TOKENS } from "../../lib/theme";
 import type { Visualizer } from "../visualizer/types";
-import { resolveSurfaceScene } from "../visualizer/fallbackVisualizer";
 import { SandboxedVizRenderer } from "../visualizer/sandbox/SandboxedVizRenderer";
-import { resolveLayout, type VizScene, type VizSceneLayer } from "../visualizer/scene/types";
-import type { VizRendererEngine } from "../../types/renderer";
+import { resolveLayout, type VizSceneLayer } from "../visualizer/scene/types";
+import { EMPTY_VIZ_TRACK } from "../visualizer/vizTrack";
 import {
-  isRendererContributionId,
+  isSafeVizEntry,
   type VizFrame,
+  type VizRendererEngine,
 } from "../visualizer/vizRendererApi";
 import { useVisualizerStore } from "../../store/useVisualizerStore";
 import {
@@ -20,7 +20,8 @@ import {
 const VIZ_CARD_SNAPSHOT_WIDTH = 320;
 const VIZ_CARD_SNAPSHOT_HEIGHT = 200;
 
-type SnapshotResult = { src: string; status: "ready" } | { src: null; status: "error" };
+type SnapshotResult =
+  { src: string; status: "ready" } | { src: null; status: "error" };
 
 const cache = new Map<string, string>();
 const inflight = new Map<string, Promise<SnapshotResult>>();
@@ -33,18 +34,6 @@ function layerSandboxEngine(
   if (kind === "canvas") return "canvas2d";
   if (kind === "webgl") return "webgl";
   return null;
-}
-
-function flattenLayers(scene: VizScene): VizSceneLayer[] {
-  const out: VizSceneLayer[] = [];
-  const walk = (layers: VizSceneLayer[]) => {
-    for (const layer of layers) {
-      out.push(layer);
-      if (layer.children?.length) walk(layer.children);
-    }
-  };
-  walk(scene);
-  return out;
 }
 
 function snapshotThemeTokens(): Record<string, string> {
@@ -77,30 +66,32 @@ function buildSnapshotFrame(
     },
     time: { elapsedMs: VIZ_CARD_DEMO_SNAPSHOT_MS, deltaMs: 16 },
     size: { width, height, dpr },
-    colors: {
-      palette: getDefaultPalette(),
+    theme: {
+      name: "Obsidian",
       tokens: snapshotThemeTokens(),
     },
     flags: { reducedMotion: false },
+    trackMetadata: {
+      ...EMPTY_VIZ_TRACK,
+      artColors: getDefaultPalette(),
+    },
   };
 }
 
 function canvasToObjectUrl(canvas: HTMLCanvasElement): Promise<string> {
   return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (!blob) {
-          reject(new Error("failed to encode snapshot"));
-          return;
-        }
-        resolve(URL.createObjectURL(blob));
-      },
-      "image/png",
-    );
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("failed to encode snapshot"));
+        return;
+      }
+      resolve(URL.createObjectURL(blob));
+    }, "image/png");
   });
 }
 
 async function renderSandboxLayers(
+  visualizerId: string,
   layers: VizSceneLayer[],
   width: number,
   height: number,
@@ -117,7 +108,7 @@ async function renderSandboxLayers(
 
   for (const layer of layers) {
     const engine = layerSandboxEngine(layer.kind);
-    if (!engine || !isRendererContributionId(layer.renderer)) continue;
+    if (!engine || !isSafeVizEntry(layer.entry)) continue;
 
     const rect = resolveLayout(layer.layout, width, height);
     if (rect.w <= 0 || rect.h <= 0) continue;
@@ -125,7 +116,8 @@ async function renderSandboxLayers(
     const layerCanvas = document.createElement("canvas");
     const sandbox = await SandboxedVizRenderer.create({
       canvas: layerCanvas,
-      rendererId: layer.renderer,
+      visualizerId,
+      entry: layer.entry,
       engine,
       width: rect.w,
       height: rect.h,
@@ -135,7 +127,7 @@ async function renderSandboxLayers(
     try {
       // Fresh frame each layer — typed arrays are transferred to the worker.
       const frame = buildSnapshotFrame(rect.w, rect.h, dpr);
-      await sandbox.postFrameAndWait(frame, layer.params ?? {});
+      await sandbox.postFrameAndWait(frame);
       ctx.drawImage(
         layerCanvas,
         rect.x * dpr,
@@ -151,15 +143,15 @@ async function renderSandboxLayers(
   return composite;
 }
 
-async function snapshotFromVisualizer(
-  visualizer: Visualizer,
-): Promise<string> {
-  const scene = resolveSurfaceScene(visualizer);
-  const layers = flattenLayers(scene);
-  const sandboxLayers = layers.filter((layer) => layerSandboxEngine(layer.kind));
+async function snapshotFromVisualizer(visualizer: Visualizer): Promise<string> {
+  const layers = visualizer.children;
+  const sandboxLayers = layers.filter((layer) =>
+    layerSandboxEngine(layer.kind),
+  );
 
   if (sandboxLayers.length > 0) {
     const canvas = await renderSandboxLayers(
+      visualizer.id,
       sandboxLayers,
       VIZ_CARD_SNAPSHOT_WIDTH,
       VIZ_CARD_SNAPSHOT_HEIGHT,

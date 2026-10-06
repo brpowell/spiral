@@ -1,9 +1,19 @@
 /**
- * Host ↔ worker message protocol for sandboxed VizRenderers.
+ * Host ↔ worker message protocol for sandboxed visualizer draw modules.
  */
 
-import type { VizRendererEngine } from "../../../types/renderer";
-import type { VizFrame } from "../vizRendererApi";
+import type { VizFrame, VizRendererEngine } from "../vizRendererApi";
+import type { VizTrackImagePayload, VizTrackWire } from "../vizTrack";
+
+export interface VizTrackMediaMessage {
+  art: VizTrackImagePayload | null;
+  portraits: VizTrackImagePayload[];
+}
+
+/** Per-frame payload. Track bitmaps are attached in the worker from `trackMedia`. */
+export type VizFrameMessage = Omit<VizFrame, "trackMetadata"> & {
+  trackMetadata: VizTrackWire;
+};
 
 /** Soft budget: late acks count as overruns (backpressure already skips frames). */
 export const FRAME_BUDGET_MS = 32;
@@ -28,7 +38,7 @@ export const MAX_FRAME_OVERRUNS = 45;
 export type HostToWorkerMessage =
   | {
       type: "init";
-      rendererId: string;
+      layerLabel: string;
       engine: VizRendererEngine;
       source: string;
       canvas: OffscreenCanvas;
@@ -45,12 +55,12 @@ export type HostToWorkerMessage =
   | {
       type: "frame";
       seq: number;
-      frame: VizFrame;
-      params: Record<string, unknown>;
+      frame: VizFrameMessage;
     }
+  | ({ type: "trackMedia" } & VizTrackMediaMessage)
   | { type: "dispose" };
 
 export type WorkerToHostMessage =
-  | { type: "ready"; rendererId: string }
+  | { type: "ready"; layerLabel: string }
   | { type: "rendered"; seq: number; bitmap: ImageBitmap }
   | { type: "error"; message: string };

@@ -1,5 +1,5 @@
 /**
- * Allowlist-first lockdown for the VizRenderer worker.
+ * Allowlist-first lockdown for the visualizer draw-module worker.
  *
  * Anything on `globalThis` that is not listed here is removed or replaced with
  * a throwing stub before pack source runs. Open entries deliberately when a
@@ -218,12 +218,16 @@ function wrapTimers(scope: {
 }): void {
   const nativeSetTimeout = scope.setTimeout.bind(scope);
   const nativeSetInterval = scope.setInterval.bind(scope);
-  defineDenied(scope, "setTimeout", (handler: TimerHandler, ...args: unknown[]) => {
-    if (typeof handler === "string") {
-      throw new Error("[viz-sandbox] string setTimeout disabled");
-    }
-    return nativeSetTimeout(handler, ...(args as [number?, ...unknown[]]));
-  });
+  defineDenied(
+    scope,
+    "setTimeout",
+    (handler: TimerHandler, ...args: unknown[]) => {
+      if (typeof handler === "string") {
+        throw new Error("[viz-sandbox] string setTimeout disabled");
+      }
+      return nativeSetTimeout(handler, ...(args as [number?, ...unknown[]]));
+    },
+  );
   defineDenied(
     scope,
     "setInterval",
@@ -251,10 +255,12 @@ export function lockDownWorkerGlobals(scope: typeof globalThis): void {
     defineDenied(scope, key, denyAccess(key));
   }
 
-  wrapTimers(scope as typeof globalThis & {
-    setTimeout: typeof setTimeout;
-    setInterval: typeof setInterval;
-  });
+  wrapTimers(
+    scope as typeof globalThis & {
+      setTimeout: typeof setTimeout;
+      setInterval: typeof setInterval;
+    },
+  );
 }
 
 /** After the single host blob import, seal further blob URL minting. */
@@ -290,5 +296,7 @@ export function sealBlobUrlApi(): void {
 }
 
 export function isVizWorkerGlobalAllowed(name: string): boolean {
-  return ALLOWED.has(name) && !(ALWAYS_DENY as readonly string[]).includes(name);
+  return (
+    ALLOWED.has(name) && !(ALWAYS_DENY as readonly string[]).includes(name)
+  );
 }

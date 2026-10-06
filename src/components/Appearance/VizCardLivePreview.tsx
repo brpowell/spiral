@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useVisualizerStore } from "../../store/useVisualizerStore";
-import { resolveSurfaceScene } from "../visualizer/fallbackVisualizer";
 import { SceneRenderer } from "../visualizer/scene/SceneRenderer";
 import type { Visualizer } from "../visualizer/types";
 import { useVizCardPreviewFrameRef } from "./vizCardPreviewAudio";
@@ -30,10 +29,7 @@ export function VizCardLivePreview({
         if (!cancelled) setVisualizer(loaded);
       })
       .catch((err: unknown) => {
-        console.error(
-          `[viz-card-live] failed to load ${visualizerId}`,
-          err,
-        );
+        console.error(`[viz-card-live] failed to load ${visualizerId}`, err);
       });
     return () => {
       cancelled = true;
@@ -42,13 +38,14 @@ export function VizCardLivePreview({
 
   if (!visualizer) return null;
 
-  const scene = resolveSurfaceScene(visualizer);
+  const scene = visualizer.children;
 
   return (
     <div className="visualizer-picker__live" aria-hidden>
       <SceneRenderer
         key={visualizer.id}
         scene={scene}
+        visualizerId={visualizer.id}
         packDir={visualizer.packDir}
         variant="dock"
         expanded={false}

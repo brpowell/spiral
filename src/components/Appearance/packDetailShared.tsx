@@ -7,7 +7,6 @@ import {
   type PackSummary,
 } from "../../types/pack";
 import {
-  IconGpu,
   IconPackage,
   IconPalette,
   IconBoombox,
@@ -34,8 +33,6 @@ export function contributionTypeMeta(type: string): {
       return { label: t("studio:types.skin"), icon: <IconBoombox /> };
     case "visualizer":
       return { label: t("studio:types.visualizer"), icon: <IconVisualizer /> };
-    case "renderer":
-      return { label: t("studio:types.renderer"), icon: <IconGpu /> };
     default:
       return { label: type, icon: <IconPackage /> };
   }

@@ -15,14 +15,16 @@ export const MINI_VISUALIZER_INTERVAL_MS = 16;
 let frequencyBuffer: Uint8Array<ArrayBuffer> = new Uint8Array(
   ANALYSER_FREQUENCY_BIN_COUNT,
 );
-let timeDomainBuffer: Uint8Array<ArrayBuffer> = new Uint8Array(ANALYSER_FFT_SIZE);
+let timeDomainBuffer: Uint8Array<ArrayBuffer> = new Uint8Array(
+  ANALYSER_FFT_SIZE,
+);
 
 export interface VisualizerRemoteFrame {
   bins: number[] | null;
   waveform: number[] | null;
 }
 
-/** Complete analyser snapshot for cross-window renderers (matches main-window inputs). */
+/** Complete analyser snapshot for cross-window visualizers (matches main-window inputs). */
 export interface VisualizerFramePayload {
   bins: number[];
   waveform: number[];
@@ -32,7 +34,10 @@ export interface VisualizerFramePayload {
   trebleEnergy: number;
 }
 
-function ensureAnalyserBuffers(fftSize: number, frequencyBinCount: number): void {
+function ensureAnalyserBuffers(
+  fftSize: number,
+  frequencyBinCount: number,
+): void {
   if (timeDomainBuffer.length !== fftSize) {
     timeDomainBuffer = new Uint8Array(fftSize);
   }

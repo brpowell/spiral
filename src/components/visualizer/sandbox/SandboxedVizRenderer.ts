@@ -1,12 +1,16 @@
 /**
- * Host-side bridge: runs pack renderer source in a dedicated worker against an
- * OffscreenCanvas (canvas2d or webgl), then blits returned ImageBitmaps onto
- * the display canvas.
+ * Host-side bridge: runs pack visualizer entry source in a dedicated worker
+ * against an OffscreenCanvas (canvas2d or webgl), then blits returned
+ * ImageBitmaps onto the display canvas.
  */
 
-import type { VizRendererEngine } from "../../../types/renderer";
-import { readVizRendererPayload } from "../packRendererLoader";
-import type { VizFrame } from "../vizRendererApi";
+import { readVizLayerSource } from "../packVizLayerLoader";
+import type { VizFrame, VizRendererEngine } from "../vizRendererApi";
+import {
+  splitVizTrack,
+  type VizTrackImagePayload,
+  type VizTrackWire,
+} from "../vizTrack";
 import {
   FATAL_BUDGET_MS,
   FRAME_BUDGET_MS,
@@ -23,6 +27,7 @@ import {
   assertRendererSourceWithinBudget,
   clampVizRenderSize,
   isWithinPixelBudget,
+  MAX_VIZ_TRACK_IMAGE_EDGE,
   type VizRenderSize,
 } from "./resourceBudgets";
 import { assertVizRendererSourceAllowed } from "./vizSourceGuard";
@@ -40,7 +45,7 @@ function parseWorkerMessage(data: unknown): WorkerToHostMessage | null {
   const msg = data as Record<string, unknown>;
   switch (msg.type) {
     case "ready":
-      return typeof msg.rendererId === "string"
+      return typeof msg.layerLabel === "string"
         ? (msg as WorkerToHostMessage)
         : null;
     case "rendered":
@@ -61,9 +66,9 @@ function parseWorkerMessage(data: unknown): WorkerToHostMessage | null {
 export interface SandboxedVizRendererOptions {
   /** Display canvas — host blits ImageBitmaps here; never transferred. */
   canvas: HTMLCanvasElement;
-  rendererId: string;
-  /** When omitted, engine is read from the pack renderer manifest. */
-  engine?: VizRendererEngine;
+  visualizerId: string;
+  entry: string;
+  engine: VizRendererEngine;
   width: number;
   height: number;
   dpr: number;
@@ -81,10 +86,47 @@ export interface SandboxedVizRendererOptions {
   signal?: AbortSignal;
 }
 
+/** RGBA pixels for a track image. Null when the bitmap cannot be read. */
+function encodeTrackImage(
+  id: string,
+  bitmap: ImageBitmap,
+): VizTrackImagePayload | null {
+  let width = 0;
+  let height = 0;
+  try {
+    width = bitmap.width;
+    height = bitmap.height;
+  } catch {
+    return null;
+  }
+  if (
+    width < 1 ||
+    height < 1 ||
+    width > MAX_VIZ_TRACK_IMAGE_EDGE ||
+    height > MAX_VIZ_TRACK_IMAGE_EDGE
+  ) {
+    return null;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  try {
+    ctx.drawImage(bitmap, 0, 0);
+    const image = ctx.getImageData(0, 0, width, height);
+    const pixels = new Uint8ClampedArray(image.data);
+    return { id, width, height, pixels: pixels.buffer };
+  } catch {
+    return null;
+  }
+}
+
 export class SandboxedVizRenderer {
   private worker: Worker;
   private displayCtx: CanvasRenderingContext2D;
-  private rendererId: string;
+  private layerLabel: string;
   private engine: VizRendererEngine;
   private frameBudgetMs: number;
   private fatalBudgetMs: number;
@@ -106,18 +148,22 @@ export class SandboxedVizRenderer {
   private onFirstFrame: (() => void) | null;
   private onTerminated: ((reason: string) => void) | null;
   private firstFrameNotified = false;
+  /** Image ids already copied into this worker. Pruned to the current track. */
+  private sentTrackImageIds = new Set<string>();
+  /** Ids we could not encode. Pruned with the sent set so a later track can retry. */
+  private unsendableTrackImageIds = new Set<string>();
 
   private constructor(
     worker: Worker,
     displayCtx: CanvasRenderingContext2D,
-    rendererId: string,
+    layerLabel: string,
     engine: VizRendererEngine,
     onFirstFrame?: () => void,
     onTerminated?: (reason: string) => void,
   ) {
     this.worker = worker;
     this.displayCtx = displayCtx;
-    this.rendererId = rendererId;
+    this.layerLabel = layerLabel;
     this.engine = engine;
     this.onFirstFrame = onFirstFrame ?? null;
     this.onTerminated = onTerminated ?? null;
@@ -157,17 +203,12 @@ export class SandboxedVizRenderer {
       throw new Error("OffscreenCanvas is not available");
     }
 
-    const payload = await readVizRendererPayload(opts.rendererId);
+    const layerLabel = `${opts.visualizerId}/${opts.entry}`;
+    const payload = await readVizLayerSource(opts.visualizerId, opts.entry);
     if (signal?.aborted) {
       throw new Error("sandbox init aborted");
     }
 
-    const engine = opts.engine ?? payload.engine;
-    if (engine !== payload.engine) {
-      throw new Error(
-        `renderer ${opts.rendererId} is engine "${payload.engine}", expected "${engine}"`,
-      );
-    }
     assertVizRendererSourceAllowed(payload.source);
     assertRendererSourceWithinBudget(payload.source);
 
@@ -182,8 +223,8 @@ export class SandboxedVizRenderer {
     const host = new SandboxedVizRenderer(
       worker,
       displayCtx,
-      opts.rendererId,
-      engine,
+      layerLabel,
+      opts.engine,
       opts.onFirstFrame,
       opts.onTerminated,
     );
@@ -195,14 +236,14 @@ export class SandboxedVizRenderer {
     signal?.addEventListener("abort", onAbort, { once: true });
 
     const initBudgetMs =
-      engine === "webgl" ? WEBGL_INIT_BUDGET_MS : INIT_BUDGET_MS;
+      opts.engine === "webgl" ? WEBGL_INIT_BUDGET_MS : INIT_BUDGET_MS;
     let initTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     try {
       const initMsg: HostToWorkerMessage = {
         type: "init",
-        rendererId: opts.rendererId,
-        engine,
+        layerLabel,
+        engine: opts.engine,
         source: payload.source,
         canvas: offscreen,
         width: size.width,
@@ -258,7 +299,7 @@ export class SandboxedVizRenderer {
    * Post a frame. Skips if a previous frame is still in flight (backpressure).
    * Audio typed arrays are transferred to the worker.
    */
-  postFrame(frame: VizFrame, params: Record<string, unknown>): void {
+  postFrame(frame: VizFrame): void {
     if (this.disposed || this.status !== "ready") return;
     if (this.pendingSeq !== null) return;
 
@@ -277,6 +318,8 @@ export class SandboxedVizRenderer {
     this.pendingSeq = this.seq;
     this.pendingStartedAt = performance.now();
 
+    const trackMetadata = this.syncTrackMedia(frame);
+
     const transfer: Transferable[] = [];
     const freqBuf = frame.audio.frequencies.buffer;
     const waveBuf = frame.audio.waveform.buffer;
@@ -294,17 +337,82 @@ export class SandboxedVizRenderer {
     const msg: HostToWorkerMessage = {
       type: "frame",
       seq: this.seq,
-      frame,
-      params,
+      frame: { ...frame, trackMetadata },
     };
     this.worker.postMessage(msg, transfer);
   }
 
+  /**
+   * Copy album art and portraits into the worker only when they change.
+   * Pixels are transferred — WebKit cannot structured-clone ImageBitmap.
+   * The following frame message carries ids; the worker rebuilds the bitmaps.
+   */
+  private syncTrackMedia(frame: VizFrame): VizTrackWire {
+    const split = splitVizTrack(frame.trackMetadata);
+    const art = this.trackImagePayload(split.media.art);
+    const portraits: VizTrackImagePayload[] = [];
+    for (const portrait of split.media.portraits) {
+      const payload = this.trackImagePayload(portrait);
+      if (payload) portraits.push(payload);
+    }
+    if (art || portraits.length > 0) {
+      const transfer: Transferable[] = [];
+      if (art) transfer.push(art.pixels);
+      for (const portrait of portraits) transfer.push(portrait.pixels);
+      try {
+        const msg: HostToWorkerMessage = {
+          type: "trackMedia",
+          art,
+          portraits,
+        };
+        this.worker.postMessage(msg, transfer);
+        if (art) this.sentTrackImageIds.add(art.id);
+        for (const portrait of portraits) {
+          this.sentTrackImageIds.add(portrait.id);
+        }
+      } catch (err) {
+        console.error("[visualizer] failed to send track images", err);
+        if (art) this.unsendableTrackImageIds.add(art.id);
+        for (const portrait of portraits) {
+          this.unsendableTrackImageIds.add(portrait.id);
+        }
+      }
+    }
+
+    const live = new Set<string>();
+    if (split.wire.artId) live.add(split.wire.artId);
+    for (const artist of split.wire.artists) {
+      if (artist.portraitId) live.add(artist.portraitId);
+    }
+    for (const id of this.sentTrackImageIds) {
+      if (!live.has(id)) this.sentTrackImageIds.delete(id);
+    }
+    for (const id of this.unsendableTrackImageIds) {
+      if (!live.has(id)) this.unsendableTrackImageIds.delete(id);
+    }
+    return split.wire;
+  }
+
+  private trackImagePayload(
+    image: { id: string; bitmap: ImageBitmap } | null,
+  ): VizTrackImagePayload | null {
+    if (!image) return null;
+    if (
+      this.sentTrackImageIds.has(image.id) ||
+      this.unsendableTrackImageIds.has(image.id)
+    ) {
+      return null;
+    }
+    const payload = encodeTrackImage(image.id, image.bitmap);
+    if (!payload) {
+      this.unsendableTrackImageIds.add(image.id);
+      return null;
+    }
+    return payload;
+  }
+
   /** Post one frame and resolve after it has been blitted to the display canvas. */
-  postFrameAndWait(
-    frame: VizFrame,
-    params: Record<string, unknown>,
-  ): Promise<void> {
+  postFrameAndWait(frame: VizFrame): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.disposed || this.status !== "ready") {
         reject(new Error("sandbox not ready"));
@@ -321,7 +429,7 @@ export class SandboxedVizRenderer {
           return;
         }
         this.frameWaiter = { resolve, reject };
-        this.postFrame(frame, params);
+        this.postFrame(frame);
         if (this.pendingSeq === null) {
           this.frameWaiter = null;
           reject(new Error("failed to post frame"));
@@ -347,7 +455,9 @@ export class SandboxedVizRenderer {
       this.rejectReady(new Error("sandbox disposed"));
     }
     try {
-      this.worker.postMessage({ type: "dispose" } satisfies HostToWorkerMessage);
+      this.worker.postMessage({
+        type: "dispose",
+      } satisfies HostToWorkerMessage);
     } catch {
       // worker may already be dead
     }
@@ -460,7 +570,7 @@ export class SandboxedVizRenderer {
   private terminate(reason: string): void {
     if (this.disposed) return;
     console.error(
-      `[viz-sandbox] terminating ${this.rendererId} (${this.engine}): ${reason}`,
+      `[viz-sandbox] terminating ${this.layerLabel} (${this.engine}): ${reason}`,
     );
     this.status = "terminated";
     const waiter = this.frameWaiter;

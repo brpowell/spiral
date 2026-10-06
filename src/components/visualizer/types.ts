@@ -1,18 +1,30 @@
 import type { RefObject } from "react";
 import type { SkinBindPath } from "../../types/skin";
 import type { VisualizerRemoteFrame } from "../../lib/visualizerDataBridge";
-import type {
-  VisualizerSurface,
-  VizSurfaceProfile,
-} from "../../types/visualizer";
+import type { VisualizerScene } from "../../types/visualizer";
+import type { VizScene } from "./scene/types";
+import type { VizFrameTrack } from "./vizTrack";
 
-export type {
-  VisualizerSurface,
-  VizSurfaceProfile as VisualizerSurfaceProfile,
-} from "../../types/visualizer";
+/**
+ * Active theme, as a draw module sees it.
+ * This is the display name and resolved tokens only — not the pack's theme record.
+ */
+export interface VizFrameTheme {
+  /** Display name, such as `"Obsidian"` or `"Sprig"`. */
+  name: string;
+  /**
+   * Resolved CSS tokens for the active theme.
+   * Color values are CSS colors (`color-bg`, `color-text-primary`, `color-accent`,
+   * `color-danger`, and the `color-alert-*` keys). `font-ui` is a font stack.
+   * Other theme tokens may be present.
+   */
+  tokens: Record<string, string>;
+}
+
+export type { VisualizerScene } from "../../types/visualizer";
 
 export interface VisualizerContext {
-  surface: VisualizerSurface;
+  scene: VisualizerScene;
   size: { width: number; height: number; dpr: number };
 
   audio: {
@@ -32,22 +44,23 @@ export interface VisualizerContext {
 
   bind(path: SkinBindPath): string | number | boolean | null;
 
-  colors: {
-    palette: string[];
-    tokens: Record<string, string>;
-  };
+  /** Active theme. The draw-module frame receives this same object. */
+  theme: VizFrameTheme;
 
   flags: {
     reducedMotion: boolean;
   };
+
+  /** Current track. Empty title and no art when nothing is loaded. */
+  trackMetadata: VizFrameTrack;
 }
 
-/** Runtime visualizer: resolved surfaces ready for the scene compositor. */
+/** Runtime visualizer: resolved layers ready for the scene compositor. */
 export interface Visualizer {
   id: string;
   /** Pack root on disk — required for scene asset layers. */
   packDir?: string;
-  surfaces: Record<VisualizerSurface, VizSurfaceProfile>;
+  children: VizScene;
 }
 
 export interface VisualizerDrawState {

@@ -3,20 +3,12 @@
   "id": "bars",
   "name": "Bars",
   "author": "Spiral",
-  "description": "Mirrored frequency bars with album palette.",
-  "surfaces": {
-    "default": {
-      "scene": [
-        {
-          "id": "bars",
-          "kind": "canvas",
-          "layout": "fill",
-          "renderer": "spiral.core.renderer.bars",
-          "params": {
-            "barCount": 64
-          }
-        }
-      ]
+  "description": "I wonder if you put a pin art board on top of a speaker if it would do this.",
+  "children": [
+    {
+      "kind": "canvas",
+      "layout": "fill",
+      "entry": "index.js"
     }
-  }
+  ]
 }
