@@ -4,9 +4,9 @@ This file lists production npm packages and Rust crates shipped with Spiral,
 with SPDX license identifiers. Special notices (LAME / LGPL, Fraunhofer FDK AAC,
 Symphonia / MPL) are also shown in the app under About Spiral → Licenses.
 
-Generated: 2026-10-06T13:47:36.326Z
+Generated: 2026-10-06T14:32:42.880Z
 
-=== npm (188) ===
+=== npm (187) ===
 
 @babel/runtime@7.29.7 — MIT
 @borewit/text-codec@0.2.2 — MIT
@@ -81,7 +81,6 @@ gifuct-js@2.1.2 — MIT
 gifwrap@0.10.1 — MIT
 hast-util-to-jsx-runtime@2.3.6 — MIT
 hast-util-whitespace@3.0.0 — MIT
-howler@2.2.4 — MIT
 html-parse-stringify@4.0.1 — MIT
 html-url-attributes@3.0.1 — MIT
 i18next@26.3.6 — MIT

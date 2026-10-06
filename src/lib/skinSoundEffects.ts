@@ -1,4 +1,3 @@
-import { Howl } from "howler";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
 import { useSkinStore } from "../store/useSkinStore";
@@ -8,6 +7,7 @@ import {
   isPublicSoundContributionId,
   resolveSoundAssetUrl,
 } from "./packSounds";
+import { playOneShot } from "./sfxPlayer";
 import type { LoadedSkinPack } from "../types/skin";
 
 /** Bind path → soundEffects key when truthy (last match wins). Falls back to `sound`. */
@@ -28,40 +28,8 @@ export function resolveSkinClickSound(
   return sound;
 }
 
-const soundCache = new Map<string, Howl>();
-
 function soundAssetUrl(packDir: string, assetPath: string): string {
   return convertFileSrc(`${packDir}/assets/${assetPath}.wav`);
-}
-
-function getOrCreateHowl(url: string): Howl {
-  const cached = soundCache.get(url);
-  if (cached) return cached;
-
-  const howl = new Howl({
-    src: [url],
-    volume: 1,
-    html5: false,
-    preload: true,
-  });
-  soundCache.set(url, howl);
-  return howl;
-}
-
-function playHowl(url: string): void {
-  const howl = getOrCreateHowl(url);
-  const playLoaded = () => {
-    howl.stop();
-    void howl.play();
-  };
-  if (howl.state() === "loaded") {
-    playLoaded();
-    return;
-  }
-  howl.once("load", playLoaded);
-  howl.once("loaderror", (_id, err) => {
-    console.error("Failed to load skin sound:", url, err);
-  });
 }
 
 export function playSkinSound(
@@ -75,7 +43,7 @@ export function playSkinSound(
 
   if (isPublicSoundContributionId(soundKey)) {
     void resolveSoundAssetUrl(soundKey).then((url) => {
-      if (url) playHowl(url);
+      if (url) playOneShot(url);
     });
     return;
   }
@@ -88,7 +56,7 @@ export function playSkinSound(
   const assetPath = soundMap[soundKey];
   if (!assetPath) return;
 
-  playHowl(soundAssetUrl(pack.packDir, assetPath));
+  playOneShot(soundAssetUrl(pack.packDir, assetPath));
 }
 
 export function playActiveSkinSound(soundKey: string | undefined): void {

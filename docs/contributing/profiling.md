@@ -18,7 +18,7 @@ Spiral is one Tauri 2 app: a Rust host (`src-tauri`, binary name **`Spiral`**) p
 
 `tauri.conf.json` declares **six** windows at launch (`main`, `skin-mode`, `appearance`, `equalizer`, `activity-logs`, `about`). Hidden windows still load `index.html` → `src/main.tsx` (one SPA; role is chosen after `bootstrapWindowRole()`). Extra skin-aux / toast-lab windows are created on demand.
 
-Playback is **not** Howler for library files. Rust streams little-endian `f32` PCM over Tauri events into a Web Audio worklet (`FILE_PCM_READ_AHEAD_SECONDS = 2`). Howler remains only for skin SFX (`src/lib/skinSoundEffects.ts`).
+Library playback streams little-endian `f32` PCM from Rust over Tauri events into a Web Audio worklet (`FILE_PCM_READ_AHEAD_SECONDS = 2`). Skin and transport cues are short WAV one-shots on a separate AudioContext (`src/lib/sfxPlayer.ts`).
 
 ---
 
