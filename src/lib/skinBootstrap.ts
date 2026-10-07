@@ -1,4 +1,4 @@
-import { getActiveSkinId, listSkins, loadSkinPack } from "./tauri";
+import { getSkinBootstrap, loadSkinPack } from "./tauri";
 import { restoreOpenSkinAuxWindows } from "./skinAuxWindow";
 import { readOpenAuxViewsForSkin } from "./skinAuxViewState";
 import { resolveViewForPack } from "./skinViewState";
@@ -11,23 +11,21 @@ import { isSkinModeWindow } from "./windowRole";
 
 export async function bootstrapSkin(): Promise<void> {
   try {
-    const [summaries, activeSkinId] = await Promise.all([
-      listSkins(),
-      getActiveSkinId(),
-    ]);
-
-    const resolvedId = summaries.some((s) => s.id === activeSkinId)
-      ? activeSkinId
+    const boot = await getSkinBootstrap();
+    const resolvedId = boot.summaries.some((s) => s.id === boot.activeSkinId)
+      ? boot.activeSkinId
       : DEFAULT_SKIN_ID;
-
-    const pack = await loadSkinPack(resolvedId);
+    const pack =
+      resolvedId === boot.activeSkinId
+        ? boot.pack
+        : await loadSkinPack(resolvedId);
     const viewId = resolveViewForPack(pack);
     const openAuxiliaryViews = readOpenAuxViewsForSkin(resolvedId);
 
     useSkinStore
       .getState()
       .initializeFromBootstrap(
-        summaries,
+        boot.summaries,
         pack,
         resolvedId,
         viewId,

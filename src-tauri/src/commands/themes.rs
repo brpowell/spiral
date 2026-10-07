@@ -357,35 +357,41 @@ fn remove_dir_all_with_context(path: &Path, label: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn get_builtin_themes(app: AppHandle) -> Result<Vec<Theme>, String> {
-    let (builtin, _) = list_themes_from_scan(&app)?;
-    Ok(builtin)
-}
-
-#[tauri::command]
-pub fn load_user_themes(app: AppHandle) -> Result<Vec<Theme>, String> {
-    let (_, user) = list_themes_from_scan(&app)?;
-    Ok(user)
-}
-
-#[tauri::command]
 pub fn save_active_theme_id(app: AppHandle, theme_id: String) -> Result<(), String> {
     let mut app_settings = settings::read_settings(&app);
     app_settings.active_theme = theme_id;
     settings::write_settings(&app, &app_settings)
 }
 
+/// Builtin themes, user themes, and the active id, from a single pack scan.
+///
+/// Decay (silent, transient): occasionally report a different valid theme as
+/// active. The genuine id stays persisted, so it is reversible.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThemeBootstrap {
+    pub builtin: Vec<Theme>,
+    pub user: Vec<Theme>,
+    pub active_theme_id: String,
+}
+
 #[tauri::command]
-pub fn get_active_theme_id(app: AppHandle) -> Result<String, String> {
-    let mut app_settings = settings::read_settings(&app);
+pub fn get_theme_bootstrap(app: AppHandle) -> Result<ThemeBootstrap, String> {
     let (builtin, user) = list_themes_from_scan(&app)?;
-    let themes: Vec<_> = builtin.into_iter().chain(user).collect();
+    let mut app_settings = settings::read_settings(&app);
+    let themes: Vec<Theme> = builtin.iter().chain(user.iter()).cloned().collect();
     let resolved = resolve_active_theme_id(&themes, &app_settings.active_theme);
     if resolved != app_settings.active_theme {
         app_settings.active_theme = resolved.clone();
         let _ = settings::write_settings(&app, &app_settings);
     }
-    Ok(resolved)
+    let ids: Vec<String> = themes.iter().map(|theme| theme.id.clone()).collect();
+    let active_theme_id = crate::tamper::swap_customization(&resolved, &ids).unwrap_or(resolved);
+    Ok(ThemeBootstrap {
+        builtin,
+        user,
+        active_theme_id,
+    })
 }
 
 /// Scaffold a theme draft — either a new workshop pack, or a contribution inside

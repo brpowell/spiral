@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { emit } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { I18nextProvider } from "react-i18next";
-import { WINDOW_READY_EVENT } from "./lib/appWindows";
+import { WINDOW_READY_EVENT, warmResidentWindows } from "./lib/appWindows";
 import App from "./App";
 import { AboutApp } from "./AboutApp";
 import { ActivityLogsApp } from "./ActivityLogsApp";
@@ -97,7 +97,8 @@ async function start() {
   const role = await bootstrapWindowRole();
 
   // Library + secondary utility windows (not skins — already frameless).
-  if (
+  // Runs alongside the theme load; the native window is already configured.
+  const chrome =
     role === "main" ||
     role === "appearance" ||
     role === "equalizer" ||
@@ -105,19 +106,18 @@ async function start() {
     role === "about" ||
     role === "toast-lab" ||
     role === "sound-lab"
-  ) {
-    await applyCustomWindowChrome();
-  }
+      ? applyCustomWindowChrome()
+      : Promise.resolve();
 
   if (isToastLabWindow()) {
-    await bootstrapTheme();
+    await Promise.all([chrome, bootstrapTheme()]);
     await initThemeBridge(role);
     renderRoot(<ToastLabApp />);
     return;
   }
 
   if (import.meta.env.DEV && isSoundLabWindow()) {
-    await bootstrapTheme();
+    await Promise.all([chrome, bootstrapTheme()]);
     await initThemeBridge(role);
     const { SoundLabApp } = await import("./SoundLabApp");
     renderRoot(<SoundLabApp />);
@@ -125,7 +125,7 @@ async function start() {
   }
 
   if (isAboutWindow()) {
-    await bootstrapTheme();
+    await Promise.all([chrome, bootstrapTheme()]);
     await initThemeBridge(role);
 
     renderRoot(<AboutApp />);
@@ -133,7 +133,7 @@ async function start() {
   }
 
   if (isActivityLogsWindow()) {
-    await bootstrapTheme();
+    await Promise.all([chrome, bootstrapTheme()]);
     await initThemeBridge(role);
 
     renderRoot(<ActivityLogsApp />);
@@ -141,10 +141,8 @@ async function start() {
   }
 
   if (isEqualizerWindow()) {
-    await bootstrapTheme();
-    await bootstrapEqualizer();
-    await initThemeBridge(role);
-    await initEqBridge(role);
+    await Promise.all([chrome, bootstrapTheme(), bootstrapEqualizer()]);
+    await Promise.all([initThemeBridge(role), initEqBridge(role)]);
 
     renderRoot(<EqualizerApp />);
     return;
@@ -159,25 +157,27 @@ async function start() {
         ? resolveAuxStartupRequirements(activePack, auxContext.viewId)
         : null;
 
+    const pending: Promise<unknown>[] = [];
     if (needs?.theme) {
-      await bootstrapTheme();
-      await initThemeBridge(role);
+      pending.push(bootstrapTheme().then(() => initThemeBridge(role)));
     }
     if (needs?.visualizer) {
-      await bootstrapVisualizer();
-      await initVisualizerBridge(role);
+      pending.push(
+        bootstrapVisualizer().then(() => initVisualizerBridge(role)),
+      );
     }
     if (activePack && auxContext) {
-      await preloadSkinViewAssets(activePack, auxContext.viewId);
+      pending.push(preloadSkinViewAssets(activePack, auxContext.viewId));
     }
-    await initPlayerStoreBridge(role);
-    if (!needs || needs.eq) {
-      await initEqBridge(role);
-    }
-    if (needs?.playlists) {
-      await usePlaylistStore.getState().loadPlaylists();
-    }
-    await initSkinBridge(role);
+    await Promise.all(pending);
+    await Promise.all([
+      initPlayerStoreBridge(role),
+      !needs || needs.eq ? initEqBridge(role) : Promise.resolve(),
+      needs?.playlists
+        ? usePlaylistStore.getState().loadPlaylists()
+        : Promise.resolve(),
+      initSkinBridge(role),
+    ]);
 
     renderRoot(<SkinModeApp />);
     if (auxContext) {
@@ -186,17 +186,29 @@ async function start() {
     return;
   }
 
-  await bootstrapTheme();
-  await bootstrapVisualizer();
-  await bootstrapEqualizer();
-  await bootstrapPlaybackSettings();
-  await bootstrapSkin();
+  // Theme, playback, and EQ are what the library window's first frame reads.
+  // Skin and visualizer packs are full directory walks; on the library window
+  // they finish after paint so they don't hold the window closed.
+  const paint = Promise.all([
+    chrome,
+    bootstrapTheme(),
+    bootstrapPlaybackSettings(),
+    bootstrapEqualizer(),
+  ]);
+  const showsPackUi = isSkinModeWindow() || isAppearanceWindow();
+  if (showsPackUi) {
+    await Promise.all([paint, bootstrapVisualizer(), bootstrapSkin()]);
+  } else {
+    await paint;
+  }
 
-  await initPlayerStoreBridge(role);
-  await initThemeBridge(role);
-  await initVisualizerBridge(role);
-  await initEqBridge(role);
-  await initSkinBridge(role);
+  await Promise.all([
+    initPlayerStoreBridge(role),
+    initThemeBridge(role),
+    initVisualizerBridge(role),
+    initEqBridge(role),
+    initSkinBridge(role),
+  ]);
 
   if (isSkinModeWindow()) {
     const { activePack, activeViewId } = useSkinStore.getState();
@@ -212,6 +224,17 @@ async function start() {
       : App;
 
   renderRoot(<Root />);
+
+  if (role === "main") {
+    void Promise.all([bootstrapVisualizer(), bootstrapSkin()])
+      .catch((err: unknown) => {
+        console.error("Deferred startup bootstrap failed:", err);
+      })
+      .then(() => warmResidentWindows())
+      .catch((err: unknown) => {
+        console.error("Failed to warm resident windows:", err);
+      });
+  }
 }
 
 void start();

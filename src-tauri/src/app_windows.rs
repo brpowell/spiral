@@ -1,18 +1,99 @@
 //! App webviews.
 //!
 //! Created here so each macOS content process can be named, and so only the
-//! windows that need to open instantly are booted at launch. Skin and Studio
-//! stay resident. Equalizer, Activity Logs, and About are created on open and
-//! destroyed on close. Skin aux windows are created on demand and share one
-//! process name, since they come and go with skin mode.
+//! windows that need to open instantly are kept resident. The library window
+//! is created during setup. Skin and Studio are created after the library
+//! window has finished its own pack loads, so they stay instant to open
+//! without competing with the first frame. Equalizer, Activity Logs, and About
+//! are created on open and destroyed on close. Skin aux windows are created on
+//! demand and share one process name, since they come and go with skin mode.
 
 use serde::Serialize;
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use std::sync::atomic::{AtomicBool, Ordering};
+use tauri::{AppHandle, Listener, Manager, WebviewUrl, WebviewWindowBuilder};
+
+/// The frontend emits this (with `{ label }`) once a webview has mounted and
+/// painted its themed first frame. Mirrors `WINDOW_READY_EVENT` in the frontend.
+const WINDOW_READY_EVENT: &str = "spiral:window-ready";
+
+/// Reveal the main window only once its webview signals it has painted its
+/// themed first frame, so the user never sees the native background + the dark
+/// `index.html` bg + the async theme load flash by. A safety timeout shows it
+/// regardless, so a frontend hiccup (or a tampered build with no UI) can never
+/// leave the window permanently hidden. Mirrors the aux-window show-on-ready flow.
+pub fn reveal_main_when_ready(app: &AppHandle) {
+    let handle = app.clone();
+    app.listen(WINDOW_READY_EVENT, move |event| {
+        let is_main = serde_json::from_str::<serde_json::Value>(event.payload())
+            .ok()
+            .and_then(|v| v.get("label").and_then(|l| l.as_str()).map(|s| s == "main"))
+            .unwrap_or(false);
+        if is_main {
+            if let Some(w) = handle.get_webview_window("main") {
+                if std::env::var_os("SPIRAL_FE_TRACE").is_some() {
+                    eprintln!("app_windows: main shown via window-ready");
+                }
+                let _ = w.show();
+            }
+        }
+    });
+
+    // Safety net: reveal the window even if the ready signal never arrives.
+    // Warm Skin and Studio here only in that stuck case — a healthy launch
+    // warms them from the frontend after the library window's own pack loads.
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(4));
+        let app = handle.clone();
+        let _ = handle.run_on_main_thread(move || {
+            let Some(w) = app.get_webview_window("main") else {
+                return;
+            };
+            if w.is_visible().unwrap_or(true) {
+                return;
+            }
+            if std::env::var_os("SPIRAL_FE_TRACE").is_some() {
+                eprintln!("app_windows: main shown via SAFETY TIMEOUT (ready signal missed)");
+            }
+            let _ = w.show();
+            warm_resident_windows_once(&app);
+        });
+    });
+}
+
+/// Create Skin and Studio once, on the main thread. Later calls no-op.
+fn warm_resident_windows_once(app: &AppHandle) {
+    static STARTED: AtomicBool = AtomicBool::new(false);
+    if STARTED.load(Ordering::Acquire) {
+        return;
+    }
+    let mut failed = false;
+    for spec in WINDOWS {
+        if spec.preload && spec.label != "main" {
+            if let Err(err) = create_window(app, spec.label) {
+                eprintln!("warm `{}`: {err}", spec.label);
+                failed = true;
+            }
+        }
+    }
+    if !failed {
+        STARTED.store(true, Ordering::Release);
+    }
+}
+
+/// Create the resident Skin and Studio webviews. The library window calls this
+/// after its first frame so those webviews are not booted during launch.
+#[tauri::command]
+pub fn warm_resident_windows(app: AppHandle) -> Result<(), String> {
+    run_on_main(&app, |app| {
+        warm_resident_windows_once(app);
+    })
+}
 
 struct WindowSpec {
     label: &'static str,
     title: &'static str,
-    /// Created at launch and hidden on close. Otherwise created on open and destroyed on close.
+    /// Kept resident and hidden on close. Otherwise created on open and destroyed on close.
     preload: bool,
     width: f64,
     height: f64,
@@ -40,7 +121,12 @@ const WINDOWS: &[WindowSpec] = &[
         height: 800.0,
         min: Some((520.0, 420.0)),
         max: None,
-        visible: true,
+        // Created hidden and revealed only once the frontend has painted its
+        // themed first frame (WINDOW_READY) — otherwise the window shows the
+        // native background + index.html's dark bg + the async theme load as a
+        // visible flash. A safety timeout shows it regardless (see lib.rs), so a
+        // frontend hiccup can never leave it hidden. Aux windows already do this.
+        visible: false,
         resizable: true,
         maximizable: None,
         decorations: None,
@@ -158,12 +244,7 @@ fn spec_by_label(label: &str) -> Option<&'static WindowSpec> {
 }
 
 pub fn create_startup_windows(app: &AppHandle) -> Result<(), String> {
-    for spec in WINDOWS {
-        if spec.preload {
-            create_window(app, spec.label)?;
-        }
-    }
-    Ok(())
+    create_window(app, "main")
 }
 
 #[tauri::command]
@@ -260,7 +341,7 @@ fn create_window(app: &AppHandle, label: &str) -> Result<(), String> {
         return Ok(());
     }
 
-    let mut builder = WebviewWindowBuilder::new(app, spec.label, WebviewUrl::default())
+    let mut builder = WebviewWindowBuilder::new(app, spec.label, main_window_url())
         .title(spec.title)
         .inner_size(spec.width, spec.height)
         .visible(spec.visible)
@@ -334,13 +415,31 @@ fn process_display_name(label: &str) -> &'static str {
     }
 }
 
+/// Entry URL for a normal window: the integrity-keyed custom scheme when a
+/// decrypted frontend is active (release with encryption on), else the default
+/// (Vite in dev, or the embedded frontend when encryption is off).
+fn main_window_url() -> WebviewUrl {
+    if crate::frontend_crypt::is_active() {
+        if let Some(url) = crate::frontend_crypt::window_url("index.html") {
+            return WebviewUrl::CustomProtocol(url);
+        }
+    }
+    WebviewUrl::default()
+}
+
 /// App-relative URL. A leading `?` keeps the dev server and packaged origin,
-/// matching the query the skin aux page already reads.
+/// matching the query the skin aux page already reads. With the integrity-keyed
+/// frontend active, the same query rides on the custom scheme instead.
 fn skin_aux_url(skin_id: &str, view_id: &str) -> WebviewUrl {
     let mut query = String::new();
     append_query_pair(&mut query, "skinAux", "1");
     append_query_pair(&mut query, "skinId", skin_id);
     append_query_pair(&mut query, "viewId", view_id);
+    if crate::frontend_crypt::is_active() {
+        if let Some(url) = crate::frontend_crypt::window_url(&format!("index.html?{query}")) {
+            return WebviewUrl::CustomProtocol(url);
+        }
+    }
     WebviewUrl::App(format!("?{query}").into())
 }
 

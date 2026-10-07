@@ -23,6 +23,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -218,6 +219,32 @@ const env = { ...process.env };
 // and hangs (same as sign-updater.mjs). createUpdaterArtifacts is always on.
 if (env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD === undefined) {
   env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "";
+}
+// Harden the shipped binary against trivial reverse engineering. `strip = true`
+// in [profile.release] drops the symbol table; these release-only rustc flags
+// remove the remaining low-effort intelligence:
+//   --remap-path-prefix        rewrites build-machine paths (home, cargo
+//                              registry) still embedded by panic messages and
+//                              some crates. Done here rather than via the
+//                              `trim-paths` profile option, which is not
+//                              stabilized in the pinned Cargo.
+//   -Zlocation-detail=none     drops file!/line!/column! from panic Location
+//                              metadata, which otherwise leaks the crate's own
+//                              module tree (e.g. src/license/*.rs).
+// -Zlocation-detail is nightly-gated; RUSTC_BOOTSTRAP=1 unlocks it on the pinned
+// stable toolchain. It applies only to release bundling, never to `cargo test`.
+// (-Zfmt-debug=none was evaluated for broader string stripping but breaks
+// generated-code deps such as web_atoms; targeted obfuscation is used instead.)
+// Prepended so an explicit RUSTFLAGS from the environment still wins.
+{
+  const home = homedir();
+  const flags = [`--remap-path-prefix=${home}=~`];
+  if (env.CARGO_HOME) {
+    flags.unshift(`--remap-path-prefix=${env.CARGO_HOME}=/cargo`);
+  }
+  flags.push("-Zlocation-detail=none");
+  env.RUSTC_BOOTSTRAP = env.RUSTC_BOOTSTRAP ?? "1";
+  env.RUSTFLAGS = [...flags, env.RUSTFLAGS].filter(Boolean).join(" ");
 }
 if (usesDevLicenseKey) {
   env.SPIRAL_LICENSE_DEV_KEY = "1";
