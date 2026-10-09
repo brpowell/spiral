@@ -84,21 +84,29 @@ export function tracksAreMetadataDuplicates(
   return durationsCompatible(a.durationSeconds, b.durationSeconds);
 }
 
-export interface FindLibraryDuplicateOptions {
-  /** Exclude tracks at this path (reference re-import edge case). */
-  excludeSourcePath?: string;
+function sameLibraryFile(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  return a.normalize("NFC") === b.normalize("NFC");
+}
+
+/** Library row whose file is the path being imported. */
+export function findTrackAtSourcePath(
+  sourcePath: string,
+  library: Track[],
+): Track | undefined {
+  for (const track of library) {
+    if (track.id <= 0) continue;
+    if (sameLibraryFile(track.filePath, sourcePath)) return track;
+  }
+  return undefined;
 }
 
 export function findLibraryDuplicate(
   incoming: TrackInput,
   library: Track[],
-  options: FindLibraryDuplicateOptions = {},
 ): Track | undefined {
-  const excludePath = options.excludeSourcePath;
-
   for (const track of library) {
     if (track.id <= 0) continue;
-    if (excludePath != null && track.filePath === excludePath) continue;
     if (tracksAreMetadataDuplicates(incoming, track)) {
       return track;
     }
@@ -149,11 +157,8 @@ export function countRemainingBatchDuplicates(
 
   for (let j = fromIndex + 1; j < entries.length; j++) {
     const { metadata, sourcePath } = entries[j];
-    if (
-      findLibraryDuplicate(metadata, simulatedLibrary, {
-        excludeSourcePath: sourcePath,
-      })
-    ) {
+    if (findTrackAtSourcePath(sourcePath, simulatedLibrary)) continue;
+    if (findLibraryDuplicate(metadata, simulatedLibrary)) {
       remaining++;
     } else {
       simulatedLibrary = [

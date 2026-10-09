@@ -7,6 +7,7 @@ import { yieldForInteraction } from "./scheduling";
 import { t } from "./i18n";
 import {
   findLibraryDuplicate,
+  findTrackAtSourcePath,
   countRemainingBatchDuplicates,
   type ImportDedupeResolution,
   type ImportDuplicateContext,
@@ -205,9 +206,14 @@ export async function resolveImportDuplicates(
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
-    const existing = findLibraryDuplicate(entry.metadata, library, {
-      excludeSourcePath: entry.sourcePath || undefined,
-    });
+    if (findTrackAtSourcePath(entry.sourcePath, library)) {
+      duplicateActions.set(entry.pendingId, { action: "skip" });
+      skippedPendingIds.add(entry.pendingId);
+      await yieldForInteraction();
+      continue;
+    }
+
+    const existing = findLibraryDuplicate(entry.metadata, library);
 
     if (existing) {
       const resolution = await resolveDuplicateAction(
@@ -351,9 +357,15 @@ export async function commitImportEntries(
     const { sourcePath, metadata, pendingId } = entries[i];
     try {
       const library = usePlayerStore.getState().library;
-      const existing = findLibraryDuplicate(metadata, library, {
-        excludeSourcePath: sourcePath,
-      });
+      if (findTrackAtSourcePath(sourcePath, library)) {
+        options.onTrackSkipped?.(pendingId);
+        result.skipped += 1;
+        options.onProgress?.(i + 1, total);
+        await yieldForInteraction();
+        continue;
+      }
+
+      const existing = findLibraryDuplicate(metadata, library);
 
       if (existing) {
         const resolution =

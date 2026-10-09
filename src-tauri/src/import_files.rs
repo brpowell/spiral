@@ -68,6 +68,11 @@ pub fn prepare_import_file(
     }
 
     let dest = library_organize::unique_path(dest, allow_overwrite);
+    // Copying a file onto itself truncates it. Re-import of the library file
+    // is skipped in the frontend; this guards replace if the paths still meet.
+    if library_organize::same_path(source, &dest) {
+        return Ok(dest.to_string_lossy().into_owned());
+    }
     fs::copy(source, &dest).map_err(|e| format!("failed to copy file: {e}"))?;
 
     if lyrics_sidecar_enabled {
@@ -112,6 +117,34 @@ mod tests {
         )
         .unwrap();
         assert_eq!(result, source.to_string_lossy());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn copy_onto_itself_keeps_the_file_intact() {
+        let dir =
+            std::env::temp_dir().join(format!("spiral-import-same-file-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let media = dir.join("media");
+        fs::create_dir_all(&media).unwrap();
+
+        let source = media.join("song.mp3");
+        fs::write(&source, b"intact-audio").unwrap();
+
+        let result = prepare_import_file(
+            source.to_str().unwrap(),
+            "copy",
+            false,
+            media.to_str().unwrap(),
+            library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
+            false,
+            Some(&source),
+        )
+        .unwrap();
+
+        assert_eq!(result, source.to_string_lossy());
+        assert_eq!(fs::read(&source).unwrap(), b"intact-audio");
+
         let _ = fs::remove_dir_all(&dir);
     }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   countRemainingBatchDuplicates,
   findLibraryDuplicate,
+  findTrackAtSourcePath,
   tracksAreMetadataDuplicates,
 } from "./trackDedupe";
 import type { Track, TrackInput } from "../types/track";
@@ -106,16 +107,27 @@ describe("findLibraryDuplicate", () => {
     const match = findLibraryDuplicate(input(), [pending]);
     expect(match).toBeUndefined();
   });
+});
 
-  it("excludes the same source path", () => {
+describe("findTrackAtSourcePath", () => {
+  it("returns the library row for the exact file being imported", () => {
     const existing = libraryTrack({
-      id: 1,
-      filePath: "/music/airbag.mp3",
+      id: 7,
+      filePath: "/library/airbag.mp3",
     });
-    const match = findLibraryDuplicate(input({ filePath: "/music/airbag.mp3" }), [
-      existing,
-    ], { excludeSourcePath: "/music/airbag.mp3" });
-    expect(match).toBeUndefined();
+    expect(findTrackAtSourcePath("/library/airbag.mp3", [existing])?.id).toBe(
+      7,
+    );
+  });
+
+  it("ignores a copy at a different path", () => {
+    const existing = libraryTrack({
+      id: 7,
+      filePath: "/library/airbag.mp3",
+    });
+    expect(
+      findTrackAtSourcePath("/Users/bryan/Desktop/airbag.mp3", [existing]),
+    ).toBeUndefined();
   });
 });
 

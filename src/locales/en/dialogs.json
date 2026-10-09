@@ -35,7 +35,7 @@
     "replaceLyrics": "Replace lyrics with incoming",
     "applyRemaining_one": "Apply to remaining duplicate in this import",
     "applyRemaining_other": "Apply to remaining {{count}} duplicates in this import",
-    "cancelImport": "Cancel import",
+    "cancelImport": "Cancel",
     "skip": "Skip",
     "importAnyway": "Import anyway",
     "replace": "Replace"

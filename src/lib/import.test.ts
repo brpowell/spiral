@@ -301,6 +301,20 @@ describe("resolveImportDuplicates", () => {
     expect(result.duplicateActions.get(10)).toEqual({ action: "replace" });
   });
 
+  it("skips the exact library file without prompting", async () => {
+    const result = await resolveImportDuplicates([
+      {
+        sourcePath: "/library/airbag.mp3",
+        metadata: trackInput({ filePath: "/library/airbag.mp3" }),
+        pendingId: 10,
+      },
+    ]);
+
+    expect(useImportDedupeStore.getState().prompt).toBeNull();
+    expect(result.skippedPendingIds).toEqual(new Set([10]));
+    expect(result.duplicateActions.get(10)).toEqual({ action: "skip" });
+  });
+
   it("returns empty resolutions when there are no duplicates", async () => {
     const result = await resolveImportDuplicates(
       [
@@ -367,6 +381,29 @@ describe("commitImportEntries", () => {
       libraryTrack({ id: 1, filePath: "/library/airbag.mp3" }),
     );
     vi.mocked(getTrackLyrics).mockResolvedValue(null);
+  });
+
+  it("skips the exact library file instead of replacing it", async () => {
+    usePlayerStore.setState({
+      library: [libraryTrack({ id: 1, filePath: "/library/airbag.mp3" })],
+    });
+
+    const result = await commitImportEntries(
+      [
+        {
+          sourcePath: "/library/airbag.mp3",
+          metadata: trackInput({ filePath: "/library/airbag.mp3" }),
+          pendingId: 10,
+        },
+      ],
+      { mode: "copy" },
+    );
+
+    expect(result.skipped).toBe(1);
+    expect(result.replaced).toBe(0);
+    expect(result.imported).toBe(0);
+    expect(replaceTrackFromImport).not.toHaveBeenCalled();
+    expect(saveTrack).not.toHaveBeenCalled();
   });
 
   it("passes embedded lyrics to saveTrack when importing new tracks", async () => {
