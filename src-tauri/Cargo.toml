@@ -27,6 +27,10 @@ license-dev-key = []
 # QA: seed the tamper score high so reversible decay behaviors can be verified
 # deterministically in a dev build. Never enable for a shipping build.
 tamper-test = []
+# Dev only: Unix-socket bridge so a coding agent can screenshot, eval JS in and
+# read logs from the running app (src/agent_bridge.rs, scripts/agent.mjs).
+# macOS + debug builds only; every call site is cfg-guarded. Never ship it.
+agent-bridge = []
 
 [[bin]]
 name = "read_tags"
@@ -89,9 +93,9 @@ tiny_http = "0.12"
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"
 objc2 = { version = "0.6", features = ["exception"] }
-objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSOpenPanel", "NSWorkspace"] }
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSOpenPanel", "NSWorkspace", "NSImage", "NSImageRep", "NSBitmapImageRep"] }
 objc2-foundation = { version = "0.3", features = ["NSArray", "block2", "NSData", "NSDictionary", "NSNotification", "NSOperation", "NSString", "NSURL"] }
-objc2-web-kit = { version = "0.3", default-features = false, features = ["WKWebViewConfiguration"] }
+objc2-web-kit = { version = "0.3", default-features = false, features = ["WKWebViewConfiguration", "WKWebView", "WKContentWorld", "WKFrameInfo", "WKSnapshotConfiguration", "block2", "objc2-app-kit"] }
 tauri-plugin-global-shortcut = "2"
 
 [target.'cfg(target_os = "windows")'.dependencies]

@@ -189,7 +189,15 @@ pub fn begin_activation(app: &AppHandle) {
 
 /// True iff the bundle resource exists and starts with the container magic —
 /// read from just the first 4 bytes, so it is near-instant.
+///
+/// Always false in debug builds: the key is derived from the release binary's
+/// `__text`, so a dev binary can never decrypt the bundle. Without this, a stale
+/// `generated/frontend.spe` left by `build:hardened` makes every `tauri dev`
+/// window load the undecryptable `spiralfe://` scheme and boot to white.
 fn resource_is_container(app: &AppHandle) -> bool {
+    if cfg!(debug_assertions) {
+        return false;
+    }
     let Ok(path) = app
         .path()
         .resolve(RESOURCE_NAME, tauri::path::BaseDirectory::Resource)

@@ -30,3 +30,7 @@ If a Rust link step fails with `unable to find library -lstdc++` (Rust's bundled
 - `npm test` runs both suites: frontend `vitest` (~600 tests) and backend `cargo test` (~340 tests). Backend tests run `npm run bootstrap`, which fetches `libmp3lame` from the private `spiral-powered/native-lame` repo; that needs `gh` with `contents: read` (or `RELEASE_PLEASE_TOKEN` in CI). The `.husky/pre-commit` hook runs `npm test`, so commits build and run the whole Rust backend — expect it to be slow on a cold cargo cache.
 - `npm run build` (`tsc && vite build`) currently FAILS at the `tsc` step on pre-existing type errors in `*.test.ts` files (the strict type-check gate includes test files). This is a repo code issue, not an environment problem: `npm run tauri dev` and plain `npx vite build` both succeed. Do not try to "fix the environment" for this.
 - CD ripping works on macOS, Windows, and Linux (`/dev/sr*`); some other native audio paths remain macOS-first.
+
+### Driving the running app (agent loop)
+
+On macOS, `npm run dev:agent` launches the app with a dev-only bridge so an agent can screenshot, eval JS, click, type and read logs via `node scripts/agent.mjs` (see `docs/contributing/agent-automation.md`). Use it to verify UI changes in the real app rather than relying on tests alone.

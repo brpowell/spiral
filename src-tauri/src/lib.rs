@@ -1,5 +1,7 @@
 mod accessibility_warmup;
 mod activity_log;
+#[cfg(all(feature = "agent-bridge", debug_assertions, target_os = "macos"))]
+mod agent_bridge;
 mod app_windows;
 mod art_cache;
 mod art_thumb;
@@ -166,6 +168,9 @@ pub fn run() {
             frontend_crypt::handle_request(request.uri().path())
         })
         .setup(|app| {
+            #[cfg(all(feature = "agent-bridge", debug_assertions, target_os = "macos"))]
+            agent_bridge::start(app.handle().clone());
+
             // Integrity-keyed frontend: decide synchronously whether to serve
             // over the custom scheme (from the container magic), then decrypt on
             // a background thread so key derivation + decryption overlap WebKit
