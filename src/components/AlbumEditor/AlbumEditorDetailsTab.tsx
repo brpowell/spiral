@@ -52,24 +52,6 @@ export function AlbumEditorDetailsTab({
           onChange={(e) => onFieldChange("genre", e.target.value)}
         />
       </FormField>
-      <FormField label={t("editor.fields.totalTracks")}>
-        <TextInput
-          type="number"
-          min={1}
-          value={form.totalTracks}
-          placeholder={albumMixedFieldPlaceholder(tracks, "totalTracks", form)}
-          onChange={(e) => onFieldChange("totalTracks", e.target.value)}
-        />
-      </FormField>
-      <FormField label={t("editor.fields.totalDiscs")}>
-        <TextInput
-          type="number"
-          min={1}
-          value={form.totalDiscs}
-          placeholder={albumMixedFieldPlaceholder(tracks, "totalDiscs", form)}
-          onChange={(e) => onFieldChange("totalDiscs", e.target.value)}
-        />
-      </FormField>
     </div>
   );
 }

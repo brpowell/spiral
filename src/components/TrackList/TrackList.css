@@ -17,6 +17,8 @@
   min-height: 0;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+  /* Overlay horizontal scrollbars paint over the last row. */
+  padding-bottom: var(--scrollbar-size);
 }
 
 .track-list--content-height .track-list__scroll {

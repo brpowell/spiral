@@ -5,7 +5,6 @@ import { t } from "./i18n";
 import { matchRecordingMbid } from "./musicBrainzReleaseRecordings";
 import {
   isTrackEditorFieldMixed,
-  sharedInt,
   sharedString,
   type TrackEditorFormField,
 } from "./trackMetadataForm";
@@ -15,15 +14,12 @@ export interface AlbumEditorForm {
   artist: string;
   year: string;
   genre: string;
-  totalTracks: string;
-  totalDiscs: string;
   /** MusicBrainz release UUID. */
   releaseMbid: string;
 }
 
 export type AlbumEditorMixedField =
-  | Extract<TrackEditorFormField, "genre" | "totalTracks" | "totalDiscs">
-  | "releaseMbid";
+  Extract<TrackEditorFormField, "genre"> | "releaseMbid";
 
 export function albumToForm(album: {
   title: string;
@@ -36,8 +32,6 @@ export function albumToForm(album: {
     artist: album.artist,
     year: album.year != null ? String(album.year) : "",
     genre: sharedString(album.tracks, (track) => track.genre),
-    totalTracks: sharedInt(album.tracks, (track) => track.totalTracks),
-    totalDiscs: sharedInt(album.tracks, (track) => track.totalDiscs),
     releaseMbid: sharedString(album.tracks, (track) => track.releaseMbid ?? ""),
   };
 }
@@ -58,8 +52,6 @@ export function albumFormsEqual(
     a.artist === b.artist &&
     a.year === b.year &&
     a.genre === b.genre &&
-    a.totalTracks === b.totalTracks &&
-    a.totalDiscs === b.totalDiscs &&
     a.releaseMbid === b.releaseMbid
   );
 }
@@ -126,14 +118,6 @@ export function buildTrackAlbumMetadata(
     return trimmed || null;
   };
 
-  const pickInt = (
-    field: "totalTracks" | "totalDiscs",
-    current: number | null,
-  ): number | null => {
-    if (form[field] === originalForm[field]) return current;
-    return parseOptionalInt(form[field]);
-  };
-
   const releaseMbidChanged = form.releaseMbid !== originalForm.releaseMbid;
   // Caller decides when to rematch (release change, or backfill from cache).
   const nextRecording = recordingMbidForAlbumSave(
@@ -149,9 +133,9 @@ export function buildTrackAlbumMetadata(
     albumArtist: form.artist.trim() || null,
     year: parseOptionalInt(form.year),
     trackNumber: track.trackNumber,
-    totalTracks: pickInt("totalTracks", track.totalTracks),
+    totalTracks: track.totalTracks,
     discNumber: track.discNumber,
-    totalDiscs: pickInt("totalDiscs", track.totalDiscs),
+    totalDiscs: track.totalDiscs,
     genre: pickString("genre", track.genre),
     artPath,
     artChanged,

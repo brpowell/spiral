@@ -41,40 +41,20 @@ function album(tracks: Track[], year: number | null = 1999) {
 }
 
 describe("albumToForm", () => {
-  it("uses shared genre, total tracks, and total discs", () => {
+  it("uses a shared genre", () => {
     const form = albumToForm(
-      album([
-        track({
-          id: 1,
-          genre: "Rock",
-          totalTracks: 10,
-          totalDiscs: 2,
-        }),
-        track({
-          id: 2,
-          genre: "Rock",
-          totalTracks: 10,
-          totalDiscs: 2,
-        }),
-      ]),
+      album([track({ id: 1, genre: "Rock" }), track({ id: 2, genre: "Rock" })]),
     );
 
     expect(form.genre).toBe("Rock");
-    expect(form.totalTracks).toBe("10");
-    expect(form.totalDiscs).toBe("2");
   });
 
-  it("leaves mixed genre and totals empty", () => {
+  it("leaves a mixed genre empty", () => {
     const form = albumToForm(
-      album([
-        track({ id: 1, genre: "Rock", totalTracks: 10, totalDiscs: 1 }),
-        track({ id: 2, genre: "Pop", totalTracks: 12, totalDiscs: 2 }),
-      ]),
+      album([track({ id: 1, genre: "Rock" }), track({ id: 2, genre: "Pop" })]),
     );
 
     expect(form.genre).toBe("");
-    expect(form.totalTracks).toBe("");
-    expect(form.totalDiscs).toBe("");
   });
 
   it("uses a shared release MBID", () => {
@@ -123,19 +103,15 @@ describe("albumMixedFieldPlaceholder", () => {
 });
 
 describe("albumFormsEqual", () => {
-  it("includes genre and totals", () => {
+  it("includes genre", () => {
     const a: AlbumEditorForm = {
       title: "Album",
       artist: "Artist",
       year: "1999",
       genre: "Rock",
-      totalTracks: "10",
-      totalDiscs: "1",
       releaseMbid: "",
     };
     expect(albumFormsEqual(a, { ...a, genre: "Pop" })).toBe(false);
-    expect(albumFormsEqual(a, { ...a, totalTracks: "11" })).toBe(false);
-    expect(albumFormsEqual(a, { ...a, totalDiscs: "2" })).toBe(false);
     expect(
       albumFormsEqual(a, {
         ...a,
@@ -147,23 +123,18 @@ describe("albumFormsEqual", () => {
 });
 
 describe("buildTrackAlbumMetadata", () => {
-  it("writes genre and totals when changed", () => {
+  it("writes genre when changed and leaves disc fields alone", () => {
     const editedTrack = track({
       id: 1,
       title: "Song",
       genre: "Rock",
       totalTracks: 10,
-      totalDiscs: 1,
+      totalDiscs: 2,
       trackNumber: 3,
-      discNumber: 1,
+      discNumber: 2,
     });
     const initial = albumToForm(album([editedTrack]));
-    const edited = {
-      ...initial,
-      genre: "Jazz",
-      totalTracks: "12",
-      totalDiscs: "2",
-    };
+    const edited = { ...initial, genre: "Jazz" };
 
     const metadata = buildTrackAlbumMetadata(
       editedTrack,
@@ -174,13 +145,13 @@ describe("buildTrackAlbumMetadata", () => {
     );
 
     expect(metadata.genre).toBe("Jazz");
-    expect(metadata.totalTracks).toBe(12);
-    expect(metadata.totalDiscs).toBe(2);
     expect(metadata.trackNumber).toBe(3);
-    expect(metadata.discNumber).toBe(1);
+    expect(metadata.totalTracks).toBe(10);
+    expect(metadata.discNumber).toBe(2);
+    expect(metadata.totalDiscs).toBe(2);
   });
 
-  it("preserves per-track genre and totals when those fields are unchanged", () => {
+  it("preserves per-track genre and disc fields when genre is unchanged", () => {
     const editedTrack = track({
       id: 1,
       title: "Song",
@@ -210,20 +181,10 @@ describe("buildTrackAlbumMetadata", () => {
     expect(metadata.totalDiscs).toBe(3);
   });
 
-  it("clears genre and totals when the form fields are emptied", () => {
-    const editedTrack = track({
-      id: 1,
-      genre: "Rock",
-      totalTracks: 10,
-      totalDiscs: 2,
-    });
+  it("clears genre when the form field is emptied", () => {
+    const editedTrack = track({ id: 1, genre: "Rock" });
     const initial = albumToForm(album([editedTrack]));
-    const edited = {
-      ...initial,
-      genre: "",
-      totalTracks: "",
-      totalDiscs: "",
-    };
+    const edited = { ...initial, genre: "" };
 
     const metadata = buildTrackAlbumMetadata(
       editedTrack,
@@ -234,8 +195,6 @@ describe("buildTrackAlbumMetadata", () => {
     );
 
     expect(metadata.genre).toBeNull();
-    expect(metadata.totalTracks).toBeNull();
-    expect(metadata.totalDiscs).toBeNull();
   });
 
   it("fans out a release MBID and stamps the matched recording", () => {
