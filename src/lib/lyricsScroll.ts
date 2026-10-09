@@ -14,6 +14,8 @@ function findFirstSyncedLineIndex(lines: LyricsLine[]): number {
 interface LyricsPrerollState {
   firstLineIndex: number;
   progress: number;
+  /** Milliseconds from the start of the track until the first lyric line. */
+  leadMs: number;
 }
 
 const PREROLL_MIN_LEAD_MS = 2_000;
@@ -33,6 +35,7 @@ export function getLyricsPrerollState(
   return {
     firstLineIndex,
     progress: Math.max(0, Math.min(1, positionMs / firstLineStartMs)),
+    leadMs: firstLineStartMs,
   };
 }
 
@@ -50,6 +53,25 @@ function getLineEndMs(lines: LyricsLine[], index: number): number | undefined {
   }
 
   return undefined;
+}
+
+/** Next start or end that would change the active lyric, if one is still ahead. */
+export function nextLyricCueMs(
+  positionMs: number,
+  lines: LyricsLine[],
+): number | null {
+  let next = Infinity;
+  for (let i = 0; i < lines.length; i++) {
+    const startMs = lines[i].startMs;
+    if (startMs !== undefined && startMs > positionMs && startMs < next) {
+      next = startMs;
+    }
+    const endMs = getLineEndMs(lines, i);
+    if (endMs !== undefined && endMs > positionMs && endMs < next) {
+      next = endMs;
+    }
+  }
+  return Number.isFinite(next) ? next : null;
 }
 
 /** Line currently being sung at `positionMs`, or -1 during gaps. */

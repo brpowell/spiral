@@ -1,5 +1,7 @@
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -36,6 +38,32 @@ import {
   useVisualizerExpandMotion,
 } from "./useVisualizerExpandMotion";
 import "./SceneRenderer.css";
+
+interface VizFrameSample {
+  context: VisualizerContext;
+  elapsedMs: number;
+  deltaMs: number;
+  waveform: number[] | null;
+}
+
+type VizFramePainter = (sample: VizFrameSample) => void;
+
+const VizFrameSubscription = createContext<
+  ((painter: VizFramePainter) => () => void) | null
+>(null);
+
+const EMPTY_BINS: readonly number[] = [];
+
+function binsFromSample(
+  sampled: Uint8Array<ArrayBuffer> | number[] | null,
+  scratch: number[],
+): readonly number[] {
+  if (!sampled) return EMPTY_BINS;
+  if (Array.isArray(sampled)) return sampled;
+  if (scratch.length !== sampled.length) scratch.length = sampled.length;
+  for (let i = 0; i < sampled.length; i++) scratch[i] = sampled[i] ?? 0;
+  return scratch;
+}
 
 function layerSandboxEngine(
   kind: VizSceneLayer["kind"],
@@ -91,6 +119,7 @@ function VizSceneLayerView({
   onFirstFrame?: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const sandboxRef = useRef<SandboxedVizRenderer | null>(null);
   const [sandboxEpoch, setSandboxEpoch] = useState(0);
   const [sandboxGeneration, setSandboxGeneration] = useState(0);
@@ -100,6 +129,44 @@ function VizSceneLayerView({
   const sandboxEngine = layerSandboxEngine(layer.kind);
   const onFirstFrameRef = useRef(onFirstFrame);
   onFirstFrameRef.current = onFirstFrame;
+  const subscribeFrame = useContext(VizFrameSubscription);
+  const layerRef = useRef(layer);
+  const rectRef = useRef(rect);
+  const drawStateRef = useRef(drawState);
+  layerRef.current = layer;
+  rectRef.current = rect;
+  drawStateRef.current = drawState;
+
+  useEffect(() => {
+    if (!subscribeFrame) return;
+    return subscribeFrame((sample) => {
+      const currentLayer = layerRef.current;
+      const transformNow = resolveLayerTransform(currentLayer, {
+        audio: sample.context.audio,
+        bind: sample.context.bind,
+      });
+      const el = rootRef.current;
+      if (el) {
+        el.style.opacity = String(transformNow.opacity);
+        el.style.transform = `translate(${transformNow.translateX}px, ${transformNow.translateY}px) scale(${transformNow.scale}) rotate(${transformNow.rotation}deg)`;
+      }
+      if (!sandboxEngine) return;
+      const sandbox = sandboxRef.current;
+      const box = rectRef.current;
+      if (!sandbox?.ready || box.w <= 0 || box.h <= 0) return;
+      sandbox.postFrame(
+        buildVizFrame({
+          context: sample.context,
+          remoteWaveform: sample.waveform,
+          timeDomainData: drawStateRef.current.timeDomainDataRef.current,
+          elapsedMs: sample.elapsedMs,
+          deltaMs: sample.deltaMs,
+          width: box.w,
+          height: box.h,
+        }),
+      );
+    });
+  }, [sandboxEngine, subscribeFrame]);
 
   const style = useMemo((): CSSProperties => {
     const base: CSSProperties = {
@@ -256,7 +323,7 @@ function VizSceneLayerView({
 
   if (sandboxEngine) {
     return (
-      <div className="scene-layer" style={style}>
+      <div ref={rootRef} className="scene-layer" style={style}>
         <canvas
           ref={canvasRef}
           className={
@@ -276,7 +343,7 @@ function VizSceneLayerView({
 
   if (layer.kind === "video") {
     return (
-      <div className="scene-layer" style={style}>
+      <div ref={rootRef} className="scene-layer" style={style}>
         <video
           className="scene-layer__media"
           src={src}
@@ -291,7 +358,7 @@ function VizSceneLayerView({
   }
 
   return (
-    <div className="scene-layer" style={style}>
+    <div ref={rootRef} className="scene-layer" style={style}>
       <img
         className="scene-layer__media"
         src={src}
@@ -339,11 +406,31 @@ function SceneViewport({
     onFirstFrameRef.current?.();
   }, []);
 
-  const [frame, setFrame] = useState(0);
+  const paintersRef = useRef(new Set<VizFramePainter>());
+  const subscribeFrame = useCallback((painter: VizFramePainter) => {
+    paintersRef.current.add(painter);
+    return () => {
+      paintersRef.current.delete(painter);
+    };
+  }, []);
+  const buildContextRef = useRef(buildContext);
+  const viewportRef = useRef(viewport);
+  const previewForcePlayingRef = useRef(previewForcePlaying);
+  const useRemoteFrameRef = useRef(useRemoteFrame);
+  const remoteFrameRefRef = useRef(remoteFrameRef);
+  const binsScratchRef = useRef<number[]>([]);
+  buildContextRef.current = buildContext;
+  viewportRef.current = viewport;
+  previewForcePlayingRef.current = previewForcePlaying;
+  useRemoteFrameRef.current = useRemoteFrame;
+  remoteFrameRefRef.current = remoteFrameRef;
 
   useEffect(() => {
     let rafId = 0;
+    let stopped = false;
+
     const loop = (now: number) => {
+      if (stopped) return;
       const clock = frameClockRef.current;
       if (clock.start === 0) {
         clock.start = now;
@@ -353,15 +440,47 @@ function SceneViewport({
       clock.last = now;
       clock.elapsedMs = now - clock.start;
 
-      if (!useRemoteFrame) {
-        sampleTimeDomainData(timeDomainDataRef);
+      if (paintersRef.current.size > 0) {
+        const remote = useRemoteFrameRef.current
+          ? remoteFrameRefRef.current?.current
+          : null;
+        if (!remote) sampleTimeDomainData(timeDomainDataRef);
+        const sampled = sampleFrequencyData(
+          frequencyDataRef,
+          remote?.bins ?? null,
+        );
+        let context = buildContextRef.current(
+          viewportRef.current,
+          binsFromSample(sampled, binsScratchRef.current),
+        );
+        if (previewForcePlayingRef.current) {
+          context = {
+            ...context,
+            audio: {
+              ...context.audio,
+              isPlaying: true,
+              playbackState: "playing",
+            },
+          };
+        }
+        const sample: VizFrameSample = {
+          context,
+          elapsedMs: clock.elapsedMs,
+          deltaMs: clock.deltaMs,
+          waveform: remote?.waveform ?? null,
+        };
+        for (const paint of paintersRef.current) paint(sample);
       }
-      setFrame((f) => f + 1);
+
       rafId = requestAnimationFrame(loop);
     };
+
     rafId = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(rafId);
-  }, [useRemoteFrame]);
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(rafId);
+    };
+  }, []);
 
   const measure = useCallback(() => {
     const el = containerRef.current;
@@ -386,14 +505,9 @@ function SceneViewport({
     return () => observer.disconnect();
   }, [measure]);
 
-  const sampled = sampleFrequencyData(frequencyDataRef, remoteBins);
-  const bins: readonly number[] = !sampled
-    ? []
-    : Array.isArray(sampled)
-      ? sampled
-      : Array.from(sampled);
-
   const context = useMemo((): VisualizerContext => {
+    const sampled = sampleFrequencyData(frequencyDataRef, remoteBins);
+    const bins = binsFromSample(sampled, []);
     const base = buildContext(viewport, bins);
     if (!previewForcePlaying) return base;
     return {
@@ -404,9 +518,7 @@ function SceneViewport({
         playbackState: "playing",
       },
     };
-    // `frame` forces a per-RAF rebuild when bin array identity is stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- frame is a render tick
-  }, [buildContext, viewport, bins, frame, previewForcePlaying]);
+  }, [buildContext, previewForcePlaying, remoteBins, viewport]);
 
   const drawState: VisualizerDrawState = {
     timeDomainDataRef,
@@ -421,32 +533,34 @@ function SceneViewport({
   const driveContext = { audio: context.audio, bind: context.bind };
 
   return (
-    <div className="scene-viewport" ref={containerRef}>
-      {scene.map((layer, index) => {
-        const rect = resolveLayout(
-          layer.layout,
-          viewport.width,
-          viewport.height,
-        );
-        const transform = resolveLayerTransform(layer, driveContext);
-        return (
-          <VizSceneLayerView
-            key={layer.id ?? `layer-${index}`}
-            layer={layer}
-            rect={rect}
-            transform={transform}
-            visualizerId={visualizerId}
-            packDir={packDir}
-            context={context}
-            drawState={drawState}
-            remoteWaveform={remoteWaveform}
-            elapsedMs={elapsedMs}
-            deltaMs={deltaMs}
-            onFirstFrame={notifyFirstFrame}
-          />
-        );
-      })}
-    </div>
+    <VizFrameSubscription.Provider value={subscribeFrame}>
+      <div className="scene-viewport" ref={containerRef}>
+        {scene.map((layer, index) => {
+          const rect = resolveLayout(
+            layer.layout,
+            viewport.width,
+            viewport.height,
+          );
+          const transform = resolveLayerTransform(layer, driveContext);
+          return (
+            <VizSceneLayerView
+              key={layer.id ?? `layer-${index}`}
+              layer={layer}
+              rect={rect}
+              transform={transform}
+              visualizerId={visualizerId}
+              packDir={packDir}
+              context={context}
+              drawState={drawState}
+              remoteWaveform={remoteWaveform}
+              elapsedMs={elapsedMs}
+              deltaMs={deltaMs}
+              onFirstFrame={notifyFirstFrame}
+            />
+          );
+        })}
+      </div>
+    </VizFrameSubscription.Provider>
   );
 }
 

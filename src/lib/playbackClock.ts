@@ -81,3 +81,11 @@ export function subscribePlaybackClock(
     if (listeners.size === 0) stopLoop();
   };
 }
+
+/** Drops listeners and the paint gate. Tests only. */
+export function resetPlaybackClock(): void {
+  stopLoop();
+  listeners.clear();
+  lastPaintedSecond = -1;
+  lastNotifiedSeconds = -1;
+}

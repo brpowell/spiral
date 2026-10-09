@@ -121,7 +121,7 @@ Windows: Resource Monitor → `Spiral.exe` + `msedgewebview2.exe`.
 
 ### 6. Webview performance panel (debug builds only)
 
-Debug / `tauri dev` has Web Inspector. Use it to **identify JS call stacks** (RAF, `setFrame`, `decodePcmBase64`), not to judge release CPU. Performance → record idle vs playing. Memory → heap snapshot after opening Studio.
+Debug / `tauri dev` has Web Inspector. Use it to **identify JS call stacks** (RAF, `decodePcmBase64`), not to judge release CPU. Performance → record idle vs playing. Memory → heap snapshot after opening Studio.
 
 ### 7. Suggested confirmation order (risk-first)
 

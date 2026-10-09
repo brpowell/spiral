@@ -4,6 +4,7 @@ import {
   findScrollLineIndex,
   findSingingLineIndex,
   getLyricsPrerollState,
+  nextLyricCueMs,
 } from "./lyricsScroll";
 
 const syncedLines: LyricsLine[] = [
@@ -62,6 +63,23 @@ describe("findScrollLineIndex", () => {
   });
 });
 
+describe("nextLyricCueMs", () => {
+  it("returns the next line boundary after the playhead", () => {
+    expect(nextLyricCueMs(0, syncedLines)).toBe(10_000);
+    expect(nextLyricCueMs(10_000, syncedLines)).toBe(20_000);
+    expect(nextLyricCueMs(2_500, delayedStartLines)).toBe(10_000);
+  });
+
+  it("includes an explicit gap before the following line", () => {
+    expect(nextLyricCueMs(12_000, gappedLines)).toBe(15_000);
+    expect(nextLyricCueMs(16_000, gappedLines)).toBe(20_000);
+  });
+
+  it("returns null once nothing is left", () => {
+    expect(nextLyricCueMs(25_000, gappedLines)).toBeNull();
+  });
+});
+
 describe("getLyricsPrerollState", () => {
   it("returns null when lyrics start immediately or playback has reached them", () => {
     expect(getLyricsPrerollState(0, syncedLines)).toBeNull();
@@ -73,10 +91,11 @@ describe("getLyricsPrerollState", () => {
     expect(getLyricsPrerollState(2_500, delayedStartLines)).toEqual({
       firstLineIndex: 0,
       progress: 0.25,
+      leadMs: 10_000,
     });
-    expect(getLyricsPrerollState(9_999, delayedStartLines)?.progress).toBeCloseTo(
-      0.9999,
-    );
+    expect(
+      getLyricsPrerollState(9_999, delayedStartLines)?.progress,
+    ).toBeCloseTo(0.9999);
   });
 
   it("returns null when the first line starts within two seconds", () => {

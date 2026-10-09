@@ -77,11 +77,21 @@
     var(--color-accent)
   );
   transform-origin: left center;
+  will-change: transform;
+}
+
+/* Full-width carrier slid by one animation so its right edge is the playhead. */
+.album-art-lightbox__lyrics-preroll-beacon-rail {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  will-change: transform;
 }
 
 .album-art-lightbox__lyrics-preroll-beacon {
   position: absolute;
   top: 50%;
+  right: 0;
   width: 0.45rem;
   height: 0.45rem;
   border-radius: 50%;
@@ -89,7 +99,7 @@
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--color-accent) 25%, transparent),
     0 0 12px color-mix(in srgb, var(--color-accent) 70%, transparent);
-  transform: translate(-50%, -50%);
+  transform: translate(50%, -50%);
 }
 
 .album-art-lightbox__lyrics-line:last-child {

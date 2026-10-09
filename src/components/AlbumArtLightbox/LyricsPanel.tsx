@@ -8,6 +8,11 @@ import {
   useState,
 } from "react";
 import { subscribePlaybackClock } from "../../lib/playbackClock";
+import { resolvePlaybackDisplaySeconds } from "../../lib/playbackClockPin";
+import {
+  createPlayheadGlide,
+  type PlayheadGlide,
+} from "../../lib/playheadGlide";
 import * as audio from "../../lib/playback";
 import { plainTextToLines } from "../../lib/lyrics";
 import {
@@ -15,8 +20,10 @@ import {
   findSingingLineIndex,
   getLyricsPrerollState,
   hasSyncedTimestamps,
+  nextLyricCueMs,
   scrollLineIntoView,
 } from "../../lib/lyricsScroll";
+import { usePlayerStore } from "../../store/usePlayerStore";
 import type { LightboxCompanionMotionProps } from "../../lib/motion";
 import {
   LYRICS_FETCH_INSTRUMENTAL,
@@ -37,6 +44,9 @@ interface LyricsPanelProps {
 
 interface LyricsPrerollIndicatorProps {
   progress: number;
+  /** Milliseconds from track start to the first lyric line. */
+  leadMs: number;
+  playing: boolean;
   reduceMotion: boolean;
 }
 
@@ -44,8 +54,41 @@ const PREROLL_EXIT_DURATION = 0.45;
 
 function LyricsPrerollIndicator({
   progress,
+  leadMs,
+  playing,
   reduceMotion,
 }: LyricsPrerollIndicatorProps) {
+  const fillRef = useRef<HTMLDivElement>(null);
+  const beaconRef = useRef<HTMLDivElement>(null);
+  const glideRef = useRef<PlayheadGlide | null>(null);
+
+  useLayoutEffect(() => {
+    const fill = fillRef.current;
+    const beacon = beaconRef.current;
+    if (!fill || !beacon) return;
+    const glide = createPlayheadGlide(
+      [
+        { el: fill, transform: (ratio) => `scaleX(${ratio})` },
+        {
+          el: beacon,
+          transform: (ratio) => `translateX(${(ratio - 1) * 100}%)`,
+        },
+      ],
+      { animate: !reduceMotion },
+    );
+    glideRef.current = glide;
+    return () => {
+      glide.dispose();
+      glideRef.current = null;
+    };
+  }, [reduceMotion]);
+
+  useLayoutEffect(() => {
+    // Glide across the lead-in on the compositor; each clock sample re-anchors
+    // it, so a seek or pause lands exactly without per-frame React work.
+    glideRef.current?.sync((progress * leadMs) / 1000, leadMs / 1000, playing);
+  }, [progress, leadMs, playing, reduceMotion]);
+
   return (
     <motion.div
       className="album-art-lightbox__lyrics-preroll"
@@ -64,13 +107,15 @@ function LyricsPrerollIndicator({
     >
       <div className="album-art-lightbox__lyrics-preroll-track">
         <div
+          ref={fillRef}
           className="album-art-lightbox__lyrics-preroll-fill"
-          style={{ transform: `scaleX(${progress})` }}
         />
-        <span
-          className="album-art-lightbox__lyrics-preroll-beacon"
-          style={{ left: `${progress * 100}%` }}
-        />
+        <div
+          ref={beaconRef}
+          className="album-art-lightbox__lyrics-preroll-beacon-rail"
+        >
+          <span className="album-art-lightbox__lyrics-preroll-beacon" />
+        </div>
       </div>
     </motion.div>
   );
@@ -177,6 +222,7 @@ export function LyricsPanel({
   reduceMotion = false,
   companionMotion,
 }: LyricsPanelProps) {
+  const playing = usePlayerStore((s) => s.playbackState === "playing");
   const scrollRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLParagraphElement | null)[]>([]);
   const previousScrollLineRef = useRef(-1);
@@ -198,7 +244,9 @@ export function LyricsPanel({
 
   useEffect(() => {
     if (!isSynced) return;
-    return subscribePlaybackClock((seconds) => {
+    let timer = 0;
+
+    const adopt = (seconds: number) => {
       setPlaybackPositionSeconds((prev) => {
         if (Math.abs(seconds - prev) > 0.25) return seconds;
         const prevMs = prev * 1000;
@@ -226,7 +274,50 @@ export function LyricsPanel({
         }
         return prev;
       });
+    };
+
+    const clearCue = () => {
+      window.clearTimeout(timer);
+      timer = 0;
+    };
+
+    const arm = (seconds: number) => {
+      clearCue();
+      if (usePlayerStore.getState().playbackState !== "playing") return;
+      const cueMs = nextLyricCueMs(seconds * 1000, lines);
+      if (cueMs == null) return;
+      const delay = cueMs - seconds * 1000;
+      if (delay <= 0 || delay > 1100) return;
+      timer = window.setTimeout(
+        () => {
+          const live = resolvePlaybackDisplaySeconds(
+            audio.getPositionSeconds(),
+          );
+          adopt(live);
+          if (live > seconds + 0.005) arm(live);
+        },
+        Math.max(delay, 16),
+      );
+    };
+
+    adopt(resolvePlaybackDisplaySeconds(audio.getPositionSeconds()));
+    arm(resolvePlaybackDisplaySeconds(audio.getPositionSeconds()));
+    const unsubscribeClock = subscribePlaybackClock((seconds) => {
+      adopt(seconds);
+      arm(seconds);
     });
+    const unsubscribeStore = usePlayerStore.subscribe((state, prev) => {
+      if (state.playbackState === prev.playbackState) return;
+      const live = resolvePlaybackDisplaySeconds(audio.getPositionSeconds());
+      adopt(live);
+      arm(live);
+    });
+
+    return () => {
+      clearCue();
+      unsubscribeClock();
+      unsubscribeStore();
+    };
   }, [isSynced, lines]);
   const positionMs = playbackPositionSeconds * 1000;
   const singingLineIndex = isSynced
@@ -241,7 +332,9 @@ export function LyricsPanel({
     previousScrollLineRef.current = -1;
     previousPositionRef.current = 0;
     isInitialScrollRef.current = true;
-    lineRefs.current = [];
+    // Line nodes are recorded by callback refs during commit, before this
+    // effect. Clearing the array here drops them until the next render, so
+    // opening mid-lyric stays at the top until the following cue.
     const container = scrollRef.current;
     if (container) {
       container.scrollTop = 0;
@@ -273,20 +366,13 @@ export function LyricsPanel({
 
     let cancelled = false;
     let cancelScroll: (() => void) | undefined;
-    let frameId = 0;
-    const startedAt = performance.now();
 
-    const tryScroll = () => {
-      if (cancelled) return;
-      if (scrollLineIndex === previousScrollLineRef.current) return;
+    const place = () => {
+      if (cancelled) return true;
+      if (scrollLineIndex === previousScrollLineRef.current) return true;
 
       const lineEl = lineRefs.current[scrollLineIndex];
-      if (!lineEl) {
-        if (performance.now() - startedAt < 500) {
-          frameId = requestAnimationFrame(tryScroll);
-        }
-        return;
-      }
+      if (!lineEl || container.clientHeight <= 0) return false;
 
       previousScrollLineRef.current = scrollLineIndex;
       const instant = isInitialScrollRef.current;
@@ -295,15 +381,20 @@ export function LyricsPanel({
         reduceMotion,
         instant,
       });
+      return true;
     };
 
-    tryScroll();
-    const timeoutId = setTimeout(tryScroll, 400);
+    let observer: ResizeObserver | undefined;
+    if (!place()) {
+      observer = new ResizeObserver(() => {
+        if (place()) observer?.disconnect();
+      });
+      observer.observe(container);
+    }
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(frameId);
-      clearTimeout(timeoutId);
+      observer?.disconnect();
       cancelScroll?.();
     };
   }, [scrollLineIndex, isSynced, reduceMotion]);
@@ -331,6 +422,8 @@ export function LyricsPanel({
                 <LyricsPrerollIndicator
                   key="lyrics-preroll"
                   progress={preroll.progress}
+                  leadMs={preroll.leadMs}
+                  playing={playing}
                   reduceMotion={reduceMotion}
                 />
               ) : null}
