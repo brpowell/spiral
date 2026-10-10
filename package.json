@@ -34,9 +34,7 @@
     "clean:target": "cd src-tauri && cargo clean",
     "profile:build": "node scripts/profile-build.mjs",
     "release": "node scripts/release/cli.mjs",
-    "release:dev": "node scripts/release/cli.mjs installer --dev-license",
-    "verify:encrypted": "node scripts/release/verify-encrypted-build.mjs",
-    "build:hardened": "SPIRAL_ENCRYPT_FRONTEND=1 tauri build --bundles app --features license-dev-key && npm run verify:encrypted"
+    "release:dev": "node scripts/release/cli.mjs installer --dev-license"
   },
   "dependencies": {
     "@dnd-kit/dom": "^0.5.0",

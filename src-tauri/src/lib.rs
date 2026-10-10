@@ -23,7 +23,6 @@ mod disc_metadata_cache;
 mod encoding_profiles;
 mod file_playback;
 mod file_scan;
-mod frontend_crypt;
 mod fs_move;
 mod image_crop;
 mod import_files;
@@ -58,7 +57,6 @@ mod ogg_opus_tests;
 mod packs;
 mod rating_sync;
 mod rating_tags;
-mod selfcheck;
 mod session;
 mod settings;
 mod skin_click_through;
@@ -66,7 +64,6 @@ pub mod skin_convert;
 mod skin_drag;
 mod skin_preferences;
 pub mod tag_inspector;
-mod tamper;
 #[cfg(test)]
 mod test_fixtures;
 mod track_list_prefs;
@@ -91,10 +88,6 @@ use tauri::Manager;
 
 fn load_dev_dotenv() {
     let candidates = [
-        // Source-tree .env, only useful (and only path-leaking) in dev builds.
-        // Gated so the absolute CARGO_MANIFEST_DIR literal is not baked into
-        // release binaries, where this path can never exist anyway.
-        #[cfg(debug_assertions)]
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.env"),
         PathBuf::from(".env"),
         PathBuf::from("../.env"),
@@ -110,33 +103,6 @@ fn load_dev_dotenv() {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     load_dev_dotenv();
-    tamper::init();
-
-    // Headless build-verification hook (QA only, never in a shipping build):
-    // report the self-hash guard's verdict and exit before any GUI init, so a
-    // patched binary can be checked end to end. Gated to the `tamper-test`
-    // feature; the guard itself (selfcheck::spawn) is always active in release.
-    #[cfg(feature = "tamper-test")]
-    if std::env::var_os("SPIRAL_GUARD_SELFTEST").is_some() {
-        let ok = selfcheck::verify();
-        println!("{}", if ok { "GUARD_OK" } else { "GUARD_TAMPERED" });
-        std::process::exit(if ok { 0 } else { 9 });
-    }
-
-    // Headless dynamic probe (QA only): report each detector's verdict and the
-    // resulting tamper score, then exit before any GUI — so a dynamic test can
-    // confirm the detectors fire under a real debugger.
-    #[cfg(feature = "tamper-test")]
-    if std::env::var_os("SPIRAL_DYNAMIC_SELFTEST").is_some() {
-        let (traced, timing_slow, guards_ok, score) = selfcheck::dynamic_probe();
-        println!(
-            "DYNPROBE traced={traced} timing_slow={timing_slow} guards_ok={guards_ok} score={score}"
-        );
-        std::process::exit(0);
-    }
-
-    // Layer 1 detector: self-hash guard feeds the tamper accumulator.
-    selfcheck::spawn();
 
     // Must be registered first on Windows/Linux: OS file-association opens spawn a
     // second process with the path in argv; this forwards that argv to the primary
@@ -164,51 +130,18 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .manage(commands::license::PendingSpcardOpens::default())
         .manage(commands::license::PendingSpcardHandoffs::default())
-        .register_uri_scheme_protocol(frontend_crypt::SCHEME, |_ctx, request| {
-            frontend_crypt::handle_request(request.uri().path())
-        })
         .setup(|app| {
             #[cfg(all(feature = "agent-bridge", debug_assertions, target_os = "macos"))]
             agent_bridge::start(app.handle().clone());
 
-            // Integrity-keyed frontend: decide synchronously whether to serve
-            // over the custom scheme (from the container magic), then decrypt on
-            // a background thread so key derivation + decryption overlap WebKit
-            // init instead of blocking startup. A patched binary derives the
-            // wrong key and gets no UI. No-op in dev / when encryption is off.
-            frontend_crypt::begin_activation(app.handle());
-
-            // Open the library database alongside WebView creation. The join
-            // below still happens before the event loop, but the sqlite open
-            // overlaps constructing the library window.
-            let db_app = app.handle().clone();
-            let db_ready = std::thread::spawn(move || -> Result<rusqlite::Connection, String> {
-                let db_path = library_paths::ensure_library_for_app(&db_app)?;
-                db::open(&db_path).map_err(|err| err.to_string())
-            });
-
             app_windows::create_startup_windows(app.handle())
                 .map_err(|err| std::io::Error::other(err))?;
 
-            // Reveal the main window only once it has painted its themed first
-            // frame (with a safety timeout), so startup doesn't flash the native
-            // + dark index.html + theme-load sequence.
-            app_windows::reveal_main_when_ready(app.handle());
-
-            let conn = db_ready
-                .join()
-                .map_err(|_| std::io::Error::other("database thread panicked"))?
-                .map_err(std::io::Error::other)?;
+            let db_path = library_paths::ensure_library_for_app(app.handle())
+                .expect("failed to init library");
+            let conn = db::open(&db_path).expect("failed to open database");
             app.manage(DbState(Mutex::new(conn)));
             app.manage(RatingSync::new());
-
-            // Walks the media folder and is not needed for the first frame.
-            let purge_app = app.handle().clone();
-            std::thread::spawn(move || {
-                if let Err(err) = metadata_backup::purge_legacy_tag_backups(&purge_app) {
-                    eprintln!("legacy tag backup cleanup on startup: {err}");
-                }
-            });
 
             #[cfg(desktop)]
             if let Err(err) = media_shortcuts::register(app.handle()) {
@@ -230,6 +163,10 @@ pub fn run() {
             }
 
             packs::start_workshop_watch(app.handle().clone());
+
+            if let Err(err) = metadata_backup::purge_legacy_tag_backups(app.handle()) {
+                eprintln!("legacy tag backup cleanup on startup: {err}");
+            }
 
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
@@ -276,7 +213,6 @@ pub fn run() {
             commands::app::quit_app,
             app_windows::ensure_app_window,
             app_windows::release_app_window,
-            app_windows::warm_resident_windows,
             app_windows::create_skin_aux_window,
             commands::files::pick_audio_files,
             commands::files::pick_library_paths,
@@ -333,8 +269,10 @@ pub fn run() {
             commands::artist_images::rename_artist_image_key,
             commands::metadata::write_track_metadata,
             commands::metadata::rename_album_artwork,
+            commands::themes::get_builtin_themes,
+            commands::themes::load_user_themes,
             commands::themes::save_active_theme_id,
-            commands::themes::get_theme_bootstrap,
+            commands::themes::get_active_theme_id,
             commands::themes::create_workshop_theme,
             commands::themes::save_workshop_theme,
             commands::themes::delete_workshop_theme,
@@ -372,8 +310,8 @@ pub fn run() {
             commands::registry::resolve_registry_pack_preview,
             commands::registry::cancel_pack_download,
             commands::registry::clear_pack_download_cancel,
+            commands::skins::list_skins,
             commands::skins::load_skin_pack,
-            commands::skins::get_skin_bootstrap,
             commands::skins::save_active_skin_id,
             commands::skins::get_active_skin_id,
             commands::skins::save_active_skin_view,
@@ -383,10 +321,11 @@ pub fn run() {
             commands::skins::get_skin_cursor_client_position,
             commands::sounds::resolve_sound_asset,
             commands::wms_import::import_wms_skin,
+            commands::visualizers::list_visualizers,
             commands::visualizers::load_visualizer,
-            commands::visualizers::get_visualizer_bootstrap,
             commands::visualizers::read_viz_layer_source,
             commands::visualizers::save_active_visualizer_id,
+            commands::visualizers::get_active_visualizer_id,
             commands::equalizer::get_equalizer_settings,
             commands::equalizer::save_equalizer_settings,
             commands::equalizer::list_equalizer_custom_presets,

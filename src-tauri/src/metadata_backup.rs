@@ -87,7 +87,7 @@ pub fn purge_legacy_tag_backups(app: &AppHandle) -> Result<(), String> {
 
     purge_backups_under(&media_folder)?;
 
-    let conn = db::open_readonly(Path::new(&library.database_path))
+    let conn = db::open(Path::new(&library.database_path))
         .map_err(|e| format!("Failed to open database for leftover backup cleanup: {e}"))?;
     let file_paths = db::list_file_paths(&conn)
         .map_err(|e| format!("Failed to list tracks for leftover backup cleanup: {e}"))?;

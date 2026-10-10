@@ -6,8 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build && node scripts/release/stage-frontend.mjs",
-    "beforeBundleCommand": "node scripts/release/before-bundle.mjs",
+    "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -16,14 +15,14 @@
     "security": {
       "dangerousDisableAssetCspModification": ["style-src"],
       "csp": {
-        "default-src": "'self' spiralfe:",
-        "script-src": "'self' spiralfe: blob:",
-        "style-src": "'self' spiralfe: 'unsafe-inline'",
-        "img-src": "'self' spiralfe: asset: http://asset.localhost https://asset.localhost blob: data:",
-        "media-src": "'self' spiralfe: asset: http://asset.localhost https://asset.localhost blob:",
-        "font-src": "'self' spiralfe: data: asset: http://asset.localhost https://asset.localhost",
-        "connect-src": "'self' spiralfe: ipc: http://ipc.localhost https://ipc.localhost asset: http://asset.localhost https://asset.localhost https://spiralpowered.com",
-        "worker-src": "'self' spiralfe: blob:",
+        "default-src": "'self'",
+        "script-src": "'self' blob:",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' asset: http://asset.localhost https://asset.localhost blob: data:",
+        "media-src": "'self' asset: http://asset.localhost https://asset.localhost blob:",
+        "font-src": "'self' data: asset: http://asset.localhost https://asset.localhost",
+        "connect-src": "'self' ipc: http://ipc.localhost https://ipc.localhost asset: http://asset.localhost https://asset.localhost https://spiralpowered.com",
+        "worker-src": "'self' blob:",
         "object-src": "'none'",
         "frame-src": "'none'",
         "base-uri": "'self'",
@@ -76,8 +75,7 @@
     },
     "resources": {
       "packs/builtin": "packs/builtin",
-      "NOTICE": "NOTICE",
-      "generated/frontend.spe": "frontend.spe"
+      "NOTICE": "NOTICE"
     },
     "icon": [
       "icons/32x32.png",

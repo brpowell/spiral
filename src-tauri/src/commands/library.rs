@@ -208,9 +208,6 @@ pub fn save_track(
 
 #[tauri::command]
 pub fn get_library(app: AppHandle, state: State<DbState>) -> Result<Vec<Track>, String> {
-    // Decay: sluggish load (non-retryable, deniable) and, as severity rises,
-    // scrambled artwork. A failed load would just be retried. Inert when clean.
-    crate::tamper::decay_delay();
     let library_root = library_root(&app);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     let mut tracks = db::get_all_tracks(&conn).map_err(|e| {
@@ -218,29 +215,7 @@ pub fn get_library(app: AppHandle, state: State<DbState>) -> Result<Vec<Track>, 
         e.to_string()
     })?;
     crate::artwork_paths::hydrate_tracks_art_paths(&library_root, &mut tracks);
-    if crate::tamper::should_corrupt_artwork() {
-        scramble_track_artwork(&mut tracks);
-    }
     Ok(tracks)
-}
-
-/// Rotate `art_path` by one among the tracks that have artwork, so covers show
-/// on the wrong tracks. Reversible (nothing is written to disk) and deniable.
-fn scramble_track_artwork(tracks: &mut [Track]) {
-    let with_art: Vec<usize> = tracks
-        .iter()
-        .enumerate()
-        .filter(|(_, t)| t.art_path.as_deref().is_some_and(|p| !p.is_empty()))
-        .map(|(i, _)| i)
-        .collect();
-    if with_art.len() < 2 {
-        return;
-    }
-    let first = tracks[with_art[0]].art_path.clone();
-    for w in with_art.windows(2) {
-        tracks[w[0]].art_path = tracks[w[1]].art_path.clone();
-    }
-    tracks[*with_art.last().unwrap()].art_path = first;
 }
 
 const REFRESH_METADATA_MAX_ERRORS: usize = 20;

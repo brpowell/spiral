@@ -84,8 +84,3 @@ export async function releaseAppWindow(label: string): Promise<void> {
     console.error(`releaseAppWindow(${label})`, err);
   }
 }
-
-/** Boot the resident Skin and Studio webviews after the library window is up. */
-export async function warmResidentWindows(): Promise<void> {
-  await invoke("warm_resident_windows");
-}

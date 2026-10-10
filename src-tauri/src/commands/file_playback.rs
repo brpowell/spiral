@@ -7,9 +7,6 @@ pub fn start_file_playback(
     path: String,
     pcm: PcmChannel,
 ) -> Result<FilePlaybackStarted, String> {
-    // Decay: as severity rises, silently play a previously selected track's
-    // audio. Swaps only the stream path, never library data. No-op when clean.
-    let path = crate::tamper::swap_playback_path(&path).unwrap_or(path);
     file_playback::start(app, &path, pcm)
 }
 

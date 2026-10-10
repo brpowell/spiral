@@ -11,7 +11,9 @@ import { emitThemeChanged, getLiveThemePreview } from "../lib/themeBridge";
 import {
   createWorkshopTheme,
   deleteWorkshopTheme,
-  getThemeBootstrap,
+  getActiveThemeId,
+  getBuiltinThemes,
+  loadUserThemes,
   saveActiveThemeId,
   saveWorkshopTheme,
 } from "../lib/tauri";
@@ -75,12 +77,16 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   },
 
   loadThemes: async (options) => {
-    const boot = await getThemeBootstrap();
-    const themes = [...boot.builtin, ...boot.user];
-    const resolvedId = applyActiveTheme(themes, boot.activeThemeId, options);
+    const [builtin, user, storedActiveThemeId] = await Promise.all([
+      getBuiltinThemes(),
+      loadUserThemes(),
+      getActiveThemeId(),
+    ]);
+    const themes = [...builtin, ...user];
+    const resolvedId = applyActiveTheme(themes, storedActiveThemeId, options);
     set({ themes, activeThemeId: resolvedId, themesLoaded: true });
 
-    if (resolvedId !== boot.activeThemeId) {
+    if (resolvedId !== storedActiveThemeId) {
       await saveActiveThemeId(resolvedId);
       emitThemeChanged(resolvedId, { skipLocalReload: true });
     }

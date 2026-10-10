@@ -31,7 +31,3 @@ dist-ssr
 
 # Fetched libmp3lame (see src-tauri/native/lame.lock.json)
 src-tauri/native/lame/
-
-# Generated encrypted frontend resource (integrity-keyed frontend)
-src-tauri/generated/
-dist-plain/

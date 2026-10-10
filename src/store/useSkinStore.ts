@@ -2,7 +2,8 @@ import { create } from "zustand";
 import { emit } from "@tauri-apps/api/event";
 import { SKIN_CHANGED_EVENT, type SkinChangedPayload } from "../lib/skinBridge";
 import {
-  getSkinBootstrap,
+  getActiveSkinId,
+  listSkins,
   loadSkinPack,
   saveActiveSkinId,
   saveActiveSkinView,
@@ -184,21 +185,19 @@ export const useSkinStore = create<SkinState>((set, get) => ({
 
   loadSkins: async () => {
     const commitGeneration = ++skinCommitGeneration;
-    const boot = await getSkinBootstrap();
-    const resolvedId = boot.summaries.some((s) => s.id === boot.activeSkinId)
-      ? boot.activeSkinId
+    const summaries = await listSkins();
+    const activeSkinId = await getActiveSkinId();
+    const resolvedId = summaries.some((s) => s.id === activeSkinId)
+      ? activeSkinId
       : DEFAULT_SKIN_ID;
-    const pack =
-      resolvedId === boot.activeSkinId
-        ? boot.pack
-        : await loadSkinPack(resolvedId);
+    const pack = await loadSkinPack(resolvedId);
     const viewId = resolveViewForPack(pack);
     const previousId = get().activePack?.summary.id;
     const isSkinSwitch =
       isSkinModeWindow() && previousId != null && previousId !== resolvedId;
 
     const patch = {
-      skins: boot.summaries,
+      skins: summaries,
       activePack: pack,
       activeSkinId: resolvedId,
       activeViewId: viewId,

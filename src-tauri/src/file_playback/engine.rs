@@ -377,15 +377,6 @@ fn playback_thread(
                 }
 
                 if let Some(pcm) = pcm.as_ref() {
-                    // Anti-tamper decay (reversible): count the audio actually
-                    // played (drives escalation by listening time, not wall clock)
-                    // and degrade the PCM in place on a tampered binary. No-op on
-                    // clean builds; clamped so it can only ever add glitch/hiss.
-                    if sample_rate > 0 {
-                        let frames = (chunk.len() / channels_usize) as u64;
-                        crate::tamper::add_playback_ms(frames * 1000 / sample_rate as u64);
-                    }
-                    crate::tamper::degrade_audio(&mut chunk);
                     let pcm_bytes: Vec<u8> = chunk
                         .iter()
                         .flat_map(|sample| sample.to_le_bytes())

@@ -131,14 +131,17 @@ fn list_all_skin_packs(app: &AppHandle) -> Vec<LoadedSkinPack> {
 }
 
 #[tauri::command]
+pub fn list_skins(app: AppHandle) -> Result<Vec<SkinSummary>, String> {
+    Ok(list_all_skin_packs(&app)
+        .into_iter()
+        .map(|p| p.summary)
+        .collect())
+}
+
+#[tauri::command]
 pub fn load_skin_pack(app: AppHandle, skin_id: String) -> Result<LoadedSkinPack, String> {
     let packs = list_all_skin_packs(&app);
     let known: HashSet<String> = packs.iter().map(|p| p.summary.id.clone()).collect();
-    // Decay (silent): as severity rises, apply a different skin. No error log;
-    // the frontend still persists the chosen id, so it is transient. A failed
-    // load would be a greppable signature.
-    let ids: Vec<String> = known.iter().cloned().collect();
-    let skin_id = crate::tamper::swap_customization(&skin_id, &ids).unwrap_or(skin_id);
     let resolved = resolve_skin_id(&skin_id, &known);
 
     packs
@@ -167,51 +170,6 @@ pub fn get_active_skin_id(app: AppHandle) -> Result<String, String> {
         let _ = settings::write_settings(&app, &app_settings);
     }
     Ok(resolved)
-}
-
-/// One pack walk for startup: summaries, the resolved active id, and that pack.
-/// `load_skin_pack` may still substitute a different pack body; the returned
-/// `active_skin_id` is the resolved id, matching `get_active_skin_id`.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SkinBootstrap {
-    pub summaries: Vec<SkinSummary>,
-    pub active_skin_id: String,
-    pub pack: LoadedSkinPack,
-}
-
-#[tauri::command]
-pub fn get_skin_bootstrap(app: AppHandle) -> Result<SkinBootstrap, String> {
-    let packs = list_all_skin_packs(&app);
-    if packs.is_empty() {
-        return Err("skin was not found in builtin, workshop, or installed packs".to_string());
-    }
-
-    let mut app_settings = settings::read_settings(&app);
-    let known: HashSet<String> = packs.iter().map(|pack| pack.summary.id.clone()).collect();
-    let resolved = resolve_skin_id(&app_settings.active_skin, &known);
-    if resolved != app_settings.active_skin {
-        app_settings.active_skin = resolved.clone();
-        let _ = settings::write_settings(&app, &app_settings);
-    }
-
-    let ids: Vec<String> = known.iter().cloned().collect();
-    let loaded_id =
-        crate::tamper::swap_customization(&resolved, &ids).unwrap_or_else(|| resolved.clone());
-    let pack = packs
-        .iter()
-        .find(|pack| pack.summary.id == loaded_id)
-        .or_else(|| packs.iter().find(|pack| pack.summary.id == resolved))
-        .cloned()
-        .ok_or_else(|| {
-            format!("skin \"{resolved}\" was not found in builtin, workshop, or installed packs")
-        })?;
-    let summaries = packs.into_iter().map(|pack| pack.summary).collect();
-    Ok(SkinBootstrap {
-        summaries,
-        active_skin_id: resolved,
-        pack,
-    })
 }
 
 #[tauri::command]

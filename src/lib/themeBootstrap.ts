@@ -1,10 +1,10 @@
+import { applyTheme, DEFAULT_THEME_ID, findThemeById, resolveActiveThemeId } from "./theme";
 import {
-  applyTheme,
-  DEFAULT_THEME_ID,
-  findThemeById,
-  resolveActiveThemeId,
-} from "./theme";
-import { getThemeBootstrap, saveActiveThemeId } from "./tauri";
+  getActiveThemeId,
+  getBuiltinThemes,
+  loadUserThemes,
+  saveActiveThemeId,
+} from "./tauri";
 import { useThemeStore } from "../store/useThemeStore";
 import type { Theme } from "../types/theme";
 
@@ -14,10 +14,11 @@ export async function bootstrapTheme(): Promise<void> {
   let activeThemeId = DEFAULT_THEME_ID;
 
   try {
-    const boot = await getThemeBootstrap();
-    builtin = boot.builtin;
-    user = boot.user;
-    activeThemeId = boot.activeThemeId;
+    [builtin, user, activeThemeId] = await Promise.all([
+      getBuiltinThemes(),
+      loadUserThemes(),
+      getActiveThemeId(),
+    ]);
   } catch {
     useThemeStore.getState().initializeFromBootstrap([], DEFAULT_THEME_ID);
     return;

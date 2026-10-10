@@ -237,10 +237,6 @@ pub async fn fetch_cover_art(
     log_context: Option<activity_log::ActivityLogContext>,
 ) -> Result<Vec<CoverArtCandidate>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        // Decay: sluggish art load (non-retryable, deniable); the persistent
-        // wrong-cover effect lives in get_library. On the blocking thread so it
-        // never stalls the async runtime.
-        crate::tamper::decay_delay();
         if let Some(ctx) = log_context {
             activity_log::set_thread_context(ctx);
         }
@@ -276,7 +272,6 @@ pub async fn fetch_artist_art(
     log_context: Option<activity_log::ActivityLogContext>,
 ) -> Result<Vec<CoverArtCandidate>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        crate::tamper::decay_delay();
         if let Some(ctx) = log_context {
             activity_log::set_thread_context(ctx);
         }
@@ -294,13 +289,7 @@ pub async fn search_musicbrainz_entities(
     query: String,
     artist: Option<String>,
 ) -> Result<Vec<crate::musicbrainz_entity::MusicBrainzEntityHit>, String> {
-    // Decay: silently return no matches (deniable "nothing found") instead of a
-    // logged error, plus sluggishness. No crash signature in the logs.
-    if crate::tamper::should_degrade() {
-        return Ok(Vec::new());
-    }
     tauri::async_runtime::spawn_blocking(move || {
-        crate::tamper::decay_delay();
         crate::musicbrainz_entity::search_entities(kind, query, artist)
     })
     .await

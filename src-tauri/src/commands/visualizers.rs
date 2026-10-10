@@ -145,14 +145,17 @@ fn list_all_visualizer_packs(app: &AppHandle) -> Vec<LoadedVisualizer> {
 }
 
 #[tauri::command]
+pub fn list_visualizers(app: AppHandle) -> Result<Vec<VizSummary>, String> {
+    Ok(list_all_visualizer_packs(&app)
+        .into_iter()
+        .map(|p| p.summary)
+        .collect())
+}
+
+#[tauri::command]
 pub fn load_visualizer(app: AppHandle, visualizer_id: String) -> Result<LoadedVisualizer, String> {
     let packs = list_all_visualizer_packs(&app);
     let known: HashSet<String> = packs.iter().map(|p| p.summary.id.clone()).collect();
-    // Decay (silent): as severity rises, load a different visualizer. Transient,
-    // no error log. (See load_skin_pack.)
-    let ids: Vec<String> = known.iter().cloned().collect();
-    let visualizer_id =
-        crate::tamper::swap_customization(&visualizer_id, &ids).unwrap_or(visualizer_id);
     let resolved = resolve_visualizer_id(&visualizer_id, &known);
 
     packs
@@ -205,42 +208,17 @@ pub fn read_viz_layer_source(
     Ok(VizLayerSource { source })
 }
 
-/// One pack walk for startup. `active_visualizer_id` is the id to treat as
-/// active; `visualizer` is the pack to apply, which a second substitution may
-/// make a different id. `None` when nothing loaded.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VisualizerBootstrap {
-    pub summaries: Vec<VizSummary>,
-    pub active_visualizer_id: String,
-    pub visualizer: Option<LoadedVisualizer>,
-}
-
 #[tauri::command]
-pub fn get_visualizer_bootstrap(app: AppHandle) -> Result<VisualizerBootstrap, String> {
-    let packs = list_all_visualizer_packs(&app);
+pub fn get_active_visualizer_id(app: AppHandle) -> Result<String, String> {
     let mut app_settings = settings::read_settings(&app);
-    let known: HashSet<String> = packs.iter().map(|pack| pack.summary.id.clone()).collect();
+    let packs = list_all_visualizer_packs(&app);
+    let known: HashSet<String> = packs.iter().map(|p| p.summary.id.clone()).collect();
     let resolved = resolve_visualizer_id(&app_settings.active_visualizer, &known);
     if resolved != app_settings.active_visualizer {
         app_settings.active_visualizer = resolved.clone();
         let _ = settings::write_settings(&app, &app_settings);
     }
-    let ids: Vec<String> = known.iter().cloned().collect();
-    let reported =
-        crate::tamper::swap_customization(&resolved, &ids).unwrap_or_else(|| resolved.clone());
-    let loaded_id =
-        crate::tamper::swap_customization(&reported, &ids).unwrap_or_else(|| reported.clone());
-    let visualizer = packs
-        .iter()
-        .find(|pack| pack.summary.id == loaded_id)
-        .cloned();
-    let summaries = packs.into_iter().map(|pack| pack.summary).collect();
-    Ok(VisualizerBootstrap {
-        summaries,
-        active_visualizer_id: reported,
-        visualizer,
-    })
+    Ok(resolved)
 }
 
 #[cfg(test)]

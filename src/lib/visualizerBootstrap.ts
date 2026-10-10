@@ -1,36 +1,46 @@
-import { DEFAULT_VISUALIZER_ID, toVisualizer } from "./resolveVisualizer";
-import { getVisualizerBootstrap } from "./tauri";
+import {
+  DEFAULT_VISUALIZER_ID,
+  toVisualizer,
+} from "./resolveVisualizer";
+import {
+  getActiveVisualizerId,
+  listVisualizers,
+  loadVisualizer,
+} from "./tauri";
 import { useVisualizerStore } from "../store/useVisualizerStore";
 import { BARS_FALLBACK_VISUALIZER } from "../components/visualizer/fallbackVisualizer";
 
 export async function bootstrapVisualizer(): Promise<void> {
   try {
-    const boot = await getVisualizerBootstrap();
-    const resolvedId = boot.summaries.some(
-      (v) => v.id === boot.activeVisualizerId,
-    )
-      ? boot.activeVisualizerId
+    const [summaries, activeVisualizerId] = await Promise.all([
+      listVisualizers(),
+      getActiveVisualizerId(),
+    ]);
+
+    const resolvedId = summaries.some((v) => v.id === activeVisualizerId)
+      ? activeVisualizerId
       : DEFAULT_VISUALIZER_ID;
 
     let initialCache = { [DEFAULT_VISUALIZER_ID]: BARS_FALLBACK_VISUALIZER };
-    if (boot.visualizer) {
+    try {
+      const loaded = await loadVisualizer(resolvedId);
       initialCache = {
         ...initialCache,
-        [resolvedId]: toVisualizer(boot.visualizer),
+        [resolvedId]: toVisualizer(loaded),
       };
-    } else {
-      console.error(`Visualizer bootstrap: failed to load "${resolvedId}"`);
+    } catch (err) {
+      console.error(`Visualizer bootstrap: failed to load "${resolvedId}":`, err);
     }
 
     useVisualizerStore
       .getState()
-      .initializeFromBootstrap(boot.summaries, resolvedId, initialCache);
+      .initializeFromBootstrap(summaries, resolvedId, initialCache);
   } catch (err) {
     console.error("Visualizer bootstrap failed:", err);
-    useVisualizerStore
-      .getState()
-      .initializeFromBootstrap([], DEFAULT_VISUALIZER_ID, {
-        [DEFAULT_VISUALIZER_ID]: BARS_FALLBACK_VISUALIZER,
-      });
+    useVisualizerStore.getState().initializeFromBootstrap(
+      [],
+      DEFAULT_VISUALIZER_ID,
+      { [DEFAULT_VISUALIZER_ID]: BARS_FALLBACK_VISUALIZER },
+    );
   }
 }

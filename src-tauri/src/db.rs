@@ -440,12 +440,6 @@ pub fn open(db_path: &Path) -> Result<Connection, rusqlite::Error> {
     Ok(conn)
 }
 
-/// Read an already-migrated database without taking a write lock.
-/// Startup cleanup uses this so it doesn't stall library reads.
-pub fn open_readonly(db_path: &Path) -> Result<Connection, rusqlite::Error> {
-    Connection::open_with_flags(db_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
-}
-
 pub fn save_track(conn: &Connection, input: &TrackInput) -> Result<i64, rusqlite::Error> {
     let date_added = Utc::now().to_rfc3339();
     let rating = input.rating.unwrap_or(0);

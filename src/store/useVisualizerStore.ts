@@ -1,7 +1,11 @@
 import { create } from "zustand";
-import { DEFAULT_VISUALIZER_ID, toVisualizer } from "../lib/resolveVisualizer";
 import {
-  getVisualizerBootstrap,
+  DEFAULT_VISUALIZER_ID,
+  toVisualizer,
+} from "../lib/resolveVisualizer";
+import {
+  getActiveVisualizerId,
+  listVisualizers,
   loadVisualizer,
   saveActiveVisualizerId,
 } from "../lib/tauri";
@@ -42,22 +46,24 @@ export const useVisualizerStore = create<VisualizerState>((set, get) => ({
   },
 
   loadVisualizers: async () => {
-    const boot = await getVisualizerBootstrap();
-    const resolvedId = boot.summaries.some(
-      (v) => v.id === boot.activeVisualizerId,
-    )
-      ? boot.activeVisualizerId
+    const [summaries, activeVisualizerId] = await Promise.all([
+      listVisualizers(),
+      getActiveVisualizerId(),
+    ]);
+    const resolvedId = summaries.some((v) => v.id === activeVisualizerId)
+      ? activeVisualizerId
       : DEFAULT_VISUALIZER_ID;
 
     let active = BARS_FALLBACK_VISUALIZER;
-    if (boot.visualizer) {
-      active = toVisualizer(boot.visualizer);
-    } else {
-      console.error(`Failed to load visualizer "${resolvedId}"`);
+    try {
+      const loaded = await loadVisualizer(resolvedId);
+      active = toVisualizer(loaded);
+    } catch (err) {
+      console.error(`Failed to load visualizer "${resolvedId}":`, err);
     }
 
     set({
-      visualizers: boot.summaries,
+      visualizers: summaries,
       activeVisualizerId: resolvedId,
       visualizerCache: { ...get().visualizerCache, [resolvedId]: active },
     });

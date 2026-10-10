@@ -13,11 +13,6 @@ pub fn get_track_lyrics(
     state: State<'_, DbState>,
     track_id: i64,
 ) -> Result<Option<TrackLyricsRecord>, String> {
-    // Decay: silently report "no lyrics" (deniable) rather than a logged error.
-    if crate::tamper::should_degrade() {
-        return Ok(None);
-    }
-    crate::tamper::decay_delay();
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     db::get_track_lyrics(&conn, track_id).map_err(|e| {
         eprintln!("get_track_lyrics error: {e}");

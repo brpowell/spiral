@@ -24,9 +24,6 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [features]
 dev-bins = []
 license-dev-key = []
-# QA: seed the tamper score high so reversible decay behaviors can be verified
-# deterministically in a dev build. Never enable for a shipping build.
-tamper-test = []
 # Dev only: Unix-socket bridge so a coding agent can screenshot, eval JS in and
 # read logs from the running app (src/agent_bridge.rs, scripts/agent.mjs).
 # macOS + debug builds only; every call site is cfg-guarded. Never ship it.
@@ -57,7 +54,6 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-obfstr = "0.4"
 rusqlite = { version = "0.32", features = ["bundled"] }
 rfd = "0.15"
 walkdir = "2"
@@ -128,21 +124,9 @@ tauri-plugin-updater = "2.10.1"
 [patch.crates-io]
 mp3lame-sys = { path = "crates/mp3lame-sys" }
 
-# Strip symbols from shipped binaries. Without this, release builds retain
-# full Rust symbol names (the whole spiral_lib module tree, license
-# internals), making the binary trivial to map in a decompiler.
-# Embedded build paths (/Users/<name>/.cargo/...) are sanitized separately
-# via --remap-path-prefix injected by the release build script, since the
-# stable `trim-paths` profile option is not available in the pinned Cargo.
-[profile.release]
-strip = true
-
 # On-machine sampling (samply / Instruments). `tauri build` still uses [profile.release].
 # See docs/contributing/profiling.md.
-# Keep symbols/debuginfo here: this profile inherits [profile.release], so it
-# must override strip to stay useful for sampling.
 [profile.profiling]
 inherits = "release"
 debug = true
-strip = false
 

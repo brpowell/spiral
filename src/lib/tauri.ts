@@ -816,15 +816,16 @@ export async function renameArtistImageKey(
   });
 }
 
-export interface ThemeBootstrap {
-  builtin: Theme[];
-  user: Theme[];
-  activeThemeId: string;
+export async function getBuiltinThemes(): Promise<Theme[]> {
+  return invoke<Theme[]>("get_builtin_themes");
 }
 
-/** Builtin themes, user themes, and the active id from a single pack scan. */
-export async function getThemeBootstrap(): Promise<ThemeBootstrap> {
-  return invoke<ThemeBootstrap>("get_theme_bootstrap");
+export async function loadUserThemes(): Promise<Theme[]> {
+  return invoke<Theme[]>("load_user_themes");
+}
+
+export async function getActiveThemeId(): Promise<string> {
+  return invoke<string>("get_active_theme_id");
 }
 
 export async function saveActiveThemeId(themeId: string): Promise<void> {
@@ -1149,6 +1150,10 @@ export async function openPathInFileManager(path: string): Promise<void> {
   await openPath(path);
 }
 
+export async function listSkins(): Promise<SkinSummary[]> {
+  return invoke<SkinSummary[]>("list_skins");
+}
+
 export async function resolveSoundAsset(
   soundId: string,
 ): Promise<string | null> {
@@ -1159,19 +1164,6 @@ export async function loadSkinPack(skinId: string): Promise<LoadedSkinPack> {
   const pack = await invoke<LoadedSkinPack>("load_skin_pack", { skinId });
   reportSkinLayoutValidation(pack);
   return pack;
-}
-
-export interface SkinBootstrap {
-  summaries: SkinSummary[];
-  activeSkinId: string;
-  pack: LoadedSkinPack;
-}
-
-/** Skin summaries, the active id, and the active pack from a single pack scan. */
-export async function getSkinBootstrap(): Promise<SkinBootstrap> {
-  const boot = await invoke<SkinBootstrap>("get_skin_bootstrap");
-  reportSkinLayoutValidation(boot.pack);
-  return boot;
 }
 
 export async function getActiveSkinId(): Promise<string> {
@@ -1203,21 +1195,18 @@ export async function saveSkinPreferences(
   await invoke<void>("save_skin_preferences", { skinId, preferences });
 }
 
+export async function listVisualizers(): Promise<VizSummary[]> {
+  return invoke<VizSummary[]>("list_visualizers");
+}
+
 export async function loadVisualizer(
   visualizerId: string,
 ): Promise<LoadedVisualizer> {
   return invoke<LoadedVisualizer>("load_visualizer", { visualizerId });
 }
 
-export interface VisualizerBootstrap {
-  summaries: VizSummary[];
-  activeVisualizerId: string;
-  visualizer: LoadedVisualizer | null;
-}
-
-/** Visualizer summaries, the active id, and the loaded visualizer from one scan. */
-export async function getVisualizerBootstrap(): Promise<VisualizerBootstrap> {
-  return invoke<VisualizerBootstrap>("get_visualizer_bootstrap");
+export async function getActiveVisualizerId(): Promise<string> {
+  return invoke<string>("get_active_visualizer_id");
 }
 
 export async function saveActiveVisualizerId(
