@@ -72,6 +72,10 @@ jobs:
         working-directory: apps/desktop
         run: npm ci
 
+      - name: Check Tauri JS and Rust versions are aligned
+        working-directory: apps/desktop
+        run: npm run tauri:versions:check
+
       - name: Lint
         working-directory: apps/desktop
         run: npm run lint
