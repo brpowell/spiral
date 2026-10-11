@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/brpowell/spiral/compare/desktop-v0.2.3...desktop-v0.2.4) (2026-10-11)
+
+
+### Bug Fixes
+
+* **desktop:** align [@tauri-apps](https://github.com/tauri-apps) JS packages with the Rust crates ([#7](https://github.com/brpowell/spiral/issues/7)) ([2cf4c4a](https://github.com/brpowell/spiral/commit/2cf4c4ad46cf70080931730e5e26cfd082030f92))
+
 ## [0.2.3](https://github.com/brpowell/spiral/compare/desktop-v0.2.2...desktop-v0.2.3) (2026-10-11)
 
 
