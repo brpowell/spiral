@@ -33,6 +33,7 @@
     "notice:check": "node scripts/generate-notice.mjs --check",
     "notice:generate": "node scripts/generate-notice.mjs",
     "clean:target": "cd src-tauri && cargo clean",
+    "build:release": "tauri build --no-bundle",
     "profile:build": "node scripts/profile-build.mjs",
     "release": "node scripts/release/cli.mjs"
   },

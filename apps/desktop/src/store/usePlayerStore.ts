@@ -88,6 +88,8 @@ export type TrackEditorTab =
 
 interface PlayerState {
   library: Track[];
+  /** True once the first `loadLibrary` settles, so an empty library can be told apart from one still loading. */
+  libraryLoaded: boolean;
   playContextIds: number[];
   manualQueueIds: number[];
   currentTrackId: number | null;
@@ -1174,6 +1176,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
   return {
     library: [],
+    libraryLoaded: false,
     playContextIds: [],
     manualQueueIds: [],
     currentTrackId: null,
@@ -1218,6 +1221,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
           kind: "libraryLoad",
           err,
         });
+      } finally {
+        if (!get().libraryLoaded) set({ libraryLoaded: true });
       }
     },
 

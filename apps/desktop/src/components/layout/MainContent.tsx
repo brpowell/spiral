@@ -31,7 +31,10 @@ export function MainContent() {
     () => library.filter((track) => !isTrackImporting(track)),
     [library],
   );
-  const albums = useMemo(() => groupTracksIntoAlbums(liveLibrary), [liveLibrary]);
+  const albums = useMemo(
+    () => groupTracksIntoAlbums(liveLibrary),
+    [liveLibrary],
+  );
   const artists = useMemo(() => {
     const grouped = groupTracksIntoArtists(liveLibrary, artistBrowseMode);
     return applyArtistImages(grouped, imagesByKey);
@@ -54,14 +57,18 @@ export function MainContent() {
 
   return (
     <main className="main-content">
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false}>
         {cdDriveId != null ? (
           <motion.div
             key={contentKey}
             className="main-content__view main-content__view--contained"
             {...viewTransition}
           >
-            <CdDetailView driveId={cdDriveId} albums={albums} artists={artists} />
+            <CdDetailView
+              driveId={cdDriveId}
+              albums={albums}
+              artists={artists}
+            />
           </motion.div>
         ) : playlistId != null ? (
           <motion.div

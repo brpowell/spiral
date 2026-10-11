@@ -40,7 +40,9 @@ const WINDOWS: &[WindowSpec] = &[
         height: 800.0,
         min: Some((520.0, 420.0)),
         max: None,
-        visible: true,
+        // Shown by the frontend after its first render, so launch never flashes
+        // an empty native or webview background.
+        visible: false,
         resizable: true,
         maximizable: None,
         decorations: None,
@@ -158,11 +160,29 @@ fn spec_by_label(label: &str) -> Option<&'static WindowSpec> {
 }
 
 pub fn create_startup_windows(app: &AppHandle) -> Result<(), String> {
-    for spec in WINDOWS {
-        if spec.preload {
-            create_window(app, spec.label)?;
-        }
-    }
+    // Main boots alone so it gets the CPU. The other resident webviews are
+    // created once main reports ready.
+    create_window(app, "main")?;
+
+    use tauri::Listener;
+    let handle = app.clone();
+    app.once("spiral:window-ready", move |_| {
+        // The ready event fires alongside main's show(); wait it out so
+        // webview creation doesn't delay the reveal.
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(400));
+            let handle_for_work = handle.clone();
+            let _ = handle.run_on_main_thread(move || {
+                for spec in WINDOWS {
+                    if spec.preload && spec.label != "main" {
+                        if let Err(err) = create_window(&handle_for_work, spec.label) {
+                            eprintln!("failed to preload `{}`: {err}", spec.label);
+                        }
+                    }
+                }
+            });
+        });
+    });
     Ok(())
 }
 
@@ -270,6 +290,11 @@ fn create_window(app: &AppHandle, label: &str) -> Result<(), String> {
         .visible(spec.visible)
         .resizable(spec.resizable);
 
+    // Transparent skin windows must not get an opaque backdrop.
+    if !spec.transparent {
+        builder = builder.background_color(tauri::utils::config::Color(14, 14, 16, 255));
+    }
+
     if let Some((width, height)) = spec.min {
         builder = builder.min_inner_size(width, height);
     }
@@ -321,9 +346,20 @@ fn create_window(app: &AppHandle, label: &str) -> Result<(), String> {
         }
     }
 
-    builder
+    let window = builder
         .build()
         .map_err(|err| format!("create `{}`: {err}", spec.label))?;
+
+    // Safety net: if the frontend never reaches first paint, don't leave the
+    // app invisible.
+    if spec.label == "main" && !spec.visible {
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(5));
+            if !window.is_visible().unwrap_or(true) {
+                let _ = window.show();
+            }
+        });
+    }
     Ok(())
 }
 
