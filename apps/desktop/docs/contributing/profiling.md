@@ -53,6 +53,8 @@ cargo build --manifest-path src-tauri/Cargo.toml --profile profiling
 | macOS | `src-tauri/target/release/Spiral` or `src-tauri/target/release/bundle/macos/Spiral.app` |
 | Windows | `src-tauri/target/release/Spiral.exe` |
 
+Plain release binary (no symbols, no installer bundle): `npm run build:release`.
+
 Helper: `npm run profile:build` runs the `CARGO_PROFILE_RELEASE_DEBUG` `tauri build --no-bundle` path and prints the binary path.
 
 Launch under a session bus on this Linux VM if you need file pickers (see `AGENTS.md`):
