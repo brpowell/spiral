@@ -1,1 +1,5 @@
-npx --no -- commitlint --edit "$1"
+# Hooks run from the monorepo root; commitlint is installed in apps/desktop.
+root="$(git rev-parse --show-toplevel)"
+msg="$(realpath "$1")"
+cd "$root/apps/desktop"
+npx --no -- commitlint --edit "$msg"

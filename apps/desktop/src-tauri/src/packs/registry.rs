@@ -231,7 +231,7 @@ fn apply_official_url_override_with(url: String, over: Option<String>) -> String
 }
 
 /// Official source only. Extra `registries[]` settings entries are ignored until
-/// the multi-registry Preferences UI ships (`docs/impl/pack-registry-impl.md`).
+/// the multi-registry Preferences UI ships.
 pub fn configured_registries(_app: &AppHandle) -> Vec<RegistrySource> {
     default_registries()
 }

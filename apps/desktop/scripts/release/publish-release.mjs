@@ -8,8 +8,8 @@
  * once the marketing-site update route reads published releases.
  *
  * Usage:
- *   npm run release -- publish v0.2.0
- *   GH_TOKEN=… node scripts/release/publish-release.mjs v0.2.0
+ *   npm run release -- publish desktop-v0.2.0
+ *   GH_TOKEN=… node scripts/release/publish-release.mjs desktop-v0.2.0
  *
  * Requires `gh` authenticated with contents:write on the repo.
  */
@@ -23,7 +23,7 @@ Usage:
   npm run release -- publish <tag>
 
 Example:
-  npm run release -- publish v0.2.0
+  npm run release -- publish desktop-v0.2.0
 `);
   process.exit(exitCode);
 }
@@ -52,8 +52,10 @@ function gh(args) {
 
 const tag = process.argv[2];
 if (!tag || tag === "-h" || tag === "--help") usage(tag ? 0 : 1);
-if (!/^v\d+\.\d+\.\d+/.test(tag)) {
-  console.error(`Expected a version tag like v0.2.0, got: ${tag}`);
+if (!/^desktop-v\d+\.\d+\.\d+/.test(tag)) {
+  console.error(
+    `Expected a desktop release tag like desktop-v0.2.0, got: ${tag}`,
+  );
   process.exit(1);
 }
 

@@ -2,6 +2,9 @@ name: Version sync
 
 on:
   pull_request:
+    paths:
+      - "apps/desktop/package.json"
+      - "apps/desktop/src-tauri/tauri.conf.json"
   push:
     branches:
       - main
@@ -19,4 +22,5 @@ jobs:
         with:
           node-version: "22"
       - name: Compare package.json and tauri.conf.json
+        working-directory: apps/desktop
         run: npm run version:check

@@ -8,7 +8,7 @@
  *   npm run release -- keys -- --force
  *
  * Writes private key + `.pub`. Does not touch git, GitHub secrets, or tauri.conf.json —
- * follow docs/signing-and-keys.md to rotate those.
+ * follow docs/contributing/signing-and-keys.md to rotate those.
  */
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
@@ -58,16 +58,7 @@ function parseArgs(argv) {
 }
 
 const { out, force } = parseArgs(process.argv.slice(2));
-const args = [
-  "run",
-  "tauri",
-  "--",
-  "signer",
-  "generate",
-  "-w",
-  out,
-  "--ci",
-];
+const args = ["run", "tauri", "--", "signer", "generate", "-w", out, "--ci"];
 if (force) args.push("-f");
 
 console.log(`$ npm ${args.join(" ")}`);
@@ -94,5 +85,5 @@ Next (rotation / first-time setup):
      to the private key file contents (no password)
   4. Store the private key in the password-manager vault; discard the old key only
      after a build signed with the new key has been installed by users
-  5. See docs/signing-and-keys.md
+  5. See docs/contributing/signing-and-keys.md
 `);

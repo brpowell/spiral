@@ -184,7 +184,7 @@ Subscribers use `useVisualizerFrameRef()` in the skin webview. Layer drawing mer
 
 ## Pack manifests
 
-- Visualizer: [visualizer-pack-guide.md](../../docs/guides/visualizer-pack-guide.md), [`viz-v1.schema.json`](https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/viz-v1.schema.json)
+- Visualizer: [`viz-v1.schema.json`](https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/viz-v1.schema.json)
 
 Canvas and webgl `entry` fields must be a relative `.js` filename in the visualizer folder (e.g. `index.js`). Asset paths and layout are validated on load.
 
@@ -200,4 +200,3 @@ Contributions are discovered under type folders (`visualizers/`, …). Effective
 ## Related
 
 - [Playback skin contract](../playback/skin-contract.md) — visualizer slot placement in skins
-- [Spiral pack format](../../docs/guides/spk-format.md) — pack wrapper and type folders

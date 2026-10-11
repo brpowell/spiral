@@ -93,7 +93,7 @@
       "noUpdate": "No update is ready to install",
       "savePreference": "Couldn't save update preferences",
       "disabledInDev": "Updates are disabled in debug builds",
-      "disabledInDevDetail": "Use \"Simulate Update\" in the dev menu, or test with a packaged installer. See docs/release.md."
+      "disabledInDevDetail": "Use \"Simulate Update\" in the dev menu, or test with a packaged installer. See docs/contributing/release.md."
     }
   }
 }

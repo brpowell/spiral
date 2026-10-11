@@ -4,4 +4,4 @@ Rust crate for Spiral pack (`pack.json` / `.spk`) contracts: manifest parsing, c
 
 ## License
 
-Dual-licensed under MIT OR Apache-2.0.
+Apache License 2.0. See [LICENSE](LICENSE).

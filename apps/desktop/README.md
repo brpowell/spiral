@@ -21,11 +21,11 @@ A local-first desktop app for managing and enjoying a personal music library. Yo
 
 ## Linux
 
-v1 Direct on Linux is an **AppImage** (x86_64 and aarch64). Download the matching file, `chmod +x`, and run. Details: [docs/guides/linux.md](docs/guides/linux.md).
+v1 Direct on Linux is an **AppImage** (x86_64 and aarch64). Download the matching file, `chmod +x`, and run.
 
 ## Known limitations
 
-Spiral is under active development. Some features are intentionally scoped or platform-limited. See [docs/general/known-limitations.md](docs/general/known-limitations.md) for the public list (crossfade scope, CD platform support, format gaps, and more).
+Spiral is under active development. Some features are intentionally scoped or platform-limited.
 
 ## Contributing
 

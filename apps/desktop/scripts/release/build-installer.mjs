@@ -16,7 +16,7 @@
  * because `bundle.createUpdaterArtifacts` is enabled — without them the
  * build fails when producing updater sidecars (.app.tar.gz / AppImage .sig).
  *
- * See docs/release.md.
+ * See docs/contributing/release.md.
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
@@ -32,7 +32,7 @@ const BUNDLES = {
     // Keep `app` so createUpdaterArtifacts can emit .app.tar.gz + .sig
     // (same as CI — `--bundles dmg` alone cleans Spiral.app afterward).
     args: ["--bundles", "app,dmg"],
-    outHint: "src-tauri/target/**/bundle/{dmg,macos}/",
+    outHint: "target/**/bundle/{dmg,macos}/",
     needle: join("bundle", "dmg"),
     matchName: (name) => name.endsWith(".dmg"),
   },
@@ -40,7 +40,7 @@ const BUNDLES = {
     host: "win32",
     hostLabel: "Windows",
     args: ["--bundles", "nsis"],
-    outHint: "src-tauri/target/**/bundle/nsis/",
+    outHint: "target/**/bundle/nsis/",
     needle: join("bundle", "nsis"),
     matchName: (name) => name.endsWith("-setup.exe"),
   },
@@ -48,7 +48,7 @@ const BUNDLES = {
     host: "linux",
     hostLabel: "Linux",
     args: ["--bundles", "appimage"],
-    outHint: "src-tauri/target/**/bundle/appimage/",
+    outHint: "target/**/bundle/appimage/",
     needle: join("bundle", "appimage"),
     matchName: (name) => name.endsWith(".AppImage"),
   },
@@ -57,7 +57,7 @@ const BUNDLES = {
     host: "linux",
     hostLabel: "Linux",
     args: ["--bundles", "deb"],
-    outHint: "src-tauri/target/**/bundle/deb/",
+    outHint: "target/**/bundle/deb/",
     needle: join("bundle", "deb"),
     matchName: (name) => name.endsWith(".deb"),
   },
@@ -91,9 +91,7 @@ function parseArgs(argv) {
 
   if (before.includes("-h") || before.includes("--help")) usage(0);
 
-  const unknownFlags = before.filter(
-    (a) => a.startsWith("-"),
-  );
+  const unknownFlags = before.filter((a) => a.startsWith("-"));
   if (unknownFlags.length > 0) {
     console.error(`Unknown flag: ${unknownFlags[0]}`);
     usage(1);
@@ -131,7 +129,7 @@ function listNewestUnder(dir, predicate) {
 
 function printArtifacts(kind) {
   const spec = BUNDLES[kind];
-  const bundleRoot = join(root, "src-tauri", "target");
+  const bundleRoot = join(root, "..", "..", "target");
   const installers = listNewestUnder(bundleRoot, spec.matchName).filter((f) =>
     f.includes(spec.needle),
   );
@@ -181,7 +179,7 @@ if (spec.host === "linux") {
   }
   // Prefer disk-backed temp: /tmp may be tmpfs with usrquota (EDQUOT while df shows free).
   if (!env.TMPDIR) {
-    const tmp = join(root, "src-tauri", "target", "tmp");
+    const tmp = join(root, "..", "..", "target", "tmp");
     mkdirSync(tmp, { recursive: true });
     env.TMPDIR = tmp;
     env.TMP = tmp;

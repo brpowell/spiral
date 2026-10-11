@@ -29,7 +29,7 @@ use paths::slugify;
 use report::{GapReport, ReportKind};
 
 const SCHEMA: &str =
-    "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/skin-v1.schema.json";
+    "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/skin-v1.schema.json";
 
 const EXTENSIONS: &[&str] = &[".bmp", ".png", ".gif", ".jpg", ".jpeg"];
 

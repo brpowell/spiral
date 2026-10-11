@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /**
  * Fails if package.json and src-tauri/tauri.conf.json disagree on version.
- * See docs/release-process-plan.md ("Versioning stays in sync").
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";

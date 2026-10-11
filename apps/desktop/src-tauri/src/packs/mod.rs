@@ -1,7 +1,5 @@
 //! Spiral pack (`pack.json` / `.spk`) — app lifecycle (zones, install, scan) on top of
-//! [`spk_format`](https://github.com/spiral-powered/spk-format).
-//!
-//! See `docs/guides/spiral-pack-format.md`.
+//! [`spk_format`](https://github.com/brpowell/spiral/tree/main/libs/spk-format).
 
 pub mod export;
 pub mod install;

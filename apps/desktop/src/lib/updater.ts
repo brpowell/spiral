@@ -8,7 +8,7 @@ export const AUTOMATIC_UPDATE_INTERVAL_MS = 5 * 60 * 60 * 1000;
 /**
  * Process env that re-enables the updater during `tauri dev` / Vite DEV.
  * Set to `1` or `true` when intentionally testing update checks from a debug session.
- * See `docs/release.md` ("Debug builds and the updater").
+ * See `docs/contributing/release.md` ("Debug builds and the updater").
  */
 export const UPDATER_ENABLE_ENV = "SPIRAL_ENABLE_UPDATER";
 

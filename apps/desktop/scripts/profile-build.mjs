@@ -31,15 +31,15 @@ function run(command, args) {
 run("npx", ["tauri", "build", "--no-bundle"]);
 
 const candidates = [
-  path.join(root, "src-tauri/target/release/Spiral"),
-  path.join(root, "src-tauri/target/release/Spiral.exe"),
+  path.join(root, "../../target/release/Spiral"),
+  path.join(root, "../../target/release/Spiral.exe"),
 ];
 const binary = candidates.find((candidate) => existsSync(candidate));
 
 console.log("\nProfiling binary (keep traces on this machine):");
 console.log(
-  `  ${binary ?? path.join(root, "src-tauri/target/release/Spiral")}`,
+  `  ${binary ?? path.join(root, "../../target/release/Spiral")}`,
 );
 console.log("\nExample:");
-console.log(`  samply record ${binary ?? "src-tauri/target/release/Spiral"}`);
+console.log(`  samply record ${binary ?? "target/release/Spiral"}`);
 console.log("\nPlaybook: docs/contributing/profiling.md");

@@ -1,6 +1,4 @@
 //! Encode interleaved PCM to AAC-LC `.m4a` via bundled `fdk-aac`.
-//!
-//! Distribution / patent notes for FDK AAC: see `docs/legal-before-publish.md`.
 
 use std::fs::File;
 use std::io::Write;
