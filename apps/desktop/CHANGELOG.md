@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/brpowell/spiral/compare/desktop-v0.2.2...desktop-v0.2.3) (2026-10-11)
+
+
+### Miscellaneous Chores
+
+* **desktop:** document the Apache-2.0 license in the README ([d6b37a7](https://github.com/brpowell/spiral/commit/d6b37a7631633895587e6e51ad1c0826caa1375f))
+
 ## [0.2.2](https://github.com/brpowell/spiral-desktop/compare/v0.2.1...v0.2.2) (2026-08-03)
 
 
