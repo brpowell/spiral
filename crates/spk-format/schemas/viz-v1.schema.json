@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/viz-v1.schema.json",
+  "title": "Spiral visualizer contribution v1",
+  "type": "object",
+  "required": ["id", "name", "author", "description", "children"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri-reference",
+      "description": "JSON Schema reference for editor validation."
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Declared contribution id."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "Human-readable display label."
+    },
+    "author": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "Freeform credit for the contribution's creator."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 280,
+      "description": "Short summary for lists/cards; keep longer notes in the pack README."
+    },
+    "preview": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!.*\\.\\.)(?!/).+\\.(png|jpg|jpeg|webp|gif)$",
+      "description": "Optional preview image path relative to the contribution directory. Raster only: png, jpg, jpeg, webp, gif."
+    },
+    "children": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Layers drawn for this visualizer, back to front.",
+      "items": { "$ref": "#/$defs/sceneLayer" }
+    }
+  },
+  "$defs": {
+    "sceneLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "layout"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": ["canvas", "webgl", "image", "video"]
+        },
+        "layout": { "$ref": "#/$defs/sceneLayout" },
+        "blend": { "type": "string" },
+        "drive": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/presentation-common.schema.json#/$defs/driveBinding"
+          }
+        },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "scale": { "type": "number", "minimum": 0 },
+        "translateX": { "type": "number" },
+        "translateY": { "type": "number" },
+        "rotation": { "type": "number" },
+        "entry": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._-]+\\.js$",
+          "description": "JS module path relative to this visualizer contribution folder (e.g. index.js)."
+        },
+        "asset": {
+          "$ref": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/presentation-common.schema.json#/$defs/assetRef"
+        },
+        "loop": { "type": "boolean" }
+      }
+    },
+    "sceneLayout": {
+      "oneOf": [
+        { "const": "fill" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "w", "h"],
+          "properties": {
+            "x": { "type": "number", "minimum": 0, "maximum": 1 },
+            "y": { "type": "number", "minimum": 0, "maximum": 1 },
+            "w": { "type": "number", "minimum": 0, "maximum": 1 },
+            "h": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      ]
+    }
+  }
+}
