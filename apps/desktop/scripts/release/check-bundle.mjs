@@ -3,7 +3,7 @@
  * Assert a packaged tree is shippable: no developer Cargo bins
  * (read_tags, wms_import, skin_convert_compare).
  *
- * Walks `src-tauri/target` after `tauri build` / `npm run release -- installer`.
+ * Walks `target` after `tauri build` / `npm run release -- installer`.
  *
  * Usage: npm run release -- check-bundle
  */
@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const targetRoot =
-  process.env.CARGO_TARGET_DIR || join(root, "src-tauri", "target");
+  process.env.CARGO_TARGET_DIR || join(root, "..", "..", "target");
 
 const DEV_BINS = new Set(["read_tags", "skin_convert_compare", "wms_import"]);
 

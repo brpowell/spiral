@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/skin-v1.schema.json",
+  "$id": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/skin-v1.schema.json",
   "title": "Spiral skin mode manifest v1",
   "type": "object",
   "required": ["id", "name", "author", "description", "views"],

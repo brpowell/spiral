@@ -2,7 +2,7 @@
 
 How to build a symbolicated Spiral binary and sample CPU, memory, disk, and idle/energy **on this machine**. **No performance telemetry, analytics, or off-device profile upload.** samply can serve Firefox Profiler **locally**; use **File → Open** on a saved profile. Do not use the public profiler upload.
 
-What to attack (ranked findings, regression risk, skin checklist): [resource-optimization.md](../general/resource-optimization.md).
+What to attack (ranked findings, regression risk, skin checklist): resource-optimization.md.
 
 ---
 
@@ -66,7 +66,7 @@ WebKit GPU flags above **change** GPU/energy vs a real desktop — note that whe
 
 ### 2. What to capture (same scenarios, local only)
 
-Record **20–40 s** each, cold-start vs warmed. Finding numbers refer to [resource-optimization.md](../general/resource-optimization.md#ranked-opportunities).
+Record **20–40 s** each, cold-start vs warmed. Finding numbers refer to resource-optimization.md.
 
 1. **Idle library** — main visible, stopped, visualizer strip on screen, no Studio/EQ.
 2. **Idle, extra windows** — open Studio + EQ + About, then hide them (eager-webview hypothesis).
@@ -101,7 +101,7 @@ Also useful: **Energy Log**, **Allocations** (host), **Game Performance** / Meta
 
 ### 5. Activity Monitor / Task Manager / `top`
 
-Finding numbers: [resource-optimization.md](../general/resource-optimization.md#ranked-opportunities).
+Finding numbers: resource-optimization.md.
 
 | Look at | Idle library | Playing | Skin mode |
 | --- | --- | --- | --- |
@@ -125,7 +125,7 @@ Debug / `tauri dev` has Web Inspector. Use it to **identify JS call stacks** (RA
 
 ### 7. Suggested confirmation order (risk-first)
 
-Profile to **confirm** a hypothesis; implement in [attack order](../general/resource-optimization.md#attack-order-risk-first), not by idle-CPU size.
+Profile to **confirm** a hypothesis; implement in attack order, not by idle-CPU size.
 
 1. Idle library, viz mounted → #1 (low–med risk, high idle CPU).
 2. Art dir / binary size if those are the question → #13, #7 (very low risk).
@@ -133,4 +133,4 @@ Profile to **confirm** a hypothesis; implement in [attack order](../general/reso
 4. Play + pack install / catalog → #5, #14, then #6 with an event→window matrix.
 5. **Do not** treat hidden-main / skin-mode idle CPU as the first patch (#2, #10, #11) even if the profile is ugly there.
 
-A change is done only if the intended drop appears **and** the [skin checklist](../general/resource-optimization.md#skin-focused-invariant-checklist) is green. Keep changes free of telemetry.
+A change is done only if the intended drop appears **and** the skin checklist is green. Keep changes free of telemetry.

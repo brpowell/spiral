@@ -377,8 +377,7 @@ pub const DEFAULT_REGISTRY_URL: &str = "https://spk-registry.spiralpowered.com";
 pub const LEGACY_DEFAULT_REGISTRY_URL: &str = "https://spk.spiralpowered.com";
 
 /// Temporary env override for the official registry base (local QA against
-/// `spk-registry`). Remove when multi-registry Preferences UI ships — see
-/// `docs/impl/pack-registry-impl.md`.
+/// `spk-registry`). Remove when multi-registry Preferences UI ships.
 pub const PACK_REGISTRY_URL_ENV: &str = "SPIRAL_PACK_REGISTRY_URL";
 
 /// One configured pack registry (official or self-hosted).

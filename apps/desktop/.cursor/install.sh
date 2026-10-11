@@ -35,15 +35,9 @@ if [ ! -e /usr/lib/x86_64-linux-gnu/libstdc++.so ]; then
 fi
 
 # --- Private spiral-powered repo access ---
-# Spiral needs read access to the private spiral-ui repo (@spiral/ui npm dep).
-#
-# Preferred: `repositoryDependencies` in .cursor/environment.json widens the
-# generated GitHub token to cover it (works for saved-environment agents).
-#
-# Fallback: if a personal access token with `contents: read` on that repo is
-# provided as a secret (RELEASE_PLEASE_TOKEN or SPIRAL_GH_TOKEN), rewrite the
-# baked-in github.com credentials to use it so `npm install` and `gh` succeed
-# even when the generated token is not widened.
+# If a personal access token with `contents: read` is provided as a secret
+# (RELEASE_PLEASE_TOKEN or SPIRAL_GH_TOKEN), use it so `gh` can reach other
+# private spiral-powered repos.
 PRIVATE_TOKEN="${RELEASE_PLEASE_TOKEN:-${SPIRAL_GH_TOKEN:-}}"
 if [ -n "${PRIVATE_TOKEN}" ]; then
   echo "install: using provided PAT for private spiral-powered repos"
@@ -66,7 +60,7 @@ else
   export GH_TOKEN="${GH_TOKEN:-$(gh auth token 2>/dev/null || true)}"
 fi
 
-# --- Frontend dependencies (includes private @spiral/ui) ---
+# --- Frontend dependencies ---
 npm install
 
 echo "Spiral cloud-agent install complete."

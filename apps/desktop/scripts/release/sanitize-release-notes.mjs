@@ -147,8 +147,8 @@ Options:
   --dry-run, -n   Print sanitized notes to stdout; do not edit the release
 
 Examples:
-  npm run release -- sanitize-notes v0.2.0
-  npm run release -- sanitize-notes v0.2.0 --dry-run
+  npm run release -- sanitize-notes desktop-v0.2.0
+  npm run release -- sanitize-notes desktop-v0.2.0 --dry-run
 
 Rewrites the release notes in place. CHANGELOG.md is not touched.
 Safe to re-run: already-cleaned notes are left unchanged.
@@ -247,8 +247,10 @@ function main() {
   }
   const { tag, dryRun } = parsed;
   if (!tag) usage(1);
-  if (!/^v\d+\.\d+\.\d+/.test(tag)) {
-    console.error(`Expected a version tag like v0.2.0, got: ${tag}`);
+  if (!/^desktop-v\d+\.\d+\.\d+/.test(tag)) {
+    console.error(
+      `Expected a desktop release tag like desktop-v0.2.0, got: ${tag}`,
+    );
     process.exit(1);
   }
   rewriteTagNotes(tag, { dryRun });

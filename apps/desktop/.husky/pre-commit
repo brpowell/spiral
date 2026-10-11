@@ -1,23 +1,12 @@
-npx lint-staged
+# Hooks run from the monorepo root. Desktop checks only apply when desktop (or the
+# shared format crate / workspace manifests it builds against) is staged.
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
 
-# NOTICE inventory — only when the production graph (or the file itself) is staged.
-notice_inputs=$(
-  git diff --cached --name-only --diff-filter=ACMR |
-    grep -E '^(package\.json|package-lock\.json|src-tauri/Cargo\.(toml|lock)|src-tauri/NOTICE|scripts/generate-notice\.mjs)$' || true
-)
-if [ -n "$notice_inputs" ]; then
-  npm run notice:check
+if echo "$staged" | grep -qE '^(apps/desktop/|libs/spk-format/|Cargo\.(toml|lock)$)'; then
+  cd "$(git rev-parse --show-toplevel)/apps/desktop"
+
+  npx lint-staged
+
+
+  npm run test
 fi
-
-npm run test
-
-# Skip the full suite when only docs / workflow files are staged.
-# code_changes=$(
-#   git diff --cached --name-only --diff-filter=ACMR |
-#     grep -vE '\.(md|mdc)$|^docs/|^\.github/workflows/' || true
-# )
-# if [ -n "$code_changes" ]; then
-#   npm run test
-# else
-#   echo "Docs/workflow-only commit — skipping tests"
-# fi

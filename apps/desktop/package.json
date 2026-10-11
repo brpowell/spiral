@@ -1,6 +1,7 @@
 {
   "name": "spiral",
   "private": true,
+  "license": "Apache-2.0",
   "version": "0.2.2",
   "type": "module",
   "scripts": {
@@ -26,7 +27,7 @@
     "wms-import": "cargo run --manifest-path src-tauri/Cargo.toml --features dev-bins --bin wms_import --",
     "read-tags": "cargo run --manifest-path src-tauri/Cargo.toml --features dev-bins --bin read_tags --",
     "tauri": "tauri",
-    "prepare": "husky",
+    "prepare": "cd ../.. && husky apps/desktop/.husky",
     "version:check": "node scripts/check-version-sync.mjs",
     "notice:check": "node scripts/generate-notice.mjs --check",
     "notice:generate": "node scripts/generate-notice.mjs",
@@ -38,7 +39,6 @@
     "@dnd-kit/dom": "^0.5.0",
     "@dnd-kit/helpers": "^0.5.0",
     "@dnd-kit/react": "^0.5.0",
-    "@spiral/ui": "github:spiral-powered/spiral-ui#d4598fc",
     "@tanstack/react-virtual": "^3.14.2",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2",

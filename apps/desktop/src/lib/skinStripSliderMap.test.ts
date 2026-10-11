@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { PNG } from "pngjs";
 import { describe, expect, it } from "vitest";
 import {
   buildStripSliderPositionMapFromPixels,
@@ -12,33 +9,8 @@ import {
   stripFrameToRatio,
 } from "./skinStripSliderMap";
 
-const SLIDER_DIR = join(process.cwd(), "testdata/skins/sliders");
-const XBOX_SLIDER_DIR = join(process.cwd(), "testdata/skins/sliders");
-
-function loadPng(relativePath: string): {
-  data: Uint8ClampedArray;
-  width: number;
-  height: number;
-} {
-  const png = PNG.sync.read(readFileSync(join(SLIDER_DIR, relativePath)));
-  return { data: png.data, width: png.width, height: png.height };
-}
-
-function dialMapFromStrip(stripName: string, frameCount = 21) {
-  const { data, width } = loadPng(stripName);
-  const dialPath = detectDialPathFromStripPixels(
-    data,
-    width,
-    27,
-    27,
-    frameCount,
-  );
-  expect(dialPath).not.toBeNull();
-  return dialPath!;
-}
-
 describe("inferStripSliderStripLayout", () => {
-  it("detects horizontal filmstrips (t3 seek / vol)", () => {
+  it("detects horizontal filmstrips (wide seek and volume strips)", () => {
     expect(inferStripSliderStripLayout(1898, 113, 73, 113, 26)).toBe(
       "horizontal",
     );
@@ -47,11 +19,11 @@ describe("inferStripSliderStripLayout", () => {
     );
   });
 
-  it("detects vertical filmstrips (xbox vol)", () => {
+  it("detects vertical filmstrips (tall volume strip)", () => {
     expect(inferStripSliderStripLayout(168, 840, 168, 28, 30)).toBe("vertical");
   });
 
-  it("detects horizontal filmstrips for xbox seek", () => {
+  it("detects horizontal filmstrips for a very wide seek strip", () => {
     expect(inferStripSliderStripLayout(4192, 13, 131, 13, 32)).toBe(
       "horizontal",
     );
@@ -78,148 +50,6 @@ describe("valueFrames mapping", () => {
       const frame = ratioToStripFrame(ratio, 30, "ascending");
       expect(stripFrameToRatio(frame, 30, "ascending")).toBeCloseTo(ratio, 1);
     }
-  });
-});
-
-describe("xbox volume position map", () => {
-  it("maps pointer at right edge to max ratio with descending map/value frames", () => {
-    const png = PNG.sync.read(
-      readFileSync(join(XBOX_SLIDER_DIR, "vol-map.png")),
-    );
-    const map = buildStripSliderPositionMapFromPixels(
-      png.data,
-      png.width,
-      png.height,
-      30,
-      "horizontal",
-      null,
-      "descending",
-    );
-    expect(map).not.toBeNull();
-
-    const rect = {
-      left: 0,
-      top: 0,
-      width: 168,
-      height: 28,
-      right: 168,
-      bottom: 28,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    } as DOMRect;
-
-    const right = sampleStripSliderPointer(
-      167,
-      14,
-      rect,
-      map,
-      30,
-      "horizontal",
-      "descending",
-    );
-    const left = sampleStripSliderPointer(
-      1,
-      14,
-      rect,
-      map,
-      30,
-      "horizontal",
-      "descending",
-    );
-
-    expect(right?.ratio).toBeCloseTo(1, 1);
-    expect(left?.ratio).toBeCloseTo(0, 1);
-    expect(right?.rawFrame).toBe(0);
-    expect(left?.rawFrame).toBeGreaterThan(20);
-  });
-
-  it("returns null for transparent pixels above the gradient", () => {
-    const png = PNG.sync.read(
-      readFileSync(join(XBOX_SLIDER_DIR, "vol-map.png")),
-    );
-    const map = buildStripSliderPositionMapFromPixels(
-      png.data,
-      png.width,
-      png.height,
-      30,
-      "horizontal",
-      null,
-      "descending",
-    );
-    const rect = {
-      left: 0,
-      top: 0,
-      width: 168,
-      height: 28,
-      right: 168,
-      bottom: 28,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    } as DOMRect;
-
-    expect(
-      sampleStripSliderPointer(
-        84,
-        0,
-        rect,
-        map,
-        30,
-        "horizontal",
-        "descending",
-      ),
-    ).toBeNull();
-  });
-});
-
-describe("t3 seek position map", () => {
-  it("maps top above bottom with vertical descending map/value frames", () => {
-    const png = PNG.sync.read(readFileSync(join(SLIDER_DIR, "seek-map.png")));
-    const map = buildStripSliderPositionMapFromPixels(
-      png.data,
-      png.width,
-      png.height,
-      26,
-      "vertical",
-      null,
-      "descending",
-    );
-    const rect = {
-      left: 0,
-      top: 0,
-      width: 73,
-      height: 113,
-      right: 73,
-      bottom: 113,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    } as DOMRect;
-
-    const top = sampleStripSliderPointer(
-      10,
-      8,
-      rect,
-      map,
-      26,
-      "vertical",
-      "descending",
-    );
-    const mid = sampleStripSliderPointer(
-      10,
-      55,
-      rect,
-      map,
-      26,
-      "vertical",
-      "descending",
-    );
-
-    expect(top?.ratio).toBeGreaterThan(0.9);
-    expect(mid?.ratio).toBeGreaterThan(0.4);
-    expect(mid?.ratio).toBeLessThan(0.7);
-    expect(top!.ratio).toBeGreaterThan(mid!.ratio);
   });
 });
 
@@ -326,69 +156,281 @@ describe("grayscale luminance maps", () => {
   });
 });
 
-describe("lost planet curved maps", () => {
-  function loadPackMap(name: string) {
-    const png = PNG.sync.read(readFileSync(join(SLIDER_DIR, name)));
-    return {
-      png,
-      map: buildStripSliderPositionMapFromPixels(
-        png.data,
-        png.width,
-        png.height,
-        27,
-        "horizontal",
-      ),
-    };
+function rectOf(width: number, height: number): DOMRect {
+  return {
+    left: 0,
+    top: 0,
+    width,
+    height,
+    right: width,
+    bottom: height,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  } as DOMRect;
+}
+
+/** A distinct, clearly non-gray color per band index. */
+function bandColor(index: number): [number, number, number, number] {
+  return [40 + 6 * index, 200 - 4 * index, 90 + 2 * index, 255];
+}
+
+/**
+ * Color-keyed position map: one flat color per frame band along the
+ * interaction axis. Rows above `transparentRows` are fully transparent.
+ */
+function bandedMap(
+  width: number,
+  height: number,
+  bands: number,
+  axis: "x" | "y",
+  transparentRows = 0,
+) {
+  const data = makeRgba(width, height, (x, y) => {
+    if (y < transparentRows) return [0, 0, 0, 0];
+    const t = axis === "x" ? x / width : y / height;
+    return bandColor(Math.min(bands - 1, Math.floor(t * bands)));
+  });
+  return { data, width, height };
+}
+
+describe("color-keyed horizontal map with descending frames", () => {
+  const WIDTH = 168;
+  const HEIGHT = 28;
+  const FRAMES = 30;
+
+  function build() {
+    const { data } = bandedMap(WIDTH, HEIGHT, FRAMES, "x", 4);
+    return buildStripSliderPositionMapFromPixels(
+      data,
+      WIDTH,
+      HEIGHT,
+      FRAMES,
+      "horizontal",
+      null,
+      "descending",
+    );
   }
 
-  it("reaches frame 0 and last on seek and volume tips", () => {
-    for (const file of [
-      "lost-planet-seek-map.png",
-      "lost-planet-volume-map.png",
-    ]) {
-      const { png, map } = loadPackMap(file);
-      expect(map).not.toBeNull();
-      let minFrame = 99;
-      let maxFrame = -1;
-      for (let y = 0; y < png.height; y++) {
-        for (let x = 0; x < png.width; x++) {
-          const frame = map!.frameAt(x, y);
-          if (frame < 0) continue;
-          minFrame = Math.min(minFrame, frame);
-          maxFrame = Math.max(maxFrame, frame);
-        }
+  it("maps the right edge to max ratio with descending map/value frames", () => {
+    const map = build();
+    expect(map).not.toBeNull();
+    const rect = rectOf(WIDTH, HEIGHT);
+
+    const right = sampleStripSliderPointer(
+      WIDTH - 1,
+      14,
+      rect,
+      map,
+      FRAMES,
+      "horizontal",
+      "descending",
+    );
+    const left = sampleStripSliderPointer(
+      1,
+      14,
+      rect,
+      map,
+      FRAMES,
+      "horizontal",
+      "descending",
+    );
+
+    expect(right?.ratio).toBeCloseTo(1, 1);
+    expect(left?.ratio).toBeCloseTo(0, 1);
+    expect(right?.rawFrame).toBe(0);
+    expect(left?.rawFrame).toBeGreaterThan(20);
+  });
+
+  it("returns null for transparent pixels above the gradient", () => {
+    const map = build();
+    expect(
+      sampleStripSliderPointer(
+        WIDTH / 2,
+        0,
+        rectOf(WIDTH, HEIGHT),
+        map,
+        FRAMES,
+        "horizontal",
+        "descending",
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("color-keyed vertical map with descending frames", () => {
+  it("maps top above bottom", () => {
+    const WIDTH = 73;
+    const HEIGHT = 113;
+    const FRAMES = 26;
+    const { data } = bandedMap(WIDTH, HEIGHT, FRAMES, "y");
+    const map = buildStripSliderPositionMapFromPixels(
+      data,
+      WIDTH,
+      HEIGHT,
+      FRAMES,
+      "vertical",
+      null,
+      "descending",
+    );
+    const rect = rectOf(WIDTH, HEIGHT);
+    const sample = (y: number) =>
+      sampleStripSliderPointer(
+        10,
+        y,
+        rect,
+        map,
+        FRAMES,
+        "vertical",
+        "descending",
+      );
+
+    const top = sample(8);
+    const mid = sample(55);
+
+    expect(top?.ratio).toBeGreaterThan(0.9);
+    expect(mid?.ratio).toBeGreaterThan(0.4);
+    expect(mid?.ratio).toBeLessThan(0.7);
+    expect(top!.ratio).toBeGreaterThan(mid!.ratio);
+  });
+});
+
+describe("curved grayscale ramp map", () => {
+  const WIDTH = 60;
+  const HEIGHT = 30;
+  const FRAMES = 27;
+  const TIP_X = 3;
+  const END_X = 56;
+  const HALO_GRAY = 100;
+
+  /** Sine-shaped 3px stroke; black at the inner tip ramping to white. */
+  function curvedRamp() {
+    const centerY = (x: number) =>
+      Math.round(15 + 8 * Math.sin((Math.PI * (x - TIP_X)) / (END_X - TIP_X)));
+    return makeRgba(WIDTH, HEIGHT, (x, y) => {
+      if (x < TIP_X) {
+        // Anti-aliased halo hanging off the tip: lighter than the true tip.
+        return Math.abs(y - centerY(TIP_X)) <= 1
+          ? [HALO_GRAY, HALO_GRAY, HALO_GRAY, 255]
+          : [0, 0, 0, 0];
       }
-      expect(minFrame, file).toBe(0);
-      expect(maxFrame, file).toBe(26);
+      if (x > END_X || Math.abs(y - centerY(x)) > 1) return [0, 0, 0, 0];
+      const gray = Math.round((255 * (x - TIP_X)) / (END_X - TIP_X));
+      return [gray, gray, gray, 255];
+    });
+  }
+
+  it("reaches frame 0 and the last frame at the stroke tips", () => {
+    const map = buildStripSliderPositionMapFromPixels(
+      curvedRamp(),
+      WIDTH,
+      HEIGHT,
+      FRAMES,
+      "horizontal",
+    );
+    expect(map).not.toBeNull();
+
+    let minFrame = 99;
+    let maxFrame = -1;
+    for (let y = 0; y < HEIGHT; y++) {
+      for (let x = 0; x < WIDTH; x++) {
+        const frame = map!.frameAt(x, y);
+        if (frame < 0) continue;
+        minFrame = Math.min(minFrame, frame);
+        maxFrame = Math.max(maxFrame, frame);
+      }
     }
+    expect(minFrame).toBe(0);
+    expect(maxFrame).toBe(FRAMES - 1);
+  });
+
+  it("inverts the ramp for descending map frames", () => {
+    const map = buildStripSliderPositionMapFromPixels(
+      curvedRamp(),
+      WIDTH,
+      HEIGHT,
+      FRAMES,
+      "horizontal",
+      null,
+      "descending",
+    )!;
+    const yAt = (x: number) =>
+      Math.round(15 + 8 * Math.sin((Math.PI * (x - TIP_X)) / (END_X - TIP_X)));
+    // Black tip becomes the last frame, white end becomes frame 0.
+    expect(map.frameAt(TIP_X, yAt(TIP_X))).toBe(FRAMES - 1);
+    expect(map.frameAt(END_X, yAt(END_X))).toBe(0);
+  });
+
+  it("does not treat the anti-aliased halo as the minimum", () => {
+    const map = buildStripSliderPositionMapFromPixels(
+      curvedRamp(),
+      WIDTH,
+      HEIGHT,
+      FRAMES,
+      "horizontal",
+    )!;
+    const tipY = Math.round(15 + 8 * Math.sin((Math.PI * 0) / (END_X - TIP_X)));
+    // The spatially leftmost mapped pixel is the halo; the true minimum is
+    // the black tip further in.
+    expect(map.frameAt(TIP_X, tipY)).toBe(0);
+    expect(map.frameAt(0, tipY)).toBeGreaterThan(0);
   });
 });
 
 describe("dial path pointer mapping", () => {
+  const FRAME_SIZE = 27;
+  const FRAMES = 21;
+  const CENTER = (FRAME_SIZE - 1) / 2;
+  const RING_RADIUS = 11;
+  // Clockwise sweep (screen coordinates) from lower-left, over the top,
+  // to lower-right, leaving a dead zone at the bottom.
+  const START = Math.atan2(6, -3);
+  const END = Math.atan2(6, 4) + Math.PI * 2;
+
+  /** Filmstrip of round dials; each frame's blue pointer sits on the ring. */
+  function dialStrip() {
+    const stripWidth = FRAME_SIZE * FRAMES;
+    const data = makeRgba(stripWidth, FRAME_SIZE, (sx, y) => {
+      const frame = Math.floor(sx / FRAME_SIZE);
+      const x = sx - frame * FRAME_SIZE;
+      const angle = START + ((END - START) * frame) / (FRAMES - 1);
+      const px = Math.round(CENTER + RING_RADIUS * Math.cos(angle));
+      const py = Math.round(CENTER + RING_RADIUS * Math.sin(angle));
+      if (x === px && y === py) return [0, 0, 255, 255];
+      const dist = Math.hypot(x - CENTER, y - CENTER);
+      return dist <= 12 ? [60, 60, 60, 255] : [0, 0, 0, 0];
+    });
+    return { data, stripWidth };
+  }
+
+  function dialPath() {
+    const { data, stripWidth } = dialStrip();
+    const path = detectDialPathFromStripPixels(
+      data,
+      stripWidth,
+      FRAME_SIZE,
+      FRAME_SIZE,
+      FRAMES,
+    );
+    expect(path).not.toBeNull();
+    return path!;
+  }
+
+  const frameAt = (path: ReturnType<typeof dialPath>, x: number, y: number) =>
+    frameFromDialAngle(Math.atan2(y - CENTER, x - CENTER), path, FRAMES);
+
   it("derives the clockwise notch ring from the filmstrip", () => {
-    const dialPath = dialMapFromStrip("vol-mini.png");
-    const cx = 13;
-    const cy = 13;
-
-    const frameAt = (x: number, y: number) =>
-      frameFromDialAngle(Math.atan2(y - cy, x - cx), dialPath, 21);
-
-    expect(frameAt(10, 19)).toBe(0);
-    expect(frameAt(13, 4)).toBe(10);
-    expect(frameAt(17, 19)).toBe(20);
+    const path = dialPath();
+    expect(frameAt(path, 10, 19)).toBe(0);
+    expect(frameAt(path, 13, 4)).toBe(10);
+    expect(frameAt(path, 17, 19)).toBe(20);
   });
 
   it("increases frame when dragging clockwise on the right side", () => {
-    const dialPath = dialMapFromStrip("vol-mini.png");
-    const cx = 13;
-    const cy = 13;
-
-    const frameAt = (x: number, y: number) =>
-      frameFromDialAngle(Math.atan2(y - cy, x - cx), dialPath, 21);
-
-    const atThree = frameAt(20, 13);
-    const atFour = frameAt(21, 15);
-    const atFive = frameAt(17, 19);
+    const path = dialPath();
+    const atThree = frameAt(path, 20, 13);
+    const atFour = frameAt(path, 21, 15);
+    const atFive = frameAt(path, 17, 19);
 
     expect(atThree).toBe(16);
     expect(atFour).toBeGreaterThan(atThree);
@@ -396,44 +438,26 @@ describe("dial path pointer mapping", () => {
   });
 
   it("ignores valueFrames for dial controls", () => {
-    const dialPath = dialMapFromStrip("vol-mini.png");
-    const rect = {
-      left: 0,
-      top: 0,
-      width: 27,
-      height: 27,
-      right: 27,
-      bottom: 27,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    } as DOMRect;
-
     const map = {
-      width: 27,
-      height: 27,
-      dialPath,
+      width: FRAME_SIZE,
+      height: FRAME_SIZE,
+      dialPath: dialPath(),
       frameAt: () => -1,
     };
+    const rect = rectOf(FRAME_SIZE, FRAME_SIZE);
+    const sample = (valueFrames: "ascending" | "descending") =>
+      sampleStripSliderPointer(
+        13,
+        4,
+        rect,
+        map,
+        FRAMES,
+        "horizontal",
+        valueFrames,
+      );
 
-    const ascending = sampleStripSliderPointer(
-      13,
-      4,
-      rect,
-      map,
-      21,
-      "horizontal",
-      "ascending",
-    );
-    const descending = sampleStripSliderPointer(
-      13,
-      4,
-      rect,
-      map,
-      21,
-      "horizontal",
-      "descending",
-    );
+    const ascending = sample("ascending")!;
+    const descending = sample("descending")!;
 
     expect(ascending.source).toBe("dial");
     expect(ascending.frame).toBe(10);
@@ -442,13 +466,11 @@ describe("dial path pointer mapping", () => {
   });
 
   it("does not roll over in the bottom dead zone while dragging", () => {
-    const dialPath = dialMapFromStrip("vol-mini.png");
-    const cx = 13;
-    const cy = 13;
-    const deadZoneAngle = Math.atan2(26 - cy, 13 - cx);
+    const path = dialPath();
+    const deadZoneAngle = Math.atan2(FRAME_SIZE - 1 - CENTER, 0);
 
-    expect(frameFromDialAngle(deadZoneAngle, dialPath, 21, 0)).toBe(0);
-    expect(frameFromDialAngle(deadZoneAngle, dialPath, 21, 20)).toBe(20);
-    expect(frameFromDialAngle(deadZoneAngle, dialPath, 21)).not.toBe(20);
+    expect(frameFromDialAngle(deadZoneAngle, path, FRAMES, 0)).toBe(0);
+    expect(frameFromDialAngle(deadZoneAngle, path, FRAMES, 20)).toBe(20);
+    expect(frameFromDialAngle(deadZoneAngle, path, FRAMES)).not.toBe(20);
   });
 });

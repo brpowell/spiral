@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = [
+  "libs/spk-format",
+  "apps/registry",
+  "apps/desktop/src-tauri",
+]
+
+[workspace.dependencies]
+spk-format = { path = "libs/spk-format" }
+
+# On-machine sampling (samply / Instruments). `tauri build` still uses [profile.release].
+# See apps/desktop/docs/contributing/profiling.md.
+[profile.profiling]
+inherits = "release"
+debug = true

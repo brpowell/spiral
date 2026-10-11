@@ -43,13 +43,13 @@ The 24-track free-trial library cap, the Spiral Card (`.spcard`) registration fl
 
 User-facing copy belongs in `src/locales/en/` and is referenced via `t` / `useTranslation` — not hardcoded in components or `src/lib/`.
 
-- Follow [`.cursor/rules/i18n-ui-strings.mdc`](../.cursor/rules/i18n-ui-strings.mdc) for all **new and touched** UI strings.
+- Follow [`.cursor/rules/i18n-ui-strings.mdc`](../../.cursor/rules/i18n-ui-strings.mdc) for all **new and touched** UI strings.
 - React: `useTranslation()` / `<Trans>`. Non-React (`src/lib/`, menus, toasts): `t` / `i18n` from `src/lib/i18n`.
 - `t()` is typed from the English JSON catalogs (`TranslationKey` in `src/lib/i18nKeys.ts`). Use `tUnchecked` only for interpolated key paths.
 - `npm run lint:i18n` (also part of `npm run lint`) fails when a static `t("ns:key")` is missing from `src/locales/en`.
 - Date/sort helpers use the app locale (`getIntlLocale` / `compareLocalized`). A German stub catalog (`src/locales/de`) plus Developer → Language proves switching; it is not a product locale.
 - Untouched screens may still have inline English until a boy-scout extract on touch.
-- **Plan / cutoff / backlog:** [`docs/impl/i18n-impl.md`](../impl/i18n-impl.md).
+- **Plan / cutoff / backlog:** `docs/impl/i18n-impl.md`.
 
 Exceptions: pack/skin author content, non-UI activity-log internals, and Rust log strings (unless shown as UI).
 
@@ -107,4 +107,4 @@ echo "feat: add thing" | npx commitlint
 Spiral does not send performance telemetry.
 
 - **How to sample on-device** (symbolicated release build, samply / Instruments / Activity Monitor, `npm run profile:build`): [profiling.md](./profiling.md).
-- **What to attack** (ranked findings, regression risk, skin checklist): [resource-optimization.md](../general/resource-optimization.md). Attack order is **risk first** (skin hide/show, Web Audio ownership, click-through), not impact × effort alone.
+- **What to attack** (ranked findings, regression risk, skin checklist): resource-optimization.md. Attack order is **risk first** (skin hide/show, Web Audio ownership, click-through), not impact × effort alone.

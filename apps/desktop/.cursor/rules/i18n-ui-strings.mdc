@@ -26,5 +26,4 @@ Spiral stores user-facing copy in locale catalogs and references it by key. Do n
 
 ## References
 
-- Plan and cutoff: [`docs/impl/i18n-impl.md`](docs/impl/i18n-impl.md)
-- Contributing note: [`docs/contributing/contributing.md`](docs/contributing/contributing.md)
+- Contributing note: [`docs/contributing/contributing.md`](../../docs/contributing/contributing.md)

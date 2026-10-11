@@ -17,7 +17,7 @@ Usage:
   npm run release -- check <tag>
 
 Example:
-  npm run release -- check v0.2.0
+  npm run release -- check desktop-v0.2.0
 `);
   process.exit(exitCode);
 }

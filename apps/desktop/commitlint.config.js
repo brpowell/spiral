@@ -2,5 +2,5 @@
 export default {
   extends: ["@commitlint/config-conventional"],
   helpUrl:
-    "https://github.com/brpowell/spiral-desktop/blob/main/docs/contributing.md#commit-messages",
+    "https://github.com/brpowell/spiral/blob/main/apps/desktop/docs/contributing/contributing.md#commit-messages",
 };

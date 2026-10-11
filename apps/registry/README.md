@@ -2,13 +2,11 @@
 
 Distribution service for Spiral packs (`.spk`): catalog listing, version resolution, download serving, and admin publish/yank/purge.
 
-Companion crate [`spk-format`](https://github.com/spiral-powered/spk-format) owns pack validation; this service indexes and serves published artifacts.
+Companion crate [`spk-format`](../../libs/spk-format) owns pack validation; this service indexes and serves published artifacts.
 
 ## Phase 2 status
 
 Admin upload + integrity is implemented. Publishing no longer requires hand-editing the database.
-
-Security assessment and hardening gates (read before a second operator or open publish): [`docs/security/assessment.md`](docs/security/assessment.md).
 
 ## Quick start
 

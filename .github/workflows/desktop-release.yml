@@ -1,7 +1,7 @@
 # Builds release installers for every platform (macOS + Windows + Linux) and
 # attaches them to the draft GitHub Release — it never publishes anything itself.
 #
-# Trigger: the v* tag that release-please creates alongside its draft release.
+# Trigger: the desktop-v* tag that release-please creates alongside its draft release.
 # For that tag push to actually reach this workflow, release-please must be
 # configured with RELEASE_PLEASE_TOKEN (a PAT) — tags created via the default
 # GITHUB_TOKEN do not fire tag-push events.
@@ -31,11 +31,11 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "desktop-v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing draft-release tag to attach artifacts to (e.g. v0.1.0)"
+        description: "Existing draft-release tag to attach artifacts to (e.g. desktop-v0.1.0)"
         required: true
         type: string
 
@@ -102,6 +102,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -111,7 +112,7 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri -> target
+          workspaces: . -> target
           key: ${{ matrix.label }}
 
       - name: Install Linux webkit / bundler deps
@@ -128,23 +129,11 @@ jobs:
           # runners without /dev/fuse. Prefer a disk-backed TMPDIR so
           # extract-and-run does not fill a small /tmp tmpfs.
           echo "APPIMAGE_EXTRACT_AND_RUN=1" >> "$GITHUB_ENV"
-          echo "TMPDIR=${{ github.workspace }}/src-tauri/target/tmp" >> "$GITHUB_ENV"
-          mkdir -p "${{ github.workspace }}/src-tauri/target/tmp"
-
-      # Private GitHub npm git deps: github.token cannot clone another repo.
-      # npm lockfiles resolve github: specs to git+ssh://, so rewrite SSH too.
-      # --add is required: the same url.*.insteadOf key otherwise overwrites.
-      - name: Allow private GitHub npm dependencies
-        shell: bash
-        env:
-          GH_REPO_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
-        run: |
-          authed="https://x-access-token:${GH_REPO_TOKEN}@github.com/"
-          git config --global --add url."${authed}".insteadOf "https://github.com/"
-          git config --global --add url."${authed}".insteadOf "ssh://git@github.com/"
-          git config --global --add url."${authed}".insteadOf "git@github.com:"
+          echo "TMPDIR=${{ github.workspace }}/target/tmp" >> "$GITHUB_ENV"
+          mkdir -p "${{ github.workspace }}/target/tmp"
 
       - name: Install frontend dependencies
+        working-directory: apps/desktop
         run: npm ci
 
       # Optional until #182 fills Apple secrets. `secrets` is not allowed in
@@ -208,9 +197,11 @@ jobs:
           updaterJsonPreferNsis: true
           # Spiral serves manifests from spiralpowered.com, not GitHub latest.json.
           uploadUpdaterJson: false
+          projectPath: apps/desktop
           args: ${{ matrix.args }}
 
       - name: Verify packaged bundle
+        working-directory: apps/desktop
         run: npm run release -- check-bundle
 
   # Fan-in gate (#185). Runs even when `build` failed so the check is red (not
@@ -239,6 +230,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+        working-directory: apps/desktop
         run: |
           tag="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
           node scripts/release/check-release-assets.mjs "$tag"

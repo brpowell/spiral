@@ -2,7 +2,7 @@
 
 Shared playback UI lives under `src/components/playback/` (`PlaybackTransport`, `NowPlayingArt`, `NowPlayingMetadata`, `SeekBar`, `VolumeControl`, `QueueButton`, `VisualizerSlot`). Flow skins compose these via a flex layout tree; canvas skins place them with absolute `bounds`. Import from `src/components/playback` (barrel) or individual subfolders.
 
-V1 components read `usePlayerStore` directly. **V2:** skin mode uses manifests (`skin.json` v1) that bind to the action catalog and data paths below via `SkinLayoutRenderer` — see `src/components/playback/skin/` and [`skin-v1.schema.json`](https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/skin-v1.schema.json).
+V1 components read `usePlayerStore` directly. **V2:** skin mode uses manifests (`skin.json` v1) that bind to the action catalog and data paths below via `SkinLayoutRenderer` — see `src/components/playback/skin/` and [`skin-v1.schema.json`](https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/skin-v1.schema.json).
 
 ## Authorship modes and ownership
 
@@ -1182,7 +1182,7 @@ Do not invent a second transform, visibility, or event vocabulary while waiting.
 
 ### One transform vocabulary
 
-Visualizer scene layers already have `drive` (`opacity`, `scale`, `translateX`, `translateY`, `rotation`) evaluated by `resolveDrive` against audio buckets and skin binds — see the [presentation contract](../../../docs/guides/presentation-contract.md). Skin layout nodes use a parallel model (`bounds`, `boundsWhen`, `style`) and do not consume drives.
+Visualizer scene layers already have `drive` (`opacity`, `scale`, `translateX`, `translateY`, `rotation`) evaluated by `resolveDrive` against audio buckets and skin binds. Skin layout nodes use a parallel model (`bounds`, `boundsWhen`, `style`) and do not consume drives.
 
 When audio-reactive or 3D motion lands, reuse `LayerDriveMap` / `resolveDrive` on layout nodes. Extend `TransformDriveKey` with `z` / `rotateX` / `rotateY` / `perspective` rather than skin-only transform fields. `bounds` stays the layout box; drives compose on top (same split viz layers already have between `layout` and `drive`).
 

@@ -11,14 +11,14 @@
 # protection rules, enable required reviewers on `production-release` and the
 # same job can also be attached to release.yml with `needs: platforms-green`.
 #
-# Local equivalent: `npm run release -- publish vX.Y.Z`
+# Local equivalent: `npm run release -- publish desktop-vX.Y.Z`
 name: Publish Release
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Draft release tag to publish (e.g. v0.1.0)"
+        description: "Draft release tag to publish (e.g. desktop-v0.1.0)"
         required: true
         type: string
 
@@ -39,6 +39,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+        working-directory: apps/desktop
         run: node scripts/release/check-release-assets.mjs "${{ inputs.tag }}"
 
       - name: Publish release

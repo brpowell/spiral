@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/sound-v1.schema.json",
+  "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/sound-v1.schema.json",
   "id": "control",
   "name": "Control",
   "author": "Spiral",

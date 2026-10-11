@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/presentation-common.schema.json",
+  "$id": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/presentation-common.schema.json",
   "title": "Spiral presentation shared atoms",
   "$defs": {
     "assetRef": {

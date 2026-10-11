@@ -23,8 +23,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const COMMANDS = {
   installer: {
     script: "build-installer.mjs",
-    summary:
-      "Build native (or named) installer — same flags as CI",
+    summary: "Build native (or named) installer — same flags as CI",
   },
   publish: {
     script: "publish-release.mjs",
@@ -72,11 +71,11 @@ Examples:
   npm run release -- installer
   npm run release -- installer deb
   npm run release -- installer linux -- --verbose
-  npm run release -- publish v0.2.2
-  npm run release -- check v0.2.2
+  npm run release -- publish desktop-v0.2.2
+  npm run release -- check desktop-v0.2.2
   npm run release -- check-bundle
-  npm run release -- sanitize-notes v0.2.2
-  npm run release -- sanitize-notes v0.2.2 --dry-run
+  npm run release -- sanitize-notes desktop-v0.2.2
+  npm run release -- sanitize-notes desktop-v0.2.2 --dry-run
   npm run release -- sign path/to/artifact
   npm run release -- keys
 `);

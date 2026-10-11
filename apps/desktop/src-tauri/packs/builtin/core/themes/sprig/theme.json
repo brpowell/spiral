@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/theme-v1.schema.json",
+  "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/theme-v1.schema.json",
   "id": "sprig",
   "name": "Sprig",
   "author": "Spiral",

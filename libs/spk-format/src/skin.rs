@@ -606,7 +606,7 @@ pub struct TiledFrameTileDef {
 #[serde(rename_all = "camelCase", untagged)]
 pub enum TiledFramePresentation {
     Explicit(TiledFrameExplicitPresentation),
-    Preset(TiledFramePresetPresentation),
+    Preset(Box<TiledFramePresetPresentation>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1420,6 +1420,8 @@ fn validate_thumb_assets(
     }
 }
 
+// Flat argument list mirrors the two call sites' already-resolved slider fields.
+#[allow(clippy::too_many_arguments)]
 fn validate_bitmap_tiled_slider_presentation(
     kind: &str,
     track: Option<&str>,
@@ -2101,7 +2103,7 @@ fn layout_where(view_name: &str, node_id: Option<&str>) -> String {
     }
 }
 
-fn prefix_from(errors: &mut Vec<String>, start: usize, prefix: &str) {
+fn prefix_from(errors: &mut [String], start: usize, prefix: &str) {
     for err in errors.iter_mut().skip(start) {
         *err = format!("{prefix}: {err}");
     }

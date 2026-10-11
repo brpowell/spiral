@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/viz-v1.schema.json",
+  "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/viz-v1.schema.json",
   "id": "bump-juice",
   "name": "Bump Juice",
   "author": "Spiral",

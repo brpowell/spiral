@@ -36,4 +36,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+        working-directory: apps/desktop
         run: node scripts/release/sanitize-release-notes.mjs "${{ steps.release.outputs.tag_name }}"

@@ -90,10 +90,7 @@ pub fn validate_preview_relpath(preview: &str) -> Result<(), String> {
             allowed_preview_exts_list()
         ));
     };
-    if !ALLOWED_PREVIEW_EXTENSIONS
-        .iter()
-        .any(|a| *a == ext.as_str())
-    {
+    if !ALLOWED_PREVIEW_EXTENSIONS.contains(&ext.as_str()) {
         return Err(format!(
             "has unsupported extension \".{ext}\" (allowed: {})",
             allowed_preview_exts_list()

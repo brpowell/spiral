@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/viz-v1.schema.json",
+  "$id": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/viz-v1.schema.json",
   "title": "Spiral visualizer contribution v1",
   "type": "object",
   "required": ["id", "name", "author", "description", "children"],
@@ -63,7 +63,7 @@
         "drive": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/presentation-common.schema.json#/$defs/driveBinding"
+            "$ref": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/presentation-common.schema.json#/$defs/driveBinding"
           }
         },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
@@ -78,7 +78,7 @@
           "description": "JS module path relative to this visualizer contribution folder (e.g. index.js)."
         },
         "asset": {
-          "$ref": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/presentation-common.schema.json#/$defs/assetRef"
+          "$ref": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/presentation-common.schema.json#/$defs/assetRef"
         },
         "loop": { "type": "boolean" }
       }

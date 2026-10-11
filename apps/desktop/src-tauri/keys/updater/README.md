@@ -23,4 +23,4 @@ npm run release -- sign path/to/artifact
 npm run release -- verify path/to/artifact
 ```
 
-Full runbook: `docs/signing-and-keys.md`.
+Full runbook: `docs/contributing/signing-and-keys.md`.

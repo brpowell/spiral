@@ -1,12 +1,8 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type {
   LayoutBounds,
   LayoutNode,
   LayoutTreeNode,
-  SkinManifest,
   SkinView,
   CanvasNode,
 } from "../types/skin";
@@ -21,12 +17,22 @@ import {
   walkLayoutTree,
 } from "./skinLayout";
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
+const dummyBitmap = {
+  kind: "bitmap" as const,
+  assets: { default: "x.png" },
+};
 
-function loadManifest(relativePath: string): SkinManifest {
-  return JSON.parse(
-    readFileSync(join(repoRoot, relativePath), "utf8"),
-  ) as SkinManifest;
+function canvasRoot(children: LayoutNode[]): CanvasNode {
+  return { type: "canvas", width: 100, height: 80, children };
+}
+
+function deco(id: string | undefined, bounds: LayoutBounds): LayoutNode {
+  return {
+    type: "decoration",
+    ...(id ? { id } : {}),
+    bounds,
+    presentation: dummyBitmap,
+  };
 }
 
 function findById(
@@ -44,15 +50,6 @@ function findById(
   return undefined;
 }
 
-const dummyBitmap = {
-  kind: "bitmap" as const,
-  assets: { default: "x.png" },
-};
-
-function canvasRoot(children: LayoutNode[]): CanvasNode {
-  return { type: "canvas", width: 100, height: 80, children };
-}
-
 function canvasStageSize(view: SkinView): { width: number; height: number } {
   if (view.layout.type !== "canvas") {
     throw new Error(`expected canvas layout root, got ${view.layout.type}`);
@@ -60,12 +57,38 @@ function canvasStageSize(view: SkinView): { width: number; height: number } {
   return { width: view.layout.width, height: view.layout.height };
 }
 
-function deco(id: string | undefined, bounds: LayoutBounds): LayoutNode {
+/**
+ * Synthetic stage -> drawer -> panel chain. Mixes plain x/y, right-anchored and
+ * bottom-pinned placement at each nesting level.
+ */
+function nestedPanelView(): SkinView {
   return {
-    type: "decoration",
-    ...(id ? { id } : {}),
-    bounds,
-    presentation: dummyBitmap,
+    layout: {
+      type: "canvas",
+      width: 400,
+      height: 300,
+      children: [
+        deco("backdrop", { x: 0, y: 0, w: 400, h: 300 }),
+        {
+          type: "subview",
+          id: "drawer",
+          bounds: { x: 120, y: 60, w: 200, h: 150, zIndex: -1 },
+          children: [
+            deco("rail", { x: 0, y: 0, w: 200, h: 6 }),
+            {
+              type: "subview",
+              id: "panel",
+              bounds: { x: 40, y: 10, w: 140, h: 120 },
+              children: [
+                deco("gauge", { x: 8, y: 11, w: 60, h: 10, zIndex: 1 }),
+                deco("badge", { right: 6, y: 4, w: 30, h: 8 }),
+                deco("footer", { x: 5, bottom: 7, w: 20, h: 12 }),
+              ],
+            },
+          ],
+        },
+      ],
+    },
   };
 }
 
@@ -132,92 +155,81 @@ describe("resolveAbsoluteBounds", () => {
       zIndex: 1,
     });
   });
+  it("sums nested parent origins down a subview chain", () => {
+    const view = nestedPanelView();
+    const stage = canvasStageSize(view);
+    const abs = (id: string) => {
+      const entry = findById(view.layout, id)!;
+      return resolveAbsoluteBounds(entry.node, entry.ancestors, stage);
+    };
 
-  it("sums nested parent origins (Headspace eq-panel chain)", () => {
-    const headspace = loadManifest(
-      "testdata/skins/manifests/headspace.skin.json",
-    );
-    const view = headspace.views.main!;
-    const stageSize = canvasStageSize(view);
-
-    const eqDrawer = findById(view.layout, "eq-drawer");
-    const eqPanel = findById(view.layout, "eq-panel");
-    const eqBalance = findById(view.layout, "eq-balance");
-    expect(eqDrawer && eqPanel && eqBalance).toBeTruthy();
-
-    const drawerAbs = resolveAbsoluteBounds(
-      eqDrawer!.node,
-      eqDrawer!.ancestors,
-      stageSize,
-    );
-    expect(drawerAbs).toEqual({
-      x: 207,
-      y: 86,
-      w: 269,
-      h: 170,
+    expect(abs("drawer")).toEqual({
+      x: 120,
+      y: 60,
+      w: 200,
+      h: 150,
       zIndex: -1,
     });
-
-    const panelAbs = resolveAbsoluteBounds(
-      eqPanel!.node,
-      eqPanel!.ancestors,
-      stageSize,
-    );
-    expect(panelAbs).toEqual({
-      x: 207 + 84,
-      y: 86 + 10,
-      w: 171,
-      h: 140,
+    expect(abs("panel")).toEqual({
+      x: 120 + 40,
+      y: 60 + 10,
+      w: 140,
+      h: 120,
       zIndex: undefined,
     });
-
-    const balanceAbs = resolveAbsoluteBounds(
-      eqBalance!.node,
-      eqBalance!.ancestors,
-      stageSize,
-    );
-    expect(balanceAbs).toEqual({
-      x: 207 + 84 + 8,
-      y: 86 + 10 + 11,
-      w: 71,
-      h: 11,
+    const gauge = abs("gauge")!;
+    expect(gauge).toEqual({
+      x: 120 + 40 + 8,
+      y: 60 + 10 + 11,
+      w: 60,
+      h: 10,
       zIndex: 1,
     });
 
-    // localize back to parent-relative matches authored bounds
-    const panelOrigin = { x: panelAbs!.x, y: panelAbs!.y };
-    expect(localizeBounds(balanceAbs!, panelOrigin)).toEqual({
+    // Localizing back to the panel recovers the authored bounds.
+    const panel = abs("panel")!;
+    expect(localizeBounds(gauge, { x: panel.x, y: panel.y })).toEqual({
       x: 8,
       y: 11,
-      w: 71,
-      h: 11,
+      w: 60,
+      h: 10,
       zIndex: 1,
     });
   });
 
-  it("round-trips every Headspace nested group without drift", () => {
-    const headspace = loadManifest(
-      "testdata/skins/manifests/headspace.skin.json",
-    );
-    const view = headspace.views.main!;
+  it("resolves right-anchored and bottom-pinned children against the parent box", () => {
+    const view = nestedPanelView();
+    const stage = canvasStageSize(view);
+    const abs = (id: string) => {
+      const entry = findById(view.layout, id)!;
+      return resolveAbsoluteBounds(entry.node, entry.ancestors, stage)!;
+    };
+
+    // panel origin is (160, 70); its box is 140 x 120.
+    expect(abs("badge")).toMatchObject({
+      x: 160 + (140 - 6 - 30),
+      y: 70 + 4,
+      w: 30,
+      h: 8,
+    });
+    expect(abs("footer")).toMatchObject({
+      x: 160 + 5,
+      y: 70 + (120 - 7 - 12),
+      w: 20,
+      h: 12,
+    });
+  });
+
+  it("round-trips every nested group without drift", () => {
+    const view = nestedPanelView();
     const stageSize = canvasStageSize(view);
+    let checked = 0;
 
     for (const { node, ancestors } of walkLayoutTree(view.layout)) {
-      if (!("bounds" in node) || !node.bounds || ancestors.length === 0)
-        continue;
-      const parent = ancestors[ancestors.length - 1]!;
-      if (
-        !("bounds" in parent && parent.bounds) &&
-        parent.type === "canvas" &&
-        ancestors.length === 1
-      ) {
-        // Direct child of stage root: parent-relative === absolute
-        const abs = resolveAbsoluteBounds(node, ancestors, stageSize)!;
-        expect(localizeBounds(abs, { x: 0, y: 0 }).x).toBe(abs.x);
-        expect(localizeBounds(abs, { x: 0, y: 0 }).y).toBe(abs.y);
+      if (!("bounds" in node) || !node.bounds || ancestors.length === 0) {
         continue;
       }
-
+      const parent = ancestors[ancestors.length - 1]!;
       const abs = resolveAbsoluteBounds(node, ancestors, stageSize);
       if (!abs) continue;
 
@@ -238,15 +250,17 @@ describe("resolveAbsoluteBounds", () => {
         (node.bounds.bottom !== undefined && node.bounds.h !== undefined
           ? parentAbs.h - node.bounds.bottom - node.bounds.h
           : 0);
-      expect(local.x).toBe(authoredX);
-      expect(local.y).toBe(authoredY);
-      expect(local.w).toBe(node.bounds.w);
-      expect(local.h).toBe(node.bounds.h);
-
-      // re-absolute
-      expect(parentAbs.x + local.x).toBe(abs.x);
-      expect(parentAbs.y + local.y).toBe(abs.y);
+      expect(local.x, node.id).toBe(authoredX);
+      expect(local.y, node.id).toBe(authoredY);
+      expect(local.w, node.id).toBe(node.bounds.w);
+      expect(local.h, node.id).toBe(node.bounds.h);
+      expect(parentAbs.x + local.x, node.id).toBe(abs.x);
+      expect(parentAbs.y + local.y, node.id).toBe(abs.y);
+      checked += 1;
     }
+
+    // backdrop, drawer, rail, panel, gauge, badge, footer
+    expect(checked).toBe(7);
   });
 });
 
@@ -351,18 +365,10 @@ describe("validateLayoutTree", () => {
   });
 });
 
-describe("pack layout lint", () => {
-  it("validates all WMP skin pack manifests (errors only)", () => {
-    const packIds = ["headspace", "t3", "xbox"];
-
-    for (const packId of packIds) {
-      const manifest = loadManifest(
-        `testdata/skins/manifests/${packId}.skin.json`,
-      );
-      const result = validateSkinManifestLayouts(manifest.views);
-      expect(result.ok, `${packId}: ${JSON.stringify(result.errors)}`).toBe(
-        true,
-      );
-    }
+describe("nested layout lint", () => {
+  it("accepts a deeply nested subview chain with mixed anchoring (errors only)", () => {
+    const result = validateSkinManifestLayouts({ main: nestedPanelView() });
+    expect(result.ok, JSON.stringify(result.errors)).toBe(true);
+    expect(result.errors).toEqual([]);
   });
 });

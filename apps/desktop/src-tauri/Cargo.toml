@@ -2,6 +2,7 @@
 name = "Spiral"
 version = "0.2.2"
 description = "OWN MUSIC"
+license = "Apache-2.0"
 authors = ["Bryan Powell"]
 edition = "2021"
 default-run = "Spiral"
@@ -70,7 +71,7 @@ gif = "0.14"
 zip = "2"
 quick-xml = "0.41"
 encoding_rs = "0.8"
-spk-format = { git = "https://github.com/spiral-powered/spk-format.git", branch = "main" }
+spk-format = { workspace = true }
 mp3-duration = "0.1.10"
 alac-encoder = "0.3"
 mp3lame-encoder = "0.2.4"
@@ -114,10 +115,4 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 souvlaki = "0.8"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-updater = "2.10.1"
-
-# On-machine sampling (samply / Instruments). `tauri build` still uses [profile.release].
-# See docs/contributing/profiling.md.
-[profile.profiling]
-inherits = "release"
-debug = true
 

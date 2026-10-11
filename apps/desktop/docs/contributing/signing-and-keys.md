@@ -1,6 +1,6 @@
 # Signing & key management
 
-Operator runbook for Spiral’s Direct-channel signing keys and secrets. Decisions and rationale live in [`release-process-plan.md`](./release-process-plan.md); day-to-day cutting a release is in [`release.md`](./release.md).
+Operator runbook for Spiral’s Direct-channel signing keys and secrets. Decisions and rationale live in `release-process-plan.md`; day-to-day cutting a release is in [`release.md`](./release.md).
 
 Scripts under `scripts/release/` wrap the same tools CI uses (`tauri signer`, `gh release`, env vars consumed by `tauri-action`). Prefer the npm scripts over hand-rolled CLI flags.
 
@@ -23,8 +23,8 @@ Scripts under `scripts/release/` wrap the same tools CI uses (`tauri signer`, `g
 - **Exists** on `brpowell/spiral-desktop`.
 - Holds high-blast-radius CI secrets (updater private key today; Apple/Windows when #182 / #183 land).
 - Referenced by:
-  - [`.github/workflows/release.yml`](../.github/workflows/release.yml) — matrix build (needs secrets)
-  - [`.github/workflows/publish-release.yml`](../.github/workflows/publish-release.yml) — manual publish gate
+  - [`.github/workflows/release.yml`](../../../../.github/workflows/desktop-release.yml) — matrix build (needs secrets)
+  - [`.github/workflows/publish-release.yml`](../../../../.github/workflows/desktop-publish-release.yml) — manual publish gate
 
 ### Required reviewers (plan limitation)
 
@@ -51,8 +51,8 @@ Single entry: `npm run release -- <command> …` (`scripts/release/cli.mjs`).
 | `npm run release -- sign <file>` | `sign-updater.mjs` | `tauri signer sign` (same env vars as CI) |
 | `npm run release -- verify <file>` | `verify-updater-sig.mjs` | Verify `<file>.sig` against bundled pubkey |
 | `npm run release -- installer [kind]` | `build-installer.mjs` | Local installer (`dmg` / `nsis` / `linux` AppImage / `deb`); signs when env vars are set |
-| `npm run release -- check vX.Y.Z` | `check-release-assets.mjs` | Same draft-asset gate as CI `platforms-green` |
-| `npm run release -- publish vX.Y.Z` | `publish-release.mjs` | Same checks + undraft as CI publish job |
+| `npm run release -- check desktop-vX.Y.Z` | `check-release-assets.mjs` | Same draft-asset gate as CI `platforms-green` |
+| `npm run release -- publish desktop-vX.Y.Z` | `publish-release.mjs` | Same checks + undraft as CI publish job |
 
 ---
 
@@ -142,14 +142,14 @@ Local smoke: same env vars + `npm run release -- installer nsis` on Windows.
 
 ## Publish gate
 
-After **All platforms green** on the [Release](../.github/workflows/release.yml) workflow:
+After **All platforms green** on the [Release](../../../../.github/workflows/desktop-release.yml) workflow:
 
-**CI (preferred):** Actions → **Publish Release** → Run workflow → enter tag (`v0.2.0`).
+**CI (preferred):** Actions → **Publish Release** → Run workflow → enter tag (`desktop-v0.2.0`).
 
 **Local:**
 
 ```bash
-npm run release -- publish v0.2.0
+npm run release -- publish desktop-v0.2.0
 ```
 
 Both re-check that the draft has every required installer and updater artifact (see `scripts/release/required-release-assets.mjs`), then `gh release edit <tag> --draft=false`.
