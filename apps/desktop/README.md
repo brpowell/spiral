@@ -38,3 +38,6 @@ Commits must follow [Conventional Commits](https://www.conventionalcommits.org/)
 Streaming is convenient. But it's also forgettable — infinite content with no gravity, no ownership, no ritual. Spiral is for the other mode: purchasing music, organizing, and listening to what truly matters to you, without prying eyes.
 
 This app is built around that intention.
+## License
+
+Spiral is licensed under the [Apache License 2.0](../../LICENSE).
