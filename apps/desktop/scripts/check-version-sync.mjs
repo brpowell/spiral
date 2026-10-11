@@ -37,7 +37,25 @@ function cargoLockVersion(name) {
   return entry[1];
 }
 
+/**
+ * release-please bumps the Cargo.lock entry through the fixed JSONPath
+ * `$.package[0].version` (its TOML parser cannot filter by package name).
+ * Fail loudly if "Spiral" stops being the first [[package]] in the lockfile.
+ */
+function assertSpiralIsFirstLockPackage() {
+  const text = readFileSync(join(workspaceRoot, "Cargo.lock"), "utf8");
+  const first = text.match(/^\[\[package\]\]\r?\nname = "([^"]+)"/m);
+  if (!first || first[1] !== "Spiral") {
+    throw new Error(
+      `Cargo.lock's first package is "${first ? first[1] : "?"}", not "Spiral". ` +
+        "Update the Cargo.lock JSONPath in release-please-config.json " +
+        "($.package[N].version) to match Spiral's position.",
+    );
+  }
+}
+
 try {
+  assertSpiralIsFirstLockPackage();
   const versions = {
     "package.json": jsonVersion("package.json"),
     "src-tauri/tauri.conf.json": jsonVersion("src-tauri/tauri.conf.json"),
