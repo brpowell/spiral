@@ -38,3 +38,8 @@ Commits must follow [Conventional Commits](https://www.conventionalcommits.org/)
 Streaming is convenient. But it's also forgettable — infinite content with no gravity, no ownership, no ritual. Spiral is for the other mode: purchasing music, organizing, and listening to what truly matters to you, without prying eyes.
 
 This app is built around that intention.
+## License
+
+Spiral's code is public and free to use, modify and learn from. It's licensed under the [Functional Source License, Version 1.1, Apache 2.0 Future License](LICENSE) (FSL-1.1-Apache-2.0), so you can't use it to build a competing product. Each version becomes Apache-2.0 open source after two years. Spiral is source-available, not open source.
+
+The Spiral name and logo are trademarks of Spiral Powered LLC and aren't covered by the code license.
