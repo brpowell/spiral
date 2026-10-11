@@ -5,6 +5,10 @@ on:
     paths:
       - "apps/desktop/package.json"
       - "apps/desktop/src-tauri/tauri.conf.json"
+      - "apps/desktop/src-tauri/Cargo.toml"
+      - "apps/desktop/scripts/check-version-sync.mjs"
+      - "Cargo.lock"
+      - "release-please-config.json"
   push:
     branches:
       - main
@@ -14,7 +18,7 @@ permissions:
 
 jobs:
   check:
-    name: Verify package and Tauri versions match
+    name: Verify desktop version sources match
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
