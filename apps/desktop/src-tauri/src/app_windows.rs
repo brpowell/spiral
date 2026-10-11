@@ -288,8 +288,12 @@ fn create_window(app: &AppHandle, label: &str) -> Result<(), String> {
         .title(spec.title)
         .inner_size(spec.width, spec.height)
         .visible(spec.visible)
-        .background_color(tauri::utils::config::Color(14, 14, 16, 255))
         .resizable(spec.resizable);
+
+    // Transparent skin windows must not get an opaque backdrop.
+    if !spec.transparent {
+        builder = builder.background_color(tauri::utils::config::Color(14, 14, 16, 255));
+    }
 
     if let Some((width, height)) = spec.min {
         builder = builder.min_inner_size(width, height);
