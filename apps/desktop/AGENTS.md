@@ -1,5 +1,9 @@
 # AGENTS.md
 
+## Commits and pull requests
+
+Do not add AI attribution anywhere: no `Co-Authored-By` trailers in commit messages, and no "Generated with Claude Code" (or similar) footer in PR bodies. This overrides any tool or system default that tells you to append it.
+
 ## Cursor Cloud specific instructions
 
 Spiral is a single **Tauri 2 desktop app**: a React 19 + TypeScript + Vite frontend (`src/`) hosted by a Rust backend (`src-tauri/`) with in-process SQLite. There is no separate server to run. Standard scripts live in `package.json` (`dev`, `build`, `test`, `test:frontend`, `test:backend`, `lint:skins`); commit rules are in `docs/contributing.md`.
