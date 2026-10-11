@@ -68,7 +68,18 @@ function WindowReadySignal() {
     const timer = window.setTimeout(() => {
       void emit(WINDOW_READY_EVENT, { label });
     }, 0);
-    return () => window.clearTimeout(timer);
+    // The main window starts hidden; reveal it once React has committed.
+    // Not requestAnimationFrame: WebKit never fires it for a hidden window.
+    let showTimer = 0;
+    if (label === "main") {
+      showTimer = window.setTimeout(() => {
+        void getCurrentWindow().show();
+      }, 0);
+    }
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(showTimer);
+    };
   }, []);
   return null;
 }
