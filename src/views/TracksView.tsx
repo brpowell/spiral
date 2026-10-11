@@ -3,16 +3,16 @@ import { useTranslation } from "react-i18next";
 import { BrowseView } from "../components/BrowseView/BrowseView";
 import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
 import { LibraryEmptyState } from "../components/LibraryEmptyState/LibraryEmptyState";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { SearchField } from "../components/SearchField/SearchField";
 import { TrackList } from "../components/TrackList/TrackList";
 import {
   compareTracks,
-  matchesTrackSearch,
+  nextSort,
+  scoreTracksBySearch,
+  type SortState,
 } from "../components/TrackList/trackListSort";
-import type {
-  TrackListSortDir,
-  TrackListSortField,
-} from "../components/TrackList/types";
+import type { TrackListSortField } from "../components/TrackList/types";
 import { applyTrackRating } from "../lib/applyTrackRating";
 import { isTrackImporting } from "../lib/pendingImportTrack";
 import type { CanonicalRating } from "../lib/trackRating";
@@ -45,37 +45,54 @@ export function TracksView({ tracks }: TracksViewProps) {
   );
 
   const [search, setSearch] = useState("");
-  const [sortField, setSortField] = useState<TrackListSortField>("title");
-  const [sortDir, setSortDir] = useState<TrackListSortDir>("asc");
+  const deferredSearch = useDebouncedValue(search, 150);
+  // Column sort, cycling asc -> desc -> unsorted. Unsorted is library order, or
+  // relevance order while searching. The library sort persists; the search
+  // sort lives only for the current search (cleared with the search box).
+  const [librarySort, setLibrarySort] = useState<SortState>({
+    field: "title",
+    dir: "asc",
+  });
+  const [searchSort, setSearchSort] = useState<SortState>(null);
+  const searching = deferredSearch.trim() !== "";
+  const activeSort = searching ? searchSort : librarySort;
 
   const sortedTracks = useMemo(() => {
-    const filtered = tracks.filter((t) => matchesTrackSearch(t, search));
-    return [...filtered].sort((a, b) =>
-      compareTracks(a, b, sortField, sortDir),
-    );
-  }, [tracks, search, sortField, sortDir]);
+    const scored = scoreTracksBySearch(tracks, deferredSearch);
+    if (searching && activeSort === null) {
+      return scored
+        .sort(
+          (a, b) =>
+            b.score - a.score || compareTracks(a.item, b.item, "title", "asc"),
+        )
+        .map((s) => s.item);
+    }
+    const matched = scored.map((s) => s.item);
+    return activeSort
+      ? matched.sort((a, b) =>
+          compareTracks(a, b, activeSort.field, activeSort.dir),
+        )
+      : matched;
+  }, [tracks, deferredSearch, searching, activeSort]);
 
   const sortedTrackIds = useMemo(
     () => sortedTracks.map((t) => t.id),
     [sortedTracks],
   );
 
-  const playbackContextIds = useMemo(
-    () =>
-      [...tracks]
-        .filter((t) => !isTrackImporting(t))
-        .sort((a, b) => compareTracks(a, b, sortField, sortDir))
-        .map((t) => t.id),
-    [tracks, sortField, sortDir],
-  );
+  const playbackContextIds = useMemo(() => {
+    const live = tracks.filter((t) => !isTrackImporting(t));
+    if (librarySort) {
+      live.sort((a, b) =>
+        compareTracks(a, b, librarySort.field, librarySort.dir),
+      );
+    }
+    return live.map((t) => t.id);
+  }, [tracks, librarySort]);
 
   const handleSort = (field: TrackListSortField) => {
-    if (field === sortField) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortField(field);
-      setSortDir("asc");
-    }
+    const setSort = searching ? setSearchSort : setLibrarySort;
+    setSort((current) => nextSort(current, field));
   };
 
   const importingCount = tracks.filter((t) => isTrackImporting(t)).length;
@@ -123,7 +140,10 @@ export function TracksView({ tracks }: TracksViewProps) {
         actions={
           <SearchField
             value={search}
-            onChange={setSearch}
+            onChange={(value) => {
+              setSearch(value);
+              if (value.trim() === "") setSearchSort(null);
+            }}
             placeholder={t("views.tracks.searchPlaceholder")}
             aria-label={t("views.tracks.searchAria")}
           />
@@ -140,8 +160,8 @@ export function TracksView({ tracks }: TracksViewProps) {
         onSelectTrack={handleSelectRow}
         onPlayTrack={handlePlayRow}
         onRatingChange={handleRatingChange}
-        sortField={sortField}
-        sortDir={sortDir}
+        sortField={activeSort?.field}
+        sortDir={activeSort?.dir}
         onSort={handleSort}
         emptyMessage={t("views.tracks.emptySearch")}
       />

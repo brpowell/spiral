@@ -1,5 +1,6 @@
 import type { Track } from "../../types/track";
 import { compareLocalized } from "../../lib/appLocale";
+import { createFuzzyMatcher } from "../../lib/fuzzySearch";
 import { lyricsFormatSortRank } from "../../lib/lyrics";
 import type { TrackListSortDir, TrackListSortField } from "./types";
 
@@ -84,18 +85,39 @@ export function compareTracks(
   return dir === "asc" ? cmp : -cmp;
 }
 
+/** Title matches outrank artist/album/album-artist matches, which are tied. */
+const trackSearch = createFuzzyMatcher<Track>((t) => [
+  { fields: [t.title], weight: 1 },
+  { fields: [t.artist, t.album, t.albumArtist], weight: 0.75 },
+]);
+
 export function matchesTrackSearch(track: Track, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  const haystack = [
-    track.title,
-    track.artist,
-    track.album,
-    track.albumArtist,
-    track.genre,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(q);
+  return trackSearch.matches(track, query);
+}
+
+/** Tracks matching `query` (fuzzy), original order preserved. */
+export function filterTracksBySearch(tracks: Track[], query: string): Track[] {
+  return trackSearch.filter(tracks, query);
+}
+
+/** Tracks matching `query` with relevance scores (original order preserved). */
+export function scoreTracksBySearch(
+  tracks: Track[],
+  query: string,
+): { item: Track; score: number }[] {
+  return trackSearch.scored(tracks, query);
+}
+
+export type SortState = {
+  field: TrackListSortField;
+  dir: TrackListSortDir;
+} | null;
+
+/** Header click cycle: asc -> desc -> unsorted; a different column starts at asc. */
+export function nextSort(
+  current: SortState,
+  field: TrackListSortField,
+): SortState {
+  if (!current || current.field !== field) return { field, dir: "asc" };
+  return current.dir === "asc" ? { field, dir: "desc" } : null;
 }

@@ -6,9 +6,11 @@ import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
 import { EntityArt } from "../components/EntityArt/EntityArt";
 import { Field, FieldLabel } from "../components/common/Field/Field";
 import { Switch } from "../components/common/Switch/Switch";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { SearchField } from "../components/SearchField/SearchField";
 import { IconArtistPlaceholder } from "../components/icons";
 import { albumsForArtist, type ArtistBrowseMode } from "../lib/artists";
+import { createFuzzyMatcher } from "../lib/fuzzySearch";
 import { t } from "../lib/i18n";
 import { useArtistEditMenu } from "../hooks/useArtistEditMenu";
 import { usePointerTiltArt } from "../hooks/usePointerTiltArt";
@@ -26,11 +28,7 @@ interface ArtistsViewProps {
   browseMode: ArtistBrowseMode;
 }
 
-function matchesArtistSearch(artist: Artist, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  return artist.name.toLowerCase().includes(q);
-}
+const artistSearch = createFuzzyMatcher<Artist>((a) => [a.name]);
 
 function artistCardMeta(
   artist: Artist,
@@ -94,12 +92,13 @@ function ArtistCard({
 export function ArtistsView({ artists, albums, browseMode }: ArtistsViewProps) {
   const { t } = useTranslation("library");
   const [search, setSearch] = useState("");
+  const deferredSearch = useDebouncedValue(search, 150);
   const scrollRef = useRef<HTMLDivElement>(null);
   const setArtistBrowseMode = useNavigationStore((s) => s.setArtistBrowseMode);
 
   const filteredArtists = useMemo(
-    () => artists.filter((a) => matchesArtistSearch(a, search)),
-    [artists, search],
+    () => artistSearch.rank(artists, deferredSearch),
+    [artists, deferredSearch],
   );
 
   const getArtistKey = useCallback((artist: Artist) => artist.key, []);

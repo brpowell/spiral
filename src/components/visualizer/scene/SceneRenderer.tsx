@@ -525,40 +525,41 @@ function SceneViewport({
   };
 
   const { elapsedMs, deltaMs } = frameClockRef.current;
-
-  if (viewport.width === 0 || viewport.height === 0) {
-    return <div className="scene-viewport" ref={containerRef} />;
-  }
-
+  const sized = viewport.width > 0 && viewport.height > 0;
   const driveContext = { audio: context.audio, bind: context.bind };
 
+  // One viewport node for the life of the view. Replacing it after the first
+  // measurement detaches the ResizeObserver, so a later window resize leaves
+  // the scene at the size it opened with.
   return (
     <VizFrameSubscription.Provider value={subscribeFrame}>
       <div className="scene-viewport" ref={containerRef}>
-        {scene.map((layer, index) => {
-          const rect = resolveLayout(
-            layer.layout,
-            viewport.width,
-            viewport.height,
-          );
-          const transform = resolveLayerTransform(layer, driveContext);
-          return (
-            <VizSceneLayerView
-              key={layer.id ?? `layer-${index}`}
-              layer={layer}
-              rect={rect}
-              transform={transform}
-              visualizerId={visualizerId}
-              packDir={packDir}
-              context={context}
-              drawState={drawState}
-              remoteWaveform={remoteWaveform}
-              elapsedMs={elapsedMs}
-              deltaMs={deltaMs}
-              onFirstFrame={notifyFirstFrame}
-            />
-          );
-        })}
+        {sized
+          ? scene.map((layer, index) => {
+              const rect = resolveLayout(
+                layer.layout,
+                viewport.width,
+                viewport.height,
+              );
+              const transform = resolveLayerTransform(layer, driveContext);
+              return (
+                <VizSceneLayerView
+                  key={layer.id ?? `layer-${index}`}
+                  layer={layer}
+                  rect={rect}
+                  transform={transform}
+                  visualizerId={visualizerId}
+                  packDir={packDir}
+                  context={context}
+                  drawState={drawState}
+                  remoteWaveform={remoteWaveform}
+                  elapsedMs={elapsedMs}
+                  deltaMs={deltaMs}
+                  onFirstFrame={notifyFirstFrame}
+                />
+              );
+            })
+          : null}
       </div>
     </VizFrameSubscription.Provider>
   );

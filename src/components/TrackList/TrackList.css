@@ -19,6 +19,9 @@
   -webkit-overflow-scrolling: touch;
   /* Overlay horizontal scrollbars paint over the last row. */
   padding-bottom: var(--scrollbar-size);
+  /* Without a stacking context WebKit leaks a full-window compositor surface each
+     time the tall scroll content shrinks sharply (e.g. filtering a long list). */
+  isolation: isolate;
 }
 
 .track-list--content-height .track-list__scroll {

@@ -6,31 +6,29 @@ import { BrowseViewHeader } from "../components/BrowseView/BrowseViewHeader";
 import { BrowseGridBody } from "../components/BrowseView/BrowseGridBody";
 import { BrowseVirtualGrid } from "../components/BrowseView/BrowseVirtualGrid";
 import { LibraryEmptyState } from "../components/LibraryEmptyState/LibraryEmptyState";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { SearchField } from "../components/SearchField/SearchField";
+import { createFuzzyMatcher } from "../lib/fuzzySearch";
 import type { Album } from "../types/album";
 
 interface AlbumsViewProps {
   albums: Album[];
 }
 
-function matchesAlbumSearch(album: Album, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  const haystack = [album.title, album.artist]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(q);
-}
+const albumSearch = createFuzzyMatcher<Album>((a) => [
+  { fields: [a.title], weight: 1 },
+  { fields: [a.artist], weight: 0.75 },
+]);
 
 export function AlbumsView({ albums }: AlbumsViewProps) {
   const { t } = useTranslation("library");
   const [search, setSearch] = useState("");
+  const deferredSearch = useDebouncedValue(search, 150);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const filteredAlbums = useMemo(
-    () => albums.filter((a) => matchesAlbumSearch(a, search)),
-    [albums, search],
+    () => albumSearch.rank(albums, deferredSearch),
+    [albums, deferredSearch],
   );
 
   const getAlbumKey = useCallback((album: Album) => album.key, []);
