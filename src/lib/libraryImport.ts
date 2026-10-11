@@ -29,11 +29,6 @@ import {
   scanZipImport,
 } from "./tauri";
 import { isTauri } from "./windowRole";
-import {
-  blockIfTrialLibraryAtCap,
-  isTrialLibraryCapError,
-  notifyTrialLibraryCap,
-} from "./trialGate";
 import { reportUnexpectedError } from "./unexpectedErrorToast";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import {
@@ -130,8 +125,6 @@ async function withSkinAlwaysOnTopSuspended<T>(
 }
 
 export async function pickAndImportLibraryPaths(): Promise<void> {
-  if (blockIfTrialLibraryAtCap()) return;
-
   try {
     const paths = await withSkinAlwaysOnTopSuspended(() => pickLibraryPaths());
     if (paths.length === 0) return;
@@ -147,8 +140,6 @@ export async function pickAndImportLibraryPaths(): Promise<void> {
 export function startLibraryImport(paths: string[]): void {
   const pathsToImport = filterPathsForLibraryImport(paths);
   if (pathsToImport.length === 0) return;
-
-  if (blockIfTrialLibraryAtCap()) return;
 
   resetImportActivationQueue();
   useImportDedupeStore.getState().resetImportDedupeSession();
@@ -339,18 +330,6 @@ export function startLibraryImport(paths: string[]): void {
           },
         });
         outcomeLogged = true;
-
-        if (result.failed > 0) {
-          const trialCapHit = result.errors.some(isTrialLibraryCapError);
-          if (trialCapHit) {
-            // Expected product limit — Spiral Card modal only (no toast).
-            notifyTrialLibraryCap();
-            if (result.imported === 0 && result.replaced === 0) {
-              ctx.dismissSilently();
-              return;
-            }
-          }
-        }
 
         ctx.settleAs(settle);
       } catch (err) {

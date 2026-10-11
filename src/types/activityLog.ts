@@ -59,10 +59,6 @@ const ACTIVITY_LOG_DOMAIN_DEFS = {
   visualizerLoad: { value: "visualizer.load", label: "Visualizer load" },
   packScan: { value: "pack.scan", label: "Pack scan" },
   packInstall: { value: "pack.install", label: "Pack install" },
-  licenseRegistration: {
-    value: "license.registration",
-    label: "Registration",
-  },
   cdPlayback: { value: "cd.playback", label: "CD playback" },
   libraryPlayback: { value: "library.playback", label: "Library playback" },
   libraryLoad: { value: "library.load", label: "Library load" },
@@ -81,7 +77,6 @@ export const ACTIVITY_LOG_DOMAINS = {
   visualizerLoad: ACTIVITY_LOG_DOMAIN_DEFS.visualizerLoad.value,
   packScan: ACTIVITY_LOG_DOMAIN_DEFS.packScan.value,
   packInstall: ACTIVITY_LOG_DOMAIN_DEFS.packInstall.value,
-  licenseRegistration: ACTIVITY_LOG_DOMAIN_DEFS.licenseRegistration.value,
   cdPlayback: ACTIVITY_LOG_DOMAIN_DEFS.cdPlayback.value,
   libraryPlayback: ACTIVITY_LOG_DOMAIN_DEFS.libraryPlayback.value,
   libraryLoad: ACTIVITY_LOG_DOMAIN_DEFS.libraryLoad.value,

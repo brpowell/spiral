@@ -5,16 +5,8 @@ export function isImagePath(path: string): boolean {
   return /\.(png|jpe?g|webp|gif|bmp|avif)$/i.test(path);
 }
 
-export function isSpcardPath(path: string): boolean {
-  return /\.spcard$/i.test(path);
-}
-
 export function firstImagePath(paths: string[]): string | undefined {
   return paths.find(isImagePath);
-}
-
-export function firstSpcardPath(paths: string[]): string | undefined {
-  return paths.find(isSpcardPath);
 }
 
 export function isOverArtDropZone(x: number, y: number): boolean {

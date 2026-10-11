@@ -10,11 +10,6 @@ import {
 import { isTrackConvertible } from "./pendingImportTrack";
 import { showPlaybackFileMissingToast } from "./playbackToast";
 import { yieldForInteraction } from "./scheduling";
-import {
-  blockIfTrialCannotFit,
-  isTrialLibraryCapError,
-  notifyTrialLibraryCap,
-} from "./trialGate";
 import type { BackgroundTaskSettleAsOptions } from "../store/useBackgroundTasksStore";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useConvertStore } from "../store/useConvertStore";
@@ -153,8 +148,6 @@ export function startConvertTracks(options: {
   const { trackIds, profileId, mode } = options;
   if (trackIds.length === 0) return;
 
-  if (mode === "add_new" && blockIfTrialCannotFit(trackIds.length)) return;
-
   const operationId = createOperationId();
   const profileLabel = getEncodingProfile(profileId)?.label ?? profileId;
 
@@ -256,12 +249,6 @@ export function startConvertTracks(options: {
       });
 
       if (failed > 0) {
-        if (errors.some(isTrialLibraryCapError)) {
-          notifyTrialLibraryCap();
-          ctx.dismissSilently();
-          return;
-        }
-
         ctx.settleAs(settle);
         return;
       }

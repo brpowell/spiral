@@ -29,12 +29,6 @@ import {
   importPickerFailedPayload,
   playlistAddedPayload,
   queueAddedPayload,
-  spiralCardUpdatedPayload,
-  spiralCardUpdateFailedPayload,
-  spiralCardUpdateNetworkErrorPayload,
-  spiralCardUpdateRateLimitedPayload,
-  spiralCardInstallErrorPayload,
-  spiralCardInstallSuccessPayload,
   themeCreateFailedPayload,
   themeDeletedPayload,
   themeSavedPayload,
@@ -1808,123 +1802,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
       showErrorToast(
         updaterCheckErrorPayload("network offline (simulated)", { dismissMs }),
       );
-    },
-  },
-
-  // —— Spiral Card ——
-  {
-    id: "spcard-installed",
-    group: "Spiral Card",
-    buttonLabel: "Installed",
-    source: "spcardInstall.ts",
-    fire: ({ showToast, dismissMs }) => {
-      showToast(spiralCardInstallSuccessPayload(false, { dismissMs }));
-    },
-  },
-  {
-    id: "spcard-replaced",
-    group: "Spiral Card",
-    buttonLabel: "Replaced",
-    source: "spcardInstall.ts",
-    fire: ({ showToast, dismissMs }) => {
-      showToast(spiralCardInstallSuccessPayload(true, { dismissMs }));
-    },
-  },
-  {
-    id: "spcard-handoff-fail",
-    group: "Spiral Card",
-    buttonLabel: "Add to Spiral → network",
-    source: "spcardInstall.ts",
-    fire: ({ showErrorToast, dismissMs }) => {
-      showErrorToast(
-        spiralCardInstallErrorPayload("license.handoff.network", { dismissMs }),
-      );
-    },
-  },
-  {
-    id: "spcard-handoff-expired",
-    group: "Spiral Card",
-    buttonLabel: "Add to Spiral → expired",
-    source: "spcardInstall.ts",
-    fire: ({ showErrorToast, dismissMs }) => {
-      showErrorToast(
-        spiralCardInstallErrorPayload("license.handoff.expired", { dismissMs }),
-      );
-    },
-  },
-  {
-    id: "spcard-install-expired",
-    group: "Spiral Card",
-    buttonLabel: "Install → expired card",
-    source: "SpiralCardModal.tsx",
-    fire: ({ showErrorToast, dismissMs }) => {
-      showErrorToast(
-        spiralCardInstallErrorPayload("license.installing.expired", {
-          dismissMs,
-        }),
-      );
-    },
-  },
-  {
-    id: "spcard-install-unverified",
-    group: "Spiral Card",
-    buttonLabel: "Install → broken signature",
-    source: "SpiralCardModal.tsx",
-    fire: ({ showErrorToast, dismissMs }) => {
-      showErrorToast(
-        spiralCardInstallErrorPayload("license.installing.unverified", {
-          dismissMs,
-        }),
-      );
-    },
-  },
-  {
-    id: "spcard-install-unreadable",
-    group: "Spiral Card",
-    buttonLabel: "Install → unreadable card",
-    source: "SpiralCardModal.tsx",
-    fire: ({ showErrorToast, dismissMs }) => {
-      showErrorToast(
-        spiralCardInstallErrorPayload("license.installing.unreadable", {
-          dismissMs,
-        }),
-      );
-    },
-  },
-  {
-    id: "spcard-update",
-    group: "Spiral Card",
-    buttonLabel: "Card updated",
-    source: "SpiralCardModal.tsx",
-    fire: ({ showToast, dismissMs }) => {
-      showToast(spiralCardUpdatedPayload({ dismissMs }));
-    },
-  },
-  {
-    id: "spcard-update-fail",
-    group: "Spiral Card",
-    buttonLabel: "Update card → card problem",
-    source: "SpiralCardModal.tsx",
-    fire: ({ showErrorToast, dismissMs }) => {
-      showErrorToast(spiralCardUpdateFailedPayload(undefined, { dismissMs }));
-    },
-  },
-  {
-    id: "spcard-update-fail-network",
-    group: "Spiral Card",
-    buttonLabel: "Update card → offline",
-    source: "SpiralCardModal.tsx",
-    fire: ({ showErrorToast, dismissMs }) => {
-      showErrorToast(spiralCardUpdateNetworkErrorPayload(true, { dismissMs }));
-    },
-  },
-  {
-    id: "spcard-update-fail-rate-limited",
-    group: "Spiral Card",
-    buttonLabel: "Update card → rate limited",
-    source: "SpiralCardModal.tsx",
-    fire: ({ showErrorToast, dismissMs }) => {
-      showErrorToast(spiralCardUpdateRateLimitedPayload({ dismissMs }));
     },
   },
 

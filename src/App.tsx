@@ -19,8 +19,6 @@ import { CdMetadataPicker } from "./components/CdMetadataPicker/CdMetadataPicker
 import { CdMusicBrainzFetchModal } from "./components/CdMusicBrainzFetchModal/CdMusicBrainzFetchModal";
 import { PlaylistEditorModal } from "./components/PlaylistEditorModal/PlaylistEditorModal";
 import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal";
-import { SpiralCardModal } from "./components/SpiralCardModal/SpiralCardModal";
-import { ReplaceSpiralCardDialog } from "./components/SpiralCardModal/ReplaceSpiralCardDialog";
 import { CrashReportModal } from "./components/ActivityLogs/CrashReportModal";
 import { WhatsNewModal } from "./components/WhatsNewModal/WhatsNewModal";
 import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
@@ -43,17 +41,6 @@ import { openEqualizerWindow } from "./lib/equalizerWindow";
 import { toggleToastLabWindow } from "./lib/toastLabWindow";
 import { reloadLinkedPacksWithRefresh } from "./lib/packs/refreshPackStores";
 import { usesCustomWindowChrome } from "./lib/windowChrome";
-import {
-  SPCARD_HANDOFF_EVENT,
-  SPCARD_OPENED_EVENT,
-  takePendingSpcardHandoffs,
-  takePendingSpcardOpens,
-  type SpcardHandoff,
-} from "./lib/tauri";
-import {
-  requestSpcardHandoff,
-  requestSpcardInstall,
-} from "./lib/spcardInstall";
 import { useAudioWakeRecovery } from "./hooks/useAudioWakeRecovery";
 import { useHiddenPlaybackKeepAlive } from "./hooks/useHiddenPlaybackKeepAlive";
 import { useCdMonitor } from "./hooks/useCdMonitor";
@@ -63,7 +50,6 @@ import { usePlaybackSessionPersistence } from "./hooks/usePlaybackSessionPersist
 import { useMediaSessionSync } from "./hooks/useMediaSessionSync";
 import { useVisualizerDataProvider } from "./hooks/useVisualizerDataProvider";
 import { useLibrarySettingsStore } from "./store/useLibrarySettingsStore";
-import { useLicenseStore } from "./store/useLicenseStore";
 import { usePlayerStore } from "./store/usePlayerStore";
 import { useUpdaterStore } from "./store/useUpdaterStore";
 import { usePackUpdatesStore } from "./store/usePackUpdatesStore";
@@ -82,7 +68,6 @@ function App() {
   const setPreferencesOpen = useLibrarySettingsStore(
     (s) => s.setPreferencesOpen,
   );
-  const loadLicense = useLicenseStore((s) => s.loadLicense);
   const applyAutomaticChecksEnabled = useUpdaterStore(
     (s) => s.applyAutomaticChecksEnabled,
   );
@@ -181,21 +166,6 @@ function App() {
       stopAutomaticPackChecks = startAutomaticPackUpdateChecks();
     });
     void loadTrackListPreferences();
-    void loadLicense().then(async () => {
-      const paths = await takePendingSpcardOpens();
-      for (const path of paths) {
-        await requestSpcardInstall(path);
-      }
-      const handoffs = await takePendingSpcardHandoffs();
-      for (const handoff of handoffs) {
-        await requestSpcardHandoff(handoff);
-      }
-      const license = useLicenseStore.getState();
-      if (!license.pendingReplace) {
-        license.maybeOpenGraceDemotePrompt();
-        await license.maybeOpenReadyToUpdatePrompt("launch");
-      }
-    });
     loadLibrary();
     void loadPlaylists();
     void loadArtistImages();
@@ -208,7 +178,6 @@ function App() {
   }, [
     loadLibrary,
     loadSettings,
-    loadLicense,
     loadPlaylists,
     loadArtistImages,
     applyAutomaticChecksEnabled,
@@ -216,52 +185,6 @@ function App() {
     applyAutomaticPackChecksEnabled,
     startAutomaticPackUpdateChecks,
   ]);
-
-  useEffect(() => {
-    let cancelled = false;
-    let unlistenOpened: (() => void) | undefined;
-    let unlistenHandoff: (() => void) | undefined;
-    void listen<string[]>(SPCARD_OPENED_EVENT, (event) => {
-      const paths = event.payload ?? [];
-      for (const path of paths) {
-        void requestSpcardInstall(path);
-      }
-    }).then((fn) => {
-      if (cancelled) fn();
-      else unlistenOpened = fn;
-    });
-    void listen<SpcardHandoff[]>(SPCARD_HANDOFF_EVENT, (event) => {
-      const handoffs = event.payload ?? [];
-      for (const handoff of handoffs) {
-        void requestSpcardHandoff(handoff);
-      }
-    }).then((fn) => {
-      if (cancelled) fn();
-      else unlistenHandoff = fn;
-    });
-    return () => {
-      cancelled = true;
-      unlistenOpened?.();
-      unlistenHandoff?.();
-    };
-  }, []);
-
-  // While the app stays open: re-prompt the card update at most once per local
-  // calendar day on focus / visibility (launch always prompts separately).
-  useEffect(() => {
-    const maybePrompt = () => {
-      void useLicenseStore.getState().maybeOpenReadyToUpdatePrompt("session");
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") maybePrompt();
-    };
-    window.addEventListener("focus", maybePrompt);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.removeEventListener("focus", maybePrompt);
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -351,8 +274,6 @@ function App() {
       <PlaylistEditorModal />
       <ImportDropZone />
       <PreferencesModal />
-      <SpiralCardModal />
-      <ReplaceSpiralCardDialog />
       <ImportChoiceModal />
       <ImportDedupeModal />
       <ConvertConfirmModal />

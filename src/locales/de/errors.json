@@ -1,19 +1,3 @@
 {
-  "generic": "Etwas ist schiefgelaufen. Versuche es erneut, oder prüfe die Protokolle.",
-  "license": {
-    "generic": "Diese Spiral Card konnte nicht gelesen werden. Versuche es erneut, oder kontaktiere den Support.",
-    "installed": {
-      "unreadable": "Deine installierte Spiral Card konnte nicht gelesen werden. Versuche, sie erneut hinzuzufügen."
-    },
-    "installing": {
-      "not_found": "Diese Spiral-Card-Datei wurde nicht gefunden.",
-      "unreadable": "Diese Spiral-Card-Datei konnte nicht gelesen werden. Versuche es erneut."
-    },
-    "handoff": {
-      "title": "Etwas ist schiefgelaufen",
-      "network": "Prüfe die Verbindung und versuche, deine Spiral Card erneut hinzuzufügen.",
-      "expired": "Versuche, deine Spiral Card erneut hinzuzufügen.",
-      "invalid": "Versuche, deine Spiral Card erneut hinzuzufügen."
-    }
-  }
+  "generic": "Etwas ist schiefgelaufen. Versuche es erneut, oder prüfe die Protokolle."
 }

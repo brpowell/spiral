@@ -8,7 +8,6 @@ import {
   validateThemeForApply,
   validateThemeForSave,
 } from "./themeValidation";
-import { licenseStatusLabel } from "../types/license";
 import type { Theme } from "../types/theme";
 import type { Track } from "../types/track";
 
@@ -87,7 +86,7 @@ describe("i18n Phase 5 catalogs", () => {
     );
   });
 
-  it("resolves Studio and Spiral Card copy", () => {
+  it("resolves Studio copy", () => {
     expect(t("studio:nav.themes")).toBe("Themes");
     expect(t("studio:themes.editorTitle", { name: "Obsidian" })).toBe(
       "Edit theme (Obsidian)",
@@ -95,10 +94,6 @@ describe("i18n Phase 5 catalogs", () => {
     expect(t("studio:themeEditor.validation.nameRequired")).toBe(
       "Name is required to apply a theme.",
     );
-    expect(t("common:spiralCard.titleTrial")).toBe(
-      "Unlock the full experience",
-    );
-    expect(t("common:spiralCard.submit")).toBe("Update Card");
   });
 });
 
@@ -131,11 +126,5 @@ describe("Phase 5 helpers use catalogs", () => {
     );
     expect(formatThemeValidationError(applyIssues)).toMatch(/\+\d+ more/);
     expect(applyIssues.some((i) => i.field === "name")).toBe(true);
-  });
-
-  it("resolves license status labels from catalogs", () => {
-    expect(licenseStatusLabel("trial")).toBeNull();
-    expect(licenseStatusLabel("readyToUpdate")).toBe("Provisional");
-    expect(licenseStatusLabel("licensed")).toBeNull();
   });
 });

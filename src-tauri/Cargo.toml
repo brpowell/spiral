@@ -19,11 +19,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 # feature-gated and live outside src/bin/ (tauri-cli also disk-scans src/bin/
 # and ignores required-features: https://github.com/tauri-apps/tauri/issues/15325).
 # Never pass --features dev-bins to `tauri build`.
-# `license-dev-key` embeds the development license public key in a *release*
-# build so a packaged installer can accept locally issued sandbox cards.
 [features]
 dev-bins = []
-license-dev-key = []
 # Dev only: Unix-socket bridge so a coding agent can screenshot, eval JS in and
 # read logs from the running app (src/agent_bridge.rs, scripts/agent.mjs).
 # macOS + debug builds only; every call site is cfg-guarded. Never ship it.
@@ -67,7 +64,6 @@ sha2 = "0.10"
 sha1 = "0.10"
 hex = "0.4"
 base64 = "0.22"
-ed25519-dalek = "2.1"
 image = { version = "0.25", default-features = false, features = ["bmp", "gif", "jpeg", "png", "webp"] }
 color_quant = "1.1"
 gif = "0.14"
@@ -116,7 +112,6 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 souvlaki = "0.8"
-tauri-plugin-deep-link = "2"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-updater = "2.10.1"
 

@@ -2,7 +2,6 @@ import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { openAppearanceWindow } from "../../lib/appearanceWindow";
 import { useContextMenu } from "../../hooks/useContextMenu";
-import { useLicenseStore } from "../../store/useLicenseStore";
 import { usePackUpdatesStore } from "../../store/usePackUpdatesStore";
 import { useUpdaterStore } from "../../store/useUpdaterStore";
 import { useWhatsNewStore } from "../../store/useWhatsNewStore";
@@ -17,7 +16,6 @@ import {
 } from "../common/StatusIndicator/StatusIndicator";
 import {
   IconDownload,
-  IconIdCard,
   IconInfo,
   IconMore,
   IconPalette,
@@ -25,13 +23,10 @@ import {
 } from "../icons";
 import { SidebarItem } from "./SidebarItem/SidebarItem";
 
-/** Library sidebar footer overflow menu (Studio, Spiral Card, updates). */
+/** Library sidebar footer overflow menu (Studio, updates). */
 export function SidebarMoreMenu() {
   const { t } = useTranslation(["common", "menus"]);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const openSpiralCard = useLicenseStore((s) => s.openSpiralCard);
-  const licenseStatus = useLicenseStore((s) => s.snapshot.status);
-  const cardUpdatePending = licenseStatus === "readyToUpdate";
   const availableUpdate = useUpdaterStore((s) => s.availableUpdate);
   const status = useUpdaterStore((s) => s.status);
   const checkForUpdates = useUpdaterStore((s) => s.checkForUpdates);
@@ -46,7 +41,7 @@ export function SidebarMoreMenu() {
     availableUpdate != null &&
     (status === "available" || status === "downloading" || status === "error");
   const updatePending = appUpdatePending || packUpdatesPending;
-  const attentionPending = updatePending || cardUpdatePending;
+  const attentionPending = updatePending;
   const {
     open,
     anchor,
@@ -66,7 +61,6 @@ export function SidebarMoreMenu() {
     }
     if (appUpdatePending) return t("common:updates.sidebar.pendingAppAria");
     if (packUpdatesPending) return t("common:updates.sidebar.pendingPacksAria");
-    if (cardUpdatePending) return t("common:updates.sidebar.pendingUpdateAria");
     return t("common:updates.sidebar.more");
   })();
 
@@ -137,19 +131,6 @@ export function SidebarMoreMenu() {
           onClick={() => {
             closeMenu();
             void openAppearanceWindow(packUpdatesPending ? "packs" : undefined);
-          }}
-        />
-        <ContextMenuItem
-          icon={
-            <StatusIndicatorAnchor>
-              <IconIdCard />
-              {cardUpdatePending ? <StatusIndicator /> : null}
-            </StatusIndicatorAnchor>
-          }
-          label={t("common:spiralCard.menu")}
-          onClick={() => {
-            closeMenu();
-            openSpiralCard();
           }}
         />
       </ContextMenu>

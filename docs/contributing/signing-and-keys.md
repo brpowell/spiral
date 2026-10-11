@@ -15,11 +15,6 @@ Scripts under `scripts/release/` wrap the same tools CI uses (`tauri signer`, `g
 | **Apple Developer ID + notarization** | CI macOS build | Environment secrets on `production-release` (see below) — **not filled yet** (#182) | Fake signed macOS builds while the cert is valid |
 | **Windows Authenticode cert** | CI Windows build | Environment secrets on `production-release` (see below) — **not filled yet** (#183) | Fake signed Windows installers while the cert is valid |
 | **`RELEASE_PLEASE_TOKEN`** | `release-please` workflow | **Repo** secret (PAT, `contents: write`) | Can create tags/releases; does not sign updates |
-| **License Ed25519 (production public)** | App verify (default release) | Git: `src-tauri/keys/license/prod-ed25519.pub` | Public |
-| **License Ed25519 (development public)** | App verify (`tauri dev`, tests, `--features license-dev-key`) | Git: `src-tauri/keys/license/dev-ed25519.pub` | Public; paired private is in spiral-powered |
-| **License Ed25519 (production private)** | spiral-powered mint | Vercel Sensitive env, Production only — **not this pipeline** | Fraudulent licenses (revocable server-side) |
-
-Updater keys are **never** shared with license keys under `src-tauri/keys/license/`.
 
 ---
 
@@ -56,7 +51,6 @@ Single entry: `npm run release -- <command> …` (`scripts/release/cli.mjs`).
 | `npm run release -- sign <file>` | `sign-updater.mjs` | `tauri signer sign` (same env vars as CI) |
 | `npm run release -- verify <file>` | `verify-updater-sig.mjs` | Verify `<file>.sig` against bundled pubkey |
 | `npm run release -- installer [kind]` | `build-installer.mjs` | Local installer (`dmg` / `nsis` / `linux` AppImage / `deb`); signs when env vars are set |
-| `npm run release:dev` / `installer --dev-license` | `build-installer.mjs` | Same installer, development Spiral Card public key |
 | `npm run release -- check vX.Y.Z` | `check-release-assets.mjs` | Same draft-asset gate as CI `platforms-green` |
 | `npm run release -- publish vX.Y.Z` | `publish-release.mjs` | Same checks + undraft as CI publish job |
 
@@ -169,7 +163,4 @@ There is no separate “write update manifest” file step in this repo: with th
 - Updater **private** key
 - Apple `.p12` / notarization passwords / API keys
 - Windows `.pfx` / password
-- Production license signing private key
 - `RELEASE_PLEASE_TOKEN`
-
-Development / disposable license keys live in **spiral-powered** (`lib/license/ed25519-private.b64`) and must never be configured as production secrets. Desktop stores public keys only under `src-tauri/keys/license/`. Hub: spiral-powered `docs/license/`.

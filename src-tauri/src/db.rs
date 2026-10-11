@@ -1132,14 +1132,6 @@ pub fn list_file_paths(conn: &Connection) -> Result<Vec<String>, rusqlite::Error
     Ok(paths)
 }
 
-/// Persisted library size — used by the trial gate (not playlist membership).
-pub fn count_tracks(conn: &Connection) -> Result<u32, rusqlite::Error> {
-    conn.query_row("SELECT COUNT(*) FROM tracks", [], |row| {
-        let n: i64 = row.get(0)?;
-        Ok(n as u32)
-    })
-}
-
 pub fn track_exists_by_file_path(
     conn: &Connection,
     file_path: &str,

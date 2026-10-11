@@ -30,7 +30,6 @@ mod itunes_smpb;
 mod library_organize;
 mod library_paths;
 mod library_relocate;
-pub mod license;
 mod lyrics_fetch;
 mod lyrics_fetch_cache;
 mod lyrics_lrc;
@@ -104,14 +103,11 @@ fn load_dev_dotenv() {
 pub fn run() {
     load_dev_dotenv();
 
-    // Must be registered first on Windows/Linux: OS file-association opens spawn a
-    // second process with the path in argv; this forwards that argv to the primary
-    // instance (macOS uses RunEvent::Opened instead — see below).
+    // Must be registered first on Windows/Linux: a second launch is forwarded to
+    // the primary instance, which is focused instead.
     #[cfg(any(windows, target_os = "linux"))]
     let builder =
-        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            let files = commands::license::spcard_paths_from_args(argv);
-            commands::license::handle_opened_spcard_paths(app, files);
+        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
                 let _ = window.set_focus();
@@ -127,9 +123,6 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_deep_link::init())
-        .manage(commands::license::PendingSpcardOpens::default())
-        .manage(commands::license::PendingSpcardHandoffs::default())
         .setup(|app| {
             #[cfg(all(feature = "agent-bridge", debug_assertions, target_os = "macos"))]
             agent_bridge::start(app.handle().clone());
@@ -166,45 +159,6 @@ pub fn run() {
 
             if let Err(err) = metadata_backup::purge_legacy_tag_backups(app.handle()) {
                 eprintln!("legacy tag backup cleanup on startup: {err}");
-            }
-
-            {
-                use tauri_plugin_deep_link::DeepLinkExt;
-                #[cfg(any(windows, target_os = "linux"))]
-                if let Err(err) = app.deep_link().register_all() {
-                    eprintln!("failed to register deep links: {err}");
-                }
-
-                match app.deep_link().get_current() {
-                    Ok(Some(urls)) => {
-                        commands::license::handle_opened_handoff_urls(
-                            app.handle(),
-                            urls.iter().map(|url| url.to_string()),
-                        );
-                    }
-                    Ok(None) => {}
-                    Err(err) => {
-                        eprintln!("failed to read startup deep link: {err}");
-                    }
-                }
-
-                let handle = app.handle().clone();
-                app.deep_link().on_open_url(move |event| {
-                    commands::license::handle_opened_handoff_urls(
-                        &handle,
-                        event.urls().iter().map(|url| url.to_string()),
-                    );
-                    if let Some(window) = handle.get_webview_window("main") {
-                        let _ = window.unminimize();
-                        let _ = window.set_focus();
-                    }
-                });
-            }
-
-            #[cfg(any(windows, target_os = "linux"))]
-            {
-                let files = commands::license::spcard_paths_from_args(std::env::args().skip(1));
-                commands::license::handle_opened_spcard_paths(app.handle(), files);
             }
 
             Ok(())
@@ -339,17 +293,6 @@ pub fn run() {
             commands::library_settings::pick_library_folder,
             commands::library_settings::inspect_library_destination,
             commands::library_settings::relocate_library,
-            commands::license::get_license_state,
-            commands::license::get_registration_spcard_path,
-            commands::license::pick_spcard_file,
-            commands::license::install_registration_card,
-            commands::license::install_registration_card_json,
-            commands::license::take_pending_spcard_opens,
-            commands::license::take_pending_spcard_handoffs,
-            commands::license::redeem_card_handoff,
-            commands::license::pull_current_grant,
-            commands::license::get_license_prompt_state,
-            commands::license::set_license_prompt_state,
             commands::playback_session::get_playback_session,
             commands::playback_session::save_playback_session,
             commands::track_list_preferences::get_track_list_preferences,
@@ -400,20 +343,5 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    // macOS/iOS deliver document opens via AppKit openURLs → RunEvent::Opened
-    // (including when Spiral is already running). Windows/Linux use argv +
-    // tauri-plugin-single-instance instead.
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    app.run(|app, event| {
-        if let tauri::RunEvent::Opened { urls } = event {
-            let files = urls
-                .into_iter()
-                .filter_map(|url| url.to_file_path().ok())
-                .collect::<Vec<_>>();
-            commands::license::handle_opened_spcard_paths(app, files);
-        }
-    });
-
-    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
     app.run(|_app, _event| {});
 }

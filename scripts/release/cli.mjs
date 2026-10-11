@@ -2,9 +2,8 @@
 /**
  * Single entry for local release tooling.
  *
- *   npm run release -- installer [dmg|nsis|linux|deb] [--dev-license] [-- <tauri args>]
- *   npm run release:dev                       # installer --dev-license
- *   npm run release -- publish <tag>
+ *   npm run release -- installer [dmg|nsis|linux|deb] [-- <tauri args>]
+ * *   npm run release -- publish <tag>
  *   npm run release -- check <tag>
  *   npm run release -- check-bundle
  *   npm run release -- sanitize-notes <tag>
@@ -25,7 +24,7 @@ const COMMANDS = {
   installer: {
     script: "build-installer.mjs",
     summary:
-      "Build native (or named) installer — same flags as CI; --dev-license embeds the development license pubkey",
+      "Build native (or named) installer — same flags as CI",
   },
   publish: {
     script: "publish-release.mjs",
@@ -37,7 +36,7 @@ const COMMANDS = {
   },
   "check-bundle": {
     script: "check-bundle.mjs",
-    summary: "Verify the packaged tree (no developer bins, license pubkey)",
+    summary: "Verify the packaged tree (no developer bins)",
   },
   "sanitize-notes": {
     script: "sanitize-release-notes.mjs",
@@ -71,7 +70,6 @@ ${lines.join("\n")}
 
 Examples:
   npm run release -- installer
-  npm run release -- installer --dev-license
   npm run release -- installer deb
   npm run release -- installer linux -- --verbose
   npm run release -- publish v0.2.2

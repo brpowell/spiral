@@ -56,13 +56,11 @@ One npm script, subcommands via `--`:
 
 ```bash
 npm run release -- installer              # native for this OS (dmg / nsis / linux AppImage)
-npm run release -- installer --dev-license  # same, development Spiral Card pubkey
-npm run release:dev                       # alias of installer --dev-license
 npm run release -- installer deb          # Linux .deb only (optional later, #333)
 npm run release -- installer dmg -- --target aarch64-apple-darwin
 npm run release -- publish v0.2.0
 npm run release -- check v0.2.0
-npm run release -- check-bundle           # local packaged tree (no extra bins, license pubkey)
+npm run release -- check-bundle           # local packaged tree (no extra bins)
 npm run release -- sanitize-notes v0.2.0            # re-run / backfill user-facing notes
 npm run release -- sanitize-notes v0.2.0 --dry-run  # print sanitized notes; no edit
 npm run release -- sign path/to/artifact
@@ -70,7 +68,7 @@ npm run release -- verify path/to/artifact
 npm run release -- keys
 ```
 
-`npm run release -- installer` runs `tauri build`, then `check-bundle` (no developer Cargo bins, production license pubkey). `--dev-license` / `npm run release:dev` embeds the development license pubkey instead so a packaged build accepts sandbox-issued cards. Same `check-bundle` command as the Release workflow’s post-build step.
+`npm run release -- installer` runs `tauri build`, then `check-bundle` (no developer Cargo bins). Same `check-bundle` command as the Release workflow’s post-build step.
 
 `npm run release -- --help` lists commands. Output lands under `src-tauri/target/**/bundle/`. Apple/Windows code signing is optional; **updater** signing is required for a full local bundle (`TAURI_SIGNING_PRIVATE_KEY` / `_PATH`) because `createUpdaterArtifacts` is on.
 

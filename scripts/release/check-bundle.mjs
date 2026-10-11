@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 /**
- * Assert a packaged tree is shippable: no developer Cargo bins (read_tags, wms_import, skin_convert_compare),
- * and the bundled license public key matches the build (production by
- * default; development only when SPIRAL_LICENSE_DEV_KEY=1).
+ * Assert a packaged tree is shippable: no developer Cargo bins
+ * (read_tags, wms_import, skin_convert_compare).
  *
  * Walks `src-tauri/target` after `tauri build` / `npm run release -- installer`.
  *
  * Usage: npm run release -- check-bundle
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -111,69 +110,6 @@ function checkDevBins(paths, apps, debs) {
   console.log("ok no developer binaries in packaged tree");
 }
 
-function bufferContains(haystack, needle) {
-  if (needle.length === 0) return false;
-  return haystack.includes(needle);
-}
-
-function packagedExecutables(paths, apps) {
-  const bins = [];
-  for (const app of apps) {
-    const exe = join(app, "Contents", "MacOS", "Spiral");
-    if (existsSync(exe) && statSync(exe).isFile()) {
-      bins.push(exe);
-    }
-  }
-  for (const p of paths.filter(isBundlePath)) {
-    let st;
-    try {
-      st = statSync(p);
-    } catch {
-      continue;
-    }
-    if (!st.isFile()) continue;
-    const name = basename(p);
-    if (
-      name === "Spiral" ||
-      name === "spiral" ||
-      name === "Spiral.exe" ||
-      name.endsWith("-setup.exe")
-    ) {
-      bins.push(p);
-    }
-  }
-  return [...new Set(bins)];
-}
-
-function checkLicenseKeys(paths, apps) {
-  const wantDev = process.env.SPIRAL_LICENSE_DEV_KEY === "1";
-  const licenseDir = join(root, "src-tauri", "keys", "license");
-  const devPub = readFileSync(join(licenseDir, "dev-ed25519.pub"));
-  const prodPub = readFileSync(join(licenseDir, "prod-ed25519.pub"));
-  const required = wantDev ? devPub : prodPub;
-  const forbidden = wantDev ? prodPub : devPub;
-  const requiredLabel = wantDev ? "development" : "production";
-  const forbiddenLabel = wantDev ? "production" : "development";
-
-  const bins = packagedExecutables(paths, apps);
-  if (bins.length === 0) {
-    fail("no packaged Spiral executable found to check license public keys");
-  }
-
-  for (const bin of bins) {
-    const body = readFileSync(bin);
-    if (!bufferContains(body, required)) {
-      fail(`${bin} is missing the ${requiredLabel} license public key`);
-    }
-    if (bufferContains(body, forbidden)) {
-      fail(
-        `${bin} must not contain the ${forbiddenLabel} license public key (set SPIRAL_LICENSE_DEV_KEY=1 only for --features license-dev-key builds)`,
-      );
-    }
-    console.log(`ok ${bin} license public key is ${requiredLabel}`);
-  }
-}
-
 if (!existsSync(targetRoot)) {
   fail(`no ${targetRoot} — build an installer first`);
 }
@@ -182,4 +118,3 @@ const paths = walk(targetRoot);
 const apps = packagedApps(paths);
 const debs = paths.filter((p) => p.endsWith(".deb"));
 checkDevBins(paths, apps, debs);
-checkLicenseKeys(paths, apps);

@@ -6,11 +6,8 @@ import {
   pathsFromDataTransfer,
 } from "../../lib/dragDrop";
 import {
-  firstSpcardPath,
-  isSpcardPath,
   routeDroppedPaths,
 } from "../../lib/fileDropRouting";
-import { requestSpcardInstall } from "../../lib/spcardInstall";
 import { isTauri } from "../../lib/windowRole";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import "./ImportDropZone.css";
@@ -22,16 +19,8 @@ function handleDroppedPaths(
 ) {
   if (paths.length === 0) return;
 
-  const spcard = firstSpcardPath(paths);
-  const withoutSpcards = paths.filter((path) => !isSpcardPath(path));
-
-  if (spcard) {
-    void requestSpcardInstall(spcard);
-  }
-
-  if (withoutSpcards.length === 0) return;
-  if (routeDroppedPaths(withoutSpcards, position) === "library") {
-    importFromPaths(withoutSpcards);
+  if (routeDroppedPaths(paths, position) === "library") {
+    importFromPaths(paths);
   }
 }
 
@@ -154,7 +143,7 @@ export function ImportDropZone() {
           >
             <p className="import-drop-zone__title">Drop to import</p>
             <p className="import-drop-zone__hint">
-              Audio files, folders, zip archives, and Spiral Cards
+              Audio files, folders, and zip archives
             </p>
           </motion.div>
         </motion.div>

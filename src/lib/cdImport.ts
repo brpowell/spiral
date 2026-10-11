@@ -30,11 +30,6 @@ import { createOperationId, logActivity } from "./activityLog";
 import { yieldForInteraction } from "./scheduling";
 import { cleanupCdImportTemp, ripCdTrack } from "./tauri";
 import { cdImportFailedSettleOptions } from "./toastPayloads";
-import {
-  blockIfTrialLibraryAtCap,
-  isTrialLibraryCapError,
-  notifyTrialLibraryCap,
-} from "./trialGate";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useCdImportStore } from "../store/useCdImportStore";
 import {
@@ -95,8 +90,6 @@ export function startCdImport(options: {
 }): void {
   const { driveId, disc, year = null, checkedTrackNumbers } = options;
   if (checkedTrackNumbers.length === 0) return;
-
-  if (blockIfTrialLibraryAtCap()) return;
 
   usePlayerStore.getState().stopCdPlaybackForDrive(driveId);
   resetImportActivationQueue();
@@ -368,17 +361,6 @@ export function startCdImport(options: {
         const settle = importCompletionSettleOptions(result, operationId);
         logCdImportCompleted(result, operationId, driveId);
         outcomeLogged = true;
-
-        if (result.failed > 0) {
-          const trialCapHit = result.errors.some(isTrialLibraryCapError);
-          if (trialCapHit) {
-            notifyTrialLibraryCap();
-            if (result.imported === 0 && result.replaced === 0) {
-              ctx.dismissSilently();
-              return;
-            }
-          }
-        }
 
         ctx.settleAs(settle);
       } catch (err) {

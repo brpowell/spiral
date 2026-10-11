@@ -84,7 +84,6 @@
       "pendingAria": "More, updates available",
       "pendingAppAria": "More, new app update available",
       "pendingPacksAria": "More, pack updates available",
-      "pendingUpdateAria": "More, Spiral Card ready to update",
       "check": "Check for updates…",
       "available": "Install new update…"
     },
@@ -96,36 +95,5 @@
       "disabledInDev": "Updates are disabled in debug builds",
       "disabledInDevDetail": "Use \"Simulate Update\" in the dev menu, or test with a packaged installer. See docs/release.md."
     }
-  },
-  "spiralCard": {
-    "menu": "Spiral Card",
-    "title": "Your Spiral Card",
-    "titleTrial": "Unlock the full experience",
-    "titleReady": "Your card is ready to update",
-    "titleRefunded": "Thanks for trying Spiral",
-    "titleGrace": "This registration has expired",
-    "trialBody": "We hope you're enjoying the free trial, which includes having up to {{count}} tracks in your library. Purchase a Spiral card, or add your existing one, to unlock the full experience forever.",
-    "refundedBody": "This purchase was refunded, so your permanent registration can't be issued. You're welcome to repurchase anytime at spiralpowered.com.",
-    "graceBody": "Head to the member portal to grab a copy of your permanent Spiral card, or add an existing one from your computer.",
-    "purchase": "Purchase new card",
-    "openMemberPortal": "Go to member portal",
-    "addExisting": "Open file browser…",
-    "adding": "Adding…",
-    "replace": "Replace…",
-    "installing": "Installing…",
-    "revealing": "Revealing…",
-    "submit": "Update Card",
-    "confirming": "Updating…",
-    "founder": "Founder",
-    "missingFile": "Couldn't find the installed Spiral Card file.",
-    "status": {
-      "provisional": "Provisional"
-    },
-    "provisionalCopy": "After the provisional period ends, your license will become permanent.",
-    "provisionalCopyDated": "After <date>{{date}}</date>, your license will become permanent.",
-    "readyCopy": "Click update to refresh your local Spiral Card, enabling full access forever.",
-    "replaceTitle": "Replace Spiral Card?",
-    "replaceConfirm": "Replace Card",
-    "replaceBody": "The current license and design will be replaced by the new one."
   }
 }

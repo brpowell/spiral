@@ -35,7 +35,9 @@ Convert-to-MP3 statically links LAME 3.100 via the vendored `mp3lame-sys` crate;
 
 `wms-import` and `read-tags` are Cargo bins behind `--features dev-bins` so Tauri does not copy them into installers. The npm scripts pass that flag. Do not enable `dev-bins` for `tauri build`.
 
-To issue yourself a Spiral Card, run [spiral-powered](https://github.com/spiral-powered/spiral-powered) locally and buy through Paddle sandbox — see that repo’s `docs/license/README.md`. Debug desktop builds verify with the development public key (`src-tauri/keys/license/dev-ed25519.pub`). A default release installer uses the production public key; `npm run release:dev` (or `npm run release -- installer --dev-license`) packages a release-profile installer that still accepts sandbox cards.
+## Removed: free trial and Spiral Card
+
+The 24-track free-trial library cap, the Spiral Card (`.spcard`) registration flow, the `spiral://` card handoff, license key verification, and the `--dev-license` / `release:dev` installer flag were removed from the app. The full pre-removal implementation is preserved on the `archive/free-trial-and-spiral-card` branch (last commit before removal) for potential reuse. Older docs that mention licenses or Spiral Cards are historical.
 
 ## UI strings (i18n)
 
