@@ -1,7 +1,0 @@
-{
-  "bundle": {
-    "resources": {
-      "native/lame/runtime/libmp3lame.dll": "./"
-    }
-  }
-}

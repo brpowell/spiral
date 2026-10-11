@@ -30,7 +30,7 @@ Library playback streams little-endian `f32` PCM from Rust over Tauri events int
 
 ### 1. Build a symbolicated release binary
 
-From the repo root (after `npm install` and `npm run bootstrap`):
+From the repo root (after `npm install`):
 
 ```bash
 # Frontend into dist/, then Rust release with debug info (tauri still uses [profile.release])

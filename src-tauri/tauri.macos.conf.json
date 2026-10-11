@@ -1,7 +1,0 @@
-{
-  "bundle": {
-    "macOS": {
-      "frameworks": ["native/lame/runtime/libmp3lame.0.dylib"]
-    }
-  }
-}

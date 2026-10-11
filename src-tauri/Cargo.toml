@@ -120,10 +120,6 @@ tauri-plugin-deep-link = "2"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-updater = "2.10.1"
 
-# Bindings only — do not compile vendored LAME. Shared lib comes from native-lame.
-[patch.crates-io]
-mp3lame-sys = { path = "crates/mp3lame-sys" }
-
 # On-machine sampling (samply / Instruments). `tauri build` still uses [profile.release].
 # See docs/contributing/profiling.md.
 [profile.profiling]

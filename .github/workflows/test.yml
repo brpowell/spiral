@@ -55,7 +55,6 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf \
-            unzip \
             libwebkit2gtk-4.1-dev \
             libgtk-3-dev
 
@@ -74,13 +73,6 @@ jobs:
 
       - name: Install npm dependencies
         run: npm ci
-
-      # Private native-lame Releases need a PAT with contents: read.
-      # github.token cannot read a different private repo.
-      - name: Bootstrap native artifacts
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
-        run: npm run bootstrap -- --target x86_64-unknown-linux-gnu
 
       - name: Check NOTICE is up to date
         run: npm run notice:check

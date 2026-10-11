@@ -4,11 +4,8 @@
 
 ```bash
 npm install
-npm run bootstrap   # needs `gh` — see Native LAME below
 npm run tauri dev
 ```
-
-`bootstrap` is idempotent clone-time prep (today: fetch pinned `libmp3lame`). Put future fetch/setup steps there instead of new top-level npm scripts.
 
 ## Lint and format
 
@@ -32,11 +29,7 @@ Editor extensions are recommended in `.vscode/extensions.json` (ESLint + Prettie
 
 ## Native LAME (`libmp3lame`)
 
-Convert-to-MP3 dynamically links a shared library from the private [`spiral-powered/native-lame`](https://github.com/spiral-powered/native-lame) repo. There is **no** static fallback and **no** system LAME.
-
-`npm run release -- installer` runs `bootstrap` first (needs `gh` + lockfile), then `tauri build`.
-
-`npm run bootstrap` fetches the pin in `src-tauri/native/lame.lock.json`. That needs `gh` with **`contents: read`** (`gh auth login`, or `GH_TOKEN` / `RELEASE_PLEASE_TOKEN` in CI). `github.token` cannot read a different private repo. Extracted libs are gitignored under `src-tauri/native/lame/<triple>/`. A specific triple: `npm run bootstrap -- --target <triple>`.
+Convert-to-MP3 statically links LAME 3.100 via the vendored `mp3lame-sys` crate; there is nothing to fetch. LAME is LGPL — keep the About credit, license text and `NOTICE` entry intact.
 
 ## Developer CLIs
 

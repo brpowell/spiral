@@ -4,7 +4,7 @@ This file lists production npm packages and Rust crates shipped with Spiral,
 with SPDX license identifiers. Special notices (LAME / LGPL, Fraunhofer FDK AAC,
 Symphonia / MPL) are also shown in the app under About Spiral → Licenses.
 
-Generated: 2026-10-06T14:32:42.880Z
+Generated: 2026-10-11T02:35:57.703Z
 
 === npm (187) ===
 
@@ -196,7 +196,7 @@ whatwg-url@5.0.0 — MIT
 zustand@5.0.13 — MIT
 zwitch@2.0.4 — MIT
 
-=== Cargo (694) ===
+=== Cargo (695) ===
 
 adler2@2.0.1 — 0BSD OR MIT OR Apache-2.0
 aes@0.8.4 — MIT OR Apache-2.0
@@ -227,6 +227,7 @@ atk@0.18.2 — MIT
 atk-sys@0.18.2 — MIT
 atomic-waker@1.1.2 — Apache-2.0 OR MIT
 autocfg@1.5.1 — Apache-2.0 OR MIT
+autotools@0.2.7 — MIT
 base64@0.21.7 — MIT OR Apache-2.0
 base64@0.22.1 — MIT OR Apache-2.0
 base64ct@1.8.3 — Apache-2.0 OR MIT

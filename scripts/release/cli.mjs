@@ -37,7 +37,7 @@ const COMMANDS = {
   },
   "check-bundle": {
     script: "check-bundle.mjs",
-    summary: "Verify the packaged tree (libmp3lame present, no developer bins)",
+    summary: "Verify the packaged tree (no developer bins, license pubkey)",
   },
   "sanitize-notes": {
     script: "sanitize-release-notes.mjs",

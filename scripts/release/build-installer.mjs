@@ -13,7 +13,6 @@
  *   npm run release -- installer dmg -- --target aarch64-apple-darwin
  *
  * Extra args after `--` are passed to `tauri build`.
- * Fetches pinned libmp3lame (`npm run bootstrap`; needs `gh` + lockfile).
  * Apple/Windows code signing is optional. Updater signing env vars
  * (`TAURI_SIGNING_PRIVATE_KEY` / `_PASSWORD`, same as CI) are required
  * because `bundle.createUpdaterArtifacts` is enabled — without them the
@@ -90,21 +89,6 @@ function nativeKind() {
   process.exit(1);
 }
 
-function targetFromPassthrough(passthrough) {
-  const eq = passthrough.find((a) => a.startsWith("--target="));
-  if (eq) return eq.slice("--target=".length);
-  const i = passthrough.indexOf("--target");
-  if (i >= 0) {
-    const value = passthrough[i + 1];
-    if (!value || value.startsWith("-")) {
-      console.error("--target requires a rustc triple");
-      process.exit(1);
-    }
-    return value;
-  }
-  return null;
-}
-
 function parseArgs(argv) {
   const dash = argv.indexOf("--");
   const before = dash === -1 ? argv : argv.slice(0, dash);
@@ -177,25 +161,6 @@ if (process.platform !== spec.host) {
   process.exit(1);
 }
 
-const lameTarget = targetFromPassthrough(passthrough);
-const bootstrapArgs = ["run", "bootstrap"];
-if (lameTarget) {
-  bootstrapArgs.push("--", "--target", lameTarget);
-}
-console.log(`$ npm ${bootstrapArgs.join(" ")}`);
-const boot = spawnSync("npm", bootstrapArgs, {
-  cwd: root,
-  stdio: "inherit",
-  shell: process.platform === "win32",
-});
-if (boot.error) {
-  console.error(boot.error.message);
-  process.exit(1);
-}
-if (boot.status !== 0) {
-  process.exit(boot.status ?? 1);
-}
-
 const tauriPassthrough = [...passthrough];
 const usesDevLicenseKey =
   devLicense || tauriPassthrough.some((a) => a.includes("license-dev-key"));
@@ -236,10 +201,6 @@ if (spec.host === "linux") {
     env.TEMP = tmp;
     console.log(`TMPDIR=${tmp}`);
   }
-  const lameRuntime = join(root, "src-tauri", "native", "lame", "runtime");
-  env.LD_LIBRARY_PATH = env.LD_LIBRARY_PATH
-    ? `${lameRuntime}:${env.LD_LIBRARY_PATH}`
-    : lameRuntime;
 }
 
 const result = spawnSync("npm", tauriArgs, {

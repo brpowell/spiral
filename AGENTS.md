@@ -2,7 +2,7 @@
 
 ## Cursor Cloud specific instructions
 
-Spiral is a single **Tauri 2 desktop app**: a React 19 + TypeScript + Vite frontend (`src/`) hosted by a Rust backend (`src-tauri/`) with in-process SQLite. There is no separate server to run. Standard scripts live in `package.json` (`bootstrap`, `dev`, `build`, `test`, `test:frontend`, `test:backend`, `lint:skins`); commit rules are in `docs/contributing.md`. After `npm install`, run `npm run bootstrap` before `npm run tauri dev` (fetches private native artifacts).
+Spiral is a single **Tauri 2 desktop app**: a React 19 + TypeScript + Vite frontend (`src/`) hosted by a Rust backend (`src-tauri/`) with in-process SQLite. There is no separate server to run. Standard scripts live in `package.json` (`dev`, `build`, `test`, `test:frontend`, `test:backend`, `lint:skins`); commit rules are in `docs/contributing.md`.
 
 ### Running the app (non-obvious)
 
@@ -27,7 +27,7 @@ If a Rust link step fails with `unable to find library -lstdc++` (Rust's bundled
 
 ### Build / test caveats
 
-- `npm test` runs both suites: frontend `vitest` (~600 tests) and backend `cargo test` (~340 tests). Backend tests run `npm run bootstrap`, which fetches `libmp3lame` from the private `spiral-powered/native-lame` repo; that needs `gh` with `contents: read` (or `RELEASE_PLEASE_TOKEN` in CI). The `.husky/pre-commit` hook runs `npm test`, so commits build and run the whole Rust backend — expect it to be slow on a cold cargo cache.
+- `npm test` runs both suites: frontend `vitest` (~600 tests) and backend `cargo test` (~340 tests). The `.husky/pre-commit` hook runs `npm test`, so commits build and run the whole Rust backend — expect it to be slow on a cold cargo cache.
 - `npm run build` (`tsc && vite build`) currently FAILS at the `tsc` step on pre-existing type errors in `*.test.ts` files (the strict type-check gate includes test files). This is a repo code issue, not an environment problem: `npm run tauri dev` and plain `npx vite build` both succeed. Do not try to "fix the environment" for this.
 - CD ripping works on macOS, Windows, and Linux (`/dev/sr*`); some other native audio paths remain macOS-first.
 
