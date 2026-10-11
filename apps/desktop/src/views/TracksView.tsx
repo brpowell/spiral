@@ -6,6 +6,7 @@ import { LibraryEmptyState } from "../components/LibraryEmptyState/LibraryEmptyS
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { SearchField } from "../components/SearchField/SearchField";
 import { TrackList } from "../components/TrackList/TrackList";
+import { TrackListSkeleton } from "../components/TrackList/TrackListSkeleton";
 import {
   compareTracks,
   nextSort,
@@ -32,6 +33,7 @@ export function TracksView({ tracks }: TracksViewProps) {
   const selectedTrackIds = usePlayerStore((s) => s.selectedTrackIds);
   const selectTracksInList = usePlayerStore((s) => s.selectTracksInList);
   const updateTrackInLibrary = usePlayerStore((s) => s.updateTrackInLibrary);
+  const libraryLoaded = usePlayerStore((s) => s.libraryLoaded);
 
   const handleRatingChange = useCallback(
     (trackId: number, rating: CanonicalRating) => {
@@ -116,6 +118,25 @@ export function TracksView({ tracks }: TracksViewProps) {
     },
     [playTracks, playbackContextIds],
   );
+
+  if (tracks.length === 0 && !libraryLoaded) {
+    return (
+      <BrowseView className="tracks-view">
+        <BrowseViewHeader
+          title={t("views.tracks.title")}
+          actions={
+            <SearchField
+              value=""
+              onChange={() => {}}
+              placeholder={t("views.tracks.searchPlaceholder")}
+              aria-label={t("views.tracks.searchAria")}
+            />
+          }
+        />
+        <TrackListSkeleton />
+      </BrowseView>
+    );
+  }
 
   if (tracks.length === 0) {
     return (
