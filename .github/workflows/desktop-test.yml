@@ -50,6 +50,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: . -> target
+          shared-key: desktop-test
 
       - name: Install Linux dependencies
         run: |

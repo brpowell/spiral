@@ -22,7 +22,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+      # Separate cache from the desktop job (both jobs are named "test"): the
+      # desktop runner installs system liblzma, so its cached lzma-sys build
+      # output fails to link on this runner.
       - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: registry
       - run: cargo fmt -p spk-registry -p spk-format -- --check
       - run: cargo clippy -p spk-registry -p spk-format --all-targets -- -D warnings
       - run: cargo test -p spk-registry -p spk-format
