@@ -164,7 +164,7 @@ flyctl deploy --config apps/registry/fly.toml --image "$image"
 
 Do not run a plain `fly deploy` from this directory. Fly would use `apps/registry` as the build context, which does not contain `libs/spk-format`.
 
-If a machine was already running before the volume existed, its catalog and packs live in the machine's own filesystem (`/app/data` in the old image). Copy them onto the volume before replacing the machine, or republish the packs.
+If a machine was already running before the volume existed, its catalog and packs live in the machine's own filesystem (`/app/data` in the old image). Copy them onto the volume before replacing the machine, or republish the packs. SQLite runs in WAL mode, so the catalog is `registry.db` plus `registry.db-wal` and `registry.db-shm`: stop the app first, or copy all three files together, and do not copy `registry.db` alone from a running server.
 
 ## Security notes
 
