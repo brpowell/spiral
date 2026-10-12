@@ -346,6 +346,26 @@ fn zip_slip_bytes() -> Vec<u8> {
     cursor.into_inner()
 }
 
+/// Far more entries than any real pack; the zip itself stays tiny.
+fn too_many_entries_bytes() -> Vec<u8> {
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+    use zip::ZipWriter;
+
+    let mut cursor = std::io::Cursor::new(Vec::new());
+    {
+        let mut zip = ZipWriter::new(&mut cursor);
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        for i in 0..=spk_format::DEFAULT_MAX_ENTRIES {
+            zip.start_file(format!("f{i}.txt"), options).unwrap();
+            zip.write_all(b"x").unwrap();
+        }
+        zip.finish().unwrap();
+    }
+    cursor.into_inner()
+}
+
 fn multipart_spk(filename: &str, bytes: &[u8]) -> (String, Vec<u8>) {
     let boundary = "----spkboundary7MA4YWxk";
     let mut body = Vec::new();
@@ -510,6 +530,19 @@ async fn upload_zip_slip_rejected() {
         msg.contains("invalid path") || msg.contains("evil"),
         "expected zip-slip style error, got: {msg}"
     );
+}
+
+#[tokio::test]
+async fn upload_rejects_archives_with_too_many_entries() {
+    let (app, _tmp, _) = test_app().await;
+    let bomb = too_many_entries_bytes();
+    // Stays under the upload body limit, so only the extraction bound can reject it.
+    assert!(bomb.len() < 5 * 1024 * 1024, "{} bytes", bomb.len());
+    let (status, body) = admin_upload(&app, &bomb).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["code"], "invalid_pack");
+    let msg = body["message"].as_str().unwrap().to_ascii_lowercase();
+    assert!(msg.contains("too many entries"), "got: {msg}");
 }
 
 #[tokio::test]

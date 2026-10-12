@@ -8,7 +8,9 @@ mod theme;
 mod visualizer;
 
 pub use archive::{
-    cleanup_pack_extract_dir, extract_pack_archive, find_pack_root, write_pack_archive,
+    cleanup_pack_extract_dir, extract_pack_archive, extract_pack_archive_with_limits,
+    find_pack_root, write_pack_archive, ExtractLimits, DEFAULT_MAX_COMPRESSION_RATIO,
+    DEFAULT_MAX_ENTRIES, DEFAULT_MAX_UNCOMPRESSED_BYTES, DEFAULT_RATIO_CHECK_MIN_BYTES,
 };
 pub use manifest::*;
 pub use skin::{
