@@ -14,7 +14,7 @@
     "websiteAria": "Open spiralpowered.com"
   },
   "credits": {
-    "intro": "Spiral uses open-source software and community metadata services. Thank you to the projects and maintainers below.",
+    "intro": "Spiral uses community metadata services to make itself more useful. Thank you to the projects and maintainers below.",
     "bryan": {
       "role": "Designed & built by",
       "name": "Bryan Powell"
@@ -39,24 +39,20 @@
       "lrclib": {
         "role": "Lyric Fetching",
         "name": "LRCLIB"
-      },
-      "lame": {
-        "role": "MP3 Encoding",
-        "name": "LAME"
       }
     }
   },
   "licenses": {
-    "special": {
-      "lame": {
-        "title": "LAME (libmp3lame)"
-      },
-      "fdk": {
-        "title": "Fraunhofer FDK AAC"
-      },
-      "symphonia": {
-        "title": "Symphonia"
-      }
+    "openSource": {
+      "title": "Open-source licenses",
+      "intro": "Spiral is built with open-source software. Thank you to all the projects and maintainers below.",
+      "loading": "Loading licenses…",
+      "loadFailed": "Couldn't load the license list.",
+      "searchLabel": "Search packages",
+      "searchPlaceholder": "Search packages…",
+      "packageHint_one": "{{names}}, and {{count}} more",
+      "packageHint_other": "{{names}}, and {{count}} more",
+      "noMatches": "No packages match “{{query}}”."
     }
   }
 }

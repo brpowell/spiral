@@ -1,29 +1,46 @@
 #!/usr/bin/env node
 /**
- * Generate a committed production NOTICE file bundled with the app
- * (`src-tauri/NOTICE` → Tauri resources).
+ * Generate the committed third-party license bundle:
  *
- * - npm: production dependencies from package-lock
- * - cargo: packages from `cargo metadata` for the src-tauri package
+ * - `src-tauri/NOTICE`: bundled as a Tauri resource. A package inventory, plus
+ *   each distinct license text once with every package (and its copyright line)
+ *   that uses it.
+ * - `src/assets/licenses/third-party.json`: the same data, rendered by
+ *   About Spiral -> Licenses.
  *
- * Dev-only tools are excluded. Inventory is name / version / SPDX only.
- * Special notices (LAME, FDK, Symphonia) stay in the About → Licenses UI.
+ * What counts as "shipped":
+ * - npm: production dependencies from package-lock (dev-only packages excluded)
+ * - cargo: `cargo tree -p Spiral -e normal,build --target all`, i.e. the crates in
+ *   the app's own feature-resolved graph on every platform. `cargo metadata` is
+ *   not used for membership because in a workspace it resolves features across
+ *   every member and would pull in crates only the registry uses.
+ *
+ * Licenses are read from each package's own license files. A few packages ship
+ * none (their authors rely on a repository-level file that is not published);
+ * for those the canonical text of the declared license is used, with the
+ * manifest's authors as copyright holder. See `scripts/license-templates/`.
+ * `scripts/license-overrides.json` corrects wrong or missing license metadata.
  * First-party packages listed in IGNORE_PACKAGES are omitted.
  *
  * Usage:
- *   node scripts/generate-notice.mjs           # write src-tauri/NOTICE
- *   node scripts/generate-notice.mjs --check   # fail if NOTICE is stale
+ *   node scripts/generate-notice.mjs           # write the outputs
+ *   node scripts/generate-notice.mjs --check   # fail if they are stale
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildGroups, renderGroups, toUiData } from "./lib/license-bundle.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const outPath = path.join(root, "src-tauri/NOTICE");
+const uiOutPath = path.join(root, "src/assets/licenses/third-party.json");
+const templatesDir = path.join(__dirname, "license-templates");
+const overridesPath = path.join(__dirname, "license-overrides.json");
+const fdkNoticePath = path.join(root, "src/assets/licenses/FDK-AAC-NOTICE.txt");
 
-/** @typedef {{ name: string, version: string, license: string, ecosystem: 'npm' | 'cargo' }} NoticePackage */
+/** @typedef {import("./lib/license-bundle.mjs").BundlePackage} BundlePackage */
 
 /**
  * First-party packages omitted from NOTICE (this app and sibling Spiral packages).
@@ -33,11 +50,7 @@ const outPath = path.join(root, "src-tauri/NOTICE");
  *   `eco:name`   exact name in one ecosystem (`npm:` or `cargo:`)
  *   trailing `*` prefix match (`@spiral/*` for the whole npm scope)
  */
-const IGNORE_PACKAGES = [
-  "@spiral/*",
-  "cargo:Spiral",
-  "spk-format",
-];
+const IGNORE_PACKAGES = ["@spiral/*", "cargo:Spiral", "spk-format"];
 
 /**
  * @param {string} name
@@ -76,152 +89,187 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
-function collectNpmPackages() {
-  /** @type {NoticePackage[]} */
-  const packages = [];
-  const pkgJson = readJson(path.join(root, "package.json"));
-  const lock = readJson(path.join(root, "package-lock.json"));
-  const prodNames = new Set(Object.keys(pkgJson.dependencies ?? {}));
+/* ----------------------------- license files ----------------------------- */
 
-  const lockPackages = lock.packages ?? {};
-  const rootNode = lockPackages[""] ?? {};
-  const rootDeps = {
-    ...(rootNode.dependencies ?? {}),
-  };
+const LICENSE_FILE_NAME =
+  /^(licen[sc]e|copying|unlicense|notice)(?:[-_.][a-z0-9._-]*)?$/i;
+const NOT_A_LICENSE_TEXT =
+  /\.(rs|js|mjs|cjs|ts|json|html|py|c|h|toml|ya?ml|sh|png|svg|spdx)$/i;
+const MAX_LICENSE_FILE_BYTES = 200 * 1024;
 
-  const visited = new Set();
+/**
+ * License and NOTICE files shipped in a package directory.
+ * @param {string} dir
+ * @param {string[]} [extraNames] explicit `license-file` from the manifest
+ * @returns {import("./lib/license-bundle.mjs").LicenseFile[]}
+ */
+function readLicenseFiles(dir, extraNames = []) {
   /** @type {string[]} */
-  const queue = Object.keys(rootDeps);
-
-  while (queue.length > 0) {
-    const name = queue.pop();
-    if (!name || visited.has(name)) continue;
-    visited.add(name);
-
-    const key = `node_modules/${name}`;
-    const entry = lockPackages[key];
-    if (!entry || entry.dev) continue;
-
-    const version = entry.version ?? "unknown";
-    const license =
-      entry.license ??
-      readPackageLicense(path.join(root, "node_modules", ...name.split("/"))) ??
-      "UNKNOWN";
-    packages.push({
-      name,
-      version,
-      license: String(license),
-      ecosystem: "npm",
-    });
-
-    for (const dep of Object.keys(entry.dependencies ?? {})) {
-      queue.push(dep);
-    }
-    for (const dep of Object.keys(entry.optionalDependencies ?? {})) {
-      queue.push(dep);
+  let names;
+  try {
+    names = fs
+      .readdirSync(dir)
+      .filter(
+        (name) =>
+          LICENSE_FILE_NAME.test(name) && !NOT_A_LICENSE_TEXT.test(name),
+      );
+  } catch {
+    return [];
+  }
+  for (const extra of extraNames) {
+    if (
+      extra &&
+      !names.includes(extra) &&
+      fs.existsSync(path.join(dir, extra))
+    ) {
+      names.push(extra);
     }
   }
-
-  for (const name of prodNames) {
-    if (packages.some((p) => p.name === name)) continue;
-    const dir = path.join(root, "node_modules", ...name.split("/"));
-    let version = "unknown";
-    let license = "UNKNOWN";
+  const files = [];
+  for (const name of names.sort()) {
+    const full = path.join(dir, name);
     try {
-      const meta = readJson(path.join(dir, "package.json"));
-      version = meta.version ?? version;
-      license = formatNpmLicense(meta.license) ?? license;
+      const stat = fs.statSync(full);
+      if (
+        !stat.isFile() ||
+        stat.size === 0 ||
+        stat.size > MAX_LICENSE_FILE_BYTES
+      )
+        continue;
+      files.push({
+        kind: /^notice/i.test(name) ? "notice" : "license",
+        name,
+        text: fs.readFileSync(full, "utf8"),
+      });
     } catch {
-      // missing install
+      // unreadable: treated as missing
     }
-    packages.push({
-      name,
-      version,
-      license,
-      ecosystem: "npm",
-    });
   }
-
-  return packages;
+  return files;
 }
 
+/* --------------------------------- npm --------------------------------- */
+
 function formatNpmLicense(license) {
-  if (license == null) return undefined;
   if (typeof license === "string") return license;
-  if (typeof license === "object" && license.type) return String(license.type);
+  if (license && typeof license === "object" && license.type)
+    return String(license.type);
   return undefined;
 }
 
-function readPackageLicense(dir) {
-  try {
-    const meta = readJson(path.join(dir, "package.json"));
-    return formatNpmLicense(meta.license);
-  } catch {
-    return undefined;
+/**
+ * Every production npm package in the lockfile, including nested copies of
+ * different versions (identified by their node_modules path).
+ * @returns {BundlePackage[]}
+ */
+function collectNpmPackages() {
+  const lock = readJson(path.join(root, "package-lock.json"));
+  /** @type {BundlePackage[]} */
+  const packages = [];
+  for (const [key, entry] of Object.entries(lock.packages ?? {})) {
+    if (!key.startsWith("node_modules/")) continue;
+    if (entry.dev || entry.devOptional || entry.link) continue;
+    const name = key.slice(
+      key.lastIndexOf("node_modules/") + "node_modules/".length,
+    );
+    const dir = path.join(root, key);
+    let meta = {};
+    try {
+      meta = readJson(path.join(dir, "package.json"));
+    } catch {
+      // not installed (optional platform package): fall back to lockfile data
+    }
+    const author =
+      typeof meta.author === "string" ? meta.author : meta.author?.name;
+    const repository =
+      typeof meta.repository === "string"
+        ? meta.repository
+        : meta.repository?.url;
+    packages.push({
+      name,
+      version: entry.version ?? meta.version ?? "unknown",
+      ecosystem: "npm",
+      license: entry.license ?? formatNpmLicense(meta.license) ?? "UNKNOWN",
+      authors: author ? [author] : [],
+      repository: repository?.replace(/^git\+/, "").replace(/\.git$/, ""),
+      files: readLicenseFiles(dir),
+    });
   }
+  return packages;
 }
 
+/* --------------------------------- cargo --------------------------------- */
+
+/**
+ * Crates in the desktop package's own resolved graph, on all platforms.
+ * @returns {BundlePackage[]}
+ */
 function collectCargoPackages() {
-  /** @type {NoticePackage[]} */
-  const packages = [];
-  const metadata = JSON.parse(
-    execFileSync(
-      "cargo",
-      [
-        "metadata",
-        "--format-version",
-        "1",
-        "--manifest-path",
-        path.join(root, "src-tauri/Cargo.toml"),
-      ],
-      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
-    ),
-  );
+  const manifest = path.join(root, "src-tauri/Cargo.toml");
+  const run = (args) =>
+    execFileSync("cargo", args, {
+      encoding: "utf8",
+      maxBuffer: 256 * 1024 * 1024,
+      cwd: root,
+    });
 
-  const resolveRoot = metadata.resolve?.root;
-  const nodes = new Map(
-    (metadata.resolve?.nodes ?? []).map((n) => [n.id, n]),
-  );
-  const pkgById = new Map(metadata.packages.map((p) => [p.id, p]));
-
-  if (!resolveRoot || nodes.size === 0) {
-    for (const pkg of metadata.packages) {
-      packages.push({
-        name: pkg.name,
-        version: pkg.version,
-        license: pkg.license ?? "UNKNOWN",
-        ecosystem: "cargo",
-      });
-    }
-    return packages;
+  const tree = run([
+    "tree",
+    "--manifest-path",
+    manifest,
+    "-p",
+    "Spiral",
+    "-e",
+    "normal,build",
+    "--target",
+    "all",
+    "--prefix",
+    "none",
+    "--no-dedupe",
+    "--locked",
+    "-f",
+    "{p}",
+  ]);
+  const members = new Set();
+  for (const line of tree.split("\n")) {
+    const m = line.match(/^(\S+) v(\S+)/);
+    if (m) members.add(`${m[1]}@${m[2]}`);
   }
 
-  const visited = new Set();
-  /** @type {string[]} */
-  const queue = [resolveRoot];
+  const metadata = JSON.parse(
+    run([
+      "metadata",
+      "--format-version",
+      "1",
+      "--locked",
+      "--manifest-path",
+      manifest,
+    ]),
+  );
 
-  while (queue.length > 0) {
-    const id = queue.pop();
-    if (!id || visited.has(id)) continue;
-    visited.add(id);
-    const node = nodes.get(id);
-    const pkg = pkgById.get(id);
-    if (!pkg) continue;
-
+  /** @type {BundlePackage[]} */
+  const packages = [];
+  for (const pkg of metadata.packages) {
+    if (!members.has(`${pkg.name}@${pkg.version}`)) continue;
+    const dir = path.dirname(pkg.manifest_path);
     packages.push({
       name: pkg.name,
       version: pkg.version,
-      license: pkg.license ?? "UNKNOWN",
       ecosystem: "cargo",
+      license:
+        pkg.license ?? (pkg.license_file ? "SEE LICENSE FILE" : "UNKNOWN"),
+      authors: pkg.authors ?? [],
+      repository: pkg.repository ?? undefined,
+      files: readLicenseFiles(
+        dir,
+        pkg.license_file ? [path.basename(pkg.license_file)] : [],
+      ),
     });
-
-    for (const dep of node?.deps ?? []) {
-      queue.push(dep.pkg);
-    }
   }
-
   return packages;
 }
+
+/* --------------------------------- output --------------------------------- */
 
 function dedupe(packages) {
   const map = new Map();
@@ -229,45 +277,88 @@ function dedupe(packages) {
     const key = `${pkg.ecosystem}:${pkg.name}@${pkg.version}`;
     if (!map.has(key)) map.set(key, pkg);
   }
-  return [...map.values()].sort((a, b) => {
-    if (a.ecosystem !== b.ecosystem) {
-      return a.ecosystem.localeCompare(b.ecosystem);
-    }
-    return a.name.localeCompare(b.name) || a.version.localeCompare(b.version);
-  });
+  return [...map.values()].sort(
+    (a, b) =>
+      a.ecosystem.localeCompare(b.ecosystem) ||
+      a.name.localeCompare(b.name) ||
+      a.version.localeCompare(b.version),
+  );
 }
 
+function applyOverrides(packages) {
+  const overrides = readJson(overridesPath);
+  const used = new Set();
+  for (const pkg of packages) {
+    const key = `${pkg.ecosystem}:${pkg.name}`;
+    const override = overrides[key];
+    if (!override) continue;
+    used.add(key);
+    if (override.license) pkg.license = override.license;
+  }
+  const stale = Object.keys(overrides).filter((key) => !used.has(key));
+  return stale;
+}
+
+function loadTemplates() {
+  /** @type {Map<string, string>} */
+  const templates = new Map();
+  for (const file of fs.readdirSync(templatesDir)) {
+    if (!file.endsWith(".txt")) continue;
+    templates.set(
+      file.slice(0, -4),
+      fs.readFileSync(path.join(templatesDir, file), "utf8").trim(),
+    );
+  }
+  return templates;
+}
+
+const SOURCE_NOTICE = `Source code
+-----------
+Spiral is free and open source: https://github.com/brpowell/spiral
+
+The MP3 encoder (LAME 3.100, LGPL-3.0) is statically linked through the
+mp3lame-sys crate, which vendors the LAME source. Because the complete source of
+Spiral is public, the LAME library can be replaced with a modified version and
+the application rebuilt. The Symphonia crates and the other Mozilla Public
+License 2.0 components are used unmodified; their source is available from
+crates.io under the package names and versions listed below.`;
+
 /**
- * @param {NoticePackage[]} packages
+ * @param {BundlePackage[]} packages
+ * @param {ReturnType<typeof buildGroups>["groups"]} groups
  * @param {string} generatedAt
  */
-function formatNoticeText(packages, generatedAt) {
+function formatNoticeText(packages, groups, generatedAt) {
   const lines = [
     "Spiral — third-party open-source notices",
     "",
-    "This file lists production npm packages and Rust crates shipped with Spiral,",
-    "with SPDX license identifiers. Special notices (LAME / LGPL, Fraunhofer FDK AAC,",
-    "Symphonia / MPL) are also shown in the app under About Spiral → Licenses.",
+    "Spiral includes the open-source software listed below. This file reproduces",
+    "each distinct license text once, with the packages that use it and their",
+    "copyright notices. The same information is shown in the app under",
+    "About Spiral -> Licenses.",
     "",
     `Generated: ${generatedAt}`,
     "",
+    SOURCE_NOTICE,
+    "",
+    "Package inventory",
+    "-----------------",
+    "",
   ];
 
-  /** @type {Array<'npm' | 'cargo'>} */
-  const ecosystems = ["npm", "cargo"];
-  for (const ecosystem of ecosystems) {
+  for (const ecosystem of /** @type {const} */ (["npm", "cargo"])) {
     const group = packages.filter((p) => p.ecosystem === ecosystem);
     if (group.length === 0) continue;
     lines.push(
       `=== ${ecosystem === "npm" ? "npm" : "Cargo"} (${group.length}) ===`,
       "",
     );
-    for (const pkg of group) {
+    for (const pkg of group)
       lines.push(`${pkg.name}@${pkg.version} — ${pkg.license}`);
-    }
     lines.push("");
   }
 
+  lines.push("License texts", "-------------", "", renderGroups(groups));
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
@@ -284,7 +375,7 @@ function parseArgs(argv) {
       continue;
     }
     if (arg === "-h" || arg === "--help") {
-      console.log(`Generate src-tauri/NOTICE from production npm + Cargo deps.
+      console.log(`Generate the third-party license bundle from production npm + Cargo deps.
 
 Usage:
   npm run notice:generate
@@ -298,17 +389,53 @@ Usage:
   return { check };
 }
 
-function failStale() {
-  const rel = path.relative(root, outPath);
-  console.error(`${rel} is out of date with the current production npm and Cargo graph.
+function failStale(rels) {
+  console.error(`${rels.join(" and ")} ${rels.length > 1 ? "are" : "is"} out of date with the current production npm and Cargo graph.
 
-Regenerate it and stage the result:
+Regenerate and stage the result:
 
   npm run notice:generate
-  git add ${rel}
+  git add ${rels.join(" ")}
 
 Skim the diff for new GPL, AGPL, or other copyleft licenses before committing.`);
   process.exit(1);
+}
+
+/**
+ * The fdk-aac crates are MIT, but they build the Fraunhofer C library, whose own
+ * license is what has to be reproduced. It lives in the app's assets, so it is
+ * added to the list like any other license rather than shown separately.
+ * @param {import("./lib/license-bundle.mjs").LicenseGroup[]} groups
+ * @param {import("./lib/license-bundle.mjs").BundlePackage[]} packages
+ */
+function addFdkGroup(groups, packages) {
+  const lib = packages.find(
+    (pkg) => pkg.ecosystem === "cargo" && pkg.name === "fdk-aac-sys",
+  );
+  if (!lib) return;
+  groups.push({
+    id: "fraunhofer-fdk-aac-license",
+    title: "Fraunhofer FDK AAC Codec License",
+    kind: "license",
+    text: fs.readFileSync(fdkNoticePath, "utf8").trim(),
+    packages: [
+      {
+        name: lib.name,
+        version: lib.version,
+        ecosystem: "cargo",
+        copyright: [
+          "Copyright 1995 - 2018 Fraunhofer-Gesellschaft zur Förderung der angewandten Forschung e.V.",
+        ],
+        synthesized: false,
+      },
+    ],
+  });
+  groups.sort(
+    (a, b) =>
+      (a.kind === b.kind ? 0 : a.kind === "license" ? -1 : 1) ||
+      b.packages.length - a.packages.length ||
+      a.title.localeCompare(b.title),
+  );
 }
 
 function main() {
@@ -317,24 +444,61 @@ function main() {
     ...collectNpmPackages(),
     ...collectCargoPackages(),
   ]).filter((pkg) => !isIgnored(pkg.name, pkg.ecosystem));
-  const generatedAt = new Date().toISOString();
-  const text = formatNoticeText(packages, generatedAt);
+
+  const staleOverrides = applyOverrides(packages);
+  if (staleOverrides.length > 0) {
+    console.error(
+      `scripts/license-overrides.json has entries for packages that are no longer shipped: ${staleOverrides.join(", ")}`,
+    );
+    process.exit(1);
+  }
+
+  const { groups, unresolved } = buildGroups(packages, loadTemplates());
+  addFdkGroup(groups, packages);
+  if (unresolved.length > 0) {
+    console.error(
+      `Could not find a license text for ${unresolved.length} package(s):\n`,
+    );
+    for (const line of unresolved) console.error(`  ${line}`);
+    console.error(`
+Add a canonical text to scripts/license-templates/<SPDX-id>.txt, or correct the
+package's license in scripts/license-overrides.json.`);
+    process.exit(1);
+  }
+
+  const text = formatNoticeText(packages, groups, new Date().toISOString());
+  const uiJson = `${JSON.stringify(toUiData(groups))}\n`;
   const rel = path.relative(root, outPath);
+  const uiRel = path.relative(root, uiOutPath);
 
   if (check) {
-    if (!fs.existsSync(outPath)) {
-      failStale();
+    const stale = [];
+    if (
+      !fs.existsSync(outPath) ||
+      normalizeNotice(fs.readFileSync(outPath, "utf8")) !==
+        normalizeNotice(text)
+    ) {
+      stale.push(rel);
     }
-    const existing = fs.readFileSync(outPath, "utf8");
-    if (normalizeNotice(existing) !== normalizeNotice(text)) {
-      failStale();
+    if (
+      !fs.existsSync(uiOutPath) ||
+      fs.readFileSync(uiOutPath, "utf8") !== uiJson
+    ) {
+      stale.push(uiRel);
     }
-    console.log(`${rel} is up to date (${packages.length} packages)`);
+    if (stale.length > 0) failStale([rel, uiRel]);
+    console.log(
+      `${rel} and ${uiRel} are up to date (${packages.length} packages, ${groups.length} license texts)`,
+    );
     return;
   }
 
   fs.writeFileSync(outPath, text);
-  console.log(`Wrote ${packages.length} packages to ${rel}`);
+  fs.mkdirSync(path.dirname(uiOutPath), { recursive: true });
+  fs.writeFileSync(uiOutPath, uiJson);
+  console.log(
+    `Wrote ${packages.length} packages in ${groups.length} license texts to ${rel} and ${uiRel}`,
+  );
 }
 
 main();

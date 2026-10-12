@@ -1,0 +1,6 @@
+{
+  "npm:exif-parser": {
+    "license": "MIT",
+    "reason": "package.json has no license field; the shipped LICENSE.md is the MIT license."
+  }
+}
