@@ -1,0 +1,54 @@
+name: Bug report
+description: Something in Spiral, the registry, or the pack format is not working
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. If it is a security problem, please do not file it here; see [SECURITY.md](https://github.com/brpowell/spiral/blob/main/SECURITY.md).
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Desktop app
+        - Registry (apps/registry)
+        - Pack format (libs/spk-format)
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: App version (Spiral menu, About), or the commit for the registry and format library.
+      placeholder: "0.2.4"
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system
+      description: For the desktop app, include the CPU type if you know it (Apple Silicon, Intel, x86_64, ARM).
+      placeholder: "macOS 15, Apple Silicon"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Anything that helps. Please remove personal information such as file paths you would rather not share.
