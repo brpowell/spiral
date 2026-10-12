@@ -358,17 +358,7 @@ function formatNoticeText(packages, groups, generatedAt) {
     lines.push("");
   }
 
-  lines.push(
-    "Fraunhofer FDK AAC",
-    "------------------",
-    "",
-    fs.readFileSync(fdkNoticePath, "utf8").trim(),
-    "",
-    "License texts",
-    "-------------",
-    "",
-    renderGroups(groups),
-  );
+  lines.push("License texts", "-------------", "", renderGroups(groups));
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
@@ -411,6 +401,43 @@ Skim the diff for new GPL, AGPL, or other copyleft licenses before committing.`)
   process.exit(1);
 }
 
+/**
+ * The fdk-aac crates are MIT, but they build the Fraunhofer C library, whose own
+ * license is what has to be reproduced. It lives in the app's assets, so it is
+ * added to the list like any other license rather than shown separately.
+ * @param {import("./lib/license-bundle.mjs").LicenseGroup[]} groups
+ * @param {import("./lib/license-bundle.mjs").BundlePackage[]} packages
+ */
+function addFdkGroup(groups, packages) {
+  const lib = packages.find(
+    (pkg) => pkg.ecosystem === "cargo" && pkg.name === "fdk-aac-sys",
+  );
+  if (!lib) return;
+  groups.push({
+    id: "fraunhofer-fdk-aac-license",
+    title: "Fraunhofer FDK AAC Codec License",
+    kind: "license",
+    text: fs.readFileSync(fdkNoticePath, "utf8").trim(),
+    packages: [
+      {
+        name: lib.name,
+        version: lib.version,
+        ecosystem: "cargo",
+        copyright: [
+          "Copyright 1995 - 2018 Fraunhofer-Gesellschaft zur Förderung der angewandten Forschung e.V.",
+        ],
+        synthesized: false,
+      },
+    ],
+  });
+  groups.sort(
+    (a, b) =>
+      (a.kind === b.kind ? 0 : a.kind === "license" ? -1 : 1) ||
+      b.packages.length - a.packages.length ||
+      a.title.localeCompare(b.title),
+  );
+}
+
 function main() {
   const { check } = parseArgs(process.argv.slice(2));
   const packages = dedupe([
@@ -427,6 +454,7 @@ function main() {
   }
 
   const { groups, unresolved } = buildGroups(packages, loadTemplates());
+  addFdkGroup(groups, packages);
   if (unresolved.length > 0) {
     console.error(
       `Could not find a license text for ${unresolved.length} package(s):\n`,

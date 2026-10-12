@@ -47,17 +47,6 @@
     }
   },
   "licenses": {
-    "special": {
-      "lame": {
-        "title": "LAME (libmp3lame)"
-      },
-      "fdk": {
-        "title": "Fraunhofer FDK AAC"
-      },
-      "symphonia": {
-        "title": "Symphonia"
-      }
-    },
     "openSource": {
       "title": "Open-source software",
       "intro": "Spiral is built on the open-source packages below. Each license text is shown once, with the packages that use it and their copyright notices.",
