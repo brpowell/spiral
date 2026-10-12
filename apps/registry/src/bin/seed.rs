@@ -1,12 +1,12 @@
-//! Hand-seed a local SQLite DB + object store for Phase 1 read-path testing.
+//! Seed a local SQLite DB + object store with a demo pack for read-path testing.
 //!
-//! Usage (from repo root, after `cargo build`):
+//! Usage (from `apps/registry`; the defaults write to `./data`):
 //!
 //! ```text
-//! DATABASE_URL=sqlite:data/registry.db?mode=rwc \
-//! STORAGE_LOCAL_PATH=data/objects \
 //! cargo run --bin spk-registry-seed
 //! ```
+//!
+//! Override `DATABASE_URL` / `STORAGE_LOCAL_PATH` to seed somewhere else.
 
 use std::fs;
 use std::io::Write;
