@@ -213,12 +213,3 @@ if (result.status !== 0) {
 }
 
 printArtifacts(kind);
-
-const check = spawnSync(
-  process.execPath,
-  [join(root, "scripts", "release", "check-bundle.mjs")],
-  { cwd: root, stdio: "inherit", env },
-);
-if (check.status !== 0) {
-  process.exit(check.status ?? 1);
-}

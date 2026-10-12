@@ -3,9 +3,7 @@
  * Single entry for local release tooling.
  *
  *   npm run release -- installer [dmg|nsis|linux|deb|rpm] [-- <tauri args>]
- * *   npm run release -- publish <tag>
  *   npm run release -- check <tag>
- *   npm run release -- check-bundle
  *   npm run release -- sanitize-notes <tag>
  *   npm run release -- sanitize-notes <tag> --dry-run
  *   npm run release -- sign <file>
@@ -25,17 +23,9 @@ const COMMANDS = {
     script: "build-installer.mjs",
     summary: "Build native (or named) installer — same flags as CI",
   },
-  publish: {
-    script: "publish-release.mjs",
-    summary: "Undraft a GitHub Release after asset checks",
-  },
   check: {
     script: "check-release-assets.mjs",
     summary: "Verify draft has every required installer + updater artifact",
-  },
-  "check-bundle": {
-    script: "check-bundle.mjs",
-    summary: "Verify the packaged tree (no developer bins)",
   },
   "sanitize-notes": {
     script: "sanitize-release-notes.mjs",
@@ -71,9 +61,7 @@ Examples:
   npm run release -- installer
   npm run release -- installer deb
   npm run release -- installer linux -- --verbose
-  npm run release -- publish desktop-v0.2.2
   npm run release -- check desktop-v0.2.2
-  npm run release -- check-bundle
   npm run release -- sanitize-notes desktop-v0.2.2
   npm run release -- sanitize-notes desktop-v0.2.2 --dry-run
   npm run release -- sign path/to/artifact

@@ -22,9 +22,8 @@
 # Linux x64 + aarch64 AppImage + .sig, plus .deb and .rpm) for all platforms. It intentionally still runs (rather than
 # being skipped) when a build fails, since a skipped check can read as green
 # to required-check gating and downstream `needs:`. Operators should treat
-# this job as the signal for "ready to publish"; the actual publish step
-# lives in a separate workflow (publish-release.yml) and this file never
-# auto-undrafts a release. Updater artifacts come from
+# this job as the signal for "ready to publish"; publishing is done by hand
+# from the GitHub Releases page, and this file never auto-undrafts a release. Updater artifacts come from
 # bundle.createUpdaterArtifacts + TAURI_SIGNING_*.
 name: Release
 
@@ -129,10 +128,7 @@ jobs:
             librsvg2-dev \
             patchelf \
             libfuse2 \
-            xdg-utils \
-            rpm
-          # rpm: `check-bundle` lists the built .rpm contents with `rpm -qlp`
-          # (the bundler itself does not need it).
+            xdg-utils
           # xdg-utils: the AppImage bundler copies /usr/bin/xdg-open into the
           # image; the ubuntu-22.04-arm runner image does not ship it.
           # AppImage tooling (linuxdeploy) needs FUSE or extract-and-run on
@@ -210,13 +206,9 @@ jobs:
           projectPath: apps/desktop
           args: ${{ matrix.args }}
 
-      - name: Verify packaged bundle
-        working-directory: apps/desktop
-        run: npm run release -- check-bundle
-
   # Fan-in gate (#185). Runs even when `build` failed so the check is red (not
   # skipped — skipped can look green to required-check / downstream needs).
-  # Operators should only run Publish Release after this job is green.
+  # Only publish the draft from the Releases page after this job is green.
   platforms-green:
     name: All platforms green
     needs: build

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkReleaseAssets } from "./required-release-assets.mjs";
+import { checkReleaseAssets } from "./check-release-assets.mjs";
 
 /** Typical tauri-action filenames for a complete Direct cut. */
 const COMPLETE = [
