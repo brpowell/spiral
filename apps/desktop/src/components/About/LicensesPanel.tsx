@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import fdkNotice from "../../assets/licenses/FDK-AAC-NOTICE.txt?raw";
 import lgplText from "../../assets/licenses/LGPL-3.0.txt?raw";
 import mplText from "../../assets/licenses/MPL-2.0.txt?raw";
+import { ThirdPartyLicenses } from "./ThirdPartyLicenses";
 
 interface SpecialNotice {
   id: "lame" | "fdk" | "symphonia";
@@ -56,6 +57,9 @@ export function LicensesPanel() {
           </section>
         ))}
       </article>
+      <div className="about-licenses-doc__section--ruled">
+        <ThirdPartyLicenses />
+      </div>
     </div>
   );
 }

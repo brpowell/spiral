@@ -178,3 +178,94 @@
   white-space: pre-wrap;
   color: var(--color-text-secondary);
 }
+
+.about-licenses-oss__intro {
+  margin: 0 0 0.85rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.about-licenses-oss__status {
+  margin: 0.5rem 0;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.about-licenses-oss__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.about-licenses-oss__search {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 0.6rem;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--color-text-primary);
+  background: var(--fill-page);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.about-licenses-oss__total {
+  flex: none;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.about-licenses-oss__group {
+  border-top: 1px solid var(--color-border);
+}
+
+.about-licenses-oss__summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.about-licenses-oss__count {
+  flex: none;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.about-licenses-oss__detail {
+  padding-bottom: 1rem;
+}
+
+.about-licenses-oss__packages {
+  max-height: 14rem;
+  margin: 0 0 0.85rem;
+  padding: 0.5rem 0.65rem;
+  overflow-y: auto;
+  list-style: none;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.about-licenses-oss__package {
+  display: flex;
+  flex-direction: column;
+  padding: 0.15rem 0;
+}
+
+.about-licenses-oss__package-name {
+  font-weight: 600;
+}
+
+.about-licenses-oss__copyright {
+  color: var(--color-text-secondary);
+}

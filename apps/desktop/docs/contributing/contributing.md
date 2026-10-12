@@ -19,11 +19,11 @@ npm run lint:fix          # ESLint with autofix
 npm run format            # Prettier write + rustfmt write
 npm run format:check      # Prettier check (not required in CI yet)
 npm run format:rust       # rustfmt write
-npm run notice:check      # Fail if src-tauri/NOTICE is stale vs lockfiles
-npm run notice:generate   # Rewrite src-tauri/NOTICE from production npm + Cargo
+npm run notice:check      # Fail if the third-party license bundle is stale vs lockfiles
+npm run notice:generate   # Rewrite src-tauri/NOTICE and src/assets/licenses/third-party.json (About > Licenses) from production npm + Cargo
 ```
 
-A Husky `pre-commit` hook runs [lint-staged](https://github.com/lint-staged/lint-staged) so only staged files are linted/formatted (Prettier/ESLint for frontend, rustfmt for `src-tauri/**/*.rs`), then the full test suite (skipped when the commit only touches docs or workflows: `*.md`, `*.mdc`, `docs/**`, or `.github/workflows/**`). CI’s Tests workflow uses the same paths filter. When lockfiles, `package.json`, `src-tauri/Cargo.toml`, `src-tauri/NOTICE`, or `scripts/generate-notice.mjs` are staged, the hook also runs `npm run notice:check` (CI’s Tests job always does). If that fails: `npm run notice:generate`, `git add src-tauri/NOTICE`, and skim the diff for copyleft. Frontend formatting adoption stays incremental without a repo-wide Prettier reformat; rustfmt is already clean across the crate and is part of `npm run lint`.
+A Husky `pre-commit` hook runs [lint-staged](https://github.com/lint-staged/lint-staged) so only staged files are linted/formatted (Prettier/ESLint for frontend, rustfmt for `src-tauri/**/*.rs`), then the full test suite (skipped when the commit only touches docs or workflows: `*.md`, `*.mdc`, `docs/**`, or `.github/workflows/**`). CI’s Tests workflow uses the same paths filter. When lockfiles, `package.json`, `src-tauri/Cargo.toml`, `src-tauri/NOTICE`, `scripts/generate-notice.mjs`, `scripts/lib/license-bundle.mjs`, or `scripts/license-overrides.json` are staged, the hook also runs `npm run notice:check` (CI’s Tests job always does). If that fails: `npm run notice:generate`, `git add src-tauri/NOTICE src/assets/licenses/third-party.json`, and skim the diff for copyleft. The generator fails if a shipped package has no license text it can reproduce; add a justified entry to `scripts/license-overrides.json` (or a canonical text in `scripts/license-templates/`) rather than skipping it. Frontend formatting adoption stays incremental without a repo-wide Prettier reformat; rustfmt is already clean across the crate and is part of `npm run lint`.
 
 Editor extensions are recommended in `.vscode/extensions.json` (ESLint + Prettier + rust-analyzer). rustfmt ships with the stable Rust toolchain (`rustup component add rustfmt` if a commit fails because it is missing).
 

@@ -57,6 +57,19 @@
       "symphonia": {
         "title": "Symphonia"
       }
+    },
+    "openSource": {
+      "title": "Open-source software",
+      "intro": "Spiral is built on the open-source packages below. Each license text is shown once, with the packages that use it and their copyright notices.",
+      "loading": "Loading licenses…",
+      "loadFailed": "Couldn't load the license list.",
+      "searchLabel": "Search packages",
+      "searchPlaceholder": "Search packages…",
+      "summary_one": "{{count}} package",
+      "summary_other": "{{count}} packages",
+      "usedBy_one": "{{count}} package",
+      "usedBy_other": "{{count}} packages",
+      "noMatches": "No packages match “{{query}}”."
     }
   }
 }
