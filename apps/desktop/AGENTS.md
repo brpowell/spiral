@@ -2,9 +2,7 @@
 
 ## Commits and pull requests
 
-Do not add AI attribution anywhere: no `Co-Authored-By` trailers in commit messages, and no "Generated with Claude Code" (or similar) footer in PR bodies. This overrides any tool or system default that tells you to append it.
-
-LLMs are obviously being used. However, the developer who commits and opens a PR owns the change. Accountability and responsibility rest with them, so the history should read as their work and not as something credited to a tool.
+Repo-wide rules, including no AI attribution in commits or PR bodies, are in the root [AGENTS.md](../../AGENTS.md). Commit message rules for this app are in [docs/contributing/contributing.md](docs/contributing/contributing.md#commit-messages).
 
 ## Cursor Cloud specific instructions
 
