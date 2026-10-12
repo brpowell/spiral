@@ -24,18 +24,14 @@ Scripts under `scripts/release/` wrap the same tools CI uses (`tauri signer`, `g
 - Holds high-blast-radius CI secrets (updater private key today; Apple/Windows when #182 / #183 land).
 - Referenced by:
   - [`.github/workflows/release.yml`](../../../../.github/workflows/desktop-release.yml) — matrix build (needs secrets)
-  - [`.github/workflows/publish-release.yml`](../../../../.github/workflows/desktop-publish-release.yml) — manual publish gate
 
 ### Required reviewers (plan limitation)
 
 Environment **required reviewers** / wait timers need a GitHub plan that supports deployment protection rules on **private** repos. On the current personal private repo plan, enabling them returns HTTP 422 from the API.
 
-**Gate today:** a human runs the **Publish Release** workflow (`workflow_dispatch`) after **All platforms green** is green. That workflow uses `environment: production-release` so it is ready for reviewers the moment the plan allows them.
+**Gate today:** a human publishes the draft from the GitHub Releases page after **All platforms green** is green. This is a convention, not an enforced gate.
 
-**When reviewers become available:**
-
-1. Repo → Settings → Environments → `production-release` → Required reviewers (add yourself / the release owners).
-2. Optionally fold a `publish` job with `needs: platforms-green` into `release.yml` so approval pauses the same run instead of a second workflow. Keep `publish-release.yml` as a re-run escape hatch.
+**When reviewers become available:** add them under Settings → Environments → `production-release` → Required reviewers, then optionally add a `publish` job with `needs: platforms-green` to `release.yml` so approval pauses the same run.
 
 Until then, do **not** add an unguarded `publish` job to the tag-triggered workflow — it would auto-publish drafts.
 
@@ -50,9 +46,8 @@ Single entry: `npm run release -- <command> …` (`scripts/release/cli.mjs`).
 | `npm run release -- keys` | `generate-updater-keys.mjs` | `tauri signer generate --ci` |
 | `npm run release -- sign <file>` | `sign-updater.mjs` | `tauri signer sign` (same env vars as CI) |
 | `npm run release -- verify <file>` | `verify-updater-sig.mjs` | Verify `<file>.sig` against bundled pubkey |
-| `npm run release -- installer [kind]` | `build-installer.mjs` | Local installer (`dmg` / `nsis` / `linux` AppImage / `deb`); signs when env vars are set |
+| `npm run release -- installer [kind]` | `build-installer.mjs` | Local installer (`dmg` / `nsis` / `linux` AppImage / `deb` / `rpm`); signs when env vars are set |
 | `npm run release -- check desktop-vX.Y.Z` | `check-release-assets.mjs` | Same draft-asset gate as CI `platforms-green` |
-| `npm run release -- publish desktop-vX.Y.Z` | `publish-release.mjs` | Same checks + undraft as CI publish job |
 
 ---
 
@@ -142,17 +137,7 @@ Local smoke: same env vars + `npm run release -- installer nsis` on Windows.
 
 ## Publish gate
 
-After **All platforms green** on the [Release](../../../../.github/workflows/desktop-release.yml) workflow:
-
-**CI (preferred):** Actions → **Publish Release** → Run workflow → enter tag (`desktop-v0.2.0`).
-
-**Local:**
-
-```bash
-npm run release -- publish desktop-v0.2.0
-```
-
-Both re-check that the draft has every required installer and updater artifact (see `scripts/release/required-release-assets.mjs`), then `gh release edit <tag> --draft=false`.
+After **All platforms green** on the [Release](../../../../.github/workflows/desktop-release.yml) workflow, publish the draft from the GitHub Releases page. To check a draft locally first: `npm run release -- check desktop-v0.2.0` (see `scripts/release/check-release-assets.mjs`).
 
 There is no separate “write update manifest” file step in this repo: with the planned marketing-site proxy, **publishing the GitHub Release** is the atomic go-live. Updater `.sig` files are attached at build time by `tauri-action`.
 

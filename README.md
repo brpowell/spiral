@@ -21,14 +21,14 @@ Packs (`.spk`) are zip archives that add themes, skins, visualizers and sounds t
 
 Download the build for your platform from the [latest release](https://github.com/brpowell/spiral/releases/latest).
 
-- **macOS** (`.dmg`, Apple Silicon and Intel): builds are not yet signed or notarized by Apple, so macOS may say *"Spiral" is damaged and can't be opened.* The file is fine. After dragging Spiral to Applications, clear the download quarantine flag and open it again:
+- **macOS** (`.dmg`, universal for Apple Silicon and Intel): builds are not yet signed or notarized by Apple, so macOS may say *"Spiral" is damaged and can't be opened.* The file is fine. After dragging Spiral to Applications, clear the download quarantine flag and open it again:
 
   ```bash
   xattr -cr /Applications/Spiral.app
   ```
 
-- **Windows** (`-setup.exe`): Windows SmartScreen may warn about an unrecognized app. Choose **More info**, then **Run anyway**.
-- **Linux** (`.AppImage` or `.deb`, x86_64 and aarch64): for the AppImage, `chmod +x` the file and run it.
+- **Windows** (`-setup.exe`, x64 and ARM64): Windows SmartScreen may warn about an unrecognized app. Choose **More info**, then **Run anyway**.
+- **Linux** (`.AppImage`, `.deb` or `.rpm`, x86_64 and aarch64): for the AppImage, `chmod +x` the file and run it. Install the others with `sudo apt install ./Spiral_*.deb` or `sudo dnf install ./Spiral-*.rpm`.
 
 Once installed, Spiral checks for updates itself.
 

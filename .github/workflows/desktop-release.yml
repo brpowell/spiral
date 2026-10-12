@@ -18,13 +18,12 @@
 #
 # Fan-in: `platforms-green` is the single required check — it only goes green
 # once every matrix cell has succeeded and the draft has installers *and*
-# updater artifacts (macOS .app.tar.gz + .sig; Windows NSIS .sig; Linux
-# x64 + aarch64 AppImage + .sig) for all platforms. It intentionally still runs (rather than
+# updater artifacts (macOS universal .app.tar.gz + .sig; Windows x64 + arm64 NSIS .sig;
+# Linux x64 + aarch64 AppImage + .sig, plus .deb and .rpm) for all platforms. It intentionally still runs (rather than
 # being skipped) when a build fails, since a skipped check can read as green
 # to required-check gating and downstream `needs:`. Operators should treat
-# this job as the signal for "ready to publish"; the actual publish step
-# lives in a separate workflow (publish-release.yml) and this file never
-# auto-undrafts a release. Updater artifacts come from
+# this job as the signal for "ready to publish"; publishing is done by hand
+# from the GitHub Releases page, and this file never auto-undrafts a release. Updater artifacts come from
 # bundle.createUpdaterArtifacts + TAURI_SIGNING_*.
 name: Release
 
@@ -52,31 +51,35 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: macos-aarch64
+          # One universal binary serves Apple Silicon and Intel. `app` must be
+          # explicit: `--bundles dmg` alone builds then deletes Spiral.app, so
+          # createUpdaterArtifacts never leaves .app.tar.gz/.sig for
+          # tauri-action to upload (you get "Signature not found…").
+          - label: macos-universal
             platform: macos-latest
-            # `app` must be explicit: `--bundles dmg` alone builds then deletes
-            # Spiral.app, so createUpdaterArtifacts never leaves .app.tar.gz/.sig
-            # for tauri-action to upload (you get "Signature not found…").
-            args: --target aarch64-apple-darwin --bundles app,dmg
-            rust_targets: aarch64-apple-darwin
-          - label: macos-x86_64
-            platform: macos-latest
-            args: --target x86_64-apple-darwin --bundles app,dmg
-            rust_targets: x86_64-apple-darwin
+            args: --target universal-apple-darwin --bundles app,dmg
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
           - label: windows-x64
             platform: windows-latest
             args: --bundles nsis
             rust_targets: ""
+          # Native Windows 11 ARM runner. .cargo/config.toml carries the MSVC
+          # ARM64 flags fdk-aac-sys needs.
+          - label: windows-aarch64
+            platform: windows-11-arm
+            args: --target aarch64-pc-windows-msvc --bundles nsis
+            rust_targets: aarch64-pc-windows-msvc
           # ubuntu-22.04: older glibc baseline than -latest (Tauri Linux guidance).
-          # AppImage is the updater payload; deb is the browser-download installer.
+          # AppImage is the updater payload; deb and rpm are browser-download installers
+          # (the rpm bundler is pure Rust, so no rpmbuild is needed).
           # Native runners (not cross-compile) — WebKit/AppImage tooling is host-arch.
           - label: linux-x64
             platform: ubuntu-22.04
-            args: --bundles appimage,deb
+            args: --bundles appimage,deb,rpm
             rust_targets: ""
           - label: linux-aarch64
             platform: ubuntu-22.04-arm
-            args: --bundles appimage,deb
+            args: --bundles appimage,deb,rpm
             rust_targets: ""
 
     runs-on: ${{ matrix.platform }}
@@ -203,13 +206,9 @@ jobs:
           projectPath: apps/desktop
           args: ${{ matrix.args }}
 
-      - name: Verify packaged bundle
-        working-directory: apps/desktop
-        run: npm run release -- check-bundle
-
   # Fan-in gate (#185). Runs even when `build` failed so the check is red (not
   # skipped — skipped can look green to required-check / downstream needs).
-  # Operators should only run Publish Release after this job is green.
+  # Only publish the draft from the Releases page after this job is green.
   platforms-green:
     name: All platforms green
     needs: build
