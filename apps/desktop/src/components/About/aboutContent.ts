@@ -7,15 +7,13 @@ export interface CreditEntry {
     | "credits.entries.coverArtArchive.role"
     | "credits.entries.wikimediaCommons.role"
     | "credits.entries.wikidata.role"
-    | "credits.entries.lrclib.role"
-    | "credits.entries.lame.role";
+    | "credits.entries.lrclib.role";
   nameKey:
     | "credits.entries.musicbrainz.name"
     | "credits.entries.coverArtArchive.name"
     | "credits.entries.wikimediaCommons.name"
     | "credits.entries.wikidata.name"
-    | "credits.entries.lrclib.name"
-    | "credits.entries.lame.name";
+    | "credits.entries.lrclib.name";
   url: string;
 }
 
@@ -49,12 +47,6 @@ export const CREDIT_ENTRIES: CreditEntry[] = [
     roleKey: "credits.entries.lrclib.role",
     nameKey: "credits.entries.lrclib.name",
     url: "https://lrclib.net",
-  },
-  {
-    id: "lame",
-    roleKey: "credits.entries.lame.role",
-    nameKey: "credits.entries.lame.name",
-    url: "https://lame.sourceforge.io/",
   },
 ];
 

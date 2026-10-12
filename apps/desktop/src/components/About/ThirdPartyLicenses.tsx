@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
+import { SearchField } from "../SearchField/SearchField";
 
 export interface LicensePackage {
   name: string;
@@ -37,11 +39,16 @@ type LoadState =
   | { status: "ready"; data: ThirdPartyLicenseData }
   | { status: "error" };
 
-/** "adler2, aes, ahash +12" — tells apart groups that share a title. */
-function packageHint(group: LicenseGroupData): string {
+/** "adler2, aes, ahash, and 12 more" — tells apart groups that share a title. */
+function packageHint(group: LicenseGroupData, t: TFunction<"about">): string {
   const names = [...new Set(group.packages.map((pkg) => pkg.name))];
   const shown = names.slice(0, 3).join(", ");
-  return names.length > 3 ? `${shown} +${names.length - 3}` : shown;
+  return names.length > 3
+    ? t("licenses.openSource.packageHint", {
+        names: shown,
+        count: names.length - 3,
+      })
+    : shown;
 }
 
 function LicenseGroup({
@@ -84,12 +91,9 @@ function LicenseGroup({
           {group.title}
           {ambiguousTitle ? (
             <span className="about-licenses-oss__group-hint">
-              {packageHint(group)}
+              {packageHint(group, t)}
             </span>
           ) : null}
-        </span>
-        <span className="about-licenses-oss__count">
-          {t("licenses.openSource.usedBy", { count: packages.length })}
         </span>
       </summary>
       {expanded ? (
@@ -191,19 +195,12 @@ export function ThirdPartyLicenses({
       {state.status === "ready" ? (
         <>
           <div className="about-licenses-oss__toolbar">
-            <input
-              type="search"
-              className="about-licenses-oss__search"
+            <SearchField
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={setSearch}
               placeholder={t("licenses.openSource.searchPlaceholder")}
               aria-label={t("licenses.openSource.searchLabel")}
             />
-            <span className="about-licenses-oss__total">
-              {t("licenses.openSource.summary", {
-                count: state.data.packageCount,
-              })}
-            </span>
           </div>
           {anyMatch ? (
             state.data.groups.map((group) => (

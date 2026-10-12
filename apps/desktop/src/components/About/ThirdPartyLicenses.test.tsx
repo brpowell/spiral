@@ -52,7 +52,6 @@ describe("ThirdPartyLicenses", () => {
 
     expect(await screen.findByText("MIT License")).toBeInTheDocument();
     expect(screen.getByText("ISC License")).toBeInTheDocument();
-    expect(screen.getByText("3 packages")).toBeInTheDocument();
     expect(screen.queryByText(/Permission is hereby granted/)).toBeNull();
   });
 
@@ -94,6 +93,20 @@ describe("ThirdPartyLicenses", () => {
     render(<ThirdPartyLicenses loadData={() => Promise.resolve(dup)} />);
     expect(await screen.findByText("left-pad")).toBeInTheDocument();
     expect(screen.getByText("serde")).toBeInTheDocument();
+  });
+
+  it("lists the first three packages and how many more", async () => {
+    const pkg = data.groups[0].packages[0];
+    const many = ["a", "b", "c", "d", "e"].map((name) => ({ ...pkg, name }));
+    const dup: ThirdPartyLicenseData = {
+      packageCount: 6,
+      groups: [
+        { ...data.groups[0], id: "a", packages: many },
+        { ...data.groups[0], id: "b", packages: [pkg] },
+      ],
+    };
+    render(<ThirdPartyLicenses loadData={() => Promise.resolve(dup)} />);
+    expect(await screen.findByText("a, b, c, and 2 more")).toBeInTheDocument();
   });
 
   it("reports when nothing matches", async () => {
