@@ -2,7 +2,7 @@
 /**
  * Publish a draft GitHub Release (flip draft → published).
  *
- * Same checks as the CI publish job: require installers (DMG / NSIS / AppImage)
+ * Same checks as the CI publish job: require installers (DMG / NSIS / AppImage / deb / rpm)
  * and updater artifacts (.app.tar.gz + .sig / NSIS .sig / AppImage .sig)
  * before undrafting. This is the go-live moment for Direct-channel installs
  * once the marketing-site update route reads published releases.

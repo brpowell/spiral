@@ -7,7 +7,8 @@
  *   npm run release -- installer dmg
  *   npm run release -- installer nsis
  *   npm run release -- installer linux        # AppImage (v1 Direct)
- *   npm run release -- installer deb          # deb only (optional later, #333)
+ *   npm run release -- installer deb          # deb only
+ *   npm run release -- installer rpm          # rpm only
  *   npm run release -- installer dmg -- --target aarch64-apple-darwin
  *
  * Extra args after `--` are passed to `tauri build`.
@@ -52,7 +53,7 @@ const BUNDLES = {
     needle: join("bundle", "appimage"),
     matchName: (name) => name.endsWith(".AppImage"),
   },
-  // Optional .deb smoke (#333). Same TMPDIR handling; skips linuxdeploy.
+  // .deb smoke. Same TMPDIR handling; skips linuxdeploy.
   deb: {
     host: "linux",
     hostLabel: "Linux",
@@ -61,13 +62,21 @@ const BUNDLES = {
     needle: join("bundle", "deb"),
     matchName: (name) => name.endsWith(".deb"),
   },
+  rpm: {
+    host: "linux",
+    hostLabel: "Linux",
+    args: ["--bundles", "rpm"],
+    outHint: "target/**/bundle/rpm/",
+    needle: join("bundle", "rpm"),
+    matchName: (name) => name.endsWith(".rpm"),
+  },
 };
 
 function usage(exitCode = 0) {
   console.log(`Build a Spiral installer for the current OS.
 
 Usage:
-  npm run release -- installer [dmg|nsis|linux|deb] [-- <tauri build args>]
+  npm run release -- installer [dmg|nsis|linux|deb|rpm] [-- <tauri build args>]
 
 Defaults to the native installer for this machine (${process.platform}).
 Cross-OS builds are not supported (need a Mac for DMG, Windows for NSIS,
@@ -106,7 +115,7 @@ function parseArgs(argv) {
   const kind = positional[0] ?? nativeKind();
   if (!(kind in BUNDLES)) {
     console.error(
-      `Unknown installer kind: ${kind} (expected dmg, nsis, linux, or deb)`,
+      `Unknown installer kind: ${kind} (expected dmg, nsis, linux, deb, or rpm)`,
     );
     usage(1);
   }
@@ -174,7 +183,7 @@ if (env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD === undefined) {
 }
 if (spec.host === "linux") {
   // linuxdeploy is an AppImage; force extract-and-run when FUSE is missing.
-  if (kind !== "deb" && !env.APPIMAGE_EXTRACT_AND_RUN) {
+  if (kind !== "deb" && kind !== "rpm" && !env.APPIMAGE_EXTRACT_AND_RUN) {
     env.APPIMAGE_EXTRACT_AND_RUN = "1";
   }
   // Prefer disk-backed temp: /tmp may be tmpfs with usrquota (EDQUOT while df shows free).

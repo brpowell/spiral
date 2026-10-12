@@ -65,7 +65,7 @@ function packagedApps(paths) {
   );
 }
 
-function checkDevBins(paths, apps, debs) {
+function checkDevBins(paths, apps, debs, rpms) {
   const bundlePaths = paths.filter(isBundlePath);
   if (bundlePaths.length === 0) {
     fail(`no bundled tree under ${targetRoot} — build an installer first`);
@@ -107,6 +107,15 @@ function checkDevBins(paths, apps, debs) {
     console.log(`ok ${deb} has no developer binaries`);
   }
 
+  for (const rpm of rpms) {
+    const listing = execFileSync("rpm", ["-qlp", rpm], { encoding: "utf8" });
+    const hits = [...DEV_BINS].filter((name) => listing.includes(name));
+    if (hits.length > 0) {
+      fail(`${rpm} contains developer binaries: ${hits.join(", ")}`);
+    }
+    console.log(`ok ${rpm} has no developer binaries`);
+  }
+
   console.log("ok no developer binaries in packaged tree");
 }
 
@@ -117,4 +126,5 @@ if (!existsSync(targetRoot)) {
 const paths = walk(targetRoot);
 const apps = packagedApps(paths);
 const debs = paths.filter((p) => p.endsWith(".deb"));
-checkDevBins(paths, apps, debs);
+const rpms = paths.filter((p) => p.endsWith(".rpm"));
+checkDevBins(paths, apps, debs, rpms);

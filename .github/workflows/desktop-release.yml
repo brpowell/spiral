@@ -18,8 +18,8 @@
 #
 # Fan-in: `platforms-green` is the single required check — it only goes green
 # once every matrix cell has succeeded and the draft has installers *and*
-# updater artifacts (macOS .app.tar.gz + .sig; Windows NSIS .sig; Linux
-# x64 + aarch64 AppImage + .sig) for all platforms. It intentionally still runs (rather than
+# updater artifacts (macOS .app.tar.gz + .sig; Windows x64 + arm64 NSIS .sig;
+# Linux x64 + aarch64 AppImage + .sig, plus .deb and .rpm) for all platforms. It intentionally still runs (rather than
 # being skipped) when a build fails, since a skipped check can read as green
 # to required-check gating and downstream `needs:`. Operators should treat
 # this job as the signal for "ready to publish"; the actual publish step
@@ -67,16 +67,23 @@ jobs:
             platform: windows-latest
             args: --bundles nsis
             rust_targets: ""
+          # Native Windows 11 ARM runner. .cargo/config.toml carries the MSVC
+          # ARM64 flags fdk-aac-sys needs.
+          - label: windows-aarch64
+            platform: windows-11-arm
+            args: --target aarch64-pc-windows-msvc --bundles nsis
+            rust_targets: aarch64-pc-windows-msvc
           # ubuntu-22.04: older glibc baseline than -latest (Tauri Linux guidance).
-          # AppImage is the updater payload; deb is the browser-download installer.
+          # AppImage is the updater payload; deb and rpm are browser-download installers
+          # (the rpm bundler is pure Rust, so no rpmbuild is needed).
           # Native runners (not cross-compile) — WebKit/AppImage tooling is host-arch.
           - label: linux-x64
             platform: ubuntu-22.04
-            args: --bundles appimage,deb
+            args: --bundles appimage,deb,rpm
             rust_targets: ""
           - label: linux-aarch64
             platform: ubuntu-22.04-arm
-            args: --bundles appimage,deb
+            args: --bundles appimage,deb,rpm
             rust_targets: ""
 
     runs-on: ${{ matrix.platform }}
@@ -125,7 +132,10 @@ jobs:
             librsvg2-dev \
             patchelf \
             libfuse2 \
-            xdg-utils
+            xdg-utils \
+            rpm
+          # rpm: `check-bundle` lists the built .rpm contents with `rpm -qlp`
+          # (the bundler itself does not need it).
           # xdg-utils: the AppImage bundler copies /usr/bin/xdg-open into the
           # image; the ubuntu-22.04-arm runner image does not ship it.
           # AppImage tooling (linuxdeploy) needs FUSE or extract-and-run on

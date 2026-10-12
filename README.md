@@ -27,8 +27,8 @@ Download the build for your platform from the [latest release](https://github.co
   xattr -cr /Applications/Spiral.app
   ```
 
-- **Windows** (`-setup.exe`): Windows SmartScreen may warn about an unrecognized app. Choose **More info**, then **Run anyway**.
-- **Linux** (`.AppImage` or `.deb`, x86_64 and aarch64): for the AppImage, `chmod +x` the file and run it.
+- **Windows** (`-setup.exe`, x64 and ARM64): Windows SmartScreen may warn about an unrecognized app. Choose **More info**, then **Run anyway**.
+- **Linux** (`.AppImage`, `.deb` or `.rpm`, x86_64 and aarch64): for the AppImage, `chmod +x` the file and run it. Install the others with `sudo apt install ./Spiral_*.deb` or `sudo dnf install ./Spiral-*.rpm`.
 
 Once installed, Spiral checks for updates itself.
 

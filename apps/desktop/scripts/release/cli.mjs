@@ -2,7 +2,7 @@
 /**
  * Single entry for local release tooling.
  *
- *   npm run release -- installer [dmg|nsis|linux|deb] [-- <tauri args>]
+ *   npm run release -- installer [dmg|nsis|linux|deb|rpm] [-- <tauri args>]
  * *   npm run release -- publish <tag>
  *   npm run release -- check <tag>
  *   npm run release -- check-bundle
