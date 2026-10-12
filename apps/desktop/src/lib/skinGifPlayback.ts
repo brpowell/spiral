@@ -43,8 +43,9 @@ function parseLoopCount(gif: ParsedGif): number | null {
     if (!("application" in frame) || !frame.application) continue;
     if (frame.application.id !== "NETSCAPE2.0") continue;
     const blocks = frame.application.blocks;
-    if (blocks.length === 0) return 0;
-    return blocks[0] ?? 0;
+    if (blocks.length < 3) return 0;
+    // blocks is [sub-block id (1), loop count low byte, loop count high byte].
+    return (blocks[1] ?? 0) | ((blocks[2] ?? 0) << 8);
   }
   return null;
 }

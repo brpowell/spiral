@@ -106,10 +106,21 @@ describe("loadSkinGif", () => {
     expect(decoded.loopCount).toBeNull();
   });
 
-  // parseLoopCount currently returns the NETSCAPE sub-block id (always 1)
-  // instead of the little-endian loop count that follows it, so a GIF that
-  // loops forever decodes as loopCount 1. Enable once that is fixed.
-  it.todo("decodes the NETSCAPE loop count (0 = forever, n = repeats)");
+  it.each([0, 3, 255, 300])(
+    "decodes the NETSCAPE loop count %i",
+    async (loopCount) => {
+      const decoded = await decode(
+        encodeGifFixture({
+          width: 2,
+          height: 2,
+          palette: PALETTE,
+          frames: [solidFrame(2, 1, 10), solidFrame(2, 2, 10)],
+          loopCount,
+        }),
+      );
+      expect(decoded.loopCount).toBe(loopCount);
+    },
+  );
 });
 
 describe("compositeGifFramePatch", () => {
