@@ -150,6 +150,8 @@ fly secrets set ADMIN_TOKEN="$(openssl rand -base64 32)" -a spk-registry
 fly tokens create deploy -a spk-registry
 ```
 
+The catalog is SQLite on a single volume, so the app must have exactly one machine. A volume attaches to one machine, and Fly wants a volume for every machine it updates, so if an app already has two (the default for a first deploy), destroy the extra with `fly machines destroy <id>` before deploying. `--ha=false` stops flyctl from creating a second machine.
+
 If Fly's own GitHub integration is enabled for the app, turn it off so a push does not deploy twice.
 
 To deploy by hand from a checkout:
@@ -159,7 +161,7 @@ flyctl auth docker
 image="registry.fly.io/spk-registry:$(git rev-parse --short HEAD)"
 docker build -f apps/registry/Dockerfile -t "$image" .
 docker push "$image"
-flyctl deploy --config apps/registry/fly.toml --image "$image"
+flyctl deploy --config apps/registry/fly.toml --image "$image" --ha=false
 ```
 
 Do not run a plain `fly deploy` from this directory. Fly would use `apps/registry` as the build context, which does not contain `libs/spk-format`.
