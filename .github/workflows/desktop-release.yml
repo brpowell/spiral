@@ -18,7 +18,7 @@
 #
 # Fan-in: `platforms-green` is the single required check — it only goes green
 # once every matrix cell has succeeded and the draft has installers *and*
-# updater artifacts (macOS .app.tar.gz + .sig; Windows x64 + arm64 NSIS .sig;
+# updater artifacts (macOS universal .app.tar.gz + .sig; Windows x64 + arm64 NSIS .sig;
 # Linux x64 + aarch64 AppImage + .sig, plus .deb and .rpm) for all platforms. It intentionally still runs (rather than
 # being skipped) when a build fails, since a skipped check can read as green
 # to required-check gating and downstream `needs:`. Operators should treat
@@ -52,17 +52,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: macos-aarch64
+          # One universal binary serves Apple Silicon and Intel. `app` must be
+          # explicit: `--bundles dmg` alone builds then deletes Spiral.app, so
+          # createUpdaterArtifacts never leaves .app.tar.gz/.sig for
+          # tauri-action to upload (you get "Signature not found…").
+          - label: macos-universal
             platform: macos-latest
-            # `app` must be explicit: `--bundles dmg` alone builds then deletes
-            # Spiral.app, so createUpdaterArtifacts never leaves .app.tar.gz/.sig
-            # for tauri-action to upload (you get "Signature not found…").
-            args: --target aarch64-apple-darwin --bundles app,dmg
-            rust_targets: aarch64-apple-darwin
-          - label: macos-x86_64
-            platform: macos-latest
-            args: --target x86_64-apple-darwin --bundles app,dmg
-            rust_targets: x86_64-apple-darwin
+            args: --target universal-apple-darwin --bundles app,dmg
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
           - label: windows-x64
             platform: windows-latest
             args: --bundles nsis

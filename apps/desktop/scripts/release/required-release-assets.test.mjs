@@ -3,8 +3,7 @@ import { checkReleaseAssets } from "./required-release-assets.mjs";
 
 /** Typical tauri-action filenames for a complete Direct cut. */
 const COMPLETE = [
-  "Spiral_0.2.2_aarch64.dmg",
-  "Spiral_0.2.2_x64.dmg",
+  "Spiral_0.2.2_universal.dmg",
   "Spiral_0.2.2_x64-setup.exe",
   "Spiral_0.2.2_arm64-setup.exe",
   "Spiral_0.2.2_amd64.AppImage",
@@ -13,10 +12,8 @@ const COMPLETE = [
   "Spiral_0.2.2_arm64.deb",
   "Spiral-0.2.2-1.x86_64.rpm",
   "Spiral-0.2.2-1.aarch64.rpm",
-  "Spiral_0.2.2_aarch64.app.tar.gz",
-  "Spiral_0.2.2_aarch64.app.tar.gz.sig",
-  "Spiral_0.2.2_x64.app.tar.gz",
-  "Spiral_0.2.2_x64.app.tar.gz.sig",
+  "Spiral_0.2.2_universal.app.tar.gz",
+  "Spiral_0.2.2_universal.app.tar.gz.sig",
   "Spiral_0.2.2_x64-setup.exe.sig",
   "Spiral_0.2.2_arm64-setup.exe.sig",
   "Spiral_0.2.2_amd64.AppImage.sig",
@@ -30,6 +27,22 @@ function labelsOf(missing) {
 describe("checkReleaseAssets", () => {
   it("accepts a complete Direct set", () => {
     expect(checkReleaseAssets(COMPLETE)).toEqual({ ok: true });
+  });
+
+  it("requires the universal macOS build, not per-arch ones", () => {
+    const perArch = COMPLETE.filter((n) => !n.includes("_universal")).concat([
+      "Spiral_0.2.2_aarch64.dmg",
+      "Spiral_0.2.2_x64.dmg",
+      "Spiral_0.2.2_aarch64.app.tar.gz",
+      "Spiral_0.2.2_aarch64.app.tar.gz.sig",
+    ]);
+    const result = checkReleaseAssets(perArch);
+    expect(result.ok).toBe(false);
+    expect(labelsOf(result.missing)).toEqual([
+      "macOS universal DMG",
+      "macOS universal updater bundle",
+      "macOS universal updater signature",
+    ]);
   });
 
   it("requires Windows arm64 alongside x64", () => {

@@ -9,7 +9,7 @@
  *   npm run release -- installer linux        # AppImage (v1 Direct)
  *   npm run release -- installer deb          # deb only
  *   npm run release -- installer rpm          # rpm only
- *   npm run release -- installer dmg -- --target aarch64-apple-darwin
+ *   npm run release -- installer dmg -- --target universal-apple-darwin
  *
  * Extra args after `--` are passed to `tauri build`.
  * Apple/Windows code signing is optional. Updater signing env vars

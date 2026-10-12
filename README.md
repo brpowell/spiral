@@ -21,7 +21,7 @@ Packs (`.spk`) are zip archives that add themes, skins, visualizers and sounds t
 
 Download the build for your platform from the [latest release](https://github.com/brpowell/spiral/releases/latest).
 
-- **macOS** (`.dmg`, Apple Silicon and Intel): builds are not yet signed or notarized by Apple, so macOS may say *"Spiral" is damaged and can't be opened.* The file is fine. After dragging Spiral to Applications, clear the download quarantine flag and open it again:
+- **macOS** (`.dmg`, universal for Apple Silicon and Intel): builds are not yet signed or notarized by Apple, so macOS may say *"Spiral" is damaged and can't be opened.* The file is fine. After dragging Spiral to Applications, clear the download quarantine flag and open it again:
 
   ```bash
   xattr -cr /Applications/Spiral.app

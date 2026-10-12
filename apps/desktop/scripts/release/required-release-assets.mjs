@@ -2,6 +2,7 @@
  * Single source of truth for draft-release assets required before publish.
  * Used by `check-release-assets.mjs`, `publish-release.mjs`, and CI gates.
  *
+ * macOS ships a single universal DMG and updater bundle (`_universal`).
  * Linux ships AppImage (download + Tauri updater payload), `.deb` and `.rpm`
  * for x64 and aarch64. Tauri names them `_amd64` / `_aarch64` (AppImage),
  * `_amd64` / `_arm64` (deb) and `.x86_64` / `.aarch64` (rpm). Windows NSIS
@@ -9,8 +10,7 @@
  */
 export const REQUIRED_RELEASE_ASSETS = [
   // Installers (browser download)
-  { pattern: /_aarch64\.dmg$/, label: "macOS aarch64 DMG" },
-  { pattern: /_(x64|x86_64)\.dmg$/, label: "macOS x64 DMG" },
+  { pattern: /_universal\.dmg$/, label: "macOS universal DMG" },
   { pattern: /_x64-setup\.exe$/, label: "Windows x64 NSIS installer" },
   { pattern: /_arm64-setup\.exe$/, label: "Windows arm64 NSIS installer" },
   { pattern: /_amd64\.AppImage$/, label: "Linux x64 AppImage" },
@@ -21,18 +21,13 @@ export const REQUIRED_RELEASE_ASSETS = [
   { pattern: /\.aarch64\.rpm$/, label: "Linux aarch64 .rpm" },
 
   // Updater payloads (in-app auto-update)
-  { pattern: /_aarch64\.app\.tar\.gz$/, label: "macOS aarch64 updater bundle" },
   {
-    pattern: /_aarch64\.app\.tar\.gz\.sig$/,
-    label: "macOS aarch64 updater signature",
+    pattern: /_universal\.app\.tar\.gz$/,
+    label: "macOS universal updater bundle",
   },
   {
-    pattern: /_(x64|x86_64)\.app\.tar\.gz$/,
-    label: "macOS x64 updater bundle",
-  },
-  {
-    pattern: /_(x64|x86_64)\.app\.tar\.gz\.sig$/,
-    label: "macOS x64 updater signature",
+    pattern: /_universal\.app\.tar\.gz\.sig$/,
+    label: "macOS universal updater signature",
   },
   {
     pattern: /_x64-setup\.exe\.sig$/,

@@ -30,7 +30,7 @@ That PR just accumulates. Land as many features/fixes as you want before shippin
 2. Merge it.
 3. release-please creates the `desktop-vX.Y.Z` tag and a **draft** GitHub Release. CI then rewrites **only the draft body** (drop the version/compare header, keep Features / Bug Fixes, strip PR/commit links). `CHANGELOG.md` is left as release-please wrote it. The draft body is what users will see in What's New — wordsmith it freely before Publish if you want; that pass is not re-applied later.
 4. The [Release](../../../../.github/workflows/desktop-release.yml) workflow builds:
-   - macOS arm64 + x64 → `--bundles app,dmg` (DMG installer + updater `.app.tar.gz` / `.sig`; `app` must be explicit or the bundler deletes `Spiral.app` and no updater tarball is left)
+   - macOS universal (`--target universal-apple-darwin`, one binary for Apple Silicon + Intel) → `--bundles app,dmg` (`*_universal.dmg` installer + updater `.app.tar.gz` / `.sig`; `app` must be explicit or the bundler deletes `Spiral.app` and no updater tarball is left)
    - Windows x64 (`windows-latest`) + arm64 (`windows-11-arm`, `--target aarch64-pc-windows-msvc`) → NSIS (`*_x64-setup.exe` / `*_arm64-setup.exe` + `.sig`; NSIS is also the updater payload)
    - Linux x64 (`ubuntu-22.04`) + aarch64 (`ubuntu-22.04-arm`) → `--bundles appimage,deb,rpm` (AppImage is the updater payload — Tauri `.AppImage` + `.sig`; `.deb` and `.rpm` are browser-download installers). All of them gate publishing.
 5. The **All platforms green** job (`platforms-green`) only passes when every matrix cell succeeded **and** the draft has installers **and** updater signatures for every platform. Treat the draft as ready only when that check is green — a partial matrix never counts. Asset expectations live in [`scripts/release/required-release-assets.mjs`](../../scripts/release/required-release-assets.mjs). Updater artifacts require `bundle.createUpdaterArtifacts` and `TAURI_SIGNING_PRIVATE_KEY` on the `production-release` environment.
@@ -58,7 +58,7 @@ One npm script, subcommands via `--`:
 npm run release -- installer              # native for this OS (dmg / nsis / linux AppImage)
 npm run release -- installer deb          # Linux .deb only
 npm run release -- installer rpm          # Linux .rpm only
-npm run release -- installer dmg -- --target aarch64-apple-darwin
+npm run release -- installer dmg -- --target universal-apple-darwin
 npm run release -- publish desktop-v0.2.0
 npm run release -- check desktop-v0.2.0
 npm run release -- check-bundle           # local packaged tree (no extra bins)
