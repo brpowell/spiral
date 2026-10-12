@@ -92,7 +92,30 @@ fn print_startup_banner(config: &Config) {
     eprintln!();
 }
 
+/// Resolve on Ctrl+C (SIGINT) or, on Unix, SIGTERM. Container runtimes and
+/// platforms such as Fly.io stop a process with SIGTERM or SIGINT, and as PID 1
+/// a process that ignores SIGTERM is killed after the grace period instead of
+/// finishing in-flight downloads and closing the database cleanly.
 async fn shutdown_signal() {
-    let _ = tokio::signal::ctrl_c().await;
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+        match signal(SignalKind::terminate()) {
+            Ok(mut term) => {
+                tokio::select! {
+                    _ = tokio::signal::ctrl_c() => {}
+                    _ = term.recv() => {}
+                }
+            }
+            Err(error) => {
+                tracing::warn!(%error, "could not install SIGTERM handler; handling Ctrl+C only");
+                let _ = tokio::signal::ctrl_c().await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
     tracing::info!("shutdown signal received");
 }

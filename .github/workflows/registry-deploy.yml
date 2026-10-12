@@ -1,0 +1,66 @@
+name: Registry deploy
+
+# Builds the spk-registry image from the repository root and releases it to
+# Fly.io. Does nothing until the FLY_API_TOKEN repository secret exists, so it is
+# safe to merge before Fly is wired up.
+#
+# If Fly's own GitHub integration is also enabled for this app, turn it off to
+# avoid deploying twice.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/registry/**"
+      - "libs/spk-format/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".dockerignore"
+      - ".github/workflows/registry-deploy.yml"
+  workflow_dispatch:
+
+# One deploy at a time; a newer push waits rather than cancelling a running one.
+concurrency:
+  group: registry-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  FLY_APP: spk-registry
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - name: Check Fly is configured
+        id: gate
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "FLY_API_TOKEN is not set; skipping deploy."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.enabled == 'true'
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: steps.gate.outputs.enabled == 'true'
+
+      - name: Build and push the image
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          flyctl auth docker
+          image="registry.fly.io/${FLY_APP}:${GITHUB_SHA}"
+          docker build -f apps/registry/Dockerfile -t "$image" .
+          docker push "$image"
+          echo "IMAGE=$image" >> "$GITHUB_ENV"
+
+      - name: Deploy
+        if: steps.gate.outputs.enabled == 'true'
+        run: flyctl deploy --config apps/registry/fly.toml --image "$IMAGE" --app "$FLY_APP"

@@ -1,15 +1,32 @@
-# fly.toml app configuration file generated for spk-registry on 2026-08-13T20:30:40Z
+# Fly.io config for the official spk-registry deployment.
+# https://fly.io/docs/reference/configuration/
 #
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+# Deploys come from CI (.github/workflows/registry-deploy.yml), which builds the
+# image from the repository root (the registry depends on libs/spk-format) and
+# releases it with:
 #
+#   flyctl deploy --config apps/registry/fly.toml --image registry.fly.io/spk-registry:<sha>
+#
+# To deploy by hand from a checkout, build and push the same way (see the
+# "Deploying to Fly.io" section of apps/registry/README.md). Do not run a plain
+# `fly deploy` from this directory: the build context would not include
+# libs/spk-format.
 
 app = 'spk-registry'
 primary_region = 'iad'
 
-[build]
-
+# The image defaults to BIND_ADDR=0.0.0.0:8080 and keeps its catalog and pack
+# files under /data. Secrets (ADMIN_TOKEN) are set with `fly secrets set`, never here.
 [env]
   BIND_ADDR = '0.0.0.0:8080'
+
+# Catalog (SQLite) and pack files live on this volume, so they survive deploys
+# and restarts. Create it once before the first deploy:
+#   fly volumes create registry_data --region iad --size 1 -a spk-registry
+# A volume attaches to one machine, which matches the single-instance design.
+[mounts]
+  source = 'registry_data'
+  destination = '/data'
 
 [http_service]
   internal_port = 8080
@@ -27,8 +44,16 @@ primary_region = 'iad'
   [http_service.http_options.response.headers]
     Strict-Transport-Security = 'max-age=31536000; includeSubDomains'
 
+  [[http_service.checks]]
+    grace_period = '10s'
+    interval = '30s'
+    method = 'GET'
+    path = '/v1/meta'
+    timeout = '5s'
+
 [[vm]]
-  memory = '1gb'
+  # 50 MiB uploads are held in memory (and copied once while validating), so
+  # 256 MB is tight for the largest allowed upload.
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 256
