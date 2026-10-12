@@ -7,6 +7,13 @@ if echo "$staged" | grep -qE '^(apps/desktop/|libs/spk-format/|Cargo\.(toml|lock
 
   npx lint-staged
 
+  # Dependencies changed: refresh the third-party license bundle and stage it, so
+  # About > Licenses and src-tauri/NOTICE never drift from the lockfiles.
+  if echo "$staged" | grep -qE '^(apps/desktop/(package\.json|package-lock\.json|src-tauri/Cargo\.toml|scripts/(generate-notice\.mjs|license-overrides\.json|lib/license-bundle\.mjs|license-templates/))|Cargo\.(toml|lock)$)'; then
+    npm run notice:generate
+    git add src-tauri/NOTICE src/assets/licenses/third-party.json
+  fi
+
 
   npm run test
 fi

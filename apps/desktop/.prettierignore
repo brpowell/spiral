@@ -6,3 +6,4 @@ wmp-skins
 tools
 package-lock.json
 *.md
+src/assets/licenses/third-party.json

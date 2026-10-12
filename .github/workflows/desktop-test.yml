@@ -76,6 +76,10 @@ jobs:
         working-directory: apps/desktop
         run: npm run tauri:versions:check
 
+      - name: Check third-party license bundle is up to date
+        working-directory: apps/desktop
+        run: npm run notice:check
+
       - name: Lint
         working-directory: apps/desktop
         run: npm run lint
