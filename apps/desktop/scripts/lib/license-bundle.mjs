@@ -127,7 +127,10 @@ export function licensesToReproduce(expression, available = []) {
 
 /* ------------------------- license text parsing ------------------------- */
 
-const COPYRIGHT_LINE = /^\s*(copyright\b|©|\(c\)\s)/i;
+// "Copyright" starting a line is a notice, unless it is just the next word of
+// wrapped prose ("COPYRIGHT HOLDERS BE LIABLE", "copyright notice and this").
+const COPYRIGHT_LINE =
+  /^\s*(copyright\b(?!\s+(holders?|owners?|notices?|licen[sc]es?|laws?|and|or|in|of|on|to|ownership|interests?|infringement|statutes?)\b)|©|\(c\)\s)/i;
 const ALL_RIGHTS_RESERVED = /^\s*all rights reserved\.?\s*$/i;
 // Placeholders in a license template, not a real copyright line. An email in
 // angle brackets after a name is NOT a placeholder.
@@ -193,9 +196,11 @@ export function normalizeBody(body) {
     .replace(/\s+/g, " ")
     .replace(/"/g, "'");
   const apacheEnd = t.indexOf("end of terms and conditions");
-  if (apacheEnd !== -1)
-    t = t.slice(0, apacheEnd + "end of terms and conditions".length);
-  return t.replace(/[.\s]+$/, "");
+  if (apacheEnd !== -1) t = t.slice(0, apacheEnd);
+  return t
+    .replace(/\((?:[a-z]|[ivx]+|\d+)\)/g, " ") // list labels: (a), (ii), (1)
+    .replace(/[^a-z0-9']+/g, " ")
+    .trim();
 }
 
 /**
@@ -260,7 +265,12 @@ const MIN_UNRECOGNISED_LICENSE_CHARS = 400;
  */
 export function isLicenseText(text) {
   const { body } = splitCopyright(text);
-  if (titleForBody(body, "") !== "") return true;
+  const title = titleForBody(body, "");
+  // The short "Licensed under the Apache License, Version 2.0 ..." header is a
+  // pointer to the terms, not the terms: the full text is reproduced instead.
+  if (title === "Apache License 2.0")
+    return lightNormalize(body).length >= 3000;
+  if (title !== "") return true;
   return lightNormalize(body).length >= MIN_UNRECOGNISED_LICENSE_CHARS;
 }
 

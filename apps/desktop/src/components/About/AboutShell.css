@@ -233,6 +233,13 @@
   cursor: pointer;
 }
 
+.about-licenses-oss__group-hint {
+  margin-left: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
 .about-licenses-oss__count {
   flex: none;
   font-size: 0.72rem;

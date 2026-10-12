@@ -37,12 +37,21 @@ type LoadState =
   | { status: "ready"; data: ThirdPartyLicenseData }
   | { status: "error" };
 
+/** "adler2, aes, ahash +12" — tells apart groups that share a title. */
+function packageHint(group: LicenseGroupData): string {
+  const names = [...new Set(group.packages.map((pkg) => pkg.name))];
+  const shown = names.slice(0, 3).join(", ");
+  return names.length > 3 ? `${shown} +${names.length - 3}` : shown;
+}
+
 function LicenseGroup({
   group,
   query,
+  ambiguousTitle,
 }: {
   group: LicenseGroupData;
   query: string;
+  ambiguousTitle: boolean;
 }) {
   const { t } = useTranslation("about");
   const [open, setOpen] = useState(false);
@@ -71,7 +80,14 @@ function LicenseGroup({
       }}
     >
       <summary className="about-licenses-oss__summary">
-        <span className="about-licenses-oss__group-title">{group.title}</span>
+        <span className="about-licenses-oss__group-title">
+          {group.title}
+          {ambiguousTitle ? (
+            <span className="about-licenses-oss__group-hint">
+              {packageHint(group)}
+            </span>
+          ) : null}
+        </span>
         <span className="about-licenses-oss__count">
           {t("licenses.openSource.usedBy", { count: packages.length })}
         </span>
@@ -128,6 +144,18 @@ export function ThirdPartyLicenses({
 
   const query = search.trim().toLowerCase();
 
+  // Several distinct texts can share a title (e.g. MIT with different extra notes).
+  const repeatedTitles = useMemo(() => {
+    if (state.status !== "ready") return new Set<string>();
+    const seen = new Set<string>();
+    const repeated = new Set<string>();
+    for (const group of state.data.groups) {
+      if (seen.has(group.title)) repeated.add(group.title);
+      seen.add(group.title);
+    }
+    return repeated;
+  }, [state]);
+
   const anyMatch = useMemo(() => {
     if (state.status !== "ready" || query === "") return true;
     return state.data.groups.some((group) =>
@@ -179,7 +207,12 @@ export function ThirdPartyLicenses({
           </div>
           {anyMatch ? (
             state.data.groups.map((group) => (
-              <LicenseGroup key={group.id} group={group} query={query} />
+              <LicenseGroup
+                key={group.id}
+                group={group}
+                query={query}
+                ambiguousTitle={repeatedTitles.has(group.title)}
+              />
             ))
           ) : (
             <p className="about-licenses-oss__status">

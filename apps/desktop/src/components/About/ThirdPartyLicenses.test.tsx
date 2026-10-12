@@ -83,6 +83,19 @@ describe("ThirdPartyLicenses", () => {
     expect(screen.queryByText("left-pad 1.0.0")).toBeNull();
   });
 
+  it("tells apart groups that share a title by their packages", async () => {
+    const dup: ThirdPartyLicenseData = {
+      packageCount: 2,
+      groups: [
+        { ...data.groups[0], id: "a", packages: [data.groups[0].packages[0]] },
+        { ...data.groups[0], id: "b", packages: [data.groups[0].packages[1]] },
+      ],
+    };
+    render(<ThirdPartyLicenses loadData={() => Promise.resolve(dup)} />);
+    expect(await screen.findByText("left-pad")).toBeInTheDocument();
+    expect(screen.getByText("serde")).toBeInTheDocument();
+  });
+
   it("reports when nothing matches", async () => {
     render(<ThirdPartyLicenses loadData={() => Promise.resolve(data)} />);
     await screen.findByText("MIT License");

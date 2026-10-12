@@ -5,7 +5,7 @@ each distinct license text once, with the packages that use it and their
 copyright notices. The same information is shown in the app under
 About Spiral -> Licenses.
 
-Generated: 2026-10-12T13:31:23.723Z
+Generated: 2026-10-12T13:55:49.876Z
 
 Source code
 -----------
@@ -978,7 +978,7 @@ License texts
 -------------
 
 ==============================================================================
-MIT License — used by 752 packages
+MIT License — used by 767 packages
 ==============================================================================
 
 adler2@2.0.1 (cargo)
@@ -991,6 +991,8 @@ aho-corasick@1.1.5 (cargo)
     Copyright (c) 2015 Andrew Gallant
 alac-encoder@0.3.0 (cargo)
     Copyright (c) 2019 Linus Unnebäck
+android_system_properties@0.1.6 (cargo)
+    Copyright (c) 2013 Nicolas Silva
 anyhow@1.0.104 (cargo)
     Authors (from package metadata): David Tolnay
 arbitrary@1.4.2 (cargo)
@@ -1586,6 +1588,16 @@ pbkdf2@0.12.2 (cargo)
     Copyright (c) 2018-2023 The RustCrypto Project Developers
 percent-encoding@2.3.2 (cargo)
     Copyright (c) 2013-2025 The rust-url developers
+phf@0.13.1 (cargo)
+    Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
+phf_codegen@0.13.1 (cargo)
+    Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
+phf_generator@0.13.1 (cargo)
+    Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
+phf_macros@0.13.1 (cargo)
+    Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
+phf_shared@0.13.1 (cargo)
+    Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
 pin-project-lite@0.2.17 (cargo)
 piper@0.2.5 (cargo)
     Authors (from package metadata): Stjepan Glavina, John Nunley
@@ -1692,6 +1704,10 @@ scoped-tls@1.0.1 (cargo)
     Copyright (c) 2014 Alex Crichton
 scopeguard@1.2.0 (cargo)
     Copyright (c) 2016-2019 Ulrik Sverdrup "bluss" and scopeguard developers
+security-framework@3.7.0 (cargo)
+    Copyright (c) 2015 Steven Fackler
+security-framework-sys@2.17.0 (cargo)
+    Copyright (c) 2015 Steven Fackler
 semver@1.0.28 (cargo)
     Authors (from package metadata): David Tolnay
 seq-macro@0.3.6 (cargo)
@@ -1744,6 +1760,8 @@ simd-adler32@0.3.10 (cargo)
     Copyright (c) [2021] [Marvin Countryman]
 simdutf8@0.1.5 (cargo)
     Authors (from package metadata): Hans Kratz
+siphasher@1.0.3 (cargo)
+    Authors (from package metadata): Frank Denis
 slab@0.4.12 (cargo)
     Copyright (c) 2019 Carl Lerche
 smallvec@1.16.0 (cargo)
@@ -1924,6 +1942,8 @@ uuid@1.26.0 (cargo)
     Copyright (c) 2018 Ashley Mannix, Christopher Armstrong, Dylan DPC, Hunar Roop Kahlon
 vcpkg@0.2.15 (cargo)
     Copyright (c) 2017 Jim McGrath
+version_check@0.9.5 (cargo)
+    Copyright (c) 2017-2018 Sergio Benitez
 version-compare@0.2.1 (cargo)
     Copyright (c) 2017 Tim Visée
 vswhom@0.1.0 (cargo)
@@ -1963,6 +1983,12 @@ web_atoms@0.2.6 (cargo)
     Copyright (c) 2014 The html5ever Project Developers
 web-sys@0.3.104 (cargo)
     Copyright (c) 2014 Alex Crichton
+webkit2gtk@2.0.2 (cargo)
+    Copyright (c) 2016 Boucher, Antoni <bouanto@zoho.com>
+    Copyright (c) 2017-2021, The Gtk-rs Project Developers.
+    Copyright (c) 2021, Tauri Programme within The Commons Conservancy
+webkit2gtk-sys@2.0.2 (cargo)
+    Copyright (c) 2016 Boucher, Antoni <bouanto@zoho.com>
 webview2-com@0.38.2 (cargo)
     Copyright held by the authors of webview2-com (https://github.com/wravery/webview2-rs)
 webview2-com-macros@0.8.1 (cargo)
@@ -2210,6 +2236,8 @@ zvariant_utils@4.2.0 (cargo)
     Copyright held by the authors of @tauri-apps/plugin-process (https://github.com/tauri-apps/plugins-workspace)
 @tauri-apps/plugin-updater@2.11.0 (npm)
     Copyright held by the authors of @tauri-apps/plugin-updater (https://github.com/tauri-apps/plugins-workspace)
+@tokenizer/inflate@0.4.1 (npm)
+    Copyright (c) 2024, Borewit
 @tokenizer/token@0.3.0 (npm)
     Authors (from package metadata): Borewit
 @types/debug@4.1.13 (npm)
@@ -2429,6 +2457,8 @@ motion-utils@12.36.0 (npm)
     Copyright (c) 2024 [Motion](https://motion.dev) B.V.
 ms@2.1.3 (npm)
     Copyright (c) 2020 Vercel, Inc.
+nanoid@3.3.18 (npm)
+    Copyright 2017 Andrey Sitnik <andrey@sitnik.ru>
 node-fetch@2.7.0 (npm)
     Copyright (c) 2016 David Frank
 node-vibrant@4.0.4 (npm)
@@ -2440,6 +2470,8 @@ pako@1.0.11 (npm)
     Copyright (C) 2014-2017 by Vitaly Puzrin and Andrei Tuputcyn
 parse-entities@4.0.2 (npm)
     Copyright (c) Titus Wormer <mailto:tituswormer@gmail.com>
+postcss@8.5.25 (npm)
+    Copyright 2013 Andrey Sitnik <andrey@sitnik.es>
 postcss-prefix-selector@2.1.1 (npm)
     Copyright (c) 2015-2017 Jonathan Ong me@jongleberry.com
 property-information@7.2.0 (npm)
@@ -2548,1698 +2580,912 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
-Apache License 2.0 — used by 395 packages
+Apache License 2.0 — used by 398 packages
 ==============================================================================
 
 adler2@2.0.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 aes@0.8.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 ahash@0.8.12 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 alac-encoder@0.3.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2019 Linus Unnebäck
 anyhow@1.0.104 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 arbitrary@1.4.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 arrayvec@0.7.8 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 ascii@1.1.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 async-broadcast@0.7.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2020 Yoshua Wuyts
 async-channel@2.5.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 async-executor@1.14.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 async-fs@2.2.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 async-io@2.6.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 async-lock@3.4.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 async-net@2.0.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 async-process@2.5.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 async-recursion@1.1.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 async-signal@0.2.14 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 async-task@4.7.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 async-trait@0.1.92 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 atomic-waker@1.1.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 autocfg@1.5.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 base64@0.21.7 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 base64@0.22.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 bit-set@0.8.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 bit-vec@0.8.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 bitflags@1.3.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 bitflags@2.13.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 block-buffer@0.10.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 blocking@1.7.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 bumpalo@3.20.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 bzip2@0.5.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 bzip2-sys@0.1.13+1.0.8 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 camino@1.2.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 cargo-platform@0.1.9 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 cc@1.4.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 cfg-expr@0.15.8 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 cfg-if@1.0.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 chunked_transfer@1.5.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 cipher@0.4.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 cocoa@0.24.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 cocoa-foundation@0.1.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 concurrent-queue@2.5.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 const-random@0.1.18 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 const-random-macro@0.1.16 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 constant_time_eq@0.3.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 cookie@0.18.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2017 Sergio Benitez
     Copyright 2014 Alex Chricton
 core-foundation@0.10.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 core-foundation@0.9.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 core-foundation-sys@0.8.7 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 core-graphics@0.22.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 core-graphics@0.25.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 core-graphics-types@0.1.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 core-graphics-types@0.2.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 cpufeatures@0.2.17 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
+    (c) You must retain, in the Source form of any Derivative Works
+crc@3.4.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 crc32fast@1.5.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 crossbeam-channel@0.5.16 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 crossbeam-utils@0.8.22 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 crypto-common@0.1.7 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 ctor@0.8.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 ctor-proc-macro@0.0.7 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 dbus@0.9.12 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2014-2018 David Henningsson <diwic@ubuntu.com> and other contributors
 dbus-crossroads@0.5.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2014-2018 David Henningsson <diwic@ubuntu.com> and other contributors
 deranged@0.5.8 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2024 Jacob Pratt et al.
 derive_arbitrary@1.4.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 digest@0.10.7 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
+    (c) You must retain, in the Source form of any Derivative Works
+dirs@6.0.0 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
+dirs-sys@0.5.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 displaydoc@0.2.7 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 dlv-list@0.5.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 downcast-rs@1.2.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 dpi@0.1.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 dtoa@1.0.11 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 dyn-clone@1.0.20 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 embed_plist@1.2.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 encoding_rs@0.8.35 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 equivalent@1.0.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 erased-serde@0.4.10 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 errno@0.3.14 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 event-listener@5.4.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 event-listener-strategy@0.5.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 fallible-iterator@0.3.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 fallible-streaming-iterator@0.1.9 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 fastrand@2.5.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 fdeflate@0.3.7 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 field-offset@0.3.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 filetime@0.2.29 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 find-msvc-tools@0.1.11 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 flacenc@0.5.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 flate2@1.1.10 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 fnv@1.0.7 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 foreign-types@0.3.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 foreign-types@0.5.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 foreign-types-macros@0.2.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 foreign-types-shared@0.1.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 foreign-types-shared@0.3.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 form_urlencoded@1.2.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 futures-channel@0.3.34 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) 2016 Alex Crichton
     Copyright (c) 2017 The Tokio Authors
 futures-core@0.3.34 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) 2016 Alex Crichton
     Copyright (c) 2017 The Tokio Authors
 futures-executor@0.3.34 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) 2016 Alex Crichton
     Copyright (c) 2017 The Tokio Authors
 futures-io@0.3.34 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) 2016 Alex Crichton
     Copyright (c) 2017 The Tokio Authors
 futures-lite@2.6.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 futures-macro@0.3.34 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) 2016 Alex Crichton
     Copyright (c) 2017 The Tokio Authors
 futures-sink@0.3.34 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) 2016 Alex Crichton
     Copyright (c) 2017 The Tokio Authors
 futures-task@0.3.34 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) 2016 Alex Crichton
     Copyright (c) 2017 The Tokio Authors
 futures-util@0.3.34 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) 2016 Alex Crichton
     Copyright (c) 2017 The Tokio Authors
 gethostname@1.1.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 getrandom@0.2.17 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 getrandom@0.3.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 getrandom@0.4.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 gif@0.14.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 glob@0.3.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 global-hotkey@0.8.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 hash32@0.3.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 hashbrown@0.12.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 hashbrown@0.14.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 hashbrown@0.17.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 hashlink@0.9.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 heapless@0.8.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 heck@0.4.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 heck@0.5.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 hermit-abi@0.5.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 hex@0.4.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 hmac@0.12.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 html5ever@0.38.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 http@1.5.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2017 http-rs authors
 httparse@1.10.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 httpdate@1.0.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 hyper-rustls@0.27.9 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 hyper-tls@0.6.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 iana-time-zone@0.1.65 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2020 Andrew Straw
 iana-time-zone-haiku@0.1.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2020 Andrew Straw
 idna@1.1.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 idna_adapter@1.2.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 image@0.25.10 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 image-webp@0.2.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 indexmap@1.9.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 indexmap@2.14.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 inout@0.1.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 ipnet@2.12.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2017 Juniper Networks, Inc.
 itoa@1.0.18 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 jni@0.21.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 jni-sys@0.3.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 jni-sys@0.4.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 jobserver@0.1.35 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 js-sys@0.3.104 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 json-patch@3.0.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 jsonptr@0.6.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2024 Chance Dinkins
 keyboard-types@0.7.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 lazy_static@1.5.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 libc@0.2.189 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 libdbus-sys@0.2.7 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2014-2018 David Henningsson <diwic@ubuntu.com> and other contributors
 linux-raw-sys@0.12.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 lock_api@0.4.14 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 log@0.4.34 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 lzma-sys@0.1.20 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 markup5ever@0.38.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 md-5@0.10.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 mime@0.3.17 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 miniz_oxide@0.8.9 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 miniz_oxide@0.9.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 moxcms@0.8.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2024 Radzivon Bartoshyk
 mp4ameta@0.13.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2020 Tobias Schmitz
 muda@0.19.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 native-tls@0.2.18 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 num_enum@0.7.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 num_enum_derive@0.7.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 num-conv@0.2.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 num-traits@0.2.19 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 once_cell@1.21.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 openssl@0.10.81 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 openssl-macros@0.1.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 openssl-probe@0.2.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 ordered-stream@0.2.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 osakit@0.3.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 parking@2.2.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 parking_lot@0.12.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 parking_lot_core@0.9.12 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 paste@1.0.15 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 pbkdf2@0.12.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 percent-encoding@2.3.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 pin-project-lite@0.2.17 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 piper@0.2.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 pkg-config@0.3.34 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 png@0.17.16 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 png@0.18.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 polling@3.11.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 pollster@0.4.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 powerfmt@0.2.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2023 Jacob Pratt et al.
 ppv-lite86@0.2.21 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2019 The CryptoCorrosion Contributors
 proc-macro-crate@1.3.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 proc-macro-crate@2.0.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 proc-macro-crate@3.5.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 proc-macro-error@1.0.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2019-2020 CreepySkeleton <creepy-skeleton@yandex.ru>
 proc-macro-error-attr@1.0.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2019-2020 CreepySkeleton <creepy-skeleton@yandex.ru>
 proc-macro2@1.0.107 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 pxfm@0.1.30 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2024 Radzivon Bartoshyk
 quick-error@2.0.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 quote@1.0.47 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 rand@0.9.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 rand_chacha@0.9.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 rand_core@0.9.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 raw-window-handle@0.6.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 regex@1.13.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 regex-automata@0.4.18 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 regex-syntax@0.8.11 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 reqwest@0.12.28 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2016 Sean McArthur
 reqwest@0.13.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2016 Sean McArthur
 ring@0.17.14 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) 2009 The Go Authors. All rights reserved.
-    copyright notice, this list of conditions and the following disclaimer
     Copyright 2015 The Chromium Authors. All rights reserved.
-    copyright notice, this list of conditions and the following disclaimer
 rustc_version@0.4.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 rustc-hash@2.1.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 rustix@1.1.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 rustls@0.23.45 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 rustls-native-certs@0.8.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 rustls-pki-types@1.15.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2023 Dirkjan Ochtman
 rustls-platform-verifier@0.7.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 rustversion@1.0.23 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 ryu@1.0.23 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 scoped-tls@1.0.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 scopeguard@1.2.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 security-framework@3.7.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 security-framework-sys@2.17.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 semver@1.0.28 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 seq-macro@0.3.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 serde@1.0.229 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 serde_core@1.0.229 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 serde_derive@1.0.229 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 serde_derive_internals@0.29.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 serde_json@1.0.151 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 serde_repr@0.1.21 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 serde_spanned@0.6.9 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 serde_spanned@1.1.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 serde_urlencoded@0.7.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 serde_with@3.22.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 serde_with_macros@3.22.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 serde-untagged@0.1.9 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 serialize-to-javascript@0.1.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 serialize-to-javascript-impl@0.1.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 servo_arc@0.4.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 sha1@0.10.7 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 sha2@0.10.9 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 signal-hook-registry@1.4.8 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 simd_cesu8@1.2.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 simdutf8@0.1.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 smallvec@1.16.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 socket2@0.6.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 softbuffer@0.4.8 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2022 Kirill Chibisov
 stable_deref_trait@1.2.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 string_cache@0.9.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 string_cache_codegen@0.6.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 swift-rs@1.0.8 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2023 The swift-rs developers
 syn@1.0.109 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 syn@2.0.119 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 syn@3.0.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 sync_wrapper@1.0.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 system-configuration@0.7.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 system-configuration-sys@0.6.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 system-deps@6.2.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tao@0.35.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tao-macros@0.1.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tar@0.4.46 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 target-lexicon@0.12.16 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri@2.11.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri-build@2.6.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri-codegen@2.6.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri-macros@2.6.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri-plugin-deep-link@2.4.10 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri-plugin-dialog@2.7.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri-plugin-fs@2.5.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri-plugin-global-shortcut@2.3.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri-plugin-opener@2.5.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri-plugin-process@2.3.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri-plugin-single-instance@2.4.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri-plugin-updater@2.11.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri-runtime@2.11.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri-runtime-wry@2.11.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tauri-utils@2.9.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tempfile@3.27.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tendril@0.5.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 thiserror@1.0.69 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 thiserror@2.0.20 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 thiserror-impl@1.0.69 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 thiserror-impl@2.0.20 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 time@0.3.55 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 time-core@0.1.9 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 time-macros@0.2.32 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tiny_http@0.12.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 tokio-rustls@0.26.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2017 quininer kel
 toml@0.8.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 toml@0.9.12+spec-1.1.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 toml@1.1.5+spec-1.1.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 toml_datetime@0.6.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 toml_datetime@0.7.5+spec-1.1.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 toml_datetime@1.1.1+spec-1.1.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 toml_edit@0.19.15 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 toml_edit@0.20.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 toml_edit@0.25.13+spec-1.1.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 toml_parser@1.1.3+spec-1.1.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 toml_writer@1.1.2+spec-1.1.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 typeid@1.0.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 typenum@1.20.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2014 Paho Lurie-Gregg
 unicode-ident@1.0.24 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 unicode-segmentation@1.13.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 url@2.5.8 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 utf8_iter@1.0.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 uuid@1.26.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 vcpkg@0.2.15 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 version_check@0.9.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 wasi@0.11.1+wasi-snapshot-preview1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 wasip2@1.0.4+wasi-0.2.12 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 wasm-bindgen@0.2.127 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 wasm-bindgen-futures@0.4.77 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 wasm-bindgen-macro@0.2.127 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 wasm-bindgen-macro-support@0.2.127 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 wasm-bindgen-shared@0.2.127 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 wasm-streams@0.5.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 web_atoms@0.2.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 web-sys@0.3.104 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 weezl@0.1.12 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 winapi@0.3.9 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 window-vibrancy@0.6.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 windows@0.44.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows@0.61.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_aarch64_gnullvm@0.42.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_aarch64_gnullvm@0.48.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_aarch64_gnullvm@0.52.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_aarch64_gnullvm@0.53.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_aarch64_msvc@0.42.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_aarch64_msvc@0.48.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_aarch64_msvc@0.52.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_aarch64_msvc@0.53.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_i686_gnu@0.42.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_i686_gnu@0.48.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_i686_gnu@0.52.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_i686_gnu@0.53.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_i686_gnullvm@0.52.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_i686_gnullvm@0.53.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_i686_msvc@0.42.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_i686_msvc@0.48.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_i686_msvc@0.52.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_i686_msvc@0.53.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_x86_64_gnu@0.42.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_x86_64_gnu@0.48.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_x86_64_gnu@0.52.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_x86_64_gnu@0.53.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_x86_64_gnullvm@0.42.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_x86_64_gnullvm@0.48.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_x86_64_gnullvm@0.52.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_x86_64_gnullvm@0.53.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_x86_64_msvc@0.42.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_x86_64_msvc@0.48.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_x86_64_msvc@0.52.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows_x86_64_msvc@0.53.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-collections@0.2.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-core@0.61.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-core@0.62.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-future@0.2.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-implement@0.60.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-interface@0.59.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-link@0.1.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-link@0.2.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-numerics@0.2.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-registry@0.5.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-registry@0.6.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-result@0.3.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-result@0.4.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-strings@0.4.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-strings@0.5.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-sys@0.45.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-sys@0.48.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-sys@0.52.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-sys@0.59.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-sys@0.60.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-sys@0.61.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-targets@0.42.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-targets@0.48.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-targets@0.52.6 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-targets@0.53.5 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-threading@0.1.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-version@0.1.7 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 wit-bindgen@0.57.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 wry@0.55.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 x11rb@0.13.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 x11rb-protocol@0.13.2 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 xattr@1.6.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 xkeysym@0.2.1 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2022-2023 John Nunley
 xz2@0.1.7 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 zerocopy@0.8.56 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2023 The Fuchsia Authors
 zerocopy-derive@0.8.56 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2023 The Fuchsia Authors
 zeroize@1.9.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 zeroize_derive@1.5.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 zopfli@0.8.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2011 Google Inc.
 zstd-safe@7.2.4 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 zstd-sys@2.0.16+zstd.1.5.7 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 zune-core@0.5.3 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 zune-jpeg@0.5.15 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 @tauri-apps/api@2.11.1 (npm)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 
 ------------------------------------------------------------------------------
@@ -4280,6 +3526,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
    "Work" shall mean the work of authorship, whether in Source or
    Object form, made available under the License, as indicated by a
+   copyright notice that is included in or attached to the work
    (an example is provided in the Appendix below).
 
    "Derivative Works" shall mean any work, whether in Source or Object
@@ -4311,6 +3558,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 2. Grant of Copyright License. Subject to the terms and conditions of
    this License, each Contributor hereby grants to You a perpetual,
    worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+   copyright license to reproduce, prepare Derivative Works of,
    publicly display, publicly perform, sublicense, and distribute the
    Work and such Derivative Works in Source or Object form.
 
@@ -4448,64 +3696,47 @@ Unicode License v3 — used by 18 packages
 ==============================================================================
 
 icu_collections@2.3.0 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 icu_locale_core@2.3.0 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 icu_normalizer@2.3.0 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 icu_normalizer_data@2.3.0 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 icu_properties@2.3.0 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 icu_properties_data@2.3.0 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 icu_provider@2.3.1 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 litemap@0.8.3 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 potential_utf@0.1.6 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 tinystr@0.8.4 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 writeable@0.6.4 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 yoke@0.8.3 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 yoke-derive@0.8.2 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 zerofrom@0.1.8 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 zerofrom-derive@0.1.7 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 zerotrie@0.2.5 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 zerovec@0.11.8 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 zerovec-derive@0.11.6 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 2020-2024 Unicode, Inc.
 
 ------------------------------------------------------------------------------
 
 UNICODE LICENSE V3
 
+COPYRIGHT AND PERMISSION NOTICE
 
 
 NOTICE TO USER: Carefully read the following legal agreement. BY
@@ -4964,71 +4195,46 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 
 ==============================================================================
-MIT License — used by 13 packages
+ISC License — used by 10 packages
 ==============================================================================
 
-android_system_properties@0.1.6 (cargo)
-    Copyright (c) 2013 Nicolas Silva
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-phf@0.13.1 (cargo)
-    Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-phf_codegen@0.13.1 (cargo)
-    Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-phf_generator@0.13.1 (cargo)
-    Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-phf_macros@0.13.1 (cargo)
-    Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-phf_shared@0.13.1 (cargo)
-    Copyright (c) 2014-2022 Steven Fackler, Yuki Okushi
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-security-framework@3.7.0 (cargo)
-    Copyright (c) 2015 Steven Fackler
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-security-framework-sys@2.17.0 (cargo)
-    Copyright (c) 2015 Steven Fackler
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-version_check@0.9.5 (cargo)
-    Copyright (c) 2017-2018 Sergio Benitez
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-webkit2gtk@2.0.2 (cargo)
-    Copyright (c) 2016 Boucher, Antoni <bouanto@zoho.com>
-    Copyright (c) 2017-2021, The Gtk-rs Project Developers.
-    Copyright (c) 2021, Tauri Programme within The Commons Conservancy
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-webkit2gtk-sys@2.0.2 (cargo)
-    Copyright (c) 2016 Boucher, Antoni <bouanto@zoho.com>
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-nanoid@3.3.18 (npm)
-    Copyright 2017 Andrey Sitnik <andrey@sitnik.ru>
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-postcss@8.5.25 (npm)
-    Copyright 2013 Andrey Sitnik <andrey@sitnik.es>
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+hyper-rustls@0.27.9 (cargo)
+    Copyright (c) 2016, Joseph Birr-Pixton <jpixton@gmail.com>
+inotify@0.9.6 (cargo)
+    Copyright (c) Hanno Braun and contributors
+inotify-sys@0.1.8 (cargo)
+    Copyright (c) Hanno Braun and contributors
+libloading@0.8.9 (cargo)
+    Copyright © 2015, Simonas Kazlauskas
+ring@0.17.14 (cargo)
+    Copyright 2015-2025 Brian Smith.
+rustls@0.23.45 (cargo)
+    Copyright (c) 2016, Joseph Birr-Pixton <jpixton@gmail.com>
+rustls-native-certs@0.8.4 (cargo)
+    Copyright (c) 2016, Joseph Birr-Pixton <jpixton@gmail.com>
+@ungap/structured-clone@1.3.3 (npm)
+    Copyright (c) 2021, Andrea Giammarchi, @WebReflection
+picocolors@1.1.1 (npm)
+    Copyright (c) 2021-2024 Oleksii Raspopov, Kostiantyn Denysov, Anton Verinov
+pixelmatch@4.0.2 (npm)
+    Copyright (c) 2015, Mapbox
 
 ------------------------------------------------------------------------------
 
-The MIT License (MIT)
+ISC License (ISC)
 
+Permission to use, copy, modify, and/or distribute this software for
+any purpose with or without fee is hereby granted, provided that the
+above copyright notice and this permission notice appear in all copies.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
+WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
+AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
+DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
+PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
+THIS SOFTWARE.
 
 ==============================================================================
 BSD 3-Clause License — used by 9 packages
@@ -5106,42 +4312,6 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 
 ==============================================================================
-ISC License — used by 7 packages
-==============================================================================
-
-hyper-rustls@0.27.9 (cargo)
-    Copyright (c) 2016, Joseph Birr-Pixton <jpixton@gmail.com>
-inotify@0.9.6 (cargo)
-    Copyright (c) Hanno Braun and contributors
-inotify-sys@0.1.8 (cargo)
-    Copyright (c) Hanno Braun and contributors
-libloading@0.8.9 (cargo)
-    Copyright © 2015, Simonas Kazlauskas
-rustls@0.23.45 (cargo)
-    Copyright (c) 2016, Joseph Birr-Pixton <jpixton@gmail.com>
-rustls-native-certs@0.8.4 (cargo)
-    Copyright (c) 2016, Joseph Birr-Pixton <jpixton@gmail.com>
-pixelmatch@4.0.2 (npm)
-    Copyright (c) 2015, Mapbox
-
-------------------------------------------------------------------------------
-
-ISC License (ISC)
-
-Permission to use, copy, modify, and/or distribute this software for
-any purpose with or without fee is hereby granted, provided that the
-above copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL
-WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE
-AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
-DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
-PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
-THIS SOFTWARE.
-
-==============================================================================
 The Unlicense — used by 7 packages
 ==============================================================================
 
@@ -5185,33 +4355,6 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 
 For more information, please refer to <http://unlicense.org/>
-
-==============================================================================
-BSD Zero Clause License — used by 3 packages
-==============================================================================
-
-ring@0.17.14 (cargo)
-    Copyright 2015-2025 Brian Smith.
-    copyright notice and this permission notice appear in all copies.
-@ungap/structured-clone@1.3.3 (npm)
-    Copyright (c) 2021, Andrea Giammarchi, @WebReflection
-    copyright notice and this permission notice appear in all copies.
-picocolors@1.1.1 (npm)
-    Copyright (c) 2021-2024 Oleksii Raspopov, Kostiantyn Denysov, Anton Verinov
-    copyright notice and this permission notice appear in all copies.
-
-------------------------------------------------------------------------------
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
-SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
-OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
-CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ==============================================================================
 Creative Commons CC0 1.0 — used by 3 packages
@@ -5352,275 +4495,6 @@ express Statement of Purpose.
 Apache License 2.0 — used by 2 packages
 ==============================================================================
 
-android_system_properties@0.1.6 (cargo)
-    Copyright 2016 Nicolas Silva
-shlex@2.0.1 (cargo)
-    Copyright 2015 Nicholas Allegra (comex).
-
-------------------------------------------------------------------------------
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-==============================================================================
-Apache License 2.0 — used by 2 packages
-==============================================================================
-
-atomic-waker@1.1.2 (cargo)
-    Copyright (c) 2016 Alex Crichton
-    Copyright (c) 2017 The Tokio Authors
-    Copyright (c) 2016 Alex Crichton
-    Copyright (c) 2017 The Tokio Authors
-futures-lite@2.6.1 (cargo)
-    Copyright (c) 2016 Alex Crichton
-    Copyright (c) 2017 The Tokio Authors
-    Copyright (c) 2016 Alex Crichton
-    Copyright (c) 2017 The Tokio Authors
-
-------------------------------------------------------------------------------
-
-===============================================================================
-
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-	http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-===============================================================================
-
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-==============================================================================
-Apache License 2.0 — used by 2 packages
-==============================================================================
-
-dirs@6.0.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
-    (c) You must retain, in the Source form of any Derivative Works
-dirs-sys@0.5.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
-    (c) You must retain, in the Source form of any Derivative Works
-
-------------------------------------------------------------------------------
-
-Apache License
-                        Version 2.0, January 2004
-                     http://www.apache.org/licenses/
-
-TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
-
-1. Definitions.
-
-   "License" shall mean the terms and conditions for use, reproduction,
-   and distribution as defined by Sections 1 through 9 of this document.
-
-   "Licensor" shall mean the copyright owner or entity authorized by
-   the copyright owner that is granting the License.
-
-   "Legal Entity" shall mean the union of the acting entity and all
-   other entities that control, are controlled by, or are under common
-   control with that entity. For the purposes of this definition,
-   "control" means (i) the power, direct or indirect, to cause the
-   direction or management of such entity, whether by contract or
-   otherwise, or (ii) ownership of fifty percent (50%) or more of the
-   outstanding shares, or (iii) beneficial ownership of such entity.
-
-   "You" (or "Your") shall mean an individual or Legal Entity
-   exercising permissions granted by this License.
-
-   "Source" form shall mean the preferred form for making modifications,
-   including but not limited to software source code, documentation
-   source, and configuration files.
-
-   "Object" form shall mean any form resulting from mechanical
-   transformation or translation of a Source form, including but
-   not limited to compiled object code, generated documentation,
-   and conversions to other media types.
-
-   "Work" shall mean the work of authorship, whether in Source or
-   Object form, made available under the License, as indicated by a
-   (an example is provided in the Appendix below).
-
-   "Derivative Works" shall mean any work, whether in Source or Object
-   form, that is based on (or derived from) the Work and for which the
-   editorial revisions, annotations, elaborations, or other modifications
-   represent, as a whole, an original work of authorship. For the purposes
-   of this License, Derivative Works shall not include works that remain
-   separable from, or merely link (or bind by name) to the interfaces of,
-   the Work and Derivative Works thereof.
-
-   "Contribution" shall mean any work of authorship, including
-   the original version of the Work and any modifications or additions
-   to that Work or Derivative Works thereof, that is intentionally
-   submitted to Licensor for inclusion in the Work by the copyright owner
-   or by an individual or Legal Entity authorized to submit on behalf of
-   the copyright owner. For the purposes of this definition, "submitted"
-   means any form of electronic, verbal, or written communication sent
-   to the Licensor or its representatives, including but not limited to
-   communication on electronic mailing lists, source code control systems,
-   and issue tracking systems that are managed by, or on behalf of, the
-   Licensor for the purpose of discussing and improving the Work, but
-   excluding communication that is conspicuously marked or otherwise
-   designated in writing by the copyright owner as "Not a Contribution."
-
-   "Contributor" shall mean Licensor and any individual or Legal Entity
-   on behalf of whom a Contribution has been received by Licensor and
-   subsequently incorporated within the Work.
-
-2. Grant of Copyright License. Subject to the terms and conditions of
-   this License, each Contributor hereby grants to You a perpetual,
-   worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-   publicly display, publicly perform, sublicense, and distribute the
-   Work and such Derivative Works in Source or Object form.
-
-3. Grant of Patent License. Subject to the terms and conditions of
-   this License, each Contributor hereby grants to You a perpetual,
-   worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-   (except as stated in this section) patent license to make, have made,
-   use, offer to sell, sell, import, and otherwise transfer the Work,
-   where such license applies only to those patent claims licensable
-   by such Contributor that are necessarily infringed by their
-   Contribution(s) alone or by combination of their Contribution(s)
-   with the Work to which such Contribution(s) was submitted. If You
-   institute patent litigation against any entity (including a
-   cross-claim or counterclaim in a lawsuit) alleging that the Work
-   or a Contribution incorporated within the Work constitutes direct
-   or contributory patent infringement, then any patent licenses
-   granted to You under this License for that Work shall terminate
-   as of the date such litigation is filed.
-
-4. Redistribution. You may reproduce and distribute copies of the
-   Work or Derivative Works thereof in any medium, with or without
-   modifications, and in Source or Object form, provided that You
-   meet the following conditions:
-
-   (a) You must give any other recipients of the Work or
-       Derivative Works a copy of this License; and
-
-   (b) You must cause any modified files to carry prominent notices
-       stating that You changed the files; and
-
-       that You distribute, all copyright, patent, trademark, and
-       attribution notices from the Source form of the Work,
-       excluding those notices that do not pertain to any part of
-       the Derivative Works; and
-
-   (d) If the Work includes a "NOTICE" text file as part of its
-       distribution, then any Derivative Works that You distribute must
-       include a readable copy of the attribution notices contained
-       within such NOTICE file, excluding those notices that do not
-       pertain to any part of the Derivative Works, in at least one
-       of the following places: within a NOTICE text file distributed
-       as part of the Derivative Works; within the Source form or
-       documentation, if provided along with the Derivative Works; or,
-       within a display generated by the Derivative Works, if and
-       wherever such third-party notices normally appear. The contents
-       of the NOTICE file are for informational purposes only and
-       do not modify the License. You may add Your own attribution
-       notices within Derivative Works that You distribute, alongside
-       or as an addendum to the NOTICE text from the Work, provided
-       that such additional attribution notices cannot be construed
-       as modifying the License.
-
-   You may add Your own copyright statement to Your modifications and
-   may provide additional or different license terms and conditions
-   for use, reproduction, or distribution of Your modifications, or
-   for any such Derivative Works as a whole, provided Your use,
-   reproduction, and distribution of the Work otherwise complies with
-   the conditions stated in this License.
-
-5. Submission of Contributions. Unless You explicitly state otherwise,
-   any Contribution intentionally submitted for inclusion in the Work
-   by You to the Licensor shall be under the terms and conditions of
-   this License, without any additional terms or conditions.
-   Notwithstanding the above, nothing herein shall supersede or modify
-   the terms of any separate license agreement you may have executed
-   with Licensor regarding such Contributions.
-
-6. Trademarks. This License does not grant permission to use the trade
-   names, trademarks, service marks, or product names of the Licensor,
-   except as required for reasonable and customary use in describing the
-   origin of the Work and reproducing the content of the NOTICE file.
-
-7. Disclaimer of Warranty. Unless required by applicable law or
-   agreed to in writing, Licensor provides the Work (and each
-   Contributor provides its Contributions) on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-   implied, including, without limitation, any warranties or conditions
-   of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-   PARTICULAR PURPOSE. You are solely responsible for determining the
-   appropriateness of using or redistributing the Work and assume any
-   risks associated with Your exercise of permissions under this License.
-
-8. Limitation of Liability. In no event and under no legal theory,
-   whether in tort (including negligence), contract, or otherwise,
-   unless required by applicable law (such as deliberate and grossly
-   negligent acts) or agreed to in writing, shall any Contributor be
-   liable to You for damages, including any direct, indirect, special,
-   incidental, or consequential damages of any character arising as a
-   result of this License or out of the use or inability to use the
-   Work (including but not limited to damages for loss of goodwill,
-   work stoppage, computer failure or malfunction, or any and all
-   other commercial damages or losses), even if such Contributor
-   has been advised of the possibility of such damages.
-
-9. Accepting Warranty or Additional Liability. While redistributing
-   the Work or Derivative Works thereof, You may choose to offer,
-   and charge a fee for, acceptance of support, warranty, indemnity,
-   or other liability obligations and/or rights consistent with this
-   License. However, in accepting such obligations, You may act only
-   on Your own behalf and on Your sole responsibility, not on behalf
-   of any other Contributor, and only if You agree to indemnify,
-   defend, and hold each Contributor harmless for any liability
-   incurred by, or claims asserted against, such Contributor by reason
-   of your accepting any such warranty or additional liability.
-
-==============================================================================
-Apache License 2.0 — used by 2 packages
-==============================================================================
-
 enumflags2@0.7.12 (cargo)
     Copyright 2017-2023 Maik Klein, Maja Kądziołka
 enumflags2_derive@0.7.12 (cargo)
@@ -5702,10 +4576,8 @@ BSD 2-Clause License — used by 2 packages
 
 zerocopy@0.8.56 (cargo)
     Copyright 2019 The Fuchsia Authors.
-    copyright notice, this list of conditions and the following disclaimer
 zerocopy-derive@0.8.56 (cargo)
     Copyright 2019 The Fuchsia Authors.
-    copyright notice, this list of conditions and the following disclaimer
 
 ------------------------------------------------------------------------------
 
@@ -5716,6 +4588,7 @@ met:
    * Redistributions of source code must retain the above copyright
 notice, this list of conditions and the following disclaimer.
    * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
 in the documentation and/or other materials provided with the
 distribution.
 
@@ -6106,8 +4979,6 @@ Apache License 2.0 — used by 1 package
 
 cargo_toml@0.22.3 (cargo)
     © Kornel Lesiński
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 
 ------------------------------------------------------------------------------
@@ -6148,6 +5019,7 @@ Apache License
 
       "Work" shall mean the work of authorship, whether in Source or
       Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
       (an example is provided in the Appendix below).
 
       "Derivative Works" shall mean any work, whether in Source or Object
@@ -6179,6 +5051,7 @@ Apache License
    2. Grant of Copyright License. Subject to the terms and conditions of
       this License, each Contributor hereby grants to You a perpetual,
       worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
       publicly display, publicly perform, sublicense, and distribute the
       Work and such Derivative Works in Source or Object form.
 
@@ -6316,8 +5189,6 @@ Apache License 2.0 — used by 1 package
 
 chrono@0.4.45 (cargo)
     Copyright (c) 2014, Kang Seonghoon.
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 
 ------------------------------------------------------------------------------
@@ -6394,6 +5265,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
    "Work" shall mean the work of authorship, whether in Source or
    Object form, made available under the License, as indicated by a
+   copyright notice that is included in or attached to the work
    (an example is provided in the Appendix below).
 
    "Derivative Works" shall mean any work, whether in Source or Object
@@ -6425,6 +5297,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 2. Grant of Copyright License. Subject to the terms and conditions of
    this License, each Contributor hereby grants to You a perpetual,
    worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+   copyright license to reproduce, prepare Derivative Works of,
    publicly display, publicly perform, sublicense, and distribute the
    Work and such Derivative Works in Source or Object form.
 
@@ -6562,223 +5435,9 @@ limitations under the License.
 Apache License 2.0 — used by 1 package
 ==============================================================================
 
-crc@3.4.0 (cargo)
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
-    (c) You must retain, in the Source form of any Derivative Works
-
-------------------------------------------------------------------------------
-
-Apache License
-                        Version 2.0 January 2004
-                     http://www.apache.org/licenses/
-
-TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
-
-1. Definitions.
-
-   "License" shall mean the terms and conditions for use, reproduction,
-   and distribution as defined by Sections 1 through 9 of this document.
-
-   "Licensor" shall mean the copyright owner or entity authorized by
-   the copyright owner that is granting the License.
-
-   "Legal Entity" shall mean the union of the acting entity and all
-   other entities that control, are controlled by, or are under common
-   control with that entity. For the purposes of this definition,
-   "control" means (i) the power, direct or indirect, to cause the
-   direction or management of such entity, whether by contract or
-   otherwise, or (ii) ownership of fifty percent (50%) or more of the
-   outstanding shares, or (iii) beneficial ownership of such entity.
-
-   "You" (or "Your") shall mean an individual or Legal Entity
-   exercising permissions granted by this License.
-
-   "Source" form shall mean the preferred form for making modifications,
-   including but not limited to software source code, documentation
-   source, and configuration files.
-
-   "Object" form shall mean any form resulting from mechanical
-   transformation or translation of a Source form, including but
-   not limited to compiled object code, generated documentation,
-   and conversions to other media types.
-
-   "Work" shall mean the work of authorship, whether in Source or
-   Object form, made available under the License, as indicated by a
-   (an example is provided in the Appendix below).
-
-   "Derivative Works" shall mean any work, whether in Source or Object
-   form, that is based on (or derived from) the Work and for which the
-   editorial revisions, annotations, elaborations, or other modifications
-   represent, as a whole, an original work of authorship. For the purposes
-   of this License, Derivative Works shall not include works that remain
-   separable from, or merely link (or bind by name) to the interfaces of,
-   the Work and Derivative Works thereof.
-
-   "Contribution" shall mean any work of authorship, including
-   the original version of the Work and any modifications or additions
-   to that Work or Derivative Works thereof, that is intentionally
-   submitted to Licensor for inclusion in the Work by the copyright owner
-   or by an individual or Legal Entity authorized to submit on behalf of
-   the copyright owner. For the purposes of this definition, "submitted"
-   means any form of electronic, verbal, or written communication sent
-   to the Licensor or its representatives, including but not limited to
-   communication on electronic mailing lists, source code control systems,
-   and issue tracking systems that are managed by, or on behalf of, the
-   Licensor for the purpose of discussing and improving the Work, but
-   excluding communication that is conspicuously marked or otherwise
-   designated in writing by the copyright owner as "Not a Contribution."
-
-   "Contributor" shall mean Licensor and any individual or Legal Entity
-   on behalf of whom a Contribution has been received by Licensor and
-   subsequently incorporated within the Work.
-
-2. Grant of Copyright License. Subject to the terms and conditions of
-   this License, each Contributor hereby grants to You a perpetual,
-   worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-   publicly display, publicly perform, sublicense, and distribute the
-   Work and such Derivative Works in Source or Object form.
-
-3. Grant of Patent License. Subject to the terms and conditions of
-   this License, each Contributor hereby grants to You a perpetual,
-   worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-   (except as stated in this section) patent license to make, have made,
-   use, offer to sell, sell, import, and otherwise transfer the Work,
-   where such license applies only to those patent claims licensable
-   by such Contributor that are necessarily infringed by their
-   Contribution(s) alone or by combination of their Contribution(s)
-   with the Work to which such Contribution(s) was submitted. If You
-   institute patent litigation against any entity (including a
-   cross-claim or counterclaim in a lawsuit) alleging that the Work
-   or a Contribution incorporated within the Work constitutes direct
-   or contributory patent infringement, then any patent licenses
-   granted to You under this License for that Work shall terminate
-   as of the date such litigation is filed.
-
-4. Redistribution. You may reproduce and distribute copies of the
-   Work or Derivative Works thereof in any medium, with or without
-   modifications, and in Source or Object form, provided that You
-   meet the following conditions:
-
-   (a) You must give any other recipients of the Work or
-       Derivative Works a copy of this License; and
-
-   (b) You must cause any modified files to carry prominent notices
-       stating that You changed the files; and
-
-       that You distribute, all copyright, patent, trademark, and
-       attribution notices from the Source form of the Work,
-       excluding those notices that do not pertain to any part of
-       the Derivative Works; and
-
-   (d) If the Work includes a "NOTICE" text file as part of its
-       distribution, then any Derivative Works that You distribute must
-       include a readable copy of the attribution notices contained
-       within such NOTICE file, excluding those notices that do not
-       pertain to any part of the Derivative Works, in at least one
-       of the following places: within a NOTICE text file distributed
-       as part of the Derivative Works; within the Source form or
-       documentation, if provided along with the Derivative Works; or,
-       within a display generated by the Derivative Works, if and
-       wherever such third-party notices normally appear. The contents
-       of the NOTICE file are for informational purposes only and
-       do not modify the License. You may add Your own attribution
-       notices within Derivative Works that You distribute, alongside
-       or as an addendum to the NOTICE text from the Work, provided
-       that such additional attribution notices cannot be construed
-       as modifying the License.
-
-   You may add Your own copyright statement to Your modifications and
-   may provide additional or different license terms and conditions
-   for use, reproduction, or distribution of Your modifications, or
-   for any such Derivative Works as a whole, provided Your use,
-   reproduction, and distribution of the Work otherwise complies with
-   the conditions stated in this License.
-
-5. Submission of Contributions. Unless You explicitly state otherwise,
-   any Contribution intentionally submitted for inclusion in the Work
-   by You to the Licensor shall be under the terms and conditions of
-   this License, without any additional terms or conditions.
-   Notwithstanding the above, nothing herein shall supersede or modify
-   the terms of any separate license agreement you may have executed
-   with Licensor regarding such Contributions.
-
-6. Trademarks. This License does not grant permission to use the trade
-   names, trademarks, service marks, or product names of the Licensor,
-   except as required for reasonable and customary use in describing the
-   origin of the Work and reproducing the content of the NOTICE file.
-
-7. Disclaimer of Warranty. Unless required by applicable law or
-   agreed to in writing, Licensor provides the Work (and each
-   Contributor provides its Contributions) on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-   implied, including, without limitation, any warranties or conditions
-   of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-   PARTICULAR PURPOSE. You are solely responsible for determining the
-   appropriateness of using or redistributing the Work and assume any
-   risks associated with Your exercise of permissions under this License.
-
-8. Limitation of Liability. In no event and under no legal theory,
-   whether in tort (including negligence), contract, or otherwise,
-   unless required by applicable law (such as deliberate and grossly
-   negligent acts) or agreed to in writing, shall any Contributor be
-   liable to You for damages, including any direct, indirect, special,
-   incidental, or consequential damages of any character arising as a
-   result of this License or out of the use or inability to use the
-   Work (including but not limited to damages for loss of goodwill,
-   work stoppage, computer failure or malfunction, or any and all
-   other commercial damages or losses), even if such Contributor
-   has been advised of the possibility of such damages.
-
-9. Accepting Warranty or Additional Liability. While redistributing
-   the Work or Derivative Works thereof, You may choose to offer,
-   and charge a fee for, acceptance of support, warranty, indemnity,
-   or other liability obligations and/or rights consistent with this
-   License. However, in accepting such obligations, You may act only
-   on Your own behalf and on Your sole responsibility, not on behalf
-   of any other Contributor, and only if You agree to indemnify,
-   defend, and hold each Contributor harmless for any liability
-   incurred by, or claims asserted against, such Contributor by reason
-   of your accepting any such warranty or additional liability.
-
-END OF TERMS AND CONDITIONS
-
-APPENDIX: How to apply the Apache License to your work.
-
-   To apply the Apache License to your work, attach the following
-   boilerplate notice, with the fields enclosed by brackets "[]"
-   replaced with your own identifying information. (Don't include
-   the brackets!)  The text should be enclosed in the appropriate
-   comment syntax for the file format. We also recommend that a
-   file or class name and description of purpose be included on the
-   same "printed page" as the copyright notice for easier
-   identification within third-party archives.
-
-Copyright [yyyy] [name of copyright owner]
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-	http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-==============================================================================
-Apache License 2.0 — used by 1 package
-==============================================================================
-
 crossbeam-channel@0.5.16 (cargo)
-    COPYRIGHT AND/OR OTHER APPLICABLE LAW. ANY USE OF THE WORK OTHER THAN AS
     copyright protection under copyright law or other applicable laws.
     Copyright (c) 2009 The Go Authors. All rights reserved.
-    copyright notice, this list of conditions and the following disclaimer
-    copyright notice that is included in or attached to the work
-    copyright license to reproduce, prepare Derivative Works of,
     (c) You must retain, in the Source form of any Derivative Works
 
 ------------------------------------------------------------------------------
@@ -6803,6 +5462,7 @@ License
 
 THE WORK (AS DEFINED BELOW) IS PROVIDED UNDER THE TERMS OF THIS CREATIVE
 COMMONS PUBLIC LICENSE ("CCPL" OR "LICENSE"). THE WORK IS PROTECTED BY
+COPYRIGHT AND/OR OTHER APPLICABLE LAW. ANY USE OF THE WORK OTHER THAN AS
 AUTHORIZED UNDER THIS LICENSE OR COPYRIGHT LAW IS PROHIBITED.
 
 BY EXERCISING ANY RIGHTS TO THE WORK PROVIDED HERE, YOU ACCEPT AND AGREE
@@ -7119,6 +5779,7 @@ met:
    * Redistributions of source code must retain the above copyright
 notice, this list of conditions and the following disclaimer.
    * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
 in the documentation and/or other materials provided with the
 distribution.
    * Neither the name of Google Inc. nor the names of its
@@ -7207,6 +5868,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
    "Work" shall mean the work of authorship, whether in Source or
    Object form, made available under the License, as indicated by a
+   copyright notice that is included in or attached to the work
    (an example is provided in the Appendix below).
 
    "Derivative Works" shall mean any work, whether in Source or Object
@@ -7238,6 +5900,7 @@ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 2. Grant of Copyright License. Subject to the terms and conditions of
    this License, each Contributor hereby grants to You a perpetual,
    worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+   copyright license to reproduce, prepare Derivative Works of,
    publicly display, publicly perform, sublicense, and distribute the
    Work and such Derivative Works in Source or Object form.
 
@@ -7369,81 +6032,6 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
-==============================================================================
-Apache License 2.0 — used by 1 package
-==============================================================================
-
-openssl@0.10.81 (cargo)
-    Copyright 2011-2017 Google Inc.
-
-------------------------------------------------------------------------------
-
-2013 Jack Lloyd
-          2013-2014 Steven Fackler
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-==============================================================================
-Apache License 2.0 — used by 1 package
-==============================================================================
-
-parking@2.2.1 (cargo)
-    Copyright 2014-2020 The Rust Project Developers
-
-------------------------------------------------------------------------------
-
-===============================================================================
-
-
-Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-<LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-option. All files in the project carrying such notice may not be
-copied, modified, or distributed except according to those terms.
-
-==============================================================================
-Apache License 2.0 — used by 1 package
-==============================================================================
-
-rustls-native-certs@0.8.4 (cargo)
-
-------------------------------------------------------------------------------
-
-Rustls is distributed under the following three licenses:
-
-- Apache License version 2.0.
-- MIT license.
-- ISC license.
-
-These are included as LICENSE-APACHE, LICENSE-MIT and LICENSE-ISC
-respectively.  You may use this software under the terms of any
-of these licenses, at your option.
-
-==============================================================================
-Apache License 2.0 — used by 1 package
-==============================================================================
-
-siphasher@1.0.3 (cargo)
-    Copyright 2012-2016 The Rust Project Developers.
-    Copyright 2016-2026 Frank Denis.
-
-------------------------------------------------------------------------------
-
-Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-<LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
-option.
 
 ==============================================================================
 Apache-2.0 AND ISC — used by 1 package
@@ -7591,34 +6179,6 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ==============================================================================
-BSD Zero Clause License — used by 1 package
-==============================================================================
-
-rustls-webpki@0.103.15 (cargo)
-    Copyright 2015 Brian Smith.
-    copyright notice and this permission notice appear in all copies.
-
-------------------------------------------------------------------------------
-
-Except as otherwise noted, this project is licensed under the following
-(ISC-style) terms:
-
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIM ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-The files under third-party/chromium are licensed as described in
-third-party/chromium/LICENSE.
-
-==============================================================================
 CDLA-Permissive-2.0 — used by 1 package
 ==============================================================================
 
@@ -7738,6 +6298,34 @@ For these and/or other purposes and motivations, and without any expectation of 
      c. Affirmer disclaims responsibility for clearing rights of other persons that may apply to the Work or any use thereof, including without limitation any person's Copyright and Related Rights in the Work. Further, Affirmer disclaims responsibility for obtaining any necessary consents, permissions or other rights required for any use of the Work.
 
      d. Affirmer understands and acknowledges that Creative Commons is not a party to this document and has no duty or obligation with respect to this CC0 or use of the Work.
+
+==============================================================================
+ISC License — used by 1 package
+==============================================================================
+
+rustls-webpki@0.103.15 (cargo)
+    Copyright 2015 Brian Smith.
+
+------------------------------------------------------------------------------
+
+Except as otherwise noted, this project is licensed under the following
+(ISC-style) terms:
+
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIM ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+The files under third-party/chromium are licensed as described in
+third-party/chromium/LICENSE.
 
 ==============================================================================
 ISC License — used by 1 package
@@ -7975,7 +6563,6 @@ MIT License — used by 1 package
 
 id3@1.17.1 (cargo)
     Copyright (c) 2014-2017 James Hurst
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 
 ------------------------------------------------------------------------------
 
@@ -7996,6 +6583,7 @@ copies or substantial portions of the Software.
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
 FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
@@ -8103,28 +6691,6 @@ DEALINGS IN THE SOFTWARE.
 MIT License — used by 1 package
 ==============================================================================
 
-@tokenizer/inflate@0.4.1 (npm)
-    Copyright (c) 2024, Borewit
-    COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-
-------------------------------------------------------------------------------
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
-rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
-Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
-WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-==============================================================================
-MIT License — used by 1 package
-==============================================================================
-
 image-q@4.0.0 (npm)
     Copyright (c) 2015 Igor Bezkrovny
     Copyright (c) 1994 Anthony Dekker
@@ -8184,13 +6750,13 @@ Unicode License v3 — used by 1 package
 ==============================================================================
 
 unicode-ident@1.0.24 (cargo)
-    COPYRIGHT AND PERMISSION NOTICE
     Copyright © 1991-2023 Unicode, Inc.
 
 ------------------------------------------------------------------------------
 
 UNICODE LICENSE V3
 
+COPYRIGHT AND PERMISSION NOTICE
 
 
 NOTICE TO USER: Carefully read the following legal agreement. BY
