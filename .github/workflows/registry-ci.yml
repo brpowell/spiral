@@ -7,6 +7,7 @@ on:
       - "libs/spk-format/**"
       - "Cargo.toml"
       - "Cargo.lock"
+      - ".dockerignore"
   push:
     branches: [main]
     paths: *paths
@@ -31,3 +32,42 @@ jobs:
       - run: cargo fmt -p spk-registry -p spk-format -- --check
       - run: cargo clippy -p spk-registry -p spk-format --all-targets -- -D warnings
       - run: cargo test -p spk-registry -p spk-format
+
+  # Builds the production image from the repository root, then checks that it
+  # boots, serves, runs unprivileged, keeps its data on /data, and stops cleanly
+  # on SIGTERM. Catches Dockerfile breakage that cargo test cannot.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -f apps/registry/Dockerfile -t spk-registry:ci .
+      - name: Smoke test
+        run: |
+          set -eu
+          docker run -d --name registry -p 8080:8080 \
+            -e ADMIN_TOKEN="$(openssl rand -base64 32)" \
+            -v registry-data:/data spk-registry:ci
+
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8080/v1/meta >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/v1/meta | tee /dev/stderr | grep -q protocolVersion
+
+          echo "--- runs as an unprivileged user"
+          uid="$(docker exec registry sh -c "awk '/^Uid:/ {print \$2}' /proc/1/status")"
+          echo "uid=$uid"
+          test "$uid" != "0"
+
+          echo "--- keeps its catalog on the /data volume"
+          docker exec registry test -f /data/registry.db
+
+          echo "--- stops cleanly on SIGTERM"
+          docker stop registry >/dev/null
+          code="$(docker inspect -f '{{.State.ExitCode}}' registry)"
+          echo "exit code=$code"
+          test "$code" = "0"
+      - name: Container logs
+        if: failure()
+        run: docker logs registry || true

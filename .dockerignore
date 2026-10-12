@@ -1,0 +1,21 @@
+# Build context for apps/registry/Dockerfile is the repository root.
+# Docker (and flyctl) read this file from the context root; a .dockerignore
+# next to the Dockerfile is ignored for a root-context build.
+
+.git
+.github
+
+# Build output and dependencies
+**/target
+**/node_modules
+
+# Not part of the registry image. The Dockerfile stubs the desktop workspace
+# member so the workspace still resolves.
+apps/desktop
+
+# Local data and secrets
+apps/registry/data
+apps/registry/*.spk
+**/.env
+**/*.db
+**/*.db-*

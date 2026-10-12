@@ -125,19 +125,51 @@ Admin requests authenticate with `Authorization: Bearer <ADMIN_TOKEN>` or `X-Adm
   ```bash
   docker build -f apps/registry/Dockerfile -t spk-registry .
   docker run --rm -p 8080:8080 \
-    -e BIND_ADDR=0.0.0.0:8080 \
     -e ADMIN_TOKEN="$(openssl rand -base64 32)" \
-    -v spk-registry-data:/app/data \
+    -v spk-registry-data:/data \
     spk-registry
   ```
 
-  The image's working directory is `/app`, so the default `data/` paths resolve to `/app/data`.
-- **`fly.toml`** is the maintainers' own deployment config. Use it as a reference or ignore it.
+  The image listens on port 8080 and keeps the catalog and pack files under `/data`, so mount a volume there. It runs as an unprivileged user (`spk`): the entrypoint fixes ownership of the data directory and then drops privileges, so a root-owned volume works. It stops cleanly on SIGTERM. Every variable in the table above can be overridden with `-e`; the image sets `BIND_ADDR`, `DATABASE_URL` and `STORAGE_LOCAL_PATH` to container-friendly defaults.
+- **`fly.toml`** is the maintainers' own Fly.io deployment; see [Deploying to Fly.io](#deploying-to-flyio) if you want to run the same setup.
+
+### Deploying to Fly.io
+
+[`fly.toml`](fly.toml) describes the official deployment, and [`registry-deploy.yml`](../../.github/workflows/registry-deploy.yml) deploys `main` from CI whenever the registry, `spk-format` or the lockfile change. It builds the image from the repository root, pushes it to `registry.fly.io`, and releases it with `flyctl deploy --image`. It does nothing until the `FLY_API_TOKEN` secret exists.
+
+One-time setup for an app (use your own app name in `fly.toml` if you fork this):
+
+```bash
+# 1. A volume for the catalog and pack files (one machine, matching the single-instance design)
+fly volumes create registry_data --region iad --size 1 -a spk-registry
+
+# 2. The admin token (at least 32 bytes). Keep a copy; Fly will not show it again.
+fly secrets set ADMIN_TOKEN="$(openssl rand -base64 32)" -a spk-registry
+
+# 3. A deploy token for CI; add it as the FLY_API_TOKEN repository secret
+fly tokens create deploy -a spk-registry
+```
+
+If Fly's own GitHub integration is enabled for the app, turn it off so a push does not deploy twice.
+
+To deploy by hand from a checkout:
+
+```bash
+flyctl auth docker
+image="registry.fly.io/spk-registry:$(git rev-parse --short HEAD)"
+docker build -f apps/registry/Dockerfile -t "$image" .
+docker push "$image"
+flyctl deploy --config apps/registry/fly.toml --image "$image"
+```
+
+Do not run a plain `fly deploy` from this directory. Fly would use `apps/registry` as the build context, which does not contain `libs/spk-format`.
+
+If a machine was already running before the volume existed, its catalog and packs live in the machine's own filesystem (`/app/data` in the old image). Copy them onto the volume before replacing the machine, or republish the packs. SQLite runs in WAL mode, so the catalog is `registry.db` plus `registry.db-wal` and `registry.db-shm`: stop the app first, or copy all three files together, and do not copy `registry.db` alone from a running server.
 
 ## Security notes
 
 - The admin token is compared in constant time, must be at least 32 bytes, and failed attempts are rate limited and logged without the token.
-- Packs are validated and extracted with `spk-format`, which rejects paths that escape the archive. Pack and author ids are restricted to kebab-case slugs, and storage keys are checked so they cannot leave the storage root.
+- Packs are validated and extracted with `spk-format`, which rejects paths that escape the archive and bounds how far an archive can expand: at most 10,000 entries, 256 MiB in total, and a 50:1 compression ratio (checked once an archive expands past 8 MiB), so a small upload cannot fill the disk. Pack and author ids are restricted to kebab-case slugs, and storage keys are checked so they cannot leave the storage root.
 - Pack previews must be raster images (PNG, JPEG, WebP, GIF). SVG is rejected because it can execute when opened as a document.
 - Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and a restrictive `Content-Security-Policy`.
 
