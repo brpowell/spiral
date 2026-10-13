@@ -13,6 +13,7 @@ import { createPlayheadGlide } from "../../../lib/playheadGlide";
 import { formatRemainingTime, formatTime } from "../../../lib/format";
 import { t } from "../../../lib/i18n";
 import { findPlaybackTrack } from "../../../lib/playbackTrack";
+import { isAnySkinWindow } from "../../../lib/windowRole";
 import { usePlaybackProgress } from "../../../hooks/usePlaybackProgress";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import "./SeekBar.css";
@@ -43,6 +44,16 @@ function isSeekKey(key: string): boolean {
  */
 function seekFillTransform(ratio: number): string {
   return `translateX(calc(${(ratio - 1) * 100}% + ${4 - 8 * ratio}px))`;
+}
+
+/**
+ * Playhead the bar should show. Skin windows do not own the audio engine, so
+ * their local clock sits near zero; they follow the position the main window
+ * syncs into the store. Everywhere else the live audio clock wins.
+ */
+function readDisplaySeconds(followsStore: boolean): number {
+  if (followsStore) return usePlayerStore.getState().positionSeconds;
+  return resolvePlaybackDisplaySeconds(audio.getPositionSeconds());
 }
 
 function ratioFromClientX(el: HTMLInputElement, clientX: number): number {
@@ -85,10 +96,11 @@ export function SeekBar({
     handleSeekEnd,
   } = usePlaybackProgress(durationSeconds);
 
+  const followsStore = isAnySkinWindow();
+
   const scrubSeconds =
     isSeeking && durationSeconds > 0 ? seekValue * durationSeconds : null;
-  const shownSeconds =
-    scrubSeconds ?? resolvePlaybackDisplaySeconds(audio.getPositionSeconds());
+  const shownSeconds = scrubSeconds ?? readDisplaySeconds(followsStore);
 
   useLayoutEffect(() => {
     const paintLabels = (seconds: number) => {
@@ -137,15 +149,20 @@ export function SeekBar({
       );
     };
 
-    applySample(resolvePlaybackDisplaySeconds(audio.getPositionSeconds()));
-    const unsubscribeClock = subscribePlaybackClock((seconds) => {
-      if (pointerSeekActiveRef.current) return;
-      applySample(seconds);
-    });
+    applySample(readDisplaySeconds(followsStore));
+    const unsubscribeClock = followsStore
+      ? () => {}
+      : subscribePlaybackClock((seconds) => {
+          if (pointerSeekActiveRef.current) return;
+          applySample(seconds);
+        });
     const unsubscribeStore = usePlayerStore.subscribe((state, prev) => {
-      if (state.playbackState === prev.playbackState) return;
+      const stateChanged = state.playbackState !== prev.playbackState;
+      const positionChanged =
+        followsStore && state.positionSeconds !== prev.positionSeconds;
+      if (!stateChanged && !positionChanged) return;
       if (pointerSeekActiveRef.current) return;
-      applySample(resolvePlaybackDisplaySeconds(audio.getPositionSeconds()));
+      applySample(readDisplaySeconds(followsStore));
     });
 
     return () => {
@@ -153,7 +170,7 @@ export function SeekBar({
       unsubscribeStore();
       glide.dispose();
     };
-  }, [durationSeconds, scrubSeconds]);
+  }, [durationSeconds, scrubSeconds, followsStore]);
 
   const finishPointer = (e: PointerEvent<HTMLInputElement>) => {
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
