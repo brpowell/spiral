@@ -1,8 +1,10 @@
 # fdk-aac-sys (Fraunhofer FDK) does not detect MSVC ARM64 (`_M_ARM64`) as an
 # architecture, and defining `__aarch64__` pulls GCC NEON paths that MSVC rejects.
 # Force the portable table-based path used for x86 so Windows ARM64 can link FDK.
+# Use `-D` (not `/D`): cc-rs applies these to every C build, and ring assembles its
+# ARM64 .S files with clang, which treats `/D__x86__` as a file path. cl accepts `-D`.
 [env]
-CFLAGS_aarch64_pc_windows_msvc = { value = "/D__x86__", force = true }
-CXXFLAGS_aarch64_pc_windows_msvc = { value = "/D__x86__", force = true }
-"CFLAGS_aarch64-pc-windows-msvc" = { value = "/D__x86__", force = true }
-"CXXFLAGS_aarch64-pc-windows-msvc" = { value = "/D__x86__", force = true }
+CFLAGS_aarch64_pc_windows_msvc = { value = "-D__x86__", force = true }
+CXXFLAGS_aarch64_pc_windows_msvc = { value = "-D__x86__", force = true }
+"CFLAGS_aarch64-pc-windows-msvc" = { value = "-D__x86__", force = true }
+"CXXFLAGS_aarch64-pc-windows-msvc" = { value = "-D__x86__", force = true }
