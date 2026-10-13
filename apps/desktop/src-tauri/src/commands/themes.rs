@@ -608,7 +608,7 @@ mod tests {
     fn builtin_themes_parse_with_namespaced_ids() {
         let mut themes = load_builtin_themes_from_disk();
         themes.sort_by(|a, b| a.id.cmp(&b.id));
-        assert_eq!(themes.len(), 7);
+        assert_eq!(themes.len(), 8);
         let ids: Vec<&str> = themes.iter().map(|t| t.id.as_str()).collect();
         assert_eq!(
             ids,
@@ -620,6 +620,7 @@ mod tests {
                 "spiral.core.theme.parchment",
                 "spiral.core.theme.sprig",
                 "spiral.core.theme.sprig-dark",
+                "spiral.core.theme.strawberry",
             ]
         );
         for theme in &themes {

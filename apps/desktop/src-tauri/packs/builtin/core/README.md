@@ -13,6 +13,7 @@ The stock pack shipped with Spiral — themes, skins, and visualizers you can us
 | **Parchment** | Warm off-white, sepia |
 | **Sprig** | Bright lime on cream paper |
 | **Sprig Dark** | Bright lime on olive night |
+| **Strawberry** | Ripe strawberry on blush paper |
 
 ## Skins
 

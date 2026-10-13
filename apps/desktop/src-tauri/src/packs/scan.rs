@@ -545,7 +545,7 @@ mod tests {
         assert!(viz
             .iter()
             .any(|c| c.effective_id == "spiral.core.visualizer.dream-cube"));
-        assert_eq!(themes.len(), 7, "expected 7 builtin themes");
+        assert_eq!(themes.len(), 8, "expected 8 builtin themes");
         assert_eq!(skins.len(), 1, "expected 1 builtin skin in core");
         assert_eq!(viz.len(), 6, "expected 6 builtin visualizers");
         assert!(
