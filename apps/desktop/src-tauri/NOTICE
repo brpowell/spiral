@@ -5,7 +5,7 @@ each distinct license text once, with the packages that use it and their
 copyright notices. The same information is shown in the app under
 About Spiral -> Licenses.
 
-Generated: 2026-10-12T14:05:18.092Z
+Generated: 2026-10-13T17:45:33.684Z
 
 Source code
 -----------
@@ -186,7 +186,7 @@ remark-parse@11.0.0 — MIT
 remark-rehype@11.1.2 — MIT
 remark-stringify@11.0.0 — MIT
 scheduler@0.27.0 — MIT
-source-map-js@1.2.1 — BSD-3-Clause
+source-map-js@1.2.2 — BSD-3-Clause
 space-separated-tokens@2.0.2 — MIT
 stringify-entities@4.0.4 — MIT
 strtok3@10.3.5 — MIT
@@ -6053,7 +6053,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 BSD 3-Clause License — used by 1 package
 ==============================================================================
 
-source-map-js@1.2.1 (npm)
+source-map-js@1.2.2 (npm)
     Copyright (c) 2009-2011, Mozilla Foundation and contributors
 
 ------------------------------------------------------------------------------
