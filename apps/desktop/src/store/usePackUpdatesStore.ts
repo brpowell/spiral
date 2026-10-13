@@ -152,7 +152,7 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
     set({ status: "checking", lastError: null });
 
     try {
-      const result = await fetchPackCatalogSafe();
+      const result = await fetchPackCatalogSafe({ force: true });
       if (!result.ok) {
         set({
           status: previousPending.length > 0 ? "idle" : "error",

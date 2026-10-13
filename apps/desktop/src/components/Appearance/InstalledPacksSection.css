@@ -285,3 +285,10 @@
   width: 14px;
   height: 14px;
 }
+
+.installed-packs__doc-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-block: 0.25rem;
+}
