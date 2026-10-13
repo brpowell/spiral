@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/theme-v1.schema.json",
+  "id": "sprig-dark",
+  "name": "Sprig Dark",
+  "author": "Spiral",
+  "description": "Bright lime on olive night — Spiral Powered Sprig, dark.",
+  "tokens": {
+    "color-bg": "#1a1c12",
+    "color-text-primary": "#eee8d4",
+    "color-accent": "#96c836",
+    "color-danger": "#e07868",
+    "color-alert-info": "#8eb8bc",
+    "color-alert-success": "#c4e070",
+    "color-alert-warning": "#e0b060",
+    "radius-card": "12px",
+    "radius-button": "8px",
+    "radius-input": "8px",
+    "font-ui": "'Inter', system-ui, -apple-system, sans-serif"
+  }
+}
