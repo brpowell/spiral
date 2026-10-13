@@ -13,10 +13,12 @@ import {
   catalogPackKey,
   enrichPackCatalog,
   fetchPackCatalogSafe,
+  fetchRegistryPackSafe,
   installRegistryPack,
   installRegistryPackVersion,
   versionCmp,
 } from "../../lib/packRegistry";
+import { prefetchCatalogVersionDocs } from "../../lib/packs/catalogVersionDocsCache";
 import { uninstallPackWithRefresh } from "../../lib/packs/refreshPackStores";
 import type { ClearableSkinSetting } from "../../lib/packs/packSkinSettings";
 import { listPacks, openPathInFileManager } from "../../lib/tauri";
@@ -166,6 +168,21 @@ function CatalogPackCard({
   );
 }
 
+/** Warm the registry cache so the detail view opens without a loading state. */
+function prefetchEntryDetail(entry: CatalogPackEntry): void {
+  void prefetchCatalogVersionDocs({
+    registryUrl: entry.registryUrl,
+    authorId: entry.authorId,
+    packId: entry.packId,
+    version: entry.latestVersion.version,
+  });
+  void fetchRegistryPackSafe({
+    registryUrl: entry.registryUrl,
+    authorId: entry.authorId,
+    packId: entry.packId,
+  });
+}
+
 function CatalogPackCardSkeleton() {
   return (
     <div className="appearance-pack-card get-more__card-skeleton" aria-hidden>
@@ -225,7 +242,7 @@ export function GetMoreSection() {
   const entriesRef = useRef(entries);
   entriesRef.current = entries;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { force?: boolean }) => {
     const hasData = entriesRef.current.length > 0 || catalogSnapshot != null;
     // Only blank the grid on the first empty load; keep stale data while refetching.
     if (!hasData) {
@@ -234,7 +251,7 @@ export function GetMoreSection() {
       setPartialWarning(false);
     }
     const [result, packs] = await Promise.all([
-      fetchPackCatalogSafe(),
+      fetchPackCatalogSafe({ force: options?.force }),
       listPacks().catch(() => [] as PackSummary[]),
     ]);
     setLocalPacks(packs);
@@ -246,8 +263,19 @@ export function GetMoreSection() {
       }
       return;
     }
-    const enriched = await enrichPackCatalog(result.catalog.packs);
     const nextPartial = (result.catalog.errors?.length ?? 0) > 0;
+    if (!hasData) {
+      // First paint: show cards as soon as the catalog lands instead of
+      // waiting on every preview download; previews fill in below.
+      const quick = await enrichPackCatalog(result.catalog.packs, {
+        resolvePreviews: false,
+      });
+      setEntries(quick);
+      setPartialWarning(nextPartial);
+      setError(null);
+      setLoading(false);
+    }
+    const enriched = await enrichPackCatalog(result.catalog.packs);
     setEntries(enriched);
     setPartialWarning(nextPartial);
     setError(null);
@@ -430,7 +458,7 @@ export function GetMoreSection() {
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={() => void load()}
+                          onClick={() => void load({ force: true })}
                         >
                           {t("catalog.retry")}
                         </Button>
@@ -448,7 +476,12 @@ export function GetMoreSection() {
                         entry.packId,
                       );
                       return (
-                        <div key={key} role="listitem">
+                        <div
+                          key={key}
+                          role="listitem"
+                          onPointerEnter={() => prefetchEntryDetail(entry)}
+                          onFocus={() => prefetchEntryDetail(entry)}
+                        >
                           <CatalogPackCard
                             entry={entry}
                             busy={busy}

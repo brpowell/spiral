@@ -9,7 +9,10 @@ import {
   sortVersionsNewestFirst,
   versionMeetsMinApp,
 } from "../../lib/packRegistry";
-import { prefetchCatalogVersionDocs } from "../../lib/packs/catalogVersionDocsCache";
+import {
+  peekCatalogVersionDocs,
+  prefetchCatalogVersionDocs,
+} from "../../lib/packs/catalogVersionDocsCache";
 import { prefetchPackChangelog } from "../../lib/packs/packChangelogCache";
 import { packIdentity } from "../../lib/packs/packManifest";
 import { getAppVersion } from "../../lib/tauri";
@@ -26,6 +29,7 @@ import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
 import { Button } from "../common/Button/Button";
+import { Skeleton } from "../common/Skeleton/Skeleton";
 import {
   ButtonGroup,
   ButtonGroupSeparator,
@@ -80,6 +84,27 @@ function catalogContributions(
   }));
 }
 
+/** Placeholder lines shaped like a short Markdown document. */
+function MarkdownDocSkeleton({ label }: { label: string }) {
+  return (
+    <div
+      className="installed-packs__doc-skeleton"
+      role="status"
+      aria-busy="true"
+      aria-label={label}
+    >
+      <Skeleton width="38%" height="1.1rem" radius="sm" />
+      <Skeleton width="100%" height="0.8rem" radius="sm" />
+      <Skeleton width="94%" height="0.8rem" radius="sm" />
+      <Skeleton width="97%" height="0.8rem" radius="sm" />
+      <Skeleton width="62%" height="0.8rem" radius="sm" />
+      <Skeleton width="30%" height="1.1rem" radius="sm" />
+      <Skeleton width="88%" height="0.8rem" radius="sm" />
+      <Skeleton width="70%" height="0.8rem" radius="sm" />
+    </div>
+  );
+}
+
 /** Catalog About or Changelog body — shares one version-detail fetch via cache. */
 function CatalogMarkdownDocPanel({
   entry,
@@ -95,13 +120,32 @@ function CatalogMarkdownDocPanel({
   emptyKey: "catalog.readmeEmpty" | "catalog.changelogEmpty";
 }) {
   const { t } = useTranslation("studio");
-  const [text, setText] = useState<string | null>(null);
+  const docsArgs = {
+    registryUrl: entry.registryUrl,
+    authorId: entry.authorId,
+    packId: entry.packId,
+    version: entry.latestVersion.version,
+  };
+  // Start from the registry cache so a revisit renders without a skeleton flash.
+  const cached = peekCatalogVersionDocs(docsArgs);
+  const [text, setText] = useState<string | null>(cached?.[field] ?? null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
-    "loading",
+    cached ? "ready" : "loading",
   );
 
   useEffect(() => {
     let cancelled = false;
+    const hit = peekCatalogVersionDocs({
+      registryUrl: entry.registryUrl,
+      authorId: entry.authorId,
+      packId: entry.packId,
+      version: entry.latestVersion.version,
+    });
+    if (hit) {
+      setText(hit[field]);
+      setLoadState("ready");
+      return;
+    }
     setLoadState("loading");
     setText(null);
     void prefetchCatalogVersionDocs({
@@ -130,7 +174,7 @@ function CatalogMarkdownDocPanel({
   ]);
 
   if (loadState === "loading") {
-    return <p className="appearance-section__status">{t(loadingKey)}</p>;
+    return <MarkdownDocSkeleton label={t(loadingKey)} />;
   }
   if (loadState === "error") {
     return <p className="appearance-section__status">{t(failedKey)}</p>;

@@ -1,5 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { mockFetchPackCatalog, mockFetchRegistryPackVersion } = vi.hoisted(
+  () => ({
+    mockFetchPackCatalog: vi.fn(),
+    mockFetchRegistryPackVersion: vi.fn(),
+  }),
+);
+
+vi.mock("./tauri", () => ({
+  fetchPackCatalog: mockFetchPackCatalog,
+  fetchRegistryPackVersion: mockFetchRegistryPackVersion,
+}));
+
 import {
+  fetchPackCatalogSafe,
+  fetchRegistryPackVersionSafe,
+  invalidateRegistryCaches,
   catalogPackKey,
   catalogDisplayName,
   installedPackKey,
@@ -188,5 +204,66 @@ describe("packRegistry helpers", () => {
     const updateAvailable = !installed && versionCmp(version, version) === 1;
     expect(installed).toBe(true);
     expect(updateAvailable).toBe(false);
+  });
+});
+
+describe("registry response caching", () => {
+  beforeEach(() => {
+    invalidateRegistryCaches();
+    mockFetchPackCatalog.mockReset();
+    mockFetchRegistryPackVersion.mockReset();
+  });
+
+  const catalog = { packs: [{ packId: "p" }], errors: [] };
+
+  it("serves the catalog from cache until forced", async () => {
+    mockFetchPackCatalog.mockResolvedValue(catalog);
+    await fetchPackCatalogSafe();
+    await fetchPackCatalogSafe();
+    expect(mockFetchPackCatalog).toHaveBeenCalledTimes(1);
+    await fetchPackCatalogSafe({ force: true });
+    expect(mockFetchPackCatalog).toHaveBeenCalledTimes(2);
+  });
+
+  it("keys the catalog cache by filter options", async () => {
+    mockFetchPackCatalog.mockResolvedValue(catalog);
+    await fetchPackCatalogSafe();
+    await fetchPackCatalogSafe({ authorId: "alice" });
+    expect(mockFetchPackCatalog).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not cache failed or partial catalog fetches", async () => {
+    mockFetchPackCatalog.mockRejectedValueOnce("offline");
+    await expect(fetchPackCatalogSafe()).resolves.toEqual({
+      ok: false,
+      error: "offline",
+    });
+
+    mockFetchPackCatalog.mockResolvedValue({
+      packs: [{ packId: "p" }],
+      errors: [{ registryUrl: "https://x", error: "down" }],
+    });
+    await fetchPackCatalogSafe();
+    await fetchPackCatalogSafe();
+    expect(mockFetchPackCatalog).toHaveBeenCalledTimes(3);
+  });
+
+  it("caches version detail per version and retries after a failure", async () => {
+    const args = {
+      registryUrl: "https://r",
+      authorId: "a",
+      packId: "p",
+      version: "1.0.0",
+    };
+    mockFetchRegistryPackVersion.mockRejectedValueOnce("boom");
+    expect((await fetchRegistryPackVersionSafe(args)).ok).toBe(false);
+
+    mockFetchRegistryPackVersion.mockResolvedValue({ readme: "hi" });
+    expect((await fetchRegistryPackVersionSafe(args)).ok).toBe(true);
+    await fetchRegistryPackVersionSafe(args);
+    expect(mockFetchRegistryPackVersion).toHaveBeenCalledTimes(2);
+
+    await fetchRegistryPackVersionSafe({ ...args, version: "1.1.0" });
+    expect(mockFetchRegistryPackVersion).toHaveBeenCalledTimes(3);
   });
 });
