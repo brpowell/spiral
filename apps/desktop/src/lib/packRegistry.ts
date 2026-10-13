@@ -34,6 +34,7 @@ import {
   rollbackPackWithRefresh,
 } from "./packs/refreshPackStores";
 import { packIdentity } from "./packs/packManifest";
+import { createRegistryCache } from "./packs/registryCache";
 import { errorMessageFromUnknown } from "./cdPlaybackFailure";
 import { afterUiTransition } from "./scheduling";
 import {
@@ -101,86 +102,163 @@ export function catalogPackKey(
 export type FetchPackCatalogResult =
   { ok: true; catalog: RegistryPackList } | { ok: false; error: string };
 
+type FetchRegistryPackVersionResult =
+  { ok: true; detail: RegistryVersionDetail } | { ok: false; error: string };
+
+type FetchRegistryPackResult =
+  { ok: true; detail: RegistryPackDetail } | { ok: false; error: string };
+
+/** The catalog changes when packs publish; keep it fairly fresh. */
+const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
+/** New versions can appear for a pack, but rarely mid-session. */
+const PACK_DETAIL_CACHE_TTL_MS = 5 * 60 * 1000;
+/** A published version's README / changelog is immutable. */
+const VERSION_DETAIL_CACHE_TTL_MS = 30 * 60 * 1000;
+
+const catalogCache = createRegistryCache<FetchPackCatalogResult>({
+  ttlMs: CATALOG_CACHE_TTL_MS,
+  maxEntries: 20,
+  // A partial success is not cached so the unreachable registry is retried.
+  cacheable: (r) => r.ok && (r.catalog.errors?.length ?? 0) === 0,
+});
+const packDetailCache = createRegistryCache<FetchRegistryPackResult>({
+  ttlMs: PACK_DETAIL_CACHE_TTL_MS,
+});
+const versionDetailCache = createRegistryCache<FetchRegistryPackVersionResult>({
+  ttlMs: VERSION_DETAIL_CACHE_TTL_MS,
+});
+
+/** Drop every cached registry response (e.g. after the registry list changes). */
+export function invalidateRegistryCaches(): void {
+  catalogCache.clear();
+  packDetailCache.clear();
+  versionDetailCache.clear();
+}
+
+function registryErrorMessage(err: unknown): string {
+  return typeof err === "string" && err.trim()
+    ? err
+    : err instanceof Error && err.message.trim()
+      ? err.message
+      : t("toasts:packs.catalogFailed");
+}
+
+function catalogCacheKey(options?: {
+  contributionType?: string | null;
+  authorId?: string | null;
+}): string {
+  return `${options?.contributionType ?? ""}\0${options?.authorId ?? ""}`;
+}
+
+function packCacheKey(args: {
+  registryUrl: string;
+  authorId: string;
+  packId: string;
+}): string {
+  return `${args.registryUrl}\0${args.authorId}\0${args.packId}`;
+}
+
+function versionCacheKey(args: {
+  registryUrl: string;
+  authorId: string;
+  packId: string;
+  version: string;
+}): string {
+  return `${packCacheKey(args)}\0${args.version}`;
+}
+
+/** Cached catalog result when still fresh (no network). */
+export function peekPackCatalog(options?: {
+  contributionType?: string | null;
+  authorId?: string | null;
+}): FetchPackCatalogResult | undefined {
+  return catalogCache.peek(catalogCacheKey(options));
+}
+
 /**
  * Fetch the pack catalog from every configured registry.
  *
  * - Full failure (no packs and at least one error) → `{ ok: false }` for Phase 5 empty/error UI.
  * - Partial success (some registries failed) → `{ ok: true }` with `catalog.errors` populated.
+ *
+ * Successful results are cached briefly; pass `force: true` to bypass (manual
+ * refresh, update checks). Partial results are not cached so the missing
+ * registry is retried on the next call.
  */
 export async function fetchPackCatalogSafe(options?: {
   contributionType?: string | null;
   authorId?: string | null;
+  force?: boolean;
 }): Promise<FetchPackCatalogResult> {
-  try {
-    const catalog = await fetchPackCatalog(options);
-    const errors = catalog.errors ?? [];
-    if (catalog.packs.length === 0 && errors.length > 0) {
-      return {
-        ok: false,
-        error:
-          errors.map((e) => e.error).join(" · ") ||
-          t("toasts:packs.catalogFailed"),
-      };
+  const load = async (): Promise<FetchPackCatalogResult> => {
+    try {
+      const catalog = await fetchPackCatalog({
+        contributionType: options?.contributionType,
+        authorId: options?.authorId,
+      });
+      const errors = catalog.errors ?? [];
+      if (catalog.packs.length === 0 && errors.length > 0) {
+        return {
+          ok: false,
+          error:
+            errors.map((e) => e.error).join(" · ") ||
+            t("toasts:packs.catalogFailed"),
+        };
+      }
+      return { ok: true, catalog };
+    } catch (err) {
+      return { ok: false, error: registryErrorMessage(err) };
     }
-    return { ok: true, catalog };
-  } catch (err) {
-    const error =
-      typeof err === "string" && err.trim()
-        ? err
-        : err instanceof Error && err.message.trim()
-          ? err.message
-          : t("toasts:packs.catalogFailed");
-    return { ok: false, error };
-  }
+  };
+
+  return catalogCache.get(catalogCacheKey(options), load, {
+    force: options?.force,
+  });
+}
+
+/** Cached version detail when still fresh (no network). */
+export function peekRegistryPackVersion(args: {
+  registryUrl: string;
+  authorId: string;
+  packId: string;
+  version: string;
+}): FetchRegistryPackVersionResult | undefined {
+  return versionDetailCache.peek(versionCacheKey(args));
 }
 
 /**
  * Fetch version detail (including README) for pre-install About browsing.
  */
-export async function fetchRegistryPackVersionSafe(args: {
+export function fetchRegistryPackVersionSafe(args: {
   registryUrl: string;
   authorId: string;
   packId: string;
   version: string;
-}): Promise<
-  { ok: true; detail: RegistryVersionDetail } | { ok: false; error: string }
-> {
-  try {
-    const detail = await fetchRegistryPackVersion(args);
-    return { ok: true, detail };
-  } catch (err) {
-    const error =
-      typeof err === "string" && err.trim()
-        ? err
-        : err instanceof Error && err.message.trim()
-          ? err.message
-          : t("toasts:packs.catalogFailed");
-    return { ok: false, error };
-  }
+}): Promise<FetchRegistryPackVersionResult> {
+  return versionDetailCache.get(versionCacheKey(args), async () => {
+    try {
+      return { ok: true, detail: await fetchRegistryPackVersion(args) };
+    } catch (err) {
+      return { ok: false, error: registryErrorMessage(err) };
+    }
+  });
 }
 
 /**
  * Fetch all published versions for a pack (`GET /v1/packs/:author/:pack`).
  */
-export async function fetchRegistryPackSafe(args: {
+export function fetchRegistryPackSafe(args: {
   registryUrl: string;
   authorId: string;
   packId: string;
-}): Promise<
-  { ok: true; detail: RegistryPackDetail } | { ok: false; error: string }
-> {
-  try {
-    const detail = await fetchRegistryPack(args);
-    return { ok: true, detail };
-  } catch (err) {
-    const error =
-      typeof err === "string" && err.trim()
-        ? err
-        : err instanceof Error && err.message.trim()
-          ? err.message
-          : t("toasts:packs.catalogFailed");
-    return { ok: false, error };
-  }
+}): Promise<FetchRegistryPackResult> {
+  return packDetailCache.get(packCacheKey(args), async () => {
+    try {
+      return { ok: true, detail: await fetchRegistryPack(args) };
+    } catch (err) {
+      return { ok: false, error: registryErrorMessage(err) };
+    }
+  });
 }
 
 /**

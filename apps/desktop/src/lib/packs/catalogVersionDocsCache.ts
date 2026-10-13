@@ -1,76 +1,47 @@
-import { fetchRegistryPackVersionSafe } from "../packRegistry";
+import {
+  fetchRegistryPackVersionSafe,
+  peekRegistryPackVersion,
+} from "../packRegistry";
+import type { RegistryVersionDetail } from "../../types/packRegistry";
 
 export type CatalogVersionDocs = {
   readme: string | null;
   changelog: string | null;
 };
 
-type CacheEntry =
-  | { status: "loading"; promise: Promise<CatalogVersionDocs | null> }
-  | { status: "ready"; value: CatalogVersionDocs | null };
-
-const cache = new Map<string, CacheEntry>();
-
-function docsKey(args: {
+type VersionArgs = {
   registryUrl: string;
   authorId: string;
   packId: string;
   version: string;
-}): string {
-  return `${args.registryUrl}\0${args.authorId}\0${args.packId}\0${args.version}`;
+};
+
+function docsFromDetail(detail: RegistryVersionDetail): CatalogVersionDocs {
+  return {
+    readme: detail.readme?.trim() || null,
+    changelog: detail.changelog?.trim() || null,
+  };
 }
 
 /**
- * Shared fetch for catalog About/Changelog (and tab presence).
- * Coalesces concurrent callers for the same version detail.
+ * Docs already in the registry cache, for rendering without a loading state.
+ * `undefined` means not cached (or expired); `null` is never returned.
  */
-export function prefetchCatalogVersionDocs(args: {
-  registryUrl: string;
-  authorId: string;
-  packId: string;
-  version: string;
-}): Promise<CatalogVersionDocs | null> {
-  const key = docsKey(args);
-  const existing = cache.get(key);
-  if (existing?.status === "ready") {
-    return Promise.resolve(existing.value);
-  }
-  if (existing?.status === "loading") {
-    return existing.promise;
-  }
+export function peekCatalogVersionDocs(
+  args: VersionArgs,
+): CatalogVersionDocs | undefined {
+  const hit = peekRegistryPackVersion(args);
+  return hit?.ok ? docsFromDetail(hit.detail) : undefined;
+}
 
-  const promise = fetchRegistryPackVersionSafe(args)
-    .then((result) => {
-      if (!result.ok) {
-        cache.set(key, { status: "ready", value: null });
-        return null;
-      }
-      const readme = result.detail.readme?.trim() || null;
-      const changelog = result.detail.changelog?.trim() || null;
-      const value: CatalogVersionDocs = {
-        readme: readme && readme.length > 0 ? readme : null,
-        changelog: changelog && changelog.length > 0 ? changelog : null,
-      };
-      const current = cache.get(key);
-      if (
-        current?.status === "loading" &&
-        current.promise === promise
-      ) {
-        cache.set(key, { status: "ready", value });
-      }
-      return value;
-    })
-    .catch(() => {
-      const current = cache.get(key);
-      if (
-        current?.status === "loading" &&
-        current.promise === promise
-      ) {
-        cache.set(key, { status: "ready", value: null });
-      }
-      return null;
-    });
-
-  cache.set(key, { status: "loading", promise });
-  return promise;
+/**
+ * Shared fetch for catalog About/Changelog (and tab presence). The underlying
+ * registry fetch is cached and coalesced; failures resolve `null` and are
+ * retried on the next call.
+ */
+export async function prefetchCatalogVersionDocs(
+  args: VersionArgs,
+): Promise<CatalogVersionDocs | null> {
+  const result = await fetchRegistryPackVersionSafe(args);
+  return result.ok ? docsFromDetail(result.detail) : null;
 }
