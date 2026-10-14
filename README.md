@@ -38,18 +38,18 @@ No ads. No algorithms. No tracking. No internet required. Just your collection, 
 
 ## Why
 
-There's a funny paradox that comes with unlimited access to infinite music.
+There's a funny paradox that comes with unlimited access to infinite content.
 
-Streaming anything you want at anytime is obviously great. At the same time, when it's delivered like a firehose, it feels cheap and disposable. You know what I'm talking about. I know you scroll on Netflix, or any one of these things, only to choose nothing at least once a week. Access to everything but nothing is yours.
+__Streaming anything you want at anytime is great.__ At the same time, when it's delivered via firehose, it feels cheap and disposable. You know what I'm talking about. You scroll Netflix or another content machine, only to choose nothing, at least once a week. Access to everything but nothing is _yours_.
 
-Spiral is for the other way of listening: buying albums, ripping your CDs, curating music by hand, and caring about the songs you have privately. Think of the media players you grew up with or have [anemoia](https://en.wikipedia.org/wiki/Anemoia) for, redesigned with today's tools: fast, local-first, and made to be personalized.
+__Spiral is for the other way of listening__: buying songs or albums, ripping your CDs, curating music by hand, and caring about the songs you have privately. Think of the media players you once used or have [anemoia](https://en.wikipedia.org/wiki/Anemoia) for, redesigned with today's tools: fast, local-first, and made to be personalized.
 
-A delightful music experience doesn't need to have all the songs. Marinating in the ones you own is its own special kind of thing.
+A delightful music experience doesn't require all the songs all the time. Marinating in the ones that shape who you are is its own kind of thing.
 
 ## Features
 
-- 📚 **Your library, organized**: Hand Spiral your files - it probes and organizes your files while tracking everything in an offline database. Playlist, artist images, and album images are also neatly organized in your library folder.
-- 💿 **CD ripping**: Insert a disc, pull metadata from MusicBrainz, and rip to any of our supported codecs. Your shelf becomes your library.
+- 📚 **Your library, organized**: Hand Spiral your files - it probes and organizes them while tracking everything in an offline database. Playlist, artist images, and album images are also neatly organized in your library folder.
+- 💿 **CD ripping**: Insert a disc, pull metadata from MusicBrainz, and rip to any of the [supported formats](#supported-formats). Your shelf becomes your library.
 - 🏷️ **Metadata editing**: Fix tags, swap album art and rename tracks. Your music stays portable.
 - 🎶 **Playlists**: Build them the old-fashioned way by hand. I'm planning to thoughtfully expand this later.
 - 🎛️ **Equalizer**: Shape your sound with a band-by-band EQ in its own window.
@@ -57,6 +57,20 @@ A delightful music experience doesn't need to have all the songs. Marinating in 
 - 🌈 **Visualizers**: Canvas2D and WebGL powered audio visuals that make it fun to stare at your music.
 - 🎨 **Themes and skins**: Restyle the whole app, or jump into skin mode for a player-focused experience.
 - 🔒 **Private by design**: No account, no telemetry, no ads. Your listening habits stay on your machine.
+
+## Supported formats
+
+**Playback and import:** MP3, FLAC, AAC, WAV, M4A/MP4, Ogg and Opus. DRM-protected `.m4p` files are not supported.
+
+**CD ripping and conversion:**
+
+| Profile | Format |
+| --- | --- |
+| Lossless | FLAC |
+| Apple Lossless | ALAC (`.m4a`) |
+| Apple Device | AAC (`.m4a`) |
+| MP3 - High | MP3, 320 kbps |
+| MP3 - Compact | MP3, 128 kbps |
 
 ## Make it yours
 
@@ -125,9 +139,9 @@ Spiral is free, open source, and developed with my time. If you love what's goin
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/brpowell)
 
-If you're not into throwing money at strangers over the internet, I feel you. Starring the repo or sharing also helps.
+If you're not into throwing money at strangers over the internet, I feel you. Giving a repo star or sharing also helps 🙏.
 
-Supporting your favorite artists and local retailers by purchasing merch, records, and tickets is also cool. This helps the project spiritually.
+Supporting your favorite artists and local retailers by purchasing merch, records, and tickets is also cool. This helps the project spiritually. [Visit our discovery tool](https://spiralpowered.com/#ecosystem) for inspiration.
 
 ## For developers
 
