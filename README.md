@@ -143,7 +143,7 @@ Spiral is free, open source, and developed with my time. If you love what's goin
 
 If you're not into throwing money at strangers over the internet, I feel you. Giving a repo star or sharing also helps 🙏.
 
-Supporting your favorite artists and local retailers by purchasing merch, records, and tickets is also cool. This helps the project spiritually. [Visit our discovery tool](https://spiralpowered.com/#ecosystem) for inspiration.
+Supporting your favorite artists and local retailers by purchasing merch, records, and tickets is also cool. This helps the project spiritually. [Visit the discovery tool](https://spiralpowered.com/#ecosystem) for inspiration.
 
 ## For developers
 
