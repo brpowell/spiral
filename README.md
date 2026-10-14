@@ -46,6 +46,8 @@ __Spiral is for the other way of listening__: buying songs or albums, ripping yo
 
 A delightful music experience doesn't require all the songs all the time. Marinating in the ones that shape who you are is its own kind of thing.
 
+Also they algorithmically spy on you.
+
 ## Features
 
 - 📚 **Your library, organized**: Hand Spiral your files - it probes and organizes them while tracking everything in an offline database. Playlist, artist images, and album images are also neatly organized in your library folder.
