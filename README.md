@@ -1,7 +1,10 @@
 <div align="center">
 
 <a href="https://spiralpowered.com">
-  <img src=".github/assets/spiral-logo.svg" alt="Spiral logo" width="128" height="128">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/logo-dark.svg">
+    <img src=".github/assets/logo-light.svg" alt="Spiral logo" width="128" height="128">
+  </picture>
 </a>
 
 # Spiral
@@ -68,7 +71,9 @@ Spiral isn't one look. Swap the whole app with a theme, or jump into skin mode f
 &nbsp;
 <img src=".github/assets/skin-t3.webp" alt="T3, a chrome Skynet player with a blue circular display" height="300">
 <br>
-<sub><b>Vanilla</b> &nbsp;·&nbsp; <b>Headspace</b> &nbsp;·&nbsp; <b>T3</b></sub>
+<sub><b>Vanilla</b> &nbsp;·&nbsp; <b>Headspace</b>* &nbsp;·&nbsp; <b>T3</b>*</sub>
+<br>
+<sub>*Ports of classic Windows Media Player skins, with all credit to their original designers. Spiral is not affiliated with or endorsed by Microsoft.</sub>
 
 <br>
 
@@ -166,7 +171,10 @@ The repository is licensed under the [Apache License 2.0](LICENSE). `libs/spk-fo
 
 <div align="center">
 <br>
-<img src=".github/assets/spiral-logo.svg" alt="" width="32" height="32">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/logo-dark.svg">
+  <img src=".github/assets/logo-light.svg" alt="" width="32" height="32">
+</picture>
 <br>
 <sub>Listen to albums</sub>
 </div>
