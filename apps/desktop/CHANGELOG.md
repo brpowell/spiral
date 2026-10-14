@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.3.0](https://github.com/brpowell/spiral/compare/desktop-v0.2.4...desktop-v0.3.0) (2026-10-13)
+
+
+### Features
+
+* **desktop:** add loading skeletons and caching to registry browsing ([#22](https://github.com/brpowell/spiral/issues/22)) ([27753c2](https://github.com/brpowell/spiral/commit/27753c2ad838ff2ee5dce948e9ce002a4256b6cb))
+* **desktop:** add Sprig Dark and Strawberry builtin themes ([#25](https://github.com/brpowell/spiral/issues/25)) ([2832b50](https://github.com/brpowell/spiral/commit/2832b503527dff655456ae2dcde32aa17ff46bbc))
+* **desktop:** build and release Windows ARM64, universal macOS, .deb and .rpm ([#19](https://github.com/brpowell/spiral/issues/19)) ([5e6f7d6](https://github.com/brpowell/spiral/commit/5e6f7d678ee5fbc6b41bcd8e815a967eda216746))
+* **desktop:** bundle full third-party license texts and show them in About ([#17](https://github.com/brpowell/spiral/issues/17)) ([94df5f9](https://github.com/brpowell/spiral/commit/94df5f9683588c61f4abe418a99613ba786a3a17))
+* **desktop:** replace the Tauri icon with the Spiral brand kit ([#20](https://github.com/brpowell/spiral/issues/20)) ([ab5239f](https://github.com/brpowell/spiral/commit/ab5239fcf28c24ffdc14337f4d60092439adb062))
+
+
+### Bug Fixes
+
+* **deps:** resolve source-map-js denial-of-service advisory ([#23](https://github.com/brpowell/spiral/issues/23)) ([6f15914](https://github.com/brpowell/spiral/commit/6f1591467de7b9078080b304cdbadc26882cb2e0))
+* **desktop:** decode the GIF NETSCAPE loop count ([#18](https://github.com/brpowell/spiral/issues/18)) ([e82f5b1](https://github.com/brpowell/spiral/commit/e82f5b1288978bbc15b807b626b989f250949157))
+* **desktop:** track synced playhead in skin window seek bar ([#24](https://github.com/brpowell/spiral/issues/24)) ([4e70180](https://github.com/brpowell/spiral/commit/4e70180f8a11e689f90a6a5a1cf68685758e5336))
+
+
+### Performance Improvements
+
+* **desktop:** reveal the main window fully drawn and add a track list skeleton ([#10](https://github.com/brpowell/spiral/issues/10)) ([3db4114](https://github.com/brpowell/spiral/commit/3db4114f62675adc73b81572631e1af7f83d373f))
+
 ## [0.2.4](https://github.com/brpowell/spiral/compare/desktop-v0.2.3...desktop-v0.2.4) (2026-10-11)
 
 
