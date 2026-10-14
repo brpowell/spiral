@@ -40,13 +40,13 @@ No ads. No algorithms. No tracking. No internet required. Just your collection, 
 
 There's a funny paradox that comes with unlimited access to infinite content.
 
-__Streaming anything you want at anytime is great.__ At the same time, when it's delivered via firehose, it feels cheap and disposable. You know what I'm talking about. You scroll Netflix or another content machine, only to choose nothing, at least once a week. Access to everything but nothing is _yours_.
+__Streaming anything you want at any time is great.__ But when it's delivered via firehose, it feels cheap and disposable. You know what I'm talking about. You scroll endless catalogs, only to choose nothing, at least once a week. Access to everything, yet none of it is _yours_. Ownership gives meaning to things.
 
-__Spiral is for the other way of listening__: buying songs or albums, ripping your CDs, curating music by hand, and caring about the songs you have privately. Think of the media players you once used or have [anemoia](https://en.wikipedia.org/wiki/Anemoia) for, redesigned with today's tools: fast, local-first, and made to be personalized.
+__Spiral is for the other way of listening__: buying songs or albums, ripping your CDs, curating music by hand, and caring about the songs you keep. Think of the media players you once used or have [anemoia](https://en.wikipedia.org/wiki/Anemoia) for, redesigned with today's tools: fast, local-first, and built to feel like yours.
 
-A delightful music experience doesn't require all the songs all the time. Marinating in the ones that shape who you are is its own kind of thing.
+A delightful music experience doesn't require all the songs all the time. Marinating in the ones you keep is its own thing.
 
-Also they algorithmically spy on you.
+Also, streaming platforms algorithmically spy on you. Spiral doesn't.
 
 ## Features
 
