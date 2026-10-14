@@ -114,7 +114,7 @@ For the AppImage, `chmod +x` the file and run it. Install the others with `sudo 
 
 Spiral is free, open source, and developed with my time. If you love what's going on here, contributing would mean a lot!
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/F3R328H2NN)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/brpowell)
 
 If you're not into throwing money at strangers over the internet, I feel you. Starring the repo or sharing also helps.
 
@@ -154,7 +154,7 @@ Each component has its own README with more detail. The repository is a single C
 
 ## Contributing
 
-At the moment, only contributors can file pull requests and issues, while [Ko-fi supporters](https://ko-fi.com/F3R328H2NN) can do the latter.
+At the moment, only contributors can file pull requests and issues, while [Ko-fi supporters](https://ko-fi.com/brpowell) can do the latter.
 
 I want to lax this as time goes on, but with the AI hive mind these days I'm not ready yet. Thank you for understanding!
 
