@@ -6,6 +6,7 @@
 //! rebuilds the stream after wake, device loss and device changes.
 
 mod cpal_backend;
+pub mod dsp;
 pub mod mixer;
 pub mod output;
 mod power;

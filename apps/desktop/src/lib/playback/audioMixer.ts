@@ -1,4 +1,5 @@
 import type { EqualizerState } from "../equalizer/types";
+import { applyNativeEqualizer } from "./nativeEqualizer";
 import {
   applyEqualizerState as applyEqChainState,
   disposeEqualizerChain,
@@ -166,4 +167,5 @@ export function applyEqualizerState(
   state: Pick<EqualizerState, "enabled" | "bands" | "preampGain">,
 ): void {
   applyEqChainState(state);
+  applyNativeEqualizer(state);
 }

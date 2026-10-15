@@ -188,6 +188,10 @@ impl AudioOutput {
         Ok(())
     }
 
+    pub fn set_equalizer(&self, settings: super::dsp::EqSettings) {
+        lock(&self.mixer).set_equalizer(settings);
+    }
+
     pub fn ensure_stream(&self) {
         let _ = self.ctl.send(Ctl::Ensure);
     }

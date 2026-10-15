@@ -181,6 +181,21 @@ describe("NativeFilePlaybackEngine", () => {
     expect(gains).toEqual([0.5, 0.25, 0, 0.25]);
   });
 
+  it("sends balance to the session, including one set before load", async () => {
+    const engine = new NativeFilePlaybackEngine();
+    engine.setBalance(-0.5);
+    await engine.load(SOURCE);
+    expect(commandsNamed("set_file_playback_balance")).toEqual([
+      ["set_file_playback_balance", { sessionId: 7, balance: -0.5 }],
+    ]);
+
+    invoke.mockClear();
+    engine.setBalance(2);
+    expect(commandsNamed("set_file_playback_balance")).toEqual([
+      ["set_file_playback_balance", { sessionId: 7, balance: 1 }],
+    ]);
+  });
+
   it("applies volume set before load once the session exists", async () => {
     const engine = new NativeFilePlaybackEngine();
     engine.setVolume(0.3);

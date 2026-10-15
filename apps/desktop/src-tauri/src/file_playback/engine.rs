@@ -631,6 +631,15 @@ pub fn resume(session_id: u64) {
     });
 }
 
+/// Set a native session's stereo balance (-1 left … +1 right).
+pub fn set_balance(session_id: u64, balance: f32) {
+    with_session(session_id, |active| {
+        if let Some(native) = &active.native {
+            native.shared.set_balance(balance);
+        }
+    });
+}
+
 /// Arrange for `to_session` to start on the exact sample `from_session` runs
 /// out. Both must be native sessions.
 pub fn link_gapless(from_session: u64, to_session: u64) -> Result<(), String> {

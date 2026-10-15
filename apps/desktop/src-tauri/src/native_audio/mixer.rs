@@ -9,6 +9,8 @@ use std::sync::Arc;
 
 use rtrb::Consumer;
 
+use super::dsp::{EqSettings, Equalizer, PanGains};
+
 /// Highest source channel count a deck can carry.
 pub const MAX_CHANNELS: usize = 8;
 /// Maximum simultaneous decks (outgoing + incoming).
@@ -35,6 +37,8 @@ pub struct DeckShared {
     pub underruns: AtomicU64,
     /// Linear gain as f32 bits (volume × mute).
     gain_bits: AtomicU32,
+    /// Stereo balance (-1 left … +1 right) as f32 bits.
+    balance_bits: AtomicU32,
 }
 
 impl DeckShared {
@@ -47,6 +51,7 @@ impl DeckShared {
             position_frames: AtomicU64::new(0),
             underruns: AtomicU64::new(0),
             gain_bits: AtomicU32::new(1.0f32.to_bits()),
+            balance_bits: AtomicU32::new(0.0f32.to_bits()),
         }
     }
 
@@ -57,6 +62,16 @@ impl DeckShared {
 
     pub fn gain(&self) -> f32 {
         f32::from_bits(self.gain_bits.load(Ordering::Relaxed))
+    }
+
+    pub fn set_balance(&self, balance: f32) {
+        let balance = if balance.is_finite() { balance } else { 0.0 };
+        self.balance_bits
+            .store(balance.clamp(-1.0, 1.0).to_bits(), Ordering::Relaxed);
+    }
+
+    pub fn balance(&self) -> f32 {
+        f32::from_bits(self.balance_bits.load(Ordering::Relaxed))
     }
 }
 
@@ -83,6 +98,7 @@ struct Deck {
     /// 0..=1 fade applied for play/pause transitions.
     fade: f32,
     smoothed_gain: f32,
+    smoothed_pan: f32,
 }
 
 impl Deck {
@@ -114,6 +130,7 @@ pub struct Mixer {
     next_id: u64,
     out_rate: u32,
     out_channels: usize,
+    eq: Equalizer,
 }
 
 impl Mixer {
@@ -123,12 +140,18 @@ impl Mixer {
             next_id: 1,
             out_rate: 48_000,
             out_channels: 2,
+            eq: Equalizer::new(48_000),
         }
+    }
+
+    pub fn set_equalizer(&mut self, settings: EqSettings) {
+        self.eq.apply(settings);
     }
 
     pub fn set_output_format(&mut self, rate: u32, channels: usize) {
         self.out_rate = rate.max(1);
         self.out_channels = channels.max(1);
+        self.eq.set_sample_rate(self.out_rate);
     }
 
     pub fn add_deck(
@@ -149,6 +172,7 @@ impl Mixer {
         let id = self.next_id;
         self.next_id += 1;
         let gain = shared.gain();
+        let shared_balance = shared.balance();
         self.decks.push(Deck {
             id,
             consumer,
@@ -162,6 +186,7 @@ impl Mixer {
             successor: None,
             fade: 0.0,
             smoothed_gain: gain,
+            smoothed_pan: shared_balance,
         });
         Ok(id)
     }
@@ -258,6 +283,8 @@ impl Mixer {
                 current = next;
             }
         }
+        // The EQ sits on the shared bus, after the decks are summed.
+        self.eq.process(out, out_channels);
         for sample in out.iter_mut() {
             *sample = sample.clamp(-1.0, 1.0);
         }
@@ -293,6 +320,15 @@ fn render_deck(
     let gain_target = shared.gain();
     let gain_coeff = 1.0 - (-1.0 / (GAIN_SMOOTH_SECONDS * out_rate)).exp();
     let channels = deck.channels;
+    // Ease toward the requested balance once per block; per-frame trig would
+    // cost more than the zipper it avoids.
+    let pan_target = shared.balance();
+    let pan_ease = (frames as f32 / (GAIN_SMOOTH_SECONDS * out_rate)).min(1.0);
+    deck.smoothed_pan += (pan_target - deck.smoothed_pan) * pan_ease;
+    let pan = PanLaw {
+        stereo: PanGains::stereo(deck.smoothed_pan),
+        mono: PanGains::mono(deck.smoothed_pan),
+    };
     let mut consumed: u64 = 0;
     let mut underran = false;
 
@@ -363,7 +399,13 @@ fn render_deck(
             *slot = deck.prev[ch] + (deck.next[ch] - deck.prev[ch]) * t;
         }
         let base = frame * out_channels;
-        write_frame(&src, channels, &mut out[base..base + out_channels], gain);
+        write_frame(
+            &src,
+            channels,
+            &mut out[base..base + out_channels],
+            gain,
+            &pan,
+        );
         deck.pos += step;
     }
 
@@ -378,12 +420,38 @@ fn render_deck(
     finished_at
 }
 
-/// Map `src_channels` to the device layout and accumulate into `out`.
-fn write_frame(src: &[f32; MAX_CHANNELS], src_channels: usize, out: &mut [f32], gain: f32) {
+/// Pan gains for this block, for stereo and mono sources.
+struct PanLaw {
+    stereo: PanGains,
+    mono: (f32, f32),
+}
+
+/// Map `src_channels` to the device layout, apply balance and accumulate into `out`.
+fn write_frame(
+    src: &[f32; MAX_CHANNELS],
+    src_channels: usize,
+    out: &mut [f32],
+    gain: f32,
+    pan: &PanLaw,
+) {
     let out_channels = out.len();
     if out_channels == 1 {
         let sum: f32 = src.iter().take(src_channels).sum();
         out[0] += sum / src_channels as f32 * gain;
+        return;
+    }
+    if out_channels == 2 && src_channels <= 2 {
+        let (left, right) = if src_channels == 1 {
+            (src[0] * pan.mono.0, src[0] * pan.mono.1)
+        } else {
+            let g = &pan.stereo;
+            (
+                src[0] * g.l_from_l + src[1] * g.l_from_r,
+                src[0] * g.r_from_l + src[1] * g.r_from_r,
+            )
+        };
+        out[0] += left * gain;
+        out[1] += right * gain;
         return;
     }
     for (ch, slot) in out.iter_mut().enumerate() {
@@ -559,8 +627,10 @@ mod tests {
         shared.playing.store(true, Ordering::Relaxed);
         let mut out = vec![0.0; 2000];
         mixer.render(&mut out);
-        assert!((out[1998] - 0.5).abs() < 1e-3);
-        assert!((out[1999] - 0.5).abs() < 1e-3);
+        // Equal-power centre, as the webview's panner renders a mono source.
+        let centre = 0.5 * std::f32::consts::FRAC_1_SQRT_2;
+        assert!((out[1998] - centre).abs() < 1e-3);
+        assert!((out[1999] - centre).abs() < 1e-3);
     }
 
     #[test]
@@ -666,6 +736,64 @@ mod tests {
         let (mut mixer, _shared, ids) = two_deck_rig(100, 100);
         mixer.remove_deck(ids[1]);
         assert!(mixer.link_gapless(ids[0], ids[1]).is_err());
+    }
+
+    #[test]
+    fn balance_hard_left_silences_the_right_channel() {
+        let mut r = rig(48_000, 2, 48_000);
+        push_stereo_const(&mut r, 8000, 0.5);
+        r.shared.set_balance(-1.0);
+        r.shared.playing.store(true, Ordering::Relaxed);
+        // Pan eases in over a few blocks.
+        for _ in 0..8 {
+            render_frames(&mut r, 512);
+        }
+        let out = render_frames(&mut r, 256);
+        let last = &out[out.len() - 2..];
+        assert!(
+            (last[0] - 1.0).abs() < 1e-3,
+            "left carries both channels: {}",
+            last[0]
+        );
+        assert!(last[1].abs() < 1e-3, "right is silent: {}", last[1]);
+    }
+
+    #[test]
+    fn balance_is_per_deck() {
+        let (mut mixer, shared, _ids) = two_deck_rig(5000, 5000);
+        shared[0].set_balance(-1.0);
+        shared[1].set_balance(1.0);
+        shared[0].playing.store(true, Ordering::Relaxed);
+        shared[1].playing.store(true, Ordering::Relaxed);
+        let mut out = vec![0.0; 512 * 2];
+        for _ in 0..8 {
+            mixer.render(&mut out);
+        }
+        // Deck A (+0.5) hard left doubles into L; deck B (-0.5) hard right into R.
+        let last = &out[out.len() - 2..];
+        assert!((last[0] - 1.0).abs() < 1e-2);
+        assert!((last[1] + 1.0).abs() < 1e-2);
+    }
+
+    #[test]
+    fn eq_is_applied_to_the_summed_bus() {
+        use crate::native_audio::dsp::EqSettings;
+        let mut r = rig(48_000, 2, 48_000);
+        for frame in 0..30_000usize {
+            let s = (frame as f32 * 1000.0 * std::f32::consts::TAU / 48_000.0).sin() * 0.25;
+            r.producer.push(s).unwrap();
+            r.producer.push(s).unwrap();
+        }
+        let mut settings = EqSettings::default();
+        settings.bands_db[5] = 6.0;
+        r.mixer.set_equalizer(settings);
+        r.shared.playing.store(true, Ordering::Relaxed);
+
+        let out = render_frames(&mut r, 25_000);
+        let tail: Vec<f32> = out[out.len() - 9600..].iter().step_by(2).copied().collect();
+        let peak = tail.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+        // 0.25 boosted by ~6 dB is ~0.5.
+        assert!((peak - 0.5).abs() < 0.05, "boosted peak {peak}");
     }
 
     #[test]

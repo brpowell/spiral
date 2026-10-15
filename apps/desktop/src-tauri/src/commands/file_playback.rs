@@ -57,3 +57,33 @@ pub fn set_file_playback_gain(session_id: u64, gain: f32) {
 pub fn link_gapless_playback(from_session: u64, to_session: u64) -> Result<(), String> {
     file_playback::link_gapless(from_session, to_session)
 }
+
+/// Stereo balance (-1 left … +1 right) for a native session.
+#[tauri::command]
+pub fn set_file_playback_balance(session_id: u64, balance: f32) {
+    file_playback::set_balance(session_id, balance)
+}
+
+/// Graphic EQ for the native output: ten band gains and a preamp, in dB.
+#[tauri::command]
+pub fn set_native_equalizer(
+    enabled: bool,
+    bands_db: Vec<f32>,
+    preamp_db: f32,
+) -> Result<(), String> {
+    use crate::native_audio::dsp::{EqSettings, EQ_BAND_COUNT};
+    if bands_db.len() != EQ_BAND_COUNT {
+        return Err(format!(
+            "expected {EQ_BAND_COUNT} EQ bands, got {}",
+            bands_db.len()
+        ));
+    }
+    let mut bands = [0.0f32; EQ_BAND_COUNT];
+    bands.copy_from_slice(&bands_db);
+    crate::native_audio::global().set_equalizer(EqSettings {
+        enabled,
+        bands_db: bands,
+        preamp_db,
+    });
+    Ok(())
+}

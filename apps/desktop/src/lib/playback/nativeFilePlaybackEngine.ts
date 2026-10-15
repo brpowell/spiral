@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { DeckId } from "./audioOutput";
+import { pushNativeEqualizer } from "./nativeEqualizer";
 import {
   PCM_FILE_PLAYBACK_ENDED_EVENT,
   PCM_FILE_PLAYBACK_GAPLESS_STARTED_EVENT,
@@ -17,7 +18,7 @@ import type {
   RecoverResult,
 } from "./types";
 
-/** Native output reaches crossfade, EQ and the visualizer in later steps. */
+/** Native output reaches crossfade and the visualizer in later steps. */
 const NATIVE_FILE_CAPABILITIES: PlaybackCapabilities = {
   seek: true,
   scrubPreview: true,
@@ -133,6 +134,8 @@ export class NativeFilePlaybackEngine {
       void invoke("stop_file_playback", { sessionId: previous });
     }
 
+    // The EQ bootstraps before the playback settings, so Rust may not have it yet.
+    pushNativeEqualizer();
     const started = await invoke<PcmFilePlaybackStarted>(
       "start_native_file_playback",
       { path: source.path },
@@ -148,6 +151,7 @@ export class NativeFilePlaybackEngine {
     this.anchorAtMs = performance.now();
     this.ignoreEventsUntilMs = 0;
     this.pushGain();
+    this.pushBalance();
   }
 
   async play(): Promise<void> {
@@ -217,9 +221,17 @@ export class NativeFilePlaybackEngine {
     return this.volume;
   }
 
-  /** Stored only; balance joins the native mixer with EQ in a later step. */
   setBalance(balance: number): void {
     this.balance = Math.max(-1, Math.min(1, balance));
+    this.pushBalance();
+  }
+
+  private pushBalance(): void {
+    if (!this.current) return;
+    void invoke("set_file_playback_balance", {
+      sessionId: this.current.sessionId,
+      balance: this.balance,
+    }).catch((err) => console.error("Native balance update failed:", err));
   }
 
   getBalance(): number {
