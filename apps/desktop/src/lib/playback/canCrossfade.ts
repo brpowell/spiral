@@ -32,8 +32,7 @@ export function canGapless(
   incoming: PlaybackSource,
 ): boolean {
   if (outgoing.kind === "file" && incoming.kind === "file") {
-    // Native output gains the sample-accurate splice in a later step.
-    return !isNativeAudioEnabled();
+    return true;
   }
   if (outgoing.kind === "cd" && incoming.kind === "cd") {
     return outgoing.driveId === incoming.driveId;

@@ -26,6 +26,9 @@ pub struct DeckShared {
     pub eos: AtomicBool,
     /// Ring drained after `eos`; nothing left to play.
     pub finished: AtomicBool,
+    /// Set when a gapless splice started this deck inside the audio callback;
+    /// the deck's owner clears it when it reports the start.
+    pub gapless_started: AtomicBool,
     /// Source frames consumed since the start of the file (seek-adjusted).
     pub position_frames: AtomicU64,
     /// Output callbacks that found the ring empty while playing.
@@ -40,6 +43,7 @@ impl DeckShared {
             playing: AtomicBool::new(false),
             eos: AtomicBool::new(false),
             finished: AtomicBool::new(false),
+            gapless_started: AtomicBool::new(false),
             position_frames: AtomicU64::new(0),
             underruns: AtomicU64::new(0),
             gain_bits: AtomicU32::new(1.0f32.to_bits()),
@@ -74,6 +78,8 @@ struct Deck {
     /// Fractional position between `prev` (0.0) and `next` (1.0).
     pos: f64,
     primed: bool,
+    /// Deck that starts on the exact frame this one runs out (gapless splice).
+    successor: Option<u64>,
     /// 0..=1 fade applied for play/pause transitions.
     fade: f32,
     smoothed_gain: f32,
@@ -153,10 +159,34 @@ impl Mixer {
             next: [0.0; MAX_CHANNELS],
             pos: 0.0,
             primed: false,
+            successor: None,
             fade: 0.0,
             smoothed_gain: gain,
         });
         Ok(id)
+    }
+
+    /// Start `to` on the very frame `from` runs out, with no fade and no gap.
+    /// `to` stays silent until then even though its ring may already be full.
+    pub fn link_gapless(&mut self, from: u64, to: u64) -> Result<(), String> {
+        if !self.decks.iter().any(|deck| deck.id == to) {
+            return Err("native audio: gapless target deck is gone".into());
+        }
+        let Some(source) = self.decks.iter_mut().find(|deck| deck.id == from) else {
+            return Err("native audio: gapless source deck is gone".into());
+        };
+        if !source.shared.finished.load(Ordering::Relaxed) {
+            source.successor = Some(to);
+            return Ok(());
+        }
+        // The source already ran out before the link arrived; there is no frame
+        // to align to, so start the successor now rather than never.
+        if let Some(target) = self.decks.iter_mut().find(|deck| deck.id == to) {
+            target.fade = 1.0;
+            target.shared.playing.store(true, Ordering::Relaxed);
+            target.shared.gapless_started.store(true, Ordering::Release);
+        }
+        Ok(())
     }
 
     pub fn remove_deck(&mut self, id: u64) {
@@ -189,8 +219,44 @@ impl Mixer {
             return;
         }
         let out_rate = self.out_rate as f32;
-        for deck in self.decks.iter_mut() {
-            render_deck(deck, out, frames, out_channels, out_rate);
+        let mut rendered = [false; MAX_DECKS];
+        for index in 0..self.decks.len() {
+            if rendered[index] {
+                continue;
+            }
+            rendered[index] = true;
+            let mut finished_at = render_deck(
+                &mut self.decks[index],
+                out,
+                frames,
+                out_channels,
+                out_rate,
+                0,
+            );
+            // Follow the splice chain: each deck that runs out hands the rest of
+            // the block to its successor, starting on that same frame.
+            let mut current = index;
+            while let Some(frame) = finished_at {
+                let Some(successor_id) = self.decks[current].successor.take() else {
+                    break;
+                };
+                let Some(next) = self.decks.iter().position(|deck| deck.id == successor_id) else {
+                    break;
+                };
+                if rendered[next] || self.decks[next].shared.finished.load(Ordering::Relaxed) {
+                    break;
+                }
+                rendered[next] = true;
+                let successor = &mut self.decks[next];
+                successor.fade = 1.0;
+                successor.shared.playing.store(true, Ordering::Relaxed);
+                successor
+                    .shared
+                    .gapless_started
+                    .store(true, Ordering::Release);
+                finished_at = render_deck(successor, out, frames, out_channels, out_rate, frame);
+                current = next;
+            }
         }
         for sample in out.iter_mut() {
             *sample = sample.clamp(-1.0, 1.0);
@@ -210,15 +276,17 @@ fn render_deck(
     frames: usize,
     out_channels: usize,
     out_rate: f32,
-) {
+    start_frame: usize,
+) -> Option<usize> {
     let shared = Arc::clone(&deck.shared);
     let want_playing = shared.playing.load(Ordering::Relaxed);
     if !want_playing && deck.fade <= 0.0 {
-        return;
+        return None;
     }
     if shared.finished.load(Ordering::Relaxed) {
-        return;
+        return None;
     }
+    let mut finished_at = None;
 
     let step = deck.src_rate as f64 / out_rate as f64;
     let fade_step = 1.0 / (FADE_SECONDS * out_rate);
@@ -228,7 +296,7 @@ fn render_deck(
     let mut consumed: u64 = 0;
     let mut underran = false;
 
-    for frame in 0..frames {
+    for frame in start_frame..frames {
         // Fade toward the play/pause target.
         if want_playing {
             deck.fade = (deck.fade + fade_step).min(1.0);
@@ -254,6 +322,7 @@ fn render_deck(
             } else {
                 if eos {
                     shared.finished.store(true, Ordering::Release);
+                    finished_at = Some(frame);
                     break;
                 }
                 underran = true;
@@ -273,6 +342,7 @@ fn render_deck(
                 consumed += 1;
             } else if eos {
                 shared.finished.store(true, Ordering::Release);
+                finished_at = Some(frame);
                 break;
             } else {
                 underran = true;
@@ -305,6 +375,7 @@ fn render_deck(
     if underran && want_playing {
         shared.underruns.fetch_add(1, Ordering::Relaxed);
     }
+    finished_at
 }
 
 /// Map `src_channels` to the device layout and accumulate into `out`.
@@ -500,6 +571,101 @@ mod tests {
         r.shared.playing.store(true, Ordering::Relaxed);
         let out = render_frames(&mut r, 4000);
         assert!((out[out.len() - 1] - 0.4).abs() < 2e-3);
+    }
+
+    fn two_deck_rig(frames_a: usize, frames_b: usize) -> (Mixer, [Arc<DeckShared>; 2], [u64; 2]) {
+        let mut mixer = Mixer::new();
+        mixer.set_output_format(48_000, 2);
+        let mut shared = Vec::new();
+        let mut ids = Vec::new();
+        for (frames, value) in [(frames_a, 0.5f32), (frames_b, -0.5f32)] {
+            let (mut producer, consumer) = RingBuffer::new(1 << 16);
+            for _ in 0..frames * 2 {
+                producer.push(value).expect("room");
+            }
+            let deck_shared = Arc::new(DeckShared::new());
+            deck_shared.eos.store(true, Ordering::Release);
+            ids.push(
+                mixer
+                    .add_deck(consumer, Arc::clone(&deck_shared), 2, 48_000)
+                    .expect("deck"),
+            );
+            shared.push(deck_shared);
+        }
+        (
+            mixer,
+            [Arc::clone(&shared[0]), Arc::clone(&shared[1])],
+            [ids[0], ids[1]],
+        )
+    }
+
+    #[test]
+    fn gapless_successor_starts_on_the_frame_the_source_runs_out() {
+        let (mut mixer, shared, ids) = two_deck_rig(300, 5000);
+        mixer.link_gapless(ids[0], ids[1]).expect("link");
+        shared[0].playing.store(true, Ordering::Relaxed);
+
+        // First block: the 300-frame source fades in, runs out, successor takes over.
+        let mut out = vec![0.0; 1024 * 2];
+        mixer.render(&mut out);
+
+        assert!(shared[0].finished.load(Ordering::Relaxed));
+        assert!(shared[1].gapless_started.load(Ordering::Relaxed));
+        assert!(shared[1].playing.load(Ordering::Relaxed));
+
+        // No silent frame at the seam: every frame is either deck A (+) or deck B (-).
+        let first_b = out
+            .chunks(2)
+            .position(|frame| frame[0] < 0.0)
+            .expect("successor audible in the same block");
+        assert!((298..=301).contains(&first_b), "seam at frame {first_b}");
+        assert!(
+            out.chunks(2)
+                .skip(first_b)
+                .all(|frame| (frame[0] + 0.5).abs() < 1e-3),
+            "successor plays at full level from the first frame, no fade-in"
+        );
+        assert!(
+            out.chunks(2)
+                .skip(5)
+                .take(first_b - 5)
+                .all(|frame| frame[0] > 0.0),
+            "no silent frames before the seam"
+        );
+    }
+
+    #[test]
+    fn gapless_successor_stays_silent_until_the_source_finishes() {
+        let (mut mixer, shared, ids) = two_deck_rig(5000, 5000);
+        mixer.link_gapless(ids[0], ids[1]).expect("link");
+        shared[0].playing.store(true, Ordering::Relaxed);
+
+        let mut out = vec![0.0; 1000 * 2];
+        mixer.render(&mut out);
+        assert!(out.iter().all(|s| *s >= 0.0), "only the source is audible");
+        assert!(!shared[1].playing.load(Ordering::Relaxed));
+        assert_eq!(shared[1].position_frames.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn gapless_link_after_the_source_already_finished_starts_the_successor() {
+        let (mut mixer, shared, ids) = two_deck_rig(100, 5000);
+        shared[0].playing.store(true, Ordering::Relaxed);
+        let mut out = vec![0.0; 1024 * 2];
+        mixer.render(&mut out);
+        assert!(shared[0].finished.load(Ordering::Relaxed));
+
+        mixer.link_gapless(ids[0], ids[1]).expect("late link");
+        assert!(shared[1].playing.load(Ordering::Relaxed));
+        mixer.render(&mut out);
+        assert!(out.iter().any(|s| *s < -0.4), "successor audible");
+    }
+
+    #[test]
+    fn gapless_link_to_a_removed_deck_is_rejected() {
+        let (mut mixer, _shared, ids) = two_deck_rig(100, 100);
+        mixer.remove_deck(ids[1]);
+        assert!(mixer.link_gapless(ids[0], ids[1]).is_err());
     }
 
     #[test]

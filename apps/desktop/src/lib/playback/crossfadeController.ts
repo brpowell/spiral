@@ -65,6 +65,13 @@ export interface DualDeckEngine {
   isEndOfStreamPending(): boolean;
   /** Ask the worklet to re-emit drainAt (late gapless subscribe). */
   reannounceDrain(): void;
+  /** Native output: this deck's session id, for linking a gapless splice. */
+  getSessionId?(): number | null;
+  /**
+   * Native output: have the mixer start `incoming` on the exact sample this
+   * deck runs out. Absent on engines that splice by context frame instead.
+   */
+  armGaplessSuccessor?(incoming: DualDeckEngine): void;
   recover(options: RecoverOptions): Promise<RecoverResult>;
 }
 
@@ -776,6 +783,8 @@ export class CrossfadeController {
     this.fadeIncomingDeck = incomingDeck;
     this.activeFadeContext = ctx;
     this.dominantTrackPromoted = false;
+
+    this.engine(outgoingDeck).armGaplessSuccessor?.(this.engine(incomingDeck));
 
     this.engine(outgoingDeck).onDrainAt((frame) => {
       if (generation !== this.scheduleGeneration) return;

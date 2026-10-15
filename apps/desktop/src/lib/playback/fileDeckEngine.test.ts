@@ -13,6 +13,8 @@ const { nativeEnabled, native, pcm } = vi.hoisted(() => {
     onEnd: vi.fn(),
     onDrainAt: vi.fn(),
     onGaplessStarted: vi.fn(),
+    armGaplessSuccessor: vi.fn(),
+    getSessionId: vi.fn(() => 3),
   });
   return {
     nativeEnabled: { value: false },
@@ -115,5 +117,32 @@ describe("FilePlaybackEngine", () => {
     await engine.load(SOURCE);
     expect(pcm.instances[0]!.destroy).toHaveBeenCalled();
     expect(native.instances).toHaveLength(1);
+  });
+});
+
+describe("FilePlaybackEngine gapless linking", () => {
+  beforeEach(() => {
+    nativeEnabled.value = true;
+    native.instances.length = 0;
+  });
+
+  it("links the underlying backends, not the wrappers", async () => {
+    const outgoing = new FilePlaybackEngine();
+    const incoming = new FilePlaybackEngine();
+    await outgoing.load(SOURCE);
+    await incoming.load(SOURCE);
+
+    outgoing.armGaplessSuccessor(incoming);
+
+    expect(native.instances[0]!.armGaplessSuccessor).toHaveBeenCalledWith(
+      native.instances[1],
+    );
+  });
+
+  it("exposes the backend session id", async () => {
+    const engine = new FilePlaybackEngine();
+    expect(engine.getSessionId()).toBeNull();
+    await engine.load(SOURCE);
+    expect(engine.getSessionId()).toBe(3);
   });
 });

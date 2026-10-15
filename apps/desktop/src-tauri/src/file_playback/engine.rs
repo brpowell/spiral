@@ -22,6 +22,8 @@ use crate::native_audio::{AudioOutput, DeckHandle};
 pub const FILE_PLAYBACK_POSITION_EVENT: &str = "file-playback-position";
 pub const FILE_PLAYBACK_ENDED_EVENT: &str = "file-playback-ended";
 pub const FILE_PLAYBACK_FLUSH_EVENT: &str = "file-playback-flush";
+/// A native session began playing on its own (gapless splice from another session).
+pub const FILE_PLAYBACK_GAPLESS_STARTED_EVENT: &str = "file-playback-gapless-started";
 
 /// Raw interleaved little-endian f32 PCM chunks, delivered over a Tauri
 /// channel. Events would inline every chunk into a unique `eval` script
@@ -61,6 +63,12 @@ pub struct FilePlaybackPosition {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FilePlaybackEnded {
+    pub session_id: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FilePlaybackGaplessStarted {
     pub session_id: u64,
 }
 
@@ -125,6 +133,7 @@ impl InFlightTracker {
 
 /// Control surface for a session that plays through the native output.
 struct NativeControl {
+    deck_id: u64,
     shared: Arc<DeckShared>,
     output: AudioOutput,
 }
@@ -292,6 +301,7 @@ fn start_inner(
         .as_ref()
         .zip(native.as_ref())
         .map(|(deck, output)| NativeControl {
+            deck_id: deck.id(),
             shared: Arc::clone(&deck.shared),
             output: output.clone(),
         });
@@ -552,6 +562,15 @@ fn native_playback_thread(
             deck.shared.eos.store(true, Ordering::Release);
         }
 
+        if deck.shared.gapless_started.swap(false, Ordering::AcqRel) {
+            is_playing.store(true, Ordering::SeqCst);
+            emit_event(
+                app.as_ref(),
+                FILE_PLAYBACK_GAPLESS_STARTED_EVENT,
+                FilePlaybackGaplessStarted { session_id },
+            );
+        }
+
         if deck.shared.finished.load(Ordering::Acquire) {
             break;
         }
@@ -610,6 +629,21 @@ pub fn resume(session_id: u64) {
             native.output.ensure_stream();
         }
     });
+}
+
+/// Arrange for `to_session` to start on the exact sample `from_session` runs
+/// out. Both must be native sessions.
+pub fn link_gapless(from_session: u64, to_session: u64) -> Result<(), String> {
+    let sessions = SESSIONS.lock().expect("file playback state poisoned");
+    let (Some(from), Some(to)) = (sessions.get(&from_session), sessions.get(&to_session)) else {
+        return Err("Gapless link needs two live sessions".into());
+    };
+    let (Some(from_native), Some(to_native)) = (&from.native, &to.native) else {
+        return Err("Gapless link needs native sessions".into());
+    };
+    from_native
+        .output
+        .link_gapless(from_native.deck_id, to_native.deck_id)
 }
 
 /// Set a native session's output gain (volume × mute, 0–1). No-op for sessions
@@ -905,6 +939,45 @@ mod tests {
                 "position reset by seek: {}",
                 native_position_frames(id)
             );
+        });
+    }
+
+    #[test]
+    fn native_gapless_link_starts_the_second_session_when_the_first_ends() {
+        with_clean_sessions(|| {
+            let (ogg_path, flac_path) = fixture_paths();
+            let (output, state) = fake_output();
+            let first = start_inner(None, &ogg_path, None, Some(output.clone())).expect("first");
+            let second = start_inner(None, &flac_path, None, Some(output)).expect("second");
+
+            link_gapless(first.session_id, second.session_id).expect("link");
+            resume(first.session_id);
+
+            pump_until(&state, "first to end", || {
+                with_session(first.session_id, |_| ()).is_none()
+            });
+            let playing = with_session(second.session_id, |s| {
+                s.native
+                    .as_ref()
+                    .expect("native")
+                    .shared
+                    .playing
+                    .load(Ordering::Relaxed)
+            });
+            assert_eq!(playing, Some(true), "second started by the splice");
+            pump_until(&state, "second audio", || {
+                native_position_frames(second.session_id) > 0
+            });
+        });
+    }
+
+    #[test]
+    fn gapless_link_requires_live_native_sessions() {
+        with_clean_sessions(|| {
+            let (ogg_path, _) = fixture_paths();
+            let legacy = start_inner(None, &ogg_path, None, None).expect("legacy");
+            assert!(link_gapless(legacy.session_id, 9999).is_err());
+            assert!(link_gapless(legacy.session_id, legacy.session_id).is_err());
         });
     }
 

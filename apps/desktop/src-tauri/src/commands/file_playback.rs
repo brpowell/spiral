@@ -51,3 +51,9 @@ pub fn ack_file_playback_pcm(session_id: u64, count: u32) {
 pub fn set_file_playback_gain(session_id: u64, gain: f32) {
     file_playback::set_gain(session_id, gain)
 }
+
+/// Start `to_session` on the exact sample `from_session` runs out (native only).
+#[tauri::command]
+pub fn link_gapless_playback(from_session: u64, to_session: u64) -> Result<(), String> {
+    file_playback::link_gapless(from_session, to_session)
+}

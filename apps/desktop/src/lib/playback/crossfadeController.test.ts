@@ -66,6 +66,7 @@ function createMockEngine(deckId: DeckId) {
     }),
     isEndOfStreamPending: vi.fn(() => false),
     reannounceDrain: vi.fn(),
+    armGaplessSuccessor: vi.fn(),
     onEnd: vi.fn((callback: () => void) => {
       listeners.push(callback);
     }),
@@ -794,6 +795,28 @@ describe("CrossfadeController", () => {
     expect(onEnd).not.toHaveBeenCalled();
     expect(controller.consumeHandledEnd()).toBe(false);
     expect(controller.isCrossfadeInProgress()).toBe(false);
+  });
+
+  it("links the outgoing deck to the incoming one for a native splice", async () => {
+    const deckA = createMockEngine("a");
+    const deckB = createMockEngine("b");
+    const controller = new CrossfadeController({
+      a: deckA as unknown as DualDeckEngine,
+      b: deckB as unknown as DualDeckEngine,
+    });
+
+    await controller.loadAndPlay(
+      { kind: "file", path: "/a.wav" },
+      { volume: 1, muted: false, balance: 0 },
+    );
+    controller.maybeScheduleGapless(
+      crossfadeScheduleArgs({ positionSeconds: 179, outgoingDuration: 180 }),
+    );
+
+    await vi.waitFor(() => {
+      expect(deckA.armGaplessSuccessor).toHaveBeenCalledWith(deckB);
+    });
+    expect(deckB.armGaplessSuccessor).not.toHaveBeenCalled();
   });
 
   it("suppresses the store advance when the outgoing tail drains", async () => {

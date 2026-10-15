@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { DeckId } from "./audioOutput";
 import {
   PCM_FILE_PLAYBACK_ENDED_EVENT,
+  PCM_FILE_PLAYBACK_GAPLESS_STARTED_EVENT,
   PCM_FILE_PLAYBACK_POSITION_EVENT,
   type PcmFilePlaybackPositionPayload,
   type PcmFilePlaybackStarted,
@@ -16,11 +17,11 @@ import type {
   RecoverResult,
 } from "./types";
 
-/** Native output reaches gapless, crossfade, EQ and the visualizer in later steps. */
+/** Native output reaches crossfade, EQ and the visualizer in later steps. */
 const NATIVE_FILE_CAPABILITIES: PlaybackCapabilities = {
   seek: true,
   scrubPreview: true,
-  gapless: false,
+  gapless: true,
   visualizer: false,
   recoverAfterWake: false,
 };
@@ -57,6 +58,9 @@ export class NativeFilePlaybackEngine {
   private crossfadeMix = 1;
   private deckId: DeckId = "a";
   private endCallback: (() => void) | null = null;
+  private startedCallback: (() => void) | null = null;
+  /** Primed for a gapless splice: buffered in Rust, silent until it starts itself. */
+  private gated = false;
   private listeners: Promise<UnlistenFn[]> | null = null;
   private loadGeneration = 0;
 
@@ -93,6 +97,13 @@ export class NativeFilePlaybackEngine {
           this.anchorAtMs = performance.now();
         },
       ),
+      listen<PcmFileSessionKey>(
+        PCM_FILE_PLAYBACK_GAPLESS_STARTED_EVENT,
+        (event) => {
+          if (!isPcmFileSession(this.current, event.payload)) return;
+          this.handleStarted();
+        },
+      ),
       listen<PcmFileSessionKey>(PCM_FILE_PLAYBACK_ENDED_EVENT, (event) => {
         if (!isPcmFileSession(this.current, event.payload)) return;
         // Rust only reports the end once the mixer has played the last sample.
@@ -113,6 +124,7 @@ export class NativeFilePlaybackEngine {
     }
 
     const generation = ++this.loadGeneration;
+    this.gated = false;
     await this.ensureListeners();
     const previous = this.current?.sessionId ?? null;
     this.current = null;
@@ -140,6 +152,7 @@ export class NativeFilePlaybackEngine {
 
   async play(): Promise<void> {
     if (!this.current) return;
+    this.gated = false;
     this.anchorSeconds = this.getPositionSeconds();
     this.anchorAtMs = performance.now();
     this.playing = true;
@@ -175,6 +188,8 @@ export class NativeFilePlaybackEngine {
   }
 
   getPositionSeconds(): number {
+    // Primed but silent — audible transport has not started.
+    if (this.gated) return 0;
     if (!this.playing) return this.anchorSeconds;
     const elapsed = (performance.now() - this.anchorAtMs) / 1000;
     const duration = this.durationSeconds > 0 ? this.durationSeconds : Infinity;
@@ -236,6 +251,8 @@ export class NativeFilePlaybackEngine {
 
   private retire(): void {
     this.loadGeneration += 1;
+    this.gated = false;
+    this.startedCallback = null;
     const sessionId = this.current?.sessionId ?? null;
     this.current = null;
     this.playing = false;
@@ -246,16 +263,70 @@ export class NativeFilePlaybackEngine {
     }
   }
 
-  // Gapless splice is unavailable until step 2; `canGapless` is false, so the
-  // dual-deck controller never reaches these.
-  async primeGaplessStart(): Promise<void> {}
+  getSessionId(): number | null {
+    return this.current?.sessionId ?? null;
+  }
+
+  /**
+   * The Rust session is already decoding into its ring while paused, so priming
+   * only needs to keep the deck silent and the playhead at zero until the
+   * mixer splices it in.
+   */
+  async primeGaplessStart(): Promise<void> {
+    if (!this.current) return;
+    this.gated = true;
+    this.playing = false;
+    this.anchorSeconds = 0;
+  }
+
+  /**
+   * Ask Rust to start `incoming` on the exact sample this deck runs out. The
+   * splice happens inside the audio callback, so no message round trip sits
+   * between the last sample of one track and the first of the next.
+   */
+  armGaplessSuccessor(incoming: { getSessionId?(): number | null }): void {
+    const from = this.current?.sessionId;
+    const to = incoming.getSessionId?.();
+    if (from === undefined || to === undefined || to === null) return;
+    void invoke("link_gapless_playback", {
+      fromSession: from,
+      toSession: to,
+    }).catch((err) => console.error("Native gapless link failed:", err));
+  }
+
+  /** Frame-scheduled splice does not exist here; Rust owns the timing. */
   scheduleStartAtFrame(_frame: number): void {}
-  forceGaplessStart(): void {}
+
   onDrainAt(_callback: (frame: number) => void): void {}
-  onGaplessStarted(_callback: () => void): void {}
+
+  onGaplessStarted(callback: () => void): void {
+    this.startedCallback = callback;
+  }
+
+  /** Give up on the sample-accurate splice and start now. */
+  forceGaplessStart(): void {
+    if (!this.current) return;
+    if (this.gated) {
+      void invoke("resume_file_playback", {
+        sessionId: this.current.sessionId,
+      });
+      this.handleStarted();
+    }
+  }
+
+  private handleStarted(): void {
+    if (!this.gated && this.playing) return;
+    this.gated = false;
+    this.playing = true;
+    this.anchorSeconds = 0;
+    this.anchorAtMs = performance.now();
+    this.startedCallback?.();
+  }
+
   isEndOfStreamPending(): boolean {
     return false;
   }
+
   reannounceDrain(): void {}
 
   /** Rust owns the device and rebuilds it itself; nothing to repair here. */

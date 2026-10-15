@@ -229,6 +229,111 @@ describe("NativeFilePlaybackEngine", () => {
   it("has no Web Audio output bus", async () => {
     const engine = await loadedEngine();
     expect(engine.connectToOutputBus()).toBeNull();
-    expect(engine.capabilities.gapless).toBe(false);
+  });
+});
+
+describe("NativeFilePlaybackEngine gapless", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    invoke.mockReset();
+    handlers.clear();
+    let next = 7;
+    invoke.mockImplementation(async (command: string) => {
+      if (command === "start_native_file_playback") {
+        return {
+          sessionId: next++,
+          durationSeconds: 200,
+          sampleRate: 44100,
+          channels: 2,
+        };
+      }
+      return undefined;
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function pair() {
+    const outgoing = new NativeFilePlaybackEngine();
+    const incoming = new NativeFilePlaybackEngine();
+    await outgoing.load(SOURCE);
+    await incoming.load({ kind: "file", path: "/music/b.flac" });
+    return { outgoing, incoming };
+  }
+
+  it("links the two Rust sessions so the mixer splices them", async () => {
+    const { outgoing, incoming } = await pair();
+    outgoing.armGaplessSuccessor(incoming);
+    expect(commandsNamed("link_gapless_playback")).toEqual([
+      ["link_gapless_playback", { fromSession: 7, toSession: 8 }],
+    ]);
+  });
+
+  it("does not link when the other deck has no session", async () => {
+    const { outgoing } = await pair();
+    outgoing.armGaplessSuccessor(new NativeFilePlaybackEngine());
+    expect(commandsNamed("link_gapless_playback")).toHaveLength(0);
+  });
+
+  it("keeps a primed deck silent at position zero until Rust starts it", async () => {
+    const { incoming } = await pair();
+    await incoming.primeGaplessStart();
+    vi.advanceTimersByTime(3000);
+    expect(incoming.getPositionSeconds()).toBe(0);
+    expect(incoming.isPlaying()).toBe(false);
+  });
+
+  it("starts the playhead from zero when Rust reports the splice", async () => {
+    const { incoming } = await pair();
+    const started = vi.fn();
+    incoming.onGaplessStarted(started);
+    await incoming.primeGaplessStart();
+
+    emit("file-playback-gapless-started", { sessionId: 8 });
+
+    expect(started).toHaveBeenCalledTimes(1);
+    expect(incoming.isPlaying()).toBe(true);
+    vi.advanceTimersByTime(1500);
+    expect(incoming.getPositionSeconds()).toBeCloseTo(1.5, 1);
+  });
+
+  it("ignores a splice event for another session", async () => {
+    const { incoming } = await pair();
+    const started = vi.fn();
+    incoming.onGaplessStarted(started);
+    await incoming.primeGaplessStart();
+    emit("file-playback-gapless-started", { sessionId: 99 });
+    expect(started).not.toHaveBeenCalled();
+  });
+
+  it("fires the start callback once when forced after a splice", async () => {
+    const { incoming } = await pair();
+    const started = vi.fn();
+    incoming.onGaplessStarted(started);
+    await incoming.primeGaplessStart();
+    emit("file-playback-gapless-started", { sessionId: 8 });
+    incoming.forceGaplessStart();
+    expect(started).toHaveBeenCalledTimes(1);
+  });
+
+  it("forcing the start resumes the Rust session and reports started", async () => {
+    const { incoming } = await pair();
+    const started = vi.fn();
+    incoming.onGaplessStarted(started);
+    await incoming.primeGaplessStart();
+
+    incoming.forceGaplessStart();
+
+    expect(commandsNamed("resume_file_playback")).toEqual([
+      ["resume_file_playback", { sessionId: 8 }],
+    ]);
+    expect(started).toHaveBeenCalledTimes(1);
+    expect(incoming.isPlaying()).toBe(true);
+  });
+
+  it("advertises gapless", () => {
+    expect(new NativeFilePlaybackEngine().capabilities.gapless).toBe(true);
   });
 });

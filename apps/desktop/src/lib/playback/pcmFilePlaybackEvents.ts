@@ -1,6 +1,8 @@
 export const PCM_FILE_PLAYBACK_POSITION_EVENT = "file-playback-position";
 export const PCM_FILE_PLAYBACK_ENDED_EVENT = "file-playback-ended";
 export const PCM_FILE_PLAYBACK_FLUSH_EVENT = "file-playback-flush";
+export const PCM_FILE_PLAYBACK_GAPLESS_STARTED_EVENT =
+  "file-playback-gapless-started";
 
 export interface PcmFileSessionKey {
   sessionId: number;

@@ -85,6 +85,10 @@ pub struct DeckHandle {
 }
 
 impl DeckHandle {
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+
     /// Drop everything buffered so the producer can restart from a new position.
     pub fn flush(&self) {
         lock(&self.output.mixer).flush_deck(self.id);
@@ -175,6 +179,13 @@ impl AudioOutput {
             src_rate,
             output: self.clone(),
         })
+    }
+
+    /// Splice deck `to` onto the end of deck `from` sample-accurately.
+    pub fn link_gapless(&self, from: u64, to: u64) -> Result<(), String> {
+        lock(&self.mixer).link_gapless(from, to)?;
+        self.ensure_stream();
+        Ok(())
     }
 
     pub fn ensure_stream(&self) {

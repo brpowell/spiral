@@ -182,6 +182,17 @@ export class FilePlaybackEngine implements DualDeckEngine, PlaybackEngine {
     this.backend?.reannounceDrain();
   }
 
+  getSessionId(): number | null {
+    return this.backend?.getSessionId?.() ?? null;
+  }
+
+  armGaplessSuccessor(incoming: DualDeckEngine): void {
+    // The mixer links backend sessions, not this wrapper.
+    const target =
+      incoming instanceof FilePlaybackEngine ? incoming.backend : incoming;
+    if (target) this.backend?.armGaplessSuccessor?.(target);
+  }
+
   async recover(options: RecoverOptions): Promise<RecoverResult> {
     return (
       (await this.backend?.recover(options)) ?? {

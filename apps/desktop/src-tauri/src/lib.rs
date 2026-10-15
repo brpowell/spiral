@@ -320,6 +320,7 @@ pub fn run() {
             commands::file_playback::stop_file_playback,
             commands::file_playback::ack_file_playback_pcm,
             commands::file_playback::set_file_playback_gain,
+            commands::file_playback::link_gapless_playback,
             commands::cd::lookup_disc_metadata,
             commands::cd::peek_disc_metadata_cache,
             commands::cd::save_disc_metadata_preference,
