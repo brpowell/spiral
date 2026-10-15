@@ -5,6 +5,7 @@ import {
   defaultPlaybackSettings,
   type PlaybackSettings,
 } from "../types/playbackSettings";
+import { setNativeAudioEnabled } from "../lib/playback/nativeAudioFlag";
 import { getWindowRole } from "../lib/windowRole";
 
 interface PlaybackSettingsStoreState extends PlaybackSettings {
@@ -21,7 +22,9 @@ function isMainWindow(): boolean {
   return getWindowRole() === "main";
 }
 
-function persistPlaybackSettings(state: PlaybackSettings): void {
+type UserPlaybackSettings = Omit<PlaybackSettings, "nativeAudioOutput">;
+
+function persistPlaybackSettings(state: UserPlaybackSettings): void {
   if (!isMainWindow()) return;
 
   void savePlaybackSettings({
@@ -29,12 +32,14 @@ function persistPlaybackSettings(state: PlaybackSettings): void {
     crossfadeSeconds: state.crossfadeSeconds,
     crossfadeOnSkip: state.crossfadeOnSkip,
     crossfadeVisualEnabled: state.crossfadeVisualEnabled,
+    // Not editable in the UI yet; carry it through so saves never reset it.
+    nativeAudioOutput: usePlaybackSettingsStore.getState().nativeAudioOutput,
   }).catch((err: unknown) => {
     console.error("Failed to save playback settings:", err);
   });
 }
 
-function commitSettingsChange(state: PlaybackSettings): void {
+function commitSettingsChange(state: UserPlaybackSettings): void {
   persistPlaybackSettings(state);
 }
 
@@ -43,11 +48,13 @@ export const usePlaybackSettingsStore = create<PlaybackSettingsStoreState>(
     ...defaultPlaybackSettings(),
 
     initializeFromBootstrap: (settings) => {
+      setNativeAudioEnabled(settings.nativeAudioOutput === true);
       set({
         crossfadeEnabled: settings.crossfadeEnabled,
         crossfadeSeconds: clampCrossfadeSeconds(settings.crossfadeSeconds),
         crossfadeOnSkip: settings.crossfadeOnSkip,
         crossfadeVisualEnabled: settings.crossfadeVisualEnabled,
+        nativeAudioOutput: settings.nativeAudioOutput === true,
       });
     },
 
@@ -119,5 +126,6 @@ export function pickPlaybackSettingsSnapshot(
     crossfadeSeconds: state.crossfadeSeconds,
     crossfadeOnSkip: state.crossfadeOnSkip,
     crossfadeVisualEnabled: state.crossfadeVisualEnabled,
+    nativeAudioOutput: state.nativeAudioOutput,
   };
 }

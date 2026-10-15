@@ -3,6 +3,8 @@ export interface PlaybackSettings {
   crossfadeSeconds: number;
   crossfadeOnSkip: boolean;
   crossfadeVisualEnabled: boolean;
+  /** Hidden: play library files through the native (Rust) audio output. */
+  nativeAudioOutput: boolean;
 }
 
 export const MIN_CROSSFADE_SECONDS = 1;
@@ -15,10 +17,14 @@ export function defaultPlaybackSettings(): PlaybackSettings {
     crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS,
     crossfadeOnSkip: false,
     crossfadeVisualEnabled: true,
+    nativeAudioOutput: false,
   };
 }
 
 export function clampCrossfadeSeconds(seconds: number): number {
   if (!Number.isFinite(seconds)) return DEFAULT_CROSSFADE_SECONDS;
-  return Math.min(MAX_CROSSFADE_SECONDS, Math.max(MIN_CROSSFADE_SECONDS, seconds));
+  return Math.min(
+    MAX_CROSSFADE_SECONDS,
+    Math.max(MIN_CROSSFADE_SECONDS, seconds),
+  );
 }

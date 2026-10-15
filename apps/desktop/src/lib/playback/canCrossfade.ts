@@ -1,4 +1,5 @@
 import type { PlaybackSource } from "./types";
+import { isNativeAudioEnabled } from "./nativeAudioFlag";
 import { FILE_PCM_READ_AHEAD_SECONDS } from "./pcmStreamConstants";
 
 /**
@@ -17,6 +18,8 @@ export function canCrossfade(
   outgoing: PlaybackSource,
   incoming: PlaybackSource,
 ): boolean {
+  // Native output gains crossfade in a later step.
+  if (isNativeAudioEnabled()) return false;
   return outgoing.kind === "file" && incoming.kind === "file";
 }
 
@@ -29,7 +32,8 @@ export function canGapless(
   incoming: PlaybackSource,
 ): boolean {
   if (outgoing.kind === "file" && incoming.kind === "file") {
-    return true;
+    // Native output gains the sample-accurate splice in a later step.
+    return !isNativeAudioEnabled();
   }
   if (outgoing.kind === "cd" && incoming.kind === "cd") {
     return outgoing.driveId === incoming.driveId;

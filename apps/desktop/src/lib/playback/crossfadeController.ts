@@ -11,7 +11,7 @@ import {
   CdPlaybackEngine,
   type CdPlaybackStreamError,
 } from "./cdPlaybackEngine";
-import { PcmFilePlaybackEngine } from "./pcmFilePlaybackEngine";
+import { FilePlaybackEngine } from "./fileDeckEngine";
 import type { PlaybackSource, RecoverOptions, RecoverResult } from "./types";
 
 const FADE_COMPLETE_BUFFER_MS = 50;
@@ -35,7 +35,7 @@ type DeckMedium = "file" | "cd";
 
 /**
  * Deck engine surface used by the dual-deck handoff controller.
- * Implemented by both {@link PcmFilePlaybackEngine} and {@link CdPlaybackEngine}.
+ * Implemented by both {@link FilePlaybackEngine} and {@link CdPlaybackEngine}.
  */
 export interface DualDeckEngine {
   load(source: PlaybackSource): Promise<void>;
@@ -116,8 +116,8 @@ function createDeckEngines(medium: DeckMedium): Record<DeckId, DualDeckEngine> {
     deckB.setDeckId("b");
     return { a: deckA, b: deckB };
   }
-  const deckA = new PcmFilePlaybackEngine();
-  const deckB = new PcmFilePlaybackEngine();
+  const deckA = new FilePlaybackEngine();
+  const deckB = new FilePlaybackEngine();
   deckA.setDeckId("a");
   deckB.setDeckId("b");
   return { a: deckA, b: deckB };

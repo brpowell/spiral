@@ -1,7 +1,7 @@
 import type { CdPlaybackEngine } from "./cdPlaybackEngine";
 import { CdPlaybackEngine as CdPlaybackEngineImpl } from "./cdPlaybackEngine";
-import type { PcmFilePlaybackEngine } from "./pcmFilePlaybackEngine";
-import { PcmFilePlaybackEngine as PcmFilePlaybackEngineImpl } from "./pcmFilePlaybackEngine";
+import type { FilePlaybackEngine } from "./fileDeckEngine";
+import { FilePlaybackEngine as FilePlaybackEngineImpl } from "./fileDeckEngine";
 import type {
   PlaybackEngine,
   PlaybackSource,
@@ -10,12 +10,12 @@ import type {
 } from "./types";
 
 export class PlaybackEngineManager {
-  private readonly pcmFileEngine: PcmFilePlaybackEngine;
+  private readonly pcmFileEngine: FilePlaybackEngine;
   private readonly cdEngine: CdPlaybackEngine;
   private activeEngine: PlaybackEngine;
 
   constructor(
-    pcmFileEngine: PcmFilePlaybackEngine = new PcmFilePlaybackEngineImpl(),
+    pcmFileEngine: FilePlaybackEngine = new FilePlaybackEngineImpl(),
     cdEngine: CdPlaybackEngine = new CdPlaybackEngineImpl(),
   ) {
     this.pcmFileEngine = pcmFileEngine;

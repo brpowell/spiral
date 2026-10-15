@@ -16,6 +16,8 @@ use tauri::ipc::{Channel, Response};
 use tauri::{AppHandle, Emitter};
 
 use super::decoder::StreamingDecoder;
+use crate::native_audio::mixer::DeckShared;
+use crate::native_audio::{AudioOutput, DeckHandle};
 
 pub const FILE_PLAYBACK_POSITION_EVENT: &str = "file-playback-position";
 pub const FILE_PLAYBACK_ENDED_EVENT: &str = "file-playback-ended";
@@ -68,6 +70,11 @@ pub struct FilePlaybackFlush {
     pub session_id: u64,
 }
 
+/// Seconds of source audio the native output ring holds ahead of the device.
+const NATIVE_RING_SECONDS: f64 = 2.0;
+/// Decode-thread nap when the native ring is full or the stream is done.
+const NATIVE_IDLE_SLEEP: Duration = Duration::from_millis(5);
+
 const POSITION_EVENT_INTERVAL: Duration = Duration::from_millis(250);
 const ENGINE_START_TIMEOUT: Duration = Duration::from_secs(10);
 const CHUNK_FRAMES: usize = 2048;
@@ -116,7 +123,14 @@ impl InFlightTracker {
     }
 }
 
+/// Control surface for a session that plays through the native output.
+struct NativeControl {
+    shared: Arc<DeckShared>,
+    output: AudioOutput,
+}
+
 struct ActivePlayback {
+    native: Option<NativeControl>,
     stop_requested: Arc<AtomicBool>,
     is_playing: Arc<AtomicBool>,
     cmd_tx: mpsc::Sender<PlaybackCommand>,
@@ -214,14 +228,23 @@ fn emit_event<T: Serialize + Clone>(app: Option<&AppHandle>, event: &str, payloa
     }
 }
 
-pub fn start(app: AppHandle, path: &str, pcm: PcmChannel) -> Result<FilePlaybackStarted, String> {
-    start_inner(Some(app), path, Some(pcm))
+/// Start a paused session. With `native` set, audio is mixed in Rust and played
+/// through the OS audio API; otherwise PCM is streamed to the webview over `pcm`.
+pub fn start(
+    app: AppHandle,
+    path: &str,
+    pcm: Option<PcmChannel>,
+    native: bool,
+) -> Result<FilePlaybackStarted, String> {
+    let output = native.then(|| crate::native_audio::global().clone());
+    start_inner(Some(app), path, pcm, output)
 }
 
 fn start_inner(
     app: Option<AppHandle>,
     path: &str,
     pcm: Option<PcmChannel>,
+    native: Option<AudioOutput>,
 ) -> Result<FilePlaybackStarted, String> {
     let file_path = PathBuf::from(path);
     if !file_path.is_file() {
@@ -259,6 +282,20 @@ fn start_inner(
     let (cmd_tx, cmd_rx) = mpsc::channel::<PlaybackCommand>();
     let (ready_tx, ready_rx) = mpsc::channel::<Result<(), String>>();
 
+    let native_deck = match native.as_ref() {
+        Some(output) => {
+            Some(output.create_deck(channels as usize, sample_rate, NATIVE_RING_SECONDS)?)
+        }
+        None => None,
+    };
+    let native_control = native_deck
+        .as_ref()
+        .zip(native.as_ref())
+        .map(|(deck, output)| NativeControl {
+            shared: Arc::clone(&deck.shared),
+            output: output.clone(),
+        });
+
     let thread = {
         let app = app.clone();
         let stop_requested = Arc::clone(&stop_requested);
@@ -267,6 +304,20 @@ fn start_inner(
         thread::Builder::new()
             .name(format!("file-playback-{session_id}"))
             .spawn(move || {
+                if let Some(deck) = native_deck {
+                    native_playback_thread(
+                        app,
+                        session_id,
+                        duration_seconds,
+                        source,
+                        deck,
+                        stop_requested,
+                        is_playing,
+                        cmd_rx,
+                        ready_tx,
+                    );
+                    return;
+                }
                 playback_thread(
                     app,
                     pcm,
@@ -302,6 +353,7 @@ fn start_inner(
         .insert(
             session_id,
             ActivePlayback {
+                native: native_control,
                 stop_requested,
                 is_playing,
                 cmd_tx,
@@ -428,15 +480,145 @@ fn playback_thread(
     );
 }
 
+/// Decode thread for a session that plays through the native output: keeps the
+/// deck ring topped up (whether or not playing, so resume and seek are instant)
+/// and reports position and natural end from what the mixer actually played.
+#[allow(clippy::too_many_arguments)]
+fn native_playback_thread(
+    app: Option<AppHandle>,
+    session_id: u64,
+    duration_seconds: f64,
+    mut source: StreamingDecoder,
+    mut deck: DeckHandle,
+    stop_requested: Arc<AtomicBool>,
+    is_playing: Arc<AtomicBool>,
+    cmd_rx: mpsc::Receiver<PlaybackCommand>,
+    ready_tx: mpsc::Sender<Result<(), String>>,
+) {
+    let channels = deck.channels;
+    let rate = deck.src_rate as f64;
+    let chunk_samples = CHUNK_FRAMES * channels;
+    let mut chunk: Vec<f32> = Vec::with_capacity(chunk_samples);
+    let mut decoder_done = false;
+    let mut last_position_emit = Instant::now();
+
+    let _ = ready_tx.send(Ok(()));
+
+    loop {
+        if stop_requested.load(Ordering::SeqCst) {
+            return;
+        }
+
+        if let Ok(PlaybackCommand::Seek(first)) = cmd_rx.try_recv() {
+            // Coalesce rapid scrubs to the latest target.
+            let mut latest = first;
+            while let Ok(PlaybackCommand::Seek(next)) = cmd_rx.try_recv() {
+                latest = next;
+            }
+            chunk.clear();
+            if let Err(err) = source.seek_seconds(latest) {
+                eprintln!("file playback: seek failed: {err}");
+            }
+            // Clear `eos` first: with it still set, a callback landing between
+            // the flush and the next push would see an empty ring and call the
+            // stream finished.
+            deck.shared.eos.store(false, Ordering::Release);
+            deck.flush();
+            deck.shared
+                .position_frames
+                .store((source.position_seconds() * rate) as u64, Ordering::Relaxed);
+            decoder_done = false;
+        }
+
+        let mut did_work = false;
+        if !decoder_done {
+            while chunk.len() < chunk_samples {
+                match source.next_sample() {
+                    Some(sample) => chunk.push(sample),
+                    None => {
+                        decoder_done = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if !chunk.is_empty() && deck.free_samples() >= chunk.len() {
+            for sample in chunk.drain(..) {
+                let _ = deck.producer.push(sample);
+            }
+            did_work = true;
+        }
+        if decoder_done && chunk.is_empty() && !deck.shared.eos.load(Ordering::Relaxed) {
+            deck.shared.eos.store(true, Ordering::Release);
+        }
+
+        if deck.shared.finished.load(Ordering::Acquire) {
+            break;
+        }
+
+        if last_position_emit.elapsed() >= POSITION_EVENT_INTERVAL {
+            let position_seconds = (deck.shared.position_frames.load(Ordering::Relaxed) as f64
+                / rate)
+                .min(duration_seconds);
+            emit_event(
+                app.as_ref(),
+                FILE_PLAYBACK_POSITION_EVENT,
+                FilePlaybackPosition {
+                    session_id,
+                    position_seconds,
+                    duration_seconds,
+                    is_playing: is_playing.load(Ordering::SeqCst),
+                },
+            );
+            last_position_emit = Instant::now();
+        }
+
+        if !did_work {
+            thread::sleep(NATIVE_IDLE_SLEEP);
+        }
+    }
+
+    if stop_requested.load(Ordering::SeqCst) {
+        return;
+    }
+
+    {
+        let mut guard = SESSIONS.lock().expect("file playback state poisoned");
+        let _ = guard.remove(&session_id);
+    }
+    emit_event(
+        app.as_ref(),
+        FILE_PLAYBACK_ENDED_EVENT,
+        FilePlaybackEnded { session_id },
+    );
+}
+
 pub fn pause(session_id: u64) {
     with_session(session_id, |active| {
-        active.is_playing.store(false, Ordering::SeqCst)
+        active.is_playing.store(false, Ordering::SeqCst);
+        if let Some(native) = &active.native {
+            native.shared.playing.store(false, Ordering::Relaxed);
+        }
     });
 }
 
 pub fn resume(session_id: u64) {
     with_session(session_id, |active| {
-        active.is_playing.store(true, Ordering::SeqCst)
+        active.is_playing.store(true, Ordering::SeqCst);
+        if let Some(native) = &active.native {
+            native.shared.playing.store(true, Ordering::Relaxed);
+            native.output.ensure_stream();
+        }
+    });
+}
+
+/// Set a native session's output gain (volume × mute, 0–1). No-op for sessions
+/// that play through the webview.
+pub fn set_gain(session_id: u64, gain: f32) {
+    with_session(session_id, |active| {
+        if let Some(native) = &active.native {
+            native.shared.set_gain(gain);
+        }
     });
 }
 
@@ -515,8 +697,8 @@ mod tests {
     fn two_sessions_can_run_side_by_side() {
         with_clean_sessions(|| {
             let (ogg_path, flac_path) = fixture_paths();
-            let a = start_inner(None, &ogg_path, None).expect("start ogg");
-            let b = start_inner(None, &flac_path, None).expect("start flac");
+            let a = start_inner(None, &ogg_path, None, None).expect("start ogg");
+            let b = start_inner(None, &flac_path, None, None).expect("start flac");
             assert_ne!(a.session_id, b.session_id);
 
             assert!(with_session(a.session_id, |_| ()).is_some());
@@ -565,8 +747,8 @@ mod tests {
     fn stop_one_session_does_not_stop_the_other() {
         with_clean_sessions(|| {
             let (ogg_path, flac_path) = fixture_paths();
-            let a = start_inner(None, &ogg_path, None).expect("start ogg");
-            let b = start_inner(None, &flac_path, None).expect("start flac");
+            let a = start_inner(None, &ogg_path, None, None).expect("start ogg");
+            let b = start_inner(None, &flac_path, None, None).expect("start flac");
 
             pause(a.session_id);
             pause(b.session_id);
@@ -584,12 +766,12 @@ mod tests {
     fn third_session_evicts_oldest_idle() {
         with_clean_sessions(|| {
             let (ogg_path, flac_path) = fixture_paths();
-            let a = start_inner(None, &ogg_path, None).expect("start A");
+            let a = start_inner(None, &ogg_path, None, None).expect("start A");
             thread::sleep(Duration::from_millis(5));
-            let b = start_inner(None, &flac_path, None).expect("start B");
+            let b = start_inner(None, &flac_path, None, None).expect("start B");
 
             // Both idle (paused). Starting C should evict oldest (A).
-            let c = start_inner(None, &ogg_path, None).expect("start C");
+            let c = start_inner(None, &ogg_path, None, None).expect("start C");
             assert!(with_session(a.session_id, |_| ()).is_none());
             assert!(with_session(b.session_id, |_| ()).is_some());
             assert!(with_session(c.session_id, |_| ()).is_some());
@@ -600,18 +782,147 @@ mod tests {
     fn third_session_fails_when_both_playing() {
         with_clean_sessions(|| {
             let (ogg_path, flac_path) = fixture_paths();
-            let a = start_inner(None, &ogg_path, None).expect("start A");
-            let b = start_inner(None, &flac_path, None).expect("start B");
+            let a = start_inner(None, &ogg_path, None, None).expect("start A");
+            let b = start_inner(None, &flac_path, None, None).expect("start B");
 
             // Mark both playing without resuming decode (short fixtures would
             // natural-end immediately). Eviction only inspects the flag.
             with_session(a.session_id, |s| s.is_playing.store(true, Ordering::SeqCst));
             with_session(b.session_id, |s| s.is_playing.store(true, Ordering::SeqCst));
 
-            let err = start_inner(None, &ogg_path, None).expect_err("third should fail");
+            let err = start_inner(None, &ogg_path, None, None).expect_err("third should fail");
             assert!(
                 err.contains("Maximum concurrent"),
                 "unexpected error: {err}"
+            );
+        });
+    }
+
+    fn fake_output() -> (
+        AudioOutput,
+        std::sync::Arc<crate::native_audio::output::fake::FakeState>,
+    ) {
+        use crate::native_audio::output::fake::{FakeFactory, FakeState};
+        let state = FakeState::new(48_000);
+        (
+            AudioOutput::new(FakeFactory(std::sync::Arc::clone(&state))),
+            state,
+        )
+    }
+
+    fn native_position_frames(session_id: u64) -> u64 {
+        with_session(session_id, |s| {
+            s.native
+                .as_ref()
+                .expect("native session")
+                .shared
+                .position_frames
+                .load(Ordering::Relaxed)
+        })
+        .unwrap_or(0)
+    }
+
+    fn pump_until(
+        state: &crate::native_audio::output::fake::FakeState,
+        what: &str,
+        mut done: impl FnMut() -> bool,
+    ) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while Instant::now() < deadline {
+            state.pump(240);
+            if done() {
+                return;
+            }
+            thread::sleep(Duration::from_millis(2));
+        }
+        panic!("timed out waiting for {what}");
+    }
+
+    #[test]
+    fn native_session_plays_through_to_natural_end() {
+        with_clean_sessions(|| {
+            let (ogg_path, _) = fixture_paths();
+            let (output, state) = fake_output();
+            let started = start_inner(None, &ogg_path, None, Some(output)).expect("start");
+            resume(started.session_id);
+
+            pump_until(&state, "natural end", || {
+                with_session(started.session_id, |_| ()).is_none()
+            });
+        });
+    }
+
+    #[test]
+    fn native_pause_freezes_position_and_resume_continues() {
+        with_clean_sessions(|| {
+            let (_, flac_path) = fixture_paths();
+            let (output, state) = fake_output();
+            let started = start_inner(None, &flac_path, None, Some(output)).expect("start");
+            let id = started.session_id;
+            resume(id);
+            pump_until(&state, "audio", || native_position_frames(id) > 0);
+
+            pause(id);
+            // Let the fade-out finish, then the position must hold still.
+            for _ in 0..4 {
+                state.pump(240);
+            }
+            let frozen = native_position_frames(id);
+            for _ in 0..4 {
+                state.pump(240);
+            }
+            assert_eq!(native_position_frames(id), frozen);
+
+            resume(id);
+            pump_until(&state, "resumed audio", || {
+                native_position_frames(id) > frozen
+            });
+        });
+    }
+
+    #[test]
+    fn native_seek_flushes_and_repositions() {
+        with_clean_sessions(|| {
+            let (_, flac_path) = fixture_paths();
+            let (output, state) = fake_output();
+            let started = start_inner(None, &flac_path, None, Some(output)).expect("start");
+            let id = started.session_id;
+            resume(id);
+            pump_until(&state, "audio", || native_position_frames(id) > 2000);
+            pause(id);
+            for _ in 0..4 {
+                state.pump(240);
+            }
+
+            seek(id, 0.0).expect("seek");
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while native_position_frames(id) > 100 && Instant::now() < deadline {
+                state.pump(240);
+                thread::sleep(Duration::from_millis(5));
+            }
+            assert!(
+                native_position_frames(id) <= 100,
+                "position reset by seek: {}",
+                native_position_frames(id)
+            );
+        });
+    }
+
+    #[test]
+    fn native_gain_is_applied_to_output() {
+        with_clean_sessions(|| {
+            let (_, flac_path) = fixture_paths();
+            let (output, state) = fake_output();
+            let started = start_inner(None, &flac_path, None, Some(output)).expect("start");
+            let id = started.session_id;
+            set_gain(id, 0.0);
+            resume(id);
+            pump_until(&state, "audio", || native_position_frames(id) > 2000);
+            // Gain smoothing settles well within a few thousand frames.
+            let silent = state.pump(480).expect("callback");
+            assert!(
+                silent.iter().all(|s| s.abs() < 1e-3),
+                "muted output is silent"
             );
         });
     }

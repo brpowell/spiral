@@ -275,6 +275,10 @@ pub struct PlaybackSettings {
     pub crossfade_on_skip: bool,
     #[serde(default = "default_crossfade_visual_enabled")]
     pub crossfade_visual_enabled: bool,
+    /// Play library files through the native (Rust) audio output instead of the
+    /// webview. Hidden while the native path reaches parity; off by default.
+    #[serde(default)]
+    pub native_audio_output: bool,
 }
 
 impl Default for PlaybackSettings {
@@ -284,6 +288,7 @@ impl Default for PlaybackSettings {
             crossfade_seconds: default_crossfade_seconds(),
             crossfade_on_skip: default_crossfade_on_skip(),
             crossfade_visual_enabled: default_crossfade_visual_enabled(),
+            native_audio_output: false,
         }
     }
 }
@@ -299,6 +304,7 @@ pub fn normalize_playback_settings(settings: PlaybackSettings) -> PlaybackSettin
             .clamp(MIN_CROSSFADE_SECONDS, MAX_CROSSFADE_SECONDS),
         crossfade_on_skip: settings.crossfade_on_skip,
         crossfade_visual_enabled: settings.crossfade_visual_enabled,
+        native_audio_output: settings.native_audio_output,
     }
 }
 
@@ -789,6 +795,7 @@ mod tests {
             crossfade_seconds: 99,
             crossfade_on_skip: false,
             crossfade_visual_enabled: true,
+            native_audio_output: false,
         });
         assert_eq!(settings.crossfade_seconds, MAX_CROSSFADE_SECONDS);
 
@@ -797,7 +804,19 @@ mod tests {
             crossfade_seconds: 0,
             crossfade_on_skip: false,
             crossfade_visual_enabled: true,
+            native_audio_output: false,
         });
         assert_eq!(settings.crossfade_seconds, MIN_CROSSFADE_SECONDS);
+    }
+
+    #[test]
+    fn playback_settings_default_native_audio_off_and_round_trip() {
+        let old: PlaybackSettings =
+            serde_json::from_str(r#"{"crossfadeEnabled":true}"#).expect("old settings file");
+        assert!(!old.native_audio_output, "absent field defaults to off");
+
+        let on: PlaybackSettings =
+            serde_json::from_str(r#"{"nativeAudioOutput":true}"#).expect("flag on");
+        assert!(normalize_playback_settings(on).native_audio_output);
     }
 }

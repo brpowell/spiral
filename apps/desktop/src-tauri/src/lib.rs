@@ -51,6 +51,7 @@ mod models;
 mod musicbrainz_disc;
 mod musicbrainz_entity;
 mod musicbrainz_http;
+mod native_audio;
 #[cfg(test)]
 mod ogg_opus_tests;
 mod packs;
@@ -312,11 +313,13 @@ pub fn run() {
             commands::cd::stop_cd_playback,
             commands::cd::ack_cd_playback_pcm,
             commands::file_playback::start_file_playback,
+            commands::file_playback::start_native_file_playback,
             commands::file_playback::pause_file_playback,
             commands::file_playback::resume_file_playback,
             commands::file_playback::seek_file_playback,
             commands::file_playback::stop_file_playback,
             commands::file_playback::ack_file_playback_pcm,
+            commands::file_playback::set_file_playback_gain,
             commands::cd::lookup_disc_metadata,
             commands::cd::peek_disc_metadata_cache,
             commands::cd::save_disc_metadata_preference,
