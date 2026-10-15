@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { DeckId } from "./audioOutput";
+import { registerNativeDeck, unregisterNativeDeck } from "./nativeDeckRegistry";
 import { pushNativeEqualizer } from "./nativeEqualizer";
 import {
   PCM_FILE_PLAYBACK_ENDED_EVENT,
@@ -18,7 +19,6 @@ import type {
   RecoverResult,
 } from "./types";
 
-/** Native output reaches crossfade in a later step. */
 const NATIVE_FILE_CAPABILITIES: PlaybackCapabilities = {
   seek: true,
   scrubPreview: true,
@@ -57,6 +57,13 @@ export class NativeFilePlaybackEngine {
   private balance = 0;
   private muted = false;
   private crossfadeMix = 1;
+  /** Linear mix ramp in flight (crossfade), in `performance.now()` terms. */
+  private ramp: {
+    from: number;
+    to: number;
+    startedAtMs: number;
+    durationMs: number;
+  } | null = null;
   private deckId: DeckId = "a";
   private endCallback: (() => void) | null = null;
   private startedCallback: (() => void) | null = null;
@@ -73,15 +80,40 @@ export class NativeFilePlaybackEngine {
     return this.deckId;
   }
 
-  private effectiveGain(): number {
-    return this.muted ? 0 : this.volume * this.crossfadeMix;
+  private userGain(): number {
+    return this.muted ? 0 : this.volume;
+  }
+
+  /** The crossfade mix right now, following a ramp in flight. */
+  private currentMix(): number {
+    const ramp = this.ramp;
+    if (!ramp) return this.crossfadeMix;
+    const elapsed = performance.now() - ramp.startedAtMs;
+    if (elapsed >= ramp.durationMs) return ramp.to;
+    return ramp.from + (ramp.to - ramp.from) * (elapsed / ramp.durationMs);
   }
 
   private pushGain(): void {
     if (!this.current) return;
+    const sessionId = this.current.sessionId;
+    const ramp = this.ramp;
+    const remainingMs = ramp
+      ? ramp.startedAtMs + ramp.durationMs - performance.now()
+      : 0;
+    if (ramp && remainingMs > 1) {
+      // Volume changed mid-fade: keep the fade on schedule at the new level.
+      void invoke("ramp_file_playback_gain", {
+        sessionId,
+        fromGain: this.userGain() * this.currentMix(),
+        toGain: this.userGain() * ramp.to,
+        durationMs: Math.round(remainingMs),
+      }).catch((err) => console.error("Native gain ramp failed:", err));
+      return;
+    }
+    this.ramp = null;
     void invoke("set_file_playback_gain", {
-      sessionId: this.current.sessionId,
-      gain: this.effectiveGain(),
+      sessionId,
+      gain: this.userGain() * this.crossfadeMix,
     }).catch((err) => console.error("Native gain update failed:", err));
   }
 
@@ -126,6 +158,7 @@ export class NativeFilePlaybackEngine {
 
     const generation = ++this.loadGeneration;
     this.gated = false;
+    this.ramp = null;
     await this.ensureListeners();
     const previous = this.current?.sessionId ?? null;
     this.current = null;
@@ -146,6 +179,7 @@ export class NativeFilePlaybackEngine {
     }
 
     this.current = { sessionId: started.sessionId };
+    registerNativeDeck(this.deckId, this);
     this.durationSeconds = started.durationSeconds;
     this.anchorSeconds = 0;
     this.anchorAtMs = performance.now();
@@ -243,9 +277,38 @@ export class NativeFilePlaybackEngine {
     this.pushGain();
   }
 
+  /** Jump to a mix, cancelling any fade in flight. */
   setCrossfadeMix(mix: number): void {
     this.crossfadeMix = Math.max(0, Math.min(1, mix));
+    this.ramp = null;
     this.pushGain();
+  }
+
+  /**
+   * Fade the mix linearly to `target`, starting from where it is now. Rust runs
+   * the ramp per sample, so it stays smooth however busy the webview is.
+   */
+  rampCrossfadeMix(target: number, durationSec: number): void {
+    const to = Math.max(0, Math.min(1, target));
+    if (!(durationSec > 0)) {
+      this.setCrossfadeMix(to);
+      return;
+    }
+    const from = this.currentMix();
+    this.crossfadeMix = to;
+    this.ramp = {
+      from,
+      to,
+      startedAtMs: performance.now(),
+      durationMs: Math.round(durationSec * 1000),
+    };
+    if (!this.current) return;
+    void invoke("ramp_file_playback_gain", {
+      sessionId: this.current.sessionId,
+      fromGain: this.userGain() * from,
+      toGain: this.userGain() * to,
+      durationMs: this.ramp.durationMs,
+    }).catch((err) => console.error("Native gain ramp failed:", err));
   }
 
   /** The native output has no Web Audio graph to route through. */
@@ -262,6 +325,8 @@ export class NativeFilePlaybackEngine {
   }
 
   private retire(): void {
+    unregisterNativeDeck(this.deckId, this);
+    this.ramp = null;
     this.loadGeneration += 1;
     this.gated = false;
     this.startedCallback = null;

@@ -322,6 +322,7 @@ pub fn run() {
             commands::file_playback::set_file_playback_gain,
             commands::file_playback::link_gapless_playback,
             commands::file_playback::set_file_playback_balance,
+            commands::file_playback::ramp_file_playback_gain,
             commands::file_playback::set_native_equalizer,
             commands::file_playback::start_native_analyser,
             commands::file_playback::stop_native_analyser,

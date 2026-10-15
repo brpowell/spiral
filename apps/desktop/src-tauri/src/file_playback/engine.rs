@@ -631,6 +631,15 @@ pub fn resume(session_id: u64) {
     });
 }
 
+/// Fade a native session's output gain linearly (crossfades).
+pub fn ramp_gain(session_id: u64, from: f32, to: f32, duration_ms: u32) {
+    with_session(session_id, |active| {
+        if let Some(native) = &active.native {
+            native.shared.ramp_gain(from, to, duration_ms);
+        }
+    });
+}
+
 /// Set a native session's stereo balance (-1 left … +1 right).
 pub fn set_balance(session_id: u64, balance: f32) {
     with_session(session_id, |active| {

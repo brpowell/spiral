@@ -1,4 +1,5 @@
 import type { EqualizerState } from "../equalizer/types";
+import { getNativeDeck } from "./nativeDeckRegistry";
 import { applyNativeEqualizer } from "./nativeEqualizer";
 import {
   applyEqualizerState as applyEqChainState,
@@ -132,6 +133,11 @@ export function disconnectDeckOutput(deckId: DeckId): void {
 }
 
 export function setDeckGain(deckId: DeckId, value: number): void {
+  const native = getNativeDeck(deckId);
+  if (native) {
+    native.setCrossfadeMix(value);
+    return;
+  }
   const gainNode = decks[deckId].gain;
   if (!gainNode) return;
 
@@ -147,6 +153,11 @@ export function rampDeckGain(
   target: number,
   durationSec: number,
 ): void {
+  const native = getNativeDeck(deckId);
+  if (native) {
+    native.rampCrossfadeMix(target, durationSec);
+    return;
+  }
   const gainNode = decks[deckId].gain;
   if (!gainNode) return;
 

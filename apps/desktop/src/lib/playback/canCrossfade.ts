@@ -1,5 +1,4 @@
 import type { PlaybackSource } from "./types";
-import { isNativeAudioEnabled } from "./nativeAudioFlag";
 import { FILE_PCM_READ_AHEAD_SECONDS } from "./pcmStreamConstants";
 
 /**
@@ -18,8 +17,6 @@ export function canCrossfade(
   outgoing: PlaybackSource,
   incoming: PlaybackSource,
 ): boolean {
-  // Native output gains crossfade in a later step.
-  if (isNativeAudioEnabled()) return false;
   return outgoing.kind === "file" && incoming.kind === "file";
 }
 

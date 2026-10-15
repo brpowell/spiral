@@ -104,3 +104,10 @@ pub fn start_native_analyser(frames: tauri::ipc::Channel<tauri::ipc::Response>) 
 pub fn stop_native_analyser() {
     crate::native_audio::global().stop_analyser();
 }
+
+/// Linear gain fade for a native session, used by crossfades. `duration_ms`
+/// of zero behaves like `set_file_playback_gain`.
+#[tauri::command]
+pub fn ramp_file_playback_gain(session_id: u64, from_gain: f32, to_gain: f32, duration_ms: u32) {
+    file_playback::ramp_gain(session_id, from_gain, to_gain, duration_ms)
+}

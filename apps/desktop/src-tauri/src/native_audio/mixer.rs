@@ -5,7 +5,7 @@
 //! `Mutex<Mixer>` that the audio callback only `try_lock`s.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use rtrb::{Consumer, Producer};
 
@@ -19,6 +19,24 @@ pub const MAX_DECKS: usize = 2;
 const FADE_SECONDS: f32 = 0.008;
 /// Time constant for volume changes.
 const GAIN_SMOOTH_SECONDS: f32 = 0.010;
+
+#[derive(Debug, Clone, Copy)]
+struct GainCommand {
+    seq: u32,
+    /// Start of a linear ramp; `None` smooths from wherever the gain is now.
+    from: Option<f32>,
+    target: f32,
+    duration_ms: u32,
+}
+
+impl GainCommand {
+    const INITIAL: Self = Self {
+        seq: 0,
+        from: None,
+        target: 1.0,
+        duration_ms: 0,
+    };
+}
 
 /// State shared between a deck's producer thread, the mixer and observers.
 pub struct DeckShared {
@@ -35,8 +53,8 @@ pub struct DeckShared {
     pub position_frames: AtomicU64,
     /// Output callbacks that found the ring empty while playing.
     pub underruns: AtomicU64,
-    /// Linear gain as f32 bits (volume × mute).
-    gain_bits: AtomicU32,
+    /// Latest gain request (volume × mute × crossfade mix).
+    gain_cmd: Mutex<GainCommand>,
     /// Stereo balance (-1 left … +1 right) as f32 bits.
     balance_bits: AtomicU32,
 }
@@ -50,18 +68,52 @@ impl DeckShared {
             gapless_started: AtomicBool::new(false),
             position_frames: AtomicU64::new(0),
             underruns: AtomicU64::new(0),
-            gain_bits: AtomicU32::new(1.0f32.to_bits()),
+            gain_cmd: Mutex::new(GainCommand::INITIAL),
             balance_bits: AtomicU32::new(0.0f32.to_bits()),
         }
     }
 
+    /// Move to `gain` with a short smoothing so the change cannot click.
     pub fn set_gain(&self, gain: f32) {
-        self.gain_bits
-            .store(gain.clamp(0.0, 1.0).to_bits(), Ordering::Relaxed);
+        self.send_gain(None, gain, 0);
     }
 
+    /// Fade linearly from `from` to `to` over `duration_ms`, as a crossfade does.
+    /// The start is explicit because the audio thread may not have rendered the
+    /// deck yet (an incoming deck is silenced before it first plays).
+    pub fn ramp_gain(&self, from: f32, to: f32, duration_ms: u32) {
+        self.send_gain(Some(from), to, duration_ms);
+    }
+
+    fn send_gain(&self, from: Option<f32>, to: f32, duration_ms: u32) {
+        let clean = |g: f32| {
+            if g.is_finite() {
+                g.clamp(0.0, 1.0)
+            } else {
+                0.0
+            }
+        };
+        let mut cmd = self.gain_cmd.lock().unwrap_or_else(|p| p.into_inner());
+        *cmd = GainCommand {
+            seq: cmd.seq.wrapping_add(1),
+            from: from.map(clean),
+            target: clean(to),
+            duration_ms,
+        };
+    }
+
+    /// The gain the deck is heading for.
     pub fn gain(&self) -> f32 {
-        f32::from_bits(self.gain_bits.load(Ordering::Relaxed))
+        self.gain_cmd
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .target
+    }
+
+    /// Latest request, for the audio thread. `None` when a control thread holds
+    /// the lock; the audio thread then picks the request up next block.
+    fn try_gain_command(&self) -> Option<GainCommand> {
+        self.gain_cmd.try_lock().ok().map(|cmd| *cmd)
     }
 
     pub fn set_balance(&self, balance: f32) {
@@ -99,6 +151,11 @@ struct Deck {
     fade: f32,
     smoothed_gain: f32,
     smoothed_pan: f32,
+    /// Last gain request this deck acted on.
+    seen_gain_seq: u32,
+    gain_target: f32,
+    ramp_step: f32,
+    ramp_frames_left: u32,
 }
 
 impl Deck {
@@ -194,6 +251,10 @@ impl Mixer {
             fade: 0.0,
             smoothed_gain: gain,
             smoothed_pan: shared_balance,
+            seen_gain_seq: 0,
+            gain_target: gain,
+            ramp_step: 0.0,
+            ramp_frames_left: 0,
         });
         Ok(id)
     }
@@ -332,7 +393,26 @@ fn render_deck(
 
     let step = deck.src_rate as f64 / out_rate as f64;
     let fade_step = 1.0 / (FADE_SECONDS * out_rate);
-    let gain_target = shared.gain();
+    if let Some(cmd) = shared.try_gain_command() {
+        if cmd.seq != deck.seen_gain_seq {
+            deck.seen_gain_seq = cmd.seq;
+            deck.gain_target = cmd.target;
+            deck.ramp_frames_left = 0;
+            if let Some(from) = cmd.from {
+                deck.smoothed_gain = from;
+            }
+            if cmd.duration_ms > 0 {
+                let frames = ((cmd.duration_ms as f32 / 1000.0) * out_rate).max(1.0);
+                deck.ramp_frames_left = frames as u32;
+                deck.ramp_step = (cmd.target - deck.smoothed_gain) / frames;
+            } else if deck.fade <= 0.0 {
+                // Silent deck: nothing to smooth, and gliding from the previous
+                // level would leak a blip at the moment it starts.
+                deck.smoothed_gain = cmd.target;
+            }
+        }
+    }
+    let gain_target = deck.gain_target;
     let gain_coeff = 1.0 - (-1.0 / (GAIN_SMOOTH_SECONDS * out_rate)).exp();
     let channels = deck.channels;
     // Ease toward the requested balance once per block; per-frame trig would
@@ -354,7 +434,15 @@ fn render_deck(
         } else {
             deck.fade = (deck.fade - fade_step).max(0.0);
         }
-        deck.smoothed_gain += (gain_target - deck.smoothed_gain) * gain_coeff;
+        if deck.ramp_frames_left > 0 {
+            deck.smoothed_gain += deck.ramp_step;
+            deck.ramp_frames_left -= 1;
+            if deck.ramp_frames_left == 0 {
+                deck.smoothed_gain = gain_target;
+            }
+        } else {
+            deck.smoothed_gain += (gain_target - deck.smoothed_gain) * gain_coeff;
+        }
 
         if !deck.primed {
             let eos = shared.eos.load(Ordering::Acquire);
@@ -841,6 +929,73 @@ mod tests {
         r.shared.playing.store(true, Ordering::Relaxed);
         let out = render_frames(&mut r, 1000);
         assert!(out[out.len() - 1] > 0.4, "audio still rendered");
+    }
+
+    #[test]
+    fn gain_ramp_is_linear_over_its_duration() {
+        let mut r = rig(48_000, 2, 48_000);
+        push_stereo_const(&mut r, 20_000, 0.5);
+        r.shared.ramp_gain(0.0, 1.0, 200); // 9600 frames
+        r.shared.playing.store(true, Ordering::Relaxed);
+
+        let out = render_frames(&mut r, 4800); // halfway
+        let mid = out[out.len() - 1] / 0.5;
+        assert!((mid - 0.5).abs() < 0.03, "halfway through the ramp: {mid}");
+
+        let out = render_frames(&mut r, 6000); // past the end
+        assert!((out[out.len() - 1] - 0.5).abs() < 1e-3, "ends at target");
+    }
+
+    #[test]
+    fn ramp_from_a_silent_start_does_not_blip_before_it_begins() {
+        // The incoming deck of a crossfade: told to ramp 0 → 1 before it ever
+        // rendered a block. It must start at 0, not at the deck's default gain.
+        let mut r = rig(48_000, 2, 48_000);
+        push_stereo_const(&mut r, 20_000, 0.5);
+        r.shared.set_gain(0.0);
+        r.shared.ramp_gain(0.0, 1.0, 500);
+        r.shared.playing.store(true, Ordering::Relaxed);
+
+        let out = render_frames(&mut r, 480);
+        let loudest = out.iter().fold(0.0f32, |m, s| m.max(s.abs()));
+        assert!(loudest < 0.05, "starts silent and rises slowly: {loudest}");
+    }
+
+    #[test]
+    fn a_plain_gain_set_cancels_a_running_ramp() {
+        let mut r = rig(48_000, 2, 48_000);
+        push_stereo_const(&mut r, 30_000, 0.5);
+        r.shared.ramp_gain(0.0, 1.0, 2000);
+        r.shared.playing.store(true, Ordering::Relaxed);
+        render_frames(&mut r, 2000);
+
+        r.shared.set_gain(0.2);
+        let out = render_frames(&mut r, 4800);
+        assert!((out[out.len() - 1] - 0.1).abs() < 5e-3, "held at 0.2 × 0.5");
+    }
+
+    #[test]
+    fn linear_crossfade_between_two_decks_keeps_a_constant_sum() {
+        let (mut mixer, shared, ids) = two_deck_rig(20_000, 20_000);
+        // Both decks carry the same level so a linear fade sums to unity.
+        let _ = ids;
+        shared[0].playing.store(true, Ordering::Relaxed);
+        shared[1].playing.store(true, Ordering::Relaxed);
+        shared[0].ramp_gain(1.0, 0.0, 400);
+        shared[1].ramp_gain(0.0, 1.0, 400);
+
+        let mut out = vec![0.0; 960 * 2];
+        let mut sums = Vec::new();
+        for _ in 0..20 {
+            mixer.render(&mut out);
+            // Deck A carries +0.5, deck B -0.5; sum the magnitudes by sign.
+            sums.push(out[out.len() - 2]);
+        }
+        // Total level = a*0.5 - b*0.5 with a + b = 1: moves linearly 0.5 → -0.5.
+        assert!(sums[0] > 0.4, "starts on the outgoing deck: {}", sums[0]);
+        assert!(*sums.last().unwrap() < -0.4, "ends on the incoming deck");
+        let mid = sums[9];
+        assert!(mid.abs() < 0.1, "crosses near the middle: {mid}");
     }
 
     #[test]

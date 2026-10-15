@@ -247,6 +247,123 @@ describe("NativeFilePlaybackEngine", () => {
   });
 });
 
+describe("NativeFilePlaybackEngine crossfade ramps", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    invoke.mockReset();
+    handlers.clear();
+    invoke.mockImplementation(async (command: string) =>
+      command === "start_native_file_playback"
+        ? { sessionId: 7, durationSeconds: 200, sampleRate: 44100, channels: 2 }
+        : undefined,
+    );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("starts a ramp from the current mix to the target", async () => {
+    const engine = await loadedEngine();
+    engine.setCrossfadeMix(0);
+    invoke.mockClear();
+
+    engine.rampCrossfadeMix(1, 7);
+
+    expect(commandsNamed("ramp_file_playback_gain")).toEqual([
+      [
+        "ramp_file_playback_gain",
+        { sessionId: 7, fromGain: 0, toGain: 1, durationMs: 7000 },
+      ],
+    ]);
+  });
+
+  it("scales the ramp by volume and mute", async () => {
+    const engine = await loadedEngine();
+    engine.setVolume(0.5);
+    invoke.mockClear();
+
+    engine.rampCrossfadeMix(0, 4);
+    expect(commandsNamed("ramp_file_playback_gain")[0]![1]).toEqual({
+      sessionId: 7,
+      fromGain: 0.5,
+      toGain: 0,
+      durationMs: 4000,
+    });
+  });
+
+  it("chains a second ramp from where the first has got to", async () => {
+    const engine = await loadedEngine();
+    engine.setCrossfadeMix(0);
+    engine.rampCrossfadeMix(1, 10);
+    vi.advanceTimersByTime(5000);
+    invoke.mockClear();
+
+    engine.rampCrossfadeMix(0, 2);
+
+    const args = commandsNamed("ramp_file_playback_gain")[0]![1] as {
+      fromGain: number;
+    };
+    expect(args.fromGain).toBeCloseTo(0.5, 1);
+  });
+
+  it("keeps the fade on schedule when volume changes mid-fade", async () => {
+    const engine = await loadedEngine();
+    engine.setCrossfadeMix(0);
+    engine.rampCrossfadeMix(1, 10);
+    vi.advanceTimersByTime(4000);
+    invoke.mockClear();
+
+    engine.setVolume(0.5);
+
+    const ramp = commandsNamed("ramp_file_playback_gain")[0]![1] as {
+      fromGain: number;
+      toGain: number;
+      durationMs: number;
+    };
+    expect(ramp.fromGain).toBeCloseTo(0.2, 1); // 0.5 × (4s of 10s)
+    expect(ramp.toGain).toBeCloseTo(0.5, 5);
+    expect(ramp.durationMs).toBeGreaterThan(5900);
+    expect(ramp.durationMs).toBeLessThanOrEqual(6000);
+    expect(commandsNamed("set_file_playback_gain")).toHaveLength(0);
+  });
+
+  it("a plain mix change cancels the ramp", async () => {
+    const engine = await loadedEngine();
+    engine.rampCrossfadeMix(0, 10);
+    invoke.mockClear();
+
+    engine.setCrossfadeMix(1);
+    vi.advanceTimersByTime(1000);
+    engine.setVolume(0.8);
+
+    expect(commandsNamed("ramp_file_playback_gain")).toHaveLength(0);
+    expect(commandsNamed("set_file_playback_gain").at(-1)![1]).toEqual({
+      sessionId: 7,
+      gain: 0.8,
+    });
+  });
+
+  it("a zero-length ramp is an immediate set", async () => {
+    const engine = await loadedEngine();
+    invoke.mockClear();
+    engine.rampCrossfadeMix(0.25, 0);
+    expect(commandsNamed("ramp_file_playback_gain")).toHaveLength(0);
+    expect(commandsNamed("set_file_playback_gain")[0]![1]).toEqual({
+      sessionId: 7,
+      gain: 0.25,
+    });
+  });
+
+  it("registers as the deck's gain target and unregisters when retired", async () => {
+    const { getNativeDeck } = await import("./nativeDeckRegistry");
+    const engine = await loadedEngine();
+    expect(getNativeDeck("a")).toBe(engine);
+    engine.destroy();
+    expect(getNativeDeck("a")).toBeNull();
+  });
+});
+
 describe("NativeFilePlaybackEngine gapless", () => {
   beforeEach(() => {
     vi.useFakeTimers();
