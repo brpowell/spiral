@@ -4,10 +4,10 @@ import {
   CrossfadeController,
   type DualDeckEngine,
 } from "./crossfadeController";
-import type { DeckId } from "./audioMixer";
+import type { DeckId } from "./deckGain";
 import type { PlaybackSource } from "./types";
 
-vi.mock("./audioMixer", () => ({
+vi.mock("./deckGain", () => ({
   rampDeckGain: vi.fn(),
   setDeckGain: vi.fn(),
   getDeckGainNode: vi.fn(() => null),
@@ -35,7 +35,6 @@ describe("effectiveFadeSeconds", () => {
 
 function createMockEngine(deckId: DeckId) {
   const listeners: Array<() => void> = [];
-  let drainAtCallback: ((frame: number) => void) | null = null;
   let startedCallback: (() => void) | null = null;
   return {
     deckId,
@@ -52,30 +51,20 @@ function createMockEngine(deckId: DeckId) {
     setMuted: vi.fn(),
     setBalance: vi.fn(),
     setCrossfadeMix: vi.fn(),
-    connectToOutputBus: vi.fn(() => null),
     release: vi.fn(),
     destroy: vi.fn(),
     primeGaplessStart: vi.fn(async () => {}),
-    scheduleStartAtFrame: vi.fn(),
     forceGaplessStart: vi.fn(),
-    onDrainAt: vi.fn((callback: (frame: number) => void) => {
-      drainAtCallback = callback;
-    }),
     onGaplessStarted: vi.fn((callback: () => void) => {
       startedCallback = callback;
     }),
-    isEndOfStreamPending: vi.fn(() => false),
-    reannounceDrain: vi.fn(),
+    getSessionId: vi.fn(() => (deckId === "a" ? 1 : 2)),
     armGaplessSuccessor: vi.fn(),
     onEnd: vi.fn((callback: () => void) => {
       listeners.push(callback);
     }),
-    recover: vi.fn(async () => ({ restarted: false, reloaded: false })),
     emitEnd: () => {
       for (const listener of listeners) listener();
-    },
-    emitDrainAt: (frame: number) => {
-      drainAtCallback?.(frame);
     },
     emitStarted: () => {
       startedCallback?.();
@@ -83,7 +72,6 @@ function createMockEngine(deckId: DeckId) {
   } satisfies Partial<DualDeckEngine> & {
     deckId: DeckId;
     emitEnd: () => void;
-    emitDrainAt: (frame: number) => void;
     emitStarted: () => void;
   };
 }
@@ -500,8 +488,8 @@ describe("CrossfadeController", () => {
     });
   });
 
-  it("connects decks and sets mixes before scheduling gain ramps", async () => {
-    const { rampDeckGain } = await import("./audioMixer");
+  it("sets mixes before scheduling gain ramps", async () => {
+    const { rampDeckGain } = await import("./deckGain");
     const deckA = createMockEngine("a");
     const deckB = createMockEngine("b");
     const controller = new CrossfadeController(asDecks(deckA, deckB));
@@ -512,9 +500,7 @@ describe("CrossfadeController", () => {
     );
 
     vi.mocked(rampDeckGain).mockClear();
-    deckB.connectToOutputBus.mockClear();
     deckB.setCrossfadeMix.mockClear();
-    deckA.connectToOutputBus.mockClear();
     deckA.setCrossfadeMix.mockClear();
 
     controller.startCrossfadeNow(
@@ -530,9 +516,6 @@ describe("CrossfadeController", () => {
 
     const firstRampOrder = vi.mocked(rampDeckGain).mock.invocationCallOrder[0]!;
     expect(deckB.setCrossfadeMix.mock.invocationCallOrder[0]).toBeLessThan(
-      firstRampOrder,
-    );
-    expect(deckB.connectToOutputBus.mock.invocationCallOrder[0]).toBeLessThan(
       firstRampOrder,
     );
     expect(deckB.play.mock.invocationCallOrder[0]).toBeLessThan(firstRampOrder);
@@ -612,7 +595,7 @@ describe("CrossfadeController", () => {
   });
 
   it("pause mid-fade freezes both decks; play resumes the remaining ramp", async () => {
-    const { rampDeckGain, setDeckGain } = await import("./audioMixer");
+    const { rampDeckGain, setDeckGain } = await import("./deckGain");
     const deckA = createMockEngine("a");
     const deckB = createMockEngine("b");
     const controller = new CrossfadeController(asDecks(deckA, deckB));
@@ -699,7 +682,7 @@ describe("CrossfadeController", () => {
   });
 
   it("primes the incoming deck gated at full mix, with no gain ramp", async () => {
-    const { rampDeckGain } = await import("./audioMixer");
+    const { rampDeckGain } = await import("./deckGain");
     const deckA = createMockEngine("a");
     const deckB = createMockEngine("b");
     const controller = new CrossfadeController(asDecks(deckA, deckB));
@@ -721,7 +704,7 @@ describe("CrossfadeController", () => {
       expect(controller.isCrossfadeInProgress()).toBe(true);
     });
 
-    // Silence comes from the worklet gate, not from deck gain, so the splice
+    // Silence comes from the incoming deck not playing yet, not from deck gain, so the splice
     // needs no gain change and no timed fade.
     expect(deckB.setCrossfadeMix).toHaveBeenCalledWith(1);
     expect(deckB.setCrossfadeMix).not.toHaveBeenCalledWith(0);
@@ -729,34 +712,8 @@ describe("CrossfadeController", () => {
     expect(rampDeckGain).not.toHaveBeenCalled();
   });
 
-  it("schedules the incoming start on the outgoing deck's drain frame", async () => {
-    const deckA = createMockEngine("a");
-    const deckB = createMockEngine("b");
-    const controller = new CrossfadeController(asDecks(deckA, deckB));
-
-    await controller.loadAndPlay(
-      { kind: "file", path: "/a.wav" },
-      { volume: 1, muted: false, balance: 0 },
-    );
-
-    controller.maybeScheduleGapless(
-      crossfadeScheduleArgs({ positionSeconds: 179, outgoingDuration: 180 }),
-    );
-
-    await vi.waitFor(() => {
-      expect(deckA.onDrainAt).toHaveBeenCalled();
-    });
-
-    deckA.emitDrainAt(1_234_567);
-    expect(deckB.scheduleStartAtFrame).toHaveBeenCalledWith(1_234_567);
-
-    // A late chunk can push the drain point back; the incoming deck follows.
-    deckA.emitDrainAt(1_234_999);
-    expect(deckB.scheduleStartAtFrame).toHaveBeenLastCalledWith(1_234_999);
-  });
-
   it("completes the handoff when the incoming deck reports it started", async () => {
-    const { setDeckGain } = await import("./audioMixer");
+    const { setDeckGain } = await import("./deckGain");
     const deckA = createMockEngine("a");
     const deckB = createMockEngine("b");
     const controller = new CrossfadeController(asDecks(deckA, deckB));
@@ -782,7 +739,6 @@ describe("CrossfadeController", () => {
     });
 
     vi.mocked(setDeckGain).mockClear();
-    deckA.emitDrainAt(1000);
     deckB.emitStarted();
 
     expect(setDeckGain).not.toHaveBeenCalled();
@@ -1036,8 +992,7 @@ describe("CrossfadeController", () => {
       expect(deckB.primeGaplessStart).toHaveBeenCalled();
     });
 
-    deckA.emitDrainAt(12_345);
-    expect(deckB.scheduleStartAtFrame).toHaveBeenCalledWith(12_345);
+    expect(deckA.armGaplessSuccessor).toHaveBeenCalledWith(deckB);
 
     deckB.emitStarted();
     expect(onActiveTrackChange).toHaveBeenCalledWith({

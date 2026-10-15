@@ -1,5 +1,29 @@
 import type { PlaybackSource } from "./types";
 
+export interface NativeSessionKey {
+  sessionId: number;
+}
+
+export interface NativePlaybackStarted {
+  sessionId: number;
+  durationSeconds: number;
+  sampleRate: number;
+  channels: number;
+}
+
+export interface NativePositionPayload extends NativeSessionKey {
+  positionSeconds: number;
+  durationSeconds: number;
+  isPlaying: boolean;
+}
+
+export function isNativeSession(
+  session: NativeSessionKey | null,
+  payload: NativeSessionKey,
+): boolean {
+  return session !== null && session.sessionId === payload.sessionId;
+}
+
 /** Commands and events that belong to one medium of native playback. */
 export interface NativeTransport {
   readonly kind: "file" | "cd";
@@ -37,7 +61,7 @@ export const FILE_NATIVE_TRANSPORT: NativeTransport = {
   }),
   seekEndMarginSeconds: 0.05,
   commands: {
-    start: "start_native_file_playback",
+    start: "start_file_playback",
     pause: "pause_file_playback",
     resume: "resume_file_playback",
     seek: "seek_file_playback",
@@ -62,7 +86,6 @@ export const CD_NATIVE_TRANSPORT: NativeTransport = {
       ? {
           driveId: source.driveId,
           trackNumber: source.trackNumber,
-          native: true,
         }
       : {},
   seekEndMarginSeconds: 0,

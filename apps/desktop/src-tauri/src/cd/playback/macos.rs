@@ -14,7 +14,6 @@ pub fn start(
     app: AppHandle,
     drive_id: &str,
     track_number: u32,
-    native: bool,
 ) -> Result<CdPlaybackStarted, String> {
     // Hold Playing before path resolution so the brief gap between tracks does
     // not return Idle and let background disc reads block auto-advance.
@@ -22,14 +21,7 @@ pub fn start(
 
     let track_path = find_track_aiff_path(drive_id, track_number)?;
     let source = AiffSource::open(&track_path)?;
-    engine::start(
-        app,
-        drive_id,
-        track_number,
-        source,
-        Some(session_guard),
-        native,
-    )
+    engine::start(app, drive_id, track_number, source, Some(session_guard))
 }
 
 /// Read an entire cddafs track as interleaved PCM for ripping.
@@ -64,10 +56,6 @@ pub fn resume(session_id: u64) {
 
 pub fn seek(session_id: u64, seconds: f64) -> Result<(), String> {
     engine::seek(session_id, seconds)
-}
-
-pub fn ack_pcm_chunks(session_id: u64, count: u32) {
-    engine::ack_pcm_chunks(session_id, count);
 }
 
 pub fn stop(session_id: u64) {

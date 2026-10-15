@@ -1,28 +1,25 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { DeckId } from "./audioOutput";
-import { registerNativeDeck, unregisterNativeDeck } from "./nativeDeckRegistry";
+import {
+  registerNativeDeck,
+  unregisterNativeDeck,
+  type DeckId,
+} from "./nativeDeckRegistry";
 import { pushNativeEqualizer } from "./nativeEqualizer";
-import type { NativeTransport } from "./nativeTransport";
-import type {
-  PcmFilePlaybackPositionPayload,
-  PcmFilePlaybackStarted,
-  PcmFileSessionKey,
-} from "./pcmFilePlaybackEvents";
-import { isPcmFileSession } from "./pcmFilePlaybackEvents";
-import type {
-  PlaybackCapabilities,
-  PlaybackSource,
-  RecoverOptions,
-  RecoverResult,
-} from "./types";
+import {
+  isNativeSession,
+  type NativePlaybackStarted,
+  type NativePositionPayload,
+  type NativeSessionKey,
+  type NativeTransport,
+} from "./nativeTransport";
+import type { PlaybackCapabilities, PlaybackSource } from "./types";
 
 const NATIVE_FILE_CAPABILITIES: PlaybackCapabilities = {
   seek: true,
   scrubPreview: true,
   gapless: true,
   visualizer: true,
-  recoverAfterWake: false,
 };
 
 /**
@@ -53,7 +50,7 @@ export interface NativePlaybackError {
 export class NativePlaybackEngine {
   readonly capabilities = NATIVE_FILE_CAPABILITIES;
 
-  private current: PcmFileSessionKey | null = null;
+  private current: NativeSessionKey | null = null;
   private durationSeconds = 0;
   private anchorSeconds = 0;
   private anchorAtMs = 0;
@@ -128,26 +125,23 @@ export class NativePlaybackEngine {
 
   private ensureListeners(): Promise<UnlistenFn[]> {
     this.listeners ??= Promise.all([
-      listen<PcmFilePlaybackPositionPayload>(
-        this.transport.events.position,
-        (event) => {
-          if (!isPcmFileSession(this.current, event.payload)) return;
-          this.durationSeconds = event.payload.durationSeconds;
-          this.playing = event.payload.isPlaying;
-          if (performance.now() < this.ignoreEventsUntilMs) return;
-          this.anchorSeconds = event.payload.positionSeconds;
-          this.anchorAtMs = performance.now();
-        },
-      ),
-      listen<PcmFileSessionKey>(
+      listen<NativePositionPayload>(this.transport.events.position, (event) => {
+        if (!isNativeSession(this.current, event.payload)) return;
+        this.durationSeconds = event.payload.durationSeconds;
+        this.playing = event.payload.isPlaying;
+        if (performance.now() < this.ignoreEventsUntilMs) return;
+        this.anchorSeconds = event.payload.positionSeconds;
+        this.anchorAtMs = performance.now();
+      }),
+      listen<NativeSessionKey>(
         this.transport.events.gaplessStarted,
         (event) => {
-          if (!isPcmFileSession(this.current, event.payload)) return;
+          if (!isNativeSession(this.current, event.payload)) return;
           this.handleStarted();
         },
       ),
-      listen<PcmFileSessionKey>(this.transport.events.ended, (event) => {
-        if (!isPcmFileSession(this.current, event.payload)) return;
+      listen<NativeSessionKey>(this.transport.events.ended, (event) => {
+        if (!isNativeSession(this.current, event.payload)) return;
         // Rust only reports the end once the mixer has played the last sample.
         this.current = null;
         this.playing = false;
@@ -163,20 +157,17 @@ export class NativePlaybackEngine {
     const name = this.transport.events.error;
     if (!name) return [];
     return [
-      listen<PcmFileSessionKey & Partial<NativePlaybackError>>(
-        name,
-        (event) => {
-          if (!isPcmFileSession(this.current, event.payload)) return;
-          console.error("Native playback error:", event.payload.message);
-          this.current = null;
-          this.playing = false;
-          this.errorCallback?.({
-            driveId: event.payload.driveId ?? "",
-            trackNumber: event.payload.trackNumber ?? 0,
-            message: event.payload.message ?? "Failed to read audio data",
-          });
-        },
-      ),
+      listen<NativeSessionKey & Partial<NativePlaybackError>>(name, (event) => {
+        if (!isNativeSession(this.current, event.payload)) return;
+        console.error("Native playback error:", event.payload.message);
+        this.current = null;
+        this.playing = false;
+        this.errorCallback?.({
+          driveId: event.payload.driveId ?? "",
+          trackNumber: event.payload.trackNumber ?? 0,
+          message: event.payload.message ?? "Failed to read audio data",
+        });
+      }),
     ];
   }
 
@@ -204,7 +195,7 @@ export class NativePlaybackEngine {
 
     // The EQ bootstraps before the playback settings, so Rust may not have it yet.
     pushNativeEqualizer();
-    const started = await invoke<PcmFilePlaybackStarted>(
+    const started = await invoke<NativePlaybackStarted>(
       this.transport.commands.start,
       this.transport.startArgs(source),
     );
@@ -350,11 +341,6 @@ export class NativePlaybackEngine {
     }).catch((err) => console.error("Native gain ramp failed:", err));
   }
 
-  /** The native output has no Web Audio graph to route through. */
-  connectToOutputBus(): AnalyserNode | null {
-    return null;
-  }
-
   release(): void {
     this.retire();
   }
@@ -410,11 +396,6 @@ export class NativePlaybackEngine {
     }).catch((err) => console.error("Native gapless link failed:", err));
   }
 
-  /** Frame-scheduled splice does not exist here; Rust owns the timing. */
-  scheduleStartAtFrame(_frame: number): void {}
-
-  onDrainAt(_callback: (frame: number) => void): void {}
-
   onGaplessStarted(callback: () => void): void {
     this.startedCallback = callback;
   }
@@ -438,21 +419,4 @@ export class NativePlaybackEngine {
     this.anchorAtMs = performance.now();
     this.startedCallback?.();
   }
-
-  isEndOfStreamPending(): boolean {
-    return false;
-  }
-
-  reannounceDrain(): void {}
-
-  /** Rust owns the device and rebuilds it itself; nothing to repair here. */
-  async recover(options: RecoverOptions): Promise<RecoverResult> {
-    return {
-      restarted: false,
-      reloaded: false,
-      alreadyHealthy: options.wasPlaying && this.current !== null,
-    };
-  }
-
-  async resumeAudioContext(): Promise<void> {}
 }

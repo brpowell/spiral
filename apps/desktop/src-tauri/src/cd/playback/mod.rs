@@ -1,7 +1,7 @@
 //! Native CD audio playback.
 //!
 //! Platforms supply a PCM source (macOS: cddafs AIFF; Windows/Linux: raw CD-DA sectors).
-//! The shared engine streams f32 chunks to the frontend Web Audio pipeline.
+//! The shared engine feeds the native audio output (see `native_audio`).
 //! Position / end / error updates reach the frontend as Tauri events.
 
 use serde::Serialize;
@@ -9,8 +9,6 @@ use serde::Serialize;
 pub const CD_PLAYBACK_POSITION_EVENT: &str = "cd-playback-position";
 pub const CD_PLAYBACK_ENDED_EVENT: &str = "cd-playback-ended";
 pub const CD_PLAYBACK_ERROR_EVENT: &str = "cd-playback-error";
-pub const CD_PLAYBACK_PCM_EVENT: &str = "cd-playback-pcm";
-pub const CD_PLAYBACK_FLUSH_EVENT: &str = "cd-playback-flush";
 /// A native session began playing on its own (gapless splice from another session).
 pub const CD_PLAYBACK_GAPLESS_STARTED_EVENT: &str = "cd-playback-gapless-started";
 
@@ -52,28 +50,9 @@ pub struct CdPlaybackError {
     pub message: String,
 }
 
-/// One batched PCM chunk — base64 little-endian f32, interleaved channels.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CdPlaybackPcm {
-    pub session_id: u64,
-    pub drive_id: String,
-    pub track_number: u32,
-    pub channels: u16,
-    pub pcm_b64: String,
-}
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CdPlaybackGaplessStarted {
-    pub session_id: u64,
-    pub drive_id: String,
-    pub track_number: u32,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CdPlaybackFlush {
     pub session_id: u64,
     pub drive_id: String,
     pub track_number: u32,
@@ -101,14 +80,14 @@ mod stub;
 
 #[cfg(target_os = "macos")]
 pub use macos::{
-    ack_pcm_chunks, link_gapless, pause, ramp_gain, read_track_pcm, resume, seek, set_balance,
-    set_gain, start, stop, stop_for_drive,
+    link_gapless, pause, ramp_gain, read_track_pcm, resume, seek, set_balance, set_gain, start,
+    stop, stop_for_drive,
 };
 
 #[cfg(target_os = "windows")]
 pub use windows::{
-    ack_pcm_chunks, link_gapless, pause, ramp_gain, resume, seek, set_balance, set_gain, start,
-    stop, stop_for_drive,
+    link_gapless, pause, ramp_gain, resume, seek, set_balance, set_gain, start, stop,
+    stop_for_drive,
 };
 
 #[cfg(target_os = "windows")]
@@ -116,8 +95,8 @@ pub use cdda::read_track_pcm;
 
 #[cfg(target_os = "linux")]
 pub use linux::{
-    ack_pcm_chunks, link_gapless, pause, ramp_gain, resume, seek, set_balance, set_gain, start,
-    stop, stop_for_drive,
+    link_gapless, pause, ramp_gain, resume, seek, set_balance, set_gain, start, stop,
+    stop_for_drive,
 };
 
 #[cfg(target_os = "linux")]
@@ -126,6 +105,6 @@ pub use cdda::read_track_pcm;
 #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 #[allow(unused_imports)]
 pub use stub::{
-    ack_pcm_chunks, link_gapless, pause, ramp_gain, resume, seek, set_balance, set_gain, start,
-    stop, stop_for_drive,
+    link_gapless, pause, ramp_gain, resume, seek, set_balance, set_gain, start, stop,
+    stop_for_drive,
 };

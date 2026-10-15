@@ -3,8 +3,6 @@ export interface PlaybackSettings {
   crossfadeSeconds: number;
   crossfadeOnSkip: boolean;
   crossfadeVisualEnabled: boolean;
-  /** Hidden: play library files through the native (Rust) audio output. */
-  nativeAudioOutput: boolean;
 }
 
 export const MIN_CROSSFADE_SECONDS = 1;
@@ -17,7 +15,6 @@ export function defaultPlaybackSettings(): PlaybackSettings {
     crossfadeSeconds: DEFAULT_CROSSFADE_SECONDS,
     crossfadeOnSkip: false,
     crossfadeVisualEnabled: true,
-    nativeAudioOutput: false,
   };
 }
 

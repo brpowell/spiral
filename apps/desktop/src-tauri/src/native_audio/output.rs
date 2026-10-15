@@ -106,6 +106,15 @@ impl DeckHandle {
         }
     }
 
+    /// Hold the first start until `seconds` of audio are buffered (or the stream
+    /// ends). For sources that stall after their first chunk, like optical drives.
+    pub fn set_start_prebuffer_seconds(&self, seconds: f64) {
+        let samples = (seconds * self.src_rate as f64) as usize * self.channels;
+        self.shared
+            .start_prebuffer_samples
+            .store(samples, std::sync::atomic::Ordering::Relaxed);
+    }
+
     /// Free slots in the ring, in samples.
     pub fn free_samples(&self) -> usize {
         self.producer.slots()

@@ -1,19 +1,18 @@
 import type { PlayableRef } from "../../types/playable";
 import type { RepeatMode } from "../../types/track";
-import { rampDeckGain, setDeckGain, type DeckId } from "./audioMixer";
+import { rampDeckGain, setDeckGain, type DeckId } from "./deckGain";
 import {
   canCrossfade,
   canGapless,
   effectiveFadeSeconds,
   GAPLESS_PRELOAD_HEADROOM_SECONDS,
 } from "./canCrossfade";
-import { CdDeckEngine } from "./cdDeckEngine";
 import {
-  CdPlaybackEngine,
+  NativeCdPlaybackEngine,
   type CdPlaybackStreamError,
-} from "./cdPlaybackEngine";
-import { FilePlaybackEngine } from "./fileDeckEngine";
-import type { PlaybackSource, RecoverOptions, RecoverResult } from "./types";
+} from "./nativeCdPlaybackEngine";
+import { NativeFilePlaybackEngine } from "./nativeFilePlaybackEngine";
+import type { PlaybackSource } from "./types";
 
 const FADE_COMPLETE_BUFFER_MS = 50;
 
@@ -36,7 +35,7 @@ type DeckMedium = "file" | "cd";
 
 /**
  * Deck engine surface used by the dual-deck handoff controller.
- * Implemented by both {@link FilePlaybackEngine} and {@link CdDeckEngine}.
+ * Implemented by both {@link NativeFilePlaybackEngine} and {@link NativeCdPlaybackEngine}.
  */
 export interface DualDeckEngine {
   load(source: PlaybackSource): Promise<void>;
@@ -52,28 +51,21 @@ export interface DualDeckEngine {
   setDeckId(deckId: DeckId): void;
   getDeckId(): DeckId;
   setCrossfadeMix(mix: number): void;
-  connectToOutputBus(options?: { applyMix?: boolean }): AnalyserNode | null;
-  /** Stop the deck and keep its audio nodes for the next track. */
+  /** Stop the deck's track so the deck can load the next one. */
   release(): void;
   destroy(): void;
   onEnd(callback: () => void): void;
   primeGaplessStart(): Promise<void>;
-  scheduleStartAtFrame(frame: number): void;
+  /** Give up on the sample-accurate splice and start now. */
   forceGaplessStart(): void;
-  onDrainAt(callback: (frame: number) => void): void;
   onGaplessStarted(callback: () => void): void;
-  /** True while the worklet is still playing after decoder EOS. */
-  isEndOfStreamPending(): boolean;
-  /** Ask the worklet to re-emit drainAt (late gapless subscribe). */
-  reannounceDrain(): void;
-  /** Native output: this deck's session id, for linking a gapless splice. */
-  getSessionId?(): number | null;
+  /** This deck's Rust session id, for linking a gapless splice. */
+  getSessionId(): number | null;
   /**
-   * Native output: have the mixer start `incoming` on the exact sample this
-   * deck runs out. Absent on engines that splice by context frame instead.
+   * Have the mixer start `incoming` on the exact sample this deck runs out,
+   * inside the audio callback.
    */
-  armGaplessSuccessor?(incoming: DualDeckEngine): void;
-  recover(options: RecoverOptions): Promise<RecoverResult>;
+  armGaplessSuccessor(incoming: DualDeckEngine): void;
 }
 
 export interface CrossfadeHandoff {
@@ -118,14 +110,14 @@ function mediumForSource(source: PlaybackSource): DeckMedium | null {
 
 function createDeckEngines(medium: DeckMedium): Record<DeckId, DualDeckEngine> {
   if (medium === "cd") {
-    const deckA = new CdDeckEngine();
-    const deckB = new CdDeckEngine();
+    const deckA = new NativeCdPlaybackEngine();
+    const deckB = new NativeCdPlaybackEngine();
     deckA.setDeckId("a");
     deckB.setDeckId("b");
     return { a: deckA, b: deckB };
   }
-  const deckA = new FilePlaybackEngine();
-  const deckB = new FilePlaybackEngine();
+  const deckA = new NativeFilePlaybackEngine();
+  const deckB = new NativeFilePlaybackEngine();
   deckA.setDeckId("a");
   deckB.setDeckId("b");
   return { a: deckA, b: deckB };
@@ -173,10 +165,7 @@ export class CrossfadeController {
       engine.onEnd(() => {
         this.handleDeckEnd(engine);
       });
-      if (
-        engine instanceof CdDeckEngine ||
-        engine instanceof CdPlaybackEngine
-      ) {
+      if (engine instanceof NativeCdPlaybackEngine) {
         engine.onError((error) => {
           this.onCdErrorCallback?.(error);
         });
@@ -589,8 +578,9 @@ export class CrossfadeController {
   }
 
   /**
-   * Near EOS with crossfade off: preload the next file into a gated worklet and
-   * splice on the outgoing deck's drain frame (no timed fade, no gain step).
+   * Near EOS with crossfade off: preload the next track silently and have the
+   * mixer splice it on the outgoing deck's last sample (no timed fade, no gain
+   * step).
    */
   maybeScheduleGapless(ctx: CrossfadeScheduleContext): void {
     if (!this.controllerActive) return;
@@ -651,17 +641,14 @@ export class CrossfadeController {
         this.applyUserMixToEngine(outgoingEngine);
         this.applyUserMixToEngine(incomingEngine);
 
-        // Wire both decks and set starting mixes BEFORE play/ramps.
-        // Ramping a missing deck gain no-ops; setCrossfadeMix after a ramp
-        // cancels scheduled AudioParam values.
+        // Set starting mixes BEFORE play/ramps: a plain mix change cancels any
+        // ramp in flight.
         //
         // Gapless rides at full mix the whole time — the incoming deck is silent
-        // because its worklet is gated, so the splice needs no gain change and
+        // because it is not playing yet, so the splice needs no gain change and
         // therefore introduces no step discontinuity.
         incomingEngine.setCrossfadeMix(options.mode === "gapless" ? 1 : 0);
-        incomingEngine.connectToOutputBus({ applyMix: true });
         outgoingEngine.setCrossfadeMix(1);
-        outgoingEngine.connectToOutputBus({ applyMix: true });
 
         if (options.mode === "gapless") {
           await incomingEngine.primeGaplessStart();
@@ -707,7 +694,6 @@ export class CrossfadeController {
 
     const outgoingDeck = this.activeDeck;
     const outgoingEngine = this.engine(outgoingDeck);
-    outgoingEngine.connectToOutputBus();
     outgoingEngine.setCrossfadeMix(1);
 
     const generation = ++this.scheduleGeneration;
@@ -771,9 +757,9 @@ export class CrossfadeController {
   }
 
   /**
-   * Both decks share one AudioContext, so they share `currentFrame`. The
-   * outgoing worklet reports the exact frame its tail runs out and the incoming
-   * worklet starts on that frame — no silence and no gain step at the join.
+   * Link the two decks in the Rust mixer, which starts the incoming deck on the
+   * exact sample the outgoing one runs out. The incoming deck then reports that
+   * it started, which completes the handoff.
    */
   private beginGaplessWait(
     ctx: CrossfadeScheduleContext,
@@ -788,25 +774,13 @@ export class CrossfadeController {
     this.activeFadeContext = ctx;
     this.dominantTrackPromoted = false;
 
-    this.engine(outgoingDeck).armGaplessSuccessor?.(this.engine(incomingDeck));
-
-    this.engine(outgoingDeck).onDrainAt((frame) => {
-      if (generation !== this.scheduleGeneration) return;
-      if (this.fadeState !== "gaplessPrimed") return;
-      this.engine(incomingDeck).scheduleStartAtFrame(frame);
-    });
+    this.engine(outgoingDeck).armGaplessSuccessor(this.engine(incomingDeck));
 
     this.engine(incomingDeck).onGaplessStarted(() => {
       if (generation !== this.scheduleGeneration) return;
       if (this.fadeState !== "gaplessPrimed") return;
       this.completeGaplessHandoff();
     });
-
-    // Decoder may already be past EOS (deep read-ahead); re-emit drainAt so we
-    // do not wait for the 250ms force-start fallback.
-    if (this.engine(outgoingDeck).isEndOfStreamPending()) {
-      this.engine(outgoingDeck).reannounceDrain();
-    }
   }
 
   private completeGaplessHandoff(): void {

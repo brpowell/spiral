@@ -41,7 +41,7 @@ describe("NativeFilePlaybackEngine", () => {
     invoke.mockReset();
     handlers.clear();
     invoke.mockImplementation(async (command: string) => {
-      if (command === "start_native_file_playback") {
+      if (command === "start_file_playback") {
         return {
           sessionId: 7,
           durationSeconds: 200,
@@ -59,10 +59,9 @@ describe("NativeFilePlaybackEngine", () => {
 
   it("starts a native session without a pcm channel", async () => {
     await loadedEngine();
-    expect(commandsNamed("start_native_file_playback")).toEqual([
-      ["start_native_file_playback", { path: "/music/a.flac" }],
+    expect(commandsNamed("start_file_playback")).toEqual([
+      ["start_file_playback", { path: "/music/a.flac" }],
     ]);
-    expect(commandsNamed("start_file_playback")).toHaveLength(0);
   });
 
   it("rejects non-file sources", async () => {
@@ -208,7 +207,7 @@ describe("NativeFilePlaybackEngine", () => {
   it("stops the previous session when loading another file", async () => {
     const engine = await loadedEngine();
     invoke.mockImplementation(async (command: string) =>
-      command === "start_native_file_playback"
+      command === "start_file_playback"
         ? { sessionId: 8, durationSeconds: 10, sampleRate: 44100, channels: 2 }
         : undefined,
     );
@@ -240,11 +239,6 @@ describe("NativeFilePlaybackEngine", () => {
     ]);
     expect(engine.getDurationSeconds()).toBe(0);
   });
-
-  it("has no Web Audio output bus", async () => {
-    const engine = await loadedEngine();
-    expect(engine.connectToOutputBus()).toBeNull();
-  });
 });
 
 describe("NativeFilePlaybackEngine crossfade ramps", () => {
@@ -253,7 +247,7 @@ describe("NativeFilePlaybackEngine crossfade ramps", () => {
     invoke.mockReset();
     handlers.clear();
     invoke.mockImplementation(async (command: string) =>
-      command === "start_native_file_playback"
+      command === "start_file_playback"
         ? { sessionId: 7, durationSeconds: 200, sampleRate: 44100, channels: 2 }
         : undefined,
     );
@@ -371,7 +365,7 @@ describe("NativeFilePlaybackEngine gapless", () => {
     handlers.clear();
     let next = 7;
     invoke.mockImplementation(async (command: string) => {
-      if (command === "start_native_file_playback") {
+      if (command === "start_file_playback") {
         return {
           sessionId: next++,
           durationSeconds: 200,

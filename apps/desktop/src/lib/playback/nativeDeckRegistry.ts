@@ -1,4 +1,4 @@
-import type { DeckId } from "./audioMixer";
+export type DeckId = "a" | "b";
 
 /** What the deck-level gain helpers need from a native engine. */
 export interface NativeDeckGain {

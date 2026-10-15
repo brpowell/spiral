@@ -1,13 +1,18 @@
 import type { PlaybackSource } from "./types";
-import { FILE_PCM_READ_AHEAD_SECONDS } from "./pcmStreamConstants";
+
+/**
+ * Seconds of audio the Rust output ring holds ahead of the device for library
+ * files. Keep in step with `NATIVE_RING_SECONDS` in `file_playback/engine.rs`.
+ */
+const FILE_READ_AHEAD_SECONDS = 2;
 
 /**
  * Seconds of *audible* remaining before EOS to start loading the next track.
- * Decode leads the playhead by ~FILE_PCM_READ_AHEAD_SECONDS, so headroom must
+ * Decode leads the playhead by ~FILE_READ_AHEAD_SECONDS, so headroom must
  * exceed that cushion or preload starts only after the decoder is already done
  * (gapless then falls back to a forced start and leaves a pause).
  */
-export const GAPLESS_PRELOAD_HEADROOM_SECONDS = FILE_PCM_READ_AHEAD_SECONDS + 2;
+export const GAPLESS_PRELOAD_HEADROOM_SECONDS = FILE_READ_AHEAD_SECONDS + 2;
 
 /**
  * Whether dual-deck PCM crossfade can run for this pair.

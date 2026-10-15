@@ -1,6 +1,13 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { getWindowRole } from "../windowRole";
-import type { AudioAnalyser } from "./audioMixer";
+
+/** The slice of `AnalyserNode` the visualizers read. */
+export interface AudioAnalyser {
+  readonly fftSize: number;
+  readonly frequencyBinCount: number;
+  getByteFrequencyData(array: Uint8Array<ArrayBuffer>): void;
+  getByteTimeDomainData(array: Uint8Array<ArrayBuffer>): void;
+}
 
 /** Must match `FFT_SIZE` / `BIN_COUNT` in `native_audio/analyser.rs`. */
 export const NATIVE_ANALYSER_FFT_SIZE = 256;

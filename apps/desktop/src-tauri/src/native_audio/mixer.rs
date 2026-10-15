@@ -4,7 +4,7 @@
 //! render path never allocates or blocks; control threads reach it through a
 //! `Mutex<Mixer>` that the audio callback only `try_lock`s.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use rtrb::{Consumer, Producer};
@@ -50,6 +50,10 @@ pub struct DeckShared {
     /// Set when a gapless splice started this deck inside the audio callback;
     /// the deck's owner clears it when it reports the start.
     pub gapless_started: AtomicBool,
+    /// Samples that must be buffered before the deck first starts (0 = start
+    /// at once). Optical drives deliver a cached first chunk and then stall, so
+    /// starting on it underruns until the drive is up to speed.
+    pub start_prebuffer_samples: AtomicUsize,
     /// Source frames consumed since the start of the file (seek-adjusted).
     pub position_frames: AtomicU64,
     /// Output callbacks that found the ring empty while playing.
@@ -67,6 +71,7 @@ impl DeckShared {
             eos: AtomicBool::new(false),
             finished: AtomicBool::new(false),
             gapless_started: AtomicBool::new(false),
+            start_prebuffer_samples: AtomicUsize::new(0),
             position_frames: AtomicU64::new(0),
             underruns: AtomicU64::new(0),
             gain_cmd: Mutex::new(GainCommand::INITIAL),
@@ -146,6 +151,8 @@ struct Deck {
     /// Fractional position between `prev` (0.0) and `next` (1.0).
     pos: f64,
     primed: bool,
+    /// The deck has produced audio at least once, so the start prebuffer is spent.
+    started_once: bool,
     /// Deck that starts on the exact frame this one runs out (gapless splice).
     successor: Option<u64>,
     /// 0..=1 fade applied for play/pause transitions.
@@ -260,6 +267,7 @@ impl Mixer {
             next: [0.0; MAX_CHANNELS],
             pos: 0.0,
             primed: false,
+            started_once: false,
             successor: None,
             fade: 0.0,
             smoothed_gain: gain,
@@ -289,6 +297,7 @@ impl Mixer {
         // to align to, so start the successor now rather than never.
         if let Some(target) = self.decks.iter_mut().find(|deck| deck.id == to) {
             target.fade = 1.0;
+            target.started_once = true;
             target.shared.playing.store(true, Ordering::Relaxed);
             target.shared.gapless_started.store(true, Ordering::Release);
         }
@@ -356,6 +365,7 @@ impl Mixer {
                 rendered[next] = true;
                 let successor = &mut self.decks[next];
                 successor.fade = 1.0;
+                successor.started_once = true;
                 successor.shared.playing.store(true, Ordering::Relaxed);
                 successor
                     .shared
@@ -466,6 +476,13 @@ fn render_deck(
 
         if !deck.primed {
             let eos = shared.eos.load(Ordering::Acquire);
+            if !deck.started_once && !eos {
+                let need = shared.start_prebuffer_samples.load(Ordering::Relaxed);
+                if need > 0 && deck.consumer.slots() < need {
+                    // Still filling the cold-start buffer: stay silent.
+                    continue;
+                }
+            }
             let mut first = [0.0; MAX_CHANNELS];
             let mut second = [0.0; MAX_CHANNELS];
             if deck.pop_frame(&mut first) {
@@ -477,6 +494,7 @@ fn render_deck(
                 deck.next = second;
                 deck.pos = 0.0;
                 deck.primed = true;
+                deck.started_once = true;
                 consumed += 2;
             } else {
                 if eos {
@@ -1094,6 +1112,71 @@ mod tests {
             mixer.play_sfx(id, test_clip(0.1, 1000));
         }
         assert_eq!(mixer.sfx.len(), MAX_VOICES);
+    }
+
+    #[test]
+    fn start_prebuffer_holds_the_first_start_until_enough_is_buffered() {
+        let mut r = rig(48_000, 2, 48_000);
+        r.shared
+            .start_prebuffer_samples
+            .store(4000 * 2, Ordering::Relaxed);
+        push_stereo_const(&mut r, 1000, 0.5);
+        r.shared.playing.store(true, Ordering::Relaxed);
+
+        let out = render_frames(&mut r, 512);
+        assert!(out.iter().all(|s| *s == 0.0), "silent while filling");
+        assert_eq!(r.shared.position_frames.load(Ordering::Relaxed), 0);
+
+        push_stereo_const(&mut r, 3500, 0.5);
+        let out = render_frames(&mut r, 1000);
+        assert!(out[out.len() - 1] > 0.4, "starts once the buffer is full");
+    }
+
+    #[test]
+    fn start_prebuffer_releases_at_end_of_stream() {
+        let mut r = rig(48_000, 2, 48_000);
+        r.shared
+            .start_prebuffer_samples
+            .store(100_000 * 2, Ordering::Relaxed);
+        push_stereo_const(&mut r, 1000, 0.5);
+        r.shared.eos.store(true, Ordering::Release);
+        r.shared.playing.store(true, Ordering::Relaxed);
+        let out = render_frames(&mut r, 600);
+        assert!(out[out.len() - 1] > 0.4, "short track plays anyway");
+    }
+
+    #[test]
+    fn start_prebuffer_applies_only_to_the_first_start() {
+        let mut r = rig(48_000, 2, 48_000);
+        r.shared
+            .start_prebuffer_samples
+            .store(2000 * 2, Ordering::Relaxed);
+        push_stereo_const(&mut r, 3000, 0.5);
+        r.shared.playing.store(true, Ordering::Relaxed);
+        render_frames(&mut r, 512);
+
+        // After a seek-style flush the deck restarts from a nearly empty ring.
+        r.mixer.flush_deck(r.id);
+        push_stereo_const(&mut r, 300, 0.5);
+        let out = render_frames(&mut r, 200);
+        assert!(out[out.len() - 1] > 0.1, "no second prebuffer wait");
+    }
+
+    #[test]
+    fn a_gapless_successor_skips_the_start_prebuffer() {
+        let (mut mixer, shared, ids) = two_deck_rig(300, 5000);
+        shared[1]
+            .start_prebuffer_samples
+            .store(100_000 * 2, Ordering::Relaxed);
+        shared[1].eos.store(false, Ordering::Release);
+        mixer.link_gapless(ids[0], ids[1]).expect("link");
+        shared[0].playing.store(true, Ordering::Relaxed);
+        let mut out = vec![0.0; 1024 * 2];
+        mixer.render(&mut out);
+        assert!(
+            out.chunks(2).any(|f| f[0] < -0.4),
+            "successor plays at once despite the prebuffer"
+        );
     }
 
     #[test]

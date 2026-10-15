@@ -8,7 +8,6 @@ pub fn start(
     _app: AppHandle,
     _drive_id: &str,
     _track_number: u32,
-    _native: bool,
 ) -> Result<CdPlaybackStarted, String> {
     Err("CD playback is not supported on this platform".into())
 }
@@ -30,8 +29,6 @@ pub fn resume(_session_id: u64) {}
 pub fn seek(_session_id: u64, _seconds: f64) -> Result<(), String> {
     Ok(())
 }
-
-pub fn ack_pcm_chunks(_session_id: u64, _count: u32) {}
 
 pub fn stop(_session_id: u64) {}
 

@@ -55,7 +55,7 @@ describe("NativeCdPlaybackEngine", () => {
     const engine = new NativeCdPlaybackEngine();
     await engine.load(TRACK);
     expect(commandsNamed("start_cd_playback")).toEqual([
-      ["start_cd_playback", { driveId: "disk4", trackNumber: 3, native: true }],
+      ["start_cd_playback", { driveId: "disk4", trackNumber: 3 }],
     ]);
   });
 

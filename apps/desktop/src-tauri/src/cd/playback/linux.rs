@@ -13,7 +13,6 @@ pub fn start(
     app: AppHandle,
     drive_id: &str,
     track_number: u32,
-    native: bool,
 ) -> Result<CdPlaybackStarted, String> {
     let drive_id =
         normalize_drive_id(drive_id).ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
@@ -22,14 +21,7 @@ pub fn start(
     let session_guard = begin_phase(&drive_id, DriveSessionPhase::Playing);
 
     let source = CddaTrackSource::open(&drive_id, track_number)?;
-    engine::start(
-        app,
-        &drive_id,
-        track_number,
-        source,
-        Some(session_guard),
-        native,
-    )
+    engine::start(app, &drive_id, track_number, source, Some(session_guard))
 }
 
 pub fn set_gain(session_id: u64, gain: f32) {
@@ -58,10 +50,6 @@ pub fn resume(session_id: u64) {
 
 pub fn seek(session_id: u64, seconds: f64) -> Result<(), String> {
     engine::seek(session_id, seconds)
-}
-
-pub fn ack_pcm_chunks(session_id: u64, count: u32) {
-    engine::ack_pcm_chunks(session_id, count);
 }
 
 pub fn stop(session_id: u64) {

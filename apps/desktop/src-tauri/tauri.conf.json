@@ -70,6 +70,14 @@
       "app",
       "dmg"
     ],
+    "linux": {
+      "deb": {
+        "depends": ["libasound2 | libasound2t64"]
+      },
+      "rpm": {
+        "depends": ["alsa-lib"]
+      }
+    },
     "windows": {
       "nsis": {
         "installMode": "currentUser"

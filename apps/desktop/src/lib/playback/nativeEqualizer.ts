@@ -1,17 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { EqualizerState } from "../equalizer/types";
-import { isNativeAudioEnabled } from "./nativeAudioFlag";
 
 type EqualizerParams = Pick<EqualizerState, "enabled" | "bands" | "preampGain">;
 
 /**
- * Last EQ state the UI applied. Kept even while native output is off or not yet
- * known, because the equalizer bootstraps before the playback settings do.
+ * Last EQ state the UI applied. Kept so it can be replayed whenever a session
+ * loads: the equalizer bootstraps early and Rust may not have seen it yet.
  */
 let lastState: EqualizerParams | null = null;
 
-/** Record the state and, when native output is on, hand it to the Rust mixer. */
-export function applyNativeEqualizer(state: EqualizerParams): void {
+/** Record the state and hand it to the Rust mixer. */
+export function applyEqualizerState(state: EqualizerParams): void {
   lastState = {
     enabled: state.enabled,
     bands: [...state.bands] as unknown as EqualizerState["bands"],
@@ -20,9 +19,9 @@ export function applyNativeEqualizer(state: EqualizerParams): void {
   pushNativeEqualizer();
 }
 
-/** Send the remembered EQ state to Rust (no-op unless native output is on). */
+/** Send the remembered EQ state to Rust. */
 export function pushNativeEqualizer(): void {
-  if (!lastState || !isNativeAudioEnabled()) return;
+  if (!lastState) return;
   void invoke("set_native_equalizer", {
     enabled: lastState.enabled,
     bandsDb: [...lastState.bands],
