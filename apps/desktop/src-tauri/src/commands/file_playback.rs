@@ -95,26 +95,27 @@ pub fn ramp_file_playback_gain(session_id: u64, from_gain: f32, to_gain: f32, du
     file_playback::ramp_gain(session_id, from_gain, to_gain, duration_ms)
 }
 
-/// Decode and keep a short WAV clip under the id the frontend chose. The WAV
-/// bytes are the raw request body; the id travels in the `x-sfx-id` header.
+/// Decode and keep a short WAV clip under `key`. The WAV bytes are the raw
+/// request body; the key (the clip's URL, percent-encoded) travels in the
+/// `x-sfx-key` header so every window shares one table without collisions.
 #[tauri::command]
 pub fn load_sfx(request: tauri::ipc::Request<'_>) -> Result<(), String> {
     let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
         return Err("load_sfx expects the WAV bytes as the request body".into());
     };
-    let id = request
+    let key = request
         .headers()
-        .get("x-sfx-id")
+        .get("x-sfx-key")
         .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.parse::<u64>().ok())
-        .ok_or("load_sfx needs a numeric x-sfx-id header")?;
-    crate::native_audio::sfx::store_clip(id, bytes)
+        .filter(|value| !value.is_empty())
+        .ok_or("load_sfx needs an x-sfx-key header")?;
+    crate::native_audio::sfx::store_clip(key, bytes)
 }
 
 /// Play a clip stored with `load_sfx`. Errors if it was never loaded.
 #[tauri::command]
-pub fn play_sfx(id: u64) -> Result<(), String> {
-    let clip = crate::native_audio::sfx::clip(id).ok_or("Sound was not loaded")?;
+pub fn play_sfx(key: String) -> Result<(), String> {
+    let (id, clip) = crate::native_audio::sfx::clip(&key).ok_or("Sound was not loaded")?;
     crate::native_audio::global().play_sfx(id, clip);
     Ok(())
 }

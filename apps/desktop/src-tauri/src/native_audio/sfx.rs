@@ -5,6 +5,7 @@
 //! equalizer or the visualizer tap, and they play even when no music does.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
 
 /// Voices that may sound at once; a burst of clicks past this drops the oldest.
@@ -111,24 +112,31 @@ pub fn parse_wav(bytes: &[u8]) -> Result<SfxClip, String> {
     })
 }
 
-/// Decoded clips by the id the frontend assigned.
-static CLIPS: LazyLock<Mutex<HashMap<u64, Arc<SfxClip>>>> =
+/// Decoded clips by key (the clip's URL). Windows share this table, so the key
+/// must identify the sound itself; a per-window counter would let one window's
+/// clip replace another's.
+static CLIPS: LazyLock<Mutex<HashMap<String, (u64, Arc<SfxClip>)>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
-pub fn store_clip(id: u64, bytes: &[u8]) -> Result<(), String> {
-    let clip = parse_wav(bytes)?;
-    CLIPS
-        .lock()
-        .unwrap_or_else(|p| p.into_inner())
-        .insert(id, Arc::new(clip));
+pub fn store_clip(key: &str, bytes: &[u8]) -> Result<(), String> {
+    let clip = Arc::new(parse_wav(bytes)?);
+    let mut clips = CLIPS.lock().unwrap_or_else(|p| p.into_inner());
+    // Reloading keeps the voice id, so a replay still cuts the earlier play.
+    let id = clips
+        .get(key)
+        .map(|(id, _)| *id)
+        .unwrap_or_else(|| NEXT_ID.fetch_add(1, Ordering::Relaxed));
+    clips.insert(key.to_string(), (id, clip));
     Ok(())
 }
 
-pub fn clip(id: u64) -> Option<Arc<SfxClip>> {
+/// The clip's voice id and data, if it was stored.
+pub fn clip(key: &str) -> Option<(u64, Arc<SfxClip>)> {
     CLIPS
         .lock()
         .unwrap_or_else(|p| p.into_inner())
-        .get(&id)
+        .get(key)
         .cloned()
 }
 
@@ -331,15 +339,44 @@ mod tests {
     }
 
     #[test]
-    fn stored_clips_are_retrievable_by_id() {
+    fn stored_clips_are_retrievable_by_key() {
+        let wav = wav_bytes(1, 8000, 16, false, &[vec![0.1], vec![0.2]]);
+        store_clip("test://a.wav", &wav).expect("store");
+        assert_eq!(clip("test://a.wav").expect("stored").1.frames(), 2);
+        assert!(clip("test://never.wav").is_none());
+        assert!(store_clip("test://junk.wav", b"junk").is_err());
+        assert!(clip("test://junk.wav").is_none());
+    }
+
+    #[test]
+    fn different_keys_never_share_a_clip_or_a_voice_id() {
+        // Two windows both load "their first sound": the clips must stay apart.
         store_clip(
-            9_001,
-            &wav_bytes(1, 8000, 16, false, &[vec![0.1], vec![0.2]]),
+            "test://core-play.wav",
+            &wav_bytes(1, 8000, 16, false, &vec![vec![0.1]; 10]),
         )
         .expect("store");
-        assert_eq!(clip(9_001).expect("stored").frames(), 2);
-        assert!(clip(9_002).is_none());
-        assert!(store_clip(9_003, b"junk").is_err());
-        assert!(clip(9_003).is_none());
+        store_clip(
+            "test://t3-click.wav",
+            &wav_bytes(1, 8000, 16, false, &vec![vec![0.9]; 20]),
+        )
+        .expect("store");
+
+        let (core_id, core) = clip("test://core-play.wav").expect("core");
+        let (t3_id, t3) = clip("test://t3-click.wav").expect("t3");
+        assert_ne!(core_id, t3_id);
+        assert_eq!(core.frames(), 10);
+        assert_eq!(t3.frames(), 20);
+    }
+
+    #[test]
+    fn reloading_a_key_keeps_its_voice_id_and_replaces_the_data() {
+        let key = "test://reload.wav";
+        store_clip(key, &wav_bytes(1, 8000, 16, false, &vec![vec![0.1]; 5])).expect("first");
+        let (id, _) = clip(key).expect("stored");
+        store_clip(key, &wav_bytes(1, 8000, 16, false, &vec![vec![0.1]; 9])).expect("second");
+        let (same_id, data) = clip(key).expect("stored");
+        assert_eq!(id, same_id);
+        assert_eq!(data.frames(), 9);
     }
 }

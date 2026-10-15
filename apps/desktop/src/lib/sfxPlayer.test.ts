@@ -50,8 +50,12 @@ describe("playOneShot", () => {
     expect(fetch).toHaveBeenCalledOnce();
     const [load] = commandsNamed("load_sfx");
     expect(load![1]).toEqual(new Uint8Array([1, 2, 3, 4]));
-    expect(load![2]).toEqual({ headers: { "x-sfx-id": "1" } });
-    expect(commandsNamed("play_sfx")).toEqual([["play_sfx", { id: 1 }]]);
+    expect(load![2]).toEqual({
+      headers: { "x-sfx-key": "asset%3A%2F%2Fclick.wav" },
+    });
+    expect(commandsNamed("play_sfx")).toEqual([
+      ["play_sfx", { key: "asset%3A%2F%2Fclick.wav" }],
+    ]);
   });
 
   it("plays a loaded clip again without fetching", async () => {
@@ -66,7 +70,7 @@ describe("playOneShot", () => {
     expect(commandsNamed("play_sfx")).toHaveLength(2);
   });
 
-  it("gives each URL its own id", async () => {
+  it("gives each URL its own key", async () => {
     const { playOneShot } = await loadPlayer();
 
     playOneShot("asset://click.wav");
@@ -74,8 +78,43 @@ describe("playOneShot", () => {
     await settle();
 
     expect(
-      commandsNamed("play_sfx").map((c) => (c[1] as { id: number }).id),
-    ).toEqual([1, 2]);
+      commandsNamed("play_sfx").map((c) => (c[1] as { key: string }).key),
+    ).toEqual(["asset%3A%2F%2Fclick.wav", "asset%3A%2F%2Fother.wav"]);
+  });
+
+  it("keys clips by URL so two windows cannot clobber each other", async () => {
+    // Each window runs its own copy of this module with fresh state. Their
+    // first sounds must still land under different keys in Rust's shared table.
+    const mainWindow = await loadPlayer();
+    mainWindow.playOneShot("asset://core/play.wav");
+    await settle();
+
+    vi.resetModules();
+    const skinWindow = await loadPlayer();
+    skinWindow.playOneShot("asset://t3/click.wav");
+    await settle();
+
+    const keys = commandsNamed("load_sfx").map(
+      (c) => (c[2] as { headers: Record<string, string> }).headers["x-sfx-key"],
+    );
+    expect(new Set(keys).size).toBe(2);
+    expect(
+      commandsNamed("play_sfx").map((c) => (c[1] as { key: string }).key),
+    ).toEqual(keys);
+  });
+
+  it("encodes URLs so any character is safe in a header", async () => {
+    const { playOneShot } = await loadPlayer();
+    playOneShot("asset://localhost/My Skin/clïck #1.wav");
+    await settle();
+    const [load] = commandsNamed("load_sfx");
+    const key = (load![2] as { headers: Record<string, string> }).headers[
+      "x-sfx-key"
+    ]!;
+    expect(/^[\x21-\x7e]+$/.test(key)).toBe(true);
+    expect(decodeURIComponent(key)).toBe(
+      "asset://localhost/My Skin/clïck #1.wav",
+    );
   });
 
   it("shares one fetch when the same URL is played before the load finishes", async () => {
