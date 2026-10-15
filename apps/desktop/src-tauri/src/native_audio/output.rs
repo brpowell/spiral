@@ -208,6 +208,12 @@ impl AudioOutput {
         *slot = None;
     }
 
+    /// Play a stored clip now, opening the stream if nothing else has.
+    pub fn play_sfx(&self, id: u64, clip: Arc<super::sfx::SfxClip>) {
+        lock(&self.mixer).play_sfx(id, clip);
+        self.ensure_stream();
+    }
+
     pub fn set_equalizer(&self, settings: super::dsp::EqSettings) {
         lock(&self.mixer).set_equalizer(settings);
     }

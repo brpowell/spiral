@@ -111,3 +111,27 @@ pub fn stop_native_analyser() {
 pub fn ramp_file_playback_gain(session_id: u64, from_gain: f32, to_gain: f32, duration_ms: u32) {
     file_playback::ramp_gain(session_id, from_gain, to_gain, duration_ms)
 }
+
+/// Decode and keep a short WAV clip under the id the frontend chose. The WAV
+/// bytes are the raw request body; the id travels in the `x-sfx-id` header.
+#[tauri::command]
+pub fn load_sfx(request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("load_sfx expects the WAV bytes as the request body".into());
+    };
+    let id = request
+        .headers()
+        .get("x-sfx-id")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<u64>().ok())
+        .ok_or("load_sfx needs a numeric x-sfx-id header")?;
+    crate::native_audio::sfx::store_clip(id, bytes)
+}
+
+/// Play a clip stored with `load_sfx`. Errors if it was never loaded.
+#[tauri::command]
+pub fn play_sfx(id: u64) -> Result<(), String> {
+    let clip = crate::native_audio::sfx::clip(id).ok_or("Sound was not loaded")?;
+    crate::native_audio::global().play_sfx(id, clip);
+    Ok(())
+}

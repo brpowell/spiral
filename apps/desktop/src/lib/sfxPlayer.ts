@@ -1,71 +1,53 @@
 /**
  * One-shot UI sounds (skin clicks, transport cues).
  *
- * Own AudioContext, separate from the PCM music graph. That graph is rebuilt
- * on WebKit sleep, and UI clicks must not ride the EQ or mixer. Clips are
- * short WAV files; `decodeAudioData` handles those without a codec plugin.
+ * Clips are fetched once, handed to the Rust mixer, and played from there, so
+ * they share the music's native output and survive sleep/wake with it. Clips
+ * are short WAV files; Rust decodes them.
  */
+import { invoke } from "@tauri-apps/api/core";
 
-const buffers = new Map<string, AudioBuffer>();
-const inflight = new Map<string, Promise<AudioBuffer | null>>();
-const active = new Map<string, AudioBufferSourceNode>();
-/** Bumped on each play so a late decode cannot start over a newer request. */
+let nextId = 1;
+const ids = new Map<string, number>();
+const loaded = new Set<number>();
+const inflight = new Map<string, Promise<number | null>>();
+/** Bumped on each play so a late load cannot start over a newer request. */
 const playGeneration = new Map<string, number>();
 
-let context: AudioContext | null = null;
-
-function audioContext(): AudioContext {
-  if (!context || context.state === "closed") {
-    context = new AudioContext();
+function idFor(url: string): number {
+  let id = ids.get(url);
+  if (id === undefined) {
+    id = nextId++;
+    ids.set(url, id);
   }
-  return context;
+  return id;
 }
 
-function stopActive(url: string): void {
-  const previous = active.get(url);
-  if (!previous) return;
-  previous.onended = null;
-  try {
-    previous.stop();
-  } catch {
-    // Already stopped or never started.
-  }
-  previous.disconnect();
-  active.delete(url);
+function start(id: number): void {
+  void invoke("play_sfx", { id }).catch((err) => {
+    console.error("Failed to play sound:", err);
+  });
 }
 
-function start(url: string, buffer: AudioBuffer): void {
-  const ctx = audioContext();
-  void ctx.resume();
-  stopActive(url);
-
-  const source = ctx.createBufferSource();
-  source.buffer = buffer;
-  source.connect(ctx.destination);
-  source.onended = () => {
-    if (active.get(url) === source) active.delete(url);
-  };
-  source.start(0);
-  active.set(url, source);
-}
-
-async function loadBuffer(url: string): Promise<AudioBuffer | null> {
-  const cached = buffers.get(url);
-  if (cached) return cached;
+function ensureLoaded(url: string): Promise<number | null> {
+  const id = idFor(url);
+  if (loaded.has(id)) return Promise.resolve(id);
 
   const pending = inflight.get(url);
   if (pending) return pending;
 
-  const load = (async (): Promise<AudioBuffer | null> => {
+  const load = (async (): Promise<number | null> => {
     try {
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-      const bytes = await response.arrayBuffer();
-      const decoded = await audioContext().decodeAudioData(bytes.slice(0));
-      buffers.set(url, decoded);
-      return decoded;
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      await invoke("load_sfx", bytes, {
+        headers: { "x-sfx-id": String(id) },
+      });
+      loaded.add(id);
+      return id;
     } catch (err) {
       console.error("Failed to load sound:", url, err);
       return null;
@@ -80,19 +62,17 @@ async function loadBuffer(url: string): Promise<AudioBuffer | null> {
 
 /** Restart `url` from the beginning. Later plays of the same URL cut the previous one. */
 export function playOneShot(url: string): void {
-  const ctx = audioContext();
-  void ctx.resume();
   const generation = (playGeneration.get(url) ?? 0) + 1;
   playGeneration.set(url, generation);
 
-  const cached = buffers.get(url);
-  if (cached) {
-    start(url, cached);
+  const id = ids.get(url);
+  if (id !== undefined && loaded.has(id)) {
+    start(id);
     return;
   }
 
-  void loadBuffer(url).then((buffer) => {
-    if (!buffer || playGeneration.get(url) !== generation) return;
-    start(url, buffer);
+  void ensureLoaded(url).then((loadedId) => {
+    if (loadedId === null || playGeneration.get(url) !== generation) return;
+    start(loadedId);
   });
 }

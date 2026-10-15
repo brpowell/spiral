@@ -11,6 +11,7 @@ pub mod dsp;
 pub mod mixer;
 pub mod output;
 mod power;
+pub mod sfx;
 
 use std::sync::OnceLock;
 

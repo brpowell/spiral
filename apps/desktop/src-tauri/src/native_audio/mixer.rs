@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use rtrb::{Consumer, Producer};
 
 use super::dsp::{EqSettings, Equalizer, PanGains};
+use super::sfx::{SfxClip, SfxVoice, MAX_VOICES};
 
 /// Highest source channel count a deck can carry.
 pub const MAX_CHANNELS: usize = 8;
@@ -190,6 +191,8 @@ pub struct Mixer {
     eq: Equalizer,
     /// Receives a mono copy of the final mix for the visualizer, when attached.
     tap: Option<Producer<f32>>,
+    /// UI sounds, mixed after the EQ and the tap.
+    sfx: Vec<SfxVoice>,
 }
 
 impl Mixer {
@@ -201,7 +204,17 @@ impl Mixer {
             out_channels: 2,
             eq: Equalizer::new(48_000),
             tap: None,
+            sfx: Vec::with_capacity(MAX_VOICES),
         }
+    }
+
+    /// Start a one-shot clip. Another play of the same id cuts the earlier one.
+    pub fn play_sfx(&mut self, id: u64, clip: Arc<SfxClip>) {
+        self.sfx.retain(|voice| voice.id != id);
+        if self.sfx.len() >= MAX_VOICES {
+            self.sfx.remove(0);
+        }
+        self.sfx.push(SfxVoice::new(id, clip));
     }
 
     pub fn set_tap(&mut self, tap: Option<Producer<f32>>) {
@@ -291,6 +304,7 @@ impl Mixer {
         self.decks
             .iter()
             .any(|deck| deck.shared.playing.load(Ordering::Relaxed) || deck.fade > 0.0)
+            || !self.sfx.is_empty()
     }
 
     /// Drop everything buffered for `id` and restart interpolation. The caller
@@ -360,6 +374,12 @@ impl Mixer {
                 let mono = frame.iter().sum::<f32>() / out_channels as f32;
                 let _ = tap.push(mono);
             }
+        }
+        if !self.sfx.is_empty() {
+            for voice in self.sfx.iter_mut() {
+                voice.mix_into(out, out_channels, out_rate);
+            }
+            self.sfx.retain(|voice| !voice.finished());
         }
         for sample in out.iter_mut() {
             *sample = sample.clamp(-1.0, 1.0);
@@ -996,6 +1016,84 @@ mod tests {
         assert!(*sums.last().unwrap() < -0.4, "ends on the incoming deck");
         let mid = sums[9];
         assert!(mid.abs() < 0.1, "crosses near the middle: {mid}");
+    }
+
+    fn test_clip(value: f32, frames: usize) -> Arc<SfxClip> {
+        Arc::new(SfxClip {
+            channels: 1,
+            sample_rate: 48_000,
+            samples: vec![value; frames],
+        })
+    }
+
+    #[test]
+    fn sfx_plays_without_any_deck_and_asks_for_the_stream() {
+        let mut mixer = Mixer::new();
+        mixer.set_output_format(48_000, 2);
+        assert!(!mixer.wants_output());
+        mixer.play_sfx(1, test_clip(0.5, 100));
+        assert!(mixer.wants_output());
+
+        let mut out = vec![0.0; 64 * 2];
+        mixer.render(&mut out);
+        assert!((out[0] - 0.5).abs() < 1e-3);
+        mixer.render(&mut out);
+        assert!(!mixer.wants_output(), "finished voices are dropped");
+    }
+
+    #[test]
+    fn sfx_bypasses_the_eq_and_the_visualizer_tap() {
+        use crate::native_audio::dsp::EqSettings;
+        let mut mixer = Mixer::new();
+        mixer.set_output_format(48_000, 2);
+        let (tap, mut tap_rx) = RingBuffer::new(1024);
+        mixer.set_tap(Some(tap));
+        // A -12 dB preamp would quarter the level if the clip rode the EQ.
+        mixer.set_equalizer(EqSettings {
+            preamp_db: -12.0,
+            ..EqSettings::default()
+        });
+        mixer.play_sfx(1, test_clip(0.5, 400));
+
+        let mut out = vec![0.0; 256 * 2];
+        mixer.render(&mut out);
+        assert!((out[out.len() - 1] - 0.5).abs() < 1e-3, "full level");
+        let tapped = std::iter::from_fn(|| tap_rx.pop().ok()).fold(0.0f32, |m, s| m.max(s.abs()));
+        assert!(tapped < 1e-6, "visualizer sees music only: {tapped}");
+    }
+
+    #[test]
+    fn replaying_the_same_sfx_cuts_the_previous_one() {
+        let mut mixer = Mixer::new();
+        mixer.set_output_format(48_000, 2);
+        mixer.play_sfx(7, test_clip(0.25, 1000));
+        let mut out = vec![0.0; 100 * 2];
+        mixer.render(&mut out);
+        mixer.play_sfx(7, test_clip(0.25, 1000));
+        mixer.render(&mut out);
+        // Restarted from the top and not doubled up.
+        assert!((out[0] - 0.25).abs() < 1e-3, "{}", out[0]);
+    }
+
+    #[test]
+    fn sfx_mixes_over_music_and_clamps() {
+        let mut r = rig(48_000, 2, 48_000);
+        push_stereo_const(&mut r, 4000, 0.8);
+        r.shared.playing.store(true, Ordering::Relaxed);
+        render_frames(&mut r, 1000);
+        r.mixer.play_sfx(1, test_clip(0.5, 100));
+        let out = render_frames(&mut r, 50);
+        assert!(out.iter().all(|s| *s <= 1.0), "clamped");
+        assert!(out[out.len() - 1] > 0.99);
+    }
+
+    #[test]
+    fn voice_count_is_capped() {
+        let mut mixer = Mixer::new();
+        for id in 0..(MAX_VOICES as u64 + 4) {
+            mixer.play_sfx(id, test_clip(0.1, 1000));
+        }
+        assert_eq!(mixer.sfx.len(), MAX_VOICES);
     }
 
     #[test]
