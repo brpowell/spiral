@@ -338,7 +338,7 @@ describe("NativeFilePlaybackEngine crossfade ramps", () => {
     engine.setVolume(0.8);
 
     expect(commandsNamed("ramp_file_playback_gain")).toHaveLength(0);
-    expect(commandsNamed("set_file_playback_gain").at(-1)![1]).toEqual({
+    expect(commandsNamed("set_file_playback_gain").slice(-1)[0]![1]).toEqual({
       sessionId: 7,
       gain: 0.8,
     });

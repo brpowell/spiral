@@ -13,6 +13,7 @@ pub fn start(
     app: AppHandle,
     drive_id: &str,
     track_number: u32,
+    native: bool,
 ) -> Result<CdPlaybackStarted, String> {
     let drive_id =
         normalize_drive_id(drive_id).ok_or_else(|| format!("Invalid drive id: {drive_id}"))?;
@@ -21,7 +22,30 @@ pub fn start(
     let session_guard = begin_phase(&drive_id, DriveSessionPhase::Playing);
 
     let source = CddaTrackSource::open(&drive_id, track_number)?;
-    engine::start(app, &drive_id, track_number, source, Some(session_guard))
+    engine::start(
+        app,
+        &drive_id,
+        track_number,
+        source,
+        Some(session_guard),
+        native,
+    )
+}
+
+pub fn set_gain(session_id: u64, gain: f32) {
+    engine::set_gain(session_id, gain);
+}
+
+pub fn set_balance(session_id: u64, balance: f32) {
+    engine::set_balance(session_id, balance);
+}
+
+pub fn ramp_gain(session_id: u64, from: f32, to: f32, duration_ms: u32) {
+    engine::ramp_gain(session_id, from, to, duration_ms);
+}
+
+pub fn link_gapless(from_session: u64, to_session: u64) -> Result<(), String> {
+    engine::link_gapless(from_session, to_session)
 }
 
 pub fn pause(session_id: u64) {

@@ -8,7 +8,18 @@ pub fn start(
     _app: AppHandle,
     _drive_id: &str,
     _track_number: u32,
+    _native: bool,
 ) -> Result<CdPlaybackStarted, String> {
+    Err("CD playback is not supported on this platform".into())
+}
+
+pub fn set_gain(_session_id: u64, _gain: f32) {}
+
+pub fn set_balance(_session_id: u64, _balance: f32) {}
+
+pub fn ramp_gain(_session_id: u64, _from: f32, _to: f32, _duration_ms: u32) {}
+
+pub fn link_gapless(_from_session: u64, _to_session: u64) -> Result<(), String> {
     Err("CD playback is not supported on this platform".into())
 }
 

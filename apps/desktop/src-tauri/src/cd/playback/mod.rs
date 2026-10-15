@@ -11,6 +11,8 @@ pub const CD_PLAYBACK_ENDED_EVENT: &str = "cd-playback-ended";
 pub const CD_PLAYBACK_ERROR_EVENT: &str = "cd-playback-error";
 pub const CD_PLAYBACK_PCM_EVENT: &str = "cd-playback-pcm";
 pub const CD_PLAYBACK_FLUSH_EVENT: &str = "cd-playback-flush";
+/// A native session began playing on its own (gapless splice from another session).
+pub const CD_PLAYBACK_GAPLESS_STARTED_EVENT: &str = "cd-playback-gapless-started";
 
 /// Reply to `start_cd_playback` — playback begins paused.
 #[derive(Debug, Clone, Serialize)]
@@ -63,6 +65,14 @@ pub struct CdPlaybackPcm {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CdPlaybackGaplessStarted {
+    pub session_id: u64,
+    pub drive_id: String,
+    pub track_number: u32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CdPlaybackFlush {
     pub session_id: u64,
     pub drive_id: String,
@@ -90,20 +100,32 @@ mod linux;
 mod stub;
 
 #[cfg(target_os = "macos")]
-pub use macos::{ack_pcm_chunks, pause, read_track_pcm, resume, seek, start, stop, stop_for_drive};
+pub use macos::{
+    ack_pcm_chunks, link_gapless, pause, ramp_gain, read_track_pcm, resume, seek, set_balance,
+    set_gain, start, stop, stop_for_drive,
+};
 
 #[cfg(target_os = "windows")]
-pub use windows::{ack_pcm_chunks, pause, resume, seek, start, stop, stop_for_drive};
+pub use windows::{
+    ack_pcm_chunks, link_gapless, pause, ramp_gain, resume, seek, set_balance, set_gain, start,
+    stop, stop_for_drive,
+};
 
 #[cfg(target_os = "windows")]
 pub use cdda::read_track_pcm;
 
 #[cfg(target_os = "linux")]
-pub use linux::{ack_pcm_chunks, pause, resume, seek, start, stop, stop_for_drive};
+pub use linux::{
+    ack_pcm_chunks, link_gapless, pause, ramp_gain, resume, seek, set_balance, set_gain, start,
+    stop, stop_for_drive,
+};
 
 #[cfg(target_os = "linux")]
 pub use cdda::read_track_pcm;
 
 #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 #[allow(unused_imports)]
-pub use stub::{ack_pcm_chunks, pause, resume, seek, start, stop, stop_for_drive};
+pub use stub::{
+    ack_pcm_chunks, link_gapless, pause, ramp_gain, resume, seek, set_balance, set_gain, start,
+    stop, stop_for_drive,
+};

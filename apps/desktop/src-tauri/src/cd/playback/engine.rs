@@ -17,11 +17,20 @@ use tauri::{AppHandle, Emitter};
 
 use super::source::CdPcmSource;
 use super::{
-    CdPlaybackEnded, CdPlaybackError, CdPlaybackFlush, CdPlaybackPcm, CdPlaybackPosition,
-    CdPlaybackStarted, CD_PLAYBACK_ENDED_EVENT, CD_PLAYBACK_ERROR_EVENT, CD_PLAYBACK_FLUSH_EVENT,
-    CD_PLAYBACK_PCM_EVENT, CD_PLAYBACK_POSITION_EVENT,
+    CdPlaybackEnded, CdPlaybackError, CdPlaybackFlush, CdPlaybackGaplessStarted, CdPlaybackPcm,
+    CdPlaybackPosition, CdPlaybackStarted, CD_PLAYBACK_ENDED_EVENT, CD_PLAYBACK_ERROR_EVENT,
+    CD_PLAYBACK_FLUSH_EVENT, CD_PLAYBACK_GAPLESS_STARTED_EVENT, CD_PLAYBACK_PCM_EVENT,
+    CD_PLAYBACK_POSITION_EVENT,
 };
 use crate::cd::platform::session::DriveSessionGuard;
+use crate::native_audio::mixer::DeckShared;
+use crate::native_audio::{AudioOutput, DeckHandle};
+
+/// Seconds of source audio the native output ring holds ahead of the device.
+/// Sized for an optical drive's seek stalls, like the webview read-ahead.
+const NATIVE_RING_SECONDS: f64 = 4.0;
+/// Decode-thread nap when the native ring is full or the stream is done.
+const NATIVE_IDLE_SLEEP: Duration = Duration::from_millis(5);
 
 /// ~4 Hz position pushes — plenty for a 500ms UI poll.
 const POSITION_EVENT_INTERVAL: Duration = Duration::from_millis(250);
@@ -82,7 +91,15 @@ impl InFlightTracker {
     }
 }
 
+/// Control surface for a session that plays through the native output.
+struct NativeControl {
+    deck_id: u64,
+    shared: Arc<DeckShared>,
+    output: AudioOutput,
+}
+
 struct ActivePlayback {
+    native: Option<NativeControl>,
     drive_id: String,
     stop_requested: Arc<AtomicBool>,
     is_playing: Arc<AtomicBool>,
@@ -180,14 +197,26 @@ fn emit_flush(app: Option<&AppHandle>, session_id: u64, drive_id: &str, track_nu
 }
 
 /// Start playback of `source` for `drive_id` / `track_number`. Begins paused.
+///
+/// With `native` set, audio is mixed in Rust and played through the OS audio
+/// API instead of being streamed to the webview.
 pub fn start(
     app: AppHandle,
     drive_id: &str,
     track_number: u32,
     source: impl CdPcmSource + 'static,
     session_guard: Option<DriveSessionGuard>,
+    native: bool,
 ) -> Result<CdPlaybackStarted, String> {
-    start_inner(Some(app), drive_id, track_number, source, session_guard)
+    let output = native.then(|| crate::native_audio::global().clone());
+    start_inner(
+        Some(app),
+        drive_id,
+        track_number,
+        source,
+        session_guard,
+        output,
+    )
 }
 
 fn start_inner(
@@ -196,6 +225,7 @@ fn start_inner(
     track_number: u32,
     source: impl CdPcmSource + 'static,
     session_guard: Option<DriveSessionGuard>,
+    native: Option<AudioOutput>,
 ) -> Result<CdPlaybackStarted, String> {
     {
         let mut sessions = SESSIONS.lock().expect("cd playback state poisoned");
@@ -213,6 +243,21 @@ fn start_inner(
     let (cmd_tx, cmd_rx) = mpsc::channel::<PlaybackCommand>();
     let (ready_tx, ready_rx) = mpsc::channel::<Result<(), String>>();
 
+    let native_deck = match native.as_ref() {
+        Some(output) => {
+            Some(output.create_deck(channels as usize, sample_rate, NATIVE_RING_SECONDS)?)
+        }
+        None => None,
+    };
+    let native_control = native_deck
+        .as_ref()
+        .zip(native.as_ref())
+        .map(|(deck, output)| NativeControl {
+            deck_id: deck.id(),
+            shared: Arc::clone(&deck.shared),
+            output: output.clone(),
+        });
+
     let thread = {
         let app = app.clone();
         let drive_id = drive_id.to_string();
@@ -222,6 +267,23 @@ fn start_inner(
         thread::Builder::new()
             .name(format!("cd-playback-{session_id}"))
             .spawn(move || {
+                if let Some(deck) = native_deck {
+                    native_playback_thread(
+                        app,
+                        session_id,
+                        drive_id,
+                        track_number,
+                        duration_seconds,
+                        source,
+                        read_failed,
+                        deck,
+                        stop_requested,
+                        is_playing,
+                        cmd_rx,
+                        ready_tx,
+                    );
+                    return;
+                }
                 playback_thread(
                     app,
                     session_id,
@@ -256,6 +318,7 @@ fn start_inner(
     SESSIONS.lock().expect("cd playback state poisoned").insert(
         session_id,
         ActivePlayback {
+            native: native_control,
             drive_id: drive_id.to_string(),
             stop_requested,
             is_playing,
@@ -420,16 +483,216 @@ fn playback_thread(
     }
 }
 
+/// Decode thread for a session that plays through the native output (see the
+/// file engine's counterpart). Position and the natural end come from what the
+/// mixer actually played; a mid-track read failure surfaces as an error once the
+/// audio already buffered has played out.
+#[allow(clippy::too_many_arguments)]
+fn native_playback_thread(
+    app: Option<AppHandle>,
+    session_id: u64,
+    drive_id: String,
+    track_number: u32,
+    duration_seconds: f64,
+    mut source: impl CdPcmSource,
+    read_failed: Arc<AtomicBool>,
+    mut deck: DeckHandle,
+    stop_requested: Arc<AtomicBool>,
+    is_playing: Arc<AtomicBool>,
+    cmd_rx: mpsc::Receiver<PlaybackCommand>,
+    ready_tx: mpsc::Sender<Result<(), String>>,
+) {
+    let channels = deck.channels;
+    let rate = deck.src_rate as f64;
+    let chunk_samples = CHUNK_FRAMES * channels;
+    let mut chunk: Vec<f32> = Vec::with_capacity(chunk_samples);
+    let mut decoder_done = false;
+    let mut last_position_emit = Instant::now();
+
+    let _ = ready_tx.send(Ok(()));
+
+    loop {
+        if stop_requested.load(Ordering::SeqCst) {
+            return;
+        }
+
+        if let Ok(PlaybackCommand::Seek(first)) = cmd_rx.try_recv() {
+            let mut latest = first;
+            while let Ok(PlaybackCommand::Seek(next)) = cmd_rx.try_recv() {
+                latest = next;
+            }
+            chunk.clear();
+            if let Err(err) = source.seek_seconds(latest) {
+                eprintln!("cd playback: seek failed: {err}");
+            }
+            // Clear `eos` before flushing so the callback cannot mistake the
+            // emptied ring for the end of the track.
+            deck.shared.eos.store(false, Ordering::Release);
+            deck.flush();
+            deck.shared
+                .position_frames
+                .store((source.position_seconds() * rate) as u64, Ordering::Relaxed);
+            decoder_done = false;
+        }
+
+        let mut did_work = false;
+        if !decoder_done {
+            while chunk.len() < chunk_samples {
+                match source.next_sample() {
+                    Some(sample) => chunk.push(sample),
+                    None => {
+                        decoder_done = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if !chunk.is_empty() && deck.free_samples() >= chunk.len() {
+            for sample in chunk.drain(..) {
+                let _ = deck.producer.push(sample);
+            }
+            did_work = true;
+        }
+        if decoder_done && chunk.is_empty() && !deck.shared.eos.load(Ordering::Relaxed) {
+            deck.shared.eos.store(true, Ordering::Release);
+        }
+
+        if deck.shared.gapless_started.swap(false, Ordering::AcqRel) {
+            is_playing.store(true, Ordering::SeqCst);
+            if let Some(app) = app.as_ref() {
+                let payload = CdPlaybackGaplessStarted {
+                    session_id,
+                    drive_id: drive_id.clone(),
+                    track_number,
+                };
+                if let Err(err) = app.emit(CD_PLAYBACK_GAPLESS_STARTED_EVENT, payload) {
+                    eprintln!("cd playback: gapless-started emit failed: {err}");
+                }
+            }
+        }
+
+        if deck.shared.finished.load(Ordering::Acquire) {
+            break;
+        }
+
+        if last_position_emit.elapsed() >= POSITION_EVENT_INTERVAL {
+            let position_seconds = (deck.shared.position_frames.load(Ordering::Relaxed) as f64
+                / rate)
+                .min(duration_seconds);
+            if let Some(app) = app.as_ref() {
+                let payload = CdPlaybackPosition {
+                    session_id,
+                    drive_id: drive_id.clone(),
+                    track_number,
+                    position_seconds,
+                    duration_seconds,
+                    is_playing: is_playing.load(Ordering::SeqCst),
+                };
+                if let Err(err) = app.emit(CD_PLAYBACK_POSITION_EVENT, payload) {
+                    eprintln!("cd playback: position emit failed: {err}");
+                }
+            }
+            last_position_emit = Instant::now();
+        }
+
+        if !did_work {
+            thread::sleep(NATIVE_IDLE_SLEEP);
+        }
+    }
+
+    if stop_requested.load(Ordering::SeqCst) {
+        return;
+    }
+
+    {
+        let mut guard = SESSIONS.lock().expect("cd playback state poisoned");
+        let _ = guard.remove(&session_id);
+    }
+
+    let Some(app) = app.as_ref() else {
+        return;
+    };
+    if read_failed.load(Ordering::SeqCst) {
+        let payload = CdPlaybackError {
+            session_id,
+            drive_id,
+            track_number,
+            message: "Failed to read CD audio data".into(),
+        };
+        if let Err(err) = app.emit(CD_PLAYBACK_ERROR_EVENT, payload) {
+            eprintln!("cd playback: error emit failed: {err}");
+        }
+        return;
+    }
+    let payload = CdPlaybackEnded {
+        session_id,
+        drive_id,
+        track_number,
+    };
+    if let Err(err) = app.emit(CD_PLAYBACK_ENDED_EVENT, payload) {
+        eprintln!("cd playback: ended emit failed: {err}");
+    }
+}
+
 pub fn pause(session_id: u64) {
     with_session(session_id, |active| {
-        active.is_playing.store(false, Ordering::SeqCst)
+        active.is_playing.store(false, Ordering::SeqCst);
+        if let Some(native) = &active.native {
+            native.shared.playing.store(false, Ordering::Relaxed);
+        }
     });
 }
 
 pub fn resume(session_id: u64) {
     with_session(session_id, |active| {
-        active.is_playing.store(true, Ordering::SeqCst)
+        active.is_playing.store(true, Ordering::SeqCst);
+        if let Some(native) = &active.native {
+            native.shared.playing.store(true, Ordering::Relaxed);
+            native.output.ensure_stream();
+        }
     });
+}
+
+/// Set a native session's output gain (volume × mute × mix, 0–1).
+pub fn set_gain(session_id: u64, gain: f32) {
+    with_session(session_id, |active| {
+        if let Some(native) = &active.native {
+            native.shared.set_gain(gain);
+        }
+    });
+}
+
+/// Set a native session's stereo balance (-1 left … +1 right).
+pub fn set_balance(session_id: u64, balance: f32) {
+    with_session(session_id, |active| {
+        if let Some(native) = &active.native {
+            native.shared.set_balance(balance);
+        }
+    });
+}
+
+/// Fade a native session's output gain linearly.
+pub fn ramp_gain(session_id: u64, from: f32, to: f32, duration_ms: u32) {
+    with_session(session_id, |active| {
+        if let Some(native) = &active.native {
+            native.shared.ramp_gain(from, to, duration_ms);
+        }
+    });
+}
+
+/// Start `to_session` on the exact sample `from_session` runs out. Both must be
+/// native CD sessions.
+pub fn link_gapless(from_session: u64, to_session: u64) -> Result<(), String> {
+    let sessions = SESSIONS.lock().expect("cd playback state poisoned");
+    let (Some(from), Some(to)) = (sessions.get(&from_session), sessions.get(&to_session)) else {
+        return Err("Gapless link needs two live sessions".into());
+    };
+    let (Some(from_native), Some(to_native)) = (&from.native, &to.native) else {
+        return Err("Gapless link needs native sessions".into());
+    };
+    from_native
+        .output
+        .link_gapless(from_native.deck_id, to_native.deck_id)
 }
 
 pub fn seek(session_id: u64, seconds: f64) -> Result<(), String> {
@@ -563,12 +826,195 @@ mod tests {
         result
     }
 
+    fn fake_output() -> (
+        AudioOutput,
+        std::sync::Arc<crate::native_audio::output::fake::FakeState>,
+    ) {
+        use crate::native_audio::output::fake::{FakeFactory, FakeState};
+        let state = FakeState::new(48_000);
+        (
+            AudioOutput::new(FakeFactory(std::sync::Arc::clone(&state))),
+            state,
+        )
+    }
+
+    fn native_position_frames(session_id: u64) -> u64 {
+        with_session(session_id, |s| {
+            s.native
+                .as_ref()
+                .expect("native session")
+                .shared
+                .position_frames
+                .load(Ordering::Relaxed)
+        })
+        .unwrap_or(0)
+    }
+
+    fn pump_until(
+        state: &crate::native_audio::output::fake::FakeState,
+        what: &str,
+        mut done: impl FnMut() -> bool,
+    ) {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while Instant::now() < deadline {
+            state.pump(240);
+            if done() {
+                return;
+            }
+            thread::sleep(Duration::from_millis(2));
+        }
+        panic!("timed out waiting for {what}");
+    }
+
+    #[test]
+    fn native_cd_session_plays_through_to_natural_end() {
+        with_clean_sessions(|| {
+            let (output, state) = fake_output();
+            let started = start_inner(
+                None,
+                "drive-a",
+                1,
+                InterleavedFixture::new(0.5),
+                None,
+                Some(output),
+            )
+            .expect("start");
+            resume(started.session_id);
+            pump_until(&state, "natural end", || {
+                with_session(started.session_id, |_| ()).is_none()
+            });
+        });
+    }
+
+    #[test]
+    fn native_cd_pause_freezes_position_and_seek_repositions() {
+        with_clean_sessions(|| {
+            let (output, state) = fake_output();
+            let started = start_inner(
+                None,
+                "drive-a",
+                1,
+                InterleavedFixture::new(20.0),
+                None,
+                Some(output),
+            )
+            .expect("start");
+            let id = started.session_id;
+            resume(id);
+            pump_until(&state, "audio", || native_position_frames(id) > 4000);
+
+            pause(id);
+            for _ in 0..4 {
+                state.pump(240);
+            }
+            let frozen = native_position_frames(id);
+            for _ in 0..4 {
+                state.pump(240);
+            }
+            assert_eq!(native_position_frames(id), frozen, "paused");
+
+            seek(id, 10.0).expect("seek");
+            pump_until(&state, "seek applied", || {
+                native_position_frames(id) >= 44100 * 10
+            });
+        });
+    }
+
+    #[test]
+    fn native_cd_gapless_link_starts_the_next_track_when_the_first_ends() {
+        with_clean_sessions(|| {
+            let (output, state) = fake_output();
+            let first = start_inner(
+                None,
+                "drive-a",
+                1,
+                InterleavedFixture::new(0.5),
+                None,
+                Some(output.clone()),
+            )
+            .expect("first");
+            let second = start_inner(
+                None,
+                "drive-a",
+                2,
+                InterleavedFixture::new(5.0),
+                None,
+                Some(output),
+            )
+            .expect("second");
+
+            link_gapless(first.session_id, second.session_id).expect("link");
+            resume(first.session_id);
+            pump_until(&state, "first to end", || {
+                with_session(first.session_id, |_| ()).is_none()
+            });
+            pump_until(&state, "second audio", || {
+                native_position_frames(second.session_id) > 0
+            });
+        });
+    }
+
+    #[test]
+    fn native_cd_gain_and_balance_only_affect_native_sessions() {
+        with_clean_sessions(|| {
+            let legacy = start_inner(None, "drive-a", 1, InterleavedFixture::new(1.0), None, None)
+                .expect("legacy");
+            // No panic and no effect for a webview session.
+            set_gain(legacy.session_id, 0.5);
+            set_balance(legacy.session_id, -1.0);
+            ramp_gain(legacy.session_id, 0.0, 1.0, 100);
+            assert!(link_gapless(legacy.session_id, legacy.session_id).is_err());
+
+            let (output, _state) = fake_output();
+            let native = start_inner(
+                None,
+                "drive-a",
+                2,
+                InterleavedFixture::new(1.0),
+                None,
+                Some(output),
+            )
+            .expect("native");
+            set_gain(native.session_id, 0.25);
+            set_balance(native.session_id, 0.5);
+            let (gain, balance) = with_session(native.session_id, |s| {
+                let shared = &s.native.as_ref().expect("native").shared;
+                (shared.gain(), shared.balance())
+            })
+            .expect("session");
+            assert_eq!(gain, 0.25);
+            assert_eq!(balance, 0.5);
+        });
+    }
+
+    #[test]
+    fn stopping_a_drive_releases_its_native_decks() {
+        with_clean_sessions(|| {
+            let (output, _state) = fake_output();
+            for track in 1..=2 {
+                start_inner(
+                    None,
+                    "drive-a",
+                    track,
+                    InterleavedFixture::new(5.0),
+                    None,
+                    Some(output.clone()),
+                )
+                .expect("start");
+            }
+            stop_for_drive("drive-a");
+            // Both deck slots are free again.
+            assert!(output.create_deck(2, 44_100, 0.1).is_ok());
+            assert!(output.create_deck(2, 44_100, 0.1).is_ok());
+        });
+    }
+
     #[test]
     fn two_sessions_can_run_side_by_side() {
         with_clean_sessions(|| {
-            let a = start_inner(None, "drive-a", 1, InterleavedFixture::new(1.0), None)
+            let a = start_inner(None, "drive-a", 1, InterleavedFixture::new(1.0), None, None)
                 .expect("start A");
-            let b = start_inner(None, "drive-a", 2, InterleavedFixture::new(1.0), None)
+            let b = start_inner(None, "drive-a", 2, InterleavedFixture::new(1.0), None, None)
                 .expect("start B");
             assert_ne!(a.session_id, b.session_id);
 
@@ -591,9 +1037,9 @@ mod tests {
     #[test]
     fn stop_one_session_does_not_stop_the_other() {
         with_clean_sessions(|| {
-            let a = start_inner(None, "drive-a", 1, InterleavedFixture::new(1.0), None)
+            let a = start_inner(None, "drive-a", 1, InterleavedFixture::new(1.0), None, None)
                 .expect("start A");
-            let b = start_inner(None, "drive-a", 2, InterleavedFixture::new(1.0), None)
+            let b = start_inner(None, "drive-a", 2, InterleavedFixture::new(1.0), None, None)
                 .expect("start B");
 
             pause(a.session_id);
@@ -611,16 +1057,16 @@ mod tests {
     #[test]
     fn stop_for_drive_stops_all_sessions_on_that_drive() {
         with_clean_sessions(|| {
-            let a = start_inner(None, "drive-a", 1, InterleavedFixture::new(1.0), None)
+            let a = start_inner(None, "drive-a", 1, InterleavedFixture::new(1.0), None, None)
                 .expect("start A");
-            let b = start_inner(None, "drive-a", 2, InterleavedFixture::new(1.0), None)
+            let b = start_inner(None, "drive-a", 2, InterleavedFixture::new(1.0), None, None)
                 .expect("start B");
 
             stop_for_drive("drive-a");
             assert!(with_session(a.session_id, |_| ()).is_none());
             assert!(with_session(b.session_id, |_| ()).is_none());
 
-            let c = start_inner(None, "drive-b", 1, InterleavedFixture::new(1.0), None)
+            let c = start_inner(None, "drive-b", 1, InterleavedFixture::new(1.0), None, None)
                 .expect("start C");
             stop_for_drive("drive-a");
             assert!(
@@ -633,13 +1079,13 @@ mod tests {
     #[test]
     fn third_session_evicts_oldest_idle() {
         with_clean_sessions(|| {
-            let a = start_inner(None, "drive-a", 1, InterleavedFixture::new(1.0), None)
+            let a = start_inner(None, "drive-a", 1, InterleavedFixture::new(1.0), None, None)
                 .expect("start A");
             thread::sleep(Duration::from_millis(5));
-            let b = start_inner(None, "drive-a", 2, InterleavedFixture::new(1.0), None)
+            let b = start_inner(None, "drive-a", 2, InterleavedFixture::new(1.0), None, None)
                 .expect("start B");
 
-            let c = start_inner(None, "drive-a", 3, InterleavedFixture::new(1.0), None)
+            let c = start_inner(None, "drive-a", 3, InterleavedFixture::new(1.0), None, None)
                 .expect("start C");
             assert!(with_session(a.session_id, |_| ()).is_none());
             assert!(with_session(b.session_id, |_| ()).is_some());
@@ -650,15 +1096,15 @@ mod tests {
     #[test]
     fn third_session_fails_when_both_playing() {
         with_clean_sessions(|| {
-            let a = start_inner(None, "drive-a", 1, InterleavedFixture::new(1.0), None)
+            let a = start_inner(None, "drive-a", 1, InterleavedFixture::new(1.0), None, None)
                 .expect("start A");
-            let b = start_inner(None, "drive-a", 2, InterleavedFixture::new(1.0), None)
+            let b = start_inner(None, "drive-a", 2, InterleavedFixture::new(1.0), None, None)
                 .expect("start B");
 
             with_session(a.session_id, |s| s.is_playing.store(true, Ordering::SeqCst));
             with_session(b.session_id, |s| s.is_playing.store(true, Ordering::SeqCst));
 
-            let err = start_inner(None, "drive-a", 3, InterleavedFixture::new(1.0), None)
+            let err = start_inner(None, "drive-a", 3, InterleavedFixture::new(1.0), None, None)
                 .expect_err("third should fail");
             assert!(
                 err.contains("Maximum concurrent"),

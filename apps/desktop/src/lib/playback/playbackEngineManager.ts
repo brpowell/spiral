@@ -1,5 +1,5 @@
-import type { CdPlaybackEngine } from "./cdPlaybackEngine";
-import { CdPlaybackEngine as CdPlaybackEngineImpl } from "./cdPlaybackEngine";
+import type { CdDeckEngine } from "./cdDeckEngine";
+import { CdDeckEngine as CdDeckEngineImpl } from "./cdDeckEngine";
 import type { FilePlaybackEngine } from "./fileDeckEngine";
 import { FilePlaybackEngine as FilePlaybackEngineImpl } from "./fileDeckEngine";
 import type {
@@ -11,12 +11,12 @@ import type {
 
 export class PlaybackEngineManager {
   private readonly pcmFileEngine: FilePlaybackEngine;
-  private readonly cdEngine: CdPlaybackEngine;
+  private readonly cdEngine: CdDeckEngine;
   private activeEngine: PlaybackEngine;
 
   constructor(
     pcmFileEngine: FilePlaybackEngine = new FilePlaybackEngineImpl(),
-    cdEngine: CdPlaybackEngine = new CdPlaybackEngineImpl(),
+    cdEngine: CdDeckEngine = new CdDeckEngineImpl(),
   ) {
     this.pcmFileEngine = pcmFileEngine;
     this.cdEngine = cdEngine;
@@ -89,7 +89,7 @@ export class PlaybackEngineManager {
     this.cdEngine.onEnd(callback);
   }
 
-  onCdError(callback: Parameters<CdPlaybackEngine["onError"]>[0]): void {
+  onCdError(callback: Parameters<CdDeckEngine["onError"]>[0]): void {
     this.cdEngine.onError(callback);
   }
 

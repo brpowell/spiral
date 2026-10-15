@@ -7,6 +7,7 @@ import {
   effectiveFadeSeconds,
   GAPLESS_PRELOAD_HEADROOM_SECONDS,
 } from "./canCrossfade";
+import { CdDeckEngine } from "./cdDeckEngine";
 import {
   CdPlaybackEngine,
   type CdPlaybackStreamError,
@@ -35,7 +36,7 @@ type DeckMedium = "file" | "cd";
 
 /**
  * Deck engine surface used by the dual-deck handoff controller.
- * Implemented by both {@link FilePlaybackEngine} and {@link CdPlaybackEngine}.
+ * Implemented by both {@link FilePlaybackEngine} and {@link CdDeckEngine}.
  */
 export interface DualDeckEngine {
   load(source: PlaybackSource): Promise<void>;
@@ -117,8 +118,8 @@ function mediumForSource(source: PlaybackSource): DeckMedium | null {
 
 function createDeckEngines(medium: DeckMedium): Record<DeckId, DualDeckEngine> {
   if (medium === "cd") {
-    const deckA = new CdPlaybackEngine();
-    const deckB = new CdPlaybackEngine();
+    const deckA = new CdDeckEngine();
+    const deckB = new CdDeckEngine();
     deckA.setDeckId("a");
     deckB.setDeckId("b");
     return { a: deckA, b: deckB };
@@ -172,7 +173,10 @@ export class CrossfadeController {
       engine.onEnd(() => {
         this.handleDeckEnd(engine);
       });
-      if (engine instanceof CdPlaybackEngine) {
+      if (
+        engine instanceof CdDeckEngine ||
+        engine instanceof CdPlaybackEngine
+      ) {
         engine.onError((error) => {
           this.onCdErrorCallback?.(error);
         });
