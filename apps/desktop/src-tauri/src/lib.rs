@@ -323,6 +323,8 @@ pub fn run() {
             commands::file_playback::link_gapless_playback,
             commands::file_playback::set_file_playback_balance,
             commands::file_playback::set_native_equalizer,
+            commands::file_playback::start_native_analyser,
+            commands::file_playback::stop_native_analyser,
             commands::cd::lookup_disc_metadata,
             commands::cd::peek_disc_metadata_cache,
             commands::cd::save_disc_metadata_preference,

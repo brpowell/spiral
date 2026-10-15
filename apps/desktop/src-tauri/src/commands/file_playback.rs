@@ -87,3 +87,20 @@ pub fn set_native_equalizer(
     });
     Ok(())
 }
+
+/// Stream visualizer frames from the native output: `FRAME_BYTES` bytes per
+/// message (128 frequency bytes, then 256 time-domain bytes), only when the
+/// picture changes. Replaces any earlier subscriber.
+#[tauri::command]
+pub fn start_native_analyser(frames: tauri::ipc::Channel<tauri::ipc::Response>) {
+    crate::native_audio::global().start_analyser(move |frame| {
+        frames
+            .send(tauri::ipc::Response::new(frame.to_vec()))
+            .is_ok()
+    });
+}
+
+#[tauri::command]
+pub fn stop_native_analyser() {
+    crate::native_audio::global().stop_analyser();
+}

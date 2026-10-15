@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 
 use rtrb::{Producer, RingBuffer};
 
+use super::analyser::{AnalyserTask, FRAME_BYTES, TAP_RING_SAMPLES};
 use super::mixer::{DeckShared, Mixer};
 
 /// Domain used for every activity-log line this module writes.
@@ -72,6 +73,7 @@ pub struct AudioOutput {
     ctl: Sender<Ctl>,
     #[cfg_attr(not(test), allow(dead_code))]
     heartbeat: Arc<AtomicU64>,
+    analyser: Arc<Mutex<Option<AnalyserTask>>>,
 }
 
 /// Producer side of one deck. Dropping it removes the deck from the mixer.
@@ -131,6 +133,7 @@ impl AudioOutput {
             mixer: Arc::clone(&mixer),
             ctl: ctl.clone(),
             heartbeat: Arc::clone(&heartbeat),
+            analyser: Arc::new(Mutex::new(None)),
         };
         let thread_mixer = Arc::clone(&mixer);
         let spawned = thread::Builder::new()
@@ -186,6 +189,23 @@ impl AudioOutput {
         lock(&self.mixer).link_gapless(from, to)?;
         self.ensure_stream();
         Ok(())
+    }
+
+    /// Start delivering visualizer frames to `sink`, replacing any earlier
+    /// subscriber. `sink` returns `false` when its receiver is gone.
+    pub fn start_analyser(&self, sink: impl FnMut(&[u8; FRAME_BYTES]) -> bool + Send + 'static) {
+        let (producer, consumer) = RingBuffer::new(TAP_RING_SAMPLES);
+        lock(&self.mixer).set_tap(Some(producer));
+        let task = AnalyserTask::spawn(consumer, sink);
+        let mut slot = self.analyser.lock().unwrap_or_else(|p| p.into_inner());
+        // Dropping the previous task joins its thread.
+        *slot = Some(task);
+    }
+
+    pub fn stop_analyser(&self) {
+        lock(&self.mixer).set_tap(None);
+        let mut slot = self.analyser.lock().unwrap_or_else(|p| p.into_inner());
+        *slot = None;
     }
 
     pub fn set_equalizer(&self, settings: super::dsp::EqSettings) {

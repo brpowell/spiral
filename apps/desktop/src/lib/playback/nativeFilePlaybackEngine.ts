@@ -18,12 +18,12 @@ import type {
   RecoverResult,
 } from "./types";
 
-/** Native output reaches crossfade and the visualizer in later steps. */
+/** Native output reaches crossfade in a later step. */
 const NATIVE_FILE_CAPABILITIES: PlaybackCapabilities = {
   seek: true,
   scrubPreview: true,
   gapless: true,
-  visualizer: false,
+  visualizer: true,
   recoverAfterWake: false,
 };
 

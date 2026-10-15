@@ -5,6 +5,7 @@
 //! JavaScript can repair (spiral#21). This module owns the device instead and
 //! rebuilds the stream after wake, device loss and device changes.
 
+pub mod analyser;
 mod cpal_backend;
 pub mod dsp;
 pub mod mixer;
@@ -43,8 +44,23 @@ mod tests {
             deck.producer.push(sample).expect("room");
             deck.producer.push(sample).expect("room");
         }
+        let (frames_tx, frames_rx) = std::sync::mpsc::channel();
+        output.start_analyser(move |frame| frames_tx.send(frame.to_vec()).is_ok());
         deck.set_playing(true);
         std::thread::sleep(std::time::Duration::from_millis(1200));
+        let loudest = frames_rx
+            .try_iter()
+            .map(|frame| {
+                frame[..analyser::BIN_COUNT]
+                    .iter()
+                    .copied()
+                    .max()
+                    .unwrap_or(0)
+            })
+            .max()
+            .unwrap_or(0);
+        output.stop_analyser();
+        assert!(loudest > 100, "analyser saw the tone: {loudest}");
 
         let consumed = deck
             .shared

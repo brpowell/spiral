@@ -1,4 +1,9 @@
-import { getAnalyser as getOutputAnalyser } from "./audioOutput";
+import {
+  getAnalyser as getOutputAnalyser,
+  type AudioAnalyser,
+} from "./audioOutput";
+import { isNativeAudioEnabled } from "./nativeAudioFlag";
+import { ensureNativeAnalyser, getNativeAnalyser } from "./nativeAnalyser";
 import {
   crossfadeController,
   type CrossfadeVisualState,
@@ -17,7 +22,7 @@ export type {
 export {
   ANALYSER_FFT_SIZE,
   ANALYSER_FREQUENCY_BIN_COUNT,
-  getAnalyser,
+  type AudioAnalyser,
 } from "./audioOutput";
 export { CdPlaybackEngine } from "./cdPlaybackEngine";
 export {
@@ -254,7 +259,16 @@ export async function recoverAfterWake(
   return manager.recover(recoverOptions);
 }
 
-export function ensureAnalyser(): AnalyserNode | null {
+/** The analyser the visualizers should read: native frames, or the Web Audio node. */
+export function getAnalyser(): AudioAnalyser | null {
+  return isNativeAudioEnabled() ? getNativeAnalyser() : getOutputAnalyser();
+}
+
+export function ensureAnalyser(): AudioAnalyser | null {
+  if (isNativeAudioEnabled()) {
+    ensureNativeAnalyser();
+    return getNativeAnalyser();
+  }
   if (isCrossfadeControllerActive()) {
     return (
       crossfadeController.getActiveEngine().connectToOutputBus() ??

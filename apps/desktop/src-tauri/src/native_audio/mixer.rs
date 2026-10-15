@@ -7,7 +7,7 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
-use rtrb::Consumer;
+use rtrb::{Consumer, Producer};
 
 use super::dsp::{EqSettings, Equalizer, PanGains};
 
@@ -131,6 +131,8 @@ pub struct Mixer {
     out_rate: u32,
     out_channels: usize,
     eq: Equalizer,
+    /// Receives a mono copy of the final mix for the visualizer, when attached.
+    tap: Option<Producer<f32>>,
 }
 
 impl Mixer {
@@ -141,7 +143,12 @@ impl Mixer {
             out_rate: 48_000,
             out_channels: 2,
             eq: Equalizer::new(48_000),
+            tap: None,
         }
+    }
+
+    pub fn set_tap(&mut self, tap: Option<Producer<f32>>) {
+        self.tap = tap;
     }
 
     pub fn set_equalizer(&mut self, settings: EqSettings) {
@@ -285,6 +292,14 @@ impl Mixer {
         }
         // The EQ sits on the shared bus, after the decks are summed.
         self.eq.process(out, out_channels);
+        if let Some(tap) = self.tap.as_mut() {
+            // Dropping samples when the ring is full is fine: the analyser only
+            // needs the latest window, and the callback must never wait.
+            for frame in out.chunks_exact(out_channels) {
+                let mono = frame.iter().sum::<f32>() / out_channels as f32;
+                let _ = tap.push(mono);
+            }
+        }
         for sample in out.iter_mut() {
             *sample = sample.clamp(-1.0, 1.0);
         }
@@ -794,6 +809,38 @@ mod tests {
         let peak = tail.iter().fold(0.0f32, |m, s| m.max(s.abs()));
         // 0.25 boosted by ~6 dB is ~0.5.
         assert!((peak - 0.5).abs() < 0.05, "boosted peak {peak}");
+    }
+
+    #[test]
+    fn tap_receives_a_mono_copy_of_the_final_mix() {
+        let mut r = rig(48_000, 2, 48_000);
+        let (tap, mut tap_rx) = RingBuffer::new(4096);
+        r.mixer.set_tap(Some(tap));
+        push_stereo_const(&mut r, 2000, 0.5);
+        r.shared.playing.store(true, Ordering::Relaxed);
+        render_frames(&mut r, 1000);
+
+        let mut got = Vec::new();
+        while let Ok(sample) = tap_rx.pop() {
+            got.push(sample);
+        }
+        assert_eq!(got.len(), 1000);
+        assert!((got[999] - 0.5).abs() < 1e-3);
+
+        r.mixer.set_tap(None);
+        render_frames(&mut r, 100);
+        assert!(tap_rx.pop().is_err(), "detached tap gets nothing");
+    }
+
+    #[test]
+    fn a_full_tap_never_blocks_the_callback() {
+        let mut r = rig(48_000, 2, 48_000);
+        let (tap, _rx) = RingBuffer::new(16);
+        r.mixer.set_tap(Some(tap));
+        push_stereo_const(&mut r, 2000, 0.5);
+        r.shared.playing.store(true, Ordering::Relaxed);
+        let out = render_frames(&mut r, 1000);
+        assert!(out[out.len() - 1] > 0.4, "audio still rendered");
     }
 
     #[test]

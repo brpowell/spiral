@@ -403,7 +403,7 @@ mod tests {
 
     #[test]
     fn gain_clamp_snaps_and_limits_like_the_webview() {
-        assert_eq!(clamp_gain_db(3.14), 3.1);
+        assert_eq!(clamp_gain_db(3.17), 3.2);
         assert_eq!(clamp_gain_db(99.0), 12.0);
         assert_eq!(clamp_gain_db(-99.0), -12.0);
         assert_eq!(clamp_gain_db(f32::NAN), 0.0);

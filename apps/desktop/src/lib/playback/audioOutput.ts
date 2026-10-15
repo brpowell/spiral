@@ -9,5 +9,6 @@ export {
   getDeckGainNode,
   rampDeckGain,
   setDeckGain,
+  type AudioAnalyser,
   type DeckId,
 } from "./audioMixer";

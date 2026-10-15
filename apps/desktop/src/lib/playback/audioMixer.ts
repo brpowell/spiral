@@ -15,6 +15,14 @@ export const ANALYSER_FREQUENCY_BIN_COUNT = FFT_SIZE / 2;
 
 export type DeckId = "a" | "b";
 
+/** The slice of `AnalyserNode` the visualizers read. */
+export interface AudioAnalyser {
+  readonly fftSize: number;
+  readonly frequencyBinCount: number;
+  getByteFrequencyData(array: Uint8Array<ArrayBuffer>): void;
+  getByteTimeDomainData(array: Uint8Array<ArrayBuffer>): void;
+}
+
 interface DeckSlot {
   source: AudioNode | null;
   gain: GainNode | null;
@@ -154,7 +162,7 @@ export function getDeckGainNode(deckId: DeckId): GainNode | null {
   return decks[deckId].gain;
 }
 
-export function getAnalyser(): AnalyserNode | null {
+export function getAnalyser(): AudioAnalyser | null {
   return outputBus?.analyser ?? null;
 }
 
