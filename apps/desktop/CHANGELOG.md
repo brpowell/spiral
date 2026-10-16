@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/brpowell/spiral/compare/desktop-v0.3.0...desktop-v0.4.0) (2026-10-16)
+
+
+### Features
+
+* **desktop:** play all audio through a native output ([#31](https://github.com/brpowell/spiral/issues/31)) ([5744dc4](https://github.com/brpowell/spiral/commit/5744dc4208821cf1bebe812cad032ab340cdd974))
+
+
+### Bug Fixes
+
+* delete playlist body not appearing ([#35](https://github.com/brpowell/spiral/issues/35)) ([52c64c3](https://github.com/brpowell/spiral/commit/52c64c3dca0444af7daeea99187e8eed802219a0))
+* **desktop:** blend Windows/Linux titlebar with library header ([#34](https://github.com/brpowell/spiral/issues/34)) ([f8cd6f6](https://github.com/brpowell/spiral/commit/f8cd6f619b4f7cdb328bb5e3df02d4a84908fe6e))
+* **desktop:** open about window without freezing UI on Windows ([#32](https://github.com/brpowell/spiral/issues/32)) ([313716b](https://github.com/brpowell/spiral/commit/313716b0e3f4d28b27447a6eaa30ead7247b9a7c))
+
 ## [0.3.0](https://github.com/brpowell/spiral/compare/desktop-v0.2.4...desktop-v0.3.0) (2026-10-13)
 
 
