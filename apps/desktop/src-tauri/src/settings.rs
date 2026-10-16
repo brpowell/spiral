@@ -6,6 +6,7 @@ use tauri::{AppHandle, Manager};
 pub const DEFAULT_THEME_ID: &str = "spiral.theme.obsidian";
 pub const DEFAULT_SKIN_ID: &str = "spiral.skin.vanilla";
 pub const DEFAULT_VISUALIZER_ID: &str = "spiral.visualizer.bars";
+pub const DEFAULT_SOUND_PACK_ID: &str = "spiral.sound.default";
 pub const DEFAULT_SKIN_VIEW_ID: &str = "standard";
 pub const SPIRAL_LIBRARY_DIR_NAME: &str = "Spiral Library";
 /// On-disk audio folder under the library root.
@@ -313,6 +314,8 @@ pub struct AppSettings {
     pub active_skin_view: String,
     #[serde(default = "default_active_visualizer")]
     pub active_visualizer: String,
+    #[serde(default = "default_active_sound_pack")]
+    pub active_sound_pack: String,
     /// Effective contribution ids hidden from pickers (pack remains on disk).
     #[serde(default)]
     pub hidden_contribution_ids: Vec<String>,
@@ -361,6 +364,10 @@ fn default_active_skin_view() -> String {
 
 fn default_active_visualizer() -> String {
     DEFAULT_VISUALIZER_ID.to_string()
+}
+
+fn default_active_sound_pack() -> String {
+    DEFAULT_SOUND_PACK_ID.to_string()
 }
 
 fn default_default_author_id() -> String {
@@ -430,6 +437,7 @@ impl Default for AppSettings {
             active_skin: default_active_skin(),
             active_skin_view: default_active_skin_view(),
             active_visualizer: default_active_visualizer(),
+            active_sound_pack: default_active_sound_pack(),
             hidden_contribution_ids: Vec::new(),
             linked_item_paths: Vec::new(),
             default_author_id: default_default_author_id(),

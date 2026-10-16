@@ -220,7 +220,7 @@
                   {
                     "type": "button",
                     "id": "shuffle",
-                    "sound": "spiral.sound.control",
+                    "sound": "transportControl",
                     "onClick": [
                       {
                         "action": "player.toggleShuffle"
@@ -236,7 +236,7 @@
                   {
                     "type": "button",
                     "id": "previous",
-                    "sound": "spiral.sound.control",
+                    "sound": "transportControl",
                     "onClick": [
                       {
                         "action": "player.previousTrack"
@@ -252,9 +252,9 @@
                   {
                     "type": "button",
                     "id": "play",
-                    "sound": "spiral.sound.play",
+                    "sound": "transportPlay",
                     "soundWhen": {
-                      "player.isPlaying": "spiral.sound.control"
+                      "player.isPlaying": "transportControl"
                     },
                     "onClick": [
                       {
@@ -273,7 +273,7 @@
                   {
                     "type": "button",
                     "id": "next",
-                    "sound": "spiral.sound.control",
+                    "sound": "transportControl",
                     "onClick": [
                       {
                         "action": "player.nextTrack"
@@ -289,7 +289,7 @@
                   {
                     "type": "button",
                     "id": "repeat",
-                    "sound": "spiral.sound.control",
+                    "sound": "transportControl",
                     "onClick": [
                       {
                         "action": "player.cycleRepeat"

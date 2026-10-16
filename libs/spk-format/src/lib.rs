@@ -36,7 +36,9 @@ pub use skin::{
     TiledFrameFields, TiledFramePresentation, TiledFramePresetPresentation, TiledFrameTileDef,
     TiledFrameTileSize, TiledFrameTileSizes, ViewLayout, WindowChrome,
 };
-pub use sound::validate_sound_contribution_at;
+pub use sound::{
+    read_sound_manifest, validate_sound_contribution_at, SoundManifest, KNOWN_SOUND_CUES,
+};
 pub use theme::{validate_theme_contribution_at, REQUIRED_THEME_TOKEN_KEYS};
 pub use visualizer::{
     is_safe_media_asset_path, is_safe_pack_relative_js, validate_visualizer_contribution_at,

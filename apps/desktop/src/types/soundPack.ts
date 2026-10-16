@@ -1,0 +1,32 @@
+import type { PackZone } from "./pack";
+
+/** Mirrors Rust `SoundPackSummary`. */
+export interface SoundPackSummary {
+  /** Effective id: `authorId.sound.id`. */
+  id: string;
+  name: string;
+  author: string;
+  authorId: string;
+  description: string;
+  version: string;
+  isBuiltin: boolean;
+  zone: PackZone;
+  previewPath: string | null;
+  /** Sound ids in the pack's library. */
+  soundIds: string[];
+  /** Cue name → sound id. */
+  cues: Record<string, string>;
+}
+
+/** Cues the app plays today (mirrors Rust `KNOWN_SOUND_CUES`). */
+export const SOUND_CUES = {
+  transportPlay: "transportPlay",
+  transportControl: "transportControl",
+} as const;
+
+export type SoundCue = (typeof SOUND_CUES)[keyof typeof SOUND_CUES];
+
+/** Sound to audition for a pack: its play cue, else its first sound. */
+export function auditionSoundId(pack: SoundPackSummary): string | null {
+  return pack.cues[SOUND_CUES.transportPlay] ?? pack.soundIds[0] ?? null;
+}

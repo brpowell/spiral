@@ -1,63 +1,83 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { resolveSoundAsset } from "./tauri";
+import { emit, listen } from "@tauri-apps/api/event";
+import { resolveSoundCue, resolveSoundPackAsset } from "./tauri";
+import { isTauri } from "./windowRole";
 
-/** Core transport cues shipped as built-in sound items. */
-export const CORE_TRANSPORT_PLAY_SOUND_ID = "spiral.sound.play";
-export const CORE_TRANSPORT_CONTROL_SOUND_ID = "spiral.sound.control";
+/** Fired after the active sound pack changes so every window drops its resolved cues. */
+export const SOUND_PACK_CHANGED_EVENT = "sound-pack://changed";
 
-const pathCache = new Map<string, string | null>();
+const urlCache = new Map<string, string | null>();
 const inflight = new Map<string, Promise<string | null>>();
 
-/**
- * Sound item ids look like `authorId.sound.id`.
- * Anything else is treated as a skin-local `soundEffects` key.
- */
-export function isPublicSoundContributionId(id: string): boolean {
-  const parts = id.split(".");
-  return (
-    parts.length === 3 &&
-    parts[1] === "sound" &&
-    parts.every((part) => part.length > 0)
-  );
+/** Drop resolved cue URLs (active pack changed, or packs were installed/removed). */
+export function invalidateSoundCueCache(): void {
+  urlCache.clear();
+  inflight.clear();
 }
 
-/** Absolute filesystem path for an installed sound contribution, or null. */
-export async function resolveSoundAssetPath(
-  soundId: string,
-): Promise<string | null> {
-  const trimmed = soundId.trim();
-  if (!trimmed || !isPublicSoundContributionId(trimmed)) return null;
-
-  if (pathCache.has(trimmed)) {
-    return pathCache.get(trimmed) ?? null;
+/** Tell every window (this one included) that the active sound pack changed. */
+export async function broadcastSoundPackChanged(): Promise<void> {
+  invalidateSoundCueCache();
+  if (!isTauri()) return;
+  try {
+    await emit(SOUND_PACK_CHANGED_EVENT);
+  } catch {
+    /* ignore cross-window emit failures */
   }
+}
 
+let listening = false;
+
+function listenForSoundPackChanges(): void {
+  if (listening || !isTauri()) return;
+  listening = true;
+  void listen(SOUND_PACK_CHANGED_EVENT, invalidateSoundCueCache).catch(() => {
+    listening = false;
+  });
+}
+
+/**
+ * Asset protocol URL for a cue from the active sound pack (default pack as
+ * fallback), or null when neither defines it.
+ */
+export async function resolveCueUrl(cue: string): Promise<string | null> {
+  const trimmed = cue.trim();
+  if (!trimmed) return null;
+  listenForSoundPackChanges();
+
+  if (urlCache.has(trimmed)) return urlCache.get(trimmed) ?? null;
   const pending = inflight.get(trimmed);
   if (pending) return pending;
 
-  const load = resolveSoundAsset(trimmed)
+  const load = resolveSoundCue(trimmed)
     .then((path) => {
-      pathCache.set(trimmed, path);
-      return path;
+      const url = path ? convertFileSrc(path) : null;
+      // A pack change mid-flight clears `inflight`; don't cache a stale answer.
+      if (inflight.get(trimmed) === load) urlCache.set(trimmed, url);
+      return url;
     })
     .catch((err: unknown) => {
-      console.error("Failed to resolve sound contribution:", trimmed, err);
-      pathCache.set(trimmed, null);
+      console.error("Failed to resolve sound cue:", trimmed, err);
       return null;
     })
     .finally(() => {
-      inflight.delete(trimmed);
+      if (inflight.get(trimmed) === load) inflight.delete(trimmed);
     });
 
   inflight.set(trimmed, load);
   return load;
 }
 
-/** Asset protocol URL for an installed sound contribution, or null. */
-export async function resolveSoundAssetUrl(
+/** Asset protocol URL for one sound in a specific pack (previews), or null. */
+export async function resolveSoundPackAssetUrl(
+  soundPackId: string,
   soundId: string,
 ): Promise<string | null> {
-  const path = await resolveSoundAssetPath(soundId);
-  if (!path) return null;
-  return convertFileSrc(path);
+  try {
+    const path = await resolveSoundPackAsset(soundPackId, soundId);
+    return path ? convertFileSrc(path) : null;
+  } catch (err) {
+    console.error("Failed to resolve sound:", soundPackId, soundId, err);
+    return null;
+  }
 }

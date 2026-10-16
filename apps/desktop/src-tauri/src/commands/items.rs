@@ -591,6 +591,10 @@ pub(crate) fn forget_item_references(app: &AppHandle, item_id: &str) -> Result<(
         app_settings.active_visualizer = settings::DEFAULT_VISUALIZER_ID.to_string();
         changed = true;
     }
+    if app_settings.active_sound_pack == item_id {
+        app_settings.active_sound_pack = settings::DEFAULT_SOUND_PACK_ID.to_string();
+        changed = true;
+    }
 
     let before_hidden = app_settings.hidden_contribution_ids.len();
     app_settings
@@ -622,6 +626,7 @@ pub(crate) fn remap_item_references(
         &mut app_settings.active_theme,
         &mut app_settings.active_skin,
         &mut app_settings.active_visualizer,
+        &mut app_settings.active_sound_pack,
     ] {
         if active == old_effective_id {
             *active = new_effective_id.to_string();
@@ -703,6 +708,9 @@ pub fn set_item_hidden(
         }
         if app_settings.active_visualizer == item_id {
             app_settings.active_visualizer = settings::DEFAULT_VISUALIZER_ID.to_string();
+        }
+        if app_settings.active_sound_pack == item_id {
+            app_settings.active_sound_pack = settings::DEFAULT_SOUND_PACK_ID.to_string();
         }
     }
 

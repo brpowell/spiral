@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/sound-v1.schema.json",
-  "title": "Spiral Sound contribution manifest v1",
+  "title": "Spiral Sound pack manifest v1",
   "type": "object",
-  "required": ["id", "authorId", "version", "name", "author", "description", "asset"],
+  "required": ["id", "authorId", "version", "name", "author", "description", "sounds"],
   "additionalProperties": false,
   "properties": {
     "authorId": {
@@ -50,11 +50,21 @@
       "maxLength": 280,
       "description": "Short summary for lists/cards; keep longer notes in the pack README."
     },
-    "asset": {
-      "type": "string",
-      "minLength": 1,
-      "pattern": "^(?!.*\\.\\.)(?!/).+\\.wav$",
-      "description": "Wav file path relative to the contribution directory (including .wav)."
+    "sounds": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "The pack's sound library: sound id to .wav path relative to the item root. Ids are kebab-case and unique within the pack.",
+      "propertyNames": { "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^(?!.*\\.\\.)(?!/)[^\\\\]+\\.wav$"
+      }
+    },
+    "cues": {
+      "type": "object",
+      "description": "Author-chosen assignment of cues to sound ids from `sounds`. Activating the pack applies it. One sound may serve several cues; cues the app does not know are ignored.",
+      "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]*$" },
+      "additionalProperties": { "type": "string" }
     }
   }
 }

@@ -12,6 +12,7 @@ import { t } from "./lib/i18n";
 import { refreshPackContributionStores } from "./lib/packs/refreshPackStores";
 import { usePackUpdatesStore } from "./store/usePackUpdatesStore";
 import { useSkinStore } from "./store/useSkinStore";
+import { useSoundPackStore } from "./store/useSoundPackStore";
 import { useThemeStore } from "./store/useThemeStore";
 import { useVisualizerStore } from "./store/useVisualizerStore";
 import type { CatalogPackEntry } from "./types/packRegistry";
@@ -23,12 +24,18 @@ export function AppearanceApp() {
   const loadThemes = useThemeStore((s) => s.loadThemes);
   const loadVisualizers = useVisualizerStore((s) => s.loadVisualizers);
   const loadSkins = useSkinStore((s) => s.loadSkins);
+  const loadSoundPacks = useSoundPackStore((s) => s.loadSoundPacks);
   const applyPendingUpdates = usePackUpdatesStore((s) => s.applyPendingUpdates);
   const checkForPackUpdates = usePackUpdatesStore((s) => s.checkForPackUpdates);
 
   const refreshAppearanceData = useCallback(async () => {
-    await Promise.all([loadThemes(), loadVisualizers(), loadSkins()]);
-  }, [loadThemes, loadVisualizers, loadSkins]);
+    await Promise.all([
+      loadThemes(),
+      loadVisualizers(),
+      loadSkins(),
+      loadSoundPacks(),
+    ]);
+  }, [loadThemes, loadVisualizers, loadSkins, loadSoundPacks]);
 
   useEffect(() => {
     void refreshAppearanceData().catch((err: unknown) => {

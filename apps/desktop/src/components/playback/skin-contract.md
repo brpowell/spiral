@@ -288,14 +288,14 @@ Skins may declare optional short UI sounds under the pack root:
 
 Paths are under `assets/` without extension (`.wav` required on disk). These keys are **private** to the skin — only that skin’s `sound` / `soundWhen` / effect `sound` fields may use them.
 
-**Public** sound contributions live in pack folders `sounds/<id>/sound.json` with effective ids like `spiral.sound.play`. A sound string shaped `*.*.sound.*` resolves as a contribution (missing id plays nothing). Anything else stays a local `soundEffects` key.
+**Cues.** A key the skin does not define in `soundEffects` is a *cue*, answered by the user's active sound pack (a `sound.json` item that assigns sounds to cues). The standard cues are `transportPlay` and `transportControl`; the built-in `spiral.sound.default` pack defines both and fills any cue the active pack leaves undefined. **The skin wins:** when `soundEffects` defines a key, that file plays even if it shares a name with a standard cue. A key with no skin sound and no pack sound plays nothing.
 
 Two places can play a key or public id:
 
 - **Control `sound` / `soundWhen`** — immediate click feedback on `button` nodes and `buttonGroup` elements (group-level `sound` plays on any element click). `soundWhen` is the same last-match-wins bind map as `tooltipWhen`. Gated by `skin.pref.soundEffectsEnabled`.
 - **Effect `sound`** — same field as `onActivate` / GIF `onComplete`. Plays when that effect fires, so `delayMs` times it with an animation. `action` may be omitted for a sound-only step. Also gated by the skin sound preference.
 
-Library now-playing transport plays `spiral.sound.play` / `spiral.sound.control` directly and does **not** consult the skin sound preference — library chrome and skin chrome stay independent callers of the same clips.
+Library now-playing transport plays the `transportPlay` / `transportControl` cues from the active sound pack and does **not** consult the skin sound preference — library chrome and skin chrome stay independent callers of the same clips.
 
 ```json
 {

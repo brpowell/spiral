@@ -2,6 +2,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { ItemSummary, ItemType } from "../types/item";
 import type { PackSummary } from "../types/pack";
+import type { SoundPackSummary } from "../types/soundPack";
 import type {
   PackDownloadProgress,
   RegistryPackDetail,
@@ -1139,10 +1140,34 @@ export async function listSkins(): Promise<SkinSummary[]> {
   return invoke<SkinSummary[]>("list_skins");
 }
 
-export async function resolveSoundAsset(
+export async function listSoundPacks(): Promise<SoundPackSummary[]> {
+  return invoke<SoundPackSummary[]>("list_sound_packs");
+}
+
+export async function getActiveSoundPackId(): Promise<string> {
+  return invoke<string>("get_active_sound_pack_id");
+}
+
+export async function saveActiveSoundPackId(
+  soundPackId: string,
+): Promise<void> {
+  return invoke<void>("save_active_sound_pack_id", { soundPackId });
+}
+
+/** Wav path for a cue from the active sound pack (default pack as fallback), or `null`. */
+export async function resolveSoundCue(cue: string): Promise<string | null> {
+  return invoke<string | null>("resolve_sound_cue", { cue });
+}
+
+/** Wav path of one sound in a specific pack, active or not. */
+export async function resolveSoundPackAsset(
+  soundPackId: string,
   soundId: string,
 ): Promise<string | null> {
-  return invoke<string | null>("resolve_sound_asset", { soundId });
+  return invoke<string | null>("resolve_sound_pack_asset", {
+    soundPackId,
+    soundId,
+  });
 }
 
 export async function loadSkinPack(skinId: string): Promise<LoadedSkinPack> {

@@ -416,7 +416,7 @@ mod tests {
         assert!(has("skin", "spiral.skin.vanilla"));
         assert!(has("visualizer", "spiral.visualizer.bars"));
         assert!(has("visualizer", "spiral.visualizer.dream-cube"));
-        assert!(has("sound", "spiral.sound.control"));
+        assert!(has("sound", "spiral.sound.default"));
         assert_eq!(of_type("theme").len(), 8, "expected 8 builtin themes");
         assert_eq!(of_type("skin").len(), 1, "expected 1 builtin skin");
         assert_eq!(
@@ -424,7 +424,7 @@ mod tests {
             6,
             "expected 6 builtin visualizers"
         );
-        assert_eq!(of_type("sound").len(), 2, "expected 2 builtin sounds");
+        assert_eq!(of_type("sound").len(), 1, "expected 1 builtin sound pack");
     }
 
     #[test]

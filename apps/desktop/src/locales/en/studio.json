@@ -218,7 +218,10 @@
   "sounds": {
     "title": "Sounds",
     "loading": "Loading sounds…",
-    "empty": "No sounds found."
+    "empty": "No sounds found.",
+    "auditionAria": "Preview {{name}}",
+    "audition": "Preview",
+    "applyFailed": "Couldn't switch sound pack"
   },
   "items": {
     "cardAria": "{{name}} by {{author}}",
@@ -278,7 +281,7 @@
       "theme": "Theme",
       "skin": "Skin",
       "visualizer": "Visualizer",
-      "sound": "Sound"
+      "sound": "Sound pack"
     }
   },
   "backToDetails": "Back to Details"
