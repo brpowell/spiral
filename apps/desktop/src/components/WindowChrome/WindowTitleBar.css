@@ -11,6 +11,12 @@
   z-index: 20;
 }
 
+/* Library header continues the same chrome: solid top stop, no seam. */
+.custom-window-frame.app .window-titlebar {
+  border-bottom: none;
+  background: var(--color-chrome);
+}
+
 .window-titlebar__drag {
   display: flex;
   align-items: center;
