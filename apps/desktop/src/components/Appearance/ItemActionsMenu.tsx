@@ -22,6 +22,7 @@ import {
 } from "../ContextMenu/ContextMenu";
 import {
   IconDelete,
+  IconExport,
   IconHide,
   IconPackage,
   IconPencil,
@@ -30,6 +31,7 @@ import {
 import { MenuButton } from "../MenuButton/MenuButton";
 import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
 import { EditItemModal, type EditItemModalResult } from "./EditItemModal";
+import { ExportItemModal } from "./ExportItemModal";
 
 /** The few fields every list source (stores, `listItems`) can provide for an item. */
 export interface ItemRef {
@@ -82,6 +84,7 @@ export function ItemActionsMenu({
   const [pending, setPending] = useState<PendingAction>(null);
   const [resolved, setResolved] = useState<ItemSummary | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [clearable, setClearable] = useState<ClearableSkinSetting[]>([]);
   const [clearSettings, setClearSettings] = useState(false);
@@ -167,6 +170,16 @@ export function ItemActionsMenu({
                 onClick={() => {
                   close();
                   void openEdit();
+                }}
+              />
+            ) : null}
+            {editable ? (
+              <ContextMenuItem
+                icon={<IconExport />}
+                label={t("items.export")}
+                onClick={() => {
+                  close();
+                  setExportOpen(true);
                 }}
               />
             ) : null}
@@ -284,6 +297,14 @@ export function ItemActionsMenu({
       >
         {t("items.unlinkBody", { name: item.name })}
       </AlertConfirmation>
+
+      {editable ? (
+        <ExportItemModal
+          open={exportOpen}
+          itemId={item.effectiveId}
+          onClose={() => setExportOpen(false)}
+        />
+      ) : null}
 
       <EditItemModal
         open={editOpen}

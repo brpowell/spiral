@@ -294,7 +294,13 @@
       "missingSound": "missing sound",
       "unusedCue": "not used by this app",
       "play": "Play {{name}}"
-    }
+    },
+    "export": "Export…",
+    "exportTitle": "Export",
+    "exportAction": "Export",
+    "exporting": "Exporting…",
+    "exportHint": "Saves a .spk file you can share or import. Your draft is not changed.",
+    "exportLoadFailed": "Couldn't read this item's details."
   },
   "backToDetails": "Back to Details"
 }

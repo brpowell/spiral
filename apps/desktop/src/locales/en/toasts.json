@@ -193,6 +193,8 @@
     "updated": "Updated {{name}}",
     "updateFailed": "Failed to update",
     "deleted": "Deleted {{name}}",
-    "deleteFailed": "Failed to delete"
+    "deleteFailed": "Failed to delete",
+    "exported": "Exported {{name}} ({{version}})",
+    "exportFailed": "Failed to export"
   }
 }
