@@ -35,7 +35,7 @@ async fn migrations_apply_to_an_empty_database() {
     store.migrate().await.expect("migrate");
     assert_eq!(
         table_names(&store).await,
-        vec!["pack_versions", "takedown_log"]
+        vec!["item_takedown_log", "item_versions"]
     );
 }
 

@@ -1,9 +1,0 @@
-{
-  "manifestVersion": 1,
-  "packId": "demo-theme",
-  "publisherId": "spiral",
-  "version": "1.0.0",
-  "name": "Demo Theme",
-  "description": "Valid theme fixture for admin upload testing.",
-  "preview": "preview.png"
-}

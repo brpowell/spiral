@@ -19,6 +19,10 @@ impl ObjectStorage for S3Storage {
         bail!("S3 storage backend is not implemented yet; set STORAGE_BACKEND=local")
     }
 
+    async fn get(&self, _key: &str) -> Result<Vec<u8>> {
+        bail!("S3 storage backend is not implemented yet; set STORAGE_BACKEND=local")
+    }
+
     async fn delete(&self, _key: &str) -> Result<()> {
         bail!("S3 storage backend is not implemented yet; set STORAGE_BACKEND=local")
     }

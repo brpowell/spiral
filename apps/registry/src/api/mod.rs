@@ -4,9 +4,9 @@ mod admin;
 mod auth;
 mod error;
 mod headers;
+mod items;
 mod limit;
 mod meta;
-mod packs;
 
 use axum::middleware;
 use axum::Router;
@@ -24,13 +24,13 @@ pub fn router(upload_body_limit: usize, client_ip: ClientIpSource) -> Router<App
 
     let catalog = Router::new()
         .merge(meta::router())
-        .merge(packs::catalog_router())
+        .merge(items::catalog_router())
         .layer(middleware::from_fn_with_state(
             limit::RateLimit::new(limit::CATALOG_REQUESTS_PER_MINUTE, client_ip.clone()),
             limit::rate_limit,
         ));
 
-    let downloads = packs::download_router().layer(middleware::from_fn_with_state(
+    let downloads = items::download_router().layer(middleware::from_fn_with_state(
         limit::DownloadLimit::new(limit::MAX_CONCURRENT_DOWNLOADS_PER_IP, client_ip),
         limit::download_concurrency,
     ));

@@ -10,7 +10,7 @@ use http_body_util::BodyExt;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use spk_registry::config::{Config, StorageConfig, PROTOCOL_VERSION};
-use spk_registry::db::{self, pack_version_row};
+use spk_registry::db::{self, item_version_row};
 use spk_registry::storage::{LocalDiskStorage, ObjectStorage};
 use spk_registry::{app_router, AppState};
 use tempfile::TempDir;
@@ -34,75 +34,45 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
     let size = bytes.len() as i64;
     let now = Utc::now();
 
-    storage
-        .put("spiral/demo-skin/1.0.0/pack.spk", bytes)
-        .await
-        .unwrap();
-    storage
-        .put("spiral/demo-skin/1.1.0/pack.spk", bytes)
-        .await
-        .unwrap();
-    storage
-        .put("spiral/demo-skin/0.9.0/pack.spk", bytes)
-        .await
-        .unwrap();
-    storage
-        .put("other/theme-pack/1.0.0/pack.spk", bytes)
-        .await
-        .unwrap();
+    for key in [
+        "spiral/skin/demo-skin/1.0.0/item.spk",
+        "spiral/skin/demo-skin/1.1.0/item.spk",
+        "spiral/skin/demo-skin/0.9.0/item.spk",
+        "other/theme/neon-theme/1.0.0/item.spk",
+        "other/theme/neon-theme/2.0.0/item.spk",
+    ] {
+        storage.put(key, bytes).await.unwrap();
+    }
 
-    pool.insert_pack_version(&pack_version_row(
-        "spiral",
-        "demo-skin",
-        "1.0.0",
-        &["skin"],
-        size,
-        &sha,
-        "spiral/demo-skin/1.0.0/pack.spk",
-        now - Duration::days(14),
-        None,
-    ))
-    .await
-    .unwrap();
-    pool.insert_pack_version(&pack_version_row(
-        "spiral",
-        "demo-skin",
-        "1.1.0",
-        &["skin"],
-        size,
-        &sha,
-        "spiral/demo-skin/1.1.0/pack.spk",
-        now - Duration::days(1),
-        None,
-    ))
-    .await
-    .unwrap();
-    pool.insert_pack_version(&pack_version_row(
-        "spiral",
-        "demo-skin",
-        "0.9.0",
-        &["skin"],
-        size,
-        &sha,
-        "spiral/demo-skin/0.9.0/pack.spk",
-        now - Duration::days(30),
-        Some(now - Duration::days(7)),
-    ))
-    .await
-    .unwrap();
-    pool.insert_pack_version(&pack_version_row(
-        "other",
-        "theme-pack",
-        "1.0.0",
-        &["theme"],
-        size,
-        &sha,
-        "other/theme-pack/1.0.0/pack.spk",
-        now,
-        None,
-    ))
-    .await
-    .unwrap();
+    let rows = [
+        ("spiral", "skin", "demo-skin", "1.0.0", 14, None),
+        ("spiral", "skin", "demo-skin", "1.1.0", 1, None),
+        ("spiral", "skin", "demo-skin", "0.9.0", 30, Some(7)),
+        ("other", "theme", "neon-theme", "1.0.0", 3, None),
+        ("other", "theme", "neon-theme", "2.0.0", 0, None),
+    ];
+    for (publisher, item_type, id, version, published_days_ago, yanked_days_ago) in rows {
+        let mut row = item_version_row(
+            publisher,
+            item_type,
+            id,
+            version,
+            size,
+            &sha,
+            &format!("{publisher}/{item_type}/{id}/{version}/item.spk"),
+            now - Duration::days(published_days_ago),
+            yanked_days_ago.map(|d| now - Duration::days(d)),
+        );
+        row.name = match id {
+            "demo-skin" => "Demo Skin".into(),
+            _ => "Neon".into(),
+        };
+        row.description = format!("{item_type} for tests");
+        if version == "2.0.0" {
+            row.min_app_version = Some("0.9.0".into());
+        }
+        pool.insert_item_version(&row).await.unwrap();
+    }
 
     let state = AppState {
         config: Config {
@@ -188,33 +158,39 @@ async fn meta_reports_protocol_version() {
 async fn list_detail_download_end_to_end() {
     let (app, _tmp, _) = test_app().await;
 
-    let (status, list) = json_get(&app, "/v1/packs").await;
+    let (status, list) = json_get(&app, "/v1/items").await;
     assert_eq!(status, StatusCode::OK);
-    let packs = list["packs"].as_array().unwrap();
-    assert_eq!(packs.len(), 2);
+    let items = list["items"].as_array().unwrap();
+    assert_eq!(items.len(), 2);
+    assert_eq!(list["total"], 2);
 
-    let demo = packs
+    let demo = items
         .iter()
-        .find(|p| p["packId"] == "demo-skin")
+        .find(|p| p["id"] == "demo-skin")
         .expect("demo-skin in list");
+    assert_eq!(demo["publisherId"], "spiral");
+    assert_eq!(demo["itemType"], "skin");
+    assert_eq!(demo["effectiveId"], "spiral.skin.demo-skin");
     assert_eq!(demo["latestVersion"]["version"], "1.1.0");
 
-    // Yanked 0.9.0 must not appear in pack detail.
-    let (status, detail) = json_get(&app, "/v1/packs/spiral/demo-skin").await;
+    // Yanked 0.9.0 must not appear in item detail.
+    let (status, detail) = json_get(&app, "/v1/items/spiral/skin/demo-skin").await;
     assert_eq!(status, StatusCode::OK);
     let versions = detail["versions"].as_array().unwrap();
     assert_eq!(versions.len(), 2);
+    assert_eq!(versions[0]["version"], "1.1.0");
     assert!(versions.iter().all(|v| v["version"] != "0.9.0"));
 
-    let (status, latest) = json_get(&app, "/v1/packs/spiral/demo-skin/versions/latest").await;
+    let (status, latest) = json_get(&app, "/v1/items/spiral/skin/demo-skin/versions/latest").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(latest["version"], "1.1.0");
+    assert_eq!(latest["effectiveId"], "spiral.skin.demo-skin");
 
     let response = app
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/v1/packs/spiral/demo-skin/versions/1.1.0/download")
+                .uri("/v1/items/spiral/skin/demo-skin/versions/1.1.0/download")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -226,17 +202,28 @@ async fn list_detail_download_end_to_end() {
 }
 
 #[tokio::test]
+async fn unknown_item_type_and_item_are_not_found() {
+    let (app, _tmp, _) = test_app().await;
+    let (status, _) = json_get(&app, "/v1/items/spiral/widget/demo-skin").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = json_get(&app, "/v1/items/spiral/theme/demo-skin").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, body) = json_get(&app, "/v1/items?type=widget").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["code"], "invalid_type");
+}
+#[tokio::test]
 async fn yanked_excluded_from_list_and_detail_but_downloadable() {
     let (app, _tmp, _) = test_app().await;
 
-    let (status, _) = json_get(&app, "/v1/packs/spiral/demo-skin/versions/0.9.0").await;
+    let (status, _) = json_get(&app, "/v1/items/spiral/skin/demo-skin/versions/0.9.0").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 
     let response = app
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/v1/packs/spiral/demo-skin/versions/0.9.0/download")
+                .uri("/v1/items/spiral/skin/demo-skin/versions/0.9.0/download")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -248,38 +235,168 @@ async fn yanked_excluded_from_list_and_detail_but_downloadable() {
 }
 
 #[tokio::test]
-async fn filters_by_contribution_type_and_author() {
+async fn filters_search_and_paginates() {
     let (app, _tmp, _) = test_app().await;
 
-    let (status, body) = json_get(&app, "/v1/packs?contributionType=theme").await;
+    let (status, body) = json_get(&app, "/v1/items?type=theme").await;
     assert_eq!(status, StatusCode::OK);
-    let packs = body["packs"].as_array().unwrap();
-    assert_eq!(packs.len(), 1);
-    assert_eq!(packs[0]["packId"], "theme-pack");
+    let items = body["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["id"], "neon-theme");
+    assert_eq!(items[0]["latestVersion"]["version"], "2.0.0");
 
-    let (status, body) = json_get(&app, "/v1/packs?publisherId=spiral").await;
-    assert_eq!(status, StatusCode::OK);
-    let packs = body["packs"].as_array().unwrap();
-    assert_eq!(packs.len(), 1);
-    assert_eq!(packs[0]["publisherId"], "spiral");
+    let (_, body) = json_get(&app, "/v1/items?publisher=spiral").await;
+    let items = body["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["publisherId"], "spiral");
+
+    // Case-insensitive substring over name / description / id.
+    let (_, body) = json_get(&app, "/v1/items?q=NEON").await;
+    assert_eq!(body["total"], 1);
+    let (_, body) = json_get(&app, "/v1/items?q=skin").await;
+    assert_eq!(body["items"][0]["id"], "demo-skin");
+    let (_, body) = json_get(&app, "/v1/items?q=nothing-matches").await;
+    assert_eq!(body["total"], 0);
+    assert!(body["items"].as_array().unwrap().is_empty());
+
+    // Sorted by name: "Demo Skin" then "Neon". `total` ignores paging.
+    let (_, page1) = json_get(&app, "/v1/items?limit=1").await;
+    assert_eq!(page1["total"], 2);
+    assert_eq!(page1["limit"], 1);
+    assert_eq!(page1["items"][0]["id"], "demo-skin");
+    let (_, page2) = json_get(&app, "/v1/items?limit=1&offset=1").await;
+    assert_eq!(page2["items"][0]["id"], "neon-theme");
+    let (_, past_end) = json_get(&app, "/v1/items?limit=1&offset=5").await;
+    assert!(past_end["items"].as_array().unwrap().is_empty());
 }
 
+async fn post_updates(app: &axum::Router, body: Value) -> (StatusCode, Value) {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/items/updates")
+                .header("Content-Type", "application/json")
+                .body(Body::from(serde_json::to_vec(&body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+    )
+}
+
+fn installed(publisher: &str, item_type: &str, id: &str, version: &str) -> Value {
+    serde_json::json!({
+        "publisherId": publisher, "itemType": item_type, "id": id, "version": version
+    })
+}
+
+#[tokio::test]
+async fn update_check_reports_newer_versions_only() {
+    let (app, _tmp, _) = test_app().await;
+
+    let (status, body) = post_updates(
+        &app,
+        serde_json::json!({ "items": [
+            installed("spiral", "skin", "demo-skin", "1.0.0"),
+            installed("other", "theme", "neon-theme", "2.0.0"),
+            installed("nobody", "theme", "missing", "1.0.0"),
+        ]}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let updates = body["updates"].as_array().unwrap();
+    assert_eq!(updates.len(), 1, "{body}");
+    assert_eq!(updates[0]["id"], "demo-skin");
+    assert_eq!(updates[0]["installedVersion"], "1.0.0");
+    assert_eq!(updates[0]["latest"]["version"], "1.1.0");
+    let unlisted = body["unlisted"].as_array().unwrap();
+    assert_eq!(unlisted.len(), 1);
+    assert_eq!(unlisted[0]["id"], "missing");
+}
+
+#[tokio::test]
+async fn update_check_ignores_yanked_and_honours_min_app_version() {
+    let (app, _tmp, _) = test_app().await;
+
+    // neon-theme 2.0.0 needs app >= 0.9.0.
+    let items = serde_json::json!([installed("other", "theme", "neon-theme", "1.0.0")]);
+
+    let (_, no_app) = post_updates(&app, serde_json::json!({ "items": items })).await;
+    assert_eq!(no_app["updates"][0]["latest"]["version"], "2.0.0");
+
+    let (_, old_app) = post_updates(
+        &app,
+        serde_json::json!({ "appVersion": "0.8.5", "items": items }),
+    )
+    .await;
+    assert!(
+        old_app["updates"].as_array().unwrap().is_empty(),
+        "{old_app}"
+    );
+    assert!(old_app["unlisted"].as_array().unwrap().is_empty());
+
+    let (_, new_app) = post_updates(
+        &app,
+        serde_json::json!({ "appVersion": "0.9.0-beta.1", "items": items }),
+    )
+    .await;
+    assert_eq!(new_app["updates"][0]["latest"]["version"], "2.0.0");
+
+    // A yanked version is never offered: 0.9.0 is older anyway, so nothing for 1.1.0 installs.
+    let (_, current) = post_updates(
+        &app,
+        serde_json::json!({ "items": [installed("spiral", "skin", "demo-skin", "1.1.0")] }),
+    )
+    .await;
+    assert!(current["updates"].as_array().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn update_check_validates_input() {
+    let (app, _tmp, _) = test_app().await;
+
+    let (status, body) = post_updates(
+        &app,
+        serde_json::json!({ "appVersion": "latest", "items": [] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["code"], "invalid_app_version");
+
+    let many: Vec<Value> = (0..201)
+        .map(|i| installed("spiral", "skin", &format!("s{i}"), "1.0.0"))
+        .collect();
+    let (status, body) = post_updates(&app, serde_json::json!({ "items": many })).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["code"], "too_many_items");
+
+    // An installed version that is not semver is skipped, not an error.
+    let (status, body) = post_updates(
+        &app,
+        serde_json::json!({ "items": [installed("spiral", "skin", "demo-skin", "dev")] }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["updates"].as_array().unwrap().is_empty());
+}
 // --- Phase 2: admin upload / yank / purge ---------------------------------
 
-fn fixture_valid_theme_dir() -> PathBuf {
-    let candidates = [
-        PathBuf::from("fixtures/valid-theme"),
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/valid-theme"),
-    ];
-    for path in candidates {
-        if path.join("pack.json").is_file() {
-            return path;
-        }
-    }
-    panic!("fixtures/valid-theme not found");
+fn fixture_dir(name: &str) -> PathBuf {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures/items")
+        .join(name);
+    assert!(path.is_dir(), "fixture {name} not found");
+    path
 }
 
-fn zip_dir_to_bytes(pack_dir: &Path) -> Vec<u8> {
+fn zip_dir_to_bytes(item_dir: &Path) -> Vec<u8> {
     use std::io::Write;
     use zip::write::SimpleFileOptions;
     use zip::ZipWriter;
@@ -311,7 +428,7 @@ fn zip_dir_to_bytes(pack_dir: &Path) -> Vec<u8> {
         let mut zip = ZipWriter::new(&mut cursor);
         let options =
             SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-        add_dir(&mut zip, pack_dir, Path::new(""), options);
+        add_dir(&mut zip, item_dir, Path::new(""), options);
         zip.finish().unwrap();
     }
     cursor.into_inner()
@@ -370,13 +487,13 @@ fn multipart_spk(filename: &str, bytes: &[u8]) -> (String, Vec<u8>) {
 }
 
 async fn admin_upload(app: &axum::Router, bytes: &[u8]) -> (StatusCode, Value) {
-    let (content_type, body) = multipart_spk("pack.spk", bytes);
+    let (content_type, body) = multipart_spk("item.spk", bytes);
     let response = app
         .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/v1/rgad/packs")
+                .uri("/v1/rgad/items")
                 .header("Authorization", format!("Bearer {TEST_ADMIN_TOKEN}"))
                 .header("Content-Type", content_type)
                 .body(Body::from(body))
@@ -420,48 +537,41 @@ async fn admin_json(
 #[tokio::test]
 async fn upload_valid_spk_appears_in_catalog() {
     let (app, _tmp, _) = test_app().await;
-    let spk = zip_dir_to_bytes(&fixture_valid_theme_dir());
+    let spk = zip_dir_to_bytes(&fixture_dir("demo-theme"));
 
     let (status, body) = admin_upload(&app, &spk).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["publisherId"], "spiral");
-    assert_eq!(body["packId"], "demo-theme");
+    assert_eq!(body["itemType"], "theme");
+    assert_eq!(body["id"], "demo-theme");
+    assert_eq!(body["effectiveId"], "spiral.theme.demo-theme");
     assert_eq!(body["version"], "1.0.0");
     assert_eq!(body["name"], "Demo Theme");
     assert_eq!(
         body["description"],
-        "Valid theme fixture for admin upload testing."
+        "Valid theme fixture for publish tests and the seed."
     );
     assert!(body["sha256"].as_str().unwrap().len() == 64);
-    let fixture = fixture_valid_theme_dir();
-    let expected_size =
-        spk_registry::publish::directory_size_bytes(&fixture).expect("fixture size") as i64;
+    let expected_size = spk_registry::publish::directory_size_bytes(&fixture_dir("demo-theme"))
+        .expect("size") as i64;
     assert_eq!(
         body["sizeBytes"].as_i64().unwrap(),
         expected_size,
-        "sizeBytes must be uncompressed pack size, not archive length ({})",
+        "sizeBytes must be uncompressed item size, not archive length ({})",
         spk.len()
     );
     assert_eq!(
         body["previewUrl"],
-        "/v1/packs/spiral/demo-theme/versions/1.0.0/preview"
+        "/v1/items/spiral/theme/demo-theme/versions/1.0.0/preview"
     );
-    let contributions = body["contributions"].as_array().expect("contributions");
-    assert_eq!(contributions.len(), 1);
-    assert_eq!(contributions[0]["type"], "theme");
-    assert_eq!(contributions[0]["localId"], "demo");
-    assert_eq!(
-        contributions[0]["effectiveId"],
-        "spiral.demo-theme.theme.demo"
-    );
-    assert_eq!(contributions[0]["name"], "Demo Theme");
-    assert_eq!(contributions[0]["author"], "spiral");
+    assert!(body["readme"].as_str().unwrap().contains("Demo Theme"));
+    assert!(body["changelog"].as_str().unwrap().contains("1.0.0"));
 
     let response = app
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/v1/packs/spiral/demo-theme/versions/1.0.0/preview")
+                .uri("/v1/items/spiral/theme/demo-theme/versions/1.0.0/preview")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -472,48 +582,116 @@ async fn upload_valid_spk_appears_in_catalog() {
     let preview_bytes = response.into_body().collect().await.unwrap().to_bytes();
     assert!(preview_bytes.starts_with(b"\x89PNG"), "expected PNG magic");
 
-    let (status, list) = json_get(&app, "/v1/packs?contributionType=theme").await;
+    let (status, list) = json_get(&app, "/v1/items?type=theme&q=demo").await;
     assert_eq!(status, StatusCode::OK);
-    let packs = list["packs"].as_array().unwrap();
-    let uploaded = packs
+    let uploaded = list["items"]
+        .as_array()
+        .unwrap()
         .iter()
-        .find(|p| p["packId"] == "demo-theme")
-        .expect("uploaded pack should appear immediately");
+        .find(|p| p["id"] == "demo-theme")
+        .expect("uploaded item should appear immediately");
     assert_eq!(uploaded["latestVersion"]["name"], "Demo Theme");
-    assert_eq!(
-        uploaded["latestVersion"]["description"],
-        "Valid theme fixture for admin upload testing."
-    );
+    // README / CHANGELOG are version-detail only.
     assert!(uploaded["latestVersion"]["readme"].is_null());
-    assert!(uploaded["latestVersion"]["changelog"].is_null());
-    assert_eq!(
-        uploaded["latestVersion"]["contributions"][0]["name"],
-        "Demo Theme"
-    );
 
-    let (status, detail) = json_get(&app, "/v1/packs/spiral/demo-theme/versions/1.0.0").await;
+    let (status, detail) = json_get(&app, "/v1/items/spiral/theme/demo-theme/versions/1.0.0").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(detail["name"], "Demo Theme");
-    assert!(
-        detail["readme"]
-            .as_str()
-            .unwrap_or("")
-            .contains("Demo Theme"),
-        "version detail should include README: {detail}"
-    );
-    assert!(
-        detail["changelog"].as_str().unwrap_or("").contains("1.0.0"),
-        "version detail should include CHANGELOG: {detail}"
-    );
-    assert!(detail["contributions"].as_array().unwrap().len() == 1);
+    assert!(detail["readme"]
+        .as_str()
+        .unwrap_or("")
+        .contains("Demo Theme"));
 }
 
+#[tokio::test]
+async fn every_item_type_publishes_and_downloads() {
+    let (app, _tmp, _) = test_app().await;
+    for (fixture, item_type) in [
+        ("demo-theme", "theme"),
+        ("mini-skin", "skin"),
+        ("demo-viz", "visualizer"),
+        ("demo-sound", "sound"),
+    ] {
+        let spk = zip_dir_to_bytes(&fixture_dir(fixture));
+        let (status, body) = admin_upload(&app, &spk).await;
+        assert_eq!(status, StatusCode::OK, "{fixture}: {body}");
+        assert_eq!(body["itemType"], item_type);
+        assert_eq!(body["effectiveId"], format!("spiral.{item_type}.{fixture}"));
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(format!(
+                        "/v1/items/spiral/{item_type}/{fixture}/versions/latest/download"
+                    ))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK, "{fixture}");
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(bytes.len(), spk.len());
+    }
+
+    let (_, list) = json_get(&app, "/v1/items?publisher=spiral").await;
+    // The four uploads plus the seeded spiral demo-skin.
+    assert_eq!(list["total"], 5);
+}
+
+#[tokio::test]
+async fn upload_rejects_a_pack_format_archive() {
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+    use zip::ZipWriter;
+
+    let (app, _tmp, _) = test_app().await;
+    let mut cursor = std::io::Cursor::new(Vec::new());
+    {
+        let mut zip = ZipWriter::new(&mut cursor);
+        let options = SimpleFileOptions::default();
+        zip.start_file("pack.json", options).unwrap();
+        zip.write_all(br#"{"manifestVersion":1,"packId":"old","publisherId":"spiral","version":"1.0.0","name":"Old"}"#)
+            .unwrap();
+        zip.finish().unwrap();
+    }
+    let (status, body) = admin_upload(&app, &cursor.into_inner()).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["code"], "invalid_item");
+    assert!(
+        body["message"].as_str().unwrap().contains("item manifest"),
+        "{body}"
+    );
+}
+
+#[tokio::test]
+async fn upload_rejects_a_manifest_without_version() {
+    let (app, _tmp, _) = test_app().await;
+    let dir = TempDir::new().unwrap();
+    let theme = dir.path().join("theme.json");
+    let mut value: Value = serde_json::from_slice(
+        &std::fs::read(fixture_dir("demo-theme").join("theme.json")).unwrap(),
+    )
+    .unwrap();
+    value.as_object_mut().unwrap().remove("version");
+    value.as_object_mut().unwrap().remove("preview");
+    std::fs::write(&theme, serde_json::to_vec(&value).unwrap()).unwrap();
+
+    let (status, body) = admin_upload(&app, &zip_dir_to_bytes(dir.path())).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["code"], "invalid_item");
+    assert!(
+        body["message"].as_str().unwrap().contains("version"),
+        "{body}"
+    );
+}
 #[tokio::test]
 async fn upload_zip_slip_rejected() {
     let (app, _tmp, _) = test_app().await;
     let (status, body) = admin_upload(&app, &zip_slip_bytes()).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
-    assert_eq!(body["code"], "invalid_pack");
+    assert_eq!(body["code"], "invalid_item");
     let msg = body["message"].as_str().unwrap().to_ascii_lowercase();
     assert!(
         msg.contains("invalid path") || msg.contains("evil"),
@@ -529,7 +707,7 @@ async fn upload_rejects_archives_with_too_many_entries() {
     assert!(bomb.len() < 5 * 1024 * 1024, "{} bytes", bomb.len());
     let (status, body) = admin_upload(&app, &bomb).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
-    assert_eq!(body["code"], "invalid_pack");
+    assert_eq!(body["code"], "invalid_item");
     let msg = body["message"].as_str().unwrap().to_ascii_lowercase();
     assert!(msg.contains("too many entries"), "got: {msg}");
 }
@@ -537,7 +715,7 @@ async fn upload_rejects_archives_with_too_many_entries() {
 #[tokio::test]
 async fn upload_duplicate_version_conflicts() {
     let (app, _tmp, _) = test_app().await;
-    let spk = zip_dir_to_bytes(&fixture_valid_theme_dir());
+    let spk = zip_dir_to_bytes(&fixture_dir("demo-theme"));
     let (status, _) = admin_upload(&app, &spk).await;
     assert_eq!(status, StatusCode::OK);
     let (status, body) = admin_upload(&app, &spk).await;
@@ -558,7 +736,7 @@ async fn upload_rejects_oversized_body() {
 #[tokio::test]
 async fn yank_hides_from_catalog_but_download_still_works() {
     let (app, _tmp, _) = test_app().await;
-    let spk = zip_dir_to_bytes(&fixture_valid_theme_dir());
+    let spk = zip_dir_to_bytes(&fixture_dir("demo-theme"));
     let (status, uploaded) = admin_upload(&app, &spk).await;
     assert_eq!(status, StatusCode::OK);
     let sha = uploaded["sha256"].as_str().unwrap().to_string();
@@ -566,28 +744,28 @@ async fn yank_hides_from_catalog_but_download_still_works() {
     let (status, _) = admin_json(
         &app,
         "POST",
-        "/v1/rgad/packs/spiral/demo-theme/versions/1.0.0/yank",
+        "/v1/rgad/items/spiral/theme/demo-theme/versions/1.0.0/yank",
         None,
     )
     .await;
     assert_eq!(status, StatusCode::OK);
 
-    let (status, _) = json_get(&app, "/v1/packs/spiral/demo-theme/versions/1.0.0").await;
+    let (status, _) = json_get(&app, "/v1/items/spiral/theme/demo-theme/versions/1.0.0").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 
-    let (status, list) = json_get(&app, "/v1/packs?contributionType=theme").await;
+    let (status, list) = json_get(&app, "/v1/items?type=theme").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(list["packs"]
+    assert!(list["items"]
         .as_array()
         .unwrap()
         .iter()
-        .all(|p| p["packId"] != "demo-theme"));
+        .all(|p| p["id"] != "demo-theme"));
 
     let response = app
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/v1/packs/spiral/demo-theme/versions/1.0.0/download")
+                .uri("/v1/items/spiral/theme/demo-theme/versions/1.0.0/download")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -612,14 +790,14 @@ async fn yank_hides_from_catalog_but_download_still_works() {
 #[tokio::test]
 async fn unyank_restores_version_to_catalog() {
     let (app, _tmp, _) = test_app().await;
-    let spk = zip_dir_to_bytes(&fixture_valid_theme_dir());
+    let spk = zip_dir_to_bytes(&fixture_dir("demo-theme"));
     let (status, _) = admin_upload(&app, &spk).await;
     assert_eq!(status, StatusCode::OK);
 
     let (status, _) = admin_json(
         &app,
         "POST",
-        "/v1/rgad/packs/spiral/demo-theme/versions/1.0.0/yank",
+        "/v1/rgad/items/spiral/theme/demo-theme/versions/1.0.0/yank",
         None,
     )
     .await;
@@ -628,14 +806,14 @@ async fn unyank_restores_version_to_catalog() {
     let (status, body) = admin_json(
         &app,
         "POST",
-        "/v1/rgad/packs/spiral/demo-theme/versions/1.0.0/unyank",
+        "/v1/rgad/items/spiral/theme/demo-theme/versions/1.0.0/unyank",
         None,
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["yanked"], false);
 
-    let (status, detail) = json_get(&app, "/v1/packs/spiral/demo-theme/versions/1.0.0").await;
+    let (status, detail) = json_get(&app, "/v1/items/spiral/theme/demo-theme/versions/1.0.0").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(detail["version"], "1.0.0");
 
@@ -643,7 +821,7 @@ async fn unyank_restores_version_to_catalog() {
     let (status, body) = admin_json(
         &app,
         "POST",
-        "/v1/rgad/packs/spiral/demo-theme/versions/1.0.0/unyank",
+        "/v1/rgad/items/spiral/theme/demo-theme/versions/1.0.0/unyank",
         None,
     )
     .await;
@@ -653,35 +831,35 @@ async fn unyank_restores_version_to_catalog() {
 #[tokio::test]
 async fn purge_deletes_object_returns_410_and_writes_audit_log() {
     let (app, _tmp, storage) = test_app().await;
-    let spk = zip_dir_to_bytes(&fixture_valid_theme_dir());
+    let spk = zip_dir_to_bytes(&fixture_dir("demo-theme"));
     let (status, _) = admin_upload(&app, &spk).await;
     assert_eq!(status, StatusCode::OK);
 
     let (status, body) = admin_json(
         &app,
         "POST",
-        "/v1/rgad/packs/spiral/demo-theme/versions/1.0.0/purge",
+        "/v1/rgad/items/spiral/theme/demo-theme/versions/1.0.0/purge",
         Some(serde_json::json!({
-            "confirm": "spiral/demo-theme@1.0.0",
+            "confirm": "spiral/theme/demo-theme@1.0.0",
             "reason": "test takedown"
         })),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
-    let (status, list) = json_get(&app, "/v1/packs?contributionType=theme").await;
+    let (status, list) = json_get(&app, "/v1/items?type=theme").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(list["packs"]
+    assert!(list["items"]
         .as_array()
         .unwrap()
         .iter()
-        .all(|p| p["packId"] != "demo-theme"));
+        .all(|p| p["id"] != "demo-theme"));
 
     let response = app
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/v1/packs/spiral/demo-theme/versions/1.0.0/download")
+                .uri("/v1/items/spiral/theme/demo-theme/versions/1.0.0/download")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -690,7 +868,7 @@ async fn purge_deletes_object_returns_410_and_writes_audit_log() {
     assert_eq!(response.status(), StatusCode::GONE);
 
     assert!(storage
-        .get_download_url("spiral/demo-theme/1.0.0/pack.spk")
+        .get_download_url("spiral/theme/demo-theme/1.0.0/item.spk")
         .await
         .is_err());
 }
@@ -698,14 +876,14 @@ async fn purge_deletes_object_returns_410_and_writes_audit_log() {
 #[tokio::test]
 async fn purge_without_matching_confirm_is_noop() {
     let (app, _tmp, storage) = test_app().await;
-    let spk = zip_dir_to_bytes(&fixture_valid_theme_dir());
+    let spk = zip_dir_to_bytes(&fixture_dir("demo-theme"));
     let (status, _) = admin_upload(&app, &spk).await;
     assert_eq!(status, StatusCode::OK);
 
     let (status, body) = admin_json(
         &app,
         "POST",
-        "/v1/rgad/packs/spiral/demo-theme/versions/1.0.0/purge",
+        "/v1/rgad/items/spiral/theme/demo-theme/versions/1.0.0/purge",
         Some(serde_json::json!({
             "confirm": "wrong/confirm@1.0.0",
             "reason": "should not delete"
@@ -715,11 +893,11 @@ async fn purge_without_matching_confirm_is_noop() {
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
     assert_eq!(body["code"], "confirm_mismatch");
 
-    let (status, detail) = json_get(&app, "/v1/packs/spiral/demo-theme/versions/1.0.0").await;
+    let (status, detail) = json_get(&app, "/v1/items/spiral/theme/demo-theme/versions/1.0.0").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(detail["version"], "1.0.0");
     assert!(storage
-        .get_download_url("spiral/demo-theme/1.0.0/pack.spk")
+        .get_download_url("spiral/theme/demo-theme/1.0.0/item.spk")
         .await
         .is_ok());
 }
@@ -739,7 +917,7 @@ async fn admin_panel_and_list_require_token() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/v1/rgad/packs")
+                .uri("/v1/rgad/items")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -750,7 +928,7 @@ async fn admin_panel_and_list_require_token() {
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/v1/rgad/packs")
+                .uri("/v1/rgad/items")
                 .header("Authorization", "Bearer wrong-token")
                 .body(Body::empty())
                 .unwrap(),
@@ -763,13 +941,13 @@ async fn admin_panel_and_list_require_token() {
 #[tokio::test]
 async fn non_upload_route_rejects_oversized_body() {
     let (app, _tmp, _) = test_app().await;
-    // Json extractors use Axum's 2 MiB default; only POST /v1/rgad/packs raises it.
+    // Json extractors use Axum's 2 MiB default; only POST /v1/rgad/items raises it.
     let huge = vec![b'x'; 2 * 1024 * 1024 + 1];
     let response = app
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/v1/rgad/packs/spiral/demo-skin/versions/1.1.0/purge")
+                .uri("/v1/rgad/items/spiral/skin/demo-skin/versions/1.1.0/purge")
                 .header("Authorization", format!("Bearer {TEST_ADMIN_TOKEN}"))
                 .header("Content-Type", "application/json")
                 .body(Body::from(huge))
@@ -791,7 +969,7 @@ async fn admin_api_rate_limit_is_per_ip() {
             .clone()
             .oneshot(
                 Request::builder()
-                    .uri("/v1/rgad/packs")
+                    .uri("/v1/rgad/items")
                     .header("x-client-ip", ip)
                     .header("Authorization", "Bearer wrong-token")
                     .body(Body::empty())
@@ -810,7 +988,7 @@ async fn admin_api_rate_limit_is_per_ip() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/v1/rgad/packs")
+                .uri("/v1/rgad/items")
                 .header("x-client-ip", ip)
                 .header("Authorization", "Bearer wrong-token")
                 .body(Body::empty())
@@ -826,7 +1004,7 @@ async fn admin_api_rate_limit_is_per_ip() {
     let other_ip = app
         .oneshot(
             Request::builder()
-                .uri("/v1/rgad/packs")
+                .uri("/v1/rgad/items")
                 .header("x-client-ip", other)
                 .header("Authorization", "Bearer wrong-token")
                 .body(Body::empty())
@@ -840,7 +1018,7 @@ async fn admin_api_rate_limit_is_per_ip() {
 #[tokio::test]
 async fn download_concurrency_is_per_ip() {
     let (app, _tmp, _) = test_app().await;
-    let uri = "/v1/packs/spiral/demo-skin/versions/1.1.0/download";
+    let uri = "/v1/items/spiral/skin/demo-skin/versions/1.1.0/download";
     let ip = "203.0.113.20";
 
     let mut held = Vec::new();

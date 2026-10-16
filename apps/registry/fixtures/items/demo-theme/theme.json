@@ -1,8 +1,8 @@
 {
-  "id": "demo",
+  "id": "demo-theme",
   "name": "Demo Theme",
   "author": "spiral",
-  "description": "Minimal valid theme",
+  "description": "Valid theme fixture for publish tests and the seed.",
   "tokens": {
     "color-bg": "#111111",
     "color-surface": "#1a1a1a",
@@ -15,5 +15,8 @@
     "radius-card": "8px",
     "radius-button": "6px",
     "font-ui": "system-ui, sans-serif"
-  }
+  },
+  "publisherId": "spiral",
+  "version": "1.0.0",
+  "preview": "preview.png"
 }

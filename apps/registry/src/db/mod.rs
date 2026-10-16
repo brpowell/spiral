@@ -14,13 +14,13 @@ use anyhow::{bail, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use crate::models::{PackVersionRow, TakedownLogRow};
+use crate::models::{ItemVersionRow, TakedownLogRow};
 
 pub use sqlite::SqliteStore;
 
 #[derive(Debug, thiserror::Error)]
-pub enum InsertPackError {
-    #[error("pack version already exists")]
+pub enum InsertItemError {
+    #[error("item version already exists")]
     Duplicate,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
@@ -32,46 +32,50 @@ pub trait CatalogStore: Send + Sync {
     async fn migrate(&self) -> Result<()>;
 
     /// Insert a published (or already-yanked) version row.
-    async fn insert_pack_version(&self, row: &PackVersionRow) -> Result<(), InsertPackError>;
+    async fn insert_item_version(&self, row: &ItemVersionRow) -> Result<(), InsertItemError>;
 
-    /// All non-yanked versions, optionally filtered.
+    /// All non-yanked versions, optionally filtered by publisher and item type.
     async fn list_published_versions(
         &self,
         publisher_id: Option<&str>,
-        contribution_type: Option<&str>,
-    ) -> Result<Vec<PackVersionRow>>;
+        item_type: Option<&str>,
+    ) -> Result<Vec<ItemVersionRow>>;
 
-    /// Non-yanked versions of one pack, newest first.
-    async fn list_published_versions_for_pack(
+    /// Non-yanked versions of one item, newest first.
+    async fn list_published_versions_for_item(
         &self,
         publisher_id: &str,
-        pack_id: &str,
-    ) -> Result<Vec<PackVersionRow>>;
+        item_type: &str,
+        item_id: &str,
+    ) -> Result<Vec<ItemVersionRow>>;
 
     /// Published (non-yanked) version, or `None` if missing / yanked.
     async fn get_published_version(
         &self,
         publisher_id: &str,
-        pack_id: &str,
+        item_type: &str,
+        item_id: &str,
         version: &str,
-    ) -> Result<Option<PackVersionRow>>;
+    ) -> Result<Option<ItemVersionRow>>;
 
     /// Any stored version including yanked, used for download resolution.
     async fn get_version_for_download(
         &self,
         publisher_id: &str,
-        pack_id: &str,
+        item_type: &str,
+        item_id: &str,
         version: &str,
-    ) -> Result<Option<PackVersionRow>>;
+    ) -> Result<Option<ItemVersionRow>>;
 
     /// All versions, published and yanked, for the admin listing.
-    async fn list_all_versions(&self) -> Result<Vec<PackVersionRow>>;
+    async fn list_all_versions(&self) -> Result<Vec<ItemVersionRow>>;
 
     /// Soft-delete. Returns `false` if the version does not exist or is already yanked.
     async fn yank_version(
         &self,
         publisher_id: &str,
-        pack_id: &str,
+        item_type: &str,
+        item_id: &str,
         version: &str,
         yanked_at: DateTime<Utc>,
     ) -> Result<bool>;
@@ -80,7 +84,8 @@ pub trait CatalogStore: Send + Sync {
     async fn unyank_version(
         &self,
         publisher_id: &str,
-        pack_id: &str,
+        item_type: &str,
+        item_id: &str,
         version: &str,
     ) -> Result<bool>;
 
@@ -88,30 +93,39 @@ pub trait CatalogStore: Send + Sync {
     async fn delete_version(
         &self,
         publisher_id: &str,
-        pack_id: &str,
+        item_type: &str,
+        item_id: &str,
         version: &str,
-    ) -> Result<Option<PackVersionRow>>;
+    ) -> Result<Option<ItemVersionRow>>;
 
-    /// Delete every version of a pack, returning the deleted rows.
-    async fn delete_pack_versions(
+    /// Delete every version of an item, returning the deleted rows.
+    async fn delete_item_versions(
         &self,
         publisher_id: &str,
-        pack_id: &str,
-    ) -> Result<Vec<PackVersionRow>>;
+        item_type: &str,
+        item_id: &str,
+    ) -> Result<Vec<ItemVersionRow>>;
 
     async fn insert_takedown_log(&self, row: &TakedownLogRow) -> Result<()>;
 
-    /// True if this exact version (or a pack-level `*`) was purged.
-    async fn was_purged(&self, publisher_id: &str, pack_id: &str, version: &str) -> Result<bool>;
+    /// True if this exact version (or an item-level `*`) was purged.
+    async fn was_purged(
+        &self,
+        publisher_id: &str,
+        item_type: &str,
+        item_id: &str,
+        version: &str,
+    ) -> Result<bool>;
 
-    /// Highest-semver published version of a pack.
+    /// Highest-semver published version of an item.
     async fn get_latest_published_version(
         &self,
         publisher_id: &str,
-        pack_id: &str,
-    ) -> Result<Option<PackVersionRow>> {
+        item_type: &str,
+        item_id: &str,
+    ) -> Result<Option<ItemVersionRow>> {
         let rows = self
-            .list_published_versions_for_pack(publisher_id, pack_id)
+            .list_published_versions_for_item(publisher_id, item_type, item_id)
             .await?;
         Ok(rows.into_iter().next())
     }
@@ -132,24 +146,13 @@ pub async fn connect(database_url: &str) -> Result<Arc<dyn CatalogStore>> {
     Ok(store)
 }
 
-fn filter_by_contribution_type(
-    rows: Vec<PackVersionRow>,
-    contribution_type: Option<&str>,
-) -> Vec<PackVersionRow> {
-    let Some(wanted) = contribution_type else {
-        return rows;
-    };
-    rows.into_iter()
-        .filter(|row| row.contribution_types_vec().iter().any(|t| t == wanted))
-        .collect()
-}
-
-fn sort_by_semver_desc(mut rows: Vec<PackVersionRow>) -> Vec<PackVersionRow> {
+fn sort_by_semver_desc(mut rows: Vec<ItemVersionRow>) -> Vec<ItemVersionRow> {
     rows.sort_by(|a, b| compare_version_desc(&a.version, &b.version));
     rows
 }
 
-fn compare_version_desc(a: &str, b: &str) -> Ordering {
+/// Order versions newest first: valid semver ahead of anything else.
+pub fn compare_version_desc(a: &str, b: &str) -> Ordering {
     match (semver::Version::parse(a), semver::Version::parse(b)) {
         (Ok(va), Ok(vb)) => vb.cmp(&va),
         (Ok(_), Err(_)) => Ordering::Less,
@@ -158,11 +161,15 @@ fn compare_version_desc(a: &str, b: &str) -> Ordering {
     }
 }
 
-/// Collapse version rows into one summary per pack (highest semver wins).
-pub fn group_packs_latest(rows: Vec<PackVersionRow>) -> Vec<(String, String, PackVersionRow)> {
-    let mut best: BTreeMap<(String, String), PackVersionRow> = BTreeMap::new();
+/// Collapse version rows into one row per item (highest semver wins).
+pub fn group_items_latest(rows: Vec<ItemVersionRow>) -> Vec<ItemVersionRow> {
+    let mut best: BTreeMap<(String, String, String), ItemVersionRow> = BTreeMap::new();
     for row in rows {
-        let key = (row.publisher_id.clone(), row.pack_id.clone());
+        let key = (
+            row.publisher_id.clone(),
+            row.item_type.clone(),
+            row.item_id.clone(),
+        );
         match best.get(&key) {
             None => {
                 best.insert(key, row);
@@ -174,40 +181,36 @@ pub fn group_packs_latest(rows: Vec<PackVersionRow>) -> Vec<(String, String, Pac
             }
         }
     }
-
-    best.into_iter()
-        .map(|((publisher_id, pack_id), row)| (publisher_id, pack_id, row))
-        .collect()
+    best.into_values().collect()
 }
 
-/// Helper for tests / seed: build a row with JSON contribution_types.
+/// Helper for tests: build a row with placeholder content.
 #[allow(clippy::too_many_arguments)]
-pub fn pack_version_row(
+pub fn item_version_row(
     publisher_id: &str,
-    pack_id: &str,
+    item_type: &str,
+    item_id: &str,
     version: &str,
-    contribution_types: &[&str],
     size_bytes: i64,
     sha256: &str,
     storage_key: &str,
     published_at: DateTime<Utc>,
     yanked_at: Option<DateTime<Utc>>,
-) -> PackVersionRow {
-    PackVersionRow {
+) -> ItemVersionRow {
+    ItemVersionRow {
         publisher_id: publisher_id.to_string(),
-        pack_id: pack_id.to_string(),
+        item_type: item_type.to_string(),
+        item_id: item_id.to_string(),
         version: version.to_string(),
+        name: item_id.to_string(),
+        description: String::new(),
         min_app_version: None,
-        contribution_types: serde_json::to_string(contribution_types).expect("json"),
         size_bytes,
         sha256: sha256.to_string(),
         storage_key: storage_key.to_string(),
         preview_storage_key: None,
-        name: String::new(),
-        description: String::new(),
         readme: None,
         changelog: None,
-        contributions: "[]".to_string(),
         published_at,
         yanked_at,
     }
