@@ -72,7 +72,6 @@
   },
   "themes": {
     "title": "Themes",
-    "new": "New Theme",
     "newTitle": "New Theme",
     "loading": "Loading themes…",
     "empty": "No themes found.",
@@ -231,11 +230,6 @@
     "unlink": "Unlink",
     "delete": "Delete",
     "uninstall": "Uninstall",
-    "add": "Add",
-    "addAria": "Add or import",
-    "import": "Import…",
-    "linkFolder": "Link a folder…",
-    "reloadLinked": "Reload linked folders",
     "backTo": "Back to {{section}}",
     "notFound": "This item is no longer available.",
     "id": "Item id",
@@ -296,5 +290,17 @@
       "play": "Play {{name}}"
     }
   },
-  "backToDetails": "Back to Details"
+  "backToDetails": "Back to Details",
+  "actions": {
+    "new": "New",
+    "newAria": "Create new item",
+    "manage": "Manage",
+    "manageAria": "Manage items",
+    "install": "Install…",
+    "linkFolder": "Link a folder…",
+    "reloadLinked": "Reload linked folders"
+  },
+  "new": {
+    "theme": "Theme"
+  }
 }

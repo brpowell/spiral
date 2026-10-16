@@ -9,7 +9,6 @@ import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
 import { HiddenItems } from "./HiddenItems";
 import { ItemActionsMenu } from "./ItemActionsMenu";
-import { ItemsAddMenu } from "./ItemsAddMenu";
 import { AppearancePackCard } from "./AppearancePackCard";
 import { VizCardLivePreview } from "./VizCardLivePreview";
 import { useVizCardSnapshot } from "./vizCardSnapshot";
@@ -173,7 +172,6 @@ export function VisualizersSection({
       <BrowseViewHeader
         className="browse-view__header--single-row"
         title={t("visualizers.title")}
-        actions={<ItemsAddMenu />}
         count={
           visualizers.length > 0
             ? t("library:views.headerCount", { count: visualizers.length })

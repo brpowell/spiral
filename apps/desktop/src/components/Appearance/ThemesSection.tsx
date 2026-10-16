@@ -1,23 +1,15 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  themeApplyFailedPayload,
-  themeCreateFailedPayload,
-} from "../../lib/toastPayloads";
+import { themeApplyFailedPayload } from "../../lib/toastPayloads";
 import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
 import { useThemeStore } from "../../store/useThemeStore";
 import type { Theme } from "../../types/theme";
 import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
-import { Button } from "../common/Button/Button";
 import { HiddenItems } from "./HiddenItems";
 import { ItemActionsMenu } from "./ItemActionsMenu";
-import { ItemsAddMenu } from "./ItemsAddMenu";
 import { AppearancePackCard } from "./AppearancePackCard";
 import { ThemeSwatchPreview } from "./ThemeSwatchPreview";
-import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
-import { NewThemeModal, type NewThemeModalResult } from "./NewThemeModal";
 import "./ThemesSection.css";
 import "./AppearanceSection.css";
 
@@ -72,25 +64,7 @@ export function ThemesSection({
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const themesLoaded = useThemeStore((s) => s.themesLoaded);
   const setTheme = useThemeStore((s) => s.setTheme);
-  const createTheme = useThemeStore((s) => s.createTheme);
   const showErrorToast = useBackgroundTasksStore((s) => s.showErrorToast);
-  const openThemeEditor = useOpenAppearanceThemeEditor();
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-
-  const handleCreate = async (result: NewThemeModalResult) => {
-    setCreating(true);
-    try {
-      const theme = await createTheme({ name: result.name });
-      setModalOpen(false);
-      openThemeEditor(theme.id);
-    } catch (err) {
-      showErrorToast(themeCreateFailedPayload(err));
-    } finally {
-      setCreating(false);
-    }
-  };
 
   const handleSelect = async (theme: Theme) => {
     try {
@@ -109,19 +83,6 @@ export function ThemesSection({
           themesLoaded
             ? t("library:views.headerCount", { count: themes.length })
             : undefined
-        }
-        actions={
-          <>
-            <ItemsAddMenu />
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={creating}
-              onClick={() => setModalOpen(true)}
-            >
-              {t("themes.new")}
-            </Button>
-          </>
         }
       />
 
@@ -146,13 +107,6 @@ export function ThemesSection({
         )}
         <HiddenItems type="theme" />
       </BrowseGridBody>
-
-      <NewThemeModal
-        open={modalOpen}
-        creating={creating}
-        onClose={() => setModalOpen(false)}
-        onCreate={(result) => void handleCreate(result)}
-      />
     </BrowseView>
   );
 }
