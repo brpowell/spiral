@@ -18,7 +18,7 @@ export interface ThemeTokens {
 }
 
 export interface Theme {
-  /** Effective id: `authorId.theme.id`. */
+  /** Effective id: `publisherId.theme.id`. */
   id: string;
   /** Human-readable display label. */
   name: string;
@@ -27,7 +27,7 @@ export interface Theme {
   description: string;
   tokens: ThemeTokens;
   /** Structured maintainer/distributor slug. */
-  authorId: string;
+  publisherId: string;
   /** Semver content version of this item build. */
   version: string;
   zone: PackZone;

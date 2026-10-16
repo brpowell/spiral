@@ -34,36 +34,36 @@ pub fn save_pack_registries(
 pub fn fetch_pack_catalog(
     app: AppHandle,
     contribution_type: Option<String>,
-    author_id: Option<String>,
+    publisher_id: Option<String>,
 ) -> Result<RegistryPackList, String> {
     Ok(registry::fetch_pack_catalog(
         &app,
         contribution_type.as_deref(),
-        author_id.as_deref(),
+        publisher_id.as_deref(),
     ))
 }
 
-/// `GET /v1/packs/:authorId/:packId` — all published (non-yanked) versions.
+/// `GET /v1/packs/:publisherId/:packId` — all published (non-yanked) versions.
 #[tauri::command]
 pub fn fetch_registry_pack(
     app: AppHandle,
     registry_url: String,
-    author_id: String,
+    publisher_id: String,
     pack_id: String,
 ) -> Result<SourcedRegistryPackDetail, String> {
-    registry::fetch_pack_detail(&app, &registry_url, &author_id, &pack_id)
+    registry::fetch_pack_detail(&app, &registry_url, &publisher_id, &pack_id)
 }
 
-/// `GET /v1/packs/:authorId/:packId/versions/:version` (includes README).
+/// `GET /v1/packs/:publisherId/:packId/versions/:version` (includes README).
 #[tauri::command]
 pub fn fetch_registry_pack_version(
     app: AppHandle,
     registry_url: String,
-    author_id: String,
+    publisher_id: String,
     pack_id: String,
     version: String,
 ) -> Result<SourcedRegistryVersionDetail, String> {
-    registry::fetch_pack_version_detail(&app, &registry_url, &author_id, &pack_id, &version)
+    registry::fetch_pack_version_detail(&app, &registry_url, &publisher_id, &pack_id, &version)
 }
 
 /// Running app semver used for `minAppVersion` checks (`CARGO_PKG_VERSION`).
@@ -82,17 +82,17 @@ pub fn pack_meets_min_app_version(min_app_version: Option<String>) -> bool {
 #[tauri::command]
 pub fn is_pack_installed(
     app: AppHandle,
-    author_id: String,
+    publisher_id: String,
     pack_id: String,
     version: String,
 ) -> Result<bool, String> {
-    let author_id = author_id.trim();
+    let publisher_id = publisher_id.trim();
     let pack_id = pack_id.trim();
     let version = version.trim();
-    if author_id.is_empty() || pack_id.is_empty() || version.is_empty() {
-        return Err("authorId, packId, and version are required".into());
+    if publisher_id.is_empty() || pack_id.is_empty() || version.is_empty() {
+        return Err("publisherId, packId, and version are required".into());
     }
-    registry::is_pack_installed(&app, author_id, pack_id, version)
+    registry::is_pack_installed(&app, publisher_id, pack_id, version)
 }
 
 /// Registry packs are v1 bundles; local installs are individual items. Until the registry
@@ -127,13 +127,13 @@ pub fn install_pack_from_url(
 
 /// Download + install by catalog identity from a configured registry base URL.
 ///
-/// Rejects already-installed `authorId`+`packId`+`version` and packs whose `minAppVersion`
+/// Rejects already-installed `publisherId`+`packId`+`version` and packs whose `minAppVersion`
 /// exceeds the running app (when provided) before any download starts.
 #[tauri::command]
 pub fn install_pack_from_registry(
     app: AppHandle,
     registry_url: String,
-    author_id: String,
+    publisher_id: String,
     pack_id: String,
     version: String,
     sha256: String,
@@ -141,11 +141,11 @@ pub fn install_pack_from_registry(
     min_app_version: Option<String>,
     on_progress: Channel<PackDownloadProgress>,
 ) -> Result<InstallItemResult, String> {
-    let author_id = author_id.trim();
+    let publisher_id = publisher_id.trim();
     let pack_id = pack_id.trim();
     let version = version.trim();
-    if author_id.is_empty() || pack_id.is_empty() || version.is_empty() {
-        return Err("authorId, packId, and version are required".into());
+    if publisher_id.is_empty() || pack_id.is_empty() || version.is_empty() {
+        return Err("publisherId, packId, and version are required".into());
     }
     if !registry::pack_meets_min_app_version(min_app_version.as_deref()) {
         let min = min_app_version.as_deref().unwrap_or("?");
@@ -154,13 +154,13 @@ pub fn install_pack_from_registry(
             app_version()
         ));
     }
-    if registry::is_pack_installed(&app, author_id, pack_id, version)? {
+    if registry::is_pack_installed(&app, publisher_id, pack_id, version)? {
         return Err(format!(
-            "{author_id}.{pack_id} ({version}) is already installed"
+            "{publisher_id}.{pack_id} ({version}) is already installed"
         ));
     }
     let source = registry::find_registry_by_url(&app, &registry_url)?;
-    let url = registry::pack_download_url(&source.url, author_id, pack_id, version);
+    let url = registry::pack_download_url(&source.url, publisher_id, pack_id, version);
     install_pack_from_url(app, url, sha256, size_bytes, on_progress)
 }
 

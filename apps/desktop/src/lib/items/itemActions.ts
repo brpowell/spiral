@@ -233,7 +233,7 @@ export async function updateItemMetadataWithRefresh(
   itemId: string,
   metadata: {
     id: string;
-    authorId: string;
+    publisherId: string;
     name: string;
     version: string;
     description: string;

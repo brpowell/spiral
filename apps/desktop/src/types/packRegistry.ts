@@ -37,7 +37,7 @@ export interface RegistryVersionSummary {
 /** Full version detail including README/CHANGELOG (from `GET .../versions/:version`). */
 export interface RegistryVersionDetail {
   registryUrl: string;
-  authorId: string;
+  publisherId: string;
   packId: string;
   version: string;
   name: string;
@@ -57,7 +57,7 @@ export interface RegistryVersionDetail {
 /** Pack detail with all published versions (from `GET /v1/packs/:author/:pack`). */
 export interface RegistryPackDetail {
   registryUrl: string;
-  authorId: string;
+  publisherId: string;
   packId: string;
   versions: RegistryVersionSummary[];
 }
@@ -65,7 +65,7 @@ export interface RegistryPackDetail {
 /** Catalog row tagged with which configured registry it came from. */
 export interface RegistryPackSummary {
   registryUrl: string;
-  authorId: string;
+  publisherId: string;
   packId: string;
   latestVersion: RegistryVersionSummary;
 }
@@ -83,10 +83,10 @@ export interface RegistryPackList {
 
 /** Catalog row enriched with local install + app-version gates (no network). */
 export interface CatalogPackEntry extends RegistryPackSummary {
-  /** True when `authorId.packId@latestVersion.version` is already under `installed/`. */
+  /** True when `publisherId.packId@latestVersion.version` is already under `installed/`. */
   installed: boolean;
   /**
-   * True when an older installed version of the same `authorId`+`packId` exists
+   * True when an older installed version of the same `publisherId`+`packId` exists
    * and catalog latest is newer (semver core compare).
    */
   updateAvailable: boolean;

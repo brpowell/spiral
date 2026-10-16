@@ -27,7 +27,7 @@ export interface PackManifest {
    * Structured slug identifying who maintains/distributes this pack.
    * Independent of freeform `author` on contribution manifests.
    */
-  authorId: string;
+  publisherId: string;
   /** Semver content version of this pack build. */
   version: string;
   name: string;
@@ -66,7 +66,7 @@ export interface PackContributionSummary {
 /** One on-disk pack directory (builtin / workshop / installed@version). */
 export interface PackSummary {
   packId: string;
-  authorId: string;
+  publisherId: string;
   version: string;
   name: string;
   description: string;

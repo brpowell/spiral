@@ -83,7 +83,7 @@ pub struct RegistryVersionSummary {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct RegistryVersionDetail {
-    pub author_id: String,
+    pub publisher_id: String,
     pub pack_id: String,
     pub version: String,
     #[serde(default)]
@@ -110,7 +110,7 @@ pub struct RegistryVersionDetail {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct RegistryPackDetail {
-    pub author_id: String,
+    pub publisher_id: String,
     pub pack_id: String,
     pub versions: Vec<RegistryVersionSummary>,
 }
@@ -120,7 +120,7 @@ pub struct RegistryPackDetail {
 #[serde(rename_all = "camelCase")]
 pub struct SourcedRegistryPackDetail {
     pub registry_url: String,
-    pub author_id: String,
+    pub publisher_id: String,
     pub pack_id: String,
     pub versions: Vec<RegistryVersionSummary>,
 }
@@ -130,7 +130,7 @@ pub struct SourcedRegistryPackDetail {
 #[serde(rename_all = "camelCase")]
 pub struct SourcedRegistryVersionDetail {
     pub registry_url: String,
-    pub author_id: String,
+    pub publisher_id: String,
     pub pack_id: String,
     pub version: String,
     pub name: String,
@@ -153,7 +153,7 @@ pub struct SourcedRegistryVersionDetail {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct RegistryPackSummary {
-    pub author_id: String,
+    pub publisher_id: String,
     pub pack_id: String,
     pub latest_version: RegistryVersionSummary,
 }
@@ -163,7 +163,7 @@ pub struct RegistryPackSummary {
 #[serde(rename_all = "camelCase")]
 pub struct SourcedRegistryPackSummary {
     pub registry_url: String,
-    pub author_id: String,
+    pub publisher_id: String,
     pub pack_id: String,
     pub latest_version: RegistryVersionSummary,
 }
@@ -312,13 +312,13 @@ fn join_url(base: &str, path: &str) -> String {
 /// Absolute download URL for a published pack version.
 pub fn pack_download_url(
     registry_base: &str,
-    author_id: &str,
+    publisher_id: &str,
     pack_id: &str,
     version: &str,
 ) -> String {
     join_url(
         registry_base,
-        &format!("v1/packs/{author_id}/{pack_id}/versions/{version}/download"),
+        &format!("v1/packs/{publisher_id}/{pack_id}/versions/{version}/download"),
     )
 }
 
@@ -368,7 +368,7 @@ fn read_body_capped(mut body: impl Read, max_bytes: u64) -> Option<Vec<u8>> {
 pub fn fetch_pack_catalog_from_base(
     registry_base: &str,
     contribution_type: Option<&str>,
-    author_id: Option<&str>,
+    publisher_id: Option<&str>,
 ) -> Result<Vec<RegistryPackSummary>, String> {
     let base = normalize_registry_url(registry_base)?;
     let url = join_url(&base, "v1/packs");
@@ -376,8 +376,8 @@ pub fn fetch_pack_catalog_from_base(
     if let Some(ct) = contribution_type.map(str::trim).filter(|s| !s.is_empty()) {
         query.push(("contributionType", ct.to_string()));
     }
-    if let Some(aid) = author_id.map(str::trim).filter(|s| !s.is_empty()) {
-        query.push(("authorId", aid.to_string()));
+    if let Some(aid) = publisher_id.map(str::trim).filter(|s| !s.is_empty()) {
+        query.push(("publisherId", aid.to_string()));
     }
 
     let client = http_client(CATALOG_TIMEOUT)?;
@@ -423,7 +423,7 @@ pub fn fetch_pack_catalog_from_base(
 pub fn fetch_pack_catalog(
     app: &AppHandle,
     contribution_type: Option<&str>,
-    author_id: Option<&str>,
+    publisher_id: Option<&str>,
 ) -> RegistryPackList {
     let sources = configured_registries(app);
     let mut packs = Vec::new();
@@ -438,12 +438,12 @@ pub fn fetch_pack_catalog(
     }
 
     for source in sources {
-        match fetch_pack_catalog_from_base(&source.url, contribution_type, author_id) {
+        match fetch_pack_catalog_from_base(&source.url, contribution_type, publisher_id) {
             Ok(remote_packs) => {
                 for pack in remote_packs {
                     packs.push(SourcedRegistryPackSummary {
                         registry_url: source.url.clone(),
-                        author_id: pack.author_id,
+                        publisher_id: pack.publisher_id,
                         pack_id: pack.pack_id,
                         latest_version: pack.latest_version,
                     });
@@ -465,17 +465,17 @@ pub fn fetch_pack_catalog(
 pub fn fetch_pack_detail(
     app: &AppHandle,
     registry_url: &str,
-    author_id: &str,
+    publisher_id: &str,
     pack_id: &str,
 ) -> Result<SourcedRegistryPackDetail, String> {
     let source = find_registry_by_url(app, registry_url)?;
-    let author_id = author_id.trim();
+    let publisher_id = publisher_id.trim();
     let pack_id = pack_id.trim();
-    if author_id.is_empty() || pack_id.is_empty() {
-        return Err("authorId and packId are required".into());
+    if publisher_id.is_empty() || pack_id.is_empty() {
+        return Err("publisherId and packId are required".into());
     }
 
-    let path = format!("v1/packs/{author_id}/{pack_id}");
+    let path = format!("v1/packs/{publisher_id}/{pack_id}");
     let url = join_url(&source.url, &path);
     let client = http_client(CATALOG_TIMEOUT)?;
     let response = client.get(&url).send().map_err(|e| {
@@ -508,7 +508,7 @@ pub fn fetch_pack_detail(
 
     Ok(SourcedRegistryPackDetail {
         registry_url: source.url,
-        author_id: remote.author_id,
+        publisher_id: remote.publisher_id,
         pack_id: remote.pack_id,
         versions: remote.versions,
     })
@@ -518,19 +518,19 @@ pub fn fetch_pack_detail(
 pub fn fetch_pack_version_detail(
     app: &AppHandle,
     registry_url: &str,
-    author_id: &str,
+    publisher_id: &str,
     pack_id: &str,
     version: &str,
 ) -> Result<SourcedRegistryVersionDetail, String> {
     let source = find_registry_by_url(app, registry_url)?;
-    let author_id = author_id.trim();
+    let publisher_id = publisher_id.trim();
     let pack_id = pack_id.trim();
     let version = version.trim();
-    if author_id.is_empty() || pack_id.is_empty() || version.is_empty() {
-        return Err("authorId, packId, and version are required".into());
+    if publisher_id.is_empty() || pack_id.is_empty() || version.is_empty() {
+        return Err("publisherId, packId, and version are required".into());
     }
 
-    let path = format!("v1/packs/{author_id}/{pack_id}/versions/{version}");
+    let path = format!("v1/packs/{publisher_id}/{pack_id}/versions/{version}");
     let url = join_url(&source.url, &path);
     let client = http_client(CATALOG_TIMEOUT)?;
     let response = client.get(&url).send().map_err(|e| {
@@ -563,7 +563,7 @@ pub fn fetch_pack_version_detail(
 
     Ok(SourcedRegistryVersionDetail {
         registry_url: source.url,
-        author_id: remote.author_id,
+        publisher_id: remote.publisher_id,
         pack_id: remote.pack_id,
         version: remote.version,
         name: remote.name,
@@ -587,7 +587,7 @@ pub fn fetch_pack_version_detail(
 /// moves to items.
 pub fn is_pack_installed(
     app: &AppHandle,
-    _author_id: &str,
+    _publisher_id: &str,
     _pack_id: &str,
     _version: &str,
 ) -> Result<bool, String> {

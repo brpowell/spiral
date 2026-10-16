@@ -17,7 +17,7 @@ use tauri::AppHandle;
 pub struct ItemSummary {
     pub r#type: String,
     pub id: String,
-    pub author_id: String,
+    pub publisher_id: String,
     pub effective_id: String,
     pub version: String,
     pub name: String,
@@ -67,7 +67,7 @@ fn summarize_item_dir(
         author: peek_freeform_author(&manifest_path),
         r#type: item.item_type,
         id: item.id,
-        author_id: item.author_id,
+        publisher_id: item.publisher_id,
         effective_id,
         version: item.version,
         name: item.name,

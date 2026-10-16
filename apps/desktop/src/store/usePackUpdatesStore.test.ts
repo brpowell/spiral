@@ -89,7 +89,7 @@ function catalogEntry(
 ): CatalogPackEntry {
   return {
     registryUrl: "https://spk.example",
-    authorId: "spiral",
+    publisherId: "spiral",
     packId: overrides.packId,
     latestVersion: {
       version: "2.0.0",

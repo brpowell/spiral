@@ -22,7 +22,7 @@ pub struct ExportItemMetadata {
 }
 
 /// Copy the item to a temp dir, stamp export metadata into its manifest, and zip to
-/// `dest_spk`. Leaves the source directory untouched. `authorId` and `id` are not
+/// `dest_spk`. Leaves the source directory untouched. `publisherId` and `id` are not
 /// changed (they identify the item).
 pub fn export_item_dir_to_spk(
     item_dir: &Path,
@@ -150,7 +150,7 @@ mod tests {
         let item_root = find_item_root(&extract).unwrap();
         let stamped = validate_item_for_install(&item_root).unwrap();
         assert_eq!(stamped.version, "1.2.0");
-        assert_eq!(stamped.author_id, "bryan");
+        assert_eq!(stamped.publisher_id, "bryan");
         assert_eq!(stamped.name, "Shipped Theme");
         assert_eq!(stamped.description, "exported");
 

@@ -3,15 +3,15 @@
   "$id": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/sound-v1.schema.json",
   "title": "Spiral Sound pack manifest v1",
   "type": "object",
-  "required": ["id", "authorId", "version", "name", "author", "description", "sounds"],
+  "required": ["id", "publisherId", "version", "name", "author", "description", "sounds"],
   "additionalProperties": false,
   "properties": {
-    "authorId": {
+    "publisherId": {
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-      "description": "Structured slug identifying who maintains/distributes this item. Effective id is authorId.type.id. Independent of the freeform author credit."
+      "description": "Structured slug identifying who maintains/distributes this item. Effective id is publisherId.type.id. Independent of the freeform author credit."
     },
     "version": {
       "type": "string",

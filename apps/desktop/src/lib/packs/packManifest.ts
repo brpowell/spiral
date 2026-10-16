@@ -16,8 +16,8 @@ export function isPackId(value: string): boolean {
   return PACK_ID_PATTERN.test(value);
 }
 
-/** Alias — authorId uses the same kebab rules as packId. */
-export const isAuthorId = isPackId;
+/** Alias — publisherId uses the same kebab rules as packId. */
+export const isPublisherId = isPackId;
 
 /** Alias — contribution ids use the same kebab rules as packId. */
 export const isContributionId = isPackId;
@@ -37,24 +37,24 @@ export class PackManifestError extends Error {
   }
 }
 
-/** Full pack identity = `authorId.packId`. */
-export function packIdentity(authorId: string, packId: string): string {
-  return `${authorId}.${packId}`;
+/** Full pack identity = `publisherId.packId`. */
+export function packIdentity(publisherId: string, packId: string): string {
+  return `${publisherId}.${packId}`;
 }
 
-/** Effective contribution id = `authorId.packId.type.contributionId`. */
+/** Effective contribution id = `publisherId.packId.type.contributionId`. */
 export function effectiveContributionId(
-  authorId: string,
+  publisherId: string,
   packId: string,
   contribType: string,
   contributionId: string,
 ): string {
-  return `${authorId}.${packId}.${contribType}.${contributionId}`;
+  return `${publisherId}.${packId}.${contribType}.${contributionId}`;
 }
 
-/** Prefix used when remapping settings: `authorId.packId.` */
-export function packIdPrefix(authorId: string, packId: string): string {
-  return `${authorId}.${packId}.`;
+/** Prefix used when remapping settings: `publisherId.packId.` */
+export function packIdPrefix(publisherId: string, packId: string): string {
+  return `${publisherId}.${packId}.`;
 }
 
 /**
@@ -174,10 +174,10 @@ export function parsePackManifest(value: unknown): PackManifest {
     );
   }
 
-  if ("author" in obj && !("authorId" in obj)) {
+  if ("author" in obj && !("publisherId" in obj)) {
     throw new PackManifestError(
       "author_renamed",
-      "pack.json uses authorId (structured slug), not author (freeform). Contribution manifests keep freeform author.",
+      "pack.json uses publisherId (structured slug), not author (freeform). Contribution manifests keep freeform author.",
     );
   }
 
@@ -189,11 +189,11 @@ export function parsePackManifest(value: unknown): PackManifest {
     );
   }
 
-  const authorId = requireNonEmptyString(obj, "authorId");
-  if (!PACK_ID_PATTERN.test(authorId)) {
+  const publisherId = requireNonEmptyString(obj, "publisherId");
+  if (!PACK_ID_PATTERN.test(publisherId)) {
     throw new PackManifestError(
-      "invalid_author_id",
-      `authorId must be a kebab-case slug, got: ${authorId}`,
+      "invalid_publisher_id",
+      `publisherId must be a kebab-case slug, got: ${publisherId}`,
     );
   }
 
@@ -244,7 +244,7 @@ export function parsePackManifest(value: unknown): PackManifest {
   return {
     manifestVersion: PACK_MANIFEST_VERSION,
     packId,
-    authorId,
+    publisherId,
     version,
     name,
     description,

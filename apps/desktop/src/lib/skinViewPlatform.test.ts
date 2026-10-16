@@ -19,7 +19,7 @@ function makePack(views: LoadedSkinPack["manifest"]["views"]): LoadedSkinPack {
       author: "Test",
       description: "",
       isBuiltin: true,
-      authorId: "spiral",
+      publisherId: "spiral",
       version: "1.0.0",
       zone: "builtin",
       previewPath: null,

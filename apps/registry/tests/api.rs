@@ -268,11 +268,11 @@ async fn filters_by_contribution_type_and_author() {
     assert_eq!(packs.len(), 1);
     assert_eq!(packs[0]["packId"], "theme-pack");
 
-    let (status, body) = json_get(&app, "/v1/packs?authorId=spiral").await;
+    let (status, body) = json_get(&app, "/v1/packs?publisherId=spiral").await;
     assert_eq!(status, StatusCode::OK);
     let packs = body["packs"].as_array().unwrap();
     assert_eq!(packs.len(), 1);
-    assert_eq!(packs[0]["authorId"], "spiral");
+    assert_eq!(packs[0]["publisherId"], "spiral");
 }
 
 // --- Phase 2: admin upload / yank / purge ---------------------------------
@@ -435,7 +435,7 @@ async fn upload_valid_spk_appears_in_catalog() {
 
     let (status, body) = admin_upload(&app, &spk).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["authorId"], "spiral");
+    assert_eq!(body["publisherId"], "spiral");
     assert_eq!(body["packId"], "demo-theme");
     assert_eq!(body["version"], "1.0.0");
     assert_eq!(body["name"], "Demo Theme");

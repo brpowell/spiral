@@ -1883,7 +1883,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
           source: "registry",
           name: "Xbox",
           registryUrl: "http://127.0.0.1:8787",
-          authorId: "spiral",
+          publisherId: "spiral",
           packId: "xbox",
           version: "1.0.0",
           error: "could not download pack (http://127.0.0.1:8787/…)",

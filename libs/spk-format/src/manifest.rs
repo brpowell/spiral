@@ -1,7 +1,7 @@
 //! Spiral pack (`pack.json` / `.spk`) contracts — schema v1.
 //!
 //! Contribution ids are declared in each contribution manifest.
-//! Effective id = `authorId.packId.type.contributionId`.
+//! Effective id = `publisherId.packId.type.contributionId`.
 //! Contributions are discovered by scanning type folders (`themes/`, `skins/`, `visualizers/`, `sounds/`).
 
 use serde::{Deserialize, Serialize};
@@ -42,7 +42,7 @@ pub const CONTRIBUTION_TYPE_FOLDERS: &[(&str, &str, &str)] = &[
 pub struct PackManifest {
     pub manifest_version: u32,
     pub pack_id: String,
-    pub author_id: String,
+    pub publisher_id: String,
     pub version: String,
     pub name: String,
     pub description: String,
@@ -140,25 +140,25 @@ fn err(code: &'static str, message: impl Into<String>) -> PackManifestError {
     }
 }
 
-/// Full pack identity = `authorId.packId`.
-pub fn pack_identity(author_id: &str, pack_id: &str) -> String {
-    format!("{author_id}.{pack_id}")
+/// Full pack identity = `publisherId.packId`.
+pub fn pack_identity(publisher_id: &str, pack_id: &str) -> String {
+    format!("{publisher_id}.{pack_id}")
 }
 
-/// Effective contribution id = `authorId.packId.type.contributionId`.
+/// Effective contribution id = `publisherId.packId.type.contributionId`.
 pub fn effective_contribution_id(
-    author_id: &str,
+    publisher_id: &str,
     pack_id: &str,
     contrib_type: &str,
     contribution_id: &str,
 ) -> String {
-    format!("{author_id}.{pack_id}.{contrib_type}.{contribution_id}")
+    format!("{publisher_id}.{pack_id}.{contrib_type}.{contribution_id}")
 }
 
-/// Prefix used when remapping settings after an authorId/packId change:
-/// `authorId.packId.`
-pub fn pack_id_prefix(author_id: &str, pack_id: &str) -> String {
-    format!("{author_id}.{pack_id}.")
+/// Prefix used when remapping settings after an publisherId/packId change:
+/// `publisherId.packId.`
+pub fn pack_id_prefix(publisher_id: &str, pack_id: &str) -> String {
+    format!("{publisher_id}.{pack_id}.")
 }
 
 pub fn is_kebab_slug(value: &str) -> bool {
@@ -272,10 +272,10 @@ pub fn parse_pack_manifest_value(
             "pack.json must not declare contributions[] — contributions are discovered by scanning type folders",
         ));
     }
-    if value.get("author").is_some() && value.get("authorId").is_none() {
+    if value.get("author").is_some() && value.get("publisherId").is_none() {
         return Err(err(
             "author_renamed",
-            "pack.json uses authorId (structured slug), not author (freeform). Contribution manifests keep freeform author.",
+            "pack.json uses publisherId (structured slug), not author (freeform). Contribution manifests keep freeform author.",
         ));
     }
 
@@ -292,12 +292,12 @@ pub fn parse_pack_manifest_value(
             format!("packId must be a kebab-case slug, got: {}", pack.pack_id),
         ));
     }
-    if !is_kebab_slug(&pack.author_id) {
+    if !is_kebab_slug(&pack.publisher_id) {
         return Err(err(
-            "invalid_author_id",
+            "invalid_publisher_id",
             format!(
-                "authorId must be a kebab-case slug, got: {}",
-                pack.author_id
+                "publisherId must be a kebab-case slug, got: {}",
+                pack.publisher_id
             ),
         ));
     }
@@ -453,9 +453,9 @@ mod tests {
         let pack = parse_pack_manifest_json(SAMPLE_PACK).expect("sample pack.json");
         assert_eq!(pack.manifest_version, PACK_MANIFEST_VERSION);
         assert_eq!(pack.pack_id, "midnight-drive");
-        assert_eq!(pack.author_id, "bryan");
+        assert_eq!(pack.publisher_id, "bryan");
         assert_eq!(
-            effective_contribution_id(&pack.author_id, &pack.pack_id, "theme", "theme"),
+            effective_contribution_id(&pack.publisher_id, &pack.pack_id, "theme", "theme"),
             "bryan.midnight-drive.theme.theme"
         );
     }
@@ -477,7 +477,7 @@ mod tests {
         let err = parse_pack_manifest_json(
             r#"{
             "packId": "midnight-drive",
-            "authorId": "bryan",
+            "publisherId": "bryan",
             "version": "1.0.0",
             "name": "X",
             "description": ""
@@ -493,7 +493,7 @@ mod tests {
             r#"{
             "manifestVersion": 1,
             "packId": "midnight-drive",
-            "authorId": "bryan",
+            "publisherId": "bryan",
             "version": "1.0.0",
             "name": "X",
             "description": "",
@@ -522,7 +522,7 @@ mod tests {
         let schema: serde_json::Value = serde_json::from_str(SCHEMA).unwrap();
         assert_eq!(schema["properties"]["manifestVersion"]["const"], 1);
         assert!(schema["properties"].get("contributions").is_none());
-        assert!(schema["properties"].get("authorId").is_some());
+        assert!(schema["properties"].get("publisherId").is_some());
         assert!(schema["properties"].get("author").is_none());
         assert!(schema["properties"].get("preview").is_some());
         assert!(schema["properties"].get("icon").is_none());
@@ -530,7 +530,7 @@ mod tests {
             .as_array()
             .unwrap()
             .iter()
-            .any(|v| v == "authorId"));
+            .any(|v| v == "publisherId"));
     }
 
     #[test]
@@ -539,7 +539,7 @@ mod tests {
             r#"{
             "manifestVersion": 1,
             "packId": "midnight-drive",
-            "authorId": "bryan",
+            "publisherId": "bryan",
             "version": "1.0.0",
             "name": "X",
             "description": "",
@@ -556,7 +556,7 @@ mod tests {
             r#"{
             "manifestVersion": 1,
             "packId": "midnight-drive",
-            "authorId": "bryan",
+            "publisherId": "bryan",
             "version": "1.0.0",
             "name": "X",
             "description": "",
@@ -574,7 +574,7 @@ mod tests {
             r#"{
             "manifestVersion": 1,
             "packId": "midnight-drive",
-            "authorId": "bryan",
+            "publisherId": "bryan",
             "version": "1.0.0",
             "name": "X",
             "description": "",

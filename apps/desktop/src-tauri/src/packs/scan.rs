@@ -2,7 +2,7 @@
 //!
 //! Items are discovered by scanning fixed type folders (`themes/`, `skins/`,
 //! `visualizers/`, `sounds/`) under each zone root. Each item directory is named
-//! `<authorId>.<id>` and holds the type's manifest at its root. Linked items are
+//! `<publisherId>.<id>` and holds the type's manifest at its root. Linked items are
 //! single external folders listed in settings.
 
 use super::paths;
@@ -32,10 +32,10 @@ pub fn app_version() -> &'static str {
 pub struct ScannedContribution {
     pub zone: PackZone,
     pub r#type: String,
-    pub author_id: String,
+    pub publisher_id: String,
     /// Declared item id from the item manifest.
     pub local_id: String,
-    /// `authorId.type.id`.
+    /// `publisherId.type.id`.
     pub effective_id: String,
     pub version: String,
     pub name: String,
@@ -104,7 +104,7 @@ pub fn meets_min_app_version(min_app_version: &str, current: &str) -> bool {
     }
 }
 
-/// Peek an item folder's effective id (`authorId.type.id`) from its manifest.
+/// Peek an item folder's effective id (`publisherId.type.id`) from its manifest.
 pub(crate) fn peek_item_effective_id(item_dir: &Path) -> Result<String, String> {
     read_item_manifest(item_dir).map(|item| item.effective_id())
 }
@@ -122,7 +122,7 @@ fn contribution_from_manifest(
         manifest_path: dir.join(manifest_filename),
         contribution_dir: dir.to_path_buf(),
         r#type: item.item_type,
-        author_id: item.author_id,
+        publisher_id: item.publisher_id,
         local_id: item.id,
         version: item.version,
         name: item.name,
@@ -160,12 +160,12 @@ pub(crate) fn scan_item_dir(
             });
             return None;
         }
-        let expected_dir = item_dir_name(&item.author_id, &item.id);
+        let expected_dir = item_dir_name(&item.publisher_id, &item.id);
         let actual = dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
         if actual != expected_dir {
             warnings.push(ScanWarning {
                 message: format!(
-                    "{} should be named \"{expected_dir}\" to match its authorId and id; skipping",
+                    "{} should be named \"{expected_dir}\" to match its publisherId and id; skipping",
                     dir.display()
                 ),
             });
@@ -354,7 +354,7 @@ mod tests {
         ScannedContribution {
             zone,
             r#type: "theme".into(),
-            author_id: "bryan".into(),
+            publisher_id: "bryan".into(),
             local_id: "demo".into(),
             effective_id: effective_item_id("bryan", "theme", "demo"),
             version: version.into(),
@@ -382,7 +382,7 @@ mod tests {
             dir.join("theme.json"),
             serde_json::json!({
                 "id": id,
-                "authorId": author,
+                "publisherId": author,
                 "version": version,
                 "name": format!("Theme {id}"),
                 "tokens": {}

@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/viz-v1.schema.json",
   "id": "band",
-  "authorId": "spiral",
+  "publisherId": "spiral",
   "version": "1.0.0",
   "name": "Band",
   "author": "Spiral",

@@ -3,7 +3,7 @@
 //! [`spk_format`](https://github.com/brpowell/spiral/tree/main/libs/spk-format).
 //!
 //! Every theme, skin, visualizer and sound is an individual item stored at
-//! `<zone>/<type folder>/<authorId>.<id>/`.
+//! `<zone>/<type folder>/<publisherId>.<id>/`.
 
 pub mod export;
 pub mod install;

@@ -7,7 +7,7 @@ function pack(
 ): PackSummary {
   return {
     packId: "demo",
-    authorId: "alice",
+    publisherId: "alice",
     name: "Demo",
     description: "",
     zone: "installed",

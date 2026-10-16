@@ -48,11 +48,11 @@ async fn async_main() -> Result<()> {
     let size_bytes = spk_registry::publish::directory_size_bytes(&fixture_dir)
         .map_err(|e| anyhow::anyhow!("{e}"))? as i64;
 
-    let author_id = browse.author_id.as_str();
+    let publisher_id = browse.publisher_id.as_str();
     let pack_id = browse.pack_id.as_str();
-    let storage_key_v1 = format!("{author_id}/{pack_id}/1.0.0/pack.spk");
-    let storage_key_v2 = format!("{author_id}/{pack_id}/1.1.0/pack.spk");
-    let storage_key_yanked = format!("{author_id}/{pack_id}/0.9.0/pack.spk");
+    let storage_key_v1 = format!("{publisher_id}/{pack_id}/1.0.0/pack.spk");
+    let storage_key_v2 = format!("{publisher_id}/{pack_id}/1.1.0/pack.spk");
+    let storage_key_yanked = format!("{publisher_id}/{pack_id}/0.9.0/pack.spk");
 
     storage.put(&storage_key_v1, &bytes).await?;
     storage.put(&storage_key_v2, &bytes).await?;
@@ -61,8 +61,8 @@ async fn async_main() -> Result<()> {
     let now = Utc::now();
 
     // Clear prior seed rows for this pack so re-running is idempotent.
-    sqlx::query("DELETE FROM pack_versions WHERE author_id = ? AND pack_id = ?")
-        .bind(author_id)
+    sqlx::query("DELETE FROM pack_versions WHERE publisher_id = ? AND pack_id = ?")
+        .bind(publisher_id)
         .bind(pack_id)
         .execute(&pool)
         .await?;
@@ -95,7 +95,7 @@ async fn async_main() -> Result<()> {
         ),
     ] {
         let mut row = pack_version_row(
-            author_id,
+            publisher_id,
             pack_id,
             version,
             &types,
@@ -115,7 +115,7 @@ async fn async_main() -> Result<()> {
             .map_err(|e| anyhow::anyhow!("{e}"))?;
     }
 
-    println!("Seeded pack {author_id}/{pack_id}");
+    println!("Seeded pack {publisher_id}/{pack_id}");
     println!("  name:     {}", browse.name);
     println!("  versions: 1.0.0, 1.1.0 (published), 0.9.0 (yanked)");
     println!("  sha256:   {sha256}");
@@ -125,16 +125,16 @@ async fn async_main() -> Result<()> {
     println!("Try:");
     println!("  curl -s http://127.0.0.1:8787/v1/meta | jq");
     println!("  curl -s http://127.0.0.1:8787/v1/packs | jq");
-    println!("  curl -s http://127.0.0.1:8787/v1/packs/{author_id}/{pack_id} | jq");
+    println!("  curl -s http://127.0.0.1:8787/v1/packs/{publisher_id}/{pack_id} | jq");
     println!(
-        "  curl -OJ http://127.0.0.1:8787/v1/packs/{author_id}/{pack_id}/versions/latest/download"
+        "  curl -OJ http://127.0.0.1:8787/v1/packs/{publisher_id}/{pack_id}/versions/latest/download"
     );
 
     Ok(())
 }
 
 struct BrowseMetadata {
-    author_id: String,
+    publisher_id: String,
     pack_id: String,
     name: String,
     description: String,
@@ -180,8 +180,12 @@ fn browse_metadata_from_pack_dir(pack_dir: &Path) -> Result<BrowseMetadata> {
             };
             let name = peek("name").unwrap_or_else(|| local_id.clone());
             let author = peek("author").unwrap_or_default();
-            let effective_id =
-                effective_contribution_id(&pack.author_id, &pack.pack_id, contrib_type, &local_id);
+            let effective_id = effective_contribution_id(
+                &pack.publisher_id,
+                &pack.pack_id,
+                contrib_type,
+                &local_id,
+            );
             contributions.push(ContributionSummary {
                 r#type: contrib_type.to_string(),
                 local_id,
@@ -220,7 +224,7 @@ fn browse_metadata_from_pack_dir(pack_dir: &Path) -> Result<BrowseMetadata> {
     };
 
     Ok(BrowseMetadata {
-        author_id: pack.author_id,
+        publisher_id: pack.publisher_id,
         pack_id: pack.pack_id,
         name: pack.name,
         description: pack.description,

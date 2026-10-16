@@ -15,7 +15,7 @@ pub struct Theme {
     pub author: String,
     pub description: String,
     pub tokens: HashMap<String, String>,
-    pub author_id: String,
+    pub publisher_id: String,
     pub version: String,
     pub zone: PackZone,
     pub mutable: bool,
@@ -73,7 +73,7 @@ fn normalize_theme_file(file: ThemeFile, contrib: &packs::ScannedContribution) -
         author: file.author,
         description: file.description,
         tokens: file.tokens,
-        author_id: contrib.author_id.clone(),
+        publisher_id: contrib.publisher_id.clone(),
         version: contrib.version.clone(),
         zone: contrib.zone,
         mutable: contrib.mutable,
@@ -168,7 +168,7 @@ fn resolve_active_theme_id(themes: &[Theme], stored: &str) -> String {
 }
 
 /// Write a theme's editable content into its manifest, preserving identity and
-/// distribution fields (`id`, `authorId`, `version`, `minAppVersion`, `preview`, …).
+/// distribution fields (`id`, `publisherId`, `version`, `minAppVersion`, `preview`, …).
 fn write_theme_contribution(path: &Path, theme: &Theme) -> Result<(), String> {
     let text =
         fs::read_to_string(path).map_err(|e| format!("could not read {}: {e}", path.display()))?;
@@ -234,13 +234,17 @@ pub fn create_workshop_theme(app: AppHandle, name: Option<String>) -> Result<The
         .filter(|n| !n.is_empty())
         .unwrap_or_else(|| "Untitled Theme".to_string());
 
-    let author_id = crate::commands::items::default_author_id(&app);
-    let (dir, id) =
-        scaffold_workshop_item_dir(&app, "theme", &author_id, &slugify_theme_id(&display_name))?;
+    let publisher_id = crate::commands::items::default_publisher_id(&app);
+    let (dir, id) = scaffold_workshop_item_dir(
+        &app,
+        "theme",
+        &publisher_id,
+        &slugify_theme_id(&display_name),
+    )?;
 
     let seed = serde_json::json!({
         "id": id,
-        "authorId": author_id,
+        "publisherId": publisher_id,
         "version": "0.0.0",
         "name": display_name,
         "author": "",
@@ -254,12 +258,12 @@ pub fn create_workshop_theme(app: AppHandle, name: Option<String>) -> Result<The
         .map_err(|e| format!("failed to write theme file: {e}"))?;
 
     let theme = Theme {
-        id: packs::effective_item_id(&author_id, "theme", &id),
+        id: packs::effective_item_id(&publisher_id, "theme", &id),
         name: display_name,
         author: String::new(),
         description: String::new(),
         tokens: seed_tokens_for_new_theme(&app),
-        author_id,
+        publisher_id,
         version: "0.0.0".into(),
         zone: PackZone::Workshop,
         mutable: true,
@@ -283,7 +287,7 @@ pub fn save_workshop_theme(app: AppHandle, theme: Theme) -> Result<Theme, String
     write_theme_contribution(&contrib.manifest_path, &theme)?;
 
     let mut saved = theme;
-    saved.author_id = contrib.author_id;
+    saved.publisher_id = contrib.publisher_id;
     saved.version = contrib.version;
     saved.zone = contrib.zone;
     saved.mutable = true;
@@ -330,7 +334,7 @@ mod tests {
             assert_eq!(theme.zone, PackZone::Builtin);
             assert!(!theme.mutable);
             assert_eq!(theme.version, "1.0.0");
-            assert_eq!(theme.author_id, "spiral");
+            assert_eq!(theme.publisher_id, "spiral");
         }
     }
 
@@ -407,7 +411,7 @@ mod tests {
         let path = dir.join("theme.json");
         fs::write(
             &path,
-            r#"{"id":"draft","authorId":"bryan","version":"0.0.0","name":"Draft","author":"","description":"","tokens":{}}"#,
+            r#"{"id":"draft","publisherId":"bryan","version":"0.0.0","name":"Draft","author":"","description":"","tokens":{}}"#,
         )
         .unwrap();
         let theme = Theme {
@@ -416,7 +420,7 @@ mod tests {
             author: String::new(),
             description: String::new(),
             tokens: default_workshop_tokens(),
-            author_id: "bryan".into(),
+            publisher_id: "bryan".into(),
             version: "0.0.0".into(),
             zone: PackZone::Workshop,
             mutable: true,
@@ -445,7 +449,7 @@ mod tests {
         let path = dir.join("theme.json");
         fs::write(
             &path,
-            r#"{"id":"midnight","authorId":"bryan","version":"0.0.0","minAppVersion":"0.2.0","name":"Old","author":"","description":"","tokens":{}}"#,
+            r#"{"id":"midnight","publisherId":"bryan","version":"0.0.0","minAppVersion":"0.2.0","name":"Old","author":"","description":"","tokens":{}}"#,
         )
         .unwrap();
         let theme = Theme {
@@ -454,7 +458,7 @@ mod tests {
             author: "Bryan".into(),
             description: "desc".into(),
             tokens: HashMap::from([("color-bg".to_string(), "#000".to_string())]),
-            author_id: "bryan".into(),
+            publisher_id: "bryan".into(),
             version: "0.0.0".into(),
             zone: PackZone::Workshop,
             mutable: true,
@@ -464,7 +468,7 @@ mod tests {
         let value: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(value["id"], "midnight");
-        assert_eq!(value["authorId"], "bryan");
+        assert_eq!(value["publisherId"], "bryan");
         assert_eq!(value["minAppVersion"], "0.2.0");
         assert_eq!(value["name"], "New");
         assert_eq!(value["author"], "Bryan");

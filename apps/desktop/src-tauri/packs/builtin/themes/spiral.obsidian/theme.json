@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/theme-v1.schema.json",
   "id": "obsidian",
-  "authorId": "spiral",
+  "publisherId": "spiral",
   "version": "1.0.0",
   "name": "Obsidian",
   "author": "Spiral",

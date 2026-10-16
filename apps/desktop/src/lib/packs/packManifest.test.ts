@@ -37,11 +37,11 @@ describe("pack archive convention", () => {
 });
 
 describe("id helpers", () => {
-  it("builds pack identity as authorId.packId", () => {
+  it("builds pack identity as publisherId.packId", () => {
     expect(packIdentity("bryan", "midnight-drive")).toBe("bryan.midnight-drive");
   });
 
-  it("builds effective id as authorId.packId.type.contributionId", () => {
+  it("builds effective id as publisherId.packId.type.contributionId", () => {
     expect(
       effectiveContributionId("bryan", "midnight-drive", "theme", "theme"),
     ).toBe("bryan.midnight-drive.theme.theme");
@@ -60,7 +60,7 @@ describe("parsePackManifest", () => {
 
     expect(pack.manifestVersion).toBe(PACK_MANIFEST_VERSION);
     expect(pack.packId).toBe("midnight-drive");
-    expect(pack.authorId).toBe("bryan");
+    expect(pack.publisherId).toBe("bryan");
     expect(pack.version).toBe("1.0.0");
     expect("contributions" in pack).toBe(false);
   });
@@ -74,7 +74,7 @@ describe("parsePackManifest", () => {
       parsePackManifest({
         manifestVersion: 99,
         packId: "midnight-drive",
-        authorId: "bryan",
+        publisherId: "bryan",
         version: "1.0.0",
         name: "X",
         description: "",
@@ -91,7 +91,7 @@ describe("parsePackManifest", () => {
     try {
       parsePackManifest({
         packId: "midnight-drive",
-        authorId: "bryan",
+        publisherId: "bryan",
         version: "1.0.0",
         name: "X",
         description: "",
@@ -108,7 +108,7 @@ describe("parsePackManifest", () => {
       parsePackManifest({
         manifestVersion: 1,
         packId: "midnight-drive",
-        authorId: "bryan",
+        publisherId: "bryan",
         version: "1.0.0",
         name: "Midnight Drive",
         description: "",
@@ -117,7 +117,7 @@ describe("parsePackManifest", () => {
     ).toThrow(/must not declare contributions/);
   });
 
-  it("rejects leftover pack-level author without authorId", () => {
+  it("rejects leftover pack-level author without publisherId", () => {
     expect(() =>
       parsePackManifest({
         manifestVersion: 1,
@@ -127,14 +127,14 @@ describe("parsePackManifest", () => {
         name: "Midnight Drive",
         description: "",
       }),
-    ).toThrow(/authorId/);
+    ).toThrow(/publisherId/);
   });
 
   it("accepts optional preview", () => {
     const pack = parsePackManifest({
       manifestVersion: 1,
       packId: "midnight-drive",
-      authorId: "bryan",
+      publisherId: "bryan",
       version: "1.0.0",
       name: "Midnight Drive",
       description: "",
@@ -148,7 +148,7 @@ describe("parsePackManifest", () => {
       parsePackManifest({
         manifestVersion: 1,
         packId: "midnight-drive",
-        authorId: "bryan",
+        publisherId: "bryan",
         version: "1.0.0",
         name: "Midnight Drive",
         description: "",
@@ -162,7 +162,7 @@ describe("parsePackManifest", () => {
       parsePackManifest({
         manifestVersion: 1,
         packId: "midnight-drive",
-        authorId: "bryan",
+        publisherId: "bryan",
         version: "1.0.0",
         name: "Midnight Drive",
         description: "",
@@ -173,12 +173,12 @@ describe("parsePackManifest", () => {
 });
 
 describe("pack-v1.schema.json", () => {
-  it("locks manifestVersion to 1 and requires authorId", () => {
+  it("locks manifestVersion to 1 and requires publisherId", () => {
     const schema = JSON.parse(readFileSync(schemaPath, "utf8")) as {
       required: string[];
       properties: {
         manifestVersion: { const: number };
-        authorId: Record<string, unknown>;
+        publisherId: Record<string, unknown>;
         preview?: unknown;
         icon?: unknown;
         contributions?: unknown;
@@ -186,8 +186,8 @@ describe("pack-v1.schema.json", () => {
       };
     };
     expect(schema.properties.manifestVersion.const).toBe(1);
-    expect(schema.required).toContain("authorId");
-    expect(schema.properties.authorId).toBeDefined();
+    expect(schema.required).toContain("publisherId");
+    expect(schema.properties.publisherId).toBeDefined();
     expect(schema.properties.preview).toBeDefined();
     expect(schema.properties.icon).toBeUndefined();
     expect(schema.properties.contributions).toBeUndefined();

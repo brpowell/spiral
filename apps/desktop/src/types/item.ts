@@ -3,7 +3,7 @@ import type { PackZone } from "./pack";
 /** Mirrors Rust `CONTRIBUTION_TYPE_FOLDERS` types. */
 export type ItemType = "theme" | "skin" | "visualizer" | "sound";
 
-/** Folder names under each zone root, keyed by type (`<zone>/<folder>/<authorId>.<id>/`). */
+/** Folder names under each zone root, keyed by type (`<zone>/<folder>/<publisherId>.<id>/`). */
 export const ITEM_TYPE_FOLDERS: Record<ItemType, string> = {
   theme: "themes",
   skin: "skins",
@@ -17,8 +17,8 @@ export interface ItemSummary {
   /** Declared item id (kebab slug). */
   id: string;
   /** Structured maintainer/distributor slug. */
-  authorId: string;
-  /** `authorId.type.id`. */
+  publisherId: string;
+  /** `publisherId.type.id`. */
   effectiveId: string;
   version: string;
   name: string;

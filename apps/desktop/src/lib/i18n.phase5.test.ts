@@ -40,7 +40,7 @@ function makeTheme(partial?: Partial<Theme>): Theme {
     name: "My Theme",
     author: "",
     description: "",
-    authorId: "spiral",
+    publisherId: "spiral",
     version: "0.0.0",
     zone: "workshop",
     mutable: true,

@@ -77,11 +77,11 @@ export function SoundsSection({
                 <AppearancePackCard
                   active={pack.id === activeId}
                   name={pack.name}
-                  author={pack.author || pack.authorId}
+                  author={pack.author || pack.publisherId}
                   description={pack.description}
                   ariaLabel={t("items.cardAria", {
                     name: pack.name,
-                    author: pack.author || pack.authorId,
+                    author: pack.author || pack.publisherId,
                   })}
                   preview={<SoundPackPreview pack={pack} />}
                   previewClassName="sound-picker__preview"

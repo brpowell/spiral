@@ -11,19 +11,19 @@ pub const MAX_PREVIEW_BYTES: u64 = 5 * 1024 * 1024;
 const ALLOWED_PREVIEW_EXTS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif"];
 
 /// Storage object key for a version's `.spk` archive.
-pub fn pack_storage_key(author_id: &str, pack_id: &str, version: &str) -> String {
-    format!("{author_id}/{pack_id}/{version}/pack.spk")
+pub fn pack_storage_key(publisher_id: &str, pack_id: &str, version: &str) -> String {
+    format!("{publisher_id}/{pack_id}/{version}/pack.spk")
 }
 
 /// Storage object key for a version's pack preview.
-pub fn preview_storage_key(author_id: &str, pack_id: &str, version: &str, ext: &str) -> String {
+pub fn preview_storage_key(publisher_id: &str, pack_id: &str, version: &str, ext: &str) -> String {
     let ext = ext.trim_start_matches('.').to_ascii_lowercase();
-    format!("{author_id}/{pack_id}/{version}/preview.{ext}")
+    format!("{publisher_id}/{pack_id}/{version}/preview.{ext}")
 }
 
 /// Public API path for a version's pack preview.
-pub fn preview_url_path(author_id: &str, pack_id: &str, version: &str) -> String {
-    format!("/v1/packs/{author_id}/{pack_id}/versions/{version}/preview")
+pub fn preview_url_path(publisher_id: &str, pack_id: &str, version: &str) -> String {
+    format!("/v1/packs/{publisher_id}/{pack_id}/versions/{version}/preview")
 }
 
 pub fn content_type_for_preview_key(storage_key: &str) -> &'static str {

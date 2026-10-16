@@ -1,4 +1,4 @@
-//! Atomic item install into `packs/installed/<type folder>/<authorId>.<id>/`.
+//! Atomic item install into `packs/installed/<type folder>/<publisherId>.<id>/`.
 //!
 //! One version of an item is installed at a time: installing again replaces it.
 
@@ -17,7 +17,7 @@ use tauri::AppHandle;
 pub struct InstallItemResult {
     pub item_type: String,
     pub id: String,
-    pub author_id: String,
+    pub publisher_id: String,
     pub effective_id: String,
     pub version: String,
     pub name: String,
@@ -50,7 +50,12 @@ pub(crate) fn atomic_install_item_dir(
     source_dir: &Path,
     item: &ItemManifest,
 ) -> Result<(PathBuf, Option<String>), String> {
-    let dest = item_dir_in_zone(installed_root, &item.item_type, &item.author_id, &item.id)?;
+    let dest = item_dir_in_zone(
+        installed_root,
+        &item.item_type,
+        &item.publisher_id,
+        &item.id,
+    )?;
     let type_root = dest
         .parent()
         .ok_or_else(|| "installed item has no parent directory".to_string())?
@@ -151,7 +156,7 @@ fn install_item_into(installed_root: &Path, path: &Path) -> Result<InstallItemRe
             effective_id: item.effective_id(),
             item_type: item.item_type,
             id: item.id,
-            author_id: item.author_id,
+            publisher_id: item.publisher_id,
             version: item.version,
             name: item.name,
             dir: dest.to_string_lossy().into_owned(),
@@ -189,7 +194,7 @@ pub(crate) mod test_support {
             dir.join("theme.json"),
             serde_json::json!({
                 "id": id,
-                "authorId": author,
+                "publisherId": author,
                 "version": version,
                 "name": format!("Theme {id}"),
                 "author": "Test",
@@ -284,7 +289,7 @@ mod tests {
     }
 
     #[test]
-    fn different_authors_same_id_install_side_by_side() {
+    fn different_publishers_same_id_install_side_by_side() {
         let root = temp_root("install-authors");
         let installed = root.join("installed");
         for author in ["alice", "bob"] {
@@ -304,7 +309,7 @@ mod tests {
         fs::create_dir_all(&src).unwrap();
         fs::write(
             src.join("theme.json"),
-            r#"{"id":"x","authorId":"a","version":"1.0.0","name":"X","tokens":{}}"#,
+            r#"{"id":"x","publisherId":"a","version":"1.0.0","name":"X","tokens":{}}"#,
         )
         .unwrap();
         let installed = root.join("installed");

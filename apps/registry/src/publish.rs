@@ -74,7 +74,7 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
             )));
         }
 
-        let storage_key = pack_storage_key(&pack.author_id, &pack.pack_id, &pack.version);
+        let storage_key = pack_storage_key(&pack.publisher_id, &pack.pack_id, &pack.version);
         let mut types: Vec<String> = contribution_summaries
             .iter()
             .map(|c| c.r#type.clone())
@@ -92,7 +92,7 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
             Some((bytes, ext)) => (
                 Some(bytes),
                 Some(preview_storage_key(
-                    &pack.author_id,
+                    &pack.publisher_id,
                     &pack.pack_id,
                     &pack.version,
                     &ext,
@@ -106,7 +106,7 @@ pub fn validate_spk_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError>
 
         Ok(ValidatedUpload {
             row: PackVersionRow {
-                author_id: pack.author_id,
+                publisher_id: pack.publisher_id,
                 pack_id: pack.pack_id,
                 version: pack.version,
                 min_app_version: pack.min_app_version,
@@ -207,7 +207,7 @@ fn validate_pack_for_publish(
         let name = peeked_name.unwrap_or_else(|| local_id.clone());
         let author = peeked_author.unwrap_or_default();
         let effective_id =
-            effective_contribution_id(&pack.author_id, &pack.pack_id, contrib_type, local_id);
+            effective_contribution_id(&pack.publisher_id, &pack.pack_id, contrib_type, local_id);
         summaries.push(ContributionSummary {
             r#type: contrib_type.clone(),
             local_id: local_id.clone(),

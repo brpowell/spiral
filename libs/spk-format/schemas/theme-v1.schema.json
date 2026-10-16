@@ -3,15 +3,15 @@
   "$id": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/theme-v1.schema.json",
   "title": "Spiral theme pack v1",
   "type": "object",
-  "required": ["id", "authorId", "version", "name", "author", "description", "tokens"],
+  "required": ["id", "publisherId", "version", "name", "author", "description", "tokens"],
   "additionalProperties": false,
   "properties": {
-    "authorId": {
+    "publisherId": {
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-      "description": "Structured slug identifying who maintains/distributes this item. Effective id is authorId.type.id. Independent of the freeform author credit."
+      "description": "Structured slug identifying who maintains/distributes this item. Effective id is publisherId.type.id. Independent of the freeform author credit."
     },
     "version": {
       "type": "string",
@@ -33,7 +33,7 @@
       "minLength": 1,
       "maxLength": 64,
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-      "description": "Declared item id. Effective id is authorId.type.id."
+      "description": "Declared item id. Effective id is publisherId.type.id."
     },
     "name": {
       "type": "string",
@@ -43,7 +43,7 @@
     "author": {
       "type": "string",
       "maxLength": 80,
-      "description": "Freeform credit for the contribution's creator. Independent of pack.json authorId (pack maintainer/distributor)."
+      "description": "Freeform credit for the contribution's creator. Independent of pack.json publisherId (pack maintainer/distributor)."
     },
     "description": {
       "type": "string",

@@ -11,7 +11,7 @@ pub use packs::*;
 
 const SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS pack_versions (
-    author_id TEXT NOT NULL,
+    publisher_id TEXT NOT NULL,
     pack_id TEXT NOT NULL,
     version TEXT NOT NULL,
     min_app_version TEXT,
@@ -28,19 +28,19 @@ CREATE TABLE IF NOT EXISTS pack_versions (
     contributions TEXT NOT NULL DEFAULT '[]',
     published_at TEXT NOT NULL,
     yanked_at TEXT,
-    PRIMARY KEY (author_id, pack_id, version)
+    PRIMARY KEY (publisher_id, pack_id, version)
 );
 
 CREATE INDEX IF NOT EXISTS idx_pack_versions_author
-    ON pack_versions (author_id);
+    ON pack_versions (publisher_id);
 
 CREATE INDEX IF NOT EXISTS idx_pack_versions_published
-    ON pack_versions (author_id, pack_id, published_at);
+    ON pack_versions (publisher_id, pack_id, published_at);
 
 CREATE TABLE IF NOT EXISTS takedown_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     purged_at TEXT NOT NULL,
-    author_id TEXT NOT NULL,
+    publisher_id TEXT NOT NULL,
     pack_id TEXT NOT NULL,
     version TEXT NOT NULL,
     reason TEXT NOT NULL,
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS takedown_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_takedown_log_identity
-    ON takedown_log (author_id, pack_id, version);
+    ON takedown_log (publisher_id, pack_id, version);
 "#;
 
 pub async fn connect(database_url: &str) -> Result<SqlitePool> {

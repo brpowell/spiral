@@ -4,7 +4,7 @@ import type { AdminVersionSummary, PackGroup } from '../types'
 export function groupPacks(versions: AdminVersionSummary[]): PackGroup[] {
   const map = new Map<string, AdminVersionSummary[]>()
   for (const v of versions) {
-    const key = `${v.authorId}/${v.packId}`
+    const key = `${v.publisherId}/${v.packId}`
     const list = map.get(key) || []
     list.push(v)
     map.set(key, list)
@@ -19,7 +19,7 @@ export function groupPacks(versions: AdminVersionSummary[]): PackGroup[] {
       for (const t of v.contributionTypes || []) types.add(t)
     }
     groups.push({
-      authorId: latest.authorId,
+      publisherId: latest.publisherId,
       packId: latest.packId,
       key,
       name: latest.name,

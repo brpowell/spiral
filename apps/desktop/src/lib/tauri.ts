@@ -869,23 +869,23 @@ export async function savePackRegistries(
 /** `GET /v1/packs` against every configured registry (partial failure → `errors[]`). */
 export async function fetchPackCatalog(options?: {
   contributionType?: string | null;
-  authorId?: string | null;
+  publisherId?: string | null;
 }): Promise<RegistryPackList> {
   return invoke<RegistryPackList>("fetch_pack_catalog", {
     contributionType: options?.contributionType ?? null,
-    authorId: options?.authorId ?? null,
+    publisherId: options?.publisherId ?? null,
   });
 }
 
 /** `GET /v1/packs/:author/:pack` — all published (non-yanked) versions. */
 export async function fetchRegistryPack(args: {
   registryUrl: string;
-  authorId: string;
+  publisherId: string;
   packId: string;
 }): Promise<RegistryPackDetail> {
   return invoke<RegistryPackDetail>("fetch_registry_pack", {
     registryUrl: args.registryUrl,
-    authorId: args.authorId,
+    publisherId: args.publisherId,
     packId: args.packId,
   });
 }
@@ -893,13 +893,13 @@ export async function fetchRegistryPack(args: {
 /** `GET .../versions/:version` including README for pre-install About browsing. */
 export async function fetchRegistryPackVersion(args: {
   registryUrl: string;
-  authorId: string;
+  publisherId: string;
   packId: string;
   version: string;
 }): Promise<RegistryVersionDetail> {
   return invoke<RegistryVersionDetail>("fetch_registry_pack_version", {
     registryUrl: args.registryUrl,
-    authorId: args.authorId,
+    publisherId: args.publisherId,
     packId: args.packId,
     version: args.version,
   });
@@ -922,7 +922,7 @@ export async function packMeetsMinAppVersion(
 /** Download + install by catalog identity from a configured registry base URL. */
 export async function installPackFromRegistry(args: {
   registryUrl: string;
-  authorId: string;
+  publisherId: string;
   packId: string;
   version: string;
   sha256: string;
@@ -933,7 +933,7 @@ export async function installPackFromRegistry(args: {
 }): Promise<InstallPackResult> {
   return invoke<InstallPackResult>("install_pack_from_registry", {
     registryUrl: args.registryUrl,
-    authorId: args.authorId,
+    publisherId: args.publisherId,
     packId: args.packId,
     version: args.version,
     sha256: args.sha256,
@@ -976,7 +976,7 @@ export async function createWorkshopTheme(args?: {
 export interface InstallItemResult {
   itemType: ItemType;
   id: string;
-  authorId: string;
+  publisherId: string;
   effectiveId: string;
   version: string;
   name: string;
@@ -1002,7 +1002,7 @@ export async function listItems(): Promise<ItemSummary[]> {
 export interface ItemExportDefaults {
   effectiveId: string;
   itemType: ItemType;
-  authorId: string;
+  publisherId: string;
   name: string;
   version: string;
   description: string;
@@ -1056,7 +1056,7 @@ export async function updateItemMetadata(
   itemId: string,
   metadata: {
     id: string;
-    authorId: string;
+    publisherId: string;
     name: string;
     version: string;
     description: string;
@@ -1065,21 +1065,23 @@ export async function updateItemMetadata(
   return invoke<string>("update_item_metadata", {
     itemId,
     newId: metadata.id,
-    authorId: metadata.authorId,
+    publisherId: metadata.publisherId,
     name: metadata.name,
     version: metadata.version,
     description: metadata.description,
   });
 }
 
-/** Preferences → Studio → Default Author ID. */
-export async function getDefaultAuthorId(): Promise<string> {
-  return invoke<string>("get_default_author_id");
+/** Preferences → Studio → Default Publisher ID. */
+export async function getDefaultPublisherId(): Promise<string> {
+  return invoke<string>("get_default_publisher_id");
 }
 
-/** Persist Default Author ID (kebab slug). Empty input reseeds from the OS username. */
-export async function saveDefaultAuthorId(authorId: string): Promise<string> {
-  return invoke<string>("save_default_author_id", { authorId });
+/** Persist Default Publisher ID (kebab slug). Empty input reseeds from the OS username. */
+export async function saveDefaultPublisherId(
+  publisherId: string,
+): Promise<string> {
+  return invoke<string>("save_default_publisher_id", { publisherId });
 }
 
 /** An item's manifest (`theme.json`, `skin.json`, `viz.json` or `sound.json`) as JSON. */

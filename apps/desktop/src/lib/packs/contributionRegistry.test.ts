@@ -10,7 +10,7 @@ import {
 const samplePack: PackManifest = {
   manifestVersion: 1,
   packId: "midnight-drive",
-  authorId: "bryan",
+  publisherId: "bryan",
   version: "1.0.0",
   name: "Midnight Drive",
   description: "A moody blue theme with a matching skin.",
