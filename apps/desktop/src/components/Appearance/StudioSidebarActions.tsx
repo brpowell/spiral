@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   importItemWithRefresh,
@@ -24,14 +24,11 @@ type NewKind = "theme";
 
 interface NewEntry {
   kind: NewKind;
-  icon: ReactNode;
   labelKey: string;
 }
 
-/** Item types that can be created from the "New" menu. Add entries to extend. */
-const NEW_ENTRIES: NewEntry[] = [
-  { kind: "theme", icon: <IconPlus />, labelKey: "new.theme" },
-];
+/** Item types that can be created from the "Create" menu. Add entries to extend. */
+const NEW_ENTRIES: NewEntry[] = [{ kind: "theme", labelKey: "create.theme" }];
 
 interface StudioSidebarActionsProps {
   /** Runs `go`, first leaving the Theme Editor if it is open. */
@@ -84,12 +81,11 @@ export function StudioSidebarActions({
         <li>
           <SidebarMenuItem
             icon={<IconPlus />}
-            ariaLabel={t("actions.newAria")}
+            ariaLabel={t("actions.createAria")}
             menu={(close) =>
               NEW_ENTRIES.map((entry) => (
                 <ContextMenuItem
                   key={entry.kind}
-                  icon={entry.icon}
                   label={t(entry.labelKey)}
                   onClick={() => {
                     close();
@@ -99,7 +95,7 @@ export function StudioSidebarActions({
               ))
             }
           >
-            {t("actions.new")}
+            {t("actions.create")}
           </SidebarMenuItem>
         </li>
         <li>

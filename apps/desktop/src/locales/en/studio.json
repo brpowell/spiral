@@ -293,15 +293,15 @@
   "backToDetails": "Back to Details",
   "actions": {
     "aria": "Create and manage",
-    "new": "New",
-    "newAria": "Create new item",
+    "create": "Create",
+    "createAria": "Create an item",
     "manage": "Manage",
     "manageAria": "Manage items",
     "install": "Install…",
     "linkFolder": "Link a folder…",
     "reloadLinked": "Reload linked folders"
   },
-  "new": {
-    "theme": "Theme"
+  "create": {
+    "theme": "New Theme"
   }
 }

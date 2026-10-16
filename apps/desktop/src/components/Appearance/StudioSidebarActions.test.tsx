@@ -35,8 +35,8 @@ describe("StudioSidebarActions", () => {
 
   it("opens the new theme modal from the New menu", () => {
     const { runAfterLeavingEditor } = setup();
-    fireEvent.click(screen.getByRole("button", { name: "Create new item" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Theme" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create an item" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "New Theme" }));
     expect(runAfterLeavingEditor).toHaveBeenCalled();
     expect(screen.getByText("new-theme-modal")).toBeTruthy();
   });
