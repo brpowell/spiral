@@ -12,6 +12,16 @@ pub fn start(
     Err("CD playback is not supported on this platform".into())
 }
 
+pub fn set_gain(_session_id: u64, _gain: f32) {}
+
+pub fn set_balance(_session_id: u64, _balance: f32) {}
+
+pub fn ramp_gain(_session_id: u64, _from: f32, _to: f32, _duration_ms: u32) {}
+
+pub fn link_gapless(_from_session: u64, _to_session: u64) -> Result<(), String> {
+    Err("CD playback is not supported on this platform".into())
+}
+
 pub fn pause(_session_id: u64) {}
 
 pub fn resume(_session_id: u64) {}
@@ -19,8 +29,6 @@ pub fn resume(_session_id: u64) {}
 pub fn seek(_session_id: u64, _seconds: f64) -> Result<(), String> {
     Ok(())
 }
-
-pub fn ack_pcm_chunks(_session_id: u64, _count: u32) {}
 
 pub fn stop(_session_id: u64) {}
 

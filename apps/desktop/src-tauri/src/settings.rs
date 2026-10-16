@@ -800,4 +800,13 @@ mod tests {
         });
         assert_eq!(settings.crossfade_seconds, MIN_CROSSFADE_SECONDS);
     }
+
+    #[test]
+    fn playback_settings_ignore_the_retired_native_audio_flag() {
+        // Settings files written while native audio was behind a flag still load.
+        let old: PlaybackSettings =
+            serde_json::from_str(r#"{"crossfadeEnabled":true,"nativeAudioOutput":true}"#)
+                .expect("old settings file");
+        assert!(old.crossfade_enabled);
+    }
 }

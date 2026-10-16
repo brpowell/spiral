@@ -127,9 +127,28 @@ pub fn stop_cd_playback(session_id: u64) {
     playback::stop(session_id);
 }
 
+/// Output gain (0–1) for a CD session.
 #[tauri::command]
-pub fn ack_cd_playback_pcm(session_id: u64, count: u32) {
-    playback::ack_pcm_chunks(session_id, count);
+pub fn set_cd_playback_gain(session_id: u64, gain: f32) {
+    playback::set_gain(session_id, gain);
+}
+
+/// Stereo balance (-1 left … +1 right) for a CD session.
+#[tauri::command]
+pub fn set_cd_playback_balance(session_id: u64, balance: f32) {
+    playback::set_balance(session_id, balance);
+}
+
+/// Linear gain fade for a CD session.
+#[tauri::command]
+pub fn ramp_cd_playback_gain(session_id: u64, from_gain: f32, to_gain: f32, duration_ms: u32) {
+    playback::ramp_gain(session_id, from_gain, to_gain, duration_ms);
+}
+
+/// Start `to_session` on the exact sample `from_session` runs out.
+#[tauri::command]
+pub fn link_cd_gapless_playback(from_session: u64, to_session: u64) -> Result<(), String> {
+    playback::link_gapless(from_session, to_session)
 }
 
 #[tauri::command]

@@ -1,32 +1,25 @@
-import type { CdPlaybackEngine } from "./cdPlaybackEngine";
-import { CdPlaybackEngine as CdPlaybackEngineImpl } from "./cdPlaybackEngine";
-import type { PcmFilePlaybackEngine } from "./pcmFilePlaybackEngine";
-import { PcmFilePlaybackEngine as PcmFilePlaybackEngineImpl } from "./pcmFilePlaybackEngine";
-import type {
-  PlaybackEngine,
-  PlaybackSource,
-  RecoverOptions,
-  RecoverResult,
-} from "./types";
+import { NativeCdPlaybackEngine } from "./nativeCdPlaybackEngine";
+import { NativeFilePlaybackEngine } from "./nativeFilePlaybackEngine";
+import type { PlaybackEngine, PlaybackSource } from "./types";
 
 export class PlaybackEngineManager {
-  private readonly pcmFileEngine: PcmFilePlaybackEngine;
-  private readonly cdEngine: CdPlaybackEngine;
+  private readonly fileEngine: NativeFilePlaybackEngine;
+  private readonly cdEngine: NativeCdPlaybackEngine;
   private activeEngine: PlaybackEngine;
 
   constructor(
-    pcmFileEngine: PcmFilePlaybackEngine = new PcmFilePlaybackEngineImpl(),
-    cdEngine: CdPlaybackEngine = new CdPlaybackEngineImpl(),
+    fileEngine: NativeFilePlaybackEngine = new NativeFilePlaybackEngine(),
+    cdEngine: NativeCdPlaybackEngine = new NativeCdPlaybackEngine(),
   ) {
-    this.pcmFileEngine = pcmFileEngine;
+    this.fileEngine = fileEngine;
     this.cdEngine = cdEngine;
-    this.activeEngine = pcmFileEngine;
+    this.activeEngine = fileEngine;
   }
 
   private resolveEngine(source: PlaybackSource): PlaybackEngine {
     switch (source.kind) {
       case "file":
-        return this.pcmFileEngine;
+        return this.fileEngine;
       case "cd":
         return this.cdEngine;
       case "remote":
@@ -51,7 +44,7 @@ export class PlaybackEngineManager {
 
   unload(): void {
     this.activeEngine.destroy();
-    this.activeEngine = this.pcmFileEngine;
+    this.activeEngine = this.fileEngine;
   }
 
   play(): void {
@@ -85,11 +78,11 @@ export class PlaybackEngineManager {
   }
 
   onEnd(callback: () => void): void {
-    this.pcmFileEngine.onEnd(callback);
+    this.fileEngine.onEnd(callback);
     this.cdEngine.onEnd(callback);
   }
 
-  onCdError(callback: Parameters<CdPlaybackEngine["onError"]>[0]): void {
+  onCdError(callback: Parameters<NativeCdPlaybackEngine["onError"]>[0]): void {
     this.cdEngine.onError(callback);
   }
 
@@ -111,23 +104,5 @@ export class PlaybackEngineManager {
 
   setMuted(muted: boolean): void {
     this.activeEngine.setMuted(muted);
-  }
-
-  connectToOutputBus(): AnalyserNode | null {
-    return this.activeEngine.connectToOutputBus();
-  }
-
-  async recover(options: RecoverOptions): Promise<RecoverResult> {
-    return this.activeEngine.recover(options);
-  }
-
-  async resumeAudioContext(): Promise<void> {
-    await this.pcmFileEngine.resumeAudioContext();
-    await this.cdEngine.resumeAudioContext();
-  }
-
-  restartPlaybackAt(positionSeconds: number): void {
-    this.activeEngine.seek(positionSeconds);
-    this.activeEngine.play();
   }
 }
