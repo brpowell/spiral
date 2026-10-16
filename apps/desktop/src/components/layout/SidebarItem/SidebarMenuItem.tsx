@@ -26,7 +26,7 @@ export function SidebarMenuItem({
   ariaLabel,
   disabled = false,
   layoutDeps = [],
-  triggerPlacement = "below-start",
+  triggerPlacement = "right-start",
   children,
   menu,
 }: SidebarMenuItemProps) {
