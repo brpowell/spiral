@@ -7,6 +7,7 @@ import {
 import { t } from "../i18n";
 import {
   deleteWorkshopItem,
+  exportItem,
   getItemScanWarnings,
   installItem,
   linkItemFolder,
@@ -14,6 +15,7 @@ import {
   uninstallItem,
   unlinkItem,
   updateItemMetadata,
+  type ExportItemResult,
   type InstallItemResult,
 } from "../tauri";
 import { invalidateAllPackChangelogCaches } from "../packs/packChangelogCache";
@@ -251,6 +253,37 @@ export async function updateItemMetadataWithRefresh(
     showErrorToast({
       label: formatInvokeError(err, t("toasts:items.updateFailed")),
       key: "item-edit",
+    });
+    return null;
+  }
+}
+
+/**
+ * Export an authoring item to a `.spk` (the backend opens the save dialog).
+ * Returns the result, or `null` when the dialog was cancelled or the export failed
+ * (failures are toasted).
+ */
+export async function exportItemWithToast(
+  itemId: string,
+  metadata: { name: string; version: string; description: string },
+): Promise<ExportItemResult | null> {
+  const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
+  try {
+    const result = await exportItem({ itemId, ...metadata });
+    if (!result) return null;
+    showToast({
+      label: t("toasts:items.exported", {
+        name: metadata.name,
+        version: result.version,
+      }),
+      status: "success",
+      key: "item-export",
+    });
+    return result;
+  } catch (err) {
+    showErrorToast({
+      label: formatInvokeError(err, t("toasts:items.exportFailed")),
+      key: "item-export",
     });
     return null;
   }
