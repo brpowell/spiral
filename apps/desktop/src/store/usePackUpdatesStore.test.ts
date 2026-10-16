@@ -20,6 +20,8 @@ const {
   mockRunInBackground: vi.fn(),
 }));
 
+vi.mock("../lib/featureFlags", () => ({ REGISTRY_ENABLED: true }));
+
 vi.mock("../lib/packRegistry", () => ({
   catalogDisplayName: (e: { packId: string }) => e.packId,
   fetchPackCatalogSafe: mockFetchPackCatalogSafe,

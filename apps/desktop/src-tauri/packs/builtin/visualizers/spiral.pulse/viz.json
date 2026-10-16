@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/viz-v1.schema.json",
+  "id": "pulse",
+  "authorId": "spiral",
+  "version": "1.0.0",
+  "name": "Pulse",
+  "author": "Spiral",
+  "description": "A sharp waveform to feel the punches.",
+  "children": [
+    {
+      "kind": "canvas",
+      "layout": "fill",
+      "entry": "index.js"
+    }
+  ]
+}

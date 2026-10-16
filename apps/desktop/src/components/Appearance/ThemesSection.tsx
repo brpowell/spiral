@@ -12,8 +12,9 @@ import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
 import { Button } from "../common/Button/Button";
-import { WorkshopThemeActions } from "../ThemeEditor/WorkshopThemeActions";
-import { AppearancePackActions } from "./AppearancePackActions";
+import { HiddenItems } from "./HiddenItems";
+import { ItemActionsMenu } from "./ItemActionsMenu";
+import { ItemsAddMenu } from "./ItemsAddMenu";
 import { AppearancePackCard } from "./AppearancePackCard";
 import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
 import { NewThemeModal, type NewThemeModalResult } from "./NewThemeModal";
@@ -44,12 +45,12 @@ function ThemeSwatch({
   theme,
   active,
   onSelect,
-  onOpenPack,
+  onOpenItem,
 }: {
   theme: Theme;
   active: boolean;
   onSelect: () => void;
-  onOpenPack: (packId: string) => void;
+  onOpenItem: (effectiveId: string) => void;
 }) {
   const { t } = useTranslation(["studio", "common"]);
   const unknown = t("common:unknown");
@@ -59,24 +60,22 @@ function ThemeSwatch({
       name={theme.name}
       author={theme.author || unknown}
       description={theme.description}
-      ariaLabel={t("packs.cardAria", {
+      ariaLabel={t("items.cardAria", {
         name: theme.name,
         author: theme.author || unknown,
       })}
       preview={<ThemeSwatchPreview theme={theme} />}
       previewClassName="theme-picker__preview"
       actions={
-        theme.packId ? (
-          theme.mutable ? (
-            <WorkshopThemeActions theme={theme} onOpenPack={onOpenPack} />
-          ) : (
-            <AppearancePackActions
-              name={theme.name}
-              packId={theme.packId}
-              onOpenPack={onOpenPack}
-            />
-          )
-        ) : undefined
+        <ItemActionsMenu
+          item={{
+            effectiveId: theme.id,
+            type: "theme",
+            name: theme.name,
+            zone: theme.zone,
+          }}
+          onOpenItem={onOpenItem}
+        />
       }
       onApply={onSelect}
     />
@@ -84,9 +83,9 @@ function ThemeSwatch({
 }
 
 export function ThemesSection({
-  onOpenPack,
+  onOpenItem,
 }: {
-  onOpenPack: (packId: string) => void;
+  onOpenItem: (effectiveId: string) => void;
 }) {
   const { t } = useTranslation(["studio", "library"]);
   const themes = useThemeStore((s) => s.themes);
@@ -103,11 +102,7 @@ export function ThemesSection({
   const handleCreate = async (result: NewThemeModalResult) => {
     setCreating(true);
     try {
-      const theme = await createTheme(
-        result.packMode === "existing"
-          ? { name: result.name, packId: result.packId }
-          : { name: result.name, packName: result.packName },
-      );
+      const theme = await createTheme({ name: result.name });
       setModalOpen(false);
       openThemeEditor(theme.id);
     } catch (err) {
@@ -136,14 +131,17 @@ export function ThemesSection({
             : undefined
         }
         actions={
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={creating}
-            onClick={() => setModalOpen(true)}
-          >
-            {t("themes.new")}
-          </Button>
+          <>
+            <ItemsAddMenu />
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={creating}
+              onClick={() => setModalOpen(true)}
+            >
+              {t("themes.new")}
+            </Button>
+          </>
         }
       />
 
@@ -160,12 +158,13 @@ export function ThemesSection({
                   theme={theme}
                   active={theme.id === activeThemeId}
                   onSelect={() => void handleSelect(theme)}
-                  onOpenPack={onOpenPack}
+                  onOpenItem={onOpenItem}
                 />
               </div>
             ))}
           </div>
         )}
+        <HiddenItems type="theme" />
       </BrowseGridBody>
 
       <NewThemeModal

@@ -16,9 +16,8 @@ pub struct SkinSummary {
     pub author: String,
     pub description: String,
     pub is_builtin: bool,
-    pub pack_id: String,
-    pub pack_name: String,
-    pub pack_version: String,
+    pub author_id: String,
+    pub version: String,
     pub zone: packs::PackZone,
     pub preview_path: Option<String>,
 }
@@ -70,9 +69,8 @@ fn load_pack_from_contribution(
         author: manifest.author.clone(),
         description: manifest.description.clone(),
         is_builtin: contrib.zone.is_builtin(),
-        pack_id: contrib.pack_id.clone(),
-        pack_name: contrib.pack_name.clone(),
-        pack_version: contrib.pack_version.clone(),
+        author_id: contrib.author_id.clone(),
+        version: contrib.version.clone(),
         zone: contrib.zone,
         preview_path,
     };
@@ -148,7 +146,9 @@ pub fn load_skin_pack(app: AppHandle, skin_id: String) -> Result<LoadedSkinPack,
         .into_iter()
         .find(|p| p.summary.id == resolved)
         .ok_or_else(|| {
-            format!("skin \"{skin_id}\" was not found in builtin, workshop, or installed packs")
+            format!(
+                "skin \"{skin_id}\" was not found in builtin, workshop, installed, or linked items"
+            )
         })
 }
 
@@ -226,28 +226,26 @@ mod tests {
             });
             loaded += 1;
         }
-        assert_eq!(loaded, 1, "expected 1 built-in skin in core");
+        assert_eq!(loaded, 1, "expected 1 built-in skin");
         assert!(
             contribs
                 .iter()
-                .any(|c| c.effective_id == "spiral.core.skin.vanilla"),
-            "spiral.core.skin.vanilla should be present"
+                .any(|c| c.effective_id == "spiral.skin.vanilla"),
+            "spiral.skin.vanilla should be present"
         );
     }
 
     #[test]
     fn mini_switch_fixture_preserves_view_id() {
-        let pack_dir =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../testdata/packs/mini-switch");
+        let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../testdata");
         let mut warnings = Vec::new();
-        let contribs =
-            crate::packs::scan::scan_pack_dir(&pack_dir, PackZone::Builtin, &mut warnings);
+        let contribs = scan_zone_root(&fixtures, PackZone::Builtin, &mut warnings);
         let skin = contribs
             .iter()
-            .find(|c| c.effective_id == "spiral.fixture-mini-switch.skin.mini-switch")
+            .find(|c| c.effective_id == "spiral.skin.mini-switch")
             .unwrap_or_else(|| {
                 panic!(
-                    "spiral.fixture-mini-switch.skin.mini-switch; warnings={:?} ids={:?}",
+                    "spiral.skin.mini-switch; warnings={:?} ids={:?}",
                     warnings,
                     contribs.iter().map(|c| &c.effective_id).collect::<Vec<_>>()
                 )

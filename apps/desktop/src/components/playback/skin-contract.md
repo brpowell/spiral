@@ -288,14 +288,14 @@ Skins may declare optional short UI sounds under the pack root:
 
 Paths are under `assets/` without extension (`.wav` required on disk). These keys are **private** to the skin — only that skin’s `sound` / `soundWhen` / effect `sound` fields may use them.
 
-**Public** sound contributions live in pack folders `sounds/<id>/sound.json` with effective ids like `spiral.core.sound.play`. A sound string shaped `*.*.sound.*` resolves as a contribution (missing id plays nothing). Anything else stays a local `soundEffects` key.
+**Public** sound contributions live in pack folders `sounds/<id>/sound.json` with effective ids like `spiral.sound.play`. A sound string shaped `*.*.sound.*` resolves as a contribution (missing id plays nothing). Anything else stays a local `soundEffects` key.
 
 Two places can play a key or public id:
 
 - **Control `sound` / `soundWhen`** — immediate click feedback on `button` nodes and `buttonGroup` elements (group-level `sound` plays on any element click). `soundWhen` is the same last-match-wins bind map as `tooltipWhen`. Gated by `skin.pref.soundEffectsEnabled`.
 - **Effect `sound`** — same field as `onActivate` / GIF `onComplete`. Plays when that effect fires, so `delayMs` times it with an animation. `action` may be omitted for a sound-only step. Also gated by the skin sound preference.
 
-Library now-playing transport plays `spiral.core.sound.play` / `spiral.core.sound.control` directly and does **not** consult the skin sound preference — library chrome and skin chrome stay independent callers of the same clips.
+Library now-playing transport plays `spiral.sound.play` / `spiral.sound.control` directly and does **not** consult the skin sound preference — library chrome and skin chrome stay independent callers of the same clips.
 
 ```json
 {
@@ -977,7 +977,7 @@ Pinned visualizer example:
 
 ```json
 "visualizer": {
-  "id": "spiral.core.visualizer.wave"
+  "id": "spiral.visualizer.wave"
 }
 ```
 

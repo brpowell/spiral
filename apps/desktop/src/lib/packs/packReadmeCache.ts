@@ -1,4 +1,4 @@
-import { readPackReadme } from "../tauri";
+import { readItemReadme } from "../tauri";
 
 type PackReadmeCacheEntry =
   | { status: "loading"; promise: Promise<string | null> }
@@ -42,7 +42,7 @@ export function prefetchPackReadme(packDir: string): Promise<string | null> {
     return existing.promise;
   }
 
-  const promise = readPackReadme(packDir)
+  const promise = readItemReadme(packDir)
     .then((value) => {
       const current = cache.get(packDir);
       // Ignore stale resolution if the entry was replaced/invalidated.

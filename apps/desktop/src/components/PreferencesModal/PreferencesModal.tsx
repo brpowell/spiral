@@ -32,6 +32,7 @@ import { usePlaybackSettingsStore } from "../../store/usePlaybackSettingsStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { usePlaylistStore } from "../../store/usePlaylistStore";
 import { useUpdaterStore } from "../../store/useUpdaterStore";
+import { REGISTRY_ENABLED } from "../../lib/featureFlags";
 import { usePackUpdatesStore } from "../../store/usePackUpdatesStore";
 import {
   MIN_CROSSFADE_SECONDS,
@@ -980,23 +981,25 @@ export function PreferencesModal() {
                   </FieldContent>
                 </Field>
 
-                <Field orientation="horizontal">
-                  <Checkbox
-                    id="pref-automatic-pack-updates"
-                    checked={automaticPackChecksEnabled}
-                    onChange={(e) => {
-                      void setAutomaticPackChecksEnabled(e.target.checked);
-                    }}
-                  />
-                  <FieldContent>
-                    <FieldLabel htmlFor="pref-automatic-pack-updates">
-                      {t("preferences:updates.automaticPacks.label")}
-                    </FieldLabel>
-                    <FieldDescription>
-                      {t("preferences:updates.automaticPacks.description")}
-                    </FieldDescription>
-                  </FieldContent>
-                </Field>
+                {REGISTRY_ENABLED ? (
+                  <Field orientation="horizontal">
+                    <Checkbox
+                      id="pref-automatic-pack-updates"
+                      checked={automaticPackChecksEnabled}
+                      onChange={(e) => {
+                        void setAutomaticPackChecksEnabled(e.target.checked);
+                      }}
+                    />
+                    <FieldContent>
+                      <FieldLabel htmlFor="pref-automatic-pack-updates">
+                        {t("preferences:updates.automaticPacks.label")}
+                      </FieldLabel>
+                      <FieldDescription>
+                        {t("preferences:updates.automaticPacks.description")}
+                      </FieldDescription>
+                    </FieldContent>
+                  </Field>
+                ) : null}
 
                 {availableUpdate ? (
                   <p className="preferences__hint" role="status">

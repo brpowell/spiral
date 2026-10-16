@@ -17,7 +17,7 @@ export function useAppearanceSection(): [
   const [section, setSection] = useState<AppearanceSection>(
     getStoredAppearanceSection,
   );
-  const [focusPackId, setFocusPackId] = useState<string | null>(null);
+  const [focusItemId, setFocusItemId] = useState<string | null>(null);
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -27,7 +27,7 @@ export function useAppearanceSection(): [
       APPEARANCE_NAVIGATE_EVENT,
       (event) => {
         setSection(event.payload.section);
-        setFocusPackId(event.payload.packId ?? null);
+        setFocusItemId(event.payload.itemId ?? null);
       },
     ).then((fn) => {
       if (cancelled) fn();
@@ -45,7 +45,7 @@ export function useAppearanceSection(): [
     storeAppearanceSection(next);
   };
 
-  const clearFocusPackId = () => setFocusPackId(null);
+  const clearFocusItemId = () => setFocusItemId(null);
 
-  return [section, setAndStore, focusPackId, clearFocusPackId];
+  return [section, setAndStore, focusItemId, clearFocusItemId];
 }

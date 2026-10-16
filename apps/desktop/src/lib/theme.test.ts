@@ -17,17 +17,13 @@ import {
 function makeTheme(id: string, name: string): Theme {
   const parts = id.split(".");
   const authorId = parts.length >= 3 ? parts[0]! : "spiral";
-  const packId =
-    parts.length >= 3 ? parts[1]! : parts.length >= 2 ? parts[0]! : id;
   return {
     id,
     name,
     author: "Spiral",
     description: "",
-    packId,
     authorId,
-    packName: name,
-    packVersion: "1.0.0",
+    version: "1.0.0",
     zone: "builtin",
     mutable: false,
     tokens: {
@@ -43,15 +39,15 @@ function makeTheme(id: string, name: string): Theme {
 }
 
 const themes: Theme[] = [
-  makeTheme("spiral.core.theme.obsidian", "Obsidian"),
-  makeTheme("spiral.core.theme.parchment", "Parchment"),
-  makeTheme("spiral.core.theme.noir", "Noir"),
-  makeTheme("spiral.core.theme.grove", "Grove"),
+  makeTheme("spiral.theme.obsidian", "Obsidian"),
+  makeTheme("spiral.theme.parchment", "Parchment"),
+  makeTheme("spiral.theme.noir", "Noir"),
+  makeTheme("spiral.theme.grove", "Grove"),
 ];
 
 describe("findThemeById", () => {
   it("finds by stable id", () => {
-    expect(findThemeById(themes, "spiral.core.theme.parchment")?.name).toBe(
+    expect(findThemeById(themes, "spiral.theme.parchment")?.name).toBe(
       "Parchment",
     );
   });
@@ -63,8 +59,8 @@ describe("findThemeById", () => {
 
 describe("resolveActiveThemeId", () => {
   it("keeps an existing id", () => {
-    expect(resolveActiveThemeId(themes, "spiral.core.theme.grove")).toBe(
-      "spiral.core.theme.grove",
+    expect(resolveActiveThemeId(themes, "spiral.theme.grove")).toBe(
+      "spiral.theme.grove",
     );
   });
 
@@ -74,8 +70,8 @@ describe("resolveActiveThemeId", () => {
     expect(resolveActiveThemeId(themes, "obsidian")).toBe(DEFAULT_THEME_ID);
   });
 
-  it("defaults to spiral.core.theme.obsidian", () => {
-    expect(DEFAULT_THEME_ID).toBe("spiral.core.theme.obsidian");
+  it("defaults to spiral.theme.obsidian", () => {
+    expect(DEFAULT_THEME_ID).toBe("spiral.theme.obsidian");
   });
 });
 

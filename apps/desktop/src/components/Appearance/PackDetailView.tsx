@@ -59,8 +59,8 @@ import {
 } from "../icons";
 import { MenuButton } from "../MenuButton/MenuButton";
 import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
-import { PackAboutPanel } from "./PackAboutPanel";
-import { PackChangelogPanel } from "./PackChangelogPanel";
+import { ItemAboutPanel } from "./ItemAboutPanel";
+import { ItemChangelogPanel } from "./ItemChangelogPanel";
 import { MarkdownBody } from "../common/MarkdownBody/MarkdownBody";
 import {
   contributionTypeMeta,
@@ -855,7 +855,10 @@ export function PackDetailView({
               keepMounted
             >
               {pack ? (
-                <PackAboutPanel pack={pack} busy={busy} />
+                <ItemAboutPanel
+                  item={{ dir: pack.packDir, zone: pack.zone }}
+                  busy={busy}
+                />
               ) : catalogEntry ? (
                 <CatalogMarkdownDocPanel
                   entry={catalogEntry}
@@ -877,8 +880,8 @@ export function PackDetailView({
                 keepMounted
               >
                 {pack ? (
-                  <PackChangelogPanel
-                    pack={pack}
+                  <ItemChangelogPanel
+                    item={{ dir: pack.packDir, zone: pack.zone }}
                     busy={busy}
                     onPresenceChange={canEdit ? undefined : setChangelogPresent}
                   />

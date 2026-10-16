@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/theme-v1.schema.json",
+  "id": "grove",
+  "authorId": "spiral",
+  "version": "1.0.0",
+  "name": "Grove",
+  "author": "Spiral",
+  "description": "Dark green surfaces and soft sage accents. Calm and organic.",
+  "tokens": {
+    "color-bg": "#0f1410",
+    "color-text-primary": "#e2ebe4",
+    "color-accent": "#6b9f7a",
+    "color-danger": "#d4846a",
+    "color-alert-info": "#8fbfb0",
+    "color-alert-success": "#7fd492",
+    "color-alert-warning": "#d4b87a",
+    "radius-card": "12px",
+    "radius-button": "8px",
+    "radius-input": "8px",
+    "font-ui": "'Source Sans 3', system-ui, -apple-system, sans-serif"
+  }
+}

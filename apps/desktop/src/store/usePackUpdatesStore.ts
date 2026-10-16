@@ -27,6 +27,7 @@ import {
   saveLibrarySettings,
   type InstallPackResult,
 } from "../lib/tauri";
+import { REGISTRY_ENABLED } from "../lib/featureFlags";
 import { isTauri } from "../lib/windowRole";
 import type { CatalogPackEntry } from "../types/packRegistry";
 import { useBackgroundTasksStore } from "./useBackgroundTasksStore";
@@ -143,7 +144,7 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
   },
 
   checkForPackUpdates: async ({ reason = "manual" } = {}) => {
-    if (!isTauri()) return [];
+    if (!REGISTRY_ENABLED || !isTauri()) return [];
     if (reason === "automatic" && !get().automaticPackChecksEnabled) {
       return get().pendingUpdates;
     }
@@ -337,7 +338,7 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
   },
 
   startAutomaticPackUpdateChecks: () => {
-    if (!isTauri()) return () => {};
+    if (!REGISTRY_ENABLED || !isTauri()) return () => {};
 
     void get().checkForPackUpdates({ reason: "automatic" });
 

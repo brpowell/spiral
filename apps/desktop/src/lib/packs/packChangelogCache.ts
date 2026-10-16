@@ -1,4 +1,4 @@
-import { readPackChangelog } from "../tauri";
+import { readItemChangelog } from "../tauri";
 
 type PackChangelogCacheEntry =
   | { status: "loading"; promise: Promise<string | null> }
@@ -46,7 +46,7 @@ export function prefetchPackChangelog(
     return existing.promise;
   }
 
-  const promise = readPackChangelog(packDir)
+  const promise = readItemChangelog(packDir)
     .then((value) => {
       const current = cache.get(packDir);
       if (

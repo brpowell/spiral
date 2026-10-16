@@ -185,7 +185,7 @@ pub fn is_kebab_slug(value: &str) -> bool {
 }
 
 /// Permissive semver: MAJOR.MINOR.PATCH with optional pre-release / build.
-fn is_semver(value: &str) -> bool {
+pub(crate) fn is_semver(value: &str) -> bool {
     let bytes = value.as_bytes();
     if bytes.is_empty() {
         return false;

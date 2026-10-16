@@ -1,9 +1,9 @@
 # Test fixtures
 
-Independent snapshots used by `spiral-desktop` unit tests. **Not** pack sources — those live in [`spiral-packs`](https://github.com/spiral-powered/spiral-packs) under `packs/`.
+Independent snapshots used by `spiral-desktop` unit tests. **Not** item sources.
 
 | Path | Purpose |
 |---|---|
-| `packs/mini-switch/` | Synthetic pack for Rust `viewId` preservation test |
+| `skins/spiral.mini-switch/` | Synthetic skin item for Rust `viewId` preservation test |
 
-Copied from `spiral-packs` at Phase 3 move time; intentional drift from published source is OK. Refresh deliberately when updating fixture expectations.
+Intentional drift from published sources is OK. Refresh deliberately when updating fixture expectations.

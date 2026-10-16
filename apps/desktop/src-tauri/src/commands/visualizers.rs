@@ -23,9 +23,8 @@ pub struct VizSummary {
     pub author: String,
     pub description: String,
     pub is_builtin: bool,
-    pub pack_id: String,
-    pub pack_name: String,
-    pub pack_version: String,
+    pub author_id: String,
+    pub version: String,
     pub zone: packs::PackZone,
     pub preview_path: Option<String>,
 }
@@ -81,9 +80,8 @@ fn load_pack_from_contribution(
         author: manifest.author.clone(),
         description: manifest.description.clone(),
         is_builtin: contrib.zone.is_builtin(),
-        pack_id: contrib.pack_id.clone(),
-        pack_name: contrib.pack_name.clone(),
-        pack_version: contrib.pack_version.clone(),
+        author_id: contrib.author_id.clone(),
+        version: contrib.version.clone(),
         zone: contrib.zone,
         preview_path,
     };
@@ -163,7 +161,7 @@ pub fn load_visualizer(app: AppHandle, visualizer_id: String) -> Result<LoadedVi
         .find(|p| p.summary.id == resolved)
         .ok_or_else(|| {
             format!(
-                "visualizer \"{visualizer_id}\" was not found in builtin, workshop, or installed packs"
+                "visualizer \"{visualizer_id}\" was not found in builtin, workshop, installed, or linked items"
             )
         })
 }

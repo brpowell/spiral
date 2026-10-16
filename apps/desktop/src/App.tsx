@@ -39,7 +39,7 @@ import {
 import { openAboutWindow } from "./lib/aboutWindow";
 import { openEqualizerWindow } from "./lib/equalizerWindow";
 import { toggleToastLabWindow } from "./lib/toastLabWindow";
-import { reloadLinkedPacksWithRefresh } from "./lib/packs/refreshPackStores";
+import { reloadLinkedItemsWithRefresh } from "./lib/items/itemActions";
 import { usesCustomWindowChrome } from "./lib/windowChrome";
 import { useCdMonitor } from "./hooks/useCdMonitor";
 import { useMediaHotkeys } from "./hooks/useMediaHotkeys";
@@ -122,7 +122,7 @@ function App() {
       void openActivityLogsWindow();
     },
     reloadLinkedPacks: () => {
-      void reloadLinkedPacksWithRefresh();
+      void reloadLinkedItemsWithRefresh();
     },
     quit: () => {
       void quitApplication();
@@ -237,7 +237,7 @@ function App() {
       }
       if (key === "r" && e.altKey && !e.shiftKey) {
         e.preventDefault();
-        void reloadLinkedPacksWithRefresh();
+        void reloadLinkedItemsWithRefresh();
       }
     };
 

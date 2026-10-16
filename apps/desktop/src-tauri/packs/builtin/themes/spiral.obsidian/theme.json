@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/theme-v1.schema.json",
+  "id": "obsidian",
+  "authorId": "spiral",
+  "version": "1.0.0",
+  "name": "Obsidian",
+  "author": "Spiral",
+  "description": "Deep dark with cool blue accents. A pro audio tool feel.",
+  "tokens": {
+    "color-bg": "#0e0e10",
+    "color-text-primary": "#f0f0f0",
+    "color-accent": "#7b8cde",
+    "color-danger": "#e06c75",
+    "color-alert-info": "#9aa8e8",
+    "color-alert-success": "#7fd492",
+    "color-alert-warning": "#e8c57b",
+    "radius-card": "12px",
+    "radius-button": "8px",
+    "radius-input": "8px",
+    "font-ui": "'Inter', system-ui, -apple-system, sans-serif"
+  }
+}

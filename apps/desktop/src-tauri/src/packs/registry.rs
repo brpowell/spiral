@@ -1,7 +1,7 @@
 //! Pack registry client: catalog fetch + integrity-checked download before install.
 
-use super::install::{installed_pack_path, InstallPackResult};
-use super::paths::{ensure_packs_ready, installed_packs_root};
+use super::install::InstallItemResult;
+use super::paths::ensure_packs_ready;
 use super::scan::{app_version, meets_min_app_version};
 use crate::settings::{
     self, default_registries, effective_registry_url, registry_url_override,
@@ -580,16 +580,19 @@ pub fn fetch_pack_version_detail(
     })
 }
 
-/// Whether `authorId.packId`@`version` already exists under `packs/installed/`.
+/// Whether a registry pack version is already installed.
+///
+/// The registry still catalogs v1 packs while local installs are individual items, so
+/// there is no local record to match against yet. Always `false` until the registry
+/// moves to items.
 pub fn is_pack_installed(
     app: &AppHandle,
-    author_id: &str,
-    pack_id: &str,
-    version: &str,
+    _author_id: &str,
+    _pack_id: &str,
+    _version: &str,
 ) -> Result<bool, String> {
     ensure_packs_ready(app)?;
-    let installed = installed_packs_root(app)?;
-    Ok(installed_pack_path(&installed, author_id, pack_id, version).is_dir())
+    Ok(false)
 }
 
 pub fn pack_meets_min_app_version(min_app_version: Option<&str>) -> bool {
@@ -742,16 +745,14 @@ pub fn resolve_registry_pack_preview(
 /// Integrity failure deletes the temp file and never touches `installed/`.
 /// `catalog_size_bytes` is display metadata (uncompressed on-disk size); progress
 /// uses HTTP `Content-Length` when present.
-pub fn install_pack_from_url<F, P>(
+pub fn install_pack_from_url<P>(
     app: &AppHandle,
     download_url: &str,
     expected_sha256: &str,
     catalog_size_bytes: u64,
     on_progress: Option<&P>,
-    validate_contribution: F,
-) -> Result<InstallPackResult, String>
+) -> Result<InstallItemResult, String>
 where
-    F: Fn(&str, &Path, &Path) -> Result<(), String>,
     P: Fn(PackDownloadProgress) + ?Sized,
 {
     clear_download_cancel();
@@ -769,8 +770,7 @@ where
 
     let temp_path = download_spk_verified(download_url, &expected_sha, on_progress)?;
 
-    let install_result =
-        super::install::install_pack_from_path(app, &temp_path, validate_contribution);
+    let install_result = super::install::install_item_from_path(app, &temp_path);
     let _ = fs::remove_file(&temp_path);
     install_result
 }

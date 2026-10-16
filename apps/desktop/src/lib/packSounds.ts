@@ -1,22 +1,22 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { resolveSoundAsset } from "./tauri";
 
-/** Core transport cues shipped as public sound contributions. */
-export const CORE_TRANSPORT_PLAY_SOUND_ID = "spiral.core.sound.play";
-export const CORE_TRANSPORT_CONTROL_SOUND_ID = "spiral.core.sound.control";
+/** Core transport cues shipped as built-in sound items. */
+export const CORE_TRANSPORT_PLAY_SOUND_ID = "spiral.sound.play";
+export const CORE_TRANSPORT_CONTROL_SOUND_ID = "spiral.sound.control";
 
 const pathCache = new Map<string, string | null>();
 const inflight = new Map<string, Promise<string | null>>();
 
 /**
- * Effective contribution ids look like `author.pack.sound.id`.
+ * Sound item ids look like `authorId.sound.id`.
  * Anything else is treated as a skin-local `soundEffects` key.
  */
 export function isPublicSoundContributionId(id: string): boolean {
   const parts = id.split(".");
   return (
-    parts.length >= 4 &&
-    parts[2] === "sound" &&
+    parts.length === 3 &&
+    parts[1] === "sound" &&
     parts.every((part) => part.length > 0)
   );
 }

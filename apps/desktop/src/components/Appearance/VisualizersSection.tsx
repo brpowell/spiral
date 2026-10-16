@@ -7,7 +7,9 @@ import { usePrefersReducedMotion } from "../visualizer/context";
 import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
-import { AppearancePackActions } from "./AppearancePackActions";
+import { HiddenItems } from "./HiddenItems";
+import { ItemActionsMenu } from "./ItemActionsMenu";
+import { ItemsAddMenu } from "./ItemsAddMenu";
 import { AppearancePackCard } from "./AppearancePackCard";
 import { VizCardLivePreview } from "./VizCardLivePreview";
 import { useVizCardSnapshot } from "./vizCardSnapshot";
@@ -61,7 +63,7 @@ function VizCard({
   active,
   live,
   onSelect,
-  onOpenPack,
+  onOpenItem,
   onPointerEnter,
   onPointerLeave,
 }: {
@@ -69,7 +71,7 @@ function VizCard({
   active: boolean;
   live: boolean;
   onSelect: () => void;
-  onOpenPack: (packId: string) => void;
+  onOpenItem: (effectiveId: string) => void;
   onPointerEnter: () => void;
   onPointerLeave: () => void;
 }) {
@@ -80,17 +82,19 @@ function VizCard({
       name={pack.name}
       author={pack.author}
       description={pack.description}
-      ariaLabel={t("packs.cardAria", { name: pack.name, author: pack.author })}
+      ariaLabel={t("items.cardAria", { name: pack.name, author: pack.author })}
       preview={<VizCardPreview pack={pack} live={live} />}
       previewClassName="visualizer-picker__preview"
       actions={
-        pack.packId ? (
-          <AppearancePackActions
-            name={pack.name}
-            packId={pack.packId}
-            onOpenPack={onOpenPack}
-          />
-        ) : undefined
+        <ItemActionsMenu
+          item={{
+            effectiveId: pack.id,
+            type: "visualizer",
+            name: pack.name,
+            zone: pack.zone,
+          }}
+          onOpenItem={onOpenItem}
+        />
       }
       onApply={onSelect}
       onPointerEnter={onPointerEnter}
@@ -100,9 +104,9 @@ function VizCard({
 }
 
 export function VisualizersSection({
-  onOpenPack,
+  onOpenItem,
 }: {
-  onOpenPack: (packId: string) => void;
+  onOpenItem: (effectiveId: string) => void;
 }) {
   const { t } = useTranslation(["studio", "library"]);
   const visualizers = useVisualizerStore((s) => s.visualizers);
@@ -167,7 +171,9 @@ export function VisualizersSection({
   return (
     <BrowseView>
       <BrowseViewHeader
+        className="browse-view__header--single-row"
         title={t("visualizers.title")}
+        actions={<ItemsAddMenu />}
         count={
           visualizers.length > 0
             ? t("library:views.headerCount", { count: visualizers.length })
@@ -187,7 +193,7 @@ export function VisualizersSection({
                   active={pack.id === activeVisualizerId}
                   live={liveId === pack.id}
                   onSelect={() => void setActiveVisualizer(pack.id)}
-                  onOpenPack={onOpenPack}
+                  onOpenItem={onOpenItem}
                   onPointerEnter={() => onCardPointerEnter(pack.id)}
                   onPointerLeave={() => onCardPointerLeave(pack.id)}
                 />
@@ -195,6 +201,7 @@ export function VisualizersSection({
             ))}
           </div>
         )}
+        <HiddenItems type="visualizer" />
       </BrowseGridBody>
     </BrowseView>
   );

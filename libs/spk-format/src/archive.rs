@@ -1,6 +1,6 @@
 //! `.spk` zip extract / create helpers (ZipSlip-safe, bounded against zip bombs).
 
-use crate::{is_pack_archive_path, PACK_MANIFEST_FILENAME};
+use crate::{is_pack_archive_path, CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME};
 use std::fs::{self, File};
 use std::io::{copy, Read, Write};
 use std::path::{Path, PathBuf};
@@ -212,6 +212,37 @@ pub fn find_pack_root(extract_dir: &Path) -> Result<PathBuf, String> {
     Err(format!(
         "pack archive is missing {PACK_MANIFEST_FILENAME} at the archive root"
     ))
+}
+
+fn has_item_manifest(dir: &Path) -> bool {
+    CONTRIBUTION_TYPE_FOLDERS
+        .iter()
+        .any(|(_, _, file)| dir.join(file).is_file())
+}
+
+/// Locate the item root inside an extracted archive: the directory holding the item
+/// manifest (`theme.json`, `skin.json`, `viz.json` or `sound.json`), either at the
+/// archive root or in a single nested folder.
+pub fn find_item_root(extract_dir: &Path) -> Result<PathBuf, String> {
+    if has_item_manifest(extract_dir) {
+        return Ok(extract_dir.to_path_buf());
+    }
+
+    let entries =
+        fs::read_dir(extract_dir).map_err(|e| format!("failed to read extracted item: {e}"))?;
+    let dirs: Vec<PathBuf> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| !is_apple_junk_path(p) && p.is_dir())
+        .collect();
+
+    if let [nested] = dirs.as_slice() {
+        if has_item_manifest(nested) {
+            return Ok(nested.clone());
+        }
+    }
+
+    Err("archive is missing an item manifest (theme.json, skin.json, viz.json or sound.json) at the archive root".to_string())
 }
 
 /// Extract a `.spk` (or zip-compatible) archive into a temp directory, enforcing
@@ -612,6 +643,27 @@ mod tests {
         assert!(!root.join(".DS_Store").exists());
         assert!(!root.join("skins/demo/._skin.json").exists());
         assert!(root.join("skins/demo/skin.json").is_file());
+        cleanup_pack_extract_dir(&extract);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn find_item_root_at_root_nested_and_missing() {
+        let dir = limits_dir("item-root");
+        let spk = dir.join("a.spk");
+        write_test_spk(&spk, &[("theme.json", b"{}")]);
+        let extract = extract_pack_archive(&spk).unwrap();
+        assert_eq!(find_item_root(&extract).unwrap(), extract);
+        cleanup_pack_extract_dir(&extract);
+
+        write_test_spk(&spk, &[("inner/skin.json", b"{}"), ("__MACOSX/x", b"")]);
+        let extract = extract_pack_archive(&spk).unwrap();
+        assert_eq!(find_item_root(&extract).unwrap(), extract.join("inner"));
+        cleanup_pack_extract_dir(&extract);
+
+        write_test_spk(&spk, &[("pack.json", b"{}")]);
+        let extract = extract_pack_archive(&spk).unwrap();
+        assert!(find_item_root(&extract).is_err());
         cleanup_pack_extract_dir(&extract);
         let _ = fs::remove_dir_all(&dir);
     }

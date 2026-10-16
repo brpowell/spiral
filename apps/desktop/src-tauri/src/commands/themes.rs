@@ -1,15 +1,10 @@
-use crate::commands::packs::{forget_contribution_references, remap_contribution_id_references};
-use crate::packs::install::pack_has_contributions;
-use crate::packs::{
-    self, effective_contribution_id, ensure_workshop_root, is_kebab_slug, pack_id_prefix,
-    scan_contributions_of_type, slugify_id, PackManifest, PackZone, PACK_MANIFEST_FILENAME,
-    PACK_MANIFEST_VERSION,
-};
+use crate::commands::items::{find_mutable_item, scaffold_workshop_item_dir};
+use crate::packs::{self, scan_contributions_of_type, slugify_id, PackZone};
 use crate::settings;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tauri::AppHandle;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,9 +16,7 @@ pub struct Theme {
     pub description: String,
     pub tokens: HashMap<String, String>,
     pub author_id: String,
-    pub pack_id: String,
-    pub pack_name: String,
-    pub pack_version: String,
+    pub version: String,
     pub zone: PackZone,
     pub mutable: bool,
 }
@@ -71,21 +64,8 @@ fn slugify_theme_id(input: &str) -> String {
     }
 }
 
-fn local_id_from_effective(
-    effective_id: &str,
-    author_id: &str,
-    pack_id: &str,
-    contrib_type: &str,
-) -> Option<String> {
-    let prefix = format!("{author_id}.{pack_id}.{contrib_type}.");
-    effective_id
-        .strip_prefix(&prefix)
-        .filter(|s| !s.is_empty() && !s.contains('.'))
-        .map(str::to_string)
-}
-
 fn normalize_theme_file(file: ThemeFile, contrib: &packs::ScannedContribution) -> Theme {
-    // Declared id in JSON is the local contribution id; effective id comes from the scan.
+    // Declared id in JSON is the local item id; effective id comes from the scan.
     let _ = file.id;
     Theme {
         id: contrib.effective_id.clone(),
@@ -94,9 +74,7 @@ fn normalize_theme_file(file: ThemeFile, contrib: &packs::ScannedContribution) -
         description: file.description,
         tokens: file.tokens,
         author_id: contrib.author_id.clone(),
-        pack_id: contrib.pack_id.clone(),
-        pack_name: contrib.pack_name.clone(),
-        pack_version: contrib.pack_version.clone(),
+        version: contrib.version.clone(),
         zone: contrib.zone,
         mutable: contrib.mutable,
     }
@@ -122,7 +100,7 @@ fn list_themes_from_scan(app: &AppHandle) -> Result<(Vec<Theme>, Vec<Theme>), St
     packs::ensure_packs_ready(app)?;
     let scan = scan_contributions_of_type(app, "theme");
     for w in &scan.warnings {
-        eprintln!("pack scan: {}", w.message);
+        eprintln!("item scan: {}", w.message);
     }
 
     let hidden: HashSet<String> = settings::read_settings(app)
@@ -157,18 +135,6 @@ fn find_theme_by_id<'a>(themes: &'a [Theme], id: &str) -> Option<&'a Theme> {
     themes.iter().find(|t| t.id == id)
 }
 
-fn find_theme_contribution(
-    app: &AppHandle,
-    theme_id: &str,
-) -> Result<packs::ScannedContribution, String> {
-    packs::ensure_packs_ready(app)?;
-    let scan = scan_contributions_of_type(app, "theme");
-    scan.contributions
-        .into_iter()
-        .find(|c| c.effective_id == theme_id)
-        .ok_or_else(|| format!("theme \"{theme_id}\" not found"))
-}
-
 /// Tokens for a new theme: a copy of the resolved active theme, or the Obsidian baseline.
 fn tokens_cloned_from_active(themes: &[Theme], stored_active: &str) -> HashMap<String, String> {
     let resolved = resolve_active_theme_id(themes, stored_active);
@@ -201,159 +167,28 @@ fn resolve_active_theme_id(themes: &[Theme], stored: &str) -> String {
         .unwrap_or_else(|| settings::DEFAULT_THEME_ID.to_string())
 }
 
-fn write_theme_contribution(path: &Path, theme: &Theme, local_id: &str) -> Result<(), String> {
-    let file = serde_json::json!({
-        "id": local_id,
-        "name": theme.name,
-        "author": theme.author,
-        "description": theme.description,
-        "tokens": theme.tokens,
-    });
-    let json = serde_json::to_string_pretty(&file)
+/// Write a theme's editable content into its manifest, preserving identity and
+/// distribution fields (`id`, `authorId`, `version`, `minAppVersion`, `preview`, …).
+fn write_theme_contribution(path: &Path, theme: &Theme) -> Result<(), String> {
+    let text =
+        fs::read_to_string(path).map_err(|e| format!("could not read {}: {e}", path.display()))?;
+    let mut value: serde_json::Value =
+        serde_json::from_str(text.strip_prefix('\u{feff}').unwrap_or(&text))
+            .map_err(|e| format!("{} is not valid theme JSON: {e}", path.display()))?;
+    let obj = value
+        .as_object_mut()
+        .ok_or_else(|| format!("{} must be a JSON object", path.display()))?;
+    obj.insert("name".into(), theme.name.clone().into());
+    obj.insert("author".into(), theme.author.clone().into());
+    obj.insert("description".into(), theme.description.clone().into());
+    obj.insert(
+        "tokens".into(),
+        serde_json::to_value(&theme.tokens)
+            .map_err(|e| format!("failed to serialize theme tokens: {e}"))?,
+    );
+    let json = serde_json::to_string_pretty(&value)
         .map_err(|e| format!("failed to serialize theme: {e}"))?;
     fs::write(path, format!("{json}\n")).map_err(|e| format!("failed to write theme file: {e}"))
-}
-
-fn write_pack_manifest(pack_dir: &Path, pack: &PackManifest) -> Result<(), String> {
-    let pack_json = serde_json::to_string_pretty(pack)
-        .map_err(|e| format!("failed to serialize pack.json: {e}"))?;
-    fs::write(
-        pack_dir.join(PACK_MANIFEST_FILENAME),
-        format!("{pack_json}\n"),
-    )
-    .map_err(|e| format!("failed to write pack.json: {e}"))
-}
-
-fn unique_workshop_pack_id(workshop: &Path, base: &str) -> String {
-    let mut candidate = base.to_string();
-    let mut n = 2;
-    while workshop.join(&candidate).exists() {
-        candidate = format!("{base}-{n}");
-        n += 1;
-    }
-    candidate
-}
-
-fn unique_theme_local_id(pack_dir: &Path, base: &str) -> String {
-    let themes = pack_dir.join("themes");
-    let mut candidate = base.to_string();
-    let mut n = 2;
-    while themes.join(&candidate).exists() {
-        candidate = format!("{base}-{n}");
-        n += 1;
-    }
-    candidate
-}
-
-fn resolve_default_author_id(app: &AppHandle) -> String {
-    let stored = settings::read_settings(app).default_author_id;
-    let trimmed = stored.trim();
-    if trimmed.is_empty() {
-        settings::slugify_os_username()
-    } else {
-        trimmed.to_string()
-    }
-}
-
-fn scaffold_workshop_theme_pack(
-    app: &AppHandle,
-    pack_id: &str,
-    author_id: &str,
-    local_id: &str,
-    theme: &Theme,
-) -> Result<PathBuf, String> {
-    let workshop = ensure_workshop_root(app)?;
-    let pack_dir = workshop.join(pack_id);
-    if pack_dir.exists() {
-        return Err(format!("workshop pack \"{pack_id}\" already exists"));
-    }
-
-    let theme_dir = pack_dir.join("themes").join(local_id);
-    fs::create_dir_all(&theme_dir)
-        .map_err(|e| format!("failed to create workshop theme dir: {e}"))?;
-
-    write_theme_contribution(&theme_dir.join("theme.json"), theme, local_id)?;
-
-    let pack = PackManifest {
-        manifest_version: PACK_MANIFEST_VERSION,
-        pack_id: pack_id.to_string(),
-        author_id: author_id.to_string(),
-        version: "0.0.0".to_string(),
-        name: theme.pack_name.clone(),
-        description: theme.description.clone(),
-        preview: None,
-        min_app_version: None,
-    };
-    write_pack_manifest(&pack_dir, &pack)?;
-    Ok(pack_dir)
-}
-
-fn find_authoring_pack(
-    app: &AppHandle,
-    pack_id: &str,
-) -> Result<(PathBuf, PackZone, String), String> {
-    let packs = packs::manage::list_packs(app, &HashSet::new())?;
-    let pack = packs
-        .iter()
-        .find(|p| p.pack_id == pack_id && p.zone.is_mutable())
-        .ok_or_else(|| format!("authoring pack \"{pack_id}\" not found"))?;
-    Ok((
-        PathBuf::from(&pack.pack_dir),
-        pack.zone,
-        pack.author_id.clone(),
-    ))
-}
-
-fn add_theme_to_existing_authoring_pack(
-    app: &AppHandle,
-    pack_id: &str,
-    display_name: &str,
-) -> Result<Theme, String> {
-    let (pack_dir, zone, author_id) = find_authoring_pack(app, pack_id)?;
-    let pack_json_path = pack_dir.join(PACK_MANIFEST_FILENAME);
-    let contents = fs::read_to_string(&pack_json_path)
-        .map_err(|e| format!("failed to read pack.json: {e}"))?;
-    let pack = packs::parse_pack_manifest_json(&contents).map_err(|e| e.to_string())?;
-
-    let local_id = unique_theme_local_id(&pack_dir, &slugify_theme_id(display_name));
-    let theme_dir = pack_dir.join("themes").join(&local_id);
-    fs::create_dir_all(&theme_dir).map_err(|e| format!("failed to create theme dir: {e}"))?;
-
-    let effective_id = effective_contribution_id(&author_id, pack_id, "theme", &local_id);
-    let theme = Theme {
-        id: effective_id,
-        name: display_name.to_string(),
-        author: String::new(),
-        description: String::new(),
-        tokens: seed_tokens_for_new_theme(app),
-        author_id: author_id.clone(),
-        pack_id: pack_id.to_string(),
-        pack_name: pack.name.clone(),
-        pack_version: pack.version.clone(),
-        zone,
-        mutable: true,
-    };
-
-    write_theme_contribution(&theme_dir.join("theme.json"), &theme, &local_id)?;
-    Ok(theme)
-}
-
-/// Authoring write target: workshop drafts or linked external packs.
-fn require_mutable_theme_contribution(
-    app: &AppHandle,
-    theme_id: &str,
-) -> Result<packs::ScannedContribution, String> {
-    let contrib = find_theme_contribution(app, theme_id)?;
-    if !contrib.mutable {
-        return Err(format!(
-            "theme \"{theme_id}\" is not mutable and cannot be modified"
-        ));
-    }
-    Ok(contrib)
-}
-
-fn remove_dir_all_with_context(path: &Path, label: &str) -> Result<(), String> {
-    fs::remove_dir_all(path).map_err(|e| format!("failed to delete {label}: {e}"))
 }
 
 #[tauri::command]
@@ -388,16 +223,10 @@ pub fn get_active_theme_id(app: AppHandle) -> Result<String, String> {
     Ok(resolved)
 }
 
-/// Scaffold a theme draft — either a new workshop pack, or a contribution inside
-/// an existing workshop or linked pack. Tokens are copied from the active theme.
+/// Scaffold a theme draft in the workshop. Tokens are copied from the active theme.
 /// No author/version prompts (those happen at export).
 #[tauri::command]
-pub fn create_workshop_theme(
-    app: AppHandle,
-    name: Option<String>,
-    pack_id: Option<String>,
-    pack_name: Option<String>,
-) -> Result<Theme, String> {
+pub fn create_workshop_theme(app: AppHandle, name: Option<String>) -> Result<Theme, String> {
     packs::ensure_packs_ready(&app)?;
 
     let display_name = name
@@ -405,186 +234,60 @@ pub fn create_workshop_theme(
         .filter(|n| !n.is_empty())
         .unwrap_or_else(|| "Untitled Theme".to_string());
 
-    if let Some(existing) = pack_id
-        .map(|id| id.trim().to_string())
-        .filter(|id| !id.is_empty())
-    {
-        return add_theme_to_existing_authoring_pack(&app, &existing, &display_name);
-    }
+    let author_id = crate::commands::items::default_author_id(&app);
+    let (dir, id) =
+        scaffold_workshop_item_dir(&app, "theme", &author_id, &slugify_theme_id(&display_name))?;
 
-    let pack_display_name = pack_name
-        .map(|n| n.trim().to_string())
-        .filter(|n| !n.is_empty())
-        .unwrap_or_else(|| display_name.clone());
-
-    let workshop = ensure_workshop_root(&app)?;
-    let base_id = slugify_theme_id(&pack_display_name);
-    let new_pack_id = unique_workshop_pack_id(&workshop, &base_id);
-    let author_id = resolve_default_author_id(&app);
-    let local_id = unique_theme_local_id(
-        &workshop.join(&new_pack_id),
-        &slugify_theme_id(&display_name),
-    );
-    let effective_id = effective_contribution_id(&author_id, &new_pack_id, "theme", &local_id);
+    let seed = serde_json::json!({
+        "id": id,
+        "authorId": author_id,
+        "version": "0.0.0",
+        "name": display_name,
+        "author": "",
+        "description": "",
+        "tokens": {},
+    });
+    let manifest = dir.join("theme.json");
+    let json = serde_json::to_string_pretty(&seed)
+        .map_err(|e| format!("failed to serialize theme: {e}"))?;
+    fs::write(&manifest, format!("{json}\n"))
+        .map_err(|e| format!("failed to write theme file: {e}"))?;
 
     let theme = Theme {
-        id: effective_id,
+        id: packs::effective_item_id(&author_id, "theme", &id),
         name: display_name,
         author: String::new(),
         description: String::new(),
         tokens: seed_tokens_for_new_theme(&app),
-        author_id: author_id.clone(),
-        pack_id: new_pack_id.clone(),
-        pack_name: pack_display_name,
-        pack_version: "0.0.0".into(),
+        author_id,
+        version: "0.0.0".into(),
         zone: PackZone::Workshop,
         mutable: true,
     };
-
-    scaffold_workshop_theme_pack(&app, &new_pack_id, &author_id, &local_id, &theme)?;
+    write_theme_contribution(&manifest, &theme)?;
     Ok(theme)
 }
 
 /// Lenient save of a mutable theme draft (workshop or linked; incomplete tokens allowed).
 ///
-/// `theme.id` is the current effective id used for lookup. To rename the contribution id,
-/// set `theme.id` to the new effective id (`authorId.packId.theme.newLocalId`) while keeping
-/// `authorId`/`packId` unchanged — when the old contribution is the only match in that pack
-/// under a different local id, the folder is renamed and settings are remapped.
+/// `theme.id` is the effective id used for lookup. Only name, author, description and
+/// tokens are written; identity changes go through `update_item_metadata`.
 #[tauri::command]
 pub fn save_workshop_theme(app: AppHandle, theme: Theme) -> Result<Theme, String> {
     packs::ensure_packs_ready(&app)?;
 
-    let author_id = theme.author_id.trim().to_string();
-    let pack_id = theme.pack_id.clone();
-
-    if pack_id.trim().is_empty() || author_id.is_empty() {
-        return Err("theme authorId and packId are required".into());
+    let contrib = find_mutable_item(&app, &theme.id)?;
+    if contrib.r#type != "theme" {
+        return Err(format!("\"{}\" is not a theme", theme.id));
     }
-
-    let mut theme = theme;
-    theme.author_id = author_id.clone();
-
-    let contrib_by_id = find_theme_contribution(&app, &theme.id).ok();
-    let desired_local = local_id_from_effective(&theme.id, &author_id, &pack_id, "theme")
-        .or_else(|| contrib_by_id.as_ref().map(|c| c.local_id.clone()))
-        .ok_or_else(|| {
-            format!(
-                "theme id \"{}\" must be authorId.packId.theme.contributionId for pack \"{author_id}.{pack_id}\"",
-                theme.id
-            )
-        })?;
-    if !is_kebab_slug(&desired_local) {
-        return Err(format!(
-            "contribution id must be a kebab-case slug, got: {desired_local}"
-        ));
-    }
-
-    let scan = scan_contributions_of_type(&app, "theme");
-    let mut candidates: Vec<_> = scan
-        .contributions
-        .into_iter()
-        .filter(|c| c.mutable && c.pack_id == pack_id && c.author_id == author_id)
-        .collect();
-
-    let contrib = if let Some(c) = contrib_by_id.filter(|c| c.mutable) {
-        c
-    } else if let Some(idx) = candidates.iter().position(|c| c.effective_id == theme.id) {
-        candidates.swap_remove(idx)
-    } else if candidates.len() == 1 {
-        // Rename: only one theme in the pack — treat theme.id as the new effective id.
-        candidates.swap_remove(0)
-    } else if let Some(idx) = candidates.iter().position(|c| c.local_id == desired_local) {
-        candidates.swap_remove(idx)
-    } else {
-        return Err(format!(
-            "mutable theme \"{}\" not found in pack \"{author_id}.{pack_id}\"",
-            theme.id
-        ));
-    };
-
-    if !contrib.mutable {
-        return Err(format!(
-            "theme \"{}\" is not mutable and cannot be modified",
-            contrib.effective_id
-        ));
-    }
-
-    let old_effective = contrib.effective_id.clone();
-    let old_local = contrib.local_id.clone();
-    let new_effective = effective_contribution_id(&author_id, &pack_id, "theme", &desired_local);
-
-    let mut contrib = contrib;
-    if desired_local != old_local {
-        let new_dir = contrib.pack_dir.join("themes").join(&desired_local);
-        if new_dir.exists() {
-            return Err(format!(
-                "theme contribution \"{desired_local}\" already exists in pack \"{pack_id}\""
-            ));
-        }
-        fs::rename(&contrib.contribution_dir, &new_dir).map_err(|e| {
-            format!("failed to rename theme \"{old_local}\" → \"{desired_local}\": {e}")
-        })?;
-        contrib.contribution_dir = new_dir;
-        contrib.manifest_path = contrib.contribution_dir.join("theme.json");
-        contrib.local_id = desired_local.clone();
-        contrib.effective_id = new_effective.clone();
-        remap_contribution_id_references(&app, &old_effective, &new_effective)?;
-    }
-
-    write_theme_contribution(&contrib.manifest_path, &theme, &desired_local)?;
+    write_theme_contribution(&contrib.manifest_path, &theme)?;
 
     let mut saved = theme;
-    saved.id = new_effective;
-    saved.author_id = author_id;
+    saved.author_id = contrib.author_id;
+    saved.version = contrib.version;
     saved.zone = contrib.zone;
     saved.mutable = true;
     Ok(saved)
-}
-
-/// Delete a single mutable theme contribution (workshop or linked). Empty
-/// workshop packs are removed from disk; linked pack roots are left in place.
-#[tauri::command]
-pub fn delete_workshop_theme(app: AppHandle, theme_id: String) -> Result<(), String> {
-    let theme_id = theme_id.trim();
-    if theme_id.is_empty() {
-        return Err("themeId is required".into());
-    }
-    let contrib = require_mutable_theme_contribution(&app, theme_id)?;
-
-    let pack_dir = contrib.pack_dir.clone();
-    let pack_id = contrib.pack_id.clone();
-    let author_id = contrib.author_id.clone();
-    let zone = contrib.zone;
-
-    remove_dir_all_with_context(&contrib.contribution_dir, &format!("theme \"{theme_id}\""))?;
-
-    let mut app_settings = settings::read_settings(&app);
-    let was_active = app_settings.active_theme == theme_id;
-
-    if !pack_has_contributions(&pack_dir) && zone == PackZone::Workshop {
-        remove_dir_all_with_context(&pack_dir, &format!("workshop pack \"{pack_id}\""))?;
-        // Clear any leftover pack-prefixed settings.
-        let prefix = pack_id_prefix(&author_id, &pack_id);
-        if app_settings.active_theme.starts_with(&prefix) {
-            app_settings.active_theme = settings::DEFAULT_THEME_ID.to_string();
-        }
-        app_settings
-            .hidden_contribution_ids
-            .retain(|id| !id.starts_with(&prefix));
-        let _ = settings::write_settings(&app, &app_settings);
-    } else {
-        forget_contribution_references(&app, theme_id)?;
-        if was_active {
-            let (builtin, user) = list_themes_from_scan(&app)?;
-            let themes: Vec<_> = builtin.into_iter().chain(user).collect();
-            let resolved = resolve_active_theme_id(&themes, "");
-            app_settings.active_theme = resolved;
-            let _ = settings::write_settings(&app, &app_settings);
-        }
-    }
-
-    Ok(())
 }
 
 #[cfg(test)]
@@ -613,20 +316,20 @@ mod tests {
         assert_eq!(
             ids,
             vec![
-                "spiral.core.theme.abyss",
-                "spiral.core.theme.grove",
-                "spiral.core.theme.noir",
-                "spiral.core.theme.obsidian",
-                "spiral.core.theme.parchment",
-                "spiral.core.theme.sprig",
-                "spiral.core.theme.sprig-dark",
-                "spiral.core.theme.strawberry",
+                "spiral.theme.abyss",
+                "spiral.theme.grove",
+                "spiral.theme.noir",
+                "spiral.theme.obsidian",
+                "spiral.theme.parchment",
+                "spiral.theme.sprig",
+                "spiral.theme.sprig-dark",
+                "spiral.theme.strawberry",
             ]
         );
         for theme in &themes {
             assert_eq!(theme.zone, PackZone::Builtin);
             assert!(!theme.mutable);
-            assert_eq!(theme.pack_id, "core");
+            assert_eq!(theme.version, "1.0.0");
             assert_eq!(theme.author_id, "spiral");
         }
     }
@@ -635,8 +338,8 @@ mod tests {
     fn resolve_known_id_or_default() {
         let themes = load_builtin_themes_from_disk();
         assert_eq!(
-            resolve_active_theme_id(&themes, "spiral.core.theme.obsidian"),
-            "spiral.core.theme.obsidian"
+            resolve_active_theme_id(&themes, "spiral.theme.obsidian"),
+            "spiral.theme.obsidian"
         );
         assert_eq!(
             resolve_active_theme_id(&themes, "Obsidian"),
@@ -660,8 +363,8 @@ mod tests {
     #[test]
     fn new_theme_clones_active_theme_tokens() {
         let themes = load_builtin_themes_from_disk();
-        let noir = find_theme_by_id(&themes, "spiral.core.theme.noir").unwrap();
-        let cloned = tokens_cloned_from_active(&themes, "spiral.core.theme.noir");
+        let noir = find_theme_by_id(&themes, "spiral.theme.noir").unwrap();
+        let cloned = tokens_cloned_from_active(&themes, "spiral.theme.noir");
         assert_eq!(cloned, noir.tokens);
         assert_ne!(
             cloned.get("color-accent").map(String::as_str),
@@ -695,25 +398,39 @@ mod tests {
     }
 
     #[test]
-    fn unique_workshop_pack_id_avoids_collisions() {
+    fn write_theme_preserves_identity_fields() {
         let dir = tempfile_workshop();
-        fs::create_dir_all(dir.join("untitled-theme")).unwrap();
-        assert_eq!(
-            unique_workshop_pack_id(&dir, "untitled-theme"),
-            "untitled-theme-2"
-        );
+        let path = dir.join("theme.json");
+        fs::write(
+            &path,
+            r#"{"id":"midnight","authorId":"bryan","version":"0.0.0","minAppVersion":"0.2.0","name":"Old","author":"","description":"","tokens":{}}"#,
+        )
+        .unwrap();
+        let theme = Theme {
+            id: "bryan.theme.midnight".into(),
+            name: "New".into(),
+            author: "Bryan".into(),
+            description: "desc".into(),
+            tokens: HashMap::from([("color-bg".to_string(), "#000".to_string())]),
+            author_id: "bryan".into(),
+            version: "0.0.0".into(),
+            zone: PackZone::Workshop,
+            mutable: true,
+        };
+        write_theme_contribution(&path, &theme).unwrap();
+
+        let value: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(value["id"], "midnight");
+        assert_eq!(value["authorId"], "bryan");
+        assert_eq!(value["minAppVersion"], "0.2.0");
+        assert_eq!(value["name"], "New");
+        assert_eq!(value["author"], "Bryan");
+        assert_eq!(value["tokens"]["color-bg"], "#000");
         let _ = fs::remove_dir_all(&dir);
     }
 
-    #[test]
-    fn unique_theme_local_id_avoids_collisions() {
-        let dir = tempfile_workshop();
-        fs::create_dir_all(dir.join("themes").join("midnight")).unwrap();
-        assert_eq!(unique_theme_local_id(&dir, "midnight"), "midnight-2");
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    fn tempfile_workshop() -> PathBuf {
+    fn tempfile_workshop() -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(
             "spiral-workshop-test-{}-{}",
             std::process::id(),

@@ -1,6 +1,7 @@
 //! Spiral pack format: `pack.json` contracts, contribution validators, and `.spk` archives.
 
 mod archive;
+mod item;
 mod manifest;
 mod skin;
 mod sound;
@@ -9,8 +10,14 @@ mod visualizer;
 
 pub use archive::{
     cleanup_pack_extract_dir, extract_pack_archive, extract_pack_archive_with_limits,
-    find_pack_root, write_pack_archive, ExtractLimits, DEFAULT_MAX_COMPRESSION_RATIO,
-    DEFAULT_MAX_ENTRIES, DEFAULT_MAX_UNCOMPRESSED_BYTES, DEFAULT_RATIO_CHECK_MIN_BYTES,
+    find_item_root, find_pack_root, write_pack_archive, ExtractLimits,
+    DEFAULT_MAX_COMPRESSION_RATIO, DEFAULT_MAX_ENTRIES, DEFAULT_MAX_UNCOMPRESSED_BYTES,
+    DEFAULT_RATIO_CHECK_MIN_BYTES,
+};
+pub use item::{
+    detect_item_type, effective_item_id, item_dir_name, item_id_prefix, item_manifest_filename,
+    item_type_folder, item_type_for_manifest_filename, list_item_dirs, parse_item_manifest_json,
+    parse_item_manifest_value, read_item_manifest, validate_item_dir, ItemManifest,
 };
 pub use manifest::*;
 pub use skin::{

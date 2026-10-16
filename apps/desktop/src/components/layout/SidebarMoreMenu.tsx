@@ -130,7 +130,7 @@ export function SidebarMoreMenu() {
           label={t("menus:view.studio")}
           onClick={() => {
             closeMenu();
-            void openAppearanceWindow(packUpdatesPending ? "packs" : undefined);
+            void openAppearanceWindow();
           }}
         />
       </ContextMenu>

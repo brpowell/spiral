@@ -54,9 +54,8 @@ export interface SkinSummary {
   author: string;
   description: string;
   isBuiltin: boolean;
-  packId: string;
-  packName: string;
-  packVersion: string;
+  authorId: string;
+  version: string;
   zone: PackZone;
   previewPath: string | null;
 }

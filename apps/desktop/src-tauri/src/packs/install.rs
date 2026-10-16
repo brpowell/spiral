@@ -1,255 +1,116 @@
-//! Atomic pack install into `packs/installed/<authorId>.<packId>@<version>/`.
+//! Atomic item install into `packs/installed/<type folder>/<authorId>.<id>/`.
+//!
+//! One version of an item is installed at a time: installing again replaces it.
 
-use super::paths::{ensure_packs_ready, installed_packs_root};
+use super::paths::{ensure_packs_ready, installed_packs_root, item_dir_in_zone};
 use super::scan::{app_version, meets_min_app_version};
-use super::{cleanup_pack_extract_dir, extract_pack_archive, find_pack_root};
 use super::{
-    contribution_id_from_manifest_json, get_contribution_type_handler, pack_identity,
-    parse_pack_manifest_json, PackManifest, CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME,
+    cleanup_pack_extract_dir, extract_pack_archive, find_item_root, validate_item_dir, ItemManifest,
 };
 use serde::Serialize;
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct InstallPackResult {
-    pub pack_id: String,
+pub struct InstallItemResult {
+    pub item_type: String,
+    pub id: String,
+    pub author_id: String,
+    pub effective_id: String,
     pub version: String,
     pub name: String,
-    pub pack_dir: String,
-    pub contribution_count: usize,
+    pub dir: String,
+    /// Version that was replaced, when the item was already installed.
+    pub replaced_version: Option<String>,
 }
 
-/// Directory name for an installed pack version: `<authorId>.<packId>@<version>`.
-pub fn installed_pack_dirname(author_id: &str, pack_id: &str, version: &str) -> String {
-    format!("{}@{version}", pack_identity(author_id, pack_id))
-}
-
-pub fn installed_pack_path(
-    installed_root: &Path,
-    author_id: &str,
-    pack_id: &str,
-    version: &str,
-) -> PathBuf {
-    installed_root.join(installed_pack_dirname(author_id, pack_id, version))
-}
-
-/// Validate pack.json + contribution files for install (strict).
-/// `validate_contribution` is called with (type, pack_dir, manifest_path).
-pub fn validate_pack_for_install<F>(
-    pack_dir: &Path,
-    validate_contribution: F,
-) -> Result<PackManifest, String>
-where
-    F: Fn(&str, &Path, &Path) -> Result<(), String>,
-{
-    let manifest_path = pack_dir.join(PACK_MANIFEST_FILENAME);
-    if !manifest_path.is_file() {
-        return Err(format!(
-            "pack is missing {PACK_MANIFEST_FILENAME} at {}",
-            pack_dir.display()
-        ));
-    }
-
-    let contents = fs::read_to_string(&manifest_path)
-        .map_err(|e| format!("failed to read {PACK_MANIFEST_FILENAME}: {e}"))?;
-    let pack = parse_pack_manifest_json(&contents).map_err(|e| e.to_string())?;
-
-    if let Some(min) = &pack.min_app_version {
+/// Validate an item directory for install (strict) and check the app version floor.
+pub fn validate_item_for_install(item_dir: &Path) -> Result<ItemManifest, String> {
+    let item = validate_item_dir(item_dir)?;
+    if let Some(min) = &item.min_app_version {
         if !meets_min_app_version(min, app_version()) {
             return Err(format!(
-                "pack \"{}\" requires minAppVersion {min} (app is {})",
-                pack.pack_id,
+                "{} \"{}\" requires minAppVersion {min} (app is {})",
+                item.item_type,
+                item.id,
                 app_version()
             ));
         }
     }
-
-    let contributions = collect_install_contributions(pack_dir, &pack)?;
-    if contributions.is_empty() {
-        return Err(format!("pack \"{}\" has no contributions", pack.pack_id));
-    }
-
-    for (contrib_type, rel_path, manifest) in &contributions {
-        if get_contribution_type_handler(contrib_type).is_none() {
-            return Err(format!(
-                "pack \"{}\": unknown contribution type \"{contrib_type}\" at {rel_path}",
-                pack.pack_id
-            ));
-        }
-
-        validate_contribution(contrib_type, pack_dir, manifest).map_err(|e| {
-            format!(
-                "pack \"{}\": invalid {contrib_type} contribution at {rel_path}: {e}",
-                pack.pack_id
-            )
-        })?;
-    }
-
-    Ok(pack)
+    Ok(item)
 }
 
-/// Count contributions under type folders (for install/export results).
-pub fn count_pack_contributions(pack_dir: &Path) -> usize {
-    let mut count = 0;
-    for &(folder, _, manifest_filename) in CONTRIBUTION_TYPE_FOLDERS {
-        let type_root = pack_dir.join(folder);
-        if !type_root.is_dir() {
-            continue;
-        }
-        let Ok(entries) = fs::read_dir(&type_root) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            let contribution_dir = entry.path();
-            if contribution_dir.is_dir() && contribution_dir.join(manifest_filename).is_file() {
-                count += 1;
-            }
-        }
-    }
-    count
-}
-
-/// Whether any contribution manifests remain under type folders.
-pub fn pack_has_contributions(pack_dir: &Path) -> bool {
-    count_pack_contributions(pack_dir) > 0
-}
-
-fn collect_install_contributions(
-    pack_dir: &Path,
-    pack: &PackManifest,
-) -> Result<Vec<(String, String, PathBuf)>, String> {
-    let mut out = Vec::new();
-    let mut seen_type_local_ids: HashMap<String, PathBuf> = HashMap::new();
-
-    for &(folder, contrib_type, manifest_filename) in CONTRIBUTION_TYPE_FOLDERS {
-        let type_root = pack_dir.join(folder);
-        if !type_root.is_dir() {
-            continue;
-        }
-        let entries = fs::read_dir(&type_root)
-            .map_err(|e| format!("pack \"{}\": could not read {folder}/: {e}", pack.pack_id))?;
-        for entry in entries.flatten() {
-            let contribution_dir = entry.path();
-            if !contribution_dir.is_dir() {
-                continue;
-            }
-            let contrib_manifest = contribution_dir.join(manifest_filename);
-            if !contrib_manifest.is_file() {
-                continue;
-            }
-            let contents = fs::read_to_string(&contrib_manifest).map_err(|e| {
-                format!(
-                    "pack \"{}\": could not read {}: {e}",
-                    pack.pack_id,
-                    contrib_manifest.display()
-                )
-            })?;
-            let local_id = contribution_id_from_manifest_json(&contents).map_err(|e| {
-                format!(
-                    "pack \"{}\": {}: {e}",
-                    pack.pack_id,
-                    contrib_manifest.display()
-                )
-            })?;
-            let type_local_key = format!("{contrib_type}:{local_id}");
-            if let Some(existing) = seen_type_local_ids.get(&type_local_key) {
-                return Err(format!(
-                    "pack \"{}\": duplicate {contrib_type} contribution id \"{local_id}\" at {} and {}",
-                    pack.pack_id,
-                    existing.display(),
-                    contrib_manifest.display()
-                ));
-            }
-            seen_type_local_ids.insert(type_local_key, contrib_manifest.clone());
-            let rel = contrib_manifest
-                .strip_prefix(pack_dir)
-                .map(|p| p.to_string_lossy().replace('\\', "/"))
-                .unwrap_or_else(|_| contrib_manifest.to_string_lossy().into_owned());
-            out.push((contrib_type.to_string(), rel, contrib_manifest));
-        }
-    }
-
-    Ok(out)
-}
-
-/// Copy a validated pack directory into a staging folder under `installed/`, then rename atomically.
-pub(crate) fn atomic_install_pack_dir(
+/// Copy a validated item directory into a staging folder beside its destination, then
+/// swap it into place. An existing install is moved aside first and restored if the swap
+/// fails. Returns the destination and the version that was replaced.
+pub(crate) fn atomic_install_item_dir(
     installed_root: &Path,
-    source_pack_dir: &Path,
-    pack: &PackManifest,
-) -> Result<PathBuf, String> {
-    fs::create_dir_all(installed_root)
-        .map_err(|e| format!("failed to create installed packs directory: {e}"))?;
+    source_dir: &Path,
+    item: &ItemManifest,
+) -> Result<(PathBuf, Option<String>), String> {
+    let dest = item_dir_in_zone(installed_root, &item.item_type, &item.author_id, &item.id)?;
+    let type_root = dest
+        .parent()
+        .ok_or_else(|| "installed item has no parent directory".to_string())?
+        .to_path_buf();
+    fs::create_dir_all(&type_root)
+        .map_err(|e| format!("failed to create installed items directory: {e}"))?;
 
-    let dest = installed_pack_path(
-        installed_root,
-        &pack.author_id,
-        &pack.pack_id,
-        &pack.version,
-    );
-    if dest.exists() {
-        return Err(format!(
-            "{} ({}) is already installed",
-            pack.name, pack.version
-        ));
+    let tag = format!("{}-{}", item.dir_name(), std::process::id());
+    let staging = type_root.join(format!(".staging-{tag}"));
+    let backup = type_root.join(format!(".old-{tag}"));
+    for leftover in [&staging, &backup] {
+        if leftover.exists() {
+            fs::remove_dir_all(leftover)
+                .map_err(|e| format!("failed to clear {}: {e}", leftover.display()))?;
+        }
     }
 
-    let staging = installed_root.join(format!(
-        ".staging-{}-{}-{}",
-        pack_identity(&pack.author_id, &pack.pack_id),
-        pack.version.replace(['+', '/'], "_"),
-        std::process::id()
-    ));
-    if staging.exists() {
-        fs::remove_dir_all(&staging)
-            .map_err(|e| format!("failed to clear staging directory: {e}"))?;
-    }
-
-    copy_dir_recursive(source_pack_dir, &staging).map_err(|e| {
+    copy_dir_recursive(source_dir, &staging).inspect_err(|_| {
         let _ = fs::remove_dir_all(&staging);
-        e
     })?;
 
-    // Final check — another install may have raced.
-    if dest.exists() {
+    let replaced_version = if dest.exists() {
+        let previous = super::read_item_manifest(&dest).ok().map(|i| i.version);
+        fs::rename(&dest, &backup).map_err(|e| {
+            let _ = fs::remove_dir_all(&staging);
+            format!("failed to replace {}: {e}", dest.display())
+        })?;
+        Some(previous.unwrap_or_default())
+    } else {
+        None
+    };
+
+    if let Err(e) = fs::rename(&staging, &dest) {
         let _ = fs::remove_dir_all(&staging);
+        if backup.exists() {
+            let _ = fs::rename(&backup, &dest);
+        }
         return Err(format!(
-            "{} ({}) is already installed",
-            pack.name, pack.version
+            "failed to install {} into {}: {e}",
+            item.name,
+            dest.display()
         ));
     }
 
-    match fs::rename(&staging, &dest) {
-        Ok(()) => Ok(dest),
-        Err(e) => {
-            let _ = fs::remove_dir_all(&staging);
-            Err(format!(
-                "failed to install pack into {}: {e}",
-                dest.display()
-            ))
-        }
+    if backup.exists() {
+        let _ = fs::remove_dir_all(&backup);
     }
+    Ok((dest, replaced_version))
 }
 
-fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> {
+pub(crate) fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> {
     fs::create_dir_all(dest).map_err(|e| format!("failed to create {}: {e}", dest.display()))?;
 
     for entry in fs::read_dir(src).map_err(|e| format!("failed to read {}: {e}", src.display()))? {
         let entry = entry.map_err(|e| format!("failed to read directory entry: {e}"))?;
         let path = entry.path();
-        let name = entry.file_name();
-        let target = dest.join(&name);
+        let target = dest.join(entry.file_name());
         if path.is_dir() {
             copy_dir_recursive(&path, &target)?;
         } else if path.is_file() {
-            if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent)
-                    .map_err(|e| format!("failed to create {}: {e}", parent.display()))?;
-            }
             fs::copy(&path, &target).map_err(|e| {
                 format!(
                     "failed to copy {} → {}: {e}",
@@ -262,23 +123,19 @@ fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Install a pack archive (`.spk`) or an unpacked pack directory into `installed/`.
-pub fn install_pack_from_path<F>(
-    app: &AppHandle,
-    path: &Path,
-    validate_contribution: F,
-) -> Result<InstallPackResult, String>
-where
-    F: Fn(&str, &Path, &Path) -> Result<(), String>,
-{
+/// Install an item archive (`.spk`) or an unpacked item directory into `installed/`.
+pub fn install_item_from_path(app: &AppHandle, path: &Path) -> Result<InstallItemResult, String> {
     ensure_packs_ready(app)?;
     let installed_root = installed_packs_root(app)?;
+    install_item_into(&installed_root, path)
+}
 
-    let (pack_dir, cleanup): (PathBuf, Option<PathBuf>) = if path.is_dir() {
+fn install_item_into(installed_root: &Path, path: &Path) -> Result<InstallItemResult, String> {
+    let (item_dir, cleanup): (PathBuf, Option<PathBuf>) = if path.is_dir() {
         (path.to_path_buf(), None)
     } else {
         let extract_dir = extract_pack_archive(path)?;
-        match find_pack_root(&extract_dir) {
+        match find_item_root(&extract_dir) {
             Ok(root) => (root, Some(extract_dir)),
             Err(e) => {
                 cleanup_pack_extract_dir(&extract_dir);
@@ -288,15 +145,17 @@ where
     };
 
     let result = (|| {
-        let pack = validate_pack_for_install(&pack_dir, &validate_contribution)?;
-        let contribution_count = count_pack_contributions(&pack_dir);
-        let dest = atomic_install_pack_dir(&installed_root, &pack_dir, &pack)?;
-        Ok(InstallPackResult {
-            pack_id: pack.pack_id,
-            version: pack.version,
-            name: pack.name,
-            pack_dir: dest.to_string_lossy().into_owned(),
-            contribution_count,
+        let item = validate_item_for_install(&item_dir)?;
+        let (dest, replaced_version) = atomic_install_item_dir(installed_root, &item_dir, &item)?;
+        Ok(InstallItemResult {
+            effective_id: item.effective_id(),
+            item_type: item.item_type,
+            id: item.id,
+            author_id: item.author_id,
+            version: item.version,
+            name: item.name,
+            dir: dest.to_string_lossy().into_owned(),
+            replaced_version,
         })
     })();
 
@@ -308,23 +167,41 @@ where
 }
 
 #[cfg(test)]
-mod tests {
-    use super::super::PACK_MANIFEST_VERSION;
-    use super::*;
+pub(crate) mod test_support {
+    use std::fs;
+    use std::path::{Path, PathBuf};
 
-    fn write_minimal_theme_pack(root: &Path) {
-        fs::create_dir_all(root.join("themes/theme")).unwrap();
+    pub fn temp_root(label: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("spiral-{label}-{nanos}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    /// Write a valid theme item at `dir`.
+    pub fn write_theme_item(dir: &Path, author: &str, id: &str, version: &str) {
+        fs::create_dir_all(dir).unwrap();
         fs::write(
-            root.join("themes/theme/theme.json"),
+            dir.join("theme.json"),
             serde_json::json!({
-                "id": "theme",
-                "name": "Test Theme",
-                "author": "t",
+                "id": id,
+                "authorId": author,
+                "version": version,
+                "name": format!("Theme {id}"),
+                "author": "Test",
                 "description": "",
                 "tokens": {
                     "color-bg": "#000",
+                    "color-surface": "#111",
                     "color-text-primary": "#fff",
+                    "color-text-secondary": "#aaa",
                     "color-accent": "#7b8cde",
+                    "color-accent-muted": "#556",
+                    "color-border": "#222",
                     "color-danger": "#e06c75",
                     "radius-card": "10px",
                     "radius-button": "6px",
@@ -334,135 +211,135 @@ mod tests {
             .to_string(),
         )
         .unwrap();
-
-        let pack = PackManifest {
-            manifest_version: PACK_MANIFEST_VERSION,
-            pack_id: "test-theme".into(),
-            author_id: "test".into(),
-            version: "1.0.0".into(),
-            name: "Test Theme".into(),
-            description: "".into(),
-            preview: None,
-            min_app_version: None,
-        };
-        fs::write(
-            root.join(PACK_MANIFEST_FILENAME),
-            serde_json::to_string_pretty(&pack).unwrap(),
-        )
-        .unwrap();
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::test_support::*;
+    use super::*;
+    use crate::packs::write_pack_archive;
 
     #[test]
-    fn installed_dirname_includes_author_and_version() {
-        assert_eq!(
-            installed_pack_dirname("bryan", "midnight-drive", "1.2.3"),
-            "bryan.midnight-drive@1.2.3"
-        );
-    }
-
-    #[test]
-    fn failed_validation_leaves_no_installed_dir() {
-        let root = std::env::temp_dir().join(format!("spiral-install-fail-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+    fn installs_directory_under_type_folder() {
+        let root = temp_root("install-dir");
+        let src = root.join("src");
+        write_theme_item(&src, "bryan", "midnight", "1.0.0");
         let installed = root.join("installed");
-        fs::create_dir_all(&installed).unwrap();
 
-        let pack_src = root.join("src");
-        write_minimal_theme_pack(&pack_src);
-        // Break the theme tokens so validation fails.
-        fs::write(
-            pack_src.join("themes/theme/theme.json"),
-            r#"{"id":"theme","name":"Broken","author":"","description":"","tokens":{}}"#,
-        )
-        .unwrap();
-
-        let validate_err = validate_pack_for_install(&pack_src, |ty, _pack, manifest| {
-            if ty == "theme" {
-                let text = fs::read_to_string(manifest).unwrap();
-                let v: serde_json::Value = serde_json::from_str(&text).unwrap();
-                let tokens = v.get("tokens").and_then(|t| t.as_object()).unwrap();
-                if tokens.is_empty() {
-                    return Err("missing required tokens".into());
-                }
-            }
-            Ok(())
-        })
-        .unwrap_err();
-        assert!(validate_err.contains("missing required tokens"));
-        assert!(!installed.join("test.test-theme@1.0.0").exists());
+        let result = install_item_into(&installed, &src).unwrap();
+        assert_eq!(result.effective_id, "bryan.theme.midnight");
+        assert_eq!(result.replaced_version, None);
+        let dest = installed.join("themes/bryan.midnight");
+        assert_eq!(Path::new(&result.dir), dest);
+        assert!(dest.join("theme.json").is_file());
         let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
-    fn different_authors_same_pack_id_install_side_by_side() {
-        let root =
-            std::env::temp_dir().join(format!("spiral-install-authors-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+    fn installs_from_spk_round_trip() {
+        let root = temp_root("install-spk");
+        let src = root.join("src");
+        write_theme_item(&src, "bryan", "midnight", "1.0.0");
+        fs::write(src.join("extra.txt"), b"asset").unwrap();
+        let spk = root.join("midnight.spk");
+        write_pack_archive(&src, &spk).unwrap();
         let installed = root.join("installed");
-        fs::create_dir_all(&installed).unwrap();
 
-        let alice_src = root.join("alice");
-        write_minimal_theme_pack(&alice_src);
-        let mut alice = validate_pack_for_install(&alice_src, |_, _, _| Ok(())).unwrap();
-        alice.author_id = "alice".into();
-        alice.pack_id = "midnight-drive".into();
-        fs::write(
-            alice_src.join(PACK_MANIFEST_FILENAME),
-            serde_json::to_string_pretty(&alice).unwrap(),
-        )
-        .unwrap();
-        let alice = validate_pack_for_install(&alice_src, |_, _, _| Ok(())).unwrap();
-        let alice_dest = atomic_install_pack_dir(&installed, &alice_src, &alice).unwrap();
-
-        let bob_src = root.join("bob");
-        write_minimal_theme_pack(&bob_src);
-        let mut bob = validate_pack_for_install(&bob_src, |_, _, _| Ok(())).unwrap();
-        bob.author_id = "bob".into();
-        bob.pack_id = "midnight-drive".into();
-        fs::write(
-            bob_src.join(PACK_MANIFEST_FILENAME),
-            serde_json::to_string_pretty(&bob).unwrap(),
-        )
-        .unwrap();
-        let bob = validate_pack_for_install(&bob_src, |_, _, _| Ok(())).unwrap();
-        let bob_dest = atomic_install_pack_dir(&installed, &bob_src, &bob).unwrap();
-
-        assert!(alice_dest.exists());
-        assert!(bob_dest.exists());
-        assert_ne!(alice_dest, bob_dest);
-        assert!(alice_dest.ends_with("alice.midnight-drive@1.0.0"));
-        assert!(bob_dest.ends_with("bob.midnight-drive@1.0.0"));
+        let result = install_item_into(&installed, &spk).unwrap();
+        assert_eq!(result.version, "1.0.0");
+        assert!(installed.join("themes/bryan.midnight/extra.txt").is_file());
         let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
-    fn keeps_previous_version_dir_on_update() {
-        let root = std::env::temp_dir().join(format!("spiral-install-keep-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
+    fn reinstall_replaces_previous_version() {
+        let root = temp_root("install-replace");
         let installed = root.join("installed");
-        fs::create_dir_all(&installed).unwrap();
 
         let v1 = root.join("v1");
-        write_minimal_theme_pack(&v1);
-        let pack_v1 = validate_pack_for_install(&v1, |_, _, _| Ok(())).unwrap();
-        let dest_v1 = atomic_install_pack_dir(&installed, &v1, &pack_v1).unwrap();
-        assert!(dest_v1.exists());
+        write_theme_item(&v1, "bryan", "midnight", "1.0.0");
+        fs::write(v1.join("old.txt"), b"old").unwrap();
+        install_item_into(&installed, &v1).unwrap();
 
         let v2 = root.join("v2");
-        write_minimal_theme_pack(&v2);
-        let mut pack_v2 = validate_pack_for_install(&v2, |_, _, _| Ok(())).unwrap();
-        pack_v2.version = "2.0.0".into();
+        write_theme_item(&v2, "bryan", "midnight", "2.0.0");
+        let result = install_item_into(&installed, &v2).unwrap();
+
+        assert_eq!(result.replaced_version.as_deref(), Some("1.0.0"));
+        let dest = installed.join("themes/bryan.midnight");
+        assert!(!dest.join("old.txt").exists(), "old files must not linger");
+        assert_eq!(read_version(&dest), "2.0.0");
+        let leftovers: Vec<_> = fs::read_dir(installed.join("themes"))
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(leftovers, vec!["bryan.midnight".to_string()]);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    fn read_version(dir: &Path) -> String {
+        super::super::read_item_manifest(dir).unwrap().version
+    }
+
+    #[test]
+    fn different_authors_same_id_install_side_by_side() {
+        let root = temp_root("install-authors");
+        let installed = root.join("installed");
+        for author in ["alice", "bob"] {
+            let src = root.join(author);
+            write_theme_item(&src, author, "midnight", "1.0.0");
+            install_item_into(&installed, &src).unwrap();
+        }
+        assert!(installed.join("themes/alice.midnight").is_dir());
+        assert!(installed.join("themes/bob.midnight").is_dir());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn invalid_item_leaves_nothing_installed() {
+        let root = temp_root("install-invalid");
+        let src = root.join("src");
+        fs::create_dir_all(&src).unwrap();
         fs::write(
-            v2.join(PACK_MANIFEST_FILENAME),
-            serde_json::to_string_pretty(&pack_v2).unwrap(),
+            src.join("theme.json"),
+            r#"{"id":"x","authorId":"a","version":"1.0.0","name":"X","tokens":{}}"#,
         )
         .unwrap();
-        let pack_v2 = validate_pack_for_install(&v2, |_, _, _| Ok(())).unwrap();
-        let dest_v2 = atomic_install_pack_dir(&installed, &v2, &pack_v2).unwrap();
+        let installed = root.join("installed");
 
-        assert!(dest_v1.exists(), "previous version must remain");
-        assert!(dest_v2.exists());
-        assert_ne!(dest_v1, dest_v2);
+        assert!(install_item_into(&installed, &src).is_err());
+        assert!(!installed.join("themes").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn rejects_item_needing_newer_app() {
+        let root = temp_root("install-minapp");
+        let src = root.join("src");
+        write_theme_item(&src, "bryan", "midnight", "1.0.0");
+        let text = fs::read_to_string(src.join("theme.json")).unwrap();
+        let mut value: serde_json::Value = serde_json::from_str(&text).unwrap();
+        value["minAppVersion"] = "999.0.0".into();
+        fs::write(src.join("theme.json"), value.to_string()).unwrap();
+
+        let err = install_item_into(&root.join("installed"), &src).unwrap_err();
+        assert!(err.contains("minAppVersion"), "{err}");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn rejects_old_pack_archive() {
+        let root = temp_root("install-oldpack");
+        let src = root.join("src");
+        fs::create_dir_all(&src).unwrap();
+        fs::write(src.join("pack.json"), "{}").unwrap();
+        let spk = root.join("old.spk");
+        write_pack_archive(&src, &spk).unwrap();
+
+        let err = install_item_into(&root.join("installed"), &spk).unwrap_err();
+        assert!(err.contains("item manifest"), "{err}");
         let _ = fs::remove_dir_all(&root);
     }
 }

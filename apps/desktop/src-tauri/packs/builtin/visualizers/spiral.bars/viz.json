@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/viz-v1.schema.json",
+  "id": "bars",
+  "authorId": "spiral",
+  "version": "1.0.0",
+  "name": "Bars",
+  "author": "Spiral",
+  "description": "I wonder if you put a pin art board on top of a speaker if it would do this.",
+  "children": [
+    {
+      "kind": "canvas",
+      "layout": "fill",
+      "entry": "index.js"
+    }
+  ]
+}

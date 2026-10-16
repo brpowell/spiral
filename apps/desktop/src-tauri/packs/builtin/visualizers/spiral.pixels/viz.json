@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/viz-v1.schema.json",
+  "id": "pixels",
+  "authorId": "spiral",
+  "version": "1.0.0",
+  "name": "Pixels",
+  "author": "Spiral",
+  "description": "Pixel bars playing keepie uppie with peak caps.",
+  "children": [
+    {
+      "kind": "canvas",
+      "layout": "fill",
+      "entry": "index.js"
+    }
+  ]
+}

@@ -40,10 +40,8 @@ function makeTheme(partial?: Partial<Theme>): Theme {
     name: "My Theme",
     author: "",
     description: "",
-    packId: "my-theme",
     authorId: "spiral",
-    packName: "My Theme",
-    packVersion: "0.0.0",
+    version: "0.0.0",
     zone: "workshop",
     mutable: true,
     tokens: {

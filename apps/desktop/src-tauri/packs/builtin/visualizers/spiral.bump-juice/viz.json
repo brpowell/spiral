@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/viz-v1.schema.json",
+  "id": "bump-juice",
+  "authorId": "spiral",
+  "version": "1.0.0",
+  "name": "Bump Juice",
+  "author": "Spiral",
+  "description": "Liquid with the rhythm.",
+  "children": [
+    {
+      "kind": "canvas",
+      "layout": "fill",
+      "entry": "index.js"
+    }
+  ]
+}

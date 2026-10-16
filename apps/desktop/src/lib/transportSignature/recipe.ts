@@ -1,7 +1,7 @@
 /**
  * Recipe edited in Sound Lab (DEV only). The app does not play these;
  * transport cues are the public sound contributions
- * `spiral.core.sound.play` and `spiral.core.sound.control`.
+ * `spiral.sound.play` and `spiral.sound.control`.
  */
 
 export const TRANSPORT_ACTIONS = [

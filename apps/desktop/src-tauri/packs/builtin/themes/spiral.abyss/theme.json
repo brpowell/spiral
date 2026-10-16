@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/theme-v1.schema.json",
+  "id": "abyss",
+  "authorId": "spiral",
+  "version": "1.0.0",
+  "name": "Abyss",
+  "author": "Spiral",
+  "description": "Moonlit indigo depths and luminous aqua.",
+  "tokens": {
+    "color-bg": "#0a1220",
+    "color-text-primary": "#eef1f8",
+    "color-accent": "#5ecfd4",
+    "color-danger": "#e8945a",
+    "font-ui": "'Outfit', system-ui, -apple-system, sans-serif",
+    "radius-button": "8px",
+    "radius-card": "12px",
+    "radius-input": "8px"
+  }
+}

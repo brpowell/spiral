@@ -10,11 +10,6 @@ import { Trans, useTranslation } from "react-i18next";
 import type { Theme, ThemeTokens } from "../../types/theme";
 import { t as translate } from "../../lib/i18n";
 import {
-  effectiveContributionId,
-  isContributionId,
-  packIdPrefix,
-} from "../../lib/packs/packManifest";
-import {
   FIXED_RADIUS_TOKEN_KEYS,
   OBSIDIAN_DEFAULT_TOKENS,
   resolveThemeTokens,
@@ -42,7 +37,6 @@ import { Checkbox } from "../common/Checkbox/Checkbox";
 import { Chip } from "../common/Chip/Chip";
 import { ColorField } from "../common/ColorField/ColorField";
 import { FormField } from "../common/Field/Field";
-import { SlugField } from "../common/SlugField/SlugField";
 import { Switch } from "../common/Switch/Switch";
 import { TextInput } from "../common/TextInput/TextInput";
 import { TextLink } from "../common/TextLink/TextLink";
@@ -52,16 +46,6 @@ import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
 import "./ThemeEditor.css";
-
-/** Contribution id segment from an effective `authorId.packId.theme.contributionId`. */
-function contributionIdFromTheme(theme: Theme): string {
-  const prefix = `${packIdPrefix(theme.authorId, theme.packId)}theme.`;
-  if (theme.authorId && theme.packId && theme.id.startsWith(prefix)) {
-    return theme.id.slice(prefix.length);
-  }
-  const parts = theme.id.split(".");
-  return parts[parts.length - 1] ?? "";
-}
 
 const COLOR_TOKEN_KEYS = [
   "color-bg",
@@ -301,26 +285,12 @@ export function ThemeEditor({
   const previewTokens = resolveThemeTokens(draft);
   const storedTheme = themes.find((item) => item.id === draft.id);
   const canActivate = storedTheme ? isThemeApplicable(storedTheme) : false;
-  const contributionId = contributionIdFromTheme(draft);
-  const contributionIdValid = isContributionId(contributionId);
 
   const updateMeta = <K extends "name" | "author" | "description">(
     key: K,
     value: string,
   ) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const updateContributionId = (nextLocalId: string) => {
-    setDraft((prev) => ({
-      ...prev,
-      id: effectiveContributionId(
-        prev.authorId,
-        prev.packId,
-        "theme",
-        nextLocalId,
-      ),
-    }));
   };
 
   const updateToken = (key: keyof ThemeTokens | string, value: string) => {
@@ -365,24 +335,6 @@ export function ThemeEditor({
                   <TextInput
                     value={draft.name}
                     onChange={(e) => updateMeta("name", e.target.value)}
-                  />
-                </FormField>
-                <FormField
-                  label={t("themeEditor.contributionId")}
-                  className="theme-editor__field--block"
-                  description={
-                    contributionId.length > 0 && !contributionIdValid
-                      ? t("themeEditor.contributionIdInvalid")
-                      : t("themeEditor.contributionIdHint")
-                  }
-                >
-                  <SlugField
-                    value={contributionId}
-                    onChange={updateContributionId}
-                    suggestedFrom={draft.name}
-                    autoSyncKey={theme.id}
-                    placeholder={t("themeEditor.contributionIdPlaceholder")}
-                    disabled={busy}
                   />
                 </FormField>
                 <FormField
@@ -529,7 +481,7 @@ export function ThemeEditor({
         ) : null}
         <Button
           variant="primary"
-          disabled={busy || !hasChanges || !contributionIdValid}
+          disabled={busy || !hasChanges}
           onClick={() => void handleSaveAndClose()}
         >
           {saving ? t("common:saving") : t("common:save")}
@@ -543,7 +495,7 @@ export function ThemeEditor({
         onDiscard={handleDiscard}
         onSave={() => void handleSaveAndClose()}
         saveLabel={saving ? t("common:saving") : t("common:save")}
-        saveDisabled={busy || !contributionIdValid}
+        saveDisabled={busy}
       />
     </div>
   );

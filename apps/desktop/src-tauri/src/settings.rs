@@ -3,9 +3,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
-pub const DEFAULT_THEME_ID: &str = "spiral.core.theme.obsidian";
-pub const DEFAULT_SKIN_ID: &str = "spiral.core.skin.vanilla";
-pub const DEFAULT_VISUALIZER_ID: &str = "spiral.core.visualizer.bars";
+pub const DEFAULT_THEME_ID: &str = "spiral.theme.obsidian";
+pub const DEFAULT_SKIN_ID: &str = "spiral.skin.vanilla";
+pub const DEFAULT_VISUALIZER_ID: &str = "spiral.visualizer.bars";
 pub const DEFAULT_SKIN_VIEW_ID: &str = "standard";
 pub const SPIRAL_LIBRARY_DIR_NAME: &str = "Spiral Library";
 /// On-disk audio folder under the library root.
@@ -316,9 +316,9 @@ pub struct AppSettings {
     /// Effective contribution ids hidden from pickers (pack remains on disk).
     #[serde(default)]
     pub hidden_contribution_ids: Vec<String>,
-    /// Absolute paths to linked pack roots (each contains `pack.json` directly).
+    /// Absolute paths to linked item folders (each holds one item manifest directly).
     #[serde(default)]
-    pub linked_pack_paths: Vec<String>,
+    pub linked_item_paths: Vec<String>,
     /// Seeded once from the OS account name; copied into new workshop packs as `authorId`.
     #[serde(default = "default_default_author_id")]
     pub default_author_id: String,
@@ -431,7 +431,7 @@ impl Default for AppSettings {
             active_skin_view: default_active_skin_view(),
             active_visualizer: default_active_visualizer(),
             hidden_contribution_ids: Vec::new(),
-            linked_pack_paths: Vec::new(),
+            linked_item_paths: Vec::new(),
             default_author_id: default_default_author_id(),
             registries: default_registries(),
             library: LibrarySettings::default(),

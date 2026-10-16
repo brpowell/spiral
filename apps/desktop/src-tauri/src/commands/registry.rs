@@ -1,12 +1,11 @@
 //! Pack registry Tauri commands (catalog + integrity-checked install from URL).
 
-use crate::packs::install::InstallPackResult;
+use crate::packs::install::InstallItemResult;
 use crate::packs::registry::{
     self, PackDownloadProgress, RegistryPackList, SourcedRegistryPackDetail,
     SourcedRegistryVersionDetail,
 };
 use crate::packs::scan::app_version;
-use crate::packs::validate_contribution;
 use crate::settings::{self, RegistrySource};
 use tauri::ipc::Channel;
 use tauri::AppHandle;
@@ -79,7 +78,7 @@ pub fn pack_meets_min_app_version(min_app_version: Option<String>) -> bool {
     registry::pack_meets_min_app_version(min_app_version.as_deref())
 }
 
-/// Local already-installed check (`packs/installed/<authorId>.<packId>@<version>/`) — no network.
+/// Local already-installed check — no network. Always `false` until the registry moves to items.
 #[tauri::command]
 pub fn is_pack_installed(
     app: AppHandle,
@@ -96,6 +95,12 @@ pub fn is_pack_installed(
     registry::is_pack_installed(&app, author_id, pack_id, version)
 }
 
+/// Registry packs are v1 bundles; local installs are individual items. Until the registry
+/// publishes items, downloads would only fail validation, so reject them up front.
+fn ensure_registry_installs_enabled() -> Result<(), String> {
+    Err("Installing from the registry is unavailable while it moves to individual items".into())
+}
+
 /// Download a `.spk` from `url`, verify catalog `sha256`, then install.
 ///
 /// `size_bytes` is catalog display size (uncompressed); progress uses `Content-Length`.
@@ -107,7 +112,8 @@ pub fn install_pack_from_url(
     sha256: String,
     size_bytes: u64,
     on_progress: Channel<PackDownloadProgress>,
-) -> Result<InstallPackResult, String> {
+) -> Result<InstallItemResult, String> {
+    ensure_registry_installs_enabled()?;
     registry::install_pack_from_url(
         &app,
         &url,
@@ -116,7 +122,6 @@ pub fn install_pack_from_url(
         Some(&|progress: PackDownloadProgress| {
             let _ = on_progress.send(progress);
         }),
-        validate_contribution,
     )
 }
 
@@ -135,7 +140,7 @@ pub fn install_pack_from_registry(
     size_bytes: u64,
     min_app_version: Option<String>,
     on_progress: Channel<PackDownloadProgress>,
-) -> Result<InstallPackResult, String> {
+) -> Result<InstallItemResult, String> {
     let author_id = author_id.trim();
     let pack_id = pack_id.trim();
     let version = version.trim();

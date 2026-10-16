@@ -1,6 +1,6 @@
 import { logActivity } from "../activityLog";
 import { errorMessageFromUnknown } from "../cdPlaybackFailure";
-import type { InstallPackResult } from "../tauri";
+import type { InstallItemResult, InstallPackResult } from "../tauri";
 import { ACTIVITY_LOG_DOMAINS } from "../../types/activityLog";
 
 export type PackInstallSource = "registry" | "file";
@@ -42,6 +42,31 @@ export function logPackInstallSuccess(options: {
       ...(options.sizeBytes != null ? { sizeBytes: options.sizeBytes } : {}),
       ...(options.minAppVersion != null && options.minAppVersion !== ""
         ? { minAppVersion: options.minAppVersion }
+        : {}),
+    },
+  });
+}
+
+/** Activity log for a successful item install from a file. */
+export function logItemInstallSuccess(options: {
+  operationId: string;
+  result: InstallItemResult;
+}): void {
+  const { operationId, result } = options;
+  logActivity({
+    level: "info",
+    domain: ACTIVITY_LOG_DOMAINS.packInstall,
+    message: `Installed ${result.name} (${result.effectiveId}@${result.version}) from file`,
+    operationId,
+    details: {
+      source: "file",
+      name: result.name,
+      itemType: result.itemType,
+      effectiveId: result.effectiveId,
+      version: result.version,
+      dir: result.dir,
+      ...(result.replacedVersion != null
+        ? { replacedVersion: result.replacedVersion }
         : {}),
     },
   });

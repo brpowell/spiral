@@ -1,5 +1,6 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import type { ItemSummary, ItemType } from "../types/item";
 import type { PackSummary } from "../types/pack";
 import type {
   PackDownloadProgress,
@@ -831,47 +832,25 @@ export async function saveActiveThemeId(themeId: string): Promise<void> {
   return invoke<void>("save_active_theme_id", { themeId });
 }
 
-export interface CreateWorkshopThemeArgs {
-  name?: string | null;
-  /** Add the theme to this existing workshop pack (omit to create a new pack). */
-  packId?: string | null;
-  /** Display name for a new pack; defaults to the theme name. Ignored when packId is set. */
-  packName?: string | null;
-}
-
-export async function createWorkshopTheme(
-  args?: CreateWorkshopThemeArgs,
-): Promise<Theme> {
-  return invoke<Theme>("create_workshop_theme", {
-    name: args?.name ?? null,
-    packId: args?.packId ?? null,
-    packName: args?.packName ?? null,
-  });
-}
-
 export async function saveWorkshopTheme(theme: Theme): Promise<Theme> {
   return invoke<Theme>("save_workshop_theme", { theme });
 }
 
-export async function deleteWorkshopTheme(themeId: string): Promise<void> {
-  return invoke<void>("delete_workshop_theme", { themeId });
+/**
+ * Registry-only: local v1 packs no longer exist (installs are individual items), so
+ * there is nothing to match catalog entries against. Remove with the registry rework.
+ */
+export async function listPacks(): Promise<PackSummary[]> {
+  return [];
 }
 
+/** Registry-only legacy shape; registry installs are rejected until it moves to items. */
 export interface InstallPackResult {
   packId: string;
   version: string;
   name: string;
   packDir: string;
   contributionCount: number;
-}
-
-/** Install a `.spk` into `packs/installed/`. Omit path to open a file picker. */
-export async function installPack(
-  path?: string | null,
-): Promise<InstallPackResult | null> {
-  return invoke<InstallPackResult | null>("install_pack", {
-    path: path ?? null,
-  });
 }
 
 /** Official pack registry source only (extra settings entries ignored until multi-registry UI). */
@@ -985,70 +964,106 @@ export async function resolveRegistryPackPreview(args: {
   });
 }
 
-export async function listPacks(): Promise<PackSummary[]> {
-  return invoke<PackSummary[]>("list_packs");
-}
-
-/** Create an empty workshop pack; returns the new packId. */
-export async function createWorkshopPack(args: {
-  name: string;
-  description: string;
-}): Promise<string> {
-  return invoke<string>("create_workshop_pack", {
-    name: args.name,
-    description: args.description,
+export async function createWorkshopTheme(args?: {
+  name?: string | null;
+}): Promise<Theme> {
+  return invoke<Theme>("create_workshop_theme", {
+    name: args?.name ?? null,
   });
 }
 
-/** Link an external pack folder. Omit path to open a directory picker. */
-export async function linkPackFolder(
+export interface InstallItemResult {
+  itemType: ItemType;
+  id: string;
+  authorId: string;
+  effectiveId: string;
+  version: string;
+  name: string;
+  dir: string;
+  /** Version that was replaced when the item was already installed. */
+  replacedVersion: string | null;
+}
+
+/** Install a `.spk` into `packs/installed/`. Omit path to open a file picker. */
+export async function installItem(
+  path?: string | null,
+): Promise<InstallItemResult | null> {
+  return invoke<InstallItemResult | null>("install_item", {
+    path: path ?? null,
+  });
+}
+
+/** Every item across builtin / workshop / installed / linked. */
+export async function listItems(): Promise<ItemSummary[]> {
+  return invoke<ItemSummary[]>("list_items");
+}
+
+export interface ItemExportDefaults {
+  effectiveId: string;
+  itemType: ItemType;
+  authorId: string;
+  name: string;
+  version: string;
+  description: string;
+}
+
+export async function getItemExportDefaults(
+  itemId: string,
+): Promise<ItemExportDefaults> {
+  return invoke<ItemExportDefaults>("get_item_export_defaults", { itemId });
+}
+
+export interface ExportItemResult {
+  path: string;
+  effectiveId: string;
+  version: string;
+}
+
+/** Export a workshop/linked item to `.spk` (opens a save dialog; `null` if cancelled). */
+export async function exportItem(args: {
+  itemId: string;
+  name: string;
+  version: string;
+  description?: string;
+}): Promise<ExportItemResult | null> {
+  return invoke<ExportItemResult | null>("export_item", {
+    itemId: args.itemId,
+    name: args.name,
+    version: args.version,
+    description: args.description ?? null,
+  });
+}
+
+/** Link an external item folder. Omit path to open a directory picker. */
+export async function linkItemFolder(
   path?: string | null,
 ): Promise<string | null> {
-  return invoke<string | null>("link_pack_folder", { path: path ?? null });
+  return invoke<string | null>("link_item_folder", { path: path ?? null });
 }
 
-/** Remove a path from linkedPackPaths; never deletes the folder. */
-export async function unlinkPack(path: string): Promise<void> {
-  return invoke<void>("unlink_pack", { path });
+/** Remove a path from linkedItemPaths; never deletes the folder. */
+export async function unlinkItem(path: string): Promise<void> {
+  return invoke<void>("unlink_item", { path });
 }
 
-export async function getPackScanWarnings(): Promise<string[]> {
-  return invoke<string[]>("get_pack_scan_warnings");
+export async function getItemScanWarnings(): Promise<string[]> {
+  return invoke<string[]>("get_item_scan_warnings");
 }
 
-export async function updateWorkshopPackMetadata(
-  packId: string,
+/** Update an authoring item's identity and display fields. Returns the new effective id. */
+export async function updateItemMetadata(
+  itemId: string,
   metadata: {
-    packId: string;
+    id: string;
     authorId: string;
     name: string;
     version: string;
     description: string;
   },
 ): Promise<string> {
-  return invoke<string>("update_workshop_pack_metadata", {
-    packId,
-    newPackId: metadata.packId,
-    authorId: metadata.authorId,
-    name: metadata.name,
-    version: metadata.version,
-    description: metadata.description,
-  });
-}
-
-export async function updateLinkedPackMetadata(
-  packDir: string,
-  metadata: {
-    packId: string;
-    authorId: string;
-    name: string;
-    version: string;
-    description: string;
-  },
-): Promise<string> {
-  return invoke<string>("update_linked_pack_metadata", {
-    packDir,
-    newPackId: metadata.packId,
+  return invoke<string>("update_item_metadata", {
+    itemId,
+    newId: metadata.id,
     authorId: metadata.authorId,
     name: metadata.name,
     version: metadata.version,
@@ -1066,78 +1081,49 @@ export async function saveDefaultAuthorId(authorId: string): Promise<string> {
   return invoke<string>("save_default_author_id", { authorId });
 }
 
-/** Optional pack-root README.md; `null` when the file is absent. */
-export async function readPackReadme(packDir: string): Promise<string | null> {
-  return invoke<string | null>("read_pack_readme", { packDir });
+/** Optional item-root README.md; `null` when the file is absent. */
+export async function readItemReadme(itemDir: string): Promise<string | null> {
+  return invoke<string | null>("read_item_readme", { itemDir });
 }
 
-/** Write or delete pack-root README.md for workshop/linked (empty/whitespace deletes). */
-export async function writePackReadme(
-  packDir: string,
+/** Write or delete item-root README.md for workshop/linked (empty/whitespace deletes). */
+export async function writeItemReadme(
+  itemDir: string,
   content: string,
 ): Promise<void> {
-  return invoke<void>("write_pack_readme", { packDir, content });
+  return invoke<void>("write_item_readme", { itemDir, content });
 }
 
-/** Optional pack-root CHANGELOG.md; `null` when the file is absent. */
-export async function readPackChangelog(
-  packDir: string,
+/** Optional item-root CHANGELOG.md; `null` when the file is absent. */
+export async function readItemChangelog(
+  itemDir: string,
 ): Promise<string | null> {
-  return invoke<string | null>("read_pack_changelog", { packDir });
+  return invoke<string | null>("read_item_changelog", { itemDir });
 }
 
-/** Write or delete pack-root CHANGELOG.md for workshop/linked (empty/whitespace deletes). */
-export async function writePackChangelog(
-  packDir: string,
+/** Write or delete item-root CHANGELOG.md for workshop/linked (empty/whitespace deletes). */
+export async function writeItemChangelog(
+  itemDir: string,
   content: string,
 ): Promise<void> {
-  return invoke<void>("write_pack_changelog", { packDir, content });
+  return invoke<void>("write_item_changelog", { itemDir, content });
 }
 
-export async function deleteWorkshopPack(packId: string): Promise<void> {
-  return invoke<void>("delete_workshop_pack", { packId });
+/** Delete a workshop draft. Linked items are unlinked, never deleted. */
+export async function deleteWorkshopItem(itemId: string): Promise<void> {
+  return invoke<void>("delete_workshop_item", { itemId });
 }
 
-export interface DeleteWorkshopContributionResult {
-  packId: string;
-  packRemoved: boolean;
+/** Delete an installed item. */
+export async function uninstallItem(itemId: string): Promise<void> {
+  return invoke<void>("uninstall_item", { itemId });
 }
 
-export async function deleteWorkshopContribution(
-  contributionId: string,
-): Promise<DeleteWorkshopContributionResult> {
-  return invoke<DeleteWorkshopContributionResult>(
-    "delete_workshop_contribution",
-    {
-      contributionId,
-    },
-  );
-}
-
-export async function uninstallPack(
-  authorId: string,
-  packId: string,
-  version: string,
-): Promise<void> {
-  return invoke<void>("uninstall_pack", { authorId, packId, version });
-}
-
-export async function rollbackPack(
-  authorId: string,
-  packId: string,
-  version: string,
-): Promise<string[]> {
-  return invoke<string[]>("rollback_pack", { authorId, packId, version });
-}
-
-export async function setContributionHidden(
-  contributionId: string,
+export async function setItemHidden(
+  itemId: string,
   hidden: boolean,
 ): Promise<string[]> {
-  return invoke<string[]>("set_contribution_hidden", {
-    contributionId,
-    hidden,
-  });
+  return invoke<string[]>("set_item_hidden", { itemId, hidden });
 }
 
 export async function revealPathInFileManager(path: string): Promise<void> {

@@ -172,5 +172,27 @@
     "activated": "Theme activated",
     "activateFailed": "Failed to activate theme",
     "deleted": "Theme deleted"
+  },
+  "items": {
+    "installed": "Installed {{name}} ({{version}})",
+    "reinstalled": "Updated {{name}} to {{version}}",
+    "installFailed": "Couldn't install item",
+    "installFailedDetail": "Something went wrong. Try again, or check the logs for details.",
+    "linked": "Linked folder",
+    "linkFailed": "Failed to link folder",
+    "unlinked": "Unlinked {{name}}",
+    "unlinkFailed": "Failed to unlink",
+    "reloaded": "Reloaded linked folders",
+    "reloadFailed": "Failed to reload linked folders",
+    "uninstalled": "Uninstalled {{name}}",
+    "uninstallFailed": "Failed to uninstall",
+    "hidden": "Hidden from pickers",
+    "shown": "Shown in pickers",
+    "hideFailed": "Failed to hide",
+    "showFailed": "Failed to show",
+    "updated": "Updated {{name}}",
+    "updateFailed": "Failed to update",
+    "deleted": "Deleted {{name}}",
+    "deleteFailed": "Failed to delete"
   }
 }

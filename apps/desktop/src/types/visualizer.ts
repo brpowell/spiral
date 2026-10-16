@@ -23,10 +23,8 @@ export interface VizSummary {
   author: string;
   description: string;
   isBuiltin: boolean;
-  /** Spiral pack (.spk) that contains this visualizer contribution. */
-  packId: string;
-  packName: string;
-  packVersion: string;
+  authorId: string;
+  version: string;
   zone: PackZone;
   previewPath: string | null;
 }

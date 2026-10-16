@@ -63,7 +63,13 @@ export function clearableSkinSettingsFromLoaded(
 export async function collectClearablePackSkinSettings(
   pack: PackSummary,
 ): Promise<ClearableSkinSetting[]> {
-  const skinIds = packSkinContributionIds(pack);
+  return collectClearableSkinSettings(packSkinContributionIds(pack));
+}
+
+/** Author-declared skin settings the user has overridden, for the given skin ids. */
+export async function collectClearableSkinSettings(
+  skinIds: readonly string[],
+): Promise<ClearableSkinSetting[]> {
   const loaded = await Promise.all(
     skinIds.map(async (skinId) => {
       try {
