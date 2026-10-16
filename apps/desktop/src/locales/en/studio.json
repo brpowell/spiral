@@ -295,20 +295,7 @@
       "usesDefault": "uses the default pack",
       "missingSound": "missing sound",
       "unusedCue": "not used by this app",
-      "usedBy": "used by {{cues}}",
-      "play": "Play {{name}}",
-      "views": "Views",
-      "settings": "Settings",
-      "skinSounds": "Sound effects",
-      "more": "More",
-      "resizable": "resizable",
-      "fixedSize": "fixed size",
-      "defaultValue": "default {{value}}",
-      "pinnedVisualizer": "Pinned visualizer",
-      "stylesheet": "Stylesheet",
-      "layers": "Layers",
-      "layout": "layout {{layout}}",
-      "rawJson": "Raw JSON"
+      "play": "Play {{name}}"
     }
   },
   "backToDetails": "Back to Details"

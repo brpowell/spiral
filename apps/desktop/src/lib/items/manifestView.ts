@@ -9,19 +9,11 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function asArray(value: unknown): unknown[] {
-  return Array.isArray(value) ? value : [];
-}
-
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
-function asNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-/** Display form of a manifest value (settings defaults, tokens). */
+/** Display form of a manifest value. */
 export function formatManifestValue(value: unknown): string {
   if (typeof value === "string") return value;
   if (value === null || value === undefined) return "";
@@ -54,8 +46,6 @@ export function themeTokenView(manifest: ManifestJson): ThemeTokenView {
 export interface SoundEntryView {
   id: string;
   file: string;
-  /** Cues assigned to this sound. */
-  cues: string[];
 }
 
 export interface SoundCueView {
@@ -79,13 +69,7 @@ export function soundPackView(manifest: ManifestJson): SoundPackView {
   const known = Object.values(SOUND_CUES) as string[];
 
   const sounds: SoundEntryView[] = Object.entries(soundMap).map(
-    ([id, file]) => ({
-      id,
-      file: formatManifestValue(file),
-      cues: Object.entries(cueMap)
-        .filter(([, target]) => target === id)
-        .map(([cue]) => cue),
-    }),
+    ([id, file]) => ({ id, file: formatManifestValue(file) }),
   );
 
   const assigned: SoundCueView[] = Object.entries(cueMap).map(
@@ -104,90 +88,4 @@ export function soundPackView(manifest: ManifestJson): SoundPackView {
     .map((cue) => ({ cue, soundId: null, known: true, valid: true }));
 
   return { sounds, cues: [...assigned, ...unassigned] };
-}
-
-export interface SkinViewSummary {
-  id: string;
-  presentation: string | null;
-  defaultSize: string | null;
-  resizable: boolean | null;
-}
-
-export interface SkinSettingView {
-  id: string;
-  name: string;
-  type: string;
-  defaultValue: string;
-}
-
-export interface SkinContentsView {
-  views: SkinViewSummary[];
-  settings: SkinSettingView[];
-  soundEffects: Array<[string, string]>;
-  visualizer: string | null;
-  stylesheet: string | null;
-}
-
-export function skinContentsView(manifest: ManifestJson): SkinContentsView {
-  const views = Object.entries(asRecord(manifest.views)).map(
-    ([id, raw]): SkinViewSummary => {
-      const view = asRecord(raw);
-      const window = asRecord(view.window);
-      const width = asNumber(window.defaultWidth);
-      const height = asNumber(window.defaultHeight);
-      return {
-        id,
-        presentation: asString(view.presentation),
-        defaultSize:
-          width != null && height != null ? `${width} × ${height}` : null,
-        resizable:
-          typeof window.resizable === "boolean" ? window.resizable : null,
-      };
-    },
-  );
-
-  const settings = asArray(manifest.settings).map((raw): SkinSettingView => {
-    const setting = asRecord(raw);
-    return {
-      id: asString(setting.id) ?? "",
-      name: asString(setting.name) ?? asString(setting.id) ?? "",
-      type: asString(setting.type) ?? "",
-      defaultValue: formatManifestValue(setting.default),
-    };
-  });
-
-  const soundEffects = Object.entries(asRecord(manifest.soundEffects)).map(
-    ([key, file]): [string, string] => [key, formatManifestValue(file)],
-  );
-
-  const pinned = asString(asRecord(manifest.visualizer).id);
-
-  return {
-    views,
-    settings,
-    soundEffects,
-    visualizer: pinned != null && pinned !== "global" ? pinned : null,
-    stylesheet: asString(manifest.stylesheet),
-  };
-}
-
-export interface VizLayerView {
-  id: string | null;
-  kind: string;
-  /** Script or media file the layer runs or shows. */
-  source: string | null;
-  layout: string | null;
-}
-
-export function visualizerLayers(manifest: ManifestJson): VizLayerView[] {
-  return asArray(manifest.children).map((raw): VizLayerView => {
-    const layer = asRecord(raw);
-    const layout = layer.layout;
-    return {
-      id: asString(layer.id),
-      kind: asString(layer.kind) ?? "?",
-      source: asString(layer.entry) ?? asString(layer.asset),
-      layout: typeof layout === "string" ? layout : layout ? "custom" : null,
-    };
-  });
 }

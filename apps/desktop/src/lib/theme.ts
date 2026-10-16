@@ -96,7 +96,7 @@ export function mergeThemeTokens(partial: ThemeTokens): ThemeTokens {
   return stripDerivedThemeTokens({ ...OBSIDIAN_DEFAULT_TOKENS, ...partial });
 }
 
-export function resolveThemeTokens(theme: Theme): ThemeTokens {
+export function resolveThemeTokens(theme: Pick<Theme, "tokens">): ThemeTokens {
   return mergeThemeTokens(theme.tokens);
 }
 

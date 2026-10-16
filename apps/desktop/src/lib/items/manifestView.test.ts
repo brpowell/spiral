@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  looksLikeColor,
-  skinContentsView,
-  soundPackView,
-  themeTokenView,
-  visualizerLayers,
-} from "./manifestView";
+import { looksLikeColor, soundPackView, themeTokenView } from "./manifestView";
 
 describe("themeTokenView", () => {
   it("separates colors from other tokens", () => {
@@ -43,11 +37,10 @@ describe("soundPackView", () => {
     cues: { transportPlay: "chime", extraCue: "blip", broken: "missing" },
   };
 
-  it("lists sounds with the cues that use them", () => {
-    const view = soundPackView(manifest);
-    expect(view.sounds).toEqual([
-      { id: "blip", file: "sounds/blip.wav", cues: ["extraCue"] },
-      { id: "chime", file: "sounds/chime.wav", cues: ["transportPlay"] },
+  it("lists the sound library", () => {
+    expect(soundPackView(manifest).sounds).toEqual([
+      { id: "blip", file: "sounds/blip.wav" },
+      { id: "chime", file: "sounds/chime.wav" },
     ]);
   });
 
@@ -61,61 +54,5 @@ describe("soundPackView", () => {
       known: true,
       soundId: null,
     });
-  });
-});
-
-describe("skinContentsView", () => {
-  it("summarizes views, settings, sounds and the visualizer pin", () => {
-    const view = skinContentsView({
-      stylesheet: "skin.css",
-      visualizer: { id: "spiral.visualizer.bars" },
-      soundEffects: { button: "sounds/click" },
-      settings: [{ id: "glow", name: "Glow", type: "boolean", default: true }],
-      views: {
-        main: {
-          presentation: "primary",
-          window: { defaultWidth: 320, defaultHeight: 468, resizable: true },
-        },
-        mini: {},
-      },
-    });
-    expect(view.views).toEqual([
-      {
-        id: "main",
-        presentation: "primary",
-        defaultSize: "320 × 468",
-        resizable: true,
-      },
-      { id: "mini", presentation: null, defaultSize: null, resizable: null },
-    ]);
-    expect(view.settings).toEqual([
-      { id: "glow", name: "Glow", type: "boolean", defaultValue: "true" },
-    ]);
-    expect(view.soundEffects).toEqual([["button", "sounds/click"]]);
-    expect(view.visualizer).toBe("spiral.visualizer.bars");
-    expect(view.stylesheet).toBe("skin.css");
-  });
-
-  it("treats a global visualizer as no pin", () => {
-    expect(
-      skinContentsView({ visualizer: { id: "global" } }).visualizer,
-    ).toBeNull();
-    expect(skinContentsView({}).visualizer).toBeNull();
-  });
-});
-
-describe("visualizerLayers", () => {
-  it("reads kind, source and layout", () => {
-    expect(
-      visualizerLayers({
-        children: [
-          { id: "dream", kind: "webgl", layout: "fill", entry: "index.js" },
-          { kind: "image", layout: { x: 0 }, asset: "assets/bg.png" },
-        ],
-      }),
-    ).toEqual([
-      { id: "dream", kind: "webgl", source: "index.js", layout: "fill" },
-      { id: null, kind: "image", source: "assets/bg.png", layout: "custom" },
-    ]);
   });
 });

@@ -1,10 +1,9 @@
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   themeApplyFailedPayload,
   themeCreateFailedPayload,
 } from "../../lib/toastPayloads";
-import { resolveThemeTokens } from "../../lib/theme";
 import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
 import { useThemeStore } from "../../store/useThemeStore";
 import type { Theme } from "../../types/theme";
@@ -16,30 +15,11 @@ import { HiddenItems } from "./HiddenItems";
 import { ItemActionsMenu } from "./ItemActionsMenu";
 import { ItemsAddMenu } from "./ItemsAddMenu";
 import { AppearancePackCard } from "./AppearancePackCard";
+import { ThemeSwatchPreview } from "./ThemeSwatchPreview";
 import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
 import { NewThemeModal, type NewThemeModalResult } from "./NewThemeModal";
 import "./ThemesSection.css";
 import "./AppearanceSection.css";
-
-function ThemeSwatchPreview({ theme }: { theme: Theme }) {
-  const tokens = resolveThemeTokens(theme);
-  const previewVars = {
-    "--color-bg": tokens["color-bg"],
-    "--color-text-primary": tokens["color-text-primary"],
-    "--color-accent": tokens["color-accent"],
-  } as CSSProperties;
-
-  return (
-    <span
-      className="theme-picker__preview-vars theme-derived"
-      style={previewVars}
-    >
-      <span className="theme-picker__preview-bg" />
-      <span className="theme-picker__preview-surface" />
-      <span className="theme-picker__preview-accent" />
-    </span>
-  );
-}
 
 function ThemeSwatch({
   theme,

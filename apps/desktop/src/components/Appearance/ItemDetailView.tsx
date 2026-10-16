@@ -6,9 +6,14 @@ import { revealInFileManagerLabel } from "../../lib/fileManager";
 import { formatBytes } from "../../lib/formatBytes";
 import { RELOAD_LINKED_PACKS_EVENT } from "../../lib/appearanceWindow";
 import { prefetchPackChangelog } from "../../lib/packs/packChangelogCache";
-import { listItems, openPathInFileManager } from "../../lib/tauri";
+import {
+  listItems,
+  openPathInFileManager,
+  readItemManifestJson,
+} from "../../lib/tauri";
 import { WORKSHOP_CHANGED_EVENT } from "../../lib/themeBridge";
 import { isEditableItem, type ItemSummary } from "../../types/item";
+import type { ThemeTokens } from "../../types/theme";
 import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
@@ -20,6 +25,7 @@ import { ItemAboutPanel } from "./ItemAboutPanel";
 import { ItemChangelogPanel } from "./ItemChangelogPanel";
 import { ItemContentsPanel } from "./ItemContentsPanel";
 import { itemTypeMeta, ItemPreview } from "./itemShared";
+import { ThemeSwatchPreview } from "./ThemeSwatchPreview";
 import "./InstalledPacksSection.css";
 
 type ItemDetailTab = "about" | "contents" | "changelog";
@@ -33,6 +39,46 @@ function pickItem(
     items.find((i) => i.effectiveId === effectiveId && i.active) ??
     items.find((i) => i.effectiveId === effectiveId) ??
     null
+  );
+}
+
+/** Hero preview for a theme: its color bands, read from the manifest. */
+function ThemeHeroPreview({
+  item,
+  reloadKey,
+}: {
+  item: ItemSummary;
+  reloadKey: unknown;
+}) {
+  const [tokens, setTokens] = useState<ThemeTokens | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void readItemManifestJson(item.dir)
+      .then((manifest) => {
+        if (cancelled) return;
+        const raw = manifest.tokens;
+        setTokens(
+          raw != null && typeof raw === "object" && !Array.isArray(raw)
+            ? (raw as ThemeTokens)
+            : {},
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setTokens(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [item.dir, reloadKey]);
+
+  if (tokens == null) {
+    return <ItemPreview item={item} className="installed-packs__preview" />;
+  }
+  return (
+    <div className="installed-packs__preview" aria-hidden>
+      <ThemeSwatchPreview theme={{ tokens }} />
+    </div>
   );
 }
 
@@ -155,6 +201,8 @@ export function ItemDetailView({
   }, [reload]);
 
   const canEdit = item != null && isEditableItem(item);
+  /** Only themes and sound packs have a contents view. */
+  const hasContents = item?.type === "theme" || item?.type === "sound";
   const sizeBytes = usePackSizeBytes({
     packDir: item?.dir,
     catalogSizeBytes: null,
@@ -201,7 +249,11 @@ export function ItemDetailView({
         ) : (
           <div className="installed-packs__detail-body">
             <header className="installed-packs__hero">
-              <ItemPreview item={item} className="installed-packs__preview" />
+              {item.type === "theme" ? (
+                <ThemeHeroPreview item={item} reloadKey={contentsReloadKey} />
+              ) : (
+                <ItemPreview item={item} className="installed-packs__preview" />
+              )}
               <div className="installed-packs__hero-main">
                 <div className="installed-packs__hero-titles">
                   <h3 className="installed-packs__name">{item.name}</h3>
@@ -244,7 +296,9 @@ export function ItemDetailView({
             >
               <TabList aria-label={t("items.tabsAria")}>
                 <Tab value="about">{t("items.tabAbout")}</Tab>
-                <Tab value="contents">{t("items.tabContents")}</Tab>
+                {hasContents ? (
+                  <Tab value="contents">{t("items.tabContents")}</Tab>
+                ) : null}
                 {changelogPresent ? (
                   <Tab value="changelog">{t("items.tabChangelog")}</Tab>
                 ) : null}
@@ -256,9 +310,17 @@ export function ItemDetailView({
               >
                 <ItemAboutPanel item={item} busy={false} />
               </TabPanel>
-              <TabPanel value="contents" className="installed-packs__tab-panel">
-                <ItemContentsPanel item={item} reloadKey={contentsReloadKey} />
-              </TabPanel>
+              {hasContents ? (
+                <TabPanel
+                  value="contents"
+                  className="installed-packs__tab-panel"
+                >
+                  <ItemContentsPanel
+                    item={item}
+                    reloadKey={contentsReloadKey}
+                  />
+                </TabPanel>
+              ) : null}
               {changelogPresent ? (
                 <TabPanel
                   value="changelog"

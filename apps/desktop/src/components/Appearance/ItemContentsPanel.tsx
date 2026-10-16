@@ -1,10 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  skinContentsView,
   soundPackView,
   themeTokenView,
-  visualizerLayers,
   type ManifestJson,
 } from "../../lib/items/manifestView";
 import { resolveSoundPackAssetUrl } from "../../lib/packSounds";
@@ -174,11 +172,6 @@ function SoundContents({
             <Row key={sound.id}>
               <Code>{sound.id}</Code>
               <span className="item-contents__value">{sound.file}</span>
-              {sound.cues.length > 0 ? (
-                <span className="item-contents__muted">
-                  {t("items.contents.usedBy", { cues: sound.cues.join(", ") })}
-                </span>
-              ) : null}
               <span className="item-contents__row-end">
                 <PlayButton
                   packId={item.effectiveId}
@@ -194,117 +187,7 @@ function SoundContents({
   );
 }
 
-function SkinContents({ manifest }: { manifest: ManifestJson }) {
-  const { t } = useTranslation("studio");
-  const skin = skinContentsView(manifest);
-  return (
-    <>
-      <Section title={t("items.contents.views")} count={skin.views.length}>
-        <Rows>
-          {skin.views.map((view) => (
-            <Row key={view.id}>
-              <Code>{view.id}</Code>
-              {view.presentation ? (
-                <span className="item-contents__tag">{view.presentation}</span>
-              ) : null}
-              {view.defaultSize ? (
-                <span className="item-contents__value">{view.defaultSize}</span>
-              ) : null}
-              {view.resizable != null ? (
-                <span className="item-contents__muted">
-                  {view.resizable
-                    ? t("items.contents.resizable")
-                    : t("items.contents.fixedSize")}
-                </span>
-              ) : null}
-            </Row>
-          ))}
-        </Rows>
-      </Section>
-      {skin.settings.length > 0 ? (
-        <Section
-          title={t("items.contents.settings")}
-          count={skin.settings.length}
-        >
-          <Rows>
-            {skin.settings.map((setting) => (
-              <Row key={setting.id}>
-                <span>{setting.name}</span>
-                <Code>{setting.id}</Code>
-                <span className="item-contents__tag">{setting.type}</span>
-                <span className="item-contents__muted">
-                  {t("items.contents.defaultValue", {
-                    value: setting.defaultValue,
-                  })}
-                </span>
-              </Row>
-            ))}
-          </Rows>
-        </Section>
-      ) : null}
-      {skin.soundEffects.length > 0 ? (
-        <Section
-          title={t("items.contents.skinSounds")}
-          count={skin.soundEffects.length}
-        >
-          <Rows>
-            {skin.soundEffects.map(([key, file]) => (
-              <Row key={key}>
-                <Code>{key}</Code>
-                <span className="item-contents__value">{file}</span>
-              </Row>
-            ))}
-          </Rows>
-        </Section>
-      ) : null}
-      {skin.visualizer || skin.stylesheet ? (
-        <Section title={t("items.contents.more")}>
-          <Rows>
-            {skin.visualizer ? (
-              <Row>
-                <span>{t("items.contents.pinnedVisualizer")}</span>
-                <Code>{skin.visualizer}</Code>
-              </Row>
-            ) : null}
-            {skin.stylesheet ? (
-              <Row>
-                <span>{t("items.contents.stylesheet")}</span>
-                <Code>{skin.stylesheet}</Code>
-              </Row>
-            ) : null}
-          </Rows>
-        </Section>
-      ) : null}
-    </>
-  );
-}
-
-function VisualizerContents({ manifest }: { manifest: ManifestJson }) {
-  const { t } = useTranslation("studio");
-  const layers = visualizerLayers(manifest);
-  return (
-    <Section title={t("items.contents.layers")} count={layers.length}>
-      <Rows>
-        {layers.map((layer, index) => (
-          <Row key={layer.id ?? index}>
-            <span className="item-contents__tag">{layer.kind}</span>
-            {layer.id ? <Code>{layer.id}</Code> : null}
-            {layer.source ? (
-              <span className="item-contents__value">{layer.source}</span>
-            ) : null}
-            {layer.layout ? (
-              <span className="item-contents__muted">
-                {t("items.contents.layout", { layout: layer.layout })}
-              </span>
-            ) : null}
-          </Row>
-        ))}
-      </Rows>
-    </Section>
-  );
-}
-
-/** The manifest, rendered for its type. Sits behind the Contents tab. */
+/** Theme tokens and sound pack assignments. Other types have no contents view. */
 export function ItemContentsPanel({
   item,
   reloadKey,
@@ -355,14 +238,6 @@ export function ItemContentsPanel({
       {item.type === "sound" ? (
         <SoundContents item={item} manifest={manifest} />
       ) : null}
-      {item.type === "skin" ? <SkinContents manifest={manifest} /> : null}
-      {item.type === "visualizer" ? (
-        <VisualizerContents manifest={manifest} />
-      ) : null}
-      <details className="item-contents__raw">
-        <summary>{t("items.contents.rawJson")}</summary>
-        <pre>{JSON.stringify(manifest, null, 2)}</pre>
-      </details>
     </div>
   );
 }
