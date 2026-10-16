@@ -428,6 +428,17 @@ mod tests {
     }
 
     #[test]
+    fn every_builtin_item_passes_install_validation() {
+        // Builtins are never installed, so nothing else holds them to the install rules.
+        // A rule stricter than what the app itself ships (or authors) breaks export.
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("packs/builtin");
+        for (_, dir) in list_item_dirs(&root) {
+            crate::packs::install::validate_item_for_install(&dir)
+                .unwrap_or_else(|e| panic!("builtin {} should validate: {e}", dir.display()));
+        }
+    }
+
+    #[test]
     fn workshop_wins_over_builtin() {
         let mut by_id = HashMap::new();
         for c in [

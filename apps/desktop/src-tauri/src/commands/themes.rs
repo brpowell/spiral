@@ -398,6 +398,48 @@ mod tests {
     }
 
     #[test]
+    fn a_new_theme_draft_can_be_validated_and_exported() {
+        use crate::packs::export::{export_item_dir_to_spk, ExportItemMetadata};
+        use crate::packs::install::validate_item_for_install;
+
+        // Same steps as `create_workshop_theme`: seed manifest, then fill in tokens.
+        let dir = tempfile_workshop();
+        let path = dir.join("theme.json");
+        fs::write(
+            &path,
+            r#"{"id":"draft","authorId":"bryan","version":"0.0.0","name":"Draft","author":"","description":"","tokens":{}}"#,
+        )
+        .unwrap();
+        let theme = Theme {
+            id: "bryan.theme.draft".into(),
+            name: "Draft".into(),
+            author: String::new(),
+            description: String::new(),
+            tokens: default_workshop_tokens(),
+            author_id: "bryan".into(),
+            version: "0.0.0".into(),
+            zone: PackZone::Workshop,
+            mutable: true,
+        };
+        write_theme_contribution(&path, &theme).unwrap();
+
+        validate_item_for_install(&dir).expect("a fresh draft must be installable");
+        let spk = dir.join("draft.spk");
+        export_item_dir_to_spk(
+            &dir,
+            &ExportItemMetadata {
+                name: "Draft".into(),
+                version: "1.0.0".into(),
+                description: String::new(),
+            },
+            &spk,
+        )
+        .expect("a fresh draft must be exportable");
+        assert!(spk.is_file());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn write_theme_preserves_identity_fields() {
         let dir = tempfile_workshop();
         let path = dir.join("theme.json");

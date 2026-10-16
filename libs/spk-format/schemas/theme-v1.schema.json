@@ -53,7 +53,7 @@
     "tokens": {
       "type": "object",
       "additionalProperties": { "type": "string" },
-      "description": "CSS custom property tokens. Required keys are enforced before apply; workshop drafts may omit keys while saving."
+      "description": "CSS custom property tokens. Required keys (color-bg, color-text-primary, color-accent, color-danger, radius-card, radius-button, font-ui) are enforced on install, export and apply; workshop drafts may omit keys while saving. Surface, border and muted colors are derived from these."
     }
   }
 }
