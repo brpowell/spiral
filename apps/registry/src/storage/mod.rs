@@ -27,6 +27,9 @@ pub enum DownloadTarget {
 pub trait ObjectStorage: Send + Sync {
     async fn put(&self, key: &str, data: &[u8]) -> Result<()>;
     async fn get_download_url(&self, key: &str) -> Result<DownloadTarget>;
+    /// Read a whole object. Used for small objects the registry serves itself (previews).
+    /// A missing object fails with a message starting `object not found:`.
+    async fn get(&self, key: &str) -> Result<Vec<u8>>;
     async fn delete(&self, key: &str) -> Result<()>;
 }
 
