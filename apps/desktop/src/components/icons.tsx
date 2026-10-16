@@ -420,6 +420,7 @@ export function IconImport(props: IconProps) {
   );
 }
 
+/** Lucide `upload` (Lucide has no icon named `export`). */
 export function IconExport(props: IconProps) {
   return (
     <svg
@@ -431,9 +432,9 @@ export function IconExport(props: IconProps) {
       strokeLinejoin="round"
       {...props}
     >
-      <path d="M12 15V3" />
-      <path d="m8 7 4-4 4 4" />
-      <path d="M8 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4" />
+      <path d="M12 3v12" />
+      <path d="m17 8-5-5-5 5" />
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
     </svg>
   );
 }
