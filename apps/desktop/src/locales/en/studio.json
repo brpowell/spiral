@@ -282,6 +282,33 @@
       "skin": "Skin",
       "visualizer": "Visualizer",
       "sound": "Sound pack"
+    },
+    "tabContents": "Contents",
+    "contents": {
+      "loading": "Loading contents…",
+      "failed": "Couldn't read this item's manifest.",
+      "none": "None",
+      "colors": "Colors",
+      "otherTokens": "Other tokens",
+      "cues": "Cues",
+      "sounds": "Sounds",
+      "usesDefault": "uses the default pack",
+      "missingSound": "missing sound",
+      "unusedCue": "not used by this app",
+      "usedBy": "used by {{cues}}",
+      "play": "Play {{name}}",
+      "views": "Views",
+      "settings": "Settings",
+      "skinSounds": "Sound effects",
+      "more": "More",
+      "resizable": "resizable",
+      "fixedSize": "fixed size",
+      "defaultValue": "default {{value}}",
+      "pinnedVisualizer": "Pinned visualizer",
+      "stylesheet": "Stylesheet",
+      "layers": "Layers",
+      "layout": "layout {{layout}}",
+      "rawJson": "Raw JSON"
     }
   },
   "backToDetails": "Back to Details"

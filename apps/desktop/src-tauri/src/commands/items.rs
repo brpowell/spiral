@@ -528,6 +528,36 @@ pub fn update_item_metadata(
     Ok(new_effective)
 }
 
+/// Largest manifest the Studio contents view will read.
+const MAX_MANIFEST_BYTES: u64 = 8 * 1024 * 1024;
+
+/// An item folder's manifest as JSON, whatever its type.
+fn read_manifest_value(dir: &Path) -> Result<serde_json::Value, String> {
+    let item_type = detect_item_type(dir)?;
+    let filename = item_manifest_filename(item_type).expect("detected type has a filename");
+    let path = dir.join(filename);
+    let meta = fs::metadata(&path).map_err(|e| format!("failed to read {filename}: {e}"))?;
+    if meta.len() > MAX_MANIFEST_BYTES {
+        return Err(format!(
+            "{filename} exceeds {MAX_MANIFEST_BYTES} byte limit"
+        ));
+    }
+    let text = fs::read_to_string(&path).map_err(|e| format!("failed to read {filename}: {e}"))?;
+    serde_json::from_str(text.strip_prefix('\u{feff}').unwrap_or(&text))
+        .map_err(|e| format!("{filename} is not valid JSON: {e}"))
+}
+
+/// The manifest (`theme.json`, `skin.json`, `viz.json` or `sound.json`) of any known
+/// item, for the Studio contents view.
+#[tauri::command]
+pub fn read_item_manifest_json(
+    app: AppHandle,
+    item_dir: String,
+) -> Result<serde_json::Value, String> {
+    let dir = resolve_known_item_dir(&app, &item_dir)?;
+    read_manifest_value(&dir)
+}
+
 /// Read optional item-root `README.md`. Returns `None` when the file is absent.
 #[tauri::command]
 pub fn read_item_readme(app: AppHandle, item_dir: String) -> Result<Option<String>, String> {
@@ -761,4 +791,45 @@ pub(crate) fn scaffold_workshop_item_dir(
     fs::create_dir_all(&dir).map_err(|e| format!("failed to create workshop item dir: {e}"))?;
     debug_assert!(item_manifest_filename(item_type).is_some());
     Ok((dir, id))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_dir(label: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("spiral-items-{label}-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn reads_the_manifest_for_any_item_type() {
+        let dir = temp_dir("manifest");
+        fs::write(
+            dir.join("sound.json"),
+            "\u{feff}{\"id\":\"x\",\"sounds\":{}}",
+        )
+        .unwrap();
+        let value = read_manifest_value(&dir).unwrap();
+        assert_eq!(value["id"], "x");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn manifest_read_rejects_non_items_and_bad_json() {
+        let dir = temp_dir("manifest-bad");
+        assert!(read_manifest_value(&dir)
+            .unwrap_err()
+            .contains("no item manifest"));
+        fs::write(dir.join("theme.json"), "{oops").unwrap();
+        assert!(read_manifest_value(&dir)
+            .unwrap_err()
+            .contains("not valid JSON"));
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

@@ -18,10 +18,11 @@ import { IconOpenFolder } from "../icons";
 import { ItemActionsMenu } from "./ItemActionsMenu";
 import { ItemAboutPanel } from "./ItemAboutPanel";
 import { ItemChangelogPanel } from "./ItemChangelogPanel";
+import { ItemContentsPanel } from "./ItemContentsPanel";
 import { itemTypeMeta, ItemPreview } from "./itemShared";
 import "./InstalledPacksSection.css";
 
-type ItemDetailTab = "about" | "changelog";
+type ItemDetailTab = "about" | "contents" | "changelog";
 
 /** Active on-disk record for `effectiveId` (workshop/linked win over installed/builtin). */
 function pickItem(
@@ -118,8 +119,11 @@ export function ItemDetailView({
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState<ItemDetailTab>("about");
   const [changelogPresent, setChangelogPresent] = useState(false);
+  /** Bumped on every reload so the Contents tab re-reads an edited manifest. */
+  const [contentsReloadKey, setContentsReloadKey] = useState(0);
 
   const reload = useCallback(async () => {
+    setContentsReloadKey((key) => key + 1);
     try {
       setItem(pickItem(await listItems(), itemId));
     } catch (err) {
@@ -240,6 +244,7 @@ export function ItemDetailView({
             >
               <TabList aria-label={t("items.tabsAria")}>
                 <Tab value="about">{t("items.tabAbout")}</Tab>
+                <Tab value="contents">{t("items.tabContents")}</Tab>
                 {changelogPresent ? (
                   <Tab value="changelog">{t("items.tabChangelog")}</Tab>
                 ) : null}
@@ -250,6 +255,9 @@ export function ItemDetailView({
                 keepMounted
               >
                 <ItemAboutPanel item={item} busy={false} />
+              </TabPanel>
+              <TabPanel value="contents" className="installed-packs__tab-panel">
+                <ItemContentsPanel item={item} reloadKey={contentsReloadKey} />
               </TabPanel>
               {changelogPresent ? (
                 <TabPanel

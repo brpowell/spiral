@@ -1082,6 +1082,15 @@ export async function saveDefaultAuthorId(authorId: string): Promise<string> {
   return invoke<string>("save_default_author_id", { authorId });
 }
 
+/** An item's manifest (`theme.json`, `skin.json`, `viz.json` or `sound.json`) as JSON. */
+export async function readItemManifestJson(
+  itemDir: string,
+): Promise<Record<string, unknown>> {
+  return invoke<Record<string, unknown>>("read_item_manifest_json", {
+    itemDir,
+  });
+}
+
 /** Optional item-root README.md; `null` when the file is absent. */
 export async function readItemReadme(itemDir: string): Promise<string | null> {
   return invoke<string | null>("read_item_readme", { itemDir });

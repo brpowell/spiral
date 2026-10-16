@@ -238,6 +238,7 @@ pub fn run() {
             commands::items::unlink_item,
             commands::items::get_item_scan_warnings,
             commands::items::update_item_metadata,
+            commands::items::read_item_manifest_json,
             commands::items::read_item_readme,
             commands::items::write_item_readme,
             commands::items::read_item_changelog,

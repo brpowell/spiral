@@ -95,12 +95,16 @@ fn stamp_manifest(path: &Path, name: &str, version: &str, description: &str) -> 
         .map_err(|e| format!("failed to write stamped manifest: {e}"))
 }
 
+/// Unique per call, so concurrent exports of the same item never share a directory.
 fn staging_dir_for_export(item: &ItemManifest) -> PathBuf {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
     std::env::temp_dir().join(format!(
-        "spiral-item-export-{}-{}-{}",
+        "spiral-item-export-{}-{}-{}-{}",
         item.dir_name(),
         item.version.replace(['+', '/'], "_"),
-        std::process::id()
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
     ))
 }
 
