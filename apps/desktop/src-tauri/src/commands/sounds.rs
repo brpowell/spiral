@@ -311,6 +311,11 @@ mod tests {
         assert_eq!(loaded.len(), 1);
         let default = &loaded[0];
         assert_eq!(default.summary.id, settings::DEFAULT_SOUND_PACK_ID);
+        assert_eq!(default.summary.name, "Default");
+        assert!(
+            default.summary.preview_path.is_some(),
+            "default pack ships a preview"
+        );
         for cue in spk_format::KNOWN_SOUND_CUES {
             let resolved = resolve_cue_path(&loaded, &default.summary.id, cue);
             assert!(resolved.is_some(), "default pack must define {cue}");

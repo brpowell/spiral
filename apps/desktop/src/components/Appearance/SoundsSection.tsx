@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { resolveSoundPackAssetUrl } from "../../lib/packSounds";
-import { playOneShot } from "../../lib/sfxPlayer";
+import { skinPreviewUrl } from "../../lib/skinAssets";
 import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
 import { useSoundPackStore } from "../../store/useSoundPackStore";
-import { auditionSoundId, type SoundPackSummary } from "../../types/soundPack";
+import type { SoundPackSummary } from "../../types/soundPack";
 import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
-import { IconPlay, IconVolume } from "../icons";
+import { IconVolume } from "../icons";
 import { AppearancePackCard } from "./AppearancePackCard";
 import { HiddenItems } from "./HiddenItems";
 import { ItemActionsMenu } from "./ItemActionsMenu";
@@ -17,37 +16,12 @@ import "./AppearanceSection.css";
 import "./SoundsSection.css";
 
 function SoundPackPreview({ pack }: { pack: SoundPackSummary }) {
-  const { t } = useTranslation("studio");
-  const soundId = auditionSoundId(pack);
-
-  const audition = (event: React.SyntheticEvent) => {
-    event.stopPropagation();
-    if (!soundId) return;
-    void resolveSoundPackAssetUrl(pack.id, soundId).then((url) => {
-      if (url) playOneShot(url);
-    });
-  };
-
-  return (
-    <span className="sound-picker__preview-body">
+  const preview = skinPreviewUrl(pack.previewPath);
+  return preview ? (
+    <img src={preview} alt="" className="sound-picker__preview-img" />
+  ) : (
+    <span className="sound-picker__preview-fallback">
       <IconVolume />
-      {soundId ? (
-        <button
-          type="button"
-          className="sound-picker__audition"
-          aria-label={t("sounds.auditionAria", { name: pack.name })}
-          title={t("sounds.audition")}
-          onClick={audition}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              audition(event);
-              event.preventDefault();
-            }
-          }}
-        >
-          <IconPlay />
-        </button>
-      ) : null}
     </span>
   );
 }

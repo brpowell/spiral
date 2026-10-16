@@ -3,7 +3,8 @@
   "id": "default",
   "authorId": "spiral",
   "version": "1.0.0",
-  "name": "Spiral",
+  "name": "Default",
+  "preview": "preview.png",
   "author": "Spiral",
   "description": "Default transport cues.",
   "sounds": {

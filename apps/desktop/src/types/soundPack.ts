@@ -25,8 +25,3 @@ export const SOUND_CUES = {
 } as const;
 
 export type SoundCue = (typeof SOUND_CUES)[keyof typeof SOUND_CUES];
-
-/** Sound to audition for a pack: its play cue, else its first sound. */
-export function auditionSoundId(pack: SoundPackSummary): string | null {
-  return pack.cues[SOUND_CUES.transportPlay] ?? pack.soundIds[0] ?? null;
-}

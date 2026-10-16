@@ -219,8 +219,6 @@
     "title": "Sounds",
     "loading": "Loading sounds…",
     "empty": "No sounds found.",
-    "auditionAria": "Preview {{name}}",
-    "audition": "Preview",
     "applyFailed": "Couldn't switch sound pack"
   },
   "items": {
