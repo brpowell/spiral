@@ -39,12 +39,13 @@ async fn list_packs(
     State(state): State<AppState>,
     Query(query): Query<PackListQuery>,
 ) -> ApiResult<Json<PackListResponse>> {
-    let rows = db::list_published_versions(
-        &state.db,
-        query.publisher_id.as_deref(),
-        query.contribution_type.as_deref(),
-    )
-    .await?;
+    let rows = state
+        .db
+        .list_published_versions(
+            query.publisher_id.as_deref(),
+            query.contribution_type.as_deref(),
+        )
+        .await?;
 
     let packs = db::group_packs_latest(rows)
         .into_iter()
@@ -62,7 +63,10 @@ async fn pack_detail(
     State(state): State<AppState>,
     Path((publisher_id, pack_id)): Path<(String, String)>,
 ) -> ApiResult<Json<PackDetailResponse>> {
-    let versions = db::list_published_versions_for_pack(&state.db, &publisher_id, &pack_id).await?;
+    let versions = state
+        .db
+        .list_published_versions_for_pack(&publisher_id, &pack_id)
+        .await?;
     if versions.is_empty() {
         return Err(ApiError::not_found(format!(
             "pack {publisher_id}/{pack_id} not found"
@@ -81,9 +85,15 @@ async fn version_detail(
     Path((publisher_id, pack_id, version)): Path<(String, String, String)>,
 ) -> ApiResult<Json<crate::models::VersionDetailResponse>> {
     let row = if version == "latest" {
-        db::get_latest_published_version(&state.db, &publisher_id, &pack_id).await?
+        state
+            .db
+            .get_latest_published_version(&publisher_id, &pack_id)
+            .await?
     } else {
-        db::get_published_version(&state.db, &publisher_id, &pack_id, &version).await?
+        state
+            .db
+            .get_published_version(&publisher_id, &pack_id, &version)
+            .await?
     };
 
     let Some(row) = row else {
@@ -100,7 +110,9 @@ async fn download_version(
     Path((publisher_id, pack_id, version)): Path<(String, String, String)>,
 ) -> ApiResult<Response> {
     let resolved_version = if version == "latest" {
-        let row = db::get_latest_published_version(&state.db, &publisher_id, &pack_id)
+        let row = state
+            .db
+            .get_latest_published_version(&publisher_id, &pack_id)
             .await?
             .ok_or_else(|| {
                 ApiError::not_found(format!("version {publisher_id}/{pack_id}@latest not found"))
@@ -112,22 +124,27 @@ async fn download_version(
 
     // Yanked versions remain downloadable by direct URL.
     // Purged versions are gone from pack_versions; consult takedown_log for 410.
-    let row =
-        match db::get_version_for_download(&state.db, &publisher_id, &pack_id, &resolved_version)
-            .await?
-        {
-            Some(row) => row,
-            None => {
-                if db::was_purged(&state.db, &publisher_id, &pack_id, &resolved_version).await? {
-                    return Err(ApiError::gone(format!(
-                        "version {publisher_id}/{pack_id}@{resolved_version} was purged"
-                    )));
-                }
-                return Err(ApiError::not_found(format!(
-                    "version {publisher_id}/{pack_id}@{resolved_version} not found"
+    let row = match state
+        .db
+        .get_version_for_download(&publisher_id, &pack_id, &resolved_version)
+        .await?
+    {
+        Some(row) => row,
+        None => {
+            if state
+                .db
+                .was_purged(&publisher_id, &pack_id, &resolved_version)
+                .await?
+            {
+                return Err(ApiError::gone(format!(
+                    "version {publisher_id}/{pack_id}@{resolved_version} was purged"
                 )));
             }
-        };
+            return Err(ApiError::not_found(format!(
+                "version {publisher_id}/{pack_id}@{resolved_version} not found"
+            )));
+        }
+    };
 
     let missing = format!(
         "artifact for {publisher_id}/{pack_id}@{} missing",
@@ -172,7 +189,9 @@ async fn download_preview(
     Path((publisher_id, pack_id, version)): Path<(String, String, String)>,
 ) -> ApiResult<Response> {
     let resolved_version = if version == "latest" {
-        let row = db::get_latest_published_version(&state.db, &publisher_id, &pack_id)
+        let row = state
+            .db
+            .get_latest_published_version(&publisher_id, &pack_id)
             .await?
             .ok_or_else(|| {
                 ApiError::not_found(format!("version {publisher_id}/{pack_id}@latest not found"))
@@ -183,22 +202,27 @@ async fn download_preview(
     };
 
     // Same availability as download: yanked still resolves; purged → 410.
-    let row =
-        match db::get_version_for_download(&state.db, &publisher_id, &pack_id, &resolved_version)
-            .await?
-        {
-            Some(row) => row,
-            None => {
-                if db::was_purged(&state.db, &publisher_id, &pack_id, &resolved_version).await? {
-                    return Err(ApiError::gone(format!(
-                        "version {publisher_id}/{pack_id}@{resolved_version} was purged"
-                    )));
-                }
-                return Err(ApiError::not_found(format!(
-                    "version {publisher_id}/{pack_id}@{resolved_version} not found"
+    let row = match state
+        .db
+        .get_version_for_download(&publisher_id, &pack_id, &resolved_version)
+        .await?
+    {
+        Some(row) => row,
+        None => {
+            if state
+                .db
+                .was_purged(&publisher_id, &pack_id, &resolved_version)
+                .await?
+            {
+                return Err(ApiError::gone(format!(
+                    "version {publisher_id}/{pack_id}@{resolved_version} was purged"
                 )));
             }
-        };
+            return Err(ApiError::not_found(format!(
+                "version {publisher_id}/{pack_id}@{resolved_version} not found"
+            )));
+        }
+    };
 
     let Some(preview_key) = row.preview_storage_key.as_deref() else {
         return Err(ApiError::not_found(format!(

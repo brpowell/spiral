@@ -11,15 +11,15 @@ pub mod storage;
 use std::sync::Arc;
 
 use axum::Router;
-use sqlx::SqlitePool;
 
 use crate::config::Config;
+use crate::db::CatalogStore;
 use crate::storage::ObjectStorage;
 
 #[derive(Clone)]
 pub struct AppState {
     pub config: Config,
-    pub db: SqlitePool,
+    pub db: Arc<dyn CatalogStore>,
     pub storage: Arc<dyn ObjectStorage>,
 }
 

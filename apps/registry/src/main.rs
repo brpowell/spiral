@@ -19,7 +19,15 @@ async fn main() -> Result<()> {
     let config = Config::from_env()?;
     config.ensure_data_dirs()?;
 
-    let db = db::connect(&config.database_url).await?;
+    let db = db::open(&config.database_url).await?;
+    let migrate_only = std::env::args().nth(1).as_deref() == Some("migrate");
+    if migrate_only || config.auto_migrate {
+        db.migrate().await?;
+        tracing::info!("database migrations applied");
+    }
+    if migrate_only {
+        return Ok(());
+    }
     let storage = build_storage(&config.storage)?;
 
     let state = AppState {

@@ -22,6 +22,8 @@ pub struct Config {
     pub bind_addr: String,
     pub instance_name: String,
     pub database_url: String,
+    /// Apply pending schema migrations at startup (`AUTO_MIGRATE`, default true).
+    pub auto_migrate: bool,
     pub storage: StorageConfig,
     /// Shared admin bearer token. Empty disables admin write endpoints.
     pub admin_token: String,
@@ -37,6 +39,7 @@ impl std::fmt::Debug for Config {
             .field("bind_addr", &self.bind_addr)
             .field("instance_name", &self.instance_name)
             .field("database_url", &self.database_url)
+            .field("auto_migrate", &self.auto_migrate)
             .field("storage", &self.storage)
             .field(
                 "admin_token",
@@ -94,6 +97,8 @@ impl Config {
             Err(_) => DEFAULT_MAX_UPLOAD_BYTES,
         };
 
+        let auto_migrate = parse_bool_env("AUTO_MIGRATE", true)?;
+
         let admin_token = env::var("ADMIN_TOKEN").unwrap_or_default();
         let admin_token = admin_token.trim().to_string();
         validate_admin_token(&admin_token)?;
@@ -108,6 +113,7 @@ impl Config {
             instance_name: env::var("INSTANCE_NAME")
                 .unwrap_or_else(|_| "Spiral Pack Registry".to_string()),
             database_url,
+            auto_migrate,
             storage,
             admin_token,
             max_upload_bytes,
@@ -132,6 +138,23 @@ impl Config {
 
     pub fn admin_enabled(&self) -> bool {
         !self.admin_token.is_empty()
+    }
+}
+
+/// Boolean env var: `true`/`false`/`1`/`0` (case-insensitive); unset or empty uses `default`.
+fn parse_bool_env(name: &str, default: bool) -> Result<bool> {
+    match env::var(name) {
+        Ok(raw) => parse_bool(name, &raw, default),
+        Err(_) => Ok(default),
+    }
+}
+
+fn parse_bool(name: &str, raw: &str, default: bool) -> Result<bool> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "" => Ok(default),
+        "true" | "1" => Ok(true),
+        "false" | "0" => Ok(false),
+        other => bail!("{name} must be true or false, got {other:?}"),
     }
 }
 
@@ -173,6 +196,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn bool_env_parses_common_spellings() {
+        assert!(parse_bool("X", "TRUE", false).unwrap());
+        assert!(!parse_bool("X", "0", true).unwrap());
+        assert!(parse_bool("X", "", true).unwrap());
+        assert!(parse_bool("X", "maybe", true).is_err());
+    }
+
+    #[test]
     fn empty_admin_token_is_allowed() {
         validate_admin_token("").unwrap();
     }
@@ -207,6 +238,7 @@ mod tests {
             bind_addr: "127.0.0.1:8787".into(),
             instance_name: "Test".into(),
             database_url: "sqlite::memory:".into(),
+            auto_migrate: true,
             storage: StorageConfig::Local {
                 root: PathBuf::from("data/objects"),
             },

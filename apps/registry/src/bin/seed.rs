@@ -61,11 +61,7 @@ async fn async_main() -> Result<()> {
     let now = Utc::now();
 
     // Clear prior seed rows for this pack so re-running is idempotent.
-    sqlx::query("DELETE FROM pack_versions WHERE publisher_id = ? AND pack_id = ?")
-        .bind(publisher_id)
-        .bind(pack_id)
-        .execute(&pool)
-        .await?;
+    pool.delete_pack_versions(publisher_id, pack_id).await?;
 
     let types: Vec<&str> = browse
         .contribution_types
@@ -110,7 +106,7 @@ async fn async_main() -> Result<()> {
         row.readme = browse.readme.clone();
         row.changelog = browse.changelog.clone();
         row.contributions = contributions_json.clone();
-        db::insert_pack_version(&pool, &row)
+        pool.insert_pack_version(&row)
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
     }
