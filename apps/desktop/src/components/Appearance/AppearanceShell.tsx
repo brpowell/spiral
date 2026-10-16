@@ -191,10 +191,7 @@ export function AppearanceShell() {
             runAfterLeavingEditor={runAfterLeavingEditor}
             openThemeEditor={openEditor}
           />
-          <SidebarSection
-            label={collectionLabel}
-            className="appearance-shell__sidebar-section--first"
-          >
+          <SidebarSection label={collectionLabel}>
             <SidebarList>
               {APPEARANCE_CONTENT_SECTIONS.map((item) => (
                 <li key={item.id}>

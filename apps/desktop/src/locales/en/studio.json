@@ -292,6 +292,7 @@
   },
   "backToDetails": "Back to Details",
   "actions": {
+    "aria": "Create and manage",
     "new": "New",
     "newAria": "Create new item",
     "manage": "Manage",

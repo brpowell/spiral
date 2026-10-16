@@ -16,9 +16,9 @@ import {
   IconRefresh,
   IconSettings,
 } from "../icons";
-import { MenuButton } from "../MenuButton/MenuButton";
+import { SidebarList, SidebarSection } from "../layout/SidebarChrome";
+import { SidebarMenuItem } from "../layout/SidebarItem/SidebarMenuItem";
 import { NewThemeModal, type NewThemeModalResult } from "./NewThemeModal";
-import "./StudioSidebarActions.css";
 
 type NewKind = "theme";
 
@@ -76,72 +76,71 @@ export function StudioSidebarActions({
   };
 
   return (
-    <div className="studio-sidebar-actions">
-      <MenuButton
-        ariaLabel={t("actions.newAria")}
-        label={t("actions.new")}
-        icon={<IconPlus />}
-        className="studio-sidebar-actions__menu"
-        triggerClassName="studio-sidebar-actions__trigger"
-        variant="primary"
-        size="sm"
-        triggerPlacement="below-start"
-      >
-        {(close) =>
-          NEW_ENTRIES.map((entry) => (
-            <ContextMenuItem
-              key={entry.kind}
-              icon={entry.icon}
-              label={t(entry.labelKey)}
-              onClick={() => {
-                close();
-                startNew(entry.kind);
-              }}
-            />
-          ))
-        }
-      </MenuButton>
-      <MenuButton
-        ariaLabel={t("actions.manageAria")}
-        label={t("actions.manage")}
-        icon={<IconSettings />}
-        className="studio-sidebar-actions__menu"
-        triggerClassName="studio-sidebar-actions__trigger"
-        variant="secondary"
-        size="sm"
-        triggerPlacement="below-start"
-        disabled={busy}
-        layoutDeps={[busy]}
-      >
-        {(close) => (
-          <>
-            <ContextMenuItem
-              icon={<IconImport />}
-              label={t("actions.install")}
-              onClick={() => {
-                close();
-                runManage(importItemWithRefresh);
-              }}
-            />
-            <ContextMenuItem
-              icon={<IconFolderLink />}
-              label={t("actions.linkFolder")}
-              onClick={() => {
-                close();
-                runManage(linkItemFolderWithRefresh);
-              }}
-            />
-            <ContextMenuItem
-              icon={<IconRefresh />}
-              label={t("actions.reloadLinked")}
-              onClick={() => {
-                close();
-                runManage(reloadLinkedItemsWithRefresh);
-              }}
-            />
-          </>
-        )}
-      </MenuButton>
+    <SidebarSection
+      aria-label={t("actions.aria")}
+      className="appearance-shell__sidebar-section--first"
+    >
+      <SidebarList>
+        <li>
+          <SidebarMenuItem
+            icon={<IconPlus />}
+            ariaLabel={t("actions.newAria")}
+            menu={(close) =>
+              NEW_ENTRIES.map((entry) => (
+                <ContextMenuItem
+                  key={entry.kind}
+                  icon={entry.icon}
+                  label={t(entry.labelKey)}
+                  onClick={() => {
+                    close();
+                    startNew(entry.kind);
+                  }}
+                />
+              ))
+            }
+          >
+            {t("actions.new")}
+          </SidebarMenuItem>
+        </li>
+        <li>
+          <SidebarMenuItem
+            icon={<IconSettings />}
+            ariaLabel={t("actions.manageAria")}
+            disabled={busy}
+            layoutDeps={[busy]}
+            menu={(close) => (
+              <>
+                <ContextMenuItem
+                  icon={<IconImport />}
+                  label={t("actions.install")}
+                  onClick={() => {
+                    close();
+                    runManage(importItemWithRefresh);
+                  }}
+                />
+                <ContextMenuItem
+                  icon={<IconFolderLink />}
+                  label={t("actions.linkFolder")}
+                  onClick={() => {
+                    close();
+                    runManage(linkItemFolderWithRefresh);
+                  }}
+                />
+                <ContextMenuItem
+                  icon={<IconRefresh />}
+                  label={t("actions.reloadLinked")}
+                  onClick={() => {
+                    close();
+                    runManage(reloadLinkedItemsWithRefresh);
+                  }}
+                />
+              </>
+            )}
+          >
+            {t("actions.manage")}
+          </SidebarMenuItem>
+        </li>
+      </SidebarList>
 
       <NewThemeModal
         open={themeModalOpen}
@@ -149,6 +148,6 @@ export function StudioSidebarActions({
         onClose={() => setThemeModalOpen(false)}
         onCreate={(result) => void handleCreate(result)}
       />
-    </div>
+    </SidebarSection>
   );
 }
