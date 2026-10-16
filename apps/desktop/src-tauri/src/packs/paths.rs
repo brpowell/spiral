@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use tauri::path::BaseDirectory;
 use tauri::{AppHandle, Manager};
 
-/// Builtin items shipped with the app under `packs/builtin/<type folder>/<authorId>.<id>/`.
+/// Builtin items shipped with the app under `packs/builtin/<type folder>/<publisherId>.<id>/`.
 pub fn builtin_packs_root(app: &AppHandle) -> PathBuf {
     let manifest_builtin = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("packs/builtin");
 
@@ -37,18 +37,18 @@ pub fn installed_packs_root(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(packs_app_data_root(app)?.join("installed"))
 }
 
-/// `<zone root>/<type folder>/<authorId>.<id>/` for an item.
+/// `<zone root>/<type folder>/<publisherId>.<id>/` for an item.
 pub fn item_dir_in_zone(
     zone_root: &std::path::Path,
     item_type: &str,
-    author_id: &str,
+    publisher_id: &str,
     id: &str,
 ) -> Result<PathBuf, String> {
     let folder = spk_format::item_type_folder(item_type)
         .ok_or_else(|| format!("unknown item type \"{item_type}\""))?;
     Ok(zone_root
         .join(folder)
-        .join(spk_format::item_dir_name(author_id, id)))
+        .join(spk_format::item_dir_name(publisher_id, id)))
 }
 
 pub fn ensure_workshop_root(app: &AppHandle) -> Result<PathBuf, String> {

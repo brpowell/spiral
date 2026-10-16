@@ -971,7 +971,7 @@ Optional pin only. Skins always render the full panel surface in the layout `vis
 
 | Field | Values | Purpose |
 | --- | --- | --- |
-| `id` | contribution id, `global`, or omit | Pins a visualizer (`authorId.packId.type.contributionId`); `global`/omit follows the picker |
+| `id` | contribution id, `global`, or omit | Pins a visualizer (`publisherId.packId.type.contributionId`); `global`/omit follows the picker |
 
 Pinned visualizer example:
 

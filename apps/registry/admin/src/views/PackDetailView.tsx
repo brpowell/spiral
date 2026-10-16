@@ -17,18 +17,18 @@ import { groupPacks } from '../lib/groupPacks'
 import type { PackGroup } from '../types'
 
 type Props = {
-  authorId: string
+  publisherId: string
   packId: string
   onUnauthorized: () => void
 }
 
 export function PackDetailView({
-  authorId,
+  publisherId,
   packId,
   onUnauthorized,
 }: Props) {
   const { route } = useLocation()
-  const packKey = `${authorId}/${packId}`
+  const packKey = `${publisherId}/${packId}`
 
   const { message, kind, setStatus } = useStatus()
   const purge = usePurgeDialog()
@@ -62,10 +62,10 @@ export function PackDetailView({
   async function onYank(version: string, yanked: boolean) {
     try {
       if (yanked) {
-        await unyankVersion(authorId, packId, version)
+        await unyankVersion(publisherId, packId, version)
         setStatus(`Unyanked ${packKey}@${version}`, 'ok')
       } else {
-        await yankVersion(authorId, packId, version)
+        await yankVersion(publisherId, packId, version)
         setStatus(`Yanked ${packKey}@${version}`, 'ok')
       }
       await refresh()
@@ -132,7 +132,7 @@ export function PackDetailView({
                     confirm: packKey,
                     onConfirm: async (confirm, reason) => {
                       try {
-                        await purgePack(authorId, packId, confirm, reason)
+                        await purgePack(publisherId, packId, confirm, reason)
                         setStatus(`Purged ${packKey}`, 'ok')
                         route(`${BASE}/`)
                       } catch (err) {
@@ -206,7 +206,7 @@ export function PackDetailView({
                             onConfirm: async (confirm, reason) => {
                               try {
                                 await purgeVersion(
-                                  authorId,
+                                  publisherId,
                                   packId,
                                   v.version,
                                   confirm,

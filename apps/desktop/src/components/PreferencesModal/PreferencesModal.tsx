@@ -21,11 +21,11 @@ import {
   clearListenHistory,
   inspectLibraryDestination,
   relocateLibrary,
-  getDefaultAuthorId,
-  saveDefaultAuthorId,
+  getDefaultPublisherId,
+  saveDefaultPublisherId,
 } from "../../lib/tauri";
 import { stopPlaybackForLibraryRelocate } from "../../lib/libraryRelocatePlayback";
-import { isAuthorId } from "../../lib/packs/packManifest";
+import { isPublisherId } from "../../lib/packs/packManifest";
 import { useArtistImageStore } from "../../store/useArtistImageStore";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import { usePlaybackSettingsStore } from "../../store/usePlaybackSettingsStore";
@@ -162,10 +162,12 @@ export function PreferencesModal() {
     useState<LibraryDestinationInfo | null>(null);
   const [relocateBusy, setRelocateBusy] = useState(false);
   const relocateInspectingRef = useRef(false);
-  const [defaultAuthorId, setDefaultAuthorId] = useState("");
-  const [defaultAuthorIdLoaded, setDefaultAuthorIdLoaded] = useState(false);
-  const [savingDefaultAuthorId, setSavingDefaultAuthorId] = useState(false);
-  const lastPersistedAuthorIdRef = useRef("");
+  const [defaultPublisherId, setDefaultPublisherId] = useState("");
+  const [defaultPublisherIdLoaded, setDefaultPublisherIdLoaded] =
+    useState(false);
+  const [savingDefaultPublisherId, setSavingDefaultPublisherId] =
+    useState(false);
+  const lastPersistedPublisherIdRef = useRef("");
 
   const {
     open: clearRangeMenuOpen,
@@ -209,7 +211,7 @@ export function PreferencesModal() {
     setHistoryCleared(false);
     setClearHistoryOpen(false);
     closeClearRangeMenu();
-    setDefaultAuthorIdLoaded(false);
+    setDefaultPublisherIdLoaded(false);
     const tracks = usePlayerStore.getState().library;
     if (tracks.length > 0) {
       setPreviewSample(
@@ -223,26 +225,26 @@ export function PreferencesModal() {
   }, [open, closeClearRangeMenu, consumePreferencesFocusSection]);
 
   useEffect(() => {
-    if (!open || activeSection !== "studio" || defaultAuthorIdLoaded) return;
+    if (!open || activeSection !== "studio" || defaultPublisherIdLoaded) return;
     let cancelled = false;
-    void getDefaultAuthorId()
+    void getDefaultPublisherId()
       .then((id) => {
         if (!cancelled) {
-          setDefaultAuthorId(id);
-          lastPersistedAuthorIdRef.current = id;
-          setDefaultAuthorIdLoaded(true);
+          setDefaultPublisherId(id);
+          lastPersistedPublisherIdRef.current = id;
+          setDefaultPublisherIdLoaded(true);
         }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          console.error("Failed to load default author id:", err);
-          setDefaultAuthorIdLoaded(true);
+          console.error("Failed to load default publisher id:", err);
+          setDefaultPublisherIdLoaded(true);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [open, activeSection, defaultAuthorIdLoaded]);
+  }, [open, activeSection, defaultPublisherIdLoaded]);
 
   const organizePreviewPath = useMemo(() => {
     if (!settings) return null;
@@ -402,28 +404,29 @@ export function PreferencesModal() {
     }
   };
 
-  const trimmedDefaultAuthorId = defaultAuthorId.trim();
-  const defaultAuthorIdValid =
-    trimmedDefaultAuthorId.length === 0 || isAuthorId(trimmedDefaultAuthorId);
+  const trimmedDefaultPublisherId = defaultPublisherId.trim();
+  const defaultPublisherIdValid =
+    trimmedDefaultPublisherId.length === 0 ||
+    isPublisherId(trimmedDefaultPublisherId);
 
-  const persistDefaultAuthorId = async () => {
-    if (savingDefaultAuthorId) return;
-    if (!defaultAuthorIdValid) {
-      setDefaultAuthorId(lastPersistedAuthorIdRef.current);
+  const persistDefaultPublisherId = async () => {
+    if (savingDefaultPublisherId) return;
+    if (!defaultPublisherIdValid) {
+      setDefaultPublisherId(lastPersistedPublisherIdRef.current);
       return;
     }
-    setSavingDefaultAuthorId(true);
+    setSavingDefaultPublisherId(true);
     setError(null);
     try {
-      const saved = await saveDefaultAuthorId(trimmedDefaultAuthorId);
-      setDefaultAuthorId(saved);
-      lastPersistedAuthorIdRef.current = saved;
+      const saved = await saveDefaultPublisherId(trimmedDefaultPublisherId);
+      setDefaultPublisherId(saved);
+      lastPersistedPublisherIdRef.current = saved;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
-      setDefaultAuthorId(lastPersistedAuthorIdRef.current);
+      setDefaultPublisherId(lastPersistedPublisherIdRef.current);
     } finally {
-      setSavingDefaultAuthorId(false);
+      setSavingDefaultPublisherId(false);
     }
   };
 
@@ -935,27 +938,29 @@ export function PreferencesModal() {
             {activeSection === "studio" && (
               <div className="preferences__panel">
                 <FormField
-                  label={t("preferences:studio.defaultAuthorId")}
+                  label={t("preferences:studio.defaultPublisherId")}
                   description={
-                    defaultAuthorId.length > 0 && !defaultAuthorIdValid
+                    defaultPublisherId.length > 0 && !defaultPublisherIdValid
                       ? t("preferences:studio.slugHint")
-                      : t("preferences:studio.defaultAuthorIdDescription")
+                      : t("preferences:studio.defaultPublisherIdDescription")
                   }
                 >
                   <TextInput
-                    value={defaultAuthorId}
-                    onChange={(e) => setDefaultAuthorId(e.target.value)}
-                    onBlur={() => void persistDefaultAuthorId()}
+                    value={defaultPublisherId}
+                    onChange={(e) => setDefaultPublisherId(e.target.value)}
+                    onBlur={() => void persistDefaultPublisherId()}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        void persistDefaultAuthorId();
+                        void persistDefaultPublisherId();
                       }
                     }}
-                    placeholder={t("preferences:studio.authorIdPlaceholder")}
+                    placeholder={t("preferences:studio.publisherIdPlaceholder")}
                     spellCheck={false}
                     autoComplete="off"
-                    disabled={!defaultAuthorIdLoaded || savingDefaultAuthorId}
+                    disabled={
+                      !defaultPublisherIdLoaded || savingDefaultPublisherId
+                    }
                   />
                 </FormField>
               </div>

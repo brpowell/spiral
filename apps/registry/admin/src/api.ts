@@ -53,36 +53,36 @@ export function uploadPack(file: File): Promise<VersionDetailResponse> {
 }
 
 export function yankVersion(
-  authorId: string,
+  publisherId: string,
   packId: string,
   version: string,
 ): Promise<unknown> {
   return api(
-    `/v1/rgad/packs/${authorId}/${packId}/versions/${version}/yank`,
+    `/v1/rgad/packs/${publisherId}/${packId}/versions/${version}/yank`,
     { method: 'POST' },
   )
 }
 
 export function unyankVersion(
-  authorId: string,
+  publisherId: string,
   packId: string,
   version: string,
 ): Promise<unknown> {
   return api(
-    `/v1/rgad/packs/${authorId}/${packId}/versions/${version}/unyank`,
+    `/v1/rgad/packs/${publisherId}/${packId}/versions/${version}/unyank`,
     { method: 'POST' },
   )
 }
 
 export function purgeVersion(
-  authorId: string,
+  publisherId: string,
   packId: string,
   version: string,
   confirm: string,
   reason: string,
 ): Promise<unknown> {
   return api(
-    `/v1/rgad/packs/${authorId}/${packId}/versions/${version}/purge`,
+    `/v1/rgad/packs/${publisherId}/${packId}/versions/${version}/purge`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -92,12 +92,12 @@ export function purgeVersion(
 }
 
 export function purgePack(
-  authorId: string,
+  publisherId: string,
   packId: string,
   confirm: string,
   reason: string,
 ): Promise<unknown> {
-  return api(`/v1/rgad/packs/${authorId}/${packId}/purge`, {
+  return api(`/v1/rgad/packs/${publisherId}/${packId}/purge`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ confirm, reason }),

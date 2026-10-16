@@ -50,13 +50,13 @@ export const PACK_REGISTRY_DOWNLOAD_KEY = "pack-registry-download";
 /** Background task key for bulk pack updates (cancel wiring). */
 export const PACK_UPDATES_BULK_KEY = "pack-updates-bulk";
 
-/** On-disk / catalog installed key: `authorId.packId@version`. */
+/** On-disk / catalog installed key: `publisherId.packId@version`. */
 export function installedPackKey(
-  authorId: string,
+  publisherId: string,
   packId: string,
   version: string,
 ): string {
-  return `${packIdentity(authorId, packId)}@${version}`;
+  return `${packIdentity(publisherId, packId)}@${version}`;
 }
 
 /**
@@ -93,10 +93,10 @@ export function versionCmp(a: string, b: string): -1 | 0 | 1 | null {
 /** Catalog list row key including registry provenance. */
 export function catalogPackKey(
   registryUrl: string,
-  authorId: string,
+  publisherId: string,
   packId: string,
 ): string {
-  return `${registryUrl}:${authorId}/${packId}`;
+  return `${registryUrl}:${publisherId}/${packId}`;
 }
 
 export type FetchPackCatalogResult =
@@ -145,22 +145,22 @@ function registryErrorMessage(err: unknown): string {
 
 function catalogCacheKey(options?: {
   contributionType?: string | null;
-  authorId?: string | null;
+  publisherId?: string | null;
 }): string {
-  return `${options?.contributionType ?? ""}\0${options?.authorId ?? ""}`;
+  return `${options?.contributionType ?? ""}\0${options?.publisherId ?? ""}`;
 }
 
 function packCacheKey(args: {
   registryUrl: string;
-  authorId: string;
+  publisherId: string;
   packId: string;
 }): string {
-  return `${args.registryUrl}\0${args.authorId}\0${args.packId}`;
+  return `${args.registryUrl}\0${args.publisherId}\0${args.packId}`;
 }
 
 function versionCacheKey(args: {
   registryUrl: string;
-  authorId: string;
+  publisherId: string;
   packId: string;
   version: string;
 }): string {
@@ -170,7 +170,7 @@ function versionCacheKey(args: {
 /** Cached catalog result when still fresh (no network). */
 export function peekPackCatalog(options?: {
   contributionType?: string | null;
-  authorId?: string | null;
+  publisherId?: string | null;
 }): FetchPackCatalogResult | undefined {
   return catalogCache.peek(catalogCacheKey(options));
 }
@@ -187,14 +187,14 @@ export function peekPackCatalog(options?: {
  */
 export async function fetchPackCatalogSafe(options?: {
   contributionType?: string | null;
-  authorId?: string | null;
+  publisherId?: string | null;
   force?: boolean;
 }): Promise<FetchPackCatalogResult> {
   const load = async (): Promise<FetchPackCatalogResult> => {
     try {
       const catalog = await fetchPackCatalog({
         contributionType: options?.contributionType,
-        authorId: options?.authorId,
+        publisherId: options?.publisherId,
       });
       const errors = catalog.errors ?? [];
       if (catalog.packs.length === 0 && errors.length > 0) {
@@ -219,7 +219,7 @@ export async function fetchPackCatalogSafe(options?: {
 /** Cached version detail when still fresh (no network). */
 export function peekRegistryPackVersion(args: {
   registryUrl: string;
-  authorId: string;
+  publisherId: string;
   packId: string;
   version: string;
 }): FetchRegistryPackVersionResult | undefined {
@@ -231,7 +231,7 @@ export function peekRegistryPackVersion(args: {
  */
 export function fetchRegistryPackVersionSafe(args: {
   registryUrl: string;
-  authorId: string;
+  publisherId: string;
   packId: string;
   version: string;
 }): Promise<FetchRegistryPackVersionResult> {
@@ -249,7 +249,7 @@ export function fetchRegistryPackVersionSafe(args: {
  */
 export function fetchRegistryPackSafe(args: {
   registryUrl: string;
-  authorId: string;
+  publisherId: string;
   packId: string;
 }): Promise<FetchRegistryPackResult> {
   return packDetailCache.get(packCacheKey(args), async () => {
@@ -264,7 +264,7 @@ export function fetchRegistryPackSafe(args: {
 /**
  * Enrich catalog rows with local install + minAppVersion flags (no extra
  * registry round-trip for those). Already-installed detection uses on-disk
- * `authorId`+`packId`+`version`. Icons are fetched via Rust into the
+ * `publisherId`+`packId`+`version`. Icons are fetched via Rust into the
  * registry-asset cache and exposed as `asset:` URLs (never raw registry http).
  *
  * Pass `resolvePreviews: false` for background update checks so we do not
@@ -281,17 +281,17 @@ export async function enrichPackCatalog(
 
   const installedKeys = new Set(
     installedPacks.map((p) =>
-      installedPackKey(p.authorId, p.packId, p.version),
+      installedPackKey(p.publisherId, p.packId, p.version),
     ),
   );
 
-  /** Highest installed version + display name per authorId.packId. */
+  /** Highest installed version + display name per publisherId.packId. */
   const highestByIdentity = new Map<
     string,
     { version: string; name: string }
   >();
   for (const p of installedPacks) {
-    const id = packIdentity(p.authorId, p.packId);
+    const id = packIdentity(p.publisherId, p.packId);
     const prev = highestByIdentity.get(id);
     const cmp = prev ? versionCmp(p.version, prev.version) : 1;
     if (!prev || cmp === 1) {
@@ -307,11 +307,11 @@ export async function enrichPackCatalog(
   return Promise.all(
     packs.map(async (pack) => {
       const version = pack.latestVersion.version;
-      const key = installedPackKey(pack.authorId, pack.packId, version);
+      const key = installedPackKey(pack.publisherId, pack.packId, version);
       const installed = installedKeys.has(key);
 
       const local = highestByIdentity.get(
-        packIdentity(pack.authorId, pack.packId),
+        packIdentity(pack.publisherId, pack.packId),
       );
       const installedVersion = local?.version ?? null;
       const localName = local?.name?.trim() || null;
@@ -354,7 +354,7 @@ export async function enrichPackCatalog(
 
 export type InstallRegistryPackArgs = {
   registryUrl: string;
-  authorId: string;
+  publisherId: string;
   packId: string;
   version: string;
   sha256: string;
@@ -404,7 +404,7 @@ export function installRegistryPack(
 
           const result = await installPackFromRegistry({
             registryUrl: args.registryUrl,
-            authorId: args.authorId,
+            publisherId: args.publisherId,
             packId: args.packId,
             version: args.version,
             sha256: args.sha256,
@@ -418,7 +418,7 @@ export function installRegistryPack(
             source: "registry",
             result,
             registryUrl: args.registryUrl,
-            authorId: args.authorId,
+            publisherId: args.publisherId,
             sha256: args.sha256,
             sizeBytes: args.sizeBytes,
             minAppVersion: args.minAppVersion,
@@ -446,7 +446,7 @@ export function installRegistryPack(
               // Dynamic import avoids a circular dependency with usePackUpdatesStore.
               void import("../store/usePackUpdatesStore").then(
                 ({ refreshPackUpdatesAfterInstall }) => {
-                  void refreshPackUpdatesAfterInstall(result, args.authorId);
+                  void refreshPackUpdatesAfterInstall(result, args.publisherId);
                 },
               );
               resolve(result);
@@ -469,7 +469,7 @@ export function installRegistryPack(
             err,
             name: displayName,
             registryUrl: args.registryUrl,
-            authorId: args.authorId,
+            publisherId: args.publisherId,
             packId: args.packId,
             version: args.version,
             sha256: args.sha256,
@@ -502,7 +502,7 @@ export function installRegistryPack(
  */
 export async function installRegistryPackVersion(args: {
   registryUrl: string;
-  authorId: string;
+  publisherId: string;
   packId: string;
   version: RegistryVersionSummary;
   /** Highest currently installed version for this identity, when any exist. */
@@ -522,7 +522,7 @@ export async function installRegistryPackVersion(args: {
       const onDisk = listed.some(
         (p) =>
           p.zone === "installed" &&
-          p.authorId === args.authorId &&
+          p.publisherId === args.publisherId &&
           p.packId === args.packId &&
           p.version === target.version,
       );
@@ -531,7 +531,7 @@ export async function installRegistryPackVersion(args: {
       if (!onDisk) {
         downloaded = await installRegistryPack({
           registryUrl: args.registryUrl,
-          authorId: args.authorId,
+          publisherId: args.publisherId,
           packId: args.packId,
           version: target.version,
           sha256: target.sha256,
@@ -543,7 +543,7 @@ export async function installRegistryPackVersion(args: {
       }
 
       const rolledBack = await rollbackPackWithRefresh(
-        args.authorId,
+        args.publisherId,
         args.packId,
         target.version,
       );
@@ -566,7 +566,7 @@ export async function installRegistryPackVersion(args: {
               packDir: "",
               contributionCount: 0,
             },
-            args.authorId,
+            args.publisherId,
           );
         },
       );
@@ -585,7 +585,7 @@ export async function installRegistryPackVersion(args: {
 
   return installRegistryPack({
     registryUrl: args.registryUrl,
-    authorId: args.authorId,
+    publisherId: args.publisherId,
     packId: args.packId,
     version: target.version,
     sha256: target.sha256,

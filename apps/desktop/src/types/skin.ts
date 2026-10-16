@@ -54,7 +54,7 @@ export interface SkinSummary {
   author: string;
   description: string;
   isBuiltin: boolean;
-  authorId: string;
+  publisherId: string;
   version: string;
   zone: PackZone;
   previewPath: string | null;
@@ -848,7 +848,7 @@ export interface WindowChrome {
 
 export interface SkinVisualizer {
   /**
-   * Effective visualizer contribution id (`authorId.packId.type.contributionId`),
+   * Effective visualizer contribution id (`publisherId.packId.type.contributionId`),
    * or `"global"` / omit to follow the user's active visualizer picker.
    * Skins always render the full panel surface; mini+expand lives on the library
    * Now Playing bar only.

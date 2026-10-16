@@ -88,9 +88,9 @@ fn paths_equal_canonical(a: &Path, b: &Path) -> bool {
     }
 }
 
-/// Configured default author id, seeded from the OS username when unset.
-pub(crate) fn default_author_id(app: &AppHandle) -> String {
-    let stored = settings::read_settings(app).default_author_id;
+/// Configured default publisher id, seeded from the OS username when unset.
+pub(crate) fn default_publisher_id(app: &AppHandle) -> String {
+    let stored = settings::read_settings(app).default_publisher_id;
     let trimmed = stored.trim();
     if trimmed.is_empty() {
         settings::slugify_os_username()
@@ -99,12 +99,12 @@ pub(crate) fn default_author_id(app: &AppHandle) -> String {
     }
 }
 
-/// First `base`, `base-2`, `base-3`… whose `<authorId>.<id>` directory is free in `type_root`.
-pub(crate) fn unique_item_id(type_root: &Path, author_id: &str, base: &str) -> String {
+/// First `base`, `base-2`, `base-3`… whose `<publisherId>.<id>` directory is free in `type_root`.
+pub(crate) fn unique_item_id(type_root: &Path, publisher_id: &str, base: &str) -> String {
     let mut candidate = base.to_string();
     let mut n = 2;
     while type_root
-        .join(item_dir_name(author_id, &candidate))
+        .join(item_dir_name(publisher_id, &candidate))
         .exists()
     {
         candidate = format!("{base}-{n}");
@@ -213,7 +213,7 @@ pub(crate) fn find_mutable_item(
         .ok_or_else(|| format!("editable item \"{effective_id}\" not found"))
 }
 
-/// Install a `.spk` (or unpacked item folder) into `packs/installed/<type>/<authorId>.<id>/`.
+/// Install a `.spk` (or unpacked item folder) into `packs/installed/<type>/<publisherId>.<id>/`.
 /// When `path` is omitted, opens a file picker.
 #[tauri::command]
 pub fn install_item(
@@ -251,7 +251,7 @@ pub fn install_item(
 pub struct ItemExportDefaults {
     pub effective_id: String,
     pub item_type: String,
-    pub author_id: String,
+    pub publisher_id: String,
     pub name: String,
     pub version: String,
     pub description: String,
@@ -273,7 +273,7 @@ pub fn get_item_export_defaults(
     Ok(ItemExportDefaults {
         effective_id: manifest.effective_id(),
         item_type: manifest.item_type,
-        author_id: manifest.author_id,
+        publisher_id: manifest.publisher_id,
         name: manifest.name,
         version: suggested_version,
         description: manifest.description,
@@ -300,7 +300,7 @@ pub fn export_item(
 
     let default_name = format!(
         "{}-{}{}",
-        item_dir_name(&item.author_id, &item.local_id),
+        item_dir_name(&item.publisher_id, &item.local_id),
         metadata.version.trim(),
         PACK_ARCHIVE_EXTENSION
     );
@@ -431,7 +431,7 @@ pub fn get_item_scan_warnings(app: AppHandle) -> Result<Vec<String>, String> {
 
 /// Update an authoring item's identity and display fields in its manifest.
 ///
-/// Workshop items are moved to the directory matching a new `authorId`/`id`; linked items
+/// Workshop items are moved to the directory matching a new `publisherId`/`id`; linked items
 /// are edited in place and never renamed. Active/hidden references follow an id change.
 /// Returns the item's effective id after the update.
 #[tauri::command]
@@ -439,7 +439,7 @@ pub fn update_item_metadata(
     app: AppHandle,
     item_id: String,
     new_id: String,
-    author_id: String,
+    publisher_id: String,
     name: String,
     version: String,
     description: String,
@@ -448,12 +448,12 @@ pub fn update_item_metadata(
     let item = find_mutable_item(&app, &item_id)?;
 
     let new_id = new_id.trim();
-    let author_id = author_id.trim();
+    let publisher_id = publisher_id.trim();
     if new_id.is_empty() {
         return Err("id is required".into());
     }
-    if author_id.is_empty() {
-        return Err("authorId is required".into());
+    if publisher_id.is_empty() {
+        return Err("publisherId is required".into());
     }
     if name.trim().is_empty() {
         return Err("name is required".into());
@@ -472,7 +472,7 @@ pub fn update_item_metadata(
         .as_object_mut()
         .ok_or_else(|| format!("{} must be a JSON object", manifest_path.display()))?;
     obj.insert("id".into(), new_id.into());
-    obj.insert("authorId".into(), author_id.into());
+    obj.insert("publisherId".into(), publisher_id.into());
     obj.insert("name".into(), name.trim().into());
     obj.insert("version".into(), version.trim().into());
     obj.insert("description".into(), description.trim().into());
@@ -748,28 +748,30 @@ pub fn set_item_hidden(
     Ok(ids)
 }
 
-/// Preferences → Studio → Default Author ID.
+/// Preferences → Studio → Default Publisher ID.
 #[tauri::command]
-pub fn get_default_author_id(app: AppHandle) -> Result<String, String> {
-    Ok(default_author_id(&app))
+pub fn get_default_publisher_id(app: AppHandle) -> Result<String, String> {
+    Ok(default_publisher_id(&app))
 }
 
-/// Persist Default Author ID (kebab slug). Empty input reseeds from the OS username.
+/// Persist Default Publisher ID (kebab slug). Empty input reseeds from the OS username.
 #[tauri::command]
-pub fn save_default_author_id(app: AppHandle, author_id: String) -> Result<String, String> {
-    let trimmed = author_id.trim();
+pub fn save_default_publisher_id(app: AppHandle, publisher_id: String) -> Result<String, String> {
+    let trimmed = publisher_id.trim();
     let resolved = if trimmed.is_empty() {
         settings::slugify_os_username()
     } else {
         let slug = slugify_id(trimmed);
         if !is_kebab_slug(&slug) {
-            return Err(format!("authorId must be a kebab-case slug, got: {slug}"));
+            return Err(format!(
+                "publisherId must be a kebab-case slug, got: {slug}"
+            ));
         }
         slug
     };
 
     let mut app_settings = settings::read_settings(&app);
-    app_settings.default_author_id = resolved.clone();
+    app_settings.default_publisher_id = resolved.clone();
     settings::write_settings(&app, &app_settings)?;
     Ok(resolved)
 }
@@ -779,15 +781,15 @@ pub fn save_default_author_id(app: AppHandle, author_id: String) -> Result<Strin
 pub(crate) fn scaffold_workshop_item_dir(
     app: &AppHandle,
     item_type: &str,
-    author_id: &str,
+    publisher_id: &str,
     base_id: &str,
 ) -> Result<(PathBuf, String), String> {
     let workshop = ensure_workshop_root(app)?;
     let folder =
         item_type_folder(item_type).ok_or_else(|| format!("unknown item type \"{item_type}\""))?;
     let type_root = workshop.join(folder);
-    let id = unique_item_id(&type_root, author_id, base_id);
-    let dir = type_root.join(item_dir_name(author_id, &id));
+    let id = unique_item_id(&type_root, publisher_id, base_id);
+    let dir = type_root.join(item_dir_name(publisher_id, &id));
     fs::create_dir_all(&dir).map_err(|e| format!("failed to create workshop item dir: {e}"))?;
     debug_assert!(item_manifest_filename(item_type).is_some());
     Ok((dir, id))

@@ -26,19 +26,19 @@ pub fn api_router(upload_body_limit: usize) -> Router<AppState> {
         .route("/v1/rgad/packs", get(list_admin_packs))
         .merge(upload)
         .route(
-            "/v1/rgad/packs/{author_id}/{pack_id}/versions/{version}/yank",
+            "/v1/rgad/packs/{publisher_id}/{pack_id}/versions/{version}/yank",
             post(yank_version),
         )
         .route(
-            "/v1/rgad/packs/{author_id}/{pack_id}/versions/{version}/unyank",
+            "/v1/rgad/packs/{publisher_id}/{pack_id}/versions/{version}/unyank",
             post(unyank_version),
         )
         .route(
-            "/v1/rgad/packs/{author_id}/{pack_id}/versions/{version}/purge",
+            "/v1/rgad/packs/{publisher_id}/{pack_id}/versions/{version}/purge",
             post(purge_version),
         )
         .route(
-            "/v1/rgad/packs/{author_id}/{pack_id}/purge",
+            "/v1/rgad/packs/{publisher_id}/{pack_id}/purge",
             post(purge_pack),
         )
 }
@@ -120,7 +120,7 @@ async fn upload_pack(
             }
             Err(ApiError::conflict(format!(
                 "pack version {}/{}@{} already exists",
-                validated.row.author_id, validated.row.pack_id, validated.row.version
+                validated.row.publisher_id, validated.row.pack_id, validated.row.version
             )))
         }
         Err(InsertPackError::Other(e)) => Err(ApiError::from(e)),
@@ -159,25 +159,25 @@ fn map_multipart_error(err: axum::extract::multipart::MultipartError) -> ApiErro
 async fn yank_version(
     _auth: AdminAuth,
     State(state): State<AppState>,
-    Path((author_id, pack_id, version)): Path<(String, String, String)>,
+    Path((publisher_id, pack_id, version)): Path<(String, String, String)>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let yanked = db::yank_version(&state.db, &author_id, &pack_id, &version, Utc::now()).await?;
+    let yanked = db::yank_version(&state.db, &publisher_id, &pack_id, &version, Utc::now()).await?;
     if !yanked {
         // Distinguish missing vs already yanked.
-        let exists = db::get_version_for_download(&state.db, &author_id, &pack_id, &version)
+        let exists = db::get_version_for_download(&state.db, &publisher_id, &pack_id, &version)
             .await?
             .is_some();
         if exists {
             return Err(ApiError::conflict(format!(
-                "version {author_id}/{pack_id}@{version} is already yanked"
+                "version {publisher_id}/{pack_id}@{version} is already yanked"
             )));
         }
         return Err(ApiError::not_found(format!(
-            "version {author_id}/{pack_id}@{version} not found"
+            "version {publisher_id}/{pack_id}@{version} not found"
         )));
     }
     Ok(Json(serde_json::json!({
-        "authorId": author_id,
+        "publisherId": publisher_id,
         "packId": pack_id,
         "version": version,
         "yanked": true,
@@ -187,24 +187,24 @@ async fn yank_version(
 async fn unyank_version(
     _auth: AdminAuth,
     State(state): State<AppState>,
-    Path((author_id, pack_id, version)): Path<(String, String, String)>,
+    Path((publisher_id, pack_id, version)): Path<(String, String, String)>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let unyanked = db::unyank_version(&state.db, &author_id, &pack_id, &version).await?;
+    let unyanked = db::unyank_version(&state.db, &publisher_id, &pack_id, &version).await?;
     if !unyanked {
-        let exists = db::get_version_for_download(&state.db, &author_id, &pack_id, &version)
+        let exists = db::get_version_for_download(&state.db, &publisher_id, &pack_id, &version)
             .await?
             .is_some();
         if exists {
             return Err(ApiError::conflict(format!(
-                "version {author_id}/{pack_id}@{version} is not yanked"
+                "version {publisher_id}/{pack_id}@{version} is not yanked"
             )));
         }
         return Err(ApiError::not_found(format!(
-            "version {author_id}/{pack_id}@{version} not found"
+            "version {publisher_id}/{pack_id}@{version} not found"
         )));
     }
     Ok(Json(serde_json::json!({
-        "authorId": author_id,
+        "publisherId": publisher_id,
         "packId": pack_id,
         "version": version,
         "yanked": false,
@@ -214,15 +214,15 @@ async fn unyank_version(
 async fn purge_version(
     _auth: AdminAuth,
     State(state): State<AppState>,
-    Path((author_id, pack_id, version)): Path<(String, String, String)>,
+    Path((publisher_id, pack_id, version)): Path<(String, String, String)>,
     Json(body): Json<PurgeRequest>,
 ) -> ApiResult<Json<PurgeResponse>> {
-    let expected = format!("{author_id}/{pack_id}@{version}");
+    let expected = format!("{publisher_id}/{pack_id}@{version}");
     validate_purge_confirm(&body, &expected)?;
 
-    let Some(row) = db::delete_version(&state.db, &author_id, &pack_id, &version).await? else {
+    let Some(row) = db::delete_version(&state.db, &publisher_id, &pack_id, &version).await? else {
         return Err(ApiError::not_found(format!(
-            "version {author_id}/{pack_id}@{version} not found"
+            "version {publisher_id}/{pack_id}@{version} not found"
         )));
     };
 
@@ -240,7 +240,7 @@ async fn purge_version(
         &TakedownLogRow {
             id: 0,
             purged_at: Utc::now(),
-            author_id: author_id.clone(),
+            publisher_id: publisher_id.clone(),
             pack_id: pack_id.clone(),
             version: version.clone(),
             reason: body.reason.trim().to_string(),
@@ -257,16 +257,16 @@ async fn purge_version(
 async fn purge_pack(
     _auth: AdminAuth,
     State(state): State<AppState>,
-    Path((author_id, pack_id)): Path<(String, String)>,
+    Path((publisher_id, pack_id)): Path<(String, String)>,
     Json(body): Json<PurgeRequest>,
 ) -> ApiResult<Json<PurgeResponse>> {
-    let expected = format!("{author_id}/{pack_id}");
+    let expected = format!("{publisher_id}/{pack_id}");
     validate_purge_confirm(&body, &expected)?;
 
-    let rows = db::delete_pack_versions(&state.db, &author_id, &pack_id).await?;
+    let rows = db::delete_pack_versions(&state.db, &publisher_id, &pack_id).await?;
     if rows.is_empty() {
         return Err(ApiError::not_found(format!(
-            "pack {author_id}/{pack_id} not found"
+            "pack {publisher_id}/{pack_id} not found"
         )));
     }
 
@@ -276,7 +276,10 @@ async fn purge_pack(
         if let Some(preview_key) = &row.preview_storage_key {
             let _ = state.storage.delete(preview_key).await;
         }
-        purged.push(format!("{}/{}/{}", row.author_id, row.pack_id, row.version));
+        purged.push(format!(
+            "{}/{}/{}",
+            row.publisher_id, row.pack_id, row.version
+        ));
     }
 
     db::insert_takedown_log(
@@ -284,7 +287,7 @@ async fn purge_pack(
         &TakedownLogRow {
             id: 0,
             purged_at: Utc::now(),
-            author_id: author_id.clone(),
+            publisher_id: publisher_id.clone(),
             pack_id: pack_id.clone(),
             version: "*".to_string(),
             reason: body.reason.trim().to_string(),

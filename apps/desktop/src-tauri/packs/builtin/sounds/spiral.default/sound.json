@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/sound-v1.schema.json",
   "id": "default",
-  "authorId": "spiral",
+  "publisherId": "spiral",
   "version": "1.0.0",
   "name": "Default",
   "preview": "preview.png",

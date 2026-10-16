@@ -41,7 +41,7 @@ export async function bootstrapSkinAux(): Promise<void> {
           author: "Spiral",
           description: "",
           isBuiltin: true,
-          authorId: "spiral",
+          publisherId: "spiral",
           version: "1.0.0",
           zone: "builtin",
           previewPath: null,

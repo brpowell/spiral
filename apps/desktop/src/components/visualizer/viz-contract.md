@@ -23,7 +23,7 @@ Draw modules may still soften motion via `flags.reducedMotion` on the host conte
 | **VizScene** | (inside viz.json) | `children` | Layer list |
 | **Draw module** | same visualizer folder | `entry` JS (e.g. `index.js`) | Draw one canvas or webgl layer from a `VizFrame` |
 
-Effective visualizer ids are fully qualified: `authorId.packId.visualizer.contributionId` (e.g. `spiral.visualizer.wave`).
+Effective visualizer ids are fully qualified: `publisherId.packId.visualizer.contributionId` (e.g. `spiral.visualizer.wave`).
 
 Canvas and webgl layers name a relative `entry` script in the visualizer folder (e.g. `"entry": "index.js"`). Layer `kind` selects the backend (`canvas` → canvas2d, `webgl` → webgl). Tunables live as constants inside the entry script — `viz.json` does not pass a params bag.
 
@@ -195,7 +195,7 @@ Canvas and webgl `entry` fields must be a relative `.js` filename in the visuali
 | Built-in | `src-tauri/packs/builtin/<packId>/` |
 | User | `{app_data}/packs/{workshop,installed}/` |
 
-Contributions are discovered under type folders (`visualizers/`, …). Effective id = `authorId.packId.type.contributionId`.
+Contributions are discovered under type folders (`visualizers/`, …). Effective id = `publisherId.packId.type.contributionId`.
 
 ## Related
 

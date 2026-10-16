@@ -11,7 +11,7 @@ export type CatalogVersionDocs = {
 
 type VersionArgs = {
   registryUrl: string;
-  authorId: string;
+  publisherId: string;
   packId: string;
   version: string;
 };

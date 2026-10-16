@@ -60,7 +60,7 @@ function pickLocalPack(
   const installed = packs.filter(
     (p) =>
       p.zone === "installed" &&
-      p.authorId === entry.authorId &&
+      p.publisherId === entry.publisherId &&
       p.packId === entry.packId,
   );
   if (installed.length === 0) return null;
@@ -102,7 +102,7 @@ function CatalogPackCard({
 }) {
   const { t } = useTranslation(["studio", "common"]);
   const name = catalogDisplayName(entry);
-  const author = entry.authorId.trim() || t("common:unknown");
+  const author = entry.publisherId.trim() || t("common:unknown");
   const description = entry.latestVersion.description?.trim() || undefined;
   const canUninstall = onUninstall != null;
   const canUpdate =
@@ -172,13 +172,13 @@ function CatalogPackCard({
 function prefetchEntryDetail(entry: CatalogPackEntry): void {
   void prefetchCatalogVersionDocs({
     registryUrl: entry.registryUrl,
-    authorId: entry.authorId,
+    publisherId: entry.publisherId,
     packId: entry.packId,
     version: entry.latestVersion.version,
   });
   void fetchRegistryPackSafe({
     registryUrl: entry.registryUrl,
-    authorId: entry.authorId,
+    publisherId: entry.publisherId,
     packId: entry.packId,
   });
 }
@@ -296,7 +296,8 @@ export function GetMoreSection() {
       ? null
       : (entries.find(
           (e) =>
-            catalogPackKey(e.registryUrl, e.authorId, e.packId) === selectedKey,
+            catalogPackKey(e.registryUrl, e.publisherId, e.packId) ===
+            selectedKey,
         ) ?? null);
 
   const selectedLocal = selectedEntry
@@ -311,7 +312,7 @@ export function GetMoreSection() {
       const v = entry.latestVersion;
       await installRegistryPack({
         registryUrl: entry.registryUrl,
-        authorId: entry.authorId,
+        publisherId: entry.publisherId,
         packId: entry.packId,
         version: v.version,
         sha256: v.sha256,
@@ -333,7 +334,7 @@ export function GetMoreSection() {
     try {
       await installRegistryPackVersion({
         registryUrl: entry.registryUrl,
-        authorId: entry.authorId,
+        publisherId: entry.publisherId,
         packId: entry.packId,
         version,
         installedVersion: entry.installedVersion,
@@ -379,7 +380,7 @@ export function GetMoreSection() {
     setBusy(true);
     try {
       await uninstallPackWithRefresh(
-        uninstallTarget.authorId,
+        uninstallTarget.publisherId,
         uninstallTarget.packId,
         uninstallTarget.version,
         uninstallTarget.name,
@@ -472,7 +473,7 @@ export function GetMoreSection() {
                     {entries.map((entry) => {
                       const key = catalogPackKey(
                         entry.registryUrl,
-                        entry.authorId,
+                        entry.publisherId,
                         entry.packId,
                       );
                       return (

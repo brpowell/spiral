@@ -83,10 +83,10 @@
     "cacheCleared": "Cache cleared"
   },
   "studio": {
-    "defaultAuthorId": "Default Author ID",
-    "defaultAuthorIdDescription": "Seeded into new workshop packs as authorId. Changing this does not rewrite existing packs.",
+    "defaultPublisherId": "Default Publisher ID",
+    "defaultPublisherIdDescription": "Seeded into new workshop items as publisherId. Changing this does not rewrite existing items.",
     "slugHint": "Use lowercase letters, numbers, and hyphens (e.g. jane-doe).",
-    "authorIdPlaceholder": "jane-doe"
+    "publisherIdPlaceholder": "jane-doe"
   },
   "updates": {
     "automatic": {

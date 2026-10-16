@@ -122,7 +122,7 @@ function CatalogMarkdownDocPanel({
   const { t } = useTranslation("studio");
   const docsArgs = {
     registryUrl: entry.registryUrl,
-    authorId: entry.authorId,
+    publisherId: entry.publisherId,
     packId: entry.packId,
     version: entry.latestVersion.version,
   };
@@ -137,7 +137,7 @@ function CatalogMarkdownDocPanel({
     let cancelled = false;
     const hit = peekCatalogVersionDocs({
       registryUrl: entry.registryUrl,
-      authorId: entry.authorId,
+      publisherId: entry.publisherId,
       packId: entry.packId,
       version: entry.latestVersion.version,
     });
@@ -150,7 +150,7 @@ function CatalogMarkdownDocPanel({
     setText(null);
     void prefetchCatalogVersionDocs({
       registryUrl: entry.registryUrl,
-      authorId: entry.authorId,
+      publisherId: entry.publisherId,
       packId: entry.packId,
       version: entry.latestVersion.version,
     }).then((docs) => {
@@ -167,7 +167,7 @@ function CatalogMarkdownDocPanel({
     };
   }, [
     entry.registryUrl,
-    entry.authorId,
+    entry.publisherId,
     entry.packId,
     entry.latestVersion.version,
     field,
@@ -469,7 +469,7 @@ export function PackDetailView({
     (catalogEntry ? catalogDisplayName(catalogEntry) : "") ||
     pack?.packId ||
     "";
-  const authorId = pack?.authorId ?? catalogEntry?.authorId ?? "";
+  const publisherId = pack?.publisherId ?? catalogEntry?.publisherId ?? "";
   const packId = pack?.packId ?? catalogEntry?.packId ?? "";
   const version = pack?.version ?? catalogEntry?.latestVersion.version ?? null;
   const sizeBytes = usePackSizeBytes({
@@ -477,7 +477,7 @@ export function PackDetailView({
     catalogSizeBytes: catalogEntry?.latestVersion.sizeBytes,
   });
   const fullId =
-    authorId && packId ? packIdentity(authorId, packId) : packId || null;
+    publisherId && packId ? packIdentity(publisherId, packId) : packId || null;
   const description =
     pack?.description?.trim() ||
     catalogEntry?.latestVersion.description?.trim() ||
@@ -540,7 +540,7 @@ export function PackDetailView({
     } else if (catalogEntry != null) {
       void prefetchCatalogVersionDocs({
         registryUrl: catalogEntry.registryUrl,
-        authorId: catalogEntry.authorId,
+        publisherId: catalogEntry.publisherId,
         packId: catalogEntry.packId,
         version: catalogEntry.latestVersion.version,
       }).then((docs) => {
@@ -568,7 +568,7 @@ export function PackDetailView({
     let cancelled = false;
     void fetchRegistryPackSafe({
       registryUrl: catalogEntry.registryUrl,
-      authorId: catalogEntry.authorId,
+      publisherId: catalogEntry.publisherId,
       packId: catalogEntry.packId,
     }).then((result) => {
       if (cancelled) return;

@@ -2,11 +2,11 @@ import type { PackZone } from "./pack";
 
 /** Mirrors Rust `SoundPackSummary`. */
 export interface SoundPackSummary {
-  /** Effective id: `authorId.sound.id`. */
+  /** Effective id: `publisherId.sound.id`. */
   id: string;
   name: string;
   author: string;
-  authorId: string;
+  publisherId: string;
   description: string;
   version: string;
   isBuiltin: boolean;

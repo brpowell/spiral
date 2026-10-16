@@ -14,7 +14,7 @@ import {
 } from "../icons";
 
 export function packKey(pack: PackSummary): string {
-  return `${pack.zone}:${pack.authorId}.${pack.packId}@${pack.version}:${pack.packDir}`;
+  return `${pack.zone}:${pack.publisherId}.${pack.packId}@${pack.version}:${pack.packDir}`;
 }
 
 /** Inactive installed dirs kept on disk after an update (not shown as list rows). */

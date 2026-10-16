@@ -1,5 +1,5 @@
 export type AdminVersionSummary = {
-  authorId: string
+  publisherId: string
   packId: string
   version: string
   name: string
@@ -16,7 +16,7 @@ export type AdminPackListResponse = {
 }
 
 export type VersionDetailResponse = {
-  authorId: string
+  publisherId: string
   packId: string
   version: string
   sha256: string
@@ -24,7 +24,7 @@ export type VersionDetailResponse = {
 }
 
 export type PackGroup = {
-  authorId: string
+  publisherId: string
   packId: string
   key: string
   name: string

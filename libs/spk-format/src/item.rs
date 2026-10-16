@@ -2,11 +2,11 @@
 //!
 //! An item is the contribution manifest (`theme.json`, `skin.json`, `viz.json`,
 //! `sound.json`) at the item root, plus its assets. The manifest carries the item's
-//! identity (`authorId`, `id`) and distribution fields (`version`, `minAppVersion`),
+//! identity (`publisherId`, `id`) and distribution fields (`version`, `minAppVersion`),
 //! so there is no wrapper manifest.
 //!
-//! Effective id = `authorId.type.id`. On disk an item lives at
-//! `<zone>/<type folder>/<authorId>.<id>/`.
+//! Effective id = `publisherId.type.id`. On disk an item lives at
+//! `<zone>/<type folder>/<publisherId>.<id>/`.
 
 use crate::manifest::{is_kebab_slug, is_semver, validate_preview_file, validate_preview_relpath};
 use crate::{
@@ -24,7 +24,7 @@ pub struct ItemManifest {
     /// `theme` | `skin` | `visualizer` | `sound`.
     pub item_type: String,
     pub id: String,
-    pub author_id: String,
+    pub publisher_id: String,
     /// Semver content version of this item build.
     pub version: String,
     pub name: String,
@@ -36,11 +36,11 @@ pub struct ItemManifest {
 
 impl ItemManifest {
     pub fn effective_id(&self) -> String {
-        effective_item_id(&self.author_id, &self.item_type, &self.id)
+        effective_item_id(&self.publisher_id, &self.item_type, &self.id)
     }
 
     pub fn dir_name(&self) -> String {
-        item_dir_name(&self.author_id, &self.id)
+        item_dir_name(&self.publisher_id, &self.id)
     }
 }
 
@@ -51,19 +51,19 @@ fn err(code: &'static str, message: impl Into<String>) -> PackManifestError {
     }
 }
 
-/// Effective item id = `authorId.type.id`.
-pub fn effective_item_id(author_id: &str, item_type: &str, id: &str) -> String {
-    format!("{author_id}.{item_type}.{id}")
+/// Effective item id = `publisherId.type.id`.
+pub fn effective_item_id(publisher_id: &str, item_type: &str, id: &str) -> String {
+    format!("{publisher_id}.{item_type}.{id}")
 }
 
-/// Directory name of an item under its type folder: `authorId.id`.
-pub fn item_dir_name(author_id: &str, id: &str) -> String {
-    format!("{author_id}.{id}")
+/// Directory name of an item under its type folder: `publisherId.id`.
+pub fn item_dir_name(publisher_id: &str, id: &str) -> String {
+    format!("{publisher_id}.{id}")
 }
 
-/// Prefix shared by every item id of one author and type: `authorId.type.`.
-pub fn item_id_prefix(author_id: &str, item_type: &str) -> String {
-    format!("{author_id}.{item_type}.")
+/// Prefix shared by every item id of one author and type: `publisherId.type.`.
+pub fn item_id_prefix(publisher_id: &str, item_type: &str) -> String {
+    format!("{publisher_id}.{item_type}.")
 }
 
 /// Type-folder name (`skins`) for an item type (`skin`).
@@ -173,16 +173,16 @@ pub fn parse_item_manifest_value(
         ));
     }
 
-    let author_id = str_field(value, "authorId").ok_or_else(|| {
+    let publisher_id = str_field(value, "publisherId").ok_or_else(|| {
         err(
-            "missing_author_id",
-            "item manifest is missing required authorId",
+            "missing_publisher_id",
+            "item manifest is missing required publisherId",
         )
     })?;
-    if !is_kebab_slug(&author_id) {
+    if !is_kebab_slug(&publisher_id) {
         return Err(err(
-            "invalid_author_id",
-            format!("authorId must be a kebab-case slug, got: {author_id}"),
+            "invalid_publisher_id",
+            format!("publisherId must be a kebab-case slug, got: {publisher_id}"),
         ));
     }
 
@@ -229,7 +229,7 @@ pub fn parse_item_manifest_value(
     Ok(ItemManifest {
         item_type: item_type.to_string(),
         id,
-        author_id,
+        publisher_id,
         version,
         name,
         description: str_field(value, "description").unwrap_or_default(),
@@ -314,7 +314,7 @@ mod tests {
     fn theme_json(extra: serde_json::Value) -> String {
         let mut value = serde_json::json!({
             "id": "midnight",
-            "authorId": "bryan",
+            "publisherId": "bryan",
             "version": "1.0.0",
             "name": "Midnight",
             "author": "Bryan",
@@ -367,7 +367,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(item.id, "midnight");
-        assert_eq!(item.author_id, "bryan");
+        assert_eq!(item.publisher_id, "bryan");
         assert_eq!(item.version, "1.0.0");
         assert_eq!(item.min_app_version.as_deref(), Some("0.2.0"));
         assert_eq!(item.preview.as_deref(), Some("p.png"));
@@ -379,7 +379,7 @@ mod tests {
     fn requires_identity_fields() {
         for (field, code) in [
             ("id", "missing_item_id"),
-            ("authorId", "missing_author_id"),
+            ("publisherId", "missing_publisher_id"),
             ("version", "missing_version"),
             ("name", "invalid_field"),
         ] {
@@ -394,8 +394,8 @@ mod tests {
         let cases = [
             (serde_json::json!({"id": "Not Kebab"}), "invalid_item_id"),
             (
-                serde_json::json!({"authorId": "Bad_Author"}),
-                "invalid_author_id",
+                serde_json::json!({"publisherId": "Bad_Author"}),
+                "invalid_publisher_id",
             ),
             (serde_json::json!({"version": "one"}), "invalid_version"),
             (
@@ -444,7 +444,7 @@ mod tests {
         let dir = temp_dir("tokens");
         fs::write(
             dir.join("theme.json"),
-            r#"{"id":"x","authorId":"a","version":"1.0.0","name":"X","tokens":{}}"#,
+            r#"{"id":"x","publisherId":"a","version":"1.0.0","name":"X","tokens":{}}"#,
         )
         .unwrap();
         let e = validate_item_dir(&dir).unwrap_err();

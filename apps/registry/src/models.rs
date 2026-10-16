@@ -21,7 +21,7 @@ pub struct PackListResponse {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PackSummary {
-    pub author_id: String,
+    pub publisher_id: String,
     pub pack_id: String,
     pub latest_version: VersionSummary,
 }
@@ -29,7 +29,7 @@ pub struct PackSummary {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PackDetailResponse {
-    pub author_id: String,
+    pub publisher_id: String,
     pub pack_id: String,
     pub versions: Vec<VersionSummary>,
 }
@@ -67,7 +67,7 @@ pub struct VersionSummary {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VersionDetailResponse {
-    pub author_id: String,
+    pub publisher_id: String,
     pub pack_id: String,
     pub version: String,
     pub name: String,
@@ -92,7 +92,7 @@ pub struct VersionDetailResponse {
 /// Internal row from `pack_versions`.
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct PackVersionRow {
-    pub author_id: String,
+    pub publisher_id: String,
     pub pack_id: String,
     pub version: String,
     pub min_app_version: Option<String>,
@@ -117,7 +117,7 @@ pub struct PackVersionRow {
 pub struct TakedownLogRow {
     pub id: i64,
     pub purged_at: DateTime<Utc>,
-    pub author_id: String,
+    pub publisher_id: String,
     pub pack_id: String,
     /// Specific semver, or `*` for a pack-level purge.
     pub version: String,
@@ -129,7 +129,7 @@ pub struct TakedownLogRow {
 #[serde(rename_all = "camelCase")]
 pub struct PackListQuery {
     pub contribution_type: Option<String>,
-    pub author_id: Option<String>,
+    pub publisher_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -144,7 +144,7 @@ pub struct PurgeRequest {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdminVersionSummary {
-    pub author_id: String,
+    pub publisher_id: String,
     pub pack_id: String,
     pub version: String,
     pub name: String,
@@ -174,7 +174,7 @@ pub struct PurgeResponse {
 
 /// Columns selected for every `PackVersionRow` query.
 pub const PACK_VERSION_COLUMNS: &str = r#"
-    author_id, pack_id, version, min_app_version, contribution_types,
+    publisher_id, pack_id, version, min_app_version, contribution_types,
     size_bytes, sha256, storage_key, preview_storage_key,
     name, description, readme, changelog, contributions,
     published_at, yanked_at
@@ -192,7 +192,7 @@ impl PackVersionRow {
     pub fn preview_url(&self) -> Option<String> {
         self.preview_storage_key
             .as_ref()
-            .map(|_| preview_url_path(&self.author_id, &self.pack_id, &self.version))
+            .map(|_| preview_url_path(&self.publisher_id, &self.pack_id, &self.version))
     }
 
     pub fn to_summary(&self) -> VersionSummary {
@@ -212,7 +212,7 @@ impl PackVersionRow {
 
     pub fn to_detail(&self) -> VersionDetailResponse {
         VersionDetailResponse {
-            author_id: self.author_id.clone(),
+            publisher_id: self.publisher_id.clone(),
             pack_id: self.pack_id.clone(),
             version: self.version.clone(),
             name: self.name.clone(),
@@ -231,7 +231,7 @@ impl PackVersionRow {
 
     pub fn to_admin_summary(&self) -> AdminVersionSummary {
         AdminVersionSummary {
-            author_id: self.author_id.clone(),
+            publisher_id: self.publisher_id.clone(),
             pack_id: self.pack_id.clone(),
             version: self.version.clone(),
             name: self.name.clone(),

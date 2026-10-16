@@ -101,18 +101,18 @@ Everything is under `/v1`. Errors are JSON: `{ "code": "...", "message": "..." }
 | Method | Path | Notes |
 | --- | --- | --- |
 | `GET` | `/v1/meta` | `{ protocolVersion, name }` |
-| `GET` | `/v1/packs` | List packs. Query: `contributionType`, `authorId`. Excludes yanked versions. |
-| `GET` | `/v1/packs/:authorId/:packId` | Pack detail and its published versions |
-| `GET` | `/v1/packs/:authorId/:packId/versions/:version` | Version detail. `latest` is an alias for the newest version. |
-| `GET` | `/v1/packs/:authorId/:packId/versions/:version/download` | Stream the `.spk`. Yanked versions still resolve; purged ones return `410 Gone`. |
-| `GET` | `/v1/packs/:authorId/:packId/versions/:version/preview` | Preview image (from `pack.json`'s `preview`, or the first contribution preview). `latest` works; yanked is fine; purged returns `410`. |
+| `GET` | `/v1/packs` | List packs. Query: `contributionType`, `publisherId`. Excludes yanked versions. |
+| `GET` | `/v1/packs/:publisherId/:packId` | Pack detail and its published versions |
+| `GET` | `/v1/packs/:publisherId/:packId/versions/:version` | Version detail. `latest` is an alias for the newest version. |
+| `GET` | `/v1/packs/:publisherId/:packId/versions/:version/download` | Stream the `.spk`. Yanked versions still resolve; purged ones return `410 Gone`. |
+| `GET` | `/v1/packs/:publisherId/:packId/versions/:version/preview` | Preview image (from `pack.json`'s `preview`, or the first contribution preview). `latest` works; yanked is fine; purged returns `410`. |
 | `GET` | `/rgad` | Admin panel (single-page app; the token is entered in the page) |
 | `GET` | `/v1/rgad/packs` | Admin list, including yanked versions. Requires the token. |
 | `POST` | `/v1/rgad/packs` | Multipart upload (`spk` field required). Validates, hashes and stores the pack. |
-| `POST` | `/v1/rgad/packs/:authorId/:packId/versions/:version/yank` | Soft delete: hides the version from the catalog but keeps the download. |
-| `POST` | `/v1/rgad/packs/:authorId/:packId/versions/:version/unyank` | Reverses a yank. |
-| `POST` | `/v1/rgad/packs/:authorId/:packId/versions/:version/purge` | Hard delete. Body: `{ "confirm": "author/pack@version", "reason": "…" }` |
-| `POST` | `/v1/rgad/packs/:authorId/:packId/purge` | Delete a whole pack. Body: `{ "confirm": "author/pack", "reason": "…" }` |
+| `POST` | `/v1/rgad/packs/:publisherId/:packId/versions/:version/yank` | Soft delete: hides the version from the catalog but keeps the download. |
+| `POST` | `/v1/rgad/packs/:publisherId/:packId/versions/:version/unyank` | Reverses a yank. |
+| `POST` | `/v1/rgad/packs/:publisherId/:packId/versions/:version/purge` | Hard delete. Body: `{ "confirm": "author/pack@version", "reason": "…" }` |
+| `POST` | `/v1/rgad/packs/:publisherId/:packId/purge` | Delete a whole pack. Body: `{ "confirm": "author/pack", "reason": "…" }` |
 
 Admin requests authenticate with `Authorization: Bearer <ADMIN_TOKEN>` or `X-Admin-Token: <ADMIN_TOKEN>`.
 
@@ -171,7 +171,7 @@ If a machine was already running before the volume existed, its catalog and pack
 ## Security notes
 
 - The admin token is compared in constant time, must be at least 32 bytes, and failed attempts are rate limited and logged without the token.
-- Packs are validated and extracted with `spk-format`, which rejects paths that escape the archive and bounds how far an archive can expand: at most 10,000 entries, 256 MiB in total, and a 50:1 compression ratio (checked once an archive expands past 8 MiB), so a small upload cannot fill the disk. Pack and author ids are restricted to kebab-case slugs, and storage keys are checked so they cannot leave the storage root.
+- Packs are validated and extracted with `spk-format`, which rejects paths that escape the archive and bounds how far an archive can expand: at most 10,000 entries, 256 MiB in total, and a 50:1 compression ratio (checked once an archive expands past 8 MiB), so a small upload cannot fill the disk. Pack and publisher ids are restricted to kebab-case slugs, and storage keys are checked so they cannot leave the storage root.
 - Pack previews must be raster images (PNG, JPEG, WebP, GIF). SVG is rejected because it can execute when opened as a document.
 - Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and a restrictive `Content-Security-Policy`.
 

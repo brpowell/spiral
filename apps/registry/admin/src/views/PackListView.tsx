@@ -52,7 +52,7 @@ export function PackListView({ onUnauthorized }: Props) {
       const body = await uploadPack(file)
       const previewNote = body.previewUrl ? ` · preview ${body.previewUrl}` : ''
       setStatus(
-        `Published ${body.authorId}/${body.packId}@${body.version} (sha256 ${body.sha256.slice(0, 12)}…)${previewNote}`,
+        `Published ${body.publisherId}/${body.packId}@${body.version} (sha256 ${body.sha256.slice(0, 12)}…)${previewNote}`,
         'ok',
       )
       setFile(null)
@@ -127,7 +127,7 @@ export function PackListView({ onUnauthorized }: Props) {
                     type="button"
                     class="secondary"
                     onClick={() =>
-                      route(`${BASE}/packs/${p.authorId}/${p.packId}`)
+                      route(`${BASE}/packs/${p.publisherId}/${p.packId}`)
                     }
                   >
                     Manage versions
@@ -140,7 +140,7 @@ export function PackListView({ onUnauthorized }: Props) {
                         confirm: p.key,
                         onConfirm: async (confirm, reason) => {
                           try {
-                            await purgePack(p.authorId, p.packId, confirm, reason)
+                            await purgePack(p.publisherId, p.packId, confirm, reason)
                             setStatus(`Purged ${p.key}`, 'ok')
                             await refresh()
                           } catch (err) {

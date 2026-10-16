@@ -536,7 +536,7 @@ mod tests {
             &spk,
             &[(
                 "pack.json",
-                br#"{"manifestVersion":1,"packId":"t","authorId":"test","version":"1.0.0","name":"T","description":""}"#,
+                br#"{"manifestVersion":1,"packId":"t","publisherId":"test","version":"1.0.0","name":"T","description":""}"#,
             )],
         );
 
@@ -558,7 +558,7 @@ mod tests {
             &spk,
             &[(
                 "midnight-drive/pack.json",
-                br#"{"manifestVersion":1,"packId":"midnight-drive","authorId":"bryan","version":"1.0.0","name":"T","description":""}"#,
+                br#"{"manifestVersion":1,"packId":"midnight-drive","publisherId":"bryan","version":"1.0.0","name":"T","description":""}"#,
             )],
         );
 
@@ -595,7 +595,7 @@ mod tests {
             &[
                 (
                     "pack.json",
-                    br#"{"manifestVersion":1,"packId":"t","authorId":"test","version":"1.0.0","name":"T","description":""}"#,
+                    br#"{"manifestVersion":1,"packId":"t","publisherId":"test","version":"1.0.0","name":"T","description":""}"#,
                 ),
                 ("skins/demo/skin.json", b"{}"),
                 ("__MACOSX/._pack.json", b"junk"),
@@ -626,7 +626,7 @@ mod tests {
         fs::create_dir_all(pack.join("__MACOSX/skins")).unwrap();
         fs::write(
             pack.join("pack.json"),
-            br#"{"manifestVersion":1,"packId":"t","authorId":"test","version":"1.0.0","name":"T","description":""}"#,
+            br#"{"manifestVersion":1,"packId":"t","publisherId":"test","version":"1.0.0","name":"T","description":""}"#,
         )
         .unwrap();
         fs::write(pack.join("skins/demo/skin.json"), b"{}").unwrap();

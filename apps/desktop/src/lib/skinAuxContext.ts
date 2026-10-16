@@ -7,7 +7,7 @@ export interface SkinAuxContext {
 
 /**
  * Tauri webview labels allow only `a-zA-Z0-9-/:_`. Pack contribution ids use
- * `authorId.packId.type.contributionId` (e.g. `spiral.xbox.skin.xbox`), so map `.` ↔ `:` for window labels.
+ * `publisherId.packId.type.contributionId` (e.g. `spiral.xbox.skin.xbox`), so map `.` ↔ `:` for window labels.
  */
 function encodeSkinIdForLabel(skinId: string): string {
   return skinId.replace(/\./g, ":");

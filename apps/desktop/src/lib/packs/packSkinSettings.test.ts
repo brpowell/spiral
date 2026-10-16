@@ -19,7 +19,7 @@ const hideHelpBubble: SkinSetting = {
 function packWithSkins(ids: string[]): PackSummary {
   return {
     packId: "lost-planet",
-    authorId: "skins-factory",
+    publisherId: "skins-factory",
     version: "1.0.0",
     name: "Lost Planet",
     description: "",

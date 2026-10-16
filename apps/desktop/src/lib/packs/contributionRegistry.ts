@@ -17,7 +17,7 @@ export interface ContributionSummary {
 }
 
 export interface ContributionHandlerContext {
-  authorId: string;
+  publisherId: string;
   packId: string;
   packDir: string;
   localId: string;
@@ -148,13 +148,13 @@ export function resolvePackContributions(
     }
     seenTypeLocalIds.add(typeLocalKey);
     const effectiveId = effectiveContributionId(
-      pack.authorId,
+      pack.publisherId,
       pack.packId,
       entry.type,
       localId,
     );
     const ctx: ContributionHandlerContext = {
-      authorId: pack.authorId,
+      publisherId: pack.publisherId,
       packId: pack.packId,
       packDir,
       localId,

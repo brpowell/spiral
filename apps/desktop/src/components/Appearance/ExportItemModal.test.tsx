@@ -44,7 +44,7 @@ import { ExportItemModal } from "./ExportItemModal";
 const DEFAULTS = {
   effectiveId: "bryan.theme.mine",
   itemType: "theme",
-  authorId: "bryan",
+  publisherId: "bryan",
   name: "Mine",
   version: "1.0.0",
   description: "My theme",

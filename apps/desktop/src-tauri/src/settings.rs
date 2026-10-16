@@ -322,9 +322,9 @@ pub struct AppSettings {
     /// Absolute paths to linked item folders (each holds one item manifest directly).
     #[serde(default)]
     pub linked_item_paths: Vec<String>,
-    /// Seeded once from the OS account name; copied into new workshop packs as `authorId`.
-    #[serde(default = "default_default_author_id")]
-    pub default_author_id: String,
+    /// Seeded once from the OS account name; copied into new workshop packs as `publisherId`.
+    #[serde(default = "default_default_publisher_id")]
+    pub default_publisher_id: String,
     /// Pack registry sources. Spiral's official instance is always present first
     /// (matched by URL). Extra entries are ignored until the multi-registry
     /// Preferences UI ships.
@@ -370,7 +370,7 @@ fn default_active_sound_pack() -> String {
     DEFAULT_SOUND_PACK_ID.to_string()
 }
 
-fn default_default_author_id() -> String {
+fn default_default_publisher_id() -> String {
     slugify_os_username()
 }
 
@@ -422,7 +422,7 @@ pub fn default_registries() -> Vec<RegistrySource> {
     vec![spiral_registry_source()]
 }
 
-/// Normalize the current OS username into a kebab-case authorId seed.
+/// Normalize the current OS username into a kebab-case publisherId seed.
 pub fn slugify_os_username() -> String {
     let raw = std::env::var("USER")
         .or_else(|_| std::env::var("USERNAME"))
@@ -440,7 +440,7 @@ impl Default for AppSettings {
             active_sound_pack: default_active_sound_pack(),
             hidden_contribution_ids: Vec::new(),
             linked_item_paths: Vec::new(),
-            default_author_id: default_default_author_id(),
+            default_publisher_id: default_default_publisher_id(),
             registries: default_registries(),
             library: LibrarySettings::default(),
             listening_history: ListeningHistorySettings::default(),

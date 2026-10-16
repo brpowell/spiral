@@ -12,13 +12,13 @@ export function logPackInstallSuccess(options: {
   result: InstallPackResult;
   /** Registry base URL when `source === "registry"`. */
   registryUrl?: string;
-  authorId?: string;
+  publisherId?: string;
   sha256?: string;
   sizeBytes?: number;
   minAppVersion?: string | null;
 }): void {
   const { operationId, source, result } = options;
-  const identity = `${options.authorId ?? "?"}.${result.packId}@${result.version}`;
+  const identity = `${options.publisherId ?? "?"}.${result.packId}@${result.version}`;
   logActivity({
     level: "info",
     domain: ACTIVITY_LOG_DOMAINS.packInstall,
@@ -37,7 +37,7 @@ export function logPackInstallSuccess(options: {
       ...(options.registryUrl != null
         ? { registryUrl: options.registryUrl }
         : {}),
-      ...(options.authorId != null ? { authorId: options.authorId } : {}),
+      ...(options.publisherId != null ? { publisherId: options.publisherId } : {}),
       ...(options.sha256 != null ? { sha256: options.sha256 } : {}),
       ...(options.sizeBytes != null ? { sizeBytes: options.sizeBytes } : {}),
       ...(options.minAppVersion != null && options.minAppVersion !== ""
@@ -79,7 +79,7 @@ export function logPackInstallFailure(options: {
   err: unknown;
   name?: string;
   registryUrl?: string;
-  authorId?: string;
+  publisherId?: string;
   packId?: string;
   version?: string;
   sha256?: string;
@@ -109,7 +109,7 @@ export function logPackInstallFailure(options: {
       ...(options.registryUrl != null
         ? { registryUrl: options.registryUrl }
         : {}),
-      ...(options.authorId != null ? { authorId: options.authorId } : {}),
+      ...(options.publisherId != null ? { publisherId: options.publisherId } : {}),
       ...(options.packId != null ? { packId: options.packId } : {}),
       ...(options.version != null ? { version: options.version } : {}),
       ...(options.sha256 != null ? { sha256: options.sha256 } : {}),

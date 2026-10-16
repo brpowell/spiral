@@ -53,11 +53,11 @@ interface PackUpdatesState {
     reason?: PackUpdateCheckReason;
   }) => Promise<CatalogPackEntry[]>;
   /** Drop a pack identity from pending after a successful single update. */
-  removePendingUpdate: (authorId: string, packId: string) => void;
+  removePendingUpdate: (publisherId: string, packId: string) => void;
   updateAllPendingPacks: () => Promise<void>;
   startAutomaticPackUpdateChecks: () => () => void;
   pendingUpdateFor: (
-    authorId: string,
+    publisherId: string,
     packId: string,
   ) => CatalogPackEntry | null;
 }
@@ -127,17 +127,17 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
     void broadcastPending(pending);
   },
 
-  pendingUpdateFor: (authorId, packId) => {
+  pendingUpdateFor: (publisherId, packId) => {
     return (
       get().pendingUpdates.find(
-        (e) => e.authorId === authorId && e.packId === packId,
+        (e) => e.publisherId === publisherId && e.packId === packId,
       ) ?? null
     );
   },
 
-  removePendingUpdate: (authorId, packId) => {
+  removePendingUpdate: (publisherId, packId) => {
     const pending = get().pendingUpdates.filter(
-      (e) => !(e.authorId === authorId && e.packId === packId),
+      (e) => !(e.publisherId === publisherId && e.packId === packId),
     );
     set({ pendingUpdates: pending });
     void broadcastPending(pending);
@@ -242,7 +242,7 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
 
                 const result = await installPackFromRegistry({
                   registryUrl: entry.registryUrl,
-                  authorId: entry.authorId,
+                  publisherId: entry.publisherId,
                   packId: entry.packId,
                   version: v.version,
                   sha256: v.sha256,
@@ -256,13 +256,13 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
                   source: "registry",
                   result,
                   registryUrl: entry.registryUrl,
-                  authorId: entry.authorId,
+                  publisherId: entry.publisherId,
                   sha256: v.sha256,
                   sizeBytes: v.sizeBytes,
                   minAppVersion: v.minAppVersion,
                 });
                 updated += 1;
-                get().removePendingUpdate(entry.authorId, entry.packId);
+                get().removePendingUpdate(entry.publisherId, entry.packId);
               } catch (err) {
                 const message = errorMessageFromUnknown(err);
                 if (
@@ -279,7 +279,7 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
                   err,
                   name: displayName,
                   registryUrl: entry.registryUrl,
-                  authorId: entry.authorId,
+                  publisherId: entry.publisherId,
                   packId: entry.packId,
                   version: v.version,
                   sha256: v.sha256,
@@ -355,10 +355,12 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
 /** After a single registry install, clear that pack from pending and re-check. */
 export async function refreshPackUpdatesAfterInstall(
   result?: InstallPackResult | null,
-  authorId?: string,
+  publisherId?: string,
 ): Promise<void> {
-  if (result && authorId) {
-    usePackUpdatesStore.getState().removePendingUpdate(authorId, result.packId);
+  if (result && publisherId) {
+    usePackUpdatesStore
+      .getState()
+      .removePendingUpdate(publisherId, result.packId);
   }
   await usePackUpdatesStore
     .getState()

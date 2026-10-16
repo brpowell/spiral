@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  isAuthorId,
+  isPublisherId,
   isPackId,
   isPackSemver,
 } from "../../lib/packs/packManifest";
@@ -21,7 +21,7 @@ import { TextInput } from "../common/TextInput/TextInput";
 
 export interface EditItemModalResult {
   id: string;
-  authorId: string;
+  publisherId: string;
   name: string;
   version: string;
   description: string;
@@ -46,7 +46,7 @@ export function EditItemModal({
   const titleId = useId();
   const [id, setId] = useState("");
   const [name, setName] = useState("");
-  const [authorId, setAuthorId] = useState("");
+  const [publisherId, setPublisherId] = useState("");
   const [version, setVersion] = useState("");
   const [description, setDescription] = useState("");
 
@@ -54,23 +54,23 @@ export function EditItemModal({
     if (!open || !item) return;
     setId(item.id);
     setName(item.name);
-    setAuthorId(item.authorId);
+    setPublisherId(item.publisherId);
     setVersion(item.version);
     setDescription(item.description);
   }, [open, item]);
 
   const trimmedId = id.trim();
-  const trimmedAuthorId = authorId.trim();
+  const trimmedPublisherId = publisherId.trim();
   const trimmedVersion = version.trim();
   // Items share the pack-era kebab-slug and semver rules.
   const idValid = isPackId(trimmedId);
-  const authorIdValid = isAuthorId(trimmedAuthorId);
+  const publisherIdValid = isPublisherId(trimmedPublisherId);
   const versionValid = isPackSemver(trimmedVersion);
   // Linked folders keep their path; their id and author can still change in the manifest.
   const canSubmit =
     name.trim().length > 0 &&
     idValid &&
-    authorIdValid &&
+    publisherIdValid &&
     versionValid &&
     !saving;
 
@@ -78,7 +78,7 @@ export function EditItemModal({
     if (!canSubmit) return;
     onSave({
       id: trimmedId,
-      authorId: trimmedAuthorId,
+      publisherId: trimmedPublisherId,
       name: name.trim(),
       version: trimmedVersion,
       description: description.trim(),
@@ -132,17 +132,17 @@ export function EditItemModal({
           />
         </FormField>
         <FormField
-          label={t("items.authorId")}
+          label={t("items.publisherId")}
           description={
-            authorId.length > 0 && !authorIdValid
-              ? t("items.authorIdInvalid")
-              : t("items.authorIdHint")
+            publisherId.length > 0 && !publisherIdValid
+              ? t("items.publisherIdInvalid")
+              : t("items.publisherIdHint")
           }
         >
           <TextInput
-            value={authorId}
-            onChange={(e) => setAuthorId(e.target.value)}
-            placeholder={t("items.authorIdPlaceholder")}
+            value={publisherId}
+            onChange={(e) => setPublisherId(e.target.value)}
+            placeholder={t("items.publisherIdPlaceholder")}
             disabled={saving}
             spellCheck={false}
             autoComplete="off"

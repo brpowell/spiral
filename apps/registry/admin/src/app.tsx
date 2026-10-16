@@ -48,10 +48,10 @@ function AuthedApp({ onUnauthorized }: { onUnauthorized: () => void }) {
             component={() => <PackListView onUnauthorized={onUnauthorized} />}
           />
           <Route
-            path={`${BASE}/packs/:authorId/:packId`}
-            component={(p: { authorId: string; packId: string }) => (
+            path={`${BASE}/packs/:publisherId/:packId`}
+            component={(p: { publisherId: string; packId: string }) => (
               <PackDetailView
-                authorId={p.authorId}
+                publisherId={p.publisherId}
                 packId={p.packId}
                 onUnauthorized={onUnauthorized}
               />

@@ -16,13 +16,13 @@ import {
 
 function makeTheme(id: string, name: string): Theme {
   const parts = id.split(".");
-  const authorId = parts.length >= 3 ? parts[0]! : "spiral";
+  const publisherId = parts.length >= 3 ? parts[0]! : "spiral";
   return {
     id,
     name,
     author: "Spiral",
     description: "",
-    authorId,
+    publisherId,
     version: "1.0.0",
     zone: "builtin",
     mutable: false,

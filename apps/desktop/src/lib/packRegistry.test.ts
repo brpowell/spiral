@@ -43,7 +43,7 @@ function versionSummary(
 }
 
 describe("packRegistry helpers", () => {
-  it("detects already-installed by authorId.packId@version without a server round-trip", () => {
+  it("detects already-installed by publisherId.packId@version without a server round-trip", () => {
     const installed = new Set([
       "spiral.t3@1.0.0",
       "spiral.headspace@2.1.0",
@@ -52,7 +52,7 @@ describe("packRegistry helpers", () => {
     const catalog: RegistryPackSummary[] = [
       {
         registryUrl: "https://spk-registry.spiralpowered.com",
-        authorId: "spiral",
+        publisherId: "spiral",
         packId: "t3",
         latestVersion: {
           version: "1.0.0",
@@ -67,7 +67,7 @@ describe("packRegistry helpers", () => {
       },
       {
         registryUrl: "https://spk-registry.spiralpowered.com",
-        authorId: "spiral",
+        publisherId: "spiral",
         packId: "xbox",
         latestVersion: {
           version: "1.0.0",
@@ -79,7 +79,7 @@ describe("packRegistry helpers", () => {
       },
       {
         registryUrl: "https://spk-registry.spiralpowered.com",
-        authorId: "bob",
+        publisherId: "bob",
         packId: "midnight-drive",
         latestVersion: {
           version: "1.0.0",
@@ -94,15 +94,15 @@ describe("packRegistry helpers", () => {
     expect(
       catalog.map((p) => ({
         packId: p.packId,
-        authorId: p.authorId,
+        publisherId: p.publisherId,
         installed: installed.has(
-          installedPackKey(p.authorId, p.packId, p.latestVersion.version),
+          installedPackKey(p.publisherId, p.packId, p.latestVersion.version),
         ),
       })),
     ).toEqual([
-      { packId: "t3", authorId: "spiral", installed: true },
-      { packId: "xbox", authorId: "spiral", installed: false },
-      { packId: "midnight-drive", authorId: "bob", installed: false },
+      { packId: "t3", publisherId: "spiral", installed: true },
+      { packId: "xbox", publisherId: "spiral", installed: false },
+      { packId: "midnight-drive", publisherId: "bob", installed: false },
     ]);
   });
 
@@ -132,7 +132,7 @@ describe("packRegistry helpers", () => {
   it("keys catalog rows by registry URL + author + pack", () => {
     const a: RegistryPackSummary = {
       registryUrl: "https://spk-registry.spiralpowered.com",
-      authorId: "spiral",
+      publisherId: "spiral",
       packId: "t3",
       latestVersion: {
         version: "1.0.0",
@@ -146,14 +146,14 @@ describe("packRegistry helpers", () => {
       ...a,
       registryUrl: "https://mirror.example",
     };
-    expect(catalogPackKey(a.registryUrl, a.authorId, a.packId)).toBe(
+    expect(catalogPackKey(a.registryUrl, a.publisherId, a.packId)).toBe(
       "https://spk-registry.spiralpowered.com:spiral/t3",
     );
-    expect(catalogPackKey(b.registryUrl, b.authorId, b.packId)).toBe(
+    expect(catalogPackKey(b.registryUrl, b.publisherId, b.packId)).toBe(
       "https://mirror.example:spiral/t3",
     );
-    expect(catalogPackKey(a.registryUrl, a.authorId, a.packId)).not.toBe(
-      catalogPackKey(b.registryUrl, b.authorId, b.packId),
+    expect(catalogPackKey(a.registryUrl, a.publisherId, a.packId)).not.toBe(
+      catalogPackKey(b.registryUrl, b.publisherId, b.packId),
     );
   });
 
@@ -228,7 +228,7 @@ describe("registry response caching", () => {
   it("keys the catalog cache by filter options", async () => {
     mockFetchPackCatalog.mockResolvedValue(catalog);
     await fetchPackCatalogSafe();
-    await fetchPackCatalogSafe({ authorId: "alice" });
+    await fetchPackCatalogSafe({ publisherId: "alice" });
     expect(mockFetchPackCatalog).toHaveBeenCalledTimes(2);
   });
 
@@ -251,7 +251,7 @@ describe("registry response caching", () => {
   it("caches version detail per version and retries after a failure", async () => {
     const args = {
       registryUrl: "https://r",
-      authorId: "a",
+      publisherId: "a",
       packId: "p",
       version: "1.0.0",
     };

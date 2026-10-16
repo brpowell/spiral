@@ -23,7 +23,7 @@ export interface VizSummary {
   author: string;
   description: string;
   isBuiltin: boolean;
-  authorId: string;
+  publisherId: string;
   version: string;
   zone: PackZone;
   previewPath: string | null;

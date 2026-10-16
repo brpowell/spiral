@@ -16,11 +16,11 @@ use tauri::AppHandle;
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SoundPackSummary {
-    /// Effective id: `authorId.sound.id`.
+    /// Effective id: `publisherId.sound.id`.
     pub id: String,
     pub name: String,
     pub author: String,
-    pub author_id: String,
+    pub publisher_id: String,
     pub description: String,
     pub version: String,
     pub is_builtin: bool,
@@ -50,7 +50,7 @@ fn load_pack(contrib: &ScannedContribution) -> Result<LoadedSoundPack, String> {
         id: contrib.effective_id.clone(),
         name: manifest.name.clone(),
         author: manifest.author.clone(),
-        author_id: contrib.author_id.clone(),
+        publisher_id: contrib.publisher_id.clone(),
         description: manifest.description.clone(),
         version: contrib.version.clone(),
         is_builtin: contrib.zone.is_builtin(),
@@ -228,7 +228,7 @@ mod tests {
                 id: format!("test.sound.{id}"),
                 name: id.into(),
                 author: String::new(),
-                author_id: "test".into(),
+                publisher_id: "test".into(),
                 description: String::new(),
                 version: "1.0.0".into(),
                 is_builtin: false,
