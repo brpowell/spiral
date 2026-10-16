@@ -28,6 +28,7 @@ export function DeletePlaylistDialog({
       <p>
         <Trans
           i18nKey="deletePlaylist.body"
+          t={t}
           values={{ title: playlist.title }}
           components={{ strong: <strong /> }}
         />
