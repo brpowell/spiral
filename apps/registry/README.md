@@ -79,6 +79,7 @@ All configuration is through environment variables.
 | `BIND_ADDR` | `127.0.0.1:8787` | Listen address. Use `0.0.0.0:<port>` inside a container. |
 | `INSTANCE_NAME` | `Spiral Pack Registry` | Reported by `GET /v1/meta`. |
 | `DATABASE_URL` | `sqlite:data/registry.db?mode=rwc` | SQLite only for now; a Postgres URL fails fast. |
+| `AUTO_MIGRATE` | `true` | Apply pending schema migrations at startup. Set `false` to run them yourself with `spk-registry migrate`. |
 | `STORAGE_BACKEND` | `local` | `s3` is stubbed. |
 | `STORAGE_LOCAL_PATH` | `data/objects` | Object root for the `local` backend. |
 | `ADMIN_TOKEN` | _(empty)_ | Shared admin bearer token. Empty disables the admin API: its endpoints return `503 admin_disabled` (the panel page still loads but can do nothing). When set it must be at least 32 bytes; a shorter value stops the server at startup. |
@@ -178,6 +179,10 @@ If a machine was already running before the volume existed, its catalog and pack
 To report a vulnerability, see [SECURITY.md](../../SECURITY.md).
 
 ## Development
+
+### Schema migrations
+
+The schema is versioned SQL under `migrations/<backend>/` (`NNNN_description.sql`, numbered from 0001), embedded in the binary and applied at startup. Migrations are forward-only: never edit one that has shipped (sqlx rejects a changed checksum), add a new file instead. `spk-registry migrate` applies them and exits, for example before a deploy that sets `AUTO_MIGRATE=false`.
 
 ```bash
 cargo test -p spk-registry -p spk-format

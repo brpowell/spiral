@@ -51,68 +51,56 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
         .await
         .unwrap();
 
-    db::insert_pack_version(
-        &pool,
-        &pack_version_row(
-            "spiral",
-            "demo-skin",
-            "1.0.0",
-            &["skin"],
-            size,
-            &sha,
-            "spiral/demo-skin/1.0.0/pack.spk",
-            now - Duration::days(14),
-            None,
-        ),
-    )
+    pool.insert_pack_version(&pack_version_row(
+        "spiral",
+        "demo-skin",
+        "1.0.0",
+        &["skin"],
+        size,
+        &sha,
+        "spiral/demo-skin/1.0.0/pack.spk",
+        now - Duration::days(14),
+        None,
+    ))
     .await
     .unwrap();
-    db::insert_pack_version(
-        &pool,
-        &pack_version_row(
-            "spiral",
-            "demo-skin",
-            "1.1.0",
-            &["skin"],
-            size,
-            &sha,
-            "spiral/demo-skin/1.1.0/pack.spk",
-            now - Duration::days(1),
-            None,
-        ),
-    )
+    pool.insert_pack_version(&pack_version_row(
+        "spiral",
+        "demo-skin",
+        "1.1.0",
+        &["skin"],
+        size,
+        &sha,
+        "spiral/demo-skin/1.1.0/pack.spk",
+        now - Duration::days(1),
+        None,
+    ))
     .await
     .unwrap();
-    db::insert_pack_version(
-        &pool,
-        &pack_version_row(
-            "spiral",
-            "demo-skin",
-            "0.9.0",
-            &["skin"],
-            size,
-            &sha,
-            "spiral/demo-skin/0.9.0/pack.spk",
-            now - Duration::days(30),
-            Some(now - Duration::days(7)),
-        ),
-    )
+    pool.insert_pack_version(&pack_version_row(
+        "spiral",
+        "demo-skin",
+        "0.9.0",
+        &["skin"],
+        size,
+        &sha,
+        "spiral/demo-skin/0.9.0/pack.spk",
+        now - Duration::days(30),
+        Some(now - Duration::days(7)),
+    ))
     .await
     .unwrap();
-    db::insert_pack_version(
-        &pool,
-        &pack_version_row(
-            "other",
-            "theme-pack",
-            "1.0.0",
-            &["theme"],
-            size,
-            &sha,
-            "other/theme-pack/1.0.0/pack.spk",
-            now,
-            None,
-        ),
-    )
+    pool.insert_pack_version(&pack_version_row(
+        "other",
+        "theme-pack",
+        "1.0.0",
+        &["theme"],
+        size,
+        &sha,
+        "other/theme-pack/1.0.0/pack.spk",
+        now,
+        None,
+    ))
     .await
     .unwrap();
 
@@ -121,6 +109,7 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
             bind_addr: "127.0.0.1:0".into(),
             instance_name: "Test Registry".into(),
             database_url,
+            auto_migrate: true,
             storage: StorageConfig::Local {
                 root: tmp.path().join("objects"),
             },

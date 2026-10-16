@@ -8,7 +8,7 @@ use axum::{Json, Router};
 use chrono::Utc;
 
 use crate::api::auth::AdminAuth;
-use crate::db::{self, InsertPackError};
+use crate::db::InsertPackError;
 use crate::models::{
     AdminPackListResponse, PurgeRequest, PurgeResponse, TakedownLogRow, VersionDetailResponse,
 };
@@ -54,7 +54,7 @@ async fn list_admin_packs(
     _auth: AdminAuth,
     State(state): State<AppState>,
 ) -> ApiResult<Json<AdminPackListResponse>> {
-    let rows = db::list_all_versions(&state.db).await?;
+    let rows = state.db.list_all_versions().await?;
     Ok(Json(AdminPackListResponse {
         versions: rows.iter().map(|r| r.to_admin_summary()).collect(),
     }))
@@ -111,7 +111,7 @@ async fn upload_pack(
             .map_err(ApiError::from)?;
     }
 
-    match db::insert_pack_version(&state.db, &validated.row).await {
+    match state.db.insert_pack_version(&validated.row).await {
         Ok(()) => Ok(Json(validated.row.to_detail())),
         Err(InsertPackError::Duplicate) => {
             let _ = state.storage.delete(&validated.row.storage_key).await;
@@ -161,10 +161,15 @@ async fn yank_version(
     State(state): State<AppState>,
     Path((publisher_id, pack_id, version)): Path<(String, String, String)>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let yanked = db::yank_version(&state.db, &publisher_id, &pack_id, &version, Utc::now()).await?;
+    let yanked = state
+        .db
+        .yank_version(&publisher_id, &pack_id, &version, Utc::now())
+        .await?;
     if !yanked {
         // Distinguish missing vs already yanked.
-        let exists = db::get_version_for_download(&state.db, &publisher_id, &pack_id, &version)
+        let exists = state
+            .db
+            .get_version_for_download(&publisher_id, &pack_id, &version)
             .await?
             .is_some();
         if exists {
@@ -189,9 +194,14 @@ async fn unyank_version(
     State(state): State<AppState>,
     Path((publisher_id, pack_id, version)): Path<(String, String, String)>,
 ) -> ApiResult<Json<serde_json::Value>> {
-    let unyanked = db::unyank_version(&state.db, &publisher_id, &pack_id, &version).await?;
+    let unyanked = state
+        .db
+        .unyank_version(&publisher_id, &pack_id, &version)
+        .await?;
     if !unyanked {
-        let exists = db::get_version_for_download(&state.db, &publisher_id, &pack_id, &version)
+        let exists = state
+            .db
+            .get_version_for_download(&publisher_id, &pack_id, &version)
             .await?
             .is_some();
         if exists {
@@ -220,7 +230,11 @@ async fn purge_version(
     let expected = format!("{publisher_id}/{pack_id}@{version}");
     validate_purge_confirm(&body, &expected)?;
 
-    let Some(row) = db::delete_version(&state.db, &publisher_id, &pack_id, &version).await? else {
+    let Some(row) = state
+        .db
+        .delete_version(&publisher_id, &pack_id, &version)
+        .await?
+    else {
         return Err(ApiError::not_found(format!(
             "version {publisher_id}/{pack_id}@{version} not found"
         )));
@@ -235,9 +249,9 @@ async fn purge_version(
         let _ = state.storage.delete(preview_key).await;
     }
 
-    db::insert_takedown_log(
-        &state.db,
-        &TakedownLogRow {
+    state
+        .db
+        .insert_takedown_log(&TakedownLogRow {
             id: 0,
             purged_at: Utc::now(),
             publisher_id: publisher_id.clone(),
@@ -245,9 +259,8 @@ async fn purge_version(
             version: version.clone(),
             reason: body.reason.trim().to_string(),
             notice_ref: body.notice_ref.filter(|s| !s.trim().is_empty()),
-        },
-    )
-    .await?;
+        })
+        .await?;
 
     Ok(Json(PurgeResponse {
         purged: vec![expected],
@@ -263,7 +276,10 @@ async fn purge_pack(
     let expected = format!("{publisher_id}/{pack_id}");
     validate_purge_confirm(&body, &expected)?;
 
-    let rows = db::delete_pack_versions(&state.db, &publisher_id, &pack_id).await?;
+    let rows = state
+        .db
+        .delete_pack_versions(&publisher_id, &pack_id)
+        .await?;
     if rows.is_empty() {
         return Err(ApiError::not_found(format!(
             "pack {publisher_id}/{pack_id} not found"
@@ -282,9 +298,9 @@ async fn purge_pack(
         ));
     }
 
-    db::insert_takedown_log(
-        &state.db,
-        &TakedownLogRow {
+    state
+        .db
+        .insert_takedown_log(&TakedownLogRow {
             id: 0,
             purged_at: Utc::now(),
             publisher_id: publisher_id.clone(),
@@ -292,9 +308,8 @@ async fn purge_pack(
             version: "*".to_string(),
             reason: body.reason.trim().to_string(),
             notice_ref: body.notice_ref.filter(|s| !s.trim().is_empty()),
-        },
-    )
-    .await?;
+        })
+        .await?;
 
     Ok(Json(PurgeResponse { purged }))
 }
