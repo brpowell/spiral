@@ -20,5 +20,8 @@ export function defaultPlaybackSettings(): PlaybackSettings {
 
 export function clampCrossfadeSeconds(seconds: number): number {
   if (!Number.isFinite(seconds)) return DEFAULT_CROSSFADE_SECONDS;
-  return Math.min(MAX_CROSSFADE_SECONDS, Math.max(MIN_CROSSFADE_SECONDS, seconds));
+  return Math.min(
+    MAX_CROSSFADE_SECONDS,
+    Math.max(MIN_CROSSFADE_SECONDS, seconds),
+  );
 }

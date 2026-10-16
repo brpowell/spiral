@@ -82,6 +82,8 @@ symphonia = { version = "0.5", default-features = false, features = ["aac", "ala
 opus-decoder = "0.1"
 notify = { version = "6.1", features = ["macos_fsevent"] }
 tiny_http = "0.12"
+cpal = "0.18"
+rtrb = "0.3"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"

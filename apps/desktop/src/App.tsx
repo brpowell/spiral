@@ -41,8 +41,6 @@ import { openEqualizerWindow } from "./lib/equalizerWindow";
 import { toggleToastLabWindow } from "./lib/toastLabWindow";
 import { reloadLinkedPacksWithRefresh } from "./lib/packs/refreshPackStores";
 import { usesCustomWindowChrome } from "./lib/windowChrome";
-import { useAudioWakeRecovery } from "./hooks/useAudioWakeRecovery";
-import { useHiddenPlaybackKeepAlive } from "./hooks/useHiddenPlaybackKeepAlive";
 import { useCdMonitor } from "./hooks/useCdMonitor";
 import { useMediaHotkeys } from "./hooks/useMediaHotkeys";
 import { loadTrackListPreferences } from "./components/TrackList/trackListPreferences";
@@ -88,8 +86,6 @@ function App() {
   } = useStartupCrashReport();
 
   useMediaHotkeys();
-  useAudioWakeRecovery();
-  useHiddenPlaybackKeepAlive();
   useCdMonitor();
   usePlaybackSessionPersistence();
   useVisualizerDataProvider();

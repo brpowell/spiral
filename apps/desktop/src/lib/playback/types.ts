@@ -8,20 +8,6 @@ export interface PlaybackCapabilities {
   scrubPreview: boolean;
   gapless: boolean;
   visualizer: boolean;
-  recoverAfterWake: boolean;
-}
-
-export interface RecoverOptions {
-  wasPlaying: boolean;
-  positionSeconds: number;
-  source: PlaybackSource | null;
-}
-
-export interface RecoverResult {
-  restarted: boolean;
-  reloaded: boolean;
-  /** Playback was already outputting; no pause/seek/play restart needed. */
-  alreadyHealthy?: boolean;
 }
 
 export interface PlaybackEngine {
@@ -44,9 +30,4 @@ export interface PlaybackEngine {
 
   onEnd(callback: () => void): void;
   destroy(): void;
-
-  recover(options: RecoverOptions): Promise<RecoverResult>;
-
-  /** Route engine audio through the shared output bus (analyser → destination). */
-  connectToOutputBus(): AnalyserNode | null;
 }

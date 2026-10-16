@@ -1,4 +1,10 @@
-import { getAnalyser as getOutputAnalyser } from "./audioOutput";
+import {
+  ensureNativeAnalyser,
+  getNativeAnalyser,
+  NATIVE_ANALYSER_BIN_COUNT,
+  NATIVE_ANALYSER_FFT_SIZE,
+  type AudioAnalyser,
+} from "./nativeAnalyser";
 import {
   crossfadeController,
   type CrossfadeVisualState,
@@ -10,23 +16,19 @@ export type {
   PlaybackCapabilities,
   PlaybackEngine,
   PlaybackSource,
-  RecoverOptions,
-  RecoverResult,
 } from "./types";
 
-export {
-  ANALYSER_FFT_SIZE,
-  ANALYSER_FREQUENCY_BIN_COUNT,
-  getAnalyser,
-} from "./audioOutput";
-export { CdPlaybackEngine } from "./cdPlaybackEngine";
+export type { AudioAnalyser };
+export const ANALYSER_FFT_SIZE = NATIVE_ANALYSER_FFT_SIZE;
+export const ANALYSER_FREQUENCY_BIN_COUNT = NATIVE_ANALYSER_BIN_COUNT;
+export { NativeCdPlaybackEngine } from "./nativeCdPlaybackEngine";
 export {
   canCrossfade,
   canGapless,
   effectiveFadeSeconds,
   GAPLESS_PRELOAD_HEADROOM_SECONDS,
 } from "./canCrossfade";
-export { PcmFilePlaybackEngine } from "./pcmFilePlaybackEngine";
+export { NativeFilePlaybackEngine } from "./nativeFilePlaybackEngine";
 export {
   CrossfadeController,
   crossfadeController,
@@ -103,19 +105,6 @@ export function startCrossfadeNow(
 
 export function fadeOutAndStop(fadeSec: number, onComplete: () => void): void {
   crossfadeController.fadeOutAndStop(fadeSec, onComplete);
-}
-
-/** @deprecated Prefer RecoverOptions with a PlaybackSource. */
-export interface RecoverAfterWakeOptions {
-  wasPlaying: boolean;
-  positionSeconds: number;
-  filePath: string | null;
-}
-
-export interface RecoverAfterWakeResult {
-  restarted: boolean;
-  reloaded: boolean;
-  alreadyHealthy?: boolean;
 }
 
 export function load(path: string): Promise<void> {
@@ -221,45 +210,11 @@ export function setMuted(muted: boolean): void {
   manager.setMuted(muted);
 }
 
-export async function resumeAudioContext(): Promise<void> {
-  await manager.resumeAudioContext();
-}
-
-export function restartPlaybackAt(positionSeconds: number): void {
-  if (isCrossfadeControllerActive()) {
-    const engine = crossfadeController.getActiveEngine();
-    engine.seek(positionSeconds);
-    engine.play();
-    return;
-  }
-  manager.restartPlaybackAt(positionSeconds);
-}
-
-export async function recoverAfterWake(
-  options: RecoverAfterWakeOptions,
-): Promise<RecoverAfterWakeResult> {
-  const recoverOptions = {
-    wasPlaying: options.wasPlaying,
-    positionSeconds: options.positionSeconds,
-    source:
-      options.filePath === null
-        ? null
-        : { kind: "file" as const, path: options.filePath },
-  };
-
-  if (isCrossfadeControllerActive()) {
-    return crossfadeController.getActiveEngine().recover(recoverOptions);
-  }
-
-  return manager.recover(recoverOptions);
-}
-
-export function ensureAnalyser(): AnalyserNode | null {
-  if (isCrossfadeControllerActive()) {
-    return (
-      crossfadeController.getActiveEngine().connectToOutputBus() ??
-      getOutputAnalyser()
-    );
-  }
-  return manager.connectToOutputBus() ?? getOutputAnalyser();
+/**
+ * The analyser the visualizers read: frames Rust computes from the mixer
+ * output. Subscribes on first use, in the main window only.
+ */
+export function getAnalyser(): AudioAnalyser | null {
+  ensureNativeAnalyser();
+  return getNativeAnalyser();
 }

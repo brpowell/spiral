@@ -51,6 +51,7 @@ mod models;
 mod musicbrainz_disc;
 mod musicbrainz_entity;
 mod musicbrainz_http;
+mod native_audio;
 #[cfg(test)]
 mod ogg_opus_tests;
 mod packs;
@@ -310,13 +311,24 @@ pub fn run() {
             commands::cd::resume_cd_playback,
             commands::cd::seek_cd_playback,
             commands::cd::stop_cd_playback,
-            commands::cd::ack_cd_playback_pcm,
+            commands::cd::set_cd_playback_gain,
+            commands::cd::set_cd_playback_balance,
+            commands::cd::ramp_cd_playback_gain,
+            commands::cd::link_cd_gapless_playback,
             commands::file_playback::start_file_playback,
             commands::file_playback::pause_file_playback,
             commands::file_playback::resume_file_playback,
             commands::file_playback::seek_file_playback,
             commands::file_playback::stop_file_playback,
-            commands::file_playback::ack_file_playback_pcm,
+            commands::file_playback::set_file_playback_gain,
+            commands::file_playback::link_gapless_playback,
+            commands::file_playback::set_file_playback_balance,
+            commands::file_playback::ramp_file_playback_gain,
+            commands::file_playback::set_native_equalizer,
+            commands::file_playback::start_native_analyser,
+            commands::file_playback::stop_native_analyser,
+            commands::file_playback::load_sfx,
+            commands::file_playback::play_sfx,
             commands::cd::lookup_disc_metadata,
             commands::cd::peek_disc_metadata_cache,
             commands::cd::save_disc_metadata_preference,

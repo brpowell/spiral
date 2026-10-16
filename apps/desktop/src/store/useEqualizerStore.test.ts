@@ -7,7 +7,7 @@ vi.mock("../lib/windowRole", () => ({
   getWindowRole: vi.fn(() => "main"),
 }));
 
-vi.mock("../lib/playback/audioOutput", () => ({
+vi.mock("../lib/playback/nativeEqualizer", () => ({
   applyEqualizerState: vi.fn(),
 }));
 

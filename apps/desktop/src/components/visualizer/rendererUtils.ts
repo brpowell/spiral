@@ -1,6 +1,10 @@
-import { ensureAnalyser, getAnalyser } from "../../lib/playback";
+import { getAnalyser } from "../../lib/playback";
 
-function bucketRms(bins: readonly number[], start: number, end: number): number {
+function bucketRms(
+  bins: readonly number[],
+  start: number,
+  end: number,
+): number {
   const startIdx = Math.max(0, Math.floor(start));
   const endIdx = Math.min(bins.length, Math.ceil(end));
   if (endIdx <= startIdx) return 0;
@@ -46,7 +50,6 @@ export function sampleFrequencyData(
 ): Uint8Array<ArrayBuffer> | number[] | null {
   if (remoteBins) return remoteBins;
 
-  ensureAnalyser();
   const analyser = getAnalyser();
   if (!analyser) return null;
 
@@ -58,10 +61,9 @@ export function sampleFrequencyData(
   return localData;
 }
 
-export function sampleTimeDomainData(
-  localDataArrayRef: { current: Uint8Array<ArrayBuffer> | null },
-): Uint8Array<ArrayBuffer> | null {
-  ensureAnalyser();
+export function sampleTimeDomainData(localDataArrayRef: {
+  current: Uint8Array<ArrayBuffer> | null;
+}): Uint8Array<ArrayBuffer> | null {
   const analyser = getAnalyser();
   if (!analyser) return null;
 

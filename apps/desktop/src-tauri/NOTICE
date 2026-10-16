@@ -5,7 +5,7 @@ each distinct license text once, with the packages that use it and their
 copyright notices. The same information is shown in the app under
 About Spiral -> Licenses.
 
-Generated: 2026-10-14T22:16:46.091Z
+Generated: 2026-10-15T21:46:29.635Z
 
 Source code
 -----------
@@ -218,7 +218,7 @@ whatwg-url@5.0.0 — MIT
 zustand@5.0.13 — MIT
 zwitch@2.0.4 — MIT
 
-=== Cargo (658) ===
+=== Cargo (676) ===
 
 adler2@2.0.1 — 0BSD OR MIT OR Apache-2.0
 aes@0.8.4 — MIT OR Apache-2.0
@@ -227,6 +227,8 @@ aho-corasick@1.1.5 — Unlicense OR MIT
 alac-encoder@0.3.0 — Apache-2.0 OR MIT
 alloc-no-stdlib@2.0.4 — BSD-3-Clause
 alloc-stdlib@0.2.4 — BSD-3-Clause
+alsa@0.11.0 — Apache-2.0/MIT
+alsa-sys@0.4.0 — MIT
 android_system_properties@0.1.6 — MIT OR Apache-2.0
 anyhow@1.0.104 — MIT OR Apache-2.0
 arbitrary@1.4.2 — MIT OR Apache-2.0
@@ -300,6 +302,8 @@ core-graphics@0.22.3 — MIT / Apache-2.0
 core-graphics@0.25.0 — MIT OR Apache-2.0
 core-graphics-types@0.1.3 — MIT OR Apache-2.0
 core-graphics-types@0.2.0 — MIT OR Apache-2.0
+coreaudio-rs@0.14.2 — MIT/Apache-2.0
+cpal@0.18.2 — Apache-2.0
 cpufeatures@0.2.17 — MIT OR Apache-2.0
 crc@3.4.0 — MIT OR Apache-2.0
 crc-catalog@2.5.0 — MIT OR Apache-2.0
@@ -315,6 +319,7 @@ ctor-proc-macro@0.0.7 — Apache-2.0 OR MIT
 darling@0.23.0 — MIT
 darling_core@0.23.0 — MIT
 darling_macro@0.23.0 — MIT
+dasp_sample@0.11.0 — MIT OR Apache-2.0
 data-encoding@2.11.1 — MIT
 dbus@0.9.12 — Apache-2.0/MIT
 dbus-crossroads@0.5.3 — Apache-2.0/MIT
@@ -483,6 +488,7 @@ lofty_attr@0.11.1 — MIT OR Apache-2.0
 log@0.4.34 — MIT OR Apache-2.0
 lzma-rs@0.3.0 — MIT
 lzma-sys@0.1.20 — MIT/Apache-2.0
+mach2@0.6.0 — BSD-2-Clause OR MIT OR Apache-2.0
 malloc_buf@0.0.6 — MIT
 markup5ever@0.38.0 — MIT OR Apache-2.0
 md-5@0.10.6 — MIT OR Apache-2.0
@@ -503,17 +509,23 @@ mp4ameta@0.13.0 — MIT OR Apache-2.0
 muda@0.19.3 — Apache-2.0 OR MIT
 native-tls@0.2.18 — MIT OR Apache-2.0
 ndk@0.9.0 — MIT OR Apache-2.0
+ndk-context@0.1.1 — MIT OR Apache-2.0
 ndk-sys@0.6.0+11769913 — MIT OR Apache-2.0
 new_debug_unreachable@1.0.6 — MIT
 notify@6.1.1 — CC0-1.0
 num_enum@0.7.6 — BSD-3-Clause OR MIT OR Apache-2.0
 num_enum_derive@0.7.6 — BSD-3-Clause OR MIT OR Apache-2.0
 num-conv@0.2.2 — MIT OR Apache-2.0
+num-derive@0.4.2 — MIT OR Apache-2.0
 num-traits@0.2.19 — MIT OR Apache-2.0
 objc@0.2.7 — MIT
 objc2@0.6.4 — MIT
 objc2-app-kit@0.3.2 — Zlib OR Apache-2.0 OR MIT
+objc2-audio-toolbox@0.3.2 — Zlib OR Apache-2.0 OR MIT
+objc2-avf-audio@0.3.2 — Zlib OR Apache-2.0 OR MIT
 objc2-cloud-kit@0.3.2 — Zlib OR Apache-2.0 OR MIT
+objc2-core-audio@0.3.2 — Zlib OR Apache-2.0 OR MIT
+objc2-core-audio-types@0.3.2 — Zlib OR Apache-2.0 OR MIT
 objc2-core-data@0.3.2 — Zlib OR Apache-2.0 OR MIT
 objc2-core-foundation@0.3.2 — Zlib OR Apache-2.0 OR MIT
 objc2-core-graphics@0.3.2 — Zlib OR Apache-2.0 OR MIT
@@ -592,6 +604,7 @@ reqwest@0.13.4 — MIT OR Apache-2.0
 rfd@0.15.4 — MIT
 rfd@0.16.0 — MIT
 ring@0.17.14 — Apache-2.0 AND ISC
+rtrb@0.3.5 — MIT OR Apache-2.0
 rusqlite@0.32.1 — MIT
 rust-ini@0.21.3 — MIT
 rustc_version@0.4.1 — MIT OR Apache-2.0
@@ -780,6 +793,7 @@ winapi-x86_64-pc-windows-gnu@0.4.0 — MIT/Apache-2.0
 window-vibrancy@0.6.0 — Apache-2.0 OR MIT
 windows@0.44.0 — MIT OR Apache-2.0
 windows@0.61.3 — MIT OR Apache-2.0
+windows@0.62.2 — MIT OR Apache-2.0
 windows_aarch64_gnullvm@0.42.2 — MIT OR Apache-2.0
 windows_aarch64_gnullvm@0.48.5 — MIT OR Apache-2.0
 windows_aarch64_gnullvm@0.52.6 — MIT OR Apache-2.0
@@ -811,14 +825,17 @@ windows_x86_64_msvc@0.48.5 — MIT OR Apache-2.0
 windows_x86_64_msvc@0.52.6 — MIT OR Apache-2.0
 windows_x86_64_msvc@0.53.1 — MIT OR Apache-2.0
 windows-collections@0.2.0 — MIT OR Apache-2.0
+windows-collections@0.3.2 — MIT OR Apache-2.0
 windows-core@0.61.2 — MIT OR Apache-2.0
 windows-core@0.62.2 — MIT OR Apache-2.0
 windows-future@0.2.1 — MIT OR Apache-2.0
+windows-future@0.3.2 — MIT OR Apache-2.0
 windows-implement@0.60.2 — MIT OR Apache-2.0
 windows-interface@0.59.3 — MIT OR Apache-2.0
 windows-link@0.1.3 — MIT OR Apache-2.0
 windows-link@0.2.1 — MIT OR Apache-2.0
 windows-numerics@0.2.0 — MIT OR Apache-2.0
+windows-numerics@0.3.1 — MIT OR Apache-2.0
 windows-registry@0.5.3 — MIT OR Apache-2.0
 windows-registry@0.6.1 — MIT OR Apache-2.0
 windows-result@0.3.4 — MIT OR Apache-2.0
@@ -836,6 +853,7 @@ windows-targets@0.48.5 — MIT OR Apache-2.0
 windows-targets@0.52.6 — MIT OR Apache-2.0
 windows-targets@0.53.5 — MIT OR Apache-2.0
 windows-threading@0.1.0 — MIT OR Apache-2.0
+windows-threading@0.2.1 — MIT OR Apache-2.0
 windows-version@0.1.7 — MIT OR Apache-2.0
 winnow@0.5.40 — MIT
 winnow@0.7.15 — MIT
@@ -883,7 +901,7 @@ License texts
 -------------
 
 ==============================================================================
-MIT License — used by 767 packages
+MIT License — used by 784 packages
 ==============================================================================
 
 adler2@2.0.1 (cargo)
@@ -896,6 +914,10 @@ aho-corasick@1.1.5 (cargo)
     Copyright (c) 2015 Andrew Gallant
 alac-encoder@0.3.0 (cargo)
     Copyright (c) 2019 Linus Unnebäck
+alsa@0.11.0 (cargo)
+    Copyright (c) 2015-2021 David Henningsson, and other contributors.
+alsa-sys@0.4.0 (cargo)
+    Copyright (c) 2018 diwic
 android_system_properties@0.1.6 (cargo)
     Copyright (c) 2013 Nicolas Silva
 anyhow@1.0.104 (cargo)
@@ -1033,6 +1055,8 @@ core-graphics-types@0.1.3 (cargo)
     Copyright (c) 2012-2013 Mozilla Foundation
 core-graphics-types@0.2.0 (cargo)
     Copyright (c) 2012-2013 Mozilla Foundation
+coreaudio-rs@0.14.2 (cargo)
+    Copyright (c) 2015
 cpufeatures@0.2.17 (cargo)
     Copyright (c) 2020-2025 The RustCrypto Project Developers
 crc@3.4.0 (cargo)
@@ -1059,6 +1083,8 @@ darling_core@0.23.0 (cargo)
     Copyright (c) 2017 Ted Driggs
 darling_macro@0.23.0 (cargo)
     Copyright (c) 2017 Ted Driggs
+dasp_sample@0.11.0 (cargo)
+    Authors (from package metadata): mitchmindtree
 data-encoding@2.11.1 (cargo)
     Copyright (c) 2015-2020 Julien Cretin
     Copyright (c) 2017-2020 Google Inc.
@@ -1366,6 +1392,8 @@ lzma-rs@0.3.0 (cargo)
     Copyright (c) 2017 - 2018 Guillaume Endignoux
 lzma-sys@0.1.20 (cargo)
     Copyright (c) 2016 Alex Crichton
+mach2@0.6.0 (cargo)
+    Copyright (c) 2019 Nick Fitzgerald, 2021 Yuki Okushi
 malloc_buf@0.0.6 (cargo)
     Authors (from package metadata): Steven Sheldon
 markup5ever@0.38.0 (cargo)
@@ -1406,6 +1434,8 @@ native-tls@0.2.18 (cargo)
     Copyright (c) 2016 The rust-native-tls Developers
 ndk@0.9.0 (cargo)
     Authors (from package metadata): The Rust Mobile contributors
+ndk-context@0.1.1 (cargo)
+    Authors (from package metadata): The Rust Windowing contributors
 ndk-sys@0.6.0+11769913 (cargo)
     Authors (from package metadata): The Rust Windowing contributors
 new_debug_unreachable@1.0.6 (cargo)
@@ -1416,6 +1446,8 @@ num_enum_derive@0.7.6 (cargo)
     Authors (from package metadata): Daniel Wagner-Hall, Daniel Henry-Mantilla, Vincent Esche
 num-conv@0.2.2 (cargo)
     Copyright (c) Jacob Pratt
+num-derive@0.4.2 (cargo)
+    Copyright (c) 2014 The Rust Project Developers
 num-traits@0.2.19 (cargo)
     Copyright (c) 2014 The Rust Project Developers
 objc@0.2.7 (cargo)
@@ -1424,8 +1456,16 @@ objc2@0.6.4 (cargo)
     Authors (from package metadata): Mads Marquart
 objc2-app-kit@0.3.2 (cargo)
     Copyright held by the authors of objc2-app-kit (https://github.com/madsmtm/objc2)
+objc2-audio-toolbox@0.3.2 (cargo)
+    Copyright held by the authors of objc2-audio-toolbox (https://github.com/madsmtm/objc2)
+objc2-avf-audio@0.3.2 (cargo)
+    Copyright held by the authors of objc2-avf-audio (https://github.com/madsmtm/objc2)
 objc2-cloud-kit@0.3.2 (cargo)
     Copyright held by the authors of objc2-cloud-kit (https://github.com/madsmtm/objc2)
+objc2-core-audio@0.3.2 (cargo)
+    Copyright held by the authors of objc2-core-audio (https://github.com/madsmtm/objc2)
+objc2-core-audio-types@0.3.2 (cargo)
+    Copyright held by the authors of objc2-core-audio-types (https://github.com/madsmtm/objc2)
 objc2-core-data@0.3.2 (cargo)
     Copyright held by the authors of objc2-core-data (https://github.com/madsmtm/objc2)
 objc2-core-foundation@0.3.2 (cargo)
@@ -1575,6 +1615,8 @@ rfd@0.15.4 (cargo)
     Copyright (c) 2022 Bartłomiej Maryńczak
 rfd@0.16.0 (cargo)
     Copyright (c) 2022 Bartłomiej Maryńczak
+rtrb@0.3.5 (cargo)
+    Authors (from package metadata): Stjepan Glavina, Matthias Geier
 rusqlite@0.32.1 (cargo)
     Copyright (c) 2014-2021 The rusqlite developers
 rust-ini@0.21.3 (cargo)
@@ -1916,6 +1958,8 @@ windows@0.44.0 (cargo)
     Copyright (c) Microsoft Corporation.
 windows@0.61.3 (cargo)
     Copyright (c) Microsoft Corporation.
+windows@0.62.2 (cargo)
+    Copyright (c) Microsoft Corporation.
 windows_aarch64_gnullvm@0.42.2 (cargo)
     Copyright (c) Microsoft Corporation.
 windows_aarch64_gnullvm@0.48.5 (cargo)
@@ -1978,11 +2022,15 @@ windows_x86_64_msvc@0.53.1 (cargo)
     Copyright (c) Microsoft Corporation.
 windows-collections@0.2.0 (cargo)
     Copyright (c) Microsoft Corporation.
+windows-collections@0.3.2 (cargo)
+    Copyright (c) Microsoft Corporation.
 windows-core@0.61.2 (cargo)
     Copyright (c) Microsoft Corporation.
 windows-core@0.62.2 (cargo)
     Copyright (c) Microsoft Corporation.
 windows-future@0.2.1 (cargo)
+    Copyright (c) Microsoft Corporation.
+windows-future@0.3.2 (cargo)
     Copyright (c) Microsoft Corporation.
 windows-implement@0.60.2 (cargo)
     Copyright (c) Microsoft Corporation.
@@ -1993,6 +2041,8 @@ windows-link@0.1.3 (cargo)
 windows-link@0.2.1 (cargo)
     Copyright (c) Microsoft Corporation.
 windows-numerics@0.2.0 (cargo)
+    Copyright (c) Microsoft Corporation.
+windows-numerics@0.3.1 (cargo)
     Copyright (c) Microsoft Corporation.
 windows-registry@0.5.3 (cargo)
     Copyright (c) Microsoft Corporation.
@@ -2027,6 +2077,8 @@ windows-targets@0.52.6 (cargo)
 windows-targets@0.53.5 (cargo)
     Copyright (c) Microsoft Corporation.
 windows-threading@0.1.0 (cargo)
+    Copyright (c) Microsoft Corporation.
+windows-threading@0.2.1 (cargo)
     Copyright (c) Microsoft Corporation.
 windows-version@0.1.7 (cargo)
     Copyright (c) Microsoft Corporation.
@@ -2485,7 +2537,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
-Apache License 2.0 — used by 398 packages
+Apache License 2.0 — used by 409 packages
 ==============================================================================
 
 adler2@2.0.1 (cargo)
@@ -2497,6 +2549,8 @@ ahash@0.8.12 (cargo)
 alac-encoder@0.3.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2019 Linus Unnebäck
+alsa@0.11.0 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
 anyhow@1.0.104 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 arbitrary@1.4.2 (cargo)
@@ -2599,6 +2653,10 @@ core-graphics@0.25.0 (cargo)
 core-graphics-types@0.1.3 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 core-graphics-types@0.2.0 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
+coreaudio-rs@0.14.2 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
+cpal@0.18.2 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 cpufeatures@0.2.17 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
@@ -2831,6 +2889,8 @@ log@0.4.34 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 lzma-sys@0.1.20 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
+mach2@0.6.0 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
 markup5ever@0.38.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 md-5@0.10.6 (cargo)
@@ -2856,6 +2916,8 @@ num_enum@0.7.6 (cargo)
 num_enum_derive@0.7.6 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 num-conv@0.2.2 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
+num-derive@0.4.2 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 num-traits@0.2.19 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
@@ -2948,6 +3010,8 @@ ring@0.17.14 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) 2009 The Go Authors. All rights reserved.
     Copyright 2015 The Chromium Authors. All rights reserved.
+rtrb@0.3.5 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
 rustc_version@0.4.1 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 rustc-hash@2.1.3 (cargo)
@@ -3183,6 +3247,9 @@ windows@0.44.0 (cargo)
 windows@0.61.3 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
+windows@0.62.2 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
+    Copyright (c) Microsoft Corporation.
 windows_aarch64_gnullvm@0.42.2 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
@@ -3276,6 +3343,9 @@ windows_x86_64_msvc@0.53.1 (cargo)
 windows-collections@0.2.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
+windows-collections@0.3.2 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
+    Copyright (c) Microsoft Corporation.
 windows-core@0.61.2 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
@@ -3283,6 +3353,9 @@ windows-core@0.62.2 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-future@0.2.1 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
+    Copyright (c) Microsoft Corporation.
+windows-future@0.3.2 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-implement@0.60.2 (cargo)
@@ -3298,6 +3371,9 @@ windows-link@0.2.1 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-numerics@0.2.0 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
+    Copyright (c) Microsoft Corporation.
+windows-numerics@0.3.1 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-registry@0.5.3 (cargo)
@@ -3349,6 +3425,9 @@ windows-targets@0.53.5 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-threading@0.1.0 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
+    Copyright (c) Microsoft Corporation.
+windows-threading@0.2.1 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright (c) Microsoft Corporation.
 windows-version@0.1.7 (cargo)
@@ -4474,6 +4553,38 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+==============================================================================
+BSD 2-Clause License — used by 2 packages
+==============================================================================
+
+mach2@0.6.0 (cargo)
+    Copyright (c) 2019 Nick Fitzgerald, 2021 Yuki Okushi
+webidl-conversions@3.0.1 (npm)
+    Copyright (c) 2014, Domenic Denicola
+
+------------------------------------------------------------------------------
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ==============================================================================
 BSD 2-Clause License — used by 2 packages
@@ -5955,26 +6066,6 @@ license. In each case, the license info is at the top of the file.
 
 See src/polyfill/once_cell/LICENSE-APACHE and src/polyfill/once_cell/LICENSE-MIT
 for the license to code that was sourced from the once_cell project.
-
-==============================================================================
-BSD 2-Clause License — used by 1 package
-==============================================================================
-
-webidl-conversions@3.0.1 (npm)
-    Copyright (c) 2014, Domenic Denicola
-
-------------------------------------------------------------------------------
-
-# The BSD 2-Clause License
-
-
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ==============================================================================
 BSD 3-Clause License — used by 1 package

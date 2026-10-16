@@ -1,7 +1,7 @@
 /**
  * Holds the playhead on the exact seek target.
  *
- * The audio clock can keep reporting the pre-seek position until the worklet
+ * The playback clock can keep reporting the pre-seek position until the seek
  * flush lands. Surfaces that sample that clock (the now-playing seek bar,
  * lyrics, skin sync) would flash back and then jump forward. A pin wins until
  * the live clock arrives at the target, or until it expires.

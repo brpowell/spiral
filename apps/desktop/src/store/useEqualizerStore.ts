@@ -12,7 +12,7 @@ import {
   type EqualizerPreset,
   type EqualizerStateSnapshot,
 } from "../lib/equalizer/types";
-import { applyEqualizerState } from "../lib/playback/audioOutput";
+import { applyEqualizerState } from "../lib/playback/nativeEqualizer";
 import {
   deleteEqualizerCustomPreset,
   saveEqualizerCustomPreset,

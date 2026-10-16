@@ -990,9 +990,9 @@ Flow skins (`layout.type` is `row` or `column`) render the layout JSON as a real
 
 ## Visualizer cross-window data pipe
 
-The Web Audio `AnalyserNode` is created in the main window on the shared playback bus (`src/lib/playback/audioOutput.ts`, consumed by `VisualizerSlot` / `SceneRenderer`). Library file and CD PCM pipelines route through per-deck gains into the same analyser.
+The spectrum and waveform are computed in Rust from the native audio output's final mix (`src-tauri/src/native_audio/analyser.rs`) and streamed to the main window, which exposes them through `getAnalyser()` in `src/lib/playback/nativeAnalyser.ts` (consumed by `VisualizerSlot` / `SceneRenderer`). Library file and CD playback feed the same mix.
 
-When skin mode runs in a **second Tauri webview**, it must not instantiate a second analyser. Plan:
+When skin mode runs in a **second Tauri webview**, it must not subscribe to the analyser itself (Rust serves a single subscriber, the main window). Plan:
 
 1. `VisualizerDataProvider` (main window): samples `getAnalyser()` each animation frame and publishes frequency/time-domain frames (e.g. Tauri event or shared channel).
 2. `VisualizerSlot` **subscriber** (skin-mode webview): receives frames and passes them to a renderer; the main window continues to read the analyser locally via the same slot.

@@ -24,6 +24,22 @@ pub fn start(
     engine::start(app, &drive_id, track_number, source, Some(session_guard))
 }
 
+pub fn set_gain(session_id: u64, gain: f32) {
+    engine::set_gain(session_id, gain);
+}
+
+pub fn set_balance(session_id: u64, balance: f32) {
+    engine::set_balance(session_id, balance);
+}
+
+pub fn ramp_gain(session_id: u64, from: f32, to: f32, duration_ms: u32) {
+    engine::ramp_gain(session_id, from, to, duration_ms);
+}
+
+pub fn link_gapless(from_session: u64, to_session: u64) -> Result<(), String> {
+    engine::link_gapless(from_session, to_session)
+}
+
 pub fn pause(session_id: u64) {
     engine::pause(session_id);
 }
@@ -34,10 +50,6 @@ pub fn resume(session_id: u64) {
 
 pub fn seek(session_id: u64, seconds: f64) -> Result<(), String> {
     engine::seek(session_id, seconds)
-}
-
-pub fn ack_pcm_chunks(session_id: u64, count: u32) {
-    engine::ack_pcm_chunks(session_id, count);
 }
 
 pub fn stop(session_id: u64) {
