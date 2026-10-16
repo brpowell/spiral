@@ -5,6 +5,9 @@
 //! stay resident. Equalizer, Activity Logs, and About are created on open and
 //! destroyed on close. Skin aux windows are created on demand and share one
 //! process name, since they come and go with skin mode.
+//!
+//! On-demand create/release commands are `async` so Windows does not create
+//! WebView2 windows from a sync IPC handler (that deadlocks the UI).
 
 use serde::Serialize;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -186,16 +189,21 @@ pub fn create_startup_windows(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Must be `async` on Windows: sync commands run on the UI thread, and creating
+/// a WebView2 window from that thread deadlocks (library freezes, about/EQ/logs
+/// never appear). See https://github.com/tauri-apps/wry/issues/583
 #[tauri::command]
-pub fn ensure_app_window(app: AppHandle, label: String) -> Result<EnsureAppWindowResult, String> {
+pub async fn ensure_app_window(
+    app: AppHandle,
+    label: String,
+) -> Result<EnsureAppWindowResult, String> {
     if spec_by_label(&label).is_none() {
         return Err(format!("unknown window `{label}`"));
     }
     if app.get_webview_window(&label).is_some() {
         return Ok(EnsureAppWindowResult { created: false });
     }
-    let created_label = label.clone();
-    run_on_main(&app, move |app| create_window(app, &created_label))??;
+    create_window_for_command(&app, &label)?;
     Ok(EnsureAppWindowResult { created: true })
 }
 
@@ -204,9 +212,10 @@ const SKIN_AUX_LABEL_PREFIX: &str = "skin-aux-";
 const SKIN_HELPER_PROCESS_NAME: &str = "Spiral Skin Helper";
 
 /// Create a skin aux webview. The process name has to be set before the
-/// webview exists.
+/// webview exists. Async for the same Windows WebView2 reason as
+/// [`ensure_app_window`].
 #[tauri::command]
-pub fn create_skin_aux_window(
+pub async fn create_skin_aux_window(
     app: AppHandle,
     label: String,
     title: String,
@@ -223,7 +232,7 @@ pub fn create_skin_aux_window(
     if !label.starts_with(SKIN_AUX_LABEL_PREFIX) || skin_id.is_empty() || view_id.is_empty() {
         return Err(format!("invalid skin aux window `{label}`"));
     }
-    run_on_main(&app, move |app| {
+    with_window_thread(&app, move |app| {
         if app.get_webview_window(&label).is_some() {
             return Ok(());
         }
@@ -257,12 +266,36 @@ pub fn create_skin_aux_window(
 }
 
 /// Hide a preloaded window, or destroy one that is created on demand.
+/// Async for the same Windows WebView2 reason as [`ensure_app_window`].
 #[tauri::command]
-pub fn release_app_window(app: AppHandle, label: String) -> Result<(), String> {
+pub async fn release_app_window(app: AppHandle, label: String) -> Result<(), String> {
     let preload = spec_by_label(&label)
         .ok_or_else(|| format!("unknown window `{label}`"))?
         .preload;
-    run_on_main(&app, move |app| release_window(app, &label, preload))?
+    with_window_thread(&app, move |app| release_window(app, &label, preload))?
+}
+
+/// macOS needs WKWebView config on the UI thread; Windows must *not* create
+/// webviews on that thread (WebView2 deadlock). Async commands already run
+/// off-thread, so non-macOS work runs in place.
+fn create_window_for_command(app: &AppHandle, label: &str) -> Result<(), String> {
+    let label = label.to_string();
+    with_window_thread(app, move |app| create_window(app, &label))?
+}
+
+fn with_window_thread<T, F>(app: &AppHandle, work: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce(&AppHandle) -> T + Send + 'static,
+{
+    #[cfg(target_os = "macos")]
+    {
+        run_on_main(app, work)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(work(app))
+    }
 }
 
 fn release_window(app: &AppHandle, label: &str, preload: bool) -> Result<(), String> {
@@ -429,12 +462,12 @@ where
     Ok(builder.with_webview_configuration(config))
 }
 
+#[cfg(target_os = "macos")]
 fn run_on_main<T, F>(app: &AppHandle, work: F) -> Result<T, String>
 where
     T: Send + 'static,
     F: FnOnce(&AppHandle) -> T + Send + 'static,
 {
-    #[cfg(target_os = "macos")]
     if objc2::MainThreadMarker::new().is_some() {
         return Ok(work(app));
     }
