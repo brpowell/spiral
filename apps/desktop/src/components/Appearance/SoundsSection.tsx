@@ -11,7 +11,6 @@ import { IconVolume } from "../icons";
 import { AppearancePackCard } from "./AppearancePackCard";
 import { HiddenItems } from "./HiddenItems";
 import { ItemActionsMenu } from "./ItemActionsMenu";
-import { ItemsAddMenu } from "./ItemsAddMenu";
 import "./AppearanceSection.css";
 import "./SoundsSection.css";
 
@@ -65,7 +64,6 @@ export function SoundsSection({
             ? t("library:views.headerCount", { count: soundPacks.length })
             : undefined
         }
-        actions={<ItemsAddMenu />}
       />
       <BrowseGridBody>
         {!loaded ? (

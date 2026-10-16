@@ -27,6 +27,7 @@ import {
 import { AppearanceThemeEditorProvider } from "./AppearanceThemeEditorContext";
 import { GetMoreSection } from "./GetMoreSection";
 import { ItemDetailView } from "./ItemDetailView";
+import { StudioSidebarActions } from "./StudioSidebarActions";
 import { SkinsSection } from "./SkinsSection";
 import { SoundsSection } from "./SoundsSection";
 import { ThemesSection } from "./ThemesSection";
@@ -107,6 +108,17 @@ export function AppearanceShell() {
     afterEditorCloseRef.current = null;
   }, []);
 
+  const runAfterLeavingEditor = useCallback(
+    (go: () => void) => {
+      if (editorSession != null) {
+        requestLeaveEditor(go);
+        return;
+      }
+      go();
+    },
+    [editorSession, requestLeaveEditor],
+  );
+
   const handleSectionClick = useCallback(
     (next: AppearanceSection) => {
       const go = () => {
@@ -175,10 +187,11 @@ export function AppearanceShell() {
     <div className="appearance-shell">
       <aside className="appearance-shell__sidebar">
         <SidebarFrame embedded aria-label={t("nav.sectionsAria")}>
-          <SidebarSection
-            label={collectionLabel}
-            className="appearance-shell__sidebar-section--first"
-          >
+          <StudioSidebarActions
+            runAfterLeavingEditor={runAfterLeavingEditor}
+            openThemeEditor={openEditor}
+          />
+          <SidebarSection label={collectionLabel}>
             <SidebarList>
               {APPEARANCE_CONTENT_SECTIONS.map((item) => (
                 <li key={item.id}>

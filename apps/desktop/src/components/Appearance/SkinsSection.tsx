@@ -4,7 +4,6 @@ import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
 import { useSkinStore } from "../../store/useSkinStore";
 import { HiddenItems } from "./HiddenItems";
-import { ItemsAddMenu } from "./ItemsAddMenu";
 import { SkinsGrid } from "./SkinsGrid";
 import "./AppearanceSection.css";
 
@@ -22,7 +21,6 @@ export function SkinsSection({
       <BrowseViewHeader
         className="browse-view__header--single-row"
         title={t("skins.title")}
-        actions={<ItemsAddMenu />}
         count={
           skinsLoaded
             ? t("library:views.headerCount", { count: skins.length })
