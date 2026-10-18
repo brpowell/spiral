@@ -25,7 +25,6 @@ import {
   installItemFromRegistry,
   saveLibrarySettings,
 } from "../lib/tauri";
-import { REGISTRY_ENABLED } from "../lib/featureFlags";
 import { isTauri } from "../lib/windowRole";
 import { catalogItemName, type ItemUpdate } from "../types/itemRegistry";
 import { useBackgroundTasksStore } from "./useBackgroundTasksStore";
@@ -119,7 +118,7 @@ export const useItemUpdatesStore = create<ItemUpdatesState>((set, get) => ({
   },
 
   checkForItemUpdates: async ({ reason = "manual" } = {}) => {
-    if (!REGISTRY_ENABLED || !isTauri()) return [];
+    if (!isTauri()) return [];
     if (reason === "automatic" && !get().automaticItemChecksEnabled) {
       return get().pendingUpdates;
     }
@@ -312,7 +311,7 @@ export const useItemUpdatesStore = create<ItemUpdatesState>((set, get) => ({
   },
 
   startAutomaticItemUpdateChecks: () => {
-    if (!REGISTRY_ENABLED || !isTauri()) return () => {};
+    if (!isTauri()) return () => {};
 
     void get().checkForItemUpdates({ reason: "automatic" });
 

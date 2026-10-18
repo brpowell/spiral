@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import type { AppearanceSection } from "../../lib/appearanceWindow";
-import { REGISTRY_ENABLED } from "../../lib/featureFlags";
 import { t } from "../../lib/i18n";
 import {
   IconDownload,
@@ -49,7 +48,7 @@ export const APPEARANCE_CATALOG_SECTION: AppearanceSectionConfig = {
 
 export const APPEARANCE_SECTIONS: AppearanceSectionConfig[] = [
   ...APPEARANCE_CONTENT_SECTIONS,
-  ...(REGISTRY_ENABLED ? [APPEARANCE_CATALOG_SECTION] : []),
+  APPEARANCE_CATALOG_SECTION,
 ];
 
 export function getAppearanceSectionConfig(

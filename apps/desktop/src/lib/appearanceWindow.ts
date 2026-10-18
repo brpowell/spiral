@@ -1,5 +1,4 @@
 import { emit } from "@tauri-apps/api/event";
-import { REGISTRY_ENABLED } from "./featureFlags";
 import { ensureAppWindow, releaseAppWindow } from "./appWindows";
 import { applyCustomWindowChrome } from "./windowChrome";
 import { isTauri } from "./windowRole";
@@ -42,7 +41,7 @@ export function getStoredAppearanceSection(): AppearanceSection {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored && isAppearanceSection(stored)) {
-      return stored === "catalog" && !REGISTRY_ENABLED ? "themes" : stored;
+      return stored;
     }
   } catch {
     // ignore

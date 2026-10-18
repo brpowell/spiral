@@ -32,7 +32,6 @@ import { usePlaybackSettingsStore } from "../../store/usePlaybackSettingsStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { usePlaylistStore } from "../../store/usePlaylistStore";
 import { useUpdaterStore } from "../../store/useUpdaterStore";
-import { REGISTRY_ENABLED } from "../../lib/featureFlags";
 import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
 import {
   MIN_CROSSFADE_SECONDS,
@@ -986,25 +985,23 @@ export function PreferencesModal() {
                   </FieldContent>
                 </Field>
 
-                {REGISTRY_ENABLED ? (
-                  <Field orientation="horizontal">
-                    <Checkbox
-                      id="pref-automatic-item-updates"
-                      checked={automaticItemChecksEnabled}
-                      onChange={(e) => {
-                        void setAutomaticItemChecksEnabled(e.target.checked);
-                      }}
-                    />
-                    <FieldContent>
-                      <FieldLabel htmlFor="pref-automatic-item-updates">
-                        {t("preferences:updates.automaticItems.label")}
-                      </FieldLabel>
-                      <FieldDescription>
-                        {t("preferences:updates.automaticItems.description")}
-                      </FieldDescription>
-                    </FieldContent>
-                  </Field>
-                ) : null}
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="pref-automatic-item-updates"
+                    checked={automaticItemChecksEnabled}
+                    onChange={(e) => {
+                      void setAutomaticItemChecksEnabled(e.target.checked);
+                    }}
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor="pref-automatic-item-updates">
+                      {t("preferences:updates.automaticItems.label")}
+                    </FieldLabel>
+                    <FieldDescription>
+                      {t("preferences:updates.automaticItems.description")}
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
 
                 {availableUpdate ? (
                   <p className="preferences__hint" role="status">

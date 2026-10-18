@@ -229,6 +229,21 @@ export function fetchRegistryItemSafe(
   });
 }
 
+/** Warm the registry caches so an item's detail view opens without a loading state. */
+export function prefetchItemDetail(entry: RegistryItemSummary): void {
+  const ref = {
+    registryUrl: entry.registryUrl,
+    publisherId: entry.publisherId,
+    itemType: entry.itemType,
+    id: entry.id,
+  };
+  void fetchRegistryItemVersionSafe({
+    ...ref,
+    version: entry.latestVersion.version,
+  });
+  void fetchRegistryItemSafe(ref);
+}
+
 /**
  * Enrich catalog rows with local install state and the `minAppVersion` gate (no extra
  * registry round-trip). Installed means an item under `installed/` with the same effective id;
