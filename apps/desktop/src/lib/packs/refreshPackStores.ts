@@ -16,20 +16,3 @@ export async function refreshPackContributionStores(): Promise<void> {
     useSoundPackStore.getState().loadSoundPacks(),
   ]);
 }
-
-/**
- * Registry-only: v1 pack uninstall no longer exists. Unreachable while the registry UI is
- * flagged off (see `REGISTRY_ENABLED`); remove with the registry rework.
- */
-export async function uninstallPackWithRefresh(
-  ..._args: unknown[]
-): Promise<boolean> {
-  return false;
-}
-
-/** Registry-only: see {@link uninstallPackWithRefresh}. */
-export async function rollbackPackWithRefresh(
-  ..._args: unknown[]
-): Promise<boolean> {
-  return false;
-}

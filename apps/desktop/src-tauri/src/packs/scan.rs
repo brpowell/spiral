@@ -264,6 +264,15 @@ fn prune_missing_linked_item_paths(app: &AppHandle) {
     let _ = app.emit(LINKED_PACKS_CHANGED_EVENT, ());
 }
 
+/// Items installed under `installed/`, ignoring zone priority. A workshop or linked item with the
+/// same effective id does not hide the installed copy here, so registry updates still see it.
+pub fn list_installed_items(app: &AppHandle) -> Vec<ScannedContribution> {
+    let Ok(root) = paths::installed_packs_root(app) else {
+        return Vec::new();
+    };
+    scan_zone_root(&root, PackZone::Installed, &mut Vec::new())
+}
+
 /// Scan all zones. On effective-id collision, higher-priority zone wins
 /// (workshop/linked > installed > builtin). A linked item whose id collides with a
 /// workshop item is a soft-fail warning (linked path skipped), not silent override.

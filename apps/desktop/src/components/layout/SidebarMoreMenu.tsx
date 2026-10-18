@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { openAppearanceWindow } from "../../lib/appearanceWindow";
 import { useContextMenu } from "../../hooks/useContextMenu";
-import { usePackUpdatesStore } from "../../store/usePackUpdatesStore";
+import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
 import { useUpdaterStore } from "../../store/useUpdaterStore";
 import { useWhatsNewStore } from "../../store/useWhatsNewStore";
 import {
@@ -34,13 +34,13 @@ export function SidebarMoreMenu() {
     (s) => s.installAvailableUpdate,
   );
   const openWhatsNew = useWhatsNewStore((s) => s.openWhatsNew);
-  const packUpdatesPending = usePackUpdatesStore(
+  const itemUpdatesPending = useItemUpdatesStore(
     (s) => s.pendingUpdates.length > 0,
   );
   const appUpdatePending =
     availableUpdate != null &&
     (status === "available" || status === "downloading" || status === "error");
-  const updatePending = appUpdatePending || packUpdatesPending;
+  const updatePending = appUpdatePending || itemUpdatesPending;
   const attentionPending = updatePending;
   const {
     open,
@@ -56,11 +56,11 @@ export function SidebarMoreMenu() {
   });
 
   const moreAria = (() => {
-    if (appUpdatePending && packUpdatesPending) {
+    if (appUpdatePending && itemUpdatesPending) {
       return t("common:updates.sidebar.pendingAria");
     }
     if (appUpdatePending) return t("common:updates.sidebar.pendingAppAria");
-    if (packUpdatesPending) return t("common:updates.sidebar.pendingPacksAria");
+    if (itemUpdatesPending) return t("common:updates.sidebar.pendingItemsAria");
     return t("common:updates.sidebar.more");
   })();
 
@@ -124,7 +124,7 @@ export function SidebarMoreMenu() {
           icon={
             <StatusIndicatorAnchor>
               <IconPalette />
-              {packUpdatesPending ? <StatusIndicator /> : null}
+              {itemUpdatesPending ? <StatusIndicator /> : null}
             </StatusIndicatorAnchor>
           }
           label={t("menus:view.studio")}

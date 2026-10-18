@@ -2,64 +2,55 @@ import { Channel } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { create } from "zustand";
 import { createOperationId } from "../lib/activityLog";
-import { PACK_UPDATES_CHANGED_EVENT } from "../lib/appearanceWindow";
+import { ITEM_UPDATES_CHANGED_EVENT } from "../lib/appearanceWindow";
 import { BackgroundTaskCancelledError } from "../lib/backgroundTaskCancel";
 import { errorMessageFromUnknown } from "../lib/cdPlaybackFailure";
 import { t } from "../lib/i18n";
 import {
-  catalogDisplayName,
-  enrichPackCatalog,
-  fetchPackCatalogSafe,
-  PACK_UPDATES_BULK_KEY,
-} from "../lib/packRegistry";
+  isDownloadCancelled,
+  ITEM_UPDATES_BULK_KEY,
+} from "../lib/itemRegistry";
 import {
-  logPackInstallFailure,
-  logPackInstallSuccess,
+  logRegistryInstallFailure,
+  logRegistryInstallSuccess,
 } from "../lib/packs/packInstallActivity";
 import { refreshPackContributionStores } from "../lib/packs/refreshPackStores";
 import { afterUiTransition } from "../lib/scheduling";
 import { packUpdatesSettleOptions } from "../lib/toastPayloads";
 import { AUTOMATIC_UPDATE_INTERVAL_MS } from "../lib/updater";
 import {
-  cancelPackDownload,
-  clearPackDownloadCancel,
-  installPackFromRegistry,
+  cancelItemDownload,
+  checkItemUpdates,
+  clearItemDownloadCancel,
+  installItemFromRegistry,
   saveLibrarySettings,
-  type InstallPackResult,
 } from "../lib/tauri";
 import { REGISTRY_ENABLED } from "../lib/featureFlags";
 import { isTauri } from "../lib/windowRole";
-import type { CatalogPackEntry } from "../types/packRegistry";
+import { catalogItemName, type ItemUpdate } from "../types/itemRegistry";
 import { useBackgroundTasksStore } from "./useBackgroundTasksStore";
 
-export type PackUpdateCheckReason = "automatic" | "manual";
+export type ItemUpdateCheckReason = "automatic" | "manual";
 
-interface PackUpdatesState {
-  pendingUpdates: CatalogPackEntry[];
+interface ItemUpdatesState {
+  /** Installed items with a newer, app-compatible version in a registry. */
+  pendingUpdates: ItemUpdate[];
   status: "idle" | "checking" | "updating" | "error";
   lastError: string | null;
-  automaticPackChecksEnabled: boolean;
+  automaticItemChecksEnabled: boolean;
   /** Sync from loaded library settings (default on until settings arrive). */
-  applyAutomaticPackChecksEnabled: (enabled: boolean) => void;
-  setAutomaticPackChecksEnabled: (enabled: boolean) => Promise<void>;
+  applyAutomaticItemChecksEnabled: (enabled: boolean) => void;
+  setAutomaticItemChecksEnabled: (enabled: boolean) => Promise<void>;
   /** Apply a pending list from another webview (cross-window event). */
-  applyPendingUpdates: (pending: CatalogPackEntry[]) => void;
-  /**
-   * Derive pending updates from an already-enriched catalog (e.g. Get more).
-   * Keeps the Packs list in sync without a second registry round-trip.
-   */
-  syncPendingFromCatalog: (entries: CatalogPackEntry[]) => void;
-  checkForPackUpdates: (options?: {
-    reason?: PackUpdateCheckReason;
-  }) => Promise<CatalogPackEntry[]>;
-  /** Drop a pack identity from pending after a successful single update. */
-  removePendingUpdate: (publisherId: string, packId: string) => void;
-  updateAllPendingPacks: () => Promise<void>;
-  startAutomaticPackUpdateChecks: () => () => void;
-  pendingUpdateFor: (
-    publisherId: string,
-    packId: string,
-  ) => CatalogPackEntry | null;
+  applyPendingUpdates: (pending: ItemUpdate[]) => void;
+  checkForItemUpdates: (options?: {
+    reason?: ItemUpdateCheckReason;
+  }) => Promise<ItemUpdate[]>;
+  /** Drop an item from pending after a successful single update. */
+  removePendingUpdate: (effectiveId: string) => void;
+  updateAllPendingItems: () => Promise<void>;
+  startAutomaticItemUpdateChecks: () => () => void;
+  pendingUpdateFor: (effectiveId: string) => ItemUpdate | null;
 }
 
 function errorMessage(err: unknown, fallback: string): string {
@@ -68,33 +59,29 @@ function errorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
-function filterPending(entries: CatalogPackEntry[]): CatalogPackEntry[] {
-  return entries.filter((e) => e.updateAvailable && e.meetsMinAppVersion);
-}
-
-async function broadcastPending(pending: CatalogPackEntry[]): Promise<void> {
+async function broadcastPending(pending: ItemUpdate[]): Promise<void> {
   if (!isTauri()) return;
   try {
-    await emit(PACK_UPDATES_CHANGED_EVENT, pending);
+    await emit(ITEM_UPDATES_CHANGED_EVENT, pending);
   } catch {
     /* ignore cross-window emit failures */
   }
 }
 
-export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
+export const useItemUpdatesStore = create<ItemUpdatesState>((set, get) => ({
   pendingUpdates: [],
   status: "idle",
   lastError: null,
-  automaticPackChecksEnabled: true,
+  automaticItemChecksEnabled: true,
 
-  applyAutomaticPackChecksEnabled: (enabled) => {
-    set({ automaticPackChecksEnabled: enabled });
+  applyAutomaticItemChecksEnabled: (enabled) => {
+    set({ automaticItemChecksEnabled: enabled });
   },
 
-  setAutomaticPackChecksEnabled: async (enabled) => {
-    set({ automaticPackChecksEnabled: enabled });
+  setAutomaticItemChecksEnabled: async (enabled) => {
+    set({ automaticItemChecksEnabled: enabled });
     try {
-      await saveLibrarySettings({ automaticPackUpdateChecksEnabled: enabled });
+      await saveLibrarySettings({ automaticItemUpdateChecksEnabled: enabled });
     } catch (err) {
       const message = errorMessage(
         err,
@@ -102,7 +89,7 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
       );
       set({ status: "error", lastError: message });
       useBackgroundTasksStore.getState().showErrorToast({
-        key: "pack-updates-pref",
+        key: "item-updates-pref",
         label: t("common:updates.error.savePreference"),
         detail: message,
       });
@@ -117,35 +104,23 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
     });
   },
 
-  syncPendingFromCatalog: (entries) => {
-    const pending = filterPending(entries);
-    set({
-      pendingUpdates: pending,
-      lastError: null,
-      status: "idle",
-    });
-    void broadcastPending(pending);
-  },
-
-  pendingUpdateFor: (publisherId, packId) => {
+  pendingUpdateFor: (effectiveId) => {
     return (
-      get().pendingUpdates.find(
-        (e) => e.publisherId === publisherId && e.packId === packId,
-      ) ?? null
+      get().pendingUpdates.find((e) => e.effectiveId === effectiveId) ?? null
     );
   },
 
-  removePendingUpdate: (publisherId, packId) => {
+  removePendingUpdate: (effectiveId) => {
     const pending = get().pendingUpdates.filter(
-      (e) => !(e.publisherId === publisherId && e.packId === packId),
+      (e) => e.effectiveId !== effectiveId,
     );
     set({ pendingUpdates: pending });
     void broadcastPending(pending);
   },
 
-  checkForPackUpdates: async ({ reason = "manual" } = {}) => {
+  checkForItemUpdates: async ({ reason = "manual" } = {}) => {
     if (!REGISTRY_ENABLED || !isTauri()) return [];
-    if (reason === "automatic" && !get().automaticPackChecksEnabled) {
+    if (reason === "automatic" && !get().automaticItemChecksEnabled) {
       return get().pendingUpdates;
     }
 
@@ -153,27 +128,27 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
     set({ status: "checking", lastError: null });
 
     try {
-      const result = await fetchPackCatalogSafe({ force: true });
-      if (!result.ok) {
+      const result = await checkItemUpdates();
+      const errors = result.errors ?? [];
+      // Nothing came back and a registry failed: keep what we knew rather than clearing it.
+      if (result.updates.length === 0 && errors.length > 0) {
         set({
           status: previousPending.length > 0 ? "idle" : "error",
-          lastError: result.error,
+          lastError:
+            errors.map((e) => e.error).join(" · ") ||
+            t("toasts:packs.catalogFailed"),
           pendingUpdates: previousPending,
         });
         return previousPending;
       }
 
-      const enriched = await enrichPackCatalog(result.catalog.packs, {
-        resolvePreviews: false,
-      });
-      const pending = filterPending(enriched);
       set({
-        pendingUpdates: pending,
+        pendingUpdates: result.updates,
         status: "idle",
         lastError: null,
       });
-      void broadcastPending(pending);
-      return pending;
+      void broadcastPending(result.updates);
+      return result.updates;
     } catch (err) {
       const message = errorMessage(err, t("toasts:packs.catalogFailed"));
       set({
@@ -185,7 +160,7 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
     }
   },
 
-  updateAllPendingPacks: async () => {
+  updateAllPendingItems: async () => {
     if (!isTauri()) return;
     const queue = [...get().pendingUpdates];
     if (queue.length === 0) return;
@@ -194,7 +169,7 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
 
     await new Promise<void>((resolve) => {
       useBackgroundTasksStore.getState().runInBackground({
-        key: PACK_UPDATES_BULK_KEY,
+        key: ITEM_UPDATES_BULK_KEY,
         label: t("toasts:packs.updating"),
         cancellable: true,
         progressDisplay: "bar",
@@ -214,14 +189,14 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
               }
 
               const entry = queue[i]!;
-              const displayName = catalogDisplayName(entry);
-              const v = entry.latestVersion;
+              const displayName = catalogItemName(entry);
+              const v = entry.latest;
               ctx.setLabel(
                 t("toasts:packs.downloading", { name: displayName }),
               );
               ctx.setProgress(i, total);
 
-              await clearPackDownloadCancel();
+              await clearItemDownloadCancel();
               const onProgress = new Channel<{
                 current: number;
                 total: number;
@@ -234,16 +209,17 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
 
               try {
                 if (ctx.isCancelRequested()) {
-                  await cancelPackDownload();
+                  await cancelItemDownload();
                   throw new BackgroundTaskCancelledError(
                     t("toasts:packs.downloadCancelled"),
                   );
                 }
 
-                const result = await installPackFromRegistry({
+                const result = await installItemFromRegistry({
                   registryUrl: entry.registryUrl,
                   publisherId: entry.publisherId,
-                  packId: entry.packId,
+                  itemType: entry.itemType,
+                  id: entry.id,
                   version: v.version,
                   sha256: v.sha256,
                   sizeBytes: v.sizeBytes,
@@ -251,36 +227,34 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
                   onProgress,
                 });
 
-                logPackInstallSuccess({
+                logRegistryInstallSuccess({
                   operationId,
-                  source: "registry",
                   result,
                   registryUrl: entry.registryUrl,
-                  publisherId: entry.publisherId,
                   sha256: v.sha256,
                   sizeBytes: v.sizeBytes,
                   minAppVersion: v.minAppVersion,
                 });
                 updated += 1;
-                get().removePendingUpdate(entry.publisherId, entry.packId);
+                get().removePendingUpdate(entry.effectiveId);
               } catch (err) {
                 const message = errorMessageFromUnknown(err);
                 if (
-                  message === "Pack download cancelled" ||
-                  /pack download cancelled/i.test(message)
+                  err instanceof BackgroundTaskCancelledError ||
+                  isDownloadCancelled(message)
                 ) {
                   throw new BackgroundTaskCancelledError(
                     t("toasts:packs.downloadCancelled"),
                   );
                 }
-                logPackInstallFailure({
+                logRegistryInstallFailure({
                   operationId,
-                  source: "registry",
                   err,
                   name: displayName,
                   registryUrl: entry.registryUrl,
                   publisherId: entry.publisherId,
-                  packId: entry.packId,
+                  itemType: entry.itemType,
+                  id: entry.id,
                   version: v.version,
                   sha256: v.sha256,
                   sizeBytes: v.sizeBytes,
@@ -308,19 +282,19 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
                 await refreshPackContributionStores();
               } catch (err) {
                 console.error(
-                  "Failed to refresh packs after bulk update:",
+                  "Failed to refresh items after bulk update:",
                   err,
                 );
               } finally {
                 set({ status: "idle" });
-                void get().checkForPackUpdates({ reason: "manual" });
+                void get().checkForItemUpdates({ reason: "manual" });
                 resolve();
               }
             })();
           } catch (err) {
             if (err instanceof BackgroundTaskCancelledError) {
               set({ status: "idle" });
-              void get().checkForPackUpdates({ reason: "manual" });
+              void get().checkForItemUpdates({ reason: "manual" });
               resolve();
               throw err;
             }
@@ -337,13 +311,13 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
     });
   },
 
-  startAutomaticPackUpdateChecks: () => {
+  startAutomaticItemUpdateChecks: () => {
     if (!REGISTRY_ENABLED || !isTauri()) return () => {};
 
-    void get().checkForPackUpdates({ reason: "automatic" });
+    void get().checkForItemUpdates({ reason: "automatic" });
 
     const intervalId = globalThis.setInterval(() => {
-      void get().checkForPackUpdates({ reason: "automatic" });
+      void get().checkForItemUpdates({ reason: "automatic" });
     }, AUTOMATIC_UPDATE_INTERVAL_MS);
 
     return () => {
@@ -352,17 +326,14 @@ export const usePackUpdatesStore = create<PackUpdatesState>((set, get) => ({
   },
 }));
 
-/** After a single registry install, clear that pack from pending and re-check. */
-export async function refreshPackUpdatesAfterInstall(
-  result?: InstallPackResult | null,
-  publisherId?: string,
+/** After a single registry install, clear that item from pending and re-check. */
+export async function refreshItemUpdatesAfterInstall(
+  effectiveId?: string,
 ): Promise<void> {
-  if (result && publisherId) {
-    usePackUpdatesStore
-      .getState()
-      .removePendingUpdate(publisherId, result.packId);
+  if (effectiveId) {
+    useItemUpdatesStore.getState().removePendingUpdate(effectiveId);
   }
-  await usePackUpdatesStore
+  await useItemUpdatesStore
     .getState()
-    .checkForPackUpdates({ reason: "manual" });
+    .checkForItemUpdates({ reason: "manual" });
 }

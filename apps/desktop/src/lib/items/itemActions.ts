@@ -27,7 +27,7 @@ import {
 import { refreshPackContributionStores } from "../packs/refreshPackStores";
 import {
   logItemInstallSuccess,
-  logPackInstallFailure,
+  logItemInstallFailure,
 } from "../packs/packInstallActivity";
 import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
 
@@ -64,7 +64,7 @@ export async function importItemWithRefresh(): Promise<InstallItemResult | null>
     });
     return result;
   } catch (err) {
-    logPackInstallFailure({ operationId, source: "file", err });
+    logItemInstallFailure({ operationId, err });
     showErrorToast({
       label: formatInvokeError(err, t("toasts:items.installFailed")),
       detail: t("toasts:items.installFailedDetail"),

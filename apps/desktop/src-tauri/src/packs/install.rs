@@ -5,7 +5,8 @@
 use super::paths::{ensure_packs_ready, installed_packs_root, item_dir_in_zone};
 use super::scan::{app_version, meets_min_app_version};
 use super::{
-    cleanup_pack_extract_dir, extract_pack_archive, find_item_root, validate_item_dir, ItemManifest,
+    cleanup_pack_extract_dir, effective_item_id, extract_pack_archive, find_item_root,
+    validate_item_dir, ItemManifest,
 };
 use serde::Serialize;
 use std::fs;
@@ -24,6 +25,35 @@ pub struct InstallItemResult {
     pub dir: String,
     /// Version that was replaced, when the item was already installed.
     pub replaced_version: Option<String>,
+}
+
+/// The identity a downloaded archive must have. A registry install checks the archive's own
+/// manifest against what the catalog promised before it replaces anything on disk.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExpectedItem {
+    pub publisher_id: String,
+    pub item_type: String,
+    pub id: String,
+    pub version: String,
+}
+
+impl ExpectedItem {
+    fn check(&self, item: &ItemManifest) -> Result<(), String> {
+        if item.publisher_id == self.publisher_id
+            && item.item_type == self.item_type
+            && item.id == self.id
+            && item.version == self.version
+        {
+            return Ok(());
+        }
+        Err(format!(
+            "downloaded archive is {}@{}, but the registry listed {}@{}",
+            item.effective_id(),
+            item.version,
+            effective_item_id(&self.publisher_id, &self.item_type, &self.id),
+            self.version
+        ))
+    }
 }
 
 /// Validate an item directory for install (strict) and check the app version floor.
@@ -130,12 +160,26 @@ pub(crate) fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> 
 
 /// Install an item archive (`.spk`) or an unpacked item directory into `installed/`.
 pub fn install_item_from_path(app: &AppHandle, path: &Path) -> Result<InstallItemResult, String> {
-    ensure_packs_ready(app)?;
-    let installed_root = installed_packs_root(app)?;
-    install_item_into(&installed_root, path)
+    install_item_from_path_expecting(app, path, None)
 }
 
-fn install_item_into(installed_root: &Path, path: &Path) -> Result<InstallItemResult, String> {
+/// Like [`install_item_from_path`], but refuses an archive whose manifest does not match
+/// `expected` (used for registry downloads).
+pub fn install_item_from_path_expecting(
+    app: &AppHandle,
+    path: &Path,
+    expected: Option<&ExpectedItem>,
+) -> Result<InstallItemResult, String> {
+    ensure_packs_ready(app)?;
+    let installed_root = installed_packs_root(app)?;
+    install_item_into(&installed_root, path, expected)
+}
+
+fn install_item_into(
+    installed_root: &Path,
+    path: &Path,
+    expected: Option<&ExpectedItem>,
+) -> Result<InstallItemResult, String> {
     let (item_dir, cleanup): (PathBuf, Option<PathBuf>) = if path.is_dir() {
         (path.to_path_buf(), None)
     } else {
@@ -151,6 +195,9 @@ fn install_item_into(installed_root: &Path, path: &Path) -> Result<InstallItemRe
 
     let result = (|| {
         let item = validate_item_for_install(&item_dir)?;
+        if let Some(expected) = expected {
+            expected.check(&item)?;
+        }
         let (dest, replaced_version) = atomic_install_item_dir(installed_root, &item_dir, &item)?;
         Ok(InstallItemResult {
             effective_id: item.effective_id(),
@@ -232,7 +279,7 @@ mod tests {
         write_theme_item(&src, "bryan", "midnight", "1.0.0");
         let installed = root.join("installed");
 
-        let result = install_item_into(&installed, &src).unwrap();
+        let result = install_item_into(&installed, &src, None).unwrap();
         assert_eq!(result.effective_id, "bryan.theme.midnight");
         assert_eq!(result.replaced_version, None);
         let dest = installed.join("themes/bryan.midnight");
@@ -251,7 +298,7 @@ mod tests {
         write_pack_archive(&src, &spk).unwrap();
         let installed = root.join("installed");
 
-        let result = install_item_into(&installed, &spk).unwrap();
+        let result = install_item_into(&installed, &spk, None).unwrap();
         assert_eq!(result.version, "1.0.0");
         assert!(installed.join("themes/bryan.midnight/extra.txt").is_file());
         let _ = fs::remove_dir_all(&root);
@@ -265,11 +312,11 @@ mod tests {
         let v1 = root.join("v1");
         write_theme_item(&v1, "bryan", "midnight", "1.0.0");
         fs::write(v1.join("old.txt"), b"old").unwrap();
-        install_item_into(&installed, &v1).unwrap();
+        install_item_into(&installed, &v1, None).unwrap();
 
         let v2 = root.join("v2");
         write_theme_item(&v2, "bryan", "midnight", "2.0.0");
-        let result = install_item_into(&installed, &v2).unwrap();
+        let result = install_item_into(&installed, &v2, None).unwrap();
 
         assert_eq!(result.replaced_version.as_deref(), Some("1.0.0"));
         let dest = installed.join("themes/bryan.midnight");
@@ -295,7 +342,7 @@ mod tests {
         for author in ["alice", "bob"] {
             let src = root.join(author);
             write_theme_item(&src, author, "midnight", "1.0.0");
-            install_item_into(&installed, &src).unwrap();
+            install_item_into(&installed, &src, None).unwrap();
         }
         assert!(installed.join("themes/alice.midnight").is_dir());
         assert!(installed.join("themes/bob.midnight").is_dir());
@@ -314,7 +361,7 @@ mod tests {
         .unwrap();
         let installed = root.join("installed");
 
-        assert!(install_item_into(&installed, &src).is_err());
+        assert!(install_item_into(&installed, &src, None).is_err());
         assert!(!installed.join("themes").exists());
         let _ = fs::remove_dir_all(&root);
     }
@@ -329,7 +376,7 @@ mod tests {
         value["minAppVersion"] = "999.0.0".into();
         fs::write(src.join("theme.json"), value.to_string()).unwrap();
 
-        let err = install_item_into(&root.join("installed"), &src).unwrap_err();
+        let err = install_item_into(&root.join("installed"), &src, None).unwrap_err();
         assert!(err.contains("minAppVersion"), "{err}");
         let _ = fs::remove_dir_all(&root);
     }
@@ -343,8 +390,74 @@ mod tests {
         let spk = root.join("old.spk");
         write_pack_archive(&src, &spk).unwrap();
 
-        let err = install_item_into(&root.join("installed"), &spk).unwrap_err();
+        let err = install_item_into(&root.join("installed"), &spk, None).unwrap_err();
         assert!(err.contains("item manifest"), "{err}");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    fn expected(publisher: &str, id: &str, version: &str) -> ExpectedItem {
+        ExpectedItem {
+            publisher_id: publisher.into(),
+            item_type: "theme".into(),
+            id: id.into(),
+            version: version.into(),
+        }
+    }
+
+    #[test]
+    fn expected_identity_allows_a_matching_archive() {
+        let root = temp_root("install-expected-ok");
+        let src = root.join("src");
+        write_theme_item(&src, "bryan", "midnight", "1.0.0");
+        let installed = root.join("installed");
+
+        let result = install_item_into(
+            &installed,
+            &src,
+            Some(&expected("bryan", "midnight", "1.0.0")),
+        )
+        .unwrap();
+        assert_eq!(result.effective_id, "bryan.theme.midnight");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn expected_identity_rejects_a_mislabelled_archive_and_keeps_the_install() {
+        let root = temp_root("install-expected-bad");
+        let installed = root.join("installed");
+
+        let current = root.join("current");
+        write_theme_item(&current, "bryan", "midnight", "1.0.0");
+        install_item_into(&installed, &current, None).unwrap();
+
+        // The catalog promised bryan.midnight@2.0.0 but the archive is another item entirely.
+        let other = root.join("other");
+        write_theme_item(&other, "mallory", "evil", "2.0.0");
+        let err = install_item_into(
+            &installed,
+            &other,
+            Some(&expected("bryan", "midnight", "2.0.0")),
+        )
+        .unwrap_err();
+        assert!(err.contains("mallory.theme.evil"), "{err}");
+        assert!(!installed.join("themes/mallory.evil").exists());
+
+        // Right item, wrong version.
+        let stale = root.join("stale");
+        write_theme_item(&stale, "bryan", "midnight", "1.5.0");
+        let err = install_item_into(
+            &installed,
+            &stale,
+            Some(&expected("bryan", "midnight", "2.0.0")),
+        )
+        .unwrap_err();
+        assert!(err.contains("1.5.0"), "{err}");
+
+        // The installed copy is untouched.
+        assert_eq!(
+            read_version(&installed.join("themes/bryan.midnight")),
+            "1.0.0"
+        );
         let _ = fs::remove_dir_all(&root);
     }
 }

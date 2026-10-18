@@ -6,7 +6,7 @@ import { useAppearanceSection } from "../../hooks/useAppearanceSection";
 import { useAppearanceThemeEditor } from "../../hooks/useAppearanceThemeEditor";
 import { REGISTRY_ENABLED } from "../../lib/featureFlags";
 import { viewTransition } from "../../lib/motion";
-import { usePackUpdatesStore } from "../../store/usePackUpdatesStore";
+import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
 import { useThemeStore } from "../../store/useThemeStore";
 import {
   SidebarFrame,
@@ -25,7 +25,6 @@ import {
   getAppearanceSectionConfig,
 } from "./appearanceSections";
 import { AppearanceThemeEditorProvider } from "./AppearanceThemeEditorContext";
-import { GetMoreSection } from "./GetMoreSection";
 import { ItemDetailView } from "./ItemDetailView";
 import { StudioSidebarActions } from "./StudioSidebarActions";
 import { SkinsSection } from "./SkinsSection";
@@ -69,7 +68,9 @@ function AppearanceSectionPanel({
     case "sounds":
       return <SoundsSection onOpenItem={onOpenItem} />;
     case "catalog":
-      return REGISTRY_ENABLED ? <GetMoreSection /> : null;
+      // The registry browse view is added with the item catalog UI; the section stays hidden
+      // behind REGISTRY_ENABLED until then.
+      return null;
   }
 }
 
@@ -179,7 +180,7 @@ export function AppearanceShell() {
 
   const catalogLabel = t("catalog.sidebar");
   const collectionLabel = t("nav.collection");
-  const packUpdatesPending = usePackUpdatesStore(
+  const itemUpdatesPending = useItemUpdatesStore(
     (s) => s.pendingUpdates.length > 0,
   );
 
@@ -212,7 +213,7 @@ export function AppearanceShell() {
                 leading={
                   <StatusIndicatorAnchor className="sidebar-item__icon">
                     {APPEARANCE_CATALOG_SECTION.icon}
-                    {packUpdatesPending ? <StatusIndicator /> : null}
+                    {itemUpdatesPending ? <StatusIndicator /> : null}
                   </StatusIndicatorAnchor>
                 }
                 active={section === APPEARANCE_CATALOG_SECTION.id}
