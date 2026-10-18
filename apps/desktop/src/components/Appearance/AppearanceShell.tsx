@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import type { AppearanceSection } from "../../lib/appearanceWindow";
 import { useAppearanceSection } from "../../hooks/useAppearanceSection";
 import { useAppearanceThemeEditor } from "../../hooks/useAppearanceThemeEditor";
-import { REGISTRY_ENABLED } from "../../lib/featureFlags";
 import { viewTransition } from "../../lib/motion";
 import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
 import { useThemeStore } from "../../store/useThemeStore";
@@ -26,6 +25,7 @@ import {
 } from "./appearanceSections";
 import { AppearanceThemeEditorProvider } from "./AppearanceThemeEditorContext";
 import { ItemDetailView } from "./ItemDetailView";
+import { RegistryBrowseSection } from "./RegistryBrowseSection";
 import { StudioSidebarActions } from "./StudioSidebarActions";
 import { SkinsSection } from "./SkinsSection";
 import { SoundsSection } from "./SoundsSection";
@@ -68,9 +68,7 @@ function AppearanceSectionPanel({
     case "sounds":
       return <SoundsSection onOpenItem={onOpenItem} />;
     case "catalog":
-      // The registry browse view is added with the item catalog UI; the section stays hidden
-      // behind REGISTRY_ENABLED until then.
-      return null;
+      return <RegistryBrowseSection />;
   }
 }
 
@@ -207,24 +205,20 @@ export function AppearanceShell() {
               ))}
             </SidebarList>
           </SidebarSection>
-          {REGISTRY_ENABLED ? (
-            <SidebarSection aria-label={catalogLabel}>
-              <SidebarItem
-                leading={
-                  <StatusIndicatorAnchor className="sidebar-item__icon">
-                    {APPEARANCE_CATALOG_SECTION.icon}
-                    {itemUpdatesPending ? <StatusIndicator /> : null}
-                  </StatusIndicatorAnchor>
-                }
-                active={section === APPEARANCE_CATALOG_SECTION.id}
-                onClick={() =>
-                  handleSectionClick(APPEARANCE_CATALOG_SECTION.id)
-                }
-              >
-                {catalogLabel}
-              </SidebarItem>
-            </SidebarSection>
-          ) : null}
+          <SidebarSection aria-label={catalogLabel}>
+            <SidebarItem
+              leading={
+                <StatusIndicatorAnchor className="sidebar-item__icon">
+                  {APPEARANCE_CATALOG_SECTION.icon}
+                  {itemUpdatesPending ? <StatusIndicator /> : null}
+                </StatusIndicatorAnchor>
+              }
+              active={section === APPEARANCE_CATALOG_SECTION.id}
+              onClick={() => handleSectionClick(APPEARANCE_CATALOG_SECTION.id)}
+            >
+              {catalogLabel}
+            </SidebarItem>
+          </SidebarSection>
         </SidebarFrame>
       </aside>
 

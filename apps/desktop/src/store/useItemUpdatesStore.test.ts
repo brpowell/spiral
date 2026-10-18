@@ -26,8 +26,6 @@ const {
   mockSettleOptions: vi.fn(() => ({ status: "success", label: "ok" })),
 }));
 
-vi.mock("../lib/featureFlags", () => ({ REGISTRY_ENABLED: true }));
-
 vi.mock("../lib/itemRegistry", () => ({
   ITEM_UPDATES_BULK_KEY: "item-updates-bulk",
   isDownloadCancelled: (message: string) =>

@@ -3,6 +3,9 @@ import type { PackZone } from "./pack";
 /** Mirrors Rust `CONTRIBUTION_TYPE_FOLDERS` types. */
 export type ItemType = "theme" | "skin" | "visualizer" | "sound";
 
+/** Every item type, in the order the UI lists them. */
+export const ITEM_TYPES: ItemType[] = ["theme", "skin", "visualizer", "sound"];
+
 /** Folder names under each zone root, keyed by type (`<zone>/<folder>/<publisherId>.<id>/`). */
 export const ITEM_TYPE_FOLDERS: Record<ItemType, string> = {
   theme: "themes",
