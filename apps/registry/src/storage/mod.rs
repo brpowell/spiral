@@ -36,6 +36,6 @@ pub trait ObjectStorage: Send + Sync {
 pub fn build_storage(config: &StorageConfig) -> Result<Arc<dyn ObjectStorage>> {
     match config {
         StorageConfig::Local { root } => Ok(Arc::new(LocalDiskStorage::new(root.clone())?)),
-        StorageConfig::S3 => Ok(Arc::new(S3Storage)),
+        StorageConfig::S3(config) => Ok(Arc::new(S3Storage::new(config)?)),
     }
 }

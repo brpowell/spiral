@@ -7,8 +7,8 @@ It is the backend for Spiral's theme, skin, visualizer and sound library, and it
 **Current scope**
 
 - Publishing is admin-only, with a single shared admin token. There are no public accounts or community uploads.
-- Storage is SQLite for the catalog and the local disk for item files. Postgres and S3 are not implemented yet: a Postgres `DATABASE_URL` fails fast at startup and `STORAGE_BACKEND=s3` is a stub.
-- It runs as a single instance. Rate limits are kept in memory, per process.
+- The catalog is SQLite (the default) or Postgres, chosen by the scheme of `DATABASE_URL`. Item files live on the local disk (the default) or in an S3-compatible bucket (`STORAGE_BACKEND=s3`). Any combination works; see [Backends](#backends).
+- With SQLite and local disk it must run as a single instance. With Postgres and S3 it can run more than one, but rate limits are kept in memory, per process, so each instance enforces its own.
 
 ## Quick start
 
@@ -73,6 +73,40 @@ The registry validates the item with `spk-format`, computes its SHA-256 and unco
 
 You can do the same from the admin panel at <http://127.0.0.1:8787/admin>. Enter the token on the page; it is kept in `sessionStorage` for that tab only.
 
+## Backends
+
+Pick the catalog and the file store independently:
+
+| Catalog | Files | Good for |
+| --- | --- | --- |
+| SQLite | local disk | Trying it out and small self-hosted instances. One machine, with a persistent volume. |
+| Postgres | local disk | A managed catalog with files still on a volume. |
+| SQLite | S3 | Files off the machine, catalog still on it. |
+| Postgres | S3 | A hosted deployment with no local state: no volume, and more than one instance is possible. |
+
+**Postgres.** Set `DATABASE_URL=postgres://…` (use `sslmode=require` for a hosted database). Both supported backends keep their migrations under `migrations/<backend>/`, and a test keeps their tables and columns identical. It works with serverless Postgres such as Neon, Supabase and Aurora Serverless:
+
+- The first connection at startup is retried, because a scaled-to-zero database takes a moment to wake.
+- Connections are retired before the provider would drop them.
+- Behind a connection pooler in transaction mode, prepared statements are turned off (`DB_POOLER`, detected for common pooled URLs), and migrations should use the provider's direct URL through `DATABASE_MIGRATE_URL`, because they hold a session-level advisory lock that a transaction pooler cannot keep.
+
+**S3.** The registry stores `.spk` archives and previews in the bucket. Downloads redirect to a short-lived presigned URL, so file bytes never pass through the registry; previews are streamed by the registry itself, because the desktop app does not follow redirects for them. Credentials come from the standard AWS environment (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, optional `AWS_SESSION_TOKEN`) or a profile, never from the repository. The credentials need `s3:PutObject`, `s3:GetObject` and `s3:DeleteObject` on the bucket; add `s3:ListBucket` too, since without it S3 reports a missing object as 403 and the registry can only guess. Keep the bucket private: nothing in it needs to be public.
+
+Local development against both, with Docker:
+
+```bash
+docker run -d --name spk-pg -e POSTGRES_PASSWORD=pw -e POSTGRES_DB=spk -p 5432:5432 postgres:16
+docker run -d --name spk-minio -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+  -p 9000:9000 minio/minio server /data
+
+export DATABASE_URL=postgres://postgres:pw@127.0.0.1:5432/spk
+export STORAGE_BACKEND=s3 S3_BUCKET=spk S3_ENDPOINT=http://127.0.0.1:9000
+export AWS_ACCESS_KEY_ID=minioadmin AWS_SECRET_ACCESS_KEY=minioadmin
+cargo run --bin spk-registry-seed && cargo run
+```
+
+(MinIO needs the bucket to exist first; create it with `mc mb` or the console at <http://127.0.0.1:9001> if you add `--console-address :9001`.) The backend tests run against such servers when you set `TEST_DATABASE_URL` (and optionally `TEST_DATABASE_POOLED`, `TEST_DATABASE_MIGRATE_URL`) or `TEST_S3_ENDPOINT`; CI does this on every change.
+
 ## Configuration
 
 All configuration is through environment variables.
@@ -81,10 +115,20 @@ All configuration is through environment variables.
 | --- | --- | --- |
 | `BIND_ADDR` | `127.0.0.1:8787` | Listen address. Use `0.0.0.0:<port>` inside a container. |
 | `INSTANCE_NAME` | `Spiral Registry` | Reported by `GET /v1/meta`. |
-| `DATABASE_URL` | `sqlite:data/registry.db?mode=rwc` | SQLite only for now; a Postgres URL fails fast. |
+| `DATABASE_URL` | `sqlite:data/registry.db?mode=rwc` | `sqlite:…` or `postgres://…` (`postgresql://` also works). |
+| `DATABASE_MIGRATE_URL` | _(empty)_ | Direct (non-pooled) connection used for migrations. Set it when `DATABASE_URL` is a connection pooler; defaults to `DATABASE_URL`. |
+| `DB_MAX_CONNECTIONS` | `5` | Postgres pool size (1 to 100). Keep it small on serverless plans, which cap connections. |
+| `DB_ACQUIRE_TIMEOUT_SECS` | `30` | How long a request waits for a Postgres connection (1 to 300). Generous so a scaled-to-zero database can wake. |
+| `DB_POOLER` | auto | `true` when `DATABASE_URL` points at a transaction-mode pooler: turns off prepared statements. Detected automatically for Neon `-pooler` hosts, Supabase's pooler host and port 6543; set it to override. |
 | `ADMIN_PATH` | `/admin` | Where the admin panel is served. The admin API is under `<ADMIN_PATH>/api`. Must start with `/`, may not be `/` or under `/v1`; letters, digits, `-`, `_` and `.` only. A non-default path keeps the panel off the obvious URL, but the token is still what protects it. |
 | `AUTO_MIGRATE` | `true` | Apply pending schema migrations at startup. Set `false` to run them yourself with `spk-registry migrate`. |
-| `STORAGE_BACKEND` | `local` | `s3` is stubbed. |
+| `STORAGE_BACKEND` | `local` | `local` or `s3`. |
+| `S3_BUCKET` | | Required for `s3`. |
+| `S3_REGION` | `AWS_REGION`, else `us-east-1` | Region name. With a custom endpoint it is only used for signing. |
+| `S3_ENDPOINT` | _(empty)_ | Custom endpoint for R2, Tigris, MinIO and other S3-compatible services. Leave empty for AWS S3. |
+| `S3_KEY_PREFIX` | _(empty)_ | Prepended to every object key (for example `registry/`), so one bucket can hold several registries. |
+| `S3_PATH_STYLE` | `true` with an endpoint, else `false` | Path-style addressing (`endpoint/bucket/key`). |
+| `S3_PRESIGN_TTL_SECS` | `600` | Lifetime of the presigned download URLs the registry redirects to (1 to 604800). |
 | `STORAGE_LOCAL_PATH` | `data/objects` | Object root for the `local` backend. |
 | `ADMIN_TOKEN` | _(empty)_ | Shared admin bearer token. Empty disables the admin API: its endpoints return `503 admin_disabled` (the panel page still loads but can do nothing). When set it must be at least 32 bytes; a shorter value stops the server at startup. |
 | `MAX_UPLOAD_BYTES` | `52428800` (50 MiB) | Hard limit for `POST <ADMIN_PATH>/api/items` only; other routes keep Axum's 2 MiB default. |
@@ -157,6 +201,8 @@ fly tokens create deploy -a spk-registry
 ```
 
 The catalog is SQLite on a single volume, so the app must have exactly one machine. A volume attaches to one machine, and Fly wants a volume for every machine it updates, so if an app already has two (the default for a first deploy), destroy the extra with `fly machines destroy <id>` before deploying. `--ha=false` stops flyctl from creating a second machine.
+
+With Postgres and S3 (see [Backends](#backends)) the app keeps no local state, so none of this applies: no volume is needed, and it can run more than one machine.
 
 If Fly's own GitHub integration is enabled for the app, turn it off so a push does not deploy twice.
 
