@@ -1,6 +1,6 @@
 //! `.spk` zip extract / create helpers (ZipSlip-safe, bounded against zip bombs).
 
-use crate::{is_pack_archive_path, CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME};
+use crate::{is_pack_archive_path, CONTRIBUTION_TYPE_FOLDERS};
 use std::fs::{self, File};
 use std::io::{copy, Read, Write};
 use std::path::{Path, PathBuf};
@@ -178,40 +178,6 @@ fn extract_zip_to(archive_path: &Path, dest: &Path, limits: &ExtractLimits) -> R
     }
 
     Ok(())
-}
-
-/// Locate the pack root inside an extracted archive (`pack.json` at root or one nested folder).
-pub fn find_pack_root(extract_dir: &Path) -> Result<PathBuf, String> {
-    let direct = extract_dir.join(PACK_MANIFEST_FILENAME);
-    if direct.is_file() {
-        return Ok(extract_dir.to_path_buf());
-    }
-
-    let entries =
-        fs::read_dir(extract_dir).map_err(|e| format!("failed to read extracted pack: {e}"))?;
-    let mut dirs = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if is_apple_junk_path(&path) {
-            continue;
-        }
-        if path.is_dir() {
-            dirs.push(path);
-        } else if path.file_name().and_then(|n| n.to_str()) == Some(PACK_MANIFEST_FILENAME) {
-            return Ok(extract_dir.to_path_buf());
-        }
-    }
-
-    if dirs.len() == 1 {
-        let nested = &dirs[0];
-        if nested.join(PACK_MANIFEST_FILENAME).is_file() {
-            return Ok(nested.clone());
-        }
-    }
-
-    Err(format!(
-        "pack archive is missing {PACK_MANIFEST_FILENAME} at the archive root"
-    ))
 }
 
 fn has_item_manifest(dir: &Path) -> bool {
@@ -526,45 +492,62 @@ mod tests {
     }
 
     #[test]
-    fn finds_pack_root_at_archive_root() {
+    fn finds_item_root_at_archive_root() {
         let dir = std::env::temp_dir().join(format!("spiral-spk-root-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let spk = dir.join("pack.spk");
+        let spk = dir.join("item.spk");
         write_test_spk(
             &spk,
             &[(
-                "pack.json",
-                br#"{"manifestVersion":1,"packId":"t","publisherId":"test","version":"1.0.0","name":"T","description":""}"#,
+                "theme.json",
+                br#"{"id":"t","publisherId":"test","version":"1.0.0","name":"T","tokens":{}}"#,
             )],
         );
 
         let extract = extract_pack_archive(&spk).unwrap();
-        let root = find_pack_root(&extract).unwrap();
-        assert!(root.join(PACK_MANIFEST_FILENAME).is_file());
+        let root = find_item_root(&extract).unwrap();
+        assert!(root.join("theme.json").is_file());
         cleanup_pack_extract_dir(&extract);
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
-    fn finds_pack_root_nested_single_folder() {
+    fn finds_item_root_nested_single_folder() {
         let dir = std::env::temp_dir().join(format!("spiral-spk-nested-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let spk = dir.join("pack.spk");
+        let spk = dir.join("item.spk");
         write_test_spk(
             &spk,
             &[(
-                "midnight-drive/pack.json",
-                br#"{"manifestVersion":1,"packId":"midnight-drive","publisherId":"bryan","version":"1.0.0","name":"T","description":""}"#,
+                "midnight-drive/theme.json",
+                br#"{"id":"t","publisherId":"test","version":"1.0.0","name":"T","tokens":{}}"#,
             )],
         );
 
         let extract = extract_pack_archive(&spk).unwrap();
-        let root = find_pack_root(&extract).unwrap();
+        let root = find_item_root(&extract).unwrap();
         assert!(root.ends_with("midnight-drive"));
+        cleanup_pack_extract_dir(&extract);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn item_root_requires_an_item_manifest() {
+        let dir = std::env::temp_dir().join(format!("spiral-spk-noroot-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        // A v1 pack archive (pack.json only) is not an item.
+        let spk = dir.join("pack.spk");
+        write_test_spk(&spk, &[("pack.json", b"{}")]);
+
+        let extract = extract_pack_archive(&spk).unwrap();
+        let err = find_item_root(&extract).unwrap_err();
+        assert!(err.contains("item manifest"), "{err}");
         cleanup_pack_extract_dir(&extract);
         let _ = fs::remove_dir_all(&dir);
     }
@@ -589,29 +572,29 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
-        let spk = dir.join("pack.spk");
+        let spk = dir.join("item.spk");
         write_test_spk(
             &spk,
             &[
                 (
-                    "pack.json",
-                    br#"{"manifestVersion":1,"packId":"t","publisherId":"test","version":"1.0.0","name":"T","description":""}"#,
+                    "theme.json",
+                    br#"{"id":"t","publisherId":"test","version":"1.0.0","name":"T","tokens":{}}"#,
                 ),
-                ("skins/demo/skin.json", b"{}"),
-                ("__MACOSX/._pack.json", b"junk"),
-                ("__MACOSX/skins/._demo", b"junk"),
-                ("skins/demo/._skin.json", b"appledouble"),
+                ("assets/bg.png", b"png"),
+                ("__MACOSX/._theme.json", b"junk"),
+                ("__MACOSX/assets/._bg.png", b"junk"),
+                ("assets/._bg.png", b"appledouble"),
                 (".DS_Store", b"store"),
             ],
         );
 
         let extract = extract_pack_archive(&spk).unwrap();
-        let root = find_pack_root(&extract).unwrap();
-        assert!(root.join(PACK_MANIFEST_FILENAME).is_file());
+        let root = find_item_root(&extract).unwrap();
+        assert!(root.join("theme.json").is_file());
         assert!(!root.join("__MACOSX").exists());
         assert!(!root.join(".DS_Store").exists());
-        assert!(!root.join("skins/demo/._skin.json").exists());
-        assert!(root.join("skins/demo/skin.json").is_file());
+        assert!(!root.join("assets/._bg.png").exists());
+        assert!(root.join("assets/bg.png").is_file());
         cleanup_pack_extract_dir(&extract);
         let _ = fs::remove_dir_all(&dir);
     }
@@ -621,28 +604,28 @@ mod tests {
         let dir =
             std::env::temp_dir().join(format!("spiral-spk-write-macosx-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
-        let pack = dir.join("pack");
-        fs::create_dir_all(pack.join("skins/demo")).unwrap();
-        fs::create_dir_all(pack.join("__MACOSX/skins")).unwrap();
+        let item = dir.join("item");
+        fs::create_dir_all(item.join("assets")).unwrap();
+        fs::create_dir_all(item.join("__MACOSX/assets")).unwrap();
         fs::write(
-            pack.join("pack.json"),
-            br#"{"manifestVersion":1,"packId":"t","publisherId":"test","version":"1.0.0","name":"T","description":""}"#,
+            item.join("theme.json"),
+            br#"{"id":"t","publisherId":"test","version":"1.0.0","name":"T","tokens":{}}"#,
         )
         .unwrap();
-        fs::write(pack.join("skins/demo/skin.json"), b"{}").unwrap();
-        fs::write(pack.join("__MACOSX/._pack.json"), b"junk").unwrap();
-        fs::write(pack.join("skins/demo/._skin.json"), b"appledouble").unwrap();
-        fs::write(pack.join(".DS_Store"), b"store").unwrap();
+        fs::write(item.join("assets/bg.png"), b"png").unwrap();
+        fs::write(item.join("__MACOSX/._theme.json"), b"junk").unwrap();
+        fs::write(item.join("assets/._bg.png"), b"appledouble").unwrap();
+        fs::write(item.join(".DS_Store"), b"store").unwrap();
 
         let spk = dir.join("out.spk");
-        write_pack_archive(&pack, &spk).unwrap();
+        write_pack_archive(&item, &spk).unwrap();
 
         let extract = extract_pack_archive(&spk).unwrap();
-        let root = find_pack_root(&extract).unwrap();
+        let root = find_item_root(&extract).unwrap();
         assert!(!root.join("__MACOSX").exists());
         assert!(!root.join(".DS_Store").exists());
-        assert!(!root.join("skins/demo/._skin.json").exists());
-        assert!(root.join("skins/demo/skin.json").is_file());
+        assert!(!root.join("assets/._bg.png").exists());
+        assert!(root.join("assets/bg.png").is_file());
         cleanup_pack_extract_dir(&extract);
         let _ = fs::remove_dir_all(&dir);
     }

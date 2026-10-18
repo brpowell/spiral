@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { exportItemWithToast } from "../../lib/items/itemActions";
-import { isPackSemver } from "../../lib/packs/packManifest";
+import { isSemver } from "../../lib/items/itemIds";
 import { getItemExportDefaults } from "../../lib/tauri";
 import { Button } from "../common/Button/Button";
 import { FormField } from "../common/Field/Field";
@@ -59,7 +59,7 @@ export function ExportItemModal({
   }, [open, itemId]);
 
   const trimmedVersion = version.trim();
-  const versionValid = isPackSemver(trimmedVersion);
+  const versionValid = isSemver(trimmedVersion);
   const canSubmit =
     loadState === "ready" &&
     name.trim().length > 0 &&

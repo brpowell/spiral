@@ -9,7 +9,7 @@ body:
       options:
         - Desktop app
         - Registry (apps/registry)
-        - Pack format (libs/spk-format)
+        - Item format (libs/spk-format)
         - Not sure
     validations:
       required: true

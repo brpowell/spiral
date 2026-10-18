@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in Spiral, the registry, or the pack format is not working
+description: Something in Spiral, the registry, or the item format is not working
 labels: ["bug"]
 body:
   - type: markdown
@@ -13,7 +13,7 @@ body:
       options:
         - Desktop app
         - Registry (apps/registry)
-        - Pack format (libs/spk-format)
+        - Item format (libs/spk-format)
         - Not sure
     validations:
       required: true

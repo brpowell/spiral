@@ -16,7 +16,7 @@ PR titles follow [Conventional Commits](https://www.conventionalcommits.org/), f
 | --- | --- |
 | `apps/desktop` | The Spiral app: Tauri 2, React + TypeScript, Rust backend. Has its own [AGENTS.md](apps/desktop/AGENTS.md). |
 | `apps/registry` | `spk-registry`: Rust, Axum, SQLite. The admin panel is a Preact app in `apps/registry/admin`. |
-| `libs/spk-format` | The `.spk` pack format shared by the app and the registry. |
+| `libs/spk-format` | The `.spk` item format shared by the app and the registry. |
 
 This is one Cargo workspace. The app and the registry both depend on `spk-format`, so a change to the format can break either; run both sets of checks.
 

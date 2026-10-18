@@ -1,4 +1,5 @@
-//! Spiral pack format: `pack.json` contracts, contribution validators, and `.spk` archives.
+//! Spiral item format: item manifests (`theme.json`, `skin.json`, `viz.json`, `sound.json`),
+//! their validators, and `.spk` archives.
 
 mod archive;
 mod item;
@@ -10,9 +11,8 @@ mod visualizer;
 
 pub use archive::{
     cleanup_pack_extract_dir, extract_pack_archive, extract_pack_archive_with_limits,
-    find_item_root, find_pack_root, write_pack_archive, ExtractLimits,
-    DEFAULT_MAX_COMPRESSION_RATIO, DEFAULT_MAX_ENTRIES, DEFAULT_MAX_UNCOMPRESSED_BYTES,
-    DEFAULT_RATIO_CHECK_MIN_BYTES,
+    find_item_root, write_pack_archive, ExtractLimits, DEFAULT_MAX_COMPRESSION_RATIO,
+    DEFAULT_MAX_ENTRIES, DEFAULT_MAX_UNCOMPRESSED_BYTES, DEFAULT_RATIO_CHECK_MIN_BYTES,
 };
 pub use item::{
     detect_item_type, effective_item_id, item_dir_name, item_id_prefix, item_manifest_filename,
@@ -45,9 +45,8 @@ pub use visualizer::{
     VizManifest,
 };
 
-/// JSON Schema documents for pack and contribution manifests (source of truth).
+/// JSON Schema documents for item manifests (source of truth).
 pub mod schemas {
-    pub const PACK_V1: &str = include_str!("../schemas/pack-v1.schema.json");
     pub const THEME_V1: &str = include_str!("../schemas/theme-v1.schema.json");
     pub const SKIN_V1: &str = include_str!("../schemas/skin-v1.schema.json");
     pub const VIZ_V1: &str = include_str!("../schemas/viz-v1.schema.json");

@@ -11,7 +11,7 @@ Report it privately in one of these ways:
 
 Please include, as far as you can:
 
-- what is affected (the desktop app, the registry service, or the pack format library) and the version or commit;
+- what is affected (the desktop app, the registry service, or the item format library) and the version or commit;
 - how to reproduce the problem, ideally with a minimal example such as a crafted `.spk` or request;
 - what you believe the impact is.
 
@@ -29,11 +29,11 @@ Security fixes are made on `main` and released as a new version of the desktop a
 
 In scope:
 
-- the desktop app (`apps/desktop`), including how it opens, installs and runs packs;
+- the desktop app (`apps/desktop`), including how it opens, installs and runs items;
 - the registry service (`apps/registry`), including upload handling, authentication, storage and what it serves;
-- the pack format library (`libs/spk-format`), including archive extraction and manifest validation.
+- the item format library (`libs/spk-format`), including archive extraction and manifest validation.
 
-Examples of reports we want: path traversal or arbitrary file writes from a crafted pack, resource exhaustion from a small archive, authentication bypass on the registry admin endpoints, and content served from the registry that can execute in a browser.
+Examples of reports we want: path traversal or arbitrary file writes from a crafted item, resource exhaustion from a small archive, authentication bypass on the registry admin endpoints, and content served from the registry that can execute in a browser.
 
 Generally not in scope:
 

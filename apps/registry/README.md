@@ -80,7 +80,7 @@ All configuration is through environment variables.
 | Env var | Default | Notes |
 | --- | --- | --- |
 | `BIND_ADDR` | `127.0.0.1:8787` | Listen address. Use `0.0.0.0:<port>` inside a container. |
-| `INSTANCE_NAME` | `Spiral Pack Registry` | Reported by `GET /v1/meta`. |
+| `INSTANCE_NAME` | `Spiral Registry` | Reported by `GET /v1/meta`. |
 | `DATABASE_URL` | `sqlite:data/registry.db?mode=rwc` | SQLite only for now; a Postgres URL fails fast. |
 | `ADMIN_PATH` | `/admin` | Where the admin panel is served. The admin API is under `<ADMIN_PATH>/api`. Must start with `/`, may not be `/` or under `/v1`; letters, digits, `-`, `_` and `.` only. A non-default path keeps the panel off the obvious URL, but the token is still what protects it. |
 | `AUTO_MIGRATE` | `true` | Apply pending schema migrations at startup. Set `false` to run them yourself with `spk-registry migrate`. |
