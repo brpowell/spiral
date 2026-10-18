@@ -3,8 +3,8 @@ import { useLocation } from 'preact-iso'
 import { BASE } from '../constants'
 import {
   ApiError,
-  listAdminPacks,
-  purgePack,
+  listAdminItems,
+  purgeItem,
   purgeVersion,
   unyankVersion,
   yankVersion,
@@ -13,36 +13,39 @@ import { PurgeDialog } from '../components/PurgeDialog'
 import { StatusBar } from '../components/StatusBar'
 import { usePurgeDialog, useStatus } from '../hooks'
 import { formatBytes, shortSha } from '../lib/format'
-import { groupPacks } from '../lib/groupPacks'
-import type { PackGroup } from '../types'
+import { groupItems, itemKey } from '../lib/groupItems'
+import type { ItemGroup } from '../types'
 
 type Props = {
   publisherId: string
-  packId: string
+  itemType: string
+  id: string
   onUnauthorized: () => void
 }
 
-export function PackDetailView({
+export function ItemDetailView({
   publisherId,
-  packId,
+  itemType,
+  id,
   onUnauthorized,
 }: Props) {
   const { route } = useLocation()
-  const packKey = `${publisherId}/${packId}`
+  const itemRef = { publisherId, itemType, id }
+  const key = itemKey(publisherId, itemType, id)
 
   const { message, kind, setStatus } = useStatus()
   const purge = usePurgeDialog()
-  const [pack, setPack] = useState<PackGroup | null | undefined>(undefined)
+  const [item, setItem] = useState<ItemGroup | null | undefined>(undefined)
 
   const refresh = useCallback(async () => {
     setStatus('Loading…')
     try {
-      const data = await listAdminPacks()
-      const groups = groupPacks(data.versions || [])
-      const found = groups.find((g) => g.key === packKey) || null
-      setPack(found)
+      const data = await listAdminItems()
+      const groups = groupItems(data.versions || [])
+      const found = groups.find((g) => g.key === key) || null
+      setItem(found)
       if (!found) {
-        setStatus(`Pack ${packKey} not found.`, 'err')
+        setStatus(`Item ${key} not found.`, 'err')
       } else {
         setStatus(`Loaded ${found.versions.length} version(s).`, 'ok')
       }
@@ -53,7 +56,7 @@ export function PackDetailView({
       }
       setStatus(String((e as Error).message || e), 'err')
     }
-  }, [onUnauthorized, packKey, setStatus])
+  }, [onUnauthorized, key, setStatus])
 
   useEffect(() => {
     void refresh()
@@ -62,11 +65,11 @@ export function PackDetailView({
   async function onYank(version: string, yanked: boolean) {
     try {
       if (yanked) {
-        await unyankVersion(publisherId, packId, version)
-        setStatus(`Unyanked ${packKey}@${version}`, 'ok')
+        await unyankVersion(itemRef, version)
+        setStatus(`Unyanked ${key}@${version}`, 'ok')
       } else {
-        await yankVersion(publisherId, packId, version)
-        setStatus(`Yanked ${packKey}@${version}`, 'ok')
+        await yankVersion(itemRef, version)
+        setStatus(`Yanked ${key}@${version}`, 'ok')
       }
       await refresh()
     } catch (e) {
@@ -86,7 +89,7 @@ export function PackDetailView({
           class="secondary"
           onClick={() => route(`${BASE}/`)}
         >
-          ← All packs
+          ← All items
         </button>
       </p>
 
@@ -94,9 +97,9 @@ export function PackDetailView({
         <div class="row" style={{ justifyContent: 'space-between' }}>
           <div>
             <h2 style={{ marginTop: 0, marginBottom: '0.25rem' }}>
-              {pack?.previewUrl ? (
+              {item?.previewUrl ? (
                 <img
-                  src={pack.previewUrl}
+                  src={item.previewUrl}
                   alt=""
                   width={32}
                   height={32}
@@ -108,14 +111,11 @@ export function PackDetailView({
                   }}
                 />
               ) : null}
-              <code>{packKey}</code>
+              <code>{item?.effectiveId ?? key}</code>
             </h2>
-            {pack ? (
+            {item ? (
               <p class="muted" style={{ margin: 0 }}>
-                {pack.name}
-                {pack.contributionTypes.length
-                  ? ` · ${pack.contributionTypes.join(', ')}`
-                  : ''}
+                {item.name} · {item.itemType}
               </p>
             ) : null}
           </div>
@@ -123,17 +123,17 @@ export function PackDetailView({
             <button type="button" class="secondary" onClick={() => void refresh()}>
               Refresh
             </button>
-            {pack ? (
+            {item ? (
               <button
                 type="button"
                 class="danger"
                 onClick={() =>
                   purge.openPurge({
-                    confirm: packKey,
+                    confirm: key,
                     onConfirm: async (confirm, reason) => {
                       try {
-                        await purgePack(publisherId, packId, confirm, reason)
-                        setStatus(`Purged ${packKey}`, 'ok')
+                        await purgeItem(itemRef, confirm, reason)
+                        setStatus(`Purged ${key}`, 'ok')
                         route(`${BASE}/`)
                       } catch (err) {
                         if (err instanceof ApiError && err.status === 401) {
@@ -146,16 +146,16 @@ export function PackDetailView({
                   })
                 }
               >
-                Purge pack
+                Purge item
               </button>
             ) : null}
           </div>
         </div>
 
-        {pack === undefined ? (
+        {item === undefined ? (
           <p class="muted">Loading…</p>
-        ) : pack === null ? (
-          <p class="muted">This pack has no versions (or was purged).</p>
+        ) : item === null ? (
+          <p class="muted">This item has no versions (or was purged).</p>
         ) : (
           <table>
             <thead>
@@ -167,9 +167,9 @@ export function PackDetailView({
               </tr>
             </thead>
             <tbody>
-              {pack.versions.map((v) => {
+              {item.versions.map((v) => {
                 const yanked = !!v.yankedAt
-                const id = `${packKey}@${v.version}`
+                const label = `${key}@${v.version}`
                 return (
                   <tr key={v.version}>
                     <td>
@@ -202,17 +202,16 @@ export function PackDetailView({
                         class="danger"
                         onClick={() =>
                           purge.openPurge({
-                            confirm: id,
+                            confirm: label,
                             onConfirm: async (confirm, reason) => {
                               try {
                                 await purgeVersion(
-                                  publisherId,
-                                  packId,
+                                  itemRef,
                                   v.version,
                                   confirm,
                                   reason,
                                 )
-                                setStatus(`Purged ${id}`, 'ok')
+                                setStatus(`Purged ${label}`, 'ok')
                                 await refresh()
                               } catch (err) {
                                 if (

@@ -8,6 +8,9 @@ use anyhow::{bail, Context, Result};
 /// Wire protocol version spoken by this instance (`GET /v1/meta`).
 pub const PROTOCOL_VERSION: u32 = 2;
 
+/// Default mount point of the admin panel and its API (`ADMIN_PATH`).
+pub const DEFAULT_ADMIN_PATH: &str = "/admin";
+
 /// Default max `.spk` upload size (50 MiB).
 pub const DEFAULT_MAX_UPLOAD_BYTES: u64 = 50 * 1024 * 1024;
 
@@ -27,6 +30,9 @@ pub struct Config {
     pub storage: StorageConfig,
     /// Shared admin bearer token. Empty disables admin write endpoints.
     pub admin_token: String,
+    /// Where the admin panel is served (`ADMIN_PATH`, default `/admin`). The admin API lives at
+    /// `<admin_path>/api`. Normalised: leading slash, no trailing slash.
+    pub admin_path: String,
     pub max_upload_bytes: u64,
     /// Trusted proxy header for rate-limit keys (e.g. `fly-client-ip`, `cf-connecting-ip`).
     /// Empty means peer address only. Do not set this to `X-Forwarded-For`.
@@ -49,6 +55,7 @@ impl std::fmt::Debug for Config {
                     "<redacted>"
                 },
             )
+            .field("admin_path", &self.admin_path)
             .field("max_upload_bytes", &self.max_upload_bytes)
             .field("client_ip_header", &self.client_ip_header)
             .finish()
@@ -103,6 +110,8 @@ impl Config {
         let admin_token = admin_token.trim().to_string();
         validate_admin_token(&admin_token)?;
 
+        let admin_path = normalize_admin_path(&env::var("ADMIN_PATH").unwrap_or_default())?;
+
         let client_ip_header =
             env::var("CLIENT_IP_HEADER").unwrap_or_else(|_| DEFAULT_CLIENT_IP_HEADER.to_string());
         let client_ip_header = client_ip_header.trim().to_ascii_lowercase();
@@ -116,6 +125,7 @@ impl Config {
             auto_migrate,
             storage,
             admin_token,
+            admin_path,
             max_upload_bytes,
             client_ip_header,
         })
@@ -158,6 +168,41 @@ fn parse_bool(name: &str, raw: &str, default: bool) -> Result<bool> {
     }
 }
 
+/// Validate and normalise `ADMIN_PATH`. Empty means the default. The path must start with `/`,
+/// is stored without a trailing slash, and may not be `/` or live under `/v1` (the API prefix).
+/// Segments are limited to letters, digits, `-`, `_` and `.` so the value is safe to embed in
+/// routes and HTML.
+pub fn normalize_admin_path(raw: &str) -> Result<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(DEFAULT_ADMIN_PATH.to_string());
+    }
+    if !trimmed.starts_with('/') {
+        bail!("ADMIN_PATH must start with '/', got {trimmed:?}");
+    }
+    let path = trimmed.trim_end_matches('/');
+    if path.is_empty() {
+        bail!("ADMIN_PATH cannot be '/': the admin panel needs its own prefix");
+    }
+    for segment in path[1..].split('/') {
+        let ok = !segment.is_empty()
+            && segment != "."
+            && segment != ".."
+            && segment
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'));
+        if !ok {
+            bail!(
+                "ADMIN_PATH segment {segment:?} is invalid (use letters, digits, '-', '_' or '.')"
+            );
+        }
+    }
+    if path == "/v1" || path.starts_with("/v1/") {
+        bail!("ADMIN_PATH cannot be under /v1, which is reserved for the API");
+    }
+    Ok(path.to_string())
+}
+
 /// Empty means peer address only. A non-empty value must be a valid HTTP header name.
 fn validate_client_ip_header(name: &str) -> Result<()> {
     if name.is_empty() {
@@ -194,6 +239,39 @@ fn sqlite_file_path(url: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn admin_path_defaults_and_normalises() {
+        assert_eq!(normalize_admin_path("").unwrap(), "/admin");
+        assert_eq!(normalize_admin_path("  ").unwrap(), "/admin");
+        assert_eq!(normalize_admin_path("/ops/").unwrap(), "/ops");
+        assert_eq!(normalize_admin_path("/a-b_c.d/e2").unwrap(), "/a-b_c.d/e2");
+    }
+
+    #[test]
+    fn admin_path_rejects_unsafe_values() {
+        for bad in [
+            "admin",
+            "/",
+            "//",
+            "/a//b",
+            "/a/../b",
+            "/v1",
+            "/v1/admin",
+            "/a b",
+            "/a{b}",
+            "/a?b",
+            "/<x>",
+            "/\"x\"",
+        ] {
+            assert!(
+                normalize_admin_path(bad).is_err(),
+                "{bad:?} should be rejected"
+            );
+        }
+        // Only the exact /v1 prefix is reserved.
+        assert_eq!(normalize_admin_path("/v10").unwrap(), "/v10");
+    }
 
     #[test]
     fn bool_env_parses_common_spellings() {
@@ -243,6 +321,7 @@ mod tests {
                 root: PathBuf::from("data/objects"),
             },
             admin_token: "a".repeat(MIN_ADMIN_TOKEN_BYTES),
+            admin_path: DEFAULT_ADMIN_PATH.into(),
             max_upload_bytes: DEFAULT_MAX_UPLOAD_BYTES,
             client_ip_header: DEFAULT_CLIENT_IP_HEADER.into(),
         };

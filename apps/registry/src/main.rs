@@ -93,7 +93,10 @@ fn print_startup_banner(config: &Config) {
     eprintln!("  {}", config.instance_name);
     eprintln!();
     eprintln!("  ➜  Listening   http://{}", config.bind_addr);
-    eprintln!("  ➜  Admin       http://{}/rgad", config.bind_addr);
+    eprintln!(
+        "  ➜  Admin       http://{}{}",
+        config.bind_addr, config.admin_path
+    );
     eprintln!("  ➜  Protocol    v{protocol}");
     eprintln!("  ➜  Storage     {storage}");
     eprintln!("  ➜  Auth        {admin}");

@@ -3,8 +3,8 @@ import { useCallback, useEffect, useState } from 'preact/hooks'
 import { clearToken, getToken } from './auth'
 import { BASE } from './constants'
 import { LoginView } from './views/LoginView'
-import { PackDetailView } from './views/PackDetailView'
-import { PackListView } from './views/PackListView'
+import { ItemDetailView } from './views/ItemDetailView'
+import { ItemListView } from './views/ItemListView'
 
 function Shell({
   onLogout,
@@ -45,14 +45,15 @@ function AuthedApp({ onUnauthorized }: { onUnauthorized: () => void }) {
         <Router>
           <Route
             path={BASE}
-            component={() => <PackListView onUnauthorized={onUnauthorized} />}
+            component={() => <ItemListView onUnauthorized={onUnauthorized} />}
           />
           <Route
-            path={`${BASE}/packs/:publisherId/:packId`}
-            component={(p: { publisherId: string; packId: string }) => (
-              <PackDetailView
+            path={`${BASE}/items/:publisherId/:itemType/:id`}
+            component={(p: { publisherId: string; itemType: string; id: string }) => (
+              <ItemDetailView
                 publisherId={p.publisherId}
-                packId={p.packId}
+                itemType={p.itemType}
+                id={p.id}
                 onUnauthorized={onUnauthorized}
               />
             )}

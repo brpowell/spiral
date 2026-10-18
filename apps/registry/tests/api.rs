@@ -19,6 +19,10 @@ use tower::ServiceExt;
 const TEST_ADMIN_TOKEN: &str = "test-admin-token-xxxxxxxxxxxxxxxx";
 
 async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
+    test_app_at("/admin").await
+}
+
+async fn test_app_at(admin_path: &str) -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
     let tmp = TempDir::new().expect("tempdir");
     let db_path = tmp.path().join("test.db");
     let objects = tmp.path().join("objects");
@@ -84,6 +88,7 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
                 root: tmp.path().join("objects"),
             },
             admin_token: TEST_ADMIN_TOKEN.into(),
+            admin_path: admin_path.into(),
             max_upload_bytes: 5 * 1024 * 1024,
             client_ip_header: "x-client-ip".into(),
         },
@@ -131,7 +136,12 @@ async fn security_headers_on_api_and_admin_html() {
     );
 
     let html = app
-        .oneshot(Request::builder().uri("/rgad").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/admin")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(html.status(), StatusCode::OK);
@@ -493,7 +503,7 @@ async fn admin_upload(app: &axum::Router, bytes: &[u8]) -> (StatusCode, Value) {
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/v1/rgad/items")
+                .uri("/admin/api/items")
                 .header("Authorization", format!("Bearer {TEST_ADMIN_TOKEN}"))
                 .header("Content-Type", content_type)
                 .body(Body::from(body))
@@ -744,7 +754,7 @@ async fn yank_hides_from_catalog_but_download_still_works() {
     let (status, _) = admin_json(
         &app,
         "POST",
-        "/v1/rgad/items/spiral/theme/demo-theme/versions/1.0.0/yank",
+        "/admin/api/items/spiral/theme/demo-theme/versions/1.0.0/yank",
         None,
     )
     .await;
@@ -797,7 +807,7 @@ async fn unyank_restores_version_to_catalog() {
     let (status, _) = admin_json(
         &app,
         "POST",
-        "/v1/rgad/items/spiral/theme/demo-theme/versions/1.0.0/yank",
+        "/admin/api/items/spiral/theme/demo-theme/versions/1.0.0/yank",
         None,
     )
     .await;
@@ -806,7 +816,7 @@ async fn unyank_restores_version_to_catalog() {
     let (status, body) = admin_json(
         &app,
         "POST",
-        "/v1/rgad/items/spiral/theme/demo-theme/versions/1.0.0/unyank",
+        "/admin/api/items/spiral/theme/demo-theme/versions/1.0.0/unyank",
         None,
     )
     .await;
@@ -821,7 +831,7 @@ async fn unyank_restores_version_to_catalog() {
     let (status, body) = admin_json(
         &app,
         "POST",
-        "/v1/rgad/items/spiral/theme/demo-theme/versions/1.0.0/unyank",
+        "/admin/api/items/spiral/theme/demo-theme/versions/1.0.0/unyank",
         None,
     )
     .await;
@@ -838,7 +848,7 @@ async fn purge_deletes_object_returns_410_and_writes_audit_log() {
     let (status, body) = admin_json(
         &app,
         "POST",
-        "/v1/rgad/items/spiral/theme/demo-theme/versions/1.0.0/purge",
+        "/admin/api/items/spiral/theme/demo-theme/versions/1.0.0/purge",
         Some(serde_json::json!({
             "confirm": "spiral/theme/demo-theme@1.0.0",
             "reason": "test takedown"
@@ -883,7 +893,7 @@ async fn purge_without_matching_confirm_is_noop() {
     let (status, body) = admin_json(
         &app,
         "POST",
-        "/v1/rgad/items/spiral/theme/demo-theme/versions/1.0.0/purge",
+        "/admin/api/items/spiral/theme/demo-theme/versions/1.0.0/purge",
         Some(serde_json::json!({
             "confirm": "wrong/confirm@1.0.0",
             "reason": "should not delete"
@@ -908,7 +918,12 @@ async fn admin_panel_and_list_require_token() {
 
     let response = app
         .clone()
-        .oneshot(Request::builder().uri("/rgad").body(Body::empty()).unwrap())
+        .oneshot(
+            Request::builder()
+                .uri("/admin")
+                .body(Body::empty())
+                .unwrap(),
+        )
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
@@ -917,7 +932,7 @@ async fn admin_panel_and_list_require_token() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/v1/rgad/items")
+                .uri("/admin/api/items")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -928,7 +943,7 @@ async fn admin_panel_and_list_require_token() {
     let response = app
         .oneshot(
             Request::builder()
-                .uri("/v1/rgad/items")
+                .uri("/admin/api/items")
                 .header("Authorization", "Bearer wrong-token")
                 .body(Body::empty())
                 .unwrap(),
@@ -941,13 +956,13 @@ async fn admin_panel_and_list_require_token() {
 #[tokio::test]
 async fn non_upload_route_rejects_oversized_body() {
     let (app, _tmp, _) = test_app().await;
-    // Json extractors use Axum's 2 MiB default; only POST /v1/rgad/items raises it.
+    // Json extractors use Axum's 2 MiB default; only POST /admin/api/items raises it.
     let huge = vec![b'x'; 2 * 1024 * 1024 + 1];
     let response = app
         .oneshot(
             Request::builder()
                 .method("POST")
-                .uri("/v1/rgad/items/spiral/skin/demo-skin/versions/1.1.0/purge")
+                .uri("/admin/api/items/spiral/skin/demo-skin/versions/1.1.0/purge")
                 .header("Authorization", format!("Bearer {TEST_ADMIN_TOKEN}"))
                 .header("Content-Type", "application/json")
                 .body(Body::from(huge))
@@ -969,7 +984,7 @@ async fn admin_api_rate_limit_is_per_ip() {
             .clone()
             .oneshot(
                 Request::builder()
-                    .uri("/v1/rgad/items")
+                    .uri("/admin/api/items")
                     .header("x-client-ip", ip)
                     .header("Authorization", "Bearer wrong-token")
                     .body(Body::empty())
@@ -988,7 +1003,7 @@ async fn admin_api_rate_limit_is_per_ip() {
         .clone()
         .oneshot(
             Request::builder()
-                .uri("/v1/rgad/items")
+                .uri("/admin/api/items")
                 .header("x-client-ip", ip)
                 .header("Authorization", "Bearer wrong-token")
                 .body(Body::empty())
@@ -1004,7 +1019,7 @@ async fn admin_api_rate_limit_is_per_ip() {
     let other_ip = app
         .oneshot(
             Request::builder()
-                .uri("/v1/rgad/items")
+                .uri("/admin/api/items")
                 .header("x-client-ip", other)
                 .header("Authorization", "Bearer wrong-token")
                 .body(Body::empty())
@@ -1080,4 +1095,78 @@ async fn download_concurrency_is_per_ip() {
         .await
         .unwrap();
     assert_eq!(other_ip.status(), StatusCode::OK);
+}
+
+async fn get_text(app: &axum::Router, uri: &str) -> (StatusCode, String, Option<String>) {
+    let response = app
+        .clone()
+        .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .map(|v| v.to_str().unwrap().to_string());
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    (
+        status,
+        String::from_utf8_lossy(&bytes).into_owned(),
+        content_type,
+    )
+}
+
+#[tokio::test]
+async fn admin_panel_serves_the_bundle_with_its_mount_path() {
+    let (app, _tmp, _) = test_app().await;
+
+    for uri in ["/admin", "/admin/", "/admin/items/spiral/skin/demo-skin"] {
+        let (status, html, content_type) = get_text(&app, uri).await;
+        assert_eq!(status, StatusCode::OK, "{uri}");
+        assert!(content_type.unwrap().starts_with("text/html"), "{uri}");
+        assert!(html.contains("<base href=\"/admin/\""), "{uri}: {html}");
+        assert!(
+            html.contains("<meta name=\"admin-base\" content=\"/admin\""),
+            "{uri}: {html}"
+        );
+    }
+
+    // The old fixed path is gone.
+    let (status, _, _) = get_text(&app, "/rgad").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn admin_path_is_configurable() {
+    let (app, _tmp, _) = test_app_at("/ops/registry-admin").await;
+
+    let (status, html, _) = get_text(&app, "/ops/registry-admin").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        html.contains("<base href=\"/ops/registry-admin/\""),
+        "{html}"
+    );
+    assert!(html.contains("content=\"/ops/registry-admin\""), "{html}");
+
+    // A hashed bundle asset is served from under the mount path.
+    let asset = html
+        .split('"')
+        .find(|part| part.starts_with("./assets/") && part.ends_with(".js"))
+        .expect("bundle script in index.html")
+        .trim_start_matches("./");
+    let (status, _, content_type) = get_text(&app, &format!("/ops/registry-admin/{asset}")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(content_type.unwrap().starts_with("text/javascript"));
+
+    // The API moves with it and still needs the token.
+    let (status, _, _) = get_text(&app, "/ops/registry-admin/api/items").await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+    let (status, body) = admin_json(&app, "GET", "/ops/registry-admin/api/items", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    // Nothing is left at the default path.
+    let (status, _, _) = get_text(&app, "/admin").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = admin_json(&app, "GET", "/admin/api/items", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
 }

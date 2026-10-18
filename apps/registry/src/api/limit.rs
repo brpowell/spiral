@@ -21,7 +21,7 @@ use http_body_util::BodyExt;
 
 use super::ApiError;
 
-/// Tight cap on `/v1/rgad/*` (token guessing / admin upload).
+/// Tight cap on the admin API (`<ADMIN_PATH>/api/*`): token guessing and admin upload.
 pub const ADMIN_REQUESTS_PER_MINUTE: u32 = 10;
 
 /// Moderate cap on catalog list/detail, meta, and previews.

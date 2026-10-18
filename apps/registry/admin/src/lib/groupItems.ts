@@ -1,29 +1,30 @@
-import type { AdminVersionSummary, PackGroup } from '../types'
+import type { AdminVersionSummary, ItemGroup } from '../types'
 
-/** Group flat admin versions into packs (newest version first within each pack). */
-export function groupPacks(versions: AdminVersionSummary[]): PackGroup[] {
+export function itemKey(publisherId: string, itemType: string, id: string): string {
+  return `${publisherId}/${itemType}/${id}`
+}
+
+/** Group flat admin versions into items (newest version first within each item). */
+export function groupItems(versions: AdminVersionSummary[]): ItemGroup[] {
   const map = new Map<string, AdminVersionSummary[]>()
   for (const v of versions) {
-    const key = `${v.publisherId}/${v.packId}`
+    const key = itemKey(v.publisherId, v.itemType, v.id)
     const list = map.get(key) || []
     list.push(v)
     map.set(key, list)
   }
 
-  const groups: PackGroup[] = []
+  const groups: ItemGroup[] = []
   for (const [key, list] of map) {
     list.sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1))
     const latest = list[0]
-    const types = new Set<string>()
-    for (const v of list) {
-      for (const t of v.contributionTypes || []) types.add(t)
-    }
     groups.push({
       publisherId: latest.publisherId,
-      packId: latest.packId,
+      itemType: latest.itemType,
+      id: latest.id,
       key,
+      effectiveId: latest.effectiveId,
       name: latest.name,
-      contributionTypes: [...types].sort(),
       previewUrl: latest.previewUrl,
       versions: list,
       liveCount: list.filter((v) => !v.yankedAt).length,

@@ -16,11 +16,16 @@ use crate::AppState;
 pub use error::{ApiError, ApiResult};
 pub(crate) use limit::ClientIpSource;
 
-pub fn router(upload_body_limit: usize, client_ip: ClientIpSource) -> Router<AppState> {
-    let admin_api = admin::api_router(upload_body_limit).layer(middleware::from_fn_with_state(
-        limit::RateLimit::new(limit::ADMIN_REQUESTS_PER_MINUTE, client_ip.clone()),
-        limit::rate_limit,
-    ));
+pub fn router(
+    upload_body_limit: usize,
+    client_ip: ClientIpSource,
+    admin_path: &str,
+) -> Router<AppState> {
+    let admin_api =
+        admin::api_router(upload_body_limit, admin_path).layer(middleware::from_fn_with_state(
+            limit::RateLimit::new(limit::ADMIN_REQUESTS_PER_MINUTE, client_ip.clone()),
+            limit::rate_limit,
+        ));
 
     let catalog = Router::new()
         .merge(meta::router())
@@ -39,6 +44,6 @@ pub fn router(upload_body_limit: usize, client_ip: ClientIpSource) -> Router<App
         .merge(admin_api)
         .merge(downloads)
         .merge(catalog)
-        .merge(admin::panel_router())
+        .merge(admin::panel_router(admin_path))
         .layer(middleware::from_fn(headers::security_headers))
 }

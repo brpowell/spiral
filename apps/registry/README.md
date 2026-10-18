@@ -61,14 +61,14 @@ PY
 Then upload it with the admin token:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8787/v1/rgad/items \
+curl -s -X POST http://127.0.0.1:8787/admin/api/items \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -F "spk=@demo-theme.spk" | jq
 ```
 
 The registry validates the item with `spk-format`, computes its SHA-256 and uncompressed size, extracts the preview image (declared by the manifest's `preview`) and the optional `README.md` and `CHANGELOG.md`, stores the archive, and returns the new version's metadata. A version is immutable: uploading one that already exists returns `409 conflict`. A request without a valid token returns `401`.
 
-You can do the same from the admin panel at <http://127.0.0.1:8787/rgad>. Enter the token on the page; it is kept in `sessionStorage` for that tab only.
+You can do the same from the admin panel at <http://127.0.0.1:8787/admin>. Enter the token on the page; it is kept in `sessionStorage` for that tab only.
 
 ## Configuration
 
@@ -79,17 +79,18 @@ All configuration is through environment variables.
 | `BIND_ADDR` | `127.0.0.1:8787` | Listen address. Use `0.0.0.0:<port>` inside a container. |
 | `INSTANCE_NAME` | `Spiral Pack Registry` | Reported by `GET /v1/meta`. |
 | `DATABASE_URL` | `sqlite:data/registry.db?mode=rwc` | SQLite only for now; a Postgres URL fails fast. |
+| `ADMIN_PATH` | `/admin` | Where the admin panel is served. The admin API is under `<ADMIN_PATH>/api`. Must start with `/`, may not be `/` or under `/v1`; letters, digits, `-`, `_` and `.` only. A non-default path keeps the panel off the obvious URL, but the token is still what protects it. |
 | `AUTO_MIGRATE` | `true` | Apply pending schema migrations at startup. Set `false` to run them yourself with `spk-registry migrate`. |
 | `STORAGE_BACKEND` | `local` | `s3` is stubbed. |
 | `STORAGE_LOCAL_PATH` | `data/objects` | Object root for the `local` backend. |
 | `ADMIN_TOKEN` | _(empty)_ | Shared admin bearer token. Empty disables the admin API: its endpoints return `503 admin_disabled` (the panel page still loads but can do nothing). When set it must be at least 32 bytes; a shorter value stops the server at startup. |
-| `MAX_UPLOAD_BYTES` | `52428800` (50 MiB) | Hard limit for `POST /v1/rgad/items` only; other routes keep Axum's 2 MiB default. |
+| `MAX_UPLOAD_BYTES` | `52428800` (50 MiB) | Hard limit for `POST <ADMIN_PATH>/api/items` only; other routes keep Axum's 2 MiB default. |
 | `CLIENT_IP_HEADER` | `fly-client-ip` | Trusted proxy header used as the rate-limit key (`cf-connecting-ip`, `x-real-ip`, and so on). Empty means use the peer address only. Never point this at `X-Forwarded-For`, which clients can spoof. |
 | `RUST_LOG` | `info` | Log filter, in [`tracing-subscriber` `EnvFilter`](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html) syntax. |
 
 Per-client limits, keyed on `CLIENT_IP_HEADER` and then the peer address:
 
-- `/v1/rgad/*`: 10 requests per minute
+- `<ADMIN_PATH>/api/*`: 10 requests per minute
 - Catalog, meta and preview routes: 120 requests per minute
 - `/download`: 4 concurrent `.spk` transfers
 
@@ -108,13 +109,13 @@ Everything is under `/v1`. Errors are JSON: `{ "code": "...", "message": "..." }
 | `GET` | `/v1/items/:publisherId/:type/:id/versions/:version/download` | The `.spk`. Yanked versions still resolve; purged ones return `410 Gone`. |
 | `GET` | `/v1/items/:publisherId/:type/:id/versions/:version/preview` | Preview image, always streamed by the registry (never redirected). `latest` works; yanked is fine; purged returns `410`. |
 | `POST` | `/v1/items/updates` | Batch update check. Body: `{ "appVersion": "0.4.0", "items": [{ "publisherId", "itemType", "id", "version" }] }`, at most 200 items. Returns `{ updates: [{ publisherId, itemType, id, installedVersion, latest }], unlisted: [{ publisherId, itemType, id }] }`. `latest` is the newest version above the installed one; when `appVersion` is given, versions whose `minAppVersion` it does not satisfy are skipped. `unlisted` items have no published version here. |
-| `GET` | `/rgad` | Admin panel (single-page app; the token is entered in the page) |
-| `GET` | `/v1/rgad/items` | Admin list, including yanked versions. Requires the token. |
-| `POST` | `/v1/rgad/items` | Multipart upload (`spk` field required). Validates, hashes and stores the item. |
-| `POST` | `/v1/rgad/items/:publisherId/:type/:id/versions/:version/yank` | Soft delete: hides the version from the catalog but keeps the download. |
-| `POST` | `/v1/rgad/items/:publisherId/:type/:id/versions/:version/unyank` | Reverses a yank. |
-| `POST` | `/v1/rgad/items/:publisherId/:type/:id/versions/:version/purge` | Hard delete. Body: `{ "confirm": "publisher/type/id@version", "reason": "…" }` |
-| `POST` | `/v1/rgad/items/:publisherId/:type/:id/purge` | Delete a whole item. Body: `{ "confirm": "publisher/type/id", "reason": "…" }` |
+| `GET` | `<ADMIN_PATH>` | Admin panel, default `/admin` (single-page app; the token is entered in the page) |
+| `GET` | `<ADMIN_PATH>/api/items` | Admin list, including yanked versions. Requires the token. |
+| `POST` | `<ADMIN_PATH>/api/items` | Multipart upload (`spk` field required). Validates, hashes and stores the item. |
+| `POST` | `<ADMIN_PATH>/api/items/:publisherId/:type/:id/versions/:version/yank` | Soft delete: hides the version from the catalog but keeps the download. |
+| `POST` | `<ADMIN_PATH>/api/items/:publisherId/:type/:id/versions/:version/unyank` | Reverses a yank. |
+| `POST` | `<ADMIN_PATH>/api/items/:publisherId/:type/:id/versions/:version/purge` | Hard delete. Body: `{ "confirm": "publisher/type/id@version", "reason": "…" }` |
+| `POST` | `<ADMIN_PATH>/api/items/:publisherId/:type/:id/purge` | Delete a whole item. Body: `{ "confirm": "publisher/type/id", "reason": "…" }` |
 
 Admin requests authenticate with `Authorization: Bearer <ADMIN_TOKEN>` or `X-Admin-Token: <ADMIN_TOKEN>`.
 
