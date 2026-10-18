@@ -7,8 +7,8 @@ use std::path::Path;
 use chrono::Utc;
 use sha2::{Digest, Sha256};
 use spk_format::{
-    cleanup_pack_extract_dir, extract_pack_archive, find_item_root, validate_item_dir,
-    PACK_CHANGELOG_FILENAME, PACK_CHANGELOG_MAX_BYTES, PACK_README_FILENAME, PACK_README_MAX_BYTES,
+    cleanup_extract_dir, extract_archive, find_item_root, validate_item_dir, CHANGELOG_FILENAME,
+    CHANGELOG_MAX_BYTES, README_FILENAME, README_MAX_BYTES,
 };
 
 use crate::models::ItemVersionRow;
@@ -49,7 +49,7 @@ pub fn validate_item_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError
         .map_err(|e| PublishError::invalid(format!("failed to flush temp archive: {e}")))?;
 
     let archive_path = tmp.path().to_path_buf();
-    let extract_dir = extract_pack_archive(&archive_path).map_err(PublishError::invalid)?;
+    let extract_dir = extract_archive(&archive_path).map_err(PublishError::invalid)?;
 
     let result = (|| {
         let item_dir = find_item_root(&extract_dir).map_err(PublishError::invalid)?;
@@ -108,7 +108,7 @@ pub fn validate_item_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError
         })
     })();
 
-    cleanup_pack_extract_dir(&extract_dir);
+    cleanup_extract_dir(&extract_dir);
     result
 }
 
@@ -152,11 +152,11 @@ pub fn directory_size_bytes(root: &Path) -> Result<u64, PublishError> {
 }
 
 fn read_item_readme(item_dir: &Path) -> Result<Option<String>, PublishError> {
-    read_optional_item_text(item_dir, PACK_README_FILENAME, PACK_README_MAX_BYTES)
+    read_optional_item_text(item_dir, README_FILENAME, README_MAX_BYTES)
 }
 
 fn read_item_changelog(item_dir: &Path) -> Result<Option<String>, PublishError> {
-    read_optional_item_text(item_dir, PACK_CHANGELOG_FILENAME, PACK_CHANGELOG_MAX_BYTES)
+    read_optional_item_text(item_dir, CHANGELOG_FILENAME, CHANGELOG_MAX_BYTES)
 }
 
 fn read_optional_item_text(

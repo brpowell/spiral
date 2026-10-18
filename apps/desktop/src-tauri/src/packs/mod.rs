@@ -25,11 +25,10 @@ pub use workshop_watch::start_workshop_watch;
 
 // Re-export the shared format crate so call sites keep `packs::…` paths.
 pub use spk_format::{
-    cleanup_pack_extract_dir, effective_item_id, extract_pack_archive, find_item_root,
-    is_kebab_slug, item_dir_name, item_manifest_filename, item_type_folder, read_item_manifest,
-    slugify_id, validate_item_dir, write_pack_archive, ItemManifest, CONTRIBUTION_TYPE_FOLDERS,
-    PACK_ARCHIVE_EXTENSION, PACK_CHANGELOG_FILENAME, PACK_CHANGELOG_MAX_BYTES,
-    PACK_README_FILENAME, PACK_README_MAX_BYTES,
+    cleanup_extract_dir, effective_item_id, extract_archive, find_item_root, is_kebab_slug,
+    item_dir_name, item_manifest_filename, item_type_folder, read_item_manifest, slugify_id,
+    validate_item_dir, write_archive, ItemManifest, ARCHIVE_EXTENSION, CHANGELOG_FILENAME,
+    CHANGELOG_MAX_BYTES, CONTRIBUTION_TYPE_FOLDERS, README_FILENAME, README_MAX_BYTES,
 };
 
 use serde::{Deserialize, Serialize};

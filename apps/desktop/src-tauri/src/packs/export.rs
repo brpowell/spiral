@@ -1,7 +1,7 @@
 //! Export a workshop (or linked) item directory to a `.spk` build artifact.
 
 use super::install::{copy_dir_recursive, validate_item_for_install};
-use super::{item_manifest_filename, write_pack_archive, ItemManifest};
+use super::{item_manifest_filename, write_archive, ItemManifest};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -65,7 +65,7 @@ pub fn export_item_dir_to_spk(
         // Confirm the stamped item still validates (semver, etc.).
         let stamped = validate_item_for_install(&staging)?;
 
-        write_pack_archive(&staging, dest_spk)?;
+        write_archive(&staging, dest_spk)?;
         Ok(ExportItemResult {
             path: dest_spk.to_string_lossy().into_owned(),
             effective_id: stamped.effective_id(),
@@ -116,7 +116,7 @@ pub fn read_export_defaults(item_dir: &Path) -> Result<ItemManifest, String> {
 #[cfg(test)]
 mod tests {
     use super::super::install::test_support::*;
-    use super::super::{extract_pack_archive, find_item_root};
+    use super::super::{extract_archive, find_item_root};
     use super::*;
 
     #[test]
@@ -146,7 +146,7 @@ mod tests {
             "source manifest must not change on export"
         );
 
-        let extract = extract_pack_archive(&spk).unwrap();
+        let extract = extract_archive(&spk).unwrap();
         let item_root = find_item_root(&extract).unwrap();
         let stamped = validate_item_for_install(&item_root).unwrap();
         assert_eq!(stamped.version, "1.2.0");
@@ -154,7 +154,7 @@ mod tests {
         assert_eq!(stamped.name, "Shipped Theme");
         assert_eq!(stamped.description, "exported");
 
-        super::super::cleanup_pack_extract_dir(&extract);
+        super::super::cleanup_extract_dir(&extract);
         let _ = fs::remove_dir_all(&root);
     }
 

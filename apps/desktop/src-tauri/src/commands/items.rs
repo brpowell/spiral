@@ -10,8 +10,7 @@ use crate::packs::{
     self, builtin_packs_root, ensure_workshop_root, installed_packs_root, is_kebab_slug,
     item_dir_name, item_manifest_filename, item_type_folder, read_item_manifest, slugify_id,
     workshop_packs_root, ExportItemResult, InstallItemResult, ItemSummary, PackZone,
-    PACK_ARCHIVE_EXTENSION, PACK_CHANGELOG_FILENAME, PACK_CHANGELOG_MAX_BYTES,
-    PACK_README_FILENAME, PACK_README_MAX_BYTES,
+    ARCHIVE_EXTENSION, CHANGELOG_FILENAME, CHANGELOG_MAX_BYTES, README_FILENAME, README_MAX_BYTES,
 };
 use crate::settings;
 use serde::Serialize;
@@ -302,7 +301,7 @@ pub fn export_item(
         "{}-{}{}",
         item_dir_name(&item.publisher_id, &item.local_id),
         metadata.version.trim(),
-        PACK_ARCHIVE_EXTENSION
+        ARCHIVE_EXTENSION
     );
     let dest = rfd::FileDialog::new()
         .set_title("Export")
@@ -562,7 +561,7 @@ pub fn read_item_manifest_json(
 #[tauri::command]
 pub fn read_item_readme(app: AppHandle, item_dir: String) -> Result<Option<String>, String> {
     let dir = resolve_known_item_dir(&app, &item_dir)?;
-    read_item_text_at(&dir, PACK_README_FILENAME, PACK_README_MAX_BYTES)
+    read_item_text_at(&dir, README_FILENAME, README_MAX_BYTES)
 }
 
 /// Create, update, or remove item-root `README.md` for workshop or linked items.
@@ -572,8 +571,8 @@ pub fn write_item_readme(app: AppHandle, item_dir: String, content: String) -> R
     write_item_text_at(
         &app,
         &item_dir,
-        PACK_README_FILENAME,
-        PACK_README_MAX_BYTES,
+        README_FILENAME,
+        README_MAX_BYTES,
         content,
         "README can only be edited for workshop or linked items",
     )
@@ -583,7 +582,7 @@ pub fn write_item_readme(app: AppHandle, item_dir: String, content: String) -> R
 #[tauri::command]
 pub fn read_item_changelog(app: AppHandle, item_dir: String) -> Result<Option<String>, String> {
     let dir = resolve_known_item_dir(&app, &item_dir)?;
-    read_item_text_at(&dir, PACK_CHANGELOG_FILENAME, PACK_CHANGELOG_MAX_BYTES)
+    read_item_text_at(&dir, CHANGELOG_FILENAME, CHANGELOG_MAX_BYTES)
 }
 
 /// Create, update, or remove item-root `CHANGELOG.md` for workshop or linked items.
@@ -597,8 +596,8 @@ pub fn write_item_changelog(
     write_item_text_at(
         &app,
         &item_dir,
-        PACK_CHANGELOG_FILENAME,
-        PACK_CHANGELOG_MAX_BYTES,
+        CHANGELOG_FILENAME,
+        CHANGELOG_MAX_BYTES,
         content,
         "CHANGELOG can only be edited for workshop or linked items",
     )

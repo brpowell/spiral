@@ -1,10 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  isPublisherId,
-  isPackId,
-  isPackSemver,
-} from "../../lib/packs/packManifest";
+import { isPublisherId, isSlug, isSemver } from "../../lib/items/itemIds";
 import type { ItemSummary } from "../../types/item";
 import { Button } from "../common/Button/Button";
 import { FormField } from "../common/Field/Field";
@@ -63,9 +59,9 @@ export function EditItemModal({
   const trimmedPublisherId = publisherId.trim();
   const trimmedVersion = version.trim();
   // Items share the pack-era kebab-slug and semver rules.
-  const idValid = isPackId(trimmedId);
+  const idValid = isSlug(trimmedId);
   const publisherIdValid = isPublisherId(trimmedPublisherId);
-  const versionValid = isPackSemver(trimmedVersion);
+  const versionValid = isSemver(trimmedVersion);
   // Linked folders keep their path; their id and author can still change in the manifest.
   const canSubmit =
     name.trim().length > 0 &&

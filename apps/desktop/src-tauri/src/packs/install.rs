@@ -5,8 +5,8 @@
 use super::paths::{ensure_packs_ready, installed_packs_root, item_dir_in_zone};
 use super::scan::{app_version, meets_min_app_version};
 use super::{
-    cleanup_pack_extract_dir, effective_item_id, extract_pack_archive, find_item_root,
-    validate_item_dir, ItemManifest,
+    cleanup_extract_dir, effective_item_id, extract_archive, find_item_root, validate_item_dir,
+    ItemManifest,
 };
 use serde::Serialize;
 use std::fs;
@@ -183,11 +183,11 @@ fn install_item_into(
     let (item_dir, cleanup): (PathBuf, Option<PathBuf>) = if path.is_dir() {
         (path.to_path_buf(), None)
     } else {
-        let extract_dir = extract_pack_archive(path)?;
+        let extract_dir = extract_archive(path)?;
         match find_item_root(&extract_dir) {
             Ok(root) => (root, Some(extract_dir)),
             Err(e) => {
-                cleanup_pack_extract_dir(&extract_dir);
+                cleanup_extract_dir(&extract_dir);
                 return Err(e);
             }
         }
@@ -212,7 +212,7 @@ fn install_item_into(
     })();
 
     if let Some(extract_dir) = cleanup {
-        cleanup_pack_extract_dir(&extract_dir);
+        cleanup_extract_dir(&extract_dir);
     }
 
     result
@@ -270,7 +270,7 @@ pub(crate) mod test_support {
 mod tests {
     use super::test_support::*;
     use super::*;
-    use crate::packs::write_pack_archive;
+    use crate::packs::write_archive;
 
     #[test]
     fn installs_directory_under_type_folder() {
@@ -295,7 +295,7 @@ mod tests {
         write_theme_item(&src, "bryan", "midnight", "1.0.0");
         fs::write(src.join("extra.txt"), b"asset").unwrap();
         let spk = root.join("midnight.spk");
-        write_pack_archive(&src, &spk).unwrap();
+        write_archive(&src, &spk).unwrap();
         let installed = root.join("installed");
 
         let result = install_item_into(&installed, &spk, None).unwrap();
@@ -388,7 +388,7 @@ mod tests {
         fs::create_dir_all(&src).unwrap();
         fs::write(src.join("pack.json"), "{}").unwrap();
         let spk = root.join("old.spk");
-        write_pack_archive(&src, &spk).unwrap();
+        write_archive(&src, &spk).unwrap();
 
         let err = install_item_into(&root.join("installed"), &spk, None).unwrap_err();
         assert!(err.contains("item manifest"), "{err}");

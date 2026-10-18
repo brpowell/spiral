@@ -76,7 +76,7 @@ Also, streaming platforms algorithmically spy on you. Spiral doesn't.
 
 ## Make it yours
 
-Swap the whole app with a theme, or jump into skin mode for a compact, player-focused experience. Use the built-in pack system to install and create your own.
+Swap the whole app with a theme, or jump into skin mode for a compact, player-focused experience. Install themes, skins, visualizers and sound packs from the built-in catalog, or create and share your own.
 
 > 💡 A design kit to help build custom skins, visualizers, and more is in development.
 
@@ -147,15 +147,15 @@ Supporting your favorite artists and local retailers by purchasing merch, record
 
 ## For developers
 
-This repository holds the app, the pack registry behind its theme and skin library, and the pack format they share.
+This repository holds the app, the registry behind its theme, skin, visualizer and sound library, and the item format they share.
 
 | Path | What it is | License |
 | --- | --- | --- |
 | [`apps/desktop`](apps/desktop) | The Spiral app: Tauri 2, React + TypeScript frontend, Rust backend | Apache-2.0 |
-| [`apps/registry`](apps/registry) | `spk-registry`, the Axum service that serves published packs and their catalog | Apache-2.0 |
-| [`libs/spk-format`](libs/spk-format) | The `.spk` pack format: manifest schema, validation, and archive extract/write | MIT OR Apache-2.0 |
+| [`apps/registry`](apps/registry) | `spk-registry`, the Axum service that serves published items and their catalog | Apache-2.0 |
+| [`libs/spk-format`](libs/spk-format) | The `.spk` item format: manifest schemas, validation, and archive extract/write | MIT OR Apache-2.0 |
 
-Packs (`.spk`) are zip archives that add themes, skins, visualizers and sounds to the app. `spk-format` is the single source of truth for what a valid pack is, and both the app and the registry validate with it.
+An item is one theme, skin, visualizer or sound, shipped as a `.spk` zip archive. `spk-format` is the single source of truth for what a valid item is, and both the app and the registry validate with it.
 
 ### Build from source
 
@@ -167,11 +167,12 @@ cd apps/desktop
 npm install
 npm run tauri dev
 
-# Registry (listens on 127.0.0.1:8787)
+# Registry (listens on 127.0.0.1:8787); build the admin panel once first
 cd apps/registry
+(cd admin && npm ci && npm run build)
 cargo run
 
-# Pack format
+# Item format
 cargo test -p spk-format
 ```
 
@@ -187,7 +188,7 @@ To report a security problem, follow [SECURITY.md](SECURITY.md).
 
 ## License
 
-The repository is licensed under the [Apache License 2.0](LICENSE). `libs/spk-format` is dual-licensed under MIT OR Apache-2.0 so other tools can adopt the pack format freely. Third-party notices for the desktop app are in [`apps/desktop/src-tauri/NOTICE`](apps/desktop/src-tauri/NOTICE).
+The repository is licensed under the [Apache License 2.0](LICENSE). `libs/spk-format` is dual-licensed under MIT OR Apache-2.0 so other tools can adopt the item format freely. Third-party notices for the desktop app are in [`apps/desktop/src-tauri/NOTICE`](apps/desktop/src-tauri/NOTICE).
 
 <div align="center">
 <br>

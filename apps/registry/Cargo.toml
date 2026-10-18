@@ -2,7 +2,7 @@
 name = "spk-registry"
 version = "0.1.0"
 edition = "2021"
-description = "Spiral pack registry: catalog listing, version resolution, and download serving"
+description = "Spiral item registry: catalog listing, version resolution, and download serving"
 license = "Apache-2.0"
 repository = "https://github.com/brpowell/spiral"
 readme = "README.md"

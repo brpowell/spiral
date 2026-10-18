@@ -120,7 +120,7 @@ impl Config {
         Ok(Self {
             bind_addr: env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:8787".to_string()),
             instance_name: env::var("INSTANCE_NAME")
-                .unwrap_or_else(|_| "Spiral Pack Registry".to_string()),
+                .unwrap_or_else(|_| "Spiral Registry".to_string()),
             database_url,
             auto_migrate,
             storage,
