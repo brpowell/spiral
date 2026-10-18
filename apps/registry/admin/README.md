@@ -12,11 +12,13 @@ npm run dev
 # open http://127.0.0.1:5173/admin/  (Vite proxies /admin/api and /v1 → :8787)
 ```
 
-## Ship
+## Build
 
-After UI changes, rebuild so Cargo embeds fresh assets:
+`dist/` is a build artifact: it is gitignored and embedded into the binary at compile time, so build it before compiling the registry (and again after UI changes):
 
 ```bash
-npm run build
+npm ci && npm run build
 # then cargo run / cargo test as usual
 ```
+
+The registry's Docker image and CI build it themselves.

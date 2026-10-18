@@ -12,10 +12,13 @@ It is the backend for Spiral's theme, skin, visualizer and sound library, and it
 
 ## Quick start
 
-You need a stable [Rust](https://rustup.rs) toolchain. Run everything from this directory so the default `data/` folder lands here (it is gitignored).
+You need a stable [Rust](https://rustup.rs) toolchain and Node 22 (to build the admin panel once). Run everything from this directory so the default `data/` folder lands here (it is gitignored).
 
 ```bash
 cd apps/registry
+
+# Build the admin panel bundle that gets embedded into the binary
+(cd admin && npm ci && npm run build)
 
 # Admin token: at least 32 bytes. Leave it unset to run read-only
 # (the admin API then answers 503 `admin_disabled`).
@@ -192,12 +195,14 @@ cargo fmt -p spk-registry -p spk-format -- --check
 cargo clippy -p spk-registry -p spk-format --all-targets -- -D warnings
 ```
 
-The admin panel is a Preact and Vite app in [`admin/`](admin/). Its built output in `admin/dist/` is embedded into the binary with `rust-embed`, so rebuild it after changing the UI and commit the result:
+The admin panel is a Preact and Vite app in [`admin/`](admin/). Its built output (`admin/dist/`, not committed) is embedded into the binary with `rust-embed` at compile time, so build it before compiling the registry, and again after changing the UI:
 
 ```bash
-cd admin && npm install && npm run build   # rebuild after UI changes
-cd admin && npm run dev                    # hot reload; proxies /v1 to :8787
+cd admin && npm ci && npm run build   # needed before cargo build / run / test
+cd admin && npm run dev               # hot reload; proxies the API to :8787
 ```
+
+The Docker image builds the panel in its own Node stage, so `docker build` needs nothing installed locally.
 
 See [`admin/README.md`](admin/README.md). Contribution guidelines are in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 

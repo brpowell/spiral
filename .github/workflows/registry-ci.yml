@@ -29,6 +29,17 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: registry
+      # The admin panel bundle is embedded at compile time and is not committed.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/registry/admin/package-lock.json
+      - name: Build admin panel
+        working-directory: apps/registry/admin
+        run: |
+          npm ci
+          npm run build
       - run: cargo fmt -p spk-registry -p spk-format -- --check
       - run: cargo clippy -p spk-registry -p spk-format --all-targets -- -D warnings
       - run: cargo test -p spk-registry -p spk-format

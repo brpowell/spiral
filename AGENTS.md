@@ -36,7 +36,7 @@ Run the registry from `apps/registry` (`cargo run`) so its default `data/` folde
 
 ## Things to remember
 
-- The registry admin panel's built output in `apps/registry/admin/dist` is embedded into the binary. After changing the panel's source, rebuild it (`npm run build` in `apps/registry/admin`) and commit the result.
+- The registry admin panel's built output in `apps/registry/admin/dist` is embedded into the binary at compile time and is not committed. Build it (`npm ci && npm run build` in `apps/registry/admin`) before `cargo build`, `cargo run` or `cargo test` for the registry; the Docker image and CI do this for you.
 - User-facing strings in the desktop app belong in `apps/desktop/src/locales/en/`, not hardcoded.
 - Add or update tests with the change.
 - Never commit secrets or tokens. Report security problems privately as described in [SECURITY.md](SECURITY.md); do not open a public issue.
