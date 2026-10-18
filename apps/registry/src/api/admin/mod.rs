@@ -18,37 +18,39 @@ use crate::AppState;
 
 use super::{ApiError, ApiResult};
 
-pub fn api_router(upload_body_limit: usize) -> Router<AppState> {
+/// Admin write API, mounted at `<admin_path>/api/items`.
+pub fn api_router(upload_body_limit: usize, admin_path: &str) -> Router<AppState> {
+    let base = format!("{admin_path}/api/items");
+    let item = format!("{base}/{{publisher_id}}/{{item_type}}/{{item_id}}");
+
     let upload = Router::new()
-        .route("/v1/rgad/items", post(upload_item))
+        .route(&base, post(upload_item))
         .layer(DefaultBodyLimit::max(upload_body_limit));
 
     Router::new()
-        .route("/v1/rgad/items", get(list_admin_items))
+        .route(&base, get(list_admin_items))
         .merge(upload)
         .route(
-            "/v1/rgad/items/{publisher_id}/{item_type}/{item_id}/versions/{version}/yank",
+            &format!("{item}/versions/{{version}}/yank"),
             post(yank_version),
         )
         .route(
-            "/v1/rgad/items/{publisher_id}/{item_type}/{item_id}/versions/{version}/unyank",
+            &format!("{item}/versions/{{version}}/unyank"),
             post(unyank_version),
         )
         .route(
-            "/v1/rgad/items/{publisher_id}/{item_type}/{item_id}/versions/{version}/purge",
+            &format!("{item}/versions/{{version}}/purge"),
             post(purge_version),
         )
-        .route(
-            "/v1/rgad/items/{publisher_id}/{item_type}/{item_id}/purge",
-            post(purge_item),
-        )
+        .route(&format!("{item}/purge"), post(purge_item))
 }
 
-pub fn panel_router() -> Router<AppState> {
+/// The admin panel (single-page app), mounted at `admin_path`.
+pub fn panel_router(admin_path: &str) -> Router<AppState> {
     Router::new()
-        .route("/rgad", get(panel::index))
-        .route("/rgad/", get(panel::index))
-        .route("/rgad/{*path}", get(panel::static_file))
+        .route(admin_path, get(panel::index))
+        .route(&format!("{admin_path}/"), get(panel::index))
+        .route(&format!("{admin_path}/{{*path}}"), get(panel::static_file))
 }
 
 /// Unknown item types are a 404 before any lookup.

@@ -1,9 +1,16 @@
+export type ItemType = 'theme' | 'skin' | 'visualizer' | 'sound'
+
+export const ITEM_TYPES: ItemType[] = ['theme', 'skin', 'visualizer', 'sound']
+
 export type AdminVersionSummary = {
   publisherId: string
-  packId: string
+  itemType: string
+  id: string
+  effectiveId: string
   version: string
   name: string
-  contributionTypes: string[]
+  description: string
+  minAppVersion?: string | null
   sizeBytes: number
   sha256: string
   publishedAt: string
@@ -11,24 +18,28 @@ export type AdminVersionSummary = {
   previewUrl?: string
 }
 
-export type AdminPackListResponse = {
+export type AdminItemListResponse = {
   versions: AdminVersionSummary[]
 }
 
 export type VersionDetailResponse = {
   publisherId: string
-  packId: string
+  itemType: string
+  id: string
+  effectiveId: string
   version: string
   sha256: string
   previewUrl?: string
 }
 
-export type PackGroup = {
+export type ItemGroup = {
   publisherId: string
-  packId: string
+  itemType: string
+  id: string
+  /** `publisherId/itemType/id`, the confirm string for an item-level purge. */
   key: string
+  effectiveId: string
   name: string
-  contributionTypes: string[]
   previewUrl?: string
   versions: AdminVersionSummary[]
   liveCount: number

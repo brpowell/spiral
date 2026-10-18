@@ -1,8 +1,6 @@
 import { clearToken, getToken } from './auth'
-import type {
-  AdminPackListResponse,
-  VersionDetailResponse,
-} from './types'
+import { API_BASE } from './constants'
+import type { AdminItemListResponse, VersionDetailResponse } from './types'
 
 export class ApiError extends Error {
   status: number
@@ -42,62 +40,50 @@ export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
   return body as T
 }
 
-export function listAdminPacks(): Promise<AdminPackListResponse> {
-  return api('/v1/rgad/packs')
+/** Identity of one item (the URL segments after the API base). */
+export type ItemRef = { publisherId: string; itemType: string; id: string }
+
+function itemPath(ref: ItemRef): string {
+  return `${API_BASE}/${ref.publisherId}/${ref.itemType}/${ref.id}`
 }
 
-export function uploadPack(file: File): Promise<VersionDetailResponse> {
+export function listAdminItems(): Promise<AdminItemListResponse> {
+  return api(API_BASE)
+}
+
+export function uploadItem(file: File): Promise<VersionDetailResponse> {
   const fd = new FormData()
   fd.append('spk', file)
-  return api('/v1/rgad/packs', { method: 'POST', body: fd })
+  return api(API_BASE, { method: 'POST', body: fd })
 }
 
-export function yankVersion(
-  publisherId: string,
-  packId: string,
-  version: string,
-): Promise<unknown> {
-  return api(
-    `/v1/rgad/packs/${publisherId}/${packId}/versions/${version}/yank`,
-    { method: 'POST' },
-  )
+export function yankVersion(ref: ItemRef, version: string): Promise<unknown> {
+  return api(`${itemPath(ref)}/versions/${version}/yank`, { method: 'POST' })
 }
 
-export function unyankVersion(
-  publisherId: string,
-  packId: string,
-  version: string,
-): Promise<unknown> {
-  return api(
-    `/v1/rgad/packs/${publisherId}/${packId}/versions/${version}/unyank`,
-    { method: 'POST' },
-  )
+export function unyankVersion(ref: ItemRef, version: string): Promise<unknown> {
+  return api(`${itemPath(ref)}/versions/${version}/unyank`, { method: 'POST' })
 }
 
 export function purgeVersion(
-  publisherId: string,
-  packId: string,
+  ref: ItemRef,
   version: string,
   confirm: string,
   reason: string,
 ): Promise<unknown> {
-  return api(
-    `/v1/rgad/packs/${publisherId}/${packId}/versions/${version}/purge`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirm, reason }),
-    },
-  )
+  return api(`${itemPath(ref)}/versions/${version}/purge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm, reason }),
+  })
 }
 
-export function purgePack(
-  publisherId: string,
-  packId: string,
+export function purgeItem(
+  ref: ItemRef,
   confirm: string,
   reason: string,
 ): Promise<unknown> {
-  return api(`/v1/rgad/packs/${publisherId}/${packId}/purge`, {
+  return api(`${itemPath(ref)}/purge`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ confirm, reason }),
