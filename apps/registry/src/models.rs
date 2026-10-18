@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use spk_format::effective_item_id;
 
 use crate::preview::preview_url_path;
 
@@ -12,38 +13,42 @@ pub struct MetaResponse {
     pub name: String,
 }
 
+/// Default and maximum page sizes for `GET /v1/items`.
+pub const DEFAULT_LIST_LIMIT: usize = 50;
+pub const MAX_LIST_LIMIT: usize = 200;
+
+/// Most installed items accepted by one `POST /v1/items/updates`.
+pub const MAX_UPDATE_CHECK_ITEMS: usize = 200;
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PackListResponse {
-    pub packs: Vec<PackSummary>,
+pub struct ItemListResponse {
+    pub items: Vec<ItemSummary>,
+    /// Matches before `limit` / `offset` are applied.
+    pub total: usize,
+    pub limit: usize,
+    pub offset: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PackSummary {
+pub struct ItemSummary {
     pub publisher_id: String,
-    pub pack_id: String,
+    pub item_type: String,
+    pub id: String,
+    pub effective_id: String,
     pub latest_version: VersionSummary,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PackDetailResponse {
+pub struct ItemDetailResponse {
     pub publisher_id: String,
-    pub pack_id: String,
-    pub versions: Vec<VersionSummary>,
-}
-
-/// Contribution summary extracted at publish time for catalog browsing.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct ContributionSummary {
-    #[serde(rename = "type")]
-    pub r#type: String,
-    pub local_id: String,
+    pub item_type: String,
+    pub id: String,
     pub effective_id: String,
-    pub name: String,
-    pub author: String,
+    /// Non-yanked versions, newest first.
+    pub versions: Vec<VersionSummary>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -53,13 +58,11 @@ pub struct VersionSummary {
     pub name: String,
     pub description: String,
     pub min_app_version: Option<String>,
-    pub contribution_types: Vec<String>,
-    pub contributions: Vec<ContributionSummary>,
-    /// Uncompressed on-disk size of the pack root (not `.spk` archive length).
+    /// Uncompressed on-disk size of the item root (not `.spk` archive length).
     pub size_bytes: i64,
     pub sha256: String,
     pub published_at: DateTime<Utc>,
-    /// Relative path to the pack preview, when present.
+    /// Relative path to the item preview, when present.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview_url: Option<String>,
 }
@@ -68,45 +71,36 @@ pub struct VersionSummary {
 #[serde(rename_all = "camelCase")]
 pub struct VersionDetailResponse {
     pub publisher_id: String,
-    pub pack_id: String,
-    pub version: String,
-    pub name: String,
-    pub description: String,
-    pub min_app_version: Option<String>,
-    pub contribution_types: Vec<String>,
-    pub contributions: Vec<ContributionSummary>,
-    /// Uncompressed on-disk size of the pack root (not `.spk` archive length).
-    pub size_bytes: i64,
-    pub sha256: String,
-    pub published_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub preview_url: Option<String>,
-    /// Pack README.md contents extracted at publish (omitted when absent).
+    pub item_type: String,
+    pub id: String,
+    pub effective_id: String,
+    #[serde(flatten)]
+    pub version: VersionSummary,
+    /// README.md contents extracted at publish (omitted when absent).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub readme: Option<String>,
-    /// Pack CHANGELOG.md contents extracted at publish (omitted when absent).
+    /// CHANGELOG.md contents extracted at publish (omitted when absent).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub changelog: Option<String>,
 }
 
-/// Internal row from `pack_versions`.
+/// Internal row from `item_versions`.
 #[derive(Debug, Clone, sqlx::FromRow)]
-pub struct PackVersionRow {
+pub struct ItemVersionRow {
     pub publisher_id: String,
-    pub pack_id: String,
+    pub item_type: String,
+    pub item_id: String,
     pub version: String,
+    pub name: String,
+    pub description: String,
     pub min_app_version: Option<String>,
-    pub contribution_types: String,
-    /// Uncompressed on-disk size of the pack root (not `.spk` archive length).
+    /// Uncompressed on-disk size of the item root (not `.spk` archive length).
     pub size_bytes: i64,
     pub sha256: String,
     pub storage_key: String,
     pub preview_storage_key: Option<String>,
-    pub name: String,
-    pub description: String,
     pub readme: Option<String>,
     pub changelog: Option<String>,
-    pub contributions: String,
     pub published_at: DateTime<Utc>,
     pub yanked_at: Option<DateTime<Utc>>,
 }
@@ -118,18 +112,72 @@ pub struct TakedownLogRow {
     pub id: i64,
     pub purged_at: DateTime<Utc>,
     pub publisher_id: String,
-    pub pack_id: String,
-    /// Specific semver, or `*` for a pack-level purge.
+    pub item_type: String,
+    pub item_id: String,
+    /// Specific semver, or `*` for an item-level purge.
     pub version: String,
     pub reason: String,
     pub notice_ref: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+/// Query string of `GET /v1/items`.
+#[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PackListQuery {
-    pub contribution_type: Option<String>,
-    pub publisher_id: Option<String>,
+pub struct ItemListQuery {
+    #[serde(rename = "type")]
+    pub item_type: Option<String>,
+    /// Case-insensitive substring over name, description, id and publisher.
+    pub q: Option<String>,
+    pub publisher: Option<String>,
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+}
+
+/// Identity of an item, without a version.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ItemIdentity {
+    pub publisher_id: String,
+    pub item_type: String,
+    pub id: String,
+}
+
+/// One installed item in an update check.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstalledItem {
+    pub publisher_id: String,
+    pub item_type: String,
+    pub id: String,
+    pub version: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCheckRequest {
+    /// Running app version. When set, only versions whose `minAppVersion` it satisfies count.
+    #[serde(default)]
+    pub app_version: Option<String>,
+    pub items: Vec<InstalledItem>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ItemUpdate {
+    pub publisher_id: String,
+    pub item_type: String,
+    pub id: String,
+    pub installed_version: String,
+    pub latest: VersionSummary,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCheckResponse {
+    /// Installed items that have a newer compatible version.
+    pub updates: Vec<ItemUpdate>,
+    /// Items with no published versions in this registry (never listed, yanked or purged).
+    pub unlisted: Vec<ItemIdentity>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -145,24 +193,17 @@ pub struct PurgeRequest {
 #[serde(rename_all = "camelCase")]
 pub struct AdminVersionSummary {
     pub publisher_id: String,
-    pub pack_id: String,
-    pub version: String,
-    pub name: String,
-    pub description: String,
-    pub min_app_version: Option<String>,
-    pub contribution_types: Vec<String>,
-    pub contributions: Vec<ContributionSummary>,
-    pub size_bytes: i64,
-    pub sha256: String,
-    pub published_at: DateTime<Utc>,
+    pub item_type: String,
+    pub id: String,
+    pub effective_id: String,
+    #[serde(flatten)]
+    pub version: VersionSummary,
     pub yanked_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub preview_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AdminPackListResponse {
+pub struct AdminItemListResponse {
     pub versions: Vec<AdminVersionSummary>,
 }
 
@@ -172,27 +213,27 @@ pub struct PurgeResponse {
     pub purged: Vec<String>,
 }
 
-/// Columns selected for every `PackVersionRow` query.
-pub const PACK_VERSION_COLUMNS: &str = r#"
-    publisher_id, pack_id, version, min_app_version, contribution_types,
-    size_bytes, sha256, storage_key, preview_storage_key,
-    name, description, readme, changelog, contributions,
+/// Columns selected for every `ItemVersionRow` query.
+pub const ITEM_VERSION_COLUMNS: &str = r#"
+    publisher_id, item_type, item_id, version, name, description, min_app_version,
+    size_bytes, sha256, storage_key, preview_storage_key, readme, changelog,
     published_at, yanked_at
 "#;
 
-impl PackVersionRow {
-    pub fn contribution_types_vec(&self) -> Vec<String> {
-        serde_json::from_str(&self.contribution_types).unwrap_or_default()
-    }
-
-    pub fn contributions_vec(&self) -> Vec<ContributionSummary> {
-        serde_json::from_str(&self.contributions).unwrap_or_default()
+impl ItemVersionRow {
+    pub fn effective_id(&self) -> String {
+        effective_item_id(&self.publisher_id, &self.item_type, &self.item_id)
     }
 
     pub fn preview_url(&self) -> Option<String> {
-        self.preview_storage_key
-            .as_ref()
-            .map(|_| preview_url_path(&self.publisher_id, &self.pack_id, &self.version))
+        self.preview_storage_key.as_ref().map(|_| {
+            preview_url_path(
+                &self.publisher_id,
+                &self.item_type,
+                &self.item_id,
+                &self.version,
+            )
+        })
     }
 
     pub fn to_summary(&self) -> VersionSummary {
@@ -201,8 +242,6 @@ impl PackVersionRow {
             name: self.name.clone(),
             description: self.description.clone(),
             min_app_version: self.min_app_version.clone(),
-            contribution_types: self.contribution_types_vec(),
-            contributions: self.contributions_vec(),
             size_bytes: self.size_bytes,
             sha256: self.sha256.clone(),
             published_at: self.published_at,
@@ -210,20 +249,23 @@ impl PackVersionRow {
         }
     }
 
+    pub fn to_item_summary(&self) -> ItemSummary {
+        ItemSummary {
+            publisher_id: self.publisher_id.clone(),
+            item_type: self.item_type.clone(),
+            id: self.item_id.clone(),
+            effective_id: self.effective_id(),
+            latest_version: self.to_summary(),
+        }
+    }
+
     pub fn to_detail(&self) -> VersionDetailResponse {
         VersionDetailResponse {
             publisher_id: self.publisher_id.clone(),
-            pack_id: self.pack_id.clone(),
-            version: self.version.clone(),
-            name: self.name.clone(),
-            description: self.description.clone(),
-            min_app_version: self.min_app_version.clone(),
-            contribution_types: self.contribution_types_vec(),
-            contributions: self.contributions_vec(),
-            size_bytes: self.size_bytes,
-            sha256: self.sha256.clone(),
-            published_at: self.published_at,
-            preview_url: self.preview_url(),
+            item_type: self.item_type.clone(),
+            id: self.item_id.clone(),
+            effective_id: self.effective_id(),
+            version: self.to_summary(),
             readme: self.readme.clone(),
             changelog: self.changelog.clone(),
         }
@@ -232,18 +274,11 @@ impl PackVersionRow {
     pub fn to_admin_summary(&self) -> AdminVersionSummary {
         AdminVersionSummary {
             publisher_id: self.publisher_id.clone(),
-            pack_id: self.pack_id.clone(),
-            version: self.version.clone(),
-            name: self.name.clone(),
-            description: self.description.clone(),
-            min_app_version: self.min_app_version.clone(),
-            contribution_types: self.contribution_types_vec(),
-            contributions: self.contributions_vec(),
-            size_bytes: self.size_bytes,
-            sha256: self.sha256.clone(),
-            published_at: self.published_at,
+            item_type: self.item_type.clone(),
+            id: self.item_id.clone(),
+            effective_id: self.effective_id(),
+            version: self.to_summary(),
             yanked_at: self.yanked_at,
-            preview_url: self.preview_url(),
         }
     }
 }

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/viz-v1.schema.json",
+  "id": "demo-viz",
+  "publisherId": "spiral",
+  "version": "1.0.0",
+  "name": "Demo Visualizer",
+  "author": "Spiral",
+  "description": "Bars visualizer fixture for publish tests and the seed.",
+  "children": [
+    {
+      "kind": "canvas",
+      "layout": "fill",
+      "entry": "index.js"
+    }
+  ]
+}
