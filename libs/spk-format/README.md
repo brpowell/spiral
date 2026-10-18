@@ -24,7 +24,7 @@ A `.spk` is a zip archive of one item, with the manifest at the archive root or 
 
 - `validate_item_dir(dir)` reads and strictly validates an item directory (identity fields, declared preview, and the type-specific content validator) and returns an `ItemManifest`.
 - `read_item_manifest`, `parse_item_manifest_json`, `detect_item_type`, `list_item_dirs` and the id helpers (`effective_item_id`, `item_dir_name`) cover the lighter reads.
-- `extract_pack_archive` extracts a `.spk` into a temp directory under `ExtractLimits` (entry count, total size, compression ratio) and rejects paths that escape the archive. `find_item_root` locates the item inside it, and `write_pack_archive` zips an item directory.
+- `extract_archive` extracts a `.spk` into a temp directory under `ExtractLimits` (entry count, total size, compression ratio) and rejects paths that escape the archive. `find_item_root` locates the item inside it, and `write_archive` zips an item directory.
 
 ```bash
 cargo test -p spk-format

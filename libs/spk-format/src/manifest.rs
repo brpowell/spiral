@@ -5,19 +5,19 @@
 use std::path::{Path, PathBuf};
 
 /// Zip artifact extension for distributable packs.
-pub const PACK_ARCHIVE_EXTENSION: &str = ".spk";
+pub const ARCHIVE_EXTENSION: &str = ".spk";
 
 /// Optional long-form About body at the pack root (rendered in Studio).
-pub const PACK_README_FILENAME: &str = "README.md";
+pub const README_FILENAME: &str = "README.md";
 
 /// Max README.md size accepted for read/write (bytes).
-pub const PACK_README_MAX_BYTES: u64 = 256 * 1024;
+pub const README_MAX_BYTES: u64 = 256 * 1024;
 
 /// Optional release history at the pack root (rendered in Studio Changelog).
-pub const PACK_CHANGELOG_FILENAME: &str = "CHANGELOG.md";
+pub const CHANGELOG_FILENAME: &str = "CHANGELOG.md";
 
 /// Max CHANGELOG.md size accepted for read/write (bytes).
-pub const PACK_CHANGELOG_MAX_BYTES: u64 = 256 * 1024;
+pub const CHANGELOG_MAX_BYTES: u64 = 256 * 1024;
 
 /// Fixed type-folder → contribution type mapping used by the scanner.
 pub const CONTRIBUTION_TYPE_FOLDERS: &[(&str, &str, &str)] = &[
@@ -92,18 +92,18 @@ pub fn resolve_preview_file(dir: &Path, explicit: Option<&str>) -> Option<PathBu
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PackManifestError {
+pub struct ManifestError {
     pub code: &'static str,
     pub message: String,
 }
 
-impl std::fmt::Display for PackManifestError {
+impl std::fmt::Display for ManifestError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {}", self.code, self.message)
     }
 }
 
-impl std::error::Error for PackManifestError {}
+impl std::error::Error for ManifestError {}
 
 pub fn is_kebab_slug(value: &str) -> bool {
     let mut chars = value.chars().peekable();
@@ -167,7 +167,7 @@ pub(crate) fn is_semver(value: &str) -> bool {
 }
 
 /// Convenience: whether a path looks like a pack archive (by extension).
-pub fn is_pack_archive_path(path: &Path) -> bool {
+pub fn is_spk_path(path: &Path) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
         .is_some_and(|ext| ext.eq_ignore_ascii_case("spk"))
@@ -204,9 +204,9 @@ mod tests {
 
     #[test]
     fn archive_extension_is_spk() {
-        assert_eq!(PACK_ARCHIVE_EXTENSION, ".spk");
-        assert!(is_pack_archive_path(Path::new("midnight-drive.spk")));
-        assert!(!is_pack_archive_path(Path::new("midnight-drive.sp")));
+        assert_eq!(ARCHIVE_EXTENSION, ".spk");
+        assert!(is_spk_path(Path::new("midnight-drive.spk")));
+        assert!(!is_spk_path(Path::new("midnight-drive.sp")));
     }
 
     #[test]

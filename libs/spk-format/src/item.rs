@@ -11,7 +11,7 @@
 use crate::manifest::{is_kebab_slug, is_semver, validate_preview_file, validate_preview_relpath};
 use crate::{
     validate_skin_contribution_at, validate_sound_contribution_at, validate_theme_contribution_at,
-    validate_visualizer_contribution_at, PackManifestError, CONTRIBUTION_TYPE_FOLDERS,
+    validate_visualizer_contribution_at, ManifestError, CONTRIBUTION_TYPE_FOLDERS,
 };
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -44,8 +44,8 @@ impl ItemManifest {
     }
 }
 
-fn err(code: &'static str, message: impl Into<String>) -> PackManifestError {
-    PackManifestError {
+fn err(code: &'static str, message: impl Into<String>) -> ManifestError {
+    ManifestError {
         code,
         message: message.into(),
     }
@@ -136,7 +136,7 @@ fn str_field(value: &serde_json::Value, key: &str) -> Option<String> {
 pub fn parse_item_manifest_json(
     item_type: &str,
     json: &str,
-) -> Result<ItemManifest, PackManifestError> {
+) -> Result<ItemManifest, ManifestError> {
     let json = json.strip_prefix('\u{feff}').unwrap_or(json);
     let value: serde_json::Value = serde_json::from_str(json).map_err(|e| {
         err(
@@ -150,7 +150,7 @@ pub fn parse_item_manifest_json(
 pub fn parse_item_manifest_value(
     item_type: &str,
     value: &serde_json::Value,
-) -> Result<ItemManifest, PackManifestError> {
+) -> Result<ItemManifest, ManifestError> {
     if item_type_folder(item_type).is_none() {
         return Err(err(
             "unknown_item_type",
