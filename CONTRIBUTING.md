@@ -46,7 +46,7 @@ cargo run                                     # serve on 127.0.0.1:8787, data in
 cargo test -p spk-registry -p spk-format
 ```
 
-The admin panel is a Preact app in `apps/registry/admin`. Its built output in `admin/dist` is embedded into the binary, so rebuild it (`cd apps/registry/admin && npm install && npm run build`) after changing the UI and commit the result.
+The admin panel is a Preact app in `apps/registry/admin`. Its built output in `admin/dist` is embedded into the binary at compile time and is not committed, so build it (`cd apps/registry/admin && npm ci && npm run build`) before compiling the registry. The Docker image and CI build it themselves.
 
 ### Pack format (`libs/spk-format`)
 
