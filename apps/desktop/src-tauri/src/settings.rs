@@ -119,15 +119,15 @@ impl Default for ListeningHistorySettings {
 pub struct UpdateSettings {
     #[serde(default = "default_automatic_update_checks_enabled")]
     pub automatic_checks_enabled: bool,
-    #[serde(default = "default_automatic_pack_checks_enabled")]
-    pub automatic_pack_checks_enabled: bool,
+    #[serde(default = "default_automatic_item_checks_enabled")]
+    pub automatic_item_checks_enabled: bool,
 }
 
 fn default_automatic_update_checks_enabled() -> bool {
     true
 }
 
-fn default_automatic_pack_checks_enabled() -> bool {
+fn default_automatic_item_checks_enabled() -> bool {
     true
 }
 
@@ -135,7 +135,7 @@ impl Default for UpdateSettings {
     fn default() -> Self {
         Self {
             automatic_checks_enabled: default_automatic_update_checks_enabled(),
-            automatic_pack_checks_enabled: default_automatic_pack_checks_enabled(),
+            automatic_item_checks_enabled: default_automatic_item_checks_enabled(),
         }
     }
 }
@@ -474,7 +474,7 @@ pub struct LibrarySettingsResponse {
     pub cd_metadata_fetch_mode: String,
     pub cd_import_profile_id: String,
     pub automatic_update_checks_enabled: bool,
-    pub automatic_pack_update_checks_enabled: bool,
+    pub automatic_item_update_checks_enabled: bool,
 }
 
 const MAX_ACKNOWLEDGED_CRASH_REPORTS: usize = 50;
@@ -634,7 +634,7 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
         cd_metadata_fetch_mode: cd.metadata_fetch_mode,
         cd_import_profile_id: resolved_cd_import_profile_id(&cd.import_profile_id),
         automatic_update_checks_enabled: updates.automatic_checks_enabled,
-        automatic_pack_update_checks_enabled: updates.automatic_pack_checks_enabled,
+        automatic_item_update_checks_enabled: updates.automatic_item_checks_enabled,
     }
 }
 
@@ -664,7 +664,7 @@ pub struct LibrarySettingsPatch {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub automatic_update_checks_enabled: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub automatic_pack_update_checks_enabled: Option<bool>,
+    pub automatic_item_update_checks_enabled: Option<bool>,
 }
 
 pub fn merge_library_settings(
@@ -721,8 +721,8 @@ pub fn merge_library_settings(
     if let Some(enabled) = patch.automatic_update_checks_enabled {
         settings.updates.automatic_checks_enabled = enabled;
     }
-    if let Some(enabled) = patch.automatic_pack_update_checks_enabled {
-        settings.updates.automatic_pack_checks_enabled = enabled;
+    if let Some(enabled) = patch.automatic_item_update_checks_enabled {
+        settings.updates.automatic_item_checks_enabled = enabled;
     }
 
     write_settings(app, &settings)?;
@@ -751,15 +751,15 @@ mod tests {
     fn default_update_settings_enable_automatic_checks() {
         let settings = UpdateSettings::default();
         assert!(settings.automatic_checks_enabled);
-        assert!(settings.automatic_pack_checks_enabled);
+        assert!(settings.automatic_item_checks_enabled);
     }
 
     #[test]
-    fn missing_pack_checks_field_defaults_enabled() {
+    fn missing_item_checks_field_defaults_enabled() {
         let settings: UpdateSettings =
             serde_json::from_str(r#"{"automaticChecksEnabled":false}"#).unwrap();
         assert!(!settings.automatic_checks_enabled);
-        assert!(settings.automatic_pack_checks_enabled);
+        assert!(settings.automatic_item_checks_enabled);
     }
 
     #[test]

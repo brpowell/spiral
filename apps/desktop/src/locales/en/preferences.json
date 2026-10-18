@@ -93,9 +93,9 @@
       "label": "Check for app updates automatically",
       "description": "Check for Spiral updates on launch and every few hours while Spiral is open."
     },
-    "automaticPacks": {
-      "label": "Check for pack updates automatically",
-      "description": "Check installed packs against the catalog on launch and every few hours while Spiral is open."
+    "automaticItems": {
+      "label": "Check for item updates automatically",
+      "description": "Check installed themes, skins, visualizers and sounds against the registry on launch and every few hours while Spiral is open."
     },
     "checkButton": "Check for Updates",
     "pending": "Version {{version}} is available."

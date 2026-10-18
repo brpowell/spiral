@@ -33,7 +33,7 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 import { usePlaylistStore } from "../../store/usePlaylistStore";
 import { useUpdaterStore } from "../../store/useUpdaterStore";
 import { REGISTRY_ENABLED } from "../../lib/featureFlags";
-import { usePackUpdatesStore } from "../../store/usePackUpdatesStore";
+import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
 import {
   MIN_CROSSFADE_SECONDS,
   MAX_CROSSFADE_SECONDS,
@@ -126,11 +126,11 @@ export function PreferencesModal() {
   const setAutomaticChecksEnabled = useUpdaterStore(
     (s) => s.setAutomaticChecksEnabled,
   );
-  const automaticPackChecksEnabled = usePackUpdatesStore(
-    (s) => s.automaticPackChecksEnabled,
+  const automaticItemChecksEnabled = useItemUpdatesStore(
+    (s) => s.automaticItemChecksEnabled,
   );
-  const setAutomaticPackChecksEnabled = usePackUpdatesStore(
-    (s) => s.setAutomaticPackChecksEnabled,
+  const setAutomaticItemChecksEnabled = useItemUpdatesStore(
+    (s) => s.setAutomaticItemChecksEnabled,
   );
   const checkForUpdates = useUpdaterStore((s) => s.checkForUpdates);
   const availableUpdate = useUpdaterStore((s) => s.availableUpdate);
@@ -989,18 +989,18 @@ export function PreferencesModal() {
                 {REGISTRY_ENABLED ? (
                   <Field orientation="horizontal">
                     <Checkbox
-                      id="pref-automatic-pack-updates"
-                      checked={automaticPackChecksEnabled}
+                      id="pref-automatic-item-updates"
+                      checked={automaticItemChecksEnabled}
                       onChange={(e) => {
-                        void setAutomaticPackChecksEnabled(e.target.checked);
+                        void setAutomaticItemChecksEnabled(e.target.checked);
                       }}
                     />
                     <FieldContent>
-                      <FieldLabel htmlFor="pref-automatic-pack-updates">
-                        {t("preferences:updates.automaticPacks.label")}
+                      <FieldLabel htmlFor="pref-automatic-item-updates">
+                        {t("preferences:updates.automaticItems.label")}
                       </FieldLabel>
                       <FieldDescription>
-                        {t("preferences:updates.automaticPacks.description")}
+                        {t("preferences:updates.automaticItems.description")}
                       </FieldDescription>
                     </FieldContent>
                   </Field>

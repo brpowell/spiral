@@ -34,7 +34,7 @@ import { openSkinMode, quitApplication } from "./lib/skinModeWindow";
 import { openActivityLogsWindow } from "./lib/activityLogsWindow";
 import {
   openAppearanceWindow,
-  PACK_UPDATES_CHANGED_EVENT,
+  ITEM_UPDATES_CHANGED_EVENT,
 } from "./lib/appearanceWindow";
 import { openAboutWindow } from "./lib/aboutWindow";
 import { openEqualizerWindow } from "./lib/equalizerWindow";
@@ -50,8 +50,8 @@ import { useVisualizerDataProvider } from "./hooks/useVisualizerDataProvider";
 import { useLibrarySettingsStore } from "./store/useLibrarySettingsStore";
 import { usePlayerStore } from "./store/usePlayerStore";
 import { useUpdaterStore } from "./store/useUpdaterStore";
-import { usePackUpdatesStore } from "./store/usePackUpdatesStore";
-import type { CatalogPackEntry } from "./types/packRegistry";
+import { useItemUpdatesStore } from "./store/useItemUpdatesStore";
+import type { ItemUpdate } from "./types/itemRegistry";
 import "./App.css";
 
 const showCustomWindowChrome = usesCustomWindowChrome();
@@ -72,11 +72,11 @@ function App() {
   const startAutomaticUpdateChecks = useUpdaterStore(
     (s) => s.startAutomaticUpdateChecks,
   );
-  const applyAutomaticPackChecksEnabled = usePackUpdatesStore(
-    (s) => s.applyAutomaticPackChecksEnabled,
+  const applyAutomaticItemChecksEnabled = useItemUpdatesStore(
+    (s) => s.applyAutomaticItemChecksEnabled,
   );
-  const startAutomaticPackUpdateChecks = usePackUpdatesStore(
-    (s) => s.startAutomaticPackUpdateChecks,
+  const startAutomaticItemUpdateChecks = useItemUpdatesStore(
+    (s) => s.startAutomaticItemUpdateChecks,
   );
   const {
     open: crashModalOpen,
@@ -155,11 +155,11 @@ function App() {
     void loadSettings().then((settings) => {
       if (cancelled) return;
       applyAutomaticChecksEnabled(settings.automaticUpdateChecksEnabled);
-      applyAutomaticPackChecksEnabled(
-        settings.automaticPackUpdateChecksEnabled,
+      applyAutomaticItemChecksEnabled(
+        settings.automaticItemUpdateChecksEnabled,
       );
       stopAutomaticChecks = startAutomaticUpdateChecks();
-      stopAutomaticPackChecks = startAutomaticPackUpdateChecks();
+      stopAutomaticPackChecks = startAutomaticItemUpdateChecks();
     });
     void loadTrackListPreferences();
     loadLibrary();
@@ -178,15 +178,15 @@ function App() {
     loadArtistImages,
     applyAutomaticChecksEnabled,
     startAutomaticUpdateChecks,
-    applyAutomaticPackChecksEnabled,
-    startAutomaticPackUpdateChecks,
+    applyAutomaticItemChecksEnabled,
+    startAutomaticItemUpdateChecks,
   ]);
 
   useEffect(() => {
     let cancelled = false;
     let unlisten: (() => void) | undefined;
-    void listen<CatalogPackEntry[]>(PACK_UPDATES_CHANGED_EVENT, (event) => {
-      usePackUpdatesStore.getState().applyPendingUpdates(event.payload ?? []);
+    void listen<ItemUpdate[]>(ITEM_UPDATES_CHANGED_EVENT, (event) => {
+      useItemUpdatesStore.getState().applyPendingUpdates(event.payload ?? []);
     }).then((fn) => {
       if (cancelled) fn();
       else unlisten = fn;

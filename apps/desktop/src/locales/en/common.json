@@ -83,7 +83,7 @@
       "more": "More",
       "pendingAria": "More, updates available",
       "pendingAppAria": "More, new app update available",
-      "pendingPacksAria": "More, pack updates available",
+      "pendingItemsAria": "More, item updates available",
       "check": "Check for updates…",
       "available": "Install new update…"
     },

@@ -1,15 +1,16 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { ItemSummary, ItemType } from "../types/item";
-import type { PackSummary } from "../types/pack";
 import type { SoundPackSummary } from "../types/soundPack";
 import type {
-  PackDownloadProgress,
-  RegistryPackDetail,
-  RegistryPackList,
+  ItemCatalogQuery,
+  ItemDownloadProgress,
+  ItemUpdateCheck,
+  RegistryItemDetail,
+  RegistryItemList,
   RegistrySource,
   RegistryVersionDetail,
-} from "../types/packRegistry";
+} from "../types/itemRegistry";
 import type {
   LibraryDestinationInfo,
   LibraryRelocateMode,
@@ -837,72 +838,70 @@ export async function saveWorkshopTheme(theme: Theme): Promise<Theme> {
   return invoke<Theme>("save_workshop_theme", { theme });
 }
 
-/**
- * Registry-only: local v1 packs no longer exist (installs are individual items), so
- * there is nothing to match catalog entries against. Remove with the registry rework.
- */
-export async function listPacks(): Promise<PackSummary[]> {
-  return [];
+/** Official registry source only (extra settings entries ignored until multi-registry UI). */
+export async function getRegistries(): Promise<RegistrySource[]> {
+  return invoke<RegistrySource[]>("get_registries");
 }
 
-/** Registry-only legacy shape; registry installs are rejected until it moves to items. */
-export interface InstallPackResult {
-  packId: string;
-  version: string;
-  name: string;
-  packDir: string;
-  contributionCount: number;
-}
-
-/** Official pack registry source only (extra settings entries ignored until multi-registry UI). */
-export async function getPackRegistries(): Promise<RegistrySource[]> {
-  return invoke<RegistrySource[]>("get_pack_registries");
-}
-
-/** Persist pack registry sources. Official Spiral URL is always retained. */
-export async function savePackRegistries(
+/** Persist registry sources. Official Spiral URL is always retained. */
+export async function saveRegistries(
   registries: RegistrySource[],
 ): Promise<RegistrySource[]> {
-  return invoke<RegistrySource[]>("save_pack_registries", { registries });
+  return invoke<RegistrySource[]>("save_registries", { registries });
 }
 
-/** `GET /v1/packs` against every configured registry (partial failure → `errors[]`). */
-export async function fetchPackCatalog(options?: {
-  contributionType?: string | null;
-  publisherId?: string | null;
-}): Promise<RegistryPackList> {
-  return invoke<RegistryPackList>("fetch_pack_catalog", {
-    contributionType: options?.contributionType ?? null,
-    publisherId: options?.publisherId ?? null,
+/** `GET /v1/items` against every configured registry (partial failure → `errors[]`). */
+export async function fetchItemCatalog(
+  query?: ItemCatalogQuery,
+): Promise<RegistryItemList> {
+  return invoke<RegistryItemList>("fetch_item_catalog", {
+    query: query
+      ? {
+          itemType: query.itemType ?? null,
+          q: query.q ?? null,
+          publisherId: query.publisherId ?? null,
+          limit: query.limit ?? null,
+          offset: query.offset ?? null,
+        }
+      : null,
   });
 }
 
-/** `GET /v1/packs/:author/:pack` — all published (non-yanked) versions. */
-export async function fetchRegistryPack(args: {
+/** `GET /v1/items/:publisher/:type/:id`: all published (non-yanked) versions. */
+export async function fetchRegistryItem(args: {
   registryUrl: string;
   publisherId: string;
-  packId: string;
-}): Promise<RegistryPackDetail> {
-  return invoke<RegistryPackDetail>("fetch_registry_pack", {
+  itemType: string;
+  id: string;
+}): Promise<RegistryItemDetail> {
+  return invoke<RegistryItemDetail>("fetch_registry_item", {
     registryUrl: args.registryUrl,
     publisherId: args.publisherId,
-    packId: args.packId,
+    itemType: args.itemType,
+    id: args.id,
   });
 }
 
-/** `GET .../versions/:version` including README for pre-install About browsing. */
-export async function fetchRegistryPackVersion(args: {
+/** `GET .../versions/:version` including README and CHANGELOG. `latest` is the newest. */
+export async function fetchRegistryItemVersion(args: {
   registryUrl: string;
   publisherId: string;
-  packId: string;
+  itemType: string;
+  id: string;
   version: string;
 }): Promise<RegistryVersionDetail> {
-  return invoke<RegistryVersionDetail>("fetch_registry_pack_version", {
+  return invoke<RegistryVersionDetail>("fetch_registry_item_version", {
     registryUrl: args.registryUrl,
     publisherId: args.publisherId,
-    packId: args.packId,
+    itemType: args.itemType,
+    id: args.id,
     version: args.version,
   });
+}
+
+/** Ask every configured registry about newer versions of the installed items (one batch each). */
+export async function checkItemUpdates(): Promise<ItemUpdateCheck> {
+  return invoke<ItemUpdateCheck>("check_item_updates");
 }
 
 /** Running app semver used for catalog `minAppVersion` checks. */
@@ -911,55 +910,67 @@ export async function getAppVersion(): Promise<string> {
 }
 
 /** Whether the running app satisfies an optional catalog `minAppVersion`. */
-export async function packMeetsMinAppVersion(
+export async function itemMeetsMinAppVersion(
   minAppVersion?: string | null,
 ): Promise<boolean> {
-  return invoke<boolean>("pack_meets_min_app_version", {
+  return invoke<boolean>("item_meets_min_app_version", {
     minAppVersion: minAppVersion ?? null,
   });
 }
 
-/** Download + install by catalog identity from a configured registry base URL. */
-export async function installPackFromRegistry(args: {
+/** Version of an item installed under `installed/`, or null. Reads disk only. */
+export async function installedItemVersion(
+  effectiveId: string,
+): Promise<string | null> {
+  return invoke<string | null>("installed_item_version", { effectiveId });
+}
+
+/**
+ * Download + install by catalog identity from a configured registry base URL. The archive must
+ * be the listed item and version, and it replaces whatever version is installed.
+ */
+export async function installItemFromRegistry(args: {
   registryUrl: string;
   publisherId: string;
-  packId: string;
+  itemType: string;
+  id: string;
   version: string;
   sha256: string;
   sizeBytes: number;
   minAppVersion?: string | null;
   /** Optional; invoke still requires a channel, so a no-op is used when omitted. */
-  onProgress?: Channel<PackDownloadProgress>;
-}): Promise<InstallPackResult> {
-  return invoke<InstallPackResult>("install_pack_from_registry", {
+  onProgress?: Channel<ItemDownloadProgress>;
+}): Promise<InstallItemResult> {
+  return invoke<InstallItemResult>("install_item_from_registry", {
     registryUrl: args.registryUrl,
     publisherId: args.publisherId,
-    packId: args.packId,
+    itemType: args.itemType,
+    id: args.id,
     version: args.version,
     sha256: args.sha256,
     sizeBytes: args.sizeBytes,
     minAppVersion: args.minAppVersion ?? null,
-    onProgress: args.onProgress ?? new Channel<PackDownloadProgress>(),
+    onProgress: args.onProgress ?? new Channel<ItemDownloadProgress>(),
   });
 }
 
-export async function cancelPackDownload(): Promise<void> {
-  await invoke("cancel_pack_download");
+export async function cancelItemDownload(): Promise<void> {
+  await invoke("cancel_item_download");
 }
 
-export async function clearPackDownloadCancel(): Promise<void> {
-  await invoke("clear_pack_download_cancel");
+export async function clearItemDownloadCancel(): Promise<void> {
+  await invoke("clear_item_download_cancel");
 }
 
 /**
- * Fetch a catalog pack preview into the local registry-asset cache.
+ * Fetch a catalog item preview into the local registry-asset cache.
  * Returns a filesystem path for `convertFileSrc`, or null on soft failure.
  */
-export async function resolveRegistryPackPreview(args: {
+export async function resolveRegistryItemPreview(args: {
   registryUrl: string;
   previewUrl?: string | null;
 }): Promise<string | null> {
-  return invoke<string | null>("resolve_registry_pack_preview", {
+  return invoke<string | null>("resolve_registry_item_preview", {
     registryUrl: args.registryUrl,
     previewUrl: args.previewUrl ?? null,
   });

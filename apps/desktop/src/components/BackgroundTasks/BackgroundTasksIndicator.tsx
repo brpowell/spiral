@@ -12,11 +12,11 @@ import {
 } from "../icons";
 import { LYRICS_FETCH_MISSING_KEY } from "../../lib/fetchMissingLyrics";
 import {
-  PACK_REGISTRY_DOWNLOAD_KEY,
-  PACK_UPDATES_BULK_KEY,
-} from "../../lib/packRegistry";
+  ITEM_REGISTRY_DOWNLOAD_KEY,
+  ITEM_UPDATES_BULK_KEY,
+} from "../../lib/itemRegistry";
 import { panelMotion } from "../../lib/motion";
-import { cancelLyricsFetch, cancelPackDownload } from "../../lib/tauri";
+import { cancelItemDownload, cancelLyricsFetch } from "../../lib/tauri";
 import { useCdImportStore } from "../../store/useCdImportStore";
 import {
   useBackgroundTasksStore,
@@ -200,10 +200,10 @@ function BackgroundTaskItem({ task }: { task: BackgroundTask }) {
         void cancelLyricsFetch();
       }
       if (
-        task.key === PACK_REGISTRY_DOWNLOAD_KEY ||
-        task.key === PACK_UPDATES_BULK_KEY
+        task.key === ITEM_REGISTRY_DOWNLOAD_KEY ||
+        task.key === ITEM_UPDATES_BULK_KEY
       ) {
-        void cancelPackDownload();
+        void cancelItemDownload();
       }
     }
   };

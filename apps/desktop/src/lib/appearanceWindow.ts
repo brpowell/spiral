@@ -16,7 +16,7 @@ export const RELOAD_LINKED_PACKS_EVENT = "packs://reload-linked";
 export const LINKED_PACKS_CHANGED_EVENT = "packs://linked-changed";
 
 /** Cross-window sync of pending pack updates (main ↔ Studio). */
-export const PACK_UPDATES_CHANGED_EVENT = "packs://updates-changed";
+export const ITEM_UPDATES_CHANGED_EVENT = "items://updates-changed";
 
 export interface AppearanceNavigatePayload {
   section: AppearanceSection;
