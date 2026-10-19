@@ -297,6 +297,42 @@ async fn filters_search_and_paginates() {
     assert!(past_end["items"].as_array().unwrap().is_empty());
 }
 
+#[tokio::test]
+async fn filters_by_several_types_and_sorts() {
+    let (app, _tmp, _) = test_app().await;
+
+    // Comma-separated types act as a union; empty entries are ignored.
+    let (status, body) = json_get(&app, "/v1/items?type=theme,skin").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["total"], 2);
+    let (_, body) = json_get(&app, "/v1/items?type=theme,").await;
+    assert_eq!(body["total"], 1);
+    assert_eq!(body["items"][0]["id"], "neon-theme");
+    let (status, body) = json_get(&app, "/v1/items?type=theme,widget").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["code"], "invalid_type");
+
+    let ids = |body: &Value| -> Vec<String> {
+        body["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|i| i["id"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let (_, by_name) = json_get(&app, "/v1/items?sort=name").await;
+    assert_eq!(ids(&by_name), ["demo-skin", "neon-theme"]);
+    // Both other orders are permutations of the same two items.
+    for sort in ["newest", "size"] {
+        let (status, body) = json_get(&app, &format!("/v1/items?sort={sort}")).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["total"], 2);
+    }
+    let (status, body) = json_get(&app, "/v1/items?sort=bogus").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(body["code"], "invalid_sort");
+}
+
 async fn post_updates(app: &axum::Router, body: Value) -> (StatusCode, Value) {
     let response = app
         .clone()

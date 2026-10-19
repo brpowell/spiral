@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import type { AppearanceSection } from "../../lib/appearanceWindow";
@@ -17,6 +17,7 @@ import {
   StatusIndicator,
   StatusIndicatorAnchor,
 } from "../common/StatusIndicator/StatusIndicator";
+import { IconDownload } from "../icons";
 import { ThemeEditor } from "../ThemeEditor/ThemeEditor";
 import {
   APPEARANCE_CATALOG_SECTION,
@@ -178,8 +179,14 @@ export function AppearanceShell() {
 
   const catalogLabel = t("catalog.sidebar");
   const collectionLabel = t("nav.collection");
-  const itemUpdatesPending = useItemUpdatesStore(
-    (s) => s.pendingUpdates.length > 0,
+  const pendingUpdates = useItemUpdatesStore((s) => s.pendingUpdates);
+  const updatingItems = useItemUpdatesStore((s) => s.status === "updating");
+  const updateAllPendingItems = useItemUpdatesStore(
+    (s) => s.updateAllPendingItems,
+  );
+  const typesWithUpdates = useMemo(
+    () => new Set(pendingUpdates.map((u) => u.itemType)),
+    [pendingUpdates],
   );
 
   return (
@@ -189,13 +196,37 @@ export function AppearanceShell() {
           <StudioSidebarActions
             runAfterLeavingEditor={runAfterLeavingEditor}
             openThemeEditor={openEditor}
-          />
+          >
+            {pendingUpdates.length > 0 ? (
+              <li>
+                <SidebarItem
+                  icon={<IconDownload />}
+                  trailing={pendingUpdates.length}
+                  disabled={updatingItems}
+                  aria-label={t("actions.updateAllAria", {
+                    count: pendingUpdates.length,
+                  })}
+                  onClick={() => void updateAllPendingItems()}
+                >
+                  {t("actions.updateAll")}
+                </SidebarItem>
+              </li>
+            ) : null}
+          </StudioSidebarActions>
           <SidebarSection label={collectionLabel}>
             <SidebarList>
               {APPEARANCE_CONTENT_SECTIONS.map((item) => (
                 <li key={item.id}>
                   <SidebarItem
-                    icon={item.icon}
+                    leading={
+                      <StatusIndicatorAnchor className="sidebar-item__icon">
+                        {item.icon}
+                        {item.itemType != null &&
+                        typesWithUpdates.has(item.itemType) ? (
+                          <StatusIndicator />
+                        ) : null}
+                      </StatusIndicatorAnchor>
+                    }
                     active={section === item.id}
                     onClick={() => handleSectionClick(item.id)}
                   >
@@ -205,19 +236,20 @@ export function AppearanceShell() {
               ))}
             </SidebarList>
           </SidebarSection>
-          <SidebarSection aria-label={catalogLabel}>
-            <SidebarItem
-              leading={
-                <StatusIndicatorAnchor className="sidebar-item__icon">
-                  {APPEARANCE_CATALOG_SECTION.icon}
-                  {itemUpdatesPending ? <StatusIndicator /> : null}
-                </StatusIndicatorAnchor>
-              }
-              active={section === APPEARANCE_CATALOG_SECTION.id}
-              onClick={() => handleSectionClick(APPEARANCE_CATALOG_SECTION.id)}
-            >
-              {catalogLabel}
-            </SidebarItem>
+          <SidebarSection label={t("catalog.section")}>
+            <SidebarList>
+              <li>
+                <SidebarItem
+                  icon={APPEARANCE_CATALOG_SECTION.icon}
+                  active={section === APPEARANCE_CATALOG_SECTION.id}
+                  onClick={() =>
+                    handleSectionClick(APPEARANCE_CATALOG_SECTION.id)
+                  }
+                >
+                  {catalogLabel}
+                </SidebarItem>
+              </li>
+            </SidebarList>
           </SidebarSection>
         </SidebarFrame>
       </aside>

@@ -9,9 +9,9 @@ use tokio_util::io::ReaderStream;
 
 use crate::db::{self, compare_version_desc};
 use crate::models::{
-    ItemDetailResponse, ItemIdentity, ItemListQuery, ItemListResponse, ItemUpdate, ItemVersionRow,
-    UpdateCheckRequest, UpdateCheckResponse, VersionDetailResponse, DEFAULT_LIST_LIMIT,
-    MAX_LIST_LIMIT, MAX_UPDATE_CHECK_ITEMS,
+    ItemDetailResponse, ItemIdentity, ItemListQuery, ItemListResponse, ItemSort, ItemUpdate,
+    ItemVersionRow, UpdateCheckRequest, UpdateCheckResponse, VersionDetailResponse,
+    DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT, MAX_UPDATE_CHECK_ITEMS,
 };
 use crate::preview::content_type_for_preview_key;
 use crate::storage::DownloadTarget;
@@ -63,23 +63,48 @@ async fn list_items(
     State(state): State<AppState>,
     Query(query): Query<ItemListQuery>,
 ) -> ApiResult<Json<ItemListResponse>> {
-    if let Some(item_type) = query.item_type.as_deref() {
+    let mut item_types: Vec<&str> = Vec::new();
+    for item_type in query
+        .item_type
+        .as_deref()
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+    {
         if item_type_folder(item_type).is_none() {
             return Err(ApiError::bad_request(
                 "invalid_type",
                 format!("unknown item type \"{item_type}\""),
             ));
         }
+        item_types.push(item_type);
     }
+    let sort = match query
+        .sort
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        None => ItemSort::default(),
+        Some(raw) => ItemSort::parse(raw).ok_or_else(|| {
+            ApiError::bad_request("invalid_sort", format!("unknown sort \"{raw}\""))
+        })?,
+    };
     let limit = query
         .limit
         .unwrap_or(DEFAULT_LIST_LIMIT)
         .clamp(1, MAX_LIST_LIMIT);
     let offset = query.offset.unwrap_or(0);
 
+    // The database filters a single type; several are narrowed below.
+    let db_type = match item_types.as_slice() {
+        [only] => Some(*only),
+        _ => None,
+    };
     let rows = state
         .db
-        .list_published_versions(query.publisher.as_deref(), query.item_type.as_deref())
+        .list_published_versions(query.publisher.as_deref(), db_type)
         .await?;
 
     let needle = query
@@ -90,6 +115,7 @@ async fn list_items(
         .map(str::to_lowercase);
     let mut latest: Vec<ItemVersionRow> = db::group_items_latest(rows)
         .into_iter()
+        .filter(|row| item_types.is_empty() || item_types.contains(&row.item_type.as_str()))
         .filter(|row| {
             needle.as_deref().is_none_or(|needle| {
                 [&row.name, &row.description, &row.item_id, &row.publisher_id]
@@ -98,7 +124,25 @@ async fn list_items(
             })
         })
         .collect();
-    latest.sort_by_cached_key(|row| (row.name.to_lowercase(), row.effective_id()));
+    match sort {
+        ItemSort::Name => {
+            latest.sort_by_cached_key(|row| (row.name.to_lowercase(), row.effective_id()))
+        }
+        ItemSort::Newest => latest.sort_by_cached_key(|row| {
+            (
+                std::cmp::Reverse(row.published_at),
+                row.name.to_lowercase(),
+                row.effective_id(),
+            )
+        }),
+        ItemSort::Size => latest.sort_by_cached_key(|row| {
+            (
+                std::cmp::Reverse(row.size_bytes),
+                row.name.to_lowercase(),
+                row.effective_id(),
+            )
+        }),
+    }
 
     let total = latest.len();
     let items = latest

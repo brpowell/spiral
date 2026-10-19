@@ -6,6 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resetCatalogView } from "../../store/useCatalogViewStore";
 import type {
   CatalogItemEntry,
   RegistryItemSummary,
@@ -24,7 +25,7 @@ vi.mock("../../lib/itemRegistry", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/itemRegistry")>()),
   fetchItemCatalogSafe: mockFetchCatalog,
   enrichItemCatalog: mockEnrich,
-  installRegistryItem: mockInstall,
+  installCatalogEntry: mockInstall,
   prefetchItemDetail: mockPrefetch,
 }));
 
@@ -92,6 +93,7 @@ describe("RegistryBrowseSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetCatalogSnapshots();
+    resetCatalogView();
     mockEnrich.mockImplementation(async (items: RegistryItemSummary[]) =>
       enriched(items),
     );
@@ -107,7 +109,13 @@ describe("RegistryBrowseSection", () => {
     expect(await screen.findByText("NOIR")).toBeTruthy();
     expect(screen.getByText("GROVE")).toBeTruthy();
     expect(mockFetchCatalog).toHaveBeenCalledWith(
-      expect.objectContaining({ itemType: null, q: "", limit: 48, offset: 0 }),
+      expect.objectContaining({
+        itemTypes: [],
+        q: "",
+        sort: "name",
+        limit: 48,
+        offset: 0,
+      }),
     );
   });
 
@@ -116,10 +124,39 @@ describe("RegistryBrowseSection", () => {
     render(<RegistryBrowseSection />);
     await screen.findByText("NOIR");
 
-    fireEvent.click(screen.getByRole("tab", { name: "Skins" }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter by type" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Skins" }));
     await waitFor(() =>
       expect(mockFetchCatalog).toHaveBeenCalledWith(
-        expect.objectContaining({ itemType: "skin", offset: 0 }),
+        expect.objectContaining({ itemTypes: ["skin"], offset: 0 }),
+      ),
+    );
+
+    // Filters combine; clearing them returns to everything.
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Themes" }));
+    await waitFor(() =>
+      expect(mockFetchCatalog).toHaveBeenCalledWith(
+        expect.objectContaining({ itemTypes: ["skin", "theme"] }),
+      ),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Clear filters" }));
+    await waitFor(() =>
+      expect(mockFetchCatalog).toHaveBeenLastCalledWith(
+        expect.objectContaining({ itemTypes: [] }),
+      ),
+    );
+  });
+
+  it("sorts through the server query", async () => {
+    mockFetchCatalog.mockResolvedValue(catalogOf([summary("noir")]));
+    render(<RegistryBrowseSection />);
+    await screen.findByText("NOIR");
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Newest" }));
+    await waitFor(() =>
+      expect(mockFetchCatalog).toHaveBeenCalledWith(
+        expect.objectContaining({ sort: "newest", offset: 0 }),
       ),
     );
   });
@@ -184,11 +221,14 @@ describe("RegistryBrowseSection", () => {
   it("explains an empty filtered result", async () => {
     mockFetchCatalog.mockResolvedValue(catalogOf([]));
     render(<RegistryBrowseSection />);
-    fireEvent.click(await screen.findByRole("tab", { name: "Themes" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Filter by type" }),
+    );
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Themes" }));
     expect(await screen.findByText("Nothing matches.")).toBeTruthy();
   });
 
-  it("installs an update from the card with the catalog's identity and hash", async () => {
+  it("installs an update from the card", async () => {
     const item = summary("noir", "theme", "2.0.0");
     mockFetchCatalog.mockResolvedValue(catalogOf([item]));
     mockEnrich.mockImplementation(async (items: RegistryItemSummary[]) =>
@@ -199,15 +239,8 @@ describe("RegistryBrowseSection", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Update NOIR" }));
     await waitFor(() => expect(mockInstall).toHaveBeenCalledTimes(1));
     expect(mockInstall).toHaveBeenCalledWith(
-      expect.objectContaining({
-        registryUrl: "https://registry.example",
-        publisherId: "spiral",
-        itemType: "theme",
-        id: "noir",
-        version: "2.0.0",
-        sha256: "a".repeat(64),
-        sizeBytes: 10,
-      }),
+      expect.objectContaining({ id: "noir", effectiveId: "spiral.theme.noir" }),
+      undefined,
     );
   });
 
@@ -219,5 +252,38 @@ describe("RegistryBrowseSection", () => {
     expect(await screen.findByText("detail:spiral.theme.noir")).toBeTruthy();
     fireEvent.click(screen.getByText("back"));
     expect(await screen.findByText("NOIR")).toBeTruthy();
+  });
+
+  it("remembers the open item, filters, sort and search after leaving the catalog", async () => {
+    mockFetchCatalog.mockResolvedValue(catalogOf([summary("noir")]));
+    const first = render(<RegistryBrowseSection />);
+    await screen.findByText("NOIR");
+
+    fireEvent.click(screen.getByRole("button", { name: "Filter by type" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Themes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Newest" }));
+    fireEvent.change(screen.getByLabelText("Search the catalog"), {
+      target: { value: "noir" },
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /NOIR/ }));
+    expect(await screen.findByText("detail:spiral.theme.noir")).toBeTruthy();
+
+    // Another Studio section replaces the catalog, then the user comes back.
+    first.unmount();
+    mockFetchCatalog.mockClear();
+    render(<RegistryBrowseSection />);
+
+    expect(await screen.findByText("detail:spiral.theme.noir")).toBeTruthy();
+    expect(mockFetchCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemTypes: ["theme"],
+        sort: "newest",
+        q: "noir",
+      }),
+    );
+    fireEvent.click(screen.getByText("back"));
+    const search = await screen.findByLabelText("Search the catalog");
+    expect((search as HTMLInputElement).value).toBe("noir");
   });
 });

@@ -189,13 +189,6 @@ fn write_item_text_at(
     fs::write(&path, content).map_err(|e| format!("failed to write {filename}: {e}"))
 }
 
-fn hidden_item_set(app: &AppHandle) -> HashSet<String> {
-    settings::read_settings(app)
-        .hidden_contribution_ids
-        .into_iter()
-        .collect()
-}
-
 /// The authoring (workshop or linked) item with `effective_id`.
 pub(crate) fn find_mutable_item(
     app: &AppHandle,
@@ -330,8 +323,7 @@ pub fn export_item(
 /// List all items (builtin / workshop / installed / linked) for the management UI.
 #[tauri::command]
 pub fn list_items(app: AppHandle) -> Result<Vec<ItemSummary>, String> {
-    let hidden = hidden_item_set(&app);
-    packs::manage::list_items(&app, &hidden)
+    packs::manage::list_items(&app)
 }
 
 /// Link an external item folder (directory picker when `path` is omitted).
@@ -603,7 +595,7 @@ pub fn write_item_changelog(
     )
 }
 
-/// Reset active selections and drop the hidden entry for a single item id.
+/// Reset active selections that point at a single item id.
 pub(crate) fn forget_item_references(app: &AppHandle, item_id: &str) -> Result<(), String> {
     let mut app_settings = settings::read_settings(app);
     let mut changed = false;
@@ -622,14 +614,6 @@ pub(crate) fn forget_item_references(app: &AppHandle, item_id: &str) -> Result<(
     }
     if app_settings.active_sound_pack == item_id {
         app_settings.active_sound_pack = settings::DEFAULT_SOUND_PACK_ID.to_string();
-        changed = true;
-    }
-
-    let before_hidden = app_settings.hidden_contribution_ids.len();
-    app_settings
-        .hidden_contribution_ids
-        .retain(|id| id != item_id);
-    if app_settings.hidden_contribution_ids.len() != before_hidden {
         changed = true;
     }
 
@@ -663,13 +647,6 @@ pub(crate) fn remap_item_references(
         }
     }
 
-    for id in app_settings.hidden_contribution_ids.iter_mut() {
-        if id == old_effective_id {
-            *id = new_effective_id.to_string();
-            changed = true;
-        }
-    }
-
     if changed {
         settings::write_settings(app, &app_settings)?;
     }
@@ -698,53 +675,6 @@ pub fn delete_workshop_item(app: AppHandle, item_id: String) -> Result<(), Strin
     fs::remove_dir_all(&item.contribution_dir)
         .map_err(|e| format!("failed to delete \"{}\": {e}", item.effective_id))?;
     forget_item_references(&app, &item.effective_id)
-}
-
-/// Hide or show an item in pickers (does not delete files).
-#[tauri::command]
-pub fn set_item_hidden(
-    app: AppHandle,
-    item_id: String,
-    hidden: bool,
-) -> Result<Vec<String>, String> {
-    let item_id = item_id.trim().to_string();
-    if item_id.is_empty() {
-        return Err("item id is required".into());
-    }
-
-    let mut app_settings = settings::read_settings(&app);
-    let mut set: HashSet<String> = app_settings
-        .hidden_contribution_ids
-        .iter()
-        .cloned()
-        .collect();
-    if hidden {
-        set.insert(item_id.clone());
-    } else {
-        set.remove(&item_id);
-    }
-    let mut ids: Vec<String> = set.into_iter().collect();
-    ids.sort();
-    app_settings.hidden_contribution_ids = ids.clone();
-
-    // If we hid the active item, fall back to a visible default.
-    if hidden {
-        if app_settings.active_theme == item_id {
-            app_settings.active_theme = settings::DEFAULT_THEME_ID.to_string();
-        }
-        if app_settings.active_skin == item_id {
-            app_settings.active_skin = settings::DEFAULT_SKIN_ID.to_string();
-        }
-        if app_settings.active_visualizer == item_id {
-            app_settings.active_visualizer = settings::DEFAULT_VISUALIZER_ID.to_string();
-        }
-        if app_settings.active_sound_pack == item_id {
-            app_settings.active_sound_pack = settings::DEFAULT_SOUND_PACK_ID.to_string();
-        }
-    }
-
-    settings::write_settings(&app, &app_settings)?;
-    Ok(ids)
 }
 
 /// Preferences → Studio → Default Publisher ID.

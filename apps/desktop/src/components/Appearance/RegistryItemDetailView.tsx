@@ -2,14 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { formatBytes } from "../../lib/formatBytes";
 import {
-  fetchRegistryItemSafe,
   fetchRegistryItemVersionSafe,
   peekRegistryItemVersion,
-  sortVersionsNewestFirst,
-  versionCmp,
-  versionMeetsMinApp,
 } from "../../lib/itemRegistry";
-import { getAppVersion } from "../../lib/tauri";
 import {
   catalogItemName,
   type CatalogItemEntry,
@@ -18,22 +13,10 @@ import {
 import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
-import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
-import { Button } from "../common/Button/Button";
-import {
-  ButtonGroup,
-  ButtonGroupSeparator,
-} from "../common/ButtonGroup/ButtonGroup";
 import { MarkdownBody } from "../common/MarkdownBody/MarkdownBody";
 import { Skeleton } from "../common/Skeleton/Skeleton";
 import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
-import {
-  ContextMenuHeading,
-  ContextMenuOptionItem,
-} from "../ContextMenu/ContextMenu";
-import { IconChevronDown, IconCheck } from "../icons";
-import { MenuButton } from "../MenuButton/MenuButton";
-import { ItemActionsMenu } from "./ItemActionsMenu";
+import { RegistryItemActions } from "./RegistryItemActions";
 import { itemTypeMeta } from "./itemShared";
 import { RegistryItemPreview } from "./RegistryItemPreview";
 import "./InstalledPacksSection.css";
@@ -150,144 +133,16 @@ export function RegistryItemDetailView({
 }) {
   const { t } = useTranslation(["studio", "common"]);
   const [tab, setTab] = useState<DetailTab>("about");
-  const [versions, setVersions] = useState<RegistryVersionSummary[]>([]);
-  const [appVersion, setAppVersion] = useState<string | null>(null);
-  /** A version older than the installed one, waiting for the user to confirm. */
-  const [downgradeTarget, setDowngradeTarget] =
-    useState<RegistryVersionSummary | null>(null);
 
   const latest = entry.latestVersion;
   const name = catalogItemName(entry);
   const installedVersion = entry.installedVersion;
   const { docs, status } = useVersionDocs(entry, latest.version);
 
-  useEffect(() => {
-    let cancelled = false;
-    void fetchRegistryItemSafe({
-      registryUrl: entry.registryUrl,
-      publisherId: entry.publisherId,
-      itemType: entry.itemType,
-      id: entry.id,
-    }).then((result) => {
-      if (!cancelled) {
-        setVersions(
-          result.ok ? sortVersionsNewestFirst(result.detail.versions) : [],
-        );
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [entry.registryUrl, entry.publisherId, entry.itemType, entry.id]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void getAppVersion()
-      .then((v) => {
-        if (!cancelled) setAppVersion(v);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const changelogPresent = status === "ready" && Boolean(docs?.changelog);
   useEffect(() => {
     if (!changelogPresent && tab === "changelog") setTab("about");
   }, [changelogPresent, tab]);
-
-  const showInstall = installedVersion == null && entry.meetsMinAppVersion;
-  const showUpdate = entry.updateAvailable && entry.meetsMinAppVersion;
-  const blocked = !entry.meetsMinAppVersion && !entry.installed;
-  const hasAlternateVersions = versions.length > 1;
-  const showVersionMenu =
-    versions.length > 0 &&
-    (showUpdate ||
-      ((showInstall || installedVersion != null) && hasAlternateVersions));
-
-  const chooseVersion = (version: RegistryVersionSummary) => {
-    if (
-      installedVersion != null &&
-      versionCmp(version.version, installedVersion) === -1
-    ) {
-      setDowngradeTarget(version);
-      return;
-    }
-    void onInstall(version);
-  };
-
-  const primary = blocked ? (
-    <Button variant="secondary" size="sm" disabled>
-      {t("catalog.statusRequiresUpdate")}
-    </Button>
-  ) : showUpdate ? (
-    <Button
-      variant="primary"
-      size="sm"
-      disabled={busy}
-      onClick={() => void onInstall()}
-    >
-      {t("catalog.actionUpdate")}
-    </Button>
-  ) : showInstall ? (
-    <Button
-      variant="primary"
-      size="sm"
-      disabled={busy}
-      onClick={() => void onInstall()}
-    >
-      {t("catalog.actionInstall")}
-    </Button>
-  ) : (
-    <span className="registry-browse__installed-note">
-      <IconCheck aria-hidden />
-      {t("catalog.statusInstalled")}
-    </span>
-  );
-
-  const versionMenu = (
-    <MenuButton
-      ariaLabel={t("catalog.menuInstallVersion")}
-      icon={<IconChevronDown />}
-      variant={showUpdate || showInstall ? "primary" : "secondary"}
-      size="sm"
-      triggerPlacement="below-start"
-      disabled={busy}
-      layoutDeps={[
-        versions.map((v) => v.version).join(","),
-        installedVersion,
-        appVersion,
-        busy,
-      ]}
-    >
-      {(close) => (
-        <>
-          <ContextMenuHeading>
-            {t("catalog.menuInstallVersionHeading")}
-          </ContextMenuHeading>
-          {versions.map((option) => {
-            const isCurrent = option.version === installedVersion;
-            const meetsMin =
-              appVersion == null ||
-              versionMeetsMinApp(option.minAppVersion, appVersion);
-            return (
-              <ContextMenuOptionItem
-                key={option.version}
-                label={t("catalog.versionLabel", { version: option.version })}
-                selected={isCurrent}
-                disabled={busy || isCurrent || !meetsMin}
-                onClick={() => {
-                  close();
-                  chooseVersion(option);
-                }}
-              />
-            );
-          })}
-        </>
-      )}
-    </MenuButton>
-  );
 
   const facts = useMemo(() => {
     const list: Array<{
@@ -341,7 +196,6 @@ export function RegistryItemDetailView({
     <BrowseView>
       <BrowseViewHeader
         className="browse-view__header--single-row"
-        title={t("items.detailsTitle")}
         backAriaLabel={backAriaLabel}
         onBack={onBack}
       />
@@ -359,29 +213,11 @@ export function RegistryItemDetailView({
                 {description ? (
                   <p className="installed-packs__description">{description}</p>
                 ) : null}
-                <div className="installed-packs__hero-actions">
-                  <ButtonGroup aria-label={t("catalog.menuInstallVersion")}>
-                    {primary}
-                    {showVersionMenu ? (
-                      <>
-                        <ButtonGroupSeparator />
-                        {versionMenu}
-                      </>
-                    ) : null}
-                  </ButtonGroup>
-                  {installedVersion != null ? (
-                    <ItemActionsMenu
-                      item={{
-                        effectiveId: entry.effectiveId,
-                        type: entry.itemType,
-                        name,
-                        zone: "installed",
-                      }}
-                      variant="secondary"
-                      size="sm"
-                    />
-                  ) : null}
-                </div>
+                <RegistryItemActions
+                  entry={entry}
+                  busy={busy}
+                  onInstall={onInstall}
+                />
                 <dl className="installed-packs__facts">
                   {facts.map((fact) => (
                     <div key={fact.key} className="installed-packs__fact">
@@ -449,25 +285,6 @@ export function RegistryItemDetailView({
           </Tabs>
         </div>
       </BrowseGridBody>
-
-      <AlertConfirmation
-        open={downgradeTarget != null}
-        onClose={() => setDowngradeTarget(null)}
-        title={t("catalog.downgradeConfirmTitle")}
-        confirmLabel={t("catalog.downgradeConfirmLabel")}
-        confirmVariant="primary"
-        onConfirm={() => {
-          const target = downgradeTarget;
-          setDowngradeTarget(null);
-          if (target) void onInstall(target);
-        }}
-      >
-        {t("catalog.downgradeConfirmBody", {
-          name,
-          installed: installedVersion ?? "",
-          version: downgradeTarget?.version ?? "",
-        })}
-      </AlertConfirmation>
     </BrowseView>
   );
 }

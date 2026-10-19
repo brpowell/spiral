@@ -68,12 +68,18 @@ export interface RegistryItemList {
   errors?: RegistryFetchError[];
 }
 
+/** Catalog ordering; the registry's default is `name`. */
+export const CATALOG_SORTS = ["name", "newest", "size"] as const;
+export type CatalogSort = (typeof CATALOG_SORTS)[number];
+
 /** Server-side filters and paging for the catalog. */
 export interface ItemCatalogQuery {
-  itemType?: ItemType | null;
+  /** Types to include; empty or absent means every type. */
+  itemTypes?: ItemType[];
   /** Substring over name, description, id and publisher. */
   q?: string | null;
   publisherId?: string | null;
+  sort?: CatalogSort;
   limit?: number;
   offset?: number;
 }

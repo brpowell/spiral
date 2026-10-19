@@ -205,13 +205,39 @@ pub struct AuditListResponse {
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ItemListQuery {
+    /// One item type, or several separated by commas. Absent or empty means every type.
     #[serde(rename = "type")]
     pub item_type: Option<String>,
     /// Case-insensitive substring over name, description, id and publisher.
     pub q: Option<String>,
     pub publisher: Option<String>,
+    /// `name` (default), `newest` or `size`; see [`ItemSort`].
+    pub sort: Option<String>,
     pub limit: Option<usize>,
     pub offset: Option<usize>,
+}
+
+/// Ordering of `GET /v1/items`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ItemSort {
+    /// Name A–Z.
+    #[default]
+    Name,
+    /// Most recently published latest version first.
+    Newest,
+    /// Largest on-disk size first.
+    Size,
+}
+
+impl ItemSort {
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw {
+            "name" => Some(Self::Name),
+            "newest" => Some(Self::Newest),
+            "size" => Some(Self::Size),
+            _ => None,
+        }
+    }
 }
 
 /// Identity of an item, without a version.

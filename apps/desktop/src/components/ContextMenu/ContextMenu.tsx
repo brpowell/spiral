@@ -62,10 +62,12 @@ export function ContextMenuHeading({ children }: { children: ReactNode }) {
 }
 
 export function ContextMenuCheckboxItem({
+  icon,
   checked,
   label,
   onClick,
 }: {
+  icon?: ReactNode;
   checked: boolean;
   label: string;
   onClick: () => void;
@@ -77,10 +79,18 @@ export function ContextMenuCheckboxItem({
       aria-checked={checked}
       onClick={onClick}
     >
-      <span className="context-menu__item-icon" aria-hidden>
+      {icon != null ? (
+        <span className="context-menu__item-icon" aria-hidden>
+          {icon}
+        </span>
+      ) : null}
+      <span className="context-menu__item-label">{label}</span>
+      <span
+        className="context-menu__option-check context-menu__option-check--centered"
+        aria-hidden
+      >
         {checked ? <IconCheck /> : null}
       </span>
-      <span className="context-menu__item-label">{label}</span>
     </button>
   );
 }

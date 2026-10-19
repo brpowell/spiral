@@ -124,11 +124,6 @@
   color: var(--color-text-secondary);
 }
 
-.context-menu button[role="menuitemcheckbox"] .context-menu__item-icon {
-  opacity: 1;
-  color: var(--color-interactive-selected-text);
-}
-
 .context-menu__submenu-wrap {
   position: relative;
 }
@@ -189,6 +184,11 @@
   margin-top: 0.1rem;
   margin-left: 0.35rem;
   color: var(--color-interactive-selected-text);
+}
+
+.context-menu__option-check--centered {
+  align-items: center;
+  margin-top: 0;
 }
 
 .context-menu__option-check svg {

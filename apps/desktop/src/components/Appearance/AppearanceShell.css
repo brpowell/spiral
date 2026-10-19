@@ -21,11 +21,9 @@
   padding-top: 1.25rem;
 }
 
-/* First labeled group: keep section label, skip separator used between groups. */
+/* First group sits at the top of the rail, with no gap above it. */
 .appearance-shell__sidebar-section--first.sidebar__section {
   margin-top: 0;
-  padding-top: 0;
-  border-top: none;
 }
 
 .appearance-shell__content {

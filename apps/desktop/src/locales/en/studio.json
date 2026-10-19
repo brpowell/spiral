@@ -88,12 +88,10 @@
     "namePlaceholder": "My theme"
   },
   "themeEditor": {
-    "details": "Details",
     "contributionId": "Contribution ID",
     "contributionIdHint": "Kebab slug used in the theme’s effective id.",
     "contributionIdInvalid": "Use lowercase letters, numbers, and hyphens (e.g. my-theme).",
     "contributionIdPlaceholder": "my-theme",
-    "author": "Author",
     "typography": "Typography",
     "livePreview": "Live preview",
     "previewInput": "Input sample",
@@ -165,8 +163,9 @@
     "saveFailed": "Failed to save README."
   },
   "catalog": {
-    "sidebar": "Get more…",
-    "title": "Get more",
+    "sidebar": "Spiral Official",
+    "section": "Catalog",
+    "title": "Catalog",
     "loading": "Loading catalog…",
     "unreachableTitle": "Couldn't reach the catalog",
     "retry": "Try again",
@@ -188,14 +187,22 @@
     "emptyFiltered": "Nothing matches.",
     "unreachableDescription": "Spiral couldn't connect to any registries. Check your connection and try again.",
     "partialErrors": "Some registries couldn't be reached.",
-    "typeAll": "All",
+    "filterAll": "All types",
+    "filterCount": "{{count}} types",
+    "filterClear": "Clear filters",
+    "filterAria": "Filter by type",
+    "sortAria": "Sort by",
+    "sort": {
+      "name": "Name (A–Z)",
+      "newest": "Newest",
+      "size": "Largest"
+    },
     "typePlural": {
       "theme": "Themes",
       "skin": "Skins",
       "visualizer": "Visualizers",
       "sound": "Sound packs"
     },
-    "typeFilterAria": "Filter by type",
     "searchPlaceholder": "Search",
     "searchAria": "Search the catalog",
     "loadMore": "Load more",
@@ -231,7 +238,6 @@
   "items": {
     "cardAria": "{{name}} by {{author}}",
     "cardActionsAria": "Actions for {{name}}",
-    "detailsTitle": "Details",
     "viewDetails": "View details",
     "editDetails": "Edit details",
     "editTitle": "Edit details",
@@ -271,12 +277,8 @@
     "uninstallBody": "This removes “{{name}}” from your computer.",
     "deleteTitle": "Delete?",
     "deleteBody": "This permanently deletes the workshop item “{{name}}”. This cannot be undone.",
-    "unlinkTitle": "Unlink?",
-    "unlinkBody": "“{{name}}” is no longer loaded. The folder on disk is left in place.",
-    "hiddenTitle": "Hidden",
-    "hiddenCount": "Hidden ({{count}})",
-    "hiddenAria": "Hidden items",
-    "show": "Show",
+    "unlinkTitle": "Unlink item?",
+    "unlinkBody": "“{{name}}” will be disconnected, but will remain on disk.",
     "typeNames": {
       "theme": "Theme",
       "skin": "Skin",
@@ -297,7 +299,7 @@
       "unusedCue": "not used by this app",
       "play": "Play {{name}}"
     },
-    "export": "Export…",
+    "export": "Export .spk…",
     "exportTitle": "Export",
     "exportAction": "Export",
     "exporting": "Exporting…",
@@ -313,7 +315,9 @@
     "manageAria": "Manage items",
     "install": "Install…",
     "linkFolder": "Link a folder…",
-    "reloadLinked": "Reload linked folders"
+    "reloadLinked": "Reload linked folders",
+    "updateAll": "Update all",
+    "updateAllAria": "Update all items ({{count}})"
   },
   "create": {
     "theme": "New Theme"
