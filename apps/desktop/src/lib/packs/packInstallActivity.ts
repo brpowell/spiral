@@ -1,43 +1,59 @@
 import { logActivity } from "../activityLog";
 import { errorMessageFromUnknown } from "../cdPlaybackFailure";
-import type { InstallPackResult } from "../tauri";
+import type { InstallItemResult } from "../tauri";
 import { ACTIVITY_LOG_DOMAINS } from "../../types/activityLog";
 
-export type PackInstallSource = "registry" | "file";
-
-/** Activity log for a successful pack install (provenance in `details`). */
-export function logPackInstallSuccess(options: {
+/** Activity log for a successful item install from a file. */
+export function logItemInstallSuccess(options: {
   operationId: string;
-  source: PackInstallSource;
-  result: InstallPackResult;
-  /** Registry base URL when `source === "registry"`. */
-  registryUrl?: string;
-  authorId?: string;
+  result: InstallItemResult;
+}): void {
+  const { operationId, result } = options;
+  logActivity({
+    level: "info",
+    domain: ACTIVITY_LOG_DOMAINS.packInstall,
+    message: `Installed ${result.name} (${result.effectiveId}@${result.version}) from file`,
+    operationId,
+    details: {
+      source: "file",
+      name: result.name,
+      itemType: result.itemType,
+      effectiveId: result.effectiveId,
+      version: result.version,
+      dir: result.dir,
+      ...(result.replacedVersion != null
+        ? { replacedVersion: result.replacedVersion }
+        : {}),
+    },
+  });
+}
+
+/** Activity log for a successful registry install (provenance in `details`). */
+export function logRegistryInstallSuccess(options: {
+  operationId: string;
+  result: InstallItemResult;
+  registryUrl: string;
   sha256?: string;
   sizeBytes?: number;
   minAppVersion?: string | null;
 }): void {
-  const { operationId, source, result } = options;
-  const identity = `${options.authorId ?? "?"}.${result.packId}@${result.version}`;
+  const { operationId, result } = options;
   logActivity({
     level: "info",
     domain: ACTIVITY_LOG_DOMAINS.packInstall,
-    message:
-      source === "registry"
-        ? `Installed ${result.name} (${identity}) from registry`
-        : `Installed ${result.name} (${result.packId}@${result.version}) from file`,
+    message: `Installed ${result.name} (${result.effectiveId}@${result.version}) from registry`,
     operationId,
     details: {
-      source,
+      source: "registry",
       name: result.name,
-      packId: result.packId,
+      itemType: result.itemType,
+      effectiveId: result.effectiveId,
       version: result.version,
-      packDir: result.packDir,
-      contributionCount: result.contributionCount,
-      ...(options.registryUrl != null
-        ? { registryUrl: options.registryUrl }
+      dir: result.dir,
+      registryUrl: options.registryUrl,
+      ...(result.replacedVersion != null
+        ? { replacedVersion: result.replacedVersion }
         : {}),
-      ...(options.authorId != null ? { authorId: options.authorId } : {}),
       ...(options.sha256 != null ? { sha256: options.sha256 } : {}),
       ...(options.sizeBytes != null ? { sizeBytes: options.sizeBytes } : {}),
       ...(options.minAppVersion != null && options.minAppVersion !== ""
@@ -47,16 +63,16 @@ export function logPackInstallSuccess(options: {
   });
 }
 
-/** Activity log for a failed pack install/download (raw error in details). */
-export function logPackInstallFailure(options: {
+/** Activity log for a failed registry download/install (raw error in details). */
+export function logRegistryInstallFailure(options: {
   operationId: string;
-  source: PackInstallSource;
   err: unknown;
   name?: string;
-  registryUrl?: string;
-  authorId?: string;
-  packId?: string;
-  version?: string;
+  registryUrl: string;
+  publisherId: string;
+  itemType: string;
+  id: string;
+  version: string;
   sha256?: string;
   sizeBytes?: number;
   minAppVersion?: string | null;
@@ -64,34 +80,50 @@ export function logPackInstallFailure(options: {
   const rawMessage = errorMessageFromUnknown(options.err);
   const subject =
     options.name?.trim() ||
-    (options.packId != null && options.version != null
-      ? `${options.packId}@${options.version}`
-      : options.packId) ||
-    "pack";
+    `${options.publisherId}.${options.itemType}.${options.id}@${options.version}`;
 
   logActivity({
     level: "error",
     domain: ACTIVITY_LOG_DOMAINS.packInstall,
-    message:
-      options.source === "registry"
-        ? `Pack download failed for ${subject}: ${rawMessage}`
-        : `Pack install failed for ${subject}: ${rawMessage}`,
+    message: `Item download failed for ${subject}: ${rawMessage}`,
     operationId: options.operationId,
     details: {
-      source: options.source,
+      source: "registry",
       error: rawMessage,
+      registryUrl: options.registryUrl,
+      publisherId: options.publisherId,
+      itemType: options.itemType,
+      id: options.id,
+      version: options.version,
       ...(options.name != null ? { name: options.name } : {}),
-      ...(options.registryUrl != null
-        ? { registryUrl: options.registryUrl }
-        : {}),
-      ...(options.authorId != null ? { authorId: options.authorId } : {}),
-      ...(options.packId != null ? { packId: options.packId } : {}),
-      ...(options.version != null ? { version: options.version } : {}),
       ...(options.sha256 != null ? { sha256: options.sha256 } : {}),
       ...(options.sizeBytes != null ? { sizeBytes: options.sizeBytes } : {}),
       ...(options.minAppVersion != null && options.minAppVersion !== ""
         ? { minAppVersion: options.minAppVersion }
         : {}),
+    },
+  });
+}
+
+/** Activity log for a failed file install (raw error in details). */
+export function logItemInstallFailure(options: {
+  operationId: string;
+  err: unknown;
+  name?: string;
+  path?: string;
+}): void {
+  const rawMessage = errorMessageFromUnknown(options.err);
+  const subject = options.name?.trim() || options.path || "item";
+  logActivity({
+    level: "error",
+    domain: ACTIVITY_LOG_DOMAINS.packInstall,
+    message: `Item install failed for ${subject}: ${rawMessage}`,
+    operationId: options.operationId,
+    details: {
+      source: "file",
+      error: rawMessage,
+      ...(options.name != null ? { name: options.name } : {}),
+      ...(options.path != null ? { path: options.path } : {}),
     },
   });
 }

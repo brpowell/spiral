@@ -8,7 +8,7 @@ import {
 import { LINKED_PACKS_CHANGED_EVENT } from "./appearanceWindow";
 import { stubLocaleMenuLabel } from "./appLocale";
 import { t } from "./i18n";
-import { listPacks } from "./tauri";
+import { listItems } from "./tauri";
 
 export interface AppMenuHandlers {
   addToLibrary: () => void;
@@ -44,8 +44,8 @@ let linkedPacksListenerBound = false;
 
 async function hasLinkedPacks(): Promise<boolean> {
   try {
-    const packs = await listPacks();
-    return packs.some((pack) => pack.zone === "linked");
+    const items = await listItems();
+    return items.some((item) => item.zone === "linked");
   } catch (err) {
     console.error("Failed to check linked packs:", err);
     return false;

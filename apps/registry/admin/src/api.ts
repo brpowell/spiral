@@ -1,6 +1,8 @@
 import { clearToken, getToken } from './auth'
+import { API_BASE } from './constants'
 import type {
-  AdminPackListResponse,
+  AdminItemListResponse,
+  AuditListResponse,
   VersionDetailResponse,
 } from './types'
 
@@ -42,64 +44,69 @@ export async function api<T>(path: string, opts: ApiOptions = {}): Promise<T> {
   return body as T
 }
 
-export function listAdminPacks(): Promise<AdminPackListResponse> {
-  return api('/v1/rgad/packs')
+/** Identity of one item (the URL segments after the API base). */
+export type ItemRef = { publisherId: string; itemType: string; id: string }
+
+function itemPath(ref: ItemRef): string {
+  return `${API_BASE}/${ref.publisherId}/${ref.itemType}/${ref.id}`
 }
 
-export function uploadPack(file: File): Promise<VersionDetailResponse> {
+export function listAdminItems(): Promise<AdminItemListResponse> {
+  return api(API_BASE)
+}
+
+export function uploadItem(file: File): Promise<VersionDetailResponse> {
   const fd = new FormData()
   fd.append('spk', file)
-  return api('/v1/rgad/packs', { method: 'POST', body: fd })
+  return api(API_BASE, { method: 'POST', body: fd })
 }
 
-export function yankVersion(
-  authorId: string,
-  packId: string,
-  version: string,
-): Promise<unknown> {
-  return api(
-    `/v1/rgad/packs/${authorId}/${packId}/versions/${version}/yank`,
-    { method: 'POST' },
-  )
+export function yankVersion(ref: ItemRef, version: string): Promise<unknown> {
+  return api(`${itemPath(ref)}/versions/${version}/yank`, { method: 'POST' })
 }
 
-export function unyankVersion(
-  authorId: string,
-  packId: string,
-  version: string,
-): Promise<unknown> {
-  return api(
-    `/v1/rgad/packs/${authorId}/${packId}/versions/${version}/unyank`,
-    { method: 'POST' },
-  )
+export function unyankVersion(ref: ItemRef, version: string): Promise<unknown> {
+  return api(`${itemPath(ref)}/versions/${version}/unyank`, { method: 'POST' })
 }
 
 export function purgeVersion(
-  authorId: string,
-  packId: string,
+  ref: ItemRef,
   version: string,
   confirm: string,
   reason: string,
 ): Promise<unknown> {
-  return api(
-    `/v1/rgad/packs/${authorId}/${packId}/versions/${version}/purge`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirm, reason }),
-    },
-  )
-}
-
-export function purgePack(
-  authorId: string,
-  packId: string,
-  confirm: string,
-  reason: string,
-): Promise<unknown> {
-  return api(`/v1/rgad/packs/${authorId}/${packId}/purge`, {
+  return api(`${itemPath(ref)}/versions/${version}/purge`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ confirm, reason }),
   })
+}
+
+export function purgeItem(
+  ref: ItemRef,
+  confirm: string,
+  reason: string,
+): Promise<unknown> {
+  return api(`${itemPath(ref)}/purge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm, reason }),
+  })
+}
+
+export type AuditQuery = {
+  action?: string
+  publisher?: string
+  type?: string
+  id?: string
+  limit: number
+  offset: number
+}
+
+export function listAudit(query: AuditQuery): Promise<AuditListResponse> {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== '') params.set(key, String(value))
+  }
+  return api(`${API_BASE.replace(/\/items$/, '')}/audit?${params}`)
 }

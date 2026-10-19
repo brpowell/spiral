@@ -61,10 +61,7 @@ describe("findVizSourceViolations", () => {
   });
 
   it("allows stock builtin visualizer entry sources", () => {
-    const root = join(
-      process.cwd(),
-      "src-tauri/packs/builtin/core/visualizers",
-    );
+    const root = join(process.cwd(), "src-tauri/packs/builtin/visualizers");
     const sources = readdirSync(root, { withFileTypes: true })
       .filter((dir) => dir.isDirectory())
       .map((dir) => join(root, dir.name, "index.js"))

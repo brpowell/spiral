@@ -178,7 +178,7 @@ export async function setSkinModeAlwaysOnTop(
   setSkinModeAlwaysOnTopSnapshot(alwaysOnTop);
 
   const resolvedSkinId =
-    skinId ?? (await getActiveSkinId().catch(() => "spiral.core.skin.vanilla"));
+    skinId ?? (await getActiveSkinId().catch(() => "spiral.skin.vanilla"));
 
   if (patchPersistedSkinModeState(resolvedSkinId, { alwaysOnTop })) {
     return;

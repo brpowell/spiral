@@ -1,13 +1,16 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
-import type { PackSummary } from "../types/pack";
+import type { ItemSummary, ItemType } from "../types/item";
+import type { SoundPackSummary } from "../types/soundPack";
 import type {
-  PackDownloadProgress,
-  RegistryPackDetail,
-  RegistryPackList,
+  ItemCatalogQuery,
+  ItemDownloadProgress,
+  ItemUpdateCheck,
+  RegistryItemDetail,
+  RegistryItemList,
   RegistrySource,
   RegistryVersionDetail,
-} from "../types/packRegistry";
+} from "../types/itemRegistry";
 import type {
   LibraryDestinationInfo,
   LibraryRelocateMode,
@@ -831,98 +834,74 @@ export async function saveActiveThemeId(themeId: string): Promise<void> {
   return invoke<void>("save_active_theme_id", { themeId });
 }
 
-export interface CreateWorkshopThemeArgs {
-  name?: string | null;
-  /** Add the theme to this existing workshop pack (omit to create a new pack). */
-  packId?: string | null;
-  /** Display name for a new pack; defaults to the theme name. Ignored when packId is set. */
-  packName?: string | null;
-}
-
-export async function createWorkshopTheme(
-  args?: CreateWorkshopThemeArgs,
-): Promise<Theme> {
-  return invoke<Theme>("create_workshop_theme", {
-    name: args?.name ?? null,
-    packId: args?.packId ?? null,
-    packName: args?.packName ?? null,
-  });
-}
-
 export async function saveWorkshopTheme(theme: Theme): Promise<Theme> {
   return invoke<Theme>("save_workshop_theme", { theme });
 }
 
-export async function deleteWorkshopTheme(themeId: string): Promise<void> {
-  return invoke<void>("delete_workshop_theme", { themeId });
+/** Official registry source only (extra settings entries ignored until multi-registry UI). */
+export async function getRegistries(): Promise<RegistrySource[]> {
+  return invoke<RegistrySource[]>("get_registries");
 }
 
-export interface InstallPackResult {
-  packId: string;
-  version: string;
-  name: string;
-  packDir: string;
-  contributionCount: number;
-}
-
-/** Install a `.spk` into `packs/installed/`. Omit path to open a file picker. */
-export async function installPack(
-  path?: string | null,
-): Promise<InstallPackResult | null> {
-  return invoke<InstallPackResult | null>("install_pack", {
-    path: path ?? null,
-  });
-}
-
-/** Official pack registry source only (extra settings entries ignored until multi-registry UI). */
-export async function getPackRegistries(): Promise<RegistrySource[]> {
-  return invoke<RegistrySource[]>("get_pack_registries");
-}
-
-/** Persist pack registry sources. Official Spiral URL is always retained. */
-export async function savePackRegistries(
+/** Persist registry sources. Official Spiral URL is always retained. */
+export async function saveRegistries(
   registries: RegistrySource[],
 ): Promise<RegistrySource[]> {
-  return invoke<RegistrySource[]>("save_pack_registries", { registries });
+  return invoke<RegistrySource[]>("save_registries", { registries });
 }
 
-/** `GET /v1/packs` against every configured registry (partial failure → `errors[]`). */
-export async function fetchPackCatalog(options?: {
-  contributionType?: string | null;
-  authorId?: string | null;
-}): Promise<RegistryPackList> {
-  return invoke<RegistryPackList>("fetch_pack_catalog", {
-    contributionType: options?.contributionType ?? null,
-    authorId: options?.authorId ?? null,
+/** `GET /v1/items` against every configured registry (partial failure → `errors[]`). */
+export async function fetchItemCatalog(
+  query?: ItemCatalogQuery,
+): Promise<RegistryItemList> {
+  return invoke<RegistryItemList>("fetch_item_catalog", {
+    query: query
+      ? {
+          itemType: query.itemType ?? null,
+          q: query.q ?? null,
+          publisherId: query.publisherId ?? null,
+          limit: query.limit ?? null,
+          offset: query.offset ?? null,
+        }
+      : null,
   });
 }
 
-/** `GET /v1/packs/:author/:pack` — all published (non-yanked) versions. */
-export async function fetchRegistryPack(args: {
+/** `GET /v1/items/:publisher/:type/:id`: all published (non-yanked) versions. */
+export async function fetchRegistryItem(args: {
   registryUrl: string;
-  authorId: string;
-  packId: string;
-}): Promise<RegistryPackDetail> {
-  return invoke<RegistryPackDetail>("fetch_registry_pack", {
+  publisherId: string;
+  itemType: string;
+  id: string;
+}): Promise<RegistryItemDetail> {
+  return invoke<RegistryItemDetail>("fetch_registry_item", {
     registryUrl: args.registryUrl,
-    authorId: args.authorId,
-    packId: args.packId,
+    publisherId: args.publisherId,
+    itemType: args.itemType,
+    id: args.id,
   });
 }
 
-/** `GET .../versions/:version` including README for pre-install About browsing. */
-export async function fetchRegistryPackVersion(args: {
+/** `GET .../versions/:version` including README and CHANGELOG. `latest` is the newest. */
+export async function fetchRegistryItemVersion(args: {
   registryUrl: string;
-  authorId: string;
-  packId: string;
+  publisherId: string;
+  itemType: string;
+  id: string;
   version: string;
 }): Promise<RegistryVersionDetail> {
-  return invoke<RegistryVersionDetail>("fetch_registry_pack_version", {
+  return invoke<RegistryVersionDetail>("fetch_registry_item_version", {
     registryUrl: args.registryUrl,
-    authorId: args.authorId,
-    packId: args.packId,
+    publisherId: args.publisherId,
+    itemType: args.itemType,
+    id: args.id,
     version: args.version,
   });
+}
+
+/** Ask every configured registry about newer versions of the installed items (one batch each). */
+export async function checkItemUpdates(): Promise<ItemUpdateCheck> {
+  return invoke<ItemUpdateCheck>("check_item_updates");
 }
 
 /** Running app semver used for catalog `minAppVersion` checks. */
@@ -931,213 +910,243 @@ export async function getAppVersion(): Promise<string> {
 }
 
 /** Whether the running app satisfies an optional catalog `minAppVersion`. */
-export async function packMeetsMinAppVersion(
+export async function itemMeetsMinAppVersion(
   minAppVersion?: string | null,
 ): Promise<boolean> {
-  return invoke<boolean>("pack_meets_min_app_version", {
+  return invoke<boolean>("item_meets_min_app_version", {
     minAppVersion: minAppVersion ?? null,
   });
 }
 
-/** Download + install by catalog identity from a configured registry base URL. */
-export async function installPackFromRegistry(args: {
+/** Version of an item installed under `installed/`, or null. Reads disk only. */
+export async function installedItemVersion(
+  effectiveId: string,
+): Promise<string | null> {
+  return invoke<string | null>("installed_item_version", { effectiveId });
+}
+
+/**
+ * Download + install by catalog identity from a configured registry base URL. The archive must
+ * be the listed item and version, and it replaces whatever version is installed.
+ */
+export async function installItemFromRegistry(args: {
   registryUrl: string;
-  authorId: string;
-  packId: string;
+  publisherId: string;
+  itemType: string;
+  id: string;
   version: string;
   sha256: string;
   sizeBytes: number;
   minAppVersion?: string | null;
   /** Optional; invoke still requires a channel, so a no-op is used when omitted. */
-  onProgress?: Channel<PackDownloadProgress>;
-}): Promise<InstallPackResult> {
-  return invoke<InstallPackResult>("install_pack_from_registry", {
+  onProgress?: Channel<ItemDownloadProgress>;
+}): Promise<InstallItemResult> {
+  return invoke<InstallItemResult>("install_item_from_registry", {
     registryUrl: args.registryUrl,
-    authorId: args.authorId,
-    packId: args.packId,
+    publisherId: args.publisherId,
+    itemType: args.itemType,
+    id: args.id,
     version: args.version,
     sha256: args.sha256,
     sizeBytes: args.sizeBytes,
     minAppVersion: args.minAppVersion ?? null,
-    onProgress: args.onProgress ?? new Channel<PackDownloadProgress>(),
+    onProgress: args.onProgress ?? new Channel<ItemDownloadProgress>(),
   });
 }
 
-export async function cancelPackDownload(): Promise<void> {
-  await invoke("cancel_pack_download");
+export async function cancelItemDownload(): Promise<void> {
+  await invoke("cancel_item_download");
 }
 
-export async function clearPackDownloadCancel(): Promise<void> {
-  await invoke("clear_pack_download_cancel");
+export async function clearItemDownloadCancel(): Promise<void> {
+  await invoke("clear_item_download_cancel");
 }
 
 /**
- * Fetch a catalog pack preview into the local registry-asset cache.
+ * Fetch a catalog item preview into the local registry-asset cache.
  * Returns a filesystem path for `convertFileSrc`, or null on soft failure.
  */
-export async function resolveRegistryPackPreview(args: {
+export async function resolveRegistryItemPreview(args: {
   registryUrl: string;
   previewUrl?: string | null;
 }): Promise<string | null> {
-  return invoke<string | null>("resolve_registry_pack_preview", {
+  return invoke<string | null>("resolve_registry_item_preview", {
     registryUrl: args.registryUrl,
     previewUrl: args.previewUrl ?? null,
   });
 }
 
-export async function listPacks(): Promise<PackSummary[]> {
-  return invoke<PackSummary[]>("list_packs");
-}
-
-/** Create an empty workshop pack; returns the new packId. */
-export async function createWorkshopPack(args: {
-  name: string;
-  description: string;
-}): Promise<string> {
-  return invoke<string>("create_workshop_pack", {
-    name: args.name,
-    description: args.description,
+export async function createWorkshopTheme(args?: {
+  name?: string | null;
+}): Promise<Theme> {
+  return invoke<Theme>("create_workshop_theme", {
+    name: args?.name ?? null,
   });
 }
 
-/** Link an external pack folder. Omit path to open a directory picker. */
-export async function linkPackFolder(
+export interface InstallItemResult {
+  itemType: ItemType;
+  id: string;
+  publisherId: string;
+  effectiveId: string;
+  version: string;
+  name: string;
+  dir: string;
+  /** Version that was replaced when the item was already installed. */
+  replacedVersion: string | null;
+}
+
+/** Install a `.spk` into `packs/installed/`. Omit path to open a file picker. */
+export async function installItem(
+  path?: string | null,
+): Promise<InstallItemResult | null> {
+  return invoke<InstallItemResult | null>("install_item", {
+    path: path ?? null,
+  });
+}
+
+/** Every item across builtin / workshop / installed / linked. */
+export async function listItems(): Promise<ItemSummary[]> {
+  return invoke<ItemSummary[]>("list_items");
+}
+
+export interface ItemExportDefaults {
+  effectiveId: string;
+  itemType: ItemType;
+  publisherId: string;
+  name: string;
+  version: string;
+  description: string;
+}
+
+export async function getItemExportDefaults(
+  itemId: string,
+): Promise<ItemExportDefaults> {
+  return invoke<ItemExportDefaults>("get_item_export_defaults", { itemId });
+}
+
+export interface ExportItemResult {
+  path: string;
+  effectiveId: string;
+  version: string;
+}
+
+/** Export a workshop/linked item to `.spk` (opens a save dialog; `null` if cancelled). */
+export async function exportItem(args: {
+  itemId: string;
+  name: string;
+  version: string;
+  description?: string;
+}): Promise<ExportItemResult | null> {
+  return invoke<ExportItemResult | null>("export_item", {
+    itemId: args.itemId,
+    name: args.name,
+    version: args.version,
+    description: args.description ?? null,
+  });
+}
+
+/** Link an external item folder. Omit path to open a directory picker. */
+export async function linkItemFolder(
   path?: string | null,
 ): Promise<string | null> {
-  return invoke<string | null>("link_pack_folder", { path: path ?? null });
+  return invoke<string | null>("link_item_folder", { path: path ?? null });
 }
 
-/** Remove a path from linkedPackPaths; never deletes the folder. */
-export async function unlinkPack(path: string): Promise<void> {
-  return invoke<void>("unlink_pack", { path });
+/** Remove a path from linkedItemPaths; never deletes the folder. */
+export async function unlinkItem(path: string): Promise<void> {
+  return invoke<void>("unlink_item", { path });
 }
 
-export async function getPackScanWarnings(): Promise<string[]> {
-  return invoke<string[]>("get_pack_scan_warnings");
+export async function getItemScanWarnings(): Promise<string[]> {
+  return invoke<string[]>("get_item_scan_warnings");
 }
 
-export async function updateWorkshopPackMetadata(
-  packId: string,
+/** Update an authoring item's identity and display fields. Returns the new effective id. */
+export async function updateItemMetadata(
+  itemId: string,
   metadata: {
-    packId: string;
-    authorId: string;
+    id: string;
+    publisherId: string;
     name: string;
     version: string;
     description: string;
   },
 ): Promise<string> {
-  return invoke<string>("update_workshop_pack_metadata", {
-    packId,
-    newPackId: metadata.packId,
-    authorId: metadata.authorId,
+  return invoke<string>("update_item_metadata", {
+    itemId,
+    newId: metadata.id,
+    publisherId: metadata.publisherId,
     name: metadata.name,
     version: metadata.version,
     description: metadata.description,
   });
 }
 
-export async function updateLinkedPackMetadata(
-  packDir: string,
-  metadata: {
-    packId: string;
-    authorId: string;
-    name: string;
-    version: string;
-    description: string;
-  },
+/** Preferences → Studio → Default Publisher ID. */
+export async function getDefaultPublisherId(): Promise<string> {
+  return invoke<string>("get_default_publisher_id");
+}
+
+/** Persist Default Publisher ID (kebab slug). Empty input reseeds from the OS username. */
+export async function saveDefaultPublisherId(
+  publisherId: string,
 ): Promise<string> {
-  return invoke<string>("update_linked_pack_metadata", {
-    packDir,
-    newPackId: metadata.packId,
-    authorId: metadata.authorId,
-    name: metadata.name,
-    version: metadata.version,
-    description: metadata.description,
+  return invoke<string>("save_default_publisher_id", { publisherId });
+}
+
+/** An item's manifest (`theme.json`, `skin.json`, `viz.json` or `sound.json`) as JSON. */
+export async function readItemManifestJson(
+  itemDir: string,
+): Promise<Record<string, unknown>> {
+  return invoke<Record<string, unknown>>("read_item_manifest_json", {
+    itemDir,
   });
 }
 
-/** Preferences → Studio → Default Author ID. */
-export async function getDefaultAuthorId(): Promise<string> {
-  return invoke<string>("get_default_author_id");
+/** Optional item-root README.md; `null` when the file is absent. */
+export async function readItemReadme(itemDir: string): Promise<string | null> {
+  return invoke<string | null>("read_item_readme", { itemDir });
 }
 
-/** Persist Default Author ID (kebab slug). Empty input reseeds from the OS username. */
-export async function saveDefaultAuthorId(authorId: string): Promise<string> {
-  return invoke<string>("save_default_author_id", { authorId });
-}
-
-/** Optional pack-root README.md; `null` when the file is absent. */
-export async function readPackReadme(packDir: string): Promise<string | null> {
-  return invoke<string | null>("read_pack_readme", { packDir });
-}
-
-/** Write or delete pack-root README.md for workshop/linked (empty/whitespace deletes). */
-export async function writePackReadme(
-  packDir: string,
+/** Write or delete item-root README.md for workshop/linked (empty/whitespace deletes). */
+export async function writeItemReadme(
+  itemDir: string,
   content: string,
 ): Promise<void> {
-  return invoke<void>("write_pack_readme", { packDir, content });
+  return invoke<void>("write_item_readme", { itemDir, content });
 }
 
-/** Optional pack-root CHANGELOG.md; `null` when the file is absent. */
-export async function readPackChangelog(
-  packDir: string,
+/** Optional item-root CHANGELOG.md; `null` when the file is absent. */
+export async function readItemChangelog(
+  itemDir: string,
 ): Promise<string | null> {
-  return invoke<string | null>("read_pack_changelog", { packDir });
+  return invoke<string | null>("read_item_changelog", { itemDir });
 }
 
-/** Write or delete pack-root CHANGELOG.md for workshop/linked (empty/whitespace deletes). */
-export async function writePackChangelog(
-  packDir: string,
+/** Write or delete item-root CHANGELOG.md for workshop/linked (empty/whitespace deletes). */
+export async function writeItemChangelog(
+  itemDir: string,
   content: string,
 ): Promise<void> {
-  return invoke<void>("write_pack_changelog", { packDir, content });
+  return invoke<void>("write_item_changelog", { itemDir, content });
 }
 
-export async function deleteWorkshopPack(packId: string): Promise<void> {
-  return invoke<void>("delete_workshop_pack", { packId });
+/** Delete a workshop draft. Linked items are unlinked, never deleted. */
+export async function deleteWorkshopItem(itemId: string): Promise<void> {
+  return invoke<void>("delete_workshop_item", { itemId });
 }
 
-export interface DeleteWorkshopContributionResult {
-  packId: string;
-  packRemoved: boolean;
+/** Delete an installed item. */
+export async function uninstallItem(itemId: string): Promise<void> {
+  return invoke<void>("uninstall_item", { itemId });
 }
 
-export async function deleteWorkshopContribution(
-  contributionId: string,
-): Promise<DeleteWorkshopContributionResult> {
-  return invoke<DeleteWorkshopContributionResult>(
-    "delete_workshop_contribution",
-    {
-      contributionId,
-    },
-  );
-}
-
-export async function uninstallPack(
-  authorId: string,
-  packId: string,
-  version: string,
-): Promise<void> {
-  return invoke<void>("uninstall_pack", { authorId, packId, version });
-}
-
-export async function rollbackPack(
-  authorId: string,
-  packId: string,
-  version: string,
-): Promise<string[]> {
-  return invoke<string[]>("rollback_pack", { authorId, packId, version });
-}
-
-export async function setContributionHidden(
-  contributionId: string,
+export async function setItemHidden(
+  itemId: string,
   hidden: boolean,
 ): Promise<string[]> {
-  return invoke<string[]>("set_contribution_hidden", {
-    contributionId,
-    hidden,
-  });
+  return invoke<string[]>("set_item_hidden", { itemId, hidden });
 }
 
 export async function revealPathInFileManager(path: string): Promise<void> {
@@ -1153,10 +1162,34 @@ export async function listSkins(): Promise<SkinSummary[]> {
   return invoke<SkinSummary[]>("list_skins");
 }
 
-export async function resolveSoundAsset(
+export async function listSoundPacks(): Promise<SoundPackSummary[]> {
+  return invoke<SoundPackSummary[]>("list_sound_packs");
+}
+
+export async function getActiveSoundPackId(): Promise<string> {
+  return invoke<string>("get_active_sound_pack_id");
+}
+
+export async function saveActiveSoundPackId(
+  soundPackId: string,
+): Promise<void> {
+  return invoke<void>("save_active_sound_pack_id", { soundPackId });
+}
+
+/** Wav path for a cue from the active sound pack (default pack as fallback), or `null`. */
+export async function resolveSoundCue(cue: string): Promise<string | null> {
+  return invoke<string | null>("resolve_sound_cue", { cue });
+}
+
+/** Wav path of one sound in a specific pack, active or not. */
+export async function resolveSoundPackAsset(
+  soundPackId: string,
   soundId: string,
 ): Promise<string | null> {
-  return invoke<string | null>("resolve_sound_asset", { soundId });
+  return invoke<string | null>("resolve_sound_pack_asset", {
+    soundPackId,
+    soundId,
+  });
 }
 
 export async function loadSkinPack(skinId: string): Promise<LoadedSkinPack> {

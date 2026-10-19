@@ -214,14 +214,14 @@ dialog::backdrop {
   background: rgba(0, 0, 0, 0.55);
 }
 
-.pack-grid {
+.item-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 0.75rem;
   margin-top: 1rem;
 }
 
-.pack-card {
+.item-card {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -229,15 +229,15 @@ dialog::backdrop {
   text-align: left;
 }
 
-.pack-card-top {
+.item-card-top {
   display: flex;
   gap: 0.65rem;
   align-items: center;
   margin-bottom: 0.5rem;
 }
 
-.pack-card-top img,
-.pack-card-placeholder {
+.item-card-top img,
+.item-card-placeholder {
   width: 40px;
   height: 40px;
   border-radius: 6px;
@@ -246,11 +246,24 @@ dialog::backdrop {
   flex-shrink: 0;
 }
 
-.pack-card-meta {
+.item-card-meta {
   font-size: 0.8rem;
   margin-bottom: 0.75rem;
 }
 
-.pack-card-actions {
+.item-card-actions {
   margin-top: 0.25rem;
+}
+
+.badge.type {
+  text-transform: capitalize;
+}
+
+.filter-row {
+  align-items: flex-end;
+  margin: 0.75rem 0;
+}
+
+.filter-row .grow {
+  flex: 1;
 }

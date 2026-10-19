@@ -18,7 +18,7 @@ export interface ThemeTokens {
 }
 
 export interface Theme {
-  /** Effective id: `authorId.packId.type.contributionId`. */
+  /** Effective id: `publisherId.theme.id`. */
   id: string;
   /** Human-readable display label. */
   name: string;
@@ -26,12 +26,10 @@ export interface Theme {
   author: string;
   description: string;
   tokens: ThemeTokens;
-  /** Pack directory id (kebab slug). */
-  packId: string;
-  /** Structured pack maintainer/distributor slug. */
-  authorId: string;
-  packName: string;
-  packVersion: string;
+  /** Structured maintainer/distributor slug. */
+  publisherId: string;
+  /** Semver content version of this item build. */
+  version: string;
   zone: PackZone;
   /** Authoring drafts (workshop or linked). */
   mutable: boolean;

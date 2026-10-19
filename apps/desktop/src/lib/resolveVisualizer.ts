@@ -2,7 +2,7 @@ import type { SkinVisualizer } from "../types/skin";
 import type { LoadedVisualizer, VizManifest } from "../types/visualizer";
 import type { Visualizer } from "../components/visualizer/types";
 
-export const DEFAULT_VISUALIZER_ID = "spiral.core.visualizer.bars";
+export const DEFAULT_VISUALIZER_ID = "spiral.visualizer.bars";
 
 const SKIN_GLOBAL_VISUALIZER = "global";
 

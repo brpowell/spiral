@@ -7,7 +7,7 @@ Sibling to [skin-contract.md](../playback/skin-contract.md). Describes what Spir
 1. **Skin override** — `skin.json` → `visualizer.id` when set to a visualizer contribution id (skin mode only).
 2. **Skin global** — omit `id`, or set `id: "global"`, to follow the active visualizer picker in skin mode.
 3. **Global default** — user preference from the visualizer picker.
-4. **Fallback** — built-in `spiral.core.visualizer.bars`.
+4. **Fallback** — built-in `spiral.visualizer.bars`.
 
 ## Layers
 
@@ -23,7 +23,7 @@ Draw modules may still soften motion via `flags.reducedMotion` on the host conte
 | **VizScene** | (inside viz.json) | `children` | Layer list |
 | **Draw module** | same visualizer folder | `entry` JS (e.g. `index.js`) | Draw one canvas or webgl layer from a `VizFrame` |
 
-Effective visualizer ids are fully qualified: `authorId.packId.visualizer.contributionId` (e.g. `spiral.core.visualizer.wave`).
+Effective visualizer ids are fully qualified: `publisherId.packId.visualizer.contributionId` (e.g. `spiral.visualizer.wave`).
 
 Canvas and webgl layers name a relative `entry` script in the visualizer folder (e.g. `"entry": "index.js"`). Layer `kind` selects the backend (`canvas` → canvas2d, `webgl` → webgl). Tunables live as constants inside the entry script — `viz.json` does not pass a params bag.
 
@@ -136,7 +136,7 @@ Covers and portraits are already decoded. Pass them to `ctx.drawImage`. Read the
 
 The host injects the app’s bundled `three` — packs must not import or vendor three.js. Prefer `OffscreenCanvas` (not `document`) for scratch textures.
 
-Stock WebGL: `spiral.core.visualizer.neon-tunnel` (`entry`: `index.js`).
+Stock WebGL: `spiral.visualizer.neon-tunnel` (`entry`: `index.js`).
 
 ## Bind paths
 
@@ -195,7 +195,7 @@ Canvas and webgl `entry` fields must be a relative `.js` filename in the visuali
 | Built-in | `src-tauri/packs/builtin/<packId>/` |
 | User | `{app_data}/packs/{workshop,installed}/` |
 
-Contributions are discovered under type folders (`visualizers/`, …). Effective id = `authorId.packId.type.contributionId`.
+Contributions are discovered under type folders (`visualizers/`, …). Effective id = `publisherId.packId.type.contributionId`.
 
 ## Related
 

@@ -1,55 +1,28 @@
-import { useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  themeApplyFailedPayload,
-  themeCreateFailedPayload,
-} from "../../lib/toastPayloads";
-import { resolveThemeTokens } from "../../lib/theme";
+import { themeApplyFailedPayload } from "../../lib/toastPayloads";
 import { useBackgroundTasksStore } from "../../store/useBackgroundTasksStore";
 import { useThemeStore } from "../../store/useThemeStore";
 import type { Theme } from "../../types/theme";
 import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
-import { Button } from "../common/Button/Button";
-import { WorkshopThemeActions } from "../ThemeEditor/WorkshopThemeActions";
-import { AppearancePackActions } from "./AppearancePackActions";
+import { HiddenItems } from "./HiddenItems";
+import { ItemActionsMenu } from "./ItemActionsMenu";
 import { AppearancePackCard } from "./AppearancePackCard";
-import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
-import { NewThemeModal, type NewThemeModalResult } from "./NewThemeModal";
+import { ThemeSwatchPreview } from "./ThemeSwatchPreview";
 import "./ThemesSection.css";
 import "./AppearanceSection.css";
-
-function ThemeSwatchPreview({ theme }: { theme: Theme }) {
-  const tokens = resolveThemeTokens(theme);
-  const previewVars = {
-    "--color-bg": tokens["color-bg"],
-    "--color-text-primary": tokens["color-text-primary"],
-    "--color-accent": tokens["color-accent"],
-  } as CSSProperties;
-
-  return (
-    <span
-      className="theme-picker__preview-vars theme-derived"
-      style={previewVars}
-    >
-      <span className="theme-picker__preview-bg" />
-      <span className="theme-picker__preview-surface" />
-      <span className="theme-picker__preview-accent" />
-    </span>
-  );
-}
 
 function ThemeSwatch({
   theme,
   active,
   onSelect,
-  onOpenPack,
+  onOpenItem,
 }: {
   theme: Theme;
   active: boolean;
   onSelect: () => void;
-  onOpenPack: (packId: string) => void;
+  onOpenItem: (effectiveId: string) => void;
 }) {
   const { t } = useTranslation(["studio", "common"]);
   const unknown = t("common:unknown");
@@ -59,24 +32,22 @@ function ThemeSwatch({
       name={theme.name}
       author={theme.author || unknown}
       description={theme.description}
-      ariaLabel={t("packs.cardAria", {
+      ariaLabel={t("items.cardAria", {
         name: theme.name,
         author: theme.author || unknown,
       })}
       preview={<ThemeSwatchPreview theme={theme} />}
       previewClassName="theme-picker__preview"
       actions={
-        theme.packId ? (
-          theme.mutable ? (
-            <WorkshopThemeActions theme={theme} onOpenPack={onOpenPack} />
-          ) : (
-            <AppearancePackActions
-              name={theme.name}
-              packId={theme.packId}
-              onOpenPack={onOpenPack}
-            />
-          )
-        ) : undefined
+        <ItemActionsMenu
+          item={{
+            effectiveId: theme.id,
+            type: "theme",
+            name: theme.name,
+            zone: theme.zone,
+          }}
+          onOpenItem={onOpenItem}
+        />
       }
       onApply={onSelect}
     />
@@ -84,38 +55,16 @@ function ThemeSwatch({
 }
 
 export function ThemesSection({
-  onOpenPack,
+  onOpenItem,
 }: {
-  onOpenPack: (packId: string) => void;
+  onOpenItem: (effectiveId: string) => void;
 }) {
   const { t } = useTranslation(["studio", "library"]);
   const themes = useThemeStore((s) => s.themes);
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const themesLoaded = useThemeStore((s) => s.themesLoaded);
   const setTheme = useThemeStore((s) => s.setTheme);
-  const createTheme = useThemeStore((s) => s.createTheme);
   const showErrorToast = useBackgroundTasksStore((s) => s.showErrorToast);
-  const openThemeEditor = useOpenAppearanceThemeEditor();
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-
-  const handleCreate = async (result: NewThemeModalResult) => {
-    setCreating(true);
-    try {
-      const theme = await createTheme(
-        result.packMode === "existing"
-          ? { name: result.name, packId: result.packId }
-          : { name: result.name, packName: result.packName },
-      );
-      setModalOpen(false);
-      openThemeEditor(theme.id);
-    } catch (err) {
-      showErrorToast(themeCreateFailedPayload(err));
-    } finally {
-      setCreating(false);
-    }
-  };
 
   const handleSelect = async (theme: Theme) => {
     try {
@@ -135,16 +84,6 @@ export function ThemesSection({
             ? t("library:views.headerCount", { count: themes.length })
             : undefined
         }
-        actions={
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={creating}
-            onClick={() => setModalOpen(true)}
-          >
-            {t("themes.new")}
-          </Button>
-        }
       />
 
       <BrowseGridBody>
@@ -160,20 +99,14 @@ export function ThemesSection({
                   theme={theme}
                   active={theme.id === activeThemeId}
                   onSelect={() => void handleSelect(theme)}
-                  onOpenPack={onOpenPack}
+                  onOpenItem={onOpenItem}
                 />
               </div>
             ))}
           </div>
         )}
+        <HiddenItems type="theme" />
       </BrowseGridBody>
-
-      <NewThemeModal
-        open={modalOpen}
-        creating={creating}
-        onClose={() => setModalOpen(false)}
-        onCreate={(result) => void handleCreate(result)}
-      />
     </BrowseView>
   );
 }

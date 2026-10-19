@@ -33,6 +33,9 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # FLY_API_TOKEN lives in this environment; a job only sees an environment's
+    # secrets (and its required-reviewer rule applies) when it names it.
+    environment: production-registry
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
     steps:
@@ -63,7 +66,6 @@ jobs:
 
       - name: Deploy
         if: steps.gate.outputs.enabled == 'true'
-        # --ha=false: the catalog is SQLite on a single volume, so there must be exactly
-        # one machine. Without it, flyctl creates two machines on a first deploy and
-        # then wants a volume for each.
+        # --ha=false keeps a single machine. Nothing is stored on it, so this is a
+        # cost choice, not a requirement; rate limits are kept in memory per process.
         run: flyctl deploy --config apps/registry/fly.toml --image "$IMAGE" --app "$FLY_APP" --ha=false

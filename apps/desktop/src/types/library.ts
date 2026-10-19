@@ -31,7 +31,7 @@ export interface LibrarySettings {
   /** When true, confirm before opening musicbrainz.org from editors. */
   confirmMusicBrainzExternalLinks: boolean;
   automaticUpdateChecksEnabled: boolean;
-  automaticPackUpdateChecksEnabled: boolean;
+  automaticItemUpdateChecksEnabled: boolean;
 }
 
 export interface LibrarySettingsPatch {
@@ -46,5 +46,5 @@ export interface LibrarySettingsPatch {
   lyricsAutoFetchInLightbox?: boolean;
   confirmMusicBrainzExternalLinks?: boolean;
   automaticUpdateChecksEnabled?: boolean;
-  automaticPackUpdateChecksEnabled?: boolean;
+  automaticItemUpdateChecksEnabled?: boolean;
 }

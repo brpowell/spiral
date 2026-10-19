@@ -16,10 +16,10 @@ export function validateThemeForSave(theme: Theme): ThemeValidationIssue[] {
       message: t("studio:themeEditor.validation.idRequired"),
     });
   }
-  if (!theme.packId.trim()) {
+  if (!theme.publisherId.trim()) {
     issues.push({
-      field: "packId",
-      message: t("studio:themeEditor.validation.packIdRequired"),
+      field: "publisherId",
+      message: t("studio:themeEditor.validation.publisherIdRequired"),
     });
   }
   if (!theme.mutable) {

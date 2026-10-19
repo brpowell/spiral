@@ -69,6 +69,15 @@ impl ObjectStorage for LocalDiskStorage {
         Ok(DownloadTarget::LocalPath(path))
     }
 
+    async fn get(&self, key: &str) -> Result<Vec<u8>> {
+        let path = self.resolve_key(key)?;
+        match fs::read(&path).await {
+            Ok(data) => Ok(data),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => bail!("object not found: {key}"),
+            Err(e) => Err(e).with_context(|| format!("read {}", path.display())),
+        }
+    }
+
     async fn delete(&self, key: &str) -> Result<()> {
         let path = self.resolve_key(key)?;
         if path.is_file() {

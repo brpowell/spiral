@@ -1,19 +1,17 @@
-//! Directory-walking pack scanner over builtin / workshop / installed / linked zones.
+//! Directory-walking item scanner over builtin / workshop / installed / linked zones.
 //!
-//! Contributions are discovered by scanning fixed type folders (`themes/`, `skins/`,
-//! `visualizers/`, `sounds/`). Each contribution manifest must declare an `id`.
+//! Items are discovered by scanning fixed type folders (`themes/`, `skins/`,
+//! `visualizers/`, `sounds/`) under each zone root. Each item directory is named
+//! `<publisherId>.<id>` and holds the type's manifest at its root. Linked items are
+//! single external folders listed in settings.
 
 use super::paths;
-use super::{
-    contribution_id_from_manifest_json, contribution_type_for_folder, effective_contribution_id,
-    get_contribution_type_handler, pack_identity, parse_pack_manifest_json, PackManifest, PackZone,
-    CONTRIBUTION_TYPE_FOLDERS, PACK_MANIFEST_FILENAME,
-};
+use super::{item_dir_name, item_type_folder, read_item_manifest, ItemManifest, PackZone};
 use crate::activity_log::{self, LogLevel};
 use crate::settings;
+use spk_format::list_item_dirs;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
@@ -29,22 +27,21 @@ pub fn app_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
-/// One contribution discovered by the scanner.
+/// One item discovered by the scanner.
 #[derive(Debug, Clone)]
 pub struct ScannedContribution {
     pub zone: PackZone,
-    pub author_id: String,
-    pub pack_id: String,
-    pub pack_version: String,
-    pub pack_name: String,
-    pub pack_dir: PathBuf,
-    /// Directory containing the contribution manifest.
+    pub r#type: String,
+    pub publisher_id: String,
+    /// Declared item id from the item manifest.
+    pub local_id: String,
+    /// `publisherId.type.id`.
+    pub effective_id: String,
+    pub version: String,
+    pub name: String,
+    /// Directory containing the item manifest.
     pub contribution_dir: PathBuf,
     pub manifest_path: PathBuf,
-    pub r#type: String,
-    /// Declared contribution id from the contribution manifest.
-    pub local_id: String,
-    pub effective_id: String,
     pub mutable: bool,
 }
 
@@ -64,7 +61,7 @@ fn zone_priority(zone: PackZone) -> u8 {
         PackZone::Builtin => 0,
         PackZone::Installed => 1,
         // Workshop and Linked share the authoring priority band (beat installed/builtin).
-        // authorId.packId collision between them is an error, not silent precedence.
+        // An id collision between them is a warning, not silent precedence.
         PackZone::Workshop | PackZone::Linked => 2,
     }
 }
@@ -79,14 +76,10 @@ fn should_replace_contribution(
     match incoming_priority.cmp(&existing_priority) {
         Ordering::Greater => true,
         Ordering::Less => false,
-        Ordering::Equal => {
-            // Same zone (e.g. two installed versions): higher semver wins.
-            match version_cmp(&incoming.pack_version, &existing.pack_version) {
-                Some(Ordering::Greater) => true,
-                Some(Ordering::Less) => false,
-                _ => true,
-            }
-        }
+        Ordering::Equal => !matches!(
+            version_cmp(&incoming.version, &existing.version),
+            Some(Ordering::Less)
+        ),
     }
 }
 
@@ -111,206 +104,90 @@ pub fn meets_min_app_version(min_app_version: &str, current: &str) -> bool {
     }
 }
 
-/// Peek full pack identity (`authorId.packId`) from a pack root's `pack.json`.
-pub(crate) fn peek_pack_identity(pack_dir: &Path) -> Result<String, String> {
-    let pack = peek_pack_manifest(pack_dir)?;
-    Ok(pack_identity(&pack.author_id, &pack.pack_id))
+/// Peek an item folder's effective id (`publisherId.type.id`) from its manifest.
+pub(crate) fn peek_item_effective_id(item_dir: &Path) -> Result<String, String> {
+    read_item_manifest(item_dir).map(|item| item.effective_id())
 }
 
-fn peek_pack_manifest(pack_dir: &Path) -> Result<PackManifest, String> {
-    let manifest_path = pack_dir.join(PACK_MANIFEST_FILENAME);
-    if !manifest_path.is_file() {
-        return Err(format!(
-            "pack directory is missing {PACK_MANIFEST_FILENAME}"
-        ));
+fn contribution_from_manifest(
+    item: ItemManifest,
+    dir: &Path,
+    zone: PackZone,
+) -> ScannedContribution {
+    let manifest_filename =
+        super::item_manifest_filename(&item.item_type).expect("manifest parsed for a known type");
+    ScannedContribution {
+        zone,
+        effective_id: item.effective_id(),
+        manifest_path: dir.join(manifest_filename),
+        contribution_dir: dir.to_path_buf(),
+        r#type: item.item_type,
+        publisher_id: item.publisher_id,
+        local_id: item.id,
+        version: item.version,
+        name: item.name,
+        mutable: zone.is_mutable(),
     }
-    let contents = fs::read_to_string(&manifest_path)
-        .map_err(|e| format!("could not read {}: {e}", manifest_path.display()))?;
-    parse_pack_manifest_json(&contents).map_err(|e| e.to_string())
 }
 
-pub(crate) fn scan_pack_dir(
-    pack_dir: &Path,
+/// Scan one item directory. `folder_type` is the type implied by the containing type
+/// folder (absent for linked items, which live anywhere).
+pub(crate) fn scan_item_dir(
+    dir: &Path,
+    folder_type: Option<&str>,
     zone: PackZone,
     warnings: &mut Vec<ScanWarning>,
-) -> Vec<ScannedContribution> {
-    let manifest_path = pack_dir.join(PACK_MANIFEST_FILENAME);
-    if !manifest_path.is_file() {
-        return vec![];
+) -> Option<ScannedContribution> {
+    let item = match read_item_manifest(dir) {
+        Ok(item) => item,
+        Err(e) => {
+            warnings.push(ScanWarning {
+                message: format!("invalid item at {}: {e}", dir.display()),
+            });
+            return None;
+        }
+    };
+
+    if let Some(expected) = folder_type {
+        if item.item_type != expected {
+            warnings.push(ScanWarning {
+                message: format!(
+                    "{} is a {} but sits in the {} folder; skipping",
+                    dir.display(),
+                    item.item_type,
+                    item_type_folder(expected).unwrap_or("?")
+                ),
+            });
+            return None;
+        }
+        let expected_dir = item_dir_name(&item.publisher_id, &item.id);
+        let actual = dir.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if actual != expected_dir {
+            warnings.push(ScanWarning {
+                message: format!(
+                    "{} should be named \"{expected_dir}\" to match its publisherId and id; skipping",
+                    dir.display()
+                ),
+            });
+            return None;
+        }
     }
 
-    let contents = match fs::read_to_string(&manifest_path) {
-        Ok(c) => c,
-        Err(e) => {
-            warnings.push(ScanWarning {
-                message: format!("could not read {}: {e}", manifest_path.display()),
-            });
-            return vec![];
-        }
-    };
-
-    let pack = match parse_pack_manifest_json(&contents) {
-        Ok(p) => p,
-        Err(e) => {
-            warnings.push(ScanWarning {
-                message: format!("invalid pack at {}: {e}", pack_dir.display()),
-            });
-            return vec![];
-        }
-    };
-
-    if let Some(min) = &pack.min_app_version {
+    if let Some(min) = &item.min_app_version {
         if !meets_min_app_version(min, app_version()) {
             warnings.push(ScanWarning {
                 message: format!(
-                    "pack \"{}\" requires minAppVersion {min} (app is {}); skipping",
-                    pack.pack_id,
+                    "{} \"{}\" requires minAppVersion {min} (app is {}); skipping",
+                    item.item_type,
+                    item.id,
                     app_version()
                 ),
             });
-            return vec![];
+            return None;
         }
     }
 
-    contributions_from_pack(&pack, pack_dir, zone, warnings)
-}
-
-fn contributions_from_pack(
-    pack: &PackManifest,
-    pack_dir: &Path,
-    zone: PackZone,
-    warnings: &mut Vec<ScanWarning>,
-) -> Vec<ScannedContribution> {
-    let mutable = zone.is_mutable();
-    let mut out = Vec::new();
-    let mut seen_type_local_ids: HashMap<String, PathBuf> = HashMap::new();
-    let mut duplicate_hard_fail = false;
-
-    for &(folder, contrib_type, manifest_filename) in CONTRIBUTION_TYPE_FOLDERS {
-        if get_contribution_type_handler(contrib_type).is_none() {
-            continue;
-        }
-        let type_root = pack_dir.join(folder);
-        if !type_root.is_dir() {
-            continue;
-        }
-        let entries = match fs::read_dir(&type_root) {
-            Ok(e) => e,
-            Err(e) => {
-                warnings.push(ScanWarning {
-                    message: format!("pack \"{}\": could not read {}/: {e}", pack.pack_id, folder),
-                });
-                continue;
-            }
-        };
-        for entry in entries.flatten() {
-            let contribution_dir = entry.path();
-            if !contribution_dir.is_dir() {
-                continue;
-            }
-            // Ignore unknown nested noise; only folders with the expected manifest count.
-            let manifest_path = contribution_dir.join(manifest_filename);
-            if !manifest_path.is_file() {
-                // Soft-skip empty/incomplete folders.
-                continue;
-            }
-            let contents = match fs::read_to_string(&manifest_path) {
-                Ok(c) => c,
-                Err(e) => {
-                    warnings.push(ScanWarning {
-                        message: format!(
-                            "pack \"{}\": could not read {}: {e}",
-                            pack.pack_id,
-                            manifest_path.display()
-                        ),
-                    });
-                    continue;
-                }
-            };
-            let local_id = match contribution_id_from_manifest_json(&contents) {
-                Ok(id) => id,
-                Err(e) => {
-                    warnings.push(ScanWarning {
-                        message: format!(
-                            "pack \"{}\": {}: {}",
-                            pack.pack_id,
-                            manifest_path.display(),
-                            e
-                        ),
-                    });
-                    continue;
-                }
-            };
-
-            let type_local_key = format!("{contrib_type}:{local_id}");
-            if let Some(existing_path) = seen_type_local_ids.get(&type_local_key) {
-                warnings.push(ScanWarning {
-                    message: format!(
-                        "pack \"{}\": duplicate {contrib_type} contribution id \"{local_id}\" at {} and {} — skipping pack",
-                        pack.pack_id,
-                        existing_path.display(),
-                        manifest_path.display()
-                    ),
-                });
-                duplicate_hard_fail = true;
-                break;
-            }
-            seen_type_local_ids.insert(type_local_key, manifest_path.clone());
-
-            out.push(ScannedContribution {
-                zone,
-                author_id: pack.author_id.clone(),
-                pack_id: pack.pack_id.clone(),
-                pack_version: pack.version.clone(),
-                pack_name: pack.name.clone(),
-                pack_dir: pack_dir.to_path_buf(),
-                contribution_dir,
-                manifest_path,
-                r#type: contrib_type.to_string(),
-                local_id: local_id.clone(),
-                effective_id: effective_contribution_id(
-                    &pack.author_id,
-                    &pack.pack_id,
-                    contrib_type,
-                    &local_id,
-                ),
-                mutable,
-            });
-        }
-        if duplicate_hard_fail {
-            return vec![];
-        }
-    }
-
-    // Warn about unknown top-level folders that look like type folders but aren't registered.
-    if let Ok(entries) = fs::read_dir(pack_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_dir() {
-                continue;
-            }
-            let name = entry.file_name();
-            let Some(name) = name.to_str() else {
-                continue;
-            };
-            if name.starts_with('.') {
-                continue;
-            }
-            if contribution_type_for_folder(name).is_none()
-                && matches!(name, "themes" | "skins" | "visualizers" | "sounds")
-            {
-                // Shouldn't happen given CONTRIBUTION_TYPE_FOLDERS, but keep symmetric.
-                warnings.push(ScanWarning {
-                    message: format!(
-                        "pack \"{}\": unregistered type folder \"{name}/\" — skipping",
-                        pack.pack_id
-                    ),
-                });
-            }
-        }
-    }
-
-    out
+    Some(contribution_from_manifest(item, dir, zone))
 }
 
 pub(crate) fn scan_zone_root(
@@ -321,29 +198,10 @@ pub(crate) fn scan_zone_root(
     if !root.is_dir() {
         return vec![];
     }
-
-    let entries = match fs::read_dir(root) {
-        Ok(e) => e,
-        Err(e) => {
-            warnings.push(ScanWarning {
-                message: format!(
-                    "could not read {} zone at {}: {e}",
-                    zone.as_str(),
-                    root.display()
-                ),
-            });
-            return vec![];
-        }
-    };
-
-    let mut out = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            out.extend(scan_pack_dir(&path, zone, warnings));
-        }
-    }
-    out
+    list_item_dirs(root)
+        .into_iter()
+        .filter_map(|(ty, dir)| scan_item_dir(&dir, Some(ty), zone, warnings))
+        .collect()
 }
 
 fn merge_contribution(
@@ -358,16 +216,16 @@ fn merge_contribution(
     }
 }
 
-/// Drop linked pack paths that are missing (or not directories) from settings.
+/// Drop linked item paths that are missing (or not directories) from settings.
 /// Logs each removal once as an activity-log warning so scans do not keep retrying.
-fn prune_missing_linked_pack_paths(app: &AppHandle) {
+fn prune_missing_linked_item_paths(app: &AppHandle) {
     let _guard = LINKED_PATH_PRUNE_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
 
     let mut app_settings = settings::read_settings(app);
     let mut removed: Vec<String> = Vec::new();
-    app_settings.linked_pack_paths.retain(|raw| {
+    app_settings.linked_item_paths.retain(|raw| {
         let trimmed = raw.trim();
         if trimmed.is_empty() {
             return true;
@@ -388,7 +246,7 @@ fn prune_missing_linked_pack_paths(app: &AppHandle) {
         activity_log::log(
             LogLevel::Error,
             "pack.scan",
-            format!("failed to unlink missing linked pack paths: {e}"),
+            format!("failed to unlink missing linked item paths: {e}"),
             None,
         );
         return;
@@ -398,7 +256,7 @@ fn prune_missing_linked_pack_paths(app: &AppHandle) {
         activity_log::log(
             LogLevel::Warn,
             "pack.scan",
-            format!("Linked pack path not found or not a directory; unlinked: {path}"),
+            format!("Linked item path not found or not a directory; unlinked: {path}"),
             Some(serde_json::json!({ "path": path })),
         );
     }
@@ -406,15 +264,24 @@ fn prune_missing_linked_pack_paths(app: &AppHandle) {
     let _ = app.emit(LINKED_PACKS_CHANGED_EVENT, ());
 }
 
-/// Scan all pack zones. On effective-id collision, higher-priority zone wins
-/// (workshop/linked > installed > builtin). Linked vs workshop pack identity collision
-/// is a soft-fail warning (linked path skipped), not silent override.
-pub fn scan_all_packs(app: &AppHandle) -> ScanResult {
+/// Items installed under `installed/`, ignoring zone priority. A workshop or linked item with the
+/// same effective id does not hide the installed copy here, so registry updates still see it.
+pub fn list_installed_items(app: &AppHandle) -> Vec<ScannedContribution> {
+    let Ok(root) = paths::installed_packs_root(app) else {
+        return Vec::new();
+    };
+    scan_zone_root(&root, PackZone::Installed, &mut Vec::new())
+}
+
+/// Scan all zones. On effective-id collision, higher-priority zone wins
+/// (workshop/linked > installed > builtin). A linked item whose id collides with a
+/// workshop item is a soft-fail warning (linked path skipped), not silent override.
+pub fn scan_all_items(app: &AppHandle) -> ScanResult {
     let mut warnings = Vec::new();
     let mut by_id: HashMap<String, ScannedContribution> = HashMap::new();
-    let mut workshop_pack_identities: HashSet<String> = HashSet::new();
+    let mut workshop_ids: HashSet<String> = HashSet::new();
 
-    prune_missing_linked_pack_paths(app);
+    prune_missing_linked_item_paths(app);
 
     let zones = [
         (PackZone::Builtin, paths::builtin_packs_root(app)),
@@ -435,15 +302,13 @@ pub fn scan_all_packs(app: &AppHandle) -> ScanResult {
         }
         for contrib in scan_zone_root(&root, zone, &mut warnings) {
             if zone == PackZone::Workshop {
-                workshop_pack_identities
-                    .insert(pack_identity(&contrib.author_id, &contrib.pack_id));
+                workshop_ids.insert(contrib.effective_id.clone());
             }
             merge_contribution(&mut by_id, contrib);
         }
     }
 
-    let linked_paths = settings::read_settings(app).linked_pack_paths;
-    for raw in linked_paths {
+    for raw in settings::read_settings(app).linked_item_paths {
         let trimmed = raw.trim();
         if trimmed.is_empty() {
             continue;
@@ -453,42 +318,26 @@ pub fn scan_all_packs(app: &AppHandle) -> ScanResult {
         if !path.is_dir() {
             continue;
         }
-        if !path.join(PACK_MANIFEST_FILENAME).is_file() {
-            warnings.push(ScanWarning {
-                message: format!("linked pack path is missing {PACK_MANIFEST_FILENAME}: {trimmed}"),
-            });
+        let Some(contrib) = scan_item_dir(&path, None, PackZone::Linked, &mut warnings) else {
             continue;
-        }
-
-        let identity = match peek_pack_identity(&path) {
-            Ok(id) => id,
-            Err(e) => {
-                warnings.push(ScanWarning {
-                    message: format!("linked pack at {trimmed}: {e}"),
-                });
-                continue;
-            }
         };
-
-        if workshop_pack_identities.contains(&identity) {
+        if workshop_ids.contains(&contrib.effective_id) {
             warnings.push(ScanWarning {
                 message: format!(
-                    "linked pack \"{identity}\" collides with a workshop pack (path: {trimmed}); skipping linked path"
+                    "linked item \"{}\" collides with a workshop item (path: {trimmed}); skipping linked path",
+                    contrib.effective_id
                 ),
             });
             continue;
         }
-
-        for contrib in scan_pack_dir(&path, PackZone::Linked, &mut warnings) {
-            merge_contribution(&mut by_id, contrib);
-        }
+        merge_contribution(&mut by_id, contrib);
     }
 
     let mut contributions: Vec<_> = by_id.into_values().collect();
     contributions.sort_by(|a, b| {
         a.r#type
             .cmp(&b.r#type)
-            .then_with(|| a.pack_name.cmp(&b.pack_name))
+            .then_with(|| a.name.cmp(&b.name))
             .then_with(|| a.effective_id.cmp(&b.effective_id))
     });
 
@@ -499,7 +348,7 @@ pub fn scan_all_packs(app: &AppHandle) -> ScanResult {
 }
 
 pub fn scan_contributions_of_type(app: &AppHandle, contrib_type: &str) -> ScanResult {
-    let mut result = scan_all_packs(app);
+    let mut result = scan_all_items(app);
     result.contributions.retain(|c| c.r#type == contrib_type);
     result
 }
@@ -507,6 +356,50 @@ pub fn scan_contributions_of_type(app: &AppHandle, contrib_type: &str) -> ScanRe
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::packs::effective_item_id;
+    use std::fs;
+
+    fn contrib(zone: PackZone, version: &str, dir: &str) -> ScannedContribution {
+        ScannedContribution {
+            zone,
+            r#type: "theme".into(),
+            publisher_id: "bryan".into(),
+            local_id: "demo".into(),
+            effective_id: effective_item_id("bryan", "theme", "demo"),
+            version: version.into(),
+            name: "Demo".into(),
+            contribution_dir: PathBuf::from(dir),
+            manifest_path: PathBuf::from(dir).join("theme.json"),
+            mutable: zone.is_mutable(),
+        }
+    }
+
+    fn temp_root(label: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("spiral-scan-{label}-{nanos}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    fn write_theme(dir: &Path, author: &str, id: &str, version: &str) {
+        fs::create_dir_all(dir).unwrap();
+        fs::write(
+            dir.join("theme.json"),
+            serde_json::json!({
+                "id": id,
+                "publisherId": author,
+                "version": version,
+                "name": format!("Theme {id}"),
+                "tokens": {}
+            })
+            .to_string(),
+        )
+        .unwrap();
+    }
 
     #[test]
     fn min_app_version_floor() {
@@ -517,179 +410,130 @@ mod tests {
     }
 
     #[test]
-    fn scan_builtin_packs_from_manifest_dir() {
+    fn scan_builtin_items_from_manifest_dir() {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("packs/builtin");
         let mut warnings = Vec::new();
-        let contribs = scan_zone_root(&root, PackZone::Builtin, &mut warnings);
+        let items = scan_zone_root(&root, PackZone::Builtin, &mut warnings);
         for w in &warnings {
             eprintln!("scan warning: {}", w.message);
         }
-        let themes: Vec<_> = contribs.iter().filter(|c| c.r#type == "theme").collect();
-        let skins: Vec<_> = contribs.iter().filter(|c| c.r#type == "skin").collect();
-        let viz: Vec<_> = contribs
-            .iter()
-            .filter(|c| c.r#type == "visualizer")
-            .collect();
-        assert!(themes
-            .iter()
-            .any(|c| c.effective_id == "spiral.core.theme.obsidian"));
-        assert!(themes
-            .iter()
-            .any(|c| c.effective_id == "spiral.core.theme.sprig"));
-        assert!(skins
-            .iter()
-            .any(|c| c.effective_id == "spiral.core.skin.vanilla"));
-        assert!(viz
-            .iter()
-            .any(|c| c.effective_id == "spiral.core.visualizer.bars"));
-        assert!(viz
-            .iter()
-            .any(|c| c.effective_id == "spiral.core.visualizer.dream-cube"));
-        assert_eq!(themes.len(), 8, "expected 8 builtin themes");
-        assert_eq!(skins.len(), 1, "expected 1 builtin skin in core");
-        assert_eq!(viz.len(), 6, "expected 6 builtin visualizers");
-        assert!(
-            !contribs.iter().any(|c| c.r#type == "renderer"),
-            "renderers are no longer a contribution type"
-        );
-    }
-
-    #[test]
-    fn workshop_wins_on_id_collision() {
-        let mut by_id: HashMap<String, ScannedContribution> = HashMap::new();
-        let builtin = ScannedContribution {
-            zone: PackZone::Builtin,
-            author_id: "spiral".into(),
-            pack_id: "core".into(),
-            pack_version: "1.0.0".into(),
-            pack_name: "Core".into(),
-            pack_dir: PathBuf::from("/builtin/core"),
-            contribution_dir: PathBuf::from("/builtin/core/themes/obsidian"),
-            manifest_path: PathBuf::from("/builtin/core/themes/obsidian/theme.json"),
-            r#type: "theme".into(),
-            local_id: "obsidian".into(),
-            effective_id: "spiral.core.theme.obsidian".into(),
-            mutable: false,
-        };
-        let workshop = ScannedContribution {
-            zone: PackZone::Workshop,
-            author_id: "spiral".into(),
-            pack_id: "core".into(),
-            pack_version: "0.0.0".into(),
-            pack_name: "Obsidian Draft".into(),
-            pack_dir: PathBuf::from("/workshop/core"),
-            contribution_dir: PathBuf::from("/workshop/core/themes/obsidian"),
-            manifest_path: PathBuf::from("/workshop/core/themes/obsidian/theme.json"),
-            r#type: "theme".into(),
-            local_id: "obsidian".into(),
-            effective_id: "spiral.core.theme.obsidian".into(),
-            mutable: true,
-        };
-
-        for contrib in [builtin, workshop] {
-            merge_contribution(&mut by_id, contrib);
-        }
-
-        assert_eq!(by_id["spiral.core.theme.obsidian"].zone, PackZone::Workshop);
-        assert!(by_id["spiral.core.theme.obsidian"].mutable);
-    }
-
-    #[test]
-    fn linked_beats_installed_on_id_collision() {
-        let mut by_id: HashMap<String, ScannedContribution> = HashMap::new();
-        let installed = ScannedContribution {
-            zone: PackZone::Installed,
-            author_id: "bryan".into(),
-            pack_id: "demo".into(),
-            pack_version: "1.0.0".into(),
-            pack_name: "Demo".into(),
-            pack_dir: PathBuf::from("/installed/bryan.demo@1.0.0"),
-            contribution_dir: PathBuf::from("/installed/bryan.demo@1.0.0/themes/theme"),
-            manifest_path: PathBuf::from("/installed/bryan.demo@1.0.0/themes/theme/theme.json"),
-            r#type: "theme".into(),
-            local_id: "theme".into(),
-            effective_id: "bryan.demo.theme.theme".into(),
-            mutable: false,
-        };
-        let linked = ScannedContribution {
-            zone: PackZone::Linked,
-            author_id: "bryan".into(),
-            pack_id: "demo".into(),
-            pack_version: "0.0.1".into(),
-            pack_name: "Demo Linked".into(),
-            pack_dir: PathBuf::from("/repos/demo"),
-            contribution_dir: PathBuf::from("/repos/demo/themes/theme"),
-            manifest_path: PathBuf::from("/repos/demo/themes/theme/theme.json"),
-            r#type: "theme".into(),
-            local_id: "theme".into(),
-            effective_id: "bryan.demo.theme.theme".into(),
-            mutable: true,
-        };
-
-        for contrib in [installed, linked] {
-            merge_contribution(&mut by_id, contrib);
-        }
-
-        assert_eq!(by_id["bryan.demo.theme.theme"].zone, PackZone::Linked);
-        assert!(by_id["bryan.demo.theme.theme"].mutable);
-    }
-
-    #[test]
-    fn newer_installed_version_wins_within_zone() {
-        let mut by_id: HashMap<String, ScannedContribution> = HashMap::new();
-        let older = ScannedContribution {
-            zone: PackZone::Installed,
-            author_id: "bryan".into(),
-            pack_id: "midnight-drive".into(),
-            pack_version: "1.0.0".into(),
-            pack_name: "Midnight Drive".into(),
-            pack_dir: PathBuf::from("/installed/bryan.midnight-drive@1.0.0"),
-            contribution_dir: PathBuf::from("/installed/bryan.midnight-drive@1.0.0/themes/theme"),
-            manifest_path: PathBuf::from(
-                "/installed/bryan.midnight-drive@1.0.0/themes/theme/theme.json",
-            ),
-            r#type: "theme".into(),
-            local_id: "theme".into(),
-            effective_id: "bryan.midnight-drive.theme.theme".into(),
-            mutable: false,
-        };
-        let newer = ScannedContribution {
-            zone: PackZone::Installed,
-            author_id: "bryan".into(),
-            pack_id: "midnight-drive".into(),
-            pack_version: "1.1.0".into(),
-            pack_name: "Midnight Drive".into(),
-            pack_dir: PathBuf::from("/installed/bryan.midnight-drive@1.1.0"),
-            contribution_dir: PathBuf::from("/installed/bryan.midnight-drive@1.1.0/themes/theme"),
-            manifest_path: PathBuf::from(
-                "/installed/bryan.midnight-drive@1.1.0/themes/theme/theme.json",
-            ),
-            r#type: "theme".into(),
-            local_id: "theme".into(),
-            effective_id: "bryan.midnight-drive.theme.theme".into(),
-            mutable: false,
-        };
-
-        for contrib in [older, newer] {
-            merge_contribution(&mut by_id, contrib);
-        }
-
+        assert!(warnings.is_empty(), "builtin items must scan clean");
+        let of_type = |ty: &str| items.iter().filter(|c| c.r#type == ty).collect::<Vec<_>>();
+        let has = |ty: &str, id: &str| of_type(ty).iter().any(|c| c.effective_id == id);
+        assert!(has("theme", "spiral.theme.obsidian"));
+        assert!(has("theme", "spiral.theme.sprig"));
+        assert!(has("skin", "spiral.skin.vanilla"));
+        assert!(has("visualizer", "spiral.visualizer.bars"));
+        assert!(has("visualizer", "spiral.visualizer.dream-cube"));
+        assert!(has("sound", "spiral.sound.default"));
+        assert_eq!(of_type("theme").len(), 8, "expected 8 builtin themes");
+        assert_eq!(of_type("skin").len(), 1, "expected 1 builtin skin");
         assert_eq!(
-            by_id["bryan.midnight-drive.theme.theme"].pack_version,
-            "1.1.0"
+            of_type("visualizer").len(),
+            6,
+            "expected 6 builtin visualizers"
         );
+        assert_eq!(of_type("sound").len(), 1, "expected 1 builtin sound pack");
     }
 
     #[test]
-    fn different_authors_same_pack_id_do_not_share_identity() {
-        let alice = pack_identity("alice", "midnight-drive");
-        let bob = pack_identity("bob", "midnight-drive");
-        assert_ne!(alice, bob);
-        assert_eq!(alice, "alice.midnight-drive");
-        assert_eq!(bob, "bob.midnight-drive");
+    fn every_builtin_item_passes_install_validation() {
+        // Builtins are never installed, so nothing else holds them to the install rules.
+        // A rule stricter than what the app itself ships (or authors) breaks export.
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("packs/builtin");
+        for (_, dir) in list_item_dirs(&root) {
+            crate::packs::install::validate_item_for_install(&dir)
+                .unwrap_or_else(|e| panic!("builtin {} should validate: {e}", dir.display()));
+        }
+    }
 
-        let mut workshop_pack_identities = HashSet::new();
-        workshop_pack_identities.insert(alice);
-        assert!(!workshop_pack_identities.contains(&bob));
+    #[test]
+    fn workshop_wins_over_builtin() {
+        let mut by_id = HashMap::new();
+        for c in [
+            contrib(PackZone::Builtin, "1.0.0", "/builtin/themes/bryan.demo"),
+            contrib(PackZone::Workshop, "0.0.0", "/workshop/themes/bryan.demo"),
+        ] {
+            merge_contribution(&mut by_id, c);
+        }
+        let winner = &by_id["bryan.theme.demo"];
+        assert_eq!(winner.zone, PackZone::Workshop);
+        assert!(winner.mutable);
+    }
+
+    #[test]
+    fn linked_beats_installed() {
+        let mut by_id = HashMap::new();
+        for c in [
+            contrib(PackZone::Installed, "1.0.0", "/installed/themes/bryan.demo"),
+            contrib(PackZone::Linked, "0.0.1", "/repos/demo"),
+        ] {
+            merge_contribution(&mut by_id, c);
+        }
+        assert_eq!(by_id["bryan.theme.demo"].zone, PackZone::Linked);
+    }
+
+    #[test]
+    fn newer_version_wins_within_zone() {
+        let mut by_id = HashMap::new();
+        for c in [
+            contrib(PackZone::Linked, "1.1.0", "/a"),
+            contrib(PackZone::Linked, "1.0.0", "/b"),
+        ] {
+            merge_contribution(&mut by_id, c);
+        }
+        assert_eq!(by_id["bryan.theme.demo"].version, "1.1.0");
+    }
+
+    #[test]
+    fn scan_zone_root_reads_items_and_warns_on_misplaced() {
+        let root = temp_root("zone");
+        write_theme(&root.join("themes/bryan.good"), "bryan", "good", "1.0.0");
+        // Wrong directory name.
+        write_theme(
+            &root.join("themes/whatever"),
+            "bryan",
+            "named-wrong",
+            "1.0.0",
+        );
+        // Theme sitting in the skins folder.
+        write_theme(&root.join("skins/bryan.lost"), "bryan", "lost", "1.0.0");
+
+        let mut warnings = Vec::new();
+        let items = scan_zone_root(&root, PackZone::Installed, &mut warnings);
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].effective_id, "bryan.theme.good");
+        assert_eq!(items[0].name, "Theme good");
+        assert_eq!(warnings.len(), 2, "{warnings:?}");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn scan_item_dir_skips_items_needing_a_newer_app() {
+        let root = temp_root("minapp");
+        let dir = root.join("themes/bryan.future");
+        write_theme(&dir, "bryan", "future", "1.0.0");
+        let manifest = fs::read_to_string(dir.join("theme.json")).unwrap();
+        let mut value: serde_json::Value = serde_json::from_str(&manifest).unwrap();
+        value["minAppVersion"] = "999.0.0".into();
+        fs::write(dir.join("theme.json"), value.to_string()).unwrap();
+
+        let mut warnings = Vec::new();
+        assert!(scan_item_dir(&dir, Some("theme"), PackZone::Installed, &mut warnings).is_none());
+        assert!(warnings[0].message.contains("minAppVersion"));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn linked_item_dir_may_have_any_name() {
+        let root = temp_root("linked");
+        let dir = root.join("my-repo");
+        write_theme(&dir, "bryan", "linked", "0.1.0");
+        let mut warnings = Vec::new();
+        let item = scan_item_dir(&dir, None, PackZone::Linked, &mut warnings).unwrap();
+        assert_eq!(item.effective_id, "bryan.theme.linked");
+        assert!(item.mutable);
+        assert!(warnings.is_empty());
+        let _ = fs::remove_dir_all(&root);
     }
 }

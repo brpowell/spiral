@@ -10,7 +10,7 @@ import {
 import { emitThemeChanged, getLiveThemePreview } from "../lib/themeBridge";
 import {
   createWorkshopTheme,
-  deleteWorkshopTheme,
+  deleteWorkshopItem,
   getActiveThemeId,
   getBuiltinThemes,
   loadUserThemes,
@@ -31,11 +31,7 @@ interface ThemeState {
   loadThemes: (options?: { transition?: boolean }) => Promise<void>;
   initializeFromBootstrap: (themes: Theme[], activeThemeId: string) => void;
   setTheme: (themeId: string) => Promise<void>;
-  createTheme: (args?: {
-    name?: string;
-    packId?: string;
-    packName?: string;
-  }) => Promise<Theme>;
+  createTheme: (args?: { name?: string }) => Promise<Theme>;
   saveTheme: (theme: Theme) => Promise<Theme>;
   deleteTheme: (themeId: string) => Promise<void>;
 }
@@ -135,7 +131,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   },
 
   deleteTheme: async (themeId) => {
-    await deleteWorkshopTheme(themeId);
+    await deleteWorkshopItem(themeId);
     await get().loadThemes();
     emitThemeChanged(get().activeThemeId, { skipLocalReload: true });
   },

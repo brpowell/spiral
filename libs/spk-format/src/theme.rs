@@ -22,15 +22,16 @@ struct ThemeFile {
     tokens: HashMap<String, String>,
 }
 
-/// Required token keys for installing / applying a theme (mirrors theme-v1 / TS).
+/// Required token keys for installing / applying a theme.
+///
+/// Only the authorable tokens: the surface, border, muted-text and similar washes
+/// are derived in CSS from these (the theme editor strips them), so requiring them
+/// would reject every theme the editor produces. Mirrors `REQUIRED_THEME_TOKEN_KEYS`
+/// in `apps/desktop/src/types/theme.ts`; a desktop test keeps the two in step.
 pub const REQUIRED_THEME_TOKEN_KEYS: &[&str] = &[
     "color-bg",
-    "color-surface",
     "color-text-primary",
-    "color-text-secondary",
     "color-accent",
-    "color-accent-muted",
-    "color-border",
     "color-danger",
     "radius-card",
     "radius-button",
@@ -103,6 +104,25 @@ mod tests {
         );
         let path = write_theme(&dir, &json);
         validate_theme_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_a_theme_with_only_the_authorable_tokens() {
+        // The theme editor strips the derived washes (surface, border, muted text),
+        // so a theme made there carries exactly these tokens and must still validate.
+        let dir = std::env::temp_dir().join(format!("spk-theme-editor-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = write_theme(
+            &dir,
+            r##"{ "id": "mine", "name": "Mine", "tokens": {
+                "color-bg": "#000", "color-text-primary": "#fff", "color-accent": "#7b8cde",
+                "color-danger": "#e06c75", "radius-card": "12px", "radius-button": "8px",
+                "font-ui": "system-ui"
+            } }"##,
+        );
+        validate_theme_contribution_at(&path).unwrap();
+        assert_eq!(REQUIRED_THEME_TOKEN_KEYS.len(), 7);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

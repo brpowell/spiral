@@ -5,7 +5,7 @@ import type { AppearanceSection } from "../../lib/appearanceWindow";
 import { useAppearanceSection } from "../../hooks/useAppearanceSection";
 import { useAppearanceThemeEditor } from "../../hooks/useAppearanceThemeEditor";
 import { viewTransition } from "../../lib/motion";
-import { usePackUpdatesStore } from "../../store/usePackUpdatesStore";
+import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
 import { useThemeStore } from "../../store/useThemeStore";
 import {
   SidebarFrame,
@@ -24,58 +24,57 @@ import {
   getAppearanceSectionConfig,
 } from "./appearanceSections";
 import { AppearanceThemeEditorProvider } from "./AppearanceThemeEditorContext";
-import { GetMoreSection } from "./GetMoreSection";
-import { InstalledPacksSection } from "./InstalledPacksSection";
+import { ItemDetailView } from "./ItemDetailView";
+import { RegistryBrowseSection } from "./RegistryBrowseSection";
+import { StudioSidebarActions } from "./StudioSidebarActions";
 import { SkinsSection } from "./SkinsSection";
+import { SoundsSection } from "./SoundsSection";
 import { ThemesSection } from "./ThemesSection";
 import { VisualizersSection } from "./VisualizersSection";
 import "./AppearanceShell.css";
 
 function AppearanceSectionPanel({
   section,
-  focusPackId,
-  onFocusConsumed,
-  onOpenPack,
-  onLeavePackDetail,
-  packDetailBackAriaLabel,
-  packSelectedKey,
-  onPackSelectedKeyChange,
+  detailItemId,
+  onOpenItem,
+  onLeaveDetail,
+  onDetailItemIdChange,
+  detailBackAriaLabel,
 }: {
   section: AppearanceSection;
-  focusPackId: string | null;
-  onFocusConsumed: () => void;
-  onOpenPack: (packId: string) => void;
-  onLeavePackDetail: () => void;
-  packDetailBackAriaLabel: string;
-  packSelectedKey: string | null;
-  onPackSelectedKeyChange: (key: string | null) => void;
+  detailItemId: string | null;
+  onOpenItem: (effectiveId: string) => void;
+  onLeaveDetail: () => void;
+  onDetailItemIdChange: (effectiveId: string) => void;
+  detailBackAriaLabel: string;
 }) {
+  if (detailItemId != null) {
+    return (
+      <ItemDetailView
+        itemId={detailItemId}
+        backAriaLabel={detailBackAriaLabel}
+        onBack={onLeaveDetail}
+        onItemIdChange={onDetailItemIdChange}
+      />
+    );
+  }
   switch (section) {
     case "themes":
-      return <ThemesSection onOpenPack={onOpenPack} />;
+      return <ThemesSection onOpenItem={onOpenItem} />;
     case "visualizers":
-      return <VisualizersSection onOpenPack={onOpenPack} />;
+      return <VisualizersSection onOpenItem={onOpenItem} />;
     case "skins":
-      return <SkinsSection onOpenPack={onOpenPack} />;
-    case "packs":
-      return (
-        <InstalledPacksSection
-          focusPackId={focusPackId}
-          onFocusConsumed={onFocusConsumed}
-          onLeaveDetail={onLeavePackDetail}
-          detailBackAriaLabel={packDetailBackAriaLabel}
-          selectedKey={packSelectedKey}
-          onSelectedKeyChange={onPackSelectedKeyChange}
-        />
-      );
+      return <SkinsSection onOpenItem={onOpenItem} />;
+    case "sounds":
+      return <SoundsSection onOpenItem={onOpenItem} />;
     case "catalog":
-      return <GetMoreSection />;
+      return <RegistryBrowseSection />;
   }
 }
 
 export function AppearanceShell() {
   const { t } = useTranslation("studio");
-  const [section, setSection, eventFocusPackId, clearEventFocusPackId] =
+  const [section, setSection, eventFocusItemId, clearEventFocusItemId] =
     useAppearanceSection();
   const {
     session: editorSession,
@@ -84,18 +83,13 @@ export function AppearanceShell() {
   } = useAppearanceThemeEditor();
   const themes = useThemeStore((s) => s.themes);
 
-  const [localFocusPackId, setLocalFocusPackId] = useState<string | null>(null);
-  const focusPackId = localFocusPackId ?? eventFocusPackId;
-  /** Lifted so pack detail survives Theme Editor mount/unmount. */
-  const [packSelectedKey, setPackSelectedKey] = useState<string | null>(null);
-  /** Section to restore when leaving pack details (e.g. Themes → pack → back). */
-  const [packReturnSection, setPackReturnSection] =
-    useState<AppearanceSection | null>(null);
+  /** Item shown in the details view, if any. Lifted so it survives Theme Editor mount/unmount. */
+  const [detailItemId, setDetailItemId] = useState<string | null>(null);
 
   const editorRequestCloseRef = useRef<(() => void) | null>(null);
   const afterEditorCloseRef = useRef<(() => void) | null>(null);
 
-  const viewingPackDetail = packSelectedKey != null;
+  const viewingDetail = detailItemId != null;
 
   const handleEditorClose = useCallback(() => {
     const afterClose = afterEditorCloseRef.current;
@@ -113,53 +107,22 @@ export function AppearanceShell() {
     afterEditorCloseRef.current = null;
   }, []);
 
-  const clearPackDetail = useCallback(() => {
-    setPackSelectedKey(null);
-    setPackReturnSection(null);
-  }, []);
-
-  const goBackFromPack = useCallback(() => {
-    const returnTo = packReturnSection;
-    clearPackDetail();
-    if (returnTo != null && returnTo !== "packs") {
-      setSection(returnTo);
-    }
-  }, [clearPackDetail, packReturnSection, setSection]);
+  const runAfterLeavingEditor = useCallback(
+    (go: () => void) => {
+      if (editorSession != null) {
+        requestLeaveEditor(go);
+        return;
+      }
+      go();
+    },
+    [editorSession, requestLeaveEditor],
+  );
 
   const handleSectionClick = useCallback(
     (next: AppearanceSection) => {
-      if (editorSession != null) {
-        requestLeaveEditor(() => {
-          clearPackDetail();
-          setSection(next);
-        });
-        return;
-      }
-      if (next === "packs" && section === "packs" && viewingPackDetail) {
-        clearPackDetail();
-        return;
-      }
-      if (next !== "packs") {
-        clearPackDetail();
-      }
-      setSection(next);
-    },
-    [
-      clearPackDetail,
-      editorSession,
-      requestLeaveEditor,
-      section,
-      setSection,
-      viewingPackDetail,
-    ],
-  );
-
-  const openPack = useCallback(
-    (packId: string) => {
       const go = () => {
-        setPackReturnSection(section);
-        setLocalFocusPackId(packId);
-        setSection("packs");
+        setDetailItemId(null);
+        setSection(next);
       };
       if (editorSession != null) {
         requestLeaveEditor(go);
@@ -167,20 +130,28 @@ export function AppearanceShell() {
       }
       go();
     },
-    [editorSession, requestLeaveEditor, section, setSection],
+    [editorSession, requestLeaveEditor, setSection],
   );
 
-  const handleFocusConsumed = useCallback(() => {
-    setLocalFocusPackId(null);
-    clearEventFocusPackId();
-  }, [clearEventFocusPackId]);
+  const openItem = useCallback(
+    (effectiveId: string) => {
+      const go = () => setDetailItemId(effectiveId);
+      if (editorSession != null) {
+        requestLeaveEditor(go);
+        return;
+      }
+      go();
+    },
+    [editorSession, requestLeaveEditor],
+  );
 
+  // Deep link / external navigate straight to an item.
   useEffect(() => {
-    if (eventFocusPackId) {
-      // Deep-link / external navigate: back returns to Packs list.
-      setPackReturnSection(null);
+    if (eventFocusItemId) {
+      setDetailItemId(eventFocusItemId);
+      clearEventFocusItemId();
     }
-  }, [eventFocusPackId]);
+  }, [clearEventFocusItemId, eventFocusItemId]);
 
   const editorTheme =
     editorSession != null
@@ -194,20 +165,20 @@ export function AppearanceShell() {
   }, [closeEditor, editorSession, editorTheme]);
 
   const editing = editorSession != null && editorTheme != null;
-  const packBackLabel = getAppearanceSectionConfig(
-    packReturnSection ?? "packs",
-  ).label;
-  const editorBackAriaLabel = viewingPackDetail
-    ? t("backToPackDetails")
+  const sectionLabel = getAppearanceSectionConfig(section).label;
+  const editorBackAriaLabel = viewingDetail
+    ? t("backToDetails")
     : t("backToThemes");
-  const packDetailBackAriaLabel = t("backTo", { section: packBackLabel });
+  const detailBackAriaLabel = t("backTo", { section: sectionLabel });
   const contentKey = editing
     ? `editor-${editorSession.themeId}`
-    : `list-${section}`;
+    : viewingDetail
+      ? `detail-${detailItemId}`
+      : `list-${section}`;
 
   const catalogLabel = t("catalog.sidebar");
   const collectionLabel = t("nav.collection");
-  const packUpdatesPending = usePackUpdatesStore(
+  const itemUpdatesPending = useItemUpdatesStore(
     (s) => s.pendingUpdates.length > 0,
   );
 
@@ -215,35 +186,33 @@ export function AppearanceShell() {
     <div className="appearance-shell">
       <aside className="appearance-shell__sidebar">
         <SidebarFrame embedded aria-label={t("nav.sectionsAria")}>
-          <SidebarSection
-            label={collectionLabel}
-            className="appearance-shell__sidebar-section--first"
-          >
+          <StudioSidebarActions
+            runAfterLeavingEditor={runAfterLeavingEditor}
+            openThemeEditor={openEditor}
+          />
+          <SidebarSection label={collectionLabel}>
             <SidebarList>
-              {APPEARANCE_CONTENT_SECTIONS.map((item) => {
-                const showPackDot = item.id === "packs" && packUpdatesPending;
-                return (
-                  <li key={item.id}>
-                    <SidebarItem
-                      leading={
-                        <StatusIndicatorAnchor className="sidebar-item__icon">
-                          {item.icon}
-                          {showPackDot ? <StatusIndicator /> : null}
-                        </StatusIndicatorAnchor>
-                      }
-                      active={section === item.id}
-                      onClick={() => handleSectionClick(item.id)}
-                    >
-                      {item.label}
-                    </SidebarItem>
-                  </li>
-                );
-              })}
+              {APPEARANCE_CONTENT_SECTIONS.map((item) => (
+                <li key={item.id}>
+                  <SidebarItem
+                    icon={item.icon}
+                    active={section === item.id}
+                    onClick={() => handleSectionClick(item.id)}
+                  >
+                    {item.label}
+                  </SidebarItem>
+                </li>
+              ))}
             </SidebarList>
           </SidebarSection>
           <SidebarSection aria-label={catalogLabel}>
             <SidebarItem
-              icon={APPEARANCE_CATALOG_SECTION.icon}
+              leading={
+                <StatusIndicatorAnchor className="sidebar-item__icon">
+                  {APPEARANCE_CATALOG_SECTION.icon}
+                  {itemUpdatesPending ? <StatusIndicator /> : null}
+                </StatusIndicatorAnchor>
+              }
               active={section === APPEARANCE_CATALOG_SECTION.id}
               onClick={() => handleSectionClick(APPEARANCE_CATALOG_SECTION.id)}
             >
@@ -279,13 +248,11 @@ export function AppearanceShell() {
                 >
                   <AppearanceSectionPanel
                     section={section}
-                    focusPackId={focusPackId}
-                    onFocusConsumed={handleFocusConsumed}
-                    onOpenPack={openPack}
-                    onLeavePackDetail={goBackFromPack}
-                    packDetailBackAriaLabel={packDetailBackAriaLabel}
-                    packSelectedKey={packSelectedKey}
-                    onPackSelectedKeyChange={setPackSelectedKey}
+                    detailItemId={detailItemId}
+                    onOpenItem={openItem}
+                    onLeaveDetail={() => setDetailItemId(null)}
+                    onDetailItemIdChange={setDetailItemId}
+                    detailBackAriaLabel={detailBackAriaLabel}
                   />
                 </motion.div>
               )}

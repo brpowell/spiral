@@ -6,7 +6,7 @@ import {
   type ThemeTokens,
 } from "../types/theme";
 
-export const DEFAULT_THEME_ID = "spiral.core.theme.obsidian";
+export const DEFAULT_THEME_ID = "spiral.theme.obsidian";
 
 /** Authorable token set used for merge fallbacks (Obsidian). */
 export const OBSIDIAN_DEFAULT_TOKENS: ThemeTokens = {
@@ -96,7 +96,7 @@ export function mergeThemeTokens(partial: ThemeTokens): ThemeTokens {
   return stripDerivedThemeTokens({ ...OBSIDIAN_DEFAULT_TOKENS, ...partial });
 }
 
-export function resolveThemeTokens(theme: Theme): ThemeTokens {
+export function resolveThemeTokens(theme: Pick<Theme, "tokens">): ThemeTokens {
   return mergeThemeTokens(theme.tokens);
 }
 

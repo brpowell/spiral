@@ -136,7 +136,7 @@ describe("SceneRenderer expanded resize", () => {
     render(
       <SceneRenderer
         scene={[{ kind: "canvas", layout: "fill", entry: "index.js" }]}
-        visualizerId="spiral.core.visualizer.bars"
+        visualizerId="spiral.visualizer.bars"
         variant="mini"
         expanded
         showExpandToggle={false}

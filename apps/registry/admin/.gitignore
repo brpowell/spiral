@@ -21,3 +21,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Built by `npm run build`; embedded into the registry binary at compile time.
+dist

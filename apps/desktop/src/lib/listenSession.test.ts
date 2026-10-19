@@ -14,8 +14,8 @@ import {
 vi.mock("../store/useThemeStore", () => ({
   useThemeStore: {
     getState: () => ({
-      activeThemeId: "spiral.core.theme.obsidian",
-      themes: [{ id: "spiral.core.theme.obsidian", name: "Obsidian" }],
+      activeThemeId: "spiral.theme.obsidian",
+      themes: [{ id: "spiral.theme.obsidian", name: "Obsidian" }],
     }),
   },
 }));
@@ -23,7 +23,7 @@ vi.mock("../store/useThemeStore", () => ({
 vi.mock("../store/useSkinStore", () => ({
   useSkinStore: {
     getState: () => ({
-      activeSkinId: "spiral.core.skin.vanilla",
+      activeSkinId: "spiral.skin.vanilla",
       activeViewId: "standard",
       activePack: { summary: { name: "Spiral Default" } },
       skins: [],
@@ -34,8 +34,8 @@ vi.mock("../store/useSkinStore", () => ({
 vi.mock("../store/useVisualizerStore", () => ({
   useVisualizerStore: {
     getState: () => ({
-      activeVisualizerId: "spiral.core.visualizer.bars",
-      visualizers: [{ id: "spiral.core.visualizer.bars", name: "Bars" }],
+      activeVisualizerId: "spiral.visualizer.bars",
+      visualizers: [{ id: "spiral.visualizer.bars", name: "Bars" }],
       visualizerCache: {},
     }),
   },
@@ -58,11 +58,11 @@ describe("listenSession", () => {
     expect(closed?.uiMode).toBe("library");
     expect(closed?.libraryListenedSeconds).toBeGreaterThanOrEqual(0);
     expect(closed?.skinListenedSeconds).toBe(0);
-    expect(closed?.themeId).toBe("spiral.core.theme.obsidian");
+    expect(closed?.themeId).toBe("spiral.theme.obsidian");
     expect(closed?.themeName).toBe("Obsidian");
-    expect(closed?.skinId).toBe("spiral.core.skin.vanilla");
+    expect(closed?.skinId).toBe("spiral.skin.vanilla");
     expect(closed?.skinName).toBe("Spiral Default");
-    expect(closed?.visualizerId).toBe("spiral.core.visualizer.bars");
+    expect(closed?.visualizerId).toBe("spiral.visualizer.bars");
     expect(closed?.visualizerName).toBe("Bars");
     expect(getActiveListenTrackId()).toBeNull();
   });

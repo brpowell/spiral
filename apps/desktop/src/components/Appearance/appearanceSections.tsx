@@ -3,9 +3,9 @@ import type { AppearanceSection } from "../../lib/appearanceWindow";
 import { t } from "../../lib/i18n";
 import {
   IconDownload,
-  IconPackage,
   IconPalette,
   IconBoombox,
+  IconVolume,
   IconVisualizer,
 } from "../icons";
 
@@ -15,7 +15,7 @@ export interface AppearanceSectionConfig {
   icon: ReactNode;
 }
 
-/** Themes → Visualizers → Skins → Packs (single content rail). */
+/** Themes → Visualizers → Skins → Sounds (single content rail). */
 export const APPEARANCE_CONTENT_SECTIONS: AppearanceSectionConfig[] = [
   {
     id: "themes",
@@ -33,9 +33,9 @@ export const APPEARANCE_CONTENT_SECTIONS: AppearanceSectionConfig[] = [
     icon: <IconBoombox />,
   },
   {
-    id: "packs",
-    label: t("studio:nav.packs"),
-    icon: <IconPackage />,
+    id: "sounds",
+    label: t("studio:nav.sounds"),
+    icon: <IconVolume />,
   },
 ];
 

@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks'
-import { listAdminPacks } from '../api'
+import { listAdminItems } from '../api'
 import { clearToken, setToken } from '../auth'
 
 type Props = {
@@ -22,7 +22,7 @@ export function LoginView({ onLoggedIn }: Props) {
     setError('')
     setToken(value)
     try {
-      await listAdminPacks()
+      await listAdminItems()
       onLoggedIn()
     } catch (err) {
       clearToken()

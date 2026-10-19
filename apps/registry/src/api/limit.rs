@@ -21,7 +21,7 @@ use http_body_util::BodyExt;
 
 use super::ApiError;
 
-/// Tight cap on `/v1/rgad/*` (token guessing / admin upload).
+/// Tight cap on the admin API (`<ADMIN_PATH>/api/*`): token guessing and admin upload.
 pub const ADMIN_REQUESTS_PER_MINUTE: u32 = 10;
 
 /// Moderate cap on catalog list/detail, meta, and previews.
@@ -52,7 +52,10 @@ impl ClientIpSource {
         })
     }
 
-    fn extract(&self, request: &Request) -> IpAddr {
+    /// The trusted header's address if present and valid, else the peer address. `None` only
+    /// when neither is known. The header is absent on the private admin listener, where the
+    /// peer address is the best there is.
+    fn resolve(&self, request: &Request) -> Option<IpAddr> {
         if let Some(name) = &self.header {
             if let Some(ip) = request
                 .headers()
@@ -60,15 +63,38 @@ impl ClientIpSource {
                 .and_then(|v| v.to_str().ok())
                 .and_then(|s| s.parse().ok())
             {
-                return ip;
+                return Some(ip);
             }
         }
         request
             .extensions()
             .get::<ConnectInfo<SocketAddr>>()
             .map(|ConnectInfo(addr)| addr.ip())
+    }
+
+    /// Like [`Self::resolve`], with a placeholder key for rate limiting when nothing is known.
+    fn extract(&self, request: &Request) -> IpAddr {
+        self.resolve(request)
             .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
     }
+}
+
+/// The client address resolved by [`ClientIpSource`], attached to the request by
+/// [`attach_client_ip`] so handlers (the admin audit log) see the same address the rate limits
+/// key on.
+#[derive(Clone, Copy, Debug)]
+pub struct ClientIp(pub IpAddr);
+
+/// Middleware: resolve the client address and store it as a [`ClientIp`] request extension.
+pub async fn attach_client_ip(
+    State(source): State<ClientIpSource>,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    if let Some(ip) = source.resolve(&request) {
+        request.extensions_mut().insert(ClientIp(ip));
+    }
+    next.run(request).await
 }
 
 #[derive(Clone)]

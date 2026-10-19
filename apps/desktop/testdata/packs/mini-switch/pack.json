@@ -1,8 +1,0 @@
-{
-  "manifestVersion": 1,
-  "packId": "fixture-mini-switch",
-  "authorId": "spiral",
-  "version": "1.0.0",
-  "name": "Mini-switch fixture",
-  "description": "Synthetic skin pack for desktop unit tests (not published)."
-}

@@ -1,4 +1,4 @@
-//! Debounced file watcher for the workshop packs root.
+//! Debounced file watcher for the workshop root.
 //! Emits `workshop://changed` so the UI can live-reload hand-edited drafts.
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
@@ -111,9 +111,7 @@ fn is_workshop_content_path(path: &PathBuf) -> bool {
     if name.starts_with('.') || name.ends_with('~') || name.ends_with(".tmp") {
         return false;
     }
-    name == "pack.json"
-        || name == "theme.json"
-        || name.ends_with(".json")
+    name.ends_with(".json")
         || path
             .extension()
             .and_then(|e| e.to_str())

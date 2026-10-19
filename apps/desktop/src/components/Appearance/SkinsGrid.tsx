@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { skinPreviewUrl } from "../../lib/skinAssets";
 import { useSkinStore } from "../../store/useSkinStore";
 import type { SkinSummary } from "../../types/skin";
-import { AppearancePackActions } from "./AppearancePackActions";
+import { ItemActionsMenu } from "./ItemActionsMenu";
 import { AppearancePackCard } from "./AppearancePackCard";
 import "./SkinsGrid.css";
 
@@ -20,12 +20,12 @@ function SkinCard({
   skin,
   active,
   onSelect,
-  onOpenPack,
+  onOpenItem,
 }: {
   skin: SkinSummary;
   active: boolean;
   onSelect: () => void;
-  onOpenPack: (packId: string) => void;
+  onOpenItem: (effectiveId: string) => void;
 }) {
   const { t } = useTranslation("studio");
   return (
@@ -34,18 +34,20 @@ function SkinCard({
       name={skin.name}
       author={skin.author}
       description={skin.description}
-      ariaLabel={t("packs.cardAria", { name: skin.name, author: skin.author })}
+      ariaLabel={t("items.cardAria", { name: skin.name, author: skin.author })}
       preview={<SkinCardPreview skin={skin} />}
       className="skin-picker__card-wrap"
       previewClassName="skin-picker__preview"
       actions={
-        skin.packId ? (
-          <AppearancePackActions
-            name={skin.name}
-            packId={skin.packId}
-            onOpenPack={onOpenPack}
-          />
-        ) : undefined
+        <ItemActionsMenu
+          item={{
+            effectiveId: skin.id,
+            type: "skin",
+            name: skin.name,
+            zone: skin.zone,
+          }}
+          onOpenItem={onOpenItem}
+        />
       }
       onApply={onSelect}
     />
@@ -53,9 +55,9 @@ function SkinCard({
 }
 
 export function SkinsGrid({
-  onOpenPack,
+  onOpenItem,
 }: {
-  onOpenPack: (packId: string) => void;
+  onOpenItem: (effectiveId: string) => void;
 }) {
   const { t } = useTranslation("studio");
   const skins = useSkinStore((s) => s.skins);
@@ -79,7 +81,7 @@ export function SkinsGrid({
             skin={skin}
             active={skin.id === activeSkinId}
             onSelect={() => void setSkin(skin.id)}
-            onOpenPack={onOpenPack}
+            onOpenItem={onOpenItem}
           />
         </div>
       ))}

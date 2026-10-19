@@ -27,7 +27,7 @@ describe("shouldApplyRemoteSkinPreferences", () => {
       shouldApplyRemoteSkinPreferences(
         "spiral.wmp-lost-planet.skin.lost-planet",
         null,
-        "spiral.core.skin.spiral-default",
+        "spiral.skin.spiral-default",
       ),
     ).toBe(true);
   });

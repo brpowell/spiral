@@ -10,10 +10,21 @@
 #   docker run --rm -p 8080:8080 -e ADMIN_TOKEN="$(openssl rand -base64 32)" \
 #     -v spk-registry-data:/data spk-registry
 
+# Base images. ARGs used in a FROM must be declared before the first FROM. Override
+# NODE_IMAGE or RUST_IMAGE to pin a specific version.
+ARG NODE_IMAGE=node:22-bookworm-slim
 # cargo-chef caches compiled dependencies in their own layer, so changing
-# registry code does not rebuild every crate. Override RUST_IMAGE to pin a
-# specific Rust version.
+# registry code does not rebuild every crate.
 ARG RUST_IMAGE=lukemathwalker/cargo-chef:latest-rust-1
+
+# The admin panel (Preact + Vite) is built here and embedded into the binary at compile time.
+FROM ${NODE_IMAGE} AS admin
+WORKDIR /admin
+COPY apps/registry/admin/package.json apps/registry/admin/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY apps/registry/admin ./
+RUN npm run build
+
 FROM ${RUST_IMAGE} AS chef
 WORKDIR /app
 
@@ -33,6 +44,7 @@ FROM chef AS builder
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json -p spk-registry
 COPY --from=planner /app .
+COPY --from=admin /admin/dist ./apps/registry/admin/dist
 RUN cargo build --release -p spk-registry --bin spk-registry
 
 FROM debian:bookworm-slim AS runtime

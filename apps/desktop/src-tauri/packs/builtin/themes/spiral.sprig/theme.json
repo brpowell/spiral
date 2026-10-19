@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/theme-v1.schema.json",
+  "id": "sprig",
+  "publisherId": "spiral",
+  "version": "1.0.0",
+  "name": "Sprig",
+  "author": "Spiral",
+  "description": "Bright lime on cream paper — Spiral Powered Sprig, light.",
+  "tokens": {
+    "color-bg": "#f3f1e4",
+    "color-text-primary": "#2a2c18",
+    "color-accent": "#7ab01c",
+    "color-danger": "#c24b3a",
+    "color-alert-info": "#4a6e72",
+    "color-alert-success": "#4e7a10",
+    "color-alert-warning": "#9a7020",
+    "radius-card": "12px",
+    "radius-button": "8px",
+    "radius-input": "8px",
+    "font-ui": "'Inter', system-ui, -apple-system, sans-serif"
+  }
+}
