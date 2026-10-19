@@ -65,11 +65,13 @@ export function ContextMenuCheckboxItem({
   icon,
   checked,
   label,
+  disabled,
   onClick,
 }: {
   icon?: ReactNode;
   checked: boolean;
-  label: string;
+  label: ReactNode;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -77,6 +79,7 @@ export function ContextMenuCheckboxItem({
       type="button"
       role="menuitemcheckbox"
       aria-checked={checked}
+      disabled={disabled}
       onClick={onClick}
     >
       {icon != null ? (

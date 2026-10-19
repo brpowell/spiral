@@ -4,6 +4,8 @@ export type SelectOption<T extends string> = {
   value: T;
   label: ReactNode;
   description?: ReactNode;
+  /** Shown before the label in multi-selects. */
+  icon?: ReactNode;
   disabled?: boolean;
 };
 

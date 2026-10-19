@@ -30,14 +30,9 @@ import {
   InputGroupInput,
 } from "../common/InputGroup/InputGroup";
 import { Skeleton } from "../common/Skeleton/Skeleton";
+import { MultiSelect } from "../common/Select/MultiSelect";
 import { Select } from "../common/Select/Select";
-import {
-  ContextMenuCheckboxItem,
-  ContextMenuItem,
-  ContextMenuSeparator,
-} from "../ContextMenu/ContextMenu";
-import { IconDisconnected, IconListX, IconSearch } from "../icons";
-import { MenuButton } from "../MenuButton/MenuButton";
+import { IconDisconnected, IconSearch } from "../icons";
 import { itemTypeMeta } from "./itemShared";
 import { RegistryItemCard } from "./RegistryItemCard";
 import { RegistryItemDetailView } from "./RegistryItemDetailView";
@@ -330,12 +325,6 @@ export function RegistryBrowseSection() {
   const hasMore = entries.length < total;
   const filtered = typeFilters.length > 0 || query !== "";
 
-  const toggleType = (type: ItemType) =>
-    setTypeFilters((current) =>
-      current.includes(type)
-        ? current.filter((t) => t !== type)
-        : [...current, type],
-    );
   const typeLabel = (type: ItemType) =>
     t(`catalog.typePlural.${type}`, { defaultValue: itemTypeMeta(type).label });
   const filterSummary =
@@ -344,6 +333,11 @@ export function RegistryBrowseSection() {
       : typeFilters.length === 1
         ? typeLabel(typeFilters[0]!)
         : t("catalog.filterCount", { count: typeFilters.length });
+  const typeOptions = ITEM_TYPES.map((type) => ({
+    value: type,
+    label: typeLabel(type),
+    icon: itemTypeMeta(type).icon,
+  }));
   const sortOptions = CATALOG_SORTS.map((value) => ({
     value,
     label: t(`catalog.sort.${value}`),
@@ -396,41 +390,15 @@ export function RegistryBrowseSection() {
                     <IconSearch />
                   </InputGroupAddon>
                 </InputGroup>
-                <MenuButton
-                  ariaLabel={t("catalog.filterAria")}
-                  label={filterSummary}
-                  variant="secondary"
-                  size="sm"
-                  triggerPlacement="below-start"
-                  layoutDeps={[typeFilters]}
-                >
-                  {(close) => (
-                    <>
-                      {ITEM_TYPES.map((type) => (
-                        <ContextMenuCheckboxItem
-                          key={type}
-                          icon={itemTypeMeta(type).icon}
-                          checked={typeFilters.includes(type)}
-                          label={typeLabel(type)}
-                          onClick={() => toggleType(type)}
-                        />
-                      ))}
-                      {typeFilters.length > 0 ? (
-                        <>
-                          <ContextMenuSeparator />
-                          <ContextMenuItem
-                            icon={<IconListX />}
-                            label={t("catalog.filterClear")}
-                            onClick={() => {
-                              close();
-                              setTypeFilters([]);
-                            }}
-                          />
-                        </>
-                      ) : null}
-                    </>
-                  )}
-                </MenuButton>
+                <MultiSelect
+                  className="registry-browse__filter"
+                  values={typeFilters}
+                  onChange={setTypeFilters}
+                  options={typeOptions}
+                  summary={filterSummary}
+                  clearLabel={t("catalog.filterClear")}
+                  aria-label={t("catalog.filterAria")}
+                />
                 <Select
                   className="registry-browse__sort"
                   value={sort}

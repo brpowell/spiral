@@ -60,6 +60,11 @@
   max-width: 24rem;
 }
 
+.registry-browse__filter .select__trigger {
+  /* Wide enough that the menu (as wide as the trigger) fits "Visualizers" with its icon. */
+  min-width: 10rem;
+}
+
 .registry-browse__sort {
   margin-inline-start: auto;
 }
