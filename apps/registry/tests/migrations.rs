@@ -80,6 +80,46 @@ fn migration_files(backend: &str) -> Vec<String> {
     names
 }
 
+/// The pack-era schema exactly as the live registry created it (before migrations existed, and
+/// before the publisher_id rename). Deploying must upgrade that database in place.
+const PRE_MIGRATION_SCHEMA: &str = include_str!("pre_migration_schema.sql");
+
+#[tokio::test]
+async fn upgrades_a_database_created_before_migrations() {
+    let (store, _tmp) = open_temp().await;
+    for statement in PRE_MIGRATION_SCHEMA
+        .split(';')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        sqlx::query(statement)
+            .execute(store.pool())
+            .await
+            .unwrap_or_else(|e| panic!("old schema: {e}\n{statement}"));
+    }
+    sqlx::query(
+        "INSERT INTO pack_versions (author_id, pack_id, version, contribution_types, size_bytes, \
+         sha256, storage_key, published_at) VALUES ('spiral', 'wmp-t3', '1.0.0', '[\"skin\"]', 10, \
+         'aa', 'spiral/wmp-t3/1.0.0/pack.spk', '2026-10-12T13:10:14Z')",
+    )
+    .execute(store.pool())
+    .await
+    .unwrap();
+
+    store
+        .migrate()
+        .await
+        .expect("migrate an existing pack-era database");
+
+    // The pack catalog is gone and the item tables are in place and empty.
+    assert_eq!(
+        table_names(&store).await,
+        vec!["item_takedown_log", "item_versions"]
+    );
+    assert!(store.list_all_versions().await.unwrap().is_empty());
+    store.migrate().await.expect("and a second run is a no-op");
+}
+
 /// `NNNN_snake_case.sql`, numbered contiguously from 0001, in every backend's directory. A
 /// shipped migration is never edited; schema changes always add a new file (sqlx also rejects an
 /// edited file by checksum).
