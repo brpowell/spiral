@@ -3,8 +3,9 @@ import { useCallback, useEffect, useState } from 'preact/hooks'
 import { clearToken, getToken } from './auth'
 import { BASE } from './constants'
 import { LoginView } from './views/LoginView'
-import { PackDetailView } from './views/PackDetailView'
-import { PackListView } from './views/PackListView'
+import { ItemDetailView } from './views/ItemDetailView'
+import { ItemListView } from './views/ItemListView'
+import { AuditLogView } from './views/AuditLogView'
 
 function Shell({
   onLogout,
@@ -21,9 +22,13 @@ function Shell({
             SPK Registry Admin
           </a>
         </h1>
-        <button type="button" class="secondary" onClick={onLogout}>
-          Log out
-        </button>
+        <nav class="row">
+          <a href={`${BASE}/`}>Items</a>
+          <a href={`${BASE}/audit`}>Audit log</a>
+          <button type="button" class="secondary" onClick={onLogout}>
+            Log out
+          </button>
+        </nav>
       </header>
       {children}
     </main>
@@ -45,14 +50,19 @@ function AuthedApp({ onUnauthorized }: { onUnauthorized: () => void }) {
         <Router>
           <Route
             path={BASE}
-            component={() => <PackListView onUnauthorized={onUnauthorized} />}
+            component={() => <ItemListView onUnauthorized={onUnauthorized} />}
           />
           <Route
-            path={`${BASE}/packs/:authorId/:packId`}
-            component={(p: { authorId: string; packId: string }) => (
-              <PackDetailView
-                authorId={p.authorId}
-                packId={p.packId}
+            path={`${BASE}/audit`}
+            component={() => <AuditLogView onUnauthorized={onUnauthorized} />}
+          />
+          <Route
+            path={`${BASE}/items/:publisherId/:itemType/:id`}
+            component={(p: { publisherId: string; itemType: string; id: string }) => (
+              <ItemDetailView
+                publisherId={p.publisherId}
+                itemType={p.itemType}
+                id={p.id}
                 onUnauthorized={onUnauthorized}
               />
             )}

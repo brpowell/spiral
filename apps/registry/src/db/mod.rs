@@ -1,83 +1,278 @@
-//! SQLite catalog store.
+//! Catalog store: the data-access surface the HTTP layer uses.
+//!
+//! [`CatalogStore`] is backend-neutral: [`SqliteStore`] (the default) and [`PostgresStore`],
+//! picked by the scheme of `DATABASE_URL`. Schema changes are versioned SQL files under
+//! `migrations/<backend>/`, embedded in the binary and applied by [`CatalogStore::migrate`].
 
-mod packs;
+mod postgres;
+mod sqlite;
 
-use anyhow::{Context, Result};
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use sqlx::SqlitePool;
-use std::str::FromStr;
+use std::cmp::Ordering;
+use std::collections::BTreeMap;
+use std::sync::Arc;
+use std::time::Duration;
 
-pub use packs::*;
+use anyhow::{bail, Result};
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 
-const SCHEMA: &str = r#"
-CREATE TABLE IF NOT EXISTS pack_versions (
-    author_id TEXT NOT NULL,
-    pack_id TEXT NOT NULL,
-    version TEXT NOT NULL,
-    min_app_version TEXT,
-    contribution_types TEXT NOT NULL,
-    -- Uncompressed on-disk size of the pack root (not .spk archive length).
-    size_bytes INTEGER NOT NULL,
-    sha256 TEXT NOT NULL,
-    storage_key TEXT NOT NULL,
-    preview_storage_key TEXT,
-    name TEXT NOT NULL DEFAULT '',
-    description TEXT NOT NULL DEFAULT '',
-    readme TEXT,
-    changelog TEXT,
-    contributions TEXT NOT NULL DEFAULT '[]',
-    published_at TEXT NOT NULL,
-    yanked_at TEXT,
-    PRIMARY KEY (author_id, pack_id, version)
-);
+use crate::models::{AuditEntry, AuditQuery, ItemVersionRow, TakedownLogRow};
 
-CREATE INDEX IF NOT EXISTS idx_pack_versions_author
-    ON pack_versions (author_id);
+pub use postgres::PostgresStore;
+pub use sqlite::SqliteStore;
 
-CREATE INDEX IF NOT EXISTS idx_pack_versions_published
-    ON pack_versions (author_id, pack_id, published_at);
+#[derive(Debug, thiserror::Error)]
+pub enum InsertItemError {
+    #[error("item version already exists")]
+    Duplicate,
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
 
-CREATE TABLE IF NOT EXISTS takedown_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    purged_at TEXT NOT NULL,
-    author_id TEXT NOT NULL,
-    pack_id TEXT NOT NULL,
-    version TEXT NOT NULL,
-    reason TEXT NOT NULL,
-    notice_ref TEXT
-);
+#[async_trait]
+pub trait CatalogStore: Send + Sync {
+    /// Apply any pending schema migrations. Safe to call repeatedly.
+    async fn migrate(&self) -> Result<()>;
 
-CREATE INDEX IF NOT EXISTS idx_takedown_log_identity
-    ON takedown_log (author_id, pack_id, version);
-"#;
+    /// Insert a published (or already-yanked) version row.
+    async fn insert_item_version(&self, row: &ItemVersionRow) -> Result<(), InsertItemError>;
 
-pub async fn connect(database_url: &str) -> Result<SqlitePool> {
-    let options = SqliteConnectOptions::from_str(database_url)
-        .with_context(|| format!("parse DATABASE_URL={database_url}"))?
-        .create_if_missing(true);
+    /// All non-yanked versions, optionally filtered by publisher and item type.
+    async fn list_published_versions(
+        &self,
+        publisher_id: Option<&str>,
+        item_type: Option<&str>,
+    ) -> Result<Vec<ItemVersionRow>>;
 
-    let pool = SqlitePoolOptions::new()
-        .max_connections(5)
-        .connect_with(options)
-        .await
-        .with_context(|| format!("connect to {database_url}"))?;
+    /// Non-yanked versions of one item, newest first.
+    async fn list_published_versions_for_item(
+        &self,
+        publisher_id: &str,
+        item_type: &str,
+        item_id: &str,
+    ) -> Result<Vec<ItemVersionRow>>;
 
-    sqlx::query(SCHEMA)
-        .execute(&pool)
-        .await
-        .context("apply pack_versions / takedown_log schema")?;
+    /// Published (non-yanked) version, or `None` if missing / yanked.
+    async fn get_published_version(
+        &self,
+        publisher_id: &str,
+        item_type: &str,
+        item_id: &str,
+        version: &str,
+    ) -> Result<Option<ItemVersionRow>>;
 
-    // Upgrade DBs created before these columns existed.
-    for stmt in [
-        "ALTER TABLE pack_versions ADD COLUMN preview_storage_key TEXT",
-        "ALTER TABLE pack_versions ADD COLUMN name TEXT NOT NULL DEFAULT ''",
-        "ALTER TABLE pack_versions ADD COLUMN description TEXT NOT NULL DEFAULT ''",
-        "ALTER TABLE pack_versions ADD COLUMN readme TEXT",
-        "ALTER TABLE pack_versions ADD COLUMN changelog TEXT",
-        "ALTER TABLE pack_versions ADD COLUMN contributions TEXT NOT NULL DEFAULT '[]'",
-    ] {
-        let _ = sqlx::query(stmt).execute(&pool).await;
+    /// Any stored version including yanked, used for download resolution.
+    async fn get_version_for_download(
+        &self,
+        publisher_id: &str,
+        item_type: &str,
+        item_id: &str,
+        version: &str,
+    ) -> Result<Option<ItemVersionRow>>;
+
+    /// All versions, published and yanked, for the admin listing.
+    async fn list_all_versions(&self) -> Result<Vec<ItemVersionRow>>;
+
+    /// Soft-delete. Returns `false` if the version does not exist or is already yanked.
+    async fn yank_version(
+        &self,
+        publisher_id: &str,
+        item_type: &str,
+        item_id: &str,
+        version: &str,
+        yanked_at: DateTime<Utc>,
+    ) -> Result<bool>;
+
+    /// Clear `yanked_at`. Returns `false` if the version does not exist or is not yanked.
+    async fn unyank_version(
+        &self,
+        publisher_id: &str,
+        item_type: &str,
+        item_id: &str,
+        version: &str,
+    ) -> Result<bool>;
+
+    /// Delete one version row, returning it if it existed.
+    ///
+    /// When `audit` is given and a row was deleted, the entry is written in the same
+    /// transaction: if the audit insert fails, the delete is rolled back and an error returned.
+    async fn delete_version(
+        &self,
+        publisher_id: &str,
+        item_type: &str,
+        item_id: &str,
+        version: &str,
+        audit: Option<&AuditEntry>,
+    ) -> Result<Option<ItemVersionRow>>;
+
+    /// Delete every version of an item, returning the deleted rows. `audit` is written in the
+    /// same transaction, as for [`CatalogStore::delete_version`].
+    async fn delete_item_versions(
+        &self,
+        publisher_id: &str,
+        item_type: &str,
+        item_id: &str,
+        audit: Option<&AuditEntry>,
+    ) -> Result<Vec<ItemVersionRow>>;
+
+    /// Append an entry to the audit log (`entry.id` is ignored).
+    async fn insert_audit_entry(&self, entry: &AuditEntry) -> Result<()>;
+
+    /// Audit entries matching the filters, newest first, with the total match count.
+    async fn list_audit_entries(&self, query: &AuditQuery) -> Result<(Vec<AuditEntry>, i64)>;
+
+    async fn insert_takedown_log(&self, row: &TakedownLogRow) -> Result<()>;
+
+    /// True if this exact version (or an item-level `*`) was purged.
+    async fn was_purged(
+        &self,
+        publisher_id: &str,
+        item_type: &str,
+        item_id: &str,
+        version: &str,
+    ) -> Result<bool>;
+
+    /// Highest-semver published version of an item.
+    async fn get_latest_published_version(
+        &self,
+        publisher_id: &str,
+        item_type: &str,
+        item_id: &str,
+    ) -> Result<Option<ItemVersionRow>> {
+        let rows = self
+            .list_published_versions_for_item(publisher_id, item_type, item_id)
+            .await?;
+        Ok(rows.into_iter().next())
     }
+}
 
-    Ok(pool)
+/// Connection settings for the networked backends (SQLite ignores them).
+#[derive(Debug, Clone)]
+pub struct DbOptions {
+    /// Pool size. Serverless Postgres plans cap connections, so keep this small.
+    pub max_connections: u32,
+    /// How long a request waits for a connection; generous so a cold database can wake.
+    pub acquire_timeout: Duration,
+    /// The URL points at a transaction-mode connection pooler (disables prepared statements).
+    pub pooler: bool,
+}
+
+impl Default for DbOptions {
+    fn default() -> Self {
+        Self {
+            max_connections: 5,
+            acquire_timeout: Duration::from_secs(30),
+            pooler: false,
+        }
+    }
+}
+
+/// Whether a Postgres URL looks like a transaction pooler: Neon's `-pooler` hosts, Supabase's
+/// pooler host or its port 6543. A hint only; `DB_POOLER` overrides it either way.
+pub fn looks_pooled(database_url: &str) -> bool {
+    let Some(rest) = database_url.split("://").nth(1) else {
+        return false;
+    };
+    let authority = rest.split(['/', '?']).next().unwrap_or("");
+    let host_port = authority.rsplit('@').next().unwrap_or("");
+    let (host, port) = host_port.rsplit_once(':').unwrap_or((host_port, ""));
+    host.contains("-pooler") || host.contains("pooler.supabase.com") || port == "6543"
+}
+
+/// Which backend a `DATABASE_URL` selects.
+pub fn is_postgres_url(database_url: &str) -> bool {
+    database_url.starts_with("postgres://") || database_url.starts_with("postgresql://")
+}
+
+/// Open the catalog for `database_url` without applying migrations.
+pub async fn open_with(database_url: &str, options: &DbOptions) -> Result<Arc<dyn CatalogStore>> {
+    if database_url.starts_with("sqlite:") {
+        return Ok(Arc::new(SqliteStore::open(database_url).await?));
+    }
+    if is_postgres_url(database_url) {
+        return Ok(Arc::new(PostgresStore::open(database_url, options).await?));
+    }
+    bail!("unsupported DATABASE_URL (expected a sqlite:… or postgres://… URL)");
+}
+
+/// [`open_with`] using default [`DbOptions`].
+pub async fn open(database_url: &str) -> Result<Arc<dyn CatalogStore>> {
+    open_with(database_url, &DbOptions::default()).await
+}
+
+/// Open the catalog with default options and apply pending migrations.
+pub async fn connect(database_url: &str) -> Result<Arc<dyn CatalogStore>> {
+    let store = open(database_url).await?;
+    store.migrate().await?;
+    Ok(store)
+}
+
+fn sort_by_semver_desc(mut rows: Vec<ItemVersionRow>) -> Vec<ItemVersionRow> {
+    rows.sort_by(|a, b| compare_version_desc(&a.version, &b.version));
+    rows
+}
+
+/// Order versions newest first: valid semver ahead of anything else.
+pub fn compare_version_desc(a: &str, b: &str) -> Ordering {
+    match (semver::Version::parse(a), semver::Version::parse(b)) {
+        (Ok(va), Ok(vb)) => vb.cmp(&va),
+        (Ok(_), Err(_)) => Ordering::Less,
+        (Err(_), Ok(_)) => Ordering::Greater,
+        (Err(_), Err(_)) => b.cmp(a),
+    }
+}
+
+/// Collapse version rows into one row per item (highest semver wins).
+pub fn group_items_latest(rows: Vec<ItemVersionRow>) -> Vec<ItemVersionRow> {
+    let mut best: BTreeMap<(String, String, String), ItemVersionRow> = BTreeMap::new();
+    for row in rows {
+        let key = (
+            row.publisher_id.clone(),
+            row.item_type.clone(),
+            row.item_id.clone(),
+        );
+        match best.get(&key) {
+            None => {
+                best.insert(key, row);
+            }
+            Some(existing) => {
+                if compare_version_desc(&row.version, &existing.version) == Ordering::Less {
+                    best.insert(key, row);
+                }
+            }
+        }
+    }
+    best.into_values().collect()
+}
+
+/// Helper for tests: build a row with placeholder content.
+#[allow(clippy::too_many_arguments)]
+pub fn item_version_row(
+    publisher_id: &str,
+    item_type: &str,
+    item_id: &str,
+    version: &str,
+    size_bytes: i64,
+    sha256: &str,
+    storage_key: &str,
+    published_at: DateTime<Utc>,
+    yanked_at: Option<DateTime<Utc>>,
+) -> ItemVersionRow {
+    ItemVersionRow {
+        publisher_id: publisher_id.to_string(),
+        item_type: item_type.to_string(),
+        item_id: item_id.to_string(),
+        version: version.to_string(),
+        name: item_id.to_string(),
+        description: String::new(),
+        min_app_version: None,
+        size_bytes,
+        sha256: sha256.to_string(),
+        storage_key: storage_key.to_string(),
+        preview_storage_key: None,
+        readme: None,
+        changelog: None,
+        published_at,
+        yanked_at,
+    }
 }

@@ -34,7 +34,7 @@ import {
   themeSavedPayload,
   updaterCheckErrorPayload,
 } from "../../lib/toastPayloads";
-import { PACK_UPDATES_BULK_KEY } from "../../lib/packRegistry";
+import { ITEM_UPDATES_BULK_KEY } from "../../lib/itemRegistry";
 import {
   importCompletionSettleOptions,
   importNoAudioSettleOptions,
@@ -1845,7 +1845,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     id: "pack-download-ok",
     group: "Packs & themes",
     buttonLabel: "Registry download → installed",
-    source: "packRegistry.ts",
+    source: "itemRegistry.ts",
     fire: ({ runInBackground, dismissMs, sleep }) => {
       void runInBackground({
         key: "pack-registry-download",
@@ -1872,7 +1872,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     id: "pack-download-fail",
     group: "Packs & themes",
     buttonLabel: "Registry download → failed",
-    source: "packRegistry.ts",
+    source: "itemRegistry.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
       const operationId = createOperationId();
       await seedToastLabLog(
@@ -1883,7 +1883,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
           source: "registry",
           name: "Xbox",
           registryUrl: "http://127.0.0.1:8787",
-          authorId: "spiral",
+          publisherId: "spiral",
           packId: "xbox",
           version: "1.0.0",
           error: "could not download pack (http://127.0.0.1:8787/…)",
@@ -1927,10 +1927,10 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     id: "pack-updates-ok",
     group: "Packs & themes",
     buttonLabel: "Update all packs → success",
-    source: "usePackUpdatesStore.ts",
+    source: "useItemUpdatesStore.ts",
     fire: ({ runInBackground, dismissMs, sleep }) => {
       void runInBackground({
-        key: PACK_UPDATES_BULK_KEY,
+        key: ITEM_UPDATES_BULK_KEY,
         label: t("toasts:packs.updating"),
         progressDisplay: "bar",
         run: async (ctx) => {
@@ -1953,7 +1953,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     id: "pack-updates-mixed",
     group: "Packs & themes",
     buttonLabel: "Update all packs → mixed",
-    source: "usePackUpdatesStore.ts",
+    source: "useItemUpdatesStore.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
       const operationId = createOperationId();
       await seedToastLabLog(
@@ -1968,7 +1968,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         "error",
       );
       void runInBackground({
-        key: PACK_UPDATES_BULK_KEY,
+        key: ITEM_UPDATES_BULK_KEY,
         label: t("toasts:packs.updating"),
         progressDisplay: "bar",
         run: async (ctx) => {
@@ -1991,7 +1991,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     id: "pack-updates-fail",
     group: "Packs & themes",
     buttonLabel: "Update all packs → failed",
-    source: "usePackUpdatesStore.ts",
+    source: "useItemUpdatesStore.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
       const operationId = createOperationId();
       await seedToastLabLog(
@@ -2002,7 +2002,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         "error",
       );
       void runInBackground({
-        key: PACK_UPDATES_BULK_KEY,
+        key: ITEM_UPDATES_BULK_KEY,
         label: t("toasts:packs.updating"),
         progressDisplay: "bar",
         run: async (ctx) => {

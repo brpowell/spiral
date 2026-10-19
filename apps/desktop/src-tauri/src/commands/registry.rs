@@ -1,25 +1,25 @@
-//! Pack registry Tauri commands (catalog + integrity-checked install from URL).
+//! Item registry Tauri commands (catalog, update checks, and integrity-checked install).
 
-use crate::packs::install::InstallPackResult;
+use crate::packs::install::{ExpectedItem, InstallItemResult};
 use crate::packs::registry::{
-    self, PackDownloadProgress, RegistryPackList, SourcedRegistryPackDetail,
-    SourcedRegistryVersionDetail,
+    self, ItemCatalogQuery, ItemDownloadProgress, ItemUpdateCheck, RegistryItemDetail,
+    RegistryItemList, RegistryVersionDetail,
 };
 use crate::packs::scan::app_version;
-use crate::packs::validate_contribution;
+use crate::packs::{is_kebab_slug, item_type_folder};
 use crate::settings::{self, RegistrySource};
 use tauri::ipc::Channel;
 use tauri::AppHandle;
 
-/// Configured pack registry sources (official Spiral URL only, until multi-registry UI).
+/// Configured registry sources (official Spiral URL only, until multi-registry UI).
 #[tauri::command]
-pub fn get_pack_registries(app: AppHandle) -> Result<Vec<RegistrySource>, String> {
+pub fn get_registries(app: AppHandle) -> Result<Vec<RegistrySource>, String> {
     Ok(registry::configured_registries(&app))
 }
 
-/// Persist pack registry sources. Official Spiral URL is always retained; empty input resets.
+/// Persist registry sources. Official Spiral URL is always retained; empty input resets.
 #[tauri::command]
-pub fn save_pack_registries(
+pub fn save_registries(
     app: AppHandle,
     registries: Vec<RegistrySource>,
 ) -> Result<Vec<RegistrySource>, String> {
@@ -30,41 +30,55 @@ pub fn save_pack_registries(
     Ok(resolved)
 }
 
-/// `GET /v1/packs` against every configured registry (partial failure → `errors[]`).
+/// `GET /v1/items` against every configured registry (partial failure → `errors[]`).
 #[tauri::command]
-pub fn fetch_pack_catalog(
+pub fn fetch_item_catalog(
     app: AppHandle,
-    contribution_type: Option<String>,
-    author_id: Option<String>,
-) -> Result<RegistryPackList, String> {
-    Ok(registry::fetch_pack_catalog(
+    query: Option<ItemCatalogQuery>,
+) -> Result<RegistryItemList, String> {
+    Ok(registry::fetch_item_catalog(
         &app,
-        contribution_type.as_deref(),
-        author_id.as_deref(),
+        &query.unwrap_or_default(),
     ))
 }
 
-/// `GET /v1/packs/:authorId/:packId` — all published (non-yanked) versions.
+/// `GET /v1/items/:publisherId/:type/:id`: all published (non-yanked) versions.
 #[tauri::command]
-pub fn fetch_registry_pack(
+pub fn fetch_registry_item(
     app: AppHandle,
     registry_url: String,
-    author_id: String,
-    pack_id: String,
-) -> Result<SourcedRegistryPackDetail, String> {
-    registry::fetch_pack_detail(&app, &registry_url, &author_id, &pack_id)
+    publisher_id: String,
+    item_type: String,
+    id: String,
+) -> Result<RegistryItemDetail, String> {
+    registry::fetch_item_detail(&app, &registry_url, &publisher_id, &item_type, &id)
 }
 
-/// `GET /v1/packs/:authorId/:packId/versions/:version` (includes README).
+/// `GET .../versions/:version` (includes README and CHANGELOG). `latest` is the newest.
 #[tauri::command]
-pub fn fetch_registry_pack_version(
+pub fn fetch_registry_item_version(
     app: AppHandle,
     registry_url: String,
-    author_id: String,
-    pack_id: String,
+    publisher_id: String,
+    item_type: String,
+    id: String,
     version: String,
-) -> Result<SourcedRegistryVersionDetail, String> {
-    registry::fetch_pack_version_detail(&app, &registry_url, &author_id, &pack_id, &version)
+) -> Result<RegistryVersionDetail, String> {
+    registry::fetch_item_version_detail(
+        &app,
+        &registry_url,
+        &publisher_id,
+        &item_type,
+        &id,
+        &version,
+    )
+}
+
+/// Check every configured registry for newer versions of the installed items, in one batch
+/// per registry. Builtin, workshop and linked items are never checked.
+#[tauri::command]
+pub fn check_item_updates(app: AppHandle) -> Result<ItemUpdateCheck, String> {
+    Ok(registry::check_item_updates(&app))
 }
 
 /// Running app semver used for `minAppVersion` checks (`CARGO_PKG_VERSION`).
@@ -75,99 +89,92 @@ pub fn get_app_version() -> String {
 
 /// Whether the running app satisfies a catalog entry's optional `minAppVersion`.
 #[tauri::command]
-pub fn pack_meets_min_app_version(min_app_version: Option<String>) -> bool {
-    registry::pack_meets_min_app_version(min_app_version.as_deref())
+pub fn item_meets_min_app_version(min_app_version: Option<String>) -> bool {
+    registry::item_meets_min_app_version(min_app_version.as_deref())
 }
 
-/// Local already-installed check (`packs/installed/<authorId>.<packId>@<version>/`) — no network.
+/// Version of an item installed under `installed/`, from disk (no network).
 #[tauri::command]
-pub fn is_pack_installed(
+pub fn installed_item_version(
     app: AppHandle,
-    author_id: String,
-    pack_id: String,
-    version: String,
-) -> Result<bool, String> {
-    let author_id = author_id.trim();
-    let pack_id = pack_id.trim();
-    let version = version.trim();
-    if author_id.is_empty() || pack_id.is_empty() || version.is_empty() {
-        return Err("authorId, packId, and version are required".into());
+    effective_id: String,
+) -> Result<Option<String>, String> {
+    let effective_id = effective_id.trim();
+    if effective_id.is_empty() {
+        return Err("effectiveId is required".into());
     }
-    registry::is_pack_installed(&app, author_id, pack_id, version)
-}
-
-/// Download a `.spk` from `url`, verify catalog `sha256`, then install.
-///
-/// `size_bytes` is catalog display size (uncompressed); progress uses `Content-Length`.
-/// Cancel via [`cancel_pack_download`].
-#[tauri::command]
-pub fn install_pack_from_url(
-    app: AppHandle,
-    url: String,
-    sha256: String,
-    size_bytes: u64,
-    on_progress: Channel<PackDownloadProgress>,
-) -> Result<InstallPackResult, String> {
-    registry::install_pack_from_url(
-        &app,
-        &url,
-        &sha256,
-        size_bytes,
-        Some(&|progress: PackDownloadProgress| {
-            let _ = on_progress.send(progress);
-        }),
-        validate_contribution,
-    )
+    Ok(registry::installed_item_version(&app, effective_id))
 }
 
 /// Download + install by catalog identity from a configured registry base URL.
 ///
-/// Rejects already-installed `authorId`+`packId`+`version` and packs whose `minAppVersion`
-/// exceeds the running app (when provided) before any download starts.
+/// Rejects an already-installed version and items whose `minAppVersion` exceeds the running
+/// app before any download starts. The archive's own manifest must match the requested
+/// identity, and it replaces the installed version (one version of an item at a time).
 #[tauri::command]
-pub fn install_pack_from_registry(
+pub fn install_item_from_registry(
     app: AppHandle,
     registry_url: String,
-    author_id: String,
-    pack_id: String,
+    publisher_id: String,
+    item_type: String,
+    id: String,
     version: String,
     sha256: String,
     size_bytes: u64,
     min_app_version: Option<String>,
-    on_progress: Channel<PackDownloadProgress>,
-) -> Result<InstallPackResult, String> {
-    let author_id = author_id.trim();
-    let pack_id = pack_id.trim();
+    on_progress: Channel<ItemDownloadProgress>,
+) -> Result<InstallItemResult, String> {
+    let publisher_id = publisher_id.trim();
+    let item_type = item_type.trim();
+    let id = id.trim();
     let version = version.trim();
-    if author_id.is_empty() || pack_id.is_empty() || version.is_empty() {
-        return Err("authorId, packId, and version are required".into());
+    if publisher_id.is_empty() || item_type.is_empty() || id.is_empty() || version.is_empty() {
+        return Err("publisherId, itemType, id and version are required".into());
     }
-    if !registry::pack_meets_min_app_version(min_app_version.as_deref()) {
+    if !is_kebab_slug(publisher_id) || !is_kebab_slug(id) || item_type_folder(item_type).is_none() {
+        return Err("invalid item identity".into());
+    }
+    if !registry::item_meets_min_app_version(min_app_version.as_deref()) {
         let min = min_app_version.as_deref().unwrap_or("?");
         return Err(format!(
-            "pack \"{pack_id}\" requires minAppVersion {min} (app is {})",
+            "{item_type} \"{id}\" requires minAppVersion {min} (app is {})",
             app_version()
         ));
     }
-    if registry::is_pack_installed(&app, author_id, pack_id, version)? {
-        return Err(format!(
-            "{author_id}.{pack_id} ({version}) is already installed"
-        ));
+    let effective_id = crate::packs::effective_item_id(publisher_id, item_type, id);
+    if registry::installed_item_version(&app, &effective_id).as_deref() == Some(version) {
+        return Err(format!("{effective_id} ({version}) is already installed"));
     }
+
     let source = registry::find_registry_by_url(&app, &registry_url)?;
-    let url = registry::pack_download_url(&source.url, author_id, pack_id, version);
-    install_pack_from_url(app, url, sha256, size_bytes, on_progress)
+    let url = registry::item_download_url(&source.url, publisher_id, item_type, id, version);
+    let expected = ExpectedItem {
+        publisher_id: publisher_id.to_string(),
+        item_type: item_type.to_string(),
+        id: id.to_string(),
+        version: version.to_string(),
+    };
+    registry::install_item_from_url(
+        &app,
+        &url,
+        &sha256,
+        size_bytes,
+        &expected,
+        Some(&|progress: ItemDownloadProgress| {
+            let _ = on_progress.send(progress);
+        }),
+    )
 }
 
-/// Stop an in-flight [`install_pack_from_url`] at the next chunk boundary.
+/// Stop an in-flight [`install_item_from_registry`] at the next chunk boundary.
 #[tauri::command]
-pub fn cancel_pack_download() {
+pub fn cancel_item_download() {
     registry::request_download_cancel();
 }
 
-/// Clear a prior pack-download cancel request.
+/// Clear a prior item-download cancel request.
 #[tauri::command]
-pub fn clear_pack_download_cancel() {
+pub fn clear_item_download_cancel() {
     registry::clear_download_cancel();
 }
 
@@ -175,13 +182,13 @@ pub fn clear_pack_download_cancel() {
 ///
 /// Soft-fails to `None` when the preview is missing, the registry is unknown, or the download fails.
 #[tauri::command]
-pub fn resolve_registry_pack_preview(
+pub fn resolve_registry_item_preview(
     app: AppHandle,
     registry_url: String,
     preview_url: Option<String>,
 ) -> Result<Option<String>, String> {
     Ok(
-        registry::resolve_registry_pack_preview(&app, &registry_url, preview_url.as_deref())
+        registry::resolve_registry_item_preview(&app, &registry_url, preview_url.as_deref())
             .map(|p| p.to_string_lossy().into_owned()),
     )
 }

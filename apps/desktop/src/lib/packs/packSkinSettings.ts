@@ -1,17 +1,10 @@
 import { getSkinPreferences, loadSkinPack, saveSkinPreferences } from "../tauri";
-import type { PackSummary } from "../../types/pack";
 import type { SkinSetting } from "../../types/skin";
 import type { SkinUserPreferences } from "../../types/skinPreferences";
 
 export interface ClearableSkinSetting {
   skinId: string;
   settingIds: string[];
-}
-
-export function packSkinContributionIds(pack: PackSummary): string[] {
-  return pack.contributions
-    .filter((contribution) => contribution.type === "skin")
-    .map((contribution) => contribution.effectiveId);
 }
 
 export function authorSettingOverrideIds(
@@ -60,10 +53,10 @@ export function clearableSkinSettingsFromLoaded(
   return clearable;
 }
 
-export async function collectClearablePackSkinSettings(
-  pack: PackSummary,
+/** Author-declared skin settings the user has overridden, for the given skin ids. */
+export async function collectClearableSkinSettings(
+  skinIds: readonly string[],
 ): Promise<ClearableSkinSetting[]> {
-  const skinIds = packSkinContributionIds(pack);
   const loaded = await Promise.all(
     skinIds.map(async (skinId) => {
       try {

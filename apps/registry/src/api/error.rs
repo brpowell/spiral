@@ -13,6 +13,10 @@ pub struct ApiError {
 }
 
 impl ApiError {
+    pub fn is_unauthorized(&self) -> bool {
+        self.status == StatusCode::UNAUTHORIZED
+    }
+
     pub fn not_found(message: impl Into<String>) -> Self {
         Self {
             status: StatusCode::NOT_FOUND,

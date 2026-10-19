@@ -3,10 +3,7 @@ import { useSkinPreferencesStore } from "../store/useSkinPreferencesStore";
 import { useSkinStore } from "../store/useSkinStore";
 import { soundEffectsEnabledFromPreferences } from "../types/skinPreferences";
 import { evaluateSkinBind, type SkinBindState } from "./skinBinds";
-import {
-  isPublicSoundContributionId,
-  resolveSoundAssetUrl,
-} from "./packSounds";
+import { resolveCueUrl } from "./packSounds";
 import { playOneShot } from "./sfxPlayer";
 import type { LoadedSkinPack } from "../types/skin";
 
@@ -32,6 +29,10 @@ function soundAssetUrl(packDir: string, assetPath: string): string {
   return convertFileSrc(`${packDir}/assets/${assetPath}.wav`);
 }
 
+/**
+ * Play a skin sound key. The skin's own `soundEffects` entry always wins; a key it
+ * does not define is treated as a cue and answered by the active sound pack.
+ */
 export function playSkinSound(
   pack: LoadedSkinPack | null,
   soundKey: string | undefined,
@@ -41,22 +42,15 @@ export function playSkinSound(
   const preferences = useSkinPreferencesStore.getState().preferences;
   if (!soundEffectsEnabledFromPreferences(preferences)) return;
 
-  if (isPublicSoundContributionId(soundKey)) {
-    void resolveSoundAssetUrl(soundKey).then((url) => {
-      if (url) playOneShot(url);
-    });
+  const assetPath = pack?.manifest.soundEffects?.[soundKey];
+  if (pack && assetPath) {
+    playOneShot(soundAssetUrl(pack.packDir, assetPath));
     return;
   }
 
-  if (!pack) return;
-
-  const soundMap = pack.manifest.soundEffects;
-  if (!soundMap) return;
-
-  const assetPath = soundMap[soundKey];
-  if (!assetPath) return;
-
-  playOneShot(soundAssetUrl(pack.packDir, assetPath));
+  void resolveCueUrl(soundKey).then((url) => {
+    if (url) playOneShot(url);
+  });
 }
 
 export function playActiveSkinSound(soundKey: string | undefined): void {

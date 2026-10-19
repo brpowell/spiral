@@ -3,9 +3,26 @@
   "$id": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/viz-v1.schema.json",
   "title": "Spiral visualizer contribution v1",
   "type": "object",
-  "required": ["id", "name", "author", "description", "children"],
+  "required": ["id", "publisherId", "version", "name", "author", "description", "children"],
   "additionalProperties": false,
   "properties": {
+    "publisherId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "Structured slug identifying who maintains/distributes this item. Effective id is publisherId.type.id. Independent of the freeform author credit."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$",
+      "description": "Semver content version of this item build."
+    },
+    "minAppVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$",
+      "description": "Optional semver floor of the Spiral app that can load this item."
+    },
     "$schema": {
       "type": "string",
       "format": "uri-reference",

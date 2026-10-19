@@ -5,16 +5,17 @@ import { BackgroundTasksIndicator } from "./components/BackgroundTasks/Backgroun
 import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
 import { useAppearanceWindowClose } from "./hooks/useAppearanceWindowClose";
 import {
-  PACK_UPDATES_CHANGED_EVENT,
+  ITEM_UPDATES_CHANGED_EVENT,
   RELOAD_LINKED_PACKS_EVENT,
 } from "./lib/appearanceWindow";
 import { t } from "./lib/i18n";
 import { refreshPackContributionStores } from "./lib/packs/refreshPackStores";
-import { usePackUpdatesStore } from "./store/usePackUpdatesStore";
+import { useItemUpdatesStore } from "./store/useItemUpdatesStore";
 import { useSkinStore } from "./store/useSkinStore";
+import { useSoundPackStore } from "./store/useSoundPackStore";
 import { useThemeStore } from "./store/useThemeStore";
 import { useVisualizerStore } from "./store/useVisualizerStore";
-import type { CatalogPackEntry } from "./types/packRegistry";
+import type { ItemUpdate } from "./types/itemRegistry";
 import "./AppearanceApp.css";
 
 export function AppearanceApp() {
@@ -23,12 +24,18 @@ export function AppearanceApp() {
   const loadThemes = useThemeStore((s) => s.loadThemes);
   const loadVisualizers = useVisualizerStore((s) => s.loadVisualizers);
   const loadSkins = useSkinStore((s) => s.loadSkins);
-  const applyPendingUpdates = usePackUpdatesStore((s) => s.applyPendingUpdates);
-  const checkForPackUpdates = usePackUpdatesStore((s) => s.checkForPackUpdates);
+  const loadSoundPacks = useSoundPackStore((s) => s.loadSoundPacks);
+  const applyPendingUpdates = useItemUpdatesStore((s) => s.applyPendingUpdates);
+  const checkForItemUpdates = useItemUpdatesStore((s) => s.checkForItemUpdates);
 
   const refreshAppearanceData = useCallback(async () => {
-    await Promise.all([loadThemes(), loadVisualizers(), loadSkins()]);
-  }, [loadThemes, loadVisualizers, loadSkins]);
+    await Promise.all([
+      loadThemes(),
+      loadVisualizers(),
+      loadSkins(),
+      loadSoundPacks(),
+    ]);
+  }, [loadThemes, loadVisualizers, loadSkins, loadSoundPacks]);
 
   useEffect(() => {
     void refreshAppearanceData().catch((err: unknown) => {
@@ -38,15 +45,15 @@ export function AppearanceApp() {
 
   // Hydrate pending pack updates (main window owns the poller).
   useEffect(() => {
-    void checkForPackUpdates({ reason: "manual" }).catch((err: unknown) => {
+    void checkForItemUpdates({ reason: "manual" }).catch((err: unknown) => {
       console.error("Failed to check pack updates:", err);
     });
-  }, [checkForPackUpdates]);
+  }, [checkForItemUpdates]);
 
   useEffect(() => {
     let disposed = false;
     let unlisten: (() => void) | undefined;
-    void listen<CatalogPackEntry[]>(PACK_UPDATES_CHANGED_EVENT, (event) => {
+    void listen<ItemUpdate[]>(ITEM_UPDATES_CHANGED_EVENT, (event) => {
       applyPendingUpdates(event.payload ?? []);
     }).then((fn) => {
       if (disposed) {

@@ -4,22 +4,23 @@ import { applyCustomWindowChrome } from "./windowChrome";
 import { isTauri } from "./windowRole";
 
 export type AppearanceSection =
-  "themes" | "visualizers" | "skins" | "packs" | "catalog";
+  "themes" | "visualizers" | "skins" | "sounds" | "catalog";
 
 export const APPEARANCE_NAVIGATE_EVENT = "appearance://navigate";
 export const APPEARANCE_REFRESH_EVENT = "appearance://refresh";
-/** Manual reload of linked pack paths (View → Reload Linked Packs / Cmd+Alt+R). */
+/** Manual reload of linked item folders (View → Reload Linked Packs / Cmd+Alt+R). */
 export const RELOAD_LINKED_PACKS_EVENT = "packs://reload-linked";
 
-/** Fired when a pack is linked or unlinked so the app menu can update. */
+/** Fired when an item folder is linked or unlinked so the app menu can update. */
 export const LINKED_PACKS_CHANGED_EVENT = "packs://linked-changed";
 
 /** Cross-window sync of pending pack updates (main ↔ Studio). */
-export const PACK_UPDATES_CHANGED_EVENT = "packs://updates-changed";
+export const ITEM_UPDATES_CHANGED_EVENT = "items://updates-changed";
 
 export interface AppearanceNavigatePayload {
   section: AppearanceSection;
-  packId?: string;
+  /** Effective id of an item to open in the details view. */
+  itemId?: string;
 }
 
 const APPEARANCE_LABEL = "appearance";
@@ -31,7 +32,7 @@ function isAppearanceSection(value: string): value is AppearanceSection {
     value === "themes" ||
     value === "visualizers" ||
     value === "skins" ||
-    value === "packs" ||
+    value === "sounds" ||
     value === "catalog"
   );
 }
@@ -58,7 +59,7 @@ export function storeAppearanceSection(section: AppearanceSection): void {
 
 export async function openAppearanceWindow(
   section?: AppearanceSection,
-  packId?: string,
+  itemId?: string,
 ): Promise<void> {
   if (!isTauri()) {
     console.warn("openAppearanceWindow: not running in Tauri");
@@ -85,7 +86,7 @@ export async function openAppearanceWindow(
     await window.setFocus();
     void emit(APPEARANCE_NAVIGATE_EVENT, {
       section: resolvedSection,
-      packId,
+      itemId,
     } satisfies AppearanceNavigatePayload);
     void emit(APPEARANCE_REFRESH_EVENT, {});
   } catch (err) {

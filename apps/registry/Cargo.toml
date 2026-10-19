@@ -2,7 +2,7 @@
 name = "spk-registry"
 version = "0.1.0"
 edition = "2021"
-description = "Spiral pack registry: catalog listing, version resolution, and download serving"
+description = "Spiral item registry: catalog listing, version resolution, and download serving"
 license = "Apache-2.0"
 repository = "https://github.com/brpowell/spiral"
 readme = "README.md"
@@ -21,6 +21,7 @@ anyhow = "1"
 async-trait = "0.1"
 axum = { version = "0.8", features = ["multipart"] }
 rust-embed = "8"
+rust-s3 = { version = "0.38", default-features = false, features = ["tokio-rustls-tls-ring", "fail-on-err"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 constant_time_eq = "0.3"
 governor = "0.10"
@@ -33,7 +34,9 @@ sha2 = "0.10"
 spk-format = { workspace = true }
 sqlx = { version = "0.8", default-features = false, features = [
   "runtime-tokio",
+  "tls-rustls-ring-webpki",
   "sqlite",
+  "postgres",
   "macros",
   "migrate",
   "chrono",
@@ -48,4 +51,5 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 zip = "2"
 
 [dev-dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 tower = { version = "0.5", features = ["util"] }

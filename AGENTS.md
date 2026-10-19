@@ -16,7 +16,7 @@ PR titles follow [Conventional Commits](https://www.conventionalcommits.org/), f
 | --- | --- |
 | `apps/desktop` | The Spiral app: Tauri 2, React + TypeScript, Rust backend. Has its own [AGENTS.md](apps/desktop/AGENTS.md). |
 | `apps/registry` | `spk-registry`: Rust, Axum, SQLite. The admin panel is a Preact app in `apps/registry/admin`. |
-| `libs/spk-format` | The `.spk` pack format shared by the app and the registry. |
+| `libs/spk-format` | The `.spk` item format shared by the app and the registry. |
 
 This is one Cargo workspace. The app and the registry both depend on `spk-format`, so a change to the format can break either; run both sets of checks.
 
@@ -36,7 +36,7 @@ Run the registry from `apps/registry` (`cargo run`) so its default `data/` folde
 
 ## Things to remember
 
-- The registry admin panel's built output in `apps/registry/admin/dist` is embedded into the binary. After changing the panel's source, rebuild it (`npm run build` in `apps/registry/admin`) and commit the result.
+- The registry admin panel's built output in `apps/registry/admin/dist` is embedded into the binary at compile time and is not committed. Build it (`npm ci && npm run build` in `apps/registry/admin`) before `cargo build`, `cargo run` or `cargo test` for the registry; the Docker image and CI do this for you.
 - User-facing strings in the desktop app belong in `apps/desktop/src/locales/en/`, not hardcoded.
 - Add or update tests with the change.
 - Never commit secrets or tokens. Report security problems privately as described in [SECURITY.md](SECURITY.md); do not open a public issue.

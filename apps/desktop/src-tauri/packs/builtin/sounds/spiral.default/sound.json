@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/brpowell/spiral/main/libs/spk-format/schemas/sound-v1.schema.json",
+  "id": "default",
+  "publisherId": "spiral",
+  "version": "1.0.0",
+  "name": "Default",
+  "preview": "preview.png",
+  "author": "Spiral",
+  "description": "Default transport cues.",
+  "sounds": {
+    "play": "sounds/play.wav",
+    "control": "sounds/control.wav"
+  },
+  "cues": {
+    "transportPlay": "play",
+    "transportControl": "control"
+  }
+}

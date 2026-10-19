@@ -27,12 +27,15 @@ pub enum DownloadTarget {
 pub trait ObjectStorage: Send + Sync {
     async fn put(&self, key: &str, data: &[u8]) -> Result<()>;
     async fn get_download_url(&self, key: &str) -> Result<DownloadTarget>;
+    /// Read a whole object. Used for small objects the registry serves itself (previews).
+    /// A missing object fails with a message starting `object not found:`.
+    async fn get(&self, key: &str) -> Result<Vec<u8>>;
     async fn delete(&self, key: &str) -> Result<()>;
 }
 
 pub fn build_storage(config: &StorageConfig) -> Result<Arc<dyn ObjectStorage>> {
     match config {
         StorageConfig::Local { root } => Ok(Arc::new(LocalDiskStorage::new(root.clone())?)),
-        StorageConfig::S3 => Ok(Arc::new(S3Storage)),
+        StorageConfig::S3(config) => Ok(Arc::new(S3Storage::new(config)?)),
     }
 }

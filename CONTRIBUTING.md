@@ -15,8 +15,8 @@ By taking part you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md). To
 | Path | What it is |
 | --- | --- |
 | `apps/desktop` | The Spiral app (Tauri 2, React + TypeScript, Rust backend) |
-| `apps/registry` | `spk-registry`, the pack distribution service (Rust, Axum, SQLite) |
-| `libs/spk-format` | The `.spk` pack format shared by the app and the registry |
+| `apps/registry` | `spk-registry`, the item distribution service (Rust, Axum, SQLite) |
+| `libs/spk-format` | The `.spk` item format shared by the app and the registry |
 
 The app and the registry both depend on `spk-format`. A change to the format affects both, so CI runs both sets of checks for it.
 
@@ -46,9 +46,9 @@ cargo run                                     # serve on 127.0.0.1:8787, data in
 cargo test -p spk-registry -p spk-format
 ```
 
-The admin panel is a Preact app in `apps/registry/admin`. Its built output in `admin/dist` is embedded into the binary, so rebuild it (`cd apps/registry/admin && npm install && npm run build`) after changing the UI and commit the result.
+The admin panel is a Preact app in `apps/registry/admin`. Its built output in `admin/dist` is embedded into the binary at compile time and is not committed, so build it (`cd apps/registry/admin && npm ci && npm run build`) before compiling the registry. The Docker image and CI build it themselves.
 
-### Pack format (`libs/spk-format`)
+### Item format (`libs/spk-format`)
 
 ```bash
 cargo test -p spk-format
@@ -79,7 +79,7 @@ Spiral uses [Conventional Commits](https://www.conventionalcommits.org/). Pull r
 Common types are `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci` and `chore`. Use `!` after the type or scope for a breaking change. Examples:
 
 ```
-feat(registry): add a pack download counter
+feat(registry): add an item download counter
 fix(spk-format): reject archives with too many entries
 docs: explain how to self-host the registry
 ```

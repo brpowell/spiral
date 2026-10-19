@@ -1,43 +1,36 @@
-//! Export a workshop pack directory to a `.spk` build artifact.
+//! Export a workshop (or linked) item directory to a `.spk` build artifact.
 
-use super::install::validate_pack_for_install;
-use super::write_pack_archive;
-use super::{parse_pack_manifest_json, PackManifest, PACK_MANIFEST_FILENAME};
+use super::install::{copy_dir_recursive, validate_item_for_install};
+use super::{item_manifest_filename, write_archive, ItemManifest};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ExportPackResult {
+pub struct ExportItemResult {
     pub path: String,
-    pub pack_id: String,
+    pub effective_id: String,
     pub version: String,
 }
 
 #[derive(Debug, Clone)]
-pub struct ExportPackMetadata {
+pub struct ExportItemMetadata {
     pub name: String,
     pub version: String,
     pub description: String,
 }
 
-/// Copy workshop pack to a temp dir, stamp export metadata into pack.json, zip to `dest_spk`.
-/// Leaves the workshop directory untouched. Does not change `authorId` (set on the pack).
-pub fn export_pack_dir_to_spk<F>(
-    workshop_pack_dir: &Path,
-    metadata: &ExportPackMetadata,
+/// Copy the item to a temp dir, stamp export metadata into its manifest, and zip to
+/// `dest_spk`. Leaves the source directory untouched. `publisherId` and `id` are not
+/// changed (they identify the item).
+pub fn export_item_dir_to_spk(
+    item_dir: &Path,
+    metadata: &ExportItemMetadata,
     dest_spk: &Path,
-    validate_contribution: F,
-) -> Result<ExportPackResult, String>
-where
-    F: Fn(&str, &Path, &Path) -> Result<(), String>,
-{
-    if !workshop_pack_dir.is_dir() {
-        return Err(format!(
-            "workshop pack not found: {}",
-            workshop_pack_dir.display()
-        ));
+) -> Result<ExportItemResult, String> {
+    if !item_dir.is_dir() {
+        return Err(format!("item not found: {}", item_dir.display()));
     }
 
     let name = metadata.name.trim();
@@ -49,45 +42,34 @@ where
         return Err("export requires a semver version".into());
     }
 
-    // Validate the workshop contents first (export must be installable).
-    let mut pack = validate_pack_for_install(workshop_pack_dir, &validate_contribution)?;
+    // Validate the source first (export must be installable).
+    let item = validate_item_for_install(item_dir)?;
+    let manifest_filename =
+        item_manifest_filename(&item.item_type).expect("validated item has a known type");
 
-    pack.name = name.to_string();
-    pack.version = version.to_string();
-    pack.description = metadata.description.trim().to_string();
-
-    // Re-parse stamped fields through the same contract (semver, etc.).
-    let stamped_json = serde_json::to_string_pretty(&pack)
-        .map_err(|e| format!("failed to serialize export pack.json: {e}"))?;
-    let pack = parse_pack_manifest_json(&stamped_json).map_err(|e| e.to_string())?;
-
-    let staging = staging_dir_for_export(&pack.pack_id, &pack.version);
+    let staging = staging_dir_for_export(&item);
     if staging.exists() {
         fs::remove_dir_all(&staging)
             .map_err(|e| format!("failed to clear export staging directory: {e}"))?;
     }
-    fs::create_dir_all(&staging)
-        .map_err(|e| format!("failed to create export staging directory: {e}"))?;
-
-    let pack_id = pack.pack_id.clone();
-    let version = pack.version.clone();
 
     let export_result = (|| {
-        copy_dir_contents(workshop_pack_dir, &staging)?;
-        fs::write(
-            staging.join(PACK_MANIFEST_FILENAME),
-            format!("{stamped_json}\n"),
-        )
-        .map_err(|e| format!("failed to write stamped pack.json: {e}"))?;
-
-        // Confirm stamped pack still validates.
-        let _ = validate_pack_for_install(&staging, &validate_contribution)?;
-
-        write_pack_archive(&staging, dest_spk)?;
-        Ok(ExportPackResult {
-            path: dest_spk.to_string_lossy().into_owned(),
-            pack_id,
+        copy_dir_recursive(item_dir, &staging)?;
+        stamp_manifest(
+            &staging.join(manifest_filename),
+            name,
             version,
+            metadata.description.trim(),
+        )?;
+
+        // Confirm the stamped item still validates (semver, etc.).
+        let stamped = validate_item_for_install(&staging)?;
+
+        write_archive(&staging, dest_spk)?;
+        Ok(ExportItemResult {
+            path: dest_spk.to_string_lossy().into_owned(),
+            effective_id: stamped.effective_id(),
+            version: stamped.version,
         })
     })();
 
@@ -95,139 +77,102 @@ where
     export_result
 }
 
-fn staging_dir_for_export(pack_id: &str, version: &str) -> PathBuf {
+fn stamp_manifest(path: &Path, name: &str, version: &str, description: &str) -> Result<(), String> {
+    let text =
+        fs::read_to_string(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+    let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+    let mut value: serde_json::Value = serde_json::from_str(text)
+        .map_err(|e| format!("{} is not valid JSON: {e}", path.display()))?;
+    let obj = value
+        .as_object_mut()
+        .ok_or_else(|| format!("{} must be a JSON object", path.display()))?;
+    obj.insert("name".into(), name.into());
+    obj.insert("version".into(), version.into());
+    obj.insert("description".into(), description.into());
+    let json = serde_json::to_string_pretty(&value)
+        .map_err(|e| format!("failed to serialize stamped manifest: {e}"))?;
+    fs::write(path, format!("{json}\n"))
+        .map_err(|e| format!("failed to write stamped manifest: {e}"))
+}
+
+/// Unique per call, so concurrent exports of the same item never share a directory.
+fn staging_dir_for_export(item: &ItemManifest) -> PathBuf {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
     std::env::temp_dir().join(format!(
-        "spiral-pack-export-{}-{}-{}",
-        pack_id,
-        version.replace(['+', '/'], "_"),
-        std::process::id()
+        "spiral-item-export-{}-{}-{}-{}",
+        item.dir_name(),
+        item.version.replace(['+', '/'], "_"),
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
     ))
 }
 
-fn copy_dir_contents(src: &Path, dest: &Path) -> Result<(), String> {
-    for entry in fs::read_dir(src).map_err(|e| format!("failed to read {}: {e}", src.display()))? {
-        let entry = entry.map_err(|e| format!("failed to read directory entry: {e}"))?;
-        let path = entry.path();
-        let target = dest.join(entry.file_name());
-        if path.is_dir() {
-            fs::create_dir_all(&target)
-                .map_err(|e| format!("failed to create {}: {e}", target.display()))?;
-            copy_dir_contents(&path, &target)?;
-        } else if path.is_file() {
-            if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent)
-                    .map_err(|e| format!("failed to create {}: {e}", parent.display()))?;
-            }
-            fs::copy(&path, &target).map_err(|e| {
-                format!(
-                    "failed to copy {} → {}: {e}",
-                    path.display(),
-                    target.display()
-                )
-            })?;
-        }
-    }
-    Ok(())
-}
-
-/// Read display defaults from a workshop pack.json for the export prompt.
-pub fn read_workshop_export_defaults(pack_dir: &Path) -> Result<PackManifest, String> {
-    let contents = fs::read_to_string(pack_dir.join(PACK_MANIFEST_FILENAME))
-        .map_err(|e| format!("failed to read workshop pack.json: {e}"))?;
-    parse_pack_manifest_json(&contents).map_err(|e| e.to_string())
+/// Read display defaults from an authoring item's manifest for the export prompt.
+pub fn read_export_defaults(item_dir: &Path) -> Result<ItemManifest, String> {
+    super::read_item_manifest(item_dir)
 }
 
 #[cfg(test)]
 mod tests {
+    use super::super::install::test_support::*;
+    use super::super::{extract_archive, find_item_root};
     use super::*;
-    use crate::packs::install::{atomic_install_pack_dir, validate_pack_for_install};
-    use crate::packs::PACK_MANIFEST_VERSION;
-    use crate::packs::{extract_pack_archive, find_pack_root};
-
-    fn write_draft_theme_pack(root: &Path) {
-        fs::create_dir_all(root.join("themes/theme")).unwrap();
-        fs::write(
-            root.join("themes/theme/theme.json"),
-            serde_json::json!({
-                "id": "theme",
-                "name": "Draft Theme",
-                "author": "",
-                "description": "",
-                "tokens": {
-                    "color-bg": "#000",
-                    "color-text-primary": "#fff",
-                    "color-accent": "#7b8cde",
-                    "color-danger": "#e06c75",
-                    "radius-card": "10px",
-                    "radius-button": "6px",
-                    "font-ui": "system-ui"
-                }
-            })
-            .to_string(),
-        )
-        .unwrap();
-
-        let pack = PackManifest {
-            manifest_version: PACK_MANIFEST_VERSION,
-            pack_id: "draft-theme".into(),
-            author_id: "bryan".into(),
-            version: "0.0.0".into(),
-            name: "Draft Theme".into(),
-            description: "".into(),
-            preview: None,
-            min_app_version: None,
-        };
-        fs::write(
-            root.join(PACK_MANIFEST_FILENAME),
-            serde_json::to_string_pretty(&pack).unwrap(),
-        )
-        .unwrap();
-    }
 
     #[test]
-    fn export_leaves_workshop_untouched_and_round_trips() {
-        let root = std::env::temp_dir().join(format!("spiral-export-rt-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        let workshop = root.join("workshop/draft-theme");
-        write_draft_theme_pack(&workshop);
+    fn export_leaves_source_untouched_and_round_trips() {
+        let root = temp_root("export-rt");
+        let src = root.join("workshop/themes/bryan.draft");
+        write_theme_item(&src, "bryan", "draft", "0.0.0");
+        let before = fs::read_to_string(src.join("theme.json")).unwrap();
 
-        let before = fs::read_to_string(workshop.join(PACK_MANIFEST_FILENAME)).unwrap();
-
-        let spk = root.join("draft-theme-1.2.0.spk");
-        let exported = export_pack_dir_to_spk(
-            &workshop,
-            &ExportPackMetadata {
+        let spk = root.join("draft-1.2.0.spk");
+        let exported = export_item_dir_to_spk(
+            &src,
+            &ExportItemMetadata {
                 name: "Shipped Theme".into(),
                 version: "1.2.0".into(),
                 description: "exported".into(),
             },
             &spk,
-            |_, _, _| Ok(()),
         )
         .unwrap();
         assert_eq!(exported.version, "1.2.0");
+        assert_eq!(exported.effective_id, "bryan.theme.draft");
         assert!(Path::new(&exported.path).is_file());
-
-        let after = fs::read_to_string(workshop.join(PACK_MANIFEST_FILENAME)).unwrap();
         assert_eq!(
-            before, after,
-            "workshop pack.json must not change on export"
+            before,
+            fs::read_to_string(src.join("theme.json")).unwrap(),
+            "source manifest must not change on export"
         );
 
-        let extract = extract_pack_archive(Path::new(&exported.path)).unwrap();
-        let pack_root = find_pack_root(&extract).unwrap();
-        let stamped = validate_pack_for_install(&pack_root, |_, _, _| Ok(())).unwrap();
+        let extract = extract_archive(&spk).unwrap();
+        let item_root = find_item_root(&extract).unwrap();
+        let stamped = validate_item_for_install(&item_root).unwrap();
         assert_eq!(stamped.version, "1.2.0");
-        assert_eq!(stamped.author_id, "bryan");
+        assert_eq!(stamped.publisher_id, "bryan");
         assert_eq!(stamped.name, "Shipped Theme");
+        assert_eq!(stamped.description, "exported");
 
-        let installed = root.join("installed");
-        fs::create_dir_all(&installed).unwrap();
-        let dest = atomic_install_pack_dir(&installed, &pack_root, &stamped).unwrap();
-        assert!(dest.ends_with("bryan.draft-theme@1.2.0"));
-        assert!(dest.join("themes/theme/theme.json").is_file());
+        super::super::cleanup_extract_dir(&extract);
+        let _ = fs::remove_dir_all(&root);
+    }
 
-        crate::packs::cleanup_pack_extract_dir(&extract);
+    #[test]
+    fn export_rejects_bad_version_and_blank_name() {
+        let root = temp_root("export-bad");
+        let src = root.join("src");
+        write_theme_item(&src, "bryan", "draft", "0.0.0");
+        let spk = root.join("x.spk");
+
+        let meta = |name: &str, version: &str| ExportItemMetadata {
+            name: name.into(),
+            version: version.into(),
+            description: String::new(),
+        };
+        assert!(export_item_dir_to_spk(&src, &meta(" ", "1.0.0"), &spk).is_err());
+        assert!(export_item_dir_to_spk(&src, &meta("X", "one"), &spk).is_err());
+        assert!(!spk.exists());
         let _ = fs::remove_dir_all(&root);
     }
 }

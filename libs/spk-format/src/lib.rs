@@ -1,6 +1,8 @@
-//! Spiral pack format: `pack.json` contracts, contribution validators, and `.spk` archives.
+//! Spiral item format: item manifests (`theme.json`, `skin.json`, `viz.json`, `sound.json`),
+//! their validators, and `.spk` archives.
 
 mod archive;
+mod item;
 mod manifest;
 mod skin;
 mod sound;
@@ -8,9 +10,14 @@ mod theme;
 mod visualizer;
 
 pub use archive::{
-    cleanup_pack_extract_dir, extract_pack_archive, extract_pack_archive_with_limits,
-    find_pack_root, write_pack_archive, ExtractLimits, DEFAULT_MAX_COMPRESSION_RATIO,
-    DEFAULT_MAX_ENTRIES, DEFAULT_MAX_UNCOMPRESSED_BYTES, DEFAULT_RATIO_CHECK_MIN_BYTES,
+    cleanup_extract_dir, extract_archive, extract_archive_with_limits, find_item_root,
+    write_archive, ExtractLimits, DEFAULT_MAX_COMPRESSION_RATIO, DEFAULT_MAX_ENTRIES,
+    DEFAULT_MAX_UNCOMPRESSED_BYTES, DEFAULT_RATIO_CHECK_MIN_BYTES,
+};
+pub use item::{
+    detect_item_type, effective_item_id, item_dir_name, item_id_prefix, item_manifest_filename,
+    item_type_folder, item_type_for_manifest_filename, list_item_dirs, parse_item_manifest_json,
+    parse_item_manifest_value, read_item_manifest, validate_item_dir, ItemManifest,
 };
 pub use manifest::*;
 pub use skin::{
@@ -29,16 +36,17 @@ pub use skin::{
     TiledFrameFields, TiledFramePresentation, TiledFramePresetPresentation, TiledFrameTileDef,
     TiledFrameTileSize, TiledFrameTileSizes, ViewLayout, WindowChrome,
 };
-pub use sound::validate_sound_contribution_at;
+pub use sound::{
+    read_sound_manifest, validate_sound_contribution_at, SoundManifest, KNOWN_SOUND_CUES,
+};
 pub use theme::{validate_theme_contribution_at, REQUIRED_THEME_TOKEN_KEYS};
 pub use visualizer::{
     is_safe_media_asset_path, is_safe_pack_relative_js, validate_visualizer_contribution_at,
     VizManifest,
 };
 
-/// JSON Schema documents for pack and contribution manifests (source of truth).
+/// JSON Schema documents for item manifests (source of truth).
 pub mod schemas {
-    pub const PACK_V1: &str = include_str!("../schemas/pack-v1.schema.json");
     pub const THEME_V1: &str = include_str!("../schemas/theme-v1.schema.json");
     pub const SKIN_V1: &str = include_str!("../schemas/skin-v1.schema.json");
     pub const VIZ_V1: &str = include_str!("../schemas/viz-v1.schema.json");
