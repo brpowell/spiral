@@ -189,19 +189,26 @@ Admin requests authenticate with `Authorization: Bearer <ADMIN_TOKEN>` or `X-Adm
 One-time setup for an app (use your own app name in `fly.toml` if you fork this):
 
 ```bash
-# 1. A volume for the catalog and item files (one machine, matching the single-instance design)
-fly volumes create registry_data --region iad --size 1 -a spk-registry
+# 1. A Tigris bucket for the item files. This sets AWS_ACCESS_KEY_ID,
+#    AWS_SECRET_ACCESS_KEY and AWS_REGION on the app; put the bucket name in
+#    S3_BUCKET in fly.toml.
+fly storage create -a spk-registry
 
-# 2. The admin token (at least 32 bytes). Keep a copy; Fly will not show it again.
-fly secrets set ADMIN_TOKEN="$(openssl rand -base64 32)" -a spk-registry
+# 2. The catalog (Postgres, for example Neon) and the admin token (at least
+#    32 bytes; keep a copy, Fly will not show it again). DATABASE_URL is the
+#    pooled connection string and DATABASE_MIGRATE_URL the direct one.
+fly secrets set --stage -a spk-registry \
+  DATABASE_URL='postgres://…' \
+  DATABASE_MIGRATE_URL='postgres://…' \
+  ADMIN_TOKEN="$(openssl rand -hex 32)"
 
 # 3. A deploy token for CI; add it as the FLY_API_TOKEN repository secret
 fly tokens create deploy -a spk-registry
 ```
 
-The catalog is SQLite on a single volume, so the app must have exactly one machine. A volume attaches to one machine, and Fly wants a volume for every machine it updates, so if an app already has two (the default for a first deploy), destroy the extra with `fly machines destroy <id>` before deploying. `--ha=false` stops flyctl from creating a second machine.
+The official deployment uses Postgres and S3 (see [Backends](#backends)), so the app keeps no local state: no volume is needed, and it could run more than one machine. The deploy keeps one with `--ha=false`. Migrations run at startup (`AUTO_MIGRATE`), so the first deploy sets up the schema in whichever database `DATABASE_URL` points at.
 
-With Postgres and S3 (see [Backends](#backends)) the app keeps no local state, so none of this applies: no volume is needed, and it can run more than one machine.
+If you would rather keep the catalog and item files on the machine (SQLite and local disk), add a `[mounts]` volume at `/data`, create it with `fly volumes create registry_data --region iad --size 1 -a spk-registry`, and unset the `STORAGE_BACKEND` and `S3_*` values. That setup must run as exactly one machine, because a volume attaches to one machine.
 
 If Fly's own GitHub integration is enabled for the app, turn it off so a push does not deploy twice.
 
