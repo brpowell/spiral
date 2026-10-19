@@ -5,6 +5,7 @@ import { BASE } from './constants'
 import { LoginView } from './views/LoginView'
 import { ItemDetailView } from './views/ItemDetailView'
 import { ItemListView } from './views/ItemListView'
+import { AuditLogView } from './views/AuditLogView'
 
 function Shell({
   onLogout,
@@ -21,9 +22,13 @@ function Shell({
             SPK Registry Admin
           </a>
         </h1>
-        <button type="button" class="secondary" onClick={onLogout}>
-          Log out
-        </button>
+        <nav class="row">
+          <a href={`${BASE}/`}>Items</a>
+          <a href={`${BASE}/audit`}>Audit log</a>
+          <button type="button" class="secondary" onClick={onLogout}>
+            Log out
+          </button>
+        </nav>
       </header>
       {children}
     </main>
@@ -46,6 +51,10 @@ function AuthedApp({ onUnauthorized }: { onUnauthorized: () => void }) {
           <Route
             path={BASE}
             component={() => <ItemListView onUnauthorized={onUnauthorized} />}
+          />
+          <Route
+            path={`${BASE}/audit`}
+            component={() => <AuditLogView onUnauthorized={onUnauthorized} />}
           />
           <Route
             path={`${BASE}/items/:publisherId/:itemType/:id`}

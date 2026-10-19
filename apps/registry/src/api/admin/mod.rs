@@ -2,16 +2,19 @@
 
 mod panel;
 
-use axum::extract::{DefaultBodyLimit, Multipart, Path, State};
+use axum::extract::{DefaultBodyLimit, Multipart, Path, Query, State};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use spk_format::item_type_folder;
 
+use crate::api::audit::Attempt;
 use crate::api::auth::AdminAuth;
 use crate::db::InsertItemError;
 use crate::models::{
-    AdminItemListResponse, PurgeRequest, PurgeResponse, TakedownLogRow, VersionDetailResponse,
+    audit_action, AdminItemListResponse, AuditListParams, AuditListResponse, AuditQuery,
+    PurgeRequest, PurgeResponse, TakedownLogRow, VersionDetailResponse, DEFAULT_LIST_LIMIT,
+    MAX_LIST_LIMIT,
 };
 use crate::publish::{validate_item_bytes, PublishError};
 use crate::AppState;
@@ -21,6 +24,7 @@ use super::{ApiError, ApiResult};
 /// Admin write API, mounted at `<admin_path>/api/items`.
 pub fn api_router(upload_body_limit: usize, admin_path: &str) -> Router<AppState> {
     let base = format!("{admin_path}/api/items");
+    let audit = format!("{admin_path}/api/audit");
     let item = format!("{base}/{{publisher_id}}/{{item_type}}/{{item_id}}");
 
     let upload = Router::new()
@@ -29,6 +33,7 @@ pub fn api_router(upload_body_limit: usize, admin_path: &str) -> Router<AppState
 
     Router::new()
         .route(&base, get(list_admin_items))
+        .route(&audit, get(list_audit))
         .merge(upload)
         .route(
             &format!("{item}/versions/{{version}}/yank"),
@@ -73,10 +78,52 @@ async fn list_admin_items(
     }))
 }
 
-async fn upload_item(
+/// The audit log, newest first. Reads are not themselves audited (only denied attempts are).
+async fn list_audit(
     _auth: AdminAuth,
     State(state): State<AppState>,
+    Query(params): Query<AuditListParams>,
+) -> ApiResult<Json<AuditListResponse>> {
+    let limit = params
+        .limit
+        .unwrap_or(DEFAULT_LIST_LIMIT)
+        .clamp(1, MAX_LIST_LIMIT);
+    let offset = params.offset.unwrap_or(0);
+    let non_empty = |v: Option<String>| v.filter(|s| !s.is_empty());
+    let (entries, total) = state
+        .db
+        .list_audit_entries(&AuditQuery {
+            action: non_empty(params.action),
+            publisher_id: non_empty(params.publisher),
+            item_type: non_empty(params.item_type),
+            item_id: non_empty(params.id),
+            limit: limit as i64,
+            offset: offset as i64,
+        })
+        .await?;
+    Ok(Json(AuditListResponse {
+        entries,
+        total: total as usize,
+        limit,
+        offset,
+    }))
+}
+
+async fn upload_item(
+    auth: AdminAuth,
+    State(state): State<AppState>,
+    multipart: Multipart,
+) -> ApiResult<Json<VersionDetailResponse>> {
+    let mut attempt = Attempt::new(&auth, audit_action::UPLOAD);
+    let result = upload_item_inner(&state, multipart, &mut attempt).await;
+    attempt.finish(state.db.as_ref(), result.is_ok()).await;
+    result
+}
+
+async fn upload_item_inner(
+    state: &AppState,
     mut multipart: Multipart,
+    attempt: &mut Attempt,
 ) -> ApiResult<Json<VersionDetailResponse>> {
     let mut spk_bytes: Option<Vec<u8>> = None;
 
@@ -106,6 +153,13 @@ async fn upload_item(
         PublishError::Invalid(msg) => ApiError::bad_request("invalid_item", msg),
     })?;
 
+    attempt.target(
+        &validated.row.publisher_id,
+        &validated.row.item_type,
+        &validated.row.item_id,
+    );
+    attempt.version(&validated.row.version);
+
     state
         .storage
         .put(&validated.row.storage_key, &validated.bytes)
@@ -124,7 +178,10 @@ async fn upload_item(
     }
 
     match state.db.insert_item_version(&validated.row).await {
-        Ok(()) => Ok(Json(validated.row.to_detail())),
+        Ok(()) => {
+            attempt.log_success(state.db.as_ref()).await;
+            Ok(Json(validated.row.to_detail()))
+        }
         Err(InsertItemError::Duplicate) => {
             let _ = state.storage.delete(&validated.row.storage_key).await;
             if let Some(preview_key) = &validated.row.preview_storage_key {
@@ -178,9 +235,33 @@ fn version_label(publisher_id: &str, item_type: &str, item_id: &str, version: &s
 }
 
 async fn yank_version(
-    _auth: AdminAuth,
+    auth: AdminAuth,
     State(state): State<AppState>,
     Path((publisher_id, item_type, item_id, version)): VersionPath,
+) -> ApiResult<Json<serde_json::Value>> {
+    let mut attempt = Attempt::new(&auth, audit_action::YANK);
+    attempt.target(&publisher_id, &item_type, &item_id);
+    attempt.version(&version);
+    let result = yank_version_inner(
+        &state,
+        publisher_id,
+        item_type,
+        item_id,
+        version,
+        &mut attempt,
+    )
+    .await;
+    attempt.finish(state.db.as_ref(), result.is_ok()).await;
+    result
+}
+
+async fn yank_version_inner(
+    state: &AppState,
+    publisher_id: String,
+    item_type: String,
+    item_id: String,
+    version: String,
+    attempt: &mut Attempt,
 ) -> ApiResult<Json<serde_json::Value>> {
     require_item_type(&item_type)?;
     let label = version_label(&publisher_id, &item_type, &item_id, &version);
@@ -202,6 +283,7 @@ async fn yank_version(
         }
         return Err(ApiError::not_found(format!("version {label} not found")));
     }
+    attempt.log_success(state.db.as_ref()).await;
     Ok(Json(serde_json::json!({
         "publisherId": publisher_id,
         "itemType": item_type,
@@ -212,9 +294,33 @@ async fn yank_version(
 }
 
 async fn unyank_version(
-    _auth: AdminAuth,
+    auth: AdminAuth,
     State(state): State<AppState>,
     Path((publisher_id, item_type, item_id, version)): VersionPath,
+) -> ApiResult<Json<serde_json::Value>> {
+    let mut attempt = Attempt::new(&auth, audit_action::UNYANK);
+    attempt.target(&publisher_id, &item_type, &item_id);
+    attempt.version(&version);
+    let result = unyank_version_inner(
+        &state,
+        publisher_id,
+        item_type,
+        item_id,
+        version,
+        &mut attempt,
+    )
+    .await;
+    attempt.finish(state.db.as_ref(), result.is_ok()).await;
+    result
+}
+
+async fn unyank_version_inner(
+    state: &AppState,
+    publisher_id: String,
+    item_type: String,
+    item_id: String,
+    version: String,
+    attempt: &mut Attempt,
 ) -> ApiResult<Json<serde_json::Value>> {
     require_item_type(&item_type)?;
     let label = version_label(&publisher_id, &item_type, &item_id, &version);
@@ -233,6 +339,7 @@ async fn unyank_version(
         }
         return Err(ApiError::not_found(format!("version {label} not found")));
     }
+    attempt.log_success(state.db.as_ref()).await;
     Ok(Json(serde_json::json!({
         "publisherId": publisher_id,
         "itemType": item_type,
@@ -243,10 +350,37 @@ async fn unyank_version(
 }
 
 async fn purge_version(
-    _auth: AdminAuth,
+    auth: AdminAuth,
     State(state): State<AppState>,
     Path((publisher_id, item_type, item_id, version)): VersionPath,
     Json(body): Json<PurgeRequest>,
+) -> ApiResult<Json<PurgeResponse>> {
+    let mut attempt = Attempt::new(&auth, audit_action::PURGE_VERSION);
+    attempt.target(&publisher_id, &item_type, &item_id);
+    attempt.version(&version);
+    attempt.reason(&body.reason);
+    let result = purge_version_inner(
+        &state,
+        publisher_id,
+        item_type,
+        item_id,
+        version,
+        body,
+        &mut attempt,
+    )
+    .await;
+    attempt.finish(state.db.as_ref(), result.is_ok()).await;
+    result
+}
+
+async fn purge_version_inner(
+    state: &AppState,
+    publisher_id: String,
+    item_type: String,
+    item_id: String,
+    version: String,
+    body: PurgeRequest,
+    attempt: &mut Attempt,
 ) -> ApiResult<Json<PurgeResponse>> {
     require_item_type(&item_type)?;
     let expected = version_label(&publisher_id, &item_type, &item_id, &version);
@@ -254,11 +388,18 @@ async fn purge_version(
 
     let Some(row) = state
         .db
-        .delete_version(&publisher_id, &item_type, &item_id, &version)
+        .delete_version(
+            &publisher_id,
+            &item_type,
+            &item_id,
+            &version,
+            Some(&attempt.success_entry()),
+        )
         .await?
     else {
         return Err(ApiError::not_found(format!("version {expected} not found")));
     };
+    attempt.mark_recorded();
 
     state
         .storage
@@ -289,10 +430,27 @@ async fn purge_version(
 }
 
 async fn purge_item(
-    _auth: AdminAuth,
+    auth: AdminAuth,
     State(state): State<AppState>,
     Path((publisher_id, item_type, item_id)): Path<(String, String, String)>,
     Json(body): Json<PurgeRequest>,
+) -> ApiResult<Json<PurgeResponse>> {
+    let mut attempt = Attempt::new(&auth, audit_action::PURGE_ITEM);
+    attempt.target(&publisher_id, &item_type, &item_id);
+    attempt.reason(&body.reason);
+    let result =
+        purge_item_inner(&state, publisher_id, item_type, item_id, body, &mut attempt).await;
+    attempt.finish(state.db.as_ref(), result.is_ok()).await;
+    result
+}
+
+async fn purge_item_inner(
+    state: &AppState,
+    publisher_id: String,
+    item_type: String,
+    item_id: String,
+    body: PurgeRequest,
+    attempt: &mut Attempt,
 ) -> ApiResult<Json<PurgeResponse>> {
     require_item_type(&item_type)?;
     let expected = format!("{publisher_id}/{item_type}/{item_id}");
@@ -300,11 +458,17 @@ async fn purge_item(
 
     let rows = state
         .db
-        .delete_item_versions(&publisher_id, &item_type, &item_id)
+        .delete_item_versions(
+            &publisher_id,
+            &item_type,
+            &item_id,
+            Some(&attempt.success_entry()),
+        )
         .await?;
     if rows.is_empty() {
         return Err(ApiError::not_found(format!("item {expected} not found")));
     }
+    attempt.mark_recorded();
 
     let mut purged = Vec::new();
     for row in &rows {

@@ -1,6 +1,10 @@
 import { clearToken, getToken } from './auth'
 import { API_BASE } from './constants'
-import type { AdminItemListResponse, VersionDetailResponse } from './types'
+import type {
+  AdminItemListResponse,
+  AuditListResponse,
+  VersionDetailResponse,
+} from './types'
 
 export class ApiError extends Error {
   status: number
@@ -88,4 +92,21 @@ export function purgeItem(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ confirm, reason }),
   })
+}
+
+export type AuditQuery = {
+  action?: string
+  publisher?: string
+  type?: string
+  id?: string
+  limit: number
+  offset: number
+}
+
+export function listAudit(query: AuditQuery): Promise<AuditListResponse> {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== '') params.set(key, String(value))
+  }
+  return api(`${API_BASE.replace(/\/items$/, '')}/audit?${params}`)
 }

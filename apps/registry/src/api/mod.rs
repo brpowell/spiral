@@ -1,6 +1,7 @@
 //! HTTP API (`/v1/...`).
 
 mod admin;
+mod audit;
 mod auth;
 mod error;
 mod headers;
@@ -21,10 +22,14 @@ pub fn router(
     client_ip: ClientIpSource,
     admin_path: &str,
 ) -> Router<AppState> {
-    let admin_api =
-        admin::api_router(upload_body_limit, admin_path).layer(middleware::from_fn_with_state(
+    let admin_api = admin::api_router(upload_body_limit, admin_path)
+        .layer(middleware::from_fn_with_state(
             limit::RateLimit::new(limit::ADMIN_REQUESTS_PER_MINUTE, client_ip.clone()),
             limit::rate_limit,
+        ))
+        .layer(middleware::from_fn_with_state(
+            client_ip.clone(),
+            limit::attach_client_ip,
         ));
 
     let catalog = Router::new()

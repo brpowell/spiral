@@ -16,7 +16,7 @@ use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::PgPool;
 
 use super::{sort_by_semver_desc, CatalogStore, DbOptions, InsertItemError};
-use crate::models::{ItemVersionRow, TakedownLogRow, ITEM_VERSION_COLUMNS};
+use crate::models::{AuditEntry, AuditQuery, ItemVersionRow, TakedownLogRow, ITEM_VERSION_COLUMNS};
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations/postgres");
 
@@ -282,10 +282,23 @@ impl CatalogStore for PostgresStore {
         item_type: &str,
         item_id: &str,
         version: &str,
+        audit: Option<&AuditEntry>,
     ) -> Result<Option<ItemVersionRow>> {
-        let row = self
-            .get_version_for_download(publisher_id, item_type, item_id, version)
-            .await?;
+        let mut tx = self.pool.begin().await.context("begin purge transaction")?;
+        let row = sqlx::query_as::<_, ItemVersionRow>(&format!(
+            r#"
+            SELECT {ITEM_VERSION_COLUMNS}
+            FROM item_versions
+            WHERE publisher_id = $1 AND item_type = $2 AND item_id = $3 AND version = $4
+            "#
+        ))
+        .bind(publisher_id)
+        .bind(item_type)
+        .bind(item_id)
+        .bind(version)
+        .fetch_optional(&mut *tx)
+        .await
+        .context("get version for purge")?;
         if row.is_none() {
             return Ok(None);
         }
@@ -299,9 +312,13 @@ impl CatalogStore for PostgresStore {
         .bind(item_type)
         .bind(item_id)
         .bind(version)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .context("delete item version")?;
+        if let Some(entry) = audit {
+            insert_audit(&mut *tx, entry).await?;
+        }
+        tx.commit().await.context("commit purge")?;
         Ok(row)
     }
 
@@ -310,7 +327,9 @@ impl CatalogStore for PostgresStore {
         publisher_id: &str,
         item_type: &str,
         item_id: &str,
+        audit: Option<&AuditEntry>,
     ) -> Result<Vec<ItemVersionRow>> {
+        let mut tx = self.pool.begin().await.context("begin purge transaction")?;
         let rows = sqlx::query_as::<_, ItemVersionRow>(&format!(
             r#"
             SELECT {ITEM_VERSION_COLUMNS}
@@ -321,7 +340,7 @@ impl CatalogStore for PostgresStore {
         .bind(publisher_id)
         .bind(item_type)
         .bind(item_id)
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *tx)
         .await
         .context("list item versions for purge")?;
 
@@ -338,11 +357,45 @@ impl CatalogStore for PostgresStore {
         .bind(publisher_id)
         .bind(item_type)
         .bind(item_id)
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .context("delete item versions")?;
+        if let Some(entry) = audit {
+            insert_audit(&mut *tx, entry).await?;
+        }
+        tx.commit().await.context("commit purge")?;
 
         Ok(rows)
+    }
+
+    async fn insert_audit_entry(&self, entry: &AuditEntry) -> Result<()> {
+        insert_audit(&self.pool, entry).await
+    }
+
+    async fn list_audit_entries(&self, query: &AuditQuery) -> Result<(Vec<AuditEntry>, i64)> {
+        let total: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM audit_log WHERE ($1::text IS NULL OR action = $1) AND ($2::text IS NULL OR publisher_id = $2) AND ($3::text IS NULL OR item_type = $3) AND ($4::text IS NULL OR item_id = $4)",
+        )
+        .bind(&query.action)
+        .bind(&query.publisher_id)
+        .bind(&query.item_type)
+        .bind(&query.item_id)
+        .fetch_one(&self.pool)
+        .await
+        .context("count audit entries")?;
+        let entries = sqlx::query_as::<_, AuditEntry>(
+            "SELECT id, at, actor, action, outcome, publisher_id, item_type, item_id, version, reason, client_ip FROM audit_log WHERE ($1::text IS NULL OR action = $1) AND ($2::text IS NULL OR publisher_id = $2) AND ($3::text IS NULL OR item_type = $3) AND ($4::text IS NULL OR item_id = $4) ORDER BY id DESC LIMIT $5 OFFSET $6",
+        )
+        .bind(&query.action)
+        .bind(&query.publisher_id)
+        .bind(&query.item_type)
+        .bind(&query.item_id)
+        .bind(query.limit)
+        .bind(query.offset)
+        .fetch_all(&self.pool)
+        .await
+        .context("list audit entries")?;
+        Ok((entries, total))
     }
 
     async fn insert_takedown_log(&self, row: &TakedownLogRow) -> Result<()> {
@@ -389,4 +442,33 @@ impl CatalogStore for PostgresStore {
         .context("query item_takedown_log")?;
         Ok(count > 0)
     }
+}
+
+/// Insert one audit row on any executor, so it can join a purge's transaction.
+async fn insert_audit<'e, E>(executor: E, entry: &AuditEntry) -> Result<()>
+where
+    E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+{
+    sqlx::query(
+        r#"
+        INSERT INTO audit_log (
+            at, actor, action, outcome, publisher_id, item_type, item_id, version, reason,
+            client_ip
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        "#,
+    )
+    .bind(entry.at)
+    .bind(&entry.actor)
+    .bind(&entry.action)
+    .bind(&entry.outcome)
+    .bind(&entry.publisher_id)
+    .bind(&entry.item_type)
+    .bind(&entry.item_id)
+    .bind(&entry.version)
+    .bind(&entry.reason)
+    .bind(&entry.client_ip)
+    .execute(executor)
+    .await
+    .context("insert audit_log row")?;
+    Ok(())
 }

@@ -70,7 +70,7 @@ async fn async_main() -> Result<()> {
             if !cleared {
                 let row = &upload.row;
                 for old in store
-                    .delete_item_versions(&row.publisher_id, &row.item_type, &row.item_id)
+                    .delete_item_versions(&row.publisher_id, &row.item_type, &row.item_id, None)
                     .await?
                 {
                     let _ = storage.delete(&old.storage_key).await;

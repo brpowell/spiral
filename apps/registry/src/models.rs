@@ -120,6 +120,87 @@ pub struct TakedownLogRow {
     pub notice_ref: Option<String>,
 }
 
+/// Who performed an admin action. A string so named tokens can be added later without a
+/// schema change; today every authenticated request is the single master token.
+pub const ACTOR_MASTER_TOKEN: &str = "master-token";
+
+/// `audit_log.action` values.
+pub mod audit_action {
+    pub const UPLOAD: &str = "upload";
+    pub const YANK: &str = "yank";
+    pub const UNYANK: &str = "unyank";
+    pub const PURGE_VERSION: &str = "purge_version";
+    pub const PURGE_ITEM: &str = "purge_item";
+    pub const LIST_ITEMS: &str = "list_items";
+    pub const READ_AUDIT: &str = "read_audit";
+    /// A request that matched no known admin action (only seen for denied attempts).
+    pub const UNKNOWN: &str = "unknown";
+}
+
+/// `audit_log.outcome` values.
+pub mod audit_outcome {
+    /// The change was made.
+    pub const SUCCESS: &str = "success";
+    /// Bad or missing token.
+    pub const DENIED: &str = "denied";
+    /// Authenticated, but the action did not happen (not found, conflict, invalid input).
+    pub const FAILED: &str = "failed";
+}
+
+/// One row of the append-only admin audit log. Never holds a token or any part of one.
+#[derive(Debug, Clone, sqlx::FromRow, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuditEntry {
+    /// Assigned by the database; ignored on insert.
+    pub id: i64,
+    pub at: DateTime<Utc>,
+    pub actor: String,
+    pub action: String,
+    pub outcome: String,
+    pub publisher_id: Option<String>,
+    pub item_type: Option<String>,
+    pub item_id: Option<String>,
+    pub version: Option<String>,
+    /// The purge `reason`, when given.
+    pub reason: Option<String>,
+    pub client_ip: Option<String>,
+}
+
+/// Filters and paging for the audit log listing.
+#[derive(Debug, Clone, Default)]
+pub struct AuditQuery {
+    pub action: Option<String>,
+    pub publisher_id: Option<String>,
+    pub item_type: Option<String>,
+    pub item_id: Option<String>,
+    pub limit: i64,
+    pub offset: i64,
+}
+
+/// Query string of `GET <ADMIN_PATH>/api/audit`.
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuditListParams {
+    pub action: Option<String>,
+    pub publisher: Option<String>,
+    #[serde(rename = "type")]
+    pub item_type: Option<String>,
+    pub id: Option<String>,
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuditListResponse {
+    /// Newest first.
+    pub entries: Vec<AuditEntry>,
+    /// Matches before `limit` / `offset` are applied.
+    pub total: usize,
+    pub limit: usize,
+    pub offset: usize,
+}
+
 /// Query string of `GET /v1/items`.
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]

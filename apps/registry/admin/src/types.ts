@@ -46,3 +46,24 @@ export type ItemGroup = {
   yankedCount: number
   latest: AdminVersionSummary
 }
+
+export type AuditEntry = {
+  id: number
+  at: string
+  actor: string
+  action: string
+  outcome: string
+  publisherId?: string | null
+  itemType?: string | null
+  itemId?: string | null
+  version?: string | null
+  reason?: string | null
+  clientIp?: string | null
+}
+
+export type AuditListResponse = {
+  entries: AuditEntry[]
+  total: number
+  limit: number
+  offset: number
+}
