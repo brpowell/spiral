@@ -33,6 +33,9 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # FLY_API_TOKEN lives in this environment; a job only sees an environment's
+    # secrets (and its required-reviewer rule applies) when it names it.
+    environment: production-registry
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
     steps:
