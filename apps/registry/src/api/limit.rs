@@ -52,7 +52,10 @@ impl ClientIpSource {
         })
     }
 
-    fn extract(&self, request: &Request) -> IpAddr {
+    /// The trusted header's address if present and valid, else the peer address. `None` only
+    /// when neither is known. The header is absent on the private admin listener, where the
+    /// peer address is the best there is.
+    fn resolve(&self, request: &Request) -> Option<IpAddr> {
         if let Some(name) = &self.header {
             if let Some(ip) = request
                 .headers()
@@ -60,13 +63,18 @@ impl ClientIpSource {
                 .and_then(|v| v.to_str().ok())
                 .and_then(|s| s.parse().ok())
             {
-                return ip;
+                return Some(ip);
             }
         }
         request
             .extensions()
             .get::<ConnectInfo<SocketAddr>>()
             .map(|ConnectInfo(addr)| addr.ip())
+    }
+
+    /// Like [`Self::resolve`], with a placeholder key for rate limiting when nothing is known.
+    fn extract(&self, request: &Request) -> IpAddr {
+        self.resolve(request)
             .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
     }
 }
@@ -83,8 +91,9 @@ pub async fn attach_client_ip(
     mut request: Request,
     next: Next,
 ) -> Response {
-    let ip = source.extract(&request);
-    request.extensions_mut().insert(ClientIp(ip));
+    if let Some(ip) = source.resolve(&request) {
+        request.extensions_mut().insert(ClientIp(ip));
+    }
     next.run(request).await
 }
 

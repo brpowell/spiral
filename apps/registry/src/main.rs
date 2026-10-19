@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use spk_registry::config::{Config, StorageConfig};
 use spk_registry::db::{self, DbOptions};
 use spk_registry::storage::build_storage;
-use spk_registry::{app_router, AppState};
+use spk_registry::{admin_router, app_router, AppState};
 use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::Level;
@@ -74,19 +74,61 @@ async fn main() -> Result<()> {
             },
         );
 
-    let app = app_router(state).layer(trace);
-    let listener = tokio::net::TcpListener::bind(&config.bind_addr)
+    // Bind everything before serving anything, so a bad address fails startup outright.
+    let public_listener = tokio::net::TcpListener::bind(&config.bind_addr)
         .await
         .with_context(|| format!("bind {}", config.bind_addr))?;
+    let admin_listener = match &config.admin_bind_addr {
+        Some(addr) => Some(
+            tokio::net::TcpListener::bind(addr)
+                .await
+                .with_context(|| format!("bind admin listener {addr}"))?,
+        ),
+        None => None,
+    };
 
     print_startup_banner(&config);
 
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .context("server error")?;
+    // One shutdown signal drains both listeners.
+    let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
+    tokio::spawn(async move {
+        shutdown_signal().await;
+        let _ = stop_tx.send(true);
+    });
+
+    let public = serve(
+        public_listener,
+        app_router(state.clone()).layer(trace.clone()),
+        stop_rx.clone(),
+    );
+    match admin_listener {
+        Some(listener) => {
+            let admin = serve(listener, admin_router(state).layer(trace), stop_rx);
+            // If either listener fails, the other is dropped with it and the process exits.
+            tokio::try_join!(public, admin)?;
+        }
+        None => public.await?,
+    }
 
     Ok(())
+}
+
+async fn serve(
+    listener: tokio::net::TcpListener,
+    app: axum::Router,
+    mut stop: tokio::sync::watch::Receiver<bool>,
+) -> Result<()> {
+    // Connect info gives the peer address, which the client-IP fallback needs when the proxy
+    // header is absent (always the case on the private admin listener).
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(async move {
+        let _ = stop.wait_for(|stopped| *stopped).await;
+    })
+    .await
+    .context("server error")
 }
 
 fn print_startup_banner(config: &Config) {
@@ -111,10 +153,16 @@ fn print_startup_banner(config: &Config) {
     eprintln!("  {}", config.instance_name);
     eprintln!();
     eprintln!("  ➜  Listening   http://{}", config.bind_addr);
-    eprintln!(
-        "  ➜  Admin       http://{}{}",
-        config.bind_addr, config.admin_path
-    );
+    match &config.admin_bind_addr {
+        Some(addr) => eprintln!(
+            "  ➜  Admin       http://{addr}{} (private listener; 404 on {})",
+            config.admin_path, config.bind_addr
+        ),
+        None => eprintln!(
+            "  ➜  Admin       http://{}{}",
+            config.bind_addr, config.admin_path
+        ),
+    }
     eprintln!("  ➜  Protocol    v{protocol}");
     let database = if db::is_postgres_url(&config.database_url) {
         if config.db.pooler {
