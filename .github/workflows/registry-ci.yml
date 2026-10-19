@@ -44,6 +44,81 @@ jobs:
       - run: cargo clippy -p spk-registry -p spk-format --all-targets -- -D warnings
       - run: cargo test -p spk-registry -p spk-format
 
+  # The Postgres and S3 backends against real servers: Postgres directly and through PgBouncer
+  # in transaction mode (what a serverless provider's pooled URL looks like), and S3Mock as an
+  # S3-compatible store. These tests skip themselves when their TEST_* variables are unset, so
+  # the `test` job above stays dependency-free.
+  backends:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: pw
+          POSTGRES_DB: spk
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DIRECT_URL: postgres://postgres:pw@127.0.0.1:5432/spk
+      POOLED_URL: postgres://postgres:pw@127.0.0.1:6432/spk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: registry
+      # The admin panel bundle is embedded at compile time and is not committed.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/registry/admin/package-lock.json
+      - name: Build admin panel
+        working-directory: apps/registry/admin
+        run: |
+          npm ci
+          npm run build
+      - name: Start PgBouncer (transaction pooling) and an S3-compatible server
+        run: |
+          docker run -d --name pgbouncer --network host \
+            -e DB_HOST=127.0.0.1 -e DB_PORT=5432 -e DB_USER=postgres -e DB_PASSWORD=pw \
+            -e DB_NAME=spk -e LISTEN_PORT=6432 -e POOL_MODE=transaction \
+            -e AUTH_TYPE=scram-sha-256 -e ADMIN_USERS=postgres \
+            edoburu/pgbouncer
+          # MinIO no longer publishes images on Docker Hub or quay.io, so S3Mock stands in as the
+          # S3-compatible server. It accepts any credentials and creates the bucket at startup.
+          docker run -d --name s3mock --network host \
+            -e initialBuckets=spk-test -e COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS=spk-test \
+            adobe/s3mock
+          for _ in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:9090/ >/dev/null 2>&1 && break
+            sleep 1
+          done
+          for _ in $(seq 1 30); do
+            (echo > /dev/tcp/127.0.0.1/6432) >/dev/null 2>&1 && break
+            sleep 1
+          done
+      - name: Postgres, direct
+        run: TEST_DATABASE_URL="$DIRECT_URL" cargo test -p spk-registry --test backends --test migrations
+      - name: Postgres, through PgBouncer
+        run: |
+          TEST_DATABASE_URL="$POOLED_URL" TEST_DATABASE_MIGRATE_URL="$DIRECT_URL" \
+            TEST_DATABASE_POOLED=1 cargo test -p spk-registry --test backends
+      - name: S3 (S3Mock)
+        run: |
+          AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
+            TEST_S3_ENDPOINT=http://127.0.0.1:9090 cargo test -p spk-registry --test s3
+      - name: Container logs
+        if: failure()
+        run: |
+          docker logs pgbouncer || true
+          docker logs s3mock || true
+
   # Builds the production image from the repository root, then checks that it
   # boots, serves, runs unprivileged, keeps its data on /data, and stops cleanly
   # on SIGTERM. Catches Dockerfile breakage that cargo test cannot.

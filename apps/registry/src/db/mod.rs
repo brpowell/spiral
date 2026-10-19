@@ -1,14 +1,16 @@
 //! Catalog store: the data-access surface the HTTP layer uses.
 //!
-//! [`CatalogStore`] is backend-neutral. [`SqliteStore`] is the only implementation today;
-//! schema changes are versioned SQL files under `migrations/<backend>/`, embedded in the
-//! binary and applied by [`CatalogStore::migrate`].
+//! [`CatalogStore`] is backend-neutral: [`SqliteStore`] (the default) and [`PostgresStore`],
+//! picked by the scheme of `DATABASE_URL`. Schema changes are versioned SQL files under
+//! `migrations/<backend>/`, embedded in the binary and applied by [`CatalogStore::migrate`].
 
+mod postgres;
 mod sqlite;
 
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::{bail, Result};
 use async_trait::async_trait;
@@ -16,6 +18,7 @@ use chrono::{DateTime, Utc};
 
 use crate::models::{ItemVersionRow, TakedownLogRow};
 
+pub use postgres::PostgresStore;
 pub use sqlite::SqliteStore;
 
 #[derive(Debug, thiserror::Error)]
@@ -131,15 +134,61 @@ pub trait CatalogStore: Send + Sync {
     }
 }
 
+/// Connection settings for the networked backends (SQLite ignores them).
+#[derive(Debug, Clone)]
+pub struct DbOptions {
+    /// Pool size. Serverless Postgres plans cap connections, so keep this small.
+    pub max_connections: u32,
+    /// How long a request waits for a connection; generous so a cold database can wake.
+    pub acquire_timeout: Duration,
+    /// The URL points at a transaction-mode connection pooler (disables prepared statements).
+    pub pooler: bool,
+}
+
+impl Default for DbOptions {
+    fn default() -> Self {
+        Self {
+            max_connections: 5,
+            acquire_timeout: Duration::from_secs(30),
+            pooler: false,
+        }
+    }
+}
+
+/// Whether a Postgres URL looks like a transaction pooler: Neon's `-pooler` hosts, Supabase's
+/// pooler host or its port 6543. A hint only; `DB_POOLER` overrides it either way.
+pub fn looks_pooled(database_url: &str) -> bool {
+    let Some(rest) = database_url.split("://").nth(1) else {
+        return false;
+    };
+    let authority = rest.split(['/', '?']).next().unwrap_or("");
+    let host_port = authority.rsplit('@').next().unwrap_or("");
+    let (host, port) = host_port.rsplit_once(':').unwrap_or((host_port, ""));
+    host.contains("-pooler") || host.contains("pooler.supabase.com") || port == "6543"
+}
+
+/// Which backend a `DATABASE_URL` selects.
+pub fn is_postgres_url(database_url: &str) -> bool {
+    database_url.starts_with("postgres://") || database_url.starts_with("postgresql://")
+}
+
 /// Open the catalog for `database_url` without applying migrations.
-pub async fn open(database_url: &str) -> Result<Arc<dyn CatalogStore>> {
+pub async fn open_with(database_url: &str, options: &DbOptions) -> Result<Arc<dyn CatalogStore>> {
     if database_url.starts_with("sqlite:") {
         return Ok(Arc::new(SqliteStore::open(database_url).await?));
     }
-    bail!("unsupported DATABASE_URL={database_url:?} (expected a sqlite:… URL)");
+    if is_postgres_url(database_url) {
+        return Ok(Arc::new(PostgresStore::open(database_url, options).await?));
+    }
+    bail!("unsupported DATABASE_URL (expected a sqlite:… or postgres://… URL)");
 }
 
-/// Open the catalog and apply pending migrations.
+/// [`open_with`] using default [`DbOptions`].
+pub async fn open(database_url: &str) -> Result<Arc<dyn CatalogStore>> {
+    open_with(database_url, &DbOptions::default()).await
+}
+
+/// Open the catalog with default options and apply pending migrations.
 pub async fn connect(database_url: &str) -> Result<Arc<dyn CatalogStore>> {
     let store = open(database_url).await?;
     store.migrate().await?;

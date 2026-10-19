@@ -3,8 +3,7 @@
 
 use std::path::PathBuf;
 
-use spk_registry::db::SqliteStore;
-use spk_registry::db::{self, CatalogStore};
+use spk_registry::db::{self, CatalogStore, PostgresStore, SqliteStore};
 use tempfile::TempDir;
 
 fn migrations_dir(backend: &str) -> PathBuf {
@@ -65,7 +64,7 @@ async fn connect_applies_migrations() {
 
 #[tokio::test]
 async fn unsupported_database_url_is_rejected() {
-    let err = db::open("postgres://localhost/spk").await.err().unwrap();
+    let err = db::open("mysql://localhost/spk").await.err().unwrap();
     assert!(
         err.to_string().contains("unsupported DATABASE_URL"),
         "{err}"
@@ -81,29 +80,119 @@ fn migration_files(backend: &str) -> Vec<String> {
     names
 }
 
-/// `NNNN_snake_case.sql`, numbered contiguously from 0001. A shipped migration is never edited;
-/// schema changes always add a new file (sqlx also rejects an edited file by checksum).
+/// `NNNN_snake_case.sql`, numbered contiguously from 0001, in every backend's directory. A
+/// shipped migration is never edited; schema changes always add a new file (sqlx also rejects an
+/// edited file by checksum).
 #[test]
 fn migration_files_follow_the_naming_convention() {
-    let names = migration_files("sqlite");
-    assert!(!names.is_empty());
-    for (i, name) in names.iter().enumerate() {
-        let (num, rest) = name.split_once('_').expect("NNNN_name.sql");
-        assert_eq!(num.len(), 4, "{name}");
-        assert_eq!(
-            num.parse::<usize>().unwrap(),
-            i + 1,
-            "{name} is out of sequence"
-        );
-        let stem = rest
-            .strip_suffix(".sql")
-            .unwrap_or_else(|| panic!("{name} must end in .sql"));
-        assert!(
-            !stem.is_empty()
-                && stem
-                    .chars()
-                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'),
-            "{name}"
+    for backend in ["sqlite", "postgres"] {
+        let names = migration_files(backend);
+        assert!(!names.is_empty(), "{backend} has no migrations");
+        for (i, name) in names.iter().enumerate() {
+            let (num, rest) = name.split_once('_').expect("NNNN_name.sql");
+            assert_eq!(num.len(), 4, "{backend}/{name}");
+            assert_eq!(
+                num.parse::<usize>().unwrap(),
+                i + 1,
+                "{backend}/{name} is out of sequence"
+            );
+            let stem = rest
+                .strip_suffix(".sql")
+                .unwrap_or_else(|| panic!("{backend}/{name} must end in .sql"));
+            assert!(
+                !stem.is_empty()
+                    && stem
+                        .chars()
+                        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'),
+                "{backend}/{name}"
+            );
+        }
+    }
+}
+
+// --- Postgres (needs TEST_DATABASE_URL) -------------------------------------------------
+
+const ITEM_TABLES: [&str; 2] = ["item_versions", "item_takedown_log"];
+
+fn postgres_url() -> Option<String> {
+    std::env::var("TEST_DATABASE_URL")
+        .ok()
+        .filter(|u| !u.trim().is_empty())
+}
+
+/// `(table, column, not null)` for the item tables, as SQLite sees them. Primary-key columns
+/// count as not null: SQLite leaves `INTEGER PRIMARY KEY` nullable in its metadata only.
+async fn sqlite_columns(store: &SqliteStore) -> Vec<(String, String, bool)> {
+    let mut out = Vec::new();
+    for table in ITEM_TABLES {
+        let rows: Vec<(String, i64, i64)> = sqlx::query_as(&format!(
+            "SELECT name, \"notnull\", pk FROM pragma_table_info('{table}')"
+        ))
+        .fetch_all(store.pool())
+        .await
+        .unwrap();
+        out.extend(
+            rows.into_iter()
+                .map(|(name, notnull, pk)| (table.to_string(), name, notnull != 0 || pk != 0)),
         );
     }
+    out.sort();
+    out
+}
+
+async fn postgres_columns(store: &PostgresStore) -> Vec<(String, String, bool)> {
+    let rows: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT table_name::text, column_name::text, is_nullable::text \
+         FROM information_schema.columns \
+         WHERE table_schema = current_schema() AND table_name IN ('item_versions', 'item_takedown_log')",
+    )
+    .fetch_all(store.pool())
+    .await
+    .unwrap();
+    let mut out: Vec<_> = rows
+        .into_iter()
+        .map(|(table, column, nullable)| (table, column, nullable == "NO"))
+        .collect();
+    out.sort();
+    out
+}
+
+#[tokio::test]
+async fn postgres_migrations_apply_and_are_idempotent() {
+    let Some(url) = postgres_url() else {
+        eprintln!("skipped: set TEST_DATABASE_URL to run against Postgres");
+        return;
+    };
+    let store = PostgresStore::open(&url, &db::DbOptions::default())
+        .await
+        .expect("open postgres");
+    store.migrate().await.expect("first migrate");
+    store.migrate().await.expect("second migrate");
+    let tables: Vec<String> = sqlx::query_scalar(
+        "SELECT table_name::text FROM information_schema.tables \
+         WHERE table_schema = current_schema() AND table_name LIKE 'item_%' ORDER BY 1",
+    )
+    .fetch_all(store.pool())
+    .await
+    .unwrap();
+    assert_eq!(tables, vec!["item_takedown_log", "item_versions"]);
+}
+
+/// The two backends keep separate migration files; this fails the moment their tables or columns
+/// (or which columns are required) drift apart.
+#[tokio::test]
+async fn sqlite_and_postgres_schemas_match() {
+    let Some(url) = postgres_url() else {
+        eprintln!("skipped: set TEST_DATABASE_URL to run against Postgres");
+        return;
+    };
+    let pg = PostgresStore::open(&url, &db::DbOptions::default())
+        .await
+        .expect("open postgres");
+    pg.migrate().await.expect("migrate postgres");
+
+    let (sqlite, _tmp) = open_temp().await;
+    sqlite.migrate().await.expect("migrate sqlite");
+
+    assert_eq!(sqlite_columns(&sqlite).await, postgres_columns(&pg).await);
 }

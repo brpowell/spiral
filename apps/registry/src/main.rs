@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use anyhow::{Context, Result};
 use spk_registry::config::{Config, StorageConfig};
-use spk_registry::db;
+use spk_registry::db::{self, DbOptions};
 use spk_registry::storage::build_storage;
 use spk_registry::{app_router, AppState};
 use tower_http::classify::ServerErrorsFailureClass;
@@ -19,12 +19,27 @@ async fn main() -> Result<()> {
     let config = Config::from_env()?;
     config.ensure_data_dirs()?;
 
-    let db = db::open(&config.database_url).await?;
     let migrate_only = std::env::args().nth(1).as_deref() == Some("migrate");
-    if migrate_only || config.auto_migrate {
-        db.migrate().await?;
-        tracing::info!("database migrations applied");
-    }
+    let db = if let Some(migrate_url) = &config.database_migrate_url {
+        // Migrations take a session-level advisory lock, so run them over the direct URL even
+        // when the app itself talks to a pooler.
+        if migrate_only || config.auto_migrate {
+            let direct = DbOptions {
+                pooler: false,
+                ..config.db.clone()
+            };
+            db::open_with(migrate_url, &direct).await?.migrate().await?;
+            tracing::info!("database migrations applied");
+        }
+        db::open_with(&config.database_url, &config.db).await?
+    } else {
+        let db = db::open_with(&config.database_url, &config.db).await?;
+        if migrate_only || config.auto_migrate {
+            db.migrate().await?;
+            tracing::info!("database migrations applied");
+        }
+        db
+    };
     if migrate_only {
         return Ok(());
     }
@@ -79,7 +94,10 @@ fn print_startup_banner(config: &Config) {
     let protocol = spk_registry::config::PROTOCOL_VERSION;
     let storage = match &config.storage {
         StorageConfig::Local { root } => format!("local · {}", root.display()),
-        StorageConfig::S3 => "s3".to_string(),
+        StorageConfig::S3(s3) => match &s3.endpoint {
+            Some(endpoint) => format!("s3 · {} · {endpoint}", s3.bucket),
+            None => format!("s3 · {}", s3.bucket),
+        },
     };
     let admin = if config.admin_enabled() {
         "enabled"
@@ -98,6 +116,16 @@ fn print_startup_banner(config: &Config) {
         config.bind_addr, config.admin_path
     );
     eprintln!("  ➜  Protocol    v{protocol}");
+    let database = if db::is_postgres_url(&config.database_url) {
+        if config.db.pooler {
+            "postgres (pooled)"
+        } else {
+            "postgres"
+        }
+    } else {
+        "sqlite"
+    };
+    eprintln!("  ➜  Database    {database}");
     eprintln!("  ➜  Storage     {storage}");
     eprintln!("  ➜  Auth        {admin}");
     eprintln!();

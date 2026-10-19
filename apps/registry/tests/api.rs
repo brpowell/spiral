@@ -83,6 +83,8 @@ async fn test_app_at(admin_path: &str) -> (axum::Router, TempDir, Arc<dyn Object
             bind_addr: "127.0.0.1:0".into(),
             instance_name: "Test Registry".into(),
             database_url,
+            database_migrate_url: None,
+            db: Default::default(),
             auto_migrate: true,
             storage: StorageConfig::Local {
                 root: tmp.path().join("objects"),
