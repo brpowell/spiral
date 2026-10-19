@@ -92,20 +92,19 @@ Pick the catalog and the file store independently:
 
 **S3.** The registry stores `.spk` archives and previews in the bucket. Downloads redirect to a short-lived presigned URL, so file bytes never pass through the registry; previews are streamed by the registry itself, because the desktop app does not follow redirects for them. Credentials come from the standard AWS environment (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, optional `AWS_SESSION_TOKEN`) or a profile, never from the repository. The credentials need `s3:PutObject`, `s3:GetObject` and `s3:DeleteObject` on the bucket; add `s3:ListBucket` too, since without it S3 reports a missing object as 403 and the registry can only guess. Keep the bucket private: nothing in it needs to be public.
 
-Local development against both, with Docker:
+Local development against both, with Docker (S3Mock is a small S3-compatible server that accepts any credentials and creates the bucket at startup):
 
 ```bash
 docker run -d --name spk-pg -e POSTGRES_PASSWORD=pw -e POSTGRES_DB=spk -p 5432:5432 postgres:16
-docker run -d --name spk-minio -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-  -p 9000:9000 quay.io/minio/minio server /data
+docker run -d --name spk-s3 -e initialBuckets=spk -p 9090:9090 adobe/s3mock
 
 export DATABASE_URL=postgres://postgres:pw@127.0.0.1:5432/spk
-export STORAGE_BACKEND=s3 S3_BUCKET=spk S3_ENDPOINT=http://127.0.0.1:9000
-export AWS_ACCESS_KEY_ID=minioadmin AWS_SECRET_ACCESS_KEY=minioadmin
+export STORAGE_BACKEND=s3 S3_BUCKET=spk S3_ENDPOINT=http://127.0.0.1:9090
+export AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test
 cargo run --bin spk-registry-seed && cargo run
 ```
 
-(MinIO needs the bucket to exist first; create it with `mc mb` or the console at <http://127.0.0.1:9001> if you add `--console-address :9001`.) The backend tests run against such servers when you set `TEST_DATABASE_URL` (and optionally `TEST_DATABASE_POOLED`, `TEST_DATABASE_MIGRATE_URL`) or `TEST_S3_ENDPOINT`; CI does this on every change.
+The backend tests run against such servers when you set `TEST_DATABASE_URL` (and optionally `TEST_DATABASE_POOLED`, `TEST_DATABASE_MIGRATE_URL`) or `TEST_S3_ENDPOINT` (and `TEST_S3_BUCKET`, default `spk-test`); CI does this on every change, including Postgres behind PgBouncer.
 
 ## Configuration
 

@@ -45,7 +45,7 @@ jobs:
       - run: cargo test -p spk-registry -p spk-format
 
   # The Postgres and S3 backends against real servers: Postgres directly and through PgBouncer
-  # in transaction mode (what a serverless provider's pooled URL looks like), and MinIO as an
+  # in transaction mode (what a serverless provider's pooled URL looks like), and S3Mock as an
   # S3-compatible store. These tests skip themselves when their TEST_* variables are unset, so
   # the `test` job above stays dependency-free.
   backends:
@@ -83,18 +83,20 @@ jobs:
         run: |
           npm ci
           npm run build
-      - name: Start PgBouncer (transaction pooling) and MinIO
+      - name: Start PgBouncer (transaction pooling) and an S3-compatible server
         run: |
           docker run -d --name pgbouncer --network host \
             -e DB_HOST=127.0.0.1 -e DB_PORT=5432 -e DB_USER=postgres -e DB_PASSWORD=pw \
             -e DB_NAME=spk -e LISTEN_PORT=6432 -e POOL_MODE=transaction \
             -e AUTH_TYPE=scram-sha-256 -e ADMIN_USERS=postgres \
             edoburu/pgbouncer
-          docker run -d --name minio --network host \
-            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-            quay.io/minio/minio server /data
-          for _ in $(seq 1 30); do
-            curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null 2>&1 && break
+          # MinIO no longer publishes images on Docker Hub or quay.io, so S3Mock stands in as the
+          # S3-compatible server. It accepts any credentials and creates the bucket at startup.
+          docker run -d --name s3mock --network host \
+            -e initialBuckets=spk-test -e COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT=false \
+            adobe/s3mock
+          for _ in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:9090/ >/dev/null 2>&1 && break
             sleep 1
           done
           for _ in $(seq 1 30); do
@@ -107,15 +109,15 @@ jobs:
         run: |
           TEST_DATABASE_URL="$POOLED_URL" TEST_DATABASE_MIGRATE_URL="$DIRECT_URL" \
             TEST_DATABASE_POOLED=1 cargo test -p spk-registry --test backends
-      - name: S3 (MinIO)
+      - name: S3 (S3Mock)
         run: |
-          AWS_ACCESS_KEY_ID=minioadmin AWS_SECRET_ACCESS_KEY=minioadmin \
-            TEST_S3_ENDPOINT=http://127.0.0.1:9000 cargo test -p spk-registry --test s3
+          AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test \
+            TEST_S3_ENDPOINT=http://127.0.0.1:9090 cargo test -p spk-registry --test s3
       - name: Container logs
         if: failure()
         run: |
           docker logs pgbouncer || true
-          docker logs minio || true
+          docker logs s3mock || true
 
   # Builds the production image from the repository root, then checks that it
   # boots, serves, runs unprivileged, keeps its data on /data, and stops cleanly

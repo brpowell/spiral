@@ -1,4 +1,4 @@
-//! S3 backend against a real S3-compatible server (MinIO in CI). Runs when `TEST_S3_ENDPOINT`
+//! S3 backend against a real S3-compatible server (S3Mock in CI). Runs when `TEST_S3_ENDPOINT`
 //! is set; credentials come from `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`, the bucket from
 //! `TEST_S3_BUCKET` (default `spk-test`, created if missing).
 
