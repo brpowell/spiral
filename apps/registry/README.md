@@ -113,6 +113,7 @@ All configuration is through environment variables.
 | Env var | Default | Notes |
 | --- | --- | --- |
 | `BIND_ADDR` | `127.0.0.1:8787` | Listen address. Use `0.0.0.0:<port>` inside a container. |
+| `ADMIN_BIND_ADDR` | _(empty)_ | Optional second listener, such as `[::]:8081`. When set, the admin panel and API are served only there and return 404 on `BIND_ADDR`; unset keeps everything on one listener. Must be a socket address (IP and port) and differ from `BIND_ADDR`. See [Private admin listener](#private-admin-listener). |
 | `INSTANCE_NAME` | `Spiral Registry` | Reported by `GET /v1/meta`. |
 | `DATABASE_URL` | `sqlite:data/registry.db?mode=rwc` | `sqlite:…` or `postgres://…` (`postgresql://` also works). |
 | `DATABASE_MIGRATE_URL` | _(empty)_ | Direct (non-pooled) connection used for migrations. Set it when `DATABASE_URL` is a connection pooler; defaults to `DATABASE_URL`. |
@@ -144,7 +145,7 @@ The limits are per process. If you run more than one instance, each enforces its
 
 ## HTTP API
 
-Everything is under `/v1`. Errors are JSON: `{ "code": "...", "message": "..." }`.
+Everything public is under `/v1`; the admin routes below are on the same listener unless [`ADMIN_BIND_ADDR`](#private-admin-listener) moves them. Errors are JSON: `{ "code": "...", "message": "..." }`.
 
 | Method | Path | Notes |
 | --- | --- | --- |
@@ -203,6 +204,31 @@ Rows are never updated or deleted by the registry. There is no retention limit y
 
   The image listens on port 8080 and keeps the catalog and item files under `/data`, so mount a volume there. It runs as an unprivileged user (`spk`): the entrypoint fixes ownership of the data directory and then drops privileges, so a root-owned volume works. It stops cleanly on SIGTERM. Every variable in the table above can be overridden with `-e`; the image sets `BIND_ADDR`, `DATABASE_URL` and `STORAGE_LOCAL_PATH` to container-friendly defaults.
 - **`fly.toml`** is the maintainers' own Fly.io deployment; see [Deploying to Fly.io](#deploying-to-flyio) if you want to run the same setup.
+
+### Private admin listener
+
+By default the admin panel and API share the public port. Set `ADMIN_BIND_ADDR` to move them to a second listener so they are not reachable from the internet at all:
+
+- `<ADMIN_PATH>` and `<ADMIN_PATH>/api/*` are served only on the admin listener and return 404 on `BIND_ADDR`.
+- `BIND_ADDR` serves only the public `/v1/*` routes. The admin listener also serves the preview image route, because the panel's thumbnails use it; it exposes nothing the public listener does not.
+- Both listeners share one catalog, storage, audit log and config, and stop together on SIGTERM. If either address cannot be bound the server does not start.
+- The admin token is still required on the admin listener. The private port is an extra layer, not a replacement.
+- The audit log and rate limits use `CLIENT_IP_HEADER` when the request carries it, and the peer address otherwise. Fly sets `fly-client-ip` only on public proxy traffic, so on the private listener the recorded address is the peer's (for `fly proxy`, an address from Fly's private network, not your own).
+
+On the official Fly deployment `fly.toml` sets `ADMIN_BIND_ADDR = '[::]:8081'`. Fly's proxy only routes ports declared under `[http_service]` or `[[services]]`, and port 8081 is deliberately in neither, so it is reachable only over the private (6PN) network. Fly's docs say a public service is reached through the proxy on an IPv4 address (`0.0.0.0`, as `BIND_ADDR` does) while private-network access needs the app to listen on IPv6: `fly-local-6pn` or the `[::]` wildcard. `[::]:8081` is used because it parses as a plain socket address and needs no hostname lookup.
+
+To reach the panel:
+
+```bash
+fly proxy 8081:8081 -a spk-registry
+# then open http://localhost:8081/admin  (and use http://localhost:8081/admin/api/... with the token)
+```
+
+Caveats:
+
+- Anything else on the same Fly organisation's private network can reach port 8081 too (other apps, anyone with a WireGuard peer into the organisation). The admin token is what protects it from them; keep it secret and put only trusted apps in the organisation.
+- With `min_machines_running = 0` the machine is stopped when idle. `fly proxy` connects over the private network, which does not go through Fly Proxy's autostart, so you may need to start the machine first (`fly machine start -a spk-registry`, or request any public URL such as `/v1/meta`). We could not verify whether `fly proxy` wakes a stopped machine.
+- This was developed without access to a Fly deployment: the reachability of port 8081 over `fly proxy` is based on Fly's documentation, not tested there.
 
 ### Deploying to Fly.io
 

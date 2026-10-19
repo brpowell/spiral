@@ -31,10 +31,15 @@ pub fn catalog_router() -> Router<AppState> {
             "/v1/items/{publisher_id}/{item_type}/{item_id}/versions/{version}",
             get(version_detail),
         )
-        .route(
-            "/v1/items/{publisher_id}/{item_type}/{item_id}/versions/{version}/preview",
-            get(download_preview),
-        )
+}
+
+/// The preview image route. The admin panel's thumbnails point at it, so the private admin
+/// listener serves it too; it exposes nothing the public listener does not.
+pub fn preview_router() -> Router<AppState> {
+    Router::new().route(
+        "/v1/items/{publisher_id}/{item_type}/{item_id}/versions/{version}/preview",
+        get(download_preview),
+    )
 }
 
 pub fn download_router() -> Router<AppState> {

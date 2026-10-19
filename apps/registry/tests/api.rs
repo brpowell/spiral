@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use spk_registry::config::{Config, StorageConfig, PROTOCOL_VERSION};
 use spk_registry::db::{self, item_version_row};
 use spk_registry::storage::{LocalDiskStorage, ObjectStorage};
-use spk_registry::{app_router, AppState};
+use spk_registry::{admin_router, app_router, AppState};
 use tempfile::TempDir;
 use tower::ServiceExt;
 
@@ -23,6 +23,20 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
 }
 
 async fn test_app_at(admin_path: &str) -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
+    let (state, tmp, storage) = test_state(admin_path, None).await;
+    (app_router(state), tmp, storage)
+}
+
+/// The same app with `ADMIN_BIND_ADDR` set: (public router, admin router).
+async fn test_app_split() -> (axum::Router, axum::Router, TempDir) {
+    let (state, tmp, _) = test_state("/admin", Some("[::]:8081")).await;
+    (app_router(state.clone()), admin_router(state), tmp)
+}
+
+async fn test_state(
+    admin_path: &str,
+    admin_bind_addr: Option<&str>,
+) -> (AppState, TempDir, Arc<dyn ObjectStorage>) {
     let tmp = TempDir::new().expect("tempdir");
     let db_path = tmp.path().join("test.db");
     let objects = tmp.path().join("objects");
@@ -81,6 +95,7 @@ async fn test_app_at(admin_path: &str) -> (axum::Router, TempDir, Arc<dyn Object
     let state = AppState {
         config: Config {
             bind_addr: "127.0.0.1:0".into(),
+            admin_bind_addr: admin_bind_addr.map(String::from),
             instance_name: "Test Registry".into(),
             database_url,
             database_migrate_url: None,
@@ -98,7 +113,7 @@ async fn test_app_at(admin_path: &str) -> (axum::Router, TempDir, Arc<dyn Object
         storage: storage.clone(),
     };
 
-    (app_router(state), tmp, storage)
+    (state, tmp, storage)
 }
 
 async fn json_get(app: &axum::Router, path: &str) -> (StatusCode, Value) {
@@ -1432,4 +1447,120 @@ async fn the_token_never_appears_in_stored_audit_data() {
     .await
     .unwrap();
     assert!(dump.iter().all(|row| !row.contains("test-admin-token")));
+}
+
+async fn status_of(app: &axum::Router, method: &str, path: &str, token: bool) -> StatusCode {
+    let mut builder = Request::builder().method(method).uri(path);
+    if token {
+        builder = builder.header("Authorization", format!("Bearer {TEST_ADMIN_TOKEN}"));
+    }
+    app.clone()
+        .oneshot(builder.body(Body::empty()).unwrap())
+        .await
+        .unwrap()
+        .status()
+}
+
+#[tokio::test]
+async fn split_listeners_keep_admin_off_the_public_one() {
+    let (public, admin, _tmp) = test_app_split().await;
+
+    for path in [
+        "/admin",
+        "/admin/",
+        "/admin/audit",
+        "/admin/api/items",
+        "/admin/api/audit",
+    ] {
+        assert_eq!(
+            status_of(&public, "GET", path, true).await,
+            StatusCode::NOT_FOUND,
+            "public listener must not serve {path}"
+        );
+    }
+    assert_eq!(
+        status_of(&public, "POST", "/admin/api/items", true).await,
+        StatusCode::NOT_FOUND
+    );
+
+    // The public API still works there.
+    let (status, meta) = json_get(&public, "/v1/meta").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(meta["name"], "Test Registry");
+    let (status, list) = json_get(&public, "/v1/items").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(list["total"], 2);
+
+    // The admin listener serves the panel and the (still token-protected) API.
+    assert_eq!(
+        status_of(&admin, "GET", "/admin", false).await,
+        StatusCode::OK
+    );
+    assert_eq!(
+        status_of(&admin, "GET", "/admin/api/items", false).await,
+        StatusCode::UNAUTHORIZED
+    );
+    let (status, body) = admin_json(&admin, "GET", "/admin/api/items", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, _) = admin_json(&admin, "GET", "/admin/api/audit", None).await;
+    assert_eq!(status, StatusCode::OK);
+
+    // Public catalog and downloads are not on the admin listener, except previews, which the
+    // panel's thumbnails use.
+    for path in [
+        "/v1/meta",
+        "/v1/items",
+        "/v1/items/spiral/skin/demo-skin/versions/latest/download",
+    ] {
+        assert_eq!(
+            status_of(&admin, "GET", path, false).await,
+            StatusCode::NOT_FOUND,
+            "admin listener must not serve {path}"
+        );
+    }
+    assert_ne!(
+        status_of(
+            &admin,
+            "GET",
+            "/v1/items/spiral/skin/demo-skin/versions/1.0.0/preview",
+            false
+        )
+        .await,
+        StatusCode::METHOD_NOT_ALLOWED
+    );
+}
+
+#[tokio::test]
+async fn unset_admin_bind_addr_serves_everything_on_one_listener() {
+    let (app, _tmp, _) = test_app().await;
+    assert_eq!(
+        status_of(&app, "GET", "/v1/meta", false).await,
+        StatusCode::OK
+    );
+    assert_eq!(
+        status_of(&app, "GET", "/admin", false).await,
+        StatusCode::OK
+    );
+    assert_eq!(
+        status_of(&app, "GET", "/admin/api/items", false).await,
+        StatusCode::UNAUTHORIZED
+    );
+    let (status, _) = admin_json(&app, "GET", "/admin/api/items", None).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn audit_records_a_usable_client_ip_without_the_proxy_header() {
+    // On the private listener there is no proxy header. With no peer info either (oneshot), the
+    // entry must carry no address rather than an empty string or a placeholder.
+    let (_public, admin, _tmp) = test_app_split().await;
+    assert_eq!(
+        status_of(&admin, "GET", "/admin/api/items", false).await,
+        StatusCode::UNAUTHORIZED
+    );
+    let (status, body) = admin_json(&admin, "GET", "/admin/api/audit", None).await;
+    assert_eq!(status, StatusCode::OK);
+    let entry = &body["entries"][0];
+    assert_eq!(entry["outcome"], "denied");
+    assert!(entry["clientIp"].is_null(), "{entry}");
 }

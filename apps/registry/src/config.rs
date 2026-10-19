@@ -1,6 +1,7 @@
 //! Runtime configuration from environment variables.
 
 use std::env;
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -26,6 +27,9 @@ const MIN_ADMIN_TOKEN_BYTES: usize = 32;
 #[derive(Clone)]
 pub struct Config {
     pub bind_addr: String,
+    /// Second listener for the admin panel and API (`ADMIN_BIND_ADDR`). When set, they are served
+    /// only there and 404 on `bind_addr`; when `None`, everything shares `bind_addr`.
+    pub admin_bind_addr: Option<String>,
     pub instance_name: String,
     pub database_url: String,
     /// Direct connection used for migrations (`DATABASE_MIGRATE_URL`). A transaction-mode
@@ -52,6 +56,7 @@ impl std::fmt::Debug for Config {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Config")
             .field("bind_addr", &self.bind_addr)
+            .field("admin_bind_addr", &self.admin_bind_addr)
             .field("instance_name", &self.instance_name)
             .field("database_url", &redact_url(&self.database_url))
             .field(
@@ -269,8 +274,13 @@ impl Config {
         let client_ip_header = client_ip_header.trim().to_ascii_lowercase();
         validate_client_ip_header(&client_ip_header)?;
 
+        let bind_addr = env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:8787".to_string());
+        let admin_bind_addr =
+            parse_admin_bind_addr(&env::var("ADMIN_BIND_ADDR").unwrap_or_default(), &bind_addr)?;
+
         Ok(Self {
-            bind_addr: env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:8787".to_string()),
+            bind_addr,
+            admin_bind_addr,
             instance_name: env::var("INSTANCE_NAME")
                 .unwrap_or_else(|_| "Spiral Registry".to_string()),
             database_url,
@@ -328,6 +338,27 @@ fn parse_bool(name: &str, raw: &str, default: bool) -> Result<bool> {
         "false" | "0" => Ok(false),
         other => bail!("{name} must be true or false, got {other:?}"),
     }
+}
+
+/// Validate `ADMIN_BIND_ADDR`. Empty means unset (one listener). Otherwise it must be a socket
+/// address (`[::]:8081`, `127.0.0.1:9000`) and must not be the same as `bind_addr`.
+pub fn parse_admin_bind_addr(raw: &str, bind_addr: &str) -> Result<Option<String>> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return Ok(None);
+    }
+    let admin: SocketAddr = raw.parse().with_context(|| {
+        format!("ADMIN_BIND_ADDR={raw:?} is not a socket address like \"[::]:8081\" or \"127.0.0.1:8081\"")
+    })?;
+    let same = raw == bind_addr.trim()
+        || bind_addr
+            .trim()
+            .parse::<SocketAddr>()
+            .is_ok_and(|public| public == admin);
+    if same {
+        bail!("ADMIN_BIND_ADDR must differ from BIND_ADDR ({bind_addr}); the admin listener is a separate port");
+    }
+    Ok(Some(raw.to_string()))
 }
 
 /// Validate and normalise `ADMIN_PATH`. Empty means the default. The path must start with `/`,
@@ -473,9 +504,37 @@ mod tests {
     }
 
     #[test]
+    fn admin_bind_addr_unset_or_empty_means_one_listener() {
+        assert_eq!(parse_admin_bind_addr("", "0.0.0.0:8080").unwrap(), None);
+        assert_eq!(parse_admin_bind_addr("  ", "0.0.0.0:8080").unwrap(), None);
+    }
+
+    #[test]
+    fn admin_bind_addr_accepts_socket_addresses() {
+        assert_eq!(
+            parse_admin_bind_addr(" [::]:8081 ", "0.0.0.0:8080").unwrap(),
+            Some("[::]:8081".to_string())
+        );
+        assert!(parse_admin_bind_addr("127.0.0.1:9000", "127.0.0.1:8787").is_ok());
+    }
+
+    #[test]
+    fn admin_bind_addr_rejects_garbage_and_the_public_address() {
+        for bad in ["8081", "localhost", "[::]", "host:port"] {
+            let err = parse_admin_bind_addr(bad, "0.0.0.0:8080").unwrap_err();
+            assert!(err.to_string().contains("ADMIN_BIND_ADDR"), "{bad}: {err}");
+        }
+        let err = parse_admin_bind_addr("0.0.0.0:8080", "0.0.0.0:8080").unwrap_err();
+        assert!(err.to_string().contains("must differ"), "{err}");
+        // Same address written differently still counts.
+        assert!(parse_admin_bind_addr("[::]:8080", "[0:0:0:0:0:0:0:0]:8080").is_err());
+    }
+
+    #[test]
     fn debug_redacts_admin_token() {
         let config = Config {
             bind_addr: "127.0.0.1:8787".into(),
+            admin_bind_addr: None,
             instance_name: "Test".into(),
             database_url: "sqlite::memory:".into(),
             database_migrate_url: None,
