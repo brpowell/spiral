@@ -88,10 +88,7 @@ export function ContextMenuCheckboxItem({
         </span>
       ) : null}
       <span className="context-menu__item-label">{label}</span>
-      <span
-        className="context-menu__option-check context-menu__option-check--centered"
-        aria-hidden
-      >
+      <span className="context-menu__option-check" aria-hidden>
         {checked ? <IconCheck /> : null}
       </span>
     </button>

@@ -30,9 +30,19 @@ import {
   InputGroupInput,
 } from "../common/InputGroup/InputGroup";
 import { Skeleton } from "../common/Skeleton/Skeleton";
-import { MultiSelect } from "../common/Select/MultiSelect";
 import { Select } from "../common/Select/Select";
-import { IconDisconnected, IconSearch } from "../icons";
+import {
+  ContextMenuCheckboxItem,
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "../ContextMenu/ContextMenu";
+import {
+  IconDisconnected,
+  IconListFilter,
+  IconListX,
+  IconSearch,
+} from "../icons";
+import { MenuButton } from "../MenuButton/MenuButton";
 import { itemTypeMeta } from "./itemShared";
 import { RegistryItemCard } from "./RegistryItemCard";
 import { RegistryItemDetailView } from "./RegistryItemDetailView";
@@ -325,14 +335,30 @@ export function RegistryBrowseSection() {
   const hasMore = entries.length < total;
   const filtered = typeFilters.length > 0 || query !== "";
 
+  // Checking types edits a draft; the filter is applied once the menu closes, so the grid
+  // reloads once per visit to the menu instead of once per click.
+  const [draftFilters, setDraftFilters] = useState<ItemType[]>(typeFilters);
+  const draftFiltersRef = useRef(draftFilters);
+  draftFiltersRef.current = draftFilters;
+  const toggleType = (type: ItemType) =>
+    setDraftFilters((current) =>
+      current.includes(type)
+        ? current.filter((t) => t !== type)
+        : [...current, type],
+    );
+  const handleFilterMenuOpenChange = (open: boolean) => {
+    if (open) {
+      setDraftFilters(typeFilters);
+      return;
+    }
+    const draft = draftFiltersRef.current;
+    const changed =
+      draft.length !== typeFilters.length ||
+      draft.some((type) => !typeFilters.includes(type));
+    if (changed) setTypeFilters(draft);
+  };
   const typeLabel = (type: ItemType) =>
     t(`catalog.typePlural.${type}`, { defaultValue: itemTypeMeta(type).label });
-  const filterSummary =
-    typeFilters.length === 0
-      ? t("catalog.filterAll")
-      : typeFilters.length === 1
-        ? typeLabel(typeFilters[0]!)
-        : t("catalog.filterCount", { count: typeFilters.length });
   const typeOptions = ITEM_TYPES.map((type) => ({
     value: type,
     label: typeLabel(type),
@@ -390,15 +416,62 @@ export function RegistryBrowseSection() {
                     <IconSearch />
                   </InputGroupAddon>
                 </InputGroup>
-                <MultiSelect
+                <MenuButton
                   className="registry-browse__filter"
-                  values={typeFilters}
-                  onChange={setTypeFilters}
-                  options={typeOptions}
-                  summary={filterSummary}
-                  clearLabel={t("catalog.filterClear")}
-                  aria-label={t("catalog.filterAria")}
-                />
+                  ariaLabel={
+                    typeFilters.length > 0
+                      ? t("catalog.filterAriaActive", {
+                          count: typeFilters.length,
+                        })
+                      : t("catalog.filterAria")
+                  }
+                  title={t("catalog.filterAria")}
+                  icon={
+                    <span className="registry-browse__filter-icon">
+                      <IconListFilter />
+                      {typeFilters.length > 0 ? (
+                        <span
+                          className="registry-browse__filter-count"
+                          aria-hidden
+                        >
+                          {typeFilters.length}
+                        </span>
+                      ) : null}
+                    </span>
+                  }
+                  variant="secondary"
+                  size="sm"
+                  triggerPlacement="below-start"
+                  layoutDeps={[draftFilters]}
+                  onOpenChange={handleFilterMenuOpenChange}
+                >
+                  {(close) => (
+                    <>
+                      {typeOptions.map((opt) => (
+                        <ContextMenuCheckboxItem
+                          key={opt.value}
+                          icon={opt.icon}
+                          label={opt.label}
+                          checked={draftFilters.includes(opt.value)}
+                          onClick={() => toggleType(opt.value)}
+                        />
+                      ))}
+                      {draftFilters.length > 0 ? (
+                        <>
+                          <ContextMenuSeparator />
+                          <ContextMenuItem
+                            icon={<IconListX />}
+                            label={t("catalog.filterClear")}
+                            onClick={() => {
+                              setDraftFilters([]);
+                              close();
+                            }}
+                          />
+                        </>
+                      ) : null}
+                    </>
+                  )}
+                </MenuButton>
                 <Select
                   className="registry-browse__sort"
                   value={sort}

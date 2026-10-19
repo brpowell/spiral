@@ -147,15 +147,33 @@
   overflow-y: auto;
 }
 
+/*
+ * A select menu is at least as wide as its trigger (the minimum is set inline) and grows to fit
+ * its longest option, so labels never wrap. It drops the usual 11.5rem floor so a narrow trigger
+ * gets a menu that lines up with it.
+ */
 .context-menu--select {
   box-sizing: border-box;
+  min-width: 0;
 }
 
+.context-menu--select
+  button.context-menu__option:not(:has(.context-menu__option-description)) {
+  white-space: nowrap;
+}
+
+/* Single-line options are as tall as any other menu row; descriptions get extra room. */
 .context-menu button.context-menu__option {
-  align-items: flex-start;
+  align-items: center;
   gap: 0.5rem;
   white-space: normal;
-  padding: 0.55rem 0.65rem;
+  padding: 0.45rem 0.65rem;
+}
+
+.context-menu
+  button.context-menu__option:has(.context-menu__option-description) {
+  align-items: flex-start;
+  padding-block: 0.55rem;
 }
 
 .context-menu__option-content {
@@ -177,18 +195,19 @@
 .context-menu__option-check {
   display: flex;
   flex-shrink: 0;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   width: 1rem;
   height: 1rem;
-  margin-top: 0.1rem;
   margin-left: 0.35rem;
   color: var(--color-interactive-selected-text);
 }
 
-.context-menu__option-check--centered {
-  align-items: center;
-  margin-top: 0;
+/* Lines up with the first line of a description-bearing option. */
+.context-menu__option:has(.context-menu__option-description)
+  .context-menu__option-check {
+  align-items: flex-start;
+  margin-top: 0.1rem;
 }
 
 .context-menu__option-check svg {

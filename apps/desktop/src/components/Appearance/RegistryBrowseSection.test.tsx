@@ -89,6 +89,11 @@ function catalogOf(items: RegistryItemSummary[], total = items.length) {
   return { ok: true, catalog: { items, total, errors: [] } };
 }
 
+/** Dismiss whichever menu is open (Escape), which is what applies the filter draft. */
+function closeMenu() {
+  fireEvent.keyDown(document.body, { key: "Escape" });
+}
+
 describe("RegistryBrowseSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -119,25 +124,38 @@ describe("RegistryBrowseSection", () => {
     );
   });
 
-  it("filters by type through the server query", async () => {
+  it("applies the type filters once the filter menu closes", async () => {
     mockFetchCatalog.mockResolvedValue(catalogOf([summary("noir")]));
     render(<RegistryBrowseSection />);
     await screen.findByText("NOIR");
+    mockFetchCatalog.mockClear();
 
     fireEvent.click(screen.getByRole("button", { name: "Filter by type" }));
     fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Skins" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Themes" }));
+    // Still editing: nothing reloads yet, but the boxes are checked.
+    expect(mockFetchCatalog).not.toHaveBeenCalled();
+    expect(
+      screen
+        .getByRole("menuitemcheckbox", { name: "Skins" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+
+    closeMenu();
     await waitFor(() =>
       expect(mockFetchCatalog).toHaveBeenCalledWith(
-        expect.objectContaining({ itemTypes: ["skin"], offset: 0 }),
+        expect.objectContaining({ itemTypes: ["skin", "theme"], offset: 0 }),
       ),
     );
+    expect(mockFetchCatalog).toHaveBeenCalledTimes(1);
+    // The filter button reports how many filters are on.
+    expect(
+      screen.getByRole("button", { name: "Filter by type (2 active)" }),
+    ).toBeTruthy();
 
-    // Filters combine; clearing them returns to everything.
-    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Themes" }));
-    await waitFor(() =>
-      expect(mockFetchCatalog).toHaveBeenCalledWith(
-        expect.objectContaining({ itemTypes: ["skin", "theme"] }),
-      ),
+    // Clearing applies on close too.
+    fireEvent.click(
+      screen.getByRole("button", { name: "Filter by type (2 active)" }),
     );
     fireEvent.click(screen.getByRole("menuitem", { name: "Clear filters" }));
     await waitFor(() =>
@@ -145,6 +163,24 @@ describe("RegistryBrowseSection", () => {
         expect.objectContaining({ itemTypes: [] }),
       ),
     );
+  });
+
+  it("does not reload when the menu closes with the filters unchanged", async () => {
+    mockFetchCatalog.mockResolvedValue(catalogOf([summary("noir")]));
+    render(<RegistryBrowseSection />);
+    await screen.findByText("NOIR");
+    mockFetchCatalog.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Filter by type" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Skins" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Skins" }));
+    closeMenu();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("menuitemcheckbox", { name: "Skins" }),
+      ).toBeNull(),
+    );
+    expect(mockFetchCatalog).not.toHaveBeenCalled();
   });
 
   it("sorts through the server query", async () => {
@@ -225,6 +261,7 @@ describe("RegistryBrowseSection", () => {
       await screen.findByRole("button", { name: "Filter by type" }),
     );
     fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Themes" }));
+    closeMenu();
     expect(await screen.findByText("Nothing matches.")).toBeTruthy();
   });
 
@@ -261,6 +298,7 @@ describe("RegistryBrowseSection", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Filter by type" }));
     fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Themes" }));
+    closeMenu();
     fireEvent.click(screen.getByRole("button", { name: "Sort by" }));
     fireEvent.click(screen.getByRole("menuitemradio", { name: "Newest" }));
     fireEvent.change(screen.getByLabelText("Search the catalog"), {

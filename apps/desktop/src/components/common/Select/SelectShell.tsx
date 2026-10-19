@@ -90,7 +90,7 @@ export function SelectShell({
         menuRef={menuRef}
         focusFirstItem={openedWithKeyboard}
         className="context-menu--select"
-        style={menuWidth != null ? { width: menuWidth } : undefined}
+        style={menuWidth != null ? { minWidth: menuWidth } : undefined}
       >
         {children(closeMenu)}
       </ContextMenu>

@@ -187,10 +187,9 @@
     "emptyFiltered": "Nothing matches.",
     "unreachableDescription": "Spiral couldn't connect to any registries. Check your connection and try again.",
     "partialErrors": "Some registries couldn't be reached.",
-    "filterAll": "All types",
-    "filterCount": "{{count}} types",
     "filterClear": "Clear filters",
     "filterAria": "Filter by type",
+    "filterAriaActive": "Filter by type ({{count}} active)",
     "sortAria": "Sort by",
     "sort": {
       "name": "Name (A–Z)",
