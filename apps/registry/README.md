@@ -97,7 +97,7 @@ Local development against both, with Docker:
 ```bash
 docker run -d --name spk-pg -e POSTGRES_PASSWORD=pw -e POSTGRES_DB=spk -p 5432:5432 postgres:16
 docker run -d --name spk-minio -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-  -p 9000:9000 minio/minio server /data
+  -p 9000:9000 quay.io/minio/minio server /data
 
 export DATABASE_URL=postgres://postgres:pw@127.0.0.1:5432/spk
 export STORAGE_BACKEND=s3 S3_BUCKET=spk S3_ENDPOINT=http://127.0.0.1:9000
