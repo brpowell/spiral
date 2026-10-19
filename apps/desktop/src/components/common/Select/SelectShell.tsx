@@ -19,6 +19,7 @@ import "./Select.css";
  */
 export function SelectShell({
   value,
+  icon,
   "aria-label": ariaLabel,
   className,
   disabled = false,
@@ -27,6 +28,8 @@ export function SelectShell({
 }: {
   /** What the trigger shows. */
   value: ReactNode;
+  /** Shown before the value. */
+  icon?: ReactNode;
   "aria-label": string;
   className?: string;
   disabled?: boolean;
@@ -78,6 +81,11 @@ export function SelectShell({
         aria-expanded={open}
         onClick={handleTriggerClick}
       >
+        {icon != null ? (
+          <span className="select__icon" aria-hidden>
+            {icon}
+          </span>
+        ) : null}
         <span className="select__value">{value}</span>
         <span className="select__chevron" aria-hidden>
           <IconChevronDown />

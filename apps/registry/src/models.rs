@@ -211,7 +211,7 @@ pub struct ItemListQuery {
     /// Case-insensitive substring over name, description, id and publisher.
     pub q: Option<String>,
     pub publisher: Option<String>,
-    /// `name` (default), `newest` or `size`; see [`ItemSort`].
+    /// `name` (default), `name-desc`, `newest` or `oldest`; see [`ItemSort`].
     pub sort: Option<String>,
     pub limit: Option<usize>,
     pub offset: Option<usize>,
@@ -223,18 +223,21 @@ pub enum ItemSort {
     /// Name A–Z.
     #[default]
     Name,
+    /// Name Z–A.
+    NameDesc,
     /// Most recently published latest version first.
     Newest,
-    /// Largest on-disk size first.
-    Size,
+    /// Least recently published latest version first.
+    Oldest,
 }
 
 impl ItemSort {
     pub fn parse(raw: &str) -> Option<Self> {
         match raw {
             "name" => Some(Self::Name),
+            "name-desc" => Some(Self::NameDesc),
             "newest" => Some(Self::Newest),
-            "size" => Some(Self::Size),
+            "oldest" => Some(Self::Oldest),
             _ => None,
         }
     }

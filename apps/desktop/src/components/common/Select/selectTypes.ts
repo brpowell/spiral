@@ -13,6 +13,8 @@ export type SelectBaseProps<T extends string> = {
   value: T;
   onChange: (value: T) => void;
   options: SelectOption<T>[];
+  /** Shown before the value on the trigger (a hint of what the select is for). */
+  icon?: ReactNode;
   "aria-label": string;
   className?: string;
   disabled?: boolean;

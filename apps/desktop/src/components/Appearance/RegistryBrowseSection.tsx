@@ -37,6 +37,7 @@ import {
   ContextMenuSeparator,
 } from "../ContextMenu/ContextMenu";
 import {
+  IconArrowUpDown,
   IconDisconnected,
   IconListFilter,
   IconListX,
@@ -476,6 +477,7 @@ export function RegistryBrowseSection() {
                   className="registry-browse__sort"
                   value={sort}
                   onChange={setSort}
+                  icon={<IconArrowUpDown />}
                   options={sortOptions}
                   aria-label={t("catalog.sortAria")}
                 />

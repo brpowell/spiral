@@ -69,7 +69,8 @@ export interface RegistryItemList {
 }
 
 /** Catalog ordering; the registry's default is `name`. */
-export const CATALOG_SORTS = ["name", "newest", "size"] as const;
+/** In the order the sort menu lists them. */
+export const CATALOG_SORTS = ["newest", "oldest", "name", "name-desc"] as const;
 export type CatalogSort = (typeof CATALOG_SORTS)[number];
 
 /** Server-side filters and paging for the catalog. */

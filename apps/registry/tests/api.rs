@@ -322,12 +322,15 @@ async fn filters_by_several_types_and_sorts() {
     };
     let (_, by_name) = json_get(&app, "/v1/items?sort=name").await;
     assert_eq!(ids(&by_name), ["demo-skin", "neon-theme"]);
-    // Both other orders are permutations of the same two items.
-    for sort in ["newest", "size"] {
-        let (status, body) = json_get(&app, &format!("/v1/items?sort={sort}")).await;
-        assert_eq!(status, StatusCode::OK);
-        assert_eq!(body["total"], 2);
-    }
+    let (_, by_name_desc) = json_get(&app, "/v1/items?sort=name-desc").await;
+    assert_eq!(ids(&by_name_desc), ["neon-theme", "demo-skin"]);
+    // Newest and oldest are opposite orders of the same items.
+    let (_, newest) = json_get(&app, "/v1/items?sort=newest").await;
+    let (_, oldest) = json_get(&app, "/v1/items?sort=oldest").await;
+    assert_eq!(newest["total"], 2);
+    let mut reversed = ids(&newest);
+    reversed.reverse();
+    assert_eq!(ids(&oldest), reversed);
     let (status, body) = json_get(&app, "/v1/items?sort=bogus").await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body["code"], "invalid_sort");

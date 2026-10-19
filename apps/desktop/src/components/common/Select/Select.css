@@ -28,6 +28,17 @@
   white-space: nowrap;
 }
 
+.select__icon {
+  display: flex;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.select__icon svg {
+  width: var(--control-icon-size);
+  height: var(--control-icon-size);
+}
+
 .select__chevron {
   display: flex;
   flex-shrink: 0;

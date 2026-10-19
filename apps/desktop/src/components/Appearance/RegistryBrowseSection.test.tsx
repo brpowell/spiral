@@ -189,10 +189,26 @@ describe("RegistryBrowseSection", () => {
     await screen.findByText("NOIR");
 
     fireEvent.click(screen.getByRole("button", { name: "Sort by" }));
-    fireEvent.click(screen.getByRole("menuitemradio", { name: "Newest" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Latest" }));
     await waitFor(() =>
       expect(mockFetchCatalog).toHaveBeenCalledWith(
         expect.objectContaining({ sort: "newest", offset: 0 }),
+      ),
+    );
+
+    // Oldest and the reverse name order are on the same menu.
+    fireEvent.click(screen.getByRole("button", { name: "Sort by" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Oldest" }));
+    await waitFor(() =>
+      expect(mockFetchCatalog).toHaveBeenCalledWith(
+        expect.objectContaining({ sort: "oldest", offset: 0 }),
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Sort by" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Name (Z–A)" }));
+    await waitFor(() =>
+      expect(mockFetchCatalog).toHaveBeenCalledWith(
+        expect.objectContaining({ sort: "name-desc", offset: 0 }),
       ),
     );
   });
@@ -300,7 +316,7 @@ describe("RegistryBrowseSection", () => {
     fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Themes" }));
     closeMenu();
     fireEvent.click(screen.getByRole("button", { name: "Sort by" }));
-    fireEvent.click(screen.getByRole("menuitemradio", { name: "Newest" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Latest" }));
     fireEvent.change(screen.getByLabelText("Search the catalog"), {
       target: { value: "noir" },
     });

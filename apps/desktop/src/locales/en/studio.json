@@ -192,9 +192,10 @@
     "filterAriaActive": "Filter by type ({{count}} active)",
     "sortAria": "Sort by",
     "sort": {
+      "newest": "Latest",
+      "oldest": "Oldest",
       "name": "Name (A–Z)",
-      "newest": "Newest",
-      "size": "Largest"
+      "name-desc": "Name (Z–A)"
     },
     "typePlural": {
       "theme": "Themes",

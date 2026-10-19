@@ -135,9 +135,15 @@ async fn list_items(
                 row.effective_id(),
             )
         }),
-        ItemSort::Size => latest.sort_by_cached_key(|row| {
+        ItemSort::NameDesc => latest.sort_by_cached_key(|row| {
             (
-                std::cmp::Reverse(row.size_bytes),
+                std::cmp::Reverse(row.name.to_lowercase()),
+                std::cmp::Reverse(row.effective_id()),
+            )
+        }),
+        ItemSort::Oldest => latest.sort_by_cached_key(|row| {
+            (
+                row.published_at,
                 row.name.to_lowercase(),
                 row.effective_id(),
             )

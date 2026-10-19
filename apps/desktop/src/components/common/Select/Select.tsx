@@ -10,6 +10,7 @@ export function Select<T extends string>({
   value,
   onChange,
   options,
+  icon,
   "aria-label": ariaLabel,
   className,
   disabled = false,
@@ -19,6 +20,7 @@ export function Select<T extends string>({
   return (
     <SelectShell
       value={selected?.label ?? "Select…"}
+      icon={icon}
       aria-label={ariaLabel}
       className={className}
       disabled={disabled}
