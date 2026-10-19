@@ -34,9 +34,16 @@ async fn ensure_bucket(endpoint: &str, bucket: &str) {
         endpoint: endpoint.into(),
     };
     let creds = Credentials::default().expect("AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY");
-    // Already existing is fine.
-    let _ =
-        Bucket::create_with_path_style(bucket, region, creds, BucketConfiguration::default()).await;
+    // Already existing is fine; servers that ignore the signed create get a plain PUT instead.
+    if let Err(error) =
+        Bucket::create_with_path_style(bucket, region, creds, BucketConfiguration::default()).await
+    {
+        eprintln!("signed bucket create failed ({error}); trying a plain PUT");
+        let _ = reqwest::Client::new()
+            .put(format!("{}/{bucket}", endpoint.trim_end_matches('/')))
+            .send()
+            .await;
+    }
 }
 
 fn env() -> Option<(String, String)> {
