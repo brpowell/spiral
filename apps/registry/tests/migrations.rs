@@ -34,7 +34,7 @@ async fn migrations_apply_to_an_empty_database() {
     store.migrate().await.expect("migrate");
     assert_eq!(
         table_names(&store).await,
-        vec!["item_takedown_log", "item_versions"]
+        vec!["audit_log", "item_takedown_log", "item_versions"]
     );
 }
 
@@ -114,7 +114,7 @@ async fn upgrades_a_database_created_before_migrations() {
     // The pack catalog is gone and the item tables are in place and empty.
     assert_eq!(
         table_names(&store).await,
-        vec!["item_takedown_log", "item_versions"]
+        vec!["audit_log", "item_takedown_log", "item_versions"]
     );
     assert!(store.list_all_versions().await.unwrap().is_empty());
     store.migrate().await.expect("and a second run is a no-op");
@@ -152,7 +152,7 @@ fn migration_files_follow_the_naming_convention() {
 
 // --- Postgres (needs TEST_DATABASE_URL) -------------------------------------------------
 
-const ITEM_TABLES: [&str; 2] = ["item_versions", "item_takedown_log"];
+const ITEM_TABLES: [&str; 3] = ["item_versions", "item_takedown_log", "audit_log"];
 
 fn postgres_url() -> Option<String> {
     std::env::var("TEST_DATABASE_URL")
@@ -184,7 +184,7 @@ async fn postgres_columns(store: &PostgresStore) -> Vec<(String, String, bool)> 
     let rows: Vec<(String, String, String)> = sqlx::query_as(
         "SELECT table_name::text, column_name::text, is_nullable::text \
          FROM information_schema.columns \
-         WHERE table_schema = current_schema() AND table_name IN ('item_versions', 'item_takedown_log')",
+         WHERE table_schema = current_schema() AND table_name IN ('item_versions', 'item_takedown_log', 'audit_log')",
     )
     .fetch_all(store.pool())
     .await
@@ -210,12 +210,15 @@ async fn postgres_migrations_apply_and_are_idempotent() {
     store.migrate().await.expect("second migrate");
     let tables: Vec<String> = sqlx::query_scalar(
         "SELECT table_name::text FROM information_schema.tables \
-         WHERE table_schema = current_schema() AND table_name LIKE 'item_%' ORDER BY 1",
+         WHERE table_schema = current_schema() AND table_name IN ('audit_log', 'item_versions', 'item_takedown_log') ORDER BY 1",
     )
     .fetch_all(store.pool())
     .await
     .unwrap();
-    assert_eq!(tables, vec!["item_takedown_log", "item_versions"]);
+    assert_eq!(
+        tables,
+        vec!["audit_log", "item_takedown_log", "item_versions"]
+    );
 }
 
 /// The two backends keep separate migration files; this fails the moment their tables or columns

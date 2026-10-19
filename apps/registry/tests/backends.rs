@@ -7,7 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Duration, SubsecRound, Utc};
 use spk_registry::db::{self, item_version_row, CatalogStore, DbOptions, InsertItemError};
-use spk_registry::models::{ItemVersionRow, TakedownLogRow};
+use spk_registry::models::{AuditEntry, AuditQuery, ItemVersionRow, TakedownLogRow};
 use tempfile::TempDir;
 
 fn unique(label: &str) -> String {
@@ -198,13 +198,13 @@ async fn run_contract(store: &dyn CatalogStore) {
         .await
         .unwrap());
     let purged = store
-        .delete_version(&publisher, "theme", item, "1.0.0")
+        .delete_version(&publisher, "theme", item, "1.0.0", None)
         .await
         .unwrap()
         .expect("deleted row");
     assert_eq!(purged.version, "1.0.0");
     assert!(store
-        .delete_version(&publisher, "theme", item, "1.0.0")
+        .delete_version(&publisher, "theme", item, "1.0.0", None)
         .await
         .unwrap()
         .is_none());
@@ -232,7 +232,7 @@ async fn run_contract(store: &dyn CatalogStore) {
 
     // --- item-level purge
     let removed = store
-        .delete_item_versions(&publisher, "theme", item)
+        .delete_item_versions(&publisher, "theme", item, None)
         .await
         .unwrap();
     assert_eq!(
@@ -241,7 +241,7 @@ async fn run_contract(store: &dyn CatalogStore) {
         "1.2.0 and 1.10.0 remain after the single purge"
     );
     assert!(store
-        .delete_item_versions(&publisher, "theme", item)
+        .delete_item_versions(&publisher, "theme", item, None)
         .await
         .unwrap()
         .is_empty());
@@ -267,6 +267,151 @@ async fn run_contract(store: &dyn CatalogStore) {
         .was_purged(&publisher, "skin", other_item, "2.0.0")
         .await
         .unwrap());
+
+    run_audit_contract(store).await;
+}
+
+fn audit(
+    at: DateTime<Utc>,
+    publisher: &str,
+    action: &str,
+    outcome: &str,
+    id: &str,
+    version: Option<&str>,
+) -> AuditEntry {
+    AuditEntry {
+        id: 0,
+        at,
+        actor: "master-token".into(),
+        action: action.into(),
+        outcome: outcome.into(),
+        publisher_id: Some(publisher.into()),
+        item_type: Some("theme".into()),
+        item_id: Some(id.into()),
+        version: version.map(Into::into),
+        reason: None,
+        client_ip: Some("203.0.113.9".into()),
+    }
+}
+
+fn audit_query(publisher: &str) -> AuditQuery {
+    AuditQuery {
+        publisher_id: Some(publisher.into()),
+        limit: 50,
+        ..Default::default()
+    }
+}
+
+async fn run_audit_contract(store: &dyn CatalogStore) {
+    let publisher = unique("audpub");
+    let now = Utc::now().trunc_subsecs(6);
+
+    // --- insert and read back, newest first, with every field round-tripping
+    let mut first = audit(now, &publisher, "yank", "success", "a", Some("1.0.0"));
+    first.reason = Some("because".into());
+    store.insert_audit_entry(&first).await.unwrap();
+    store
+        .insert_audit_entry(&audit(
+            now,
+            &publisher,
+            "upload",
+            "success",
+            "b",
+            Some("2.0.0"),
+        ))
+        .await
+        .unwrap();
+    let mut denied = audit(now, &publisher, "purge_item", "denied", "a", None);
+    denied.actor = "unauthenticated".into();
+    store.insert_audit_entry(&denied).await.unwrap();
+
+    let (entries, total) = store
+        .list_audit_entries(&audit_query(&publisher))
+        .await
+        .unwrap();
+    assert_eq!(total, 3);
+    let actions: Vec<_> = entries.iter().map(|e| e.action.as_str()).collect();
+    assert_eq!(actions, ["purge_item", "upload", "yank"], "newest first");
+    assert!(entries[0].id > entries[1].id && entries[1].id > entries[2].id);
+    assert_eq!(entries[0].actor, "unauthenticated");
+    assert_eq!(entries[0].version, None);
+    assert_eq!(entries[2].reason.as_deref(), Some("because"));
+    assert_eq!(entries[2].client_ip.as_deref(), Some("203.0.113.9"));
+    assert_eq!(entries[2].at, now);
+
+    // --- filters and paging
+    let mut by_action = audit_query(&publisher);
+    by_action.action = Some("upload".into());
+    let (entries, total) = store.list_audit_entries(&by_action).await.unwrap();
+    assert_eq!((entries.len(), total), (1, 1));
+    assert_eq!(entries[0].item_id.as_deref(), Some("b"));
+
+    let mut by_item = audit_query(&publisher);
+    by_item.item_type = Some("theme".into());
+    by_item.item_id = Some("a".into());
+    let (_, total) = store.list_audit_entries(&by_item).await.unwrap();
+    assert_eq!(total, 2);
+
+    let mut page = audit_query(&publisher);
+    page.limit = 1;
+    page.offset = 1;
+    let (entries, total) = store.list_audit_entries(&page).await.unwrap();
+    assert_eq!((entries.len(), total), (1, 3));
+    assert_eq!(entries[0].action, "upload");
+
+    let (none, total) = store
+        .list_audit_entries(&audit_query(&unique("nobody")))
+        .await
+        .unwrap();
+    assert!(none.is_empty());
+    assert_eq!(total, 0);
+
+    // --- a purge writes its audit entry in the same transaction; a no-op purge writes none
+    let item = "audited";
+    for v in ["1.0.0", "1.1.0"] {
+        store
+            .insert_item_version(&row(&publisher, "theme", item, v, now))
+            .await
+            .unwrap();
+    }
+    let entry = audit(
+        now,
+        &publisher,
+        "purge_version",
+        "success",
+        item,
+        Some("1.0.0"),
+    );
+    store
+        .delete_version(&publisher, "theme", item, "1.0.0", Some(&entry))
+        .await
+        .unwrap()
+        .expect("deleted");
+    assert!(store
+        .delete_version(&publisher, "theme", item, "1.0.0", Some(&entry))
+        .await
+        .unwrap()
+        .is_none());
+    let entry = audit(now, &publisher, "purge_item", "success", item, None);
+    assert_eq!(
+        store
+            .delete_item_versions(&publisher, "theme", item, Some(&entry))
+            .await
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(store
+        .delete_item_versions(&publisher, "theme", item, Some(&entry))
+        .await
+        .unwrap()
+        .is_empty());
+    let mut purges = audit_query(&publisher);
+    purges.item_id = Some(item.into());
+    let (entries, total) = store.list_audit_entries(&purges).await.unwrap();
+    assert_eq!(total, 2, "one entry per real purge, none for the no-ops");
+    assert_eq!(entries[0].action, "purge_item");
+    assert_eq!(entries[1].action, "purge_version");
 }
 
 #[tokio::test]

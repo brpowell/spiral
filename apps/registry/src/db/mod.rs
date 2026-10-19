@@ -16,7 +16,7 @@ use anyhow::{bail, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use crate::models::{ItemVersionRow, TakedownLogRow};
+use crate::models::{AuditEntry, AuditQuery, ItemVersionRow, TakedownLogRow};
 
 pub use postgres::PostgresStore;
 pub use sqlite::SqliteStore;
@@ -93,21 +93,33 @@ pub trait CatalogStore: Send + Sync {
     ) -> Result<bool>;
 
     /// Delete one version row, returning it if it existed.
+    ///
+    /// When `audit` is given and a row was deleted, the entry is written in the same
+    /// transaction: if the audit insert fails, the delete is rolled back and an error returned.
     async fn delete_version(
         &self,
         publisher_id: &str,
         item_type: &str,
         item_id: &str,
         version: &str,
+        audit: Option<&AuditEntry>,
     ) -> Result<Option<ItemVersionRow>>;
 
-    /// Delete every version of an item, returning the deleted rows.
+    /// Delete every version of an item, returning the deleted rows. `audit` is written in the
+    /// same transaction, as for [`CatalogStore::delete_version`].
     async fn delete_item_versions(
         &self,
         publisher_id: &str,
         item_type: &str,
         item_id: &str,
+        audit: Option<&AuditEntry>,
     ) -> Result<Vec<ItemVersionRow>>;
+
+    /// Append an entry to the audit log (`entry.id` is ignored).
+    async fn insert_audit_entry(&self, entry: &AuditEntry) -> Result<()>;
+
+    /// Audit entries matching the filters, newest first, with the total match count.
+    async fn list_audit_entries(&self, query: &AuditQuery) -> Result<(Vec<AuditEntry>, i64)>;
 
     async fn insert_takedown_log(&self, row: &TakedownLogRow) -> Result<()>;
 

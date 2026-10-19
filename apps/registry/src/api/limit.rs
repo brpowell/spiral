@@ -71,6 +71,23 @@ impl ClientIpSource {
     }
 }
 
+/// The client address resolved by [`ClientIpSource`], attached to the request by
+/// [`attach_client_ip`] so handlers (the admin audit log) see the same address the rate limits
+/// key on.
+#[derive(Clone, Copy, Debug)]
+pub struct ClientIp(pub IpAddr);
+
+/// Middleware: resolve the client address and store it as a [`ClientIp`] request extension.
+pub async fn attach_client_ip(
+    State(source): State<ClientIpSource>,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    let ip = source.extract(&request);
+    request.extensions_mut().insert(ClientIp(ip));
+    next.run(request).await
+}
+
 #[derive(Clone)]
 pub struct RateLimit {
     limiter: Arc<IpLimiter>,

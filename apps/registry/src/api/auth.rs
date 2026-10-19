@@ -5,11 +5,19 @@ use axum::http::request::Parts;
 use constant_time_eq::constant_time_eq;
 use sha2::{Digest, Sha256};
 
-use crate::api::{ApiError, ApiResult};
+use crate::api::limit::ClientIp;
+use crate::api::{audit, ApiError, ApiResult};
+use crate::models::ACTOR_MASTER_TOKEN;
 use crate::AppState;
 
 /// Extracted when `Authorization: Bearer …` or `X-Admin-Token` matches config.
-pub struct AdminAuth;
+///
+/// Carries who is acting and from where, for the audit log. There is one shared token today, so
+/// the actor is always [`ACTOR_MASTER_TOKEN`]; named tokens would set their own label here.
+pub struct AdminAuth {
+    pub actor: String,
+    pub client_ip: Option<String>,
+}
 
 impl FromRequestParts<AppState> for AdminAuth {
     type Rejection = ApiError;
@@ -18,8 +26,31 @@ impl FromRequestParts<AppState> for AdminAuth {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        require_admin(parts, state)?;
-        Ok(AdminAuth)
+        let client_ip = parts
+            .extensions
+            .get::<ClientIp>()
+            .map(|ClientIp(ip)| ip.to_string());
+        match require_admin(parts, state) {
+            Ok(()) => Ok(AdminAuth {
+                actor: ACTOR_MASTER_TOKEN.to_string(),
+                client_ip,
+            }),
+            Err(error) => {
+                if error.is_unauthorized() {
+                    audit::record_denied(
+                        state.db.as_ref(),
+                        &state.config.admin_path,
+                        &parts.method,
+                        parts.uri.path(),
+                        client_ip,
+                        // The caller is unauthenticated, so there is no actor to name.
+                        "unauthenticated",
+                    )
+                    .await;
+                }
+                Err(error)
+            }
+        }
     }
 }
 

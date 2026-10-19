@@ -1172,3 +1172,264 @@ async fn admin_path_is_configurable() {
     let (status, _) = admin_json(&app, "GET", "/admin/api/items", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
+
+// --- Admin audit log ------------------------------------------------------
+
+async fn audit_entries(app: &axum::Router, query: &str) -> Value {
+    let (status, body) = admin_json(app, "GET", &format!("/admin/api/audit{query}"), None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    body
+}
+
+#[tokio::test]
+async fn every_admin_action_writes_an_audit_entry() {
+    let (app, _tmp, _) = test_app().await;
+    let spk = zip_dir_to_bytes(&fixture_dir("demo-theme"));
+    let base = "/admin/api/items/spiral/theme/demo-theme";
+
+    let (status, _) = admin_upload(&app, &spk).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = admin_json(&app, "POST", &format!("{base}/versions/1.0.0/yank"), None).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) =
+        admin_json(&app, "POST", &format!("{base}/versions/1.0.0/unyank"), None).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = admin_json(
+        &app,
+        "POST",
+        &format!("{base}/versions/1.0.0/purge"),
+        Some(serde_json::json!({
+            "confirm": "spiral/theme/demo-theme@1.0.0",
+            "reason": "legal request"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (status, _) = admin_upload(&app, &spk).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = admin_json(
+        &app,
+        "POST",
+        &format!("{base}/purge"),
+        Some(serde_json::json!({
+            "confirm": "spiral/theme/demo-theme",
+            "reason": "whole item"
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let log = audit_entries(&app, "").await;
+    assert_eq!(log["total"], 6);
+    let entries = log["entries"].as_array().unwrap();
+    let summary: Vec<(&str, &str)> = entries
+        .iter()
+        .map(|e| {
+            (
+                e["action"].as_str().unwrap(),
+                e["outcome"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    // Newest first.
+    assert_eq!(
+        summary,
+        [
+            ("purge_item", "success"),
+            ("upload", "success"),
+            ("purge_version", "success"),
+            ("unyank", "success"),
+            ("yank", "success"),
+            ("upload", "success"),
+        ]
+    );
+    for e in entries {
+        assert_eq!(e["actor"], "master-token");
+        assert_eq!(e["publisherId"], "spiral");
+        assert_eq!(e["itemType"], "theme");
+        assert_eq!(e["itemId"], "demo-theme");
+        assert!(e["at"].as_str().is_some());
+    }
+    assert_eq!(entries[0]["reason"], "whole item");
+    assert_eq!(entries[0]["version"], Value::Null);
+    assert_eq!(entries[2]["reason"], "legal request");
+    assert_eq!(entries[2]["version"], "1.0.0");
+    assert_eq!(entries[5]["version"], "1.0.0");
+
+    // Filters and paging.
+    let only = audit_entries(&app, "?action=yank").await;
+    assert_eq!(only["total"], 1);
+    let page = audit_entries(&app, "?limit=2&offset=1").await;
+    assert_eq!(page["entries"].as_array().unwrap().len(), 2);
+    assert_eq!(page["entries"][0]["action"], "upload");
+    assert_eq!(page["total"], 6);
+    let none = audit_entries(&app, "?publisher=nobody").await;
+    assert_eq!(none["total"], 0);
+}
+
+#[tokio::test]
+async fn failed_actions_and_reads_are_recorded_correctly() {
+    let (app, _tmp, _) = test_app().await;
+    let base = "/admin/api/items/spiral/theme/ghost";
+
+    let (status, _) = admin_json(&app, "POST", &format!("{base}/versions/1.0.0/yank"), None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    // A purge with the wrong confirmation changes nothing but is still on record, with its reason.
+    let (status, _) = admin_json(
+        &app,
+        "POST",
+        &format!("{base}/purge"),
+        Some(serde_json::json!({"confirm": "nope", "reason": "oops"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let (status, _) = admin_upload(&app, b"not a zip").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    // Plain reads leave no trace.
+    let (status, _) = admin_json(&app, "GET", "/admin/api/items", None).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = json_get(&app, "/v1/items").await;
+    assert_eq!(status, StatusCode::OK);
+
+    let log = audit_entries(&app, "").await;
+    let entries = log["entries"].as_array().unwrap();
+    let summary: Vec<(&str, &str)> = entries
+        .iter()
+        .map(|e| {
+            (
+                e["action"].as_str().unwrap(),
+                e["outcome"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        summary,
+        [
+            ("upload", "failed"),
+            ("purge_item", "failed"),
+            ("yank", "failed")
+        ]
+    );
+    assert_eq!(entries[1]["reason"], "oops");
+    assert_eq!(entries[1]["itemId"], "ghost");
+}
+
+#[tokio::test]
+async fn denied_attempts_are_recorded_with_the_client_ip() {
+    let (app, _tmp, _) = test_app().await;
+
+    for (token, path, method) in [
+        (
+            None,
+            "/admin/api/items/spiral/theme/demo-theme/versions/1.0.0/purge",
+            "POST",
+        ),
+        (
+            Some("wrong-token-wrong-token-wrong-token!!"),
+            "/admin/api/items",
+            "POST",
+        ),
+        (
+            Some("wrong-token-wrong-token-wrong-token!!"),
+            "/admin/api/audit",
+            "GET",
+        ),
+    ] {
+        let mut req = Request::builder()
+            .method(method)
+            .uri(path)
+            .header("x-client-ip", "203.0.113.50");
+        if let Some(t) = token {
+            req = req.header("Authorization", format!("Bearer {t}"));
+        }
+        let response = app
+            .clone()
+            .oneshot(req.body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    let log = audit_entries(&app, "?action=purge_version").await;
+    assert_eq!(log["total"], 1);
+    let e = &log["entries"][0];
+    assert_eq!(e["outcome"], "denied");
+    assert_eq!(e["actor"], "unauthenticated");
+    assert_eq!(e["clientIp"], "203.0.113.50");
+    assert_eq!(e["publisherId"], "spiral");
+    assert_eq!(e["itemId"], "demo-theme");
+    assert_eq!(e["version"], "1.0.0");
+
+    let all = audit_entries(&app, "").await;
+    let actions: Vec<&str> = all["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["action"].as_str().unwrap())
+        .collect();
+    assert_eq!(actions, ["read_audit", "upload", "purge_version"]);
+}
+
+#[tokio::test]
+async fn audit_endpoint_requires_the_token() {
+    let (app, _tmp, _) = test_app().await;
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/admin/api/audit")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn the_token_never_appears_in_stored_audit_data() {
+    let (app, tmp, _) = test_app().await;
+    let spk = zip_dir_to_bytes(&fixture_dir("demo-theme"));
+    let (status, _) = admin_upload(&app, &spk).await;
+    assert_eq!(status, StatusCode::OK);
+    // A denied attempt carrying a near-miss token, via both header forms.
+    for header in ["Authorization", "X-Admin-Token"] {
+        let value = if header == "Authorization" {
+            format!("Bearer {TEST_ADMIN_TOKEN}x")
+        } else {
+            format!("{TEST_ADMIN_TOKEN}x")
+        };
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/admin/api/items/spiral/theme/demo-theme/versions/1.0.0/yank")
+                    .header(header, value)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    // Neither the API output nor the raw database file contains the token or the near-miss.
+    let log = audit_entries(&app, "").await;
+    assert_eq!(log["total"], 3);
+    assert!(!log.to_string().contains(TEST_ADMIN_TOKEN));
+    let db_pool = sqlx::SqlitePool::connect(&format!(
+        "sqlite:{}?mode=ro",
+        tmp.path().join("test.db").display()
+    ))
+    .await
+    .unwrap();
+    let dump: Vec<String> = sqlx::query_scalar(
+        "SELECT actor || action || outcome || COALESCE(publisher_id,'') || COALESCE(item_id,'') \
+         || COALESCE(version,'') || COALESCE(reason,'') || COALESCE(client_ip,'') FROM audit_log",
+    )
+    .fetch_all(&db_pool)
+    .await
+    .unwrap();
+    assert!(dump.iter().all(|row| !row.contains("test-admin-token")));
+}

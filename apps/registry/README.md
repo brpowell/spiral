@@ -163,7 +163,29 @@ Everything is under `/v1`. Errors are JSON: `{ "code": "...", "message": "..." }
 | `POST` | `<ADMIN_PATH>/api/items/:publisherId/:type/:id/versions/:version/purge` | Hard delete. Body: `{ "confirm": "publisher/type/id@version", "reason": "…" }` |
 | `POST` | `<ADMIN_PATH>/api/items/:publisherId/:type/:id/purge` | Delete a whole item. Body: `{ "confirm": "publisher/type/id", "reason": "…" }` |
 
+| `GET` | `<ADMIN_PATH>/api/audit` | The [audit log](#audit-log), newest first. Query: `action`, `publisher`, `type`, `id` (all exact match), `limit` (default 50, max 200), `offset`. Returns `{ entries, total, limit, offset }`. |
+
 Admin requests authenticate with `Authorization: Bearer <ADMIN_TOKEN>` or `X-Admin-Token: <ADMIN_TOKEN>`.
+
+### Audit log
+
+Every admin call that changes state leaves a row in the `audit_log` table (added by migration `0003` for SQLite and `0002` for Postgres), and so does every admin request refused for a bad or missing token. The panel's **Audit log** view shows it, with filters and paging.
+
+| Field | Meaning |
+| --- | --- |
+| `at` | When the action happened (UTC). |
+| `actor` | Who acted: `master-token` for the single `ADMIN_TOKEN`; `unauthenticated` for a refused request. It is a plain string, so named tokens can record their own label later without a schema change. |
+| `action` | `upload`, `yank`, `unyank`, `purge_version`, `purge_item`; refused reads show as `list_items` or `read_audit`. A refused request that matches no admin route is `unknown`. |
+| `outcome` | `success`; `denied` (bad or missing token); `failed` (authenticated, but nothing changed: not found, conflict, invalid archive, wrong purge confirmation). |
+| `publisherId`, `itemType`, `itemId`, `version` | The target. Uploads take it from the manifest, so an upload that fails validation has none. A denied entry takes it from the URL, which is unverified. |
+| `reason` | The purge `reason`, when given. |
+| `clientIp` | The address `CLIENT_IP_HEADER` resolves (falling back to the peer address), the same one the rate limits use. |
+
+The token, or any part of it, is never stored. Reading the audit log, the item list and the public `/v1` API writes nothing (only refused attempts are recorded).
+
+**If an audit write fails.** A successful purge writes its `success` entry in the same database transaction as the delete, so if the entry cannot be written the purge is rolled back and the request fails with a 500: a destructive action never happens without a record. Uploads, yanks and unyanks write their entry right after the change. If that write fails the change stands and the request still succeeds, and the full entry is logged at `error` level ("failed to write audit log entry") so it can be recovered from the logs. `denied` and `failed` entries record something that did not happen, so they are best effort in the same way: a failed write is logged at `error` and does not change the response. Denied attempts are limited by the admin rate limit (10 requests per minute per client), which also bounds how fast they can add rows.
+
+Rows are never updated or deleted by the registry. There is no retention limit yet; prune the table yourself if it grows.
 
 ## Running it for real
 
