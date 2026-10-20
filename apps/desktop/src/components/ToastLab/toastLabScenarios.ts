@@ -30,7 +30,6 @@ import {
   playlistAddedPayload,
   queueAddedPayload,
   themeCreateFailedPayload,
-  themeDeletedPayload,
   themeSavedPayload,
   updaterCheckErrorPayload,
 } from "../../lib/toastPayloads";
@@ -2028,15 +2027,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "ThemeEditor.tsx",
     fire: ({ showToast, dismissMs }) => {
       showToast(themeSavedPayload({ dismissMs }));
-    },
-  },
-  {
-    id: "theme-deleted",
-    group: "Packs & themes",
-    buttonLabel: "Theme deleted",
-    source: "WorkshopThemeActions.tsx",
-    fire: ({ showToast, dismissMs }) => {
-      showToast(themeDeletedPayload({ dismissMs }));
     },
   },
   {

@@ -7,15 +7,14 @@ use crate::packs::install::install_item_from_path;
 use crate::packs::manage::uninstall_installed_item;
 use crate::packs::scan::{peek_item_effective_id, scan_all_items, ScannedContribution};
 use crate::packs::{
-    self, builtin_packs_root, ensure_workshop_root, installed_packs_root, is_kebab_slug,
-    item_dir_name, item_manifest_filename, item_type_folder, read_item_manifest, slugify_id,
-    workshop_packs_root, ExportItemResult, InstallItemResult, ItemSummary, PackZone,
+    self, builtin_packs_root, ensure_library_packs_root, installed_packs_root, is_kebab_slug,
+    item_dir_name, item_manifest_filename, item_type_folder, library_packs_root,
+    read_item_manifest, slugify_id, ExportItemResult, InstallItemResult, ItemSummary, PackZone,
     ARCHIVE_EXTENSION, CHANGELOG_FILENAME, CHANGELOG_MAX_BYTES, README_FILENAME, README_MAX_BYTES,
 };
 use crate::settings;
 use serde::Serialize;
 use spk_format::{detect_item_type, parse_item_manifest_value};
-use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::AppHandle;
@@ -39,11 +38,8 @@ fn resolve_known_item_dir(app: &AppHandle, dir: &str) -> Result<PathBuf, String>
         return Err("directory does not contain an item manifest".into());
     }
 
-    let mut roots: Vec<PathBuf> = Vec::with_capacity(3);
+    let mut roots: Vec<PathBuf> = Vec::with_capacity(2);
     roots.push(builtin_packs_root(app));
-    if let Ok(workshop) = workshop_packs_root(app) {
-        roots.push(workshop);
-    }
     if let Ok(installed) = installed_packs_root(app) {
         roots.push(installed);
     }
@@ -98,32 +94,84 @@ pub(crate) fn default_publisher_id(app: &AppHandle) -> String {
     }
 }
 
-/// First `base`, `base-2`, `base-3`… whose `<publisherId>.<id>` directory is free in `type_root`.
-pub(crate) fn unique_item_id(type_root: &Path, publisher_id: &str, base: &str) -> String {
-    let mut candidate = base.to_string();
+/// Local id for a new item named `name`: its slug, or `<slug>-2`, `-3`… when taken. An item's
+/// folder name is not tied to its id, so uniqueness is checked against known items.
+fn unique_local_id(app: &AppHandle, item_type: &str, publisher_id: &str, slug: &str) -> String {
+    let taken: std::collections::HashSet<String> = scan_all_items(app)
+        .contributions
+        .into_iter()
+        .map(|c| c.effective_id)
+        .collect();
+    let mut candidate = slug.to_string();
     let mut n = 2;
-    while type_root
-        .join(item_dir_name(publisher_id, &candidate))
-        .exists()
-    {
-        candidate = format!("{base}-{n}");
+    while taken.contains(&packs::effective_item_id(
+        publisher_id,
+        item_type,
+        &candidate,
+    )) {
+        candidate = format!("{slug}-{n}");
         n += 1;
     }
     candidate
 }
 
-/// Every effective id currently present as a workshop item.
-fn workshop_item_ids(app: &AppHandle) -> HashSet<String> {
-    let mut ids = HashSet::new();
-    let Ok(workshop) = workshop_packs_root(app) else {
-        return ids;
-    };
-    for (_, dir) in spk_format::list_item_dirs(&workshop) {
-        if let Ok(id) = peek_item_effective_id(&dir) {
-            ids.insert(id);
+/// Slug used for a new item's id and default folder name; `item_type` stands in for a blank name.
+pub(crate) fn slugify_new_item_id(item_type: &str, name: &str) -> String {
+    let slug = slugify_id(name);
+    if slug == "untitled" {
+        item_type.to_string()
+    } else {
+        slug
+    }
+}
+
+/// Default folder for a new item: `<library root>/Packs/<type folder>/<slug>`, with `-2`, `-3`…
+/// appended while that folder already exists.
+fn default_new_item_dir(app: &AppHandle, item_type: &str, name: &str) -> Result<PathBuf, String> {
+    let folder =
+        item_type_folder(item_type).ok_or_else(|| format!("unknown item type \"{item_type}\""))?;
+    let type_root = library_packs_root(app)?.join(folder);
+    let slug = slugify_new_item_id(item_type, name);
+    let mut dir = type_root.join(&slug);
+    let mut n = 2;
+    while dir.exists() {
+        dir = type_root.join(format!("{slug}-{n}"));
+        n += 1;
+    }
+    Ok(dir)
+}
+
+/// Where the new-item dialog proposes to create an item of `item_type` called `name`.
+#[tauri::command]
+pub fn default_new_item_location(
+    app: AppHandle,
+    item_type: String,
+    name: String,
+) -> Result<String, String> {
+    Ok(default_new_item_dir(&app, &item_type, &name)?
+        .to_string_lossy()
+        .into_owned())
+}
+
+/// Pick a folder for a new item (native dialog). `None` when cancelled.
+#[tauri::command]
+pub fn pick_new_item_folder(start_at: Option<String>) -> Option<String> {
+    let mut dialog = rfd::FileDialog::new().set_title("Choose a Folder for the New Item");
+    if let Some(start) = start_at {
+        // Start in the nearest folder that exists.
+        let mut dir = PathBuf::from(start.trim());
+        while !dir.is_dir() {
+            if !dir.pop() {
+                break;
+            }
+        }
+        if dir.is_dir() {
+            dialog = dialog.set_directory(dir);
         }
     }
-    ids
+    dialog
+        .pick_folder()
+        .map(|p| p.to_string_lossy().into_owned())
 }
 
 fn normalize_linked_path(path: &Path) -> Result<String, String> {
@@ -148,10 +196,6 @@ fn read_item_text_at(dir: &Path, filename: &str, max_bytes: u64) -> Result<Optio
 }
 
 fn authoring_item_writable(app: &AppHandle, dir: &Path) -> bool {
-    let workshop_ok = workshop_packs_root(app)
-        .ok()
-        .and_then(|root| root.canonicalize().ok())
-        .is_some_and(|w| dir.parent().and_then(Path::parent) == Some(w.as_path()));
     let linked_ok = settings::read_settings(app)
         .linked_item_paths
         .iter()
@@ -160,7 +204,7 @@ fn authoring_item_writable(app: &AppHandle, dir: &Path) -> bool {
         && builtin_packs_root(app)
             .canonicalize()
             .is_ok_and(|b| dir.parent().and_then(Path::parent) == Some(b.as_path()));
-    workshop_ok || linked_ok || builtin_ok
+    linked_ok || builtin_ok
 }
 
 fn write_item_text_at(
@@ -193,7 +237,7 @@ fn write_item_text_at(
     fs::write(&path, content).map_err(|e| format!("failed to write {filename}: {e}"))
 }
 
-/// The editable item with `effective_id`: a workshop or linked item, or a built-in one in debug builds.
+/// The editable item with `effective_id`: a linked item, or a built-in one in debug builds.
 pub(crate) fn find_mutable_item(
     app: &AppHandle,
     effective_id: &str,
@@ -276,7 +320,7 @@ pub fn get_item_export_defaults(
     })
 }
 
-/// Export a workshop or linked item to a `.spk` build artifact. Leaves the source untouched.
+/// Export a linked item to a `.spk` build artifact. Leaves the source untouched.
 #[tauri::command]
 pub fn export_item(
     app: AppHandle,
@@ -324,7 +368,7 @@ pub fn export_item(
     export_item_dir_to_spk(&item.contribution_dir, &metadata, &dest).map(Some)
 }
 
-/// List all items (builtin / workshop / installed / linked) for the management UI.
+/// List all items (builtin / installed / linked) for the management UI.
 #[tauri::command]
 pub fn list_items(app: AppHandle) -> Result<Vec<ItemSummary>, String> {
     packs::manage::list_items(&app)
@@ -362,12 +406,6 @@ pub fn link_item_folder(app: AppHandle, path: Option<String>) -> Result<Option<S
         format!("folder is not an item root (pick the folder holding theme.json, skin.json, viz.json or sound.json): {e}")
     })?;
     let effective_id = item.effective_id();
-
-    if workshop_item_ids(&app).contains(&effective_id) {
-        return Err(format!(
-            "\"{effective_id}\" collides with an existing workshop item; unlink or rename one before linking"
-        ));
-    }
 
     let normalized = normalize_linked_path(&source)?;
 
@@ -416,7 +454,7 @@ pub fn unlink_item(app: AppHandle, path: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Return current scan warning messages (e.g. misplaced items, linked/workshop collisions).
+/// Return current scan warning messages (e.g. misplaced items, linked/Library collisions).
 #[tauri::command]
 pub fn get_item_scan_warnings(app: AppHandle) -> Result<Vec<String>, String> {
     packs::ensure_packs_ready(&app)?;
@@ -426,8 +464,8 @@ pub fn get_item_scan_warnings(app: AppHandle) -> Result<Vec<String>, String> {
 
 /// Update an authoring item's identity and display fields in its manifest.
 ///
-/// Workshop items are moved to the directory matching a new `publisherId`/`id`; linked items
-/// are edited in place and never renamed. Active/hidden references follow an id change.
+/// Linked items are edited in place: their folder name is not tied to their identity, so an id
+/// change never renames or moves the folder. Active/hidden references follow an id change.
 /// Returns the item's effective id after the update.
 #[tauri::command]
 pub fn update_item_metadata(
@@ -490,35 +528,10 @@ pub fn update_item_metadata(
         return Err(format!("\"{new_effective}\" already exists"));
     }
 
-    let new_dir = if item.zone == PackZone::Workshop && changed_identity {
-        let dest = item
-            .contribution_dir
-            .parent()
-            .ok_or_else(|| "workshop item has no parent directory".to_string())?
-            .join(parsed.dir_name());
-        if dest.exists() {
-            return Err(format!("\"{new_effective}\" already exists"));
-        }
-        Some(dest)
-    } else {
-        None
-    };
-
     let json = serde_json::to_string_pretty(&value)
         .map_err(|e| format!("failed to serialize manifest: {e}"))?;
     fs::write(manifest_path, format!("{json}\n"))
         .map_err(|e| format!("failed to write {}: {e}", manifest_path.display()))?;
-
-    if let Some(dest) = new_dir {
-        if let Err(e) = fs::rename(&item.contribution_dir, &dest) {
-            // Best-effort restore so the draft keeps its previous identity.
-            let _ = fs::write(manifest_path, text);
-            return Err(format!(
-                "failed to move \"{}\" → \"{new_effective}\": {e}",
-                item.effective_id
-            ));
-        }
-    }
 
     if changed_identity {
         remap_item_references(&app, &item.effective_id, &new_effective)?;
@@ -563,7 +576,7 @@ pub fn read_item_readme(app: AppHandle, item_dir: String) -> Result<Option<Strin
     read_item_text_at(&dir, README_FILENAME, README_MAX_BYTES)
 }
 
-/// Create, update, or remove item-root `README.md` for workshop or linked items.
+/// Create, update, or remove item-root `README.md` for linked items.
 /// Whitespace-only content deletes the file so the About tab stays empty.
 #[tauri::command]
 pub fn write_item_readme(app: AppHandle, item_dir: String, content: String) -> Result<(), String> {
@@ -573,7 +586,7 @@ pub fn write_item_readme(app: AppHandle, item_dir: String, content: String) -> R
         README_FILENAME,
         README_MAX_BYTES,
         content,
-        "README can only be edited for workshop or linked items",
+        "README can only be edited for linked items",
     )
 }
 
@@ -584,7 +597,7 @@ pub fn read_item_changelog(app: AppHandle, item_dir: String) -> Result<Option<St
     read_item_text_at(&dir, CHANGELOG_FILENAME, CHANGELOG_MAX_BYTES)
 }
 
-/// Create, update, or remove item-root `CHANGELOG.md` for workshop or linked items.
+/// Create, update, or remove item-root `CHANGELOG.md` for linked items.
 /// Whitespace-only content deletes the file so the Changelog tab stays empty.
 #[tauri::command]
 pub fn write_item_changelog(
@@ -598,7 +611,7 @@ pub fn write_item_changelog(
         CHANGELOG_FILENAME,
         CHANGELOG_MAX_BYTES,
         content,
-        "CHANGELOG can only be edited for workshop or linked items",
+        "CHANGELOG can only be edited for linked items",
     )
 }
 
@@ -660,7 +673,7 @@ pub(crate) fn remap_item_references(
     Ok(())
 }
 
-/// Delete an installed item. Builtin, workshop and linked items are rejected.
+/// Delete an installed item. Builtin and linked items are rejected.
 #[tauri::command]
 pub fn uninstall_item(app: AppHandle, item_id: String) -> Result<(), String> {
     packs::ensure_packs_ready(&app)?;
@@ -669,19 +682,62 @@ pub fn uninstall_item(app: AppHandle, item_id: String) -> Result<(), String> {
     forget_item_references(&app, item_id)
 }
 
-/// Delete a workshop draft. Linked items are never deleted from disk — unlink them instead.
+/// Refuse to delete a folder that is clearly more than one item: a git checkout, or a folder
+/// holding the user's home directory or Spiral Library.
+fn ensure_safe_to_delete(app: &AppHandle, dir: &Path) -> Result<(), String> {
+    use tauri::Manager;
+    if dir.join(".git").exists() {
+        return Err(
+            "this folder is a git repository; unlink it and delete it yourself if you want it gone"
+                .into(),
+        );
+    }
+    let canonical = dir
+        .canonicalize()
+        .map_err(|e| format!("invalid item directory: {e}"))?;
+    let protected = [
+        app.path().home_dir().ok(),
+        Some(PathBuf::from(
+            settings::resolved_library_settings(app).library_root,
+        )),
+    ];
+    for protected in protected.into_iter().flatten() {
+        if protected
+            .canonicalize()
+            .is_ok_and(|p| p.starts_with(&canonical))
+        {
+            return Err(
+                "refusing to delete a folder that contains your home folder or Spiral Library"
+                    .into(),
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Delete a linked item's folder from disk and unlink it. Use `unlink_item` to leave the
+/// files in place.
 #[tauri::command]
-pub fn delete_workshop_item(app: AppHandle, item_id: String) -> Result<(), String> {
+pub fn delete_linked_item(app: AppHandle, item_id: String) -> Result<(), String> {
     packs::ensure_packs_ready(&app)?;
 
     let item = find_mutable_item(&app, &item_id)?;
-    if item.zone != PackZone::Workshop {
-        return Err(
-            "only workshop items are deleted from disk; unlink linked items instead".into(),
-        );
+    if item.zone != PackZone::Linked {
+        return Err("only linked items can be deleted from disk".into());
     }
+    ensure_safe_to_delete(&app, &item.contribution_dir)?;
 
-    fs::remove_dir_all(&item.contribution_dir)
+    let canonical = item
+        .contribution_dir
+        .canonicalize()
+        .map_err(|e| format!("invalid item directory: {e}"))?;
+    let mut app_settings = settings::read_settings(&app);
+    app_settings
+        .linked_item_paths
+        .retain(|stored| !paths_equal_canonical(&PathBuf::from(stored.trim()), &canonical));
+    settings::write_settings(&app, &app_settings)?;
+
+    fs::remove_dir_all(&canonical)
         .map_err(|e| format!("failed to delete \"{}\": {e}", item.effective_id))?;
     forget_item_references(&app, &item.effective_id)
 }
@@ -714,28 +770,71 @@ pub fn save_default_publisher_id(app: AppHandle, publisher_id: String) -> Result
     Ok(resolved)
 }
 
-/// Create a new workshop item directory, returning `(dir, id)`.
+/// Create the folder for a new item and link it, returning `(dir, id)`. `location` is the
+/// item folder itself (any name, anywhere); it defaults to the Library's `Packs` folder. An
+/// existing folder is only accepted when it is empty.
 /// Used by the type-specific scaffolders (e.g. new theme).
-pub(crate) fn scaffold_workshop_item_dir(
+pub(crate) fn scaffold_item_dir(
     app: &AppHandle,
     item_type: &str,
+    name: &str,
     publisher_id: &str,
-    base_id: &str,
+    location: Option<&str>,
 ) -> Result<(PathBuf, String), String> {
-    let workshop = ensure_workshop_root(app)?;
-    let folder =
-        item_type_folder(item_type).ok_or_else(|| format!("unknown item type \"{item_type}\""))?;
-    let type_root = workshop.join(folder);
-    let id = unique_item_id(&type_root, publisher_id, base_id);
-    let dir = type_root.join(item_dir_name(publisher_id, &id));
-    fs::create_dir_all(&dir).map_err(|e| format!("failed to create workshop item dir: {e}"))?;
     debug_assert!(item_manifest_filename(item_type).is_some());
+    let dir = match location.map(str::trim).filter(|l| !l.is_empty()) {
+        Some(location) => {
+            let dir = PathBuf::from(location);
+            if !dir.is_absolute() {
+                return Err("the folder must be an absolute path".into());
+            }
+            dir
+        }
+        None => {
+            ensure_library_packs_root(app)?;
+            default_new_item_dir(app, item_type, name)?
+        }
+    };
+    if dir.exists() {
+        let empty = dir.is_dir()
+            && fs::read_dir(&dir)
+                .map_err(|e| format!("failed to read {}: {e}", dir.display()))?
+                .next()
+                .is_none();
+        if !empty {
+            return Err(format!(
+                "{} already exists and is not an empty folder",
+                dir.display()
+            ));
+        }
+    }
+    fs::create_dir_all(&dir).map_err(|e| format!("failed to create {}: {e}", dir.display()))?;
+    packs::add_linked_item_path(app, &dir)?;
+    let id = unique_local_id(
+        app,
+        item_type,
+        publisher_id,
+        &slugify_new_item_id(item_type, name),
+    );
     Ok((dir, id))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn new_item_slug_falls_back_to_the_type_for_blank_names() {
+        assert_eq!(
+            slugify_new_item_id("theme", "My Cool Theme"),
+            "my-cool-theme"
+        );
+        assert_eq!(
+            slugify_new_item_id("theme", "obsidian.theme"),
+            "obsidian-theme"
+        );
+        assert_eq!(slugify_new_item_id("theme", "  "), "theme");
+    }
 
     fn temp_dir(label: &str) -> PathBuf {
         let nanos = std::time::SystemTime::now()

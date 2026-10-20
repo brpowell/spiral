@@ -43,6 +43,8 @@ body:has(.mac-overlay-titlebar) .modal-backdrop {
   pointer-events: auto;
   --modal-padding-inline: 1.25rem;
   --modal-padding-block: 1.25rem;
+  /* Space between the content and the header above / footer below it. */
+  --modal-content-gap: 1rem;
   --modal-fade-height: 0.5rem;
   --modal-fade-padding: 8px;
   --modal-fade-overlay: linear-gradient(
@@ -110,7 +112,8 @@ body:has(.mac-overlay-titlebar) .modal-backdrop {
   flex-shrink: 0;
   position: relative;
   z-index: 1;
-  padding: var(--modal-padding-block) var(--modal-padding-inline) 1rem;
+  padding: var(--modal-padding-block) var(--modal-padding-inline)
+    var(--modal-content-gap);
   background: var(--color-surface);
 }
 
@@ -205,7 +208,8 @@ body:has(.mac-overlay-titlebar) .modal-backdrop {
 .modal-panel > .modal-footer {
   flex-shrink: 0;
   margin-top: auto;
-  padding: 0.75rem var(--modal-padding-inline) var(--modal-padding-block);
+  padding: var(--modal-content-gap) var(--modal-padding-inline)
+    var(--modal-padding-block);
 }
 
 .modal-panel > .modal-footer--fade {

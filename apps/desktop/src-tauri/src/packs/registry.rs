@@ -585,7 +585,7 @@ pub fn check_updates_at_base(
 }
 
 /// Items in the `installed/` zone, which are the only ones the registry can update.
-/// Builtin, workshop and linked items never come from a registry.
+/// Builtin and linked items never come from a registry.
 pub fn installed_item_refs(app: &AppHandle) -> Vec<InstalledItemRef> {
     list_installed_items(app)
         .into_iter()

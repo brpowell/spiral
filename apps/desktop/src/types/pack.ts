@@ -1,8 +1,8 @@
-export type PackZone = "builtin" | "workshop" | "installed" | "linked";
+export type PackZone = "builtin" | "installed" | "linked";
 
-/** Workshop drafts and linked folders share the mutable authoring class. */
+/** Linked items (the Library's Packs folder and linked folders) are the mutable authoring class. */
 export function isAuthoringPackZone(zone: PackZone): boolean {
-  return zone === "workshop" || zone === "linked";
+  return zone === "linked";
 }
 
 /**

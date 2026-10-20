@@ -166,8 +166,7 @@
     "saved": "Theme saved",
     "saveFailed": "Failed to save theme",
     "activated": "Theme activated",
-    "activateFailed": "Failed to activate theme",
-    "deleted": "Theme deleted"
+    "activateFailed": "Failed to activate theme"
   },
   "items": {
     "installed": "Installed {{name}} ({{version}})",

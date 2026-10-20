@@ -153,7 +153,7 @@ pub fn load_visualizer(app: AppHandle, visualizer_id: String) -> Result<LoadedVi
         .find(|p| p.summary.id == resolved)
         .ok_or_else(|| {
             format!(
-                "visualizer \"{visualizer_id}\" was not found in builtin, workshop, installed, or linked items"
+                "visualizer \"{visualizer_id}\" was not found in builtin, installed, or linked items"
             )
         })
 }

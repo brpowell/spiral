@@ -3,7 +3,7 @@ import { isAuthoringPackZone, isEditablePackZone } from "./pack";
 
 describe("isEditablePackZone", () => {
   it("always allows authoring zones", () => {
-    expect(isEditablePackZone("workshop")).toBe(true);
+    expect(isEditablePackZone("linked")).toBe(true);
     expect(isEditablePackZone("linked")).toBe(true);
   });
 

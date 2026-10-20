@@ -84,7 +84,7 @@
   },
   "studio": {
     "defaultPublisherId": "Default Publisher ID",
-    "defaultPublisherIdDescription": "Seeded into new workshop items as publisherId. Changing this does not rewrite existing items.",
+    "defaultPublisherIdDescription": "Seeded into new items as publisherId. Changing this does not rewrite existing items.",
     "slugHint": "Use lowercase letters, numbers, and hyphens (e.g. jane-doe).",
     "publisherIdPlaceholder": "jane-doe"
   },
