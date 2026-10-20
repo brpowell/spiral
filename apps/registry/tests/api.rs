@@ -229,6 +229,49 @@ async fn list_detail_download_end_to_end() {
 }
 
 #[tokio::test]
+async fn downloads_are_counted_per_version() {
+    let (state, _tmp, _) = test_state("/admin", None).await;
+    let app = app_router(state.clone());
+    let get = |uri: &'static str| {
+        let app = app.clone();
+        async move {
+            app.oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+                .await
+                .unwrap()
+                .status()
+        }
+    };
+    let count = |version: &'static str| {
+        let db = state.db.clone();
+        async move {
+            db.get_download_count("spiral", "skin", "demo-skin", version)
+                .await
+                .unwrap()
+        }
+    };
+
+    assert_eq!(count("1.1.0").await, Some(0));
+    assert_eq!(
+        get("/v1/items/spiral/skin/demo-skin/versions/1.1.0/download").await,
+        StatusCode::OK
+    );
+    // `latest` resolves to 1.1.0 and counts against it.
+    assert_eq!(
+        get("/v1/items/spiral/skin/demo-skin/versions/latest/download").await,
+        StatusCode::OK
+    );
+    assert_eq!(count("1.1.0").await, Some(2));
+    assert_eq!(count("1.0.0").await, Some(0));
+
+    // Unknown versions and previews don't count.
+    assert_eq!(
+        get("/v1/items/spiral/skin/demo-skin/versions/7.7.7/download").await,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(count("1.1.0").await, Some(2));
+}
+
+#[tokio::test]
 async fn unknown_item_type_and_item_are_not_found() {
     let (app, _tmp, _) = test_app().await;
     let (status, _) = json_get(&app, "/v1/items/spiral/widget/demo-skin").await;
