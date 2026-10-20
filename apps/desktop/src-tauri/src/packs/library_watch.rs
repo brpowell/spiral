@@ -2,7 +2,7 @@
 //! Emits `packs://library-changed` so the UI can live-reload hand-edited items.
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -132,13 +132,13 @@ fn is_relevant_event(event: &notify::Event) -> bool {
     use notify::EventKind;
     match event.kind {
         EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_) => {
-            !event.paths.is_empty() && event.paths.iter().any(is_library_content_path)
+            !event.paths.is_empty() && event.paths.iter().any(|p| is_library_content_path(p))
         }
         _ => false,
     }
 }
 
-fn is_library_content_path(path: &PathBuf) -> bool {
+fn is_library_content_path(path: &Path) -> bool {
     let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
         return false;
     };
