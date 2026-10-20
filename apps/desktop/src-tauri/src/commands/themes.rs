@@ -318,7 +318,8 @@ mod tests {
         );
         for theme in &themes {
             assert_eq!(theme.zone, PackZone::Builtin);
-            assert!(!theme.mutable);
+            // Built-ins are editable in debug builds only (see `PackZone::is_editable`).
+            assert_eq!(theme.mutable, cfg!(debug_assertions));
             assert_eq!(theme.version, "1.0.0");
             assert_eq!(theme.publisher_id, "spiral");
         }

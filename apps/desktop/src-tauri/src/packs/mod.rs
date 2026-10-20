@@ -59,7 +59,37 @@ impl PackZone {
         matches!(self, PackZone::Workshop | PackZone::Linked)
     }
 
+    /// Whether Studio may edit items in this zone in place.
+    ///
+    /// Debug builds also edit built-in items: their root is the live source tree (see
+    /// `builtin_packs_root`), so token tweaks land in the repo, ready to commit. Release
+    /// builds never write into the app bundle.
+    pub fn is_editable(self) -> bool {
+        self.is_mutable() || (cfg!(debug_assertions) && self.is_builtin())
+    }
+
     pub fn is_builtin(self) -> bool {
         matches!(self, PackZone::Builtin)
+    }
+}
+
+#[cfg(test)]
+mod zone_tests {
+    use super::PackZone;
+
+    #[test]
+    fn authoring_zones_are_always_editable() {
+        assert!(PackZone::Workshop.is_editable());
+        assert!(PackZone::Linked.is_editable());
+    }
+
+    #[test]
+    fn installed_items_are_never_editable() {
+        assert!(!PackZone::Installed.is_editable());
+    }
+
+    #[test]
+    fn builtin_items_are_editable_in_debug_builds_only() {
+        assert_eq!(PackZone::Builtin.is_editable(), cfg!(debug_assertions));
     }
 }

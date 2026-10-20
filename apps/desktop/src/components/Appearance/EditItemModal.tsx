@@ -55,6 +55,8 @@ export function EditItemModal({
     setDescription(item.description);
   }, [open, item]);
 
+  /** Built-in ids name their folder in the source tree, so they stay fixed. */
+  const lockIdentity = item?.zone === "builtin";
   const trimmedId = id.trim();
   const trimmedPublisherId = publisherId.trim();
   const trimmedVersion = version.trim();
@@ -121,7 +123,7 @@ export function EditItemModal({
             value={id}
             onChange={(e) => setId(e.target.value)}
             placeholder={t("items.idPlaceholder")}
-            disabled={saving}
+            disabled={saving || lockIdentity}
             spellCheck={false}
             autoComplete="off"
             onKeyDown={submitOnEnter}
@@ -139,7 +141,7 @@ export function EditItemModal({
             value={publisherId}
             onChange={(e) => setPublisherId(e.target.value)}
             placeholder={t("items.publisherIdPlaceholder")}
-            disabled={saving}
+            disabled={saving || lockIdentity}
             spellCheck={false}
             autoComplete="off"
             onKeyDown={submitOnEnter}
