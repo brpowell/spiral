@@ -170,7 +170,8 @@
   min-height: calc(0.7rem * 1.45 * 2);
   font-size: 0.7rem;
   line-height: 1.45;
-  color: var(--color-text-muted, var(--color-text-secondary));
+  /* Computed in applyTheme to hold 4.5:1 on the raised card surface. */
+  color: var(--color-text-muted-on-raised, var(--color-text-secondary));
 }
 
 .appearance-pack-card__description-text {

@@ -5,6 +5,10 @@ import {
   type Theme,
   type ThemeTokens,
 } from "../types/theme";
+import {
+  accessibleMutedOnRaised,
+  accessibleSelectedText,
+} from "./accessibleColor";
 import { DEFAULT_FONT_ID, resolveFontStack } from "./fonts";
 
 export const DEFAULT_THEME_ID = "spiral.theme.obsidian";
@@ -171,7 +175,26 @@ export function applyTheme(
     }
   }
 
-  syncNativeWindowAppearance(windowAppearanceForBackground(tokens["color-bg"]));
+  const mutedOnRaised = accessibleMutedOnRaised(
+    tokens["color-bg"] ?? "",
+    tokens["color-text-primary"] ?? "",
+  );
+  if (mutedOnRaised) {
+    root.style.setProperty("--color-text-muted-on-raised", mutedOnRaised);
+  }
+
+  const appearance = windowAppearanceForBackground(tokens["color-bg"]);
+  const selectedText = accessibleSelectedText(
+    tokens["color-bg"] ?? "",
+    tokens["color-text-primary"] ?? "",
+    tokens["color-accent"] ?? "",
+    appearance,
+  );
+  if (selectedText) {
+    root.style.setProperty("--color-interactive-selected-text", selectedText);
+  }
+
+  syncNativeWindowAppearance(appearance);
 
   if (withTransition) {
     themeTransitionTimer = setTimeout(() => {
