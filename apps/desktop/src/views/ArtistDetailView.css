@@ -50,7 +50,7 @@
 .artist-detail__title {
   margin: 0 0 0.75rem;
   font-size: 1.75rem;
-  font-weight: 700;
+  font-weight: var(--weight-strong);
   line-height: 1.2;
 }
 
@@ -63,7 +63,7 @@
 .artist-detail__section-title {
   margin: 0;
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 
 .artist-detail__discography-header {

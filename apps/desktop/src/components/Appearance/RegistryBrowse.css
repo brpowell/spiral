@@ -94,7 +94,7 @@
   background: var(--color-accent);
   color: var(--color-accent-text, #fff);
   font-size: 0.68rem;
-  font-weight: 700;
+  font-weight: var(--weight-strong);
   line-height: 1.05rem;
   text-align: center;
   box-shadow: 0 0 0 2px var(--color-bg);

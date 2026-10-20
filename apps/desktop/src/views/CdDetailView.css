@@ -44,7 +44,7 @@
 .cd-detail__title {
   margin: 0 0 0.35rem;
   font-size: 1.75rem;
-  font-weight: 700;
+  font-weight: var(--weight-strong);
   line-height: 1.2;
 }
 

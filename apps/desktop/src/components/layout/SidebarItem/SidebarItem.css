@@ -17,18 +17,13 @@ a.sidebar-item:focus-visible {
   padding: 0.4rem 0.5rem;
 }
 
-/* Beats `.btn`'s weight; `a.sidebar-item` below sets the same for link items. */
-.sidebar-item.btn {
-  font-weight: 400;
-}
-
 a.sidebar-item {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   font-family: var(--font-ui);
-  font-weight: 400;
+  font-weight: var(--weight-regular);
   line-height: 1.25;
   font-size: 0.85rem;
   padding: 0.4rem 0.5rem;
@@ -99,7 +94,7 @@ a.sidebar-item--active:hover {
   min-width: 0;
   max-width: 100%;
   font-size: 0.72rem;
-  font-weight: 500;
+  font-weight: var(--weight-regular);
   line-height: 1.3;
   opacity: 0.85;
   white-space: nowrap;

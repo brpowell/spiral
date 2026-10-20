@@ -90,7 +90,7 @@
 
 .now-playing-metadata__title {
   font-size: 0.78rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   color: var(--color-text-primary);
   line-height: 1.25;
 }

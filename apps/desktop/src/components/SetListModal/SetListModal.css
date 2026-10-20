@@ -44,7 +44,7 @@
 .set-list-modal__section-title {
   margin: 0 0 0.2rem;
   font-size: 0.7rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-text-secondary);
@@ -123,7 +123,7 @@
   grid-row: 1;
   min-width: 0;
   font-size: 0.88rem;
-  font-weight: 500;
+  font-weight: var(--weight-regular);
   color: var(--color-text-primary);
 }
 

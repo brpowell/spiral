@@ -37,7 +37,7 @@
   background: transparent;
   padding: 0.15rem 0 0;
   font-size: 0.82rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   color: var(--color-text-secondary);
   cursor: pointer;
 }
