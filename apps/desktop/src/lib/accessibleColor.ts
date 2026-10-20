@@ -98,6 +98,95 @@ const SURFACE_RAISED_INK_WEIGHT = 0.11;
 /** Mirrors `--color-text-muted` in theme.css: ink 45% over the page. */
 const MUTED_INK_WEIGHT = 0.45;
 
+/** `color-mix(in srgb, a weight%, b)`: channels blended in gamma space. */
+function mixSrgb(a: Rgb, b: Rgb, weight: number): Rgb {
+  return a.map((c, i) =>
+    toLinear(fromLinear(c) * weight + fromLinear(b[i]!) * (1 - weight)),
+  ) as Rgb;
+}
+
+/** Share of accent in `--color-interactive-selected`, the wash behind selected labels. */
+const SELECTED_WASH_ACCENT_WEIGHT = 0.12;
+/** Mirrors `--color-surface` in theme.css: ink 6% over the page. */
+const SURFACE_INK_WEIGHT = 0.06;
+
+/** Page, surface and raised surface, each bare and under the selected wash. */
+function selectedTextSurfaces(bgRgb: Rgb, inkRgb: Rgb, accentRgb: Rgb): Rgb[] {
+  return [
+    bgRgb,
+    mixOklch(inkRgb, bgRgb, SURFACE_INK_WEIGHT),
+    mixOklch(inkRgb, bgRgb, SURFACE_RAISED_INK_WEIGHT),
+  ].flatMap((surface) => [
+    surface,
+    mixSrgb(accentRgb, surface, SELECTED_WASH_ACCENT_WEIGHT),
+  ]);
+}
+
+/**
+ * Accent for labels that mark a selected item (tabs, sidebar, menus).
+ *
+ * Keeps the accent when it already clears `minRatio` on every surface it can
+ * land on: the page, the surface, the raised surface, and each of those under
+ * the selected wash. Otherwise it blends toward white (dark pages) or black
+ * (light pages) just far enough, which keeps the hue. Returns null when a color
+ * is not a hex value, leaving the CSS fallback in charge.
+ */
+export function accessibleSelectedText(
+  bg: string,
+  ink: string,
+  accent: string,
+  appearance: "light" | "dark",
+  minRatio: number = MIN_TEXT_CONTRAST,
+): string | null {
+  const bgRgb = parseHex(bg);
+  const inkRgb = parseHex(ink);
+  const accentRgb = parseHex(accent);
+  if (!bgRgb || !inkRgb || !accentRgb) return null;
+
+  const targets = selectedTextSurfaces(bgRgb, inkRgb, accentRgb);
+  const worst = (c: Rgb) =>
+    Math.min(...targets.map((t) => contrastRatio(c, t)));
+  const white: Rgb = [1, 1, 1];
+  const black: Rgb = [0, 0, 0];
+  const preferred = appearance === "light" ? black : white;
+  const other = appearance === "light" ? white : black;
+
+  // Mid-tone pages can leave the preferred end short of the bar while the
+  // opposite end clears it, so fall back to that before giving up.
+  for (const toward of [preferred, other]) {
+    for (let step = 0; step <= 100; step++) {
+      const candidate =
+        step === 0 ? accentRgb : mixOklch(accentRgb, toward, 1 - step / 100);
+      if (worst(candidate) >= minRatio) return toHex(candidate);
+    }
+  }
+  return toHex(worst(preferred) >= worst(other) ? preferred : other);
+}
+
+/** The surfaces and washes `accessibleSelectedText` is checked against, as hex. */
+export function selectedTextSurfacesHex(
+  bg: string,
+  ink: string,
+  accent: string,
+): string[] | null {
+  const bgRgb = parseHex(bg);
+  const inkRgb = parseHex(ink);
+  const accentRgb = parseHex(accent);
+  if (!bgRgb || !inkRgb || !accentRgb) return null;
+  return selectedTextSurfaces(bgRgb, inkRgb, accentRgb).map(toHex);
+}
+
+/** `color-mix(in oklch, a weight%, b)` on hex colors, or null if unparsable. */
+export function mixOklchHex(
+  a: string,
+  b: string,
+  weight: number,
+): string | null {
+  const aRgb = parseHex(a);
+  const bRgb = parseHex(b);
+  return aRgb && bRgb ? toHex(mixOklch(aRgb, bRgb, weight)) : null;
+}
+
 /** The raised card surface (`--color-surface-raised`) as hex, or null if unparsable. */
 export function raisedSurfaceHex(bg: string, ink: string): string | null {
   const bgRgb = parseHex(bg);

@@ -1,29 +1,15 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+// @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import {
   MIN_TEXT_CONTRAST,
   accessibleMutedOnRaised,
   hexContrastRatio,
+  accessibleSelectedText,
   raisedSurfaceHex,
+  selectedTextSurfacesHex,
 } from "./accessibleColor";
-
-const THEMES_DIR = join(process.cwd(), "src-tauri/packs/builtin/themes");
-
-function builtinThemes(): { id: string; bg: string; ink: string }[] {
-  return readdirSync(THEMES_DIR)
-    .filter((name) => name.startsWith("spiral."))
-    .map((id) => {
-      const manifest = JSON.parse(
-        readFileSync(join(THEMES_DIR, id, "theme.json"), "utf8"),
-      ) as { tokens: Record<string, string> };
-      return {
-        id,
-        bg: manifest.tokens["color-bg"]!,
-        ink: manifest.tokens["color-text-primary"]!,
-      };
-    });
-}
+import { builtinThemeColors } from "./builtinThemeColors.testutil";
+import { windowAppearanceForBackground } from "./theme";
 
 describe("accessibleMutedOnRaised", () => {
   it("returns null for non-hex colors", () => {
@@ -45,7 +31,7 @@ describe("accessibleMutedOnRaised", () => {
     );
   });
 
-  it.each(builtinThemes())(
+  it.each(builtinThemeColors())(
     "clears AA on the raised surface for $id",
     ({ bg, ink }) => {
       const muted = accessibleMutedOnRaised(bg, ink)!;
@@ -54,6 +40,59 @@ describe("accessibleMutedOnRaised", () => {
       expect(hexContrastRatio(muted, surface)!).toBeGreaterThanOrEqual(
         MIN_TEXT_CONTRAST - 0.02,
       );
+    },
+  );
+});
+
+describe("accessibleSelectedText", () => {
+  it("returns null for non-hex colors", () => {
+    expect(accessibleSelectedText("red", "#fff", "#f00", "dark")).toBeNull();
+  });
+
+  it("keeps an accent that already passes", () => {
+    // Abyss's cyan clears AA on its dark surfaces untouched.
+    expect(
+      accessibleSelectedText("#0a1220", "#eef1f8", "#5ecfd4", "dark"),
+    ).toBe("#5ecfd4");
+  });
+
+  it("lightens a failing accent on dark pages and darkens it on light ones", () => {
+    const dark = accessibleSelectedText(
+      "#181512",
+      "#f6f1e8",
+      "#e63946",
+      "dark",
+    )!;
+    const light = accessibleSelectedText(
+      "#f3f1e4",
+      "#2a2c18",
+      "#7ab01c",
+      "light",
+    )!;
+    expect(dark).not.toBe("#e63946");
+    expect(light).not.toBe("#7ab01c");
+  });
+
+  it("holds the bar for arbitrary user-picked colors", () => {
+    const bg = "#808080";
+    const ink = "#ffffff";
+    const accent = "#888800";
+    const label = accessibleSelectedText(bg, ink, accent, "dark", 4.5)!;
+    for (const surface of selectedTextSurfacesHex(bg, ink, accent)!) {
+      expect(hexContrastRatio(label, surface)!).toBeGreaterThanOrEqual(4.4);
+    }
+  });
+
+  it.each(builtinThemeColors())(
+    "clears AA on every selected surface for $id",
+    ({ bg, ink, accent }) => {
+      const appearance = windowAppearanceForBackground(bg);
+      const label = accessibleSelectedText(bg, ink, accent, appearance)!;
+      for (const surface of selectedTextSurfacesHex(bg, ink, accent)!) {
+        expect(hexContrastRatio(label, surface)!).toBeGreaterThanOrEqual(
+          MIN_TEXT_CONTRAST - 0.02,
+        );
+      }
     },
   );
 });
