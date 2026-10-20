@@ -70,6 +70,24 @@ pub trait CatalogStore: Send + Sync {
         version: &str,
     ) -> Result<Option<ItemVersionRow>>;
 
+    /// Add one to a version's download count. Returns `false` if the version does not exist.
+    async fn record_download(
+        &self,
+        publisher_id: &str,
+        item_type: &str,
+        item_id: &str,
+        version: &str,
+    ) -> Result<bool>;
+
+    /// Recorded download count for a version, or `None` if it does not exist.
+    async fn get_download_count(
+        &self,
+        publisher_id: &str,
+        item_type: &str,
+        item_id: &str,
+        version: &str,
+    ) -> Result<Option<i64>>;
+
     /// All versions, published and yanked, for the admin listing.
     async fn list_all_versions(&self) -> Result<Vec<ItemVersionRow>>;
 

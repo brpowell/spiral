@@ -1126,7 +1126,7 @@ mod tests {
             base
         ));
         assert!(!is_url_under_registry_base(
-            "https://spk-registry.spiralpowered.com/v1/items/a/theme/b/versions/1.0.0/preview",
+            "https://spk.spiralpowered.com/v1/items/a/theme/b/versions/1.0.0/preview",
             base
         ));
     }
