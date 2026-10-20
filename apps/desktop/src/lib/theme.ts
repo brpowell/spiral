@@ -5,6 +5,7 @@ import {
   type Theme,
   type ThemeTokens,
 } from "../types/theme";
+import { accessibleMutedOnRaised } from "./accessibleColor";
 import { DEFAULT_FONT_ID, resolveFontStack } from "./fonts";
 
 export const DEFAULT_THEME_ID = "spiral.theme.obsidian";
@@ -169,6 +170,14 @@ export function applyTheme(
     if (value !== undefined) {
       root.style.setProperty(`--${key}`, value);
     }
+  }
+
+  const mutedOnRaised = accessibleMutedOnRaised(
+    tokens["color-bg"] ?? "",
+    tokens["color-text-primary"] ?? "",
+  );
+  if (mutedOnRaised) {
+    root.style.setProperty("--color-text-muted-on-raised", mutedOnRaised);
   }
 
   syncNativeWindowAppearance(windowAppearanceForBackground(tokens["color-bg"]));

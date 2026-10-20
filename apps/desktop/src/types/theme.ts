@@ -51,6 +51,7 @@ export const DERIVED_THEME_TOKEN_KEYS = [
   "color-border",
   "color-text-secondary",
   "color-text-muted",
+  "color-text-muted-on-raised",
   "color-accent-muted",
   "color-accent-text",
   "color-interactive",
