@@ -11,7 +11,7 @@ import {
   openPathInFileManager,
   readItemManifestJson,
 } from "../../lib/tauri";
-import { WORKSHOP_CHANGED_EVENT } from "../../lib/themeBridge";
+import { LIBRARY_PACKS_CHANGED_EVENT } from "../../lib/themeBridge";
 import { updateItemMetadataWithRefresh } from "../../lib/items/itemActions";
 import { useItemsVersionStore } from "../../store/useItemsVersionStore";
 import { isEditableItem, type ItemSummary } from "../../types/item";
@@ -20,13 +20,12 @@ import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
 import { Button } from "../common/Button/Button";
-import { IconPencil, IconUnlink } from "../icons";
+import { IconPencil } from "../icons";
 import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
 import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
 import { EditItemModal, type EditItemModalResult } from "./EditItemModal";
 import { InstalledItemActions } from "./InstalledItemActions";
 import { ItemActionsMenu } from "./ItemActionsMenu";
-import { UnlinkItemDialog } from "./UnlinkItemDialog";
 import { ItemAboutPanel } from "./ItemAboutPanel";
 import { ItemChangelogPanel } from "./ItemChangelogPanel";
 import { ItemContentsPanel } from "./ItemContentsPanel";
@@ -36,7 +35,7 @@ import "./InstalledPacksSection.css";
 
 type ItemDetailTab = "about" | "contents" | "changelog";
 
-/** Active on-disk record for `effectiveId` (workshop/linked win over installed/builtin). */
+/** Active on-disk record for `effectiveId` (linked wins over installed/builtin). */
 function pickItem(
   items: ItemSummary[],
   effectiveId: string,
@@ -170,7 +169,6 @@ export function ItemDetailView({
   const [item, setItem] = useState<ItemSummary | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState<ItemDetailTab>("about");
-  const [unlinkOpen, setUnlinkOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const openThemeEditor = useOpenAppearanceThemeEditor();
@@ -200,7 +198,10 @@ export function ItemDetailView({
   useEffect(() => {
     let disposed = false;
     const unlisteners: Array<() => void> = [];
-    for (const event of [WORKSHOP_CHANGED_EVENT, RELOAD_LINKED_PACKS_EVENT]) {
+    for (const event of [
+      LIBRARY_PACKS_CHANGED_EVENT,
+      RELOAD_LINKED_PACKS_EVENT,
+    ]) {
       void listen(event, () => void reload()).then((fn) => {
         if (disposed) fn();
         else unlisteners.push(fn);
@@ -212,7 +213,7 @@ export function ItemDetailView({
     };
   }, [reload]);
 
-  /** Workshop items lead with in-app editing when there is any, else Edit details. */
+  /** Linked items lead with in-app editing when there is any, else Edit details. */
   const primaryEdit = () => {
     if (item == null) return;
     if (item.type === "theme") openThemeEditor(item.effectiveId);
@@ -313,25 +314,7 @@ export function ItemDetailView({
                         {revealInFileManagerLabel()}
                       </Button>
                     </div>
-                  ) : item.zone === "linked" ? (
-                    <div className="installed-packs__hero-actions">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setUnlinkOpen(true)}
-                      >
-                        <IconUnlink aria-hidden />
-                        {t("items.unlink")}
-                      </Button>
-                      <ItemActionsMenu
-                        item={item}
-                        variant="secondary"
-                        size="sm"
-                        omitRemove
-                        onAfterEdit={onItemIdChange}
-                      />
-                    </div>
-                  ) : item.zone === "workshop" || item.zone === "builtin" ? (
+                  ) : item.zone === "linked" || item.zone === "builtin" ? (
                     // Built-ins only reach here in dev builds, where they edit in place.
                     <div className="installed-packs__hero-actions">
                       <Button
@@ -369,22 +352,13 @@ export function ItemDetailView({
               </div>
             </header>
 
-            {item.zone === "workshop" || item.zone === "builtin" ? (
+            {item.zone === "linked" || item.zone === "builtin" ? (
               <EditItemModal
                 open={editOpen}
                 item={item}
                 saving={savingEdit}
                 onClose={() => setEditOpen(false)}
                 onSave={(result) => void handleSaveDetails(result)}
-              />
-            ) : null}
-
-            {item.zone === "linked" ? (
-              <UnlinkItemDialog
-                open={unlinkOpen}
-                item={item}
-                onClose={() => setUnlinkOpen(false)}
-                onAfterRemove={onBack}
               />
             ) : null}
 

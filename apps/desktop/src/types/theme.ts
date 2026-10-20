@@ -1,6 +1,6 @@
 import type { PackZone } from "./pack";
 
-/** Token map may be incomplete on workshop drafts; use `resolveThemeTokens` before apply/preview. */
+/** Token map may be incomplete on incomplete drafts; use `resolveThemeTokens` before apply/preview. */
 export interface ThemeTokens {
   "color-bg"?: string;
   "color-text-primary"?: string;
@@ -28,7 +28,7 @@ export interface Theme {
   /** Semver content version of this item build. */
   version: string;
   zone: PackZone;
-  /** Authoring drafts (workshop or linked). */
+  /** Authoring drafts (linked). */
   mutable: boolean;
 }
 
@@ -43,7 +43,7 @@ export const REQUIRED_THEME_TOKEN_KEYS = [
 
 /**
  * Formerly authorable tokens now derived in CSS. Stripped on merge/apply so
- * workshop or older theme.json values cannot override the washes.
+ * older theme.json values cannot override the washes.
  */
 export const DERIVED_THEME_TOKEN_KEYS = [
   "color-surface",

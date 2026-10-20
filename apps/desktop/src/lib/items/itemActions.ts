@@ -6,7 +6,7 @@ import {
 } from "../appearanceWindow";
 import { t } from "../i18n";
 import {
-  deleteWorkshopItem,
+  deleteLinkedItem,
   exportItem,
   getItemScanWarnings,
   installItem,
@@ -178,13 +178,14 @@ export async function uninstallItemWithRefresh(
   }
 }
 
-export async function deleteWorkshopItemWithRefresh(
+export async function deleteLinkedItemWithRefresh(
   itemId: string,
   displayName: string,
 ): Promise<boolean> {
   const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
   try {
-    await deleteWorkshopItem(itemId);
+    await deleteLinkedItem(itemId);
+    await emit(LINKED_PACKS_CHANGED_EVENT);
     await refreshPackContributionStores();
     showToast({
       label: t("toasts:items.deleted", { name: displayName }),

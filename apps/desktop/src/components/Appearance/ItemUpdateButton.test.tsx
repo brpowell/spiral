@@ -51,7 +51,7 @@ describe("ItemUpdateButton", () => {
     const { container } = render(
       <ItemUpdateButton
         effectiveId="spiral.skin.headspace"
-        zone="workshop"
+        zone="linked"
         name="Headspace"
       />,
     );

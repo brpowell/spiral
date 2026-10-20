@@ -1,0 +1,15 @@
+.new-theme-modal__location {
+  margin-top: 1rem;
+}
+
+.new-theme-modal__location-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.new-theme-modal__location-row .text-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}

@@ -249,7 +249,7 @@ export function prefetchItemDetail(entry: RegistryItemSummary): void {
 /**
  * Enrich catalog rows with local install state and the `minAppVersion` gate (no extra
  * registry round-trip). Installed means an item under `installed/` with the same effective id;
- * builtin, workshop and linked items do not count. Previews are fetched by Rust into the
+ * builtin and linked items do not count. Previews are fetched by Rust into the
  * registry-asset cache and exposed as `asset:` URLs (never raw registry http).
  *
  * Pass `resolvePreviews: false` to skip downloading catalog previews.

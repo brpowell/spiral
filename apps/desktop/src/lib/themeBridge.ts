@@ -7,7 +7,7 @@ import { isAnySkinWindow, isAppearanceWindow } from "./windowRole";
 
 export const THEME_CHANGED_EVENT = "theme://changed";
 export const THEME_PREVIEW_EVENT = "theme://preview";
-export const WORKSHOP_CHANGED_EVENT = "workshop://changed";
+export const LIBRARY_PACKS_CHANGED_EVENT = "packs://library-changed";
 
 export interface ThemeChangedPayload {
   themeId: string;
@@ -98,7 +98,7 @@ export async function initThemeBridge(role: WindowRole): Promise<() => void> {
   };
 
   // Appearance blurs frequently (native color picker, file dialogs). Reloading
-  // on every focus fights the theme editor — rely on events / workshop watch.
+  // on every focus fights the theme editor — rely on events / library packs watch.
   const listenForFocusReload = !isAppearanceWindow();
   if (listenForFocusReload) {
     window.addEventListener("focus", reloadThemes);
@@ -127,7 +127,7 @@ export async function initThemeBridge(role: WindowRole): Promise<() => void> {
     },
   );
 
-  const unlistenWorkshop = await listen(WORKSHOP_CHANGED_EVENT, () => {
+  const unlistenLibrary = await listen(LIBRARY_PACKS_CHANGED_EVENT, () => {
     reloadThemes();
   });
 
@@ -137,7 +137,7 @@ export async function initThemeBridge(role: WindowRole): Promise<() => void> {
     }
     unlistenTheme();
     unlistenPreview();
-    unlistenWorkshop();
+    unlistenLibrary();
   };
 }
 

@@ -465,19 +465,6 @@ export function themeActivateFailedPayload(
   );
 }
 
-export function themeDeletedPayload(options?: {
-  dismissMs?: number | null;
-}): ToastPayload {
-  return withOptionalDismiss(
-    {
-      key: "theme-delete",
-      label: t("toasts:themes.deleted"),
-      status: "success",
-    },
-    options?.dismissMs,
-  );
-}
-
 export function themeCreateFailedPayload(
   err?: unknown,
   options?: { dismissMs?: number | null },

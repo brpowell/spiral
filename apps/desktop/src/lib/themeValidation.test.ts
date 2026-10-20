@@ -25,7 +25,7 @@ function makeTheme(
     description: "",
     publisherId: "spiral",
     version: "0.0.0",
-    zone: "workshop",
+    zone: "linked",
     mutable: true,
     ...rest,
     tokens: replaceTokens

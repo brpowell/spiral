@@ -193,7 +193,7 @@ Canvas and webgl `entry` fields must be a relative `.js` filename in the visuali
 | Kind | Location |
 | --- | --- |
 | Built-in | `src-tauri/packs/builtin/<packId>/` |
-| User | `{app_data}/packs/{workshop,installed}/` |
+| User | `{app_data}/packs/installed/`, `<Spiral Library>/Packs/` |
 
 Contributions are discovered under type folders (`visualizers/`, …). Effective id = `publisherId.packId.type.contributionId`.
 

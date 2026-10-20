@@ -60,7 +60,10 @@ export function StudioSidebarActions({
   const handleCreate = async (result: NewThemeModalResult) => {
     setCreating(true);
     try {
-      const theme = await createTheme({ name: result.name });
+      const theme = await createTheme({
+        name: result.name,
+        location: result.location,
+      });
       setThemeModalOpen(false);
       openThemeEditor(theme.id);
     } catch (err) {

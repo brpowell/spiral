@@ -155,7 +155,7 @@ describe("enrichItemCatalog", () => {
   function local(
     effectiveId: string,
     version: string,
-    zone: "installed" | "builtin" | "workshop" | "linked" = "installed",
+    zone: "installed" | "builtin" | "linked" = "installed",
   ) {
     return { effectiveId, version, zone };
   }
@@ -191,10 +191,9 @@ describe("enrichItemCatalog", () => {
     });
   });
 
-  it("ignores builtin, workshop and linked copies", async () => {
+  it("ignores builtin and linked copies", async () => {
     mockListItems.mockResolvedValue([
       local("spiral.theme.noir", "1.0.0", "builtin"),
-      local("spiral.theme.grove", "1.0.0", "workshop"),
       local("spiral.theme.fresh", "1.0.0", "linked"),
     ]);
     const entries = await enrichItemCatalog(

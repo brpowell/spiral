@@ -271,14 +271,32 @@ pub(crate) fn rewrite_media_paths(
     Ok(())
 }
 
+/// Rewrite linked item paths that live under `olds` (the old Packs folder, as stored and as
+/// canonicalized) so they point at the same relative place under `new`.
+pub(crate) fn rewrite_linked_paths(stored: &[String], olds: &[PathBuf], new: &Path) -> Vec<String> {
+    stored
+        .iter()
+        .map(|raw| {
+            let path = PathBuf::from(raw.trim());
+            olds.iter()
+                .find_map(|old| path.strip_prefix(old).ok())
+                .map(|rest| new.join(rest).to_string_lossy().into_owned())
+                .unwrap_or_else(|| raw.clone())
+        })
+        .collect()
+}
+
 fn apply_library_root(app: &AppHandle, new_root: &str) -> Result<LibrarySettingsResponse, String> {
-    settings::merge_library_settings(
+    let resolved = settings::merge_library_settings(
         app,
         LibrarySettingsPatch {
             library_root: Some(new_root.to_string()),
             ..Default::default()
         },
-    )
+    )?;
+    // The Packs folder lives inside the library, so the file watcher follows it.
+    crate::packs::retarget_library_packs_watch(app);
+    Ok(resolved)
 }
 
 fn import_audio_as_reference(app: &AppHandle, state: &DbState, root: &Path) -> Result<u32, String> {
@@ -333,6 +351,12 @@ pub fn relocate_library(
     let dest_media = settings::media_folder_for_root(&dest);
     let old_artwork = settings::artwork_folder_for_root(&current_root);
     let dest_artwork = settings::artwork_folder_for_root(&dest);
+    let old_packs = current_root.join(crate::packs::LIBRARY_PACKS_DIR_NAME);
+    let old_packs_prefixes: Vec<PathBuf> = [Some(old_packs.clone()), old_packs.canonicalize().ok()]
+        .into_iter()
+        .flatten()
+        .collect();
+    let dest_packs = dest.join(crate::packs::LIBRARY_PACKS_DIR_NAME);
 
     match mode {
         LibraryRelocateMode::Move => {
@@ -369,6 +393,9 @@ pub fn relocate_library(
                 if old_artwork.is_dir() {
                     relocate_entry(&old_artwork, &dest_artwork)?;
                 }
+                if old_packs.is_dir() {
+                    relocate_entry(&old_packs, &dest_packs)?;
+                }
                 Ok(())
             })();
 
@@ -390,6 +417,18 @@ pub fn relocate_library(
                 let conn = db::open(&dest_db).map_err(|e| e.to_string())?;
                 rewrite_media_paths(app, &conn, &old_media, &dest_media)?;
                 drop(conn);
+
+                // Items created in the Library are linked by absolute path; follow the move.
+                if dest_packs.is_dir() {
+                    let new_packs = dest_packs.canonicalize().unwrap_or(dest_packs.clone());
+                    let mut app_settings = settings::read_settings(app);
+                    app_settings.linked_item_paths = rewrite_linked_paths(
+                        &app_settings.linked_item_paths,
+                        &old_packs_prefixes,
+                        &new_packs,
+                    );
+                    settings::write_settings(app, &app_settings)?;
+                }
 
                 let resolved = apply_library_root(app, &dest.to_string_lossy())?;
                 library_paths::ensure_spiral_library(&resolved)?;
@@ -459,6 +498,26 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("spiral-relocate-{label}-{nanos}"));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn rewrite_linked_paths_follows_the_packs_folder_only() {
+        let stored = vec![
+            "/Music/Spiral Library/Packs/themes/bryan.one".to_string(),
+            "/Users/bryan/dev/my-skin".to_string(),
+        ];
+        let out = rewrite_linked_paths(
+            &stored,
+            &[PathBuf::from("/Music/Spiral Library/Packs")],
+            Path::new("/Volumes/Big/Spiral Library/Packs"),
+        );
+        assert_eq!(
+            out,
+            vec![
+                "/Volumes/Big/Spiral Library/Packs/themes/bryan.one".to_string(),
+                "/Users/bryan/dev/my-skin".to_string(),
+            ]
+        );
     }
 
     #[test]

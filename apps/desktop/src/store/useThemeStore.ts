@@ -9,13 +9,13 @@ import {
 } from "../lib/theme";
 import { emitThemeChanged, getLiveThemePreview } from "../lib/themeBridge";
 import {
-  createWorkshopTheme,
-  deleteWorkshopItem,
+  createThemeItem,
+  deleteLinkedItem,
   getActiveThemeId,
   getBuiltinThemes,
   loadUserThemes,
   saveActiveThemeId,
-  saveWorkshopTheme,
+  saveThemeItem,
 } from "../lib/tauri";
 import {
   formatThemeValidationError,
@@ -31,7 +31,7 @@ interface ThemeState {
   loadThemes: (options?: { transition?: boolean }) => Promise<void>;
   initializeFromBootstrap: (themes: Theme[], activeThemeId: string) => void;
   setTheme: (themeId: string) => Promise<void>;
-  createTheme: (args?: { name?: string }) => Promise<Theme>;
+  createTheme: (args?: { name?: string; location?: string }) => Promise<Theme>;
   saveTheme: (theme: Theme) => Promise<Theme>;
   deleteTheme: (themeId: string) => Promise<void>;
 }
@@ -105,7 +105,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   },
 
   createTheme: async (args) => {
-    const theme = await createWorkshopTheme(args);
+    const theme = await createThemeItem(args);
     set({ themes: upsertTheme(get().themes, theme) });
     return theme;
   },
@@ -119,7 +119,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     if (issues.length > 0) {
       throw new Error(formatThemeValidationError(issues));
     }
-    const saved = await saveWorkshopTheme(cleaned);
+    const saved = await saveThemeItem(cleaned);
     const { themes, activeThemeId } = get();
     const nextThemes = upsertTheme(themes, saved);
     if (activeThemeId === saved.id) {
@@ -131,7 +131,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   },
 
   deleteTheme: async (themeId) => {
-    await deleteWorkshopItem(themeId);
+    await deleteLinkedItem(themeId);
     await get().loadThemes();
     emitThemeChanged(get().activeThemeId, { skipLocalReload: true });
   },

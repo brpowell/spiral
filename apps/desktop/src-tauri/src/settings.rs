@@ -319,7 +319,7 @@ pub struct AppSettings {
     /// Absolute paths to linked item folders (each holds one item manifest directly).
     #[serde(default)]
     pub linked_item_paths: Vec<String>,
-    /// Seeded once from the OS account name; copied into new workshop packs as `publisherId`.
+    /// Seeded once from the OS account name; copied into new items as `publisherId`.
     #[serde(default = "default_default_publisher_id")]
     pub default_publisher_id: String,
     /// Pack registry sources. Spiral's official instance is always present first

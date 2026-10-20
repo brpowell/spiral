@@ -1,5 +1,5 @@
-use crate::commands::items::{find_mutable_item, scaffold_workshop_item_dir};
-use crate::packs::{self, scan_contributions_of_type, slugify_id, PackZone};
+use crate::commands::items::{find_mutable_item, scaffold_item_dir};
+use crate::packs::{self, scan_contributions_of_type, PackZone};
 use crate::settings;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -36,7 +36,7 @@ struct ThemeFile {
 }
 
 /// Obsidian baseline, used when the active theme cannot be read.
-fn default_workshop_tokens() -> HashMap<String, String> {
+fn default_theme_tokens() -> HashMap<String, String> {
     HashMap::from([
         ("color-bg".into(), "#0e0e10".into()),
         ("color-text-primary".into(), "#f0f0f0".into()),
@@ -47,15 +47,6 @@ fn default_workshop_tokens() -> HashMap<String, String> {
         ("color-alert-warning".into(), "#e8c57b".into()),
         ("font-ui".into(), "inter".into()),
     ])
-}
-
-fn slugify_theme_id(input: &str) -> String {
-    let slug = slugify_id(input);
-    if slug == "untitled" {
-        "theme".to_string()
-    } else {
-        slug
-    }
 }
 
 fn normalize_theme_file(file: ThemeFile, contrib: &packs::ScannedContribution) -> Theme {
@@ -127,12 +118,12 @@ fn tokens_cloned_from_active(themes: &[Theme], stored_active: &str) -> HashMap<S
     find_theme_by_id(themes, &resolved)
         .filter(|theme| !theme.tokens.is_empty())
         .map(|theme| theme.tokens.clone())
-        .unwrap_or_else(default_workshop_tokens)
+        .unwrap_or_else(default_theme_tokens)
 }
 
 fn seed_tokens_for_new_theme(app: &AppHandle) -> HashMap<String, String> {
     let Ok((builtin, user)) = list_themes_from_scan(app) else {
-        return default_workshop_tokens();
+        return default_theme_tokens();
     };
     let themes: Vec<_> = builtin.into_iter().chain(user).collect();
     let stored = settings::read_settings(app).active_theme;
@@ -237,10 +228,15 @@ pub fn get_active_theme_id(app: AppHandle) -> Result<String, String> {
     Ok(resolved)
 }
 
-/// Scaffold a theme draft in the workshop. Tokens are copied from the active theme.
+/// Scaffold a theme in `location` (default: the Library's `Packs` folder) and link it. Tokens
+/// are copied from the active theme.
 /// No author/version prompts (those happen at export).
 #[tauri::command]
-pub fn create_workshop_theme(app: AppHandle, name: Option<String>) -> Result<Theme, String> {
+pub fn create_theme(
+    app: AppHandle,
+    name: Option<String>,
+    location: Option<String>,
+) -> Result<Theme, String> {
     packs::ensure_packs_ready(&app)?;
 
     let display_name = name
@@ -249,11 +245,12 @@ pub fn create_workshop_theme(app: AppHandle, name: Option<String>) -> Result<The
         .unwrap_or_else(|| "Untitled Theme".to_string());
 
     let publisher_id = crate::commands::items::default_publisher_id(&app);
-    let (dir, id) = scaffold_workshop_item_dir(
+    let (dir, id) = scaffold_item_dir(
         &app,
         "theme",
+        &display_name,
         &publisher_id,
-        &slugify_theme_id(&display_name),
+        location.as_deref(),
     )?;
 
     let seed = serde_json::json!({
@@ -279,19 +276,19 @@ pub fn create_workshop_theme(app: AppHandle, name: Option<String>) -> Result<The
         tokens: seed_tokens_for_new_theme(&app),
         publisher_id,
         version: "0.0.0".into(),
-        zone: PackZone::Workshop,
+        zone: PackZone::Linked,
         mutable: true,
     };
     write_theme_contribution(&manifest, &theme)?;
     Ok(theme)
 }
 
-/// Lenient save of a mutable theme draft (workshop or linked; incomplete tokens allowed).
+/// Lenient save of a mutable theme draft (linked; incomplete tokens allowed).
 ///
 /// `theme.id` is the effective id used for lookup. Only name, author, description and
 /// tokens are written; identity changes go through `update_item_metadata`.
 #[tauri::command]
-pub fn save_workshop_theme(app: AppHandle, theme: Theme) -> Result<Theme, String> {
+pub fn save_theme(app: AppHandle, theme: Theme) -> Result<Theme, String> {
     packs::ensure_packs_ready(&app)?;
 
     let contrib = find_mutable_item(&app, &theme.id)?;
@@ -359,7 +356,7 @@ mod tests {
             ]),
             publisher_id: "spiral".into(),
             version: "1.0.0".into(),
-            zone: PackZone::Workshop,
+            zone: PackZone::Linked,
             mutable: true,
         };
         write_theme_contribution(&path, &theme).unwrap();
@@ -469,19 +466,12 @@ mod tests {
     }
 
     #[test]
-    fn slugify_theme_id_from_name_and_filename() {
-        assert_eq!(slugify_theme_id("My Cool Theme"), "my-cool-theme");
-        assert_eq!(slugify_theme_id("obsidian.theme"), "obsidian-theme");
-        assert_eq!(slugify_theme_id("  "), "theme");
-    }
-
-    #[test]
     fn a_new_theme_draft_can_be_validated_and_exported() {
         use crate::packs::export::{export_item_dir_to_spk, ExportItemMetadata};
         use crate::packs::install::validate_item_for_install;
 
-        // Same steps as `create_workshop_theme`: seed manifest, then fill in tokens.
-        let dir = tempfile_workshop();
+        // Same steps as `create_theme`: seed manifest, then fill in tokens.
+        let dir = tempfile_library();
         let path = dir.join("theme.json");
         fs::write(
             &path,
@@ -493,10 +483,10 @@ mod tests {
             name: "Draft".into(),
             author: String::new(),
             description: String::new(),
-            tokens: default_workshop_tokens(),
+            tokens: default_theme_tokens(),
             publisher_id: "bryan".into(),
             version: "0.0.0".into(),
-            zone: PackZone::Workshop,
+            zone: PackZone::Linked,
             mutable: true,
         };
         write_theme_contribution(&path, &theme).unwrap();
@@ -519,7 +509,7 @@ mod tests {
 
     #[test]
     fn write_theme_preserves_identity_fields() {
-        let dir = tempfile_workshop();
+        let dir = tempfile_library();
         let path = dir.join("theme.json");
         fs::write(
             &path,
@@ -534,7 +524,7 @@ mod tests {
             tokens: HashMap::from([("color-bg".to_string(), "#000".to_string())]),
             publisher_id: "bryan".into(),
             version: "0.0.0".into(),
-            zone: PackZone::Workshop,
+            zone: PackZone::Linked,
             mutable: true,
         };
         write_theme_contribution(&path, &theme).unwrap();
@@ -550,9 +540,9 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
-    fn tempfile_workshop() -> std::path::PathBuf {
+    fn tempfile_library() -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(
-            "spiral-workshop-test-{}-{}",
+            "spiral-library-test-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

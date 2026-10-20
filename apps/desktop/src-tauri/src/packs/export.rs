@@ -1,4 +1,4 @@
-//! Export a workshop (or linked) item directory to a `.spk` build artifact.
+//! Export a linked item directory to a `.spk` build artifact.
 
 use super::install::{copy_dir_recursive, validate_item_for_install};
 use super::{item_manifest_filename, write_archive, ItemManifest};
@@ -122,7 +122,7 @@ mod tests {
     #[test]
     fn export_leaves_source_untouched_and_round_trips() {
         let root = temp_root("export-rt");
-        let src = root.join("workshop/themes/bryan.draft");
+        let src = root.join("Packs/themes/bryan.draft");
         write_theme_item(&src, "bryan", "draft", "0.0.0");
         let before = fs::read_to_string(src.join("theme.json")).unwrap();
 

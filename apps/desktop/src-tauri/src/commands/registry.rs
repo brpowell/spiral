@@ -75,7 +75,7 @@ pub fn fetch_registry_item_version(
 }
 
 /// Check every configured registry for newer versions of the installed items, in one batch
-/// per registry. Builtin, workshop and linked items are never checked.
+/// per registry. Builtin and linked items are never checked.
 #[tauri::command]
 pub fn check_item_updates(app: AppHandle) -> Result<ItemUpdateCheck, String> {
     Ok(registry::check_item_updates(&app))

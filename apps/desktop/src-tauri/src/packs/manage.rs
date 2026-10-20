@@ -1,8 +1,6 @@
 //! Item-level list / uninstall for the Appearance management UI.
 
-use super::paths::{
-    builtin_packs_root, ensure_packs_ready, installed_packs_root, workshop_packs_root,
-};
+use super::paths::{builtin_packs_root, ensure_packs_ready, installed_packs_root};
 use super::scan::scan_all_items;
 use super::{item_manifest_filename, read_item_manifest, PackZone};
 use serde::Serialize;
@@ -89,7 +87,7 @@ fn collect_zone_items(
         .collect()
 }
 
-/// List every item directory across builtin / workshop / installed / linked.
+/// List every item directory across builtin / installed / linked.
 pub fn list_items(app: &AppHandle) -> Result<Vec<ItemSummary>, String> {
     ensure_packs_ready(app)?;
 
@@ -106,13 +104,6 @@ pub fn list_items(app: &AppHandle) -> Result<Vec<ItemSummary>, String> {
         PackZone::Builtin,
         &active_dirs,
     ));
-    if let Ok(workshop) = workshop_packs_root(app) {
-        items.extend(collect_zone_items(
-            &workshop,
-            PackZone::Workshop,
-            &active_dirs,
-        ));
-    }
     if let Ok(installed) = installed_packs_root(app) {
         items.extend(collect_zone_items(
             &installed,
@@ -156,7 +147,7 @@ fn find_installed_item_dir(installed_root: &Path, effective_id: &str) -> Option<
         })
 }
 
-/// Delete an installed item. Builtin, workshop and linked items are rejected.
+/// Delete an installed item. Builtin and linked items are rejected.
 pub fn uninstall_installed_item(app: &AppHandle, effective_id: &str) -> Result<(), String> {
     ensure_packs_ready(app)?;
     uninstall_from(&installed_packs_root(app)?, effective_id)
@@ -202,14 +193,14 @@ mod tests {
         write_theme_item(&dir, "bryan", "demo", "1.0.0");
         fs::write(dir.join("preview.png"), b"x").unwrap();
         // Present on disk but undeclared: ignored.
-        let s = summarize_item_dir(&dir, PackZone::Workshop, &none_paths()).unwrap();
+        let s = summarize_item_dir(&dir, PackZone::Linked, &none_paths()).unwrap();
         assert!(s.preview.is_none());
 
         let text = fs::read_to_string(dir.join("theme.json")).unwrap();
         let mut value: serde_json::Value = serde_json::from_str(&text).unwrap();
         value["preview"] = "preview.png".into();
         fs::write(dir.join("theme.json"), value.to_string()).unwrap();
-        let s = summarize_item_dir(&dir, PackZone::Workshop, &none_paths()).unwrap();
+        let s = summarize_item_dir(&dir, PackZone::Linked, &none_paths()).unwrap();
         assert_eq!(s.preview.as_deref(), Some("preview.png"));
         assert!(!s.active);
         let _ = fs::remove_dir_all(&root);
