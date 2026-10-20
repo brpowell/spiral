@@ -1,7 +1,8 @@
 import { getIntlLocale } from "../appLocale";
 import type { AvailableUpdateInfo } from "../updater";
 
-export const RELEASES_HISTORY_URL = "https://spiralpowered.com/api/releases";
+export const RELEASES_HISTORY_URL =
+  "https://www.spiralpowered.com/api/releases";
 
 /** Vite `envPrefix` exposes `SPIRAL_*` from repo-root `.env`. */
 export function releasesHistoryUrl(
