@@ -227,6 +227,16 @@ async fn download_version(
         .await
         .map_err(|e| map_storage_lookup_error(e, &missing))?;
 
+    // Count only downloads that resolve to a real artifact. A failed write must not fail the
+    // download itself.
+    if let Err(e) = state
+        .db
+        .record_download(&publisher_id, &item_type, &item_id, &row.version)
+        .await
+    {
+        tracing::warn!(error = %e, "failed to record download");
+    }
+
     match target {
         DownloadTarget::Redirect(url) => Ok(Redirect::temporary(&url).into_response()),
         DownloadTarget::LocalPath(path) => {

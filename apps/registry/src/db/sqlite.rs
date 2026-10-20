@@ -181,6 +181,51 @@ impl CatalogStore for SqliteStore {
         .context("get version for download")
     }
 
+    async fn record_download(
+        &self,
+        publisher_id: &str,
+        item_type: &str,
+        item_id: &str,
+        version: &str,
+    ) -> Result<bool> {
+        let result = sqlx::query(
+            r#"
+            UPDATE item_versions SET download_count = download_count + 1
+            WHERE publisher_id = ? AND item_type = ? AND item_id = ? AND version = ?
+            "#,
+        )
+        .bind(publisher_id)
+        .bind(item_type)
+        .bind(item_id)
+        .bind(version)
+        .execute(&self.pool)
+        .await
+        .context("record download")?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    async fn get_download_count(
+        &self,
+        publisher_id: &str,
+        item_type: &str,
+        item_id: &str,
+        version: &str,
+    ) -> Result<Option<i64>> {
+        sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT download_count FROM item_versions
+            WHERE publisher_id = ? AND item_type = ? AND item_id = ? AND version = ?
+            "#,
+        )
+        .bind(publisher_id)
+        .bind(item_type)
+        .bind(item_id)
+        .bind(version)
+        .fetch_optional(&self.pool)
+        .await
+        .context("get download count")
+    }
+
     async fn list_all_versions(&self) -> Result<Vec<ItemVersionRow>> {
         sqlx::query_as::<_, ItemVersionRow>(&format!(
             r#"

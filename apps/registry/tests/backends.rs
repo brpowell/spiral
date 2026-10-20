@@ -67,6 +67,39 @@ async fn run_contract(store: &dyn CatalogStore) {
         .await;
     assert!(matches!(dup, Err(InsertItemError::Duplicate)), "{dup:?}");
 
+    // --- download counter
+    assert_eq!(
+        store
+            .get_download_count(&publisher, "theme", item, "1.2.0")
+            .await
+            .unwrap(),
+        Some(0)
+    );
+    for _ in 0..2 {
+        assert!(store
+            .record_download(&publisher, "theme", item, "1.2.0")
+            .await
+            .unwrap());
+    }
+    assert_eq!(
+        store
+            .get_download_count(&publisher, "theme", item, "1.2.0")
+            .await
+            .unwrap(),
+        Some(2)
+    );
+    assert!(!store
+        .record_download(&publisher, "theme", item, "9.9.9")
+        .await
+        .unwrap());
+    assert_eq!(
+        store
+            .get_download_count(&publisher, "theme", item, "9.9.9")
+            .await
+            .unwrap(),
+        None
+    );
+
     let listed = store
         .list_published_versions_for_item(&publisher, "theme", item)
         .await
