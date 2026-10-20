@@ -85,7 +85,9 @@
     "selectPack": "Select a pack…",
     "createPack": "Create a new pack",
     "packDescription": "Add this theme to an existing pack, or create a new one.",
-    "namePlaceholder": "My theme"
+    "namePlaceholder": "My theme",
+    "locationLabel": "Location",
+    "browseLocation": "Browse…"
   },
   "themeEditor": {
     "contributionId": "Contribution ID",

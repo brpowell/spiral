@@ -1,5 +1,5 @@
-use crate::commands::items::{find_mutable_item, scaffold_library_item_dir};
-use crate::packs::{self, scan_contributions_of_type, slugify_id, PackZone};
+use crate::commands::items::{find_mutable_item, scaffold_item_dir};
+use crate::packs::{self, scan_contributions_of_type, PackZone};
 use crate::settings;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -47,15 +47,6 @@ fn default_theme_tokens() -> HashMap<String, String> {
         ("color-alert-warning".into(), "#e8c57b".into()),
         ("font-ui".into(), "inter".into()),
     ])
-}
-
-fn slugify_theme_id(input: &str) -> String {
-    let slug = slugify_id(input);
-    if slug == "untitled" {
-        "theme".to_string()
-    } else {
-        slug
-    }
 }
 
 fn normalize_theme_file(file: ThemeFile, contrib: &packs::ScannedContribution) -> Theme {
@@ -237,10 +228,15 @@ pub fn get_active_theme_id(app: AppHandle) -> Result<String, String> {
     Ok(resolved)
 }
 
-/// Scaffold a theme in the Library's `Packs` folder. Tokens are copied from the active theme.
+/// Scaffold a theme in `location` (default: the Library's `Packs` folder) and link it. Tokens
+/// are copied from the active theme.
 /// No author/version prompts (those happen at export).
 #[tauri::command]
-pub fn create_library_theme(app: AppHandle, name: Option<String>) -> Result<Theme, String> {
+pub fn create_theme(
+    app: AppHandle,
+    name: Option<String>,
+    location: Option<String>,
+) -> Result<Theme, String> {
     packs::ensure_packs_ready(&app)?;
 
     let display_name = name
@@ -249,11 +245,12 @@ pub fn create_library_theme(app: AppHandle, name: Option<String>) -> Result<Them
         .unwrap_or_else(|| "Untitled Theme".to_string());
 
     let publisher_id = crate::commands::items::default_publisher_id(&app);
-    let (dir, id) = scaffold_library_item_dir(
+    let (dir, id) = scaffold_item_dir(
         &app,
         "theme",
+        &display_name,
         &publisher_id,
-        &slugify_theme_id(&display_name),
+        location.as_deref(),
     )?;
 
     let seed = serde_json::json!({
@@ -291,7 +288,7 @@ pub fn create_library_theme(app: AppHandle, name: Option<String>) -> Result<Them
 /// `theme.id` is the effective id used for lookup. Only name, author, description and
 /// tokens are written; identity changes go through `update_item_metadata`.
 #[tauri::command]
-pub fn save_library_theme(app: AppHandle, theme: Theme) -> Result<Theme, String> {
+pub fn save_theme(app: AppHandle, theme: Theme) -> Result<Theme, String> {
     packs::ensure_packs_ready(&app)?;
 
     let contrib = find_mutable_item(&app, &theme.id)?;
@@ -469,18 +466,11 @@ mod tests {
     }
 
     #[test]
-    fn slugify_theme_id_from_name_and_filename() {
-        assert_eq!(slugify_theme_id("My Cool Theme"), "my-cool-theme");
-        assert_eq!(slugify_theme_id("obsidian.theme"), "obsidian-theme");
-        assert_eq!(slugify_theme_id("  "), "theme");
-    }
-
-    #[test]
     fn a_new_theme_draft_can_be_validated_and_exported() {
         use crate::packs::export::{export_item_dir_to_spk, ExportItemMetadata};
         use crate::packs::install::validate_item_for_install;
 
-        // Same steps as `create_library_theme`: seed manifest, then fill in tokens.
+        // Same steps as `create_theme`: seed manifest, then fill in tokens.
         let dir = tempfile_library();
         let path = dir.join("theme.json");
         fs::write(

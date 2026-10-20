@@ -834,8 +834,8 @@ export async function saveActiveThemeId(themeId: string): Promise<void> {
   return invoke<void>("save_active_theme_id", { themeId });
 }
 
-export async function saveLibraryTheme(theme: Theme): Promise<Theme> {
-  return invoke<Theme>("save_library_theme", { theme });
+export async function saveThemeItem(theme: Theme): Promise<Theme> {
+  return invoke<Theme>("save_theme", { theme });
 }
 
 /** Official registry source only (extra settings entries ignored until multi-registry UI). */
@@ -977,11 +977,31 @@ export async function resolveRegistryItemPreview(args: {
   });
 }
 
-export async function createLibraryTheme(args?: {
+/** Create a theme in `location` (an item folder, default under the Library's Packs) and link it. */
+export async function createThemeItem(args?: {
   name?: string | null;
+  location?: string | null;
 }): Promise<Theme> {
-  return invoke<Theme>("create_library_theme", {
+  return invoke<Theme>("create_theme", {
     name: args?.name ?? null,
+    location: args?.location ?? null,
+  });
+}
+
+/** Folder the new-item dialog proposes for an item of `itemType` called `name`. */
+export async function defaultNewItemLocation(
+  itemType: ItemType,
+  name: string,
+): Promise<string> {
+  return invoke<string>("default_new_item_location", { itemType, name });
+}
+
+/** Native folder picker for a new item's location; `null` when cancelled. */
+export async function pickNewItemFolder(
+  startAt?: string,
+): Promise<string | null> {
+  return invoke<string | null>("pick_new_item_folder", {
+    startAt: startAt ?? null,
   });
 }
 

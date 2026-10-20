@@ -8,9 +8,9 @@ use crate::packs::manage::uninstall_installed_item;
 use crate::packs::scan::{peek_item_effective_id, scan_all_items, ScannedContribution};
 use crate::packs::{
     self, builtin_packs_root, ensure_library_packs_root, installed_packs_root, is_kebab_slug,
-    item_dir_name, item_manifest_filename, item_type_folder, read_item_manifest, slugify_id,
-    ExportItemResult, InstallItemResult, ItemSummary, PackZone, ARCHIVE_EXTENSION,
-    CHANGELOG_FILENAME, CHANGELOG_MAX_BYTES, README_FILENAME, README_MAX_BYTES,
+    item_dir_name, item_manifest_filename, item_type_folder, library_packs_root,
+    read_item_manifest, slugify_id, ExportItemResult, InstallItemResult, ItemSummary, PackZone,
+    ARCHIVE_EXTENSION, CHANGELOG_FILENAME, CHANGELOG_MAX_BYTES, README_FILENAME, README_MAX_BYTES,
 };
 use crate::settings;
 use serde::Serialize;
@@ -94,18 +94,84 @@ pub(crate) fn default_publisher_id(app: &AppHandle) -> String {
     }
 }
 
-/// First `base`, `base-2`, `base-3`… whose `<publisherId>.<id>` directory is free in `type_root`.
-pub(crate) fn unique_item_id(type_root: &Path, publisher_id: &str, base: &str) -> String {
-    let mut candidate = base.to_string();
+/// Local id for a new item named `name`: its slug, or `<slug>-2`, `-3`… when taken. An item's
+/// folder name is not tied to its id, so uniqueness is checked against known items.
+fn unique_local_id(app: &AppHandle, item_type: &str, publisher_id: &str, slug: &str) -> String {
+    let taken: std::collections::HashSet<String> = scan_all_items(app)
+        .contributions
+        .into_iter()
+        .map(|c| c.effective_id)
+        .collect();
+    let mut candidate = slug.to_string();
     let mut n = 2;
-    while type_root
-        .join(item_dir_name(publisher_id, &candidate))
-        .exists()
-    {
-        candidate = format!("{base}-{n}");
+    while taken.contains(&packs::effective_item_id(
+        publisher_id,
+        item_type,
+        &candidate,
+    )) {
+        candidate = format!("{slug}-{n}");
         n += 1;
     }
     candidate
+}
+
+/// Slug used for a new item's id and default folder name; `item_type` stands in for a blank name.
+pub(crate) fn slugify_new_item_id(item_type: &str, name: &str) -> String {
+    let slug = slugify_id(name);
+    if slug == "untitled" {
+        item_type.to_string()
+    } else {
+        slug
+    }
+}
+
+/// Default folder for a new item: `<library root>/Packs/<type folder>/<slug>`, with `-2`, `-3`…
+/// appended while that folder already exists.
+fn default_new_item_dir(app: &AppHandle, item_type: &str, name: &str) -> Result<PathBuf, String> {
+    let folder =
+        item_type_folder(item_type).ok_or_else(|| format!("unknown item type \"{item_type}\""))?;
+    let type_root = library_packs_root(app)?.join(folder);
+    let slug = slugify_new_item_id(item_type, name);
+    let mut dir = type_root.join(&slug);
+    let mut n = 2;
+    while dir.exists() {
+        dir = type_root.join(format!("{slug}-{n}"));
+        n += 1;
+    }
+    Ok(dir)
+}
+
+/// Where the new-item dialog proposes to create an item of `item_type` called `name`.
+#[tauri::command]
+pub fn default_new_item_location(
+    app: AppHandle,
+    item_type: String,
+    name: String,
+) -> Result<String, String> {
+    Ok(default_new_item_dir(&app, &item_type, &name)?
+        .to_string_lossy()
+        .into_owned())
+}
+
+/// Pick a folder for a new item (native dialog). `None` when cancelled.
+#[tauri::command]
+pub fn pick_new_item_folder(start_at: Option<String>) -> Option<String> {
+    let mut dialog = rfd::FileDialog::new().set_title("Choose a Folder for the New Item");
+    if let Some(start) = start_at {
+        // Start in the nearest folder that exists.
+        let mut dir = PathBuf::from(start.trim());
+        while !dir.is_dir() {
+            if !dir.pop() {
+                break;
+            }
+        }
+        if dir.is_dir() {
+            dialog = dialog.set_directory(dir);
+        }
+    }
+    dialog
+        .pick_folder()
+        .map(|p| p.to_string_lossy().into_owned())
 }
 
 fn normalize_linked_path(path: &Path) -> Result<String, String> {
@@ -398,9 +464,8 @@ pub fn get_item_scan_warnings(app: AppHandle) -> Result<Vec<String>, String> {
 
 /// Update an authoring item's identity and display fields in its manifest.
 ///
-/// An item whose folder is named after its identity (`<publisherId>.<id>`, as created in the
-/// Studio) is moved to the folder matching a new `publisherId`/`id`; folders with any other
-/// name are edited in place. Active/hidden references follow an id change.
+/// Linked items are edited in place: their folder name is not tied to their identity, so an id
+/// change never renames or moves the folder. Active/hidden references follow an id change.
 /// Returns the item's effective id after the update.
 #[tauri::command]
 pub fn update_item_metadata(
@@ -463,50 +528,10 @@ pub fn update_item_metadata(
         return Err(format!("\"{new_effective}\" already exists"));
     }
 
-    let follows_identity_naming = item.zone == PackZone::Linked
-        && read_item_manifest(&item.contribution_dir).is_ok_and(|old| {
-            item.contribution_dir.file_name().and_then(|n| n.to_str()) == Some(&old.dir_name())
-        });
-    let new_dir = if follows_identity_naming && changed_identity {
-        let dest = item
-            .contribution_dir
-            .parent()
-            .ok_or_else(|| "item has no parent directory".to_string())?
-            .join(parsed.dir_name());
-        if dest.exists() {
-            return Err(format!("\"{new_effective}\" already exists"));
-        }
-        Some(dest)
-    } else {
-        None
-    };
-
     let json = serde_json::to_string_pretty(&value)
         .map_err(|e| format!("failed to serialize manifest: {e}"))?;
     fs::write(manifest_path, format!("{json}\n"))
         .map_err(|e| format!("failed to write {}: {e}", manifest_path.display()))?;
-
-    if let Some(dest) = new_dir {
-        let old_canonical = item.contribution_dir.canonicalize().ok();
-        if let Err(e) = fs::rename(&item.contribution_dir, &dest) {
-            // Best-effort restore so the draft keeps its previous identity.
-            let _ = fs::write(manifest_path, text);
-            return Err(format!(
-                "failed to move \"{}\" → \"{new_effective}\": {e}",
-                item.effective_id
-            ));
-        }
-        // Linked paths are absolute, so follow the rename.
-        if let (Some(old), Ok(new)) = (old_canonical, dest.canonicalize()) {
-            let mut app_settings = settings::read_settings(&app);
-            for stored in &mut app_settings.linked_item_paths {
-                if PathBuf::from(stored.trim()) == old {
-                    *stored = new.to_string_lossy().into_owned();
-                }
-            }
-            settings::write_settings(&app, &app_settings)?;
-        }
-    }
 
     if changed_identity {
         remap_item_references(&app, &item.effective_id, &new_effective)?;
@@ -745,30 +770,71 @@ pub fn save_default_publisher_id(app: AppHandle, publisher_id: String) -> Result
     Ok(resolved)
 }
 
-/// Create a new item directory in the Library's `Packs` folder and link it, returning
-/// `(dir, id)`.
+/// Create the folder for a new item and link it, returning `(dir, id)`. `location` is the
+/// item folder itself (any name, anywhere); it defaults to the Library's `Packs` folder. An
+/// existing folder is only accepted when it is empty.
 /// Used by the type-specific scaffolders (e.g. new theme).
-pub(crate) fn scaffold_library_item_dir(
+pub(crate) fn scaffold_item_dir(
     app: &AppHandle,
     item_type: &str,
+    name: &str,
     publisher_id: &str,
-    base_id: &str,
+    location: Option<&str>,
 ) -> Result<(PathBuf, String), String> {
-    let library = ensure_library_packs_root(app)?;
-    let folder =
-        item_type_folder(item_type).ok_or_else(|| format!("unknown item type \"{item_type}\""))?;
-    let type_root = library.join(folder);
-    let id = unique_item_id(&type_root, publisher_id, base_id);
-    let dir = type_root.join(item_dir_name(publisher_id, &id));
-    fs::create_dir_all(&dir).map_err(|e| format!("failed to create item dir: {e}"))?;
-    packs::add_linked_item_path(app, &dir)?;
     debug_assert!(item_manifest_filename(item_type).is_some());
+    let dir = match location.map(str::trim).filter(|l| !l.is_empty()) {
+        Some(location) => {
+            let dir = PathBuf::from(location);
+            if !dir.is_absolute() {
+                return Err("the folder must be an absolute path".into());
+            }
+            dir
+        }
+        None => {
+            ensure_library_packs_root(app)?;
+            default_new_item_dir(app, item_type, name)?
+        }
+    };
+    if dir.exists() {
+        let empty = dir.is_dir()
+            && fs::read_dir(&dir)
+                .map_err(|e| format!("failed to read {}: {e}", dir.display()))?
+                .next()
+                .is_none();
+        if !empty {
+            return Err(format!(
+                "{} already exists and is not an empty folder",
+                dir.display()
+            ));
+        }
+    }
+    fs::create_dir_all(&dir).map_err(|e| format!("failed to create {}: {e}", dir.display()))?;
+    packs::add_linked_item_path(app, &dir)?;
+    let id = unique_local_id(
+        app,
+        item_type,
+        publisher_id,
+        &slugify_new_item_id(item_type, name),
+    );
     Ok((dir, id))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn new_item_slug_falls_back_to_the_type_for_blank_names() {
+        assert_eq!(
+            slugify_new_item_id("theme", "My Cool Theme"),
+            "my-cool-theme"
+        );
+        assert_eq!(
+            slugify_new_item_id("theme", "obsidian.theme"),
+            "obsidian-theme"
+        );
+        assert_eq!(slugify_new_item_id("theme", "  "), "theme");
+    }
 
     fn temp_dir(label: &str) -> PathBuf {
         let nanos = std::time::SystemTime::now()

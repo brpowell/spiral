@@ -1,9 +1,9 @@
 //! Directory-walking item scanner over builtin / installed / linked zones.
 //!
 //! Items are discovered by scanning fixed type folders (`themes/`, `skins/`,
-//! `visualizers/`, `sounds/`) under each zone root. Each item directory is named
-//! `<publisherId>.<id>` and holds the type's manifest at its root. Linked items are
-//! single external folders listed in settings.
+//! `visualizers/`, `sounds/`) under each managed zone root (builtin, installed). Each item
+//! directory there is named `<publisherId>.<id>` and holds the type's manifest at its root.
+//! Linked items are single folders listed in settings, with any name, anywhere.
 
 use super::paths;
 use super::{item_dir_name, item_type_folder, read_item_manifest, ItemManifest, PackZone};

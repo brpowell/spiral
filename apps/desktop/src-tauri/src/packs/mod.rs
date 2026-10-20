@@ -19,7 +19,7 @@ pub use library_watch::{retarget_library_packs_watch, start_library_packs_watch}
 pub use manage::ItemSummary;
 pub use paths::{
     add_linked_item_path, builtin_packs_root, ensure_library_packs_root, ensure_packs_ready,
-    installed_packs_root, LIBRARY_PACKS_DIR_NAME,
+    installed_packs_root, library_packs_root, LIBRARY_PACKS_DIR_NAME,
 };
 pub use scan::{scan_contributions_of_type, ScannedContribution};
 
