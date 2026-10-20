@@ -3,7 +3,6 @@ import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
 import { useSkinStore } from "../../store/useSkinStore";
-import { HiddenItems } from "./HiddenItems";
 import { SkinsGrid } from "./SkinsGrid";
 import "./AppearanceSection.css";
 
@@ -30,7 +29,6 @@ export function SkinsSection({
 
       <BrowseGridBody>
         <SkinsGrid onOpenItem={onOpenItem} />
-        <HiddenItems type="skin" />
       </BrowseGridBody>
     </BrowseView>
   );

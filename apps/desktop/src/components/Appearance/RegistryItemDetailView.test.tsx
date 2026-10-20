@@ -68,7 +68,7 @@ function setup(e: CatalogItemEntry, busy = false) {
     <RegistryItemDetailView
       entry={e}
       busy={busy}
-      backAriaLabel="Back to Get more"
+      backAriaLabel="Back to Catalog"
       onBack={vi.fn()}
       onInstall={onInstall}
     />,
@@ -120,13 +120,16 @@ describe("RegistryItemDetailView", () => {
     expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
   });
 
-  it("shows Installed and no install button when current", async () => {
+  it("makes Uninstall the primary action when current", async () => {
     setup(entry({ installed: true, installedVersion: "2.0.0" }));
-    expect(
-      await screen.findByText("Installed", { selector: "span" }),
-    ).toBeTruthy();
+    const uninstall = await screen.findByRole("button", { name: "Uninstall" });
     expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Update" })).toBeNull();
+    // The "…" menu stays for the item's other actions (Reveal in Finder).
+    expect(screen.getByText("item-actions:spiral.theme.noir")).toBeTruthy();
+
+    fireEvent.click(uninstall);
+    expect(await screen.findByText("Uninstall?")).toBeTruthy();
   });
 
   it("disables installing when the app is too old", async () => {

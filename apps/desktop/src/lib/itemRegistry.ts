@@ -25,6 +25,7 @@ import type {
   RegistryVersionDetail,
   RegistryVersionSummary,
 } from "../types/itemRegistry";
+import { catalogItemName } from "../types/itemRegistry";
 import {
   logRegistryInstallFailure,
   logRegistryInstallSuccess,
@@ -130,9 +131,10 @@ function registryErrorMessage(err: unknown): string {
 /** Cache key for a catalog page: filters and paging, in a fixed order. */
 export function catalogCacheKey(query?: ItemCatalogQuery): string {
   return [
-    query?.itemType ?? "",
+    [...(query?.itemTypes ?? [])].sort().join(","),
     query?.q?.trim() ?? "",
     query?.publisherId ?? "",
+    query?.sort ?? "",
     query?.limit ?? "",
     query?.offset ?? "",
   ].join("\0");
@@ -442,7 +444,38 @@ export function installRegistryItem(
   });
 }
 
-/** Whether an install error is the user cancelling the download (Rust message). */
+/** Install arguments for a catalog item's newest version, or a chosen one (`null` when blocked). */
+export function catalogInstallArgs(
+  entry: CatalogItemEntry,
+  version?: RegistryVersionSummary,
+): InstallRegistryItemArgs | null {
+  const target = version ?? entry.latestVersion;
+  if (version == null && !entry.meetsMinAppVersion) return null;
+  return {
+    registryUrl: entry.registryUrl,
+    publisherId: entry.publisherId,
+    itemType: entry.itemType,
+    id: entry.id,
+    version: target.version,
+    sha256: target.sha256,
+    sizeBytes: target.sizeBytes,
+    minAppVersion: target.minAppVersion,
+    name: catalogItemName(entry),
+  };
+}
+
+/**
+ * Install a catalog item's newest version, or a chosen one (also how an update and a
+ * downgrade run). Does nothing for the newest version when the app is too old for it.
+ */
+export async function installCatalogEntry(
+  entry: CatalogItemEntry,
+  version?: RegistryVersionSummary,
+): Promise<void> {
+  const args = catalogInstallArgs(entry, version);
+  if (args) await installRegistryItem(args);
+}
+
 export function isDownloadCancelled(message: string): boolean {
   return /item download cancelled/i.test(message);
 }

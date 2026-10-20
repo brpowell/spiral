@@ -32,7 +32,6 @@ export interface ItemSummary {
   preview?: string;
   zone: PackZone;
   dir: string;
-  hidden: boolean;
   /** True when this directory wins in the scan registry for its effective id. */
   active: boolean;
 }

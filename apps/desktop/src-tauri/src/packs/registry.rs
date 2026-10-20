@@ -140,9 +140,13 @@ pub struct RegistryFetchError {
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ItemCatalogQuery {
-    pub item_type: Option<String>,
+    /// Item types to include; empty means every type.
+    #[serde(default)]
+    pub item_types: Vec<String>,
     pub q: Option<String>,
     pub publisher_id: Option<String>,
+    /// `name`, `newest` or `size`; the registry's default (`name`) when absent.
+    pub sort: Option<String>,
     pub limit: Option<usize>,
     pub offset: Option<usize>,
 }
@@ -429,9 +433,11 @@ pub fn fetch_item_catalog_from_base(
             params.push((key, v.to_string()));
         }
     };
-    push("type", query.item_type.as_deref());
+    let types = query.item_types.join(",");
+    push("type", Some(&types));
     push("q", query.q.as_deref());
     push("publisher", query.publisher_id.as_deref());
+    push("sort", query.sort.as_deref());
     if let Some(limit) = query.limit {
         params.push(("limit", limit.to_string()));
     }
@@ -1332,9 +1338,10 @@ mod tests {
         );
         let (base, handle) = serve(vec![("200 OK", body)]);
         let query = ItemCatalogQuery {
-            item_type: Some("theme".into()),
+            item_types: vec!["theme".into(), "skin".into()],
             q: Some("no ir".into()),
             publisher_id: Some("spiral".into()),
+            sort: Some("newest".into()),
             limit: Some(1),
             offset: Some(2),
         };
@@ -1346,9 +1353,10 @@ mod tests {
         let request = handle.join().unwrap().remove(0);
         assert!(request.starts_with("GET /v1/items?"), "{request}");
         for part in [
-            "type=theme",
+            "type=theme%2Cskin",
             "q=no+ir",
             "publisher=spiral",
+            "sort=newest",
             "limit=1",
             "offset=2",
         ] {
@@ -1448,7 +1456,7 @@ mod tests {
         let list = fetch_item_catalog_from_base(
             &base,
             &ItemCatalogQuery {
-                item_type: Some("theme".into()),
+                item_types: vec!["theme".into()],
                 ..Default::default()
             },
         )

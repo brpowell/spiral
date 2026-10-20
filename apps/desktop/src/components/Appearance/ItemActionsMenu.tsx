@@ -1,21 +1,14 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   deleteWorkshopItemWithRefresh,
-  setItemHiddenWithRefresh,
-  uninstallItemWithRefresh,
-  unlinkItemWithRefresh,
   updateItemMetadataWithRefresh,
 } from "../../lib/items/itemActions";
-import {
-  collectClearableSkinSettings,
-  type ClearableSkinSetting,
-} from "../../lib/packs/packSkinSettings";
-import { listItems } from "../../lib/tauri";
+import { revealInFileManagerLabel } from "../../lib/fileManager";
+import { listItems, openPathInFileManager } from "../../lib/tauri";
 import type { ItemSummary, ItemType } from "../../types/item";
 import type { PackZone } from "../../types/pack";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
-import { Checkbox } from "../common/Checkbox/Checkbox";
 import {
   ContextMenuItem,
   ContextMenuSeparator,
@@ -23,7 +16,7 @@ import {
 import {
   IconDelete,
   IconExport,
-  IconHide,
+  IconOpenFolder,
   IconPackage,
   IconPencil,
   IconUnlink,
@@ -32,6 +25,8 @@ import { MenuButton } from "../MenuButton/MenuButton";
 import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
 import { EditItemModal, type EditItemModalResult } from "./EditItemModal";
 import { ExportItemModal } from "./ExportItemModal";
+import { UninstallItemDialog } from "./UninstallItemDialog";
+import { UnlinkItemDialog } from "./UnlinkItemDialog";
 
 /** The few fields every list source (stores, `listItems`) can provide for an item. */
 export interface ItemRef {
@@ -39,7 +34,6 @@ export interface ItemRef {
   type: ItemType;
   name: string;
   zone: PackZone;
-  hidden?: boolean;
 }
 
 type PendingAction = "uninstall" | "delete" | "unlink" | null;
@@ -65,7 +59,8 @@ export function ItemActionsMenu({
   onAfterEdit,
   variant = "ghost",
   size,
-  extra,
+  omitRemove = false,
+  omitEdit,
 }: {
   item: ItemRef;
   /** Shows “View details” when provided (omit on the details view itself). */
@@ -76,8 +71,10 @@ export function ItemActionsMenu({
   onAfterEdit?: (effectiveId: string) => void;
   variant?: "ghost" | "secondary";
   size?: "sm";
-  /** Extra menu entries placed before the destructive section. */
-  extra?: (close: () => void) => React.ReactNode;
+  /** Leave Uninstall / Unlink out when the caller offers it as a primary action. */
+  omitRemove?: boolean;
+  /** Leave the theme editor entry ("edit") or Edit details ("details") out when it is the primary action. */
+  omitEdit?: "edit" | "details";
 }) {
   const { t } = useTranslation(["studio", "common"]);
   const openThemeEditor = useOpenAppearanceThemeEditor();
@@ -86,26 +83,13 @@ export function ItemActionsMenu({
   const [editOpen, setEditOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [clearable, setClearable] = useState<ClearableSkinSetting[]>([]);
-  const [clearSettings, setClearSettings] = useState(false);
 
   const editable = item.zone === "workshop" || item.zone === "linked";
-  const canHide = item.zone === "builtin" || item.zone === "installed";
 
-  useEffect(() => {
-    if (pending !== "uninstall" || item.type !== "skin") {
-      setClearable([]);
-      setClearSettings(false);
-      return;
-    }
-    let cancelled = false;
-    void collectClearableSkinSettings([item.effectiveId]).then((entries) => {
-      if (!cancelled) setClearable(entries);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [pending, item.type, item.effectiveId]);
+  const revealItem = async () => {
+    const found = await resolveItem(item.effectiveId);
+    if (found) await openPathInFileManager(found.dir);
+  };
 
   const openEdit = async () => {
     const found = await resolveItem(item.effectiveId);
@@ -153,7 +137,7 @@ export function ItemActionsMenu({
       >
         {(close) => (
           <>
-            {editable && item.type === "theme" ? (
+            {editable && item.type === "theme" && omitEdit !== "edit" ? (
               <ContextMenuItem
                 icon={<IconPencil />}
                 label={t("common:edit")}
@@ -163,7 +147,21 @@ export function ItemActionsMenu({
                 }}
               />
             ) : null}
-            {editable ? (
+            {onOpenItem ? (
+              <ContextMenuItem
+                icon={<IconPackage />}
+                label={t("items.viewDetails")}
+                onClick={() => {
+                  close();
+                  onOpenItem(item.effectiveId);
+                }}
+              />
+            ) : null}
+            {editable &&
+            (onOpenItem || (item.type === "theme" && omitEdit !== "edit")) ? (
+              <ContextMenuSeparator />
+            ) : null}
+            {editable && omitEdit !== "details" ? (
               <ContextMenuItem
                 icon={<IconPencil />}
                 label={t("items.editDetails")}
@@ -183,29 +181,22 @@ export function ItemActionsMenu({
                 }}
               />
             ) : null}
-            {onOpenItem ? (
-              <ContextMenuItem
-                icon={<IconPackage />}
-                label={t("items.viewDetails")}
-                onClick={() => {
-                  close();
-                  onOpenItem(item.effectiveId);
-                }}
-              />
+            <ContextMenuItem
+              icon={<IconOpenFolder />}
+              label={revealInFileManagerLabel()}
+              onClick={() => {
+                close();
+                void revealItem();
+              }}
+            />
+            {item.zone !== "builtin" &&
+            !(
+              (item.zone === "installed" || item.zone === "linked") &&
+              omitRemove
+            ) ? (
+              <ContextMenuSeparator />
             ) : null}
-            {canHide ? (
-              <ContextMenuItem
-                icon={<IconHide />}
-                label={item.hidden ? t("common:show") : t("common:hide")}
-                onClick={() => {
-                  close();
-                  void setItemHiddenWithRefresh(item.effectiveId, !item.hidden);
-                }}
-              />
-            ) : null}
-            {extra?.(close)}
-            {item.zone !== "builtin" ? <ContextMenuSeparator /> : null}
-            {item.zone === "installed" ? (
+            {item.zone === "installed" && !omitRemove ? (
               <ContextMenuItem
                 icon={<IconDelete />}
                 label={t("items.uninstall")}
@@ -227,7 +218,7 @@ export function ItemActionsMenu({
                 }}
               />
             ) : null}
-            {item.zone === "linked" ? (
+            {item.zone === "linked" && !omitRemove ? (
               <ContextMenuItem
                 icon={<IconUnlink />}
                 label={t("items.unlink")}
@@ -242,32 +233,12 @@ export function ItemActionsMenu({
         )}
       </MenuButton>
 
-      <AlertConfirmation
+      <UninstallItemDialog
         open={pending === "uninstall"}
+        item={item}
         onClose={() => setPending(null)}
-        title={t("items.uninstallTitle")}
-        confirmLabel={t("items.uninstall")}
-        onConfirm={async () =>
-          finish(
-            await uninstallItemWithRefresh(
-              item.effectiveId,
-              item.name,
-              clearSettings ? clearable : [],
-            ),
-          )
-        }
-      >
-        <p>{t("items.uninstallBody", { name: item.name })}</p>
-        {clearable.length > 0 ? (
-          <Checkbox
-            className="alert-confirmation__option"
-            checked={clearSettings}
-            onChange={(event) => setClearSettings(event.target.checked)}
-          >
-            {t("catalog.uninstallClearSettings")}
-          </Checkbox>
-        ) : null}
-      </AlertConfirmation>
+        onAfterRemove={onAfterRemove}
+      />
 
       <AlertConfirmation
         open={pending === "delete"}
@@ -283,20 +254,14 @@ export function ItemActionsMenu({
         {t("items.deleteBody", { name: item.name })}
       </AlertConfirmation>
 
-      <AlertConfirmation
-        open={pending === "unlink"}
-        onClose={() => setPending(null)}
-        title={t("items.unlinkTitle")}
-        confirmLabel={t("items.unlink")}
-        onConfirm={async () =>
-          finish(
-            resolved != null &&
-              (await unlinkItemWithRefresh(resolved.dir, item.name)),
-          )
-        }
-      >
-        {t("items.unlinkBody", { name: item.name })}
-      </AlertConfirmation>
+      {resolved != null ? (
+        <UnlinkItemDialog
+          open={pending === "unlink"}
+          item={{ dir: resolved.dir, name: item.name }}
+          onClose={() => setPending(null)}
+          onAfterRemove={onAfterRemove}
+        />
+      ) : null}
 
       {editable ? (
         <ExportItemModal

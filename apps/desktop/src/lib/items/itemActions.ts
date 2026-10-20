@@ -11,7 +11,6 @@ import {
   getItemScanWarnings,
   installItem,
   linkItemFolder,
-  setItemHidden,
   uninstallItem,
   unlinkItem,
   updateItemMetadata,
@@ -197,32 +196,6 @@ export async function deleteWorkshopItemWithRefresh(
     showErrorToast({
       label: formatInvokeError(err, t("toasts:items.deleteFailed")),
       key: "item-delete",
-    });
-    return false;
-  }
-}
-
-export async function setItemHiddenWithRefresh(
-  itemId: string,
-  hidden: boolean,
-): Promise<boolean> {
-  const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
-  try {
-    await setItemHidden(itemId, hidden);
-    await refreshPackContributionStores();
-    showToast({
-      label: hidden ? t("toasts:items.hidden") : t("toasts:items.shown"),
-      status: "success",
-      key: "item-hide",
-    });
-    return true;
-  } catch (err) {
-    showErrorToast({
-      label: formatInvokeError(
-        err,
-        hidden ? t("toasts:items.hideFailed") : t("toasts:items.showFailed"),
-      ),
-      key: "item-hide",
     });
     return false;
   }

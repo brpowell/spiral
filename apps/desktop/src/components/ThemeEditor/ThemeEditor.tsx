@@ -65,13 +65,8 @@ function cloneTheme(theme: Theme): Theme {
 }
 
 function themeSnapshot(theme: Theme): string {
-  return JSON.stringify({
-    id: theme.id,
-    name: theme.name,
-    author: theme.author,
-    description: theme.description,
-    tokens: theme.tokens,
-  });
+  // Only tokens are edited here; name, author and description belong to Edit details.
+  return JSON.stringify({ id: theme.id, tokens: theme.tokens });
 }
 
 function themesEqual(a: Theme, b: Theme): boolean {
@@ -178,7 +173,9 @@ export function ThemeEditor({
   }, [theme]);
 
   const hasChanges = !themesEqual(draft, baseline);
-  const editorTitle = formatThemeEditorTitle(draft.name);
+  const storedTheme = themes.find((item) => item.id === draft.id);
+  const themeName = storedTheme?.name ?? draft.name;
+  const editorTitle = formatThemeEditorTitle(themeName);
 
   const { discardPrompt, requestClose, dismissDiscardPrompt } =
     useEditorDiscardPrompt(hasChanges, onClose);
@@ -230,7 +227,11 @@ export function ThemeEditor({
 
   const persistDraft = useCallback(
     async (next: Theme): Promise<Theme> => {
-      const saved = await saveTheme(next);
+      // Only the tokens are this editor's to change; keep whatever details are stored now.
+      const latest =
+        useThemeStore.getState().themes.find((item) => item.id === next.id) ??
+        next;
+      const saved = await saveTheme({ ...latest, tokens: next.tokens });
       sessionThemeIdRef.current = saved.id;
       setDraft(cloneTheme(saved));
       setBaseline(cloneTheme(saved));
@@ -283,15 +284,7 @@ export function ThemeEditor({
   }, [draft, setTheme, showErrorToast, showToast]);
 
   const previewTokens = resolveThemeTokens(draft);
-  const storedTheme = themes.find((item) => item.id === draft.id);
   const canActivate = storedTheme ? isThemeApplicable(storedTheme) : false;
-
-  const updateMeta = <K extends "name" | "author" | "description">(
-    key: K,
-    value: string,
-  ) => {
-    setDraft((prev) => ({ ...prev, [key]: value }));
-  };
 
   const updateToken = (key: keyof ThemeTokens | string, value: string) => {
     setDraft((prev) => ({
@@ -324,41 +317,6 @@ export function ThemeEditor({
         <BrowseGridBody>
           <div className="theme-editor__layout">
             <div className="theme-editor__form">
-              <section className="theme-editor__section">
-                <h3 className="theme-editor__section-title">
-                  {t("themeEditor.details")}
-                </h3>
-                <FormField
-                  label={t("common:name")}
-                  className="theme-editor__field--block"
-                >
-                  <TextInput
-                    value={draft.name}
-                    onChange={(e) => updateMeta("name", e.target.value)}
-                  />
-                </FormField>
-                <FormField
-                  label={t("themeEditor.author")}
-                  className="theme-editor__field--block"
-                >
-                  <TextInput
-                    value={draft.author}
-                    onChange={(e) => updateMeta("author", e.target.value)}
-                  />
-                </FormField>
-                <FormField
-                  label={t("common:description")}
-                  className="theme-editor__field--block"
-                >
-                  <Textarea
-                    value={draft.description}
-                    onChange={(e) => updateMeta("description", e.target.value)}
-                    rows={3}
-                    autoSize
-                  />
-                </FormField>
-              </section>
-
               <section className="theme-editor__section">
                 <h3 className="theme-editor__section-title">
                   {t("themeEditor.colors")}
@@ -422,7 +380,7 @@ export function ThemeEditor({
                 <div className="theme-editor__preview-main">
                   <div className="theme-editor__preview-header">
                     <p className="theme-editor__preview-title">
-                      {draft.name.trim() || t("common:untitledTheme")}
+                      {themeName.trim() || t("common:untitledTheme")}
                     </p>
                     <div className="theme-editor__preview-badges">
                       <Badge>{t("themeEditor.neutral")}</Badge>

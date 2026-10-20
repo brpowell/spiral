@@ -29,7 +29,6 @@ pub struct ItemSummary {
     pub preview: Option<String>,
     pub zone: PackZone,
     pub dir: String,
-    pub hidden: bool,
     /// True when this directory wins in the scan registry for its effective id.
     pub active: bool,
 }
@@ -49,7 +48,6 @@ fn peek_freeform_author(manifest_path: &Path) -> String {
 fn summarize_item_dir(
     dir: &Path,
     zone: PackZone,
-    hidden: &HashSet<String>,
     active_dirs: &HashSet<PathBuf>,
 ) -> Option<ItemSummary> {
     let item = read_item_manifest(dir).ok()?;
@@ -62,7 +60,6 @@ fn summarize_item_dir(
     let effective_id = item.effective_id();
 
     Some(ItemSummary {
-        hidden: hidden.contains(&effective_id),
         active: active_dirs.contains(dir),
         author: peek_freeform_author(&manifest_path),
         r#type: item.item_type,
@@ -81,7 +78,6 @@ fn summarize_item_dir(
 fn collect_zone_items(
     root: &Path,
     zone: PackZone,
-    hidden: &HashSet<String>,
     active_dirs: &HashSet<PathBuf>,
 ) -> Vec<ItemSummary> {
     if !root.is_dir() {
@@ -89,12 +85,12 @@ fn collect_zone_items(
     }
     list_item_dirs(root)
         .into_iter()
-        .filter_map(|(_, dir)| summarize_item_dir(&dir, zone, hidden, active_dirs))
+        .filter_map(|(_, dir)| summarize_item_dir(&dir, zone, active_dirs))
         .collect()
 }
 
 /// List every item directory across builtin / workshop / installed / linked.
-pub fn list_items(app: &AppHandle, hidden: &HashSet<String>) -> Result<Vec<ItemSummary>, String> {
+pub fn list_items(app: &AppHandle) -> Result<Vec<ItemSummary>, String> {
     ensure_packs_ready(app)?;
 
     let scan = scan_all_items(app);
@@ -108,14 +104,12 @@ pub fn list_items(app: &AppHandle, hidden: &HashSet<String>) -> Result<Vec<ItemS
     items.extend(collect_zone_items(
         &builtin_packs_root(app),
         PackZone::Builtin,
-        hidden,
         &active_dirs,
     ));
     if let Ok(workshop) = workshop_packs_root(app) {
         items.extend(collect_zone_items(
             &workshop,
             PackZone::Workshop,
-            hidden,
             &active_dirs,
         ));
     }
@@ -123,7 +117,6 @@ pub fn list_items(app: &AppHandle, hidden: &HashSet<String>) -> Result<Vec<ItemS
         items.extend(collect_zone_items(
             &installed,
             PackZone::Installed,
-            hidden,
             &active_dirs,
         ));
     }
@@ -134,7 +127,7 @@ pub fn list_items(app: &AppHandle, hidden: &HashSet<String>) -> Result<Vec<ItemS
             continue;
         }
         if let Some(summary) =
-            summarize_item_dir(Path::new(trimmed), PackZone::Linked, hidden, &active_dirs)
+            summarize_item_dir(Path::new(trimmed), PackZone::Linked, &active_dirs)
         {
             items.push(summary);
         }
@@ -189,16 +182,14 @@ mod tests {
         let root = temp_root("manage-summary");
         let dir = root.join("themes/bryan.demo");
         write_theme_item(&dir, "bryan", "demo", "1.2.3");
-        let hidden = HashSet::from(["bryan.theme.demo".to_string()]);
         let active = HashSet::from([dir.clone()]);
 
-        let s = summarize_item_dir(&dir, PackZone::Installed, &hidden, &active).unwrap();
+        let s = summarize_item_dir(&dir, PackZone::Installed, &active).unwrap();
         assert_eq!(s.r#type, "theme");
         assert_eq!(s.effective_id, "bryan.theme.demo");
         assert_eq!(s.version, "1.2.3");
         assert_eq!(s.name, "Theme demo");
         assert_eq!(s.author, "Test");
-        assert!(s.hidden);
         assert!(s.active);
         assert!(s.preview.is_none());
         let _ = fs::remove_dir_all(&root);
@@ -210,17 +201,15 @@ mod tests {
         let dir = root.join("themes/bryan.demo");
         write_theme_item(&dir, "bryan", "demo", "1.0.0");
         fs::write(dir.join("preview.png"), b"x").unwrap();
-        let none = HashSet::new();
-
         // Present on disk but undeclared: ignored.
-        let s = summarize_item_dir(&dir, PackZone::Workshop, &none, &none_paths()).unwrap();
+        let s = summarize_item_dir(&dir, PackZone::Workshop, &none_paths()).unwrap();
         assert!(s.preview.is_none());
 
         let text = fs::read_to_string(dir.join("theme.json")).unwrap();
         let mut value: serde_json::Value = serde_json::from_str(&text).unwrap();
         value["preview"] = "preview.png".into();
         fs::write(dir.join("theme.json"), value.to_string()).unwrap();
-        let s = summarize_item_dir(&dir, PackZone::Workshop, &none, &none_paths()).unwrap();
+        let s = summarize_item_dir(&dir, PackZone::Workshop, &none_paths()).unwrap();
         assert_eq!(s.preview.as_deref(), Some("preview.png"));
         assert!(!s.active);
         let _ = fs::remove_dir_all(&root);

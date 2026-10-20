@@ -5,7 +5,8 @@ import { IconBack } from "../icons";
 import "./BrowseView.css";
 
 interface BrowseViewHeaderProps {
-  title: string;
+  /** Omit for a header with only the back control (and actions). */
+  title?: string;
   count?: ReactNode;
   actions?: ReactNode;
   className?: string;
@@ -45,12 +46,14 @@ export function BrowseViewHeader({
           <IconBack />
         </Button>
       ) : null}
-      <div className="browse-view__heading">
-        <h1 className="browse-view__title">{title}</h1>
-        {count != null ? (
-          <span className="browse-view__count">{count}</span>
-        ) : null}
-      </div>
+      {title != null ? (
+        <div className="browse-view__heading">
+          <h1 className="browse-view__title">{title}</h1>
+          {count != null ? (
+            <span className="browse-view__count">{count}</span>
+          ) : null}
+        </div>
+      ) : null}
       {actions}
     </header>
   );

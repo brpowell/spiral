@@ -47,6 +47,18 @@
   border-color: var(--color-accent);
 }
 
+.appearance-pack-card__preview-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.appearance-pack-card__preview-action {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 2;
+}
+
 .appearance-pack-card__preview {
   min-width: 0;
 }
@@ -60,7 +72,7 @@
   background: var(--color-bg);
 }
 
-/* Full-bleed pack preview / placeholder (Packs + Get more). */
+/* Full-bleed pack preview / placeholder (Packs + Catalog). */
 .appearance-pack-card__preview--pack {
   display: flex;
   align-items: center;
@@ -108,6 +120,12 @@
   color: var(--color-text-secondary);
 }
 
+.appearance-pack-card__badge > svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-right: 0.25rem;
+}
+
 .appearance-pack-card__badge--muted {
   opacity: 0.85;
 }
@@ -133,7 +151,7 @@
 .appearance-pack-card__name {
   flex: 1;
   min-width: 0;
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   font-weight: 600;
   line-height: 1.25;
   color: var(--color-text-primary);
@@ -142,15 +160,15 @@
 .appearance-pack-card__author {
   margin: 0;
   min-width: 0;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 500;
   line-height: 1.25;
   color: var(--color-text-primary);
 }
 
 .appearance-pack-card__description {
-  min-height: calc(0.75rem * 1.45 * 2);
-  font-size: 0.75rem;
+  min-height: calc(0.7rem * 1.45 * 2);
+  font-size: 0.7rem;
   line-height: 1.45;
   color: var(--color-text-muted, var(--color-text-secondary));
 }

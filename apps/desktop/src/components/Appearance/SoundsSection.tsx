@@ -9,8 +9,8 @@ import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
 import { IconVolume } from "../icons";
 import { AppearancePackCard } from "./AppearancePackCard";
-import { HiddenItems } from "./HiddenItems";
 import { ItemActionsMenu } from "./ItemActionsMenu";
+import { ItemUpdateButton } from "./ItemUpdateButton";
 import "./AppearanceSection.css";
 import "./SoundsSection.css";
 
@@ -85,6 +85,14 @@ export function SoundsSection({
                   })}
                   preview={<SoundPackPreview pack={pack} />}
                   previewClassName="sound-picker__preview"
+                  linked={pack.zone === "linked"}
+                  previewAction={
+                    <ItemUpdateButton
+                      effectiveId={pack.id}
+                      zone={pack.zone}
+                      name={pack.name}
+                    />
+                  }
                   actions={
                     <ItemActionsMenu
                       item={{
@@ -102,7 +110,6 @@ export function SoundsSection({
             ))}
           </div>
         )}
-        <HiddenItems type="sound" />
       </BrowseGridBody>
     </BrowseView>
   );

@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import {
   useContextMenu,
   type ContextMenuTriggerPlacement,
@@ -37,6 +37,8 @@ export interface MenuButtonProps {
    * - `above-start`: opens above, left edges align
    */
   triggerPlacement?: ContextMenuTriggerPlacement;
+  /** Called when the menu opens or closes (however it closes). */
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function MenuButton({
@@ -52,6 +54,7 @@ export function MenuButton({
   layoutDeps = [],
   title,
   triggerPlacement = "below-end",
+  onOpenChange,
 }: MenuButtonProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const {
@@ -67,6 +70,15 @@ export function MenuButton({
     dismissExcludeRefs: [triggerRef],
     triggerPlacement,
   });
+
+  const wasOpenRef = useRef(open);
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+  useEffect(() => {
+    if (wasOpenRef.current === open) return;
+    wasOpenRef.current = open;
+    onOpenChangeRef.current?.(open);
+  }, [open]);
 
   const menuContent =
     typeof children === "function" ? children(closeMenu) : children;

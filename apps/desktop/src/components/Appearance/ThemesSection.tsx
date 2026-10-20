@@ -6,8 +6,8 @@ import type { Theme } from "../../types/theme";
 import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
-import { HiddenItems } from "./HiddenItems";
 import { ItemActionsMenu } from "./ItemActionsMenu";
+import { ItemUpdateButton } from "./ItemUpdateButton";
 import { AppearancePackCard } from "./AppearancePackCard";
 import { ThemeSwatchPreview } from "./ThemeSwatchPreview";
 import "./ThemesSection.css";
@@ -38,6 +38,14 @@ function ThemeSwatch({
       })}
       preview={<ThemeSwatchPreview theme={theme} />}
       previewClassName="theme-picker__preview"
+      linked={theme.zone === "linked"}
+      previewAction={
+        <ItemUpdateButton
+          effectiveId={theme.id}
+          zone={theme.zone}
+          name={theme.name}
+        />
+      }
       actions={
         <ItemActionsMenu
           item={{
@@ -105,7 +113,6 @@ export function ThemesSection({
             ))}
           </div>
         )}
-        <HiddenItems type="theme" />
       </BrowseGridBody>
     </BrowseView>
   );

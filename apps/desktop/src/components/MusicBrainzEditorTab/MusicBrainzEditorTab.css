@@ -31,11 +31,24 @@
   text-align: left;
 }
 
+/* The ID field and its Edit / Save button are separate controls on one row. */
 .musicbrainz-editor-tab__id-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
   font-family: var(--font-mono, ui-monospace, monospace);
 }
 
+.musicbrainz-editor-tab__id-group > .text-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+
 .musicbrainz-editor-tab__id-group > .btn {
+  flex-shrink: 0;
+  height: var(--control-height);
   font-family: var(--font-ui);
 }
 

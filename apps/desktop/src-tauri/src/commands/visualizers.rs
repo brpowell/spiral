@@ -108,16 +108,8 @@ fn list_all_visualizer_packs(app: &AppHandle) -> Vec<LoadedVisualizer> {
         activity_log::log(LogLevel::Debug, "visualizer.load", w.message.clone(), None);
     }
 
-    let hidden: HashSet<String> = settings::read_settings(app)
-        .hidden_contribution_ids
-        .into_iter()
-        .collect();
-
     let mut packs = Vec::new();
     for contrib in &scan.contributions {
-        if hidden.contains(&contrib.effective_id) {
-            continue;
-        }
         match load_pack_from_contribution(contrib) {
             Ok(pack) => packs.push(pack),
             Err(e) => {

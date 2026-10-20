@@ -32,7 +32,6 @@ import type {
 } from "../../types/musicbrainz";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
 import { Button } from "../common/Button/Button";
-import { ButtonGroup } from "../common/ButtonGroup/ButtonGroup";
 import { Checkbox } from "../common/Checkbox/Checkbox";
 import { FormField } from "../common/Field/Field";
 import { TextInput } from "../common/TextInput/TextInput";
@@ -749,7 +748,8 @@ export function MusicBrainzEditorTab({
               aria-label={idLabel}
             />
           ) : (
-            <ButtonGroup
+            <div
+              role="group"
               className={
                 editing
                   ? "musicbrainz-editor-tab__id-group"
@@ -803,7 +803,7 @@ export function MusicBrainzEditorTab({
                   </>
                 )}
               </Button>
-            </ButtonGroup>
+            </div>
           )}
         </FormField>
       ) : null}

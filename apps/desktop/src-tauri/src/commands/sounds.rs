@@ -9,7 +9,7 @@ use crate::packs::{self, ScannedContribution};
 use crate::settings;
 use serde::Serialize;
 use spk_format::{read_item_manifest, read_sound_manifest, resolve_preview_file, SoundManifest};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use tauri::AppHandle;
 
@@ -66,7 +66,7 @@ fn load_pack(contrib: &ScannedContribution) -> Result<LoadedSoundPack, String> {
     })
 }
 
-/// Visible (not hidden) sound packs, sorted by name.
+/// Sound packs, sorted by name.
 fn list_loaded_packs(app: &AppHandle) -> Vec<LoadedSoundPack> {
     if let Err(e) = packs::ensure_packs_ready(app) {
         activity_log::log(
@@ -82,16 +82,8 @@ fn list_loaded_packs(app: &AppHandle) -> Vec<LoadedSoundPack> {
         activity_log::log(LogLevel::Debug, "sound.load", w.message.clone(), None);
     }
 
-    let hidden: HashSet<String> = settings::read_settings(app)
-        .hidden_contribution_ids
-        .into_iter()
-        .collect();
-
     let mut loaded = Vec::new();
     for contrib in &scan.contributions {
-        if hidden.contains(&contrib.effective_id) {
-            continue;
-        }
         match load_pack(contrib) {
             Ok(pack) => loaded.push(pack),
             Err(e) => activity_log::log(

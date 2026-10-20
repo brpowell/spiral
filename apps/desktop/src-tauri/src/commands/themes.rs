@@ -2,7 +2,7 @@ use crate::commands::items::{find_mutable_item, scaffold_workshop_item_dir};
 use crate::packs::{self, scan_contributions_of_type, slugify_id, PackZone};
 use crate::settings;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use tauri::AppHandle;
@@ -103,17 +103,9 @@ fn list_themes_from_scan(app: &AppHandle) -> Result<(Vec<Theme>, Vec<Theme>), St
         eprintln!("item scan: {}", w.message);
     }
 
-    let hidden: HashSet<String> = settings::read_settings(app)
-        .hidden_contribution_ids
-        .into_iter()
-        .collect();
-
     let mut builtin = Vec::new();
     let mut user = Vec::new();
     for contrib in &scan.contributions {
-        if hidden.contains(&contrib.effective_id) {
-            continue;
-        }
         match load_theme_from_contribution(contrib) {
             Ok(theme) => {
                 if contrib.zone == PackZone::Builtin {

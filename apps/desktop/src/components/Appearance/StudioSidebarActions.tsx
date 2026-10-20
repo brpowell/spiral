@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   importItemWithRefresh,
@@ -34,12 +34,15 @@ interface StudioSidebarActionsProps {
   /** Runs `go`, first leaving the Theme Editor if it is open. */
   runAfterLeavingEditor: (go: () => void) => void;
   openThemeEditor: (themeId: string) => void;
+  /** Extra sidebar entries rendered directly under the Manage menu. */
+  children?: ReactNode;
 }
 
 /** "New" and "Manage" menus pinned above the Studio sidebar's section list. */
 export function StudioSidebarActions({
   runAfterLeavingEditor,
   openThemeEditor,
+  children,
 }: StudioSidebarActionsProps) {
   const { t } = useTranslation("studio");
   const createTheme = useThemeStore((s) => s.createTheme);
@@ -136,6 +139,7 @@ export function StudioSidebarActions({
             {t("actions.manage")}
           </SidebarMenuItem>
         </li>
+        {children}
       </SidebarList>
 
       <NewThemeModal

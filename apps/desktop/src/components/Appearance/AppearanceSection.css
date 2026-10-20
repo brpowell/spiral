@@ -4,9 +4,15 @@
   font-size: 0.88rem;
 }
 
+/*
+ * Cards fill the row, so there is no trailing gutter. With `n` columns a card is between the
+ * minimum and (1 + 1/n) times it, so the sawtooth every time a column is added or dropped is
+ * only about 1/n of the card width. A small minimum means many columns and small steps (a 12.5rem
+ * minimum had 3-column rows stretching a third wider before snapping back).
+ */
 .appearance-pack-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
   gap: 1rem;
   padding-inline: var(--main-content-padding-x);
 }
@@ -14,12 +20,6 @@
 .appearance-pack-grid > [role="listitem"] {
   display: flex;
   min-width: 0;
-}
-
-@media (min-width: 52rem) {
-  .appearance-pack-grid {
-    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-  }
 }
 
 .item-list {
