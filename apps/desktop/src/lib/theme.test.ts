@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Theme } from "../types/theme";
 import {
   DEFAULT_THEME_ID,
-  FIXED_RADIUS_TOKEN_KEYS,
   OBSIDIAN_DEFAULT_TOKENS,
   applyTheme,
   findThemeById,
@@ -31,8 +30,6 @@ function makeTheme(id: string, name: string): Theme {
       "color-text-primary": "#fff",
       "color-accent": "#00f",
       "color-danger": "#f00",
-      "radius-card": "8px",
-      "radius-button": "4px",
       "font-ui": "system-ui",
     },
   };
@@ -130,9 +127,6 @@ describe("mergeThemeTokens / applyTheme", () => {
     root.style.setProperty("--color-surface", "#1a1a1e");
 
     const theme = makeTheme("core.test", "Test");
-    for (const key of FIXED_RADIUS_TOKEN_KEYS) {
-      root.style.setProperty(`--${key}`, "2px");
-    }
     applyTheme(theme);
     const tokens = resolveThemeTokens(theme);
 
@@ -142,9 +136,6 @@ describe("mergeThemeTokens / applyTheme", () => {
     expect(root.style.getPropertyValue("--color-danger")).toBe(
       tokens["color-danger"],
     );
-    for (const key of FIXED_RADIUS_TOKEN_KEYS) {
-      expect(root.style.getPropertyValue(`--${key}`)).toBe("");
-    }
     expect(root.style.getPropertyValue("--color-danger-bg")).toBe("");
     expect(root.style.getPropertyValue("--color-alert-error")).toBe("");
     expect(root.style.getPropertyValue("--color-surface")).toBe("");

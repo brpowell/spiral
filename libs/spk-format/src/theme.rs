@@ -33,8 +33,6 @@ pub const REQUIRED_THEME_TOKEN_KEYS: &[&str] = &[
     "color-text-primary",
     "color-accent",
     "color-danger",
-    "radius-card",
-    "radius-button",
     "font-ui",
 ];
 
@@ -117,12 +115,12 @@ mod tests {
             &dir,
             r##"{ "id": "mine", "name": "Mine", "tokens": {
                 "color-bg": "#000", "color-text-primary": "#fff", "color-accent": "#7b8cde",
-                "color-danger": "#e06c75", "radius-card": "12px", "radius-button": "8px",
+                "color-danger": "#e06c75",
                 "font-ui": "system-ui"
             } }"##,
         );
         validate_theme_contribution_at(&path).unwrap();
-        assert_eq!(REQUIRED_THEME_TOKEN_KEYS.len(), 7);
+        assert_eq!(REQUIRED_THEME_TOKEN_KEYS.len(), 5);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

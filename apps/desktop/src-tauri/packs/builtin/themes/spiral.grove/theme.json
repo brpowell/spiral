@@ -14,9 +14,6 @@
     "color-alert-info": "#8fbfb0",
     "color-alert-success": "#7fd492",
     "color-alert-warning": "#d4b87a",
-    "radius-card": "12px",
-    "radius-button": "8px",
-    "radius-input": "8px",
     "font-ui": "'Source Sans 3', system-ui, -apple-system, sans-serif"
   }
 }

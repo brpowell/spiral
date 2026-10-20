@@ -10,7 +10,6 @@ import { Trans, useTranslation } from "react-i18next";
 import type { Theme, ThemeTokens } from "../../types/theme";
 import { t as translate } from "../../lib/i18n";
 import {
-  FIXED_RADIUS_TOKEN_KEYS,
   OBSIDIAN_DEFAULT_TOKENS,
   resolveThemeTokens,
   stripDerivedThemeTokens,
@@ -297,12 +296,10 @@ export function ThemeEditor({
   };
 
   const previewStyle = Object.fromEntries(
-    Object.entries(previewTokens)
-      .filter(
-        ([key]) =>
-          !(FIXED_RADIUS_TOKEN_KEYS as readonly string[]).includes(key),
-      )
-      .map(([key, value]) => [`--${key}`, value ?? ""]),
+    Object.entries(previewTokens).map(([key, value]) => [
+      `--${key}`,
+      value ?? "",
+    ]),
   ) as CSSProperties;
 
   return (

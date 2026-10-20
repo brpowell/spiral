@@ -9,10 +9,6 @@ export interface ThemeTokens {
   "color-alert-info"?: string;
   "color-alert-success"?: string;
   "color-alert-warning"?: string;
-  /** Kept for the pack schema. Apply uses the Sprig radii in `theme.css`. */
-  "radius-card"?: string;
-  "radius-button"?: string;
-  "radius-input"?: string;
   "font-ui"?: string;
   [key: string]: string | undefined;
 }
@@ -41,8 +37,6 @@ export const REQUIRED_THEME_TOKEN_KEYS = [
   "color-text-primary",
   "color-accent",
   "color-danger",
-  "radius-card",
-  "radius-button",
   "font-ui",
 ] as const;
 

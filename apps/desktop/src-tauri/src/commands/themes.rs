@@ -45,9 +45,6 @@ fn default_workshop_tokens() -> HashMap<String, String> {
         ("color-alert-info".into(), "#9aa8e8".into()),
         ("color-alert-success".into(), "#7fd492".into()),
         ("color-alert-warning".into(), "#e8c57b".into()),
-        ("radius-card".into(), "12px".into()),
-        ("radius-button".into(), "8px".into()),
-        ("radius-input".into(), "8px".into()),
         (
             "font-ui".into(),
             "'Inter', system-ui, -apple-system, sans-serif".into(),

@@ -20,16 +20,6 @@ export const OBSIDIAN_DEFAULT_TOKENS: ThemeTokens = {
   "font-ui": "'Inter', system-ui, -apple-system, sans-serif",
 };
 
-/**
- * Corner radii are owned by `theme.css` (Sprig). Theme files may still
- * carry these keys for the pack schema; apply ignores them.
- */
-export const FIXED_RADIUS_TOKEN_KEYS = [
-  "radius-card",
-  "radius-button",
-  "radius-input",
-] as const;
-
 /** Color tokens that interpolate via `CSS.registerProperty`. */
 const THEME_COLOR_TOKEN_KEYS = Object.keys(OBSIDIAN_DEFAULT_TOKENS).filter(
   (key) => key.startsWith("color-"),
@@ -167,12 +157,8 @@ export function applyTheme(
   for (const key of DERIVED_THEME_TOKEN_KEYS) {
     root.style.removeProperty(`--${key}`);
   }
-  for (const key of FIXED_RADIUS_TOKEN_KEYS) {
-    root.style.removeProperty(`--${key}`);
-  }
 
   for (const [key, value] of Object.entries(tokens)) {
-    if ((FIXED_RADIUS_TOKEN_KEYS as readonly string[]).includes(key)) continue;
     if (value !== undefined) {
       root.style.setProperty(`--${key}`, value);
     }
