@@ -48,6 +48,7 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
+import { useTagWriteWarning } from "../../hooks/useTagWriteWarning";
 import { EditorSaveButton } from "../EditorSaveButton/EditorSaveButton";
 import { EntityArt } from "../EntityArt/EntityArt";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
@@ -478,6 +479,8 @@ export function AlbumEditor() {
     releaseChanged: false,
   });
 
+  const { requestTagWrite, tagWriteDialog } = useTagWriteWarning();
+
   const handleSave = async () => {
     if (!album || !form || !originalForm || !hasChanges || tracks.length === 0)
       return;
@@ -677,7 +680,7 @@ export function AlbumEditor() {
               <EditorSaveButton
                 saving={saving}
                 label={saveLabel}
-                onClick={() => void handleSave()}
+                onClick={() => requestTagWrite(handleSave)}
                 disabled={!hasChanges || saving || discardPrompt}
               />
             </ModalFooter>
@@ -741,6 +744,7 @@ export function AlbumEditor() {
           </AlertConfirmation>
         </>
       )}
+      {tagWriteDialog}
     </Modal>
   );
 }

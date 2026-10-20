@@ -52,6 +52,13 @@
     "confirm": "Delete playlist",
     "body": "<strong>{{title}}</strong> will be permanently deleted. Tracks in this playlist will stay in your library."
   },
+  "tagWriteWarning": {
+    "title": "Saving changes edits your files",
+    "confirm": "Save changes",
+    "body": "Spiral writes tag edits (title, artist, album, artwork and so on) directly into your audio files, not just its own library.",
+    "backup": "Edits can't be undone automatically, so keep a backup of your music before making big changes.",
+    "dontShowAgain": "I understand, don't show this again"
+  },
   "skinOpenUrl": {
     "title": "Open this link?",
     "body": "This skin wants to open:\n{{url}}",

@@ -40,6 +40,7 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import type { Track } from "../../types/track";
 import { EntityArt } from "../EntityArt/EntityArt";
+import { useTagWriteWarning } from "../../hooks/useTagWriteWarning";
 import { EditorSaveButton } from "../EditorSaveButton/EditorSaveButton";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import { IconArtistPlaceholder } from "../icons";
@@ -285,6 +286,8 @@ export function ArtistEditor() {
     }
     return pendingArtPath;
   };
+
+  const { requestTagWrite, tagWriteDialog } = useTagWriteWarning();
 
   const handleSave = async () => {
     if (!artist || !form || !originalForm || !hasChanges || !editingArtistKey) {
@@ -555,7 +558,7 @@ export function ArtistEditor() {
               <EditorSaveButton
                 saving={saving}
                 label={saveLabel}
-                onClick={() => void handleSave()}
+                onClick={() => requestTagWrite(handleSave)}
                 disabled={!hasChanges || saving || discardPrompt}
               />
             </ModalFooter>
@@ -581,6 +584,7 @@ export function ArtistEditor() {
           />
         </>
       )}
+      {tagWriteDialog}
     </Modal>
   );
 }

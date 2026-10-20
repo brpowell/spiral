@@ -78,6 +78,7 @@ import type {
   LyricsSearchCandidate,
   LyricsSource,
 } from "../../types/lyrics";
+import { useTagWriteWarning } from "../../hooks/useTagWriteWarning";
 import { EditorSaveButton } from "../EditorSaveButton/EditorSaveButton";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import {
@@ -779,6 +780,8 @@ export function TrackEditor() {
     return pendingArtPath;
   };
 
+  const { requestTagWrite, tagWriteDialog } = useTagWriteWarning();
+
   const handleSave = async () => {
     if (!form || !originalForm || !hasChanges || tracks.length === 0) return;
 
@@ -1159,7 +1162,7 @@ export function TrackEditor() {
               <EditorSaveButton
                 saving={saving}
                 label={saveLabel}
-                onClick={() => void handleSave()}
+                onClick={() => requestTagWrite(handleSave)}
                 disabled={!hasChanges || saving || discardPrompt}
               />
             </ModalFooter>
@@ -1199,6 +1202,7 @@ export function TrackEditor() {
           />
         </>
       )}
+      {tagWriteDialog}
     </Modal>
   );
 }
