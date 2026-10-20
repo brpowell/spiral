@@ -378,13 +378,14 @@ fn default_default_publisher_id() -> String {
 pub const SPIRAL_REGISTRY_NAME: &str = "Spiral";
 
 /// Official hosted pack registry URL.
-pub const DEFAULT_REGISTRY_URL: &str = "https://spk-registry.spiralpowered.com";
+pub const DEFAULT_REGISTRY_URL: &str = "https://spk.spiralpowered.com";
 
-/// Previous placeholder for [`DEFAULT_REGISTRY_URL`]. Rewritten on load.
-pub const LEGACY_DEFAULT_REGISTRY_URL: &str = "https://spk.spiralpowered.com";
+/// An earlier default that never served the registry. A saved official entry with this URL is
+/// rewritten to [`DEFAULT_REGISTRY_URL`] on load.
+pub const LEGACY_DEFAULT_REGISTRY_URL: &str = "https://spk-registry.spiralpowered.com";
 
-/// Temporary env override for the official registry base (local QA against
-/// `spk-registry`). Remove when multi-registry Preferences UI ships.
+/// Dev-build env override for the official registry base (local QA against `spk-registry`).
+/// Ignored in release builds. Remove when the multi-registry Preferences UI ships.
 pub const PACK_REGISTRY_URL_ENV: &str = "SPIRAL_PACK_REGISTRY_URL";
 
 /// One configured pack registry (official or self-hosted).
@@ -398,15 +399,21 @@ pub struct RegistrySource {
     pub name: String,
 }
 
-/// Optional override from [`PACK_REGISTRY_URL_ENV`] (trimmed, no trailing slash).
+/// Optional override from [`PACK_REGISTRY_URL_ENV`] (trimmed, no trailing slash). Only honoured
+/// in dev builds: a release build always uses [`DEFAULT_REGISTRY_URL`], so a stray environment
+/// variable cannot redirect where users download items from.
 pub fn registry_url_override() -> Option<String> {
+    if !cfg!(debug_assertions) {
+        return None;
+    }
     std::env::var(PACK_REGISTRY_URL_ENV)
         .ok()
         .map(|s| s.trim().trim_end_matches('/').to_string())
         .filter(|s| !s.is_empty() && (s.starts_with("http://") || s.starts_with("https://")))
 }
 
-/// Official Spiral registry base: env override when set, else [`DEFAULT_REGISTRY_URL`].
+/// Official Spiral registry base: the dev-build env override when set, else
+/// [`DEFAULT_REGISTRY_URL`].
 pub fn effective_registry_url() -> String {
     registry_url_override().unwrap_or_else(|| DEFAULT_REGISTRY_URL.to_string())
 }

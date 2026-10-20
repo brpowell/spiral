@@ -45,7 +45,7 @@ import {
   type RegistryVersionSummary,
 } from "../types/itemRegistry";
 
-const REGISTRY = "https://spk-registry.spiralpowered.com";
+const REGISTRY = "https://spk.spiralpowered.com";
 
 function versionSummary(
   version: string,
