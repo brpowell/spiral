@@ -14,6 +14,6 @@
     "color-alert-info": "#b7b4e4",
     "color-alert-success": "#7dcea0",
     "color-alert-warning": "#e8c56a",
-    "font-ui": "'Helvetica Neue', Helvetica, Arial, sans-serif"
+    "font-ui": "helvetica"
   }
 }

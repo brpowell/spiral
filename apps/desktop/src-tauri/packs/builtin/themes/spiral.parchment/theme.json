@@ -14,6 +14,6 @@
     "color-alert-info": "#4a5a9e",
     "color-alert-success": "#3a7a4a",
     "color-alert-warning": "#9a7020",
-    "font-ui": "'Iowan Old Style', 'Palatino Linotype', Georgia, serif"
+    "font-ui": "palatino"
   }
 }

@@ -9,6 +9,7 @@ export interface ThemeTokens {
   "color-alert-info"?: string;
   "color-alert-success"?: string;
   "color-alert-warning"?: string;
+  /** A font id from `lib/fonts.ts`, not a CSS stack. */
   "font-ui"?: string;
   [key: string]: string | undefined;
 }

@@ -12,6 +12,7 @@ import {
   stripDerivedThemeTokens,
   windowAppearanceForBackground,
 } from "./theme";
+import { resolveFontStack } from "./fonts";
 
 function makeTheme(id: string, name: string): Theme {
   const parts = id.split(".");
@@ -135,6 +136,9 @@ describe("mergeThemeTokens / applyTheme", () => {
     );
     expect(root.style.getPropertyValue("--color-danger")).toBe(
       tokens["color-danger"],
+    );
+    expect(root.style.getPropertyValue("--font-ui")).toBe(
+      resolveFontStack(theme.tokens["font-ui"]),
     );
     expect(root.style.getPropertyValue("--color-danger-bg")).toBe("");
     expect(root.style.getPropertyValue("--color-alert-error")).toBe("");

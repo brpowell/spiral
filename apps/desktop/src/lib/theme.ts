@@ -5,6 +5,7 @@ import {
   type Theme,
   type ThemeTokens,
 } from "../types/theme";
+import { DEFAULT_FONT_ID, resolveFontStack } from "./fonts";
 
 export const DEFAULT_THEME_ID = "spiral.theme.obsidian";
 
@@ -17,7 +18,7 @@ export const OBSIDIAN_DEFAULT_TOKENS: ThemeTokens = {
   "color-alert-info": "#9aa8e8",
   "color-alert-success": "#7fd492",
   "color-alert-warning": "#e8c57b",
-  "font-ui": "'Inter', system-ui, -apple-system, sans-serif",
+  "font-ui": DEFAULT_FONT_ID,
 };
 
 /** Color tokens that interpolate via `CSS.registerProperty`. */
@@ -86,8 +87,14 @@ export function mergeThemeTokens(partial: ThemeTokens): ThemeTokens {
   return stripDerivedThemeTokens({ ...OBSIDIAN_DEFAULT_TOKENS, ...partial });
 }
 
+/**
+ * Defaults filled in and `font-ui` expanded from its catalog id to a CSS stack,
+ * so everything downstream (apply, previews, visualizers) sees a usable value.
+ */
 export function resolveThemeTokens(theme: Pick<Theme, "tokens">): ThemeTokens {
-  return mergeThemeTokens(theme.tokens);
+  const tokens = mergeThemeTokens(theme.tokens);
+  tokens["font-ui"] = resolveFontStack(tokens["font-ui"]);
+  return tokens;
 }
 
 /** sRGB relative luminance of a `#rrggbb` color, or null if unparsable. */

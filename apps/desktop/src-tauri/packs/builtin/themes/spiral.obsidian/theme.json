@@ -14,6 +14,6 @@
     "color-alert-info": "#9aa8e8",
     "color-alert-success": "#7fd492",
     "color-alert-warning": "#e8c57b",
-    "font-ui": "'Inter', system-ui, -apple-system, sans-serif"
+    "font-ui": "inter"
   }
 }

@@ -45,10 +45,7 @@ fn default_workshop_tokens() -> HashMap<String, String> {
         ("color-alert-info".into(), "#9aa8e8".into()),
         ("color-alert-success".into(), "#7fd492".into()),
         ("color-alert-warning".into(), "#e8c57b".into()),
-        (
-            "font-ui".into(),
-            "'Inter', system-ui, -apple-system, sans-serif".into(),
-        ),
+        ("font-ui".into(), "inter".into()),
     ])
 }
 

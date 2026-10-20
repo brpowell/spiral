@@ -36,6 +36,23 @@ pub const REQUIRED_THEME_TOKEN_KEYS: &[&str] = &[
     "font-ui",
 ];
 
+/// Font ids a theme's `font-ui` token may hold: the bundled fonts, then the
+/// system stacks. Mirrors `THEME_FONTS` in `apps/desktop/src/lib/fonts.ts`; a
+/// desktop test keeps the two in step.
+pub const THEME_FONT_IDS: &[&str] = &[
+    "inter",
+    "rubik",
+    "outfit",
+    "m-plus-rounded-1c",
+    "system-ui",
+    "helvetica",
+    "verdana",
+    "trebuchet",
+    "georgia",
+    "palatino",
+    "monospace",
+];
+
 /// Strict theme contribution check used by pack install/export.
 pub fn validate_theme_contribution_at(manifest_path: &Path) -> Result<(), String> {
     let contents = fs::read_to_string(manifest_path)
@@ -70,6 +87,13 @@ pub fn validate_theme_contribution_at(manifest_path: &Path) -> Result<(), String
     if !missing.is_empty() {
         return Err(format!("missing required tokens: {}", missing.join(", ")));
     }
+    let font = file.tokens["font-ui"].trim();
+    if !THEME_FONT_IDS.contains(&font) {
+        return Err(format!(
+            "font-ui must be one of: {} (got {font})",
+            THEME_FONT_IDS.join(", ")
+        ));
+    }
     Ok(())
 }
 
@@ -87,7 +111,10 @@ mod tests {
     fn tokens_json() -> String {
         let pairs: Vec<String> = REQUIRED_THEME_TOKEN_KEYS
             .iter()
-            .map(|k| format!(r#"    "{k}": "x""#))
+            .map(|k| {
+                let value = if *k == "font-ui" { "inter" } else { "x" };
+                format!(r#"    "{k}": "{value}""#)
+            })
             .collect();
         pairs.join(",\n")
     }
@@ -121,6 +148,20 @@ mod tests {
         );
         validate_theme_contribution_at(&path).unwrap();
         assert_eq!(REQUIRED_THEME_TOKEN_KEYS.len(), 5);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_an_unknown_font_id() {
+        let dir = std::env::temp_dir().join(format!("spk-theme-font-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let json = format!(
+            "{{\n  \"id\": \"noir\",\n  \"name\": \"Noir\",\n  \"tokens\": {{\n{}\n  }}\n}}",
+            tokens_json().replace("\"inter\"", "\"'Inter', sans-serif\"")
+        );
+        let path = write_theme(&dir, &json);
+        let err = validate_theme_contribution_at(&path).unwrap_err();
+        assert!(err.contains("font-ui must be one of"), "{err}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

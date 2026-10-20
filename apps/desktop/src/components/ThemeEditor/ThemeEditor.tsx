@@ -39,7 +39,8 @@ import { FormField } from "../common/Field/Field";
 import { Switch } from "../common/Switch/Switch";
 import { TextInput } from "../common/TextInput/TextInput";
 import { TextLink } from "../common/TextLink/TextLink";
-import { Textarea } from "../common/Textarea/Textarea";
+import { DEFAULT_FONT_ID, findThemeFont, THEME_FONTS } from "../../lib/fonts";
+import { Select } from "../common/Select/Select";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
@@ -351,15 +352,22 @@ export function ThemeEditor({
                   label={t("themeEditor.tokens.font-ui")}
                   className="theme-editor__field--block"
                 >
-                  <Textarea
+                  <Select
+                    aria-label={t("themeEditor.tokens.font-ui")}
                     value={
-                      draft.tokens["font-ui"] ??
-                      OBSIDIAN_DEFAULT_TOKENS["font-ui"] ??
-                      ""
+                      findThemeFont(draft.tokens["font-ui"])?.id ??
+                      DEFAULT_FONT_ID
                     }
-                    onChange={(e) => updateToken("font-ui", e.target.value)}
-                    rows={3}
-                    autoSize
+                    onChange={(id) => updateToken("font-ui", id)}
+                    options={THEME_FONTS.map((font) => ({
+                      value: font.id,
+                      label: (
+                        <span style={{ fontFamily: font.stack }}>
+                          {font.label}
+                        </span>
+                      ),
+                      group: t(`themeEditor.fontGroups.${font.group}`),
+                    }))}
                   />
                 </FormField>
               </section>
