@@ -148,6 +148,10 @@ export function RegistryBrowseSection() {
   const [entries, setEntries] = useState<CatalogItemEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  /** Fetching a new filter / search / sort while the previous results stay on screen. */
+  const [refreshing, setRefreshing] = useState(false);
+  /** Skeletons are only for the very first load; after that results are swapped in place. */
+  const loadedOnceRef = useRef(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [partialWarning, setPartialWarning] = useState(false);
@@ -179,6 +183,11 @@ export function RegistryBrowseSection() {
         setTotal(snapshot.total);
         setPartialWarning(snapshot.partialWarning);
         setLoading(false);
+        setRefreshing(false);
+        loadedOnceRef.current = true;
+      } else if (loadedOnceRef.current) {
+        // Keep the previous results up (no skeleton flash); the header spinner shows progress.
+        setRefreshing(true);
       } else {
         setEntries([]);
         setTotal(0);
@@ -197,8 +206,13 @@ export function RegistryBrowseSection() {
       if (stale()) return;
       if (!result.ok) {
         if (!snapshot) {
+          // Don't leave results for a different filter standing behind the error.
+          setEntries([]);
+          setTotal(0);
           setError(result.error);
           setLoading(false);
+          setRefreshing(false);
+          loadedOnceRef.current = false;
         }
         return;
       }
@@ -214,6 +228,8 @@ export function RegistryBrowseSection() {
         setTotal(result.catalog.total);
         setPartialWarning(partial);
         setLoading(false);
+        setRefreshing(false);
+        loadedOnceRef.current = true;
       }
       const full = await enrichItemCatalog(result.catalog.items);
       if (stale()) return;
@@ -397,6 +413,15 @@ export function RegistryBrowseSection() {
               <BrowseViewHeader
                 className="browse-view__header--single-row"
                 title={t("catalog.title")}
+                actions={
+                  refreshing ? (
+                    <span
+                      className="registry-browse__refreshing"
+                      role="status"
+                      aria-label={t("catalog.loading")}
+                    />
+                  ) : undefined
+                }
                 count={
                   !showSkeleton && !error
                     ? t("library:views.headerCount", { count: total })

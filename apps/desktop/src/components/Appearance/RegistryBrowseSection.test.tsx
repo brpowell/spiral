@@ -183,6 +183,40 @@ describe("RegistryBrowseSection", () => {
     expect(mockFetchCatalog).not.toHaveBeenCalled();
   });
 
+  it("keeps the old results and shows a spinner while a new filter loads", async () => {
+    mockFetchCatalog.mockResolvedValueOnce(catalogOf([summary("noir")]));
+    const { container } = render(<RegistryBrowseSection />);
+    await screen.findByText("NOIR");
+    expect(container.querySelector(".registry-browse__refreshing")).toBeNull();
+
+    // The next fetch stays pending, as a slow registry would.
+    let release!: (value: unknown) => void;
+    mockFetchCatalog.mockReturnValueOnce(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Sort by" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Oldest" }));
+
+    await waitFor(() =>
+      expect(
+        container.querySelector(".registry-browse__refreshing"),
+      ).not.toBeNull(),
+    );
+    // No skeleton grid; the previous cards are still there.
+    expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+    expect(screen.getByText("NOIR")).toBeTruthy();
+
+    release(catalogOf([summary("grove", "skin")]));
+    expect(await screen.findByText("GROVE")).toBeTruthy();
+    await waitFor(() =>
+      expect(
+        container.querySelector(".registry-browse__refreshing"),
+      ).toBeNull(),
+    );
+  });
+
   it("sorts through the server query", async () => {
     mockFetchCatalog.mockResolvedValue(catalogOf([summary("noir")]));
     render(<RegistryBrowseSection />);

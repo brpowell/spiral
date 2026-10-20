@@ -26,6 +26,11 @@
   margin-top: 0;
 }
 
+/* Studio's page headers get more room above their content than the library's do. */
+.appearance-shell .browse-view__header {
+  margin-bottom: 1rem;
+}
+
 .appearance-shell__content {
   /* Match library main-content body inset (album/artist/browse views). */
   --main-content-padding-x: 2rem;
