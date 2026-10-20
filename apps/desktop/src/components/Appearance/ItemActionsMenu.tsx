@@ -7,7 +7,7 @@ import {
 import { revealInFileManagerLabel } from "../../lib/fileManager";
 import { listItems, openPathInFileManager } from "../../lib/tauri";
 import type { ItemSummary, ItemType } from "../../types/item";
-import type { PackZone } from "../../types/pack";
+import { isEditablePackZone, type PackZone } from "../../types/pack";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
 import {
   ContextMenuItem,
@@ -84,7 +84,7 @@ export function ItemActionsMenu({
   const [exportOpen, setExportOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const editable = item.zone === "workshop" || item.zone === "linked";
+  const editable = isEditablePackZone(item.zone);
 
   const revealItem = async () => {
     const found = await resolveItem(item.effectiveId);

@@ -52,7 +52,7 @@
 }
 
 .choice-option__title {
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 
 .choice-option__details {

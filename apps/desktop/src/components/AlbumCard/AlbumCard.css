@@ -24,7 +24,7 @@
 
 .album-card__title {
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;

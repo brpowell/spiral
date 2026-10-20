@@ -110,7 +110,7 @@
   width: 1rem;
   height: 1rem;
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: var(--weight-strong);
   line-height: 1;
 }
 
@@ -154,7 +154,7 @@
   flex: 1;
   min-width: 0;
   font-size: 0.82rem;
-  font-weight: 500;
+  font-weight: var(--weight-regular);
   color: var(--color-text-primary);
   display: -webkit-box;
   -webkit-box-orient: vertical;

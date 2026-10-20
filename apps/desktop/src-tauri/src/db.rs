@@ -1132,18 +1132,6 @@ pub fn list_file_paths(conn: &Connection) -> Result<Vec<String>, rusqlite::Error
     Ok(paths)
 }
 
-pub fn track_exists_by_file_path(
-    conn: &Connection,
-    file_path: &str,
-) -> Result<bool, rusqlite::Error> {
-    let count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM tracks WHERE file_path = ?1",
-        params![file_path],
-        |row| row.get(0),
-    )?;
-    Ok(count > 0)
-}
-
 pub fn get_all_artist_images(conn: &Connection) -> Result<Vec<ArtistImage>, rusqlite::Error> {
     let mut stmt =
         conn.prepare("SELECT artist_key, art_path FROM artist_images ORDER BY artist_key")?;

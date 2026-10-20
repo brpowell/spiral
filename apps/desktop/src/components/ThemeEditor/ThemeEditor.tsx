@@ -10,7 +10,6 @@ import { Trans, useTranslation } from "react-i18next";
 import type { Theme, ThemeTokens } from "../../types/theme";
 import { t as translate } from "../../lib/i18n";
 import {
-  FIXED_RADIUS_TOKEN_KEYS,
   OBSIDIAN_DEFAULT_TOKENS,
   resolveThemeTokens,
   stripDerivedThemeTokens,
@@ -40,7 +39,8 @@ import { FormField } from "../common/Field/Field";
 import { Switch } from "../common/Switch/Switch";
 import { TextInput } from "../common/TextInput/TextInput";
 import { TextLink } from "../common/TextLink/TextLink";
-import { Textarea } from "../common/Textarea/Textarea";
+import { DEFAULT_FONT_ID, findThemeFont, THEME_FONTS } from "../../lib/fonts";
+import { Select } from "../common/Select/Select";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
@@ -297,12 +297,10 @@ export function ThemeEditor({
   };
 
   const previewStyle = Object.fromEntries(
-    Object.entries(previewTokens)
-      .filter(
-        ([key]) =>
-          !(FIXED_RADIUS_TOKEN_KEYS as readonly string[]).includes(key),
-      )
-      .map(([key, value]) => [`--${key}`, value ?? ""]),
+    Object.entries(previewTokens).map(([key, value]) => [
+      `--${key}`,
+      value ?? "",
+    ]),
   ) as CSSProperties;
 
   return (
@@ -354,15 +352,22 @@ export function ThemeEditor({
                   label={t("themeEditor.tokens.font-ui")}
                   className="theme-editor__field--block"
                 >
-                  <Textarea
+                  <Select
+                    aria-label={t("themeEditor.tokens.font-ui")}
                     value={
-                      draft.tokens["font-ui"] ??
-                      OBSIDIAN_DEFAULT_TOKENS["font-ui"] ??
-                      ""
+                      findThemeFont(draft.tokens["font-ui"])?.id ??
+                      DEFAULT_FONT_ID
                     }
-                    onChange={(e) => updateToken("font-ui", e.target.value)}
-                    rows={3}
-                    autoSize
+                    onChange={(id) => updateToken("font-ui", id)}
+                    options={THEME_FONTS.map((font) => ({
+                      value: font.id,
+                      label: (
+                        <span style={{ fontFamily: font.stack }}>
+                          {font.label}
+                        </span>
+                      ),
+                      group: t(`themeEditor.fontGroups.${font.group}`),
+                    }))}
                   />
                 </FormField>
               </section>

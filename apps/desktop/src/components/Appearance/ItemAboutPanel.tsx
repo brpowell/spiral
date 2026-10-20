@@ -10,7 +10,7 @@ import {
 } from "../../lib/packs/packReadmeCache";
 import { WORKSHOP_CHANGED_EVENT } from "../../lib/themeBridge";
 import { writeItemReadme } from "../../lib/tauri";
-import { isAuthoringPackZone } from "../../types/pack";
+import { isEditablePackZone } from "../../types/pack";
 import type { ItemSummary } from "../../types/item";
 import { Button } from "../common/Button/Button";
 import { Textarea } from "../common/Textarea/Textarea";
@@ -40,7 +40,7 @@ export function ItemAboutPanel({
   busy: boolean;
 }) {
   const { t } = useTranslation(["studio", "common"]);
-  const canEdit = isAuthoringPackZone(item.zone);
+  const canEdit = isEditablePackZone(item.zone);
   const initial = readmeStateFromCache(item.dir);
   const [readme, setReadme] = useState<string | null>(initial.readme);
   const [loadState, setLoadState] = useState<ReadmeLoadState>(

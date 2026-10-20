@@ -65,7 +65,7 @@
 
 .track-editor__identity-title.modal-title {
   font-size: 1.05rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -160,7 +160,7 @@
   gap: 0.4rem;
   margin: 0 0 0.5rem;
   font-size: 0.82rem;
-  font-weight: 500;
+  font-weight: var(--weight-regular);
   color: var(--color-danger, #e55);
 }
 
@@ -223,7 +223,7 @@
 
 .track-editor__fields .field__label {
   font-size: 0.8rem;
-  font-weight: 500;
+  font-weight: var(--weight-regular);
 }
 
 .track-editor__error {

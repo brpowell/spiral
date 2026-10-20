@@ -17,7 +17,7 @@
   align-items: center;
   gap: 0.45rem;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--color-text-secondary);
@@ -42,7 +42,7 @@
 .sectioned-list__title-count {
   flex-shrink: 0;
   font-size: 0.85rem;
-  font-weight: 400;
+  font-weight: var(--weight-regular);
   letter-spacing: normal;
   text-transform: none;
   color: var(--color-text-secondary);
@@ -111,7 +111,7 @@ button.sectioned-list__item-main {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  font-weight: 550;
+  font-weight: var(--weight-medium);
   font-size: 0.9rem;
   line-height: 1.25;
 }

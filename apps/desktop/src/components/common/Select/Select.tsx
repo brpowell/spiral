@@ -1,4 +1,8 @@
-import { ContextMenuOptionItem } from "../../ContextMenu/ContextMenu";
+import { Fragment } from "react";
+import {
+  ContextMenuHeading,
+  ContextMenuOptionItem,
+} from "../../ContextMenu/ContextMenu";
 import { SelectShell } from "./SelectShell";
 import type { SelectBaseProps } from "./selectTypes";
 
@@ -27,20 +31,24 @@ export function Select<T extends string>({
       layoutDeps={[options, value]}
     >
       {(close) =>
-        options.map((opt) => (
-          <ContextMenuOptionItem
-            key={opt.value}
-            label={opt.label}
-            description={opt.description}
-            selected={value === opt.value}
-            disabled={opt.disabled}
-            onClick={() => {
-              if (!opt.disabled && opt.value !== value) {
-                onChange(opt.value);
-              }
-              close();
-            }}
-          />
+        options.map((opt, index) => (
+          <Fragment key={opt.value}>
+            {opt.group != null && opt.group !== options[index - 1]?.group ? (
+              <ContextMenuHeading>{opt.group}</ContextMenuHeading>
+            ) : null}
+            <ContextMenuOptionItem
+              label={opt.label}
+              description={opt.description}
+              selected={value === opt.value}
+              disabled={opt.disabled}
+              onClick={() => {
+                if (!opt.disabled && opt.value !== value) {
+                  onChange(opt.value);
+                }
+                close();
+              }}
+            />
+          </Fragment>
         ))
       }
     </SelectShell>

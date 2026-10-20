@@ -44,7 +44,7 @@
 .album-detail__title {
   margin: 0 0 0.35rem;
   font-size: 1.75rem;
-  font-weight: 700;
+  font-weight: var(--weight-strong);
   line-height: 1.2;
 }
 
@@ -71,7 +71,7 @@
   margin: 0 0 0.75rem;
   padding-inline: var(--main-content-padding-x);
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   color: var(--color-text-secondary);
 }
 

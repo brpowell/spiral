@@ -118,6 +118,10 @@
     "resetToken": "Reset {{label}}",
     "pickToken": "Pick {{label}}",
     "colors": "Colors",
+    "fontGroups": {
+      "bundled": "Bundled",
+      "system": "System"
+    },
     "tokens": {
       "color-bg": "Background",
       "color-text-primary": "Text",

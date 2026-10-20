@@ -156,7 +156,11 @@ fn authoring_item_writable(app: &AppHandle, dir: &Path) -> bool {
         .linked_item_paths
         .iter()
         .any(|raw| paths_equal_canonical(&PathBuf::from(raw.trim()), dir));
-    workshop_ok || linked_ok
+    let builtin_ok = cfg!(debug_assertions)
+        && builtin_packs_root(app)
+            .canonicalize()
+            .is_ok_and(|b| dir.parent().and_then(Path::parent) == Some(b.as_path()));
+    workshop_ok || linked_ok || builtin_ok
 }
 
 fn write_item_text_at(
@@ -189,7 +193,7 @@ fn write_item_text_at(
     fs::write(&path, content).map_err(|e| format!("failed to write {filename}: {e}"))
 }
 
-/// The authoring (workshop or linked) item with `effective_id`.
+/// The editable item with `effective_id`: a workshop or linked item, or a built-in one in debug builds.
 pub(crate) fn find_mutable_item(
     app: &AppHandle,
     effective_id: &str,
@@ -201,7 +205,7 @@ pub(crate) fn find_mutable_item(
     scan_all_items(app)
         .contributions
         .into_iter()
-        .find(|c| c.effective_id == effective_id && c.zone.is_mutable())
+        .find(|c| c.effective_id == effective_id && c.zone.is_editable())
         .ok_or_else(|| format!("editable item \"{effective_id}\" not found"))
 }
 
@@ -472,6 +476,9 @@ pub fn update_item_metadata(
     let parsed = parse_item_manifest_value(&item.r#type, &value).map_err(|e| e.to_string())?;
     let new_effective = parsed.effective_id();
     let changed_identity = new_effective != item.effective_id;
+    if changed_identity && item.zone == PackZone::Builtin {
+        return Err("built-in item ids cannot be changed".into());
+    }
 
     let existing = scan_all_items(&app);
     if changed_identity
@@ -669,7 +676,9 @@ pub fn delete_workshop_item(app: AppHandle, item_id: String) -> Result<(), Strin
 
     let item = find_mutable_item(&app, &item_id)?;
     if item.zone != PackZone::Workshop {
-        return Err("linked items are not deleted from disk; unlink them instead".into());
+        return Err(
+            "only workshop items are deleted from disk; unlink linked items instead".into(),
+        );
     }
 
     fs::remove_dir_all(&item.contribution_dir)

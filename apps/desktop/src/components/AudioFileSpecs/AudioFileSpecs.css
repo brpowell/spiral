@@ -19,7 +19,7 @@
   gap: 0.4rem;
   margin: 0;
   font-size: 0.8rem;
-  font-weight: 500;
+  font-weight: var(--weight-regular);
   line-height: 1.2;
   color: var(--color-text-secondary);
 }
@@ -33,7 +33,7 @@
 .audio-file-specs__value {
   margin: 0;
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
   text-align: right;
