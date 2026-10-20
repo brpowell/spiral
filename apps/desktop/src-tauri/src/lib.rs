@@ -156,7 +156,7 @@ pub fn run() {
                 eprintln!("pack dirs on startup: {err}");
             }
 
-            packs::start_workshop_watch(app.handle().clone());
+            packs::start_library_packs_watch(app.handle().clone());
 
             if let Err(err) = metadata_backup::purge_legacy_tag_backups(app.handle()) {
                 eprintln!("legacy tag backup cleanup on startup: {err}");
@@ -228,8 +228,8 @@ pub fn run() {
             commands::themes::load_user_themes,
             commands::themes::save_active_theme_id,
             commands::themes::get_active_theme_id,
-            commands::themes::create_workshop_theme,
-            commands::themes::save_workshop_theme,
+            commands::themes::create_library_theme,
+            commands::themes::save_library_theme,
             commands::items::install_item,
             commands::items::get_item_export_defaults,
             commands::items::export_item,
@@ -244,7 +244,7 @@ pub fn run() {
             commands::items::read_item_changelog,
             commands::items::write_item_changelog,
             commands::items::uninstall_item,
-            commands::items::delete_workshop_item,
+            commands::items::delete_linked_item,
             commands::items::get_default_publisher_id,
             commands::items::save_default_publisher_id,
             commands::registry::get_registries,

@@ -1,14 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  deleteWorkshopItemWithRefresh,
-  updateItemMetadataWithRefresh,
-} from "../../lib/items/itemActions";
+import { updateItemMetadataWithRefresh } from "../../lib/items/itemActions";
 import { revealInFileManagerLabel } from "../../lib/fileManager";
 import { listItems, openPathInFileManager } from "../../lib/tauri";
 import type { ItemSummary, ItemType } from "../../types/item";
 import { isEditablePackZone, type PackZone } from "../../types/pack";
-import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
 import {
   ContextMenuItem,
   ContextMenuSeparator,
@@ -19,14 +15,13 @@ import {
   IconOpenFolder,
   IconPackage,
   IconPencil,
-  IconUnlink,
 } from "../icons";
 import { MenuButton } from "../MenuButton/MenuButton";
 import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
 import { EditItemModal, type EditItemModalResult } from "./EditItemModal";
 import { ExportItemModal } from "./ExportItemModal";
 import { UninstallItemDialog } from "./UninstallItemDialog";
-import { UnlinkItemDialog } from "./UnlinkItemDialog";
+import { RemoveItemDialog } from "./RemoveItemDialog";
 
 /** The few fields every list source (stores, `listItems`) can provide for an item. */
 export interface ItemRef {
@@ -36,9 +31,9 @@ export interface ItemRef {
   zone: PackZone;
 }
 
-type PendingAction = "uninstall" | "delete" | "unlink" | null;
+type PendingAction = "uninstall" | "remove" | null;
 
-/** Active on-disk record for an item id (workshop/linked win over installed/builtin). */
+/** Active on-disk record for an item id (linked wins over installed/builtin). */
 async function resolveItem(effectiveId: string): Promise<ItemSummary | null> {
   const items = await listItems();
   return (
@@ -65,13 +60,13 @@ export function ItemActionsMenu({
   item: ItemRef;
   /** Shows “View details” when provided (omit on the details view itself). */
   onOpenItem?: (effectiveId: string) => void;
-  /** Called after an uninstall / delete / unlink succeeds. */
+  /** Called after an uninstall / remove succeeds. */
   onAfterRemove?: () => void;
   /** Called with the new effective id after “Edit details” saves. */
   onAfterEdit?: (effectiveId: string) => void;
   variant?: "ghost" | "secondary";
   size?: "sm";
-  /** Leave Uninstall / Unlink out when the caller offers it as a primary action. */
+  /** Leave Uninstall / Remove out when the caller offers it as a primary action. */
   omitRemove?: boolean;
   /** Leave the theme editor entry ("edit") or Edit details ("details") out when it is the primary action. */
   omitEdit?: "edit" | "details";
@@ -98,11 +93,11 @@ export function ItemActionsMenu({
     setEditOpen(true);
   };
 
-  const requestUnlink = async () => {
+  const requestRemove = async () => {
     const found = await resolveItem(item.effectiveId);
     if (!found) return;
     setResolved(found);
-    setPending("unlink");
+    setPending("remove");
   };
 
   const handleSave = async (result: EditItemModalResult) => {
@@ -119,10 +114,6 @@ export function ItemActionsMenu({
     } finally {
       setSaving(false);
     }
-  };
-
-  const finish = (ok: boolean) => {
-    if (ok) onAfterRemove?.();
   };
 
   return (
@@ -207,25 +198,14 @@ export function ItemActionsMenu({
                 }}
               />
             ) : null}
-            {item.zone === "workshop" ? (
-              <ContextMenuItem
-                icon={<IconDelete />}
-                label={t("items.delete")}
-                className="context-menu__danger"
-                onClick={() => {
-                  close();
-                  setPending("delete");
-                }}
-              />
-            ) : null}
             {item.zone === "linked" && !omitRemove ? (
               <ContextMenuItem
-                icon={<IconUnlink />}
-                label={t("items.unlink")}
+                icon={<IconDelete />}
+                label={t("items.remove")}
                 className="context-menu__danger"
                 onClick={() => {
                   close();
-                  void requestUnlink();
+                  void requestRemove();
                 }}
               />
             ) : null}
@@ -240,24 +220,14 @@ export function ItemActionsMenu({
         onAfterRemove={onAfterRemove}
       />
 
-      <AlertConfirmation
-        open={pending === "delete"}
-        onClose={() => setPending(null)}
-        title={t("items.deleteTitle")}
-        confirmLabel={t("items.delete")}
-        onConfirm={async () =>
-          finish(
-            await deleteWorkshopItemWithRefresh(item.effectiveId, item.name),
-          )
-        }
-      >
-        {t("items.deleteBody", { name: item.name })}
-      </AlertConfirmation>
-
       {resolved != null ? (
-        <UnlinkItemDialog
-          open={pending === "unlink"}
-          item={{ dir: resolved.dir, name: item.name }}
+        <RemoveItemDialog
+          open={pending === "remove"}
+          item={{
+            effectiveId: item.effectiveId,
+            dir: resolved.dir,
+            name: item.name,
+          }}
           onClose={() => setPending(null)}
           onAfterRemove={onAfterRemove}
         />

@@ -1,5 +1,5 @@
-//! Debounced file watcher for the workshop root.
-//! Emits `workshop://changed` so the UI can live-reload hand-edited drafts.
+//! Debounced file watcher for the Spiral Library's `Packs` folder.
+//! Emits `packs://library-changed` so the UI can live-reload hand-edited items.
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::PathBuf;
@@ -10,23 +10,25 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
-pub const WORKSHOP_CHANGED_EVENT: &str = "workshop://changed";
+pub const LIBRARY_PACKS_CHANGED_EVENT: &str = "packs://library-changed";
 
 const DEBOUNCE: Duration = Duration::from_millis(350);
 
 static WATCH_STARTED: AtomicBool = AtomicBool::new(false);
+static WATCHED_ROOT: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
 static WATCHER: OnceLock<Mutex<Option<RecommendedWatcher>>> = OnceLock::new();
 
-/// Start watching `{app_data}/packs/workshop/` once for the process lifetime.
-pub fn start_workshop_watch(app: AppHandle) {
+/// Start watching `<library root>/Packs/` once for the process lifetime. The folder follows
+/// the library when it is relocated; see `retarget_library_packs_watch`.
+pub fn start_library_packs_watch(app: AppHandle) {
     if WATCH_STARTED.swap(true, Ordering::SeqCst) {
         return;
     }
 
-    let workshop = match super::paths::ensure_workshop_root(&app) {
+    let root = match super::paths::ensure_library_packs_root(&app) {
         Ok(dir) => dir,
         Err(err) => {
-            eprintln!("workshop watch: could not ensure workshop root: {err}");
+            eprintln!("library packs watch: could not ensure library packs root: {err}");
             return;
         }
     };
@@ -40,28 +42,32 @@ pub fn start_workshop_watch(app: AppHandle) {
     ) {
         Ok(w) => w,
         Err(err) => {
-            eprintln!("workshop watch: failed to create watcher: {err}");
+            eprintln!("library packs watch: failed to create watcher: {err}");
             return;
         }
     };
 
-    if let Err(err) = watcher.watch(&workshop, RecursiveMode::Recursive) {
+    if let Err(err) = watcher.watch(&root, RecursiveMode::Recursive) {
         eprintln!(
-            "workshop watch: failed to watch {}: {err}",
-            workshop.display()
+            "library packs watch: failed to watch {}: {err}",
+            root.display()
         );
         return;
     }
 
+    *WATCHED_ROOT
+        .get_or_init(|| Mutex::new(None))
+        .lock()
+        .expect("library watched root lock") = Some(root);
     WATCHER
         .get_or_init(|| Mutex::new(None))
         .lock()
-        .expect("workshop watcher lock")
+        .expect("library watcher lock")
         .replace(watcher);
 
     let app = Arc::new(app);
     thread::Builder::new()
-        .name("workshop-watch".into())
+        .name("library-packs-watch".into())
         .spawn(move || {
             let mut last_emit = Instant::now() - DEBOUNCE;
             while let Ok(res) = rx.recv() {
@@ -82,28 +88,57 @@ pub fn start_workshop_watch(app: AppHandle) {
                             }
                         }
                         last_emit = Instant::now();
-                        if let Err(err) = app.emit(WORKSHOP_CHANGED_EVENT, ()) {
-                            eprintln!("workshop watch: emit failed: {err}");
+                        if let Err(err) = app.emit(LIBRARY_PACKS_CHANGED_EVENT, ()) {
+                            eprintln!("library packs watch: emit failed: {err}");
                         }
                     }
-                    Err(err) => eprintln!("workshop watch: {err}"),
+                    Err(err) => eprintln!("library packs watch: {err}"),
                 }
             }
         })
         .ok();
 }
 
+/// Point the running watcher at the current library's `Packs` folder (after a relocate or
+/// switch). No-op when the watcher never started or the folder did not change.
+pub fn retarget_library_packs_watch(app: &AppHandle) {
+    let Ok(new_root) = super::paths::ensure_library_packs_root(app) else {
+        return;
+    };
+    let (Some(watcher_slot), Some(root_slot)) = (WATCHER.get(), WATCHED_ROOT.get()) else {
+        return;
+    };
+    let mut watcher_guard = watcher_slot.lock().expect("library watcher lock");
+    let mut root_guard = root_slot.lock().expect("library watched root lock");
+    let Some(watcher) = watcher_guard.as_mut() else {
+        return;
+    };
+    if root_guard.as_ref() == Some(&new_root) {
+        return;
+    }
+    if let Some(old) = root_guard.take() {
+        let _ = watcher.unwatch(&old);
+    }
+    match watcher.watch(&new_root, RecursiveMode::Recursive) {
+        Ok(()) => *root_guard = Some(new_root),
+        Err(err) => eprintln!(
+            "library packs watch: failed to watch {}: {err}",
+            new_root.display()
+        ),
+    }
+}
+
 fn is_relevant_event(event: &notify::Event) -> bool {
     use notify::EventKind;
     match event.kind {
         EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_) => {
-            !event.paths.is_empty() && event.paths.iter().any(is_workshop_content_path)
+            !event.paths.is_empty() && event.paths.iter().any(is_library_content_path)
         }
         _ => false,
     }
 }
 
-fn is_workshop_content_path(path: &PathBuf) -> bool {
+fn is_library_content_path(path: &PathBuf) -> bool {
     let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
         return false;
     };

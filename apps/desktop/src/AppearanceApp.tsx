@@ -92,7 +92,7 @@ export function AppearanceApp() {
 
   // No focus-driven refresh: OS color pickers / dialogs blur+refocus the window
   // and would thrash the theme editor. Cross-window updates arrive via bridges
-  // (theme://changed, workshop://changed, skin events, etc.).
+  // (theme://changed, packs://library-changed, skin events, etc.).
 
   return (
     <CustomWindowFrame

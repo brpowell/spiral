@@ -8,7 +8,7 @@ import {
   prefetchPackChangelog,
   setPackChangelogCache,
 } from "../../lib/packs/packChangelogCache";
-import { WORKSHOP_CHANGED_EVENT } from "../../lib/themeBridge";
+import { LIBRARY_PACKS_CHANGED_EVENT } from "../../lib/themeBridge";
 import { writeItemChangelog } from "../../lib/tauri";
 import { isEditablePackZone } from "../../types/pack";
 import type { ItemSummary } from "../../types/item";
@@ -96,28 +96,29 @@ export function ItemChangelogPanel({
   }, [loadChangelog, item.dir]);
 
   useEffect(() => {
-    const event =
-      item.zone === "workshop"
-        ? WORKSHOP_CHANGED_EVENT
-        : item.zone === "linked"
-          ? RELOAD_LINKED_PACKS_EVENT
-          : null;
-    if (event == null) return;
+    // Items under the Library's Packs folder are file-watched; other linked folders reload on
+    // "Reload Linked Packs". Either may apply to any linked item.
+    if (item.zone !== "linked") return;
     let disposed = false;
-    let unlisten: (() => void) | undefined;
-    void listen(event, () => {
-      if (editing) return;
-      void loadChangelog({ silent: true, force: true });
-    }).then((fn) => {
-      if (disposed) {
-        fn();
-        return;
-      }
-      unlisten = fn;
-    });
+    const unlisteners: (() => void)[] = [];
+    for (const event of [
+      LIBRARY_PACKS_CHANGED_EVENT,
+      RELOAD_LINKED_PACKS_EVENT,
+    ]) {
+      void listen(event, () => {
+        if (editing) return;
+        void loadChangelog({ silent: true, force: true });
+      }).then((fn) => {
+        if (disposed) {
+          fn();
+          return;
+        }
+        unlisteners.push(fn);
+      });
+    }
     return () => {
       disposed = true;
-      unlisten?.();
+      for (const unlisten of unlisteners) unlisten();
     };
   }, [editing, loadChangelog, item.zone]);
 

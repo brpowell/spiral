@@ -7,21 +7,21 @@
 
 pub mod export;
 pub mod install;
+pub mod library_watch;
 pub mod manage;
 mod paths;
 pub mod registry;
 pub mod scan;
-pub mod workshop_watch;
 
 pub use export::ExportItemResult;
 pub use install::InstallItemResult;
+pub use library_watch::{retarget_library_packs_watch, start_library_packs_watch};
 pub use manage::ItemSummary;
 pub use paths::{
-    builtin_packs_root, ensure_packs_ready, ensure_workshop_root, installed_packs_root,
-    workshop_packs_root,
+    add_linked_item_path, builtin_packs_root, ensure_library_packs_root, ensure_packs_ready,
+    installed_packs_root, LIBRARY_PACKS_DIR_NAME,
 };
 pub use scan::{scan_contributions_of_type, ScannedContribution};
-pub use workshop_watch::start_workshop_watch;
 
 // Re-export the shared format crate so call sites keep `packs::…` paths.
 pub use spk_format::{
@@ -38,9 +38,9 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub enum PackZone {
     Builtin,
-    Workshop,
     Installed,
-    /// External item folder listed in `linkedItemPaths` (observed, not owned).
+    /// Items the user owns on disk: everything in the Spiral Library's `Packs` folder, plus
+    /// external item folders listed in `linkedItemPaths`.
     Linked,
 }
 
@@ -48,15 +48,14 @@ impl PackZone {
     pub fn as_str(self) -> &'static str {
         match self {
             PackZone::Builtin => "builtin",
-            PackZone::Workshop => "workshop",
             PackZone::Installed => "installed",
             PackZone::Linked => "linked",
         }
     }
 
-    /// Authoring class: workshop drafts and linked external items.
+    /// Authoring class: linked items.
     pub fn is_mutable(self) -> bool {
-        matches!(self, PackZone::Workshop | PackZone::Linked)
+        matches!(self, PackZone::Linked)
     }
 
     /// Whether Studio may edit items in this zone in place.
@@ -78,8 +77,7 @@ mod zone_tests {
     use super::PackZone;
 
     #[test]
-    fn authoring_zones_are_always_editable() {
-        assert!(PackZone::Workshop.is_editable());
+    fn linked_items_are_always_editable() {
         assert!(PackZone::Linked.is_editable());
     }
 

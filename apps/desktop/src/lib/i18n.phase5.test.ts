@@ -42,7 +42,7 @@ function makeTheme(partial?: Partial<Theme>): Theme {
     description: "",
     publisherId: "spiral",
     version: "0.0.0",
-    zone: "workshop",
+    zone: "linked",
     mutable: true,
     tokens: {
       "color-bg": "#000",

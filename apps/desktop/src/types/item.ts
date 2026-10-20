@@ -36,7 +36,7 @@ export interface ItemSummary {
   active: boolean;
 }
 
-/** Workshop drafts and linked folders are editable in place, and built-ins in dev builds. */
+/** Linked items are editable in place, and built-ins in dev builds. */
 export function isEditableItem(item: Pick<ItemSummary, "zone">): boolean {
   return isEditablePackZone(item.zone);
 }

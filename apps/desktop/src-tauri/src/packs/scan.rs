@@ -1,4 +1,4 @@
-//! Directory-walking item scanner over builtin / workshop / installed / linked zones.
+//! Directory-walking item scanner over builtin / installed / linked zones.
 //!
 //! Items are discovered by scanning fixed type folders (`themes/`, `skins/`,
 //! `visualizers/`, `sounds/`) under each zone root. Each item directory is named
@@ -11,7 +11,7 @@ use crate::activity_log::{self, LogLevel};
 use crate::settings;
 use spk_format::list_item_dirs;
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
@@ -60,9 +60,7 @@ fn zone_priority(zone: PackZone) -> u8 {
     match zone {
         PackZone::Builtin => 0,
         PackZone::Installed => 1,
-        // Workshop and Linked share the authoring priority band (beat installed/builtin).
-        // An id collision between them is a warning, not silent precedence.
-        PackZone::Workshop | PackZone::Linked => 2,
+        PackZone::Linked => 2,
     }
 }
 
@@ -264,7 +262,7 @@ fn prune_missing_linked_item_paths(app: &AppHandle) {
     let _ = app.emit(LINKED_PACKS_CHANGED_EVENT, ());
 }
 
-/// Items installed under `installed/`, ignoring zone priority. A workshop or linked item with the
+/// Items installed under `installed/`, ignoring zone priority. A linked item with the
 /// same effective id does not hide the installed copy here, so registry updates still see it.
 pub fn list_installed_items(app: &AppHandle) -> Vec<ScannedContribution> {
     let Ok(root) = paths::installed_packs_root(app) else {
@@ -274,12 +272,11 @@ pub fn list_installed_items(app: &AppHandle) -> Vec<ScannedContribution> {
 }
 
 /// Scan all zones. On effective-id collision, higher-priority zone wins
-/// (workshop/linked > installed > builtin). A linked item whose id collides with a
-/// workshop item is a soft-fail warning (linked path skipped), not silent override.
+/// (linked > installed > builtin). Every user-owned item is a linked path, including the ones
+/// created in the Library's `Packs` folder.
 pub fn scan_all_items(app: &AppHandle) -> ScanResult {
     let mut warnings = Vec::new();
     let mut by_id: HashMap<String, ScannedContribution> = HashMap::new();
-    let mut workshop_ids: HashSet<String> = HashSet::new();
 
     prune_missing_linked_item_paths(app);
 
@@ -289,10 +286,6 @@ pub fn scan_all_items(app: &AppHandle) -> ScanResult {
             PackZone::Installed,
             paths::installed_packs_root(app).unwrap_or_default(),
         ),
-        (
-            PackZone::Workshop,
-            paths::workshop_packs_root(app).unwrap_or_default(),
-        ),
     ];
 
     // Scan lowest priority first so higher priority overwrites.
@@ -301,9 +294,6 @@ pub fn scan_all_items(app: &AppHandle) -> ScanResult {
             continue;
         }
         for contrib in scan_zone_root(&root, zone, &mut warnings) {
-            if zone == PackZone::Workshop {
-                workshop_ids.insert(contrib.effective_id.clone());
-            }
             merge_contribution(&mut by_id, contrib);
         }
     }
@@ -321,15 +311,6 @@ pub fn scan_all_items(app: &AppHandle) -> ScanResult {
         let Some(contrib) = scan_item_dir(&path, None, PackZone::Linked, &mut warnings) else {
             continue;
         };
-        if workshop_ids.contains(&contrib.effective_id) {
-            warnings.push(ScanWarning {
-                message: format!(
-                    "linked item \"{}\" collides with a workshop item (path: {trimmed}); skipping linked path",
-                    contrib.effective_id
-                ),
-            });
-            continue;
-        }
         merge_contribution(&mut by_id, contrib);
     }
 
@@ -448,16 +429,20 @@ mod tests {
     }
 
     #[test]
-    fn workshop_wins_over_builtin() {
+    fn library_item_wins_over_builtin() {
         let mut by_id = HashMap::new();
         for c in [
             contrib(PackZone::Builtin, "1.0.0", "/builtin/themes/bryan.demo"),
-            contrib(PackZone::Workshop, "0.0.0", "/workshop/themes/bryan.demo"),
+            contrib(
+                PackZone::Linked,
+                "0.0.0",
+                "/library/Packs/themes/bryan.demo",
+            ),
         ] {
             merge_contribution(&mut by_id, c);
         }
         let winner = &by_id["bryan.theme.demo"];
-        assert_eq!(winner.zone, PackZone::Workshop);
+        assert_eq!(winner.zone, PackZone::Linked);
         assert!(winner.mutable);
     }
 

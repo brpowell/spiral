@@ -138,9 +138,7 @@ pub fn load_skin_pack(app: AppHandle, skin_id: String) -> Result<LoadedSkinPack,
         .into_iter()
         .find(|p| p.summary.id == resolved)
         .ok_or_else(|| {
-            format!(
-                "skin \"{skin_id}\" was not found in builtin, workshop, installed, or linked items"
-            )
+            format!("skin \"{skin_id}\" was not found in builtin, installed, or linked items")
         })
 }
 

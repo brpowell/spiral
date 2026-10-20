@@ -834,8 +834,8 @@ export async function saveActiveThemeId(themeId: string): Promise<void> {
   return invoke<void>("save_active_theme_id", { themeId });
 }
 
-export async function saveWorkshopTheme(theme: Theme): Promise<Theme> {
-  return invoke<Theme>("save_workshop_theme", { theme });
+export async function saveLibraryTheme(theme: Theme): Promise<Theme> {
+  return invoke<Theme>("save_library_theme", { theme });
 }
 
 /** Official registry source only (extra settings entries ignored until multi-registry UI). */
@@ -977,10 +977,10 @@ export async function resolveRegistryItemPreview(args: {
   });
 }
 
-export async function createWorkshopTheme(args?: {
+export async function createLibraryTheme(args?: {
   name?: string | null;
 }): Promise<Theme> {
-  return invoke<Theme>("create_workshop_theme", {
+  return invoke<Theme>("create_library_theme", {
     name: args?.name ?? null,
   });
 }
@@ -1006,7 +1006,7 @@ export async function installItem(
   });
 }
 
-/** Every item across builtin / workshop / installed / linked. */
+/** Every item across builtin / installed / linked. */
 export async function listItems(): Promise<ItemSummary[]> {
   return invoke<ItemSummary[]>("list_items");
 }
@@ -1032,7 +1032,7 @@ export interface ExportItemResult {
   version: string;
 }
 
-/** Export a workshop/linked item to `.spk` (opens a save dialog; `null` if cancelled). */
+/** Export a linked item to `.spk` (opens a save dialog; `null` if cancelled). */
 export async function exportItem(args: {
   itemId: string;
   name: string;
@@ -1110,7 +1110,7 @@ export async function readItemReadme(itemDir: string): Promise<string | null> {
   return invoke<string | null>("read_item_readme", { itemDir });
 }
 
-/** Write or delete item-root README.md for workshop/linked (empty/whitespace deletes). */
+/** Write or delete item-root README.md for linked items (empty/whitespace deletes). */
 export async function writeItemReadme(
   itemDir: string,
   content: string,
@@ -1125,7 +1125,7 @@ export async function readItemChangelog(
   return invoke<string | null>("read_item_changelog", { itemDir });
 }
 
-/** Write or delete item-root CHANGELOG.md for workshop/linked (empty/whitespace deletes). */
+/** Write or delete item-root CHANGELOG.md for linked items (empty/whitespace deletes). */
 export async function writeItemChangelog(
   itemDir: string,
   content: string,
@@ -1133,9 +1133,9 @@ export async function writeItemChangelog(
   return invoke<void>("write_item_changelog", { itemDir, content });
 }
 
-/** Delete a workshop draft. Linked items are unlinked, never deleted. */
-export async function deleteWorkshopItem(itemId: string): Promise<void> {
-  return invoke<void>("delete_workshop_item", { itemId });
+/** Delete a linked item's folder from disk and unlink it. Use `unlinkItem` to keep the files. */
+export async function deleteLinkedItem(itemId: string): Promise<void> {
+  return invoke<void>("delete_linked_item", { itemId });
 }
 
 /** Delete an installed item. */

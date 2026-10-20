@@ -9,13 +9,13 @@ import {
 } from "../lib/theme";
 import { emitThemeChanged, getLiveThemePreview } from "../lib/themeBridge";
 import {
-  createWorkshopTheme,
-  deleteWorkshopItem,
+  createLibraryTheme,
+  deleteLinkedItem,
   getActiveThemeId,
   getBuiltinThemes,
   loadUserThemes,
   saveActiveThemeId,
-  saveWorkshopTheme,
+  saveLibraryTheme,
 } from "../lib/tauri";
 import {
   formatThemeValidationError,
@@ -105,7 +105,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   },
 
   createTheme: async (args) => {
-    const theme = await createWorkshopTheme(args);
+    const theme = await createLibraryTheme(args);
     set({ themes: upsertTheme(get().themes, theme) });
     return theme;
   },
@@ -119,7 +119,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     if (issues.length > 0) {
       throw new Error(formatThemeValidationError(issues));
     }
-    const saved = await saveWorkshopTheme(cleaned);
+    const saved = await saveLibraryTheme(cleaned);
     const { themes, activeThemeId } = get();
     const nextThemes = upsertTheme(themes, saved);
     if (activeThemeId === saved.id) {
@@ -131,7 +131,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   },
 
   deleteTheme: async (themeId) => {
-    await deleteWorkshopItem(themeId);
+    await deleteLinkedItem(themeId);
     await get().loadThemes();
     emitThemeChanged(get().activeThemeId, { skipLocalReload: true });
   },
