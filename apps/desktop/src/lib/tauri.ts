@@ -857,9 +857,10 @@ export async function fetchItemCatalog(
   return invoke<RegistryItemList>("fetch_item_catalog", {
     query: query
       ? {
-          itemType: query.itemType ?? null,
+          itemTypes: query.itemTypes ?? [],
           q: query.q ?? null,
           publisherId: query.publisherId ?? null,
+          sort: query.sort ?? null,
           limit: query.limit ?? null,
           offset: query.offset ?? null,
         }
@@ -1140,13 +1141,6 @@ export async function deleteWorkshopItem(itemId: string): Promise<void> {
 /** Delete an installed item. */
 export async function uninstallItem(itemId: string): Promise<void> {
   return invoke<void>("uninstall_item", { itemId });
-}
-
-export async function setItemHidden(
-  itemId: string,
-  hidden: boolean,
-): Promise<string[]> {
-  return invoke<string[]>("set_item_hidden", { itemId, hidden });
 }
 
 export async function revealPathInFileManager(path: string): Promise<void> {

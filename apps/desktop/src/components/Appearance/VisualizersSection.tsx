@@ -7,8 +7,8 @@ import { usePrefersReducedMotion } from "../visualizer/context";
 import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
-import { HiddenItems } from "./HiddenItems";
 import { ItemActionsMenu } from "./ItemActionsMenu";
+import { ItemUpdateButton } from "./ItemUpdateButton";
 import { AppearancePackCard } from "./AppearancePackCard";
 import { VizCardLivePreview } from "./VizCardLivePreview";
 import { useVizCardSnapshot } from "./vizCardSnapshot";
@@ -84,6 +84,14 @@ function VizCard({
       ariaLabel={t("items.cardAria", { name: pack.name, author: pack.author })}
       preview={<VizCardPreview pack={pack} live={live} />}
       previewClassName="visualizer-picker__preview"
+      linked={pack.zone === "linked"}
+      previewAction={
+        <ItemUpdateButton
+          effectiveId={pack.id}
+          zone={pack.zone}
+          name={pack.name}
+        />
+      }
       actions={
         <ItemActionsMenu
           item={{
@@ -199,7 +207,6 @@ export function VisualizersSection({
             ))}
           </div>
         )}
-        <HiddenItems type="visualizer" />
       </BrowseGridBody>
     </BrowseView>
   );

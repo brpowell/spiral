@@ -3,6 +3,7 @@ import { skinPreviewUrl } from "../../lib/skinAssets";
 import { useSkinStore } from "../../store/useSkinStore";
 import type { SkinSummary } from "../../types/skin";
 import { ItemActionsMenu } from "./ItemActionsMenu";
+import { ItemUpdateButton } from "./ItemUpdateButton";
 import { AppearancePackCard } from "./AppearancePackCard";
 import "./SkinsGrid.css";
 
@@ -38,6 +39,14 @@ function SkinCard({
       preview={<SkinCardPreview skin={skin} />}
       className="skin-picker__card-wrap"
       previewClassName="skin-picker__preview"
+      linked={skin.zone === "linked"}
+      previewAction={
+        <ItemUpdateButton
+          effectiveId={skin.id}
+          zone={skin.zone}
+          name={skin.name}
+        />
+      }
       actions={
         <ItemActionsMenu
           item={{

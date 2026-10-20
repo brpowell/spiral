@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import type { AppearanceSection } from "../../lib/appearanceWindow";
+import type { ItemType } from "../../types/item";
 import { t } from "../../lib/i18n";
 import {
-  IconDownload,
+  IconBrandmark,
   IconPalette,
   IconBoombox,
   IconVolume,
@@ -13,37 +14,43 @@ export interface AppearanceSectionConfig {
   id: AppearanceSection;
   label: string;
   icon: ReactNode;
+  /** The item type this section lists, when it lists one. */
+  itemType?: ItemType;
 }
 
 /** Themes → Visualizers → Skins → Sounds (single content rail). */
 export const APPEARANCE_CONTENT_SECTIONS: AppearanceSectionConfig[] = [
   {
     id: "themes",
+    itemType: "theme",
     label: t("studio:nav.themes"),
     icon: <IconPalette />,
   },
   {
     id: "visualizers",
+    itemType: "visualizer",
     label: t("studio:nav.visualizers"),
     icon: <IconVisualizer />,
   },
   {
     id: "skins",
+    itemType: "skin",
     label: t("studio:nav.skins"),
     icon: <IconBoombox />,
   },
   {
     id: "sounds",
+    itemType: "sound",
     label: t("studio:nav.sounds"),
     icon: <IconVolume />,
   },
 ];
 
-/** Catalog browse — own sidebar section below the separator. */
+/** Catalog browse — the Spiral Official registry, in its own sidebar section. */
 export const APPEARANCE_CATALOG_SECTION: AppearanceSectionConfig = {
   id: "catalog",
   label: t("studio:catalog.sidebar"),
-  icon: <IconDownload />,
+  icon: <IconBrandmark />,
 };
 
 export const APPEARANCE_SECTIONS: AppearanceSectionConfig[] = [

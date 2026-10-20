@@ -6,6 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resetCatalogView } from "../../store/useCatalogViewStore";
 import type {
   CatalogItemEntry,
   RegistryItemSummary,
@@ -24,7 +25,7 @@ vi.mock("../../lib/itemRegistry", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/itemRegistry")>()),
   fetchItemCatalogSafe: mockFetchCatalog,
   enrichItemCatalog: mockEnrich,
-  installRegistryItem: mockInstall,
+  installCatalogEntry: mockInstall,
   prefetchItemDetail: mockPrefetch,
 }));
 
@@ -88,10 +89,16 @@ function catalogOf(items: RegistryItemSummary[], total = items.length) {
   return { ok: true, catalog: { items, total, errors: [] } };
 }
 
+/** Dismiss whichever menu is open (Escape), which is what applies the filter draft. */
+function closeMenu() {
+  fireEvent.keyDown(document.body, { key: "Escape" });
+}
+
 describe("RegistryBrowseSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetCatalogSnapshots();
+    resetCatalogView();
     mockEnrich.mockImplementation(async (items: RegistryItemSummary[]) =>
       enriched(items),
     );
@@ -107,19 +114,135 @@ describe("RegistryBrowseSection", () => {
     expect(await screen.findByText("NOIR")).toBeTruthy();
     expect(screen.getByText("GROVE")).toBeTruthy();
     expect(mockFetchCatalog).toHaveBeenCalledWith(
-      expect.objectContaining({ itemType: null, q: "", limit: 48, offset: 0 }),
+      expect.objectContaining({
+        itemTypes: [],
+        q: "",
+        sort: "name",
+        limit: 48,
+        offset: 0,
+      }),
     );
   });
 
-  it("filters by type through the server query", async () => {
+  it("applies the type filters once the filter menu closes", async () => {
+    mockFetchCatalog.mockResolvedValue(catalogOf([summary("noir")]));
+    render(<RegistryBrowseSection />);
+    await screen.findByText("NOIR");
+    mockFetchCatalog.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Filter by type" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Skins" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Themes" }));
+    // Still editing: nothing reloads yet, but the boxes are checked.
+    expect(mockFetchCatalog).not.toHaveBeenCalled();
+    expect(
+      screen
+        .getByRole("menuitemcheckbox", { name: "Skins" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+
+    closeMenu();
+    await waitFor(() =>
+      expect(mockFetchCatalog).toHaveBeenCalledWith(
+        expect.objectContaining({ itemTypes: ["skin", "theme"], offset: 0 }),
+      ),
+    );
+    expect(mockFetchCatalog).toHaveBeenCalledTimes(1);
+    // The filter button reports how many filters are on.
+    expect(
+      screen.getByRole("button", { name: "Filter by type (2 active)" }),
+    ).toBeTruthy();
+
+    // Clearing applies on close too.
+    fireEvent.click(
+      screen.getByRole("button", { name: "Filter by type (2 active)" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Clear filters" }));
+    await waitFor(() =>
+      expect(mockFetchCatalog).toHaveBeenLastCalledWith(
+        expect.objectContaining({ itemTypes: [] }),
+      ),
+    );
+  });
+
+  it("does not reload when the menu closes with the filters unchanged", async () => {
+    mockFetchCatalog.mockResolvedValue(catalogOf([summary("noir")]));
+    render(<RegistryBrowseSection />);
+    await screen.findByText("NOIR");
+    mockFetchCatalog.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Filter by type" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Skins" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Skins" }));
+    closeMenu();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("menuitemcheckbox", { name: "Skins" }),
+      ).toBeNull(),
+    );
+    expect(mockFetchCatalog).not.toHaveBeenCalled();
+  });
+
+  it("keeps the old results and shows a spinner while a new filter loads", async () => {
+    mockFetchCatalog.mockResolvedValueOnce(catalogOf([summary("noir")]));
+    const { container } = render(<RegistryBrowseSection />);
+    await screen.findByText("NOIR");
+    expect(container.querySelector(".registry-browse__refreshing")).toBeNull();
+
+    // The next fetch stays pending, as a slow registry would.
+    let release!: (value: unknown) => void;
+    mockFetchCatalog.mockReturnValueOnce(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Sort by" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Oldest" }));
+
+    await waitFor(() =>
+      expect(
+        container.querySelector(".registry-browse__refreshing"),
+      ).not.toBeNull(),
+    );
+    // No skeleton grid; the previous cards are still there.
+    expect(container.querySelector('[aria-busy="true"]')).toBeNull();
+    expect(screen.getByText("NOIR")).toBeTruthy();
+
+    release(catalogOf([summary("grove", "skin")]));
+    expect(await screen.findByText("GROVE")).toBeTruthy();
+    await waitFor(() =>
+      expect(
+        container.querySelector(".registry-browse__refreshing"),
+      ).toBeNull(),
+    );
+  });
+
+  it("sorts through the server query", async () => {
     mockFetchCatalog.mockResolvedValue(catalogOf([summary("noir")]));
     render(<RegistryBrowseSection />);
     await screen.findByText("NOIR");
 
-    fireEvent.click(screen.getByRole("tab", { name: "Skins" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort by" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Latest" }));
     await waitFor(() =>
       expect(mockFetchCatalog).toHaveBeenCalledWith(
-        expect.objectContaining({ itemType: "skin", offset: 0 }),
+        expect.objectContaining({ sort: "newest", offset: 0 }),
+      ),
+    );
+
+    // Oldest and the reverse name order are on the same menu.
+    fireEvent.click(screen.getByRole("button", { name: "Sort by" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Oldest" }));
+    await waitFor(() =>
+      expect(mockFetchCatalog).toHaveBeenCalledWith(
+        expect.objectContaining({ sort: "oldest", offset: 0 }),
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Sort by" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Name (Z–A)" }));
+    await waitFor(() =>
+      expect(mockFetchCatalog).toHaveBeenCalledWith(
+        expect.objectContaining({ sort: "name-desc", offset: 0 }),
       ),
     );
   });
@@ -184,11 +307,15 @@ describe("RegistryBrowseSection", () => {
   it("explains an empty filtered result", async () => {
     mockFetchCatalog.mockResolvedValue(catalogOf([]));
     render(<RegistryBrowseSection />);
-    fireEvent.click(await screen.findByRole("tab", { name: "Themes" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Filter by type" }),
+    );
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Themes" }));
+    closeMenu();
     expect(await screen.findByText("Nothing matches.")).toBeTruthy();
   });
 
-  it("installs an update from the card with the catalog's identity and hash", async () => {
+  it("installs an update from the card", async () => {
     const item = summary("noir", "theme", "2.0.0");
     mockFetchCatalog.mockResolvedValue(catalogOf([item]));
     mockEnrich.mockImplementation(async (items: RegistryItemSummary[]) =>
@@ -199,15 +326,8 @@ describe("RegistryBrowseSection", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Update NOIR" }));
     await waitFor(() => expect(mockInstall).toHaveBeenCalledTimes(1));
     expect(mockInstall).toHaveBeenCalledWith(
-      expect.objectContaining({
-        registryUrl: "https://registry.example",
-        publisherId: "spiral",
-        itemType: "theme",
-        id: "noir",
-        version: "2.0.0",
-        sha256: "a".repeat(64),
-        sizeBytes: 10,
-      }),
+      expect.objectContaining({ id: "noir", effectiveId: "spiral.theme.noir" }),
+      undefined,
     );
   });
 
@@ -219,5 +339,39 @@ describe("RegistryBrowseSection", () => {
     expect(await screen.findByText("detail:spiral.theme.noir")).toBeTruthy();
     fireEvent.click(screen.getByText("back"));
     expect(await screen.findByText("NOIR")).toBeTruthy();
+  });
+
+  it("remembers the open item, filters, sort and search after leaving the catalog", async () => {
+    mockFetchCatalog.mockResolvedValue(catalogOf([summary("noir")]));
+    const first = render(<RegistryBrowseSection />);
+    await screen.findByText("NOIR");
+
+    fireEvent.click(screen.getByRole("button", { name: "Filter by type" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Themes" }));
+    closeMenu();
+    fireEvent.click(screen.getByRole("button", { name: "Sort by" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Latest" }));
+    fireEvent.change(screen.getByLabelText("Search the catalog"), {
+      target: { value: "noir" },
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /NOIR/ }));
+    expect(await screen.findByText("detail:spiral.theme.noir")).toBeTruthy();
+
+    // Another Studio section replaces the catalog, then the user comes back.
+    first.unmount();
+    mockFetchCatalog.mockClear();
+    render(<RegistryBrowseSection />);
+
+    expect(await screen.findByText("detail:spiral.theme.noir")).toBeTruthy();
+    expect(mockFetchCatalog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemTypes: ["theme"],
+        sort: "newest",
+        q: "noir",
+      }),
+    );
+    fireEvent.click(screen.getByText("back"));
+    const search = await screen.findByLabelText("Search the catalog");
+    expect((search as HTMLInputElement).value).toBe("noir");
   });
 });

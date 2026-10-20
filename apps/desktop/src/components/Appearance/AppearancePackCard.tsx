@@ -1,6 +1,6 @@
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { IconCheck } from "../icons";
+import { IconCheck, IconLink } from "../icons";
 import "./AppearancePackCard.css";
 
 export interface AppearancePackCardProps {
@@ -12,6 +12,10 @@ export interface AppearancePackCardProps {
   preview: ReactNode;
   className?: string;
   previewClassName?: string;
+  /** Marks an item linked from a folder on disk (shown as a link badge on the preview). */
+  linked?: boolean;
+  /** Optional action floated over the preview's top-right corner (e.g. Update). */
+  previewAction?: ReactNode;
   /** Optional overflow actions (e.g. edit / delete). Hidden when omitted. */
   actions?: ReactNode;
   onApply: () => void;
@@ -32,13 +36,16 @@ export function AppearancePackCard({
   preview,
   className,
   previewClassName,
+  linked = false,
+  previewAction,
   actions,
   onApply,
   onPointerEnter,
   onPointerLeave,
 }: AppearancePackCardProps) {
-  const { t } = useTranslation("common");
-  const authorLabel = author.trim() || t("unknown");
+  const { t } = useTranslation(["common", "studio"]);
+  const linkedLabel = t("studio:items.zone.linked");
+  const authorLabel = author.trim() || t("common:unknown");
 
   return (
     <div
@@ -52,7 +59,7 @@ export function AppearancePackCard({
       role="button"
       tabIndex={0}
       aria-pressed={active}
-      aria-label={ariaLabel}
+      aria-label={linked ? `${ariaLabel}, ${linkedLabel}` : ariaLabel}
       onClick={onApply}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -64,21 +71,40 @@ export function AppearancePackCard({
       onPointerLeave={onPointerLeave}
     >
       <div className="appearance-pack-card__surface">
-        <div
-          className={[
-            "appearance-pack-card__preview",
-            "appearance-pack-card__preview--media",
-            previewClassName,
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          aria-hidden
-        >
-          {preview}
-          {active ? (
-            <span className="appearance-pack-card__check" aria-hidden>
-              <IconCheck />
-            </span>
+        <div className="appearance-pack-card__preview-wrap">
+          <div
+            className={[
+              "appearance-pack-card__preview",
+              "appearance-pack-card__preview--media",
+              previewClassName,
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            aria-hidden
+          >
+            {preview}
+            {active ? (
+              <span className="appearance-pack-card__check" aria-hidden>
+                <IconCheck />
+              </span>
+            ) : null}
+            {linked ? (
+              <div className="appearance-pack-card__badge-slot">
+                <span className="appearance-pack-card__badge appearance-pack-card__badge--muted">
+                  <IconLink aria-hidden />
+                  {linkedLabel}
+                </span>
+              </div>
+            ) : null}
+          </div>
+          {previewAction ? (
+            <div
+              className="appearance-pack-card__preview-action"
+              onClick={stopCardActivate}
+              onKeyDown={stopCardActivate}
+            >
+              {previewAction}
+            </div>
           ) : null}
         </div>
         <div className="appearance-pack-card__meta">
@@ -104,7 +130,7 @@ export function AppearancePackCard({
   );
 }
 
-/** Shared browse card for Packs + Get more (preview, optional status badge, meta). */
+/** Shared browse card for Packs + Catalog (preview, optional status badge, meta). */
 export function PackListCard({
   name,
   author,

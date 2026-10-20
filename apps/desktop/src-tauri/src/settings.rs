@@ -316,9 +316,6 @@ pub struct AppSettings {
     pub active_visualizer: String,
     #[serde(default = "default_active_sound_pack")]
     pub active_sound_pack: String,
-    /// Effective contribution ids hidden from pickers (pack remains on disk).
-    #[serde(default)]
-    pub hidden_contribution_ids: Vec<String>,
     /// Absolute paths to linked item folders (each holds one item manifest directly).
     #[serde(default)]
     pub linked_item_paths: Vec<String>,
@@ -438,7 +435,6 @@ impl Default for AppSettings {
             active_skin_view: default_active_skin_view(),
             active_visualizer: default_active_visualizer(),
             active_sound_pack: default_active_sound_pack(),
-            hidden_contribution_ids: Vec::new(),
             linked_item_paths: Vec::new(),
             default_publisher_id: default_default_publisher_id(),
             registries: default_registries(),

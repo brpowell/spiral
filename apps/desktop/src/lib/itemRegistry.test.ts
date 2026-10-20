@@ -29,6 +29,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 import {
   catalogCacheKey,
+  catalogInstallArgs,
   catalogItemKey,
   enrichItemCatalog,
   fetchItemCatalogSafe,
@@ -133,10 +134,14 @@ describe("item registry helpers", () => {
     expect(catalogCacheKey({ q: " noir " })).toBe(
       catalogCacheKey({ q: "noir" }),
     );
-    expect(catalogCacheKey({ itemType: "theme" })).not.toBe(
-      catalogCacheKey({ itemType: "skin" }),
+    expect(catalogCacheKey({ itemTypes: ["theme"] })).not.toBe(
+      catalogCacheKey({ itemTypes: ["skin"] }),
     );
     expect(catalogCacheKey({ offset: 50 })).not.toBe(catalogCacheKey({}));
+    expect(catalogCacheKey({ sort: "newest" })).not.toBe(catalogCacheKey({}));
+    expect(catalogCacheKey({ itemTypes: ["skin", "theme"] })).toBe(
+      catalogCacheKey({ itemTypes: ["theme", "skin"] }),
+    );
   });
 });
 
@@ -270,22 +275,24 @@ describe("registry response caching", () => {
   it("keys the catalog cache by filters and paging", async () => {
     mockFetchItemCatalog.mockResolvedValue(catalog);
     await fetchItemCatalogSafe();
-    await fetchItemCatalogSafe({ itemType: "skin" });
-    await fetchItemCatalogSafe({ itemType: "skin", offset: 50 });
+    await fetchItemCatalogSafe({ itemTypes: ["skin"] });
+    await fetchItemCatalogSafe({ itemTypes: ["skin"], offset: 50 });
     expect(mockFetchItemCatalog).toHaveBeenCalledTimes(3);
   });
 
   it("passes filters (but not force) to the backend", async () => {
     mockFetchItemCatalog.mockResolvedValue(catalog);
     await fetchItemCatalogSafe({
-      itemType: "theme",
+      itemTypes: ["theme"],
       q: "noir",
+      sort: "newest",
       limit: 20,
       force: true,
     });
     expect(mockFetchItemCatalog).toHaveBeenCalledWith({
-      itemType: "theme",
+      itemTypes: ["theme"],
       q: "noir",
+      sort: "newest",
       limit: 20,
     });
   });
@@ -335,5 +342,49 @@ describe("registry response caching", () => {
 
     await fetchRegistryItemVersionSafe({ ...args, version: "1.1.0" });
     expect(mockFetchRegistryItemVersion).toHaveBeenCalledTimes(3);
+  });
+
+  it("builds install arguments from a catalog entry's identity and hash", () => {
+    const base = {
+      registryUrl: "https://registry.example",
+      publisherId: "spiral",
+      itemType: "theme" as const,
+      id: "noir",
+      effectiveId: "spiral.theme.noir",
+      latestVersion: {
+        version: "2.0.0",
+        name: "Noir",
+        sizeBytes: 10,
+        sha256: "a".repeat(64),
+        publishedAt: "2026-10-01T00:00:00Z",
+      },
+      installedVersion: null,
+      installed: false,
+      updateAvailable: false,
+      meetsMinAppVersion: true,
+      resolvedPreviewUrl: null,
+    };
+    expect(catalogInstallArgs(base)).toMatchObject({
+      registryUrl: "https://registry.example",
+      publisherId: "spiral",
+      itemType: "theme",
+      id: "noir",
+      version: "2.0.0",
+      sha256: "a".repeat(64),
+      sizeBytes: 10,
+      name: "Noir",
+    });
+    // A chosen version overrides the newest one, even for an app that is too old for it.
+    const old = {
+      ...base.latestVersion,
+      version: "1.0.0",
+      sha256: "b".repeat(64),
+    };
+    expect(
+      catalogInstallArgs({ ...base, meetsMinAppVersion: false }, old),
+    ).toMatchObject({ version: "1.0.0", sha256: "b".repeat(64) });
+    expect(
+      catalogInstallArgs({ ...base, meetsMinAppVersion: false }),
+    ).toBeNull();
   });
 });

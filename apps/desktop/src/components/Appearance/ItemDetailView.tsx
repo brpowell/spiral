@@ -12,15 +12,21 @@ import {
   readItemManifestJson,
 } from "../../lib/tauri";
 import { WORKSHOP_CHANGED_EVENT } from "../../lib/themeBridge";
+import { updateItemMetadataWithRefresh } from "../../lib/items/itemActions";
+import { useItemsVersionStore } from "../../store/useItemsVersionStore";
 import { isEditableItem, type ItemSummary } from "../../types/item";
 import type { ThemeTokens } from "../../types/theme";
 import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
+import { Button } from "../common/Button/Button";
+import { IconPencil, IconUnlink } from "../icons";
 import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
-import { ContextMenuItem } from "../ContextMenu/ContextMenu";
-import { IconOpenFolder } from "../icons";
+import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
+import { EditItemModal, type EditItemModalResult } from "./EditItemModal";
+import { InstalledItemActions } from "./InstalledItemActions";
 import { ItemActionsMenu } from "./ItemActionsMenu";
+import { UnlinkItemDialog } from "./UnlinkItemDialog";
 import { ItemAboutPanel } from "./ItemAboutPanel";
 import { ItemChangelogPanel } from "./ItemChangelogPanel";
 import { ItemContentsPanel } from "./ItemContentsPanel";
@@ -164,6 +170,10 @@ export function ItemDetailView({
   const [item, setItem] = useState<ItemSummary | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState<ItemDetailTab>("about");
+  const [unlinkOpen, setUnlinkOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const openThemeEditor = useOpenAppearanceThemeEditor();
   const [changelogPresent, setChangelogPresent] = useState(false);
   /** Bumped on every reload so the Contents tab re-reads an edited manifest. */
   const [contentsReloadKey, setContentsReloadKey] = useState(0);
@@ -180,9 +190,11 @@ export function ItemDetailView({
     }
   }, [itemId]);
 
+  // Installs, uninstalls and version switches change what is on disk.
+  const itemsVersion = useItemsVersionStore((s) => s.version);
   useEffect(() => {
     void reload();
-  }, [reload]);
+  }, [reload, itemsVersion]);
 
   // Keep the record fresh after edits, hide/show, and watched/linked reloads.
   useEffect(() => {
@@ -199,6 +211,30 @@ export function ItemDetailView({
       for (const fn of unlisteners) fn();
     };
   }, [reload]);
+
+  /** Workshop items lead with in-app editing when there is any, else Edit details. */
+  const primaryEdit = () => {
+    if (item == null) return;
+    if (item.type === "theme") openThemeEditor(item.effectiveId);
+    else setEditOpen(true);
+  };
+
+  const handleSaveDetails = async (result: EditItemModalResult) => {
+    if (item == null) return;
+    setSavingEdit(true);
+    try {
+      const nextId = await updateItemMetadataWithRefresh(
+        item.effectiveId,
+        result,
+      );
+      if (nextId != null) {
+        setEditOpen(false);
+        onItemIdChange(nextId);
+      }
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const canEdit = item != null && isEditableItem(item);
   /** Only themes and sound packs have a contents view. */
@@ -237,7 +273,6 @@ export function ItemDetailView({
     <BrowseView>
       <BrowseViewHeader
         className="browse-view__header--single-row"
-        title={t("items.detailsTitle")}
         backAriaLabel={backAriaLabel}
         onBack={onBack}
       />
@@ -262,31 +297,95 @@ export function ItemDetailView({
                       {item.description}
                     </p>
                   ) : null}
-                  <div className="installed-packs__hero-actions">
-                    <ItemActionsMenu
+                  {item.zone === "installed" ? (
+                    <InstalledItemActions
                       item={item}
-                      variant="secondary"
-                      size="sm"
-                      onAfterRemove={onBack}
-                      onAfterEdit={onItemIdChange}
-                      extra={(close) =>
-                        item.zone === "builtin" ? null : (
-                          <ContextMenuItem
-                            icon={<IconOpenFolder />}
-                            label={revealInFileManagerLabel()}
-                            onClick={() => {
-                              close();
-                              void openPathInFileManager(item.dir);
-                            }}
-                          />
-                        )
-                      }
+                      onAfterUninstall={onBack}
                     />
-                  </div>
+                  ) : item.zone === "builtin" ? (
+                    // Nothing to edit or remove, so Reveal is the whole action row.
+                    <div className="installed-packs__hero-actions">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => void openPathInFileManager(item.dir)}
+                      >
+                        {revealInFileManagerLabel()}
+                      </Button>
+                    </div>
+                  ) : item.zone === "linked" ? (
+                    <div className="installed-packs__hero-actions">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setUnlinkOpen(true)}
+                      >
+                        <IconUnlink aria-hidden />
+                        {t("items.unlink")}
+                      </Button>
+                      <ItemActionsMenu
+                        item={item}
+                        variant="secondary"
+                        size="sm"
+                        omitRemove
+                        onAfterEdit={onItemIdChange}
+                      />
+                    </div>
+                  ) : item.zone === "workshop" ? (
+                    <div className="installed-packs__hero-actions">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={primaryEdit}
+                      >
+                        <IconPencil aria-hidden />
+                        {item.type === "theme"
+                          ? t("common:edit")
+                          : t("items.editDetails")}
+                      </Button>
+                      <ItemActionsMenu
+                        item={item}
+                        variant="secondary"
+                        size="sm"
+                        omitEdit={item.type === "theme" ? "edit" : "details"}
+                        onAfterRemove={onBack}
+                        onAfterEdit={onItemIdChange}
+                      />
+                    </div>
+                  ) : (
+                    <div className="installed-packs__hero-actions">
+                      <ItemActionsMenu
+                        item={item}
+                        variant="secondary"
+                        size="sm"
+                        onAfterRemove={onBack}
+                        onAfterEdit={onItemIdChange}
+                      />
+                    </div>
+                  )}
                   <ItemFacts item={item} sizeBytes={sizeBytes} />
                 </div>
               </div>
             </header>
+
+            {item.zone === "workshop" ? (
+              <EditItemModal
+                open={editOpen}
+                item={item}
+                saving={savingEdit}
+                onClose={() => setEditOpen(false)}
+                onSave={(result) => void handleSaveDetails(result)}
+              />
+            ) : null}
+
+            {item.zone === "linked" ? (
+              <UnlinkItemDialog
+                open={unlinkOpen}
+                item={item}
+                onClose={() => setUnlinkOpen(false)}
+                onAfterRemove={onBack}
+              />
+            ) : null}
 
             <Tabs
               value={tab}

@@ -9,9 +9,7 @@
 .sound-picker__preview-img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  padding: 0.5rem;
-  box-sizing: border-box;
+  object-fit: cover;
 }
 
 .sound-picker__preview-fallback {

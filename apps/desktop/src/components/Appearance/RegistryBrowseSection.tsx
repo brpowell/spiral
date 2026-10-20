@@ -7,14 +7,16 @@ import {
   catalogItemKey,
   enrichItemCatalog,
   fetchItemCatalogSafe,
-  installRegistryItem,
+  installCatalogEntry,
   prefetchItemDetail,
 } from "../../lib/itemRegistry";
+import { useCatalogViewStore } from "../../store/useCatalogViewStore";
 import { useItemsVersionStore } from "../../store/useItemsVersionStore";
 import { ITEM_TYPES, type ItemType } from "../../types/item";
 import {
-  catalogItemName,
+  CATALOG_SORTS,
   type CatalogItemEntry,
+  type CatalogSort,
   type RegistryVersionSummary,
 } from "../../types/itemRegistry";
 import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
@@ -28,8 +30,20 @@ import {
   InputGroupInput,
 } from "../common/InputGroup/InputGroup";
 import { Skeleton } from "../common/Skeleton/Skeleton";
-import { Tab, TabList, Tabs } from "../common/Tabs/Tabs";
-import { IconDisconnected, IconSearch } from "../icons";
+import { Select } from "../common/Select/Select";
+import {
+  ContextMenuCheckboxItem,
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "../ContextMenu/ContextMenu";
+import {
+  IconArrowUpDown,
+  IconDisconnected,
+  IconListFilter,
+  IconListX,
+  IconSearch,
+} from "../icons";
+import { MenuButton } from "../MenuButton/MenuButton";
 import { itemTypeMeta } from "./itemShared";
 import { RegistryItemCard } from "./RegistryItemCard";
 import { RegistryItemDetailView } from "./RegistryItemDetailView";
@@ -39,8 +53,6 @@ import "./RegistryBrowse.css";
 /** Items per catalog request; "Load more" fetches the next page. */
 export const CATALOG_PAGE_SIZE = 48;
 const SEARCH_DEBOUNCE_MS = 300;
-
-type TypeFilter = ItemType | "all";
 
 type Snapshot = {
   entries: CatalogItemEntry[];
@@ -56,10 +68,15 @@ export function resetCatalogSnapshots(): void {
   snapshots.clear();
 }
 
-function snapshotKey(filter: TypeFilter, q: string): string {
+function snapshotKey(
+  itemTypes: ItemType[],
+  q: string,
+  sort: CatalogSort,
+): string {
   return catalogCacheKey({
-    itemType: filter === "all" ? null : filter,
+    itemTypes,
     q,
+    sort,
     limit: CATALOG_PAGE_SIZE,
     offset: 0,
   });
@@ -115,16 +132,29 @@ function appendUnique(
 
 export function RegistryBrowseSection() {
   const { t } = useTranslation(["studio", "library"]);
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [searchText, setSearchText] = useState("");
-  const [query, setQuery] = useState("");
+  /** Selected types; empty means every type. */
+  const typeFilters = useCatalogViewStore((s) => s.typeFilters);
+  const setTypeFilters = useCatalogViewStore((s) => s.setTypeFilters);
+  const sort = useCatalogViewStore((s) => s.sort);
+  const setSort = useCatalogViewStore((s) => s.setSort);
+  const searchText = useCatalogViewStore((s) => s.searchText);
+  const setSearchText = useCatalogViewStore((s) => s.setSearchText);
+  const selectedKey = useCatalogViewStore((s) => s.selectedKey);
+  const setSelectedKey = useCatalogViewStore((s) => s.setSelectedKey);
+  const setScrollTop = useCatalogViewStore((s) => s.setScrollTop);
+  const [query, setQuery] = useState(() =>
+    useCatalogViewStore.getState().searchText.trim(),
+  );
   const [entries, setEntries] = useState<CatalogItemEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  /** Fetching a new filter / search / sort while the previous results stay on screen. */
+  const [refreshing, setRefreshing] = useState(false);
+  /** Skeletons are only for the very first load; after that results are swapped in place. */
+  const loadedOnceRef = useRef(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [partialWarning, setPartialWarning] = useState(false);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const entriesRef = useRef(entries);
   entriesRef.current = entries;
@@ -145,8 +175,7 @@ export function RegistryBrowseSection() {
     async (force = false) => {
       const requestId = ++requestRef.current;
       const stale = () => requestRef.current !== requestId;
-      const itemType = typeFilter === "all" ? null : typeFilter;
-      const snapshot = snapshots.get(snapshotKey(typeFilter, query));
+      const snapshot = snapshots.get(snapshotKey(typeFilters, query, sort));
 
       setError(null);
       if (snapshot) {
@@ -154,6 +183,11 @@ export function RegistryBrowseSection() {
         setTotal(snapshot.total);
         setPartialWarning(snapshot.partialWarning);
         setLoading(false);
+        setRefreshing(false);
+        loadedOnceRef.current = true;
+      } else if (loadedOnceRef.current) {
+        // Keep the previous results up (no skeleton flash); the header spinner shows progress.
+        setRefreshing(true);
       } else {
         setEntries([]);
         setTotal(0);
@@ -162,8 +196,9 @@ export function RegistryBrowseSection() {
       }
 
       const result = await fetchItemCatalogSafe({
-        itemType,
+        itemTypes: typeFilters,
         q: query,
+        sort,
         limit: CATALOG_PAGE_SIZE,
         offset: 0,
         force,
@@ -171,8 +206,13 @@ export function RegistryBrowseSection() {
       if (stale()) return;
       if (!result.ok) {
         if (!snapshot) {
+          // Don't leave results for a different filter standing behind the error.
+          setEntries([]);
+          setTotal(0);
           setError(result.error);
           setLoading(false);
+          setRefreshing(false);
+          loadedOnceRef.current = false;
         }
         return;
       }
@@ -188,33 +228,43 @@ export function RegistryBrowseSection() {
         setTotal(result.catalog.total);
         setPartialWarning(partial);
         setLoading(false);
+        setRefreshing(false);
+        loadedOnceRef.current = true;
       }
       const full = await enrichItemCatalog(result.catalog.items);
       if (stale()) return;
       setEntries(full);
       setTotal(result.catalog.total);
       setPartialWarning(partial);
-      snapshots.set(snapshotKey(typeFilter, query), {
+      snapshots.set(snapshotKey(typeFilters, query, sort), {
         entries: full,
         total: result.catalog.total,
         partialWarning: partial,
       });
     },
-    [typeFilter, query],
+    [typeFilters, query, sort],
   );
 
+  // A new filter, search or sort starts over; the first run (including a return to the
+  // catalog) keeps the remembered open item and scroll position.
+  const lastLoadRef = useRef(loadFirstPage);
   useEffect(() => {
-    setSelectedKey(null);
+    if (lastLoadRef.current !== loadFirstPage) {
+      lastLoadRef.current = loadFirstPage;
+      setSelectedKey(null);
+      setScrollTop(0);
+    }
     void loadFirstPage();
-  }, [loadFirstPage]);
+  }, [loadFirstPage, setSelectedKey, setScrollTop]);
 
   const loadMore = useCallback(async () => {
     setLoadingMore(true);
     const requestId = requestRef.current;
     try {
       const result = await fetchItemCatalogSafe({
-        itemType: typeFilter === "all" ? null : typeFilter,
+        itemTypes: typeFilters,
         q: query,
+        sort,
         limit: CATALOG_PAGE_SIZE,
         offset: entriesRef.current.length,
       });
@@ -226,7 +276,7 @@ export function RegistryBrowseSection() {
     } finally {
       setLoadingMore(false);
     }
-  }, [typeFilter, query]);
+  }, [typeFilters, query, sort]);
 
   // Installs, uninstalls and hides elsewhere change what is installed: re-read local state
   // for the rows we already have, without refetching the catalog or its previews.
@@ -269,21 +319,9 @@ export function RegistryBrowseSection() {
   /** Install the newest version, or a chosen one (also how an update and a downgrade run). */
   const install = useCallback(
     async (entry: CatalogItemEntry, version?: RegistryVersionSummary) => {
-      const target = version ?? entry.latestVersion;
-      if (version == null && !entry.meetsMinAppVersion) return;
       setBusy(true);
       try {
-        await installRegistryItem({
-          registryUrl: entry.registryUrl,
-          publisherId: entry.publisherId,
-          itemType: entry.itemType,
-          id: entry.id,
-          version: target.version,
-          sha256: target.sha256,
-          sizeBytes: target.sizeBytes,
-          minAppVersion: target.minAppVersion,
-          name: catalogItemName(entry),
-        });
+        await installCatalogEntry(entry, version);
       } finally {
         setBusy(false);
       }
@@ -291,9 +329,62 @@ export function RegistryBrowseSection() {
     [],
   );
 
+  // Put the list back where it was left once its cards are on screen.
+  const listBodyRef = useRef<HTMLDivElement | null>(null);
+  const restoreScrollRef = useRef(false);
+  const attachListBody = useCallback((el: HTMLDivElement | null) => {
+    listBodyRef.current = el;
+    if (el == null) return;
+    if (entriesRef.current.length > 0) {
+      el.scrollTop = useCatalogViewStore.getState().scrollTop;
+    } else {
+      restoreScrollRef.current = true;
+    }
+  }, []);
+  useEffect(() => {
+    const el = listBodyRef.current;
+    if (!restoreScrollRef.current || el == null || entries.length === 0) return;
+    restoreScrollRef.current = false;
+    el.scrollTop = useCatalogViewStore.getState().scrollTop;
+  }, [entries]);
+
   const showSkeleton = loading && entries.length === 0;
   const hasMore = entries.length < total;
-  const filtered = typeFilter !== "all" || query !== "";
+  const filtered = typeFilters.length > 0 || query !== "";
+
+  // Checking types edits a draft; the filter is applied once the menu closes, so the grid
+  // reloads once per visit to the menu instead of once per click.
+  const [draftFilters, setDraftFilters] = useState<ItemType[]>(typeFilters);
+  const draftFiltersRef = useRef(draftFilters);
+  draftFiltersRef.current = draftFilters;
+  const toggleType = (type: ItemType) =>
+    setDraftFilters((current) =>
+      current.includes(type)
+        ? current.filter((t) => t !== type)
+        : [...current, type],
+    );
+  const handleFilterMenuOpenChange = (open: boolean) => {
+    if (open) {
+      setDraftFilters(typeFilters);
+      return;
+    }
+    const draft = draftFiltersRef.current;
+    const changed =
+      draft.length !== typeFilters.length ||
+      draft.some((type) => !typeFilters.includes(type));
+    if (changed) setTypeFilters(draft);
+  };
+  const typeLabel = (type: ItemType) =>
+    t(`catalog.typePlural.${type}`, { defaultValue: itemTypeMeta(type).label });
+  const typeOptions = ITEM_TYPES.map((type) => ({
+    value: type,
+    label: typeLabel(type),
+    icon: itemTypeMeta(type).icon,
+  }));
+  const sortOptions = CATALOG_SORTS.map((value) => ({
+    value,
+    label: t(`catalog.sort.${value}`),
+  }));
 
   return (
     <div className="registry-browse">
@@ -322,6 +413,15 @@ export function RegistryBrowseSection() {
               <BrowseViewHeader
                 className="browse-view__header--single-row"
                 title={t("catalog.title")}
+                actions={
+                  refreshing ? (
+                    <span
+                      className="registry-browse__refreshing"
+                      role="status"
+                      aria-label={t("catalog.loading")}
+                    />
+                  ) : undefined
+                }
                 count={
                   !showSkeleton && !error
                     ? t("library:views.headerCount", { count: total })
@@ -329,23 +429,6 @@ export function RegistryBrowseSection() {
                 }
               />
               <div className="registry-browse__toolbar">
-                <Tabs
-                  value={typeFilter}
-                  onChange={(value) => setTypeFilter(value as TypeFilter)}
-                  variant="underline"
-                  className="registry-browse__types"
-                >
-                  <TabList aria-label={t("catalog.typeFilterAria")}>
-                    <Tab value="all">{t("catalog.typeAll")}</Tab>
-                    {ITEM_TYPES.map((type) => (
-                      <Tab key={type} value={type}>
-                        {t(`catalog.typePlural.${type}`, {
-                          defaultValue: itemTypeMeta(type).label,
-                        })}
-                      </Tab>
-                    ))}
-                  </TabList>
-                </Tabs>
                 <InputGroup className="registry-browse__search">
                   <InputGroupInput
                     type="text"
@@ -359,8 +442,75 @@ export function RegistryBrowseSection() {
                     <IconSearch />
                   </InputGroupAddon>
                 </InputGroup>
+                <MenuButton
+                  className="registry-browse__filter"
+                  ariaLabel={
+                    typeFilters.length > 0
+                      ? t("catalog.filterAriaActive", {
+                          count: typeFilters.length,
+                        })
+                      : t("catalog.filterAria")
+                  }
+                  title={t("catalog.filterAria")}
+                  icon={
+                    <span className="registry-browse__filter-icon">
+                      <IconListFilter />
+                      {typeFilters.length > 0 ? (
+                        <span
+                          className="registry-browse__filter-count"
+                          aria-hidden
+                        >
+                          {typeFilters.length}
+                        </span>
+                      ) : null}
+                    </span>
+                  }
+                  variant="secondary"
+                  size="sm"
+                  triggerPlacement="below-start"
+                  layoutDeps={[draftFilters]}
+                  onOpenChange={handleFilterMenuOpenChange}
+                >
+                  {(close) => (
+                    <>
+                      {typeOptions.map((opt) => (
+                        <ContextMenuCheckboxItem
+                          key={opt.value}
+                          icon={opt.icon}
+                          label={opt.label}
+                          checked={draftFilters.includes(opt.value)}
+                          onClick={() => toggleType(opt.value)}
+                        />
+                      ))}
+                      {draftFilters.length > 0 ? (
+                        <>
+                          <ContextMenuSeparator />
+                          <ContextMenuItem
+                            icon={<IconListX />}
+                            label={t("catalog.filterClear")}
+                            onClick={() => {
+                              setDraftFilters([]);
+                              close();
+                            }}
+                          />
+                        </>
+                      ) : null}
+                    </>
+                  )}
+                </MenuButton>
+                <Select
+                  className="registry-browse__sort"
+                  value={sort}
+                  onChange={setSort}
+                  icon={<IconArrowUpDown />}
+                  options={sortOptions}
+                  aria-label={t("catalog.sortAria")}
+                />
               </div>
-              <BrowseGridBody>
+              <BrowseGridBody
+                bodyRef={attachListBody}
+                onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+              >
                 {partialWarning && !error ? (
                   <p className="registry-browse__banner appearance-section__status">
                     {t("catalog.partialErrors")}

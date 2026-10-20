@@ -245,7 +245,6 @@ pub fn run() {
             commands::items::write_item_changelog,
             commands::items::uninstall_item,
             commands::items::delete_workshop_item,
-            commands::items::set_item_hidden,
             commands::items::get_default_publisher_id,
             commands::items::save_default_publisher_id,
             commands::registry::get_registries,

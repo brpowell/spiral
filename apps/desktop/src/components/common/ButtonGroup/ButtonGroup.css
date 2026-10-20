@@ -135,6 +135,12 @@
   border-radius: 0;
 }
 
+/* A lone segment is both first and last child; keep its full radius. */
+.button-group[data-orientation] > .btn:only-child,
+.button-group[data-orientation] > .menu-button:only-child > .btn {
+  border-radius: var(--radius-button);
+}
+
 .button-group .btn:hover:not(:disabled),
 .button-group .btn[aria-expanded="true"],
 .button-group .menu-button > .btn:hover:not(:disabled),
@@ -151,10 +157,23 @@
   border-color: var(--color-control-hover);
 }
 
-/* Joined segments stay flush; the lip still presses in place. */
+/*
+ * Joined segments stay flush, so they can't travel down as a whole. Shift the
+ * content 1px instead, so the press still reads as down and in.
+ */
 .button-group > .btn:active:not(:disabled),
 .button-group > .menu-button > .btn:active:not(:disabled) {
   top: 0;
+}
+
+.button-group > .btn:not(.btn--icon-only):active:not(:disabled),
+.button-group > .menu-button > .btn:not(.btn--icon-only):active:not(:disabled) {
+  padding-block: calc(var(--btn-pad-y) + 1px) calc(var(--btn-pad-y) - 1px);
+}
+
+.button-group > .btn--icon-only:active:not(:disabled) > svg,
+.button-group > .menu-button > .btn--icon-only:active:not(:disabled) > svg {
+  transform: translateY(1px);
 }
 
 .button-group[data-orientation="horizontal"] > .menu-button > .btn--icon-only {
@@ -165,17 +184,30 @@
   padding-inline: 0.4rem;
 }
 
+/*
+ * Adjacent segments overlap by 1px at the divider, so both drop shadows land in that column
+ * and read as a darker stub under the seam. The segment after the divider gives up its
+ * leftmost column (the divider already covers it); its focus ring is left unclipped.
+ */
+.button-group[data-orientation="horizontal"]
+  > .button-group__separator
+  + .btn:not(:focus-visible),
+.button-group[data-orientation="horizontal"]
+  > .button-group__separator
+  + .menu-button
+  > .btn:not(:focus-visible) {
+  clip-path: inset(-6px -6px -6px 1px);
+}
+
 .button-group__separator {
   position: relative;
-  z-index: 1;
+  /* Above a hovered or focused segment (z-index 1), so its border never paints over the divider. */
+  z-index: 2;
   flex-shrink: 0;
   align-self: stretch;
   width: 1px;
-  background: color-mix(
-    in srgb,
-    var(--color-accent-text, #fff) 35%,
-    transparent
-  );
+  /* Same colour as the primary button's own border, so the seam reads as part of it. */
+  background: color-mix(in srgb, var(--color-accent) 78%, black);
 }
 
 .button-group__separator[data-orientation="horizontal"] {
