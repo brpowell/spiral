@@ -1,4 +1,4 @@
-import type { PackZone } from "./pack";
+import { isEditablePackZone, type PackZone } from "./pack";
 
 /** Mirrors Rust `CONTRIBUTION_TYPE_FOLDERS` types. */
 export type ItemType = "theme" | "skin" | "visualizer" | "sound";
@@ -36,7 +36,7 @@ export interface ItemSummary {
   active: boolean;
 }
 
-/** Workshop drafts and linked folders are editable in place. */
+/** Workshop drafts and linked folders are editable in place, and built-ins in dev builds. */
 export function isEditableItem(item: Pick<ItemSummary, "zone">): boolean {
-  return item.zone === "workshop" || item.zone === "linked";
+  return isEditablePackZone(item.zone);
 }

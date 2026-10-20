@@ -54,7 +54,7 @@
 .browse-view__title {
   margin: 0;
   font-size: 1.35rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 
 .browse-view__header--single-row .browse-view__title,

@@ -29,7 +29,7 @@
 .sound-lab__title {
   margin: 0;
   font-size: 1.05rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   letter-spacing: -0.01em;
 }
 
@@ -56,7 +56,7 @@
 .sound-lab__section-title {
   margin: 0;
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-secondary);
@@ -104,7 +104,7 @@
 
 .sound-lab__preset-name {
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 
 .sound-lab__param {

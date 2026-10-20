@@ -41,7 +41,7 @@
 
 .musicbrainz-entity-card .choice-option__title {
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   line-height: 1.3;
 }
 
@@ -131,7 +131,7 @@
 .musicbrainz-entity-facts__label {
   margin: 0;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: var(--weight-regular);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   line-height: 1.2;
@@ -142,7 +142,7 @@
 .musicbrainz-entity-facts__value {
   margin: 0;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   font-variant-numeric: tabular-nums;
   line-height: 1.25;
   white-space: nowrap;

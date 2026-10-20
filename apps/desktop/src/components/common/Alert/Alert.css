@@ -2,7 +2,7 @@
   margin: 0;
   padding: 0.625rem 0.875rem;
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: var(--weight-regular);
   line-height: 1.45;
   border-radius: var(--radius-sm);
   border: 1px solid var(--alert-border);

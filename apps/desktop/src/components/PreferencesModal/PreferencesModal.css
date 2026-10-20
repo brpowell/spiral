@@ -73,7 +73,7 @@
 }
 
 .preferences__hint-label {
-  font-weight: 500;
+  font-weight: var(--weight-regular);
 }
 
 .preferences__organize-path {

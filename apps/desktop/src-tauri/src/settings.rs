@@ -517,17 +517,6 @@ pub fn app_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|e| format!("failed to resolve app data directory: {e}"))
 }
 
-/// User-shared data root (not product-specific).
-///
-/// macOS: `~/Library/Application Support`
-/// Windows: `%APPDATA%`
-/// Linux: `$XDG_DATA_HOME` or `~/.local/share`
-pub fn user_data_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path()
-        .data_dir()
-        .map_err(|e| format!("failed to resolve user data directory: {e}"))
-}
-
 pub fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app_data_dir(app)?.join("settings.json"))
 }

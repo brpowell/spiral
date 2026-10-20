@@ -10,7 +10,7 @@ import {
 } from "../../lib/packs/packChangelogCache";
 import { WORKSHOP_CHANGED_EVENT } from "../../lib/themeBridge";
 import { writeItemChangelog } from "../../lib/tauri";
-import { isAuthoringPackZone } from "../../types/pack";
+import { isEditablePackZone } from "../../types/pack";
 import type { ItemSummary } from "../../types/item";
 import { Button } from "../common/Button/Button";
 import { Textarea } from "../common/Textarea/Textarea";
@@ -42,7 +42,7 @@ export function ItemChangelogPanel({
   onPresenceChange?: (present: boolean) => void;
 }) {
   const { t } = useTranslation("studio");
-  const canEdit = isAuthoringPackZone(item.zone);
+  const canEdit = isEditablePackZone(item.zone);
   const initial = changelogStateFromCache(item.dir);
   const [changelog, setChangelog] = useState<string | null>(initial.changelog);
   const [loadState, setLoadState] = useState<ChangelogLoadState>(

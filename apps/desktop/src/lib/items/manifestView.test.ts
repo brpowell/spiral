@@ -7,12 +7,12 @@ describe("themeTokenView", () => {
       tokens: {
         "color-bg": "#000",
         "color-accent": "rgb(1 2 3)",
-        "radius-card": "12px",
+        "font-mono": "monospace",
         "font-ui": "Inter, sans-serif",
       },
     });
     expect(view.colors.map(([k]) => k)).toEqual(["color-bg", "color-accent"]);
-    expect(view.other.map(([k]) => k)).toEqual(["radius-card", "font-ui"]);
+    expect(view.other.map(([k]) => k)).toEqual(["font-mono", "font-ui"]);
   });
 
   it("tolerates a missing or malformed tokens field", () => {

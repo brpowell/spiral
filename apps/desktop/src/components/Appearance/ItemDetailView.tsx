@@ -302,7 +302,7 @@ export function ItemDetailView({
                       item={item}
                       onAfterUninstall={onBack}
                     />
-                  ) : item.zone === "builtin" ? (
+                  ) : item.zone === "builtin" && !canEdit ? (
                     // Nothing to edit or remove, so Reveal is the whole action row.
                     <div className="installed-packs__hero-actions">
                       <Button
@@ -331,7 +331,8 @@ export function ItemDetailView({
                         onAfterEdit={onItemIdChange}
                       />
                     </div>
-                  ) : item.zone === "workshop" ? (
+                  ) : item.zone === "workshop" || item.zone === "builtin" ? (
+                    // Built-ins only reach here in dev builds, where they edit in place.
                     <div className="installed-packs__hero-actions">
                       <Button
                         variant="secondary"
@@ -368,7 +369,7 @@ export function ItemDetailView({
               </div>
             </header>
 
-            {item.zone === "workshop" ? (
+            {item.zone === "workshop" || item.zone === "builtin" ? (
               <EditItemModal
                 open={editOpen}
                 item={item}

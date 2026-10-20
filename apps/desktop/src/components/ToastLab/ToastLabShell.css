@@ -28,7 +28,7 @@
 .toast-lab__title {
   margin: 0;
   font-size: 1.05rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   letter-spacing: -0.01em;
 }
 
@@ -48,7 +48,7 @@
 .toast-lab__section-title {
   margin: 0;
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-secondary);
@@ -57,7 +57,7 @@
 .toast-lab__group-title {
   margin: 0;
   font-size: 0.78rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   color: var(--color-text-primary);
 }
 
@@ -127,7 +127,7 @@
 
 .toast-lab__stage-label {
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-secondary);

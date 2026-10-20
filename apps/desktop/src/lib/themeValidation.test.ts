@@ -15,8 +15,6 @@ function makeTheme(
     "color-text-primary": "#fff",
     "color-accent": "#00f",
     "color-danger": "#f00",
-    "radius-card": "8px",
-    "radius-button": "4px",
     "font-ui": "system-ui",
   };
   const { tokens: partialTokens, replaceTokens, ...rest } = partial ?? {};

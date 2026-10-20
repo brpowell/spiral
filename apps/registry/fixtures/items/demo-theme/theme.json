@@ -14,7 +14,7 @@
     "color-danger": "#f07178",
     "radius-card": "8px",
     "radius-button": "6px",
-    "font-ui": "system-ui, sans-serif"
+    "font-ui": "system-ui"
   },
   "publisherId": "spiral",
   "version": "1.0.0",

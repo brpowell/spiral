@@ -45,13 +45,7 @@ fn default_workshop_tokens() -> HashMap<String, String> {
         ("color-alert-info".into(), "#9aa8e8".into()),
         ("color-alert-success".into(), "#7fd492".into()),
         ("color-alert-warning".into(), "#e8c57b".into()),
-        ("radius-card".into(), "12px".into()),
-        ("radius-button".into(), "8px".into()),
-        ("radius-input".into(), "8px".into()),
-        (
-            "font-ui".into(),
-            "'Inter', system-ui, -apple-system, sans-serif".into(),
-        ),
+        ("font-ui".into(), "inter".into()),
     ])
 }
 
@@ -159,6 +153,30 @@ fn resolve_active_theme_id(themes: &[Theme], stored: &str) -> String {
         .unwrap_or_else(|| settings::DEFAULT_THEME_ID.to_string())
 }
 
+/// `tokens` as a JSON object that keeps the file's existing key order (so saving a
+/// built-in theme leaves a minimal diff), followed by any new keys alphabetically.
+/// Keys no longer in `tokens` are dropped.
+fn merge_tokens_in_order(
+    existing: &serde_json::Map<String, serde_json::Value>,
+    tokens: &HashMap<String, String>,
+) -> serde_json::Map<String, serde_json::Value> {
+    let mut merged = serde_json::Map::new();
+    for key in existing.keys() {
+        if let Some(value) = tokens.get(key) {
+            merged.insert(key.clone(), value.clone().into());
+        }
+    }
+    let mut added: Vec<_> = tokens
+        .iter()
+        .filter(|(key, _)| !existing.contains_key(*key))
+        .collect();
+    added.sort_by_key(|(key, _)| key.as_str());
+    for (key, value) in added {
+        merged.insert(key.clone(), value.clone().into());
+    }
+    merged
+}
+
 /// Write a theme's editable content into its manifest, preserving identity and
 /// distribution fields (`id`, `publisherId`, `version`, `minAppVersion`, `preview`, …).
 fn write_theme_contribution(path: &Path, theme: &Theme) -> Result<(), String> {
@@ -173,10 +191,14 @@ fn write_theme_contribution(path: &Path, theme: &Theme) -> Result<(), String> {
     obj.insert("name".into(), theme.name.clone().into());
     obj.insert("author".into(), theme.author.clone().into());
     obj.insert("description".into(), theme.description.clone().into());
+    let existing = obj
+        .get("tokens")
+        .and_then(serde_json::Value::as_object)
+        .cloned()
+        .unwrap_or_default();
     obj.insert(
         "tokens".into(),
-        serde_json::to_value(&theme.tokens)
-            .map_err(|e| format!("failed to serialize theme tokens: {e}"))?,
+        serde_json::Value::Object(merge_tokens_in_order(&existing, &theme.tokens)),
     );
     let json = serde_json::to_string_pretty(&value)
         .map_err(|e| format!("failed to serialize theme: {e}"))?;
@@ -304,6 +326,65 @@ mod tests {
     }
 
     #[test]
+    fn saving_a_theme_keeps_the_manifest_key_order() {
+        let dir = std::env::temp_dir().join(format!("spiral-theme-order-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("theme.json");
+        fs::write(
+            &path,
+            r##"{
+  "id": "sprig",
+  "version": "1.0.0",
+  "name": "Sprig",
+  "tokens": {
+    "color-bg": "#fff",
+    "color-accent": "#0f0",
+    "font-ui": "inter"
+  }
+}
+"##,
+        )
+        .unwrap();
+        let theme = Theme {
+            id: "spiral.theme.sprig".into(),
+            name: "Sprig".into(),
+            author: "Spiral".into(),
+            description: String::new(),
+            tokens: HashMap::from([
+                ("color-bg".into(), "#eee".into()),
+                ("color-accent".into(), "#0f0".into()),
+                ("color-danger".into(), "#f00".into()),
+                ("font-ui".into(), "rubik".into()),
+            ]),
+            publisher_id: "spiral".into(),
+            version: "1.0.0".into(),
+            zone: PackZone::Workshop,
+            mutable: true,
+        };
+        write_theme_contribution(&path, &theme).unwrap();
+        let value: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        let top: Vec<_> = value.as_object().unwrap().keys().cloned().collect();
+        assert_eq!(
+            top,
+            ["id", "version", "name", "tokens", "author", "description"]
+        );
+        let tokens: Vec<_> = value["tokens"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect();
+        assert_eq!(
+            tokens,
+            ["color-bg", "color-accent", "font-ui", "color-danger"]
+        );
+        assert_eq!(value["tokens"]["color-bg"], "#eee");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn builtin_themes_parse_with_namespaced_ids() {
         let mut themes = load_builtin_themes_from_disk();
         themes.sort_by(|a, b| a.id.cmp(&b.id));
@@ -324,7 +405,8 @@ mod tests {
         );
         for theme in &themes {
             assert_eq!(theme.zone, PackZone::Builtin);
-            assert!(!theme.mutable);
+            // Built-ins are editable in debug builds only (see `PackZone::is_editable`).
+            assert_eq!(theme.mutable, cfg!(debug_assertions));
             assert_eq!(theme.version, "1.0.0");
             assert_eq!(theme.publisher_id, "spiral");
         }

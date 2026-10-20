@@ -11,9 +11,6 @@
     "color-text-primary": "#eef1f8",
     "color-accent": "#5ecfd4",
     "color-danger": "#e8945a",
-    "font-ui": "'Outfit', system-ui, -apple-system, sans-serif",
-    "radius-button": "8px",
-    "radius-card": "12px",
-    "radius-input": "8px"
+    "font-ui": "outfit"
   }
 }

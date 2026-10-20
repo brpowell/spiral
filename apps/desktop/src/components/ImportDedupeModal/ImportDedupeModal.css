@@ -17,7 +17,7 @@
 
 .import-dedupe-modal__file-label {
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--color-text-secondary);
@@ -34,7 +34,7 @@
 .import-dedupe-modal__lyrics-label {
   flex-shrink: 0;
   font-size: 0.8rem;
-  font-weight: 500;
+  font-weight: var(--weight-regular);
   line-height: 1.2;
   color: var(--color-text-secondary);
 }

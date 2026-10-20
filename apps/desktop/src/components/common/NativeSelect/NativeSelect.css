@@ -18,7 +18,7 @@
   color: var(--color-text-primary);
   font-size: var(--control-font-size);
   font-family: var(--font-ui);
-  font-weight: 500;
+  font-weight: var(--weight-regular);
   line-height: var(--control-line-height);
   cursor: pointer;
   appearance: none;

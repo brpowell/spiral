@@ -191,6 +191,13 @@
   --radius-sm: var(--radius-input);
   --radius-md: var(--radius-card);
   --font-ui: "Inter", system-ui, -apple-system, sans-serif;
+  /*
+   * Text weights, one step lighter than their numeric names suggest: UI text is regular, titles and
+   * emphasis medium, and only the largest headings strong. Retune a typeface here, not per rule.
+   */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-strong: 600;
 
   /* Shared compact control sizing (text inputs, selects, search fields) */
   --control-padding-y: 0.3rem;

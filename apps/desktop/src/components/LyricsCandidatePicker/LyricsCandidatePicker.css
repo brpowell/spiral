@@ -42,7 +42,7 @@
 .lyrics-candidate-picker__results-heading {
   margin: 0 0 0.75rem;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--color-text-secondary);
@@ -68,7 +68,7 @@
 .lyrics-candidate-picker__library-title {
   margin: 0;
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: var(--weight-strong);
   line-height: 1.3;
   overflow-wrap: anywhere;
 }

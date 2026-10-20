@@ -328,8 +328,6 @@ mod tests {
                 "color-accent-muted": "#556",
                 "color-border": "#222",
                 "color-danger": "#e06c75",
-                "radius-card": "10px",
-                "radius-button": "6px",
                 "font-ui": "system-ui"
             }
         });

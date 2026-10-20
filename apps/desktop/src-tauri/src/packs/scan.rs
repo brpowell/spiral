@@ -126,7 +126,7 @@ fn contribution_from_manifest(
         local_id: item.id,
         version: item.version,
         name: item.name,
-        mutable: zone.is_mutable(),
+        mutable: zone.is_editable(),
     }
 }
 
@@ -370,7 +370,7 @@ mod tests {
             name: "Demo".into(),
             contribution_dir: PathBuf::from(dir),
             manifest_path: PathBuf::from(dir).join("theme.json"),
-            mutable: zone.is_mutable(),
+            mutable: zone.is_editable(),
         }
     }
 

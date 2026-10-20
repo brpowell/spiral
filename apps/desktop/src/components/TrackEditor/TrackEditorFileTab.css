@@ -7,5 +7,5 @@
 
 .track-editor-file-tab .field__label {
   font-size: 0.8rem;
-  font-weight: 500;
+  font-weight: var(--weight-regular);
 }

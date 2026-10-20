@@ -46,7 +46,7 @@
 
 label.field__label {
   color: var(--color-text-primary);
-  font-weight: 500;
+  font-weight: var(--weight-regular);
   cursor: pointer;
 }
 

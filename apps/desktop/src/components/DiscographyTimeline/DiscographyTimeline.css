@@ -49,7 +49,7 @@
 
 .discography-timeline__year {
   font-size: 1.35rem;
-  font-weight: 700;
+  font-weight: var(--weight-strong);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
   line-height: 1;
@@ -62,7 +62,8 @@
   height: 0.65rem;
   border-radius: 50%;
   background: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-surface),
+  box-shadow:
+    0 0 0 3px var(--color-surface),
     0 0 0 5px color-mix(in srgb, var(--color-accent) 35%, transparent);
   flex-shrink: 0;
   position: relative;
@@ -122,8 +123,16 @@
 }
 
 .discography-timeline__entry:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
-  background: color-mix(in srgb, var(--color-accent-muted) 25%, var(--color-surface-raised));
+  border-color: color-mix(
+    in srgb,
+    var(--color-accent) 45%,
+    var(--color-border)
+  );
+  background: color-mix(
+    in srgb,
+    var(--color-accent-muted) 25%,
+    var(--color-surface-raised)
+  );
 }
 
 .discography-timeline__entry-art {
@@ -143,7 +152,7 @@
 
 .discography-timeline__entry-title {
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;

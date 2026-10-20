@@ -522,11 +522,13 @@ fn ordered_object_keys(map: &serde_json::Map<String, serde_json::Value>) -> Vec<
             keys.push(k);
         }
     }
-    for k in map.keys() {
-        if !leading.contains(&k.as_str()) {
-            keys.push(k);
-        }
-    }
+    // Everything else alphabetically, whatever order the map holds (it keeps insertion order).
+    let mut rest: Vec<&String> = map
+        .keys()
+        .filter(|k| !leading.contains(&k.as_str()))
+        .collect();
+    rest.sort();
+    keys.extend(rest);
     keys
 }
 

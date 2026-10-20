@@ -50,7 +50,7 @@
   padding-left: 0;
   padding-right: 0;
   font-size: clamp(0.92rem, 0.2vw + 0.86rem, 1.05rem);
-  font-weight: 500;
+  font-weight: var(--weight-regular);
   line-height: 1.6;
 }
 

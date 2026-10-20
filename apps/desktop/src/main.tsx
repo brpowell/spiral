@@ -48,6 +48,7 @@ import {
 } from "./lib/windowRole";
 import { applyCustomWindowChrome } from "./lib/windowChrome";
 import { i18n } from "./lib/i18n";
+import "./styles/fonts.css";
 import "./styles/theme.css";
 import "./styles/scrollbars.css";
 
