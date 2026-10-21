@@ -13,8 +13,12 @@
  *   AZURE_SIGNING_ACCOUNT   — Artifact Signing account name
  *   AZURE_SIGNING_PROFILE   — certificate profile name
  *
- * Auth: the dlib uses DefaultAzureCredential, so an `azure/login` step (OIDC)
- * before the build is enough. No client secret is read here.
+ * Auth: logs in to the Azure CLI itself with a fresh GitHub OIDC token right
+ * before signing. An `azure/login` step before the build is not enough: its
+ * token is only valid for about 10 minutes and the release build compiles for
+ * longer than that before Tauri calls this script. No client secret is used.
+ *   AZURE_SIGNING_CLIENT_ID / AZURE_SIGNING_TENANT_ID — the app registration
+ * Outside CI (no OIDC token available) it uses whatever `az login` you have.
  *
  * Verifies the signature after signing, so a bad result fails the Tauri build
  * before tauri-action uploads anything.
@@ -119,8 +123,8 @@ function log(message) {
   if (logPath) appendFileSync(logPath, `${message}\n`);
 }
 
-function run(command, args, options = {}) {
-  log(`> ${command} ${args.join(" ")}`);
+function run(command, args, { label, ...options } = {}) {
+  log(`> ${label ?? `${command} ${args.join(" ")}`}`);
   const result = spawnSync(command, args, { encoding: "utf8", ...options });
   if (result.stdout) log(result.stdout.trimEnd());
   if (result.stderr) log(result.stderr.trimEnd());
@@ -166,6 +170,52 @@ async function ensureDlib(cacheDir) {
   return dlib;
 }
 
+export const OIDC_AUDIENCE = "api://AzureADTokenExchange";
+
+/** Fresh login, because the assertion behind an earlier one expires in minutes. */
+async function azureLogin() {
+  const url = process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+  const bearer = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+  if (!url || !bearer) {
+    log("No GitHub OIDC token available; using the existing Azure login");
+    return;
+  }
+
+  const res = await fetch(
+    `${url}&audience=${encodeURIComponent(OIDC_AUDIENCE)}`,
+    {
+      headers: { Authorization: `Bearer ${bearer}` },
+      signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+    },
+  );
+  if (!res.ok) throw new Error(`OIDC token request failed: HTTP ${res.status}`);
+  const { value: federatedToken } = await res.json();
+
+  // az is a .cmd shim on Windows, which needs a shell to run.
+  const login = run(
+    "az",
+    [
+      "login",
+      "--service-principal",
+      "--username",
+      requireEnv("AZURE_SIGNING_CLIENT_ID"),
+      "--tenant",
+      requireEnv("AZURE_SIGNING_TENANT_ID"),
+      "--federated-token",
+      federatedToken,
+      "--allow-no-subscriptions",
+      "--output",
+      "none",
+    ],
+    {
+      shell: true,
+      timeout: DOWNLOAD_TIMEOUT_MS,
+      label: "az login --service-principal --federated-token <redacted>",
+    },
+  );
+  if (login.status !== 0) throw new Error("az login failed");
+}
+
 function requireEnv(name) {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is not set`);
@@ -204,6 +254,8 @@ async function main() {
       profile: requireEnv("AZURE_SIGNING_PROFILE"),
     }),
   );
+
+  await azureLogin();
 
   log(`Signing ${file} with ${signtool}`);
   const signed = run(signtool, signtoolArgs({ dlibPath, metadataPath, file }), {

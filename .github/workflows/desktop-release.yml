@@ -9,8 +9,8 @@
 # Signing: secrets live in the `production-release` environment. The updater
 # key (#181) is already configured; Apple notarization (#182) is still
 # optional. Windows Authenticode (#183) uses Azure Artifact Signing over OIDC:
-# no certificate or client secret is stored, `azure/login` exchanges the job's
-# GitHub token for Azure access, and Tauri's signCommand (injected below via
+# no certificate or client secret is stored, the signing script exchanges a
+# fresh GitHub OIDC token for Azure access, and Tauri's signCommand (injected below via
 # `--config`, so local builds never try to sign) calls
 # scripts/release/sign-windows.mjs on the app exe and the NSIS installer.
 # Windows signing stays off until all the AZURE_* secrets are set.
@@ -58,7 +58,7 @@ on:
 
 permissions:
   contents: write
-  # azure/login requests a GitHub OIDC token for Windows signing.
+  # The Windows signing script requests a GitHub OIDC token.
   id-token: write
 
 jobs:
@@ -218,12 +218,11 @@ jobs:
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
           AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
           AZURE_SIGNING_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
         run: |
-          $names = 'AZURE_CLIENT_ID','AZURE_TENANT_ID','AZURE_SUBSCRIPTION_ID','AZURE_SIGNING_ENDPOINT','AZURE_SIGNING_ACCOUNT','AZURE_SIGNING_PROFILE'
+          $names = 'AZURE_CLIENT_ID','AZURE_TENANT_ID','AZURE_SIGNING_ENDPOINT','AZURE_SIGNING_ACCOUNT','AZURE_SIGNING_PROFILE'
           $missing = $names | Where-Object { -not [Environment]::GetEnvironmentVariable($_) }
           if ($missing.Count -eq 0) {
             "enabled=true" >> $env:GITHUB_OUTPUT
@@ -235,14 +234,6 @@ jobs:
             "enabled=false" >> $env:GITHUB_OUTPUT
           }
 
-      - name: Azure login (OIDC)
-        if: steps.signing.outputs.enabled == 'true'
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
       # The config patch goes in through `--config` (see the build args below),
       # so signCommand exists only in CI. The Tauri CLI sets TAURI_CONFIG for its
       # own subprocesses but never reads it, so an env var does nothing here.
@@ -252,10 +243,17 @@ jobs:
         if: steps.signing.outputs.enabled == 'true'
         shell: pwsh
         env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
           AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
           AZURE_SIGNING_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
         run: |
+          # sign-windows.mjs logs in to Azure itself, right before each signing
+          # call: a login done before the build would be 10+ minutes old by the
+          # time Tauri signs, and its OIDC assertion would have expired.
+          "AZURE_SIGNING_CLIENT_ID=$env:AZURE_CLIENT_ID" >> $env:GITHUB_ENV
+          "AZURE_SIGNING_TENANT_ID=$env:AZURE_TENANT_ID" >> $env:GITHUB_ENV
           "AZURE_SIGNING_ENDPOINT=$env:AZURE_SIGNING_ENDPOINT" >> $env:GITHUB_ENV
           "AZURE_SIGNING_ACCOUNT=$env:AZURE_SIGNING_ACCOUNT" >> $env:GITHUB_ENV
           "AZURE_SIGNING_PROFILE=$env:AZURE_SIGNING_PROFILE" >> $env:GITHUB_ENV

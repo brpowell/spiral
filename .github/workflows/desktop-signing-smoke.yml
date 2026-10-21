@@ -39,6 +39,8 @@ jobs:
     environment: production-release
     timeout-minutes: 15
     env:
+      AZURE_SIGNING_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_SIGNING_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
       AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
       AZURE_SIGNING_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
@@ -50,13 +52,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-
-      - name: Azure login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       # Windows PowerShell (not pwsh) for Add-Type's compiler.
       - name: Build an unsigned exe
