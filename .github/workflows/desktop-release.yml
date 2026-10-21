@@ -43,6 +43,18 @@ on:
         description: "Existing draft-release tag to attach artifacts to (e.g. desktop-v0.1.0)"
         required: true
         type: string
+      platforms:
+        description: "Which platforms to build. Anything but `all` is for testing: the release gate stays red because the draft will be missing the other platforms."
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - macos
+          - windows
+          - windows-x64
+          - windows-aarch64
+          - linux
 
 permissions:
   contents: write
@@ -50,45 +62,59 @@ permissions:
   id-token: write
 
 jobs:
+  # Builds the matrix as JSON so a manual run can pick platforms; the matrix
+  # context can't be read in a job-level `if:`. Tag pushes always build all.
+  plan:
+    name: Plan build matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Select matrix cells
+        id: matrix
+        env:
+          SELECTED: ${{ inputs.platforms || 'all' }}
+        run: |
+          # One universal macOS binary serves Apple Silicon and Intel. `app`
+          # must be explicit: `--bundles dmg` alone builds then deletes
+          # Spiral.app, so createUpdaterArtifacts never leaves
+          # .app.tar.gz/.sig for tauri-action to upload (you get "Signature
+          # not found…").
+          #
+          # windows-aarch64 is a native Windows 11 ARM runner. .cargo/config.toml
+          # carries the MSVC ARM64 flags fdk-aac-sys needs.
+          #
+          # Linux uses ubuntu-22.04: older glibc baseline than -latest (Tauri
+          # Linux guidance). AppImage is the updater payload; deb and rpm are
+          # browser-download installers (the rpm bundler is pure Rust, so no
+          # rpmbuild is needed). Native runners, not cross-compile: WebKit and
+          # AppImage tooling are host-arch.
+          all='[
+            {"label":"macos-universal","platform":"macos-latest","args":"--target universal-apple-darwin --bundles app,dmg","rust_targets":"aarch64-apple-darwin,x86_64-apple-darwin"},
+            {"label":"windows-x64","platform":"windows-latest","args":"--bundles nsis","rust_targets":""},
+            {"label":"windows-aarch64","platform":"windows-11-arm","args":"--target aarch64-pc-windows-msvc --bundles nsis","rust_targets":"aarch64-pc-windows-msvc"},
+            {"label":"linux-x64","platform":"ubuntu-22.04","args":"--bundles appimage,deb,rpm","rust_targets":""},
+            {"label":"linux-aarch64","platform":"ubuntu-22.04-arm","args":"--bundles appimage,deb,rpm","rust_targets":""}
+          ]'
+          matrix=$(jq -c --arg p "$SELECTED" \
+            '{include: [.[] | select($p == "all" or (.label | startswith($p)))]}' <<<"$all")
+          if [ "$(jq '.include | length' <<<"$matrix")" -eq 0 ]; then
+            echo "::error::No matrix cells match platforms=$SELECTED"
+            exit 1
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          jq . <<<"$matrix"
+
   build:
     name: Build (${{ matrix.label }})
+    needs: plan
     environment: production-release
     strategy:
       # Finish every cell so operators see the full failure picture; the
       # platforms-green job still fails the workflow if any cell failed.
       fail-fast: false
-      matrix:
-        include:
-          # One universal binary serves Apple Silicon and Intel. `app` must be
-          # explicit: `--bundles dmg` alone builds then deletes Spiral.app, so
-          # createUpdaterArtifacts never leaves .app.tar.gz/.sig for
-          # tauri-action to upload (you get "Signature not found…").
-          - label: macos-universal
-            platform: macos-latest
-            args: --target universal-apple-darwin --bundles app,dmg
-            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
-          - label: windows-x64
-            platform: windows-latest
-            args: --bundles nsis
-            rust_targets: ""
-          # Native Windows 11 ARM runner. .cargo/config.toml carries the MSVC
-          # ARM64 flags fdk-aac-sys needs.
-          - label: windows-aarch64
-            platform: windows-11-arm
-            args: --target aarch64-pc-windows-msvc --bundles nsis
-            rust_targets: aarch64-pc-windows-msvc
-          # ubuntu-22.04: older glibc baseline than -latest (Tauri Linux guidance).
-          # AppImage is the updater payload; deb and rpm are browser-download installers
-          # (the rpm bundler is pure Rust, so no rpmbuild is needed).
-          # Native runners (not cross-compile) — WebKit/AppImage tooling is host-arch.
-          - label: linux-x64
-            platform: ubuntu-22.04
-            args: --bundles appimage,deb,rpm
-            rust_targets: ""
-          - label: linux-aarch64
-            platform: ubuntu-22.04-arm
-            args: --bundles appimage,deb,rpm
-            rust_targets: ""
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
 
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 90
