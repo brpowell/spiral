@@ -11,7 +11,7 @@
 # optional. Windows Authenticode (#183) uses Azure Artifact Signing over OIDC:
 # no certificate or client secret is stored, `azure/login` exchanges the job's
 # GitHub token for Azure access, and Tauri's signCommand (injected below via
-# TAURI_CONFIG, so local builds never try to sign) calls
+# `--config`, so local builds never try to sign) calls
 # scripts/release/sign-windows.mjs on the app exe and the NSIS installer.
 # Windows signing stays off until all the AZURE_* secrets are set.
 # Because `secrets` can't be read in
@@ -243,9 +243,12 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # TAURI_CONFIG is merged over tauri.conf.json, so signCommand exists only
-      # in CI. %1 is the file Tauri asks us to sign.
+      # The config patch goes in through `--config` (see the build args below),
+      # so signCommand exists only in CI. The Tauri CLI sets TAURI_CONFIG for its
+      # own subprocesses but never reads it, so an env var does nothing here.
+      # %1 is the file Tauri asks us to sign.
       - name: Configure Tauri signCommand
+        id: signconfig
         if: steps.signing.outputs.enabled == 'true'
         shell: pwsh
         env:
@@ -256,15 +259,16 @@ jobs:
           "AZURE_SIGNING_ENDPOINT=$env:AZURE_SIGNING_ENDPOINT" >> $env:GITHUB_ENV
           "AZURE_SIGNING_ACCOUNT=$env:AZURE_SIGNING_ACCOUNT" >> $env:GITHUB_ENV
           "AZURE_SIGNING_PROFILE=$env:AZURE_SIGNING_PROFILE" >> $env:GITHUB_ENV
-          $script = Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/scripts/release/sign-windows.mjs'
-          $config = @{
+          $script = (Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/scripts/release/sign-windows.mjs') -replace '\\', '/'
+          $configPath = (Join-Path $env:RUNNER_TEMP 'tauri-signing.json') -replace '\\', '/'
+          @{
             bundle = @{
               windows = @{
                 signCommand = @{ cmd = 'node'; args = @($script, '%1') }
               }
             }
-          } | ConvertTo-Json -Depth 6 -Compress
-          "TAURI_CONFIG=$config" >> $env:GITHUB_ENV
+          } | ConvertTo-Json -Depth 6 | Set-Content -Path $configPath
+          "config_arg=--config $configPath" >> $env:GITHUB_OUTPUT
 
       - name: Build and upload to draft release
         uses: tauri-apps/tauri-action@v1
@@ -280,7 +284,7 @@ jobs:
           # Spiral serves manifests from spiralpowered.com, not GitHub latest.json.
           uploadUpdaterJson: false
           projectPath: apps/desktop
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }}${{ steps.signconfig.outputs.config_arg && format(' {0}', steps.signconfig.outputs.config_arg) || '' }}
 
       - name: Verify Windows installer signature
         if: steps.signing.outputs.enabled == 'true'
