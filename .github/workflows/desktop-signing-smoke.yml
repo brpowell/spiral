@@ -38,7 +38,6 @@ jobs:
       AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
       AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
       AZURE_SIGNING_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
-      SIGN_LOG_PATH: ${{ runner.temp }}/sign-windows.log
     steps:
       - uses: actions/checkout@v4
         with:
@@ -62,6 +61,7 @@ jobs:
           $exe = Join-Path $env:RUNNER_TEMP 'smoke.exe'
           Add-Type -TypeDefinition 'public class P { public static void Main() {} }' -OutputAssembly $exe -OutputType ConsoleApplication
           "SMOKE_EXE=$exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "SIGN_LOG_PATH=$(Join-Path $env:RUNNER_TEMP 'sign-windows.log')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           (Get-AuthenticodeSignature $exe).Status
 
       - name: Sign
