@@ -1,25 +1,20 @@
 # Signs a throwaway exe with the same script and Azure setup the release
 # build uses, in about a minute, so signing problems don't cost a full
 # 12-minute release build to find.
-#
-# The `push` trigger below is only for working on the signing setup in
-# ci/windows-artifact-signing; delete it before merging.
+# Run it by hand after changing the signing setup (Azure roles, secrets, the
+# signing script): Actions > Signing smoke test > Run workflow.
 name: Signing smoke test
 
 on:
-  push:
-    branches:
-      - ci/windows-artifact-signing
-    paths:
-      - apps/desktop/scripts/release/sign-windows.mjs
-      - .github/workflows/desktop-signing-smoke.yml
   workflow_dispatch:
     inputs:
       runner:
         description: "Runner to test on"
         required: false
+        default: both
         type: choice
         options:
+          - both
           - windows-latest
           - windows-11-arm
 
@@ -34,8 +29,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # A manual run picks one runner; a push tests both.
-        runner: ${{ fromJSON(inputs.runner && format('["{0}"]', inputs.runner) || '["windows-latest","windows-11-arm"]') }}
+        # Pick one runner, or test both.
+        runner: ${{ fromJSON(inputs.runner != 'both' && format('["{0}"]', inputs.runner) || '["windows-latest","windows-11-arm"]') }}
     environment: production-release
     timeout-minutes: 15
     env:
