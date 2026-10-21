@@ -15,17 +15,18 @@ A free, open source desktop music experience.<br>
 No ads. No algorithms. No tracking. No internet required. Just your collection, organized and played in style.
 
 <!-- Badges: add or remove freely, one per line keeps diffs readable -->
+
 [![Latest release](https://img.shields.io/github/v/release/brpowell/spiral?filter=desktop-v*&label=release&color=96c836&style=flat-square)](https://github.com/brpowell/spiral/releases/latest)
 [![Tests](https://img.shields.io/github/actions/workflow/status/brpowell/spiral/desktop-test.yml?branch=main&label=tests&style=flat-square)](https://github.com/brpowell/spiral/actions/workflows/desktop-test.yml)
 [![Registry CI](https://img.shields.io/github/actions/workflow/status/brpowell/spiral/registry-ci.yml?branch=main&label=registry&style=flat-square)](https://github.com/brpowell/spiral/actions/workflows/registry-ci.yml)
 [![License](https://img.shields.io/github/license/brpowell/spiral?color=f6edd6&style=flat-square)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-202c0c?style=flat-square)](#install)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-support%20Spiral-FF5E5B?logo=ko-fi&logoColor=white&style=flat-square)](https://ko-fi.com/brpowell)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support%20Spiral-FFDD00?logo=buymeacoffee&logoColor=black&style=flat-square)](https://buymeacoffee.com/brpowell)
 
 **[Download](https://github.com/brpowell/spiral/releases/latest)** &nbsp;·&nbsp;
 **[Website](https://spiralpowered.com)** &nbsp;·&nbsp;
 **[Contribute](CONTRIBUTING.md)** &nbsp;·&nbsp;
-**[Support the project](#support)**
+**[Support the project](#supporting-the-project)**
 
 <br>
 
@@ -40,9 +41,9 @@ No ads. No algorithms. No tracking. No internet required. Just your collection, 
 
 There's a funny paradox that comes with unlimited access to infinite content.
 
-__Streaming anything you want at any time is great.__ But when it's delivered via firehose, it feels cheap and disposable. You know what I'm talking about. You scroll endless catalogs, only to choose nothing, at least once a week. Access to everything, yet none of it is _yours_. Ownership gives meaning to things.
+**Streaming anything you want at any time is great.** But when it's delivered via firehose, it feels cheap and disposable. You know what I'm talking about. You scroll endless catalogs, only to choose nothing, at least once a week. Access to everything, yet none of it is _yours_. Ownership gives meaning to things.
 
-__Spiral is for the other way of listening__: buying songs or albums, ripping your CDs, curating music by hand, and caring about the songs you keep. Think of the media players you once used or have [anemoia](https://en.wikipedia.org/wiki/Anemoia) for, redesigned with today's tools: fast, local-first, and built to feel like yours.
+**Spiral is for the other way of listening**: buying songs or albums, ripping your CDs, curating music by hand, and caring about the songs you keep. Think of the media players you once used or have [anemoia](https://en.wikipedia.org/wiki/Anemoia) for, redesigned with today's tools: fast, local-first, and built to feel like yours.
 
 A delightful music experience doesn't require all the songs all the time. Marinating in the ones you keep is its own thing.
 
@@ -66,13 +67,13 @@ Also, streaming platforms algorithmically spy on you. Spiral doesn't.
 
 **CD ripping and conversion:**
 
-| Profile | Format |
-| --- | --- |
-| Lossless | FLAC |
+| Profile        | Format        |
+| -------------- | ------------- |
+| Lossless       | FLAC          |
 | Apple Lossless | ALAC (`.m4a`) |
-| Apple Device | AAC (`.m4a`) |
-| MP3 - High | MP3, 320 kbps |
-| MP3 - Compact | MP3, 128 kbps |
+| Apple Device   | AAC (`.m4a`)  |
+| MP3 - High     | MP3, 320 kbps |
+| MP3 - Compact  | MP3, 128 kbps |
 
 ## Make it yours
 
@@ -111,7 +112,7 @@ Grab the build for your platform from the **[latest release](https://github.com/
 <summary><b>macOS</b> &nbsp;<code>.dmg</code>, universal (Apple Silicon and Intel)</summary>
 <br>
 
-Builds are not yet signed or notarized by Apple, so macOS may say *"Spiral" is damaged and can't be opened.* The file is fine, I'm working on this. After dragging Spiral to Applications, clear the download quarantine flag and open it again:
+Builds are not yet signed or notarized by Apple, so macOS may say _"Spiral" is damaged and can't be opened._ The file is fine, I'm working on this. After dragging Spiral to Applications, clear the download quarantine flag and open it again:
 
 ```bash
 xattr -cr /Applications/Spiral.app
@@ -135,11 +136,11 @@ For the AppImage, `chmod +x` the file and run it. Install the others with `sudo 
 
 </details>
 
-## Support
+## Supporting the project
 
 Spiral is free, open source, and developed with my time. If you love what's going on here, contributing would mean a lot!
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/brpowell)
+<a href="https://www.buymeacoffee.com/brpowell" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/arial-yellow.png" alt="Buy Me a Coffee" height="48" width="174"></a>
 
 If you're not into throwing money at strangers over the internet, I feel you. Giving a repo star or sharing also helps 🙏.
 
@@ -149,10 +150,10 @@ Supporting your favorite artists and local retailers by purchasing merch, record
 
 This repository holds the app, the registry behind its theme, skin, visualizer and sound library, and the item format they share.
 
-| Path | What it is | License |
-| --- | --- | --- |
-| [`apps/desktop`](apps/desktop) | The Spiral app: Tauri 2, React + TypeScript frontend, Rust backend | Apache-2.0 |
-| [`apps/registry`](apps/registry) | `spk-registry`, the Axum service that serves published items and their catalog | Apache-2.0 |
+| Path                                 | What it is                                                                      | License           |
+| ------------------------------------ | ------------------------------------------------------------------------------- | ----------------- |
+| [`apps/desktop`](apps/desktop)       | The Spiral app: Tauri 2, React + TypeScript frontend, Rust backend              | Apache-2.0        |
+| [`apps/registry`](apps/registry)     | `spk-registry`, the Axum service that serves published items and their catalog  | Apache-2.0        |
 | [`libs/spk-format`](libs/spk-format) | The `.spk` item format: manifest schemas, validation, and archive extract/write | MIT OR Apache-2.0 |
 
 An item is one theme, skin, visualizer or sound, shipped as a `.spk` zip archive. `spk-format` is the single source of truth for what a valid item is, and both the app and the registry validate with it.
@@ -180,9 +181,9 @@ Each component has its own README with more detail. The repository is a single C
 
 ## Contributing
 
-At the moment, only contributors can file pull requests and issues, while [Ko-fi supporters](https://ko-fi.com/brpowell) can do the latter.
+At the moment, only contributors can file pull requests.
 
-I plan to lax this later, but with the AI hive mind these days I'm not ready yet. Thank you for understanding!
+I may lax this later, but with the AI hive mind these days I'm not ready yet. Thank you for understanding!
 
 To report a security problem, follow [SECURITY.md](SECURITY.md).
 
