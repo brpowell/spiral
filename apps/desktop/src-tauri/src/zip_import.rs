@@ -35,13 +35,17 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
             .by_index(i)
             .map_err(|e| format!("failed to read zip entry {i}: {e}"))?;
 
+        let entry_name = entry
+            .name()
+            .map(|n| n.into_owned())
+            .unwrap_or_else(|_| String::from_utf8_lossy(entry.name_raw()).into_owned());
         let Some(entry_path) = entry.enclosed_name().map(|p| p.to_owned()) else {
-            return Err(format!("zip entry has an invalid path: {}", entry.name()));
+            return Err(format!("zip entry has an invalid path: {entry_name}"));
         };
 
         let outpath = dest.join(&entry_path);
 
-        if entry.is_dir() || entry.name().ends_with('/') {
+        if entry.is_dir() || entry_name.ends_with('/') {
             fs::create_dir_all(&outpath)
                 .map_err(|e| format!("failed to create directory {}: {e}", outpath.display()))?;
             continue;
@@ -59,7 +63,7 @@ fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
         let mut outfile = File::create(&outpath)
             .map_err(|e| format!("failed to create {}: {e}", outpath.display()))?;
         copy(&mut entry, &mut outfile)
-            .map_err(|e| format!("failed to extract {}: {e}", entry.name()))?;
+            .map_err(|e| format!("failed to extract {entry_name}: {e}"))?;
     }
 
     Ok(())
