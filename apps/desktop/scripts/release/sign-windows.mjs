@@ -24,7 +24,13 @@
  * emulation there.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -105,6 +111,23 @@ export function findSigntool(kitsBin) {
   return null;
 }
 
+let logPath = null;
+
+/** Tauri hides this script's output, so keep a copy CI can print afterwards. */
+function log(message) {
+  console.error(message);
+  if (logPath) appendFileSync(logPath, `${message}\n`);
+}
+
+function run(command, args, options = {}) {
+  log(`> ${command} ${args.join(" ")}`);
+  const result = spawnSync(command, args, { encoding: "utf8", ...options });
+  if (result.stdout) log(result.stdout.trimEnd());
+  if (result.stderr) log(result.stderr.trimEnd());
+  if (result.error) log(`${command}: ${result.error.message}`);
+  return result;
+}
+
 async function ensureDlib(cacheDir) {
   const dlib = join(
     cacheDir,
@@ -125,13 +148,7 @@ async function ensureDlib(cacheDir) {
   writeFileSync(archive, Buffer.from(await res.arrayBuffer()));
 
   // bsdtar ships with Windows and reads zip archives.
-  const untar = spawnSync(
-    "tar",
-    ["-xf", archive, "-C", join(cacheDir, "lib")],
-    {
-      stdio: "inherit",
-    },
-  );
+  const untar = run("tar", ["-xf", archive, "-C", join(cacheDir, "lib")]);
   if (untar.status !== 0)
     throw new Error("Could not extract the signing client");
   if (!existsSync(dlib)) throw new Error(`Signing client missing ${dlib}`);
@@ -145,6 +162,7 @@ function requireEnv(name) {
 }
 
 async function main() {
+  logPath = process.env.SIGN_LOG_PATH ?? null;
   const file = process.argv[2];
   if (!file) {
     console.error("Usage: sign-windows.mjs <file>");
@@ -176,11 +194,10 @@ async function main() {
     }),
   );
 
-  const signed = spawnSync(
-    signtool,
-    signtoolArgs({ dlibPath, metadataPath, file }),
-    { stdio: "inherit", timeout: SIGNTOOL_TIMEOUT_MS },
-  );
+  log(`Signing ${file} with ${signtool}`);
+  const signed = run(signtool, signtoolArgs({ dlibPath, metadataPath, file }), {
+    timeout: SIGNTOOL_TIMEOUT_MS,
+  });
   if (signed.error?.code === "ETIMEDOUT") {
     throw new Error(
       `signtool did not finish within ${SIGNTOOL_TIMEOUT_MS / 1000}s; likely stuck authenticating to Azure`,
@@ -190,8 +207,7 @@ async function main() {
 
   // Fail the build here, before anything is uploaded, if the result is not a
   // valid trusted signature.
-  const verified = spawnSync(signtool, verifyArgs(file), {
-    stdio: "inherit",
+  const verified = run(signtool, verifyArgs(file), {
     timeout: SIGNTOOL_TIMEOUT_MS,
   });
   process.exit(verified.status ?? 1);
@@ -199,7 +215,7 @@ async function main() {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch((err) => {
-    console.error(`Signing failed: ${err.message}`);
+    log(`Signing failed: ${err.message}`);
     process.exit(1);
   });
 }

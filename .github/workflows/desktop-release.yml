@@ -259,6 +259,10 @@ jobs:
           "AZURE_SIGNING_ENDPOINT=$env:AZURE_SIGNING_ENDPOINT" >> $env:GITHUB_ENV
           "AZURE_SIGNING_ACCOUNT=$env:AZURE_SIGNING_ACCOUNT" >> $env:GITHUB_ENV
           "AZURE_SIGNING_PROFILE=$env:AZURE_SIGNING_PROFILE" >> $env:GITHUB_ENV
+          # Tauri hides the signing script's output; it keeps a copy here and
+          # the "Show signing log" step prints it.
+          $logPath = (Join-Path $env:RUNNER_TEMP 'sign-windows.log') -replace '\\', '/'
+          "SIGN_LOG_PATH=$logPath" >> $env:GITHUB_ENV
           $script = (Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/scripts/release/sign-windows.mjs') -replace '\\', '/'
           $configPath = (Join-Path $env:RUNNER_TEMP 'tauri-signing.json') -replace '\\', '/'
           @{
@@ -285,6 +289,13 @@ jobs:
           uploadUpdaterJson: false
           projectPath: apps/desktop
           args: ${{ matrix.args }}${{ steps.signconfig.outputs.config_arg && format(' {0}', steps.signconfig.outputs.config_arg) || '' }}
+
+      - name: Show signing log
+        if: always() && steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          if (Test-Path $env:SIGN_LOG_PATH) { Get-Content $env:SIGN_LOG_PATH }
+          else { Write-Host 'No signing log: the signing script never ran.' }
 
       - name: Verify Windows installer signature
         if: steps.signing.outputs.enabled == 'true'
