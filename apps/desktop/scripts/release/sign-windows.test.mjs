@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  EXCLUDED_CREDENTIALS,
   TIMESTAMP_URL,
   findSigntool,
   metadataJson,
@@ -32,7 +33,14 @@ describe("metadataJson", () => {
       Endpoint: "https://eus.codesigning.azure.net",
       CodeSigningAccountName: "acct",
       CertificateProfileName: "prof",
+      ExcludeCredentials: EXCLUDED_CREDENTIALS,
     });
+  });
+
+  it("keeps the Azure CLI credential and drops the ones that stall CI", () => {
+    expect(EXCLUDED_CREDENTIALS).not.toContain("AzureCliCredential");
+    expect(EXCLUDED_CREDENTIALS).toContain("ManagedIdentityCredential");
+    expect(EXCLUDED_CREDENTIALS).toContain("InteractiveBrowserCredential");
   });
 });
 

@@ -33,11 +33,33 @@ export const CLIENT_PACKAGE = "Microsoft.ArtifactSigning.Client";
 export const CLIENT_VERSION = "1.0.146";
 export const TIMESTAMP_URL = "http://timestamp.acs.microsoft.com";
 
+// The signing client authenticates with DefaultAzureCredential. Left alone it
+// probes managed identity and falls back to an interactive browser, which can
+// stall a CI runner for minutes. Keep only the Azure CLI login that
+// `azure/login` sets up.
+export const EXCLUDED_CREDENTIALS = [
+  "EnvironmentCredential",
+  "WorkloadIdentityCredential",
+  "ManagedIdentityCredential",
+  "SharedTokenCacheCredential",
+  "VisualStudioCredential",
+  "VisualStudioCodeCredential",
+  "AzurePowerShellCredential",
+  "AzureDeveloperCliCredential",
+  "InteractiveBrowserCredential",
+];
+
+// Fail loudly instead of hanging the release build; Tauri captures our output
+// until we exit, so a hang would otherwise be silent.
+export const DOWNLOAD_TIMEOUT_MS = 60_000;
+export const SIGNTOOL_TIMEOUT_MS = 180_000;
+
 export function metadataJson({ endpoint, account, profile }) {
   return JSON.stringify({
     Endpoint: endpoint,
     CodeSigningAccountName: account,
     CertificateProfileName: profile,
+    ExcludeCredentials: EXCLUDED_CREDENTIALS,
   });
 }
 
@@ -96,7 +118,9 @@ async function ensureDlib(cacheDir) {
   mkdirSync(join(cacheDir, "lib"), { recursive: true });
   const archive = join(cacheDir, `${CLIENT_PACKAGE}.${CLIENT_VERSION}.zip`);
   const url = `https://www.nuget.org/api/v2/package/${CLIENT_PACKAGE}/${CLIENT_VERSION}`;
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+  });
   if (!res.ok) throw new Error(`Could not download ${url}: HTTP ${res.status}`);
   writeFileSync(archive, Buffer.from(await res.arrayBuffer()));
 
@@ -155,13 +179,21 @@ async function main() {
   const signed = spawnSync(
     signtool,
     signtoolArgs({ dlibPath, metadataPath, file }),
-    { stdio: "inherit" },
+    { stdio: "inherit", timeout: SIGNTOOL_TIMEOUT_MS },
   );
+  if (signed.error?.code === "ETIMEDOUT") {
+    throw new Error(
+      `signtool did not finish within ${SIGNTOOL_TIMEOUT_MS / 1000}s; likely stuck authenticating to Azure`,
+    );
+  }
   if (signed.status !== 0) process.exit(signed.status ?? 1);
 
   // Fail the build here, before anything is uploaded, if the result is not a
   // valid trusted signature.
-  const verified = spawnSync(signtool, verifyArgs(file), { stdio: "inherit" });
+  const verified = spawnSync(signtool, verifyArgs(file), {
+    stdio: "inherit",
+    timeout: SIGNTOOL_TIMEOUT_MS,
+  });
   process.exit(verified.status ?? 1);
 }
 
