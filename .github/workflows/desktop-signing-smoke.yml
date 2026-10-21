@@ -18,7 +18,6 @@ on:
       runner:
         description: "Runner to test on"
         required: false
-        default: windows-latest
         type: choice
         options:
           - windows-latest
@@ -30,8 +29,13 @@ permissions:
 
 jobs:
   smoke:
-    name: Sign a throwaway exe (${{ inputs.runner || 'windows-latest' }})
-    runs-on: ${{ inputs.runner || 'windows-latest' }}
+    name: Sign a throwaway exe (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # A manual run picks one runner; a push tests both.
+        runner: ${{ fromJSON(inputs.runner && format('["{0}"]', inputs.runner) || '["windows-latest","windows-11-arm"]') }}
     environment: production-release
     timeout-minutes: 15
     env:

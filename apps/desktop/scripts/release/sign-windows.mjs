@@ -147,8 +147,19 @@ async function ensureDlib(cacheDir) {
   if (!res.ok) throw new Error(`Could not download ${url}: HTTP ${res.status}`);
   writeFileSync(archive, Buffer.from(await res.arrayBuffer()));
 
-  // bsdtar ships with Windows and reads zip archives.
-  const untar = run("tar", ["-xf", archive, "-C", join(cacheDir, "lib")]);
+  // The system bsdtar reads zip archives; a GNU tar earlier on PATH (Git for
+  // Windows) does not, so prefer it by full path.
+  const systemTar = join(
+    process.env.SystemRoot ?? "C:\\Windows",
+    "System32",
+    "tar.exe",
+  );
+  const untar = run(existsSync(systemTar) ? systemTar : "tar", [
+    "-xf",
+    archive,
+    "-C",
+    join(cacheDir, "lib"),
+  ]);
   if (untar.status !== 0)
     throw new Error("Could not extract the signing client");
   if (!existsSync(dlib)) throw new Error(`Signing client missing ${dlib}`);
