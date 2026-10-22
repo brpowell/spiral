@@ -5,7 +5,7 @@ each distinct license text once, with the packages that use it and their
 copyright notices. The same information is shown in the app under
 About Spiral -> Licenses.
 
-Generated: 2026-10-22T13:59:10.928Z
+Generated: 2026-10-22T15:21:53.813Z
 
 Source code
 -----------
@@ -218,10 +218,9 @@ whatwg-url@5.0.0 — MIT
 zustand@5.0.13 — MIT
 zwitch@2.0.4 — MIT
 
-=== Cargo (676) ===
+=== Cargo (664) ===
 
 adler2@2.0.1 — 0BSD OR MIT OR Apache-2.0
-aes@0.8.4 — MIT OR Apache-2.0
 ahash@0.8.12 — MIT OR Apache-2.0
 aho-corasick@1.1.5 — Unlicense OR MIT
 alac-encoder@0.3.0 — Apache-2.0 OR MIT
@@ -270,8 +269,6 @@ bytemuck@1.25.2 — Zlib OR Apache-2.0 OR MIT
 byteorder@1.5.0 — Unlicense OR MIT
 byteorder-lite@0.1.0 — Unlicense OR MIT
 bytes@1.12.1 — MIT
-bzip2@0.5.2 — MIT OR Apache-2.0
-bzip2-sys@0.1.13+1.0.8 — MIT/Apache-2.0
 cairo-rs@0.18.5 — MIT
 cairo-sys-rs@0.18.2 — MIT
 camino@1.2.5 — MIT OR Apache-2.0
@@ -281,11 +278,11 @@ cargo-platform@0.1.9 — MIT OR Apache-2.0
 cc@1.4.4 — MIT OR Apache-2.0
 cesu8@1.1.0 — Apache-2.0/MIT
 cfb@0.7.3 — MIT
+cfg_aliases@0.2.2 — MIT
 cfg-expr@0.15.8 — MIT OR Apache-2.0
 cfg-if@1.0.4 — MIT OR Apache-2.0
 chrono@0.4.45 — MIT OR Apache-2.0
 chunked_transfer@1.5.0 — MIT OR Apache-2.0
-cipher@0.4.4 — MIT OR Apache-2.0
 cocoa@0.24.1 — MIT / Apache-2.0
 cocoa-foundation@0.1.2 — MIT OR Apache-2.0
 color_quant@1.1.0 — MIT
@@ -293,7 +290,6 @@ combine@4.6.8 — MIT
 concurrent-queue@2.5.0 — Apache-2.0 OR MIT
 const-random@0.1.18 — MIT OR Apache-2.0
 const-random-macro@0.1.16 — MIT OR Apache-2.0
-constant_time_eq@0.3.1 — CC0-1.0 OR MIT-0 OR Apache-2.0
 cookie@0.18.2 — MIT OR Apache-2.0
 core-foundation@0.10.1 — MIT OR Apache-2.0
 core-foundation@0.9.4 — MIT OR Apache-2.0
@@ -323,7 +319,6 @@ dasp_sample@0.11.0 — MIT OR Apache-2.0
 data-encoding@2.11.1 — MIT
 dbus@0.9.12 — Apache-2.0/MIT
 dbus-crossroads@0.5.3 — Apache-2.0/MIT
-deflate64@0.1.12 — MIT
 deranged@0.5.8 — MIT OR Apache-2.0
 derive_arbitrary@1.4.2 — MIT OR Apache-2.0
 derive_more@2.1.1 — MIT
@@ -421,7 +416,6 @@ heck@0.4.1 — MIT OR Apache-2.0
 heck@0.5.0 — MIT OR Apache-2.0
 hermit-abi@0.5.3 — MIT OR Apache-2.0
 hex@0.4.3 — MIT OR Apache-2.0
-hmac@0.12.1 — MIT OR Apache-2.0
 html5ever@0.38.0 — MIT OR Apache-2.0
 http@1.5.0 — MIT OR Apache-2.0
 http-body@1.1.0 — MIT
@@ -454,7 +448,6 @@ indexmap@2.14.1 — Apache-2.0 OR MIT
 infer@0.19.0 — MIT
 inotify@0.9.6 — ISC
 inotify-sys@0.1.8 — ISC
-inout@0.1.4 — MIT OR Apache-2.0
 ipnet@2.12.1 — MIT OR Apache-2.0
 is-docker@0.2.0 — MIT
 is-wsl@0.4.0 — MIT
@@ -486,8 +479,6 @@ lock_api@0.4.14 — MIT OR Apache-2.0
 lofty@0.22.4 — MIT OR Apache-2.0
 lofty_attr@0.11.1 — MIT OR Apache-2.0
 log@0.4.34 — MIT OR Apache-2.0
-lzma-rs@0.3.0 — MIT
-lzma-sys@0.1.20 — MIT/Apache-2.0
 mach2@0.6.0 — BSD-2-Clause OR MIT OR Apache-2.0
 malloc_buf@0.0.6 — MIT
 markup5ever@0.38.0 — MIT OR Apache-2.0
@@ -512,6 +503,7 @@ ndk@0.9.0 — MIT OR Apache-2.0
 ndk-context@0.1.1 — MIT OR Apache-2.0
 ndk-sys@0.6.0+11769913 — MIT OR Apache-2.0
 new_debug_unreachable@1.0.6 — MIT
+nix@0.31.3 — MIT
 notify@6.1.1 — CC0-1.0
 num_enum@0.7.6 — BSD-3-Clause OR MIT OR Apache-2.0
 num_enum_derive@0.7.6 — BSD-3-Clause OR MIT OR Apache-2.0
@@ -559,7 +551,6 @@ parking@2.2.1 — Apache-2.0 OR MIT
 parking_lot@0.12.5 — MIT OR Apache-2.0
 parking_lot_core@0.9.12 — MIT OR Apache-2.0
 paste@1.0.15 — MIT OR Apache-2.0
-pbkdf2@0.12.2 — MIT OR Apache-2.0
 percent-encoding@2.3.2 — MIT OR Apache-2.0
 phf@0.13.1 — MIT
 phf_codegen@0.13.1 — MIT
@@ -741,6 +732,7 @@ tracing@0.1.44 — MIT
 tracing-attributes@0.1.31 — MIT
 tracing-core@0.1.36 — MIT
 try-lock@0.2.5 — MIT
+typed-path@0.12.4 — MIT OR Apache-2.0
 typeid@1.0.3 — MIT OR Apache-2.0
 typenum@1.20.1 — MIT OR Apache-2.0
 uds_windows@1.2.1 — MIT
@@ -868,7 +860,6 @@ x11rb@0.13.2 — MIT OR Apache-2.0
 x11rb-protocol@0.13.2 — MIT OR Apache-2.0
 xattr@1.6.1 — MIT OR Apache-2.0
 xkeysym@0.2.1 — MIT OR Apache-2.0 OR Zlib
-xz2@0.1.7 — MIT/Apache-2.0
 yoke@0.8.3 — Unicode-3.0
 yoke-derive@0.8.2 — Unicode-3.0
 zbus@5.19.0 — MIT
@@ -880,17 +871,14 @@ zerocopy-derive@0.8.56 — BSD-2-Clause OR Apache-2.0 OR MIT
 zerofrom@0.1.8 — Unicode-3.0
 zerofrom-derive@0.1.7 — Unicode-3.0
 zeroize@1.9.0 — Apache-2.0 OR MIT
-zeroize_derive@1.5.0 — Apache-2.0 OR MIT
 zerotrie@0.2.5 — Unicode-3.0
 zerovec@0.11.8 — Unicode-3.0
 zerovec-derive@0.11.6 — Unicode-3.0
-zip@2.4.2 — MIT
 zip@4.6.1 — MIT
+zip@9.0.5 — MIT
+zlib-rs@0.6.7 — Zlib
 zmij@1.0.23 — MIT
 zopfli@0.8.3 — Apache-2.0
-zstd@0.13.3 — MIT
-zstd-safe@7.2.4 — MIT OR Apache-2.0
-zstd-sys@2.0.16+zstd.1.5.7 — MIT/Apache-2.0
 zune-core@0.5.3 — MIT OR Apache-2.0 OR Zlib
 zune-jpeg@0.5.15 — MIT OR Apache-2.0 OR Zlib
 zvariant@5.15.0 — MIT
@@ -901,13 +889,11 @@ License texts
 -------------
 
 ==============================================================================
-MIT License — used by 784 packages
+MIT License — used by 774 packages
 ==============================================================================
 
 adler2@2.0.1 (cargo)
     Authors (from package metadata): Jonas Schievink, oyvindln
-aes@0.8.4 (cargo)
-    Copyright (c) 2018 Artyom Pavlov
 ahash@0.8.12 (cargo)
     Copyright (c) 2018 Tom Kaitchuck
 aho-corasick@1.1.5 (cargo)
@@ -996,10 +982,6 @@ byteorder-lite@0.1.0 (cargo)
     Copyright (c) 2015 Andrew Gallant
 bytes@1.12.1 (cargo)
     Copyright (c) 2018 Carl Lerche
-bzip2@0.5.2 (cargo)
-    Copyright (c) 2014-2025 Alex Crichton and Contributors
-bzip2-sys@0.1.13+1.0.8 (cargo)
-    Copyright (c) 2014-2025 Alex Crichton and Contributors
 cairo-rs@0.18.5 (cargo)
     Authors (from package metadata): The gtk-rs Project Developers
 cairo-sys-rs@0.18.2 (cargo)
@@ -1015,6 +997,8 @@ cesu8@1.1.0 (cargo)
     Authors (from package metadata): Eric Kidd
 cfb@0.7.3 (cargo)
     Copyright (c) 2017 Matthew D. Steele
+cfg_aliases@0.2.2 (cargo)
+    Copyright (c) 2020 Katharos Technology
 cfg-expr@0.15.8 (cargo)
     Copyright (c) 2019 Embark Studios
 cfg-if@1.0.4 (cargo)
@@ -1022,8 +1006,6 @@ cfg-if@1.0.4 (cargo)
 chunked_transfer@1.5.0 (cargo)
     Copyright (c) 2015 The tiny-http Contributors
     Copyright (c) 2015 The rust-chunked-transfer Contributors
-cipher@0.4.4 (cargo)
-    Copyright (c) 2016-2020 RustCrypto Developers
 cocoa@0.24.1 (cargo)
     Copyright (c) 2012-2013 Mozilla Foundation
 cocoa-foundation@0.1.2 (cargo)
@@ -1281,8 +1263,6 @@ hermit-abi@0.5.3 (cargo)
 hex@0.4.3 (cargo)
     Copyright (c) 2013-2014 The Rust Project Developers.
     Copyright (c) 2015-2020 The rust-hex Developers
-hmac@0.12.1 (cargo)
-    Copyright (c) 2017 Artyom Pavlov
 html5ever@0.38.0 (cargo)
     Copyright (c) 2014 The html5ever Project Developers
 http@1.5.0 (cargo)
@@ -1326,9 +1306,6 @@ indexmap@2.14.1 (cargo)
     Copyright (c) 2016--2017
 infer@0.19.0 (cargo)
     Copyright (c) 2019 Bojan
-inout@0.1.4 (cargo)
-    Copyright (c) 2022 The RustCrypto Project Developers
-    Copyright (c) 2022 Artyom Pavlov
 ipnet@2.12.1 (cargo)
     Copyright 2017 Juniper Networks, Inc.
 is-docker@0.2.0 (cargo)
@@ -1388,10 +1365,6 @@ lofty_attr@0.11.1 (cargo)
     Authors (from package metadata): Serial
 log@0.4.34 (cargo)
     Copyright (c) 2014 The Rust Project Developers
-lzma-rs@0.3.0 (cargo)
-    Copyright (c) 2017 - 2018 Guillaume Endignoux
-lzma-sys@0.1.20 (cargo)
-    Copyright (c) 2016 Alex Crichton
 mach2@0.6.0 (cargo)
     Copyright (c) 2019 Nick Fitzgerald, 2021 Yuki Okushi
 malloc_buf@0.0.6 (cargo)
@@ -1440,6 +1413,8 @@ ndk-sys@0.6.0+11769913 (cargo)
     Authors (from package metadata): The Rust Windowing contributors
 new_debug_unreachable@1.0.6 (cargo)
     Copyright (c) 2015 Jonathan Reem
+nix@0.31.3 (cargo)
+    Copyright (c) 2015 Carl Lerche + nix-rust Authors
 num_enum@0.7.6 (cargo)
     Authors (from package metadata): Daniel Wagner-Hall, Daniel Henry-Mantilla, Vincent Esche
 num_enum_derive@0.7.6 (cargo)
@@ -1528,9 +1503,6 @@ parking_lot_core@0.9.12 (cargo)
     Copyright (c) 2016 The Rust Project Developers
 paste@1.0.15 (cargo)
     Authors (from package metadata): David Tolnay
-pbkdf2@0.12.2 (cargo)
-    Copyright (c) 2017 Artyom Pavlov
-    Copyright (c) 2018-2023 The RustCrypto Project Developers
 percent-encoding@2.3.2 (cargo)
     Copyright (c) 2013-2025 The rust-url developers
 phf@0.13.1 (cargo)
@@ -1855,6 +1827,8 @@ tracing-core@0.1.36 (cargo)
 try-lock@0.2.5 (cargo)
     Copyright (c) 2018-2023 Sean McArthur
     Copyright (c) 2016 Alex Crichton
+typed-path@0.12.4 (cargo)
+    Authors (from package metadata): Chip Senkbeil
 typeid@1.0.3 (cargo)
     Authors (from package metadata): David Tolnay
 typenum@1.20.1 (cargo)
@@ -2103,8 +2077,6 @@ xattr@1.6.1 (cargo)
     Copyright (c) 2015 Steven Allen
 xkeysym@0.2.1 (cargo)
     Copyright (c) 2022-2023 John Nunley
-xz2@0.1.7 (cargo)
-    Copyright (c) 2016 Alex Crichton
 zbus@5.19.0 (cargo)
     Copyright (c) 2024 Zeeshan Ali Khan & zbus contributors
 zbus_macros@5.19.0 (cargo)
@@ -2119,16 +2091,10 @@ zerocopy-derive@0.8.56 (cargo)
     Copyright 2023 The Fuchsia Authors
 zeroize@1.9.0 (cargo)
     Copyright (c) 2018-2026 The RustCrypto Project Developers
-zeroize_derive@1.5.0 (cargo)
-    Copyright (c) 2019-2026 The RustCrypto Project Developers
+zip@9.0.5 (cargo)
+    Copyright (c) 2014 Mathijs van de Nes
 zmij@1.0.23 (cargo)
     Authors (from package metadata): David Tolnay
-zstd@0.13.3 (cargo)
-    Copyright (c) 2016 Alexandre Bury
-zstd-safe@7.2.4 (cargo)
-    Copyright (c) 2016 Alexandre Bury
-zstd-sys@2.0.16+zstd.1.5.7 (cargo)
-    Copyright (c) 2016 Alexandre Bury
 zune-core@0.5.3 (cargo)
     Copyright (c) zune-image developers
 zune-jpeg@0.5.15 (cargo)
@@ -2537,12 +2503,10 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ==============================================================================
-Apache License 2.0 — used by 409 packages
+Apache License 2.0 — used by 397 packages
 ==============================================================================
 
 adler2@2.0.1 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
-aes@0.8.4 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 ahash@0.8.12 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
@@ -2606,10 +2570,6 @@ blocking@1.7.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 bumpalo@3.20.3 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
-bzip2@0.5.2 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
-bzip2-sys@0.1.13+1.0.8 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
 camino@1.2.5 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 cargo-platform@0.1.9 (cargo)
@@ -2622,8 +2582,6 @@ cfg-if@1.0.4 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 chunked_transfer@1.5.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
-cipher@0.4.4 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
 cocoa@0.24.1 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 cocoa-foundation@0.1.2 (cargo)
@@ -2633,8 +2591,6 @@ concurrent-queue@2.5.0 (cargo)
 const-random@0.1.18 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 const-random-macro@0.1.16 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
-constant_time_eq@0.3.1 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 cookie@0.18.2 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
@@ -2817,8 +2773,6 @@ hermit-abi@0.5.3 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 hex@0.4.3 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
-hmac@0.12.1 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
 html5ever@0.38.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 http@1.5.0 (cargo)
@@ -2849,8 +2803,6 @@ image-webp@0.2.4 (cargo)
 indexmap@1.9.3 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 indexmap@2.14.1 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
-inout@0.1.4 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 ipnet@2.12.1 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
@@ -2886,8 +2838,6 @@ linux-raw-sys@0.12.1 (cargo)
 lock_api@0.4.14 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 log@0.4.34 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
-lzma-sys@0.1.20 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 mach2@0.6.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
@@ -2940,8 +2890,6 @@ parking_lot@0.12.5 (cargo)
 parking_lot_core@0.9.12 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 paste@1.0.15 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
-pbkdf2@0.12.2 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 percent-encoding@2.3.2 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
@@ -3196,6 +3144,8 @@ toml_parser@1.1.3+spec-1.1.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 toml_writer@1.1.2+spec-1.1.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
+typed-path@0.12.4 (cargo)
+    (c) You must retain, in the Source form of any Derivative Works
 typeid@1.0.3 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 typenum@1.20.1 (cargo)
@@ -3446,8 +3396,6 @@ xattr@1.6.1 (cargo)
 xkeysym@0.2.1 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2022-2023 John Nunley
-xz2@0.1.7 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
 zerocopy@0.8.56 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2023 The Fuchsia Authors
@@ -3456,15 +3404,9 @@ zerocopy-derive@0.8.56 (cargo)
     Copyright 2023 The Fuchsia Authors
 zeroize@1.9.0 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
-zeroize_derive@1.5.0 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
 zopfli@0.8.3 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
     Copyright 2011 Google Inc.
-zstd-safe@7.2.4 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
-zstd-sys@2.0.16+zstd.1.5.7 (cargo)
-    (c) You must retain, in the Source form of any Derivative Works
 zune-core@0.5.3 (cargo)
     (c) You must retain, in the Source form of any Derivative Works
 zune-jpeg@0.5.15 (cargo)
@@ -4257,7 +4199,7 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ==============================================================================
-zlib License — used by 8 packages
+zlib License — used by 9 packages
 ==============================================================================
 
 bytemuck@1.25.2 (cargo)
@@ -4278,6 +4220,8 @@ raw-window-handle@0.6.2 (cargo)
     Copyright (c) 2020 Osspial
 xkeysym@0.2.1 (cargo)
     Copyright (c) 2022-2023 John Nunley
+zlib-rs@0.6.7 (cargo)
+    (C) 2024 Trifecta Tech Foundation
 zune-core@0.5.3 (cargo)
     (C) zune-image developers
 zune-jpeg@0.5.15 (cargo)
@@ -4339,141 +4283,6 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 
 For more information, please refer to <http://unlicense.org/>
-
-==============================================================================
-Creative Commons CC0 1.0 — used by 3 packages
-==============================================================================
-
-constant_time_eq@0.3.1 (cargo)
-    Authors (from package metadata): Cesar Eduardo Barros
-dunce@1.0.5 (cargo)
-    Authors (from package metadata): Kornel
-tiny-keccak@2.0.2 (cargo)
-    Authors (from package metadata): debris
-
-------------------------------------------------------------------------------
-
-Creative Commons Legal Code
-
-CC0 1.0 Universal
-
-    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE
-    LEGAL SERVICES. DISTRIBUTION OF THIS DOCUMENT DOES NOT CREATE AN
-    ATTORNEY-CLIENT RELATIONSHIP. CREATIVE COMMONS PROVIDES THIS
-    INFORMATION ON AN "AS-IS" BASIS. CREATIVE COMMONS MAKES NO WARRANTIES
-    REGARDING THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS
-    PROVIDED HEREUNDER, AND DISCLAIMS LIABILITY FOR DAMAGES RESULTING FROM
-    THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS PROVIDED
-    HEREUNDER.
-
-Statement of Purpose
-
-The laws of most jurisdictions throughout the world automatically confer
-exclusive Copyright and Related Rights (defined below) upon the creator
-and subsequent owner(s) (each and all, an "owner") of an original work of
-authorship and/or a database (each, a "Work").
-
-Certain owners wish to permanently relinquish those rights to a Work for
-the purpose of contributing to a commons of creative, cultural and
-scientific works ("Commons") that the public can reliably and without fear
-of later claims of infringement build upon, modify, incorporate in other
-works, reuse and redistribute as freely as possible in any form whatsoever
-and for any purposes, including without limitation commercial purposes.
-These owners may contribute to the Commons to promote the ideal of a free
-culture and the further production of creative, cultural and scientific
-works, or to gain reputation or greater distribution for their Work in
-part through the use and efforts of others.
-
-For these and/or other purposes and motivations, and without any
-expectation of additional consideration or compensation, the person
-associating CC0 with a Work (the "Affirmer"), to the extent that he or she
-is an owner of Copyright and Related Rights in the Work, voluntarily
-elects to apply CC0 to the Work and publicly distribute the Work under its
-terms, with knowledge of his or her Copyright and Related Rights in the
-Work and the meaning and intended legal effect of CC0 on those rights.
-
-1. Copyright and Related Rights. A Work made available under CC0 may be
-protected by copyright and related or neighboring rights ("Copyright and
-Related Rights"). Copyright and Related Rights include, but are not
-limited to, the following:
-
-  i. the right to reproduce, adapt, distribute, perform, display,
-     communicate, and translate a Work;
- ii. moral rights retained by the original author(s) and/or performer(s);
-iii. publicity and privacy rights pertaining to a person's image or
-     likeness depicted in a Work;
- iv. rights protecting against unfair competition in regards to a Work,
-     subject to the limitations in paragraph 4(a), below;
-  v. rights protecting the extraction, dissemination, use and reuse of data
-     in a Work;
- vi. database rights (such as those arising under Directive 96/9/EC of the
-     European Parliament and of the Council of 11 March 1996 on the legal
-     protection of databases, and under any national implementation
-     thereof, including any amended or successor version of such
-     directive); and
-vii. other similar, equivalent or corresponding rights throughout the
-     world based on applicable law or treaty, and any national
-     implementations thereof.
-
-2. Waiver. To the greatest extent permitted by, but not in contravention
-of, applicable law, Affirmer hereby overtly, fully, permanently,
-irrevocably and unconditionally waives, abandons, and surrenders all of
-Affirmer's Copyright and Related Rights and associated claims and causes
-of action, whether now known or unknown (including existing as well as
-future claims and causes of action), in the Work (i) in all territories
-worldwide, (ii) for the maximum duration provided by applicable law or
-treaty (including future time extensions), (iii) in any current or future
-medium and for any number of copies, and (iv) for any purpose whatsoever,
-including without limitation commercial, advertising or promotional
-purposes (the "Waiver"). Affirmer makes the Waiver for the benefit of each
-member of the public at large and to the detriment of Affirmer's heirs and
-successors, fully intending that such Waiver shall not be subject to
-revocation, rescission, cancellation, termination, or any other legal or
-equitable action to disrupt the quiet enjoyment of the Work by the public
-as contemplated by Affirmer's express Statement of Purpose.
-
-3. Public License Fallback. Should any part of the Waiver for any reason
-be judged legally invalid or ineffective under applicable law, then the
-Waiver shall be preserved to the maximum extent permitted taking into
-account Affirmer's express Statement of Purpose. In addition, to the
-extent the Waiver is so judged Affirmer hereby grants to each affected
-person a royalty-free, non transferable, non sublicensable, non exclusive,
-irrevocable and unconditional license to exercise Affirmer's Copyright and
-Related Rights in the Work (i) in all territories worldwide, (ii) for the
-maximum duration provided by applicable law or treaty (including future
-time extensions), (iii) in any current or future medium and for any number
-of copies, and (iv) for any purpose whatsoever, including without
-limitation commercial, advertising or promotional purposes (the
-"License"). The License shall be deemed effective as of the date CC0 was
-applied by Affirmer to the Work. Should any part of the License for any
-reason be judged legally invalid or ineffective under applicable law, such
-partial invalidity or ineffectiveness shall not invalidate the remainder
-of the License, and in such case Affirmer hereby affirms that he or she
-will not (i) exercise any of his or her remaining Copyright and Related
-Rights in the Work or (ii) assert any associated claims and causes of
-action with respect to the Work, in either case contrary to Affirmer's
-express Statement of Purpose.
-
-4. Limitations and Disclaimers.
-
- a. No trademark or patent rights held by Affirmer are waived, abandoned,
-    surrendered, licensed or otherwise affected by this document.
- b. Affirmer offers the Work as-is and makes no representations or
-    warranties of any kind concerning the Work, express, implied,
-    statutory or otherwise, including without limitation warranties of
-    title, merchantability, fitness for a particular purpose, non
-    infringement, or the absence of latent or other defects, accuracy, or
-    the present or absence of errors, whether or not discoverable, all to
-    the greatest extent permissible under applicable law.
- c. Affirmer disclaims responsibility for clearing rights of other persons
-    that may apply to the Work or any use thereof, including without
-    limitation any person's Copyright and Related Rights in the Work.
-    Further, Affirmer disclaims responsibility for obtaining any necessary
-    consents, permissions or other rights required for any use of the
-    Work.
- d. Affirmer understands and acknowledges that Creative Commons is not a
-    party to this document and has no duty or obligation with respect to
-    this CC0 or use of the Work.
 
 ==============================================================================
 Apache License 2.0 — used by 2 packages
@@ -4679,6 +4488,139 @@ AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
 OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ==============================================================================
+Creative Commons CC0 1.0 — used by 2 packages
+==============================================================================
+
+dunce@1.0.5 (cargo)
+    Authors (from package metadata): Kornel
+tiny-keccak@2.0.2 (cargo)
+    Authors (from package metadata): debris
+
+------------------------------------------------------------------------------
+
+Creative Commons Legal Code
+
+CC0 1.0 Universal
+
+    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE
+    LEGAL SERVICES. DISTRIBUTION OF THIS DOCUMENT DOES NOT CREATE AN
+    ATTORNEY-CLIENT RELATIONSHIP. CREATIVE COMMONS PROVIDES THIS
+    INFORMATION ON AN "AS-IS" BASIS. CREATIVE COMMONS MAKES NO WARRANTIES
+    REGARDING THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS
+    PROVIDED HEREUNDER, AND DISCLAIMS LIABILITY FOR DAMAGES RESULTING FROM
+    THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS PROVIDED
+    HEREUNDER.
+
+Statement of Purpose
+
+The laws of most jurisdictions throughout the world automatically confer
+exclusive Copyright and Related Rights (defined below) upon the creator
+and subsequent owner(s) (each and all, an "owner") of an original work of
+authorship and/or a database (each, a "Work").
+
+Certain owners wish to permanently relinquish those rights to a Work for
+the purpose of contributing to a commons of creative, cultural and
+scientific works ("Commons") that the public can reliably and without fear
+of later claims of infringement build upon, modify, incorporate in other
+works, reuse and redistribute as freely as possible in any form whatsoever
+and for any purposes, including without limitation commercial purposes.
+These owners may contribute to the Commons to promote the ideal of a free
+culture and the further production of creative, cultural and scientific
+works, or to gain reputation or greater distribution for their Work in
+part through the use and efforts of others.
+
+For these and/or other purposes and motivations, and without any
+expectation of additional consideration or compensation, the person
+associating CC0 with a Work (the "Affirmer"), to the extent that he or she
+is an owner of Copyright and Related Rights in the Work, voluntarily
+elects to apply CC0 to the Work and publicly distribute the Work under its
+terms, with knowledge of his or her Copyright and Related Rights in the
+Work and the meaning and intended legal effect of CC0 on those rights.
+
+1. Copyright and Related Rights. A Work made available under CC0 may be
+protected by copyright and related or neighboring rights ("Copyright and
+Related Rights"). Copyright and Related Rights include, but are not
+limited to, the following:
+
+  i. the right to reproduce, adapt, distribute, perform, display,
+     communicate, and translate a Work;
+ ii. moral rights retained by the original author(s) and/or performer(s);
+iii. publicity and privacy rights pertaining to a person's image or
+     likeness depicted in a Work;
+ iv. rights protecting against unfair competition in regards to a Work,
+     subject to the limitations in paragraph 4(a), below;
+  v. rights protecting the extraction, dissemination, use and reuse of data
+     in a Work;
+ vi. database rights (such as those arising under Directive 96/9/EC of the
+     European Parliament and of the Council of 11 March 1996 on the legal
+     protection of databases, and under any national implementation
+     thereof, including any amended or successor version of such
+     directive); and
+vii. other similar, equivalent or corresponding rights throughout the
+     world based on applicable law or treaty, and any national
+     implementations thereof.
+
+2. Waiver. To the greatest extent permitted by, but not in contravention
+of, applicable law, Affirmer hereby overtly, fully, permanently,
+irrevocably and unconditionally waives, abandons, and surrenders all of
+Affirmer's Copyright and Related Rights and associated claims and causes
+of action, whether now known or unknown (including existing as well as
+future claims and causes of action), in the Work (i) in all territories
+worldwide, (ii) for the maximum duration provided by applicable law or
+treaty (including future time extensions), (iii) in any current or future
+medium and for any number of copies, and (iv) for any purpose whatsoever,
+including without limitation commercial, advertising or promotional
+purposes (the "Waiver"). Affirmer makes the Waiver for the benefit of each
+member of the public at large and to the detriment of Affirmer's heirs and
+successors, fully intending that such Waiver shall not be subject to
+revocation, rescission, cancellation, termination, or any other legal or
+equitable action to disrupt the quiet enjoyment of the Work by the public
+as contemplated by Affirmer's express Statement of Purpose.
+
+3. Public License Fallback. Should any part of the Waiver for any reason
+be judged legally invalid or ineffective under applicable law, then the
+Waiver shall be preserved to the maximum extent permitted taking into
+account Affirmer's express Statement of Purpose. In addition, to the
+extent the Waiver is so judged Affirmer hereby grants to each affected
+person a royalty-free, non transferable, non sublicensable, non exclusive,
+irrevocable and unconditional license to exercise Affirmer's Copyright and
+Related Rights in the Work (i) in all territories worldwide, (ii) for the
+maximum duration provided by applicable law or treaty (including future
+time extensions), (iii) in any current or future medium and for any number
+of copies, and (iv) for any purpose whatsoever, including without
+limitation commercial, advertising or promotional purposes (the
+"License"). The License shall be deemed effective as of the date CC0 was
+applied by Affirmer to the Work. Should any part of the License for any
+reason be judged legally invalid or ineffective under applicable law, such
+partial invalidity or ineffectiveness shall not invalidate the remainder
+of the License, and in such case Affirmer hereby affirms that he or she
+will not (i) exercise any of his or her remaining Copyright and Related
+Rights in the Work or (ii) assert any associated claims and causes of
+action with respect to the Work, in either case contrary to Affirmer's
+express Statement of Purpose.
+
+4. Limitations and Disclaimers.
+
+ a. No trademark or patent rights held by Affirmer are waived, abandoned,
+    surrendered, licensed or otherwise affected by this document.
+ b. Affirmer offers the Work as-is and makes no representations or
+    warranties of any kind concerning the Work, express, implied,
+    statutory or otherwise, including without limitation warranties of
+    title, merchantability, fitness for a particular purpose, non
+    infringement, or the absence of latent or other defects, accuracy, or
+    the present or absence of errors, whether or not discoverable, all to
+    the greatest extent permissible under applicable law.
+ c. Affirmer disclaims responsibility for clearing rights of other persons
+    that may apply to the Work or any use thereof, including without
+    limitation any person's Copyright and Related Rights in the Work.
+    Further, Affirmer disclaims responsibility for obtaining any necessary
+    consents, permissions or other rights required for any use of the
+    Work.
+ d. Affirmer understands and acknowledges that Creative Commons is not a
+    party to this document and has no duty or obligation with respect to
+    this CC0 or use of the Work.
+
+==============================================================================
 GNU Lesser General Public License — used by 2 packages
 ==============================================================================
 
@@ -4853,41 +4795,6 @@ whether future versions of the GNU Lesser General Public License shall
 apply, that proxy's public statement of acceptance of any version is
 permanent authorization for you to choose that version for the
 Library.
-
-==============================================================================
-MIT License — used by 2 packages
-==============================================================================
-
-zip@2.4.2 (cargo)
-    Copyright (c) 2014 Mathijs van de Nes
-zip@4.6.1 (cargo)
-    Copyright (c) 2014 Mathijs van de Nes
-
-------------------------------------------------------------------------------
-
-The MIT License (MIT)
-
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-Some files in the "tests/data" subdirectory of this repository are under other
-licences; see files named LICENSE.*.txt for details.
 
 ==============================================================================
 MIT License — used by 2 packages
@@ -6071,47 +5978,6 @@ for the license to code that was sourced from the once_cell project.
 BSD 3-Clause License — used by 1 package
 ==============================================================================
 
-zstd-sys@2.0.16+zstd.1.5.7 (cargo)
-    Copyright (c) 2016-present, Facebook, Inc. All rights reserved.
-
-------------------------------------------------------------------------------
-
-The auto-generated bindings are under the 3-clause BSD license:
-
-BSD License
-
-For Zstandard software
-
-
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
-
- * Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
-
- * Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
- * Neither the name Facebook nor the names of its contributors may be used to
-   endorse or promote products derived from this software without specific
-   prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
-ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-==============================================================================
-BSD 3-Clause License — used by 1 package
-==============================================================================
-
 jpeg-js@0.4.4 (npm)
     Copyright (c) 2014, Eugene Ware
 
@@ -6469,63 +6335,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 MIT License — used by 1 package
 ==============================================================================
 
-constant_time_eq@0.3.1 (cargo)
-    Authors (from package metadata): Cesar Eduardo Barros
-
-------------------------------------------------------------------------------
-
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-==============================================================================
-MIT License — used by 1 package
-==============================================================================
-
-deflate64@0.1.12 (cargo)
-    Copyright (c) .NET Foundation and Contributors
-    Copyright (c) anatawa12 2023
-
-------------------------------------------------------------------------------
-
-The MIT License (MIT)
-
-
-All rights reserved.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-==============================================================================
-MIT License — used by 1 package
-==============================================================================
-
 dom_query@0.27.0 (cargo)
     Copyright (c) 2023 Mykola Humanov
 
@@ -6783,6 +6592,39 @@ SHALL THE COPYRIGHT HOLDERS OR ANYONE DISTRIBUTING THE SOFTWARE BE LIABLE
 FOR ANY DAMAGES OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT OR OTHERWISE,
 ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+==============================================================================
+MIT License — used by 1 package
+==============================================================================
+
+zip@4.6.1 (cargo)
+    Copyright (c) 2014 Mathijs van de Nes
+
+------------------------------------------------------------------------------
+
+The MIT License (MIT)
+
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Some files in the "tests/data" subdirectory of this repository are under other
+licences; see files named LICENSE.*.txt for details.
 
 ==============================================================================
 MIT License — used by 1 package

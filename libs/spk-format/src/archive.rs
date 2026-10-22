@@ -131,10 +131,13 @@ fn extract_zip_to(archive_path: &Path, dest: &Path, limits: &ExtractLimits) -> R
             .by_index(i)
             .map_err(|e| format!("failed to read pack archive entry {i}: {e}"))?;
 
+        let entry_name = entry
+            .name()
+            .map(|n| n.into_owned())
+            .unwrap_or_else(|_| String::from_utf8_lossy(entry.name_raw()).into_owned());
         let Some(entry_path) = entry.enclosed_name().map(|p| p.to_owned()) else {
             return Err(format!(
-                "pack archive entry has an invalid path: {}",
-                entry.name()
+                "pack archive entry has an invalid path: {entry_name}"
             ));
         };
 
@@ -144,7 +147,7 @@ fn extract_zip_to(archive_path: &Path, dest: &Path, limits: &ExtractLimits) -> R
 
         let outpath = dest.join(&entry_path);
 
-        if entry.is_dir() || entry.name().ends_with('/') {
+        if entry.is_dir() || entry_name.ends_with('/') {
             fs::create_dir_all(&outpath)
                 .map_err(|e| format!("failed to create directory {}: {e}", outpath.display()))?;
             continue;
@@ -162,12 +165,11 @@ fn extract_zip_to(archive_path: &Path, dest: &Path, limits: &ExtractLimits) -> R
         let mut outfile = File::create(&outpath)
             .map_err(|e| format!("failed to create {}: {e}", outpath.display()))?;
         // Bound what is actually written, not just what the header claims.
-        let name = entry.name().to_string();
         let written = copy(
             &mut (&mut entry).take(remaining.saturating_add(1)),
             &mut outfile,
         )
-        .map_err(|e| format!("failed to extract {name}: {e}"))?;
+        .map_err(|e| format!("failed to extract {entry_name}: {e}"))?;
         if written > remaining {
             return Err(format!(
                 "pack archive expands to more than {}",

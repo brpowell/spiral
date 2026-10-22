@@ -68,7 +68,7 @@ base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["bmp", "gif", "jpeg", "png", "webp"] }
 color_quant = "1.1"
 gif = "0.14"
-zip = "2"
+zip = { version = "9", default-features = false, features = ["deflate"] }
 quick-xml = "0.41"
 encoding_rs = "0.8"
 spk-format = { workspace = true }
