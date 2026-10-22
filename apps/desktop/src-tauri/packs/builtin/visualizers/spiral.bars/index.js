@@ -151,7 +151,7 @@ function createMeter() {
   let average = [];
   let level = [];
   let ceiling = 0;
-  /** False until this bar count has seen a frame, so the first one is not a hit. */
+  /** False until this bar count has seen a non-silent frame, so the first one is not a hit. */
   let primed = false;
 
   function configure(nextBinCount, nextColumns) {
@@ -186,6 +186,9 @@ function createMeter() {
     }
 
     if (!primed) {
+      // Wait for real signal: priming on a silent frame seeds the onset
+      // average at zero, so the first audible frame reads as a huge hit.
+      if (frameMax === 0) return level;
       ceiling = Math.max(frameMax, DYNAMIC_WINDOW);
       const floor = ceiling - DYNAMIC_WINDOW;
       for (let i = 0; i < columns; i++) {

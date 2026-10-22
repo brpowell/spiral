@@ -183,6 +183,9 @@ function createMeter() {
     }
 
     if (!primed) {
+      // Wait for real signal: priming on a silent frame seeds the onset
+      // average at zero, so the first audible frame reads as a huge hit.
+      if (frameMax === 0) return level;
       ceiling = Math.max(frameMax, DYNAMIC_WINDOW);
       const floor = ceiling - DYNAMIC_WINDOW;
       for (let i = 0; i < columns; i++) {
