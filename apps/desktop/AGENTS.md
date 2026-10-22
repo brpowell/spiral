@@ -4,6 +4,10 @@
 
 Repo-wide rules, including no AI attribution in commits or PR bodies, are in the root [AGENTS.md](../../AGENTS.md). Commit message rules for this app are in [docs/contributing/contributing.md](docs/contributing/contributing.md#commit-messages).
 
+## Database schema changes
+
+The `Library.db` schema is versioned: changes are append-only migrations in `src-tauri/src/db_migrations.rs`, and there is no schema script to edit. Never change an existing table definition or an existing migration; add a new migration and run `cargo test --lib db_migrations` (from `src-tauri`). Full process in [docs/contributing/database-migrations.md](docs/contributing/database-migrations.md).
+
 ## Cursor Cloud specific instructions
 
 Spiral is a single **Tauri 2 desktop app**: a React 19 + TypeScript + Vite frontend (`src/`) hosted by a Rust backend (`src-tauri/`) with in-process SQLite. There is no separate server to run. Standard scripts live in `package.json` (`dev`, `build`, `test`, `test:frontend`, `test:backend`, `lint:skins`); commit rules are in `docs/contributing.md`.

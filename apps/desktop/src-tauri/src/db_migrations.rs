@@ -16,6 +16,9 @@
 //!   NOT EXISTS` never updates a table that already exists.
 //! - Each migration runs in its own transaction together with its version
 //!   bump, so a failure leaves the database at the previous version.
+//! - Add a test below for what the migration does to existing data.
+//!
+//! Full process: `apps/desktop/docs/contributing/database-migrations.md`.
 
 use chrono::Utc;
 use rusqlite::{params, Connection};
