@@ -450,7 +450,7 @@ export function create({ canvas, THREE }) {
     // Needed so transferToImageBitmap captures the frame in the sandbox worker.
     preserveDrawingBuffer: true,
   });
-  glRenderer.setClearColor(0x0a0c06, 1);
+  glRenderer.setClearColor(0x000000, 1);
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);

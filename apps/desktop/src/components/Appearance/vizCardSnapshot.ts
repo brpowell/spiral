@@ -103,7 +103,7 @@ async function renderSandboxLayers(
   const ctx = composite.getContext("2d");
   if (!ctx) throw new Error("2d context unavailable");
 
-  ctx.fillStyle = "#0d0f08";
+  ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, composite.width, composite.height);
 
   for (const layer of layers) {

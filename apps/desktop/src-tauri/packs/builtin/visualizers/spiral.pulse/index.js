@@ -45,30 +45,12 @@ function addPaletteStops(gradient, colors) {
   }
 }
 
-/**
- * Fixed dark stage so the visualizer reads the same on light and dark themes.
- * Olive-black with a faint lime lift from below.
- */
+/** Fixed black stage so the visualizer reads the same on every theme. */
 function paintBackdrop(ctx, width, height) {
   ctx.save();
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
-  const base = ctx.createLinearGradient(0, 0, 0, height);
-  base.addColorStop(0, "#191b11");
-  base.addColorStop(1, "#0d0f08");
-  ctx.fillStyle = base;
-  ctx.fillRect(0, 0, width, height);
-  const lift = ctx.createRadialGradient(
-    width / 2,
-    height,
-    0,
-    width / 2,
-    height,
-    Math.max(width, height) * 0.7,
-  );
-  lift.addColorStop(0, "rgba(150, 200, 54, 0.09)");
-  lift.addColorStop(1, "rgba(150, 200, 54, 0)");
-  ctx.fillStyle = lift;
+  ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, width, height);
   ctx.restore();
 }
