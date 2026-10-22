@@ -2,7 +2,11 @@
 
 ## Commits and pull requests
 
-Repo-wide rules, including no AI attribution in commits or PR bodies, are in the root [AGENTS.md](../../AGENTS.md). Commit message rules for this app are in [docs/contributing/contributing.md](docs/contributing/contributing.md#commit-messages).
+Repo-wide rules, including no AI attribution in commits, are in the root [AGENTS.md](../../AGENTS.md). Commit message rules for this app are in [docs/contributing/contributing.md](docs/contributing/contributing.md#commit-messages).
+
+## Database schema changes
+
+The `Library.db` schema is versioned: changes are append-only migrations in `src-tauri/src/db_migrations.rs`, and there is no schema script to edit. Never change an existing table definition or an existing migration; add a new migration and run `cargo test --lib db_migrations` (from `src-tauri`). Full process in [docs/contributing/database-migrations.md](docs/contributing/database-migrations.md).
 
 ## Cursor Cloud specific instructions
 
