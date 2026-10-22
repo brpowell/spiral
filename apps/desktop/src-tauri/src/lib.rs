@@ -18,6 +18,7 @@ mod commands;
 mod cover_art_fetch;
 mod crash_report;
 mod db;
+mod db_migrations;
 mod diagnostics_export;
 mod disc_metadata_cache;
 mod encoding_profiles;
