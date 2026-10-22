@@ -2,7 +2,7 @@
 
 ## Commits and pull requests
 
-Repo-wide rules, including no AI attribution in commits or PR bodies, are in the root [AGENTS.md](../../AGENTS.md). Commit message rules for this app are in [docs/contributing/contributing.md](docs/contributing/contributing.md#commit-messages).
+Repo-wide rules, including no AI attribution in commits, are in the root [AGENTS.md](../../AGENTS.md). Commit message rules for this app are in [docs/contributing/contributing.md](docs/contributing/contributing.md#commit-messages).
 
 ## Database schema changes
 
