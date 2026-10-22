@@ -41,10 +41,11 @@ function setup(e: CatalogItemEntry, onUpdate?: () => void) {
 }
 
 describe("RegistryItemCard", () => {
-  it("shows the name, type and publisher, and opens on click", () => {
+  it("shows the name, publisher and type icon, and opens on click", () => {
     const { onOpen } = setup(entry());
     expect(screen.getByText("Noir")).toBeTruthy();
-    expect(screen.getByText("Theme · spiral")).toBeTruthy();
+    expect(screen.getByText("spiral")).toBeTruthy();
+    expect(screen.getByTitle("Theme")).toBeTruthy();
     expect(screen.getByText("A dark theme.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Noir/ }));
     expect(onOpen).toHaveBeenCalled();

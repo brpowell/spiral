@@ -14,6 +14,10 @@ export interface AppearancePackCardProps {
   previewClassName?: string;
   /** Marks an item linked from a folder on disk (shown as a link badge on the preview). */
   linked?: boolean;
+  /** Item type icon, shown as a small chip over the preview's bottom-left corner. */
+  typeIcon?: ReactNode;
+  /** Accessible name and tooltip for `typeIcon`. */
+  typeLabel?: string;
   /** Optional action floated over the preview's top-right corner (e.g. Update). */
   previewAction?: ReactNode;
   /** Optional overflow actions (e.g. edit / delete). Hidden when omitted. */
@@ -37,6 +41,8 @@ export function AppearancePackCard({
   className,
   previewClassName,
   linked = false,
+  typeIcon,
+  typeLabel,
   previewAction,
   actions,
   onApply,
@@ -86,6 +92,14 @@ export function AppearancePackCard({
             {active ? (
               <span className="appearance-pack-card__check" aria-hidden>
                 <IconCheck />
+              </span>
+            ) : null}
+            {typeIcon ? (
+              <span
+                className="appearance-pack-card__type-chip"
+                title={typeLabel}
+              >
+                {typeIcon}
               </span>
             ) : null}
             {linked ? (
@@ -138,6 +152,8 @@ export function PackListCard({
   ariaLabel,
   preview,
   badge,
+  typeIcon,
+  typeLabel,
   actions,
   onOpen,
 }: {
@@ -147,6 +163,8 @@ export function PackListCard({
   ariaLabel: string;
   preview: ReactNode;
   badge?: ReactNode;
+  typeIcon?: ReactNode;
+  typeLabel?: string;
   actions?: ReactNode;
   onOpen: () => void;
 }) {
@@ -166,6 +184,8 @@ export function PackListCard({
         </>
       }
       previewClassName="appearance-pack-card__preview--pack"
+      typeIcon={typeIcon}
+      typeLabel={typeLabel}
       actions={actions}
       onApply={onOpen}
     />
