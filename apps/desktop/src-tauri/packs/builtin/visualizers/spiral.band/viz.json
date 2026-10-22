@@ -3,9 +3,9 @@
   "id": "band",
   "publisherId": "spiral",
   "version": "1.0.0",
-  "name": "Band",
+  "name": "Double Dutch",
   "author": "Spiral",
-  "description": "Plucking a rubber band to bass bulges and treble ripples.",
+  "description": "Bass jumps in, treble jumps out.",
   "children": [
     {
       "kind": "canvas",
