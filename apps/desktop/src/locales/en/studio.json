@@ -208,7 +208,7 @@
     "cardAria": "{{name}} by {{author}}",
     "cardActionsAria": "Actions for {{name}}",
     "viewDetails": "View details",
-    "editDetails": "Edit details",
+    "editDetails": "Edit Manifest",
     "editTitle": "Edit details",
     "unlink": "Unlink",
     "delete": "Delete",
