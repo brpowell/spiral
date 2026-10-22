@@ -429,11 +429,15 @@ export function RegistryBrowseSection() {
                 }
               />
               <div className="registry-browse__toolbar">
-                <InputGroup className="registry-browse__search">
+                <InputGroup
+                  className="registry-browse__search"
+                  disabled={showSkeleton}
+                >
                   <InputGroupInput
                     type="text"
                     value={searchText}
                     placeholder={t("catalog.searchPlaceholder")}
+                    disabled={showSkeleton}
                     aria-label={t("catalog.searchAria")}
                     onChange={(e) => setSearchText(e.target.value)}
                     onEscape={() => setSearchText("")}
@@ -467,6 +471,7 @@ export function RegistryBrowseSection() {
                   }
                   variant="secondary"
                   size="sm"
+                  disabled={showSkeleton}
                   triggerPlacement="below-start"
                   layoutDeps={[draftFilters]}
                   onOpenChange={handleFilterMenuOpenChange}
@@ -502,6 +507,7 @@ export function RegistryBrowseSection() {
                   className="registry-browse__sort"
                   value={sort}
                   onChange={setSort}
+                  disabled={showSkeleton}
                   icon={<IconArrowUpDown />}
                   options={sortOptions}
                   aria-label={t("catalog.sortAria")}
