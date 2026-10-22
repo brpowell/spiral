@@ -51,7 +51,7 @@ const FLOATER_COUNT = 10;
 
 /** How long a palette change takes to settle. */
 const PALETTE_EASE_MS = 1400;
-const FALLBACK_PALETTE = ["#6a7bff", "#c58bff", "#7fe3ff"];
+const FALLBACK_PALETTE = ["#7ab01c", "#c4e070", "#4fb89a"];
 
 const NOISE_GLSL = /* glsl */ `
   float hash3(vec3 p) {
