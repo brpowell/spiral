@@ -5,7 +5,7 @@ each distinct license text once, with the packages that use it and their
 copyright notices. The same information is shown in the app under
 About Spiral -> Licenses.
 
-Generated: 2026-10-21T19:33:14.542Z
+Generated: 2026-10-22T15:18:12.494Z
 
 Source code
 -----------
@@ -626,7 +626,7 @@ rustls-native-certs@0.8.4 — Apache-2.0 OR ISC OR MIT
 rustls-pki-types@1.15.1 — MIT OR Apache-2.0
 rustls-platform-verifier@0.7.0 — MIT OR Apache-2.0
 rustls-platform-verifier-android@0.1.1 — MIT OR Apache-2.0
-rustls-webpki@0.103.15 — ISC
+rustls-webpki@0.103.16 — ISC
 rustversion@1.0.23 — MIT OR Apache-2.0
 ryu@1.0.23 — Apache-2.0 OR BSL-1.0
 same-file@1.0.6 — Unlicense/MIT
@@ -795,7 +795,7 @@ web_atoms@0.2.6 — MIT OR Apache-2.0
 web-sys@0.3.104 — MIT OR Apache-2.0
 webkit2gtk@2.0.2 — MIT
 webkit2gtk-sys@2.0.2 — MIT
-webpki-root-certs@1.0.9 — CDLA-Permissive-2.0
+webpki-root-certs@1.0.10 — CDLA-Permissive-2.0
 webview2-com@0.38.2 — MIT
 webview2-com-macros@0.8.1 — MIT
 webview2-com-sys@0.38.2 — MIT
@@ -6256,7 +6256,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 CDLA-Permissive-2.0 — used by 1 package
 ==============================================================================
 
-webpki-root-certs@1.0.9 (cargo)
+webpki-root-certs@1.0.10 (cargo)
 
 ------------------------------------------------------------------------------
 
@@ -6606,7 +6606,7 @@ amm-info@iis.fraunhofer.de
 ISC License — used by 1 package
 ==============================================================================
 
-rustls-webpki@0.103.15 (cargo)
+rustls-webpki@0.103.16 (cargo)
     Copyright 2015 Brian Smith.
 
 ------------------------------------------------------------------------------

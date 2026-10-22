@@ -1,4 +1,5 @@
 use crate::audio_properties::AudioProperties;
+use crate::db_migrations;
 use crate::models::{
     ArtistImage, ClearListenHistoryResult, ListenEventInput, LyricsFormat, LyricsLine,
     LyricsSource, Playlist, PlaylistImageMode, RecordListenEventResult, Track, TrackInput,
@@ -8,96 +9,6 @@ use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::collections::HashMap;
 use std::path::Path;
-
-const SCHEMA: &str = "
-CREATE TABLE IF NOT EXISTS tracks (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  artist TEXT,
-  album TEXT,
-  album_artist TEXT,
-  track_number INTEGER,
-  total_tracks INTEGER,
-  disc_number INTEGER,
-  total_discs INTEGER,
-  year INTEGER,
-  genre TEXT,
-  duration_seconds REAL,
-  sample_rate INTEGER,
-  bitrate INTEGER,
-  codec TEXT,
-  file_path TEXT NOT NULL UNIQUE,
-  art_path TEXT,
-  date_added TEXT NOT NULL,
-  play_count INTEGER NOT NULL DEFAULT 0,
-  last_played_at TEXT,
-  rating INTEGER NOT NULL DEFAULT 0,
-  recording_mbid TEXT,
-  release_mbid TEXT,
-  artist_mbids TEXT,
-  album_artist_mbids TEXT
-);
-
-CREATE TABLE IF NOT EXISTS listen_events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
-  started_at TEXT NOT NULL,
-  ended_at TEXT NOT NULL,
-  listened_seconds REAL NOT NULL,
-  library_listened_seconds REAL NOT NULL DEFAULT 0,
-  skin_listened_seconds REAL NOT NULL DEFAULT 0,
-  track_duration_seconds REAL,
-  completion TEXT NOT NULL,
-  source TEXT NOT NULL DEFAULT 'library',
-  ui_mode TEXT NOT NULL DEFAULT 'library',
-  theme_id TEXT,
-  theme_name TEXT,
-  skin_id TEXT,
-  skin_name TEXT,
-  visualizer_id TEXT,
-  visualizer_name TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_listen_events_ended_at ON listen_events(ended_at);
-CREATE INDEX IF NOT EXISTS idx_listen_events_track_id ON listen_events(track_id);
-
-CREATE TABLE IF NOT EXISTS playlists (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  description TEXT,
-  date_created TEXT NOT NULL,
-  last_used_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS playlist_tracks (
-  playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
-  track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
-  position INTEGER NOT NULL,
-  PRIMARY KEY (playlist_id, track_id)
-);
-
-CREATE TABLE IF NOT EXISTS artist_images (
-  artist_key TEXT NOT NULL PRIMARY KEY,
-  art_path TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS track_lyrics (
-  track_id INTEGER PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
-  format TEXT NOT NULL DEFAULT 'plain',
-  source TEXT,
-  lines_json TEXT NOT NULL,
-  plain_text TEXT NOT NULL DEFAULT '',
-  updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS musicbrainz_entities (
-  kind TEXT NOT NULL,
-  mbid TEXT NOT NULL,
-  json TEXT NOT NULL,
-  fetched_at TEXT NOT NULL,
-  PRIMARY KEY (kind, mbid)
-);
-";
 
 const TRACK_SELECT: &str = "SELECT tracks.id, tracks.title, tracks.artist, tracks.album, tracks.album_artist, tracks.track_number, tracks.total_tracks, tracks.disc_number, tracks.total_discs,
                 tracks.year, tracks.genre, tracks.duration_seconds, tracks.sample_rate, tracks.bitrate, tracks.codec, tracks.file_path, tracks.art_path,
@@ -142,24 +53,6 @@ fn map_track_row(row: &Row<'_>) -> rusqlite::Result<Track> {
     })
 }
 
-fn table_exists(conn: &Connection, table: &str) -> Result<bool, rusqlite::Error> {
-    conn.query_row(
-        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?1",
-        [table],
-        |row| row.get::<_, i64>(0),
-    )
-    .map(|count| count > 0)
-}
-
-fn table_columns(conn: &Connection, table: &str) -> Result<Vec<String>, rusqlite::Error> {
-    let sql = format!("PRAGMA table_info({table})");
-    let mut stmt = conn.prepare(&sql)?;
-    let columns = stmt
-        .query_map([], |row| row.get::<_, String>(1))?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(columns)
-}
-
 fn parse_playlist_image_mode(value: &str) -> PlaylistImageMode {
     match value {
         "custom" => PlaylistImageMode::Custom,
@@ -174,208 +67,6 @@ fn playlist_image_mode_str(mode: PlaylistImageMode) -> &'static str {
         PlaylistImageMode::Design => "design",
         PlaylistImageMode::Custom => "custom",
     }
-}
-
-fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
-    let track_columns = table_columns(conn, "tracks")?;
-
-    if !track_columns.iter().any(|c| c == "date_added") {
-        conn.execute(
-            "ALTER TABLE tracks ADD COLUMN date_added TEXT NOT NULL DEFAULT ''",
-            [],
-        )?;
-        let now = Utc::now().to_rfc3339();
-        conn.execute(
-            "UPDATE tracks SET date_added = ?1 WHERE date_added = ''",
-            params![now],
-        )?;
-    }
-
-    if !track_columns.iter().any(|c| c == "play_count") {
-        conn.execute(
-            "ALTER TABLE tracks ADD COLUMN play_count INTEGER NOT NULL DEFAULT 0",
-            [],
-        )?;
-    }
-
-    if !track_columns.iter().any(|c| c == "last_played_at") {
-        conn.execute("ALTER TABLE tracks ADD COLUMN last_played_at TEXT", [])?;
-    }
-
-    if !track_columns.iter().any(|c| c == "rating") {
-        conn.execute(
-            "ALTER TABLE tracks ADD COLUMN rating INTEGER NOT NULL DEFAULT 0",
-            [],
-        )?;
-    }
-
-    if !track_columns.iter().any(|c| c == "sample_rate") {
-        conn.execute("ALTER TABLE tracks ADD COLUMN sample_rate INTEGER", [])?;
-    }
-    if !track_columns.iter().any(|c| c == "bitrate") {
-        conn.execute("ALTER TABLE tracks ADD COLUMN bitrate INTEGER", [])?;
-    }
-    if !track_columns.iter().any(|c| c == "codec") {
-        conn.execute("ALTER TABLE tracks ADD COLUMN codec TEXT", [])?;
-    }
-    if !track_columns.iter().any(|c| c == "total_tracks") {
-        conn.execute("ALTER TABLE tracks ADD COLUMN total_tracks INTEGER", [])?;
-    }
-    if !track_columns.iter().any(|c| c == "total_discs") {
-        conn.execute("ALTER TABLE tracks ADD COLUMN total_discs INTEGER", [])?;
-    }
-    if !track_columns.iter().any(|c| c == "recording_mbid") {
-        conn.execute("ALTER TABLE tracks ADD COLUMN recording_mbid TEXT", [])?;
-    }
-    if !track_columns.iter().any(|c| c == "release_mbid") {
-        conn.execute("ALTER TABLE tracks ADD COLUMN release_mbid TEXT", [])?;
-    }
-    if !track_columns.iter().any(|c| c == "artist_mbids") {
-        conn.execute("ALTER TABLE tracks ADD COLUMN artist_mbids TEXT", [])?;
-    }
-    if !track_columns.iter().any(|c| c == "album_artist_mbids") {
-        conn.execute("ALTER TABLE tracks ADD COLUMN album_artist_mbids TEXT", [])?;
-    }
-
-    let playlist_columns = table_columns(conn, "playlists")?;
-    if !playlist_columns.iter().any(|c| c == "image_mode") {
-        conn.execute(
-            "ALTER TABLE playlists ADD COLUMN image_mode TEXT NOT NULL DEFAULT 'generated'",
-            [],
-        )?;
-    }
-    if !playlist_columns.iter().any(|c| c == "custom_image_path") {
-        conn.execute(
-            "ALTER TABLE playlists ADD COLUMN custom_image_path TEXT",
-            [],
-        )?;
-    }
-    if !playlist_columns.iter().any(|c| c == "cover_background") {
-        conn.execute("ALTER TABLE playlists ADD COLUMN cover_background TEXT", [])?;
-    }
-    if !playlist_columns.iter().any(|c| c == "cover_background_end") {
-        conn.execute(
-            "ALTER TABLE playlists ADD COLUMN cover_background_end TEXT",
-            [],
-        )?;
-    }
-    if !playlist_columns.iter().any(|c| c == "cover_icon") {
-        conn.execute("ALTER TABLE playlists ADD COLUMN cover_icon TEXT", [])?;
-    }
-    if !playlist_columns.iter().any(|c| c == "position") {
-        conn.execute(
-            "ALTER TABLE playlists ADD COLUMN position INTEGER NOT NULL DEFAULT 0",
-            [],
-        )?;
-        let ids: Vec<i64> = {
-            let mut stmt =
-                conn.prepare("SELECT id FROM playlists ORDER BY title COLLATE NOCASE, id ASC")?;
-            let ids = stmt
-                .query_map([], |row| row.get(0))?
-                .collect::<Result<Vec<_>, _>>()?;
-            ids
-        };
-        for (position, id) in ids.iter().enumerate() {
-            conn.execute(
-                "UPDATE playlists SET position = ?1 WHERE id = ?2",
-                params![position as i64, id],
-            )?;
-        }
-    }
-
-    if !table_exists(conn, "track_lyrics")? {
-        conn.execute_batch(
-            "CREATE TABLE track_lyrics (
-                track_id INTEGER PRIMARY KEY REFERENCES tracks(id) ON DELETE CASCADE,
-                format TEXT NOT NULL DEFAULT 'plain',
-                source TEXT,
-                lines_json TEXT NOT NULL,
-                plain_text TEXT NOT NULL DEFAULT '',
-                updated_at TEXT NOT NULL
-            );",
-        )?;
-    }
-
-    if !table_exists(conn, "listen_events")? {
-        conn.execute_batch(
-            "CREATE TABLE listen_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
-                started_at TEXT NOT NULL,
-                ended_at TEXT NOT NULL,
-                listened_seconds REAL NOT NULL,
-                library_listened_seconds REAL NOT NULL DEFAULT 0,
-                skin_listened_seconds REAL NOT NULL DEFAULT 0,
-                track_duration_seconds REAL,
-                completion TEXT NOT NULL,
-                source TEXT NOT NULL DEFAULT 'library',
-                ui_mode TEXT NOT NULL DEFAULT 'library',
-                theme_id TEXT,
-                theme_name TEXT,
-                skin_id TEXT,
-                skin_name TEXT,
-                visualizer_id TEXT,
-                visualizer_name TEXT
-            );
-            CREATE INDEX IF NOT EXISTS idx_listen_events_ended_at ON listen_events(ended_at);
-            CREATE INDEX IF NOT EXISTS idx_listen_events_track_id ON listen_events(track_id);",
-        )?;
-    } else {
-        let listen_columns = table_columns(conn, "listen_events")?;
-        if !listen_columns.iter().any(|c| c == "ui_mode") {
-            conn.execute(
-                "ALTER TABLE listen_events ADD COLUMN ui_mode TEXT NOT NULL DEFAULT 'library'",
-                [],
-            )?;
-        }
-        if !listen_columns
-            .iter()
-            .any(|c| c == "library_listened_seconds")
-        {
-            conn.execute(
-                "ALTER TABLE listen_events ADD COLUMN library_listened_seconds REAL NOT NULL DEFAULT 0",
-                [],
-            )?;
-            // Best-effort backfill: attribute prior totals to the stamped ui_mode.
-            conn.execute(
-                "UPDATE listen_events SET library_listened_seconds = listened_seconds
-                 WHERE ui_mode = 'library' OR ui_mode IS NULL OR ui_mode = ''",
-                [],
-            )?;
-        }
-        if !listen_columns.iter().any(|c| c == "skin_listened_seconds") {
-            conn.execute(
-                "ALTER TABLE listen_events ADD COLUMN skin_listened_seconds REAL NOT NULL DEFAULT 0",
-                [],
-            )?;
-            conn.execute(
-                "UPDATE listen_events SET skin_listened_seconds = listened_seconds
-                 WHERE ui_mode = 'skin'",
-                [],
-            )?;
-        }
-        if !listen_columns.iter().any(|c| c == "theme_name") {
-            conn.execute("ALTER TABLE listen_events ADD COLUMN theme_name TEXT", [])?;
-        }
-        if listen_columns.iter().any(|c| c == "skin_view_id") {
-            // Drop unused Phase 1 column (SQLite 3.35+).
-            let _ = conn.execute("ALTER TABLE listen_events DROP COLUMN skin_view_id", []);
-        }
-    }
-
-    if !table_exists(conn, "musicbrainz_entities")? {
-        conn.execute_batch(
-            "CREATE TABLE musicbrainz_entities (
-                kind TEXT NOT NULL,
-                mbid TEXT NOT NULL,
-                json TEXT NOT NULL,
-                fetched_at TEXT NOT NULL,
-                PRIMARY KEY (kind, mbid)
-            );",
-        )?;
-    }
-
-    Ok(())
 }
 
 /// Cached MusicBrainz entity document (release / recording / artist).
@@ -435,8 +126,10 @@ pub fn open(db_path: &Path) -> Result<Connection, rusqlite::Error> {
     }
     let conn = Connection::open(db_path)?;
     conn.execute_batch("PRAGMA foreign_keys = ON;")?;
-    conn.execute_batch(SCHEMA)?;
-    migrate(&conn)?;
+    db_migrations::run(
+        &conn,
+        (db_path.as_os_str() != ":memory:").then_some(db_path),
+    )?;
     Ok(conn)
 }
 
@@ -1335,8 +1028,7 @@ mod tests {
     fn test_conn() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
-        conn.execute_batch(SCHEMA).unwrap();
-        migrate(&conn).unwrap();
+        db_migrations::run(&conn, None).unwrap();
         conn
     }
 
@@ -1868,10 +1560,9 @@ mod tests {
         )
         .unwrap();
 
-        conn.execute_batch(SCHEMA).unwrap();
-        migrate(&conn).unwrap();
+        db_migrations::run(&conn, None).unwrap();
 
-        let columns = table_columns(&conn, "tracks").unwrap();
+        let columns = db_migrations::table_columns(&conn, "tracks").unwrap();
         for name in [
             "recording_mbid",
             "release_mbid",

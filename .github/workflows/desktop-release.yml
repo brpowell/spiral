@@ -7,8 +7,14 @@
 # GITHUB_TOKEN do not fire tag-push events.
 #
 # Signing: secrets live in the `production-release` environment. The updater
-# key (#181) is already configured; Apple notarization (#182) and Windows
-# Authenticode (#183) are still optional. Because `secrets` can't be read in
+# key (#181) is already configured; Apple notarization (#182) is still
+# optional. Windows Authenticode (#183) uses Azure Artifact Signing over OIDC:
+# no certificate or client secret is stored, the signing script exchanges a
+# fresh GitHub OIDC token for Azure access, and Tauri's signCommand (injected below via
+# `--config`, so local builds never try to sign) calls
+# scripts/release/sign-windows.mjs on the app exe and the NSIS installer.
+# Windows signing stays off until all the AZURE_* secrets are set.
+# Because `secrets` can't be read in
 # `if:` conditions, the Apple step gates on `runner.os == 'macOS'` and only
 # appends a secret to GITHUB_ENV when it's non-empty, so unset secrets leave
 # APPLE_* undefined rather than empty. This distinction matters: tauri-bundler
@@ -37,50 +43,78 @@ on:
         description: "Existing draft-release tag to attach artifacts to (e.g. desktop-v0.1.0)"
         required: true
         type: string
+      platforms:
+        description: "Which platforms to build. Anything but `all` is for testing: the release gate stays red because the draft will be missing the other platforms."
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - macos
+          - windows
+          - windows-x64
+          - windows-aarch64
+          - linux
 
 permissions:
   contents: write
+  # The Windows signing script requests a GitHub OIDC token.
+  id-token: write
 
 jobs:
+  # Builds the matrix as JSON so a manual run can pick platforms; the matrix
+  # context can't be read in a job-level `if:`. Tag pushes always build all.
+  plan:
+    name: Plan build matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Select matrix cells
+        id: matrix
+        env:
+          SELECTED: ${{ inputs.platforms || 'all' }}
+        run: |
+          # One universal macOS binary serves Apple Silicon and Intel. `app`
+          # must be explicit: `--bundles dmg` alone builds then deletes
+          # Spiral.app, so createUpdaterArtifacts never leaves
+          # .app.tar.gz/.sig for tauri-action to upload (you get "Signature
+          # not found…").
+          #
+          # windows-aarch64 is a native Windows 11 ARM runner. .cargo/config.toml
+          # carries the MSVC ARM64 flags fdk-aac-sys needs.
+          #
+          # Linux uses ubuntu-22.04: older glibc baseline than -latest (Tauri
+          # Linux guidance). AppImage is the updater payload; deb and rpm are
+          # browser-download installers (the rpm bundler is pure Rust, so no
+          # rpmbuild is needed). Native runners, not cross-compile: WebKit and
+          # AppImage tooling are host-arch.
+          all='[
+            {"label":"macos-universal","platform":"macos-latest","args":"--target universal-apple-darwin --bundles app,dmg","rust_targets":"aarch64-apple-darwin,x86_64-apple-darwin"},
+            {"label":"windows-x64","platform":"windows-latest","args":"--bundles nsis","rust_targets":""},
+            {"label":"windows-aarch64","platform":"windows-11-arm","args":"--target aarch64-pc-windows-msvc --bundles nsis","rust_targets":"aarch64-pc-windows-msvc"},
+            {"label":"linux-x64","platform":"ubuntu-22.04","args":"--bundles appimage,deb,rpm","rust_targets":""},
+            {"label":"linux-aarch64","platform":"ubuntu-22.04-arm","args":"--bundles appimage,deb,rpm","rust_targets":""}
+          ]'
+          matrix=$(jq -c --arg p "$SELECTED" \
+            '{include: [.[] | select($p == "all" or (.label | startswith($p)))]}' <<<"$all")
+          if [ "$(jq '.include | length' <<<"$matrix")" -eq 0 ]; then
+            echo "::error::No matrix cells match platforms=$SELECTED"
+            exit 1
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          jq . <<<"$matrix"
+
   build:
     name: Build (${{ matrix.label }})
+    needs: plan
     environment: production-release
     strategy:
       # Finish every cell so operators see the full failure picture; the
       # platforms-green job still fails the workflow if any cell failed.
       fail-fast: false
-      matrix:
-        include:
-          # One universal binary serves Apple Silicon and Intel. `app` must be
-          # explicit: `--bundles dmg` alone builds then deletes Spiral.app, so
-          # createUpdaterArtifacts never leaves .app.tar.gz/.sig for
-          # tauri-action to upload (you get "Signature not found…").
-          - label: macos-universal
-            platform: macos-latest
-            args: --target universal-apple-darwin --bundles app,dmg
-            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
-          - label: windows-x64
-            platform: windows-latest
-            args: --bundles nsis
-            rust_targets: ""
-          # Native Windows 11 ARM runner. .cargo/config.toml carries the MSVC
-          # ARM64 flags fdk-aac-sys needs.
-          - label: windows-aarch64
-            platform: windows-11-arm
-            args: --target aarch64-pc-windows-msvc --bundles nsis
-            rust_targets: aarch64-pc-windows-msvc
-          # ubuntu-22.04: older glibc baseline than -latest (Tauri Linux guidance).
-          # AppImage is the updater payload; deb and rpm are browser-download installers
-          # (the rpm bundler is pure Rust, so no rpmbuild is needed).
-          # Native runners (not cross-compile) — WebKit/AppImage tooling is host-arch.
-          - label: linux-x64
-            platform: ubuntu-22.04
-            args: --bundles appimage,deb,rpm
-            rust_targets: ""
-          - label: linux-aarch64
-            platform: ubuntu-22.04-arm
-            args: --bundles appimage,deb,rpm
-            rust_targets: ""
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
 
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 90
@@ -89,10 +123,7 @@ jobs:
       # Updater signing (#181) — Environment secret on production-release
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-      # Windows Authenticode (#183) — imported below when present (empty is fine;
-      # that step is gated). Apple secrets are exported only when non-empty.
-      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+      # Apple secrets are exported only when non-empty (see below).
 
     steps:
       - uses: actions/checkout@v4
@@ -177,19 +208,69 @@ jobs:
           append APPLE_API_KEY "$APPLE_API_KEY"
           append APPLE_API_ISSUER "$APPLE_API_ISSUER"
 
-      # Optional until #183 fills WINDOWS_CERTIFICATE / WINDOWS_CERTIFICATE_PASSWORD.
-      # Also requires certificateThumbprint (etc.) in tauri.conf.json when signing is flipped on.
-      - name: Import Windows certificate
-        if: runner.os == 'Windows' && env.WINDOWS_CERTIFICATE != ''
+      # Windows Authenticode (#183) via Azure Artifact Signing. Optional until
+      # every AZURE_* secret below is set; `secrets` can't be read in `if:`, so
+      # this step turns them into a single output the later steps gate on.
+      - name: Detect Windows signing config
+        id: signing
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          AZURE_SIGNING_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
         run: |
-          New-Item -ItemType directory -Path certificate
-          Set-Content -Path certificate/tempCert.txt -Value $env:WINDOWS_CERTIFICATE
-          certutil -decode certificate/tempCert.txt certificate/certificate.pfx
-          Remove-Item -Path certificate/tempCert.txt
-          Import-PfxCertificate `
-            -FilePath certificate/certificate.pfx `
-            -CertStoreLocation Cert:\CurrentUser\My `
-            -Password (ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText)
+          $names = 'AZURE_CLIENT_ID','AZURE_TENANT_ID','AZURE_SIGNING_ENDPOINT','AZURE_SIGNING_ACCOUNT','AZURE_SIGNING_PROFILE'
+          $missing = $names | Where-Object { -not [Environment]::GetEnvironmentVariable($_) }
+          if ($missing.Count -eq 0) {
+            "enabled=true" >> $env:GITHUB_OUTPUT
+          } elseif ($missing.Count -lt $names.Count) {
+            Write-Error "Windows signing is partly configured; missing: $($missing -join ', ')"
+            exit 1
+          } else {
+            Write-Host "::warning::Windows signing secrets not set; building an unsigned installer."
+            "enabled=false" >> $env:GITHUB_OUTPUT
+          }
+
+      # The config patch goes in through `--config` (see the build args below),
+      # so signCommand exists only in CI. The Tauri CLI sets TAURI_CONFIG for its
+      # own subprocesses but never reads it, so an env var does nothing here.
+      # %1 is the file Tauri asks us to sign.
+      - name: Configure Tauri signCommand
+        id: signconfig
+        if: steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          AZURE_SIGNING_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
+        run: |
+          # sign-windows.mjs logs in to Azure itself, right before each signing
+          # call: a login done before the build would be 10+ minutes old by the
+          # time Tauri signs, and its OIDC assertion would have expired.
+          "AZURE_SIGNING_CLIENT_ID=$env:AZURE_CLIENT_ID" >> $env:GITHUB_ENV
+          "AZURE_SIGNING_TENANT_ID=$env:AZURE_TENANT_ID" >> $env:GITHUB_ENV
+          "AZURE_SIGNING_ENDPOINT=$env:AZURE_SIGNING_ENDPOINT" >> $env:GITHUB_ENV
+          "AZURE_SIGNING_ACCOUNT=$env:AZURE_SIGNING_ACCOUNT" >> $env:GITHUB_ENV
+          "AZURE_SIGNING_PROFILE=$env:AZURE_SIGNING_PROFILE" >> $env:GITHUB_ENV
+          # Tauri hides the signing script's output; it keeps a copy here and
+          # the "Show signing log" step prints it.
+          $logPath = (Join-Path $env:RUNNER_TEMP 'sign-windows.log') -replace '\\', '/'
+          "SIGN_LOG_PATH=$logPath" >> $env:GITHUB_ENV
+          $script = (Join-Path $env:GITHUB_WORKSPACE 'apps/desktop/scripts/release/sign-windows.mjs') -replace '\\', '/'
+          $configPath = (Join-Path $env:RUNNER_TEMP 'tauri-signing.json') -replace '\\', '/'
+          @{
+            bundle = @{
+              windows = @{
+                signCommand = @{ cmd = 'node'; args = @($script, '%1') }
+              }
+            }
+          } | ConvertTo-Json -Depth 6 | Set-Content -Path $configPath
+          "config_arg=--config $configPath" >> $env:GITHUB_OUTPUT
 
       - name: Build and upload to draft release
         uses: tauri-apps/tauri-action@v1
@@ -205,7 +286,29 @@ jobs:
           # Spiral serves manifests from spiralpowered.com, not GitHub latest.json.
           uploadUpdaterJson: false
           projectPath: apps/desktop
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }}${{ steps.signconfig.outputs.config_arg && format(' {0}', steps.signconfig.outputs.config_arg) || '' }}
+
+      - name: Show signing log
+        if: always() && steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          if (Test-Path $env:SIGN_LOG_PATH) { Get-Content $env:SIGN_LOG_PATH }
+          else { Write-Host 'No signing log: the signing script never ran.' }
+
+      - name: Verify Windows installer signature
+        if: steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          $installers = Get-ChildItem -Path target -Recurse -Filter '*-setup.exe'
+          if (-not $installers) { Write-Error 'No NSIS installer found to verify'; exit 1 }
+          foreach ($f in $installers) {
+            $sig = Get-AuthenticodeSignature $f.FullName
+            Write-Host "$($f.Name): $($sig.Status) / $($sig.SignerCertificate.Subject) / timestamp $($sig.TimeStamperCertificate.Subject)"
+            if ($sig.Status -ne 'Valid' -or -not $sig.TimeStamperCertificate) {
+              Write-Error "$($f.Name) is not validly signed and timestamped"
+              exit 1
+            }
+          }
 
   # Fan-in gate (#185). Runs even when `build` failed so the check is red (not
   # skipped — skipped can look green to required-check / downstream needs).
