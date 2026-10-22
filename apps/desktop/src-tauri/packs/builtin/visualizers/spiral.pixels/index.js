@@ -79,13 +79,21 @@ function paletteColorAt(colors, index, count) {
   return lerpColor(c1, c2, frac);
 }
 
-/** Fixed black stage so the visualizer reads the same on every theme. */
-function paintBackdrop(ctx, width, height) {
+/** Black stage with a faint theme-accent tint rising from the bottom. */
+function paintBackdrop(ctx, width, height, accent) {
   ctx.save();
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
   ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, width, height);
+  if (accent) {
+    const tint = ctx.createLinearGradient(0, height, 0, height * 0.15);
+    tint.addColorStop(0, accent);
+    tint.addColorStop(1, "#000000");
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = tint;
+    ctx.fillRect(0, 0, width, height);
+  }
   ctx.restore();
 }
 
@@ -343,7 +351,7 @@ export function create() {
       const dt = Math.max(0, Math.min(64, frame.time.deltaMs || 0));
       const { columns, rows } = blockGrid(width, height, orientation, requested);
 
-      paintBackdrop(ctx, width, height);
+      paintBackdrop(ctx, width, height, frame.theme?.tokens?.["color-accent"]);
       syncPeaks(columns);
 
       const playing =
