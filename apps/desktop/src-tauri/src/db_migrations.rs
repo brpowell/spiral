@@ -17,6 +17,8 @@
 //! - Each migration runs in its own transaction together with its version
 //!   bump, so a failure leaves the database at the previous version.
 //! - Add a test below for what the migration does to existing data.
+//! - Add a fixture for the version you are migrating *from* (see
+//!   `tests/fixtures/db/`); a test fails until you do.
 //!
 //! Full process: `apps/desktop/docs/contributing/database-migrations.md`.
 
@@ -81,15 +83,18 @@ pub fn run(conn: &Connection, db_path: Option<&Path>) -> Result<(), rusqlite::Er
     // transaction, so toggle it around the whole run.
     let foreign_keys: bool = conn.query_row("PRAGMA foreign_keys", [], |row| row.get(0))?;
     conn.execute_batch("PRAGMA foreign_keys = OFF;")?;
-    let result = apply_pending(conn, current);
+    let result = apply_pending(conn, current, latest);
     if foreign_keys {
         conn.execute_batch("PRAGMA foreign_keys = ON;")?;
     }
     result
 }
 
-fn apply_pending(conn: &Connection, current: i64) -> Result<(), rusqlite::Error> {
-    for migration in MIGRATIONS.iter().filter(|m| m.version > current) {
+fn apply_pending(conn: &Connection, current: i64, target: i64) -> Result<(), rusqlite::Error> {
+    for migration in MIGRATIONS
+        .iter()
+        .filter(|m| m.version > current && m.version <= target)
+    {
         let wrap = |e: rusqlite::Error| {
             other_error(format!(
                 "migration {} ({}) failed: {e}",
@@ -547,6 +552,34 @@ mod tests {
         out
     }
 
+    /// Apply migrations up to and including `target` (used to build fixtures).
+    fn migrate_to(conn: &Connection, target: i64) {
+        apply_pending(conn, schema_version(conn).unwrap(), target).unwrap();
+    }
+
+    fn fixtures_dir() -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/db")
+    }
+
+    fn table_counts(conn: &Connection) -> Vec<(String, i64)> {
+        let tables: Vec<String> = conn
+            .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        tables
+            .into_iter()
+            .map(|t| {
+                let n = conn
+                    .query_row(&format!("SELECT COUNT(*) FROM {t}"), [], |r| r.get(0))
+                    .unwrap();
+                (t, n)
+            })
+            .collect()
+    }
+
     fn upsert_artist_image(conn: &Connection, key: &str, path: &str) {
         conn.execute(
             "INSERT INTO artist_images (artist_key, art_path) VALUES (?1, ?2)
@@ -641,6 +674,103 @@ mod tests {
         // Same columns/keys regardless of upgrade path (column order may differ
         // because upgraded tables gain columns via ALTER TABLE).
         assert_eq!(describe(&legacy), describe(&fresh));
+    }
+
+    /// Schema versions from here on get a fixture once a newer version exists:
+    /// a snapshot of the database as that version left it, so the migration
+    /// out of it is tested against realistic data. Earlier versions were never
+    /// released and have none.
+    const FIRST_FIXTURE_VERSION: i64 = 2;
+
+    /// Regenerate a fixture: `FIXTURE_VERSION=2 cargo test --lib
+    /// generate_db_fixture -- --ignored`. Builds the schema by running
+    /// migrations 1..=N, loads `seed/v<N>.sql`, and writes `v<N>.sql`.
+    #[test]
+    #[ignore = "writes tests/fixtures/db/v<N>.sql; run on demand"]
+    fn generate_db_fixture() {
+        let version: i64 = std::env::var("FIXTURE_VERSION")
+            .expect("set FIXTURE_VERSION=<schema version>")
+            .parse()
+            .unwrap();
+        let seed = std::fs::read_to_string(fixtures_dir().join(format!("seed/v{version}.sql")))
+            .unwrap_or_else(|e| panic!("missing seed/v{version}.sql: {e}"));
+
+        let conn = mem();
+        migrate_to(&conn, version);
+        assert_eq!(schema_version(&conn).unwrap(), version);
+        conn.execute_batch(&seed)
+            .unwrap_or_else(|e| panic!("seed/v{version}.sql does not fit schema {version}: {e}"));
+
+        let ddl: Vec<String> = conn
+            .prepare("SELECT sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' ORDER BY rowid")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        let out = format!(
+            "-- Generated fixture for schema version {version}. Do not edit; see \
+             docs/contributing/database-migrations.md.\nPRAGMA user_version = {version};\n{};\n{seed}",
+            ddl.join(";\n")
+        );
+        std::fs::write(fixtures_dir().join(format!("v{version}.sql")), out).unwrap();
+    }
+
+    #[test]
+    fn fixture_exists_for_every_older_schema_version() {
+        for version in FIRST_FIXTURE_VERSION..latest_version() {
+            assert!(
+                fixtures_dir().join(format!("v{version}.sql")).exists(),
+                "schema version {version} has a newer version but no fixture. Copy \
+                 tests/fixtures/db/seed/v<previous>.sql to seed/v{version}.sql, adjust it for schema {version}, then run: \
+                 FIXTURE_VERSION={version} cargo test --lib generate_db_fixture -- --ignored \
+                 (see docs/contributing/database-migrations.md)"
+            );
+        }
+    }
+
+    /// Each fixture is a database as an older schema version left it. It must
+    /// upgrade to the latest schema without losing rows or drifting from a
+    /// fresh database.
+    #[test]
+    fn every_fixture_upgrades_to_the_fresh_schema_without_data_loss() {
+        let mut fixtures: Vec<_> = std::fs::read_dir(fixtures_dir())
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .filter(|p| p.extension().is_some_and(|e| e == "sql"))
+            .collect();
+        fixtures.sort();
+
+        let fresh = mem();
+        run(&fresh, None).unwrap();
+        let expected_schema = describe(&fresh);
+
+        for path in fixtures {
+            let name = path.file_name().unwrap().to_string_lossy().to_string();
+            let conn = Connection::open_in_memory().unwrap();
+            // Dumps list tables in creation order but FKs are off to be safe.
+            conn.execute_batch("PRAGMA foreign_keys = OFF;").unwrap();
+            conn.execute_batch(&std::fs::read_to_string(&path).unwrap())
+                .unwrap_or_else(|e| panic!("{name}: fixture failed to load: {e}"));
+            conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+
+            let from = schema_version(&conn).unwrap();
+            assert!(from > 0, "{name}: fixture must set PRAGMA user_version");
+            let before = table_counts(&conn);
+
+            run(&conn, None).unwrap_or_else(|e| panic!("{name}: upgrade failed: {e}"));
+
+            assert_eq!(schema_version(&conn).unwrap(), latest_version(), "{name}");
+            assert_eq!(describe(&conn), expected_schema, "{name}: schema drift");
+            let integrity: String = conn
+                .query_row("PRAGMA integrity_check", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(integrity, "ok", "{name}");
+            check_foreign_keys(&conn).unwrap_or_else(|e| panic!("{name}: {e}"));
+            // A migration that intentionally changes row counts must adjust
+            // this assertion for the versions it affects.
+            assert_eq!(table_counts(&conn), before, "{name}: rows changed");
+        }
     }
 
     #[test]
