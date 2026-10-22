@@ -49,7 +49,7 @@ describe("RemoveItemDialog", () => {
     const { onClose, onAfterRemove } = renderDialog();
     fireEvent.click(screen.getByRole("button", { name: "Unlink" }));
     await waitFor(() => expect(onAfterRemove).toHaveBeenCalled());
-    expect(mockUnlink).toHaveBeenCalledWith(item.dir, "Noir");
+    expect(mockUnlink).toHaveBeenCalledWith(item.dir);
     expect(mockDelete).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
@@ -59,7 +59,7 @@ describe("RemoveItemDialog", () => {
     fireEvent.click(screen.getAllByRole("radio")[1]);
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(onAfterRemove).toHaveBeenCalled());
-    expect(mockDelete).toHaveBeenCalledWith("bryan.theme.noir", "Noir");
+    expect(mockDelete).toHaveBeenCalledWith("bryan.theme.noir");
     expect(mockUnlink).not.toHaveBeenCalled();
   });
 

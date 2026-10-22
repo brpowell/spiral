@@ -115,9 +115,8 @@ export function EditItemModal({
         </FormField>
         <FormField
           label={t("items.id")}
-          description={
-            id.length > 0 && !idValid ? t("items.idInvalid") : t("items.idHint")
-          }
+          description={t("items.idHint")}
+          error={id.length > 0 && !idValid ? t("items.idInvalid") : undefined}
         >
           <TextInput
             value={id}
@@ -131,10 +130,11 @@ export function EditItemModal({
         </FormField>
         <FormField
           label={t("items.publisherId")}
-          description={
+          description={t("items.publisherIdHint")}
+          error={
             publisherId.length > 0 && !publisherIdValid
               ? t("items.publisherIdInvalid")
-              : t("items.publisherIdHint")
+              : undefined
           }
         >
           <TextInput
@@ -149,10 +149,11 @@ export function EditItemModal({
         </FormField>
         <FormField
           label={t("items.version")}
-          description={
+          description={t("items.versionHint")}
+          error={
             version.length > 0 && !versionValid
               ? t("items.versionInvalid")
-              : t("items.versionHint")
+              : undefined
           }
         >
           <TextInput

@@ -50,7 +50,6 @@ export function UninstallItemDialog({
       onConfirm={async () => {
         const ok = await uninstallItemWithRefresh(
           item.effectiveId,
-          item.name,
           clearSettings ? clearable : [],
         );
         if (ok) onAfterRemove?.();

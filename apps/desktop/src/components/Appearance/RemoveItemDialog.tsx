@@ -52,8 +52,8 @@ export function RemoveItemDialog({
     try {
       const ok =
         mode === "delete"
-          ? await deleteLinkedItemWithRefresh(item.effectiveId, item.name)
-          : await unlinkItemWithRefresh(item.dir, item.name);
+          ? await deleteLinkedItemWithRefresh(item.effectiveId)
+          : await unlinkItemWithRefresh(item.dir);
       if (ok) {
         onClose();
         onAfterRemove?.();

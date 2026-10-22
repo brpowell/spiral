@@ -51,10 +51,10 @@ impl CatalogStore for SqliteStore {
         let result = sqlx::query(
             r#"
             INSERT INTO item_versions (
-                publisher_id, item_type, item_id, version, name, description, min_app_version,
+                publisher_id, item_type, item_id, version, name, description, author, min_app_version,
                 size_bytes, sha256, storage_key, preview_storage_key, readme, changelog,
                 published_at, yanked_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(&row.publisher_id)
@@ -63,6 +63,7 @@ impl CatalogStore for SqliteStore {
         .bind(&row.version)
         .bind(&row.name)
         .bind(&row.description)
+        .bind(&row.author)
         .bind(&row.min_app_version)
         .bind(row.size_bytes)
         .bind(&row.sha256)

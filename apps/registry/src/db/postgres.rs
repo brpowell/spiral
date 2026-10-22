@@ -83,10 +83,10 @@ impl CatalogStore for PostgresStore {
         let result = sqlx::query(
             r#"
             INSERT INTO item_versions (
-                publisher_id, item_type, item_id, version, name, description, min_app_version,
+                publisher_id, item_type, item_id, version, name, description, author, min_app_version,
                 size_bytes, sha256, storage_key, preview_storage_key, readme, changelog,
                 published_at, yanked_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             "#,
         )
         .bind(&row.publisher_id)
@@ -95,6 +95,7 @@ impl CatalogStore for PostgresStore {
         .bind(&row.version)
         .bind(&row.name)
         .bind(&row.description)
+        .bind(&row.author)
         .bind(&row.min_app_version)
         .bind(row.size_bytes)
         .bind(&row.sha256)

@@ -41,13 +41,34 @@ function setup(e: CatalogItemEntry, onUpdate?: () => void) {
 }
 
 describe("RegistryItemCard", () => {
-  it("shows the name, type and publisher, and opens on click", () => {
+  it("shows the name, publisher and type icon, and opens on click", () => {
     const { onOpen } = setup(entry());
     expect(screen.getByText("Noir")).toBeTruthy();
-    expect(screen.getByText("Theme · spiral")).toBeTruthy();
+    expect(screen.getByText("spiral")).toBeTruthy();
+    expect(screen.getByTitle("Theme")).toBeTruthy();
     expect(screen.getByText("A dark theme.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Noir/ }));
     expect(onOpen).toHaveBeenCalled();
+  });
+
+  it("shows the manifest author, falling back to the publisher id", () => {
+    const { unmount } = render(
+      <RegistryItemCard
+        entry={entry({
+          latestVersion: {
+            ...entry().latestVersion,
+            author: "The Skins Factory",
+          },
+        })}
+        busy={false}
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("The Skins Factory")).toBeTruthy();
+    expect(screen.queryByText("spiral")).toBeNull();
+    unmount();
+    setup(entry());
+    expect(screen.getByText("spiral")).toBeTruthy();
   });
 
   it("falls back to the item id when the version has no name", () => {

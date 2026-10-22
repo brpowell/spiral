@@ -20,7 +20,7 @@ import { BrowseGridBody } from "../BrowseView/BrowseGridBody";
 import { BrowseView } from "../BrowseView/BrowseView";
 import { BrowseViewHeader } from "../BrowseView/BrowseViewHeader";
 import { Button } from "../common/Button/Button";
-import { IconPencil } from "../icons";
+import { IconBraces, IconPencil } from "../icons";
 import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
 import { useOpenAppearanceThemeEditor } from "./AppearanceThemeEditorContext";
 import { EditItemModal, type EditItemModalResult } from "./EditItemModal";
@@ -322,7 +322,11 @@ export function ItemDetailView({
                         size="sm"
                         onClick={primaryEdit}
                       >
-                        <IconPencil aria-hidden />
+                        {item.type === "theme" ? (
+                          <IconPencil aria-hidden />
+                        ) : (
+                          <IconBraces aria-hidden />
+                        )}
                         {item.type === "theme"
                           ? t("common:edit")
                           : t("items.editDetails")}

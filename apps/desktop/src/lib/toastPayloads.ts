@@ -287,37 +287,6 @@ export function diagnosticsSavedPayload(
 
 // —— Packs ——
 
-export function packInstalledPayload(
-  name: string,
-  version: string,
-  options?: { dismissMs?: number | null },
-): ToastPayload {
-  return withOptionalDismiss(
-    {
-      key: "pack-install",
-      label: t("toasts:packs.installed", { name, version }),
-      status: "success",
-    },
-    options?.dismissMs,
-  );
-}
-
-/** File / picker install failure — friendly copy; raw errors go to the activity log. */
-export function packInstallFailedPayload(options?: {
-  dismissMs?: number | null;
-  logLink?: ActivityLogRevealTarget;
-}): ToastPayload {
-  return withOptionalDismiss(
-    {
-      key: "pack-install",
-      label: t("toasts:packs.installFailed"),
-      detail: t("toasts:packs.installFailedDetail"),
-      ...(options?.logLink ? { logLink: options.logLink } : {}),
-    },
-    options?.dismissMs,
-  );
-}
-
 /**
  * Registry download/install failure (§6 single-subject + §4.3 generic).
  * Friendly copy in the toast; technical detail lives in the linked activity log.
@@ -335,19 +304,6 @@ export function packDownloadFailedPayload(
       label: t("toasts:packs.downloadFailed", { name }),
       detail: t("toasts:packs.downloadFailedDetail"),
       ...(options?.logLink ? { logLink: options.logLink } : {}),
-    },
-    options?.dismissMs,
-  );
-}
-
-export function packReloadedPayload(options?: {
-  dismissMs?: number | null;
-}): ToastPayload {
-  return withOptionalDismiss(
-    {
-      key: "pack-reload",
-      label: t("toasts:packs.reloaded"),
-      status: "success",
     },
     options?.dismissMs,
   );
@@ -413,19 +369,6 @@ export function packUpdatesSettleOptions(options: {
 
 // —— Themes ——
 
-export function themeSavedPayload(options?: {
-  dismissMs?: number | null;
-}): ToastPayload {
-  return withOptionalDismiss(
-    {
-      key: "theme-editor-save",
-      label: t("toasts:themes.saved"),
-      status: "success",
-    },
-    options?.dismissMs,
-  );
-}
-
 export function themeSaveFailedPayload(
   err?: unknown,
   options?: { dismissMs?: number | null },
@@ -434,19 +377,6 @@ export function themeSaveFailedPayload(
     {
       key: "theme-editor-save",
       label: labelFromError(err, "toasts:themes.saveFailed"),
-    },
-    options?.dismissMs,
-  );
-}
-
-export function themeActivatedPayload(options?: {
-  dismissMs?: number | null;
-}): ToastPayload {
-  return withOptionalDismiss(
-    {
-      key: "theme-editor-activate",
-      label: t("toasts:themes.activated"),
-      status: "success",
     },
     options?.dismissMs,
   );

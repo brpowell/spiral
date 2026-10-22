@@ -93,6 +93,7 @@ pub fn validate_item_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError
                 version: item.version,
                 name: item.name,
                 description: item.description,
+                author: item.author,
                 min_app_version: item.min_app_version,
                 size_bytes,
                 sha256,

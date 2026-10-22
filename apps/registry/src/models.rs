@@ -57,6 +57,8 @@ pub struct VersionSummary {
     pub version: String,
     pub name: String,
     pub description: String,
+    /// Freeform credit from the item manifest (empty for items published without one).
+    pub author: String,
     pub min_app_version: Option<String>,
     /// Uncompressed on-disk size of the item root (not `.spk` archive length).
     pub size_bytes: i64,
@@ -93,6 +95,7 @@ pub struct ItemVersionRow {
     pub version: String,
     pub name: String,
     pub description: String,
+    pub author: String,
     pub min_app_version: Option<String>,
     /// Uncompressed on-disk size of the item root (not `.spk` archive length).
     pub size_bytes: i64,
@@ -325,7 +328,7 @@ pub struct PurgeResponse {
 
 /// Columns selected for every `ItemVersionRow` query.
 pub const ITEM_VERSION_COLUMNS: &str = r#"
-    publisher_id, item_type, item_id, version, name, description, min_app_version,
+    publisher_id, item_type, item_id, version, name, description, author, min_app_version,
     size_bytes, sha256, storage_key, preview_storage_key, readme, changelog,
     published_at, yanked_at
 "#;
@@ -351,6 +354,7 @@ impl ItemVersionRow {
             version: self.version.clone(),
             name: self.name.clone(),
             description: self.description.clone(),
+            author: self.author.clone(),
             min_app_version: self.min_app_version.clone(),
             size_bytes: self.size_bytes,
             sha256: self.sha256.clone(),

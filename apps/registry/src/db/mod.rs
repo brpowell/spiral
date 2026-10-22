@@ -283,6 +283,7 @@ pub fn item_version_row(
         version: version.to_string(),
         name: item_id.to_string(),
         description: String::new(),
+        author: String::new(),
         min_app_version: None,
         size_bytes,
         sha256: sha256.to_string(),

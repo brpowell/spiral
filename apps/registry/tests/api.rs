@@ -660,6 +660,7 @@ async fn upload_valid_spk_appears_in_catalog() {
         body["description"],
         "Valid theme fixture for publish tests and the seed."
     );
+    assert_eq!(body["author"], "spiral");
     assert!(body["sha256"].as_str().unwrap().len() == 64);
     let expected_size = spk_registry::publish::directory_size_bytes(&fixture_dir("demo-theme"))
         .expect("size") as i64;

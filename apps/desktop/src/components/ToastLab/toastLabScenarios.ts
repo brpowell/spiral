@@ -18,10 +18,7 @@ import {
   diagnosticsSavedPayload,
   lyricsAmbiguousPayload,
   lyricsNoneMissingPayload,
-  packInstalledPayload,
-  packInstallFailedPayload,
   packDownloadFailedPayload,
-  packReloadedPayload,
   packUpdatesSettleOptions,
   playbackFileMissingPayload,
   libraryPlaybackFailedPayload,
@@ -29,8 +26,10 @@ import {
   importPickerFailedPayload,
   playlistAddedPayload,
   queueAddedPayload,
+  themeActivateFailedPayload,
+  themeApplyFailedPayload,
   themeCreateFailedPayload,
-  themeSavedPayload,
+  themeSaveFailedPayload,
   updaterCheckErrorPayload,
 } from "../../lib/toastPayloads";
 import { ITEM_UPDATES_BULK_KEY } from "../../lib/itemRegistry";
@@ -1806,19 +1805,10 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
 
   // —— Packs & themes ——
   {
-    id: "pack-install",
+    id: "item-install-fail",
     group: "Packs & themes",
-    buttonLabel: "Pack installed (file)",
-    source: "refreshPackStores.ts",
-    fire: ({ showToast, dismissMs }) => {
-      showToast(packInstalledPayload("Example Pack", "1.2.0", { dismissMs }));
-    },
-  },
-  {
-    id: "pack-install-fail",
-    group: "Packs & themes",
-    buttonLabel: "Pack install failed (file)",
-    source: "refreshPackStores.ts",
+    buttonLabel: "Item install failed (file)",
+    source: "itemActions.ts",
     fire: async ({ showErrorToast, dismissMs }) => {
       const operationId = createOperationId();
       await seedToastLabLog(
@@ -1832,38 +1822,12 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         },
         "error",
       );
-      showErrorToast(
-        packInstallFailedPayload({
-          dismissMs,
-          logLink: { operationId },
-        }),
-      );
-    },
-  },
-  {
-    id: "pack-download-ok",
-    group: "Packs & themes",
-    buttonLabel: "Registry download → installed",
-    source: "itemRegistry.ts",
-    fire: ({ runInBackground, dismissMs, sleep }) => {
-      void runInBackground({
-        key: "pack-registry-download",
-        label: t("toasts:packs.downloading", { name: "Xbox" }),
-        progressDisplay: "bar",
-        run: async (ctx) => {
-          for (let i = 1; i <= 8; i++) {
-            ctx.setProgress(i, 8);
-            await sleep(120);
-          }
-          ctx.settleAs({
-            status: "success",
-            label: t("toasts:packs.installed", {
-              name: "Xbox",
-              version: "1.0.0",
-            }),
-            dismissMs,
-          });
-        },
+      showErrorToast({
+        key: "item-install",
+        label: t("toasts:items.installFailed"),
+        detail: t("toasts:items.installFailedDetail"),
+        logLink: { operationId },
+        dismissMs,
       });
     },
   },
@@ -1911,15 +1875,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
           });
         },
       });
-    },
-  },
-  {
-    id: "pack-reload",
-    group: "Packs & themes",
-    buttonLabel: "Packs reloaded",
-    source: "refreshPackStores.ts",
-    fire: ({ showToast, dismissMs }) => {
-      showToast(packReloadedPayload({ dismissMs }));
     },
   },
   {
@@ -2021,21 +1976,147 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     },
   },
   {
-    id: "theme-saved",
-    group: "Packs & themes",
-    buttonLabel: "Theme saved",
-    source: "ThemeEditor.tsx",
-    fire: ({ showToast, dismissMs }) => {
-      showToast(themeSavedPayload({ dismissMs }));
-    },
-  },
-  {
     id: "theme-create-fail",
     group: "Packs & themes",
     buttonLabel: "Theme create failed",
-    source: "ThemesSection.tsx",
+    source: "StudioSidebarActions.tsx",
     fire: ({ showErrorToast, dismissMs }) => {
       showErrorToast(themeCreateFailedPayload(undefined, { dismissMs }));
+    },
+  },
+  {
+    id: "theme-save-fail",
+    group: "Packs & themes",
+    buttonLabel: "Theme save failed",
+    source: "ThemeEditor.tsx",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast(themeSaveFailedPayload(undefined, { dismissMs }));
+    },
+  },
+  {
+    id: "theme-activate-fail",
+    group: "Packs & themes",
+    buttonLabel: "Theme activate failed",
+    source: "ThemeEditor.tsx",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast(themeActivateFailedPayload(undefined, { dismissMs }));
+    },
+  },
+  {
+    id: "theme-apply-fail",
+    group: "Packs & themes",
+    buttonLabel: "Theme apply failed",
+    source: "ThemesSection.tsx",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast(themeApplyFailedPayload(undefined, { dismissMs }));
+    },
+  },
+  {
+    id: "item-link-fail",
+    group: "Packs & themes",
+    buttonLabel: "Folder link failed",
+    source: "itemActions.ts",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast({
+        key: "item-link",
+        label: t("toasts:items.linkFailed"),
+        dismissMs,
+      });
+    },
+  },
+  {
+    id: "item-unlink-fail",
+    group: "Packs & themes",
+    buttonLabel: "Folder unlink failed",
+    source: "itemActions.ts",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast({
+        key: "item-unlink",
+        label: t("toasts:items.unlinkFailed"),
+        dismissMs,
+      });
+    },
+  },
+  {
+    id: "item-reload-fail",
+    group: "Packs & themes",
+    buttonLabel: "Folder reload failed",
+    source: "itemActions.ts",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast({
+        key: "item-reload",
+        label: t("toasts:items.reloadFailed"),
+        dismissMs,
+      });
+    },
+  },
+  {
+    id: "item-uninstall-fail",
+    group: "Packs & themes",
+    buttonLabel: "Item uninstall failed",
+    source: "itemActions.ts",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast({
+        key: "item-uninstall",
+        label: t("toasts:items.uninstallFailed"),
+        dismissMs,
+      });
+    },
+  },
+  {
+    id: "item-delete-fail",
+    group: "Packs & themes",
+    buttonLabel: "Linked item delete failed",
+    source: "itemActions.ts",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast({
+        key: "item-delete",
+        label: t("toasts:items.deleteFailed"),
+        dismissMs,
+      });
+    },
+  },
+  {
+    id: "item-edit-fail",
+    group: "Packs & themes",
+    buttonLabel: "Item edit failed",
+    source: "itemActions.ts",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast({
+        key: "item-edit",
+        label: t("toasts:items.updateFailed"),
+        dismissMs,
+      });
+    },
+  },
+  {
+    id: "item-export-fail",
+    group: "Packs & themes",
+    buttonLabel: "Item export failed",
+    source: "itemActions.ts",
+    fire: ({ showErrorToast, dismissMs }) => {
+      showErrorToast({
+        key: "item-export",
+        label: t("toasts:items.exportFailed"),
+        dismissMs,
+      });
+    },
+  },
+  {
+    id: "item-export-ok",
+    group: "Packs & themes",
+    buttonLabel: "Item exported",
+    source: "itemActions.ts",
+    fire: ({ showToast, dismissMs }) => {
+      showToast({
+        key: "item-export",
+        label: t("toasts:items.exported", {
+          name: "Example Item",
+          version: "1.2.0",
+        }),
+        status: "success",
+        dismissMs,
+      });
     },
   },
 
