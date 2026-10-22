@@ -1,5 +1,5 @@
 /**
- * Band VizRenderer — pack-shipped canvas module.
+ * Double Dutch VizRenderer — pack-shipped canvas module.
  * A plucked rubber band in album colors. The line is a few smooth string
  * modes; bass drives the wide bulges and treble the small ripples. Mode sizes
  * come from the same meter as Bars and ride a springy envelope, so beats
