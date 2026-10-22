@@ -51,7 +51,7 @@ const FLOATER_COUNT = 10;
 
 /** How long a palette change takes to settle. */
 const PALETTE_EASE_MS = 1400;
-const FALLBACK_PALETTE = ["#6a7bff", "#c58bff", "#7fe3ff"];
+const FALLBACK_PALETTE = ["#7ab01c", "#c4e070", "#4fb89a"];
 
 const NOISE_GLSL = /* glsl */ `
   float hash3(vec3 p) {
@@ -450,7 +450,7 @@ export function create({ canvas, THREE }) {
     // Needed so transferToImageBitmap captures the frame in the sandbox worker.
     preserveDrawingBuffer: true,
   });
-  glRenderer.setClearColor(0x05060f, 1);
+  glRenderer.setClearColor(0x000000, 1);
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);

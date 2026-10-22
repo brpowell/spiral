@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { getDefaultPalette } from "../../lib/palette";
 import { vizMediaLayerUrl } from "../../lib/presentation/assets";
 import { OBSIDIAN_DEFAULT_TOKENS } from "../../lib/theme";
 import type { Visualizer } from "../visualizer/types";
@@ -12,6 +11,7 @@ import {
   type VizRendererEngine,
 } from "../visualizer/vizRendererApi";
 import { useVisualizerStore } from "../../store/useVisualizerStore";
+import { useVisualizerPalette } from "../visualizer/context";
 import {
   generateDemoVisualizerFrame,
   VIZ_CARD_DEMO_SNAPSHOT_MS,
@@ -36,18 +36,35 @@ function layerSandboxEngine(
   return null;
 }
 
+/** Active theme's tokens (read from CSS), falling back to Obsidian's. */
 function snapshotThemeTokens(): Record<string, string> {
+  const style =
+    typeof document === "undefined"
+      ? null
+      : getComputedStyle(document.documentElement);
   return Object.fromEntries(
-    Object.entries(OBSIDIAN_DEFAULT_TOKENS).filter(
-      (entry): entry is [string, string] => entry[1] !== undefined,
-    ),
+    Object.entries(OBSIDIAN_DEFAULT_TOKENS)
+      .filter((entry): entry is [string, string] => entry[1] !== undefined)
+      .map(([key, fallback]) => [
+        key,
+        style?.getPropertyValue(`--${key}`).trim() || fallback,
+      ]),
   );
+}
+
+/** Snapshots bake in the accent tint and palette, so they are cached per pair. */
+function snapshotCacheKey(
+  visualizerId: string,
+  palette: readonly string[],
+): string {
+  return `${visualizerId}|${snapshotThemeTokens()["color-accent"]}|${palette.join(",")}`;
 }
 
 function buildSnapshotFrame(
   width: number,
   height: number,
   dpr: number,
+  palette: readonly string[],
 ): VizFrame {
   const demo = generateDemoVisualizerFrame(VIZ_CARD_DEMO_SNAPSHOT_MS);
   const frequencies = new Float32Array(demo.bins.length);
@@ -73,7 +90,7 @@ function buildSnapshotFrame(
     flags: { reducedMotion: false },
     trackMetadata: {
       ...EMPTY_VIZ_TRACK,
-      artColors: getDefaultPalette(),
+      artColors: [...palette],
     },
   };
 }
@@ -96,6 +113,7 @@ async function renderSandboxLayers(
   width: number,
   height: number,
   dpr: number,
+  palette: readonly string[],
 ): Promise<HTMLCanvasElement> {
   const composite = document.createElement("canvas");
   composite.width = Math.max(1, Math.floor(width * dpr));
@@ -103,7 +121,7 @@ async function renderSandboxLayers(
   const ctx = composite.getContext("2d");
   if (!ctx) throw new Error("2d context unavailable");
 
-  ctx.fillStyle = "#0e0e10";
+  ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, composite.width, composite.height);
 
   for (const layer of layers) {
@@ -126,7 +144,7 @@ async function renderSandboxLayers(
 
     try {
       // Fresh frame each layer — typed arrays are transferred to the worker.
-      const frame = buildSnapshotFrame(rect.w, rect.h, dpr);
+      const frame = buildSnapshotFrame(rect.w, rect.h, dpr, palette);
       await sandbox.postFrameAndWait(frame);
       ctx.drawImage(
         layerCanvas,
@@ -143,7 +161,10 @@ async function renderSandboxLayers(
   return composite;
 }
 
-async function snapshotFromVisualizer(visualizer: Visualizer): Promise<string> {
+async function snapshotFromVisualizer(
+  visualizer: Visualizer,
+  palette: readonly string[],
+): Promise<string> {
   const layers = visualizer.children;
   const sandboxLayers = layers.filter((layer) =>
     layerSandboxEngine(layer.kind),
@@ -156,6 +177,7 @@ async function snapshotFromVisualizer(visualizer: Visualizer): Promise<string> {
       VIZ_CARD_SNAPSHOT_WIDTH,
       VIZ_CARD_SNAPSHOT_HEIGHT,
       1,
+      palette,
     );
     return canvasToObjectUrl(canvas);
   }
@@ -202,35 +224,40 @@ function enqueue<T>(task: () => Promise<T>): Promise<T> {
 function requestVizCardSnapshot(
   visualizerId: string,
   load: (id: string) => Promise<Visualizer>,
+  palette: readonly string[],
 ): Promise<SnapshotResult> {
-  const cached = cache.get(visualizerId);
+  const key = snapshotCacheKey(visualizerId, palette);
+  const cached = cache.get(key);
   if (cached) return Promise.resolve({ src: cached, status: "ready" });
 
-  const existing = inflight.get(visualizerId);
+  const existing = inflight.get(key);
   if (existing) return existing;
 
   const promise = enqueue(async (): Promise<SnapshotResult> => {
     try {
       const visualizer = await load(visualizerId);
-      const src = await snapshotFromVisualizer(visualizer);
-      cache.set(visualizerId, src);
+      const src = await snapshotFromVisualizer(visualizer, palette);
+      cache.set(key, src);
       return { src, status: "ready" };
     } catch (err) {
       console.error(`[viz-card-snapshot] failed for ${visualizerId}`, err);
       return { src: null, status: "error" };
     } finally {
-      inflight.delete(visualizerId);
+      inflight.delete(key);
     }
   });
 
-  inflight.set(visualizerId, promise);
+  inflight.set(key, promise);
   return promise;
 }
 
 export function useVizCardSnapshot(visualizerId: string): string | null {
   const getVisualizer = useVisualizerStore((s) => s.getVisualizer);
+  // Current track's cover colors, or Spiral's default when it has none.
+  const palette = useVisualizerPalette();
+  const cacheKey = visualizerId ? snapshotCacheKey(visualizerId, palette) : "";
   const [src, setSrc] = useState<string | null>(() =>
-    visualizerId ? (cache.get(visualizerId) ?? null) : null,
+    cacheKey ? (cache.get(cacheKey) ?? null) : null,
   );
 
   useEffect(() => {
@@ -240,22 +267,24 @@ export function useVizCardSnapshot(visualizerId: string): string | null {
     }
 
     let cancelled = false;
-    const cached = cache.get(visualizerId);
+    const cached = cache.get(cacheKey);
     if (cached) {
       setSrc(cached);
       return;
     }
 
     setSrc(null);
-    void requestVizCardSnapshot(visualizerId, getVisualizer).then((result) => {
-      if (cancelled) return;
-      setSrc(result.src);
-    });
+    void requestVizCardSnapshot(visualizerId, getVisualizer, palette).then(
+      (result) => {
+        if (cancelled) return;
+        setSrc(result.src);
+      },
+    );
 
     return () => {
       cancelled = true;
     };
-  }, [visualizerId, getVisualizer]);
+  }, [visualizerId, cacheKey, getVisualizer, palette]);
 
   return src;
 }

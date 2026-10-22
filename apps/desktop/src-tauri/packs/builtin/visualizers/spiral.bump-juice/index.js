@@ -74,6 +74,24 @@ function paletteColorAt(colors, index, count) {
   return lerpColor(c1, c2, frac);
 }
 
+/** Black stage with a faint theme-accent tint rising from the bottom. */
+function paintBackdrop(ctx, width, height, accent) {
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, width, height);
+  if (accent) {
+    const tint = ctx.createLinearGradient(0, height, 0, height * 0.15);
+    tint.addColorStop(0, accent);
+    tint.addColorStop(1, "#000000");
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = tint;
+    ctx.fillRect(0, 0, width, height);
+  }
+  ctx.restore();
+}
+
 function applyGlow(ctx, glow, color) {
   if (glow <= 0) return;
   ctx.shadowBlur = glow * 24;
@@ -161,6 +179,9 @@ function createMeter() {
     }
 
     if (!primed) {
+      // Wait for real signal: priming on a silent frame seeds the onset
+      // average at zero, so the first audible frame reads as a huge hit.
+      if (frameMax === 0) return level;
       ceiling = Math.max(frameMax, DYNAMIC_WINDOW);
       const floor = ceiling - DYNAMIC_WINDOW;
       for (let i = 0; i < columns; i++) {
@@ -263,7 +284,7 @@ export function create() {
       const { width, height } = frame.size;
       const dt = Math.max(0, Math.min(64, frame.time.deltaMs || 0));
 
-      ctx.clearRect(0, 0, width, height);
+      paintBackdrop(ctx, width, height, frame.theme?.tokens?.["color-accent"]);
 
       const playing =
         frame.audio.isPlaying && frame.audio.frequencies.length > 0;

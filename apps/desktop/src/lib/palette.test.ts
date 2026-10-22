@@ -49,6 +49,6 @@ describe("getDefaultPalette", () => {
   it("does not keep the raw fallback's dark middle swatch", () => {
     const palette = getDefaultPalette();
     expect(palette).toHaveLength(5);
-    expect(lightness(palette[3] ?? "")).toBeGreaterThan(lightness("#3d3566"));
+    expect(lightness(palette[3] ?? "")).toBeGreaterThan(lightness("#3f6410"));
   });
 });

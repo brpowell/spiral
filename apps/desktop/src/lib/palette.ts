@@ -1,11 +1,11 @@
 import { Vibrant } from "node-vibrant/browser";
 
 const FALLBACK_PALETTE = [
-  "#7c6af7",
-  "#5a4fd4",
-  "#9b8fff",
-  "#3d3566",
-  "#c4baff",
+  "#96c836",
+  "#c4e070",
+  "#7ab01c",
+  "#3f6410",
+  "#e4ecb4",
 ] as const;
 
 const SWATCH_KEYS = [
