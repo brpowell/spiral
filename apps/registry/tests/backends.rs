@@ -121,6 +121,7 @@ async fn run_contract(store: &dyn CatalogStore) {
     let mut full = row(&publisher, "skin", other_item, "2.0.0", now);
     full.name = "Grove".into();
     full.description = "Green and calm".into();
+    full.author = "Grove Studio".into();
     full.min_app_version = Some("0.4.0".into());
     full.preview_storage_key = Some(format!("{publisher}/skin/{other_item}/2.0.0/preview.png"));
     full.readme = Some("# Grove".into());
@@ -133,6 +134,7 @@ async fn run_contract(store: &dyn CatalogStore) {
         .expect("published");
     assert_eq!(got.name, "Grove");
     assert_eq!(got.description, "Green and calm");
+    assert_eq!(got.author, "Grove Studio");
     assert_eq!(got.min_app_version.as_deref(), Some("0.4.0"));
     assert_eq!(got.preview_storage_key, full.preview_storage_key);
     assert_eq!(got.readme.as_deref(), Some("# Grove"));

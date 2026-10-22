@@ -51,6 +51,26 @@ describe("RegistryItemCard", () => {
     expect(onOpen).toHaveBeenCalled();
   });
 
+  it("shows the manifest author, falling back to the publisher id", () => {
+    const { unmount } = render(
+      <RegistryItemCard
+        entry={entry({
+          latestVersion: {
+            ...entry().latestVersion,
+            author: "The Skins Factory",
+          },
+        })}
+        busy={false}
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("The Skins Factory")).toBeTruthy();
+    expect(screen.queryByText("spiral")).toBeNull();
+    unmount();
+    setup(entry());
+    expect(screen.getByText("spiral")).toBeTruthy();
+  });
+
   it("falls back to the item id when the version has no name", () => {
     setup(
       entry({

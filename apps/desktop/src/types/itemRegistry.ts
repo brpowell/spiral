@@ -15,6 +15,8 @@ export interface RegistryVersionSummary {
   version: string;
   name?: string;
   description?: string;
+  /** Freeform credit from the item manifest; empty or absent for older publishes. */
+  author?: string;
   minAppVersion?: string | null;
   /** Uncompressed on-disk size of the item (not the `.spk` archive length). */
   sizeBytes: number;

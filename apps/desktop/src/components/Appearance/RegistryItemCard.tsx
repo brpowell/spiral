@@ -8,7 +8,7 @@ import { PackListCard } from "./AppearancePackCard";
 import { itemTypeMeta } from "./itemShared";
 import { RegistryItemPreview } from "./RegistryItemPreview";
 
-/** Catalog card: publisher under the name, a type icon on the preview, a status badge, and Update when one exists. */
+/** Catalog card: author under the name, a type icon on the preview, a status badge, and Update when one exists. */
 export function RegistryItemCard({
   entry,
   busy,
@@ -23,6 +23,8 @@ export function RegistryItemCard({
   const { t } = useTranslation(["studio", "common"]);
   const name = catalogItemName(entry);
   const publisher = entry.publisherId.trim() || t("common:unknown");
+  // Items published before the registry stored authors fall back to the publisher id.
+  const author = entry.latestVersion.author?.trim() || publisher;
   const { label: typeLabel, icon: typeIcon } = itemTypeMeta(entry.itemType);
   const description = entry.latestVersion.description?.trim() || undefined;
   const canUpdate =
@@ -41,7 +43,7 @@ export function RegistryItemCard({
   return (
     <PackListCard
       name={name}
-      author={publisher}
+      author={author}
       typeIcon={typeIcon}
       typeLabel={typeLabel}
       description={description}

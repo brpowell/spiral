@@ -62,6 +62,9 @@ pub struct RegistryVersionSummary {
     pub name: String,
     #[serde(default)]
     pub description: String,
+    /// Freeform credit from the item manifest; empty for older publishes.
+    #[serde(default)]
+    pub author: String,
     #[serde(default)]
     pub min_app_version: Option<String>,
     /// Uncompressed on-disk size of the item (not the `.spk` archive length).
@@ -1231,6 +1234,7 @@ mod tests {
             version: version.into(),
             name: "Noir".into(),
             description: String::new(),
+            author: String::new(),
             min_app_version: None,
             size_bytes: 10,
             sha256: "0".repeat(64),
