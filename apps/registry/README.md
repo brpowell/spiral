@@ -47,7 +47,7 @@ curl -OJ http://127.0.0.1:8787/v1/items/spiral/theme/demo-theme/versions/latest/
 
 ## Publishing an item
 
-An item is one theme, skin, visualizer or sound. A `.spk` is a zip archive with the item manifest (`theme.json`, `skin.json`, `viz.json` or `sound.json`) at its root, or inside one top-level folder. The manifest carries the item's `id`, `publisherId`, `version` and optional `minAppVersion`; the effective id is `publisherId.type.id`. The repository includes one valid item per type in `fixtures/items/`. Zip one, keeping paths relative to that folder:
+An item is one theme, skin, visualizer or sound. A `.spk` is a zip archive with the item manifest (`theme.json`, `skin.json`, `viz.json` or `sound.json`) at its root, or inside one top-level folder. The manifest carries the item's `id`, `publisherId`, `version` and optional `minAppVersion`; its freeform `author` credit is stored with each version and returned as `author` (empty for versions published before it was recorded); the effective id is `publisherId.type.id`. The repository includes one valid item per type in `fixtures/items/`. Zip one, keeping paths relative to that folder:
 
 ```bash
 python3 - <<'PY'

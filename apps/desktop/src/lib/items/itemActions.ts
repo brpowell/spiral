@@ -41,26 +41,13 @@ function formatInvokeError(err: unknown, fallback: string): string {
  * Returns the result, or `null` if cancelled or failed (errors are toasted).
  */
 export async function importItemWithRefresh(): Promise<InstallItemResult | null> {
-  const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
+  const { showErrorToast } = useBackgroundTasksStore.getState();
   const operationId = createOperationId();
   try {
     const result = await installItem();
     if (!result) return null;
     await refreshPackContributionStores();
     logItemInstallSuccess({ operationId, result });
-    showToast({
-      label: result.replacedVersion
-        ? t("toasts:items.reinstalled", {
-            name: result.name,
-            version: result.version,
-          })
-        : t("toasts:items.installed", {
-            name: result.name,
-            version: result.version,
-          }),
-      status: "success",
-      key: "item-install",
-    });
     return result;
   } catch (err) {
     logItemInstallFailure({ operationId, err });
@@ -76,17 +63,12 @@ export async function importItemWithRefresh(): Promise<InstallItemResult | null>
 
 /** Directory-picker link + store refresh + toast. */
 export async function linkItemFolderWithRefresh(): Promise<string | null> {
-  const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
+  const { showErrorToast } = useBackgroundTasksStore.getState();
   try {
     const path = await linkItemFolder();
     if (!path) return null;
     await refreshPackContributionStores();
     await emit(LINKED_PACKS_CHANGED_EVENT);
-    showToast({
-      label: t("toasts:items.linked"),
-      status: "success",
-      key: "item-link",
-    });
     return path;
   } catch (err) {
     showErrorToast({
@@ -97,20 +79,12 @@ export async function linkItemFolderWithRefresh(): Promise<string | null> {
   }
 }
 
-export async function unlinkItemWithRefresh(
-  path: string,
-  displayName: string,
-): Promise<boolean> {
-  const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
+export async function unlinkItemWithRefresh(path: string): Promise<boolean> {
+  const { showErrorToast } = useBackgroundTasksStore.getState();
   try {
     await unlinkItem(path);
     await refreshPackContributionStores();
     await emit(LINKED_PACKS_CHANGED_EVENT);
-    showToast({
-      label: t("toasts:items.unlinked", { name: displayName }),
-      status: "success",
-      key: "item-unlink",
-    });
     return true;
   } catch (err) {
     showErrorToast({
@@ -123,7 +97,7 @@ export async function unlinkItemWithRefresh(
 
 /** Re-scan items (including linked) and surface scan warnings. */
 export async function reloadLinkedItemsWithRefresh(): Promise<void> {
-  const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
+  const { showErrorToast } = useBackgroundTasksStore.getState();
   try {
     await refreshPackContributionStores();
     // Linked folders are not file-watched; drop doc caches so Studio re-reads disk.
@@ -135,12 +109,6 @@ export async function reloadLinkedItemsWithRefresh(): Promise<void> {
     );
     if (linkedWarnings.length > 0) {
       showErrorToast({ label: linkedWarnings[0], key: "item-reload" });
-    } else {
-      showToast({
-        label: t("toasts:items.reloaded"),
-        status: "success",
-        key: "item-reload",
-      });
     }
     await emit(RELOAD_LINKED_PACKS_EVENT);
   } catch (err) {
@@ -153,21 +121,15 @@ export async function reloadLinkedItemsWithRefresh(): Promise<void> {
 
 export async function uninstallItemWithRefresh(
   itemId: string,
-  displayName: string,
   clearSkinSettings: readonly ClearableSkinSetting[] = [],
 ): Promise<boolean> {
-  const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
+  const { showErrorToast } = useBackgroundTasksStore.getState();
   try {
     if (clearSkinSettings.length > 0) {
       await clearPackAuthorSkinSettings(clearSkinSettings);
     }
     await uninstallItem(itemId);
     await refreshPackContributionStores();
-    showToast({
-      label: t("toasts:items.uninstalled", { name: displayName }),
-      status: "success",
-      key: "item-uninstall",
-    });
     return true;
   } catch (err) {
     showErrorToast({
@@ -180,18 +142,12 @@ export async function uninstallItemWithRefresh(
 
 export async function deleteLinkedItemWithRefresh(
   itemId: string,
-  displayName: string,
 ): Promise<boolean> {
-  const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
+  const { showErrorToast } = useBackgroundTasksStore.getState();
   try {
     await deleteLinkedItem(itemId);
     await emit(LINKED_PACKS_CHANGED_EVENT);
     await refreshPackContributionStores();
-    showToast({
-      label: t("toasts:items.deleted", { name: displayName }),
-      status: "success",
-      key: "item-delete",
-    });
     return true;
   } catch (err) {
     showErrorToast({
@@ -213,15 +169,10 @@ export async function updateItemMetadataWithRefresh(
     description: string;
   },
 ): Promise<string | null> {
-  const { showToast, showErrorToast } = useBackgroundTasksStore.getState();
+  const { showErrorToast } = useBackgroundTasksStore.getState();
   try {
     const nextId = await updateItemMetadata(itemId, metadata);
     await refreshPackContributionStores();
-    showToast({
-      label: t("toasts:items.updated", { name: metadata.name }),
-      status: "success",
-      key: "item-edit",
-    });
     return nextId;
   } catch (err) {
     showErrorToast({

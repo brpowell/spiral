@@ -29,6 +29,8 @@ pub struct ItemManifest {
     pub version: String,
     pub name: String,
     pub description: String,
+    /// Freeform credit line; empty when the manifest has none.
+    pub author: String,
     /// Raster preview path relative to the item root.
     pub preview: Option<String>,
     pub min_app_version: Option<String>,
@@ -233,6 +235,7 @@ pub fn parse_item_manifest_value(
         version,
         name,
         description: str_field(value, "description").unwrap_or_default(),
+        author: str_field(value, "author").unwrap_or_default(),
         preview,
         min_app_version,
     })
@@ -367,6 +370,7 @@ mod tests {
         assert_eq!(item.id, "midnight");
         assert_eq!(item.publisher_id, "bryan");
         assert_eq!(item.version, "1.0.0");
+        assert_eq!(item.author, "Bryan");
         assert_eq!(item.min_app_version.as_deref(), Some("0.2.0"));
         assert_eq!(item.preview.as_deref(), Some("p.png"));
         assert_eq!(item.effective_id(), "bryan.theme.midnight");

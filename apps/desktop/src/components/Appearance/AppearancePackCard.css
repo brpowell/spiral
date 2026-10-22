@@ -126,6 +126,28 @@
   margin-right: 0.25rem;
 }
 
+.appearance-pack-card__type-chip {
+  position: absolute;
+  bottom: 0.4rem;
+  left: 0.4rem;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  opacity: 0.9;
+}
+
+.appearance-pack-card__type-chip > svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
 .appearance-pack-card__badge--muted {
   opacity: 0.85;
 }
@@ -133,19 +155,17 @@
 .appearance-pack-card__meta {
   display: flex;
   flex-direction: column;
+  /* Title and author read as one block; the description sits further away. */
   gap: 0.2rem;
   min-width: 0;
 }
 
 .appearance-pack-card__meta-header {
   display: flex;
-  /* Match MenuButton sm icon-only (26px) so title→author gap is stable
-     whether or not actions are present. */
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.35rem;
   min-width: 0;
-  min-height: 26px;
 }
 
 .appearance-pack-card__name {
@@ -163,10 +183,11 @@
   font-size: 0.72rem;
   font-weight: var(--weight-regular);
   line-height: 1.25;
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
 }
 
 .appearance-pack-card__description {
+  margin-top: 0.5rem;
   min-height: calc(0.7rem * 1.45 * 2);
   font-size: 0.7rem;
   line-height: 1.45;
@@ -215,4 +236,6 @@
   width: auto;
   min-width: 26px;
   height: 26px;
+  /* Overlap the title row so the 26px button doesn't pad the title's line box. */
+  margin-block: -0.3rem;
 }

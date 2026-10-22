@@ -34,10 +34,7 @@ import { refreshPackContributionStores } from "./packs/refreshPackStores";
 import { createRegistryCache } from "./packs/registryCache";
 import { errorMessageFromUnknown } from "./cdPlaybackFailure";
 import { afterUiTransition } from "./scheduling";
-import {
-  packDownloadFailedPayload,
-  packInstalledPayload,
-} from "./toastPayloads";
+import { packDownloadFailedPayload } from "./toastPayloads";
 
 /** Background task key for registry item downloads (cancel wiring). */
 export const ITEM_REGISTRY_DOWNLOAD_KEY = "item-registry-download";
@@ -378,15 +375,7 @@ export function installRegistryItem(
             sizeBytes: args.sizeBytes,
             minAppVersion: args.minAppVersion,
           });
-          const installed = packInstalledPayload(
-            result.name || displayName,
-            result.version,
-          );
-          ctx.settleAs({
-            status: "success",
-            label: installed.label,
-            detail: installed.detail,
-          });
+          ctx.dismissSilently();
           // settleAs applies after `run` returns — defer heavy refresh.
           void (async () => {
             try {

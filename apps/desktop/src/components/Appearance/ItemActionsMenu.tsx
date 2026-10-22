@@ -10,6 +10,7 @@ import {
   ContextMenuSeparator,
 } from "../ContextMenu/ContextMenu";
 import {
+  IconBraces,
   IconDelete,
   IconExport,
   IconOpenFolder,
@@ -128,16 +129,6 @@ export function ItemActionsMenu({
       >
         {(close) => (
           <>
-            {editable && item.type === "theme" && omitEdit !== "edit" ? (
-              <ContextMenuItem
-                icon={<IconPencil />}
-                label={t("common:edit")}
-                onClick={() => {
-                  close();
-                  openThemeEditor(item.effectiveId);
-                }}
-              />
-            ) : null}
             {onOpenItem ? (
               <ContextMenuItem
                 icon={<IconPackage />}
@@ -148,13 +139,28 @@ export function ItemActionsMenu({
                 }}
               />
             ) : null}
-            {editable &&
-            (onOpenItem || (item.type === "theme" && omitEdit !== "edit")) ? (
-              <ContextMenuSeparator />
+            <ContextMenuItem
+              icon={<IconOpenFolder />}
+              label={revealInFileManagerLabel()}
+              onClick={() => {
+                close();
+                void revealItem();
+              }}
+            />
+            {editable ? <ContextMenuSeparator /> : null}
+            {editable && item.type === "theme" && omitEdit !== "edit" ? (
+              <ContextMenuItem
+                icon={<IconPencil />}
+                label={t("common:edit")}
+                onClick={() => {
+                  close();
+                  openThemeEditor(item.effectiveId);
+                }}
+              />
             ) : null}
             {editable && omitEdit !== "details" ? (
               <ContextMenuItem
-                icon={<IconPencil />}
+                icon={<IconBraces />}
                 label={t("items.editDetails")}
                 onClick={() => {
                   close();
@@ -172,14 +178,6 @@ export function ItemActionsMenu({
                 }}
               />
             ) : null}
-            <ContextMenuItem
-              icon={<IconOpenFolder />}
-              label={revealInFileManagerLabel()}
-              onClick={() => {
-                close();
-                void revealItem();
-              }}
-            />
             {item.zone !== "builtin" &&
             !(
               (item.zone === "installed" || item.zone === "linked") &&
