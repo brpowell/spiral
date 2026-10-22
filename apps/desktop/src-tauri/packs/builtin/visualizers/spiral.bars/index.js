@@ -78,12 +78,15 @@ function paletteColorAt(colors, index, count) {
 }
 
 /**
- * Fixed dark stage so the visualizer reads the same on light and dark themes.
- * Olive-black with a faint lime lift from below.
+ * Dark olive stage with a faint lime lift from below. Semi-transparent, so
+ * the theme still tints it; light themes get a softened dark, not a black box.
  */
+const BACKDROP_ALPHA = 0.6;
+
 function paintBackdrop(ctx, width, height) {
+  ctx.clearRect(0, 0, width, height);
   ctx.save();
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = BACKDROP_ALPHA;
   ctx.shadowBlur = 0;
   const base = ctx.createLinearGradient(0, 0, 0, height);
   base.addColorStop(0, "#191b11");
