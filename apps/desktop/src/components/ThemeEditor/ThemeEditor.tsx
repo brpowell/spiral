@@ -21,9 +21,7 @@ import {
   validateThemeForApply,
 } from "../../lib/themeValidation";
 import {
-  themeActivatedPayload,
   themeActivateFailedPayload,
-  themeSavedPayload,
   themeSaveFailedPayload,
 } from "../../lib/toastPayloads";
 import { useEditorDiscardPrompt } from "../../hooks/useEditorDiscardPrompt";
@@ -156,7 +154,6 @@ export function ThemeEditor({
   const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const themes = useThemeStore((s) => s.themes);
   const showErrorToast = useBackgroundTasksStore((s) => s.showErrorToast);
-  const showToast = useBackgroundTasksStore((s) => s.showToast);
 
   const [draft, setDraft] = useState<Theme>(() => cloneTheme(theme));
   const [baseline, setBaseline] = useState<Theme>(() => cloneTheme(theme));
@@ -252,7 +249,6 @@ export function ThemeEditor({
     setSaving(true);
     try {
       await persistDraft(draft);
-      showToast(themeSavedPayload());
       dismissDiscardPrompt();
       onClose();
     } catch (err) {
@@ -260,14 +256,7 @@ export function ThemeEditor({
     } finally {
       setSaving(false);
     }
-  }, [
-    dismissDiscardPrompt,
-    draft,
-    onClose,
-    persistDraft,
-    showErrorToast,
-    showToast,
-  ]);
+  }, [dismissDiscardPrompt, draft, onClose, persistDraft, showErrorToast]);
 
   const handleActivate = useCallback(async () => {
     setApplying(true);
@@ -275,13 +264,12 @@ export function ThemeEditor({
       await setTheme(draft.id);
       // Keep unsaved draft tokens visible now that this theme is active.
       emitThemePreview(draft);
-      showToast(themeActivatedPayload());
     } catch (err) {
       showErrorToast(themeActivateFailedPayload(err));
     } finally {
       setApplying(false);
     }
-  }, [draft, setTheme, showErrorToast, showToast]);
+  }, [draft, setTheme, showErrorToast]);
 
   const previewTokens = resolveThemeTokens(draft);
   const canActivate = storedTheme ? isThemeApplicable(storedTheme) : false;

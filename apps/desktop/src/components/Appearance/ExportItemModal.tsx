@@ -117,10 +117,11 @@ export function ExportItemModal({
             </FormField>
             <FormField
               label={t("items.version")}
-              description={
+              description={t("items.versionHint")}
+              error={
                 version.length > 0 && !versionValid
                   ? t("items.versionInvalid")
-                  : t("items.versionHint")
+                  : undefined
               }
             >
               <TextInput
@@ -143,9 +144,6 @@ export function ExportItemModal({
                 autoSize
               />
             </FormField>
-            <p className="appearance-section__status">
-              {t("items.exportHint")}
-            </p>
           </>
         )}
       </ModalBody>
