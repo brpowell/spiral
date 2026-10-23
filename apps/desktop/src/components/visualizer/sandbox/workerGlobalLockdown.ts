@@ -263,6 +263,33 @@ export function lockDownWorkerGlobals(scope: typeof globalThis): void {
   );
 }
 
+/**
+ * `Function.prototype` of each function kind. Their `constructor` reaches the
+ * real `Function` (and async/generator variants) even after the global name is
+ * denied, e.g. `(() => {}).constructor("return import('…')")()`.
+ */
+export function functionConstructorPrototypes(): object[] {
+  return [
+    function () {},
+    async function () {},
+    function* () {},
+    async function* () {},
+  ].map((fn) => Object.getPrototypeOf(fn) as object);
+}
+
+/**
+ * Replace `constructor` on the given function prototypes with a throwing stub.
+ * The worker CSP already blocks string compilation; this keeps code generation
+ * closed if a platform does not enforce it.
+ */
+export function sealFunctionConstructors(
+  prototypes: readonly object[] = functionConstructorPrototypes(),
+): void {
+  for (const proto of prototypes) {
+    defineDenied(proto, "constructor", denyAccess("Function constructor"));
+  }
+}
+
 /** After the single host blob import, seal further blob URL minting. */
 export function sealBlobUrlApi(): void {
   const deny = denyAccess("URL.createObjectURL");

@@ -50,22 +50,64 @@ describe("splitVizTrack", () => {
     };
 
     const split = splitVizTrack(track);
+    const artId = split.wire.artId;
+    const portraitId = split.wire.artists[0]?.portraitId;
 
+    expect(artId).toMatch(/^img-\d+$/);
+    expect(portraitId).toMatch(/^img-\d+$/);
+    expect(portraitId).not.toBe(artId);
     expect(split.wire).toEqual({
       id: 7,
       title: "Hyperballad",
       album: "Post",
-      artId: "/art/front.jpg",
+      artId,
       artColors: ["#e05090"],
       artists: [
-        { name: "Björk", portraitId: "/artists/bjork.jpg" },
-        { name: "Björk", portraitId: "/artists/bjork.jpg" },
+        { name: "Björk", portraitId },
+        { name: "Björk", portraitId },
       ],
     });
-    expect(split.media.art).toEqual({ id: "/art/front.jpg", bitmap: art });
+    expect(split.media.art).toEqual({ id: artId, bitmap: art });
     expect(split.media.portraits).toEqual([
-      { id: "/artists/bjork.jpg", bitmap: portrait },
+      { id: portraitId, bitmap: portrait },
     ]);
+  });
+
+  it("never puts image file paths on the wire", () => {
+    const track: VizFrameTrack = {
+      id: 8,
+      title: "Joga",
+      album: "Homogenic",
+      art: bitmap("/Users/me/Music/Björk/Homogenic/cover.jpg"),
+      artColors: [],
+      artists: [
+        { name: "Björk", portrait: bitmap("/Users/me/Artists/bjork.jpg") },
+      ],
+    };
+    const split = splitVizTrack(track);
+    const serialized =
+      JSON.stringify(split.wire) +
+      JSON.stringify([
+        split.media.art?.id,
+        ...split.media.portraits.map((p) => p.id),
+      ]);
+    expect(serialized).not.toContain("/Users/me");
+  });
+
+  it("gives every decode of the same image path the same id", () => {
+    const first = bitmap("/art/same.jpg");
+    const second = bitmap("/art/same.jpg");
+    const track = (art: ImageBitmap): VizFrameTrack => ({
+      id: 1,
+      title: "",
+      album: null,
+      art,
+      artColors: [],
+      artists: [],
+    });
+    expect(splitVizTrack(track(first)).wire.artId).toBe(
+      splitVizTrack(track(second)).wire.artId,
+    );
   });
 
   it("omits a bitmap that was never registered", () => {
