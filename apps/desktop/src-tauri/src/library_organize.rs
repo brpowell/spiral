@@ -12,6 +12,8 @@ pub fn default_organize_path_format() -> String {
     DEFAULT_ORGANIZE_PATH_FORMAT.to_string()
 }
 
+/// Clean a tag value into a single path segment. Names made only of dots (`.`, `..`,
+/// `...`) become `Unknown` so a segment can never refer to the current or parent directory.
 pub fn sanitize_filename(name: &str) -> String {
     let mut out = String::with_capacity(name.len());
     for ch in name.chars() {
@@ -24,7 +26,8 @@ pub fn sanitize_filename(name: &str) -> String {
         }
     }
     let trimmed = out.split_whitespace().collect::<Vec<_>>().join(" ");
-    if trimmed.is_empty() {
+    // Windows also drops trailing dots and spaces, so ". ." is as dangerous as "..".
+    if trimmed.chars().all(|c| c == '.' || c == ' ') {
         "Unknown".to_string()
     } else {
         trimmed
@@ -639,6 +642,14 @@ mod tests {
     #[test]
     fn strips_windows_invalid_characters_from_metadata() {
         assert_eq!(sanitize_filename("Track: <Bad>?|*"), "Track Bad");
+        for dots in [".", "..", "...", ". .", " .. ", "\u{0}..", "./.."] {
+            assert_eq!(sanitize_filename(dots), "Unknown", "{dots:?}");
+        }
+        assert_eq!(sanitize_filename("St. Anger"), "St. Anger");
+        assert_eq!(
+            sanitize_filename("...And Justice for All"),
+            "...And Justice for All"
+        );
     }
 
     #[test]

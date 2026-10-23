@@ -1,6 +1,6 @@
 use crate::artwork_paths::{
-    album_artwork_dir, ext_from_mime_or_bytes, find_front_image, override_art_filename,
-    to_library_relative, FRONT_STEM,
+    album_artwork_dir, ensure_inside_album_artwork, ext_from_mime_or_bytes, find_front_image,
+    override_art_filename, to_library_relative, FRONT_STEM,
 };
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -105,6 +105,7 @@ pub fn write_album_unique_art(
     mode: WriteMode,
 ) -> Result<Vec<TrackArtAssignment>, String> {
     let album_dir = album_artwork_dir(library_root, album_artist, artist, album);
+    ensure_inside_album_artwork(library_root, &album_dir)?;
     fs::create_dir_all(&album_dir)
         .map_err(|e| format!("failed to create album artwork dir: {e}"))?;
 
@@ -132,7 +133,7 @@ pub fn write_album_unique_art(
 
     if groups.is_empty() {
         if mode == WriteMode::Reconstruct {
-            prune_album_dir_except(&album_dir, &[])?;
+            prune_album_dir_except(library_root, &album_dir, &[])?;
         }
         return Ok(assignments);
     }
@@ -215,7 +216,7 @@ pub fn write_album_unique_art(
     }
 
     if mode == WriteMode::Reconstruct {
-        prune_album_dir_except(&album_dir, &kept_files)?;
+        prune_album_dir_except(library_root, &album_dir, &kept_files)?;
     }
 
     let _ = front_rel; // used for documentation; assignments use None for canonical
@@ -263,7 +264,12 @@ fn find_or_write_bytes_as_override(
     Ok((rel, dest))
 }
 
-fn prune_album_dir_except(album_dir: &Path, keep: &[PathBuf]) -> Result<(), String> {
+fn prune_album_dir_except(
+    library_root: &Path,
+    album_dir: &Path,
+    keep: &[PathBuf],
+) -> Result<(), String> {
+    ensure_inside_album_artwork(library_root, album_dir)?;
     if !album_dir.is_dir() {
         return Ok(());
     }
@@ -294,6 +300,7 @@ pub fn assign_track_art_on_import(
     };
 
     let album_dir = album_artwork_dir(library_root, album_artist, artist, album);
+    ensure_inside_album_artwork(library_root, &album_dir)?;
     fs::create_dir_all(&album_dir)
         .map_err(|e| format!("failed to create album artwork dir: {e}"))?;
 
@@ -410,7 +417,10 @@ fn extract_embedded_art_bytes(path: &Path) -> Option<(Vec<u8>, String)> {
     crate::metadata_reader::read_embedded_art_bytes(path)
 }
 
-pub fn prune_empty_album_artwork_dir(dir: &Path) -> Result<(), String> {
+/// Remove `dir` (and its parent artist dir) when empty. Only ever touches dirs strictly
+/// inside `Artwork/albums`; never removes `albums` itself or anything above it.
+pub fn prune_empty_album_artwork_dir(library_root: &Path, dir: &Path) -> Result<(), String> {
+    ensure_inside_album_artwork(library_root, dir)?;
     if !dir.is_dir() {
         return Ok(());
     }
@@ -420,7 +430,10 @@ pub fn prune_empty_album_artwork_dir(dir: &Path) -> Result<(), String> {
         .is_none();
     if empty {
         let _ = fs::remove_dir(dir);
-        if let Some(parent) = dir.parent() {
+        if let Some(parent) = dir
+            .parent()
+            .filter(|p| ensure_inside_album_artwork(library_root, p).is_ok())
+        {
             let parent_empty = fs::read_dir(parent)
                 .map(|mut d| d.next().is_none())
                 .unwrap_or(false);

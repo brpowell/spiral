@@ -1,7 +1,8 @@
 use crate::artwork_paths::{
-    self, album_artwork_dir, artist_artwork_dir, ext_from_mime_or_bytes, find_front_image,
-    find_portrait_image, override_art_filename, playlist_artwork_path_stem, to_library_relative,
-    FRONT_STEM, PORTRAIT_STEM,
+    self, album_artwork_dir, artist_artwork_dir, ensure_inside_album_artwork,
+    ensure_inside_artist_artwork, ext_from_mime_or_bytes, find_front_image, find_portrait_image,
+    override_art_filename, playlist_artwork_path_stem, to_library_relative, FRONT_STEM,
+    PORTRAIT_STEM,
 };
 use crate::metadata_reader;
 use std::fs;
@@ -91,6 +92,7 @@ pub fn write_album_front(
     mime_or_ext: &str,
 ) -> Result<String, String> {
     let dir = album_artwork_dir(library_root, album_artist, artist, album);
+    ensure_inside_album_artwork(library_root, &dir)?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let ext = ext_from_key(mime_or_ext, bytes);
     let dest = dir.join(format!("{FRONT_STEM}.{ext}"));
@@ -114,6 +116,7 @@ pub fn write_track_override_art(
     mime_or_ext: &str,
 ) -> Result<String, String> {
     let dir = album_artwork_dir(library_root, album_artist, artist, album);
+    ensure_inside_album_artwork(library_root, &dir)?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let ext = ext_from_key(mime_or_ext, bytes);
 
@@ -136,6 +139,7 @@ fn write_artist_portrait(
     mime_or_ext: &str,
 ) -> Result<String, String> {
     let dir = artist_artwork_dir(library_root, artist_key);
+    ensure_inside_artist_artwork(library_root, &dir)?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let ext = ext_from_key(mime_or_ext, bytes);
     let dest = dir.join(format!("{PORTRAIT_STEM}.{ext}"));
