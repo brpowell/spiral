@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.4.0](https://github.com/brpowell/spiral/compare/desktop-v0.3.0...desktop-v0.4.0) (2026-10-23)
+
+
+### Features
+
+* **desktop:** compute accessible text colors for card blurbs and selected labels ([#58](https://github.com/brpowell/spiral/issues/58)) ([07d4043](https://github.com/brpowell/spiral/commit/07d404328f92ff1475c6388aaf5ffc67898750c1))
+* **desktop:** play all audio through a native output ([#31](https://github.com/brpowell/spiral/issues/31)) ([5744dc4](https://github.com/brpowell/spiral/commit/5744dc4208821cf1bebe812cad032ab340cdd974))
+* **desktop:** rework Studio catalog and collection UI ([#54](https://github.com/brpowell/spiral/issues/54)) ([00ec1c8](https://github.com/brpowell/spiral/commit/00ec1c8b84b7d90a7124610ce407cfcf959ee8b4))
+* **desktop:** Spiral visualizer defaults, black themed backdrop, Double Dutch ([#71](https://github.com/brpowell/spiral/issues/71)) ([ea454bf](https://github.com/brpowell/spiral/commit/ea454bfac122264a4f93acd0395fe5714e56df05))
+* **desktop:** studio polish, non-blocking catalog and registry authors ([#70](https://github.com/brpowell/spiral/issues/70)) ([ab79fcc](https://github.com/brpowell/spiral/commit/ab79fccca27c4fe9eaacd4e1957fbb3de5e4ed21))
+* manage customizations as individual items with a rebuilt registry ([#49](https://github.com/brpowell/spiral/issues/49)) ([7f570bb](https://github.com/brpowell/spiral/commit/7f570bbdb3eb70c8a60a7d4b74e5e4ba260238a3))
+* **registry:** record a download count per item version ([#55](https://github.com/brpowell/spiral/issues/55)) ([3594f48](https://github.com/brpowell/spiral/commit/3594f48a71a033bae38cfe3b0100e839acbbac08))
+* **themes:** font catalog, editable built-ins and lighter weights ([#57](https://github.com/brpowell/spiral/issues/57)) ([0195217](https://github.com/brpowell/spiral/commit/0195217e7764a7c1284e92666720d2e748f04cca))
+
+
+### Bug Fixes
+
+* delete playlist body not appearing ([#35](https://github.com/brpowell/spiral/issues/35)) ([52c64c3](https://github.com/brpowell/spiral/commit/52c64c3dca0444af7daeea99187e8eed802219a0))
+* **deps:** bump rustls to 0.23.46 ([#60](https://github.com/brpowell/spiral/issues/60)) ([f318b69](https://github.com/brpowell/spiral/commit/f318b690edfd41efdbdb911edd770453ac218e46))
+* **deps:** bump zip to 9 ([#61](https://github.com/brpowell/spiral/issues/61)) ([fb70156](https://github.com/brpowell/spiral/commit/fb701568ee9b0311f64f561e981a5a7f0f4df49e))
+* **desktop:** blend Windows/Linux titlebar with library header ([#34](https://github.com/brpowell/spiral/issues/34)) ([f8cd6f6](https://github.com/brpowell/spiral/commit/f8cd6f619b4f7cdb328bb5e3df02d4a84908fe6e))
+* **desktop:** bound album zip and skin archive extraction ([#76](https://github.com/brpowell/spiral/issues/76)) ([d1de87b](https://github.com/brpowell/spiral/commit/d1de87bbaab2d70573944e8dc18456844c7954f6))
+* **desktop:** load release notes from www and space the notes scrollbar ([#56](https://github.com/brpowell/spiral/issues/56)) ([beebe73](https://github.com/brpowell/spiral/commit/beebe73067ad3337a7b30e409439de60ffea0ce7))
+* **desktop:** narrow webview file access to app, library and picked paths ([#75](https://github.com/brpowell/spiral/issues/75)) ([5833352](https://github.com/brpowell/spiral/commit/58333529e50503322871c1285dc98609e098c9cb))
+* **desktop:** open about window without freezing UI on Windows ([#32](https://github.com/brpowell/spiral/issues/32)) ([313716b](https://github.com/brpowell/spiral/commit/313716b0e3f4d28b27447a6eaa30ead7247b9a7c))
+* **desktop:** serve the visualizer worker with its own CSP ([#74](https://github.com/brpowell/spiral/issues/74)) ([bacb30a](https://github.com/brpowell/spiral/commit/bacb30a299eff6f8cb6160d2cb14a52bf3c10ca0))
+* **desktop:** use the Spiral icon for the Windows installer ([#65](https://github.com/brpowell/spiral/issues/65)) ([9b77563](https://github.com/brpowell/spiral/commit/9b77563d50be4b4c28ae54a89e5b6b6dd93f8259))
+* **desktop:** validate artwork path segments ([#72](https://github.com/brpowell/spiral/issues/72)) ([3bfa870](https://github.com/brpowell/spiral/commit/3bfa87003f910129acf5293ff89c5d6ef7780a66))
+* **desktop:** version database migrations and rebuild artist_images key ([#67](https://github.com/brpowell/spiral/issues/67)) ([f90f1e3](https://github.com/brpowell/spiral/commit/f90f1e3af802c867fc17e890230b35e8d228863a))
+
 ## [0.3.0](https://github.com/brpowell/spiral/compare/desktop-v0.2.4...desktop-v0.3.0) (2026-10-13)
 
 
