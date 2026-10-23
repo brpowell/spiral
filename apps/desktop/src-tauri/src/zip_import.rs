@@ -1,10 +1,9 @@
 use crate::audio_formats::is_zip_file;
 use crate::file_scan::scan_folder_paths;
 use serde::Serialize;
-use std::fs::{self, File};
-use std::io::copy;
+use spk_format::{extract_zip_bounded, ExtractLimits};
+use std::fs;
 use std::path::{Path, PathBuf};
-use zip::ZipArchive;
 
 #[derive(Debug, Serialize)]
 pub struct ZipImportScan {
@@ -25,48 +24,20 @@ fn zip_import_temp_dir(zip_path: &Path) -> PathBuf {
     ))
 }
 
+/// Album zips hold already-compressed audio (FLAC, MP3, AAC) plus artwork and
+/// cue sheets, so real ones expand barely past their download size. The total cap
+/// leaves room for multi-disc hi-res FLAC box sets; the entry count, the ratio
+/// check and the reader's refusal to inflate an entry past its declared size are
+/// what stop a small download from filling the disk.
+const ALBUM_ZIP_LIMITS: ExtractLimits = ExtractLimits {
+    max_entries: 5_000,
+    max_uncompressed_bytes: 16 * 1024 * 1024 * 1024,
+    max_compression_ratio: 20,
+    ratio_check_min_bytes: 64 * 1024 * 1024,
+};
+
 fn extract_zip(zip_path: &Path, dest: &Path) -> Result<(), String> {
-    let file = File::open(zip_path).map_err(|e| format!("failed to open zip: {e}"))?;
-    let mut archive =
-        ZipArchive::new(file).map_err(|e| format!("failed to read zip archive: {e}"))?;
-
-    for i in 0..archive.len() {
-        let mut entry = archive
-            .by_index(i)
-            .map_err(|e| format!("failed to read zip entry {i}: {e}"))?;
-
-        let entry_name = entry
-            .name()
-            .map(|n| n.into_owned())
-            .unwrap_or_else(|_| String::from_utf8_lossy(entry.name_raw()).into_owned());
-        let Some(entry_path) = entry.enclosed_name().map(|p| p.to_owned()) else {
-            return Err(format!("zip entry has an invalid path: {entry_name}"));
-        };
-
-        let outpath = dest.join(&entry_path);
-
-        if entry.is_dir() || entry_name.ends_with('/') {
-            fs::create_dir_all(&outpath)
-                .map_err(|e| format!("failed to create directory {}: {e}", outpath.display()))?;
-            continue;
-        }
-
-        if let Some(parent) = outpath.parent() {
-            fs::create_dir_all(parent).map_err(|e| {
-                format!(
-                    "failed to create parent directory for {}: {e}",
-                    outpath.display()
-                )
-            })?;
-        }
-
-        let mut outfile = File::create(&outpath)
-            .map_err(|e| format!("failed to create {}: {e}", outpath.display()))?;
-        copy(&mut entry, &mut outfile)
-            .map_err(|e| format!("failed to extract {entry_name}: {e}"))?;
-    }
-
-    Ok(())
+    extract_zip_bounded(zip_path, dest, &ALBUM_ZIP_LIMITS, "zip archive")
 }
 
 pub fn scan_zip_import_path(zip_path: &str) -> Result<ZipImportScan, String> {
@@ -86,9 +57,15 @@ pub fn scan_zip_import_path(zip_path: &str) -> Result<ZipImportScan, String> {
     fs::create_dir_all(&extract_dir)
         .map_err(|e| format!("failed to create zip extract directory: {e}"))?;
 
-    extract_zip(source, &extract_dir)?;
-
-    let audio_paths = scan_folder_paths(extract_dir.to_str().unwrap_or_default())?;
+    let audio_paths = extract_zip(source, &extract_dir)
+        .and_then(|()| scan_folder_paths(extract_dir.to_str().unwrap_or_default()));
+    let audio_paths = match audio_paths {
+        Ok(paths) => paths,
+        Err(e) => {
+            let _ = fs::remove_dir_all(&extract_dir);
+            return Err(e);
+        }
+    };
     Ok(ZipImportScan {
         extract_dir: extract_dir.to_string_lossy().into_owned(),
         audio_paths,
@@ -124,31 +101,32 @@ pub fn cleanup_zip_import(extract_dir: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
-    use zip::write::SimpleFileOptions;
-    use zip::ZipWriter;
+    use crate::test_fixtures::zips;
 
-    fn write_test_zip(path: &Path, entries: &[(&str, &[u8])]) {
-        let file = File::create(path).unwrap();
-        let mut zip = ZipWriter::new(file);
-        let options = SimpleFileOptions::default();
+    fn zip_test_dir(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("spiral-zip-{tag}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
 
-        for (name, bytes) in entries {
-            zip.start_file(*name, options).unwrap();
-            zip.write_all(bytes).unwrap();
-        }
-
-        zip.finish().unwrap();
+    /// Scan `zip_path`, expect a rejection, and check no extraction was left behind.
+    fn rejected_scan(zip_path: &Path) -> String {
+        let err = scan_zip_import_path(zip_path.to_str().unwrap()).unwrap_err();
+        let extract_dir = zip_import_temp_dir(zip_path);
+        assert!(
+            !extract_dir.exists(),
+            "partial extraction left at {}",
+            extract_dir.display()
+        );
+        err
     }
 
     #[test]
     fn extracts_supported_audio_files() {
-        let dir = std::env::temp_dir().join(format!("spiral-zip-test-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-
+        let dir = zip_test_dir("test");
         let zip_path = dir.join("album.zip");
-        write_test_zip(
+        zips::write_stored(
             &zip_path,
             &[
                 ("01-track.mp3", b"mp3"),
@@ -174,16 +152,52 @@ mod tests {
 
     #[test]
     fn rejects_zip_slip_paths() {
-        let dir = std::env::temp_dir().join(format!("spiral-zip-slip-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-
+        let dir = zip_test_dir("slip");
         let zip_path = dir.join("evil.zip");
-        write_test_zip(&zip_path, &[("../escape.mp3", b"mp3")]);
+        zips::write_stored(&zip_path, &[("../escape.mp3", b"mp3")]);
 
-        let err = scan_zip_import_path(zip_path.to_str().unwrap()).unwrap_err();
+        let err = rejected_scan(&zip_path);
         assert!(err.contains("invalid path"));
 
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_an_album_zip_with_too_many_entries() {
+        let dir = zip_test_dir("entries");
+        let zip_path = dir.join("many.zip");
+        let names: Vec<String> = (0..=ALBUM_ZIP_LIMITS.max_entries)
+            .map(|i| format!("{i}.mp3"))
+            .collect();
+        let entries: Vec<(&str, &[u8])> = names.iter().map(|n| (n.as_str(), &b"mp3"[..])).collect();
+        zips::write_stored(&zip_path, &entries);
+
+        let err = rejected_scan(&zip_path);
+        assert!(err.contains("too many entries"), "{err}");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_a_high_ratio_album_zip() {
+        let dir = zip_test_dir("ratio");
+        let zip_path = dir.join("bomb.zip");
+        // 65 MiB of zeros deflates to about 64 KiB: past 20:1 once over the 64 MiB floor.
+        let zeros = vec![0u8; 65 * 1024 * 1024];
+        zips::write_deflated(&zip_path, &[("01-track.flac", &zeros)]);
+
+        let err = rejected_scan(&zip_path);
+        assert!(err.contains("compression ratio"), "{err}");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_an_album_entry_larger_than_declared() {
+        let dir = zip_test_dir("understated");
+        let zip_path = dir.join("liar.zip");
+        zips::write_understated(&zip_path, &["01-track.flac", "02-track.flac"], 4096);
+
+        let err = rejected_scan(&zip_path);
+        assert!(err.contains("larger than its declared"), "{err}");
         let _ = fs::remove_dir_all(&dir);
     }
 }

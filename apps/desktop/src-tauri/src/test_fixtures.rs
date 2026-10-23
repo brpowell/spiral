@@ -1,4 +1,4 @@
-//! Shared audio fixtures for unit tests.
+//! Shared audio and archive fixtures for unit tests.
 
 #[cfg(test)]
 pub mod m4a {
@@ -103,5 +103,58 @@ pub mod flac {
 
     pub fn minimal_fixture_path() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/minimal.flac")
+    }
+}
+
+/// Small zip archives, including hostile ones, for importer tests.
+#[cfg(test)]
+pub mod zips {
+    use std::fs::File;
+    use std::io::Write;
+    use std::path::Path;
+    use zip::write::SimpleFileOptions;
+    use zip::{CompressionMethod, ZipWriter};
+
+    pub fn write_stored(path: &Path, entries: &[(&str, &[u8])]) {
+        write(path, entries, CompressionMethod::Stored);
+    }
+
+    pub fn write_deflated(path: &Path, entries: &[(&str, &[u8])]) {
+        write(path, entries, CompressionMethod::Deflated);
+    }
+
+    fn write(path: &Path, entries: &[(&str, &[u8])], method: CompressionMethod) {
+        let mut zip = ZipWriter::new(File::create(path).unwrap());
+        let options = SimpleFileOptions::default().compression_method(method);
+        for (name, bytes) in entries {
+            zip.start_file(*name, options).unwrap();
+            zip.write_all(bytes).unwrap();
+        }
+        zip.finish().unwrap();
+    }
+
+    /// A stored archive whose headers claim every entry is one byte long while the
+    /// data is `len` bytes, so declared-size checks alone would let it through.
+    /// Entry data is `b'A'` filler so it cannot contain a header signature.
+    pub fn write_understated(path: &Path, names: &[&str], len: usize) {
+        let data = vec![b'A'; len];
+        let entries: Vec<(&str, &[u8])> = names.iter().map(|n| (*n, data.as_slice())).collect();
+        write_stored(path, &entries);
+
+        let mut bytes = std::fs::read(path).unwrap();
+        // Uncompressed size: offset 22 in a local header, 24 in a central directory header.
+        for (signature, offset) in [(b"PK\x03\x04", 22), (b"PK\x01\x02", 24)] {
+            let starts: Vec<usize> = bytes
+                .windows(4)
+                .enumerate()
+                .filter(|(_, w)| w == signature)
+                .map(|(i, _)| i)
+                .collect();
+            assert_eq!(starts.len(), names.len(), "unexpected zip layout");
+            for start in starts {
+                bytes[start + offset..start + offset + 4].copy_from_slice(&1u32.to_le_bytes());
+            }
+        }
+        std::fs::write(path, bytes).unwrap();
     }
 }
