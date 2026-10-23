@@ -8,7 +8,6 @@ mod postgres;
 mod sqlite;
 
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -16,7 +15,10 @@ use anyhow::{bail, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use crate::models::{AuditEntry, AuditQuery, ItemVersionRow, TakedownLogRow};
+use crate::models::{
+    AuditEntry, AuditQuery, ItemListFilter, ItemSort, ItemVersionRow, TakedownLogRow,
+    ITEM_SUMMARY_COLUMNS,
+};
 
 pub use postgres::PostgresStore;
 pub use sqlite::SqliteStore;
@@ -37,14 +39,20 @@ pub trait CatalogStore: Send + Sync {
     /// Insert a published (or already-yanked) version row.
     async fn insert_item_version(&self, row: &ItemVersionRow) -> Result<(), InsertItemError>;
 
-    /// All non-yanked versions, optionally filtered by publisher and item type.
-    async fn list_published_versions(
-        &self,
-        publisher_id: Option<&str>,
-        item_type: Option<&str>,
-    ) -> Result<Vec<ItemVersionRow>>;
+    /// Fill the listing keys (`version_order`, `name_lower`, `description_lower`) of rows that
+    /// lack them, returning how many were updated. Rows inserted by this version always have
+    /// them; this covers rows from before the columns existed.
+    async fn backfill_list_keys(&self) -> Result<u64>;
 
-    /// Non-yanked versions of one item, newest first.
+    /// One page of the public catalog: the newest non-yanked version of each item matching
+    /// `filter`, in its order, with the total number of matching items. Rows leave out
+    /// `readme` and `changelog`.
+    async fn list_latest_items(
+        &self,
+        filter: &ItemListFilter,
+    ) -> Result<(Vec<ItemVersionRow>, i64)>;
+
+    /// Non-yanked versions of one item, newest first, without `readme` and `changelog`.
     async fn list_published_versions_for_item(
         &self,
         publisher_id: &str,
@@ -88,7 +96,8 @@ pub trait CatalogStore: Send + Sync {
         version: &str,
     ) -> Result<Option<i64>>;
 
-    /// All versions, published and yanked, for the admin listing.
+    /// All versions, published and yanked, for the admin listing (without `readme` and
+    /// `changelog`).
     async fn list_all_versions(&self) -> Result<Vec<ItemVersionRow>>;
 
     /// Soft-delete. Returns `false` if the version does not exist or is already yanked.
@@ -150,7 +159,7 @@ pub trait CatalogStore: Send + Sync {
         version: &str,
     ) -> Result<bool>;
 
-    /// Highest-semver published version of an item.
+    /// Highest-semver published version of an item, with every column.
     async fn get_latest_published_version(
         &self,
         publisher_id: &str,
@@ -160,7 +169,11 @@ pub trait CatalogStore: Send + Sync {
         let rows = self
             .list_published_versions_for_item(publisher_id, item_type, item_id)
             .await?;
-        Ok(rows.into_iter().next())
+        let Some(latest) = rows.into_iter().next() else {
+            return Ok(None);
+        };
+        self.get_published_version(publisher_id, item_type, item_id, &latest.version)
+            .await
     }
 }
 
@@ -240,27 +253,152 @@ pub fn compare_version_desc(a: &str, b: &str) -> Ordering {
     }
 }
 
-/// Collapse version rows into one row per item (highest semver wins).
-pub fn group_items_latest(rows: Vec<ItemVersionRow>) -> Vec<ItemVersionRow> {
-    let mut best: BTreeMap<(String, String, String), ItemVersionRow> = BTreeMap::new();
-    for row in rows {
-        let key = (
-            row.publisher_id.clone(),
-            row.item_type.clone(),
-            row.item_id.clone(),
-        );
-        match best.get(&key) {
-            None => {
-                best.insert(key, row);
+/// A text key whose byte order is the version order of [`compare_version_desc`] (ascending key,
+/// older version), so the database can pick an item's newest version itself.
+///
+/// Valid semver is `1`, the zero-padded major, minor and patch, then the pre-release: `~` for a
+/// release (above any pre-release), else its identifiers joined by `!`, each `0<len><digits>`
+/// when numeric (numeric identifiers rank below alphanumeric ones) or `1<ident>`. Build metadata
+/// follows after a space, as a tie-break only. `!` and the space sort below every character an
+/// identifier can hold, so a shorter identifier list ranks first, as semver requires.
+/// Anything else is `0` followed by the raw string, below every valid version.
+pub fn version_order_key(version: &str) -> String {
+    let Ok(parsed) = semver::Version::parse(version) else {
+        return format!("0{version}");
+    };
+    let mut key = format!(
+        "1{:020}{:020}{:020}",
+        parsed.major, parsed.minor, parsed.patch
+    );
+    if parsed.pre.is_empty() {
+        key.push('~');
+    } else {
+        for (i, ident) in parsed.pre.as_str().split('.').enumerate() {
+            if i > 0 {
+                key.push('!');
             }
-            Some(existing) => {
-                if compare_version_desc(&row.version, &existing.version) == Ordering::Less {
-                    best.insert(key, row);
-                }
+            if !ident.is_empty() && ident.bytes().all(|b| b.is_ascii_digit()) {
+                key.push_str(&format!("0{:04}{ident}", ident.len()));
+            } else {
+                key.push('1');
+                key.push_str(ident);
             }
         }
     }
-    best.into_values().collect()
+    if !parsed.build.is_empty() {
+        key.push(' ');
+        key.push_str(parsed.build.as_str());
+    }
+    key
+}
+
+/// The listing keys stored beside a row: `(version_order, name_lower, description_lower)`.
+/// Lowercasing happens here rather than in SQL so search and name sorting treat non-ASCII text
+/// the same on every backend.
+pub fn list_keys(version: &str, name: &str, description: &str) -> (String, String, String) {
+    (
+        version_order_key(version),
+        name.to_lowercase(),
+        description.to_lowercase(),
+    )
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Dialect {
+    Sqlite,
+    Postgres,
+}
+
+/// The SQL for [`CatalogStore::list_latest_items`]: a count statement and a page statement that
+/// share the text arguments in `args`. The page statement takes two more, `LIMIT` and `OFFSET`.
+struct LatestItemsSql {
+    count: String,
+    page: String,
+    args: Vec<String>,
+}
+
+fn latest_items_sql(filter: &ItemListFilter, dialect: Dialect) -> LatestItemsSql {
+    let mut args: Vec<String> = Vec::new();
+    let mut arg = |value: &str| {
+        args.push(value.to_string());
+        match dialect {
+            Dialect::Sqlite => "?".to_string(),
+            Dialect::Postgres => format!("${}", args.len()),
+        }
+    };
+    // Postgres compares text by the database locale unless told otherwise; byte order matches
+    // SQLite and Rust's `String` ordering.
+    let collate = match dialect {
+        Dialect::Sqlite => "",
+        Dialect::Postgres => r#" COLLATE "C""#,
+    };
+
+    let mut version_filter = String::new();
+    if let Some(publisher_id) = &filter.publisher_id {
+        version_filter.push_str(&format!(" AND publisher_id = {}", arg(publisher_id)));
+    }
+    if !filter.item_types.is_empty() {
+        let placeholders: Vec<String> = filter.item_types.iter().map(|t| arg(t)).collect();
+        version_filter.push_str(&format!(" AND item_type IN ({})", placeholders.join(", ")));
+    }
+
+    let mut item_filter = String::new();
+    if let Some(needle) = &filter.needle {
+        let contains: Vec<String> = [
+            "name_lower",
+            "description_lower",
+            "lower(item_id)",
+            "lower(publisher_id)",
+        ]
+        .iter()
+        .map(|column| {
+            let p = arg(needle);
+            match dialect {
+                Dialect::Sqlite => format!("instr({column}, {p}) > 0"),
+                Dialect::Postgres => format!("strpos({column}, {p}) > 0"),
+            }
+        })
+        .collect();
+        item_filter.push_str(&format!(" AND ({})", contains.join(" OR ")));
+    }
+
+    let ranked = format!(
+        r#"
+        WITH ranked AS (
+            SELECT publisher_id, item_type, item_id, version, name, description, author,
+                min_app_version, size_bytes, sha256, storage_key, preview_storage_key,
+                published_at, yanked_at, name_lower, description_lower,
+                ROW_NUMBER() OVER (
+                    PARTITION BY publisher_id, item_type, item_id
+                    ORDER BY version_order{collate} DESC
+                ) AS version_rank
+            FROM item_versions
+            WHERE yanked_at IS NULL{version_filter}
+        )
+        "#
+    );
+    let name = format!("name_lower{collate}");
+    let effective_id = format!("(publisher_id || '.' || item_type || '.' || item_id){collate}");
+    let order_by = match filter.sort {
+        ItemSort::Name => format!("{name} ASC, {effective_id} ASC"),
+        ItemSort::NameDesc => format!("{name} DESC, {effective_id} DESC"),
+        ItemSort::Newest => format!("published_at DESC, {name} ASC, {effective_id} ASC"),
+        ItemSort::Oldest => format!("published_at ASC, {name} ASC, {effective_id} ASC"),
+    };
+
+    let count = format!("{ranked} SELECT COUNT(*) FROM ranked WHERE version_rank = 1{item_filter}");
+    let (limit, offset) = match dialect {
+        Dialect::Sqlite => ("?".to_string(), "?".to_string()),
+        Dialect::Postgres => (
+            format!("${}", args.len() + 1),
+            format!("${}", args.len() + 2),
+        ),
+    };
+    let page = format!(
+        "{ranked} SELECT {ITEM_SUMMARY_COLUMNS} FROM ranked WHERE version_rank = 1{item_filter} \
+         ORDER BY {order_by} LIMIT {limit} OFFSET {offset}"
+    );
+    LatestItemsSql { count, page, args }
 }
 
 /// Helper for tests: build a row with placeholder content.
@@ -293,5 +431,44 @@ pub fn item_version_row(
         changelog: None,
         published_at,
         yanked_at,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn version_order_key_sorts_like_semver() {
+        let versions = [
+            "2.0.0",
+            "1.10.0",
+            "1.2.0",
+            "1.0.0+build",
+            "1.0.0",
+            "1.0.0-rc.1",
+            "1.0.0-beta.11",
+            "1.0.0-beta.2",
+            "1.0.0-beta",
+            "1.0.0-alpha.beta",
+            "1.0.0-alpha.1",
+            "1.0.0-alpha",
+            "1.0.0-a-b",
+            "1.0.0-a.x",
+            "1.0.0-a",
+            "1.0.0-10",
+            "1.0.0-9",
+            "0.0.0",
+            "not-semver",
+            "01.0.0",
+        ];
+        let mut by_semver = versions.to_vec();
+        by_semver.reverse();
+        by_semver.sort_by(|a, b| compare_version_desc(a, b));
+        let mut by_key = versions.to_vec();
+        by_key.reverse();
+        by_key.sort_by_key(|v| std::cmp::Reverse(version_order_key(v)));
+        assert_eq!(by_key, by_semver);
+        assert_eq!(by_semver, versions);
     }
 }

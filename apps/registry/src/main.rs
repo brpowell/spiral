@@ -43,6 +43,13 @@ async fn main() -> Result<()> {
     if migrate_only {
         return Ok(());
     }
+    // Migrating backfills the listing keys, but rows written by an older release during a
+    // rolling deploy, or a database migrated separately, can still lack them.
+    match db.backfill_list_keys().await {
+        Ok(0) => {}
+        Ok(n) => tracing::info!(rows = n, "backfilled catalog listing keys"),
+        Err(e) => tracing::warn!(error = %e, "could not backfill catalog listing keys"),
+    }
     let storage = build_storage(&config.storage)?;
 
     let state = AppState {

@@ -18,8 +18,10 @@ pub const DEFAULT_ADMIN_PATH: &str = "/admin";
 /// Default max `.spk` upload size (50 MiB).
 pub const DEFAULT_MAX_UPLOAD_BYTES: u64 = 50 * 1024 * 1024;
 
-/// Default trusted proxy header for client IP (Fly today; override via `CLIENT_IP_HEADER`).
-pub const DEFAULT_CLIENT_IP_HEADER: &str = "fly-client-ip";
+/// Default trusted proxy header for client IP: none, so the peer address is used. A header is
+/// only trustworthy behind a proxy that always sets it, so deployments opt in with
+/// `CLIENT_IP_HEADER` (the Fly config sets `fly-client-ip`).
+pub const DEFAULT_CLIENT_IP_HEADER: &str = "";
 
 /// Minimum `ADMIN_TOKEN` length when admin is enabled (empty still disables writes).
 const MIN_ADMIN_TOKEN_BYTES: usize = 32;

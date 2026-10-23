@@ -54,6 +54,7 @@ pub fn validate_item_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError
     let result = (|| {
         let item_dir = find_item_root(&extract_dir).map_err(PublishError::invalid)?;
         let item = validate_item_dir(&item_dir).map_err(PublishError::invalid)?;
+        check_registry_version(&item.version)?;
 
         let size_bytes = directory_size_bytes(&item_dir)? as i64;
         if size_bytes <= 0 {
@@ -63,8 +64,13 @@ pub fn validate_item_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError
             )));
         }
 
-        let storage_key =
-            item_storage_key(&item.publisher_id, &item.item_type, &item.id, &item.version);
+        let storage_key = item_storage_key(
+            &item.publisher_id,
+            &item.item_type,
+            &item.id,
+            &item.version,
+            &sha256,
+        );
 
         // `validate_item_dir` already checked a declared preview exists and has a safe path.
         let (preview_bytes, preview_key) =
@@ -76,6 +82,7 @@ pub fn validate_item_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError
                         &item.item_type,
                         &item.id,
                         &item.version,
+                        &sha256,
                         &ext,
                     )),
                 ),
@@ -111,6 +118,22 @@ pub fn validate_item_bytes(bytes: &[u8]) -> Result<ValidatedUpload, PublishError
 
     cleanup_extract_dir(&extract_dir);
     result
+}
+
+/// The registry is stricter than the `.spk` format about versions: it needs a strict semver it
+/// can order, and refuses build metadata, which semver ignores for precedence. Allowing it would
+/// let `1.0.0` and `1.0.0+build` coexist as two different versions of the same release.
+fn check_registry_version(version: &str) -> Result<(), PublishError> {
+    let parsed = semver::Version::parse(version).map_err(|e| {
+        PublishError::invalid(format!("version \"{version}\" is not a valid semver: {e}"))
+    })?;
+    if !parsed.build.is_empty() {
+        return Err(PublishError::invalid(format!(
+            "version \"{version}\" has build metadata (\"+{}\"), which the registry does not accept",
+            parsed.build
+        )));
+    }
+    Ok(())
 }
 
 /// Total size of all regular files under `root` (does not follow symlinks).
@@ -182,4 +205,19 @@ fn read_optional_item_text(
         return Ok(None);
     }
     Ok(Some(contents))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn registry_version_rejects_build_metadata_and_loose_semver() {
+        check_registry_version("1.0.0").unwrap();
+        check_registry_version("1.0.0-beta.1").unwrap();
+        for bad in ["1.0.0+build.5", "1.0.0-rc.1+x", "01.0.0", "1.0.0-a..b"] {
+            let err = check_registry_version(bad).unwrap_err();
+            assert!(err.to_string().contains(bad), "{bad}: {err}");
+        }
+    }
 }

@@ -833,6 +833,93 @@ async fn upload_duplicate_version_conflicts() {
     assert_eq!(body["code"], "conflict");
 }
 
+/// Copy a fixture into a temp dir and rewrite its `theme.json` with `edit`.
+fn edited_theme_fixture(edit: impl FnOnce(&mut Value)) -> TempDir {
+    fn copy_dir(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for entry in std::fs::read_dir(from).unwrap() {
+            let entry = entry.unwrap();
+            let target = to.join(entry.file_name());
+            if entry.path().is_dir() {
+                copy_dir(&entry.path(), &target);
+            } else {
+                std::fs::copy(entry.path(), target).unwrap();
+            }
+        }
+    }
+    let dir = TempDir::new().unwrap();
+    copy_dir(&fixture_dir("demo-theme"), dir.path());
+    let manifest = dir.path().join("theme.json");
+    let mut value: Value = serde_json::from_slice(&std::fs::read(&manifest).unwrap()).unwrap();
+    edit(&mut value);
+    std::fs::write(&manifest, serde_json::to_vec(&value).unwrap()).unwrap();
+    dir
+}
+
+async fn get_bytes(app: &axum::Router, uri: &str) -> (StatusCode, Vec<u8>) {
+    let response = app
+        .clone()
+        .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    (status, bytes.to_vec())
+}
+
+#[tokio::test]
+async fn reuploading_a_version_never_touches_the_published_objects() {
+    let (app, _tmp, _) = test_app().await;
+    let original = zip_dir_to_bytes(&fixture_dir("demo-theme"));
+    let (status, body) = admin_upload(&app, &original).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let sha = body["sha256"].as_str().unwrap().to_string();
+    let download = "/v1/items/spiral/theme/demo-theme/versions/1.0.0/download";
+    let preview = "/v1/items/spiral/theme/demo-theme/versions/1.0.0/preview";
+    let (_, original_preview) = get_bytes(&app, preview).await;
+    assert!(original_preview.starts_with(b"\x89PNG"));
+
+    // The same bytes again, and different bytes under the same version.
+    let changed_dir = edited_theme_fixture(|v| v["description"] = "Replaced".into());
+    std::fs::write(
+        changed_dir.path().join("preview.png"),
+        b"\x89PNG not the original",
+    )
+    .unwrap();
+    let changed = zip_dir_to_bytes(changed_dir.path());
+    assert_ne!(changed, original);
+
+    for attempt in [&original, &changed] {
+        let (status, body) = admin_upload(&app, attempt).await;
+        assert_eq!(status, StatusCode::CONFLICT, "{body}");
+
+        let (status, bytes) = get_bytes(&app, download).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(bytes, original, "the published archive must be unchanged");
+        let (status, bytes) = get_bytes(&app, preview).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            bytes, original_preview,
+            "the published preview must be unchanged"
+        );
+        let (_, detail) = json_get(&app, "/v1/items/spiral/theme/demo-theme/versions/1.0.0").await;
+        assert_eq!(detail["sha256"], sha.as_str());
+    }
+}
+
+#[tokio::test]
+async fn upload_rejects_build_metadata_versions() {
+    let (app, _tmp, _) = test_app().await;
+    let dir = edited_theme_fixture(|v| v["version"] = "1.0.0+build.7".into());
+    let (status, body) = admin_upload(&app, &zip_dir_to_bytes(dir.path())).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["code"], "invalid_item");
+    assert!(
+        body["message"].as_str().unwrap().contains("build metadata"),
+        "{body}"
+    );
+}
+
 #[tokio::test]
 async fn upload_rejects_oversized_body() {
     let (app, _tmp, _) = test_app().await;
@@ -942,8 +1029,12 @@ async fn unyank_restores_version_to_catalog() {
 async fn purge_deletes_object_returns_410_and_writes_audit_log() {
     let (app, _tmp, storage) = test_app().await;
     let spk = zip_dir_to_bytes(&fixture_dir("demo-theme"));
-    let (status, _) = admin_upload(&app, &spk).await;
+    let (status, uploaded) = admin_upload(&app, &spk).await;
     assert_eq!(status, StatusCode::OK);
+    let key = format!(
+        "spiral/theme/demo-theme/1.0.0/{}/item.spk",
+        uploaded["sha256"].as_str().unwrap()
+    );
 
     let (status, body) = admin_json(
         &app,
@@ -977,18 +1068,19 @@ async fn purge_deletes_object_returns_410_and_writes_audit_log() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::GONE);
 
-    assert!(storage
-        .get_download_url("spiral/theme/demo-theme/1.0.0/item.spk")
-        .await
-        .is_err());
+    assert!(storage.get_download_url(&key).await.is_err());
 }
 
 #[tokio::test]
 async fn purge_without_matching_confirm_is_noop() {
     let (app, _tmp, storage) = test_app().await;
     let spk = zip_dir_to_bytes(&fixture_dir("demo-theme"));
-    let (status, _) = admin_upload(&app, &spk).await;
+    let (status, uploaded) = admin_upload(&app, &spk).await;
     assert_eq!(status, StatusCode::OK);
+    let key = format!(
+        "spiral/theme/demo-theme/1.0.0/{}/item.spk",
+        uploaded["sha256"].as_str().unwrap()
+    );
 
     let (status, body) = admin_json(
         &app,
@@ -1006,10 +1098,7 @@ async fn purge_without_matching_confirm_is_noop() {
     let (status, detail) = json_get(&app, "/v1/items/spiral/theme/demo-theme/versions/1.0.0").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(detail["version"], "1.0.0");
-    assert!(storage
-        .get_download_url("spiral/theme/demo-theme/1.0.0/item.spk")
-        .await
-        .is_ok());
+    assert!(storage.get_download_url(&key).await.is_ok());
 }
 
 #[tokio::test]
@@ -1195,6 +1284,44 @@ async fn download_concurrency_is_per_ip() {
         .await
         .unwrap();
     assert_eq!(other_ip.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn downloads_have_a_per_minute_quota_keyed_by_ipv6_64() {
+    let (app, _tmp, _) = test_app().await;
+    let uri = "/v1/items/spiral/skin/demo-skin/versions/1.1.0/download";
+    let download = |ip: String| {
+        let app = app.clone();
+        async move {
+            let response = app
+                .oneshot(
+                    Request::builder()
+                        .uri(uri)
+                        .header("x-client-ip", ip)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let status = response.status();
+            let retry_after = response.headers().get("retry-after").cloned();
+            // Drop the body so the concurrency slot is released.
+            drop(response);
+            (status, retry_after)
+        }
+    };
+
+    // Every request from a different address, all inside one /64.
+    for i in 0..spk_registry::api::DOWNLOAD_REQUESTS_PER_MINUTE {
+        let (status, _) = download(format!("2001:db8:5:6::{:x}", i + 1)).await;
+        assert_eq!(status, StatusCode::OK, "download {i}");
+    }
+    let (status, retry_after) = download("2001:db8:5:6:ffff::1".into()).await;
+    assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+    assert!(retry_after.is_some());
+
+    let (status, _) = download("2001:db8:5:7::1".into()).await;
+    assert_eq!(status, StatusCode::OK, "another /64 has its own quota");
 }
 
 async fn get_text(app: &axum::Router, uri: &str) -> (StatusCode, String, Option<String>) {

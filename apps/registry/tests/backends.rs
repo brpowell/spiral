@@ -7,7 +7,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Duration, SubsecRound, Utc};
 use spk_registry::db::{self, item_version_row, CatalogStore, DbOptions, InsertItemError};
-use spk_registry::models::{AuditEntry, AuditQuery, ItemVersionRow, TakedownLogRow};
+use spk_registry::models::{
+    AuditEntry, AuditQuery, ItemListFilter, ItemSort, ItemVersionRow, TakedownLogRow,
+};
 use tempfile::TempDir;
 
 fn unique(label: &str) -> String {
@@ -139,37 +141,77 @@ async fn run_contract(store: &dyn CatalogStore) {
     assert_eq!(got.preview_storage_key, full.preview_storage_key);
     assert_eq!(got.readme.as_deref(), Some("# Grove"));
     assert_eq!(got.changelog.as_deref(), Some("- first"));
+    let latest_full = store
+        .get_latest_published_version(&publisher, "skin", other_item)
+        .await
+        .unwrap()
+        .expect("latest");
+    assert_eq!(
+        latest_full.readme.as_deref(),
+        Some("# Grove"),
+        "latest has every column"
+    );
     assert_eq!(got.size_bytes, 100);
     assert_eq!(got.sha256, "a".repeat(64));
     assert_eq!(got.storage_key, full.storage_key);
     assert_eq!(got.published_at, now);
     assert!(got.yanked_at.is_none());
 
-    // --- filters by publisher and type
-    let all = store
-        .list_published_versions(Some(&publisher), None)
+    // --- latest-per-item listing, filtered, sorted and paged in the database
+    let list =
+        |publisher_id: Option<String>, item_types: &[&str], needle: Option<&str>| ItemListFilter {
+            publisher_id,
+            item_types: item_types.iter().map(|t| t.to_string()).collect(),
+            needle: needle.map(str::to_string),
+            sort: ItemSort::Name,
+            limit: 50,
+            offset: 0,
+        };
+    let (all, total) = store
+        .list_latest_items(&list(Some(publisher.clone()), &[], None))
         .await
         .unwrap();
-    assert_eq!(all.len(), 4);
-    let skins = store
-        .list_published_versions(Some(&publisher), Some("skin"))
+    assert_eq!(total, 2);
+    // Name order: "Grove" before "noir"; noir's newest is 1.10.0 by semver, not by string.
+    assert_eq!(versions(&all), vec!["2.0.0", "1.10.0"]);
+    assert!(all
+        .iter()
+        .all(|r| r.readme.is_none() && r.changelog.is_none()));
+    let (skins, _) = store
+        .list_latest_items(&list(Some(publisher.clone()), &["skin"], None))
         .await
         .unwrap();
     assert_eq!(versions(&skins), vec!["2.0.0"]);
-    let none = store
-        .list_published_versions(Some(&unique("nobody")), None)
+    let (both, _) = store
+        .list_latest_items(&list(Some(publisher.clone()), &["skin", "theme"], None))
+        .await
+        .unwrap();
+    assert_eq!(both.len(), 2);
+    let (calm, _) = store
+        .list_latest_items(&list(Some(publisher.clone()), &[], Some("calm")))
+        .await
+        .unwrap();
+    assert_eq!(versions(&calm), vec!["2.0.0"]);
+    let (by_publisher, total) = store
+        .list_latest_items(&list(None, &[], Some(&publisher)))
+        .await
+        .unwrap();
+    assert_eq!((by_publisher.len(), total), (2, 2));
+    let (none, total) = store
+        .list_latest_items(&list(Some(unique("nobody")), &[], None))
         .await
         .unwrap();
     assert!(none.is_empty());
-    // Unfiltered listing includes ours (other tests' rows may be there too).
-    let everything = store.list_published_versions(None, None).await.unwrap();
-    assert!(
-        everything
-            .iter()
-            .filter(|r| r.publisher_id == publisher)
-            .count()
-            == 4
-    );
+    assert_eq!(total, 0);
+    let mut filter = list(Some(publisher.clone()), &[], None);
+    filter.sort = ItemSort::NameDesc;
+    filter.limit = 1;
+    filter.offset = 1;
+    let (page, total) = store.list_latest_items(&filter).await.unwrap();
+    assert_eq!((versions(&page), total), (vec!["2.0.0"], 2));
+    filter.offset = 5;
+    let (page, total) = store.list_latest_items(&filter).await.unwrap();
+    assert_eq!((page.len(), total), (0, 2));
 
     // --- yank / unyank
     assert!(store
@@ -204,6 +246,15 @@ async fn run_contract(store: &dyn CatalogStore) {
         .unwrap()
         .unwrap();
     assert_eq!(latest.version, "1.2.0", "latest skips yanked versions");
+    let (listed, _) = store
+        .list_latest_items(&list(Some(publisher.clone()), &["theme"], None))
+        .await
+        .unwrap();
+    assert_eq!(
+        versions(&listed),
+        vec!["1.2.0"],
+        "listing skips yanked versions"
+    );
     let admin = store.list_all_versions().await.unwrap();
     assert!(admin
         .iter()
