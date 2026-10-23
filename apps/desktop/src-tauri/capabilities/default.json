@@ -5,7 +5,6 @@
   "windows": ["main", "skin-mode", "skin-aux-*", "appearance", "equalizer", "activity-logs", "about", "toast-lab", "sound-lab"],
   "permissions": [
     "core:default",
-    "core:webview:allow-create-webview-window",
     "core:window:allow-destroy",
     "core:window:allow-show",
     "core:window:allow-hide",
@@ -44,26 +43,6 @@
     "opener:default",
     "dialog:allow-ask",
     "dialog:allow-message",
-    {
-      "identifier": "opener:allow-open-path",
-      "allow": [
-        { "path": "$APPDATA/packs/**" },
-        { "path": "$RESOURCE/packs/**" },
-        { "path": "$HOME/**/packs/**" },
-        { "path": "$HOME/**" }
-      ]
-    },
-    "fs:default",
-    {
-      "identifier": "fs:allow-read-file",
-      "allow": [
-        { "path": "$HOME/**/*" },
-        { "path": "$MUSIC/**/*" },
-        { "path": "$AUDIO/**/*" },
-        { "path": "$DOWNLOAD/**/*" },
-        { "path": "$DESKTOP/**/*" }
-      ]
-    },
     "updater:default",
     "process:allow-restart"
   ]

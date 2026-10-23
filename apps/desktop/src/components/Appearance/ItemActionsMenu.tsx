@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { updateItemMetadataWithRefresh } from "../../lib/items/itemActions";
 import { revealInFileManagerLabel } from "../../lib/fileManager";
-import { listItems, openPathInFileManager } from "../../lib/tauri";
+import { listItems, revealItemFolder } from "../../lib/tauri";
 import type { ItemSummary, ItemType } from "../../types/item";
 import { isEditablePackZone, type PackZone } from "../../types/pack";
 import {
@@ -84,7 +84,7 @@ export function ItemActionsMenu({
 
   const revealItem = async () => {
     const found = await resolveItem(item.effectiveId);
-    if (found) await openPathInFileManager(found.dir);
+    if (found) await revealItemFolder(found.dir);
   };
 
   const openEdit = async () => {

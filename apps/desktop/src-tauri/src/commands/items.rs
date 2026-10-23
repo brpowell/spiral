@@ -22,6 +22,24 @@ use tauri::AppHandle;
 /// Resolve `dir` only if it is an item directory directly under
 /// `<zone root>/<type folder>/`, or an absolute path listed in `linkedItemPaths`.
 fn resolve_known_item_dir(app: &AppHandle, dir: &str) -> Result<PathBuf, String> {
+    let mut roots: Vec<PathBuf> = Vec::with_capacity(2);
+    roots.push(builtin_packs_root(app));
+    if let Ok(installed) = installed_packs_root(app) {
+        roots.push(installed);
+    }
+    let linked: Vec<PathBuf> = settings::read_settings(app)
+        .linked_item_paths
+        .iter()
+        .map(|raw| PathBuf::from(raw.trim()))
+        .collect();
+    resolve_item_dir_in(dir, &roots, &linked)
+}
+
+fn resolve_item_dir_in(
+    dir: &str,
+    roots: &[PathBuf],
+    linked: &[PathBuf],
+) -> Result<PathBuf, String> {
     let trimmed = dir.trim();
     if trimmed.is_empty() {
         return Err("item directory is required".into());
@@ -36,12 +54,6 @@ fn resolve_known_item_dir(app: &AppHandle, dir: &str) -> Result<PathBuf, String>
 
     if detect_item_type(&canonical).is_err() {
         return Err("directory does not contain an item manifest".into());
-    }
-
-    let mut roots: Vec<PathBuf> = Vec::with_capacity(2);
-    roots.push(builtin_packs_root(app));
-    if let Ok(installed) = installed_packs_root(app) {
-        roots.push(installed);
     }
 
     for root in roots {
@@ -63,8 +75,7 @@ fn resolve_known_item_dir(app: &AppHandle, dir: &str) -> Result<PathBuf, String>
     }
 
     // Linked items: exact match against settings paths (canonicalized).
-    for raw in settings::read_settings(app).linked_item_paths {
-        let linked = PathBuf::from(raw.trim());
+    for linked in linked {
         let Ok(linked_canon) = linked.canonicalize() else {
             continue;
         };
@@ -74,6 +85,14 @@ fn resolve_known_item_dir(app: &AppHandle, dir: &str) -> Result<PathBuf, String>
     }
 
     Err("item directory is outside known roots".into())
+}
+
+/// The manifest file inside an item directory, for revealing the folder.
+fn item_manifest_path(dir: &Path) -> Result<PathBuf, String> {
+    let item_type = detect_item_type(dir)?;
+    let filename = item_manifest_filename(item_type)
+        .ok_or_else(|| format!("unknown item type \"{item_type}\""))?;
+    Ok(dir.join(filename))
 }
 
 fn paths_equal_canonical(a: &Path, b: &Path) -> bool {
@@ -151,6 +170,16 @@ pub fn default_new_item_location(
     Ok(default_new_item_dir(&app, &item_type, &name)?
         .to_string_lossy()
         .into_owned())
+}
+
+/// Show a known item's folder in the file manager. Reveals the manifest inside it
+/// rather than opening the folder, because opening a folder named like `foo.app`
+/// would launch it on macOS.
+#[tauri::command]
+pub fn reveal_item_folder(app: AppHandle, item_dir: String) -> Result<(), String> {
+    let dir = resolve_known_item_dir(&app, &item_dir)?;
+    let manifest = item_manifest_path(&dir)?;
+    tauri_plugin_opener::reveal_item_in_dir(&manifest).map_err(|e| e.to_string())
 }
 
 /// Pick a folder for a new item (native dialog). `None` when cancelled.
@@ -424,6 +453,7 @@ pub fn link_item_folder(app: AppHandle, path: Option<String>) -> Result<Option<S
 
     app_settings.linked_item_paths.push(normalized.clone());
     settings::write_settings(&app, &app_settings)?;
+    crate::path_scope::allow_dir(&app, Path::new(&normalized));
     Ok(Some(normalized))
 }
 
@@ -822,6 +852,55 @@ pub(crate) fn scaffold_item_dir(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn temp_root(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("spiral-items-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    #[test]
+    fn reveal_targets_the_manifest_inside_an_app_named_item_dir() {
+        let root = temp_root("reveal");
+        let installed = root.join("installed");
+        let item = installed.join("themes/foo.app");
+        fs::create_dir_all(&item).unwrap();
+        fs::write(item.join("theme.json"), b"{}").unwrap();
+
+        let dir = resolve_item_dir_in(item.to_str().unwrap(), &[installed], &[]).unwrap();
+        let manifest = item_manifest_path(&dir).unwrap();
+        assert_eq!(manifest.file_name().unwrap(), "theme.json");
+        assert_eq!(manifest.parent().unwrap(), dir.as_path());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn item_dir_outside_known_roots_is_rejected() {
+        let root = temp_root("unknown");
+        let installed = root.join("installed");
+        fs::create_dir_all(installed.join("themes")).unwrap();
+        let stray = root.join("Downloads/themes/evil.app");
+        fs::create_dir_all(&stray).unwrap();
+        fs::write(stray.join("theme.json"), b"{}").unwrap();
+
+        assert!(resolve_item_dir_in(
+            stray.to_str().unwrap(),
+            std::slice::from_ref(&installed),
+            &[]
+        )
+        .is_err());
+        // Linked folders match exactly.
+        assert!(resolve_item_dir_in(
+            stray.to_str().unwrap(),
+            &[installed],
+            std::slice::from_ref(&stray)
+        )
+        .is_ok());
+
+        let _ = fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn new_item_slug_falls_back_to_the_type_for_blank_names() {

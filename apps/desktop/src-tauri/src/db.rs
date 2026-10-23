@@ -817,6 +817,15 @@ pub fn reorder_playlists(conn: &Connection, playlist_ids: &[i64]) -> Result<(), 
     Ok(())
 }
 
+/// Whether a track row points at `file_path`.
+pub fn has_track_file_path(conn: &Connection, file_path: &str) -> Result<bool, rusqlite::Error> {
+    conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM tracks WHERE file_path = ?1)",
+        params![file_path],
+        |row| row.get(0),
+    )
+}
+
 pub fn list_file_paths(conn: &Connection) -> Result<Vec<String>, rusqlite::Error> {
     let mut stmt = conn.prepare("SELECT file_path FROM tracks")?;
     let paths = stmt

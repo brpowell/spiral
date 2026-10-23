@@ -1,5 +1,5 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { ItemSummary, ItemType } from "../types/item";
 import type { SoundPackSummary } from "../types/soundPack";
 import type {
@@ -1167,9 +1167,13 @@ export async function revealPathInFileManager(path: string): Promise<void> {
   await revealItemInDir(path);
 }
 
-/** Open a path with the system default app (directories open in the file manager). */
-export async function openPathInFileManager(path: string): Promise<void> {
-  await openPath(path);
+/**
+ * Show an item's folder in the file manager. Only folders of known items are
+ * accepted, and the folder is revealed rather than opened, so an item folder
+ * named like `foo.app` is never launched.
+ */
+export async function revealItemFolder(itemDir: string): Promise<void> {
+  await invoke<void>("reveal_item_folder", { itemDir });
 }
 
 export async function listSkins(): Promise<SkinSummary[]> {

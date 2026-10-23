@@ -79,10 +79,20 @@ pub fn cleanup_zip_import_path(extract_dir: &str) -> Result<(), String> {
     }
 
     let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let refuse = || format!("Refusing to delete non-import directory: {extract_dir}");
     if !file_name.starts_with("spiral-zip-import-") {
-        return Err(format!(
-            "Refusing to delete non-import directory: {extract_dir}"
-        ));
+        return Err(refuse());
+    }
+    // Only folders `scan_zip_import_path` makes: directly inside the system temp dir.
+    let parent = path
+        .parent()
+        .and_then(|p| p.canonicalize().ok())
+        .ok_or_else(refuse)?;
+    let temp = std::env::temp_dir()
+        .canonicalize()
+        .map_err(|e| format!("failed to resolve temp directory: {e}"))?;
+    if parent != temp {
+        return Err(refuse());
     }
 
     fs::remove_dir_all(path).map_err(|e| format!("failed to remove zip extract directory: {e}"))
@@ -160,6 +170,28 @@ mod tests {
         assert!(err.contains("invalid path"));
 
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cleanup_refuses_import_named_dir_outside_temp() {
+        let outer = std::env::temp_dir().join(format!("spiral-zip-outer-{}", std::process::id()));
+        let decoy = outer.join("spiral-zip-import-decoy");
+        fs::create_dir_all(&decoy).unwrap();
+
+        assert!(cleanup_zip_import_path(decoy.to_str().unwrap()).is_err());
+        assert!(decoy.is_dir());
+
+        let _ = fs::remove_dir_all(&outer);
+    }
+
+    #[test]
+    fn cleanup_removes_import_dir_in_temp() {
+        let dir =
+            std::env::temp_dir().join(format!("spiral-zip-import-test-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+
+        cleanup_zip_import_path(dir.to_str().unwrap()).unwrap();
+        assert!(!dir.exists());
     }
 
     #[test]
