@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { VIZ_WORKER_CSP } from "./src/components/visualizer/sandbox/workerCsp";
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -14,9 +15,32 @@ function stripMjsShebang(): Plugin {
   };
 }
 
+/**
+ * Serve the visualizer worker with its own CSP under `tauri dev`, as
+ * `src-tauri/src/viz_worker_csp.rs` does for packaged builds. The worker
+ * refuses to run pack code without it.
+ */
+function vizWorkerCsp(): Plugin {
+  return {
+    name: "viz-worker-csp",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const [path, query = ""] = (req.url ?? "").split("?", 2);
+        if (
+          path?.endsWith("/visualizer/sandbox/vizRenderer.worker.ts") &&
+          new URLSearchParams(query).has("worker_file")
+        ) {
+          res.setHeader("Content-Security-Policy", VIZ_WORKER_CSP);
+        }
+        next();
+      });
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [react(), stripMjsShebang()],
+  plugins: [react(), stripMjsShebang(), vizWorkerCsp()],
   // Expose SPIRAL_* (e.g. SPIRAL_ENABLE_UPDATER) alongside default VITE_*.
   envPrefix: ["VITE_", "SPIRAL_"],
   test: {

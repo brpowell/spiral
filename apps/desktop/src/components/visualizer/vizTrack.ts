@@ -99,8 +99,20 @@ export interface VizTrackCredit {
 }
 
 const imageIds = new WeakMap<ImageBitmap, string>();
+/**
+ * Image source (a file path) → the opaque id sent to the worker. Pack code can
+ * observe raw worker messages, so paths never go on the wire. One entry per
+ * distinct image path seen this session.
+ */
+const opaqueImageIds = new Map<string, string>();
 
-export function registerVizImage(id: string, bitmap: ImageBitmap): void {
+/** Register a decoded track image under its source key (a file path). */
+export function registerVizImage(key: string, bitmap: ImageBitmap): void {
+  let id = opaqueImageIds.get(key);
+  if (id === undefined) {
+    id = `img-${opaqueImageIds.size + 1}`;
+    opaqueImageIds.set(key, id);
+  }
   imageIds.set(bitmap, id);
 }
 
@@ -154,7 +166,7 @@ export function vizTrackBodiesEqual(
 
 /**
  * Split a track into the per-frame wire payload and any bitmaps the worker
- * has not been given yet. Bitmap ids are file paths registered at decode time.
+ * has not been given yet. Bitmap ids are opaque tokens assigned at decode time.
  */
 export function splitVizTrack(track: VizFrameTrack): {
   wire: VizTrackWire;

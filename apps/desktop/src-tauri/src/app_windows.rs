@@ -246,7 +246,8 @@ pub async fn create_skin_aux_window(
             .transparent(true)
             .shadow(false)
             .disable_drag_drop_handler()
-            .accept_first_mouse(true);
+            .accept_first_mouse(true)
+            .on_web_resource_request(crate::viz_worker_csp::apply);
         if let (Some(max_width), Some(max_height)) = (max_width, max_height) {
             builder = builder.max_inner_size(max_width, max_height);
         }
@@ -321,7 +322,8 @@ fn create_window(app: &AppHandle, label: &str) -> Result<(), String> {
         .title(spec.title)
         .inner_size(spec.width, spec.height)
         .visible(spec.visible)
-        .resizable(spec.resizable);
+        .resizable(spec.resizable)
+        .on_web_resource_request(crate::viz_worker_csp::apply);
 
     // Transparent skin windows must not get an opaque backdrop.
     if !spec.transparent {

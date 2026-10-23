@@ -69,6 +69,7 @@ pub mod tag_inspector;
 mod test_fixtures;
 mod track_list_prefs;
 mod transcoder;
+mod viz_worker_csp;
 mod vorbis_container;
 mod wikimedia_http;
 pub mod wms_import;
