@@ -72,16 +72,25 @@ fn format_mib(bytes: u64) -> String {
     format!("{} MiB", bytes / (1024 * 1024))
 }
 
+/// How an extraction reports errors and treats archive contents.
+struct ExtractMode<'a> {
+    /// What errors call the archive, such as "pack archive" or "zip archive".
+    label: &'a str,
+    /// Drop `__MACOSX/`, `._*` and `.DS_Store` entries instead of writing them.
+    skip_apple_junk: bool,
+}
+
 /// Reject obviously hostile archives from the central directory alone, before
 /// decompressing anything. Declared sizes can lie, so extraction also enforces
 /// the byte budget on what is actually written.
 fn check_declared_limits<R: Read + std::io::Seek>(
     archive: &mut ZipArchive<R>,
     limits: &ExtractLimits,
+    label: &str,
 ) -> Result<(), String> {
     if archive.len() > limits.max_entries {
         return Err(format!(
-            "pack archive has too many entries ({}, max {})",
+            "{label} has too many entries ({}, max {})",
             archive.len(),
             limits.max_entries
         ));
@@ -92,14 +101,14 @@ fn check_declared_limits<R: Read + std::io::Seek>(
     for i in 0..archive.len() {
         let entry = archive
             .by_index_raw(i)
-            .map_err(|e| format!("failed to read pack archive entry {i}: {e}"))?;
+            .map_err(|e| format!("failed to read {label} entry {i}: {e}"))?;
         declared = declared.saturating_add(entry.size());
         compressed = compressed.saturating_add(entry.compressed_size());
     }
 
     if declared > limits.max_uncompressed_bytes {
         return Err(format!(
-            "pack archive expands to more than {} (declares {})",
+            "{label} expands to more than {} (declares {})",
             format_mib(limits.max_uncompressed_bytes),
             format_mib(declared)
         ));
@@ -109,7 +118,7 @@ fn check_declared_limits<R: Read + std::io::Seek>(
         let ratio = declared / compressed.max(1);
         if ratio > limits.max_compression_ratio {
             return Err(format!(
-                "pack archive compression ratio is too high ({ratio}:1, max {}:1)",
+                "{label} compression ratio is too high ({ratio}:1, max {}:1)",
                 limits.max_compression_ratio
             ));
         }
@@ -118,30 +127,34 @@ fn check_declared_limits<R: Read + std::io::Seek>(
     Ok(())
 }
 
-fn extract_zip_to(archive_path: &Path, dest: &Path, limits: &ExtractLimits) -> Result<(), String> {
-    let file = File::open(archive_path).map_err(|e| format!("failed to open pack archive: {e}"))?;
+fn extract_zip_to(
+    archive_path: &Path,
+    dest: &Path,
+    limits: &ExtractLimits,
+    mode: &ExtractMode,
+) -> Result<(), String> {
+    let label = mode.label;
+    let file = File::open(archive_path).map_err(|e| format!("failed to open {label}: {e}"))?;
     let mut archive =
-        ZipArchive::new(file).map_err(|e| format!("failed to read pack archive (bad zip): {e}"))?;
+        ZipArchive::new(file).map_err(|e| format!("failed to read {label} (bad zip): {e}"))?;
 
-    check_declared_limits(&mut archive, limits)?;
+    check_declared_limits(&mut archive, limits, label)?;
 
     let mut remaining = limits.max_uncompressed_bytes;
     for i in 0..archive.len() {
         let mut entry = archive
             .by_index(i)
-            .map_err(|e| format!("failed to read pack archive entry {i}: {e}"))?;
+            .map_err(|e| format!("failed to read {label} entry {i}: {e}"))?;
 
         let entry_name = entry
             .name()
             .map(|n| n.into_owned())
             .unwrap_or_else(|_| String::from_utf8_lossy(entry.name_raw()).into_owned());
         let Some(entry_path) = entry.enclosed_name().map(|p| p.to_owned()) else {
-            return Err(format!(
-                "pack archive entry has an invalid path: {entry_name}"
-            ));
+            return Err(format!("{label} entry has an invalid path: {entry_name}"));
         };
 
-        if is_apple_junk_path(&entry_path) {
+        if mode.skip_apple_junk && is_apple_junk_path(&entry_path) {
             continue;
         }
 
@@ -162,9 +175,10 @@ fn extract_zip_to(archive_path: &Path, dest: &Path, limits: &ExtractLimits) -> R
             })?;
         }
 
+        // Bound what is actually written, not just what the header claims. The zip
+        // reader also fails an entry that inflates past its declared size.
         let mut outfile = File::create(&outpath)
             .map_err(|e| format!("failed to create {}: {e}", outpath.display()))?;
-        // Bound what is actually written, not just what the header claims.
         let written = copy(
             &mut (&mut entry).take(remaining.saturating_add(1)),
             &mut outfile,
@@ -172,7 +186,7 @@ fn extract_zip_to(archive_path: &Path, dest: &Path, limits: &ExtractLimits) -> R
         .map_err(|e| format!("failed to extract {entry_name}: {e}"))?;
         if written > remaining {
             return Err(format!(
-                "pack archive expands to more than {}",
+                "{label} expands to more than {}",
                 format_mib(limits.max_uncompressed_bytes)
             ));
         }
@@ -180,6 +194,28 @@ fn extract_zip_to(archive_path: &Path, dest: &Path, limits: &ExtractLimits) -> R
     }
 
     Ok(())
+}
+
+/// Extract an arbitrary third-party zip (not a `.spk`) into `dest`, which must
+/// already exist, enforcing `limits` the same way `.spk` extraction does. Unlike
+/// `.spk` extraction it keeps every entry, macOS metadata included. `label` names
+/// the archive in errors, such as "zip archive" or "skin archive".
+/// On error `dest` may hold a partial extraction; the caller removes it.
+pub fn extract_zip_bounded(
+    archive_path: &Path,
+    dest: &Path,
+    limits: &ExtractLimits,
+    label: &str,
+) -> Result<(), String> {
+    extract_zip_to(
+        archive_path,
+        dest,
+        limits,
+        &ExtractMode {
+            label,
+            skip_apple_junk: false,
+        },
+    )
 }
 
 fn has_item_manifest(dir: &Path) -> bool {
@@ -251,7 +287,11 @@ pub fn extract_archive_with_limits(
     fs::create_dir_all(&extract_dir)
         .map_err(|e| format!("failed to create pack extract directory: {e}"))?;
 
-    if let Err(e) = extract_zip_to(archive_path, &extract_dir, limits) {
+    let mode = ExtractMode {
+        label: "pack archive",
+        skip_apple_junk: true,
+    };
+    if let Err(e) = extract_zip_to(archive_path, &extract_dir, limits, &mode) {
         let _ = fs::remove_dir_all(&extract_dir);
         return Err(e);
     }
@@ -368,6 +408,70 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    /// Patch every header so entries claim to be one byte long. Test data must not
+    /// contain a zip header signature.
+    fn understate_sizes(path: &Path) {
+        let mut bytes = fs::read(path).unwrap();
+        for (signature, offset) in [(b"PK\x03\x04", 22), (b"PK\x01\x02", 24)] {
+            let starts: Vec<usize> = bytes
+                .windows(4)
+                .enumerate()
+                .filter(|(_, w)| w == signature)
+                .map(|(i, _)| i)
+                .collect();
+            for start in starts {
+                bytes[start + offset..start + offset + 4].copy_from_slice(&1u32.to_le_bytes());
+            }
+        }
+        fs::write(path, bytes).unwrap();
+    }
+
+    #[test]
+    fn bounded_zip_rejects_entries_larger_than_declared() {
+        let dir = limits_dir("bounded-understated");
+        let zip = dir.join("liar.zip");
+        write_test_spk(&zip, &[("a.bin", &[b'A'; 4096])]);
+        understate_sizes(&zip);
+        let dest = dir.join("out");
+        fs::create_dir_all(&dest).unwrap();
+
+        // Declared-size checks pass; the zip reader stops the entry at its declared size.
+        let err =
+            extract_zip_bounded(&zip, &dest, &ExtractLimits::default(), "zip archive").unwrap_err();
+        assert!(err.contains("larger than its declared"), "{err}");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn bounded_zip_applies_limits_and_keeps_every_entry() {
+        let dir = limits_dir("bounded");
+        let zip = dir.join("album.zip");
+        write_test_spk(&zip, &[("a.mp3", b"1"), ("._a.mp3", b"2"), ("b.mp3", b"3")]);
+        let dest = dir.join("out");
+        fs::create_dir_all(&dest).unwrap();
+
+        extract_zip_bounded(&zip, &dest, &ExtractLimits::default(), "zip archive").unwrap();
+        assert!(dest.join("a.mp3").is_file());
+        assert!(dest.join("._a.mp3").is_file());
+
+        let limits = ExtractLimits {
+            max_entries: 2,
+            ..ExtractLimits::default()
+        };
+        let err = extract_zip_bounded(&zip, &dest, &limits, "zip archive").unwrap_err();
+        assert!(err.contains("zip archive has too many entries"), "{err}");
+
+        let zeros = dir.join("zeros.zip");
+        write_deflated_spk(&zeros, &[("zeros.bin", vec![0u8; 200 * 1024])]);
+        let limits = ExtractLimits {
+            ratio_check_min_bytes: 1024,
+            ..ExtractLimits::default()
+        };
+        let err = extract_zip_bounded(&zeros, &dest, &limits, "zip archive").unwrap_err();
+        assert!(err.contains("compression ratio"), "{err}");
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
