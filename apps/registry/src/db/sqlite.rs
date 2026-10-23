@@ -8,8 +8,13 @@ use chrono::{DateTime, Utc};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::SqlitePool;
 
-use super::{sort_by_semver_desc, CatalogStore, InsertItemError};
-use crate::models::{AuditEntry, AuditQuery, ItemVersionRow, TakedownLogRow, ITEM_VERSION_COLUMNS};
+use super::{
+    latest_items_sql, list_keys, sort_by_semver_desc, CatalogStore, Dialect, InsertItemError,
+};
+use crate::models::{
+    AuditEntry, AuditQuery, ItemListFilter, ItemVersionRow, TakedownLogRow, ITEM_SUMMARY_COLUMNS,
+    ITEM_VERSION_COLUMNS,
+};
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations/sqlite");
 
@@ -44,17 +49,21 @@ impl CatalogStore for SqliteStore {
         MIGRATOR
             .run(&self.pool)
             .await
-            .context("apply sqlite migrations")
+            .context("apply sqlite migrations")?;
+        self.backfill_list_keys().await?;
+        Ok(())
     }
 
     async fn insert_item_version(&self, row: &ItemVersionRow) -> Result<(), InsertItemError> {
+        let (version_order, name_lower, description_lower) =
+            list_keys(&row.version, &row.name, &row.description);
         let result = sqlx::query(
             r#"
             INSERT INTO item_versions (
                 publisher_id, item_type, item_id, version, name, description, author, min_app_version,
                 size_bytes, sha256, storage_key, preview_storage_key, readme, changelog,
-                published_at, yanked_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                published_at, yanked_at, version_order, name_lower, description_lower
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(&row.publisher_id)
@@ -73,6 +82,9 @@ impl CatalogStore for SqliteStore {
         .bind(&row.changelog)
         .bind(row.published_at)
         .bind(row.yanked_at)
+        .bind(version_order)
+        .bind(name_lower)
+        .bind(description_lower)
         .execute(&self.pool)
         .await;
 
@@ -87,29 +99,65 @@ impl CatalogStore for SqliteStore {
         }
     }
 
-    async fn list_published_versions(
-        &self,
-        publisher_id: Option<&str>,
-        item_type: Option<&str>,
-    ) -> Result<Vec<ItemVersionRow>> {
-        // `? IS NULL OR col = ?` keeps one statement for every filter combination.
-        sqlx::query_as::<_, ItemVersionRow>(&format!(
+    async fn backfill_list_keys(&self) -> Result<u64> {
+        let rows: Vec<(String, String, String, String, String, String)> = sqlx::query_as(
             r#"
-            SELECT {ITEM_VERSION_COLUMNS}
+            SELECT publisher_id, item_type, item_id, version, name, description
             FROM item_versions
-            WHERE yanked_at IS NULL
-              AND (? IS NULL OR publisher_id = ?)
-              AND (? IS NULL OR item_type = ?)
-            ORDER BY publisher_id, item_type, item_id, published_at DESC
-            "#
-        ))
-        .bind(publisher_id)
-        .bind(publisher_id)
-        .bind(item_type)
-        .bind(item_type)
+            WHERE version_order IS NULL OR name_lower IS NULL OR description_lower IS NULL
+            "#,
+        )
         .fetch_all(&self.pool)
         .await
-        .context("list published item versions")
+        .context("find rows without list keys")?;
+        let mut updated = 0;
+        for (publisher_id, item_type, item_id, version, name, description) in rows {
+            let (version_order, name_lower, description_lower) =
+                list_keys(&version, &name, &description);
+            updated += sqlx::query(
+                r#"
+                UPDATE item_versions
+                SET version_order = ?, name_lower = ?, description_lower = ?
+                WHERE publisher_id = ? AND item_type = ? AND item_id = ? AND version = ?
+                "#,
+            )
+            .bind(version_order)
+            .bind(name_lower)
+            .bind(description_lower)
+            .bind(&publisher_id)
+            .bind(&item_type)
+            .bind(&item_id)
+            .bind(&version)
+            .execute(&self.pool)
+            .await
+            .context("backfill list keys")?
+            .rows_affected();
+        }
+        Ok(updated)
+    }
+
+    async fn list_latest_items(
+        &self,
+        filter: &ItemListFilter,
+    ) -> Result<(Vec<ItemVersionRow>, i64)> {
+        let sql = latest_items_sql(filter, Dialect::Sqlite);
+        let mut count = sqlx::query_scalar::<_, i64>(&sql.count);
+        let mut page = sqlx::query_as::<_, ItemVersionRow>(&sql.page);
+        for arg in &sql.args {
+            count = count.bind(arg);
+            page = page.bind(arg);
+        }
+        let total = count
+            .fetch_one(&self.pool)
+            .await
+            .context("count catalog items")?;
+        let rows = page
+            .bind(filter.limit)
+            .bind(filter.offset)
+            .fetch_all(&self.pool)
+            .await
+            .context("list catalog items")?;
+        Ok((rows, total))
     }
 
     async fn list_published_versions_for_item(
@@ -120,7 +168,7 @@ impl CatalogStore for SqliteStore {
     ) -> Result<Vec<ItemVersionRow>> {
         let rows = sqlx::query_as::<_, ItemVersionRow>(&format!(
             r#"
-            SELECT {ITEM_VERSION_COLUMNS}
+            SELECT {ITEM_SUMMARY_COLUMNS}
             FROM item_versions
             WHERE yanked_at IS NULL AND publisher_id = ? AND item_type = ? AND item_id = ?
             "#
@@ -230,7 +278,7 @@ impl CatalogStore for SqliteStore {
     async fn list_all_versions(&self) -> Result<Vec<ItemVersionRow>> {
         sqlx::query_as::<_, ItemVersionRow>(&format!(
             r#"
-            SELECT {ITEM_VERSION_COLUMNS}
+            SELECT {ITEM_SUMMARY_COLUMNS}
             FROM item_versions
             ORDER BY publisher_id, item_type, item_id, published_at DESC
             "#

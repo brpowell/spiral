@@ -1,14 +1,15 @@
 //! Per-IP request rate limits and download concurrency.
 //!
-//! Keys on a trusted proxy header ([`crate::config::DEFAULT_CLIENT_IP_HEADER`]
-//! by default), then the peer address. Does not read `X-Forwarded-For`
-//! (spoofable). Limits are per Machine.
+//! Keys on a trusted proxy header when `CLIENT_IP_HEADER` names one, else the peer address.
+//! Does not read `X-Forwarded-For` (spoofable). IPv6 clients are keyed by their /64, since one
+//! host usually controls a whole /64. Limits are per Machine.
 
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::num::NonZeroU32;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use axum::body::Body;
 use axum::extract::{ConnectInfo, Request, State};
@@ -27,8 +28,15 @@ pub const ADMIN_REQUESTS_PER_MINUTE: u32 = 10;
 /// Moderate cap on catalog list/detail, meta, and previews.
 pub const CATALOG_REQUESTS_PER_MINUTE: u32 = 120;
 
+/// `.spk` download requests per client per minute. Bounds how fast one client can inflate the
+/// download counts, on top of the concurrency cap.
+pub const DOWNLOAD_REQUESTS_PER_MINUTE: u32 = 60;
+
 /// In-flight `.spk` downloads per client IP (held until the body is dropped).
 pub const MAX_CONCURRENT_DOWNLOADS_PER_IP: usize = 4;
+
+/// How often a limiter drops the state of clients it has not seen recently.
+const PRUNE_INTERVAL: Duration = Duration::from_secs(60);
 
 type IpLimiter =
     RateLimiter<IpAddr, governor::state::keyed::DefaultKeyedStateStore<IpAddr>, DefaultClock>;
@@ -72,10 +80,25 @@ impl ClientIpSource {
             .map(|ConnectInfo(addr)| addr.ip())
     }
 
-    /// Like [`Self::resolve`], with a placeholder key for rate limiting when nothing is known.
+    /// The rate-limit key: [`Self::resolve`] passed through [`limit_key`], with a placeholder
+    /// when nothing is known.
     fn extract(&self, request: &Request) -> IpAddr {
         self.resolve(request)
+            .map(limit_key)
             .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
+    }
+}
+
+/// The key a client's limits are counted under: IPv4 addresses as they are (including
+/// IPv4-mapped IPv6), IPv6 addresses truncated to their /64. A single host or subscriber is
+/// typically given a whole /64, so keying on the full address would let it rotate freely.
+fn limit_key(ip: IpAddr) -> IpAddr {
+    match ip.to_canonical() {
+        IpAddr::V6(v6) => {
+            let prefix = u128::from(v6) & !((1u128 << 64) - 1);
+            IpAddr::V6(Ipv6Addr::from(prefix))
+        }
+        v4 => v4,
     }
 }
 
@@ -101,14 +124,43 @@ pub async fn attach_client_ip(
 pub struct RateLimit {
     limiter: Arc<IpLimiter>,
     client_ip: ClientIpSource,
+    /// When the keyed store was last pruned, in milliseconds since `started`.
+    last_prune_ms: Arc<AtomicU64>,
+    started: Instant,
 }
 
 impl RateLimit {
     pub fn new(per_minute: u32, client_ip: ClientIpSource) -> Self {
         let burst = NonZeroU32::new(per_minute).expect("per_minute > 0");
+        Self::with_quota(Quota::per_minute(burst), client_ip)
+    }
+
+    fn with_quota(quota: Quota, client_ip: ClientIpSource) -> Self {
         Self {
-            limiter: Arc::new(RateLimiter::keyed(Quota::per_minute(burst))),
+            limiter: Arc::new(RateLimiter::keyed(quota)),
             client_ip,
+            last_prune_ms: Arc::new(AtomicU64::new(0)),
+            started: Instant::now(),
+        }
+    }
+
+    /// Drop the state of clients whose quota has fully refilled, at most once per
+    /// [`PRUNE_INTERVAL`]. The keyed store otherwise grows by one entry per address ever seen.
+    /// Runs on the request path, so no background task is needed; one request per interval
+    /// pays for a pass over the store.
+    fn maybe_prune(&self) {
+        let now = self.started.elapsed().as_millis() as u64;
+        let last = self.last_prune_ms.load(Ordering::Relaxed);
+        if now.saturating_sub(last) < PRUNE_INTERVAL.as_millis() as u64 {
+            return;
+        }
+        if self
+            .last_prune_ms
+            .compare_exchange(last, now, Ordering::Relaxed, Ordering::Relaxed)
+            .is_ok()
+        {
+            self.limiter.retain_recent();
+            self.limiter.shrink_to_fit();
         }
     }
 }
@@ -129,6 +181,7 @@ impl DownloadLimit {
 }
 
 pub async fn rate_limit(State(state): State<RateLimit>, request: Request, next: Next) -> Response {
+    state.maybe_prune();
     let ip = state.client_ip.extract(&request);
     match state.limiter.check_key(&ip) {
         Ok(()) => next.run(request).await,
@@ -282,6 +335,55 @@ mod tests {
         let src = source("");
         let req = req_with("x-real-ip", "203.0.113.9");
         assert_eq!(src.extract(&req), IpAddr::V4(Ipv4Addr::UNSPECIFIED));
+    }
+
+    #[test]
+    fn ipv6_clients_are_keyed_by_their_64() {
+        let key = |s: &str| limit_key(s.parse().unwrap());
+        assert_eq!(key("2001:db8:1:2:aaaa::1"), key("2001:db8:1:2:ffff::9"));
+        assert_eq!(
+            key("2001:db8:1:2:aaaa::1"),
+            "2001:db8:1:2::".parse::<IpAddr>().unwrap()
+        );
+        assert_ne!(key("2001:db8:1:2::1"), key("2001:db8:1:3::1"));
+        assert_eq!(key("203.0.113.9"), "203.0.113.9".parse::<IpAddr>().unwrap());
+        assert_eq!(
+            key("::ffff:203.0.113.9"),
+            "203.0.113.9".parse::<IpAddr>().unwrap()
+        );
+    }
+
+    #[test]
+    fn rate_limit_key_masks_the_resolved_address() {
+        let src = source("x-real-ip");
+        let req = req_with("x-real-ip", "2001:db8:1:2:3:4:5:6");
+        assert_eq!(
+            src.extract(&req),
+            "2001:db8:1:2::".parse::<IpAddr>().unwrap()
+        );
+    }
+
+    #[test]
+    fn pruning_drops_idle_clients_once_per_interval() {
+        // 1000 per second refills in a millisecond, so idle clients are prunable almost at once.
+        let quota = Quota::per_second(NonZeroU32::new(1000).unwrap());
+        let mut limit = RateLimit::with_quota(quota, source(""));
+        for i in 0..10u8 {
+            let _ = limit
+                .limiter
+                .check_key(&IpAddr::V4(Ipv4Addr::new(203, 0, 113, i)));
+        }
+        assert_eq!(limit.limiter.len(), 10);
+        std::thread::sleep(Duration::from_millis(20));
+
+        limit.maybe_prune();
+        assert_eq!(limit.limiter.len(), 10, "no pass within the first interval");
+
+        limit.started = Instant::now()
+            .checked_sub(PRUNE_INTERVAL * 2)
+            .expect("monotonic clock is past two intervals");
+        limit.maybe_prune();
+        assert_eq!(limit.limiter.len(), 0);
     }
 
     #[test]

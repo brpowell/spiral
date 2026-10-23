@@ -180,6 +180,19 @@ pub struct AuditQuery {
     pub offset: i64,
 }
 
+/// Filters, order and paging for the public catalog listing.
+#[derive(Debug, Clone, Default)]
+pub struct ItemListFilter {
+    pub publisher_id: Option<String>,
+    /// Empty means every type.
+    pub item_types: Vec<String>,
+    /// Already lowercased; matched as a substring of name, description, id and publisher.
+    pub needle: Option<String>,
+    pub sort: ItemSort,
+    pub limit: i64,
+    pub offset: i64,
+}
+
 /// Query string of `GET <ADMIN_PATH>/api/audit`.
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -330,6 +343,15 @@ pub struct PurgeResponse {
 pub const ITEM_VERSION_COLUMNS: &str = r#"
     publisher_id, item_type, item_id, version, name, description, author, min_app_version,
     size_bytes, sha256, storage_key, preview_storage_key, readme, changelog,
+    published_at, yanked_at
+"#;
+
+/// [`ITEM_VERSION_COLUMNS`] without the README and CHANGELOG (up to 256 KiB each), for listings
+/// that never show them. The two columns come back as `NULL`.
+pub const ITEM_SUMMARY_COLUMNS: &str = r#"
+    publisher_id, item_type, item_id, version, name, description, author, min_app_version,
+    size_bytes, sha256, storage_key, preview_storage_key,
+    CAST(NULL AS TEXT) AS readme, CAST(NULL AS TEXT) AS changelog,
     published_at, yanked_at
 "#;
 

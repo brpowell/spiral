@@ -239,3 +239,44 @@ async fn sqlite_and_postgres_schemas_match() {
 
     assert_eq!(sqlite_columns(&sqlite).await, postgres_columns(&pg).await);
 }
+
+#[tokio::test]
+async fn rows_without_list_keys_are_backfilled() {
+    let (store, _dir) = open_temp().await;
+    store.migrate().await.unwrap();
+    for version in ["1.2.0", "1.10.0"] {
+        let mut row = spk_registry::db::item_version_row(
+            "old",
+            "theme",
+            "noir",
+            version,
+            1,
+            &"a".repeat(64),
+            "k",
+            chrono::Utc::now(),
+            None,
+        );
+        row.name = "Ünïcode Noir".into();
+        store.insert_item_version(&row).await.unwrap();
+    }
+    // As written by a release from before the columns existed.
+    sqlx::query(
+        "UPDATE item_versions SET version_order = NULL, name_lower = NULL, description_lower = NULL",
+    )
+    .execute(store.pool())
+    .await
+    .unwrap();
+
+    assert_eq!(store.backfill_list_keys().await.unwrap(), 2);
+    assert_eq!(store.backfill_list_keys().await.unwrap(), 0);
+    let (rows, total) = store
+        .list_latest_items(&spk_registry::models::ItemListFilter {
+            needle: Some("ünïcode".into()),
+            limit: 10,
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+    assert_eq!(total, 1);
+    assert_eq!(rows[0].version, "1.10.0");
+}

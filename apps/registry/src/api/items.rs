@@ -7,10 +7,10 @@ use axum::{Json, Router};
 use spk_format::item_type_folder;
 use tokio_util::io::ReaderStream;
 
-use crate::db::{self, compare_version_desc};
+use crate::db::compare_version_desc;
 use crate::models::{
-    ItemDetailResponse, ItemIdentity, ItemListQuery, ItemListResponse, ItemSort, ItemUpdate,
-    ItemVersionRow, UpdateCheckRequest, UpdateCheckResponse, VersionDetailResponse,
+    ItemDetailResponse, ItemIdentity, ItemListFilter, ItemListQuery, ItemListResponse, ItemSort,
+    ItemUpdate, ItemVersionRow, UpdateCheckRequest, UpdateCheckResponse, VersionDetailResponse,
     DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT, MAX_UPDATE_CHECK_ITEMS,
 };
 use crate::preview::content_type_for_preview_key;
@@ -97,66 +97,25 @@ async fn list_items(
         .clamp(1, MAX_LIST_LIMIT);
     let offset = query.offset.unwrap_or(0);
 
-    // The database filters a single type; several are narrowed below.
-    let db_type = match item_types.as_slice() {
-        [only] => Some(*only),
-        _ => None,
-    };
-    let rows = state
-        .db
-        .list_published_versions(query.publisher.as_deref(), db_type)
-        .await?;
-
     let needle = query
         .q
         .as_deref()
         .map(str::trim)
         .filter(|q| !q.is_empty())
         .map(str::to_lowercase);
-    let mut latest: Vec<ItemVersionRow> = db::group_items_latest(rows)
-        .into_iter()
-        .filter(|row| item_types.is_empty() || item_types.contains(&row.item_type.as_str()))
-        .filter(|row| {
-            needle.as_deref().is_none_or(|needle| {
-                [&row.name, &row.description, &row.item_id, &row.publisher_id]
-                    .iter()
-                    .any(|field| field.to_lowercase().contains(needle))
-            })
+    let (rows, total) = state
+        .db
+        .list_latest_items(&ItemListFilter {
+            publisher_id: query.publisher.clone(),
+            item_types: item_types.iter().map(|t| t.to_string()).collect(),
+            needle,
+            sort,
+            limit: limit as i64,
+            offset: i64::try_from(offset).unwrap_or(i64::MAX),
         })
-        .collect();
-    match sort {
-        ItemSort::Name => {
-            latest.sort_by_cached_key(|row| (row.name.to_lowercase(), row.effective_id()))
-        }
-        ItemSort::Newest => latest.sort_by_cached_key(|row| {
-            (
-                std::cmp::Reverse(row.published_at),
-                row.name.to_lowercase(),
-                row.effective_id(),
-            )
-        }),
-        ItemSort::NameDesc => latest.sort_by_cached_key(|row| {
-            (
-                std::cmp::Reverse(row.name.to_lowercase()),
-                std::cmp::Reverse(row.effective_id()),
-            )
-        }),
-        ItemSort::Oldest => latest.sort_by_cached_key(|row| {
-            (
-                row.published_at,
-                row.name.to_lowercase(),
-                row.effective_id(),
-            )
-        }),
-    }
-
-    let total = latest.len();
-    let items = latest
-        .iter()
-        .skip(offset)
-        .take(limit)
-        .map(ItemVersionRow::to_item_summary)
-        .collect();
+        .await?;
+    let items = rows.iter().map(ItemVersionRow::to_item_summary).collect();
+    let total = total as usize;
 
     Ok(Json(ItemListResponse {
         items,
