@@ -10,9 +10,9 @@ mod theme;
 mod visualizer;
 
 pub use archive::{
-    cleanup_extract_dir, extract_archive, extract_archive_with_limits, find_item_root,
-    write_archive, ExtractLimits, DEFAULT_MAX_COMPRESSION_RATIO, DEFAULT_MAX_ENTRIES,
-    DEFAULT_MAX_UNCOMPRESSED_BYTES, DEFAULT_RATIO_CHECK_MIN_BYTES,
+    cleanup_extract_dir, extract_archive, extract_archive_with_limits, extract_zip_bounded,
+    find_item_root, write_archive, ExtractLimits, DEFAULT_MAX_COMPRESSION_RATIO,
+    DEFAULT_MAX_ENTRIES, DEFAULT_MAX_UNCOMPRESSED_BYTES, DEFAULT_RATIO_CHECK_MIN_BYTES,
 };
 pub use item::{
     detect_item_type, effective_item_id, item_dir_name, item_id_prefix, item_manifest_filename,

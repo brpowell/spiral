@@ -10,13 +10,12 @@ mod paths;
 mod report;
 
 use std::collections::HashMap;
-use std::fs::{self, File};
-use std::io::copy;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::ser::{Serialize, SerializeMap, SerializeSeq, Serializer};
+use spk_format::ExtractLimits;
 use walkdir::WalkDir;
-use zip::ZipArchive;
 
 use behavior::analyze_behavior;
 use convert::{
@@ -246,29 +245,7 @@ fn resolve_input(input: &Path) -> Result<ResolvedInput, String> {
         .unwrap_or("")
         .to_ascii_lowercase();
     if ext == "wmz" || ext == "zip" {
-        let tmp = make_temp_dir()?;
-        unpack_wmz(input, &tmp)?;
-        let found = find_wms_in_dir(&tmp);
-        if found.is_empty() {
-            return Err("archive contains no .wms file".into());
-        }
-        if found.len() > 1 {
-            let list = found
-                .iter()
-                .map(|p| p.display().to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
-            return Err(format!(
-                "archive contains multiple .wms files; unpack and pass one with --input ({list})"
-            ));
-        }
-        let wms_path = found.into_iter().next().unwrap();
-        let asset_root = wms_path.parent().unwrap_or(Path::new(".")).to_path_buf();
-        return Ok(ResolvedInput {
-            wms_path,
-            asset_root,
-            tmp: Some(tmp),
-        });
+        return resolve_archive(input, make_temp_dir()?);
     }
     if ext == "wms" {
         let asset_root = input.parent().unwrap_or(Path::new(".")).to_path_buf();
@@ -301,6 +278,43 @@ fn resolve_input(input: &Path) -> Result<ResolvedInput, String> {
     })
 }
 
+/// Unpack a `.wmz` into `tmp` and find its `.wms`. On any failure `tmp` is removed,
+/// so a rejected archive leaves no partial extraction behind.
+fn resolve_archive(input: &Path, tmp: PathBuf) -> Result<ResolvedInput, String> {
+    match unpack_wmz(input, &tmp).and_then(|()| single_wms_in_archive(&tmp)) {
+        Ok(wms_path) => {
+            let asset_root = wms_path.parent().unwrap_or(Path::new(".")).to_path_buf();
+            Ok(ResolvedInput {
+                wms_path,
+                asset_root,
+                tmp: Some(tmp),
+            })
+        }
+        Err(e) => {
+            let _ = fs::remove_dir_all(&tmp);
+            Err(e)
+        }
+    }
+}
+
+fn single_wms_in_archive(dir: &Path) -> Result<PathBuf, String> {
+    let found = find_wms_in_dir(dir);
+    if found.is_empty() {
+        return Err("archive contains no .wms file".into());
+    }
+    if found.len() > 1 {
+        let list = found
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        return Err(format!(
+            "archive contains multiple .wms files; unpack and pass one with --input ({list})"
+        ));
+    }
+    Ok(found.into_iter().next().unwrap())
+}
+
 fn make_temp_dir() -> Result<PathBuf, String> {
     let dir = std::env::temp_dir().join(format!(
         "wms-import-{}-{}",
@@ -314,47 +328,18 @@ fn make_temp_dir() -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+/// A Windows Media Player skin is a few MB of XML, JScript and bitmaps. Flat-colour
+/// BMPs compress very well, so the ratio is looser than for `.spk`, but the total
+/// stays small enough that no archive can do real harm.
+const WMZ_LIMITS: ExtractLimits = ExtractLimits {
+    max_entries: 1_000,
+    max_uncompressed_bytes: 64 * 1024 * 1024,
+    max_compression_ratio: 100,
+    ratio_check_min_bytes: 8 * 1024 * 1024,
+};
+
 fn unpack_wmz(zip_path: &Path, dest: &Path) -> Result<(), String> {
-    let file = File::open(zip_path).map_err(|e| format!("failed to open zip: {e}"))?;
-    let mut archive =
-        ZipArchive::new(file).map_err(|e| format!("failed to read zip archive: {e}"))?;
-
-    for i in 0..archive.len() {
-        let mut entry = archive
-            .by_index(i)
-            .map_err(|e| format!("failed to read zip entry {i}: {e}"))?;
-
-        let entry_name = entry
-            .name()
-            .map(|n| n.into_owned())
-            .unwrap_or_else(|_| String::from_utf8_lossy(entry.name_raw()).into_owned());
-        let Some(entry_path) = entry.enclosed_name().map(|p| p.to_owned()) else {
-            return Err(format!("zip entry has an invalid path: {entry_name}"));
-        };
-
-        let outpath = dest.join(&entry_path);
-
-        if entry.is_dir() || entry_name.ends_with('/') {
-            fs::create_dir_all(&outpath)
-                .map_err(|e| format!("failed to create directory {}: {e}", outpath.display()))?;
-            continue;
-        }
-
-        if let Some(parent) = outpath.parent() {
-            fs::create_dir_all(parent).map_err(|e| {
-                format!(
-                    "failed to create parent directory for {}: {e}",
-                    outpath.display()
-                )
-            })?;
-        }
-
-        let mut outfile = File::create(&outpath)
-            .map_err(|e| format!("failed to create {}: {e}", outpath.display()))?;
-        copy(&mut entry, &mut outfile)
-            .map_err(|e| format!("failed to extract {entry_name}: {e}"))?;
-    }
-    Ok(())
+    spk_format::extract_zip_bounded(zip_path, dest, &WMZ_LIMITS, "skin archive")
 }
 
 fn find_wms_in_dir(dir: &Path) -> Vec<PathBuf> {
@@ -563,7 +548,98 @@ fn coerce_whole_numbers(value: &mut serde_json::Value) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_fixtures::zips;
     use serde_json::json;
+
+    const DEMO_WMS: &[u8] = br#"<theme id="Demo"><view width="10" height="10"/></theme>"#;
+
+    fn wmz_test_dir(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("spiral-wmz-{tag}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// Resolve `wmz` through a known extract dir and return the error, checking that
+    /// the rejected archive left nothing behind.
+    fn rejected_wmz(dir: &Path, wmz: &Path) -> String {
+        let tmp = dir.join("extract");
+        fs::create_dir_all(&tmp).unwrap();
+        let err = resolve_archive(wmz, tmp.clone())
+            .err()
+            .expect("wmz should be rejected");
+        assert!(
+            !tmp.exists(),
+            "partial extraction left at {}",
+            tmp.display()
+        );
+        err
+    }
+
+    #[test]
+    fn imports_a_normal_wmz() {
+        let dir = wmz_test_dir("ok");
+        let wmz = dir.join("demo.wmz");
+        zips::write_deflated(&wmz, &[("Demo/demo.wms", DEMO_WMS), ("Demo/bg.bmp", b"BM")]);
+
+        let tmp = dir.join("extract");
+        fs::create_dir_all(&tmp).unwrap();
+        let resolved = resolve_archive(&wmz, tmp.clone()).unwrap();
+        assert!(resolved.wms_path.ends_with("Demo/demo.wms"));
+        assert!(resolved.asset_root.join("bg.bmp").is_file());
+
+        let result = import_wms_skin(&ImportWmsOptions {
+            input: wmz,
+            out: dir.join("out"),
+            id: None,
+            chroma: None,
+            dry_run: false,
+        })
+        .unwrap();
+        assert!(result.skin_path.unwrap().is_file());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_a_wmz_with_too_many_entries() {
+        let dir = wmz_test_dir("entries");
+        let wmz = dir.join("many.wmz");
+        let names: Vec<String> = (0..=WMZ_LIMITS.max_entries)
+            .map(|i| format!("{i}.bmp"))
+            .collect();
+        let mut entries: Vec<(&str, &[u8])> =
+            names.iter().map(|n| (n.as_str(), &b"BM"[..])).collect();
+        entries.push(("demo.wms", DEMO_WMS));
+        zips::write_stored(&wmz, &entries);
+
+        let err = rejected_wmz(&dir, &wmz);
+        assert!(err.contains("too many entries"), "{err}");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_a_high_ratio_wmz() {
+        let dir = wmz_test_dir("ratio");
+        let wmz = dir.join("bomb.wmz");
+        // 9 MiB of zeros deflates to a few KiB: far past 100:1 once over the 8 MiB floor.
+        let zeros = vec![0u8; 9 * 1024 * 1024];
+        zips::write_deflated(&wmz, &[("demo.wms", DEMO_WMS), ("bg.bmp", &zeros)]);
+
+        let err = rejected_wmz(&dir, &wmz);
+        assert!(err.contains("compression ratio"), "{err}");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_a_wmz_entry_larger_than_declared() {
+        let dir = wmz_test_dir("understated");
+        let wmz = dir.join("liar.wmz");
+        zips::write_understated(&wmz, &["demo.wms"], 4096);
+
+        let err = rejected_wmz(&dir, &wmz);
+        assert!(err.contains("larger than its declared"), "{err}");
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     fn top_level_keys(pretty: &str) -> Vec<&str> {
         pretty
