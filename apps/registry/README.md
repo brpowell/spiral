@@ -69,7 +69,7 @@ curl -s -X POST http://127.0.0.1:8787/admin/api/items \
   -F "spk=@demo-theme.spk" | jq
 ```
 
-The registry validates the item with `spk-format`, computes its SHA-256 and uncompressed size, extracts the preview image (declared by the manifest's `preview`) and the optional `README.md` and `CHANGELOG.md`, stores the archive, and returns the new version's metadata. A version is immutable: uploading one that already exists returns `409 conflict`. A request without a valid token returns `401`.
+The registry validates the item with `spk-format`, computes its SHA-256 and uncompressed size, extracts the preview image (declared by the manifest's `preview`) and the optional `README.md` and `CHANGELOG.md`, stores the archive, and returns the new version's metadata. A version is immutable: uploading one that already exists returns `409 conflict` and leaves the published files untouched (objects are stored under `<publisher>/<type>/<id>/<version>/<sha256>/`, so a rejected or racing upload can never replace them). The version must be strict semver without build metadata (`1.0.0+build` is rejected, so it can never sit beside `1.0.0`). A request without a valid token returns `401`.
 
 You can do the same from the admin panel at <http://127.0.0.1:8787/admin>. Enter the token on the page; it is kept in `sessionStorage` for that tab only.
 
@@ -132,14 +132,14 @@ All configuration is through environment variables.
 | `STORAGE_LOCAL_PATH` | `data/objects` | Object root for the `local` backend. |
 | `ADMIN_TOKEN` | _(empty)_ | Shared admin bearer token. Empty disables the admin API: its endpoints return `503 admin_disabled` (the panel page still loads but can do nothing). When set it must be at least 32 bytes; a shorter value stops the server at startup. |
 | `MAX_UPLOAD_BYTES` | `52428800` (50 MiB) | Hard limit for `POST <ADMIN_PATH>/api/items` only; other routes keep Axum's 2 MiB default. |
-| `CLIENT_IP_HEADER` | `fly-client-ip` | Trusted proxy header used as the rate-limit key (`cf-connecting-ip`, `x-real-ip`, and so on). Empty means use the peer address only. Never point this at `X-Forwarded-For`, which clients can spoof. |
+| `CLIENT_IP_HEADER` | _(empty)_ | Trusted proxy header used as the rate-limit key (`fly-client-ip`, `cf-connecting-ip`, `x-real-ip`, and so on). Empty means use the peer address only. Set it only when every request reaches the registry through a proxy that sets the header and overwrites any client-supplied value; otherwise clients can pick their own key. Never point this at `X-Forwarded-For`, which clients can spoof. The included `fly.toml` sets `fly-client-ip`. |
 | `RUST_LOG` | `info` | Log filter, in [`tracing-subscriber` `EnvFilter`](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html) syntax. |
 
-Per-client limits, keyed on `CLIENT_IP_HEADER` and then the peer address:
+Per-client limits, keyed on `CLIENT_IP_HEADER` and then the peer address (IPv6 clients by their /64):
 
 - `<ADMIN_PATH>/api/*`: 10 requests per minute
 - Catalog, meta and preview routes: 120 requests per minute
-- `/download`: 4 concurrent `.spk` transfers
+- `/download`: 60 requests per minute and 4 concurrent `.spk` transfers
 
 The limits are per process. If you run more than one instance, each enforces its own.
 

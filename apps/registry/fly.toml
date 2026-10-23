@@ -36,6 +36,9 @@ primary_region = 'iad'
   STORAGE_BACKEND = 's3'
   S3_BUCKET = 'spk-registry-x7k2q9'
   S3_ENDPOINT = 'https://fly.storage.tigris.dev'
+  # Fly Proxy sets this on public traffic and overwrites any client-supplied value. The default
+  # is empty (peer address), which behind Fly Proxy would put every client under one key.
+  CLIENT_IP_HEADER = 'fly-client-ip'
 
 [http_service]
   internal_port = 8080

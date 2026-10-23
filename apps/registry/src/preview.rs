@@ -11,25 +11,33 @@ pub const MAX_PREVIEW_BYTES: u64 = 5 * 1024 * 1024;
 const ALLOWED_PREVIEW_EXTS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif"];
 
 /// Storage object key for a version's `.spk` archive.
+///
+/// Keys include the archive's sha256, so an upload that loses a race (or repeats a version that
+/// already exists) writes to a different key and can never replace the published object. Rows
+/// store their keys, so versions published under the older `<version>/item.spk` layout keep
+/// working unchanged.
 pub fn item_storage_key(
     publisher_id: &str,
     item_type: &str,
     item_id: &str,
     version: &str,
+    sha256: &str,
 ) -> String {
-    format!("{publisher_id}/{item_type}/{item_id}/{version}/item.spk")
+    format!("{publisher_id}/{item_type}/{item_id}/{version}/{sha256}/item.spk")
 }
 
-/// Storage object key for a version's preview.
+/// Storage object key for a version's preview, content-addressed like [`item_storage_key`] by
+/// the sha256 of the `.spk` it came from.
 pub fn preview_storage_key(
     publisher_id: &str,
     item_type: &str,
     item_id: &str,
     version: &str,
+    sha256: &str,
     ext: &str,
 ) -> String {
     let ext = ext.trim_start_matches('.').to_ascii_lowercase();
-    format!("{publisher_id}/{item_type}/{item_id}/{version}/preview.{ext}")
+    format!("{publisher_id}/{item_type}/{item_id}/{version}/{sha256}/preview.{ext}")
 }
 
 /// Public API path for a version's preview.
@@ -170,8 +178,8 @@ mod tests {
             "/v1/items/a/theme/b/versions/1.0.0/preview"
         );
         assert_eq!(
-            preview_storage_key("a", "theme", "b", "1.0.0", "webp"),
-            "a/theme/b/1.0.0/preview.webp"
+            preview_storage_key("a", "theme", "b", "1.0.0", "abc123", "webp"),
+            "a/theme/b/1.0.0/abc123/preview.webp"
         );
     }
 

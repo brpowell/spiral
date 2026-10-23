@@ -55,9 +55,21 @@ impl ObjectStorage for LocalDiskStorage {
                 .await
                 .with_context(|| format!("create {}", parent.display()))?;
         }
-        fs::write(&path, data)
-            .await
-            .with_context(|| format!("write {}", path.display()))?;
+        // Write beside the target and rename over it, so a reader never sees a partial file
+        // even when an identical upload rewrites a key that is being served.
+        let file_name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("object");
+        let tmp = path.with_file_name(format!(".{file_name}.{}.tmp", temp_suffix()));
+        if let Err(e) = fs::write(&tmp, data).await {
+            let _ = fs::remove_file(&tmp).await;
+            return Err(e).with_context(|| format!("write {}", tmp.display()));
+        }
+        if let Err(e) = fs::rename(&tmp, &path).await {
+            let _ = fs::remove_file(&tmp).await;
+            return Err(e).with_context(|| format!("rename into {}", path.display()));
+        }
         Ok(())
     }
 
@@ -87,4 +99,15 @@ impl ObjectStorage for LocalDiskStorage {
         }
         Ok(())
     }
+}
+
+/// A name unique within this process run, for temporary files.
+fn temp_suffix() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    format!(
+        "{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    )
 }

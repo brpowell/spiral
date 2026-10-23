@@ -16,6 +16,7 @@ use crate::AppState;
 
 pub use error::{ApiError, ApiResult};
 pub(crate) use limit::ClientIpSource;
+pub use limit::DOWNLOAD_REQUESTS_PER_MINUTE;
 
 /// Which routes a listener serves.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,10 +56,16 @@ pub fn router(
             limit::rate_limit,
         ));
 
-    let downloads = items::download_router().layer(middleware::from_fn_with_state(
-        limit::DownloadLimit::new(limit::MAX_CONCURRENT_DOWNLOADS_PER_IP, client_ip),
-        limit::download_concurrency,
-    ));
+    // The per-minute quota is the outer layer, so a request it rejects never takes a slot.
+    let downloads = items::download_router()
+        .layer(middleware::from_fn_with_state(
+            limit::DownloadLimit::new(limit::MAX_CONCURRENT_DOWNLOADS_PER_IP, client_ip.clone()),
+            limit::download_concurrency,
+        ))
+        .layer(middleware::from_fn_with_state(
+            limit::RateLimit::new(limit::DOWNLOAD_REQUESTS_PER_MINUTE, client_ip),
+            limit::rate_limit,
+        ));
 
     let mut app = Router::new().merge(catalog);
     if surface != Surface::Admin {

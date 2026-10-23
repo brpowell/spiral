@@ -13,8 +13,8 @@ use crate::api::auth::AdminAuth;
 use crate::db::InsertItemError;
 use crate::models::{
     audit_action, AdminItemListResponse, AuditListParams, AuditListResponse, AuditQuery,
-    PurgeRequest, PurgeResponse, TakedownLogRow, VersionDetailResponse, DEFAULT_LIST_LIMIT,
-    MAX_LIST_LIMIT,
+    ItemVersionRow, PurgeRequest, PurgeResponse, TakedownLogRow, VersionDetailResponse,
+    DEFAULT_LIST_LIMIT, MAX_LIST_LIMIT,
 };
 use crate::publish::{validate_item_bytes, PublishError};
 use crate::AppState;
@@ -149,53 +149,108 @@ async fn upload_item_inner(
         )));
     }
 
-    let validated = validate_item_bytes(&bytes).map_err(|e| match e {
-        PublishError::Invalid(msg) => ApiError::bad_request("invalid_item", msg),
-    })?;
+    // Extraction and validation are blocking filesystem work; keep them off the runtime.
+    let validated = tokio::task::spawn_blocking(move || validate_item_bytes(&bytes))
+        .await
+        .map_err(|e| ApiError::internal(anyhow::anyhow!("validate upload task failed: {e}")))?
+        .map_err(|e| match e {
+            PublishError::Invalid(msg) => ApiError::bad_request("invalid_item", msg),
+        })?;
+    let row = &validated.row;
 
-    attempt.target(
-        &validated.row.publisher_id,
-        &validated.row.item_type,
-        &validated.row.item_id,
-    );
-    attempt.version(&validated.row.version);
+    attempt.target(&row.publisher_id, &row.item_type, &row.item_id);
+    attempt.version(&row.version);
+
+    let duplicate = || {
+        ApiError::conflict(format!(
+            "item version {}/{}/{}@{} already exists",
+            row.publisher_id, row.item_type, row.item_id, row.version
+        ))
+    };
+
+    // Reject a version that already exists before touching storage. The keys are
+    // content-addressed as well, so an upload that races past this check still cannot replace
+    // the published objects; see `discard_uploaded_objects`.
+    if state
+        .db
+        .get_version_for_download(
+            &row.publisher_id,
+            &row.item_type,
+            &row.item_id,
+            &row.version,
+        )
+        .await?
+        .is_some()
+    {
+        return Err(duplicate());
+    }
 
     state
         .storage
-        .put(&validated.row.storage_key, &validated.bytes)
+        .put(&row.storage_key, &validated.bytes)
         .await
         .map_err(ApiError::from)?;
 
-    if let (Some(preview_key), Some(preview_bytes)) = (
-        validated.row.preview_storage_key.as_ref(),
-        validated.preview.as_ref(),
-    ) {
-        state
-            .storage
-            .put(preview_key, preview_bytes)
-            .await
-            .map_err(ApiError::from)?;
+    if let (Some(preview_key), Some(preview_bytes)) =
+        (row.preview_storage_key.as_ref(), validated.preview.as_ref())
+    {
+        if let Err(e) = state.storage.put(preview_key, preview_bytes).await {
+            discard_uploaded_objects(state, row).await;
+            return Err(ApiError::from(e));
+        }
     }
 
-    match state.db.insert_item_version(&validated.row).await {
+    match state.db.insert_item_version(row).await {
         Ok(()) => {
             attempt.log_success(state.db.as_ref()).await;
-            Ok(Json(validated.row.to_detail()))
+            Ok(Json(row.to_detail()))
         }
         Err(InsertItemError::Duplicate) => {
-            let _ = state.storage.delete(&validated.row.storage_key).await;
-            if let Some(preview_key) = &validated.row.preview_storage_key {
-                let _ = state.storage.delete(preview_key).await;
-            }
-            Err(ApiError::conflict(format!(
-                "item version {}/{}/{}@{} already exists",
-                validated.row.publisher_id,
-                validated.row.item_type,
-                validated.row.item_id,
-                validated.row.version
-            )))
+            discard_uploaded_objects(state, row).await;
+            Err(duplicate())
         }
-        Err(InsertItemError::Other(e)) => Err(ApiError::from(e)),
+        Err(InsertItemError::Other(e)) => {
+            discard_uploaded_objects(state, row).await;
+            Err(ApiError::from(e))
+        }
+    }
+}
+
+/// Remove the objects a failed upload wrote, unless a stored version references them.
+///
+/// Keys carry the archive's sha256, so they differ from an existing version's unless the bytes
+/// are identical; in that case the winning row points at the same keys and they must stay.
+async fn discard_uploaded_objects(state: &AppState, row: &ItemVersionRow) {
+    let existing = match state
+        .db
+        .get_version_for_download(
+            &row.publisher_id,
+            &row.item_type,
+            &row.item_id,
+            &row.version,
+        )
+        .await
+    {
+        Ok(existing) => existing,
+        Err(e) => {
+            // Without knowing what the stored row references, leaving an orphan is the safe side.
+            tracing::warn!(error = %e, "not cleaning up failed upload: version lookup failed");
+            return;
+        }
+    };
+    let referenced = |key: &str| {
+        existing.as_ref().is_some_and(|stored| {
+            stored.storage_key == key || stored.preview_storage_key.as_deref() == Some(key)
+        })
+    };
+    let keys = std::iter::once(row.storage_key.as_str()).chain(row.preview_storage_key.as_deref());
+    for key in keys {
+        if referenced(key) {
+            continue;
+        }
+        if let Err(e) = state.storage.delete(key).await {
+            tracing::warn!(error = %e, key, "failed to remove object from failed upload");
+        }
     }
 }
 

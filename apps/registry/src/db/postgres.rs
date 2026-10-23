@@ -15,8 +15,14 @@ use chrono::{DateTime, Utc};
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::PgPool;
 
-use super::{sort_by_semver_desc, CatalogStore, DbOptions, InsertItemError};
-use crate::models::{AuditEntry, AuditQuery, ItemVersionRow, TakedownLogRow, ITEM_VERSION_COLUMNS};
+use super::{
+    latest_items_sql, list_keys, sort_by_semver_desc, CatalogStore, DbOptions, Dialect,
+    InsertItemError,
+};
+use crate::models::{
+    AuditEntry, AuditQuery, ItemListFilter, ItemVersionRow, TakedownLogRow, ITEM_SUMMARY_COLUMNS,
+    ITEM_VERSION_COLUMNS,
+};
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations/postgres");
 
@@ -76,17 +82,21 @@ impl CatalogStore for PostgresStore {
         MIGRATOR
             .run(&self.pool)
             .await
-            .context("apply postgres migrations")
+            .context("apply postgres migrations")?;
+        self.backfill_list_keys().await?;
+        Ok(())
     }
 
     async fn insert_item_version(&self, row: &ItemVersionRow) -> Result<(), InsertItemError> {
+        let (version_order, name_lower, description_lower) =
+            list_keys(&row.version, &row.name, &row.description);
         let result = sqlx::query(
             r#"
             INSERT INTO item_versions (
                 publisher_id, item_type, item_id, version, name, description, author, min_app_version,
                 size_bytes, sha256, storage_key, preview_storage_key, readme, changelog,
-                published_at, yanked_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+                published_at, yanked_at, version_order, name_lower, description_lower
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
             "#,
         )
         .bind(&row.publisher_id)
@@ -105,6 +115,9 @@ impl CatalogStore for PostgresStore {
         .bind(&row.changelog)
         .bind(row.published_at)
         .bind(row.yanked_at)
+        .bind(version_order)
+        .bind(name_lower)
+        .bind(description_lower)
         .execute(&self.pool)
         .await;
 
@@ -119,27 +132,65 @@ impl CatalogStore for PostgresStore {
         }
     }
 
-    async fn list_published_versions(
-        &self,
-        publisher_id: Option<&str>,
-        item_type: Option<&str>,
-    ) -> Result<Vec<ItemVersionRow>> {
-        // `$1 IS NULL OR col = $1` keeps one statement for every filter combination.
-        sqlx::query_as::<_, ItemVersionRow>(&format!(
+    async fn backfill_list_keys(&self) -> Result<u64> {
+        let rows: Vec<(String, String, String, String, String, String)> = sqlx::query_as(
             r#"
-            SELECT {ITEM_VERSION_COLUMNS}
+            SELECT publisher_id, item_type, item_id, version, name, description
             FROM item_versions
-            WHERE yanked_at IS NULL
-              AND ($1::text IS NULL OR publisher_id = $1)
-              AND ($2::text IS NULL OR item_type = $2)
-            ORDER BY publisher_id, item_type, item_id, published_at DESC
-            "#
-        ))
-        .bind(publisher_id)
-        .bind(item_type)
+            WHERE version_order IS NULL OR name_lower IS NULL OR description_lower IS NULL
+            "#,
+        )
         .fetch_all(&self.pool)
         .await
-        .context("list published item versions")
+        .context("find rows without list keys")?;
+        let mut updated = 0;
+        for (publisher_id, item_type, item_id, version, name, description) in rows {
+            let (version_order, name_lower, description_lower) =
+                list_keys(&version, &name, &description);
+            updated += sqlx::query(
+                r#"
+                UPDATE item_versions
+                SET version_order = $1, name_lower = $2, description_lower = $3
+                WHERE publisher_id = $4 AND item_type = $5 AND item_id = $6 AND version = $7
+                "#,
+            )
+            .bind(version_order)
+            .bind(name_lower)
+            .bind(description_lower)
+            .bind(&publisher_id)
+            .bind(&item_type)
+            .bind(&item_id)
+            .bind(&version)
+            .execute(&self.pool)
+            .await
+            .context("backfill list keys")?
+            .rows_affected();
+        }
+        Ok(updated)
+    }
+
+    async fn list_latest_items(
+        &self,
+        filter: &ItemListFilter,
+    ) -> Result<(Vec<ItemVersionRow>, i64)> {
+        let sql = latest_items_sql(filter, Dialect::Postgres);
+        let mut count = sqlx::query_scalar::<_, i64>(&sql.count);
+        let mut page = sqlx::query_as::<_, ItemVersionRow>(&sql.page);
+        for arg in &sql.args {
+            count = count.bind(arg);
+            page = page.bind(arg);
+        }
+        let total = count
+            .fetch_one(&self.pool)
+            .await
+            .context("count catalog items")?;
+        let rows = page
+            .bind(filter.limit)
+            .bind(filter.offset)
+            .fetch_all(&self.pool)
+            .await
+            .context("list catalog items")?;
+        Ok((rows, total))
     }
 
     async fn list_published_versions_for_item(
@@ -150,7 +201,7 @@ impl CatalogStore for PostgresStore {
     ) -> Result<Vec<ItemVersionRow>> {
         let rows = sqlx::query_as::<_, ItemVersionRow>(&format!(
             r#"
-            SELECT {ITEM_VERSION_COLUMNS}
+            SELECT {ITEM_SUMMARY_COLUMNS}
             FROM item_versions
             WHERE yanked_at IS NULL AND publisher_id = $1 AND item_type = $2 AND item_id = $3
             "#
@@ -260,7 +311,7 @@ impl CatalogStore for PostgresStore {
     async fn list_all_versions(&self) -> Result<Vec<ItemVersionRow>> {
         sqlx::query_as::<_, ItemVersionRow>(&format!(
             r#"
-            SELECT {ITEM_VERSION_COLUMNS}
+            SELECT {ITEM_SUMMARY_COLUMNS}
             FROM item_versions
             ORDER BY publisher_id, item_type, item_id, published_at DESC
             "#
