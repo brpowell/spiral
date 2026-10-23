@@ -55,6 +55,39 @@ pub fn album_artwork_dir(
         .join(album_title_for_path(album))
 }
 
+/// Refuse to touch `target` unless it sits strictly inside `Artwork/{subdir}` (at least one
+/// plain component below it). Compared by path components, so `..` cannot slip through.
+pub fn ensure_inside_artwork_subdir(
+    library_root: &Path,
+    subdir: &str,
+    target: &Path,
+) -> Result<(), String> {
+    let base = artwork_root(library_root).join(subdir);
+    let inside = target.strip_prefix(&base).is_ok_and(|rest| {
+        rest.components().next().is_some()
+            && rest
+                .components()
+                .all(|c| matches!(c, std::path::Component::Normal(_)))
+    });
+    if inside {
+        Ok(())
+    } else {
+        Err(format!(
+            "refusing to modify artwork path outside {}: {}",
+            base.display(),
+            target.display()
+        ))
+    }
+}
+
+pub fn ensure_inside_album_artwork(library_root: &Path, target: &Path) -> Result<(), String> {
+    ensure_inside_artwork_subdir(library_root, ALBUMS_DIR, target)
+}
+
+pub fn ensure_inside_artist_artwork(library_root: &Path, target: &Path) -> Result<(), String> {
+    ensure_inside_artwork_subdir(library_root, ARTISTS_DIR, target)
+}
+
 pub fn artist_artwork_dir(library_root: &Path, artist_key: &str) -> PathBuf {
     artwork_root(library_root)
         .join(ARTISTS_DIR)
@@ -299,6 +332,44 @@ mod tests {
             dir,
             PathBuf::from("/lib/Artwork/albums/Unknown Artist/Unknown Album")
         );
+    }
+
+    #[test]
+    fn dot_tags_stay_inside_album_artwork() {
+        let root = Path::new("/lib");
+        let albums = root.join(ARTWORK_DIR_NAME).join(ALBUMS_DIR);
+        for dots in [".", "..", "...", ". ."] {
+            let dir = album_artwork_dir(root, Some(dots), Some(dots), Some(dots));
+            assert_eq!(dir, albums.join("Unknown").join("Unknown"), "{dots:?}");
+            assert!(ensure_inside_album_artwork(root, &dir).is_ok());
+            let artist = artist_artwork_dir(root, dots);
+            assert!(ensure_inside_artist_artwork(root, &artist).is_ok());
+        }
+    }
+
+    #[test]
+    fn containment_guard_rejects_escaping_paths() {
+        let root = Path::new("/lib");
+        let albums = root.join(ARTWORK_DIR_NAME).join(ALBUMS_DIR);
+        assert!(ensure_inside_album_artwork(root, &albums.join("A").join("B")).is_ok());
+        assert!(ensure_inside_album_artwork(root, &albums.join("A")).is_ok());
+        for bad in [
+            albums.clone(),
+            albums.join("..").join(".."),
+            albums.join("A").join("..").join("..").join(".."),
+            root.to_path_buf(),
+            root.join("Tracks"),
+            PathBuf::from("/"),
+            PathBuf::from("/lib/Artwork/albumsX/A"),
+            root.join(ARTWORK_DIR_NAME).join(ARTISTS_DIR).join("A"),
+        ] {
+            assert!(
+                ensure_inside_album_artwork(root, &bad).is_err(),
+                "{}",
+                bad.display()
+            );
+        }
+        assert!(ensure_inside_artist_artwork(root, &albums.join("A")).is_err());
     }
 
     #[test]

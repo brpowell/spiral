@@ -2,8 +2,9 @@
 
 use crate::artwork_extract::prune_empty_album_artwork_dir;
 use crate::artwork_paths::{
-    self, album_artwork_dir, art_path_is_override, artist_artwork_dir, find_portrait_image,
-    playlist_artwork_path_stem, resolve_library_relative, to_library_relative,
+    self, album_artwork_dir, art_path_is_override, artist_artwork_dir, ensure_inside_album_artwork,
+    ensure_inside_artist_artwork, find_portrait_image, playlist_artwork_path_stem,
+    resolve_library_relative, to_library_relative,
 };
 use crate::library_organize;
 use rusqlite::Connection;
@@ -29,19 +30,21 @@ pub fn rename_album_artwork_dir(
     if !old_dir.is_dir() {
         return Ok(());
     }
+    ensure_inside_album_artwork(library_root, &old_dir)?;
+    ensure_inside_album_artwork(library_root, &new_dir)?;
 
     if new_dir.exists() {
         // Destination already has art (e.g. mid-save). Merge missing files; keep dest on conflict.
         merge_dir_contents(&old_dir, &new_dir)?;
         let _ = fs::remove_dir_all(&old_dir);
-        prune_parent_album_dirs(&old_dir);
+        prune_parent_album_dirs(library_root, &old_dir);
     } else {
         if let Some(parent) = new_dir.parent() {
             fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
         fs::rename(&old_dir, &new_dir)
             .map_err(|e| format!("failed to rename album artwork dir: {e}"))?;
-        prune_parent_album_dirs(&old_dir);
+        prune_parent_album_dirs(library_root, &old_dir);
     }
 
     let Some(old_rel) = to_library_relative(library_root, &old_dir) else {
@@ -151,7 +154,7 @@ pub fn reconcile_track_album_artwork(
             .map_err(|e| format!("failed to move override art: {e}"))?;
     }
 
-    let _ = prune_empty_album_artwork_dir(&old_dir);
+    let _ = prune_empty_album_artwork_dir(library_root, &old_dir);
     Ok(to_library_relative(library_root, &dest))
 }
 
@@ -175,6 +178,8 @@ pub fn rename_artist_artwork_dir(
             find_portrait_image(&old_dir).and_then(|p| to_library_relative(library_root, &p))
         );
     }
+    ensure_inside_artist_artwork(library_root, &old_dir)?;
+    ensure_inside_artist_artwork(library_root, &new_dir)?;
     if new_dir.exists() {
         merge_dir_contents(&old_dir, &new_dir)?;
         let _ = fs::remove_dir_all(&old_dir);
@@ -287,13 +292,14 @@ pub fn gc_art_after_track_removed(
         removed.artist.as_deref(),
         removed.album.as_deref(),
     )?;
+    ensure_inside_album_artwork(library_root, &album_dir)?;
     if remaining == 0 {
         if album_dir.is_dir() {
             let _ = fs::remove_dir_all(&album_dir);
-            prune_parent_album_dirs(&album_dir);
+            prune_parent_album_dirs(library_root, &album_dir);
         }
     } else {
-        let _ = prune_empty_album_artwork_dir(&album_dir);
+        let _ = prune_empty_album_artwork_dir(library_root, &album_dir);
     }
     Ok(())
 }
@@ -334,10 +340,15 @@ pub fn gc_unreferenced_override_file(
     } else {
         resolve_library_relative(library_root, &rel)
     };
+    // Overrides only ever live in an album artwork dir; never delete a stored path elsewhere.
+    if let Err(err) = ensure_inside_album_artwork(library_root, &path) {
+        eprintln!("artwork gc: {err}");
+        return Ok(());
+    }
     if path.is_file() {
         let _ = fs::remove_file(&path);
         if let Some(parent) = path.parent() {
-            let _ = prune_empty_album_artwork_dir(parent);
+            let _ = prune_empty_album_artwork_dir(library_root, parent);
         }
     }
     Ok(())
@@ -407,10 +418,14 @@ fn merge_dir_contents(src: &Path, dest: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn prune_parent_album_dirs(removed_album_dir: &Path) {
+/// Remove the now-empty artist dir above an album dir. Never walks above `Artwork/albums`.
+fn prune_parent_album_dirs(library_root: &Path, removed_album_dir: &Path) {
     let Some(artist_dir) = removed_album_dir.parent() else {
         return;
     };
+    if ensure_inside_album_artwork(library_root, artist_dir).is_err() {
+        return;
+    }
     if artist_dir.is_dir() {
         if fs::read_dir(artist_dir)
             .map(|mut d| d.next().is_none())
@@ -514,7 +529,9 @@ fn count_art_path_refs(conn: &Connection, art_path: &str) -> Result<usize, Strin
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::artwork_paths::{override_art_filename, ARTISTS_DIR, FRONT_STEM, PORTRAIT_STEM};
+    use crate::artwork_paths::{
+        override_art_filename, ALBUMS_DIR, ARTISTS_DIR, FRONT_STEM, PORTRAIT_STEM,
+    };
     use crate::settings::ARTWORK_DIR_NAME;
     use std::io::Write;
 
@@ -663,6 +680,114 @@ mod tests {
             album.join(format!("{FRONT_STEM}.jpg")).is_file(),
             "front.jpg must remain"
         );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    fn dot_tag_library(label: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "spiral-art-dots-{label}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("Tracks")).unwrap();
+        fs::write(root.join("Library.db"), b"db").unwrap();
+        fs::write(root.join("Tracks").join("song.mp3"), b"audio").unwrap();
+        let other = album_artwork_dir(&root, Some("Other"), None, Some("Album"));
+        fs::create_dir_all(&other).unwrap();
+        fs::write(other.join(format!("{FRONT_STEM}.jpg")), b"front").unwrap();
+        root
+    }
+
+    fn tracks_table() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE tracks (
+                id INTEGER PRIMARY KEY,
+                art_path TEXT,
+                album_artist TEXT,
+                artist TEXT,
+                album TEXT
+            );",
+        )
+        .unwrap();
+        conn
+    }
+
+    fn assert_library_intact(root: &Path) {
+        assert!(root.join("Library.db").is_file(), "Library.db must survive");
+        assert!(root.join("Tracks").join("song.mp3").is_file());
+        assert!(album_artwork_dir(root, Some("Other"), None, Some("Album"))
+            .join(format!("{FRONT_STEM}.jpg"))
+            .is_file());
+        assert!(root.join(ARTWORK_DIR_NAME).join(ALBUMS_DIR).is_dir());
+    }
+
+    #[test]
+    fn gc_with_dot_tags_stays_inside_album_artwork() {
+        for dots in [".", "..", "...", ". ."] {
+            let root = dot_tag_library("gc");
+            let dir = album_artwork_dir(&root, Some(dots), Some(dots), Some(dots));
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(dir.join(format!("{FRONT_STEM}.jpg")), b"front").unwrap();
+
+            let removed = crate::models::Track {
+                id: 1,
+                title: dots.to_string(),
+                artist: Some(dots.to_string()),
+                album: Some(dots.to_string()),
+                album_artist: Some(dots.to_string()),
+                ..Default::default()
+            };
+            gc_art_after_track_removed(&tracks_table(), &root, &removed).unwrap();
+
+            assert_library_intact(&root);
+            assert!(
+                !dir.exists(),
+                "{dots:?}: the album's own art dir is collected"
+            );
+            let _ = fs::remove_dir_all(&root);
+        }
+    }
+
+    #[test]
+    fn rename_album_with_dot_tags_stays_inside_album_artwork() {
+        let root = dot_tag_library("rename");
+        let dir = album_artwork_dir(&root, Some(".."), None, Some(".."));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join(format!("{FRONT_STEM}.jpg")), b"front").unwrap();
+
+        rename_album_artwork_dir(
+            &tracks_table(),
+            &root,
+            Some(".."),
+            None,
+            Some(".."),
+            Some("New"),
+            None,
+            Some("Album"),
+        )
+        .unwrap();
+
+        assert_library_intact(&root);
+        assert!(album_artwork_dir(&root, Some("New"), None, Some("Album"))
+            .join(format!("{FRONT_STEM}.jpg"))
+            .is_file());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn gc_never_deletes_override_path_outside_album_artwork() {
+        let root = dot_tag_library("override");
+        let outside = root.join("Tracks").join("song.mp3");
+        let conn = tracks_table();
+        gc_unreferenced_override_file(&conn, &root, Some(outside.to_str().unwrap())).unwrap();
+        gc_unreferenced_override_file(&conn, &root, Some("Artwork/albums/../../Library.db"))
+            .unwrap();
+        assert_library_intact(&root);
         let _ = fs::remove_dir_all(&root);
     }
 
