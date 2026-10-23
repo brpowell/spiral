@@ -16,7 +16,7 @@ use axum::extract::{ConnectInfo, Request, State};
 use axum::http::header::{HeaderName, HeaderValue, RETRY_AFTER};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use governor::clock::{Clock, DefaultClock};
+use governor::clock::Clock;
 use governor::{Quota, RateLimiter};
 use http_body_util::BodyExt;
 
@@ -38,8 +38,36 @@ pub const MAX_CONCURRENT_DOWNLOADS_PER_IP: usize = 4;
 /// How often a limiter drops the state of clients it has not seen recently.
 const PRUNE_INTERVAL: Duration = Duration::from_secs(60);
 
-type IpLimiter =
-    RateLimiter<IpAddr, governor::state::keyed::DefaultKeyedStateStore<IpAddr>, DefaultClock>;
+type IpLimiter = RateLimiter<
+    IpAddr,
+    governor::state::keyed::DefaultKeyedStateStore<IpAddr>,
+    LimitClock,
+    governor::middleware::NoOpMiddleware<Instant>,
+>;
+
+/// The rate limiters' clock: the monotonic clock, or one frozen at a fixed instant so tests can
+/// spend a quota without it refilling under them on a slow machine.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct LimitClock {
+    frozen: Option<Instant>,
+}
+
+impl LimitClock {
+    /// A clock that never advances. For tests.
+    pub fn frozen() -> Self {
+        Self {
+            frozen: Some(Instant::now()),
+        }
+    }
+}
+
+impl Clock for LimitClock {
+    type Instant = Instant;
+
+    fn now(&self) -> Instant {
+        self.frozen.unwrap_or_else(Instant::now)
+    }
+}
 
 /// How to identify the client for rate limits: a proxy-set header, else the peer.
 #[derive(Clone, Debug)]
@@ -123,6 +151,7 @@ pub async fn attach_client_ip(
 #[derive(Clone)]
 pub struct RateLimit {
     limiter: Arc<IpLimiter>,
+    clock: LimitClock,
     client_ip: ClientIpSource,
     /// When the keyed store was last pruned, in milliseconds since `started`.
     last_prune_ms: Arc<AtomicU64>,
@@ -130,14 +159,15 @@ pub struct RateLimit {
 }
 
 impl RateLimit {
-    pub fn new(per_minute: u32, client_ip: ClientIpSource) -> Self {
+    pub fn new(per_minute: u32, client_ip: ClientIpSource, clock: LimitClock) -> Self {
         let burst = NonZeroU32::new(per_minute).expect("per_minute > 0");
-        Self::with_quota(Quota::per_minute(burst), client_ip)
+        Self::with_quota(Quota::per_minute(burst), client_ip, clock)
     }
 
-    fn with_quota(quota: Quota, client_ip: ClientIpSource) -> Self {
+    fn with_quota(quota: Quota, client_ip: ClientIpSource, clock: LimitClock) -> Self {
         Self {
-            limiter: Arc::new(RateLimiter::keyed(quota)),
+            limiter: Arc::new(RateLimiter::new(quota, Default::default(), clock)),
+            clock,
             client_ip,
             last_prune_ms: Arc::new(AtomicU64::new(0)),
             started: Instant::now(),
@@ -186,7 +216,7 @@ pub async fn rate_limit(State(state): State<RateLimit>, request: Request, next: 
     match state.limiter.check_key(&ip) {
         Ok(()) => next.run(request).await,
         Err(not_until) => {
-            let wait = not_until.wait_time_from(DefaultClock::default().now());
+            let wait = not_until.wait_time_from(state.clock.now());
             tracing::warn!(
                 %ip,
                 method = %request.method(),
@@ -367,7 +397,7 @@ mod tests {
     fn pruning_drops_idle_clients_once_per_interval() {
         // 1000 per second refills in a millisecond, so idle clients are prunable almost at once.
         let quota = Quota::per_second(NonZeroU32::new(1000).unwrap());
-        let mut limit = RateLimit::with_quota(quota, source(""));
+        let mut limit = RateLimit::with_quota(quota, source(""), LimitClock::default());
         for i in 0..10u8 {
             let _ = limit
                 .limiter
@@ -384,6 +414,17 @@ mod tests {
             .expect("monotonic clock is past two intervals");
         limit.maybe_prune();
         assert_eq!(limit.limiter.len(), 0);
+    }
+
+    #[test]
+    fn a_frozen_clock_never_refills_a_spent_quota() {
+        // 1000 per second would refill 20 cells during the sleep on the real clock.
+        let quota = Quota::per_second(NonZeroU32::new(1000).unwrap()).allow_burst(NonZeroU32::MIN);
+        let limit = RateLimit::with_quota(quota, source(""), LimitClock::frozen());
+        let ip = IpAddr::V4(Ipv4Addr::new(203, 0, 113, 1));
+        assert!(limit.limiter.check_key(&ip).is_ok());
+        std::thread::sleep(Duration::from_millis(20));
+        assert!(limit.limiter.check_key(&ip).is_err());
     }
 
     #[test]

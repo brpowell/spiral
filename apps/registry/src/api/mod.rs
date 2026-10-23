@@ -16,7 +16,7 @@ use crate::AppState;
 
 pub use error::{ApiError, ApiResult};
 pub(crate) use limit::ClientIpSource;
-pub use limit::DOWNLOAD_REQUESTS_PER_MINUTE;
+pub use limit::{LimitClock, DOWNLOAD_REQUESTS_PER_MINUTE};
 
 /// Which routes a listener serves.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,10 +34,11 @@ pub fn router(
     client_ip: ClientIpSource,
     admin_path: &str,
     surface: Surface,
+    clock: LimitClock,
 ) -> Router<AppState> {
     let admin_api = admin::api_router(upload_body_limit, admin_path)
         .layer(middleware::from_fn_with_state(
-            limit::RateLimit::new(limit::ADMIN_REQUESTS_PER_MINUTE, client_ip.clone()),
+            limit::RateLimit::new(limit::ADMIN_REQUESTS_PER_MINUTE, client_ip.clone(), clock),
             limit::rate_limit,
         ))
         .layer(middleware::from_fn_with_state(
@@ -52,7 +53,7 @@ pub fn router(
     let catalog = catalog
         .merge(items::preview_router())
         .layer(middleware::from_fn_with_state(
-            limit::RateLimit::new(limit::CATALOG_REQUESTS_PER_MINUTE, client_ip.clone()),
+            limit::RateLimit::new(limit::CATALOG_REQUESTS_PER_MINUTE, client_ip.clone(), clock),
             limit::rate_limit,
         ));
 
@@ -63,7 +64,7 @@ pub fn router(
             limit::download_concurrency,
         ))
         .layer(middleware::from_fn_with_state(
-            limit::RateLimit::new(limit::DOWNLOAD_REQUESTS_PER_MINUTE, client_ip),
+            limit::RateLimit::new(limit::DOWNLOAD_REQUESTS_PER_MINUTE, client_ip, clock),
             limit::rate_limit,
         ));
 

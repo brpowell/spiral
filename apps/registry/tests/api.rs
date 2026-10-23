@@ -12,7 +12,7 @@ use sha2::{Digest, Sha256};
 use spk_registry::config::{Config, StorageConfig, PROTOCOL_VERSION};
 use spk_registry::db::{self, item_version_row};
 use spk_registry::storage::{LocalDiskStorage, ObjectStorage};
-use spk_registry::{admin_router, app_router, AppState};
+use spk_registry::{admin_router, app_router, app_router_with_frozen_limits, AppState};
 use tempfile::TempDir;
 use tower::ServiceExt;
 
@@ -24,7 +24,8 @@ async fn test_app() -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
 
 async fn test_app_at(admin_path: &str) -> (axum::Router, TempDir, Arc<dyn ObjectStorage>) {
     let (state, tmp, storage) = test_state(admin_path, None).await;
-    (app_router(state), tmp, storage)
+    // Frozen so the per-minute quota tests do not race a refill on a slow machine.
+    (app_router_with_frozen_limits(state), tmp, storage)
 }
 
 /// The same app with `ADMIN_BIND_ADDR` set: (public router, admin router).
