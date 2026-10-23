@@ -8,7 +8,7 @@ import { RELOAD_LINKED_PACKS_EVENT } from "../../lib/appearanceWindow";
 import { prefetchPackChangelog } from "../../lib/packs/packChangelogCache";
 import {
   listItems,
-  openPathInFileManager,
+  revealItemFolder,
   readItemManifestJson,
 } from "../../lib/tauri";
 import { LIBRARY_PACKS_CHANGED_EVENT } from "../../lib/themeBridge";
@@ -309,7 +309,7 @@ export function ItemDetailView({
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => void openPathInFileManager(item.dir)}
+                        onClick={() => void revealItemFolder(item.dir)}
                       >
                         {revealInFileManagerLabel()}
                       </Button>

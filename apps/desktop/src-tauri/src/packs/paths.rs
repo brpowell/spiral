@@ -87,7 +87,9 @@ pub fn add_linked_item_path(app: &AppHandle, dir: &std::path::Path) -> Result<()
         return Ok(());
     }
     app_settings.linked_item_paths.push(normalized);
-    settings::write_settings(app, &app_settings)
+    settings::write_settings(app, &app_settings)?;
+    crate::path_scope::allow_dir(app, &canonical);
+    Ok(())
 }
 
 /// Move items from the legacy workshop folder into `library_root`, returning the item

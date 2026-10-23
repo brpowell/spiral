@@ -56,6 +56,7 @@ mod native_audio;
 #[cfg(test)]
 mod ogg_opus_tests;
 mod packs;
+mod path_scope;
 mod rating_sync;
 mod rating_tags;
 mod session;
@@ -123,10 +124,16 @@ pub fn run() {
     let app = builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            // Before any window loads, so the asset protocol already knows the library.
+            path_scope::init(app.handle());
+
+            // Sound Lab and Toast Lab are dev-only windows opened from the frontend.
+            #[cfg(debug_assertions)]
+            app.add_capability(include_str!("../capabilities-dev/dev-labs.json"))?;
+
             #[cfg(all(feature = "agent-bridge", debug_assertions, target_os = "macos"))]
             agent_bridge::start(app.handle().clone());
 
@@ -165,6 +172,12 @@ pub fn run() {
             }
 
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            // A dropped file or folder counts as picked, so it can be imported.
+            if let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event {
+                path_scope::allow_user_paths(window.app_handle(), paths);
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::app::quit_app,
@@ -249,6 +262,7 @@ pub fn run() {
             commands::items::delete_linked_item,
             commands::items::default_new_item_location,
             commands::items::pick_new_item_folder,
+            commands::items::reveal_item_folder,
             commands::items::get_default_publisher_id,
             commands::items::save_default_publisher_id,
             commands::registry::get_registries,

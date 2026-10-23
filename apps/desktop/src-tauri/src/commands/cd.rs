@@ -246,16 +246,20 @@ pub async fn clear_disc_metadata_override(app: AppHandle, disc_id: String) -> Re
 
 #[tauri::command]
 pub async fn rip_cd_track(
+    app: AppHandle,
     drive_id: String,
     track_number: u32,
     profile_id: String,
     metadata: TrackMetadataUpdate,
 ) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || {
+    let ripped = tauri::async_runtime::spawn_blocking(move || {
         rip_cd_track_impl(&drive_id, track_number, &profile_id, &metadata)
     })
     .await
-    .map_err(|err| err.to_string())?
+    .map_err(|err| err.to_string())??;
+    // The rip lands in the temp dir; the frontend imports it from there next.
+    crate::path_scope::allow_file(&app, std::path::Path::new(&ripped));
+    Ok(ripped)
 }
 
 #[tauri::command]

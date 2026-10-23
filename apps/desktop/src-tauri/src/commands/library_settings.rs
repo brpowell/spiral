@@ -2,6 +2,7 @@ use crate::commands::library::DbState;
 use crate::import_files;
 use crate::library_paths;
 use crate::library_relocate::{self, LibraryRelocateMode};
+use crate::path_scope;
 use crate::rating_sync::RatingSync;
 use crate::settings::{self, LibrarySettingsPatch, LibrarySettingsResponse};
 use tauri::{AppHandle, State};
@@ -18,6 +19,7 @@ pub fn save_library_settings(
 ) -> Result<LibrarySettingsResponse, String> {
     let resolved = settings::merge_library_settings(&app, library)?;
     library_paths::ensure_spiral_library(&resolved)?;
+    path_scope::allow_library_dirs(&app);
     Ok(resolved)
 }
 
@@ -27,6 +29,7 @@ pub fn prepare_import_file(
     source_path: String,
     mode: String,
 ) -> Result<String, String> {
+    path_scope::ensure_allowed(&app, &source_path)?;
     let resolved = settings::resolved_library_settings(&app);
     import_files::prepare_import_file(
         &source_path,
@@ -64,5 +67,7 @@ pub fn relocate_library(
     new_root: String,
     mode: LibraryRelocateMode,
 ) -> Result<LibrarySettingsResponse, String> {
-    library_relocate::relocate_library(&app, &state, &rating_sync, &new_root, mode)
+    let resolved = library_relocate::relocate_library(&app, &state, &rating_sync, &new_root, mode)?;
+    path_scope::allow_library_dirs(&app);
+    Ok(resolved)
 }

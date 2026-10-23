@@ -240,7 +240,7 @@ pub fn track_art_path_for_db(library_root: &Path, absolute_or_rel: Option<&str>)
     let abs = if Path::new(path).is_absolute() {
         PathBuf::from(path)
     } else {
-        artwork_paths::resolve_library_relative(library_root, path)
+        artwork_paths::resolve_library_relative(library_root, path)?
     };
     let name = abs.file_stem()?.to_str()?;
     if name.eq_ignore_ascii_case(FRONT_STEM) {

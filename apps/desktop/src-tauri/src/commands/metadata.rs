@@ -13,6 +13,7 @@ use crate::metadata_reader;
 use crate::metadata_writer;
 use crate::models::TrackInput;
 use crate::models::{Track, TrackMetadataUpdate};
+use crate::path_scope;
 use crate::settings;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -40,7 +41,7 @@ pub async fn parse_track_metadata(app: AppHandle, file_path: String) -> Result<T
 }
 
 #[tauri::command]
-pub fn pick_image_file() -> Result<Option<String>, String> {
+pub fn pick_image_file(app: AppHandle) -> Result<Option<String>, String> {
     let path = rfd::FileDialog::new()
         .set_title("Select album art")
         .add_filter(
@@ -48,6 +49,9 @@ pub fn pick_image_file() -> Result<Option<String>, String> {
             &["jpg", "jpeg", "png", "webp", "JPG", "JPEG", "PNG", "WEBP"],
         )
         .pick_file();
+    if let Some(path) = &path {
+        path_scope::allow_file(&app, path);
+    }
 
     Ok(path.map(|p| p.to_string_lossy().into_owned()))
 }
@@ -58,6 +62,7 @@ pub fn cache_art_from_file(
     source_path: String,
     file_path: String,
 ) -> Result<String, String> {
+    path_scope::ensure_allowed(&app, &source_path)?;
     let bytes = std::fs::read(&source_path).map_err(|e| format!("Failed to read image: {e}"))?;
     let ext = Path::new(&source_path)
         .extension()
@@ -543,6 +548,9 @@ pub async fn ensure_art_row_thumb(
     let size = size.unwrap_or(crate::art_thumb::ROW_THUMB_SIZE);
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        if !path_scope::is_allowed(&app, Path::new(&art_path)) {
+            return Ok(None);
+        }
         let app_data = app_data_dir(&app)?;
         crate::art_thumb::ensure_row_thumb(&app_data, &art_path, size)
             .map(|path| path.map(|p| p.to_string_lossy().into_owned()))
