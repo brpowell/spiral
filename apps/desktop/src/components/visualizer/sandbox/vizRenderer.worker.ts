@@ -8,7 +8,9 @@
  * frame for the host to blit onto the display canvas.
  *
  * Globals are allowlist-locked before pack source runs; only the single
- * host-supplied entry module is imported (blob URL).
+ * host-supplied entry module is imported (blob URL). The worker script is
+ * served with its own CSP (see workerCsp.ts) and refuses to load packs
+ * without it.
  */
 
 import * as THREE from "three";
@@ -39,7 +41,12 @@ import {
   MAX_VIZ_TRACK_IMAGE_EDGE,
 } from "./resourceBudgets";
 import { assertVizRendererSourceAllowed } from "./vizSourceGuard";
-import { lockDownWorkerGlobals, sealBlobUrlApi } from "./workerGlobalLockdown";
+import { assertWorkerCspEnforced } from "./workerCsp";
+import {
+  lockDownWorkerGlobals,
+  sealBlobUrlApi,
+  sealFunctionConstructors,
+} from "./workerGlobalLockdown";
 
 const workerScope = self as unknown as {
   addEventListener: (
@@ -118,7 +125,9 @@ function ensureBackingStore(): void {
 async function handleInit(
   msg: Extract<HostToWorkerMessage, { type: "init" }>,
 ): Promise<void> {
+  await assertWorkerCspEnforced();
   lockDownWorkerGlobals(globalThis);
+  sealFunctionConstructors();
   assertVizRendererSourceAllowed(msg.source);
   assertRendererSourceWithinBudget(msg.source);
 

