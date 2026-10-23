@@ -1,0 +1,6 @@
+{
+  "identifier": "dev-labs",
+  "description": "Dev builds only: lets the frontend open the Sound Lab and Toast Lab windows. Added at runtime under debug_assertions, so release builds can't create webview windows from JavaScript.",
+  "windows": ["main", "skin-mode", "skin-aux-*", "appearance", "equalizer", "activity-logs", "about"],
+  "permissions": ["core:webview:allow-create-webview-window"]
+}

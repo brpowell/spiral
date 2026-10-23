@@ -119,13 +119,13 @@ pub fn reconcile_track_album_artwork(
     }
 
     let src = if Path::new(art).is_absolute() {
-        PathBuf::from(art)
+        Some(PathBuf::from(art))
     } else {
         resolve_library_relative(library_root, art)
     };
-    if !src.is_file() {
+    let Some(src) = src.filter(|p| p.is_file()) else {
         return Ok(normalize_stored_override(library_root, Some(art)));
-    }
+    };
 
     fs::create_dir_all(&new_dir).map_err(|e| e.to_string())?;
     let file_name = src
@@ -214,9 +214,9 @@ pub fn rename_playlist_artwork_file(
     let new_stem = playlist_artwork_path_stem(library_root, playlist_id, new_title);
 
     let src = current_relative_or_abs
-        .map(|p| {
+        .and_then(|p| {
             if Path::new(p).is_absolute() {
-                PathBuf::from(p)
+                Some(PathBuf::from(p))
             } else {
                 resolve_library_relative(library_root, p)
             }
@@ -338,7 +338,11 @@ pub fn gc_unreferenced_override_file(
     let path = if Path::new(art).is_absolute() {
         PathBuf::from(art)
     } else {
-        resolve_library_relative(library_root, &rel)
+        let Some(path) = resolve_library_relative(library_root, &rel) else {
+            eprintln!("artwork gc: refusing non-library path {rel}");
+            return Ok(());
+        };
+        path
     };
     // Overrides only ever live in an album artwork dir; never delete a stored path elsewhere.
     if let Err(err) = ensure_inside_album_artwork(library_root, &path) {

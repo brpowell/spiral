@@ -14,7 +14,9 @@ fn hydrate_playlist_image(library_root: &Path, playlist: &mut Playlist) {
     if Path::new(path).is_absolute() {
         return;
     }
-    let abs = resolve_library_relative(library_root, path);
+    let Some(abs) = resolve_library_relative(library_root, path) else {
+        return;
+    };
     if abs.is_file() {
         playlist.custom_image_path = Some(abs.to_string_lossy().into_owned());
     }
@@ -38,6 +40,7 @@ pub fn store_cropped_playlist_art(
     source_path: String,
     crop: crate::image_crop::ImageCrop,
 ) -> Result<String, String> {
+    crate::path_scope::ensure_allowed(&app, &source_path)?;
     let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
     crate::artwork_write::store_cropped_playlist_art(
         &library_root,

@@ -1,7 +1,7 @@
 use crate::library_organize::sanitize_filename;
 use crate::settings::ARTWORK_DIR_NAME;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 pub const ALBUMS_DIR: &str = "albums";
 pub const ARTISTS_DIR: &str = "artists";
@@ -127,23 +127,32 @@ pub fn find_playlist_display_for_stem(stem: &Path) -> Option<PathBuf> {
     None
 }
 
-/// Relative path under library root using `/` separators.
+/// Relative path under library root using `/` separators. `None` when `absolute` is not
+/// under `library_root` or the remainder has anything but plain names (`..`, `.`).
 pub fn to_library_relative(library_root: &Path, absolute: &Path) -> Option<String> {
     let rel = absolute.strip_prefix(library_root).ok()?;
-    Some(
-        rel.components()
-            .map(|c| c.as_os_str().to_string_lossy())
-            .collect::<Vec<_>>()
-            .join("/"),
-    )
+    let mut segments = Vec::new();
+    for component in rel.components() {
+        let Component::Normal(name) = component else {
+            return None;
+        };
+        segments.push(name.to_string_lossy());
+    }
+    Some(segments.join("/"))
 }
 
-pub fn resolve_library_relative(library_root: &Path, relative: &str) -> PathBuf {
+/// Absolute path for a library-relative path. `None` when a segment is not a plain
+/// name (`..`, `.`, a root or a drive prefix), so the result stays under `library_root`.
+pub fn resolve_library_relative(library_root: &Path, relative: &str) -> Option<PathBuf> {
     let mut path = library_root.to_path_buf();
     for segment in relative.split(['/', '\\']).filter(|s| !s.is_empty()) {
-        path.push(segment);
+        let mut components = Path::new(segment).components();
+        match (components.next(), components.next()) {
+            (Some(Component::Normal(name)), None) => path.push(name),
+            _ => return None,
+        }
     }
-    path
+    Some(path)
 }
 
 pub fn find_role_image(dir: &Path, stem: &str) -> Option<PathBuf> {
@@ -249,11 +258,11 @@ pub fn resolve_track_art_absolute(
     if let Some(rel) = art_path.map(str::trim).filter(|s| !s.is_empty()) {
         // Legacy absolute app-data / absolute paths still work until migrated.
         let candidate = if Path::new(rel).is_absolute() {
-            PathBuf::from(rel)
+            Some(PathBuf::from(rel))
         } else {
             resolve_library_relative(library_root, rel)
         };
-        if candidate.is_file() {
+        if let Some(candidate) = candidate.filter(|p| p.is_file()) {
             return Some(candidate);
         }
     }
@@ -270,11 +279,11 @@ pub fn resolve_artist_art_absolute(
 ) -> Option<PathBuf> {
     if let Some(rel) = art_path.map(str::trim).filter(|s| !s.is_empty()) {
         let candidate = if Path::new(rel).is_absolute() {
-            PathBuf::from(rel)
+            Some(PathBuf::from(rel))
         } else {
             resolve_library_relative(library_root, rel)
         };
-        if candidate.is_file() {
+        if let Some(candidate) = candidate.filter(|p| p.is_file()) {
             return Some(candidate);
         }
     }
@@ -407,5 +416,37 @@ mod tests {
         assert_eq!(resolved.as_deref(), Some(portrait.as_path()));
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn resolve_library_relative_keeps_plain_segments() {
+        let root = Path::new("/lib");
+        assert_eq!(
+            resolve_library_relative(root, "Artwork/albums\\a/front.jpg"),
+            Some(PathBuf::from("/lib/Artwork/albums/a/front.jpg"))
+        );
+    }
+
+    #[test]
+    fn resolve_library_relative_rejects_dot_segments() {
+        let root = Path::new("/lib");
+        assert_eq!(resolve_library_relative(root, "../etc/passwd"), None);
+        assert_eq!(resolve_library_relative(root, "Artwork/../../x"), None);
+        assert_eq!(resolve_library_relative(root, "Artwork\\..\\x"), None);
+        assert_eq!(resolve_library_relative(root, "./front.jpg"), None);
+    }
+
+    #[test]
+    fn to_library_relative_rejects_dot_segments() {
+        let root = Path::new("/lib");
+        assert_eq!(
+            to_library_relative(root, Path::new("/lib/Artwork/a.jpg")),
+            Some("Artwork/a.jpg".to_string())
+        );
+        assert_eq!(
+            to_library_relative(root, Path::new("/lib/../etc/passwd")),
+            None
+        );
+        assert_eq!(to_library_relative(root, Path::new("/other/a.jpg")), None);
     }
 }

@@ -430,6 +430,7 @@ pub fn replace_track_from_import(
     mode: String,
     track: TrackInput,
 ) -> Result<Track, String> {
+    crate::path_scope::ensure_allowed(&app, &source_path)?;
     let resolved = settings::resolved_library_settings(&app);
     let sidecar_enabled = settings::lyrics_sidecar_sync_enabled(&app);
 

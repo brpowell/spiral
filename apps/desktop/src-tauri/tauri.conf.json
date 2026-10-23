@@ -47,14 +47,10 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$HOME/**/*",
-          "$APPLOCALDATA/**/*",
           "$APPDATA/**/*",
-          "$RESOURCE/**/*",
-          "$MUSIC/**/*",
-          "$AUDIO/**/*",
-          "$DOWNLOAD/**/*",
-          "$DESKTOP/**/*"
+          "$APPLOCALDATA/**/*",
+          "$APPCACHE/**/*",
+          "$RESOURCE/**/*"
         ]
       }
     }
