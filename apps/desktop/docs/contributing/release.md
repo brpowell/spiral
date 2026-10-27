@@ -1,6 +1,6 @@
 # Releasing Spiral
 
-How a version goes from `main` to installers on a GitHub Release. For the full decision history (channels, signing, updater UX), see `release-process-plan.md`. Signing keys, secret layout, and local sign/verify: [`signing-and-keys.md`](./signing-and-keys.md).
+How a version goes from `main` to installers on a GitHub Release. Signing keys, secret layout, and local sign/verify: [`signing-and-keys.md`](./signing-and-keys.md).
 
 ## At a glance
 
@@ -89,7 +89,7 @@ SPIRAL_ENABLE_UPDATER=1 npm run tauri dev
 
 (`true` also works. Vite exposes `SPIRAL_*` via `envPrefix` in `vite.config.ts`.)
 
-Packaged / release builds are unaffected — the gate only applies in DEV. End-to-end update testing still wants two **installed** builds (older → newer published or local signed release), not `tauri dev`; see release-process-plan.md.
+Packaged / release builds are unaffected — the gate only applies in DEV. End-to-end update testing still wants two **installed** builds (older → newer published or local signed release), not `tauri dev`.
 
 **Simulate Update (DEV menu):** Developer → **Simulate Update…** seeds a fake pending release (`99.0.0`) in memory — update toast, What's New (with a simulation banner), download progress, then a window **reload** (not process `relaunch`, so `tauri dev` keeps running). It never contacts the live updater endpoint or unpacks a real build. Retrigger anytime after reload.
 
@@ -105,9 +105,9 @@ Packaged / release builds are unaffected — the gate only applies in DEV. End-t
 | --- | --- | --- |
 | `RELEASE_PLEASE_TOKEN` | **Repo** secret (PAT with `contents: write` on desktop; `contents: read` on other private repos CI clones) | Lets release-please’s tag push trigger the build workflow (`GITHUB_TOKEN` events cannot) |
 | `TAURI_SIGNING_PRIVATE_KEY` | `production-release` Environment | Updater artifact signing (no password when generated with `--ci`) |
-| Apple / Windows signing vars | `production-release` Environment | Code signing + notarization — optional until those setups land; unset = unsigned builds (never export empty `APPLE_CERTIFICATE`) |
+| `APPLE_*`, `AZURE_*` | `production-release` Environment | macOS signing + notarization and Windows signing; unset = unsigned builds, partly set = build fails (never export empty `APPLE_CERTIFICATE`) |
 
-Full runbook (generate/rotate/sign/verify, enrollment checklists): [`signing-and-keys.md`](./signing-and-keys.md). Key layout: [`src-tauri/keys/updater/README.md`](../../src-tauri/keys/updater/README.md).
+Full runbook (key setup, rotation, certificates): [`signing-and-keys.md`](./signing-and-keys.md). Key layout: [`src-tauri/keys/updater/README.md`](../../src-tauri/keys/updater/README.md).
 
 ## Workflows & config
 
