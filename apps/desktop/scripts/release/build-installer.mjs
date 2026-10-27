@@ -6,7 +6,7 @@
  *   npm run release -- installer              # native for this machine
  *   npm run release -- installer dmg
  *   npm run release -- installer nsis
- *   npm run release -- installer linux        # AppImage (v1 Direct)
+ *   npm run release -- installer linux        # AppImage
  *   npm run release -- installer deb          # deb only
  *   npm run release -- installer rpm          # rpm only
  *   npm run release -- installer dmg -- --target universal-apple-darwin
@@ -81,6 +81,12 @@ Usage:
 Defaults to the native installer for this machine (${process.platform}).
 Cross-OS builds are not supported (need a Mac for DMG, Windows for NSIS,
 Linux for AppImage).
+
+Differences from CI:
+  - macOS builds for this machine's architecture. CI ships one universal
+    binary: add  -- --target universal-apple-darwin  to match it.
+  - Linux builds the one kind you name. CI builds AppImage, deb and rpm.
+  - Windows is only code-signed in CI (the signing command is injected there).
 `);
   process.exit(exitCode);
 }

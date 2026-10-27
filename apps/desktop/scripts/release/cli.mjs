@@ -65,7 +65,13 @@ Examples:
   npm run release -- sanitize-notes desktop-v0.2.2
   npm run release -- sanitize-notes desktop-v0.2.2 --dry-run
   npm run release -- sign path/to/artifact
+  npm run release -- verify path/to/artifact
   npm run release -- keys
+
+Local installers differ from CI: macOS builds for this machine only (add
+-- --target universal-apple-darwin for the universal binary CI ships), Linux
+builds one bundle kind at a time, and Windows installers are only code-signed
+in CI. See docs/contributing/release.md.
 `);
   process.exit(exitCode);
 }
