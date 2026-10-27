@@ -39,7 +39,7 @@ That PR just accumulates. Land as many features/fixes as you want before shippin
 
 ## Publishing (step 6)
 
-Only after **All platforms green** is green: open the draft on the GitHub Releases page and click **Publish release**. That is the go-live moment for Direct-channel auto-update once the marketing-site update route serves published releases. Nothing else runs on publish; the draft body is what users see, so edit it first if you want.
+Only after **All platforms green** is green: open the draft on the GitHub Releases page and click **Publish release**. That is the go-live moment for auto-update, because the update route serves published releases. Nothing else runs on publish; the draft body is what users see, so edit it first if you want.
 
 To check a draft locally before publishing: `npm run release -- check desktop-v0.2.0`.
 
@@ -114,7 +114,7 @@ Full runbook (generate/rotate/sign/verify, enrollment checklists): [`signing-and
 | File | Role |
 | --- | --- |
 | [`.github/workflows/release-please.yml`](../../../../.github/workflows/desktop-release-please.yml) | Standing release PR; tag + draft on merge; sanitizes the draft body |
-| [`.github/workflows/release.yml`](../../../../.github/workflows/desktop-release.yml) | Platform matrix → attach installers → `platforms-green` gate |
+| [`.github/workflows/desktop-release.yml`](../../../../.github/workflows/desktop-release.yml) | Platform matrix → attach installers → `platforms-green` gate |
 | [`scripts/release/check-release-assets.mjs`](../../scripts/release/check-release-assets.mjs) | Required draft assets (single source of truth) + the `platforms-green` check |
 | [`scripts/release/sanitize-release-notes.mjs`](../../scripts/release/sanitize-release-notes.mjs) | Draft-body sanitizer (Features / Bug Fixes only) |
 | [`release-please-config.json`](../../../../release-please-config.json) | release-please package config |

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verify a draft GitHub Release has every Direct-channel installer + updater
+ * Verify a draft GitHub Release has every installer + updater
  * artifact. This file is the single source of truth for the required assets and
  * the CLI behind CI's `platforms-green` job.
  *

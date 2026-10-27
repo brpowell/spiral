@@ -78,12 +78,9 @@ if (result.status !== 0) {
 }
 
 console.log(`
-Next (rotation / first-time setup):
-  1. Copy ${out}.pub → src-tauri/keys/updater/spiral-updater.pub
-  2. Set plugins.updater.pubkey in src-tauri/tauri.conf.json to the same contents
-  3. Set GitHub Environment secret production-release / TAURI_SIGNING_PRIVATE_KEY
-     to the private key file contents (no password)
-  4. Store the private key in the password-manager vault; discard the old key only
-     after a build signed with the new key has been installed by users
-  5. See docs/contributing/signing-and-keys.md
+Wrote ${out} and ${out}.pub.
+Install and rotate them as described in docs/contributing/signing-and-keys.md
+(public key into the repo and tauri.conf.json, private key into the
+TAURI_SIGNING_PRIVATE_KEY secret, and keep the old key until a build signed
+with the new one has shipped).
 `);
