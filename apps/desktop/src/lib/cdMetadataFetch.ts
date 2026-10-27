@@ -19,6 +19,10 @@ import {
   cdMetadataNotFoundSettleOptions,
 } from "./toastPayloads";
 
+function cdMetadataTaskKey(driveId: string): string {
+  return `cd-metadata-${driveId}`;
+}
+
 function resolveCdHeroArtQuery(
   driveId: string,
 ): { artist: string; album: string; releaseMbid?: string | null } | null {
@@ -151,9 +155,17 @@ async function fetchAndSetHeroArt(
   return false;
 }
 
+/** The metadata fetch fetches hero art itself, so a separate art task would duplicate it. */
+function isMetadataFetchRunning(driveId: string): boolean {
+  const key = cdMetadataTaskKey(driveId);
+  return useBackgroundTasksStore
+    .getState()
+    .tasks.some((task) => task.key === key && task.status === "running");
+}
+
 export function startCdHeroArtFetch(driveId: string): void {
   const query = resolveCdHeroArtQuery(driveId);
-  if (!query) return;
+  if (!query || isMetadataFetchRunning(driveId)) return;
 
   const operationId = createOperationId();
   const logContext = buildLogContext(driveId, operationId);
@@ -169,6 +181,9 @@ export function startCdHeroArtFetch(driveId: string): void {
       useCdStore.getState().setHeroArt(driveId, cachedPath);
       return;
     }
+
+    // Re-check: a metadata fetch may have started while awaiting above.
+    if (isMetadataFetchRunning(driveId)) return;
 
     // Require MB metadata before network fetch (CD-Text alone is not consent).
     if (skipRemoteHeroArtWithoutMetadata(driveId, logContext)) {
@@ -195,7 +210,7 @@ export function startCdMetadataFetch(driveId: string): void {
   const logContext = buildLogContext(driveId, operationId);
 
   useBackgroundTasksStore.getState().runInBackground({
-    key: `cd-metadata-${driveId}`,
+    key: cdMetadataTaskKey(driveId),
     label: t("toasts:cdMetadata.lookingUp"),
     run: async (ctx) => {
       try {
