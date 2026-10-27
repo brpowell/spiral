@@ -179,6 +179,7 @@ jobs:
       # missing secrets leave APPLE_* unset (unsigned DMG) instead of empty-
       # string → failed import. Do not put APPLE_* on the job env.
       - name: Export Apple signing env when configured
+        id: apple
         if: runner.os == 'macOS'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -207,6 +208,27 @@ jobs:
           append APPLE_TEAM_ID "$APPLE_TEAM_ID"
           append APPLE_API_KEY "$APPLE_API_KEY"
           append APPLE_API_ISSUER "$APPLE_API_ISSUER"
+
+          # All-or-nothing: a half-configured setup would otherwise ship a
+          # signed-but-unnotarized app (or fail late, after a 30 minute build).
+          cert_set=0
+          [ -n "$APPLE_CERTIFICATE" ] && [ -n "$APPLE_CERTIFICATE_PASSWORD" ] && [ -n "$APPLE_SIGNING_IDENTITY" ] && cert_set=1
+          notary_set=0
+          if [ -n "$APPLE_ID" ] && [ -n "$APPLE_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then notary_set=1; fi
+          if [ -n "$APPLE_API_KEY" ] && [ -n "$APPLE_API_ISSUER" ]; then notary_set=1; fi
+          any_set=0
+          for v in "$APPLE_CERTIFICATE" "$APPLE_CERTIFICATE_PASSWORD" "$APPLE_SIGNING_IDENTITY" "$APPLE_ID" "$APPLE_PASSWORD" "$APPLE_TEAM_ID" "$APPLE_API_KEY" "$APPLE_API_ISSUER"; do
+            [ -n "$v" ] && any_set=1
+          done
+          if [ "$cert_set" = 1 ] && [ "$notary_set" = 1 ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          elif [ "$any_set" = 1 ]; then
+            echo "::error::macOS signing is partly configured. Need APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY and either APPLE_ID + APPLE_PASSWORD + APPLE_TEAM_ID or APPLE_API_KEY + APPLE_API_ISSUER."
+            exit 1
+          else
+            echo "::warning::Apple signing secrets not set; building an unsigned DMG."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
 
       # Windows Authenticode (#183) via Azure Artifact Signing. Optional until
       # every AZURE_* secret below is set; `secrets` can't be read in `if:`, so
@@ -287,6 +309,25 @@ jobs:
           uploadUpdaterJson: false
           projectPath: apps/desktop
           args: ${{ matrix.args }}${{ steps.signconfig.outputs.config_arg && format(' {0}', steps.signconfig.outputs.config_arg) || '' }}
+
+      - name: Verify macOS signature and notarization
+        if: steps.apple.outputs.enabled == 'true'
+        run: |
+          apps=$(find target -type d -name 'Spiral.app' -path '*/bundle/macos/*')
+          dmgs=$(find target -type f -name '*.dmg' -path '*/bundle/dmg/*')
+          [ -n "$apps" ] || { echo "::error::No Spiral.app found to verify"; exit 1; }
+          [ -n "$dmgs" ] || { echo "::error::No DMG found to verify"; exit 1; }
+          while IFS= read -r app; do
+            echo "== $app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            # Developer ID + hardened runtime + notarization ticket, as Gatekeeper sees it.
+            spctl --assess --type execute --verbose=4 "$app"
+            xcrun stapler validate "$app"
+          done <<<"$apps"
+          while IFS= read -r dmg; do
+            echo "== $dmg"
+            codesign --verify --verbose=2 "$dmg"
+          done <<<"$dmgs"
 
       - name: Show signing log
         if: always() && steps.signing.outputs.enabled == 'true'

@@ -12,7 +12,7 @@ Scripts under `scripts/release/` wrap the same tools CI uses (`tauri signer`, `g
 | --- | --- | --- | --- |
 | **Updater signing private key** | CI build (`tauri-action` / `tauri build`) | GitHub Environment secret `production-release` → `TAURI_SIGNING_PRIVATE_KEY` (+ empty password); durable copy in password-manager vault | Attacker can push a malicious auto-update to every install that trusts the bundled pubkey — highest severity |
 | **Updater public key** | App (`plugins.updater.pubkey`) | Git: `src-tauri/keys/updater/spiral-updater.pub` and `src-tauri/tauri.conf.json` | Public |
-| **Apple Developer ID + notarization** | CI macOS build | Environment secrets on `production-release` (see below) — **not filled yet** (#182) | Fake signed macOS builds while the cert is valid |
+| **Apple Developer ID + notarization** | CI macOS build | Environment secrets on `production-release` (see below) | Fake signed macOS builds while the cert is valid |
 | **Windows Authenticode cert** | CI Windows build | Environment secrets on `production-release` (see below) — **not filled yet** (#183) | Fake signed Windows installers while the cert is valid |
 | **`RELEASE_PLEASE_TOKEN`** | `release-please` workflow | **Repo** secret (PAT, `contents: write`) | Can create tags/releases; does not sign updates |
 
@@ -89,27 +89,48 @@ CI does not call these scripts directly — `tauri-action` reads the same env va
 
 ## macOS code signing & notarization (#182)
 
-Blocked on Apple Developer Program / legal entity. The Release workflow’s macOS step reads these Environment secrets and appends only non-empty values to `GITHUB_ENV`; otherwise the job builds an **unsigned** DMG (current state). Do not map missing secrets to empty `APPLE_*` job env vars — tauri-bundler treats a present empty `APPLE_CERTIFICATE` as a cert to import and fails CI. (`secrets` cannot be referenced in Actions `if:` expressions.)
+The Release workflow’s macOS step reads these Environment secrets and appends only non-empty values to `GITHUB_ENV`. With none set it builds an **unsigned** DMG; with all of the certificate secrets and one notarization method set it signs, notarizes and staples, then runs a verify step (`codesign`, `spctl`, `stapler validate`). A partial set fails the job early. Do not map missing secrets to empty `APPLE_*` job env vars — tauri-bundler treats a present empty `APPLE_CERTIFICATE` as a cert to import and fails CI. (`secrets` cannot be referenced in Actions `if:` expressions.)
 
 | Secret | Purpose |
 | --- | --- |
 | `APPLE_CERTIFICATE` | Base64 `.p12` Developer ID Application cert |
 | `APPLE_CERTIFICATE_PASSWORD` | Password for the `.p12` |
-| `APPLE_SIGNING_IDENTITY` | e.g. `Developer ID Application: …` |
+| `APPLE_SIGNING_IDENTITY` | e.g. `Developer ID Application: Name (TEAMID)` |
 | `APPLE_ID` | Apple ID email (app-specific password flow) |
 | `APPLE_PASSWORD` | App-specific password |
 | `APPLE_TEAM_ID` | Team ID |
-| `APPLE_API_KEY` / `APPLE_API_ISSUER` | Alternate notarization via App Store Connect API key |
 
-**Enrollment checklist (prep):**
+Use the Apple ID + app-specific password flow. The `APPLE_API_KEY` / `APPLE_API_ISSUER` flow is also accepted by the workflow, but the bundler needs the `.p8` as a file (`APPLE_API_KEY_PATH`), which CI does not write.
 
-1. Enroll legal entity in Apple Developer Program (not a temporary personal name).
-2. Create **Developer ID Application** certificate; export `.p12`.
-3. Choose notarization auth: app-specific password **or** API key.
-4. Base64 the `.p12`, store secrets on `production-release` + vault notes (cert expiry, team id, who can renew).
-5. Confirm a CI matrix run produces a notarized DMG (Gatekeeper accepts without right-click open).
+### Getting the certificate
 
-Local smoke: set the same env vars, then `npm run release -- installer dmg`. Tauri’s bundler invokes `codesign` / `notarytool` — no separate Spiral wrapper until the credentials exist.
+1. **Create a CSR** (on the Mac that will hold the private key): Keychain Access → Certificate Assistant → Request a Certificate From a Certificate Authority. Enter your email, a common name, choose “Saved to disk”. Keychain now holds the private key.
+2. **Create the certificate**: developer.apple.com → Certificates, IDs & Profiles → Certificates → `+` → **Developer ID Application** (not “Developer ID Installer”, not “Apple Development”). Profile type G2 Sub-CA. Upload the CSR, download the `.cer`. Only the Account Holder can create Developer ID certificates.
+3. **Install it**: double-click the `.cer`. Under My Certificates it should show a private key beneath it. Check the identity string:
+
+   ```bash
+   security find-identity -v -p codesigning
+   ```
+
+   Copy the full `Developer ID Application: Name (TEAMID)` string, which is `APPLE_SIGNING_IDENTITY`. The 10-character value in parentheses is `APPLE_TEAM_ID`.
+4. **Export the `.p12`**: Keychain Access → My Certificates → right-click the certificate (with its key) → Export → `.p12`, with a strong password (`APPLE_CERTIFICATE_PASSWORD`). Then:
+
+   ```bash
+   base64 -i DeveloperID.p12 | pbcopy
+   ```
+
+   Paste as `APPLE_CERTIFICATE`.
+5. **App-specific password**: account.apple.com → Sign-In and Security → App-Specific Passwords → generate one named e.g. `spiral-notarize`. That is `APPLE_PASSWORD`; `APPLE_ID` is the Apple ID email of the account holder (or a team member with the Developer role).
+6. Add all six as secrets on the `production-release` Environment. Store the `.p12`, its password and the app-specific password in the password-manager vault, with the certificate expiry (5 years) and who can renew.
+7. Delete the local `.p12` and CSR once vaulted. Keep the private key in your login keychain until the vault copy is confirmed.
+
+### Verify
+
+Run the Release workflow manually (`workflow_dispatch`, platforms `macos`) against a draft tag. The “Verify macOS signature and notarization” step must pass. Then download the DMG from the draft in a browser (so it gets the quarantine flag) and open it on another Mac: no Gatekeeper warning should appear.
+
+Local smoke: set the same env vars, then `npm run release -- installer dmg`. Tauri’s bundler invokes `codesign` / `notarytool`.
+
+Notarization normally takes 2–15 minutes but can occasionally take longer; the job timeout is 90 minutes.
 
 ---
 
