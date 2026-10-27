@@ -6,7 +6,7 @@
  *   npm run release -- installer              # native for this machine
  *   npm run release -- installer dmg
  *   npm run release -- installer nsis
- *   npm run release -- installer linux        # AppImage (v1 Direct)
+ *   npm run release -- installer linux        # AppImage
  *   npm run release -- installer deb          # deb only
  *   npm run release -- installer rpm          # rpm only
  *   npm run release -- installer dmg -- --target universal-apple-darwin

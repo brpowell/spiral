@@ -27,7 +27,7 @@ function usage(exitCode = 0) {
 Usage:
   npm run release -- sign <file> [--key-path <path>] [--password <pw>]
 
-Environment (same names as .github/workflows/release.yml):
+Environment (same names as .github/workflows/desktop-release.yml):
   TAURI_SIGNING_PRIVATE_KEY
   TAURI_SIGNING_PRIVATE_KEY_PATH
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD
