@@ -57,6 +57,8 @@ import { Tab, TabList, TabPanel, Tabs } from "../common/Tabs/Tabs";
 import { AlbumArtPicker } from "../AlbumEditor/AlbumArtPicker";
 import { AlbumEditorArtTab } from "../AlbumEditor/AlbumEditorArtTab";
 import { MusicBrainzEditorTab } from "../MusicBrainzEditorTab/MusicBrainzEditorTab";
+import { showTagWriteSavedToast } from "../../lib/trackMetadataToast";
+import { useTagWriteConfirmStore } from "../../store/useTagWriteConfirmStore";
 import "../TrackEditor/TrackEditor.css";
 
 type ArtistEditorTab = "details" | "art" | "musicbrainz";
@@ -304,6 +306,13 @@ export function ArtistEditor() {
 
     if (metadataChanged && saveTargets.length === 0) return;
 
+    if (metadataChanged) {
+      const confirmed = await useTagWriteConfirmStore
+        .getState()
+        .confirmTagWrite("artist", saveTargets.length);
+      if (!confirmed) return;
+    }
+
     const updated: Track[] = [];
     const errors: string[] = [];
     let cancelled = false;
@@ -372,6 +381,8 @@ export function ArtistEditor() {
           );
           return;
         }
+
+        showTagWriteSavedToast(updated.length);
 
         if (oldKey !== newKey && !artChanged) {
           await renameArtistImageKey(oldKey, newKey);

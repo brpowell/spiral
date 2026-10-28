@@ -164,6 +164,22 @@ export function cdPlaybackFailurePayload(
 
 // —— Track metadata ——
 
+/** Confirms a multi-file tag write so the effect is visible after the fact. */
+export function tagWriteSavedPayload(
+  count: number,
+  options?: { dismissMs?: number | null },
+): ToastPayload | null {
+  if (count < 2) return null;
+  return withOptionalDismiss(
+    {
+      key: "tag-write-saved",
+      label: t("toasts:trackMetadata.saved", { count }),
+      status: "success",
+    },
+    options?.dismissMs,
+  );
+}
+
 /**
  * Bulk metadata-save toast (toast-conventions peer counters).
  * `missing` counts as unresolved with `failed` — the update was requested

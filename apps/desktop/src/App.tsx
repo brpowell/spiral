@@ -8,6 +8,7 @@ import { ArtistEditor } from "./components/ArtistEditor/ArtistEditor";
 import { CdAlbumEditor } from "./components/CdAlbumEditor/CdAlbumEditor";
 import { CdTrackEditor } from "./components/CdTrackEditor/CdTrackEditor";
 import { TrackEditor } from "./components/TrackEditor/TrackEditor";
+import { TagWriteConfirmDialog } from "./components/TagWriteConfirmDialog/TagWriteConfirmDialog";
 import { LyricsReviewQueue } from "./components/LyricsReviewQueue/LyricsReviewQueue";
 import { MainContent } from "./components/layout/MainContent";
 import { Sidebar } from "./components/layout/Sidebar";
@@ -273,6 +274,7 @@ function App() {
       <ImportChoiceModal />
       <ImportDedupeModal />
       <ConvertConfirmModal />
+      <TagWriteConfirmDialog />
       <CdMusicBrainzFetchModal />
       <CdMetadataPicker />
       <CdImportCancelDialog />

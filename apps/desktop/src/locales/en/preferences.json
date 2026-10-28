@@ -80,7 +80,9 @@
     "lyricsSidecarDescription": "<code>.lrc</code> files are kept next to track files.",
     "clearCache": "Clear remote metadata cache",
     "clearingCache": "Clearing…",
-    "cacheCleared": "Cache cleared"
+    "cacheCleared": "Cache cleared",
+    "resetTagWriteWarnings": "Reset file-write warnings",
+    "resetTagWriteWarningsDescription": "Show the confirmation again before edits that write tags to your files."
   },
   "studio": {
     "defaultPublisherId": "Default Publisher ID",
