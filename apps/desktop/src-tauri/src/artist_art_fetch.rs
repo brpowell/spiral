@@ -17,7 +17,7 @@ const THUMB_WIDTH: u32 = 250;
 const MIN_DIMENSION: u32 = 300;
 const WIKIPEDIA_SEARCH_LIMIT: u32 = 8;
 const MUSICBRAINZ_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
-const ACTIVITY_DOMAIN: &str = "metadata.artistArt";
+const ACTIVITY_DOMAIN: &str = "metadata";
 
 const MUSICAL_GROUP_TYPES: &[&str] = &[
     "Q215380",    // musical group / band
@@ -240,15 +240,6 @@ pub fn clear_fetch_cache() {
         return;
     };
     cache.clear();
-}
-
-/// Activity Log domain for a downloaded image keyed like the editors (`artist:…` vs album/track).
-pub fn activity_log_domain_for_cache_key(cache_key: &str) -> &'static str {
-    if cache_key.starts_with("artist:") {
-        ACTIVITY_DOMAIN
-    } else {
-        "metadata.coverArt"
-    }
 }
 
 fn fetch_artist_art_uncached(
@@ -1061,18 +1052,6 @@ mod tests {
         );
         clear_fetch_cache();
         assert!(FETCH_CACHE.lock().unwrap().is_empty());
-    }
-
-    #[test]
-    fn activity_log_domain_for_cache_key_splits_artist_from_cover() {
-        assert_eq!(
-            activity_log_domain_for_cache_key("artist:Radiohead"),
-            "metadata.artistArt"
-        );
-        assert_eq!(
-            activity_log_domain_for_cache_key("/Music/album/front.jpg"),
-            "metadata.coverArt"
-        );
     }
 
     #[test]

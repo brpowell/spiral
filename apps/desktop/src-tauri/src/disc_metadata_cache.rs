@@ -250,7 +250,7 @@ fn log_lookup_result(disc_id: &str, lookup: &DiscMetadataLookup) {
         } else {
             LogLevel::Info
         },
-        "metadata.musicbrainz",
+        "cd",
         format!(
             "MusicBrainz lookup returned {} candidate(s)",
             lookup.candidates.len()
@@ -315,7 +315,7 @@ pub fn peek_disc_metadata_cache(
     if tracks.is_empty() {
         activity_log::log(
             LogLevel::Debug,
-            "metadata.musicbrainz",
+            "cd",
             "Cache peek skipped: empty track list",
             None,
         );
@@ -333,7 +333,7 @@ pub fn peek_disc_metadata_cache(
             let candidate_count = cached.lookup.candidates.len();
             activity_log::log(
                 LogLevel::Info,
-                "metadata.musicbrainz",
+                "cd",
                 format!("Cache peek hit for disc {disc_id}"),
                 Some(serde_json::json!({
                     "discId": disc_id,
@@ -355,7 +355,7 @@ pub fn peek_disc_metadata_cache(
         if is_entry_valid(&cached, SystemTime::now()) {
             activity_log::log(
                 LogLevel::Info,
-                "metadata.musicbrainz",
+                "cd",
                 format!("Cache peek skipped unusable entry for disc {disc_id}"),
                 Some(serde_json::json!({
                     "discId": disc_id,
@@ -367,7 +367,7 @@ pub fn peek_disc_metadata_cache(
         } else {
             activity_log::log(
                 LogLevel::Info,
-                "metadata.musicbrainz",
+                "cd",
                 format!("Cache peek stale for disc {disc_id}"),
                 Some(serde_json::json!({
                     "discId": disc_id,
@@ -379,7 +379,7 @@ pub fn peek_disc_metadata_cache(
     } else {
         activity_log::log(
             LogLevel::Info,
-            "metadata.musicbrainz",
+            "cd",
             format!("Cache peek miss for disc {disc_id}"),
             Some(serde_json::json!({
                 "discId": disc_id,
@@ -402,7 +402,7 @@ pub fn lookup_disc_metadata_cached_with_options(
     if tracks.is_empty() {
         activity_log::log(
             LogLevel::Debug,
-            "metadata.musicbrainz",
+            "cd",
             "Lookup skipped: empty track list",
             None,
         );
@@ -419,7 +419,7 @@ pub fn lookup_disc_metadata_cached_with_options(
             if is_entry_valid(&cached, SystemTime::now()) && should_serve_cached_entry(&cached) {
                 activity_log::log(
                     LogLevel::Info,
-                    "metadata.musicbrainz",
+                    "cd",
                     format!("Lookup served from cache for disc {disc_id}"),
                     Some(serde_json::json!({
                         "discId": disc_id,
@@ -439,7 +439,7 @@ pub fn lookup_disc_metadata_cached_with_options(
 
     activity_log::log(
         LogLevel::Info,
-        "metadata.musicbrainz",
+        "cd",
         format!("Fetching metadata from MusicBrainz for disc {disc_id}"),
         Some(serde_json::json!({
             "discId": disc_id,
@@ -456,7 +456,7 @@ pub fn lookup_disc_metadata_cached_with_options(
                 {
                     activity_log::log(
                         LogLevel::Warn,
-                        "metadata.musicbrainz",
+                        "cd",
                         "Failed to cache MusicBrainz release entities from disc lookup",
                         Some(serde_json::json!({ "error": err })),
                     );
@@ -516,7 +516,7 @@ pub fn save_disc_metadata_preference(
 
     activity_log::log(
         LogLevel::Info,
-        "metadata.musicbrainz",
+        "cd",
         format!("Saved release preference for disc {disc_id}"),
         Some(serde_json::json!({
             "discId": disc_id,
@@ -564,7 +564,7 @@ pub fn save_disc_metadata_override(
 
     activity_log::log(
         LogLevel::Info,
-        "metadata.musicbrainz",
+        "cd",
         format!("Saved metadata override for disc {disc_id}"),
         Some(serde_json::json!({
             "discId": disc_id,
@@ -588,7 +588,7 @@ pub fn clear_disc_metadata_override(app: &AppHandle, disc_id: &str) -> Result<()
 
     activity_log::log(
         LogLevel::Info,
-        "metadata.musicbrainz",
+        "cd",
         format!("Cleared metadata override for disc {disc_id}"),
         Some(serde_json::json!({ "discId": disc_id })),
     );

@@ -91,7 +91,7 @@ pub fn fetch_disc_metadata(
         Err(err) => {
             activity_log::log(
                 LogLevel::Error,
-                "metadata.musicbrainz",
+                "cd",
                 "Failed to build HTTP client for MusicBrainz lookup",
                 Some(serde_json::json!({
                     "discId": disc_id,
@@ -119,7 +119,7 @@ pub fn fetch_disc_metadata(
                 });
             activity_log::log(
                 LogLevel::Error,
-                "metadata.musicbrainz",
+                "cd",
                 musicbrainz_http::format_http_error("MusicBrainz lookup", status, get.attempts),
                 Some(serde_json::json!({
                     "discId": disc_id,
@@ -148,12 +148,7 @@ pub fn fetch_disc_metadata(
             );
             details["discId"] = serde_json::json!(disc_id);
             details["url"] = serde_json::json!(url);
-            activity_log::log(
-                LogLevel::Error,
-                "metadata.musicbrainz",
-                message,
-                Some(details),
-            );
+            activity_log::log(LogLevel::Error, "cd", message, Some(details));
             let (lookup, kind) = error_lookup(disc_id);
             return (lookup, kind, None);
         }

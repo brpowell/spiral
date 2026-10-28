@@ -102,7 +102,7 @@ fn run_file_write(
             let message = err.to_message();
             activity_log::log(
                 LogLevel::Warn,
-                "rating.sync",
+                "library",
                 if is_retry {
                     format!("Rating file sync failed after retry for track {track_id}")
                 } else {

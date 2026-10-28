@@ -160,7 +160,7 @@ export function startLibraryImport(paths: string[]): void {
       const logImportCancelled = () => {
         logActivity({
           level: "info",
-          domain: ACTIVITY_LOG_DOMAINS.import,
+          domain: ACTIVITY_LOG_DOMAINS.library,
           message: "Library import cancelled",
         });
       };
@@ -173,7 +173,7 @@ export function startLibraryImport(paths: string[]): void {
       try {
         logActivity({
           level: "info",
-          domain: ACTIVITY_LOG_DOMAINS.import,
+          domain: ACTIVITY_LOG_DOMAINS.library,
           message: "Starting library import",
           details: {
             pathCount: pathsToImport.length,
@@ -195,7 +195,7 @@ export function startLibraryImport(paths: string[]): void {
         if (audioPaths.length === 0) {
           logActivity({
             level: "warn",
-            domain: ACTIVITY_LOG_DOMAINS.import,
+            domain: ACTIVITY_LOG_DOMAINS.library,
             message: "Library import found no audio files",
             details: { paths: pathsToImport },
           });
@@ -309,7 +309,7 @@ export function startLibraryImport(paths: string[]): void {
 
         logActivity({
           level: result.failed > 0 ? "warn" : "info",
-          domain: ACTIVITY_LOG_DOMAINS.import,
+          domain: ACTIVITY_LOG_DOMAINS.library,
           message: "Library import completed",
           details: {
             importMode,
@@ -335,7 +335,7 @@ export function startLibraryImport(paths: string[]): void {
           const message = err instanceof Error ? err.message : String(err);
           logActivity({
             level: "error",
-            domain: ACTIVITY_LOG_DOMAINS.import,
+            domain: ACTIVITY_LOG_DOMAINS.library,
             message: "Library import failed",
             details: { error: message },
           });

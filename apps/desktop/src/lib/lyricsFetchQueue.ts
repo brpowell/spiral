@@ -248,7 +248,7 @@ async function runProcessorLoop(ctx: BackgroundTaskRunContext): Promise<void> {
     if (state.bulkMode) {
       logActivity({
         level: state.tally.failed > 0 ? "warn" : "info",
-        domain: ACTIVITY_LOG_DOMAINS.lyricsFetch,
+        domain: ACTIVITY_LOG_DOMAINS.lyrics,
         message: "Lyrics fetch completed",
         details: {
           ...state.tally,

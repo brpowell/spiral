@@ -73,7 +73,7 @@ export function reportCdPlaybackFailure(options: {
 
   logActivity({
     level: kind === "generic" ? "error" : "warn",
-    domain: ACTIVITY_LOG_DOMAINS.cdPlayback,
+    domain: ACTIVITY_LOG_DOMAINS.playback,
     message: logMessage,
     context: driveId != null ? { driveId } : undefined,
     details: {

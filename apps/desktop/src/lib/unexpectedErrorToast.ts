@@ -20,17 +20,17 @@ const KIND_CONFIG: Record<
   }
 > = {
   libraryPlayback: {
-    domain: ACTIVITY_LOG_DOMAINS.libraryPlayback,
+    domain: ACTIVITY_LOG_DOMAINS.playback,
     defaultLogMessage: (raw) => `Library playback failed: ${raw}`,
     payload: () => libraryPlaybackFailedPayload({ logLink: true }),
   },
   libraryLoad: {
-    domain: ACTIVITY_LOG_DOMAINS.libraryLoad,
+    domain: ACTIVITY_LOG_DOMAINS.library,
     defaultLogMessage: (raw) => `Failed to load library: ${raw}`,
     payload: () => libraryLoadFailedPayload({ logLink: true }),
   },
   importPicker: {
-    domain: ACTIVITY_LOG_DOMAINS.import,
+    domain: ACTIVITY_LOG_DOMAINS.library,
     defaultLogMessage: (raw) => `Import failed: ${raw}`,
     payload: () => importPickerFailedPayload({ logLink: true }),
   },

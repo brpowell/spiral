@@ -71,7 +71,7 @@ fn list_loaded_packs(app: &AppHandle) -> Vec<LoadedSoundPack> {
     if let Err(e) = packs::ensure_packs_ready(app) {
         activity_log::log(
             LogLevel::Debug,
-            "sound.load",
+            "studio",
             format!("pack setup error: {e}"),
             None,
         );
@@ -79,7 +79,7 @@ fn list_loaded_packs(app: &AppHandle) -> Vec<LoadedSoundPack> {
 
     let scan = packs::scan_contributions_of_type(app, "sound");
     for w in &scan.warnings {
-        activity_log::log(LogLevel::Debug, "sound.load", w.message.clone(), None);
+        activity_log::log(LogLevel::Debug, "studio", w.message.clone(), None);
     }
 
     let mut loaded = Vec::new();
@@ -88,7 +88,7 @@ fn list_loaded_packs(app: &AppHandle) -> Vec<LoadedSoundPack> {
             Ok(pack) => loaded.push(pack),
             Err(e) => activity_log::log(
                 LogLevel::Debug,
-                "sound.load",
+                "studio",
                 format!("sound pack {} skipped: {e}", contrib.effective_id),
                 None,
             ),

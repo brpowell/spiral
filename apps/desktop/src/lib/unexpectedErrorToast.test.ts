@@ -45,7 +45,7 @@ describe("reportUnexpectedError", () => {
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         level: "error",
-        domain: ACTIVITY_LOG_DOMAINS.libraryPlayback,
+        domain: ACTIVITY_LOG_DOMAINS.playback,
         message: "Library playback failed: Decoder error: unsupported codec",
         details: {
           rawMessage: "Decoder error: unsupported codec",
@@ -69,7 +69,7 @@ describe("reportUnexpectedError", () => {
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         level: "error",
-        domain: ACTIVITY_LOG_DOMAINS.libraryLoad,
+        domain: ACTIVITY_LOG_DOMAINS.library,
         message: "Failed to load library: database is locked",
         details: { rawMessage: "database is locked" },
       }),
@@ -92,7 +92,7 @@ describe("reportUnexpectedError", () => {
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         level: "error",
-        domain: ACTIVITY_LOG_DOMAINS.import,
+        domain: ACTIVITY_LOG_DOMAINS.library,
         message: "Import failed: dialog failed",
         details: {
           rawMessage: "dialog failed",

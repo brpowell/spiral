@@ -10,7 +10,7 @@ export function logItemInstallSuccess(options: {
   const { result } = options;
   logActivity({
     level: "info",
-    domain: ACTIVITY_LOG_DOMAINS.packInstall,
+    domain: ACTIVITY_LOG_DOMAINS.studio,
     message: `Installed ${result.name} (${result.effectiveId}@${result.version}) from file`,
     details: {
       source: "file",
@@ -37,7 +37,7 @@ export function logRegistryInstallSuccess(options: {
   const { result } = options;
   logActivity({
     level: "info",
-    domain: ACTIVITY_LOG_DOMAINS.packInstall,
+    domain: ACTIVITY_LOG_DOMAINS.studio,
     message: `Installed ${result.name} (${result.effectiveId}@${result.version}) from registry`,
     details: {
       source: "registry",
@@ -79,7 +79,7 @@ export function logRegistryInstallFailure(options: {
 
   logActivity({
     level: "error",
-    domain: ACTIVITY_LOG_DOMAINS.packInstall,
+    domain: ACTIVITY_LOG_DOMAINS.studio,
     message: `Item download failed for ${subject}: ${rawMessage}`,
     details: {
       source: "registry",
@@ -109,7 +109,7 @@ export function logItemInstallFailure(options: {
   const subject = options.name?.trim() || options.path || "item";
   logActivity({
     level: "error",
-    domain: ACTIVITY_LOG_DOMAINS.packInstall,
+    domain: ACTIVITY_LOG_DOMAINS.studio,
     message: `Item install failed for ${subject}: ${rawMessage}`,
     details: {
       source: "file",

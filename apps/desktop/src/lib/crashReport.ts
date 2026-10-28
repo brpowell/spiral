@@ -12,7 +12,9 @@ function normalizeCrashSource(raw: unknown): CrashSource {
   return raw === "rust" ? "rust" : "renderer";
 }
 
-function normalizeCrashReportSummary(raw: Record<string, unknown>): CrashReportSummary {
+function normalizeCrashReportSummary(
+  raw: Record<string, unknown>,
+): CrashReportSummary {
   return {
     id: String(raw.id ?? ""),
     timestampMs: Number(raw.timestampMs ?? raw.timestamp_ms ?? 0),
@@ -21,7 +23,9 @@ function normalizeCrashReportSummary(raw: Record<string, unknown>): CrashReportS
   };
 }
 
-export function normalizeCrashReport(raw: Record<string, unknown>): CrashReport {
+export function normalizeCrashReport(
+  raw: Record<string, unknown>,
+): CrashReport {
   const rawEntries = raw.recentEntries ?? raw.recent_entries;
   const recentEntries = Array.isArray(rawEntries)
     ? rawEntries.map((entry: unknown) =>
@@ -33,7 +37,9 @@ export function normalizeCrashReport(raw: Record<string, unknown>): CrashReport 
     timestampMs: Number(raw.timestampMs ?? raw.timestamp_ms ?? 0),
     source: normalizeCrashSource(raw.source),
     message: String(raw.message ?? ""),
-    stackOrBacktrace: String(raw.stackOrBacktrace ?? raw.stack_or_backtrace ?? ""),
+    stackOrBacktrace: String(
+      raw.stackOrBacktrace ?? raw.stack_or_backtrace ?? "",
+    ),
     appVersion: String(raw.appVersion ?? raw.app_version ?? ""),
     recentEntries,
   };
@@ -42,16 +48,21 @@ export function normalizeCrashReport(raw: Record<string, unknown>): CrashReport 
 export async function listUnacknowledgedStartupRustCrashReports(): Promise<
   CrashReportSummary[]
 > {
-  const reports = await invoke<Record<string, unknown>[]>("list_crash_reports", {
-    priorSessionOnly: true,
-    source: "rust",
-    excludeAcknowledged: true,
-  });
+  const reports = await invoke<Record<string, unknown>[]>(
+    "list_crash_reports",
+    {
+      priorSessionOnly: true,
+      source: "rust",
+      excludeAcknowledged: true,
+    },
+  );
   return reports.map(normalizeCrashReportSummary);
 }
 
 export async function readCrashReport(id: string): Promise<CrashReport> {
-  const report = await invoke<Record<string, unknown>>("read_crash_report", { id });
+  const report = await invoke<Record<string, unknown>>("read_crash_report", {
+    id,
+  });
   return normalizeCrashReport(report);
 }
 
@@ -81,7 +92,7 @@ function reportRendererCrash(message: string, stack: string): void {
       await invoke("append_activity_log", {
         draft: {
           level: "error",
-          domain: "app.crash",
+          domain: "app",
           message,
           details: stack ? { stack } : undefined,
         },
@@ -97,8 +108,7 @@ function reportRendererCrash(message: string, stack: string): void {
 export function initCrashHandlers(): void {
   window.addEventListener("error", (event) => {
     const message = event.message || "Unhandled error";
-    const stack =
-      event.error instanceof Error ? (event.error.stack ?? "") : "";
+    const stack = event.error instanceof Error ? (event.error.stack ?? "") : "";
     reportRendererCrash(message, stack);
   });
 

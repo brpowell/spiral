@@ -156,7 +156,7 @@ export function startConvertTracks(options: {
     run: async (ctx) => {
       logActivity({
         level: "info",
-        domain: ACTIVITY_LOG_DOMAINS.convert,
+        domain: ACTIVITY_LOG_DOMAINS.library,
         message: "Starting track convert",
         details: {
           profileId,
@@ -198,7 +198,7 @@ export function startConvertTracks(options: {
           errors.push(line);
           logActivity({
             level: "warn",
-            domain: ACTIVITY_LOG_DOMAINS.convert,
+            domain: ACTIVITY_LOG_DOMAINS.library,
             message: "Track convert failed",
             details: {
               trackId,
@@ -230,7 +230,7 @@ export function startConvertTracks(options: {
 
       logActivity({
         level: failed > 0 ? "warn" : "info",
-        domain: ACTIVITY_LOG_DOMAINS.convert,
+        domain: ACTIVITY_LOG_DOMAINS.library,
         message: "Track convert completed",
         details: {
           profileId,

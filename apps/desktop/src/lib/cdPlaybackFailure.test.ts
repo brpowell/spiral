@@ -76,7 +76,7 @@ describe("reportCdPlaybackFailure", () => {
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         level: "warn",
-        domain: ACTIVITY_LOG_DOMAINS.cdPlayback,
+        domain: ACTIVITY_LOG_DOMAINS.playback,
         context: { driveId: "disk4" },
         details: expect.objectContaining({
           kind: "disconnected",
@@ -102,7 +102,7 @@ describe("reportCdPlaybackFailure", () => {
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         level: "error",
-        domain: ACTIVITY_LOG_DOMAINS.cdPlayback,
+        domain: ACTIVITY_LOG_DOMAINS.playback,
       }),
     );
   });

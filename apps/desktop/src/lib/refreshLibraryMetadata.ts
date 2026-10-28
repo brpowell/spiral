@@ -84,7 +84,7 @@ export function refreshLibraryMetadata(): void {
     run: async (ctx) => {
       logActivity({
         level: "info",
-        domain: ACTIVITY_LOG_DOMAINS.refresh,
+        domain: ACTIVITY_LOG_DOMAINS.library,
         message: "Starting library metadata refresh",
       });
 
@@ -97,7 +97,7 @@ export function refreshLibraryMetadata(): void {
 
       logActivity({
         level: result.failed > 0 || result.missing > 0 ? "warn" : "info",
-        domain: ACTIVITY_LOG_DOMAINS.refresh,
+        domain: ACTIVITY_LOG_DOMAINS.library,
         message: "Library metadata refresh completed",
         details: {
           updated: result.updated,

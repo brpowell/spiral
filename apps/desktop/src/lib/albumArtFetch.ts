@@ -21,6 +21,12 @@ function isCdAutoCoverArtFetch(logContext?: ActivityLogContext): boolean {
   return logContext?.driveId != null;
 }
 
+function coverArtDomain(logContext?: ActivityLogContext) {
+  return isCdAutoCoverArtFetch(logContext)
+    ? ACTIVITY_LOG_DOMAINS.cd
+    : ACTIVITY_LOG_DOMAINS.metadata;
+}
+
 function coverArtQueryUrl(options: {
   artist: string;
   album: string;
@@ -43,7 +49,7 @@ function logCoverArtWarn(
   if (isCdAutoCoverArtFetch(logContext)) return;
   logActivity({
     level: "warn",
-    domain: ACTIVITY_LOG_DOMAINS.coverArt,
+    domain: coverArtDomain(logContext),
     message,
     context: withLogContext(logContext, contextPatch),
   });
@@ -58,7 +64,7 @@ function logCdCoverArtFetchStart(options: {
   const releaseMbid = options.releaseMbid?.trim() || undefined;
   logActivity({
     level: "info",
-    domain: ACTIVITY_LOG_DOMAINS.coverArt,
+    domain: coverArtDomain(options.logContext),
     message: `Fetching cover art for CD '${options.album}'`,
     context: options.logContext,
     details: {
@@ -86,7 +92,7 @@ function logCdCoverArtFetched(
   const selected = cached.candidate;
   logActivity({
     level: "info",
-    domain: ACTIVITY_LOG_DOMAINS.coverArt,
+    domain: coverArtDomain(logContext),
     message: `Cover art fetched for '${album}'`,
     context: logContext,
     details: {
@@ -228,7 +234,7 @@ export async function resolveAlbumArtPath(
     if (artPath) {
       logActivity({
         level: "info",
-        domain: ACTIVITY_LOG_DOMAINS.coverArt,
+        domain: coverArtDomain(logContext),
         message: "Resolved CD cover art from local cache",
         context: discScopedLogContext(logContext),
         details: {
@@ -244,7 +250,7 @@ export async function resolveAlbumArtPath(
   } catch (err) {
     logActivity({
       level: "warn",
-      domain: ACTIVITY_LOG_DOMAINS.coverArt,
+      domain: coverArtDomain(logContext),
       message: "Failed to resolve cached album art",
       context: discScopedLogContext(logContext),
       details: {
@@ -289,7 +295,7 @@ async function fetchAlbumArtForRelease(
   } catch (err) {
     logActivity({
       level: "error",
-      domain: ACTIVITY_LOG_DOMAINS.coverArt,
+      domain: coverArtDomain(logContext),
       message: "Cover art fetch for release failed",
       context: withLogContext(logContext, { releaseMbid }),
       details: {
@@ -331,7 +337,7 @@ async function fetchAlbumArtPath(
   } catch (err) {
     logActivity({
       level: "error",
-      domain: ACTIVITY_LOG_DOMAINS.coverArt,
+      domain: coverArtDomain(logContext),
       message: "Cover art search failed",
       context: withLogContext(logContext, { artist, album }),
       details: {

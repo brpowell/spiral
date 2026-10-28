@@ -17,7 +17,7 @@ export function showBulkTrackMetadataSaveToast(options: {
     const missing = options.errors.length - failedErrors.length;
     logActivity({
       level: "warn",
-      domain: ACTIVITY_LOG_DOMAINS.metadataSave,
+      domain: ACTIVITY_LOG_DOMAINS.library,
       message: "Track metadata save completed with unresolved tracks",
       details: {
         total: options.total,

@@ -163,7 +163,7 @@ pub(crate) fn lookup_url(kind: MusicBrainzEntityKind, mbid: &str) -> String {
 }
 
 fn log_mb(level: LogLevel, message: impl Into<String>, details: Option<serde_json::Value>) {
-    activity_log::log(level, "metadata.musicbrainz", message, details);
+    activity_log::log(level, "metadata", message, details);
 }
 
 fn fetch_json(url: &str, operation: &str) -> Result<serde_json::Value, String> {

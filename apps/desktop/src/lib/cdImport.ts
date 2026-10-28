@@ -118,7 +118,7 @@ export function startCdImport(options: {
       try {
         logActivity({
           level: "info",
-          domain: ACTIVITY_LOG_DOMAINS.import,
+          domain: ACTIVITY_LOG_DOMAINS.cd,
           message: "Starting CD import",
           details: {
             driveId,
@@ -141,7 +141,7 @@ export function startCdImport(options: {
         if (plans.length === 0) {
           logActivity({
             level: "warn",
-            domain: ACTIVITY_LOG_DOMAINS.import,
+            domain: ACTIVITY_LOG_DOMAINS.cd,
             message: "CD import had no tracks selected",
             details: { driveId },
           });
@@ -372,7 +372,7 @@ export function startCdImport(options: {
         if (!outcomeLogged) {
           logActivity({
             level: "error",
-            domain: ACTIVITY_LOG_DOMAINS.import,
+            domain: ACTIVITY_LOG_DOMAINS.cd,
             message: "CD import failed",
             details: { driveId, error: errorMessageFromUnknown(err) },
           });
@@ -399,7 +399,7 @@ export function startCdImport(options: {
 function logCdImportCompleted(result: ImportResult, driveId: string): void {
   logActivity({
     level: result.failed > 0 ? "warn" : "info",
-    domain: ACTIVITY_LOG_DOMAINS.import,
+    domain: ACTIVITY_LOG_DOMAINS.cd,
     message: "CD import completed",
     details: {
       driveId,
@@ -426,7 +426,7 @@ function recordCdTrackFailure(
   result.errors.push(t("toasts:import.cdTrackFailed", { title }));
   logActivity({
     level: "warn",
-    domain: ACTIVITY_LOG_DOMAINS.import,
+    domain: ACTIVITY_LOG_DOMAINS.cd,
     message: "CD track import failed",
     details: {
       trackNumber: plan.trackNumber,

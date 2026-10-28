@@ -193,7 +193,7 @@ describe("fetchAlbumArtPreferringRelease", () => {
       1,
       expect.objectContaining({
         level: "info",
-        domain: ACTIVITY_LOG_DOMAINS.coverArt,
+        domain: ACTIVITY_LOG_DOMAINS.cd,
         message: "Fetching cover art for CD '1989'",
         details: {
           releaseMbid: "release-mbid",
@@ -207,7 +207,7 @@ describe("fetchAlbumArtPreferringRelease", () => {
       2,
       expect.objectContaining({
         level: "info",
-        domain: ACTIVITY_LOG_DOMAINS.coverArt,
+        domain: ACTIVITY_LOG_DOMAINS.cd,
         message: "Cover art fetched for '1989'",
         details: {
           byteCount: 89878,

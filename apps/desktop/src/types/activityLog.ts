@@ -43,39 +43,23 @@ export type ActivityLogDomain =
   (typeof ACTIVITY_LOG_DOMAIN_DEFS)[keyof typeof ACTIVITY_LOG_DOMAIN_DEFS]["value"];
 
 const ACTIVITY_LOG_DOMAIN_DEFS = {
-  musicbrainz: { value: "metadata.musicbrainz", label: "MusicBrainz" },
-  coverArt: { value: "metadata.coverArt", label: "Cover Art" },
-  artistArt: { value: "metadata.artistArt", label: "Artist Art" },
-  convert: { value: "library.convert", label: "Convert" },
-  import: { value: "library.import", label: "Import" },
-  refresh: { value: "library.refresh", label: "Refresh" },
-  metadataSave: { value: "metadata.save", label: "Metadata" },
-  lyricsFetch: { value: "lyrics.fetch", label: "Lyrics" },
-  skinLoad: { value: "skin.load", label: "Skin load" },
-  visualizerLoad: { value: "visualizer.load", label: "Visualizer load" },
-  packScan: { value: "pack.scan", label: "Pack scan" },
-  packInstall: { value: "pack.install", label: "Pack install" },
-  cdPlayback: { value: "cd.playback", label: "CD playback" },
-  libraryPlayback: { value: "library.playback", label: "Library playback" },
-  libraryLoad: { value: "library.load", label: "Library load" },
+  library: { value: "library", label: "Library" },
+  playback: { value: "playback", label: "Playback" },
+  metadata: { value: "metadata", label: "Metadata" },
+  lyrics: { value: "lyrics", label: "Lyrics" },
+  studio: { value: "studio", label: "Studio" },
+  cd: { value: "cd", label: "CD" },
+  app: { value: "app", label: "App" },
 } as const;
 
 export const ACTIVITY_LOG_DOMAINS = {
-  musicbrainz: ACTIVITY_LOG_DOMAIN_DEFS.musicbrainz.value,
-  coverArt: ACTIVITY_LOG_DOMAIN_DEFS.coverArt.value,
-  artistArt: ACTIVITY_LOG_DOMAIN_DEFS.artistArt.value,
-  convert: ACTIVITY_LOG_DOMAIN_DEFS.convert.value,
-  import: ACTIVITY_LOG_DOMAIN_DEFS.import.value,
-  refresh: ACTIVITY_LOG_DOMAIN_DEFS.refresh.value,
-  metadataSave: ACTIVITY_LOG_DOMAIN_DEFS.metadataSave.value,
-  lyricsFetch: ACTIVITY_LOG_DOMAIN_DEFS.lyricsFetch.value,
-  skinLoad: ACTIVITY_LOG_DOMAIN_DEFS.skinLoad.value,
-  visualizerLoad: ACTIVITY_LOG_DOMAIN_DEFS.visualizerLoad.value,
-  packScan: ACTIVITY_LOG_DOMAIN_DEFS.packScan.value,
-  packInstall: ACTIVITY_LOG_DOMAIN_DEFS.packInstall.value,
-  cdPlayback: ACTIVITY_LOG_DOMAIN_DEFS.cdPlayback.value,
-  libraryPlayback: ACTIVITY_LOG_DOMAIN_DEFS.libraryPlayback.value,
-  libraryLoad: ACTIVITY_LOG_DOMAIN_DEFS.libraryLoad.value,
+  library: ACTIVITY_LOG_DOMAIN_DEFS.library.value,
+  playback: ACTIVITY_LOG_DOMAIN_DEFS.playback.value,
+  metadata: ACTIVITY_LOG_DOMAIN_DEFS.metadata.value,
+  lyrics: ACTIVITY_LOG_DOMAIN_DEFS.lyrics.value,
+  studio: ACTIVITY_LOG_DOMAIN_DEFS.studio.value,
+  cd: ACTIVITY_LOG_DOMAIN_DEFS.cd.value,
+  app: ACTIVITY_LOG_DOMAIN_DEFS.app.value,
 } as const;
 
 export const ACTIVITY_LOG_DOMAIN_OPTIONS: ReadonlyArray<{

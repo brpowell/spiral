@@ -76,7 +76,7 @@ function skipRemoteHeroArtWithoutMetadata(
   if (hasDiscMetadata(driveId)) return false;
   logActivity({
     level: "info",
-    domain: ACTIVITY_LOG_DOMAINS.coverArt,
+    domain: ACTIVITY_LOG_DOMAINS.cd,
     message:
       "Skipped CD hero art network fetch: no MusicBrainz metadata (user may have declined)",
     context: logContext,
@@ -92,7 +92,7 @@ async function fetchAndSetHeroArt(
   if (!query) {
     logActivity({
       level: "warn",
-      domain: ACTIVITY_LOG_DOMAINS.coverArt,
+      domain: ACTIVITY_LOG_DOMAINS.cd,
       message: "Skipped hero art fetch: missing artist or album",
       context: logContext,
     });
@@ -116,7 +116,7 @@ async function fetchAndSetHeroArt(
     if (!isNetworkLikelyAvailable()) {
       logActivity({
         level: "warn",
-        domain: ACTIVITY_LOG_DOMAINS.coverArt,
+        domain: ACTIVITY_LOG_DOMAINS.cd,
         message:
           "Skipped hero art fetch: network unavailable and no local cache",
         context: logContext,
@@ -140,7 +140,7 @@ async function fetchAndSetHeroArt(
 
   logActivity({
     level: "warn",
-    domain: ACTIVITY_LOG_DOMAINS.coverArt,
+    domain: ACTIVITY_LOG_DOMAINS.cd,
     message: "No hero art found for CD",
     context,
   });
@@ -239,7 +239,7 @@ export function startCdMetadataFetch(driveId: string): void {
       } catch (err) {
         logActivity({
           level: "error",
-          domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+          domain: ACTIVITY_LOG_DOMAINS.cd,
           message: "CD metadata fetch failed",
           context: logContext,
           details: {

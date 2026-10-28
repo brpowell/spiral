@@ -243,7 +243,7 @@ function logSummary(summary: FetchMissingLyricsSummary): void {
   const level = summary.cancelled || summary.failed > 0 ? "warn" : "info";
   logActivity({
     level,
-    domain: ACTIVITY_LOG_DOMAINS.lyricsFetch,
+    domain: ACTIVITY_LOG_DOMAINS.lyrics,
     message: summary.cancelled
       ? "Fetch missing lyrics cancelled"
       : "Fetch missing lyrics completed",
@@ -317,7 +317,7 @@ export function fetchMissingLyrics(): void {
 
     logActivity({
       level: "info",
-      domain: ACTIVITY_LOG_DOMAINS.lyricsFetch,
+      domain: ACTIVITY_LOG_DOMAINS.lyrics,
       message: "Starting fetch missing lyrics",
       details: { totalMissing, eligible: 0, ineligible: ineligible.length },
     });
@@ -342,7 +342,7 @@ export function fetchMissingLyrics(): void {
 
       logActivity({
         level: "info",
-        domain: ACTIVITY_LOG_DOMAINS.lyricsFetch,
+        domain: ACTIVITY_LOG_DOMAINS.lyrics,
         message: "Starting fetch missing lyrics",
         details: {
           totalMissing,

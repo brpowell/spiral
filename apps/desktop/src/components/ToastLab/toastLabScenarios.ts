@@ -472,7 +472,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "cdPlaybackFailure.ts",
     fire: async ({ showErrorToast, dismissMs }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.cdPlayback,
+        ACTIVITY_LOG_DOMAINS.playback,
         "Toast Lab: sample CD playback failure",
         {
           kind: "generic",
@@ -495,7 +495,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "unexpectedErrorToast.ts",
     fire: async ({ showErrorToast, dismissMs }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.libraryPlayback,
+        ACTIVITY_LOG_DOMAINS.playback,
         "Toast Lab: sample library playback failure",
         {
           rawMessage: "Decoder error: unsupported codec",
@@ -517,7 +517,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "unexpectedErrorToast.ts",
     fire: async ({ showErrorToast, dismissMs }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.libraryLoad,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample library load failure",
         {
           rawMessage: "database is locked",
@@ -539,7 +539,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "unexpectedErrorToast.ts",
     fire: async ({ showErrorToast, dismissMs }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample import picker failure",
         {
           rawMessage: "dialog cancelled unexpectedly",
@@ -591,7 +591,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "trackMetadataToast.ts",
     fire: async ({ showToast, dismissMs }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.metadataSave,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample metadata save all-missing",
         {
           total: 2,
@@ -631,7 +631,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "trackMetadataToast.ts",
     fire: async ({ showToast, dismissMs }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.metadataSave,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample metadata save multi-fail",
         {
           errors: ["A: Permission denied", "B: Disk full"],
@@ -677,7 +677,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "refreshLibraryMetadata.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.refresh,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample library refresh updated + missing",
         {
           updated: 10,
@@ -712,7 +712,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "refreshLibraryMetadata.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.refresh,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample library refresh partial",
         {
           updated: 10,
@@ -754,7 +754,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "refreshLibraryMetadata.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.refresh,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample library refresh all-failed",
         {
           failed: 3,
@@ -981,7 +981,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         },
       ]);
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.lyricsFetch,
+        ACTIVITY_LOG_DOMAINS.lyrics,
         "Toast Lab: sample lyrics fetch mixed",
         {
           found: 1,
@@ -1033,7 +1033,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         "Song C: timed out",
       ];
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.lyricsFetch,
+        ACTIVITY_LOG_DOMAINS.lyrics,
         "Toast Lab: sample lyrics fetch all-failed",
         { failed: 3, found: 0, errors },
       );
@@ -1152,7 +1152,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         errors: [],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample library import",
         result,
       );
@@ -1226,7 +1226,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         errors: [],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample re-import",
         result,
       );
@@ -1247,7 +1247,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         errors: ["Track X: Permission denied"],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample import one-fail",
         result,
       );
@@ -1268,7 +1268,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         errors: ["Track X: Permission denied", "Track Y: File not found"],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample import multi-fail",
         result,
       );
@@ -1293,7 +1293,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         ],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample import all-failed",
         result,
       );
@@ -1335,7 +1335,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         errors: [],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample CD import",
         result,
       );
@@ -1356,7 +1356,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         errors: [],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample CD import skipped",
         result,
       );
@@ -1377,7 +1377,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         errors: ["Disorder couldn't be ripped"],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample CD import one-fail",
         result,
       );
@@ -1402,7 +1402,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         ],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample CD import all-failed",
         result,
       );
@@ -1416,7 +1416,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "cdImport.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: CD import failed",
         { error: "drive disappeared" },
         "error",
@@ -1529,7 +1529,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "cdMetadataFetch.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.musicbrainz,
+        ACTIVITY_LOG_DOMAINS.cd,
         "Toast Lab: MusicBrainz lookup request failed",
         { error: "timed out" },
         "error",
@@ -1584,7 +1584,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     fire: async (ctx) => {
       const errors = ["Song B: Encoder failed", "Song C: Permission denied"];
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.convert,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample convert summary",
         {
           converted: 8,
@@ -1627,7 +1627,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         "Song C: Permission denied",
       ];
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.convert,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample convert all-failed",
         { converted: 0, failed: 3, errors },
       );
@@ -1736,7 +1736,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "itemActions.ts",
     fire: async ({ showErrorToast, dismissMs }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.packInstall,
+        ACTIVITY_LOG_DOMAINS.studio,
         "Toast Lab: pack install failed for Example Pack: sample corrupt archive",
         {
           source: "file",
@@ -1761,7 +1761,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "itemRegistry.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.packInstall,
+        ACTIVITY_LOG_DOMAINS.studio,
         "Toast Lab: pack download failed for Xbox: could not download pack (http://127.0.0.1:8787/…)",
         {
           source: "registry",
@@ -1830,7 +1830,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "useItemUpdatesStore.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.packInstall,
+        ACTIVITY_LOG_DOMAINS.studio,
         "Toast Lab: pack update failed for Xbox: sample network error",
         {
           source: "registry",
@@ -1865,7 +1865,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     source: "useItemUpdatesStore.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.packInstall,
+        ACTIVITY_LOG_DOMAINS.studio,
         "Toast Lab: pack updates failed for 2 packs",
         { source: "registry", failed: 2 },
         "error",
@@ -2043,7 +2043,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     fire: async ({ runInBackground, dismissMs, sleep }) => {
       const errorLines = ["Song A: timeout", "Song B: not_found"];
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.lyricsFetch,
+        ACTIVITY_LOG_DOMAINS.lyrics,
         "Toast Lab: sample lyrics fetch summary",
         {
           failed: 2,
