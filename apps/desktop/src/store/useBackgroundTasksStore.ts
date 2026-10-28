@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import type { ActivityLogRevealTarget } from "../lib/activityLogsWindow";
 import { isBackgroundTaskCancelledError } from "../lib/backgroundTaskCancel";
 import { isCdImportCancelledError } from "../lib/cdImport";
 import { t } from "../lib/i18n";
@@ -57,7 +56,7 @@ export interface BackgroundTaskSettleAsOptions {
   detail?: string;
   actions?: BackgroundTaskAction[];
   actionsPlacement?: BackgroundTaskActionsPlacement;
-  logLink?: ActivityLogRevealTarget;
+  logLink?: boolean;
   /**
    * Auto-dismiss delay. `null` keeps the toast until the user acts or dismisses.
    * Defaults match `showToast` (brief success/info, longer errors/warnings, sticky with actions).
@@ -109,7 +108,7 @@ interface ShowToastOptions {
   actions?: BackgroundTaskAction[];
   actionsPlacement?: BackgroundTaskActionsPlacement;
   /** When set, synthesizes a View logs action that reveals this target. */
-  logLink?: ActivityLogRevealTarget;
+  logLink?: boolean;
 }
 
 export type { ShowToastOptions };

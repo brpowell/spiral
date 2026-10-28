@@ -11,7 +11,7 @@ import {
   queuePendingImportRemoval,
   resetImportActivationQueue,
 } from "./importActivationQueue";
-import { createOperationId, logActivity } from "./activityLog";
+import { logActivity } from "./activityLog";
 import { BackgroundTaskCancelledError } from "./backgroundTaskCancel";
 import { isTrackImporting, pendingTrackFromInput } from "./pendingImportTrack";
 import {
@@ -144,8 +144,6 @@ export function startLibraryImport(paths: string[]): void {
   resetImportActivationQueue();
   useImportDedupeStore.getState().resetImportDedupeSession();
 
-  const operationId = createOperationId();
-
   useBackgroundTasksStore.getState().runInBackground({
     key: "library-import",
     label: t("toasts:import.library"),
@@ -164,7 +162,6 @@ export function startLibraryImport(paths: string[]): void {
           level: "info",
           domain: ACTIVITY_LOG_DOMAINS.import,
           message: "Library import cancelled",
-          operationId,
         });
       };
       const clearImportingTracks = () => {
@@ -178,7 +175,6 @@ export function startLibraryImport(paths: string[]): void {
           level: "info",
           domain: ACTIVITY_LOG_DOMAINS.import,
           message: "Starting library import",
-          operationId,
           details: {
             pathCount: pathsToImport.length,
             paths: pathsToImport,
@@ -201,7 +197,6 @@ export function startLibraryImport(paths: string[]): void {
             level: "warn",
             domain: ACTIVITY_LOG_DOMAINS.import,
             message: "Library import found no audio files",
-            operationId,
             details: { paths: pathsToImport },
           });
           ctx.settleAs(importNoAudioSettleOptions());
@@ -310,13 +305,12 @@ export function startLibraryImport(paths: string[]): void {
             .loadLibrary({ preservePlayback: true });
         }
 
-        const settle = importCompletionSettleOptions(result, operationId);
+        const settle = importCompletionSettleOptions(result);
 
         logActivity({
           level: result.failed > 0 ? "warn" : "info",
           domain: ACTIVITY_LOG_DOMAINS.import,
           message: "Library import completed",
-          operationId,
           details: {
             importMode,
             imported: result.imported,
@@ -343,7 +337,6 @@ export function startLibraryImport(paths: string[]): void {
             level: "error",
             domain: ACTIVITY_LOG_DOMAINS.import,
             message: "Library import failed",
-            operationId,
             details: { error: message },
           });
         }

@@ -65,32 +65,6 @@
   color: var(--color-text-secondary);
 }
 
-.activity-logs-panel__list-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.activity-logs-panel__group-header {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  padding: 0.35rem 0.5rem;
-  margin-top: 0.35rem;
-  border-radius: var(--radius-button);
-  background: var(--color-interactive-hover);
-  color: var(--color-text-secondary);
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.activity-logs-panel__list-item:first-child .activity-logs-panel__group-header {
-  margin-top: 0;
-}
-
 .activity-logs-panel__entry {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr) auto;
@@ -113,23 +87,6 @@
 
 .activity-logs-panel__entry--selected:hover {
   background: var(--color-interactive-selected);
-}
-
-.activity-logs-panel__entry--revealed {
-  animation: activity-logs-reveal-pulse 1.4s ease-out;
-}
-
-@keyframes activity-logs-reveal-pulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 55%, transparent);
-  }
-  40% {
-    box-shadow: 0 0 0 3px
-      color-mix(in srgb, var(--color-accent) 35%, transparent);
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
 }
 
 .activity-logs-panel__entry--expanded {

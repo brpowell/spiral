@@ -1,4 +1,4 @@
-import { createOperationId, logActivity } from "./activityLog";
+import { logActivity } from "./activityLog";
 import { cdPlaybackFailurePayload } from "./toastPayloads";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
@@ -58,11 +58,9 @@ export function reportCdPlaybackFailure(options: {
   lastReportAt = now;
   lastReportDriveId = driveId;
 
-  const operationId = kind === "generic" ? createOperationId() : undefined;
-
   useBackgroundTasksStore.getState().showErrorToast(
     cdPlaybackFailurePayload(kind, options.message, {
-      ...(operationId ? { logLink: { operationId } } : {}),
+      ...(kind === "generic" ? { logLink: true } : {}),
     }),
   );
 
@@ -77,7 +75,6 @@ export function reportCdPlaybackFailure(options: {
     level: kind === "generic" ? "error" : "warn",
     domain: ACTIVITY_LOG_DOMAINS.cdPlayback,
     message: logMessage,
-    ...(operationId ? { operationId } : {}),
     context: driveId != null ? { driveId } : undefined,
     details: {
       kind,

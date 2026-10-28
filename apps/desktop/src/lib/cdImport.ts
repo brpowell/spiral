@@ -26,7 +26,7 @@ import {
   pendingTrackFromInput,
   resetPendingTrackIds,
 } from "./pendingImportTrack";
-import { createOperationId, logActivity } from "./activityLog";
+import { logActivity } from "./activityLog";
 import { yieldForInteraction } from "./scheduling";
 import { cleanupCdImportTemp, ripCdTrack } from "./tauri";
 import { cdImportFailedSettleOptions } from "./toastPayloads";
@@ -96,8 +96,6 @@ export function startCdImport(options: {
   resetPendingTrackIds();
   useImportDedupeStore.getState().resetImportDedupeSession();
 
-  const operationId = createOperationId();
-
   useBackgroundTasksStore.getState().runInBackground({
     key: "cd-import",
     label: t("toasts:import.cd"),
@@ -122,7 +120,6 @@ export function startCdImport(options: {
           level: "info",
           domain: ACTIVITY_LOG_DOMAINS.import,
           message: "Starting CD import",
-          operationId,
           details: {
             driveId,
             trackCount: checkedTrackNumbers.length,
@@ -146,7 +143,6 @@ export function startCdImport(options: {
             level: "warn",
             domain: ACTIVITY_LOG_DOMAINS.import,
             message: "CD import had no tracks selected",
-            operationId,
             details: { driveId },
           });
           outcomeLogged = true;
@@ -181,9 +177,9 @@ export function startCdImport(options: {
 
         if (plansToImport.length === 0) {
           result.skipped = duplicateResolutions.skippedPendingIds.size;
-          logCdImportCompleted(result, operationId, driveId);
+          logCdImportCompleted(result, driveId);
           outcomeLogged = true;
-          ctx.settleAs(importCompletionSettleOptions(result, operationId));
+          ctx.settleAs(importCompletionSettleOptions(result));
           return;
         }
 
@@ -302,7 +298,7 @@ export function startCdImport(options: {
             if (isCdImportCancelledError(err) || isImportCancelledError(err)) {
               throw err;
             }
-            recordCdTrackFailure(result, operationId, plan, err);
+            recordCdTrackFailure(result, plan, err);
             queuePendingImportRemoval(plan.pendingId);
           }
 
@@ -358,8 +354,8 @@ export function startCdImport(options: {
           }
         }
 
-        const settle = importCompletionSettleOptions(result, operationId);
-        logCdImportCompleted(result, operationId, driveId);
+        const settle = importCompletionSettleOptions(result);
+        logCdImportCompleted(result, driveId);
         outcomeLogged = true;
 
         ctx.settleAs(settle);
@@ -378,7 +374,6 @@ export function startCdImport(options: {
             level: "error",
             domain: ACTIVITY_LOG_DOMAINS.import,
             message: "CD import failed",
-            operationId,
             details: { driveId, error: errorMessageFromUnknown(err) },
           });
         }
@@ -388,11 +383,9 @@ export function startCdImport(options: {
           result.skipped > 0 ||
           result.failed > 0
         ) {
-          ctx.settleAs(importCompletionSettleOptions(result, operationId));
+          ctx.settleAs(importCompletionSettleOptions(result));
         } else {
-          ctx.settleAs(
-            cdImportFailedSettleOptions({ logLink: { operationId } }),
-          );
+          ctx.settleAs(cdImportFailedSettleOptions({ logLink: true }));
         }
       } finally {
         cdImport.finishImport({ preserveCompletedDisplay: !cancelled });
@@ -403,16 +396,11 @@ export function startCdImport(options: {
   });
 }
 
-function logCdImportCompleted(
-  result: ImportResult,
-  operationId: string,
-  driveId: string,
-): void {
+function logCdImportCompleted(result: ImportResult, driveId: string): void {
   logActivity({
     level: result.failed > 0 ? "warn" : "info",
     domain: ACTIVITY_LOG_DOMAINS.import,
     message: "CD import completed",
-    operationId,
     details: {
       driveId,
       imported: result.imported,
@@ -429,7 +417,6 @@ function logCdImportCompleted(
 
 function recordCdTrackFailure(
   result: ImportResult,
-  operationId: string,
   plan: CdImportTrackPlan,
   err: unknown,
 ): void {
@@ -441,7 +428,6 @@ function recordCdTrackFailure(
     level: "warn",
     domain: ACTIVITY_LOG_DOMAINS.import,
     message: "CD track import failed",
-    operationId,
     details: {
       trackNumber: plan.trackNumber,
       title,

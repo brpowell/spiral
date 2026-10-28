@@ -45,7 +45,6 @@ function logCoverArtWarn(
     level: "warn",
     domain: ACTIVITY_LOG_DOMAINS.coverArt,
     message,
-    operationId: logContext?.operationId,
     context: withLogContext(logContext, contextPatch),
   });
 }
@@ -61,7 +60,6 @@ function logCdCoverArtFetchStart(options: {
     level: "info",
     domain: ACTIVITY_LOG_DOMAINS.coverArt,
     message: `Fetching cover art for CD '${options.album}'`,
-    operationId: options.logContext?.operationId,
     context: options.logContext,
     details: {
       ...(releaseMbid != null ? { releaseMbid } : {}),
@@ -90,7 +88,6 @@ function logCdCoverArtFetched(
     level: "info",
     domain: ACTIVITY_LOG_DOMAINS.coverArt,
     message: `Cover art fetched for '${album}'`,
-    operationId: logContext?.operationId,
     context: logContext,
     details: {
       byteCount: cached.byteCount,
@@ -294,7 +291,6 @@ async function fetchAlbumArtForRelease(
       level: "error",
       domain: ACTIVITY_LOG_DOMAINS.coverArt,
       message: "Cover art fetch for release failed",
-      operationId: logContext?.operationId,
       context: withLogContext(logContext, { releaseMbid }),
       details: {
         error: err instanceof Error ? err.message : String(err),
@@ -337,7 +333,6 @@ async function fetchAlbumArtPath(
       level: "error",
       domain: ACTIVITY_LOG_DOMAINS.coverArt,
       message: "Cover art search failed",
-      operationId: logContext?.operationId,
       context: withLogContext(logContext, { artist, album }),
       details: {
         error: err instanceof Error ? err.message : String(err),

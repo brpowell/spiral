@@ -9,12 +9,6 @@ export function normalizeActivityLogEntry(
     level: (raw.level as ActivityLogEntry["level"]) ?? "info",
     domain: String(raw.domain ?? ""),
     message: String(raw.message ?? ""),
-    operationId:
-      raw.operationId != null
-        ? String(raw.operationId)
-        : raw.operation_id != null
-          ? String(raw.operation_id)
-          : undefined,
     context:
       raw.context != null && typeof raw.context === "object"
         ? (raw.context as ActivityLogEntry["context"])
@@ -24,12 +18,6 @@ export function normalizeActivityLogEntry(
         ? (raw.details as Record<string, unknown>)
         : undefined,
   };
-}
-
-export function getEntryOperationId(
-  entry: ActivityLogEntry,
-): string | undefined {
-  return entry.operationId ?? entry.context?.operationId;
 }
 
 function detailsWithDriveAndDisc(
@@ -52,7 +40,6 @@ function detailsWithDriveAndDisc(
 
 /** Canonical single-line JSON object for one log entry. */
 export function entryToLogLine(entry: ActivityLogEntry): ActivityLogLine {
-  const operationId = getEntryOperationId(entry);
   const line: ActivityLogLine = {
     id: entry.id,
     timestampMs: entry.timestampMs,
@@ -61,7 +48,6 @@ export function entryToLogLine(entry: ActivityLogEntry): ActivityLogLine {
     message: entry.message,
   };
 
-  if (operationId != null) line.operationId = operationId;
   if (entry.context?.releaseMbid != null) {
     line.releaseMbid = entry.context.releaseMbid;
   }

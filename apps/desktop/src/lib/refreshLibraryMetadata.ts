@@ -1,4 +1,4 @@
-import { createOperationId, logActivity } from "./activityLog";
+import { logActivity } from "./activityLog";
 import { t } from "./i18n";
 import {
   refreshLibraryMetadataFromFiles,
@@ -20,7 +20,6 @@ export function libraryRefreshSettleOptions(
     RefreshLibraryMetadataResult,
     "updated" | "missing" | "failed" | "errors"
   >,
-  operationId: string,
 ): BackgroundTaskSettleAsOptions & { label: string } {
   const { updated, missing, failed, errors } = result;
   const unresolved = missing + failed;
@@ -74,7 +73,7 @@ export function libraryRefreshSettleOptions(
   return {
     status,
     label,
-    logLink: { operationId },
+    logLink: true,
   };
 }
 
@@ -83,27 +82,23 @@ export function refreshLibraryMetadata(): void {
     key: "library-metadata-refresh",
     label: t("toasts:libraryRefresh.running"),
     run: async (ctx) => {
-      const operationId = createOperationId();
-
       logActivity({
         level: "info",
         domain: ACTIVITY_LOG_DOMAINS.refresh,
         message: "Starting library metadata refresh",
-        operationId,
       });
 
       const result = await refreshLibraryMetadataFromFiles();
 
       await usePlayerStore.getState().loadLibrary({ preservePlayback: true });
 
-      const settle = libraryRefreshSettleOptions(result, operationId);
+      const settle = libraryRefreshSettleOptions(result);
       ctx.setLabel(settle.label);
 
       logActivity({
         level: result.failed > 0 || result.missing > 0 ? "warn" : "info",
         domain: ACTIVITY_LOG_DOMAINS.refresh,
         message: "Library metadata refresh completed",
-        operationId,
         details: {
           updated: result.updated,
           missing: result.missing,

@@ -3,7 +3,7 @@ import {
   resolveAlbumArtPath,
 } from "./albumArtFetch";
 import { ensureCdHeroArtValid } from "./cdArt";
-import { createOperationId, logActivity, withLogContext } from "./activityLog";
+import { logActivity, withLogContext } from "./activityLog";
 import { t } from "./i18n";
 import { isNetworkLikelyAvailable } from "./network";
 import { resolveCachedArtPath } from "./tauri";
@@ -37,13 +37,9 @@ function resolveCdHeroArtQuery(
   return { artist, album, releaseMbid: metadata?.releaseMbid };
 }
 
-function buildLogContext(
-  driveId: string,
-  operationId: string,
-): ActivityLogContext {
+function buildLogContext(driveId: string): ActivityLogContext {
   const disc = useCdStore.getState().discsByDriveId[driveId];
   return {
-    operationId,
     driveId,
     discId: disc?.discId ?? undefined,
   };
@@ -83,7 +79,6 @@ function skipRemoteHeroArtWithoutMetadata(
     domain: ACTIVITY_LOG_DOMAINS.coverArt,
     message:
       "Skipped CD hero art network fetch: no MusicBrainz metadata (user may have declined)",
-    operationId: logContext?.operationId,
     context: logContext,
   });
   return true;
@@ -99,7 +94,6 @@ async function fetchAndSetHeroArt(
       level: "warn",
       domain: ACTIVITY_LOG_DOMAINS.coverArt,
       message: "Skipped hero art fetch: missing artist or album",
-      operationId: logContext?.operationId,
       context: logContext,
     });
     return false;
@@ -125,7 +119,6 @@ async function fetchAndSetHeroArt(
         domain: ACTIVITY_LOG_DOMAINS.coverArt,
         message:
           "Skipped hero art fetch: network unavailable and no local cache",
-        operationId: logContext?.operationId,
         context: logContext,
       });
       return false;
@@ -149,7 +142,6 @@ async function fetchAndSetHeroArt(
     level: "warn",
     domain: ACTIVITY_LOG_DOMAINS.coverArt,
     message: "No hero art found for CD",
-    operationId: context.operationId,
     context,
   });
   return false;
@@ -167,8 +159,7 @@ export function startCdHeroArtFetch(driveId: string): void {
   const query = resolveCdHeroArtQuery(driveId);
   if (!query || isMetadataFetchRunning(driveId)) return;
 
-  const operationId = createOperationId();
-  const logContext = buildLogContext(driveId, operationId);
+  const logContext = buildLogContext(driveId);
 
   void (async () => {
     const existing = await ensureCdHeroArtValid(driveId);
@@ -206,8 +197,7 @@ export function startCdHeroArtFetch(driveId: string): void {
 }
 
 export function startCdMetadataFetch(driveId: string): void {
-  const operationId = createOperationId();
-  const logContext = buildLogContext(driveId, operationId);
+  const logContext = buildLogContext(driveId);
 
   useBackgroundTasksStore.getState().runInBackground({
     key: cdMetadataTaskKey(driveId),
@@ -225,9 +215,7 @@ export function startCdMetadataFetch(driveId: string): void {
         }
 
         if (lookup.kind === "error") {
-          ctx.settleAs(
-            cdMetadataFailedSettleOptions({ logLink: { operationId } }),
-          );
+          ctx.settleAs(cdMetadataFailedSettleOptions({ logLink: true }));
           return;
         }
 
@@ -253,15 +241,12 @@ export function startCdMetadataFetch(driveId: string): void {
           level: "error",
           domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
           message: "CD metadata fetch failed",
-          operationId,
           context: logContext,
           details: {
             error: err instanceof Error ? err.message : String(err),
           },
         });
-        ctx.settleAs(
-          cdMetadataFailedSettleOptions({ logLink: { operationId } }),
-        );
+        ctx.settleAs(cdMetadataFailedSettleOptions({ logLink: true }));
       }
     },
   });

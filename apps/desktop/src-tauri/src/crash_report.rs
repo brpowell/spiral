@@ -330,7 +330,6 @@ mod tests {
             level: LogLevel::Info,
             domain: domain.to_string(),
             message: format!("message for {id}"),
-            operation_id: None,
             context: None,
             details: None,
         }

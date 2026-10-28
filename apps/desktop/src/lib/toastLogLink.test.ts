@@ -11,7 +11,7 @@ vi.mock("./i18n", () => ({
 
 describe("withLogLinkAction", () => {
   it("appends view-logs as a secondary action when logLink is set", () => {
-    const actions = withLogLinkAction([], { operationId: "op-1" });
+    const actions = withLogLinkAction([], true);
     expect(actions).toHaveLength(1);
     expect(actions?.[0].id).toBe("view-logs");
     expect(actions?.[0].variant).toBe("secondary");
@@ -20,7 +20,7 @@ describe("withLogLinkAction", () => {
   it("keeps View logs secondary when another action is present", () => {
     const actions = withLogLinkAction(
       [{ id: "lyrics-review", label: "Review", onClick: () => {} }],
-      { operationId: "op-1" },
+      true,
     );
     expect(actions).toEqual([
       expect.objectContaining({ id: "lyrics-review" }),
@@ -29,7 +29,7 @@ describe("withLogLinkAction", () => {
   });
 
   it("leaves actions unchanged when logLink is empty", () => {
-    expect(withLogLinkAction(undefined, {})).toBeUndefined();
+    expect(withLogLinkAction(undefined, false)).toBeUndefined();
     const existing = [{ id: "retry", label: "Retry", onClick: () => {} }];
     expect(withLogLinkAction(existing, undefined)).toBe(existing);
   });
@@ -38,6 +38,6 @@ describe("withLogLinkAction", () => {
     const existing = [
       { id: "view-logs", label: "View logs", onClick: () => {} },
     ];
-    expect(withLogLinkAction(existing, { entryId: "e1" })).toBe(existing);
+    expect(withLogLinkAction(existing, true)).toBe(existing);
   });
 });

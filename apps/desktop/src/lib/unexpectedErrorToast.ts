@@ -1,4 +1,4 @@
-import { createOperationId, logActivity } from "./activityLog";
+import { logActivity } from "./activityLog";
 import { errorMessageFromUnknown } from "./cdPlaybackFailure";
 import {
   importPickerFailedPayload,
@@ -16,26 +16,23 @@ const KIND_CONFIG: Record<
   {
     domain: (typeof ACTIVITY_LOG_DOMAINS)[keyof typeof ACTIVITY_LOG_DOMAINS];
     defaultLogMessage: (raw: string) => string;
-    payload: (operationId: string) => ToastPayload;
+    payload: () => ToastPayload;
   }
 > = {
   libraryPlayback: {
     domain: ACTIVITY_LOG_DOMAINS.libraryPlayback,
     defaultLogMessage: (raw) => `Library playback failed: ${raw}`,
-    payload: (operationId) =>
-      libraryPlaybackFailedPayload({ logLink: { operationId } }),
+    payload: () => libraryPlaybackFailedPayload({ logLink: true }),
   },
   libraryLoad: {
     domain: ACTIVITY_LOG_DOMAINS.libraryLoad,
     defaultLogMessage: (raw) => `Failed to load library: ${raw}`,
-    payload: (operationId) =>
-      libraryLoadFailedPayload({ logLink: { operationId } }),
+    payload: () => libraryLoadFailedPayload({ logLink: true }),
   },
   importPicker: {
     domain: ACTIVITY_LOG_DOMAINS.import,
     defaultLogMessage: (raw) => `Import failed: ${raw}`,
-    payload: (operationId) =>
-      importPickerFailedPayload({ logLink: { operationId } }),
+    payload: () => importPickerFailedPayload({ logLink: true }),
   },
 };
 
@@ -49,25 +46,19 @@ export function reportUnexpectedError(options: {
   /** Extra fields stored on the activity-log entry (not shown in the toast). */
   details?: Record<string, unknown>;
   logMessage?: string;
-}): string {
+}): void {
   const rawMessage = errorMessageFromUnknown(options.err);
-  const operationId = createOperationId();
   const config = KIND_CONFIG[options.kind];
 
-  useBackgroundTasksStore
-    .getState()
-    .showErrorToast(config.payload(operationId));
+  useBackgroundTasksStore.getState().showErrorToast(config.payload());
 
   logActivity({
     level: "error",
     domain: config.domain,
     message: options.logMessage ?? config.defaultLogMessage(rawMessage),
-    operationId,
     details: {
       rawMessage,
       ...(options.details ?? {}),
     },
   });
-
-  return operationId;
 }

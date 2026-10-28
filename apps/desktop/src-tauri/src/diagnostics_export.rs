@@ -146,7 +146,6 @@ mod tests {
                 level: LogLevel::Info,
                 domain: "library.refresh".to_string(),
                 message: "refresh complete".to_string(),
-                operation_id: None,
                 context: None,
                 details: None,
             }]),

@@ -5,15 +5,13 @@ import { ACTIVITY_LOG_DOMAINS } from "../../types/activityLog";
 
 /** Activity log for a successful item install from a file. */
 export function logItemInstallSuccess(options: {
-  operationId: string;
   result: InstallItemResult;
 }): void {
-  const { operationId, result } = options;
+  const { result } = options;
   logActivity({
     level: "info",
     domain: ACTIVITY_LOG_DOMAINS.packInstall,
     message: `Installed ${result.name} (${result.effectiveId}@${result.version}) from file`,
-    operationId,
     details: {
       source: "file",
       name: result.name,
@@ -30,19 +28,17 @@ export function logItemInstallSuccess(options: {
 
 /** Activity log for a successful registry install (provenance in `details`). */
 export function logRegistryInstallSuccess(options: {
-  operationId: string;
   result: InstallItemResult;
   registryUrl: string;
   sha256?: string;
   sizeBytes?: number;
   minAppVersion?: string | null;
 }): void {
-  const { operationId, result } = options;
+  const { result } = options;
   logActivity({
     level: "info",
     domain: ACTIVITY_LOG_DOMAINS.packInstall,
     message: `Installed ${result.name} (${result.effectiveId}@${result.version}) from registry`,
-    operationId,
     details: {
       source: "registry",
       name: result.name,
@@ -65,7 +61,6 @@ export function logRegistryInstallSuccess(options: {
 
 /** Activity log for a failed registry download/install (raw error in details). */
 export function logRegistryInstallFailure(options: {
-  operationId: string;
   err: unknown;
   name?: string;
   registryUrl: string;
@@ -86,7 +81,6 @@ export function logRegistryInstallFailure(options: {
     level: "error",
     domain: ACTIVITY_LOG_DOMAINS.packInstall,
     message: `Item download failed for ${subject}: ${rawMessage}`,
-    operationId: options.operationId,
     details: {
       source: "registry",
       error: rawMessage,
@@ -107,7 +101,6 @@ export function logRegistryInstallFailure(options: {
 
 /** Activity log for a failed file install (raw error in details). */
 export function logItemInstallFailure(options: {
-  operationId: string;
   err: unknown;
   name?: string;
   path?: string;
@@ -118,7 +111,6 @@ export function logItemInstallFailure(options: {
     level: "error",
     domain: ACTIVITY_LOG_DOMAINS.packInstall,
     message: `Item install failed for ${subject}: ${rawMessage}`,
-    operationId: options.operationId,
     details: {
       source: "file",
       error: rawMessage,

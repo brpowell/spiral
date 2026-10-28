@@ -1,7 +1,7 @@
 import type { BackgroundTaskRunContext } from "../store/useBackgroundTasksStore";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { useLyricsFetchStore } from "../store/useLyricsFetchStore";
-import { createOperationId, logActivity } from "./activityLog";
+import { logActivity } from "./activityLog";
 import { t } from "./i18n";
 import {
   lyricsAmbiguousSettleOptions,
@@ -246,12 +246,10 @@ async function runProcessorLoop(ctx: BackgroundTaskRunContext): Promise<void> {
     }
 
     if (state.bulkMode) {
-      const operationId = createOperationId();
       logActivity({
         level: state.tally.failed > 0 ? "warn" : "info",
         domain: ACTIVITY_LOG_DOMAINS.lyricsFetch,
         message: "Lyrics fetch completed",
-        operationId,
         details: {
           ...state.tally,
           errors: state.errorLines,
@@ -262,7 +260,6 @@ async function runProcessorLoop(ctx: BackgroundTaskRunContext): Promise<void> {
       const settle = lyricsFetchBulkSettleOptions({
         tally: state.tally,
         errorLines: state.errorLines,
-        operationId,
         reviewTrackIds: state.ambiguousTrackIds,
       });
       ctx.clearProgress();

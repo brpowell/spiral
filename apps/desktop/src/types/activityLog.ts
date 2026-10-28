@@ -1,7 +1,6 @@
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface ActivityLogContext {
-  operationId?: string;
   driveId?: string;
   discId?: string;
   releaseMbid?: string;
@@ -15,7 +14,6 @@ export interface ActivityLogEntry {
   level: LogLevel;
   domain: string;
   message: string;
-  operationId?: string;
   context?: ActivityLogContext;
   details?: Record<string, unknown>;
 }
@@ -27,7 +25,6 @@ export interface ActivityLogLine {
   level: LogLevel;
   domain: string;
   message: string;
-  operationId?: string;
   releaseMbid?: string;
   artist?: string;
   album?: string;
@@ -38,7 +35,6 @@ export interface ActivityLogDraft {
   level: LogLevel;
   domain: string;
   message: string;
-  operationId?: string;
   context?: ActivityLogContext;
   details?: Record<string, unknown>;
 }
