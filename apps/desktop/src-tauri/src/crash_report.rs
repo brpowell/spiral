@@ -330,7 +330,6 @@ mod tests {
             level: LogLevel::Info,
             domain: domain.to_string(),
             message: format!("message for {id}"),
-            operation_id: None,
             context: None,
             details: None,
         }
@@ -344,7 +343,7 @@ mod tests {
             message: "test error".to_string(),
             stack_or_backtrace: "Error: test\n    at foo".to_string(),
             app_version: "0.1.0".to_string(),
-            recent_entries: vec![sample_entry("abc", "app.crash")],
+            recent_entries: vec![sample_entry("abc", "app")],
         };
 
         let json = serde_json::to_value(&report).unwrap();
@@ -353,7 +352,7 @@ mod tests {
         assert_eq!(json["message"], "test error");
         assert_eq!(json["stackOrBacktrace"], "Error: test\n    at foo");
         assert_eq!(json["appVersion"], "0.1.0");
-        assert_eq!(json["recentEntries"][0]["domain"], "app.crash");
+        assert_eq!(json["recentEntries"][0]["domain"], "app");
     }
 
     #[test]
@@ -368,7 +367,7 @@ mod tests {
             CrashSource::Rust,
             "panic 0".to_string(),
             "backtrace".to_string(),
-            vec![sample_entry("entry-0", "library.refresh")],
+            vec![sample_entry("entry-0", "library")],
         )
         .unwrap();
         std::thread::sleep(std::time::Duration::from_millis(2));
@@ -379,7 +378,7 @@ mod tests {
                 CrashSource::Rust,
                 format!("panic {index}"),
                 "backtrace".to_string(),
-                vec![sample_entry(&format!("entry-{index}"), "library.refresh")],
+                vec![sample_entry(&format!("entry-{index}"), "library")],
             )
             .unwrap();
             std::thread::sleep(std::time::Duration::from_millis(2));
@@ -409,7 +408,7 @@ mod tests {
             CrashSource::Rust,
             "boom".to_string(),
             "trace".to_string(),
-            vec![sample_entry("x", "metadata.musicbrainz")],
+            vec![sample_entry("x", "metadata")],
         )
         .unwrap();
 
@@ -418,7 +417,7 @@ mod tests {
         assert_eq!(parsed.source, CrashSource::Rust);
         assert_eq!(parsed.message, "boom");
         assert_eq!(parsed.recent_entries.len(), 1);
-        assert_eq!(parsed.recent_entries[0].domain, "metadata.musicbrainz");
+        assert_eq!(parsed.recent_entries[0].domain, "metadata");
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -499,7 +498,7 @@ mod tests {
             CrashSource::Renderer,
             "renderer failure".to_string(),
             "stack trace".to_string(),
-            vec![sample_entry("entry-1", "app.crash")],
+            vec![sample_entry("entry-1", "app")],
         )
         .unwrap();
         let id = report_id_from_path(&path).unwrap();

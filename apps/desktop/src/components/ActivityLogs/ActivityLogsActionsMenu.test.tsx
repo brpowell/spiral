@@ -28,7 +28,7 @@ function entry(partial: Partial<ActivityLogEntry> = {}): ActivityLogEntry {
     id: "1",
     timestampMs: 1_700_000_000_000,
     level: "info",
-    domain: "library.import",
+    domain: "library",
     message: "Imported track.flac",
     ...partial,
   };

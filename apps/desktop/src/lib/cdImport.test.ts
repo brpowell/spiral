@@ -39,13 +39,11 @@ describe("CdImportCancelledError", () => {
 
 describe("cdImportFailedSettleOptions", () => {
   it("uses friendly copy and View logs for unexpected abort", () => {
-    expect(
-      cdImportFailedSettleOptions({ logLink: { operationId: "op-1" } }),
-    ).toEqual({
+    expect(cdImportFailedSettleOptions({ logLink: true })).toEqual({
       status: "error",
       label: "Couldn't import CD",
       detail: "Check the disc and try again.",
-      logLink: { operationId: "op-1" },
+      logLink: true,
     });
   });
 });

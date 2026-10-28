@@ -39,12 +39,7 @@ pub fn read_crash_report(app: AppHandle, id: String) -> Result<CrashReport, Stri
 #[cfg(debug_assertions)]
 #[tauri::command]
 pub fn trigger_test_panic() {
-    activity_log::log(
-        LogLevel::Info,
-        "app.crash",
-        "About to trigger test panic",
-        None,
-    );
+    activity_log::log(LogLevel::Info, "app", "About to trigger test panic", None);
     panic!("Spiral test panic — crash capture verification");
 }
 

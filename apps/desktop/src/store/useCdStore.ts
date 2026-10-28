@@ -632,7 +632,7 @@ async function maybeLoadDiscMetadata(
       if (!isNetworkLikelyAvailable()) {
         logActivity({
           level: "warn",
-          domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+          domain: ACTIVITY_LOG_DOMAINS.cd,
           message: "Skipped metadata network fetch: network unavailable",
           context: logContext,
         });
@@ -644,7 +644,7 @@ async function maybeLoadDiscMetadata(
       if (mode === "never") {
         logActivity({
           level: "info",
-          domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+          domain: ACTIVITY_LOG_DOMAINS.cd,
           message: "Skipped metadata fetch: user preference is never",
           context: logContext,
         });
@@ -663,7 +663,7 @@ async function maybeLoadDiscMetadata(
     } catch (err) {
       logActivity({
         level: "error",
-        domain: ACTIVITY_LOG_DOMAINS.musicbrainz,
+        domain: ACTIVITY_LOG_DOMAINS.cd,
         message: "Metadata cache peek failed",
         context: logContext,
         details: {

@@ -1,5 +1,5 @@
 import { convertTrack } from "./tauri";
-import { createOperationId, logActivity } from "./activityLog";
+import { logActivity } from "./activityLog";
 import { formatFailureDetail } from "./formatFailureDetail";
 import { getEncodingProfile } from "./encodingProfiles";
 import { t } from "./i18n";
@@ -31,9 +31,8 @@ export function convertTracksSettleOptions(options: {
   converted: number;
   failed: number;
   errors: string[];
-  operationId: string;
 }): BackgroundTaskSettleAsOptions & { label: string } {
-  const { converted, failed, errors, operationId } = options;
+  const { converted, failed, errors } = options;
 
   const label = formatPeerOutcomeTitle(
     [
@@ -72,7 +71,7 @@ export function convertTracksSettleOptions(options: {
   return {
     status,
     label,
-    logLink: { operationId },
+    logLink: true,
   };
 }
 
@@ -148,7 +147,6 @@ export function startConvertTracks(options: {
   const { trackIds, profileId, mode } = options;
   if (trackIds.length === 0) return;
 
-  const operationId = createOperationId();
   const profileLabel = getEncodingProfile(profileId)?.label ?? profileId;
 
   useBackgroundTasksStore.getState().runInBackground({
@@ -158,9 +156,8 @@ export function startConvertTracks(options: {
     run: async (ctx) => {
       logActivity({
         level: "info",
-        domain: ACTIVITY_LOG_DOMAINS.convert,
+        domain: ACTIVITY_LOG_DOMAINS.library,
         message: "Starting track convert",
-        operationId,
         details: {
           profileId,
           mode,
@@ -201,9 +198,8 @@ export function startConvertTracks(options: {
           errors.push(line);
           logActivity({
             level: "warn",
-            domain: ACTIVITY_LOG_DOMAINS.convert,
+            domain: ACTIVITY_LOG_DOMAINS.library,
             message: "Track convert failed",
-            operationId,
             details: {
               trackId,
               title,
@@ -228,16 +224,14 @@ export function startConvertTracks(options: {
         converted,
         failed,
         errors,
-        operationId,
       });
 
       ctx.setLabel(settle.label);
 
       logActivity({
         level: failed > 0 ? "warn" : "info",
-        domain: ACTIVITY_LOG_DOMAINS.convert,
+        domain: ACTIVITY_LOG_DOMAINS.library,
         message: "Track convert completed",
-        operationId,
         details: {
           profileId,
           profileLabel,

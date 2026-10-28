@@ -66,7 +66,6 @@ describe("lyricsFetchBulkSettleOptions", () => {
     expect(
       lyricsFetchBulkSettleOptions({
         tally: { found: 0, notFound: 1, ambiguous: 0, failed: 2 },
-        operationId: "op-1",
       }).status,
     ).toBe("error");
   });
@@ -75,14 +74,13 @@ describe("lyricsFetchBulkSettleOptions", () => {
     const settle = lyricsFetchBulkSettleOptions({
       tally: { found: 1, notFound: 0, ambiguous: 1, failed: 1 },
       errorLines: ["Song D: network timeout"],
-      operationId: "op-1",
       reviewTrackIds: [42],
     });
     expect(settle).toMatchObject({
       status: "warning",
       label: "Lyrics: 1 fetched · 1 need review · 1 failed",
       actions: [{ id: "lyrics-review", label: "Review" }],
-      logLink: { operationId: "op-1" },
+      logLink: true,
     });
     expect(settle.detail).toBeUndefined();
   });
@@ -91,7 +89,6 @@ describe("lyricsFetchBulkSettleOptions", () => {
     expect(
       lyricsFetchBulkSettleOptions({
         tally: { found: 0, notFound: 0, ambiguous: 2, failed: 0 },
-        operationId: "op-1",
         reviewTrackIds: [7, 8],
       }),
     ).toMatchObject({
@@ -102,7 +99,6 @@ describe("lyricsFetchBulkSettleOptions", () => {
     expect(
       lyricsFetchBulkSettleOptions({
         tally: { found: 0, notFound: 0, ambiguous: 2, failed: 0 },
-        operationId: "op-1",
         reviewTrackIds: [7, 8],
       }).logLink,
     ).toBeUndefined();
@@ -123,7 +119,6 @@ describe("lyricsFetchBulkSettleOptions", () => {
       lyricsFetchBulkSettleOptions({
         tally: { found: 0, notFound: 0, ambiguous: 0, failed: 1 },
         errorLines: ["Song A: timeout"],
-        operationId: "op-1",
       }),
     ).toMatchObject({
       status: "error",
@@ -135,12 +130,11 @@ describe("lyricsFetchBulkSettleOptions", () => {
       lyricsFetchBulkSettleOptions({
         tally: { found: 0, notFound: 0, ambiguous: 0, failed: 2 },
         errorLines: ["A: x", "B: y"],
-        operationId: "op-2",
       }),
     ).toMatchObject({
       status: "error",
       label: "Lyrics: 2 failed",
-      logLink: { operationId: "op-2" },
+      logLink: true,
     });
   });
 });

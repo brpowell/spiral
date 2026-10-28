@@ -1,7 +1,6 @@
 import { Channel } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { create } from "zustand";
-import { createOperationId } from "../lib/activityLog";
 import { ITEM_UPDATES_CHANGED_EVENT } from "../lib/appearanceWindow";
 import { BackgroundTaskCancelledError } from "../lib/backgroundTaskCancel";
 import { errorMessageFromUnknown } from "../lib/cdPlaybackFailure";
@@ -173,7 +172,6 @@ export const useItemUpdatesStore = create<ItemUpdatesState>((set, get) => ({
         cancellable: true,
         progressDisplay: "bar",
         run: async (ctx) => {
-          const operationId = createOperationId();
           let updated = 0;
           let failed = 0;
           const errors: string[] = [];
@@ -227,7 +225,6 @@ export const useItemUpdatesStore = create<ItemUpdatesState>((set, get) => ({
                 });
 
                 logRegistryInstallSuccess({
-                  operationId,
                   result,
                   registryUrl: entry.registryUrl,
                   sha256: v.sha256,
@@ -247,7 +244,6 @@ export const useItemUpdatesStore = create<ItemUpdatesState>((set, get) => ({
                   );
                 }
                 logRegistryInstallFailure({
-                  operationId,
                   err,
                   name: displayName,
                   registryUrl: entry.registryUrl,
@@ -271,7 +267,6 @@ export const useItemUpdatesStore = create<ItemUpdatesState>((set, get) => ({
               updated,
               failed,
               errors,
-              operationId,
             });
             ctx.settleAs(settle);
             // settleAs applies after `run` returns — defer heavy refresh.

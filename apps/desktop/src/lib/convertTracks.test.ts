@@ -59,15 +59,12 @@ describe("filterConvertibleTrackIds", () => {
 });
 
 describe("convertTracksSettleOptions", () => {
-  const operationId = "op-convert-1";
-
   it("all succeeded → success title, no detail/log link", () => {
     expect(
       convertTracksSettleOptions({
         converted: 10,
         failed: 0,
         errors: [],
-        operationId,
       }),
     ).toEqual({
       status: "success",
@@ -81,7 +78,6 @@ describe("convertTracksSettleOptions", () => {
         converted: 0,
         failed: 1,
         errors: ["Song A: Encoder failed"],
-        operationId,
       }),
     ).toEqual({
       status: "error",
@@ -96,12 +92,11 @@ describe("convertTracksSettleOptions", () => {
         converted: 0,
         failed: 3,
         errors: ["a", "b", "c"],
-        operationId,
       }),
     ).toEqual({
       status: "error",
       label: "Convert: 3 failed",
-      logLink: { operationId },
+      logLink: true,
     });
   });
 
@@ -111,7 +106,6 @@ describe("convertTracksSettleOptions", () => {
         converted: 1,
         failed: 1,
         errors: ["Song B: Encoder failed"],
-        operationId,
       }),
     ).toEqual({
       status: "warning",
@@ -126,12 +120,11 @@ describe("convertTracksSettleOptions", () => {
         converted: 8,
         failed: 2,
         errors: ["a", "b"],
-        operationId,
       }),
     ).toEqual({
       status: "warning",
       label: "8 converted · 2 failed",
-      logLink: { operationId },
+      logLink: true,
     });
   });
 });

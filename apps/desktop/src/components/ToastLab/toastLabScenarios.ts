@@ -1,5 +1,5 @@
 import { BackgroundTaskCancelledError } from "../../lib/backgroundTaskCancel";
-import { createOperationId, logActivityEntry } from "../../lib/activityLog";
+import { logActivityEntry } from "../../lib/activityLog";
 import { convertTracksSettleOptions } from "../../lib/convertTracks";
 import { t } from "../../lib/i18n";
 import { lyricsFetchBulkSettleOptions } from "../../lib/lyricsFetchToastSettle";
@@ -174,7 +174,6 @@ type ImportLabResult = Parameters<typeof importCompletionSettleOptions>[0];
 
 async function seedToastLabLog(
   domain: (typeof ACTIVITY_LOG_DOMAINS)[keyof typeof ACTIVITY_LOG_DOMAINS],
-  operationId: string,
   message: string,
   details: Record<string, unknown>,
   level?: "info" | "warn" | "error",
@@ -189,7 +188,6 @@ async function seedToastLabLog(
       level: resolvedLevel,
       domain,
       message,
-      operationId,
       details,
     });
   } catch (err: unknown) {
@@ -208,11 +206,10 @@ function fireConvertOutcome(
     converted: number;
     failed: number;
     errors: string[];
-    operationId: string;
     stepMs?: number;
   },
 ): void {
-  const { total, converted, failed, errors, operationId, stepMs } = options;
+  const { total, converted, failed, errors, stepMs } = options;
   void runInBackground({
     key: "convert-tracks",
     label: t("toasts:convert.running", { count: total }),
@@ -224,7 +221,6 @@ function fireConvertOutcome(
           converted,
           failed,
           errors,
-          operationId,
         }),
         dismissMs,
       });
@@ -240,11 +236,10 @@ function fireImportOutcome(
   }: Pick<ToastLabFireContext, "runInBackground" | "dismissMs" | "sleep">,
   options: {
     result: ImportLabResult;
-    operationId: string;
     sleepMs?: number;
   },
 ): void {
-  const { result, operationId, sleepMs = 400 } = options;
+  const { result, sleepMs = 400 } = options;
   const total =
     result.imported + result.replaced + result.skipped + result.failed;
   void runInBackground({
@@ -259,7 +254,7 @@ function fireImportOutcome(
         await sleep(sleepMs);
       }
       ctx.settleAs({
-        ...importCompletionSettleOptions(result, operationId),
+        ...importCompletionSettleOptions(result),
         dismissMs,
       });
     },
@@ -274,11 +269,10 @@ function fireCdImportOutcome(
   }: Pick<ToastLabFireContext, "runInBackground" | "dismissMs" | "sleep">,
   options: {
     result: ImportLabResult;
-    operationId: string;
     skipRip?: boolean;
   },
 ): void {
-  const { result, operationId, skipRip = false } = options;
+  const { result, skipRip = false } = options;
   const total =
     result.imported + result.replaced + result.skipped + result.failed;
   void runInBackground({
@@ -291,7 +285,7 @@ function fireCdImportOutcome(
       await sleep(500);
       if (skipRip) {
         ctx.settleAs({
-          ...importCompletionSettleOptions(result, operationId),
+          ...importCompletionSettleOptions(result),
           dismissMs,
         });
         return;
@@ -316,7 +310,7 @@ function fireCdImportOutcome(
       }
       ctx.setProgress(total, total);
       ctx.settleAs({
-        ...importCompletionSettleOptions(result, operationId),
+        ...importCompletionSettleOptions(result),
         dismissMs,
       });
     },
@@ -477,10 +471,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "CD · generic error",
     source: "cdPlaybackFailure.ts",
     fire: async ({ showErrorToast, dismissMs }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.cdPlayback,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.playback,
         "Toast Lab: sample CD playback failure",
         {
           kind: "generic",
@@ -491,7 +483,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
       showErrorToast(
         cdPlaybackFailurePayload("generic", "SCSI sense: medium error", {
           dismissMs,
-          logLink: { operationId },
+          logLink: true,
         }),
       );
     },
@@ -502,10 +494,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Library · playback failed",
     source: "unexpectedErrorToast.ts",
     fire: async ({ showErrorToast, dismissMs }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.libraryPlayback,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.playback,
         "Toast Lab: sample library playback failure",
         {
           rawMessage: "Decoder error: unsupported codec",
@@ -515,7 +505,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
       showErrorToast(
         libraryPlaybackFailedPayload({
           dismissMs,
-          logLink: { operationId },
+          logLink: true,
         }),
       );
     },
@@ -526,10 +516,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Library load failed",
     source: "unexpectedErrorToast.ts",
     fire: async ({ showErrorToast, dismissMs }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.libraryLoad,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample library load failure",
         {
           rawMessage: "database is locked",
@@ -539,7 +527,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
       showErrorToast(
         libraryLoadFailedPayload({
           dismissMs,
-          logLink: { operationId },
+          logLink: true,
         }),
       );
     },
@@ -550,10 +538,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Import picker failed",
     source: "unexpectedErrorToast.ts",
     fire: async ({ showErrorToast, dismissMs }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample import picker failure",
         {
           rawMessage: "dialog cancelled unexpectedly",
@@ -563,7 +549,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
       showErrorToast(
         importPickerFailedPayload({
           dismissMs,
-          logLink: { operationId },
+          logLink: true,
         }),
       );
     },
@@ -604,10 +590,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Save · all missing",
     source: "trackMetadataToast.ts",
     fire: async ({ showToast, dismissMs }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.metadataSave,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample metadata save all-missing",
         {
           total: 2,
@@ -621,7 +605,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
       const payload = bulkTrackMetadataSavePayload({
         updated: 0,
         errors: ["A: File not found", "B: File not found"],
-        operationId,
         dismissMs,
       });
       if (payload) showToast(payload);
@@ -647,10 +630,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Save · 2+ failed",
     source: "trackMetadataToast.ts",
     fire: async ({ showToast, dismissMs }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.metadataSave,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample metadata save multi-fail",
         {
           errors: ["A: Permission denied", "B: Disk full"],
@@ -660,7 +641,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
       const payload = bulkTrackMetadataSavePayload({
         updated: 0,
         errors: ["A: Permission denied", "B: Disk full"],
-        operationId,
         dismissMs,
       });
       if (payload) showToast(payload);
@@ -678,10 +658,12 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         run: async (ctx) => {
           await sleep(800);
           ctx.settleAs({
-            ...libraryRefreshSettleOptions(
-              { updated: 12, missing: 0, failed: 0, errors: [] },
-              "toast-lab-refresh-ok",
-            ),
+            ...libraryRefreshSettleOptions({
+              updated: 12,
+              missing: 0,
+              failed: 0,
+              errors: [],
+            }),
             dismissMs,
           });
         },
@@ -694,10 +676,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Refresh · updated + missing",
     source: "refreshLibraryMetadata.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.refresh,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample library refresh updated + missing",
         {
           updated: 10,
@@ -713,15 +693,12 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         run: async (ctx) => {
           await sleep(800);
           ctx.settleAs({
-            ...libraryRefreshSettleOptions(
-              {
-                updated: 10,
-                missing: 2,
-                failed: 0,
-                errors: ["A: File not found", "B: File not found"],
-              },
-              operationId,
-            ),
+            ...libraryRefreshSettleOptions({
+              updated: 10,
+              missing: 2,
+              failed: 0,
+              errors: ["A: File not found", "B: File not found"],
+            }),
             dismissMs,
           });
         },
@@ -734,10 +711,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Refresh · partial (1 fail)",
     source: "refreshLibraryMetadata.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.refresh,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample library refresh partial",
         {
           updated: 10,
@@ -756,19 +731,16 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         run: async (ctx) => {
           await sleep(800);
           ctx.settleAs({
-            ...libraryRefreshSettleOptions(
-              {
-                updated: 10,
-                missing: 2,
-                failed: 1,
-                errors: [
-                  "A: File not found",
-                  "B: File not found",
-                  "Track X: Permission denied",
-                ],
-              },
-              operationId,
-            ),
+            ...libraryRefreshSettleOptions({
+              updated: 10,
+              missing: 2,
+              failed: 1,
+              errors: [
+                "A: File not found",
+                "B: File not found",
+                "Track X: Permission denied",
+              ],
+            }),
             dismissMs,
           });
         },
@@ -781,10 +753,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Refresh · all failed",
     source: "refreshLibraryMetadata.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.refresh,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample library refresh all-failed",
         {
           failed: 3,
@@ -797,19 +767,12 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         run: async (ctx) => {
           await sleep(800);
           ctx.settleAs({
-            ...libraryRefreshSettleOptions(
-              {
-                updated: 0,
-                missing: 0,
-                failed: 3,
-                errors: [
-                  "A: Permission denied",
-                  "B: Disk full",
-                  "C: I/O error",
-                ],
-              },
-              operationId,
-            ),
+            ...libraryRefreshSettleOptions({
+              updated: 0,
+              missing: 0,
+              failed: 3,
+              errors: ["A: Permission denied", "B: Disk full", "C: I/O error"],
+            }),
             dismissMs,
           });
         },
@@ -986,7 +949,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Bulk fetch → mixed",
     source: "lyricsFetchQueue.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
-      const operationId = createOperationId();
       const errorLines = ["Song D: network timeout"];
       seedToastLabLyricsReview([
         {
@@ -1019,8 +981,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         },
       ]);
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.lyricsFetch,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.lyrics,
         "Toast Lab: sample lyrics fetch mixed",
         {
           found: 1,
@@ -1052,7 +1013,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
                 failed: 1,
               },
               errorLines,
-              operationId,
               reviewTrackIds: [3],
             }),
             dismissMs,
@@ -1067,15 +1027,13 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Bulk fetch → all failed",
     source: "lyricsFetchQueue.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
-      const operationId = createOperationId();
       const errors = [
         "Song A: network timeout",
         "Song B: connection refused",
         "Song C: timed out",
       ];
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.lyricsFetch,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.lyrics,
         "Toast Lab: sample lyrics fetch all-failed",
         { failed: 3, found: 0, errors },
       );
@@ -1100,7 +1058,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
                 failed: 3,
               },
               errorLines: errors,
-              operationId,
             }),
             dismissMs,
           });
@@ -1187,7 +1144,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Library import",
     source: "libraryImport.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
-      const operationId = createOperationId();
       const result: ImportLabResult = {
         imported: 8,
         replaced: 2,
@@ -1196,8 +1152,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         errors: [],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample library import",
         result,
       );
@@ -1233,7 +1188,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
             await sleep(80);
           }
           ctx.settleAs({
-            ...importCompletionSettleOptions(result, operationId),
+            ...importCompletionSettleOptions(result),
             dismissMs,
           });
         },
@@ -1254,7 +1209,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
           failed: 0,
           errors: [],
         },
-        operationId: "toast-lab-import-clean",
       });
     },
   },
@@ -1264,7 +1218,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Import · replace/skip only",
     source: "libraryImport.ts",
     fire: async (ctx) => {
-      const operationId = createOperationId();
       const result: ImportLabResult = {
         imported: 0,
         replaced: 5,
@@ -1273,12 +1226,11 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         errors: [],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample re-import",
         result,
       );
-      fireImportOutcome(ctx, { result, operationId });
+      fireImportOutcome(ctx, { result });
     },
   },
   {
@@ -1287,7 +1239,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Import · partial (1 fail)",
     source: "libraryImport.ts",
     fire: async (ctx) => {
-      const operationId = createOperationId();
       const result: ImportLabResult = {
         imported: 3,
         replaced: 0,
@@ -1296,12 +1247,11 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         errors: ["Track X: Permission denied"],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample import one-fail",
         result,
       );
-      fireImportOutcome(ctx, { result, operationId });
+      fireImportOutcome(ctx, { result });
     },
   },
   {
@@ -1310,7 +1260,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Import · partial (2+ fails)",
     source: "libraryImport.ts",
     fire: async (ctx) => {
-      const operationId = createOperationId();
       const result: ImportLabResult = {
         imported: 2,
         replaced: 0,
@@ -1319,12 +1268,11 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         errors: ["Track X: Permission denied", "Track Y: File not found"],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample import multi-fail",
         result,
       );
-      fireImportOutcome(ctx, { result, operationId });
+      fireImportOutcome(ctx, { result });
     },
   },
   {
@@ -1333,7 +1281,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Import · all failed",
     source: "libraryImport.ts",
     fire: async (ctx) => {
-      const operationId = createOperationId();
       const result: ImportLabResult = {
         imported: 0,
         replaced: 0,
@@ -1346,12 +1293,11 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         ],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample import all-failed",
         result,
       );
-      fireImportOutcome(ctx, { result, operationId });
+      fireImportOutcome(ctx, { result });
     },
   },
   {
@@ -1381,7 +1327,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "CD import · success",
     source: "cdImport.ts",
     fire: async (ctx) => {
-      const operationId = createOperationId();
       const result: ImportLabResult = {
         imported: 5,
         replaced: 0,
@@ -1390,12 +1335,11 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         errors: [],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample CD import",
         result,
       );
-      fireCdImportOutcome(ctx, { result, operationId });
+      fireCdImportOutcome(ctx, { result });
     },
   },
   {
@@ -1404,7 +1348,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "CD import · skipped",
     source: "cdImport.ts",
     fire: async (ctx) => {
-      const operationId = createOperationId();
       const result: ImportLabResult = {
         imported: 0,
         replaced: 0,
@@ -1413,12 +1356,11 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         errors: [],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample CD import skipped",
         result,
       );
-      fireCdImportOutcome(ctx, { result, operationId, skipRip: true });
+      fireCdImportOutcome(ctx, { result, skipRip: true });
     },
   },
   {
@@ -1427,7 +1369,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "CD import · partial (1 fail)",
     source: "cdImport.ts",
     fire: async (ctx) => {
-      const operationId = createOperationId();
       const result: ImportLabResult = {
         imported: 4,
         replaced: 0,
@@ -1436,12 +1377,11 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         errors: ["Disorder couldn't be ripped"],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample CD import one-fail",
         result,
       );
-      fireCdImportOutcome(ctx, { result, operationId });
+      fireCdImportOutcome(ctx, { result });
     },
   },
   {
@@ -1450,7 +1390,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "CD import · all failed",
     source: "cdImport.ts",
     fire: async (ctx) => {
-      const operationId = createOperationId();
       const result: ImportLabResult = {
         imported: 0,
         replaced: 0,
@@ -1463,12 +1402,11 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         ],
       };
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample CD import all-failed",
         result,
       );
-      fireCdImportOutcome(ctx, { result, operationId });
+      fireCdImportOutcome(ctx, { result });
     },
   },
   {
@@ -1477,10 +1415,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "CD import → failed",
     source: "cdImport.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.import,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: CD import failed",
         { error: "drive disappeared" },
         "error",
@@ -1496,7 +1432,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
           ctx.setDetail(t("toasts:import.fetchingArt"));
           await sleep(500);
           ctx.settleAs({
-            ...cdImportFailedSettleOptions({ logLink: { operationId } }),
+            ...cdImportFailedSettleOptions({ logLink: true }),
             dismissMs,
           });
         },
@@ -1592,10 +1528,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "CD metadata lookup → failed",
     source: "cdMetadataFetch.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.musicbrainz,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.cd,
         "Toast Lab: MusicBrainz lookup request failed",
         { error: "timed out" },
         "error",
@@ -1606,7 +1540,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         run: async (ctx) => {
           await sleep(700);
           ctx.settleAs({
-            ...cdMetadataFailedSettleOptions({ logLink: { operationId } }),
+            ...cdMetadataFailedSettleOptions({ logLink: true }),
             dismissMs,
           });
         },
@@ -1625,7 +1559,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         converted: 3,
         failed: 0,
         errors: [],
-        operationId: "toast-lab-convert-ok",
       });
     },
   },
@@ -1640,7 +1573,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         converted: 1,
         failed: 1,
         errors: ["Song B: Encoder failed"],
-        operationId: "toast-lab-convert-partial",
       });
     },
   },
@@ -1650,11 +1582,9 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Convert · partial (2+ fails)",
     source: "convertTracks.ts",
     fire: async (ctx) => {
-      const operationId = createOperationId();
       const errors = ["Song B: Encoder failed", "Song C: Permission denied"];
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.convert,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample convert summary",
         {
           converted: 8,
@@ -1667,7 +1597,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         converted: 8,
         failed: 2,
         errors,
-        operationId,
         stepMs: 150,
       });
     },
@@ -1683,7 +1612,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         converted: 0,
         failed: 1,
         errors: ["Song A: Encoder failed"],
-        operationId: "toast-lab-convert-failed-one",
       });
     },
   },
@@ -1693,15 +1621,13 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Convert · all failed (2+)",
     source: "convertTracks.ts",
     fire: async (ctx) => {
-      const operationId = createOperationId();
       const errors = [
         "Song A: Encoder failed",
         "Song B: Encoder failed",
         "Song C: Permission denied",
       ];
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.convert,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.library,
         "Toast Lab: sample convert all-failed",
         { converted: 0, failed: 3, errors },
       );
@@ -1710,7 +1636,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         converted: 0,
         failed: 3,
         errors,
-        operationId,
       });
     },
   },
@@ -1810,10 +1735,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Item install failed (file)",
     source: "itemActions.ts",
     fire: async ({ showErrorToast, dismissMs }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.packInstall,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.studio,
         "Toast Lab: pack install failed for Example Pack: sample corrupt archive",
         {
           source: "file",
@@ -1826,7 +1749,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
         key: "item-install",
         label: t("toasts:items.installFailed"),
         detail: t("toasts:items.installFailedDetail"),
-        logLink: { operationId },
+        logLink: true,
         dismissMs,
       });
     },
@@ -1837,10 +1760,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Registry download → failed",
     source: "itemRegistry.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.packInstall,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.studio,
         "Toast Lab: pack download failed for Xbox: could not download pack (http://127.0.0.1:8787/…)",
         {
           source: "registry",
@@ -1864,7 +1785,7 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
           }
           const failed = packDownloadFailedPayload("Xbox", {
             dismissMs,
-            logLink: { operationId },
+            logLink: true,
           });
           ctx.settleAs({
             status: "error",
@@ -1896,7 +1817,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
             updated: 3,
             failed: 0,
             errors: [],
-            operationId: createOperationId(),
           });
           ctx.settleAs({ ...settle, dismissMs });
         },
@@ -1909,10 +1829,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Update all packs → mixed",
     source: "useItemUpdatesStore.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.packInstall,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.studio,
         "Toast Lab: pack update failed for Xbox: sample network error",
         {
           source: "registry",
@@ -1934,7 +1852,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
             updated: 2,
             failed: 1,
             errors: ["Xbox: sample network error"],
-            operationId,
           });
           ctx.settleAs({ ...settle, dismissMs });
         },
@@ -1947,10 +1864,8 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Update all packs → failed",
     source: "useItemUpdatesStore.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
-      const operationId = createOperationId();
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.packInstall,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.studio,
         "Toast Lab: pack updates failed for 2 packs",
         { source: "registry", failed: 2 },
         "error",
@@ -1968,7 +1883,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
             updated: 0,
             failed: 2,
             errors: ["Xbox: fail", "T3: fail"],
-            operationId,
           });
           ctx.settleAs({ ...settle, dismissMs });
         },
@@ -2127,11 +2041,9 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
     buttonLabel: "Error + View logs",
     source: "toastLogLink.ts",
     fire: async ({ runInBackground, dismissMs, sleep }) => {
-      const operationId = createOperationId();
       const errorLines = ["Song A: timeout", "Song B: not_found"];
       await seedToastLabLog(
-        ACTIVITY_LOG_DOMAINS.lyricsFetch,
-        operationId,
+        ACTIVITY_LOG_DOMAINS.lyrics,
         "Toast Lab: sample lyrics fetch summary",
         {
           failed: 2,
@@ -2158,7 +2070,6 @@ export const TOAST_LAB_SCENARIOS: ToastLabScenario[] = [
                 failed: 2,
               },
               errorLines,
-              operationId,
             }),
             dismissMs,
           });

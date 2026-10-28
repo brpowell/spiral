@@ -97,7 +97,7 @@ fn list_all_visualizer_packs(app: &AppHandle) -> Vec<LoadedVisualizer> {
     if let Err(e) = packs::ensure_packs_ready(app) {
         activity_log::log(
             LogLevel::Debug,
-            "visualizer.load",
+            "studio",
             format!("pack setup error: {e}"),
             None,
         );
@@ -105,7 +105,7 @@ fn list_all_visualizer_packs(app: &AppHandle) -> Vec<LoadedVisualizer> {
 
     let scan = packs::scan_contributions_of_type(app, "visualizer");
     for w in &scan.warnings {
-        activity_log::log(LogLevel::Debug, "visualizer.load", w.message.clone(), None);
+        activity_log::log(LogLevel::Debug, "studio", w.message.clone(), None);
     }
 
     let mut packs = Vec::new();
@@ -115,7 +115,7 @@ fn list_all_visualizer_packs(app: &AppHandle) -> Vec<LoadedVisualizer> {
             Err(e) => {
                 activity_log::log(
                     LogLevel::Debug,
-                    "visualizer.load",
+                    "studio",
                     format!(
                         "visualizer \"{}\" failed to load: {e}",
                         contrib.effective_id

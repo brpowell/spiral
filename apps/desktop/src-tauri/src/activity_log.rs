@@ -20,7 +20,6 @@ static ID_COUNTER: AtomicU64 = AtomicU64::new(0);
 thread_local! {
     static THREAD_CONTEXT: std::cell::RefCell<ActivityLogContext> =
         std::cell::RefCell::new(ActivityLogContext {
-            operation_id: None,
             drive_id: None,
             disc_id: None,
             release_mbid: None,
@@ -42,8 +41,6 @@ pub enum LogLevel {
 #[serde(rename_all = "camelCase")]
 pub struct ActivityLogContext {
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub operation_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drive_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disc_id: Option<String>,
@@ -64,8 +61,6 @@ pub struct ActivityLogEntry {
     pub domain: String,
     pub message: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub operation_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context: Option<ActivityLogContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub details: Option<serde_json::Value>,
@@ -77,8 +72,6 @@ pub struct ActivityLogDraft {
     pub level: LogLevel,
     pub domain: String,
     pub message: String,
-    #[serde(default)]
-    pub operation_id: Option<String>,
     #[serde(default)]
     pub context: Option<ActivityLogContext>,
     #[serde(default)]
@@ -130,16 +123,10 @@ fn current_thread_context() -> ActivityLogContext {
     THREAD_CONTEXT.with(|cell| cell.borrow().clone())
 }
 
-fn merge_context(
-    explicit: Option<ActivityLogContext>,
-    operation_id: Option<String>,
-) -> Option<ActivityLogContext> {
+fn merge_context(explicit: Option<ActivityLogContext>) -> Option<ActivityLogContext> {
     let thread_ctx = current_thread_context();
     let mut merged = explicit.unwrap_or_default();
 
-    if merged.operation_id.is_none() {
-        merged.operation_id = operation_id.or(thread_ctx.operation_id);
-    }
     if merged.drive_id.is_none() {
         merged.drive_id = thread_ctx.drive_id;
     }
@@ -156,8 +143,7 @@ fn merge_context(
         merged.album = thread_ctx.album;
     }
 
-    if merged.operation_id.is_none()
-        && merged.drive_id.is_none()
+    if merged.drive_id.is_none()
         && merged.disc_id.is_none()
         && merged.release_mbid.is_none()
         && merged.artist.is_none()
@@ -170,10 +156,7 @@ fn merge_context(
 }
 
 pub fn append_draft(draft: ActivityLogDraft) -> ActivityLogEntry {
-    let context = merge_context(draft.context, draft.operation_id.clone());
-    let operation_id = draft
-        .operation_id
-        .or_else(|| context.as_ref().and_then(|ctx| ctx.operation_id.clone()));
+    let context = merge_context(draft.context);
 
     let entry = ActivityLogEntry {
         id: new_id(),
@@ -181,7 +164,6 @@ pub fn append_draft(draft: ActivityLogDraft) -> ActivityLogEntry {
         level: draft.level,
         domain: draft.domain,
         message: draft.message,
-        operation_id,
         context,
         details: draft.details,
     };
@@ -212,7 +194,6 @@ pub fn log(
         level,
         domain: domain.to_string(),
         message: message.into(),
-        operation_id: None,
         context: None,
         details,
     });

@@ -2,7 +2,6 @@ import { t, type TranslationKey } from "./i18n";
 import { isMissingFileErrorDetail } from "./missingFileTrack";
 import { lyricsAmbiguousSettleOptions } from "./lyricsFetchToastSettle";
 import { formatPeerOutcomeTitle } from "./toastPeerOutcomes";
-import type { ActivityLogRevealTarget } from "./activityLogsWindow";
 import type {
   BackgroundTaskAction,
   BackgroundTaskSettleAsOptions,
@@ -85,7 +84,7 @@ export function playbackFileMissingPayload(
 /** Library playback unexpected failure (§6 + §4.3 generic). */
 export function libraryPlaybackFailedPayload(options?: {
   dismissMs?: number | null;
-  logLink?: ActivityLogRevealTarget;
+  logLink?: boolean;
 }): ToastPayload {
   return withOptionalDismiss(
     {
@@ -101,7 +100,7 @@ export function libraryPlaybackFailedPayload(options?: {
 /** Library load unexpected failure (§6 + §4.3 generic). */
 export function libraryLoadFailedPayload(options?: {
   dismissMs?: number | null;
-  logLink?: ActivityLogRevealTarget;
+  logLink?: boolean;
 }): ToastPayload {
   return withOptionalDismiss(
     {
@@ -117,7 +116,7 @@ export function libraryLoadFailedPayload(options?: {
 /** File-picker / pre-import unexpected failure (§6 + §4.3 generic). */
 export function importPickerFailedPayload(options?: {
   dismissMs?: number | null;
-  logLink?: ActivityLogRevealTarget;
+  logLink?: boolean;
 }): ToastPayload {
   return withOptionalDismiss(
     {
@@ -136,7 +135,7 @@ export function cdPlaybackFailurePayload(
   options?: {
     dismissMs?: number | null;
     /** Only for generic/unhandled failures — known kinds stay toast-only. */
-    logLink?: ActivityLogRevealTarget;
+    logLink?: boolean;
   },
 ): ToastPayload {
   const label =
@@ -173,10 +172,9 @@ export function cdPlaybackFailurePayload(
 export function bulkTrackMetadataSavePayload(options: {
   updated: number;
   errors: string[];
-  operationId?: string;
   dismissMs?: number | null;
 }): ToastPayload | null {
-  const { updated, errors, operationId, dismissMs } = options;
+  const { updated, errors, dismissMs } = options;
   if (errors.length === 0) return null;
 
   const missingErrors = errors.filter(isMissingFileErrorDetail);
@@ -238,7 +236,7 @@ export function bulkTrackMetadataSavePayload(options: {
       key: "track-metadata-save",
       label,
       status,
-      ...(operationId ? { logLink: { operationId } } : {}),
+      logLink: true,
     },
     dismissMs,
   );
@@ -295,7 +293,7 @@ export function packDownloadFailedPayload(
   name: string,
   options?: {
     dismissMs?: number | null;
-    logLink?: ActivityLogRevealTarget;
+    logLink?: boolean;
   },
 ): ToastPayload {
   return withOptionalDismiss(
@@ -321,9 +319,8 @@ export function packUpdatesSettleOptions(options: {
   failed: number;
   /** Per-item error strings (activity log); not shown inline for 2+ failures. */
   errors: string[];
-  operationId: string;
 }): BackgroundTaskSettleAsOptions & { label: string } {
-  const { updated, failed, operationId } = options;
+  const { updated, failed } = options;
 
   const label = formatPeerOutcomeTitle(
     [
@@ -356,14 +353,14 @@ export function packUpdatesSettleOptions(options: {
       status,
       label,
       detail: t("toasts:packs.downloadFailedDetail"),
-      logLink: { operationId },
+      logLink: true,
     };
   }
 
   return {
     status,
     label,
-    logLink: { operationId },
+    logLink: true,
   };
 }
 
@@ -483,7 +480,7 @@ export function cdMetadataNotFoundSettleOptions(): BackgroundTaskSettleAsOptions
 
 /** Lookup transport / HTTP failure (§6 + §4.3 generic). Rust already logged the error. */
 export function cdMetadataFailedSettleOptions(options: {
-  logLink: ActivityLogRevealTarget;
+  logLink: boolean;
 }): BackgroundTaskSettleAsOptions {
   return {
     status: "error",
@@ -495,7 +492,7 @@ export function cdMetadataFailedSettleOptions(options: {
 
 /** Unexpected CD import abort (§6 + §4.3 generic). Raw errors stay in the activity log. */
 export function cdImportFailedSettleOptions(options: {
-  logLink: ActivityLogRevealTarget;
+  logLink: boolean;
 }): BackgroundTaskSettleAsOptions {
   return {
     status: "error",

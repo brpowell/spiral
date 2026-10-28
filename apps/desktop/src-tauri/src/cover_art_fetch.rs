@@ -56,7 +56,7 @@ fn log_cover_art(level: LogLevel, message: impl Into<String>, details: Option<se
     if level != LogLevel::Error && activity_log::thread_has_drive_id() {
         return;
     }
-    activity_log::log(level, "metadata.coverArt", message, details);
+    activity_log::log(level, "metadata", message, details);
 }
 
 pub fn fetch_cover_art_for_release_cached(

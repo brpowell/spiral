@@ -276,7 +276,10 @@ export function useFitModalHeight(
       if (burst > BURST_LIMIT) return;
 
       measuring = true;
-      resizeObserver?.disconnect();
+      // Keep the resize observer connected. Re-observing a target queues an
+      // initial notification for it, so a disconnect here made every pass
+      // (even an unchanged one) schedule the next, once per frame, forever.
+      // Notifications from our own writes land on the content signature check.
       mutationObserver.disconnect();
       const scroller = panel.querySelector<HTMLElement>(
         ".tabs__panel:not([hidden])",
@@ -381,7 +384,6 @@ export function useFitModalHeight(
         if (scroller) scroller.scrollTop = scrollTop;
         measuring = false;
         if (!disposed) {
-          observed.clear();
           mutationObserver.observe(panel, MUTATION_OPTIONS);
           syncObserved();
         }

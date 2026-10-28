@@ -112,11 +112,10 @@ function chooseLyricsAction(trackIds: number[]): BackgroundTaskAction {
 export function lyricsFetchBulkSettleOptions(options: {
   tally: LyricsFetchPeerTally;
   errorLines?: string[];
-  operationId?: string;
   /** Tracks that need candidate review, if any. */
   reviewTrackIds?: number[];
 }): BackgroundTaskSettleAsOptions & { label: string } {
-  const { tally, errorLines = [], operationId, reviewTrackIds = [] } = options;
+  const { tally, errorLines = [], reviewTrackIds = [] } = options;
   const label = formatLyricsFetchPeerTitle(tally);
   const status = lyricsFetchBulkStatus(tally);
 
@@ -125,7 +124,7 @@ export function lyricsFetchBulkSettleOptions(options: {
       status,
       label,
       actions: [reviewLyricsAction(reviewTrackIds)],
-      ...(tally.failed >= 1 && operationId ? { logLink: { operationId } } : {}),
+      ...(tally.failed >= 1 ? { logLink: true } : {}),
     };
   }
 
@@ -137,11 +136,11 @@ export function lyricsFetchBulkSettleOptions(options: {
     };
   }
 
-  if (tally.failed >= 2 && operationId) {
+  if (tally.failed >= 2) {
     return {
       status,
       label,
-      logLink: { operationId },
+      logLink: true,
     };
   }
 

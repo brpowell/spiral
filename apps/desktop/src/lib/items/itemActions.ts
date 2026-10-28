@@ -1,5 +1,4 @@
 import { emit } from "@tauri-apps/api/event";
-import { createOperationId } from "../activityLog";
 import {
   LINKED_PACKS_CHANGED_EVENT,
   RELOAD_LINKED_PACKS_EVENT,
@@ -42,19 +41,18 @@ function formatInvokeError(err: unknown, fallback: string): string {
  */
 export async function importItemWithRefresh(): Promise<InstallItemResult | null> {
   const { showErrorToast } = useBackgroundTasksStore.getState();
-  const operationId = createOperationId();
   try {
     const result = await installItem();
     if (!result) return null;
     await refreshPackContributionStores();
-    logItemInstallSuccess({ operationId, result });
+    logItemInstallSuccess({ result });
     return result;
   } catch (err) {
-    logItemInstallFailure({ operationId, err });
+    logItemInstallFailure({ err });
     showErrorToast({
       label: formatInvokeError(err, t("toasts:items.installFailed")),
       detail: t("toasts:items.installFailedDetail"),
-      logLink: { operationId },
+      logLink: true,
       key: "item-install",
     });
     return null;

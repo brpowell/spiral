@@ -42,7 +42,7 @@ fn ensure_not_cancelled() -> Result<(), String> {
     if LYRICS_FETCH_CANCEL_REQUESTED.load(Ordering::SeqCst) {
         activity_log::log(
             LogLevel::Info,
-            "lyrics.fetch",
+            "lyrics",
             LYRICS_FETCH_CANCELLED_MESSAGE,
             None,
         );
@@ -269,7 +269,7 @@ fn fetch_lrclib_search_with_parenthetical_fallback(
 
     activity_log::log(
         LogLevel::Info,
-        "lyrics.fetch",
+        "lyrics",
         "Retrying LRCLIB search without parenthetical title",
         Some(serde_json::json!({
             "originalTitle": query_title,
@@ -301,7 +301,7 @@ fn fetch_lrclib_search_outcome(
     let search_url = lrclib_search_url(search_artist, query_title);
     activity_log::log(
         LogLevel::Info,
-        "lyrics.fetch",
+        "lyrics",
         "Searching LRCLIB for lyrics",
         Some(serde_json::json!({
             "strategy": strategy,
@@ -468,7 +468,7 @@ fn log_fetch_error(url: Option<&str>, error_message: &str, extra: Option<serde_j
     }
     activity_log::log(
         LogLevel::Error,
-        "lyrics.fetch",
+        "lyrics",
         "Lyrics fetch failed",
         Some(details),
     );
@@ -555,7 +555,7 @@ fn send_lrclib_request_with_retry(
             ensure_not_cancelled()?;
             activity_log::log(
                 LogLevel::Warn,
-                "lyrics.fetch",
+                "lyrics",
                 &format!("LRCLIB {operation} timed out, retrying once"),
                 Some(serde_json::json!({
                     "url": url,
@@ -587,7 +587,7 @@ fn parse_lrclib_get_response(
     if status.as_u16() == 404 {
         activity_log::log(
             LogLevel::Warn,
-            "lyrics.fetch",
+            "lyrics",
             "LRCLIB returned no match",
             Some(serde_json::json!({
                 "url": url,
@@ -627,7 +627,7 @@ fn parse_lrclib_get_response(
     if payload.instrumental {
         activity_log::log(
             LogLevel::Info,
-            "lyrics.fetch",
+            "lyrics",
             "LRCLIB marked track as instrumental",
             Some(serde_json::json!({
                 "url": url,
@@ -645,7 +645,7 @@ fn parse_lrclib_get_response(
         } else {
             LogLevel::Warn
         },
-        "lyrics.fetch",
+        "lyrics",
         if lyrics.is_some() {
             format!("Lyrics found for '{title}'")
         } else {
@@ -710,7 +710,7 @@ fn fetch_lrclib_search(url: &str) -> Result<Vec<LrclibSearchHit>, String> {
 
     activity_log::log(
         LogLevel::Info,
-        "lyrics.fetch",
+        "lyrics",
         "LRCLIB search returned candidates",
         Some(serde_json::json!({
             "url": url,
@@ -738,7 +738,7 @@ fn fetch_lrclib_uncached(
     let track_get_url = lrclib_get_url(&query_artist, &query_title, &query_album, duration_secs);
     activity_log::log(
         LogLevel::Info,
-        "lyrics.fetch",
+        "lyrics",
         format!("Fetching lyrics for '{query_title}'"),
         Some(serde_json::json!({
             "strategy": "get_track_artist",
@@ -771,7 +771,7 @@ fn fetch_lrclib_uncached(
         );
         activity_log::log(
             LogLevel::Info,
-            "lyrics.fetch",
+            "lyrics",
             "Retrying LRCLIB get with album artist",
             Some(serde_json::json!({
                 "strategy": "get_album_artist",
@@ -850,7 +850,7 @@ pub fn fetch_lyrics_lrclib_cached(
         CachedLyricsLookup::Hit(lyrics) => {
             activity_log::log(
                 LogLevel::Info,
-                "lyrics.fetch",
+                "lyrics",
                 "Lyrics fetch cache hit",
                 Some(serde_json::json!({
                     "artist": artist,

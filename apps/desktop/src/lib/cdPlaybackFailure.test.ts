@@ -16,7 +16,6 @@ vi.mock("../store/useBackgroundTasksStore", () => ({
 
 vi.mock("./activityLog", () => ({
   logActivity: mockLogActivity,
-  createOperationId: () => "op-cd-playback-test",
 }));
 
 vi.mock("./i18n", () => ({
@@ -77,7 +76,7 @@ describe("reportCdPlaybackFailure", () => {
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         level: "warn",
-        domain: ACTIVITY_LOG_DOMAINS.cdPlayback,
+        domain: ACTIVITY_LOG_DOMAINS.playback,
         context: { driveId: "disk4" },
         details: expect.objectContaining({
           kind: "disconnected",
@@ -98,13 +97,12 @@ describe("reportCdPlaybackFailure", () => {
       key: "cd-playback-error",
       label: "playback:cd.playbackFailed.label",
       detail: "Track 3 not found on disc",
-      logLink: { operationId: "op-cd-playback-test" },
+      logLink: true,
     });
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         level: "error",
-        domain: ACTIVITY_LOG_DOMAINS.cdPlayback,
-        operationId: "op-cd-playback-test",
+        domain: ACTIVITY_LOG_DOMAINS.playback,
       }),
     );
   });

@@ -69,7 +69,7 @@ mod tests {
             .load(std::sync::atomic::Ordering::Relaxed);
         assert!(output.callback_count() > 0, "device callback ran");
         assert!(consumed > 20_000, "mixer consumed audio: {consumed}");
-        for entry in crate::activity_log::get_recent(20, Some("audio.output")) {
+        for entry in crate::activity_log::get_recent(20, Some("playback")) {
             println!("{}", entry.message);
         }
     }

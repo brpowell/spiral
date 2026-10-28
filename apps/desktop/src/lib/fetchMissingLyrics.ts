@@ -1,4 +1,4 @@
-import { createOperationId, logActivity } from "./activityLog";
+import { logActivity } from "./activityLog";
 import { BackgroundTaskCancelledError } from "./backgroundTaskCancel";
 import { commitInstrumentalMarkForTrack } from "./lyricsFetchCommit";
 import {
@@ -239,18 +239,14 @@ function trackResultBase(
   };
 }
 
-function logSummary(
-  operationId: string,
-  summary: FetchMissingLyricsSummary,
-): void {
+function logSummary(summary: FetchMissingLyricsSummary): void {
   const level = summary.cancelled || summary.failed > 0 ? "warn" : "info";
   logActivity({
     level,
-    domain: ACTIVITY_LOG_DOMAINS.lyricsFetch,
+    domain: ACTIVITY_LOG_DOMAINS.lyrics,
     message: summary.cancelled
       ? "Fetch missing lyrics cancelled"
       : "Fetch missing lyrics completed",
-    operationId,
     details: {
       cancelled: summary.cancelled,
       totalMissing: summary.totalMissing,
@@ -316,18 +312,16 @@ export function fetchMissingLyrics(): void {
   }
 
   if (eligible.length === 0) {
-    const operationId = createOperationId();
     const summary = emptyFetchMissingLyricsSummary(totalMissing);
     seedIneligibleResults(summary, ineligible);
 
     logActivity({
       level: "info",
-      domain: ACTIVITY_LOG_DOMAINS.lyricsFetch,
+      domain: ACTIVITY_LOG_DOMAINS.lyrics,
       message: "Starting fetch missing lyrics",
-      operationId,
       details: { totalMissing, eligible: 0, ineligible: ineligible.length },
     });
-    logSummary(operationId, summary);
+    logSummary(summary);
 
     useBackgroundTasksStore.getState().showToast({
       label: formatFetchMissingLyricsToastLabel(summary),
@@ -343,15 +337,13 @@ export function fetchMissingLyrics(): void {
     run: async (ctx) => {
       await clearLyricsFetchCancel();
 
-      const operationId = createOperationId();
       const summary = emptyFetchMissingLyricsSummary(totalMissing);
       seedIneligibleResults(summary, ineligible);
 
       logActivity({
         level: "info",
-        domain: ACTIVITY_LOG_DOMAINS.lyricsFetch,
+        domain: ACTIVITY_LOG_DOMAINS.lyrics,
         message: "Starting fetch missing lyrics",
-        operationId,
         details: {
           totalMissing,
           eligible: eligible.length,
@@ -375,7 +367,7 @@ export function fetchMissingLyrics(): void {
           ctx.setLabel(toastLabel);
           ctx.clearDetail();
           ctx.clearProgress();
-          logSummary(operationId, summary);
+          logSummary(summary);
           throw new BackgroundTaskCancelledError(toastLabel);
         }
 
@@ -384,7 +376,7 @@ export function fetchMissingLyrics(): void {
           ctx.setLabel(toastLabel);
           ctx.clearDetail();
           ctx.clearProgress();
-          logSummary(operationId, summary);
+          logSummary(summary);
           return;
         }
 
@@ -487,7 +479,7 @@ export function fetchMissingLyrics(): void {
         ctx.setLabel(toastLabel);
         ctx.clearDetail();
         ctx.clearProgress();
-        logSummary(operationId, summary);
+        logSummary(summary);
 
         const reviewIds = ambiguousTrackIds(summary);
         if (summary.cancelled) {
@@ -504,7 +496,6 @@ export function fetchMissingLyrics(): void {
                   skipped: summary.skipped,
                 },
                 errorLines: failureDetailLines(summary),
-                operationId,
                 reviewTrackIds: reviewIds,
               }),
             );
@@ -524,7 +515,6 @@ export function fetchMissingLyrics(): void {
               skipped: summary.skipped,
             },
             errorLines: failureDetailLines(summary),
-            operationId,
             reviewTrackIds: reviewIds,
           }),
         );

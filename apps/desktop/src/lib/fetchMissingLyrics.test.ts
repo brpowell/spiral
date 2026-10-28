@@ -41,7 +41,6 @@ vi.mock("./lyricsFetchCommit", () => ({
 }));
 
 vi.mock("./activityLog", () => ({
-  createOperationId: () => "op-1",
   logActivity: logActivityMock,
 }));
 

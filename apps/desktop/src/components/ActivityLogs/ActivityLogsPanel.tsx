@@ -1,4 +1,3 @@
-import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../common/Button/Button";
 import { ContextMenu, ContextMenuItem } from "../ContextMenu/ContextMenu";
@@ -8,27 +7,14 @@ import { copyTextToClipboard } from "../../lib/clipboard";
 import {
   formatActivityLogTimestamp,
   formatLogLinePretty,
-  getEntryOperationId,
   serializeLogLines,
 } from "../../lib/activityLogLine";
-import {
-  entryVisibleWithFilters,
-  resolveActivityLogRevealEntry,
-} from "../../lib/activityLogsReveal";
-import {
-  ACTIVITY_LOGS_REVEAL_EVENT,
-  type ActivityLogRevealTarget,
-} from "../../lib/activityLogsWindow";
 import { showActivityLogCopiedToast } from "../../lib/activityLogToast";
 import {
   filterActivityLogEntries,
   useActivityLogStore,
 } from "../../store/useActivityLogStore";
-import {
-  ACTIVITY_LOG_DOMAIN_OPTIONS,
-  type ActivityLogEntry,
-  type LogLevel,
-} from "../../types/activityLog";
+import { type ActivityLogEntry, type LogLevel } from "../../types/activityLog";
 import { Select } from "../common/Select/Select";
 import { ActivityLogDomainChipField } from "./ActivityLogDomainChipField";
 import { ActivityLogsActionsMenu } from "./ActivityLogsActionsMenu";
@@ -63,52 +49,11 @@ interface PendingRowDrag {
   originY: number;
 }
 
-/** Override catalog labels when group headers need a different phrasing. */
-const DOMAIN_GROUP_LABELS: Record<string, string> = {
-  "metadata.musicbrainz": "Metadata fetch",
-  "metadata.coverArt": "Cover art fetch",
-  "metadata.artistArt": "Artist art fetch",
-  "library.convert": "Track convert",
-  "library.import": "Library import",
-  "library.refresh": "Library refresh",
-  "lyrics.fetch": "Lyrics fetch",
-};
-
-function domainGroupLabel(domain: string): string {
-  return (
-    DOMAIN_GROUP_LABELS[domain] ??
-    ACTIVITY_LOG_DOMAIN_OPTIONS.find((option) => option.value === domain)
-      ?.label ??
-    domain
-  );
-}
-
-function formatGroupLabel(entry: ActivityLogEntry): string {
-  const discId = entry.context?.discId;
-  const driveId = entry.context?.driveId;
-  const domainLabel = domainGroupLabel(entry.domain);
-
-  if (discId) return `${domainLabel} · disc ${discId}`;
-  if (driveId) return `${domainLabel} · drive ${driveId}`;
-  return domainLabel;
-}
-
-function shouldShowGroupHeader(
-  entry: ActivityLogEntry,
-  previous: ActivityLogEntry | undefined,
-): boolean {
-  const operationId = getEntryOperationId(entry);
-  if (operationId == null) return false;
-  if (previous == null) return true;
-  return operationId !== getEntryOperationId(previous);
-}
-
 interface LogEntryRowProps {
   entry: ActivityLogEntry;
   entryIndex: number;
   selected: boolean;
   expanded: boolean;
-  revealed: boolean;
   dragSelecting: boolean;
   onRowMouseDown: (index: number, event: React.MouseEvent) => void;
   onRowMouseEnter: (index: number) => void;
@@ -143,7 +88,6 @@ function LogEntryRow({
   entryIndex,
   selected,
   expanded,
-  revealed,
   dragSelecting,
   onRowMouseDown,
   onRowMouseEnter,
@@ -154,8 +98,8 @@ function LogEntryRow({
       className={`activity-logs-panel__entry${
         selected ? " activity-logs-panel__entry--selected" : ""
       }${expanded ? " activity-logs-panel__entry--expanded" : ""}${
-        revealed ? " activity-logs-panel__entry--revealed" : ""
-      }${dragSelecting ? " activity-logs-panel__entry--drag-selecting" : ""}`}
+        dragSelecting ? " activity-logs-panel__entry--drag-selecting" : ""
+      }`}
       data-entry-id={entry.id}
       data-entry-index={entryIndex}
       data-selected={selected ? "true" : "false"}
@@ -210,7 +154,6 @@ export function ActivityLogsPanel() {
   const autoScroll = useActivityLogStore((s) => s.autoScroll);
   const setDomainFilters = useActivityLogStore((s) => s.setDomainFilters);
   const setMinLevel = useActivityLogStore((s) => s.setMinLevel);
-  const setAutoScroll = useActivityLogStore((s) => s.setAutoScroll);
   const listRef = useRef<HTMLDivElement>(null);
   const stickToBottomRef = useRef(true);
   const anchorIndexRef = useRef<number | null>(null);
@@ -220,12 +163,8 @@ export function ActivityLogsPanel() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
-  const [revealedId, setRevealedId] = useState<string | null>(null);
   const [contextEntryId, setContextEntryId] = useState<string | null>(null);
   const [dragSelecting, setDragSelecting] = useState(false);
-  const pendingRevealRef = useRef<ActivityLogRevealTarget | null>(null);
-  const revealClearTimerRef = useRef<number | null>(null);
-  const pendingRevealFocusIdRef = useRef<string | null>(null);
 
   const filteredEntries = useMemo(
     () => filterActivityLogEntries(entries, domainFilters, minLevel),
@@ -478,112 +417,6 @@ export function ActivityLogsPanel() {
     });
   }, []);
 
-  const applyReveal = useCallback(
-    (target: ActivityLogRevealTarget) => {
-      const entry = resolveActivityLogRevealEntry(entries, target);
-      if (!entry) return;
-
-      if (!entryVisibleWithFilters(entry, domainFilters, minLevel)) {
-        setDomainFilters([]);
-        setMinLevel(entry.level);
-      }
-
-      setAutoScroll(false);
-      stickToBottomRef.current = false;
-      anchorIndexRef.current = null;
-      setExpandedIds((previous) => {
-        const next = new Set(previous);
-        next.add(entry.id);
-        return next;
-      });
-      setRevealedId(entry.id);
-      // Defer selection/scroll until the entry is in the filtered list
-      // (filters may still be flushing after the clear above).
-      pendingRevealFocusIdRef.current = entry.id;
-
-      if (revealClearTimerRef.current != null) {
-        window.clearTimeout(revealClearTimerRef.current);
-      }
-      revealClearTimerRef.current = window.setTimeout(() => {
-        setRevealedId((current) => (current === entry.id ? null : current));
-        revealClearTimerRef.current = null;
-      }, 1600);
-    },
-    [
-      domainFilters,
-      entries,
-      minLevel,
-      setAutoScroll,
-      setDomainFilters,
-      setMinLevel,
-    ],
-  );
-
-  useEffect(() => {
-    const entryId = pendingRevealFocusIdRef.current;
-    if (!entryId) return;
-    const index = filteredEntries.findIndex((entry) => entry.id === entryId);
-    if (index < 0) return;
-
-    pendingRevealFocusIdRef.current = null;
-    anchorIndexRef.current = index;
-    setSelectedIds(new Set([entryId]));
-
-    requestAnimationFrame(() => {
-      const row = listRef.current?.querySelector(
-        `[data-entry-id="${CSS.escape(entryId)}"]`,
-      );
-      if (row instanceof HTMLElement) {
-        row.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      }
-    });
-  }, [filteredEntries, revealedId]);
-
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    let cancelled = false;
-
-    void listen<ActivityLogRevealTarget>(
-      ACTIVITY_LOGS_REVEAL_EVENT,
-      (event) => {
-        const target = event.payload;
-        if (target?.entryId == null && target?.operationId == null) return;
-
-        const resolved = resolveActivityLogRevealEntry(
-          useActivityLogStore.getState().entries,
-          target,
-        );
-        if (!resolved) {
-          // Entry may not be hydrated yet; retry once entries update.
-          pendingRevealRef.current = target;
-          return;
-        }
-        pendingRevealRef.current = null;
-        applyReveal(target);
-      },
-    ).then((fn) => {
-      if (cancelled) fn();
-      else unlisten = fn;
-    });
-
-    return () => {
-      cancelled = true;
-      unlisten?.();
-      if (revealClearTimerRef.current != null) {
-        window.clearTimeout(revealClearTimerRef.current);
-      }
-    };
-  }, [applyReveal]);
-
-  useEffect(() => {
-    const pending = pendingRevealRef.current;
-    if (!pending) return;
-    const resolved = resolveActivityLogRevealEntry(entries, pending);
-    if (!resolved) return;
-    pendingRevealRef.current = null;
-    applyReveal(pending);
-  }, [applyReveal, entries]);
-
   useEffect(() => {
     if (!autoScroll) {
       autoScrollWasEnabledRef.current = false;
@@ -687,31 +520,19 @@ export function ActivityLogsPanel() {
         {filteredEntries.length === 0 ? (
           <p className="activity-logs-panel__empty">No logs yet...</p>
         ) : (
-          filteredEntries.map((entry, index) => {
-            const previous = filteredEntries[index - 1];
-            const showHeader = shouldShowGroupHeader(entry, previous);
-
-            return (
-              <div key={entry.id} className="activity-logs-panel__list-item">
-                {showHeader && (
-                  <div className="activity-logs-panel__group-header">
-                    {formatGroupLabel(entry)}
-                  </div>
-                )}
-                <LogEntryRow
-                  entry={entry}
-                  entryIndex={index}
-                  selected={selectedIds.has(entry.id)}
-                  expanded={expandedIds.has(entry.id)}
-                  revealed={revealedId === entry.id}
-                  dragSelecting={dragSelecting}
-                  onRowMouseDown={handleRowMouseDown}
-                  onRowMouseEnter={handleRowMouseEnter}
-                  onToggleExpand={() => handleToggleExpand(entry.id)}
-                />
-              </div>
-            );
-          })
+          filteredEntries.map((entry, index) => (
+            <LogEntryRow
+              key={entry.id}
+              entry={entry}
+              entryIndex={index}
+              selected={selectedIds.has(entry.id)}
+              expanded={expandedIds.has(entry.id)}
+              dragSelecting={dragSelecting}
+              onRowMouseDown={handleRowMouseDown}
+              onRowMouseEnter={handleRowMouseEnter}
+              onToggleExpand={() => handleToggleExpand(entry.id)}
+            />
+          ))
         )}
       </div>
 

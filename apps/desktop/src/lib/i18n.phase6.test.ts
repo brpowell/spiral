@@ -59,7 +59,6 @@ describe("Phase 6 helpers use catalogs", () => {
         converted: 8,
         failed: 2,
         errors: ["A", "B"],
-        operationId: "op",
       }).label,
     ).toBe("8 converted · 2 failed");
     expect(

@@ -144,10 +144,12 @@ describe("importCompletionSettleOptions", () => {
 
   it("clean import → success title only", () => {
     expect(
-      importCompletionSettleOptions(
-        { ...base, imported: 12, replaced: 0, skipped: 0 },
-        "op-1",
-      ),
+      importCompletionSettleOptions({
+        ...base,
+        imported: 12,
+        replaced: 0,
+        skipped: 0,
+      }),
     ).toEqual({
       status: "success",
       label: "12 imported",
@@ -156,21 +158,18 @@ describe("importCompletionSettleOptions", () => {
 
   it("success peers (incl. replace/skip) → title only, no View logs", () => {
     expect(
-      importCompletionSettleOptions(
-        {
-          ...base,
-          imported: 0,
-          replaced: 5,
-          skipped: 3,
-        },
-        "op-1",
-      ),
+      importCompletionSettleOptions({
+        ...base,
+        imported: 0,
+        replaced: 5,
+        skipped: 3,
+      }),
     ).toEqual({
       status: "success",
       label: "5 replaced · 3 skipped",
     });
 
-    expect(importCompletionSettleOptions(base, "op-1")).toEqual({
+    expect(importCompletionSettleOptions(base)).toEqual({
       status: "success",
       label: "8 imported · 2 replaced · 2 skipped",
     });
@@ -178,17 +177,14 @@ describe("importCompletionSettleOptions", () => {
 
   it("partial with one failure → warning + inline detail", () => {
     expect(
-      importCompletionSettleOptions(
-        {
-          ...base,
-          imported: 3,
-          replaced: 0,
-          skipped: 0,
-          failed: 1,
-          errors: ["Track X: Permission denied"],
-        },
-        "op-1",
-      ),
+      importCompletionSettleOptions({
+        ...base,
+        imported: 3,
+        replaced: 0,
+        skipped: 0,
+        failed: 1,
+        errors: ["Track X: Permission denied"],
+      }),
     ).toEqual({
       status: "warning",
       label: "3 imported · 1 failed",
@@ -198,41 +194,35 @@ describe("importCompletionSettleOptions", () => {
 
   it("partial with multiple failures → warning + View logs", () => {
     expect(
-      importCompletionSettleOptions(
-        {
-          ...base,
-          imported: 2,
-          replaced: 0,
-          skipped: 0,
-          failed: 2,
-          errors: ["a", "b"],
-        },
-        "op-1",
-      ),
+      importCompletionSettleOptions({
+        ...base,
+        imported: 2,
+        replaced: 0,
+        skipped: 0,
+        failed: 2,
+        errors: ["a", "b"],
+      }),
     ).toEqual({
       status: "warning",
       label: "2 imported · 2 failed",
-      logLink: { operationId: "op-1" },
+      logLink: true,
     });
   });
 
   it("all failed → error + View logs", () => {
     expect(
-      importCompletionSettleOptions(
-        {
-          ...base,
-          imported: 0,
-          replaced: 0,
-          skipped: 0,
-          failed: 3,
-          errors: ["a", "b", "c"],
-        },
-        "op-1",
-      ),
+      importCompletionSettleOptions({
+        ...base,
+        imported: 0,
+        replaced: 0,
+        skipped: 0,
+        failed: 3,
+        errors: ["a", "b", "c"],
+      }),
     ).toEqual({
       status: "error",
       label: "Import: 3 failed",
-      logLink: { operationId: "op-1" },
+      logLink: true,
     });
   });
 });

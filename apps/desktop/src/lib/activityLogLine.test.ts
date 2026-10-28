@@ -11,7 +11,7 @@ function entry(partial: Partial<ActivityLogEntry> = {}): ActivityLogEntry {
     id: "1",
     timestampMs: 1,
     level: "info",
-    domain: "metadata.musicbrainz",
+    domain: "metadata",
     message: "Cache peek hit for disc abc",
     ...partial,
   };

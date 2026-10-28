@@ -200,7 +200,7 @@ export async function runSingleLyricsFetch(
       ACTIVITY_LOG_EVENT,
       (event) => {
         const entry = normalizeActivityLogEntry(event.payload);
-        if (entry.domain !== ACTIVITY_LOG_DOMAINS.lyricsFetch) return;
+        if (entry.domain !== ACTIVITY_LOG_DOMAINS.lyrics) return;
         if (isLyricsFetchRetryMessage(entry.message)) {
           options?.onRetry?.();
         }

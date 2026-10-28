@@ -16,7 +16,6 @@ vi.mock("../store/useBackgroundTasksStore", () => ({
 
 vi.mock("./activityLog", () => ({
   logActivity: mockLogActivity,
-  createOperationId: () => "op-unexpected-test",
 }));
 
 vi.mock("./i18n", () => ({
@@ -41,13 +40,12 @@ describe("reportUnexpectedError", () => {
       key: "library-playback-error",
       label: "toasts:playback.failed",
       detail: "toasts:playback.failedDetail",
-      logLink: { operationId: "op-unexpected-test" },
+      logLink: true,
     });
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         level: "error",
-        domain: ACTIVITY_LOG_DOMAINS.libraryPlayback,
-        operationId: "op-unexpected-test",
+        domain: ACTIVITY_LOG_DOMAINS.playback,
         message: "Library playback failed: Decoder error: unsupported codec",
         details: {
           rawMessage: "Decoder error: unsupported codec",
@@ -66,13 +64,12 @@ describe("reportUnexpectedError", () => {
       key: "library-load-error",
       label: "toasts:library.loadFailed",
       detail: "toasts:library.loadFailedDetail",
-      logLink: { operationId: "op-unexpected-test" },
+      logLink: true,
     });
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         level: "error",
-        domain: ACTIVITY_LOG_DOMAINS.libraryLoad,
-        operationId: "op-unexpected-test",
+        domain: ACTIVITY_LOG_DOMAINS.library,
         message: "Failed to load library: database is locked",
         details: { rawMessage: "database is locked" },
       }),
@@ -90,13 +87,12 @@ describe("reportUnexpectedError", () => {
       key: "import-picker-error",
       label: "toasts:import.pickerFailed",
       detail: "toasts:import.pickerFailedDetail",
-      logLink: { operationId: "op-unexpected-test" },
+      logLink: true,
     });
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         level: "error",
-        domain: ACTIVITY_LOG_DOMAINS.import,
-        operationId: "op-unexpected-test",
+        domain: ACTIVITY_LOG_DOMAINS.library,
         message: "Import failed: dialog failed",
         details: {
           rawMessage: "dialog failed",
