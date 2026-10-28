@@ -45,19 +45,29 @@ function addPaletteStops(gradient, colors) {
   }
 }
 
-/** Black stage with a faint theme-accent tint rising from the bottom. */
-function paintBackdrop(ctx, width, height, accent) {
+/** Black stage with a faint album-palette tint (theme accent when there's no art), deepest at the bottom. */
+function paintBackdrop(ctx, width, height, accent, colors) {
   ctx.save();
   ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
   ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, width, height);
-  if (accent) {
-    const tint = ctx.createLinearGradient(0, height, 0, height * 0.15);
-    tint.addColorStop(0, accent);
-    tint.addColorStop(1, "#000000");
-    ctx.globalAlpha = 0.3;
-    ctx.fillStyle = tint;
+  const stops = colors && colors.length > 0 ? colors : accent ? [accent] : [];
+  if (stops.length > 0) {
+    // A faint wash of the album palette across the canvas, deepening toward
+    // the bottom.
+    const wash = ctx.createLinearGradient(0, 0, width, 0);
+    stops.forEach((color, i) => {
+      wash.addColorStop(stops.length === 1 ? 0 : i / (stops.length - 1), color);
+    });
+    ctx.globalAlpha = 0.26;
+    ctx.fillStyle = wash;
+    ctx.fillRect(0, 0, width, height);
+    const fade = ctx.createLinearGradient(0, 0, 0, height);
+    fade.addColorStop(0, "rgba(0, 0, 0, 0.6)");
+    fade.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = fade;
     ctx.fillRect(0, 0, width, height);
   }
   ctx.restore();
@@ -235,7 +245,13 @@ export function create() {
       const { width, height } = frame.size;
       const dt = Math.min(64, frame.time?.deltaMs ?? 16);
 
-      paintBackdrop(ctx, width, height, frame.theme?.tokens?.["color-accent"]);
+      paintBackdrop(
+        ctx,
+        width,
+        height,
+        frame.theme?.tokens?.["color-accent"],
+        frame.trackMetadata.artColors,
+      );
 
       let targets = null;
 
