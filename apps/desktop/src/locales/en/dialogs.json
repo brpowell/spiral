@@ -58,5 +58,22 @@
     "open": "Open",
     "blockedTitle": "Can't open this link",
     "blockedBody": "This address isn't a web page, so Spiral won't open it."
+  },
+  "tagWrite": {
+    "title_one": "Update 1 file?",
+    "title_other": "Update {{count}} files?",
+    "confirm": "Save changes",
+    "backup": "Spiral modifies your files directly - you may want to keep backups as a precaution.",
+    "message": {
+      "track_one": "New details will be saved to the track file.",
+      "track_other": "New details will be saved to all selected track files.",
+      "album": "Changing album-level details affects all related track files.",
+      "artist": "Changing artist-level details affects all related track files."
+    },
+    "dontAskAgain": {
+      "track": "Don't ask again when editing tracks",
+      "album": "Don't ask again when editing an album",
+      "artist": "Don't ask again when editing an artist"
+    }
   }
 }

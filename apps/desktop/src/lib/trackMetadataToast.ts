@@ -1,6 +1,9 @@
 import { logActivity } from "./activityLog";
 import { isMissingFileErrorDetail } from "./missingFileTrack";
-import { bulkTrackMetadataSavePayload } from "./toastPayloads";
+import {
+  bulkTrackMetadataSavePayload,
+  tagWriteSavedPayload,
+} from "./toastPayloads";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
 import { ACTIVITY_LOG_DOMAINS } from "../types/activityLog";
 
@@ -33,6 +36,13 @@ export function showBulkTrackMetadataSaveToast(options: {
     updated: options.updated,
     errors: options.errors,
   });
+  if (!payload) return;
+  useBackgroundTasksStore.getState().showToast(payload);
+}
+
+/** Success toast for saves that rewrote tags in more than one file. */
+export function showTagWriteSavedToast(fileCount: number): void {
+  const payload = tagWriteSavedPayload(fileCount);
   if (!payload) return;
   useBackgroundTasksStore.getState().showToast(payload);
 }

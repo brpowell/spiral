@@ -45,6 +45,7 @@ import type {
   LibrarySettingsPatch,
 } from "../../types/library";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
+import { useTagWriteConfirmStore } from "../../store/useTagWriteConfirmStore";
 import { Button } from "../common/Button/Button";
 import { Checkbox } from "../common/Checkbox/Checkbox";
 import {
@@ -148,6 +149,12 @@ export function PreferencesModal() {
   const [organizePathFormat, setOrganizePathFormat] = useState("");
   const [previewSample, setPreviewSample] = useState<OrganizePathSample>(
     GENERIC_ORGANIZE_PATH_SAMPLE,
+  );
+  const anyTagWriteWarningDismissed = useTagWriteConfirmStore((state) =>
+    Object.values(state.dismissed).some(Boolean),
+  );
+  const resetTagWriteWarnings = useTagWriteConfirmStore(
+    (state) => state.resetDismissals,
   );
   const [clearingMetadataCache, setClearingMetadataCache] = useState(false);
   const [metadataCacheCleared, setMetadataCacheCleared] = useState(false);
@@ -931,6 +938,20 @@ export function PreferencesModal() {
                     t("preferences:metadata.clearCache")
                   )}
                 </Button>
+
+                <Field>
+                  <Button
+                    variant="secondary"
+                    className="preferences__action-btn"
+                    onClick={resetTagWriteWarnings}
+                    disabled={!anyTagWriteWarningDismissed}
+                  >
+                    {t("preferences:metadata.resetTagWriteWarnings")}
+                  </Button>
+                  <FieldDescription>
+                    {t("preferences:metadata.resetTagWriteWarningsDescription")}
+                  </FieldDescription>
+                </Field>
               </div>
             )}
 

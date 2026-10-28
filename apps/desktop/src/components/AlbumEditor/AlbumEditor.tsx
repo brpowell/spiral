@@ -65,6 +65,8 @@ import { AlbumArtPicker } from "./AlbumArtPicker";
 import { AlbumEditorArtTab } from "./AlbumEditorArtTab";
 import { AlbumEditorDetailsTab } from "./AlbumEditorDetailsTab";
 import { MusicBrainzEditorTab } from "../MusicBrainzEditorTab/MusicBrainzEditorTab";
+import { showTagWriteSavedToast } from "../../lib/trackMetadataToast";
+import { useTagWriteConfirmStore } from "../../store/useTagWriteConfirmStore";
 
 type AlbumEditorTab = "details" | "art" | "musicbrainz";
 
@@ -359,6 +361,11 @@ export function AlbumEditor() {
   ) => {
     if (!form || !originalForm || !album || tracks.length === 0) return;
 
+    const confirmed = await useTagWriteConfirmStore
+      .getState()
+      .confirmTagWrite("album", tracks.length);
+    if (!confirmed) return;
+
     begin(tracks.length);
     setSaveError(null);
 
@@ -465,6 +472,7 @@ export function AlbumEditor() {
       if (useNavigationStore.getState().albumKey === oldKey) {
         useNavigationStore.setState({ albumKey: newKey });
       }
+      showTagWriteSavedToast(updated.length);
       closeAlbumEditor();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

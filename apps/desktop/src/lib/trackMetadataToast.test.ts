@@ -13,7 +13,10 @@ vi.mock("./activityLog", () => ({
   logActivity: (...args: unknown[]) => logActivity(...args),
 }));
 
-import { showBulkTrackMetadataSaveToast } from "./trackMetadataToast";
+import {
+  showBulkTrackMetadataSaveToast,
+  showTagWriteSavedToast,
+} from "./trackMetadataToast";
 
 describe("showBulkTrackMetadataSaveToast", () => {
   it("partial save with one missing file → warning + inline detail", () => {
@@ -131,5 +134,23 @@ describe("showBulkTrackMetadataSaveToast", () => {
         details: expect.objectContaining({ missing: 1, failed: 1 }),
       }),
     );
+  });
+});
+
+describe("showTagWriteSavedToast", () => {
+  it("confirms multi-file writes with a success toast", () => {
+    showToast.mockClear();
+    showTagWriteSavedToast(12);
+    expect(showToast).toHaveBeenCalledWith({
+      key: "tag-write-saved",
+      label: "Updated tags in 12 files",
+      status: "success",
+    });
+  });
+
+  it("stays quiet for a single file", () => {
+    showToast.mockClear();
+    showTagWriteSavedToast(1);
+    expect(showToast).not.toHaveBeenCalled();
   });
 });

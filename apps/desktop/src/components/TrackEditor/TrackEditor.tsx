@@ -44,7 +44,11 @@ import {
 } from "../../lib/lyricsFetch";
 import { runLyricsFetchInBackground } from "../../lib/lyricsFetchToast";
 import { commitFetchedLyricsForTrack } from "../../lib/lyricsFetchCommit";
-import { showBulkTrackMetadataSaveToast } from "../../lib/trackMetadataToast";
+import {
+  showBulkTrackMetadataSaveToast,
+  showTagWriteSavedToast,
+} from "../../lib/trackMetadataToast";
+import { useTagWriteConfirmStore } from "../../store/useTagWriteConfirmStore";
 import { fetchCoverArtCandidates } from "../../lib/albumArtFetch";
 import { refreshArtDisplay } from "../../lib/artDisplayCache";
 import {
@@ -782,6 +786,16 @@ export function TrackEditor() {
   const handleSave = async () => {
     if (!form || !originalForm || !hasChanges || tracks.length === 0) return;
 
+    const writesTags = isBulk
+      ? true
+      : !trackEditorMetadataFormsEqual(form, originalForm) || artChanged;
+    if (writesTags) {
+      const confirmed = await useTagWriteConfirmStore
+        .getState()
+        .confirmTagWrite("track", tracks.length);
+      if (!confirmed) return;
+    }
+
     if (!isBulk && referenceTrack) {
       beginQuick();
       setSaveError(null);
@@ -942,6 +956,7 @@ export function TrackEditor() {
       }
 
       if (updated.length > 0) {
+        if (errors.length === 0) showTagWriteSavedToast(updated.length);
         closeTrackEditor();
       }
     } finally {
