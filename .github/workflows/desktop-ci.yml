@@ -1,4 +1,4 @@
-name: Tests
+name: Desktop CI
 
 on:
   pull_request:
@@ -50,7 +50,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: . -> target
-          shared-key: desktop-test
+          shared-key: desktop-ci
 
       - name: Install Linux dependencies
         run: |

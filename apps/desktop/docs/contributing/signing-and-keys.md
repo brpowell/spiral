@@ -63,8 +63,6 @@ Local test: set the same variables and run `npm run release -- installer dmg`.
 
 Windows builds are signed with [Azure Artifact Signing](https://learn.microsoft.com/azure/trusted-signing/). The workflow gets a GitHub OIDC token and `sign-windows.mjs` exchanges it for Azure access right before each signing call, so there is no certificate or client secret to store or rotate. The five `AZURE_*` values only identify the app registration and the signing account.
 
-To check the signing setup without a full release, run **Actions → Signing smoke test** by hand. It signs a throwaway exe in about a minute.
-
 Outside CI the script uses your own `az login`.
 
 ## Environment protection

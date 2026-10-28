@@ -31,7 +31,7 @@
 # this job as the signal for "ready to publish"; publishing is done by hand
 # from the GitHub Releases page, and this file never auto-undrafts a release. Updater artifacts come from
 # bundle.createUpdaterArtifacts + TAURI_SIGNING_*.
-name: Release
+name: Release build
 
 on:
   push:
