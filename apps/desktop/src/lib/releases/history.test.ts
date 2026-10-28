@@ -6,9 +6,11 @@ import {
   fetchReleaseHistory,
   formatReleaseDate,
   normalizeReleaseVersion,
+  parseReleaseNotes,
   pickSelectedVersion,
   releasesHistoryUrl,
   resolveWhatsNewRows,
+  stripLeadingVersionHeading,
 } from "./history";
 
 describe("normalizeReleaseVersion", () => {
@@ -235,5 +237,64 @@ describe("fetchReleaseHistory", () => {
     await expect(fetchReleaseHistory()).rejects.toBeInstanceOf(
       ReleaseHistoryError,
     );
+  });
+});
+
+describe("parseReleaseNotes", () => {
+  const body = `Smoother playback.
+
+<details>
+<summary>All changes</summary>
+
+### Features
+
+* play all audio through a native output
+
+</details>
+`;
+
+  it("splits the summary from the collapsed line items", () => {
+    expect(parseReleaseNotes(body, "0.4.0")).toEqual({
+      summary: "Smoother playback.",
+      details: "### Features\n\n* play all audio through a native output",
+    });
+  });
+
+  it("returns notes without a details block as the summary", () => {
+    expect(parseReleaseNotes("### Features\n\n* a\n", "0.4.0")).toEqual({
+      summary: "### Features\n\n* a",
+      details: null,
+    });
+  });
+
+  it("drops a leading heading that repeats the version", () => {
+    expect(
+      parseReleaseNotes(
+        "## [0.4.0](https://x/y) (2026-10-23)\n\nHi.",
+        "v0.4.0",
+      ),
+    ).toEqual({ summary: "Hi.", details: null });
+    expect(stripLeadingVersionHeading("# 0.4.0\n\nHi.", "0.4.0")).toBe("Hi.");
+  });
+
+  it("keeps a leading heading that is not the version", () => {
+    expect(stripLeadingVersionHeading("### Features\n\n* a", "0.4.0")).toBe(
+      "### Features\n\n* a",
+    );
+  });
+
+  it("keeps the draft review banner visible", () => {
+    const banner = "> **Draft: review before publishing.** Delete this notice.";
+    expect(parseReleaseNotes(`${banner}\n\nHi.\n`, "0.4.0")).toEqual({
+      summary: `${banner}\n\nHi.`,
+      details: null,
+    });
+  });
+
+  it("treats blank notes as empty", () => {
+    expect(parseReleaseNotes("  \n", "0.4.0")).toEqual({
+      summary: "",
+      details: null,
+    });
   });
 });

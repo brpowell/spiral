@@ -9,6 +9,9 @@ permissions:
   contents: write
   issues: write
   pull-requests: write
+  # GitHub OIDC token, exchanged for a short-lived Anthropic token (Workload
+  # Identity Federation) when summarizing release notes.
+  id-token: write
 
 jobs:
   release-please:
@@ -38,3 +41,32 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         working-directory: apps/desktop
         run: node scripts/release/sanitize-release-notes.mjs "${{ steps.release.outputs.tag_name }}"
+
+      # Adds a draft user-facing summary above the line items (collapsed in a
+      # <details>) for the release manager to review before publishing.
+      # Best effort: on an auth or API error the sanitized notes stay as they
+      # are and the release is not blocked.
+      #
+      # Auth is Workload Identity Federation: the job's GitHub OIDC token is
+      # exchanged for a short-lived Anthropic token, so no API key is stored.
+      # Set these repository variables (identifiers, not secrets):
+      #   ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID,
+      #   ANTHROPIC_SERVICE_ACCOUNT_ID, and ANTHROPIC_WORKSPACE_ID if the rule
+      #   covers more than one workspace.
+      # Optional: RELEASE_NOTES_MODEL overrides the default model.
+      # Do not add ANTHROPIC_API_KEY here; a key would take precedence.
+      # To turn summaries off, delete the ANTHROPIC_FEDERATION_RULE_ID variable:
+      # this step is skipped and the sanitized notes are published as-is.
+      - name: Summarize draft release notes
+        if: ${{ steps.release.outputs.release_created == 'true' && vars.ANTHROPIC_FEDERATION_RULE_ID != '' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          ANTHROPIC_WORKSPACE_ID: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
+          RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
+        working-directory: apps/desktop
+        run: node scripts/release/summarize-release-notes.mjs "${{ steps.release.outputs.tag_name }}"
