@@ -55,8 +55,10 @@ jobs:
       #   covers more than one workspace.
       # Optional: RELEASE_NOTES_MODEL overrides the default model.
       # Do not add ANTHROPIC_API_KEY here; a key would take precedence.
+      # To turn summaries off, delete the ANTHROPIC_FEDERATION_RULE_ID variable:
+      # this step is skipped and the sanitized notes are published as-is.
       - name: Summarize draft release notes
-        if: ${{ steps.release.outputs.release_created == 'true' }}
+        if: ${{ steps.release.outputs.release_created == 'true' && vars.ANTHROPIC_FEDERATION_RULE_ID != '' }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}

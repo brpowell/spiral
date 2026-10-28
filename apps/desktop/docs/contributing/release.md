@@ -56,6 +56,8 @@ CI authenticates with [Workload Identity Federation](https://platform.claude.com
 3. Create a federation rule for that service account. Pin it narrowly: `subject_prefix` of `repo:brpowell/spiral:ref:refs/heads/main`, audience `https://api.anthropic.com`, and claim `repository_owner` of `brpowell`. Do not use a wildcard subject, which would also match pull-request runs. Use the narrowest OAuth scope that can call Messages (`workspace:inference`, or `workspace:developer` if that is not enough).
 4. Add the repo **variables** (identifiers, not secrets) `ANTHROPIC_FEDERATION_RULE_ID`, `ANTHROPIC_ORGANIZATION_ID` and `ANTHROPIC_SERVICE_ACCOUNT_ID`, plus `ANTHROPIC_WORKSPACE_ID` if the rule covers more than one workspace.
 
+To turn the summary off, delete the `ANTHROPIC_FEDERATION_RULE_ID` variable: the step is skipped and the draft keeps the sanitized Features / Bug Fixes notes, which What's New renders as before. If the variable is set but the exchange or API call fails (for example an unpaid account), the step is marked failed and the sanitized notes are kept; the release is not blocked.
+
 Locally, `ANTHROPIC_API_KEY` is the easy path and takes precedence over federation. Never set it in the workflow, or it would shadow federation.
 
 ## Local release tooling
