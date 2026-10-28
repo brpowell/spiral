@@ -8,6 +8,7 @@ const {
   runInBackgroundMock,
   isNetworkLikelyAvailableMock,
   resolveCachedArtPathMock,
+  backgroundTasks,
 } = vi.hoisted(() => ({
   ensureCdHeroArtValidMock: vi.fn(),
   resolveAlbumArtPathMock: vi.fn(),
@@ -15,6 +16,7 @@ const {
   runInBackgroundMock: vi.fn(),
   isNetworkLikelyAvailableMock: vi.fn(() => true),
   resolveCachedArtPathMock: vi.fn(),
+  backgroundTasks: [] as { key: string; status: string }[],
 }));
 
 vi.mock("./cdArt", () => ({
@@ -51,6 +53,7 @@ vi.mock("../store/useBackgroundTasksStore", () => ({
   useBackgroundTasksStore: {
     getState: () => ({
       runInBackground: runInBackgroundMock,
+      tasks: backgroundTasks,
     }),
   },
 }));
@@ -193,6 +196,20 @@ describe("startCdHeroArtFetch", () => {
     });
     expect(runInBackgroundMock).toHaveBeenCalled();
     expect(settleAs).not.toHaveBeenCalled();
+  });
+
+  it("does not start a second art task while the metadata fetch is running", async () => {
+    backgroundTasks.push({ key: `cd-metadata-${driveId}`, status: "running" });
+    try {
+      startCdHeroArtFetch(driveId);
+      await vi.waitFor(() => {
+        expect(runInBackgroundMock).not.toHaveBeenCalled();
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(runInBackgroundMock).not.toHaveBeenCalled();
+    } finally {
+      backgroundTasks.length = 0;
+    }
   });
 
   it("still applies a local art cache hit without MusicBrainz metadata", async () => {
