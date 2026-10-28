@@ -6,6 +6,7 @@
  *   npm run release -- check <tag>
  *   npm run release -- sanitize-notes <tag>
  *   npm run release -- sanitize-notes <tag> --dry-run
+ *   npm run release -- summarize-notes <tag> [--dry-run] [--force]
  *   npm run release -- sign <file>
  *   npm run release -- verify <file>
  *   npm run release -- keys [-- --out <path>] [--force]
@@ -30,6 +31,11 @@ const COMMANDS = {
   "sanitize-notes": {
     script: "sanitize-release-notes.mjs",
     summary: "Rewrite a GitHub Release body into user-facing notes",
+  },
+  "summarize-notes": {
+    script: "summarize-release-notes.mjs",
+    summary:
+      "Add an AI-written summary to a GitHub Release body (needs ANTHROPIC_API_KEY)",
   },
   sign: {
     script: "sign-updater.mjs",
@@ -64,6 +70,7 @@ Examples:
   npm run release -- check desktop-v0.2.2
   npm run release -- sanitize-notes desktop-v0.2.2
   npm run release -- sanitize-notes desktop-v0.2.2 --dry-run
+  npm run release -- summarize-notes desktop-v0.2.2 --dry-run
   npm run release -- sign path/to/artifact
   npm run release -- verify path/to/artifact
   npm run release -- keys

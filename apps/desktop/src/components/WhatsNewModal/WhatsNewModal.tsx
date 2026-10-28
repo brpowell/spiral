@@ -6,6 +6,7 @@ import {
   fetchReleaseHistory,
   formatReleaseDate,
   normalizeReleaseVersion,
+  parseReleaseNotes,
   pickSelectedVersion,
   resolveWhatsNewRows,
   type ReleaseNotesItem,
@@ -146,7 +147,15 @@ export function WhatsNewModal() {
     void installAvailableUpdate();
   };
 
-  const notesEmpty = selected != null && selected.notes.trim().length === 0;
+  const parsedNotes = useMemo(
+    () =>
+      selected ? parseReleaseNotes(selected.notes, selected.version) : null,
+    [selected],
+  );
+  const notesEmpty =
+    parsedNotes != null &&
+    parsedNotes.summary.length === 0 &&
+    parsedNotes.details == null;
   const selectedDate =
     selected != null ? formatReleaseDate(selected.pub_date) : "";
   const showHistoryError = loadState === "error";
@@ -287,7 +296,19 @@ export function WhatsNewModal() {
                         {t("updates.whatsNew.emptyNotes")}
                       </p>
                     ) : (
-                      <MarkdownBody source={selected.notes} />
+                      <>
+                        {parsedNotes && parsedNotes.summary.length > 0 ? (
+                          <MarkdownBody source={parsedNotes.summary} />
+                        ) : null}
+                        {parsedNotes?.details != null ? (
+                          <details className="whats-new__details">
+                            <summary className="whats-new__details-summary">
+                              {t("updates.whatsNew.allChanges")}
+                            </summary>
+                            <MarkdownBody source={parsedNotes.details} />
+                          </details>
+                        ) : null}
+                      </>
                     )}
                   </div>
                 </>

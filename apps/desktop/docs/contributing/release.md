@@ -28,7 +28,7 @@ That PR just accumulates. Land as many features/fixes as you want before shippin
 
 1. Open the standing release PR. Skim **`CHANGELOG.md`** in the PR — that file is the internal record (compare links, PR/commit SHAs, chore/ci/test noise). Fix anything misleading before merge; do not treat it as user-facing copy.
 2. Merge it.
-3. release-please creates the `desktop-vX.Y.Z` tag and a **draft** GitHub Release. CI then rewrites **only the draft body** (drop the version/compare header, keep Features / Bug Fixes, strip PR/commit links). `CHANGELOG.md` is left as release-please wrote it. The draft body is what users will see in What's New — wordsmith it freely before Publish if you want; that pass is not re-applied later.
+3. release-please creates the `desktop-vX.Y.Z` tag and a **draft** GitHub Release. CI then rewrites **only the draft body** (drop the version/compare header, keep Features / Bug Fixes, strip PR/commit links). A follow-up step then asks Claude (`summarize-release-notes.mjs`) for a short, friendly summary of the highlights and puts it above the line items, which stay in a collapsed `<details>` block. **The summary is a draft, not final copy**: review it, edit it and sign off before you publish. The body starts with a visible **Draft: review before publishing** banner, on purpose: it renders in What's New and on the GitHub Release exactly like any other text, so a release published without review ships the banner too. Delete it once you have reviewed and edited the summary. The step also posts a "Review the release notes" annotation on the workflow run. It uses `claude-sonnet-5-5` unless the `RELEASE_NOTES_MODEL` repo variable names another model, authenticates with Workload Identity Federation (see below), and is best effort: if it fails, the sanitized notes are kept. `CHANGELOG.md` is left as release-please wrote it. The draft body is what users will see in What's New — wordsmith it freely before Publish if you want; that pass is not re-applied later.
 4. The [Release](../../../../.github/workflows/desktop-release.yml) workflow builds:
    - macOS universal (`--target universal-apple-darwin`, one binary for Apple Silicon + Intel) → `--bundles app,dmg` (`*_universal.dmg` installer + updater `.app.tar.gz` / `.sig`; `app` must be explicit or the bundler deletes `Spiral.app` and no updater tarball is left)
    - Windows x64 (`windows-latest`) + arm64 (`windows-11-arm`, `--target aarch64-pc-windows-msvc`) → NSIS (`*_x64-setup.exe` / `*_arm64-setup.exe` + `.sig`; NSIS is also the updater payload)
@@ -43,7 +43,22 @@ Only after **All platforms green** is green: open the draft on the GitHub Releas
 
 To check a draft locally before publishing: `npm run release -- check desktop-v0.2.0`.
 
-To re-run the notes sanitizer or backfill an older published release that still has a raw changelog body, use `sanitize-notes` (commands below). `--dry-run` prints the result without editing. Skip a live rewrite if you already rewrote the body — it would drop freeform edits that are not Features / Bug Fixes headings.
+To re-run the notes sanitizer or backfill an older published release that still has a raw changelog body, use `sanitize-notes` (commands below). `--dry-run` prints the result without editing. Skip a live rewrite if you already rewrote the body — it would drop freeform edits that are not Features / Bug Fixes headings. A body that already contains a `<details>` block (the summarized form) is never rewritten by the sanitizer.
+
+To generate or backfill the summary, use `summarize-notes` (needs `gh` auth plus either `ANTHROPIC_API_KEY` in your shell or the federation variables below). It skips releases that already have a summary, so it never overwrites your edits, unless you pass `--force`, which regenerates it from the line items in the collapsed block.
+
+### Anthropic auth for the summary step
+
+CI authenticates with [Workload Identity Federation](https://platform.claude.com/docs/en/manage-claude/wif-providers/github-actions), so no API key is stored in the repo. The Release Please job requests a GitHub OIDC token (`id-token: write`) and the script exchanges it for a short-lived Anthropic token. One-time setup in the Claude Console (**Workload identity** → **Connect workload** → GitHub Actions):
+
+1. Register the issuer `https://token.actions.githubusercontent.com` with JWKS discovery.
+2. Create a service account in a workspace that may call the Messages API.
+3. Create a federation rule for that service account. Pin it narrowly: `subject_prefix` of `repo:brpowell/spiral:ref:refs/heads/main`, audience `https://api.anthropic.com`, and claim `repository_owner` of `brpowell`. Do not use a wildcard subject, which would also match pull-request runs. Use the narrowest OAuth scope that can call Messages (`workspace:inference`, or `workspace:developer` if that is not enough).
+4. Add the repo **variables** (identifiers, not secrets) `ANTHROPIC_FEDERATION_RULE_ID`, `ANTHROPIC_ORGANIZATION_ID` and `ANTHROPIC_SERVICE_ACCOUNT_ID`, plus `ANTHROPIC_WORKSPACE_ID` if the rule covers more than one workspace.
+
+To turn the summary off, delete the `ANTHROPIC_FEDERATION_RULE_ID` variable: the step is skipped and the draft keeps the sanitized Features / Bug Fixes notes, which What's New renders as before. If the variable is set but the exchange or API call fails (for example an unpaid account), the step is marked failed and the sanitized notes are kept; the release is not blocked.
+
+Locally, `ANTHROPIC_API_KEY` is the easy path and takes precedence over federation. Never set it in the workflow, or it would shadow federation.
 
 ## Local release tooling
 
@@ -57,6 +72,7 @@ npm run release -- installer dmg -- --target universal-apple-darwin
 npm run release -- check desktop-v0.2.0
 npm run release -- sanitize-notes desktop-v0.2.0            # re-run / backfill user-facing notes
 npm run release -- sanitize-notes desktop-v0.2.0 --dry-run  # print sanitized notes; no edit
+npm run release -- summarize-notes desktop-v0.2.0 --dry-run  # print notes with an AI summary; no edit
 npm run release -- sign path/to/artifact
 npm run release -- verify path/to/artifact
 npm run release -- keys
@@ -117,5 +133,6 @@ Full runbook (key setup, rotation, certificates): [`signing-and-keys.md`](./sign
 | [`.github/workflows/desktop-release.yml`](../../../../.github/workflows/desktop-release.yml) | Platform matrix → attach installers → `platforms-green` gate |
 | [`scripts/release/check-release-assets.mjs`](../../scripts/release/check-release-assets.mjs) | Required draft assets (single source of truth) + the `platforms-green` check |
 | [`scripts/release/sanitize-release-notes.mjs`](../../scripts/release/sanitize-release-notes.mjs) | Draft-body sanitizer (Features / Bug Fixes only) |
+| [`scripts/release/summarize-release-notes.mjs`](../../scripts/release/summarize-release-notes.mjs) | Adds the AI-written summary above a collapsed line-item list |
 | [`release-please-config.json`](../../../../release-please-config.json) | release-please package config |
 | [`.release-please-manifest.json`](../../../../.release-please-manifest.json) | Last released version |
