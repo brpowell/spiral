@@ -30,7 +30,9 @@
     "updated": "{{count}} updated",
     "missing": "{{count}} missing",
     "failed": "{{count}} failed",
-    "saveFailed": "Could not save track metadata"
+    "saveFailed": "Could not save track metadata",
+    "saved_one": "Updated tags in {{count}} file",
+    "saved_other": "Updated tags in {{count}} files"
   },
   "activityLog": {
     "copied_one": "Copied {{count}} line",

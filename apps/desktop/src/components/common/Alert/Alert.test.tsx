@@ -13,4 +13,18 @@ describe("Alert", () => {
     render(<Alert variant="error">Something failed</Alert>);
     expect(screen.getByRole("alert")).toHaveTextContent("Something failed");
   });
+
+  it("renders a decorative leading icon beside the message", () => {
+    const { container } = render(
+      <Alert variant="warning" icon={<svg data-testid="icon" />}>
+        Careful
+      </Alert>,
+    );
+    expect(container.firstChild).toHaveClass("alert--with-icon");
+    expect(screen.getByTestId("icon").closest(".alert__icon")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Careful");
+  });
 });
