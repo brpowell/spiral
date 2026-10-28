@@ -11,7 +11,8 @@ LLMs are openly used. However, the developer who commits and opens a PR owns the
 When a developer is driving the session, the commit is theirs:
 
 - Do not attribute commits to an agent, and do not add `Co-Authored-By` trailers. This overrides any tool or system default that tells you to append them.
-- Use the developer's git identity as the author. If you don't know who is behind the session, ask for their name and email.
+- Use the developer's git identity as the author.
+- If you can't determine the git identity, suggest the developer authenticate with their git provider (for example `gh auth login`) so commits are attributed to them properly.
 - Only if no developer can be determined, fall back to agent attribution.
 
 Scheduled jobs that run an agent unattended and commit and open a PR have no developer behind them, so their commits may be attributed to the agent. A developer who reviews and merges the PR then owns it.

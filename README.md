@@ -17,7 +17,7 @@ No ads. No algorithms. No tracking. No internet required. Just your collection, 
 <!-- Badges: add or remove freely, one per line keeps diffs readable -->
 
 [![Latest release](https://img.shields.io/github/v/release/brpowell/spiral?filter=desktop-v*&label=release&color=96c836&style=flat-square)](https://github.com/brpowell/spiral/releases/latest)
-[![Tests](https://img.shields.io/github/actions/workflow/status/brpowell/spiral/desktop-test.yml?branch=main&label=tests&style=flat-square)](https://github.com/brpowell/spiral/actions/workflows/desktop-test.yml)
+[![Desktop CI](https://img.shields.io/github/actions/workflow/status/brpowell/spiral/desktop-ci.yml?branch=main&label=desktop&style=flat-square)](https://github.com/brpowell/spiral/actions/workflows/desktop-ci.yml)
 [![Registry CI](https://img.shields.io/github/actions/workflow/status/brpowell/spiral/registry-ci.yml?branch=main&label=registry&style=flat-square)](https://github.com/brpowell/spiral/actions/workflows/registry-ci.yml)
 [![License](https://img.shields.io/github/license/brpowell/spiral?color=f6edd6&style=flat-square)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-202c0c?style=flat-square)](#install)

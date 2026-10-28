@@ -29,13 +29,13 @@ That PR just accumulates. Land as many features/fixes as you want before shippin
 1. Open the standing release PR. Skim **`CHANGELOG.md`** in the PR — that file is the internal record (compare links, PR/commit SHAs, chore/ci/test noise). Fix anything misleading before merge; do not treat it as user-facing copy.
 2. Merge it.
 3. release-please creates the `desktop-vX.Y.Z` tag and a **draft** GitHub Release. CI then rewrites **only the draft body** (drop the version/compare header, keep Features / Bug Fixes, strip PR/commit links). A follow-up step then asks Claude (`summarize-release-notes.mjs`) for a short, friendly summary of the highlights and puts it above the line items, which stay in a collapsed `<details>` block. **The summary is a draft, not final copy**: review it, edit it and sign off before you publish. The body starts with a visible **Draft: review before publishing** banner, on purpose: it renders in What's New and on the GitHub Release exactly like any other text, so a release published without review ships the banner too. Delete it once you have reviewed and edited the summary. The step also posts a "Review the release notes" annotation on the workflow run. It uses `claude-sonnet-5-5` unless the `RELEASE_NOTES_MODEL` repo variable names another model, authenticates with Workload Identity Federation (see below), and is best effort: if it fails, the sanitized notes are kept. `CHANGELOG.md` is left as release-please wrote it. The draft body is what users will see in What's New — wordsmith it freely before Publish if you want; that pass is not re-applied later.
-4. The [Release](../../../../.github/workflows/desktop-release.yml) workflow builds:
+4. The [Release build](../../../../.github/workflows/desktop-release.yml) workflow builds:
    - macOS universal (`--target universal-apple-darwin`, one binary for Apple Silicon + Intel) → `--bundles app,dmg` (`*_universal.dmg` installer + updater `.app.tar.gz` / `.sig`; `app` must be explicit or the bundler deletes `Spiral.app` and no updater tarball is left)
    - Windows x64 (`windows-latest`) + arm64 (`windows-11-arm`, `--target aarch64-pc-windows-msvc`) → NSIS (`*_x64-setup.exe` / `*_arm64-setup.exe` + `.sig`; NSIS is also the updater payload)
    - Linux x64 (`ubuntu-22.04`) + aarch64 (`ubuntu-22.04-arm`) → `--bundles appimage,deb,rpm` (AppImage is the updater payload — Tauri `.AppImage` + `.sig`; `.deb` and `.rpm` are browser-download installers). All of them gate publishing.
 5. The **All platforms green** job (`platforms-green`) only passes when every matrix cell succeeded **and** the draft has installers **and** updater signatures for every platform. Treat the draft as ready only when that check is green — a partial matrix never counts. Asset expectations live in [`scripts/release/check-release-assets.mjs`](../../scripts/release/check-release-assets.mjs). Updater artifacts require `bundle.createUpdaterArtifacts` and `TAURI_SIGNING_PRIVATE_KEY` on the `production-release` environment.
 
-**Re-run a build** (e.g. one platform failed): Actions → **Release** → Run workflow → enter the tag (`desktop-v0.2.0`).
+**Re-run a build** (e.g. one platform failed): Actions → **Release build** → Run workflow → enter the tag (`desktop-v0.2.0`).
 
 ## Publishing (step 6)
 
@@ -49,7 +49,7 @@ To generate or backfill the summary, use `summarize-notes` (needs `gh` auth plus
 
 ### Anthropic auth for the summary step
 
-CI authenticates with [Workload Identity Federation](https://platform.claude.com/docs/en/manage-claude/wif-providers/github-actions), so no API key is stored in the repo. The Release Please job requests a GitHub OIDC token (`id-token: write`) and the script exchanges it for a short-lived Anthropic token. One-time setup in the Claude Console (**Workload identity** → **Connect workload** → GitHub Actions):
+CI authenticates with [Workload Identity Federation](https://platform.claude.com/docs/en/manage-claude/wif-providers/github-actions), so no API key is stored in the repo. The Release PR job requests a GitHub OIDC token (`id-token: write`) and the script exchanges it for a short-lived Anthropic token. One-time setup in the Claude Console (**Workload identity** → **Connect workload** → GitHub Actions):
 
 1. Register the issuer `https://token.actions.githubusercontent.com` with JWKS discovery.
 2. Create a service account in a workspace that may call the Messages API.
