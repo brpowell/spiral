@@ -57,7 +57,6 @@ vi.mock("../store/useLyricsFetchStore", () => ({
 }));
 
 vi.mock("./activityLog", () => ({
-  createOperationId: () => "op-lyrics-test",
   logActivity: vi.fn(),
 }));
 
@@ -91,7 +90,7 @@ function createCtx(): BackgroundTaskRunContext & {
     status: string;
     label?: string;
     detail?: string;
-    logLink?: { operationId?: string };
+    logLink?: boolean;
     actions?: Array<{ id: string; label: string }>;
   }>;
   dismissedSilently: boolean;
@@ -103,7 +102,7 @@ function createCtx(): BackgroundTaskRunContext & {
     status: string;
     label?: string;
     detail?: string;
-    logLink?: { operationId?: string };
+    logLink?: boolean;
     actions?: Array<{ id: string; label: string }>;
   }> = [];
   let dismissedSilently = false;
@@ -290,7 +289,7 @@ describe("enqueueLyricsFetch", () => {
       {
         status: "error",
         label: "Lyrics: 2 failed",
-        logLink: { operationId: "op-lyrics-test" },
+        logLink: true,
       },
     ]);
   });
@@ -312,7 +311,7 @@ describe("enqueueLyricsFetch", () => {
         status: "error",
         label: "Lyrics: 1 need review · 1 failed",
         actions: [{ id: "lyrics-review", label: "Review" }],
-        logLink: { operationId: "op-lyrics-test" },
+        logLink: true,
       },
     ]);
   });

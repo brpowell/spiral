@@ -308,7 +308,6 @@ export function importCompletionSettleOptions(
     ImportResult,
     "imported" | "skipped" | "replaced" | "failed" | "errors"
   >,
-  operationId: string,
 ): BackgroundTaskSettleAsOptions & { label: string } {
   const label = formatImportSummary(result);
   const hasWins = result.imported > 0 || result.replaced > 0;
@@ -330,7 +329,7 @@ export function importCompletionSettleOptions(
   return {
     status,
     label,
-    logLink: { operationId },
+    logLink: true,
   };
 }
 

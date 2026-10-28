@@ -10,7 +10,6 @@ vi.mock("../store/useBackgroundTasksStore", () => ({
 }));
 
 vi.mock("./activityLog", () => ({
-  createOperationId: () => "op-metadata-1",
   logActivity: (...args: unknown[]) => logActivity(...args),
 }));
 
@@ -61,7 +60,7 @@ describe("showBulkTrackMetadataSaveToast", () => {
       key: "track-metadata-save",
       label: "Metadata: 2 missing",
       status: "error",
-      logLink: { operationId: "op-metadata-1" },
+      logLink: true,
     });
     expect(logActivity).toHaveBeenCalled();
   });
@@ -108,7 +107,7 @@ describe("showBulkTrackMetadataSaveToast", () => {
       key: "track-metadata-save",
       label: "Metadata: 2 failed",
       status: "error",
-      logLink: { operationId: "op-metadata-1" },
+      logLink: true,
     });
     expect(logActivity).toHaveBeenCalled();
   });
@@ -125,7 +124,7 @@ describe("showBulkTrackMetadataSaveToast", () => {
       key: "track-metadata-save",
       label: "1 updated · 1 missing · 1 failed",
       status: "warning",
-      logLink: { operationId: "op-metadata-1" },
+      logLink: true,
     });
     expect(logActivity).toHaveBeenCalledWith(
       expect.objectContaining({

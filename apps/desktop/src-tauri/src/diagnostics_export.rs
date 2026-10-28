@@ -144,9 +144,8 @@ mod tests {
                 id: "entry-1".to_string(),
                 timestamp_ms: 1,
                 level: LogLevel::Info,
-                domain: "library.refresh".to_string(),
+                domain: "library".to_string(),
                 message: "refresh complete".to_string(),
-                operation_id: None,
                 context: None,
                 details: None,
             }]),
@@ -154,7 +153,7 @@ mod tests {
         };
 
         let json = serde_json::to_value(&bundle).unwrap();
-        assert_eq!(json["activityLogEntries"][0]["domain"], "library.refresh");
+        assert_eq!(json["activityLogEntries"][0]["domain"], "library");
         assert!(json.get("crashReport").is_none());
     }
 }

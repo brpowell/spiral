@@ -86,7 +86,7 @@ fn list_all_skin_packs(app: &AppHandle) -> Vec<LoadedSkinPack> {
     if let Err(e) = packs::ensure_packs_ready(app) {
         activity_log::log(
             LogLevel::Debug,
-            "skin.load",
+            "studio",
             format!("pack setup error: {e}"),
             None,
         );
@@ -94,7 +94,7 @@ fn list_all_skin_packs(app: &AppHandle) -> Vec<LoadedSkinPack> {
 
     let scan = packs::scan_contributions_of_type(app, "skin");
     for w in &scan.warnings {
-        activity_log::log(LogLevel::Debug, "skin.load", w.message.clone(), None);
+        activity_log::log(LogLevel::Debug, "studio", w.message.clone(), None);
     }
 
     let mut packs = Vec::new();
@@ -104,7 +104,7 @@ fn list_all_skin_packs(app: &AppHandle) -> Vec<LoadedSkinPack> {
             Err(e) => {
                 activity_log::log(
                     LogLevel::Error,
-                    "skin.load",
+                    "studio",
                     format!("skin \"{}\" failed to load: {e}", contrib.effective_id),
                     Some(serde_json::json!({
                         "skinId": contrib.effective_id,

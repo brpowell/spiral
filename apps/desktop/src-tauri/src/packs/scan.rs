@@ -243,7 +243,7 @@ fn prune_missing_linked_item_paths(app: &AppHandle) {
     if let Err(e) = settings::write_settings(app, &app_settings) {
         activity_log::log(
             LogLevel::Error,
-            "pack.scan",
+            "studio",
             format!("failed to unlink missing linked item paths: {e}"),
             None,
         );
@@ -253,7 +253,7 @@ fn prune_missing_linked_item_paths(app: &AppHandle) {
     for path in &removed {
         activity_log::log(
             LogLevel::Warn,
-            "pack.scan",
+            "studio",
             format!("Linked item path not found or not a directory; unlinked: {path}"),
             Some(serde_json::json!({ "path": path })),
         );

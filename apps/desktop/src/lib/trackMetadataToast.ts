@@ -1,4 +1,4 @@
-import { createOperationId, logActivity } from "./activityLog";
+import { logActivity } from "./activityLog";
 import { isMissingFileErrorDetail } from "./missingFileTrack";
 import { bulkTrackMetadataSavePayload } from "./toastPayloads";
 import { useBackgroundTasksStore } from "../store/useBackgroundTasksStore";
@@ -9,19 +9,16 @@ export function showBulkTrackMetadataSaveToast(options: {
   updated: number;
   errors: string[];
 }): void {
-  let operationId: string | undefined;
   // 2+ unresolved tracks (missing or failed) route to Activity Log.
   if (options.errors.length >= 2) {
     const failedErrors = options.errors.filter(
       (line) => !isMissingFileErrorDetail(line),
     );
     const missing = options.errors.length - failedErrors.length;
-    operationId = createOperationId();
     logActivity({
       level: "warn",
-      domain: ACTIVITY_LOG_DOMAINS.metadataSave,
+      domain: ACTIVITY_LOG_DOMAINS.library,
       message: "Track metadata save completed with unresolved tracks",
-      operationId,
       details: {
         total: options.total,
         updated: options.updated,
@@ -35,7 +32,6 @@ export function showBulkTrackMetadataSaveToast(options: {
   const payload = bulkTrackMetadataSavePayload({
     updated: options.updated,
     errors: options.errors,
-    operationId,
   });
   if (!payload) return;
   useBackgroundTasksStore.getState().showToast(payload);

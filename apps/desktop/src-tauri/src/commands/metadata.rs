@@ -123,8 +123,9 @@ fn cache_art_from_url_blocking(
     url: String,
     file_path: String,
 ) -> Result<CachedArtFromUrl, String> {
-    let domain = artist_art_fetch::activity_log_domain_for_cache_key(&file_path);
-    let kind = if domain == "metadata.artistArt" {
+    let domain = "metadata";
+    let is_artist_art = file_path.starts_with("artist:");
+    let kind = if is_artist_art {
         "artist art"
     } else {
         "cover art"
@@ -195,7 +196,7 @@ fn cache_art_from_url_blocking(
 
     // CD auto-fetch logs its own completion line from the frontend.
     if !activity_log::thread_has_drive_id() {
-        let cached_label = if domain == "metadata.artistArt" {
+        let cached_label = if is_artist_art {
             let artist = activity_log::thread_artist()
                 .or_else(|| {
                     file_path
@@ -344,7 +345,7 @@ pub async fn clear_metadata_cache(app: AppHandle) -> Result<(), String> {
 
         activity_log::log(
             LogLevel::Info,
-            "metadata.cache",
+            "metadata",
             "Cleared remote metadata fetch caches",
             None,
         );

@@ -51,7 +51,6 @@ function candidate(
 }
 
 const cdLogContext = {
-  operationId: "op-1",
   driveId: "disk4",
   discId: "disc-1",
   artist: "Taylor Swift",
@@ -194,9 +193,8 @@ describe("fetchAlbumArtPreferringRelease", () => {
       1,
       expect.objectContaining({
         level: "info",
-        domain: ACTIVITY_LOG_DOMAINS.coverArt,
+        domain: ACTIVITY_LOG_DOMAINS.cd,
         message: "Fetching cover art for CD '1989'",
-        operationId: "op-1",
         details: {
           releaseMbid: "release-mbid",
           queryUrl: "https://coverartarchive.org/release/release-mbid",
@@ -209,9 +207,8 @@ describe("fetchAlbumArtPreferringRelease", () => {
       2,
       expect.objectContaining({
         level: "info",
-        domain: ACTIVITY_LOG_DOMAINS.coverArt,
+        domain: ACTIVITY_LOG_DOMAINS.cd,
         message: "Cover art fetched for '1989'",
-        operationId: "op-1",
         details: {
           byteCount: 89878,
           imageUrl: "https://caa/1989.jpg",

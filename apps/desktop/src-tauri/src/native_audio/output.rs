@@ -20,7 +20,7 @@ use super::analyser::{AnalyserTask, FRAME_BYTES, TAP_RING_SAMPLES};
 use super::mixer::{DeckShared, Mixer};
 
 /// Domain used for every activity-log line this module writes.
-pub const LOG_DOMAIN: &str = "audio.output";
+pub const LOG_DOMAIN: &str = "playback";
 
 const TICK: Duration = Duration::from_millis(100);
 /// Close the stream this long after the last deck stops being audible.

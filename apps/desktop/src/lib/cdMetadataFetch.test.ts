@@ -41,7 +41,6 @@ vi.mock("./tauri", async (importOriginal) => {
 });
 
 vi.mock("./activityLog", () => ({
-  createOperationId: () => "op-test",
   logActivity: vi.fn(),
   withLogContext: (ctx: unknown, extra: unknown) => ({
     ...(ctx as object),
@@ -300,7 +299,7 @@ describe("startCdMetadataFetch", () => {
     await vi.waitFor(() => expect(settleAs).toHaveBeenCalled());
 
     expect(settleAs).toHaveBeenCalledWith(
-      cdMetadataFailedSettleOptions({ logLink: { operationId: "op-test" } }),
+      cdMetadataFailedSettleOptions({ logLink: true }),
     );
     expect(logActivity).not.toHaveBeenCalled();
     expect(fetchAlbumArtPreferringReleaseMock).not.toHaveBeenCalled();
@@ -331,11 +330,10 @@ describe("startCdMetadataFetch", () => {
     expect(logActivity).toHaveBeenCalledWith(
       expect.objectContaining({
         message: "CD metadata fetch failed",
-        operationId: "op-test",
       }),
     );
     expect(settleAs).toHaveBeenCalledWith(
-      cdMetadataFailedSettleOptions({ logLink: { operationId: "op-test" } }),
+      cdMetadataFailedSettleOptions({ logLink: true }),
     );
   });
 });

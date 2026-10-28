@@ -1,6 +1,5 @@
 import { Channel, convertFileSrc } from "@tauri-apps/api/core";
 import { t } from "./i18n";
-import { createOperationId } from "./activityLog";
 import { BackgroundTaskCancelledError } from "./backgroundTaskCancel";
 import {
   cancelItemDownload,
@@ -336,7 +335,6 @@ export function installRegistryItem(
       cancellable: true,
       progressDisplay: "bar",
       run: async (ctx) => {
-        const operationId = createOperationId();
         await clearItemDownloadCancel();
 
         const onProgress = new Channel<ItemDownloadProgress>();
@@ -368,7 +366,6 @@ export function installRegistryItem(
           });
 
           logRegistryInstallSuccess({
-            operationId,
             result,
             registryUrl: args.registryUrl,
             sha256: args.sha256,
@@ -405,7 +402,6 @@ export function installRegistryItem(
             );
           }
           logRegistryInstallFailure({
-            operationId,
             err,
             name: displayName,
             registryUrl: args.registryUrl,
@@ -418,7 +414,7 @@ export function installRegistryItem(
             minAppVersion: args.minAppVersion,
           });
           const failed = packDownloadFailedPayload(displayName, {
-            logLink: { operationId },
+            logLink: true,
           });
           ctx.settleAs({
             status: "error",
