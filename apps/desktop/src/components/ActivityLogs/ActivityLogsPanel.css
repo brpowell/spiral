@@ -196,18 +196,18 @@
 }
 
 .activity-logs-panel__level--info {
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-alert-info);
+  background: var(--color-alert-info-bg);
 }
 
 .activity-logs-panel__level--warn {
-  color: #d4a017;
-  background: color-mix(in srgb, #d4a017 15%, transparent);
+  color: var(--color-alert-warning);
+  background: var(--color-alert-warning-bg);
 }
 
 .activity-logs-panel__level--error {
   color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  background: var(--color-danger-bg);
 }
 
 .activity-logs-panel__message {
