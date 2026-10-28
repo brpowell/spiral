@@ -118,6 +118,8 @@
     transparent
   );
   --color-interactive-selected-text: var(--color-accent);
+  /* Link text: the accent, washed per theme so it clears AA on page surfaces. */
+  --color-link: var(--color-interactive-selected-text);
 
   /*
    * Control material — adaptive washes for form fields + secondary/outline
