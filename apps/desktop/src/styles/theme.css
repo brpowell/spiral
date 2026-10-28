@@ -212,7 +212,8 @@
   --z-modal: 1000;
 
   --window-titlebar-height: 32px;
-  --mac-titlebar-height: 28px;
+  --mac-titlebar-height: 32px;
+  --mac-titlebar-height-library: 28px;
   --mac-traffic-inset: 78px;
   --app-header-height: 72px;
   --now-playing-height: var(--app-header-height);
