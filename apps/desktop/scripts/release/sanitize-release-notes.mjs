@@ -109,6 +109,11 @@ function sanitizeSectionBody(body) {
  */
 export function sanitizeReleaseNotes(markdown) {
   const normalized = String(markdown ?? "").replace(/\r\n/g, "\n");
+  // Already summarized (see summarize-release-notes.mjs): rewriting would drop
+  // the summary and the collapsed line items.
+  if (/<details[\s>]/i.test(normalized)) {
+    return `${normalized.trim()}\n`;
+  }
   const withoutHeaders = dropVersionHeaders(normalized);
   const hadVersionHeader = withoutHeaders !== normalized;
 
@@ -151,7 +156,8 @@ Examples:
   npm run release -- sanitize-notes desktop-v0.2.0 --dry-run
 
 Rewrites the release notes in place. CHANGELOG.md is not touched.
-Safe to re-run: already-cleaned notes are left unchanged.
+Safe to re-run: already-cleaned notes, and notes that already carry an
+AI-written summary, are left unchanged.
 `);
   process.exit(exitCode);
 }
@@ -179,7 +185,7 @@ export function parseSanitizeNotesCli(argv) {
   return { tag: positional[0], dryRun };
 }
 
-function ghJson(args) {
+export function ghJson(args) {
   const result = spawnSync("gh", args, { encoding: "utf8" });
   if (result.error) {
     throw new Error(result.error.message);
@@ -190,7 +196,7 @@ function ghJson(args) {
   return JSON.parse(result.stdout);
 }
 
-function repoArgs() {
+export function repoArgs() {
   const repo = process.env.GITHUB_REPOSITORY;
   return repo ? ["--repo", repo] : [];
 }

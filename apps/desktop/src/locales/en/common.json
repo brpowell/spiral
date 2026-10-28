@@ -72,6 +72,7 @@
       "versionsAria": "Published versions",
       "installed": "Installed",
       "emptyNotes": "No notes for this release.",
+      "allChanges": "All changes",
       "empty": "No releases to show yet.",
       "loadError": "Couldn't load release notes",
       "loadErrorDetail": "Check your connection and try again.",

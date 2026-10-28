@@ -184,3 +184,56 @@ export async function fetchReleaseHistory(options?: {
     pub_date: item.pub_date,
   }));
 }
+
+export type ParsedReleaseNotes = {
+  /** Markdown shown up front, without a repeated version heading. */
+  summary: string;
+  /** Markdown inside the trailing `<details>` block, when present. */
+  details: string | null;
+};
+
+/** The pane already titles itself with the version, so drop a leading `## 0.4.0` style heading. */
+export function stripLeadingVersionHeading(
+  notes: string,
+  version: string,
+): string {
+  const normalized = normalizeReleaseVersion(version);
+  const lines = notes.replace(/\r\n/g, "\n").split("\n");
+  const first = lines.findIndex((line) => line.trim() !== "");
+  if (first < 0) return "";
+  const match = lines[first].match(/^#{1,6}[ \t]+(.+?)[ \t]*$/);
+  if (match && match[1].includes(normalized)) {
+    return lines
+      .slice(first + 1)
+      .join("\n")
+      .trim();
+  }
+  return notes.trim();
+}
+
+const DETAILS_RE =
+  /<details[^>]*>\s*<summary>[\s\S]*?<\/summary>([\s\S]*?)<\/details>/i;
+
+/**
+ * Split a release body into the up-front summary and its collapsed line items.
+ * Raw HTML is never passed to the markdown renderer: the `<details>` block is
+ * pulled out here and rendered by the modal.
+ */
+export function parseReleaseNotes(
+  notes: string,
+  version: string,
+): ParsedReleaseNotes {
+  const cleaned = stripLeadingVersionHeading(
+    notes.replace(/<!--[\s\S]*?-->/g, ""),
+    version,
+  );
+  const match = cleaned.match(DETAILS_RE);
+  if (!match || match.index === undefined) {
+    return { summary: cleaned, details: null };
+  }
+  const summary = `${cleaned.slice(0, match.index)}${cleaned.slice(
+    match.index + match[0].length,
+  )}`.trim();
+  const details = match[1].trim();
+  return { summary, details: details.length > 0 ? details : null };
+}
