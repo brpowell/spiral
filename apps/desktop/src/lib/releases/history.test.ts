@@ -283,13 +283,12 @@ describe("parseReleaseNotes", () => {
     );
   });
 
-  it("ignores the publisher review comment", () => {
-    expect(
-      parseReleaseNotes(
-        "<!-- Draft summary written by Claude. Review. -->\n\nHi.\n",
-        "0.4.0",
-      ),
-    ).toEqual({ summary: "Hi.", details: null });
+  it("keeps the draft review banner visible", () => {
+    const banner = "> **Draft: review before publishing.** Delete this notice.";
+    expect(parseReleaseNotes(`${banner}\n\nHi.\n`, "0.4.0")).toEqual({
+      summary: `${banner}\n\nHi.`,
+      details: null,
+    });
   });
 
   it("treats blank notes as empty", () => {

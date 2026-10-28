@@ -64,18 +64,19 @@ ${LINE_ITEMS.trim()}
 `);
   });
 
-  it("opens with a review notice that readers never see", () => {
+  it("opens with a visible review banner", () => {
     const out = composeNotes("Hi.", LINE_ITEMS, { model: "claude-opus-5-5" });
-    expect(
-      out.startsWith("<!-- Draft summary written by claude-opus-5-5."),
-    ).toBe(true);
-    expect(out.split("\n")[0]).toMatch(/review it, edit it and sign off/);
-    expect(out.split("\n")[0]).toMatch(/-->$/);
+    const [first] = out.split("\n");
+    expect(first).toMatch(/^> \*\*Draft: review before publishing\.\*\*/);
+    expect(first).toContain("written by claude-opus-5-5");
+    expect(first).toMatch(/what users see\.$/);
+    expect(out).not.toContain("<!--");
   });
 
-  it("cannot be broken out of by an odd model name", () => {
-    expect(reviewNotice("x--><b>")).not.toMatch(/--><b>/);
-    expect(reviewNotice("a--b").match(/-->/g)).toHaveLength(1);
+  it("keeps the banner on one blockquote line whatever the model name", () => {
+    const notice = reviewNotice("x\n# <b>y</b>");
+    expect(notice).not.toContain("\n");
+    expect(notice.slice(2)).not.toMatch(/[<>#]/);
   });
 
   it("round-trips the line items", () => {

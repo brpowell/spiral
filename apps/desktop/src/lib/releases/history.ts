@@ -223,10 +223,7 @@ export function parseReleaseNotes(
   notes: string,
   version: string,
 ): ParsedReleaseNotes {
-  const cleaned = stripLeadingVersionHeading(
-    notes.replace(/<!--[\s\S]*?-->/g, ""),
-    version,
-  );
+  const cleaned = stripLeadingVersionHeading(notes, version);
   const match = cleaned.match(DETAILS_RE);
   if (!match || match.index === undefined) {
     return { summary: cleaned, details: null };

@@ -110,15 +110,16 @@ export function cleanSummary(text) {
 }
 
 /**
- * Comment text only shows when the body is edited, never to readers, so a
- * forgotten comment cannot ship to users.
+ * A visible banner on purpose: the notes ship exactly as published, so a
+ * release manager who skips the review ships the banner too. It reads fine as
+ * a plain blockquote both on GitHub and in What's New.
  *
  * @param {string} model
  * @returns {string}
  */
 export function reviewNotice(model) {
-  const label = String(model).replace(/[<>]/g, "").replace(/-{2,}/g, "-");
-  return `<!-- Draft summary written by ${label}. Treat it as a starting point: review it, edit it and sign off before publishing, then delete this comment. -->`;
+  const label = String(model).replace(/[^\w.-]/g, "");
+  return `> **Draft: review before publishing.** This summary was written by ${label}. Read it, fix anything wrong or off-tone, then delete this notice. Whatever is here when you publish is what users see.`;
 }
 
 /**
