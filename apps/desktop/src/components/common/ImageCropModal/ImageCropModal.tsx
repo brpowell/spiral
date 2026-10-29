@@ -89,7 +89,9 @@ export function ImageCropModal({
     crop,
     sizeOptions.map((option) => option.maxEdge),
     sizeOptions.length > 1,
+    selectedIndex,
   );
+  const selectedBytes = measured?.outputBytes[selectedIndex];
   // A preset stops being offered once the crop gets small enough.
   const effectiveMaxEdge = sizeOptions.some((o) => o.maxEdge === maxEdge)
     ? maxEdge
@@ -149,20 +151,19 @@ export function ImageCropModal({
                         : "common:imageCrop.sizeOption",
                       { width: option.width, height: option.height },
                     ),
-                    description: measured
-                      ? formatBytes(measured.outputBytes[index])
-                      : undefined,
+                    description:
+                      measured?.outputBytes[index] != null
+                        ? formatBytes(measured.outputBytes[index])
+                        : t("common:imageCrop.sizeMeasuring"),
                   }))}
                 />
                 <span
                   className="image-crop-modal__size-estimate"
                   aria-live="polite"
                 >
-                  {measured
+                  {selectedBytes != null && measured?.sourceBytes != null
                     ? t("common:imageCrop.sizeEstimate", {
-                        output: formatBytes(
-                          measured.outputBytes[selectedIndex] ?? 0,
-                        ),
+                        output: formatBytes(selectedBytes),
                         source: formatBytes(measured.sourceBytes),
                       })
                     : t("common:imageCrop.sizeMeasuring")}

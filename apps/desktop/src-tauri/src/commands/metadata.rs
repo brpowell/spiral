@@ -123,12 +123,17 @@ type MeasureCacheEntry = (
 
 static MEASURE_CACHE: Mutex<Option<MeasureCacheEntry>> = Mutex::new(None);
 
+/// Held while decoding, so requests that arrive together wait for one decode
+/// and then reuse it instead of each decoding the same image.
+static MEASURE_DECODE: Mutex<()> = Mutex::new(());
+
 fn decoded_source_for_measure(
     path: &Path,
 ) -> Result<(Arc<crate::image_crop::DecodedSource>, u64), String> {
     let meta = std::fs::metadata(path).map_err(|e| format!("Failed to read image: {e}"))?;
     let modified = meta.modified().map_err(|e| e.to_string())?;
     let len = meta.len();
+    let _decoding = MEASURE_DECODE.lock().map_err(|e| e.to_string())?;
     if let Some((cached_path, cached_modified, cached_len, source)) =
         MEASURE_CACHE.lock().map_err(|e| e.to_string())?.as_ref()
     {
