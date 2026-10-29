@@ -13,6 +13,7 @@
 /* Library header continues the same chrome, so don't draw a seam. */
 .custom-window-frame--mac.app .mac-overlay-titlebar {
   border-bottom: none;
+  height: var(--mac-titlebar-height-library);
 }
 
 .mac-overlay-titlebar__title {
@@ -21,4 +22,7 @@
   letter-spacing: 0.01em;
   color: var(--color-text-primary);
   pointer-events: none;
+  /* Native traffic lights sit slightly below the bar's geometric center. */
+  position: relative;
+  left: 2px;
 }

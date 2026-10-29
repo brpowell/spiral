@@ -108,8 +108,8 @@
 
 /* Explicit sizes for constrained contexts */
 .playlist-art--sidebar {
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 1.625rem;
+  height: 1.625rem;
   border-radius: 4px;
 }
 
