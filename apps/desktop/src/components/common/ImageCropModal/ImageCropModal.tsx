@@ -1,8 +1,9 @@
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { assetUrlFromPath } from "../../../lib/assetUrl";
-import type { ImageCrop } from "../../../lib/imageCrop";
+import { imageOutputSizeOptions, type ImageCrop } from "../../../lib/imageCrop";
 import { Button } from "../Button/Button";
+import { NativeSelect } from "../NativeSelect/NativeSelect";
 import { ImageCropper } from "../ImageCropper/ImageCropper";
 import {
   Modal,
@@ -24,8 +25,11 @@ export type ImageCropModalProps = {
   /** Circular mask, for art that is rendered round. */
   round?: boolean;
   initialCrop?: ImageCrop | null;
+  /** Offers an output size choice. The caller must honor the `maxEdge` it gets back. */
+  showSizeOptions?: boolean;
+  initialMaxEdge?: number | null;
   title?: string;
-  onApply: (crop: ImageCrop) => void;
+  onApply: (crop: ImageCrop, maxEdge: number | null) => void;
   onClose: () => void;
 };
 
@@ -36,6 +40,8 @@ export function ImageCropModal({
   aspect = 1,
   round = false,
   initialCrop = null,
+  showSizeOptions = false,
+  initialMaxEdge = null,
   title,
   onApply,
   onClose,
@@ -55,10 +61,26 @@ export function ImageCropModal({
   // Reset during render, not in an effect: an effect can run after a fast image
   // load has already set the default crop and wipe it, leaving Apply disabled.
   const [syncedSrc, setSyncedSrc] = useState(src);
+  const [natural, setNatural] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+  const [maxEdge, setMaxEdge] = useState<number | null>(initialMaxEdge);
   if (src !== syncedSrc) {
     setSyncedSrc(src);
     setCrop(initialCrop);
+    setNatural(null);
+    setMaxEdge(initialMaxEdge);
   }
+
+  const sizeOptions =
+    showSizeOptions && natural && crop
+      ? imageOutputSizeOptions(natural.width, natural.height, crop)
+      : [];
+  // A preset stops being offered once the crop gets small enough.
+  const effectiveMaxEdge = sizeOptions.some((o) => o.maxEdge === maxEdge)
+    ? maxEdge
+    : null;
 
   const canApply = open && src != null && crop != null && !busy;
   const handleClose = () => {
@@ -83,8 +105,33 @@ export function ImageCropModal({
             value={crop}
             onChange={setCrop}
             disabled={busy}
+            onNaturalSize={setNatural}
             className="image-crop-modal__cropper"
           />
+        ) : null}
+        {sizeOptions.length > 1 ? (
+          <label className="image-crop-modal__size">
+            <span className="image-crop-modal__size-label">
+              {t("common:imageCrop.size")}
+            </span>
+            <NativeSelect
+              aria-label={t("common:imageCrop.size")}
+              value={String(effectiveMaxEdge ?? "full")}
+              disabled={busy}
+              onChange={(value) =>
+                setMaxEdge(value === "full" ? null : Number(value))
+              }
+              options={sizeOptions.map((option) => ({
+                value: String(option.maxEdge ?? "full"),
+                label: t(
+                  option.maxEdge == null
+                    ? "common:imageCrop.sizeFull"
+                    : "common:imageCrop.sizeOption",
+                  { width: option.width, height: option.height },
+                ),
+              }))}
+            />
+          </label>
         ) : null}
       </ModalBody>
       <ModalFooter onCancel={handleClose}>
@@ -92,7 +139,7 @@ export function ImageCropModal({
           disabled={!canApply}
           isLoading={busy}
           onClick={() => {
-            if (crop) onApply(crop);
+            if (crop) onApply(crop, effectiveMaxEdge);
           }}
         >
           {t("common:imageCrop.apply")}

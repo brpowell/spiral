@@ -542,11 +542,13 @@ export async function cacheArtFromFile(
   sourcePath: string,
   filePath: string,
   crop?: ImageCrop | null,
+  maxEdge?: number | null,
 ): Promise<string> {
   return invoke<string>("cache_art_from_file", {
     sourcePath,
     filePath,
     crop: crop ?? null,
+    maxEdge: maxEdge ?? null,
   });
 }
 

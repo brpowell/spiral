@@ -168,3 +168,48 @@ export function cropsEqual(
     Math.abs(a.height - b.height) < epsilon
   );
 }
+
+/** Longest edge the backend will write; larger sources are scaled down to this. */
+export const IMAGE_OUTPUT_MAX_EDGE = 2000;
+const IMAGE_OUTPUT_PRESETS = [1500, 1000, 600];
+
+export type ImageOutputSize = {
+  /** Longest-edge cap to send to the backend; null means the full size. */
+  maxEdge: number | null;
+  width: number;
+  height: number;
+};
+
+/** Pixel size of the cropped region once capped at `maxEdge` (never upscaled). */
+export function imageOutputSize(
+  naturalWidth: number,
+  naturalHeight: number,
+  crop: ImageCrop,
+  maxEdge: number | null,
+): ImageOutputSize {
+  const width = Math.max(1, crop.width * naturalWidth);
+  const height = Math.max(1, crop.height * naturalHeight);
+  const cap = Math.min(maxEdge ?? IMAGE_OUTPUT_MAX_EDGE, IMAGE_OUTPUT_MAX_EDGE);
+  const scale = Math.min(1, cap / Math.max(width, height));
+  return {
+    maxEdge,
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
+/** Full size first, then each preset that would actually shrink the result. */
+export function imageOutputSizeOptions(
+  naturalWidth: number,
+  naturalHeight: number,
+  crop: ImageCrop,
+): ImageOutputSize[] {
+  const full = imageOutputSize(naturalWidth, naturalHeight, crop, null);
+  const fullEdge = Math.max(full.width, full.height);
+  return [
+    full,
+    ...IMAGE_OUTPUT_PRESETS.filter((edge) => edge < fullEdge).map((edge) =>
+      imageOutputSize(naturalWidth, naturalHeight, crop, edge),
+    ),
+  ];
+}

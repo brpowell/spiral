@@ -29,6 +29,8 @@ export type ImageCropperProps = {
   onChange: (crop: ImageCrop) => void;
   className?: string;
   disabled?: boolean;
+  /** Called with the source image's pixel size once it has loaded. */
+  onNaturalSize?: (size: { width: number; height: number }) => void;
 };
 
 export function ImageCropper({
@@ -39,6 +41,7 @@ export function ImageCropper({
   onChange,
   className = "",
   disabled = false,
+  onNaturalSize,
 }: ImageCropperProps) {
   const { t } = useTranslation();
   const frameRef = useRef<HTMLDivElement>(null);
@@ -84,9 +87,10 @@ export function ImageCropper({
       const height = img.naturalHeight;
       if (width <= 0 || height <= 0) return;
       setMeasured({ src, width, height });
+      onNaturalSize?.({ width, height });
       emitDefaultIfNeeded(width, height);
     },
-    [emitDefaultIfNeeded, src],
+    [emitDefaultIfNeeded, onNaturalSize, src],
   );
 
   const handlePointerDown = useCallback(

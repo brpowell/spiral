@@ -8,6 +8,14 @@ use std::io::Cursor;
 
 pub const MAX_DISPLAY_EDGE: u32 = 2000;
 pub const JPEG_QUALITY: u8 = 90;
+const MIN_MAX_EDGE: u32 = 64;
+
+/// Longest output edge for a requested size, never above the display cap.
+pub fn clamp_max_edge(requested: Option<u32>) -> u32 {
+    requested
+        .unwrap_or(MAX_DISPLAY_EDGE)
+        .clamp(MIN_MAX_EDGE, MAX_DISPLAY_EDGE)
+}
 
 /// Normalized crop rectangle in source-image space (after EXIF orientation).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -191,5 +199,13 @@ mod tests {
         assert_eq!(ext, "png");
         let decoded = image::load_from_memory(&out).unwrap().to_rgba8();
         assert_eq!(decoded.get_pixel(0, 0)[3], 128);
+    }
+
+    #[test]
+    fn clamp_max_edge_defaults_and_bounds() {
+        assert_eq!(clamp_max_edge(None), MAX_DISPLAY_EDGE);
+        assert_eq!(clamp_max_edge(Some(1000)), 1000);
+        assert_eq!(clamp_max_edge(Some(0)), MIN_MAX_EDGE);
+        assert_eq!(clamp_max_edge(Some(99_999)), MAX_DISPLAY_EDGE);
     }
 }

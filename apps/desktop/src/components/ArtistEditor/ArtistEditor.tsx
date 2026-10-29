@@ -104,8 +104,12 @@ export function ArtistEditor() {
   const [originalArtPath, setOriginalArtPath] = useState<string | null>(null);
   const [artSourcePath, setArtSourcePath] = useState<string | null>(null);
   const [artCrop, setArtCrop] = useState<ImageCrop | null>(null);
+  const [artMaxEdge, setArtMaxEdge] = useState<number | null>(null);
   const [cropFromFetch, setCropFromFetch] = useState(false);
   const [cropInitial, setCropInitial] = useState<ImageCrop | null>(null);
+  const [cropInitialMaxEdge, setCropInitialMaxEdge] = useState<number | null>(
+    null,
+  );
   const [loadingCoverUrl, setLoadingCoverUrl] = useState<string | null>(null);
   const [cropApplying, setCropApplying] = useState(false);
   const cropFetchRef = useRef(0);
@@ -157,6 +161,7 @@ export function ArtistEditor() {
     setOriginalArtPath(artist.artPath);
     setArtSourcePath(null);
     setArtCrop(null);
+    setArtMaxEdge(null);
     setCoverCandidates([]);
     setSelectedCoverUrl(null);
     setSelectedCoverPreviewSrc(null);
@@ -202,13 +207,23 @@ export function ArtistEditor() {
     ? artistArtCacheKey(editingArtistKey)
     : null;
 
-  const applyArtPath = async (sourcePath: string, crop: ImageCrop | null) => {
+  const applyArtPath = async (
+    sourcePath: string,
+    crop: ImageCrop | null,
+    maxEdge: number | null = null,
+  ) => {
     if (!artCacheKey) return;
     setSaveError(null);
     try {
-      const cached = await cacheArtFromFile(sourcePath, ART_PREVIEW_KEY, crop);
+      const cached = await cacheArtFromFile(
+        sourcePath,
+        ART_PREVIEW_KEY,
+        crop,
+        maxEdge,
+      );
       setArtSourcePath(sourcePath);
       setArtCrop(crop);
+      setArtMaxEdge(maxEdge);
       setSelectedCoverUrl(null);
       setSelectedCoverPreviewSrc(null);
       setPendingArtPath(cached);
@@ -224,9 +239,11 @@ export function ArtistEditor() {
   const handleEditArt = () => {
     if (artSourcePath) {
       setCropInitial(artCrop);
+      setCropInitialMaxEdge(artMaxEdge);
       setCropModalSourcePath(artSourcePath);
     } else if (pendingArtPath) {
       setCropInitial(null);
+      setCropInitialMaxEdge(null);
       setCropModalSourcePath(pendingArtPath);
     }
   };
@@ -298,6 +315,7 @@ export function ArtistEditor() {
     cropFetchRef.current += 1;
     setCropModalSourcePath(null);
     setCropInitial(null);
+    setCropInitialMaxEdge(null);
     setCropFromFetch(false);
   };
 
@@ -308,12 +326,12 @@ export function ArtistEditor() {
     if (source) void applyArtPath(source, null);
   };
 
-  const handleCropApply = async (crop: ImageCrop) => {
+  const handleCropApply = async (crop: ImageCrop, maxEdge: number | null) => {
     const source = cropModalSourcePath;
     if (!source) return;
     setCropApplying(true);
     try {
-      await applyArtPath(source, crop);
+      await applyArtPath(source, crop, maxEdge);
     } finally {
       setCropApplying(false);
       closeCropModal();
@@ -324,6 +342,7 @@ export function ArtistEditor() {
     setSaveError(null);
     setArtSourcePath(null);
     setArtCrop(null);
+    setArtMaxEdge(null);
     if (!artCacheKey) {
       setArtPickerOpen(false);
       setCoverCandidates([]);
@@ -366,7 +385,7 @@ export function ArtistEditor() {
       ).path;
     }
     if (artSourcePath) {
-      return cacheArtFromFile(artSourcePath, cacheKey, artCrop);
+      return cacheArtFromFile(artSourcePath, cacheKey, artCrop, artMaxEdge);
     }
     return pendingArtPath;
   };
@@ -682,6 +701,8 @@ export function ArtistEditor() {
         filePath={cropModalSourcePath}
         busy={cropApplying}
         initialCrop={cropInitial}
+        initialMaxEdge={cropInitialMaxEdge}
+        showSizeOptions
         aspect={1}
         round
         onApply={handleCropApply}

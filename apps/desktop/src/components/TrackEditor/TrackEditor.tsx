@@ -687,6 +687,8 @@ export function TrackEditor() {
       setArtSourcePath(sourcePath);
       setSelectedCoverUrl(null);
       setSelectedCoverPreviewSrc(null);
+      // The preview path is reused, so drop any URL cached for the last image.
+      refreshArtDisplay([cached]);
       setPendingArtPath(cached);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

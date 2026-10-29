@@ -114,8 +114,12 @@ export function AlbumEditor() {
   const [originalArtPath, setOriginalArtPath] = useState<string | null>(null);
   const [artSourcePath, setArtSourcePath] = useState<string | null>(null);
   const [artCrop, setArtCrop] = useState<ImageCrop | null>(null);
+  const [artMaxEdge, setArtMaxEdge] = useState<number | null>(null);
   const [cropFromFetch, setCropFromFetch] = useState(false);
   const [cropInitial, setCropInitial] = useState<ImageCrop | null>(null);
+  const [cropInitialMaxEdge, setCropInitialMaxEdge] = useState<number | null>(
+    null,
+  );
   const [loadingCoverUrl, setLoadingCoverUrl] = useState<string | null>(null);
   const [cropApplying, setCropApplying] = useState(false);
   const cropFetchRef = useRef(0);
@@ -166,6 +170,7 @@ export function AlbumEditor() {
     setOriginalArtPath(album.artPath);
     setArtSourcePath(null);
     setArtCrop(null);
+    setArtMaxEdge(null);
     setCoverCandidates([]);
     setSelectedCoverUrl(null);
     setSelectedCoverPreviewSrc(null);
@@ -211,15 +216,27 @@ export function AlbumEditor() {
     setForm((prev) => (prev ? { ...prev, [field]: value } : prev));
   };
 
-  const applyArtPath = async (sourcePath: string, crop: ImageCrop | null) => {
+  const applyArtPath = async (
+    sourcePath: string,
+    crop: ImageCrop | null,
+    maxEdge: number | null = null,
+  ) => {
     if (!referenceTrack) return;
     setSaveError(null);
     try {
-      const cached = await cacheArtFromFile(sourcePath, ART_PREVIEW_KEY, crop);
+      const cached = await cacheArtFromFile(
+        sourcePath,
+        ART_PREVIEW_KEY,
+        crop,
+        maxEdge,
+      );
       setArtSourcePath(sourcePath);
       setArtCrop(crop);
+      setArtMaxEdge(maxEdge);
       setSelectedCoverUrl(null);
       setSelectedCoverPreviewSrc(null);
+      // The preview path is reused, so drop any URL cached for the last image.
+      refreshArtDisplay([cached]);
       setPendingArtPath(cached);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -232,9 +249,11 @@ export function AlbumEditor() {
   const handleEditArt = () => {
     if (artSourcePath) {
       setCropInitial(artCrop);
+      setCropInitialMaxEdge(artMaxEdge);
       setCropModalSourcePath(artSourcePath);
     } else if (pendingArtPath) {
       setCropInitial(null);
+      setCropInitialMaxEdge(null);
       setCropModalSourcePath(pendingArtPath);
     }
   };
@@ -307,6 +326,7 @@ export function AlbumEditor() {
     cropFetchRef.current += 1;
     setCropModalSourcePath(null);
     setCropInitial(null);
+    setCropInitialMaxEdge(null);
     setCropFromFetch(false);
   };
 
@@ -317,12 +337,12 @@ export function AlbumEditor() {
     if (source) void applyArtPath(source, null);
   };
 
-  const handleCropApply = async (crop: ImageCrop) => {
+  const handleCropApply = async (crop: ImageCrop, maxEdge: number | null) => {
     const source = cropModalSourcePath;
     if (!source) return;
     setCropApplying(true);
     try {
-      await applyArtPath(source, crop);
+      await applyArtPath(source, crop, maxEdge);
     } finally {
       setCropApplying(false);
       closeCropModal();
@@ -333,6 +353,7 @@ export function AlbumEditor() {
     setSaveError(null);
     setArtSourcePath(null);
     setArtCrop(null);
+    setArtMaxEdge(null);
     if (!referenceTrack) {
       setArtPickerOpen(false);
       setCoverCandidates([]);
@@ -373,7 +394,7 @@ export function AlbumEditor() {
       return (await cacheArtFromUrl(selectedCoverUrl, cacheKey)).path;
     }
     if (artSourcePath) {
-      return cacheArtFromFile(artSourcePath, cacheKey, artCrop);
+      return cacheArtFromFile(artSourcePath, cacheKey, artCrop, artMaxEdge);
     }
     return pendingArtPath;
   };
@@ -836,6 +857,8 @@ export function AlbumEditor() {
         filePath={cropModalSourcePath}
         busy={cropApplying}
         initialCrop={cropInitial}
+        initialMaxEdge={cropInitialMaxEdge}
+        showSizeOptions
         aspect={1}
         onApply={handleCropApply}
         onClose={handleCropCancel}

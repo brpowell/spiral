@@ -36,7 +36,10 @@
     "title": "Crop image",
     "zoom": "Zoom",
     "frameAria": "Crop image",
-    "apply": "Apply"
+    "apply": "Apply",
+    "size": "Size",
+    "sizeFull": "Full size · {{width}} × {{height}} px",
+    "sizeOption": "{{width}} × {{height}} px"
   },
   "save": "Save",
   "saveChanges": "Save changes?",

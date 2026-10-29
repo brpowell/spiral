@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { refreshArtDisplay } from "../../lib/artDisplayCache";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -279,6 +280,8 @@ export function CdTrackEditor() {
         setArtSourcePath(sourcePath);
         setSelectedCoverUrl(null);
         setSelectedCoverPreviewSrc(null);
+        // The preview path is reused, so drop any URL cached for the last image.
+        refreshArtDisplay([cached]);
         setPendingArtPath(cached);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

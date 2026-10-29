@@ -62,6 +62,7 @@ pub async fn cache_art_from_file(
     source_path: String,
     file_path: String,
     crop: Option<crate::image_crop::ImageCrop>,
+    max_edge: Option<u32>,
 ) -> Result<String, String> {
     path_scope::ensure_allowed(&app, &source_path)?;
     // Decoding and baking a crop is slow; keep it off the main thread.
@@ -73,7 +74,7 @@ pub async fn cache_art_from_file(
                 let (baked, ext) = crate::image_crop::bake_cropped_image(
                     &bytes,
                     crop,
-                    crate::image_crop::MAX_DISPLAY_EDGE,
+                    crate::image_crop::clamp_max_edge(max_edge),
                 )?;
                 (baked, ext)
             }
