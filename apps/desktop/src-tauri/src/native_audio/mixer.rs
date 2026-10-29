@@ -10,6 +10,8 @@ use std::sync::{Arc, Mutex};
 use rtrb::{Consumer, Producer};
 
 use super::dsp::{EqSettings, Equalizer, PanGains};
+#[cfg(test)]
+use super::sfx::SFX_LEVEL;
 use super::sfx::{SfxClip, SfxVoice, MAX_VOICES};
 
 /// Highest source channel count a deck can carry.
@@ -18,6 +20,11 @@ pub const MAX_CHANNELS: usize = 8;
 pub const MAX_DECKS: usize = 2;
 /// Length of the play/pause fade that removes clicks.
 const FADE_SECONDS: f32 = 0.008;
+/// Undoes the player's 0.5 master headroom (`MASTER_HEADROOM` in
+/// nativePlaybackEngine.ts) for the visualizer tap, so quieter output does not
+/// shrink the visuals. Keep the two in step.
+const TAP_MAKEUP_GAIN: f32 = 2.0;
+
 /// Time constant for volume changes.
 const GAIN_SMOOTH_SECONDS: f32 = 0.010;
 
@@ -382,7 +389,7 @@ impl Mixer {
             // needs the latest window, and the callback must never wait.
             for frame in out.chunks_exact(out_channels) {
                 let mono = frame.iter().sum::<f32>() / out_channels as f32;
-                let _ = tap.push(mono);
+                let _ = tap.push(mono * TAP_MAKEUP_GAIN);
             }
         }
         if !self.sfx.is_empty() {
@@ -938,7 +945,7 @@ mod tests {
     }
 
     #[test]
-    fn tap_receives_a_mono_copy_of_the_final_mix() {
+    fn tap_receives_a_mono_copy_of_the_final_mix_with_makeup_gain() {
         let mut r = rig(48_000, 2, 48_000);
         let (tap, mut tap_rx) = RingBuffer::new(4096);
         r.mixer.set_tap(Some(tap));
@@ -951,7 +958,7 @@ mod tests {
             got.push(sample);
         }
         assert_eq!(got.len(), 1000);
-        assert!((got[999] - 0.5).abs() < 1e-3);
+        assert!((got[999] - 0.5 * TAP_MAKEUP_GAIN).abs() < 1e-3);
 
         r.mixer.set_tap(None);
         render_frames(&mut r, 100);
@@ -1054,7 +1061,7 @@ mod tests {
 
         let mut out = vec![0.0; 64 * 2];
         mixer.render(&mut out);
-        assert!((out[0] - 0.5).abs() < 1e-3);
+        assert!((out[0] - 0.5 * SFX_LEVEL).abs() < 1e-3);
         mixer.render(&mut out);
         assert!(!mixer.wants_output(), "finished voices are dropped");
     }
@@ -1075,7 +1082,10 @@ mod tests {
 
         let mut out = vec![0.0; 256 * 2];
         mixer.render(&mut out);
-        assert!((out[out.len() - 1] - 0.5).abs() < 1e-3, "full level");
+        assert!(
+            (out[out.len() - 1] - 0.5 * SFX_LEVEL).abs() < 1e-3,
+            "full level"
+        );
         let tapped = std::iter::from_fn(|| tap_rx.pop().ok()).fold(0.0f32, |m, s| m.max(s.abs()));
         assert!(tapped < 1e-6, "visualizer sees music only: {tapped}");
     }
@@ -1090,7 +1100,7 @@ mod tests {
         mixer.play_sfx(7, test_clip(0.25, 1000));
         mixer.render(&mut out);
         // Restarted from the top and not doubled up.
-        assert!((out[0] - 0.25).abs() < 1e-3, "{}", out[0]);
+        assert!((out[0] - 0.25 * SFX_LEVEL).abs() < 1e-3, "{}", out[0]);
     }
 
     #[test]
@@ -1099,7 +1109,7 @@ mod tests {
         push_stereo_const(&mut r, 4000, 0.8);
         r.shared.playing.store(true, Ordering::Relaxed);
         render_frames(&mut r, 1000);
-        r.mixer.play_sfx(1, test_clip(0.5, 100));
+        r.mixer.play_sfx(1, test_clip(1.0, 100));
         let out = render_frames(&mut r, 50);
         assert!(out.iter().all(|s| *s <= 1.0), "clamped");
         assert!(out[out.len() - 1] > 0.99);
