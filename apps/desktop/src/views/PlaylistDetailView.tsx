@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { applyTrackRating } from "../lib/applyTrackRating";
+import { confirmAndApplyTrackRatings } from "../lib/applyTrackRating";
 import { albumTotalDurationSeconds } from "../lib/albums";
 import { formatTime } from "../lib/format";
 import { getPlaylistById, resolvePlaylistTracks } from "../lib/playlists";
@@ -102,7 +102,7 @@ function PlaylistDetailContent({ playlist }: { playlist: Playlist }) {
         .getState()
         .library.find((t) => t.id === trackId);
       if (!track) return;
-      applyTrackRating(track, rating, updateTrackInLibrary);
+      void confirmAndApplyTrackRatings([track], rating, updateTrackInLibrary);
     },
     [updateTrackInLibrary],
   );

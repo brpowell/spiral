@@ -929,7 +929,7 @@ Cascade leftovers (border-radius, etc.) stay in `skin.css`.
 
 ## Rating (`type`: `rating`)
 
-Current-track star rating. Uses the shared `TrackRating` host (five SVG stars, half-star buckets, canonical 0–255). Writes through `applyTrackRating` — there is no `onClick` action catalog entry. Bitmap star sheets are reserved for a later presentation kind; v1 is the primitive only.
+Current-track star rating. Uses the shared `TrackRating` host (five SVG stars, half-star buckets, canonical 0–255). Writes through `confirmAndApplyTrackRatings`, which asks for confirmation in a native dialog before the rating is saved to the track file (unless the user chose "Save, don't ask again") — there is no `onClick` action catalog entry. Bitmap star sheets are reserved for a later presentation kind; v1 is the primitive only.
 
 | Field | Purpose |
 | --- | --- |

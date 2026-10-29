@@ -2,14 +2,16 @@
  * Where saving an edit rewrites tags in audio files. Each context remembers
  * "don't ask again" on its own: dismissing the warning for one kind of edit
  * must not silence it for another that touches files in a way the user may not
- * expect (e.g. an album edit writing every track on the album).
+ * expect (e.g. an album edit writing every track on the album, or a one-click star
+ * rating that quietly rewrites a file).
  */
-export type TagWriteContext = "track" | "album" | "artist";
+export type TagWriteContext = "track" | "album" | "artist" | "rating";
 
 export const TAG_WRITE_CONTEXTS: readonly TagWriteContext[] = [
   "track",
   "album",
   "artist",
+  "rating",
 ];
 
 export type TagWriteDismissals = Record<TagWriteContext, boolean>;
@@ -17,7 +19,7 @@ export type TagWriteDismissals = Record<TagWriteContext, boolean>;
 const STORAGE_KEY = "spiral:tagWriteConfirmDismissed";
 
 export function emptyTagWriteDismissals(): TagWriteDismissals {
-  return { track: false, album: false, artist: false };
+  return { track: false, album: false, artist: false, rating: false };
 }
 
 export function loadTagWriteDismissals(): TagWriteDismissals {

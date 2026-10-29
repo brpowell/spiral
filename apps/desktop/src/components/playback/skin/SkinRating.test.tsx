@@ -5,10 +5,11 @@ import type { RatingNode } from "../../../types/skin";
 import type { Track } from "../../../types/track";
 import { SkinRating } from "./SkinRating";
 
-const applyTrackRating = vi.fn();
+const confirmAndApplyTrackRatings = vi.fn();
 
 vi.mock("../../../lib/applyTrackRating", () => ({
-  applyTrackRating: (...args: unknown[]) => applyTrackRating(...args),
+  confirmAndApplyTrackRatings: (...args: unknown[]) =>
+    confirmAndApplyTrackRatings(...args),
 }));
 
 vi.mock("../../../lib/skinBinds", () => ({
@@ -56,7 +57,7 @@ const node: RatingNode = {
 };
 
 afterEach(() => {
-  applyTrackRating.mockReset();
+  confirmAndApplyTrackRatings.mockReset();
   usePlayerStore.setState({
     library: [],
     playbackTracks: [],
@@ -115,10 +116,11 @@ describe("SkinRating", () => {
     fireEvent.pointerDown(slider, { button: 0, clientX: 80, pointerId: 1 });
     fireEvent.pointerUp(slider, { button: 0, clientX: 80, pointerId: 1 });
 
-    expect(applyTrackRating).toHaveBeenCalledWith(
-      current,
+    expect(confirmAndApplyTrackRatings).toHaveBeenCalledWith(
+      [current],
       204,
       expect.any(Function),
+      { native: true },
     );
   });
 });
