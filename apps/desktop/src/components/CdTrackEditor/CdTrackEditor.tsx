@@ -55,6 +55,10 @@ import "../TrackEditor/TrackEditor.css";
 
 type CdTrackEditorTab = "details" | "art" | "musicbrainz";
 
+// Previews are staged in the app-data art cache and only written to their
+// real destination when the editor saves.
+const ART_PREVIEW_KEY = "staging:cd-track-editor";
+
 export function CdTrackEditor() {
   const editingCdTrackIds = useCdStore((s) => s.editingCdTrackIds);
   const editingCdDriveId = useCdStore((s) => s.editingCdDriveId);
@@ -271,10 +275,7 @@ export function CdTrackEditor() {
       }
       setSaveError(null);
       try {
-        const cached = await cacheArtFromFile(
-          sourcePath,
-          cdArtCacheKey(discId),
-        );
+        const cached = await cacheArtFromFile(sourcePath, ART_PREVIEW_KEY);
         setArtSourcePath(sourcePath);
         setSelectedCoverUrl(null);
         setSelectedCoverPreviewSrc(null);

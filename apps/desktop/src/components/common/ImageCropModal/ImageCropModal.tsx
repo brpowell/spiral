@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { assetUrlFromPath } from "../../../lib/assetUrl";
 import type { ImageCrop } from "../../../lib/imageCrop";
@@ -18,7 +18,11 @@ export type ImageCropModalProps = {
   open: boolean;
   /** Absolute filesystem path of the image to crop. */
   filePath: string | null;
+  /** Locks the cropper and shows progress while the crop is being applied. */
+  busy?: boolean;
   aspect?: number;
+  /** Circular mask, for art that is rendered round. */
+  round?: boolean;
   initialCrop?: ImageCrop | null;
   title?: string;
   onApply: (crop: ImageCrop) => void;
@@ -28,7 +32,9 @@ export type ImageCropModalProps = {
 export function ImageCropModal({
   open,
   filePath,
+  busy = false,
   aspect = 1,
+  round = false,
   initialCrop = null,
   title,
   onApply,
@@ -39,20 +45,28 @@ export function ImageCropModal({
   const [crop, setCrop] = useState<ImageCrop | null>(initialCrop);
 
   // Sync convertFileSrc — avoid waiting on async mtime IPC before first paint.
-  const src = useMemo(
-    () => (filePath ? assetUrlFromPath(filePath) : null),
-    [filePath],
-  );
+  // Staged files reuse one path, so bust the webview's cache on every open.
+  const src = useMemo(() => {
+    if (!open || !filePath) return null;
+    const base = assetUrlFromPath(filePath);
+    return `${base}${base.includes("?") ? "&" : "?"}v=${Date.now()}`;
+  }, [open, filePath]);
 
-  useEffect(() => {
-    if (!open) return;
+  // Reset during render, not in an effect: an effect can run after a fast image
+  // load has already set the default crop and wipe it, leaving Apply disabled.
+  const [syncedSrc, setSyncedSrc] = useState(src);
+  if (src !== syncedSrc) {
+    setSyncedSrc(src);
     setCrop(initialCrop);
-  }, [open, filePath, initialCrop]);
+  }
 
-  const canApply = open && src != null && crop != null;
+  const canApply = open && src != null && crop != null && !busy;
+  const handleClose = () => {
+    if (!busy) onClose();
+  };
 
   return (
-    <Modal open={open} onClose={onClose} size="sm" labelledBy={titleId}>
+    <Modal open={open} onClose={handleClose} size="sm" labelledBy={titleId}>
       <ModalHeader>
         <ModalHeaderMain>
           <ModalTitle id={titleId}>
@@ -65,15 +79,18 @@ export function ImageCropModal({
           <ImageCropper
             src={src}
             aspect={aspect}
+            round={round}
             value={crop}
             onChange={setCrop}
+            disabled={busy}
             className="image-crop-modal__cropper"
           />
         ) : null}
       </ModalBody>
-      <ModalFooter onCancel={onClose}>
+      <ModalFooter onCancel={handleClose}>
         <Button
           disabled={!canApply}
+          isLoading={busy}
           onClick={() => {
             if (crop) onApply(crop);
           }}

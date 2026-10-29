@@ -168,6 +168,10 @@ function lyricsFormFieldsFromLoaded(loaded: LoadedTrackLyrics) {
   };
 }
 
+// Previews are staged in the app-data art cache and only written to their
+// real destination when the editor saves.
+const ART_PREVIEW_KEY = "staging:track-editor";
+
 export function TrackEditor() {
   const { t } = useTranslation(["library", "common"]);
   const editingTrackIds = usePlayerStore((s) => s.editingTrackIds);
@@ -679,10 +683,7 @@ export function TrackEditor() {
     if (!referenceTrack) return;
     setSaveError(null);
     try {
-      const cached = await cacheArtFromFile(
-        sourcePath,
-        `track-override:${referenceTrack.filePath}`,
-      );
+      const cached = await cacheArtFromFile(sourcePath, ART_PREVIEW_KEY);
       setArtSourcePath(sourcePath);
       setSelectedCoverUrl(null);
       setSelectedCoverPreviewSrc(null);

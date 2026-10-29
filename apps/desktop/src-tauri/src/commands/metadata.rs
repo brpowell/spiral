@@ -57,20 +57,46 @@ pub fn pick_image_file(app: AppHandle) -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
-pub fn cache_art_from_file(
+pub async fn cache_art_from_file(
     app: AppHandle,
     source_path: String,
     file_path: String,
+    crop: Option<crate::image_crop::ImageCrop>,
 ) -> Result<String, String> {
     path_scope::ensure_allowed(&app, &source_path)?;
-    let bytes = std::fs::read(&source_path).map_err(|e| format!("Failed to read image: {e}"))?;
-    let ext = Path::new(&source_path)
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("jpg");
-    let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
-    let app_data = app_data_dir(&app)?;
-    crate::artwork_write::write_art_for_cache_key(&library_root, &app_data, &file_path, &bytes, ext)
+    // Decoding and baking a crop is slow; keep it off the main thread.
+    tauri::async_runtime::spawn_blocking(move || {
+        let bytes =
+            std::fs::read(&source_path).map_err(|e| format!("Failed to read image: {e}"))?;
+        let (bytes, ext) = match crop {
+            Some(crop) => {
+                let (baked, ext) = crate::image_crop::bake_cropped_image(
+                    &bytes,
+                    crop,
+                    crate::image_crop::MAX_DISPLAY_EDGE,
+                )?;
+                (baked, ext)
+            }
+            None => (
+                bytes,
+                Path::new(&source_path)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("jpg"),
+            ),
+        };
+        let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
+        let app_data = app_data_dir(&app)?;
+        crate::artwork_write::write_art_for_cache_key(
+            &library_root,
+            &app_data,
+            &file_path,
+            &bytes,
+            ext,
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

@@ -61,6 +61,7 @@
 }
 
 .album-art-picker__option {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -74,6 +75,25 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.album-art-picker__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 0.5);
+}
+
+.album-art-picker__loading .album-art-picker__spinner {
+  border-color: rgb(255 255 255 / 0.3);
+  border-top-color: #fff;
+}
+
+.album-art-picker__option:disabled:not(.album-art-picker__option--selected) {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .album-art-picker__option:hover,

@@ -68,6 +68,10 @@ function formsEqual(a: CdAlbumEditorForm, b: CdAlbumEditorForm): boolean {
   );
 }
 
+// Previews are staged in the app-data art cache and only written to their
+// real destination when the editor saves.
+const ART_PREVIEW_KEY = "staging:cd-album-editor";
+
 export function CdAlbumEditor() {
   const editingCdAlbumDriveId = useCdStore((s) => s.editingCdAlbumDriveId);
   const cdAlbumEditorInitialTab = useCdStore((s) => s.cdAlbumEditorInitialTab);
@@ -195,7 +199,7 @@ export function CdAlbumEditor() {
     }
     setSaveError(null);
     try {
-      const cached = await cacheArtFromFile(sourcePath, cdArtCacheKey(discId));
+      const cached = await cacheArtFromFile(sourcePath, ART_PREVIEW_KEY);
       setArtSourcePath(sourcePath);
       setSelectedCoverUrl(null);
       setSelectedCoverPreviewSrc(null);

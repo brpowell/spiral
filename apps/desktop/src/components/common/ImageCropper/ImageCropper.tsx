@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -24,6 +23,8 @@ import "./ImageCropper.css";
 export type ImageCropperProps = {
   src: string;
   aspect?: number;
+  /** Masks the frame to match how the result is rendered. */
+  round?: boolean;
   value: ImageCrop | null;
   onChange: (crop: ImageCrop) => void;
   className?: string;
@@ -33,6 +34,7 @@ export type ImageCropperProps = {
 export function ImageCropper({
   src,
   aspect = 1,
+  round = false,
   value,
   onChange,
   className = "",
@@ -40,10 +42,14 @@ export function ImageCropper({
 }: ImageCropperProps) {
   const { t } = useTranslation();
   const frameRef = useRef<HTMLDivElement>(null);
-  const [naturalSize, setNaturalSize] = useState<{
+  // Tagged with the src it was measured for, so a stale size from a previous
+  // image is ignored and a fast (cached) load can't be wiped by a reset effect.
+  const [measured, setMeasured] = useState<{
+    src: string;
     width: number;
     height: number;
   } | null>(null);
+  const naturalSize = measured?.src === src ? measured : null;
   const dragRef = useRef<{
     pointerId: number;
     lastX: number;
@@ -71,20 +77,16 @@ export function ImageCropper({
     [aspect, onChange, value],
   );
 
-  useEffect(() => {
-    setNaturalSize(null);
-  }, [src]);
-
   const handleImageLoad = useCallback(
     (e: React.SyntheticEvent<HTMLImageElement>) => {
       const img = e.currentTarget;
       const width = img.naturalWidth;
       const height = img.naturalHeight;
       if (width <= 0 || height <= 0) return;
-      setNaturalSize({ width, height });
+      setMeasured({ src, width, height });
       emitDefaultIfNeeded(width, height);
     },
-    [emitDefaultIfNeeded],
+    [emitDefaultIfNeeded, src],
   );
 
   const handlePointerDown = useCallback(
@@ -165,7 +167,11 @@ export function ImageCropper({
     <div className={rootClass}>
       <div
         ref={frameRef}
-        className="image-cropper__frame"
+        className={
+          round
+            ? "image-cropper__frame image-cropper__frame--round"
+            : "image-cropper__frame"
+        }
         style={{ aspectRatio: String(aspect) }}
         role="img"
         aria-label={t("common:imageCrop.frameAria")}
@@ -179,7 +185,11 @@ export function ImageCropper({
           src={src}
           alt=""
           draggable={false}
-          className="image-cropper__img"
+          className={
+            naturalSize
+              ? "image-cropper__img image-cropper__img--ready"
+              : "image-cropper__img"
+          }
           style={imgStyle}
           onLoad={handleImageLoad}
         />

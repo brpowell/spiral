@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ImageCropModal } from "../common/ImageCropModal/ImageCropModal";
+import type { ImageCrop } from "../../lib/imageCrop";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -70,6 +72,11 @@ import { useTagWriteConfirmStore } from "../../store/useTagWriteConfirmStore";
 
 type AlbumEditorTab = "details" | "art" | "musicbrainz";
 
+// Previews and fetched covers are staged in the app-data art cache and only
+// written to the library when the editor saves.
+const ART_PREVIEW_KEY = "staging:album-editor";
+const ART_DOWNLOAD_KEY = "staging:album-editor-download";
+
 export function AlbumEditor() {
   const { t } = useTranslation(["library", "common"]);
   const editingAlbumKey = usePlayerStore((s) => s.editingAlbumKey);
@@ -106,6 +113,14 @@ export function AlbumEditor() {
   const [pendingArtPath, setPendingArtPath] = useState<string | null>(null);
   const [originalArtPath, setOriginalArtPath] = useState<string | null>(null);
   const [artSourcePath, setArtSourcePath] = useState<string | null>(null);
+  const [artCrop, setArtCrop] = useState<ImageCrop | null>(null);
+  const [cropFromFetch, setCropFromFetch] = useState(false);
+  const [loadingCoverUrl, setLoadingCoverUrl] = useState<string | null>(null);
+  const [cropApplying, setCropApplying] = useState(false);
+  const cropFetchRef = useRef(0);
+  const [cropModalSourcePath, setCropModalSourcePath] = useState<string | null>(
+    null,
+  );
   const [saveError, setSaveError] = useState<string | null>(null);
   const {
     saving,
@@ -149,6 +164,7 @@ export function AlbumEditor() {
     setPendingArtPath(album.artPath);
     setOriginalArtPath(album.artPath);
     setArtSourcePath(null);
+    setArtCrop(null);
     setCoverCandidates([]);
     setSelectedCoverUrl(null);
     setSelectedCoverPreviewSrc(null);
@@ -194,15 +210,13 @@ export function AlbumEditor() {
     setForm((prev) => (prev ? { ...prev, [field]: value } : prev));
   };
 
-  const applyArtPath = async (sourcePath: string) => {
+  const applyArtPath = async (sourcePath: string, crop: ImageCrop | null) => {
     if (!referenceTrack) return;
     setSaveError(null);
     try {
-      const cached = await cacheArtFromFile(
-        sourcePath,
-        referenceTrack.filePath,
-      );
+      const cached = await cacheArtFromFile(sourcePath, ART_PREVIEW_KEY, crop);
       setArtSourcePath(sourcePath);
+      setArtCrop(crop);
       setSelectedCoverUrl(null);
       setSelectedCoverPreviewSrc(null);
       setPendingArtPath(cached);
@@ -214,7 +228,7 @@ export function AlbumEditor() {
 
   const handleChangeArt = async () => {
     const path = await pickImageFile();
-    if (path) await applyArtPath(path);
+    if (path) setCropModalSourcePath(path);
   };
 
   const handleArtDrop = async (e: React.DragEvent) => {
@@ -227,17 +241,19 @@ export function AlbumEditor() {
 
     const path = (file as File & { path?: string }).path;
     if (path) {
-      await applyArtPath(path);
+      setCropModalSourcePath(path);
       return;
     }
 
     setSaveError(t("library:editor.dropArtFailed"));
   };
 
-  useArtFileDrop(isOpen && !!referenceTrack, applyArtPath);
+  useArtFileDrop(isOpen && !!referenceTrack, setCropModalSourcePath);
 
   const closeArtPicker = () => {
     artFetchGenRef.current += 1;
+    cropFetchRef.current += 1;
+    setLoadingCoverUrl(null);
     setArtPickerOpen(false);
     setFetchingArt(false);
     setCoverCandidates([]);
@@ -274,14 +290,64 @@ export function AlbumEditor() {
     }
   };
 
-  const handleSelectCover = (url: string) => {
+  const closeCropModal = () => {
+    cropFetchRef.current += 1;
+    setCropModalSourcePath(null);
+    setCropFromFetch(false);
+  };
+
+  const handleCropCancel = () => {
+    const source = cropFromFetch ? cropModalSourcePath : null;
+    closeCropModal();
+    // Keep the full-quality cover the user picked, uncropped.
+    if (source) void applyArtPath(source, null);
+  };
+
+  const handleCropApply = async (crop: ImageCrop) => {
+    const source = cropModalSourcePath;
+    if (!source) return;
+    setCropApplying(true);
+    try {
+      await applyArtPath(source, crop);
+    } finally {
+      setCropApplying(false);
+      closeCropModal();
+    }
+  };
+
+  const handleSelectCover = async (url: string) => {
     setSaveError(null);
-    setSelectedCoverUrl(url);
-    setSelectedCoverPreviewSrc(previewSrcForFetchedCover(url, coverCandidates));
     setArtSourcePath(null);
-    setArtPickerOpen(false);
-    setCoverCandidates([]);
-    setFetchMessage(null);
+    setArtCrop(null);
+    if (!referenceTrack) {
+      setArtPickerOpen(false);
+      setCoverCandidates([]);
+      setFetchMessage(null);
+      setSelectedCoverUrl(url);
+      setSelectedCoverPreviewSrc(
+        previewSrcForFetchedCover(url, coverCandidates),
+      );
+      return;
+    }
+    // Stage the full-quality cover while the picker shows a spinner on the
+    // chosen thumbnail, then crop it. The art behind the dialogs stays put until
+    // they close, so nothing flashes.
+    const token = ++cropFetchRef.current;
+    setLoadingCoverUrl(url);
+    try {
+      const { path } = await cacheArtFromUrl(url, ART_DOWNLOAD_KEY);
+      if (token !== cropFetchRef.current) return;
+      setLoadingCoverUrl(null);
+      setArtPickerOpen(false);
+      setCoverCandidates([]);
+      setFetchMessage(null);
+      setCropFromFetch(true);
+      setCropModalSourcePath(path);
+    } catch (err) {
+      if (token !== cropFetchRef.current) return;
+      setLoadingCoverUrl(null);
+      setSaveError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const resolveArtPathForTrack = async (
@@ -293,7 +359,7 @@ export function AlbumEditor() {
       return (await cacheArtFromUrl(selectedCoverUrl, cacheKey)).path;
     }
     if (artSourcePath) {
-      return cacheArtFromFile(artSourcePath, cacheKey);
+      return cacheArtFromFile(artSourcePath, cacheKey, artCrop);
     }
     return pendingArtPath;
   };
@@ -706,6 +772,7 @@ export function AlbumEditor() {
               .join(" • ")}
             candidates={coverCandidates}
             selectedUrl={selectedCoverUrl}
+            loadingUrl={loadingCoverUrl}
             fetching={fetchingArt}
             fetchMessage={fetchMessage}
             onSelect={handleSelectCover}
@@ -749,6 +816,14 @@ export function AlbumEditor() {
           </AlertConfirmation>
         </>
       )}
+      <ImageCropModal
+        open={cropModalSourcePath != null}
+        filePath={cropModalSourcePath}
+        busy={cropApplying}
+        aspect={1}
+        onApply={handleCropApply}
+        onClose={handleCropCancel}
+      />
     </Modal>
   );
 }

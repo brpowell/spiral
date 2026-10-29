@@ -541,8 +541,13 @@ export async function pickImageFile(): Promise<string | null> {
 export async function cacheArtFromFile(
   sourcePath: string,
   filePath: string,
+  crop?: ImageCrop | null,
 ): Promise<string> {
-  return invoke<string>("cache_art_from_file", { sourcePath, filePath });
+  return invoke<string>("cache_art_from_file", {
+    sourcePath,
+    filePath,
+    crop: crop ?? null,
+  });
 }
 
 export async function storeCroppedPlaylistArt(
