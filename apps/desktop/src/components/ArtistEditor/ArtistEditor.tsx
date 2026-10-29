@@ -385,7 +385,14 @@ export function ArtistEditor() {
       ).path;
     }
     if (artSourcePath) {
-      return cacheArtFromFile(artSourcePath, cacheKey, artCrop, artMaxEdge);
+      // The staged preview is already the baked result of the current source,
+      // crop and size, so copy it instead of baking again.
+      return cacheArtFromFile(
+        pendingArtPath ?? artSourcePath,
+        cacheKey,
+        pendingArtPath ? null : artCrop,
+        pendingArtPath ? null : artMaxEdge,
+      );
     }
     return pendingArtPath;
   };
