@@ -26,6 +26,8 @@ interface TagWriteConfirmState {
     fileCount: number,
   ) => Promise<boolean>;
   answerPrompt: (confirmed: boolean, dontAskAgain: boolean) => Promise<void>;
+  /** Remember "don't ask again" for a context confirmed outside the dialog. */
+  dismissContext: (context: TagWriteContext) => void;
   resetDismissals: () => void;
 }
 
@@ -57,6 +59,12 @@ export const useTagWriteConfirmStore = create<TagWriteConfirmState>(
       // Let the dialog finish closing before the save starts its own UI work.
       if (confirmed) await afterUiTransition();
       prompt.resolve(confirmed);
+    },
+
+    dismissContext: (context) => {
+      const dismissed = { ...get().dismissed, [context]: true };
+      saveTagWriteDismissals(dismissed);
+      set({ dismissed });
     },
 
     resetDismissals: () => {

@@ -34,11 +34,13 @@ describe("tagWriteConfirmPreferences", () => {
       track: true,
       album: true,
       artist: false,
+      rating: true,
     });
     expect(loadTagWriteDismissals()).toEqual({
       track: true,
       album: true,
       artist: false,
+      rating: true,
     });
   });
 

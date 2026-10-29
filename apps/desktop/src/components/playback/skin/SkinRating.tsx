@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { applyTrackRating } from "../../../lib/applyTrackRating";
+import { confirmAndApplyTrackRatings } from "../../../lib/applyTrackRating";
 import { findPlaybackTrack } from "../../../lib/playbackTrack";
 import { skinDragRegionNoneProps } from "../../../lib/skinDragRegion";
 import { useSkinControlEnabled } from "../../../lib/skinBinds";
@@ -38,7 +38,9 @@ export function SkinRating({ node }: { node: RatingNode }) {
   const onChange = useCallback(
     (rating: number) => {
       if (!track) return;
-      applyTrackRating(track, rating, updateTrackInLibrary);
+      void confirmAndApplyTrackRatings([track], rating, updateTrackInLibrary, {
+        native: true,
+      });
     },
     [track, updateTrackInLibrary],
   );

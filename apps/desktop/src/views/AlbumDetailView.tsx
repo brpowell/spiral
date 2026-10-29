@@ -5,7 +5,7 @@ import {
   getAlbumByKey,
   groupAlbumTracksByDisc,
 } from "../lib/albums";
-import { applyTrackRating } from "../lib/applyTrackRating";
+import { confirmAndApplyTrackRatings } from "../lib/applyTrackRating";
 import { formatDurationNatural } from "../lib/format";
 import { linkableArtistKey } from "../lib/trackNavigation";
 import type { CanonicalRating } from "../lib/trackRating";
@@ -78,7 +78,7 @@ export function AlbumDetailView({
         .getState()
         .library.find((t) => t.id === trackId);
       if (!track) return;
-      applyTrackRating(track, rating, updateTrackInLibrary);
+      void confirmAndApplyTrackRatings([track], rating, updateTrackInLibrary);
     },
     [updateTrackInLibrary],
   );
