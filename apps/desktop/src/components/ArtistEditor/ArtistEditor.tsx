@@ -105,6 +105,7 @@ export function ArtistEditor() {
   const [artSourcePath, setArtSourcePath] = useState<string | null>(null);
   const [artCrop, setArtCrop] = useState<ImageCrop | null>(null);
   const [cropFromFetch, setCropFromFetch] = useState(false);
+  const [cropInitial, setCropInitial] = useState<ImageCrop | null>(null);
   const [loadingCoverUrl, setLoadingCoverUrl] = useState<string | null>(null);
   const [cropApplying, setCropApplying] = useState(false);
   const cropFetchRef = useRef(0);
@@ -218,6 +219,18 @@ export function ArtistEditor() {
     }
   };
 
+  // Re-crop from the original source when there is one, so the previous crop
+  // can be adjusted instead of cropping an already-cropped preview.
+  const handleEditArt = () => {
+    if (artSourcePath) {
+      setCropInitial(artCrop);
+      setCropModalSourcePath(artSourcePath);
+    } else if (pendingArtPath) {
+      setCropInitial(null);
+      setCropModalSourcePath(pendingArtPath);
+    }
+  };
+
   const handleChangeArt = async () => {
     const path = await pickImageFile();
     if (path) setCropModalSourcePath(path);
@@ -284,6 +297,7 @@ export function ArtistEditor() {
   const closeCropModal = () => {
     cropFetchRef.current += 1;
     setCropModalSourcePath(null);
+    setCropInitial(null);
     setCropFromFetch(false);
   };
 
@@ -585,6 +599,7 @@ export function ArtistEditor() {
                         onArtDrop={(e) => void handleArtDrop(e)}
                         onChangeArt={() => void handleChangeArt()}
                         onFetchArt={() => void handleFetchArt()}
+                        onEditArt={handleEditArt}
                       />
                     </TabPanel>
 
@@ -666,6 +681,7 @@ export function ArtistEditor() {
         open={cropModalSourcePath != null}
         filePath={cropModalSourcePath}
         busy={cropApplying}
+        initialCrop={cropInitial}
         aspect={1}
         round
         onApply={handleCropApply}

@@ -51,6 +51,7 @@
     "mixedValues": "Multiple values",
     "chooseFromFile": "Choose from file",
     "fetchArt": "Fetch Art",
+    "editImage": "Edit image",
     "artTypes": {
       "front": "Front",
       "portrait": "Portrait"
