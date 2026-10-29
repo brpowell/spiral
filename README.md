@@ -105,7 +105,7 @@ Swap the whole app with a theme, or jump into skin mode for a compact, player-fo
 
 ## Install
 
-Download Spiral from the **[website](https://spiralpowered.com/download)**, or grab the build for your platform from the **[latest GitHub release](https://github.com/brpowell/spiral/releases/latest)**. Once installed, Spiral keeps itself up to date.
+Download Spiral from the **[website](https://spiralpowered.com/downloads)**, or grab the build for your platform from the **[latest GitHub release](https://github.com/brpowell/spiral/releases/latest)**. Once installed, Spiral keeps itself up to date.
 
 <details>
 <summary><b>macOS</b> &nbsp;<code>.dmg</code>, universal (Apple Silicon and Intel)</summary>
