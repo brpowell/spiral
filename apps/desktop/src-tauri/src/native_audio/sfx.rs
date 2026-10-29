@@ -11,6 +11,10 @@ use std::sync::{Arc, LazyLock, Mutex};
 /// Voices that may sound at once; a burst of clicks past this drops the oldest.
 pub const MAX_VOICES: usize = 8;
 
+/// Level applied to every UI sound (about -9 dB). Clips are authored hot and
+/// ignore the volume slider, so they need their own headroom under the music.
+pub const SFX_LEVEL: f32 = 0.35;
+
 /// A decoded clip: interleaved f32 at its own rate and channel count.
 #[derive(Debug, PartialEq)]
 pub struct SfxClip {
@@ -181,7 +185,7 @@ impl SfxVoice {
                 };
                 let a = clip.samples[i0 * channels + src_ch];
                 let b = clip.samples[i1 * channels + src_ch];
-                *slot += a + (b - a) * t;
+                *slot += (a + (b - a) * t) * SFX_LEVEL;
             }
             self.pos += step;
         }
@@ -304,13 +308,16 @@ mod tests {
         voice.mix_into(&mut out, 2, 48_000.0);
         assert!(!voice.finished());
         assert!(
-            (out[0] - 0.5).abs() < 1e-3 && (out[1] - 0.5).abs() < 1e-3,
+            (out[0] - 0.5 * SFX_LEVEL).abs() < 1e-3 && (out[1] - 0.5 * SFX_LEVEL).abs() < 1e-3,
             "mono → both"
         );
         out.fill(0.0);
         voice.mix_into(&mut out, 2, 48_000.0);
         assert!(voice.finished());
-        assert!(out[(100 - 64 - 1) * 2] > 0.4, "last frames of the clip");
+        assert!(
+            out[(100 - 64 - 1) * 2] > 0.4 * SFX_LEVEL,
+            "last frames of the clip"
+        );
         assert_eq!(out[(100 - 64) * 2], 0.0, "silence after the clip ends");
     }
 
@@ -321,7 +328,7 @@ mod tests {
         let mut voice = SfxVoice::new(1, clip);
         let mut out = vec![0.0; 300 * 2];
         voice.mix_into(&mut out, 2, 48_000.0);
-        let audible = out.chunks(2).filter(|f| f[0] > 0.1).count();
+        let audible = out.chunks(2).filter(|f| f[0] > 0.1 * SFX_LEVEL).count();
         assert!(
             (196..=201).contains(&audible),
             "half-rate clip lasts twice as long: {audible}"
@@ -335,7 +342,7 @@ mod tests {
         let mut voice = SfxVoice::new(1, clip);
         let mut out = vec![0.5; 10 * 2];
         voice.mix_into(&mut out, 2, 48_000.0);
-        assert!((out[0] - 0.75).abs() < 1e-3);
+        assert!((out[0] - (0.5 + 0.25 * SFX_LEVEL)).abs() < 1e-3);
     }
 
     #[test]
