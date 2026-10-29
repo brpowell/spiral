@@ -23,9 +23,8 @@ No ads. No algorithms. No tracking. No internet required. Just your collection, 
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux-202c0c?style=flat-square)](#install)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support%20Spiral-FFDD00?logo=buymeacoffee&logoColor=black&style=flat-square)](https://buymeacoffee.com/brpowell)
 
-**[Download](https://github.com/brpowell/spiral/releases/latest)** &nbsp;·&nbsp;
+**[Download](#install)** &nbsp;·&nbsp;
 **[Website](https://spiralpowered.com)** &nbsp;·&nbsp;
-**[Contribute](CONTRIBUTING.md)** &nbsp;·&nbsp;
 **[Support the project](#supporting-the-project)**
 
 <br>
@@ -106,17 +105,13 @@ Swap the whole app with a theme, or jump into skin mode for a compact, player-fo
 
 ## Install
 
-Grab the build for your platform from the **[latest release](https://github.com/brpowell/spiral/releases/latest)**. Once installed, Spiral keeps itself up to date.
+Download Spiral from the **[website](https://spiralpowered.com/downloads)**, or grab the build for your platform from the **[latest GitHub release](https://github.com/brpowell/spiral/releases/latest)**. Once installed, Spiral keeps itself up to date.
 
 <details>
 <summary><b>macOS</b> &nbsp;<code>.dmg</code>, universal (Apple Silicon and Intel)</summary>
 <br>
 
-Builds are not yet signed or notarized by Apple, so macOS may say _"Spiral" is damaged and can't be opened._ The file is fine, I'm working on this. After dragging Spiral to Applications, clear the download quarantine flag and open it again:
-
-```bash
-xattr -cr /Applications/Spiral.app
-```
+Builds are signed and notarized by Apple. Open the `.dmg` and drag Spiral to Applications.
 
 </details>
 
