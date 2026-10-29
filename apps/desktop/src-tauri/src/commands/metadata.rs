@@ -100,6 +100,36 @@ pub async fn cache_art_from_file(
     .map_err(|e| e.to_string())?
 }
 
+/// Encoded sizes (bytes) of the cropped result at each output cap, plus the
+/// source file's own size, so the editor can show what a size choice will save.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MeasuredArtSizes {
+    source_bytes: u64,
+    output_bytes: Vec<u64>,
+}
+
+#[tauri::command]
+pub async fn measure_art_sizes(
+    app: AppHandle,
+    source_path: String,
+    crop: crate::image_crop::ImageCrop,
+    max_edges: Vec<Option<u32>>,
+) -> Result<MeasuredArtSizes, String> {
+    path_scope::ensure_allowed(&app, &source_path)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let bytes =
+            std::fs::read(&source_path).map_err(|e| format!("Failed to read image: {e}"))?;
+        let output_bytes = crate::image_crop::measure_baked_sizes(&bytes, crop, &max_edges)?;
+        Ok(MeasuredArtSizes {
+            source_bytes: bytes.len() as u64,
+            output_bytes,
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 pub fn cache_art_from_bytes(
     app: AppHandle,

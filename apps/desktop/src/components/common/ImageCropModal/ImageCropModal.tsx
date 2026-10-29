@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import { assetUrlFromPath } from "../../../lib/assetUrl";
 import { imageOutputSizeOptions, type ImageCrop } from "../../../lib/imageCrop";
 import { Button } from "../Button/Button";
-import { NativeSelect } from "../NativeSelect/NativeSelect";
+import { useOutputSizes } from "../../../hooks/useOutputSizes";
+import { formatBytes } from "../../../lib/formatBytes";
+import { Select } from "../Select/Select";
 import { ImageCropper } from "../ImageCropper/ImageCropper";
 import {
   Modal,
@@ -77,6 +79,16 @@ export function ImageCropModal({
     showSizeOptions && natural && crop
       ? imageOutputSizeOptions(natural.width, natural.height, crop)
       : [];
+  const selectedIndex = Math.max(
+    0,
+    sizeOptions.findIndex((o) => o.maxEdge === maxEdge),
+  );
+  const measured = useOutputSizes(
+    filePath,
+    crop,
+    sizeOptions.map((option) => option.maxEdge),
+    sizeOptions.length > 1,
+  );
   // A preset stops being offered once the crop gets small enough.
   const effectiveMaxEdge = sizeOptions.some((o) => o.maxEdge === maxEdge)
     ? maxEdge
@@ -88,7 +100,7 @@ export function ImageCropModal({
   };
 
   return (
-    <Modal open={open} onClose={handleClose} size="sm" labelledBy={titleId}>
+    <Modal open={open} onClose={handleClose} size="lg" labelledBy={titleId}>
       <ModalHeader>
         <ModalHeaderMain>
           <ModalTitle id={titleId}>
@@ -107,31 +119,48 @@ export function ImageCropModal({
             disabled={busy}
             onNaturalSize={setNatural}
             className="image-crop-modal__cropper"
-          />
-        ) : null}
-        {sizeOptions.length > 1 ? (
-          <label className="image-crop-modal__size">
-            <span className="image-crop-modal__size-label">
-              {t("common:imageCrop.size")}
-            </span>
-            <NativeSelect
-              aria-label={t("common:imageCrop.size")}
-              value={String(effectiveMaxEdge ?? "full")}
-              disabled={busy}
-              onChange={(value) =>
-                setMaxEdge(value === "full" ? null : Number(value))
-              }
-              options={sizeOptions.map((option) => ({
-                value: String(option.maxEdge ?? "full"),
-                label: t(
-                  option.maxEdge == null
-                    ? "common:imageCrop.sizeFull"
-                    : "common:imageCrop.sizeOption",
-                  { width: option.width, height: option.height },
-                ),
-              }))}
-            />
-          </label>
+          >
+            {sizeOptions.length > 1 ? (
+              <label className="image-crop-modal__size">
+                <span className="image-crop-modal__size-label">
+                  {t("common:imageCrop.size")}
+                </span>
+                <Select
+                  aria-label={t("common:imageCrop.size")}
+                  value={String(effectiveMaxEdge ?? "full")}
+                  disabled={busy}
+                  onChange={(value) =>
+                    setMaxEdge(value === "full" ? null : Number(value))
+                  }
+                  options={sizeOptions.map((option, index) => ({
+                    value: String(option.maxEdge ?? "full"),
+                    label: t(
+                      option.maxEdge == null
+                        ? "common:imageCrop.sizeFull"
+                        : "common:imageCrop.sizeOption",
+                      { width: option.width, height: option.height },
+                    ),
+                    description: measured
+                      ? formatBytes(measured.outputBytes[index])
+                      : undefined,
+                  }))}
+                />
+                <span
+                  className="image-crop-modal__size-estimate"
+                  aria-live="polite"
+                >
+                  {measured
+                    ? t("common:imageCrop.sizeEstimate", {
+                        output: formatBytes(
+                          measured.outputBytes[selectedIndex] ?? 0,
+                        ),
+                        source: formatBytes(measured.sourceBytes),
+                      })
+                    : t("common:imageCrop.sizeMeasuring")}
+                </span>
+              </label>
+            ) : null}
+          </ImageCropper>
         ) : null}
       </ModalBody>
       <ModalFooter onCancel={handleClose}>

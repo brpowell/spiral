@@ -552,6 +552,14 @@ export async function cacheArtFromFile(
   });
 }
 
+export async function measureArtSizes(
+  sourcePath: string,
+  crop: ImageCrop,
+  maxEdges: (number | null)[],
+): Promise<{ sourceBytes: number; outputBytes: number[] }> {
+  return invoke("measure_art_sizes", { sourcePath, crop, maxEdges });
+}
+
 export async function storeCroppedPlaylistArt(
   playlistId: number,
   title: string,

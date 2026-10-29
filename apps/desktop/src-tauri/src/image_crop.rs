@@ -50,14 +50,8 @@ impl ImageCrop {
     }
 }
 
-/// Decode bytes, apply EXIF orientation, crop, optionally downscale, and encode.
-///
-/// Returns `(encoded_bytes, extension)` where extension is `"jpg"` or `"png"`.
-pub fn bake_cropped_image(
-    source_bytes: &[u8],
-    crop: ImageCrop,
-    max_edge: u32,
-) -> Result<(Vec<u8>, &'static str), String> {
+/// Decode bytes and apply EXIF orientation.
+fn decode_oriented(source_bytes: &[u8]) -> Result<DynamicImage, String> {
     let reader = ImageReader::new(Cursor::new(source_bytes))
         .with_guessed_format()
         .map_err(|e| format!("failed to sniff image format: {e}"))?;
@@ -71,7 +65,15 @@ pub fn bake_cropped_image(
     let mut img =
         DynamicImage::from_decoder(decoder).map_err(|e| format!("failed to decode image: {e}"))?;
     img.apply_orientation(orientation);
+    Ok(img)
+}
 
+/// Crop `img` to `crop`, then scale it down so its long edge is at most `max_edge`.
+fn crop_and_resize(
+    img: &DynamicImage,
+    crop: ImageCrop,
+    max_edge: u32,
+) -> Result<DynamicImage, String> {
     let (nw, nh) = img.dimensions();
     if nw == 0 || nh == 0 {
         return Err("image has zero dimensions".into());
@@ -90,21 +92,22 @@ pub fn bake_cropped_image(
     }
 
     let cropped = img.crop_imm(x, y, w, h);
-    let resized = if max_edge > 0 && (w > max_edge || h > max_edge) {
+    Ok(if max_edge > 0 && (w > max_edge || h > max_edge) {
         cropped.resize(max_edge, max_edge, FilterType::Lanczos3)
     } else {
         cropped
-    };
+    })
+}
 
-    let has_alpha = image_has_transparency(&resized);
-    if has_alpha {
+/// Encode as PNG when the image has transparency, otherwise as JPEG.
+fn encode_art(img: &DynamicImage) -> Result<(Vec<u8>, &'static str), String> {
+    if image_has_transparency(img) {
         let mut out = Vec::new();
-        resized
-            .write_to(&mut Cursor::new(&mut out), ImageFormat::Png)
+        img.write_to(&mut Cursor::new(&mut out), ImageFormat::Png)
             .map_err(|e| format!("failed to encode PNG: {e}"))?;
         Ok((out, "png"))
     } else {
-        let rgb = resized.to_rgb8();
+        let rgb = img.to_rgb8();
         let mut out = Vec::new();
         let encoder = JpegEncoder::new_with_quality(&mut out, JPEG_QUALITY);
         encoder
@@ -117,6 +120,35 @@ pub fn bake_cropped_image(
             .map_err(|e| format!("failed to encode JPEG: {e}"))?;
         Ok((out, "jpg"))
     }
+}
+
+/// Decode bytes, apply EXIF orientation, crop, optionally downscale, and encode.
+///
+/// Returns `(encoded_bytes, extension)` where extension is `"jpg"` or `"png"`.
+pub fn bake_cropped_image(
+    source_bytes: &[u8],
+    crop: ImageCrop,
+    max_edge: u32,
+) -> Result<(Vec<u8>, &'static str), String> {
+    let img = decode_oriented(source_bytes)?;
+    encode_art(&crop_and_resize(&img, crop, max_edge)?)
+}
+
+/// Encoded byte size of the baked result for each requested longest-edge cap,
+/// without writing anything. Decodes the source once.
+pub fn measure_baked_sizes(
+    source_bytes: &[u8],
+    crop: ImageCrop,
+    max_edges: &[Option<u32>],
+) -> Result<Vec<u64>, String> {
+    let img = decode_oriented(source_bytes)?;
+    max_edges
+        .iter()
+        .map(|&edge| {
+            let resized = crop_and_resize(&img, crop, clamp_max_edge(edge))?;
+            encode_art(&resized).map(|(bytes, _)| bytes.len() as u64)
+        })
+        .collect()
 }
 
 fn image_has_transparency(img: &DynamicImage) -> bool {
@@ -207,5 +239,18 @@ mod tests {
         assert_eq!(clamp_max_edge(Some(1000)), 1000);
         assert_eq!(clamp_max_edge(Some(0)), MIN_MAX_EDGE);
         assert_eq!(clamp_max_edge(Some(99_999)), MAX_DISPLAY_EDGE);
+    }
+
+    #[test]
+    fn measure_matches_bake_and_shrinks_with_smaller_edges() {
+        let img = RgbImage::from_fn(600, 600, |x, y| {
+            Rgb([(x % 251) as u8, (y % 241) as u8, ((x * y) % 239) as u8])
+        });
+        let bytes = encode_png_rgb(&img);
+        let crop = ImageCrop::full_frame();
+        let sizes = measure_baked_sizes(&bytes, crop, &[None, Some(300), Some(100)]).unwrap();
+        let (baked, _) = bake_cropped_image(&bytes, crop, MAX_DISPLAY_EDGE).unwrap();
+        assert_eq!(sizes[0], baked.len() as u64);
+        assert!(sizes[0] > sizes[1] && sizes[1] > sizes[2]);
     }
 }

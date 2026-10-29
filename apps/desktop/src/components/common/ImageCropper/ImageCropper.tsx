@@ -4,6 +4,7 @@ import {
   useState,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   type WheelEvent as ReactWheelEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -31,6 +32,8 @@ export type ImageCropperProps = {
   disabled?: boolean;
   /** Called with the source image's pixel size once it has loaded. */
   onNaturalSize?: (size: { width: number; height: number }) => void;
+  /** Extra controls shown under the zoom slider. */
+  children?: ReactNode;
 };
 
 export function ImageCropper({
@@ -42,6 +45,7 @@ export function ImageCropper({
   className = "",
   disabled = false,
   onNaturalSize,
+  children,
 }: ImageCropperProps) {
   const { t } = useTranslation();
   const frameRef = useRef<HTMLDivElement>(null);
@@ -213,6 +217,7 @@ export function ImageCropper({
             onChange={(e) => handleZoomChange(Number(e.target.value))}
           />
         </label>
+        {children}
       </div>
     </div>
   );

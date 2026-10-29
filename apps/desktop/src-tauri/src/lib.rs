@@ -224,6 +224,7 @@ pub fn run() {
             commands::metadata::pick_image_file,
             commands::metadata::cache_art_from_bytes,
             commands::metadata::cache_art_from_file,
+            commands::metadata::measure_art_sizes,
             commands::metadata::cache_art_from_url,
             commands::metadata::resolve_cached_art_path,
             commands::metadata::ensure_art_row_thumb,
