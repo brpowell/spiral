@@ -1,10 +1,11 @@
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { assetUrlFromPath } from "../../../lib/assetUrl";
 import { imageOutputSizeOptions, type ImageCrop } from "../../../lib/imageCrop";
 import { Button } from "../Button/Button";
 import { useOutputSizes } from "../../../hooks/useOutputSizes";
 import { formatBytes } from "../../../lib/formatBytes";
+import { clearArtMeasureCache } from "../../../lib/tauri";
 import { Select } from "../Select/Select";
 import { ImageCropper } from "../ImageCropper/ImageCropper";
 import {
@@ -93,6 +94,14 @@ export function ImageCropModal({
   const effectiveMaxEdge = sizeOptions.some((o) => o.maxEdge === maxEdge)
     ? maxEdge
     : null;
+
+  // The backend keeps the decoded source for measuring; free it on close.
+  useEffect(() => {
+    if (!open || !showSizeOptions) return;
+    return () => {
+      void clearArtMeasureCache().catch(() => {});
+    };
+  }, [open, showSizeOptions]);
 
   const canApply = open && src != null && crop != null && !busy;
   const handleClose = () => {

@@ -17,6 +17,7 @@ use crate::path_scope;
 use crate::settings;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Manager, State};
 
@@ -69,13 +70,15 @@ pub async fn cache_art_from_file(
     tauri::async_runtime::spawn_blocking(move || {
         let bytes =
             std::fs::read(&source_path).map_err(|e| format!("Failed to read image: {e}"))?;
+        let max_edge = crate::image_crop::clamp_max_edge(max_edge);
+        // An unedited pick keeps the original file instead of being re-encoded.
+        let crop = match crop {
+            Some(crop) if crate::image_crop::is_passthrough(&bytes, crop, max_edge)? => None,
+            other => other,
+        };
         let (bytes, ext) = match crop {
             Some(crop) => {
-                let (baked, ext) = crate::image_crop::bake_cropped_image(
-                    &bytes,
-                    crop,
-                    crate::image_crop::clamp_max_edge(max_edge),
-                )?;
+                let (baked, ext) = crate::image_crop::bake_cropped_image(&bytes, crop, max_edge)?;
                 (baked, ext)
             }
             None => (
@@ -109,6 +112,37 @@ pub struct MeasuredArtSizes {
     output_bytes: Vec<u64>,
 }
 
+/// The last source measured, kept decoded so dragging or zooming only has to
+/// crop and encode. Dropped when the editor closes.
+type MeasureCacheEntry = (
+    PathBuf,
+    std::time::SystemTime,
+    u64,
+    Arc<crate::image_crop::DecodedSource>,
+);
+
+static MEASURE_CACHE: Mutex<Option<MeasureCacheEntry>> = Mutex::new(None);
+
+fn decoded_source_for_measure(
+    path: &Path,
+) -> Result<(Arc<crate::image_crop::DecodedSource>, u64), String> {
+    let meta = std::fs::metadata(path).map_err(|e| format!("Failed to read image: {e}"))?;
+    let modified = meta.modified().map_err(|e| e.to_string())?;
+    let len = meta.len();
+    if let Some((cached_path, cached_modified, cached_len, source)) =
+        MEASURE_CACHE.lock().map_err(|e| e.to_string())?.as_ref()
+    {
+        if cached_path == path && *cached_modified == modified && *cached_len == len {
+            return Ok((Arc::clone(source), len));
+        }
+    }
+    let bytes = std::fs::read(path).map_err(|e| format!("Failed to read image: {e}"))?;
+    let source = Arc::new(crate::image_crop::decode_source(&bytes)?);
+    *MEASURE_CACHE.lock().map_err(|e| e.to_string())? =
+        Some((path.to_path_buf(), modified, len, Arc::clone(&source)));
+    Ok((source, len))
+}
+
 #[tauri::command]
 pub async fn measure_art_sizes(
     app: AppHandle,
@@ -118,16 +152,23 @@ pub async fn measure_art_sizes(
 ) -> Result<MeasuredArtSizes, String> {
     path_scope::ensure_allowed(&app, &source_path)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let bytes =
-            std::fs::read(&source_path).map_err(|e| format!("Failed to read image: {e}"))?;
-        let output_bytes = crate::image_crop::measure_baked_sizes(&bytes, crop, &max_edges)?;
+        let (source, source_bytes) = decoded_source_for_measure(Path::new(&source_path))?;
+        let output_bytes = crate::image_crop::measure_decoded_sizes(&source, crop, &max_edges)?;
         Ok(MeasuredArtSizes {
-            source_bytes: bytes.len() as u64,
+            source_bytes,
             output_bytes,
         })
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Frees the decoded source kept for [`measure_art_sizes`].
+#[tauri::command]
+pub fn clear_art_measure_cache() {
+    if let Ok(mut cache) = MEASURE_CACHE.lock() {
+        *cache = None;
+    }
 }
 
 #[tauri::command]

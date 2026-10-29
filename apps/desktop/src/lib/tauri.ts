@@ -560,6 +560,11 @@ export async function measureArtSizes(
   return invoke("measure_art_sizes", { sourcePath, crop, maxEdges });
 }
 
+/** Frees the decoded source the backend keeps while sizes are being measured. */
+export async function clearArtMeasureCache(): Promise<void> {
+  return invoke<void>("clear_art_measure_cache");
+}
+
 export async function storeCroppedPlaylistArt(
   playlistId: number,
   title: string,
