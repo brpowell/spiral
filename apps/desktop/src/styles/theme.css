@@ -118,6 +118,8 @@
     transparent
   );
   --color-interactive-selected-text: var(--color-accent);
+  /* Link text: the accent, washed per theme so it clears AA on page surfaces. */
+  --color-link: var(--color-interactive-selected-text);
 
   /*
    * Control material — adaptive washes for form fields + secondary/outline
@@ -212,7 +214,8 @@
   --z-modal: 1000;
 
   --window-titlebar-height: 32px;
-  --mac-titlebar-height: 28px;
+  --mac-titlebar-height: 32px;
+  --mac-titlebar-height-library: 28px;
   --mac-traffic-inset: 78px;
   --app-header-height: 72px;
   --now-playing-height: var(--app-header-height);
