@@ -22,7 +22,7 @@ import {
   IconRemoveFromQueue,
   IconInfo,
 } from "../components/icons";
-import { applyTrackRating } from "../lib/applyTrackRating";
+import { confirmAndApplyTrackRatings } from "../lib/applyTrackRating";
 import {
   revealInFileManagerLabel,
   revealTrackInFileManager,
@@ -173,10 +173,12 @@ export function useTrackMenu(
 
   const handleRatingChange = useCallback(
     (rating: CanonicalRating) => {
-      for (const contextTrack of contextTracks) {
-        applyTrackRating(contextTrack, rating, updateTrackInLibrary);
-      }
       closeMenu();
+      void confirmAndApplyTrackRatings(
+        contextTracks,
+        rating,
+        updateTrackInLibrary,
+      );
     },
     [closeMenu, contextTracks, updateTrackInLibrary],
   );
