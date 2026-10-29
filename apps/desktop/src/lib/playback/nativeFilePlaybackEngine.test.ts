@@ -177,7 +177,7 @@ describe("NativeFilePlaybackEngine", () => {
     const gains = commandsNamed("set_file_playback_gain").map(
       (call) => (call[1] as { gain: number }).gain,
     );
-    expect(gains).toEqual([0.5, 0.25, 0, 0.25]);
+    expect(gains).toEqual([0.25, 0.125, 0, 0.125]);
   });
 
   it("sends balance to the session, including one set before load", async () => {
@@ -200,7 +200,7 @@ describe("NativeFilePlaybackEngine", () => {
     engine.setVolume(0.3);
     await engine.load(SOURCE);
     expect(commandsNamed("set_file_playback_gain")).toEqual([
-      ["set_file_playback_gain", { sessionId: 7, gain: 0.3 }],
+      ["set_file_playback_gain", { sessionId: 7, gain: 0.15 }],
     ]);
   });
 
@@ -267,7 +267,7 @@ describe("NativeFilePlaybackEngine crossfade ramps", () => {
     expect(commandsNamed("ramp_file_playback_gain")).toEqual([
       [
         "ramp_file_playback_gain",
-        { sessionId: 7, fromGain: 0, toGain: 1, durationMs: 7000 },
+        { sessionId: 7, fromGain: 0, toGain: 0.5, durationMs: 7000 },
       ],
     ]);
   });
@@ -280,7 +280,7 @@ describe("NativeFilePlaybackEngine crossfade ramps", () => {
     engine.rampCrossfadeMix(0, 4);
     expect(commandsNamed("ramp_file_playback_gain")[0]![1]).toEqual({
       sessionId: 7,
-      fromGain: 0.5,
+      fromGain: 0.25,
       toGain: 0,
       durationMs: 4000,
     });
@@ -298,7 +298,7 @@ describe("NativeFilePlaybackEngine crossfade ramps", () => {
     const args = commandsNamed("ramp_file_playback_gain")[0]![1] as {
       fromGain: number;
     };
-    expect(args.fromGain).toBeCloseTo(0.5, 1);
+    expect(args.fromGain).toBeCloseTo(0.25, 1);
   });
 
   it("keeps the fade on schedule when volume changes mid-fade", async () => {
@@ -315,8 +315,8 @@ describe("NativeFilePlaybackEngine crossfade ramps", () => {
       toGain: number;
       durationMs: number;
     };
-    expect(ramp.fromGain).toBeCloseTo(0.2, 1); // 0.5 × (4s of 10s)
-    expect(ramp.toGain).toBeCloseTo(0.5, 5);
+    expect(ramp.fromGain).toBeCloseTo(0.1, 1); // 0.5 × 0.5 headroom × (4s of 10s)
+    expect(ramp.toGain).toBeCloseTo(0.25, 5);
     expect(ramp.durationMs).toBeGreaterThan(5900);
     expect(ramp.durationMs).toBeLessThanOrEqual(6000);
     expect(commandsNamed("set_file_playback_gain")).toHaveLength(0);
@@ -334,7 +334,7 @@ describe("NativeFilePlaybackEngine crossfade ramps", () => {
     expect(commandsNamed("ramp_file_playback_gain")).toHaveLength(0);
     expect(commandsNamed("set_file_playback_gain").slice(-1)[0]![1]).toEqual({
       sessionId: 7,
-      gain: 0.8,
+      gain: 0.4,
     });
   });
 
@@ -345,7 +345,7 @@ describe("NativeFilePlaybackEngine crossfade ramps", () => {
     expect(commandsNamed("ramp_file_playback_gain")).toHaveLength(0);
     expect(commandsNamed("set_file_playback_gain")[0]![1]).toEqual({
       sessionId: 7,
-      gain: 0.25,
+      gain: 0.125,
     });
   });
 

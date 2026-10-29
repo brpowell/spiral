@@ -86,7 +86,7 @@ describe("NativeCdPlaybackEngine", () => {
     });
     expect(commandsNamed("set_cd_playback_gain").slice(-1)[0]![1]).toEqual({
       sessionId: 20,
-      gain: 0.5,
+      gain: 0.25, // volume 0.5 under the 0.5 master headroom
     });
     expect(commandsNamed("set_file_playback_gain")).toHaveLength(0);
   });

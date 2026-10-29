@@ -15,6 +15,12 @@ import {
 } from "./nativeTransport";
 import type { PlaybackCapabilities, PlaybackSource } from "./types";
 
+/**
+ * Fixed headroom (-6 dB) under the volume slider, so a mid system volume is not
+ * deafening at full app volume. The slider still spans silence to this ceiling.
+ */
+const MASTER_HEADROOM = 0.5;
+
 const NATIVE_FILE_CAPABILITIES: PlaybackCapabilities = {
   seek: true,
   scrubPreview: true,
@@ -87,7 +93,7 @@ export class NativePlaybackEngine {
   }
 
   private userGain(): number {
-    return this.muted ? 0 : this.volume;
+    return this.muted ? 0 : this.volume * MASTER_HEADROOM;
   }
 
   /** The crossfade mix right now, following a ramp in flight. */
