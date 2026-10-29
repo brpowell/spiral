@@ -88,7 +88,7 @@ export function ImageCropModal({
     filePath,
     crop,
     sizeOptions.map((option) => option.maxEdge),
-    sizeOptions.length > 1,
+    sizeOptions.length > 0,
     selectedIndex,
   );
   const selectedBytes = measured?.outputBytes[selectedIndex];
@@ -131,7 +131,7 @@ export function ImageCropModal({
             onNaturalSize={setNatural}
             className="image-crop-modal__cropper"
           >
-            {sizeOptions.length > 1 ? (
+            {sizeOptions.length > 0 ? (
               <label className="image-crop-modal__size">
                 <span className="image-crop-modal__size-label">
                   {t("common:imageCrop.size")}
@@ -139,7 +139,9 @@ export function ImageCropModal({
                 <Select
                   aria-label={t("common:imageCrop.size")}
                   value={String(effectiveMaxEdge ?? "full")}
-                  disabled={busy}
+                  // With one choice there is nothing to pick, but keep the control
+                  // so the layout doesn't jump as zooming changes the options.
+                  disabled={busy || sizeOptions.length < 2}
                   onChange={(value) =>
                     setMaxEdge(value === "full" ? null : Number(value))
                   }
