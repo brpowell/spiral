@@ -36,6 +36,8 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import { AlbumArtPicker } from "../AlbumEditor/AlbumArtPicker";
 import { AlbumEditorArtTab } from "../AlbumEditor/AlbumEditorArtTab";
+import { ImageCropModal } from "../common/ImageCropModal/ImageCropModal";
+import type { ImageCrop } from "../../lib/imageCrop";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import {
   Modal,
@@ -59,6 +61,7 @@ type CdTrackEditorTab = "details" | "art" | "musicbrainz";
 // Previews are staged in the app-data art cache and only written to their
 // real destination when the editor saves.
 const ART_PREVIEW_KEY = "staging:cd-track-editor";
+const ART_DOWNLOAD_KEY = "staging:cd-track-editor-download";
 
 export function CdTrackEditor() {
   const editingCdTrackIds = useCdStore((s) => s.editingCdTrackIds);
@@ -159,6 +162,24 @@ export function CdTrackEditor() {
     setField,
     setRating,
   } = useTrackMetadataForm(tracks, editingKey);
+  const [artCrop, setArtCrop] = useState<ImageCrop | null>(null);
+  const [artMaxEdge, setArtMaxEdge] = useState<number | null>(null);
+  const [cropModalSourcePath, setCropModalSourcePath] = useState<string | null>(
+    null,
+  );
+  const [cropInitial, setCropInitial] = useState<ImageCrop | null>(null);
+  const [cropInitialMaxEdge, setCropInitialMaxEdge] = useState<number | null>(
+    null,
+  );
+  const [cropApplying, setCropApplying] = useState(false);
+  const [preparingEdit, setPreparingEdit] = useState(false);
+
+  // The crop only means something while there is an art source to crop.
+  useEffect(() => {
+    if (artSourcePath) return;
+    setArtCrop(null);
+    setArtMaxEdge(null);
+  }, [artSourcePath]);
 
   useEffect(() => {
     setActiveTab("details");
@@ -269,15 +290,26 @@ export function CdTrackEditor() {
   } = useEditorDiscardPrompt(hasChanges, closeCdTrackEditor);
 
   const applyArtPath = useCallback(
-    async (sourcePath: string) => {
+    async (
+      sourcePath: string,
+      crop: ImageCrop | null = null,
+      maxEdge: number | null = null,
+    ) => {
       if (!discId) {
         setSaveError(t("library:cd.editor.missingDiscId"));
         return;
       }
       setSaveError(null);
       try {
-        const cached = await cacheArtFromFile(sourcePath, ART_PREVIEW_KEY);
+        const cached = await cacheArtFromFile(
+          sourcePath,
+          ART_PREVIEW_KEY,
+          crop,
+          maxEdge,
+        );
         setArtSourcePath(sourcePath);
+        setArtCrop(crop);
+        setArtMaxEdge(maxEdge);
         setSelectedCoverUrl(null);
         setSelectedCoverPreviewSrc(null);
         // The preview path is reused, so drop any URL cached for the last image.
@@ -296,6 +328,54 @@ export function CdTrackEditor() {
       setSelectedCoverPreviewSrc,
     ],
   );
+
+  const closeCropModal = () => {
+    setCropModalSourcePath(null);
+    setCropInitial(null);
+    setCropInitialMaxEdge(null);
+  };
+
+  const handleCropApply = async (crop: ImageCrop, maxEdge: number | null) => {
+    const source = cropModalSourcePath;
+    if (!source) return;
+    setCropApplying(true);
+    try {
+      await applyArtPath(source, crop, maxEdge);
+    } finally {
+      setCropApplying(false);
+      closeCropModal();
+    }
+  };
+
+  // Re-crop from the original source when there is one, so the previous crop
+  // can be adjusted. A fetched cover that is not on disk yet is staged first.
+  const handleEditArt = async () => {
+    setSaveError(null);
+    if (selectedCoverUrl) {
+      setPreparingEdit(true);
+      try {
+        const { path } = await cacheArtFromUrl(
+          selectedCoverUrl,
+          ART_DOWNLOAD_KEY,
+        );
+        setCropInitial(null);
+        setCropInitialMaxEdge(null);
+        setCropModalSourcePath(path);
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setPreparingEdit(false);
+      }
+    } else if (artSourcePath) {
+      setCropInitial(artCrop);
+      setCropInitialMaxEdge(artMaxEdge);
+      setCropModalSourcePath(artSourcePath);
+    } else if (pendingArtPath) {
+      setCropInitial(null);
+      setCropInitialMaxEdge(null);
+      setCropModalSourcePath(pendingArtPath);
+    }
+  };
 
   const handleChangeArt = async () => {
     const path = await pickImageFile();
@@ -376,7 +456,14 @@ export function CdTrackEditor() {
         .path;
     }
     if (artSourcePath) {
-      return cacheArtFromFile(artSourcePath, cdArtCacheKey(discId));
+      // The staged preview is already the baked result of the current source,
+      // crop and size, so copy it instead of baking again.
+      return cacheArtFromFile(
+        pendingArtPath ?? artSourcePath,
+        cdArtCacheKey(discId),
+        pendingArtPath ? null : artCrop,
+        pendingArtPath ? null : artMaxEdge,
+      );
     }
     return pendingArtPath;
   };
@@ -539,11 +626,12 @@ export function CdTrackEditor() {
                       <AlbumEditorArtTab
                         previewSrc={previewSrc}
                         artDragOver={artDragOver}
-                        fetchingArt={fetchingArt}
+                        fetchingArt={fetchingArt || preparingEdit}
                         onArtDragOver={setArtDragOver}
                         onArtDrop={(e) => void handleArtDrop(e)}
                         onChangeArt={() => void handleChangeArt()}
                         onFetchArt={() => void handleFetchArt()}
+                        onEditArt={() => void handleEditArt()}
                       />
                     </TabPanel>
 
@@ -625,6 +713,17 @@ export function CdTrackEditor() {
           />
         </>
       ) : null}
+      <ImageCropModal
+        open={cropModalSourcePath != null}
+        filePath={cropModalSourcePath}
+        busy={cropApplying}
+        aspect={1}
+        initialCrop={cropInitial}
+        initialMaxEdge={cropInitialMaxEdge}
+        showSizeOptions
+        onApply={handleCropApply}
+        onClose={closeCropModal}
+      />
     </Modal>
   );
 }

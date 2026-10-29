@@ -32,6 +32,8 @@ import { useCdStore } from "../../store/useCdStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import { AlbumArtPicker } from "../AlbumEditor/AlbumArtPicker";
 import { AlbumEditorArtTab } from "../AlbumEditor/AlbumEditorArtTab";
+import { ImageCropModal } from "../common/ImageCropModal/ImageCropModal";
+import type { ImageCrop } from "../../lib/imageCrop";
 import { EntityArt } from "../EntityArt/EntityArt";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import {
@@ -72,6 +74,7 @@ function formsEqual(a: CdAlbumEditorForm, b: CdAlbumEditorForm): boolean {
 // Previews are staged in the app-data art cache and only written to their
 // real destination when the editor saves.
 const ART_PREVIEW_KEY = "staging:cd-album-editor";
+const ART_DOWNLOAD_KEY = "staging:cd-album-editor-download";
 
 export function CdAlbumEditor() {
   const editingCdAlbumDriveId = useCdStore((s) => s.editingCdAlbumDriveId);
@@ -121,6 +124,17 @@ export function CdAlbumEditor() {
   const [pendingArtPath, setPendingArtPath] = useState<string | null>(null);
   const [originalArtPath, setOriginalArtPath] = useState<string | null>(null);
   const [artSourcePath, setArtSourcePath] = useState<string | null>(null);
+  const [artCrop, setArtCrop] = useState<ImageCrop | null>(null);
+  const [artMaxEdge, setArtMaxEdge] = useState<number | null>(null);
+  const [cropModalSourcePath, setCropModalSourcePath] = useState<string | null>(
+    null,
+  );
+  const [cropInitial, setCropInitial] = useState<ImageCrop | null>(null);
+  const [cropInitialMaxEdge, setCropInitialMaxEdge] = useState<number | null>(
+    null,
+  );
+  const [cropApplying, setCropApplying] = useState(false);
+  const [preparingEdit, setPreparingEdit] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [fetchingArt, setFetchingArt] = useState(false);
@@ -160,6 +174,8 @@ export function CdAlbumEditor() {
     setPendingArtPath(artPath);
     setOriginalArtPath(artPath);
     setArtSourcePath(null);
+    setArtCrop(null);
+    setArtMaxEdge(null);
     setCoverCandidates([]);
     setSelectedCoverUrl(null);
     setSelectedCoverPreviewSrc(null);
@@ -193,15 +209,26 @@ export function CdAlbumEditor() {
     setForm((prev) => (prev ? { ...prev, [field]: value } : prev));
   };
 
-  const applyArtPath = async (sourcePath: string) => {
+  const applyArtPath = async (
+    sourcePath: string,
+    crop: ImageCrop | null = null,
+    maxEdge: number | null = null,
+  ) => {
     if (!discId) {
       setSaveError(t("library:cd.editor.missingDiscId"));
       return;
     }
     setSaveError(null);
     try {
-      const cached = await cacheArtFromFile(sourcePath, ART_PREVIEW_KEY);
+      const cached = await cacheArtFromFile(
+        sourcePath,
+        ART_PREVIEW_KEY,
+        crop,
+        maxEdge,
+      );
       setArtSourcePath(sourcePath);
+      setArtCrop(crop);
+      setArtMaxEdge(maxEdge);
       setSelectedCoverUrl(null);
       setSelectedCoverPreviewSrc(null);
       // The preview path is reused, so drop any URL cached for the last image.
@@ -210,6 +237,54 @@ export function CdAlbumEditor() {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setSaveError(message);
+    }
+  };
+
+  const closeCropModal = () => {
+    setCropModalSourcePath(null);
+    setCropInitial(null);
+    setCropInitialMaxEdge(null);
+  };
+
+  const handleCropApply = async (crop: ImageCrop, maxEdge: number | null) => {
+    const source = cropModalSourcePath;
+    if (!source) return;
+    setCropApplying(true);
+    try {
+      await applyArtPath(source, crop, maxEdge);
+    } finally {
+      setCropApplying(false);
+      closeCropModal();
+    }
+  };
+
+  // Re-crop from the original source when there is one, so the previous crop
+  // can be adjusted. A fetched cover that is not on disk yet is staged first.
+  const handleEditArt = async () => {
+    setSaveError(null);
+    if (selectedCoverUrl) {
+      setPreparingEdit(true);
+      try {
+        const { path } = await cacheArtFromUrl(
+          selectedCoverUrl,
+          ART_DOWNLOAD_KEY,
+        );
+        setCropInitial(null);
+        setCropInitialMaxEdge(null);
+        setCropModalSourcePath(path);
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setPreparingEdit(false);
+      }
+    } else if (artSourcePath) {
+      setCropInitial(artCrop);
+      setCropInitialMaxEdge(artMaxEdge);
+      setCropModalSourcePath(artSourcePath);
+    } else if (pendingArtPath) {
+      setCropInitial(null);
+      setCropInitialMaxEdge(null);
+      setCropModalSourcePath(pendingArtPath);
     }
   };
 
@@ -276,6 +351,8 @@ export function CdAlbumEditor() {
     setSelectedCoverUrl(url);
     setSelectedCoverPreviewSrc(previewSrcForFetchedCover(url, coverCandidates));
     setArtSourcePath(null);
+    setArtCrop(null);
+    setArtMaxEdge(null);
     setArtPickerOpen(false);
     setCoverCandidates([]);
     setFetchMessage(null);
@@ -288,7 +365,14 @@ export function CdAlbumEditor() {
         .path;
     }
     if (artSourcePath) {
-      return cacheArtFromFile(artSourcePath, cdArtCacheKey(discId));
+      // The staged preview is already the baked result of the current source,
+      // crop and size, so copy it instead of baking again.
+      return cacheArtFromFile(
+        pendingArtPath ?? artSourcePath,
+        cdArtCacheKey(discId),
+        pendingArtPath ? null : artCrop,
+        pendingArtPath ? null : artMaxEdge,
+      );
     }
     return pendingArtPath;
   };
@@ -523,11 +607,12 @@ export function CdAlbumEditor() {
                       <AlbumEditorArtTab
                         previewSrc={previewSrc}
                         artDragOver={artDragOver}
-                        fetchingArt={fetchingArt}
+                        fetchingArt={fetchingArt || preparingEdit}
                         onArtDragOver={setArtDragOver}
                         onArtDrop={(e) => void handleArtDrop(e)}
                         onChangeArt={() => void handleChangeArt()}
                         onFetchArt={() => void handleFetchArt()}
+                        onEditArt={() => void handleEditArt()}
                       />
                     </TabPanel>
 
@@ -604,6 +689,17 @@ export function CdAlbumEditor() {
           />
         </>
       ) : null}
+      <ImageCropModal
+        open={cropModalSourcePath != null}
+        filePath={cropModalSourcePath}
+        busy={cropApplying}
+        aspect={1}
+        initialCrop={cropInitial}
+        initialMaxEdge={cropInitialMaxEdge}
+        showSizeOptions
+        onApply={handleCropApply}
+        onClose={closeCropModal}
+      />
     </Modal>
   );
 }
