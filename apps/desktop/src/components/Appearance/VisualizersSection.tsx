@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { skinPreviewUrl } from "../../lib/skinAssets";
 import { useVisualizerStore } from "../../store/useVisualizerStore";
@@ -11,14 +11,18 @@ import { ItemActionsMenu } from "./ItemActionsMenu";
 import { ItemUpdateButton } from "./ItemUpdateButton";
 import { AppearancePackCard } from "./AppearancePackCard";
 import { VizCardLivePreview } from "./VizCardLivePreview";
+import { useVizCardHover } from "./useVizCardHover";
 import { useVizCardSnapshot } from "./vizCardSnapshot";
 import "./VisualizersSection.css";
 import "./AppearanceSection.css";
 
-const HOVER_ENTER_MS = 50;
-const HOVER_LEAVE_MS = 300;
-
-function VizCardPreview({ pack, live }: { pack: VizSummary; live: boolean }) {
+export function VizCardPreview({
+  pack,
+  live,
+}: {
+  pack: VizSummary;
+  live: boolean;
+}) {
   const authored = skinPreviewUrl(pack.previewPath);
   // Skip snapshot queue when an authored preview image exists.
   const snapshotSrc = useVizCardSnapshot(authored ? "" : pack.id);
@@ -121,57 +125,11 @@ export function VisualizersSection({
   const setActiveVisualizer = useVisualizerStore((s) => s.setActiveVisualizer);
   const reducedMotion = usePrefersReducedMotion();
 
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const enterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingHoverRef = useRef<string | null>(null);
-
-  const clearTimers = useCallback(() => {
-    if (enterTimerRef.current) {
-      clearTimeout(enterTimerRef.current);
-      enterTimerRef.current = null;
-    }
-    if (leaveTimerRef.current) {
-      clearTimeout(leaveTimerRef.current);
-      leaveTimerRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => () => clearTimers(), [clearTimers]);
-
-  const onCardPointerEnter = useCallback(
-    (id: string) => {
-      if (reducedMotion) return;
-      pendingHoverRef.current = id;
-      if (leaveTimerRef.current) {
-        clearTimeout(leaveTimerRef.current);
-        leaveTimerRef.current = null;
-      }
-      if (enterTimerRef.current) clearTimeout(enterTimerRef.current);
-      enterTimerRef.current = setTimeout(() => {
-        enterTimerRef.current = null;
-        if (pendingHoverRef.current === id) {
-          setHoveredId(id);
-        }
-      }, HOVER_ENTER_MS);
-    },
-    [reducedMotion],
-  );
-
-  const onCardPointerLeave = useCallback((id: string) => {
-    if (pendingHoverRef.current === id) {
-      pendingHoverRef.current = null;
-    }
-    if (enterTimerRef.current) {
-      clearTimeout(enterTimerRef.current);
-      enterTimerRef.current = null;
-    }
-    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
-    leaveTimerRef.current = setTimeout(() => {
-      leaveTimerRef.current = null;
-      setHoveredId((current) => (current === id ? null : current));
-    }, HOVER_LEAVE_MS);
-  }, []);
+  const {
+    hoveredId,
+    onEnter: onCardPointerEnter,
+    onLeave: onCardPointerLeave,
+  } = useVizCardHover(reducedMotion);
 
   const liveId = reducedMotion ? null : (hoveredId ?? activeVisualizerId);
 
