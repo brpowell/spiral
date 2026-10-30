@@ -16,11 +16,34 @@
   pointer-events: none;
 }
 
+/* Registered so the logo's colours can ease along with the theme background. */
+@property --spiral-mark {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f6edd6;
+}
+
+@property --spiral-accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #96c836;
+}
+
 .onboarding__logo {
   width: min(480px, 60vw);
-  /* Brand colours (cream + leaf), fixed: the logo must not follow the theme. */
+  /* Brand colours for dark grounds: Cream + Leaf. Not themed, only swapped for
+     legibility when the background is light (see below). */
   --spiral-mark: #f6edd6;
   --spiral-accent: #96c836;
+  transition:
+    --spiral-mark 200ms ease,
+    --spiral-accent 200ms ease;
+}
+
+/* Light themes: the brand's light-ground pair, Forest + Leaf Deep. */
+:root[data-appearance="light"] .onboarding__logo {
+  --spiral-mark: #202c0c;
+  --spiral-accent: #608123;
 }
 
 /* Docked: the lockup sits small in the top-left; the steps fill the rest. */
@@ -245,6 +268,10 @@
 @media (prefers-reduced-motion: reduce) {
   .onboarding {
     transition-duration: 1ms;
+  }
+
+  .onboarding__logo {
+    transition: none;
   }
 
   .onboarding__panel,
