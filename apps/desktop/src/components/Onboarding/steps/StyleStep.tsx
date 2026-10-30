@@ -1,28 +1,14 @@
 import { useTranslation } from "react-i18next";
-import { skinPreviewUrl } from "../../../lib/skinAssets";
 import { useThemeStore } from "../../../store/useThemeStore";
 import { useVisualizerStore } from "../../../store/useVisualizerStore";
-import type { VizSummary } from "../../../types/visualizer";
 import { ThemeSwatchPreview } from "../../Appearance/ThemeSwatchPreview";
-import { useVizCardSnapshot } from "../../Appearance/vizCardSnapshot";
+import { useVizCardHover } from "../../Appearance/useVizCardHover";
+import { VizCardPreview } from "../../Appearance/VisualizersSection";
+import { usePrefersReducedMotion } from "../../visualizer/context";
 import "../../Appearance/ThemesSection.css";
 import "../../Appearance/VisualizersSection.css";
 
-/** How many built-in options to offer per category. */
-const CHOICES = 3;
-
-function VizThumb({ viz }: { viz: VizSummary }) {
-  const authored = skinPreviewUrl(viz.previewPath);
-  const snapshot = useVizCardSnapshot(authored ? "" : viz.id);
-  const src = authored ?? snapshot;
-  return src ? (
-    <img src={src} alt="" className="visualizer-picker__preview-img" />
-  ) : (
-    <span className="visualizer-picker__preview-pending" />
-  );
-}
-
-/** Pick a theme and a visualizer; both apply immediately. */
+/** Pick a theme and a visualizer from the built-ins; both apply immediately. */
 export function StyleStep() {
   const { t } = useTranslation("common");
   const themes = useThemeStore((s) => s.themes);
@@ -32,10 +18,13 @@ export function StyleStep() {
   const activeVisualizerId = useVisualizerStore((s) => s.activeVisualizerId);
   const setActiveVisualizer = useVisualizerStore((s) => s.setActiveVisualizer);
 
-  const themeChoices = themes
-    .filter((th) => th.zone === "builtin")
-    .slice(0, CHOICES);
-  const vizChoices = visualizers.filter((v) => v.isBuiltin).slice(0, CHOICES);
+  const themeChoices = themes.filter((th) => th.zone === "builtin");
+  const reducedMotion = usePrefersReducedMotion();
+  const { hoveredId, onEnter, onLeave } = useVizCardHover(reducedMotion);
+  // Like the Studio: the hovered card plays live, otherwise the selected one.
+  const liveId = reducedMotion ? null : (hoveredId ?? activeVisualizerId);
+
+  const vizChoices = visualizers.filter((v) => v.isBuiltin);
 
   return (
     <>
@@ -73,10 +62,14 @@ export function StyleStep() {
               aria-checked={viz.id === activeVisualizerId}
               aria-label={viz.name}
               title={viz.name}
-              className="onboarding-choice"
+              className="onboarding-choice visualizer-picker__preview"
               onClick={() => void setActiveVisualizer(viz.id)}
+              onPointerEnter={() => onEnter(viz.id)}
+              onPointerLeave={() => onLeave(viz.id)}
+              onFocus={() => onEnter(viz.id)}
+              onBlur={() => onLeave(viz.id)}
             >
-              <VizThumb viz={viz} />
+              <VizCardPreview pack={viz} live={liveId === viz.id} />
             </button>
           ))}
         </div>

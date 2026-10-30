@@ -64,7 +64,9 @@
   position: absolute;
   inset: 0;
   display: grid;
-  grid-template-columns: minmax(260px, 380px) minmax(0, 1fr);
+  /* Both columns hug their content and the pair is centred in the window. */
+  grid-template-columns: minmax(240px, 380px) minmax(0, max-content);
+  justify-content: center;
   column-gap: 72px;
   align-content: start;
   padding: 168px 56px 112px;
@@ -209,7 +211,10 @@
 }
 
 .onboarding-choices__row {
-  display: flex;
+  /* Up to four per row, fewer when the window is narrow. */
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 120px);
+  max-width: 528px;
   gap: 16px;
 }
 
