@@ -86,6 +86,8 @@ pub fn relocate_library(
 ) -> Result<LibrarySettingsResponse, String> {
     let resolved = library_relocate::relocate_library(&app, &state, &rating_sync, &new_root, mode)?;
     path_scope::allow_library_dirs(&app);
+    // The open library may have other watched folders now.
+    super::sources::init(&app);
     Ok(resolved)
 }
 

@@ -66,6 +66,7 @@ pub mod skin_convert;
 mod skin_drag;
 mod skin_preferences;
 mod source_scan;
+mod source_watch;
 mod sources;
 pub mod tag_inspector;
 #[cfg(test)]
