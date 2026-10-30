@@ -550,6 +550,18 @@ pub fn set_track_source(conn: &Connection, id: i64, source_id: i64) -> Result<()
     Ok(())
 }
 
+pub fn get_tracks_for_source(
+    conn: &Connection,
+    source_id: i64,
+) -> Result<Vec<Track>, rusqlite::Error> {
+    let sql = format!("{TRACK_SELECT} {TRACK_FROM_JOIN} WHERE tracks.source_id = ?1");
+    let mut stmt = conn.prepare(&sql)?;
+    let tracks = stmt
+        .query_map(params![source_id], map_track_row)?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(tracks)
+}
+
 pub fn get_track_by_id(conn: &Connection, id: i64) -> Result<Option<Track>, rusqlite::Error> {
     let sql = format!("{TRACK_SELECT} {TRACK_FROM_JOIN} WHERE tracks.id = ?1");
     let mut stmt = conn.prepare(&sql)?;

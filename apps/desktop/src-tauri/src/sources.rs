@@ -11,10 +11,6 @@
 //! The managed and external rows are created by the v3 migration with fixed
 //! ids, and the schema stops them from being deleted.
 
-// Listing and managing sources has no callers until the sources UI and
-// commands land; only path resolution and the backfill are used so far.
-#![cfg_attr(not(test), allow(dead_code))]
-
 use crate::path_scope::path_forms;
 use crate::settings::{self, LibrarySettingsResponse};
 use chrono::Utc;
@@ -199,11 +195,13 @@ pub fn assign_external_tracks(
 
 /// Check a folder can become a watched source: an absolute, existing folder
 /// that neither equals, contains nor sits inside another watched root, the
-/// tracks folder or the library folder.
-fn validate_watched_root(
+/// tracks folder or the library folder. `exclude` skips one source's own root,
+/// for moving that source.
+pub fn validate_watched_root(
     conn: &Connection,
     roots: &LibraryRoots,
     root: &Path,
+    exclude: Option<i64>,
 ) -> Result<(), String> {
     if path_forms(root).is_empty() {
         return Err(format!("{} is not an absolute folder path", root.display()));
@@ -220,7 +218,10 @@ fn validate_watched_root(
     let watched = Resolver::new(conn, roots)
         .map_err(|e| e.to_string())?
         .watched;
-    if let Some((_, other)) = watched.iter().find(|(_, other)| overlaps(root, other)) {
+    if let Some((_, other)) = watched
+        .iter()
+        .find(|(id, other)| Some(*id) != exclude && overlaps(root, other))
+    {
         return Err(format!(
             "{} overlaps the watched folder {}",
             root.display(),
@@ -239,7 +240,7 @@ pub fn add_watched_source(
     name: Option<&str>,
 ) -> Result<Source, String> {
     let root = PathBuf::from(root_path.trim());
-    validate_watched_root(conn, roots, &root)?;
+    validate_watched_root(conn, roots, &root, None)?;
     let name = name
         .map(str::trim)
         .filter(|n| !n.is_empty())

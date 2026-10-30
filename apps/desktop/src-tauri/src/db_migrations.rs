@@ -48,6 +48,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "library_sources",
         up: library_sources,
     },
+    Migration {
+        version: 4,
+        name: "track_file_stat",
+        up: track_file_stat,
+    },
 ];
 
 fn latest_version() -> i64 {
@@ -630,6 +635,16 @@ fn library_sources(conn: &Connection) -> Result<(), rusqlite::Error> {
     )
 }
 
+/// v4: remember each track file's size and modification time as last read, so
+/// rescanning a watched folder re-reads only files whose size or time changed.
+/// NULL until a scan records them.
+fn track_file_stat(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute_batch(
+        "ALTER TABLE tracks ADD COLUMN file_size INTEGER;
+        ALTER TABLE tracks ADD COLUMN file_mtime_ms INTEGER;",
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -990,6 +1005,33 @@ mod tests {
         )
         .unwrap();
         assert_eq!(conn.last_insert_rowid(), 3);
+    }
+
+    #[test]
+    fn v4_adds_empty_file_stat_columns_and_keeps_sources() {
+        let conn = load_fixture(3);
+        run(&conn, None).unwrap();
+        type Row = (i64, i64, Option<String>, Option<i64>, Option<i64>);
+        let rows: Vec<Row> = conn
+            .prepare(
+                "SELECT id, source_id, missing_since, file_size, file_mtime_ms
+                 FROM tracks ORDER BY id",
+            )
+            .unwrap()
+            .query_map([], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            })
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            rows,
+            vec![
+                (1, 2, None, None, None),
+                (2, 2, None, None, None),
+                (3, 3, Some("2024-02-01T00:00:00Z".into()), None, None),
+            ]
+        );
     }
 
     #[test]

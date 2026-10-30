@@ -40,6 +40,7 @@ import {
   ITEM_UPDATES_CHANGED_EVENT,
 } from "./lib/appearanceWindow";
 import { openAboutWindow } from "./lib/aboutWindow";
+import { LIBRARY_TRACKS_CHANGED_EVENT } from "./lib/tauri";
 import { openEqualizerWindow } from "./lib/equalizerWindow";
 import { toggleToastLabWindow } from "./lib/toastLabWindow";
 import { reloadLinkedItemsWithRefresh } from "./lib/items/itemActions";
@@ -188,6 +189,21 @@ function App() {
     applyAutomaticItemChecksEnabled,
     startAutomaticItemUpdateChecks,
   ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void listen(LIBRARY_TRACKS_CHANGED_EVENT, () => {
+      void usePlayerStore.getState().loadLibrary({ preservePlayback: true });
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
