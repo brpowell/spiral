@@ -1,0 +1,28 @@
+.onboarding {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fill-page);
+  opacity: 1;
+  transition: opacity var(--onboarding-fade-ms, 600ms) ease;
+}
+
+.onboarding--leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.onboarding__logo {
+  width: min(480px, 60vw);
+  --spiral-mark: var(--color-text-primary);
+  --spiral-accent: var(--color-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding {
+    transition-duration: 1ms;
+  }
+}

@@ -9,6 +9,9 @@
     "clearLogs": "Clear logs",
     "clearing": "Clearing logs…"
   },
+  "onboarding": {
+    "ariaLabel": "Welcome to Spiral"
+  },
   "unknown": "Unknown",
   "unknownArtist": "Unknown Artist",
   "unknownAlbum": "Unknown Album",

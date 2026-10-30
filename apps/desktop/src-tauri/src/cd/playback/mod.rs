@@ -61,6 +61,8 @@ pub struct CdPlaybackGaplessStarted {
 mod engine;
 mod source;
 
+pub use engine::stop_all;
+
 #[cfg(target_os = "macos")]
 mod aiff;
 #[cfg(target_os = "macos")]

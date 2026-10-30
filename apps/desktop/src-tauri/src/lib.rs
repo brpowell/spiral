@@ -122,6 +122,16 @@ pub fn run() {
     let builder = tauri::Builder::default();
 
     let app = builder
+        .on_page_load(|webview, payload| {
+            // The webview owns playback state, so a reload would orphan any
+            // running native audio. Stop it so a reload behaves like a restart.
+            if webview.label() == "main"
+                && matches!(payload.event(), tauri::webview::PageLoadEvent::Started)
+            {
+                file_playback::stop_all();
+                cd::playback::stop_all();
+            }
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
