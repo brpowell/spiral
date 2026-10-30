@@ -11,7 +11,7 @@ interface OnboardingState {
   open: boolean;
   /** Zero-based index of the visible welcome step. */
   step: number;
-  /** Show onboarding now (first launch, or Developer → Start Onboarding). */
+  /** Show onboarding now. */
   start: () => void;
   next: () => void;
   back: () => void;

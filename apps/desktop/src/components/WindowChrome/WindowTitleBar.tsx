@@ -253,7 +253,6 @@ export function WindowTitleBar({
     (handlers.toggleToastLab ||
       handlers.toggleSoundLab ||
       handlers.simulateMockUpdate ||
-      handlers.startOnboarding ||
       handlers.resetOnboarding ||
       handlers.toggleStubLocale)
   ) {
@@ -277,15 +276,9 @@ export function WindowTitleBar({
             onClick={run(handlers.simulateMockUpdate)}
           />
         ) : null}
-        {handlers.startOnboarding ? (
-          <ContextMenuItem
-            label="Start Onboarding"
-            onClick={run(handlers.startOnboarding)}
-          />
-        ) : null}
         {handlers.resetOnboarding ? (
           <ContextMenuItem
-            label="Reset Onboarding & Reload"
+            label="Reset welcome screen"
             onClick={run(handlers.resetOnboarding)}
           />
         ) : null}

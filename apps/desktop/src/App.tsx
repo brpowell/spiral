@@ -23,7 +23,6 @@ import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal
 import { CrashReportModal } from "./components/ActivityLogs/CrashReportModal";
 import { WhatsNewModal } from "./components/WhatsNewModal/WhatsNewModal";
 import { Onboarding } from "./components/Onboarding/Onboarding";
-import { useOnboardingStore } from "./store/useOnboardingStore";
 import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
 import { useStartupCrashReport } from "./hooks/useStartupCrashReport";
 import { usePlaylistStore } from "./store/usePlaylistStore";
@@ -143,9 +142,6 @@ function App() {
           },
           simulateMockUpdate: () => {
             useUpdaterStore.getState().simulateMockUpdate();
-          },
-          startOnboarding: () => {
-            useOnboardingStore.getState().start();
           },
           resetOnboarding: () => {
             resetOnboardingCompleted();

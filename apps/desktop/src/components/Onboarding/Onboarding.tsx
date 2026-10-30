@@ -39,7 +39,7 @@ const STEPS = [
 /**
  * First-run overlay over the library: plays the Spiral logo reveal once, docks
  * the lockup into the corner, then walks through the welcome steps. Shown on
- * first launch and via Developer → Start Onboarding.
+ * first launch, or again after Developer → Reset welcome screen.
  */
 export function Onboarding() {
   const open = useOnboardingStore((s) => s.open);
