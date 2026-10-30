@@ -31,6 +31,8 @@ export interface AppMenuHandlers {
   toggleSoundLab?: () => void;
   /** DEV-only: seed a fake pending update for UX testing. */
   simulateMockUpdate?: () => void;
+  /** DEV-only: forget that the welcome screen was seen and reload, simulating a first launch. */
+  resetOnboarding?: () => void;
   /** DEV-only: persist the stub locale and reload to prove catalog switching. */
   toggleStubLocale?: () => void;
 }
@@ -210,6 +212,7 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
     (handlers.toggleToastLab ||
       handlers.toggleSoundLab ||
       handlers.simulateMockUpdate ||
+      handlers.resetOnboarding ||
       handlers.toggleStubLocale)
   ) {
     const developerItems = [];
@@ -239,6 +242,15 @@ export async function setupAppMenu(handlers: AppMenuHandlers): Promise<void> {
           id: "simulate-update",
           text: "Simulate Update…",
           action: handlers.simulateMockUpdate,
+        }),
+      );
+    }
+    if (handlers.resetOnboarding) {
+      developerItems.push(
+        await MenuItem.new({
+          id: "reset-onboarding",
+          text: "Reset welcome screen",
+          action: handlers.resetOnboarding,
         }),
       );
     }

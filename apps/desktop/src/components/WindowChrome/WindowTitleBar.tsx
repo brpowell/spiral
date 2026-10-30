@@ -253,6 +253,7 @@ export function WindowTitleBar({
     (handlers.toggleToastLab ||
       handlers.toggleSoundLab ||
       handlers.simulateMockUpdate ||
+      handlers.resetOnboarding ||
       handlers.toggleStubLocale)
   ) {
     menuContent = (
@@ -273,6 +274,12 @@ export function WindowTitleBar({
           <ContextMenuItem
             label="Simulate Update…"
             onClick={run(handlers.simulateMockUpdate)}
+          />
+        ) : null}
+        {handlers.resetOnboarding ? (
+          <ContextMenuItem
+            label="Reset welcome screen"
+            onClick={run(handlers.resetOnboarding)}
           />
         ) : null}
         {handlers.toggleStubLocale ? (

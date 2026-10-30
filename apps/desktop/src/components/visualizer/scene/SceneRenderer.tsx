@@ -38,6 +38,7 @@ import {
   useVisualizerExpandMotion,
 } from "./useVisualizerExpandMotion";
 import "./SceneRenderer.css";
+import { EMPTY_VIZ_TRACK, withPreviewTrackIdentity } from "../vizTrack";
 
 interface VizFrameSample {
   context: VisualizerContext;
@@ -87,6 +88,11 @@ export interface SceneRendererProps extends VisualizerRendererProps {
    * previews with synthetic demo frames while the player is paused).
    */
   previewForcePlaying?: boolean;
+  /**
+   * With {@link previewForcePlaying}: show a placeholder track that has no cover
+   * and these colours, instead of whatever track is loaded.
+   */
+  previewArtColors?: readonly string[];
   /** Fires once after the first sandboxed layer has painted a frame. */
   onFirstFrame?: () => void;
   /** Host paint (e.g. skin `style.backgroundColor`) — overrides theme `--color-bg`. */
@@ -370,6 +376,26 @@ function VizSceneLayerView({
   );
 }
 
+/**
+ * Card previews play synthetic audio and need a track to follow. With
+ * `artColors` the track is a coverless placeholder in those colours; without,
+ * the loaded track is kept and only an empty one gets a placeholder identity.
+ */
+function withPreviewOverrides(
+  context: VisualizerContext,
+  artColors?: readonly string[],
+): VisualizerContext {
+  return {
+    ...context,
+    audio: { ...context.audio, isPlaying: true, playbackState: "playing" },
+    trackMetadata: withPreviewTrackIdentity(
+      artColors
+        ? { ...EMPTY_VIZ_TRACK, artColors: [...artColors] }
+        : context.trackMetadata,
+    ),
+  };
+}
+
 function SceneViewport({
   scene,
   visualizerId,
@@ -377,6 +403,7 @@ function SceneViewport({
   remoteFrameRef,
   useRemoteFrame,
   previewForcePlaying = false,
+  previewArtColors,
   onFirstFrame,
 }: {
   scene: VizScene;
@@ -385,6 +412,7 @@ function SceneViewport({
   remoteFrameRef?: RefObject<VisualizerRemoteFrame | null>;
   useRemoteFrame: boolean;
   previewForcePlaying?: boolean;
+  previewArtColors?: readonly string[];
   onFirstFrame?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -416,12 +444,14 @@ function SceneViewport({
   const buildContextRef = useRef(buildContext);
   const viewportRef = useRef(viewport);
   const previewForcePlayingRef = useRef(previewForcePlaying);
+  const previewArtColorsRef = useRef(previewArtColors);
   const useRemoteFrameRef = useRef(useRemoteFrame);
   const remoteFrameRefRef = useRef(remoteFrameRef);
   const binsScratchRef = useRef<number[]>([]);
   buildContextRef.current = buildContext;
   viewportRef.current = viewport;
   previewForcePlayingRef.current = previewForcePlaying;
+  previewArtColorsRef.current = previewArtColors;
   useRemoteFrameRef.current = useRemoteFrame;
   remoteFrameRefRef.current = remoteFrameRef;
 
@@ -454,14 +484,7 @@ function SceneViewport({
           binsFromSample(sampled, binsScratchRef.current),
         );
         if (previewForcePlayingRef.current) {
-          context = {
-            ...context,
-            audio: {
-              ...context.audio,
-              isPlaying: true,
-              playbackState: "playing",
-            },
-          };
+          context = withPreviewOverrides(context, previewArtColorsRef.current);
         }
         const sample: VizFrameSample = {
           context,
@@ -510,15 +533,14 @@ function SceneViewport({
     const bins = binsFromSample(sampled, []);
     const base = buildContext(viewport, bins);
     if (!previewForcePlaying) return base;
-    return {
-      ...base,
-      audio: {
-        ...base.audio,
-        isPlaying: true,
-        playbackState: "playing",
-      },
-    };
-  }, [buildContext, previewForcePlaying, remoteBins, viewport]);
+    return withPreviewOverrides(base, previewArtColors);
+  }, [
+    buildContext,
+    previewArtColors,
+    previewForcePlaying,
+    remoteBins,
+    viewport,
+  ]);
 
   const drawState: VisualizerDrawState = {
     timeDomainDataRef,
@@ -576,6 +598,7 @@ export function SceneRenderer({
   fillContainer = false,
   remoteFrameRef,
   previewForcePlaying = false,
+  previewArtColors,
   onFirstFrame,
   style,
 }: SceneRendererProps) {
@@ -627,6 +650,7 @@ export function SceneRenderer({
           remoteFrameRef={remoteFrameRef}
           useRemoteFrame={useRemoteFrame}
           previewForcePlaying={previewForcePlaying}
+          previewArtColors={previewArtColors}
           onFirstFrame={onFirstFrame}
         />
         {showExpandToggle && onToggleExpand ? (

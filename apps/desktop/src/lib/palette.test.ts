@@ -52,3 +52,27 @@ describe("getDefaultPalette", () => {
     expect(lightness(palette[3] ?? "")).toBeGreaterThan(lightness("#3f6410"));
   });
 });
+
+describe("getDefaultPalette with a theme accent", () => {
+  it("stays Spiral green without an accent", () => {
+    expect(getDefaultPalette(undefined)).toEqual(getDefaultPalette());
+    expect(getDefaultPalette()[0]).toBe("#96c836");
+  });
+
+  it("builds a five-swatch ramp around the accent's hue", () => {
+    const palette = getDefaultPalette("#e63946");
+    expect(palette).toHaveLength(5);
+    expect(palette[0]).toBe("#e63946");
+    // Red accent: every swatch keeps a red-dominant hue.
+    for (const hex of palette) {
+      const n = Number.parseInt(hex.slice(1), 16);
+      const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      expect(r).toBeGreaterThanOrEqual(g);
+      expect(r).toBeGreaterThanOrEqual(b);
+    }
+  });
+
+  it("falls back to Spiral green for an accent it cannot parse", () => {
+    expect(getDefaultPalette("oklch(60% 0.2 30)")).toEqual(getDefaultPalette());
+  });
+});

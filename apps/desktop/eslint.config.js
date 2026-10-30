@@ -13,6 +13,7 @@ export default tseslint.config(
       "packs/**",
       "wmp-skins/**",
       "tools/**",
+      "src/vendor/**",
     ],
   },
   js.configs.recommended,

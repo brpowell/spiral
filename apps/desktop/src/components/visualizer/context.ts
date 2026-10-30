@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toAssetUrl } from "../../lib/assetUrl";
 import { findPlaybackTrack } from "../../lib/playbackTrack";
 import {
@@ -35,31 +35,56 @@ export function usePrefersReducedMotion(): boolean {
   return reducedMotion;
 }
 
+/** The active theme's accent colour, or undefined before themes load. */
+function useThemeAccent(): string | undefined {
+  return useThemeStore((s) => {
+    const theme =
+      findThemeById(s.themes, s.activeThemeId) ??
+      findThemeById(s.themes, DEFAULT_THEME_ID) ??
+      s.themes[0];
+    return theme ? resolveThemeTokens(theme)["color-accent"] : undefined;
+  });
+}
+
+/** Shades of the active theme's accent, ignoring whatever track is loaded. */
+export function useThemePalette(): string[] {
+  const accent = useThemeAccent();
+  return useMemo(() => getDefaultPalette(accent), [accent]);
+}
+
+/**
+ * Colours for visualizers: the current track's cover swatches, or (with no
+ * cover) shades of the active theme's accent.
+ */
 export function useVisualizerPalette(): string[] {
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const library = usePlayerStore((s) => s.library);
   const playbackTracks = usePlayerStore((s) => s.playbackTracks);
+  const accent = useThemeAccent();
   const currentTrack = useMemo(
     () =>
       findPlaybackTrack({ library, playbackTracks, currentTrackId }) ?? null,
     [library, playbackTracks, currentTrackId],
   );
 
-  const [palette, setPalette] = useState<string[]>(getDefaultPalette);
+  const [artPalette, setArtPalette] = useState<string[] | null>(null);
+  // Read inside the extraction without re-extracting when the theme changes.
+  const accentRef = useRef(accent);
+  accentRef.current = accent;
 
   useEffect(() => {
     let cancelled = false;
     const artPath = currentTrack?.artPath;
 
     if (!artPath) {
-      setPalette(getDefaultPalette());
+      setArtPalette(null);
       return;
     }
 
     void toAssetUrl(artPath).then((url) =>
-      extractPaletteFromImageUrl(url).then((colors) => {
+      extractPaletteFromImageUrl(url, accentRef.current).then((colors) => {
         if (!cancelled) {
-          setPalette(colors);
+          setArtPalette(colors);
         }
       }),
     );
@@ -69,7 +94,10 @@ export function useVisualizerPalette(): string[] {
     };
   }, [currentTrack?.artPath, currentTrackId]);
 
-  return palette;
+  return useMemo(
+    () => artPalette ?? getDefaultPalette(accent),
+    [artPalette, accent],
+  );
 }
 
 function definedTokens(
