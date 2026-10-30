@@ -27,7 +27,8 @@
       "title": "Try on a style",
       "description": "You can change it any time in the Studio, or even make your own.",
       "themes": "Themes",
-      "visualizers": "Visualizers"
+      "visualizers": "Visualizers",
+      "transportPreview": "Transport preview"
     },
     "privacy": {
       "title": "You're in control",
