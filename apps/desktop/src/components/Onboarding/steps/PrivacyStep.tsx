@@ -1,7 +1,37 @@
+import type { ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useLibrarySettingsStore } from "../../../store/useLibrarySettingsStore";
 import type { LibrarySettingsPatch } from "../../../types/library";
 import { Checkbox } from "../../common/Checkbox/Checkbox";
+
+/** One checkbox with its explanatory note underneath. */
+function Option({
+  label,
+  description,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  description: ReactNode;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div>
+      <Checkbox
+        alignStart
+        disabled={disabled}
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      >
+        {label}
+      </Checkbox>
+      <p className="onboarding-options__hint">{description}</p>
+    </div>
+  );
+}
 
 /** Listening history and update checks, all opt-out. */
 export function PrivacyStep() {
@@ -17,49 +47,36 @@ export function PrivacyStep() {
 
   return (
     <div className="onboarding-options">
-      <div>
-        <Checkbox
-          alignStart
-          disabled={!settings}
-          checked={settings?.listeningHistoryEnabled ?? false}
-          onChange={(e) => patch({ listeningHistoryEnabled: e.target.checked })}
-        >
-          {t("onboarding.privacy.history")}
-        </Checkbox>
-        <p className="onboarding-options__hint">
+      <Option
+        label={t("onboarding.privacy.history")}
+        description={
           <Trans
             i18nKey="onboarding.privacy.historyDescription"
             ns="common"
             components={{ strong: <strong /> }}
           />
-        </p>
-      </div>
+        }
+        disabled={!settings}
+        checked={settings?.listeningHistoryEnabled ?? false}
+        onChange={(checked) => patch({ listeningHistoryEnabled: checked })}
+      />
       {/* Update labels and descriptions are shared with Preferences → Updates. */}
-      <Checkbox
-        alignStart
+      <Option
+        label={t("preferences:updates.automatic.label")}
+        description={t("preferences:updates.automatic.description")}
         disabled={!settings}
         checked={settings?.automaticUpdateChecksEnabled ?? false}
-        onChange={(e) =>
-          patch({ automaticUpdateChecksEnabled: e.target.checked })
+        onChange={(checked) => patch({ automaticUpdateChecksEnabled: checked })}
+      />
+      <Option
+        label={t("preferences:updates.automaticItems.label")}
+        description={t("preferences:updates.automaticItems.description")}
+        disabled={!settings}
+        checked={settings?.automaticItemUpdateChecksEnabled ?? false}
+        onChange={(checked) =>
+          patch({ automaticItemUpdateChecksEnabled: checked })
         }
-      >
-        {t("preferences:updates.automatic.label")}
-      </Checkbox>
-      <div>
-        <Checkbox
-          alignStart
-          disabled={!settings}
-          checked={settings?.automaticItemUpdateChecksEnabled ?? false}
-          onChange={(e) =>
-            patch({ automaticItemUpdateChecksEnabled: e.target.checked })
-          }
-        >
-          {t("preferences:updates.automaticItems.label")}
-        </Checkbox>
-        <p className="onboarding-options__hint">
-          {t("preferences:updates.automaticItems.description")}
-        </p>
-      </div>
+      />
     </div>
   );
 }
