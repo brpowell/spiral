@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  EMPTY_VIZ_TRACK,
+  PREVIEW_TRACK_ID,
   materializeVizTrack,
   registerVizImage,
   retainVizImages,
   splitVizTrack,
   vizTrackCredits,
+  withPreviewTrackIdentity,
   type VizFrameTrack,
 } from "./vizTrack";
 
@@ -170,5 +173,26 @@ describe("retainVizImages", () => {
 
     expect(closed).toEqual(["drop"]);
     expect([...bitmaps.keys()]).toEqual(["/keep.jpg"]);
+  });
+});
+
+describe("withPreviewTrackIdentity", () => {
+  it("gives an empty track a preview identity and keeps its colours", () => {
+    const track = withPreviewTrackIdentity({
+      ...EMPTY_VIZ_TRACK,
+      artColors: ["#112233"],
+    });
+    expect(track.id).toBe(PREVIEW_TRACK_ID);
+    expect(track.title).not.toBe("");
+    expect(track.artColors).toEqual(["#112233"]);
+  });
+
+  it("leaves a loaded track alone", () => {
+    const loaded: VizFrameTrack = {
+      ...EMPTY_VIZ_TRACK,
+      id: 42,
+      title: "Real Song",
+    };
+    expect(withPreviewTrackIdentity(loaded)).toBe(loaded);
   });
 });

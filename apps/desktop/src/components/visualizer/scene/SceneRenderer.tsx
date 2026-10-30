@@ -38,6 +38,7 @@ import {
   useVisualizerExpandMotion,
 } from "./useVisualizerExpandMotion";
 import "./SceneRenderer.css";
+import { withPreviewTrackIdentity } from "../vizTrack";
 
 interface VizFrameSample {
   context: VisualizerContext;
@@ -461,6 +462,7 @@ function SceneViewport({
               isPlaying: true,
               playbackState: "playing",
             },
+            trackMetadata: withPreviewTrackIdentity(context.trackMetadata),
           };
         }
         const sample: VizFrameSample = {

@@ -10,7 +10,10 @@ import { getLiveThemePreview } from "../../lib/themeBridge";
 import type { Visualizer } from "../visualizer/types";
 import { SandboxedVizRenderer } from "../visualizer/sandbox/SandboxedVizRenderer";
 import { resolveLayout, type VizSceneLayer } from "../visualizer/scene/types";
-import { EMPTY_VIZ_TRACK } from "../visualizer/vizTrack";
+import {
+  EMPTY_VIZ_TRACK,
+  withPreviewTrackIdentity,
+} from "../visualizer/vizTrack";
 import {
   isSafeVizEntry,
   type VizFrame,
@@ -104,10 +107,10 @@ function buildSnapshotFrame(
       tokens: snapshotThemeTokens(),
     },
     flags: { reducedMotion: false },
-    trackMetadata: {
+    trackMetadata: withPreviewTrackIdentity({
       ...EMPTY_VIZ_TRACK,
       artColors: [...palette],
-    },
+    }),
   };
 }
 
