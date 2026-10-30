@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { vizMediaLayerUrl } from "../../lib/presentation/assets";
-import { OBSIDIAN_DEFAULT_TOKENS } from "../../lib/theme";
+import {
+  DEFAULT_THEME_ID,
+  findThemeById,
+  OBSIDIAN_DEFAULT_TOKENS,
+  resolveThemeTokens,
+} from "../../lib/theme";
+import { getLiveThemePreview } from "../../lib/themeBridge";
 import type { Visualizer } from "../visualizer/types";
 import { SandboxedVizRenderer } from "../visualizer/sandbox/SandboxedVizRenderer";
 import { resolveLayout, type VizSceneLayer } from "../visualizer/scene/types";
@@ -10,6 +16,7 @@ import {
   type VizFrame,
   type VizRendererEngine,
 } from "../visualizer/vizRendererApi";
+import { useThemeStore } from "../../store/useThemeStore";
 import { useVisualizerStore } from "../../store/useVisualizerStore";
 import { useVisualizerPalette } from "../visualizer/context";
 import {
@@ -36,19 +43,27 @@ function layerSandboxEngine(
   return null;
 }
 
-/** Active theme's tokens (read from CSS), falling back to Obsidian's. */
+/**
+ * Active theme's tokens, read from the theme store rather than computed CSS:
+ * a theme switch animates the CSS variables, so reading them right after the
+ * switch returns the old (or half-blended) colours.
+ */
 function snapshotThemeTokens(): Record<string, string> {
-  const style =
-    typeof document === "undefined"
-      ? null
-      : getComputedStyle(document.documentElement);
+  const { themes, activeThemeId } = useThemeStore.getState();
+  const preview = getLiveThemePreview();
+  const theme =
+    preview && preview.id === activeThemeId
+      ? preview
+      : (findThemeById(themes, activeThemeId) ??
+        findThemeById(themes, DEFAULT_THEME_ID) ??
+        themes[0]);
+  const tokens = theme
+    ? resolveThemeTokens(theme)
+    : { ...OBSIDIAN_DEFAULT_TOKENS };
   return Object.fromEntries(
-    Object.entries(OBSIDIAN_DEFAULT_TOKENS)
-      .filter((entry): entry is [string, string] => entry[1] !== undefined)
-      .map(([key, fallback]) => [
-        key,
-        style?.getPropertyValue(`--${key}`).trim() || fallback,
-      ]),
+    Object.entries(tokens).filter(
+      (entry): entry is [string, string] => entry[1] !== undefined,
+    ),
   );
 }
 
@@ -57,7 +72,8 @@ function snapshotCacheKey(
   visualizerId: string,
   palette: readonly string[],
 ): string {
-  return `${visualizerId}|${snapshotThemeTokens()["color-accent"]}|${palette.join(",")}`;
+  const { activeThemeId } = useThemeStore.getState();
+  return `${visualizerId}|${activeThemeId}|${snapshotThemeTokens()["color-accent"]}|${palette.join(",")}`;
 }
 
 function buildSnapshotFrame(
@@ -255,6 +271,8 @@ export function useVizCardSnapshot(visualizerId: string): string | null {
   const getVisualizer = useVisualizerStore((s) => s.getVisualizer);
   // Current track's cover colors, or Spiral's default when it has none.
   const palette = useVisualizerPalette();
+  // Re-key when the theme changes; the key itself reads the store.
+  useThemeStore((s) => s.activeThemeId);
   const cacheKey = visualizerId ? snapshotCacheKey(visualizerId, palette) : "";
   const [src, setSrc] = useState<string | null>(() =>
     cacheKey ? (cache.get(cacheKey) ?? null) : null,
