@@ -101,7 +101,32 @@ export function normalizeVisualizerPalette(
   });
 }
 
-function paletteToColors(palette: Record<string, SwatchLike>): string[] {
+function clampLightness(l: number, max = 0.92): number {
+  return Math.min(max, Math.max(0.08, l));
+}
+
+/**
+ * A five-swatch ramp built around a theme's accent: the accent, a lighter and a
+ * slightly deeper shade, a dark one, and a pale tint. Null when the accent
+ * isn't a `#rrggbb` colour.
+ */
+function paletteFromAccent(accent: string): string[] | null {
+  const rgb = parseHex(accent);
+  if (!rgb) return null;
+  const { h, s, l } = hslOf(rgb);
+  return [
+    accent,
+    hexFromHsl(h, s * 0.9, clampLightness(l + 0.15)),
+    hexFromHsl(h, s, clampLightness(l - 0.08)),
+    hexFromHsl(h, s, clampLightness(l * 0.55)),
+    hexFromHsl(h, s * 0.6, clampLightness(l + 0.3)),
+  ];
+}
+
+function paletteToColors(
+  palette: Record<string, SwatchLike>,
+  fallbackAccent?: string,
+): string[] {
   const colors: string[] = [];
   for (const key of SWATCH_KEYS) {
     const swatch = palette[key];
@@ -111,21 +136,28 @@ function paletteToColors(palette: Record<string, SwatchLike>): string[] {
   }
   return colors.length > 0
     ? normalizeVisualizerPalette(colors)
-    : getDefaultPalette();
+    : getDefaultPalette(fallbackAccent);
 }
 
+/** `fallbackAccent` colours the fallback palette when the art has no usable swatches. */
 export async function extractPaletteFromImageUrl(
   imageUrl: string,
+  fallbackAccent?: string,
 ): Promise<string[]> {
   try {
     const palette = await Vibrant.from(imageUrl).getPalette();
-    return paletteToColors(palette);
+    return paletteToColors(palette, fallbackAccent);
   } catch (err) {
     console.warn("Failed to extract palette from album art:", err);
-    return getDefaultPalette();
+    return getDefaultPalette(fallbackAccent);
   }
 }
 
-export function getDefaultPalette(): string[] {
-  return normalizeVisualizerPalette(FALLBACK_PALETTE);
+/**
+ * The palette used when there's no album art: shades of the theme's accent, or
+ * Spiral green when no (usable) accent is given.
+ */
+export function getDefaultPalette(accent?: string): string[] {
+  const derived = accent ? paletteFromAccent(accent) : null;
+  return normalizeVisualizerPalette(derived ?? FALLBACK_PALETTE);
 }

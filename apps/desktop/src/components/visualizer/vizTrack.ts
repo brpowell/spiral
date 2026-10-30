@@ -66,6 +66,20 @@ export const EMPTY_VIZ_TRACK: VizFrameTrack = {
   artColors: [],
 };
 
+/** Synthetic id for {@link withPreviewTrackIdentity}; library ids are positive. */
+export const PREVIEW_TRACK_ID = -1;
+
+/**
+ * Gives a preview an identity when nothing is loaded. Some modules only draw
+ * their subject once they have a track to follow (Dream Cube places a cube per
+ * track), so a Studio card or onboarding thumbnail with an empty track would
+ * show none. Leaves a real loaded track untouched.
+ */
+export function withPreviewTrackIdentity(track: VizFrameTrack): VizFrameTrack {
+  if (track.id != null || track.title !== "") return track;
+  return { ...track, id: PREVIEW_TRACK_ID, title: "Preview" };
+}
+
 /** Wire form of {@link VizFrameTrack}. Bitmaps travel in a separate message. */
 export interface VizTrackWire {
   id: number | null;

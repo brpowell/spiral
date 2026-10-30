@@ -42,11 +42,28 @@ pub fn prepare_import_file(
     )
 }
 
+/// `start` itself, or its closest ancestor that exists, so the picker never
+/// opens on a folder that has not been created yet (e.g. a fresh default library).
+fn nearest_existing_dir(start: &str) -> Option<std::path::PathBuf> {
+    let mut candidate = std::path::Path::new(start);
+    if candidate.as_os_str().is_empty() {
+        return None;
+    }
+    loop {
+        if candidate.is_dir() {
+            return Some(candidate.to_path_buf());
+        }
+        candidate = candidate.parent()?;
+    }
+}
+
 #[tauri::command]
-pub fn pick_library_folder() -> Result<Option<String>, String> {
-    let folder = rfd::FileDialog::new()
-        .set_title("Choose Spiral library folder")
-        .pick_folder();
+pub fn pick_library_folder(start_dir: Option<String>) -> Result<Option<String>, String> {
+    let mut dialog = rfd::FileDialog::new().set_title("Choose Spiral library folder");
+    if let Some(dir) = start_dir.as_deref().and_then(nearest_existing_dir) {
+        dialog = dialog.set_directory(dir);
+    }
+    let folder = dialog.pick_folder();
 
     Ok(folder.map(|p| p.to_string_lossy().into_owned()))
 }
@@ -70,4 +87,27 @@ pub fn relocate_library(
     let resolved = library_relocate::relocate_library(&app, &state, &rating_sync, &new_root, mode)?;
     path_scope::allow_library_dirs(&app);
     Ok(resolved)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::nearest_existing_dir;
+
+    #[test]
+    fn nearest_existing_dir_returns_existing_dir_as_is() {
+        let dir = std::env::temp_dir();
+        assert_eq!(nearest_existing_dir(dir.to_str().unwrap()), Some(dir));
+    }
+
+    #[test]
+    fn nearest_existing_dir_walks_up_from_missing_folder() {
+        let dir = std::env::temp_dir();
+        let missing = dir.join("spiral-missing-library").join("nested");
+        assert_eq!(nearest_existing_dir(missing.to_str().unwrap()), Some(dir));
+    }
+
+    #[test]
+    fn nearest_existing_dir_ignores_empty_input() {
+        assert_eq!(nearest_existing_dir(""), None);
+    }
 }

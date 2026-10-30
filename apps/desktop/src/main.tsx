@@ -26,6 +26,7 @@ import { resolveAuxStartupRequirements } from "./lib/skinAuxStartupRequirements"
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useSkinStore } from "./store/useSkinStore";
 import { bootstrapTheme } from "./lib/themeBootstrap";
+import { showOnboardingSplash } from "./lib/onboardingSplash";
 import { bootstrapVisualizer } from "./lib/visualizerBootstrap";
 import { bootstrapEqualizer } from "./lib/equalizerBootstrap";
 import { bootstrapPlaybackSettings } from "./lib/playbackSettingsBootstrap";
@@ -199,6 +200,7 @@ async function start() {
   }
 
   await bootstrapTheme();
+  if (role === "main") showOnboardingSplash();
   await bootstrapVisualizer();
   await bootstrapEqualizer();
   await bootstrapPlaybackSettings();

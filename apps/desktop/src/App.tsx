@@ -22,11 +22,13 @@ import { PlaylistEditorModal } from "./components/PlaylistEditorModal/PlaylistEd
 import { PreferencesModal } from "./components/PreferencesModal/PreferencesModal";
 import { CrashReportModal } from "./components/ActivityLogs/CrashReportModal";
 import { WhatsNewModal } from "./components/WhatsNewModal/WhatsNewModal";
+import { Onboarding } from "./components/Onboarding/Onboarding";
 import { CustomWindowFrame } from "./components/WindowChrome/CustomWindowFrame";
 import { useStartupCrashReport } from "./hooks/useStartupCrashReport";
 import { usePlaylistStore } from "./store/usePlaylistStore";
 import { useArtistImageStore } from "./store/useArtistImageStore";
 import { setupAppMenu, type AppMenuHandlers } from "./lib/appMenu";
+import { resetOnboardingCompleted } from "./lib/onboardingPreferences";
 import { toggleStubLocaleAndReload } from "./lib/appLocale";
 import { t } from "./lib/i18n";
 import { fetchMissingLyrics } from "./lib/fetchMissingLyrics";
@@ -140,6 +142,10 @@ function App() {
           },
           simulateMockUpdate: () => {
             useUpdaterStore.getState().simulateMockUpdate();
+          },
+          resetOnboarding: () => {
+            resetOnboardingCompleted();
+            window.location.reload();
           },
           toggleStubLocale: () => {
             toggleStubLocaleAndReload();
@@ -285,6 +291,7 @@ function App() {
         onDismiss={dismissCrashReport}
       />
       <WhatsNewModal />
+      <Onboarding />
       <BackgroundTasksIndicator />
     </CustomWindowFrame>
   );

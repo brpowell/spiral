@@ -442,7 +442,7 @@ pub fn stop(session_id: u64) {
     }
 }
 
-#[cfg(test)]
+/// Stop every file session (tests, and webview reload teardown).
 pub fn stop_all() {
     let sessions: Vec<ActivePlayback> = SESSIONS
         .lock()

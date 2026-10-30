@@ -1,25 +1,10 @@
-import { AnimatePresence, motion } from "framer-motion";
-import { useCallback, useMemo } from "react";
-import { useTranslation } from "react-i18next";
+import { useMemo } from "react";
 import { buildPlaybackOrder } from "../../../lib/playbackOrder";
 import { getManualNextId } from "../../../lib/playbackQueue";
 import { getNextSkippingKnownUnplayable } from "../../../lib/playbackSkip";
 import { isTrackImporting } from "../../../lib/pendingImportTrack";
 import { usePlayerStore } from "../../../store/usePlayerStore";
-import type { RepeatMode } from "../../../types/track";
-import { Button } from "../../common/Button/Button";
-import { playTransportCue } from "../../../lib/transportCues";
-import {
-  IconNext,
-  IconPause,
-  IconPlay,
-  IconPrevious,
-  IconRepeat,
-  IconRepeatOne,
-  IconShuffle,
-} from "../../icons";
-import "../playbackControl.css";
-import "./PlaybackTransport.css";
+import { TransportButtons } from "./TransportButtons";
 
 interface PlaybackTransportProps {
   className?: string;
@@ -27,21 +12,11 @@ interface PlaybackTransportProps {
   interactionEnabled?: boolean;
 }
 
-const REPEAT_LABEL_KEYS: Record<
-  RepeatMode,
-  "transport.repeatOff" | "transport.repeatAll" | "transport.repeatOne"
-> = {
-  off: "transport.repeatOff",
-  all: "transport.repeatAll",
-  one: "transport.repeatOne",
-};
-
 export function PlaybackTransport({
   className,
   nodeId,
   interactionEnabled = true,
 }: PlaybackTransportProps) {
-  const { t } = useTranslation("playback");
   const library = usePlayerStore((s) => s.library);
   const currentTrackId = usePlayerStore((s) => s.currentTrackId);
   const playbackState = usePlayerStore((s) => s.playbackState);
@@ -83,119 +58,22 @@ export function PlaybackTransport({
       getManualNextId,
     ) !== null;
 
-  const handlePlayPause = useCallback(() => {
-    playTransportCue(playbackState === "playing" ? "control" : "play");
-    togglePlayPause();
-  }, [playbackState, togglePlayPause]);
-
   return (
-    <div
-      className={["playback-transport", className].filter(Boolean).join(" ")}
-      data-node-id={nodeId}
-      aria-disabled={interactionEnabled ? undefined : true}
-      style={interactionEnabled ? undefined : { pointerEvents: "none" }}
-    >
-      <Button
-        variant="secondary"
-        size="md"
-        iconOnly
-        className={`playback-btn playback-btn--shuffle${shuffle ? " playback-btn--shuffle-active" : ""}`}
-        onClick={() => {
-          playTransportCue("control");
-          toggleShuffle();
-        }}
-        aria-label={
-          shuffle ? t("transport.shuffleOff") : t("transport.shuffleOn")
-        }
-        title={shuffle ? t("transport.shuffleOff") : t("transport.shuffleOn")}
-      >
-        <IconShuffle />
-      </Button>
-
-      <Button
-        variant="secondary"
-        size="md"
-        iconOnly
-        className="playback-btn"
-        onClick={() => {
-          playTransportCue("control");
-          previousTrack();
-        }}
-        disabled={!canGoPrevious}
-        aria-label={t("transport.previous")}
-      >
-        <IconPrevious />
-      </Button>
-
-      <Button
-        variant="primary"
-        size="md"
-        iconOnly
-        className="playback-btn playback-btn--play"
-        onClick={handlePlayPause}
-        disabled={!canPlay}
-        aria-label={
-          playbackState === "playing"
-            ? t("transport.pause")
-            : t("transport.play")
-        }
-      >
-        <AnimatePresence mode="wait" initial={false}>
-          {playbackState === "playing" ? (
-            <motion.span
-              key="pause"
-              className="playback-btn__play-icon"
-              initial={{ scale: 0.6, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.6, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              <IconPause />
-            </motion.span>
-          ) : (
-            <motion.span
-              key="play"
-              className="playback-btn__play-icon"
-              initial={{ scale: 0.6, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.6, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              <IconPlay />
-            </motion.span>
-          )}
-        </AnimatePresence>
-      </Button>
-
-      <Button
-        variant="secondary"
-        size="md"
-        iconOnly
-        className="playback-btn"
-        onClick={() => {
-          playTransportCue("control");
-          nextTrack();
-        }}
-        disabled={!canGoNext}
-        aria-label={t("transport.next")}
-      >
-        <IconNext />
-      </Button>
-
-      <Button
-        variant="secondary"
-        size="md"
-        iconOnly
-        className={`playback-btn playback-btn--repeat${repeatMode !== "off" ? " playback-btn--repeat-active" : ""}`}
-        onClick={() => {
-          playTransportCue("control");
-          cycleRepeat();
-        }}
-        aria-label={t(REPEAT_LABEL_KEYS[repeatMode])}
-        title={t(REPEAT_LABEL_KEYS[repeatMode])}
-      >
-        {repeatMode === "one" ? <IconRepeatOne /> : <IconRepeat />}
-      </Button>
-    </div>
+    <TransportButtons
+      className={className}
+      nodeId={nodeId}
+      interactionEnabled={interactionEnabled}
+      shuffle={shuffle}
+      repeatMode={repeatMode}
+      playing={playbackState === "playing"}
+      canPlay={canPlay}
+      canGoPrevious={canGoPrevious}
+      canGoNext={canGoNext}
+      onShuffle={toggleShuffle}
+      onPrevious={previousTrack}
+      onPlayPause={togglePlayPause}
+      onNext={nextTrack}
+      onRepeat={cycleRepeat}
+    />
   );
 }
