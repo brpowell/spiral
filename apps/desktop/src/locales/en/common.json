@@ -21,7 +21,12 @@
       "description": "Your database, music, and artwork is organized here.",
       "pathAria": "Library location",
       "change": "Change location",
-      "choosing": "Choosing…"
+      "choosing": "Choosing…",
+      "musicFolderTitle": "Already have a music folder?",
+      "musicFolderDescription": "Spiral can play it where it is. Your files aren't moved or changed.",
+      "musicFolderPick": "Use my music folder…",
+      "musicFolderAdded": "Spiral is adding the music in {{path}}.",
+      "musicFolderAnother": "Add another folder…"
     },
     "style": {
       "title": "Try on a style",

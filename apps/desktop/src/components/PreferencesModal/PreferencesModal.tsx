@@ -31,6 +31,7 @@ import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import { usePlaybackSettingsStore } from "../../store/usePlaybackSettingsStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { usePlaylistStore } from "../../store/usePlaylistStore";
+import { useSourcesStore } from "../../store/useSourcesStore";
 import { useUpdaterStore } from "../../store/useUpdaterStore";
 import { useItemUpdatesStore } from "../../store/useItemUpdatesStore";
 import {
@@ -83,6 +84,7 @@ import {
   IconReset,
 } from "../icons";
 import { LibraryRelocateDialog } from "./LibraryRelocateDialog";
+import { SourcesSection } from "./SourcesSection";
 import {
   PREFERENCES_SECTIONS,
   type PreferencesSectionId,
@@ -296,6 +298,7 @@ export function PreferencesModal() {
     await usePlayerStore.getState().loadLibrary();
     await usePlaylistStore.getState().loadPlaylists();
     await useArtistImageStore.getState().loadArtistImages();
+    await useSourcesStore.getState().loadSources();
   };
 
   const beginLibraryRootChange = async (value: string = libraryRoot) => {
@@ -615,6 +618,7 @@ export function PreferencesModal() {
                 <FormField
                   label={t("preferences:library.importMode")}
                   labelId={importModeLabelId}
+                  description={t("preferences:library.importModeDescription")}
                 >
                   <RadioGroup
                     name="importMode"
@@ -633,6 +637,8 @@ export function PreferencesModal() {
                 </FormField>
               </div>
             )}
+
+            {activeSection === "sources" && <SourcesSection />}
 
             {activeSection === "cd" && (
               <div className="preferences__panel">

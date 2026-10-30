@@ -3,6 +3,7 @@ import { t } from "../../lib/i18n";
 import {
   IconAudioWaveform,
   IconDisc,
+  IconFolderLink,
   IconGlasses,
   IconInfo,
   IconOpenFolder,
@@ -12,6 +13,7 @@ import {
 
 export type PreferencesSectionId =
   | "library"
+  | "sources"
   | "cd"
   | "playback"
   | "listening"
@@ -30,6 +32,11 @@ export const PREFERENCES_SECTIONS: PreferencesSectionConfig[] = [
     id: "library",
     label: t("preferences:sections.library"),
     icon: <IconOpenFolder />,
+  },
+  {
+    id: "sources",
+    label: t("preferences:sections.sources"),
+    icon: <IconFolderLink />,
   },
   {
     id: "cd",

@@ -19,7 +19,8 @@ export type TrackListColumnId =
   | "codec"
   | "sampleRate"
   | "bitrate"
-  | "lyrics";
+  | "lyrics"
+  | "source";
 
 export type TrackListSortField = Extract<
   TrackListColumnId,
@@ -38,6 +39,7 @@ export type TrackListSortField = Extract<
   | "sampleRate"
   | "bitrate"
   | "lyrics"
+  | "source"
 >;
 
 export type TrackListSortDir = "asc" | "desc";
@@ -237,6 +239,15 @@ const LYRICS_COL: TrackListColumnDef = {
   secondary: true,
 };
 
+const SOURCE_COL: TrackListColumnDef = {
+  id: "source",
+  label: t("library:columns.source"),
+  sortable: true,
+  resizable: true,
+  hideable: true,
+  secondary: true,
+};
+
 const LIBRARY_COLUMNS: TrackListColumnDef[] = [
   INDEX_COL,
   TITLE_COL,
@@ -255,6 +266,7 @@ const LIBRARY_COLUMNS: TrackListColumnDef[] = [
   SAMPLE_RATE_COL,
   BITRATE_COL,
   LYRICS_COL,
+  SOURCE_COL,
   DURATION_COL,
 ];
 
@@ -310,6 +322,7 @@ export const DEFAULT_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> =
     sampleRate: 88,
     bitrate: 72,
     lyrics: 64,
+    source: 140,
   };
 
 export const MIN_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> = {
@@ -331,6 +344,7 @@ export const MIN_COLUMN_WIDTHS: Partial<Record<TrackListColumnId, number>> = {
   sampleRate: 72,
   bitrate: 64,
   lyrics: 56,
+  source: 72,
 };
 
 const LIBRARY_DEFAULT_HIDDEN: TrackListColumnId[] = [
@@ -347,6 +361,7 @@ const LIBRARY_DEFAULT_HIDDEN: TrackListColumnId[] = [
   "sampleRate",
   "bitrate",
   "lyrics",
+  "source",
 ];
 
 const PLAYLIST_DEFAULT_HIDDEN: TrackListColumnId[] = [

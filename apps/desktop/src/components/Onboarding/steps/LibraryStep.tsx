@@ -1,16 +1,20 @@
 import { useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { stopPlaybackForLibraryRelocate } from "../../../lib/libraryRelocatePlayback";
+import { describeSourceError } from "../../../lib/sourceAccess";
 import {
+  addWatchedSource,
   getLibrary,
   inspectLibraryDestination,
   pickLibraryFolder,
+  pickMusicFolder,
   relocateLibrary,
 } from "../../../lib/tauri";
 import { useArtistImageStore } from "../../../store/useArtistImageStore";
 import { useLibrarySettingsStore } from "../../../store/useLibrarySettingsStore";
 import { usePlayerStore } from "../../../store/usePlayerStore";
 import { usePlaylistStore } from "../../../store/usePlaylistStore";
+import { useSourcesStore } from "../../../store/useSourcesStore";
 import type {
   LibraryDestinationInfo,
   LibraryRelocateMode,
@@ -99,6 +103,7 @@ export function LibraryStep() {
         await usePlayerStore.getState().loadLibrary();
         await usePlaylistStore.getState().loadPlaylists();
         await useArtistImageStore.getState().loadArtistImages();
+        await useSourcesStore.getState().loadSources();
       } catch (err) {
         setError(
           t("preferences:library.reloadFailed", { message: errorMessage(err) }),
@@ -147,6 +152,8 @@ export function LibraryStep() {
           {error}
         </p>
       ) : null}
+
+      <MusicFolderChoice disabled={!settings || busy || choosing} />
 
       <LibraryRelocateDialog
         open={info != null}
@@ -200,5 +207,64 @@ export function LibraryStep() {
         )}
       </LibraryRelocateDialog>
     </>
+  );
+}
+
+/**
+ * "I already have a music folder": watch a folder in place instead of copying
+ * it in. Optional; Next skips it.
+ */
+function MusicFolderChoice({ disabled }: { disabled: boolean }) {
+  const { t } = useTranslation("common");
+  const [added, setAdded] = useState<string[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const add = async () => {
+    if (adding) return;
+    setAdding(true);
+    setError(null);
+    try {
+      const folder = await pickMusicFolder();
+      if (!folder) return;
+      const source = await addWatchedSource(folder);
+      useSourcesStore.getState().applySource(source);
+      setAdded((prev) => [...prev, source.rootPath ?? folder]);
+    } catch (err) {
+      setError(describeSourceError(err));
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  return (
+    <section className="onboarding-music-folder">
+      <h2 className="onboarding-music-folder__title">
+        {t("onboarding.library.musicFolderTitle")}
+      </h2>
+      <p className="onboarding-music-folder__description">
+        {t("onboarding.library.musicFolderDescription")}
+      </p>
+      {added.map((path) => (
+        <p key={path} className="onboarding-music-folder__added" role="status">
+          {t("onboarding.library.musicFolderAdded", { path })}
+        </p>
+      ))}
+      <Button
+        variant="outline"
+        onClick={() => void add()}
+        disabled={disabled}
+        isLoading={adding}
+      >
+        {added.length > 0
+          ? t("onboarding.library.musicFolderAnother")
+          : t("onboarding.library.musicFolderPick")}
+      </Button>
+      {error ? (
+        <p className="onboarding__error" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </section>
   );
 }

@@ -14,7 +14,9 @@ vi.mock("./scheduling", () => ({
   afterUiTransition: () => Promise.resolve(),
 }));
 
+import { useSourcesStore } from "../store/useSourcesStore";
 import { useTagWriteConfirmStore } from "../store/useTagWriteConfirmStore";
+import type { Source } from "../types/source";
 import { confirmAndApplyTrackRatings } from "./applyTrackRating";
 
 const track = (id: number, rating: number) => ({ id, rating }) as Track;
@@ -73,6 +75,55 @@ describe("confirmAndApplyTrackRatings", () => {
     await confirmAndApplyTrackRatings([track(1, 128)], 128, update);
     expect(useTagWriteConfirmStore.getState().prompt).toBeNull();
     expect(setTrackRating).not.toHaveBeenCalled();
+  });
+
+  describe("read-only sources", () => {
+    const watched: Source = {
+      id: 3,
+      kind: "watched",
+      rootPath: "/Music",
+      name: "Music",
+      writable: false,
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+    const readOnly = (id: number, rating: number) =>
+      ({ id, rating, sourceId: 3 }) as Track;
+
+    beforeEach(() => {
+      useSourcesStore.setState({ sourcesById: new Map([[3, watched]]) });
+    });
+
+    afterEach(() => {
+      useSourcesStore.setState({ sourcesById: new Map() });
+    });
+
+    it("rates without prompting when no file will be written", async () => {
+      await confirmAndApplyTrackRatings([readOnly(1, 0)], 128, update);
+      expect(useTagWriteConfirmStore.getState().prompt).toBeNull();
+      expect(setTrackRating).toHaveBeenCalledWith(1, 128);
+    });
+
+    it("counts only the files that will be written", async () => {
+      const pending = confirmAndApplyTrackRatings(
+        [track(1, 0), readOnly(2, 0), readOnly(3, 0)],
+        128,
+        update,
+      );
+      expect(useTagWriteConfirmStore.getState().prompt).toMatchObject({
+        fileCount: 1,
+      });
+      await useTagWriteConfirmStore.getState().answerPrompt(true, false);
+      await pending;
+      expect(setTrackRating).toHaveBeenCalledTimes(3);
+    });
+
+    it("skips the native dialog too", async () => {
+      await confirmAndApplyTrackRatings([readOnly(1, 0)], 128, update, {
+        native: true,
+      });
+      expect(confirmTagWriteNative).not.toHaveBeenCalled();
+      expect(setTrackRating).toHaveBeenCalledWith(1, 128);
+    });
   });
 
   it("uses the native dialog for skins", async () => {

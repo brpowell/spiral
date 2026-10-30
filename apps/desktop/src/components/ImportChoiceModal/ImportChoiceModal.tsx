@@ -2,8 +2,8 @@ import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
-import { Button } from "../common/Button/Button";
 import { Checkbox } from "../common/Checkbox/Checkbox";
+import { ChoiceList, ChoiceOption } from "../common/ChoiceOption/ChoiceOption";
 import {
   Modal,
   ModalBody,
@@ -14,6 +14,9 @@ import {
   ModalTitle,
 } from "../common/Modal/Modal";
 
+import "./ImportChoiceModal.css";
+
+/** Asks how to add files: copy into the library, or play them where they are. */
 export function ImportChoiceModal() {
   const { t } = useTranslation("dialogs");
   const importPrompt = useLibrarySettingsStore((s) => s.importPrompt);
@@ -53,6 +56,22 @@ export function ImportChoiceModal() {
       </ModalHeader>
 
       <ModalBody>
+        <ChoiceList className="import-choice-modal__options">
+          <li>
+            <ChoiceOption
+              title={t("importChoice.copyToLibrary")}
+              details={t("importChoice.copyToLibraryDescription")}
+              onClick={() => handleChoice("copy")}
+            />
+          </li>
+          <li>
+            <ChoiceOption
+              title={t("importChoice.keepLocation")}
+              details={t("importChoice.keepLocationDescription")}
+              onClick={() => handleChoice("reference")}
+            />
+          </li>
+        </ChoiceList>
         <Checkbox
           variant="muted"
           checked={remember}
@@ -62,14 +81,7 @@ export function ImportChoiceModal() {
         </Checkbox>
       </ModalBody>
 
-      <ModalFooter onCancel={cancelImportChoice}>
-        <Button variant="secondary" onClick={() => handleChoice("reference")}>
-          {t("importChoice.keepLocation")}
-        </Button>
-        <Button variant="primary" onClick={() => handleChoice("copy")}>
-          {t("importChoice.copyToLibrary")}
-        </Button>
-      </ModalFooter>
+      <ModalFooter onCancel={cancelImportChoice}>{null}</ModalFooter>
     </Modal>
   );
 }

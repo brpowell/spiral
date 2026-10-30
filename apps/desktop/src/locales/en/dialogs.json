@@ -4,7 +4,11 @@
     "title_other": "Remove {{count}} tracks from library?",
     "removeFromLibrary": "Remove from library",
     "deleteFiles_one": "Remove and delete file",
-    "deleteFiles_other": "Remove and delete files"
+    "deleteFiles_other": "Remove and delete files",
+    "keptOnDisk_one": "{{count}} of these files isn't in the Spiral library. It leaves the library, but stays on disk.",
+    "keptOnDisk_other": "{{count}} of these files aren't in the Spiral library. They leave the library, but stay on disk.",
+    "allKeptOnDisk_one": "This file isn't in the Spiral library. It leaves the library, but stays on disk.",
+    "allKeptOnDisk_other": "These files aren't in the Spiral library. They leave the library, but stay on disk."
   },
   "convert": {
     "title_one": "Convert track",
@@ -19,11 +23,13 @@
     "confirmReplace": "Convert & Replace"
   },
   "importChoice": {
-    "title": "Add to library",
-    "description": "Do you want to copy these files into your Spiral tracks folder, or keep them at their current location?",
+    "title": "Add music",
+    "description": "Choose how Spiral should handle these files.",
     "dontAskAgain": "Don't ask again",
-    "keepLocation": "Keep original location",
-    "copyToLibrary": "Copy to library"
+    "keepLocation": "Keep files where they are",
+    "copyToLibrary": "Add to Spiral library",
+    "keepLocationDescription": "Play them from their current folder. Spiral won't move or change them.",
+    "copyToLibraryDescription": "Copy them into your library and organize them. The originals stay where they are."
   },
   "importDedupe": {
     "title": "Duplicate track during import",
