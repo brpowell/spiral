@@ -43,6 +43,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "artist_images_single_key",
         up: artist_images_single_key,
     },
+    Migration {
+        version: 3,
+        name: "library_sources",
+        up: library_sources,
+    },
 ];
 
 fn latest_version() -> i64 {
@@ -501,6 +506,130 @@ fn artist_images_single_key(conn: &Connection) -> Result<(), rusqlite::Error> {
     )
 }
 
+/// v3: every track belongs to a library source. `managed` (id 1) is Spiral's
+/// tracks folder, `external` (id 2) holds files referenced one at a time, and
+/// `watched` rows are user folders indexed in place. The managed root is not
+/// stored: it follows the library location in settings. Existing tracks start
+/// as external; `sources::assign_external_tracks` moves the ones under the
+/// tracks folder to managed when the database is opened, since that needs the
+/// library location. Rebuilds `tracks` to add the `NOT NULL` foreign key.
+fn library_sources(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute_batch(
+        "CREATE TABLE sources (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind TEXT NOT NULL CHECK (kind IN ('managed', 'watched', 'external')),
+            root_path TEXT,
+            name TEXT NOT NULL,
+            writable INTEGER NOT NULL DEFAULT 0 CHECK (writable IN (0, 1)),
+            created_at TEXT NOT NULL,
+            CHECK ((kind = 'watched') = (root_path IS NOT NULL))
+        );
+        CREATE UNIQUE INDEX idx_sources_single_kind ON sources(kind)
+            WHERE kind IN ('managed', 'external');
+        CREATE UNIQUE INDEX idx_sources_watched_root ON sources(root_path)
+            WHERE kind = 'watched';
+        CREATE TRIGGER sources_keep_builtin BEFORE DELETE ON sources
+            WHEN old.kind != 'watched'
+            BEGIN SELECT RAISE(ABORT, 'the managed and external sources cannot be removed'); END;
+        CREATE TRIGGER sources_keep_kind BEFORE UPDATE OF kind ON sources
+            WHEN new.kind != old.kind
+            BEGIN SELECT RAISE(ABORT, 'a source cannot change kind'); END;",
+    )?;
+    let now = Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO sources (id, kind, root_path, name, writable, created_at)
+         VALUES (1, 'managed', NULL, 'Spiral Library', 1, ?1),
+                (2, 'external', NULL, 'Other Files', 0, ?1)",
+        params![now],
+    )?;
+
+    conn.execute_batch(
+        "CREATE TABLE tracks_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            artist TEXT,
+            album TEXT,
+            album_artist TEXT,
+            track_number INTEGER,
+            total_tracks INTEGER,
+            disc_number INTEGER,
+            total_discs INTEGER,
+            year INTEGER,
+            genre TEXT,
+            duration_seconds REAL,
+            sample_rate INTEGER,
+            bitrate INTEGER,
+            codec TEXT,
+            file_path TEXT NOT NULL UNIQUE,
+            art_path TEXT,
+            date_added TEXT NOT NULL,
+            play_count INTEGER NOT NULL DEFAULT 0,
+            last_played_at TEXT,
+            rating INTEGER NOT NULL DEFAULT 0,
+            recording_mbid TEXT,
+            release_mbid TEXT,
+            artist_mbids TEXT,
+            album_artist_mbids TEXT,
+            source_id INTEGER NOT NULL REFERENCES sources(id),
+            missing_since TEXT
+        );",
+    )?;
+
+    // Copy the columns this database has; very old libraries never gained some
+    // of them, and their new-table defaults stand in.
+    const COPIED_COLUMNS: &[&str] = &[
+        "id",
+        "title",
+        "artist",
+        "album",
+        "album_artist",
+        "track_number",
+        "total_tracks",
+        "disc_number",
+        "total_discs",
+        "year",
+        "genre",
+        "duration_seconds",
+        "sample_rate",
+        "bitrate",
+        "codec",
+        "file_path",
+        "art_path",
+        "date_added",
+        "play_count",
+        "last_played_at",
+        "rating",
+        "recording_mbid",
+        "release_mbid",
+        "artist_mbids",
+        "album_artist_mbids",
+    ];
+    let existing = table_columns(conn, "tracks")?;
+    let columns = COPIED_COLUMNS
+        .iter()
+        .filter(|c| existing.iter().any(|e| e == *c))
+        .copied()
+        .collect::<Vec<_>>()
+        .join(", ");
+    conn.execute_batch(&format!(
+        "INSERT INTO tracks_new ({columns}, source_id) SELECT {columns}, 2 FROM tracks;"
+    ))?;
+
+    conn.execute_batch(
+        "-- Keep AUTOINCREMENT from reusing ids of tracks deleted before the rebuild.
+        UPDATE sqlite_sequence
+            SET seq = MAX(seq, COALESCE((SELECT seq FROM sqlite_sequence WHERE name = 'tracks'), 0))
+            WHERE name = 'tracks_new';
+        INSERT INTO sqlite_sequence (name, seq)
+            SELECT 'tracks_new', seq FROM sqlite_sequence
+            WHERE name = 'tracks'
+              AND NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'tracks_new');
+        DROP TABLE tracks;
+        ALTER TABLE tracks_new RENAME TO tracks;
+        CREATE INDEX idx_tracks_source_id ON tracks(source_id);",
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -768,9 +897,99 @@ mod tests {
             assert_eq!(integrity, "ok", "{name}");
             check_foreign_keys(&conn).unwrap_or_else(|e| panic!("{name}: {e}"));
             // A migration that intentionally changes row counts must adjust
-            // this assertion for the versions it affects.
-            assert_eq!(table_counts(&conn), before, "{name}: rows changed");
+            // this assertion for the versions it affects. v3 adds `sources`
+            // with its two built-in rows.
+            let mut expected = before.clone();
+            if from < 3 {
+                expected.push(("sources".to_string(), 2));
+                expected.sort();
+            }
+            assert_eq!(table_counts(&conn), expected, "{name}: rows changed");
         }
+    }
+
+    fn load_fixture(version: i64) -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            &std::fs::read_to_string(fixtures_dir().join(format!("v{version}.sql"))).unwrap(),
+        )
+        .unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        conn
+    }
+
+    #[test]
+    fn v3_seeds_sources_and_assigns_existing_tracks_to_external() {
+        let conn = load_fixture(2);
+        conn.execute("DELETE FROM tracks WHERE id = 2", []).unwrap();
+        let tracks_before: Vec<(i64, String, String)> = conn
+            .prepare("SELECT id, title, file_path FROM tracks ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+
+        run(&conn, None).unwrap();
+
+        let sources: Vec<(i64, String, Option<String>, bool)> = conn
+            .prepare("SELECT id, kind, root_path, writable FROM sources ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(
+            sources,
+            vec![
+                (1, "managed".into(), None, true),
+                (2, "external".into(), None, false)
+            ]
+        );
+
+        let tracks_after: Vec<(i64, String, String, i64, Option<String>)> = conn
+            .prepare(
+                "SELECT id, title, file_path, source_id, missing_since FROM tracks ORDER BY id",
+            )
+            .unwrap()
+            .query_map([], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+            })
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(tracks_after.len(), tracks_before.len());
+        for ((id, title, path), after) in tracks_before.into_iter().zip(tracks_after) {
+            assert_eq!(after, (id, title, path, 2, None));
+        }
+
+        // Children still point at their tracks, and deleting cascades.
+        let lyrics: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM track_lyrics WHERE track_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(lyrics, 1);
+        conn.execute("DELETE FROM tracks WHERE id = 1", []).unwrap();
+        let orphans: i64 = conn
+            .query_row(
+                "SELECT (SELECT COUNT(*) FROM track_lyrics) + (SELECT COUNT(*) FROM listen_events)
+                      + (SELECT COUNT(*) FROM playlist_tracks)",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(orphans, 0);
+
+        // Ids of tracks deleted before the rebuild are not reused.
+        conn.execute(
+            "INSERT INTO tracks (title, file_path, date_added, source_id) VALUES ('New', '/n.mp3', 'now', 2)",
+            [],
+        )
+        .unwrap();
+        assert_eq!(conn.last_insert_rowid(), 3);
     }
 
     #[test]

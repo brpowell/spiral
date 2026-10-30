@@ -14,6 +14,7 @@ use crate::models::{
 };
 use crate::rating_sync::{schedule_rating_file_write, RatingSync};
 use crate::settings;
+use crate::sources::{self, LibraryRoots};
 use crate::transcoder;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -192,9 +193,17 @@ pub fn save_track(
     mut track: TrackInput,
 ) -> Result<Track, String> {
     fill_missing_audio_properties(&mut track);
-    let root = library_root(&app);
+    let library = settings::resolved_library_settings(&app);
+    let root = PathBuf::from(&library.library_root);
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    let id = db::save_track(&conn, &track).map_err(|e| {
+    // Copies land in the tracks folder (managed); references resolve by location.
+    let source_id = sources::source_for_path(
+        &conn,
+        &LibraryRoots::from_settings(&library),
+        Path::new(&track.file_path),
+    )
+    .map_err(|e| e.to_string())?;
+    let id = db::save_track(&conn, &track, source_id).map_err(|e| {
         eprintln!("save_track error: {e}");
         e.to_string()
     })?;
@@ -275,7 +284,7 @@ fn refresh_library_metadata_blocking(
 
         let save_result = {
             let conn = state.0.lock().map_err(|e| e.to_string())?;
-            db::save_track(&conn, &input)
+            db::save_track(&conn, &input, track.source_id)
         };
 
         match save_result {
@@ -482,6 +491,13 @@ pub fn replace_track_from_import(
             eprintln!("replace_track_from_import update error: {e}");
             e.to_string()
         })?;
+        sources::source_for_path(
+            &conn,
+            &LibraryRoots::from_settings(&resolved),
+            &new_path_buf,
+        )
+        .and_then(|source_id| db::set_track_source(&conn, track_id, source_id))
+        .map_err(|e| e.to_string())?;
         lyrics_normalize::persist_import_lyrics(&conn, track_id, &track.lyrics).map_err(|e| {
             eprintln!("persist_import_lyrics error: {e}");
             e.to_string()
@@ -685,7 +701,8 @@ fn convert_track_impl(
         let input = track_to_input(&existing, new_path);
         let root = PathBuf::from(&resolved.library_root);
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        let id = db::save_track(&conn, &input).map_err(|e| {
+        // Converted files are written into the tracks folder.
+        let id = db::save_track(&conn, &input, sources::MANAGED_SOURCE_ID).map_err(|e| {
             eprintln!("convert_track save_track error: {e}");
             e.to_string()
         })?;
@@ -721,6 +738,8 @@ fn convert_track_impl(
             eprintln!("convert_track update error: {e}");
             e.to_string()
         })?;
+        db::set_track_source(&conn, track_id, sources::MANAGED_SOURCE_ID)
+            .map_err(|e| e.to_string())?;
     }
 
     if old_path != final_path {

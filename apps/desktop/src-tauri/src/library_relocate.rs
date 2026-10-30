@@ -304,6 +304,7 @@ fn import_audio_as_reference(app: &AppHandle, state: &DbState, root: &Path) -> R
     let app_data = settings::app_data_dir(app)?;
     let lyrics_sidecar = settings::lyrics_sidecar_sync_enabled(app);
     let mut imported = 0u32;
+    let roots = crate::sources::LibraryRoots::for_library_root(root);
 
     let conn = state
         .0
@@ -318,7 +319,9 @@ fn import_audio_as_reference(app: &AppHandle, state: &DbState, root: &Path) -> R
                 continue;
             }
         };
-        match db::save_track(&conn, &input) {
+        let source_id = crate::sources::source_for_path(&conn, &roots, Path::new(&path))
+            .map_err(|e| e.to_string())?;
+        match db::save_track(&conn, &input, source_id) {
             Ok(id) => {
                 if let Err(e) = lyrics_normalize::persist_import_lyrics(&conn, id, &input.lyrics) {
                     eprintln!("fresh import lyrics for {path}: {e}");
@@ -579,6 +582,7 @@ mod tests {
                 lyrics: None,
                 ..Default::default()
             },
+            crate::sources::MANAGED_SOURCE_ID,
         )
         .unwrap();
 

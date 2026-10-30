@@ -59,7 +59,7 @@ impl ScopeSet {
 
 /// `path` as given and with symlinks resolved, so a check matches either spelling
 /// (`/var` and `/private/var` on macOS). Empty when `path` is relative or has `..`.
-fn path_forms(path: &Path) -> Vec<PathBuf> {
+pub(crate) fn path_forms(path: &Path) -> Vec<PathBuf> {
     if !is_plain_absolute(path) {
         return Vec::new();
     }
