@@ -15,7 +15,9 @@ import {
   type EncodingProfileSelectOption,
 } from "../../lib/encodingProfiles";
 import type { ConvertMode } from "../../lib/convertTracks";
+import { isTrackManaged } from "../../lib/sourceAccess";
 import { useConvertStore } from "../../store/useConvertStore";
+import { useSourcesStore } from "../../store/useSourcesStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { Button } from "../common/Button/Button";
 import { Field, FieldLabel, FormField } from "../common/Field/Field";
@@ -60,6 +62,11 @@ export function ConvertConfirmModal() {
   }, [library, prompt]);
 
   const sampleTrack = tracks[0] ?? null;
+  const sourcesById = useSourcesStore((s) => s.sourcesById);
+  // Replace rewrites the original file, which only Spiral's own files allow.
+  const canReplace = tracks.every((track) =>
+    isTrackManaged(track, sourcesById),
+  );
 
   const sourcePaths = useMemo(
     () => tracks.map((track) => track.filePath),
@@ -198,7 +205,11 @@ export function ConvertConfirmModal() {
             label={t("dialogs:convert.outcomeLabel")}
             labelId={outcomeLabelId}
             srOnly
-            description={t("dialogs:convert.outcomeDescription")}
+            description={
+              canReplace
+                ? t("dialogs:convert.outcomeDescription")
+                : t("library:sources.notManaged.convertReplace")
+            }
             className="convert-confirm-modal__outcome"
           >
             <RadioGroup
@@ -215,7 +226,11 @@ export function ConvertConfirmModal() {
                 </FieldLabel>
               </Field>
               <Field orientation="horizontal">
-                <RadioGroupItem value="replace" id="convert-mode-replace" />
+                <RadioGroupItem
+                  value="replace"
+                  id="convert-mode-replace"
+                  disabled={!canReplace}
+                />
                 <FieldLabel htmlFor="convert-mode-replace">
                   {t("dialogs:convert.replace")}
                 </FieldLabel>

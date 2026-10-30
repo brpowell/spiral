@@ -2,7 +2,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { ItemSummary, ItemType } from "../types/item";
 import type { SoundPackSummary } from "../types/soundPack";
-import type { ReconcileSummary, Source } from "../types/source";
+import type { ReconcileSummary, Source, SourceStatus } from "../types/source";
 import type {
   ItemCatalogQuery,
   ItemDownloadProgress,
@@ -148,6 +148,13 @@ function normalizeTrack(raw: Record<string, unknown>): Track {
       stringArray(raw.albumArtistMbids) ??
       stringArray(raw.album_artist_mbids) ??
       [],
+    sourceId:
+      (raw.sourceId as number | undefined) ??
+      (raw.source_id as number | undefined),
+    missingSince:
+      (raw.missingSince as string | null | undefined) ??
+      (raw.missing_since as string | null | undefined) ??
+      null,
   };
 }
 
@@ -484,6 +491,20 @@ export async function setSourceWritable(
   writable: boolean,
 ): Promise<Source> {
   return invoke<Source>("set_source_writable", { sourceId, writable });
+}
+
+/** Watch status of each watched folder, for the offline badge. */
+export async function getSourceStatuses(): Promise<SourceStatus[]> {
+  return invoke<SourceStatus[]>("get_source_statuses");
+}
+
+/**
+ * Native folder picker for a music folder to watch; `null` when cancelled.
+ * The picked folder is added to the path scope, as `add_watched_source` needs.
+ */
+export async function pickMusicFolder(): Promise<string | null> {
+  const picked = await invoke<string[]>("pick_folder");
+  return picked[0] ?? null;
 }
 
 function normalizePlaylistImageMode(

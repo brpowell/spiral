@@ -235,6 +235,7 @@ pub fn run() {
             commands::sources::rescan_source,
             commands::sources::relocate_watched_source,
             commands::sources::set_source_writable,
+            commands::sources::get_source_statuses,
             commands::lyrics::get_track_lyrics,
             commands::lyrics::mark_track_instrumental,
             commands::lyrics::save_track_lyrics,

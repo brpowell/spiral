@@ -171,6 +171,33 @@ struct Registry {
 
 static REGISTRY: OnceLock<Mutex<Registry>> = OnceLock::new();
 
+/// Whether a watched folder is being watched right now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WatchStatus {
+    /// Changes in the folder show up live.
+    Watching,
+    /// The folder can't be reached (an unplugged drive, or it was moved or
+    /// deleted); it is retried every [`RETRY`].
+    Unreachable,
+    /// No watcher for this source, e.g. the watcher thread never started.
+    NotWatching,
+}
+
+/// The watch status of each given source.
+pub fn statuses(source_ids: &[i64]) -> Vec<(i64, WatchStatus)> {
+    let registry = REGISTRY.get().map(lock);
+    source_ids
+        .iter()
+        .map(|&id| {
+            let status = registry
+                .as_ref()
+                .map_or(WatchStatus::NotWatching, |r| r.status(id));
+            (id, status)
+        })
+        .collect()
+}
+
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
@@ -230,6 +257,16 @@ impl Registry {
                 retry_at: Instant::now() + RETRY,
             },
         );
+    }
+
+    fn status(&self, source_id: i64) -> WatchStatus {
+        match self.watches.get(&source_id) {
+            Some(Watch {
+                watcher: Some(_), ..
+            }) => WatchStatus::Watching,
+            Some(_) => WatchStatus::Unreachable,
+            None => WatchStatus::NotWatching,
+        }
     }
 
     /// The source's root when `generation` is still its current watcher.
@@ -656,6 +693,43 @@ mod tests {
         }
         let _ = std::fs::remove_dir_all(&dir);
         assert!(seen, "no event for {}", file.display());
+    }
+
+    #[test]
+    fn status_reports_watching_unreachable_and_unknown_sources() {
+        let dir = std::env::temp_dir().join(format!(
+            "spiral-source-status-{}-{}",
+            std::process::id(),
+            Instant::now().elapsed().as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (tx, _rx) = mpsc::channel();
+        let mut registry = Registry {
+            watches: HashMap::new(),
+            roots: roots("/nowhere/Spiral Library"),
+            tx,
+            next_generation: 0,
+        };
+        registry.attach(3, dir.clone());
+        registry.attach(4, "/definitely/not/here/spiral".into());
+
+        assert_eq!(registry.status(3), WatchStatus::Watching);
+        assert_eq!(registry.status(4), WatchStatus::Unreachable);
+        assert_eq!(registry.status(5), WatchStatus::NotWatching);
+
+        if let Some(watch) = registry.watches.get_mut(&3) {
+            lost(watch, 3);
+        }
+        assert_eq!(registry.status(3), WatchStatus::Unreachable);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn watch_status_serializes_in_camel_case() {
+        assert_eq!(
+            serde_json::to_string(&WatchStatus::NotWatching).unwrap(),
+            "\"notWatching\""
+        );
     }
 
     #[test]

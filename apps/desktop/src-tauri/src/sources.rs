@@ -202,6 +202,11 @@ pub fn assign_external_tracks(
     Ok(moved)
 }
 
+/// Error prefixes from [`validate_watched_root`], so the UI can explain them.
+pub const SOURCE_NOT_FOLDER: &str = "source_not_folder";
+pub const SOURCE_INSIDE_LIBRARY: &str = "source_inside_library";
+pub const SOURCE_OVERLAP: &str = "source_overlap";
+
 /// Check a folder can become a watched source: an absolute, existing folder
 /// that neither equals, contains nor sits inside another watched root, and is
 /// not the library folder or inside it. It may contain the library folder
@@ -214,14 +219,20 @@ pub fn validate_watched_root(
     exclude: Option<i64>,
 ) -> Result<(), String> {
     if path_forms(root).is_empty() {
-        return Err(format!("{} is not an absolute folder path", root.display()));
+        return Err(format!(
+            "{SOURCE_NOT_FOLDER}: {} is not an absolute folder path",
+            root.display()
+        ));
     }
     if !root.is_dir() {
-        return Err(format!("{} is not a folder", root.display()));
+        return Err(format!(
+            "{SOURCE_NOT_FOLDER}: {} is not a folder",
+            root.display()
+        ));
     }
     if is_excluded_from_watched(root, roots) {
         return Err(format!(
-            "{} is inside the Spiral library folder",
+            "{SOURCE_INSIDE_LIBRARY}: {} is inside the Spiral library folder",
             root.display()
         ));
     }
@@ -233,7 +244,7 @@ pub fn validate_watched_root(
         .find(|(id, other)| Some(*id) != exclude && overlaps(root, other))
     {
         return Err(format!(
-            "{} overlaps the watched folder {}",
+            "{SOURCE_OVERLAP}: {} overlaps the watched folder {}",
             root.display(),
             other.display()
         ));
@@ -487,9 +498,9 @@ mod tests {
         let equal = add(&conn, &roots, &tmp.dir("Collection/Rock"));
         let inside = add(&conn, &roots, &tmp.dir("Collection/Rock/Live"));
         let containing = add(&conn, &roots, &tmp.dir("Collection"));
-        assert!(equal.is_err());
-        assert!(inside.is_err());
-        assert!(containing.is_err());
+        for result in [equal, inside, containing] {
+            assert!(result.unwrap_err().starts_with(SOURCE_OVERLAP));
+        }
         assert_eq!(list_sources(&conn).unwrap().len(), 3);
     }
 
@@ -505,9 +516,10 @@ mod tests {
             tmp.dir("Music/Spiral Library/Artwork"),
             tmp.dir("Music/Spiral Library/Packs"),
         ] {
+            let err = add(&conn, &roots, &root).unwrap_err();
             assert!(
-                add(&conn, &roots, &root).is_err(),
-                "{} was accepted",
+                err.starts_with(SOURCE_INSIDE_LIBRARY),
+                "{}: {err}",
                 root.display()
             );
         }
@@ -584,7 +596,9 @@ mod tests {
         let conn = test_conn();
         let roots = roots(&tmp);
         assert!(add(&conn, &roots, Path::new("relative/folder")).is_err());
-        assert!(add(&conn, &roots, &tmp.0.join("missing")).is_err());
+        assert!(add(&conn, &roots, &tmp.0.join("missing"))
+            .unwrap_err()
+            .starts_with(SOURCE_NOT_FOLDER));
     }
 
     #[test]

@@ -99,6 +99,32 @@ pub fn init(app: &AppHandle) {
     });
 }
 
+/// Whether a watched source is being watched live right now.
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceStatus {
+    source_id: i64,
+    status: source_watch::WatchStatus,
+}
+
+/// Watch status for every watched source, so the UI can flag offline folders.
+#[tauri::command]
+pub fn get_source_statuses(state: State<DbState>) -> Result<Vec<SourceStatus>, String> {
+    let ids: Vec<i64> = {
+        let conn = state.0.lock().map_err(|e| e.to_string())?;
+        sources::list_sources(&conn)
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .filter(|s| s.kind == sources::SourceKind::Watched)
+            .map(|s| s.id)
+            .collect()
+    };
+    Ok(source_watch::statuses(&ids)
+        .into_iter()
+        .map(|(source_id, status)| SourceStatus { source_id, status })
+        .collect())
+}
+
 #[tauri::command]
 pub fn list_sources(state: State<DbState>) -> Result<Vec<Source>, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;

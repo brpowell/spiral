@@ -1,6 +1,8 @@
 import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
+import { isTrackManaged } from "../../lib/sourceAccess";
+import { useSourcesStore } from "../../store/useSourcesStore";
 import type { Track } from "../../types/track";
 import { Button } from "../common/Button/Button";
 import {
@@ -48,6 +50,12 @@ export function RemoveTrackDialog({
 
   const count = tracks.length;
   const heading = t("removeTracks.title", { count });
+  const sourcesById = useSourcesStore((s) => s.sourcesById);
+  // Files outside the library are only ever removed from it, never deleted.
+  const keptOnDisk = tracks.filter(
+    (track) => !isTrackManaged(track, sourcesById),
+  ).length;
+  const allKept = count > 0 && keptOnDisk === count;
 
   return (
     <Modal
@@ -75,15 +83,24 @@ export function RemoveTrackDialog({
             );
           })}
         </ul>
+        {keptOnDisk > 0 ? (
+          <p className="remove-track-dialog__note" role="note">
+            {allKept
+              ? t("removeTracks.allKeptOnDisk", { count })
+              : t("removeTracks.keptOnDisk", { count: keptOnDisk })}
+          </p>
+        ) : null}
       </ModalBody>
 
       <ModalFooter onCancel={onClose}>
         <Button variant="secondary" onClick={() => void handleRemove(false)}>
           {t("removeTracks.removeFromLibrary")}
         </Button>
-        <Button variant="danger" onClick={() => void handleRemove(true)}>
-          {t("removeTracks.deleteFiles", { count })}
-        </Button>
+        {allKept ? null : (
+          <Button variant="danger" onClick={() => void handleRemove(true)}>
+            {t("removeTracks.deleteFiles", { count: count - keptOnDisk })}
+          </Button>
+        )}
       </ModalFooter>
     </Modal>
   );
