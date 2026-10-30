@@ -320,16 +320,35 @@
 
 /* Privacy step */
 .onboarding-options {
+  --option-box: 1.35rem;
+  --option-gap: 0.875rem;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  max-width: 480px;
+  gap: 32px;
+  max-width: 560px;
+}
+
+/* Bigger than the app's default checkbox: these are the point of the screen. */
+.onboarding-options .checkbox {
+  gap: var(--option-gap);
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+.onboarding-options .checkbox__input {
+  width: var(--option-box);
+  height: var(--option-box);
+}
+
+.onboarding-options .checkbox--align-start .checkbox__input {
+  margin-top: 0.1rem;
 }
 
 .onboarding-options__hint {
-  margin: 6px 0 0 28px;
-  font-size: 0.8125rem;
-  line-height: 1.45;
+  /* Lines up under the label text, past the box and its gap. */
+  margin: 8px 0 0 calc(var(--option-box) + var(--option-gap));
+  font-size: 0.9375rem;
+  line-height: 1.5;
   color: var(--color-text-secondary);
 }
 
