@@ -240,6 +240,9 @@ export function TrackEditor() {
   );
   const [cropApplying, setCropApplying] = useState(false);
   const [preparingEdit, setPreparingEdit] = useState(false);
+  const [cropFromFetch, setCropFromFetch] = useState(false);
+  const [loadingCoverUrl, setLoadingCoverUrl] = useState<string | null>(null);
+  const cropFetchRef = useRef(0);
   const [saveError, setSaveError] = useState<string | null>(null);
   const {
     saving,
@@ -724,9 +727,18 @@ export function TrackEditor() {
   };
 
   const closeCropModal = () => {
+    cropFetchRef.current += 1;
     setCropModalSourcePath(null);
     setCropInitial(null);
     setCropInitialMaxEdge(null);
+    setCropFromFetch(false);
+  };
+
+  const handleCropCancel = () => {
+    const source = cropFromFetch ? cropModalSourcePath : null;
+    closeCropModal();
+    // Keep the full-quality cover the user picked, uncropped.
+    if (source) void applyArtPath(source);
   };
 
   const handleCropApply = async (crop: ImageCrop, maxEdge: number | null) => {
@@ -773,7 +785,7 @@ export function TrackEditor() {
 
   const handleChangeArt = async () => {
     const path = await pickImageFile();
-    if (path) await applyArtPath(path);
+    if (path) setCropModalSourcePath(path);
   };
 
   const handleArtDrop = async (e: React.DragEvent) => {
@@ -786,17 +798,19 @@ export function TrackEditor() {
 
     const path = (file as File & { path?: string }).path;
     if (path) {
-      await applyArtPath(path);
+      setCropModalSourcePath(path);
       return;
     }
 
     setSaveError(t("library:editor.dropArtFailed"));
   };
 
-  useArtFileDrop(isOpen && !!referenceTrack, applyArtPath);
+  useArtFileDrop(isOpen && !!referenceTrack, setCropModalSourcePath);
 
   const closeArtPicker = () => {
     artFetchGenRef.current += 1;
+    cropFetchRef.current += 1;
+    setLoadingCoverUrl(null);
     setArtPickerOpen(false);
     setFetchingArt(false);
     setCoverCandidates([]);
@@ -838,16 +852,40 @@ export function TrackEditor() {
     }
   };
 
-  const handleSelectCover = (url: string) => {
+  const handleSelectCover = async (url: string) => {
     setSaveError(null);
-    setSelectedCoverUrl(url);
-    setSelectedCoverPreviewSrc(previewSrcForFetchedCover(url, coverCandidates));
     setArtSourcePath(null);
     setArtCrop(null);
     setArtMaxEdge(null);
-    setArtPickerOpen(false);
-    setCoverCandidates([]);
-    setFetchMessage(null);
+    if (!referenceTrack) {
+      setArtPickerOpen(false);
+      setCoverCandidates([]);
+      setFetchMessage(null);
+      setSelectedCoverUrl(url);
+      setSelectedCoverPreviewSrc(
+        previewSrcForFetchedCover(url, coverCandidates),
+      );
+      return;
+    }
+    // Stage the full-quality cover while the picker shows a spinner on the
+    // chosen thumbnail, then crop it. The art behind the dialogs stays put until
+    // they close, so nothing flashes.
+    const token = ++cropFetchRef.current;
+    setLoadingCoverUrl(url);
+    try {
+      const { path } = await cacheArtFromUrl(url, ART_DOWNLOAD_KEY);
+      if (token !== cropFetchRef.current) return;
+      setLoadingCoverUrl(null);
+      setArtPickerOpen(false);
+      setCoverCandidates([]);
+      setFetchMessage(null);
+      setCropFromFetch(true);
+      setCropModalSourcePath(path);
+    } catch (err) {
+      if (token !== cropFetchRef.current) return;
+      setLoadingCoverUrl(null);
+      setSaveError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const resolveArtPathForTrack = async (
@@ -1287,6 +1325,7 @@ export function TrackEditor() {
               .join(" • ")}
             candidates={coverCandidates}
             selectedUrl={selectedCoverUrl}
+            loadingUrl={loadingCoverUrl}
             fetching={fetchingArt}
             fetchMessage={fetchMessage}
             onSelect={handleSelectCover}
@@ -1311,7 +1350,7 @@ export function TrackEditor() {
         initialMaxEdge={cropInitialMaxEdge}
         showSizeOptions
         onApply={handleCropApply}
-        onClose={closeCropModal}
+        onClose={handleCropCancel}
       />
     </Modal>
   );
