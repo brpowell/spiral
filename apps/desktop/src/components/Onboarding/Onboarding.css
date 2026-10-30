@@ -80,6 +80,21 @@
   animation-delay: 450ms;
 }
 
+/* Split layout: the text stays put and only the controls column scrolls. */
+.onboarding__panel--split {
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.onboarding__panel--split .onboarding__content {
+  min-height: 0;
+  overflow-y: auto;
+  /* Room inside the scroller so hover lift, focus rings and shadows aren't
+     clipped; the margins cancel it so the column still lines up. */
+  padding: 8px 12px 24px 8px;
+  margin: -2px 0 0 -8px;
+}
+
 .onboarding__panel--centered {
   grid-template-columns: minmax(0, 560px);
   justify-content: center;
@@ -211,17 +226,17 @@
 }
 
 .onboarding-choices__row {
-  /* Up to four per row, fewer when the window is narrow. */
+  /* Up to three per row, fewer when the window is narrow. */
   display: grid;
-  grid-template-columns: repeat(auto-fill, 120px);
-  max-width: 528px;
+  grid-template-columns: repeat(auto-fill, 160px);
+  max-width: 512px;
   gap: 16px;
 }
 
 .onboarding-choice {
   display: flex;
-  width: 120px;
-  height: 64px;
+  width: 160px;
+  height: 88px;
   padding: 0;
   overflow: hidden;
   border: 2px solid transparent;
