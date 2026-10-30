@@ -103,7 +103,7 @@ describe("Onboarding", () => {
     playThroughReveal();
     act(() => useOnboardingStore.setState({ step: 2 }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Get started" }));
+    fireEvent.click(screen.getByRole("button", { name: "Finish" }));
     expect(screen.getByRole("dialog").className).toContain(
       "onboarding--leaving",
     );

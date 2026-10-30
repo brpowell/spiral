@@ -14,7 +14,7 @@
     "next": "Next",
     "back": "Back",
     "skip": "Skip welcome",
-    "getStarted": "Get started",
+    "finish": "Finish",
     "progress": "Step {{current}} of {{total}}",
     "library": {
       "title": "Where should your library live?",

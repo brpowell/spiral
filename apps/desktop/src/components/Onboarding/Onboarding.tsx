@@ -210,7 +210,7 @@ function OnboardingOverlay() {
                       }
                 }
               >
-                {isLast ? t("onboarding.getStarted") : t("onboarding.next")}
+                {isLast ? t("onboarding.finish") : t("onboarding.next")}
               </Button>
             </div>
           </footer>
