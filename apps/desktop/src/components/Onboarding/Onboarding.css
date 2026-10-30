@@ -103,6 +103,48 @@
   margin: -2px 0 0 -8px;
 }
 
+/* Fade the scroller at an edge only while there's more to scroll to there. */
+@property --fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+.onboarding__panel--split .onboarding__content {
+  --fade-size: 32px;
+  transition:
+    --fade-top 160ms ease,
+    --fade-bottom 160ms ease;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent 100%
+  );
+}
+
+.onboarding__content[data-fade-top] {
+  --fade-top: var(--fade-size, 32px);
+}
+
+.onboarding__content[data-fade-bottom] {
+  --fade-bottom: var(--fade-size, 32px);
+}
+
 .onboarding__panel--centered {
   grid-template-columns: minmax(0, 560px);
   justify-content: center;
@@ -303,7 +345,8 @@
     transition-duration: 1ms;
   }
 
-  .onboarding__logo {
+  .onboarding__logo,
+  .onboarding__panel--split .onboarding__content {
     transition: none;
   }
 

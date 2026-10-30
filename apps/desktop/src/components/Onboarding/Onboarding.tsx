@@ -10,6 +10,7 @@ import {
   useOnboardingStore,
 } from "../../store/useOnboardingStore";
 import { Button } from "../common/Button/Button";
+import { FadingScroller } from "./FadingScroller";
 import { LibraryStep } from "./steps/LibraryStep";
 import { PrivacyStep } from "./steps/PrivacyStep";
 import { StyleStep } from "./steps/StyleStep";
@@ -175,9 +176,9 @@ function OnboardingOverlay() {
                 {t(`onboarding.${id}.description`)}
               </p>
             </div>
-            <div className="onboarding__content">
+            <FadingScroller className="onboarding__content">
               <Content />
-            </div>
+            </FadingScroller>
           </div>
           <footer className="onboarding__footer">
             <span className="onboarding__progress">
