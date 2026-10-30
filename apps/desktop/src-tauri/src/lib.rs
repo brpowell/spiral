@@ -65,6 +65,7 @@ mod skin_click_through;
 pub mod skin_convert;
 mod skin_drag;
 mod skin_preferences;
+mod sources;
 pub mod tag_inspector;
 #[cfg(test)]
 mod test_fixtures;
