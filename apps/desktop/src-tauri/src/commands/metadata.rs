@@ -15,6 +15,7 @@ use crate::models::TrackInput;
 use crate::models::{Track, TrackMetadataUpdate};
 use crate::path_scope;
 use crate::settings;
+use crate::track_permissions::{track_permissions, TrackPermissions};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -459,6 +460,33 @@ pub async fn clear_metadata_cache(app: AppHandle) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
+/// Write tags to a track's file and, for managed files with auto-organize on,
+/// move it into the organized layout. Returns the new path when it moved.
+/// Fails with a `source_read_only` error when the track's source forbids it.
+fn write_track_file(
+    perms: TrackPermissions,
+    path: &Path,
+    metadata: &TrackMetadataUpdate,
+    auto_organize: bool,
+    media_folder: &str,
+    organize_path_format: &str,
+    move_lyrics_sidecar: bool,
+) -> Result<Option<PathBuf>, String> {
+    perms.require_writable("Editing tags")?;
+    metadata_writer::write_track_metadata(path, metadata).map_err(|e| e.to_message())?;
+    // Writable watched folders get tag edits, but only Spiral's files move.
+    if !(auto_organize && perms.managed) {
+        return Ok(None);
+    }
+    library_organize::relocate_track_after_metadata(
+        media_folder,
+        organize_path_format,
+        path,
+        metadata,
+        move_lyrics_sidecar,
+    )
+}
+
 #[tauri::command]
 pub fn write_track_metadata(
     app: AppHandle,
@@ -467,42 +495,44 @@ pub fn write_track_metadata(
     file_path: String,
     mut metadata: TrackMetadataUpdate,
 ) -> Result<Track, String> {
-    let path = Path::new(&file_path);
     let library = settings::resolved_library_settings(&app);
     let library_root = PathBuf::from(&library.library_root);
 
-    let existing = {
+    let (existing, perms) = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        db::get_track_by_id(&conn, track_id)
+        let existing = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
-            .ok_or_else(|| format!("Track {track_id} not found"))?
+            .ok_or_else(|| format!("Track {track_id} not found"))?;
+        (existing, track_permissions(&conn, track_id)?)
     };
-
-    metadata_writer::write_track_metadata(path, &metadata).map_err(|e| e.to_message())?;
+    // The stored path decides which file is written, not the caller's copy.
+    let _ = file_path;
+    let file_path = existing.file_path.clone();
+    let path = Path::new(&file_path);
 
     let mut final_path = file_path.clone();
 
-    if library.auto_organize {
-        if let Some(new_path) = library_organize::relocate_track_after_metadata(
-            &library.media_folder,
-            &library.organize_path_format,
-            path,
-            &metadata,
-            library.lyrics_sidecar_sync_enabled,
+    if let Some(new_path) = write_track_file(
+        perms,
+        path,
+        &metadata,
+        library.auto_organize,
+        &library.media_folder,
+        &library.organize_path_format,
+        library.lyrics_sidecar_sync_enabled,
+    )? {
+        final_path = new_path.to_string_lossy().into_owned();
+        let app_data = app_data_dir(&app)?;
+        if let Some(new_art) = library_organize::migrate_art_cache(
+            &app_data,
+            &file_path,
+            &final_path,
+            metadata
+                .art_path
+                .as_deref()
+                .or(existing.art_path.as_deref()),
         )? {
-            final_path = new_path.to_string_lossy().into_owned();
-            let app_data = app_data_dir(&app)?;
-            if let Some(new_art) = library_organize::migrate_art_cache(
-                &app_data,
-                &file_path,
-                &final_path,
-                metadata
-                    .art_path
-                    .as_deref()
-                    .or(existing.art_path.as_deref()),
-            )? {
-                metadata.art_path = Some(new_art);
-            }
+            metadata.art_path = Some(new_art);
         }
     }
 
@@ -592,22 +622,11 @@ pub fn write_track_metadata(
         }
 
         if metadata.lyrics_changed {
-            if let Some(lyrics) = metadata.lyrics.as_ref().filter(|lyrics| {
-                lyrics.format == crate::models::LyricsFormat::Instrumental
-                    || !lyrics.plain_text.trim().is_empty()
-            }) {
-                let record =
-                    lyrics_normalize::track_lyrics_input_to_record(lyrics.clone(), track_id);
-                db::upsert_track_lyrics(&conn, &record).map_err(|e| {
-                    eprintln!("upsert_track_lyrics error: {e}");
+            lyrics_normalize::save_track_lyrics(&conn, track_id, metadata.lyrics.as_ref())
+                .map_err(|e| {
+                    eprintln!("save_track_lyrics error: {e}");
                     e.to_string()
                 })?;
-            } else {
-                db::delete_track_lyrics(&conn, track_id).map_err(|e| {
-                    eprintln!("delete_track_lyrics error: {e}");
-                    e.to_string()
-                })?;
-            }
         }
 
         let mut track = db::get_track_by_id(&conn, track_id)
@@ -665,4 +684,103 @@ pub async fn ensure_art_row_thumb(
 
 fn app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     app.path().app_data_dir().map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_fixtures::ogg;
+    use crate::track_permissions::test_support::*;
+    use crate::track_permissions::SOURCE_READ_ONLY;
+
+    const FORMAT: &str = "{artist}/{album}/{title}.{ext}";
+
+    fn edit() -> TrackMetadataUpdate {
+        TrackMetadataUpdate {
+            title: "New Title".into(),
+            artist: Some("New Artist".into()),
+            album: Some("New Album".into()),
+            ..Default::default()
+        }
+    }
+
+    fn title_on_disk(path: &Path) -> Option<String> {
+        metadata_reader::read_basic_tags(path).title
+    }
+
+    fn perms_for(writable: bool, managed: bool) -> TrackPermissions {
+        let conn = conn();
+        let t = default_source_tracks(&conn);
+        let id = match (writable, managed) {
+            (true, true) => t.managed,
+            (true, false) => t.watched_writable,
+            (false, _) => t.watched_read_only,
+        };
+        track_permissions(&conn, id).unwrap()
+    }
+
+    #[test]
+    fn managed_edit_writes_tags_and_organizes() {
+        let tmp = TempDir::new("edit-managed");
+        let media = tmp.dir("Tracks");
+        let file = ogg::copy_minimal(&media, "a.ogg");
+        let moved = write_track_file(
+            perms_for(true, true),
+            &file,
+            &edit(),
+            true,
+            &media.to_string_lossy(),
+            FORMAT,
+            false,
+        )
+        .unwrap()
+        .expect("managed file moves");
+        assert!(!file.exists());
+        assert!(moved.ends_with("New Artist/New Album/New Title.ogg"));
+        assert_eq!(title_on_disk(&moved).as_deref(), Some("New Title"));
+    }
+
+    #[test]
+    fn writable_watched_edit_writes_tags_without_moving() {
+        let tmp = TempDir::new("edit-watched-rw");
+        // Even a path under the organize folder is not moved unless managed.
+        let media = tmp.dir("Tracks");
+        let file = ogg::copy_minimal(&media, "a.ogg");
+        let moved = write_track_file(
+            perms_for(true, false),
+            &file,
+            &edit(),
+            true,
+            &media.to_string_lossy(),
+            FORMAT,
+            false,
+        )
+        .unwrap();
+        assert_eq!(moved, None);
+        assert_eq!(title_on_disk(&file).as_deref(), Some("New Title"));
+    }
+
+    #[test]
+    fn read_only_edits_are_refused_and_leave_the_file() {
+        let tmp = TempDir::new("edit-read-only");
+        let conn = conn();
+        let ro = ogg::copy_minimal(&tmp.0, "ro.ogg");
+        let ext = ogg::copy_minimal(&tmp.0, "x.ogg");
+        let t = source_tracks(&conn, Path::new("/m.ogg"), &ro, Path::new("/rw.ogg"), &ext);
+        for (id, file) in [(t.watched_read_only, &ro), (t.external, &ext)] {
+            let before = std::fs::read(file).unwrap();
+            let err = write_track_file(
+                track_permissions(&conn, id).unwrap(),
+                file,
+                &edit(),
+                true,
+                &tmp.0.to_string_lossy(),
+                FORMAT,
+                false,
+            )
+            .unwrap_err();
+            assert!(err.starts_with(SOURCE_READ_ONLY), "{err}");
+            assert_eq!(std::fs::read(file).unwrap(), before);
+        }
+    }
 }

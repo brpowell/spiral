@@ -51,6 +51,7 @@ import type {
   LyricsFormat,
   LyricsSearchCandidate,
   TrackLyrics,
+  TrackLyricsInput,
 } from "../types/lyrics";
 import { normalizeTrackLyrics, normalizeTrackLyricsInput } from "./lyrics";
 import type { ListenEventPayload } from "../types/listenEvent";
@@ -280,6 +281,21 @@ export async function peekLyricsFetchCache(params: {
 export async function markTrackInstrumental(trackId: number): Promise<Track> {
   const raw = await invoke<Record<string, unknown>>("mark_track_instrumental", {
     trackId,
+  });
+  return normalizeTrack(raw);
+}
+
+/**
+ * Save fetched lyrics in the library. The file's tags and sidecar are updated
+ * only when the track's source is writable.
+ */
+export async function saveTrackLyrics(
+  trackId: number,
+  lyrics: TrackLyricsInput | null,
+): Promise<Track> {
+  const raw = await invoke<Record<string, unknown>>("save_track_lyrics", {
+    trackId,
+    lyrics,
   });
   return normalizeTrack(raw);
 }

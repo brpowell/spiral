@@ -364,35 +364,3 @@ export function buildTrackMetadataFromForm(
           : form.recordingMbid.trim() || null,
   };
 }
-
-export function buildLyricsOnlyMetadataUpdate(
-  track: Track,
-  lyrics: {
-    text: string;
-    syncedLines: LyricsLine[] | null;
-    source: LyricsSource;
-  },
-): TrackMetadataUpdate {
-  const trimmedLyrics = lyrics.text.trim();
-  return {
-    title: track.title,
-    artist: track.artist,
-    album: track.album,
-    albumArtist: track.albumArtist,
-    year: track.year,
-    trackNumber: track.trackNumber,
-    totalTracks: track.totalTracks,
-    discNumber: track.discNumber,
-    totalDiscs: track.totalDiscs,
-    genre: track.genre,
-    artPath: track.artPath,
-    artChanged: false,
-    lyricsChanged: true,
-    lyrics: buildTrackLyricsInputFromEditor(
-      trimmedLyrics,
-      lyrics.syncedLines,
-      lyrics.source,
-    ),
-    ...mbidFieldsFrom(track),
-  };
-}
