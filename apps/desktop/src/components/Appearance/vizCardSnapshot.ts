@@ -21,7 +21,7 @@ import {
 } from "../visualizer/vizRendererApi";
 import { useThemeStore } from "../../store/useThemeStore";
 import { useVisualizerStore } from "../../store/useVisualizerStore";
-import { useVisualizerPalette } from "../visualizer/context";
+import { useThemePalette, useVisualizerPalette } from "../visualizer/context";
 import {
   generateDemoVisualizerFrame,
   VIZ_CARD_DEMO_SNAPSHOT_MS,
@@ -270,10 +270,16 @@ function requestVizCardSnapshot(
   return promise;
 }
 
-export function useVizCardSnapshot(visualizerId: string): string | null {
+export function useVizCardSnapshot(
+  visualizerId: string,
+  options?: { themed?: boolean },
+): string | null {
   const getVisualizer = useVisualizerStore((s) => s.getVisualizer);
   // Current track's cover colors, or Spiral's default when it has none.
-  const palette = useVisualizerPalette();
+  const trackPalette = useVisualizerPalette();
+  const themePalette = useThemePalette();
+  // `themed` ignores the loaded track so the theme shows through.
+  const palette = options?.themed ? themePalette : trackPalette;
   // Re-key when the theme changes; the key itself reads the store.
   useThemeStore((s) => s.activeThemeId);
   const cacheKey = visualizerId ? snapshotCacheKey(visualizerId, palette) : "";

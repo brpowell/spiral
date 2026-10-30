@@ -46,6 +46,12 @@ function useThemeAccent(): string | undefined {
   });
 }
 
+/** Shades of the active theme's accent, ignoring whatever track is loaded. */
+export function useThemePalette(): string[] {
+  const accent = useThemeAccent();
+  return useMemo(() => getDefaultPalette(accent), [accent]);
+}
+
 /**
  * Colours for visualizers: the current track's cover swatches, or (with no
  * cover) shades of the active theme's accent.

@@ -69,7 +69,7 @@ export function StyleStep() {
               onFocus={() => onEnter(viz.id)}
               onBlur={() => onLeave(viz.id)}
             >
-              <VizCardPreview pack={viz} live={liveId === viz.id} />
+              <VizCardPreview pack={viz} live={liveId === viz.id} themed />
             </button>
           ))}
         </div>

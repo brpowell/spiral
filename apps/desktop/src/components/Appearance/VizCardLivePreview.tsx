@@ -1,16 +1,21 @@
 import { useEffect, useState } from "react";
 import { useVisualizerStore } from "../../store/useVisualizerStore";
+import { useThemePalette } from "../visualizer/context";
 import { SceneRenderer } from "../visualizer/scene/SceneRenderer";
 import type { Visualizer } from "../visualizer/types";
 import { useVizCardPreviewFrameRef } from "./vizCardPreviewAudio";
 
 export function VizCardLivePreview({
   visualizerId,
+  themed = false,
   onReady,
 }: {
   visualizerId: string;
+  /** Preview with a coverless placeholder track in the theme's colours. */
+  themed?: boolean;
   onReady?: () => void;
 }) {
+  const themePalette = useThemePalette();
   const getVisualizer = useVisualizerStore((s) => s.getVisualizer);
   const cached = useVisualizerStore((s) => s.visualizerCache[visualizerId]);
   const { remoteFrameRef, forcePlaying } = useVizCardPreviewFrameRef();
@@ -54,6 +59,7 @@ export function VizCardLivePreview({
         fillContainer
         remoteFrameRef={remoteFrameRef}
         previewForcePlaying={forcePlaying}
+        previewArtColors={themed ? themePalette : undefined}
         onFirstFrame={onReady}
       />
     </div>

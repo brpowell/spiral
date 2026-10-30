@@ -19,13 +19,18 @@ import "./AppearanceSection.css";
 export function VizCardPreview({
   pack,
   live,
+  themed = false,
 }: {
   pack: VizSummary;
   live: boolean;
+  /** Use the theme's colours instead of the loaded track's cover. */
+  themed?: boolean;
 }) {
   const authored = skinPreviewUrl(pack.previewPath);
   // Skip snapshot queue when an authored preview image exists.
-  const snapshotSrc = useVizCardSnapshot(authored ? "" : pack.id);
+  const snapshotSrc = useVizCardSnapshot(authored ? "" : pack.id, {
+    themed,
+  });
   const underlaySrc = authored ?? snapshotSrc;
   const [liveReady, setLiveReady] = useState(false);
 
@@ -54,6 +59,7 @@ export function VizCardPreview({
       {live ? (
         <VizCardLivePreview
           visualizerId={pack.id}
+          themed={themed}
           onReady={() => setLiveReady(true)}
         />
       ) : null}
