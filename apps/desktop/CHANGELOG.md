@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.5.0](https://github.com/brpowell/spiral/compare/desktop-v0.4.0...desktop-v0.5.0) (2026-10-30)
+
+
+### Features
+
+* **desktop:** add first-run welcome screens ([#96](https://github.com/brpowell/spiral/issues/96)) ([f463540](https://github.com/brpowell/spiral/commit/f463540f0fe4094525a6f465dd723c47bfbfd218))
+* **desktop:** confirm before rating writes tags to files ([#92](https://github.com/brpowell/spiral/issues/92)) ([10594e0](https://github.com/brpowell/spiral/commit/10594e006e99c89cb6a7359cdfae83bd554e0a67))
+* **desktop:** confirm before writing tags to files ([#88](https://github.com/brpowell/spiral/issues/88)) ([4010f49](https://github.com/brpowell/spiral/commit/4010f49f2d1b7c12b932c4be9ff5be531a0c5ea5))
+* **desktop:** crop artist and album images ([#95](https://github.com/brpowell/spiral/issues/95)) ([66fe833](https://github.com/brpowell/spiral/commit/66fe83383024da8cc91930197efcf89a59fcd9bc))
+* **desktop:** llm-drafted release note overviews ([#85](https://github.com/brpowell/spiral/issues/85)) ([976b28e](https://github.com/brpowell/spiral/commit/976b28e07a777b0aa7184b8db1bca5c07bf63f19))
+
+
+### Bug Fixes
+
+* **desktop:** avoid duplicate CD art toast during metadata fetch ([#84](https://github.com/brpowell/spiral/issues/84)) ([33a10a0](https://github.com/brpowell/spiral/commit/33a10a0c883c449a0f09567f913ac48b3bc46a74))
+* **desktop:** lower output gain and keep the visualizer level ([#93](https://github.com/brpowell/spiral/issues/93)) ([a8126f9](https://github.com/brpowell/spiral/commit/a8126f9be43d3fe5f1721c9813365b82fe3a32b0))
+* **desktop:** patch zod and fast-uri advisories ([#78](https://github.com/brpowell/spiral/issues/78)) ([0ed67f1](https://github.com/brpowell/spiral/commit/0ed67f167fe6e3389347fe443dd7c6c138d2e43e))
+* **desktop:** update happy-dom to 21.0.4 for security advisory ([#79](https://github.com/brpowell/spiral/issues/79)) ([8ec4e98](https://github.com/brpowell/spiral/commit/8ec4e9845844828848e7bd8c9fc0b73257f3afb4))
+
 ## [0.4.0](https://github.com/brpowell/spiral/compare/desktop-v0.3.0...desktop-v0.4.0) (2026-10-23)
 
 
