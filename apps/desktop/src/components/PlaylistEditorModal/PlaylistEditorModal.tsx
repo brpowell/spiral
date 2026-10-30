@@ -199,6 +199,7 @@ export function PlaylistEditorModal() {
   const [customImageCrop, setCustomImageCrop] = useState<ImageCrop | null>(
     null,
   );
+  const [cropInitial, setCropInitial] = useState<ImageCrop | null>(null);
   const [cropModalSourcePath, setCropModalSourcePath] = useState<string | null>(
     null,
   );
@@ -328,14 +329,31 @@ export function PlaylistEditorModal() {
     setCustomImageCrop(null);
   }, []);
 
+  const hasCustomImage =
+    customImagePath != null || customImageSourcePath != null;
+
+  // A picked image keeps its original and crop for the session, so re-editing
+  // adjusts that crop. A saved one only has the stored, already cropped file.
+  const handleEditImage = useCallback(() => {
+    if (customImageSourcePath) {
+      setCropInitial(customImageCrop);
+      setCropModalSourcePath(customImageSourcePath);
+    } else if (customImagePath) {
+      setCropInitial(null);
+      setCropModalSourcePath(customImagePath);
+    }
+  }, [customImageCrop, customImagePath, customImageSourcePath]);
+
   const handlePickImage = useCallback(async () => {
     const picked = await pickImageFile();
     if (!picked) return;
+    setCropInitial(null);
     setCropModalSourcePath(picked);
   }, []);
 
   const handleCropModalClose = useCallback(() => {
     setCropModalSourcePath(null);
+    setCropInitial(null);
   }, []);
 
   const handleCropApply = useCallback(
@@ -346,6 +364,7 @@ export function PlaylistEditorModal() {
       setCustomImageCrop(crop);
       setCustomImagePath(null);
       setCropModalSourcePath(null);
+      setCropInitial(null);
     },
     [cropModalSourcePath],
   );
@@ -807,12 +826,19 @@ export function PlaylistEditorModal() {
                                 className="playlist-editor__image-actions"
                                 inert={imageMode !== "custom"}
                               >
-                                <Button
-                                  size="sm"
-                                  onClick={() => void handlePickImage()}
-                                >
-                                  {t("library:editor.playlist.chooseImage")}
-                                </Button>
+                                <div className="playlist-editor__image-buttons">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => void handlePickImage()}
+                                  >
+                                    {t("library:editor.playlist.chooseImage")}
+                                  </Button>
+                                  {hasCustomImage ? (
+                                    <Button size="sm" onClick={handleEditImage}>
+                                      {t("library:editor.editImage")}
+                                    </Button>
+                                  ) : null}
+                                </div>
                                 <p className="playlist-editor__hint">
                                   {t("library:editor.playlist.chooseImageHint")}
                                 </p>
@@ -859,6 +885,7 @@ export function PlaylistEditorModal() {
         open={cropModalSourcePath != null}
         filePath={cropModalSourcePath}
         aspect={1}
+        initialCrop={cropInitial}
         onApply={handleCropApply}
         onClose={handleCropModalClose}
       />

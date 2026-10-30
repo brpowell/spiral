@@ -227,6 +227,12 @@ label.playlist-editor__color-picker {
   outline-offset: 2px;
 }
 
+.playlist-editor__image-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .playlist-editor__image-actions {
   display: flex;
   flex-direction: column;
