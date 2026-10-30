@@ -33,10 +33,15 @@
   "reset": "Reset",
   "resetToOriginal": "Reset to original",
   "imageCrop": {
-    "title": "Crop image",
+    "title": "Edit image",
     "zoom": "Zoom",
     "frameAria": "Crop image",
-    "apply": "Apply"
+    "apply": "Apply",
+    "size": "Size",
+    "sizeFull": "Full · {{width}} × {{height}} px",
+    "sizeOption": "{{width}} × {{height}} px",
+    "sizeEstimate": "{{output}} (source {{source}})",
+    "sizeMeasuring": "Calculating size…"
   },
   "save": "Save",
   "saveChanges": "Save changes?",

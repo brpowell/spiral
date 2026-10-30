@@ -19,6 +19,15 @@ pub fn write_art_for_cache_key(
     bytes: &[u8],
     mime_or_ext: &str,
 ) -> Result<String, String> {
+    // Library art is square; only the raw copy the cropper edits is exempt.
+    let squared;
+    let (bytes, mime_or_ext) = match squared_unless_staged_original(cache_key, bytes) {
+        Some((out, ext)) => {
+            squared = out;
+            (squared.as_slice(), ext)
+        }
+        None => (bytes, mime_or_ext),
+    };
     if let Some(artist_key) = cache_key.strip_prefix("artist:") {
         return write_artist_portrait(library_root, artist_key, bytes, mime_or_ext);
     }
@@ -64,6 +73,18 @@ pub fn write_art_for_cache_key(
 
     // Absolute track file path → album front (album editor / shared assign).
     write_album_front_for_track(library_root, cache_key, bytes, mime_or_ext)
+}
+
+/// Editors stage the fetched original under a `staging:…-download` key so the
+/// cropper can work from the untouched image; every other write is squared.
+fn squared_unless_staged_original(
+    cache_key: &str,
+    bytes: &[u8],
+) -> Option<(Vec<u8>, &'static str)> {
+    if cache_key.starts_with("staging:") && cache_key.ends_with("-download") {
+        return None;
+    }
+    crate::image_crop::squared_for_library(bytes)
 }
 
 pub fn write_album_front_for_track(
@@ -319,6 +340,37 @@ mod tests {
         );
         assert!(!entries.iter().any(|n| n.contains(".source.")));
         assert!(!entries.iter().any(|n| n.ends_with(".crop.json")));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    fn png_bytes(w: u32, h: u32) -> Vec<u8> {
+        let mut out = Vec::new();
+        image::DynamicImage::ImageRgb8(RgbImage::from_pixel(w, h, Rgb([9, 9, 9])))
+            .write_to(&mut Cursor::new(&mut out), image::ImageFormat::Png)
+            .unwrap();
+        out
+    }
+
+    #[test]
+    fn writes_are_squared_except_the_staged_original() {
+        let root = temp_root("square");
+        let app_data = root.join("app");
+        let wide = png_bytes(300, 200);
+
+        let portrait =
+            write_art_for_cache_key(&root, &app_data, "artist:Someone", &wide, "png").unwrap();
+        let (w, h) = image::image_dimensions(&portrait).unwrap();
+        assert_eq!((w, h), (200, 200));
+
+        let preview =
+            write_art_for_cache_key(&root, &app_data, "staging:x-editor", &wide, "png").unwrap();
+        assert_eq!(image::image_dimensions(&preview).unwrap(), (200, 200));
+
+        let original =
+            write_art_for_cache_key(&root, &app_data, "staging:x-editor-download", &wide, "png")
+                .unwrap();
+        assert_eq!(image::image_dimensions(&original).unwrap(), (300, 200));
 
         let _ = fs::remove_dir_all(&root);
     }

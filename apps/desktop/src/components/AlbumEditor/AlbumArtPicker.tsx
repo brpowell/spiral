@@ -66,6 +66,8 @@ export type AlbumArtPickerProps = {
   subtitle?: string;
   candidates: CoverArtCandidate[];
   selectedUrl: string | null;
+  /** Candidate whose full-quality image is being downloaded; locks the grid. */
+  loadingUrl?: string | null;
   fetching: boolean;
   fetchMessage: string | null;
   onSelect: (url: string) => void;
@@ -78,6 +80,7 @@ export function AlbumArtPicker({
   subtitle,
   candidates,
   selectedUrl,
+  loadingUrl = null,
   fetching,
   fetchMessage,
   onSelect,
@@ -129,21 +132,32 @@ export function AlbumArtPicker({
             {candidates.map((candidate) => {
               const thumbSrc = coverArtThumbSrc(candidate);
               const selected = selectedUrl === candidate.url;
+              const loading = loadingUrl === candidate.url;
 
               return (
                 <li key={candidate.url}>
                   <button
                     type="button"
                     className={
-                      selected
+                      selected || loading
                         ? "album-art-picker__option album-art-picker__option--selected"
                         : "album-art-picker__option"
                     }
                     onClick={() => onSelect(candidate.url)}
                     aria-pressed={selected}
+                    aria-busy={loading || undefined}
+                    disabled={loadingUrl != null}
                   >
                     <CoverThumb src={thumbSrc} round={artType === "portrait"} />
                     <CoverOptionMeta candidate={candidate} />
+                    {loading ? (
+                      <span className="album-art-picker__loading">
+                        <span
+                          className="album-art-picker__spinner"
+                          aria-hidden
+                        />
+                      </span>
+                    ) : null}
                   </button>
                 </li>
               );

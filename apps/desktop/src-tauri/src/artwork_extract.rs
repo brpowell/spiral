@@ -96,6 +96,10 @@ fn write_bytes_if_allowed(dest: &Path, bytes: &[u8], mode: WriteMode) -> Result<
 /// Extract unique art for an album into `Artwork/albums/{artist}/{album}/`.
 ///
 /// Returns per-track assignments (`None` art_path = use front.jpg).
+///
+/// Embedded art is written exactly as embedded, not squared like art set in the
+/// editors: it is deduped by the hash of its bytes, and we keep the files users
+/// bring in as they are.
 pub fn write_album_unique_art(
     library_root: &Path,
     album_artist: Option<&str>,

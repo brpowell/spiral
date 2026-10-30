@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { ContextMenu, ContextMenuItem } from "../ContextMenu/ContextMenu";
 import { EntityArt } from "../EntityArt/EntityArt";
-import { IconDownload, IconOpenFolder } from "../icons";
+import { IconCrop, IconDownload, IconOpenFolder } from "../icons";
 import { ART_TYPE_LABEL_KEY, type AlbumArtType } from "./AlbumArtPicker";
 import "./AlbumEditor.css";
 
@@ -17,6 +17,8 @@ export type AlbumEditorArtTabProps = {
   onArtDrop: (e: React.DragEvent) => void;
   onChangeArt: () => void;
   onFetchArt: () => void;
+  /** Re-crops the current art. Omit where the editor has no cropper. */
+  onEditArt?: () => void;
 };
 
 export function AlbumEditorArtTab({
@@ -29,6 +31,7 @@ export function AlbumEditorArtTab({
   onArtDrop,
   onChangeArt,
   onFetchArt,
+  onEditArt,
 }: AlbumEditorArtTabProps) {
   const { t } = useTranslation("library");
   const slotRef = useRef<HTMLButtonElement>(null);
@@ -107,6 +110,16 @@ export function AlbumEditorArtTab({
         menuRef={menuRef}
         focusFirstItem={openedWithKeyboard}
       >
+        {onEditArt && previewSrc ? (
+          <ContextMenuItem
+            icon={<IconCrop />}
+            label={t("editor.editImage")}
+            onClick={() => {
+              closeMenu();
+              onEditArt();
+            }}
+          />
+        ) : null}
         <ContextMenuItem
           icon={<IconOpenFolder />}
           label={t("editor.chooseFromFile")}
