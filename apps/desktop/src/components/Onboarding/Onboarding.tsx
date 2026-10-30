@@ -57,6 +57,8 @@ function OnboardingOverlay() {
   const introRectRef = useRef<DOMRect | null>(null);
   const [docked, setDocked] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  // The first panel waits for the logo to dock; later steps appear right away.
+  const [navigated, setNavigated] = useState(false);
 
   // Layout effect: the glyph must be in the DOM in the same commit as the
   // overlay, so the first painted frame already has the brandmark.
@@ -162,7 +164,7 @@ function OnboardingOverlay() {
             </Button>
           </div>
           <div
-            className={`onboarding__panel onboarding__panel--${layout}`}
+            className={`onboarding__panel onboarding__panel--${layout}${navigated ? "" : " onboarding__panel--first"}`}
             key={id}
           >
             <div className="onboarding__intro">
@@ -186,13 +188,26 @@ function OnboardingOverlay() {
             </span>
             <div className="onboarding__nav">
               {step > 0 ? (
-                <Button variant="ghost" onClick={back}>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setNavigated(true);
+                    back();
+                  }}
+                >
                   {t("onboarding.back")}
                 </Button>
               ) : null}
               <Button
                 variant="primary"
-                onClick={isLast ? () => setLeaving(true) : next}
+                onClick={
+                  isLast
+                    ? () => setLeaving(true)
+                    : () => {
+                        setNavigated(true);
+                        next();
+                      }
+                }
               >
                 {isLast ? t("onboarding.getStarted") : t("onboarding.next")}
               </Button>

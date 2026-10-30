@@ -69,8 +69,13 @@
   align-content: start;
   padding: 168px 56px 112px;
   overflow-y: auto;
-  animation: onboarding-panel-in 520ms cubic-bezier(0.22, 1, 0.36, 1) 450ms
-    backwards;
+  animation: onboarding-panel-in 280ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+/* Only the first panel waits for the logo to finish docking. */
+.onboarding__panel--first {
+  animation-duration: 520ms;
+  animation-delay: 450ms;
 }
 
 .onboarding__panel--centered {
