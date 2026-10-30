@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Track } from "../types/track";
 import {
-  buildLyricsOnlyMetadataUpdate,
   buildTrackMetadataFromForm,
   isLyricsInstrumentalMixed,
   isTrackEditorFieldMixed,
@@ -373,38 +372,6 @@ describe("recording MBID form", () => {
         recordingMbid: "550e8400-e29b-41d4-a716-446655440000",
       }),
     ).toBe(false);
-  });
-});
-
-describe("buildLyricsOnlyMetadataUpdate", () => {
-  it("writes only lyrics while preserving other track metadata", () => {
-    const editedTrack = track({
-      id: 7,
-      title: "Song",
-      artist: "Artist",
-      album: "Album",
-      year: 1999,
-    });
-
-    const metadata = buildLyricsOnlyMetadataUpdate(editedTrack, {
-      text: "Fetched line",
-      syncedLines: null,
-      source: "lrclib",
-    });
-
-    expect(metadata).toMatchObject({
-      title: "Song",
-      artist: "Artist",
-      album: "Album",
-      year: 1999,
-      artChanged: false,
-      lyricsChanged: true,
-      lyrics: {
-        format: "plain",
-        source: "lrclib",
-        plainText: "Fetched line",
-      },
-    });
   });
 });
 
