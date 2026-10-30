@@ -541,8 +541,28 @@ export async function pickImageFile(): Promise<string | null> {
 export async function cacheArtFromFile(
   sourcePath: string,
   filePath: string,
+  crop?: ImageCrop | null,
+  maxEdge?: number | null,
 ): Promise<string> {
-  return invoke<string>("cache_art_from_file", { sourcePath, filePath });
+  return invoke<string>("cache_art_from_file", {
+    sourcePath,
+    filePath,
+    crop: crop ?? null,
+    maxEdge: maxEdge ?? null,
+  });
+}
+
+export async function measureArtSizes(
+  sourcePath: string,
+  crop: ImageCrop,
+  maxEdges: (number | null)[],
+): Promise<{ sourceBytes: number; outputBytes: number[] }> {
+  return invoke("measure_art_sizes", { sourcePath, crop, maxEdges });
+}
+
+/** Frees the decoded source the backend keeps while sizes are being measured. */
+export async function clearArtMeasureCache(): Promise<void> {
+  return invoke<void>("clear_art_measure_cache");
 }
 
 export async function storeCroppedPlaylistArt(

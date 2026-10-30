@@ -4,13 +4,40 @@
   min-width: 0;
 }
 
+/* Image on the left, controls on the right; controls wrap under on narrow widths. */
 .image-crop-modal__cropper {
-  width: min(100%, 280px);
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  flex-flow: row wrap;
+  align-items: flex-start;
+  gap: 1.5rem;
+  width: 100%;
 }
 
-.image-crop-modal__cropper .image-cropper__frame,
-.image-crop-modal__cropper .image-cropper__controls {
+.image-crop-modal__cropper .image-cropper__frame {
+  flex: 0 0 min(100%, 220px);
+  width: min(100%, 220px);
   max-width: none;
-  width: 100%;
+}
+
+.image-crop-modal__cropper .image-cropper__controls {
+  flex: 1 1 12rem;
+  min-width: 0;
+  max-width: none;
+  gap: 1.25rem;
+}
+
+.image-crop-modal__size {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.image-crop-modal__size-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.image-crop-modal__size-estimate {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { refreshArtDisplay } from "../../lib/artDisplayCache";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -35,6 +36,8 @@ import { usePlayerStore } from "../../store/usePlayerStore";
 import type { CoverArtCandidate } from "../../types/coverArt";
 import { AlbumArtPicker } from "../AlbumEditor/AlbumArtPicker";
 import { AlbumEditorArtTab } from "../AlbumEditor/AlbumEditorArtTab";
+import { ImageCropModal } from "../common/ImageCropModal/ImageCropModal";
+import type { ImageCrop } from "../../lib/imageCrop";
 import { EditorDiscardOverlay } from "../EditorDiscardOverlay/EditorDiscardOverlay";
 import {
   Modal,
@@ -54,6 +57,11 @@ import { isTrackEditorFieldMixed } from "../../lib/trackMetadataForm";
 import "../TrackEditor/TrackEditor.css";
 
 type CdTrackEditorTab = "details" | "art" | "musicbrainz";
+
+// Previews are staged in the app-data art cache and only written to their
+// real destination when the editor saves.
+const ART_PREVIEW_KEY = "staging:cd-track-editor";
+const ART_DOWNLOAD_KEY = "staging:cd-track-editor-download";
 
 export function CdTrackEditor() {
   const editingCdTrackIds = useCdStore((s) => s.editingCdTrackIds);
@@ -154,6 +162,27 @@ export function CdTrackEditor() {
     setField,
     setRating,
   } = useTrackMetadataForm(tracks, editingKey);
+  const [artCrop, setArtCrop] = useState<ImageCrop | null>(null);
+  const [artMaxEdge, setArtMaxEdge] = useState<number | null>(null);
+  const [cropModalSourcePath, setCropModalSourcePath] = useState<string | null>(
+    null,
+  );
+  const [cropInitial, setCropInitial] = useState<ImageCrop | null>(null);
+  const [cropInitialMaxEdge, setCropInitialMaxEdge] = useState<number | null>(
+    null,
+  );
+  const [cropApplying, setCropApplying] = useState(false);
+  const [preparingEdit, setPreparingEdit] = useState(false);
+  const [cropFromFetch, setCropFromFetch] = useState(false);
+  const [loadingCoverUrl, setLoadingCoverUrl] = useState<string | null>(null);
+  const cropFetchRef = useRef(0);
+
+  // The crop only means something while there is an art source to crop.
+  useEffect(() => {
+    if (artSourcePath) return;
+    setArtCrop(null);
+    setArtMaxEdge(null);
+  }, [artSourcePath]);
 
   useEffect(() => {
     setActiveTab("details");
@@ -264,7 +293,11 @@ export function CdTrackEditor() {
   } = useEditorDiscardPrompt(hasChanges, closeCdTrackEditor);
 
   const applyArtPath = useCallback(
-    async (sourcePath: string) => {
+    async (
+      sourcePath: string,
+      crop: ImageCrop | null = null,
+      maxEdge: number | null = null,
+    ) => {
       if (!discId) {
         setSaveError(t("library:cd.editor.missingDiscId"));
         return;
@@ -273,11 +306,17 @@ export function CdTrackEditor() {
       try {
         const cached = await cacheArtFromFile(
           sourcePath,
-          cdArtCacheKey(discId),
+          ART_PREVIEW_KEY,
+          crop,
+          maxEdge,
         );
         setArtSourcePath(sourcePath);
+        setArtCrop(crop);
+        setArtMaxEdge(maxEdge);
         setSelectedCoverUrl(null);
         setSelectedCoverPreviewSrc(null);
+        // The preview path is reused, so drop any URL cached for the last image.
+        refreshArtDisplay([cached]);
         setPendingArtPath(cached);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -293,9 +332,66 @@ export function CdTrackEditor() {
     ],
   );
 
+  const closeCropModal = () => {
+    cropFetchRef.current += 1;
+    setCropModalSourcePath(null);
+    setCropInitial(null);
+    setCropInitialMaxEdge(null);
+    setCropFromFetch(false);
+  };
+
+  const handleCropCancel = () => {
+    const source = cropFromFetch ? cropModalSourcePath : null;
+    closeCropModal();
+    // Keep the full-quality cover the user picked, uncropped.
+    if (source) void applyArtPath(source);
+  };
+
+  const handleCropApply = async (crop: ImageCrop, maxEdge: number | null) => {
+    const source = cropModalSourcePath;
+    if (!source) return;
+    setCropApplying(true);
+    try {
+      await applyArtPath(source, crop, maxEdge);
+    } finally {
+      setCropApplying(false);
+      closeCropModal();
+    }
+  };
+
+  // Re-crop from the original source when there is one, so the previous crop
+  // can be adjusted. A fetched cover that is not on disk yet is staged first.
+  const handleEditArt = async () => {
+    setSaveError(null);
+    if (selectedCoverUrl) {
+      setPreparingEdit(true);
+      try {
+        const { path } = await cacheArtFromUrl(
+          selectedCoverUrl,
+          ART_DOWNLOAD_KEY,
+        );
+        setCropInitial(null);
+        setCropInitialMaxEdge(null);
+        setCropModalSourcePath(path);
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setPreparingEdit(false);
+      }
+    } else if (artSourcePath) {
+      setCropInitial(artCrop);
+      setCropInitialMaxEdge(artMaxEdge);
+      setCropModalSourcePath(artSourcePath);
+    } else if (pendingArtPath) {
+      setCropInitial(null);
+      setCropInitialMaxEdge(null);
+      setCropModalSourcePath(pendingArtPath);
+    }
+  };
+
   const handleChangeArt = async () => {
     const path = await pickImageFile();
-    if (path) await applyArtPath(path);
+    if (path) setCropModalSourcePath(path);
   };
 
   const handleArtDrop = async (e: React.DragEvent) => {
@@ -305,16 +401,18 @@ export function CdTrackEditor() {
     if (!file || !file.type.startsWith("image/")) return;
     const path = (file as File & { path?: string }).path;
     if (path) {
-      await applyArtPath(path);
+      setCropModalSourcePath(path);
       return;
     }
     setSaveError(t("library:editor.dropArtFailed"));
   };
 
-  useArtFileDrop(isOpen && !!referenceTrack, applyArtPath);
+  useArtFileDrop(isOpen && !!referenceTrack, setCropModalSourcePath);
 
   const closeArtPicker = () => {
     artFetchGenRef.current += 1;
+    cropFetchRef.current += 1;
+    setLoadingCoverUrl(null);
     setArtPickerOpen(false);
     setFetchingArt(false);
     setCoverCandidates([]);
@@ -355,14 +453,40 @@ export function CdTrackEditor() {
     }
   };
 
-  const handleSelectCover = (url: string) => {
+  const handleSelectCover = async (url: string) => {
     setSaveError(null);
-    setSelectedCoverUrl(url);
-    setSelectedCoverPreviewSrc(previewSrcForFetchedCover(url, coverCandidates));
     setArtSourcePath(null);
-    setArtPickerOpen(false);
-    setCoverCandidates([]);
-    setFetchMessage(null);
+    setArtCrop(null);
+    setArtMaxEdge(null);
+    if (!discId) {
+      setArtPickerOpen(false);
+      setCoverCandidates([]);
+      setFetchMessage(null);
+      setSelectedCoverUrl(url);
+      setSelectedCoverPreviewSrc(
+        previewSrcForFetchedCover(url, coverCandidates),
+      );
+      return;
+    }
+    // Stage the full-quality cover while the picker shows a spinner on the
+    // chosen thumbnail, then crop it. The art behind the dialogs stays put until
+    // they close, so nothing flashes.
+    const token = ++cropFetchRef.current;
+    setLoadingCoverUrl(url);
+    try {
+      const { path } = await cacheArtFromUrl(url, ART_DOWNLOAD_KEY);
+      if (token !== cropFetchRef.current) return;
+      setLoadingCoverUrl(null);
+      setArtPickerOpen(false);
+      setCoverCandidates([]);
+      setFetchMessage(null);
+      setCropFromFetch(true);
+      setCropModalSourcePath(path);
+    } catch (err) {
+      if (token !== cropFetchRef.current) return;
+      setLoadingCoverUrl(null);
+      setSaveError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const resolveArtPath = async (): Promise<string | null> => {
@@ -372,7 +496,14 @@ export function CdTrackEditor() {
         .path;
     }
     if (artSourcePath) {
-      return cacheArtFromFile(artSourcePath, cdArtCacheKey(discId));
+      // The staged preview is already the baked result of the current source,
+      // crop and size, so copy it instead of baking again.
+      return cacheArtFromFile(
+        pendingArtPath ?? artSourcePath,
+        cdArtCacheKey(discId),
+        pendingArtPath ? null : artCrop,
+        pendingArtPath ? null : artMaxEdge,
+      );
     }
     return pendingArtPath;
   };
@@ -535,11 +666,12 @@ export function CdTrackEditor() {
                       <AlbumEditorArtTab
                         previewSrc={previewSrc}
                         artDragOver={artDragOver}
-                        fetchingArt={fetchingArt}
+                        fetchingArt={fetchingArt || preparingEdit}
                         onArtDragOver={setArtDragOver}
                         onArtDrop={(e) => void handleArtDrop(e)}
                         onChangeArt={() => void handleChangeArt()}
                         onFetchArt={() => void handleFetchArt()}
+                        onEditArt={() => void handleEditArt()}
                       />
                     </TabPanel>
 
@@ -614,6 +746,7 @@ export function CdTrackEditor() {
               .join(" • ")}
             candidates={coverCandidates}
             selectedUrl={selectedCoverUrl}
+            loadingUrl={loadingCoverUrl}
             fetching={fetchingArt}
             fetchMessage={fetchMessage}
             onSelect={handleSelectCover}
@@ -621,6 +754,17 @@ export function CdTrackEditor() {
           />
         </>
       ) : null}
+      <ImageCropModal
+        open={cropModalSourcePath != null}
+        filePath={cropModalSourcePath}
+        busy={cropApplying}
+        aspect={1}
+        initialCrop={cropInitial}
+        initialMaxEdge={cropInitialMaxEdge}
+        showSizeOptions
+        onApply={handleCropApply}
+        onClose={handleCropCancel}
+      />
     </Modal>
   );
 }

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ImageCropModal } from "../common/ImageCropModal/ImageCropModal";
+import type { ImageCrop } from "../../lib/imageCrop";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
@@ -63,6 +65,11 @@ import "../TrackEditor/TrackEditor.css";
 
 type ArtistEditorTab = "details" | "art" | "musicbrainz";
 
+// Previews and fetched covers are staged in the app-data art cache and only
+// written to the library when the editor saves.
+const ART_PREVIEW_KEY = "staging:artist-editor";
+const ART_DOWNLOAD_KEY = "staging:artist-editor-download";
+
 export function ArtistEditor() {
   const { t } = useTranslation(["library", "common"]);
   const editingArtistKey = usePlayerStore((s) => s.editingArtistKey);
@@ -96,6 +103,19 @@ export function ArtistEditor() {
   const [pendingArtPath, setPendingArtPath] = useState<string | null>(null);
   const [originalArtPath, setOriginalArtPath] = useState<string | null>(null);
   const [artSourcePath, setArtSourcePath] = useState<string | null>(null);
+  const [artCrop, setArtCrop] = useState<ImageCrop | null>(null);
+  const [artMaxEdge, setArtMaxEdge] = useState<number | null>(null);
+  const [cropFromFetch, setCropFromFetch] = useState(false);
+  const [cropInitial, setCropInitial] = useState<ImageCrop | null>(null);
+  const [cropInitialMaxEdge, setCropInitialMaxEdge] = useState<number | null>(
+    null,
+  );
+  const [loadingCoverUrl, setLoadingCoverUrl] = useState<string | null>(null);
+  const [cropApplying, setCropApplying] = useState(false);
+  const cropFetchRef = useRef(0);
+  const [cropModalSourcePath, setCropModalSourcePath] = useState<string | null>(
+    null,
+  );
   const [saveError, setSaveError] = useState<string | null>(null);
   const {
     saving,
@@ -140,6 +160,8 @@ export function ArtistEditor() {
     setPendingArtPath(artist.artPath);
     setOriginalArtPath(artist.artPath);
     setArtSourcePath(null);
+    setArtCrop(null);
+    setArtMaxEdge(null);
     setCoverCandidates([]);
     setSelectedCoverUrl(null);
     setSelectedCoverPreviewSrc(null);
@@ -185,12 +207,23 @@ export function ArtistEditor() {
     ? artistArtCacheKey(editingArtistKey)
     : null;
 
-  const applyArtPath = async (sourcePath: string) => {
+  const applyArtPath = async (
+    sourcePath: string,
+    crop: ImageCrop | null,
+    maxEdge: number | null = null,
+  ) => {
     if (!artCacheKey) return;
     setSaveError(null);
     try {
-      const cached = await cacheArtFromFile(sourcePath, artCacheKey);
+      const cached = await cacheArtFromFile(
+        sourcePath,
+        ART_PREVIEW_KEY,
+        crop,
+        maxEdge,
+      );
       setArtSourcePath(sourcePath);
+      setArtCrop(crop);
+      setArtMaxEdge(maxEdge);
       setSelectedCoverUrl(null);
       setSelectedCoverPreviewSrc(null);
       setPendingArtPath(cached);
@@ -201,9 +234,23 @@ export function ArtistEditor() {
     }
   };
 
+  // Re-crop from the original source when there is one, so the previous crop
+  // can be adjusted instead of cropping an already-cropped preview.
+  const handleEditArt = () => {
+    if (artSourcePath) {
+      setCropInitial(artCrop);
+      setCropInitialMaxEdge(artMaxEdge);
+      setCropModalSourcePath(artSourcePath);
+    } else if (pendingArtPath) {
+      setCropInitial(null);
+      setCropInitialMaxEdge(null);
+      setCropModalSourcePath(pendingArtPath);
+    }
+  };
+
   const handleChangeArt = async () => {
     const path = await pickImageFile();
-    if (path) await applyArtPath(path);
+    if (path) setCropModalSourcePath(path);
   };
 
   const handleArtDrop = async (e: React.DragEvent) => {
@@ -216,17 +263,19 @@ export function ArtistEditor() {
 
     const path = (file as File & { path?: string }).path;
     if (path) {
-      await applyArtPath(path);
+      setCropModalSourcePath(path);
       return;
     }
 
     setSaveError(t("library:editor.dropArtFailed"));
   };
 
-  useArtFileDrop(isOpen && !!artCacheKey, applyArtPath);
+  useArtFileDrop(isOpen && !!artCacheKey, setCropModalSourcePath);
 
   const closeArtPicker = () => {
     artFetchGenRef.current += 1;
+    cropFetchRef.current += 1;
+    setLoadingCoverUrl(null);
     setArtPickerOpen(false);
     setFetchingArt(false);
     setCoverCandidates([]);
@@ -262,14 +311,67 @@ export function ArtistEditor() {
     }
   };
 
-  const handleSelectCover = (url: string) => {
+  const closeCropModal = () => {
+    cropFetchRef.current += 1;
+    setCropModalSourcePath(null);
+    setCropInitial(null);
+    setCropInitialMaxEdge(null);
+    setCropFromFetch(false);
+  };
+
+  const handleCropCancel = () => {
+    const source = cropFromFetch ? cropModalSourcePath : null;
+    closeCropModal();
+    // Keep the full-quality cover the user picked, uncropped.
+    if (source) void applyArtPath(source, null);
+  };
+
+  const handleCropApply = async (crop: ImageCrop, maxEdge: number | null) => {
+    const source = cropModalSourcePath;
+    if (!source) return;
+    setCropApplying(true);
+    try {
+      await applyArtPath(source, crop, maxEdge);
+    } finally {
+      setCropApplying(false);
+      closeCropModal();
+    }
+  };
+
+  const handleSelectCover = async (url: string) => {
     setSaveError(null);
-    setSelectedCoverUrl(url);
-    setSelectedCoverPreviewSrc(previewSrcForFetchedCover(url, coverCandidates));
     setArtSourcePath(null);
-    setArtPickerOpen(false);
-    setCoverCandidates([]);
-    setFetchMessage(null);
+    setArtCrop(null);
+    setArtMaxEdge(null);
+    if (!artCacheKey) {
+      setArtPickerOpen(false);
+      setCoverCandidates([]);
+      setFetchMessage(null);
+      setSelectedCoverUrl(url);
+      setSelectedCoverPreviewSrc(
+        previewSrcForFetchedCover(url, coverCandidates),
+      );
+      return;
+    }
+    // Stage the full-quality cover while the picker shows a spinner on the
+    // chosen thumbnail, then crop it. The art behind the dialogs stays put until
+    // they close, so nothing flashes.
+    const token = ++cropFetchRef.current;
+    setLoadingCoverUrl(url);
+    try {
+      const { path } = await cacheArtFromUrl(url, ART_DOWNLOAD_KEY);
+      if (token !== cropFetchRef.current) return;
+      setLoadingCoverUrl(null);
+      setArtPickerOpen(false);
+      setCoverCandidates([]);
+      setFetchMessage(null);
+      setCropFromFetch(true);
+      setCropModalSourcePath(path);
+    } catch (err) {
+      if (token !== cropFetchRef.current) return;
+      setLoadingCoverUrl(null);
+      setSaveError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const resolveArtistArtPath = async (
@@ -283,7 +385,14 @@ export function ArtistEditor() {
       ).path;
     }
     if (artSourcePath) {
-      return cacheArtFromFile(artSourcePath, cacheKey);
+      // The staged preview is already the baked result of the current source,
+      // crop and size, so copy it instead of baking again.
+      return cacheArtFromFile(
+        pendingArtPath ?? artSourcePath,
+        cacheKey,
+        pendingArtPath ? null : artCrop,
+        pendingArtPath ? null : artMaxEdge,
+      );
     }
     return pendingArtPath;
   };
@@ -516,6 +625,7 @@ export function ArtistEditor() {
                         onArtDrop={(e) => void handleArtDrop(e)}
                         onChangeArt={() => void handleChangeArt()}
                         onFetchArt={() => void handleFetchArt()}
+                        onEditArt={handleEditArt}
                       />
                     </TabPanel>
 
@@ -585,6 +695,7 @@ export function ArtistEditor() {
             subtitle={form.name.trim() || undefined}
             candidates={coverCandidates}
             selectedUrl={selectedCoverUrl}
+            loadingUrl={loadingCoverUrl}
             fetching={fetchingArt}
             fetchMessage={fetchMessage}
             onSelect={handleSelectCover}
@@ -592,6 +703,18 @@ export function ArtistEditor() {
           />
         </>
       )}
+      <ImageCropModal
+        open={cropModalSourcePath != null}
+        filePath={cropModalSourcePath}
+        busy={cropApplying}
+        initialCrop={cropInitial}
+        initialMaxEdge={cropInitialMaxEdge}
+        showSizeOptions
+        aspect={1}
+        round
+        onApply={handleCropApply}
+        onClose={handleCropCancel}
+      />
     </Modal>
   );
 }

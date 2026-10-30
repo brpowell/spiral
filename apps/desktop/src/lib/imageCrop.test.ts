@@ -5,6 +5,8 @@ import {
   cropAtZoom,
   cropToFrameStyle,
   cropsEqual,
+  imageOutputSize,
+  imageOutputSizeOptions,
   panCrop,
   zoomCrop,
   zoomFromCrop,
@@ -117,5 +119,50 @@ describe("clampCrop / cropsEqual", () => {
         { x: 0.1, y: 0, width: 1, height: 1 },
       ),
     ).toBe(false);
+  });
+});
+
+describe("imageOutputSize", () => {
+  const full = { x: 0, y: 0, width: 1, height: 1 };
+
+  it("caps the long edge at the backend maximum", () => {
+    expect(imageOutputSize(6000, 6000, full, null)).toEqual({
+      maxEdge: null,
+      width: 2000,
+      height: 2000,
+    });
+  });
+
+  it("never upscales a small crop", () => {
+    expect(imageOutputSize(800, 800, full, 1500)).toMatchObject({
+      width: 800,
+      height: 800,
+    });
+  });
+
+  it("keeps the crop's aspect ratio when scaling down", () => {
+    const wide = { x: 0, y: 0, width: 1, height: 0.5 };
+    expect(imageOutputSize(4000, 4000, wide, 1000)).toMatchObject({
+      width: 1000,
+      height: 500,
+    });
+  });
+});
+
+describe("imageOutputSizeOptions", () => {
+  const full = { x: 0, y: 0, width: 1, height: 1 };
+
+  it("offers every preset below the full size", () => {
+    const options = imageOutputSizeOptions(6000, 6000, full);
+    expect(options.map((o) => o.maxEdge)).toEqual([null, 1500, 1000, 600]);
+  });
+
+  it("drops presets the crop is already smaller than", () => {
+    const options = imageOutputSizeOptions(1200, 1200, full);
+    expect(options.map((o) => o.maxEdge)).toEqual([null, 1000, 600]);
+  });
+
+  it("offers only the full size for a tiny crop", () => {
+    expect(imageOutputSizeOptions(500, 500, full)).toHaveLength(1);
   });
 });

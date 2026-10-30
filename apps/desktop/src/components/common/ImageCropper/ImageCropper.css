@@ -19,6 +19,10 @@
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-bg) 35%, transparent);
 }
 
+.image-cropper__frame--round {
+  border-radius: 50%;
+}
+
 .image-cropper__frame:active {
   cursor: grabbing;
 }
@@ -29,6 +33,12 @@
   max-height: none;
   pointer-events: none;
   display: block;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.image-cropper__img--ready {
+  opacity: 1;
 }
 
 .image-cropper__controls {
