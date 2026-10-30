@@ -2,6 +2,7 @@ use crate::commands::library::DbState;
 use crate::path_scope;
 use crate::settings;
 use crate::source_scan::{self, ReconcileScope, ReconcileSummary, ScanContext};
+use crate::source_watch;
 use crate::sources::{self, LibraryRoots, Source};
 use std::path::Path;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -64,9 +65,10 @@ async fn reconcile_in_background(
     .map_err(|e| e.to_string())?
 }
 
-/// Startup: let the webview reach every watched folder (for playback and
-/// artwork), then reconcile all sources in the background to catch what
-/// changed while Spiral was closed.
+/// Startup, and after the library is switched or moved: let the webview reach
+/// every watched folder (for playback and artwork), reconcile all sources in
+/// the background to catch what changed while Spiral wasn't looking, and
+/// watch the watched folders from now on.
 pub fn init(app: &AppHandle) {
     let watched = {
         let state = app.state::<DbState>();
@@ -78,6 +80,8 @@ pub fn init(app: &AppHandle) {
             path_scope::allow_dir(app, Path::new(root));
         }
     }
+
+    source_watch::sync(app);
 
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -120,6 +124,7 @@ pub fn add_watched_source(
         path_scope::allow_dir(&app, Path::new(root));
     }
     emit_source_changed(&app, source.id);
+    source_watch::sync(&app);
 
     let id = source.id;
     tauri::async_runtime::spawn(async move {
@@ -142,6 +147,7 @@ pub fn remove_watched_source(
         let conn = state.0.lock().map_err(|e| e.to_string())?;
         source_scan::remove_watched_source(&conn, &ctx, source_id)?
     };
+    source_watch::sync(&app);
     emit_source_changed(&app, source_id);
     Ok(removed)
 }
@@ -172,6 +178,7 @@ pub async fn relocate_watched_source(
     if let Some(root) = &source.root_path {
         path_scope::allow_dir(&app, Path::new(root));
     }
+    source_watch::sync(&app);
     emit_source_changed(&app, source_id);
     reconcile_in_background(app, source_id).await?;
     Ok(source)

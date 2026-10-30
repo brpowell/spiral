@@ -79,8 +79,6 @@ pub enum ReconcileScope<'a> {
     All,
     /// Only these files and folders, e.g. what a file watcher reported. Paths
     /// outside a watched source's root are ignored.
-    // The file watcher is the caller; until it lands only tests use this.
-    #[cfg_attr(not(test), allow(dead_code))]
     Paths(&'a [PathBuf]),
 }
 
@@ -138,7 +136,9 @@ fn coverage(
         }) {
             continue;
         }
-        if path.is_dir() {
+        // A path that no longer exists may have been a folder (deleted or
+        // renamed away), so it covers whatever was under it as well.
+        if path.is_dir() || !path.exists() {
             dirs.push(path.clone());
         } else {
             files.insert(path.clone());
@@ -771,6 +771,24 @@ mod tests {
         );
         assert_eq!(fx.reconcile(id), summary(id, 1, 0, 0, 0));
         assert!(fx.tracks(id).iter().any(|(p, _, _)| *p == s(&d)));
+    }
+
+    #[test]
+    fn a_folder_renamed_within_the_source_moves_its_tracks() {
+        let fx = Fixture::new("rename-dir");
+        let id = fx.watch("Collection");
+        let old = fx.wav("Collection/Old/a.wav");
+        fx.reconcile(id);
+
+        // A watcher reports only the folder's two names, not the files in it.
+        fs::rename(fx.path("Collection/Old"), fx.path("Collection/New")).unwrap();
+        let new = fx.path("Collection/New/a.wav");
+        let changed = [fx.path("Collection/Old"), fx.path("Collection/New")];
+        assert_eq!(fx.reconcile_paths(id, &changed), summary(id, 1, 0, 1, 0));
+        assert_eq!(
+            fx.tracks(id),
+            vec![(s(&new), "a".into(), false), (s(&old), "a".into(), true)]
+        );
     }
 
     #[test]
