@@ -83,6 +83,8 @@
 /* Split layout: the text stays put and only the controls column scrolls. */
 .onboarding__panel--split {
   grid-template-rows: minmax(0, 1fr);
+  /* Just clear the docked logo above and the footer below. */
+  padding-block: 152px 104px;
   overflow: hidden;
 }
 
