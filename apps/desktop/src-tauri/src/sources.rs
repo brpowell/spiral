@@ -138,29 +138,38 @@ impl<'a> Resolver<'a> {
     }
 
     fn source_for(&self, path: &Path) -> i64 {
-        let deepest_watched = self
-            .watched
+        // The library folder is decided first: a watched root may contain it,
+        // but never claims what is inside it.
+        if is_within(path, &self.roots.media_folder) {
+            return MANAGED_SOURCE_ID;
+        }
+        if is_within(path, &self.roots.library_root) {
+            return EXTERNAL_SOURCE_ID;
+        }
+        self.watched
             .iter()
             .filter(|(_, root)| is_within(path, root))
-            .max_by_key(|(_, root)| root.components().count());
-        if let Some((id, _)) = deepest_watched {
-            *id
-        } else if is_within(path, &self.roots.media_folder) {
-            MANAGED_SOURCE_ID
-        } else {
-            EXTERNAL_SOURCE_ID
-        }
+            .max_by_key(|(_, root)| root.components().count())
+            .map_or(EXTERNAL_SOURCE_ID, |(id, _)| *id)
     }
 }
 
-/// The source a file at `path` belongs to: the deepest watched root containing
-/// it, else managed when it is in the tracks folder, else external.
+/// The source a file at `path` belongs to. Inside the library folder: managed
+/// in the tracks folder, external elsewhere (artwork, packs). Outside it: the
+/// deepest watched root containing it, else external.
 pub fn source_for_path(
     conn: &Connection,
     roots: &LibraryRoots,
     path: &Path,
 ) -> Result<i64, rusqlite::Error> {
     Ok(Resolver::new(conn, roots)?.source_for(path))
+}
+
+/// True when watched sources must not look at `path`: it is the library folder
+/// or inside it (which covers the tracks folder). Watched folders may contain
+/// the library, so scans and file watchers skip it with this.
+pub fn is_excluded_from_watched(path: &Path, roots: &LibraryRoots) -> bool {
+    is_within(path, &roots.library_root) || is_within(path, &roots.media_folder)
 }
 
 /// Move external tracks whose files fall under the tracks folder or a watched
@@ -194,9 +203,10 @@ pub fn assign_external_tracks(
 }
 
 /// Check a folder can become a watched source: an absolute, existing folder
-/// that neither equals, contains nor sits inside another watched root, the
-/// tracks folder or the library folder. `exclude` skips one source's own root,
-/// for moving that source.
+/// that neither equals, contains nor sits inside another watched root, and is
+/// not the library folder or inside it. It may contain the library folder
+/// (e.g. `~/Music` around `~/Music/Spiral Library`); scans skip the library.
+/// `exclude` skips one source's own root, for moving that source.
 pub fn validate_watched_root(
     conn: &Connection,
     roots: &LibraryRoots,
@@ -209,9 +219,9 @@ pub fn validate_watched_root(
     if !root.is_dir() {
         return Err(format!("{} is not a folder", root.display()));
     }
-    if overlaps(root, &roots.library_root) || overlaps(root, &roots.media_folder) {
+    if is_excluded_from_watched(root, roots) {
         return Err(format!(
-            "{} overlaps the Spiral library folder",
+            "{} is inside the Spiral library folder",
             root.display()
         ));
     }
@@ -484,7 +494,7 @@ mod tests {
     }
 
     #[test]
-    fn watched_root_cannot_overlap_the_library() {
+    fn watched_root_cannot_be_the_library_or_inside_it() {
         let tmp = TempDir::new("library");
         let conn = test_conn();
         let roots = roots(&tmp);
@@ -493,8 +503,7 @@ mod tests {
             roots.media_folder.clone(),
             tmp.dir("Music/Spiral Library/Tracks/Artist"),
             tmp.dir("Music/Spiral Library/Artwork"),
-            tmp.dir("Music"),
-            tmp.0.clone(),
+            tmp.dir("Music/Spiral Library/Packs"),
         ] {
             assert!(
                 add(&conn, &roots, &root).is_err(),
@@ -502,6 +511,55 @@ mod tests {
                 root.display()
             );
         }
+    }
+
+    #[test]
+    fn watched_root_may_contain_the_library() {
+        let tmp = TempDir::new("around");
+        let conn = test_conn();
+        let roots = roots(&tmp);
+        let music = add(&conn, &roots, &tmp.dir("Music")).unwrap();
+        assert_eq!(music.name, "Music");
+        // The usual overlap rules still apply around it.
+        assert!(add(&conn, &roots, &tmp.dir("Music/SomeArtist")).is_err());
+        assert!(add(&conn, &roots, &tmp.0).is_err());
+        remove_watched_source(&conn, music.id).unwrap();
+        add(&conn, &roots, &tmp.0).unwrap();
+    }
+
+    #[test]
+    fn the_library_wins_over_a_watched_root_around_it() {
+        let tmp = TempDir::new("precedence");
+        let conn = test_conn();
+        let roots = roots(&tmp);
+        let music = add(&conn, &roots, &tmp.dir("Music")).unwrap();
+        let resolve = |p: PathBuf| source_for_path(&conn, &roots, &p).unwrap();
+        assert_eq!(
+            resolve(roots.media_folder.join("A/a.mp3")),
+            MANAGED_SOURCE_ID
+        );
+        assert_eq!(
+            resolve(roots.library_root.join("Packs/sounds/click.wav")),
+            EXTERNAL_SOURCE_ID
+        );
+        assert_eq!(
+            resolve(roots.library_root.join("b.mp3")),
+            EXTERNAL_SOURCE_ID
+        );
+        assert_eq!(resolve(tmp.0.join("Music/SomeArtist/c.mp3")), music.id);
+        assert!(is_excluded_from_watched(&roots.library_root, &roots));
+        assert!(is_excluded_from_watched(
+            &roots.media_folder.join("x.mp3"),
+            &roots
+        ));
+        assert!(!is_excluded_from_watched(
+            &tmp.0.join("Music/SomeArtist"),
+            &roots
+        ));
+        assert!(!is_excluded_from_watched(
+            &tmp.0.join("Music/Spiral Library 2"),
+            &roots
+        ));
     }
 
     #[cfg(unix)]

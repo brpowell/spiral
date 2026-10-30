@@ -16,7 +16,6 @@ use crate::art_cache;
 use crate::artwork_organize;
 use crate::audio_formats::is_supported_audio_file;
 use crate::db;
-use crate::file_scan;
 use crate::library_organize;
 use crate::library_relocate::rewrite_path_prefix;
 use crate::lyrics_normalize;
@@ -121,14 +120,22 @@ impl Coverage {
     }
 }
 
-fn coverage(scope: ReconcileScope<'_>, root: Option<&Path>) -> Option<Coverage> {
+/// For a watched source (`root` given), paths outside its root or inside the
+/// library folder are dropped.
+fn coverage(
+    scope: ReconcileScope<'_>,
+    root: Option<&Path>,
+    roots: &LibraryRoots,
+) -> Option<Coverage> {
     let ReconcileScope::Paths(paths) = scope else {
         return None;
     };
     let mut dirs = Vec::new();
     let mut files = HashSet::new();
     for path in paths {
-        if root.is_some_and(|root| !path.starts_with(root)) {
+        if root.is_some_and(|root| {
+            !path.starts_with(root) || sources::is_excluded_from_watched(path, roots)
+        }) {
             continue;
         }
         if path.is_dir() {
@@ -213,7 +220,7 @@ pub fn reconcile_source(
         .ok_or_else(|| format!("Source {source_id} not found"))?;
     match (source.kind, source.root_path.as_deref()) {
         (SourceKind::Watched, Some(root)) => reconcile_watched(db, ctx, source_id, root, scope),
-        _ => mark_missing(db, source_id, scope),
+        _ => mark_missing(db, ctx, source_id, scope),
     }
 }
 
@@ -244,10 +251,11 @@ pub fn reconcile_all(db: &Mutex<Connection>, ctx: &ScanContext) -> Vec<Reconcile
 /// Set or clear `missing_since` from whether each track's file exists.
 fn mark_missing(
     db: &Mutex<Connection>,
+    ctx: &ScanContext,
     source_id: i64,
     scope: ReconcileScope<'_>,
 ) -> Result<ReconcileSummary, String> {
-    let coverage = coverage(scope, None);
+    let coverage = coverage(scope, None, &ctx.roots);
     let known = known_tracks(&lock(db), source_id, coverage.as_ref())?;
     let mut summary = ReconcileSummary::new(source_id);
     let changes: Vec<(i64, bool)> = known
@@ -277,7 +285,7 @@ fn reconcile_watched(
     scope: ReconcileScope<'_>,
 ) -> Result<ReconcileSummary, String> {
     let root = PathBuf::from(root);
-    let coverage = coverage(scope, Some(&root)).unwrap_or_else(|| Coverage {
+    let coverage = coverage(scope, Some(&root), &ctx.roots).unwrap_or_else(|| Coverage {
         dirs: vec![root.clone()],
         files: HashSet::new(),
     });
@@ -287,8 +295,7 @@ fn reconcile_watched(
     let mut found: Vec<String> = coverage
         .dirs
         .iter()
-        .filter_map(|dir| file_scan::scan_folder_paths(&dir.to_string_lossy()).ok())
-        .flatten()
+        .flat_map(|dir| audio_files_outside_library(dir, &ctx.roots))
         .collect();
     found.extend(
         coverage
@@ -359,6 +366,24 @@ fn reconcile_watched(
         summary.missing += 1;
     }
     Ok(summary)
+}
+
+/// Audio files under `dir`, without descending into the library folder (a
+/// watched folder may contain it). Empty when `dir` is not a folder.
+fn audio_files_outside_library(dir: &Path, roots: &LibraryRoots) -> Vec<String> {
+    walkdir::WalkDir::new(dir)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| {
+            !(e.file_type().is_dir() && sources::is_excluded_from_watched(e.path(), roots))
+        })
+        .filter_map(Result::ok)
+        // `is_file` follows symlinks to files, as `file_scan` does.
+        .filter(|e| {
+            !e.file_type().is_dir() && e.path().is_file() && is_supported_audio_file(e.path())
+        })
+        .map(|e| e.path().to_string_lossy().into_owned())
+        .collect()
 }
 
 fn read_track(ctx: &ScanContext, path: &str) -> Result<crate::models::TrackInput, String> {
@@ -813,6 +838,70 @@ mod tests {
         assert_eq!(fx.tracks(id).len(), 1);
         assert!(fx.tracks(EXTERNAL_SOURCE_ID).is_empty());
         assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 0));
+    }
+
+    #[test]
+    fn a_watched_folder_around_the_library_skips_it() {
+        let fx = Fixture::new("around");
+        let managed = fx.wav("Music/Spiral Library/Tracks/Artist/Album/m.wav");
+        let input = crate::models::TrackInput {
+            title: "Managed".into(),
+            file_path: s(&managed),
+            ..Default::default()
+        };
+        let managed_id = db::save_track(&lock(&fx.db), &input, MANAGED_SOURCE_ID).unwrap();
+        // Untracked files in the tracks folder and a sound pack's audio.
+        fx.wav("Music/Spiral Library/Tracks/Artist/Album/stray.wav");
+        fx.wav("Music/Spiral Library/Packs/sounds/pack/click.wav");
+        let loose = fx.wav("Music/SomeArtist/loose.wav");
+        let top = fx.wav("Music/top.wav");
+
+        let music = fx.watch("Music");
+        assert_eq!(fx.reconcile(music), summary(music, 2, 0, 0, 0));
+        assert_eq!(
+            fx.tracks(music),
+            vec![
+                (s(&loose), "loose".into(), false),
+                (s(&top), "top".into(), false),
+            ]
+        );
+        assert_eq!(
+            fx.tracks(MANAGED_SOURCE_ID),
+            vec![(s(&managed), "Managed".into(), false)]
+        );
+        let total: i64 = lock(&fx.db)
+            .query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(total, 3);
+        assert_eq!(fx.reconcile(music), summary(music, 0, 0, 0, 0));
+
+        // Paths inside the library are ignored, and a watched pass never marks
+        // managed tracks missing.
+        fs::remove_file(&managed).unwrap();
+        let inside = [
+            managed.clone(),
+            fx.path("Music/Spiral Library"),
+            fx.path("Music/Spiral Library/Packs/sounds/pack/click.wav"),
+        ];
+        assert_eq!(
+            fx.reconcile_paths(music, &inside),
+            summary(music, 0, 0, 0, 0)
+        );
+        assert_eq!(
+            fx.reconcile_paths(music, &[fx.path("Music")]),
+            summary(music, 0, 0, 0, 0)
+        );
+        let track = db::get_track_by_id(&lock(&fx.db), managed_id)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            (track.source_id, track.missing_since),
+            (MANAGED_SOURCE_ID, None)
+        );
+        assert_eq!(
+            fx.reconcile(MANAGED_SOURCE_ID),
+            summary(MANAGED_SOURCE_ID, 0, 0, 1, 0)
+        );
     }
 
     #[test]
