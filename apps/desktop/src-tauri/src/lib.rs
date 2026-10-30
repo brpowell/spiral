@@ -65,6 +65,7 @@ mod skin_click_through;
 pub mod skin_convert;
 mod skin_drag;
 mod skin_preferences;
+mod source_scan;
 mod sources;
 pub mod tag_inspector;
 #[cfg(test)]
@@ -157,6 +158,7 @@ pub fn run() {
             let conn = db::open(&db_path).expect("failed to open database");
             app.manage(DbState(Mutex::new(conn)));
             app.manage(RatingSync::new());
+            commands::sources::init(app.handle());
 
             #[cfg(desktop)]
             if let Err(err) = media_shortcuts::register(app.handle()) {
@@ -226,6 +228,12 @@ pub fn run() {
             commands::library::clear_listen_history,
             commands::library::set_track_rating,
             commands::library::remove_track,
+            commands::sources::list_sources,
+            commands::sources::add_watched_source,
+            commands::sources::remove_watched_source,
+            commands::sources::rescan_source,
+            commands::sources::relocate_watched_source,
+            commands::sources::set_source_writable,
             commands::lyrics::get_track_lyrics,
             commands::lyrics::mark_track_instrumental,
             commands::lyrics::save_track_lyrics,

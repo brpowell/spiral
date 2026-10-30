@@ -2,6 +2,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { ItemSummary, ItemType } from "../types/item";
 import type { SoundPackSummary } from "../types/soundPack";
+import type { ReconcileSummary, Source } from "../types/source";
 import type {
   ItemCatalogQuery,
   ItemDownloadProgress,
@@ -439,6 +440,50 @@ export interface RefreshLibraryMetadataResult {
 
 export async function refreshLibraryMetadataFromFiles(): Promise<RefreshLibraryMetadataResult> {
   return invoke<RefreshLibraryMetadataResult>("refresh_library_metadata");
+}
+
+/**
+ * Emitted by the backend when a source's tracks changed on disk (a scan added,
+ * updated or marked tracks missing) or a source was added, moved or removed.
+ */
+export const LIBRARY_TRACKS_CHANGED_EVENT = "library://tracks-changed";
+
+export async function listSources(): Promise<Source[]> {
+  return invoke<Source[]>("list_sources");
+}
+
+/** Add a folder the user picked as a watched source; it is scanned in the background. */
+export async function addWatchedSource(
+  rootPath: string,
+  name?: string,
+): Promise<Source> {
+  return invoke<Source>("add_watched_source", { rootPath, name: name ?? null });
+}
+
+/** Stop watching a folder. Its tracks leave the library; its files stay. Returns tracks removed. */
+export async function removeWatchedSource(sourceId: number): Promise<number> {
+  return invoke<number>("remove_watched_source", { sourceId });
+}
+
+export async function rescanSource(
+  sourceId: number,
+): Promise<ReconcileSummary> {
+  return invoke<ReconcileSummary>("rescan_source", { sourceId });
+}
+
+/** Point a watched source at the folder its files moved to, then rescan it. */
+export async function relocateWatchedSource(
+  sourceId: number,
+  newRootPath: string,
+): Promise<Source> {
+  return invoke<Source>("relocate_watched_source", { sourceId, newRootPath });
+}
+
+export async function setSourceWritable(
+  sourceId: number,
+  writable: boolean,
+): Promise<Source> {
+  return invoke<Source>("set_source_writable", { sourceId, writable });
 }
 
 function normalizePlaylistImageMode(

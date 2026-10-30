@@ -7,11 +7,12 @@ use crate::lyrics_normalize;
 use crate::metadata_reader;
 use crate::rating_sync::RatingSync;
 use crate::settings::{self, LibrarySettingsPatch, LibrarySettingsResponse, DATABASE_FILE_NAME};
+use crate::sources;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -56,7 +57,24 @@ fn is_nested(child: &Path, parent: &Path) -> bool {
     child != parent && child.starts_with(&parent)
 }
 
-fn validate_destination(current_root: &Path, dest: &Path) -> Result<(), String> {
+/// Roots of the watched sources in the open library.
+fn watched_roots(app: &AppHandle) -> Vec<PathBuf> {
+    let state = app.state::<DbState>();
+    let conn = state.0.lock().unwrap_or_else(|e| e.into_inner());
+    sources::list_sources(&conn)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|s| s.root_path.map(PathBuf::from))
+        .collect()
+}
+
+/// `watched` are the watched folders' roots. A library may sit inside a
+/// watched folder, but not in the same place as one or around one.
+fn validate_destination(
+    current_root: &Path,
+    dest: &Path,
+    watched: &[PathBuf],
+) -> Result<(), String> {
     if dest.as_os_str().is_empty() {
         return Err("Library folder path is empty".into());
     }
@@ -71,6 +89,15 @@ fn validate_destination(current_root: &Path, dest: &Path) -> Result<(), String> 
     }
     if is_nested(current_root, dest) {
         return Err("Choose a folder that isn't an ancestor of your current library".into());
+    }
+    if let Some(root) = watched
+        .iter()
+        .find(|w| paths_equal(dest, w) || is_nested(w, dest))
+    {
+        return Err(format!(
+            "Choose a folder that isn't the watched folder {} and doesn't contain it",
+            root.display()
+        ));
     }
     Ok(())
 }
@@ -93,7 +120,7 @@ pub fn inspect_library_destination(
     let current = settings::resolved_library_settings(app);
     let current_root = PathBuf::from(&current.library_root);
 
-    let blocked_reason = validate_destination(&current_root, &dest).err();
+    let blocked_reason = validate_destination(&current_root, &dest, &watched_roots(app)).err();
 
     let has_database = dest.join(DATABASE_FILE_NAME).is_file();
     let audio_file_count = if dest.is_dir() {
@@ -348,7 +375,7 @@ pub fn relocate_library(
     let old_db = PathBuf::from(&current.database_path);
     let old_media = PathBuf::from(&current.media_folder);
 
-    validate_destination(&current_root, &dest)?;
+    validate_destination(&current_root, &dest, &watched_roots(app))?;
 
     let dest_db = settings::database_path_for_root(&dest);
     let dest_media = settings::media_folder_for_root(&dest);
@@ -527,10 +554,24 @@ mod tests {
     fn validate_rejects_same_and_nested() {
         let root = PathBuf::from("/tmp/spiral-lib");
         let nested = root.join("Tracks");
-        assert!(validate_destination(&root, &root).is_err());
-        assert!(validate_destination(&root, &nested).is_err());
-        assert!(validate_destination(&nested, &root).is_err());
-        assert!(validate_destination(&root, Path::new("/tmp/other-lib")).is_ok());
+        assert!(validate_destination(&root, &root, &[]).is_err());
+        assert!(validate_destination(&root, &nested, &[]).is_err());
+        assert!(validate_destination(&nested, &root, &[]).is_err());
+        assert!(validate_destination(&root, Path::new("/tmp/other-lib"), &[]).is_ok());
+    }
+
+    #[test]
+    fn validate_rejects_a_library_on_or_around_a_watched_folder() {
+        let root = PathBuf::from("/tmp/spiral-lib");
+        let watched = [PathBuf::from("/Volumes/Big/Music/Collection")];
+        let refused = |dest: &str| validate_destination(&root, Path::new(dest), &watched);
+        assert!(refused("/Volumes/Big/Music/Collection").is_err());
+        assert!(refused("/Volumes/Big/Music").is_err());
+        assert!(refused("/Volumes/Big").is_err());
+        // Inside a watched folder is allowed; scans skip the library.
+        assert!(refused("/Volumes/Big/Music/Collection/Spiral Library").is_ok());
+        assert!(refused("/Volumes/Big/Music/Collection2").is_ok());
+        assert!(refused("/Volumes/Other/Spiral Library").is_ok());
     }
 
     #[test]
