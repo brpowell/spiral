@@ -70,6 +70,7 @@ pub mod tag_inspector;
 #[cfg(test)]
 mod test_fixtures;
 mod track_list_prefs;
+mod track_permissions;
 mod transcoder;
 mod viz_worker_csp;
 mod vorbis_container;
@@ -227,6 +228,7 @@ pub fn run() {
             commands::library::remove_track,
             commands::lyrics::get_track_lyrics,
             commands::lyrics::mark_track_instrumental,
+            commands::lyrics::save_track_lyrics,
             commands::lyrics::fetch_lyrics_lrclib,
             commands::lyrics::cancel_lyrics_fetch,
             commands::lyrics::clear_lyrics_fetch_cancel,

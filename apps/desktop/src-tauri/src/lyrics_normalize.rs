@@ -105,6 +105,25 @@ pub fn persist_import_lyrics(
     db::upsert_track_lyrics(conn, &record)
 }
 
+/// Store edited or fetched lyrics as the track's canonical lyrics. Empty
+/// lyrics (other than an instrumental marker) clear them.
+pub fn save_track_lyrics(
+    conn: &Connection,
+    track_id: i64,
+    lyrics: Option<&TrackLyricsInput>,
+) -> rusqlite::Result<()> {
+    match lyrics.filter(|lyrics| {
+        lyrics.format == crate::models::LyricsFormat::Instrumental
+            || !lyrics.plain_text.trim().is_empty()
+    }) {
+        Some(lyrics) => {
+            let record = track_lyrics_input_to_record(lyrics.clone(), track_id);
+            db::upsert_track_lyrics(conn, &record)
+        }
+        None => db::delete_track_lyrics(conn, track_id),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

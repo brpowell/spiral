@@ -15,6 +15,7 @@ use crate::models::{
 use crate::rating_sync::{schedule_rating_file_write, RatingSync};
 use crate::settings;
 use crate::sources::{self, LibraryRoots};
+use crate::track_permissions::{track_permissions, TrackPermissions};
 use crate::transcoder;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -28,7 +29,7 @@ fn library_root(app: &AppHandle) -> PathBuf {
 }
 
 /// Load a track row and resolve `art_path` to an absolute display path for the UI.
-fn track_for_ui(
+pub(crate) fn track_for_ui(
     conn: &rusqlite::Connection,
     library_root: &Path,
     track_id: i64,
@@ -370,20 +371,34 @@ pub fn set_track_rating(
 ) -> Result<u8, String> {
     let (saved_rating, file_path) = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        let saved_rating = db::set_track_rating(&conn, track_id, rating).map_err(|e| {
-            eprintln!("set_track_rating error: {e}");
-            e.to_string()
-        })?;
-        let file_path = db::get_track_by_id(&conn, track_id)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| format!("Track {track_id} not found after rating update"))?
-            .file_path;
-        (saved_rating, file_path)
+        save_rating(&conn, track_id, rating)?
     };
 
-    schedule_rating_file_write(app, &rating_sync, track_id, file_path, saved_rating);
+    if let Some(file_path) = file_path {
+        schedule_rating_file_write(app, &rating_sync, track_id, file_path, saved_rating);
+    }
 
     Ok(saved_rating)
+}
+
+/// Save a rating in the library. Returns the saved rating and the file to
+/// write the rating tag to, or `None` when the track's source is read-only and
+/// the rating lives in the library only.
+fn save_rating(
+    conn: &rusqlite::Connection,
+    track_id: i64,
+    rating: u8,
+) -> Result<(u8, Option<String>), String> {
+    let saved_rating = db::set_track_rating(conn, track_id, rating).map_err(|e| {
+        eprintln!("set_track_rating error: {e}");
+        e.to_string()
+    })?;
+    let file_path = db::get_track_by_id(conn, track_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Track {track_id} not found after rating update"))?
+        .file_path;
+    let writable = track_permissions(conn, track_id)?.writable;
+    Ok((saved_rating, writable.then_some(file_path)))
 }
 
 #[tauri::command]
@@ -393,23 +408,22 @@ pub fn remove_track(
     track_id: i64,
     delete_from_disk: bool,
 ) -> Result<(), String> {
-    let track = {
+    let (track, perms) = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
         let track = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Track {track_id} not found"))?;
+        let perms = track_permissions(&conn, track_id)?;
         db::delete_track(&conn, track_id).map_err(|e| e.to_string())?;
-        track
+        (track, perms)
     };
 
     if delete_from_disk {
-        let audio_path = Path::new(&track.file_path);
-        if settings::lyrics_sidecar_sync_enabled(&app) {
-            lyrics_sidecar::remove_sidecar(audio_path)?;
-        }
-        if audio_path.exists() {
-            fs::remove_file(audio_path).map_err(|e| format!("Failed to delete audio file: {e}"))?;
-        }
+        delete_removed_track_file(
+            perms,
+            Path::new(&track.file_path),
+            settings::lyrics_sidecar_sync_enabled(&app),
+        )?;
     }
 
     let library_root = PathBuf::from(settings::resolved_library_settings(&app).library_root);
@@ -430,6 +444,35 @@ pub fn remove_track(
     Ok(())
 }
 
+/// Delete a removed track's file and lyrics sidecar. Only Spiral's own files
+/// are deleted: for any other source the request is ignored and the file stays,
+/// so removing a mixed selection still removes every row. Returns whether the
+/// file was deleted.
+fn delete_removed_track_file(
+    perms: TrackPermissions,
+    audio_path: &Path,
+    sidecar_enabled: bool,
+) -> Result<bool, String> {
+    if !perms.managed {
+        return Ok(false);
+    }
+    if sidecar_enabled {
+        lyrics_sidecar::remove_sidecar(audio_path)?;
+    }
+    if !audio_path.exists() {
+        return Ok(false);
+    }
+    fs::remove_file(audio_path).map_err(|e| format!("Failed to delete audio file: {e}"))?;
+    Ok(true)
+}
+
+/// Replacing overwrites or deletes the old file, so it is refused for files
+/// Spiral doesn't own. Re-pointing the track at a new copy instead would leave
+/// the original behind for the next scan to add again as a duplicate.
+fn ensure_replace_allowed(perms: TrackPermissions) -> Result<(), String> {
+    perms.require_managed("Replacing the file")
+}
+
 #[tauri::command]
 pub fn replace_track_from_import(
     app: AppHandle,
@@ -448,6 +491,7 @@ pub fn replace_track_from_import(
         let existing = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Track {track_id} not found"))?;
+        ensure_replace_allowed(track_permissions(&conn, track_id)?)?;
         let metadata = track_input_to_metadata(&track);
         (existing, metadata)
     };
@@ -476,7 +520,7 @@ pub fn replace_track_from_import(
         }
     }
 
-    let canonical_lyrics = {
+    let (canonical_lyrics, new_perms) = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
         db::update_track(
             &conn,
@@ -502,12 +546,16 @@ pub fn replace_track_from_import(
             eprintln!("persist_import_lyrics error: {e}");
             e.to_string()
         })?;
-        db::get_track_lyrics(&conn, track_id)
+        let lyrics = db::get_track_lyrics(&conn, track_id)
             .map_err(|e| e.to_string())?
-            .map(lyrics_normalize::track_lyrics_record_to_input)
+            .map(lyrics_normalize::track_lyrics_record_to_input);
+        (lyrics, track_permissions(&conn, track_id)?)
     };
 
-    project_replace_lyrics(&new_path_buf, canonical_lyrics.as_ref(), sidecar_enabled)?;
+    // A referenced replacement is not Spiral's file: leave its tags alone.
+    if new_perms.writable {
+        project_lyrics_to_file(&new_path_buf, canonical_lyrics.as_ref(), sidecar_enabled)?;
+    }
 
     if old_path != new_path_buf {
         if sidecar_enabled {
@@ -527,8 +575,9 @@ pub fn replace_track_from_import(
     track_for_ui(&conn, Path::new(&resolved.library_root), track_id)
 }
 
-/// After replace, project canonical DB lyrics onto the new audio file (tags + sidecar).
-fn project_replace_lyrics(
+/// Project canonical DB lyrics onto an audio file (tags + sidecar). Callers
+/// check the track's source is writable first.
+pub(crate) fn project_lyrics_to_file(
     new_path: &Path,
     lyrics: Option<&TrackLyricsInput>,
     sidecar_enabled: bool,
@@ -615,6 +664,16 @@ pub fn get_convert_profile_options(
     encoding_profiles::convert_profile_options_for_sources(&paths)
 }
 
+/// Converting always writes a new file into the tracks folder. Replace mode
+/// then deletes the original, so it is refused for files Spiral doesn't own;
+/// add-new is allowed for any source.
+fn ensure_convert_allowed(perms: TrackPermissions, mode: &str) -> Result<(), String> {
+    if mode == "replace" {
+        perms.require_managed("Replacing the original with a converted file")?;
+    }
+    Ok(())
+}
+
 fn convert_track_impl(
     app: &AppHandle,
     track_id: i64,
@@ -636,9 +695,11 @@ fn convert_track_impl(
 
     let existing = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        db::get_track_by_id(&conn, track_id)
+        let existing = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
-            .ok_or_else(|| format!("Track {track_id} not found"))?
+            .ok_or_else(|| format!("Track {track_id} not found"))?;
+        ensure_convert_allowed(track_permissions(&conn, track_id)?, mode)?;
+        existing
     };
 
     let source = PathBuf::from(&existing.file_path);
@@ -830,5 +891,97 @@ mod tests {
         .unwrap();
 
         assert_eq!(dest, Path::new("/media/track.mp3"));
+    }
+
+    mod source_guards {
+        use super::super::*;
+        use crate::track_permissions::test_support::*;
+        use crate::track_permissions::SOURCE_READ_ONLY;
+
+        fn rating_in_db(conn: &rusqlite::Connection, id: i64) -> u8 {
+            db::get_track_by_id(conn, id).unwrap().unwrap().rating
+        }
+
+        #[test]
+        fn rating_tag_writes_only_for_writable_sources() {
+            let conn = conn();
+            let t = default_source_tracks(&conn);
+            for (id, path) in [(t.managed, "/m.mp3"), (t.watched_writable, "/rw.mp3")] {
+                let (saved, file) = save_rating(&conn, id, 80).unwrap();
+                assert_eq!(file.as_deref(), Some(path));
+                assert_eq!(rating_in_db(&conn, id), saved);
+            }
+            for id in [t.watched_read_only, t.external] {
+                let (saved, file) = save_rating(&conn, id, 80).unwrap();
+                assert_eq!(file, None, "track {id} scheduled a file write");
+                assert_eq!(rating_in_db(&conn, id), saved);
+                assert!(saved > 0);
+            }
+        }
+
+        fn audio_with_sidecar(dir: &Path, name: &str) -> (PathBuf, PathBuf) {
+            let audio = dir.join(format!("{name}.mp3"));
+            fs::write(&audio, b"audio").unwrap();
+            let sidecar = lyrics_sidecar::sidecar_path_for(&audio);
+            fs::write(&sidecar, b"[00:00.00]line\n").unwrap();
+            (audio, sidecar)
+        }
+
+        #[test]
+        fn delete_from_disk_only_deletes_managed_files() {
+            let tmp = TempDir::new("delete");
+            let conn = conn();
+            let files: Vec<_> = ["m", "ro", "rw", "x"]
+                .iter()
+                .map(|name| audio_with_sidecar(&tmp.0, name))
+                .collect();
+            let t = source_tracks(&conn, &files[0].0, &files[1].0, &files[2].0, &files[3].0);
+
+            let perms = |id| track_permissions(&conn, id).unwrap();
+            assert!(delete_removed_track_file(perms(t.managed), &files[0].0, true).unwrap());
+            assert!(!files[0].0.exists());
+            assert!(!files[0].1.exists());
+
+            for (id, (audio, sidecar)) in [t.watched_read_only, t.watched_writable, t.external]
+                .into_iter()
+                .zip(&files[1..])
+            {
+                assert!(!delete_removed_track_file(perms(id), audio, true).unwrap());
+                assert!(audio.is_file(), "{} was deleted", audio.display());
+                assert!(sidecar.is_file(), "{} was deleted", sidecar.display());
+            }
+        }
+
+        #[test]
+        fn replace_is_refused_for_files_spiral_does_not_own() {
+            let conn = conn();
+            let t = default_source_tracks(&conn);
+            let perms = |id| track_permissions(&conn, id).unwrap();
+            assert!(ensure_replace_allowed(perms(t.managed)).is_ok());
+            for id in [t.watched_read_only, t.watched_writable, t.external] {
+                let err = ensure_replace_allowed(perms(id)).unwrap_err();
+                assert!(err.starts_with(SOURCE_READ_ONLY), "{err}");
+            }
+        }
+
+        #[test]
+        fn convert_replace_is_refused_but_add_new_is_allowed() {
+            let conn = conn();
+            let t = default_source_tracks(&conn);
+            let perms = |id| track_permissions(&conn, id).unwrap();
+            assert!(ensure_convert_allowed(perms(t.managed), "replace").is_ok());
+            for id in [
+                t.managed,
+                t.watched_read_only,
+                t.watched_writable,
+                t.external,
+            ] {
+                assert!(ensure_convert_allowed(perms(id), "add_new").is_ok());
+            }
+            for id in [t.watched_read_only, t.watched_writable, t.external] {
+                let err = ensure_convert_allowed(perms(id), "replace").unwrap_err();
+                assert!(err.starts_with(SOURCE_READ_ONLY), "{err}");
+            }
+        }
     }
 }
