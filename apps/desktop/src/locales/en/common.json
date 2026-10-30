@@ -33,9 +33,7 @@
       "title": "You're in control",
       "description": "We want to be fun & useful, not invasive & annoying.",
       "history": "Track your listening history",
-      "historyDescription": "Spiral can record listening history for play counts and personal insights. <strong>Your data is stored locally, and never shared with Spiral.</strong>",
-      "appUpdates": "Automatically check for app updates",
-      "packUpdates": "Automatically check for pack updates"
+      "historyDescription": "Spiral can record listening history for play counts and personal insights. <strong>Your data is stored locally, and never shared with Spiral.</strong>"
     }
   },
   "unknown": "Unknown",
