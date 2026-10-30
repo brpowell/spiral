@@ -5,17 +5,22 @@ import {
   Onboarding,
   ONBOARDING_FADE_MS,
   ONBOARDING_HOLD_MS,
+  ONBOARDING_START_DELAY_MS,
 } from "./Onboarding";
 
 describe("Onboarding", () => {
   let complete: (() => void) | undefined;
   let mountOptions: SpiralMotionOptions | undefined;
   const destroy = vi.fn();
+  const play = vi.fn();
+  const setSound = vi.fn();
 
   beforeEach(() => {
     vi.useFakeTimers();
     localStorage.clear();
     destroy.mockClear();
+    play.mockClear();
+    setSound.mockClear();
     complete = undefined;
     mountOptions = undefined;
     window.Spiral = {
@@ -23,7 +28,11 @@ describe("Onboarding", () => {
         mount: (_el, options) => {
           mountOptions = options;
           complete = options?.onComplete;
-          return { destroy } as unknown as SpiralMotionController;
+          return {
+            destroy,
+            play,
+            setSound,
+          } as unknown as SpiralMotionController;
         },
       },
     };
@@ -61,9 +70,17 @@ describe("Onboarding", () => {
     expect(destroy).toHaveBeenCalled();
   });
 
-  it("plays the reveal with sound on", () => {
+  it("mounts paused with sound on, then plays after the start delay", () => {
     render(<Onboarding />);
     expect(mountOptions?.sound).toBe(true);
+    expect(mountOptions?.autoplay).toBe(false);
+    expect(setSound).toHaveBeenCalledWith(true);
+    expect(play).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(ONBOARDING_START_DELAY_MS);
+    });
+    expect(play).toHaveBeenCalledTimes(1);
   });
 
   it("does not trap the user if the motion bundle is missing", () => {

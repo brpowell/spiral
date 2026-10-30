@@ -25,6 +25,7 @@
   // ---- Locked-in timing (beats; 150 bpm) and sound design ----
   var TIMING = {
     bpm: 150, spinStyle: "toss", windAmt: 55, windLen: 0.9, windCoil: 0.07, windShake: 0,
+    bobHeight: 48, bobFloat: 0.95, bobSway: 0, bobRock: 10, bobSeesaw: 0, bobSettle: 0, spinDelay: 0.5,
     nodAmt: 0, nodLen: 0.6, spinStart: 6.6, spinLen: 1.2, overshoot: 1.9,
     slideOffset: -0.1, slideLen: 1.2, wordDelay: -0.2, wordLen: 1.3, wordTuck: -44, loopHold: 4,
     loaderBeat: 1.1
@@ -58,10 +59,6 @@
     }
     return keys[keys.length - 1][1];
   }
-  function hop(b, at, h) {
-    var x = (b - at) / 0.5; if (x < 0 || x > 1) return 0;
-    return x < .5 ? -h * E.o3(x * 2) : -h * (1 - E.i2((x - .5) * 2));
-  }
 
   // ---- Choreography ----
   function loaderPose(b) {
@@ -69,22 +66,44 @@
     var trail = -22 * s * s * (p < .5 ? 1 : 1 - (p - .5) * 0.4);
     return { R: 180 * (k + E.io4(p)), S: 1 - 0.05 * s, d: 26 * s * s, hopA: 0, hopB: 0, rotA: trail, rotB: trail, X: 0 };
   }
+  // One flowy bob: lifts on its chime beat, floats through the top, eases down and stops (no bounce).
+  function bob(t, at, P) {
+    var L = P.bobFloat, H = P.bobHeight, x = (t - at) / L;
+    if (x < 0 || x > 1.3) return { y: 0, x: 0, rot: 0, env: 0 };
+    var xc = Math.min(1, x), w = Math.pow(xc, 0.7), s = Math.sin(Math.PI * w), y;
+    if (x <= 1) y = -H * (w <= 0.5 ? s : Math.pow(s, 1.8));
+    else y = H * P.bobSettle * Math.pow(Math.sin(Math.PI * (x - 1) / 0.3), 2);
+    return {
+      y: y, env: x <= 1 ? H * Math.pow(Math.sin(Math.PI * xc), 2) : 0,
+      x: P.bobSway * Math.pow(Math.sin(Math.PI * xc), 2),
+      rot: P.bobRock * Math.sin(2 * Math.PI * xc) * Math.sin(Math.PI * xc)
+    };
+  }
   function dancePose(b, P) {
-    var cycle = DANCE_LEN + DANCE_REST, k = Math.floor(b / cycle), t = b - k * cycle;
-    var R = 180 * k + track(t, [[0, 0], [0.8, -14, "io3"], [6.4, -14], [6.6, -20, "ioS"], [7.8, 180, "oBack"]]);
-    var S = track(t, [[0, 1], [0.8, 0.88, "ioS"], [1.3, 0.8, "oBack"], [1.6, 0.76, "ioS"], [6.4, 0.76], [6.8, 0.9, "ioS"], [7.3, 1.04, "o3"], [7.8, 1, "ioS"]]);
-    var d = track(t, [[0, 0], [0.8, -8, "ioS"], [1.4, 64, "oBack"], [6.2, 64], [6.8, -10, "i2"], [7.1, 0, "o3"]]);
-    var hopA = hop(t, 2, 48) + hop(t, 3, 48), hopB = hop(t, 2.5, 48) + hop(t, 3.5, 48);
-    var spin = track(t, [[0, 0], [4, 0], [5.6, 360, "io3"], [6.2, 360]]);
-    var nod = P.nodAmt > 0 ? track(t, [[5.6, 0], [5.6 + P.nodLen * 0.42, -P.nodAmt, "o3"], [5.6 + P.nodLen, 0, "ioS"]]) : 0;
-    return { R: R, S: S, d: d, hopA: hopA, hopB: hopB, rotA: spin + hopA * 0.25 + nod, rotB: spin - hopB * 0.25 + nod, X: 0, t: t };
+    var sd = P.spinDelay;
+    var cycle = DANCE_LEN + DANCE_REST + sd, k = Math.floor(b / cycle), t = b - k * cycle;
+    // Pause before spins: from the note spins on, the choreography runs on a shifted clock (u); the bobs keep
+    // real time (t). Between beats 1.6 and 4 only the bobs move, so the shift never jumps.
+    var u = t < 4 + Math.min(0, sd) ? t : Math.max(4, t - sd);
+    var R = 180 * k + track(u, [[0, 0], [0.8, -14, "io3"], [6.4, -14], [6.6, -20, "ioS"], [7.8, 180, "oBack"]]);
+    var S = track(u, [[0, 1], [0.8, 0.88, "ioS"], [1.3, 0.8, "oBack"], [1.6, 0.76, "ioS"], [6.4, 0.76], [6.8, 0.9, "ioS"], [7.3, 1.04, "o3"], [7.8, 1, "ioS"]]);
+    var d = track(u, [[0, 0], [0.8, -8, "ioS"], [1.4, 64, "oBack"], [6.2, 64], [6.8, -10, "i2"], [7.1, 0, "o3"]]);
+    // Bobs on the chime beats: upper note on 2 and 3, lower note on 2.5 and 3.5. Both lean outward.
+    var a1 = bob(t, 2, P), a2 = bob(t, 3, P), b1 = bob(t, 2.5, P), b2 = bob(t, 3.5, P);
+    var hopA = a1.y + a2.y + P.bobSeesaw * (b1.env + b2.env), hopB = b1.y + b2.y + P.bobSeesaw * (a1.env + a2.env);
+    var spin = track(u, [[0, 0], [4, 0], [5.6, 360, "io3"], [6.2, 360]]);
+    var nod = P.nodAmt > 0 ? track(u, [[5.6, 0], [5.6 + P.nodLen * 0.42, -P.nodAmt, "o3"], [5.6 + P.nodLen, 0, "ioS"]]) : 0;
+    return {
+      R: R, S: S, d: d, hopA: hopA, hopB: hopB, swayA: -(a1.x + a2.x), swayB: b1.x + b2.x,
+      rotA: spin - (a1.rot + a2.rot) + nod, rotB: spin - (b1.rot + b2.rot) + nod, X: 0, t: t
+    };
   }
   function revealTimes(P) {
-    var s0 = P.spinStart, s1 = s0 + P.spinLen, x0 = s0 + P.slideOffset, x1 = x0 + P.slideLen, w0 = x0 + P.wordDelay, w1 = w0 + P.wordLen;
+    var s0 = P.spinStart + P.spinDelay, s1 = s0 + P.spinLen, x0 = s0 + P.slideOffset, x1 = x0 + P.slideLen, w0 = x0 + P.wordDelay, w1 = w0 + P.wordLen;
     return { s0: s0, s1: s1, x0: x0, x1: x1, w0: w0, w1: w1, end: Math.max(s1, x1, w1) };
   }
   function revealPose(b, P, startX) {
-    var T = revealTimes(P), p = dancePose(Math.min(b, DANCE_LEN), P);
+    var T = revealTimes(P), p = dancePose(Math.min(b, DANCE_LEN + P.spinDelay), P);
     if (P.spinStyle === "toss") {
       var w0 = Math.max(0.9, T.s0 - P.windLen), wound = -14 - P.windAmt;
       p.R = track(b, [[0, 0], [0.8, -14, "io3"], [w0, -14], [T.s0, wound, "ioS"], [T.s1, 180, "o4"]]);
@@ -160,12 +179,13 @@
     m.slide.setAttribute("transform", "translate(" + (p.X || 0) + " 0)");
     m.whole.setAttribute("transform", "rotate(" + p.R + " " + CX + " " + CY + ") translate(" + CX + " " + CY + ") scale(" + p.S + ") translate(" + (-CX) + " " + (-CY) + ")");
     var r = p.R * Math.PI / 180, sin = Math.sin(r), cos = Math.cos(r);
-    function place(g, dir, hp, rot, head) {
-      var x = dir[0] * p.d + hp * sin, y = dir[1] * p.d + hp * cos;
+    function place(g, dir, hp, rot, head, sw) {
+      sw = sw || 0;   // hop (screen y) and sway (screen x) stay in screen space whatever the rotation
+      var x = dir[0] * p.d + sw * cos + hp * sin, y = dir[1] * p.d - sw * sin + hp * cos;
       g.setAttribute("transform", "translate(" + x + " " + y + ") rotate(" + rot + " " + head[0] + " " + head[1] + ")");
     }
-    place(m.a, DIR_A, p.hopA, p.rotA, HEAD_A);
-    place(m.b, DIR_B, p.hopB, p.rotB, HEAD_B);
+    place(m.a, DIR_A, p.hopA, p.rotA, HEAD_A, p.swayA);
+    place(m.b, DIR_B, p.hopB, p.rotB, HEAD_B, p.swayB);
     if (m.word) {
       var half = (190 * Math.abs(cos) + 95 * Math.abs(sin)) * p.S;
       // Same as the motion lab: the word slides out from a fixed start (its right end at the glyph's
@@ -322,7 +342,7 @@
         [POP_AT, function () { voice.click(); }],
         [2.0, function () { voice.chime(0); }], [2.5, function () { voice.chime(1); }],
         [3.0, function () { voice.chime(2); }], [3.5, function () { voice.chime(3); }],
-        [4.0, function () { voice.swish("light", sec(1.6)); }],
+        [4.0 + P.spinDelay, function () { voice.swish("light", sec(1.6)); }],
         [s0, function () { voice.swish("heavy", sec(s1 - s0)); }]
       ];
     }

@@ -1,5 +1,6 @@
 /** Subset of the Spiral design system's motion bundle (`src/vendor/spiral-motion`). */
 interface SpiralMotionController {
+  play(): void;
   replay(): void;
   setSound(on: boolean): void;
   destroy(): void;
