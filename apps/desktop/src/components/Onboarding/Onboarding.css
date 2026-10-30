@@ -1,14 +1,36 @@
 .onboarding {
+  /* Top edge of the header row: the docked logo and Skip welcome. */
+  --onboarding-header-top: 30px;
   position: fixed;
   inset: 0;
+  box-sizing: border-box;
   z-index: calc(var(--z-modal, 1000) - 1);
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--fill-page);
+  /* Line the gradient up with the page behind the window bar, so no seam. */
+  background-attachment: fixed;
   color: var(--color-text-primary);
   opacity: 1;
   transition: opacity var(--onboarding-fade-ms, 600ms) ease;
+}
+
+/*
+ * The window bar blends into the welcome screen (it normally has its own chrome
+ * fill), then fades back to chrome as the overlay fades out. Keyed on the
+ * overlay being in the DOM, so it applies from the first frame the bar exists
+ * with no script timing involved. Entering is instant; only leaving eases.
+ */
+body:has(.onboarding) .custom-window-frame .window-titlebar,
+body:has(.onboarding) .custom-window-frame .mac-overlay-titlebar {
+  background: transparent;
+}
+
+body:has(.onboarding--leaving) .custom-window-frame .window-titlebar,
+body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
+  background: var(--color-chrome);
+  transition: background-color var(--onboarding-fade-ms, 600ms) ease;
 }
 
 .onboarding--leaving {
@@ -49,7 +71,7 @@
 /* Docked: the lockup sits small in the top-left; the steps fill the rest. */
 .onboarding--docked .onboarding__logo {
   position: absolute;
-  top: 56px;
+  top: var(--onboarding-header-top);
   left: 56px;
   width: 120px;
 }
@@ -57,7 +79,7 @@
 .onboarding__skip {
   position: absolute;
   /* Same box as the docked lockup (120px wide, 2.13:1), so it centres on it. */
-  top: 56px;
+  top: var(--onboarding-header-top);
   right: 56px;
   display: flex;
   align-items: center;
@@ -90,7 +112,7 @@
 .onboarding__panel--split {
   grid-template-rows: minmax(0, 1fr);
   /* Just clear the docked logo above and the footer below. */
-  padding-block: 152px 104px;
+  padding-block: 124px 104px;
   overflow: hidden;
 }
 
@@ -376,7 +398,9 @@
   }
 
   .onboarding__logo,
-  .onboarding__panel--split .onboarding__content {
+  .onboarding__panel--split .onboarding__content,
+  body:has(.onboarding--leaving) .custom-window-frame .window-titlebar,
+  body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
     transition: none;
   }
 

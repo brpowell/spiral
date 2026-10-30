@@ -53,7 +53,11 @@ export function showOnboardingSplash(): void {
   const overlay = document.createElement("div");
   overlay.className = "onboarding";
   overlay.setAttribute("aria-hidden", "true");
-  overlay.style.top = onboardingOverlayTop();
+  // Cover the whole window: the title bar isn't rendered yet, and the strip it
+  // will occupy would otherwise show the bare page background. Padding keeps
+  // the logo centred in the same area the React overlay (which sits below the
+  // bar) will use, so the handoff doesn't move it.
+  overlay.style.paddingTop = onboardingOverlayTop();
   const logo = document.createElement("div");
   logo.className = "onboarding__logo";
   overlay.appendChild(logo);

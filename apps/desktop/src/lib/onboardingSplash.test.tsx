@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useOnboardingStore } from "../store/useOnboardingStore";
 import {
   adoptOnboardingSplash,
+  onboardingOverlayTop,
   showOnboardingSplash,
 } from "./onboardingSplash";
 
@@ -36,6 +37,14 @@ describe("onboardingSplash", () => {
     const overlay = document.querySelector(".onboarding");
     expect(overlay).not.toBeNull();
     expect(overlay?.contains(svg)).toBe(true);
+  });
+
+  it("covers the whole window, padding the logo below the bar's space", () => {
+    showOnboardingSplash();
+    const overlay = document.querySelector<HTMLElement>(".onboarding")!;
+    // No top offset (the bar isn't rendered yet); padding does the offsetting.
+    expect(overlay.style.top).toBe("");
+    expect(overlay.style.paddingTop).toBe(onboardingOverlayTop());
   });
 
   it("does nothing when onboarding is not open", () => {
