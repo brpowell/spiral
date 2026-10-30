@@ -2,6 +2,17 @@ import "../vendor/spiral-motion/bundle.js";
 import "../components/Onboarding/Onboarding.css";
 import { useOnboardingStore } from "../store/useOnboardingStore";
 import { t } from "./i18n";
+import { usesCustomWindowChrome, usesMacOverlayChrome } from "./windowChrome";
+
+/**
+ * Where the overlay starts, so it sits below the window's title bar and leaves
+ * it draggable (and the Windows/Linux min/max/close controls usable).
+ */
+export function onboardingOverlayTop(): string {
+  if (usesMacOverlayChrome()) return "var(--mac-titlebar-height-library)";
+  if (usesCustomWindowChrome()) return "var(--window-titlebar-height)";
+  return "0px";
+}
 
 /**
  * Mounts the Spiral logo reveal paused on its first frame. Returns null when the
@@ -42,7 +53,7 @@ export function showOnboardingSplash(): void {
   const overlay = document.createElement("div");
   overlay.className = "onboarding";
   overlay.setAttribute("aria-hidden", "true");
-  overlay.setAttribute("data-tauri-drag-region", "");
+  overlay.style.top = onboardingOverlayTop();
   const logo = document.createElement("div");
   logo.className = "onboarding__logo";
   overlay.appendChild(logo);

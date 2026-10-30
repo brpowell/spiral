@@ -10,7 +10,33 @@
     "clearing": "Clearing logs…"
   },
   "onboarding": {
-    "ariaLabel": "Welcome to Spiral"
+    "ariaLabel": "Welcome to Spiral",
+    "next": "Next",
+    "back": "Back",
+    "skip": "Skip welcome",
+    "getStarted": "Get started",
+    "progress": "Step {{current}} of {{total}}",
+    "library": {
+      "title": "Where should your library live?",
+      "description": "Your database, music, and artwork is organized here.",
+      "pathAria": "Library location",
+      "change": "Change location",
+      "choosing": "Choosing…"
+    },
+    "style": {
+      "title": "Try on a style",
+      "description": "You can change it any time in the Studio, or even make your own.",
+      "themes": "Themes",
+      "visualizers": "Visualizers"
+    },
+    "privacy": {
+      "title": "You're in control",
+      "description": "We want to be fun & useful, not invasive & annoying.",
+      "history": "Track your listening history",
+      "historyDescription": "Spiral can record listening history for play counts and personal insights. <strong>Your data is stored locally, and never shared with Spiral.</strong>",
+      "appUpdates": "Automatically check for app updates",
+      "packUpdates": "Automatically check for pack updates"
+    }
   },
   "unknown": "Unknown",
   "unknownArtist": "Unknown Artist",

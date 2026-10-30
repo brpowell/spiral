@@ -1,11 +1,12 @@
 .onboarding {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: calc(var(--z-modal, 1000) - 1);
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--fill-page);
+  color: var(--color-text-primary);
   opacity: 1;
   transition: opacity var(--onboarding-fade-ms, 600ms) ease;
 }
@@ -17,12 +18,237 @@
 
 .onboarding__logo {
   width: min(480px, 60vw);
-  --spiral-mark: var(--color-text-primary);
-  --spiral-accent: var(--color-accent);
+  /* Brand colours (cream + leaf), fixed: the logo must not follow the theme. */
+  --spiral-mark: #f6edd6;
+  --spiral-accent: #96c836;
+}
+
+/* Docked: the lockup sits small in the top-left; the steps fill the rest. */
+.onboarding--docked .onboarding__logo {
+  position: absolute;
+  top: 56px;
+  left: 56px;
+  width: 120px;
+}
+
+.onboarding__skip {
+  position: absolute;
+  top: 48px;
+  right: 40px;
+}
+
+.onboarding__panel {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(260px, 380px) minmax(0, 1fr);
+  column-gap: 72px;
+  align-content: start;
+  padding: 168px 56px 112px;
+  overflow-y: auto;
+  animation: onboarding-panel-in 520ms cubic-bezier(0.22, 1, 0.36, 1) 450ms
+    backwards;
+}
+
+.onboarding__panel--centered {
+  grid-template-columns: minmax(0, 560px);
+  justify-content: center;
+  /* Anchored from the top, a bit below true centre (optical centre). */
+  align-content: start;
+  padding-top: max(168px, 28vh);
+  row-gap: 32px;
+  text-align: center;
+}
+
+.onboarding__panel--centered .onboarding__content {
+  align-items: center;
+}
+
+.onboarding__panel--centered .onboarding-path {
+  width: 100%;
+}
+
+.onboarding__title {
+  margin: 0 0 12px;
+  font-size: 2.25rem;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.onboarding__description {
+  margin: 0;
+  font-size: 1.0625rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.onboarding__content {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  min-width: 0;
+  padding-top: 6px;
+}
+
+.onboarding__error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 0.875rem;
+}
+
+.onboarding__footer {
+  position: absolute;
+  left: 56px;
+  right: 56px;
+  bottom: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  animation: onboarding-panel-in 520ms cubic-bezier(0.22, 1, 0.36, 1) 450ms
+    backwards;
+}
+
+.onboarding__progress {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.onboarding__nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Library step */
+.onboarding-path {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 560px;
+  padding: 20px 24px;
+  text-align: left;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.onboarding-path__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+/* Reads as one real path, left to right; only the library folder itself is emphasised. */
+.onboarding-path__text {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+.onboarding-path__parent {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
+
+.onboarding-path__name {
+  flex: none;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Style step */
+.onboarding-choices__heading {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.onboarding-choices__row {
+  display: flex;
+  gap: 16px;
+}
+
+.onboarding-choice {
+  display: flex;
+  width: 120px;
+  height: 64px;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease;
+}
+
+.onboarding-choice:hover {
+  transform: translateY(-2px);
+}
+
+.onboarding-choice[aria-checked="true"] {
+  border-color: var(--color-accent);
+}
+
+.onboarding-choice:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.onboarding-choice .visualizer-picker__preview-img,
+.onboarding-choice .visualizer-picker__preview-pending {
+  width: 100%;
+  height: 100%;
+}
+
+/* Privacy step */
+.onboarding-options {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 480px;
+}
+
+.onboarding-options__hint {
+  margin: 6px 0 0 28px;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+@keyframes onboarding-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .onboarding {
     transition-duration: 1ms;
+  }
+
+  .onboarding__panel,
+  .onboarding__footer {
+    animation: none;
   }
 }

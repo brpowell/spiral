@@ -1385,8 +1385,11 @@ export async function prepareImportFile(
   return invoke<string>("prepare_import_file", { sourcePath, mode });
 }
 
-export async function pickLibraryFolder(): Promise<string | null> {
-  return invoke<string | null>("pick_library_folder");
+/** `startDir` is where the picker opens (nearest existing folder if it is missing). */
+export async function pickLibraryFolder(
+  startDir?: string,
+): Promise<string | null> {
+  return invoke<string | null>("pick_library_folder", { startDir });
 }
 
 export async function inspectLibraryDestination(

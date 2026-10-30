@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useOnboardingStore } from "../../store/useOnboardingStore";
 import {
@@ -36,7 +36,7 @@ describe("Onboarding", () => {
         },
       },
     };
-    useOnboardingStore.setState({ open: true });
+    useOnboardingStore.setState({ open: true, step: 0 });
   });
 
   afterEach(() => {
@@ -50,16 +50,63 @@ describe("Onboarding", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("holds, fades, then finishes after the animation completes", () => {
-    render(<Onboarding />);
-    const overlay = screen.getByRole("dialog");
-    expect(overlay.className).not.toContain("onboarding--leaving");
-
+  function playThroughReveal() {
     act(() => complete?.());
     act(() => {
       vi.advanceTimersByTime(ONBOARDING_HOLD_MS);
     });
-    expect(overlay.className).toContain("onboarding--leaving");
+  }
+
+  it("docks the logo and shows the first step after the reveal", () => {
+    render(<Onboarding />);
+    const overlay = screen.getByRole("dialog");
+    expect(overlay.className).not.toContain("onboarding--docked");
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+
+    playThroughReveal();
+
+    expect(overlay.className).toContain("onboarding--docked");
+    expect(
+      screen.getByRole("heading", { name: "Where should your library live?" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Skip welcome" }),
+    ).toBeInTheDocument();
+    // First step has nowhere to go back to.
+    expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
+  });
+
+  it("steps forward and back through the welcome screens", () => {
+    render(<Onboarding />);
+    playThroughReveal();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      screen.getByRole("heading", { name: "Try on a style" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      screen.getByRole("heading", { name: "You're in control" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(
+      screen.getByRole("heading", { name: "Try on a style" }),
+    ).toBeInTheDocument();
+  });
+
+  it("finishes after fading out when the last step is completed", () => {
+    render(<Onboarding />);
+    playThroughReveal();
+    act(() => useOnboardingStore.setState({ step: 2 }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Get started" }));
+    expect(screen.getByRole("dialog").className).toContain(
+      "onboarding--leaving",
+    );
     expect(useOnboardingStore.getState().open).toBe(true);
 
     act(() => {
@@ -68,6 +115,17 @@ describe("Onboarding", () => {
     expect(useOnboardingStore.getState().open).toBe(false);
     expect(localStorage.getItem("spiral:onboardingCompleted")).toBe("1");
     expect(destroy).toHaveBeenCalled();
+  });
+
+  it("skips straight out from any step", () => {
+    render(<Onboarding />);
+    playThroughReveal();
+
+    fireEvent.click(screen.getByRole("button", { name: "Skip welcome" }));
+    act(() => {
+      vi.advanceTimersByTime(ONBOARDING_FADE_MS);
+    });
+    expect(useOnboardingStore.getState().open).toBe(false);
   });
 
   it("mounts paused with sound on, then plays after the start delay", () => {
