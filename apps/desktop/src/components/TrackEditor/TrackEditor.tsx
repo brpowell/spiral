@@ -1,12 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import {
-  describeSourceError,
-  isTrackWritable,
-  readOnlyReason,
-} from "../../lib/sourceAccess";
-import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
-import { useSourcesStore } from "../../store/useSourcesStore";
-import { IconInfo } from "../icons";
+import { describeSourceError } from "../../lib/sourceAccess";
 import { useTranslation } from "react-i18next";
 import { useArtFileDrop } from "../../hooks/useArtFileDrop";
 import { useAssetUrl } from "../../hooks/useAssetUrl";
@@ -205,13 +198,6 @@ export function TrackEditor() {
   );
   const isBulk = tracks.length > 1;
   const referenceTrack = tracks[0] ?? null;
-  const sourcesById = useSourcesStore((s) => s.sourcesById);
-  /** Set when any track's file is in a read-only source: the editor only views. */
-  const readOnly = useMemo(
-    () => readOnlyReason(tracks, sourcesById),
-    [tracks, sourcesById],
-  );
-  const openPreferences = useLibrarySettingsStore((s) => s.openPreferences);
   const editingKey = editingTrackIds.join(",");
   /** Shared release MBID across the whole album grouping (not just the selection). */
   const albumReleaseMbid = useMemo(() => {
@@ -406,12 +392,6 @@ export function TrackEditor() {
 
       const matched = result.recordingMbid;
       setDerivedEmptyKind(null);
-      // A read-only file keeps its tags; don't write the derived match.
-      if (
-        !isTrackWritable(referenceTrack, useSourcesStore.getState().sourcesById)
-      ) {
-        return;
-      }
       try {
         const updated = await writeTrackMetadata(
           referenceTrack.id,
@@ -931,7 +911,6 @@ export function TrackEditor() {
 
   const handleSave = async () => {
     if (!form || !originalForm || !hasChanges || tracks.length === 0) return;
-    if (readOnly) return;
 
     const writesTags = isBulk
       ? true
@@ -1191,33 +1170,6 @@ export function TrackEditor() {
                 )}
               </ModalHeader>
 
-              {readOnly ? (
-                <p className="track-editor__read-only" role="note">
-                  <IconInfo
-                    className="track-editor__read-only-icon"
-                    aria-hidden
-                  />
-                  <span>
-                    {readOnly.message}
-                    {readOnly.watched ? (
-                      <>
-                        {" "}
-                        <button
-                          type="button"
-                          className="track-editor__read-only-link"
-                          onClick={() => {
-                            closeTrackEditor();
-                            openPreferences("sources");
-                          }}
-                        >
-                          {t("library:sources.readOnly.openSources")}
-                        </button>
-                      </>
-                    ) : null}
-                  </span>
-                </p>
-              ) : null}
-
               <Tabs
                 value={activeTab}
                 onChange={(tab) => setActiveTab(tab as TrackEditorTab)}
@@ -1246,10 +1198,7 @@ export function TrackEditor() {
                       value="details"
                       className="track-editor__tab-panel"
                     >
-                      <fieldset
-                        className="track-editor__fieldset"
-                        disabled={readOnly != null}
-                      >
+                      <fieldset className="track-editor__fieldset">
                         <TrackEditorDetailsTab
                           form={form}
                           tracks={tracks}
@@ -1264,10 +1213,7 @@ export function TrackEditor() {
                     </TabPanel>
 
                     <TabPanel value="art" className="track-editor__tab-panel">
-                      <fieldset
-                        className="track-editor__fieldset"
-                        disabled={readOnly != null}
-                      >
+                      <fieldset className="track-editor__fieldset">
                         <AlbumEditorArtTab
                           previewSrc={previewSrc}
                           artDragOver={artDragOver}
@@ -1285,10 +1231,7 @@ export function TrackEditor() {
                       value="lyrics"
                       className="track-editor__tab-panel track-editor__tab-panel--lyrics"
                     >
-                      <fieldset
-                        className="track-editor__fieldset"
-                        disabled={readOnly != null}
-                      >
+                      <fieldset className="track-editor__fieldset">
                         <TrackEditorLyricsTab
                           value={form.lyrics}
                           syncedLines={form.lyricsSyncedLines}
@@ -1363,9 +1306,7 @@ export function TrackEditor() {
                 saving={saving}
                 label={saveLabel}
                 onClick={() => void handleSave()}
-                disabled={
-                  !hasChanges || saving || discardPrompt || readOnly != null
-                }
+                disabled={!hasChanges || saving || discardPrompt}
               />
             </ModalFooter>
           </div>

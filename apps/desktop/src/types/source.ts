@@ -62,6 +62,7 @@ export type FileConflict =
   | { kind: "sourceMissing" }
   | { kind: "sourceUnreadable"; error: string }
   | { kind: "insideSpiralFolder" }
+  | { kind: "hiddenTarget" }
   | { kind: "invalidTarget"; error: string };
 
 export interface PlannedFileOp {

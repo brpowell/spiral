@@ -16,82 +16,16 @@ export function sourceRole(source: Pick<Source, "id">): SourceRole {
 }
 
 /**
- * What Spiral may do to a track's file, mirroring `track_permissions.rs`:
- * `writable` allows tag, art and lyrics writes; `managed` also allows moving,
- * replacing and deleting the file.
+ * Whether removing the track may also delete its file. Every source's files
+ * can be deleted except Other's loose files, which stay on disk. Tracks still
+ * importing have no source yet and land in a source folder.
  */
-export interface TrackAccess {
-  writable: boolean;
-  managed: boolean;
-  /** The track's source, when the sources list has it. */
-  source: Source | null;
+export function canDeleteFromDisk(track: Pick<Track, "sourceId">): boolean {
+  return track.sourceId !== OTHER_SOURCE_ID;
 }
 
-/**
- * Tracks still being imported have no source yet and land in the library, so
- * they count as managed. Every source but Other is writable; only the default
- * source's files are Spiral's to move, replace or delete.
- */
-export function trackAccess(
-  track: Pick<Track, "sourceId">,
-  sourcesById: ReadonlyMap<number, Source>,
-): TrackAccess {
-  const id = track.sourceId;
-  if (id == null || id === DEFAULT_SOURCE_ID) {
-    return {
-      writable: true,
-      managed: true,
-      source: id == null ? null : (sourcesById.get(id) ?? null),
-    };
-  }
-  const source = sourcesById.get(id) ?? null;
-  return {
-    writable: id !== OTHER_SOURCE_ID,
-    managed: false,
-    source,
-  };
-}
-
-export function isTrackWritable(
-  track: Pick<Track, "sourceId">,
-  sourcesById: ReadonlyMap<number, Source>,
-): boolean {
-  return trackAccess(track, sourcesById).writable;
-}
-
-export function isTrackManaged(
-  track: Pick<Track, "sourceId">,
-  sourcesById: ReadonlyMap<number, Source>,
-): boolean {
-  return trackAccess(track, sourcesById).managed;
-}
-
-/**
- * One line on why a selection can't be edited, or null when every track can.
- * Only Other's loose files are read-only, so `watched` is always false; it
- * stays until the sources UI is reworked.
- */
-export function readOnlyReason(
-  tracks: Pick<Track, "sourceId">[],
-  sourcesById: ReadonlyMap<number, Source>,
-): { message: string; watched: boolean } | null {
-  const blocked = tracks.filter(
-    (track) => !trackAccess(track, sourcesById).writable,
-  );
-  if (blocked.length === 0) return null;
-  return {
-    watched: false,
-    message: t(
-      blocked.length < tracks.length
-        ? "library:sources.readOnly.someExternal"
-        : "library:sources.readOnly.external",
-    ),
-  };
-}
-
-/** Error prefixes the source commands and file guards return. */
+/** Error prefixes the source commands return. */
 const SOURCE_ERROR_KEYS = {
-  source_read_only: "library:sources.errors.readOnly",
   source_not_folder: "library:sources.errors.notFolder",
   source_inside_library: "library:sources.errors.insideLibrary",
   source_overlap: "library:sources.errors.overlap",
@@ -103,17 +37,13 @@ function rawMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** The code a backend error starts with, e.g. `source_read_only: …`. */
+/** The code a backend error starts with, e.g. `source_overlap: …`. */
 export function sourceErrorCode(err: unknown): SourceErrorCode | null {
   const message = rawMessage(err);
   for (const code of Object.keys(SOURCE_ERROR_KEYS) as SourceErrorCode[]) {
     if (message.startsWith(code)) return code;
   }
   return null;
-}
-
-export function isSourceReadOnlyError(err: unknown): boolean {
-  return sourceErrorCode(err) === "source_read_only";
 }
 
 /** A readable, localized message for coded source errors; others pass through. */

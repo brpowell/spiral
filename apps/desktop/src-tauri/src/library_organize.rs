@@ -367,7 +367,9 @@ pub fn move_track_file(
 
 /// Remove empty directories from `start` up to (but not including) `stop_at`.
 pub fn prune_empty_dirs(start: &Path, stop_at: &Path) {
-    let start_buf = start.to_path_buf();
+    // Compare like with like: both resolved when they can be (e.g. `/var` and
+    // `/private/var` on macOS).
+    let start_buf = start.canonicalize().unwrap_or_else(|_| start.to_path_buf());
     let Ok(stop) = stop_at.canonicalize() else {
         prune_empty_dirs_inner(start_buf, stop_at.to_path_buf());
         return;

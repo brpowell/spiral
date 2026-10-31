@@ -61,33 +61,19 @@ function openEditor(sourceId: number) {
   render(<TrackEditor />);
 }
 
-describe("TrackEditor read-only gating", () => {
+describe("TrackEditor source access", () => {
   beforeEach(() => {
     useSourcesStore.setState({ sourcesById: new Map([[3, watched]]) });
   });
 
-  it("edits tracks Spiral may write", async () => {
-    openEditor(1);
-    const title = await screen.findByDisplayValue("Song");
-    expect(title).not.toBeDisabled();
-    expect(screen.queryByRole("note")).toBeNull();
-  });
-
-  it("edits tracks in folders the user added", async () => {
-    openEditor(3);
+  // Every source's files take tag edits, Other's loose files included.
+  it.each([
+    ["the default source", 1],
+    ["Other", 2],
+    ["a folder the user added", 3],
+  ])("edits tracks in %s", async (_, sourceId) => {
+    openEditor(sourceId);
     expect(await screen.findByDisplayValue("Song")).not.toBeDisabled();
     expect(screen.queryByRole("note")).toBeNull();
-  });
-
-  it("explains external files without a folder setting", async () => {
-    openEditor(2);
-    expect(await screen.findByDisplayValue("Song")).toBeDisabled();
-    expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
-    expect(screen.getByRole("note").textContent).toMatch(
-      /outside the Spiral library/,
-    );
-    expect(
-      screen.queryByRole("button", { name: "Folder settings…" }),
-    ).toBeNull();
   });
 });

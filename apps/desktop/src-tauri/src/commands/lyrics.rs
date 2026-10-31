@@ -7,7 +7,6 @@ use crate::models::{
     TrackLyricsRecord,
 };
 use crate::settings;
-use crate::track_permissions::track_permissions;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, State};
 
@@ -43,9 +42,8 @@ pub fn mark_track_instrumental(state: State<'_, DbState>, track_id: i64) -> Resu
         .ok_or_else(|| format!("Track {track_id} not found after marking instrumental"))
 }
 
-/// Save lyrics fetched for a track. They always go into the library; the
-/// file's tags and sidecar are updated only when the track's source is
-/// writable, and silently left alone otherwise.
+/// Save lyrics fetched for a track, in the library and in the file's tags
+/// and sidecar.
 #[tauri::command]
 pub fn save_track_lyrics(
     app: AppHandle,
@@ -70,16 +68,14 @@ fn save_lyrics(
     lyrics: Option<&TrackLyricsInput>,
     sidecar_enabled: bool,
 ) -> Result<(), String> {
-    let (file_path, perms) = {
+    let file_path = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        let track = db::get_track_by_id(&conn, track_id)
+        db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
-            .ok_or_else(|| format!("Track {track_id} not found"))?;
-        (track.file_path, track_permissions(&conn, track_id)?)
+            .ok_or_else(|| format!("Track {track_id} not found"))?
+            .file_path
     };
-    if perms.writable {
-        project_lyrics_to_file(Path::new(&file_path), lyrics, sidecar_enabled)?;
-    }
+    project_lyrics_to_file(Path::new(&file_path), lyrics, sidecar_enabled)?;
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     lyrics_normalize::save_track_lyrics(&conn, track_id, lyrics).map_err(|e| {
         eprintln!("save_track_lyrics error: {e}");
@@ -146,8 +142,8 @@ mod tests {
     use super::*;
     use crate::lyrics_sidecar::sidecar_path_for;
     use crate::models::LyricsLine;
+    use crate::source_test_support::*;
     use crate::test_fixtures::ogg;
-    use crate::track_permissions::test_support::*;
     use std::sync::Mutex;
 
     fn synced() -> TrackLyricsInput {
@@ -165,7 +161,7 @@ mod tests {
     }
 
     #[test]
-    fn fetched_lyrics_reach_the_file_only_when_writable() {
+    fn fetched_lyrics_reach_every_sources_files() {
         let tmp = TempDir::new("lyrics");
         let files: Vec<_> = ["m", "u", "x"]
             .iter()
@@ -176,19 +172,18 @@ mod tests {
         let state = DbState(Mutex::new(conn));
         let lyrics = synced();
 
-        for (id, file, writable) in [
-            (t.managed, &files[0], true),
-            (t.user, &files[1], true),
-            (t.external, &files[2], false),
+        for (id, file) in [
+            (t.default, &files[0]),
+            (t.user, &files[1]),
+            (t.other, &files[2]),
         ] {
             let before = std::fs::read(file).unwrap();
             save_lyrics(&state, id, Some(&lyrics), true).unwrap();
 
             let stored = db::get_track_lyrics(&state.0.lock().unwrap(), id).unwrap();
             assert_eq!(stored.unwrap().plain_text, "Fetched line");
-            let changed = std::fs::read(file).unwrap() != before;
-            assert_eq!(changed, writable, "{}", file.display());
-            assert_eq!(sidecar_path_for(file).is_file(), writable);
+            assert_ne!(std::fs::read(file).unwrap(), before, "{}", file.display());
+            assert!(sidecar_path_for(file).is_file());
         }
     }
 }

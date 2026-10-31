@@ -20,8 +20,10 @@ pub struct LibrarySettings {
     /// Root directory for the Spiral library (`Tracks/` + `Artwork/` + `Library.db`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub library_root: Option<String>,
-    #[serde(default = "default_auto_organize")]
-    pub auto_organize: bool,
+    /// Legacy: the global organize switch from before each source had its
+    /// own. Read once by [`take_legacy_auto_organize`], then dropped.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_organize: Option<bool>,
     #[serde(default = "default_import_mode")]
     pub import_mode: String,
     /// When set, controls the full relative path under the tracks folder.
@@ -51,10 +53,6 @@ pub fn resolved_organize_path_format(stored: &LibrarySettings) -> String {
         return format!("{{albumArtist}}/{{album}}/{legacy}.{{ext}}");
     }
     default_organize_path_format()
-}
-
-fn default_auto_organize() -> bool {
-    true
 }
 
 fn default_import_mode() -> String {
@@ -190,7 +188,7 @@ impl Default for LibrarySettings {
     fn default() -> Self {
         Self {
             library_root: None,
-            auto_organize: true,
+            auto_organize: None,
             import_mode: default_import_mode(),
             organize_path_format: None,
             track_filename_format: default_track_filename_format(),
@@ -465,7 +463,6 @@ pub struct LibrarySettingsResponse {
     pub media_folder: String,
     pub artwork_folder: String,
     pub database_path: String,
-    pub auto_organize: bool,
     pub import_mode: String,
     pub organize_path_format: String,
     pub default_organize_path_format: String,
@@ -583,6 +580,17 @@ pub fn database_path_for_root(library_root: &Path) -> PathBuf {
     library_root.join(DATABASE_FILE_NAME)
 }
 
+/// The legacy global organize switch, if settings still hold it. Removes it
+/// from settings, so this returns `Some` at most once.
+pub fn take_legacy_auto_organize(app: &AppHandle) -> Result<Option<bool>, String> {
+    let mut settings = read_settings(app);
+    let legacy = settings.library.auto_organize.take();
+    if legacy.is_some() {
+        write_settings(app, &settings)?;
+    }
+    Ok(legacy)
+}
+
 pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
     let app_settings = read_settings(app);
     let stored = app_settings.library.clone();
@@ -614,7 +622,6 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
         media_folder,
         artwork_folder,
         database_path,
-        auto_organize: stored.auto_organize,
         import_mode: stored.import_mode,
         organize_path_format,
         default_organize_path_format: default_organize_path_format(),
@@ -635,8 +642,6 @@ pub fn resolved_library_settings(app: &AppHandle) -> LibrarySettingsResponse {
 pub struct LibrarySettingsPatch {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub library_root: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auto_organize: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub import_mode: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -671,9 +676,6 @@ pub fn merge_library_settings(
         } else {
             settings.library.library_root = Some(library_root);
         }
-    }
-    if let Some(auto_organize) = patch.auto_organize {
-        settings.library.auto_organize = auto_organize;
     }
     if let Some(import_mode) = patch.import_mode {
         if !import_mode.is_empty() {
@@ -732,6 +734,16 @@ pub fn lyrics_sidecar_sync_enabled(app: &AppHandle) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_legacy_auto_organize_switch_is_read_but_never_written() {
+        let stored: LibrarySettings = serde_json::from_str(r#"{"autoOrganize":false}"#).unwrap();
+        assert_eq!(stored.auto_organize, Some(false));
+        let fresh: LibrarySettings = serde_json::from_str("{}").unwrap();
+        assert_eq!(fresh.auto_organize, None);
+        let written = serde_json::to_value(&fresh).unwrap();
+        assert!(written.get("autoOrganize").is_none(), "{written}");
+    }
 
     #[test]
     fn default_listening_history_settings_are_enabled() {

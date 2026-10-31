@@ -545,6 +545,11 @@ export async function setImportSource(sourceId: number): Promise<Source> {
   return invoke<Source>("set_import_source", { sourceId });
 }
 
+/** The source new imports are copied into (the default source when none is set). */
+export async function getImportSource(): Promise<Source> {
+  return invoke<Source>("get_import_source");
+}
+
 /** Watch status of each watched folder, for the offline badge. */
 export async function getSourceStatuses(): Promise<SourceStatus[]> {
   return invoke<SourceStatus[]>("get_source_statuses");

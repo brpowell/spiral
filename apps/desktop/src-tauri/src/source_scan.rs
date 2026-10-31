@@ -1,12 +1,13 @@
 //! Keeping each source's tracks in step with the files on disk.
 //!
-//! Reconciling a watched source walks its folder: new audio files become
-//! tracks of that source (read in place, never moved), files whose size or
-//! modification time changed since they were last read are read again, and
-//! tracks whose file is gone get `missing_since`. A track is never deleted
-//! here; when its file comes back the mark is cleared. Managed and external
-//! sources only get the missing marks, since nothing is added to them by
-//! looking at a folder.
+//! Reconciling a source walks its folder: new audio files become tracks of
+//! that source (read in place, never moved), files whose size or modification
+//! time changed since they were last read are read again, and tracks whose
+//! file is gone get `missing_since`. A track is never deleted here; when its
+//! file comes back the mark is cleared. Every source with a folder is walked,
+//! the default source included. Other has no folder, so its tracks only get
+//! the missing marks. Hidden files and folders (e.g. `.spiral-convert`) are
+//! skipped.
 //!
 //! Reconciling is idempotent and serialized, so the startup pass, a manual
 //! rescan and the file watcher can all call it. Files are read without holding
@@ -125,8 +126,8 @@ impl Coverage {
     }
 }
 
-/// For a watched source (`root` given), paths outside its root or inside the
-/// library folder are dropped.
+/// For a source with a folder (`root` given), paths outside its root, inside
+/// the Spiral folder but not the root, or hidden are dropped.
 fn coverage(
     scope: ReconcileScope<'_>,
     root: Option<&Path>,
@@ -139,7 +140,9 @@ fn coverage(
     let mut files = HashSet::new();
     for path in paths {
         if root.is_some_and(|root| {
-            !path.starts_with(root) || sources::is_inside_spiral_folder(path, roots)
+            !path.starts_with(root)
+                || sources::is_outside_source_walk(path, root, roots)
+                || is_hidden_below(path, root)
         }) {
             continue;
         }
@@ -226,16 +229,17 @@ pub fn reconcile_source(
     let source = sources::get_source(&lock(db), source_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Source {source_id} not found"))?;
-    // Only user sources are walked for now; the default source and Other
-    // get missing marks.
+    // Every source with a folder is walked; Other only gets missing marks.
     match source.root_path.as_deref() {
-        Some(root) if !source.is_builtin() => reconcile_watched(db, ctx, source_id, root, scope),
+        Some(root) if source_id != sources::OTHER_SOURCE_ID => {
+            reconcile_watched(db, ctx, source_id, root, scope)
+        }
         _ => mark_missing(db, ctx, source_id, scope),
     }
 }
 
-/// Reconcile every source: missing marks for managed and external, a full
-/// pass for each watched folder. Used at startup to catch what changed while
+/// Reconcile every source: a full pass over each source's folder, and
+/// missing marks for Other. Used at startup to catch what changed while
 /// Spiral was closed.
 pub fn reconcile_all(db: &Mutex<Connection>, ctx: &ScanContext) -> Vec<ReconcileSummary> {
     let ids = match sources::list_sources(&lock(db)) {
@@ -305,7 +309,7 @@ fn reconcile_watched(
     let mut found: Vec<String> = coverage
         .dirs
         .iter()
-        .flat_map(|dir| audio_files_outside_library(dir, &ctx.roots))
+        .flat_map(|dir| audio_files_in_source(dir, &root, &ctx.roots))
         .collect();
     found.extend(
         coverage
@@ -378,14 +382,24 @@ fn reconcile_watched(
     Ok(summary)
 }
 
-/// Audio files under `dir`, without descending into the library folder (a
-/// watched folder may contain it). Empty when `dir` is not a folder.
-fn audio_files_outside_library(dir: &Path, roots: &LibraryRoots) -> Vec<String> {
+/// True when a part of `path` below `root` starts with a dot.
+pub(crate) fn is_hidden_below(path: &Path, root: &Path) -> bool {
+    path.strip_prefix(root).is_ok_and(|rel| {
+        rel.components()
+            .any(|c| c.as_os_str().to_string_lossy().starts_with('.'))
+    })
+}
+
+/// Audio files under `dir` in the source rooted at `root`, without
+/// descending into hidden folders or the rest of the Spiral folder (a user
+/// source may contain it). Empty when `dir` is not a folder.
+fn audio_files_in_source(dir: &Path, root: &Path, roots: &LibraryRoots) -> Vec<String> {
     walkdir::WalkDir::new(dir)
         .follow_links(false)
         .into_iter()
         .filter_entry(|e| {
-            !(e.file_type().is_dir() && sources::is_inside_spiral_folder(e.path(), roots))
+            !(is_hidden_below(e.path(), root)
+                || e.file_type().is_dir() && sources::is_outside_source_walk(e.path(), root, roots))
         })
         .filter_map(Result::ok)
         // `is_file` follows symlinks to files, as `file_scan` does.
@@ -405,7 +419,7 @@ fn read_track(ctx: &ScanContext, path: &str) -> Result<crate::models::TrackInput
     )
 }
 
-/// Save a track read from a watched folder and make sure it belongs to it (a
+/// Save a track read from a source's folder and make sure it belongs to it (a
 /// row already at this path, e.g. an external reference, is claimed).
 fn save(
     conn: &Connection,
@@ -771,11 +785,10 @@ mod tests {
     }
 
     #[test]
-    fn managed_and_external_only_get_missing_marks() {
-        let fx = Fixture::new("managed");
+    fn the_default_source_is_walked_and_other_gets_missing_marks() {
+        let fx = Fixture::new("default");
         let managed = fx.wav("Music/Spiral Library/Tracks/a.wav");
         let external = fx.wav("Downloads/b.wav");
-        fx.wav("Music/Spiral Library/Tracks/untracked.wav");
         for (path, source) in [(&managed, DEFAULT_SOURCE_ID), (&external, OTHER_SOURCE_ID)] {
             let input = crate::models::TrackInput {
                 title: "Song".into(),
@@ -784,10 +797,26 @@ mod tests {
             };
             db::save_track(&lock(&fx.db), &input, source).unwrap();
         }
+        // Dropped into the tracks folder in Finder.
+        let dropped = fx.wav("Music/Spiral Library/Tracks/Artist/dropped.wav");
+        // Never walked: hidden folders (convert scratch) and the rest of the
+        // Spiral folder.
+        fx.wav("Music/Spiral Library/Tracks/.spiral-convert/1.wav");
+        fx.wav("Music/Spiral Library/Tracks/._a.wav");
+        fx.wav("Music/Spiral Library/Packs/sounds/pack/click.wav");
+        // Other is never walked, so files beside its tracks stay out.
+        fx.wav("Downloads/c.wav");
 
         assert_eq!(
             fx.reconcile(DEFAULT_SOURCE_ID),
-            summary(DEFAULT_SOURCE_ID, 0, 0, 0, 0)
+            summary(DEFAULT_SOURCE_ID, 1, 0, 0, 0)
+        );
+        assert_eq!(
+            fx.tracks(DEFAULT_SOURCE_ID),
+            vec![
+                (s(&dropped), "dropped".into(), false),
+                (s(&managed), "Song".into(), false),
+            ]
         );
         fs::remove_file(&managed).unwrap();
         fs::remove_file(&external).unwrap();
@@ -800,19 +829,26 @@ mod tests {
             ]
         );
         assert_eq!(
-            fx.tracks(DEFAULT_SOURCE_ID),
-            vec![(s(&managed), "Song".into(), true)]
-        );
-
-        fx.wav("Music/Spiral Library/Tracks/a.wav");
-        assert_eq!(
-            fx.reconcile(DEFAULT_SOURCE_ID),
-            summary(DEFAULT_SOURCE_ID, 0, 0, 0, 1)
-        );
-        assert_eq!(
             fx.tracks(OTHER_SOURCE_ID),
             vec![(s(&external), "Song".into(), true)]
         );
+
+        // Written again, so it is read again as well as restored.
+        fx.wav("Music/Spiral Library/Tracks/a.wav");
+        assert_eq!(
+            fx.reconcile(DEFAULT_SOURCE_ID),
+            summary(DEFAULT_SOURCE_ID, 0, 1, 0, 1)
+        );
+
+        // A watcher batch inside the tracks folder is reconciled; hidden
+        // paths in it are ignored.
+        let later = fx.wav("Music/Spiral Library/Tracks/later.wav");
+        let hidden = fx.wav("Music/Spiral Library/Tracks/.spiral-convert/2.wav");
+        assert_eq!(
+            fx.reconcile_paths(DEFAULT_SOURCE_ID, &[later.clone(), hidden]),
+            summary(DEFAULT_SOURCE_ID, 1, 0, 0, 0)
+        );
+        assert_eq!(fx.tracks(DEFAULT_SOURCE_ID).len(), 3);
     }
 
     #[test]
@@ -892,9 +928,11 @@ mod tests {
             (track.source_id, track.missing_since),
             (DEFAULT_SOURCE_ID, None)
         );
+        // The default source's own pass marks it, and picks up the stray file
+        // the user source skipped.
         assert_eq!(
             fx.reconcile(DEFAULT_SOURCE_ID),
-            summary(DEFAULT_SOURCE_ID, 0, 0, 1, 0)
+            summary(DEFAULT_SOURCE_ID, 1, 0, 1, 0)
         );
     }
 

@@ -67,13 +67,14 @@ pub mod skin_convert;
 mod skin_drag;
 mod skin_preferences;
 mod source_scan;
+#[cfg(test)]
+mod source_test_support;
 mod source_watch;
 mod sources;
 pub mod tag_inspector;
 #[cfg(test)]
 mod test_fixtures;
 mod track_list_prefs;
-mod track_permissions;
 mod transcoder;
 mod viz_worker_csp;
 mod vorbis_container;
@@ -240,6 +241,7 @@ pub fn run() {
             commands::sources::set_import_source,
             commands::organize::preview_organize_source,
             commands::organize::apply_organize_source,
+            commands::sources::get_import_source,
             commands::sources::get_source_statuses,
             commands::lyrics::get_track_lyrics,
             commands::lyrics::mark_track_instrumental,

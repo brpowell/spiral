@@ -31,7 +31,7 @@ use crate::fs_move;
 use crate::library_organize::{self, OrganizeMetadata};
 use crate::lyrics_sidecar;
 use crate::source_scan;
-use crate::sources::{self, SourceRoots};
+use crate::sources::{self, LibraryRoots, SourceRoots};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -115,6 +115,10 @@ pub enum Conflict {
     /// The target would be inside the Spiral folder, which isn't a source.
     /// Skipped.
     InsideSpiralFolder,
+    /// A part of the target starts with a dot (e.g. a title like `.hack`).
+    /// Walks and the watcher skip hidden entries, so the track would read as
+    /// missing. Skipped.
+    HiddenTarget,
     /// No target could be worked out (e.g. the path format is empty). Skipped.
     #[serde(rename_all = "camelCase")]
     InvalidTarget { error: String },
@@ -266,28 +270,24 @@ impl OrganizeRow {
     }
 }
 
-/// The path format organizing `source_id` uses: `format` when given, else the
-/// source's own, else `default_format` (the global one, from settings).
-// TODO: switch to `sources::organize_settings` once item B adds it.
+/// The path format organizing `source_id` uses: `format` when given, else
+/// the one it is organized with, else (organizing is off, which is when it
+/// gets turned on) its own format or `default_format`, the global one.
 fn organize_format(
     conn: &Connection,
     source_id: i64,
     format: Option<String>,
+    organized_with: Option<String>,
     default_format: &str,
 ) -> Result<String, String> {
-    if let Some(format) = format.filter(|f| !f.trim().is_empty()) {
+    if let Some(format) = format.filter(|f| !f.trim().is_empty()).or(organized_with) {
         return Ok(format);
     }
-    let own: Option<String> = conn
-        .query_row(
-            "SELECT path_format FROM sources WHERE id = ?1",
-            params![source_id],
-            |row| row.get(0),
-        )
-        .optional()
+    let source = sources::get_source(conn, source_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Source {source_id} not found"))?;
-    Ok(own
+    Ok(source
+        .path_format
         .filter(|f| !f.trim().is_empty())
         .unwrap_or_else(|| default_format.to_string()))
 }
@@ -310,16 +310,17 @@ pub fn plan_organize_source(
     if source_id == sources::OTHER_SOURCE_ID {
         return Err("Other has no folder, so it can't be organized".to_string());
     }
-    let format = organize_format(conn, source_id, format, default_format)?;
+    // Where organizing writes, as import does; fails when a user source's
+    // folder isn't reachable.
+    let target = sources::write_target(conn, source_id, default_format)?;
+    let format = organize_format(conn, source_id, format, target.path_format, default_format)?;
+    let root = target.root;
     let roots = SourceRoots::load(conn).map_err(|e| e.to_string())?;
-    let root = roots
-        .root(source_id)
-        .ok_or_else(|| format!("Source {source_id} has no folder to organize"))?
-        .to_path_buf();
-    let spiral_folder = sources::spiral_folder(conn).map_err(|e| e.to_string())?;
-    // The default source lives in the Spiral folder; any other must not put
-    // files there.
-    let guard_spiral = spiral_folder.filter(|folder| !root.starts_with(folder));
+    // Targets a walk of this source would skip: the Spiral folder (for the
+    // default source, the part outside its own folder) and hidden entries.
+    let library_roots = sources::spiral_folder(conn)
+        .map_err(|e| e.to_string())?
+        .map(|folder| LibraryRoots::for_library_root(&folder));
 
     // Every row's path, missing ones included: a target must not collide
     // with a row even when its file is gone.
@@ -419,12 +420,16 @@ pub fn plan_organize_source(
             ));
             continue;
         }
-        if guard_spiral
+        if library_roots
             .as_ref()
-            .is_some_and(|folder| wanted.starts_with(folder))
+            .is_some_and(|lr| sources::is_outside_source_walk(&wanted, &root, lr))
         {
             plan.ops
                 .push(blocked(wanted_loc, Conflict::InsideSpiralFolder));
+            continue;
+        }
+        if source_scan::is_hidden_below(&wanted, &root) {
+            plan.ops.push(blocked(wanted_loc, Conflict::HiddenTarget));
             continue;
         }
 
@@ -935,7 +940,7 @@ mod tests {
     use super::*;
     use crate::db_migrations;
     use crate::source_scan::{ReconcileScope, ScanContext};
-    use crate::sources::{LibraryRoots, DEFAULT_SOURCE_ID};
+    use crate::sources::DEFAULT_SOURCE_ID;
     use crate::test_fixtures::wav;
     use chrono::Utc;
 
@@ -1267,6 +1272,33 @@ mod tests {
         let summary = fx.apply(&plan);
         assert_eq!(summary, ApplySummary::default());
         assert!(fx.path("Music/in.wav").is_file());
+    }
+
+    #[test]
+    fn hidden_targets_are_skipped_since_walks_skip_them() {
+        let fx = Fixture::new("hidden");
+        let src = fx.source("Collection");
+        let id = fx.track(src, "Collection/a.wav", "Band", "Album", ".hack");
+        let plan = fx.plan(src);
+        assert_eq!(
+            targets(&plan),
+            vec![(
+                id,
+                "Band/Album/.hack.wav".into(),
+                Some(Conflict::HiddenTarget)
+            )]
+        );
+        assert_eq!(fx.apply(&plan), ApplySummary::default());
+        assert_eq!(fx.rel_path(id), "a.wav");
+    }
+
+    #[test]
+    fn an_unreachable_source_cannot_be_planned() {
+        let fx = Fixture::new("offline");
+        let src = fx.source("Collection");
+        fx.track(src, "Collection/a.wav", "Band", "Album", "Song");
+        fs::rename(fx.path("Collection"), fx.path("Unplugged")).unwrap();
+        assert!(plan_organize_source(&lock(&fx.db), src, None, FORMAT).is_err());
     }
 
     #[cfg(unix)]

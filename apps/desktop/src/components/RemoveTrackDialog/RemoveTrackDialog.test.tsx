@@ -1,19 +1,7 @@
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useSourcesStore } from "../../store/useSourcesStore";
-import type { Source } from "../../types/source";
+import { describe, expect, it, vi } from "vitest";
 import type { Track } from "../../types/track";
 import { RemoveTrackDialog } from "./RemoveTrackDialog";
-
-const watched: Source = {
-  id: 3,
-  rootPath: "/Music",
-  name: "Music",
-  autoOrganize: false,
-  pathFormat: null,
-  importTarget: false,
-  createdAt: "2026-01-01T00:00:00Z",
-};
 
 const track = (id: number, sourceId: number) =>
   ({ id, title: `Song ${id}`, sourceId }) as Track;
@@ -30,30 +18,26 @@ function renderDialog(tracks: Track[]) {
 }
 
 describe("RemoveTrackDialog", () => {
-  beforeEach(() => {
-    useSourcesStore.setState({ sourcesById: new Map([[3, watched]]) });
-  });
-
-  it("offers deleting files Spiral owns, with no note", () => {
-    renderDialog([track(1, 1)]);
+  it("offers deleting files in any source folder, with no note", () => {
+    renderDialog([track(1, 1), track(2, 3)]);
     expect(
-      screen.getByRole("button", { name: "Remove and delete file" }),
+      screen.getByRole("button", { name: "Remove and delete files" }),
     ).toBeTruthy();
     expect(screen.queryByRole("note")).toBeNull();
   });
 
-  it("says which files will be kept on disk in a mixed selection", () => {
-    renderDialog([track(1, 1), track(2, 3), track(3, 2)]);
+  it("says which of Other's files will be kept on disk in a mixed selection", () => {
+    renderDialog([track(1, 1), track(2, 3), track(3, 2), track(4, 2)]);
     expect(screen.getByRole("note").textContent).toBe(
       "2 of these files aren't in the Spiral library. They leave the library, but stay on disk.",
     );
     expect(
-      screen.getByRole("button", { name: "Remove and delete file" }),
+      screen.getByRole("button", { name: "Remove and delete files" }),
     ).toBeTruthy();
   });
 
-  it("only removes from the library when no file is Spiral's", () => {
-    renderDialog([track(1, 3), track(2, 2)]);
+  it("only removes from the library when every file is in Other", () => {
+    renderDialog([track(1, 2), track(2, 2)]);
     expect(screen.getByRole("note").textContent).toMatch(
       /^These files aren't in the Spiral library/,
     );
