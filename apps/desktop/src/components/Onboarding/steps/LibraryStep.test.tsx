@@ -225,7 +225,9 @@ describe("LibraryStep", () => {
         name: "Organize “Music”?",
       });
       expect(tauri.rescanSource).toHaveBeenCalledWith(3);
-      expect(tauri.previewOrganizeSource).toHaveBeenCalledWith(3, undefined);
+      await waitFor(() =>
+        expect(tauri.previewOrganizeSource).toHaveBeenCalledWith(3, undefined),
+      );
       fireEvent.click(
         await within(dialog).findByRole("button", { name: "Move 4 files" }),
       );

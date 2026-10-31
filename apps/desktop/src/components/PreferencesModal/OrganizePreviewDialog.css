@@ -65,7 +65,7 @@
 
 .organize-preview__move {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2fr) auto minmax(0, 3fr);
   align-items: baseline;
   gap: 0.5rem;
 }

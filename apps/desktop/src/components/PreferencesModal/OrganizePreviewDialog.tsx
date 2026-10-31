@@ -295,13 +295,18 @@ function PlanSummary({ summary }: { summary: FilePlanSummary }) {
           <ul className="organize-preview__moves">
             {summary.sample.map(({ op }) => (
               <li key={op.trackId} className="organize-preview__move">
-                <code className="organize-preview__from">
+                <code
+                  className="organize-preview__from"
+                  title={op.from.relPath}
+                >
                   {op.from.relPath}
                 </code>
                 <span role="img" aria-label={t("organize.movesTo")}>
                   →
                 </span>
-                <code className="organize-preview__to">{op.to.relPath}</code>
+                <code className="organize-preview__to" title={op.to.relPath}>
+                  {op.to.relPath}
+                </code>
               </li>
             ))}
           </ul>
