@@ -115,7 +115,7 @@ pub fn get_source_statuses(state: State<DbState>) -> Result<Vec<SourceStatus>, S
         sources::list_sources(&conn)
             .map_err(|e| e.to_string())?
             .into_iter()
-            .filter(|s| s.kind == sources::SourceKind::Watched)
+            .filter(|s| !s.is_builtin())
             .map(|s| s.id)
             .collect()
     };
@@ -131,10 +131,10 @@ pub fn list_sources(state: State<DbState>) -> Result<Vec<Source>, String> {
     sources::list_sources(&conn).map_err(|e| e.to_string())
 }
 
-/// Add a folder the user picked as a watched source. It is indexed in the
+/// Add a folder the user picked as a source. It is indexed in the
 /// background; `library://tracks-changed` fires as its tracks land.
 #[tauri::command]
-pub fn add_watched_source(
+pub fn add_source(
     app: AppHandle,
     state: State<DbState>,
     root_path: String,
@@ -144,7 +144,7 @@ pub fn add_watched_source(
     let roots = LibraryRoots::from_settings(&settings::resolved_library_settings(&app));
     let source = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        sources::add_watched_source(&conn, &roots, &root_path, name.as_deref())?
+        sources::add_source(&conn, &roots, &root_path, name.as_deref())?
     };
     if let Some(root) = &source.root_path {
         path_scope::allow_dir(&app, Path::new(root));
@@ -161,9 +161,9 @@ pub fn add_watched_source(
     Ok(source)
 }
 
-/// Stop watching a folder: its tracks leave the library, its files stay.
+/// Remove a source: its tracks leave the library, its files stay.
 #[tauri::command]
-pub fn remove_watched_source(
+pub fn remove_source(
     app: AppHandle,
     state: State<DbState>,
     source_id: i64,
@@ -171,7 +171,7 @@ pub fn remove_watched_source(
     let ctx = scan_context(&app)?;
     let removed = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        source_scan::remove_watched_source(&conn, &ctx, source_id)?
+        source_scan::remove_source(&conn, &ctx, source_id)?
     };
     source_watch::sync(&app);
     emit_source_changed(&app, source_id);
@@ -185,9 +185,9 @@ pub async fn rescan_source(app: AppHandle, source_id: i64) -> Result<ReconcileSu
     reconcile_in_background(app, source_id).await
 }
 
-/// Point a watched source at the folder its files moved to, then rescan it.
+/// Point a source at the folder its files moved to, then rescan it.
 #[tauri::command]
-pub async fn relocate_watched_source(
+pub async fn relocate_source(
     app: AppHandle,
     source_id: i64,
     new_root_path: String,
@@ -197,7 +197,7 @@ pub async fn relocate_watched_source(
     let task_app = app.clone();
     let source = tauri::async_runtime::spawn_blocking(move || {
         let state = task_app.state::<DbState>();
-        source_scan::relocate_watched_source(&state.0, &ctx, source_id, &new_root_path)
+        source_scan::relocate_source(&state.0, &ctx, source_id, &new_root_path)
     })
     .await
     .map_err(|e| e.to_string())??;
@@ -210,16 +210,31 @@ pub async fn relocate_watched_source(
     Ok(source)
 }
 
-/// Allow or stop Spiral changing a source's files (tags, moves, deletes).
+/// Turn organizing on or off for a source. Existing files don't move here.
 #[tauri::command]
-pub fn set_source_writable(
+pub fn set_source_organize(
     state: State<DbState>,
     source_id: i64,
-    writable: bool,
+    auto_organize: bool,
 ) -> Result<Source, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
-    sources::set_source_writable(&conn, source_id, writable)?;
-    sources::get_source(&conn, source_id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Source {source_id} not found"))
+    sources::set_source_organize(&conn, source_id, auto_organize)
+}
+
+/// Set a source's own path format; `None` inherits the global one.
+#[tauri::command]
+pub fn set_source_path_format(
+    state: State<DbState>,
+    source_id: i64,
+    path_format: Option<String>,
+) -> Result<Source, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    sources::set_source_path_format(&conn, source_id, path_format)
+}
+
+/// Choose the source new imports are copied into.
+#[tauri::command]
+pub fn set_import_source(state: State<DbState>, source_id: i64) -> Result<Source, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    sources::set_import_source(&conn, source_id)
 }

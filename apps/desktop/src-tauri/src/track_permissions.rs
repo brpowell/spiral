@@ -2,14 +2,14 @@
 //!
 //! Every code path that changes a file on disk asks [`track_permissions`]:
 //! - `writable`: tags, embedded art, lyrics and lyrics sidecars may be written.
-//!   True for managed tracks and for watched sources the user made writable.
+//!   True for every source but Other.
 //! - `managed`: the file is Spiral's, so it may also be moved, renamed,
-//!   replaced or deleted. Only the managed source qualifies, even when a
-//!   watched source is writable.
+//!   replaced or deleted. Only the default source qualifies for now.
 //!
 //! Explicit edits on a track that isn't allowed fail with an error that starts
 //! with [`SOURCE_READ_ONLY`]. Background writes skip such tracks silently.
 
+use crate::sources::{DEFAULT_SOURCE_ID, OTHER_SOURCE_ID};
 use rusqlite::{params, Connection, OptionalExtension};
 
 /// Prefix of the error returned when a track's source forbids a file change.
@@ -46,30 +46,29 @@ pub fn read_only_error(action: &str) -> String {
     format!("{SOURCE_READ_ONLY}: {action} is not allowed because this file is not in the Spiral library or its folder is read-only")
 }
 
-/// Permissions for the track's file. External files are never writable, even
-/// if their source row says otherwise.
+/// Permissions for the track's file. Until per-source behavior lands, every
+/// source but Other is writable, and only the default source's files are
+/// Spiral's to move, replace or delete.
 pub fn track_permissions(conn: &Connection, track_id: i64) -> Result<TrackPermissions, String> {
-    let row: Option<(String, bool)> = conn
+    let source_id: i64 = conn
         .query_row(
-            "SELECT s.kind, s.writable FROM tracks t JOIN sources s ON s.id = t.source_id
-             WHERE t.id = ?1",
+            "SELECT source_id FROM tracks WHERE id = ?1",
             params![track_id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| row.get(0),
         )
         .optional()
-        .map_err(|e| e.to_string())?;
-    let (kind, writable) = row.ok_or_else(|| format!("Track {track_id} not found"))?;
-    let managed = kind == "managed";
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Track {track_id} not found"))?;
     Ok(TrackPermissions {
-        writable: managed || (kind == "watched" && writable),
-        managed,
+        writable: source_id != OTHER_SOURCE_ID,
+        managed: source_id == DEFAULT_SOURCE_ID,
     })
 }
 
 #[cfg(test)]
 pub(crate) mod test_support {
     use crate::db_migrations;
-    use crate::sources::{EXTERNAL_SOURCE_ID, MANAGED_SOURCE_ID};
+    use crate::sources::{DEFAULT_SOURCE_ID, OTHER_SOURCE_ID};
     use rusqlite::{params, Connection};
     use std::path::{Path, PathBuf};
 
@@ -107,49 +106,52 @@ pub(crate) mod test_support {
         conn
     }
 
-    /// Track ids for the four kinds of file the guards distinguish.
+    /// Track ids for the three kinds of file the guards distinguish.
     pub struct SourceTracks {
+        /// In the default source.
         pub managed: i64,
-        pub watched_read_only: i64,
-        pub watched_writable: i64,
+        /// In a source the user added.
+        pub user: i64,
+        /// In Other.
         pub external: i64,
     }
 
-    pub fn add_watched(conn: &Connection, root: &str, writable: bool) -> i64 {
+    /// Add a user source rooted at `root`.
+    pub fn add_user_source(conn: &Connection, root: &Path) -> i64 {
         conn.execute(
-            "INSERT INTO sources (kind, root_path, name, writable, created_at)
-             VALUES ('watched', ?1, ?1, ?2, 'now')",
-            params![root, writable],
+            "INSERT INTO sources (root_path, name, created_at) VALUES (?1, ?1, 'now')",
+            params![root.to_string_lossy()],
         )
         .unwrap();
         conn.last_insert_rowid()
     }
 
-    pub fn insert_track(conn: &Connection, path: &Path, source_id: i64) -> i64 {
+    /// Insert a track stored as `rel_path` (absolute for Other, and for the
+    /// default source of an in-memory database).
+    pub fn insert_track(conn: &Connection, rel_path: &str, source_id: i64) -> i64 {
         conn.execute(
-            "INSERT INTO tracks (title, file_path, date_added, source_id)
+            "INSERT INTO tracks (title, rel_path, date_added, source_id)
              VALUES ('Song', ?1, '2024-01-01T00:00:00Z', ?2)",
-            params![path.to_string_lossy(), source_id],
+            params![rel_path, source_id],
         )
         .unwrap();
         conn.last_insert_rowid()
     }
 
-    /// One track per source kind, with files at the given paths.
+    /// One track per kind of source, with files at the given paths. The user
+    /// source is rooted at the user file's folder.
     pub fn source_tracks(
         conn: &Connection,
         managed: &Path,
-        watched_read_only: &Path,
-        watched_writable: &Path,
+        user: &Path,
         external: &Path,
     ) -> SourceTracks {
-        let ro = add_watched(conn, "/watched/read-only", false);
-        let rw = add_watched(conn, "/watched/writable", true);
+        let user_source = add_user_source(conn, user.parent().unwrap());
+        let user_name = user.file_name().unwrap().to_string_lossy();
         SourceTracks {
-            managed: insert_track(conn, managed, MANAGED_SOURCE_ID),
-            watched_read_only: insert_track(conn, watched_read_only, ro),
-            watched_writable: insert_track(conn, watched_writable, rw),
-            external: insert_track(conn, external, EXTERNAL_SOURCE_ID),
+            managed: insert_track(conn, &managed.to_string_lossy(), DEFAULT_SOURCE_ID),
+            user: insert_track(conn, &user_name, user_source),
+            external: insert_track(conn, &external.to_string_lossy(), OTHER_SOURCE_ID),
         }
     }
 
@@ -157,8 +159,7 @@ pub(crate) mod test_support {
         source_tracks(
             conn,
             Path::new("/m.mp3"),
-            Path::new("/ro.mp3"),
-            Path::new("/rw.mp3"),
+            Path::new("/user/u.mp3"),
             Path::new("/x.mp3"),
         )
     }
@@ -168,7 +169,6 @@ pub(crate) mod test_support {
 mod tests {
     use super::test_support::*;
     use super::*;
-    use crate::sources::EXTERNAL_SOURCE_ID;
 
     #[test]
     fn permissions_follow_the_source() {
@@ -183,14 +183,7 @@ mod tests {
             }
         );
         assert_eq!(
-            perms(t.watched_read_only),
-            TrackPermissions {
-                writable: false,
-                managed: false
-            }
-        );
-        assert_eq!(
-            perms(t.watched_writable),
+            perms(t.user),
             TrackPermissions {
                 writable: true,
                 managed: false
@@ -203,18 +196,6 @@ mod tests {
                 managed: false
             }
         );
-    }
-
-    #[test]
-    fn external_is_never_writable() {
-        let conn = conn();
-        let t = default_source_tracks(&conn);
-        conn.execute(
-            "UPDATE sources SET writable = 1 WHERE id = ?1",
-            params![EXTERNAL_SOURCE_ID],
-        )
-        .unwrap();
-        assert!(!track_permissions(&conn, t.external).unwrap().writable);
     }
 
     #[test]
@@ -231,12 +212,12 @@ mod tests {
         };
         let err = read_only.require_writable("Editing tags").unwrap_err();
         assert!(err.starts_with(SOURCE_READ_ONLY), "{err}");
-        let writable_watched = TrackPermissions {
+        let writable_user = TrackPermissions {
             writable: true,
             managed: false,
         };
-        assert!(writable_watched.require_writable("Editing tags").is_ok());
-        let err = writable_watched.require_managed("Replacing").unwrap_err();
+        assert!(writable_user.require_writable("Editing tags").is_ok());
+        let err = writable_user.require_managed("Replacing").unwrap_err();
         assert!(err.starts_with(SOURCE_READ_ONLY), "{err}");
     }
 }

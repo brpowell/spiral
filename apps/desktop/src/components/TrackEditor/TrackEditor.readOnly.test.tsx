@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Every backend call resolves to nothing; this test only looks at gating.
@@ -8,7 +8,6 @@ vi.mock("@tauri-apps/api/core", () => ({
   Channel: class {},
 }));
 
-import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { useSourcesStore } from "../../store/useSourcesStore";
 import type { Source } from "../../types/source";
@@ -17,10 +16,11 @@ import { TrackEditor } from "./TrackEditor";
 
 const watched: Source = {
   id: 3,
-  kind: "watched",
   rootPath: "/Music",
   name: "Music",
-  writable: false,
+  autoOrganize: false,
+  pathFormat: null,
+  importTarget: false,
   createdAt: "2026-01-01T00:00:00Z",
 };
 
@@ -73,25 +73,16 @@ describe("TrackEditor read-only gating", () => {
     expect(screen.queryByRole("note")).toBeNull();
   });
 
-  it("opens read-only for a read-only watched folder, pointing at its toggle", async () => {
-    const openPreferences = vi.fn();
-    useLibrarySettingsStore.setState({ openPreferences });
+  it("edits tracks in folders the user added", async () => {
     openEditor(3);
-
-    const title = await screen.findByDisplayValue("Song");
-    expect(title).toBeDisabled();
-    expect(screen.getByRole("note").textContent).toMatch(
-      /“Music”, which Spiral can only read/,
-    );
-    expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
-
-    fireEvent.click(screen.getByRole("button", { name: "Folder settings…" }));
-    expect(openPreferences).toHaveBeenCalledWith("sources");
+    expect(await screen.findByDisplayValue("Song")).not.toBeDisabled();
+    expect(screen.queryByRole("note")).toBeNull();
   });
 
   it("explains external files without a folder setting", async () => {
     openEditor(2);
     expect(await screen.findByDisplayValue("Song")).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Save/ })).toBeDisabled();
     expect(screen.getByRole("note").textContent).toMatch(
       /outside the Spiral library/,
     );

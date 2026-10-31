@@ -1,14 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  addWatchedSource,
+  addSource,
   getLibrary,
   getSourceStatuses,
   listSources,
-  relocateWatchedSource,
-  removeWatchedSource,
+  relocateSource,
+  removeSource,
   rescanSource,
-  setSourceWritable,
+  setImportSource,
+  setSourceOrganize,
+  setSourcePathFormat,
 } from "./tauri";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -25,24 +27,33 @@ describe("source commands", () => {
 
   it("pass camelCase arguments the backend commands expect", async () => {
     await listSources();
-    await addWatchedSource("/Music/Collection");
-    await addWatchedSource("/Music/Jazz", "Jazz");
-    await removeWatchedSource(3);
+    await addSource("/Music/Collection");
+    await addSource("/Music/Jazz", "Jazz");
+    await removeSource(3);
     await rescanSource(1);
-    await relocateWatchedSource(3, "/Volumes/Big/Collection");
-    await setSourceWritable(3, true);
+    await relocateSource(3, "/Volumes/Big/Collection");
+    await setSourceOrganize(3, true);
+    await setSourcePathFormat(3, "{artist}/{title}");
+    await setSourcePathFormat(3, null);
+    await setImportSource(3);
 
     expect(vi.mocked(invoke).mock.calls).toEqual([
       ["list_sources"],
-      ["add_watched_source", { rootPath: "/Music/Collection", name: null }],
-      ["add_watched_source", { rootPath: "/Music/Jazz", name: "Jazz" }],
-      ["remove_watched_source", { sourceId: 3 }],
+      ["add_source", { rootPath: "/Music/Collection", name: null }],
+      ["add_source", { rootPath: "/Music/Jazz", name: "Jazz" }],
+      ["remove_source", { sourceId: 3 }],
       ["rescan_source", { sourceId: 1 }],
       [
-        "relocate_watched_source",
+        "relocate_source",
         { sourceId: 3, newRootPath: "/Volumes/Big/Collection" },
       ],
-      ["set_source_writable", { sourceId: 3, writable: true }],
+      ["set_source_organize", { sourceId: 3, autoOrganize: true }],
+      [
+        "set_source_path_format",
+        { sourceId: 3, pathFormat: "{artist}/{title}" },
+      ],
+      ["set_source_path_format", { sourceId: 3, pathFormat: null }],
+      ["set_import_source", { sourceId: 3 }],
     ]);
   });
 

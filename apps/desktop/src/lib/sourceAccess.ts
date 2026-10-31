@@ -2,9 +2,18 @@ import type { Source } from "../types/source";
 import type { Track } from "../types/track";
 import { t } from "./i18n";
 
-/** Seeded source rows; watched folders get ids from 3 up. */
-export const MANAGED_SOURCE_ID = 1;
-export const EXTERNAL_SOURCE_ID = 2;
+/** Built-in source rows; folders the user adds get ids from 3 up. */
+export const DEFAULT_SOURCE_ID = 1;
+export const OTHER_SOURCE_ID = 2;
+
+/** The default source (the Spiral folder's tracks), a folder the user added, or Other. */
+export type SourceRole = "default" | "user" | "other";
+
+export function sourceRole(source: Pick<Source, "id">): SourceRole {
+  if (source.id === DEFAULT_SOURCE_ID) return "default";
+  if (source.id === OTHER_SOURCE_ID) return "other";
+  return "user";
+}
 
 /**
  * What Spiral may do to a track's file, mirroring `track_permissions.rs`:
@@ -20,15 +29,15 @@ export interface TrackAccess {
 
 /**
  * Tracks still being imported have no source yet and land in the library, so
- * they count as managed. Before the sources list loads, only the managed id is
- * trusted; anything else is treated as read-only, like the backend would.
+ * they count as managed. Every source but Other is writable; only the default
+ * source's files are Spiral's to move, replace or delete.
  */
 export function trackAccess(
   track: Pick<Track, "sourceId">,
   sourcesById: ReadonlyMap<number, Source>,
 ): TrackAccess {
   const id = track.sourceId;
-  if (id == null || id === MANAGED_SOURCE_ID) {
+  if (id == null || id === DEFAULT_SOURCE_ID) {
     return {
       writable: true,
       managed: true,
@@ -37,7 +46,7 @@ export function trackAccess(
   }
   const source = sourcesById.get(id) ?? null;
   return {
-    writable: source?.kind === "watched" && source.writable,
+    writable: id !== OTHER_SOURCE_ID,
     managed: false,
     source,
   };
@@ -59,34 +68,21 @@ export function isTrackManaged(
 
 /**
  * One line on why a selection can't be edited, or null when every track can.
- * Points at the writable toggle when the blocking tracks are in a watched
- * folder, since that is the only one the user can change.
+ * Only Other's loose files are read-only, so `watched` is always false; it
+ * stays until the sources UI is reworked.
  */
 export function readOnlyReason(
   tracks: Pick<Track, "sourceId">[],
   sourcesById: ReadonlyMap<number, Source>,
 ): { message: string; watched: boolean } | null {
-  const blocked = tracks
-    .map((track) => trackAccess(track, sourcesById))
-    .filter((access) => !access.writable);
+  const blocked = tracks.filter(
+    (track) => !trackAccess(track, sourcesById).writable,
+  );
   if (blocked.length === 0) return null;
-  const watched = blocked.find((access) => access.source?.kind === "watched");
-  const some = blocked.length < tracks.length;
-  if (watched?.source) {
-    return {
-      watched: true,
-      message: t(
-        some
-          ? "library:sources.readOnly.someWatched"
-          : "library:sources.readOnly.watched",
-        { name: watched.source.name },
-      ),
-    };
-  }
   return {
     watched: false,
     message: t(
-      some
+      blocked.length < tracks.length
         ? "library:sources.readOnly.someExternal"
         : "library:sources.readOnly.external",
     ),
@@ -143,14 +139,15 @@ export function countTracksBySource(
 
 /** Display name for a source: the localized managed/external names, or the folder's. */
 export function sourceDisplayName(source: Source): string {
-  if (source.kind === "managed") return t("library:sources.managedName");
-  if (source.kind === "external") return t("library:sources.externalName");
+  const role = sourceRole(source);
+  if (role === "default") return t("library:sources.managedName");
+  if (role === "other") return t("library:sources.externalName");
   return source.name;
 }
 
 /** Sort rank for the source column: the library, then watched folders, then other files. */
 export function sourceSortRank(sourceId: number | undefined): number {
-  if (sourceId == null || sourceId === MANAGED_SOURCE_ID) return 0;
-  if (sourceId === EXTERNAL_SOURCE_ID) return Number.MAX_SAFE_INTEGER;
+  if (sourceId == null || sourceId === DEFAULT_SOURCE_ID) return 0;
+  if (sourceId === OTHER_SOURCE_ID) return Number.MAX_SAFE_INTEGER;
   return sourceId;
 }

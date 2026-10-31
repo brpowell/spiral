@@ -167,20 +167,19 @@ mod tests {
     #[test]
     fn fetched_lyrics_reach_the_file_only_when_writable() {
         let tmp = TempDir::new("lyrics");
-        let files: Vec<_> = ["m", "ro", "rw", "x"]
+        let files: Vec<_> = ["m", "u", "x"]
             .iter()
             .map(|name| ogg::copy_minimal(&tmp.0, &format!("{name}.ogg")))
             .collect();
         let conn = conn();
-        let t = source_tracks(&conn, &files[0], &files[1], &files[2], &files[3]);
+        let t = source_tracks(&conn, &files[0], &files[1], &files[2]);
         let state = DbState(Mutex::new(conn));
         let lyrics = synced();
 
         for (id, file, writable) in [
             (t.managed, &files[0], true),
-            (t.watched_read_only, &files[1], false),
-            (t.watched_writable, &files[2], true),
-            (t.external, &files[3], false),
+            (t.user, &files[1], true),
+            (t.external, &files[2], false),
         ] {
             let before = std::fs::read(file).unwrap();
             save_lyrics(&state, id, Some(&lyrics), true).unwrap();

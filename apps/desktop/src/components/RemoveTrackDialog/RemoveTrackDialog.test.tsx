@@ -7,10 +7,11 @@ import { RemoveTrackDialog } from "./RemoveTrackDialog";
 
 const watched: Source = {
   id: 3,
-  kind: "watched",
   rootPath: "/Music",
   name: "Music",
-  writable: true,
+  autoOrganize: false,
+  pathFormat: null,
+  importTarget: false,
   createdAt: "2026-01-01T00:00:00Z",
 };
 

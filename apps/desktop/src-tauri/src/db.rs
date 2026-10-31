@@ -5,14 +5,14 @@ use crate::models::{
     LyricsSource, Playlist, PlaylistImageMode, RecordListenEventResult, Track, TrackInput,
     TrackLyricsRecord, TrackMetadataUpdate,
 };
-use crate::sources::{self, LibraryRoots};
+use crate::sources::{self, LibraryRoots, SourceRoots};
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::collections::HashMap;
 use std::path::Path;
 
 const TRACK_SELECT: &str = "SELECT tracks.id, tracks.title, tracks.artist, tracks.album, tracks.album_artist, tracks.track_number, tracks.total_tracks, tracks.disc_number, tracks.total_discs,
-                tracks.year, tracks.genre, tracks.duration_seconds, tracks.sample_rate, tracks.bitrate, tracks.codec, tracks.file_path, tracks.art_path,
+                tracks.year, tracks.genre, tracks.duration_seconds, tracks.sample_rate, tracks.bitrate, tracks.codec, tracks.rel_path, tracks.art_path,
                 tracks.date_added, tracks.play_count, tracks.last_played_at, tracks.rating,
                 tracks.recording_mbid, tracks.release_mbid, tracks.artist_mbids, tracks.album_artist_mbids, track_lyrics.format,
                 tracks.source_id, tracks.missing_since";
@@ -20,7 +20,10 @@ const TRACK_SELECT: &str = "SELECT tracks.id, tracks.title, tracks.artist, track
 const TRACK_FROM_JOIN: &str =
     "FROM tracks LEFT JOIN track_lyrics ON track_lyrics.track_id = tracks.id";
 
-fn map_track_row(row: &Row<'_>) -> rusqlite::Result<Track> {
+/// Map a [`TRACK_SELECT`] row, resolving its stored path to an absolute one.
+fn map_track_row(row: &Row<'_>, roots: &SourceRoots) -> rusqlite::Result<Track> {
+    let source_id: i64 = row.get(26)?;
+    let rel_path: String = row.get(15)?;
     Ok(Track {
         id: row.get(0)?,
         title: row.get(1)?,
@@ -37,7 +40,7 @@ fn map_track_row(row: &Row<'_>) -> rusqlite::Result<Track> {
         sample_rate: row.get(12)?,
         bitrate: row.get(13)?,
         codec: row.get(14)?,
-        file_path: row.get(15)?,
+        file_path: roots.resolve(source_id, &rel_path),
         art_path: row.get(16)?,
         date_added: row.get(17)?,
         play_count: row.get(18)?,
@@ -52,7 +55,7 @@ fn map_track_row(row: &Row<'_>) -> rusqlite::Result<Track> {
         lyrics_format: row
             .get::<_, Option<String>>(25)?
             .map(|value| parse_lyrics_format(&value)),
-        source_id: row.get(26)?,
+        source_id,
         missing_since: row.get(27)?,
     })
 }
@@ -131,16 +134,52 @@ pub fn open(db_path: &Path) -> Result<Connection, rusqlite::Error> {
     let conn = Connection::open(db_path)?;
     conn.execute_batch("PRAGMA foreign_keys = ON;")?;
     let file_path = (db_path.as_os_str() != ":memory:").then_some(db_path);
+    // The database sits in the Spiral folder, which locates the default
+    // source's root. Record it before migrating: migration 5 needs it.
+    let library_root = file_path.and_then(Path::parent);
+    if let Some(library_root) = library_root {
+        sources::attach_spiral_folder(&conn, library_root)?;
+    }
     db_migrations::run(&conn, file_path)?;
-    // The database sits in the library root, which locates the tracks folder.
-    if let Some(library_root) = file_path.and_then(Path::parent) {
-        sources::assign_external_tracks(&conn, &LibraryRoots::for_library_root(library_root))?;
+    if let Some(library_root) = library_root {
+        sources::assign_other_tracks(&conn, &LibraryRoots::for_library_root(library_root))?;
     }
     Ok(conn)
 }
 
-/// Insert a track, or refresh the row already at `input.file_path`. `source_id`
-/// applies to new rows; an existing row keeps its source.
+fn path_error(message: String) -> rusqlite::Error {
+    rusqlite::Error::ToSqlConversionFailure(message.into())
+}
+
+/// The id of the track whose file is at `file_path`, in whichever source it
+/// is stored.
+pub fn track_id_for_path(
+    conn: &Connection,
+    file_path: &str,
+) -> Result<Option<i64>, rusqlite::Error> {
+    track_id_for_path_with(conn, &SourceRoots::load(conn)?, file_path)
+}
+
+fn track_id_for_path_with(
+    conn: &Connection,
+    roots: &SourceRoots,
+    file_path: &str,
+) -> Result<Option<i64>, rusqlite::Error> {
+    let mut stmt = conn.prepare("SELECT id FROM tracks WHERE source_id = ?1 AND rel_path = ?2")?;
+    for (source_id, rel_path) in roots.candidates(Path::new(file_path)) {
+        if let Some(id) = stmt
+            .query_row(params![source_id, rel_path], |row| row.get(0))
+            .optional()?
+        {
+            return Ok(Some(id));
+        }
+    }
+    Ok(None)
+}
+
+/// Insert a track, or refresh the row already at `input.file_path` (an
+/// absolute path). `source_id` applies to new rows, whose file must be inside
+/// that source's folder; an existing row keeps its source.
 pub fn save_track(
     conn: &Connection,
     input: &TrackInput,
@@ -154,14 +193,28 @@ pub fn save_track(
         &input.artist_mbids,
         &input.album_artist_mbids,
     );
+    let roots = SourceRoots::load(conn)?;
+    let (source_id, rel_path) = match track_id_for_path_with(conn, &roots, &input.file_path)? {
+        Some(id) => conn.query_row(
+            "SELECT source_id, rel_path FROM tracks WHERE id = ?1",
+            params![id],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+        )?,
+        None => (
+            source_id,
+            roots
+                .relative_path(source_id, Path::new(&input.file_path))
+                .map_err(path_error)?,
+        ),
+    };
     conn.execute(
         "INSERT INTO tracks (
             title, artist, album, album_artist, track_number, total_tracks, disc_number, total_discs,
             year, genre, duration_seconds, sample_rate, bitrate, codec,
-            file_path, art_path, date_added, rating,
+            rel_path, art_path, date_added, rating,
             recording_mbid, release_mbid, artist_mbids, album_artist_mbids, source_id
         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)
-        ON CONFLICT(file_path) DO UPDATE SET
+        ON CONFLICT(source_id, rel_path) DO UPDATE SET
             title = excluded.title,
             artist = excluded.artist,
             album = excluded.album,
@@ -201,7 +254,7 @@ pub fn save_track(
             input.sample_rate,
             input.bitrate,
             input.codec,
-            input.file_path,
+            rel_path,
             input.art_path,
             date_added,
             rating,
@@ -214,8 +267,8 @@ pub fn save_track(
     )?;
 
     let id = conn.query_row(
-        "SELECT id FROM tracks WHERE file_path = ?1",
-        params![input.file_path],
+        "SELECT id FROM tracks WHERE source_id = ?1 AND rel_path = ?2",
+        params![source_id, rel_path],
         |row| row.get(0),
     )?;
     Ok(id)
@@ -389,10 +442,11 @@ pub fn get_all_tracks(conn: &Connection) -> Result<Vec<Track>, rusqlite::Error> 
          {TRACK_FROM_JOIN}
          ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, track_number"
     );
+    let roots = SourceRoots::load(conn)?;
     let mut stmt = conn.prepare(&sql)?;
 
     let tracks = stmt
-        .query_map([], map_track_row)?
+        .query_map([], |row| map_track_row(row, &roots))?
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(tracks)
@@ -411,7 +465,26 @@ pub fn update_track(
         &metadata.artist_mbids,
         &metadata.album_artist_mbids,
     );
-    if let Some(path) = file_path {
+    // A new file may sit in another source's folder (a replacement picked
+    // from elsewhere); the track follows it.
+    let location = match file_path {
+        Some(path) => {
+            let source_id: i64 = conn.query_row(
+                "SELECT source_id FROM tracks WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )?;
+            Some(SourceRoots::load(conn)?.locate(Path::new(path), source_id))
+        }
+        None => None,
+    };
+    if let Some((source_id, rel_path)) = &location {
+        conn.execute(
+            "UPDATE tracks SET source_id = ?1, rel_path = ?2 WHERE id = ?3",
+            params![source_id, rel_path, id],
+        )?;
+    }
+    if let Some(path) = location.as_ref().map(|(_, rel)| rel.as_str()) {
         if let Some(audio) = audio_properties {
             conn.execute(
                 "UPDATE tracks SET
@@ -430,7 +503,7 @@ pub fn update_track(
                     release_mbid = ?13,
                     artist_mbids = ?14,
                     album_artist_mbids = ?15,
-                    file_path = ?16,
+                    rel_path = ?16,
                     sample_rate = ?17,
                     bitrate = ?18,
                     codec = ?19
@@ -476,7 +549,7 @@ pub fn update_track(
                     release_mbid = ?13,
                     artist_mbids = ?14,
                     album_artist_mbids = ?15,
-                    file_path = ?16
+                    rel_path = ?16
                  WHERE id = ?17",
                 params![
                     metadata.title,
@@ -541,11 +614,22 @@ pub fn update_track(
     Ok(())
 }
 
-/// Move a track to another source, e.g. after its file moved into the tracks folder.
+/// Move a track to another source, e.g. after its file moved into the tracks
+/// folder. Its file must be inside the new source's folder.
 pub fn set_track_source(conn: &Connection, id: i64, source_id: i64) -> Result<(), rusqlite::Error> {
+    let roots = SourceRoots::load(conn)?;
+    let (old_source, old_rel): (i64, String) = conn.query_row(
+        "SELECT source_id, rel_path FROM tracks WHERE id = ?1",
+        params![id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )?;
+    let file_path = roots.resolve(old_source, &old_rel);
+    let rel_path = roots
+        .relative_path(source_id, Path::new(&file_path))
+        .map_err(path_error)?;
     conn.execute(
-        "UPDATE tracks SET source_id = ?1 WHERE id = ?2",
-        params![source_id, id],
+        "UPDATE tracks SET source_id = ?1, rel_path = ?2 WHERE id = ?3",
+        params![source_id, rel_path, id],
     )?;
     Ok(())
 }
@@ -555,19 +639,21 @@ pub fn get_tracks_for_source(
     source_id: i64,
 ) -> Result<Vec<Track>, rusqlite::Error> {
     let sql = format!("{TRACK_SELECT} {TRACK_FROM_JOIN} WHERE tracks.source_id = ?1");
+    let roots = SourceRoots::load(conn)?;
     let mut stmt = conn.prepare(&sql)?;
     let tracks = stmt
-        .query_map(params![source_id], map_track_row)?
+        .query_map(params![source_id], |row| map_track_row(row, &roots))?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(tracks)
 }
 
 pub fn get_track_by_id(conn: &Connection, id: i64) -> Result<Option<Track>, rusqlite::Error> {
     let sql = format!("{TRACK_SELECT} {TRACK_FROM_JOIN} WHERE tracks.id = ?1");
+    let roots = SourceRoots::load(conn)?;
     let mut stmt = conn.prepare(&sql)?;
     let mut rows = stmt.query(params![id])?;
     if let Some(row) = rows.next()? {
-        Ok(Some(map_track_row(&row)?))
+        Ok(Some(map_track_row(row, &roots)?))
     } else {
         Ok(None)
     }
@@ -853,17 +939,17 @@ pub fn reorder_playlists(conn: &Connection, playlist_ids: &[i64]) -> Result<(), 
 
 /// Whether a track row points at `file_path`.
 pub fn has_track_file_path(conn: &Connection, file_path: &str) -> Result<bool, rusqlite::Error> {
-    conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM tracks WHERE file_path = ?1)",
-        params![file_path],
-        |row| row.get(0),
-    )
+    Ok(track_id_for_path(conn, file_path)?.is_some())
 }
 
+/// Every track's absolute file path.
 pub fn list_file_paths(conn: &Connection) -> Result<Vec<String>, rusqlite::Error> {
-    let mut stmt = conn.prepare("SELECT file_path FROM tracks")?;
+    let roots = SourceRoots::load(conn)?;
+    let mut stmt = conn.prepare("SELECT source_id, rel_path FROM tracks")?;
     let paths = stmt
-        .query_map([], |row| row.get(0))?
+        .query_map([], |row| {
+            Ok(roots.resolve(row.get(0)?, &row.get::<_, String>(1)?))
+        })?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(paths)
 }
@@ -1067,7 +1153,7 @@ pub fn get_lyrics_for_track_ids(
 mod tests {
     use super::*;
     use crate::models::{LyricsFormat, LyricsLine, LyricsSource, TrackInput, TrackMetadataUpdate};
-    use crate::sources::{EXTERNAL_SOURCE_ID, MANAGED_SOURCE_ID};
+    use crate::sources::{DEFAULT_SOURCE_ID, OTHER_SOURCE_ID};
 
     fn test_conn() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
@@ -1135,7 +1221,7 @@ mod tests {
         let conn = test_conn();
         let path = "/music/song.mp3";
 
-        save_track(&conn, &sample_input(path), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input(path), DEFAULT_SOURCE_ID).unwrap();
         let first = get_track_by_id(&conn, 1).unwrap().unwrap();
         let first_added = first.date_added.clone();
 
@@ -1143,7 +1229,7 @@ mod tests {
 
         let mut updated = sample_input(path);
         updated.title = "Renamed".into();
-        save_track(&conn, &updated, MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &updated, DEFAULT_SOURCE_ID).unwrap();
 
         let second = get_track_by_id(&conn, 1).unwrap().unwrap();
         assert_eq!(second.title, "Renamed");
@@ -1153,9 +1239,9 @@ mod tests {
     #[test]
     fn reorder_playlist_tracks_updates_order() {
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MANAGED_SOURCE_ID).unwrap();
-        save_track(&conn, &sample_input("/music/b.mp3"), MANAGED_SOURCE_ID).unwrap();
-        save_track(&conn, &sample_input("/music/c.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/a.mp3"), DEFAULT_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/b.mp3"), DEFAULT_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/c.mp3"), DEFAULT_SOURCE_ID).unwrap();
 
         let playlist_id = create_playlist(
             &conn,
@@ -1241,7 +1327,7 @@ mod tests {
     #[test]
     fn record_listen_event_inserts_and_updates_counters() {
         let mut conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/a.mp3"), DEFAULT_SOURCE_ID).unwrap();
 
         let mut event = sample_listen(1, "natural_end");
         event.ended_at = "2026-07-13T12:03:00Z".into();
@@ -1312,7 +1398,7 @@ mod tests {
     #[test]
     fn record_listen_event_short_skip_does_not_count() {
         let mut conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/a.mp3"), DEFAULT_SOURCE_ID).unwrap();
 
         let mut event = sample_listen(1, "skipped");
         event.ended_at = "2026-07-13T12:00:10Z".into();
@@ -1371,7 +1457,7 @@ mod tests {
     #[test]
     fn skip_listen_event_recording_leaves_history_untouched() {
         let mut conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/a.mp3"), DEFAULT_SOURCE_ID).unwrap();
         record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
 
         let result = skip_listen_event_recording(&conn, 1).unwrap();
@@ -1385,8 +1471,8 @@ mod tests {
     #[test]
     fn clear_listen_events_all_resets_counters() {
         let mut conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MANAGED_SOURCE_ID).unwrap();
-        save_track(&conn, &sample_input("/music/b.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/a.mp3"), DEFAULT_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/b.mp3"), DEFAULT_SOURCE_ID).unwrap();
         record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
         record_listen_event(&mut conn, &sample_listen(2, "natural_end")).unwrap();
 
@@ -1408,7 +1494,7 @@ mod tests {
     #[test]
     fn clear_listen_events_within_hours_keeps_older_rows() {
         let mut conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/a.mp3"), DEFAULT_SOURCE_ID).unwrap();
 
         let mut old = sample_listen(1, "natural_end");
         old.ended_at = "2020-01-01T00:00:00.000Z".into();
@@ -1438,7 +1524,7 @@ mod tests {
     #[test]
     fn delete_track_cascades_listen_events() {
         let mut conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/a.mp3"), DEFAULT_SOURCE_ID).unwrap();
         record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
 
         assert_eq!(listen_event_count(&conn, 1), 1);
@@ -1451,7 +1537,7 @@ mod tests {
         let conn = test_conn();
         let path = "/music/rated.mp3";
 
-        save_track(&conn, &sample_input(path), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input(path), DEFAULT_SOURCE_ID).unwrap();
         assert_eq!(set_track_rating(&conn, 1, 128).unwrap(), 128);
 
         let rated = get_track_by_id(&conn, 1).unwrap().unwrap();
@@ -1459,7 +1545,7 @@ mod tests {
 
         let mut updated = sample_input(path);
         updated.title = "Renamed".into();
-        save_track(&conn, &updated, MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &updated, DEFAULT_SOURCE_ID).unwrap();
 
         let after_upsert = get_track_by_id(&conn, 1).unwrap().unwrap();
         assert_eq!(after_upsert.title, "Renamed");
@@ -1473,7 +1559,7 @@ mod tests {
 
         let mut input = sample_input(path);
         input.rating = Some(204);
-        save_track(&conn, &input, MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &input, DEFAULT_SOURCE_ID).unwrap();
 
         let track = get_track_by_id(&conn, 1).unwrap().unwrap();
         assert_eq!(track.rating, 204);
@@ -1484,12 +1570,12 @@ mod tests {
         let conn = test_conn();
         let path = "/music/late-rated.mp3";
 
-        save_track(&conn, &sample_input(path), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input(path), DEFAULT_SOURCE_ID).unwrap();
         assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().rating, 0);
 
         let mut updated = sample_input(path);
         updated.rating = Some(153);
-        save_track(&conn, &updated, MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &updated, DEFAULT_SOURCE_ID).unwrap();
 
         assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().rating, 153);
     }
@@ -1501,12 +1587,12 @@ mod tests {
 
         let mut first = sample_input(path);
         first.rating = Some(128);
-        save_track(&conn, &first, MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &first, DEFAULT_SOURCE_ID).unwrap();
         set_track_rating(&conn, 1, 179).unwrap();
 
         let mut updated = sample_input(path);
         updated.rating = Some(255);
-        save_track(&conn, &updated, MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &updated, DEFAULT_SOURCE_ID).unwrap();
 
         assert_eq!(get_track_by_id(&conn, 1).unwrap().unwrap().rating, 179);
     }
@@ -1516,7 +1602,7 @@ mod tests {
         let mut conn = test_conn();
         let path = "/music/refresh.mp3";
 
-        save_track(&conn, &sample_input(path), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input(path), DEFAULT_SOURCE_ID).unwrap();
         record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
         record_listen_event(&mut conn, &sample_listen(1, "natural_end")).unwrap();
         set_track_rating(&conn, 1, 128).unwrap();
@@ -1537,7 +1623,7 @@ mod tests {
         refreshed.bitrate = Some(320);
         refreshed.codec = Some("mp3".into());
         refreshed.rating = Some(255);
-        save_track(&conn, &refreshed, MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &refreshed, DEFAULT_SOURCE_ID).unwrap();
 
         let after = get_track_by_id(&conn, 1).unwrap().unwrap();
         assert_eq!(after.title, "Updated Title");
@@ -1633,7 +1719,7 @@ mod tests {
         let id = save_track(
             &conn,
             &sample_mbid_input("/music/mbid.mp3"),
-            MANAGED_SOURCE_ID,
+            DEFAULT_SOURCE_ID,
         )
         .unwrap();
         let track = get_track_by_id(&conn, id).unwrap().unwrap();
@@ -1665,7 +1751,7 @@ mod tests {
         let id = save_track(
             &conn,
             &sample_input("/music/no-mbid.mp3"),
-            MANAGED_SOURCE_ID,
+            DEFAULT_SOURCE_ID,
         )
         .unwrap();
         let artist_sql: Option<String> = conn
@@ -1690,7 +1776,7 @@ mod tests {
     fn save_track_on_conflict_updates_mbid_columns() {
         let conn = test_conn();
         let path = "/music/conflict-mbid.mp3";
-        save_track(&conn, &sample_mbid_input(path), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_mbid_input(path), DEFAULT_SOURCE_ID).unwrap();
 
         let mut updated = sample_input(path);
         updated.title = "Retagged".into();
@@ -1698,7 +1784,7 @@ mod tests {
         updated.release_mbid = None;
         updated.artist_mbids = vec![];
         updated.album_artist_mbids = vec!["CCCCCCCC-DDDD-EEEE-FFFF-000000000000".into()];
-        save_track(&conn, &updated, MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &updated, DEFAULT_SOURCE_ID).unwrap();
 
         let track = get_track_by_id(&conn, 1).unwrap().unwrap();
         assert_eq!(track.title, "Retagged");
@@ -1727,7 +1813,7 @@ mod tests {
         let id = save_track(
             &conn,
             &sample_input("/music/update-mbid.mp3"),
-            MANAGED_SOURCE_ID,
+            DEFAULT_SOURCE_ID,
         )
         .unwrap();
         let existing = get_track_by_id(&conn, id).unwrap().unwrap();
@@ -1776,7 +1862,7 @@ mod tests {
         let id = save_track(
             &conn,
             &sample_input("/music/album/track.flac"),
-            MANAGED_SOURCE_ID,
+            DEFAULT_SOURCE_ID,
         )
         .unwrap();
         let existing = get_track_by_id(&conn, id).unwrap().unwrap();
@@ -1820,13 +1906,13 @@ mod tests {
         save_track(
             &conn,
             &sample_input("/music/album/track.flac"),
-            MANAGED_SOURCE_ID,
+            DEFAULT_SOURCE_ID,
         )
         .unwrap();
         save_track(
             &conn,
             &sample_input("/music/album/track.m4a"),
-            MANAGED_SOURCE_ID,
+            DEFAULT_SOURCE_ID,
         )
         .unwrap();
 
@@ -1838,21 +1924,21 @@ mod tests {
     #[test]
     fn save_track_sets_source_on_insert_and_keeps_it_on_refresh() {
         let conn = test_conn();
-        let id = save_track(&conn, &sample_input("/elsewhere/a.mp3"), EXTERNAL_SOURCE_ID).unwrap();
+        let id = save_track(&conn, &sample_input("/elsewhere/a.mp3"), OTHER_SOURCE_ID).unwrap();
         let track = get_track_by_id(&conn, id).unwrap().unwrap();
-        assert_eq!(track.source_id, EXTERNAL_SOURCE_ID);
+        assert_eq!(track.source_id, OTHER_SOURCE_ID);
         assert_eq!(track.missing_since, None);
 
-        save_track(&conn, &sample_input("/elsewhere/a.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/elsewhere/a.mp3"), DEFAULT_SOURCE_ID).unwrap();
         assert_eq!(
             get_track_by_id(&conn, id).unwrap().unwrap().source_id,
-            EXTERNAL_SOURCE_ID
+            OTHER_SOURCE_ID
         );
 
-        set_track_source(&conn, id, MANAGED_SOURCE_ID).unwrap();
+        set_track_source(&conn, id, DEFAULT_SOURCE_ID).unwrap();
         assert_eq!(
             get_all_tracks(&conn).unwrap()[0].source_id,
-            MANAGED_SOURCE_ID
+            DEFAULT_SOURCE_ID
         );
     }
 
@@ -1869,8 +1955,8 @@ mod tests {
             get_track_by_id(&conn, id).unwrap().unwrap().source_id
         };
         // A copy import lands in the tracks folder; a reference stays put.
-        assert_eq!(save(roots.media_folder.join("A/a.mp3")), MANAGED_SOURCE_ID);
-        assert_eq!(save(dir.join("Downloads/b.mp3")), EXTERNAL_SOURCE_ID);
+        assert_eq!(save(roots.media_folder.join("A/a.mp3")), DEFAULT_SOURCE_ID);
+        assert_eq!(save(dir.join("Downloads/b.mp3")), OTHER_SOURCE_ID);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -1903,11 +1989,11 @@ mod tests {
         let conn = open(&db_path).unwrap();
         assert_eq!(
             get_track_by_id(&conn, 1).unwrap().unwrap().source_id,
-            MANAGED_SOURCE_ID
+            DEFAULT_SOURCE_ID
         );
         assert_eq!(
             get_track_by_id(&conn, 2).unwrap().unwrap().source_id,
-            EXTERNAL_SOURCE_ID
+            OTHER_SOURCE_ID
         );
         drop(conn);
         let _ = std::fs::remove_dir_all(&dir);
@@ -1935,7 +2021,7 @@ mod tests {
     #[test]
     fn track_lyrics_round_trip() {
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/lyrics.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/lyrics.mp3"), DEFAULT_SOURCE_ID).unwrap();
 
         let record = sample_lyrics(1, "Line one\nLine two");
         upsert_track_lyrics(&conn, &record).unwrap();
@@ -1956,7 +2042,7 @@ mod tests {
         save_track(
             &conn,
             &sample_input("/music/instrumental.mp3"),
-            MANAGED_SOURCE_ID,
+            DEFAULT_SOURCE_ID,
         )
         .unwrap();
 
@@ -1982,7 +2068,7 @@ mod tests {
     #[test]
     fn track_lyrics_upsert_replaces_existing() {
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/lyrics.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/lyrics.mp3"), DEFAULT_SOURCE_ID).unwrap();
 
         upsert_track_lyrics(&conn, &sample_lyrics(1, "First version")).unwrap();
         upsert_track_lyrics(&conn, &sample_lyrics(1, "Second version")).unwrap();
@@ -1994,7 +2080,7 @@ mod tests {
     #[test]
     fn delete_track_lyrics_removes_row() {
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/lyrics.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/lyrics.mp3"), DEFAULT_SOURCE_ID).unwrap();
         upsert_track_lyrics(&conn, &sample_lyrics(1, "To delete")).unwrap();
 
         delete_track_lyrics(&conn, 1).unwrap();
@@ -2004,9 +2090,9 @@ mod tests {
     #[test]
     fn get_lyrics_for_track_ids_returns_batch_map() {
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/a.mp3"), MANAGED_SOURCE_ID).unwrap();
-        save_track(&conn, &sample_input("/music/b.mp3"), MANAGED_SOURCE_ID).unwrap();
-        save_track(&conn, &sample_input("/music/c.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/a.mp3"), DEFAULT_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/b.mp3"), DEFAULT_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/c.mp3"), DEFAULT_SOURCE_ID).unwrap();
 
         upsert_track_lyrics(&conn, &sample_lyrics(1, "Track A")).unwrap();
         upsert_track_lyrics(&conn, &sample_lyrics(3, "Track C")).unwrap();
@@ -2021,7 +2107,7 @@ mod tests {
     #[test]
     fn delete_track_cascades_lyrics() {
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/lyrics.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/lyrics.mp3"), DEFAULT_SOURCE_ID).unwrap();
         upsert_track_lyrics(&conn, &sample_lyrics(1, "Cascade me")).unwrap();
 
         conn.execute("DELETE FROM tracks WHERE id = 1", []).unwrap();
@@ -2034,7 +2120,7 @@ mod tests {
         use crate::lyrics_tags::{LyricsFormatHint, RawLyrics};
 
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/song.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/song.mp3"), DEFAULT_SOURCE_ID).unwrap();
 
         let input = normalize_embedded_lyrics(RawLyrics {
             text: "Embedded verse".to_string(),
@@ -2052,7 +2138,7 @@ mod tests {
         use crate::lyrics_normalize::persist_import_lyrics;
 
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/song.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/song.mp3"), DEFAULT_SOURCE_ID).unwrap();
         upsert_track_lyrics(&conn, &sample_lyrics(1, "Existing")).unwrap();
 
         persist_import_lyrics(&conn, 1, &None).unwrap();
@@ -2064,7 +2150,7 @@ mod tests {
     #[test]
     fn get_track_by_id_includes_lyrics_format_when_present() {
         let conn = test_conn();
-        save_track(&conn, &sample_input("/music/song.mp3"), MANAGED_SOURCE_ID).unwrap();
+        save_track(&conn, &sample_input("/music/song.mp3"), DEFAULT_SOURCE_ID).unwrap();
 
         let without_lyrics = get_track_by_id(&conn, 1).unwrap().unwrap();
         assert!(without_lyrics.lyrics_format.is_none());
@@ -2073,5 +2159,95 @@ mod tests {
 
         let with_plain = get_track_by_id(&conn, 1).unwrap().unwrap();
         assert_eq!(with_plain.lyrics_format, Some(LyricsFormat::Plain));
+    }
+
+    /// A library database in a temp Spiral folder, opened as the app does.
+    struct TempLibrary {
+        root: std::path::PathBuf,
+        conn: Connection,
+    }
+
+    impl TempLibrary {
+        fn new(label: &str) -> Self {
+            let root = std::env::temp_dir().join(format!(
+                "spiral-db-{label}-{}-{}",
+                std::process::id(),
+                Utc::now().timestamp_nanos_opt().unwrap_or_default()
+            ));
+            std::fs::create_dir_all(root.join("Tracks")).unwrap();
+            let conn = open(&root.join("Library.db")).unwrap();
+            Self { root, conn }
+        }
+
+        fn location(&self, id: i64) -> (i64, String) {
+            self.conn
+                .query_row(
+                    "SELECT source_id, rel_path FROM tracks WHERE id = ?1",
+                    params![id],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .unwrap()
+        }
+    }
+
+    impl Drop for TempLibrary {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+
+    #[test]
+    fn tracks_are_stored_relative_to_their_source_and_found_by_path() {
+        let lib = TempLibrary::new("relative");
+        let file = lib.root.join("Tracks").join("Artist").join("a.mp3");
+        let path = file.to_string_lossy().into_owned();
+        let id = save_track(&lib.conn, &sample_input(&path), DEFAULT_SOURCE_ID).unwrap();
+        assert_eq!(lib.location(id), (DEFAULT_SOURCE_ID, "Artist/a.mp3".into()));
+        assert_eq!(
+            get_track_by_id(&lib.conn, id).unwrap().unwrap().file_path,
+            path
+        );
+        assert_eq!(list_file_paths(&lib.conn).unwrap(), vec![path.clone()]);
+        assert!(has_track_file_path(&lib.conn, &path).unwrap());
+        assert_eq!(track_id_for_path(&lib.conn, &path).unwrap(), Some(id));
+
+        // Saving the same file again refreshes the row, whatever source is asked for.
+        let again = save_track(&lib.conn, &sample_input(&path), OTHER_SOURCE_ID).unwrap();
+        assert_eq!(again, id);
+        assert_eq!(get_all_tracks(&lib.conn).unwrap().len(), 1);
+
+        // A new row's file must be inside the source it is saved to.
+        let loose = lib.root.join("loose.mp3").to_string_lossy().into_owned();
+        assert!(save_track(&lib.conn, &sample_input(&loose), DEFAULT_SOURCE_ID).is_err());
+        let other = save_track(&lib.conn, &sample_input(&loose), OTHER_SOURCE_ID).unwrap();
+        assert_eq!(lib.location(other), (OTHER_SOURCE_ID, loose.clone()));
+
+        // Moving a track to another source re-bases its path.
+        set_track_source(&lib.conn, other, OTHER_SOURCE_ID).unwrap();
+        assert!(set_track_source(&lib.conn, other, DEFAULT_SOURCE_ID).is_err());
+        assert_eq!(lib.location(other), (OTHER_SOURCE_ID, loose));
+    }
+
+    #[test]
+    fn update_track_follows_a_file_into_another_source() {
+        let lib = TempLibrary::new("follow");
+        let loose = lib.root.join("loose.mp3").to_string_lossy().into_owned();
+        let id = save_track(&lib.conn, &sample_input(&loose), OTHER_SOURCE_ID).unwrap();
+        let organized = lib.root.join("Tracks").join("A").join("b.mp3");
+        update_track(
+            &lib.conn,
+            id,
+            &TrackMetadataUpdate {
+                title: "Moved".into(),
+                ..Default::default()
+            },
+            Some(&organized.to_string_lossy()),
+            None,
+        )
+        .unwrap();
+        assert_eq!(lib.location(id), (DEFAULT_SOURCE_ID, "A/b.mp3".into()));
+        let track = get_track_by_id(&lib.conn, id).unwrap().unwrap();
+        assert_eq!(track.file_path, organized.to_string_lossy());
+        assert_eq!(track.source_id, DEFAULT_SOURCE_ID);
     }
 }

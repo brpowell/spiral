@@ -13,7 +13,7 @@ const tauri = vi.hoisted(() => ({
   inspectLibraryDestination: vi.fn(),
   relocateLibrary: vi.fn(),
   pickMusicFolder: vi.fn(),
-  addWatchedSource: vi.fn(),
+  addSource: vi.fn(),
 }));
 
 vi.mock("../../../lib/tauri", () => tauri);
@@ -135,7 +135,7 @@ describe("LibraryStep", () => {
   describe("I already have a music folder", () => {
     it("watches the picked folder in place", async () => {
       tauri.pickMusicFolder.mockResolvedValue("/Users/me/Music");
-      tauri.addWatchedSource.mockResolvedValue({
+      tauri.addSource.mockResolvedValue({
         id: 3,
         kind: "watched",
         rootPath: "/Users/me/Music",
@@ -148,7 +148,7 @@ describe("LibraryStep", () => {
         screen.getByRole("button", { name: "Use my music folder…" }),
       );
       await waitFor(() =>
-        expect(tauri.addWatchedSource).toHaveBeenCalledWith("/Users/me/Music"),
+        expect(tauri.addSource).toHaveBeenCalledWith("/Users/me/Music"),
       );
       expect(
         await screen.findByText(
@@ -168,14 +168,14 @@ describe("LibraryStep", () => {
         screen.getByRole("button", { name: "Use my music folder…" }),
       );
       await waitFor(() => expect(tauri.pickMusicFolder).toHaveBeenCalled());
-      expect(tauri.addWatchedSource).not.toHaveBeenCalled();
+      expect(tauri.addSource).not.toHaveBeenCalled();
     });
 
     it("explains why a folder can't be watched", async () => {
       tauri.pickMusicFolder.mockResolvedValue(
         "/Users/me/Music/Spiral Library/Tracks",
       );
-      tauri.addWatchedSource.mockRejectedValue(
+      tauri.addSource.mockRejectedValue(
         "source_inside_library: /Users/me/Music/Spiral Library/Tracks is inside the Spiral library folder",
       );
       render(<LibraryStep />);

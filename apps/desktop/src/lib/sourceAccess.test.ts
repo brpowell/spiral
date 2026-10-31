@@ -7,35 +7,33 @@ import {
   readOnlyReason,
   sourceDisplayName,
   sourceErrorCode,
+  sourceRole,
   sourceSortRank,
   trackAccess,
 } from "./sourceAccess";
 
-function source(patch: Partial<Source> & Pick<Source, "id" | "kind">): Source {
+function source(patch: Partial<Source> & Pick<Source, "id">): Source {
   return {
     rootPath: null,
     name: `Source ${patch.id}`,
-    writable: patch.kind === "managed",
+    autoOrganize: false,
+    pathFormat: null,
+    importTarget: false,
     createdAt: "2026-01-01T00:00:00Z",
     ...patch,
   };
 }
 
-const managed = source({ id: 1, kind: "managed", name: "Tracks" });
-const external = source({ id: 2, kind: "external", writable: true });
-const rock = source({
-  id: 3,
-  kind: "watched",
-  name: "Rock",
-  rootPath: "/Music/Rock",
+const managed = source({
+  id: 1,
+  name: "Tracks",
+  rootPath: "/Music/Spiral Library/Tracks",
+  autoOrganize: true,
+  importTarget: true,
 });
-const jazz = source({
-  id: 4,
-  kind: "watched",
-  name: "Jazz",
-  rootPath: "/Music/Jazz",
-  writable: true,
-});
+const external = source({ id: 2 });
+const rock = source({ id: 3, name: "Rock", rootPath: "/Music/Rock" });
+const jazz = source({ id: 4, name: "Jazz", rootPath: "/Music/Jazz" });
 const sourcesById = new Map(
   [managed, external, rock, jazz].map((s) => [s.id, s]),
 );
@@ -52,29 +50,26 @@ describe("trackAccess", () => {
     });
   });
 
-  it("follows the writable flag for watched folders, but never manages them", () => {
+  it("writes the files of folders the user added, but doesn't manage them", () => {
     expect(trackAccess({ sourceId: 3 }, sourcesById)).toMatchObject({
-      writable: false,
+      writable: true,
       managed: false,
       source: rock,
     });
-    expect(trackAccess({ sourceId: 4 }, sourcesById)).toMatchObject({
-      writable: true,
-      managed: false,
-    });
   });
 
-  it("never writes external files, whatever their row says", () => {
+  it("never writes Other's loose files", () => {
     expect(trackAccess({ sourceId: 2 }, sourcesById).writable).toBe(false);
+    expect(trackAccess({ sourceId: 2 }, new Map()).writable).toBe(false);
   });
 
-  it("treats unknown sources as read-only until the list loads", () => {
+  it("decides by id before the sources list loads", () => {
     expect(trackAccess({ sourceId: 9 }, new Map())).toMatchObject({
-      writable: false,
+      writable: true,
       managed: false,
       source: null,
     });
-    expect(trackAccess({ sourceId: 1 }, new Map()).writable).toBe(true);
+    expect(trackAccess({ sourceId: 1 }, new Map()).managed).toBe(true);
   });
 });
 
@@ -85,18 +80,12 @@ describe("readOnlyReason", () => {
     ).toBeNull();
   });
 
-  it("names the watched folder and points at its toggle", () => {
-    const reason = readOnlyReason([{ sourceId: 3 }], sourcesById);
-    expect(reason?.watched).toBe(true);
-    expect(reason?.message).toContain("Rock");
-  });
-
   it("says when only some of a selection is read-only", () => {
     const some = readOnlyReason(
-      [{ sourceId: 1 }, { sourceId: 3 }],
+      [{ sourceId: 1 }, { sourceId: 2 }],
       sourcesById,
     );
-    const all = readOnlyReason([{ sourceId: 3 }], sourcesById);
+    const all = readOnlyReason([{ sourceId: 2 }], sourcesById);
     expect(some?.message).not.toBe(all?.message);
     expect(some?.message).toMatch(/^Some/);
   });
@@ -159,6 +148,12 @@ describe("source helpers", () => {
     expect(sourceDisplayName(managed)).toBe("Spiral library");
     expect(sourceDisplayName(external)).toBe("Other files");
     expect(sourceDisplayName(rock)).toBe("Rock");
+  });
+
+  it("tells the built-in sources from the user's folders", () => {
+    expect(sourceRole(managed)).toBe("default");
+    expect(sourceRole(external)).toBe("other");
+    expect(sourceRole(rock)).toBe("user");
   });
 
   it("sorts the library first and other files last", () => {

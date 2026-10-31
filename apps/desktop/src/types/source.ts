@@ -1,15 +1,19 @@
-/** Where a library source's files live and who owns them. */
-export type SourceKind = "managed" | "watched" | "external";
-
-/** A library source: the Spiral tracks folder, a watched folder, or other files. */
+/**
+ * A library source: a folder of tracks. Ids 1 (the default source, the Spiral
+ * folder's tracks folder) and 2 (Other, loose files with no folder) are built
+ * in; folders the user adds get ids from 3 up.
+ */
 export interface Source {
   id: number;
-  kind: SourceKind;
-  /** Folder a watched source indexes; null for managed and external. */
-  rootPath: string | null;
   name: string;
-  /** Whether Spiral may change the source's files (tags, moves, deletes). */
-  writable: boolean;
+  /** The source's folder (resolved for the default source); null for Other. */
+  rootPath: string | null;
+  /** Whether Spiral keeps the source's files organized. */
+  autoOrganize: boolean;
+  /** This source's own path format; null inherits the global one. */
+  pathFormat: string | null;
+  /** New imports are copied into this source. */
+  importTarget: boolean;
   createdAt: string;
 }
 

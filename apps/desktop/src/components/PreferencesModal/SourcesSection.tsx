@@ -4,14 +4,15 @@ import {
   countTracksBySource,
   describeSourceError,
   sourceDisplayName,
+  sourceRole,
+  type SourceRole,
 } from "../../lib/sourceAccess";
 import {
-  addWatchedSource,
+  addSource,
   pickMusicFolder,
-  relocateWatchedSource,
-  removeWatchedSource,
+  relocateSource,
+  removeSource,
   rescanSource,
-  setSourceWritable,
 } from "../../lib/tauri";
 import { useLibrarySettingsStore } from "../../store/useLibrarySettingsStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
@@ -20,13 +21,6 @@ import type { ReconcileSummary, Source } from "../../types/source";
 import { AlertConfirmation } from "../common/AlertConfirmation/AlertConfirmation";
 import { Badge } from "../common/Badge/Badge";
 import { Button } from "../common/Button/Button";
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldLabel,
-} from "../common/Field/Field";
-import { Switch } from "../common/Switch/Switch";
 import {
   IconDelete,
   IconDisconnected,
@@ -41,15 +35,15 @@ import "./SourcesSection.css";
 /** How often the offline badges refresh while the section is open. */
 export const SOURCE_STATUS_POLL_MS = 5000;
 
-const KIND_ORDER: Record<Source["kind"], number> = {
-  managed: 0,
-  watched: 1,
-  external: 2,
+const ROLE_ORDER: Record<SourceRole, number> = {
+  default: 0,
+  user: 1,
+  other: 2,
 };
 
-function sourceIcon(source: Source) {
-  if (source.kind === "managed") return <IconHardDrive aria-hidden />;
-  if (source.kind === "watched") return <IconOpenFolder aria-hidden />;
+function sourceIcon(role: SourceRole) {
+  if (role === "default") return <IconHardDrive aria-hidden />;
+  if (role === "user") return <IconOpenFolder aria-hidden />;
   return <IconFolderLink aria-hidden />;
 }
 
@@ -83,7 +77,8 @@ export function SourcesSection() {
   const ordered = useMemo(
     () =>
       [...sources].sort(
-        (a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.id - b.id,
+        (a, b) =>
+          ROLE_ORDER[sourceRole(a)] - ROLE_ORDER[sourceRole(b)] || a.id - b.id,
       ),
     [sources],
   );
@@ -106,7 +101,7 @@ export function SourcesSection() {
     run("add", async () => {
       const folder = await pickMusicFolder();
       if (!folder) return;
-      applySource(await addWatchedSource(folder));
+      applySource(await addSource(folder));
       await loadSources();
     });
 
@@ -133,13 +128,8 @@ export function SourcesSection() {
     run(source.id, async () => {
       const folder = await pickMusicFolder();
       if (!folder) return;
-      applySource(await relocateWatchedSource(source.id, folder));
+      applySource(await relocateSource(source.id, folder));
       await loadStatuses();
-    });
-
-  const toggleWritable = (source: Source, writable: boolean) =>
-    run(source.id, async () => {
-      applySource(await setSourceWritable(source.id, writable));
     });
 
   const confirmRemove = async () => {
@@ -147,7 +137,7 @@ export function SourcesSection() {
     const source = removing;
     setError(null);
     try {
-      await removeWatchedSource(source.id);
+      await removeSource(source.id);
       await loadSources();
       await usePlayerStore.getState().loadLibrary({ preservePlayback: true });
     } catch (err) {
@@ -166,20 +156,21 @@ export function SourcesSection() {
         {ordered.map((source) => {
           const count = counts.get(source.id) ?? { total: 0, missing: 0 };
           const name = sourceDisplayName(source);
+          const role = sourceRole(source);
           const path =
-            source.kind === "managed" ? (mediaFolder ?? null) : source.rootPath;
+            role === "default"
+              ? (mediaFolder ?? source.rootPath)
+              : source.rootPath;
           const offline =
-            source.kind === "watched" && statuses[source.id] === "unreachable";
+            role === "user" && statuses[source.id] === "unreachable";
           const busy = busyId != null;
           return (
             <li
               key={source.id}
               className="sources-section__item"
-              data-source-kind={source.kind}
+              data-source-kind={role}
             >
-              <span className="sources-section__icon">
-                {sourceIcon(source)}
-              </span>
+              <span className="sources-section__icon">{sourceIcon(role)}</span>
               <div className="sources-section__body">
                 <div className="sources-section__heading">
                   <span className="sources-section__name">{name}</span>
@@ -191,9 +182,6 @@ export function SourcesSection() {
                       <IconDisconnected aria-hidden />
                       {t("preferences:sources.offline")}
                     </Badge>
-                  ) : null}
-                  {source.kind === "watched" && !source.writable ? (
-                    <Badge>{t("preferences:sources.readOnlyBadge")}</Badge>
                   ) : null}
                 </div>
                 {path ? (
@@ -216,38 +204,14 @@ export function SourcesSection() {
                   ) : null}
                 </p>
                 <p className="sources-section__description">
-                  {source.kind === "managed"
+                  {role === "default"
                     ? t("preferences:sources.managedDescription")
-                    : source.kind === "external"
+                    : role === "other"
                       ? t("preferences:sources.externalDescription")
                       : offline
                         ? t("preferences:sources.offlineHint")
                         : t("preferences:sources.watchedDescription")}
                 </p>
-
-                {source.kind === "watched" ? (
-                  <Field
-                    orientation="horizontal"
-                    className="sources-section__writable"
-                  >
-                    <Switch
-                      id={`source-writable-${source.id}`}
-                      checked={source.writable}
-                      disabled={busy}
-                      onChange={(e) =>
-                        void toggleWritable(source, e.target.checked)
-                      }
-                    />
-                    <FieldContent>
-                      <FieldLabel htmlFor={`source-writable-${source.id}`}>
-                        {t("preferences:sources.writable")}
-                      </FieldLabel>
-                      <FieldDescription>
-                        {t("preferences:sources.writableDescription")}
-                      </FieldDescription>
-                    </FieldContent>
-                  </Field>
-                ) : null}
 
                 <div
                   className="sources-section__actions"
@@ -265,7 +229,7 @@ export function SourcesSection() {
                       ? t("preferences:sources.rescanning")
                       : t("preferences:sources.rescan")}
                   </Button>
-                  {source.kind === "watched" ? (
+                  {role === "user" ? (
                     <>
                       <Button
                         size="sm"

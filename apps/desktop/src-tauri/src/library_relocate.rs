@@ -7,7 +7,7 @@ use crate::lyrics_normalize;
 use crate::metadata_reader;
 use crate::rating_sync::RatingSync;
 use crate::settings::{self, LibrarySettingsPatch, LibrarySettingsResponse, DATABASE_FILE_NAME};
-use crate::sources;
+use crate::sources::{self, SourceRoots};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -57,14 +57,14 @@ fn is_nested(child: &Path, parent: &Path) -> bool {
     child != parent && child.starts_with(&parent)
 }
 
-/// Roots of the watched sources in the open library.
+/// Roots of the user's sources in the open library.
 fn watched_roots(app: &AppHandle) -> Vec<PathBuf> {
     let state = app.state::<DbState>();
     let conn = state.0.lock().unwrap_or_else(|e| e.into_inner());
-    sources::list_sources(&conn)
+    sources::user_source_roots(&conn)
         .unwrap_or_default()
         .into_iter()
-        .filter_map(|s| s.root_path.map(PathBuf::from))
+        .map(|(_, root)| root)
         .collect()
 }
 
@@ -219,82 +219,53 @@ fn relocate_entry(from: &Path, to: &Path) -> Result<(), String> {
     }
 }
 
-pub(crate) fn rewrite_path_prefix(
-    file_path: &str,
-    old_media: &Path,
-    new_media: &Path,
-) -> Option<String> {
-    let old_path = Path::new(file_path);
-    if !library_organize::is_under_media_folder(old_path, old_media) {
-        return None;
-    }
-
-    // Prefer string prefix replacement so stored path separators are preserved
-    // (Path::join on Windows injects `\` even when rewriting `/`-style paths).
-    let old_prefix = old_media.to_string_lossy();
-    if let Some(suffix) = file_path.strip_prefix(old_prefix.as_ref()) {
-        let trimmed = suffix.trim_start_matches(['/', '\\']);
-        if trimmed.is_empty() {
-            return None;
-        }
-        let new_prefix = new_media.to_string_lossy();
-        let sep = if suffix.starts_with('\\') { "\\" } else { "/" };
-        return Some(format!("{new_prefix}{sep}{trimmed}"));
-    }
-
-    // Fallback when canonicalize differs from the stored absolute string.
-    if let Ok(rel) = old_path.strip_prefix(old_media) {
-        if rel.as_os_str().is_empty() {
-            return None;
-        }
-        let joined = new_media.join(rel).to_string_lossy().into_owned();
-        if file_path.contains('/') && !file_path.contains('\\') {
-            return Some(joined.replace('\\', "/"));
-        }
-        return Some(joined);
-    }
-
-    None
-}
-
-pub(crate) fn rewrite_media_paths(
-    app: &AppHandle,
+/// After the Spiral folder moved, carry over artwork cached in app data, which
+/// is keyed by file path. Track rows need no rewrite: the default source's
+/// paths are relative to its `Tracks` folder, which follows the database.
+pub(crate) fn migrate_moved_art_cache(
+    app_data: &Path,
     conn: &Connection,
     old_media: &Path,
-    new_media: &Path,
 ) -> Result<(), String> {
-    let app_data = settings::app_data_dir(app)?;
-    let tracks = db::get_all_tracks(conn).map_err(|e| e.to_string())?;
+    let roots = SourceRoots::load(conn).map_err(|e| e.to_string())?;
+    let tracks: Vec<(i64, String, String)> = conn
+        .prepare(
+            "SELECT id, rel_path, art_path FROM tracks
+             WHERE source_id = ?1 AND art_path IS NOT NULL",
+        )
+        .and_then(|mut stmt| {
+            stmt.query_map(rusqlite::params![sources::DEFAULT_SOURCE_ID], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            })?
+            .collect()
+        })
+        .map_err(|e| e.to_string())?;
 
-    for track in tracks {
-        let Some(new_path_str) = rewrite_path_prefix(&track.file_path, old_media, new_media) else {
-            continue;
-        };
-        if new_path_str == track.file_path {
+    for (id, rel_path, art_path) in tracks {
+        // Library-relative Artwork/ paths stay valid across the move, and
+        // absolute track paths didn't move.
+        if art_path.starts_with("Artwork/")
+            || art_path.starts_with("Artwork\\")
+            || Path::new(&rel_path).is_absolute()
+        {
             continue;
         }
-
-        // Library-relative Artwork/ paths stay valid across Tracks/ relocate.
-        let new_art = match track.art_path.as_deref() {
-            Some(p) if p.starts_with("Artwork/") || p.starts_with("Artwork\\") => {
-                Some(p.to_string())
-            }
-            None => None,
-            Some(_) => library_organize::migrate_art_cache(
-                &app_data,
-                &track.file_path,
-                &new_path_str,
-                track.art_path.as_deref(),
-            )?,
-        };
-
-        conn.execute(
-            "UPDATE tracks SET file_path = ?1, art_path = ?2 WHERE id = ?3",
-            rusqlite::params![new_path_str, new_art, track.id],
-        )
-        .map_err(|e| format!("failed to rewrite track path: {e}"))?;
+        let old_path = sources::join_rel_path(old_media, &rel_path);
+        let new_path = roots.resolve(sources::DEFAULT_SOURCE_ID, &rel_path);
+        let new_art = library_organize::migrate_art_cache(
+            app_data,
+            &old_path.to_string_lossy(),
+            &new_path,
+            Some(&art_path),
+        )?;
+        if new_art.as_deref() != Some(art_path.as_str()) {
+            conn.execute(
+                "UPDATE tracks SET art_path = ?1 WHERE id = ?2",
+                rusqlite::params![new_art, id],
+            )
+            .map_err(|e| format!("failed to update track art: {e}"))?;
+        }
     }
-
     Ok(())
 }
 
@@ -445,7 +416,7 @@ pub fn relocate_library(
 
             match (|| -> Result<LibrarySettingsResponse, String> {
                 let conn = db::open(&dest_db).map_err(|e| e.to_string())?;
-                rewrite_media_paths(app, &conn, &old_media, &dest_media)?;
+                migrate_moved_art_cache(&settings::app_data_dir(app)?, &conn, &old_media)?;
                 drop(conn);
 
                 // Items created in the Library are linked by absolute path; follow the move.
@@ -575,73 +546,37 @@ mod tests {
     }
 
     #[test]
-    fn rewrite_path_prefix_rewrites_under_media() {
-        let old_media = Path::new("/Music/Spiral Library/Tracks");
-        let new_media = Path::new("/Volumes/Big/Spiral Library/Tracks");
-        let old = "/Music/Spiral Library/Tracks/Artist/Album/song.mp3";
-        let next = rewrite_path_prefix(old, old_media, new_media).unwrap();
-        assert_eq!(
-            next,
-            "/Volumes/Big/Spiral Library/Tracks/Artist/Album/song.mp3"
-        );
-        assert!(rewrite_path_prefix("/elsewhere/song.mp3", old_media, new_media).is_none());
-    }
-
-    #[test]
-    fn rewrite_media_paths_updates_db_rows() {
-        let dir = unique_temp_dir("db-rewrite");
-        let old_media = dir.join("old").join("Tracks");
-        let new_media = dir.join("new").join("Tracks");
-        fs::create_dir_all(&old_media).unwrap();
-        fs::create_dir_all(&new_media).unwrap();
-
-        let db_path = dir.join("Library.db");
-        let conn = db::open(&db_path).unwrap();
-        let old_file = old_media.join("a.mp3");
+    fn moving_the_spiral_folder_needs_no_track_rewrite() {
+        let dir = unique_temp_dir("db-move");
+        let old_root = dir.join("old");
+        let new_root = dir.join("new");
+        fs::create_dir_all(old_root.join("Tracks/A")).unwrap();
+        let old_file = old_root.join("Tracks/A/a.mp3");
         fs::write(&old_file, b"x").unwrap();
+        {
+            let conn = db::open(&old_root.join("Library.db")).unwrap();
+            db::save_track(
+                &conn,
+                &crate::models::TrackInput {
+                    title: "Song".into(),
+                    file_path: old_file.to_string_lossy().into_owned(),
+                    ..Default::default()
+                },
+                sources::DEFAULT_SOURCE_ID,
+            )
+            .unwrap();
+        }
+        fs::rename(&old_root, &new_root).unwrap();
 
-        db::save_track(
-            &conn,
-            &crate::models::TrackInput {
-                title: "Song".into(),
-                artist: None,
-                album: None,
-                album_artist: None,
-                track_number: None,
-                total_tracks: None,
-                disc_number: None,
-                total_discs: None,
-                year: None,
-                genre: None,
-                duration_seconds: None,
-                sample_rate: None,
-                bitrate: None,
-                codec: None,
-                file_path: old_file.to_string_lossy().into_owned(),
-                art_path: None,
-                rating: None,
-                lyrics: None,
-                ..Default::default()
-            },
-            crate::sources::MANAGED_SOURCE_ID,
-        )
-        .unwrap();
-
-        // rewrite via rewrite_path_prefix + SQL (art cache needs AppHandle).
+        let conn = db::open(&new_root.join("Library.db")).unwrap();
+        let app_data = dir.join("AppData");
+        migrate_moved_art_cache(&app_data, &conn, &old_root.join("Tracks")).unwrap();
         let tracks = db::get_all_tracks(&conn).unwrap();
-        assert_eq!(tracks.len(), 1);
-        let new_path = rewrite_path_prefix(&tracks[0].file_path, &old_media, &new_media).unwrap();
-        conn.execute(
-            "UPDATE tracks SET file_path = ?1 WHERE id = ?2",
-            rusqlite::params![new_path, tracks[0].id],
-        )
-        .unwrap();
-        let updated = db::get_all_tracks(&conn).unwrap();
         assert_eq!(
-            updated[0].file_path,
-            new_media.join("a.mp3").to_string_lossy()
+            tracks[0].file_path,
+            new_root.join("Tracks/A/a.mp3").to_string_lossy()
         );
-
+        assert!(Path::new(&tracks[0].file_path).is_file());
         let _ = fs::remove_dir_all(&dir);
     }
 

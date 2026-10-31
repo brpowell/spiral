@@ -78,19 +78,21 @@ describe("confirmAndApplyTrackRatings", () => {
   });
 
   describe("read-only sources", () => {
-    const watched: Source = {
-      id: 3,
-      kind: "watched",
-      rootPath: "/Music",
-      name: "Music",
-      writable: false,
+    // Only Other's loose files are read-only.
+    const other: Source = {
+      id: 2,
+      rootPath: null,
+      name: "Other Files",
+      autoOrganize: false,
+      pathFormat: null,
+      importTarget: false,
       createdAt: "2026-01-01T00:00:00Z",
     };
     const readOnly = (id: number, rating: number) =>
-      ({ id, rating, sourceId: 3 }) as Track;
+      ({ id, rating, sourceId: 2 }) as Track;
 
     beforeEach(() => {
-      useSourcesStore.setState({ sourcesById: new Map([[3, watched]]) });
+      useSourcesStore.setState({ sourcesById: new Map([[2, other]]) });
     });
 
     afterEach(() => {
