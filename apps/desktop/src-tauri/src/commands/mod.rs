@@ -12,6 +12,7 @@ pub mod library;
 pub mod library_settings;
 pub mod lyrics;
 pub mod metadata;
+pub mod organize;
 pub mod playback_session;
 pub mod playback_settings;
 pub mod playlists;

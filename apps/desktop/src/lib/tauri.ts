@@ -2,7 +2,13 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { ItemSummary, ItemType } from "../types/item";
 import type { SoundPackSummary } from "../types/soundPack";
-import type { ReconcileSummary, Source, SourceStatus } from "../types/source";
+import type {
+  FilePlanApplySummary,
+  FilePlanSummary,
+  ReconcileSummary,
+  Source,
+  SourceStatus,
+} from "../types/source";
 import type {
   ItemCatalogQuery,
   ItemDownloadProgress,
@@ -500,6 +506,38 @@ export async function setSourcePathFormat(
   pathFormat: string | null,
 ): Promise<Source> {
   return invoke<Source>("set_source_path_format", { sourceId, pathFormat });
+}
+
+/** Emitted while a file plan moves files; the payload is a `FilePlanProgress`. */
+export const FILE_PLAN_PROGRESS_EVENT = "library://file-plan-progress";
+
+/**
+ * What organizing a source would do: counts, a sample of moves and the
+ * conflicts. Moves nothing. `pathFormat` previews a format other than the
+ * source's own.
+ */
+export async function previewOrganizeSource(
+  sourceId: number,
+  pathFormat?: string | null,
+): Promise<FilePlanSummary> {
+  return invoke<FilePlanSummary>("preview_organize_source", {
+    sourceId,
+    pathFormat: pathFormat ?? null,
+  });
+}
+
+/**
+ * Move a source's files to where its path format puts them, then turn
+ * organizing on (with `pathFormat` as its format, when given).
+ */
+export async function applyOrganizeSource(
+  sourceId: number,
+  pathFormat?: string | null,
+): Promise<FilePlanApplySummary> {
+  return invoke<FilePlanApplySummary>("apply_organize_source", {
+    sourceId,
+    pathFormat: pathFormat ?? null,
+  });
 }
 
 /** Choose the source new imports are copied into. */

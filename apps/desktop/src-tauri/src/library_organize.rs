@@ -286,7 +286,15 @@ pub fn build_organized_path(
 /// When `allow_existing` is set (track replace), that path may be overwritten
 /// instead of uniquified.
 pub fn unique_path(dest: PathBuf, allow_existing: Option<&Path>) -> PathBuf {
-    if !dest.exists() || allow_existing.is_some_and(|p| same_path(&dest, p)) {
+    unique_path_by(dest, |candidate| {
+        !candidate.exists() || allow_existing.is_some_and(|p| same_path(candidate, p))
+    })
+}
+
+/// [`unique_path`] with the caller deciding which paths are free, e.g. a
+/// planner that also has to avoid targets it has already handed out.
+pub fn unique_path_by(dest: PathBuf, mut is_free: impl FnMut(&Path) -> bool) -> PathBuf {
+    if is_free(&dest) {
         return dest;
     }
 
@@ -305,7 +313,7 @@ pub fn unique_path(dest: PathBuf, allow_existing: Option<&Path>) -> PathBuf {
     let mut n = 2;
     loop {
         let candidate = parent.join(format!("{stem} ({n}){ext}"));
-        if !candidate.exists() || allow_existing.is_some_and(|p| same_path(&candidate, p)) {
+        if is_free(&candidate) {
             return candidate;
         }
         n += 1;
