@@ -62,10 +62,10 @@ describe("source error mapping", () => {
 
   it("localizes coded errors and passes others through", () => {
     expect(describeSourceError("source_overlap: /a overlaps /b")).toMatch(
-      /overlaps a folder Spiral already watches/,
+      /overlaps one of your sources/,
     );
     expect(describeSourceError("source_inside_library: /x")).toMatch(
-      /inside the Spiral library/,
+      /inside the Spiral folder/,
     );
     expect(describeSourceError(new Error("disk full"))).toBe("disk full");
   });
@@ -84,8 +84,8 @@ describe("source helpers", () => {
     expect(counts.size).toBe(2);
   });
 
-  it("names the seeded sources and uses folder names for watched ones", () => {
-    expect(sourceDisplayName(managed)).toBe("Spiral library");
+  it("names the built-in sources and uses folder names for added ones", () => {
+    expect(sourceDisplayName(managed)).toBe("Tracks");
     expect(sourceDisplayName(external)).toBe("Other files");
     expect(sourceDisplayName(rock)).toBe("Rock");
   });

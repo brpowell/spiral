@@ -440,3 +440,22 @@ body:has(.onboarding--leaving) .custom-window-frame .mac-overlay-titlebar {
   color: var(--color-accent);
   overflow-wrap: anywhere;
 }
+
+.onboarding-music-folder__source {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.onboarding-music-folder__organize {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.onboarding-music-folder__organize .onboarding-music-folder__description {
+  font-size: 0.8125rem;
+}

@@ -5,10 +5,10 @@
     "removeFromLibrary": "Remove from library",
     "deleteFiles_one": "Remove and delete file",
     "deleteFiles_other": "Remove and delete files",
-    "keptOnDisk_one": "{{count}} of these files isn't in the Spiral library. It leaves the library, but stays on disk.",
-    "keptOnDisk_other": "{{count}} of these files aren't in the Spiral library. They leave the library, but stay on disk.",
-    "allKeptOnDisk_one": "This file isn't in the Spiral library. It leaves the library, but stays on disk.",
-    "allKeptOnDisk_other": "These files aren't in the Spiral library. They leave the library, but stay on disk."
+    "keptOnDisk_one": "{{count}} of these files is in Other files. It leaves the library, but stays on disk.",
+    "keptOnDisk_other": "{{count}} of these files are in Other files. They leave the library, but stay on disk.",
+    "allKeptOnDisk_one": "This file is in Other files. It leaves the library, but stays on disk.",
+    "allKeptOnDisk_other": "These files are in Other files. They leave the library, but stay on disk."
   },
   "convert": {
     "title_one": "Convert track",
@@ -27,9 +27,13 @@
     "description": "Choose how Spiral should handle these files.",
     "dontAskAgain": "Don't ask again",
     "keepLocation": "Keep files where they are",
-    "copyToLibrary": "Add to Spiral library",
+    "copyToLibrary": "Add to Spiral",
     "keepLocationDescription": "Play them from their current folder. Spiral won't move or change them.",
-    "copyToLibraryDescription": "Copy them into your library and organize them. The originals stay where they are."
+    "copyToLibraryDescription": "Copy them into Spiral, organized if the import target is. The originals stay where they are.",
+    "copyToSourceDescription": "Copy them into the source chosen below. The originals stay where they are.",
+    "destination": "Copy into",
+    "destinationDescription": "Remembering this choice also makes it your import target.",
+    "destinationOffline": "{{name}} (offline)"
   },
   "importDedupe": {
     "title": "Duplicate track during import",
@@ -88,5 +92,43 @@
       "save": "Save",
       "saveDontAsk": "Save, don't ask again"
     }
+  },
+  "organize": {
+    "title": "Organize “{{name}}”?",
+    "format": "Path format:",
+    "loading": "Working out what would move…",
+    "intro": "Spiral will move these files to match the path format. Nothing moves until you confirm.",
+    "nothingToMove": "Every file is already where the path format puts it. Spiral will keep new files organized too.",
+    "counts": {
+      "moves": "Move",
+      "renamed": "Numbered name",
+      "skipped": "Skipped",
+      "unchanged": "Already in place"
+    },
+    "sampleTitle": "Examples",
+    "movesTo": "moves to",
+    "moreMoves_one": "And {{count}} more file.",
+    "moreMoves_other": "And {{count}} more files.",
+    "conflictsTitle": "Needs attention",
+    "moreConflicts_one": "And {{count}} more.",
+    "moreConflicts_other": "And {{count}} more.",
+    "conflicts": {
+      "targetExists": "A file already exists at {{path}}, so this one gets a numbered name.",
+      "duplicateTarget": "Another track also goes to {{path}}, so this one gets a numbered name.",
+      "sourceMissing": "The file is missing, so it stays where it is.",
+      "sourceUnreadable": "Spiral can't read the file ({{error}}), so it stays where it is.",
+      "insideSpiralFolder": "Its new path is in a part of the folder Spiral doesn't scan, so it stays where it is.",
+      "hiddenTarget": "Its new path has a hidden name (starting with a dot), so it stays where it is.",
+      "invalidTarget": "The path format gives an invalid path ({{error}}), so it stays where it is."
+    },
+    "confirm_one": "Move {{count}} file",
+    "confirm_other": "Move {{count}} files",
+    "confirmNoMoves": "Turn on organizing",
+    "progress": "Moving files: {{done}} of {{total}}",
+    "moved_one": "Moved {{count}} file. Spiral now keeps this source organized.",
+    "moved_other": "Moved {{count}} files. Spiral now keeps this source organized.",
+    "failedCount_one": "{{count}} file couldn't be moved and stays where it was.",
+    "failedCount_other": "{{count}} files couldn't be moved and stay where they were.",
+    "failed": "Couldn't organize this source: {{message}}"
   }
 }

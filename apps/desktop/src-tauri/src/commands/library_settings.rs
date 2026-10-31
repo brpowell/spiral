@@ -24,14 +24,16 @@ pub fn save_library_settings(
     Ok(resolved)
 }
 
-/// Copy a file into the import source, organized the way that source is, or
-/// (mode `reference`) leave it where it is. Returns the path to save.
+/// Copy a file into `source_id` (the import source when not given), organized
+/// the way that source is, or (mode `reference`) leave it where it is.
+/// Returns the path to save.
 #[tauri::command]
 pub fn prepare_import_file(
     app: AppHandle,
     state: State<'_, DbState>,
     source_path: String,
     mode: String,
+    source_id: Option<i64>,
 ) -> Result<String, String> {
     path_scope::ensure_allowed(&app, &source_path)?;
     let resolved = settings::resolved_library_settings(&app);
@@ -39,6 +41,7 @@ pub fn prepare_import_file(
         &state,
         &source_path,
         &mode,
+        source_id,
         &resolved.organize_path_format,
         resolved.lyrics_sidecar_sync_enabled,
     )
@@ -48,6 +51,7 @@ fn prepare_import(
     state: &DbState,
     source_path: &str,
     mode: &str,
+    source_id: Option<i64>,
     global_format: &str,
     lyrics_sidecar_enabled: bool,
 ) -> Result<String, String> {
@@ -56,7 +60,10 @@ fn prepare_import(
     }
     let target = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
-        let id = sources::import_source_id(&conn).map_err(|e| e.to_string())?;
+        let id = match source_id {
+            Some(id) => id,
+            None => sources::import_source_id(&conn).map_err(|e| e.to_string())?,
+        };
         sources::write_target(&conn, id, global_format)?
     };
     import_files::prepare_import_file(
@@ -154,15 +161,42 @@ mod tests {
             };
 
             set_target(organized_id);
-            let copied = prepare_import(&state, &incoming, "copy", GLOBAL, false).unwrap();
+            let copied = prepare_import(&state, &incoming, "copy", None, GLOBAL, false).unwrap();
             let copied = Path::new(&copied);
             assert!(copied.starts_with(&organized), "{}", copied.display());
             assert!(copied.ends_with("x.ogg"), "{}", copied.display());
             assert!(copied.is_file());
 
             set_target(loose_id);
-            let copied = prepare_import(&state, &incoming, "copy", GLOBAL, false).unwrap();
+            let copied = prepare_import(&state, &incoming, "copy", None, GLOBAL, false).unwrap();
             assert_eq!(Path::new(&copied), loose.join("song.ogg"));
+        }
+
+        #[test]
+        fn a_chosen_destination_wins_over_the_import_source() {
+            let tmp = TempDir::new("import-chosen");
+            let conn = conn();
+            let target = tmp.dir("Target");
+            let chosen = tmp.dir("Chosen");
+            let target_id = add_user_source(&conn, &target);
+            let chosen_id = add_user_source(&conn, &chosen);
+            sources::set_import_source(&conn, target_id).unwrap();
+            let state = DbState(Mutex::new(conn));
+            let incoming = ogg::copy_minimal(&tmp.dir("Incoming"), "song.ogg");
+            let incoming = incoming.to_string_lossy();
+
+            let copied =
+                prepare_import(&state, &incoming, "copy", Some(chosen_id), GLOBAL, false).unwrap();
+            assert_eq!(Path::new(&copied), chosen.join("song.ogg"));
+            assert!(!target.join("song.ogg").exists());
+
+            let offline = tmp.0.join("Offline");
+            std::fs::create_dir(&offline).unwrap();
+            let offline_id = add_user_source(&state.0.lock().unwrap(), &offline);
+            std::fs::remove_dir(&offline).unwrap();
+            assert!(
+                prepare_import(&state, &incoming, "copy", Some(offline_id), GLOBAL, false).is_err()
+            );
         }
 
         #[test]
@@ -172,7 +206,7 @@ mod tests {
             let file = ogg::copy_minimal(&tmp.0, "song.ogg");
             let path = file.to_string_lossy();
             assert_eq!(
-                prepare_import(&state, &path, "reference", GLOBAL, false).unwrap(),
+                prepare_import(&state, &path, "reference", None, GLOBAL, false).unwrap(),
                 path
             );
             assert_eq!(std::fs::read_dir(&tmp.0).unwrap().count(), 1);
@@ -181,6 +215,7 @@ mod tests {
                 &state,
                 &missing.to_string_lossy(),
                 "reference",
+                None,
                 GLOBAL,
                 false
             )

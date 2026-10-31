@@ -208,8 +208,11 @@ export function startLibraryImport(paths: string[]): void {
           await settingsStore.loadSettings();
         }
         let importMode: "copy" | "reference";
+        let destinationSourceId: number | null = null;
         try {
-          importMode = await settingsStore.resolveImportMode();
+          const choice = await settingsStore.resolveImportMode();
+          importMode = choice.mode;
+          destinationSourceId = choice.sourceId ?? null;
         } catch {
           ctx.setDetail(t("toasts:import.cancelled"));
           logImportCancelled();
@@ -266,6 +269,7 @@ export function startLibraryImport(paths: string[]): void {
         try {
           result = await commitImportEntries(entries, {
             mode: importMode,
+            destinationSourceId,
             onProgress: (current, total) => ctx.setProgress(current, total),
             isCancelRequested: () => ctx.isCancelRequested(),
             onTrackActivated: (pendingId, track) => {
@@ -313,6 +317,7 @@ export function startLibraryImport(paths: string[]): void {
           message: "Library import completed",
           details: {
             importMode,
+            ...(destinationSourceId != null ? { destinationSourceId } : {}),
             imported: result.imported,
             replaced: result.replaced,
             skipped: result.skipped,

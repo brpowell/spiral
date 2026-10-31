@@ -3,15 +3,24 @@ import { afterUiTransition } from "../lib/scheduling";
 import {
   getLibrarySettings,
   saveLibrarySettings as persistLibrarySettings,
+  setImportSource,
 } from "../lib/tauri";
 import type {
   ImportMode,
   LibrarySettings,
   LibrarySettingsPatch,
 } from "../types/library";
+import { useSourcesStore } from "./useSourcesStore";
 import type { PreferencesSectionId } from "../components/PreferencesModal/preferencesSections";
 
-type ImportChoice = "copy" | "reference";
+type ImportMethod = "copy" | "reference";
+
+/** How to add files, and for copies, which source they go into. */
+export interface ImportChoice {
+  mode: ImportMethod;
+  /** Copies go here; unset means the import source. */
+  sourceId?: number;
+}
 
 interface ImportPromptRequest {
   resolve: (choice: ImportChoice) => void;
@@ -32,6 +41,7 @@ interface LibrarySettingsState {
   saveLibrarySettings: (patch: LibrarySettingsPatch) => Promise<LibrarySettings>;
   applyLibrarySettings: (settings: LibrarySettings) => void;
   resolveImportMode: () => Promise<ImportChoice>;
+  /** Answer the import prompt. Remembering a copy into another source makes it the import source. */
   confirmImportChoice: (choice: ImportChoice, remember: boolean) => Promise<void>;
   cancelImportChoice: () => void;
 }
@@ -90,8 +100,8 @@ export const useLibrarySettingsStore = create<LibrarySettingsState>(
 
     resolveImportMode: async () => {
       const settings = get().settings ?? (await get().loadSettings());
-      if (settings.importMode === "copy") return "copy";
-      if (settings.importMode === "reference") return "reference";
+      if (settings.importMode === "copy") return { mode: "copy" };
+      if (settings.importMode === "reference") return { mode: "reference" };
 
       return new Promise<ImportChoice>((resolve, reject) => {
         set({ importPrompt: { resolve, reject } });
@@ -105,8 +115,16 @@ export const useLibrarySettingsStore = create<LibrarySettingsState>(
       set({ importPrompt: null });
 
       if (remember) {
-        const importMode: ImportMode = choice === "copy" ? "copy" : "reference";
+        const importMode: ImportMode = choice.mode;
         void get().saveLibrarySettings({ importMode });
+        if (choice.mode === "copy" && choice.sourceId != null) {
+          try {
+            await setImportSource(choice.sourceId);
+            await useSourcesStore.getState().loadSources();
+          } catch (err) {
+            console.error("setImportSource failed:", err);
+          }
+        }
       }
 
       await afterUiTransition();
