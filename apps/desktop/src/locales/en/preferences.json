@@ -3,6 +3,7 @@
   "categoriesAria": "Preference categories",
   "sections": {
     "library": "Library",
+    "sources": "Sources",
     "cd": "CD",
     "playback": "Playback",
     "listening": "Privacy",
@@ -16,11 +17,12 @@
     "autoOrganize": "Automatically organize music in the tracks folder",
     "pathFormat": "Path format",
     "placeholders": "Placeholders:",
-    "importMode": "When importing files…",
-    "importCopy": "Copy into library",
-    "importReference": "Reference from source",
+    "importMode": "When adding files from elsewhere…",
+    "importCopy": "Add to Spiral library",
+    "importReference": "Keep files where they are",
     "importAsk": "Always ask",
-    "reloadFailed": "Library moved, but reload failed: {{message}}"
+    "reloadFailed": "Library moved, but reload failed: {{message}}",
+    "importModeDescription": "“Add to Spiral library” copies files into the tracks folder and organizes them. “Keep files where they are” plays them from their current location and never changes them."
   },
   "relocate": {
     "switchTitle": "Switch library location?",
@@ -35,6 +37,33 @@
     "foundFiles_one": "Found {{count}} audio file at <code>{{path}}</code>. Move your current library here, or start a new library and import those files in place.",
     "foundFiles_other": "Found {{count}} audio files at <code>{{path}}</code>. Move your current library here, or start a new library and import those files in place.",
     "empty": "Or start a new empty library here."
+  },
+  "sources": {
+    "description": "Spiral plays music from these places. Files in the Spiral library are copied in and organized; watched folders are played where they are.",
+    "addFolder": "Add folder…",
+    "managedDescription": "Files copied in and organized by Spiral.",
+    "externalDescription": "Files added one at a time from elsewhere, played where they are.",
+    "watchedDescription": "A folder Spiral watches and plays in place.",
+    "trackCount_one": "{{count}} track",
+    "trackCount_other": "{{count}} tracks",
+    "missingCount_one": "{{count}} missing",
+    "missingCount_other": "{{count}} missing",
+    "offline": "Offline",
+    "offlineHint": "Spiral can't reach this folder. Its tracks are marked missing until it's back, or you change its location.",
+    "readOnlyBadge": "Read-only",
+    "rescan": "Rescan",
+    "rescanning": "Scanning…",
+    "changeLocation": "Change location…",
+    "remove": "Remove…",
+    "actionsAria": "Actions for {{name}}",
+    "writable": "Allow Spiral to edit tags in this folder",
+    "writableDescription": "Lets Spiral save tag, artwork, and lyrics edits into these files. Spiral never moves, renames, or deletes them either way.",
+    "removeTitle": "Stop watching “{{name}}”?",
+    "removeBody_one": "Its {{count}} track leaves your Spiral library, along with its playlist entries and listening history. The files on disk stay untouched.",
+    "removeBody_other": "Its {{count}} tracks leave your Spiral library, along with their playlist entries and listening history. The files on disk stay untouched.",
+    "removeConfirm": "Stop watching",
+    "removing": "Removing…",
+    "scanSummary": "Scan finished: {{added}} added, {{updated}} updated, {{missing}} missing, {{restored}} found again."
   },
   "cd": {
     "encodeTo": "Encode CD audio to…",

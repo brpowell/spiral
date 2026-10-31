@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addWatchedSource,
+  getLibrary,
+  getSourceStatuses,
   listSources,
   relocateWatchedSource,
   removeWatchedSource,
@@ -42,5 +44,36 @@ describe("source commands", () => {
       ],
       ["set_source_writable", { sourceId: 3, writable: true }],
     ]);
+  });
+
+  it("fetch watch statuses", async () => {
+    await getSourceStatuses();
+    expect(vi.mocked(invoke)).toHaveBeenCalledWith("get_source_statuses");
+  });
+
+  it("keep each track's source and missing mark from the library", async () => {
+    vi.mocked(invoke).mockResolvedValue([
+      {
+        id: 1,
+        title: "A",
+        filePath: "/m/a.mp3",
+        dateAdded: "2026-01-01",
+        sourceId: 3,
+        missingSince: "2026-10-01T12:00:00Z",
+      },
+      {
+        id: 2,
+        title: "B",
+        file_path: "/m/b.mp3",
+        date_added: "2026-01-01",
+        source_id: 1,
+      },
+    ]);
+    const [a, b] = await getLibrary();
+    expect(a).toMatchObject({
+      sourceId: 3,
+      missingSince: "2026-10-01T12:00:00Z",
+    });
+    expect(b).toMatchObject({ sourceId: 1, missingSince: null });
   });
 });

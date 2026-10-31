@@ -23,3 +23,11 @@ export interface ReconcileSummary {
   failed: number;
   errors: string[];
 }
+
+/** Whether a watched folder is being watched live (see `get_source_statuses`). */
+export type SourceWatchStatus = "watching" | "unreachable" | "notWatching";
+
+export interface SourceStatus {
+  sourceId: number;
+  status: SourceWatchStatus;
+}
