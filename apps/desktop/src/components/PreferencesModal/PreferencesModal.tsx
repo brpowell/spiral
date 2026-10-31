@@ -554,17 +554,6 @@ export function PreferencesModal() {
 
                 <Separator />
 
-                <Checkbox
-                  alignStart
-                  className="preferences__checkbox"
-                  checked={settings.autoOrganize}
-                  onChange={(e) =>
-                    patchSettings({ autoOrganize: e.target.checked })
-                  }
-                >
-                  {t("preferences:library.autoOrganize")}
-                </Checkbox>
-
                 <div className="preferences__organize-path">
                   <FormField
                     label={t("preferences:library.pathFormat")}
@@ -579,17 +568,15 @@ export function PreferencesModal() {
                     <div className="preferences__path-row">
                       <TextInput
                         value={organizePathFormat}
-                        disabled={!settings.autoOrganize}
                         onChange={(e) => setOrganizePathFormat(e.target.value)}
                         onBlur={() => commitOrganizePathFormat()}
                         spellCheck={false}
                       />
                       <Button
                         size="sm"
-                        disabled={
-                          !settings.autoOrganize ||
-                          isDefaultOrganizePathFormat(organizePathFormat)
-                        }
+                        disabled={isDefaultOrganizePathFormat(
+                          organizePathFormat,
+                        )}
                         onClick={() => {
                           const next = settings.defaultOrganizePathFormat;
                           setOrganizePathFormat(next);

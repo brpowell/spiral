@@ -387,19 +387,7 @@
     "externalName": "Other files",
     "missingSince": "File missing since {{date}}",
     "missingNow": "File missing",
-    "readOnly": {
-      "watched": "This track is in “{{name}}”, which Spiral can only read, so its tags can't be edited here.",
-      "someWatched": "Some of these tracks are in “{{name}}”, which Spiral can only read, so their tags can't be edited here.",
-      "external": "This file is outside the Spiral library, so Spiral won't change it.",
-      "someExternal": "Some of these files are outside the Spiral library, so Spiral won't change them.",
-      "openSources": "Folder settings…"
-    },
-    "notManaged": {
-      "replace": "Only tracks in the Spiral library can be replaced. Other files are never changed.",
-      "convertReplace": "Some of these files aren't in the Spiral library, so they can only be added as new tracks."
-    },
     "errors": {
-      "readOnly": "Spiral can't change this file: it's outside the Spiral library, or in a folder Spiral can only read.",
       "notFolder": "That folder doesn't exist or isn't a folder.",
       "insideLibrary": "That folder is inside the Spiral library. Its music is already in your library.",
       "overlap": "That folder overlaps a folder Spiral already watches. Pick one that doesn't contain, or sit inside, a watched folder."

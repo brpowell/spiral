@@ -66,13 +66,14 @@ async fn reconcile_in_background(
 }
 
 /// Startup, and after the library is switched or moved: let the webview reach
-/// every watched folder (for playback and artwork), reconcile all sources in
+/// every source folder (for playback and artwork), reconcile all sources in
 /// the background to catch what changed while Spiral wasn't looking, and
-/// watch the watched folders from now on.
+/// watch their folders from now on.
 pub fn init(app: &AppHandle) {
     let watched = {
         let state = app.state::<DbState>();
         let conn = state.0.lock().unwrap_or_else(|e| e.into_inner());
+        apply_legacy_auto_organize(app, &conn);
         sources::list_sources(&conn).unwrap_or_default()
     };
     for source in &watched {
@@ -99,6 +100,21 @@ pub fn init(app: &AppHandle) {
     });
 }
 
+/// Organizing used to be one global setting. Carry an "off" over to the
+/// default source once, then drop the setting.
+fn apply_legacy_auto_organize(app: &AppHandle, conn: &rusqlite::Connection) {
+    match settings::take_legacy_auto_organize(app) {
+        Ok(Some(false)) => {
+            if let Err(err) = sources::set_source_organize(conn, sources::DEFAULT_SOURCE_ID, false)
+            {
+                eprintln!("carry over auto-organize setting: {err}");
+            }
+        }
+        Ok(_) => {}
+        Err(err) => eprintln!("carry over auto-organize setting: {err}"),
+    }
+}
+
 /// Whether a watched source is being watched live right now.
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -107,7 +123,7 @@ pub struct SourceStatus {
     status: source_watch::WatchStatus,
 }
 
-/// Watch status for every watched source, so the UI can flag offline folders.
+/// Watch status for every source with a folder, so the UI can flag offline ones.
 #[tauri::command]
 pub fn get_source_statuses(state: State<DbState>) -> Result<Vec<SourceStatus>, String> {
     let ids: Vec<i64> = {
@@ -115,7 +131,7 @@ pub fn get_source_statuses(state: State<DbState>) -> Result<Vec<SourceStatus>, S
         sources::list_sources(&conn)
             .map_err(|e| e.to_string())?
             .into_iter()
-            .filter(|s| !s.is_builtin())
+            .filter(|s| s.id != sources::OTHER_SOURCE_ID)
             .map(|s| s.id)
             .collect()
     };
@@ -178,7 +194,7 @@ pub fn remove_source(
     Ok(removed)
 }
 
-/// Look at a source's files again now. For managed and external sources this
+/// Look at a source's files again now. For Other, which has no folder, this
 /// only updates which tracks are missing.
 #[tauri::command]
 pub async fn rescan_source(app: AppHandle, source_id: i64) -> Result<ReconcileSummary, String> {
@@ -237,4 +253,14 @@ pub fn set_source_path_format(
 pub fn set_import_source(state: State<DbState>, source_id: i64) -> Result<Source, String> {
     let conn = state.0.lock().map_err(|e| e.to_string())?;
     sources::set_import_source(&conn, source_id)
+}
+
+/// The source new imports are copied into (the default when none is set).
+#[tauri::command]
+pub fn get_import_source(state: State<DbState>) -> Result<Source, String> {
+    let conn = state.0.lock().map_err(|e| e.to_string())?;
+    let id = sources::import_source_id(&conn).map_err(|e| e.to_string())?;
+    sources::get_source(&conn, id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Source {id} not found"))
 }

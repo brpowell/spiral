@@ -17,8 +17,10 @@ export interface LibrarySettings {
   mediaFolder: string;
   artworkFolder: string;
   databasePath: string;
-  autoOrganize: boolean;
-  /** Full relative path under the tracks folder. Use `/` between folders. */
+  /**
+   * Default organize path, relative to a source's folder, for sources without
+   * their own. Use `/` between folders.
+   */
   organizePathFormat: string;
   defaultOrganizePathFormat: string;
   importMode: ImportMode;
@@ -36,7 +38,6 @@ export interface LibrarySettings {
 
 export interface LibrarySettingsPatch {
   libraryRoot?: string;
-  autoOrganize?: boolean;
   organizePathFormat?: string;
   importMode?: ImportMode;
   cdMetadataFetchMode?: CdMetadataFetchMode;

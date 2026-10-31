@@ -1,8 +1,7 @@
 import { useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
-import { isTrackManaged } from "../../lib/sourceAccess";
-import { useSourcesStore } from "../../store/useSourcesStore";
+import { canDeleteFromDisk } from "../../lib/sourceAccess";
 import type { Track } from "../../types/track";
 import { Button } from "../common/Button/Button";
 import {
@@ -50,11 +49,8 @@ export function RemoveTrackDialog({
 
   const count = tracks.length;
   const heading = t("removeTracks.title", { count });
-  const sourcesById = useSourcesStore((s) => s.sourcesById);
-  // Files outside the library are only ever removed from it, never deleted.
-  const keptOnDisk = tracks.filter(
-    (track) => !isTrackManaged(track, sourcesById),
-  ).length;
+  // Other's loose files are only ever removed from the library, never deleted.
+  const keptOnDisk = tracks.filter((track) => !canDeleteFromDisk(track)).length;
   const allKept = count > 0 && keptOnDisk === count;
 
   return (
