@@ -17,16 +17,18 @@
     "finish": "Finish",
     "progress": "Step {{current}} of {{total}}",
     "library": {
-      "title": "Where should your library live?",
-      "description": "Your database, music, and artwork is organized here.",
-      "pathAria": "Library location",
+      "title": "Where should your Spiral folder live?",
+      "description": "Spiral keeps its database, artwork, and music it copies in here.",
+      "pathAria": "Spiral folder location",
       "change": "Change location",
       "choosing": "Choosing…",
       "musicFolderTitle": "Already have a music folder?",
-      "musicFolderDescription": "Spiral can play it where it is. Your files aren't moved or changed.",
+      "musicFolderDescription": "Add it as a source and Spiral plays it where it is. You choose whether Spiral organizes it.",
       "musicFolderPick": "Use my music folder…",
       "musicFolderAdded": "Spiral is adding the music in {{path}}.",
-      "musicFolderAnother": "Add another folder…"
+      "musicFolderAnother": "Add another folder…",
+      "organizeAsk": "Let Spiral organize this folder",
+      "organizeAskDescription": "Off keeps your files exactly where they are. On renames and sorts them, after showing you what would move."
     },
     "style": {
       "title": "Try on a style",

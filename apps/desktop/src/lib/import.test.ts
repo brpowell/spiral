@@ -410,6 +410,7 @@ describe("commitImportEntries", () => {
     expect(prepareImportFile).toHaveBeenCalledWith(
       "/incoming/song.mp3",
       "copy",
+      undefined,
     );
     expect(saveTrack).toHaveBeenCalledWith({
       ...metadata,

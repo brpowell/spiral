@@ -383,14 +383,14 @@
     }
   },
   "sources": {
-    "managedName": "Spiral library",
-    "externalName": "Other files",
+    "defaultName": "Tracks",
+    "otherName": "Other files",
     "missingSince": "File missing since {{date}}",
     "missingNow": "File missing",
     "errors": {
       "notFolder": "That folder doesn't exist or isn't a folder.",
-      "insideLibrary": "That folder is inside the Spiral library. Its music is already in your library.",
-      "overlap": "That folder overlaps a folder Spiral already watches. Pick one that doesn't contain, or sit inside, a watched folder."
+      "insideLibrary": "That folder is inside the Spiral folder. Its music is already in your library.",
+      "overlap": "That folder overlaps one of your sources. Pick one that doesn't contain, or sit inside, another source."
     }
   }
 }

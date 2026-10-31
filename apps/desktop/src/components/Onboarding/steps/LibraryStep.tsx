@@ -9,6 +9,8 @@ import {
   pickLibraryFolder,
   pickMusicFolder,
   relocateLibrary,
+  rescanSource,
+  setSourceOrganize,
 } from "../../../lib/tauri";
 import { useArtistImageStore } from "../../../store/useArtistImageStore";
 import { useLibrarySettingsStore } from "../../../store/useLibrarySettingsStore";
@@ -19,8 +21,14 @@ import type {
   LibraryDestinationInfo,
   LibraryRelocateMode,
 } from "../../../types/library";
+import type { Source } from "../../../types/source";
 import { LibraryRelocateDialog } from "../../PreferencesModal/LibraryRelocateDialog";
+import {
+  OrganizePreviewDialog,
+  type OrganizeRequest,
+} from "../../PreferencesModal/OrganizePreviewDialog";
 import { Button } from "../../common/Button/Button";
+import { Switch } from "../../common/Switch/Switch";
 import { IconOpenFolder } from "../../icons";
 
 /** Splits `/Users/me/Music/Spiral Library` into its parent folder and final name. */
@@ -32,10 +40,10 @@ function splitLibraryPath(path: string): { parent: string; name: string } {
 }
 
 /**
- * A first-time user's library already exists (the app creates it at launch) but
- * is empty, so asking "move or start fresh?" would imply they had one. Pick the
- * obvious mode for them instead: use an existing library there, import music
- * found there, or just move the empty library.
+ * A first-time user's Spiral folder already exists (the app creates it at
+ * launch) but is empty, so asking "move or start fresh?" would imply they had
+ * one. Pick the obvious mode for them instead: use an existing Spiral folder
+ * there, import music found there, or just move the empty one.
  */
 function firstRunMode(info: LibraryDestinationInfo): LibraryRelocateMode {
   if (info.hasDatabase) return "switch";
@@ -46,7 +54,7 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** Pick where the library lives. Mirrors Preferences → Library location. */
+/** Pick where the Spiral folder lives. Mirrors Preferences → Library → Spiral folder. */
 export function LibraryStep() {
   const { t } = useTranslation(["common", "preferences"]);
   const settings = useLibrarySettingsStore((s) => s.settings);
@@ -211,14 +219,18 @@ export function LibraryStep() {
 }
 
 /**
- * "I already have a music folder": watch a folder in place instead of copying
- * it in. Optional; Next skips it.
+ * "I already have a music folder": add it as a source, played where it is.
+ * Then ask whether Spiral should organize it; off by default, and turning it
+ * on goes through the organize preview. Optional; Next skips it.
  */
 function MusicFolderChoice({ disabled }: { disabled: boolean }) {
   const { t } = useTranslation("common");
-  const [added, setAdded] = useState<string[]>([]);
+  const sourcesById = useSourcesStore((s) => s.sourcesById);
+  const [added, setAdded] = useState<Source[]>([]);
   const [adding, setAdding] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [organizing, setOrganizing] = useState<OrganizeRequest | null>(null);
 
   const add = async () => {
     if (adding) return;
@@ -229,11 +241,32 @@ function MusicFolderChoice({ disabled }: { disabled: boolean }) {
       if (!folder) return;
       const source = await addSource(folder);
       useSourcesStore.getState().applySource(source);
-      setAdded((prev) => [...prev, source.rootPath ?? folder]);
+      setAdded((prev) => [...prev, source]);
     } catch (err) {
       setError(describeSourceError(err));
     } finally {
       setAdding(false);
+    }
+  };
+
+  const toggleOrganize = async (source: Source, on: boolean) => {
+    if (busyId != null) return;
+    setBusyId(source.id);
+    setError(null);
+    try {
+      if (on) {
+        // The folder was just added; finish scanning it so the preview sees every file.
+        await rescanSource(source.id);
+        setOrganizing({ source });
+      } else {
+        useSourcesStore
+          .getState()
+          .applySource(await setSourceOrganize(source.id, false));
+      }
+    } catch (err) {
+      setError(describeSourceError(err));
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -245,11 +278,30 @@ function MusicFolderChoice({ disabled }: { disabled: boolean }) {
       <p className="onboarding-music-folder__description">
         {t("onboarding.library.musicFolderDescription")}
       </p>
-      {added.map((path) => (
-        <p key={path} className="onboarding-music-folder__added" role="status">
-          {t("onboarding.library.musicFolderAdded", { path })}
-        </p>
-      ))}
+      {added.map((source) => {
+        const current = sourcesById.get(source.id) ?? source;
+        const path = current.rootPath ?? "";
+        return (
+          <div key={source.id} className="onboarding-music-folder__source">
+            <p className="onboarding-music-folder__added" role="status">
+              {t("onboarding.library.musicFolderAdded", { path })}
+            </p>
+            <Switch
+              alignStart
+              checked={current.autoOrganize}
+              disabled={disabled || busyId != null}
+              onChange={(e) => void toggleOrganize(current, e.target.checked)}
+            >
+              <span className="onboarding-music-folder__organize">
+                <span>{t("onboarding.library.organizeAsk")}</span>
+                <span className="onboarding-music-folder__description">
+                  {t("onboarding.library.organizeAskDescription")}
+                </span>
+              </span>
+            </Switch>
+          </div>
+        );
+      })}
       <Button
         variant="outline"
         onClick={() => void add()}
@@ -265,6 +317,11 @@ function MusicFolderChoice({ disabled }: { disabled: boolean }) {
           {error}
         </p>
       ) : null}
+      <OrganizePreviewDialog
+        request={organizing}
+        onClose={() => setOrganizing(null)}
+        onApplied={() => useSourcesStore.getState().loadSources()}
+      />
     </section>
   );
 }

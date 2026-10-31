@@ -67,7 +67,7 @@ describe("Onboarding", () => {
 
     expect(overlay.className).toContain("onboarding--docked");
     expect(
-      screen.getByRole("heading", { name: "Where should your library live?" }),
+      screen.getByRole("heading", { name: "Where should your Spiral folder live?" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
     expect(
