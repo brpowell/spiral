@@ -43,13 +43,7 @@ pub struct Source {
     pub created_at: String,
 }
 
-impl Source {
-    /// The default source or Other, which can't be removed or moved.
-    pub fn is_builtin(&self) -> bool {
-        is_builtin(self.id)
-    }
-}
-
+/// The default source or Other, which can't be removed or moved.
 pub fn is_builtin(source_id: i64) -> bool {
     source_id == DEFAULT_SOURCE_ID || source_id == OTHER_SOURCE_ID
 }
@@ -616,7 +610,6 @@ pub fn set_import_source(conn: &Connection, id: i64) -> Result<Source, String> {
 }
 
 /// The source new imports are copied into: the one marked, else the default.
-#[cfg_attr(not(test), allow(dead_code))] // Imports start using it with per-source behavior.
 pub fn import_source_id(conn: &Connection) -> Result<i64, rusqlite::Error> {
     Ok(conn
         .query_row(
@@ -626,6 +619,85 @@ pub fn import_source_id(conn: &Connection) -> Result<i64, rusqlite::Error> {
         )
         .optional()?
         .unwrap_or(DEFAULT_SOURCE_ID))
+}
+
+/// The path format a source's files are organized with: its own, else
+/// `global_format`. `None` when organizing is off for it (always for Other).
+/// Import, replace, convert and tag edits use this, as does the organize
+/// planner.
+pub fn organize_settings(
+    conn: &Connection,
+    source_id: i64,
+    global_format: &str,
+) -> Result<Option<String>, rusqlite::Error> {
+    if source_id == OTHER_SOURCE_ID {
+        return Ok(None);
+    }
+    let row: Option<(bool, Option<String>)> = conn
+        .query_row(
+            "SELECT auto_organize, path_format FROM sources WHERE id = ?1",
+            params![source_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?;
+    Ok(match row {
+        Some((true, format)) => Some(
+            format
+                .filter(|f| !f.trim().is_empty())
+                .unwrap_or_else(|| global_format.to_string()),
+        ),
+        _ => None,
+    })
+}
+
+/// A source's folder and organize format, for writing a file into it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WriteTarget {
+    pub source_id: i64,
+    pub root: PathBuf,
+    /// `Some` when files are organized: the effective path format.
+    pub path_format: Option<String>,
+}
+
+/// Where a new file for `source_id` goes. Other has no folder, so its files
+/// go to the import source instead. Fails when the source's folder is not
+/// known, or (for a user source) not reachable, so nothing is written to a
+/// drive that isn't there.
+pub fn write_target(
+    conn: &Connection,
+    source_id: i64,
+    global_format: &str,
+) -> Result<WriteTarget, String> {
+    let source_id = if source_id == OTHER_SOURCE_ID {
+        import_source_id(conn).map_err(|e| e.to_string())?
+    } else {
+        source_id
+    };
+    let roots = SourceRoots::load(conn).map_err(|e| e.to_string())?;
+    let root = roots
+        .root(source_id)
+        .ok_or_else(|| format!("Source {source_id} has no folder"))?
+        .to_path_buf();
+    if source_id != DEFAULT_SOURCE_ID && !root.is_dir() {
+        return Err(format!("The folder {} is not available", root.display()));
+    }
+    let path_format =
+        organize_settings(conn, source_id, global_format).map_err(|e| e.to_string())?;
+    Ok(WriteTarget {
+        source_id,
+        root,
+        path_format,
+    })
+}
+
+/// True when a walk or watcher of the source rooted at `source_root` must
+/// skip `path` because it is in the Spiral folder. A user source may contain
+/// the Spiral folder and skips all of it (database, artwork, packs and the
+/// default source's files). The default source lives in it and skips only
+/// what is outside its own folder.
+pub fn is_outside_source_walk(path: &Path, source_root: &Path, roots: &LibraryRoots) -> bool {
+    is_inside_spiral_folder(path, roots)
+        && !(is_inside_spiral_folder(source_root, roots) && is_within(path, source_root))
 }
 
 #[cfg(test)]
@@ -1131,6 +1203,109 @@ mod tests {
         assert!(remove_source(&conn, DEFAULT_SOURCE_ID).is_err());
         assert!(remove_source(&conn, OTHER_SOURCE_ID).is_err());
         assert!(remove_source(&conn, 999).is_err());
+    }
+
+    #[test]
+    fn organize_settings_give_the_effective_format_or_none() {
+        let tmp = TempDir::new("organize-settings");
+        let (conn, roots) = library(&tmp);
+        let rock = add(&conn, &roots, &tmp.dir("Rock")).unwrap();
+        let global = "{albumArtist}/{album}/{title}.{ext}";
+
+        // The default source starts organized with the global format.
+        assert_eq!(
+            organize_settings(&conn, DEFAULT_SOURCE_ID, global).unwrap(),
+            Some(global.to_string())
+        );
+        assert_eq!(organize_settings(&conn, rock.id, global).unwrap(), None);
+        assert_eq!(
+            organize_settings(&conn, OTHER_SOURCE_ID, global).unwrap(),
+            None
+        );
+        assert_eq!(organize_settings(&conn, 999, global).unwrap(), None);
+
+        set_source_organize(&conn, rock.id, true).unwrap();
+        assert_eq!(
+            organize_settings(&conn, rock.id, global).unwrap(),
+            Some(global.to_string())
+        );
+        set_source_path_format(&conn, rock.id, Some("{title}.{ext}".into())).unwrap();
+        assert_eq!(
+            organize_settings(&conn, rock.id, global).unwrap(),
+            Some("{title}.{ext}".to_string())
+        );
+        set_source_organize(&conn, DEFAULT_SOURCE_ID, false).unwrap();
+        assert_eq!(
+            organize_settings(&conn, DEFAULT_SOURCE_ID, global).unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn write_targets_follow_the_source_and_send_other_to_the_import_source() {
+        let tmp = TempDir::new("write-target");
+        let (conn, roots) = library(&tmp);
+        let global = "{title}.{ext}";
+        let rock = add(&conn, &roots, &tmp.dir("Rock")).unwrap();
+
+        let default = write_target(&conn, DEFAULT_SOURCE_ID, global).unwrap();
+        assert_eq!(
+            default,
+            WriteTarget {
+                source_id: DEFAULT_SOURCE_ID,
+                root: roots.media_folder.clone(),
+                path_format: Some(global.into()),
+            }
+        );
+        assert_eq!(
+            write_target(&conn, OTHER_SOURCE_ID, global).unwrap(),
+            default
+        );
+
+        set_import_source(&conn, rock.id).unwrap();
+        let to_rock = WriteTarget {
+            source_id: rock.id,
+            root: tmp.0.join("Rock"),
+            path_format: None,
+        };
+        assert_eq!(write_target(&conn, rock.id, global).unwrap(), to_rock);
+        assert_eq!(
+            write_target(&conn, OTHER_SOURCE_ID, global).unwrap(),
+            to_rock
+        );
+
+        // An unplugged folder is never written to (or created).
+        std::fs::remove_dir(tmp.0.join("Rock")).unwrap();
+        assert!(write_target(&conn, rock.id, global).is_err());
+        assert!(!tmp.0.join("Rock").exists());
+    }
+
+    #[test]
+    fn walks_skip_the_spiral_folder_except_the_default_sources_own_files() {
+        let tmp = TempDir::new("walk-skip");
+        let roots = roots(&tmp);
+        let music = tmp.0.join("Music");
+        let in_tracks = roots.media_folder.join("A/a.mp3");
+        let in_packs = roots.library_root.join("Packs/x.wav");
+        // A user source around the Spiral folder skips all of it.
+        assert!(is_outside_source_walk(&in_tracks, &music, &roots));
+        assert!(is_outside_source_walk(&in_packs, &music, &roots));
+        assert!(!is_outside_source_walk(
+            &music.join("a.mp3"),
+            &music,
+            &roots
+        ));
+        // The default source walks its own folder and nothing else there.
+        assert!(!is_outside_source_walk(
+            &in_tracks,
+            &roots.media_folder,
+            &roots
+        ));
+        assert!(is_outside_source_walk(
+            &in_packs,
+            &roots.media_folder,
+            &roots
+        ));
     }
 
     #[test]

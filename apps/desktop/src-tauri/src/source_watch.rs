@@ -1,6 +1,6 @@
-//! File watchers for watched library sources: one recursive watcher per
-//! watched folder, so files added, changed, renamed or deleted there show up
-//! without a rescan.
+//! File watchers for library sources: one recursive watcher per source
+//! folder (the default source's included; Other has none), so files added,
+//! changed, renamed or deleted there show up without a rescan.
 //!
 //! Events are coalesced per source until the folder has been quiet for
 //! [`QUIET`], then that source's changed paths are reconciled off the event
@@ -12,7 +12,7 @@
 use crate::commands::library::DbState;
 use crate::commands::sources::reconcile_and_notify;
 use crate::settings;
-use crate::source_scan::ReconcileScope;
+use crate::source_scan::{is_hidden_below, ReconcileScope};
 use crate::sources::{self, LibraryRoots};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -56,14 +56,17 @@ impl WatchRoot {
     }
 
     /// `path` in the stored root's form, or `None` when it is outside the
-    /// root or inside the Spiral library (which a watched folder may contain).
+    /// root, hidden, or in the Spiral folder but not this source's part of it
+    /// (a user source may contain the Spiral folder).
     fn accept(&self, path: &Path, roots: &LibraryRoots) -> Option<PathBuf> {
         let path = match path.strip_prefix(&self.resolved) {
             Ok(rest) if self.resolved != self.root => self.root.join(rest),
             _ => path.to_path_buf(),
         };
-        (path.starts_with(&self.root) && !sources::is_inside_spiral_folder(&path, roots))
-            .then_some(path)
+        (path.starts_with(&self.root)
+            && !is_hidden_below(&path, &self.root)
+            && !sources::is_outside_source_walk(&path, &self.root, roots))
+        .then_some(path)
     }
 }
 
@@ -288,8 +291,8 @@ pub fn sync(app: &AppHandle) {
         match sources::list_sources(&conn) {
             Ok(list) => list
                 .into_iter()
-                // User sources only; the default source isn't watched yet.
-                .filter(|s| !s.is_builtin())
+                // Other has no folder; every other source is watched.
+                .filter(|s| s.id != sources::OTHER_SOURCE_ID)
                 .filter_map(|s| Some((s.id, PathBuf::from(s.root_path?))))
                 .collect(),
             Err(err) => {
@@ -641,6 +644,31 @@ mod tests {
             None
         );
         assert_eq!(root.accept(Path::new("/music/Spiral Library"), &lib), None);
+        assert_eq!(root.accept(Path::new("/music/a/.b.mp3"), &lib), None);
+    }
+
+    #[test]
+    fn accept_keeps_the_default_sources_own_files() {
+        let lib = roots("/music/Spiral Library");
+        let root = WatchRoot {
+            root: lib.media_folder.clone(),
+            resolved: lib.media_folder.clone(),
+        };
+        assert_eq!(
+            root.accept(Path::new("/music/Spiral Library/Tracks/A/x.mp3"), &lib),
+            Some("/music/Spiral Library/Tracks/A/x.mp3".into())
+        );
+        assert_eq!(
+            root.accept(Path::new("/music/Spiral Library/Packs/x.wav"), &lib),
+            None
+        );
+        assert_eq!(
+            root.accept(
+                Path::new("/music/Spiral Library/Tracks/.spiral-convert/1.m4a"),
+                &lib
+            ),
+            None
+        );
     }
 
     #[test]

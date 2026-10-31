@@ -14,7 +14,6 @@
   "library": {
     "location": "Library location",
     "locationDescription": "Tracks, artwork, and the database are stored in this folder.",
-    "autoOrganize": "Automatically organize music in the tracks folder",
     "pathFormat": "Path format",
     "placeholders": "Placeholders:",
     "importMode": "When adding files from elsewhere…",

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { describeSourceError, isTrackWritable } from "../../lib/sourceAccess";
-import { useSourcesStore } from "../../store/useSourcesStore";
+import { describeSourceError } from "../../lib/sourceAccess";
 import { useTranslation } from "react-i18next";
 import { ImageCropModal } from "../common/ImageCropModal/ImageCropModal";
 import type { ImageCrop } from "../../lib/imageCrop";
@@ -626,10 +625,6 @@ export function AlbumEditor() {
       const matched = matchRecordingMbid(track, tracklist);
       if (!matched) continue;
       if ((track.recordingMbid?.trim() || "") === matched) continue;
-      // Read-only files keep their tags; the backend would refuse anyway.
-      if (!isTrackWritable(track, useSourcesStore.getState().sourcesById)) {
-        continue;
-      }
       try {
         const artPath = track.artPath;
         const updated = await writeTrackMetadata(

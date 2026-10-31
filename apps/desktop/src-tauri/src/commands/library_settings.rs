@@ -5,6 +5,7 @@ use crate::library_relocate::{self, LibraryRelocateMode};
 use crate::path_scope;
 use crate::rating_sync::RatingSync;
 use crate::settings::{self, LibrarySettingsPatch, LibrarySettingsResponse};
+use crate::sources;
 use tauri::{AppHandle, State};
 
 #[tauri::command]
@@ -23,21 +24,49 @@ pub fn save_library_settings(
     Ok(resolved)
 }
 
+/// Copy a file into the import source, organized the way that source is, or
+/// (mode `reference`) leave it where it is. Returns the path to save.
 #[tauri::command]
 pub fn prepare_import_file(
     app: AppHandle,
+    state: State<'_, DbState>,
     source_path: String,
     mode: String,
 ) -> Result<String, String> {
     path_scope::ensure_allowed(&app, &source_path)?;
     let resolved = settings::resolved_library_settings(&app);
-    import_files::prepare_import_file(
+    prepare_import(
+        &state,
         &source_path,
         &mode,
-        resolved.auto_organize,
-        &resolved.media_folder,
         &resolved.organize_path_format,
-        settings::lyrics_sidecar_sync_enabled(&app),
+        resolved.lyrics_sidecar_sync_enabled,
+    )
+}
+
+fn prepare_import(
+    state: &DbState,
+    source_path: &str,
+    mode: &str,
+    global_format: &str,
+    lyrics_sidecar_enabled: bool,
+) -> Result<String, String> {
+    if mode == "reference" {
+        return import_files::reference_import_file(source_path);
+    }
+    let target = {
+        let conn = state.0.lock().map_err(|e| e.to_string())?;
+        let id = sources::import_source_id(&conn).map_err(|e| e.to_string())?;
+        sources::write_target(&conn, id, global_format)?
+    };
+    import_files::prepare_import_file(
+        source_path,
+        mode,
+        import_files::ImportDestination {
+            folder: &target.root,
+            path_format: target.path_format.as_deref(),
+        },
+        lyrics_sidecar_enabled,
         None,
     )
 }
@@ -94,6 +123,70 @@ pub fn relocate_library(
 #[cfg(test)]
 mod tests {
     use super::nearest_existing_dir;
+
+    mod import_target {
+        use super::super::prepare_import;
+        use crate::commands::library::DbState;
+        use crate::source_test_support::*;
+        use crate::sources;
+        use crate::test_fixtures::ogg;
+        use std::path::Path;
+        use std::sync::Mutex;
+
+        const GLOBAL: &str = "{artist}/{title}.{ext}";
+
+        #[test]
+        fn imports_are_copied_into_the_import_source_its_own_way() {
+            let tmp = TempDir::new("import-target");
+            let conn = conn();
+            let organized = tmp.dir("Organized");
+            let loose = tmp.dir("Loose");
+            let organized_id = add_user_source(&conn, &organized);
+            let loose_id = add_user_source(&conn, &loose);
+            sources::set_source_organize(&conn, organized_id, true).unwrap();
+            sources::set_source_path_format(&conn, organized_id, Some("{title}/x.{ext}".into()))
+                .unwrap();
+            let state = DbState(Mutex::new(conn));
+            let incoming = ogg::copy_minimal(&tmp.dir("Incoming"), "song.ogg");
+            let incoming = incoming.to_string_lossy();
+            let set_target = |id| {
+                sources::set_import_source(&state.0.lock().unwrap(), id).unwrap();
+            };
+
+            set_target(organized_id);
+            let copied = prepare_import(&state, &incoming, "copy", GLOBAL, false).unwrap();
+            let copied = Path::new(&copied);
+            assert!(copied.starts_with(&organized), "{}", copied.display());
+            assert!(copied.ends_with("x.ogg"), "{}", copied.display());
+            assert!(copied.is_file());
+
+            set_target(loose_id);
+            let copied = prepare_import(&state, &incoming, "copy", GLOBAL, false).unwrap();
+            assert_eq!(Path::new(&copied), loose.join("song.ogg"));
+        }
+
+        #[test]
+        fn keeping_files_in_place_never_copies() {
+            let tmp = TempDir::new("import-reference");
+            let state = DbState(Mutex::new(conn()));
+            let file = ogg::copy_minimal(&tmp.0, "song.ogg");
+            let path = file.to_string_lossy();
+            assert_eq!(
+                prepare_import(&state, &path, "reference", GLOBAL, false).unwrap(),
+                path
+            );
+            assert_eq!(std::fs::read_dir(&tmp.0).unwrap().count(), 1);
+            let missing = tmp.0.join("gone.ogg");
+            assert!(prepare_import(
+                &state,
+                &missing.to_string_lossy(),
+                "reference",
+                GLOBAL,
+                false
+            )
+            .is_err());
+        }
+    }
 
     #[test]
     fn nearest_existing_dir_returns_existing_dir_as_is() {

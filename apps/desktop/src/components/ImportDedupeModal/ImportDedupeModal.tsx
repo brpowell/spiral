@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { isTrackManaged } from "../../lib/sourceAccess";
-import { useSourcesStore } from "../../store/useSourcesStore";
 import { useFileSize } from "../../hooks/useFileSize";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { t } from "../../lib/i18n";
@@ -85,7 +83,6 @@ export function ImportDedupeModal() {
     (s) => s.resolveImportDedupe,
   );
   const rejectImportDedupe = useImportDedupeStore((s) => s.rejectImportDedupe);
-  const sourcesById = useSourcesStore((s) => s.sourcesById);
 
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -145,10 +142,6 @@ export function ImportDedupeModal() {
     ? (context.incoming.lyrics.format ?? null)
     : null;
   const existingLyricsFormat = context?.existing.lyricsFormat ?? null;
-  // Replacing moves the incoming file over the existing one, so only tracks
-  // whose file is Spiral's can be replaced.
-  const canReplace =
-    context == null || isTrackManaged(context.existing, sourcesById);
 
   return (
     <Modal
@@ -194,9 +187,7 @@ export function ImportDedupeModal() {
             />
           </div>
           <p className="import-dedupe-modal__replace-note">
-            {canReplace
-              ? t("dialogs:importDedupe.replaceNote")
-              : t("library:sources.notManaged.replace")}
+            {t("dialogs:importDedupe.replaceNote")}
           </p>
           {(context.hasLyricsConflict || context.remainingDuplicates > 0) && (
             <div className="import-dedupe-modal__options">
@@ -235,14 +226,7 @@ export function ImportDedupeModal() {
         <Button variant="secondary" onClick={() => void handleChoice("import")}>
           {t("dialogs:importDedupe.importAnyway")}
         </Button>
-        <Button
-          variant="danger"
-          disabled={!canReplace}
-          title={
-            canReplace ? undefined : t("library:sources.notManaged.replace")
-          }
-          onClick={() => void handleChoice("replace")}
-        >
+        <Button variant="danger" onClick={() => void handleChoice("replace")}>
           {t("dialogs:importDedupe.replace")}
         </Button>
       </ModalFooter>

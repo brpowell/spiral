@@ -4,12 +4,31 @@ use crate::metadata_reader::{self, read_basic_tags};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-fn build_flat_copy_path(media_folder: &Path, source: &Path) -> PathBuf {
+fn build_flat_copy_path(folder: &Path, source: &Path) -> PathBuf {
     let file_name = source
         .file_name()
         .map(|n| n.to_owned())
         .unwrap_or_else(|| std::ffi::OsStr::new("track.mp3").to_owned());
-    media_folder.join(file_name)
+    folder.join(file_name)
+}
+
+/// Where a copied file goes.
+#[derive(Debug, Clone, Copy)]
+pub struct ImportDestination<'a> {
+    /// With a format, the source root the organized path is built under;
+    /// without one, the folder the file is copied into as it is named.
+    pub folder: &'a Path,
+    /// The source's effective organize format, `None` when it isn't organized.
+    pub path_format: Option<&'a str>,
+}
+
+/// A file imported where it is ("Keep files where they are"): it must exist,
+/// and is saved at its own path (in Other, unless a source's folder holds it).
+pub fn reference_import_file(source_path: &str) -> Result<String, String> {
+    if !Path::new(source_path).is_file() {
+        return Err(format!("Source is not a file: {source_path}"));
+    }
+    Ok(source_path.to_string())
 }
 
 /// Copy (or reference) an import source into the library.
@@ -19,9 +38,7 @@ fn build_flat_copy_path(media_folder: &Path, source: &Path) -> PathBuf {
 pub fn prepare_import_file(
     source_path: &str,
     mode: &str,
-    auto_organize: bool,
-    media_folder: &str,
-    organize_path_format: &str,
+    dest: ImportDestination<'_>,
     lyrics_sidecar_enabled: bool,
     allow_overwrite: Option<&Path>,
 ) -> Result<String, String> {
@@ -38,11 +55,11 @@ pub fn prepare_import_file(
         return Err(format!("Invalid import mode: {mode}"));
     }
 
-    let media = Path::new(media_folder);
+    let media = dest.folder;
     fs::create_dir_all(media).map_err(|e| format!("failed to create tracks folder: {e}"))?;
 
     let tags = read_basic_tags(source);
-    let dest = if auto_organize {
+    let dest = if let Some(organize_path_format) = dest.path_format {
         let title = tags
             .title
             .clone()
@@ -89,6 +106,20 @@ mod tests {
     use std::io::Write;
     use std::path::PathBuf;
 
+    fn organized(folder: &Path) -> ImportDestination<'_> {
+        ImportDestination {
+            folder,
+            path_format: Some(library_organize::DEFAULT_ORGANIZE_PATH_FORMAT),
+        }
+    }
+
+    fn flat(folder: &Path) -> ImportDestination<'_> {
+        ImportDestination {
+            folder,
+            path_format: None,
+        }
+    }
+
     #[test]
     fn sanitize_strips_path_separators() {
         assert_eq!(sanitize_filename("AC/DC"), "ACDC");
@@ -109,9 +140,7 @@ mod tests {
         let result = prepare_import_file(
             source.to_str().unwrap(),
             "reference",
-            true,
-            media.to_str().unwrap(),
-            library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
+            organized(&media),
             true,
             None,
         )
@@ -134,9 +163,7 @@ mod tests {
         let result = prepare_import_file(
             source.to_str().unwrap(),
             "copy",
-            false,
-            media.to_str().unwrap(),
-            library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
+            flat(&media),
             false,
             Some(&source),
         )
@@ -164,16 +191,9 @@ mod tests {
         }
 
         let media = dir.join("media");
-        let result = prepare_import_file(
-            source.to_str().unwrap(),
-            "copy",
-            false,
-            media.to_str().unwrap(),
-            library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
-            true,
-            None,
-        )
-        .unwrap();
+        let result =
+            prepare_import_file(source.to_str().unwrap(), "copy", flat(&media), true, None)
+                .unwrap();
 
         let dest = PathBuf::from(&result);
         assert!(dest.is_file());
@@ -201,16 +221,9 @@ mod tests {
         }
 
         let media = dir.join("media");
-        let result = prepare_import_file(
-            source.to_str().unwrap(),
-            "copy",
-            false,
-            media.to_str().unwrap(),
-            library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
-            false,
-            None,
-        )
-        .unwrap();
+        let result =
+            prepare_import_file(source.to_str().unwrap(), "copy", flat(&media), false, None)
+                .unwrap();
 
         let dest = PathBuf::from(&result);
         assert!(dest.is_file());
@@ -246,9 +259,7 @@ mod tests {
         let result = prepare_import_file(
             source.to_str().unwrap(),
             "copy",
-            true,
-            media.to_str().unwrap(),
-            library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
+            organized(&media),
             true,
             None,
         )
@@ -284,9 +295,7 @@ mod tests {
         let result = prepare_import_file(
             incoming.to_str().unwrap(),
             "copy",
-            false,
-            media.to_str().unwrap(),
-            library_organize::DEFAULT_ORGANIZE_PATH_FORMAT,
+            flat(&media),
             false,
             Some(&existing),
         )

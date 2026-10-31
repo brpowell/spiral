@@ -1,15 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { Source } from "../types/source";
 import {
+  canDeleteFromDisk,
   countTracksBySource,
   describeSourceError,
-  isSourceReadOnlyError,
-  readOnlyReason,
   sourceDisplayName,
   sourceErrorCode,
   sourceRole,
   sourceSortRank,
-  trackAccess,
 } from "./sourceAccess";
 
 function source(patch: Partial<Source> & Pick<Source, "id">): Source {
@@ -33,77 +31,23 @@ const managed = source({
 });
 const external = source({ id: 2 });
 const rock = source({ id: 3, name: "Rock", rootPath: "/Music/Rock" });
-const jazz = source({ id: 4, name: "Jazz", rootPath: "/Music/Jazz" });
-const sourcesById = new Map(
-  [managed, external, rock, jazz].map((s) => [s.id, s]),
-);
 
-describe("trackAccess", () => {
-  it("lets Spiral write and manage its own tracks and ones still importing", () => {
-    expect(trackAccess({ sourceId: 1 }, sourcesById)).toMatchObject({
-      writable: true,
-      managed: true,
-    });
-    expect(trackAccess({}, sourcesById)).toMatchObject({
-      writable: true,
-      managed: true,
-    });
+describe("canDeleteFromDisk", () => {
+  it("allows deleting files in every source with a folder", () => {
+    expect(canDeleteFromDisk({ sourceId: 1 })).toBe(true);
+    expect(canDeleteFromDisk({ sourceId: 3 })).toBe(true);
+    expect(canDeleteFromDisk({ sourceId: 9 })).toBe(true);
+    expect(canDeleteFromDisk({})).toBe(true);
   });
 
-  it("writes the files of folders the user added, but doesn't manage them", () => {
-    expect(trackAccess({ sourceId: 3 }, sourcesById)).toMatchObject({
-      writable: true,
-      managed: false,
-      source: rock,
-    });
-  });
-
-  it("never writes Other's loose files", () => {
-    expect(trackAccess({ sourceId: 2 }, sourcesById).writable).toBe(false);
-    expect(trackAccess({ sourceId: 2 }, new Map()).writable).toBe(false);
-  });
-
-  it("decides by id before the sources list loads", () => {
-    expect(trackAccess({ sourceId: 9 }, new Map())).toMatchObject({
-      writable: true,
-      managed: false,
-      source: null,
-    });
-    expect(trackAccess({ sourceId: 1 }, new Map()).managed).toBe(true);
-  });
-});
-
-describe("readOnlyReason", () => {
-  it("is null when every track can be written", () => {
-    expect(
-      readOnlyReason([{ sourceId: 1 }, { sourceId: 4 }], sourcesById),
-    ).toBeNull();
-  });
-
-  it("says when only some of a selection is read-only", () => {
-    const some = readOnlyReason(
-      [{ sourceId: 1 }, { sourceId: 2 }],
-      sourcesById,
-    );
-    const all = readOnlyReason([{ sourceId: 2 }], sourcesById);
-    expect(some?.message).not.toBe(all?.message);
-    expect(some?.message).toMatch(/^Some/);
-  });
-
-  it("explains external files without a toggle to point at", () => {
-    const reason = readOnlyReason([{ sourceId: 2 }], sourcesById);
-    expect(reason?.watched).toBe(false);
-    expect(reason?.message).toMatch(/outside the Spiral library/);
+  it("keeps Other's loose files on disk", () => {
+    expect(canDeleteFromDisk({ sourceId: 2 })).toBe(false);
   });
 });
 
 describe("source error mapping", () => {
   it("recognizes coded errors by prefix", () => {
-    expect(
-      sourceErrorCode(
-        "source_read_only: tag edit is not allowed because this file is not in the Spiral library",
-      ),
-    ).toBe("source_read_only");
+    expect(sourceErrorCode("source_read_only: gone")).toBeNull();
     expect(sourceErrorCode(new Error("source_overlap: /a overlaps /b"))).toBe(
       "source_overlap",
     );
@@ -113,14 +57,10 @@ describe("source error mapping", () => {
     expect(sourceErrorCode("source_not_folder: /x")).toBe("source_not_folder");
     expect(sourceErrorCode("disk full")).toBeNull();
     // Only a prefix counts.
-    expect(sourceErrorCode("failed: source_read_only")).toBeNull();
+    expect(sourceErrorCode("failed: source_overlap")).toBeNull();
   });
 
   it("localizes coded errors and passes others through", () => {
-    expect(isSourceReadOnlyError("source_read_only: nope")).toBe(true);
-    expect(describeSourceError("source_read_only: nope")).toMatch(
-      /^Spiral can't change this file/,
-    );
     expect(describeSourceError("source_overlap: /a overlaps /b")).toMatch(
       /overlaps a folder Spiral already watches/,
     );

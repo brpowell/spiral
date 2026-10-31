@@ -19,8 +19,6 @@ import {
   saveTrack,
 } from "./tauri";
 import { shouldAutoReplaceMissingDuplicate } from "./missingFileTrack";
-import { isTrackManaged } from "./sourceAccess";
-import { useSourcesStore } from "../store/useSourcesStore";
 import { importLyricsConflict, trackLyricsToInput } from "./lyrics";
 import {
   applyBatchRule,
@@ -135,17 +133,12 @@ async function detectImportLyricsConflict(
 async function resolveDuplicateAction(
   context: ImportDuplicateContext,
 ): Promise<ImportDedupeResolution> {
-  // Only Spiral's own files can be replaced; for others the user picks again.
-  const managed = isTrackManaged(
-    context.existing,
-    useSourcesStore.getState().sourcesById,
-  );
-  if (managed && (await shouldAutoReplaceMissingDuplicate(context.existing))) {
+  if (await shouldAutoReplaceMissingDuplicate(context.existing)) {
     return { action: "replace" };
   }
 
   const { batchRule, promptImportDedupe } = useImportDedupeStore.getState();
-  if (batchRule != null && (managed || batchRule.action !== "replace")) {
+  if (batchRule != null) {
     return applyBatchRule(batchRule, context);
   }
   return promptImportDedupe(context);

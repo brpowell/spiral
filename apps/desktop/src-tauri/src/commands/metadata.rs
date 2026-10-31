@@ -15,7 +15,7 @@ use crate::models::TrackInput;
 use crate::models::{Track, TrackMetadataUpdate};
 use crate::path_scope;
 use crate::settings;
-use crate::track_permissions::{track_permissions, TrackPermissions};
+use crate::sources;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -460,27 +460,41 @@ pub async fn clear_metadata_cache(app: AppHandle) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
-/// Write tags to a track's file and, for managed files with auto-organize on,
-/// move it into the organized layout. Returns the new path when it moved.
-/// Fails with a `source_read_only` error when the track's source forbids it.
+/// How a track's source organizes its files: the source root and the
+/// effective path format. `None` when the source isn't organized (always for
+/// Other) or its folder isn't known.
+fn organize_for_track(
+    conn: &rusqlite::Connection,
+    track: &Track,
+    global_format: &str,
+) -> Result<Option<(PathBuf, String)>, String> {
+    let Some(format) = sources::organize_settings(conn, track.source_id, global_format)
+        .map_err(|e| e.to_string())?
+    else {
+        return Ok(None);
+    };
+    let roots = sources::SourceRoots::load(conn).map_err(|e| e.to_string())?;
+    Ok(roots
+        .root(track.source_id)
+        .map(|root| (root.to_path_buf(), format)))
+}
+
+/// Write tags to a track's file and, when its source is organized (`organize`
+/// holds the source root and format), move it into the organized layout.
+/// Returns the new path when it moved.
 fn write_track_file(
-    perms: TrackPermissions,
     path: &Path,
     metadata: &TrackMetadataUpdate,
-    auto_organize: bool,
-    media_folder: &str,
-    organize_path_format: &str,
+    organize: Option<(&Path, &str)>,
     move_lyrics_sidecar: bool,
 ) -> Result<Option<PathBuf>, String> {
-    perms.require_writable("Editing tags")?;
     metadata_writer::write_track_metadata(path, metadata).map_err(|e| e.to_message())?;
-    // Writable watched folders get tag edits, but only Spiral's files move.
-    if !(auto_organize && perms.managed) {
+    let Some((root, format)) = organize else {
         return Ok(None);
-    }
+    };
     library_organize::relocate_track_after_metadata(
-        media_folder,
-        organize_path_format,
+        &root.to_string_lossy(),
+        format,
         path,
         metadata,
         move_lyrics_sidecar,
@@ -498,12 +512,13 @@ pub fn write_track_metadata(
     let library = settings::resolved_library_settings(&app);
     let library_root = PathBuf::from(&library.library_root);
 
-    let (existing, perms) = {
+    let (existing, organize) = {
         let conn = state.0.lock().map_err(|e| e.to_string())?;
         let existing = db::get_track_by_id(&conn, track_id)
             .map_err(|e| e.to_string())?
             .ok_or_else(|| format!("Track {track_id} not found"))?;
-        (existing, track_permissions(&conn, track_id)?)
+        let organize = organize_for_track(&conn, &existing, &library.organize_path_format)?;
+        (existing, organize)
     };
     // The stored path decides which file is written, not the caller's copy.
     let _ = file_path;
@@ -513,12 +528,11 @@ pub fn write_track_metadata(
     let mut final_path = file_path.clone();
 
     if let Some(new_path) = write_track_file(
-        perms,
         path,
         &metadata,
-        library.auto_organize,
-        &library.media_folder,
-        &library.organize_path_format,
+        organize
+            .as_ref()
+            .map(|(root, format)| (root.as_path(), format.as_str())),
         library.lyrics_sidecar_sync_enabled,
     )? {
         final_path = new_path.to_string_lossy().into_owned();
@@ -689,9 +703,8 @@ fn app_data_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::source_test_support::*;
     use crate::test_fixtures::ogg;
-    use crate::track_permissions::test_support::*;
-    use crate::track_permissions::SOURCE_READ_ONLY;
 
     const FORMAT: &str = "{artist}/{album}/{title}.{ext}";
 
@@ -708,78 +721,69 @@ mod tests {
         metadata_reader::read_basic_tags(path).title
     }
 
-    fn perms_for(writable: bool, managed: bool) -> TrackPermissions {
-        let conn = conn();
-        let t = default_source_tracks(&conn);
-        let id = match (writable, managed) {
-            (true, true) => t.managed,
-            (true, false) => t.user,
-            (false, _) => t.external,
-        };
-        track_permissions(&conn, id).unwrap()
+    fn track(conn: &rusqlite::Connection, id: i64) -> Track {
+        db::get_track_by_id(conn, id).unwrap().unwrap()
     }
 
     #[test]
-    fn managed_edit_writes_tags_and_organizes() {
-        let tmp = TempDir::new("edit-managed");
-        let media = tmp.dir("Tracks");
-        let file = ogg::copy_minimal(&media, "a.ogg");
-        let moved = write_track_file(
-            perms_for(true, true),
-            &file,
-            &edit(),
-            true,
-            &media.to_string_lossy(),
-            FORMAT,
-            false,
-        )
-        .unwrap()
-        .expect("managed file moves");
+    fn organized_edit_writes_tags_and_moves_within_the_source() {
+        let tmp = TempDir::new("edit-organized");
+        let root = tmp.dir("Collection");
+        let file = ogg::copy_minimal(&root, "a.ogg");
+        let moved = write_track_file(&file, &edit(), Some((&root, FORMAT)), false)
+            .unwrap()
+            .expect("organized file moves");
         assert!(!file.exists());
-        assert!(moved.ends_with("New Artist/New Album/New Title.ogg"));
+        assert_eq!(moved, root.join("New Artist/New Album/New Title.ogg"));
         assert_eq!(title_on_disk(&moved).as_deref(), Some("New Title"));
     }
 
     #[test]
-    fn user_source_edit_writes_tags_without_moving() {
-        let tmp = TempDir::new("edit-watched-rw");
-        // Even a path under the organize folder is not moved unless managed.
-        let media = tmp.dir("Tracks");
-        let file = ogg::copy_minimal(&media, "a.ogg");
-        let moved = write_track_file(
-            perms_for(true, false),
-            &file,
-            &edit(),
-            true,
-            &media.to_string_lossy(),
-            FORMAT,
-            false,
-        )
-        .unwrap();
-        assert_eq!(moved, None);
+    fn unorganized_edit_writes_tags_without_moving() {
+        let tmp = TempDir::new("edit-unorganized");
+        let file = ogg::copy_minimal(&tmp.0, "a.ogg");
+        assert_eq!(write_track_file(&file, &edit(), None, false).unwrap(), None);
         assert_eq!(title_on_disk(&file).as_deref(), Some("New Title"));
     }
 
     #[test]
-    fn read_only_edits_are_refused_and_leave_the_file() {
-        let tmp = TempDir::new("edit-read-only");
+    fn the_tracks_own_source_decides_how_it_is_organized() {
+        let tmp = TempDir::new("edit-source-settings");
         let conn = conn();
-        let ext = ogg::copy_minimal(&tmp.0, "x.ogg");
-        let t = source_tracks(&conn, Path::new("/m.ogg"), Path::new("/user/u.ogg"), &ext);
-        for (id, file) in [(t.external, &ext)] {
-            let before = std::fs::read(file).unwrap();
-            let err = write_track_file(
-                track_permissions(&conn, id).unwrap(),
-                file,
-                &edit(),
-                true,
-                &tmp.0.to_string_lossy(),
-                FORMAT,
-                false,
-            )
-            .unwrap_err();
-            assert!(err.starts_with(SOURCE_READ_ONLY), "{err}");
-            assert_eq!(std::fs::read(file).unwrap(), before);
-        }
+        let t = source_tracks(
+            &conn,
+            Path::new("/m.ogg"),
+            &tmp.0.join("Collection/u.ogg"),
+            Path::new("/x.ogg"),
+        );
+        let user = track(&conn, t.user);
+        let user_root = tmp.0.join("Collection");
+
+        // New user sources aren't organized.
+        assert_eq!(organize_for_track(&conn, &user, FORMAT).unwrap(), None);
+
+        sources::set_source_organize(&conn, user.source_id, true).unwrap();
+        assert_eq!(
+            organize_for_track(&conn, &user, FORMAT).unwrap(),
+            Some((user_root.clone(), FORMAT.to_string()))
+        );
+        sources::set_source_path_format(&conn, user.source_id, Some("{title}.{ext}".into()))
+            .unwrap();
+        assert_eq!(
+            organize_for_track(&conn, &user, FORMAT).unwrap(),
+            Some((user_root, "{title}.{ext}".to_string()))
+        );
+
+        // Other is never organized, and tag writes to it are allowed.
+        assert_eq!(
+            organize_for_track(&conn, &track(&conn, t.other), FORMAT).unwrap(),
+            None
+        );
+        let loose = ogg::copy_minimal(&tmp.0, "x.ogg");
+        assert_eq!(
+            write_track_file(&loose, &edit(), None, false).unwrap(),
+            None
+        );
+        assert_eq!(title_on_disk(&loose).as_deref(), Some("New Title"));
     }
 }
