@@ -713,8 +713,8 @@ mod tests {
         let t = default_source_tracks(&conn);
         let id = match (writable, managed) {
             (true, true) => t.managed,
-            (true, false) => t.watched_writable,
-            (false, _) => t.watched_read_only,
+            (true, false) => t.user,
+            (false, _) => t.external,
         };
         track_permissions(&conn, id).unwrap()
     }
@@ -741,7 +741,7 @@ mod tests {
     }
 
     #[test]
-    fn writable_watched_edit_writes_tags_without_moving() {
+    fn user_source_edit_writes_tags_without_moving() {
         let tmp = TempDir::new("edit-watched-rw");
         // Even a path under the organize folder is not moved unless managed.
         let media = tmp.dir("Tracks");
@@ -764,10 +764,9 @@ mod tests {
     fn read_only_edits_are_refused_and_leave_the_file() {
         let tmp = TempDir::new("edit-read-only");
         let conn = conn();
-        let ro = ogg::copy_minimal(&tmp.0, "ro.ogg");
         let ext = ogg::copy_minimal(&tmp.0, "x.ogg");
-        let t = source_tracks(&conn, Path::new("/m.ogg"), &ro, Path::new("/rw.ogg"), &ext);
-        for (id, file) in [(t.watched_read_only, &ro), (t.external, &ext)] {
+        let t = source_tracks(&conn, Path::new("/m.ogg"), Path::new("/user/u.ogg"), &ext);
+        for (id, file) in [(t.external, &ext)] {
             let before = std::fs::read(file).unwrap();
             let err = write_track_file(
                 track_permissions(&conn, id).unwrap(),

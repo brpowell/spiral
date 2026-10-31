@@ -17,10 +17,9 @@ use crate::artwork_organize;
 use crate::audio_formats::is_supported_audio_file;
 use crate::db;
 use crate::library_organize;
-use crate::library_relocate::rewrite_path_prefix;
 use crate::lyrics_normalize;
 use crate::metadata_reader;
-use crate::sources::{self, LibraryRoots, Source, SourceKind};
+use crate::sources::{self, LibraryRoots, Source, SourceRoots};
 use chrono::Utc;
 use rusqlite::{params, Connection};
 use serde::Serialize;
@@ -132,7 +131,7 @@ fn coverage(
     let mut files = HashSet::new();
     for path in paths {
         if root.is_some_and(|root| {
-            !path.starts_with(root) || sources::is_excluded_from_watched(path, roots)
+            !path.starts_with(root) || sources::is_inside_spiral_folder(path, roots)
         }) {
             continue;
         }
@@ -152,9 +151,10 @@ fn known_tracks(
     source_id: i64,
     coverage: Option<&Coverage>,
 ) -> Result<HashMap<String, KnownTrack>, String> {
+    let roots = SourceRoots::load(conn).map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, file_path, file_size, file_mtime_ms, missing_since IS NOT NULL
+            "SELECT id, rel_path, file_size, file_mtime_ms, missing_since IS NOT NULL
              FROM tracks WHERE source_id = ?1",
         )
         .map_err(|e| e.to_string())?;
@@ -163,7 +163,7 @@ fn known_tracks(
             let size: Option<i64> = row.get(2)?;
             let mtime: Option<i64> = row.get(3)?;
             Ok((
-                row.get::<_, String>(1)?,
+                roots.resolve(source_id, &row.get::<_, String>(1)?),
                 KnownTrack {
                     id: row.get(0)?,
                     stat: size.zip(mtime),
@@ -218,8 +218,10 @@ pub fn reconcile_source(
     let source = sources::get_source(&lock(db), source_id)
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Source {source_id} not found"))?;
-    match (source.kind, source.root_path.as_deref()) {
-        (SourceKind::Watched, Some(root)) => reconcile_watched(db, ctx, source_id, root, scope),
+    // Only user sources are walked for now; the default source and Other
+    // get missing marks.
+    match source.root_path.as_deref() {
+        Some(root) if !source.is_builtin() => reconcile_watched(db, ctx, source_id, root, scope),
         _ => mark_missing(db, ctx, source_id, scope),
     }
 }
@@ -375,7 +377,7 @@ fn audio_files_outside_library(dir: &Path, roots: &LibraryRoots) -> Vec<String> 
         .follow_links(false)
         .into_iter()
         .filter_entry(|e| {
-            !(e.file_type().is_dir() && sources::is_excluded_from_watched(e.path(), roots))
+            !(e.file_type().is_dir() && sources::is_inside_spiral_folder(e.path(), roots))
         })
         .filter_map(Result::ok)
         // `is_file` follows symlinks to files, as `file_scan` does.
@@ -408,10 +410,11 @@ fn save(
     Ok(id)
 }
 
-/// Point a watched source at a new folder, e.g. after the collection moved to
-/// another drive. Its tracks' paths are rewritten in one transaction; the
-/// caller should reconcile afterwards to pick up what differs.
-pub fn relocate_watched_source(
+/// Point a user source at a new folder, e.g. after the collection moved to
+/// another drive. Tracks store paths relative to the root, so this only
+/// updates the source row; the caller should reconcile afterwards to pick up
+/// what differs.
+pub fn relocate_source(
     db: &Mutex<Connection>,
     ctx: &ScanContext,
     source_id: i64,
@@ -419,56 +422,30 @@ pub fn relocate_watched_source(
 ) -> Result<Source, String> {
     let _serial = lock(&RECONCILE_LOCK);
     let conn = lock(db);
-    let source = sources::get_source(&conn, source_id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Source {source_id} not found"))?;
-    let old_root = match (source.kind, source.root_path.as_deref()) {
-        (SourceKind::Watched, Some(root)) => PathBuf::from(root),
-        _ => return Err("Only watched folders can be moved".to_string()),
-    };
-    let new_root = PathBuf::from(new_root.trim());
-    sources::validate_watched_root(&conn, &ctx.roots, &new_root, Some(source_id))?;
-
-    let tracks = db::get_tracks_for_source(&conn, source_id).map_err(|e| e.to_string())?;
-    let moves: Vec<(i64, String, String, Option<String>)> = tracks
-        .into_iter()
-        .filter_map(|t| {
-            let new_path = rewrite_path_prefix(&t.file_path, &old_root, &new_root)?;
-            Some((t.id, t.file_path, new_path, t.art_path))
-        })
-        .collect();
-
-    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
-    tx.execute(
-        "UPDATE sources SET root_path = ?1 WHERE id = ?2",
-        params![new_root.to_string_lossy(), source_id],
-    )
-    .map_err(|e| e.to_string())?;
-    for (id, _, new_path, _) in &moves {
-        tx.execute(
-            "UPDATE tracks SET file_path = ?1 WHERE id = ?2",
-            params![new_path, id],
-        )
-        .map_err(|e| format!("failed to rewrite track path: {e}"))?;
-    }
-    tx.commit().map_err(|e| e.to_string())?;
+    let old_tracks = db::get_tracks_for_source(&conn, source_id).map_err(|e| e.to_string())?;
+    let source = sources::set_source_root(&conn, &ctx.roots, source_id, new_root)?;
 
     // Art cached in app data is keyed by file path. Library Artwork/ paths are
     // left as they are by `migrate_art_cache`.
-    for (id, old_path, new_path, art_path) in &moves {
-        if art_path.is_none() {
+    let new_paths: HashMap<i64, String> = db::get_tracks_for_source(&conn, source_id)
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(|t| (t.id, t.file_path))
+        .collect();
+    for track in old_tracks.iter().filter(|t| t.art_path.is_some()) {
+        let Some(new_path) = new_paths.get(&track.id) else {
             continue;
-        }
+        };
         match library_organize::migrate_art_cache(
             &ctx.app_data_dir,
-            old_path,
+            &track.file_path,
             new_path,
-            art_path.as_deref(),
+            track.art_path.as_deref(),
         ) {
-            Ok(new_art) if new_art != *art_path => {
+            Ok(new_art) if new_art != track.art_path => {
                 conn.execute(
                     "UPDATE tracks SET art_path = ?1 WHERE id = ?2",
-                    params![new_art, id],
+                    params![new_art, track.id],
                 )
                 .map_err(|e| e.to_string())?;
             }
@@ -476,22 +453,19 @@ pub fn relocate_watched_source(
             Err(err) => eprintln!("relocate source art cache: {err}"),
         }
     }
-
-    sources::get_source(&conn, source_id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Source {source_id} not found"))
+    Ok(source)
 }
 
-/// Remove a watched source and its tracks, cleaning up their cached and
+/// Remove a user source and its tracks, cleaning up their cached and
 /// library artwork the way removing a single track does. The audio files are
 /// left alone. Returns how many tracks were removed.
-pub fn remove_watched_source(
+pub fn remove_source(
     conn: &Connection,
     ctx: &ScanContext,
     source_id: i64,
 ) -> Result<usize, String> {
     let tracks = db::get_tracks_for_source(conn, source_id).map_err(|e| e.to_string())?;
-    let removed = sources::remove_watched_source(conn, source_id)?;
+    let removed = sources::remove_source(conn, source_id)?;
     for track in &tracks {
         let _ = art_cache::remove_cached_art(&ctx.app_data_dir, &track.file_path);
         if let Err(err) =
@@ -507,7 +481,7 @@ pub fn remove_watched_source(
 mod tests {
     use super::*;
     use crate::db_migrations;
-    use crate::sources::{EXTERNAL_SOURCE_ID, MANAGED_SOURCE_ID};
+    use crate::sources::{DEFAULT_SOURCE_ID, OTHER_SOURCE_ID};
     use crate::test_fixtures::wav;
     use std::fs;
 
@@ -528,6 +502,7 @@ mod tests {
             fs::create_dir_all(library.join("Tracks")).unwrap();
             let conn = Connection::open_in_memory().unwrap();
             conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+            sources::attach_spiral_folder(&conn, &library).unwrap();
             db_migrations::run(&conn, None).unwrap();
             Self {
                 db: Mutex::new(conn),
@@ -555,7 +530,7 @@ mod tests {
         fn watch(&self, rel: &str) -> i64 {
             let root = self.path(rel);
             fs::create_dir_all(&root).unwrap();
-            sources::add_watched_source(
+            sources::add_source(
                 &lock(&self.db),
                 &self.ctx.roots,
                 &root.to_string_lossy(),
@@ -585,12 +560,8 @@ mod tests {
         }
 
         fn track_id(&self, path: &Path) -> i64 {
-            lock(&self.db)
-                .query_row(
-                    "SELECT id FROM tracks WHERE file_path = ?1",
-                    params![path.to_string_lossy()],
-                    |r| r.get(0),
-                )
+            db::track_id_for_path(&lock(&self.db), &path.to_string_lossy())
+                .unwrap()
                 .unwrap()
         }
     }
@@ -797,10 +768,7 @@ mod tests {
         let managed = fx.wav("Music/Spiral Library/Tracks/a.wav");
         let external = fx.wav("Downloads/b.wav");
         fx.wav("Music/Spiral Library/Tracks/untracked.wav");
-        for (path, source) in [
-            (&managed, MANAGED_SOURCE_ID),
-            (&external, EXTERNAL_SOURCE_ID),
-        ] {
+        for (path, source) in [(&managed, DEFAULT_SOURCE_ID), (&external, OTHER_SOURCE_ID)] {
             let input = crate::models::TrackInput {
                 title: "Song".into(),
                 file_path: s(path),
@@ -810,8 +778,8 @@ mod tests {
         }
 
         assert_eq!(
-            fx.reconcile(MANAGED_SOURCE_ID),
-            summary(MANAGED_SOURCE_ID, 0, 0, 0, 0)
+            fx.reconcile(DEFAULT_SOURCE_ID),
+            summary(DEFAULT_SOURCE_ID, 0, 0, 0, 0)
         );
         fs::remove_file(&managed).unwrap();
         fs::remove_file(&external).unwrap();
@@ -819,22 +787,22 @@ mod tests {
         assert_eq!(
             all,
             vec![
-                summary(MANAGED_SOURCE_ID, 0, 0, 1, 0),
-                summary(EXTERNAL_SOURCE_ID, 0, 0, 1, 0)
+                summary(DEFAULT_SOURCE_ID, 0, 0, 1, 0),
+                summary(OTHER_SOURCE_ID, 0, 0, 1, 0)
             ]
         );
         assert_eq!(
-            fx.tracks(MANAGED_SOURCE_ID),
+            fx.tracks(DEFAULT_SOURCE_ID),
             vec![(s(&managed), "Song".into(), true)]
         );
 
         fx.wav("Music/Spiral Library/Tracks/a.wav");
         assert_eq!(
-            fx.reconcile(MANAGED_SOURCE_ID),
-            summary(MANAGED_SOURCE_ID, 0, 0, 0, 1)
+            fx.reconcile(DEFAULT_SOURCE_ID),
+            summary(DEFAULT_SOURCE_ID, 0, 0, 0, 1)
         );
         assert_eq!(
-            fx.tracks(EXTERNAL_SOURCE_ID),
+            fx.tracks(OTHER_SOURCE_ID),
             vec![(s(&external), "Song".into(), true)]
         );
     }
@@ -850,11 +818,11 @@ mod tests {
             file_path: s(&a),
             ..Default::default()
         };
-        db::save_track(&lock(&fx.db), &input, EXTERNAL_SOURCE_ID).unwrap();
+        db::save_track(&lock(&fx.db), &input, OTHER_SOURCE_ID).unwrap();
 
         assert_eq!(fx.reconcile(id), summary(id, 1, 0, 0, 0));
         assert_eq!(fx.tracks(id).len(), 1);
-        assert!(fx.tracks(EXTERNAL_SOURCE_ID).is_empty());
+        assert!(fx.tracks(OTHER_SOURCE_ID).is_empty());
         assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 0));
     }
 
@@ -867,7 +835,7 @@ mod tests {
             file_path: s(&managed),
             ..Default::default()
         };
-        let managed_id = db::save_track(&lock(&fx.db), &input, MANAGED_SOURCE_ID).unwrap();
+        let managed_id = db::save_track(&lock(&fx.db), &input, DEFAULT_SOURCE_ID).unwrap();
         // Untracked files in the tracks folder and a sound pack's audio.
         fx.wav("Music/Spiral Library/Tracks/Artist/Album/stray.wav");
         fx.wav("Music/Spiral Library/Packs/sounds/pack/click.wav");
@@ -884,7 +852,7 @@ mod tests {
             ]
         );
         assert_eq!(
-            fx.tracks(MANAGED_SOURCE_ID),
+            fx.tracks(DEFAULT_SOURCE_ID),
             vec![(s(&managed), "Managed".into(), false)]
         );
         let total: i64 = lock(&fx.db)
@@ -914,11 +882,11 @@ mod tests {
             .unwrap();
         assert_eq!(
             (track.source_id, track.missing_since),
-            (MANAGED_SOURCE_ID, None)
+            (DEFAULT_SOURCE_ID, None)
         );
         assert_eq!(
-            fx.reconcile(MANAGED_SOURCE_ID),
-            summary(MANAGED_SOURCE_ID, 0, 0, 1, 0)
+            fx.reconcile(DEFAULT_SOURCE_ID),
+            summary(DEFAULT_SOURCE_ID, 0, 0, 1, 0)
         );
     }
 
@@ -950,14 +918,13 @@ mod tests {
         assert_eq!(fx.reconcile(id), summary(id, 0, 0, 2, 0));
 
         // Validation still applies, against everything but the source itself.
-        let err = relocate_watched_source(&fx.db, &fx.ctx, id, &s(&fx.path("Other/Sub")));
+        let err = relocate_source(&fx.db, &fx.ctx, id, &s(&fx.path("Other/Sub")));
         assert!(err.is_err());
-        let err = relocate_watched_source(&fx.db, &fx.ctx, other, &s(&fx.path("New/Music")));
+        let err = relocate_source(&fx.db, &fx.ctx, other, &s(&fx.path("New/Music")));
         assert!(err.is_ok(), "{err:?}");
-        relocate_watched_source(&fx.db, &fx.ctx, other, &s(&fx.path("Other"))).unwrap();
+        relocate_source(&fx.db, &fx.ctx, other, &s(&fx.path("Other"))).unwrap();
 
-        let source =
-            relocate_watched_source(&fx.db, &fx.ctx, id, &s(&fx.path("New/Music"))).unwrap();
+        let source = relocate_source(&fx.db, &fx.ctx, id, &s(&fx.path("New/Music"))).unwrap();
         assert_eq!(source.root_path, Some(s(&fx.path("New/Music"))));
         assert_eq!(fx.reconcile(id), summary(id, 0, 0, 0, 2));
         assert_eq!(
@@ -976,10 +943,7 @@ mod tests {
         assert!(new_cache.is_file());
         assert!(!old_cache.exists());
 
-        assert!(
-            relocate_watched_source(&fx.db, &fx.ctx, MANAGED_SOURCE_ID, &s(&fx.path("New")))
-                .is_err()
-        );
+        assert!(relocate_source(&fx.db, &fx.ctx, DEFAULT_SOURCE_ID, &s(&fx.path("New"))).is_err());
     }
 
     #[test]
@@ -1010,7 +974,7 @@ mod tests {
             )
             .unwrap();
 
-        let removed = remove_watched_source(&lock(&fx.db), &fx.ctx, id).unwrap();
+        let removed = remove_source(&lock(&fx.db), &fx.ctx, id).unwrap();
         assert_eq!(removed, 1);
         assert!(sources::get_source(&lock(&fx.db), id).unwrap().is_none());
         assert!(!cache.exists());

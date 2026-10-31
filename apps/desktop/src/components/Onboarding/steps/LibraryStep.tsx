@@ -3,7 +3,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { stopPlaybackForLibraryRelocate } from "../../../lib/libraryRelocatePlayback";
 import { describeSourceError } from "../../../lib/sourceAccess";
 import {
-  addWatchedSource,
+  addSource,
   getLibrary,
   inspectLibraryDestination,
   pickLibraryFolder,
@@ -227,7 +227,7 @@ function MusicFolderChoice({ disabled }: { disabled: boolean }) {
     try {
       const folder = await pickMusicFolder();
       if (!folder) return;
-      const source = await addWatchedSource(folder);
+      const source = await addSource(folder);
       useSourcesStore.getState().applySource(source);
       setAdded((prev) => [...prev, source.rootPath ?? folder]);
     } catch (err) {

@@ -13,7 +13,7 @@ use crate::commands::library::DbState;
 use crate::commands::sources::reconcile_and_notify;
 use crate::settings;
 use crate::source_scan::ReconcileScope;
-use crate::sources::{self, LibraryRoots, SourceKind};
+use crate::sources::{self, LibraryRoots};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -62,7 +62,7 @@ impl WatchRoot {
             Ok(rest) if self.resolved != self.root => self.root.join(rest),
             _ => path.to_path_buf(),
         };
-        (path.starts_with(&self.root) && !sources::is_excluded_from_watched(&path, roots))
+        (path.starts_with(&self.root) && !sources::is_inside_spiral_folder(&path, roots))
             .then_some(path)
     }
 }
@@ -288,7 +288,8 @@ pub fn sync(app: &AppHandle) {
         match sources::list_sources(&conn) {
             Ok(list) => list
                 .into_iter()
-                .filter(|s| s.kind == SourceKind::Watched)
+                // User sources only; the default source isn't watched yet.
+                .filter(|s| !s.is_builtin())
                 .filter_map(|s| Some((s.id, PathBuf::from(s.root_path?))))
                 .collect(),
             Err(err) => {

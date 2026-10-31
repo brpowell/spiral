@@ -763,7 +763,7 @@ fn convert_track_impl(
         let root = PathBuf::from(&resolved.library_root);
         let conn = state.0.lock().map_err(|e| e.to_string())?;
         // Converted files are written into the tracks folder.
-        let id = db::save_track(&conn, &input, sources::MANAGED_SOURCE_ID).map_err(|e| {
+        let id = db::save_track(&conn, &input, sources::DEFAULT_SOURCE_ID).map_err(|e| {
             eprintln!("convert_track save_track error: {e}");
             e.to_string()
         })?;
@@ -799,7 +799,7 @@ fn convert_track_impl(
             eprintln!("convert_track update error: {e}");
             e.to_string()
         })?;
-        db::set_track_source(&conn, track_id, sources::MANAGED_SOURCE_ID)
+        db::set_track_source(&conn, track_id, sources::DEFAULT_SOURCE_ID)
             .map_err(|e| e.to_string())?;
     }
 
@@ -906,12 +906,12 @@ mod tests {
         fn rating_tag_writes_only_for_writable_sources() {
             let conn = conn();
             let t = default_source_tracks(&conn);
-            for (id, path) in [(t.managed, "/m.mp3"), (t.watched_writable, "/rw.mp3")] {
+            for (id, path) in [(t.managed, "/m.mp3"), (t.user, "/user/u.mp3")] {
                 let (saved, file) = save_rating(&conn, id, 80).unwrap();
                 assert_eq!(file.as_deref(), Some(path));
                 assert_eq!(rating_in_db(&conn, id), saved);
             }
-            for id in [t.watched_read_only, t.external] {
+            for id in [t.external] {
                 let (saved, file) = save_rating(&conn, id, 80).unwrap();
                 assert_eq!(file, None, "track {id} scheduled a file write");
                 assert_eq!(rating_in_db(&conn, id), saved);
@@ -931,21 +931,18 @@ mod tests {
         fn delete_from_disk_only_deletes_managed_files() {
             let tmp = TempDir::new("delete");
             let conn = conn();
-            let files: Vec<_> = ["m", "ro", "rw", "x"]
+            let files: Vec<_> = ["m", "u", "x"]
                 .iter()
                 .map(|name| audio_with_sidecar(&tmp.0, name))
                 .collect();
-            let t = source_tracks(&conn, &files[0].0, &files[1].0, &files[2].0, &files[3].0);
+            let t = source_tracks(&conn, &files[0].0, &files[1].0, &files[2].0);
 
             let perms = |id| track_permissions(&conn, id).unwrap();
             assert!(delete_removed_track_file(perms(t.managed), &files[0].0, true).unwrap());
             assert!(!files[0].0.exists());
             assert!(!files[0].1.exists());
 
-            for (id, (audio, sidecar)) in [t.watched_read_only, t.watched_writable, t.external]
-                .into_iter()
-                .zip(&files[1..])
-            {
+            for (id, (audio, sidecar)) in [t.user, t.external].into_iter().zip(&files[1..]) {
                 assert!(!delete_removed_track_file(perms(id), audio, true).unwrap());
                 assert!(audio.is_file(), "{} was deleted", audio.display());
                 assert!(sidecar.is_file(), "{} was deleted", sidecar.display());
@@ -958,7 +955,7 @@ mod tests {
             let t = default_source_tracks(&conn);
             let perms = |id| track_permissions(&conn, id).unwrap();
             assert!(ensure_replace_allowed(perms(t.managed)).is_ok());
-            for id in [t.watched_read_only, t.watched_writable, t.external] {
+            for id in [t.user, t.external] {
                 let err = ensure_replace_allowed(perms(id)).unwrap_err();
                 assert!(err.starts_with(SOURCE_READ_ONLY), "{err}");
             }
@@ -970,15 +967,10 @@ mod tests {
             let t = default_source_tracks(&conn);
             let perms = |id| track_permissions(&conn, id).unwrap();
             assert!(ensure_convert_allowed(perms(t.managed), "replace").is_ok());
-            for id in [
-                t.managed,
-                t.watched_read_only,
-                t.watched_writable,
-                t.external,
-            ] {
+            for id in [t.managed, t.user, t.external] {
                 assert!(ensure_convert_allowed(perms(id), "add_new").is_ok());
             }
-            for id in [t.watched_read_only, t.watched_writable, t.external] {
+            for id in [t.user, t.external] {
                 let err = ensure_convert_allowed(perms(id), "replace").unwrap_err();
                 assert!(err.starts_with(SOURCE_READ_ONLY), "{err}");
             }

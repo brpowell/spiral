@@ -459,17 +459,17 @@ export async function listSources(): Promise<Source[]> {
   return invoke<Source[]>("list_sources");
 }
 
-/** Add a folder the user picked as a watched source; it is scanned in the background. */
-export async function addWatchedSource(
+/** Add a folder the user picked as a source; it is scanned in the background. */
+export async function addSource(
   rootPath: string,
   name?: string,
 ): Promise<Source> {
-  return invoke<Source>("add_watched_source", { rootPath, name: name ?? null });
+  return invoke<Source>("add_source", { rootPath, name: name ?? null });
 }
 
-/** Stop watching a folder. Its tracks leave the library; its files stay. Returns tracks removed. */
-export async function removeWatchedSource(sourceId: number): Promise<number> {
-  return invoke<number>("remove_watched_source", { sourceId });
+/** Remove a source. Its tracks leave the library; its files stay. Returns tracks removed. */
+export async function removeSource(sourceId: number): Promise<number> {
+  return invoke<number>("remove_source", { sourceId });
 }
 
 export async function rescanSource(
@@ -478,19 +478,33 @@ export async function rescanSource(
   return invoke<ReconcileSummary>("rescan_source", { sourceId });
 }
 
-/** Point a watched source at the folder its files moved to, then rescan it. */
-export async function relocateWatchedSource(
+/** Point a source at the folder its files moved to, then rescan it. */
+export async function relocateSource(
   sourceId: number,
   newRootPath: string,
 ): Promise<Source> {
-  return invoke<Source>("relocate_watched_source", { sourceId, newRootPath });
+  return invoke<Source>("relocate_source", { sourceId, newRootPath });
 }
 
-export async function setSourceWritable(
+/** Turn organizing on or off for a source. Existing files don't move here. */
+export async function setSourceOrganize(
   sourceId: number,
-  writable: boolean,
+  autoOrganize: boolean,
 ): Promise<Source> {
-  return invoke<Source>("set_source_writable", { sourceId, writable });
+  return invoke<Source>("set_source_organize", { sourceId, autoOrganize });
+}
+
+/** Set a source's own path format; null inherits the global one. */
+export async function setSourcePathFormat(
+  sourceId: number,
+  pathFormat: string | null,
+): Promise<Source> {
+  return invoke<Source>("set_source_path_format", { sourceId, pathFormat });
+}
+
+/** Choose the source new imports are copied into. */
+export async function setImportSource(sourceId: number): Promise<Source> {
+  return invoke<Source>("set_import_source", { sourceId });
 }
 
 /** Watch status of each watched folder, for the offline badge. */
@@ -500,7 +514,7 @@ export async function getSourceStatuses(): Promise<SourceStatus[]> {
 
 /**
  * Native folder picker for a music folder to watch; `null` when cancelled.
- * The picked folder is added to the path scope, as `add_watched_source` needs.
+ * The picked folder is added to the path scope, as `add_source` needs.
  */
 export async function pickMusicFolder(): Promise<string | null> {
   const picked = await invoke<string[]>("pick_folder");

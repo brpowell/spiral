@@ -17,12 +17,11 @@ import { SourcesSection } from "./SourcesSection";
 const tauri = vi.hoisted(() => ({
   listSources: vi.fn(),
   getSourceStatuses: vi.fn(),
-  addWatchedSource: vi.fn(),
+  addSource: vi.fn(),
   pickMusicFolder: vi.fn(),
-  relocateWatchedSource: vi.fn(),
-  removeWatchedSource: vi.fn(),
+  relocateSource: vi.fn(),
+  removeSource: vi.fn(),
   rescanSource: vi.fn(),
-  setSourceWritable: vi.fn(),
 }));
 
 vi.mock("../../lib/tauri", () => tauri);
@@ -30,26 +29,29 @@ vi.mock("../../lib/tauri", () => tauri);
 const sources: Source[] = [
   {
     id: 1,
-    kind: "managed",
-    rootPath: null,
+    rootPath: "/Users/me/Music/Spiral Library/Tracks",
     name: "Spiral",
-    writable: true,
+    autoOrganize: true,
+    pathFormat: null,
+    importTarget: true,
     createdAt: "2026-01-01T00:00:00Z",
   },
   {
     id: 2,
-    kind: "external",
     rootPath: null,
     name: "External",
-    writable: false,
+    autoOrganize: false,
+    pathFormat: null,
+    importTarget: false,
     createdAt: "2026-01-01T00:00:00Z",
   },
   {
     id: 3,
-    kind: "watched",
     rootPath: "/Volumes/Big/Music",
     name: "Music",
-    writable: false,
+    autoOrganize: false,
+    pathFormat: null,
+    importTarget: false,
     createdAt: "2026-01-01T00:00:00Z",
   },
 ];
@@ -121,43 +123,18 @@ describe("SourcesSection", () => {
         name: /Remove/,
       }),
     ).toBeNull();
-    expect(within(item("Spiral library")).queryByRole("switch")).toBeNull();
     const watched = item("Music");
     expect(
       within(watched).getByRole("button", { name: /Change location/ }),
     ).toBeTruthy();
     expect(
-      within(watched).getByRole("switch", {
-        name: "Allow Spiral to edit tags in this folder",
-      }),
+      within(watched).getByRole("button", { name: /Remove/ }),
     ).toBeTruthy();
-  });
-
-  it("toggles the writable flag", async () => {
-    tauri.setSourceWritable.mockResolvedValue({
-      ...sources[2],
-      writable: true,
-    });
-    render(<SourcesSection />);
-    await screen.findByText("Music");
-    fireEvent.click(
-      within(item("Music")).getByRole("switch", {
-        name: "Allow Spiral to edit tags in this folder",
-      }),
-    );
-    await waitFor(() =>
-      expect(tauri.setSourceWritable).toHaveBeenCalledWith(3, true),
-    );
-    await waitFor(() =>
-      expect(useSourcesStore.getState().sourcesById.get(3)?.writable).toBe(
-        true,
-      ),
-    );
   });
 
   it("shows a readable message when a folder can't be added", async () => {
     tauri.pickMusicFolder.mockResolvedValue("/Volumes/Big/Music/Rock");
-    tauri.addWatchedSource.mockRejectedValue(
+    tauri.addSource.mockRejectedValue(
       "source_overlap: /Volumes/Big/Music/Rock overlaps the watched folder /Volumes/Big/Music",
     );
     render(<SourcesSection />);
@@ -172,7 +149,7 @@ describe("SourcesSection", () => {
 
   it("adds a picked folder", async () => {
     tauri.pickMusicFolder.mockResolvedValue("/Volumes/Big/Jazz");
-    tauri.addWatchedSource.mockResolvedValue({
+    tauri.addSource.mockResolvedValue({
       ...sources[2],
       id: 4,
       name: "Jazz",
@@ -182,12 +159,12 @@ describe("SourcesSection", () => {
     await screen.findByText("Music");
     fireEvent.click(screen.getByRole("button", { name: /Add folder/ }));
     await waitFor(() =>
-      expect(tauri.addWatchedSource).toHaveBeenCalledWith("/Volumes/Big/Jazz"),
+      expect(tauri.addSource).toHaveBeenCalledWith("/Volumes/Big/Jazz"),
     );
   });
 
   it("confirms removal, saying the files stay on disk", async () => {
-    tauri.removeWatchedSource.mockResolvedValue(2);
+    tauri.removeSource.mockResolvedValue(2);
     render(<SourcesSection />);
     await screen.findByText("Music");
     fireEvent.click(
@@ -202,14 +179,12 @@ describe("SourcesSection", () => {
       /playlist entries and listening history/,
     );
     expect(dialog.textContent).toMatch(/files on disk stay untouched/);
-    expect(tauri.removeWatchedSource).not.toHaveBeenCalled();
+    expect(tauri.removeSource).not.toHaveBeenCalled();
 
     fireEvent.click(
       within(dialog).getByRole("button", { name: "Stop watching" }),
     );
-    await waitFor(() =>
-      expect(tauri.removeWatchedSource).toHaveBeenCalledWith(3),
-    );
+    await waitFor(() => expect(tauri.removeSource).toHaveBeenCalledWith(3));
     await waitFor(() => expect(loadLibrary).toHaveBeenCalled());
   });
 });
